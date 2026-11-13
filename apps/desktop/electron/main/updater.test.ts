@@ -86,7 +86,17 @@ before(() => {
     namedExports: {
       app: { getVersion: () => running, getPath: () => userData },
       autoUpdater: squirrel,
-      BrowserWindow: { getAllWindows: () => [] },
+      // Every state the app shows goes into the log, in order with the update work.
+      BrowserWindow: {
+        getAllWindows: () => [
+          {
+            webContents: {
+              send: (_channel: string, state: { kind: string }) =>
+                fake.log.push(`show ${state.kind}`),
+            },
+          },
+        ],
+      },
     },
   })
   mock.module('electron-updater', {
@@ -100,6 +110,8 @@ before(() => {
     namedExports: { captureMain: mock.fn(), captureMainException: mock.fn() },
   })
   mock.module('./window-session.ts', { namedExports: { markAppQuitting: mock.fn() } })
+  // The idle restart polls powerMonitor once a minute; these tests restart by hand.
+  mock.module('./auto-update-electron.ts', { namedExports: { startAutoInstall: mock.fn() } })
 })
 
 beforeEach(() => {
@@ -133,53 +145,105 @@ async function launchWithReadyUpdate() {
 const recordedRestart = () =>
   (JSON.parse(readFileSync(restartFile, 'utf8')) as { version: string }).version
 
-test('the staged update is still the newest: restart with no download or Squirrel staging in flight', async () => {
-  await launchWithReadyUpdate()
-  await updater.installUpdate()
+test('an update is offered only once Squirrel.Mac has staged it', async () => {
+  await launch()
 
-  assert.deepEqual(fake.log, ['check', 'quit'])
+  assert.deepEqual(fake.log, [
+    'show checking',
+    'check',
+    'show downloading',
+    'download 0.113.1',
+    'squirrel staged 0.113.1',
+    'show ready',
+  ])
+})
+
+test('restart with no check, download or Squirrel staging in flight', async () => {
+  await launchWithReadyUpdate()
+  updater.installUpdate()
+
+  assert.deepEqual(fake.log, ['quit'])
   assert.equal(recordedRestart(), '0.113.1')
 })
 
-test('a newer release downloads, and Squirrel.Mac stages it, before the restart', async () => {
+test('a check while an update is ready, with nothing newer, leaves it on offer', async () => {
+  await launchWithReadyUpdate()
+  updater.checkForUpdates()
+  await settle()
+
+  assert.deepEqual(fake.log, ['check'])
+  assert.equal(updater.getUpdaterState().kind, 'ready')
+})
+
+test('a failed check while an update is ready leaves it on offer', async () => {
+  await launchWithReadyUpdate()
+  fake.checkFails = true
+  updater.checkForUpdates()
+  await settle()
+
+  assert.equal(updater.getUpdaterState().kind, 'ready')
+})
+
+test('a newer release downloads in the background, and the restart installs it', async () => {
   await launchWithReadyUpdate()
   fake.published = '0.113.2'
-  await updater.installUpdate()
+  updater.checkForUpdates()
+  await settle()
+  updater.installUpdate()
 
-  assert.deepEqual(fake.log, ['check', 'download 0.113.2', 'squirrel staged 0.113.2', 'quit'])
+  assert.deepEqual(fake.log, [
+    'check',
+    'show downloading',
+    'download 0.113.2',
+    'squirrel staged 0.113.2',
+    'show ready',
+    'quit',
+  ])
   assert.equal(recordedRestart(), '0.113.2')
 })
 
-test('the check fails: restart into the staged update, with nothing in flight', async () => {
-  await launchWithReadyUpdate()
-  fake.checkFails = true
-  await updater.installUpdate()
-
-  assert.deepEqual(fake.log, ['check', 'quit'])
-})
-
-test('Squirrel.Mac fails to stage the newer release: no restart', async () => {
+test('no restart while the newer release is still downloading or staging', async () => {
   await launchWithReadyUpdate()
   fake.published = '0.113.2'
-  fake.stagingFails = true
-  await updater.installUpdate()
+  updater.checkForUpdates()
+  // electron-updater has the download, Squirrel.Mac does not have it yet.
+  await new Promise((resolve) => setImmediate(resolve))
+  await new Promise((resolve) => setImmediate(resolve))
+  updater.installUpdate()
 
-  assert.deepEqual(fake.log, ['check', 'download 0.113.2', 'squirrel failed 0.113.2'])
+  assert.equal(fake.log.includes('quit'), false)
+  assert.equal(updater.getUpdaterState().kind, 'downloading')
+})
+
+test('Squirrel.Mac fails to stage: an error, and nothing to restart into', async () => {
+  await launchWithReadyUpdate()
+  fake.stagingFails = true
+  fake.published = '0.113.2'
+  updater.checkForUpdates()
+  await settle()
+  updater.installUpdate()
+
   assert.equal(updater.getUpdaterState().kind, 'error')
+  assert.equal(fake.log.includes('quit'), false)
   assert.equal(existsSync(restartFile), false)
 })
 
-test('a second click while the first is under way does nothing', async () => {
+test('a poll and a click at once run one check', async () => {
   await launchWithReadyUpdate()
   fake.published = '0.113.2'
-  await Promise.all([updater.installUpdate(), updater.installUpdate()])
+  updater.checkForUpdates()
+  updater.checkForUpdates()
+  await settle()
 
-  assert.deepEqual(fake.log, ['check', 'download 0.113.2', 'squirrel staged 0.113.2', 'quit'])
+  assert.deepEqual(
+    fake.log.filter((step) => !step.startsWith('show')),
+    ['check', 'download 0.113.2', 'squirrel staged 0.113.2'],
+  )
 })
 
 test('a restart that comes back older says the update did not install, once', async () => {
   await launchWithReadyUpdate()
-  await updater.installUpdate()
+  updater.installUpdate()
   // The installer failed: the next launch still runs 0.113.0.
   await launch()
 
@@ -201,7 +265,7 @@ test('a launch on the target or a newer version is not a failed restart', async 
   for (const version of ['0.113.1', '0.113.2', '0.114.0']) {
     running = '0.113.0'
     await launchWithReadyUpdate()
-    await updater.installUpdate()
+    updater.installUpdate()
     // Installed as planned, or upgraded by hand past it.
     running = version
     await launch()

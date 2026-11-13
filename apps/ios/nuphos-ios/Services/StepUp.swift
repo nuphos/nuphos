@@ -51,6 +51,15 @@ final class StepUpPrompt {
         finish(true)
     }
 
+    /// Answers with a passkey instead of a code.
+    func submitPasskey() async throws {
+        guard let token else { return }
+        let answer = try await Passkeys.answer(try await AccountAPI.sessionPasskeyOptions(token: token))
+        struct Empty: Decodable {}
+        let _: Empty = try await AccountAPI.request("mfa/reauth", method: "POST", token: token, body: ["passkey": answer])
+        finish(true)
+    }
+
     func cancel() { finish(false) }
 
     private func finish(_ ok: Bool) {

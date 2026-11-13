@@ -3,7 +3,6 @@ import { approvePlanForCaller } from '@/lib/agent/plan-decision'
 import { wakeForPlanDecision } from '@/lib/agent/plan-wake'
 import {
   assertPlanAccess,
-  createPlan,
   getPlan,
   getTeamPlanApprovalRequirement,
   listPlans,
@@ -16,7 +15,6 @@ import {
   planApprovalPolicyGetOperation,
   planApprovalPolicyUpdateOperation,
   planApproveOperation,
-  planCreateOperation,
   planGetOperation,
   planIdPathSchema,
   planListOperation,
@@ -32,15 +30,6 @@ import { agent } from './router'
 import { readTeamIdCandidate, resolveVerifiedTeamId } from './team-scope'
 
 import type { PlanDTO, UpdatePlanPatch } from '@/lib/agent/plans'
-
-defineAgentApiRoute(planCreateOperation, async (c, { body: parsed }) => {
-  const userId = c.get('userId')
-  const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c, parsed.teamId))
-  const { teamId: _bodyTeamId, ...planInput } = parsed
-  const plan = await createPlan({ ...planInput, createdBy: userId, teamId })
-
-  return c.json(plan)
-})
 
 defineAgentApiRoute(planListOperation, async (c, { query }) => {
   const userId = c.get('userId')

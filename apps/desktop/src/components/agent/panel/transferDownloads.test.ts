@@ -6,6 +6,7 @@ import {
   filesBesidePreviews,
   previewKind,
   shouldLoadTransferDownloads,
+  viewerKind,
 } from './transferDownloads.ts'
 
 import type { Message, Tab } from './model'
@@ -244,6 +245,22 @@ test('previews ready images and videos by content type, or by name when it is mi
   assert.equal(previewKind(file({ contentType: 'text/plain', fileName: 'x.png' })), null)
   assert.equal(previewKind(file({ fileName: 'run.log' })), null)
   assert.equal(previewKind(file({ fileName: 'shot.png', status: 'pending' })), null)
+})
+
+test('an inline preview adds audio and PDFs the chat squares hold back as rows', () => {
+  assert.equal(viewerKind('shot.png'), 'image')
+  assert.equal(viewerKind('Clip.MP4'), 'video')
+  assert.equal(viewerKind('voice.m4a'), 'audio')
+  assert.equal(viewerKind('recording', 'audio/mpeg'), 'audio')
+  assert.equal(viewerKind('report.pdf'), 'pdf')
+  assert.equal(viewerKind('report', 'application/pdf'), 'pdf')
+  assert.equal(viewerKind('notes.log'), null)
+  // The content type decides when the push carries one, as it does above.
+  assert.equal(viewerKind('x.png', 'text/plain'), null)
+  assert.equal(viewerKind('x.pdf', 'text/plain'), null)
+  assert.equal(viewerKind('x.log', 'image/png'), 'image')
+  assert.equal(previewKind(file({ fileName: 'voice.m4a' })), null)
+  assert.equal(previewKind(file({ fileName: 'report.pdf' })), null)
 })
 
 test('rows beside previews hold back only images that became thumbnails', () => {

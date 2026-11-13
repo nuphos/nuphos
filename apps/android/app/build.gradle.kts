@@ -133,6 +133,9 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.browser)
+    implementation(libs.androidx.credentials)
+    // Passkeys on Android 13, which predates the platform Credential Manager.
+    implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.androidx.security.crypto)
     implementation(libs.okhttp)
     implementation(libs.coil.svg)

@@ -78,7 +78,7 @@ services:
         touch /tmp/buckets-ready
         wait $$pid
     networks: [data, default]
-    # Presigned transfer URLs name http://rustfs:9000; keep RUSTFS_PORT at 9000 for Desktop file transfers.
+    # Presigned transfer URLs name RUSTFS_PUBLIC_URL, or http://rustfs:9000 when unset (see README).
     ports:
       - 127.0.0.1:${RUSTFS_PORT:-9000}:9000
     volumes:
@@ -119,6 +119,8 @@ services:
       NUPHOS_BACKEND_URL: http://backend:3000
       NUPHOS_FILE_TRANSFER_S3_BUCKET: nuphos-file-transfers
       NUPHOS_FILE_TRANSFER_S3_ENDPOINT: http://rustfs:9000
+      # Origin of presigned transfer URLs; unset means http://rustfs:9000 (see README).
+      NUPHOS_FILE_TRANSFER_S3_PUBLIC_ENDPOINT: ${RUSTFS_PUBLIC_URL:-}
       NUPHOS_FILE_TRANSFER_S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
       NUPHOS_FILE_TRANSFER_S3_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
       ATLAS_SKILLS_BUCKET: nuphos-skills
@@ -140,9 +142,7 @@ services:
     restart: unless-stopped
 
   runtime:
-    image: ghcr.io/nuphos/runtime:${RUNTIME_TAG:-0.1.53-claude-code}
-    # Published for amd64 only; Apple Silicon runs it under emulation.
-    platform: linux/amd64
+    image: ghcr.io/nuphos/runtime:${RUNTIME_TAG:-0.1.56-claude-code}
     environment:
       OPENAB_STREAM_EDIT_INTERVAL_MS: '300'
       # A fresh volume otherwise waits for someone to open the setup screen;

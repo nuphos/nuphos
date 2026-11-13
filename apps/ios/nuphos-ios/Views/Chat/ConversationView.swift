@@ -26,6 +26,7 @@ struct ConversationView: View {
     #else
     private let barButtonsInSideRail = false
     #endif
+    @State private var showTriggers = false
     @State private var showRename = false
     @State private var renamedTitle = ""
     @State private var showRuntimes = false
@@ -38,7 +39,7 @@ struct ConversationView: View {
     @State private var dockOpen = false
     /// A dock page open in the phone's own browser.
     @State private var web: DockWeb?
-    /// An iPhone screen opened from the dock: Plans, Runtimes or Connectors.
+    /// An iPhone screen opened from the dock: Runtimes or Connectors.
     @State private var dockScreen: DockDestination?
     /// A watched tab is laid out on the Mac at this screen's size, so its page fits the phone.
     private static var screenSize: CGSize {
@@ -213,6 +214,7 @@ struct ConversationView: View {
             Text(session.stopRefusal ?? "")
         }
         .sheet(item: $toolDetail) { ToolDetailSheet(part: $0, session: session) }
+        .sheet(isPresented: $showTriggers) { ConversationTriggers(teamId: session.teamId, sessionId: session.sessionId, token: store.token).presentationDetents([.large]) }
         .sheet(isPresented: $showShare) { ShareSessionSheet(session: session).presentationDetents([.medium, .large]) }
         .sheet(isPresented: $showRuntimes) {
             RuntimePickerSheet(session: session) { runtime in
@@ -253,35 +255,42 @@ struct ConversationView: View {
     /// The conversation's title, with the agent that answers in it on a
     /// second, quieter line — where the composer's runtime chip used to be.
     private var titleBar: some View {
-        HStack(spacing: 8) {
-            AgentAvatar(agentId: session.sessionId, runtime: session.agentRuntime)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(session.title)
-                    .font(Theme.Text.label.weight(.semibold))
-                    .foregroundStyle(Theme.heading)
-                    .lineLimit(1)
-                if session.loaded || session.runtimeDisplayName != nil {
-                    let name = session.runtimeDisplayName
-                    HStack(spacing: 4) {
-                        if botAvatars { RuntimeMark(runtime: session.agentRuntime) }
-                        Text(RuntimeInstance.Provider.detail(session.agentRuntime, instance: name))
-                            .font(Theme.Text.micro)
-                            .foregroundStyle(Theme.muted)
-                            .lineLimit(1)
+        Button { showTriggers = true } label: {
+            HStack(spacing: 8) {
+                AgentAvatar(agentId: session.sessionId, runtime: session.agentRuntime)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(session.title)
+                        .font(Theme.Text.label.weight(.semibold))
+                        .foregroundStyle(Theme.heading)
+                        .lineLimit(1)
+                    if session.loaded || session.runtimeDisplayName != nil {
+                        let name = session.runtimeDisplayName
+                        HStack(spacing: 4) {
+                            if botAvatars { RuntimeMark(runtime: session.agentRuntime) }
+                            Text(RuntimeInstance.Provider.detail(session.agentRuntime, instance: name))
+                                .font(Theme.Text.micro)
+                                .foregroundStyle(Theme.muted)
+                                .lineLimit(1)
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("Runtime: \(RuntimeInstance.Provider.detail(session.agentRuntime, instance: name))")
+                    } else if !session.loaded {
+                        Text(" ").font(Theme.Text.micro).accessibilityHidden(true)
                     }
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel("Runtime: \(RuntimeInstance.Provider.detail(session.agentRuntime, instance: name))")
-                } else if !session.loaded {
-                    Text(" ").font(Theme.Text.micro).accessibilityHidden(true)
                 }
             }
         }
+        .buttonStyle(.plain)
+        .disabled(session.isNew)
         // The principal item is only as wide as its content and centred, so
         // it is given all the room between the back and options buttons
         // (each 44 + 16 margin + 8 gap) to start the title on the left. On
         // iPhone Duo those buttons sit in the side rail, so the title gets
         // the whole bar.
         .frame(width: max(width - (barButtonsInSideRail ? 0 : 136), 0), alignment: .leading)
+        .contentShape(Rectangle())
+        .accessibilityHint("Show conversation triggers")
+        .accessibilityIdentifier("conversation-trigger-entry")
     }
 
     /// Plan links open the plan here, approved through this chat; other app
@@ -917,30 +926,50 @@ struct MemoryRecallPill: View {
 struct ResourceStrip: View {
     let resources: [SessionResource]
     @Environment(\.openURL) private var openURL
+    /// Merged and closed links no longer need attention, so they fold into one
+    /// chip after the open ones, as on Desktop.
+    @State private var showFinished = false
 
     var body: some View {
+        let groups = resources.openFirst
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(resources) { resource in
-                    Button { openURL(resource.url) } label: {
-                        HStack(spacing: 5) {
-                            BrandLogo(name: "logo-\(resource.provider)", size: 12)
-                            Text(resource.chip).fontWeight(.medium).foregroundStyle(Theme.heading)
-                            Text(resource.state.capitalized).foregroundStyle(tone(resource))
-                        }
-                        .font(Theme.Text.caption)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Theme.chatSurface, in: Capsule())
+                ForEach(groups.open) { chip($0) }
+                if !groups.finished.isEmpty {
+                    let label = SessionResource.finishedLabel(groups.finished)
+                    Button { showFinished.toggle() } label: {
+                        Text(label)
+                            .foregroundStyle(Theme.muted)
+                            .font(Theme.Text.caption)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Theme.chatSurface, in: Capsule())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("\(resource.title), \(resource.state)")
+                    .accessibilityLabel("\(label), \(showFinished ? "hide" : "show") finished links")
                 }
+                if showFinished { ForEach(groups.finished) { chip($0) } }
             }
             .padding(.horizontal, 16)
         }
         .padding(.vertical, 6)
         .background(Theme.chatCanvas)
+    }
+
+    private func chip(_ resource: SessionResource) -> some View {
+        Button { openURL(resource.url) } label: {
+            HStack(spacing: 5) {
+                BrandLogo(name: "logo-\(resource.provider)", size: 12)
+                Text(resource.chip).fontWeight(.medium).foregroundStyle(Theme.heading)
+                Text(resource.state.capitalized).foregroundStyle(tone(resource))
+            }
+            .font(Theme.Text.caption)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Theme.chatSurface, in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(resource.title), \(resource.state)")
     }
 
     private func tone(_ resource: SessionResource) -> Color {

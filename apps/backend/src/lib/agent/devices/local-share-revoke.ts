@@ -6,6 +6,7 @@ import { dropDeviceShareApprovals, dropMemberShareApprovals } from './local-shar
 import { dropDeviceShareTrusts, dropMemberShareTrusts } from './local-share-trust'
 import { listDevicesGrantedInTeam } from './store'
 
+import type { DeviceAccessChanger } from './access-audit'
 import type { AgentDevice } from './store'
 
 export type MemberRevocationDeps = {
@@ -39,10 +40,12 @@ const memberRevocationDeps: MemberRevocationDeps = {
  * every grant there. Their own computers stop being granted there, closing every
  * teammate's stream on them; the team's cloud computers they owned pass to the
  * team's owner. Their approvals and trusts go so nothing carries over if they rejoin.
+ * `by` is whoever removed them, or they themselves when they left.
  */
 export async function revokeTeamMemberAccess(
   teamId: string,
   actorId: string,
+  by: DeviceAccessChanger,
   deps: MemberRevocationDeps = memberRevocationDeps,
 ): Promise<void> {
   await deps.revokeTeamBoxStreams(teamId, actorId)
@@ -57,11 +60,11 @@ export async function revokeTeamMemberAccess(
       (await deps.memberIds(teamId)).filter((id) => id !== actorId),
       teamId,
     )
-  await deps.dropFromGrants(teamId, actorId)
-  await deps.dropOwnerGrants(teamId, actorId)
+  await deps.dropFromGrants(teamId, actorId, by)
+  await deps.dropOwnerGrants(teamId, actorId, by)
   const owner = await deps.teamOwner(teamId)
 
-  if (owner && owner !== actorId) await deps.transferComputers(teamId, actorId, owner)
+  if (owner && owner !== actorId) await deps.transferComputers(teamId, actorId, owner, by)
   await deps.dropApprovals(teamId, actorId)
   await deps.dropTrusts(teamId, actorId)
 }

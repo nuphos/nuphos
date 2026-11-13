@@ -18,13 +18,14 @@ import {
 } from '../device-identity-core.ts'
 import { readDeviceMetrics } from '../device-metrics.ts'
 
-import { LOCAL_AGENT_PROVIDERS, probeAgentCli, readAgentUsage } from './agent-cli.ts'
+import { LOCAL_AGENT_PROVIDERS, probeAgentCli } from './agent-cli.ts'
+import { readAgentUsage } from './agent-cli-usage.ts'
 import { podOwnerAgentHome } from './agent-home.ts'
 import { localFileConnectors } from './attachment-stream.ts'
 import { readCliCache, writeCliCache } from './cli-cache.ts'
 import { cliSessionToken, hostOwner } from './cli-host-session.ts'
 import { signInClaude } from './cli-sign-in.ts'
-import { agentEnv, readBundle } from './config.ts'
+import { readBundle } from './config.ts'
 import { LocalRuntimeController } from './controller.ts'
 import {
   enableDesktopPool,
@@ -35,7 +36,7 @@ import {
 } from './desktop-pool.ts'
 import { deviceCredentialFor, exitRevoked, ownsMachine, tunnelUrlFor } from './device-credential.ts'
 import { LocalExecStream } from './exec-stream.ts'
-import { probeLocalModels } from './model-probe.ts'
+import { bundledModelProbe } from './model-probe.ts'
 import { OpenabProcess } from './openab-process.ts'
 import { LOCAL_AGENT_NAMES as NAMES } from './providers.ts'
 import { RuntimeTunnelClient } from './tunnel-client.ts'
@@ -159,31 +160,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
     })
   },
   createProcess: () => new OpenabProcess({ ownsMachine: ownsMachine(deviceCredential) }),
-  probeModels: ({ provider, workspace, env, cliPath, agentHome }) => {
-    const staged = bundle()
-    const adapter = staged?.adapters[provider]
-
-    if (!staged || !adapter) return Promise.reject(new Error('The local runtime is not bundled'))
-
-    return probeLocalModels({
-      nodeExecPath: process.execPath,
-      adapter: adapter.entry,
-      cwd: workspace,
-      env: agentEnv({
-        provider,
-        bundle: staged,
-        adapter,
-        nodeExecPath: process.execPath,
-        cliPath,
-        agentHome,
-        workspace,
-        openabHome: workspace,
-        port: 0,
-        authKey: '',
-        env,
-      }),
-    })
-  },
+  probeModels: bundledModelProbe(bundle),
   createTunnel: (runtime, status, onChange, instances) => {
     tunnel = new RuntimeTunnelClient({
       instances: desktopPool

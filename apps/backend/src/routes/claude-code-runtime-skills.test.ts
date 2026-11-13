@@ -32,7 +32,6 @@ describe('Claude runtime skills route', () => {
 
     expect(response.status).toBe(200)
     expect(bundle.revision).toHaveLength(64)
-    expect(paths.has('nuphos-plan/SKILL.md')).toBe(true)
     expect(paths.has('architecture-diagram/SKILL.md')).toBe(true)
     expect(paths.has('nuphos-dashboards/SKILL.md')).toBe(true)
     expect(paths.has('plan/SKILL.md')).toBe(false)

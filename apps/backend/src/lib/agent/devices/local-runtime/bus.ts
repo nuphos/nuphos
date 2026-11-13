@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto'
+
 import { getRedis, getSubscriber, reconnectSubscriber, redisEnabled } from '@/lib/redis'
 
 import { processSingleton } from './singleton'
@@ -5,10 +7,11 @@ import { processSingleton } from './singleton'
 export type TunnelBusHandler = (message: string) => void
 
 export type TunnelBus = {
-  publish(channel: string, message: string): Promise<void>
+  /** How many subscribers received the message: pub/sub keeps nothing for one that is not listening. */
+  publish(channel: string, message: string): Promise<number>
   /** Resolves once the subscription is live, so a publish that follows cannot race past it. */
   subscribe(channel: string, handler: TunnelBusHandler): Promise<() => void>
-  /** Replaces a subscription that stopped delivering; ioredis resubscribes on the new connection. */
+  /** A tunnel heard nothing on its channel: replace the shared subscription if it is the cause. */
   reconnect?(): void
 }
 
@@ -38,7 +41,7 @@ export function createLocalTunnelBus(): TunnelBus {
         deliver(handlers, channel, message)
       })
 
-      return Promise.resolve()
+      return Promise.resolve(handlers.get(channel)?.size ?? 0)
     },
     subscribe(channel, handler) {
       const set = handlers.get(channel) ?? new Set()
@@ -50,6 +53,69 @@ export function createLocalTunnelBus(): TunnelBus {
         remove(handlers, channel, handler)
       })
     },
+  }
+}
+
+const PROBE_MS = 5_000
+
+/**
+ * One tunnel hearing nothing does not show the shared subscriber is deaf: that
+ * tunnel's channel or its publish may be what failed. Replacing the subscriber
+ * cuts every stream on the replica, so it happens only when the subscriber misses
+ * a probe of its own, and never when the probe could not even be published.
+ */
+export function guardedReconnect(
+  bus: Pick<TunnelBus, 'publish' | 'subscribe'>,
+  reconnect: () => void,
+  probeMs = PROBE_MS,
+): () => void {
+  let probing = false
+
+  return () => {
+    if (probing) return
+    probing = true
+    void subscriberHears(bus, probeMs)
+      .then((heard) => {
+        if (heard === false) reconnect()
+      })
+      .finally(() => {
+        probing = false
+      })
+  }
+}
+
+/** Whether a probe came back; undefined when it could not be published. */
+async function subscriberHears(
+  bus: Pick<TunnelBus, 'publish' | 'subscribe'>,
+  probeMs: number,
+): Promise<boolean | undefined> {
+  const channel = `atlas:tunnel:probe:${randomUUID()}`
+  let heard = () => {}
+  const echo = new Promise<true>((resolve) => {
+    heard = () => resolve(true)
+  })
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const silence = new Promise<false>((resolve) => {
+    timer = setTimeout(() => resolve(false), probeMs)
+  })
+  const unsubscribe = bus.subscribe(channel, () => heard())
+
+  try {
+    return await Promise.race([
+      unsubscribe
+        .then(() => bus.publish(channel, 'probe'))
+        .then(
+          () => echo,
+          () => undefined,
+        ),
+      silence,
+    ])
+  } finally {
+    clearTimeout(timer)
+    void unsubscribe.then(
+      (off) => off(),
+      () => {},
+    )
   }
 }
 
@@ -68,11 +134,10 @@ export function createRedisTunnelBus(): TunnelBus {
     })
   }
 
-  return {
-    async publish(channel, message) {
-      await getRedis().publish(channel, message)
+  const bus: TunnelBus = {
+    publish(channel, message) {
+      return getRedis().publish(channel, message)
     },
-    reconnect: reconnectSubscriber,
     async subscribe(channel, handler) {
       listen()
       const set = handlers.get(channel) ?? new Set()
@@ -113,6 +178,10 @@ export function createRedisTunnelBus(): TunnelBus {
       return unsubscribe
     },
   }
+
+  bus.reconnect = guardedReconnect(bus, reconnectSubscriber)
+
+  return bus
 }
 
 export function tunnelBus(): TunnelBus {

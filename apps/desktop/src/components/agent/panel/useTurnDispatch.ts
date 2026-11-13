@@ -84,7 +84,7 @@ export function useTurnDispatch(acc: Acc) {
       // card, then `run` resolves the upload part and the stream starts.
       deferredUpload?: {
         messageId: string
-        run: (sessionId: string | undefined) => Promise<TransferUploadPart>
+        run: () => Promise<TransferUploadPart>
       },
     ): boolean => {
       const start = (runtime: typeof newConversationRuntime) =>

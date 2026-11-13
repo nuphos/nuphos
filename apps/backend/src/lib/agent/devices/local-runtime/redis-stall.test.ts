@@ -50,7 +50,7 @@ describe('local runtime tunnel during a Redis stall', () => {
     stalled = false
     // Pub/sub that never delivers once Redis stalls.
     const bus: TunnelBus = {
-      publish: () => (stalled ? new Promise(() => {}) : Promise.resolve()),
+      publish: () => (stalled ? new Promise(() => {}) : Promise.resolve(1)),
       subscribe: () => Promise.resolve(() => {}),
     }
     const frames: BackendFrame[] = []
@@ -104,7 +104,7 @@ describe('local runtime tunnel during a Redis stall', () => {
         },
       },
       {
-        bus: { publish: () => Promise.resolve(), subscribe: () => Promise.resolve(() => {}) },
+        bus: { publish: () => Promise.resolve(1), subscribe: () => Promise.resolve(() => {}) },
         presence,
         isMember: async () => true,
         heartbeatMs: 60_000,
@@ -140,7 +140,7 @@ describe('local runtime tunnel during a Redis stall', () => {
       {
         // Publishes succeed, but a half-open subscriber delivers nothing back.
         bus: {
-          publish: () => Promise.resolve(),
+          publish: () => Promise.resolve(1),
           subscribe: () => Promise.resolve(() => {}),
           reconnect: () => {
             reconnects += 1

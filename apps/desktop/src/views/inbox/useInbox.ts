@@ -2,12 +2,16 @@ import { queryOptions, useQuery } from '@tanstack/react-query'
 import { useEffect, useRef, useSyncExternalStore } from 'react'
 
 import { api } from '../../api.ts'
-import { onInputRequestsRefresh } from '../../lib/inputRequestRefresh.ts'
+import { onInputRequestsRefresh, refreshInputRequests } from '../../lib/inputRequestRefresh.ts'
 import { queryClient } from '../../lib/query/client.ts'
 import { queryKeys } from '../../lib/query/keys.ts'
 
+import { cardReplyId } from '../../components/agent/panel/replyTarget.ts'
+
 import { answeredIn, inboxCount } from './inboxItems.ts'
 
+import type { DecisionAnswer } from '../../api/agent-chat-types'
+import type { DecisionCardRef, ReplyQuestion } from '../../components/agent/panel/replyTarget.ts'
 import type { AgentConversation } from '../../api/agent-types'
 
 export const INBOX_POLL_MS = 15_000
@@ -72,9 +76,9 @@ export function answeringInbox<T>(requestId: string | undefined, send: Promise<T
 }
 
 /**
- * Answers an open question with `text`, as the viewer's own message in the
- * conversation that asked: the reply chips of a card. The card leaves at once;
- * if the turn cannot start, it comes back with the error.
+ * Sends a secure card's "saved to" line as the viewer's own message in the
+ * conversation that asked: the agent reads the file's path from it. The card
+ * leaves at once; if the turn cannot start, it comes back with the error.
  */
 export function answerQuestion(
   teamId: string,
@@ -114,32 +118,36 @@ export function answerQuestion(
 }
 
 /**
- * Answers a Bot's own question with a post in its chat, where the Bot reads it:
- * the viewer's own message there. The card leaves at once; if the post fails, it
- * comes back with the error. Whether it was posted.
+ * Answers an open question: the server wakes the agent that asked with the
+ * answer, and no message is sent. The card leaves at once; if the answer is
+ * refused, it comes back with the error.
  */
-export function answerInChat(
-  teamId: string,
-  chatId: string,
+export function answerDecision(
+  teamId: string | undefined,
+  sessionId: string,
   requestId: string,
-  text: string,
-  id: string = crypto.randomUUID(),
+  answer: DecisionAnswer,
 ): Promise<boolean> {
-  const post = api.agentPostChannelMessage(
-    chatId,
-    teamId,
-    text,
-    id,
-    undefined,
-    undefined,
-    undefined,
+  return answeringInbox(
     requestId,
-  )
-
-  return answeringInbox(requestId, post).then(
+    api.agentAnswerDecision(sessionId, requestId, teamId, answer).then(() => {
+      refreshInputRequests()
+    }),
+  ).then(
     () => true,
+    // Shown on the question's card, which is back in its list.
     () => false,
   )
+}
+
+/** A conversation's cards answered through the server, each naming the open request it shows. */
+export function cardAnswers(
+  teamId: string | undefined,
+  sessionId: string,
+  questions: readonly ReplyQuestion[] | undefined,
+) {
+  return (answer: DecisionAnswer, card: DecisionCardRef) =>
+    answerDecision(teamId, sessionId, cardReplyId(card, questions), answer)
 }
 
 /** Why the last answer to this question failed, until it is answered again. */

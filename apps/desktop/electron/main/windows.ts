@@ -1,9 +1,10 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { BrowserWindow } from 'electron'
+import { BrowserWindow, session } from 'electron'
 
 import { regionShortcut } from '../../src/lib/regionShortcut'
+import { apiUrl } from '../api-endpoint'
 import * as k8s from '../k8s'
 import * as podExec from '../pod-exec'
 import * as terminal from '../terminal'
@@ -101,6 +102,9 @@ export function dispatchAppShortcut(action: AppShortcut) {
 
 /** Reopens the windows the last run left open, or one default window. */
 export function restoreWindows() {
+  // Connect to the backend while the window loads, so its first request skips
+  // the DNS lookup and TLS handshake.
+  session.defaultSession.preconnect({ url: apiUrl(), numSockets: 1 })
   const saved = readSavedWindows()
 
   if (saved.length === 0) createWindow(null)

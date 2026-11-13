@@ -17,6 +17,11 @@ final class InboxUITests: XCTestCase {
         live = fixture.deletingLastPathComponent().appending(path: "inbox-live-\(UUID().uuidString).json")
         responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: fixture)) as? [String: Any])
         responses["POST /agent/chat"] = ["status": 200, "body": [:], "headers": ["Content-Type": "text/event-stream"]]
+        // An answer goes to the answer API; no message is sent.
+        for (session, request) in [("agent-ops", "q-deploy"), ("agent-staging", "q-staging"),
+                                   ("agent-ops", "q-rollout"), ("bot-release", "q-deploy")] {
+            responses["POST /agent/conversations/\(session)/decisions/\(request)/answer"] = ["status": 200, "body": ["ok": true]]
+        }
         // The asking conversations, opened by "From …" and "Other…".
         for (id, title) in [("agent-ops", "Release ops"), ("agent-staging", "Check the staging cluster")] {
             responses["GET /agent/conversations/\(id)"] = ["status": 200, "body": [
@@ -50,7 +55,8 @@ final class InboxUITests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["Roll out 1.4 to production?"].waitForExistence(timeout: 5), "The question is not listed")
         XCTAssertTrue(app.staticTexts["Which node pool should the staging cluster use?"].exists)
-        XCTAssertTrue(app.buttons["Other…"].firstMatch.exists, "No Other… to answer in words")
+        XCTAssertTrue(app.textFields["Your answer"].firstMatch.exists, "No text box to answer in words")
+        XCTAssertFalse(app.buttons["Mark as done"].exists, "A to-do is still marked done")
         shot("3-inbox")
 
         // The answer leaves the Inbox at once; the listing then agrees.
@@ -67,28 +73,33 @@ final class InboxUITests: XCTestCase {
                       "The asking conversation did not open")
     }
 
-    /// "Other…" starts the answer in a composer: the asking conversation's, from the Inbox,
-    /// quoting the question. A plan keeps only Approve and Reject.
-    func testOtherStartsTheAnswerInTheConversationComposer() throws {
+    /// The Inbox card has the text box for an answer in words, which sends it as the answer: no
+    /// "Other…", no "Mark as done", no composer, no message. A plan keeps only Approve and Reject.
+    func testAnswersInWordsInTheCard() throws {
         try listQuestions([deploy, staging, plan])
         app = launch(page: "agent")
         app.buttons["Switch page"].firstMatch.tap()
         app.buttons["Inbox"].firstMatch.tap()
         XCTAssertTrue(app.staticTexts["Roll out 1.4 to production?"].waitForExistence(timeout: 10), "The question is not listed")
-        // Other… beside options, Reply… without them, nothing on the plan.
+        // A text box beside options and without them, none on the plan; nothing to open it.
         // By label: the card's own identifier covers those inside it.
-        XCTAssertEqual(app.buttons.matching(Self.typedAnswer).count, 2)
-        XCTAssertTrue(app.buttons["Other…"].exists && app.buttons["Reply…"].exists)
-        shot("5-inbox-other")
+        XCTAssertEqual(app.textFields.matching(NSPredicate(format: "label == %@ OR placeholderValue == %@", "Your answer", "Your answer")).count, 2)
+        XCTAssertEqual(app.buttons.matching(Self.typedAnswer).count, 0)
+        XCTAssertFalse(app.buttons["Mark as done"].exists, "A to-do is still marked done")
+        shot("5-inbox-in-place")
 
-        app.buttons["Other…"].firstMatch.tap()
-        let chip = app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH %@", "Replying to Release ops")).firstMatch
-        XCTAssertTrue(chip.waitForExistence(timeout: 10), "The conversation's composer does not quote the question")
-        shot("6-inbox-other-composer")
+        // Newest first: the deploy question's box.
+        let words = app.textFields["Your answer"].firstMatch
+        words.tap()
+        words.typeText("Ship after the 18:00 freeze\n")
+        shot("6-inbox-typed")
+        app.buttons["Send answer"].firstMatch.tap()
+        try listQuestions([staging, plan])
+        XCTAssertTrue(app.staticTexts["Roll out 1.4 to production?"].waitForNonExistence(timeout: 5), "The answered question stayed")
     }
 
-    /// In a Bot's chat, "Other…" quotes the question in the chat's reply chip.
-    func testOtherQuotesTheQuestionInABotChat() throws {
+    /// In a Bot's chat too, "Other…" asks for the answer in the card, not in the chat's composer.
+    func testOtherAnswersInWordsInABotChat() throws {
         // The release chat as a Bot's 1:1, whose own questions show in it.
         var detail = try XCTUnwrap(responses["GET /agent/conversations/chat-release"] as? [String: Any])
         var body = try XCTUnwrap(detail["body"] as? [String: Any])
@@ -107,9 +118,11 @@ final class InboxUITests: XCTestCase {
         shot("7-bot-chat")
 
         app.buttons["Other…"].firstMatch.tap()
-        let chip = app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH %@", "Replying to Release Lead")).firstMatch
-        XCTAssertTrue(chip.waitForExistence(timeout: 5), "The chat's composer does not quote the question")
-        shot("8-bot-chat-other-composer")
+        XCTAssertTrue(app.textFields["Your answer"].waitForExistence(timeout: 5),
+                      "Other… does not ask for the answer in the card")
+        XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH %@", "Replying to")).firstMatch.exists,
+                       "The chat's composer quotes the question")
+        shot("8-bot-chat-other-typed")
     }
 
     /// An integration question is answered in the Inbox: its conversation's credential picker

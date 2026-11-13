@@ -16,9 +16,34 @@ importers:
 
   .:
     dependencies:
+      '@kubernetes/client-node':
+        specifier: ^1.4.0
+        version: 1.4.0(encoding@0.1.13)
+      '@napi-rs/keyring':
+        specifier: ^2.1.2
+        version: 2.1.2
+      archiver:
+        specifier: ^8.0.0
+        version: 8.0.0
+      electron-chrome-extensions:
+        specifier: 4.10.0
+        version: 4.10.0(patch_hash=1ea62aa03e1308c928d45773214ab01969c6617c4219e7a2572854aabcf55858)
+      electron-updater:
+        specifier: ^6.8.11
+        version: 6.8.11
+      node-pty:
+        specifier: ^1.1.0
+        version: 1.1.0
+      posthog-node:
+        specifier: ^5.35.2
+        version: 5.35.2
+    devDependencies:
       '@base-ui/react':
         specifier: ^1.5.0
         version: 1.5.0(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      '@eslint/js':
+        specifier: ^10.0.1
+        version: 10.0.1(eslint@10.8.0(jiti@1.21.7))
       '@fortawesome/fontawesome-svg-core':
         specifier: ^7.2.0
         version: 7.2.0
@@ -31,12 +56,6 @@ importers:
       '@fortawesome/react-fontawesome':
         specifier: ^3.3.1
         version: 3.3.1(@fortawesome/fontawesome-svg-core@7.2.0)(react@19.2.5)
-      '@kubernetes/client-node':
-        specifier: ^1.4.0
-        version: 1.4.0(encoding@0.1.13)
-      '@napi-rs/keyring':
-        specifier: ^2.1.2
-        version: 2.1.2
       '@novnc/novnc':
         specifier: 1.7.0
         version: 1.7.0
@@ -46,100 +65,18 @@ importers:
       '@streamdown/code':
         specifier: ^1.1.1
         version: 1.1.1(react@19.2.5)
-      '@tanstack/react-query':
-        specifier: ^5.106.0
-        version: 5.106.0(@types/react@19.2.14)(react@19.2.5)
-      '@tanstack/react-virtual':
-        specifier: ^3.14.2
-        version: 3.14.2(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
-      '@xterm/addon-fit':
-        specifier: ^0.11.0
-        version: 0.11.0
-      '@xterm/xterm':
-        specifier: ^6.0.0
-        version: 6.0.0
-      '@xyflow/react':
-        specifier: ^12.11.0
-        version: 12.11.0(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
-      ansi-to-react:
-        specifier: ^6.2.6
-        version: 6.2.6(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
-      archiver:
-        specifier: ^8.0.0
-        version: 8.0.0
-      canvas-confetti:
-        specifier: ^1.9.4
-        version: 1.9.4
-      clsx:
-        specifier: ^2.1.1
-        version: 2.1.1
-      cron-parser:
-        specifier: ^4.9.0
-        version: 4.9.0
-      electron-chrome-extensions:
-        specifier: 4.10.0
-        version: 4.10.0(patch_hash=1ea62aa03e1308c928d45773214ab01969c6617c4219e7a2572854aabcf55858)
-      electron-updater:
-        specifier: ^6.8.11
-        version: 6.8.11
-      fflate:
-        specifier: 0.8.3
-        version: 0.8.3
-      framer-motion:
-        specifier: ^12.40.0
-        version: 12.40.0(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
-      js-yaml:
-        specifier: ^4.3.2
-        version: 4.3.2
-      lucide-react:
-        specifier: ^1.11.0
-        version: 1.11.0(react@19.2.5)
-      monaco-editor:
-        specifier: ^0.55.1
-        version: 0.55.1
-      node-pty:
-        specifier: ^1.1.0
-        version: 1.1.0
-      posthog-js:
-        specifier: ^1.376.0
-        version: 1.376.0
-      posthog-node:
-        specifier: ^5.35.2
-        version: 5.35.2
-      react:
-        specifier: ^19.2.5
-        version: 19.2.5
-      react-dom:
-        specifier: ^19.2.5
-        version: 19.2.5(react@19.2.5)
-      react-grid-layout:
-        specifier: 2.2.4
-        version: 2.2.4(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
-      recharts:
-        specifier: ^2.15.0
-        version: 2.15.4(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
-      shiki:
-        specifier: ^3.23.0
-        version: 3.23.0
-      streamdown:
-        specifier: ^2.5.0
-        version: 2.5.0(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
-      strip-ansi:
-        specifier: ^7.2.0
-        version: 7.2.0
-      uqr:
-        specifier: ^0.1.3
-        version: 0.1.3
-    devDependencies:
-      '@eslint/js':
-        specifier: ^10.0.1
-        version: 10.0.1(eslint@10.8.0(jiti@1.21.7))
       '@stylistic/eslint-plugin':
         specifier: ^5.10.0
         version: 5.10.0(eslint@10.8.0(jiti@1.21.7))
       '@tailwindcss/container-queries':
         specifier: ^0.1.1
         version: 0.1.1(tailwindcss@3.4.19(yaml@2.9.0))
+      '@tanstack/react-query':
+        specifier: ^5.106.0
+        version: 5.106.0(@types/react@19.2.14)(react@19.2.5)
+      '@tanstack/react-virtual':
+        specifier: ^3.14.2
+        version: 3.14.2(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       '@types/archiver':
         specifier: ^8.0.0
         version: 8.0.0
@@ -164,9 +101,30 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^6.0.1
         version: 6.0.1(vite@8.1.6(@types/node@24.12.2)(jiti@1.21.7)(yaml@2.9.0))
+      '@xterm/addon-fit':
+        specifier: ^0.11.0
+        version: 0.11.0
+      '@xterm/xterm':
+        specifier: ^6.0.0
+        version: 6.0.0
+      '@xyflow/react':
+        specifier: ^12.11.0
+        version: 12.11.0(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      ansi-to-react:
+        specifier: ^6.2.6
+        version: 6.2.6(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       autoprefixer:
         specifier: ^10.5.0
         version: 10.5.0(postcss@8.5.23)
+      canvas-confetti:
+        specifier: ^1.9.4
+        version: 1.9.4
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      cron-parser:
+        specifier: ^4.9.0
+        version: 4.9.0
       electron:
         specifier: ^44.10.0
         version: 44.10.0
@@ -197,21 +155,63 @@ importers:
       eslint-plugin-unicorn:
         specifier: 72.0.0
         version: 72.0.0(eslint@10.8.0(jiti@1.21.7))
+      fflate:
+        specifier: 0.8.3
+        version: 0.8.3
+      framer-motion:
+        specifier: ^12.40.0
+        version: 12.40.0(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       globals:
         specifier: ^17.5.0
         version: 17.5.0
       happy-dom:
         specifier: ^21.0.4
         version: 21.0.4
+      js-yaml:
+        specifier: ^4.3.2
+        version: 4.3.2
+      lucide-react:
+        specifier: ^1.11.0
+        version: 1.11.0(react@19.2.5)
+      monaco-editor:
+        specifier: ^0.55.1
+        version: 0.55.1
       node-api-headers:
         specifier: ^1.9.0
         version: 1.9.0
+      opencc-js:
+        specifier: 1.4.2
+        version: 1.4.2
       postcss:
         specifier: ^8.5.23
         version: 8.5.23
+      posthog-js:
+        specifier: ^1.376.0
+        version: 1.376.0
+      react:
+        specifier: ^19.2.5
+        version: 19.2.5
+      react-dom:
+        specifier: ^19.2.5
+        version: 19.2.5(react@19.2.5)
+      react-grid-layout:
+        specifier: 2.2.4
+        version: 2.2.4(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      recharts:
+        specifier: ^2.15.0
+        version: 2.15.4(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       sharp:
         specifier: ^0.35.5
         version: 0.35.5(@types/node@24.12.2)
+      shiki:
+        specifier: ^3.23.0
+        version: 3.23.0
+      streamdown:
+        specifier: ^2.5.0
+        version: 2.5.0(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      strip-ansi:
+        specifier: ^7.2.0
+        version: 7.2.0
       tailwindcss:
         specifier: ^3.4.19
         version: 3.4.19(yaml@2.9.0)
@@ -221,6 +221,9 @@ importers:
       typescript-eslint:
         specifier: ^8.58.2
         version: 8.59.0(eslint@10.8.0(jiti@1.21.7))(typescript@6.0.3)
+      uqr:
+        specifier: ^0.1.3
+        version: 0.1.3
       vite:
         specifier: ^8.1.6
         version: 8.1.6(@types/node@24.12.2)(jiti@1.21.7)(yaml@2.9.0)
@@ -3561,6 +3564,9 @@ packages:
 
   oniguruma-to-es@4.3.6:
     resolution: {integrity: sha512-csuQ9x3Yr0cEIs/Zgx/OEt9iBw9vqIunAPQkx19R/fiMq2oGVTgcMqO/V3Ybqefr1TBvosI6jU539ksaBULJyA==}
+
+  opencc-js@1.4.2:
+    resolution: {integrity: sha512-EdcspgdROiCCZDM+jZR6Pa670xW+EW2QhctPBQ8gRjg6lrx4IHEl+2s+kt5izk/TkxVRgdWuFgaGkaEdIUfdaw==}
 
   openid-client@6.8.3:
     resolution: {integrity: sha512-AoY/NaN9esS3+xvHInFSK0g3skSfeE0uqQAKRj4rB6/GsBIvzwTUaYo9+HcqpKIaP0dP85p5W07hayKgS4GAeA==}
@@ -8320,6 +8326,8 @@ snapshots:
       oniguruma-parser: 0.12.2
       regex: 6.1.0
       regex-recursion: 6.0.2
+
+  opencc-js@1.4.2: {}
 
   openid-client@6.8.3:
     dependencies:

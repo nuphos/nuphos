@@ -14,7 +14,7 @@ export { toolModuleFromAiSdkTools } from './preview-tools/ai-sdk-adapter'
 export const NUPHOS_TOOLS_INSTRUCTIONS =
   "Nuphos's native tools for this conversation: memory (save_memory / " +
   'memory_get), charts, artifacts, team-skill authoring, decisions, local Desktop actions, ' +
-  'connector setup (create_connector), cloud computers on team instabox accounts (list_boxes / create_box / update_box), Nuphos sub-agents (create_thread / send_message_to_thread / update_thread / list_agent_runtimes / set_thread_parent / archive_thread), Nuphos channels (channel_read / channel_post / channel_create), and channel delivery. ' +
+  'connector setup (create_connector), cloud computers on team instabox accounts (list_boxes / create_box / update_box), Nuphos sub-agents (create_thread / send_message_to_thread / update_thread / list_agent_runtimes / set_thread_parent / archive_thread), Nuphos channels (channel_read / channel_post / channel_create), meetings (meeting_join / meeting_leave, when set up), and channel delivery. ' +
   'When the user asks for a sub-agent (in any language), use create_thread, not your ' +
   "runtime's built-in subagent tool, unless they explicitly ask for the built-in one. " +
   'List yours with list_recent_conversations children:true. ' +

@@ -9,11 +9,12 @@ import { errorTelemetryProperties, logError, logEvent } from '@/lib/observabilit
 import { notifyLiveActivities } from '@/lib/push/live-activities'
 
 import { registry, sessionsByConversation } from './agent-chat-registry'
-import { observeAutonomousUpdates } from './autonomous-session-observer'
+import { invokeUpdateHandler, observeAutonomousUpdates } from './autonomous-session-observer'
 import { markBackgroundWorkLost } from './background-work'
 import { publishLostSessionHandoff } from './runtime-handoff-store'
 import { forgetRuntimeState, holdRuntimeState } from './runtime-state-store'
-import { RUNTIME_CWD } from './team-openab-runtime'
+import { claimSession, holdSession } from './session-holder'
+import { closeAutonomousTranscript, RUNTIME_CWD } from './team-openab-runtime'
 
 import type { TeamPreviewClient, TeamSession } from './team-openab-runtime'
 
@@ -58,6 +59,23 @@ export async function untilOnline(url: string): Promise<void> {
 }
 
 /**
+ * Ends a transcript a lost transport left open, once the session could not get
+ * back on. A drop the session recovers from never ends it: the same native turn
+ * carries on over the reattached transport (#704).
+ */
+export function endAutonomousTranscriptAfterLoss(session: TeamSession): void {
+  const update = { kind: 'interrupted', reason: 'runtime_connection_lost' } as const
+
+  if (!closeAutonomousTranscript(session, update)) return
+  invokeUpdateHandler(session, update).catch((error: unknown) => {
+    logError('agent.chat.preview_autonomous_handler.error', error, {
+      team_id: session.teamId,
+      session_id: session.conversationId,
+    })
+  })
+}
+
+/**
  * The gateway routes a session's runtime-owned output (background-task
  * continuations, wakeups) to the last connection that resumed it. When that
  * shared transport goes away, nothing else resumes the session until the user
@@ -65,6 +83,7 @@ export async function untilOnline(url: string): Promise<void> {
  */
 export function observeSession(session: TeamSession): void {
   observeAutonomousUpdates(session)
+  holdSession(session)
   const transport = session.client
   const release = holdRuntimeState(
     transport,
@@ -78,7 +97,18 @@ export function observeSession(session: TeamSession): void {
     // The card says the runtime cannot be reached; its next report moves it on.
     notifyLiveActivities(session.conversationId, { state: 'disconnected' })
     // A close after a retire finds the first attempt running; keep its outcome.
-    if (!session.reattaching) session.reattached = reattachAfterTransportLoss(session, transport)
+    if (session.reattaching) return
+    session.reattached = reattachAfterTransportLoss(session, transport)
+    // A turn in flight continues once the session is back. Giving up ends it,
+    // and so does a reattach that found the agent gone: no frame will come.
+    session.reattached.then(
+      (back) => {
+        if (!back || session.innerSessionLost) endAutonomousTranscriptAfterLoss(session)
+      },
+      () => {
+        endAutonomousTranscriptAfterLoss(session)
+      },
+    )
   }
   const stopClosed = transport.onClosed(onLost)
   const stopRetired = transport.onRetired(onLost)
@@ -159,11 +189,14 @@ async function stillOwned(session: TeamSession, transport: TeamPreviewClient): P
     return false
   const attachment = await getConversationPreviewAttachment(session.conversationId, session.teamId)
 
-  return Boolean(
-    attachment &&
-    sameRuntimeUrl(attachment.runtimeUrl, session.endpoint.url) &&
-    attachment.openabSessionId === session.openabSessionId,
+  if (
+    !attachment ||
+    !sameRuntimeUrl(attachment.runtimeUrl, session.endpoint.url) ||
+    attachment.openabSessionId !== session.openabSessionId
   )
+    return false
+
+  return claimSession(session)
 }
 
 /** Retries wait for an offline computer, so an outage of any length spends

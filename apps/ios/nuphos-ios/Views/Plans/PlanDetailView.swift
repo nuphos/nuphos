@@ -1,15 +1,14 @@
 import SwiftUI
 
 /// A plan on its own page — the desktop `PlanSidePanel`: header, decisions,
-/// steps with live command status, cost, risk, approvals, and the actions
-/// the library offers (approve, continue in chat, mark as unplanned).
+/// steps with live command status, cost, risk, approvals, and its actions
+/// (approve, continue in chat, mark as unplanned).
 /// Polls while the plan is active.
 struct PlanDetailView: View {
     @Environment(PlansStore.self) private var plans
     let planId: String
-    /// The plan's team when it is not the library's (a link in a chat).
-    var teamId: String?
-    /// Replaces the library's plain PATCH — in a chat, approving also tells
+    let teamId: String
+    /// Replaces the plain PATCH — in a chat, approving also tells
     /// the agent to proceed, so the session's approve is used instead.
     var approve: ((Plan) async throws -> Plan)?
     /// Off when the page is shown inside the conversation it points at.
@@ -481,4 +480,76 @@ struct PlanLinkSheet: View {
         }
         .presentationDetents([.large])
     }
+}
+
+/// "Continue in chat" / "Open in chat": the conversation a plan was
+/// proposed in. Legacy plans without one get no button, like the desktop.
+struct PlanChatTarget: Identifiable, Hashable {
+    let planId: String
+    let sessionId: String
+    let title: String
+    let buttonTitle: LocalizedStringKey
+
+    var id: String { planId + sessionId }
+
+    init?(plan: Plan) {
+        guard let sessionId = plan.sourceConversationId, !sessionId.isEmpty else { return nil }
+        planId = plan.id
+        self.sessionId = sessionId
+        title = plan.title
+        buttonTitle = plan.status == "proposed" || plan.status == "approved" ? "Continue in agent" : "Open agent"
+    }
+
+    static func == (a: PlanChatTarget, b: PlanChatTarget) -> Bool { a.id == b.id }
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
+}
+
+/// Owns the `ChatSession` for a plan's source conversation.
+struct PlanConversationView: View {
+    @Environment(AgentStore.self) private var store
+    let target: PlanChatTarget
+    @State private var session: ChatSession?
+
+    var body: some View {
+        Group {
+            if let session {
+                ConversationView(session: session, sourcePage: "plan")
+                    .readWhileShown(session)
+            } else {
+                Theme.canvas
+            }
+        }
+        .onAppear {
+            guard session == nil else { return }
+            session = store.session(sessionId: target.sessionId, title: target.title)
+        }
+    }
+}
+
+/// Reads and polls a conversation pushed from a plan while it is shown and
+/// the app active.
+private struct ReadWhileShown: ViewModifier {
+    let session: ChatSession
+    @Environment(AgentStore.self) private var store
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var reader = UUID()
+    @State private var shown = false
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear { shown = true; update() }
+            .onDisappear { shown = false; update() }
+            .onChange(of: scenePhase) { _, _ in update() }
+    }
+
+    private func update() {
+        let open = shown && scenePhase == .active
+        store.unread.setReading(open, reader: reader, team: session.teamId, session: session.sessionId)
+        if open { store.follow(session) } else { store.unfollow(session) }
+    }
+}
+
+private extension View {
+    /// Read and followed while on screen and the app active.
+    func readWhileShown(_ session: ChatSession) -> some View { modifier(ReadWhileShown(session: session)) }
 }

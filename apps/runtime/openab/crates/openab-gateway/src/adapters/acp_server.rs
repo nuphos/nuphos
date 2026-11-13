@@ -1337,8 +1337,12 @@ pub fn permission_relay_required(
 /// A client connection that drops (a backend rollout moving the tunnel) leaves the agent's turn
 /// running while the client reattaches with `session/resume`. A permission request in that gap
 /// waits for the reattached sink instead of cancelling the tool call: the agent cannot ask twice.
+///
+/// Stop releases the request: once the session is being cancelled the agent is answered
+/// `cancelled` at once, whether or not any client ever received the request.
 pub async fn request_permission(
     registry: &AcpReplyRegistry,
+    operations: &super::session_operations::SessionOperations,
     channel_id: &str,
     relay_required: bool,
     params: Value,
@@ -1346,6 +1350,20 @@ pub async fn request_permission(
     if !relay_required {
         return Ok(None);
     }
+    tokio::select! {
+        biased;
+        _ = operations.cancelled(channel_id) => {
+            Ok(Some(json!({"outcome": {"outcome": "cancelled"}})))
+        }
+        result = relay_until_answered(registry, channel_id, params) => result,
+    }
+}
+
+async fn relay_until_answered(
+    registry: &AcpReplyRegistry,
+    channel_id: &str,
+    params: Value,
+) -> Result<Option<Value>, String> {
     // The grace window opens when the connection is lost, not when the request is first sent:
     // a prompt can wait on a human for minutes before a rollout drops it.
     let mut deadline = None;
@@ -3672,34 +3690,13 @@ async fn handle_session_cancel(
                         .acp_session_operations
                         .start_cancellation(channel_id.clone())
                 });
-                if let Some((operation, generation)) = cancellation {
-                    let state = state.clone();
-                    let channel = channel_id.clone();
-                    tokio::spawn(async move {
-                        let _operation = operation;
-                        while let Some(read) = &state.acp_session_snapshot {
-                            let provider = read(channel.clone()).await;
-                            if !state
-                                .acp_session_operations
-                                .cancelling(&channel, generation)
-                            {
-                                break;
-                            }
-                            if state.acp_session_operations.pending_count(&channel) <= 1
-                                && provider["state"] != "active"
-                                && provider["operation"].as_str().is_none_or(|op| op == "none")
-                            {
-                                state
-                                    .acp_session_operations
-                                    .finish_cancellation(&channel, generation);
-                                break;
-                            }
-                            // Await delivery to native stdin. The cancellation guard blocks
-                            // successors until this await and the native prompt both settle.
-                            let _ = cancel_native(channel.clone()).await;
-                            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-                        }
-                    });
+                if let Some(cancellation) = cancellation {
+                    drive_native_cancel(
+                        state.clone(),
+                        channel_id.clone(),
+                        cancel_native,
+                        cancellation,
+                    );
                 }
                 return None;
             }
@@ -3739,6 +3736,63 @@ async fn handle_session_cancel(
         }
     }
     None
+}
+
+/// Keeps cancelling the native prompt until the provider is idle, then finishes the
+/// cancellation. While it runs, the session reports cancelling: successors are refused
+/// and a relayed permission request is answered `cancelled`.
+fn drive_native_cancel(
+    state: Arc<crate::AppState>,
+    channel: String,
+    cancel_native: crate::AcpSessionCancel,
+    (operation, generation): (super::session_operations::PromptGuard, u64),
+) {
+    tokio::spawn(async move {
+        let _operation = operation;
+        while let Some(read) = &state.acp_session_snapshot {
+            let provider = read(channel.clone()).await;
+            if !state
+                .acp_session_operations
+                .cancelling(&channel, generation)
+            {
+                break;
+            }
+            if state.acp_session_operations.pending_count(&channel) <= 1
+                && provider["state"] != "active"
+                && provider["operation"].as_str().is_none_or(|op| op == "none")
+            {
+                state
+                    .acp_session_operations
+                    .finish_cancellation(&channel, generation);
+                break;
+            }
+            // Await delivery to native stdin. The cancellation guard blocks
+            // successors until this await and the native prompt both settle.
+            let _ = cancel_native(channel.clone()).await;
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        }
+    });
+}
+
+/// A prompt that timed out is stopped like `session/cancel` stops it. Only the pool
+/// cancel would leave a relayed permission request waiting for a client that is gone,
+/// and the session refusing messages, until the relay's own timeout.
+fn cancel_timed_out_prompt(state: &Arc<crate::AppState>, channel_id: &str) {
+    let Some(cancel_native) = state.acp_session_cancel.clone() else {
+        send_pool_cancel(state, channel_id);
+        return;
+    };
+    if let Some(cancellation) = state
+        .acp_session_operations
+        .start_cancellation(channel_id.to_string())
+    {
+        drive_native_cancel(
+            state.clone(),
+            channel_id.to_string(),
+            cancel_native,
+            cancellation,
+        );
+    }
 }
 
 /// Best-effort pool-side cancel: sends the thread key so the pool's agent
@@ -4233,12 +4287,11 @@ async fn handle_session_prompt(
         .wait_for_steering(&channel_id)
         .await;
 
-    // On timeout, tell the pool to cancel the agent process so it stops the
-    // in-flight tool call. The gateway-side cancel (above) only stops the
-    // streaming loop; without this the agent process keeps running until the
-    // pool's own idle reaper kills it.
+    // On timeout, cancel the agent's turn so it stops the in-flight tool call and
+    // a permission request it is waiting on is answered. The gateway-side cancel
+    // (above) only stops the streaming loop.
     if timed_out {
-        send_pool_cancel(state, &channel_id);
+        cancel_timed_out_prompt(state, &channel_id);
     }
 
     // Cleanup: remove from registry, release busy flag, clear cancel signal.
@@ -5150,6 +5203,7 @@ mod acp_requests {
         let relay = tokio::spawn(async move {
             request_permission(
                 &registry2,
+                &crate::adapters::session_operations::SessionOperations::default(),
                 "acp_channel",
                 true,
                 json!({
@@ -5192,6 +5246,7 @@ mod acp_requests {
         let relay = tokio::spawn(async move {
             request_permission(
                 &registry2,
+                &crate::adapters::session_operations::SessionOperations::default(),
                 "acp_channel",
                 true,
                 json!({
@@ -5275,6 +5330,7 @@ mod acp_requests {
         let relay = tokio::spawn(async move {
             request_permission(
                 &registry2,
+                &crate::adapters::session_operations::SessionOperations::default(),
                 "acp_channel",
                 true,
                 json!({
@@ -5345,6 +5401,7 @@ mod acp_requests {
         assert_eq!(
             request_permission(
                 &registry,
+                &crate::adapters::session_operations::SessionOperations::default(),
                 "acp_channel",
                 false,
                 json!({"sessionId": "sess_inner", "options": []}),
@@ -5404,6 +5461,7 @@ mod acp_requests {
         assert!(
             request_permission(
                 &registry,
+                &crate::adapters::session_operations::SessionOperations::default(),
                 "acp_channel",
                 relay_was_required,
                 json!({"sessionId": "sess_inner", "options": []}),
@@ -9063,6 +9121,7 @@ mod acp_ws_integration {
         let relay = tokio::spawn(async move {
             request_permission(
                 &registry,
+                &crate::adapters::session_operations::SessionOperations::default(),
                 &relay_channel,
                 true,
                 json!({
@@ -12248,6 +12307,145 @@ mod session_config_tests {
 #[cfg(test)]
 mod runtime_authority_tests {
     use super::*;
+    // Stop on a turn parked on a permission no client answers (here: one sent into a
+    // connection that never replies) must answer the agent `cancelled` at once.
+    #[tokio::test]
+    async fn stop_answers_a_pending_permission_request_cancelled() {
+        let (events, _observed) = tokio::sync::broadcast::channel(16);
+        let mut state = crate::AppState::test_default(events);
+        state.acp_session_snapshot = Some(Arc::new(|_| {
+            Box::pin(async { json!({"state":"active","operation":"prompt"}) })
+        }));
+        state.acp_session_cancel = Some(Arc::new(|_| Box::pin(async { Ok(()) })));
+        let state = Arc::new(state);
+        let channel = "acp_2f0a33c1-6f2b-4b0e-9d2a-2b1c55e0a001";
+        let _turn = state.acp_session_operations.prompt(channel.into());
+        let registry = new_reply_registry();
+        let (out_tx, mut silent_client) = mpsc::unbounded_channel::<String>();
+        assert!(install_reply_sink(
+            &registry,
+            channel,
+            ReplySink {
+                turn_id: None,
+                tx: None,
+                session_id: "sess_outer".into(),
+                out_tx: out_tx.clone(),
+                owner: "conn-silent".into(),
+                generation: 1,
+                permission_relay: Some(ClientRequestHandle {
+                    out_tx,
+                    pending: Default::default(),
+                    next_id: Arc::new(AtomicU64::new(1)),
+                }),
+            },
+        ));
+        let relay = {
+            let state = state.clone();
+            let registry = registry.clone();
+            tokio::spawn(async move {
+                request_permission(
+                    &registry,
+                    &state.acp_session_operations,
+                    channel,
+                    true,
+                    json!({
+                        "sessionId": "sess_inner",
+                        "toolCall": {"toolCallId": "tool-1", "title": "mkdir out"},
+                        "options": [{"optionId": "allow", "name": "Allow", "kind": "allow_once"}]
+                    }),
+                )
+                .await
+            })
+        };
+        silent_client.recv().await.expect("the request reached the client");
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        assert!(!relay.is_finished(), "nobody answered: still waiting");
+
+        let sessions = Arc::new(tokio::sync::Mutex::new(HashMap::new()));
+        let params = json!({"sessionId": channel.replacen("acp_", "sess_", 1)});
+        handle_session_cancel(
+            &state,
+            &sessions,
+            &state.event_tx,
+            Value::Null,
+            Some(&params),
+            true,
+        )
+        .await;
+        let outcome = tokio::time::timeout(std::time::Duration::from_millis(100), relay)
+            .await
+            .expect("Stop releases the request at once")
+            .unwrap();
+        assert_eq!(
+            outcome,
+            Ok(Some(json!({"outcome": {"outcome": "cancelled"}})))
+        );
+    }
+
+    // A prompt that times out while its permission answer is lost (#2350) releases the
+    // request like Stop does, instead of holding the session for the relay timeout.
+    #[tokio::test]
+    async fn prompt_timeout_answers_a_pending_permission_request_cancelled() {
+        let (events, _observed) = tokio::sync::broadcast::channel(16);
+        let mut state = crate::AppState::test_default(events);
+        state.acp_session_snapshot = Some(Arc::new(|_| {
+            Box::pin(async { json!({"state":"active","operation":"prompt"}) })
+        }));
+        state.acp_session_cancel = Some(Arc::new(|_| Box::pin(async { Ok(()) })));
+        let state = Arc::new(state);
+        let channel = "acp_5b1d7e02-3c4f-4a8e-9f61-7d2e0c9b4a17";
+        let _turn = state.acp_session_operations.prompt(channel.into());
+        let registry = new_reply_registry();
+        let (out_tx, mut silent_client) = mpsc::unbounded_channel::<String>();
+        assert!(install_reply_sink(
+            &registry,
+            channel,
+            ReplySink {
+                turn_id: None,
+                tx: None,
+                session_id: "sess_outer".into(),
+                out_tx: out_tx.clone(),
+                owner: "conn-silent".into(),
+                generation: 1,
+                permission_relay: Some(ClientRequestHandle {
+                    out_tx,
+                    pending: Default::default(),
+                    next_id: Arc::new(AtomicU64::new(1)),
+                }),
+            },
+        ));
+        let relay = {
+            let state = state.clone();
+            let registry = registry.clone();
+            tokio::spawn(async move {
+                request_permission(
+                    &registry,
+                    &state.acp_session_operations,
+                    channel,
+                    true,
+                    json!({
+                        "sessionId": "sess_inner",
+                        "toolCall": {"toolCallId": "tool-1", "title": "gh api"},
+                        "options": [{"optionId": "allow", "name": "Allow", "kind": "allow_once"}]
+                    }),
+                )
+                .await
+            })
+        };
+        silent_client.recv().await.expect("the request reached the client");
+
+        cancel_timed_out_prompt(&state, channel);
+
+        let outcome = tokio::time::timeout(std::time::Duration::from_millis(100), relay)
+            .await
+            .expect("the timeout releases the request at once")
+            .unwrap();
+        assert_eq!(
+            outcome,
+            Ok(Some(json!({"outcome": {"outcome": "cancelled"}})))
+        );
+    }
+
     #[tokio::test]
     async fn cancel_during_creation_is_delivered_before_a_successor_can_start() {
         let (events, mut observed_events) = tokio::sync::broadcast::channel(16);

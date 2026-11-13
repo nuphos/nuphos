@@ -186,12 +186,21 @@ private fun MfaLoginContent(auth: ai.nuphos.android.session.AuthSession) {
             color = MaterialTheme.colorScheme.onBackground)
         Text("Enter the 6-digit code from your authenticator app.", style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
+        val activity = androidx.activity.compose.LocalActivity.current
         ai.nuphos.android.ui.MfaCodeForm("Sign in", onSubmit = { code ->
             kotlinx.coroutines.suspendCancellableCoroutine<Unit> { done ->
                 // A refused code comes back here; a success leaves this screen.
                 auth.verifyMfa(code) { message -> done.resumeWith(Result.failure(Exception(message))) }
             }
-        })
+        }, passkey = if (activity == null) null else ({
+            val challenge = auth.mfaChallenge ?: throw IllegalStateException("This sign-in has expired. Sign in again.")
+            val answer = ai.nuphos.android.data.Passkeys.answer(
+                activity, ai.nuphos.android.data.AccountApi("").signInPasskeyOptions(challenge),
+            )
+            kotlinx.coroutines.suspendCancellableCoroutine<Unit> { done ->
+                auth.verifyMfaPasskey(answer) { message -> done.resumeWith(Result.failure(Exception(message))) }
+            }
+        }))
         TextButton(onClick = auth::cancelMfa) { Text("Back to sign-in") }
     }
 }

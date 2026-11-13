@@ -388,39 +388,6 @@ enum AgentChatAPI {
         return try decodePlan(data)
     }
 
-    /// `GET /agent/plans?teamId=&limit=&cursor=` — newest first; `cursor` is
-    /// the `createdAt` of the previous page's last row.
-    static func listPlans(token: String, teamId: String, limit: Int = 50, cursor: String? = nil) async throws -> PlanListPage {
-        var query = [URLQueryItem(name: "teamId", value: teamId), URLQueryItem(name: "limit", value: String(limit))]
-        if let cursor { query.append(URLQueryItem(name: "cursor", value: cursor)) }
-        let data = try await send("GET", "agent/plans", query: query, token: token, body: Optional<Int>.none)
-        let json = try JSONDecoder().decode(JSONValue.self, from: data)
-        return PlanListPage(
-            plans: (json["plans"]?.arrayValue ?? []).compactMap(Plan.init(json:)),
-            nextCursor: json["nextCursor"]?.stringValue,
-            hasMore: json["hasMore"]?.boolValue ?? false
-        )
-    }
-
-    /// `GET /agent/plan-approval-policy?teamId=` — what new plans snapshot.
-    static func planApprovalPolicy(token: String, teamId: String) async throws -> PlanApprovalRequirement {
-        let data = try await send("GET", "agent/plan-approval-policy", query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: Optional<Int>.none)
-        let json = try JSONDecoder().decode(JSONValue.self, from: data)
-        return PlanApprovalRequirement(json: json)
-    }
-
-    /// `PUT /agent/plan-approval-policy` — administrators only. Approvals on
-    /// open plans are invalidated server-side.
-    static func updatePlanApprovalPolicy(token: String, teamId: String, minimumOtherApprovals: Int) async throws -> PlanApprovalRequirement {
-        struct Body: Encodable { var teamId: String; var requesterApprovalRequired: Bool; var minimumOtherApprovals: Int }
-        let data = try await send(
-            "PUT", "agent/plan-approval-policy", token: token,
-            body: Body(teamId: teamId, requesterApprovalRequired: true, minimumOtherApprovals: minimumOtherApprovals)
-        )
-        let json = try JSONDecoder().decode(JSONValue.self, from: data)
-        return PlanApprovalRequirement(json: json)
-    }
-
     private static func decodePlan(_ data: Data) throws -> Plan {
         let json = try JSONDecoder().decode(JSONValue.self, from: data)
         // Either the plan itself or `{ plan: … }`.
@@ -637,7 +604,6 @@ struct Plan: Identifiable, Equatable, Hashable, Sendable {
     /// The desktop's `CANCELLABLE_STATUSES` — can still be marked unplanned.
     var isCancellable: Bool { isActive }
     /// The desktop's `DISMISSED_STATUSES` — hidden from the library by default.
-    var isDismissed: Bool { status == "rejected" || status == "cancelled" }
 
     /// `isPlanReadyForApproval`: steps with jobs, a cost and a risk section.
     var isReadyForApproval: Bool {
@@ -732,13 +698,6 @@ struct Plan: Identifiable, Equatable, Hashable, Sendable {
             )
         }
     }
-}
-
-/// One page of `GET /agent/plans`.
-struct PlanListPage: Sendable {
-    var plans: [Plan]
-    var nextCursor: String?
-    var hasMore: Bool
 }
 
 /// `PlanApprovalRequirement` — the team policy new plans snapshot.

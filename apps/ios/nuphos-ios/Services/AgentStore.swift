@@ -225,59 +225,47 @@ final class AgentStore {
         }
     }
 
-    /// While "+" on Bots or a Bot's first chat waits for the server, so a
-    /// second tap makes no second one.
+    /// While a Bot's first chat waits for the server, so a second tap makes no second one.
     private(set) var creatingBot = false
 
-    /// A Bot's 1:1 chat, made the first time it is opened (#1691).
-    func botChannel(botId: String) async -> ChannelSession? {
+    /// A Bot's 1:1 chat, made the first time it is opened (#1691). Throws
+    /// to the screen that asked, which says so and offers to try again.
+    func botChannel(botId: String) async throws -> ChannelSession? {
         if let chat = channels.first(where: { $0.botId == botId }) { return channel(for: chat) }
         guard let teamId = selectedTeam?.id, !creatingBot else { return nil }
         creatingBot = true
         defer { creatingBot = false }
         let scope = workspaceScope
-        do {
-            let id = try await AgentChatAPI.createBotChannel(token: token, teamId: teamId, botId: botId)
-            guard scope == workspaceScope else { return nil }
-            await loadChannels()
-            let title = (conversations + bots).first { $0.sessionId == botId }?.displayTitle ?? ""
-            return channel(sessionId: id, title: channels.first { $0.sessionId == id }?.displayTitle ?? title, teamId: teamId)
-        } catch {
-            rowActionFailed(error, scope: scope) { [weak self] in _ = await self?.botChannel(botId: botId) }
-            return nil
-        }
+        let id = try await AgentChatAPI.createBotChannel(token: token, teamId: teamId, botId: botId)
+        guard scope == workspaceScope else { return nil }
+        await loadChannels()
+        let title = (conversations + bots).first { $0.sessionId == botId }?.displayTitle ?? ""
+        return channel(sessionId: id, title: channels.first { $0.sessionId == id }?.displayTitle ?? title, teamId: teamId)
     }
 
-    /// "+" on Bots: makes the Bot with the picked name and face, then its 1:1 chat.
-    func createBot(title: String, avatar: String) async -> ChannelSession? {
-        guard let teamId = selectedTeam?.id, !creatingBot else { return nil }
-        creatingBot = true
+    /// "+" on Bots: makes the Bot with the picked name and face and returns
+    /// its id. Throws to the New Bot sheet, which stays open.
+    func createBot(title: String, avatar: String) async throws -> String? {
+        guard let teamId = selectedTeam?.id else { return nil }
         let scope = workspaceScope
-        do {
-            let id = try await AgentChatAPI.createBot(token: token, teamId: teamId, title: title, avatar: avatar, runtime: newConversationRuntime)
-            creatingBot = false
-            guard scope == workspaceScope else { return nil }
-            await reload(afterChange: true)
-            return await botChannel(botId: id)
-        } catch {
-            creatingBot = false
-            rowActionFailed(error, scope: scope) { [weak self] in _ = await self?.createBot(title: title, avatar: avatar) }
-            return nil
-        }
+        let id = try await AgentChatAPI.createBot(token: token, teamId: teamId, title: title, avatar: avatar, runtime: newConversationRuntime)
+        guard scope == workspaceScope else { return nil }
+        await reload(afterChange: true)
+        return id
     }
 
-    /// "Make this a Bot", which then opens its 1:1 chat, or "Turn into a Task".
-    func setBot(_ bot: Bool, conversation: AgentConversation) async -> ChannelSession? {
-        guard conversation.ownsChat, let teamId = conversation.teamId ?? selectedTeam?.id else { return nil }
+    /// "Make this a Bot" or "Turn into a Task". Whether it was saved.
+    func setBot(_ bot: Bool, conversation: AgentConversation) async -> Bool {
+        guard conversation.ownsChat, let teamId = conversation.teamId ?? selectedTeam?.id else { return false }
         let scope = workspaceScope
         do {
             try await AgentChatAPI.setBot(bot, token: token, teamId: teamId, sessionId: conversation.sessionId)
-            guard scope == workspaceScope else { return nil }
+            guard scope == workspaceScope else { return false }
             await reload(afterChange: true)
-            return bot ? await botChannel(botId: conversation.sessionId) : nil
+            return true
         } catch {
             rowActionFailed(error, scope: scope) { [weak self] in _ = await self?.setBot(bot, conversation: conversation) }
-            return nil
+            return false
         }
     }
 

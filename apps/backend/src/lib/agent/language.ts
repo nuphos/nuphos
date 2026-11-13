@@ -1,6 +1,5 @@
 // Pure language/script inference for the agent's per-turn response-language
-// instruction. Zero imports so tests can load it without pulling in @/config
-// (same split as stop-gate-judge-core.ts).
+// instruction. Zero imports so tests can load it without pulling in @/config.
 //
 // Why script detection exists: "reply in the user's language" is not enough
 // for Chinese. Under dense technical prose the model drifts from Traditional

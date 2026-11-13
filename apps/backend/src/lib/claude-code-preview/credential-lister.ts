@@ -87,8 +87,9 @@ function unselectedEntry(provider: string, id: string, label: string): Unselecte
       : `providers ["${requestable ?? ''}"]`
   const access =
     provider === 'personal'
-      ? 'Standalone personal token access is not enabled for this conversation. This says ' +
-        'nothing about the acting identity on a selected team binding; see its identityPreference. '
+      ? 'Your own credential is not selected for this conversation. It is the same grant a ' +
+        'selected team binding uses when its identityPreference is personal, so selecting it ' +
+        'adds no permissions there; it is needed only where no team binding reaches. '
       : 'Not enabled for this conversation. '
 
   return {

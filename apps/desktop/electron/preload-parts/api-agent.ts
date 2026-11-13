@@ -11,6 +11,16 @@ export const agentApi = {
     teamId?: string,
     resolution?: 'answered' | 'dismissed',
   ) => ipcRenderer.invoke('agent:resolveDecision', sessionId, toolCallId, teamId, resolution),
+  agentAnswerDecision: (
+    sessionId: string,
+    requestId: string,
+    teamId: string | undefined,
+    answer: {
+      choices?: string[]
+      text?: string
+      questions?: { choices?: string[]; text?: string }[]
+    },
+  ) => ipcRenderer.invoke('agent:answerDecision', sessionId, requestId, teamId, answer),
   agentMoveConversationRuntime: (
     sessionId: string,
     teamId: string,
@@ -26,6 +36,8 @@ export const agentApi = {
     ),
   agentCheckConversationMove: (sessionId: string, teamId: string, runtimeId: string) =>
     ipcRenderer.invoke('agent:checkConversationMove', sessionId, teamId, runtimeId),
+  agentRecordFork: (sessionId: string, forkSessionId: string, teamId?: string) =>
+    ipcRenderer.invoke('agent:recordFork', sessionId, forkSessionId, teamId),
   agentRecordEditFork: (sessionId: string, forkSessionId: string, teamId?: string) =>
     ipcRenderer.invoke('agent:recordEditFork', sessionId, forkSessionId, teamId),
   agentGetSessionConfig: (sessionId: string, teamId: string) =>
@@ -187,9 +199,8 @@ export const agentApi = {
     ipcRenderer.invoke('agent:getPlanApprovalPolicy', teamId),
   agentUpdatePlanApprovalPolicy: (teamId: string, minimumOtherApprovals: number) =>
     ipcRenderer.invoke('agent:updatePlanApprovalPolicy', teamId, minimumOtherApprovals),
-  agentRetryPlan: (planId: string, teamId?: string) =>
-    ipcRenderer.invoke('agent:retryPlan', planId, teamId),
-  agentListTriggers: (teamId?: string) => ipcRenderer.invoke('agent:listTriggers', teamId),
+  agentListTriggers: (teamId?: string, targetSessionId?: string) =>
+    ipcRenderer.invoke('agent:listTriggers', teamId, targetSessionId),
   agentListTriggerGroups: (teamId?: string) =>
     ipcRenderer.invoke('agent:listTriggerGroups', teamId),
   agentUpdateTriggerGroup: (

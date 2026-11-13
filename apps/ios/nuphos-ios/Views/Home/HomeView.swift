@@ -84,22 +84,6 @@ struct HomeView: View {
                     }
                     GlassGroupSpacer()
                 }
-                if page == .plans, let plans {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            isSearching.toggle()
-                        } label: {
-                            Label("Search plans", systemImage: "magnifyingglass")
-                        }
-                    }
-                    GlassGroupSpacer()
-                    ToolbarItem(placement: .topBarTrailing) {
-                        PlansFilterMenu()
-                            .environment(plans)
-                    }
-                    GlassGroupSpacer()
-                }
-
                 // The avatar draws its own circular glass: the system glass
                 // for a non-icon label is a capsule, not a circle.
                 ToolbarItem(placement: .topBarTrailing) {
@@ -224,9 +208,7 @@ struct HomeView: View {
         .task(id: scenePhase == .active ? store?.selectedTeam?.id : nil) {
             guard scenePhase == .active, let store, let team = store.selectedTeam?.id else { return }
             if inbox?.teamId != team {
-                inbox = OpenQuestions(token: store.token, teamId: team) { bot in
-                    store.conversations.first { $0.botId == bot }?.sessionId
-                }
+                inbox = OpenQuestions(token: store.token, teamId: team)
             }
             while !Task.isCancelled {
                 await inbox?.refresh()
@@ -260,7 +242,7 @@ struct HomeView: View {
     private var newAgentItem: some ToolbarContent {
         if sizeClass == .regular {
             ToolbarItem(placement: .topBarLeading) {
-                Button("New agent", systemImage: "square.and.pencil") { openChat = nil }
+                Button("New task", systemImage: "square.and.pencil") { openChat = nil }
             }
         }
     }
@@ -284,32 +266,12 @@ struct HomeView: View {
         case .inbox:
             InboxPage(inbox: inbox)
                 .onAppear { titleCollapsed = false }
-        case .plans:
-            PlansPage(page: $page, isSearching: $isSearching, titleCollapsed: $titleCollapsed)
         case .connectors:
             ConnectorsPage()
                 .onAppear { titleCollapsed = false }
         case .runtimes:
             RuntimesPage()
                 .onAppear { titleCollapsed = false }
-        }
-    }
-}
-
-/// Whether the Plans list reveals dismissed (rejected / unplanned) plans.
-private struct PlansFilterMenu: View {
-    @Environment(PlansStore.self) private var plans
-
-    var body: some View {
-        @Bindable var plans = plans
-        Menu {
-            Toggle(isOn: $plans.showDismissed) {
-                Label("Show dismissed", systemImage: "nosign")
-            }
-        } label: {
-            Label("Filter plans", systemImage: plans.showDismissed
-                  ? "line.3.horizontal.decrease.circle.fill"
-                  : "line.3.horizontal.decrease")
         }
     }
 }

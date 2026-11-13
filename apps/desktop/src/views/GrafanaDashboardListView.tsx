@@ -1,13 +1,9 @@
 import { LayoutDashboard } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 
-import { listDashboards } from '../grafana/client'
-import { useSilentRefresh } from '../hooks/useSilentRefresh'
-import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { t } from '../i18n'
+import { useGrafanaDashboards } from '../lib/query/grafana'
 import { useLinkOnlyRowMenu, useWorkspaceRowLink } from '../lib/workspaceRowLink'
-
-import { useResetOnKey } from './useResetOnKey'
 
 import type { DashboardSummary, GrafanaTarget } from '../grafana/client'
 
@@ -19,33 +15,7 @@ type Props = {
 }
 
 export function GrafanaDashboardListView({ target, filter, onSelect, onCount }: Props) {
-  const [items, setItems] = useState<DashboardSummary[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  useResetOnKey(`${target.teamId}|${target.instanceId}`, () => {
-    setItems(null)
-    setError(null)
-  })
-
-  useEffect(() => {
-    let cancelled = false
-
-    listDashboards(target)
-      .then((rows) => {
-        if (!cancelled) setItems(rows)
-      })
-      .catch((e: unknown) => {
-        if (!cancelled) setError(String(e instanceof Error ? e.message : e))
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [target.teamId, target.instanceId])
-
-  const { pollTick } = useWorkspaceTab()
-
-  useSilentRefresh(() => listDashboards(target), pollTick, setItems, setError)
+  const { data: items, error } = useGrafanaDashboards(target)
 
   const effectiveFilter = (filter ?? '').trim().toLowerCase()
 
@@ -94,11 +64,11 @@ export function GrafanaDashboardListView({ target, filter, onSelect, onCount }: 
   )
   const { onRowContextMenu, menu } = useLinkOnlyRowMenu(getRowLink)
 
-  if (error) {
+  if (!items && error) {
     return (
       <div className="flex-1 flex items-center justify-center px-4">
         <div className="text-error text-[12.5px] max-w-lg text-center whitespace-pre-wrap">
-          {error}
+          {error.message}
         </div>
       </div>
     )

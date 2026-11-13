@@ -68,8 +68,6 @@ export const WorkspaceTabPane = memo(
     onRequestBindGithub,
     onRequestBindGitlab,
     onOpenSettingsSection,
-    slackBindRequested,
-    onSlackBindHandled,
     isTeamAdmin,
     renderAgentPage = true,
     dockVisible = true,
@@ -199,10 +197,8 @@ export const WorkspaceTabPane = memo(
                             nuphosDashboards={tab.nuphosDashboards}
                             linearNav={tab.linearNav ?? null}
                             restoredTitle={tab.restoredTitle}
-                            connectorDetail={tab.connectorDetail ?? null}
                             awsDetail={tab.awsDetail ?? null}
                             cloudflareDetail={tab.cloudflareDetail ?? null}
-                            addIntegrationOpen={tab.addIntegrationOpen ?? false}
                             grafanaInstance={tab.grafanaInstance}
                             dashboardTarget={tab.dashboardTarget}
                             traceDatasourceTarget={tab.traceDatasourceTarget}
@@ -214,8 +210,6 @@ export const WorkspaceTabPane = memo(
                             onConnectGithub={onConnectGithub}
                             onConnectGitlab={onConnectGitlab}
                             onOpenSettingsSection={onOpenSettingsSection}
-                            slackBindRequested={slackBindRequested}
-                            onSlackBindHandled={onSlackBindHandled}
                             enterCluster={enterCluster}
                             refreshClusterKubeconfig={refreshClusterKubeconfig}
                             onOpenLightsailSsh={openLightsailSshTab}

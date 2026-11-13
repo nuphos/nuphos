@@ -327,7 +327,7 @@ final class ChatSession {
         token: String,
         teamId: String,
         sessionId: String = UUID().uuidString.lowercased(),
-        title: String = "New agent",
+        title: String = "New task",
         agentRuntime: String? = nil,
         runtimeLabel: String? = nil
     ) {
@@ -922,6 +922,8 @@ final class ChatSession {
         /// The server holds the message in the session queue; the idle poll
         /// follows its turn when it starts.
         case queued
+        /// The turn's stream is gone but a run is live: attach to that one.
+        case follow(String)
         case failed(String)
         case aborted
     }
@@ -979,6 +981,9 @@ final class ChatSession {
                     return
                 case .failed(let message):
                     finishTurn(error: message)
+                    return
+                case .follow(let streamId):
+                    startTurn(TurnOptions(streamId: streamId, explicitResume: true))
                     return
                 case .completed(let sawTurnComplete, let paused):
                     if stoppedByUser || paused?.reason == "stopped-by-user" {
@@ -1274,6 +1279,23 @@ final class ChatSession {
                 }
                 debugLog("HTTP \(status): \(bodyText ?? "")")
                 if fallback.sendsFresh(status: status, body: bodyText, resumed: shouldResume, framesReceived: resumeFrom, explicit: options.explicitResume, nativeRuntime: isNativeRuntime) {
+                    // The stream is gone, not the turn: the run may have ended or
+                    // moved on. Asking again would make the agent answer twice.
+                    if case .streamNotResumable = AgentChatAPI.conflict(status: status, body: bodyText) {
+                        guard let detail = try? await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: sessionId) else {
+                            return .failed(AgentChatAPI.Conflict.streamNotResumable.localizedDescription)
+                        }
+                        let sent = messages.last { $0.role == .user }?.id
+                        let next = ResumeFallback.afterStreamGone(stored: detail.messages, activeRun: detail.activeRun?.streamId, sent: sent)
+                        if next != .resend {
+                            RuntimeTranscript.adopt(snapshot: detail.messages, firstIndex: detail.messagesFirstIndex, messages: &messages, baseIndex: &baseIndex)
+                        }
+                        switch next {
+                        case .follow(let streamId): return .follow(streamId)
+                        case .replied: return .completed(sawTurnComplete: true, paused: nil)
+                        case .resend: break
+                        }
+                    }
                     forceFresh = true
                     continue
                 }

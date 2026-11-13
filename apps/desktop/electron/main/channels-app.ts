@@ -23,8 +23,10 @@ import { importLocalSession } from '../agent/local-session-import'
 import { listLocalAgentSessions, validateLocalSessionSource } from './local-sessions'
 import { openExternal } from './open-external'
 import { readAppIcon, setAppIcon } from './app-icon'
+import { readLoginItem, writeLoginItem } from './login-item'
 import { writePersistedThemeSource } from './theme'
-import { checkForUpdates, getUpdaterState, installUpdate } from './updater'
+import { fileTransferReadChannels } from './channels-file-transfer'
+import { updaterChannels } from './channels-updater'
 import { mostRecentlyFocusedVisibleAppWindow } from './windows'
 
 import type { PastedAttachmentPayload } from './dialogs'
@@ -57,6 +59,9 @@ export const appChannels = {
   'atlas:newMfaRecoveryCodes': (_e: unknown, code: string) => atlas.newMfaRecoveryCodes(code),
   'atlas:disableMfa': (_e: unknown, code: string) => atlas.disableMfa(code),
   'atlas:reauthMfa': (_e: unknown, code: string) => atlas.reauthMfa(code),
+  'atlas:reauthWithPasskey': () => atlas.reauthWithPasskey(),
+  'atlas:addPasskey': () => atlas.addPasskey(),
+  'atlas:removePasskey': (_e: unknown, id: string, code: string) => atlas.removePasskey(id, code),
   'auth:uploadAvatar': (_e: unknown, image: Uint8Array) => uploadAvatar(image),
   'auth:removeAvatar': () => removeAvatar(),
   'auth:status': () => auth.status(),
@@ -79,6 +84,7 @@ export const appChannels = {
   'auth:emailVerifyCode': (_e: unknown, email: string, code: string) =>
     auth.verifyEmailCode(email, code),
   'auth:mfaVerify': (_e: unknown, mfaToken: string, code: string) => auth.verifyMfa(mfaToken, code),
+  'auth:mfaVerifyPasskey': (_e: unknown, mfaToken: string) => auth.verifyMfaWithPasskey(mfaToken),
   'analytics:identify': (_e: unknown, userId: string, props?: Record<string, unknown>) => {
     setAnalyticsUser(userId, props)
   },
@@ -99,6 +105,9 @@ export const appChannels = {
   },
   'app:getAppIcon': () => readAppIcon(),
   'app:setAppIcon': (_e: unknown, icon: string) => setAppIcon(icon),
+  'app:getLoginItem': () => readLoginItem(app, process.platform),
+  'app:setLoginItem': (_e: unknown, openAtLogin: unknown) =>
+    writeLoginItem(app, process.platform, openAtLogin),
   'app:hideWindow': (e: IpcMainInvokeEvent) => {
     const win = BrowserWindow.fromWebContents(e.sender)
 
@@ -203,9 +212,7 @@ export const appChannels = {
     _e: IpcMainInvokeEvent,
     args: { teamId: string; sessionId?: string },
   ) => atlas.listFileTransferDownloads(args.teamId, args.sessionId),
-  'fileTransfer:revealInFolder': (_e: IpcMainInvokeEvent, path: string) => {
-    if (path) shell.showItemInFolder(path)
-  },
+  ...fileTransferReadChannels,
   // Read an attached image into a vision data URL — no upload. Also
   // registers the path so a later upload_attachment tool call can transfer it.
   'attachment:readImage': async (_e: IpcMainInvokeEvent, path: string) => {
@@ -230,59 +237,8 @@ export const appChannels = {
 
     return dirs
   },
-  'fileTransfer:downloadOne': async (
-    e: IpcMainInvokeEvent,
-    args: {
-      teamId: string
-      sessionId?: string
-      groupId: string
-      fileId: string
-      fileName: string
-      channelId?: string
-    },
-  ) => {
-    const parentWindow = BrowserWindow.fromWebContents(e.sender) ?? undefined
-    const result = await dialog.showSaveDialog(
-      parentWindow && !parentWindow.isDestroyed() ? parentWindow : (undefined as never),
-      { defaultPath: args.fileName },
-    )
-
-    if (result.canceled || !result.filePath) return { saved: false }
-    await fileTransfer.downloadOne({ ...args, destPath: result.filePath })
-
-    return { saved: true, path: result.filePath }
-  },
-  'fileTransfer:downloadAllZip': async (
-    e: IpcMainInvokeEvent,
-    args: {
-      teamId: string
-      sessionId?: string
-      groupId: string
-      zipName: string
-      channelId?: string
-    },
-  ) => {
-    const parentWindow = BrowserWindow.fromWebContents(e.sender) ?? undefined
-    const result = await dialog.showSaveDialog(
-      parentWindow && !parentWindow.isDestroyed() ? parentWindow : (undefined as never),
-      { defaultPath: args.zipName.endsWith('.zip') ? args.zipName : `${args.zipName}.zip` },
-    )
-
-    if (result.canceled || !result.filePath) return { saved: false }
-    const out = await fileTransfer.downloadAllAsZip({
-      teamId: args.teamId,
-      sessionId: args.sessionId,
-      groupId: args.groupId,
-      channelId: args.channelId,
-      destZipPath: result.filePath,
-    })
-
-    return { saved: true, path: result.filePath, ...out }
-  },
   'changelog:getState': () => getChangelogState(),
-  'updater:getState': () => getUpdaterState(),
-  'updater:check': () => checkForUpdates(),
-  'updater:install': () => installUpdate(),
+  ...updaterChannels,
 } as const
 
 // Avatar trust runs during render, so the renderer reads the endpoint synchronously.

@@ -31,9 +31,33 @@ function fallbackDirs(home: string, env: NodeJS.ProcessEnv): string[] {
     path.join(home, '.opencode', 'bin'),
     '/opt/homebrew/bin',
     '/usr/local/bin',
-    // The CLI bundled with the ChatGPT (Codex) desktop app, for users without a separate install.
-    '/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin',
   ]
+}
+
+/** The CLI a macOS desktop app ships inside itself. */
+const MAC_APP_CLI: Partial<Record<LocalAgentProvider, string>> = {
+  codex: path.join('ChatGPT.app', 'Contents', 'Resources', 'codex-cli', 'bin', 'codex'),
+  opencode: path.join('OpenCode.app', 'Contents', 'Resources', 'opencode-cli'),
+}
+
+/** The CLI a desktop app ships, for users without a separate install: the ChatGPT app carries
+ *  Codex, and the OpenCode app carries OpenCode as `opencode-cli`, never on PATH. */
+function appClis(provider: LocalAgentProvider, home: string, env: NodeJS.ProcessEnv): string[] {
+  if (process.platform === 'darwin') {
+    const inside = MAC_APP_CLI[provider]
+
+    return inside
+      ? ['/Applications', path.join(home, 'Applications')].map((dir) => path.join(dir, inside))
+      : []
+  }
+  if (provider !== 'opencode') return []
+  if (process.platform === 'win32') {
+    const localAppData = envValue(env, 'LOCALAPPDATA') ?? path.join(home, 'AppData', 'Local')
+
+    return [path.join(localAppData, 'Programs', 'OpenCode', 'resources', 'opencode-cli.exe')]
+  }
+
+  return ['/opt/OpenCode/resources/opencode-cli']
 }
 
 /** The last CLI found inside a Microsoft Store app, which only an async lookup can find. */
@@ -52,13 +76,11 @@ export function findAgentCli(provider: LocalAgentProvider, env: NodeJS.ProcessEn
     provider
   const names = process.platform === 'win32' ? [`${command}.exe`, `${command}.cmd`] : [command]
 
-  for (const dir of dirs) {
-    for (const name of names) {
-      const file = path.join(dir, name)
-
-      if (executable(file)) return file
-    }
-  }
+  for (const file of [
+    ...dirs.flatMap((dir) => names.map((name) => path.join(dir, name))),
+    ...appClis(provider, home, env),
+  ])
+    if (executable(file)) return file
   if (provider === 'claude-code') {
     const [desktop] = claudeDesktopClis(env)
 

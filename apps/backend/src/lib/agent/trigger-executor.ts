@@ -109,10 +109,7 @@ async function deliverToTargetSession(
       'agent.resource',
       triggerMetadata(trigger),
     )
-  await agentTriggers().updateOne(
-    { _id: trigger._id },
-    { $set: { lastRunAt: new Date(), updatedAt: new Date() } },
-  )
+  await agentTriggers().updateOne({ _id: trigger._id }, { $set: { lastRunAt: new Date() } })
 }
 
 /**

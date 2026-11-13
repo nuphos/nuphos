@@ -211,7 +211,7 @@ app.on('before-quit', (e) => {
 
 app
   .whenReady()
-  .then(async () => {
+  .then(() => {
     routeFetchThroughChromium(net)
     // Before any window exists: web-contents-created only fires for contents created
     // after registration, or the first window never gets the will-attach-webview hook.
@@ -246,9 +246,6 @@ app
     }
     registerAppProtocolHandler()
 
-    await k8s.init().catch((e: unknown) => {
-      console.warn('initial kube auto-connect failed:', e)
-    })
     restoreWindows()
     flushPendingDeepLinks()
     app.on('activate', () => {

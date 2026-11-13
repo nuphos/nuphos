@@ -246,6 +246,8 @@ struct SessionResource: Decodable, Identifiable, Equatable, Sendable {
     let title: String
     let url: URL
     let state: String
+    /// Linear's state type (`started`, `completed`, `canceled`, ...); absent for GitHub.
+    var stateType: String? = nil
     let repository: String?
     let number: Int?
 
@@ -254,6 +256,32 @@ struct SessionResource: Decodable, Identifiable, Equatable, Sendable {
     var chip: String {
         if let number { return "#\(number)" }
         return title.split(separator: " ").first.map(String.init) ?? title
+    }
+
+    /// Merged or closed PRs and completed or canceled issues: worth knowing,
+    /// no longer waiting on anyone.
+    var isFinished: Bool {
+        provider == "linear" ? stateType == "completed" || stateType == "canceled" : state == "merged" || state == "closed"
+    }
+
+    fileprivate var isMergedOrDone: Bool {
+        provider == "linear" ? stateType == "completed" : state == "merged"
+    }
+
+    /// What the chip folding the finished links says, as on Desktop: `13 merged`
+    /// (`2 done` when none is a PR), or `1 closed` when nothing merged.
+    static func finishedLabel(_ finished: [SessionResource]) -> String {
+        let merged = finished.filter(\.isMergedOrDone)
+        if merged.isEmpty { return "\(finished.count) closed" }
+        return "\(merged.count) \(merged.contains { $0.provider == "github" } ? "merged" : "done")"
+    }
+}
+
+extension Array where Element == SessionResource {
+    /// Open links first, in the order they were linked; finished ones after
+    /// them, as on Desktop.
+    var openFirst: (open: [SessionResource], finished: [SessionResource]) {
+        (filter { !$0.isFinished }, filter(\.isFinished))
     }
 }
 

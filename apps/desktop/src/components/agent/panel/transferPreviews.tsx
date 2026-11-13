@@ -1,12 +1,11 @@
 import clsx from 'clsx'
-import { Play } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { api } from '../../../api'
-import { t } from '../../../i18n'
 
+import { VideoThumb } from './MediaPreview'
 import { ImageAttachmentThumb, ImageLightbox } from './messageInline'
-import { MEDIA_BOX, previewKind } from './transferDownloads'
+import { previewKind } from './transferDownloads'
 
 import type { FileTransferFile } from '../../../types'
 import type { ReactNode } from 'react'
@@ -87,30 +86,13 @@ export function TransferPreviews({
         <div className={rowClass}>
           {media.map((f, i) =>
             f.video ? (
-              <button
+              <VideoThumb
                 key={f.id}
-                type="button"
-                onClick={() => setPreview(i)}
-                title={f.fileName}
-                aria-label={t('Play {name}', { name: f.fileName })}
-                className={clsx(
-                  MEDIA_BOX,
-                  'relative flex-shrink-0 cursor-zoom-in overflow-hidden rounded-lg border border-line-control bg-black',
-                )}
-              >
-                <video
-                  src={f.url}
-                  preload="metadata"
-                  muted
-                  onError={retry}
-                  className="h-full w-full object-cover"
-                />
-                <span className="absolute inset-0 flex items-center justify-center">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white">
-                    <Play className="ml-0.5 h-3.5 w-3.5 fill-current" strokeWidth={2} />
-                  </span>
-                </span>
-              </button>
+                url={f.url}
+                name={f.fileName}
+                onOpen={() => setPreview(i)}
+                onError={retry}
+              />
             ) : (
               <ImageAttachmentThumb
                 key={f.id}

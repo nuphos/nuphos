@@ -395,14 +395,19 @@ final class AuthSession {
 
     /// The second step of a sign-in that asked for it: an authenticator or
     /// recovery code. Throws when the code is refused, so the screen can say so.
-    func verifyMfa(code: String) async throws {
+    func verifyMfa(code: String) async throws { try await verifyMfa(["code": code]) }
+
+    /// The same step answered with a passkey (`Passkeys.answer`).
+    func verifyMfa(passkey: [String: Any]) async throws { try await verifyMfa(["passkey": passkey]) }
+
+    private func verifyMfa(_ answer: [String: Any]) async throws {
         guard let challenge = mfaChallenge, state != .signingIn else { return }
         let expected = generation
         state = .signingIn
         do {
-            let result: AccountAPI.SignIn = try await AccountAPI.request("mfa/verify", method: "POST", body: [
-                "mfaToken": challenge.token, "code": code,
-            ])
+            let result: AccountAPI.SignIn = try await AccountAPI.request(
+                "mfa/verify", method: "POST", body: answer.merging(["mfaToken": challenge.token]) { a, _ in a }
+            )
             mfaChallenge = nil
             await complete(token: result.token, expected: expected, origin: challenge.origin)
         } catch {

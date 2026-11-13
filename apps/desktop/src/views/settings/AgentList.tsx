@@ -12,12 +12,10 @@ import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
 export function AgentList({
   loading,
   filtered,
-  isAdmin,
   ...table
 }: Parameters<typeof AgentUsageTable>[0] & {
   loading: boolean
   filtered: boolean
-  isAdmin: boolean
 }) {
   if (table.instances.length > 0) {
     return (
@@ -27,7 +25,7 @@ export function AgentList({
     )
   }
 
-  return <AgentListPlaceholder loading={loading} filtered={filtered} isAdmin={isAdmin} />
+  return <AgentListPlaceholder loading={loading} filtered={filtered} />
 }
 
 /** One row per agent with where it runs and how much of its plan is left. */
@@ -71,20 +69,12 @@ function AgentUsageTable({
 }
 
 /** What the agent list shows before it has any agents: a skeleton, then a hint. */
-function AgentListPlaceholder({
-  loading,
-  filtered,
-  isAdmin,
-}: {
-  loading: boolean
-  filtered: boolean
-  isAdmin: boolean
-}) {
+function AgentListPlaceholder({ loading, filtered }: { loading: boolean; filtered: boolean }) {
   if (loading) return <AgentUsageSkeleton />
-  let hint = t('Ask a workspace administrator to add a runtime.')
-
-  if (filtered) hint = t('No matching runtimes.')
-  else if (isAdmin) hint = t('Add your first runtime to start an agent.')
+  // Anyone may add their own computer, so no one is sent to an administrator.
+  const hint = filtered
+    ? t('No matching runtimes.')
+    : t('Add your first runtime to start an agent.')
 
   return (
     <p className="rounded-xl border border-dashed border-line-control p-8 text-center text-sm text-tertiary">

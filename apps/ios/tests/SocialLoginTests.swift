@@ -31,6 +31,12 @@ import Foundation
         precondition(NuphosWeb.providers(header: " google,unknown,google ") == [.google])
         precondition(NuphosWeb.providers(header: "") == [])
         precondition(NuphosWeb.providers(header: nil) == [.google])
+        precondition(NuphosWeb.providers(header: "oidc,google") == [.google, .oidc])
+        precondition(NuphosWeb.options(providers: "oidc", oidcName: "Acme SSO") == .init(providers: [.oidc], oidcName: "Acme SSO"))
+        precondition(NuphosWeb.options(providers: "oidc", oidcName: nil).oidcName == "SSO")
+        precondition(NuphosWeb.options(providers: "oidc", oidcName: "  ").oidcName == "SSO")
+        let oidc = NuphosWeb.loginURL(baseURL: URL(string: "https://nuphos.example.com")!, handle: "h", provider: .oidc)
+        precondition(oidc.absoluteString == "https://nuphos.example.com/auth/social/oidc/start?handle=h")
         print("Social login callback and PKCE checks passed")
     }
 }

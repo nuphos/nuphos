@@ -45,6 +45,25 @@ support. Once support confirms who is asking, an admin calls
 `POST /admin/directory/users/:id/mfa-reset`, which turns MFA off, signs the
 account out of every session and emails the user.
 
+### Passkeys
+
+Once two-factor authentication is on, passkeys (WebAuthn) can be added as more
+ways to answer; only their public keys are stored. They belong to the RP ID in
+`WEBAUTHN_RP_ID` (default `nuphos.ai`), and a ceremony may run only on an origin
+in `WEBAUTHN_ORIGINS` (the website, and `android:apk-key-hash:…` for Android).
+
+- `POST /auth/mfa/passkeys/options`, then `POST /auth/mfa/passkeys` with
+  `{ response, name }`, add one. Like any new second factor, it takes a recent
+  check. `DELETE /auth/mfa/passkeys/:id` takes a code or a passkey.
+- Wherever a code is accepted, `{ passkey: <AuthenticationResponseJSON> }` is
+  too, answering the last challenge given out: `POST /auth/mfa/verify/options`
+  with `{ mfaToken }` for a sign-in, `POST /auth/mfa/passkey-options` for a
+  session (step-up, turning MFA off, new recovery codes). A challenge lasts five
+  minutes, and a passkey answer counts against the same failure budget as codes.
+  Passkeys ask for user verification as `preferred`, not `required`: as a
+  second factor after the first sign-in step, possession of the device is the
+  point.
+
 ## Step-up re-authentication
 
 A session counts as recently verified for 10 minutes after its sign-in, or

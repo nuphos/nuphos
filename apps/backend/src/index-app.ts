@@ -36,6 +36,7 @@ import { inviteLandingRoutes } from '@/routes/invite-landing'
 import { jiraAppRoutes } from '@/routes/jira-app'
 import { larkRoutes } from '@/routes/lark'
 import { linearAppRoutes } from '@/routes/linear-app'
+import { meetingsRoutes } from '@/routes/meetings'
 import { mcp } from '@/routes/mcp'
 import { oauthRoutes } from '@/routes/oauth'
 import { personalCredentialRoutes } from '@/routes/personal-credentials'
@@ -127,6 +128,7 @@ app.route('/github-app', githubAppRoutes)
 app.route('/gitlab-app', gitlabAppRoutes)
 app.route('/cloudflare-app', cloudflareAppRoutes)
 app.route('/linear-app', linearAppRoutes)
+app.route('/meetings', meetingsRoutes)
 app.route('/personal-credentials', personalCredentialRoutes)
 app.route('/jira-app', jiraAppRoutes)
 app.route('/asana-app', asanaAppRoutes)

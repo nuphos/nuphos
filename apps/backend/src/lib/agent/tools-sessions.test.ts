@@ -55,6 +55,10 @@ useDb({
   }),
 })
 
+let currentTitle = 'fix the deploy'
+let userRenamed = false
+const named: string[] = []
+
 useAgentDb({
   getConversations: async (viewer, options) => {
     expect(viewer).toBe('u')
@@ -93,6 +97,21 @@ useAgentDb({
   },
   renameConversation: async (sessionId, userId, teamId, title) =>
     sessionId === 'c' && userId === 'u' && teamId === 'team' && title === 'Incident review',
+  // The current task, still named after its first message unless a test renames it.
+  getConversationBySessionId: async (sessionId) =>
+    sessionId === 'c'
+      ? ({
+          sessionId,
+          title: currentTitle,
+          firstMessage: 'fix the deploy',
+          titleManuallySet: false,
+        } as never)
+      : null,
+  updateConversationTitle: async (sessionId, userId, title) => {
+    named.push(title)
+
+    return sessionId === 'c' && userId === 'u' && !userRenamed
+  },
   getConversationTranscriptForAgent: async (viewer, options) => {
     expect(viewer).toBe('u')
     if (options.sessionId === 'running') {
@@ -219,6 +238,27 @@ test('rename_conversation renames the current conversation by default', async ()
   )
 
   expect(result).toEqual({ session_id: 'c', title: 'Incident review' })
+})
+
+test('naming a task sets its title only while it still has its first message for a name', async () => {
+  const tool = createSessionTools('u', 'c', 'team').rename_conversation!
+  const name = () =>
+    tool.execute!(
+      { label: 'Name', title: 'Deploy fix', only_if_unnamed: true },
+      { toolCallId: 'name', messages: [] },
+    )
+
+  currentTitle = 'fix the deploy'
+  expect(await name()).toEqual({ session_id: 'c', title: 'Deploy fix' })
+  // The user renamed it while the turn ran: their name stays.
+  userRenamed = true
+  expect(await name()).toHaveProperty('kept')
+  userRenamed = false
+  // Named already, by the agent or anyone: not renamed again.
+  named.length = 0
+  currentTitle = 'Deploy fix'
+  expect(await name()).toHaveProperty('kept')
+  expect(named).toEqual([])
 })
 
 test('rename_conversation reports a conversation it cannot rename', async () => {

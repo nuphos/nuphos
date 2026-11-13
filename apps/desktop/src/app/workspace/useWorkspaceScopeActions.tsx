@@ -18,7 +18,7 @@ import type { WorkspaceTabSyncResult } from './useWorkspaceTabSync'
 import type { WorkspaceTeamResourcesResult } from './useWorkspaceTeamResources'
 import type { WorkspaceTeamsResult } from './useWorkspaceTeams'
 import type { WorkspaceProps } from './workspaceProps'
-import type { AgentPromptSeed } from '../../app/workspaceTabState'
+import type { AgentPromptSeed, WorkspaceTabState } from '../../app/workspaceTabState'
 import type { AgentSessionSnapshot } from '../../components/agent/AgentPanel'
 import type { Scope } from '../../types'
 
@@ -31,6 +31,44 @@ type Args = WorkspaceProps &
   WorkspaceTeamResourcesResult &
   WorkspaceNamespacesResult &
   WorkspaceAccountsResult
+
+/**
+ * A tab entering `next` on `defaultActive`, or on the scope's default page. A
+ * team lands on the agent home: Connectors is a dialog, not a page to land on.
+ */
+export function enterScopeTabUpdate(
+  tab: WorkspaceTabState,
+  next: Scope,
+  defaultActive?: string,
+): WorkspaceTabState {
+  const nextActive = defaultActive ?? (next.kind === 'team' ? 'team.agent' : DEFAULT_KEY[next.kind])
+  const keepsObservability =
+    nextActive === 'observability.dashboards' && isObservabilityActive(tab.active)
+
+  return {
+    ...tab,
+    scope: next,
+    active: nextActive,
+    // Entering the agent page (e.g. the "Home" breadcrumb) always means
+    // Agent Home, never a silently-reopened conversation — same rule as the
+    // left "Agent" nav item.
+    agentSessionId: nextActive === 'team.agent' ? null : tab.agentSessionId,
+    target: null,
+    grafanaInstance: keepsObservability ? tab.grafanaInstance : null,
+    dashboardTarget: keepsObservability ? tab.dashboardTarget : null,
+    traceDatasourceTarget: keepsObservability ? tab.traceDatasourceTarget : null,
+    logDatasourceTarget: keepsObservability ? tab.logDatasourceTarget : null,
+    // Scope changes land on a section root — drop any open connector
+    // drill-down, and any open dashboard so Dashboards shows its list page.
+    connectorDetail: null,
+    nuphosDashboard: null,
+    filter: '',
+    refreshKey: tab.refreshKey + 1,
+    count: 0,
+    viewLoading: false,
+    sshTerminal: null,
+  }
+}
 
 export function useWorkspaceScopeActions(a: Args) {
   const {
@@ -45,47 +83,7 @@ export function useWorkspaceScopeActions(a: Args) {
 
   const enterScopeInTab = useCallback(
     (tabId: string, next: Scope, defaultActive?: string) => {
-      const nextActive =
-        defaultActive ?? (next.kind === 'team' ? 'team.integrations' : DEFAULT_KEY[next.kind])
-
-      updateTab(tabId, (tab) => {
-        return {
-          ...tab,
-          scope: next,
-          active: nextActive,
-          // Entering the agent page (e.g. the "Home" breadcrumb) always means
-          // Agent Home, never a silently-reopened conversation — same rule as the
-          // left "Agent" nav item.
-          agentSessionId: nextActive === 'team.agent' ? null : tab.agentSessionId,
-          target: null,
-          grafanaInstance:
-            nextActive === 'observability.dashboards' && isObservabilityActive(tab.active)
-              ? tab.grafanaInstance
-              : null,
-          dashboardTarget:
-            nextActive === 'observability.dashboards' && isObservabilityActive(tab.active)
-              ? tab.dashboardTarget
-              : null,
-          traceDatasourceTarget:
-            nextActive === 'observability.dashboards' && isObservabilityActive(tab.active)
-              ? tab.traceDatasourceTarget
-              : null,
-          logDatasourceTarget:
-            nextActive === 'observability.dashboards' && isObservabilityActive(tab.active)
-              ? tab.logDatasourceTarget
-              : null,
-          // Scope changes land on a section root — drop any open connector
-          // basic-info drill-down so team.integrations shows the list again, and
-          // any open dashboard so Dashboards shows its list page.
-          connectorDetail: null,
-          nuphosDashboard: null,
-          filter: '',
-          refreshKey: tab.refreshKey + 1,
-          count: 0,
-          viewLoading: false,
-          sshTerminal: null,
-        }
-      })
+      updateTab(tabId, (tab) => enterScopeTabUpdate(tab, next, defaultActive))
     },
     [updateTab],
   )
@@ -110,7 +108,7 @@ export function useWorkspaceScopeActions(a: Args) {
         cur.active === 'team.agent'
           ? {
               ...cur,
-              active: 'team.integrations',
+              active: 'team.new-tab',
               filter: '',
               count: 0,
               agentSessionId: null,

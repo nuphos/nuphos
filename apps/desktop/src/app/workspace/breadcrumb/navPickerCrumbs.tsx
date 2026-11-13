@@ -109,9 +109,7 @@ export function pushNavPickerCrumbs(ctx: BreadcrumbContext, out: BreadcrumbSegme
                     ? () => updateActiveTab((tab) => ({ ...tab, connectorDetail: null }))
                     : inAgentConversation
                       ? () => updateActiveTab((tab) => ({ ...tab, agentSessionId: null }))
-                      : inPlanDetail
-                        ? () => updateActiveTab((tab) => ({ ...tab, filter: '' }))
-                        : undefined,
+                      : undefined,
     })
     if (inArchitectureDetail && architectureDetail) {
       out.push({

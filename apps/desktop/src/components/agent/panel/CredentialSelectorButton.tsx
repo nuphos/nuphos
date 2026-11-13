@@ -49,7 +49,7 @@ function SelectionButton({
   const rows = personalIdentity && !devices ? personalRows(options, value) : []
   const selectedCount = devices
     ? value.deviceIds.length
-    : countSelectedCredentials(value) + rows.filter((row) => row.checked).length
+    : countSelectedCredentials(value, options) + rows.filter((row) => row.checked).length
   const totalCount = devices ? listedDevices.length : countTotalCredentials(options) + rows.length
   const sections = useCredentialSections(options)
   const hasNew =
@@ -91,7 +91,7 @@ function SelectionButton({
       <MenuTrigger
         className={clsx(
           'relative flex flex-shrink-0 items-center justify-center gap-1.5 transition-colors text-secondary hover:text-main hover:bg-state-hover data-[popup-open]:bg-state-selected data-[popup-open]:text-main',
-          hero ? 'w-8 h-8 rounded-full' : 'w-7 h-7 rounded-md',
+          hero ? 'h-8 min-w-8 rounded-full px-2' : 'h-7 min-w-7 rounded-md px-1.5',
         )}
         title={
           hasNew
@@ -109,14 +109,10 @@ function SelectionButton({
         aria-label={title}
       >
         <Icon className={iconSize} strokeWidth={devices ? 1.75 : 2} />
-        {/* Nothing to pick yet: a "0" reads as a warning, not a count. */}
+        {/* A plain count, not a badge: nothing here waits on the person.
+            Nothing to pick yet: a "0" reads as a warning, not a count. */}
         {totalCount > 0 && (
-          <span
-            key={selectedCount}
-            className="absolute -right-1 -top-1 flex min-w-3.5 h-3.5 items-center justify-center rounded-full bg-action-primary px-0.5 text-[9.5px] text-inverse font-medium leading-none transition-[transform,opacity,background-color] duration-150 ease-out"
-          >
-            {selectedCount}
-          </span>
+          <span className="text-[11.5px] leading-none tabular-nums">{selectedCount}</span>
         )}
         {hasNew && (
           <span

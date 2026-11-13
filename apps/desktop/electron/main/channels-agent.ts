@@ -3,6 +3,8 @@ import { BrowserWindow, dialog } from 'electron'
 import * as agent from '../agent'
 import { writeComplianceExportZip } from '../complianceExport'
 
+import { agentTriggerChannels } from './channels-agent-triggers'
+
 import type { IpcMainInvokeEvent } from 'electron'
 
 export const agentChannels = {
@@ -246,53 +248,7 @@ export const agentChannels = {
     agent.getPlanApprovalPolicy(teamId),
   'agent:updatePlanApprovalPolicy': (_e: unknown, teamId: string, minimumOtherApprovals: number) =>
     agent.updatePlanApprovalPolicy(teamId, minimumOtherApprovals),
-  'agent:retryPlan': (_e: unknown, planId: string, teamId?: string) =>
-    agent.retryPlan(planId, teamId),
-  'agent:listTriggers': (_e: unknown, teamId?: string) => agent.listAgentTriggers(teamId),
-  'agent:listTriggerGroups': (_e: unknown, teamId?: string) => agent.listAgentTriggerGroups(teamId),
-  'agent:updateTriggerGroup': (
-    _e: unknown,
-    groupId: string,
-    patch: agent.UpdateAgentTriggerGroupInput,
-    teamId: string,
-  ) => agent.updateAgentTriggerGroup(groupId, patch, teamId),
-  'agent:testFireTriggerGroup': (_e: unknown, groupId: string, teamId: string) =>
-    agent.testFireAgentTriggerGroup(groupId, teamId),
-  'agent:getTrigger': (_e: unknown, triggerId: string, teamId?: string) =>
-    agent.getAgentTrigger(triggerId, teamId),
-  'agent:createTrigger': (_e: unknown, input: agent.CreateAgentTriggerInput) =>
-    agent.createAgentTrigger(input),
-  'agent:updateTrigger': (
-    _e: unknown,
-    triggerId: string,
-    patch: agent.UpdateAgentTriggerInput,
-    teamId?: string,
-  ) => agent.updateAgentTrigger(triggerId, patch, teamId),
-  'agent:deleteTrigger': (
-    _e: unknown,
-    triggerId: string,
-    teamId?: string,
-    withoutProviderCleanup?: boolean,
-  ) => agent.deleteAgentTrigger(triggerId, teamId, withoutProviderCleanup === true),
-  'agent:testFireTrigger': (
-    _e: unknown,
-    triggerId: string,
-    payload?: Record<string, unknown>,
-    teamId?: string,
-  ) => agent.testFireAgentTrigger(triggerId, payload, teamId),
-  'agent:transferTriggerExecutionPrincipal': (
-    _e: unknown,
-    triggerId: string,
-    userId: string,
-    teamId?: string,
-  ) => agent.transferAgentTriggerExecutionPrincipal(triggerId, userId, teamId),
-  'agent:transferTriggerGroupExecutionPrincipal': (
-    _e: unknown,
-    groupId: string,
-    userId: string,
-    teamId?: string,
-  ) => agent.transferAgentTriggerGroupExecutionPrincipal(groupId, userId, teamId),
-  'agent:getTriggerSchedulerStatus': () => agent.getTriggerSchedulerStatus(),
+  ...agentTriggerChannels,
   'agent:getAutoModeBypass': (_e: unknown, sessionId: string) => agent.getAutoModeBypass(sessionId),
   'agent:setAutoModeBypass': (_e: unknown, sessionId: string, bypass: boolean) =>
     agent.setAutoModeBypass(sessionId, bypass),

@@ -134,29 +134,28 @@ need to know how the transfer works.
 - **A large directory / many files** → `zip` it here first and push the
   single archive. This avoids hundreds of separate objects and is faster.
 
-### Files on the user's device (`local_exec`)
+### Files on a selected computer
 
-`transfer-push.sh` only runs in the sandbox, but the upload URLs it gets are
-presigned, so the device can PUT the bytes itself — no copying the file into
-the sandbox. Create the group here, PUT from the device, finalize here:
+When the person names a file on their computer, use **local_upload** with its
+absolute path (or `~/path`) and the selected device ID. It uses the computer's
+internal uploader and returns only `groupId`, `fileName` and `size`.
+Immediately pull that group into the agent workspace:
 
 ```bash
-# 1. Sandbox (ft helper from Auth): one entry per file. `size` must be the
-#    exact byte count — finalize rejects a mismatch. Read it on the device:
-#    `stat -f%z` (macOS), `stat -c%s` (Linux), `(Get-Item f).Length` (Windows).
-ft POST "" -d '{"direction":"download","files":[{"fileName":"menu.png","relPath":"menu.png","size":48213,"contentType":"image/png"}]}'
-# → { groupId, files: [{ relPath, uploadUrl }] }
-
-# 2. Device, via local_exec, for each file:
-curl -fsS -X PUT -H "Content-Type: image/png" --upload-file ~/shots/menu.png '<uploadUrl>'
-
-# 3. Sandbox: the card appears once the group is ready.
-ft POST "/<groupId>/finalize"
+bash skills/file-transfer/scripts/transfer-pull.sh <TEAM> <groupId> ./uploads
 ```
 
-Each `uploadUrl` can overwrite its file until it expires (~15 min), and it is
-in the transcript. Run steps 2 and 3 back to back, and never repeat the URL in
-replies, issues, or logs. The usual limits apply (see Failure handling).
+This needs an online, selected computer with local exec allowed and an updated
+Desktop or CLI host. It does not need an AWS login or a CLI transfer command.
+Only one regular file is supported; directories are not uploaded by this tool.
+A transfer has a two-minute timeout and the store's existing size/TTL limits.
+Report a missing file, offline/old host, or transfer failure directly.
+
+Signed URLs stay inside the trusted implementation. Never put them in
+`local_exec` arguments, tool results, transcript, logs or replies. Encoding a
+command does not hide its capability. Do not stage files through GitHub releases
+or another external service. Do not ask the person to drag the same file into
+chat when `local_upload` can import it.
 
 ## Failure handling
 

@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 import { config } from '@/config'
-import { composioRequest } from '@/lib/composio'
+import { composioAuthConfigId, composioRequest } from '@/lib/composio'
 import { AppError } from '@/lib/errors'
 
 const VERSION = '20261104_00'
@@ -112,13 +112,12 @@ export function trelloToolArguments(tool: string, args: Record<string, unknown>)
   if (!parsed?.success)
     throw new AppError(400, 'trello_arguments_not_allowed', 'Unsupported Trello tool arguments')
 
-  return parsed.data
+  // Every input of the pinned Composio Trello tools is a string; numbers and booleans fail there.
+  return Object.fromEntries(Object.entries(parsed.data).map(([key, value]) => [key, String(value)]))
 }
 
-export function trelloAuthConfig(): string {
-  const { apiKey, trelloAuthConfigId } = config.byos.composio
-
-  if (!apiKey || !trelloAuthConfigId) {
+function trelloAuthConfig(): Promise<string> {
+  if (!config.byos.composio.apiKey) {
     throw new AppError(
       503,
       'trello_not_configured',
@@ -126,14 +125,14 @@ export function trelloAuthConfig(): string {
     )
   }
 
-  return trelloAuthConfigId
+  return composioAuthConfigId('trello')
 }
 
 export async function trelloConnectLink(userId: string, callbackUrl: string) {
   const link = await composioRequest<{ redirect_url: string; connected_account_id: string }>(
     'POST',
     '/connected_accounts/link',
-    { auth_config_id: trelloAuthConfig(), user_id: userId, callback_url: callbackUrl },
+    { auth_config_id: await trelloAuthConfig(), user_id: userId, callback_url: callbackUrl },
   )
 
   if (
@@ -174,7 +173,7 @@ export async function verifyTrelloConnection(accountId: string, userId: string) 
     account.status !== 'ACTIVE' ||
     account.user_id !== userId ||
     account.toolkit?.slug !== 'trello' ||
-    account.auth_config?.id !== trelloAuthConfig()
+    account.auth_config?.id !== (await trelloAuthConfig())
   ) {
     throw new AppError(
       403,
@@ -195,7 +194,7 @@ export async function executeTrelloTool(
   const toolArguments = trelloToolArguments(tool, args)
 
   await verifyTrelloConnection(accountId, userId)
-  const result = await composioRequest<{ successful: boolean; data: unknown; error?: unknown }>(
+  const result = await composioRequest<{ successful: boolean; data: unknown; log_id?: unknown }>(
     'POST',
     `/tools/execute/${tool}`,
     {
@@ -210,7 +209,9 @@ export async function executeTrelloTool(
     throw new AppError(
       502,
       'trello_tool_failed',
-      'Trello denied or could not complete this operation. Do not automatically retry a write.',
+      // The upstream error text can echo request URLs, so only Composio's log id goes out:
+      // it finds the exact failure in the Composio dashboard's logs.
+      `Trello denied or could not complete this operation (Composio log ${typeof result.log_id === 'string' ? result.log_id : 'unavailable'}). Do not automatically retry a write.`,
     )
 
   return { successful: true, data: result.data }

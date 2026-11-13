@@ -1,9 +1,12 @@
 import { receiveAgentAvatars } from '../lib/agentAvatarChoices.ts'
 import { publishRuntimeStates } from '../lib/agentRuntimeStates.ts'
 import { receiveConversationReadStates } from '../lib/agentUnreadSessions.ts'
+import { queryClient } from '../lib/query/client.ts'
+import { queryKeys } from '../lib/query/keys.ts'
 import { receiveSubAgents } from '../lib/subAgentIds.ts'
 
 import type { AgentAuditListArgs, AgentMemoryScope } from './agent-audit-types.ts'
+import type { DecisionAnswer } from './agent-chat-types.ts'
 import type {
   CreateAgentTriggerInput,
   UpdateAgentTriggerGroupInput,
@@ -26,6 +29,12 @@ export const agentApi = {
     teamId?: string,
     resolution?: 'answered' | 'dismissed',
   ) => window.api.agentResolveDecision(sessionId, toolCallId, teamId, resolution),
+  agentAnswerDecision: (
+    sessionId: string,
+    requestId: string,
+    teamId: string | undefined,
+    answer: DecisionAnswer,
+  ) => window.api.agentAnswerDecision(sessionId, requestId, teamId, answer),
   agentGetSessionResources: (sessionId: string, teamId: string) =>
     window.api.agentGetSessionResources(sessionId, teamId),
   agentUnlinkSessionResource: (sessionId: string, teamId: string, resourceId: string) =>
@@ -116,6 +125,8 @@ export const agentApi = {
     window.api.agentSetConversationWatched(sessionId, watching, teamId),
   agentUnlinkConversationParent: (sessionId: string, teamId?: string) =>
     window.api.agentUnlinkConversationParent(sessionId, teamId),
+  agentRecordFork: (sessionId: string, forkSessionId: string, teamId?: string) =>
+    window.api.agentRecordFork(sessionId, forkSessionId, teamId),
   agentRecordEditFork: (sessionId: string, forkSessionId: string, teamId?: string) =>
     window.api.agentRecordEditFork(sessionId, forkSessionId, teamId),
   agentCancelRuntime: (sessionId: string, teamId?: string) =>
@@ -171,7 +182,7 @@ export const agentApi = {
     teamId?: string
     credentialAccess: AgentCredentialSelection
   }) => window.api.agentUpdateConversationCredentials(args),
-  agentSyncConversationTranscript: (args: {
+  agentSyncConversationTranscript: async (args: {
     agentRuntime?: AgentProvider
     runtimeId?: string
     sessionId: string
@@ -180,7 +191,11 @@ export const agentApi = {
     messages: AgentPersistedMessage[]
     baseIndex?: number
     import?: boolean
-  }) => window.api.agentSyncConversationTranscript(args),
+  }) => {
+    await window.api.agentSyncConversationTranscript(args)
+    if (args.import && args.teamId)
+      void queryClient.invalidateQueries({ queryKey: queryKeys.agentSessions(args.teamId) })
+  },
   agentDeleteConversation: (sessionId: string, teamId?: string) =>
     window.api.agentDeleteConversation(sessionId, teamId),
   agentSendMessageFeedback: (args: {
@@ -224,8 +239,8 @@ export const agentApi = {
   agentGetPlanApprovalPolicy: (teamId: string) => window.api.agentGetPlanApprovalPolicy(teamId),
   agentUpdatePlanApprovalPolicy: (teamId: string, minimumOtherApprovals: number) =>
     window.api.agentUpdatePlanApprovalPolicy(teamId, minimumOtherApprovals),
-  agentRetryPlan: (planId: string, teamId?: string) => window.api.agentRetryPlan(planId, teamId),
-  agentListTriggers: (teamId?: string) => window.api.agentListTriggers(teamId),
+  agentListTriggers: (teamId?: string, targetSessionId?: string) =>
+    window.api.agentListTriggers(teamId, targetSessionId),
   agentListTriggerGroups: (teamId?: string) => window.api.agentListTriggerGroups(teamId),
   agentUpdateTriggerGroup: (groupId: string, patch: UpdateAgentTriggerGroupInput, teamId: string) =>
     window.api.agentUpdateTriggerGroup(groupId, patch, teamId),

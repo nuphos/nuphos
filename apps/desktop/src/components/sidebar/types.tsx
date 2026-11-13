@@ -14,7 +14,11 @@ import type { ReactNode } from 'react'
 
 export type Item = {
   /** Derived from actual execution, open requests and personal reminders. */
+  unread?: boolean
+  lastActiveAt?: string
   taskState?: 'attention' | 'working' | 'idle'
+  /** First read task after the inbox, within the same keyed list. */
+  taskDivider?: boolean
 
   key: string
   label: string
@@ -239,6 +243,8 @@ export type SidebarProps = {
   onRejectInvitation?: (invitationId: string) => Promise<void>
   rootIntegrations?: Item[]
   rootIntegrationsLoading?: boolean
+  /** Whether the Connectors dialog is open, for the footer button's pressed state. */
+  connectorsOpen?: boolean
   /** Whether the team already has a Slack workspace bound. */
   slackConnected?: boolean
   /** Start the Slack install flow (shown by the post-onboarding promo card). */

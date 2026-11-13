@@ -26,6 +26,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.credentials.exceptions.GetCredentialCancellationException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -35,7 +36,13 @@ import kotlinx.coroutines.launch
  * refused; its message then shows under the field.
  */
 @Composable
-fun MfaCodeForm(submitLabel: String, onSubmit: suspend (String) -> Unit, modifier: Modifier = Modifier) {
+fun MfaCodeForm(
+    submitLabel: String,
+    onSubmit: suspend (String) -> Unit,
+    modifier: Modifier = Modifier,
+    /** Offered when the account may answer with a passkey instead. */
+    passkey: (suspend () -> Unit)? = null,
+) {
     val scope = rememberCoroutineScope()
     var code by remember { mutableStateOf("") }
     var recovery by remember { mutableStateOf(false) }
@@ -75,6 +82,19 @@ fun MfaCodeForm(submitLabel: String, onSubmit: suspend (String) -> Unit, modifie
             if (busy) CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.padding(end = 8.dp))
             Text(if (busy) "Verifying…" else submitLabel)
         }
+        if (passkey != null) {
+            TextButton(enabled = !busy, onClick = {
+                busy = true
+                scope.launch {
+                    try { passkey() }
+                    catch (e: CancellationException) { throw e }
+                    // Dismissing the system sheet is not an error worth showing.
+                    catch (_: GetCredentialCancellationException) {}
+                    catch (e: Exception) { error = e.message }
+                    finally { busy = false }
+                }
+            }) { Text("Use a passkey") }
+        }
         TextButton(onClick = { recovery = !recovery; code = ""; error = null }) {
             Text(if (recovery) "Use your authenticator app" else "Use a recovery code")
         }
@@ -84,14 +104,21 @@ fun MfaCodeForm(submitLabel: String, onSubmit: suspend (String) -> Unit, modifie
 
 /** A dialog that asks for a code before an action: settings, and every step-up. */
 @Composable
-fun MfaCodeDialog(title: String, text: String, submitLabel: String, onSubmit: suspend (String) -> Unit, onDismiss: () -> Unit) {
+fun MfaCodeDialog(
+    title: String,
+    text: String,
+    submitLabel: String,
+    onSubmit: suspend (String) -> Unit,
+    onDismiss: () -> Unit,
+    passkey: (suspend () -> Unit)? = null,
+) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(text)
-                MfaCodeForm(submitLabel, onSubmit)
+                MfaCodeForm(submitLabel, onSubmit, passkey = passkey)
             }
         },
         confirmButton = {},
@@ -106,6 +133,7 @@ fun StepUpDialogHost() {
         StepUp.hosted = true
         onDispose { StepUp.hosted = false; StepUp.cancel() }
     }
+    val activity = androidx.activity.compose.LocalActivity.current
     if (StepUp.token != null) {
         MfaCodeDialog(
             title = "Confirm it’s you",
@@ -113,6 +141,7 @@ fun StepUpDialogHost() {
             submitLabel = "Continue",
             onSubmit = { StepUp.submit(it) },
             onDismiss = { StepUp.cancel() },
+            passkey = if (activity != null) ({ StepUp.submitPasskey(activity) }) else null,
         )
     }
 }

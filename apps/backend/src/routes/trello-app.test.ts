@@ -1,8 +1,9 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { afterAll, afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test'
 import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
 import { config } from '@/config'
+import * as composioClient from '@/lib/composio'
 import { errorHandler } from '@/lib/errors'
 import { useModels } from '@/lib/test/doubles/models'
 
@@ -27,14 +28,19 @@ let staged: Record<string, unknown>[]
 let stored: TrelloIntegrationBinding[]
 let writes: number
 let calls: string[]
+let callbackUrls: string[]
 let deleted: string[]
 let profileFails: boolean
 let cleanupFails: boolean
 let role: 'ADMINISTRATOR' | 'VIEWER'
 const realFetch = globalThis.fetch
+const authConfigSpy = spyOn(composioClient, 'composioAuthConfigId').mockResolvedValue('ac_fixture')
+
+afterAll(() => authConfigSpy.mockRestore())
 const saved = {
   ...config.byos.composio,
   publicBackendUrl: config.agent.publicBackendUrl,
+  backendUrl: config.agent.backendUrl,
   deferred: config.byos.connectorOAuthDeferredBind,
 }
 
@@ -87,13 +93,17 @@ beforeEach(() => {
   profileFails = false
   cleanupFails = false
   role = 'ADMINISTRATOR'
-  Object.assign(config.byos.composio, { apiKey: 'fixture-key', trelloAuthConfigId: 'ac_fixture' })
+  Object.assign(config.byos.composio, { apiKey: 'fixture-key' })
   config.agent.publicBackendUrl = 'https://app.example'
+  config.agent.backendUrl = undefined
+  callbackUrls = []
   config.byos.connectorOAuthDeferredBind = false
   globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
     const path = new URL(url instanceof Request ? url.url : url.toString()).pathname
 
     calls.push(path)
+    if (path.endsWith('/link'))
+      callbackUrls.push((JSON.parse(init?.body as string) as { callback_url: string }).callback_url)
     if (init?.method === 'DELETE') {
       deleted.push(path)
       if (cleanupFails)
@@ -120,10 +130,11 @@ beforeEach(() => {
 })
 afterEach(() => {
   globalThis.fetch = realFetch
-  const { publicBackendUrl, deferred, ...composio } = saved
+  const { publicBackendUrl, backendUrl, deferred, ...composio } = saved
 
   Object.assign(config.byos.composio, composio)
   config.agent.publicBackendUrl = publicBackendUrl
+  config.agent.backendUrl = backendUrl
   config.byos.connectorOAuthDeferredBind = deferred
 })
 
@@ -157,6 +168,21 @@ describe('Trello managed OAuth lifecycle', () => {
     expect(
       (await app().request('/trello-integrations/start-oauth', { method: 'POST' })).status,
     ).toBe(403)
+    expect(calls).toHaveLength(0)
+  })
+  test('falls back to a public NUPHOS_BACKEND_URL like the other connectors', async () => {
+    config.agent.publicBackendUrl = undefined
+    config.agent.backendUrl = 'https://api.example'
+    const { state } = await start()
+
+    expect(callbackUrls).toEqual([`https://api.example/trello-app/setup?state=${state}`])
+  })
+  test('refuses to start without a public HTTPS backend URL', async () => {
+    config.agent.publicBackendUrl = undefined
+    config.agent.backendUrl = 'http://nuphos-backend.prod.svc:3000'
+    const response = await app().request('/trello-integrations/start-oauth', { method: 'POST' })
+
+    expect(response.status).toBe(503)
     expect(calls).toHaveLength(0)
   })
   test('callback stages the original account and never trusts a callback account ID', async () => {

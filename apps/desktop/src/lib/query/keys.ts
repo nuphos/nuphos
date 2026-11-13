@@ -23,4 +23,17 @@ export const queryKeys = {
   runtimeMetrics: (teamId: string, runtimeId: string, hours: number) =>
     [...queryKeys.team(teamId), 'runtime-metrics', runtimeId, hours] as const,
   runtimeFallback: (teamId: string) => [...queryKeys.team(teamId), 'runtime-fallback'] as const,
+  iamPermissions: (teamId: string, provider: string, id: string, principal = '') =>
+    [...queryKeys.team(teamId), 'iam', provider, id, principal] as const,
+  audit: (teamId: string, ...filters: (string | boolean)[]) =>
+    [...queryKeys.team(teamId), 'audit', ...filters] as const,
+  memories: (teamId: string, scope: string, state = 'live') =>
+    [...queryKeys.team(teamId), 'memories', scope, state] as const,
+  grafanaInstances: (teamId: string) => [...queryKeys.team(teamId), 'grafana'] as const,
+  /** Under `grafanaInstances`, so refreshing the bindings refreshes what was read through them. */
+  grafana: (teamId: string, instanceId: string, ...rest: string[]) =>
+    [...queryKeys.grafanaInstances(teamId), instanceId, ...rest] as const,
+  /** A Cloudflare account's resources, e.g. `cloudflare(teamId, accountId, 'pages', name)`. */
+  cloudflare: (teamId: string, accountId: string, ...resource: string[]) =>
+    [...queryKeys.team(teamId), 'cloudflare', accountId, ...resource] as const,
 }

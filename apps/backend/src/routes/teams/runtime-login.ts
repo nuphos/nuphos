@@ -7,25 +7,44 @@ import {
   submitRuntimeLoginCode,
 } from '@/lib/claude-code-preview/runtime-login'
 import { publicLogin, readRuntimeLogin } from '@/lib/claude-code-preview/runtime-login-store'
+import { requireDeviceAccess } from '@/lib/agent/devices/box-access'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
+import { AppError } from '@/lib/errors'
 import { zv } from '@/lib/validate'
 import { requireTeamRole } from '@/middleware/auth'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
 import type { Hono, MiddlewareHandler } from 'hono'
 
-/**
- * Signing a team's agent in is an administrator's job. A member's own computer or
- * Box is theirs: its runtime id names them, and the endpoint resolution refuses
- * anyone else, so the role check is skipped for it.
- */
-export const requireLoginRole: MiddlewareHandler<{ Variables: TeamAuthVariables }> = async (
-  c,
-  next,
-) => {
-  if (parseLocalRuntimeId(c.req.param('runtimeId') ?? '')?.userId === c.get('userId')) await next()
-  else await requireTeamRole('ADMINISTRATOR')(c, next)
+/** Whether this person manages the computer; a Box's owner is whoever holds it now. */
+async function managesComputer(userId: string, teamId: string, deviceId: string): Promise<boolean> {
+  try {
+    await requireDeviceAccess(userId, teamId, deviceId, 'manage')
+
+    return true
+  } catch (error) {
+    if (error instanceof AppError && error.status === 404) return false
+    throw error
+  }
 }
+
+/**
+ * Signing a team's agent in is an administrator's job. Those who manage a computer sign in its
+ * agents themselves, a Box's new owner included, though its runtime id still names the
+ * transport user; those who only use it do not. The endpoint resolution checks access again.
+ */
+export function loginRole(
+  manages: typeof managesComputer = managesComputer,
+): MiddlewareHandler<{ Variables: TeamAuthVariables }> {
+  return async (c, next) => {
+    const ref = parseLocalRuntimeId(c.req.param('runtimeId') ?? '')
+
+    if (ref && (await manages(c.get('userId'), c.get('teamId'), ref.deviceId))) await next()
+    else await requireTeamRole('ADMINISTRATOR')(c, next)
+  }
+}
+
+export const requireLoginRole = loginRole()
 
 export function registerRuntimeLoginRoutes(teamScoped: Hono<{ Variables: TeamAuthVariables }>) {
   const path = '/agent-runtimes/:runtimeId/login'

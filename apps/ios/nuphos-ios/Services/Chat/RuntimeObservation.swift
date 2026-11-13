@@ -34,6 +34,10 @@ struct RuntimeObservation: Equatable, Sendable {
         !turnActive && snapshot["schemaVersion"]?.numberValue == 2 && phase == "background_tools"
     }
     var paused: Bool { phase == "resume_disconnected" }
+    /// A registered request a person answers (approval, plan, decision); a client tool is the device's.
+    var awaitsPerson: Bool {
+        snapshot["requests"]?.arrayValue?.contains { $0["kind"]?.stringValue != "client-tool" } == true
+    }
     /// The server answered but had no usable status: the runtime is
     /// unreachable, or too old to report one. Time spent in the background
     /// or on another screen does not make a status unknown, it only makes

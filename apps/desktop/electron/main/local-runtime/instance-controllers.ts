@@ -3,42 +3,27 @@ import path from 'node:path'
 
 import { parseInstance, readInstances, writeInstances } from './agent-instances.ts'
 import { deleteClaudeKeychainEntry } from './claude-keychain.ts'
-import { removeDefaultAgent } from './default-agent.ts'
+import { defaultAgentRequest } from './default-agent.ts'
 import { userDir } from './controller-types.ts'
 import { instanceControllerDeps, secureStorageEnv } from './instance-deps.ts'
+import { instanceStates, instanceStatus, publicMetadata } from './instance-entries.ts'
 
 import type { LocalAgentProvider } from './agent-cli.ts'
 import type { AgentInstanceRecord } from './agent-instances.ts'
-import type { LocalRuntimeControllerDeps, LocalRuntimeState } from './controller-types.ts'
+import type { LocalRuntimeControllerDeps } from './controller-types.ts'
+import type { RefreshDefault } from './default-agent.ts'
+import type { Controller, Entry } from './instance-entries.ts'
 import type { RunningRuntime } from './openab-process.ts'
-import type { LocalRuntimeTunnelStatus } from './tunnel-protocol.ts'
-
-type Controller = {
-  setUser(userId: string | null): Promise<void>
-  shutdown(): Promise<void>
-  refresh(restart: boolean): Promise<LocalRuntimeState>
-  state(): LocalRuntimeState
-  runtime(provider: LocalAgentProvider): RunningRuntime | null
-  status(): LocalRuntimeTunnelStatus
-}
 
 /** A sign-in left unfinished this long is abandoned: its login has long expired. */
 export const PENDING_TTL_MS = 20 * 60_000
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u
 
-type Entry = {
-  metadata: AgentInstanceRecord
-  controller: Controller
-  starting?: Promise<void>
-  expiry?: ReturnType<typeof setTimeout>
-}
-
 export type InstanceControllersOptions = {
   now?: () => number
   /** Deletes what a removed agent stored outside its own directory. */
   removeCredential?: (env: NodeJS.ProcessEnv) => Promise<void>
-  /** Restarts the computer's own agent of a provider, once its login is gone. */
-  restartDefault?: (provider: LocalAgentProvider) => Promise<unknown>
+  refreshDefault?: RefreshDefault
 }
 
 /**
@@ -56,7 +41,7 @@ export class InstanceControllers {
   private readonly changed: () => void
   private readonly now: () => number
   private readonly removeCredential: (env: NodeJS.ProcessEnv) => Promise<void>
-  private readonly restartDefault?: InstanceControllersOptions['restartDefault']
+  private readonly refreshDefault?: RefreshDefault
   private userId: string | null = null
   constructor(
     deps: LocalRuntimeControllerDeps,
@@ -69,7 +54,7 @@ export class InstanceControllers {
     this.changed = changed
     this.now = options.now ?? Date.now
     this.removeCredential = options.removeCredential ?? deleteClaudeKeychainEntry
-    this.restartDefault = options.restartDefault
+    this.refreshDefault = options.refreshDefault
   }
 
   async load(userId: string | null): Promise<void> {
@@ -116,28 +101,11 @@ export class InstanceControllers {
   }
 
   states(online: boolean) {
-    return [...this.entries.values()].map(({ metadata, controller }) => ({
-      ...publicMetadata(metadata),
-      ...controller.state().agents[metadata.provider],
-      workspace: controller.state().workspace,
-      online: online && controller.runtime(metadata.provider) !== null,
-    }))
+    return instanceStates(this.entries.values(), online)
   }
 
-  status(): NonNullable<LocalRuntimeTunnelStatus['instances']> {
-    return [...this.entries.values()].map(({ metadata, controller }) => {
-      const cli = controller.state().agents[metadata.provider].cli
-
-      return {
-        ...publicMetadata(metadata),
-        ...controller.status().agents[metadata.provider],
-        cli: {
-          installed: cli?.installed ?? false,
-          loggedIn: cli?.installed ? cli.loggedIn : false,
-          ...(cli?.installed && cli.apiKey ? { apiKey: true as const } : {}),
-        },
-      }
-    })
+  status() {
+    return instanceStatus(this.entries.values())
   }
 
   private add(metadata: AgentInstanceRecord, userId: string): Entry {
@@ -232,8 +200,8 @@ export class InstanceControllers {
     const body = request as { method?: string; instanceId?: unknown; provider?: unknown }
 
     // The computer's own agent is named by its provider, an added one by its instance id.
-    if (body.method === 'remove' && body.instanceId === undefined)
-      return removeDefaultAgent(this.deps, userId, body.provider, this.restartDefault)
+    if (body.instanceId === undefined && (body.method === 'remove' || body.method === 'commit'))
+      return defaultAgentRequest(this.deps, userId, body.method, body.provider, this.refreshDefault)
 
     if (body.method === 'list')
       return {
@@ -292,9 +260,4 @@ export class InstanceControllers {
 
     return { instance: publicMetadata(record) }
   }
-}
-
-/** What the backend sees: legacy records count as signed-in agents until settled. */
-function publicMetadata({ instanceId, provider, label, state }: AgentInstanceRecord) {
-  return { instanceId, provider, label, state: state ?? ('ready' as const) }
 }

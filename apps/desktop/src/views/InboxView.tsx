@@ -2,11 +2,7 @@ import clsx from 'clsx'
 import { Inbox } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { AgentPanel } from '../components/agent/AgentPanel'
-import { conversationQuestions } from '../components/agent/panel/replyTarget'
-import { chatOfBot } from '../components/channels/botChannel'
 import { EmptyState } from '../components/EmptyState'
-import { useAgentSessions } from '../components/sidebar/agentSessions'
 import { useElementSize } from '../grafana/useElementSize'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { t } from '../i18n'
@@ -17,16 +13,10 @@ import { inboxQuestions, openQuestion } from './inbox/inboxItems'
 import { QuestionRail } from './inbox/QuestionRail'
 import { ShareApprovalRequests } from './inbox/ShareApprovalRequests'
 import { useChannelMentions } from './inbox/useChannelMentions'
-import {
-  answerInChat,
-  answerQuestion,
-  useAnsweredOnDevice,
-  useInboxListing,
-} from './inbox/useInbox'
+import { answerDecision, useAnsweredOnDevice, useInboxListing } from './inbox/useInbox'
 import { useShareApprovals } from './inbox/useShareApprovals'
 
 import type { InboxQuestion } from './inbox/inboxItems'
-import type { JournalChatTarget } from '../lib/journalEvent'
 
 // Below this the page shows the list alone, and a row opens its conversation.
 const TWO_PANE_MIN_WIDTH = 720
@@ -45,9 +35,8 @@ type Props = {
  * Teammates asking to use the viewer's own computer and channel @mentions,
  * above every open question waiting on the viewer, one row each, the same rows
  * the sidebar badge counts. The reader shows the selected question as a card:
- * a choice, or a short reply typed on the card, answers it. Its conversation,
- * with the full composer, stays hidden until asked for; only delivery or
- * dismissal clears a question.
+ * a choice, or an answer typed on the card, answers it. Its conversation opens
+ * in its own tab; only an answer or dismissal clears a question.
  */
 export function InboxView({
   teamId,
@@ -61,16 +50,7 @@ export function InboxView({
   const { ref, width } = useElementSize<HTMLDivElement>()
   const twoPane = width === 0 || width >= TWO_PANE_MIN_WIDTH
   const listing = useInboxListing(teamId, refreshKey).data ?? null
-  // The sidebar's conversations: where a Bot's chat is.
-  const known = useAgentSessions(teamId).data
   const [selected, setSelected] = useState<{ id: string; index: number } | null>(null)
-  // The reader shows the question; the transcript only when asked for, at the question.
-  const [showConversation, setShowConversation] = useState(false)
-  // "Other…" opens the conversation to type the answer in its composer.
-  const [typeAnswer, setTypeAnswer] = useState(false)
-  const [locate, setLocate] = useState<{ sessionId: string; target: JournalChatTarget } | null>(
-    null,
-  )
   // Another team's selection is no answer for this one.
   const [shownTeamId, setShownTeamId] = useState(teamId)
 
@@ -99,14 +79,10 @@ export function InboxView({
   useEffect(() => onCount?.(all?.length ?? 0), [all?.length, onCount])
 
   const select = useCallback((row: InboxQuestion | undefined, list: readonly InboxQuestion[]) => {
-    setShowConversation(false)
-    setLocate(null)
     setSelected(row ? { id: row.request.id, index: list.indexOf(row) } : null)
   }, [])
-  const consumeLocate = useCallback(() => setLocate(null), [])
 
-  // Enter or → moves from the list into the card's reply field,
-  // or the conversation's composer when it is shown; Esc comes back.
+  // Enter or → moves from the list into the card's answer field; Esc comes back.
   useEffect(() => {
     if (!isActive || !twoPane) return
     const onKeyDown = (event: KeyboardEvent) => {
@@ -124,16 +100,11 @@ export function InboxView({
         return
       }
       if ((event.key === 'Enter' || event.key === 'ArrowRight') && !typing && inRail) {
-        // The first match can be a hidden copy; the field is the one that takes focus.
-        const composers = readerRef.current?.querySelectorAll<HTMLElement>('[aria-label="Message"]')
+        const field = readerRef.current?.querySelector<HTMLElement>('input[type="text"]')
 
-        for (const composer of composers ?? []) {
-          composer.focus()
-          if (document.activeElement === composer) {
-            event.preventDefault()
-
-            return
-          }
+        if (field) {
+          event.preventDefault()
+          field.focus()
         }
       }
     }
@@ -146,19 +117,6 @@ export function InboxView({
   const empty = all !== null && all.length === 0
   const caughtUp = empty && shareApprovals.approvals.length === 0 && mentions.length === 0
   const sessionId = open?.conversation.sessionId
-
-  const openTranscript = () => {
-    setShowConversation(true)
-    if (open)
-      setLocate({
-        sessionId: open.conversation.sessionId,
-        target: {
-          toolCallId: open.request.id,
-          question: open.request.question,
-          options: open.request.options,
-        },
-      })
-  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -202,51 +160,10 @@ export function InboxView({
               title={open.conversation.title}
               request={open.request}
               canManage={Boolean(open.conversation.canManage) && !open.conversation.readOnly}
-              showingConversation={showConversation}
-              onAnswer={(text) => {
-                // A Bot's own question is answered in its chat, where the answer shows.
-                const chat = chatOfBot(known, sessionId)
-
-                void (chat
-                  ? answerInChat(teamId, chat, open.request.id, text)
-                  : answerQuestion(teamId, sessionId, open.request.id, text))
-              }}
-              onShowConversation={() => {
-                setTypeAnswer(false)
-                openTranscript()
-              }}
-              onReply={() => {
-                setTypeAnswer(true)
-                if (!showConversation) openTranscript()
-                else
-                  readerRef.current?.querySelector<HTMLElement>('[contenteditable="true"]')?.focus()
-              }}
-              onHideConversation={() => setShowConversation(false)}
+              // The answer wakes the agent that asked, which replies where it asked.
+              onAnswer={(answer) => void answerDecision(teamId, sessionId, open.request.id, answer)}
               onOpenConversation={() => onOpenConversation(sessionId)}
             />
-            {/* The conversation, with its full composer, once asked for. */}
-            {showConversation && (
-              <div className="flex min-h-0 flex-1 flex-col">
-                <AgentPanel
-                  key="inbox"
-                  variant="page"
-                  open
-                  focusComposerOnOpen={typeAnswer}
-                  teamId={teamId}
-                  sessionId={sessionId}
-                  decisionReplyTo={open.request.id}
-                  openQuestions={conversationQuestions(open.conversation)}
-                  pendingLocate={locate}
-                  onLocateConsumed={consumeLocate}
-                  onSessionChange={(id) =>
-                    select(
-                      rows?.find((row) => row.conversation.sessionId === id),
-                      rows ?? [],
-                    )
-                  }
-                />
-              </div>
-            )}
           </div>
         )}
       </div>

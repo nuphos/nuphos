@@ -15,6 +15,8 @@ import { useDecisionKeys } from './useDecisionKeys'
 
 import type { ConnectCardContextValue } from './connectCardContext'
 import type { DecisionQuestion } from './decisionFormModel'
+import type { DecisionCardRef } from './replyTarget'
+import type { DecisionAnswer } from '../../../api/agent-chat-types'
 
 const TITLE: Record<string, string> = {
   approval: t('Approval needed'),
@@ -25,10 +27,11 @@ const TITLE: Record<string, string> = {
 }
 
 /**
- * A user decision other than a Connect card: the question, with each option sent
- * as the reply, like quick-reply chips, and "Other…" to type an answer in the
- * composer instead. A multi-select or several questions are a form sent as one
- * reply. Once answered, the options go: the answer is the reply bubble that follows.
+ * A user decision other than a Connect card: the question, with each option an
+ * answer, like quick-reply chips, and "Other…" to type one in the card instead;
+ * where the card is the page it is read on (the Inbox), the text box is always there.
+ * A multi-select or several questions are a form sent as one answer. The answer
+ * wakes the agent that asked; no message is sent. Once answered, the options go.
  */
 export function ChoiceCard({
   toolCallId,
@@ -53,20 +56,21 @@ export function ChoiceCard({
   canAct: boolean
 }) {
   const ctx = useContext(ConnectCardContext)
-  const answer = useContext(DecisionAnswersContext).get(toolCallId)
-  const [sent, setSent] = useState<string | null>(null)
-  const chosen = answer?.option ?? sent
-  const interactive = Boolean(ctx) && canAct && !chosen
-  const form = formQuestions({ question, options, multiSelect, questions })
+  // What the server recorded when it woke the agent with the answer, read from the transcript.
+  const recorded = useContext(DecisionAnswersContext).get(toolCallId)?.option
+  const { chosen, failed, submit } = useSubmit(ctx, { toolCallId, question, options }, recorded)
+  const [typing, setTyping] = useState(false)
+  const interactive = Boolean(ctx?.answer) && canAct && !chosen
+  const typeable = interactive && category !== 'credential'
+  // The Inbox shows the text box at once, beside the options, rather than behind "Other…".
+  const inline = typeable && Boolean(ctx?.fullBody)
+  // "Other…" is the same form with the question alone and no options.
+  const form = typing
+    ? [{ question, options: [], multiSelect: false }]
+    : formQuestions({ question, options, multiSelect, questions })
   const live = interactive && (form !== null || options.length > 0)
-  const reply = typedReply(ctx, interactive, category)
   const cardRef = useRef<HTMLDivElement | null>(null)
-  const choose = (option: string) => {
-    if (!ctx || ctx.send(option, { toolCallId, question, options }) === false) return false
-    setSent(option)
-
-    return true
-  }
+  const choose = (option: string) => submit({ choices: [option] })
   const act = useDecisionKeys(cardRef, live, (key) => {
     // A form's options are toggles, not answers.
     const option = key.kind === 'option' && !form ? options[key.index] : undefined
@@ -91,28 +95,83 @@ export function ChoiceCard({
         </div>
         <AgentQuote text={question} />
         <DecisionBody text={ownBody(body, questions)} full={ctx?.fullBody} />
+        <AnswerStatus recorded={recorded} failed={failed} />
       </div>
       {!chosen &&
         (form ? (
           <DecisionForm
             questions={form}
             disabled={!interactive}
-            onSubmit={(text) => act(() => choose(text))}
+            onSubmit={(answer) => act(() => submit(answer))}
           />
         ) : (
-          <ChoiceActions
-            options={options}
-            interactive={interactive}
-            canAct={canAct}
-            onChoose={(option) => act(() => choose(option))}
-            onReply={reply && (() => reply({ toolCallId, question, options }))}
-          />
+          <>
+            {(options.length > 0 || !inline) && (
+              <ChoiceActions
+                options={options}
+                interactive={interactive}
+                canAct={canAct}
+                onChoose={(option) => act(() => choose(option))}
+                onReply={typeable && !inline ? () => setTyping(true) : undefined}
+              />
+            )}
+            {inline && (
+              <DecisionForm
+                questions={[{ question, options: [], multiSelect: false }]}
+                disabled={false}
+                onSubmit={(answer) => act(() => submit(answer))}
+              />
+            )}
+          </>
         ))}
     </div>
   )
 }
 
-/** One option per reply button, and "Other…" to answer in the composer instead. */
+/**
+ * Sends a card's answer: the card goes quiet at once, and is live again with
+ * an error if the server refuses it or it could not be sent.
+ */
+function useSubmit(
+  ctx: ConnectCardContextValue | null,
+  card: DecisionCardRef,
+  recorded: string | undefined,
+) {
+  const [sent, setSent] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const submit = (answer: DecisionAnswer) => {
+    const taken = ctx?.answer?.(answer, card)
+
+    if (taken === false) return false
+    setSent(true)
+    setFailed(false)
+    void Promise.resolve(taken).then((ok) => {
+      if (ok !== false) return
+      setSent(false)
+      setFailed(true)
+    })
+
+    return true
+  }
+
+  return { chosen: sent || recorded !== undefined, failed, submit }
+}
+
+/** What answered the card, or that its answer was not taken. */
+function AnswerStatus({ recorded, failed }: { recorded: string | undefined; failed: boolean }) {
+  if (recorded)
+    return (
+      <div className="mt-2 text-[12.5px] text-secondary">
+        {t('Answered: {answer}', { answer: recorded })}
+      </div>
+    )
+
+  return failed ? (
+    <div className="mt-2 text-[12px] text-status-danger">{t('Could not send your answer')}</div>
+  ) : null
+}
+
+/** One option per answer button, and "Other…" to type the answer in the card instead. */
 function ChoiceActions({
   options,
   interactive,
@@ -160,11 +219,6 @@ function ChoiceActions({
       )}
     </div>
   )
-}
-
-/** "Other…": a typed answer in the composer while the card is live; never a credential's value, which must not become a message. */
-function typedReply(ctx: ConnectCardContextValue | null, interactive: boolean, category: string) {
-  return interactive && category !== 'credential' ? ctx?.reply : undefined
 }
 
 /** The question's markdown body, a few lines at first; "Show more" reveals the rest. */

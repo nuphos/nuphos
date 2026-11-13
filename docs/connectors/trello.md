@@ -6,13 +6,15 @@ The Composio API key remains on the backend. Jira authorization is not reused.
 
 ## Server configuration
 
-Set the existing `NUPHOS_COMPOSIO_API_KEY` and add
-`NUPHOS_COMPOSIO_TRELLO_AUTH_CONFIG_ID`. In the corresponding Composio project,
-configure a Trello auth config using Composio-managed OAuth1. Use the hosted
-Connect Link flow; legacy managed-account initiation is unsupported. No SDK or
-additional secret-storage service is required.
+Set `NUPHOS_COMPOSIO_API_KEY` to a Composio project's API key. That turns on
+every Composio connector, Trello included; there is no separate Trello switch.
+The backend uses the project's oldest Composio-managed Trello auth config, and
+creates one when the project has none. Connections use the hosted Connect Link
+flow; legacy managed-account initiation is unsupported. No SDK or additional
+secret-storage service is required.
 
-Set `NUPHOS_PUBLIC_BACKEND_URL` to the backend's public HTTPS origin. The generated
+The backend needs a public HTTPS origin, resolved like the other OAuth connectors:
+`NUPHOS_PUBLIC_BACKEND_URL`, or `NUPHOS_BACKEND_URL` when that is public. The generated
 Connect Link returns to `<origin>/trello-app/setup?state=…`, then opens the
 `nuphos://trello-callback` application link. Completion requires the initiating
 administrator's authenticated session and a one-time code. Trello always uses
@@ -20,8 +22,7 @@ this deferred completion, including when legacy connectors bind immediately.
 
 No real Composio connection or Trello account is required for the fixture tests.
 Production configuration and a human completing consent remain deployment steps;
-this feature does not create a Trello application or enable any connection by
-itself. Never paste API keys or provider tokens into an agent conversation.
+no Trello connection is made without that consent. Never paste API keys or provider tokens into an agent conversation.
 
 ## Connecting and using an account
 

@@ -1,3 +1,5 @@
+import type { DecisionAnswer } from '../../../api/agent-chat-types.ts'
+
 /** One question of a decision card: its choices, and whether several may be picked. */
 export type DecisionQuestion = { question: string; options: string[]; multiSelect: boolean }
 
@@ -61,24 +63,19 @@ export function answerText(picked: readonly string[], typed: string): string {
   return typed.trim() || picked.join(', ')
 }
 
-/**
- * The one message a form sends: a lone question's answer as is, or each
- * question followed by its answer.
- */
-export function formReply(questions: readonly DecisionQuestion[], answers: readonly string[]) {
-  if (questions.length === 1) return answers[0] ?? ''
+/** What a form answers: one question's picks or typed text, or one entry per question. */
+export function formAnswer(
+  questions: readonly DecisionQuestion[],
+  picked: readonly (readonly string[])[],
+  typed: readonly string[],
+): DecisionAnswer {
+  const one = (index: number) => {
+    const words = typed[index]?.trim()
 
-  return questions.map((q, index) => `${q.question}\n${answers[index] ?? ''}`).join('\n\n')
-}
+    return words ? { text: words } : { choices: [...(picked[index] ?? [])] }
+  }
 
-/** Whether a reply is the one a form sent, so its card shows as answered. */
-export function answersForm(questions: readonly DecisionQuestion[], text: string): boolean {
-  const first = questions.at(0)
-
-  if (!first) return false
-  if (questions.length > 1) return text.startsWith(`${first.question}\n`)
-
-  return text.split(', ').every((part) => first.options.includes(part))
+  return questions.length === 1 ? one(0) : { questions: questions.map((_, index) => one(index)) }
 }
 
 /** `list` with its `index` entry replaced. */

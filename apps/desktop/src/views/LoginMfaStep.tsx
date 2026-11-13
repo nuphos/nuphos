@@ -23,6 +23,7 @@ export function LoginMfaStep({
       <MfaCodeForm
         submitLabel={t('Verify code')}
         onSubmit={async (code) => onLogin(await api.authMfaVerify(mfaToken, code))}
+        onPasskey={async () => onLogin(await api.authMfaVerifyPasskey(mfaToken))}
       />
       <Button
         type="button"

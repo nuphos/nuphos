@@ -177,7 +177,7 @@ export function InstructionEditorDialog({
               maxLength={limits.contentChars}
               rows={14}
               placeholder={t(
-                '- Always open a Plan before changing production.\n- Reply in English.',
+                '- Always ask before deleting a production resource.\n- Reply in English.',
               )}
               className={clsx(inputClasses, 'h-auto resize-y py-2 font-mono text-[12.5px]')}
             />

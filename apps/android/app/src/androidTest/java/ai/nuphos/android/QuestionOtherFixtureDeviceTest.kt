@@ -2,7 +2,6 @@ package ai.nuphos.android
 
 import android.graphics.Bitmap
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Surface
@@ -19,24 +18,14 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import ai.nuphos.android.data.Http
-import ai.nuphos.android.data.TransferDownloadGroup
-import ai.nuphos.android.model.AgentConversationDetail
-import ai.nuphos.android.model.ChannelAgent
-import ai.nuphos.android.model.ComposerAttachment
 import ai.nuphos.android.model.CredentialRef
 import ai.nuphos.android.model.InputRequest
 import ai.nuphos.android.session.AgentStore
 import ai.nuphos.android.session.BotQuestion
-import ai.nuphos.android.session.ChannelSession
-import ai.nuphos.android.session.ChatSession
 import ai.nuphos.android.ui.LocalAgentStore
 import ai.nuphos.android.ui.LocalAuthSession
-import ai.nuphos.android.ui.chat.ChatComposer
 import ai.nuphos.android.ui.chats.BotQuestionCard
-import ai.nuphos.android.ui.chats.ReplyChip
 import ai.nuphos.android.ui.theme.NuphosTheme
-import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -44,8 +33,9 @@ import org.junit.runner.RunWith
 import java.io.File
 
 /**
- * "Other…" on a question card starts the answer in the composer, quoting the question, and a plan
- * keeps only Approve and Reject. Synthetic questions only; no account, network or preference.
+ * A question card is answered in place: an option, or words typed in the card, never the composer and
+ * never a bare "Done.". A plan keeps only Approve and Reject. Synthetic questions only; no account,
+ * network or preference.
  */
 @RunWith(AndroidJUnit4::class)
 class QuestionOtherFixtureDeviceTest {
@@ -58,66 +48,44 @@ class QuestionOtherFixtureDeviceTest {
     private val plan = BotQuestion("bot-release", "Release Lead",
         InputRequest("q-plan", "approval", "Approve the plan \"Move staging to the new cluster\"?", listOf("Approve", "Reject"), planId = "p1"))
 
-    /** A Bot's 1:1 chat with no posts yet. */
-    private class Transport : ChannelSession.Transport {
-        override suspend fun detail(tail: Int): AgentConversationDetail = Http.json.decodeFromString(
-            """{"kind":"channel","title":"Release Lead","faces":[{"id":"bot-release","name":"Release Lead","agent":{"avatar":"05"}}],"messages":[]}""")
-        override suspend fun agents() = emptyList<ChannelAgent>()
-        override suspend fun attachment(groupId: String): TransferDownloadGroup = error("No files in this fixture")
-        override suspend fun upload(attachments: List<ComposerAttachment>): String = error("Not posting in this fixture")
-        override suspend fun post(text: String, id: String, upload: String?, replyTo: String?, decisionReplyTo: String?) =
-            error("Not posting in this fixture")
-    }
-
-    @Test fun inABotChatOtherQuotesTheQuestionAboveTheComposer() {
-        val session = ChannelSession("team", "chat-release", "Release Lead", Transport())
-        runBlocking { session.refresh(force = true) }
+    @Test fun inABotChatOtherOpensATextBoxInTheCard() {
+        val answers = mutableListOf<String>()
         screen {
             Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
                 for (question in listOf(deploy, plan)) {
-                    BotQuestionCard(question, onOpen = {}, onAnswer = {}, showsFrom = false, onReply = { session.reply(question) })
+                    BotQuestionCard(question, onOpen = {}, onAnswer = { answers += it }, showsFrom = false)
                 }
             }
-            session.replying?.let { ReplyChip(it) { session.replying = null } }
-            ChatComposer(isStreaming = false, onSend = { false })
         }
-        // Other… beside the options; nothing on the plan.
+        // Other… beside the options; nothing on the plan; no text box until asked for.
         compose.onAllNodesWithTag("bot-question-other").assertCountEquals(1)
+        compose.onAllNodesWithTag("bot-question-answer").assertCountEquals(0)
         capture("bot-chat")
         compose.onNodeWithText("Other…").performClick()
-        compose.onNodeWithTag("channel-reply-chip").assertIsDisplayed()
-        assertEquals(deploy.quote, session.replying)
+        compose.onNodeWithTag("bot-question-answer").performTextInput("After QA signs off")
         capture("bot-chat-other")
+        compose.onNodeWithTag("bot-question-send").performClick()
+        assertEquals(listOf("After QA signs off"), answers)
     }
 
-    @Test fun fromTheInboxOtherOpensTheConversationComposerAnsweringIt() {
-        var conversation by mutableStateOf<ChatSession?>(null)
+    @Test fun inTheInboxTheTextBoxIsOnTheCard() {
+        val answers = mutableListOf<String>()
         screen {
-            val store = LocalAgentStore.current
-            val chat = conversation
-            if (chat == null) {
-                Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
-                    for (question in listOf(deploy, staging, plan)) {
-                        BotQuestionCard(question, onOpen = {}, onAnswer = {}, onReply = {
-                            // As the Inbox does: the conversation's session answers it, then the conversation opens.
-                            conversation = store.session(question.sessionId, question.title).also { it.answering = question }
-                        })
-                    }
+            Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
+                for (question in listOf(deploy, staging, plan)) {
+                    BotQuestionCard(question, onOpen = {}, onAnswer = { answers += it }, answersInPlace = true)
                 }
-            } else {
-                Spacer(Modifier.weight(1f))
-                chat.answering?.let { ReplyChip(it.quote) { chat.answering = null } }
-                ChatComposer(isStreaming = false, onSend = { false })
             }
         }
-        // Other… beside options, Reply… without them, nothing on the plan.
-        compose.onAllNodesWithTag("bot-question-other").assertCountEquals(2)
-        compose.onNodeWithText("Reply…").assertIsDisplayed()
+        // A text box on each card answered in words, the plan excepted; no "Other…" and no "Mark as done".
+        compose.onAllNodesWithTag("bot-question-answer").assertCountEquals(2)
+        compose.onAllNodesWithTag("bot-question-other").assertCountEquals(0)
+        compose.onNodeWithText("Mark as done").assertDoesNotExist()
         capture("inbox")
-        compose.onNodeWithText("Other…").performClick()
-        compose.onNodeWithTag("channel-reply-chip").assertIsDisplayed()
-        assertEquals(deploy, conversation?.answering)
-        capture("inbox-other")
+        compose.onAllNodesWithTag("bot-question-answer")[1].performTextInput("The arm64 pool")
+        compose.onAllNodesWithTag("bot-question-send")[1].performClick()
+        compose.onAllNodesWithText("Ship it")[0].performClick()
+        assertEquals(listOf("The arm64 pool", "Ship it"), answers)
     }
 
     @Test fun anIntegrationQuestionChoosesCredentialsInTheInbox() {
@@ -155,11 +123,11 @@ class QuestionOtherFixtureDeviceTest {
         }
     }
 
-    /** Saved under the app's files, `review-2012/`, for the PR's screenshots. */
+    /** Saved under the app's files, `review-2298/`, for the PR's screenshots. */
     private fun capture(name: String) {
         compose.waitForIdle()
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val directory = File(context.getExternalFilesDir(null), "review-2012").apply { mkdirs() }
+        val directory = File(context.getExternalFilesDir(null), "review-2298").apply { mkdirs() }
         val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot() ?: error("Screenshot unavailable")
         File(directory, "$name.png").outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
     }

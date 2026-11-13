@@ -75,6 +75,7 @@ export function useWorkspaceBreadcrumb(a: Args) {
     accounts,
     loadLkeClustersForAccount,
     enterScope,
+    openConnectors,
     switchTeam,
     enterCluster,
     onSidebarSelect,
@@ -106,6 +107,7 @@ export function useWorkspaceBreadcrumb(a: Args) {
         accounts,
         clusterLabel,
         enterScope,
+        openConnectors,
         switchTeam,
         enterCluster: (params) => {
           void enterCluster(params)
@@ -156,6 +158,7 @@ export function useWorkspaceBreadcrumb(a: Args) {
       accounts,
       clusterLabel,
       enterScope,
+      openConnectors,
       switchTeam,
       enterCluster,
       clustersByParent,

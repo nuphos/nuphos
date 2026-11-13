@@ -14,6 +14,9 @@ export const teamApi = {
     ipcRenderer.invoke('atlas:deleteTeamGoogleClient', teamId),
   ...runtimeApi,
   updaterInstall: () => ipcRenderer.invoke('updater:install'),
+  updaterGetAutoInstall: () => ipcRenderer.invoke('updater:getAutoInstall'),
+  updaterSetAutoInstall: (enabled: boolean) =>
+    ipcRenderer.invoke('updater:setAutoInstall', { enabled }),
   onUpdaterStatus: (cb: (state: unknown) => void) => {
     const handler = (_e: unknown, state: unknown) => cb(state)
 

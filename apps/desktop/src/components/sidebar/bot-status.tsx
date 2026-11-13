@@ -1,4 +1,3 @@
-import { setOpenedFromBots } from '../../lib/botNestedSelection'
 import { ChatIcon } from '../channels/channelParts'
 
 import { activityOf } from './bot-activity'
@@ -21,7 +20,7 @@ function rowDot(activity: Activity, unread: boolean): 'waiting' | 'unread' | nul
  * The rows for one Bot's chat. While the Bot or any of its sub-agents works,
  * its face plays its idle loop, the name shimmers and the preview line shows
  * the typing dots with the working run's latest message. Under the chat come
- * the Bot's own Task and that Task's sub-agents, nested as Tasks lists them.
+ * its actual sub-agents, without repeating the Bot's own execution as a row.
  */
 export function botChatRows({
   chat,
@@ -31,7 +30,7 @@ export function botChatRows({
   teamId,
   unread,
   openId,
-  fromBots,
+  unreadIds = new Set<string>(),
 }: {
   chat: Item
   faces: ChannelFace[] | undefined
@@ -41,16 +40,15 @@ export function botChatRows({
   unread: boolean
   /** The chat open in the pane, if any. */
   openId: string | undefined
-  /** Tasks last opened from under their Bot rather than from Tasks. */
-  fromBots: ReadonlySet<string>
+  unreadIds?: ReadonlySet<string>
 }): Item[] {
   const copy = (run: Run, parentKey: string): Item => ({
     ...chatSidebarItem({
       conversation: run.conversation,
       teamId,
-      active: openId === run.conversation.sessionId && fromBots.has(run.conversation.sessionId),
+      active: openId === run.conversation.sessionId,
       runtimeState: run.runtimeState,
-      unread: false,
+      unread: unreadIds.has(run.conversation.sessionId),
     }),
     parentKey,
     bot: false,
@@ -58,12 +56,8 @@ export function botChatRows({
     task: true,
     preview: undefined,
     time: undefined,
-    onPress: () => setOpenedFromBots(run.conversation.sessionId, true),
   })
-  const botKey = bot ? `agent-session:${bot.conversation.sessionId}` : chat.key
-  // The Bot's own Task stays in view: it is the Bot, not a finished sub-agent to fold away.
-  const own = bot ? [{ ...copy(bot, chat.key), finished: false }] : []
-  const nested = [...own, ...kids.map((kid) => copy(kid, botKey))]
+  const nested = kids.map((kid) => copy(kid, chat.key))
   // A sub-agent at work is the Bot at work.
   const activity = activityOf(bot, kids)
   const busy = activity.kind === 'working' || activity.kind === 'background'

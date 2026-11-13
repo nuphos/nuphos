@@ -140,7 +140,7 @@ private struct MarkdownImage: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         #if os(iOS)
-        .fullScreenCover(isPresented: $previewing) { ImagePager(urls: [url], current: url) }
+        .fullScreenCover(isPresented: $previewing) { MediaPager(urls: [url], current: url) }
         #endif
     }
 }
@@ -232,6 +232,10 @@ private struct MarkdownTextRepresentable: UIViewRepresentable {
         /// The view `applied` refers to.
         private weak var appliedView: MarkdownTextView?
         private var width: CGFloat = 0
+        /// A code block or table is drawn as wide as the label, but the label
+        /// is only as wide as its longest line of text, so a short line above
+        /// one would leave it a sliver. Text with one takes the whole width.
+        private var fills = false
         private var pending: (text: String, theme: MarkdownTheme)?
         private var lastApplyDate: Date = .distantPast
         private var scheduled: Task<Void, Never>?
@@ -287,7 +291,7 @@ private struct MarkdownTextRepresentable: UIViewRepresentable {
                 return nil
             }
             let size = view.boundingSize(for: fittingWidth)
-            return CGSize(width: min(fittingWidth, ceil(size.width)), height: ceil(size.height))
+            return CGSize(width: fills ? fittingWidth : min(fittingWidth, ceil(size.width)), height: ceil(size.height))
         }
 
         private func apply(text: String, theme: MarkdownTheme, to view: MarkdownTextView) {
@@ -301,6 +305,7 @@ private struct MarkdownTextRepresentable: UIViewRepresentable {
             } else {
                 MarkdownContent(markdown: text, theme: theme)
             }
+            fills = content.blocks.contains(where: \.isWide)
             view.setContentImmediately(content, theme: theme)
             view.invalidateIntrinsicContentSize()
             lastText = text
@@ -401,6 +406,14 @@ private extension MarkdownContent {
 }
 
 private extension MarkdownBlockNode {
+    /// A code block or a table, which the package draws as a view the label's width.
+    var isWide: Bool {
+        switch self {
+        case .codeBlock, .table: true
+        default: children.contains(where: \.isWide)
+        }
+    }
+
     var keepingLineBreaks: MarkdownBlockNode {
         switch self {
         case let .paragraph(content): .paragraph(content: content.map(\.keepingLineBreaks))

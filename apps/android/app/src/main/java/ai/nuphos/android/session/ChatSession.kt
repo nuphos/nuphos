@@ -39,7 +39,7 @@ class ChatSession(
     private val token: String,
     val teamId: String,
     val sessionId: String = UUID.randomUUID().toString().lowercase(),
-    title: String = "New agent",
+    title: String = "New task",
     private val transfers: AttachmentTransfers = AttachmentTransfers(),
     private val readDetail: suspend (String, String, String) -> AgentConversationDetail = NuphosApi::conversationDetail,
     private val aiAllowed: () -> Boolean = AiAccess.bind(token),
@@ -393,13 +393,6 @@ class ChatSession(
             if (detail.isChannel) markChannel()
             // Nothing stored is still stored: every kind shows, and a save sends back only what changed.
             credentialAccess = CredentialSelection(detail.credentialAccess ?: JsonValue.Obj(emptyMap()))
-            scope.launch {
-                if (!hasAiAccess) return@launch
-                runCatching { readBypass(token, sessionId) }.getOrNull()?.let {
-                    if (!hasAiAccess) return@launch
-                    permissionMode = if (it) PermissionMode.Bypass else PermissionMode.Auto
-                }
-            }
             val run = detail.activeRun
             if (run != null) {
                 val lastUser = msgs.indexOfLast { it.role == ChatMessage.Role.User }
@@ -414,6 +407,9 @@ class ChatSession(
             loadError = null
             recordReadTranscript(detail)
             lastSyncedSignature = signature()
+            runCatching { readBypass(token, sessionId) }.getOrNull()?.let {
+                if (hasAiAccess) permissionMode = if (it) PermissionMode.Bypass else PermissionMode.Auto
+            }
         } catch (e: Exception) {
             if (!hasAiAccess || detailGeneration != detailLoadGeneration) return
             draftAccessInvalidated = e is NuphosApi.Failure.Unauthorized || (e is NuphosApi.Failure.Http && e.code in setOf(403, 404))
@@ -446,11 +442,7 @@ class ChatSession(
         val name = part.secretRequest?.name ?: return
         val path = AgentChatApi.saveSecret(token, teamId, sessionId, name, value)
         runCatching { AgentChatApi.resolveDecision(token, teamId, sessionId, part.decisionRequestId) }
-        // The saved path answers the secret's own request, never a question quoted for "Other…".
-        val quoted = answering
-        answering = null
         send(ChatPart.Tool.SecretRequest.savedReply(name) + path)
-        answering = quoted
     }
 
     /** The first reply after the message that asked, if anyone replied yet. */
@@ -468,9 +460,6 @@ class ChatSession(
         readOnly = true
         draftAccessInvalidated = true
     }
-
-    /** The open question the next message answers, quoted above the composer: the Inbox's "Other…". */
-    var answering by mutableStateOf<BotQuestion?>(null)
 
     fun send(submission: ComposerSubmission): Boolean {
         if (isChannel) return false
@@ -565,9 +554,6 @@ class ChatSession(
             if (trimmed.isNotEmpty()) queued = queued + trimmed
             return true
         }
-        // Words for the quoted question answer it, as its options do; with files, a message answering nothing.
-        val answers = answering?.request?.id?.takeIf { attachments.isEmpty() }
-        answering = null
         val reply = isNative && canReply
         if (reply) lockRuntimeReply()
         submissionPending = true
@@ -582,7 +568,7 @@ class ChatSession(
         }
         val message = retryUserMessage?.takeIf { retrySubmission == submission } ?: ChatMessage(role = ChatMessage.Role.User, parts = parts)
         submissionAccepted = false
-        scope.launch { dispatch(message, if (trimmed.isEmpty()) "Photo" else trimmed, reply, answers) }
+        scope.launch { dispatch(message, if (trimmed.isEmpty()) "Photo" else trimmed, reply) }
         return true
     }
 
@@ -594,7 +580,7 @@ class ChatSession(
         if (queued.isEmpty()) { steeringRetryRequired = false; if (!steeringUnconfirmed) error = null }
     }
 
-    private suspend fun dispatch(message: ChatMessage, titleText: String, reply: Boolean = false, decisionReplyTo: String? = null) {
+    private suspend fun dispatch(message: ChatMessage, titleText: String, reply: Boolean = false) {
         if (!permissions.writable) { rejectedSubmission = pendingSubmission; pendingSubmission = null; submissionPending = false; return }
         val wasEmpty = messages.isEmpty()
         val lastAssistant = messages.indexOfLast { it.role == ChatMessage.Role.Assistant }
@@ -614,7 +600,7 @@ class ChatSession(
         scrollToLatestRevision += 1
         syncTranscriptNow()
         if (!hasAiAccess) return
-        startTurn(TurnOptions(streamId = newId(), resumeReason = if (reply) "runtime-reply" else null, permissionMode = if (wasEmpty) permissionMode.raw else null, initialSessionConfig = if (wasEmpty) initialModelPick else null, decisionReplyTo = decisionReplyTo))
+        startTurn(TurnOptions(streamId = newId(), resumeReason = if (reply) "runtime-reply" else null, permissionMode = if (wasEmpty) permissionMode.raw else null, initialSessionConfig = if (wasEmpty) initialModelPick else null))
     }
 
     enum class ApprovalDecision { Once, Session, Always, Deny }
@@ -750,8 +736,6 @@ class ChatSession(
         val resumeReason: String? = null,
         val permissionMode: String? = null,
         val initialSessionConfig: Map<String, String>? = null,
-        /** The open question the message answers. */
-        val decisionReplyTo: String? = null,
     )
 
     private sealed class TurnResult {
@@ -760,6 +744,8 @@ class ChatSession(
         data object Aborted : TurnResult()
         /** The server holds the message in the session queue; the idle poll follows its turn. */
         data object Queued : TurnResult()
+        /** The turn's stream is gone but a run is live: attach to that one. */
+        data class Follow(val options: TurnOptions) : TurnResult()
     }
 
     private data class Paused(val reason: String, val detail: JsonValue?) {
@@ -797,6 +783,10 @@ class ChatSession(
                         finishTurn(result.message, result.definiteRejection)
                         return@launch
                     }
+                    is TurnResult.Follow -> {
+                        startTurn(result.options)
+                        return@launch
+                    }
                     is TurnResult.Completed -> {
                         if (isNative) { releaseAcceptedAttachmentCopies(); submissionPending = false; replySubmissionPending = false; pendingSubmission = null; runtimeRecoveryRequired = false; isStreaming = false; phaseLabel = null; reloadFromServer(); return@launch }
                         if (!result.sawTurnComplete && (result.paused == null || result.paused.autoResumable) && autoResumeAttempts < 10) {
@@ -824,6 +814,8 @@ class ChatSession(
         submissionPending = false
         if (message != null && pendingSubmission != null) {
             if (definiteRejection && !submissionAccepted) {
+                // The server never took it: its bubble goes, and sending the draft again brings it back with the same id.
+                pendingUserMessage?.let { pending -> messages = messages.filterNot { it.id == pending.id } }
                 rejectedSubmission = pendingSubmission
                 retrySubmission = pendingSubmission
                 retryUserMessage = pendingUserMessage
@@ -1133,14 +1125,7 @@ class ChatSession(
             val run = detail.activeRun
             val follow = followOptions(run?.streamId)
             if (follow != null) {
-                recallRows = emptySet()
-                readTranscript = null
-                if (isNative) adoptMessages(detail.messages, detail.messagesFirstIndex ?: 0)
-                else {
-                    val lastUser = detail.messages.indexOfLast { it.role == ChatMessage.Role.User }
-                    messages = if (lastUser >= 0) detail.messages.take(lastUser + 1) else detail.messages
-                    baseIndex = detail.messagesFirstIndex ?: 0
-                }
+                adoptBeforeFollowing(detail)
                 startTurn(follow)
                 continue
             }
@@ -1157,6 +1142,17 @@ class ChatSession(
         }
     }
 
+    private fun adoptBeforeFollowing(detail: AgentConversationDetail) {
+        recallRows = emptySet()
+        readTranscript = null
+        if (isNative) adoptMessages(detail.messages, detail.messagesFirstIndex ?: 0)
+        else {
+            val lastUser = detail.messages.indexOfLast { it.role == ChatMessage.Role.User }
+            messages = if (lastUser >= 0) detail.messages.take(lastUser + 1) else detail.messages
+            baseIndex = detail.messagesFirstIndex ?: 0
+        }
+    }
+
     private fun resumeAssistantIndex(streamId: String, cursor: Int): Int? {
         if (!isNative || cursor <= 0) return null
         val id = streamAssistantIds[streamId] ?: return null
@@ -1170,6 +1166,7 @@ class ChatSession(
         var freshRetries = 0
         var idleTimeouts = 0
         var gatewayRetries = 0
+        var notReadyRetries = 0
         var forceFresh = false
         var usedFreshFallback = false
         var accepted = false
@@ -1203,7 +1200,6 @@ class ChatSession(
                 runtimeId = if (shouldResume == true) null else outgoingCreationBinding?.runtimeId,
                 agentRuntime = if (shouldResume == true) null else outgoingCreationBinding?.agentRuntime,
                 initialSessionConfig = if (firstPost && !shouldResume) options.initialSessionConfig else null,
-                decisionReplyTo = if (firstPost) options.decisionReplyTo else null,
             )
             var needsFreshRetry = false
             var terminal = false
@@ -1265,17 +1261,50 @@ class ChatSession(
             if (err is SseClient.Failure.BadStatus) {
                 if (pendingSubmission != null && !accepted && err.code >= 500) return TurnResult.Failed("Message delivery is unconfirmed. Resume the original connection.")
                 val conflict = AgentChatApi.conflict(err.code, err.rawBody ?: err.body)
+                val code = (conflict as? AgentChatApi.Conflict.Other)?.code
                 when {
                     // The runtime refused the start and the server put the message back in its queue: it wasn't refused.
-                    (conflict as? AgentChatApi.Conflict.Other)?.code == "message_queued" -> return TurnResult.Queued
-                    !isNative && pendingSubmission == null && conflict is AgentChatApi.Conflict.StreamNotResumable && shouldResume && resumeFrom == 0 && !options.explicitResume && !usedFreshFallback -> {
+                    code == "message_queued" -> return TurnResult.Queued
+                    // A resume for a conversation the server never created: send it as the first request, as iOS does.
+                    shouldResume && resumeFrom == 0 && !options.explicitResume && !usedFreshFallback &&
+                        ((err.code == 404 && code == "not_found") ||
+                            (!isNative && pendingSubmission == null && conflict is AgentChatApi.Conflict.StreamNotResumable)) -> {
                         usedFreshFallback = true
+                        if (conflict is AgentChatApi.Conflict.StreamNotResumable) {
+                            val detail = runCatching { readDetail(token, teamId, sessionId) }.getOrNull()
+                                ?: return TurnResult.Failed(conflict.message ?: conflict.toString())
+                            val sent = messages.lastOrNull { it.role == ChatMessage.Role.User }?.id
+                            when (val next = StreamGone.decide(detail.messages, detail.activeRun?.streamId, sent)) {
+                                is StreamGone.Follow -> {
+                                    val follow = followOptions(next.streamId) ?: return TurnResult.Failed(conflict.message ?: conflict.toString())
+                                    adoptBeforeFollowing(detail)
+                                    return TurnResult.Follow(follow)
+                                }
+                                StreamGone.Replied -> {
+                                    adoptMessages(detail.messages, detail.messagesFirstIndex ?: 0)
+                                    return TurnResult.Completed(sawTurnComplete = true, paused = null)
+                                }
+                                StreamGone.Resend -> Unit
+                            }
+                        }
                         forceFresh = true
                         continue
                     }
                     conflict is AgentChatApi.Conflict.TranscriptOutOfSync && !sendFullTranscript -> {
                         if (conflict.storedMessageCount != null && rebaseTo == null) rebaseTo = conflict.storedMessageCount else sendFullTranscript = true
                         continue
+                    }
+                    // A send the server queue doesn't take can still meet a runtime that is starting up.
+                    code == "runtime_not_accepting_message" && !accepted && notReadyRetries < 30 -> {
+                        notReadyRetries += 1
+                        phaseLabel = "Waiting for the runtime to be ready…"
+                        delay(backoff(notReadyRetries, 0.5, 3.0).toLong())
+                        continue
+                    }
+                    // Messages here the server never stored: take the server's transcript.
+                    code == "invalid_message_batch" && !accepted -> {
+                        runCatching { readDetail(token, teamId, sessionId) }.getOrNull()?.let { adoptMessages(it.messages, it.messagesFirstIndex ?: 0) }
+                        return TurnResult.Failed("This agent changed elsewhere and was reloaded. Retry to send your message.", definiteRejection = true)
                     }
                     conflict is AgentChatApi.Conflict.Other && reconnects == 0 && err.code in GATEWAY && gatewayRetries < 3 -> {
                         gatewayRetries += 1

@@ -798,12 +798,12 @@ impl AdapterRouter {
         );
 
         if let Err(e) = self.pool.get_or_create(&thread_key, None, &[], None).await {
-            let msg = format_user_error(&e.to_string());
+            let msg = format_user_error(&e);
             let _ = adapter
                 .send_message(&ctx.thread_channel, &format!("⚠️ {msg}"))
                 .await;
             error!("pool error: {e}");
-            return Err(e);
+            return Err(e.into());
         }
 
         // In assistant-status mode (e.g. Slack assistant_mode), status is conveyed

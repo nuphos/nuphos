@@ -65,10 +65,8 @@ export const STALL_WINDOW_AWAITING_MODEL_MS = 60_000
 // 90s window raced it and aborted the turn just short of the tool result.
 export const STALL_WINDOW_TOOL_EXECUTION_MS = 150_000
 // Wall-clock ceiling for a HEADLESS turn (Slack, Lark, Discord, MCP,
-// triggers). There is no tool-call cap any more, and the remaining defenses all
-// need something to go wrong: the stop gate needs the model to try to finish,
-// runaway detection needs repeated failures, the watchdogs need silence. A loop
-// that keeps making successful tool calls trips none of them — in-app that is
+// triggers). There is no tool-call cap any more, and the watchdogs only trip on
+// silence. A loop that keeps making successful tool calls never trips them — in-app that is
 // what the Stop button is for, and headless has no Stop button. Generous enough
 // that real work (a 23-minute cluster build-out is on record) finishes well
 // inside it; this is a runaway fuse, not a budget.
@@ -92,8 +90,8 @@ export const AGENT_TURN_START_EVENT = 'atlas-turn-start'
 //
 // There is deliberately no tool-call step cap: the agent loop runs until the
 // model itself stops calling tools. A turn that keeps going is bounded by the
-// stop gate, the runaway wrap-up nudge, and the user's Stop button — not by a
-// step budget that cuts the model off mid-work.
+// user's Stop button and HEADLESS_TURN_DEADLINE_MS — not by a step budget that
+// cuts the model off mid-work.
 export const AGENT_TURN_PAUSED_EVENT = 'atlas-turn-paused'
 // Synthetic user turn appended when a continuation transcript would otherwise
 // end on an assistant message — extended-thinking models reject assistant
@@ -105,7 +103,7 @@ export const SYNTHETIC_CONTINUATION_PREFIX = '[automatic continuation — not ty
 export const SYNTHETIC_CONTINUATION_USER_TEXT = `${SYNTHETIC_CONTINUATION_PREFIX} The previous assistant turn was interrupted before completing. Continue from where it left off, taking the partial assistant content above into account. Do not repeat work that already completed.`
 
 // Matches every server- or client-injected synthetic user turn (prefill
-// guard, incomplete-tool resume nudge, stop-gate continuation) — all share
+// guard, incomplete-tool resume nudge) — all share
 // the same prefix. These are request shaping, not real user turns, and must
 // stay out of durable compaction summaries.
 export class AgentStreamSilenceTimeout extends Error {

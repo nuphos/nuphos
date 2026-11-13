@@ -6,11 +6,13 @@ import { Hono } from 'hono'
 import { config } from '@/config'
 import { errorHandler } from '@/lib/errors'
 import { authenticateToken } from '@/lib/identity/auth'
-import { revokeUserSession } from '@/lib/identity/sessions'
+import { createUserSession, revokeUserSession } from '@/lib/identity/sessions'
 import { signInSocial } from '@/lib/identity/social'
 import { registerNativeSession, redeemNativeSession } from '@/lib/native-auth'
 import { useDb } from '@/lib/test/doubles/db'
 import { socialAuth } from '@/routes/auth-social'
+import { createCliAuthRoutes } from '@/routes/cli-auth'
+import { createDeviceApproval } from '@/routes/device-approval'
 
 type Doc = Record<string, unknown>
 const app = new Hono().onError(errorHandler).route('/', socialAuth)
@@ -71,6 +73,7 @@ useDb({
 beforeEach(() => {
   docs.clear()
   config.auth.apple.clientId = undefined
+  config.auth.oidc.issuer = undefined
   config.auth.google.clientId = 'test-client'
   config.auth.google.clientSecret = 'test-secret'
 })
@@ -164,6 +167,51 @@ test('same email does not silently link accounts', async () => {
     signInSocial('apple', { sub: 'apple-sub', email: 'person@example.com', email_verified: true }),
   ).rejects.toThrow('existing account')
 })
+test('OIDC links a verified email to an existing account, once', async () => {
+  const existing = await signInSocial('google', {
+    sub: 'google-sub',
+    email: 'person@example.com',
+    email_verified: true,
+  })
+  const linked = await signInSocial('oidc', {
+    sub: 'logto-sub',
+    email: 'Person@example.com',
+    email_verified: true,
+  })
+
+  expect(linked.user.id).toBe(existing.user.id)
+  docs.get('users')![0]!.oidcID = 'logto-sub'
+  await expect(
+    signInSocial('oidc', { sub: 'other-sub', email: 'person@example.com', email_verified: true }),
+  ).rejects.toThrow('existing account')
+  await expect(
+    signInSocial('oidc', { sub: 'new-sub', email: 'new@example.com', email_verified: false }),
+  ).rejects.toThrow()
+})
+test('chooser names the OIDC provider', async () => {
+  Object.assign(config.auth.oidc, {
+    issuer: 'https://sso.example.test/oidc',
+    clientId: 'c',
+    clientSecret: 's',
+    name: 'Logto <SSO>',
+  })
+  globalThis.fetch = (async (_url: unknown) =>
+    Response.json({
+      issuer: 'https://sso.example.test/oidc',
+      authorization_endpoint: 'https://sso.example.test/oidc/auth',
+      token_endpoint: 'https://sso.example.test/oidc/token',
+      jwks_uri: 'https://sso.example.test/oidc/jwks',
+    })) as typeof fetch
+  const response = await app.request('/login')
+
+  expect(response.headers.get('x-nuphos-social-providers')).toBe('google,oidc')
+  expect(response.headers.get('x-nuphos-social-oidc-name')).toBe('Logto <SSO>')
+  expect(await response.text()).toContain('Continue with Logto &#60;SSO&#62;')
+  const start = new URL((await app.request('/oidc/start')).headers.get('location')!)
+
+  expect(start.origin + start.pathname).toBe('https://sso.example.test/oidc/auth')
+  expect(start.searchParams.get('redirect_uri')).toEndWith('/auth/social/oidc/callback')
+})
 test('unverified email cannot create an account', async () => {
   await expect(
     signInSocial('apple', { sub: 'apple-sub', email: 'person@example.com', email_verified: false }),
@@ -254,3 +302,98 @@ for (const native of [true, false]) {
     },
   )
 }
+
+test('device page asks for sign-in and returns to itself with the code', async () => {
+  const response = await app.request('/device?code=abcd-efgh')
+  const html = await response.text()
+
+  expect(response.status).toBe(200)
+  expect(html).toContain(
+    `google/start?next=${encodeURIComponent('/auth/social/device?code=abcd-efgh')}`,
+  )
+  await app.request(`/google/start?next=${encodeURIComponent('/auth/social/device?code=X')}`)
+  await app.request(`/google/start?next=${encodeURIComponent('https://evil.example/')}`)
+  await app.request(`/google/start?next=${encodeURIComponent('//evil.example/auth/social/device')}`)
+  const attempts = docs.get('social_auth_attempts')!
+
+  expect(attempts.map((a) => a.next)).toEqual(['/auth/social/device?code=X', undefined, undefined])
+})
+test('device approval refuses other origins and anonymous posts', async () => {
+  const post = (headers: Record<string, string>) =>
+    app.request('/device', {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded', ...headers },
+      body: 'code=ABCDEFGH&decision=approve',
+    })
+
+  expect((await post({ 'sec-fetch-site': 'same-site' })).status).toBe(403)
+  expect((await post({ 'sec-fetch-site': 'cross-site' })).status).toBe(403)
+  // What a browser sends from the page itself under no-referrer: allowed past the check.
+  expect((await post({ 'sec-fetch-site': 'same-origin', origin: 'null' })).status).toBe(401)
+  expect((await post({})).status).toBe(401)
+})
+test('"Use another account" makes the provider ask again', async () => {
+  const location = async (path: string) =>
+    new URL((await app.request(path)).headers.get('location')!).searchParams.get('prompt')
+
+  expect(await location('/google/start')).toBeNull()
+  expect(await location('/google/start?prompt=login')).toBe('select_account')
+  expect(await location('/google/start?prompt=consent')).toBeNull()
+})
+test('device page counts every code lookup and decision against the approval quota', async () => {
+  const keys: string[] = []
+  let allow = true
+  const device = new Hono().onError(errorHandler).route(
+    '/device',
+    createDeviceApproval(async (key) => {
+      keys.push(key)
+
+      return allow
+    }),
+  )
+  const { user } = await signInSocial('google', {
+    sub: 'google-sub',
+    email: 'person@example.com',
+    email_verified: true,
+  })
+  const headers = { cookie: `__Host-nuphos-social=${await createUserSession(user.id)}` }
+
+  expect((await device.request('/device', { headers })).status).toBe(200)
+  expect(keys).toEqual([])
+  expect(await (await device.request('/device?code=ABCD-EFGH', { headers })).text()).toContain(
+    'wrong or has expired',
+  )
+  allow = false
+  expect((await device.request('/device?code=ABCD-EFGH', { headers })).status).toBe(429)
+  const post = await device.request('/device', {
+    method: 'POST',
+    headers: {
+      ...headers,
+      'sec-fetch-site': 'same-origin',
+      'content-type': 'application/x-www-form-urlencoded',
+    },
+    body: 'code=ABCDEFGH&decision=approve',
+  })
+
+  expect(post.status).toBe(429)
+  expect(keys).toEqual(Array(3).fill(`device-login:approve:${user.id}`))
+})
+test('nuphos login keeps nuphos.ai/device unless this server has its own OIDC provider', async () => {
+  const cli = new Hono().onError(errorHandler).route(
+    '/',
+    createCliAuthRoutes(async () => true),
+  )
+  const verificationUri = async () => {
+    const response = await cli.request('/device', { method: 'POST' })
+
+    return ((await response.json()) as { verificationUri: string }).verificationUri
+  }
+
+  expect(await verificationUri()).toBe('https://nuphos.ai/device')
+  Object.assign(config.auth.oidc, {
+    issuer: 'https://sso.example.test/oidc',
+    clientId: 'c',
+    clientSecret: 's',
+  })
+  expect(await verificationUri()).toBe(`${config.auth.publicBaseUrl}/auth/social/device`)
+})

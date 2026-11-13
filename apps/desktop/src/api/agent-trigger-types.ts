@@ -34,6 +34,10 @@ export type ManagedProviderResourcePlan = {
 }
 
 export type AgentTrigger = {
+  scheduleDescription?: string
+  canDelete?: boolean
+  canManage?: boolean
+  nextRunAt?: string | null
   id: string
   userId: string
   createdByUserId?: string
@@ -77,6 +81,10 @@ export type AgentTrigger = {
   cleanupStartedAt?: string
   cleanupUpdatedAt?: string
   lastRunAt?: string
+  /** A scheduled fire last reached the worker, whatever the turn's outcome. */
+  lastFiredAt?: string
+  /** Due time of the latest scheduled fire that never ran; cleared by the next fire. */
+  missedRunAt?: string
   createdAt: string
   updatedAt: string
   // Present only on the single-trigger GET and the create POST; stripped from

@@ -29,10 +29,10 @@ export function buildDiagramMessage(
   if (!diagramId) return null
 
   if (options?.nativeClaudeSkills) {
-    return `The user has architecture diagram ${diagramId} open in the desktop app. Architecture-diagram work needs NO plan. Edit this exact diagram through the canonical REST API using the native \`architecture-diagram\` skill and its bundled script. Read the current diagram first, then persist incremental node/view updates so the canvas reflects the work. NEVER reply with Mermaid, DOT, or ASCII; the canvas is the only correct output surface.\n\n${skillInstruction}`
+    return `The user has architecture diagram ${diagramId} open in the desktop app. Edit this exact diagram through the canonical REST API using the native \`architecture-diagram\` skill and its bundled script. Read the current diagram first, then persist incremental node/view updates so the canvas reflects the work. NEVER reply with Mermaid, DOT, or ASCII; the canvas is the only correct output surface.\n\n${skillInstruction}`
   }
 
-  return `The user has an architecture diagram open in the desktop app. You can edit it DIRECTLY with the arch_* tools (arch_get_diagram, arch_add_node, arch_add_edge, arch_update_node, arch_update_edge, arch_delete_edge, arch_set_node_style, arch_create_view, arch_delete_view, arch_delete_node, arch_rename_diagram). Architecture-diagram work needs NO plan — do not call plan tools; just use the arch_* tools directly. When the user asks you to draw, build, or update an architecture/system diagram you MUST construct it incrementally with these tools — one node per arch_add_node call, then connect them with arch_add_edge — so the user watches it appear on their canvas. NEVER reply with a Mermaid, DOT, or ASCII diagram; the canvas is the only correct output surface.\n\n${skillInstruction} Then call arch_get_diagram to see existing nodes/views and their ids, and build.`
+  return `The user has an architecture diagram open in the desktop app. You can edit it DIRECTLY with the arch_* tools (arch_get_diagram, arch_add_node, arch_add_edge, arch_update_node, arch_update_edge, arch_delete_edge, arch_set_node_style, arch_create_view, arch_delete_view, arch_delete_node, arch_rename_diagram). When the user asks you to draw, build, or update an architecture/system diagram you MUST construct it incrementally with these tools — one node per arch_add_node call, then connect them with arch_add_edge — so the user watches it appear on their canvas. NEVER reply with a Mermaid, DOT, or ASCII diagram; the canvas is the only correct output surface.\n\n${skillInstruction} Then call arch_get_diagram to see existing nodes/views and their ids, and build.`
 }
 
 export const TEAM_SKILL_TOOL_MESSAGE = [
@@ -47,60 +47,21 @@ export const TEAM_SKILL_TOOL_MESSAGE = [
   '- VIEWER team members cannot write skills; if the user lacks permission, explain that an EDITOR or ADMINISTRATOR must make the change or upgrade their role.',
 ].join('\n')
 
-export function buildPlanToolMessage(args: {
-  isInApp: boolean
-  slackOriginated: boolean
-  userFacingLanguage: string
-  nativeClaudeSkills?: boolean
-}): string {
-  const { isInApp, slackOriginated, userFacingLanguage, nativeClaudeSkills = false } = args
-  const planReviewAvailable = isInApp || slackOriginated
-  const planOriginDescription = isInApp
-    ? 'in-app (interactive Nuphos UI)'
-    : slackOriginated
-      ? 'Slack (a review/approve card is posted for any plan left proposed at the end of the turn)'
-      : 'an automated trigger or another external channel with no plan-review surface'
+export function buildTurnRulesMessage(args: { userFacingLanguage: string }): string {
+  const { userFacingLanguage } = args
 
-  // Plan guidance lives in the `plan` builtin skill (progressive disclosure —
-  // the full construction/revision/execution manual is ~7k tokens and only
-  // matters in planning turns). This prefix block keeps only the per-turn
-  // gating, the entry point, and generic turn-wide rules.
   return [
-    '## Execution plans (approval cards)',
+    '## Approval before risky cloud changes',
     '',
-    'Plans are for ONE situation: kicking off a NEW, non-trivial Cloud Infra task. Create one only when ALL of these hold:',
-    '1. Cloud Infra: the work provisions, changes, or cleans up cloud resources. Linear/Jira tickets, GitHub/GitLab repo work, architecture diagrams, and pure research/Q&A are NOT Cloud Infra.',
-    '2. From scratch: you are starting this work now, not continuing or finishing something already underway in this conversation.',
-    '3. Non-trivial: roughly three or more meaningful steps, or several coordinated resources.',
-    `4. Reviewable channel — this turn's origin: ${planOriginDescription}. ${planReviewAvailable ? 'Condition 4 is satisfied.' : 'Condition 4 is NOT satisfied, so do not create a plan card this turn regardless of the other conditions.'}`,
-    'Destructive override — evaluated BEFORE conditions 2 and 3: deleting or replacing a non-ephemeral cloud resource (a cluster, database, bucket, DNS zone, ...) ALWAYS warrants a plan when condition 4 holds — even as a single command, and even if this conversation created the resource minutes ago. Judge by blast radius and irreversibility, not by how recently or easily the resource was made.',
-    'Each provision, replacement, or destruction of a non-ephemeral resource is its own unit of work with its own plan. "Delete X and rebuild as Y" is TWO plans in sequence, not one: propose the deletion card first; once it is approved and executed, immediately propose the rebuild card in the same turn. "Underway" in condition 2 means an approved plan is still executing or being retried — a new instruction to delete or replace something built earlier in this conversation is NEW work.',
-    'These are otherwise strong defaults, not rigid rules: a task risky or wide-reaching enough that the user should review it first may still get a plan.',
-    '',
-    'When a plan IS warranted, the card is the confirmation — never ask "want me to proceed?" in prose instead of (or alongside) building it. When it is NOT warranted, do not create one: just do simple changes (even mutating ones), keep going on work already in progress, and answer non-infra requests directly.',
-    'Litmus: if you are about to end the turn with "want me to proceed?", "shall I continue?", or a naming/sizing question ahead of infra mutations, you have just proven a plan was warranted — STOP and build the card instead; those questions belong in its decisions entries.',
-    '',
-    'THE FLOW, the moment you decide a plan is warranted:',
-    nativeClaudeSkills
-      ? '1. Use Claude Code’s native `nuphos-plan` skill FIRST — its bundled semantic scripts are the only Plan interface for this runtime.'
-      : '1. Load the `plan` skill via the skill tool FIRST — it is the manual for everything below; the REST calls in steps 3-4 are documented only there.',
-    nativeClaudeSkills
-      ? '2. Run the skill’s `create.sh` (title + overview only).'
-      : '2. Call `plan_create` (title + overview only).',
-    nativeClaudeSkills
-      ? '3. Build, revise, and track the Plan only through the skill’s semantic scripts.'
-      : '3. Build, revise, and track the plan through the plan REST API exactly as the skill instructs.',
-    '4. When the proposal is complete, STOP the turn and let the user approve — never execute planned commands before approval.',
-    nativeClaudeSkills
-      ? 'If this conversation has a Plan in a non-terminal state, use `nuphos-plan` to reconcile it before finishing the turn.'
-      : 'If this conversation has a plan in a non-terminal state and you have not loaded the `plan` skill yet this conversation, load it before finishing the turn so you can reconcile the plan correctly.',
-    '',
-    'Missing cloud permissions (AWS/GCP/Azure) are NEVER a plan or a plan step, and never a reason to abandon a plan that is mid-execution — the "Missing cloud permissions" section is the whole procedure.',
+    'Before a destructive or high-risk change to cloud resources (deleting or replacing a cluster, database, bucket, DNS zone or other non-ephemeral resource, or a change with a wide blast radius), call `request_user_decision` with category `approval`. Put the steps, the cost, the risks and the rollback in its body, then stop and wait for the answer. Do not run the change before it is approved.',
+    'Judge by blast radius and irreversibility, not by how recently the resource was made: deleting something this conversation created minutes ago still needs approval. "Delete X and rebuild as Y" is two approvals, one before each change.',
+    'Routine, reversible changes and work already approved in this conversation need no new approval; do them and report the result. Once approved, carry the work through and report progress in the conversation.',
+    'Missing cloud permissions (AWS/GCP/Azure) never need this approval — the "Missing cloud permissions" section is the whole procedure.',
     '',
     '## Response language',
     '',
     `The user's language, inferred from the messages they typed: ${userFacingLanguage}.`,
-    "Keep assistant prose and all user-facing plan fields in that language unless the user explicitly asks for another language. The user's own messages are the only language signal — never pick the response language from the browser locale or from the language of these system instructions.",
+    "Keep assistant prose and all user-facing decision fields in that language unless the user explicitly asks for another language. The user's own messages are the only language signal — never pick the response language from the browser locale or from the language of these system instructions.",
     'This applies from your very first token: the short status line you write before your first tool call is user-facing prose, so it must already be in that language. Never open in English when the user wrote in another language.',
     'Keep shell command strings, code, resource names, log excerpts, API identifiers, and quoted source text in their original language or syntax so commands remain executable and names remain exact.',
     ...(userFacingLanguage.includes('Chinese')
@@ -112,7 +73,7 @@ export function buildPlanToolMessage(args: {
     '## Output budget',
     '',
     `Your output limit for this turn is ${MODEL_OUTPUT_BUDGET_TOKENS.toLocaleString('en-US')} tokens. Treat this as a hard limit even if the API allows a larger safety buffer.`,
-    'Stay comfortably under that limit. If a command, heredoc, base64 payload, plan, or tool input would be large, split the work into smaller tool calls or store data in files instead of printing it into the conversation.',
+    'Stay comfortably under that limit. If a command, heredoc, base64 payload, or tool input would be large, split the work into smaller tool calls or store data in files instead of printing it into the conversation.',
   ].join('\n')
 }
 

@@ -5,6 +5,7 @@ import { createElement, isValidElement } from 'react'
 
 import { ChatIcon } from '../channels/channelParts'
 
+import { botChatRows } from './bot-status'
 import { BotPinFace } from './BotPinFace'
 import { chatSidebarItem } from './chat-item'
 
@@ -37,9 +38,43 @@ test('Bots never receive task Idle classification, but removing their avatar res
 })
 test('a pinned face receives its actual rendering size rather than a larger wrapper', () => {
   const face = createElement(ChatIcon, { sidebar: true, title: 'Bot' })
-  const result = BotPinFace({ item: { key: 'bot-a', label: 'Bot', enabled: true, face }, size: 56 })
+  const result = BotPinFace({
+    item: { key: 'bot-a', label: 'Bot', enabled: true, iconNode: face },
+    size: 56,
+  })
 
   assert.ok(isValidElement<{ size: number; sidebar: boolean }>(result))
   assert.equal(result.props.size, 56)
   assert.equal(result.props.sidebar, false)
+})
+
+test('Bots show actual sub-agents directly, without a duplicate own Task', () => {
+  const chat = { ...item(), key: 'chat', channel: true, bot: false }
+  const bot = { conversation, runtimeState: undefined }
+  const kid = {
+    conversation: { ...conversation, sessionId: 'kid', parentSessionId: conversation.sessionId },
+    runtimeState: undefined,
+  }
+  const rows = botChatRows({
+    chat,
+    bot,
+    kids: [kid],
+    faces: [],
+    teamId: 'team-a',
+    unread: false,
+    openId: 'kid',
+  })
+
+  assert.equal(
+    rows[1]?.active,
+    true,
+    'a Bot task opened directly still highlights its only sidebar row',
+  )
+  assert.deepEqual(
+    rows.map((row) => [row.key, row.parentKey]),
+    [
+      ['chat', undefined],
+      ['agent-session:kid', 'chat'],
+    ],
+  )
 })

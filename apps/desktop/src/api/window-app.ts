@@ -15,6 +15,7 @@ import type {
   LocalSkillInfo,
   PastedAttachmentPayload,
 } from './app-types.ts'
+import type { LoginItemState } from './device-types.ts'
 import type {
   GithubSkillCandidate,
   GithubSkillPreview,
@@ -44,6 +45,7 @@ import type {
   UpdaterState,
   UserInfo,
 } from '../types/team.ts'
+import type { SocialOption } from '../types/app-misc.ts'
 
 export type WindowAppApi = {
   claimFirstLaunchIntro?(): Promise<boolean>
@@ -67,11 +69,15 @@ export type WindowAppApi = {
   atlasNewMfaRecoveryCodes(code: string): Promise<string[]>
   atlasDisableMfa(code: string): Promise<void>
   atlasReauthMfa(code: string): Promise<void>
+  authMfaVerifyPasskey(mfaToken: string): Promise<UserInfo>
+  atlasReauthWithPasskey(): Promise<void>
+  atlasAddPasskey(): Promise<void>
+  atlasRemovePasskey(id: string, code: string): Promise<void>
   authUploadAvatar(image: Uint8Array): Promise<UserInfo>
   apiUrlSync(): string
   authRemoveAvatar(): Promise<UserInfo>
   authStatus(): Promise<AuthStatus>
-  authSocialProviders(): Promise<SocialProvider[]>
+  authSocialProviders(): Promise<SocialOption[]>
   authLogin(provider: SocialProvider): Promise<UserInfo>
   authLogout(): Promise<void>
   authCancel(): Promise<void>
@@ -93,6 +99,8 @@ export type WindowAppApi = {
   appSetNativeTheme(source: 'system' | 'light' | 'dark'): Promise<void>
   appGetAppIcon(): Promise<string>
   appSetAppIcon(icon: string): Promise<void>
+  appGetLoginItem(): Promise<LoginItemState>
+  appSetLoginItem(openAtLogin: boolean): Promise<LoginItemState>
   onNativeThemeUpdated(cb: (payload: { shouldUseDarkColors: boolean }) => void): () => void
   getZoomFactor(): number
   notifyZoom(): void
@@ -123,6 +131,8 @@ export type WindowAppApi = {
   updaterGetState(): Promise<UpdaterState>
   updaterCheck(): Promise<void>
   updaterInstall(): Promise<void>
+  updaterGetAutoInstall(): Promise<{ enabled: boolean }>
+  updaterSetAutoInstall(enabled: boolean): Promise<{ enabled: boolean }>
   onUpdaterStatus(cb: (state: UpdaterState) => void): () => void
   changelogGetState(): Promise<ChangelogState>
   onChangelogStatus(cb: (state: ChangelogState) => void): () => void

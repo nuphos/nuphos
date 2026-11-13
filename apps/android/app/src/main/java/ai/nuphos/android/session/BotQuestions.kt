@@ -1,7 +1,6 @@
 package ai.nuphos.android.session
 
 import ai.nuphos.android.model.AgentConversation
-import ai.nuphos.android.model.ChannelReply
 import ai.nuphos.android.model.InputRequest
 
 /** An open question a Bot's chat shows: one request and the conversation that asked it. */
@@ -24,9 +23,6 @@ data class BotQuestion(val sessionId: String, val title: String, val request: In
 
     /** An integration question the Inbox answers in place: by its providers, or by the member's own credentials. */
     val connectable: Boolean get() = request.category == "integration" && (request.credentials == null || personalCredentials != null)
-
-    /** The question quoted above a composer whose next message answers it. */
-    val quote: ChannelReply get() = ChannelReply(null, title, request.question)
 }
 
 /**

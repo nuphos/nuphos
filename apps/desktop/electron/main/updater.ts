@@ -7,6 +7,7 @@ import electronUpdater from 'electron-updater'
 
 import { captureMain, captureMainException } from '../analytics.ts'
 
+import { startAutoInstall } from './auto-update-electron.ts'
 import { isDev } from './env.ts'
 import { configureStableUpdateChannel } from './updater-channel.ts'
 import {
@@ -39,24 +40,49 @@ export function getUpdaterState(): UpdaterState {
   return updaterState
 }
 
-/** A check while downloading would only restart the same download, and one while
- * an update is ready would only download it again: the restart checks for itself.
- * electron-updater skips unpacked builds; a failed check also emits 'error',
- * which reports telemetry. */
+/** The check under way, so a poll and a click don't start a second one. */
+let update: Promise<void> | null = null
+
+/** Checks for a release newer than this app and downloads it, unless it is the
+ * update already ready. It runs while an update is ready too, so a restart
+ * installs the newest release without downloading anything then. electron-updater
+ * skips unpacked builds; a failure also emits 'error', which reports telemetry. */
 export function checkForUpdates() {
-  if (updaterState.kind === 'downloading' || updaterState.kind === 'ready') return
-  void newestRelease().then(async (version) => {
-    if (version) await autoUpdater.downloadUpdate().catch(() => null)
+  update ??= downloadNewest().finally(() => {
+    update = null
   })
 }
 
-/** The newest release when it is newer than this app, or null. Only checks: with
- * autoDownload on, electron-updater would download even the update that is
- * already staged, and on macOS hand it to Squirrel.Mac to stage again. */
-async function newestRelease(): Promise<string | null> {
-  const check = await autoUpdater.checkForUpdates().catch(() => null)
+/** The state follows this flow, not electron-updater's events: those fire for
+ * every check, and on macOS 'update-downloaded' fires before Squirrel.Mac has the
+ * update, so a restart then would wait on Squirrel with nothing on screen. */
+async function downloadNewest() {
+  const ready = updaterState.kind === 'ready' ? updaterState.version : null
 
-  return check?.isUpdateAvailable ? check.updateInfo.version : null
+  // An update that is ready stays on offer while the check runs.
+  if (!ready) setUpdaterState({ kind: 'checking' })
+  try {
+    const check = await autoUpdater.checkForUpdates()
+    const version = check?.isUpdateAvailable ? check.updateInfo.version : null
+
+    if (!version) {
+      if (!ready) setUpdaterState({ kind: 'up-to-date' })
+
+      return
+    }
+    if (version === ready) return
+    setUpdaterState({ kind: 'downloading', version, transferred: 0, total: 0, bytesPerSecond: 0 })
+    await Promise.all([autoUpdater.downloadUpdate(), stagedByOs()])
+    captureMain('update_downloaded', { version })
+    setUpdaterState({
+      kind: 'ready',
+      version,
+      installerUrl: version === failedVersion ? installerUrl() : null,
+    })
+  } catch {
+    // A failed check leaves a ready update on offer; a failed download leaves none.
+    if (updaterState.kind !== 'ready') setUpdaterState({ kind: 'error' })
+  }
 }
 
 /** Squirrel.Mac takes the download from electron-updater, so it holds it a moment later. */
@@ -68,32 +94,14 @@ function stagedByOs() {
 
 const restartFile = () => join(app.getPath('userData'), 'update-restart.json')
 
-/** Restarts into the newest release. Releases ship several times a day, so one
- * may be out since the ready update downloaded; it downloads first, with its
- * progress showing, or the app would restart only to offer the next update.
- * Otherwise the restart starts with no update work in flight. */
-export async function installUpdate() {
+/** Restarts into the ready update. It is ready only once it is staged, so the
+ * restart starts with no update work in flight. */
+export function installUpdate() {
   if (updaterState.kind !== 'ready') return
-  let version = updaterState.version
-
-  // Leaving ready at once makes a second click a no-op.
-  setUpdaterState({ kind: 'checking' })
-  const newest = await newestRelease()
-
-  if (newest && newest !== version) {
-    // A failed download shows as an error; the next check tries again.
-    const staged = await Promise.all([autoUpdater.downloadUpdate(), stagedByOs()]).then(
-      () => true,
-      () => false,
-    )
-
-    if (!staged) return
-    version = newest
-  }
   // The installer runs after the app quits and can't report back. If the app
   // comes back on its old version, the next launch says so.
   try {
-    writeFileSync(restartFile(), JSON.stringify({ version }))
+    writeFileSync(restartFile(), JSON.stringify({ version: updaterState.version }))
   } catch {
     // Only the failure notice depends on it; the restart goes ahead.
   }
@@ -139,6 +147,11 @@ export function startUpdatePolling() {
   if (isDev || updaterCheckTimer) return
   checkForUpdates()
   updaterCheckTimer = setInterval(checkForUpdates, 5 * 60 * 1000)
+  startAutoInstall({
+    ready: () =>
+      updaterState.kind === 'ready' ? { failedBefore: updaterState.installerUrl !== null } : null,
+    install: installUpdate,
+  })
 }
 
 export function stopUpdatePolling() {
@@ -160,17 +173,6 @@ export function initAutoUpdaterEvents() {
   configureStableUpdateChannel(autoUpdater)
   autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = true
-  autoUpdater.on('checking-for-update', () => setUpdaterState({ kind: 'checking' }))
-  autoUpdater.on('update-not-available', () => setUpdaterState({ kind: 'up-to-date' }))
-  autoUpdater.on('update-available', (info) =>
-    setUpdaterState({
-      kind: 'downloading',
-      version: info.version,
-      transferred: 0,
-      total: 0,
-      bytesPerSecond: 0,
-    }),
-  )
   autoUpdater.on('download-progress', (p) => {
     // Progress fires many times a second; about once a second is enough to read.
     const now = Date.now()
@@ -182,14 +184,6 @@ export function initAutoUpdaterEvents() {
       transferred: p.transferred,
       total: p.total,
       bytesPerSecond: p.bytesPerSecond,
-    })
-  })
-  autoUpdater.on('update-downloaded', (info) => {
-    captureMain('update_downloaded', { version: info.version })
-    setUpdaterState({
-      kind: 'ready',
-      version: info.version,
-      installerUrl: info.version === failedVersion ? installerUrl() : null,
     })
   })
   autoUpdater.on('error', (err) => {
@@ -205,7 +199,5 @@ export function initAutoUpdaterEvents() {
         $exception_fingerprint: `desktop_updater:${category}`,
       })
     }
-    // The raw message stays in telemetry; the UI shows one plain sentence.
-    setUpdaterState({ kind: 'error' })
   })
 }

@@ -25,7 +25,7 @@
     "My agents" : {
 
     },
-    "New agent" : {
+    "New task" : {
 
     },
     "No agents match your search." : {
@@ -166,16 +166,10 @@
     "Approve once" : {
 
     },
-    "Approvers" : {
-
-    },
     "Archived" : {
 
     },
     "Ask Nuphos anything…" : {
-
-    },
-    "Ask the agent to plan a change" : {
 
     },
     "Attach" : {
@@ -190,9 +184,6 @@
     "Cancel" : {
 
     },
-    "Changing the policy invalidates approvals on open plans — they must be reviewed again." : {
-
-    },
     "Choose Credentials" : {
 
     },
@@ -200,9 +191,6 @@
 
     },
     "Clear search" : {
-
-    },
-    "Configure" : {
 
     },
     "Connect cloud accounts and integrations in Nuphos to use them here." : {
@@ -220,28 +208,16 @@
     "Couldn't load plan" : {
 
     },
-    "Couldn't load plans" : {
-
-    },
-    "Couldn't load teams" : {
-
-    },
     "Decisions" : {
 
     },
     "Deny" : {
 
     },
-    "Dismissed plans are hidden." : {
-
-    },
     "Done" : {
 
     },
     "Files" : {
-
-    },
-    "Filter plans" : {
 
     },
     "Credentials" : {
@@ -267,9 +243,6 @@
     "Loading plan…" : {
 
     },
-    "Loading plans…" : {
-
-    },
     "Mark as unplanned" : {
 
     },
@@ -292,9 +265,6 @@
 
     },
     "No matches" : {
-
-    },
-    "No plans to show" : {
 
     },
     "OK" : {
@@ -333,12 +303,6 @@
     "Plan actions" : {
 
     },
-    "Plan approval" : {
-
-    },
-    "Plans" : {
-
-    },
     "Queue a message…" : {
 
     },
@@ -354,12 +318,6 @@
     "Request changes" : {
 
     },
-    "Requester + a quorum" : {
-
-    },
-    "Requester + one other member" : {
-
-    },
     "Requester only" : {
 
     },
@@ -372,16 +330,10 @@
     "Savings" : {
 
     },
-    "Search plans" : {
-
-    },
     "Send" : {
 
     },
     "Show" : {
-
-    },
-    "Show dismissed" : {
 
     },
     "Sign in" : {
@@ -397,9 +349,6 @@
 
     },
     "Signing in…" : {
-
-    },
-    "Something went wrong" : {
 
     },
     "Steps" : {
@@ -440,9 +389,6 @@
 
     },
     "What should change?" : {
-
-    },
-    "When you ask the agent to do something that needs confirmation, it drafts a plan here for the team to review and approve. Plans are shared, so anyone with access can weigh in." : {
 
     },
     "Worst case" : {

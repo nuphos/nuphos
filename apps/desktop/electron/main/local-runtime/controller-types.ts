@@ -6,6 +6,7 @@ import type { AgentCliStatus, LocalAgentProvider } from './agent-cli.ts'
 import type { AgentInstance } from './agent-instances.ts'
 import type { LocalAgentLogin } from './agent-login.ts'
 import type { LocalRuntimeBundle } from './config.ts'
+import type { CustomProvider, CustomProviderAgent } from './custom-provider.ts'
 import type { DevBundleHint } from './dev-bundle.ts'
 import type { LocalModelCatalog } from './model-probe.ts'
 import type { OpenabProcessOptions, RunningRuntime } from './openab-process.ts'
@@ -36,6 +37,8 @@ export type LocalRuntimeViewState = LocalRuntimeState & {
   deviceId: string
   sleepPrevention: SleepState
   devBundle?: DevBundleHint
+  /** This account's own model providers; the keys stay in the credential store. */
+  customProviders?: Partial<Record<CustomProviderAgent, CustomProvider>>
   claudeLogin: ReturnType<LocalAgentLogin['state']>
   codexLogin: ReturnType<LocalAgentLogin['state']>
 }
@@ -162,7 +165,8 @@ export function tunnelStatusOf(
         loggedIn: agent.cli.loggedIn,
         ...(agent.cli.apiKey ? { apiKey: true } : {}),
       },
-      ...(agent.usage !== undefined && agent.usageAt
+      // An account's usage says nothing about a custom provider: unknown, not a stale figure.
+      ...(agent.usage !== undefined && agent.usageAt && !agent.cli.customProvider
         ? { usage: agent.usage, usageAt: agent.usageAt }
         : {}),
       ...(agent.cli.version ? { version: `${provider} ${agent.cli.version}` } : {}),

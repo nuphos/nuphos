@@ -88,7 +88,14 @@
     "body": {
       "enabled": true,
       "enabledAt": "2026-11-02T08:00:00Z",
-      "recoveryCodesRemaining": 9
+      "recoveryCodesRemaining": 9,
+      "passkeys": [
+        {
+          "id": "cred-1",
+          "name": "Alex’s iPhone",
+          "createdAt": "2026-11-10T09:00:00Z"
+        }
+      ]
     }
   },
   "GET /auth/sessions": {

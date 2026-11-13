@@ -370,7 +370,7 @@ class AgentStore(
         val team = selectedTeam ?: return null
         if (disposed || !hasAiAccess()) return null
         inbox?.takeIf { it.first == team.id }?.let { return it.second }
-        return OpenQuestions(OpenQuestions.Api(token, team.id)) { bot -> conversations.firstOrNull { it.botId == bot }?.sessionId }
+        return OpenQuestions(OpenQuestions.Api(token, team.id))
             .also { inbox = team.id to it }
     }
 

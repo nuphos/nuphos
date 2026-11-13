@@ -30,13 +30,11 @@ import { useChannel } from './useChannel'
 import { useStickToBottom } from './useStickToBottom'
 
 import type { AgentMessageReply, AgentPersistedMessage } from '../../api'
+import type { ChannelFixes } from './ChannelReplyFix'
 import type { UserInfo } from '../../types'
 import type { ComposerSend } from '../agent/panel/composerMentionChips'
 import type { AgentPromptSeed } from '../agent/panel/model'
 import type { ReactNode } from 'react'
-
-/** The post a reply quotes, or an agent's question it answers through `answer`. */
-type Replying = AgentMessageReply & { answer?: (text: string) => void }
 
 export function ChannelPane({
   teamId,
@@ -50,6 +48,7 @@ export function ChannelPane({
   onOpenSession,
   onOpenTask,
   onOpenNuphosLink,
+  fixes,
 }: {
   teamId: string
   channelId: string
@@ -62,6 +61,8 @@ export function ChannelPane({
   onOpenSession: (sessionId: string) => void
   onOpenTask?: (sessionId: string) => void
   onOpenNuphosLink?: (href: string, beside?: boolean) => boolean
+  /** What the workspace lends to repair an agent that could not reply. */
+  fixes?: ChannelFixes
 }) {
   const { detail, agents, refresh } = useChannel(teamId, channelId)
 
@@ -72,8 +73,8 @@ export function ChannelPane({
   const unsent = useRef<{ key: string; id: string } | null>(null)
   // Posts shown at once, until the channel returns them under the same id.
   const [sending, setSending] = useState<AgentPersistedMessage[]>([])
-  // The post the next one answers, quoted above the composer; for a question, sent as its answer.
-  const [replying, setReplying] = useState<Replying | null>(null)
+  // The post the next one answers, quoted above the composer.
+  const [replying, setReplying] = useState<AgentMessageReply | null>(null)
   const composerRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const dropRef = useRef<((dt: DataTransfer) => void) | null>(null)
@@ -104,25 +105,13 @@ export function ChannelPane({
   const messages = [...stored, ...pending]
 
   const stickToBottom = useStickToBottom(scrollRef)
-  const chat = { channelId, user, setSending, stickToBottom, refresh, reply: replyToQuestion }
-  const questions = useBotChatQuestions(teamId, bot, botOwned, onOpenSession, chat)
-
-  // A question's answer is its words alone; a post with files is a message quoting nothing.
-  const quoted = replying?.answer ? null : replying
+  const questions = useBotChatQuestions(teamId, bot, botOwned, onOpenSession)
 
   // The optimistic post owns the draft immediately; failure restores it through setRestore.
   const send: ComposerSend = (text, filePaths, mentions, options) => {
-    if (replying?.answer && filePaths.length === 0 && text.trim()) {
-      setReplying(null)
-      replying.answer(text)
-    } else void postDraft(text, filePaths, mentions, options)
+    void postDraft(text, filePaths, mentions, options)
 
     return true
-  }
-
-  function replyToQuestion(quote: AgentMessageReply, answer: (text: string) => void) {
-    setReplying({ ...quote, answer })
-    focusComposer()
   }
 
   function focusComposer() {
@@ -133,7 +122,7 @@ export function ChannelPane({
 
   async function postDraft(...[text, paths, mentions, options]: Parameters<ComposerSend>) {
     if (!text.trim() && paths.length === 0) return
-    const reply = quoted ?? undefined
+    const reply = replying ?? undefined
     const key = [reply?.id, text, ...paths].join('\n')
     const id = unsent.current?.key === key ? unsent.current.id : crypto.randomUUID()
     // Files take the conversation's upload path: shown at once, uploaded, then posted.
@@ -149,7 +138,7 @@ export function ChannelPane({
       sendingPost(id, text, user, files?.optimisticPart(), mentions, reply),
     ])
     try {
-      const upload = files ? (await files.runUpload(undefined)).groupId : undefined
+      const upload = files ? (await files.runUpload()).groupId : undefined
 
       await api.agentPostChannelMessage(
         channelId,
@@ -257,7 +246,9 @@ export function ChannelPane({
               onOpenSession={onOpenSession}
               onOpenNuphosLink={onOpenNuphosLink}
               channelId={channelId}
+              botId={bot}
               extraRows={questions.rows}
+              fixes={fixes}
               onReply={
                 detail.readOnly
                   ? undefined
@@ -277,23 +268,28 @@ export function ChannelPane({
         }}
       >
         {replying && <ReplyingBanner reply={replying} onCancel={() => setReplying(null)} />}
-        <Composer
-          onSend={send}
-          onStop={() => {}}
-          readOnly={detail?.readOnly === true}
-          pendingSeed={restore}
-          onSeedConsumed={() => setRestore(null)}
-          draftKey={composerDraftKey(teamId, channelId)}
-          dropRegisterRef={dropRef}
-          mentionScope={{
-            teamId,
-            sessionId: channelId,
-            channel: true,
-            only: { agentIds: agents.map((agent) => agent.sessionId), selfId: user.id },
-          }}
-          placeholder={t('Message {name}', { name: title })}
-          credentialSelector={questions.credentials}
-        />
+        {/* Inset past the faces on both sides, so the composer lines up with the
+            bubbles: the column's own width (760px plus the Composer's px-3), less a
+            face and its gap (2.375rem) on each side. */}
+        <div className="mx-auto w-full max-w-[calc(760px+1.5rem)] px-[2.375rem]">
+          <Composer
+            onSend={send}
+            onStop={() => {}}
+            readOnly={detail?.readOnly === true}
+            pendingSeed={restore}
+            onSeedConsumed={() => setRestore(null)}
+            draftKey={composerDraftKey(teamId, channelId)}
+            dropRegisterRef={dropRef}
+            mentionScope={{
+              teamId,
+              sessionId: channelId,
+              channel: true,
+              only: { agentIds: agents.map((agent) => agent.sessionId), selfId: user.id },
+            }}
+            placeholder={t('Message {name}', { name: title })}
+            credentialSelector={questions.credentials}
+          />
+        </div>
       </div>
     </FileDropZone>
   )

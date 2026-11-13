@@ -1,6 +1,7 @@
 import type {
   AgentDeviceListOptions,
   BoxAccess,
+  CliLoginProvider,
   LocalAgentProvider,
   LocalRuntimeState,
   LocalShareInput,
@@ -16,6 +17,10 @@ export const deviceApi = {
   deviceListAudit: (before?: string) => window.api.deviceListAudit(before),
   localRuntimeApplyApiKey: (provider: 'claude-code' | 'codex', key: string | null) =>
     window.api.localRuntimeApplyApiKey(provider, key),
+  localRuntimeSetCustomProvider: (
+    provider: CliLoginProvider,
+    value: { baseUrl: string; apiKey?: string; models: string[] } | null,
+  ) => window.api.localRuntimeSetCustomProvider(provider, value),
   localRuntimeSubmitClaudeLoginCode: (code: string) =>
     window.api.localRuntimeSubmitClaudeLoginCode(code),
   localRuntimeStartClaudeLogin: () => window.api.localRuntimeStartClaudeLogin(),

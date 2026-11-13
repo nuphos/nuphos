@@ -7,6 +7,8 @@ type Attempt = {
   provider: SocialProvider
   nonce: string
   handle?: string
+  /** Same-site page to return to after a browser (not app) sign-in. */
+  next?: string
   /** The first-touch cookie seen at the start of sign-in. */
   firstTouch?: string
   expiresAt: Date

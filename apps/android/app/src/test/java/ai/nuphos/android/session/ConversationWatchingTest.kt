@@ -10,7 +10,6 @@ import org.junit.Assert.*
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class ConversationWatchingTest {
-    // Keep permission lookups synchronous: real IO can resume after resetMain between tests.
     @Before fun setup() { Dispatchers.setMain(UnconfinedTestDispatcher()) }
     @After fun cleanup() { Dispatchers.resetMain() }
     @Test fun sharedReadOnlyReaderCanWatchButOldServerCannot() = runTest {

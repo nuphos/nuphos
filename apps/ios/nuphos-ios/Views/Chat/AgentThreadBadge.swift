@@ -41,7 +41,7 @@ struct AgentThreadBadge: View {
         guard detail != nil else { return agents.unavailable.contains(key) ? "Unavailable" : "" }
         guard let observation, !observation.unavailable else { return "Unavailable" }
         if observation.paused { return "Stopped" }
-        if (observation.snapshot["permissionWaits"]?.numberValue ?? 0) > 0 { return "Needs input" }
+        if observation.awaitsPerson { return "Needs input" }
         if observation.turnActive || observation.backgroundRunning { return "Running" }
         return "Done"
     }

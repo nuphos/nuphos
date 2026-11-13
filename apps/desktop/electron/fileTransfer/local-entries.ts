@@ -97,7 +97,7 @@ export async function collectEntries(paths: string[]): Promise<LocalEntry[]> {
 // Name the transport archive after what was picked: a single folder keeps its
 // own name; anything else (multiple picks) falls back to the label or a generic.
 export function deriveArchiveName(filePaths: string[], singleDir: boolean, label?: string): string {
-  if (singleDir) return `${basename(stripTrailingSeparators(filePaths[0]))}.zip`
+  if (singleDir) return `${basename(stripTrailingSeparators(filePaths[0]!))}.zip`
   if (label) return `${label.replace(/[\\/:*?"<>|]+/g, '_')}.zip`
 
   return 'attachments.zip'

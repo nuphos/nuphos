@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Check, ChevronDown, ChevronLeft, Loader2, MessageSquare, RotateCcw, X } from 'lucide-react'
+import { Check, ChevronDown, ChevronLeft, Loader2, MessageSquare, X } from 'lucide-react'
 
 import { useRef, useState } from 'react'
 
@@ -16,24 +16,16 @@ type PlanActionBarProps = {
   state: PlanDecisionState
   floating: boolean
   showApproveBar: boolean
-  showRetry: boolean
   approvalProgress?: PlanApprovalProgress
   onReject?: (reason: string, mode: 'revise' | 'delete') => void
-  onRetry?: () => void
-  retrying: boolean
-  retryError?: string | null
 }
 
 export function PlanActionBar({
   state,
   floating,
   showApproveBar,
-  showRetry,
   approvalProgress,
   onReject,
-  onRetry,
-  retrying,
-  retryError,
 }: PlanActionBarProps) {
   const {
     decision,
@@ -222,30 +214,6 @@ export function PlanActionBar({
             <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.2} />
             {t('Recording approval…')}
           </span>
-        ) : decision === 'pending' ? (
-          <div className="flex items-center justify-end gap-2">
-            {retryError && (
-              <span className="mr-auto max-w-[60%] truncate text-[12px] text-error">
-                {retryError}
-              </span>
-            )}
-            {showRetry && (
-              <Button
-                size="sm"
-                className="flex-shrink-0"
-                type="button"
-                onClick={onRetry}
-                disabled={retrying}
-              >
-                {retrying ? (
-                  <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2.4} />
-                ) : (
-                  <RotateCcw className="h-3 w-3" strokeWidth={2.2} />
-                )}
-                {t('Retry')}
-              </Button>
-            )}
-          </div>
         ) : decision === 'approved' ? (
           <span className="inline-flex items-center gap-1.5 text-[12.5px] text-status-success">
             <Check className="h-3.5 w-3.5" strokeWidth={2.4} />

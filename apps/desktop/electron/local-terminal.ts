@@ -199,7 +199,10 @@ export class LocalTerminalSessions {
 
     this.sessions.delete(id)
     session.release()
-    if (!session.exited) session.pty.kill()
+    // Hang up the terminal the way closing a window does. kill() only sends
+    // SIGHUP and keeps the pty open, so a shell that does not act on it lives
+    // on and holds this process open. destroy() is missing from IPty's types.
+    if (!session.exited) (session.pty as IPty & { destroy(): void }).destroy()
   }
 
   closeAll(): void {

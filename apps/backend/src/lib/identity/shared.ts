@@ -26,12 +26,15 @@ export type NuphosUserDoc = {
   profileEdited?: boolean
   appleID?: string
   googleID?: string
+  oidcID?: string
   /** Where the account came from, set once at signup (signup-source.ts). */
   signupSource?: SignupSource
   /** Optional two-factor authentication (mfa.ts). */
   mfa?: UserMfa
   mfaPending?: UserMfaPending
   mfaFailures?: { count: number; since: Date }
+  /** A passkey ceremony's challenge for this account (mfa-passkeys.ts). */
+  passkeyChallenge?: { value: string; createdAt: Date }
   createdAt: Date
   updatedAt: Date
   deletedAt?: Date

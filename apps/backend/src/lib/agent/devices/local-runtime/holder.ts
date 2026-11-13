@@ -5,11 +5,12 @@ import { logEvent } from '@/lib/observability'
 import { reportedAgents } from '../agent-registry'
 
 import { RUNTIME_PRESENCE_HEARTBEAT_MS } from './presence'
-import { desktopFrameSchema, holderChannel, parseJson, streamChannel } from './protocol'
+import { desktopFrameSchema, holderChannel, parseJson } from './protocol'
+import { streamRelay } from './stream-relay'
 
 import type { RuntimeTunnel, TunnelConnection, TunnelHolderDeps } from './holder-types'
 import type { BoxMetrics } from '../metrics-schema'
-import type { HolderMessage, LocalRuntimeStatus, StreamMessage } from './protocol'
+import type { HolderMessage, LocalRuntimeStatus } from './protocol'
 
 export type { RuntimeTunnel, TunnelConnection, TunnelHolderDeps } from './holder-types'
 
@@ -57,8 +58,7 @@ export async function attachRuntimeTunnel(
   let heartbeat: ReturnType<typeof setInterval> | undefined
   let unsubscribe = () => {}
 
-  const toStream = (s: string, message: StreamMessage) =>
-    deps.bus.publish(streamChannel(s), JSON.stringify(message)).catch(() => {})
+  const { toStream, toComputer } = streamRelay(deps.bus, streams, connection)
   const refreshPresence = () =>
     deps.presence
       .put(userId, deviceId, {
@@ -175,7 +175,7 @@ export async function attachRuntimeTunnel(
 
         return
       case 'data':
-        if (streams.has(message.s)) connection.send({ t: 'data', s: message.s, d: message.d })
+        toComputer(message.s, message.d)
 
         return
       case 'close':
@@ -190,7 +190,7 @@ export async function attachRuntimeTunnel(
     if (Date.now() - lastFrameAt > (deps.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS))
       return shut(TUNNEL_CLOSE_IDLE, 'No frames from the computer')
     if (Date.now() - lastEchoAt > (deps.channelTimeoutMs ?? DEFAULT_CHANNEL_TIMEOUT_MS)) {
-      // Else the computer's next tunnel waits forever on the same dead subscription.
+      // Only this tunnel ends; the bus replaces the shared subscription only if it is deaf too.
       deps.bus.reconnect?.()
 
       return shut(TUNNEL_CLOSE_IDLE, 'Device channel unavailable')

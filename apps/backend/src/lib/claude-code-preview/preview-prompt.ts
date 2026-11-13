@@ -3,17 +3,19 @@
 // `_meta.systemPrompt`. Sandbox-only sections (bash/skill tools, setup
 // scripts) are adapted to the native runtime equivalents it actually has.
 
+import { getConversationBySessionId } from '@/lib/agent/db'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { getAgentDevice } from '@/lib/agent/devices/store'
 import { inferUserFacingLanguage } from '@/lib/agent/language'
 import { getSystemPrompt } from '@/lib/agent/system-prompt'
+import { isUnnamedTask } from '@/lib/agent/title-fallback'
 import { generateContextPrompt, parseUrlContext } from '@/lib/agent/url-context'
 import { loadInstructionsBlock } from '@/lib/instructions/prompt'
 import {
   buildDiagramMessage,
   buildKubeContextMessage,
   buildNuphosLinksMessage,
-  buildPlanToolMessage,
+  buildTurnRulesMessage,
 } from '@/routes/agent/chat-system-messages'
 import { MODEL_OUTPUT_BUDGET_TOKENS } from '@/routes/agent/constants'
 import { getAgentCredentialOptions } from '@/routes/agent/credential-options'
@@ -78,9 +80,6 @@ async function runtimeWhere(runtimeId: string | null | undefined): Promise<strin
   return `on ${safePromptField(device.label)}, the computer this conversation runs on: your shell, files${device.box ? ' and the `nuphos-desktop` tools for this conversation’s own desktop (the user watches it in Nuphos; a page or website the user asks to open, or "a browser", goes to local_browser, the Nuphos browser, shown to them with its show action; use this desktop’s Web Browser launcher, with get_app_state and click and not the shell, only when they ask for this desktop or local_browser cannot run; ignore MACHINE.md’s notes about display :1 and an instabox dashboard)' : ''} are there, and local_exec is for the user's other devices, only when they ask for one`
 }
 
-const PLAN_RUNTIME_NOTE =
-  'For Plan work, use the native `nuphos-plan` skill and its bundled semantic scripts. The create script renders the approval card and returns the persisted Plan immediately; finish every card section in the same turn, then stop for approval.'
-
 const DASHBOARDS_RUNTIME_NOTE =
   'For Nuphos Dashboards work (the Dashboards page of script-driven panels, not Grafana), use Claude Code’s native `nuphos-dashboards` skill FIRST, then build or update the dashboard through its API script exactly as that skill instructs.'
 
@@ -100,6 +99,16 @@ async function urlContextSection(currentUrl: string | null | undefined): Promise
   } catch {
     return null
   }
+}
+
+const TASK_NAME_NOTE =
+  '## Naming this task\nThis task is still named after its first message, cut short. Once you understand what it is about, call rename_conversation once with only_if_unnamed: true and a short title: a few words, in the language of the user’s messages, that say what the task is about. Do not rename it again unless asked.'
+
+/** The naming note while a task still has its first message for a name. */
+async function taskNameSection(sessionId: string): Promise<string | null> {
+  const conversation = await getConversationBySessionId(sessionId)
+
+  return conversation && isUnnamedTask(conversation) ? TASK_NAME_NOTE : null
 }
 
 /** Build credential context and permission recovery guidance together. */
@@ -130,7 +139,7 @@ async function credentialAndPermissionWallSections(
 
 /** The text appended to Claude Code's system prompt for one conversation. */
 export async function buildPreviewSystemPrompt(args: PreviewPromptArgs): Promise<string> {
-  const [base, cloudAccess, urlContext, instructions, where] = await Promise.all([
+  const [base, cloudAccess, urlContext, instructions, where, taskName] = await Promise.all([
     getSystemPrompt(args.locale, { max_output_tokens: MODEL_OUTPUT_BUDGET_TOKENS }),
     credentialAndPermissionWallSections(args).catch(() => ({
       credentials: '',
@@ -139,14 +148,9 @@ export async function buildPreviewSystemPrompt(args: PreviewPromptArgs): Promise
     urlContextSection(args.currentUrl),
     loadInstructionsBlock(args.teamId, args.userId, args.sessionId),
     runtimeWhere(args.runtimeId).catch(() => 'inside the team sandbox'),
+    taskNameSection(args.sessionId).catch(() => null),
   ])
   const userFacingLanguage = inferUserFacingLanguage(args.userTexts ?? [], args.locale)
-  const planMessage = buildPlanToolMessage({
-    isInApp: !args.slackThread,
-    slackOriginated: Boolean(args.slackThread),
-    userFacingLanguage,
-    nativeClaudeSkills: true,
-  })
 
   // The notes are written for Claude Code. Grok Build reads `.claude/skills` as well;
   // Codex, Antigravity and OpenCode read the `.agents/skills` link to it.
@@ -176,9 +180,10 @@ export async function buildPreviewSystemPrompt(args: PreviewPromptArgs): Promise
     buildKubeContextMessage(args.kubeContext),
     nativeText(buildDiagramMessage(args.diagramId, { nativeClaudeSkills: true })),
     urlContext,
-    nativeText(`${planMessage}\n\n${PLAN_RUNTIME_NOTE}`),
+    buildTurnRulesMessage({ userFacingLanguage }),
     nativeText(DASHBOARDS_RUNTIME_NOTE),
     BACKGROUND_MONITOR_NOTE,
+    taskName,
     previewChannelPromptSection({ teamId: args.teamId, slackThread: args.slackThread }),
     nativeText(buildNuphosLinksMessage(args.teamId, { nativeClaudeSkills: true })),
     instructions,

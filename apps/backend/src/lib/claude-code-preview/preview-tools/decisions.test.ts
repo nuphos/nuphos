@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 
 import { useDb } from '@/lib/test/doubles/db'
+import { useIdentity } from '@/lib/test/doubles/identity'
 import { useRedis } from '@/lib/test/doubles/redis'
 import { useFakeRuntimeRequests } from '@/lib/test/doubles/runtime-request-store'
 
@@ -13,6 +14,11 @@ const conversationUpdates: Record<string, unknown>[][] = []
 let matchedCount = 1
 // The conversation findOne reads back.
 let storedConversation: Record<string, unknown> | null = null
+// Other conversations by sessionId, read back instead of storedConversation.
+let otherConversations: Record<string, Record<string, unknown>> = {}
+// The conversations find returns, and the query it was asked.
+let foundConversations: Record<string, unknown>[] = []
+let findQuery: Record<string, unknown> | undefined
 
 useDb({
   db: (() => ({
@@ -22,7 +28,13 @@ useDb({
 
         return { matchedCount }
       },
-      findOne: async () => storedConversation,
+      findOne: async (filter?: { sessionId?: string }) =>
+        (filter?.sessionId && otherConversations[filter.sessionId]) || storedConversation,
+      find: (query: Record<string, unknown>) => {
+        findQuery = query
+
+        return { toArray: async () => foundConversations }
+      },
     }),
   })) as unknown as typeof dbActual.db,
 })
@@ -33,6 +45,9 @@ const {
   resetLocalPreviewWaits,
   resolvePreviewDecision,
 } = await import('../decision-waiter')
+
+useIdentity({ getTeamMembership: async () => ({ role: 'member' }) as never })
+
 const { decisionToolModule: createDecisionToolModule } = await import('./decisions')
 
 const decisionToolModule = (options: Parameters<typeof createDecisionToolModule>[0]) =>
@@ -57,6 +72,8 @@ beforeEach(() => {
   resetLocalPreviewWaits()
   matchedCount = 1
   storedConversation = null
+  foundConversations = []
+  findQuery = undefined
 })
 
 describe('decision tool module', () => {
@@ -121,7 +138,6 @@ describe('decision tool module', () => {
                 status: 'open',
               },
             ],
-            $slice: -100,
           },
         },
       },
@@ -158,6 +174,48 @@ describe('decision tool module', () => {
       },
     }
     await ask('approval')
+    expect(JSON.stringify(conversationUpdates.at(-1))).not.toContain('channelId')
+  })
+
+  test("a question no channel woke is asked in the Bot's one chat with its owner", async () => {
+    const tools = decisionToolModule({ publish: () => Promise.resolve() }).handlers(ctx)
+    const ask = () =>
+      tools.request_user_decision!({ label: 'Ask', category: 'approval', question: 'Ship it?' })
+
+    // A sub-agent's report woke the turn.
+    storedConversation = {
+      metadata: {
+        version: 1,
+        sender: { type: 'agent', id: 'thread-1', displayName: 'Worker' },
+        source: 'agent.thread',
+        sentAt: '2026-11-12T00:00:00Z',
+      },
+    }
+    // The owner's chat with the Bot, and a team channel the Bot is also in.
+    foundConversations = [
+      { sessionId: 'chat-1', userId: 'u1' },
+      { sessionId: 'team-chan', userId: 'u1', participantIds: ['u1', 'u2'] },
+    ]
+    await ask()
+    expect(findQuery).toEqual({
+      userId: 'u1',
+      kind: 'channel',
+      agentSessionIds: ['conv-1'],
+      archivedAt: { $exists: false },
+    })
+    expect(conversationUpdates.at(-1)?.[1]).toMatchObject({
+      $push: { inputRequests: { $each: [{ channelId: 'chat-1' }] } },
+    })
+    // Two open chats: which one the owner reads is not known, so none is recorded.
+    foundConversations = [
+      { sessionId: 'chat-1', userId: 'u1' },
+      { sessionId: 'chat-2', userId: 'u1', participantIds: ['u1'] },
+    ]
+    await ask()
+    expect(JSON.stringify(conversationUpdates.at(-1))).not.toContain('channelId')
+    // No chat: a Task, answered where it was asked.
+    foundConversations = []
+    await ask()
     expect(JSON.stringify(conversationUpdates.at(-1))).not.toContain('channelId')
   })
 
@@ -397,6 +455,24 @@ describe('decision tool module', () => {
     })
 
     expect(result.isError).toBeFalsy()
+  })
+
+  test('request_user_decision refuses a parameter it does not take, naming it', async () => {
+    const frames: Record<string, unknown>[] = []
+    const result = await decisionToolModule({
+      publish: async (_ctx, frame) => {
+        frames.push(frame)
+      },
+    }).handlers(ctx).request_user_decision!({
+      label: 'Ask',
+      category: 'preference',
+      question: 'Which region?',
+      choices: ['us-east-1', 'eu-west-1'],
+    })
+
+    expect(result.isError).toBe(true)
+    expect(JSON.stringify(result.content)).toContain("Unrecognized key(s) in object: 'choices'")
+    expect(frames).toEqual([])
   })
 
   test('an integration decision carries its providers to the Desktop Connect card', async () => {
@@ -691,6 +767,38 @@ describe('decision tool module', () => {
     expect(unknown.isError).toBe(true)
     expect(JSON.stringify(unknown.content)).toContain('list_session_resources')
     expect(conversationUpdates).toHaveLength(before)
+  })
+
+  test("a question may be about another conversation of the same owner, never another member's or a channel", async () => {
+    storedConversation = { sessionId: 'conv-1', userId: 'u1', teamId: 't1' }
+    otherConversations = {
+      reviewer: { sessionId: 'reviewer', userId: 'u1', teamId: 't1' },
+      stranger: { sessionId: 'stranger', userId: 'u2', teamId: 't1' },
+      room: { sessionId: 'room', userId: 'u1', teamId: 't1', kind: 'channel' },
+    }
+    const tools = decisionToolModule({ publish: async () => {} }).handlers(ctx)
+    const ask = (about: string[]) =>
+      tools.request_user_decision!({
+        label: 'Ask to approve',
+        category: 'approval',
+        question: 'Approve the PR?',
+        about,
+      })
+
+    try {
+      expect((await ask(['reviewer'])).isError).toBeFalsy()
+      expect(conversationUpdates.at(-1)?.[1]).toMatchObject({
+        $push: { inputRequests: { $each: [{ about: ['reviewer'] }] } },
+      })
+      for (const ref of ['stranger', 'room']) {
+        const refused = await ask([ref])
+
+        expect(refused.isError).toBe(true)
+        expect(JSON.stringify(refused.content)).toContain('another conversation you own')
+      }
+    } finally {
+      otherConversations = {}
+    }
   })
 
   test('a wake from a resource lists the open questions about it, and nothing when there are none', () => {

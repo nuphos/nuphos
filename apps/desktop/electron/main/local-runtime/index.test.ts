@@ -54,8 +54,8 @@ const boundaries: Record<string, Record<string, unknown>> = {
     LOCAL_AGENT_PROVIDERS: [],
     findAgentCli: noop,
     probeAgentCli: noop,
-    readAgentUsage: noop,
   },
+  './agent-cli-usage.ts': { readAgentUsage: noop },
   './agent-home.ts': { prepareAgentHome: noop },
   './agent-login.ts': { LocalAgentLogin: class {}, runLoginWrapper: async () => 'signedOut' },
   './attachment-stream.ts': { localFileConnectors: () => ({}) },
@@ -74,7 +74,7 @@ const boundaries: Record<string, Record<string, unknown>> = {
   './mac-screen-app.ts': {
     macScreenApp: () => ({ deps: () => ({}) }),
   },
-  './model-probe.ts': { probeLocalModels: noop },
+  './model-probe.ts': { bundledModelProbe: () => noop },
   './openab-process.ts': { OpenabProcess: class {} },
   './sleep-prevention-electron.ts': {},
 }

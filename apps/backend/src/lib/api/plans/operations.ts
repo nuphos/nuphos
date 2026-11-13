@@ -1,5 +1,4 @@
-import { agentCreatePlanInputSchema } from './agent-schemas'
-import { createPlanBodySchema, planApprovalRequirementSchema, planSchema } from './core-schemas'
+import { planApprovalRequirementSchema, planSchema } from './core-schemas'
 import {
   agentUpdatePlanBodyFieldsSchema,
   listPlansAgentInputSchema,
@@ -13,25 +12,6 @@ import {
 } from './update-schemas'
 
 import type { ApiOperation } from '../registry'
-
-export const planCreateOperation = {
-  operationId: 'plans.create',
-  method: 'post',
-  path: '/agent/plans',
-  tags: ['Plans'],
-  summary: 'Create a plan',
-  description: 'Create a team-scoped or personal execution plan.',
-  auth: 'bearer',
-  requestSchema: createPlanBodySchema,
-  responseSchema: planSchema,
-  agent: {
-    toolName: 'plan_create',
-    readOnly: false,
-    description:
-      'Create and persist only the metadata shell for a plan: title and overview. Do not include decisions, steps, cost, or risk here; fill those with PATCH /agent/plans/{planId} as documented in the plan skill.',
-    inputSchema: agentCreatePlanInputSchema,
-  },
-} satisfies ApiOperation
 
 export const planListOperation = {
   operationId: 'plans.list',
@@ -132,7 +112,6 @@ export const planApprovalPolicyUpdateOperation = {
 } satisfies ApiOperation
 
 export const planApiOperations = [
-  planCreateOperation,
   planListOperation,
   planGetOperation,
   planUpdateOperation,

@@ -3,7 +3,7 @@ import { test } from 'node:test'
 
 import {
   ARCHIVED_CHATS_NAV_ITEM,
-  TEAM_MANAGEMENT_NAV_ITEMS,
+  CONNECTORS_NAV_ITEM,
   TEAM_SIDEBAR_NAV_ITEMS,
   TEAM_WORKSPACE_NAV_ITEMS,
   canonicalTeamOverviewKey,
@@ -17,15 +17,12 @@ import {
 
 const ALL_ITEMS = [...TEAM_SIDEBAR_NAV_ITEMS, ...TEAM_WORKSPACE_NAV_ITEMS]
 
-test('the sidebar lists New agent then the management pages', () => {
+test('the sidebar lists New Bot then Connectors', () => {
   assert.deepEqual(
     TEAM_SIDEBAR_NAV_ITEMS.map((item) => item.key),
     ['team.agent', 'team.integrations'],
   )
-  assert.deepEqual(
-    TEAM_MANAGEMENT_NAV_ITEMS.map((item) => item.key),
-    TEAM_SIDEBAR_NAV_ITEMS.slice(1).map((item) => item.key),
-  )
+  assert.equal(TEAM_SIDEBAR_NAV_ITEMS[1], CONNECTORS_NAV_ITEM)
 })
 
 test('workspace pages are the ones launched beside a conversation', () => {
@@ -43,16 +40,17 @@ test('workspace pages are the ones launched beside a conversation', () => {
 })
 
 test('management and workspace keys are disjoint and classified', () => {
-  for (const item of TEAM_MANAGEMENT_NAV_ITEMS) {
-    assert.ok(isTeamManagementKey(item.key))
-    assert.equal(isTeamWorkspaceKey(item.key), false)
-  }
   for (const item of TEAM_WORKSPACE_NAV_ITEMS) {
     assert.ok(isTeamWorkspaceKey(item.key))
     assert.equal(isTeamManagementKey(item.key), false)
   }
   assert.equal(isTeamManagementKey('team.agent'), false)
-  assert.ok(isTeamManagementKey('team.accounts'))
+})
+
+test('Connectors is a dialog, not a page that replaces the chat surface', () => {
+  assert.equal(isTeamManagementKey('team.integrations'), false)
+  assert.equal(isTeamManagementKey('team.accounts'), false)
+  assert.equal(isTeamWorkspaceKey('team.integrations'), false)
 })
 
 test('Plans opens as the existing main page and keeps its route key', () => {
@@ -86,15 +84,15 @@ test('keys are unique', () => {
 
 test('resolves the nav item for each page key', () => {
   assert.equal(teamOverviewNavItemFor('team.monitoring')?.label, 'Monitoring')
-  assert.equal(teamOverviewNavItemFor('team.agent')?.label, 'New agent')
+  assert.equal(teamOverviewNavItemFor('team.agent')?.label, 'New Bot')
   assert.equal(teamOverviewNavItemFor('team.agent-memories')?.label, 'Memories')
-  assert.equal(teamOverviewNavItemFor('team.triggers')?.label, 'Triggers')
+  assert.equal(teamOverviewNavItemFor('team.triggers')?.label, 'Inbox')
 })
 
-test('the legacy Schedule keys resolve to Triggers', () => {
-  assert.equal(canonicalTeamOverviewKey(renamedTeamNavKey('team.calendar')), 'team.triggers')
-  assert.equal(teamOverviewNavItemFor('team.schedule')?.label, 'Triggers')
-  assert.equal(isTeamManagementKey('team.schedule'), false)
+test('retired scheduling pages resolve to Inbox', () => {
+  assert.equal(canonicalTeamOverviewKey(renamedTeamNavKey('team.calendar')), 'team.inbox')
+  assert.equal(teamOverviewNavItemFor('team.schedule')?.label, 'Inbox')
+  assert.equal(isTeamManagementKey('team.schedule'), true)
 })
 
 test('the legacy team.accounts alias resolves to Connectors', () => {

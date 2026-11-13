@@ -128,6 +128,11 @@ export type WindowAgentApi = AgentDecisionApi & {
     teamId?: string,
   ): Promise<{ ok: boolean; watching: boolean }>
   agentUnlinkConversationParent(sessionId: string, teamId?: string): Promise<{ ok: boolean }>
+  agentRecordFork(
+    sessionId: string,
+    forkSessionId: string,
+    teamId?: string,
+  ): Promise<{ ok: boolean }>
   agentRecordEditFork(
     sessionId: string,
     forkSessionId: string,
@@ -252,8 +257,7 @@ export type WindowAgentApi = AgentDecisionApi & {
     teamId: string,
     minimumOtherApprovals: number,
   ): Promise<PlanApprovalRequirement>
-  agentRetryPlan(planId: string, teamId?: string): Promise<Plan>
-  agentListTriggers(teamId?: string): Promise<AgentTrigger[]>
+  agentListTriggers(teamId?: string, targetSessionId?: string): Promise<AgentTrigger[]>
   agentListTriggerGroups(teamId?: string): Promise<AgentTriggerGroup[]>
   agentUpdateTriggerGroup(
     groupId: string,

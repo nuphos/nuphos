@@ -41,7 +41,7 @@ export function liveActivityPhase(state: SessionExecutionState): LiveActivityPha
   if (state.schemaVersion !== 2 || state.state === 'disconnected' || state.state === 'unsupported')
     return 'unavailable'
   if (state.phase === 'resume_disconnected') return 'stopped'
-  if ((state.permissionWaits ?? 0) > 0) return 'approval'
+  if (state.requests?.some((request) => request.kind !== 'client-tool')) return 'approval'
   if (state.state === 'active' || state.phase === 'background_tools') return 'running'
 
   return 'done'

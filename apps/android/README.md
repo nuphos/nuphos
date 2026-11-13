@@ -59,7 +59,7 @@ consent contracts. Cloud FCM push is disabled for self-hosted sessions; local
 notifications remain available. No Cloud account is needed for a self-hosted
 backend.
 The app supports conversations, shared history, attachment transfers, runtime
-controls, permissions, Plans, Connectors, account settings, read-only Monitoring,
+controls, permissions, approval decisions, Connectors, account settings, read-only Monitoring,
 and read-only stored Trigger runs. Availability depends on team permissions,
 connected providers, and backend capabilities. Android notifications are local;
 remote push requires a separate backend and transport integration.

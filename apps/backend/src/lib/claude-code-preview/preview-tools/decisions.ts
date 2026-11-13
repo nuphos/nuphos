@@ -26,6 +26,7 @@ import { CLIENT_TOOL_INSTRUCTION, CLIENT_TOOL_UNREACHABLE_INSTRUCTION } from './
 import {
   aboutRefs,
   askedInChannel,
+  checkedCall,
   followUpHandler,
   isRequestFollowUp,
   requestOwner,
@@ -159,17 +160,14 @@ async function runClassicTool(
   }
 }
 
-/**
- * Classic tools that do not park the turn (`request_user_decision`: the card is
- * kept for the user, and their answer arrives as a new message).
- */
+/** Classic tools that do not park the turn: `request_user_decision`, answered in a new message. */
 function passthroughHandler(
   name: string,
   tool: AiSdkToolLike,
   ctx: PreviewToolContext,
   options: BlockOptions,
 ): ToolHandler {
-  return async (raw) => {
+  const handle = async (raw: Record<string, unknown>) => {
     // Written out in the body too, for clients that draw only question and body.
     const written = name === 'request_user_decision' ? withQuestionsInBody(raw) : undefined
     const args = written === undefined ? raw : { ...raw, body: written }
@@ -230,6 +228,8 @@ function passthroughHandler(
 
     return toolResult({ ...outcome.output, requestId: outcome.toolCallId })
   }
+
+  return (call) => checkedCall(tool, call, handle)
 }
 
 function clientToolHandler(

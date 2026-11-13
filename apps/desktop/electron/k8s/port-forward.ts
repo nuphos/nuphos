@@ -1,9 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import net from 'node:net'
 
-import * as k8s from '@kubernetes/client-node'
-
 import { getClients, withAuthRetry } from './client'
+import { k8sLib } from './lib'
 import { isReadyPod, resolveNamedPodPort, serviceSelectorString } from './port-forward-options'
 import {
   activeForwarders,
@@ -34,7 +33,7 @@ export async function startPortForward(
     const sockets = new Set<net.Socket>()
     const server = net.createServer((socket) => {
       sockets.add(socket)
-      const forward = new k8s.PortForward(kc)
+      const forward = new k8sLib.PortForward(kc)
       let websocket: PortForwardWebSocket | null = null
       let closeUpstream: (() => void) | null = null
       let output: Writable | null = null

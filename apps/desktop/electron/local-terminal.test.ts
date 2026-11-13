@@ -180,6 +180,30 @@ test('sessions reject another window and cleanup on reload', async (t) => {
 })
 
 test(
+  'closing a terminal ends a foreground process that ignores SIGHUP',
+  { timeout: 20_000, skip: process.platform === 'win32' },
+  async (t) => {
+    const sessions = new LocalTerminalSessions()
+
+    t.after(() => sessions.closeAll())
+    const { owner, emitter } = renderer()
+    const id = 'tab-1'
+
+    sessions.start(owner, id, 80, 24)
+    const ready = waitForOutput(emitter, 'HUP_IGNORED')
+
+    // `exec` makes it the terminal's own process, waiting on terminal input
+    // like an idle shell, so only closing the terminal itself can end it.
+    sessions.input(owner, id, `exec sh -c 'trap "" HUP; printf "%s%s\\n" HUP_ IGNORED; read x'\r`)
+    await ready
+    const exited = waitForExit(emitter, id, t.signal)
+
+    sessions.close(owner, id)
+    await exited
+  },
+)
+
+test(
   'agent terminal is scoped and remains shared after user input',
   { timeout: 20_000, skip: process.platform === 'win32' },
   async (t) => {

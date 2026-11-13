@@ -22,15 +22,16 @@ import {
 import { unsavedReason } from './auth/unsaved.ts'
 import { apiError, apiErrorMessage } from './auth/web.ts'
 import { completeNativeLogin } from './auth/native.ts'
+import { runPasskeyCeremony } from './auth/passkey.ts'
 import { planLogin } from './auth/plan.ts'
 import { isValidUserInfo } from './auth-status.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from './client-version.ts'
 
-import type { SocialProvider } from './auth/plan.ts'
+import type { SocialOption, SocialProvider } from './auth/plan.ts'
 import type { AuthStatus, UserInfo } from './auth-status.ts'
 import type { Server } from 'node:http'
 
-export type { AuthStatus, SocialProvider, UserInfo }
+export type { AuthStatus, SocialOption, SocialProvider, UserInfo }
 
 export { status } from './auth/me.ts'
 export { socialProviders } from './auth/plan.ts'
@@ -94,8 +95,23 @@ export async function verifyMfa(mfaToken: string, code: string): Promise<UserInf
   return signInWith('/auth/mfa/verify', { mfaToken, code })
 }
 
+/** The same step answered with a passkey, through nuphos.ai in the browser. */
+export async function verifyMfaWithPasskey(mfaToken: string): Promise<UserInfo> {
+  const res = await fetch(`${apiUrl()}/auth/mfa/verify/options`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', [CLIENT_VERSION_HEADER]: CLIENT_VERSION_VALUE },
+    body: JSON.stringify({ mfaToken }),
+    signal: AbortSignal.timeout(20_000),
+  })
+
+  if (!res.ok) throw await apiError(res)
+  const passkey = await runPasskeyCeremony('get', await res.json())
+
+  return signInWith('/auth/mfa/verify', { mfaToken, passkey })
+}
+
 /** Posts a sign-in step that answers with `{ token, user }`, and keeps the session. */
-async function signInWith(route: string, body: Record<string, string>): Promise<UserInfo> {
+async function signInWith(route: string, body: Record<string, unknown>): Promise<UserInfo> {
   const attempt = beginSignIn()
   // The token this returns is the backend's it was asked of, whatever the endpoint is by then.
   const api = apiUrl()

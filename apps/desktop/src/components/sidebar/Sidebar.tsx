@@ -64,6 +64,7 @@ export const Sidebar = memo(function Sidebar({
   onRejectInvitation,
   rootIntegrations,
   rootIntegrationsLoading = false,
+  connectorsOpen = false,
   collapsed = false,
   onToggleCollapse,
   dynamicNavigation = false,
@@ -82,8 +83,8 @@ export const Sidebar = memo(function Sidebar({
       agentSessionId,
       chatShown,
       onArchived: onChatArchived,
+      onBotArchiveSelect: chatShown && sidebarPage === 0 ? onSelect : undefined,
     })
-  // Expanded mode restores scope-specific navigation; split mode keeps Chats.
   const teamScope = { kind: 'team' as const, teamId }
   const navigationScope = dynamicNavigation ? scope : teamScope
   const customResourceTypeSections = useSidebarCrdSections({
@@ -137,10 +138,8 @@ export const Sidebar = memo(function Sidebar({
 
   useChatNavKeys(
     teamView
-      ? sidebarSections.filter((section) =>
-          sidebarPage === 0
-            ? section.title === 'Channels'
-            : sidebarPage === 1 && section.title === 'Tasks',
+      ? sidebarSections.filter(
+          (section) => section.title === (sidebarPage === 0 ? 'Channels' : 'Tasks'),
         )
       : sidebarSections,
     chrome.isGroupCollapsed,
@@ -259,7 +258,7 @@ export const Sidebar = memo(function Sidebar({
             </div>
           )}
         <SidebarFooter
-          active={active}
+          connectorsOpen={connectorsOpen}
           onSelect={onSelect}
           {...{
             user,
