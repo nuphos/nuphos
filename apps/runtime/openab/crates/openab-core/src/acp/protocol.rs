@@ -114,8 +114,8 @@ impl std::fmt::Display for JsonRpcError {
     }
 }
 
-/// Lets a request failure keep its code and `data` inside `anyhow`, so callers
-/// can relay them (`downcast_ref::<JsonRpcError>()`) rather than parse the text.
+/// Lets `AcpRequestError::Agent` carry a request failure's code and `data`, so
+/// callers can relay them rather than parse the text.
 impl std::error::Error for JsonRpcError {}
 
 // --- ACP configOptions (session-level configuration) ---

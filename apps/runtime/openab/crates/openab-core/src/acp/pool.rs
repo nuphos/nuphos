@@ -1,4 +1,4 @@
-use crate::acp::connection::{AcpConnection, SessionActivity};
+use crate::acp::connection::{AcpConnection, AcpRequestError, SessionActivity};
 use crate::acp::protocol::ConfigOption;
 use crate::acp::session_credentials::{
     try_write_session_credentials, write_session_credentials, SESSION_CREDENTIALS_DIR_ENV,
@@ -13,11 +13,6 @@ use std::sync::Arc;
 use tokio::sync::{Mutex, OwnedSemaphorePermit, RwLock, Semaphore};
 use tokio::time::Instant;
 use tracing::{info, warn};
-
-/// Error substrings produced by `AcpConnection::send_request` that indicate a
-/// transient failure worth preserving the session ID for retry, as opposed to
-/// a permanent agent-side rejection.
-const TRANSIENT_LOAD_ERRORS: &[&str] = &["timeout waiting for", "channel closed"];
 
 /// Combined state protected by a single lock to prevent deadlocks.
 /// Lock ordering: never await a per-connection mutex while holding `state`.
@@ -1070,7 +1065,7 @@ impl SessionPool {
         .await?;
 
         let mut resumed = false;
-        let mut load_failed: Option<&str> = None;
+        let mut load_timed_out = false;
         if let Some(ref sid) = saved_session_id {
             if new_conn.supports_load_session {
                 match new_conn
@@ -1086,37 +1081,30 @@ impl SessionPool {
                         info!(thread_id = %crate::redact::redact_session_ids(thread_id), session_id = %crate::redact::redact_session_ids(sid), "session resumed via session/load");
                         resumed = true;
                     }
+                    Err(e) if restore_only => {
+                        return Err(anyhow::Error::new(e)
+                            .context("Could not restore the saved native session"));
+                    }
+                    Err(e @ AcpRequestError::Timeout { .. }) => {
+                        warn!(thread_id = %crate::redact::redact_session_ids(thread_id), session_id = %crate::redact::redact_session_ids(sid), error = %e,
+                            "session/load failed transiently, preserving session ID for retry");
+                        load_timed_out = true;
+                    }
                     Err(e) => {
-                        if restore_only {
-                            return Err(e.context("Could not restore the saved native session"));
-                        }
-                        let err_str = e.to_string();
-                        let is_transient =
-                            TRANSIENT_LOAD_ERRORS.iter().any(|s| err_str.contains(s));
-                        if is_transient {
-                            warn!(thread_id = %crate::redact::redact_session_ids(thread_id), session_id = %crate::redact::redact_session_ids(sid), error = %e,
-                                "session/load failed transiently, preserving session ID for retry");
-                            load_failed = Some(if err_str.contains("timeout waiting for") {
-                                "timeout"
-                            } else {
-                                "connection lost"
-                            });
-                        } else {
-                            warn!(thread_id = %crate::redact::redact_session_ids(thread_id), session_id = %crate::redact::redact_session_ids(sid), error = %e,
-                                "session/load failed, creating new session");
-                        }
+                        warn!(thread_id = %crate::redact::redact_session_ids(thread_id), session_id = %crate::redact::redact_session_ids(sid), error = %e,
+                            "session/load failed, creating new session");
                     }
                 }
             }
         }
 
-        if let Some(reason) = load_failed {
-            // session/load failed transiently. The original session ID is already
+        if load_timed_out {
+            // session/load timed out. The original session ID is already
             // in state.persisted (we haven't touched it), so the next message will
             // retry session/load automatically. Return an error so the current message
             // is not processed against a context-free session.
             return Err(anyhow!(
-                "session load {reason}: could not restore previous session"
+                "session load timeout: could not restore previous session"
             ));
         }
 
