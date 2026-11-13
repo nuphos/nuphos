@@ -19,6 +19,7 @@ import {
   findPendingNativeSession,
 } from '@/lib/native-auth'
 import { generateOpaqueToken, hashToken, safeEqualStr } from '@/lib/oauth/tokens'
+import { deviceApproval, escapeHtml, providerName, safeNext } from '@/routes/device-approval'
 
 import type { SocialProvider } from '@/lib/identity/social'
 
@@ -57,6 +58,8 @@ socialAuth.get('/login', async (c) => {
   )
 })
 
+socialAuth.route('/device', deviceApproval)
+
 socialAuth.get('/session', async (c) => {
   const token = getCookie(c, '__Host-nuphos-social')
   const identity = token ? await authenticateToken(token) : null
@@ -81,6 +84,7 @@ socialAuth.get('/:provider/start', async (c) => {
     provider,
     nonce,
     handle,
+    next: handle ? undefined : safeNext(c.req.query('next')),
     // Read here: Apple's callback is a cross-site POST, which drops Lax cookies.
     firstTouch: getCookie(c, FIRST_TOUCH_COOKIE),
     expiresAt: new Date(Date.now() + 600_000),
@@ -157,6 +161,7 @@ socialAuth.on(['GET', 'POST'], '/:provider/callback', async (c) => {
       path: '/',
       maxAge: 30 * 24 * 60 * 60,
     })
+    if (attempt.next) return c.redirect(attempt.next)
 
     return c.html(
       '<!doctype html><html lang="en"><meta charset="utf-8"><title>Signed in</title><h1>Signed in to Nuphos</h1><p>You can return to your workspace.</p></html>',
@@ -190,16 +195,6 @@ async function configuredProviders(): Promise<SocialProvider[]> {
   )
 
   return SOCIAL_PROVIDERS.filter((_, index) => offered[index])
-}
-
-function providerName(provider: SocialProvider) {
-  if (provider === 'oidc') return config.auth.oidc.name
-
-  return provider === 'google' ? 'Google' : 'Apple'
-}
-
-function escapeHtml(text: string) {
-  return text.replace(/[&<>"']/g, (ch) => `&#${String(ch.charCodeAt(0))};`)
 }
 
 function parseProvider(raw: string): SocialProvider {

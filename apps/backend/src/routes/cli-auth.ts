@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import { Hono } from 'hono'
 import { z } from 'zod'
 
+import { config } from '@/config'
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 import { trustedAvatarURL } from '@/lib/identity/avatar-url'
@@ -23,11 +24,13 @@ import { clientIp } from '@/lib/request-origin'
 import { zv } from '@/lib/validate'
 import { requireAuth } from '@/middleware/auth'
 import { avatarBodyLimit } from '@/routes/auth'
+import { DEVICE_PAGE_PATH } from '@/routes/device-approval'
 
 import type { AuthVariables } from '@/middleware/auth'
 import type { Context } from 'hono'
 
-const VERIFICATION_URI = 'https://nuphos.ai/device'
+// This server's own approval page: nuphos.ai/device only approves for Nuphos Cloud.
+const verificationUri = () => `${config.auth.publicBaseUrl}${DEVICE_PAGE_PATH}`
 
 const agentFields = {
   name: z.string().trim().min(1).max(64),
@@ -84,7 +87,7 @@ export function createCliAuthRoutes(quota: Quota = redisQuota) {
     const body = (await c.req.json().catch(() => ({}))) as { clientName?: unknown }
     const started = await startDeviceLogin({ clientName: body.clientName, requesterIp: ip })
 
-    return c.json({ ...started, verificationUri: VERIFICATION_URI })
+    return c.json({ ...started, verificationUri: verificationUri() })
   })
 
   routes.post('/device/token', async (c) => {
@@ -93,7 +96,7 @@ export function createCliAuthRoutes(quota: Quota = redisQuota) {
 
     switch (result.status) {
       case 'pending':
-        throw new AppError(409, 'authorization_pending', 'Waiting for approval on nuphos.ai')
+        throw new AppError(409, 'authorization_pending', 'Waiting for approval')
       case 'slow_down':
         throw new AppError(429, 'slow_down', 'Polling too fast')
       case 'denied':

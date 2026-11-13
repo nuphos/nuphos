@@ -300,3 +300,30 @@ for (const native of [true, false]) {
     },
   )
 }
+
+test('device page asks for sign-in and returns to itself with the code', async () => {
+  const response = await app.request('/device?code=abcd-efgh')
+  const html = await response.text()
+
+  expect(response.status).toBe(200)
+  expect(html).toContain(
+    `google/start?next=${encodeURIComponent('/auth/social/device?code=abcd-efgh')}`,
+  )
+  await app.request(`/google/start?next=${encodeURIComponent('/auth/social/device?code=X')}`)
+  await app.request(`/google/start?next=${encodeURIComponent('https://evil.example/')}`)
+  await app.request(`/google/start?next=${encodeURIComponent('//evil.example/auth/social/device')}`)
+  const attempts = docs.get('social_auth_attempts')!
+
+  expect(attempts.map((a) => a.next)).toEqual(['/auth/social/device?code=X', undefined, undefined])
+})
+test('device approval refuses other origins and anonymous posts', async () => {
+  const post = (headers: Record<string, string>) =>
+    app.request('/device', {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded', ...headers },
+      body: 'code=ABCDEFGH&decision=approve',
+    })
+
+  expect((await post({ origin: 'https://evil.example' })).status).toBe(403)
+  expect((await post({})).status).toBe(401)
+})
