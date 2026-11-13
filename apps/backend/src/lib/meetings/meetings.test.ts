@@ -2,7 +2,7 @@ import { createHmac } from 'node:crypto'
 
 import { describe, expect, test } from 'bun:test'
 
-import { readNote } from '@/lib/agent/db/channels'
+import { readNote } from '@/lib/agent/db/channel-notes'
 
 import { eventText, joinWords } from './meetings'
 import { verifyRecallSignature } from './recall'

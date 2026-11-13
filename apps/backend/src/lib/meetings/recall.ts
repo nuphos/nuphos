@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
 
 import { config } from '@/config'
 import { AppError } from '@/lib/errors'
+import { logError } from '@/lib/observability'
 
 import type { MeetingsConfig } from '@/config/meetings'
 
@@ -70,6 +71,17 @@ export async function createMeetingBot(input: {
 
 export async function sendMeetingChat(botId: string, message: string): Promise<void> {
   await recallFetch(`/bot/${botId}/send_chat_message/`, { message: message.slice(0, 4096) })
+}
+
+/** A meeting channel's post also goes to the call's chat; the post stands if that fails. */
+export function forwardToMeeting(
+  channel: { sessionId: string; meeting?: { botId: string } },
+  text: string,
+): void {
+  if (!channel.meeting) return
+  void sendMeetingChat(channel.meeting.botId, text).catch((error: unknown) => {
+    logError('meeting.chat_failed', error, { channel_id: channel.sessionId })
+  })
 }
 
 export async function leaveMeeting(botId: string): Promise<void> {

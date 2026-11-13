@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
 import { getTeamMembership } from '@/lib/identity'
-import { sendMeetingChat } from '@/lib/meetings/recall'
 import { logError } from '@/lib/observability'
 
 import { agentMessages, appendConversationMessages, getConversationBySessionId } from './db'
@@ -183,11 +182,6 @@ export async function postAsAgent(
     },
     agent.sessionId,
   )
-  // A meeting's channel speaks into the call's chat; the post stands if that fails.
-  if (channel.meeting)
-    void sendMeetingChat(channel.meeting.botId, text).catch((error: unknown) => {
-      logError('meeting.chat_failed', error, { channel_id: channelId })
-    })
 }
 
 /** One more agent-woken turn, if the budget has room for it. */
