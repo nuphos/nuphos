@@ -89,6 +89,16 @@ then set `google.clientId` and `google.clientSecret` (or add
 `GOOGLE_OAUTH_CLIENT_SECRET` to `secrets.existingSecret`). Desktop and the mobile
 apps show the button only when the server offers it.
 
+To offer single sign-on through an OpenID Connect provider such as Logto, create
+a Traditional Web application in Logto with the redirect URI
+`<backend.url>/auth/social/oidc/callback`, then set `oidc.issuer` (the app's
+issuer endpoint, e.g. `https://<tenant>.logto.app/oidc`), `oidc.clientId`,
+`oidc.clientSecret` (or add `OIDC_CLIENT_SECRET` to `secrets.existingSecret`)
+and `oidc.name`, the label on the "Continue with" button. A verified email
+signs in to the existing account with that email, so the user `nuphos-admin
+bootstrap` created can switch to SSO. Desktop shows the button; the iOS and
+Android apps do not offer OIDC yet.
+
 ## Secrets
 
 The chart generates the JWT secret, Mongo password, storage secret key, runtime

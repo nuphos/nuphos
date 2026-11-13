@@ -5,12 +5,15 @@ import { MongoServerError, ObjectId } from 'mongodb'
 import { config } from '@/config'
 import { AppError } from '@/lib/errors'
 import { uniqueUsername } from '@/lib/identity/auth'
+import { discoverOidc, verifyOidcIdToken } from '@/lib/identity/oidc'
 import { mapUser, users } from '@/lib/identity/shared'
 import { safeEqualStr } from '@/lib/oauth/tokens'
 
+import type { Endpoints } from '@/lib/identity/oidc'
 import type { webcrypto } from 'node:crypto'
 
-export type SocialProvider = 'google' | 'apple'
+export const SOCIAL_PROVIDERS = ['google', 'apple', 'oidc'] as const
+export type SocialProvider = (typeof SOCIAL_PROVIDERS)[number]
 export type SocialClaims = {
   sub: string
   email?: string
@@ -18,7 +21,7 @@ export type SocialClaims = {
   name?: string
   picture?: string
 }
-const endpoints = {
+const endpoints: Record<'google' | 'apple', Endpoints> = {
   google: {
     authorize: 'https://accounts.google.com/o/oauth2/v2/auth',
     token: 'https://oauth2.googleapis.com/token',
@@ -37,7 +40,22 @@ const keyCache = new Map<
   { until: number; keys: (webcrypto.JsonWebKey & { kid?: string; alg?: string; use?: string })[] }
 >()
 
-export function providerSettings(provider: SocialProvider) {
+export async function providerSettings(provider: SocialProvider) {
+  const redirectUri = `${config.auth.publicBaseUrl}/auth/social/${provider}/callback`
+
+  if (provider === 'oidc') {
+    const { issuer, clientId, clientSecret } = config.auth.oidc
+
+    if (!issuer || !clientId || !clientSecret)
+      throw new AppError(503, 'provider_unavailable', 'oidc sign-in is not configured')
+
+    return {
+      ...(await discoverOidc(issuer)),
+      clientId,
+      secret: clientSecret,
+      redirectUri,
+    }
+  }
   const clientId = config.auth[provider].clientId
   let secret: string | undefined
 
@@ -75,21 +93,24 @@ export function providerSettings(provider: SocialProvider) {
     ...endpoints[provider],
     clientId,
     secret,
-    redirectUri: `${config.auth.publicBaseUrl}/auth/social/${provider}/callback`,
+    redirectUri,
   }
 }
 
 export function validateClaims(
   claims: Record<string, unknown>,
-  provider: SocialProvider,
+  issuers: string[],
   audience: string,
   nonce: string,
 ): SocialClaims {
   const now = Math.floor(Date.now() / 1000)
+  const audienceOk = Array.isArray(claims.aud)
+    ? claims.aud.includes(audience)
+    : claims.aud === audience
 
   if (
-    !endpoints[provider].issuer.includes(String(claims.iss)) ||
-    claims.aud !== audience ||
+    !issuers.includes(String(claims.iss)) ||
+    !audienceOk ||
     typeof claims.exp !== 'number' ||
     claims.exp <= now ||
     typeof claims.iat !== 'number' ||
@@ -110,7 +131,7 @@ export async function exchangeSocialCode(
   code: string,
   nonce: string,
 ): Promise<SocialClaims> {
-  const settings = providerSettings(provider)
+  const settings = await providerSettings(provider)
   const response = await fetch(settings.token, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
@@ -133,6 +154,12 @@ export async function exchangeSocialCode(
     )
   if (result.id_token.length > 16_384)
     throw new AppError(401, 'invalid_identity', 'Invalid provider token')
+  // OIDC providers sign with whatever they choose (Logto defaults to ES384), so jose verifies.
+  if (provider === 'oidc') {
+    const payload = await verifyOidcIdToken(result.id_token, settings.keys)
+
+    return validateClaims(payload, settings.issuer, settings.clientId, nonce)
+  }
   const parts = result.id_token.split('.')
 
   const [headerPart, payloadPart, signaturePart] = parts
@@ -179,14 +206,16 @@ export async function exchangeSocialCode(
 
   return validateClaims(
     JSON.parse(Buffer.from(payloadPart, 'base64url').toString()),
-    provider,
+    settings.issuer,
     settings.clientId,
     nonce,
   )
 }
 
+const ID_FIELDS = { google: 'googleID', apple: 'appleID', oidc: 'oidcID' } as const
+
 export async function signInSocial(provider: SocialProvider, claims: SocialClaims) {
-  const field = provider === 'google' ? 'googleID' : 'appleID'
+  const field = ID_FIELDS[provider]
   const query = { [field]: claims.sub, deletedAt: { $exists: false } }
   let user = await users().findOne(query)
 
@@ -194,8 +223,19 @@ export async function signInSocial(provider: SocialProvider, claims: SocialClaim
     if (!claims.email || (claims.email_verified !== true && claims.email_verified !== 'true'))
       throw new AppError(401, 'email_required', 'A verified email is required for a new account')
     const email = claims.email.toLowerCase()
+    const existing = await users().findOne({ email })
 
-    if (await users().findOne({ email }))
+    // The operator's own identity provider is trusted to own its verified emails, so it
+    // links accounts made another way (e.g. by `nuphos-admin bootstrap`).
+    if (existing && provider === 'oidc' && !existing.oidcID && !existing.deletedAt) {
+      await users().updateOne(
+        { _id: existing._id },
+        { $set: { oidcID: claims.sub, updatedAt: new Date() } },
+      )
+
+      return { user: mapUser({ ...existing, oidcID: claims.sub }) }
+    }
+    if (existing)
       throw new AppError(
         409,
         'account_exists',

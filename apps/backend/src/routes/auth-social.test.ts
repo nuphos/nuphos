@@ -71,6 +71,7 @@ useDb({
 beforeEach(() => {
   docs.clear()
   config.auth.apple.clientId = undefined
+  config.auth.oidc.issuer = undefined
   config.auth.google.clientId = 'test-client'
   config.auth.google.clientSecret = 'test-secret'
 })
@@ -163,6 +164,51 @@ test('same email does not silently link accounts', async () => {
   await expect(
     signInSocial('apple', { sub: 'apple-sub', email: 'person@example.com', email_verified: true }),
   ).rejects.toThrow('existing account')
+})
+test('OIDC links a verified email to an existing account, once', async () => {
+  const existing = await signInSocial('google', {
+    sub: 'google-sub',
+    email: 'person@example.com',
+    email_verified: true,
+  })
+  const linked = await signInSocial('oidc', {
+    sub: 'logto-sub',
+    email: 'Person@example.com',
+    email_verified: true,
+  })
+
+  expect(linked.user.id).toBe(existing.user.id)
+  docs.get('users')![0]!.oidcID = 'logto-sub'
+  await expect(
+    signInSocial('oidc', { sub: 'other-sub', email: 'person@example.com', email_verified: true }),
+  ).rejects.toThrow('existing account')
+  await expect(
+    signInSocial('oidc', { sub: 'new-sub', email: 'new@example.com', email_verified: false }),
+  ).rejects.toThrow()
+})
+test('chooser names the OIDC provider', async () => {
+  Object.assign(config.auth.oidc, {
+    issuer: 'https://sso.example.test/oidc',
+    clientId: 'c',
+    clientSecret: 's',
+    name: 'Logto <SSO>',
+  })
+  globalThis.fetch = (async (_url: unknown) =>
+    Response.json({
+      issuer: 'https://sso.example.test/oidc',
+      authorization_endpoint: 'https://sso.example.test/oidc/auth',
+      token_endpoint: 'https://sso.example.test/oidc/token',
+      jwks_uri: 'https://sso.example.test/oidc/jwks',
+    })) as typeof fetch
+  const response = await app.request('/login')
+
+  expect(response.headers.get('x-nuphos-social-providers')).toBe('google,oidc')
+  expect(response.headers.get('x-nuphos-social-oidc-name')).toBe('Logto <SSO>')
+  expect(await response.text()).toContain('Continue with Logto &#60;SSO&#62;')
+  const start = new URL((await app.request('/oidc/start')).headers.get('location')!)
+
+  expect(start.origin + start.pathname).toBe('https://sso.example.test/oidc/auth')
+  expect(start.searchParams.get('redirect_uri')).toEndWith('/auth/social/oidc/callback')
 })
 test('unverified email cannot create an account', async () => {
   await expect(
