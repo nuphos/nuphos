@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
-import { newBindingAccess } from '@/lib/byos/initial-access'
+import { bindingShareSchema, newBindingAccess } from '@/lib/byos/initial-access'
 import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { encryptSecureframeSecret } from '@/lib/byos/secrets'
 import {
@@ -34,6 +34,7 @@ const bindSchema = z
     region: z.enum(['us', 'uk']).default('us'),
     apiKey: z.string().trim().min(1).max(200),
     apiSecret: z.string().trim().min(1).max(400),
+    share: bindingShareSchema.optional(),
   })
   .strict()
 

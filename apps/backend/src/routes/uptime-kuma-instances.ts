@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
-import { newBindingAccess } from '@/lib/byos/initial-access'
+import { bindingShareSchema, newBindingAccess } from '@/lib/byos/initial-access'
 import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { verifyUptimeKumaCredentials } from '@/lib/byos/uptime-kuma'
 import { parseObjectId } from '@/lib/objectid'
@@ -33,6 +33,7 @@ const bindSchema = z
     username: z.string().trim().min(1).max(255).optional(),
     password: z.string().min(1).optional(),
     authToken: z.string().trim().min(1).optional(),
+    share: bindingShareSchema.optional(),
   })
   .strict()
   .refine((value) => value.authToken || (value.username && value.password), {

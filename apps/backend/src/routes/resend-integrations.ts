@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
-import { newBindingAccess } from '@/lib/byos/initial-access'
+import { bindingShareSchema, newBindingAccess } from '@/lib/byos/initial-access'
 import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { ResendApiError, verifyResendApiKey } from '@/lib/byos/resend'
 import { encryptResendSecret } from '@/lib/byos/secrets'
@@ -24,6 +24,7 @@ const bindSchema = z
   .object({
     label: z.string().trim().min(1).max(100),
     apiKey: z.string().trim().min(1).max(300),
+    share: bindingShareSchema.optional(),
   })
   .strict()
 

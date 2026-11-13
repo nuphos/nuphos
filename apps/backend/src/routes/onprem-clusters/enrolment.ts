@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto'
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
-import { newBindingAccess } from '@/lib/byos/initial-access'
+import { bindingShareSchema, newBindingAccess } from '@/lib/byos/initial-access'
 import { clearAgentClusterContextCache } from '@/lib/byos/agent-kubeconfig/collect'
 import { relayConfigured } from '@/lib/byos/relay-token'
 import { encryptOnpremKubeconfig } from '@/lib/byos/secrets'
@@ -43,6 +43,7 @@ const enrolSchema = z
       .min(1)
       .max(256 * 1024)
       .optional(),
+    share: bindingShareSchema.optional(),
   })
   .strict()
 
