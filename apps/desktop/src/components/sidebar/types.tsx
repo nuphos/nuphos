@@ -17,6 +17,8 @@ export type Item = {
   unread?: boolean
   lastActiveAt?: string
   taskState?: 'attention' | 'working' | 'idle'
+  /** First read task after the inbox, within the same keyed list. */
+  taskDivider?: boolean
 
   key: string
   label: string

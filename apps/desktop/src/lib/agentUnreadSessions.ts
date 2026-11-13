@@ -10,9 +10,11 @@ export type ConversationReadRow = {
   teamId?: string
   activitySeq?: number
   readSeq?: number
+  lastActiveAt?: string
 }
 
 type ReadState = {
+  lastActiveAt?: string
   teamId?: string
   activitySeq: number
   readSeq: number
@@ -27,6 +29,7 @@ const states = new Map<string, ReadState>()
 const readers = new Map<string, Set<() => boolean>>()
 const listeners = new Set<() => void>()
 let snapshot: ReadonlySet<string> = new Set()
+let activityTimes: ReadonlyMap<string, string> = new Map()
 
 function seq(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.floor(value) : 0
@@ -46,8 +49,19 @@ function isUnread(sessionId: string, state: ReadState): boolean {
 function publish() {
   const next = new Set([...states].filter(([id, state]) => isUnread(id, state)).map(([id]) => id))
 
-  if (next.size === snapshot.size && [...next].every((id) => snapshot.has(id))) return
-  snapshot = next
+  const nextTimes = new Map(
+    [...states].flatMap(([id, state]) =>
+      state.lastActiveAt ? [[id, state.lastActiveAt] as const] : [],
+    ),
+  )
+  const unreadChanged = next.size !== snapshot.size || [...next].some((id) => !snapshot.has(id))
+  const timesChanged =
+    nextTimes.size !== activityTimes.size ||
+    [...nextTimes].some(([id, time]) => activityTimes.get(id) !== time)
+
+  if (!unreadChanged && !timesChanged) return
+  if (unreadChanged) snapshot = next
+  if (timesChanged) activityTimes = nextTimes
   for (const listener of listeners) listener()
 }
 
@@ -61,6 +75,10 @@ function receive(row: ConversationReadRow, displayed: boolean) {
   }
   const activitySeq = seq(row.activitySeq)
 
+  const activityAt = Date.parse(row.lastActiveAt ?? '')
+
+  if (Number.isFinite(activityAt) && activityAt > (Date.parse(state.lastActiveAt ?? '') || 0))
+    state.lastActiveAt = row.lastActiveAt
   state.teamId = row.teamId ?? state.teamId
   state.activitySeq = Math.max(state.activitySeq, activitySeq)
   state.readSeq = Math.max(state.readSeq, seq(row.readSeq))
@@ -157,4 +175,13 @@ function getSnapshot() {
 
 export function useAgentUnreadSessions(): ReadonlySet<string> {
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+}
+
+/** The activity timestamp and unread marker arrive in the same server response. */
+export function useAgentActivityTimes(): ReadonlyMap<string, string> {
+  return useSyncExternalStore(
+    subscribe,
+    () => activityTimes,
+    () => activityTimes,
+  )
 }

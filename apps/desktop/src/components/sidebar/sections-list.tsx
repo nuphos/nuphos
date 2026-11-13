@@ -249,6 +249,8 @@ export function SidebarSectionList({
                               data-task-reflow-key={item.task && !item.bot ? item.key : undefined}
                               className={clsx(
                                 't-collapse t-sidebar-session t-stagger relative transition-opacity duration-150',
+                                item.task && !item.bot && !item.botNested && 't-task-row',
+                                item.taskDivider && 'mt-2 border-t border-line-control/60 pt-2',
                                 archivingIds.has(rowSessionId) ? 'is-hiding' : 'is-shown',
                               )}
                               title={
@@ -267,7 +269,17 @@ export function SidebarSectionList({
                               </NestedRowBody>
                             </div>
                           ) : (
-                            <div key={item.key}>{row}</div>
+                            <div
+                              key={item.key}
+                              data-task-reflow-key={item.project ? item.key : undefined}
+                              className={
+                                item.taskDivider
+                                  ? 'mt-2 border-t border-line-control/60 pt-2'
+                                  : undefined
+                              }
+                            >
+                              {row}
+                            </div>
                           )
                         })
                     )}

@@ -82,8 +82,8 @@ export const Sidebar = memo(function Sidebar({
       agentSessionId,
       chatShown,
       onArchived: onChatArchived,
+      onBotArchiveSelect: chatShown && sidebarPage === 0 ? onSelect : undefined,
     })
-  // Expanded mode restores scope-specific navigation; split mode keeps Chats.
   const teamScope = { kind: 'team' as const, teamId }
   const navigationScope = dynamicNavigation ? scope : teamScope
   const customResourceTypeSections = useSidebarCrdSections({
