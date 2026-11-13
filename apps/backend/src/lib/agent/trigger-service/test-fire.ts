@@ -46,9 +46,8 @@ export type TestTriggerDestinationResult = {
 
 /**
  * Verify the destination configured by the desktop UI without manufacturing a
- * provider alert or entering incident investigation/dedupe. Real provider
- * webhooks and the agent-facing trigger_test_fire tool continue to use
- * executeTrigger via testFireTrigger.
+ * provider alert or entering incident investigation/dedupe. Agent sessions
+ * continue to use executeTrigger via testFireTrigger.
  *
  * Legacy/Nuphos-only triggers do not have a separately addressable outbound
  * destination, so they retain the existing background agent verification.

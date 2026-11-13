@@ -4,23 +4,20 @@ import { ObjectId } from 'mongodb'
 import { config } from '@/config'
 import { agentTriggers, verifyWebhookSecret } from '@/lib/agent/trigger-db'
 import { executeTrigger } from '@/lib/agent/trigger-executor'
-import {
-  claimTriggerGroupMemberRun,
-  matchTriggerGroupMembers,
-} from '@/lib/agent/trigger-group-service'
-import { parseMonitoringProviderWiring } from '@/lib/agent/trigger-provider-wiring'
 import { shouldBypassTriggerCooldown } from '@/lib/agent/webhook-cooldown'
 import {
   AwsSnsValidationError,
   confirmAwsSnsSubscription,
+  isAwsSnsRequest,
   isAwsSnsValidationError,
   normalizeCloudWatchSnsNotification,
   parseAwsSnsEnvelope,
-  shouldHandleAwsSnsRequest,
   verifyAwsSnsSignature,
 } from '@/lib/aws/sns-webhook'
 import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
+
+import type { AwsSnsEnvelope, NormalizedCloudWatchSnsPayload } from '@/lib/aws/sns-webhook'
 
 export const webhooksRoutes = new Hono()
 
@@ -79,54 +76,17 @@ webhooksRoutes.post('/:triggerId', async (c) => {
     payload = { raw: rawBody }
   }
 
-  const payloadType =
-    payload && typeof payload === 'object' && !Array.isArray(payload)
-      ? (payload as Record<string, unknown>).Type
-      : undefined
-  const triggerProvider =
-    trigger.monitoringIdentity?.provider ??
-    (trigger.providerWiring?.provider === 'watch_group'
-      ? trigger.providerWiring.providerKey
-      : undefined)
-
-  if (
-    shouldHandleAwsSnsRequest({
-      headerMessageType: snsMessageType,
-      payloadType,
-      triggerProvider,
-    })
-  ) {
-    if (triggerProvider !== 'aws') {
-      throw new AppError(400, 'unexpected_sns_message', 'This trigger is not an AWS Watch')
-    }
-    let envelope
-
+  // An SNS subscription is just another sender of this webhook: the secret
+  // above authenticates it. The signature proves the message really came from
+  // SNS before a SubscribeURL is followed or a CloudWatch alarm is trusted.
+  if (isAwsSnsRequest({ headerMessageType: snsMessageType, payload })) {
     try {
-      envelope = parseAwsSnsEnvelope(payload)
+      const envelope = parseAwsSnsEnvelope(payload)
+
       if (snsMessageType && snsMessageType !== envelope.Type) {
         throw new AwsSnsValidationError('SNS message type header does not match the signed body')
       }
-
-      const receipt = trigger.providerWiring
-        ? parseMonitoringProviderWiring(trigger.providerWiring)
-        : undefined
-      const awsReceipts =
-        receipt?.provider === 'watch_group'
-          ? receipt.wirings.filter((wiring) => wiring.provider === 'aws')
-          : receipt?.provider === 'aws'
-            ? [receipt]
-            : []
-
-      if (receipt && awsReceipts.length === 0) {
-        throw new AwsSnsValidationError('AWS notification does not match the provider receipt')
-      }
-      await verifyAwsSnsSignature(envelope, {
-        expectedTopicArn:
-          awsReceipts.length > 0 &&
-          awsReceipts.every((item) => item.snsTopicArn === awsReceipts[0]!.snsTopicArn)
-            ? awsReceipts[0]!.snsTopicArn
-            : undefined,
-      })
+      await verifyAwsSnsSignature(envelope)
 
       if (envelope.Type === 'SubscriptionConfirmation') {
         await confirmAwsSnsSubscription(envelope)
@@ -136,30 +96,14 @@ webhooksRoutes.post('/:triggerId', async (c) => {
       if (envelope.Type === 'UnsubscribeConfirmation') {
         return c.json({ ok: true, reason: 'sns_unsubscribe_confirmed' }, 200)
       }
-      // The receipt is the trust boundary between a signed SNS topic and the
-      // exact alarm wiring this Watch owns. Subscription confirmation is
-      // allowed while setup is in progress, but notifications do not execute
-      // until trigger_finalize_wiring persisted and validated that receipt.
-      if (!receipt || awsReceipts.length === 0) {
-        return c.json({ ok: false, reason: 'provider_wiring_incomplete' }, 200)
-      }
-      const normalizedPayload = normalizeCloudWatchSnsNotification(envelope)
+      const alarm = cloudWatchAlarm(envelope)
 
-      if (
-        !awsReceipts.some(
-          (item) =>
-            normalizedPayload.alarm.name === item.alarmName &&
-            normalizedPayload.alarm.arn === item.alarmArn,
-        )
-      ) {
-        throw new AwsSnsValidationError(
-          'SNS notification does not match the CloudWatch alarm owned by this trigger',
-        )
-      }
-      if (normalizedPayload.status === 'unknown') {
+      if (alarm?.status === 'unknown') {
         return c.json({ ok: true, skipped: true, reason: 'unsupported_alarm_state' }, 200)
       }
-      payload = normalizedPayload
+      // Any other topic's notification reaches the template as the verified
+      // envelope, its own Message left for the conversation to read.
+      payload = alarm ?? envelope
     } catch (error) {
       logError('webhook.aws_sns_validation_failed', error, { trigger_id: triggerId })
       if (isAwsSnsValidationError(error)) {
@@ -167,7 +111,7 @@ webhooksRoutes.post('/:triggerId', async (c) => {
       }
       // SNS retries 5xx responses, but generally treats 4xx as terminal. Keep
       // certificate-fetch and subscription-confirmation outages retryable so a
-      // transient network failure cannot silently drop the Watch delivery.
+      // transient network failure cannot silently drop the delivery.
       throw new AppError(
         503,
         'sns_processing_unavailable',
@@ -178,51 +122,6 @@ webhooksRoutes.post('/:triggerId', async (c) => {
 
   if (!trigger.enabled) {
     return c.json({ ok: false, reason: 'trigger_disabled' }, 200)
-  }
-
-  if (trigger.watchGroupId) {
-    const members = await matchTriggerGroupMembers({
-      triggerId: trigger._id,
-      source: c.req.query('source'),
-      payload,
-    })
-
-    if (members.length === 0) {
-      return c.json({ ok: true, skipped: true, reason: 'group_member_not_selected' }, 200)
-    }
-    const cooldownSeconds =
-      trigger.minIntervalSeconds ?? config.agent.triggers.webhookCooldownSeconds
-    let accepted = 0
-
-    for (const match of members) {
-      const { member, payload: memberPayload } = match
-      const canRun =
-        shouldBypassTriggerCooldown(trigger.incidentMode, memberPayload) ||
-        (await claimTriggerGroupMemberRun({
-          groupId: trigger.watchGroupId,
-          memberKey: member.key,
-          cooldownSeconds,
-        }))
-
-      if (!canRun) continue
-      accepted += 1
-      void executeTrigger(trigger, memberPayload, {
-        groupMember: member,
-        runKind: 'webhook',
-      }).catch((err: unknown) => {
-        logError('webhook.trigger_group_execution_failed', err, {
-          trigger_id: triggerId,
-          member_key: member.key,
-        })
-      })
-    }
-
-    return c.json({
-      ok: true,
-      matched: members.length,
-      accepted,
-      ...(accepted === 0 ? { reason: 'rate_limited' } : {}),
-    })
   }
 
   // Flood guard: every accepted delivery starts a full agent session, so a
@@ -256,3 +155,13 @@ webhooksRoutes.post('/:triggerId', async (c) => {
 
   return c.json({ ok: true })
 })
+
+/** A CloudWatch alarm notification normalized for the template, or undefined for any other message. */
+function cloudWatchAlarm(envelope: AwsSnsEnvelope): NormalizedCloudWatchSnsPayload | undefined {
+  try {
+    return normalizeCloudWatchSnsNotification(envelope)
+  } catch (error) {
+    if (isAwsSnsValidationError(error)) return undefined
+    throw error
+  }
+}

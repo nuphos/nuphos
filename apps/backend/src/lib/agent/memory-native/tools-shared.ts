@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { getTeamMembership } from '@/lib/identity'
 
 import type { MemoryListItem } from './records-api'
-import type { AgentSessionOrigin } from '../tools-triggers'
+import type { AgentSessionOrigin } from '@/lib/agent/message-origin'
 
 // Decision: EDITOR+ may write team memory; VIEWER is read-only (get);
 // trigger-origin turns may never write team memory.

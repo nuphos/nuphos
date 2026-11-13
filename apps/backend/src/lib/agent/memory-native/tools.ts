@@ -18,7 +18,7 @@ import type {
   MemorySearchedObserver,
   MemorySupersededObserver,
 } from './tools-shared'
-import type { AgentSessionOrigin } from '../tools-triggers'
+import type { AgentSessionOrigin } from '@/lib/agent/message-origin'
 
 export function createTeamMemoryTools(ctx: {
   userId: string

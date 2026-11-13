@@ -12,8 +12,8 @@ import { encryptDatabaseCredential } from '@/lib/database-credentials'
 import { AppError } from '@/lib/errors'
 import { getTeamMembers } from '@/lib/identity'
 
+import type { AgentSessionOrigin } from '@/lib/agent/message-origin'
 import type { MongoDatabasePlanAction, PlanDTO, PlanProposalSource } from '@/lib/agent/plans'
-import type { AgentSessionOrigin } from '@/lib/agent/tools-triggers'
 import type { MongoDatabaseChangeStatement } from '@/lib/database-change'
 import type { DatabaseConnection } from '@/models'
 

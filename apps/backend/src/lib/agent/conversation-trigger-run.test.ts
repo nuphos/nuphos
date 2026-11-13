@@ -22,22 +22,6 @@ describe('normalizeConversationTriggerRun', () => {
     ).toEqual({ id: '6512f0a1b2c3d4e5f6a7b8c9', kind: 'scheduled' })
   })
 
-  test('a Watch group run also carries the member it fired for', () => {
-    expect(
-      normalizeConversationTriggerRun({
-        trigger: {
-          id: '6512f0a1b2c3d4e5f6a7b8c9',
-          kind: 'webhook',
-          memberKey: 'grafana:api-latency',
-        },
-      }),
-    ).toEqual({
-      id: '6512f0a1b2c3d4e5f6a7b8c9',
-      kind: 'webhook',
-      memberKey: 'grafana:api-latency',
-    })
-  })
-
   test('an unrecognised kind is dropped rather than shown as a real one', () => {
     expect(
       normalizeConversationTriggerRun({
@@ -69,31 +53,5 @@ describe('buildTriggerRunStamp', () => {
       id: TRIGGER,
       kind: 'scheduled',
     })
-  })
-
-  test('a Watch group run names the member behind the shared ingress', () => {
-    // One partition trigger serves every item behind a provider's ingress, so
-    // without the member key a group's runs collapse into one indistinguishable
-    // list.
-    expect(
-      buildTriggerRunStamp({
-        triggerId: TRIGGER,
-        runKind: 'webhook',
-        groupMember: { key: 'grafana:api-latency' },
-      }),
-    ).toEqual({ id: TRIGGER, kind: 'webhook', memberKey: 'grafana:api-latency' })
-  })
-
-  test('an absent or blank member key is left off rather than stored empty', () => {
-    // normalizeConversationTriggerRun drops empty keys on the way out; writing
-    // them in the first place would make "no member" and "member ''" look alike
-    // in the stored document.
-    expect(buildTriggerRunStamp({ triggerId: TRIGGER, runKind: 'webhook' })).toEqual({
-      id: TRIGGER,
-      kind: 'webhook',
-    })
-    expect(
-      buildTriggerRunStamp({ triggerId: TRIGGER, runKind: 'webhook', groupMember: { key: '' } }),
-    ).toEqual({ id: TRIGGER, kind: 'webhook' })
   })
 })

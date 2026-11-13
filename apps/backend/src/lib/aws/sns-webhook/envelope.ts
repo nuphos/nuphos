@@ -11,18 +11,25 @@ export function isAwsSnsValidationError(error: unknown): error is AwsSnsValidati
 }
 
 /**
- * SNS always sends the x-amz-sns-message-type header. The body fallback is
- * limited to AWS Watches for compatibility with intermediaries that strip it;
- * a generic webhook payload is allowed to use its own top-level `Type` field.
+ * Whether a webhook delivery is an Amazon SNS message. SNS always sends the
+ * x-amz-sns-message-type header. Without it, only a body carrying the complete
+ * signed SNS envelope counts, for intermediaries that strip the header: a
+ * generic payload with its own top-level `Type` field stays a generic payload.
  */
-export function shouldHandleAwsSnsRequest(input: {
-  headerMessageType?: string
-  payloadType?: unknown
-  triggerProvider?: string
-}): boolean {
+export function isAwsSnsRequest(input: { headerMessageType?: string; payload: unknown }): boolean {
+  if (input.headerMessageType) return true
+  if (!input.payload || typeof input.payload !== 'object' || Array.isArray(input.payload)) {
+    return false
+  }
+  const body = input.payload as Record<string, unknown>
+
   return (
-    Boolean(input.headerMessageType) ||
-    (input.triggerProvider === 'aws' && typeof input.payloadType === 'string')
+    (body.Type === 'Notification' ||
+      body.Type === 'SubscriptionConfirmation' ||
+      body.Type === 'UnsubscribeConfirmation') &&
+    ['TopicArn', 'SignatureVersion', 'Signature', 'SigningCertURL'].every(
+      (key) => typeof body[key] === 'string',
+    )
   )
 }
 

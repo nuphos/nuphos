@@ -6,7 +6,6 @@ import { getConversationBySessionId } from '../db'
 import { readsConversation } from '../db/access'
 import { assertTeamMember, assertTriggerAccess, canManageTrigger } from '../trigger-access'
 import { agentTriggers, triggerConfigRevisionFilter } from '../trigger-db'
-import { managedProviderResourcePlanForTrigger } from '../trigger-provider-resources'
 import { unscheduleCronTrigger } from '../trigger-scheduler'
 
 import { triggerListFilter } from './list-filter'
@@ -14,7 +13,6 @@ import { triggerScheduleDescription } from './schedule-description'
 import { findManagedTrigger, parseTriggerId, serializeTrigger } from './shared'
 
 import type { TriggerActor } from '../trigger-access'
-import type { ManagedProviderResourcePlan } from '../trigger-provider-resources'
 import type { SerializedTrigger } from './shared'
 
 export async function listTriggers(
@@ -44,7 +42,7 @@ export async function listTriggers(
     return {
       ...serializeTrigger(trigger),
       scheduleDescription: triggerScheduleDescription(trigger),
-      canManage: !trigger.cleanupStatus && owns,
+      canManage: owns,
       canDelete: owns,
       nextRunAt:
         trigger.enabled && trigger.triggerType === 'cron' && trigger.cronExpression
@@ -58,20 +56,16 @@ export async function listTriggers(
 export async function getTrigger(
   triggerId: string,
   actor: TriggerActor,
-): Promise<
-  SerializedTrigger & { canManage: boolean; managedProviderResources?: ManagedProviderResourcePlan }
-> {
+): Promise<SerializedTrigger & { canManage: boolean }> {
   const trigger = await findManagedTrigger(parseTriggerId(triggerId))
 
   await assertTriggerAccess(trigger, actor, 'read')
   const exposeSecret = canManageTrigger(trigger, typeof actor === 'string' ? actor : actor.userId)
-  const managedProviderResources = await managedProviderResourcePlanForTrigger(trigger)
 
   return {
     ...serializeTrigger(trigger, exposeSecret),
     // As in the list, so a card shows its switch only to whoever may flip it.
-    canManage: !trigger.cleanupStatus && exposeSecret,
-    ...(managedProviderResources ? { managedProviderResources } : {}),
+    canManage: exposeSecret,
   }
 }
 

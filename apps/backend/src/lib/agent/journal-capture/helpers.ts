@@ -28,9 +28,6 @@ export const MUTATING_TOOL_NAMES = [
   'slack_react',
   'slack_post',
   'sonarqube_scan_fixture',
-  'trigger_group_create',
-  'trigger_delete',
-  'trigger_finalize_wiring',
 ] as const
 export const FAIL_CLOSED_TOOLS = new Set<string>(MUTATING_TOOL_NAMES)
 

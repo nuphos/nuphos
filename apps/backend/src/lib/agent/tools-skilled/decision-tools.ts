@@ -5,7 +5,7 @@ import { aboutField } from './decision-about'
 import { labelField, withLabel } from './labeling'
 
 import type { ExplicitUserDecision } from './types'
-import type { AgentSessionOrigin } from '../tools-triggers'
+import type { AgentSessionOrigin } from '@/lib/agent/message-origin'
 import type { SelectionKey } from '@/lib/claude-code-preview/credential-lister'
 
 // Connectors the desktop's in-chat Connect card can bind and then select for the

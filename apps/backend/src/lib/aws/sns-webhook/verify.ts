@@ -90,15 +90,11 @@ async function loadAwsSnsCertificatePublicKey(
 export async function verifyAwsSnsSignature(
   envelope: AwsSnsEnvelope,
   options: {
-    expectedTopicArn?: string
     fetchImpl?: typeof fetch
     publicKeyLoader?: (signingCertUrl: string) => Promise<KeyObject>
   } = {},
 ): Promise<void> {
   validateAwsSnsCertificateUrl(envelope.SigningCertURL)
-  if (options.expectedTopicArn && envelope.TopicArn !== options.expectedTopicArn) {
-    invalidSns('Unexpected SNS topic')
-  }
   const publicKey = options.publicKeyLoader
     ? await options.publicKeyLoader(envelope.SigningCertURL)
     : await loadAwsSnsCertificatePublicKey(envelope.SigningCertURL, options.fetchImpl)

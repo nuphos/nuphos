@@ -8,7 +8,6 @@ import type { AgentTrigger } from './trigger-db'
 
 const writes: { name: string; filter: unknown; update: unknown }[] = []
 const conversations = new Map<string, { sessionId: string; userId: string; teamId?: string }>()
-let group: Record<string, unknown> | null = null
 
 useDb({
   db: () => ({
@@ -18,19 +17,8 @@ useDb({
 
         return Promise.resolve({})
       },
-      updateMany: (filter: unknown, update: unknown) => {
-        writes.push({ name, filter, update })
-
-        return Promise.resolve({})
-      },
-      countDocuments: () => Promise.resolve(0),
       findOne: (filter: { sessionId?: string }) =>
-        Promise.resolve(
-          name === 'agent_trigger_groups'
-            ? group
-            : (conversations.get(filter.sessionId ?? '') ?? null),
-        ),
-      find: () => ({ toArray: () => Promise.resolve([]) }),
+        Promise.resolve(conversations.get(filter.sessionId ?? '') ?? null),
     }),
   }),
 })
@@ -63,7 +51,6 @@ function paused() {
 
 beforeEach(() => {
   writes.length = 0
-  group = null
   conversations.clear()
   conversations.set('own', { sessionId: 'own', userId: 'principal', teamId: 'team-1' })
   conversations.set('other-user', { sessionId: 'other-user', userId: 'someone', teamId: 'team-1' })
@@ -100,30 +87,4 @@ describe('resolveExecutionAuthorization', () => {
       expect(paused()).toBeDefined()
     },
   )
-})
-
-describe('a partition repairing itself from its Watch Group', () => {
-  test('drops the scope it had pinned when the Group has none', async () => {
-    group = { executionPrincipalUserId: 'new-principal', credentialMode: 'all' }
-    conversations.set('group-target', {
-      sessionId: 'group-target',
-      userId: 'new-principal',
-      teamId: 'team-1',
-    })
-
-    await resolveExecutionAuthorization(
-      trigger({
-        watchGroupId: new ObjectId(),
-        targetSessionId: 'group-target',
-        executionCredentialAccess: { updatedAt: new Date(), updatedBy: 'principal' },
-      } as Partial<AgentTrigger>),
-    )
-
-    const repair = writes.find((write) => write.name === 'agent_triggers')
-
-    expect(repair?.update).toMatchObject({
-      $set: { executionPrincipalUserId: 'new-principal', credentialMode: 'all' },
-      $unset: { executionCredentialAccess: true },
-    })
-  })
 })

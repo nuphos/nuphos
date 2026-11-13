@@ -6,10 +6,10 @@ import {
   AwsSnsValidationError,
   buildAwsSnsStringToSign,
   confirmAwsSnsSubscription,
+  isAwsSnsRequest,
   isAwsSnsValidationError,
   normalizeCloudWatchSnsNotification,
   parseAwsSnsEnvelope,
-  shouldHandleAwsSnsRequest,
   validateAwsSnsCertificateUrl,
   validateAwsSnsConfirmationUrl,
   verifyAwsSnsSignature,
@@ -31,25 +31,10 @@ const baseEnvelope: AwsSnsEnvelope = {
 
 describe('AWS SNS webhook validation', () => {
   it('does not treat a generic webhook Type field as an SNS delivery', () => {
-    expect(
-      shouldHandleAwsSnsRequest({
-        payloadType: 'third_party_event',
-        triggerProvider: 'grafana',
-      }),
-    ).toBe(false)
-    expect(
-      shouldHandleAwsSnsRequest({
-        payloadType: 'Notification',
-        triggerProvider: 'aws',
-      }),
-    ).toBe(true)
-    expect(
-      shouldHandleAwsSnsRequest({
-        headerMessageType: 'Notification',
-        payloadType: undefined,
-        triggerProvider: 'generic',
-      }),
-    ).toBe(true)
+    expect(isAwsSnsRequest({ payload: { Type: 'third_party_event' } })).toBe(false)
+    expect(isAwsSnsRequest({ payload: { Type: 'Notification', message: 'hi' } })).toBe(false)
+    expect(isAwsSnsRequest({ payload: baseEnvelope })).toBe(true)
+    expect(isAwsSnsRequest({ headerMessageType: 'Notification', payload: undefined })).toBe(true)
   })
 
   it('builds the documented notification string without a trailing newline', () => {
@@ -105,7 +90,6 @@ describe('AWS SNS webhook validation', () => {
 
     await expect(
       verifyAwsSnsSignature(signedEnvelope, {
-        expectedTopicArn: baseEnvelope.TopicArn,
         publicKeyLoader: async () => publicKey,
       }),
     ).resolves.toBeUndefined()

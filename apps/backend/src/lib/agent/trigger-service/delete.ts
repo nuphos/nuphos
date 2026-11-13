@@ -1,169 +1,47 @@
 import { AppError } from '@/lib/errors'
-import { logError, logEvent } from '@/lib/observability'
+import { logError } from '@/lib/observability'
+import { clearSlackNotificationIncidentsForTrigger } from '@/lib/slack/incident-notifications'
 
 import { assertTriggerAccess } from '../trigger-access'
 import { agentTriggers, triggerConfigRevisionFilter } from '../trigger-db'
-import { isPotentialLegacyManagedWatch } from '../trigger-provider-cleanup'
-import { scheduleTriggerCleanup, unscheduleCronTrigger } from '../trigger-scheduler'
+import { unscheduleCronTrigger } from '../trigger-scheduler'
 
-import { performTriggerCleanup } from './cleanup'
-import { parseTriggerId, serializeTrigger } from './shared'
-import { removeTriggerFromWatchGroups } from './watch-group-refs'
+import { parseTriggerId } from './shared'
 
 import type { TriggerActor } from '../trigger-access'
-import type { SerializedTrigger } from './shared'
 
-export type DeleteTriggerResult =
-  { deleted: true; leftBehind?: string[] } | { deleted: false; trigger: SerializedTrigger }
-
-export async function deleteTrigger(
-  triggerId: string,
-  actor: TriggerActor,
-  { withoutProviderCleanup = false }: { withoutProviderCleanup?: boolean } = {},
-): Promise<DeleteTriggerResult> {
+/**
+ * Remove a Trigger. Whatever calls a webhook Trigger's URL lives in that
+ * provider and is not touched here.
+ *
+ * DELETE is idempotent: an already-removed Trigger is the requested final
+ * state. The row goes first so a delivery that loaded it fails its re-check;
+ * the schedule and incident state are then best-effort, since a leftover cron
+ * job finds no row and the scheduler prunes it on the next start.
+ */
+export async function deleteTrigger(triggerId: string, actor: TriggerActor): Promise<void> {
   const _id = parseTriggerId(triggerId)
   const trigger = await agentTriggers().findOne({ _id })
 
-  if (!trigger) {
-    // DELETE is intentionally idempotent. Provider cleanup may finish between
-    // a list/detail read and a user's retry, so an already-removed trigger is
-    // the requested final state rather than an error. Also prune a stale Group
-    // partition left by an interrupted older cleanup.
-    const actorScope =
-      typeof actor === 'string'
-        ? { ownerUserId: actor }
-        : { ownerUserId: actor.userId, teamId: actor.teamId }
-
-    await removeTriggerFromWatchGroups(_id, actorScope).catch((err: unknown) => {
-      logError('agent.trigger.group_reference_cleanup_failed', err, {
-        trigger_id: triggerId,
-      })
-    })
-
-    return { deleted: true }
-  }
+  if (!trigger) return
   await assertTriggerAccess(trigger, actor, 'delete')
 
-  if (withoutProviderCleanup && trigger.cleanupStatus !== 'cleanup_failed') {
-    throw new AppError(
-      409,
-      'trigger_cleanup_not_failed',
-      'Only a Watch whose cleanup failed can be removed without provider cleanup',
-    )
-  }
-
-  if (trigger.cleanupStatus === 'deleting') {
-    try {
-      if (await scheduleTriggerCleanup(triggerId)) {
-        return { deleted: false, trigger: serializeTrigger(trigger) }
-      }
-    } catch (err) {
-      logError('agent.trigger.provider_cleanup_reenqueue_failed', err, { trigger_id: triggerId })
-    }
-    // Redis-disabled recovery after a process interruption.
-    await performTriggerCleanup(triggerId)
-
-    return { deleted: true }
-  }
-
-  // Fence every execution before touching provider state. A delivery that
-  // loaded the old row must fail its enabled/revision re-check before Slack.
-  const now = new Date()
-  const currentRevision = trigger.configRevision ?? 0
-  const legacyMonitoringProvider = trigger.legacyMonitoringProvider
-  const claimed = await agentTriggers().updateOne(
-    {
-      _id,
-      ...triggerConfigRevisionFilter(currentRevision),
-      cleanupStatus:
-        trigger.cleanupStatus === 'cleanup_failed' ? 'cleanup_failed' : { $exists: false },
-    },
-    {
-      $set: {
-        enabled: false,
-        cleanupStatus: 'deleting',
-        cleanupStartedAt: now,
-        cleanupUpdatedAt: now,
-        updatedAt: now,
-      },
-      $unset: { cleanupError: true, cleanupErrorCode: true },
-      $inc: { configRevision: 1 },
-    },
-  )
-
-  if (claimed.matchedCount === 0) {
-    throw new AppError(409, 'trigger_changed', 'Trigger changed concurrently; reload it and retry')
-  }
-
-  logEvent('info', 'agent.trigger.provider_cleanup_requested', {
-    trigger_id: triggerId,
-    provider:
-      trigger.providerWiring?.provider ??
-      trigger.monitoringIdentity?.provider ??
-      legacyMonitoringProvider ??
-      'local',
+  const deleted = await agentTriggers().deleteOne({
+    _id,
+    ...triggerConfigRevisionFilter(trigger.configRevision ?? 0),
   })
 
-  if (trigger.triggerType === 'cron') await unscheduleCronTrigger(triggerId)
-
-  if (withoutProviderCleanup) {
-    // Inline, not queued: only this request may skip a provider, and it does
-    // so only for an integration it finds missing now. Reachable providers are
-    // still cleaned, and any other failure leaves the Watch in cleanup_failed.
-    const leftBehind: string[] = []
-
-    await performTriggerCleanup(triggerId, leftBehind)
-    if (leftBehind.length > 0) {
-      logEvent('warn', 'agent.trigger.removed_without_provider_cleanup', {
-        trigger_id: triggerId,
-        team_id: trigger.teamId,
-        actor_user_id: typeof actor === 'string' ? actor : actor.userId,
-        left_behind: leftBehind.join(','),
-        provider_wiring: trigger.providerWiring ?? null,
-      })
-    }
-
-    return { deleted: true, leftBehind }
+  if (deleted.deletedCount === 0) {
+    throw new AppError(409, 'trigger_changed', 'Trigger changed concurrently; reload it and retry')
   }
-
-  // Ordinary cron/ad-hoc webhook triggers have no provider resource to wait
-  // for; preserve the original immediate-delete behavior for them.
-  const managedWatch =
-    Boolean(trigger.providerWiring) ||
-    Boolean(trigger.monitoringIdentity) ||
-    isPotentialLegacyManagedWatch(trigger)
-
-  if (!managedWatch) {
-    await performTriggerCleanup(triggerId)
-
-    return { deleted: true }
+  if (trigger.triggerType === 'cron') {
+    await unscheduleCronTrigger(triggerId).catch((err: unknown) => {
+      logError('agent.trigger.delete_unschedule_failed', err, { trigger_id: triggerId })
+    })
   }
-
-  let scheduled = false
-
-  try {
-    scheduled = await scheduleTriggerCleanup(triggerId)
-  } catch (err) {
-    // Queue availability must not strand a claimed delete. The synchronous
-    // path below uses the same persisted state and cleanup implementation.
-    logError('agent.trigger.provider_cleanup_enqueue_failed', err, { trigger_id: triggerId })
-  }
-  if (scheduled) {
-    return {
-      deleted: false,
-      trigger: serializeTrigger({
-        ...trigger,
-        enabled: false,
-        cleanupStatus: 'deleting',
-        cleanupStartedAt: now,
-        cleanupUpdatedAt: now,
-        updatedAt: now,
-        configRevision: currentRevision + 1,
-      }),
-    }
-  }
-
-  await performTriggerCleanup(triggerId)
-
-  return { deleted: true }
+  await clearSlackNotificationIncidentsForTrigger(triggerId, trigger.teamId).catch(
+    (err: unknown) => {
+      logError('agent.trigger.delete_incident_cleanup_failed', err, { trigger_id: triggerId })
+    },
+  )
 }

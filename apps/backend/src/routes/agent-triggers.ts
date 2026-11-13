@@ -3,7 +3,6 @@ import { Hono } from 'hono'
 import { listTriggers } from '@/lib/agent/trigger-service'
 import { redisEnabled } from '@/lib/redis'
 import { requireAuth } from '@/middleware/auth'
-import { registerTriggerGroupRoutes } from '@/routes/agent-triggers/groups'
 import { registerTriggerItemRoutes } from '@/routes/agent-triggers/items'
 import { triggerActor } from '@/routes/agent-triggers/shared'
 
@@ -39,5 +38,4 @@ agentTriggersRoutes.get('/', async (c) => {
   return c.json(await listTriggers(actor, c.req.query('targetSessionId')))
 })
 
-registerTriggerGroupRoutes(agentTriggersRoutes)
 registerTriggerItemRoutes(agentTriggersRoutes)
