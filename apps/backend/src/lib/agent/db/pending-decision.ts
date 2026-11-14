@@ -1,5 +1,4 @@
 import { ownBody, withQuestionsInBody } from '@/lib/agent/tools-skilled/decision-tools'
-import { logEvent } from '@/lib/observability'
 
 import { agentConversations } from './shared'
 
@@ -161,22 +160,6 @@ export async function resolvePlanInputRequests(sessionId: string, planId: string
     { sessionId, 'inputRequests.planId': planId },
     { $pull: { inputRequests: { planId } } },
   )
-}
-
-/**
- * Conversations used to keep answered and dismissed requests as history. Drops
- * them; idempotent, a no-op once none remain.
- */
-export async function dropResolvedInputRequests(): Promise<void> {
-  const result = await agentConversations().updateMany(
-    { 'inputRequests.status': { $in: ['answered', 'dismissed'] } },
-    { $pull: { inputRequests: { status: { $ne: 'open' } } } },
-  )
-
-  if (result.modifiedCount > 0)
-    logEvent('info', 'backend.migration.resolved_input_requests_dropped', {
-      conversations: result.modifiedCount,
-    })
 }
 
 /** Matches a conversation with any open request. */
