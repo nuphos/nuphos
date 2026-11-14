@@ -125,7 +125,7 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
         }
     }
     // A Bot's chat opens the Bot's desktop: its session, read and gated as on its Task screen.
-    val botFace = session.faces.botFace
+    val botFace = session.faces.botFace?.takeIf { it.id == session.botId }
     val bot = remember(store, botFace?.id) { botFace?.let { store.session(it.id, it.name) } }
     LaunchedEffect(bot, lifecycle) {
         if (bot == null) return@LaunchedEffect
@@ -267,7 +267,7 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
                                 onAnswer = { option -> if (allowed()) session.answer(question, option, scope) },
                                 onForm = { body -> if (allowed()) session.answer(question, body, scope) },
                                 // The Bot's own questions are this chat's; only an agent under it is named.
-                                showsFrom = question.sessionId != session.faces.botFace?.id, onLink = onLink,
+                                showsFrom = question.sessionId != session.botId, onLink = onLink,
                                 failure = session.answerFailure(question))
                         }
                     }

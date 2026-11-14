@@ -30,7 +30,7 @@ struct ChannelView: View {
 
     /// The Bot this is the 1:1 chat of, when its owner can open its desktop now.
     private var desktopBot: String? {
-        guard let bot = channel.faces.botId,
+        guard let bot = channel.botId,
               store.conversations.first(where: { $0.sessionId == bot })?.ownsChat == true,
               store.observations.value(team: channel.teamId, session: bot)?.canOpenDesktop == true else { return nil }
         return bot
@@ -62,7 +62,7 @@ struct ChannelView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Theme.chatCanvas)
             .sheet(isPresented: $showTriggers) {
-                if let bot = channel.faces.botId {
+                if let bot = channel.botId {
                     ConversationTriggers(teamId: channel.teamId, sessionId: bot, token: store.token).presentationDetents([.large])
                 }
             }
@@ -83,7 +83,7 @@ struct ChannelView: View {
                         }
                     }
                     .buttonStyle(.plain)
-                    .disabled(channel.faces.botId == nil)
+                    .disabled(channel.botId == nil)
                     .accessibilityIdentifier("bot-trigger-entry")
                 }
                 if let bot = desktopBot {
@@ -263,7 +263,7 @@ struct ChannelView: View {
                 BotQuestionCard(
                     question: question,
                     // The Bot's own questions are this chat's; only an agent under it is named.
-                    showsFrom: question.sessionId != channel.faces.botId,
+                    showsFrom: question.sessionId != channel.botId,
                     onOpen: { open(link: question.link(team: channel.teamId)) },
                     onAnswer: { channel.answer(question, with: $0) },
                     onLink: open(link:),

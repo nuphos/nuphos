@@ -359,7 +359,11 @@ class AgentStore(
             ChannelSession(team.id, sessionId, title ?: channel(sessionId)?.displayTitle ?: "Chat",
                 ChannelSession.Api(token, team.id, sessionId))
                 // The list row's icon shows at once; the chat's own load keeps it current.
-                .also { it.faces = channel(sessionId)?.faces.orEmpty() }
+                .also { session ->
+                    val row = channel(sessionId)
+                    session.faces = row?.faces.orEmpty()
+                    session.botId = row?.botId
+                }
         }
     }
 
