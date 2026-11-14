@@ -6,7 +6,6 @@ import { byCodeUnit } from '@/lib/agent/sort-order'
 
 import { collectSkillFiles, getBuiltinSkillsDirectory } from './inject'
 import { safeJoinUnder } from './safe-path'
-import { normalizeSkillScope } from './scope'
 import {
   getScopeCacheDir,
   getScopeSyncRevision,
@@ -252,27 +251,6 @@ async function removeOtherTrees(teamId: string | null | undefined, keep: string)
     const stat = dir === keep ? null : await fs.stat(dir).catch(() => null)
 
     if (stat && stat.mtimeMs < cutoff) await fs.rm(dir, { recursive: true, force: true })
-  }
-}
-
-/** Builtin only when store is unused; otherwise merged tree (global + optional team). */
-export async function invalidateMergedSkillsCache(teamId?: string | null): Promise<void> {
-  await fs.rm(mergeOutputRoot(teamId), { recursive: true, force: true })
-}
-
-export async function invalidateMergedSkillsForScope(scope: string): Promise<void> {
-  const normalized = normalizeSkillScope(scope)
-
-  if (normalized === 'global') {
-    await invalidateMergedSkillsCache(null)
-
-    return
-  }
-  const [root, teamId, ...nested] = normalized.split('/')
-
-  // A personal scope (teams/<id>/users/<id>) is not part of the shared merged tree.
-  if (root === 'teams' && teamId && nested.length === 0) {
-    await invalidateMergedSkillsCache(teamId)
   }
 }
 
