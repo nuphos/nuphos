@@ -1,7 +1,7 @@
 const MAX_REJECTED_BEFORE_DELIVERY = 5
-// Far above any rate a person would post at: this catches a loop, it does not
-// arbitrate whether a message was worth sending.
-const MAX_POSTS_PER_TURN = 5
+// A turn answers a person who is right there, so one outbound message is the
+// whole allowance.
+const MAX_POSTS_PER_TURN = 1
 
 type Rejection = { ok: false; error: string }
 
@@ -17,34 +17,27 @@ export type SlackPostBudget = {
   newAttempt: () => SlackPostAttempt
 }
 
-export function createSlackPostBudget(hasTriggerNotification: boolean): SlackPostBudget {
-  // An ordinary turn answers a person who is right there, so one outbound
-  // message is the whole allowance. An on-call handling an alert speaks
-  // more than once by nature — acknowledge, then follow up — so the only
-  // ceiling there is a loop guard, far above any human posting rate. When
-  // to speak, and whether a thing is worth saying, stay its judgment.
-  const postCeiling = hasTriggerNotification ? MAX_POSTS_PER_TURN : 1
+export function createSlackPostBudget(): SlackPostBudget {
   let postAttempts = 0
   // Calls rejected before they reach Slack. Capped so a model repeating the
   // same invalid call cannot loop, without letting one correctable mistake
-  // cost the incident its only notification.
+  // cost the turn its only message.
   let rejectedBeforeDelivery = 0
   const overBudget = (): Rejection => ({
     ok: false,
-    error: hasTriggerNotification
-      ? 'This turn has already sent several Slack messages. Stop posting and finish the investigation instead.'
-      : 'Slack posting is limited to one message per agent turn. Do not retry or send another message in this turn.',
+    error:
+      'Slack posting is limited to one message per agent turn. Do not retry or send another message in this turn.',
   })
 
   return {
     overBudget,
     beginCall: () => {
-      if (postAttempts >= postCeiling) return overBudget()
+      if (postAttempts >= MAX_POSTS_PER_TURN) return overBudget()
       // A call rejected below never reaches Slack — wrong destination, an
-      // unlinked channel, a trigger changed mid-run. Spending the incident's
-      // one opening post on a mistake the model can correct would leave the
-      // firing with no notification at all, so the budget is spent only once
-      // we commit to a delivery.
+      // unlinked channel, an already-bound conversation. Spending the turn's
+      // one post on a mistake the model can correct would leave it with no
+      // message at all, so the budget is spent only once we commit to a
+      // delivery.
       if (rejectedBeforeDelivery >= MAX_REJECTED_BEFORE_DELIVERY) {
         return {
           ok: false,
@@ -66,7 +59,7 @@ export function createSlackPostBudget(hasTriggerNotification: boolean): SlackPos
         // delivery may proceed; the earlier check is only a fast path.
         commitAttempt: () => {
           if (attemptSpent) return true
-          if (postAttempts >= postCeiling) return false
+          if (postAttempts >= MAX_POSTS_PER_TURN) return false
           attemptSpent = true
           postAttempts += 1
 

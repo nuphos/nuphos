@@ -1,7 +1,6 @@
 import type { AgentCredentialAccess } from './db'
 import type { SessionRouting } from './session-routing'
 import type { TriggerCredentialMode } from './trigger-credential-access'
-import type { SlackOutboundDestination } from '@/lib/slack/destinations'
 import type { ObjectId } from 'mongodb'
 
 export type TriggerType = 'cron' | 'webhook'
@@ -70,10 +69,6 @@ export type AgentTrigger = {
    * user-initiated, so only webhook deliveries consult this.
    */
   minIntervalSeconds?: number
-  /** Legacy unbound incident delivery; no longer writable. Binding clears it. */
-  incidentMode?: boolean
-  /** Legacy approved Slack destination for incidentMode. Binding clears it. */
-  slackDestination?: SlackOutboundDestination
   /**
    * Optimistic fence for execution-affecting edits. Legacy rows without this
    * field are revision 0; new triggers start at revision 1.

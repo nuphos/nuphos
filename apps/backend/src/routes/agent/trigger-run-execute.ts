@@ -6,7 +6,7 @@ import { startTraceSpan } from '@/lib/agent/tracing'
 import { recordRuntimeTurnUsage } from '@/lib/agent/turn-usage-record'
 import { resolveConversationChatRuntime } from '@/lib/claude-code-preview/agent-chat-runtime'
 import { fallBackBeforeTurn } from '@/lib/claude-code-preview/runtime-fallback'
-import { logError, logEvent } from '@/lib/observability'
+import { logError } from '@/lib/observability'
 import { getSlackAgentThreadBySessionId } from '@/lib/slack/agent-bot'
 
 import { ensurePreviewChannelCredentialsSafe } from './chat-preview-credentials'
@@ -31,7 +31,6 @@ import type { ConversationTriggerRun } from '@/lib/agent/conversation-trigger-ru
 import type { AgentClientMeta, AgentCredentialAccess } from '@/lib/agent/db'
 import type { AgentSessionOrigin } from '@/lib/agent/message-origin'
 import type { LarkReplyToolContext, SlackReplyToolContext } from '@/lib/agent/tools-skilled/types'
-import type { SlackTriggerNotificationContext } from '@/lib/slack/incident-notifications'
 import type { UIMessage } from 'ai'
 
 export type { AgentRunFrameSink } from './run-registry'
@@ -61,7 +60,6 @@ export type TriggerRunParams = {
   slackReply?: SlackReplyToolContext
   larkReply?: LarkReplyToolContext
   frameSink?: AgentRunFrameSink
-  triggerNotification?: SlackTriggerNotificationContext
   /** A refused turn is not recorded as interrupted; the caller requeues its messages. */
   clientResendsRefusal?: boolean
   /** The channels whose posts this turn answers. */

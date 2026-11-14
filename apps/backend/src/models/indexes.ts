@@ -43,8 +43,6 @@ import { logEvent } from '@/lib/observability'
 import { setupPushDeviceIndexes } from '@/lib/push/devices'
 import { setupLiveActivityIndexes } from '@/lib/push/live-activity-store'
 import { setupSlackAgentIndexes } from '@/lib/slack/agent-bot'
-import { setupSlackNotificationIncidentIndexes } from '@/lib/slack/incident-notifications'
-import { setupSlackIncidentOccurrenceIndexes } from '@/lib/slack/incident-occurrences'
 import { setupCoreIndexes } from '@/models/indexes-core'
 import { agentInstructions } from '@/models/instructions'
 import {
@@ -105,8 +103,6 @@ export async function setupIndexes(): Promise<void> {
     ['skill-metadata', setupSkillMetadataIndexes],
     ['auto-mode', setupAutoModeIndexes],
     ['slack-agent', setupSlackAgentIndexes],
-    ['slack-incident-occurrences', setupSlackIncidentOccurrenceIndexes],
-    ['slack-notification-incidents', setupSlackNotificationIncidentIndexes],
     ['discord', setupDiscordIndexes],
     ['lark-agent', setupLarkAgentIndexes],
     // Every registered memory provider's setup(), per-provider fail-soft: a

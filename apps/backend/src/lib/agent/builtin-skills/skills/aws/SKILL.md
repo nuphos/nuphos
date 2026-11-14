@@ -99,7 +99,7 @@ Use this recipe when the user asks to create/watch a CloudWatch alarm and notify
 
 ```text
 CloudWatch Alarm -> SNS HTTPS subscription -> Nuphos webhook trigger
-  -> first-party slack_post initial alert -> investigation -> same Slack thread
+  -> the bound conversation investigates -> first-party slack_post
 ```
 
 Do **not** replace it with AWS Chatbot, Amazon Q Developer in chat applications, Lambda forwarding, or a Slack Incoming Webhook unless the user explicitly asks for that different architecture. Nuphos owns the inbound webhook trigger and posts through its already-connected first-party Slack App.
@@ -141,8 +141,7 @@ The workflow is not live when only the trigger exists. Finish every step, read i
    Status: {{payload.status}}; alarm: {{payload.alarm.name}}; state: {{payload.alarm.newState}}
    Reason: {{payload.alarm.reason}}; changed at: {{payload.alarm.stateChangedAt}}
    If payload contains "test": true or "drill": true, reply "test delivery received" and STOP — no investigation and no Slack post.
-   For Slack, handle it the way an on-call engineer would. First check the earlier firings in this conversation to see whether this alert has gone off before and in which thread, and slack_read_channel if you want to know what is already in the channel. Post something quickly so whoever is watching knows it is being looked at, then investigate and follow up in the same thread when you know more.
-   Pass replyToThread with that earlier threadTs when this firing is the same problem still going or coming back; omit it to start a new thread when it is genuinely different. There is no message type to declare. When it has recovered, say so in its thread and stop — nothing needs to be closed. Post to the exact destination the user approved, as written in the messageTemplate, including slackWorkspaceId when it is known: {"type":"channel","channelId":"<the selected stable ID>","slackWorkspaceId":"<its workspace>"} for a channel, or {"type":"dm_self"} for a DM.
+   For Slack, first check the earlier firings in this conversation to see whether this alert has already been reported. Investigate, then call slack_post once when this firing is worth telling people about — a new problem, a material change, or its recovery; an unchanged repeat needs no post. Post to the exact destination the user approved, as written in the messageTemplate, including slackWorkspaceId when it is known: {"type":"channel","channelId":"<the selected stable ID>","slackWorkspaceId":"<its workspace>"} for a channel, or {"type":"dm_self"} for a DM. Keep bindConversation on unless this conversation is already bound to a Slack thread, in which case pass bindConversation=false.
    For Nuphos-only delivery, keep the findings here and do not call slack_post.
    ```
 

@@ -3,7 +3,6 @@ import type { AgentSessionOrigin } from '@/lib/agent/message-origin'
 import type { SpanLike } from '@/lib/agent/tracing'
 import type { RuntimeDefaults } from '@/lib/claude-code-preview/openab-acp-session'
 import type { OpenAbProvider } from '@/lib/claude-code-preview/runtime-provider'
-import type { SlackTriggerNotificationContext } from '@/lib/slack/incident-notifications'
 import type { UIMessage } from 'ai'
 
 export type AgentChatBody = {
@@ -78,9 +77,6 @@ export type InternalChatCtx = {
   // Session origin for the trigger tools' self-replication guard: sessions
   // fired BY a trigger must not create new triggers. Interactive channels are 'user'.
   agentOrigin: AgentSessionOrigin
-  // Present only for monitoring-trigger runs. This server-owned context lets
-  // slack_post coordinate one incident across otherwise separate deliveries.
-  triggerNotification?: SlackTriggerNotificationContext
   // Names the chat client this turn is read in ("a Slack thread", "a Lark
   // chat"). Stated to the model rather than left for it to infer from the
   // rendered message, for the same reason isInApp exists: an inference buried

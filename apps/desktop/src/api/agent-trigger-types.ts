@@ -1,6 +1,4 @@
 export type AgentTriggerType = 'cron' | 'webhook'
-export type AgentTriggerSlackDestination =
-  { type: 'dm_self' } | { type: 'channel'; channelId: string }
 
 // Who created the trigger: absent/'user' = this UI or the API. 'agent' (the
 // removed agent trigger tools) and 'automation' only appear on older rows.
@@ -34,8 +32,6 @@ export type AgentTrigger = {
   expiresAt?: string
   // Webhook flood guard: min seconds between runs (unset = server default).
   minIntervalSeconds?: number
-  incidentMode?: boolean
-  slackDestination?: AgentTriggerSlackDestination
   lastRunAt?: string
   /** A scheduled fire last reached the worker, whatever the turn's outcome. */
   lastFiredAt?: string
