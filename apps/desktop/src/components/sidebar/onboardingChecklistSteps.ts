@@ -73,7 +73,7 @@ export const STEPS: StepDef[] = [
   {
     id: 'invite',
     label: t('Invite your team'),
-    description: t('Work with teammates in the same agents.'),
+    description: t('Work with teammates in the same tasks.'),
     navKey: 'team.members',
     completeOnOpen: false,
   },

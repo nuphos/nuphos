@@ -280,7 +280,7 @@ class HomeNavigationFixtureDeviceTest {
         render(); waitText("Synthetic active conversation")
         compose.onNodeWithTag("home-search").assertIsDisplayed()
         compose.onNodeWithTag("home-filter").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Filter agents").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Filter tasks").assertDoesNotExist()
         shot("agents-toolbar")
         assertFixedListSelectors(); noWrites()
     }
@@ -341,10 +341,10 @@ class HomeNavigationFixtureDeviceTest {
     @Test fun archiveRequiresConfirmationAndRemovesTheRowFromTheList() {
         render(); waitText("Synthetic active conversation")
         compose.onNodeWithText("Synthetic active conversation").performTouchInput { longClick() }
-        compose.onNodeWithText("Archive").performClick(); waitText("Archive agent?")
+        compose.onNodeWithText("Archive").performClick(); waitText("Archive task?")
         compose.onNodeWithText("Cancel").performClick(); assertFalse(archived); noWrites()
         compose.onNodeWithText("Synthetic active conversation").performTouchInput { longClick() }
-        compose.onNodeWithText("Archive").performClick(); waitText("Archive agent?")
+        compose.onNodeWithText("Archive").performClick(); waitText("Archive task?")
         compose.onAllNodesWithText("Archive").onLast().performClick()
         compose.waitUntil(8_000) { archived && agent.conversations.isEmpty() && agent.rowActionSessionId == null }
         compose.onNodeWithText("Synthetic active conversation").assertDoesNotExist()
@@ -356,7 +356,7 @@ class HomeNavigationFixtureDeviceTest {
     @Test fun archiveFailureKeepsTheRowAndOffersExplicitRetry() {
         archiveFailure = true; render(); waitText("Synthetic active conversation")
         compose.onNodeWithText("Synthetic active conversation").performTouchInput { longClick() }
-        compose.onNodeWithText("Archive").performClick(); waitText("Archive agent?")
+        compose.onNodeWithText("Archive").performClick(); waitText("Archive task?")
         compose.onAllNodesWithText("Archive").onLast().performClick()
         waitText("Action failed. Refresh the list and try again.")
         assertFalse(archived); compose.onNodeWithText("Synthetic active conversation").assertExists()

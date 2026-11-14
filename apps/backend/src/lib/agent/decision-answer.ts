@@ -116,7 +116,10 @@ export async function answerDecision(args: {
   if (request?.status !== 'open')
     throw new AppError(409, 'decision_already_answered', 'This question is no longer open')
   // A secret is typed in its masked card and a connection is made by selecting it: never as text here.
-  if (request.category === 'credential' || request.category === 'integration')
+  if (
+    request.category === 'integration' ||
+    (request.category === 'credential' && !credentialStatusChoice(request, answer))
+  )
     throw new AppError(400, 'decision_not_answerable', 'Answer this question in its own card')
   if (request.planId) {
     await answerInputRequest({
@@ -232,4 +235,16 @@ async function recordInChannel(request: InputRequest, answer: DecisionAnswer, wh
     ],
   })
   await bumpConversationActivity(channel.sessionId, channel.userId)
+}
+
+/** A login-status button is ordinary text; secret values never enter this endpoint. */
+function credentialStatusChoice(request: InputRequest, answer: DecisionAnswer): boolean {
+  return (
+    !request.secretName &&
+    !request.questions?.length &&
+    answer.text === undefined &&
+    answer.questions === undefined &&
+    (answer.choices?.length ?? 0) > 0 &&
+    (answer.choices?.every((choice) => request.options?.includes(choice)) ?? false)
+  )
 }

@@ -75,7 +75,7 @@ data class AgentConversation(
     val id: String get() = sessionId
 
     val displayTitle: String
-        get() = title.ifEmpty { firstMessage.ifEmpty { "Untitled agent" } }
+        get() = title.ifEmpty { firstMessage.ifEmpty { "Untitled task" } }
 
     val isArchived: Boolean get() = archivedAt != null
 
@@ -217,8 +217,13 @@ data class AgentConversationDetail(
     val messageCount: Int? = null,
     /** A chat's icon, as the list row carries it. */
     val faces: List<ChatFace> = emptyList(),
+    /** Started as a group chat: never a Bot's 1:1 chat, even with one Bot in it. */
+    val group: Boolean? = null,
 ) {
     val isChannel: Boolean get() = kind == "channel"
+
+    /** The Bot this chat is the 1:1 of, as the list row's `botId` decides it. */
+    val botId: String? get() = faces.takeIf { group != true }?.botFace?.id
 
     @Serializable
     data class TimelineEvent(

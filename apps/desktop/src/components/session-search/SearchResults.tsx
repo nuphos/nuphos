@@ -139,7 +139,7 @@ export function SearchResults({
         key={conversation.sessionId}
         id={`${listId}-${String(at)}`}
         preview={searchPreview(conversation, query)}
-        title={conversation.title || conversation.firstMessage || t('Untitled agent')}
+        title={conversation.title || conversation.firstMessage || t('Untitled task')}
         meta={metaFor(result, userId)}
         query={query}
         selected={at === selectedIndex}

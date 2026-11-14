@@ -14,10 +14,12 @@ export function SidebarPageTabs({
   page,
   onPage,
   count,
+  botCount = 0,
 }: {
   page: SidebarPage
   onPage: (page: SidebarPage) => void
   count: number
+  botCount?: number
 }) {
   return (
     <div
@@ -27,7 +29,8 @@ export function SidebarPageTabs({
     >
       {(['bots', 'tasks'] as const).map((id, index) => {
         const label = [t('Bots'), t('Tasks')][index]
-        const accessibleLabel = index === 1 && count > 0 ? `${label} · ${String(count)}` : label
+        const shownCount = index === 0 ? botCount : count
+        const accessibleLabel = shownCount > 0 ? `${label} · ${String(shownCount)}` : label
 
         return (
           <Tooltip
@@ -62,8 +65,8 @@ export function SidebarPageTabs({
             ) : (
               <MessagesSquare aria-hidden strokeWidth={1.8} className="size-4" />
             )}
-            {index === 1 && count > 0 && (
-              <CountBadge count={count} size="sm" className="absolute -right-1 -top-1" />
+            {shownCount > 0 && (
+              <CountBadge count={shownCount} size="sm" className="absolute -right-1 -top-1" />
             )}
           </Tooltip>
         )

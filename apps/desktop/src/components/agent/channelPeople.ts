@@ -44,7 +44,7 @@ export function addableAgents(
     .filter((agent) => agent.avatar && !inChannel.has(agent.sessionId))
     .map((agent) => ({
       id: agent.sessionId,
-      name: agent.title || t('Untitled agent'),
+      name: agent.title || t('Untitled task'),
       email: '',
       agent: { avatar: agent.avatar, provider: agent.agentRuntime },
     }))

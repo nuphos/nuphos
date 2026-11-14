@@ -93,3 +93,39 @@ test('a Bot an agent nested is a top-level Bot; a nested Task keeps its parent',
   assert.equal(nested().parentKey, undefined)
   assert.equal(nested(null).parentKey, 'agent-session:lead')
 })
+
+test('reading a Bot question clears its dot but keeps the action-needed preview', () => {
+  const chat = { ...item(), key: 'chat', channel: true }
+  const bot = {
+    conversation: {
+      ...conversation,
+      inputRequests: [
+        {
+          id: 'q',
+          category: 'preference' as const,
+          question: 'Which?',
+          status: 'open' as const,
+          askedAt: '2026-11-12T00:00:00Z',
+        },
+      ],
+    },
+    runtimeState: undefined,
+  }
+
+  for (const unread of [false, true]) {
+    const [row] = botChatRows({
+      chat,
+      bot,
+      kids: [],
+      faces: [],
+      teamId: 'team-a',
+      unread,
+      openId: undefined,
+    })
+
+    assert.ok(isValidElement<{ dot: string | null }>(row?.trailing))
+    assert.equal(row.trailing.props.dot, unread ? 'unread' : null)
+    assert.equal(row.dot, unread ? 'unread' : null)
+    assert.ok(row?.previewNode)
+  }
+})

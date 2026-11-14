@@ -90,6 +90,13 @@ test('a host that cannot start says why and holds nothing', async () => {
   assert.deepEqual(macScreenStatus(pool).desktops, [])
 })
 
+test('under the CLI the host is asked to hold its own permissions', async () => {
+  const pool = newPool()
+  const host = fakeHost('echo "mac-screen-host: $2" >&2; exit 1')
+
+  await assert.rejects(startHost(pool, host, true), /^Error: --own-permissions$/u)
+})
+
 test('the host starts once, and opening waits until it listens', async () => {
   const pool = newPool()
 

@@ -426,7 +426,7 @@ describe('OpenAbAcpClient', () => {
       id: createFrame.id,
       result: { sessionId: 'sess-unrelated' },
     })
-    await expect(creating).resolves.toBe('sess-unrelated')
+    await expect(creating).resolves.toEqual({ sessionId: 'sess-unrelated' })
     expect(h.socket().closeCalls).toBe(1)
   })
 
@@ -503,7 +503,7 @@ describe('OpenAbAcpClient', () => {
       params: { cwd: '/workspace', mcpServers: [] },
     })
     h.socket().receive({ jsonrpc: '2.0', id: 2, result: { sessionId: 'sess_openab' } })
-    expect(await creating).toBe('sess_openab')
+    expect(await creating).toEqual({ sessionId: 'sess_openab' })
 
     const deltas: string[] = []
     const prompting = client.prompt('sess_openab', 'hello', (text) => deltas.push(text))
@@ -928,6 +928,48 @@ describe('OpenAbAcpClient', () => {
     expect(await third).toEqual({ alive: true })
   })
 
+  test('reports the settings session/new started the session with', async () => {
+    const h = harness()
+    const client = await OpenAbAcpClient.connect({
+      url: 'wss://openab/acp',
+      authKey: 'key',
+      socketFactory: h.connect,
+    })
+    const creating = client.createSession('/workspace')
+    const frame = await nextSent(h.socket(), 0)
+
+    h.socket().receive({
+      jsonrpc: '2.0',
+      id: frame.id,
+      result: {
+        sessionId: 'sess_confirmed',
+        configOptions: [
+          {
+            // The runtime names the control itself; only `category` says it is the model.
+            id: 'claude-model',
+            name: 'Model',
+            category: 'model',
+            currentValue: 'opus',
+            options: [{ value: 'opus', name: 'Opus' }],
+          },
+        ],
+      },
+    })
+
+    expect(await creating).toEqual({
+      sessionId: 'sess_confirmed',
+      sessionConfig: [
+        {
+          id: 'claude-model',
+          name: 'Model',
+          kind: 'model',
+          currentValue: 'opus',
+          options: [{ value: 'opus', name: 'Opus' }],
+        },
+      ],
+    })
+  })
+
   test('session/new and session/load carry a declared MCP server verbatim', async () => {
     const h = harness()
     const client = await OpenAbAcpClient.connect({
@@ -949,7 +991,7 @@ describe('OpenAbAcpClient', () => {
     expect(newFrame.method).toBe('session/new')
     expect((newFrame.params as { mcpServers: unknown }).mcpServers).toEqual(servers)
     h.socket().receive({ jsonrpc: '2.0', id: newFrame.id, result: { sessionId: 'sess_mcp' } })
-    expect(await creating).toBe('sess_mcp')
+    expect(await creating).toEqual({ sessionId: 'sess_mcp' })
 
     const loading = client.loadSession('sess_mcp', '/workspace', servers)
     const loadFrame = await nextSent(h.socket(), 1)

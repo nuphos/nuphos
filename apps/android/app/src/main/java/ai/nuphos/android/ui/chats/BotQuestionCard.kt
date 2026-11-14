@@ -91,7 +91,7 @@ internal fun BotQuestionCard(
                         Text(own?.let { "Use your own $it" } ?: "Choose credentials")
                     }
                 } else if (replies == null) {
-                    OutlinedButton(onClick = onOpen) { Text("Answer in the conversation") }
+                    OutlinedButton(onClick = onOpen) { Text("Answer in the task") }
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         replies.forEach { (label, reply) ->

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 
 import { api } from '../../../api'
 import { decideErrorToast } from '../../../api/errors'
@@ -17,6 +17,49 @@ import type { RuntimeInstance } from '../../../types/runtime'
 export function useConversationRuntimeControl(c: PanelViewCtx): {
   runtimeControl: RuntimeControl | undefined
 } {
+  return {
+    runtimeControl: useSessionRuntimeControl({
+      ...c,
+      update: (patch) =>
+        c.setTabs((previous) =>
+          previous.map((entry) => (entry.id === c.activeTab?.id ? { ...entry, ...patch } : entry)),
+        ),
+    }),
+  }
+}
+
+type RuntimeTab = Pick<
+  NonNullable<PanelViewCtx['activeTab']>,
+  | 'id'
+  | 'sessionId'
+  | 'agentRuntime'
+  | 'runtimeId'
+  | 'runtimeLabel'
+  | 'movingTo'
+  | 'readOnly'
+  | 'foreign'
+  | 'canManage'
+  | 'streaming'
+  | 'timelineEvents'
+>
+type SessionRuntimeContext = Pick<
+  PanelViewCtx,
+  | 'teamId'
+  | 'isTeamAdmin'
+  | 'runtimeInstances'
+  | 'runtimeInstancesLoading'
+  | 'runtimeInstancesError'
+  | 'runtimeQuotas'
+  | 'onOpenAgentSettings'
+  | 'currentUser'
+  | 'refreshHistory'
+> & {
+  activeTab: RuntimeTab | null
+  update: (patch: Partial<RuntimeTab>) => void
+}
+
+/** Shared move flow for a Task and its Bot chat, including host-trust confirmation. */
+export function useSessionRuntimeControl(c: SessionRuntimeContext): RuntimeControl | undefined {
   const {
     activeTab: tab,
     teamId,
@@ -26,26 +69,21 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
     runtimeInstancesError,
     runtimeQuotas,
     onOpenAgentSettings,
+    refreshHistory,
+    update: setTab,
   } = c
   const sessionId = tab?.sessionId
   const tabId = tab?.id
   const provider = tab?.agentRuntime ?? 'claude-code'
   const moving = Boolean(tab?.movingTo)
-  const { setTabs, refreshHistory } = c
-  const setTab = useCallback(
-    (patch: Partial<NonNullable<typeof tab>>) =>
-      setTabs((previous) =>
-        previous.map((entry) => (entry.id === tabId ? { ...entry, ...patch } : entry)),
-      ),
-    [setTabs, tabId],
-  )
+  const moveInFlight = useRef(false)
 
   const move = useCallback(
     async (runtimeId: string, grantComputerUse?: boolean) => {
       const target = runtimeInstances.find((instance) => instance.id === runtimeId)
       const bot = Boolean(sessionId && agentAvatarPick(sessionId))
 
-      if (moving) return
+      if (moving || moveInFlight.current) return
       if (!sessionId || !tabId || !teamId || !target) {
         console.warn('[agent] conversation move skipped', {
           sessionId,
@@ -63,6 +101,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
       }
       // The timeline shows a pending line from here until the move's own event
       // replaces it, so the result needs no toast of its own.
+      moveInFlight.current = true
       setTab({ movingTo: target.label })
       try {
         const result = await api.agentMoveConversationRuntime(
@@ -97,6 +136,8 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
             t('The runtime did not accept the move. Check your connection and try again.'),
           )
         }
+      } finally {
+        moveInFlight.current = false
       }
     },
     [moving, refreshHistory, runtimeInstances, sessionId, setTab, tabId, teamId],
@@ -195,5 +236,5 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
     onOpenAgentSettings,
   ])
 
-  return { runtimeControl }
+  return runtimeControl
 }

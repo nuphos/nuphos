@@ -35,6 +35,7 @@ import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.automirrored.outlined.Reply
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material.icons.outlined.DesktopWindows
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -56,6 +57,14 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import kotlinx.coroutines.withTimeoutOrNull
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -125,7 +134,7 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
         }
     }
     // A Bot's chat opens the Bot's desktop: its session, read and gated as on its Task screen.
-    val botFace = session.faces.botFace
+    val botFace = session.faces.botFace?.takeIf { it.id == session.botId }
     val bot = remember(store, botFace?.id) { botFace?.let { store.session(it.id, it.name) } }
     LaunchedEffect(bot, lifecycle) {
         if (bot == null) return@LaunchedEffect
@@ -177,6 +186,8 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
                     val scope = rememberCoroutineScope()
                     TextButton(onClick = { scope.launch { session.refresh(force = true) } }) { Text("Try again") }
                 }
+                // Nothing posted yet: say what kind of place this is, as on iOS.
+                session.loadError == null && items.isEmpty() -> EmptyChat(session.faces, session.title, Modifier.align(Alignment.CenterStart))
                 else -> {
                     val consent = AiAccess.revision
                     ChannelTranscript(session, items, viewerId, onLink, allowed = {
@@ -192,6 +203,17 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
             ChannelComposer(session)
         }
         }
+    }
+}
+
+/** A chat with no posts yet: its icon, its name and how a chat works, the same words as iOS. */
+@Composable
+private fun EmptyChat(faces: List<ai.nuphos.android.model.ChatFace>, title: String, modifier: Modifier = Modifier) {
+    Column(modifier.fillMaxWidth().padding(24.dp).testTag("chat-empty"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        ChatIcon(faces, title, 44.dp)
+        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+        Text("Everyone here sees each message and decides for themselves whether to reply, as in any group chat.",
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -267,7 +289,7 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
                                 onAnswer = { option -> if (allowed()) session.answer(question, option, scope) },
                                 onForm = { body -> if (allowed()) session.answer(question, body, scope) },
                                 // The Bot's own questions are this chat's; only an agent under it is named.
-                                showsFrom = question.sessionId != session.faces.botFace?.id, onLink = onLink,
+                                showsFrom = question.sessionId != session.botId, onLink = onLink,
                                 failure = session.answerFailure(question))
                         }
                     }
@@ -286,19 +308,34 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
 @Composable
 private fun PostRow(session: ChannelSession, post: ChannelPost, first: Boolean, mine: Boolean, onLink: (String) -> Unit, allowed: () -> Boolean,
                     downloads: TransferDownloads, flashed: Boolean = false, onQuote: (ChannelReply) -> Unit = {}) {
-    // Long-press opens the post's menu: Reply where the viewer can post, and Copy.
+    // Long-press opens the post's menu: Reply where the viewer can post, Select Text and Copy, as on iOS.
     var menu by remember { mutableStateOf(false) }
+    // Select Text makes the words selectable, so a long-press there picks a passage instead of opening the menu.
+    var selecting by remember(post.id) { mutableStateOf(false) }
     val haptics = LocalHapticFeedback.current
     val clipboard = LocalClipboardManager.current
     val canReply = !session.readOnly && !post.sending
     Row(Modifier.fillMaxWidth().padding(top = if (first) 12.dp else 4.dp)) {
         if (mine) Spacer(Modifier.weight(1f).widthIn(min = 48.dp))
-        Column(Modifier.widthIn(max = 300.dp).combinedClickable(interactionSource = null, indication = null, onClick = {},
-            onLongClickLabel = "Post actions", onLongClick = { haptics.performHapticFeedback(HapticFeedbackType.LongPress); menu = true }),
+        Column(Modifier.widthIn(max = 300.dp)
+            // While selecting, presses go to the words; a quick tap anywhere on the post ends it.
+            .pointerInput(selecting) {
+                if (!selecting) return@pointerInput
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    val up = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) { waitForUpOrCancellation(PointerEventPass.Initial) }
+                    if (up != null) selecting = false
+                }
+            }
+            .combinedClickable(enabled = !selecting, interactionSource = null, indication = null, onClick = {},
+                onLongClickLabel = "Post actions", onLongClick = { haptics.performHapticFeedback(HapticFeedbackType.LongPress); menu = true })
+            .semantics { if (post.text.isNotEmpty()) customActions = listOf(CustomAccessibilityAction("Select Text") { selecting = true; true }) },
             horizontalAlignment = if (mine) Alignment.End else Alignment.Start) {
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 if (canReply) DropdownMenuItem(text = { Text("Reply") }, leadingIcon = { Icon(Icons.AutoMirrored.Outlined.Reply, null) },
                     onClick = { menu = false; session.reply(post) })
+                if (post.text.isNotEmpty()) DropdownMenuItem(text = { Text("Select Text") }, leadingIcon = { Icon(Icons.Outlined.TextFields, null) },
+                    onClick = { menu = false; selecting = true }, modifier = Modifier.testTag("post-select-text"))
                 if (post.text.isNotEmpty()) DropdownMenuItem(text = { Text("Copy") }, leadingIcon = { Icon(Icons.Outlined.ContentCopy, null) },
                     onClick = { menu = false; clipboard.setText(AnnotatedString(post.text)) })
             }
@@ -306,7 +343,7 @@ private fun PostRow(session: ChannelSession, post: ChannelPost, first: Boolean, 
                 modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 4.dp)) {
                 Box(Modifier.testTag("channel-avatar")) { SenderAvatar(post) }
                 Text(post.name, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-                if (post.isAgent) Text("Agent", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                if (post.isAgent) Text("Bot", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)
                         .padding(horizontal = 6.dp, vertical = 2.dp))
             }
@@ -335,7 +372,11 @@ private fun PostRow(session: ChannelSession, post: ChannelPost, first: Boolean, 
                     mine -> MaterialTheme.colorScheme.primaryContainer
                     else -> MaterialTheme.colorScheme.surfaceContainerHigh
                 }) {
-                Box(Modifier.padding(horizontal = 14.dp, vertical = 9.dp)) { MarkdownText(post.text, onLink = onLink, compact = true) }
+                Box(Modifier.padding(horizontal = 14.dp, vertical = 9.dp)) {
+                    if (selecting) androidx.compose.foundation.text.selection.SelectionContainer(Modifier.testTag("post-selectable")) {
+                        MarkdownText(post.text, onLink = onLink, compact = true)
+                    } else MarkdownText(post.text, onLink = onLink, compact = true)
+                }
             }
             // An agent's files show below its words, every group in one grid.
             if (post.downloads.isNotEmpty()) Box(Modifier.padding(top = 6.dp)) {
@@ -397,7 +438,7 @@ private fun ReplyFailedLine(event: ai.nuphos.android.model.AgentConversationDeta
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (onSwitch != null || onRetry != null) Row(Modifier.padding(start = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            onSwitch?.let { OutlinedButton(onClick = it) { Text("Switch agent") } }
+            onSwitch?.let { OutlinedButton(onClick = it) { Text("Switch runtime") } }
             onRetry?.let { TextButton(onClick = it) { Text("Retry") } }
         }
     }
@@ -434,7 +475,7 @@ private fun TypingRow(agents: List<ChannelAgent>) {
     Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         agents.forEach { agent ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.semantics { contentDescription = "${agent.title.ifBlank { "Agent" }} is typing" }) {
+                modifier = Modifier.semantics { contentDescription = "${agent.title.ifBlank { "Bot" }} is typing" }) {
                 AgentAvatar(agent.sessionId, runtime = agent.provider, size = 36.dp)
                 Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
                     TypingDots(Modifier.padding(horizontal = 16.dp, vertical = 14.dp))

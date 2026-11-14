@@ -14,6 +14,8 @@ final class ChannelSession {
     private(set) var title: String
     /// The chat's icon: the members other than the viewer that it shows.
     var faces: [ChatFace] = []
+    /// The Bot this is the 1:1 chat of; nil in a group chat, even one with only a Bot in it.
+    var botId: String?
     private(set) var stored: [ChannelPost] = []
     private(set) var events: [AgentConversationDetail.TimelineEvent] = []
     private(set) var agents: [ChannelAgent] = []
@@ -94,6 +96,7 @@ final class ChannelSession {
         readOnly = detail.readOnly ?? false
         if let title = detail.title, !title.isEmpty { self.title = title }
         faces = detail.faces
+        botId = detail.botId
         revision = detail.channelRevision
         loadError = nil
         loaded = true
@@ -127,7 +130,7 @@ final class ChannelSession {
 
     /// A Bot's chat reads the pending listing, as the desktop's does; any other chat has none.
     func refreshQuestions() async {
-        guard let bot = faces.botId else { return }
+        guard let bot = botId else { return }
         await questions.refresh { BotQuestions.under(bot: bot, rows: $0) }
     }
 

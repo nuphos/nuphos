@@ -26,14 +26,14 @@ struct SecretCard: View {
 
     /// Why the value can't be sent right now; nil when it can.
     private var blocked: String? {
-        if !session.ownsChat { return "Only the owner of this conversation can provide this secret." }
+        if !session.ownsChat { return "Only the owner of this task can provide this secret." }
         if session.isStreaming { return "The agent is working. You can send this when its turn ends." }
         return nil
     }
 
     var body: some View {
         if saved {
-            line("lock.fill", "\(name) saved on the agent's runtime.")
+            line("lock.fill", "\(name) saved on the task's runtime.")
         } else if reply != nil {
             line("lock.slash", "\(name) request closed. Ask the agent to request it again.")
         } else {
@@ -85,7 +85,7 @@ struct SecretCard: View {
             if case .failed(let message) = phase {
                 Text(message).font(Theme.Text.caption).foregroundStyle(.red)
             }
-            Text(blocked ?? "The value is written to a file on the agent's runtime and never appears in this conversation.")
+            Text(blocked ?? "The value is written to a file on the task's runtime and never appears in this task.")
                 .font(Theme.Text.caption).foregroundStyle(Theme.muted)
         }
         .padding(14)
@@ -104,7 +104,7 @@ struct SecretCard: View {
                 value = ""
                 phase = .sent
             } catch {
-                phase = .failed("Could not save it on the agent's runtime: \(error.localizedDescription)")
+                phase = .failed("Could not save it on the task's runtime: \(error.localizedDescription)")
             }
         }
     }

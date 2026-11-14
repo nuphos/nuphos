@@ -14,6 +14,9 @@ import type { OpenAbProvider } from './runtime-provider'
 import type { RuntimeQuota } from './runtime-quota'
 import type { TeamRuntimeEndpoint } from './team-openab-runtime'
 
+export const MANAGED_RUNTIME_RETIRED =
+  'Nuphos-hosted agents have been retired. Move this conversation to a Nuphos Box or your own computer to continue.'
+
 export function developmentRuntimeEndpoint(
   provider: OpenAbProvider,
   purpose: 'transport' | 'control' = 'transport',
@@ -51,7 +54,8 @@ export async function listRuntimeInstances(
           id: runtime.id,
           provider,
           label: runtime.label ?? `${runtimeLabel(provider)} · ${runtime.id.slice(0, 6)}`,
-          status: runtime.status,
+          // Nuphos-hosted runtimes are retired (#2401) and cannot be enabled again.
+          status: runtime.hostedBy ? ('disabled' as const) : runtime.status,
           ...(runtime.hostedBy
             ? {
                 kind: 'managed' as const,

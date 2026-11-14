@@ -681,7 +681,7 @@ final class ChatSession {
 
     /// Moves this conversation to another agent, carrying its history.
     func move(to target: RuntimeInstance) async throws {
-        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the agent owner can move it.") }
+        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the task owner can move it.") }
         let moved = try await AgentChatAPI.moveRuntime(token: token, teamId: teamId, sessionId: sessionId, runtimeId: target.id)
         runtimeId = moved.runtimeId
         runtimeLabel = moved.runtimeLabel
@@ -723,13 +723,13 @@ final class ChatSession {
     // MARK: - Archive
 
     func rename(_ name: String) async throws {
-        guard ownsChat else { throw NuphosAPI.Failure.http(403, message: "Only the agent owner can rename it.") }
+        guard ownsChat else { throw NuphosAPI.Failure.http(403, message: "Only the task owner can rename it.") }
         try await AgentChatAPI.rename(token: token, teamId: teamId, sessionId: sessionId, title: name)
         title = name
     }
 
     func setArchived(_ archived: Bool) async throws {
-        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the agent owner can archive it.") }
+        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the task owner can archive it.") }
         try await AgentChatAPI.setArchived(token: token, teamId: teamId, sessionId: sessionId, archived: archived)
         isArchived = archived
     }
@@ -1324,7 +1324,7 @@ final class ChatSession {
                     // Messages here the server never stored: take the server's transcript.
                     rejectUnadmittedSubmission(options.submission)
                     await adoptServerTranscript()
-                    return .failed("This agent changed elsewhere and was reloaded. Retry to send your message.")
+                    return .failed("This task changed elsewhere and was reloaded. Retry to send your message.")
                 default:
                     // Only a send the server refused, never one it queued or already runs.
                     if !accepted && !shouldResume && reconnects == 0 { rejectUnadmittedSubmission(options.submission) }

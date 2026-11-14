@@ -70,7 +70,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { label: t('Copy last reply'), combos: ['mod+alt+c'] },
       { label: t('Find in conversation'), combos: ['mod+f'] },
       { label: t('Scroll conversation'), combos: ['pageup', 'pagedown'] },
-      { label: t('Toggle agent summary'), combos: ['mod+i'] },
+      { label: t('Toggle task summary'), combos: ['mod+i'] },
     ],
   },
   {

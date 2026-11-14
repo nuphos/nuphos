@@ -8,6 +8,7 @@ import { localRuntimeStatus } from '@/lib/claude-code-preview/local-runtime-cata
 import { isAllowedRemoteOpenAbUrl } from '@/lib/claude-code-preview/runtime-backend-url'
 import {
   listRuntimeInstances,
+  MANAGED_RUNTIME_RETIRED,
   requireRuntimeInstance,
   withRuntimeReadiness,
 } from '@/lib/claude-code-preview/runtime-catalog'
@@ -43,6 +44,7 @@ import { registerRuntimeDesktopRoutes } from './runtime-desktop'
 import { registerRuntimeFileRoutes } from './runtime-files'
 import { registerRuntimeQuotaRoutes } from './runtime-quota'
 
+import type { RuntimeInstance } from '@/lib/claude-code-preview/runtime-instances'
 import type { TeamAuthVariables } from '@/middleware/auth'
 import type { Context, Hono } from 'hono'
 
@@ -75,6 +77,12 @@ function teamRuntimeId(runtimeId: string): string {
     )
 
   return runtimeId
+}
+
+/** Nuphos-hosted runtimes are retired (#2401): their routes say so instead of failing later. */
+function assertNotRetired(instance: RuntimeInstance) {
+  if (instance.kind === 'managed')
+    throw new AppError(410, 'managed_runtime_retired', MANAGED_RUNTIME_RETIRED)
 }
 
 export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAuthVariables }>) {
@@ -164,6 +172,7 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
       c.get('userId'),
     )
 
+    assertNotRetired(instance)
     if (instance.kind === 'local') {
       const runtimeUpdate = await boxUpdateStatus(instance.id)
       const status = await localRuntimeStatus(instance.id)
@@ -186,6 +195,8 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
         c.req.param('runtimeId'),
         c.get('userId'),
       )
+
+      assertNotRetired(instance)
 
       return c.json(await requestRuntimeUpdate(c.get('teamId'), instance, c.get('userId')), 202)
     },
@@ -228,6 +239,7 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
       const instance = await requireRuntimeInstance(teamId, teamRuntimeId(c.req.param('runtimeId')))
       const patch = c.req.valid('json')
 
+      assertNotRetired(instance)
       await assertRuntimeNotDeleting(teamId, instance.id)
       if (
         instance.kind === 'development' &&
@@ -238,7 +250,7 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
           'invalid_request',
           'Manage this agent in the local development configuration',
         )
-      if (instance.kind === 'managed' || instance.kind === 'external') {
+      if (instance.kind === 'external') {
         if (patch.label !== undefined) await renameTeamRuntime(teamId, instance.id, patch.label)
         if (patch.status !== undefined)
           await setTeamRuntimeStatus(teamId, instance.id, patch.status)

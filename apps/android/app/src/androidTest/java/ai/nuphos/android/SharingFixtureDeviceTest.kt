@@ -34,7 +34,7 @@ class SharingFixtureDeviceTest {
         override suspend fun general(value: GeneralAccess) = write(access.copy(generalAccess = value))
         /** Nobody here may use the session's computer until an invite grants it, as the backend answers. */
         override suspend fun invite(userId: String, grantComputerUse: Boolean): SessionAccess {
-            if (!grantComputerUse) throw AgentChatApi.conflict(409, """{"error":{"code":"computer_use_required","message":"Adding this person to the conversation also gives them use of Synthetic Mac. Continue?"}}""")
+            if (!grantComputerUse) throw AgentChatApi.conflict(409, """{"error":{"code":"computer_use_required","message":"Adding this person to the task also gives them use of Synthetic Mac. Continue?"}}""")
             val joined = access.participants.filterNot { it.id == userId } + SessionAccess.Participant(userId, if (userId == member.id) member.name else "Synthetic Viewer", member.email, false, "reply")
             return write(access.copy(participants = joined))
         }

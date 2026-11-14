@@ -57,7 +57,7 @@ export function chatSidebarItem({
       conversation.title ||
       conversation.firstMessage ||
       // An unnamed chat is called by its other members; until anyone joins, this.
-      (conversation.kind === 'channel' ? t('New Group Chat') : t('Untitled agent')),
+      (conversation.kind === 'channel' ? t('New Group Chat') : t('Untitled task')),
     ...chatRowIcon(conversation),
     preview: chatPreview(conversation.lastMessage, conversation.faces),
     lastActiveAt: conversation.lastActiveAt,
