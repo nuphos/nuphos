@@ -11,6 +11,7 @@ import ai.nuphos.android.model.ChannelAgent
 import ai.nuphos.android.model.ComposerAttachment
 import ai.nuphos.android.model.CredentialCatalog
 import ai.nuphos.android.model.CredentialSelection
+import ai.nuphos.android.model.DecisionQuestion
 import ai.nuphos.android.model.InputRequest
 import ai.nuphos.android.session.BotQuestion
 import ai.nuphos.android.session.BotQuestions
@@ -98,7 +99,7 @@ class BotQuestionsTest {
         override suspend fun answer(sessionId: String, requestId: String, answer: JsonValue) {
             val fields = (answer as JsonValue.Obj).value
             val said = (fields["choices"] as? JsonValue.Arr)?.value?.firstOrNull() ?: fields["text"]
-            answers += Triple(sessionId, (said as JsonValue.Str).value, requestId)
+            answers += Triple(sessionId, (said as? JsonValue.Str)?.value.orEmpty(), requestId)
             bodies += answer
             if (failAnswer) throw NuphosApi.Failure.Http(500, "Synthetic answer failure")
         }
@@ -283,6 +284,63 @@ class BotQuestionsTest {
         assertFalse(inbox.list.any { it.id == first.id })
         testScheduler.advanceUntilIdle()
         assertEquals(listOf(Triple("deploy", "Ship it", "q-1")), transport.answers)
+        assertTrue(inbox.failures.isEmpty())
+    }
+
+    // Several questions in one card, as the backend sends them: `body` ends with the questions written out.
+    private val twoQuestions = Http.json.decodeFromString(InputRequest.serializer(), """
+        {"id":"q-form","category":"preference","question":"Two things to settle",
+         "body":"Context first.\n\n---\n\n**1. Send the draft?**\n- Send\n- Hold\n\n**2. Which regions?** (any number)\n- us\n- eu",
+         "questions":[{"question":"Send the draft?","options":["Send","Hold"]},
+                      {"question":"Which regions?","options":["us","eu"],"multiSelect":true}]}
+    """)
+
+    @Test fun aSeveralQuestionCardIsAFormWithoutTheWrittenOutList() {
+        val question = BotQuestion("s", "Support", twoQuestions)
+        assertEquals(listOf("Send the draft?", "Which regions?"), question.form?.map { it.question })
+        assertEquals(true, question.form?.last()?.multiSelect)
+        // The list the backend writes for clients without forms is dropped; the agent's own text stays.
+        assertEquals("Context first.", question.ownBody)
+    }
+
+    @Test fun aMultiSelectQuestionIsAFormAndASingleChoiceKeepsItsOneTapOptions() {
+        val many = InputRequest("q", "preference", "Which?", listOf("a", "b"), multiSelect = true)
+        assertEquals(listOf(DecisionQuestion("Which?", listOf("a", "b"), true)), BotQuestion("s", "t", many).form)
+        assertNull(BotQuestion("s", "t", InputRequest("q", "preference", "Which?", listOf("a", "b"))).form)
+        // Never for a question only a connection or a plan answers.
+        assertNull(BotQuestion("s", "t", many.copy(category = "integration")).form)
+        assertNull(BotQuestion("s", "t", many.copy(planId = "p")).form)
+    }
+
+    @Test fun anAgentsOwnSeparatorStaysInTheBody() {
+        val request = twoQuestions.copy(body = "Mine\n\n---\n\nStill mine")
+        assertEquals("Mine\n\n---\n\nStill mine", BotQuestion("s", "t", request).ownBody)
+    }
+
+    @Test fun theFormSendsOneAnswerPerQuestionAsDesktopDoes() {
+        val questions = twoQuestions.questions!!
+        val answer = BotQuestion.formAnswer(questions, listOf(listOf("Send"), listOf("us", "eu")), listOf("", ""))
+        assertEquals("""{"questions":[{"choices":["Send"]},{"choices":["us","eu"]}]}""", answer.compact)
+        // Typed words take the place of the picks; one question is answered on its own.
+        assertEquals("""{"questions":[{"text":"Hold until Monday"},{"choices":["eu"]}]}""",
+            BotQuestion.formAnswer(questions, listOf(listOf("Send"), listOf("eu")), listOf(" Hold until Monday ", "")).compact)
+        assertEquals("""{"choices":["a","b"]}""",
+            BotQuestion.formAnswer(listOf(DecisionQuestion("Which?", listOf("a", "b"), true)), listOf(listOf("a", "b")), listOf("")).compact)
+        assertEquals("Send, Hold", BotQuestion.answerText(listOf("Send", "Hold"), "  "))
+    }
+
+    @Test fun aFormAnswerIsSentAsBuiltAndHidesTheCard() = runTest {
+        val transport = FakeTransport().apply {
+            pending = listOf(AgentConversation(sessionId = "s", title = "Support", isOwner = true, inputRequests = listOf(twoQuestions)))
+        }
+        val inbox = OpenQuestions(transport)
+        inbox.refresh()
+        val card = inbox.list.single()
+        val body = BotQuestion.formAnswer(card.form!!, listOf(listOf("Hold"), listOf("us")), listOf("", ""))
+        inbox.answer(card, body, this)
+        assertTrue(inbox.list.isEmpty())
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf(body), transport.bodies)
         assertTrue(inbox.failures.isEmpty())
     }
 }

@@ -142,6 +142,10 @@ class ChannelSession(
     fun answer(question: BotQuestion, text: String, scope: kotlinx.coroutines.CoroutineScope) =
         open.answer(question, text, scope)
 
+    /** Answers a several-question or multi-select card with what its form built. */
+    fun answer(question: BotQuestion, body: ai.nuphos.android.data.JsonValue, scope: kotlinx.coroutines.CoroutineScope) =
+        open.answer(question, body, scope)
+
     fun retry(agentId: String, scope: kotlinx.coroutines.CoroutineScope) {
         scope.launch {
             try { transport.wake(agentId); refresh(force = true) }

@@ -151,6 +151,18 @@ data class InputRequest(
     /** An integration question's providers (any access answers it), or the exact credentials it names. */
     val providers: List<String>? = null,
     val credentials: List<CredentialRef>? = null,
+    /** Any number of [options] may be picked. */
+    val multiSelect: Boolean? = null,
+    /** Related questions answered together; [question] is their headline. */
+    val questions: List<DecisionQuestion>? = null,
+)
+
+/** One of the questions a several-question card answers together. */
+@Serializable
+data class DecisionQuestion(
+    val question: String = "",
+    val options: List<String>? = null,
+    val multiSelect: Boolean? = null,
 )
 
 /** A credential an integration question names: `{provider: "personal", id: "github"}` is the member's own. */
