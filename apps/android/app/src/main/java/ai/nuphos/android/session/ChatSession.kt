@@ -673,12 +673,12 @@ class ChatSession(
 
     /** The backend wakes the agent once the approval completes the plan's gate. */
     suspend fun approvePlan(planId: String): Plan {
-        check(permissions.writable) { "This agent is read-only." }
+        check(permissions.writable) { "This is read-only." }
         return AgentChatApi.updatePlan(token, teamId, planId, "approved")
     }
 
     suspend fun rejectPlan(planId: String): Plan {
-        check(permissions.writable) { "This agent is read-only." }
+        check(permissions.writable) { "This is read-only." }
         return AgentChatApi.updatePlan(token, teamId, planId, "rejected")
     }
 
@@ -976,7 +976,7 @@ class ChatSession(
                     error = e.message ?: "Steering was rejected. Retry when the runtime permits it."
                 } else {
                     steeringHold = pending
-                    error = "Steering delivery is unconfirmed. Check the agent before retrying."
+                    error = "Steering delivery is unconfirmed. Check the messages before retrying."
                     reconcileSteeringReceipts()
                 }
             } finally {
@@ -1304,7 +1304,7 @@ class ChatSession(
                     // Messages here the server never stored: take the server's transcript.
                     code == "invalid_message_batch" && !accepted -> {
                         runCatching { readDetail(token, teamId, sessionId) }.getOrNull()?.let { adoptMessages(it.messages, it.messagesFirstIndex ?: 0) }
-                        return TurnResult.Failed("This agent changed elsewhere and was reloaded. Retry to send your message.", definiteRejection = true)
+                        return TurnResult.Failed("This changed elsewhere and was reloaded. Retry to send your message.", definiteRejection = true)
                     }
                     conflict is AgentChatApi.Conflict.Other && reconnects == 0 && err.code in GATEWAY && gatewayRetries < 3 -> {
                         gatewayRetries += 1

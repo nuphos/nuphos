@@ -628,9 +628,9 @@ fun ChatComposer(
             if (activeMention != null && mentions != null) {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(if (devices == null) "My agents" else "Mention", style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
+                        Text(if (devices == null) "My Bots and tasks" else "Mention", style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
                         IconButton(onClick = { dismissedAt = text.lastIndexOf('@') }, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Outlined.Close, contentDescription = if (devices == null) "Dismiss agent mentions" else "Dismiss mentions", modifier = Modifier.size(16.dp))
+                            Icon(Icons.Outlined.Close, contentDescription = if (devices == null) "Dismiss Bot and task mentions" else "Dismiss mentions", modifier = Modifier.size(16.dp))
                         }
                     }
                     Column(Modifier.heightIn(max = 80.dp).verticalScroll(rememberScrollState())) {
@@ -669,12 +669,12 @@ fun ChatComposer(
                             }
                         }
                         if (devicePickFailed) Text("Computer selection unavailable. IAM was not changed.", style = MaterialTheme.typography.bodySmall)
-                        Text("My agents", style = MaterialTheme.typography.labelSmall)
+                        Text("My Bots and tasks", style = MaterialTheme.typography.labelSmall)
                     }
                     when {
-                        mentionLoading -> Text("Searching agents…", style = MaterialTheme.typography.bodySmall)
-                        mentionFailed -> Text("Could not search agents. You can keep typing.", style = MaterialTheme.typography.bodySmall)
-                        mentionRows.isEmpty() -> Text("No matching agents", style = MaterialTheme.typography.bodySmall)
+                        mentionLoading -> Text("Searching…", style = MaterialTheme.typography.bodySmall)
+                        mentionFailed -> Text("Could not search. You can keep typing.", style = MaterialTheme.typography.bodySmall)
+                        mentionRows.isEmpty() -> Text("No matching Bots or tasks", style = MaterialTheme.typography.bodySmall)
                         else -> mentionRows.forEach { row ->
                             Row(
                                 Modifier.fillMaxWidth().clickable(role = Role.Button) {

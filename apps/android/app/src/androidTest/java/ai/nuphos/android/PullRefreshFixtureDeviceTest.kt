@@ -234,7 +234,7 @@ class PullRefreshFixtureDeviceTest {
             store.refresh()
         }
         assertTrue(historyHeld.await(5, TimeUnit.SECONDS))
-        waitText("Loading agents…")
+        waitText("Loading Bots and tasks…")
         compose.onAllNodes(SemanticsMatcher.keyIsDefined(
             androidx.compose.ui.semantics.SemanticsProperties.ProgressBarRangeInfo), useUnmergedTree = true)
             .assertCountEquals(1)
@@ -242,7 +242,7 @@ class PullRefreshFixtureDeviceTest {
         historyRelease.countDown()
         settled()
         waitText("Normal history")
-        compose.onNodeWithText("Loading agents…").assertDoesNotExist()
+        compose.onNodeWithText("Loading Bots and tasks…").assertDoesNotExist()
     }
 
     @Test fun resumeReadsNewRemoteHistoryWithoutRelaunch() {
@@ -301,7 +301,7 @@ class PullRefreshFixtureDeviceTest {
         assertEquals(reads + 1, historyReads())
         assertEquals("Pins are gone, so favorites are never read", 0, pinReads())
         failHistory = true
-        pull(); waitText("Could not refresh agents. Showing last loaded history."); settled()
+        pull(); waitText("Could not refresh the list. Showing last loaded history."); settled()
         shot("failed-retains-light")
         compose.onNodeWithText("Fresh history").assertExists()
         failHistory = false; historyTitle = "Recovered history"
@@ -356,7 +356,7 @@ class PullRefreshFixtureDeviceTest {
     @Test fun initialErrorSurfaceCanPullToRecoverAndAccountRevocationRejectsHeldRead() {
         emptyHistory = true; entries = "[]"; render()
         compose.runOnIdle { state(store, "phase").value = AgentStore.Phase.Failed }
-        waitText("Couldn't load agents"); assertCentered("Couldn't load agents"); shot("initial-error-light")
+        waitText("Couldn't load Bots and tasks"); assertCentered("Couldn't load Bots and tasks"); shot("initial-error-light")
         emptyHistory = false; historyTitle = "Recovered from initial error"
         pull(); waitText("Recovered from initial error"); settled()
         holdHistory = true; historyTitle = "Wrong account response"
@@ -415,7 +415,7 @@ class PullRefreshFixtureDeviceTest {
         }
         assertTrue(historyHeld.await(5, TimeUnit.SECONDS))
         work.cancel(); historyRelease.countDown()
-        waitText("Couldn't load agents")
+        waitText("Couldn't load Bots and tasks")
         assertEquals(AgentStore.Phase.Failed, store.phase)
         assertFalse(store.isRefreshing)
         emptyHistory = false; historyTitle = "Recovered interrupted refresh"

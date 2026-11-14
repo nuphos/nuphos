@@ -76,7 +76,7 @@ fun RuntimeSetupSheet(store: RuntimeSetupStore, onDismiss: () -> Unit,
                     if (store.focusSignIn(detail.runtimeId)) { detailId = null; managing = true }
                 })
             } else {
-                if (!managing) Text("For new agents. Existing agents keep their current runtime.",
+                if (!managing) Text("For new tasks. Existing Bots and tasks keep their current runtime.",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (managing && !inventoryMode && initialSignInRuntimeId == null) TextButton(onClick = { code = ""; browserError = false; store.clearSignInFocus(); managing = false }) { Text("Back to runtimes") }

@@ -106,7 +106,7 @@ class ChatConflictCodesDeviceTest {
     }
 
     @Test fun aBusyConversationRefusesAndKeepsTheDraft() =
-        refusedKeepsTheDraft("conversation_busy", "busy", "This agent is busy with another reply.")
+        refusedKeepsTheDraft("conversation_busy", "busy", "Busy with another reply.")
     @Test fun aStreamConflictRefusesAndKeepsTheDraft() =
         refusedKeepsTheDraft("stream_conflict", "Stream id belongs to another conversation", "That stream belongs to another agent.")
     @Test fun anOfflineRuntimeSaysSoInTheAppsWordsAndKeepsTheDraft() {
