@@ -1,9 +1,12 @@
 import { getLocalActiveAgentRun } from '@/lib/agent/run-admission'
 import { getActiveAgentRunForSession, requestAgentRunCancellation } from '@/lib/agent/run-store'
+import { sessionReleased } from '@/lib/agent/session-released'
+import { cancelConversationRuntime } from '@/lib/claude-code-preview/session-execution-state'
 
 import { agentRunKey, agentRuns } from './run-registry'
 
 import type { AgentRun } from './types'
+import type { AgentConversation } from '@/lib/agent/db'
 
 /**
  * Deliver a cancellation request to a locally owned run without declaring it
@@ -31,4 +34,22 @@ export async function cancelSessionRun(userId: string, sessionId: string): Promi
   return Boolean(
     shared && !shared.runtimeOwned && (await requestAgentRunCancellation(userId, shared.streamId)),
   )
+}
+
+/**
+ * A conversation's Stop. It ends what a waiting message is behind: the
+ * runtime's turn, and a run the backend still holds for the session, which a
+ * dropped runtime connection can leave without the other. Then the queue goes.
+ */
+export async function stopConversationTurn(conversation: AgentConversation): Promise<void> {
+  const { userId, sessionId } = conversation
+  const runStopped = await cancelSessionRun(userId, sessionId)
+
+  try {
+    await cancelConversationRuntime(conversation)
+  } catch (error) {
+    if (!runStopped) throw error
+  } finally {
+    sessionReleased(userId, sessionId)
+  }
 }

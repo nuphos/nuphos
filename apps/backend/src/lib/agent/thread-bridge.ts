@@ -21,6 +21,7 @@ import {
 } from './db'
 import { isChannel } from './db/channels'
 import { relatedQuestionsNote } from './db/pending-decision'
+import { listPendingUserMessages, takePendingUserMessages } from './pending-queue'
 
 import type { CredentialRef } from './thread-credentials'
 import type { ThreadModelPick } from './thread-runtime'
@@ -294,4 +295,30 @@ export async function setAgentThreadArchived(
   await setConversationArchived(threadId, archived)
 
   return { threadId, archived, _links: { web: `/teams/${actor.teamId}/agent/${threadId}` } }
+}
+
+/**
+ * Stop another conversation the actor owns, as its own Stop button does. The
+ * messages agents queued for it go first, or the stop would only start the
+ * next of them; messages people sent stay.
+ */
+export async function stopAgentThread(actor: ThreadActor, threadId: string) {
+  const { target } = await authorizeThreadDelivery({ ...actor, targetSessionId: threadId })
+  const queued = await listPendingUserMessages(target.userId, threadId)
+  const dropped = await takePendingUserMessages(
+    target.userId,
+    threadId,
+    queued.filter((message) => message.source === 'agent.thread'),
+  )
+  // Lazy so importing the tools does not pull in the route graph.
+  const { stopConversationTurn } = await import('@/routes/agent/run-cancel')
+
+  await stopConversationTurn(target)
+
+  return {
+    threadId,
+    status: 'stopped',
+    droppedQueuedMessages: dropped.length,
+    _links: { web: `/teams/${actor.teamId}/agent/${threadId}` },
+  }
 }
