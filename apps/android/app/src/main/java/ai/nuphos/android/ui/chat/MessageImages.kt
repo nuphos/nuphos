@@ -45,8 +45,11 @@ import java.io.IOException
 import java.io.File
 
 internal typealias MessageImageLoader = suspend (String, Int) -> ImageBitmap?
-/** Fetches a video to a local file for the viewer to play, or null when it can't be read. */
-internal typealias MessageVideoLoader = suspend (String) -> java.io.File?
+/**
+ * Fetches a video to a local file for the viewer to play, or null when it can't be read. With
+ * `again`, a copy kept from before is dropped and fetched anew: it may be the file that failed.
+ */
+internal typealias MessageVideoLoader = suspend (key: String, again: Boolean) -> java.io.File?
 private val inlineImageLoader: MessageImageLoader = { source, edge -> MessageImageDecoder.decode(source, edge) }
 
 /** No URL fetching: conversation File parts currently contain inline data images.
@@ -295,11 +298,16 @@ private sealed interface VideoLoad {
 private fun VideoPage(source: String, index: Int, count: Int, loader: MessageVideoLoader) {
     var attempt by remember(source) { mutableIntStateOf(0) }
     var broken by remember(source, attempt) { mutableStateOf(false) }
+    var prepared by remember(source, attempt) { mutableStateOf(false) }
     val load by produceState<VideoLoad>(VideoLoad.Loading, source, attempt) {
         value = VideoLoad.Loading
-        value = loader(source)?.let { VideoLoad.Ready(it) } ?: VideoLoad.Failed
+        // Trying again fetches anew, so a file that wouldn't play isn't the one played again.
+        value = loader(source, attempt > 0)?.let { VideoLoad.Ready(it) } ?: VideoLoad.Failed
     }
-    Box(Modifier.fillMaxSize().semantics { contentDescription = "Video ${index + 1} of $count" }, contentAlignment = Alignment.Center) {
+    Box(Modifier.fillMaxSize().semantics {
+        contentDescription = "Video ${index + 1} of $count"
+        if (prepared && !broken) stateDescription = "Ready to play"
+    }, contentAlignment = Alignment.Center) {
         val ready = load as? VideoLoad.Ready
         when {
             load == VideoLoad.Loading -> Text("Loading video", color = Color.White)
@@ -316,7 +324,7 @@ private fun VideoPage(source: String, index: Int, count: Int, loader: MessageVid
                         controls.setAnchorView(this)
                         setMediaController(controls)
                         // The first frame, still, until it's played.
-                        setOnPreparedListener { seekTo(1); controls.show(0) }
+                        setOnPreparedListener { seekTo(1); controls.show(0); prepared = true }
                         setOnErrorListener { _, _, _ -> broken = true; true }
                         setVideoPath(ready.file.absolutePath)
                     }

@@ -214,9 +214,10 @@ internal fun ChannelFiles(
         val media = files.media.map { it.key }
         MessageImagePager(media, pager.coerceAtMost(media.lastIndex), loader = loader,
             videos = files.media.filter { it.file.isVideo }.map { it.key }.toSet(),
-            videoLoader = { key ->
+            videoLoader = { key, again ->
                 try {
                     val file = byKey[key] ?: error("Unknown file")
+                    if (again) cached.remove(key)?.delete()
                     cached[key]?.takeIf { it.isFile } ?: run {
                         val remote = fresh(file)
                         withContext(Dispatchers.IO) {
