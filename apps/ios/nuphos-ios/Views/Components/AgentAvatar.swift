@@ -19,7 +19,7 @@ struct AgentAvatar: View {
                         }
                     }
             } else {
-                RuntimeMark(runtime: runtime, size: 20)
+                RuntimeMark(runtime: runtime, size: min(size, 20))
             }
         }
         .frame(width: size, height: size)
