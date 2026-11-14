@@ -9,7 +9,8 @@
 #
 # NUPHOS_VERSION=X.Y.Z pins a version, NUPHOS_INSTALL_DIR changes where it
 # goes (default ~/.local/bin), NUPHOS_DOWNLOAD_URL points at a mirror of the
-# release assets, and NUPHOS_LATEST_URL at another backend's /cli/latest.
+# release assets, NUPHOS_LATEST_URL at another backend's /cli/latest, and
+# NUPHOS_NO_MODIFY_PATH=1 leaves your shell profile alone.
 set -eu
 
 REPO=nuphos/nuphos
@@ -80,11 +81,30 @@ chmod 755 "$DIR/nuphos.new"
 mv -f "$DIR/nuphos.new" "$DIR/nuphos"
 
 echo "Installed $("$DIR/nuphos" --version)"
+# Like rustup and bun, put $DIR on PATH for new shells by adding one line to the
+# login shell's profile, once.
+line="export PATH=\"$DIR:\$PATH\""
+case "${SHELL##*/}" in
+  zsh) profile=${ZDOTDIR:-$HOME}/.zprofile ;;
+  bash)
+    # A login bash reads only the first of these that exists.
+    profile=$HOME/.profile
+    for f in "$HOME/.bash_login" "$HOME/.bash_profile"; do
+      if [ -f "$f" ]; then profile=$f; fi
+    done
+    ;;
+  *) profile=$HOME/.profile ;;
+esac
 case ":$PATH:" in
   *":$DIR:"*) ;;
   *)
-    echo "warning: $DIR is not on your PATH, so \`nuphos\` will not be found. Add it, e.g. in your shell profile:" >&2
-    echo "  export PATH=\"$DIR:\$PATH\"" >&2
+    if [ "${NUPHOS_NO_MODIFY_PATH:-}" != 1 ] &&
+      { grep -qsxF "$line" "$profile" || printf '\n%s\n' "$line" >>"$profile"; }; then
+      echo "Added $DIR to PATH in $profile; open a new shell to run \`nuphos\`."
+    else
+      echo "warning: $DIR is not on your PATH, so \`nuphos\` will not be found. Add it, e.g. in your shell profile:" >&2
+      echo "  $line" >&2
+    fi
     ;;
 esac
 

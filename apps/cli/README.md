@@ -14,8 +14,11 @@ curl -fsSL https://nuphos.ai/install | sh
 
 `nuphos.ai/install` redirects to `apps/cli/install.sh` at a release tag. It
 installs the newest release for macOS or Linux (x86_64 and arm64) into
-`~/.local/bin`, after checking its SHA-256. `NUPHOS_VERSION` pins a version
-and `NUPHOS_INSTALL_DIR` changes the directory.
+`~/.local/bin`, after checking its SHA-256. When that directory is not on
+`PATH`, it adds one `export PATH=…` line to your login shell's profile
+(`~/.zprofile` for zsh, `~/.bash_profile` or `~/.profile` for bash), once;
+open a new shell afterwards. `NUPHOS_NO_MODIFY_PATH=1` skips that,
+`NUPHOS_VERSION` pins a version and `NUPHOS_INSTALL_DIR` changes the directory.
 
 The TUI checks for a newer release when it starts and says so; `nuphos update`
 installs it in place. `NUPHOS_NO_UPDATE_CHECK=1` turns the check off.

@@ -216,6 +216,10 @@ jobs:
         run: cargo clippy --locked --all-targets -- -D warnings
       - name: Test
         run: cargo test --locked
+      - name: Test install.sh
+        run: |
+          sudo apt-get update && sudo apt-get install -y zsh
+          sh install.test.sh
       # The release builds this target; catch a break before a tag does.
       - name: Static Linux build
         run: |
@@ -240,6 +244,8 @@ jobs:
         run: cargo clippy --locked --all-targets -- -D warnings
       - name: Test
         run: cargo test --locked
+      - name: Test install.sh
+        run: sh install.test.sh
 
   openab:
     name: openab (clippy + test)
