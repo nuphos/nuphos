@@ -57,7 +57,7 @@ export function useSidebarArchiveEvents({
       offerArchiveUndo({
         sessionId,
         teamId,
-        title: [row?.title, row?.firstMessage].find(Boolean) ?? t('Untitled agent'),
+        title: [row?.title, row?.firstMessage].find(Boolean) ?? t('Untitled task'),
         ...(botSessionId ? { noun: 'bot' } : row?.kind === 'channel' ? { noun: 'chat' } : {}),
         onRestored: () => {
           if (row && teamIdRef.current === teamId) void restoreChat(client, teamId, row)

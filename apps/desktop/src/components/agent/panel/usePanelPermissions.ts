@@ -173,7 +173,7 @@ export function usePanelPermissions(acc: Acc) {
         }),
       )
     } catch (err) {
-      toast.apiError(t('Failed to load recent agents'), err)
+      toast.apiError(t('Failed to load recent tasks'), err)
     }
   }, [setHistory, setTabs, teamId])
 

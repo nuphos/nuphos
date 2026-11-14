@@ -56,7 +56,7 @@ export function QuestionRail({
               {row.request.question}
             </span>
             <span className="truncate text-[12px] text-tertiary">
-              {t('From {name}', { name: row.conversation.title || t('Untitled agent') })}
+              {t('From {name}', { name: row.conversation.title || t('Untitled task') })}
             </span>
           </button>
         )
