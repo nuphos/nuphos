@@ -179,7 +179,7 @@ export function useConversationOpen(acc: Acc) {
       const generation = ++openGenerationRef.current
 
       editResendRef.current = null
-      setOpeningConversation({ sessionId: sourceSessionId, title: t('Forking agent…') })
+      setOpeningConversation({ sessionId: sourceSessionId, title: t('Forking…') })
       try {
         const detail = await api.agentGetConversation(sourceSessionId, teamId)
 
@@ -267,7 +267,7 @@ export function useConversationOpen(acc: Acc) {
           return
         }
         setOpeningConversation(null)
-        toast.apiError(t('Could not fork agent'), err)
+        toast.apiError(t('Could not fork'), err)
       }
     },
     [credentialOptions, teamId],

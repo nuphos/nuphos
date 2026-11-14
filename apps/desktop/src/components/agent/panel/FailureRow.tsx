@@ -39,7 +39,7 @@ export function FailureRow({
               {fix}
               {onSwitchAgent && (
                 <Button size="sm" variant="secondary" onClick={onSwitchAgent}>
-                  {t('Switch agent')}
+                  {t('Switch runtime')}
                 </Button>
               )}
               {onRetry && (

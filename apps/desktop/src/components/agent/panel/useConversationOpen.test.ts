@@ -41,6 +41,9 @@ before(async () => {
       },
     },
   })
+  mock.module('../../../lib/agentAvatarChoices.ts', {
+    namedExports: { agentAvatarPick: () => {} },
+  })
   mock.module('../../../i18n/index.ts', { namedExports: { t: identity } })
   mock.module('../../ui/toast.ts', {
     namedExports: {
@@ -133,7 +136,7 @@ test('failed history storage keeps the source open and records no success notice
   await fork('source')
   assert.equal(tabs[0].sessionId, 'source')
   assert.equal(links.length, 0)
-  assert.deepEqual(errors, ['Could not fork agent'])
+  assert.deepEqual(errors, ['Could not fork'])
 })
 
 test('a missing notice endpoint does not strand a successfully stored fork', async () => {

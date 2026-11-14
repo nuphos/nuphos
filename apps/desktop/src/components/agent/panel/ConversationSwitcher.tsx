@@ -96,8 +96,8 @@ export function ConversationSwitcher({
     >
       <MenuTrigger
         className="flex h-7 w-7 items-center justify-center rounded-md text-secondary transition-colors hover:bg-state-hover hover:text-main data-[popup-open]:bg-state-selected data-[popup-open]:text-main"
-        title={t('Switch agent')}
-        aria-label={t('Switch agent')}
+        title={t('Switch Bot or task')}
+        aria-label={t('Switch Bot or task')}
       >
         <History className="h-3.5 w-3.5" strokeWidth={1.8} />
       </MenuTrigger>

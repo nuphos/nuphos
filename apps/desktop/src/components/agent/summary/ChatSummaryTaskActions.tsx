@@ -2,6 +2,7 @@ import { Archive } from 'lucide-react'
 import { useState } from 'react'
 
 import { t } from '../../../i18n'
+import { agentAvatarPick } from '../../../lib/agentAvatarChoices'
 import { archiveChat } from '../../../lib/archiveChat'
 import { announceChatArchived } from '../../../lib/chatArchiveEvents'
 import { Button } from '../../ui/button'
@@ -30,7 +31,10 @@ export function ChatSummaryTaskActions({
       await archiveChat(sessionId, teamId)
       announceChatArchived({ sessionId, teamId })
     } catch (error) {
-      toast.apiError(t('Could not archive agent'), error)
+      toast.apiError(
+        agentAvatarPick(sessionId) ? t('Could not archive Bot') : t('Could not archive task'),
+        error,
+      )
     } finally {
       setArchiving(false)
     }

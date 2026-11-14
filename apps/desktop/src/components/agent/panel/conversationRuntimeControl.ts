@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { api } from '../../../api'
 import { decideErrorToast } from '../../../api/errors'
 import { t } from '../../../i18n/index.ts'
+import { agentAvatarPick } from '../../../lib/agentAvatarChoices.ts'
 import { localAgentMoveWarning, moveNotice } from '../../../lib/localAgentSharing'
 import { AGENT_PROVIDER } from '../../../types/runtime'
 import { toast } from '../../ui/toast'
@@ -42,6 +43,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
   const move = useCallback(
     async (runtimeId: string, grantComputerUse?: boolean) => {
       const target = runtimeInstances.find((instance) => instance.id === runtimeId)
+      const bot = Boolean(sessionId && agentAvatarPick(sessionId))
 
       if (moving) return
       if (!sessionId || !tabId || !teamId || !target) {
@@ -52,7 +54,10 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
           runtimeId,
           found: Boolean(target),
         })
-        toast.error(t('Could not move this agent'), t('This agent is not ready to move.'))
+        toast.error(
+          bot ? t('Could not move this Bot') : t('Could not move this task'),
+          bot ? t('This Bot is not ready to move.') : t('This task is not ready to move.'),
+        )
 
         return
       }
@@ -85,10 +90,10 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
         setTab({ movingTo: undefined })
         console.warn('[agent] conversation move failed', cause)
         if (decideErrorToast(cause).action === 'show') {
-          toast.apiError(t('Could not move this agent'), cause)
+          toast.apiError(bot ? t('Could not move this Bot') : t('Could not move this task'), cause)
         } else {
           toast.error(
-            t('Could not move this agent'),
+            bot ? t('Could not move this Bot') : t('Could not move this task'),
             t('The runtime did not accept the move. Check your connection and try again.'),
           )
         }
