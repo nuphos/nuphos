@@ -5,6 +5,19 @@ set -uo pipefail
 out=$1; mkdir -p "$out"
 root=$PWD
 cd pr/apps/ios
+python3 - UITests/InboxUITests.swift <<'PY'
+import sys
+p=sys.argv[1]; s=open(p).read()
+old='        let screenshot = XCUIScreen.main.screenshot()\n'
+new=old+"""        if let dir = ProcessInfo.processInfo.environment["NUPHOS_SHOTS"], ProcessInfo.processInfo.environment["NUPHOS_RIG"] == "1" {
+            let req = URL(filePath: dir).appending(path: "\\(name).req")
+            try? Data().write(to: req)
+            for _ in 0..<60 where FileManager.default.fileExists(atPath: req.path) { Thread.sleep(forTimeInterval: 0.5) }
+            return
+        }
+"""
+assert old in s; open(p,'w').write(s.replace(old,new,1))
+PY
 dd="$RUNNER_TEMP/dd"
 R="$RUNNER_TEMP/sill/Tests/duorig/run.sh"
 xcodebuild build-for-testing -project nuphos-ios.xcodeproj -scheme nuphos-ios -configuration Debug \
@@ -18,7 +31,7 @@ run() { # name udid [only-testing...]
   mkdir -p "$out/$name"
   local only=(); for t in "$@"; do only+=(-only-testing:"nuphos-iosUITests/InboxUITests/$t"); done
   [ ${#only[@]} -eq 0 ] && only=(-only-testing:nuphos-iosUITests/InboxUITests)
-  TEST_RUNNER_NUPHOS_SHOTS="$out/$name" xcodebuild test-without-building -project nuphos-ios.xcodeproj -scheme nuphos-ios \
+  TEST_RUNNER_NUPHOS_SHOTS="$out/$name" TEST_RUNNER_NUPHOS_RIG="${NUPHOS_RIG:-}" xcodebuild test-without-building -project nuphos-ios.xcodeproj -scheme nuphos-ios \
     -destination "id=$udid" -derivedDataPath "$dd" "${only[@]}" -parallel-testing-enabled NO \
     -resultBundlePath "$RUNNER_TEMP/$name.xcresult" 2>&1 | grep -E "error|failed|passed|Test Case|XCTAssert" | tail -60 | tee "$out/$name/tests.txt"
 }
@@ -32,7 +45,11 @@ xcrun simctl shutdown "$ipad"
 
 duo=$(boot duo "$(type_of 'iPhone Duo')")
 "$R" "$duo" pose flat-landscape
-run duo "$duo" testAnswersAQuestionFromTheInbox testAnswersInWordsWithOther
-"$R" "$duo" shot flat-landscape "$out/duo/rig-after.png"
+mkdir -p "$out/duo"
+( while :; do for req in "$out"/duo/*.req; do [ -e "$req" ] || continue; n=$(basename "$req" .req)
+    sleep 1; "$R" "$duo" shot flat-landscape "$out/duo/$n.png"; rm -f "$req"; done; sleep 0.5; done ) &
+rig=$!
+NUPHOS_RIG=1 run duo "$duo" testAnswersAQuestionFromTheInbox testAnswersInWordsWithOther
+kill $rig
 xcrun simctl shutdown "$duo"
 ls -laR "$out"
