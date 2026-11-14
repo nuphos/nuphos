@@ -26,6 +26,8 @@ test('offers nothing outside a team scope', () => {
 
 let runningLastAssistantAt: Date | null = null
 const diagnostics = [{ message_index: 7, outcome: 'interrupted', reason: 'timeout' }]
+// Longer than any clipped tool input, so only the stored value can carry it whole.
+const botInstructions = 'You watch the deploys. '.repeat(400)
 
 let listOptions: unknown
 const selfUpdates: unknown[] = []
@@ -138,6 +140,7 @@ useAgentDb({
         title: 'Long turn',
         createdAt: new Date(0),
         messageCount: 9,
+        instructions: botInstructions,
       },
       lines: ['#7 assistant: … [truncated]'],
       turnDiagnostics: diagnostics,
@@ -177,6 +180,16 @@ test('read_conversation returns termination records outside the clipped transcri
   )
 
   expect(result).toMatchObject({ turn_diagnostics: diagnostics, next_index: 8 })
+})
+
+test("read_conversation returns a Bot's full instructions, not the clipped update_self call", async () => {
+  const tool = createSessionTools('u', 'c', 'team').read_conversation!
+  const result = await tool.execute!(
+    { label: 'Read Bot', session_id: 'other', from_index: 7, limit: 1 },
+    { toolCallId: 'read', messages: [] },
+  )
+
+  expect(result).toMatchObject({ instructions: botInstructions })
 })
 
 function frame(event: Record<string, unknown>) {
