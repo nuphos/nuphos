@@ -17,20 +17,28 @@ import type { RetainedSessionViews } from './retainedSessionViews'
 import type { WorkspaceController } from './useWorkspaceController'
 import type { UserInfo } from '../../types'
 
-/** The open session: a channel's own view, or the agent's session as before. */
-export function WorkspaceSessionPane({
-  ws,
-  user,
-  workspaceExpanded = false,
-  onOpenTask,
-}: {
+type SessionPaneProps = {
   ws: WorkspaceController
   user: UserInfo
   workspaceExpanded?: boolean
   onOpenTask?: (sessionId: string) => void
-}) {
-  const teamId = ws.scope?.teamId
-  const bots = useAgentSessions(teamId ?? '')
+}
+
+/** The open session: a channel's own view, or the agent's session as before. */
+export function WorkspaceSessionPane(props: SessionPaneProps) {
+  const teamId = props.ws.scope?.teamId
+
+  return teamId ? <TeamSessionPane {...props} teamId={teamId} /> : null
+}
+
+function TeamSessionPane({
+  ws,
+  teamId,
+  user,
+  workspaceExpanded = false,
+  onOpenTask,
+}: SessionPaneProps & { teamId: string }) {
+  const bots = useAgentSessions(teamId)
   const firstBot =
     bots.data !== undefined && !bots.data.some((row) => row.avatar && row.kind !== 'channel')
   const sessionId = ws.selectedSessionId
@@ -46,22 +54,20 @@ export function WorkspaceSessionPane({
   })
 
   if (views !== retained) setRetained(views)
-  const [mode] = useSidebarMode(teamId ?? '', sessionId)
-  const botsStart = Boolean(teamId && mode === 0 && !sessionId && !ws.mainPageOpen)
+  const [mode] = useSidebarMode(teamId, sessionId)
+  const botsStart = mode === 0 && !sessionId && !ws.mainPageOpen
   const agentVisible = channel === false && !botsStart
   const channelVisible = channel === true
 
   return (
     <>
-      {teamId && (
-        <WorkspaceBotsStart
-          key={teamId}
-          visible={botsStart}
-          firstBot={firstBot}
-          teamId={teamId}
-          onOpen={(id) => ws.workspaceActions.selectSession(id, { teamId })}
-        />
-      )}
+      <WorkspaceBotsStart
+        key={teamId}
+        visible={botsStart}
+        firstBot={firstBot}
+        teamId={teamId}
+        onOpen={(id) => ws.workspaceActions.selectSession(id, { teamId })}
+      />
       {views.agent && (
         <WorkspaceAgentPane
           ws={{
@@ -69,12 +75,13 @@ export function WorkspaceSessionPane({
             selectedSessionId: views.agent.sessionId,
             selectedSessionReadOnly: views.agent.readOnly,
           }}
+          teamId={teamId}
           user={user}
           workspaceExpanded={workspaceExpanded}
           foreground={agentVisible}
         />
       )}
-      {teamId && views.channelId && (
+      {views.channelId && (
         <main
           data-workspace-focus-surface="session"
           inert={workspaceExpanded || !channelVisible}

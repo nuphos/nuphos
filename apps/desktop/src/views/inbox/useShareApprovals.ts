@@ -19,7 +19,6 @@ export function useShareApprovals(teamId: string) {
   const { data } = useQuery({
     queryKey,
     queryFn: () => api.localShareApprovals(teamId),
-    enabled: Boolean(teamId),
     refetchInterval: SHARE_APPROVAL_POLL_MS,
     // A new one is notified, so it is read in the background too.
     refetchIntervalInBackground: true,

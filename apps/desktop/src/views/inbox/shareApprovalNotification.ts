@@ -17,7 +17,7 @@ export function useShareApprovalNotifications(
   teamId: string,
   approvals: readonly LocalShareApproval[],
 ): void {
-  const roster = useQuery({ ...teamMembersQuery(teamId), enabled: Boolean(teamId) })
+  const roster = useQuery(teamMembersQuery(teamId))
   const members = roster.data
   const sent = useRef(new Set<string>())
 

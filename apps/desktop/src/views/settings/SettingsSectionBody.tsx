@@ -38,7 +38,7 @@ const SECTIONS: Partial<Record<string, (props: SectionProps) => ReactNode>> = {
   'workspace.instructions': ({ team }) => <InstructionsSection team={team} scope="team" />,
   'preferences.instructions': ({ team }) => <InstructionsSection team={team} scope="personal" />,
   'preferences.localSetup': ({ team }) => <LocalSetupSection team={team} />,
-  'preferences.runtimeFallback': ({ team }) => <RuntimeFallbackSection team={team} />,
+  'preferences.runtimeFallback': ({ team }) => team && <RuntimeFallbackSection teamId={team.id} />,
   'account.profile': ({ user, onSignOut, onUserUpdated }) => (
     <ProfileSection user={user} onSignOut={onSignOut} onUserUpdated={onUserUpdated} />
   ),

@@ -16,7 +16,6 @@ export function useChannelMentions(teamId: string): ChannelMention[] | null {
   const { data } = useQuery({
     queryKey: queryKeys.channelMentions(teamId),
     queryFn: async () => (await api.agentListChannelMentions(teamId)).mentions,
-    enabled: Boolean(teamId),
     refetchInterval: MENTION_POLL_MS,
     // A new one is notified, so it is read in the background too.
     refetchIntervalInBackground: true,

@@ -13,13 +13,13 @@ import { openQuestionsUnder, relatedSessionIds } from './sessionInputRequests.ts
  * pending listing alone, so they never draw a cached row's old question. Cached
  * rows only say who sits under whom.
  */
-export function useSessionInputRequests(sessionId: string | null, teamId: string | undefined) {
+export function useSessionInputRequests(sessionId: string | null, teamId: string) {
   // Opening another session shows the last listing at once, and reloads it.
   // Streams, replies, dismissals, focus and runtime changes reload it at once.
-  const listing = useInboxListing(teamId ?? '', sessionId)
+  const listing = useInboxListing(teamId, sessionId)
   const pending = listing.data ?? null
   const failed = listing.isError
-  const known = useAgentSessions(teamId ?? '').data
+  const known = useAgentSessions(teamId).data
   const answered = useAnsweredOnDevice()
   const rows = [...(known ?? []), ...(pending ?? [])]
   // Shared sessions: whoever may reply in a conversation may answer its questions.

@@ -33,7 +33,7 @@ async function loadChats(tid: string): Promise<LarkAvailableChat[]> {
 }
 
 export function useLarkSettings(
-  teamId: string | undefined,
+  teamId: string,
   currentUserId: string,
   refreshKey: number | undefined,
 ) {
@@ -84,7 +84,6 @@ export function useLarkSettings(
   }
 
   function load() {
-    if (!teamId) return
     const gen = ++loadGeneration.current
 
     return fetchSettings(teamId)
@@ -108,9 +107,7 @@ export function useLarkSettings(
 
   // `load` is kicked from the effect below, so the "now loading" flip it used
   // to do lives here instead.
-  useResetOnKey(`${String(teamId)}|${String(refreshKey)}`, () => {
-    if (teamId) setLoading(true)
-  })
+  useResetOnKey(`${teamId}|${String(refreshKey)}`, () => setLoading(true))
 
   useEffect(() => {
     void load()
@@ -118,7 +115,6 @@ export function useLarkSettings(
   }, [teamId, refreshKey])
 
   async function toggleChat(chat: LarkAvailableChat, enabled: boolean) {
-    if (!teamId) return
     const key = `chat:${chat.chatId}`
 
     setBusyKey(key)
@@ -143,7 +139,6 @@ export function useLarkSettings(
   }
 
   async function deleteUser(mapping: LarkUserMapping) {
-    if (!teamId) return
     const key = `user:${mapping.id}`
 
     setBusyKey(key)
@@ -171,7 +166,7 @@ export function useLarkSettings(
   }
 
   async function generatePairCode() {
-    if (!teamId || pairGenerating) return
+    if (pairGenerating) return
     setPairGenerating(true)
     setPairCopied(false)
     try {

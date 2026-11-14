@@ -13,7 +13,6 @@ import { runtimeFallbackQuery } from '../../lib/query/runtime'
 
 import { SectionHeader } from './shared'
 
-import type { AtlasTeam } from '../../types'
 import type { RuntimeInstance } from '../../types/runtime'
 
 function where(instance: RuntimeInstance): string {
@@ -21,14 +20,10 @@ function where(instance: RuntimeInstance): string {
 }
 
 /** Settings → My preferences → Agent fallback. */
-export function RuntimeFallbackSection({ team }: { team: AtlasTeam | undefined }) {
-  const teamId = team?.id
+export function RuntimeFallbackSection({ teamId }: { teamId: string }) {
   const { instances } = useRuntimeInstances(teamId)
   const queryClient = useQueryClient()
-  const { data: runtimeIds, error } = useQuery({
-    ...runtimeFallbackQuery(teamId ?? ''),
-    enabled: Boolean(teamId),
-  })
+  const { data: runtimeIds, error } = useQuery(runtimeFallbackQuery(teamId))
   // One save at a time, so a slower earlier save cannot land after a later one. The save carries
   // its team, so switching teams meanwhile cannot write one team's list into another's.
   const { mutate, isPending: saving } = useMutation({
@@ -51,9 +46,7 @@ export function RuntimeFallbackSection({ team }: { team: AtlasTeam | undefined }
       toast.apiError(t('Could not save your fallback agents'), err)
     },
   })
-  const save = (next: string[]) => {
-    if (teamId) mutate({ target: teamId, next })
-  }
+  const save = (next: string[]) => mutate({ target: teamId, next })
 
   useEffect(() => {
     if (error) toast.apiError(t('Could not load your fallback agents'), error)

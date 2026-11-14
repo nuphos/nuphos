@@ -205,7 +205,6 @@ onInputRequestsRefresh(reloadListings)
 export function useInboxListing(teamId: string, reloadKey?: unknown) {
   const listing = useQuery({
     ...inboxListingQuery(teamId),
-    enabled: Boolean(teamId),
     refetchInterval: INBOX_POLL_MS,
     refetchIntervalInBackground: true,
   })
@@ -215,8 +214,8 @@ export function useInboxListing(teamId: string, reloadKey?: unknown) {
   useEffect(() => {
     if (Object.is(shownKey.current, reloadKey)) return
     shownKey.current = reloadKey
-    if (teamId) void refetch()
-  }, [reloadKey, teamId, refetch])
+    void refetch()
+  }, [reloadKey, refetch])
 
   return listing
 }

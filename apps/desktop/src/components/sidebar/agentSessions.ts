@@ -23,7 +23,6 @@ export function useAgentSessions(teamId: string) {
 
       return (rows ?? []).filter((row) => !row.archivedAt)
     },
-    enabled: Boolean(teamId),
     refetchInterval: AGENT_SESSIONS_POLL_MS,
   })
 }

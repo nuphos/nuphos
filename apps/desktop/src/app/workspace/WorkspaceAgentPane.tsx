@@ -32,11 +32,13 @@ import type { UserInfo } from '../../types'
 
 export function WorkspaceAgentPane({
   ws,
+  teamId,
   user,
   workspaceExpanded = false,
   foreground = true,
 }: {
   ws: WorkspaceController
+  teamId: string
   user: UserInfo
   workspaceExpanded?: boolean
   foreground?: boolean
@@ -59,7 +61,6 @@ export function WorkspaceAgentPane({
     firstRunDevForced,
     openSettingsSection,
     pendingChatPrompt,
-    scope,
     setAgentSidebarPendingImport,
     setAuditChatLocate,
     selectedSessionId,
@@ -77,7 +78,6 @@ export function WorkspaceAgentPane({
   const savedSessionId = currentHeading.saved ? selectedSessionId : null
   // The titlebar menu's Rename opens the same inline editor as clicking the title.
   const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null)
-  const teamId = scope?.teamId
   const inputQueue = useSessionInputRequests(savedSessionId, teamId)
   const { replyTarget, openQuestions } = useComposerReplyTarget(savedSessionId, teamId, inputQueue)
   const unbound =
@@ -126,7 +126,6 @@ export function WorkspaceAgentPane({
   const transcriptRef = useRef<HTMLDivElement>(null)
   const [titlebarRef, { compact, tight }] = useTitlebarFit()
 
-  if (!teamId) return null
   const mayRename = currentHeading.canRename === true
 
   return (

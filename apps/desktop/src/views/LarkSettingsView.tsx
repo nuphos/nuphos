@@ -23,7 +23,7 @@ export function LarkSettingsView({
   refreshKey,
   onChanged,
 }: {
-  teamId: string | undefined
+  teamId: string
   currentUserId: string
   // Bumped by the breadcrumb refresh button (via the tab's refreshKey); re-runs load().
   refreshKey?: number
@@ -54,16 +54,11 @@ export function LarkSettingsView({
     load,
   } = useLarkSettings(teamId, currentUserId, refreshKey)
 
-  if (!teamId) {
-    return <div className="text-[13px] text-tertiary">{t('No workspace selected.')}</div>
-  }
-
   const installed = !!installation || status?.installed === true
   const consoleDomain = installation?.domain ?? status?.domain
   const consoleAppId = installation?.appId ?? status?.appId
 
   async function disconnect() {
-    if (!teamId) return
     try {
       await api.atlasDisconnectLark(teamId)
     } catch (err) {
