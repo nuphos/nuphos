@@ -44,8 +44,7 @@ export function useComposerMentions(
   scope?: {
     teamId: string
     sessionId?: string
-    channel?: boolean
-    /** A channel's own people and agents: only they are offered, and not the sender. */
+    /** A chat's own people and agents: only those people are offered, and not the sender. */
     only?: { agentIds: string[]; selfId: string }
   },
   credentials?: Pick<CredentialSelectorControl, 'options' | 'value' | 'onChange'>,
@@ -111,7 +110,6 @@ export function useComposerMentions(
           query: next,
           list: page.conversations
             .filter((session) => session.sessionId !== scope.sessionId)
-            .filter((session) => !scope.only || scope.only.agentIds.includes(session.sessionId))
             .slice(0, 5),
         })
       })
@@ -145,7 +143,7 @@ export function useComposerMentions(
     range.setStart(caret.node, caret.offset - query.length - 1)
     range.setEnd(caret.node, caret.offset)
     range.deleteContents()
-    const chip = optionChip(option, scope.teamId, scope.channel)
+    const chip = optionChip(option, scope.teamId, scope.only?.agentIds)
 
     if (
       option.kind === 'device' &&

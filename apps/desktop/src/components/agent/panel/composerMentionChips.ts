@@ -62,15 +62,20 @@ export function optionKey(option: MentionOption): string {
 }
 
 /** What a picked option leaves in the editor. */
-/** In a channel an agent is named, as a person is, so it knows it was addressed. */
-export function optionChip(option: MentionOption, teamId: string, channel = false): HTMLElement {
+/** A chat's own agent is named, as a person is, so it knows it was addressed;
+ *  any other Bot or task is its link chip, so the agent can read or reach it. */
+export function optionChip(
+  option: MentionOption,
+  teamId: string,
+  chatAgentIds: string[] = [],
+): HTMLElement {
   switch (option.kind) {
     case 'member':
       return nameChip(option.member.name || option.member.email, option.member.id)
     case 'device':
       return nameChip(option.device.label)
     case 'session':
-      return channel
+      return chatAgentIds.includes(option.session.sessionId)
         ? nameChip(option.session.title || option.session.sessionId)
         : renderMentionChip(sessionMentionUrl(teamId, option.session.sessionId))
   }
