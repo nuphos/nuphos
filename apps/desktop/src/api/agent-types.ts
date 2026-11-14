@@ -73,6 +73,8 @@ export type AgentConversation = {
   title: string
   /** Picked bot avatar, e.g. `05-rembrandt`. Absent: the one its sessionId selects. */
   avatar?: string
+  /** A Bot's current standing instructions, in full. */
+  instructions?: string
   firstMessage: string
   messageCount: number
   tokenUsage?: AgentTokenUsageSummary
@@ -87,6 +89,8 @@ export type AgentConversation = {
   canManage?: boolean
   owner?: AgentConversationPerson
   credentialAccess?: AgentCredentialAccess
+  /** A Task under a Bot: the conversation whose credentials and computers it uses. */
+  credentialSource?: { sessionId: string }
   transcriptUpdatedAt?: string
   createdAt: string
   lastActiveAt: string

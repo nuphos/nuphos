@@ -36,12 +36,16 @@ async function recallFetch(path: string, body: object): Promise<unknown> {
 export async function createMeetingBot(input: {
   meetingUrl: string
   botName: string
+  /** Base64 JPEG the bot shows as its camera. */
+  face: string
   webhookUrl: string
 }): Promise<string> {
   const recall = recallConfig()
+  const image = { kind: 'jpeg', b64_data: input.face }
   const bot = (await recallFetch('/bot/', {
     meeting_url: input.meetingUrl,
     bot_name: input.botName,
+    automatic_video_output: { in_call_recording: image, in_call_not_recording: image },
     // Recall leaves an empty call in seconds by default; this also leaves one where only notetakers
     // are left. Bots are told by name only: people who just type in the chat never count as bots.
     automatic_leave: {
