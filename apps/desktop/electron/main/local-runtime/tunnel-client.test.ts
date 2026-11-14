@@ -504,6 +504,7 @@ test('instance RPC shares the tunnel and returns one result then closes', async 
   const frames = () => backend.sent.map((raw) => JSON.parse(raw))
 
   assert.equal(frames()[0].status.agentInstances, true)
+  assert.equal(frames()[0].status.agentReset, true)
   emit({ t: 'open', s: 'create', purpose: 'instances' })
   emit({ t: 'data', s: 'create', d: JSON.stringify({ method: 'create', instanceId: 'mock' }) })
   await new Promise((resolve) => setImmediate(resolve))
@@ -537,6 +538,8 @@ test('upload is independently advertised and routed on the device tunnel', () =>
   const status = JSON.parse(backend.sent[0]!)
 
   assert.equal(status.status.localUpload, true)
+  // Without instance requests the host cannot reset an agent either.
+  assert.equal(status.status.agentReset, false)
   backend.emit('message', { data: JSON.stringify({ t: 'open', s: 'upload', purpose: 'upload' }) })
   upload.emit('open')
   backend.emit('message', {

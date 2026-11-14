@@ -142,6 +142,7 @@ export type LocalAgentInstanceStatus = z.infer<typeof localAgentInstanceStatusSc
 
 export const localRuntimeStatusSchema = z.object({
   agentInstances: z.boolean().optional(),
+  agentReset: z.boolean().optional(),
   instances: z
     .array(localAgentInstanceStatusSchema)
     .max(100)

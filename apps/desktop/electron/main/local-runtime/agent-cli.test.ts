@@ -162,6 +162,8 @@ test(
         path: path.join(dir, provider),
         version: '1.0.46',
         loggedIn: false,
+        // A 1.x OpenCode has no credential list to read; its login is the file.
+        ...(provider === 'opencode' ? { credentialsUnread: true } : {}),
       })
       mkdirSync(path.dirname(files[provider]), { recursive: true })
       writeFileSync(files[provider], '{}')
@@ -255,9 +257,9 @@ test(
 
     writeFileSync(
       file,
-      '#!/bin/sh\nif [ "$1" = "--version" ]; then echo 1.5.0; elif [ "$HOME" = "' +
-        home +
-        '" ]; then echo Gemini; else echo wrong-home >&2; exit 1; fi\n',
+      `#!/bin/sh\nif [ "$1" = "--version" ]; then echo 1.5.0; elif [ "$HOME" = "${
+        home
+      }" ]; then echo Gemini; else echo wrong-home >&2; exit 1; fi\n`,
       { mode: 0o700 },
     )
     assert.deepEqual(await probeAgentCli('antigravity', { HOME: dir, PATH: dir }, home), {
