@@ -33,7 +33,6 @@ useDb({ db: () => ({ collection: (name: string) => store.collection(name) }) })
 const { registerAgentRuntimeRoutes } = await import('@/routes/teams/agent-runtimes')
 const { listRuntimeInstances, requireRuntimeInstance } = await import('./runtime-catalog')
 const { resolveTeamRuntimeEndpoints } = await import('./runtime-registry')
-const { deriveRuntimeControlKey } = await import('./runtime-control-key')
 const { createManagedRuntimeInstance } = await import('./runtime-instances')
 
 function app(teamId = 'one', role: TeamAuthVariables['teamRole'] = 'ADMINISTRATOR') {
@@ -68,7 +67,7 @@ beforeEach(async () => {
   await publishRuntimeRelease({ version: FLEET_VERSION })
 })
 
-test('an existing managed runtime keeps its endpoint and encrypted credentials', async () => {
+test('an existing managed runtime keeps its row but no longer resolves', async () => {
   for (const provider of OPENAB_PROVIDERS) {
     const created = await existing(`${provider} work`, provider)
     const row = runtimeRows().find((doc) => doc._id === created.id)!
@@ -83,14 +82,7 @@ test('an existing managed runtime keeps its endpoint and encrypted credentials',
         `^ws://openab-[a-z]+-[0-9a-f]{24}\\.${config.claudeCodeRuntimeProvisioner.namespace}\\.svc:8080/acp$`,
       ),
     )
-    const [endpoint] = await resolveTeamRuntimeEndpoints('one', undefined, provider)
-
-    expect(endpoint?.runtimeId).toBe(created.id)
-    expect(endpoint?.authKey.length).toBeGreaterThanOrEqual(32)
-    expect(JSON.stringify(row)).not.toContain(endpoint!.authKey)
-    const [control] = await resolveTeamRuntimeEndpoints('one', undefined, provider, 'control')
-
-    expect(control?.authKey).toBe(deriveRuntimeControlKey(endpoint!.authKey))
+    expect(await resolveTeamRuntimeEndpoints('one', undefined, provider)).toEqual([])
   }
 })
 
@@ -115,24 +107,25 @@ test('hosted runtimes list as managed; rows of the retired provisioner model are
   ])
 })
 
-test('rename and disable change the hosted runtime row itself', async () => {
+test('a retired managed runtime lists as disabled and refuses status, update and patch', async () => {
   const server = app()
   const instance = await existing('Work')
 
-  expect(
-    (
-      await server.request(
-        `/agent-runtimes/${instance.id}`,
-        json('PATCH', { label: 'Renamed', status: 'disabled' }),
-      )
-    ).status,
-  ).toBe(200)
   expect(await requireRuntimeInstance('one', instance.id)).toMatchObject({
-    label: 'Renamed',
     status: 'disabled',
     kind: 'managed',
   })
-  expect(await resolveTeamRuntimeEndpoints('one', undefined, 'codex')).toEqual([])
+  for (const [path, init] of [
+    [`/agent-runtimes/${instance.id}/status`, undefined],
+    [`/agent-runtimes/${instance.id}/update`, json('POST', {})],
+    [`/agent-runtimes/${instance.id}`, json('PATCH', { status: 'active' })],
+  ] as const) {
+    const response = await server.request(path, init)
+
+    expect(response.status).toBe(410)
+    expect(await response.json()).toEqual({ code: 'managed_runtime_retired' })
+  }
+  expect(runtimeRows().find((doc) => doc._id === instance.id)).toMatchObject({ label: 'Work' })
 })
 
 test('workspace scope and administrator checks apply to each instance mutation', async () => {
@@ -205,7 +198,5 @@ test('retired creation leaves existing runtime records and routes untouched', as
   expect(JSON.stringify(runtimeRows())).toBe(before)
   expect(await requireRuntimeInstance('one', runtime.id)).toMatchObject({ kind: 'managed' })
   expect((await app().request('/agent-runtimes')).status).toBe(200)
-  expect((await resolveTeamRuntimeEndpoints('one', undefined, 'codex'))[0]?.runtimeId).toBe(
-    runtime.id,
-  )
+  expect(await resolveTeamRuntimeEndpoints('one', undefined, 'codex')).toEqual([])
 })
