@@ -23,7 +23,7 @@ export function LocalTerminalView({ runtime }: { runtime?: TerminalTarget }) {
   const terminalRef = useRef<XtermTerminal | null>(null)
   const { resolved } = useTheme()
   const themeRef = useRef(resolved)
-  const { tabId, isActive } = useWorkspaceTab()
+  const { tabId, isActive, conversationId } = useWorkspaceTab()
   const [generation, setGeneration] = useState(0)
   const [status, setStatus] = useState(
     sessionId ? t('Connecting to runtime…') : t('Starting local shell…'),
@@ -103,7 +103,8 @@ export function LocalTerminalView({ runtime }: { runtime?: TerminalTarget }) {
     setClosed(false)
     setStatus(target ? t('Connecting to runtime…') : t('Starting local shell…'))
     api
-      .localTerminalStart(tabId, terminal.cols, terminal.rows, target)
+      // A local shell in a conversation's dock is shared with that conversation's agent.
+      .localTerminalStart(tabId, terminal.cols, terminal.rows, target, conversationId ?? undefined)
       .then(async ({ shell }) => {
         if (disposed) return
         started = true
@@ -141,7 +142,7 @@ export function LocalTerminalView({ runtime }: { runtime?: TerminalTarget }) {
       terminal.dispose()
       terminalRef.current = null
     }
-  }, [tabId, generation, teamId, sessionId])
+  }, [tabId, generation, teamId, sessionId, conversationId])
 
   useEffect(() => {
     if (!isActive) return

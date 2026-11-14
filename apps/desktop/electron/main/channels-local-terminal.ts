@@ -62,10 +62,11 @@ export const localTerminalChannels = {
     cols: number,
     rows: number,
     target?: TerminalTarget,
+    conversationId?: string,
   ) =>
     target
       ? runtimeTerminals.start(owner(event), id, target, cols, rows)
-      : localTerminals.start(owner(event), id, cols, rows),
+      : localTerminals.start(owner(event), id, cols, rows, undefined, conversationId),
   'local-terminal:replay': (event: IpcMainInvokeEvent, id: string) =>
     terminals(event, id).replay(owner(event), id),
   'local-terminal:input': (event: IpcMainInvokeEvent, id: string, data: string) =>
