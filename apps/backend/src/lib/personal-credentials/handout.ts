@@ -3,7 +3,7 @@
 // when they return null. Gmail and Google Drive have no team token: their
 // handout returns personalGoogleToken or nothing. Refreshes rotate the stored
 // grant in place.
-import { getConversationBySessionId } from '@/lib/agent/db'
+import { credentialSource, getConversationBySessionId } from '@/lib/agent/db'
 import { getDefaultClientCredentials } from '@/lib/byos/linear'
 import { refreshTokens } from '@/lib/byos/linear-oauth'
 import {
@@ -205,7 +205,8 @@ export async function personalCredentialSubjectFor(
     : null
 
   if (!subject || !sessionId) return null
-  const conversation = await getConversationBySessionId(sessionId)
+  const found = await getConversationBySessionId(sessionId)
+  const conversation = found && (await credentialSource(found))
 
   return conversation?.credentialAccess?.teamIdentity?.includes(provider) ? null : subject
 }

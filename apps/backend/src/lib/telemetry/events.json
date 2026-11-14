@@ -119,8 +119,6 @@
   "agent.stuck_turn.probe_completed",
   "agent.stuck_turn.probe_failed",
   "agent.tailnet.joined",
-  "agent.thread.credentials_granted",
-  "agent.thread.credentials_revoked",
   "agent.thread.turn_failed",
   "agent.thread.undelivered_report_failed",
   "agent.token_usage.indexes_create_failed",

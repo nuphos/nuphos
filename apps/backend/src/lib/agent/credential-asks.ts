@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto'
 
 import { logError, logEvent } from '@/lib/observability'
 
-import { getConversationBySessionId } from './db'
+import { credentialHeirs, getConversationBySessionId } from './db'
 import { openInputRequests, resolveInputRequest } from './db/pending-decision'
 import { systemSender } from './message-metadata'
 import { CONNECTABLE_PROVIDERS, isConnectableProvider } from './tools-skilled/decision-tools'
@@ -51,12 +51,22 @@ export function selectedProviders(request: InputRequest, added: AddedCredentialI
 }
 
 /**
- * Answers the conversation's open questions that `added` selects a provider of,
- * then starts a turn that tells the agent so. Best-effort: the selection is
- * already saved, and a question left open can still be answered by hand.
+ * Answers the open questions that `added` selects a provider of, in the
+ * conversation and in the Tasks below it that use its selection, then starts a
+ * turn that tells each agent so. Best-effort: the selection is already saved,
+ * and a question left open can still be answered by hand.
  */
 export async function answerCredentialAsks(sessionId: string, added: AddedCredentialIds) {
   if (Object.keys(added).length === 0) return
+  const conversation = await getConversationBySessionId(sessionId).catch(() => null)
+
+  if (!conversation) return
+  const heirs = await credentialHeirs(conversation).catch(() => [sessionId])
+
+  await Promise.all(heirs.map((heir) => answerAsksIn(heir, added)))
+}
+
+async function answerAsksIn(sessionId: string, added: AddedCredentialIds) {
   try {
     const conversation = await getConversationBySessionId(sessionId)
 
