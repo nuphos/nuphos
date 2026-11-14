@@ -104,8 +104,8 @@ terminal or `node`. The first time the screen is opened, macOS asks on this Mac
 to allow `mac-screen-host` under **Screen Recording** (to show the screen) and
 **Accessibility** (to control it); open it again after allowing. Someone must be
 signed in to the Mac's desktop, since a locked Mac or the login window cannot be
-shown. A `nuphos agent` started over SSH runs outside that desktop and cannot
-show it, so start it from a terminal on the Mac or from a LaunchAgent. On a Mac
+shown. `nuphos agent` runs as a LaunchAgent in that desktop, also when started
+over SSH while someone is signed in (see below). On a Mac
 without a display, approve the two prompts once through the built-in Screen
 Sharing.
 
@@ -148,9 +148,20 @@ nuphos-agent` stops it. Without linger, user services start at the user's first
 sign-in rather than at boot: `nuphos agent` turns linger on when the system
 allows it, and otherwise asks you to run `sudo loginctl enable-linger "$USER"`.
 Use a dedicated non-root account: anyone who controls that account acts as this
-machine in Nuphos, and agents' commands run as it. Without a systemd user
-manager (macOS, a container), or when a systemd unit runs it directly,
+machine in Nuphos, and agents' commands run as it. On Linux without a systemd
+user manager (a container), or when a systemd unit runs it directly,
 `nuphos agent` runs the runtime in the foreground.
+
+On macOS, `nuphos agent` likewise installs the LaunchAgent `ai.nuphos.agent`
+(`~/Library/LaunchAgents/ai.nuphos.agent.plist`) and loads it into your desktop
+session, so the runtime keeps running after the terminal closes and starts
+again after a crash and whenever you sign in. With `--join` it returns once the
+machine has joined. A LaunchAgent starts at sign-in, so for a start at boot turn
+on automatic login for that user. Over SSH with nobody signed in to the Mac's
+desktop, it is written and starts at the next sign-in. A revoked computer exits
+with status 0 under launchd, which restarts only a failed exit. Its log is
+`~/Library/Logs/nuphos-agent.log`; `launchctl bootout gui/$(id -u)/ai.nuphos.agent`
+stops it until the next sign-in, and removing the plist as well stops it for good.
 
 `exec` writes the reply to stdout and tool activity to stderr, ending with
 the agent id. New agents use the mode last picked in `/full-access`
