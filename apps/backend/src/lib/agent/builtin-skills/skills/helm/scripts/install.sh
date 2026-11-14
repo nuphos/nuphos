@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if command -v helm >/dev/null 2>&1; then
+# Installed means it runs: a binary for another OS is on PATH and still fails.
+if helm version --short >/dev/null 2>&1; then
   echo "helm already installed: $(helm version --short)"
   exit 0
 fi

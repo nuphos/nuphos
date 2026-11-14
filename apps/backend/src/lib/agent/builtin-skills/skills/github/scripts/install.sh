@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if command -v gh >/dev/null 2>&1; then
+# Installed means it runs: a binary for another OS is on PATH and still fails.
+if gh --version >/dev/null 2>&1; then
   echo "gh already installed: $(gh --version | head -1)"
   exit 0
 fi

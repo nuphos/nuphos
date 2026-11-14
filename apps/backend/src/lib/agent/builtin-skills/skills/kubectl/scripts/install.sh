@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if command -v kubectl >/dev/null 2>&1; then
+# Installed means it runs: a binary for another OS is on PATH and still fails.
+if kubectl version --client >/dev/null 2>&1; then
   echo "kubectl already installed: $(kubectl version --client --output=yaml 2>/dev/null | grep -E '^\s*gitVersion' | head -1 | awk '{print $2}')"
   exit 0
 fi

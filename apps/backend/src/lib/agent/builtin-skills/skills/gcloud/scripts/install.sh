@@ -2,7 +2,8 @@
 set -euo pipefail
 
 bin_dir="$HOME/.local/bin"
-if [ -x "$bin_dir/gcloud" ] || command -v gcloud >/dev/null 2>&1; then
+# Installed means it runs: a binary for another OS is on PATH and still fails.
+if PATH="$bin_dir:$PATH" gcloud --version >/dev/null 2>&1; then
   echo "gcloud already installed"
   exit 0
 fi
@@ -35,9 +36,11 @@ url="https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli
 tarball="${work}/google-cloud-cli.tar.gz"
 
 curl -fsSL "$url" -o "$tarball"
+sdk_dir="$install_root/google-cloud-sdk"
+# Whatever is there does not run, and unpacking over it would mix two builds.
+rm -rf "$sdk_dir"
 tar -xzf "$tarball" -C "$install_root"
 
-sdk_dir="$install_root/google-cloud-sdk"
 "$sdk_dir/install.sh" --quiet --usage-reporting=false --path-update=false --command-completion=false >/dev/null
 
 mkdir -p "$bin_dir"

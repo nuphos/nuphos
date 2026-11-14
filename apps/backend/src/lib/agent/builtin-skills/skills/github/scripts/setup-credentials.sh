@@ -70,7 +70,7 @@ fi
 
 # Make sure `gh` exists; idempotent.
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if ! command -v gh >/dev/null 2>&1; then
+if ! gh --version >/dev/null 2>&1; then
   bash "$script_dir/install.sh"
   # install.sh's PATH export only lived in its own subshell; pick it up here
   # so the gh auth call below can find the binary in the fallback location.
