@@ -41,6 +41,7 @@ export const RUNTIME_SOURCES = [
   'reply-image-stream.mjs',
   'mcp-bridge-config.mjs',
   'mcp-http-bridge.mjs',
+  'runtime-guard.sh',
   'native-question.mjs',
   'session-home.mjs',
   'process-death.mjs',
