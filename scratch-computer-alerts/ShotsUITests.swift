@@ -15,8 +15,6 @@ final class ComputerAlertsShotsUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": fixture.path]
         app.launch()
-        let allow = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Allow"]
-        if allow.waitForExistence(timeout: 10) { allow.tap() }
         XCTAssertTrue(app.buttons["Account"].waitForExistence(timeout: 15))
         app.buttons["Account"].tap()
         let toggle = app.switches["Computers going offline"]
@@ -28,8 +26,11 @@ final class ComputerAlertsShotsUITests: XCTestCase {
         Thread.sleep(forTimeInterval: 1)
         shot("1-setting")
         XCUIDevice.shared.press(.home)
-        let later = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Allow"]
-        if later.waitForExistence(timeout: 15) { later.tap() }
+        // The permission alert appears once the app is backgrounded; XCUITest cannot query it here.
+        Thread.sleep(forTimeInterval: 4)
+        shot("0-permission")
+        XCUIApplication(bundleIdentifier: "com.apple.springboard")
+            .coordinate(withNormalizedOffset: CGVector(dx: 0.685, dy: 0.5925)).tap()
         Thread.sleep(forTimeInterval: 2)
         shot("2-offline")
         Thread.sleep(forTimeInterval: 6)

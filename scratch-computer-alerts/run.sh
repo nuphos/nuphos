@@ -19,8 +19,8 @@ xcrun simctl status_bar "$u" override --time 9:41 --batteryState charged --batte
 d="$out/iphone"
 ( while :; do for req in "$d"/*.req; do [ -e "$req" ] || continue; n=$(basename "$req" .req)
     case $n in
-      2-offline) xcrun simctl push "$u" ai.nuphos.ios "$root/scratch-computer-alerts/offline.apns"; sleep 2 ;;
-      3-online) xcrun simctl push "$u" ai.nuphos.ios "$root/scratch-computer-alerts/online.apns"; sleep 2 ;;
+      2-offline) timeout 30 xcrun simctl push "$u" ai.nuphos.ios "$root/scratch-computer-alerts/offline.apns"; sleep 2 ;;
+      3-online) timeout 30 xcrun simctl push "$u" ai.nuphos.ios "$root/scratch-computer-alerts/online.apns"; sleep 2 ;;
     esac
     xcrun simctl io "$u" screenshot "$d/$n.png"; rm -f "$req"; done; sleep 0.3; done ) &
 rig=$!
