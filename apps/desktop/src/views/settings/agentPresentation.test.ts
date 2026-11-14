@@ -6,9 +6,12 @@ import {
   agentName,
   agentOffline,
   agentRunsOn,
+  canEditAgent,
   localRemovalId,
   localSignIn,
+  managesDevice,
   newAgentAction,
+  signedInAs,
   visibleAgent,
 } from './agentPresentation.ts'
 import { boxAgents } from './boxPresentation.ts'
@@ -263,6 +266,51 @@ test("every signed-out agent on the viewer's own computers can sign in; others' 
   assert.equal(localSignIn(codex, { ...here, userId: 'other' }), undefined)
   assert.equal(localSignIn(codex, null), undefined)
   assert.equal(localSignIn(teamAgent('managed'), here), undefined)
+})
+
+test('those who manage a computer sign its agents in with the runtime sign-in', () => {
+  const manager = { userId: 'manager', deviceId: 'mac' }
+
+  assert.equal(localSignIn(local('a', 'mac', false), manager, true), 'runtime')
+  assert.equal(localSignIn(local('a', 'mac', false), null, true), 'runtime')
+  assert.equal(localSignIn(local('a', 'mac', true), manager, true), undefined)
+  assert.equal(localSignIn(local('a', 'mac', false), manager, false), undefined)
+})
+
+test('the device list says who manages a computer; until it loads, it is unknown', () => {
+  const devices = [
+    { deviceId: 'box1', access: 'manage' as const },
+    { deviceId: 'box2', access: 'use' as const },
+    { deviceId: 'box3', access: 'owner' as const },
+  ]
+
+  assert.equal(managesDevice(devices, 'box1'), true)
+  assert.equal(managesDevice(devices, 'box2'), false)
+  assert.equal(managesDevice(devices, 'box3'), true)
+  assert.equal(managesDevice(devices, 'box4'), undefined)
+  assert.equal(managesDevice(undefined, 'box1'), undefined)
+})
+
+test("a computer's agent is edited by its owner and managers; a team runtime by admins", () => {
+  const agent = local('a', 'box1', true)
+
+  assert.equal(canEditAgent(agent, 'owner', undefined, false), true)
+  assert.equal(canEditAgent(agent, 'manager', true, false), true)
+  assert.equal(canEditAgent(agent, 'user', false, true), false)
+  assert.equal(canEditAgent(agent, 'user', undefined, false), false)
+  assert.equal(canEditAgent(teamAgent('managed'), 'admin', undefined, true), true)
+  assert.equal(canEditAgent(teamAgent('managed'), 'member', undefined, false), false)
+  assert.equal(canEditAgent(teamAgent('development'), 'admin', undefined, true), false)
+  assert.equal(
+    canEditAgent({ ...agent, deletion: { state: 'deleting' } }, 'owner', true, false),
+    false,
+  )
+})
+
+test('an agent shows whose account it runs as', () => {
+  assert.equal(signedInAs('Avery', 'avery', 'blake'), 'Signed in as Avery')
+  assert.equal(signedInAs('Avery', 'avery', undefined), 'Signed in as Avery')
+  assert.equal(signedInAs('Avery', 'avery', 'avery'), 'Signed in as you')
 })
 
 const hostAgent = (

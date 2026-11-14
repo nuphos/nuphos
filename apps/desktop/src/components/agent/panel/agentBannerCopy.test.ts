@@ -42,6 +42,7 @@ function banner(
     isTeamAdmin: false,
     onThisComputer: () => false,
     members: null,
+    manages: () => false,
     ...viewer,
   })?.fix
   const reachability = instance.local?.online === false ? 'offline' : 'signIn'

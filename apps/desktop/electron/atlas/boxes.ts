@@ -161,6 +161,14 @@ export function setBoxAccess(
 ): Promise<unknown> {
   return call('PUT', box(deviceId, '/access', teamId), access, { retry: false })
 }
+/** Owner only: whether those who only use the Box may open a terminal on it. */
+export function setBoxTerminalAccess(
+  deviceId: string,
+  teamId: string,
+  useTerminal: boolean,
+): Promise<{ useTerminal: boolean }> {
+  return call('PUT', box(deviceId, '/terminal-access', teamId), { useTerminal }, { retry: false })
+}
 export function renameBox(deviceId: string, teamId: string, label: string): Promise<{ ok: true }> {
   return call('PATCH', deviceRoute(deviceId, teamId), { label }, { retry: false })
 }

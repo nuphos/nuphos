@@ -93,6 +93,11 @@ export type WindowDeviceApi = {
   ): Promise<{ ok: true }>
   boxRename(deviceId: string, teamId: string, label: string): Promise<{ ok: true }>
   boxSetAccess(deviceId: string, teamId: string, access: BoxAccess): Promise<unknown>
+  boxSetTerminalAccess(
+    deviceId: string,
+    teamId: string,
+    useTerminal: boolean,
+  ): Promise<{ useTerminal: boolean }>
   localShareGet(deviceId: string, teamId: string): Promise<LocalAgentShareState>
   localShareSet(
     deviceId: string,

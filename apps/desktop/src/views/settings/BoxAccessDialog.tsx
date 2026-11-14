@@ -7,6 +7,8 @@ import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 
 import { BoxAccessFields } from './BoxAccessFields'
+import { isOwner } from './boxPresentation'
+import { BoxTerminalAccess } from './BoxTerminalAccess'
 import { SharedComputerNotice } from './SharedComputerNotice'
 import { useBoxAccessChoice } from './useBoxAccessChoice'
 
@@ -25,15 +27,23 @@ export function BoxAccessDialog({
   onSaved: () => void
 }) {
   const choice = useBoxAccessChoice(device.box?.access ?? { everyone: false, userIds: [] })
+  const owner = isOwner(device)
+  const savedTerminal = device.box?.useTerminal === true
+  const [useTerminal, setUseTerminal] = useState(savedTerminal)
   const [saving, setSaving] = useState(false)
   const save = async () => {
     setSaving(true)
+    let failed = t('Could not change who can use this computer')
+
     try {
       await api.boxSetAccess(device.deviceId, teamId, choice.payload())
+      failed = t('Could not change who can open a terminal')
+      if (owner && useTerminal !== savedTerminal)
+        await api.boxSetTerminalAccess(device.deviceId, teamId, useTerminal)
       onSaved()
       onClose()
     } catch (error) {
-      toast.apiError(t('Could not change who can use this computer'), error)
+      toast.apiError(failed, error)
     } finally {
       setSaving(false)
     }
@@ -59,6 +69,9 @@ export function BoxAccessDialog({
     >
       <div className="space-y-4 p-5">
         <BoxAccessFields teamId={teamId} choice={choice} />
+        {owner && (
+          <BoxTerminalAccess checked={useTerminal} disabled={saving} onChange={setUseTerminal} />
+        )}
         <SharedComputerNotice />
       </div>
     </Modal>

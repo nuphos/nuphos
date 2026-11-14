@@ -126,6 +126,7 @@ export function RuntimeSelector({
     closeMenu: () => setOpen(false),
     onSettings,
     sessionId,
+    devices: devices.list?.devices,
   })
   const reachability = selectedAgentReachability({ value, options })
   const dot = reachability ? AGENT_DOT[reachability] : null

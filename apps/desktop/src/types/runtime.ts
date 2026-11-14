@@ -43,8 +43,13 @@ export type LocalRuntimeSummary = {
   agentInstances?: boolean
   /** Whether its computer is connected now. Away, the agent stays listed with its last state. */
   online?: boolean
-  /** The owner's own `claude` sign-in, last reported while away; null when the computer cannot tell. */
+  /**
+   * Its CLI sign-in, last reported while away; false once a Nuphos sign-in ended. Null when the
+   * computer cannot tell.
+   */
   signedIn: boolean | null
+  /** Who signed it in through Nuphos, and when, while it is signed in. */
+  signedInBy?: { userId: string; at: string }
   /** Seen signed in at least once; a host's default agent no one used, or a failed sign-in, has none. */
   everSignedIn?: true
   /** Provider usage that computer reported; the backend normalizes it. */
