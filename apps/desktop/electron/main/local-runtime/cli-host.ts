@@ -36,6 +36,7 @@ import {
 } from './desktop-pool.ts'
 import { deviceCredentialFor, exitRevoked, ownsMachine, tunnelUrlFor } from './device-credential.ts'
 import { LocalExecStream } from './exec-stream.ts'
+import { enableMacScreen, macScreenDeps } from './mac-screen.ts'
 import { bundledModelProbe } from './model-probe.ts'
 import { OpenabProcess } from './openab-process.ts'
 import { LOCAL_AGENT_NAMES as NAMES } from './providers.ts'
@@ -44,6 +45,9 @@ import { VncStream } from './vnc-stream.ts'
 
 import type { DeviceIdentity } from '../device-identity-core.ts'
 import type { CliConfig } from './cli-host-session.ts'
+import type { LocalRuntimeTunnelStatus } from './tunnel-protocol.ts'
+
+type Instances = (request: unknown) => Promise<unknown>
 
 const bundleRoot = process.env.NUPHOS_LOCAL_RUNTIME_DIR ?? path.dirname(process.argv[1] ?? '.')
 const dataDir = process.env.NUPHOS_AGENT_HOME ?? ''
@@ -163,12 +167,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
   probeModels: bundledModelProbe(bundle),
   createTunnel: (runtime, status, onChange, instances) => {
     tunnel = new RuntimeTunnelClient({
-      instances: desktopPool
-        ? withDesktopRequests(
-            (sessionId) => openDesktop(desktopWrapper, desktopPool, sessionId),
-            instances,
-          )
-        : instances,
+      instances,
       sampleMetrics: readDeviceMetrics,
       connectBackend: (reclaim) => {
         const fresh = deviceCredential?.credential ?? currentToken()
@@ -184,7 +183,6 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       },
       ...localFileConnectors(() => controller.state(), bundleRoot),
       connectExec: () => new LocalExecStream(),
-      connectVnc: desktopPool ? () => new VncStream(desktopPool) : undefined,
       connectRuntime: (purpose, provider, instanceId) => {
         const running = runtime(provider, instanceId)
 
@@ -196,15 +194,12 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
           'acp.v1',
         ])
       },
-      // Which sessions hold a desktop here rides along with the agents' status.
-      status: () => ({
-        ...status(),
-        ...(desktopPool ? desktopStatus(desktopWrapper, desktopPool) : {}),
-      }),
+      status,
       onChange: (connected, superseded) => {
         onChange(connected, superseded)
         if (superseded) stop('Another Nuphos app on this computer took over the local runtime.')
       },
+      ...desktops(status, instances),
     })
 
     return tunnel
@@ -216,6 +211,34 @@ let tunnel: RuntimeTunnelClient | undefined
 
 // A desktop appearing or going changes the status; the pool directory says when.
 if (desktopPool) watchDesktops(desktopPool, () => tunnel?.sendStatus())
+// A Mac shows its own screen instead (mac-screen.ts).
+const macScreen = enableMacScreen(dataDir, () => tunnel?.sendStatus())
+
+/** The tunnel's desktops, whose holders ride along with the agents' status. */
+function desktops(status: () => LocalRuntimeTunnelStatus, instances?: Instances) {
+  if (macScreen)
+    return macScreenDeps(
+      macScreen,
+      status,
+      {
+        binary: () => path.join(bundleRoot, 'mac-screen-host'),
+        owner: () => owner,
+        // Screen Recording and Accessibility are the host's own, not the terminal's or node's.
+        ownPermissions: true,
+      },
+      instances,
+    )
+  if (!desktopPool) return {}
+
+  return {
+    instances: withDesktopRequests(
+      (sessionId) => openDesktop(desktopWrapper, desktopPool, sessionId),
+      instances,
+    ),
+    connectVnc: () => new VncStream(desktopPool),
+    status: () => ({ ...status(), ...desktopStatus(desktopWrapper, desktopPool) }),
+  }
+}
 
 /** One line per agent whenever what the user would see changes. */
 function report(): void {
