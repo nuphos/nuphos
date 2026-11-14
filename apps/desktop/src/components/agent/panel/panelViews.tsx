@@ -137,7 +137,10 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
   // for the teammates they mention.
   const inviteSessionId = activeTab?.foreign ? undefined : activeTab?.sessionId
   const bypassControl =
-    activeTab?.sessionId && !activeTab.readOnly && (!activeTab.foreign || activeTab.canManage)
+    activeTab?.sessionId &&
+    !activeTab.readOnly &&
+    (!activeTab.foreign || activeTab.canManage) &&
+    !activeTab.credentialSource // A Task under a Bot runs in the Bot's mode.
       ? {
           active: bypassBySession[activeTab.sessionId] ?? false,
           onSelect: selectBypassMode,
