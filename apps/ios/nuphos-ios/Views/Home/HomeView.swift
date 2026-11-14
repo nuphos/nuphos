@@ -277,7 +277,7 @@ struct HomeView: View {
         case .chats, .agent:
             AgentPage(page: $page, isSearching: $isSearching, titleCollapsed: $titleCollapsed, openChat: $openChat, showsComposer: sizeClass != .regular)
         case .inbox:
-            InboxPage(inbox: inbox)
+            InboxPage(inbox: inbox, wide: sizeClass == .regular)
                 .onAppear { titleCollapsed = false }
         case .connectors:
             ConnectorsPage()

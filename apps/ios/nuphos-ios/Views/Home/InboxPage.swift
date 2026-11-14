@@ -6,10 +6,9 @@ import SwiftUI
 /// pushed over it on iPhone.
 struct InboxPage: View {
     let inbox: OpenQuestions?
-    /// The window's, not a column's: a split view's columns report compact.
-    @Environment(\.horizontalSizeClass) private var sizeClass
-
-    private var wide: Bool { sizeClass == .regular }
+    /// The question opens beside the list. The window's size class, not this column's: a split
+    /// view's sidebar reports compact.
+    let wide: Bool
 
     var body: some View {
         content
@@ -48,6 +47,8 @@ struct InboxPage: View {
                     }
                 }
                 .listStyle(.insetGrouped)
+                // The open question is marked by its fill, not a keyboard's focus ring.
+                .focusEffectDisabled()
                 .listSectionSpacing(wide ? 16 : 18)
                 .environment(\.defaultMinListRowHeight, wide ? 44 : 46)
                 .scrollContentBackground(.hidden)
