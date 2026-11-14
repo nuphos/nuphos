@@ -3,6 +3,10 @@
 #
 #   curl -fsSL https://nuphos.ai/install | sh
 #
+# and joins this machine as one of your computers with a one-time token:
+#
+#   curl -fsSL https://nuphos.ai/install | sh -s -- --join TOKEN [--api-url URL]
+#
 # NUPHOS_VERSION=X.Y.Z pins a version, NUPHOS_INSTALL_DIR changes where it
 # goes (default ~/.local/bin), NUPHOS_DOWNLOAD_URL points at a mirror of the
 # release assets, and NUPHOS_LATEST_URL at another backend's /cli/latest.
@@ -11,11 +15,23 @@ set -eu
 REPO=nuphos/nuphos
 DIR=${NUPHOS_INSTALL_DIR:-$HOME/.local/bin}
 VERSION=${NUPHOS_VERSION:-}
+JOIN=
 
 fail() {
   echo "nuphos install: $*" >&2
   exit 1
 }
+
+# The usage message names no argument, so a misplaced token is never printed.
+while [ $# -gt 0 ]; do
+  case "$#:$1" in
+    1:*) fail "usage: sh -s -- --join TOKEN [--api-url URL]" ;;
+    *:--join) JOIN=$2 ;;
+    *:--api-url) export NUPHOS_API_URL="$2" ;;
+    *) fail "usage: sh -s -- --join TOKEN [--api-url URL]" ;;
+  esac
+  shift 2
+done
 
 case "$(uname -s)" in
   Darwin) os=apple-darwin ;;
@@ -71,3 +87,9 @@ case ":$PATH:" in
     echo "  export PATH=\"$DIR:\$PATH\"" >&2
     ;;
 esac
+
+# Started here by its path, since this shell's PATH change cannot reach the caller's.
+if [ -n "$JOIN" ]; then
+  rm -rf "$tmp"
+  NUPHOS_JOIN_TOKEN=$JOIN exec "$DIR/nuphos" agent
+fi
