@@ -1,16 +1,15 @@
 import { Radio } from '@base-ui/react/radio'
 import { RadioGroup } from '@base-ui/react/radio-group'
-import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
-import { Check, Search, ShieldCheck, UserCheck, Users } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Check, Lock, Search, UserCheck, Users } from 'lucide-react'
+import { useState } from 'react'
 
 import { Avatar } from '../../components/Avatar'
 import { Checkbox } from '../../components/ui/checkbox'
 import { InputGroup, InputGroupInput } from '../../components/ui/input-group'
+import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { t } from '../../i18n'
-import { memberDisplayName } from '../../lib/bindingAccess'
-import { teamMembersReadNow } from '../../lib/query/team'
+import { memberDisplayName, useTeamMembers } from '../../lib/bindingAccess'
 
 import type { AccessMode } from './boxAccessPresentation'
 import type { useBoxAccessChoice } from './useBoxAccessChoice'
@@ -22,13 +21,10 @@ const SEARCH_FROM = 6
 const STACK = 4
 
 const MODES: { mode: AccessMode; icon: typeof Users; title: string }[] = [
-  { mode: 'admins', icon: ShieldCheck, title: t('Admins only') },
+  { mode: 'private', icon: Lock, title: t('Private') },
   { mode: 'everyone', icon: Users, title: t('Everyone') },
   { mode: 'members', icon: UserCheck, title: t('Specific people') },
 ]
-
-const readNow = (read: { isFetchedAfterMount: boolean; isError: boolean }) =>
-  read.isFetchedAfterMount && !read.isError
 
 function AvatarStack({ members }: { members: TeamMember[] }) {
   const extra = members.length - STACK
@@ -89,20 +85,22 @@ function MemberRow({
   )
 }
 
-/** Who may use a Box: its admins only, everyone in the team, or specific people picked here. */
+/** Who may use a Box besides its owner and managers: no one, the whole team, or people picked here. */
 export function BoxAccessFields({
   teamId,
+  ownerUserId,
   choice,
 }: {
   teamId: string
+  /** The Box's owner; left out while it is being created, when that is the viewer. */
+  ownerUserId?: string
   choice: ReturnType<typeof useBoxAccessChoice>
 }) {
-  // The mode settles once from these, so it waits for a read made now, never a cached one.
-  const roster = useQuery(teamMembersReadNow(teamId))
-  const members = roster.data ?? []
-  const admins = members.filter((member) => member.role === 'ADMINISTRATOR')
-  // Admins always use and manage a Box, so they are never picked.
-  const others = members.filter((member) => member.role !== 'ADMINISTRATOR')
+  const currentUserId = useCurrentUser()?.id
+  const ownerId = ownerUserId ?? currentUserId
+  const members = useTeamMembers(teamId)
+  // The owner always uses their own Box, so they are never picked.
+  const others = members.filter((member) => member.id !== ownerId)
   const [query, setQuery] = useState('')
   const needle = query.trim().toLowerCase()
   const shown = needle
@@ -111,17 +109,10 @@ export function BoxAccessFields({
       )
     : others
   const picked = others.filter((member) => choice.chosen.has(member.id)).length
-  const { settle } = choice
-  const loaded = readNow(roster) && members.length > 0
-
-  useEffect(() => {
-    if (loaded) settle(new Set(others.map((member) => member.id)))
-    // Once, when the members arrive: settling again would undo the caller's own choice.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loaded])
+  const loaded = members.length > 0
 
   const descriptions: Record<AccessMode, string> = {
-    admins: t('Only team admins'),
+    private: t('Owner and managers only'),
     everyone: loaded ? t('All {n} in the team', { n: members.length }) : t('The whole team'),
     members: t('Pick who can use it'),
   }
@@ -171,10 +162,10 @@ export function BoxAccessFields({
         <div className="flex items-center justify-between gap-3 px-3 py-2.5">
           <span className="text-[12px] text-secondary">
             {choice.mode === 'everyone'
-              ? t('Everyone can use it, including people who join later. Only admins manage it.')
-              : t('Admins always use and manage it.')}
+              ? t('Everyone can use it, including people who join later.')
+              : t('Its owner and managers can always use it.')}
           </span>
-          <AvatarStack members={choice.mode === 'everyone' ? members : admins} />
+          {choice.mode === 'everyone' && <AvatarStack members={members} />}
         </div>
         {choice.mode === 'members' && (
           <div className="border-t border-line-control px-1.5 pb-1.5 pt-2">
@@ -212,7 +203,7 @@ export function BoxAccessFields({
               ))}
               {loaded && others.length === 0 && (
                 <li className="px-2 py-1.5 text-[12px] text-tertiary">
-                  {t('Everyone else in the team is an admin.')}
+                  {t('No one else is in this team yet.')}
                 </li>
               )}
               {others.length > 0 && shown.length === 0 && (
@@ -221,7 +212,7 @@ export function BoxAccessFields({
             </ul>
             {others.length > 0 && picked === 0 && (
               <p className="px-2 pb-1 pt-1.5 text-[11.5px] text-tertiary">
-                {t('No one picked yet, so only admins can use it.')}
+                {t('No one picked yet, so it stays private.')}
               </p>
             )}
           </div>
