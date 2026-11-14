@@ -1,6 +1,6 @@
 import { AppError } from '@/lib/errors'
 
-import { isLocalRuntimeUrl } from '../agent/devices/local-runtime/address.ts'
+import { isLocalRuntimeUrl, parseLocalRuntimeUrl } from '../agent/devices/local-runtime/address.ts'
 import { openLocalRuntimeSocket } from '../agent/devices/local-runtime/socket.ts'
 
 import { connectionFailureMessage } from './openab-acp-errors.ts'
@@ -41,6 +41,8 @@ function connectionFailure(url: string, event: SocketEvent): Error {
       409,
       'runtime_offline',
       'The computer running this agent is offline. Open Nuphos on it with the local agent turned on.',
+      // No runtimeId: that would make the failed turn queue for the computer (queueForOfflineBox).
+      { deviceId: parseLocalRuntimeUrl(url)?.deviceId },
     )
 
   return new Error(connectionFailureMessage(event))
