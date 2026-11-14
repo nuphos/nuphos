@@ -35,19 +35,29 @@ type MergeFingerprint = {
   team: string | null
 }
 
-function mergeOutputDir(teamId: string | null | undefined): string {
-  const key = teamId ? `team-${teamId}` : 'solo'
-
-  return safeJoinUnder(getSkillsCacheRoot(), path.posix.join('.merged', key))
+function mergedRoot(): string {
+  return safeJoinUnder(getSkillsCacheRoot(), '.merged')
 }
 
-async function fingerprintPath(outDir: string): Promise<string> {
+function mergeOutputRoot(teamId: string | null | undefined): string {
+  return safeJoinUnder(mergedRoot(), teamId ? `team-${teamId}` : 'solo')
+}
+
+// Each tree lives in a directory named after its inputs and is never written once
+// published, so a request can read it while another builds the next one.
+function mergeOutputDir(teamId: string | null | undefined, fingerprint: string): string {
+  const name = createHash('sha256').update(fingerprint).digest('hex').slice(0, 16)
+
+  return safeJoinUnder(mergeOutputRoot(teamId), name)
+}
+
+function fingerprintPath(outDir: string): string {
   return safeJoinUnder(outDir, FINGERPRINT_FILE)
 }
 
 async function readStoredFingerprint(outDir: string): Promise<string | null> {
   try {
-    return (await fs.readFile(await fingerprintPath(outDir), 'utf8')).trim() || null
+    return (await fs.readFile(fingerprintPath(outDir), 'utf8')).trim() || null
   } catch (err: unknown) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null
     throw err
@@ -88,10 +98,6 @@ async function buildFingerprint(teamId: string | null | undefined): Promise<Merg
     global: await getScopeSyncRevision('global'),
     team: teamId ? await getScopeSyncRevision(`teams/${teamId}`) : null,
   }
-}
-
-function serializeFingerprint(fp: MergeFingerprint): string {
-  return JSON.stringify(fp)
 }
 
 /**
@@ -141,16 +147,6 @@ async function copySkillTree(
   await fs.cp(srcSkillDir, dest, { recursive: true })
 }
 
-async function listBuiltinSkillNames(): Promise<string[]> {
-  const root = getBuiltinSkillsDirectory()
-  const entries = await fs.readdir(root, { withFileTypes: true })
-
-  return entries
-    .filter((e) => e.isDirectory())
-    .map((e) => e.name)
-    .sort(byCodeUnit)
-}
-
 async function overlayScopeSkills(
   destRoot: string,
   scope: string,
@@ -168,15 +164,18 @@ async function overlayScopeSkills(
   return names
 }
 
+async function treeSkillNames(dir: string): Promise<string[]> {
+  return (await fs.readdir(dir, { withFileTypes: true }))
+    .filter((e) => e.isDirectory())
+    .map((e) => e.name)
+    .sort(byCodeUnit)
+}
+
 async function materializeMergeTree(
   teamId: string | null | undefined,
+  outDir: string,
 ): Promise<MergedSkillsResult> {
-  const outDir = mergeOutputDir(teamId)
-
-  await fs.rm(outDir, { recursive: true, force: true })
-  await fs.mkdir(outDir, { recursive: true })
-
-  const builtinNames = await listBuiltinSkillNames()
+  const builtinNames = await treeSkillNames(getBuiltinSkillsDirectory())
 
   for (const name of builtinNames) {
     const src = safeJoinUnder(getBuiltinSkillsDirectory(), name)
@@ -188,14 +187,9 @@ async function materializeMergeTree(
   const globalNames = await overlayScopeSkills(outDir, 'global', reservedNames)
   const teamNames = teamId ? await overlayScopeSkills(outDir, `teams/${teamId}`, reservedNames) : []
 
-  const skillNames = (await fs.readdir(outDir, { withFileTypes: true }))
-    .filter((e) => e.isDirectory())
-    .map((e) => e.name)
-    .sort(byCodeUnit)
-
   return {
     directory: outDir,
-    skillNames,
+    skillNames: await treeSkillNames(outDir),
     rebuilt: true,
     layers: {
       builtinSkills: builtinNames.length,
@@ -213,46 +207,57 @@ async function materializeMergeTree(
 export async function materializeMergedSkillsDir(
   teamId?: string | null,
 ): Promise<MergedSkillsResult> {
-  const outDir = mergeOutputDir(teamId)
-  const nextFingerprint = serializeFingerprint(await buildFingerprint(teamId))
+  const fingerprint = JSON.stringify(await buildFingerprint(teamId))
+  const outDir = mergeOutputDir(teamId, fingerprint)
   const stored = await readStoredFingerprint(outDir)
 
-  if (stored === nextFingerprint) {
-    try {
-      const skillNames = (await fs.readdir(outDir, { withFileTypes: true }))
-        .filter((e) => e.isDirectory() && e.name !== FINGERPRINT_FILE)
-        .map((e) => e.name)
-        .sort(byCodeUnit)
+  if (stored === fingerprint) {
+    const layers = { builtinSkills: 0, globalSkills: 0, teamSkills: 0 }
 
-      if (skillNames.length > 0) {
-        return {
-          directory: outDir,
-          skillNames,
-          rebuilt: false,
-          layers: {
-            builtinSkills: 0,
-            globalSkills: 0,
-            teamSkills: 0,
-          },
-        }
-      }
-    } catch {
-      // fall through to rebuild
-    }
+    return { directory: outDir, skillNames: await treeSkillNames(outDir), rebuilt: false, layers }
   }
 
-  const result = await materializeMergeTree(teamId)
+  // Build beside the published trees and move the finished tree into place in one rename,
+  // so concurrent builds never share files and no reader sees a half-copied tree.
+  await fs.mkdir(mergedRoot(), { recursive: true })
+  const tmp = await fs.mkdtemp(path.join(mergedRoot(), '.build-'))
 
-  await fs.writeFile(await fingerprintPath(outDir), nextFingerprint, 'utf8')
+  try {
+    const result = await materializeMergeTree(teamId, tmp)
 
-  return result
+    await fs.writeFile(fingerprintPath(tmp), fingerprint, 'utf8')
+    // A tree whose recorded inputs don't match its name was tampered with; replace it.
+    if (stored !== null) await fs.rm(outDir, { recursive: true, force: true })
+    await fs.mkdir(mergeOutputRoot(teamId), { recursive: true })
+    // Fails when another request published the same inputs first; its tree is identical.
+    await fs.rename(tmp, outDir).catch(async (err: unknown) => {
+      if ((await readStoredFingerprint(outDir)) !== fingerprint) throw err
+    })
+    await removeOtherTrees(teamId, outDir)
+
+    return { ...result, directory: outDir }
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true })
+  }
+}
+
+const REPLACED_TREE_GRACE_MS = 10 * 60_000 // lets readers of a replaced tree finish
+
+async function removeOtherTrees(teamId: string | null | undefined, keep: string): Promise<void> {
+  const root = mergeOutputRoot(teamId)
+  const cutoff = Date.now() - REPLACED_TREE_GRACE_MS
+
+  for (const name of await fs.readdir(root)) {
+    const dir = safeJoinUnder(root, name)
+    const stat = dir === keep ? null : await fs.stat(dir).catch(() => null)
+
+    if (stat && stat.mtimeMs < cutoff) await fs.rm(dir, { recursive: true, force: true })
+  }
 }
 
 /** Builtin only when store is unused; otherwise merged tree (global + optional team). */
 export async function invalidateMergedSkillsCache(teamId?: string | null): Promise<void> {
-  const outDir = mergeOutputDir(teamId)
-
-  await fs.rm(outDir, { recursive: true, force: true })
+  await fs.rm(mergeOutputRoot(teamId), { recursive: true, force: true })
 }
 
 export async function invalidateMergedSkillsForScope(scope: string): Promise<void> {
