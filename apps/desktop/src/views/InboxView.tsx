@@ -1,26 +1,22 @@
-import clsx from 'clsx'
 import { Inbox } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect } from 'react'
 
 import { EmptyState } from '../components/EmptyState'
-import { useElementSize } from '../grafana/useElementSize'
+import { toast } from '../components/ui/toast'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { t } from '../i18n'
 
 import { ChannelMentions } from './inbox/ChannelMentions'
 import { DecisionCard } from './inbox/DecisionCard'
-import { inboxQuestions, openQuestion } from './inbox/inboxItems'
-import { QuestionRail } from './inbox/QuestionRail'
+import { openQuestion } from './inbox/inboxItems'
+import { selectInboxQuestion, useInboxSelection } from './inbox/inboxSelection'
 import { ShareApprovalRequests } from './inbox/ShareApprovalRequests'
 import { useChannelMentions } from './inbox/useChannelMentions'
-import { answerDecision, useAnsweredOnDevice, useInboxListing } from './inbox/useInbox'
+import { ANSWER_UNDO_MS, holdAnswer, sendHeldAnswer, useInboxQuestions } from './inbox/useInbox'
 import { useShareApprovals } from './inbox/useShareApprovals'
 
 import type { InboxQuestion } from './inbox/inboxItems'
-
-// Below this the page shows the list alone, and a row opens its conversation.
-const TWO_PANE_MIN_WIDTH = 720
-const RAIL_WIDTH = 340
+import type { DecisionAnswer } from '../api/agent-chat-types'
 
 type Props = {
   teamId: string
@@ -33,10 +29,9 @@ type Props = {
 
 /**
  * Teammates asking to use the viewer's own computer and channel @mentions,
- * above every open question waiting on the viewer, one row each, the same rows
- * the sidebar badge counts. The reader shows the selected question as a card:
- * a choice, or an answer typed on the card, answers it. Its conversation opens
- * in its own tab; only an answer or dismissal clears a question.
+ * above one open question at a time, the one the sidebar's Inbox list opens.
+ * Answering it opens the next, and wakes the agent that asked once its Undo
+ * window passes, or at once when the viewer leaves; ↑ ↓ or Skip move between them. Its Bot or Task opens from the question's source line.
  */
 export function InboxView({
   teamId,
@@ -47,24 +42,10 @@ export function InboxView({
   onOpenConversation,
 }: Props) {
   const { isActive } = useWorkspaceTab()
-  const { ref, width } = useElementSize<HTMLDivElement>()
-  const twoPane = width === 0 || width >= TWO_PANE_MIN_WIDTH
-  const listing = useInboxListing(teamId, refreshKey).data ?? null
-  const [selected, setSelected] = useState<{ id: string; index: number } | null>(null)
-  // Another team's selection is no answer for this one.
-  const [shownTeamId, setShownTeamId] = useState(teamId)
-
-  if (shownTeamId !== teamId) {
-    setShownTeamId(teamId)
-    setSelected(null)
-  }
+  const all = useInboxQuestions(teamId, refreshKey)
+  const selected = useInboxSelection(teamId)
   const shareApprovals = useShareApprovals(teamId)
   const mentions = useChannelMentions(teamId) ?? []
-  const railRef = useRef<HTMLDivElement>(null)
-  const readerRef = useRef<HTMLDivElement>(null)
-  // A question answered here leaves the Inbox and the badge at once, before the listing does.
-  const answered = useAnsweredOnDevice()
-  const all = listing ? inboxQuestions(listing, answered) : null
   const needle = query.trim().toLowerCase()
   const rows = all?.filter(
     ({ conversation, request }) =>
@@ -74,99 +55,102 @@ export function InboxView({
       ),
   )
   const open = rows ? openQuestion(rows, selected) : undefined
+  const at = open && rows ? rows.indexOf(open) : -1
 
-  useEffect(() => onLoading?.(listing === null), [listing, onLoading])
+  useEffect(() => onLoading?.(all === null), [all, onLoading])
   useEffect(() => onCount?.(all?.length ?? 0), [all?.length, onCount])
 
-  const select = useCallback((row: InboxQuestion | undefined, list: readonly InboxQuestion[]) => {
-    setSelected(row ? { id: row.request.id, index: list.indexOf(row) } : null)
-  }, [])
+  const move = useCallback(
+    (row: InboxQuestion | undefined) => {
+      if (row && rows) selectInboxQuestion(teamId, { id: row.request.id, index: rows.indexOf(row) })
+    },
+    [teamId, rows],
+  )
 
-  // Enter or → moves from the list into the card's answer field; Esc comes back.
+  // ↑ and ↓ open the question above or below, unless a field has the caret.
   useEffect(() => {
-    if (!isActive || !twoPane) return
+    if (!isActive || !rows) return
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return
       const target = event.target as HTMLElement | null
-      const typing =
-        Boolean(target?.isContentEditable) ||
-        Boolean(target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))
-      const inRail = !target || target === document.body || railRef.current?.contains(target)
 
-      if (event.key === 'Escape' && typing && readerRef.current?.contains(target)) {
-        event.preventDefault()
-        railRef.current?.querySelector<HTMLElement>('[aria-current="true"]')?.focus()
-
+      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return
+      if (target?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target?.tagName ?? ''))
         return
-      }
-      if ((event.key === 'Enter' || event.key === 'ArrowRight') && !typing && inRail) {
-        const field = readerRef.current?.querySelector<HTMLElement>('input[type="text"]')
+      if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
+      const index = at + (event.key === 'ArrowDown' ? 1 : -1)
+      const next = index >= 0 ? rows.at(index) : undefined
 
-        if (field) {
-          event.preventDefault()
-          field.focus()
-        }
-      }
+      if (!next) return
+      event.preventDefault()
+      move(next)
     }
 
     window.addEventListener('keydown', onKeyDown)
 
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isActive, twoPane])
+  }, [isActive, rows, at, move])
 
-  const empty = all !== null && all.length === 0
-  const caughtUp = empty && shareApprovals.approvals.length === 0 && mentions.length === 0
-  const sessionId = open?.conversation.sessionId
+  // Leaving the Inbox sends the answer still waiting out its Undo window.
+  useEffect(() => {
+    if (!isActive) return
+
+    return sendHeldAnswer
+  }, [isActive])
+
+  const answer = (row: InboxQuestion, reply: DecisionAnswer) => {
+    // The answered question leaves the list, and the one that takes its place opens.
+    const selection = { id: row.request.id, index: at }
+
+    selectInboxQuestion(teamId, selection)
+    const undo = holdAnswer(teamId, row.conversation.sessionId, row.request.id, reply)
+
+    toast.success(
+      t('Answered “{answer}”', {
+        answer: reply.choices?.join(', ') ?? reply.text ?? row.request.question,
+      }),
+      undefined,
+      {
+        timeoutMs: ANSWER_UNDO_MS,
+        dedupe: false,
+        action: {
+          label: t('Undo'),
+          // Once sent, the answer stays: the question is not opened again.
+          onClick: () => {
+            if (undo()) selectInboxQuestion(teamId, selection)
+          },
+        },
+      },
+    )
+  }
+
+  const caughtUp =
+    all?.length === 0 && shareApprovals.approvals.length === 0 && mentions.length === 0
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <ShareApprovalRequests teamId={teamId} {...shareApprovals} />
       <ChannelMentions mentions={mentions} onOpen={onOpenConversation} />
-      <div ref={ref} className="flex min-h-0 flex-1">
-        {caughtUp && (
-          <EmptyState
-            icon={Inbox}
-            title={t("You're all caught up")}
-            description={t(
-              'When an agent needs you to decide something, it shows up here. Answer it there and it leaves the Inbox.',
-            )}
-          />
-        )}
-        {rows && !empty && (
-          <div
-            ref={railRef}
-            className={clsx(
-              'flex h-full min-h-0 flex-col',
-              twoPane ? 'flex-shrink-0' : 'min-w-0 flex-1',
-            )}
-            style={twoPane ? { width: RAIL_WIDTH } : undefined}
-          >
-            <QuestionRail
-              rows={rows}
-              openId={twoPane ? open?.request.id : undefined}
-              keyboardNavigation={isActive && twoPane}
-              onSelect={(row) =>
-                twoPane ? select(row, rows) : onOpenConversation(row.conversation.sessionId)
-              }
-            />
-          </div>
-        )}
-        {twoPane && open && sessionId && (
-          <div ref={readerRef} className="flex min-w-0 flex-1 flex-col">
-            <DecisionCard
-              key={open.request.id}
-              teamId={teamId}
-              sessionId={sessionId}
-              title={open.conversation.title}
-              request={open.request}
-              canManage={Boolean(open.conversation.canManage) && !open.conversation.readOnly}
-              // The answer wakes the agent that asked, which replies where it asked.
-              onAnswer={(answer) => void answerDecision(teamId, sessionId, open.request.id, answer)}
-              onOpenConversation={() => onOpenConversation(sessionId)}
-            />
-          </div>
-        )}
-      </div>
+      {caughtUp && (
+        <EmptyState
+          icon={Inbox}
+          title={t("You're all caught up")}
+          description={t(
+            'When an agent needs you to decide something, it shows up here. Answer it there and it leaves the Inbox.',
+          )}
+        />
+      )}
+      {open && (
+        <DecisionCard
+          key={open.request.id}
+          teamId={teamId}
+          conversation={open.conversation}
+          request={open.request}
+          keys={isActive}
+          onAnswer={(reply) => answer(open, reply)}
+          onSkip={rows && rows.length > 1 ? () => move(rows.at(at + 1) ?? rows[0]) : undefined}
+          onOpenConversation={() => onOpenConversation(open.conversation.sessionId)}
+        />
+      )}
     </div>
   )
 }

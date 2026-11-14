@@ -1,4 +1,4 @@
-import { swipeDestination } from './swipe-gesture.ts'
+import { SIDEBAR_PAGES, swipeDestination } from './swipe-gesture.ts'
 
 import type { SidebarPage } from './swipe-gesture.ts'
 
@@ -19,7 +19,7 @@ export function attachSidebarSwipe(
   let nativeTracking = false
   let ignoreMomentum = false
   let thresholdSide: SidebarPage = page
-  const lastPage = 1
+  const lastPage = SIDEBAR_PAGES.length - 1
   let axis: 'x' | 'y' | null = null
   let frame = 0
   let end: ReturnType<typeof setTimeout> | undefined

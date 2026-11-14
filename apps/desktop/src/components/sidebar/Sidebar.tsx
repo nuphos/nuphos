@@ -138,7 +138,9 @@ export const Sidebar = memo(function Sidebar({
   useChatNavKeys(
     teamView
       ? sidebarSections.filter(
-          (section) => section.title === (sidebarPage === 0 ? 'Channels' : 'Tasks'),
+          // The Inbox page moves through its questions with its own keys.
+          (section) =>
+            sidebarPage !== 2 && section.title === (sidebarPage === 0 ? 'Channels' : 'Tasks'),
         )
       : sidebarSections,
     chrome.isGroupCollapsed,
