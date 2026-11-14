@@ -1,5 +1,6 @@
 import { getTeamMembers, getTeamsByIds } from '@/lib/identity'
 
+import { endSignInsOnLeave } from './agent-sign-ins'
 import { revokeBoxStreams, revokeTeamBoxStreams } from './box-access'
 import { dropFromTeamGrants, dropOwnerTeamGrants, transferTeamComputers } from './device-grants'
 import { dropDeviceShareApprovals, dropMemberShareApprovals } from './local-share-store'
@@ -16,6 +17,7 @@ export type MemberRevocationDeps = {
   dropFromGrants: typeof dropFromTeamGrants
   dropOwnerGrants: typeof dropOwnerTeamGrants
   transferComputers: typeof transferTeamComputers
+  endSignIns: typeof endSignInsOnLeave
   teamOwner: (teamId: string) => Promise<string | null>
   dropApprovals: typeof dropMemberShareApprovals
   dropTrusts: typeof dropMemberShareTrusts
@@ -28,6 +30,7 @@ const memberRevocationDeps: MemberRevocationDeps = {
   dropFromGrants: dropFromTeamGrants,
   dropOwnerGrants: dropOwnerTeamGrants,
   transferComputers: transferTeamComputers,
+  endSignIns: endSignInsOnLeave,
   teamOwner: async (teamId) => (await getTeamsByIds([teamId]))[0]?.ownerID ?? null,
   dropApprovals: dropMemberShareApprovals,
   dropTrusts: dropMemberShareTrusts,
@@ -60,6 +63,8 @@ export async function revokeTeamMemberAccess(
       (await deps.memberIds(teamId)).filter((id) => id !== actorId),
       teamId,
     )
+  // Grants that name them end what they could reach as they drop them; those for everyone, here.
+  await deps.endSignIns(teamId, by)
   await deps.dropFromGrants(teamId, actorId, by)
   await deps.dropOwnerGrants(teamId, actorId, by)
   const owner = await deps.teamOwner(teamId)

@@ -16,12 +16,13 @@ import {
 } from '@/lib/agent/devices/local-runtime/address'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { LOCAL_AGENT_PROVIDERS } from '@/lib/agent/devices/local-runtime/protocol'
-import { requireAgentSignInAccess, requireDeviceUse } from '@/lib/agent/devices/manage-access'
 import { isActiveTeamMember } from '@/lib/agent/devices/store'
 import { AppError } from '@/lib/errors'
 
+import { cliSignedIn, localAgentSignIn, requireLocalAgentAccess } from './local-agent-access'
 import { runtimeLabel } from './runtime-provider'
 
+import type { LocalAgentSignIn, LocalStatusDeps } from './local-agent-access'
 import type { RuntimeModelCatalog } from './runtime-models'
 import type { PreviewRuntimeStatus } from './runtime-status'
 import type { TeamRuntimeEndpoint } from './team-openab-runtime'
@@ -37,7 +38,7 @@ import type {
 import type { LocalShareLevel } from '@/lib/agent/devices/local-share-types'
 import type { AgentDeviceBox } from '@/lib/agent/devices/store'
 
-export type LocalRuntimeSummary = {
+export type LocalRuntimeSummary = LocalAgentSignIn & {
   /** Who owns the computer; its address names the transport owner, which a handover keeps. */
   ownerUserId: string
   deviceId: string
@@ -50,8 +51,6 @@ export type LocalRuntimeSummary = {
   agentInstances?: boolean
   /** Whether the computer reports this agent right now. */
   online: boolean
-  /** Whether the owner's own CLI is signed in; null when the computer cannot tell. */
-  signedIn: boolean | null
   /** Seen signed in at least once: the agent registry. A host's default agent no one used has none. */
   everSignedIn?: true
   /** Provider usage the computer reported, raw; normalized in runtime-quota. */
@@ -162,7 +161,7 @@ export async function listOwnLocalRuntimes(
               ...(added ? { addedBy: { userId: added.userId, at: added.at.toISOString() } } : {}),
               // Reachable right now; offline, the last report still says who is signed in.
               online: reported !== undefined,
-              signedIn: reported ? reported.cli.loggedIn : agent.signedIn,
+              ...localAgentSignIn(device, agent, reported ? reported.cli.loggedIn : agent.signedIn),
               ...(registered.has(registryKey(agent)) ? { everSignedIn: true as const } : {}),
               ...(reported?.usage !== undefined
                 ? {
@@ -206,8 +205,7 @@ export async function resolveLocalRuntimeEndpoint(
   let deviceLabel: string
 
   try {
-    const access = purpose === 'login' ? requireAgentSignInAccess : requireDeviceUse
-    const device = await access(userId, teamId, ref.deviceId, deps.access)
+    const device = await requireLocalAgentAccess(userId, teamId, ref, purpose, deps.access)
 
     // One removed while its computer was offline is gone, not waiting for the computer.
     if (device.userId !== ref.userId || isPendingRemoval(ref, device.removedAgents ?? []))
@@ -278,13 +276,13 @@ export async function localRuntimeModels(
 /** A local runtime's status comes from its computer's tunnel, not a probe. */
 export async function localRuntimeStatus(
   runtimeId: string,
-  deps: Pick<LocalRuntimeCatalogDeps, 'getPresence'> = defaultDeps,
+  deps: Pick<LocalRuntimeCatalogDeps, 'getPresence'> & LocalStatusDeps = defaultDeps,
 ): Promise<PreviewRuntimeStatus> {
   const ref = parseLocalRuntimeId(runtimeId)
   const presence = ref ? await deps.getPresence(ref.userId, ref.deviceId) : null
   const agent = ref ? reportedLocalAgent(presence?.status, ref) : undefined
   const online = agent !== undefined
-  const signedIn = agent?.cli.loggedIn
+  const signedIn = ref ? await cliSignedIn(ref, agent?.cli.loggedIn, deps) : undefined
 
   return {
     configured: true,

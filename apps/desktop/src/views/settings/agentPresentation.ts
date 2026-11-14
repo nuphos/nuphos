@@ -129,6 +129,8 @@ export function localSignIn(
   if (!local || local.signedIn === true || local.ownerUserId !== thisComputer?.userId)
     return undefined
   if (instance.provider !== 'claude-code' && instance.provider !== 'codex') return 'runtime'
+  // An ended sign-in is renewed only through Nuphos, not by the CLI's own login.
+  if (local.signInEnded) return 'runtime'
 
   return !local.instanceId && local.deviceId === thisComputer.deviceId
     ? instance.provider
