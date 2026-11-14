@@ -25,9 +25,9 @@ export function nuphosCodexSessionConfig(config, meta, processEnv = process.env)
   const baseline = Object.fromEntries(
     // These budgets come from the managed runtime's [agent.env], never from
     // actor metadata. Codex otherwise drops them with inherit: 'none'.
-    // BASH_ENV sources runtime-guard.sh, which refreshes per-turn credentials,
-    // and GOFLAGS/MAKEFLAGS keep a build's process tree from adding up to the
-    // container limit.
+    // BASH_ENV (and ZDOTDIR for zsh) sources runtime-guard.sh, which refreshes
+    // per-turn credentials, and GOFLAGS/MAKEFLAGS keep a build's process tree from
+    // adding up to the container limit.
     [
       'PATH',
       'HOME',
@@ -41,6 +41,7 @@ export function nuphosCodexSessionConfig(config, meta, processEnv = process.env)
       'GOFLAGS',
       'MAKEFLAGS',
       'BASH_ENV',
+      'ZDOTDIR',
       'OPENAB_CREDENTIALS_DIR',
     ]
       .filter((key) => typeof processEnv[key] === 'string')
