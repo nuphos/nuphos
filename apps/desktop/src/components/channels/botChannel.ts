@@ -116,15 +116,19 @@ export function makeBot(teamId: string, sessionId: string) {
 }
 
 /**
- * "Turn into a Task": the face goes, and so do the Bot's open chats, which
- * would otherwise stay in Bots under a Task's name. Making it a Bot again
- * brings back the latest of them.
+ * "Turn into a Task": the face goes, and the server files away the Bot's open
+ * chats, which would otherwise stay in Bots under a Task's name; the sidebar
+ * hears of each. Making it a Bot again brings back the latest of them.
  */
 export function turnIntoTask(teamId: string, sessionId: string) {
-  return pickAgentAvatar(sessionId, null, () =>
-    api.agentSetConversationAvatar(sessionId, null, teamId),
-  )
-    .then(() => listBotChats(teamId, sessionId))
-    .then((chats) => setChatsArchived(teamId, openBotChats(chats), true))
+  return listBotChats(teamId, sessionId)
+    .then((chats) =>
+      pickAgentAvatar(sessionId, null, () =>
+        api.agentSetConversationAvatar(sessionId, null, teamId),
+      ).then(() => {
+        for (const chatId of openBotChats(chats))
+          announceChatArchived({ sessionId: chatId, teamId })
+      }),
+    )
     .catch((err: unknown) => toast.apiError(t('Could not change avatar'), err))
 }

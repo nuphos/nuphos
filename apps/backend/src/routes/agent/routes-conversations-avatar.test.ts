@@ -76,6 +76,7 @@ useAgentDb({
 })
 // Full-access grants a new Bot starts with: \`${userId}:${conversationId}\` → bypass.
 const bypass = new Map<string, unknown>()
+let left: string[] = []
 
 useDb({
   db: () => ({
@@ -88,6 +89,13 @@ useDb({
 
         return Promise.resolve()
       },
+      // The chats a Bot made a Task leaves.
+      find: (filter: { agentSessionIds?: string }) => {
+        if (filter.agentSessionIds) left.push(filter.agentSessionIds)
+
+        return { toArray: () => Promise.resolve([]) }
+      },
+      updateMany: () => Promise.resolve(),
     }),
   }),
 })
@@ -97,6 +105,7 @@ app.onError((error, c) =>
   c.json({ error: error.message }, (error as { status?: 400 | 404 }).status ?? 500),
 )
 beforeEach(() => {
+  left = []
   owner = caller
   managerIds = []
   saved = []
@@ -121,8 +130,11 @@ test("the owner changes a Bot's face, and taking it away makes it a Task", async
 
   expect(response.status).toBe(200)
   expect(await response.json()).toEqual({ avatar: '05-rembrandt' })
+  expect(left).toEqual([])
   expect((await pick(null)).status).toBe(200)
   expect(saved).toEqual(['05-rembrandt', null])
+  // A Task is never in a chat.
+  expect(left).toEqual(['s1'])
 })
 
 test('only the owner picks; a participant may not', async () => {

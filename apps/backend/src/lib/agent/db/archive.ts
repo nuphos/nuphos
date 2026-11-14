@@ -34,7 +34,7 @@ const ARCHIVABLE = {
 } as const
 
 /** A Bot's 1:1 chat: a channel whose only other member is one agent. */
-const isBotChat = (channel: Archivable) =>
+export const isBotChat = (channel: Archivable) =>
   channel.kind === 'channel' &&
   channel.agentSessionIds?.length === 1 &&
   conversationParticipantIds(channel).length === 1

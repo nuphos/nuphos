@@ -6,6 +6,7 @@ import { BOT_AVATARS, derivedAvatar } from '@/lib/agent/bot-avatars'
 import { createBot } from '@/lib/agent/bots'
 import { startConversationTurn } from '@/lib/agent/conversation-turn'
 import { claimBotAvatar, getReadableConversation, setConversationAvatar } from '@/lib/agent/db'
+import { leaveChats } from '@/lib/agent/db/bot-membership'
 import { systemSender } from '@/lib/agent/message-metadata'
 import {
   validateRequestedAgentRuntime,
@@ -46,6 +47,8 @@ agent.patch('/conversations/:sessionId/avatar', async (c) => {
       throw new AppError(400, 'invalid_request', 'Only a Bot has a face to change')
     throw new AppError(404, 'not_found', 'Conversation not found')
   }
+  // A Task is never in a chat.
+  if (body.data.avatar === null) await leaveChats(sessionId)
 
   return c.json({ avatar: body.data.avatar })
 })

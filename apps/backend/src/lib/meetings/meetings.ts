@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { config } from '@/config'
 import { postChannelMessage } from '@/lib/agent/channel-chat'
 import { getConversationBySessionId, upsertConversationShell } from '@/lib/agent/db'
+import { speakingBot } from '@/lib/agent/db/bot-membership'
 import { addChannelAgent, isChannel } from '@/lib/agent/db/channels'
 import { agentConversations } from '@/lib/agent/db/shared'
 import { systemSender } from '@/lib/agent/message-metadata'
@@ -70,13 +71,16 @@ export async function assertMeetingBudget(teamId: string, limit: number, now = D
 }
 
 /**
- * Sends `agent` into the call under its own name, with a channel of its own
- * where the call's speech arrives and its posts go out to the call's chat.
+ * Sends the caller's Bot into the call under its name, with a channel of its
+ * own where the call's speech arrives and its posts go out to the call's chat.
  */
-export async function joinMeeting(agent: AgentConversation, teamId: string, meetingUrl: string) {
+export async function joinMeeting(caller: AgentConversation, teamId: string, meetingUrl: string) {
   const url = new URL(meetingUrl)
 
   if (url.protocol !== 'https:') throw new Error('A meeting link starts with https://')
+  // Only a Bot is in a chat, so a Task joins as its Bot, which hears the call.
+  const agent = await speakingBot(caller)
+
   await assertMeetingBudget(teamId, recallConfig().botsPerTeamPerDay)
   const botName = agent.title || 'Nuphos agent'
   const botId = await createMeetingBot({ meetingUrl: url.href, botName, webhookUrl: webhookUrl() })
@@ -95,8 +99,9 @@ export async function joinMeeting(agent: AgentConversation, teamId: string, meet
   return { channelId, url: `/teams/${teamId}/agent/${channelId}` }
 }
 
-export async function leaveMeetingChannel(channelId: string, agentSessionId: string) {
+export async function leaveMeetingChannel(channelId: string, caller: AgentConversation) {
   const channel = await getConversationBySessionId(channelId)
+  const agentSessionId = (await speakingBot(caller)).sessionId
 
   if (!channel?.meeting || !channel.agentSessionIds?.includes(agentSessionId))
     throw new Error('This conversation is not in that meeting.')
