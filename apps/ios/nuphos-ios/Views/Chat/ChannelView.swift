@@ -174,6 +174,10 @@ struct ChannelView: View {
                 text: $draft,
                 canSend: channel.loaded && !channel.readOnly,
                 editRequest: $channel.unsent,
+                // As in a Task: `@` offers the viewer's other Bots and tasks, as their links.
+                mentions: MentionSource(teamId: channel.teamId, search: { query in
+                    await store.mentionableSessions(teamId: channel.teamId, excluding: channel.botId, matching: query)
+                }),
                 voiceTeamId: channel.teamId,
                 recipient: channel.title,
                 focusRequest: replyFocus,
@@ -352,6 +356,7 @@ struct ChatIcon: View {
 /// avatar and name, shown once per run. A person's files show above their
 /// words and an agent's below, as in a conversation.
 private struct ChannelPostRow: View {
+    @Environment(AgentStore.self) private var store
     let post: ChannelPost
     let first: Bool
     let mine: Bool
@@ -453,7 +458,7 @@ private struct ChannelPostRow: View {
     }
 
     private var bubble: some View {
-        AssistantMarkdown(text: post.text, theme: AssistantMarkdown.bubbleTheme, keepsLineBreaks: true, selectionRequest: selectionRequest, onLink: onLink)
+        AssistantMarkdown(text: SessionMention.named(post.text) { store.title(ofSession: $0) }, theme: AssistantMarkdown.bubbleTheme, keepsLineBreaks: true, selectionRequest: selectionRequest, onLink: onLink)
             .padding(.horizontal, 14)
             .padding(.vertical, 9)
             .background(flashed ? Theme.brand.opacity(0.3) : mine ? Theme.brand.opacity(0.14) : Theme.chatSurface,
