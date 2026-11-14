@@ -223,7 +223,7 @@ pub async fn model(
     }
 
     if value.is_some() || effort.is_some() {
-        bail!("Pick a model per Bot or task: pass --session, or choose one in the app before the first message.");
+        bail!("Pick a model per task: pass --session, or choose one in the app before the first message.");
     }
     let runtimes = ctx.runtimes().await?;
     let runtime = shared::default_runtime(&runtimes, &ctx.prefs, &team, &ctx.me_id)
