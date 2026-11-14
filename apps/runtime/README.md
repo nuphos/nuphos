@@ -12,6 +12,30 @@ image those runtimes run.
 New images are published to `ghcr.io/nuphos/runtime`. Historical versions remain
 available from `ghcr.io/zeabur/nuphos-runtime`.
 
+## Shared with the desktop local runtime
+
+Most of [`image/`](image) is not specific to the container. The local runtime
+that the desktop app and the CLI run on a person's computer or a Box ships the
+same adapters, patches and helpers in its bundle, and some desktop code imports
+them directly. Removing the managed runtime must keep these files.
+
+- **Shared:** every file in `RUNTIME_SOURCES` in
+  [`apps/desktop/local-runtime/bundle-stamp.mjs`](../desktop/local-runtime/bundle-stamp.mjs),
+  which is the authoritative list. It covers `runtime-guard.sh`,
+  `session-home.mjs`, the `claude-agent-acp/` and `codex-acp/` patches
+  (including `codex-acp/session-config.mjs`), the ACP shim and its modules,
+  the MCP bridge, and the sign-in and job programs. `antigravity-status.mjs`
+  and `antigravity-status.d.mts` are shared too, because the desktop app and
+  the backend import them.
+- **Managed only:** `Dockerfile`, `openab-config.*.toml`, `runtime-start.sh`,
+  `seed-codex-auth.sh`, `sync-skills.sh`, `hermes-login.mjs`,
+  `antigravity-status-cli.mjs` and `tools/`.
+
+CI runs the desktop jobs on every change under `image/`. Those jobs fail if a
+file in `RUNTIME_SOURCES` is missing. They also fail if a staged bundle lacks
+`runtime-guard.sh`, or an adapter lacks the inlined `session-home.mjs` (and,
+for Codex, `session-config.mjs`).
+
 ## What is in the image
 
 Three things, in layers:
