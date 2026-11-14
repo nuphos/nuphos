@@ -23,7 +23,6 @@ import { rowNote } from './row-note'
 import { SessionRowSurface } from './SessionRowSurface'
 import { SidebarSectionHeading } from './SidebarSectionHeading'
 import { isSidebarItemActive } from './types'
-import { useInboxBadge } from './use-inbox-badge'
 
 import type { Item, ItemMenuRequest, Section } from './types'
 import type { SidebarFavorite } from '../../lib/sidebarFavorites'
@@ -69,13 +68,11 @@ export function SidebarSectionList({
   onSelect,
   onOpenKey,
 }: SectionListProps) {
-  // The Inbox row carries how many conversations wait on the viewer.
-  const shown = useInboxBadge(scope.teamId, sections)
   const folds = (section: Section) => sectionFolds(section, isGroupCollapsed, toggleGroup)
 
   return (
     <>
-      {shown.map((section, idx) => (
+      {sections.map((section, idx) => (
         <BotsDropZone
           key={idx}
           // A Task dropped on Bots becomes a Bot.

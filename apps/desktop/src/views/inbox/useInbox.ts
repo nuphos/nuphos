@@ -2,17 +2,17 @@ import { queryOptions, useQuery } from '@tanstack/react-query'
 import { useEffect, useRef, useSyncExternalStore } from 'react'
 
 import { api } from '../../api.ts'
+import { cardReplyId } from '../../components/agent/panel/replyTarget.ts'
 import { onInputRequestsRefresh, refreshInputRequests } from '../../lib/inputRequestRefresh.ts'
 import { queryClient } from '../../lib/query/client.ts'
 import { queryKeys } from '../../lib/query/keys.ts'
 
-import { cardReplyId } from '../../components/agent/panel/replyTarget.ts'
+import { answeredIn, inboxCount, inboxQuestions } from './inboxItems.ts'
 
-import { answeredIn, inboxCount } from './inboxItems.ts'
-
+import type { InboxQuestion } from './inboxItems.ts'
 import type { DecisionAnswer } from '../../api/agent-chat-types'
-import type { DecisionCardRef, ReplyQuestion } from '../../components/agent/panel/replyTarget.ts'
 import type { AgentConversation } from '../../api/agent-types'
+import type { DecisionCardRef, ReplyQuestion } from '../../components/agent/panel/replyTarget.ts'
 
 export const INBOX_POLL_MS = 15_000
 // A reply the server took but has not applied yet (one queued behind a turn)
@@ -219,6 +219,14 @@ export function useInboxListing(teamId: string, reloadKey?: unknown) {
   }, [reloadKey, teamId, refetch])
 
   return listing
+}
+
+/** The Inbox's rows, as the sidebar's list and the Inbox page both show them; null while loading. */
+export function useInboxQuestions(teamId: string, reloadKey?: unknown): InboxQuestion[] | null {
+  const listing = useInboxListing(teamId, reloadKey).data
+  const onDevice = useAnsweredOnDevice()
+
+  return listing ? inboxQuestions(listing, onDevice) : null
 }
 
 /** How many questions wait on the viewer in this team, settling this device's answers. */
