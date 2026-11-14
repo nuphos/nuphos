@@ -238,9 +238,7 @@ pub fn apply(message: &mut Value, frame: &Value) -> Outcome {
             t.insert("state".into(), json!("output-denied"));
         }),
         "file" | "source-url" | "source-document" => parts_mut(message).push(frame.clone()),
-        "error" => {
-            return Outcome::Error(frame["errorText"].as_str().unwrap_or("The reply ended with an error.").to_string())
-        }
+        "error" => return Outcome::Error(frame["errorText"].as_str().unwrap_or("The agent hit an error.").to_string()),
         "finish" | "abort" => {
             finish_streaming_parts(message);
             return Outcome::Finished;

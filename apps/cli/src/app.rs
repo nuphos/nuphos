@@ -64,7 +64,7 @@ const SIGN_IN_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 const SPINNER: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const COMMANDS: [(&str, &str); 9] = [
     ("/model", "choose the model and reasoning effort"),
-    ("/full-access", "allow actions without asking, or ask again"),
+    ("/full-access", "allow the agent's actions without asking, or ask again"),
     ("/team", "switch to another team"),
     ("/agents", "choose, add or sign in the runtimes this team runs on"),
     ("/new", "start a new task"),
@@ -1284,7 +1284,7 @@ impl App {
                 return;
             }
             "error" => {
-                self.notice = Some(frame["errorText"].as_str().unwrap_or("The reply ended with an error.").to_string());
+                self.notice = Some(frame["errorText"].as_str().unwrap_or("The agent hit an error.").to_string());
                 return;
             }
             k if k.starts_with("atlas-")

@@ -56,12 +56,12 @@ pub fn install(join: Option<&str>) -> Result<i32> {
             // restart may still need it.
             write(&env_path, &env_file(&forwarded, None))?;
         } else {
-            eprintln!("The runtime host did not join Nuphos. Its log: journalctl --user -u nuphos-agent");
+            eprintln!("The agent did not join Nuphos. Its log: journalctl --user -u nuphos-agent");
             let _ = Command::new("journalctl").args(["--user", "-u", UNIT, "-n", "20", "--no-pager"]).status();
             return Ok(1);
         }
     }
-    println!("The runtime host runs as the systemd user service nuphos-agent and starts again after a restart.");
+    println!("The agent runs as the systemd user service nuphos-agent and starts again after a restart.");
     println!("Log: journalctl --user -u nuphos-agent -f    Stop: systemctl --user disable --now nuphos-agent");
     if !lingering() {
         eprintln!(
