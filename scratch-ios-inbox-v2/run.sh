@@ -22,6 +22,12 @@ assert old in s
 s=s.replace(old,'        if !toast.waitForExistence(timeout: 5) { print("TOAST-MISSING", Date(), app.debugDescription) }\n'+old,1)
 open(p,'w').write(s)
 PY
+# Scratch only: Duo's rig photo takes ~5 s, longer than the 5 s hold, so stretch the hold to catch the toast.
+sed -i 's/Task.sleep(for: .seconds(5))/Task.sleep(for: .seconds(20))/' nuphos-ios/Services/Chat/OpenQuestions.swift
+sed -i 's/toast.waitForNonExistence(timeout: 10)/toast.waitForNonExistence(timeout: 30)/' UITests/InboxUITests.swift
+grep -c "seconds(20)" nuphos-ios/Services/Chat/OpenQuestions.swift
+# No hardware keyboard, as in the design: no focus ring on the selected row.
+defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false
 dd="$RUNNER_TEMP/dd"
 R="$RUNNER_TEMP/sill/Tests/duorig/run.sh"
 xcodebuild build-for-testing -project nuphos-ios.xcodeproj -scheme nuphos-ios -configuration Debug \
