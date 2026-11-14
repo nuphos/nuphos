@@ -104,25 +104,29 @@ GCP operation to verify the impersonation grant works.
 ### Token Creator grant rejected: "do not belong to a permitted customer"
 
 Google returns this when an organization policy limits which identities may
-appear in IAM policies. The error does not name the constraint. Do not tell the
-user to turn a policy off, and do not hand them a policy to apply: a human
-administrator decides on and makes any policy change.
+appear in IAM policies. Do not tell the user to turn a policy off, and do not
+hand them a policy to apply: a human administrator decides on and makes any
+policy change.
 
-Documented by Google
-(https://docs.cloud.google.com/organization-policy/restrict-domains):
-
-- The message is the documented violation of Domain Restricted Sharing
+- This message comes from Domain Restricted Sharing
   (`iam.allowedPolicyMemberDomains`), enforced by default on organizations
-  created on or after 2024-05-03. That constraint only accepts organization
-  principal sets and Google Workspace customer IDs, never a single principal.
-- `iam.managed.allowedPolicyMembers` can also deny the grant. A project policy
-  for it replaces the parent policy rather than merging with it.
+  created on or after 2024-05-03. It only accepts organization principal sets
+  and Google Workspace customer IDs, never a single principal.
+- `iam.managed.allowedPolicyMembers` reports a different error,
+  `Operation denied by org policy ... constraints/iam.managed.allowedPolicyMembers`.
+  Its `allowedMemberSubjects` accepts the single Nuphos `principal://` value and
+  allows only that exact subject; `allowedPrincipalSets` must be non-empty and
+  list only `//cloudresourcemanager.googleapis.com/organizations/<id>` values. A
+  project policy replaces the parent policy rather than merging with it, and a
+  new policy takes several minutes to take effect.
 - Every constraint in force must allow the principal, so relaxing one does not
   help while another still denies it.
 
-Not documented: whether `allowedMemberSubjects` in the managed constraint
-accepts a workload identity `principal://` value. Do not present either
-constraint as a working fix until that is confirmed.
+The narrowest exception is therefore on the project that holds the connector
+service account: a managed policy that keeps the organization's principal set
+and every parent value and adds the Nuphos principal to `allowedMemberSubjects`,
+then, once it is in effect, `allowAll` for the legacy constraint on that project.
+See https://docs.cloud.google.com/organization-policy/restrict-domains.
 
 The one piece of evidence needed is which of the two constraints is in force on
 the project that holds the connector service account. Ask the administrator for
