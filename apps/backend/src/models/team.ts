@@ -59,7 +59,10 @@ export type TeamByosBindings = {
   // Optional for the same reason; readers use `doc.huaweiAccounts ?? []`.
   huaweiAccounts?: HuaweiAccountBinding[]
   grafanaInstances: GrafanaInstanceBinding[]
-  githubInstallations: GithubInstallationBinding[]
+  // Optional: team docs first created by an older bind route, whose hand-written
+  // insert defaults left it out, have no such field. Readers use
+  // `doc.githubInstallations ?? []`.
+  githubInstallations?: GithubInstallationBinding[]
   gitlabAccounts: GitlabBinding[]
   cloudflareAccounts: CloudflareAccountBinding[]
   linodeAccounts: LinodeAccountBinding[]
