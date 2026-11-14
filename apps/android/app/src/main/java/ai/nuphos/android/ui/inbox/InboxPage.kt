@@ -68,6 +68,7 @@ fun InboxPage(inbox: OpenQuestions?, nav: NavHostController, allowed: () -> Bool
                 items(inbox.list.asReversed(), key = { it.id }) { question ->
                     BotQuestionCard(question, onOpen = { nav.navigate("conversation/${question.sessionId}") },
                         onAnswer = { text -> if (allowed()) inbox.answer(question, text, scope) },
+                        onForm = { body -> if (allowed()) inbox.answer(question, body, scope) },
                         failure = inbox.failures[question.id],
                         answersInPlace = true,
                         onConnect = {

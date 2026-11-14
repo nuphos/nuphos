@@ -10,6 +10,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.outlined.RadioButtonUnchecked
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Button
@@ -29,6 +36,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import ai.nuphos.android.data.JsonValue
+import ai.nuphos.android.model.DecisionQuestion
 import ai.nuphos.android.session.BotQuestion
 import ai.nuphos.android.ui.components.MarkdownText
 import androidx.compose.foundation.layout.heightIn
@@ -37,7 +46,8 @@ import androidx.compose.ui.draw.clipToBounds
 /**
  * An open question, in a Bot's chat or the Inbox, like Desktop's decision card: which agent asked,
  * the question and what the agent wrote to decide it from, each option an answer, and "Other…" to
- * type the answer in the card (in the Inbox, [answersInPlace], the text box is always there). An answer
+ * type the answer in the card (in the Inbox, [answersInPlace], the text box is always there). A card
+ * with several questions or any number of picks is a form, sent once as [onForm]. An answer
  * wakes the agent that asked; no message is sent. A connect or secure-input question is answered in the
  * conversation that asked, which the link opens. [showsFrom] is off for the Bot's own questions in its own chat.
  */
@@ -54,6 +64,8 @@ internal fun BotQuestionCard(
     onConnect: (() -> Unit)? = null,
     /** The text box is always on the card, rather than behind "Other…", as the Inbox shows it. */
     answersInPlace: Boolean = false,
+    /** A several-question or multi-select card's answer, as its form builds it. */
+    onForm: (JsonValue) -> Unit = {},
 ) {
     val replies = cardReplies(question)
     // "Other…" was tapped: the card asks for the answer in words.
@@ -70,8 +82,10 @@ internal fun BotQuestionCard(
                 Text(heading(question.request.category), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium)
                 Text(question.request.question, style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                question.request.body?.takeIf { it.isNotBlank() }?.let { QuestionBody(question.id, it, onLink) }
-                if (replies == null && onConnect != null && question.connectable) {
+                question.ownBody?.let { QuestionBody(question.id, it, onLink) }
+                val form = question.form
+                if (form != null) DecisionForm(question.id, form, onForm)
+                else if (replies == null && onConnect != null && question.connectable) {
                     val own = question.personalCredentials?.joinToString(" and ") { if (it == "github") "GitHub" else if (it == "linear") "Linear" else it }
                     OutlinedButton(onClick = onConnect, modifier = Modifier.testTag("bot-question-connect")) {
                         Text(own?.let { "Use your own $it" } ?: "Choose credentials")
@@ -119,6 +133,48 @@ internal fun cardReplies(question: BotQuestion): List<Pair<String, String>>? {
     // Neither an option nor words answer it here.
     if (options.isEmpty() && !question.typed) return null
     return options.map { it to it }
+}
+
+/**
+ * Desktop's `DecisionForm`: each question's options toggled, one or any number, or the answer typed in
+ * their place, sent together as one answer once every question has one.
+ */
+@Composable
+private fun DecisionForm(id: String, questions: List<DecisionQuestion>, onSubmit: (JsonValue) -> Unit) {
+    // Keyed on the questions too: an agent can correct an open card, keeping its id, and the form starts over.
+    val picked = remember(id, questions) { mutableStateListOf(*Array(questions.size) { emptyList<String>() }) }
+    val typed = remember(id, questions) { mutableStateListOf(*Array(questions.size) { "" }) }
+    val complete = questions.indices.all { BotQuestion.answerText(picked[it], typed[it]).isNotEmpty() }
+    Column(Modifier.testTag("bot-question-form"), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        questions.forEachIndexed { index, item ->
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (questions.size > 1) Text(item.question, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                item.options.orEmpty().forEach { option ->
+                    val on = option in picked[index]
+                    val toggle = {
+                        picked[index] = when {
+                            on -> picked[index] - option
+                            item.multiSelect == true -> picked[index] + option
+                            else -> listOf(option)
+                        }
+                    }
+                    val label: @Composable () -> Unit = {
+                        Icon(if (on) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(option)
+                    }
+                    val tag = Modifier.testTag("bot-question-choice")
+                    if (on) FilledTonalButton(onClick = toggle, modifier = tag) { label() }
+                    else OutlinedButton(onClick = toggle, modifier = tag) { label() }
+                }
+                OutlinedTextField(typed[index], { typed[index] = it }, Modifier.fillMaxWidth().testTag("bot-question-form-text"),
+                    placeholder = { Text(if (item.options.isNullOrEmpty()) "Your answer" else "Or type your own answer") },
+                    textStyle = MaterialTheme.typography.bodyMedium)
+            }
+        }
+        Button(onClick = { onSubmit(BotQuestion.formAnswer(questions, picked.toList(), typed.toList())) }, enabled = complete,
+            modifier = Modifier.testTag("bot-question-form-send")) { Text("Send answer") }
+    }
 }
 
 /** The answer in words, sent as the question's answer like an option; no message is sent. */
