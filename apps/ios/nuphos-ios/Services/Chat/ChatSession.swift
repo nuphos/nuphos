@@ -46,6 +46,8 @@ final class ChatSession {
     private(set) var permissionMode: PermissionMode = .auto
     /// Sent with each turn; nil keeps the conversation's stored choice.
     var credentialAccess: CredentialSelection?
+    /// A Task under a Bot: its credentials, computers and permission mode are the Bot's.
+    private(set) var followsBot = false
     /// New conversation: the runtime it starts on (nil lets the team default
     /// decide). Sent on the first PUT/POST only.
     var runtime: RuntimeInstance?
@@ -378,6 +380,7 @@ final class ChatSession {
             adoptRuntime(from: detail)
             receiveRuntime(detail.runtimeState, observedAt: observedAt)
             Task { await refreshQueue() }
+            followsBot = detail.followsBot
             if let stored = detail.credentialAccess {
                 let selection = CredentialSelection(json: stored)
                 credentialAccess = selection.isBlank ? nil : selection
