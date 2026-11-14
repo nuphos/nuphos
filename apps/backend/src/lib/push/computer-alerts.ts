@@ -29,7 +29,10 @@ export function createComputerAlerts(deps: ComputerAlertDeps = defaults) {
       (device) => device.platform === 'ios' && device.computerAlerts !== false,
     )
 
-    if (devices.length === 0 || !admit(userId, `computer:${change.deviceId}:${change.online ? 'on' : 'off'}`))
+    if (
+      devices.length === 0 ||
+      !admit(userId, `computer:${change.deviceId}:${change.online ? 'on' : 'off'}`)
+    )
       return
     // Back online replaces the offline alert still on the phone.
     await sendIos(
