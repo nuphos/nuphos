@@ -101,6 +101,44 @@ gcloud iam service-accounts add-iam-policy-binding \
 After the local command succeeds, retry `setup-credentials.sh` or the original
 GCP operation to verify the impersonation grant works.
 
+### Token Creator grant rejected: "do not belong to a permitted customer"
+
+This error comes from the organization's Domain Restricted Sharing policy
+(`iam.allowedPolicyMemberDomains`, enforced by default on organizations created
+on or after 2024-05-03). The Nuphos principal lives outside the customer's
+Google Workspace / Cloud Identity customer, so the grant is refused. Do not tell
+the user to turn the policy off. Instead, on only the project that holds the
+connector service account, someone with Organization Policy Administrator
+(`roles/orgpolicy.policyAdmin`) on the organization replaces it with the managed
+constraint, which allows single principals:
+
+```yaml
+# policy.yaml — apply with: gcloud org-policies set-policy policy.yaml --update-mask=spec
+name: projects/<project-id>/policies/iam.managed.allowedPolicyMembers
+spec:
+  rules:
+  - enforce: true
+    parameters:
+      allowedPrincipalSets:
+      - //cloudresourcemanager.googleapis.com/organizations/<customer-org-id>
+      allowedMemberSubjects:
+      - principal://iam.googleapis.com/projects/<nuphos-project-number>/locations/global/workloadIdentityPools/<pool-id>/subject/nuphos:team:<team-id>
+```
+
+Only after that succeeds, set the legacy constraint on the same project to allow
+all, so the managed constraint above is what restricts it:
+
+```yaml
+name: projects/<project-id>/policies/iam.allowedPolicyMemberDomains
+spec:
+  rules:
+  - allowAll: true
+```
+
+Then retry the Token Creator grant. If the organization will not adopt the
+managed constraint, refer the user to Nuphos support. See
+https://docs.cloud.google.com/organization-policy/restrict-domains.
+
 ### No binding, or a binding on the wrong project
 
 Creating the Nuphos-side binding is a human step. `POST /teams/:teamId/gcp-projects`
