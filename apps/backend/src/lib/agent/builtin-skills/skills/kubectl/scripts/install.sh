@@ -16,8 +16,9 @@ case "$arch" in
     ;;
 esac
 
+os="$(uname -s | tr '[:upper:]' '[:lower:]')"
 stable="$(curl -fsSL https://dl.k8s.io/release/stable.txt)"
-url="https://dl.k8s.io/release/${stable}/bin/linux/${kube_arch}/kubectl"
+url="https://dl.k8s.io/release/${stable}/bin/${os}/${kube_arch}/kubectl"
 
 tmp="$(mktemp)"
 curl -fsSL "$url" -o "$tmp"

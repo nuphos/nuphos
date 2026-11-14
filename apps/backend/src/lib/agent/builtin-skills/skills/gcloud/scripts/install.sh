@@ -30,7 +30,8 @@ mkdir -p "$install_root"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
-url="https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-${gc_arch}.tar.gz"
+os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+url="https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-${os}-${gc_arch}.tar.gz"
 tarball="${work}/google-cloud-cli.tar.gz"
 
 curl -fsSL "$url" -o "$tarball"
