@@ -108,7 +108,7 @@ struct ChannelView: View {
                     }
                 }
             }
-            .alert("Couldn't switch agent", isPresented: Binding(
+            .alert("Couldn't switch runtime", isPresented: Binding(
                 get: { switchError != nil }, set: { if !$0 { switchError = nil } })) {
                 Button("OK") { switchError = nil }
             } message: {
@@ -441,7 +441,7 @@ private struct ChannelPostRow: View {
             }
             Text(post.name).font(Theme.Text.caption.weight(.medium)).foregroundStyle(Theme.body).lineLimit(1)
             if post.isAgent {
-                Text("Agent")
+                Text("Bot")
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(Theme.muted)
                     .padding(.horizontal, 5)
@@ -511,7 +511,7 @@ private struct ReplyFailedLine: View {
             if onSwitch != nil || onRetry != nil {
                 HStack(spacing: 8) {
                     if let onSwitch {
-                        Button("Switch agent", action: onSwitch).buttonStyle(.bordered).accessibilityIdentifier("chat.switchAgent")
+                        Button("Switch runtime", action: onSwitch).buttonStyle(.bordered).accessibilityIdentifier("chat.switchAgent")
                     }
                     if let onRetry {
                         Button("Retry", action: onRetry).buttonStyle(.borderless).accessibilityIdentifier("chat.retryReply")

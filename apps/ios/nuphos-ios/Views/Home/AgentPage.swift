@@ -82,7 +82,7 @@ struct AgentPage: View {
             } message: { _ in
                 Text("Its chat is archived with it. Unarchive either one to bring both back.")
             }
-            .alert("Rename agent", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } }), presenting: renaming) { conversation in
+            .alert("Rename task", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } }), presenting: renaming) { conversation in
                 let title = renamedTitle.trimmingCharacters(in: .whitespacesAndNewlines)
                 TextField("Title", text: $renamedTitle)
                 Button("Cancel", role: .cancel) {}
@@ -264,12 +264,12 @@ struct AgentPage: View {
                 Text("Open Nuphos on your computer to add a Box or connect your own computer, or ask a workspace administrator to connect one.")
             }
         case .idle, .loading:
-            ProgressView("Loading agents…")
+            ProgressView("Loading tasks…")
                 .tint(Theme.muted)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .failed(let message):
             ContentUnavailableView {
-                Label("Couldn't load agents", systemImage: "wifi.exclamationmark")
+                Label("Couldn't load tasks", systemImage: "wifi.exclamationmark")
             } description: {
                 Text(message)
             } actions: {
@@ -530,7 +530,7 @@ struct ChannelRow: View {
 /// decides how the query is applied.
 struct SearchBar: View {
     @Binding var text: String
-    var placeholder: LocalizedStringKey = "Search agents"
+    var placeholder: LocalizedStringKey = "Search tasks"
     var onCancel: () -> Void
     @FocusState private var focused: Bool
 
