@@ -116,8 +116,9 @@ test('a held Inbox answer leaves at once, comes back on Undo, and is sent when t
   const undo = inbox.holdAnswer('team', 'agent', 'h1', { choices: ['Yes'] })
 
   assert.equal(count(), 1)
-  undo()
+  assert.equal(undo(), true)
   assert.equal(count(), 2)
+  assert.equal(undo(), false, 'undoing twice does nothing')
   assert.equal(answers.length, before, 'an undone answer is never sent')
 
   inbox.holdAnswer('team', 'agent', 'h1', { choices: ['Yes'] })

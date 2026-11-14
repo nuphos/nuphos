@@ -114,9 +114,9 @@ export function InboxView({
         dedupe: false,
         action: {
           label: t('Undo'),
+          // Once sent, the answer stays: the question is not opened again.
           onClick: () => {
-            undo()
-            selectInboxQuestion(teamId, selection)
+            if (undo()) selectInboxQuestion(teamId, selection)
           },
         },
       },
