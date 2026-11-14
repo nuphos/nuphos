@@ -74,7 +74,7 @@ export const Sidebar = memo(function Sidebar({
   )
   const [sidebarPage, changeSidebarPage] = useSidebarMode(scope.teamId, agentSessionId)
   const teamId = scope.teamId
-  const chrome = useSidebarChrome({ teamId, collapsed })
+  const chrome = useSidebarChrome({ teamId, collapsed, page: sidebarPage })
   const { width, dragging, setDragging, peek, setPeek } = chrome
   const { agentSessions, chatItems, newChatActive, archiveChat, unlinkChat, archivingIds } =
     useSidebarChats({
