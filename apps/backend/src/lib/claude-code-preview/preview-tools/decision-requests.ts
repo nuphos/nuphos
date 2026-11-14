@@ -166,7 +166,8 @@ export async function askInChannel(
   const asked = await askedInChannel(ctx, category)
 
   if (asked.channelId) {
-    const bot = await getConversationBySessionId(ctx.sessionId)
+    // The card is already out: an unread title falls back to the generic name.
+    const bot = await getConversationBySessionId(ctx.sessionId).catch(() => null)
 
     notifyNudge([requestOwner(ctx)], {
       sessionId: asked.channelId,
