@@ -2,7 +2,9 @@ import { createHmac } from 'node:crypto'
 
 import { describe, expect, test } from 'bun:test'
 
-import { eventText, joinWords } from './meetings'
+import { BOT_AVATARS, derivedAvatar } from '@/lib/agent/bot-avatars'
+
+import { eventText, faceJpeg, joinWords } from './meetings'
 import { verifyRecallSignature } from './recall'
 
 import type { RecallEvent } from './meetings'
@@ -102,5 +104,21 @@ describe('eventText', () => {
     expect(eventText(own, 'Secretary')).toBeUndefined()
     expect(eventText(event('transcript.data', { words: [] }), 'Secretary')).toBeUndefined()
     expect(eventText(event('participant_events.join', {}), 'Secretary')).toBeUndefined()
+  })
+})
+
+describe('faceJpeg', () => {
+  test('every bot face has a JPEG for the call', async () => {
+    for (const avatar of BOT_AVATARS) {
+      const jpeg = Buffer.from(await faceJpeg({ sessionId: 's', avatar }), 'base64')
+
+      expect(jpeg.subarray(0, 3)).toEqual(Buffer.from([0xff, 0xd8, 0xff]))
+    }
+  })
+
+  test('a conversation without a picked face uses the one its id selects', async () => {
+    expect(await faceJpeg({ sessionId: 'abc' })).toBe(
+      await faceJpeg({ sessionId: 'x', avatar: derivedAvatar('abc') }),
+    )
   })
 })
