@@ -94,6 +94,7 @@ export async function attachRuntimeTunnel(
       void toStream(s, { t: 'close', reason: 'The computer running this agent disconnected' })
     streams.clear()
     void deps.presence.clear(userId, deviceId, conn).catch(() => {})
+    deps.connectionChanged?.(userId, deviceId, false)
   }
   // Every close is logged once with its reason, whichever side ended the tunnel.
   const logClosed = (code: number | undefined, reason: string, extra?: Record<string, unknown>) =>
@@ -217,8 +218,8 @@ export async function attachRuntimeTunnel(
   if (!ended) {
     openTunnels++
     counted = true
+    deps.connectionChanged?.(userId, deviceId, true)
   }
-  deps.connectionChanged?.(userId, deviceId)
 
   return {
     receive(raw) {
@@ -290,10 +291,7 @@ export async function attachRuntimeTunnel(
       sawFrame()
     },
     closed(code, reason) {
-      if (!ended) {
-        logClosed(code, reason || 'The connection closed')
-        deps.connectionChanged?.(userId, deviceId)
-      }
+      if (!ended) logClosed(code, reason || 'The connection closed')
       end()
     },
   }

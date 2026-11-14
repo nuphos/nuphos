@@ -12,6 +12,7 @@ struct ProfileSheet: View {
     private var currentUser: NuphosUser { session.user ?? user }
     @State private var editing = false
     @AppStorage(BotAvatars.enabledKey, store: BotAvatars.defaults) private var botAvatars = true
+    @AppStorage(PushNotifications.computerAlertsKey) private var computerAlerts = true
 
     @State private var confirmSignOut = false
     @State private var showAppIcons = false
@@ -83,6 +84,16 @@ struct ProfileSheet: View {
                 }
                 .listRowBackground(Theme.surface)
                 #endif
+
+                Section {
+                    Toggle("Computers going offline", isOn: $computerAlerts)
+                        .onChange(of: computerAlerts) { PushNotifications.shared.computerAlertsChanged() }
+                } header: {
+                    Text("Notifications")
+                } footer: {
+                    Text("Get notified when a computer you own or use has been offline for 2 minutes, and when it's back.")
+                }
+                .listRowBackground(Theme.surface)
 
                 Section {
                     Toggle("Bot avatars", isOn: $botAvatars)
