@@ -35,6 +35,7 @@ import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.automirrored.outlined.Reply
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material.icons.outlined.DesktopWindows
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -56,6 +57,14 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import kotlinx.coroutines.withTimeoutOrNull
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -286,19 +295,34 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
 @Composable
 private fun PostRow(session: ChannelSession, post: ChannelPost, first: Boolean, mine: Boolean, onLink: (String) -> Unit, allowed: () -> Boolean,
                     downloads: TransferDownloads, flashed: Boolean = false, onQuote: (ChannelReply) -> Unit = {}) {
-    // Long-press opens the post's menu: Reply where the viewer can post, and Copy.
+    // Long-press opens the post's menu: Reply where the viewer can post, Select Text and Copy, as on iOS.
     var menu by remember { mutableStateOf(false) }
+    // Select Text makes the words selectable, so a long-press there picks a passage instead of opening the menu.
+    var selecting by remember(post.id) { mutableStateOf(false) }
     val haptics = LocalHapticFeedback.current
     val clipboard = LocalClipboardManager.current
     val canReply = !session.readOnly && !post.sending
     Row(Modifier.fillMaxWidth().padding(top = if (first) 12.dp else 4.dp)) {
         if (mine) Spacer(Modifier.weight(1f).widthIn(min = 48.dp))
-        Column(Modifier.widthIn(max = 300.dp).combinedClickable(interactionSource = null, indication = null, onClick = {},
-            onLongClickLabel = "Post actions", onLongClick = { haptics.performHapticFeedback(HapticFeedbackType.LongPress); menu = true }),
+        Column(Modifier.widthIn(max = 300.dp)
+            // While selecting, presses go to the words; a quick tap anywhere on the post ends it.
+            .pointerInput(selecting) {
+                if (!selecting) return@pointerInput
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    val up = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) { waitForUpOrCancellation(PointerEventPass.Initial) }
+                    if (up != null) selecting = false
+                }
+            }
+            .combinedClickable(enabled = !selecting, interactionSource = null, indication = null, onClick = {},
+                onLongClickLabel = "Post actions", onLongClick = { haptics.performHapticFeedback(HapticFeedbackType.LongPress); menu = true })
+            .semantics { if (post.text.isNotEmpty()) customActions = listOf(CustomAccessibilityAction("Select Text") { selecting = true; true }) },
             horizontalAlignment = if (mine) Alignment.End else Alignment.Start) {
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 if (canReply) DropdownMenuItem(text = { Text("Reply") }, leadingIcon = { Icon(Icons.AutoMirrored.Outlined.Reply, null) },
                     onClick = { menu = false; session.reply(post) })
+                if (post.text.isNotEmpty()) DropdownMenuItem(text = { Text("Select Text") }, leadingIcon = { Icon(Icons.Outlined.TextFields, null) },
+                    onClick = { menu = false; selecting = true }, modifier = Modifier.testTag("post-select-text"))
                 if (post.text.isNotEmpty()) DropdownMenuItem(text = { Text("Copy") }, leadingIcon = { Icon(Icons.Outlined.ContentCopy, null) },
                     onClick = { menu = false; clipboard.setText(AnnotatedString(post.text)) })
             }
@@ -335,7 +359,11 @@ private fun PostRow(session: ChannelSession, post: ChannelPost, first: Boolean, 
                     mine -> MaterialTheme.colorScheme.primaryContainer
                     else -> MaterialTheme.colorScheme.surfaceContainerHigh
                 }) {
-                Box(Modifier.padding(horizontal = 14.dp, vertical = 9.dp)) { MarkdownText(post.text, onLink = onLink, compact = true) }
+                Box(Modifier.padding(horizontal = 14.dp, vertical = 9.dp)) {
+                    if (selecting) androidx.compose.foundation.text.selection.SelectionContainer(Modifier.testTag("post-selectable")) {
+                        MarkdownText(post.text, onLink = onLink, compact = true)
+                    } else MarkdownText(post.text, onLink = onLink, compact = true)
+                }
             }
             // An agent's files show below its words, every group in one grid.
             if (post.downloads.isNotEmpty()) Box(Modifier.padding(top = 6.dp)) {
