@@ -1,7 +1,6 @@
 import { turnRunner } from '@/lib/agent/turn-runner'
 import { signNuphosToken } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
-import { getSlackUserMappingForNuphosUser } from '@/lib/slack/agent-bot'
 import { postSlackMessage } from '@/lib/slack/api'
 import { resolveSlackBotForWorkspace } from '@/lib/slack/installations'
 import { fetchSlackUserName } from '@/lib/slack/user-profile'
@@ -126,60 +125,4 @@ export async function resumeApprovedPlanTurn(args: {
   } finally {
     release()
   }
-}
-
-/**
- * A plan approved in the Nuphos app rather than from its own Slack card — see
- * lib/agent/plan-slack-resume.ts for why the thread has to be the one to run it.
- *
- * Called detached from the approving HTTP request: it posts to Slack and starts
- * a turn, neither of which the approval should wait on or be failed by.
- */
-export async function resumeApprovedPlanTurnFromNuphos(args: {
-  thread: SlackAgentThread
-  planId: string
-  planTitle: string
-  approverNuphosUserId: string
-}): Promise<void> {
-  // A turn already running for this session means the approval came from inside
-  // it — the agent PATCHing the plan it is working on (the plan skill forbids
-  // it, but the REST path allows it). It is already in the thread and can start
-  // executing where it is; kicking would announce an approval nobody made and
-  // then run the plan a SECOND time once the claim frees. The button path waits
-  // for the claim instead because there the approval provably came from outside.
-  if (
-    await turnRunner.hasActiveAgentRunForSession(args.thread.agentUserId, args.thread.sessionId)
-  ) {
-    logEvent('info', 'slack.plan.resume_from_nuphos_skipped', {
-      plan_id: args.planId,
-      session_id: args.thread.sessionId,
-      team_id: args.thread.teamId,
-      reason: 'turn_already_running',
-    })
-
-    return
-  }
-  // Name the approver in Slack terms when they have an identity in this
-  // workspace; best-effort, the resume proceeds either way.
-  const mapping = await getSlackUserMappingForNuphosUser(
-    args.thread.slackWorkspaceId,
-    args.thread.teamId,
-    args.approverNuphosUserId,
-  ).catch(() => null)
-
-  logEvent('info', 'slack.plan.resume_from_nuphos', {
-    plan_id: args.planId,
-    session_id: args.thread.sessionId,
-    team_id: args.thread.teamId,
-    slack_channel_id: args.thread.slackChannelId,
-    approver_nuphos_user_id: args.approverNuphosUserId,
-    approver_slack_user_id: mapping?.slackUserId,
-  })
-  await resumeApprovedPlanTurn({
-    thread: args.thread,
-    planId: args.planId,
-    planTitle: args.planTitle,
-    approverSlackUserId: mapping?.slackUserId ?? null,
-    approverNuphosUserId: args.approverNuphosUserId,
-  })
 }

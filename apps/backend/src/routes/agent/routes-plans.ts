@@ -1,35 +1,20 @@
-import { journalPlanDecision } from '@/lib/agent/journal-capture'
-import { approvePlanForCaller } from '@/lib/agent/plan-decision'
-import { wakeForPlanDecision } from '@/lib/agent/plan-wake'
 import {
   assertPlanAccess,
   getPlan,
   getTeamPlanApprovalRequirement,
   listPlans,
-  retryPlan,
-  updatePlan,
-  updateTeamPlanApprovalRequirement,
 } from '@/lib/agent/plans'
 import {
-  normalizeAgentPlanUpdatePatch,
   planApprovalPolicyGetOperation,
-  planApprovalPolicyUpdateOperation,
-  planApproveOperation,
   planGetOperation,
-  planIdPathSchema,
   planListOperation,
-  planUpdateOperation,
 } from '@/lib/api/plans'
 import { AppError } from '@/lib/errors'
-import { getTeamMembers, getTeamMembership } from '@/lib/identity'
-import { logError } from '@/lib/observability'
 import { unreadableSessionIds } from '@/routes/agent-journal/shared'
 
-import { defineAgentApiRoute, parseWithSchema } from './api-route'
+import { defineAgentApiRoute } from './api-route'
 import { agent } from './router'
 import { readTeamIdCandidate, resolveVerifiedTeamId } from './team-scope'
-
-import type { PlanDTO, UpdatePlanPatch } from '@/lib/agent/plans'
 
 defineAgentApiRoute(planListOperation, async (c, { query }) => {
   const userId = c.get('userId')
@@ -71,37 +56,6 @@ defineAgentApiRoute(planGetOperation, async (c, { path }) => {
   return c.json(plan)
 })
 
-/**
- * A plan decided here, not by answering its question in a turn, wakes its
- * conversation. Detached: starting a turn must not fail the decision that landed.
- */
-function wake(plan: PlanDTO, decision: 'approved' | 'rejected', userId: string): void {
-  void wakeForPlanDecision(plan, decision, userId).catch((err: unknown) => {
-    logError('agent.plan.wake_failed', err, { plan_id: String(plan.number), user_id: userId })
-  })
-}
-
-/** Records an approval; the vote that completes the gate wakes the plan's conversation. */
-async function approveAndWake(input: {
-  planId: string
-  teamId?: string
-  userId: string
-}): Promise<{ plan: PlanDTO; thresholdReached: boolean }> {
-  const result = await approvePlanForCaller(input)
-
-  if (result.thresholdReached) wake(result.plan, 'approved', input.userId)
-
-  return result
-}
-
-defineAgentApiRoute(planApproveOperation, async (c, { path, body }) => {
-  const userId = c.get('userId')
-  const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c, body.teamId))
-  const { plan } = await approveAndWake({ planId: path.planId, teamId, userId })
-
-  return c.json(plan)
-})
-
 defineAgentApiRoute(planApprovalPolicyGetOperation, async (c, { query }) => {
   const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c, query.teamId))
 
@@ -110,108 +64,17 @@ defineAgentApiRoute(planApprovalPolicyGetOperation, async (c, { query }) => {
   return c.json(await getTeamPlanApprovalRequirement(teamId))
 })
 
-defineAgentApiRoute(planApprovalPolicyUpdateOperation, async (c, { body }) => {
-  const userId = c.get('userId')
-  const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c, body.teamId))
+// Plans are retired in favour of approval decisions (#2316). Released clients
+// still read them as history; anything that would change one gets a stable answer.
+function retired(): never {
+  throw new AppError(
+    410,
+    'plans_retired',
+    'Plans are retired. Agents now ask for approval with a decision in the Inbox.',
+  )
+}
 
-  if (!teamId) throw new AppError(400, 'invalid_request', 'teamId is required')
-  const membership = await getTeamMembership(userId, teamId)
-
-  if (membership?.role !== 'ADMINISTRATOR') {
-    throw new AppError(403, 'forbidden', 'Only team administrators can change plan approval policy')
-  }
-  const members = await getTeamMembers(teamId)
-  const maximumOtherApprovals = Math.max(0, members.length - 1)
-
-  if (body.minimumOtherApprovals > maximumOtherApprovals) {
-    throw new AppError(
-      400,
-      'invalid_body',
-      `This team can require at most ${String(maximumOtherApprovals)} other approval(s)`,
-    )
-  }
-  const requirement = await updateTeamPlanApprovalRequirement({
-    teamId,
-    requesterApprovalRequired: body.requesterApprovalRequired,
-    minimumOtherApprovals: body.minimumOtherApprovals,
-    updatedBy: userId,
-  })
-
-  return c.json(requirement)
-})
-
-defineAgentApiRoute(planUpdateOperation, async (c, { path, body: parsed }) => {
-  const userId = c.get('userId')
-  const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c, parsed.teamId))
-  const { teamId: _bodyTeamId, ...parsedPatch } = parsed
-  // Construction fields arrive via the plan skill's REST path — apply the
-  // same trims/truncation the plan tools used to do, each field
-  // independently (partial cost/risk patches must not skip truncation).
-  const patch: UpdatePlanPatch = normalizeAgentPlanUpdatePatch(parsedPatch)
-  let currentPlan: Awaited<ReturnType<typeof getPlan>> | null = null
-
-  async function loadCurrentPlan() {
-    currentPlan ??= await getPlan(path.planId, { teamId, userId })
-    if (!currentPlan) throw new AppError(404, 'not_found', 'Plan not found')
-
-    return currentPlan
-  }
-  await assertPlanAccess(await loadCurrentPlan(), userId, 'reply')
-  // Backward compatibility for existing desktop clients: the old
-  // PATCH {status:"approved"} shape records one approval against the policy
-  // snapshot instead of bypassing quorum. Approval is intentionally isolated
-  // from content edits so the statement being approved cannot change in the
-  // same request.
-  if (patch.status === 'approved') {
-    if (Object.keys(parsedPatch).some((key) => key !== 'status')) {
-      throw new AppError(400, 'invalid_body', 'Approval cannot be combined with other plan changes')
-    }
-    const { plan } = await approveAndWake({ planId: path.planId, teamId, userId })
-
-    return c.json(plan)
-  }
-  if (patch.status === 'executing') {
-    // Execution must follow an explicit approval — never let this generic patch
-    // endpoint imply approval by backfilling approvedBy. updatePlan() also blocks
-    // the proposed -> executing transition atomically; this check is for a clear error.
-    const current = await loadCurrentPlan()
-
-    if (current.status === 'proposed') {
-      throw new AppError(409, 'plan_not_approved', 'Plan must be approved before execution')
-    }
-    patch.executionStartedAt = new Date()
-  }
-  if (patch.status === 'completed' || patch.status === 'failed') {
-    patch.executionFinishedAt = new Date()
-  }
-  if (patch.status === 'rejected') patch.rejectedBy = userId
-  const plan = await updatePlan(path.planId, patch, { teamId, userId })
-
-  if (!plan) throw new AppError(404, 'not_found', 'Plan not found')
-  // Record the human decision on the conversation's tamper-evident chain — the
-  // trust root that a tool intent's plan-approved attribution points back at.
-  if (patch.status === 'rejected') {
-    await journalPlanDecision(plan, { userId, teamId: teamId ?? null }, patch.status)
-    wake(plan, 'rejected', userId)
-  }
-
-  return c.json(plan)
-})
-
-agent.post('/plans/:planId/retry', async (c) => {
-  const userId = c.get('userId')
-  const path = parseWithSchema(planIdPathSchema, c.req.param(), 'invalid_request')
-  const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c))
-  const current = await getPlan(path.planId, { teamId, userId })
-
-  if (!current) throw new AppError(404, 'not_found', 'Plan not found')
-  await assertPlanAccess(current, userId, 'reply')
-  if (current.status !== 'failed') {
-    throw new AppError(409, 'plan_not_failed', 'Only failed plans can be retried')
-  }
-  const plan = await retryPlan(path.planId, { teamId, userId })
-
-  if (!plan) throw new AppError(404, 'not_found', 'Plan not found')
-
-  return c.json(plan)
-})
+agent.patch('/plans/:planId', retired)
+agent.post('/plans/:planId/approvals', retired)
+agent.post('/plans/:planId/retry', retired)
+agent.put('/plan-approval-policy', retired)

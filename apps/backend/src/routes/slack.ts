@@ -23,5 +23,4 @@ export type { NuphosSlackTurnDelivery, NuphosSlackTurnOutcome } from '@/routes/s
 export { handlePermissionGrantInteraction } from '@/routes/slack/permission-decide'
 export { handlePlanApproveInteraction } from '@/routes/slack/plan-approve'
 export { handleToolApprovalInteraction } from '@/routes/slack/tool-approval-decide'
-export { resumeApprovedPlanTurnFromNuphos } from '@/routes/slack/plan-resume'
 export { handleThreadMessage } from '@/routes/slack/thread-message'

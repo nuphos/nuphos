@@ -1,4 +1,4 @@
-import { planApprovalPolicies, plans } from './collections'
+import { planApprovalPolicies } from './collections'
 import { LEGACY_PLAN_APPROVAL_REQUIREMENT } from './types'
 
 import type { Plan, PlanApproval, PlanApprovalProgress, PlanApprovalRequirement } from './types'
@@ -110,44 +110,4 @@ export async function getTeamPlanApprovalRequirement(
     policySource: 'team-policy',
     policyVersion: policy.version,
   }
-}
-
-export async function updateTeamPlanApprovalRequirement(input: {
-  teamId: string
-  requesterApprovalRequired: boolean
-  minimumOtherApprovals: number
-  updatedBy: string
-}): Promise<PlanApprovalRequirement> {
-  const now = new Date()
-  const result = await planApprovalPolicies().findOneAndUpdate(
-    { _id: input.teamId },
-    {
-      $set: {
-        requesterApprovalRequired: input.requesterApprovalRequired,
-        minimumOtherApprovals: clampOtherApprovalCount(input.minimumOtherApprovals),
-        updatedAt: now,
-        updatedBy: input.updatedBy,
-      },
-      $inc: { version: 1 },
-    },
-    { upsert: true, returnDocument: 'after' },
-  )
-  const requirement: PlanApprovalRequirement = {
-    requesterApprovalRequired: input.requesterApprovalRequired,
-    minimumOtherApprovals: clampOtherApprovalCount(input.minimumOtherApprovals),
-    policySource: 'team-policy',
-    policyVersion: result?.version ?? 1,
-  }
-
-  // An administrator changing the policy is an explicit request to re-review
-  // open plans. Terminal plans and execution history are never rewritten.
-  await plans().updateMany(
-    { teamId: input.teamId, status: 'proposed' },
-    {
-      $set: { approvalRequirement: requirement, updatedAt: now },
-      $unset: { approvals: '', approvedBy: '', approvedAt: '' },
-    },
-  )
-
-  return requirement
 }
