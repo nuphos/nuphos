@@ -251,9 +251,9 @@ const SESSION_ONLY: [RegExp, RegExp][] = [
 ]
 
 /**
- * Agent tokens act as their user inside one team, but never on the user's
- * account, their tokens, their computers, team membership or billing. Other
- * teams are refused by `token-team-scope`, not here.
+ * Bots (agent tokens) and tasks (agent runs) act as their user, but never on
+ * the user's account, their tokens, their computers, the team's agents, team
+ * membership or billing. Other teams are refused by `token-team-scope`, not here.
  */
 const AGENT_DENIED: [RegExp, RegExp][] = [
   [/./, /^\/auth\/cli-tokens(\/|$)/],
@@ -267,6 +267,13 @@ const AGENT_DENIED: [RegExp, RegExp][] = [
   [/^POST$/, /^\/teams\/discoverable\//],
   [/^(PUT|PATCH|DELETE)$/, /^\/teams\/[^/]+\/?$/],
   [/^(PUT|PATCH|DELETE)$/, /^\/teams\/[^/]+\/(agent-runtime|allowed-email-domains)\/?$/],
+  // Every write to the team's agents and the user's agent fallback, except a
+  // runtime's files, login and sign-in requests. A new write route is denied
+  // until it is listed in the exception.
+  [
+    /^(POST|PUT|PATCH|DELETE)$/,
+    /^\/teams\/[^/]+\/(runtime-fallback|(agent|claude-code|codex)-runtimes(?!\/[^/]+\/(files|login|sign-in-requests)(\/|$)))(\/|$)/,
+  ],
   [/^(POST|PUT|PATCH|DELETE)$/, /^\/teams\/[^/]+\/(members|invitations)(\/|$)/],
   [/./, /^\/teams\/[^/]+\/(leave|billing|transfer-ownership)(\/|$)/],
 ]
@@ -280,8 +287,8 @@ export function cliTokenDenied(
   const hit = (rules: [RegExp, RegExp][]) => rules.some(([m, p]) => m.test(method) && p.test(path))
 
   if (hit(SESSION_ONLY)) return 'Sign in on nuphos.ai to do this; a CLI token or agent run cannot.'
-  if (cliToken.kind === 'agent' && hit(AGENT_DENIED)) {
-    return 'An agent token cannot manage the account, its tokens, computers, team membership or billing.'
+  if (cliToken.kind !== 'personal' && hit(AGENT_DENIED)) {
+    return 'A bot or task cannot manage the account, its tokens, computers, agents, team membership or billing.'
   }
 
   return null

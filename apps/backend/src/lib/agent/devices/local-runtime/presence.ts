@@ -43,9 +43,31 @@ if raw and cjson.decode(raw).conn == ARGV[1] then return redis.call('DEL', KEYS[
 return 0`
 
 export function createRedisPresenceStore(): LocalRuntimePresenceStore {
+  // Reads issued in the same tick share one MGET, so a list of N computers costs one
+  // round trip and one timeout rather than N.
+  let batch: { keys: string[]; values: Promise<(string | null)[] | null> } | null = null
+
+  function read(key: string): Promise<string | null> {
+    if (!batch) {
+      const keys: string[] = []
+
+      batch = {
+        keys,
+        values: Promise.resolve().then(() => {
+          batch = null
+
+          return withRedis((c) => c.mget(keys))
+        }),
+      }
+    }
+    const index = batch.keys.push(key) - 1
+
+    return batch.values.then((values) => values?.[index] ?? null)
+  }
+
   return {
     async get(userId, deviceId) {
-      const raw = await withRedis((c) => c.get(presenceKey(userId, deviceId)))
+      const raw = await read(presenceKey(userId, deviceId))
 
       const presence = raw ? parseJson<LocalRuntimePresence>(raw) : null
 

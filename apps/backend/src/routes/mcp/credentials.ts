@@ -1,5 +1,9 @@
 import { addedCredentialIds, answerCredentialAsks } from '@/lib/agent/credential-asks'
-import { getConversationBySessionId, setConversationCredentialFields } from '@/lib/agent/db'
+import {
+  credentialSource,
+  getConversationBySessionId,
+  setConversationCredentialFields,
+} from '@/lib/agent/db'
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
@@ -87,10 +91,10 @@ export async function nuphosListCredentials(
     const conversation = await requireOwnSessionInTeam(sessionId, teamId, ctx)
 
     if (!('sessionId' in conversation)) return conversation
+    const { credentialAccess } = await credentialSource(conversation)
+
     // No stored allowlist means the next run defaults to everything listed.
-    enabled = conversation.credentialAccess
-      ? credentialAccessPayload(conversation.credentialAccess)
-      : undefined
+    enabled = credentialAccess ? credentialAccessPayload(credentialAccess) : undefined
   }
 
   return toolResult({
@@ -142,6 +146,8 @@ export async function nuphosUpdateCredentials(
   const conversation = await requireOwnSessionInTeam(sessionId, teamId, ctx)
 
   if (!('sessionId' in conversation)) return conversation
+  // A Task under a Bot uses the Bot's selection, so that is the one to change.
+  const source = await credentialSource(conversation)
 
   try {
     const { access } = await resolveAgentCredentialAccess({
@@ -156,10 +162,15 @@ export async function nuphosUpdateCredentials(
     const fields = Object.fromEntries(
       Object.keys(NAMED_CATEGORIES).map((key) => [key, access[key as keyof typeof access]]),
     )
-    const updated = await setConversationCredentialFields(sessionId, ctx.userId, teamId, fields)
+    const updated = await setConversationCredentialFields(
+      source.sessionId,
+      ctx.userId,
+      teamId,
+      fields,
+    )
 
     if (!updated?.credentialAccess) return toolError(`Session not found: ${sessionId}`)
-    void answerCredentialAsks(sessionId, addedCredentialIds(conversation.credentialAccess, fields))
+    void answerCredentialAsks(source.sessionId, addedCredentialIds(source.credentialAccess, fields))
 
     return toolResult({
       session_id: sessionId,

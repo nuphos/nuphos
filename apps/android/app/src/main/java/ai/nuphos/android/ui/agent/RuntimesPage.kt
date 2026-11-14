@@ -59,7 +59,7 @@ fun RuntimesPage() {
             }
         }
         if (current()) {
-        RuntimeInventory(observations, canManage = team.isAdministrator,
+        RuntimeInventory(observations,
             onRuntime = { setup.clearSignInFocus(); runtimeId = it; managing = true })
         if (managing && setup.isSourceCurrent()) {
             val runtime = runtimeId?.let { id -> observations.runtimes.firstOrNull { it.id == id } }
@@ -79,7 +79,7 @@ fun RuntimesPage() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RuntimeInventory(store: RuntimesStore, canManage: Boolean, onRuntime: (String) -> Unit) {
+fun RuntimeInventory(store: RuntimesStore, onRuntime: (String) -> Unit) {
     var userRefreshing by remember(store) { mutableStateOf(false) }
     LaunchedEffect(store.loading) { if (!store.loading) userRefreshing = false }
     androidx.compose.material3.pulltorefresh.PullToRefreshBox(isRefreshing = userRefreshing && store.loading,
@@ -108,8 +108,7 @@ fun RuntimeInventory(store: RuntimesStore, canManage: Boolean, onRuntime: (Strin
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Icon(Icons.Outlined.Cloud, null)
                     Text("No runtimes", style = MaterialTheme.typography.titleMedium)
-                    Text(if (canManage) "Open Nuphos on your computer to add a Box or connect your own computer."
-                        else "Ask a workspace administrator to add a runtime.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Open Nuphos on your computer to connect it and add a runtime.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             items(runtimeGroups(store.runtimes, store.devices), key = { it.key }) { group ->

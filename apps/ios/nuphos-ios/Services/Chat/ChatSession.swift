@@ -49,7 +49,7 @@ final class ChatSession {
     /// New conversation: the runtime it starts on (nil lets the team default
     /// decide). Sent on the first PUT/POST only.
     var runtime: RuntimeInstance?
-    /// Existing conversation: `nuphos` | `claude-code` | `codex` | `grok` | `antigravity` | `opencode`.
+    /// Existing conversation: `nuphos` | `claude-code` | `codex` | `grok` | `antigravity` | `opencode` | `dsh`.
     private(set) var agentRuntime: String?
     private(set) var runtimeId: String?
     private(set) var runtimeLabel: String?
@@ -102,6 +102,8 @@ final class ChatSession {
     /// Mac, and says it can show one or already does.
     var canOpenDesktop: Bool { ownsChat && runtimeObservation?.canOpenDesktop == true }
     func makeDesktop() -> DesktopSession { DesktopSession(teamId: teamId, sessionId: sessionId, token: token) }
+    /// A shell on this conversation's computer; the backend checks the owner may open one there.
+    func makeTerminal() -> TerminalSession { TerminalSession(teamId: teamId, sessionId: sessionId, token: token) }
     /// This conversation's whole dock on its owner's computer, mirrored for the phone.
     func dock() async throws -> DockState {
         try await AgentChatAPI.dock(token: token, teamId: teamId, sessionId: sessionId)

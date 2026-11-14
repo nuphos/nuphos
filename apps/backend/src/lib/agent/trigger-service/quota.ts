@@ -1,7 +1,7 @@
 import { config } from '@/config'
 import { AppError } from '@/lib/errors'
 
-import { getConversationBySessionId } from '../db'
+import { credentialSource, getConversationBySessionId } from '../db'
 import { credentialScopeCoversAll } from '../trigger-credential-access'
 import { agentTriggers } from '../trigger-db'
 
@@ -40,7 +40,7 @@ export async function resolveTriggerCredentialSelection(
   if (!conversation || (conversation.teamId ?? undefined) !== context.teamId) {
     throw new AppError(403, 'forbidden', 'The Trigger source conversation is not in this scope')
   }
-  const approved = conversation.credentialAccess
+  const approved = (await credentialSource(conversation)).credentialAccess
 
   if (!approved) return { credentialMode: 'all' }
   const { resolveTriggerCredentialAccess } = await import('@/routes/agent')

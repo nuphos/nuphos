@@ -174,7 +174,7 @@ export async function buildPreviewSystemPrompt(args: PreviewPromptArgs): Promise
   const userFacingLanguage = inferUserFacingLanguage(args.userTexts ?? [], args.locale)
 
   // The notes are written for Claude Code. Grok Build reads `.claude/skills` as well;
-  // Codex, Antigravity and OpenCode read the `.agents/skills` link to it.
+  // Codex, Antigravity, OpenCode and DeepSeek Harness read the `.agents/skills` link to it.
   const provider = args.provider ?? 'claude-code'
   const nativeText = (text: string | null) =>
     text === null || provider === 'claude-code'

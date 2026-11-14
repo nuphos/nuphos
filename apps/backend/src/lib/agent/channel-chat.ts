@@ -16,7 +16,7 @@ import { bumpConversationActivity } from './db/read-state'
 import { pushTimelineEvent } from './db/participants'
 import { agentConversations } from './db/shared'
 import { parseMessageMetadata } from './message-metadata'
-import { noteMentions } from './mentions'
+import { notePost } from './mentions'
 import { listPendingUserMessages } from './pending-queue'
 
 import type { AgentConversation } from './db'
@@ -91,7 +91,7 @@ export async function postChannelMessage(
     ],
   })
   await bumpConversationActivity(channel.sessionId, channel.userId)
-  await noteMentions({ ...channel, teamId }, post)
+  await notePost({ ...channel, teamId }, post, authorSessionId !== undefined)
   if (authorSessionId)
     await agentConversations().updateOne(
       { sessionId: authorSessionId },

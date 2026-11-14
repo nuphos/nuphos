@@ -14,7 +14,6 @@ import {
 } from '@/lib/agent/db/channels'
 import { inviteConversationParticipants } from '@/lib/agent/db/participants'
 import { getTeamMembers, getTeamMembership } from '@/lib/identity'
-import { forwardToMeeting } from '@/lib/meetings/recall'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 
 import { placeOnConversationRuntime } from '../session-execution-state'
@@ -268,9 +267,8 @@ export function channelToolModule(): PreviewToolModule {
         const { channelId: id, text, files = [] } = parsed.data
 
         return answer(
-          memberChannel(ctx, id).then(async ({ channel, self }) => {
+          memberChannel(ctx, id).then(async ({ self }) => {
             await postAsAgent(id, self, text, await agentFileParts(self, files))
-            forwardToMeeting(channel, text)
 
             return { posted: true, channelId: id, files: files.length }
           }),

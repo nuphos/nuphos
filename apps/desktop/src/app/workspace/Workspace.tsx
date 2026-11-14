@@ -105,6 +105,7 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
   // no-scope shell too, where the picker's entry is also reachable.
   const createOrJoinOverlay = createOrJoinOpen ? (
     <CreateOrJoinTeamView
+      user={user}
       onClose={() => setCreateOrJoinOpen(false)}
       onJoin={joinDiscoverableTeam}
       onCreate={createTeamAndEnter}

@@ -73,6 +73,8 @@ export type AgentConversation = {
   title: string
   /** Picked bot avatar, e.g. `05-rembrandt`. Absent: the one its sessionId selects. */
   avatar?: string
+  /** A Bot's current standing instructions, in full. */
+  instructions?: string
   firstMessage: string
   messageCount: number
   tokenUsage?: AgentTokenUsageSummary
