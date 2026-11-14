@@ -10,6 +10,9 @@ struct InboxPage: View {
     /// view's sidebar reports compact.
     let wide: Bool
 
+    /// Between a group and the screen's edge.
+    fileprivate static let margin: CGFloat = 16
+
     var body: some View {
         content
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -30,23 +33,36 @@ struct InboxPage: View {
                     ForEach(inbox.groups, id: \.[0].sessionId) { group in
                         Section {
                             ForEach(group) { question in
-                                Text(question.request.question)
-                                    .font(.system(size: 15))
-                                    .foregroundStyle(Theme.heading)
-                                    .lineLimit(1)
-                                    .truncationMode(.tail)
-                                    .listRowInsets(EdgeInsets(top: 0, leading: 14, bottom: 0, trailing: 14))
-                                    // Wide, the open question stays marked; a custom background hides the system's.
-                                    .listRowBackground(wide && inbox.selected == question.id ? Theme.selected : Theme.chatSurface)
-                                    .listRowSeparatorTint(Theme.hairline)
-                                    .accessibilityIdentifier("inbox.row")
+                                HStack(spacing: 8) {
+                                    Text(question.request.question)
+                                        .font(.system(size: 15))
+                                        .foregroundStyle(Theme.heading)
+                                        .lineLimit(1)
+                                        .truncationMode(.tail)
+                                    // On iPhone a row pushes its question.
+                                    if !wide {
+                                        Spacer(minLength: 0)
+                                        Image(systemName: "chevron.right")
+                                            .font(.system(size: 13, weight: .semibold))
+                                            .foregroundStyle(Theme.muted)
+                                    }
+                                }
+                                .listRowInsets(EdgeInsets(top: 0, leading: Self.margin + 14, bottom: 0, trailing: Self.margin + 14))
+                                .listRowBackground(InboxRowBackground(
+                                    first: question.id == group.first?.id, last: question.id == group.last?.id,
+                                    // Wide, the open question stays marked.
+                                    selected: wide && inbox.selected == question.id))
+                                .listRowSeparator(.hidden)
+                                .accessibilityIdentifier("inbox.row")
                             }
                         } header: {
                             InboxSource(question: group[0])
+                                .listRowInsets(EdgeInsets(top: 0, leading: Self.margin + 4, bottom: 6, trailing: Self.margin))
                         }
                     }
                 }
-                .listStyle(.insetGrouped)
+                // Grouped, not inset: the groups' corners and margins are drawn by InboxRowBackground.
+                .listStyle(.grouped)
                 // The open question is marked by its fill, not a keyboard's focus ring.
                 .focusEffectDisabled()
                 .listSectionSpacing(wide ? 16 : 18)
@@ -64,6 +80,25 @@ struct InboxPage: View {
         } else {
             ProgressView().tint(Theme.muted)
         }
+    }
+}
+
+/// One row of a group: the group's rounded corners on its first and last row, and the
+/// divider under every row but the last.
+private struct InboxRowBackground: View {
+    let first: Bool
+    let last: Bool
+    let selected: Bool
+
+    var body: some View {
+        UnevenRoundedRectangle(
+            topLeadingRadius: first ? 14 : 0, bottomLeadingRadius: last ? 14 : 0,
+            bottomTrailingRadius: last ? 14 : 0, topTrailingRadius: first ? 14 : 0, style: .continuous)
+            .fill(selected ? Theme.selected : Theme.chatSurface)
+            .overlay(alignment: .bottom) {
+                if !last { Theme.separator.frame(height: 0.5).padding(.leading, 14) }
+            }
+            .padding(.horizontal, InboxPage.margin)
     }
 }
 

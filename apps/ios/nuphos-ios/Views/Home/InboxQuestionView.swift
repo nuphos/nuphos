@@ -33,10 +33,14 @@ struct InboxQuestionView: View {
         return options.isEmpty && !question.typed ? nil : options
     }
 
-    /// Side margins: iPhone 20; wide, 56 on iPad and 40 / 96 on iPhone Duo's inner display.
-    private var margins: (leading: CGFloat, trailing: CGFloat) {
-        guard wide else { return (20, 20) }
-        return UIDevice.current.userInterfaceIdiom == .pad ? (56, 56) : (40, 96)
+    /// iPhone Duo's inner display, as opposed to an iPad: the question's margins differ.
+    private var duo: Bool { wide && UIDevice.current.userInterfaceIdiom != .pad }
+
+    /// Margins: iPhone 20 at the sides, right under the bar; iPad 56 and 25 from the top;
+    /// iPhone Duo's inner display 40 / 96 from the screen's edges, past the status column on its right, and 51 from the top.
+    private var margins: (top: CGFloat, leading: CGFloat, trailing: CGFloat) {
+        guard wide else { return (0, 20, 20) }
+        return duo ? (51, 40, 96) : (25, 56, 56)
     }
 
     var body: some View {
@@ -53,7 +57,7 @@ struct InboxQuestionView: View {
                     .padding(.top, 10)
                 if let body = question.ownBody {
                     AssistantMarkdown(text: body, theme: Self.bodyTheme, onLink: open(link:))
-                        .padding(.top, 12)
+                        .padding(.top, 18)
                         .accessibilityIdentifier("inbox.body")
                 }
                 if wide || options == nil { answers.padding(.top, 24) }
@@ -67,23 +71,31 @@ struct InboxQuestionView: View {
             }
             .padding(.leading, margins.leading)
             .padding(.trailing, margins.trailing)
-            .padding(.vertical, 16)
+            .padding(.top, margins.top)
+            .padding(.bottom, 16)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        // The trailing 96 already clears the Duo's status column.
+        .ignoresSafeArea(.container, edges: duo ? .trailing : [])
         .scrollDismissesKeyboard(.interactively)
-        .background(Theme.chatCanvas.ignoresSafeArea())
+        .background(Theme.canvas.ignoresSafeArea())
+        // Wide, the list and the question share the canvas: a hairline parts them.
+        .overlay(alignment: .leading) {
+            if wide { Theme.separator.frame(width: 0.5).ignoresSafeArea() }
+        }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if !wide, options != nil {
                 answers
                     .padding(.horizontal, 20)
                     .padding(.top, 12)
-                    .background(Theme.chatCanvas)
+                    .background(Theme.canvas)
                     // Floats 12 above the options.
                     .overlay(alignment: .top) { InboxToast(inbox: inbox).alignmentGuide(.top) { $0[.bottom] + 12 } }
             }
         }
         .overlay(alignment: .bottom) {
-            if wide { InboxToast(inbox: inbox).padding(.bottom, 32) }
+            // 32 from the screen's bottom edge, not the home indicator's.
+            if wide { InboxToast(inbox: inbox).padding(.bottom, 32).ignoresSafeArea(.container, edges: .bottom) }
         }
         .animation(.snappy, value: inbox.toast)
         .animation(.snappy, value: typing)
@@ -102,7 +114,7 @@ struct InboxQuestionView: View {
         }
     }
 
-    /// The body as the design sets it: 15pt in the body color, 12 between paragraphs and list items.
+    /// The body as the design sets it: 15pt in the body color, 12 between paragraphs and 8 between list items.
     private static var bodyTheme: MarkdownTheme {
         var theme = AssistantMarkdown.theme
         #if canImport(UIKit)
@@ -112,30 +124,36 @@ struct InboxQuestionView: View {
         theme.fonts.italic = Theme.Text.italicUIFont(.subheadline)
         #endif
         theme.spacings.paragraph = 12
-        theme.spacings.list = 12
+        theme.spacings.list = 8
         theme.sizes.bullet = 5
         return theme
     }
 
-    /// The source's icon and name, which opens it, then when it asked.
+    /// The source's icon and name, which opens it, then when it asked. On iPhone the name is
+    /// muted like the time, since the bar's ↗ opens it too; wide, it is dark with its own ↗.
     private var source: some View {
         HStack(spacing: 6) {
             Button { open(link: question.link(team: inbox.teamId)) } label: {
                 HStack(spacing: 6) {
                     AgentAvatar(agentId: question.sessionId, runtime: question.runtime, size: 16, showBadge: false)
                     Text(question.title).lineLimit(1)
-                    Image(systemName: "arrow.up.right").font(.system(size: 11, weight: .semibold))
+                        .fontWeight(wide ? .medium : .regular)
+                        .foregroundStyle(wide ? Theme.heading : Theme.muted)
+                    if wide {
+                        Image(systemName: "arrow.up.right").font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Theme.heading)
+                    }
                 }
-                .foregroundStyle(Theme.heading)
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("inbox.source")
             if let asked = question.askedDate {
-                Text("·").foregroundStyle(Theme.muted)
-                Text(HistoryTime.format(asked)).foregroundStyle(Theme.muted).lineLimit(1)
+                Text("·")
+                Text(HistoryTime.format(asked)).lineLimit(1)
             }
         }
-        .font(.system(size: 13, weight: .medium))
+        .font(.system(size: 13))
+        .foregroundStyle(Theme.muted)
     }
 
     @ViewBuilder private var answers: some View {
@@ -153,9 +171,19 @@ struct InboxQuestionView: View {
                                         answer(DecisionAnswer(choices: [option]))
                                     }
                                 }
+                                // Plain text until it is toggled, then a light capsule.
                                 if question.typed, !options.isEmpty {
-                                    InboxOption(title: String(localized: "Other…"), primary: false, height: 40, size: 15,
-                                                toggled: typing, action: other)
+                                    Button(action: other) {
+                                        Text("Other…")
+                                            .font(.system(size: 15, weight: typing ? .semibold : .regular))
+                                            .foregroundStyle(typing ? Theme.heading : Theme.body)
+                                            .padding(.horizontal, 14)
+                                            .frame(minHeight: 40)
+                                            .background(typing ? Theme.control : .clear, in: Capsule())
+                                            .contentShape(Capsule())
+                                    }
+                                    .buttonStyle(.plain)
+                                    .accessibilityAddTraits(typing ? .isSelected : [])
                                 }
                             }
                         }
@@ -172,9 +200,7 @@ struct InboxQuestionView: View {
                         if question.typed, !options.isEmpty {
                             Button("Other…", action: other)
                                 .fontWeight(typing ? .semibold : .regular)
-                                .padding(.horizontal, typing ? 14 : 0)
-                                .frame(height: 32)
-                                .background(typing ? Theme.control : .clear, in: Capsule())
+                                .foregroundStyle(typing ? Theme.heading : Theme.body)
                         }
                         Spacer()
                         skip
@@ -183,6 +209,7 @@ struct InboxQuestionView: View {
                     .foregroundStyle(Theme.body)
                     .buttonStyle(.plain)
                     .frame(height: 44)
+                    .padding(.horizontal, 6)
                 }
                 if typing || (options.isEmpty && question.typed) { field }
             }
@@ -227,6 +254,7 @@ struct InboxQuestionView: View {
             .accessibilityLabel("Send answer")
             .disabled(words.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
+        .padding(.horizontal, wide ? 0 : -4)
     }
 
     private var skip: some View {
@@ -286,14 +314,13 @@ struct InboxQuestionView: View {
     }
 }
 
-/// An Inbox answer as a capsule: the first one dark, the rest light, or light and bold while toggled.
+/// An Inbox answer as a capsule: the first one dark, the rest light.
 private struct InboxOption: View {
     let title: String
     let primary: Bool
     let height: CGFloat
     let size: CGFloat
     var fill = false
-    var toggled = false
     let action: () -> Void
 
     var body: some View {
@@ -308,6 +335,5 @@ private struct InboxOption: View {
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .accessibilityAddTraits(toggled ? .isSelected : [])
     }
 }

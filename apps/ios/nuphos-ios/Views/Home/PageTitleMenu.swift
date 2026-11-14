@@ -25,12 +25,6 @@ struct PageTitleMenu: View {
             HStack(alignment: .center, spacing: style == .large ? 8 : 5) {
                 Text(selection.title)
                     .font(font)
-                Image(systemName: "chevron.down")
-                    .font(.system(size: style == .large ? 16 : 12, weight: .bold))
-                    .foregroundStyle(Theme.muted)
-                    // Optically centre on the cap height rather than the
-                    // full line box, which sits a touch low.
-                    .offset(y: style == .large ? 2 : 1)
                 if inboxCount > 0 {
                     Text(inboxCount, format: .number)
                         .font(.system(size: 12, weight: .semibold).monospacedDigit())
@@ -39,6 +33,12 @@ struct PageTitleMenu: View {
                         .frame(minWidth: 20, minHeight: 20)
                         .background(Theme.badge, in: Capsule())
                 }
+                Image(systemName: "chevron.down")
+                    .font(.system(size: style == .large ? 16 : 12, weight: .bold))
+                    .foregroundStyle(Theme.muted)
+                    // Optically centre on the cap height rather than the
+                    // full line box, which sits a touch low.
+                    .offset(y: style == .large ? 2 : 1)
             }
             .foregroundStyle(Theme.heading)
             .contentTransition(.numericText())

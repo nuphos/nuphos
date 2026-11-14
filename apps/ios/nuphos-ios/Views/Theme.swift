@@ -42,6 +42,8 @@ enum Theme {
     static let control = adaptive(light: 0xE4E4E7, dark: 0x2A2A2E)
     /// A text field's outline.
     static let fieldBorder = adaptive(light: 0xA1A1AA, dark: 0x52525B)
+    /// A divider drawn on the page, as between the Inbox's rows and columns.
+    static let separator = adaptive(light: 0xDEDEE2, dark: 0x2E2E33)
     /// A count waiting for the viewer, as the Inbox's.
     static let badge = adaptive(light: 0xB83A0A, dark: 0xE0592A)
 

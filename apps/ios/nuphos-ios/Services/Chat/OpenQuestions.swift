@@ -28,8 +28,12 @@ final class OpenQuestions {
     var selected: String?
     /// The Inbox's last answer, not sent yet so it can be undone.
     private var held: (token: UUID, question: BotQuestion, answer: DecisionAnswer)?
-    /// The question that answer is to, for the "Answered …" toast while it can be undone.
-    var toast: String? { held?.question.request.question }
+    /// What that answer says, for the "Answered …" toast while it can be undone: the options
+    /// chosen or the words, else (a form) the question.
+    var toast: String? {
+        guard let held else { return nil }
+        return held.answer.choices?.joined(separator: ", ") ?? held.answer.text ?? held.question.request.question
+    }
 
     /// The list by the conversation that asked.
     var groups: [[BotQuestion]] { BotQuestions.grouped(list) }

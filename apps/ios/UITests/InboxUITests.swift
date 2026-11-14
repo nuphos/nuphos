@@ -19,7 +19,7 @@ final class InboxUITests: XCTestCase {
         responses["POST /agent/chat"] = ["status": 200, "body": [:], "headers": ["Content-Type": "text/event-stream"]]
         // An answer goes to the answer API; no message is sent.
         for (session, request) in [("agent-ops", "q-deploy"), ("agent-staging", "q-staging"),
-                                   ("agent-ops", "q-rollout"), ("bot-release", "q-deploy"), ("bot-release", "q-notes")] {
+                                   ("agent-ops", "q-rollout"), ("bot-release", "q-deploy"), ("bot-release", "q-notes"), ("bot-release", "q-blog")] {
             responses["POST /agent/conversations/\(session)/decisions/\(request)/answer"] = ["status": 200, "body": ["ok": true]]
         }
         // The asking conversations, opened by "From …" and "Other…".
@@ -44,7 +44,7 @@ final class InboxUITests: XCTestCase {
 
         let menu = app.buttons["Switch page"].firstMatch
         XCTAssertTrue(menu.waitForExistence(timeout: 10), "No page menu")
-        let badged = NSPredicate(format: "value CONTAINS %@", "3 in Inbox")
+        let badged = NSPredicate(format: "value CONTAINS %@", "4 in Inbox")
         expectation(for: badged, evaluatedWith: menu)
         waitForExpectations(timeout: 10)
         shot("1-badge")
@@ -59,7 +59,7 @@ final class InboxUITests: XCTestCase {
         XCTAssertTrue(row.waitForExistence(timeout: 5), "The question is not listed")
         XCTAssertTrue(app.staticTexts["Release Lead"].exists, "No group for the Bot that asked")
         XCTAssertTrue(app.staticTexts["Check the staging cluster"].exists, "No group for the Task that asked")
-        XCTAssertTrue(menu.value.map { "\($0)".contains("3 in Inbox") } ?? false, "The Inbox title lost its badge")
+        XCTAssertTrue(menu.value.map { "\($0)".contains("4 in Inbox") } ?? false, "The Inbox title lost its badge")
         XCTAssertFalse(app.buttons["Mark as done"].exists, "A to-do is still marked done")
         shot("2-list")
 
@@ -72,7 +72,7 @@ final class InboxUITests: XCTestCase {
 
         // The answer leaves the list, says so, and opens the next question.
         app.buttons["Ship it"].tap()
-        let toast = app.staticTexts["Answered “Roll out 1.4 to production?”"]
+        let toast = app.staticTexts["Answered “Ship it”"]
         XCTAssertTrue(toast.waitForExistence(timeout: 5), "No toast saying what was answered")
         XCTAssertTrue(app.buttons["Undo"].exists, "No Undo on the toast")
         XCTAssertTrue(app.buttons["Friendly"].waitForExistence(timeout: 5), "The next question did not open")
@@ -87,10 +87,13 @@ final class InboxUITests: XCTestCase {
         XCTAssertTrue(toast.waitForNonExistence(timeout: 10), "The answer was never sent")
         try listQuestions([notes, staging])
 
-        // Skip opens the one after it without answering.
+        // Skip opens the one after it without answering: the next in the same group, then the next group.
+        app.buttons["Skip"].tap()
+        XCTAssertTrue(app.staticTexts["Post the 1.4 release notes to the blog too?"].waitForExistence(timeout: 5),
+                      "Skip did not open the next question")
         app.buttons["Skip"].tap()
         XCTAssertTrue(app.staticTexts["Which node pool should the staging cluster use?"].waitForExistence(timeout: 5),
-                      "Skip did not open the next question")
+                      "Skip did not open the next group's question")
 
         // The source's name opens the conversation that asked.
         app.buttons["inbox.source"].tap()
@@ -264,13 +267,16 @@ final class InboxUITests: XCTestCase {
         ["id": "q-deploy", "category": "approval", "question": "Roll out 1.4 to production?",
          "body": "CI passed on `main`. The release adds **two migrations**, both backwards compatible.\n\n- Canary: 5% for 30 minutes\n- Rollback: `acme rollout undo`",
          "options": ["Ship it", "Wait for QA"], "askedAt": "2026-11-03T09:40:00Z", "status": "open"])
-    /// A Bot's: its group wears the Bot's face.
+    /// A Bot's two: its group wears the Bot's face, with a divider between its rows.
     private let notes: [String: Any] = {
         var row = InboxUITests.row(
             "bot-release", "Release Lead",
             ["id": "q-notes", "category": "preference", "question": "Which tone should the 1.4 release notes take?",
              "body": "Drafts for both are in the release doc.",
              "options": ["Friendly", "Formal"], "askedAt": "2026-11-03T09:30:00Z", "status": "open"])
+        row["inputRequests"] = (row["inputRequests"] as? [[String: Any]] ?? []) + [
+            ["id": "q-blog", "category": "preference", "question": "Post the 1.4 release notes to the blog too?",
+             "options": ["Yes", "No"], "askedAt": "2026-11-03T09:35:00Z", "status": "open"]]
         row["avatar"] = "05"
         return row
     }()
