@@ -9,7 +9,6 @@ import { config } from '@/config'
 import { app, websocket } from '@/index-app'
 import { startBotImportCleanup } from '@/lib/agent/bot-import/cleanup'
 import { conversationAutoArchive } from '@/lib/agent/conversation-auto-archive'
-import { dropResolvedInputRequests } from '@/lib/agent/db/pending-decision'
 import { assertRegistryInvariants } from '@/lib/agent/memory-slots'
 import {
   initMemoryRetentionRollup,
@@ -112,8 +111,6 @@ if (cancelledPlans > 0) {
 }
 
 await backfillPersonalTokenExpiry()
-
-await dropResolvedInputRequests()
 
 // A message queued behind a turn starts the next one when that turn lets go.
 installQueuedTurnStarter(startQueuedTurn)
