@@ -6,9 +6,9 @@ import {
   sendAgentThreadMessage,
   setAgentThreadArchived,
   setAgentThreadParent,
-  stopAgentThread,
   updateThread,
 } from '@/lib/agent/thread-bridge'
+import { stopAgentThread } from '@/lib/agent/thread-stop'
 
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 
