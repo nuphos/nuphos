@@ -395,6 +395,26 @@
     background-color: #000000;
   }
 
+  /* Your post in a chat: a bubble a shade apart from an agent's
+     (state.selected). The dark theme lifts it toward the text color; the
+     light theme tints it with the link blue. Both keep the text at WCAG AA
+     (chatBubble.test.ts). */
+  .chat-bubble-mine {
+    background-color: rgba(var(--color-text-primary), 0.21);
+  }
+
+  html.light .chat-bubble-mine {
+    background-color: rgba(var(--color-data-1), 0.18);
+  }
+
+  /* The link blue does not read on the fill; the underline marks a link. */
+  .chat-bubble-mine a:not(.atlas-mention) {
+    color: inherit;
+    text-decoration-line: underline;
+    text-decoration-color: rgba(var(--color-text-primary), 0.45);
+    text-underline-offset: 2px;
+  }
+
   .resource-meter {
     --resource-meter-fill: rgb(var(--color-data-1));
     --resource-meter-warning: rgb(var(--color-warning));

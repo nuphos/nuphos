@@ -30,8 +30,8 @@ export type Links = {
 }
 
 /**
- * One post: yours on the right, everyone else's in a bubble on the left. The
- * first post of a run carries the avatar and name; an agent's open its session.
+ * One post: yours on the right in a bubble a shade apart, everyone else's on
+ * the left, an agent's filled and a person's outlined. The first post of a run carries the avatar and name; an agent's open its session.
  */
 export function ChannelMessage({
   message,
@@ -115,7 +115,7 @@ export function ChannelMessage({
             {text && (
               <div
                 className={clsx(
-                  'user-message-bubble max-w-full rounded-2xl rounded-tr-md px-3.5 py-2 break-words',
+                  'chat-bubble-mine max-w-full rounded-2xl rounded-tr-md px-3.5 py-2 break-words',
                   fresh && 't-bubble-in-mine',
                 )}
               >
@@ -186,7 +186,9 @@ export function ChannelMessage({
         {text && (
           <div
             className={clsx(
-              'max-w-full rounded-2xl rounded-tl-md bg-state-selected px-3.5 py-2 break-words',
+              'max-w-full rounded-2xl rounded-tl-md px-3.5 py-2 break-words',
+              // An agent's bubble is filled; another person's is outlined, so a group chat tells them apart.
+              agentId ? 'bg-state-selected' : 'border border-line-control',
               fresh && 't-bubble-in',
             )}
           >
