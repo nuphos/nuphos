@@ -60,12 +60,14 @@ struct RuntimeObservation: Equatable, Sendable {
     }
 }
 
-/// A running turn outranks background work, which outranks an unread reply.
+/// An open question outranks a running turn, which outranks background work,
+/// which outranks an unread reply (Desktop's `rowIndicator`).
 enum ConversationIndicator: Equatable {
-    case turn, background, unread, none
+    case waiting, turn, background, unread, none
 
-    init(_ observation: RuntimeObservation?, unread: Bool) {
-        if observation?.turnActive == true { self = .turn }
+    init(_ observation: RuntimeObservation?, unread: Bool, waiting: Bool = false) {
+        if waiting { self = .waiting }
+        else if observation?.turnActive == true { self = .turn }
         else if observation?.backgroundRunning == true { self = .background }
         else { self = unread ? .unread : .none }
     }
@@ -73,6 +75,7 @@ enum ConversationIndicator: Equatable {
     /// Which state wins when one row shows several (a folded thread parent).
     var urgency: Int {
         switch self {
+        case .waiting: 4
         case .turn: 3
         case .background: 2
         case .unread: 1

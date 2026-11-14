@@ -68,7 +68,7 @@ struct HomeView: View {
             .toolbar(removing: .sidebarToggle)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    PageTitleMenu(selection: $page, style: .bar, inboxCount: inbox?.list.count ?? 0)
+                    PageTitleMenu(selection: $page, style: .bar, inboxCount: inbox?.list.count ?? 0, pageCounts: store?.pageCounts ?? [:])
                 }
                 .sharedBackgroundHidden()
 

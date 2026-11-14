@@ -73,7 +73,7 @@ final class AgentStore {
     }
 
     func channel(for conversation: AgentConversation) -> ChannelSession {
-        channel(sessionId: conversation.sessionId, title: conversation.displayTitle, teamId: conversation.teamId)
+        channel(sessionId: conversation.sessionId, title: title(of: conversation), teamId: conversation.teamId)
     }
 
     /// The open chat's poll. Owned here, not by a view: SwiftUI can cancel a
@@ -123,17 +123,56 @@ final class AgentStore {
         return channel
     }
 
-    /// What Tasks lists: every agent, Bots too, by latest activity (#1691).
+    /// The Bot each loaded thread works for, as Desktop decides it (#2341).
+    private var botOwners: [String: String] { ConversationNesting.botOwners(conversations + bots) }
+
+    /// What Tasks lists, by latest activity: no Bot, and nothing a Bot dispatched
+    /// at any depth, which Bots lists under the Bot instead (#2341).
     var listedConversations: [AgentConversation] {
-        conversations.sorted { $0.lastActiveAt > $1.lastActiveAt }
+        let owners = botOwners
+        return conversations.filter { !$0.isBot && owners[$0.sessionId] == nil }
+            .sorted { $0.lastActiveAt > $1.lastActiveAt }
     }
 
-    /// What Bots lists, newest first: every chat, and each Bot that has no
-    /// 1:1 chat yet, by its face.
+    /// What Bots lists, newest first: every chat, and each Bot that is in no
+    /// listed chat, group chats included, by its face.
     var botsList: [AgentConversation] {
-        let chatted = Set(channels.compactMap(\.botId))
+        let chatted = Set(channels.flatMap { $0.agentSessionIds ?? $0.botId.map { [$0] } ?? [] })
         let unchatted = bots.filter { $0.isBot && !chatted.contains($0.sessionId) }
         return (channels + unchatted).sorted { $0.lastActiveAt > $1.lastActiveAt }
+    }
+
+    /// The Bot a chat is the 1:1 of, or the Bot itself, when it is listed.
+    func bot(of row: AgentConversation) -> AgentConversation? {
+        guard let id = row.isBot ? row.sessionId : row.botId else { return nil }
+        // The history first: a rename reloads it before the Bots listing.
+        return (conversations + bots).first { $0.sessionId == id }
+    }
+
+    /// A Bots row's name: a Bot's 1:1 chat is named after the Bot (#2668).
+    func title(of row: AgentConversation) -> String {
+        bot(of: row)?.displayTitle ?? row.displayTitle
+    }
+
+    /// A turn runs in this conversation, on any client.
+    func inTurn(_ row: AgentConversation) -> Bool {
+        guard row.isNativeRuntime else { return row.activeRun != nil }
+        return observations.value(team: row.teamId ?? selectedTeam?.id ?? "", session: row.sessionId)?.turnActive == true
+    }
+
+    /// What a Bot dispatched itself: its direct threads, not Bots.
+    func threads(of bot: AgentConversation) -> [AgentConversation] {
+        conversations.filter { !$0.isBot && $0.parentSessionId == bot.sessionId }
+    }
+
+    /// Rows that ask for the viewer on Bots and on Tasks, as Desktop badges
+    /// its pages. Open questions count in the Inbox, not here (#2669).
+    var pageCounts: [HomePage: Int] {
+        let team = selectedTeam?.id ?? ""
+        let asks = { (row: AgentConversation) in
+            !row.isWaiting && self.unread.contains(team: row.teamId ?? team, session: row.sessionId)
+        }
+        return [.chats: channels.filter(asks).count, .agent: listedConversations.filter(asks).count]
     }
 
     // MARK: - Archive
@@ -202,7 +241,13 @@ final class AgentStore {
 
     /// The Tasks rows: agent-opened threads under the conversation that opened them.
     var nestedConversations: [NestedConversation] {
-        ConversationNesting.nest(listedConversations, folded: foldedThreads[selectedTeam?.id ?? ""] ?? [])
+        ConversationNesting.nest(listedConversations, folded: foldedThreads[selectedTeam?.id ?? ""] ?? [], byFamily: true)
+    }
+
+    /// The Bots rows: each chat or Bot, with what a Bot dispatched under it.
+    var nestedBots: [NestedConversation] {
+        let rows = ConversationNesting.botRows(botsList, threads: conversations, owners: botOwners)
+        return ConversationNesting.nest(rows, folded: foldedThreads[selectedTeam?.id ?? ""] ?? [])
     }
 
     func isFolded(_ sessionId: String) -> Bool { foldedThreads[selectedTeam?.id ?? ""]?.contains(sessionId) == true }
@@ -242,7 +287,7 @@ final class AgentStore {
         guard scope == workspaceScope else { return nil }
         await loadChannels()
         let title = (conversations + bots).first { $0.sessionId == botId }?.displayTitle ?? ""
-        return channel(sessionId: id, title: channels.first { $0.sessionId == id }?.displayTitle ?? title, teamId: teamId)
+        return channel(sessionId: id, title: title, teamId: teamId)
     }
 
     /// "+" on Bots: makes the Bot with the picked name and face and returns
