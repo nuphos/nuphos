@@ -46,11 +46,8 @@ async function outboundTools(ctx: PreviewToolContext): Promise<Record<string, un
     createLarkOutboundContext({ teamId: ctx.teamId }),
   ])
   const { slackNotificationTools, larkNotificationTools } = createNotificationTools({
-    conversationId: ctx.sessionId,
-    teamId: ctx.teamId,
     slackOutbound,
     larkOutbound,
-    incidentContextGathered: new Set(),
   })
 
   return { ...slackNotificationTools, ...larkNotificationTools }

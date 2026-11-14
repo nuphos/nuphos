@@ -102,7 +102,8 @@ export async function runDeviceLogin({
         env: {
           HOME: home,
           CODEX_HOME: directory,
-          PATH: '/usr/local/bin:/usr/bin:/bin',
+          // An npm-installed `codex` is `#!/usr/bin/env node`, so it needs the PATH that has node.
+          PATH: process.env.PATH || '/usr/local/bin:/usr/bin:/bin',
           TERM: 'dumb',
         },
         stdio: [apiKey === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],

@@ -1,4 +1,5 @@
 import { agentConversations, liveAttachment } from '@/lib/agent/db/shared'
+import { sameRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 
@@ -274,7 +275,8 @@ async function withSessionClient<T>(
 ): Promise<T> {
   const { endpoint } = await resolveConversationChatRuntime(conversation.teamId, conversation)
 
-  if (endpoint.url !== attachment.runtimeUrl)
+  // The stored address drops `actor`, which a teammate's computer adds to the live one.
+  if (!sameRuntimeUrl(endpoint.url, attachment.runtimeUrl))
     throw new AppError(409, 'runtime_unavailable', 'The conversation’s agent is unavailable.')
   // Do not session/resume here: it would claim the live output sink from
   // another backend replica. This connection only writes configuration.

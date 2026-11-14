@@ -5,7 +5,6 @@ import { AppError } from '@/lib/errors'
 import { getConversationBySessionId } from '../db'
 import { agentTriggers, isRetiredTriggerShape } from '../trigger-db'
 
-import type { MonitoringIdentity } from '../monitoring-workflow'
 import type { TriggerActorContext } from '../trigger-access'
 import type { AgentTrigger, TriggerSource, TriggerSourceContext, TriggerType } from '../trigger-db'
 
@@ -27,15 +26,7 @@ export type CreateTriggerInput = {
   expiresAt?: Date
   /** Idempotency key: creating again with the same key returns the existing trigger. */
   dedupeKey?: string
-  /** Stable identity for a provider Watch; valid only for webhook triggers. */
-  monitoringIdentity?: MonitoringIdentity
-  /** Internal shared-ingress metadata. Agent callers use trigger_group_create. */
-  watchGroup?: {
-    groupId: string
-    partitionKey: string
-    memberKeys: string[]
-  }
-  /** Internal setup fence; ordinary trigger creation defaults to enabled. */
+  /** Ordinary trigger creation defaults to enabled. */
   enabled?: boolean
   /** Webhook flood guard: min seconds between runs (default from config; 0 disables). */
   minIntervalSeconds?: number
@@ -47,24 +38,22 @@ export type UpdateTriggerPatch = {
   enabled?: boolean
   cronExpression?: string
   timeZone?: string
-  /** Move delivery to another existing conversation. A Trigger cannot be unbound. */
-  targetSessionId?: string
   minIntervalSeconds?: number
 }
 
-/** A Trigger may only wake a conversation its execution principal owns. */
+/** A Trigger is created in a Task its creator owns, and that Task's owner owns it from then on. */
 export async function assertBindableSession(
   sessionId: string,
   teamId: string | undefined,
-  principalUserId: string,
+  ownerUserId: string,
 ): Promise<void> {
   const target = await getConversationBySessionId(sessionId)
 
-  if (!teamId || !target || target.teamId !== teamId || target.userId !== principalUserId) {
+  if (!teamId || !target || target.teamId !== teamId || target.userId !== ownerUserId) {
     throw new AppError(
       400,
       'invalid_target_session',
-      'targetSessionId must be a conversation of the Trigger owner in this team',
+      'targetSessionId must be a Task you own in this team',
     )
   }
 }
@@ -88,30 +77,41 @@ export function validateMinInterval(triggerType: TriggerType, seconds: number): 
 
 export type SerializedTrigger = ReturnType<typeof serializeTrigger>
 
+/**
+ * Fields older rows still carry from the removed provider-wiring, cleanup and
+ * Watch Group layers. Nothing reads them anymore; they are kept off the API so
+ * no client acts on them.
+ */
+const RETIRED_TRIGGER_FIELDS = [
+  'monitoringIdentity',
+  'legacyMonitoringProvider',
+  'legacyProviderChecked',
+  'watchGroupId',
+  'watchGroupPartitionKey',
+  'watchGroupMemberKeys',
+  'providerWiring',
+  'providerWiringFinalizedAt',
+  'cleanupStatus',
+  'cleanupError',
+  'cleanupErrorCode',
+  'cleanupStartedAt',
+  'cleanupUpdatedAt',
+] as const
+
 export function serializeTrigger(trigger: AgentTrigger, exposeSecret = false) {
   const {
     _id,
     webhookSecret,
     dedupeKey: _dedupeKey,
-    monitoringIdentity,
-    watchGroupId,
-    legacyMonitoringProvider,
-    legacyProviderChecked: _legacyProviderChecked,
     executionCredentialAccess: _executionCredentialAccess,
     ...rest
   } = trigger
-  const providerHint =
-    trigger.providerWiring?.provider === 'generic'
-      ? trigger.providerWiring.providerKey
-      : (trigger.providerWiring?.provider ??
-        monitoringIdentity?.provider ??
-        legacyMonitoringProvider)
+
+  for (const field of RETIRED_TRIGGER_FIELDS) delete (rest as Record<string, unknown>)[field]
 
   return {
     id: _id?.toString(),
     ...rest,
-    ...(watchGroupId ? { watchGroupId: watchGroupId.toString() } : {}),
-    ...(providerHint ? { providerHint, requiresProviderCleanup: true as const } : {}),
     ...(exposeSecret && webhookSecret ? { webhookSecret } : {}),
   }
 }
@@ -125,10 +125,6 @@ export async function findManagedTrigger(_id: ObjectId): Promise<AgentTrigger> {
   }
 
   return trigger
-}
-
-export function standaloneTriggerFilter() {
-  return { watchGroupId: { $exists: false } } as const
 }
 
 export function parseTriggerId(triggerId: string): ObjectId {

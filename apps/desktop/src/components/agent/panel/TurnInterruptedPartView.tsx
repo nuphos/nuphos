@@ -25,7 +25,7 @@ export function TurnInterruptedPartView({ part }: { part: TurnInterruptedPart })
   const copyText = [HEADLINE[part.reason], part.message, part.createdAt].filter(Boolean).join('\n')
   const turnSwitch = useContext(TurnSwitchAgentContext)
 
-  // The agent itself could not run the turn: the row a Bot chat shows, with Switch agent.
+  // The agent itself could not run the turn: the row a Bot chat shows, with Switch runtime.
   if (part.cause)
     return (
       <FailureRow

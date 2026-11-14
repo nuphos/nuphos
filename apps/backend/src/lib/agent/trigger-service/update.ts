@@ -1,23 +1,12 @@
 import { CRON_TIME_ZONE, isValidCronExpression, isValidTimeZone } from '@/lib/cron'
 import { AppError } from '@/lib/errors'
-import { clearSlackNotificationIncidentsForTrigger } from '@/lib/slack/incident-notifications'
 
-import {
-  assertTriggerAccess,
-  assertTriggerExecutionMutationAccess,
-  triggerExecutionPrincipalId,
-} from '../trigger-access'
+import { assertTriggerAccess } from '../trigger-access'
 import { agentTriggers, triggerConfigRevisionFilter } from '../trigger-db'
 import { scheduleCronTrigger, unscheduleCronTrigger } from '../trigger-scheduler'
 
 import { assertTriggerCreationQuota } from './quota'
-import {
-  assertBindableSession,
-  findManagedTrigger,
-  parseTriggerId,
-  serializeTrigger,
-  validateMinInterval,
-} from './shared'
+import { findManagedTrigger, parseTriggerId, serializeTrigger, validateMinInterval } from './shared'
 import { rollbackTriggerUpdate } from './update-rollback'
 
 import type { TriggerActor } from '../trigger-access'
@@ -27,8 +16,8 @@ import type { UpdateFilter } from 'mongodb'
 
 /**
  * Patch name / messageTemplate / enabled / cronExpression. The MongoDB write
- * owns the cleanup/revision fence; scheduler and incident side effects run
- * only after it succeeds and the row is rolled back if reconciliation fails.
+ * owns the revision fence; scheduler side effects run only after it succeeds
+ * and the row is rolled back if reconciliation fails.
  */
 export async function updateTrigger(
   triggerId: string,
@@ -45,15 +34,6 @@ export async function updateTrigger(
     throw new AppError(400, 'invalid_request', 'timeZone must be an IANA zone for a cron Trigger')
 
   await assertTriggerAccess(trigger, actor, 'manage')
-  if (trigger.cleanupStatus) {
-    throw new AppError(
-      409,
-      'trigger_cleanup_pending',
-      trigger.cleanupStatus === 'deleting'
-        ? 'This Watch is being removed'
-        : 'This Watch is disabled until provider cleanup is retried',
-    )
-  }
 
   const nextName =
     typeof patch.name === 'string' && patch.name.trim()
@@ -64,27 +44,23 @@ export async function updateTrigger(
       ? patch.messageTemplate.trim()
       : trigger.messageTemplate
   const nextEnabled = typeof patch.enabled === 'boolean' ? patch.enabled : trigger.enabled
-  const nextTargetSessionId = patch.targetSessionId ?? trigger.targetSessionId
 
-  // An unbound Trigger has nowhere to deliver. It can only be turned on together
-  // with the conversation it delivers to, which is validated below.
-  if (nextEnabled && !nextTargetSessionId) {
+  // A row stored before Triggers needed a Task has nowhere to run; it stays off.
+  if (nextEnabled && !trigger.targetSessionId) {
     throw new AppError(
       400,
       'trigger_target_session_required',
-      'Choose the conversation this Trigger delivers to before enabling it',
+      'This Trigger has no Task to run in; create a new one in a Task instead',
     )
   }
 
   // Turning a Trigger back on takes a quota slot back, the same as creating one.
-  if (nextEnabled && !trigger.enabled && !trigger.watchGroupId) {
+  if (nextEnabled && !trigger.enabled) {
     await assertTriggerCreationQuota({
-      userId: trigger.createdByUserId ?? trigger.userId,
+      userId: trigger.userId,
       teamId: trigger.teamId,
     })
   }
-
-  const targetSessionChanged = nextTargetSessionId !== trigger.targetSessionId
 
   if (patch.minIntervalSeconds !== undefined) {
     validateMinInterval(trigger.triggerType, patch.minIntervalSeconds)
@@ -108,34 +84,7 @@ export async function updateTrigger(
     patch.minIntervalSeconds !== trigger.minIntervalSeconds
   const enabledChanged = nextEnabled !== trigger.enabled
   const substantiveChanged =
-    messageTemplateChanged ||
-    cronChanged ||
-    timeZoneChanged ||
-    minIntervalChanged ||
-    targetSessionChanged
-
-  // An edit changes what the Trigger does, never who it runs as. Editing is
-  // still gated on outranking the principal, because until the identity moves
-  // the editor's instructions execute with the principal's authority — but the
-  // identity itself only moves through the explicit Admin transfer below, so
-  // no edit can promote a Trigger to its editor's permissions.
-  if (substantiveChanged) {
-    await assertTriggerExecutionMutationAccess(trigger, actor)
-  }
-
-  const principalUserId = triggerExecutionPrincipalId(trigger)
-
-  if (targetSessionChanged && nextTargetSessionId) {
-    // A bound fire runs with the session's own credentials, so only its owner may bind it.
-    if ((typeof actor === 'string' ? actor : actor.userId) !== principalUserId) {
-      throw new AppError(
-        403,
-        'invalid_target_session',
-        'Only the Trigger owner can choose the session it delivers to',
-      )
-    }
-    await assertBindableSession(nextTargetSessionId, trigger.teamId, principalUserId)
-  }
+    messageTemplateChanged || cronChanged || timeZoneChanged || minIntervalChanged
 
   if (!nameChanged && !enabledChanged && !substantiveChanged) {
     return serializeTrigger(trigger)
@@ -149,7 +98,6 @@ export async function updateTrigger(
     ...(cronChanged && nextCronExpression ? { cronExpression: nextCronExpression } : {}),
     ...(timeZoneChanged ? { timeZone: nextTimeZone } : {}),
     ...(minIntervalChanged ? { minIntervalSeconds: patch.minIntervalSeconds } : {}),
-    ...(targetSessionChanged ? { targetSessionId: nextTargetSessionId } : {}),
   }
   const currentConfigRevision = trigger.configRevision ?? 0
   const updated: AgentTrigger = {
@@ -158,46 +106,25 @@ export async function updateTrigger(
     configRevision: currentConfigRevision + 1,
   }
 
-  // A legacy Trigger created before binding was required leaves its
-  // fresh-session modes behind the first time it is bound.
-  const legacyModes =
-    targetSessionChanged && !trigger.targetSessionId
-      ? (['incidentMode', 'slackDestination', 'sessionRouting'] as const).filter(
-          (field) => trigger[field] !== undefined,
-        )
-      : []
-
-  for (const field of legacyModes) delete updated[field]
-
-  const resetIncidentLifecycle =
-    trigger.incidentMode === true &&
-    (patch.enabled === false || messageTemplateChanged || legacyModes.length > 0)
-
-  // Re-assert ownership, revision, and cleanup state in the same write. This
-  // prevents an update that raced a deletion claim from mutating the Watch.
+  // Re-assert the revision in the same write, so an update that raced another
+  // edit or a deletion cannot apply on top of it.
   const update: UpdateFilter<AgentTrigger> = { $set }
   const $unset: Record<string, true> = {}
 
-  for (const field of legacyModes) $unset[field] = true
+  // A missed-run marker belongs to the schedule it was raised for.
+  if (cronChanged || timeZoneChanged || enabledChanged) $unset.missedRunAt = true
   if (Object.keys($unset).length > 0) {
     update.$unset = $unset
   }
   update.$inc = { configRevision: 1 }
   const writeResult = await agentTriggers().updateOne(
-    {
-      _id,
-      cleanupStatus: { $exists: false },
-      ...triggerConfigRevisionFilter(currentConfigRevision),
-    },
+    { _id, ...triggerConfigRevisionFilter(currentConfigRevision) },
     update,
   )
 
   if (writeResult.matchedCount === 0) {
     const current = await agentTriggers().findOne({ _id })
 
-    if (current?.cleanupStatus) {
-      throw new AppError(409, 'trigger_cleanup_pending', 'This Watch is being removed')
-    }
     throw new AppError(
       current ? 409 : 404,
       current ? 'trigger_changed' : 'not_found',
@@ -218,24 +145,21 @@ export async function updateTrigger(
         await scheduleCronTrigger(triggerId, expression, updated.timeZone)
       else await unscheduleCronTrigger(triggerId)
 
-      // If deletion claimed the row while BullMQ was updating, delete wins:
-      // remove any schedule this call may just have created.
+      // If the row was deleted or changed while BullMQ was updating, the
+      // other write wins: remove any schedule this call may just have created.
       const stillCurrent = await agentTriggers().findOne(
-        {
-          _id,
-          cleanupStatus: { $exists: false },
-          ...triggerConfigRevisionFilter(currentConfigRevision + 1),
-        },
+        { _id, ...triggerConfigRevisionFilter(currentConfigRevision + 1) },
         { projection: { _id: 1 } },
       )
 
       if (!stillCurrent) {
         await unscheduleCronTrigger(triggerId)
-        throw new AppError(409, 'trigger_cleanup_pending', 'This Watch is being removed')
+        throw new AppError(
+          409,
+          'trigger_changed',
+          'Trigger changed concurrently; reload it and retry',
+        )
       }
-    }
-    if (resetIncidentLifecycle) {
-      await clearSlackNotificationIncidentsForTrigger(triggerId, trigger.teamId)
     }
   } catch (err) {
     await rollbackTriggerUpdate({ _id, triggerId, trigger, currentConfigRevision, reconcileCron })

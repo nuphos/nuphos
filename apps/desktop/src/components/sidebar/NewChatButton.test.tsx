@@ -9,6 +9,7 @@ import type { ReactNode } from 'react'
 
 let runtime: RuntimeInstance | null = null
 const created: unknown[] = []
+const groups: unknown[][] = []
 
 mock.module('../agent/panel/useNewConversationRuntime', () => ({
   useNewConversationRuntime: () => ({
@@ -24,7 +25,22 @@ mock.module('../../api', () => ({
 
       return Promise.resolve({ sessionId: 'made-bot' })
     },
+    agentCreateChannel: (team: string, group?: boolean) => {
+      groups.push([team, group])
+
+      return Promise.resolve({ sessionId: 'made-group' })
+    },
   },
+}))
+mock.module('../channels/channelKind', () => ({ markChannel: () => {} }))
+// The menu as plain elements, as Modal is below: its items are always rendered.
+mock.module('../ui/menu', () => ({
+  Menu: ({ children }: { children: ReactNode }) => createElement('div', null, children),
+  MenuTrigger: ({ children, ...props }: { children: ReactNode }) =>
+    createElement('button', { type: 'button', ...props }, children),
+  MenuContent: ({ children }: { children: ReactNode }) => createElement('div', null, children),
+  MenuItem: ({ children, onClick }: { children: ReactNode; onClick: () => void }) =>
+    createElement('div', { role: 'menuitem', onClick }, children),
 }))
 mock.module('../../lib/agentAvatarChoices', () => ({ receiveAgentAvatars: () => {} }))
 mock.module('../ui/toast', () => ({ toast: { apiError: () => {} } }))
@@ -84,6 +100,14 @@ test('connect before creating, preserving the name and avatar when returning to 
     )
   const click = async (selector: string) =>
     act(() => (container.querySelector(selector) as unknown as HTMLElement).click())
+  // "+" opens a menu of New Bot and New Group Chat.
+  const pick = async (label: string) => {
+    const item = [...container.querySelectorAll('[role="menuitem"]')].find((one) =>
+      one.textContent?.includes(label),
+    ) as unknown as HTMLElement
+
+    await act(() => item.click())
+  }
   const submit = async () =>
     act(async () => {
       container
@@ -93,7 +117,7 @@ test('connect before creating, preserving the name and avatar when returning to 
 
   try {
     await render()
-    await click('[aria-label="New Bot"]')
+    await pick('New Bot')
     const input = container.querySelector('input')!
     const form = container.querySelector('form')!
 
@@ -136,6 +160,11 @@ test('connect before creating, preserving the name and avatar when returning to 
       },
     ])
     assert.deepEqual(opened, ['made-chat'])
+    // New Group Chat makes an empty chat marked as a group and opens it.
+    await pick('New Group Chat')
+    await act(async () => {})
+    assert.deepEqual(groups, [['team', true]])
+    assert.deepEqual(opened, ['made-chat', 'made-group'])
   } finally {
     await act(() => root.unmount())
     await dom.happyDOM.close()

@@ -1,25 +1,30 @@
 import { useEffect, useRef } from 'react'
 
-import { api } from '../../../api'
-import { getActiveDiagramId } from '../../../architecture/activeDiagram'
-import { publishRuntimeStates } from '../../../lib/agentRuntimeStates'
-import { trackError } from '../../../lib/analytics'
-import { shouldResumeRuntimeWakeup, wakeupTranscriptTail } from '../../../lib/runtimeWakeup'
+import { api } from '../../../api.ts'
+import { getActiveDiagramId } from '../../../architecture/activeDiagram.ts'
+import { publishRuntimeStates } from '../../../lib/agentRuntimeStates.ts'
+import { trackError } from '../../../lib/analytics.ts'
+import { shouldResumeRuntimeWakeup, wakeupTranscriptTail } from '../../../lib/runtimeWakeup.ts'
 
-import { fetchWakeupTranscriptTail, shouldDeferTranscriptCatchUp } from './conversationCatchUp'
-import { CONVERSATION_TAIL_LIMIT } from './model'
-import { fromPersistedMessages, transcriptSignature } from './persistence'
-import { getAgentLocale } from './textUtils'
-import { TIMELINE_CHANGED_EVENT } from './timelineEvents'
-import { toUiMessages } from './toUiMessages'
+import { fetchWakeupTranscriptTail, shouldDeferTranscriptCatchUp } from './conversationCatchUp.ts'
+import { CONVERSATION_TAIL_LIMIT } from './model.ts'
+import { fromPersistedMessages, transcriptSignature } from './persistence.ts'
+import { getAgentLocale } from './textUtils.ts'
+import { TIMELINE_CHANGED_EVENT } from './timelineEvents.ts'
+import { toUiMessages } from './toUiMessages.ts'
 
-import type { PanelCtx } from './ctx'
+import type { PanelCtx } from './ctx.ts'
 
 // The only way a device learns about work it did not start: another device of
 // the same user (or a trigger, or a Slack turn) ran a turn on this
 // conversation. Runtime-agnostic on purpose — every runtime buffers its run
 // the same way, so gating this on one of them just left the others stale.
 const WAKEUP_POLL_MS = 4_000
+
+// Sessions with a catch-up read in flight. Held outside the effect so a re-run
+// (a new message, a stream ending) waits for the read it started before instead
+// of piling a second one onto a stalled connection.
+const polling = new Set<string>()
 
 type Acc = Pick<
   PanelCtx,
@@ -59,12 +64,11 @@ export function useConversationCatchUp(acc: Acc): void {
     )
       return
     const sessionId = activeTab.sessionId
-    const state = { stopped: false, polling: false }
+    const state = { stopped: false }
 
     const poll = async () => {
-      if (state.stopped) return
-      if (state.polling) return
-      state.polling = true
+      if (state.stopped || polling.has(sessionId)) return
+      polling.add(sessionId)
       try {
         // Metadata probe: `activeRun` and `messageCount` do not depend on the
         // messages, so ask for none (a server that predates `messages=omit`
@@ -230,7 +234,7 @@ export function useConversationCatchUp(acc: Acc): void {
       } catch {
         // The next poll retries.
       } finally {
-        state.polling = false
+        polling.delete(sessionId)
       }
     }
 

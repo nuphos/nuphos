@@ -1,17 +1,30 @@
 import type { BoxState } from '../api/device-types.ts'
 
 /** Every agent a team runtime can run. This computer's own agent is narrower: `LocalAgentProvider`. */
-export const AGENT_PROVIDERS = ['claude-code', 'codex', 'grok', 'antigravity', 'opencode'] as const
+export const AGENT_PROVIDERS = [
+  'claude-code',
+  'codex',
+  'grok',
+  'antigravity',
+  'opencode',
+  'hermes',
+  'dsh',
+] as const
 
 export type AgentProvider = (typeof AGENT_PROVIDERS)[number]
 
-/** Each agent's name, and the account its sign-in uses. */
-export const AGENT_PROVIDER: Record<AgentProvider, { label: string; account: string }> = {
+/** Each agent's name, the account its sign-in uses, and whether it is still a preview. */
+export const AGENT_PROVIDER: Record<
+  AgentProvider,
+  { label: string; account: string; preview?: boolean }
+> = {
   'claude-code': { label: 'Claude Code', account: 'Claude' },
   codex: { label: 'Codex', account: 'ChatGPT' },
   grok: { label: 'Grok Build', account: 'xAI' },
   antigravity: { label: 'Antigravity', account: 'Google' },
   opencode: { label: 'OpenCode', account: 'a model provider' },
+  hermes: { label: 'Hermes Agent', account: 'a model provider' },
+  dsh: { label: 'DeepSeek Harness', account: 'DeepSeek', preview: true },
 }
 
 export type LocalRuntimeSummary = {
@@ -67,12 +80,6 @@ export type RuntimeInstance = {
   /** This computer's agent, known locally before the team catalog lists it. */
   starting?: boolean
   createdAt: string
-}
-
-export type CreateRuntimeInput = {
-  /** Defaults to the agent type's name, made unique in the team. */
-  label?: string
-  provider: RuntimeInstance['provider']
 }
 
 /** A runtime the operator runs themselves: Nuphos only learns where it is and
@@ -154,7 +161,7 @@ export type RuntimeQuotaHistorySeries = {
   points: { at: string; usedPercent: number }[]
 }
 
-/** One step of a sign-in that asks before it authorizes (OpenCode). */
+/** One step of a sign-in that asks before it authorizes (OpenCode, DeepSeek Harness). */
 export type RuntimeLoginStep =
   | { kind: 'choose'; message: string; options: { value: string; label: string; hint?: string }[] }
   | { kind: 'input'; message: string; placeholder?: string; secret?: boolean }

@@ -1,4 +1,4 @@
-import { Loader2, Plus } from 'lucide-react'
+import { Bot, Loader2, Plus, Users } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../api'
@@ -12,15 +12,17 @@ import { BotAvatarImage } from '../agent/BotAvatarImage'
 import { useNewConversationRuntime } from '../agent/panel/useNewConversationRuntime'
 import { createBotChannel } from '../channels/botChannel'
 import { BotImportDialog } from '../channels/BotImportDialog'
+import { markChannel } from '../channels/channelKind'
 import { Modal } from '../Modal'
 import { Button } from '../ui/button'
+import { Menu, MenuContent, MenuItem, MenuTrigger } from '../ui/menu'
 import { toast } from '../ui/toast'
 
 import { BotStartIntro } from './BotStartIntro'
 
 import type { BotAvatarFile } from '../../lib/botAvatars'
 
-/** "+" on Chats: a new Bot, with the face and name picked here. */
+/** "+" on Bots: a new Bot, with the face and name picked here, or a new group chat. */
 export function NewChatButton({
   teamId,
   onCreated,
@@ -52,25 +54,37 @@ export function NewChatButton({
           onImport={() => setImportOpen(true)}
         />
       ) : (
-        <span
-          role="button"
-          tabIndex={0}
-          aria-label={t('New Bot')}
-          title={t('New Bot')}
-          onPointerDown={(event) => event.stopPropagation()}
-          onClick={(event) => {
-            event.stopPropagation()
-            setOpen(true)
-          }}
-          onKeyDown={(event) => {
-            if (event.key !== 'Enter' && event.key !== ' ') return
-            event.preventDefault()
-            setOpen(true)
-          }}
-          className="ml-auto inline-flex h-5 w-5 items-center justify-center rounded text-tertiary hover:bg-[var(--sidebar-overlay-hover)] hover:text-secondary"
-        >
-          <Plus className="h-3.5 w-3.5" strokeWidth={2} />
-        </span>
+        <Menu>
+          <MenuTrigger
+            aria-label={t('New')}
+            title={t('New')}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
+            className="ml-auto inline-flex h-5 w-5 items-center justify-center rounded text-tertiary hover:bg-[var(--sidebar-overlay-hover)] hover:text-secondary"
+          >
+            <Plus className="h-3.5 w-3.5" strokeWidth={2} />
+          </MenuTrigger>
+          <MenuContent>
+            <MenuItem icon={<Bot className="size-3.5" />} onClick={() => setOpen(true)}>
+              {t('New Bot')}
+            </MenuItem>
+            <MenuItem
+              icon={<Users className="size-3.5" />}
+              onClick={() => {
+                // An empty chat of the viewer's own: people and Bots join it from Share.
+                api.agentCreateChannel(teamId, true).then(
+                  ({ sessionId }) => {
+                    markChannel(sessionId)
+                    onCreated(sessionId)
+                  },
+                  (error: unknown) => toast.apiError(t('Could not create the group chat'), error),
+                )
+              }}
+            >
+              {t('New Group Chat')}
+            </MenuItem>
+          </MenuContent>
+        </Menu>
       )}
       {open && (
         <Modal

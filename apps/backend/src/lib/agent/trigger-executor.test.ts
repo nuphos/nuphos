@@ -1,5 +1,5 @@
 // Every fire delivers into the Trigger's bound conversation. A row stored
-// before binding was required has nowhere to go and is paused.
+// without a Task has nowhere to go and is paused.
 import '@/routes/agent'
 
 import { describe, expect, test } from 'bun:test'
@@ -62,6 +62,7 @@ let conversation: {
   agentSessionIds?: string[]
 } | null = null
 const channelPosts: { sessionId: string; messages: { id: string }[] }[] = []
+const triggerWrites: { $set?: Record<string, unknown> }[] = []
 
 useAgentDb({
   appendConversationMessages: async (data) => {
@@ -77,7 +78,11 @@ const history = [
 useDb({
   db: () => ({
     collection: (name: string) => ({
-      updateOne: () => Promise.resolve({}),
+      updateOne: (_filter: unknown, update: { $set?: Record<string, unknown> }) => {
+        if (name === 'agent_triggers') triggerWrites.push(update)
+
+        return Promise.resolve({})
+      },
       updateMany: () => Promise.resolve({}),
       findOne: (filter: { messageId?: string }) =>
         Promise.resolve(
@@ -132,13 +137,13 @@ const legacyTrigger = {
   } as unknown as AgentCredentialAccess,
 } as AgentTrigger
 
-describe('executeTrigger on a Trigger stored before binding was required', () => {
+describe('executeTrigger on a Trigger without a Task', () => {
   test('pauses it instead of opening a session', async () => {
     runs.length = 0
 
     await expect(
       executeTrigger(legacyTrigger, undefined, { runKind: 'scheduled' }),
-    ).rejects.toMatchObject({ code: 'trigger_target_session_required' })
+    ).rejects.toMatchObject({ code: 'trigger_target_session_invalid' })
     expect(runs).toHaveLength(0)
   })
 })
@@ -226,6 +231,20 @@ describe('a Trigger bound to an existing session', () => {
       heldTurn = undefined
       conversation = null
     }
+  })
+
+  test('records the finished run without moving updatedAt, which means "configuration changed"', async () => {
+    triggerWrites.length = 0
+    conversation = { sessionId, userId: PRINCIPAL_ID, teamId: 'team-1' }
+    try {
+      await executeTrigger(bound, undefined, { runKind: 'scheduled', fireId: 'done' })
+    } finally {
+      conversation = null
+    }
+    const lastRunWrite = triggerWrites.find((write) => write.$set && 'lastRunAt' in write.$set)
+
+    expect(lastRunWrite?.$set).toBeDefined()
+    expect(lastRunWrite?.$set).not.toHaveProperty('updatedAt')
   })
 
   test('wakes an archived session, whose turn then restores it', async () => {

@@ -6,17 +6,26 @@ import { test } from 'node:test'
 import { MESSAGES, matchLocale, t } from './index.ts'
 
 const SRC = join(import.meta.dirname, '..')
+/** The main process translates its menu bar and notifications the same way. */
+const ELECTRON = join(SRC, '..', 'electron')
+/** Where t() itself is defined, so its own calls are not app text. */
+const DEFINITIONS = new Set([import.meta.dirname, join(ELECTRON, 'main', 'i18n.ts')])
 
 /** Every literal passed to t() in the app, unescaped to its runtime value. */
 function scan(): { keys: Set<string>; dynamic: string[] } {
   const keys = new Set<string>()
   const dynamic: string[] = []
   const call = /\bt\(\s*(['"])((?:\\.|(?!\1)[^\\])*)\1/g
+  const entries = [SRC, ELECTRON].flatMap((root) =>
+    readdirSync(root, { recursive: true, withFileTypes: true }),
+  )
 
-  for (const entry of readdirSync(SRC, { recursive: true, withFileTypes: true })) {
+  for (const entry of entries) {
     if (!entry.isFile() || !/\.tsx?$/.test(entry.name) || entry.name.includes('.test.')) continue
-    if (entry.parentPath === import.meta.dirname) continue
-    const source = readFileSync(join(entry.parentPath, entry.name), 'utf8')
+    const path = join(entry.parentPath, entry.name)
+
+    if (DEFINITIONS.has(entry.parentPath) || DEFINITIONS.has(path)) continue
+    const source = readFileSync(path, 'utf8')
 
     for (const m of source.matchAll(call)) {
       keys.add(m[2].replace(/\\(.)/g, (_, c: string) => (c === 'n' ? '\n' : c)))

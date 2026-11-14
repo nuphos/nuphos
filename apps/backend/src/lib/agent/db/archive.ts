@@ -16,6 +16,7 @@ type Archivable = Pick<
   | 'userId'
   | 'teamId'
   | 'kind'
+  | 'group'
   | 'avatar'
   | 'agentSessionIds'
   | 'participantIds'
@@ -27,15 +28,17 @@ const ARCHIVABLE = {
   userId: 1,
   teamId: 1,
   kind: 1,
+  group: 1,
   avatar: 1,
   agentSessionIds: 1,
   participantIds: 1,
   archivedAt: 1,
 } as const
 
-/** A Bot's 1:1 chat: a channel whose only other member is one agent. */
-const isBotChat = (channel: Archivable) =>
+/** A Bot's 1:1 chat: a channel whose only other member is one agent, not a group chat. */
+export const isBotChat = (channel: Archivable) =>
   channel.kind === 'channel' &&
+  !channel.group &&
   channel.agentSessionIds?.length === 1 &&
   conversationParticipantIds(channel).length === 1
 

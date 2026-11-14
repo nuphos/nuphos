@@ -1,21 +1,19 @@
 import { receiveAgentAvatars } from '../lib/agentAvatarChoices.ts'
 import { publishRuntimeStates } from '../lib/agentRuntimeStates.ts'
 import { receiveConversationReadStates } from '../lib/agentUnreadSessions.ts'
+import { queryClient } from '../lib/query/client.ts'
+import { queryKeys } from '../lib/query/keys.ts'
 import { receiveSubAgents } from '../lib/subAgentIds.ts'
 
 import type { AgentAuditListArgs, AgentMemoryScope } from './agent-audit-types.ts'
-import type {
-  CreateAgentTriggerInput,
-  UpdateAgentTriggerGroupInput,
-  UpdateAgentTriggerInput,
-} from './agent-trigger-types.ts'
+import type { DecisionAnswer } from './agent-chat-types.ts'
+import type { UpdateAgentTriggerInput } from './agent-trigger-types.ts'
 import type {
   AgentCredentialSelection,
   AgentPersistedMessage,
   GeneralAccess,
 } from './agent-types.ts'
 import type { LocalSessionSource } from './app-types.ts'
-import type { DecisionAnswer } from './agent-chat-types.ts'
 import type { PlanUpdatePatch } from './plan-types.ts'
 import type { CloudCliProvider } from '../lib/cloudCli.ts'
 import type { AgentProvider } from '../types/runtime.ts'
@@ -123,6 +121,8 @@ export const agentApi = {
     window.api.agentSetConversationWatched(sessionId, watching, teamId),
   agentUnlinkConversationParent: (sessionId: string, teamId?: string) =>
     window.api.agentUnlinkConversationParent(sessionId, teamId),
+  agentRecordFork: (sessionId: string, forkSessionId: string, teamId?: string) =>
+    window.api.agentRecordFork(sessionId, forkSessionId, teamId),
   agentRecordEditFork: (sessionId: string, forkSessionId: string, teamId?: string) =>
     window.api.agentRecordEditFork(sessionId, forkSessionId, teamId),
   agentCancelRuntime: (sessionId: string, teamId?: string) =>
@@ -178,7 +178,7 @@ export const agentApi = {
     teamId?: string
     credentialAccess: AgentCredentialSelection
   }) => window.api.agentUpdateConversationCredentials(args),
-  agentSyncConversationTranscript: (args: {
+  agentSyncConversationTranscript: async (args: {
     agentRuntime?: AgentProvider
     runtimeId?: string
     sessionId: string
@@ -187,7 +187,11 @@ export const agentApi = {
     messages: AgentPersistedMessage[]
     baseIndex?: number
     import?: boolean
-  }) => window.api.agentSyncConversationTranscript(args),
+  }) => {
+    await window.api.agentSyncConversationTranscript(args)
+    if (args.import && args.teamId)
+      void queryClient.invalidateQueries({ queryKey: queryKeys.agentSessions(args.teamId) })
+  },
   agentDeleteConversation: (sessionId: string, teamId?: string) =>
     window.api.agentDeleteConversation(sessionId, teamId),
   agentSendMessageFeedback: (args: {
@@ -233,23 +237,10 @@ export const agentApi = {
     window.api.agentUpdatePlanApprovalPolicy(teamId, minimumOtherApprovals),
   agentListTriggers: (teamId?: string, targetSessionId?: string) =>
     window.api.agentListTriggers(teamId, targetSessionId),
-  agentListTriggerGroups: (teamId?: string) => window.api.agentListTriggerGroups(teamId),
-  agentUpdateTriggerGroup: (groupId: string, patch: UpdateAgentTriggerGroupInput, teamId: string) =>
-    window.api.agentUpdateTriggerGroup(groupId, patch, teamId),
-  agentTestFireTriggerGroup: (groupId: string, teamId: string) =>
-    window.api.agentTestFireTriggerGroup(groupId, teamId),
   agentGetTrigger: (triggerId: string, teamId?: string) =>
     window.api.agentGetTrigger(triggerId, teamId),
-  agentCreateTrigger: (input: CreateAgentTriggerInput) => window.api.agentCreateTrigger(input),
   agentUpdateTrigger: (triggerId: string, patch: UpdateAgentTriggerInput, teamId?: string) =>
     window.api.agentUpdateTrigger(triggerId, patch, teamId),
-  agentDeleteTrigger: (triggerId: string, teamId?: string, withoutProviderCleanup?: boolean) =>
-    window.api.agentDeleteTrigger(triggerId, teamId, withoutProviderCleanup),
-  agentTestFireTrigger: (triggerId: string, payload?: Record<string, unknown>, teamId?: string) =>
-    window.api.agentTestFireTrigger(triggerId, payload, teamId),
-  agentTransferTriggerExecutionPrincipal: (triggerId: string, userId: string, teamId?: string) =>
-    window.api.agentTransferTriggerExecutionPrincipal(triggerId, userId, teamId),
-  agentTransferTriggerGroupExecutionPrincipal: (groupId: string, userId: string, teamId?: string) =>
-    window.api.agentTransferTriggerGroupExecutionPrincipal(groupId, userId, teamId),
-  agentGetTriggerSchedulerStatus: () => window.api.agentGetTriggerSchedulerStatus(),
+  agentDeleteTrigger: (triggerId: string, teamId?: string) =>
+    window.api.agentDeleteTrigger(triggerId, teamId),
 }

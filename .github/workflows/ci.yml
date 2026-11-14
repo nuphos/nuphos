@@ -68,6 +68,7 @@ jobs:
       ios: ${{ steps.filter.outputs.ios == 'true' && steps.bump.outputs.version_only != 'true' }}
       cli: ${{ steps.filter.outputs.cli }}
       openab: ${{ steps.filter.outputs.openab }}
+      skill_install: ${{ steps.filter.outputs.skill_install }}
       dev_scripts: ${{ steps.filter.outputs.dev_scripts }}
       lint_config: ${{ steps.filter.outputs.lint_config == 'true' && steps.bump.outputs.version_only != 'true' }}
       import_cycles: ${{ steps.filter.outputs.import_cycles }}
@@ -79,14 +80,22 @@ jobs:
         id: filter
         with:
           filters: |
+            # Backend tests import electron main's local runtime, so its typecheck follows it,
+            # and from there the desktop's shared types and one runtime-image script.
             backend:
               - 'apps/backend/**'
+              - 'apps/desktop/electron/**'
+              - 'apps/desktop/src/api/**'
+              - 'apps/desktop/src/types/**'
+              - 'apps/runtime/image/antigravity-status.mjs'
               - '.bun-version'
               - '.github/workflows/ci.yml'
             # electron main imports runtime-file-program.ts from the backend.
             desktop:
               - 'apps/desktop/**'
               - 'apps/backend/src/lib/claude-code-preview/runtime-file-program.ts'
+              # The local runtime bundles most of the runtime image (apps/runtime/README.md).
+              - 'apps/runtime/image/**'
               - '.github/workflows/ci.yml'
             # What electron-builder adds beyond the vite bundle, which every
             # desktop change still builds. The single `*` takes the top-level
@@ -94,6 +103,7 @@ jobs:
             desktop_package:
               - 'apps/desktop/*'
               - 'apps/backend/src/lib/claude-code-preview/runtime-file-program.ts'
+              - 'apps/runtime/image/**'
               - 'apps/desktop/electron/**'
               - 'apps/desktop/local-runtime/**'
               - 'apps/desktop/build/**'
@@ -108,6 +118,10 @@ jobs:
               - '.github/workflows/ci.yml'
             openab:
               - 'apps/runtime/openab/**'
+              - '.github/workflows/ci.yml'
+            skill_install:
+              - 'apps/backend/src/lib/agent/builtin-skills/skills/*/scripts/install.sh'
+              - 'apps/backend/src/lib/agent/builtin-skills/github-install.test.sh'
               - '.github/workflows/ci.yml'
             dev_scripts:
               - 'scripts/**'
@@ -207,6 +221,10 @@ jobs:
         run: cargo clippy --locked --all-targets -- -D warnings
       - name: Test
         run: cargo test --locked
+      - name: Test install.sh
+        run: |
+          sudo apt-get update && sudo apt-get install -y zsh
+          sh install.test.sh
       # The release builds this target; catch a break before a tag does.
       - name: Static Linux build
         run: |
@@ -231,6 +249,24 @@ jobs:
         run: cargo clippy --locked --all-targets -- -D warnings
       - name: Test
         run: cargo test --locked
+      - name: Test install.sh
+        run: sh install.test.sh
+
+  skill-install:
+    name: Skill installers (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.skill_install == 'true'
+    # Local runtimes run these scripts on macOS, the managed image on Linux.
+    strategy:
+      matrix:
+        os: [ubuntu-24.04-arm, macos-15]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Test the github skill's install.sh
+        run: bash apps/backend/src/lib/agent/builtin-skills/github-install.test.sh
 
   openab:
     name: openab (clippy + test)

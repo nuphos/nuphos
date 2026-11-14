@@ -37,7 +37,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     title: t('App'),
     entries: [
       { label: t('Search agents and people'), combos: ['mod+k'] },
-      { label: t('Switch agent'), combos: ['alt+up', 'alt+down'] },
+      { label: t('Switch Bot or task'), combos: ['alt+up', 'alt+down'] },
       { label: t('Agent needing you'), combos: ['alt+shift+up', 'alt+shift+down'] },
       {
         label: t('Back / forward'),
@@ -70,7 +70,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { label: t('Copy last reply'), combos: ['mod+alt+c'] },
       { label: t('Find in conversation'), combos: ['mod+f'] },
       { label: t('Scroll conversation'), combos: ['pageup', 'pagedown'] },
-      { label: t('Toggle agent summary'), combos: ['mod+i'] },
+      { label: t('Toggle task summary'), combos: ['mod+i'] },
     ],
   },
   {

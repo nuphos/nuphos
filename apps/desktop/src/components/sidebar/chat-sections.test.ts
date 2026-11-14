@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { foldKey, unpinnedChatItems, withChatSections } from './chat-sections.ts'
+import { foldKey, isBotTreeFold, unpinnedChatItems, withChatSections } from './chat-sections.ts'
 import { nestItems } from './nest-items.ts'
 
 import type { Item, Section } from './types'
@@ -266,18 +266,6 @@ test('a fallback Bot keeps its children and existing chat copies are not duplica
   )
 })
 
-test('a Bot without a chat under another Bot is listed once, as its copy', () => {
-  const copy = { ...row('agent-session:b', { parentKey: 'dm' }), botNested: true }
-  const channels = build([
-    row('dm', { channel: true, botChannelOf: 'a' }),
-    row('agent-session:a', { bot: true }),
-    row('agent-session:b', { bot: true, parentKey: 'agent-session:a' }),
-    copy,
-  ]).Channels
-
-  assert.deepEqual(channels, ['dm', 'agent-session:b'])
-})
-
 test('pinning a Bot hides its entire delegated tree without orphaning grandchildren', () => {
   const items = [
     row('bot', { bot: true }),
@@ -311,4 +299,10 @@ test('pin filtering tolerates missing parents and parent cycles', () => {
     unpinnedChatItems(items, (item) => item.key === 'a').map((item) => item.key),
     ['orphan'],
   )
+})
+
+test('a Bot tree folds at rest, but its done group and Tasks folds do not', () => {
+  assert.equal(isBotTreeFold(foldKey({ title: 'Channels' }, 'agent-session:bot')), true)
+  assert.equal(isBotTreeFold(`${foldKey({ title: 'Channels' }, 'agent-session:bot')}:done`), false)
+  assert.equal(isBotTreeFold(foldKey({ title: 'Tasks' }, 'agent-session:task')), false)
 })

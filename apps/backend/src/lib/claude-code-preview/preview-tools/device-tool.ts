@@ -5,10 +5,10 @@
 import { randomUUID } from 'node:crypto'
 
 import { recordDeviceExecAudit } from '@/lib/agent/devices/audit'
-import { requireDeviceAccess } from '@/lib/agent/devices/box-access'
 import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { DeviceRuntimeSocket } from '@/lib/agent/devices/local-runtime/socket'
+import { requireShellAccess } from '@/lib/agent/devices/manage-access'
 import { isActiveTeamMember } from '@/lib/agent/devices/store'
 import { describeDevices, pickDevice } from '@/lib/agent/tools-skilled/local-tools'
 import { toolError } from '@/lib/mcp/protocol'
@@ -36,7 +36,7 @@ export type DeviceToolDeps = {
     ctx: PreviewToolContext,
   ) => Promise<{ deviceId: string; label: string; box?: boolean }[]>
   isMember: (userId: string, teamId: string) => Promise<boolean>
-  /** The device's transport owner when the actor may use it now, else null. */
+  /** The device's transport owner when the actor may run commands on it now, else null. */
   owner: (ctx: PreviewToolContext, deviceId: string) => Promise<string | null>
   connect: (
     ctx: PreviewToolContext,
@@ -77,11 +77,12 @@ export const defaultDeviceToolDeps: DeviceToolDeps = {
   devices: resolveAvailableLocalExecDevices,
   isMember: isActiveTeamMember,
   owner: (ctx, deviceId) =>
-    requireDeviceAccess(
+    // Driving its screen or browser reaches what a shell does.
+    requireShellAccess(
       ctx.conversationOwnerUserId ?? ctx.userId,
       ctx.teamId,
       deviceId,
-      'use',
+      'exec',
     ).then(
       (device) => device.userId,
       () => null,

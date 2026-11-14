@@ -140,7 +140,7 @@ export async function answerInputRequest(args: {
 
   // A plan's question stays open until the plan itself is decided.
   if (request?.planId) await applyPlanAnswer(request.planId, args)
-  else await resolveInputRequest(args.sessionId, args.userId, args.requestId, 'answered')
+  else await resolveInputRequest(args.sessionId, args.userId, args.requestId)
 }
 
 async function applyPlanAnswer(

@@ -25,6 +25,9 @@ mock.module('../local-terminal.ts', {
   namedExports: {
     localTerminals: {
       start: (...args: unknown[]) => starts.push(args),
+      agentList: (conversationId: string) => [
+        { terminalId: `${conversationId}-tab`, exited: false },
+      ],
       agentRequest: (...args: unknown[]) => {
         writes.push(args)
 
@@ -53,7 +56,7 @@ test('only one renderer can claim a request and start its scoped PTY', async () 
   assert.equal(frame.sessionId, 's1')
   assert.equal(acceptDockTerminal(owner, frame.id), true)
   assert.equal(acceptDockTerminal(owner, frame.id), false)
-  assert.deepEqual(starts, [[owner, frame.id, 80, 24, '/tmp', '["t1","s1"]']])
+  assert.deepEqual(starts, [[owner, frame.id, 80, 24, '/tmp', 's1']])
   assert.deepEqual(JSON.parse((await result).stdout), { terminalId: frame.id })
 })
 
@@ -76,8 +79,16 @@ test('writes and interrupts use the conversation scope and read does not send in
     assert.equal(result.exitCode, 0)
   }
   assert.deepEqual(writes, [
-    ['tab1', '["t1","s1"]', 'echo hi\r'],
-    ['tab1', '["t1","s1"]', '\x03'],
-    ['tab1', '["t1","s1"]', undefined],
+    ['tab1', 's1', 'echo hi\r'],
+    ['tab1', 's1', '\x03'],
+    ['tab1', 's1', undefined],
   ])
+})
+
+test('list returns the terminals in the conversation dock', async () => {
+  const result = await runDockTerminal(request('list'), { sessionId: 'exec4' })
+
+  assert.deepEqual(JSON.parse(result.stdout), {
+    terminals: [{ terminalId: 's1-tab', exited: false }],
+  })
 })

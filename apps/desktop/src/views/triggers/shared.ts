@@ -1,8 +1,7 @@
-import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n/index.ts'
 
 import type { AgentTrigger } from '../../api'
-import type { TeamMember, TeamRole } from '../../types'
+import type { TeamMember } from '../../types'
 
 export function stripTrailingSlashes(url: string): string {
   let end = url.length
@@ -17,30 +16,11 @@ export function triggerSourceTitle(trigger: AgentTrigger): string {
     const sessionId = trigger.sourceContext?.sessionId
 
     return sessionId
-      ? t('Created by the agent in agent {sessionId}', { sessionId })
+      ? t('Created by the agent in task {sessionId}', { sessionId })
       : t('Created by the agent')
   }
 
   return t('Created by automation')
-}
-
-export function reportCleanupFailures(triggers: AgentTrigger[]) {
-  for (const trigger of triggers) {
-    if (trigger.cleanupStatus === 'cleanup_failed') {
-      toast.error(
-        t('Could not remove {name}', { name: trigger.name }),
-        trigger.cleanupError ?? t('Provider cleanup failed'),
-      )
-    }
-  }
-}
-
-export function canManageTeamTriggers(role: TeamRole | undefined): boolean {
-  return role === 'ADMINISTRATOR' || role === 'EDITOR'
-}
-
-export function canDeleteTeamTriggers(role: TeamRole | undefined): boolean {
-  return role === 'ADMINISTRATOR'
 }
 
 export function executionPrincipalLabel(members: TeamMember[], principalId: string): string {

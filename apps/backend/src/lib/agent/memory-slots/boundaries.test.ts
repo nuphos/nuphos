@@ -124,6 +124,15 @@ describe('memory SPI dependency rules (grep guards)', () => {
       const hits = importSpecifiers(text)
         .filter((s) => /(?:^|\/)memory-native(?:\/|$)/.test(s))
         .filter((s) => !isGrandfatheredIngestFallback(rel, s))
+        // ZIP export/import need full native records in a Mongo transaction;
+        // the live RecordsSurface list omits capsules and has no snapshot option.
+        .filter(
+          (s) =>
+            !(
+              ['lib/team-migration/database.ts', 'lib/team-migration/import.ts'].includes(rel) &&
+              s === '@/lib/agent/memory-native/store/shared'
+            ),
+        )
 
       if (hits.length > 0) offenders.push(`${rel} → ${hits.join(', ')}`)
     }

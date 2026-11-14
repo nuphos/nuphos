@@ -129,13 +129,13 @@ test('slow wheel input keeps both pages on the track until the gesture ends', as
   controller.nativePhase('begin')
   wheel(160)
   controller.nativePhase('end')
-  assert.equal(layer.style.transform, 'translate3d(-248px,0,0)', 'Tasks is the second page')
+  assert.equal(layer.style.transform, 'translate3d(-496px,0,0)', 'Inbox is the third page')
   controller.nativePhase('begin')
   wheel(100)
   controller.nativePhase('end')
   assert.equal(
     layer.style.transform,
-    'translate3d(-248px,0,0)',
-    'the second page is the final boundary',
+    'translate3d(-496px,0,0)',
+    'the third page is the final boundary',
   )
 })

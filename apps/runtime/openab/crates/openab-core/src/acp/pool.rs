@@ -1,4 +1,4 @@
-use crate::acp::connection::{AcpConnection, SessionActivity};
+use crate::acp::connection::{AcpConnection, AcpRequestError, SessionActivity};
 use crate::acp::protocol::ConfigOption;
 use crate::acp::session_credentials::{
     try_write_session_credentials, write_session_credentials, SESSION_CREDENTIALS_DIR_ENV,
@@ -14,10 +14,22 @@ use tokio::sync::{Mutex, OwnedSemaphorePermit, RwLock, Semaphore};
 use tokio::time::Instant;
 use tracing::{info, warn};
 
-/// Error substrings produced by `AcpConnection::send_request` that indicate a
-/// transient failure worth preserving the session ID for retry, as opposed to
-/// a permanent agent-side rejection.
-const TRANSIENT_LOAD_ERRORS: &[&str] = &["timeout waiting for", "channel closed"];
+/// Why a session could not start. `Request` keeps the agent's own error, so a
+/// caller can relay its code and `data` instead of reading the message text.
+#[derive(Debug, thiserror::Error)]
+pub enum SessionStartError {
+    #[error(transparent)]
+    Request(#[from] AcpRequestError),
+    #[error("pool exhausted ({0} sessions)")]
+    PoolExhausted(usize),
+    #[error("failed to spawn {command}: {source}")]
+    Spawn {
+        command: String,
+        source: std::io::Error,
+    },
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
 
 /// Combined state protected by a single lock to prevent deadlocks.
 /// Lock ordering: never await a per-connection mutex while holding `state`.
@@ -626,7 +638,7 @@ impl SessionPool {
         thread_id: &str,
         eviction_candidate: Option<EvictionCandidate>,
         skipped_locked_candidates: usize,
-    ) -> Result<OwnedSemaphorePermit> {
+    ) -> Result<OwnedSemaphorePermit, SessionStartError> {
         let mut state = self.state.write().await;
 
         // Rebuilding a dead connection consumes the same logical slot. Move
@@ -647,7 +659,7 @@ impl SessionPool {
                     max_sessions = self.max_sessions,
                     "pool full but the idle eviction candidate became busy"
                 );
-                return Err(anyhow!("pool exhausted ({} sessions)", self.max_sessions));
+                return Err(SessionStartError::PoolExhausted(self.max_sessions));
             };
 
             let activity = state.activity.get(&key).map(Arc::as_ref);
@@ -661,7 +673,7 @@ impl SessionPool {
                     std::time::Duration::from_secs(self.hung_threshold_secs),
                 )
             {
-                return Err(anyhow!("pool exhausted ({} sessions)", self.max_sessions));
+                return Err(SessionStartError::PoolExhausted(self.max_sessions));
             }
             if remove_if_same_handle(&mut state.active, &key, &expected_conn).is_some() {
                 state.admission_permits.remove(&key);
@@ -692,7 +704,7 @@ impl SessionPool {
 
         Arc::clone(&self.admission)
             .try_acquire_owned()
-            .map_err(|_| anyhow!("pool exhausted ({} sessions)", self.max_sessions))
+            .map_err(|_| SessionStartError::PoolExhausted(self.max_sessions))
     }
 
     /// Check if session state exists for this thread (active, suspended, or persisted).
@@ -718,7 +730,7 @@ impl SessionPool {
         working_dir_override: Option<&str>,
         mcp_servers: &[serde_json::Value],
         session_meta: Option<&serde_json::Value>,
-    ) -> Result<bool> {
+    ) -> Result<bool, SessionStartError> {
         self.get_or_restore(
             thread_id,
             working_dir_override,
@@ -791,7 +803,7 @@ impl SessionPool {
         mcp_servers: &[serde_json::Value],
         session_meta: Option<&serde_json::Value>,
         restore_only: bool,
-    ) -> Result<bool> {
+    ) -> Result<bool, SessionStartError> {
         let working_dir_override = working_dir_override.or_else(|| meta_working_dir(session_meta));
         let create_gate = {
             let mut state = self.state.write().await;
@@ -799,7 +811,7 @@ impl SessionPool {
                 && !state.persisted.contains_key(thread_id)
                 && !state.active.contains_key(thread_id)
             {
-                return Err(anyhow!("No saved native session to restore"));
+                return Err(anyhow!("No saved native session to restore").into());
             }
             // A non-empty declaration updates the stored set used by the next
             // spawn. An idle live agent is respawned below when it differs.
@@ -867,7 +879,7 @@ impl SessionPool {
 
         if restore_only {
             if saved_session_id.is_none() {
-                return Err(anyhow!("No saved native session to restore"));
+                return Err(anyhow!("No saved native session to restore").into());
             }
             let mut state = self.state.write().await;
             state
@@ -1070,7 +1082,7 @@ impl SessionPool {
         .await?;
 
         let mut resumed = false;
-        let mut load_failed: Option<&str> = None;
+        let mut load_timed_out = false;
         if let Some(ref sid) = saved_session_id {
             if new_conn.supports_load_session {
                 match new_conn
@@ -1086,45 +1098,35 @@ impl SessionPool {
                         info!(thread_id = %crate::redact::redact_session_ids(thread_id), session_id = %crate::redact::redact_session_ids(sid), "session resumed via session/load");
                         resumed = true;
                     }
+                    Err(e) if restore_only => {
+                        return Err(anyhow::Error::new(e)
+                            .context("Could not restore the saved native session")
+                            .into());
+                    }
+                    Err(e @ AcpRequestError::Timeout { .. }) => {
+                        warn!(thread_id = %crate::redact::redact_session_ids(thread_id), session_id = %crate::redact::redact_session_ids(sid), error = %e,
+                            "session/load failed transiently, preserving session ID for retry");
+                        load_timed_out = true;
+                    }
                     Err(e) => {
-                        if restore_only {
-                            return Err(e.context("Could not restore the saved native session"));
-                        }
-                        let err_str = e.to_string();
-                        let is_transient =
-                            TRANSIENT_LOAD_ERRORS.iter().any(|s| err_str.contains(s));
-                        if is_transient {
-                            warn!(thread_id = %crate::redact::redact_session_ids(thread_id), session_id = %crate::redact::redact_session_ids(sid), error = %e,
-                                "session/load failed transiently, preserving session ID for retry");
-                            load_failed = Some(if err_str.contains("timeout waiting for") {
-                                "timeout"
-                            } else {
-                                "connection lost"
-                            });
-                        } else {
-                            warn!(thread_id = %crate::redact::redact_session_ids(thread_id), session_id = %crate::redact::redact_session_ids(sid), error = %e,
-                                "session/load failed, creating new session");
-                        }
+                        warn!(thread_id = %crate::redact::redact_session_ids(thread_id), session_id = %crate::redact::redact_session_ids(sid), error = %e,
+                            "session/load failed, creating new session");
                     }
                 }
             }
         }
 
-        if let Some(reason) = load_failed {
-            // session/load failed transiently. The original session ID is already
+        if load_timed_out {
+            // session/load timed out. The original session ID is already
             // in state.persisted (we haven't touched it), so the next message will
             // retry session/load automatically. Return an error so the current message
             // is not processed against a context-free session.
-            return Err(anyhow!(
-                "session load {reason}: could not restore previous session"
-            ));
+            return Err(anyhow!("session load timeout: could not restore previous session").into());
         }
 
         if !resumed {
             if restore_only {
-                return Err(anyhow!(
-                    "Agent does not support restoring the saved session"
-                ));
+                return Err(anyhow!("Agent does not support restoring the saved session").into());
             }
             new_conn
                 .session_new(

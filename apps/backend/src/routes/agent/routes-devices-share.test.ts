@@ -46,7 +46,7 @@ function app(options: { device?: AgentDevice; userId?: string; stored?: string[]
     isMember: async () => true,
     teamMembers: async () => [{ id: 'owner' }, { id: 'mate' }, { id: 'other' }],
     getDevice: async () => device,
-    setUse: async (_owner, _device, _team, use, managers) => {
+    setUse: async (_owner, _device, _team, use, _by, managers) => {
       // As the guarded update: managers that followed from a read need that read to still hold.
       if (managers?.read && managers.read.join() !== (stored ?? []).join())
         throw new AppError(409, 'access_changed', 'Access changed while you were editing')

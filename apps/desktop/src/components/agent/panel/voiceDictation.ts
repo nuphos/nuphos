@@ -46,6 +46,21 @@ export function formatElapsed(ms: number): string {
   return `${String(Math.floor(seconds / 60))}:${String(seconds % 60).padStart(2, '0')}`
 }
 
+/**
+ * Whisper writes Mandarin in Simplified characters; like the iOS and Android
+ * apps, a Chinese transcript is converted to Traditional ones, unless the app
+ * is set to Simplified Chinese. The converter loads on the first such take.
+ */
+export async function dictationText(
+  { text, language }: { text: string; language: string | null },
+  locale: string,
+): Promise<string> {
+  if (language !== 'chinese' || locale === 'zh-CN') return text
+  const { Converter } = await import('opencc-js/cn2t')
+
+  return Converter({ from: 'cn', to: 'tw' })(text)
+}
+
 /** The transcript as inserted after `before`: a space keeps it off a preceding word. */
 export function dictationInsert(text: string, before: string): string {
   const words = text.trim()

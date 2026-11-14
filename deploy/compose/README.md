@@ -21,7 +21,7 @@ This page covers the full stack with no dev server. `bun run dev` at the reposit
 
 - Docker Desktop (or Docker Engine with Compose v2.24+)
 - `openssl`
-- `127.0.0.1:3000` (backend), `127.0.0.1:9000` (RustFS), and `127.0.0.1:18180` (runtime console) free on the host; otherwise change `BACKEND_PORT` / `RUSTFS_PORT` / `RUNTIME_PORT` in `.env` (changing `RUSTFS_PORT` breaks Desktop file transfers)
+- `127.0.0.1:3000` (backend), `127.0.0.1:9000` (RustFS), and `127.0.0.1:18180` (runtime console) free on the host; otherwise change `BACKEND_PORT` / `RUSTFS_PORT` / `RUNTIME_PORT` in `.env` (changing `RUSTFS_PORT` breaks Desktop file transfers unless `RUSTFS_PUBLIC_URL` names the new port)
 
 ## Start
 
@@ -34,7 +34,7 @@ docker compose ps             # wait until rustfs, backend and runtime are healt
 
 Without `init-env.sh`, copy `.env.example` to `.env` and fill each value with the `openssl` command noted on its line.
 
-To change the runtime version, edit `RUNTIME_TAG` in `.env` (for example `0.1.55-claude-code`), then run `docker compose up -d runtime`.
+To change the runtime version, edit `RUNTIME_TAG` in `.env` (for example `0.1.58-claude-code`), then run `docker compose up -d runtime`.
 
 ## First sign-in
 
@@ -159,10 +159,19 @@ After connecting the runtime, the last request lists it with `kind: "external"`.
 
 ## File transfers (optional)
 
-File uploads and downloads use presigned URLs whose host is `rustfs`. To let Desktop reach them directly, add a hosts entry:
+File uploads and downloads use presigned URLs that Desktop and the runtime fetch directly. By default their host is `rustfs`, the Compose service name. When Desktop runs on the same machine as the stack, add a hosts entry:
 
 ```sh
 echo '127.0.0.1 rustfs' | sudo tee -a /etc/hosts
+```
+
+When Desktop runs on another machine, set `RUSTFS_PUBLIC_URL` in `.env` to an origin it can reach, for example `http://nuphos-host.lan:9000`, and run `docker compose up -d backend`. Presigned URLs then use that origin. RustFS must be reachable there by Desktop and by the runtime container, so publish it beyond `127.0.0.1` (edit the `rustfs` port mapping or put a proxy in front of it). Presigned URLs carry their own short-lived signature, but the port is then open, so serve it over TLS or limit it to the networks Desktop and the runtime use.
+
+To check, replace the example origin with yours and run both commands. Each should print `200`:
+
+```sh
+curl -s -o /dev/null -w '%{http_code}\n' http://nuphos-host.lan:9000/health   # on the Desktop machine
+docker compose exec runtime curl -s -o /dev/null -w '%{http_code}\n' http://nuphos-host.lan:9000/health   # on the stack's host
 ```
 
 ## Health telemetry (optional, off by default)

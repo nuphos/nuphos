@@ -88,6 +88,7 @@ async function deviceView(
             ...(level !== 'use' ? { access: teamUse(device, device.box.teamId) } : {}),
             ...(device.box.sandboxId ? { sandboxId: device.box.sandboxId } : {}),
             ...(device.box.accountId ? { instaboxAccountId: device.box.accountId } : {}),
+            ...(device.box.useTerminal ? { useTerminal: true } : {}),
             state,
             // Its host restarting for an update: offline on purpose, and back on its own.
             ...(updating ? { updateStartedAt: updating.toISOString() } : {}),
@@ -264,8 +265,9 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
       const boxTeam = device.box?.teamId ?? ''
       const members = await deps.teamMembers(boxTeam)
       const access = memberAccess(members, c.req.valid('json'))
+      const by = { actorUserId: c.get('userId'), via: 'box_access' as const }
 
-      if (!(await deps.setTeamUse(device.userId, device.deviceId, boxTeam, access)))
+      if (!(await deps.setTeamUse(device.userId, device.deviceId, boxTeam, access, by)))
         throw new AppError(404, 'device_not_found', 'Device is not available')
       const memberIds = members.map((member) => member.id)
 

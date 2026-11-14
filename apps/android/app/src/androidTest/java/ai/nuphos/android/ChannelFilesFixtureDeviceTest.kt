@@ -167,7 +167,7 @@ class ChannelFilesFixtureDeviceTest {
     }
     @Test fun mixedGroupsLoneImagesAndGoneGroups() {
         render()
-        // Mixed: images and videos in one grid, other files as chips below it; the pager holds only images.
+        // Mixed: images and videos in one grid, other files as chips below it; the pager holds the images and videos, as on iOS.
         scrollTo("Mixed groups:")
         val four = bounds("four.png"); val clip = bounds("clip.mp4")
         assertEquals(four.top, clip.top, 1f)
@@ -175,7 +175,7 @@ class ChannelFilesFixtureDeviceTest {
         assertTrue("$four $pdf", pdf.top >= four.bottom)
         compose.onNodeWithText("notes.txt").assertExists()
         compose.onNodeWithContentDescription("four.png").performClick()
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("1 / 1").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("1 / 2").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Close").performClick()
         // One group gone: the other still shows, whole, and the gone one can be retried.
         scrollTo("One group gone, one fine:")

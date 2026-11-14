@@ -61,6 +61,8 @@ export type ChannelFace = {
 export type AgentConversation = {
   /** A channel: a place where people and agents talk. It runs no agent of its own. */
   kind?: 'channel'
+  /** Started as a group chat: never a Bot's 1:1 chat, even with one Bot in it. */
+  group?: true
   faces?: ChannelFace[]
   /** A channel's agents, as their session ids. */
   agentSessionIds?: string[]
@@ -71,6 +73,8 @@ export type AgentConversation = {
   title: string
   /** Picked bot avatar, e.g. `05-rembrandt`. Absent: the one its sessionId selects. */
   avatar?: string
+  /** A Bot's current standing instructions, in full. */
+  instructions?: string
   firstMessage: string
   messageCount: number
   tokenUsage?: AgentTokenUsageSummary
@@ -156,8 +160,6 @@ export type AgentTriggerRunKind = 'scheduled' | 'webhook' | 'manual'
 export type AgentConversationTriggerRun = {
   id: string
   kind?: AgentTriggerRunKind
-  /** Watch group runs only: the monitored item that fired behind the shared partition ingress. */
-  memberKey?: string
 }
 
 export type AgentTokenUsageSummary = {
@@ -266,7 +268,7 @@ export type AgentTimelineEvent = {
   reason?: 'quota' | 'offline' | 'failure'
   /** A fallback that found no agent: each one passed over, and why. */
   skipped?: { label: string; reason: string }[]
-  /** message_edited: the session the edited message ran in. */
+  /** message_edited / conversation_forked: the destination session. */
   forkSessionId?: string
 }
 

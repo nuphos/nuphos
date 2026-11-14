@@ -1,8 +1,6 @@
 import { spawn } from 'node:child_process'
 import { stripVTControlCharacters } from 'node:util'
 
-import { agentSignInArgs } from './config.ts'
-
 import type { ChildProcess } from 'node:child_process'
 
 export type LocalAgentLoginState = {
@@ -10,6 +8,13 @@ export type LocalAgentLoginState = {
   url?: string
   userCode?: string
   error?: string
+}
+
+/** The agent's own sign-in command: Claude's browser flow, Codex's device flow. */
+export function agentSignInArgs(provider: 'claude-code' | 'codex'): string[] {
+  return provider === 'codex'
+    ? ['-c', 'cli_auth_credentials_store="file"', 'login', '--device-auth']
+    : ['auth', 'login', '--claudeai']
 }
 
 /** Only an authorization URL leaves the CLI. Tokens and raw output never reach the renderer. */

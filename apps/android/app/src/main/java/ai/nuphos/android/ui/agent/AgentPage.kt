@@ -99,8 +99,6 @@ fun AgentPage(
     val store = LocalAgentStore.current
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
-    var settingUpRuntime by androidx.compose.runtime.saveable.rememberSaveable(store.selectedTeam?.id) { mutableStateOf(false) }
-    if (settingUpRuntime) FirstRuntimeSetup { settingUpRuntime = false }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     LaunchedEffect(store, lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
@@ -132,9 +130,9 @@ fun AgentPage(
     archiveTarget?.takeIf { store.canArchive(it) }?.let { target ->
         val busy = store.rowActionSessionId != null
         AlertDialog(onDismissRequest = { if (!busy) { archiveTarget = null; store.clearRowActionError() } },
-            title = { Text(if (target.isArchived) "Restore agent?" else "Archive agent?") },
+            title = { Text(if (target.isArchived) "Restore task?" else "Archive task?") },
             text = { Column {
-                Text(if (target.isArchived) "Move this agent to Active." else "It leaves the Tasks list. Open it again to restore it.")
+                Text(if (target.isArchived) "Move this task to Active." else "It leaves the Tasks list. Open it again to restore it.")
                 store.rowActionError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             } },
             confirmButton = { TextButton(enabled = !busy, onClick = { scope.launch {
@@ -149,7 +147,7 @@ fun AgentPage(
         var title by remember(target.sessionId) { mutableStateOf(target.displayTitle) }
         val busy = store.rowActionSessionId != null
         AlertDialog(onDismissRequest = { if (!busy) { renameTarget = null; store.clearRowActionError() } },
-            title = { Text("Rename agent") },
+            title = { Text("Rename task") },
             text = { Column {
                 OutlinedTextField(value = title, onValueChange = { title = it }, singleLine = true,
                     enabled = !busy, label = { Text("Title") }, isError = ai.nuphos.android.data.ConversationActions.validTitle(title) == null)
@@ -211,7 +209,7 @@ fun AgentPage(
         }
         if (store.phase == AgentStore.Phase.Loaded && store.phaseError != null) {
             Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Could not refresh agents. Showing last loaded history.", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                Text("Could not refresh tasks. Showing last loaded history.", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
                 Button(onClick = { scope.launch { store.reload() } }) { Text("Retry history") }
             }
         }
@@ -225,14 +223,14 @@ fun AgentPage(
                     RefreshableHistoryState {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
-                            Text("Loading agents…", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Loading tasks…", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
                 store.phase == AgentStore.Phase.Failed -> {
                     RefreshableHistoryState { EmptyState(
                         icon = Icons.Outlined.WifiOff,
-                        title = "Couldn't load agents",
+                        title = "Couldn't load tasks",
                         body = store.phaseError.orEmpty(),
                         action = "Try again",
                         onAction = { scope.launch { store.reload() } },
@@ -240,8 +238,7 @@ fun AgentPage(
                 }
                 // With any task, the list stays, as on iOS.
                 store.hasRuntimes == false && store.conversations.isEmpty() && store.search.isEmpty() -> {
-                    RefreshableHistoryState { FirstRuntimePrompt(
-                        if (store.selectedTeam?.isAdministrator == true) ({ settingUpRuntime = true }) else null) }
+                    RefreshableHistoryState { FirstRuntimePrompt() }
                 }
                 store.conversations.isEmpty() -> {
                     RefreshableHistoryState { EmptyState(
@@ -289,7 +286,7 @@ fun AgentPage(
                         if (store.hasMore) {
                             item(key = "history:more") {
                                 TextButton(onClick = { scope.launch { store.loadMore() } }, modifier = Modifier.fillMaxWidth()) {
-                                    Text("Load more agents")
+                                    Text("Load more tasks")
                                 }
                             }
                         }
@@ -408,9 +405,9 @@ internal fun ConversationRow(conversation: AgentConversation, status: String?, t
 internal fun UnlinkConfirmation(target: AgentConversation, busy: Boolean, error: String?, onDismiss: () -> Unit, onConfirm: () -> Unit) {
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
-        title = { Text("Unlink agent?") },
+        title = { Text("Unlink task?") },
         text = { Column {
-            Text("“${target.displayTitle}” will appear on its own in the agent list. Its messages and sharing permissions will stay the same.")
+            Text("“${target.displayTitle}” will appear on its own in the task list. Its messages and sharing permissions will stay the same.")
             if (error != null) Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 12.dp))
         } },
         confirmButton = { TextButton(onClick = onConfirm, enabled = !busy) { Text(if (busy) "Unlinking…" else "Unlink") } },

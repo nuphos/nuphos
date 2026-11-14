@@ -68,12 +68,9 @@ fun InboxPage(inbox: OpenQuestions?, nav: NavHostController, allowed: () -> Bool
                 items(inbox.list.asReversed(), key = { it.id }) { question ->
                     BotQuestionCard(question, onOpen = { nav.navigate("conversation/${question.sessionId}") },
                         onAnswer = { text -> if (allowed()) inbox.answer(question, text, scope) },
+                        onForm = { body -> if (allowed()) inbox.answer(question, body, scope) },
                         failure = inbox.failures[question.id],
-                        // Opens the conversation, its composer answering this question.
-                        onReply = {
-                            store.session(question.sessionId, question.title).answering = question
-                            nav.navigate("conversation/${question.sessionId}")
-                        },
+                        answersInPlace = true,
                         onConnect = {
                             scope.launch {
                                 // The member's own credential: added as named, with no picker and no team connection in its place.

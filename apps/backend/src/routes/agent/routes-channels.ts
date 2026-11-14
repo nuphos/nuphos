@@ -102,6 +102,8 @@ channelRoutes.post('/channels', async (c) => {
     firstMessage: '',
     kind: 'channel',
   })
+  if (body.group === true)
+    await agentConversations().updateOne({ sessionId }, { $set: { group: true } })
 
   return c.json({ sessionId }, 201)
 })

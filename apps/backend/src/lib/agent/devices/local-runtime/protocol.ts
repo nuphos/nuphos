@@ -6,6 +6,7 @@ export type TunnelPurpose =
   | 'transport'
   | 'control'
   | 'exec'
+  | 'upload'
   | 'file'
   | 'attachments'
   | 'terminal'
@@ -21,6 +22,7 @@ export const LOCAL_AGENT_PROVIDERS = [
   'grok',
   'antigravity',
   'opencode',
+  'dsh',
 ] as const
 
 export type LocalAgentProvider = (typeof LOCAL_AGENT_PROVIDERS)[number]
@@ -67,8 +69,11 @@ export const localModelCatalogSchema = z.object({
       }),
     )
     .max(200),
-  defaultModel: z.string().min(1).max(500),
+  // Empty on a controls-only report, which names no model to default to.
+  defaultModel: z.string().max(500),
   controls: z.record(z.string().max(500), modelControlsSchema),
+  /** The runtime offered settings but no model list; its controls sit under `default`. */
+  controlsOnly: z.literal(true).optional(),
 })
 
 /** One usage window as Anthropic or ChatGPT reports it. A window that does not
@@ -150,6 +155,7 @@ export const localRuntimeStatusSchema = z.object({
   localAttachments: z.boolean().optional(),
   fileImport: z.boolean().optional(),
   localExec: z.boolean().optional(),
+  localUpload: z.boolean().optional(),
   localMetrics: z.boolean().optional(),
   localTerminal: z.boolean().optional(),
   localCua: z.boolean().optional(),
@@ -177,6 +183,7 @@ export const localRuntimeStatusSchema = z.object({
     grok: localAgentStatusSchema.optional(),
     antigravity: localAgentStatusSchema.optional(),
     opencode: localAgentStatusSchema.optional(),
+    dsh: localAgentStatusSchema.optional(),
   }),
   backendUrl: z.string().url().max(500).optional(),
 })

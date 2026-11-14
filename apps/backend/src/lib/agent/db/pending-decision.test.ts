@@ -3,7 +3,14 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { useDb } from '@/lib/test/doubles/db'
 
 import { getConversations } from './conversations-list'
-import { addInputRequest, openInputRequests, resolveInputRequest } from './pending-decision'
+import {
+  addInputRequest,
+  openInputRequests,
+  reopenInputRequest,
+  resolveInputRequest,
+} from './pending-decision'
+
+import type { InputRequest } from './pending-decision'
 
 import type * as dbActual from '@/lib/db'
 
@@ -23,9 +30,17 @@ const elementOf = (doc: Doc, filter: Doc) => {
       )
     : undefined
 }
+const has = (doc: Doc, id: unknown): boolean =>
+  id && typeof id === 'object' && '$ne' in id
+    ? !has(doc, id.$ne)
+    : ((doc.inputRequests ?? []) as Doc[]).some((entry) => entry.id === id)
 const matches = (doc: Doc, filter: Doc) =>
   Object.entries(filter).every(([key, value]) =>
-    key === 'inputRequests' ? elementOf(doc, filter) !== undefined : doc[key] === value,
+    key === 'inputRequests'
+      ? elementOf(doc, filter) !== undefined
+      : key === 'inputRequests.id'
+        ? has(doc, value)
+        : doc[key] === value,
   )
 
 const collection = {
@@ -34,12 +49,22 @@ const collection = {
     if (!stored) return { matchedCount: 1 }
     const doc = stored.find((candidate) => matches(candidate, filter))
 
-    const element = doc && elementOf(doc, filter)
-    const status = (update.$set as Doc | undefined)?.['inputRequests.$.status']
+    const pushed = (update.$push as { inputRequests?: { $each: Doc[] } } | undefined)?.inputRequests
+      ?.$each
+    const pulled = (update.$pull as { inputRequests?: { id: string } } | undefined)?.inputRequests
+      ?.id
 
-    if (element && status) element.status = status
+    if (doc && pushed) doc.inputRequests = [...((doc.inputRequests ?? []) as Doc[]), ...pushed]
+    if (doc && pulled) {
+      doc.inputRequests = (doc.inputRequests as Doc[]).filter((entry) => entry.id !== pulled)
+
+      return { matchedCount: 1 }
+    }
 
     return { matchedCount: doc ? 1 : 0 }
+  },
+  async findOne(filter: Doc) {
+    return stored?.find((candidate) => matches(candidate, filter)) ?? null
   },
   find(query: Doc) {
     lastQuery = query
@@ -71,50 +96,76 @@ describe('input requests', () => {
     expect(updates).toEqual([
       {
         filter: { sessionId: 's1', userId: 'owner' },
-        update: {
-          $push: { inputRequests: { $each: [{ ...request, status: 'open' }], $slice: -100 } },
-        },
+        update: { $push: { inputRequests: { $each: [{ ...request, status: 'open' }] } } },
       },
     ])
   })
 
-  test('resolving marks only the exact open request', async () => {
-    expect(await resolveInputRequest('s1', 'owner', 'nuphos-1', 'dismissed')).toBe(true)
+  test('open requests are never dropped, however many there are', async () => {
+    const owned: Doc = {
+      sessionId: 's1',
+      userId: 'owner',
+      inputRequests: Array.from({ length: 100 }, (_, n) => ({
+        ...request,
+        id: `nuphos-${String(n)}`,
+        status: 'open',
+      })),
+    }
+
+    stored = [owned]
+    await addInputRequest('s1', 'owner', { ...request, id: 'nuphos-new' })
+
+    expect(owned.inputRequests).toHaveLength(101)
+    expect(updates.some((update) => '$pull' in update.update)).toBe(false)
+  })
+
+  test('resolving takes exactly that request off the list', async () => {
+    expect(await resolveInputRequest('s1', 'owner', 'nuphos-1')).toBe(true)
 
     expect(updates).toEqual([
       {
-        filter: {
-          sessionId: 's1',
-          userId: 'owner',
-          inputRequests: { $elemMatch: { id: 'nuphos-1', status: 'open' } },
-        },
-        update: {
-          $set: {
-            'inputRequests.$.status': 'dismissed',
-            'inputRequests.$.resolvedAt': expect.any(Date),
-          },
-        },
+        filter: { sessionId: 's1', userId: 'owner', 'inputRequests.id': 'nuphos-1' },
+        update: { $pull: { inputRequests: { id: 'nuphos-1' } } },
       },
     ])
   })
 
   test("an answer from another owner's record or with an unknown id resolves nothing", async () => {
-    const open: Doc = { ...request, id: 'nuphos-1', status: 'open' }
-    const owned = { sessionId: 's1', userId: 'owner', inputRequests: [open] }
+    const owned: Doc = {
+      sessionId: 's1',
+      userId: 'owner',
+      inputRequests: [{ ...request, status: 'open' }],
+    }
 
     stored = [owned, { sessionId: 's1', userId: 'intruder' }]
 
-    expect(await resolveInputRequest('s1', 'intruder', 'nuphos-1', 'answered')).toBe(false)
-    expect(await resolveInputRequest('s1', 'owner', 'nuphos-unknown', 'answered')).toBe(false)
-    expect(open.status).toBe('open')
-    expect(await resolveInputRequest('s1', 'owner', 'nuphos-1', 'answered')).toBe(true)
-    expect(open.status).toBe('answered')
+    expect(await resolveInputRequest('s1', 'intruder', 'nuphos-1')).toBe(false)
+    expect(await resolveInputRequest('s1', 'owner', 'nuphos-unknown')).toBe(false)
+    expect(owned.inputRequests).toHaveLength(1)
+    expect(await resolveInputRequest('s1', 'owner', 'nuphos-1')).toBe(true)
+    expect(owned.inputRequests).toEqual([])
+    expect(await resolveInputRequest('s1', 'owner', 'nuphos-1')).toBe(false)
+  })
+
+  test('an answer whose agent could not be told puts the request back once', async () => {
+    const owned: Doc = { sessionId: 's1', userId: 'owner', inputRequests: [] }
+
+    stored = [owned]
+    await reopenInputRequest('s1', 'owner', { ...request, status: 'open' })
+
+    expect(owned.inputRequests).toEqual([{ ...request, status: 'open' }])
+    expect(updates[0]?.filter).toEqual({
+      sessionId: 's1',
+      userId: 'owner',
+      'inputRequests.id': { $ne: 'nuphos-1' },
+    })
   })
 
   test('open requests are the open ones, oldest first', () => {
     const newer = { ...request, id: 'nuphos-2', askedAt: new Date('2026-10-20T00:00:00Z') }
     const older = { ...request, id: 'nuphos-1' }
-    const answered = { ...request, id: 'nuphos-0', status: 'answered' as const }
+    // Kept as history before conversations held only open requests.
+    const answered = { ...request, id: 'nuphos-0', status: 'answered' } as unknown as InputRequest
     const open = openInputRequests({
       inputRequests: [{ ...newer, status: 'open' }, answered, { ...older, status: 'open' }],
     })

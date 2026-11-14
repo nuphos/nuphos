@@ -10,7 +10,8 @@ export const channelsApi = {
   agentApplyBotImport: (target: BotImportTarget, id: string, selection: BotImportSelection) =>
     ipcRenderer.invoke('agent:applyBotImport', target, id, selection),
   agentSaveGrokExportSkill: () => ipcRenderer.invoke('agent:saveGrokExportSkill'),
-  agentCreateChannel: (teamId: string) => ipcRenderer.invoke('agent:createChannel', teamId),
+  agentCreateChannel: (teamId: string, group?: boolean) =>
+    ipcRenderer.invoke('agent:createChannel', teamId, group),
   agentCreateBot: (
     teamId: string,
     bot?: {

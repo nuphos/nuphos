@@ -32,7 +32,6 @@ test('image identity stays structured in requests and transcript sync', () => {
     mediaType: 'image/png',
     url: 'data:image/png;base64,aGVsbG8=',
     fileName: 'screen.png',
-    attachmentId: 'att_1',
     path: '/local/screen.png',
   }
   const messages: Message[] = [
@@ -50,13 +49,11 @@ test('image identity stays structured in requests and transcript sync', () => {
           mediaType: image.mediaType,
           url: image.url,
           filename: image.fileName,
-          attachmentId: image.attachmentId,
         },
       ],
     },
   ])
   assert.deepEqual(toPersistedMessages(messages)[0].parts[1], image)
-  assert.ok(!JSON.stringify(toUiMessages(messages)).includes('upload_attachment'))
 })
 
 test('ready files travel as structured attachments; unfinished uploads never reach the agent', () => {

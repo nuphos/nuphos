@@ -13,6 +13,7 @@ import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import {
   developmentRuntimeEndpoint,
   listRuntimeInstances,
+  MANAGED_RUNTIME_RETIRED,
   requireRuntimeInstance,
 } from './runtime-catalog'
 import { runtimeLabel as providerLabel } from './runtime-provider'
@@ -131,7 +132,9 @@ async function resolveChatRuntime(
     throw new AppError(
       409,
       'runtime_disabled',
-      'This conversation’s agent is disabled. Enable it on the Runtimes page, or start a new conversation with another agent.',
+      instance.kind === 'managed'
+        ? MANAGED_RUNTIME_RETIRED
+        : 'This conversation’s agent is disabled. Enable it on the Runtimes page, or start a new conversation with another agent.',
     )
   const needsTeamDefault = !instance && !requestedRuntime && !pinned
   const teamDefault = needsTeamDefault && teamId ? await getTeamAgentRuntime(teamId) : 'claude-code'

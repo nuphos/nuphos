@@ -137,12 +137,15 @@ class OpenQuestions(private val source: Source) {
      * wakes the agent that asked, which replies where it asked; no message is sent. Hidden at once;
      * if the answer is refused, the card comes back with why.
      */
-    fun answer(question: BotQuestion, text: String, scope: CoroutineScope) {
+    fun answer(question: BotQuestion, text: String, scope: CoroutineScope) =
+        answer(question, if (question.request.options.orEmpty().contains(text))
+            JsonValue.obj("choices" to JsonValue.Arr(listOf(JsonValue.Str(text))))
+        else JsonValue.obj("text" to JsonValue.Str(text)), scope)
+
+    /** Answers a question with [body] as its form builds it: one question's choices or text, or one per question. */
+    fun answer(question: BotQuestion, body: JsonValue, scope: CoroutineScope) {
         answered = answered + question.id
         failures = failures - question.id
-        val body = if (question.request.options.orEmpty().contains(text))
-            JsonValue.obj("choices" to JsonValue.Arr(listOf(JsonValue.Str(text))))
-        else JsonValue.obj("text" to JsonValue.Str(text))
         scope.launch {
             try {
                 source.answer(question.sessionId, question.request.id, body)

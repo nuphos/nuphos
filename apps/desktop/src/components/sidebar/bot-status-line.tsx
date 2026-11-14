@@ -27,7 +27,7 @@ function Dots() {
 export function BotStatusLine({ activity }: { activity: Activity }) {
   if (activity.kind === 'asking')
     return (
-      <span className="truncate text-status-attention">
+      <span className="truncate text-secondary">
         {activity.question
           ? t('Needs your input: {q}', { q: activity.question })
           : t('Needs your input')}

@@ -2494,6 +2494,10 @@ html.light .workspace-desk {
     transform: translateX(100%);
   }
 }
+/* A full-page blur costs frames, so the Task's skeleton reveal only fades. */
+.t-bot-task-mode .t-skel > * {
+  filter: none !important;
+}
 @media (prefers-reduced-motion: reduce) {
   .t-bot-task-mode {
     transition: none;

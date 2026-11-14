@@ -7,20 +7,38 @@ export type InboxQuestion = { conversation: AgentConversation; request: AgentInp
 
 /**
  * The Inbox's rows: every open question waiting on the viewer as its
- * conversation's owner, newest first, once those answered on this device are
- * set aside. The badge counts these.
+ * conversation's owner, once those answered on this device are set aside,
+ * grouped by the conversation that asked. The newest question leads, and
+ * brings the rest of its group with it. The badge counts these.
  */
 export function inboxQuestions(
   conversations: readonly AgentConversation[],
   answered: ReadonlyMap<string, number>,
 ): InboxQuestion[] {
-  return conversations
+  const newest = conversations
     .filter((conversation) => conversation.isOwner)
     .flatMap((conversation) =>
       openInputRequests(conversation).map((request) => ({ conversation, request })),
     )
     .filter(({ request }) => !answered.has(request.id))
     .sort((a, b) => b.request.askedAt.localeCompare(a.request.askedAt))
+  const order = [...new Set(newest.map((row) => row.conversation.sessionId))]
+
+  return order.flatMap((id) => newest.filter((row) => row.conversation.sessionId === id))
+}
+
+/** {@link inboxQuestions} as the sidebar lists them: one group per conversation that asked. */
+export function inboxGroups(rows: readonly InboxQuestion[]): InboxQuestion[][] {
+  const groups: InboxQuestion[][] = []
+
+  for (const row of rows) {
+    const last = groups.at(-1)
+
+    if (last?.[0]?.conversation.sessionId === row.conversation.sessionId) last.push(row)
+    else groups.push([row])
+  }
+
+  return groups
 }
 
 /** How many rows {@link inboxQuestions} has. */

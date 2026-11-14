@@ -244,11 +244,11 @@ export async function steerConversationRuntime(
     throw new Error('Conversation runtime changed')
   // Same delivery as a normal turn: files land on the runtime as local paths.
   const files = steer.groupId
-    ? await runtimeAttachments(
-        [{ type: 'transfer-upload', groupId: steer.groupId }],
-        { teamId: conversation.teamId, userId: steer.userId, sessionId: conversation.sessionId },
-        [],
-      )
+    ? await runtimeAttachments([{ type: 'transfer-upload', groupId: steer.groupId }], {
+        teamId: conversation.teamId,
+        userId: steer.userId,
+        sessionId: conversation.sessionId,
+      })
     : []
   const attachments = await materializeRuntimeAttachments(
     conversation.teamId,

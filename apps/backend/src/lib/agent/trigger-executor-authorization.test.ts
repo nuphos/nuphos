@@ -8,7 +8,6 @@ import type { AgentTrigger } from './trigger-db'
 
 const writes: { name: string; filter: unknown; update: unknown }[] = []
 const conversations = new Map<string, { sessionId: string; userId: string; teamId?: string }>()
-let group: Record<string, unknown> | null = null
 
 useDb({
   db: () => ({
@@ -18,23 +17,14 @@ useDb({
 
         return Promise.resolve({})
       },
-      updateMany: (filter: unknown, update: unknown) => {
-        writes.push({ name, filter, update })
-
-        return Promise.resolve({})
-      },
-      countDocuments: () => Promise.resolve(0),
       findOne: (filter: { sessionId?: string }) =>
-        Promise.resolve(
-          name === 'agent_trigger_groups'
-            ? group
-            : (conversations.get(filter.sessionId ?? '') ?? null),
-        ),
-      find: () => ({ toArray: () => Promise.resolve([]) }),
+        Promise.resolve(conversations.get(filter.sessionId ?? '') ?? null),
     }),
   }),
 })
-useIdentity({ getTeamMembership: () => Promise.resolve({ role: 'ADMINISTRATOR' }) })
+let member = true
+
+useIdentity({ getTeamMembership: () => Promise.resolve(member ? { role: 'EDITOR' } : null) })
 
 const { resolveExecutionAuthorization } = await import('./trigger-executor-authorization')
 
@@ -43,7 +33,6 @@ function trigger(overrides: Partial<AgentTrigger> = {}): AgentTrigger {
     _id: new ObjectId(),
     userId: 'principal',
     teamId: 'team-1',
-    executionPrincipalUserId: 'principal',
     executionAuthorizationStatus: 'valid',
     name: 'nightly',
     triggerType: 'cron',
@@ -63,7 +52,6 @@ function paused() {
 
 beforeEach(() => {
   writes.length = 0
-  group = null
   conversations.clear()
   conversations.set('own', { sessionId: 'own', userId: 'principal', teamId: 'team-1' })
   conversations.set('other-user', { sessionId: 'other-user', userId: 'someone', teamId: 'team-1' })
@@ -75,55 +63,42 @@ beforeEach(() => {
 })
 
 describe('resolveExecutionAuthorization', () => {
-  test('a Trigger bound to its owner’s conversation delivers there', async () => {
+  beforeEach(() => {
+    member = true
+  })
+
+  test('a Trigger runs in its Task', async () => {
     const { target } = await resolveExecutionAuthorization(trigger({ targetSessionId: 'own' }))
 
     expect(target.sessionId).toBe('own')
     expect(paused()).toBeUndefined()
   })
 
-  test('an unbound Trigger is paused instead of opening a session', async () => {
-    await expect(resolveExecutionAuthorization(trigger())).rejects.toMatchObject({
-      code: 'trigger_target_session_required',
-    })
-    expect(paused()?.update).toMatchObject({
-      $set: { enabled: false, executionAuthorizationStatus: 'invalid' },
-    })
-  })
-
-  test.each(['other-user', 'other-team', 'deleted'])(
-    'a Trigger bound to a %s conversation is paused',
-    async (targetSessionId) => {
-      await expect(
-        resolveExecutionAuthorization(trigger({ targetSessionId })),
-      ).rejects.toMatchObject({ code: 'trigger_target_session_invalid' })
-      expect(paused()).toBeDefined()
-    },
-  )
-})
-
-describe('a partition repairing itself from its Watch Group', () => {
-  test('drops the scope it had pinned when the Group has none', async () => {
-    group = { executionPrincipalUserId: 'new-principal', credentialMode: 'all' }
-    conversations.set('group-target', {
-      sessionId: 'group-target',
-      userId: 'new-principal',
-      teamId: 'team-1',
-    })
-
-    await resolveExecutionAuthorization(
-      trigger({
-        watchGroupId: new ObjectId(),
-        targetSessionId: 'group-target',
-        executionCredentialAccess: { updatedAt: new Date(), updatedBy: 'principal' },
-      } as Partial<AgentTrigger>),
+  test('a Trigger in a teammate’s Task runs as that Task’s owner', async () => {
+    const { target } = await resolveExecutionAuthorization(
+      trigger({ targetSessionId: 'other-user' }),
     )
 
-    const repair = writes.find((write) => write.name === 'agent_triggers')
+    expect(target.userId).toBe('someone')
+  })
 
-    expect(repair?.update).toMatchObject({
-      $set: { executionPrincipalUserId: 'new-principal', credentialMode: 'all' },
-      $unset: { executionCredentialAccess: true },
-    })
+  test.each([undefined, 'other-team', 'deleted'])(
+    'a Trigger without a Task in its team (%s) is paused',
+    async (targetSessionId) => {
+      await expect(
+        resolveExecutionAuthorization(trigger(targetSessionId ? { targetSessionId } : {})),
+      ).rejects.toMatchObject({ code: 'trigger_target_session_invalid' })
+      expect(paused()?.update).toMatchObject({
+        $set: { enabled: false, executionAuthorizationStatus: 'invalid' },
+      })
+    },
+  )
+
+  test('a Trigger whose Task owner left the team is paused', async () => {
+    member = false
+    await expect(
+      resolveExecutionAuthorization(trigger({ targetSessionId: 'own' })),
+    ).rejects.toMatchObject({ code: 'trigger_execution_principal_invalid' })
+    expect(paused()).toBeDefined()
   })
 })

@@ -11,6 +11,8 @@ import {
 import { parseMessageMetadata } from '@/lib/agent/message-metadata'
 import { queuedAnswers } from '@/lib/agent/pending-queue'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
+import { notifyNudge } from '@/lib/push/notify'
+import { plainText, truncate } from '@/lib/push/turn-outcome'
 
 import type { PreviewToolContext } from '../preview-tool-context'
 import type { AiSdkToolLike } from './ai-sdk-adapter'
@@ -48,7 +50,7 @@ const requestFollowUps = {
       : toolError(NOT_OPEN)
   },
   withdraw_user_decision: async (ctx: PreviewToolContext, { requestId }: RequestFollowUp) =>
-    (await resolveInputRequest(ctx.sessionId, requestOwner(ctx), requestId, 'dismissed'))
+    (await resolveInputRequest(ctx.sessionId, requestOwner(ctx), requestId))
       ? toolResult({ ok: true, requestId, status: 'withdrawn' })
       : toolError(NOT_OPEN),
   list_user_decisions: async (ctx: PreviewToolContext) => {
@@ -99,7 +101,8 @@ export function isRequestFollowUp(name: string): name is keyof typeof requestFol
 
 /**
  * The `about` refs of a question, each a resource linked to this conversation
- * or one of its own sub-agent threads, or why one is not.
+ * or another conversation it may message (send_message_to_thread), or why one
+ * is not. Those conversations are told the answer too.
  */
 export async function aboutRefs(
   ctx: PreviewToolContext,
@@ -109,13 +112,18 @@ export async function aboutRefs(
   const refs = [...new Set(about.filter((ref): ref is string => typeof ref === 'string'))]
   const conversation = await getConversationBySessionId(ctx.sessionId)
   const linked = new Set(conversation?.linkedResources?.map((resource) => resource.id))
+  const { authorizeThreadDelivery } = await import('@/lib/agent/thread-bridge')
+  const actor = { ...ctx, userId: requestOwner(ctx) }
 
   for (const ref of refs) {
     if (linked.has(ref)) continue
-    const thread = await getConversationBySessionId(ref)
+    const deliverable = await authorizeThreadDelivery({ ...actor, targetSessionId: ref }).then(
+      () => true,
+      () => false,
+    )
 
-    if (thread?.parentSessionId !== ctx.sessionId)
-      return `\`about\` names ${JSON.stringify(ref)}, which is neither a resource linked to this conversation (see list_session_resources) nor one of its sub-agent threads.`
+    if (!deliverable)
+      return `\`about\` names ${JSON.stringify(ref)}, which is neither a resource linked to this conversation (see list_session_resources) nor another conversation you own in this team.`
   }
 
   return refs
@@ -128,7 +136,7 @@ export async function aboutRefs(
  * they talk to it, when it has exactly one open. Otherwise none is guessed,
  * nor for the questions a card answers by itself.
  */
-export async function askedInChannel(
+async function askedInChannel(
   ctx: PreviewToolContext,
   category: unknown,
 ): Promise<{ channelId?: string }> {
@@ -144,6 +152,32 @@ export async function askedInChannel(
     (await botChat(ctx.sessionId, owner))
 
   return channelId ? { channelId } : {}
+}
+
+/**
+ * Where the question is asked, telling its owner there: the turn does not stop
+ * for a question, so its end says nothing of it.
+ */
+export async function askInChannel(
+  ctx: PreviewToolContext,
+  category: unknown,
+  question: string,
+): Promise<{ channelId?: string }> {
+  const asked = await askedInChannel(ctx, category)
+
+  if (asked.channelId) {
+    // The card is already out: an unread title falls back to the generic name.
+    const bot = await getConversationBySessionId(ctx.sessionId).catch(() => null)
+
+    notifyNudge([requestOwner(ctx)], {
+      sessionId: asked.channelId,
+      teamId: ctx.teamId,
+      title: `${bot?.title || 'Nuphos agent'} has a question for you`,
+      body: truncate(plainText(question)),
+    })
+  }
+
+  return asked
 }
 
 /** The owner's one open 1:1 chat with this Bot: a channel whose only members are the two. */

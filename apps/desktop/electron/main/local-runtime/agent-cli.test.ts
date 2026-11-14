@@ -135,22 +135,23 @@ test(
 )
 
 test(
-  'Grok Build and OpenCode are signed in once their credential file is in the agent home',
+  'Grok Build, OpenCode and DSH are signed in once their credential file is in the agent home',
   { skip: process.platform === 'win32' },
   async (t) => {
     const dir = mkdtempSync(path.join(os.tmpdir(), 'nuphos-cli-credential-'))
     const home = path.join(dir, 'home')
 
     t.after(() => rmSync(dir, { recursive: true, force: true }))
-    for (const command of ['grok', 'opencode'])
+    for (const command of ['grok', 'opencode', 'dsh'])
       writeFileSync(path.join(dir, command), '#!/bin/sh\necho 1.0.46\n', { mode: 0o700 })
     const env = { PATH: dir, HOME: dir }
     const files = {
       grok: path.join(home, '.grok', 'auth.json'),
       opencode: path.join(home, '.local', 'share', 'opencode', 'auth.json'),
+      dsh: path.join(home, '.dsh', '.credentials.yaml'),
     }
 
-    for (const provider of ['grok', 'opencode'] as const) {
+    for (const provider of ['grok', 'opencode', 'dsh'] as const) {
       const loggedIn = async (agentHome: string | undefined) => {
         const cli = await probeAgentCli(provider, env, agentHome)
 
@@ -230,6 +231,13 @@ test('a Codex API key login says so without the part of the key Codex prints', (
     loggedIn: true,
     apiKey: true,
   })
+  // What codex-cli 0.164 prints for a key.
+  assert.deepEqual(
+    parseCodexLoginStatus(
+      'API key configured - sk-proj-***67890\nAuthentication is checked when you send a request.\n',
+    ),
+    { loggedIn: true, apiKey: true },
+  )
   assert.deepEqual(parseCodexLoginStatus('Logged in using ChatGPT'), {
     loggedIn: true,
     account: 'ChatGPT',

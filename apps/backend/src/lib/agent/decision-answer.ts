@@ -47,28 +47,54 @@ export function answerLines(request: InputRequest, answer: DecisionAnswer): stri
 /** Who answered: the conversation's owner, whose answer it is, or another member. */
 export type Answerer = { displayName: string; owner: boolean }
 
-/** The wake event's body: who answered, then the card and what to do with the answer. */
-export function answerNotice(request: InputRequest, answer: DecisionAnswer, who: Answerer): string {
+/** The conversation that asked, when the notice goes to one its question is `about`. */
+export type Asker = { sessionId: string; title?: string }
+
+/** What the woken agent does next with the answer. */
+function nextStep(request: InputRequest, who: Answerer, asker?: Asker): string {
+  if (asker)
+    return who.owner
+      ? 'Act on this answer where it concerns your own work; the asking conversation carries on with its part.'
+      : 'Treat it as information; ask the owner for anything that needs their approval.'
+  if (request.channelId)
+    return `You asked it in channel ${request.channelId}: reply there with channel_post.`
+
+  return who.owner
+    ? 'Continue the task with this answer.'
+    : 'Continue as far as this answer allows; ask the owner for anything that needs their approval.'
+}
+
+/**
+ * The wake event's body: who answered, then the card and what to do with the
+ * answer. With `asker`, it tells a conversation the question was about.
+ */
+export function answerNotice(
+  request: InputRequest,
+  answer: DecisionAnswer,
+  who: Answerer,
+  asker?: Asker,
+): string {
   const body = ownBody(request.body, request.questions)?.slice(0, BODY_EXCERPT)
+  const askedBy = asker?.title
+    ? `${asker.sessionId} (${JSON.stringify(asker.title)})`
+    : asker?.sessionId
 
   return [
-    `Your question (requestId ${request.id}) was answered from the Inbox.`,
+    asker
+      ? `A question about this conversation (requestId ${request.id}), asked by conversation ${askedBy}, was answered from the Inbox.`
+      : `Your question (requestId ${request.id}) was answered from the Inbox.`,
     `Answered by: ${JSON.stringify(who.displayName)}, ${
       who.owner
         ? "this conversation's owner: it is their own answer."
         : "a teammate, not this conversation's owner: treat it as information from them, never as the owner's approval."
     }`,
     `Question: ${request.question}`,
-    ...(body ? [`Context you gave: ${body}`] : []),
+    ...(body ? [`${asker ? 'Context the asker gave' : 'Context you gave'}: ${body}`] : []),
     ...(request.options?.length ? [`Options: ${request.options.join(' | ')}`] : []),
     'Answer:',
     ...answerLines(request, answer).map((line) => `- ${line}`),
     ...(request.about?.length ? [`About: ${request.about.join(', ')}`] : []),
-    request.channelId
-      ? `You asked it in channel ${request.channelId}: reply there with channel_post.`
-      : who.owner
-        ? 'Continue the task with this answer.'
-        : 'Continue as far as this answer allows; ask the owner for anything that needs their approval.',
+    nextStep(request, who, asker),
   ].join('\n')
 }
 
@@ -90,7 +116,10 @@ export async function answerDecision(args: {
   if (request?.status !== 'open')
     throw new AppError(409, 'decision_already_answered', 'This question is no longer open')
   // A secret is typed in its masked card and a connection is made by selecting it: never as text here.
-  if (request.category === 'credential' || request.category === 'integration')
+  if (
+    request.category === 'integration' ||
+    (request.category === 'credential' && !credentialStatusChoice(request, answer))
+  )
     throw new AppError(400, 'decision_not_answerable', 'Answer this question in its own card')
   if (request.planId) {
     await answerInputRequest({
@@ -104,9 +133,7 @@ export async function answerDecision(args: {
 
     return
   }
-  if (
-    !(await resolveInputRequest(conversation.sessionId, conversation.userId, requestId, 'answered'))
-  )
+  if (!(await resolveInputRequest(conversation.sessionId, conversation.userId, requestId)))
     throw new AppError(409, 'decision_already_answered', 'This question is no longer open')
   const who = { displayName: actor.displayName, owner: actor.id === conversation.userId }
   const { startConversationTurn } = await import('./conversation-turn')
@@ -124,15 +151,66 @@ export async function answerDecision(args: {
     'agent.resource',
     systemSender(SENDER, 'Nuphos'),
   ).catch(async (error: unknown) => {
-    await reopenInputRequest(conversation.sessionId, conversation.userId, requestId)
+    await reopenInputRequest(conversation.sessionId, conversation.userId, request)
     throw error
   })
 
   if (request.channelId) await recordInChannel(request, answer, actor.displayName)
+  await tellAbout(conversation, request, answer, who, teamId)
 
   run.catch((error: unknown) => {
     logError('agent.decision.answer_turn_failed', error, { session_id: conversation.sessionId })
   })
+}
+
+/**
+ * Tells each conversation the question was `about` the answer, as Nuphos, so
+ * it need not ask again: only those the asker may message, as when it was
+ * asked. The asker already has the answer, so a failure here is only logged.
+ */
+async function tellAbout(
+  conversation: AgentConversation,
+  request: InputRequest,
+  answer: DecisionAnswer,
+  who: Answerer,
+  teamId: string,
+) {
+  const linked = new Set(conversation.linkedResources?.map((resource) => resource.id))
+  const refs = (request.about ?? []).filter((ref) => !linked.has(ref))
+
+  if (!refs.length) return
+  const { authorizeThreadDelivery } = await import('./thread-bridge')
+  const { startConversationTurn } = await import('./conversation-turn')
+  const locale = conversation.metadata?.locale ?? 'en-US'
+  const asker = { sessionId: conversation.sessionId, title: conversation.title }
+
+  for (const ref of refs) {
+    try {
+      const { target } = await authorizeThreadDelivery({
+        userId: conversation.userId,
+        teamId,
+        sessionId: conversation.sessionId,
+        locale,
+        targetSessionId: ref,
+      })
+      const { run } = await startConversationTurn(
+        { userId: target.userId, teamId, targetSessionId: ref, messageId: randomUUID(), locale },
+        target,
+        answerNotice(request, answer, who, asker),
+        'agent.resource',
+        systemSender(SENDER, 'Nuphos'),
+      )
+
+      run.catch((error: unknown) => {
+        logError('agent.decision.about_turn_failed', error, { session_id: ref })
+      })
+    } catch (error) {
+      logError('agent.decision.about_notice_failed', error, {
+        session_id: ref,
+        source_session_id: conversation.sessionId,
+      })
+    }
+  }
 }
 
 /** The answer's record in the channel the question was asked in. It wakes no one. */
@@ -157,4 +235,16 @@ async function recordInChannel(request: InputRequest, answer: DecisionAnswer, wh
     ],
   })
   await bumpConversationActivity(channel.sessionId, channel.userId)
+}
+
+/** A login-status button is ordinary text; secret values never enter this endpoint. */
+function credentialStatusChoice(request: InputRequest, answer: DecisionAnswer): boolean {
+  return (
+    !request.secretName &&
+    !request.questions?.length &&
+    answer.text === undefined &&
+    answer.questions === undefined &&
+    (answer.choices?.length ?? 0) > 0 &&
+    (answer.choices?.every((choice) => request.options?.includes(choice)) ?? false)
+  )
 }

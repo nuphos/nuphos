@@ -86,7 +86,7 @@ export class RuntimeTaskActivity {
 
   busy(): boolean {
     return [...this.streams.values()].some(
-      (s) => ['exec', 'terminal', 'cua'].includes(s.purpose) || s.prompts.size > 0,
+      (s) => ['exec', 'upload', 'terminal', 'cua'].includes(s.purpose) || s.prompts.size > 0,
     )
   }
 

@@ -1,6 +1,6 @@
 ---
 name: monitoring-workflow
-description: Build an end-to-end monitoring Watch from any provider to a Nuphos trigger bound to one conversation, with optional first-party Slack updates. Use for creating or wiring alerts, including providers without a dedicated Nuphos skill; discover their authenticated API or CLI dynamically instead of substituting provider-native Slack integrations.
+description: Wire a monitoring alert from any provider to a Nuphos webhook trigger bound to one conversation, with optional first-party Slack updates. Use for creating or wiring alerts, including providers without a dedicated Nuphos skill; discover their authenticated API or CLI dynamically instead of substituting provider-native Slack integrations.
 ---
 
 # Generic monitoring workflow
@@ -16,14 +16,17 @@ provider-native condition
   -> provider webhook / notification destination
   -> Nuphos webhook trigger, bound to one existing conversation
   -> that conversation investigates every firing
-  -> optional first-party slack_post updates, in one thread per problem
+  -> optional first-party slack_post updates
 ```
 
-Every Trigger and Watch Group needs `targetSessionId`. Use the current
-conversation (`$NUPHOS_SESSION_ID`) unless the user names another of theirs.
+Every Trigger needs `targetSessionId`. Use the current conversation
+(`$NUPHOS_SESSION_ID`) unless the user names another of theirs.
+
+The provider-side sender is the provider's resource, not Nuphos's: Nuphos does
+not record, verify, or clean it up. Deleting the trigger leaves it in place.
 
 Load the `triggers` skill and use its `trigger-api.sh` wrapper for every Nuphos
-Trigger or Watch Group operation below. Trigger bound tools are not available
+Trigger operation below. Trigger bound tools are not available
 in the native runtime; the canonical REST API is the source of truth.
 
 Do not use Slack Incoming Webhooks, AWS Chatbot / Amazon Q Developer, or another
@@ -75,41 +78,11 @@ the trigger:
 
 ## 3. Create the Nuphos receiver
 
-For a user-approved Watch Group, first `GET /groups` to check for a
-partially provisioned group, then `POST /groups` once with all
-exact member keys, a self-contained group message template, and
-`targetSessionId`. The tool returns one disabled ingress for each distinct
-provider/integration partition — never create individual triggers for
-members. For each ingress, prefer the provider's shared primitive:
-
-- account/global event subscription with server-side member filtering;
-- one notification-policy route/contact point matching the selected group;
-- one notification channel/topic referenced by the selected policies; or
-- a provider-native composite/group rule.
-
-Use polling only when the provider cannot push. Configure the returned
-provider-specific webhook URL, preserve existing destinations, and apply any
-required per-member attachments using the returned bounded batches while
-reusing that same sender. Read each batch back before continuing, drill the
-full selected scope, then `POST /{triggerId}/finalize-wiring` with
-`provider: "watch_group"`, the exact partition/member keys, selected strategy,
-one `eventMatches` entry per member. Its values may contain only the member's
-full stable provider resource ID and, when the provider payload emits it, that
-ID's terminal path segment. Do not include statuses, names, labels, or any
-other common payload scalar. Values must be unique across members. This
-identity-only allow-list is the server-side filtering and incident-isolation
-boundary. Include the secret-free typed receipts. Finalization enables only
-that ingress. A partial failure stays visible and must never broaden the
-provider route.
-
-Create the trigger with `POST /teams/{teamId}/agent-triggers` using:
+First `GET` the existing triggers bound to this conversation and reuse one that
+already receives this alert instead of creating a duplicate. Otherwise create
+the trigger with `POST /teams/{teamId}/agent-triggers` using:
 
 - `triggerType: "webhook"` when the provider can push;
-- `monitoringIdentity.provider`: a stable lowercase key such as `grafana`,
-  `aws`, `tencent-cloud`, or `acme-monitor`;
-- `monitoringIdentity.integrationId`: the exact connected account, project, or
-  integration identity used by the API/CLI;
-- `monitoringIdentity.resourceId`: the exact alert/rule/policy identity;
 - `targetSessionId`: the conversation that handles every firing;
 - a flood guard appropriate for the provider.
 
@@ -119,16 +92,14 @@ real payload:
 
 1. A provider test/drill payload must STOP without investigating or posting.
 2. A real firing first checks the earlier firings in this conversation — has
-   this alert gone off before, and in which Slack thread was it reported?
-3. If the user wants Slack updates, post quickly to the exact approved
-   destination from known payload facts, so whoever is watching knows it is
-   being looked at. Pass `replyToThread` with that earlier thread when this is
-   the same problem still going or coming back; omit it to start a new thread
-   when it is genuinely different.
-4. Then investigate, and follow up in that same thread when there is something
-   worth saying. Judge that the way an on-call who respects their team would —
-   nothing enforces it.
-5. When it recovers, say so in its thread and stop. Nothing needs closing.
+   this alert gone off before, and was it already reported?
+3. Then investigate.
+4. If the user wants Slack updates, call `slack_post` once per firing that is
+   worth telling people about — a new problem, a material change, or its
+   recovery — to the exact approved destination. An unchanged repeat needs no
+   post. Keep `bindConversation` on unless this conversation is already bound
+   to a Slack thread, so replies there continue this conversation.
+5. When it recovers, say so and stop. Nothing needs closing.
 
 Use explicit documented payload fields when available. If the schema is not
 documented, require the provider's test delivery, inspect its exact payload,
@@ -139,7 +110,9 @@ and only then finish the template. Do not guess field names.
 Use the provider's authenticated API/CLI yourself:
 
 1. Snapshot the current condition and notification destinations.
-2. Create the narrowest Nuphos webhook/contact point/channel/topic.
+2. Create the narrowest webhook/contact point/channel/topic pointing at the
+   trigger's `webhookUrl`, passing the secret as `X-Webhook-Secret` or
+   `?secret=` when the sender cannot set headers.
 3. Attach it additively to the exact condition.
 4. Read back the condition and destination.
 5. Verify unrelated destinations and condition semantics are unchanged.
@@ -151,42 +124,7 @@ If the provider can only be queried, use a cron trigger as an explicit polling
 fallback. Polling must persist/compare state and notify only on transitions; it
 must not post every poll.
 
-## 5. Finalize ownership
-
-Call the `finalize-wiring` API only after read-back and both applicable tests.
-
-Use the provider-specific receipt when its schema is available. For any other
-provider, use:
-
-```json
-{
-  "provider": "generic",
-  "providerKey": "tencent-cloud",
-  "providerLabel": "Tencent Cloud Monitor",
-  "integrationId": "stable account/project identity",
-  "resourceId": "exact alert policy identity",
-  "resources": [
-    {
-      "kind": "alert_policy",
-      "name": "High CPU",
-      "id": "exact provider resource id",
-      "url": "https://provider.example/console/resource",
-      "ownership": "created",
-      "description": "What Nuphos created or changed for this Watch."
-    }
-  ],
-  "manualCleanupInstructions": "Exact secret-free steps to detach the Nuphos destination and remove only Nuphos-created resources."
-}
-```
-
-Generic receipts make dynamically created resources visible in Trigger details.
-They do not pretend automatic provider cleanup exists: removal preserves those
-external resources and shows the recorded manual cleanup instructions. Tell the
-user about that limitation in the completion summary. Never store secrets,
-tokens, credentials, executable commands, or raw untrusted payloads in a
-receipt.
-
-## 6. Atomicity
+## 5. Atomicity
 
 If any provider write, read-back, event mapping, or drill fails:
 
@@ -197,3 +135,7 @@ If any provider write, read-back, event mapping, or drill fails:
 
 Never call a workflow live merely because trigger creation returned a webhook
 URL.
+
+When the workflow is live, tell the user which provider resources you created
+or changed, so they can find them later: removing the trigger does not remove
+them.

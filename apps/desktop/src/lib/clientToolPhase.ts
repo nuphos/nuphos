@@ -10,7 +10,6 @@ export const CLIENT_SIDE_LOCAL_TOOLS = new Set([
   'port_forward_start',
   'port_forward_stop',
   'port_forward_list',
-  'upload_attachment',
 ])
 
 // A client tool that produced nothing for this long, with nothing else moving,

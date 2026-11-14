@@ -8,7 +8,7 @@ import { getInstallation } from '@/lib/byos/github'
 import { publicBackendUrl } from '@/lib/claude-code-preview/runtime-backend-url'
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
-import { teamByosBindings } from '@/models'
+import { emptyTeamByosBindings, teamByosBindings } from '@/models'
 
 import type { GithubInstallationBinding } from '@/models'
 import type { Context } from 'hono'
@@ -113,12 +113,15 @@ export async function bindGithubInstallation(
     { _id: teamId },
     { projection: { githubInstallations: 1 } },
   )
-  const bound = existing?.githubInstallations.find((b) => b.installationId === installationId)
+  const bound = (existing?.githubInstallations ?? []).find(
+    (b) => b.installationId === installationId,
+  )
 
   if (bound) return bound
 
   const info = await getInstallation(installationId)
   const createdAt = new Date()
+  const { githubInstallations: _pushed, ...insertDefaults } = emptyTeamByosBindings()
   const binding: GithubInstallationBinding = {
     id: new ObjectId(),
     installationId,
@@ -134,15 +137,7 @@ export async function bindGithubInstallation(
     {
       $push: { githubInstallations: binding },
       $set: { updatedAt: createdAt },
-      $setOnInsert: {
-        awsRoles: [],
-        gcpServiceAccounts: [],
-        grafanaInstances: [],
-        cloudflareAccounts: [],
-        linodeAccounts: [],
-        tailscaleClients: [],
-        zeaburProviders: [],
-      },
+      $setOnInsert: insertDefaults,
     },
     { upsert: !existing },
   )
@@ -152,7 +147,9 @@ export async function bindGithubInstallation(
   // A concurrent flow bound it first.
   const doc = await teamByosBindings().findOne({ _id: teamId })
 
-  return doc?.githubInstallations.find((b) => b.installationId === installationId) ?? binding
+  return (
+    (doc?.githubInstallations ?? []).find((b) => b.installationId === installationId) ?? binding
+  )
 }
 
 export function invalidFlow(): never {

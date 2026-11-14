@@ -49,7 +49,7 @@ final class ChatSession {
     /// New conversation: the runtime it starts on (nil lets the team default
     /// decide). Sent on the first PUT/POST only.
     var runtime: RuntimeInstance?
-    /// Existing conversation: `nuphos` | `claude-code` | `codex` | `grok` | `antigravity` | `opencode`.
+    /// Existing conversation: `nuphos` | `claude-code` | `codex` | `grok` | `antigravity` | `opencode` | `dsh`.
     private(set) var agentRuntime: String?
     private(set) var runtimeId: String?
     private(set) var runtimeLabel: String?
@@ -102,6 +102,8 @@ final class ChatSession {
     /// Mac, and says it can show one or already does.
     var canOpenDesktop: Bool { ownsChat && runtimeObservation?.canOpenDesktop == true }
     func makeDesktop() -> DesktopSession { DesktopSession(teamId: teamId, sessionId: sessionId, token: token) }
+    /// A shell on this conversation's computer; the backend checks the owner may open one there.
+    func makeTerminal() -> TerminalSession { TerminalSession(teamId: teamId, sessionId: sessionId, token: token) }
     /// This conversation's whole dock on its owner's computer, mirrored for the phone.
     func dock() async throws -> DockState {
         try await AgentChatAPI.dock(token: token, teamId: teamId, sessionId: sessionId)
@@ -327,7 +329,7 @@ final class ChatSession {
         token: String,
         teamId: String,
         sessionId: String = UUID().uuidString.lowercased(),
-        title: String = "New agent",
+        title: String = "New task",
         agentRuntime: String? = nil,
         runtimeLabel: String? = nil
     ) {
@@ -516,6 +518,21 @@ final class ChatSession {
         send(submission)
     }
 
+    /// The signed-in person's id: whose prompts a failed turn's Retry may resend.
+    var userId: String?
+
+    /// The latest failed turn's line and the prompt Retry resends, while it can be sent.
+    var failedTurn: (rowId: String, prompt: String)? {
+        guard !isStreaming, canSubmit else { return nil }
+        return ChatRow.failedTurn(in: messages, userId: userId, foreignChat: !isOwner)
+    }
+
+    /// Sends the failed turn's prompt again, as the composer would.
+    func retryFailedTurn() {
+        guard let prompt = failedTurn?.prompt else { return }
+        send(prompt)
+    }
+
     /// Moves the unsent message back into the composer.
     func editFailed() {
         guard let submission = failedSubmission else { return }
@@ -681,7 +698,7 @@ final class ChatSession {
 
     /// Moves this conversation to another agent, carrying its history.
     func move(to target: RuntimeInstance) async throws {
-        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the agent owner can move it.") }
+        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the task owner can move it.") }
         let moved = try await AgentChatAPI.moveRuntime(token: token, teamId: teamId, sessionId: sessionId, runtimeId: target.id)
         runtimeId = moved.runtimeId
         runtimeLabel = moved.runtimeLabel
@@ -723,13 +740,13 @@ final class ChatSession {
     // MARK: - Archive
 
     func rename(_ name: String) async throws {
-        guard ownsChat else { throw NuphosAPI.Failure.http(403, message: "Only the agent owner can rename it.") }
+        guard ownsChat else { throw NuphosAPI.Failure.http(403, message: "Only the task owner can rename it.") }
         try await AgentChatAPI.rename(token: token, teamId: teamId, sessionId: sessionId, title: name)
         title = name
     }
 
     func setArchived(_ archived: Bool) async throws {
-        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the agent owner can archive it.") }
+        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the task owner can archive it.") }
         try await AgentChatAPI.setArchived(token: token, teamId: teamId, sessionId: sessionId, archived: archived)
         isArchived = archived
     }
@@ -922,6 +939,8 @@ final class ChatSession {
         /// The server holds the message in the session queue; the idle poll
         /// follows its turn when it starts.
         case queued
+        /// The turn's stream is gone but a run is live: attach to that one.
+        case follow(String)
         case failed(String)
         case aborted
     }
@@ -979,6 +998,9 @@ final class ChatSession {
                     return
                 case .failed(let message):
                     finishTurn(error: message)
+                    return
+                case .follow(let streamId):
+                    startTurn(TurnOptions(streamId: streamId, explicitResume: true))
                     return
                 case .completed(let sawTurnComplete, let paused):
                     if stoppedByUser || paused?.reason == "stopped-by-user" {
@@ -1274,6 +1296,23 @@ final class ChatSession {
                 }
                 debugLog("HTTP \(status): \(bodyText ?? "")")
                 if fallback.sendsFresh(status: status, body: bodyText, resumed: shouldResume, framesReceived: resumeFrom, explicit: options.explicitResume, nativeRuntime: isNativeRuntime) {
+                    // The stream is gone, not the turn: the run may have ended or
+                    // moved on. Asking again would make the agent answer twice.
+                    if case .streamNotResumable = AgentChatAPI.conflict(status: status, body: bodyText) {
+                        guard let detail = try? await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: sessionId) else {
+                            return .failed(AgentChatAPI.Conflict.streamNotResumable.localizedDescription)
+                        }
+                        let sent = messages.last { $0.role == .user }?.id
+                        let next = ResumeFallback.afterStreamGone(stored: detail.messages, activeRun: detail.activeRun?.streamId, sent: sent)
+                        if next != .resend {
+                            RuntimeTranscript.adopt(snapshot: detail.messages, firstIndex: detail.messagesFirstIndex, messages: &messages, baseIndex: &baseIndex)
+                        }
+                        switch next {
+                        case .follow(let streamId): return .follow(streamId)
+                        case .replied: return .completed(sawTurnComplete: true, paused: nil)
+                        case .resend: break
+                        }
+                    }
                     forceFresh = true
                     continue
                 }
@@ -1302,7 +1341,7 @@ final class ChatSession {
                     // Messages here the server never stored: take the server's transcript.
                     rejectUnadmittedSubmission(options.submission)
                     await adoptServerTranscript()
-                    return .failed("This agent changed elsewhere and was reloaded. Retry to send your message.")
+                    return .failed("This task changed elsewhere and was reloaded. Retry to send your message.")
                 default:
                     // Only a send the server refused, never one it queued or already runs.
                     if !accepted && !shouldResume && reconnects == 0 { rejectUnadmittedSubmission(options.submission) }

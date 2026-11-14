@@ -203,7 +203,7 @@ export type PanelCtx = {
     initialMessage?: Message,
     deferredUpload?: {
       messageId: string
-      run: (sessionId: string | undefined) => Promise<TransferUploadPart>
+      run: () => Promise<TransferUploadPart>
     },
   ) => boolean
   dispatchTurn: (

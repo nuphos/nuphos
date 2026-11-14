@@ -10,7 +10,7 @@ export type UserInfo = {
   createdAt?: string
 }
 
-export type SocialProvider = 'google' | 'apple'
+export type SocialProvider = 'google' | 'apple' | 'oidc'
 
 /** An account signed in on this computer (electron/auth/accounts.ts); never its token. */
 export type AccountSummary = {
@@ -109,8 +109,6 @@ export type AtlasTeam = {
   contactEmails?: string[]
   allowedEmailDomains?: string[]
   agentRuntime?: AgentProvider
-  /** The most a member may grant when sharing their own computer; absent from older backends. */
-  localAgentSharing?: 'off' | 'approve' | 'full'
   createdAt?: string
   isOwner?: boolean
   role?: TeamRole

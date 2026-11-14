@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { chooseBotChat, openBotChats, readBotChats } from './botChats.ts'
+import { botOfChannel, chooseBotChat, openBotChats, readBotChats } from './botChats.ts'
 
 import type { AgentConversation, AgentConversationsPage } from '../../api/agent-types.ts'
 
@@ -70,4 +70,11 @@ test('turning a Bot into a Task files away every chat still open', () => {
   ]
 
   assert.deepEqual(openBotChats(chats), ['a', 'c'])
+})
+
+test("a group chat with only one Bot in it is not that Bot's chat", () => {
+  const dm = chat('dm', 'bot', '2026-11-01T00:00:00Z')
+
+  assert.equal(botOfChannel(dm), 'bot')
+  assert.equal(botOfChannel({ ...dm, group: true }), undefined)
 })

@@ -6,7 +6,7 @@ import type { Tab } from './model.ts'
 
 type TurnSwitchAgent = { partId: string; switchAgent: () => void }
 
-/** Switch agent on the latest failure line; null where the viewer may not move the agent. */
+/** Switch runtime on the latest failure line; null where the viewer may not move the agent. */
 export const TurnSwitchAgentContext = createContext<TurnSwitchAgent | null>(null)
 
 /** The latest turn's failure line, for whoever may move the conversation to another agent. */

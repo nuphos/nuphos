@@ -136,7 +136,7 @@ export function ConnectorInfoPage({
     catalogItem?.description ?? t('{name} connector for Nuphos.', { name: providerLabel })
 
   return (
-    <div className="mx-auto w-full max-w-[760px] px-7 py-10">
+    <div className="w-full px-8 pb-8 pt-2">
       <header>
         <div className="flex h-14 w-14 items-center justify-center rounded-[14px] border border-line-control/60 bg-surface shadow-sm">
           <ConnectorLogo provider={provider} size={31} />

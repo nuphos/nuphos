@@ -189,7 +189,7 @@ fun HomeRoute(
                     if (!current()) return@withContext
                     if (resolved == null) {
                         links.complete(request)
-                        linkError = "This agent is unavailable or your account does not have access."
+                        linkError = "This task is unavailable or your account does not have access."
                     } else if (agentStore.acceptMemberships(resolved.first, resolved.second.id)) {
                         nav.navigate("conversation/${android.net.Uri.encode(request.destination.conversationId)}") {
                             popUpTo("home")
@@ -212,7 +212,7 @@ fun HomeRoute(
                         linkError = when (e) {
                             is NuphosApi.Failure.Unauthorized -> "Sign-in has expired. Sign in again to open this agent."
                             is NuphosApi.Failure.Http -> if (e.code == 403 || e.code == 404)
-                                "This agent is unavailable or your account does not have access."
+                                "This task is unavailable or your account does not have access."
                                 else "We could not open this agent. Please try the link again."
                             else -> "We could not open this agent. Check your connection and try the link again."
                         }
@@ -223,7 +223,7 @@ fun HomeRoute(
             }
         }
         linkError?.let { message ->
-            AlertDialog(onDismissRequest = { linkError = null }, title = { Text("Could not open agent") },
+            AlertDialog(onDismissRequest = { linkError = null }, title = { Text("Could not open task") },
                 text = { Text(message) }, confirmButton = { TextButton(onClick = { linkError = null }) { Text("OK") } })
         }
         val notifications = (LocalContext.current.applicationContext as ai.nuphos.android.NuphosApplication).localNotifications
@@ -258,7 +258,7 @@ fun HomeRoute(
                     composable("home") {
                         if (wide && !membershipsLoading) Column(Modifier.fillMaxSize().safeDrawingPadding().wrapContentWidth(Alignment.CenterHorizontally).widthIn(max = 720.dp)) {
                             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                                Text("Start a new agent", style = MaterialTheme.typography.headlineSmall)
+                                Text("Start a new task", style = MaterialTheme.typography.headlineSmall)
                             }
                             newChatComposer()
                         }

@@ -36,6 +36,8 @@ type Props = {
   /** Whether the header draws its bottom divider (default true). Turn off when
    *  the body opens with its own surface and the line would double up. */
   headerDivider?: boolean
+  /** Optional icon button rendered before the title (e.g. a back arrow). */
+  headerLeading?: ReactNode
   /** Optional icon buttons rendered in the top-right corner, just left of
    *  the close button (e.g. an open-in-browser action). */
   headerActions?: ReactNode
@@ -46,6 +48,12 @@ type Props = {
    * (Escape, the X button, or a Cancel/Done button).
    */
   closeOnBackdrop?: boolean
+  /** Focus the first control in the body on open (default); false focuses the panel itself, so nothing looks selected and Tab still enters the body. */
+  focusFirstControl?: boolean
+  /** `wide` lines the header controls up with a body that pads its content 32px from each side. */
+  headerInset?: 'default' | 'wide'
+  /** Keep the title for screen readers only, when the body already shows it as a heading. */
+  titleHidden?: boolean
 }
 
 export function Modal({
@@ -61,8 +69,12 @@ export function Modal({
   fillHeight = false,
   headerCompact = false,
   headerDivider = true,
+  headerLeading,
   headerActions,
   closeOnBackdrop = true,
+  focusFirstControl = true,
+  headerInset = 'default',
+  titleHidden = false,
 }: Props) {
   const isLight = surface === 'light'
   const isPrompt = appearance === 'prompt'
@@ -79,7 +91,7 @@ export function Modal({
   if (open && !mounted) setMounted(true)
   if (!open && shown) setShown(false)
 
-  const { panelRef, bodyRef, titleId } = useModalFocus(open)
+  const { panelRef, bodyRef, titleId } = useModalFocus(open, focusFirstControl)
 
   useEffect(() => {
     if (open) {
@@ -106,12 +118,22 @@ export function Modal({
   useEffect(() => {
     if (!open) return
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
+      if (e.key !== 'Escape') return
+      // A modal opened over this one (a bind dialog or a confirm over
+      // Connectors) takes Escape for itself; only the topmost layer closes.
+      // Toasts are non-modal alert dialogs and do not count.
+      const dialogs = document.querySelectorAll(
+        '[role="dialog"][aria-modal="true"], [role="alertdialog"]:not([aria-modal="false"])',
+      )
+      const topmost = dialogs.item(dialogs.length - 1) as Element | null
+
+      if (topmost && panelRef.current && topmost !== panelRef.current) return
+      onClose()
     }
     document.addEventListener('keydown', onKey)
 
     return () => document.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  }, [open, onClose, panelRef])
 
   if (!mounted) return null
 
@@ -151,7 +173,7 @@ export function Modal({
         tabIndex={-1}
         style={{ width }}
         className={clsx(
-          'titlebar-no-drag relative isolate z-10 flex flex-col overflow-hidden border shadow-2xl outline-none',
+          'titlebar-no-drag relative isolate z-10 flex max-w-[calc(100vw-32px)] flex-col overflow-hidden border shadow-2xl outline-none',
           isPrompt ? 'rounded-[20px]' : 'rounded-xl',
           fillHeight ? 'h-[80vh]' : 'max-h-[80vh]',
           't-modal',
@@ -166,8 +188,12 @@ export function Modal({
             // shrink-0 so a tall/scrolling body (e.g. expanded Raw JSON) can't
             // squeeze the header — which otherwise let the scrollable content
             // layer overlap the close button and swallow its clicks.
-            'relative z-20 flex shrink-0 items-start',
-            headerCompact ? 'px-4 py-2.5 pr-12' : 'px-5 py-4 pr-14',
+            'relative z-20 flex shrink-0 items-start gap-2',
+            headerInset === 'wide'
+              ? 'px-8 pb-2 pt-4 pr-16'
+              : headerCompact
+                ? 'px-4 py-2.5 pr-12'
+                : 'px-5 py-4 pr-14',
             headerDivider &&
               !isPrompt && [
                 'border-b',
@@ -175,10 +201,12 @@ export function Modal({
               ],
           )}
         >
+          {headerLeading}
           <div className="min-w-0">
             <div
               id={titleId}
               className={clsx(
+                titleHidden && 'sr-only',
                 isPrompt
                   ? 'text-xl font-semibold tracking-tight'
                   : headerCompact
@@ -205,7 +233,11 @@ export function Modal({
           style={{ transform: 'translateZ(0)', willChange: 'transform' }}
           className={clsx(
             'titlebar-no-drag absolute z-50 flex items-center gap-0.5',
-            headerCompact ? 'right-2 top-1.5' : 'right-3.5 top-3.5',
+            headerInset === 'wide'
+              ? 'right-[26px] top-4'
+              : headerCompact
+                ? 'right-2 top-1.5'
+                : 'right-3.5 top-3.5',
           )}
         >
           {headerActions}

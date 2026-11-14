@@ -213,8 +213,6 @@ export type SidebarProps = {
   onLogout: () => void
   grafanaInstance?: { id: string; name: string; url: string } | null
   teamSegment?: BreadcrumbSegment
-  /** Pulse a placeholder in the team-switcher slot while teams are loading. */
-  teamSkeleton?: boolean
   identitySegment?: BreadcrumbSegment
   repositoryNav?: {
     repoName: string
@@ -243,6 +241,8 @@ export type SidebarProps = {
   onRejectInvitation?: (invitationId: string) => Promise<void>
   rootIntegrations?: Item[]
   rootIntegrationsLoading?: boolean
+  /** Whether the Connectors dialog is open, for the footer button's pressed state. */
+  connectorsOpen?: boolean
   /** Whether the team already has a Slack workspace bound. */
   slackConnected?: boolean
   /** Start the Slack install flow (shown by the post-onboarding promo card). */

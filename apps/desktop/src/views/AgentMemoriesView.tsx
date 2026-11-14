@@ -64,7 +64,7 @@ export function AgentMemoriesView({
     reload,
     isActive,
   } = list
-  const { openMemory, deleteMemory, restoreMemory, buildMenu } = useMemoryActions({
+  const { openMemory, deleteMemory, restoreMemory, buildMenu, canAct } = useMemoryActions({
     teamId,
     scope,
     stateFilter,
@@ -130,7 +130,7 @@ export function AgentMemoriesView({
 
   return (
     <div className="flex-1 flex min-h-0">
-      {menu && (
+      {menu && canAct(menu.memory) && (
         <ContextMenu
           x={menu.x}
           y={menu.y}
@@ -265,8 +265,16 @@ export function AgentMemoriesView({
           score={scores[selected.id]}
           scope={scope}
           loading={detailLoading}
-          onRestore={stateFilter === 'removed' ? () => void restoreMemory(selected) : undefined}
-          onDelete={stateFilter === 'live' ? () => setConfirmDelete(selected) : undefined}
+          onRestore={
+            stateFilter === 'removed' && canAct(selected)
+              ? () => void restoreMemory(selected)
+              : undefined
+          }
+          onDelete={
+            stateFilter === 'live' && canAct(selected)
+              ? () => setConfirmDelete(selected)
+              : undefined
+          }
           onClose={() => {
             setSelectedId(null)
             setSelectedMemory(null)

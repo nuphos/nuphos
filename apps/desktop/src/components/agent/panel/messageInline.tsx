@@ -124,6 +124,7 @@ export type LightboxImage =
       fileName: string
       /** Played with controls instead of shown as a still. */
       video?: boolean
+      audio?: boolean
     }
   | {
       fileName: string
@@ -209,7 +210,16 @@ export function ImageLightbox({
                   className="max-h-full max-w-full rounded-lg bg-black shadow-2xl"
                 />
               ) : null}
-              {'url' in image && !image.video ? (
+              {'url' in image && image.audio ? (
+                <audio
+                  key={image.url}
+                  src={image.url}
+                  controls
+                  autoPlay
+                  className="w-full max-w-md"
+                />
+              ) : null}
+              {'url' in image && !image.video && !image.audio ? (
                 <ZoomableImage
                   key={image.url}
                   url={image.url}

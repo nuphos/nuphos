@@ -24,12 +24,17 @@ export type LocalSetupResult = {
   instructionParts: number
   /** Skills whose upload the store refused, e.g. a reserved name. */
   failed: string[]
+  /** The folder each synced skill came from. */
+  sources?: Record<string, string>
 }
 
 export type LocalSetupStatus = {
   autoSync: boolean
   running: boolean
-  localSkills: number
+  /** The folders synced, ~/.claude/skills first: a name in two goes from the first. */
+  folders: { path: string; skills: number }[]
+  /** Where Codex keeps its skills, offered as a folder to add. */
+  codexFolder: string
   /** Skills linking outside their own folder: sync reads one only once reviewed. */
   linkedSkills: { name: string; files: LocalSkillFileInfo[]; reviewed: boolean }[]
   claudeMdChars: number | null
@@ -50,6 +55,10 @@ export type TeamState = {
   last: LocalSetupResult | null
   /** Links out of a skill the member reviewed: skill → relPath → realPath. */
   approvedLinks?: ApprovedLinks
+  /** Folders synced after ~/.claude/skills, in order: Codex's, or any the member added. */
+  folders?: string[]
+  /** The folder each synced skill came from, as of the last pass. */
+  sources?: Record<string, string>
 }
 
 export type ApprovedLinks = Record<string, Record<string, string> | undefined>
@@ -69,6 +78,11 @@ type State = { teams: Record<string, TeamState> }
 
 export function claudeDir(): string {
   return path.join(os.homedir(), '.claude')
+}
+
+/** Every folder a team syncs skills from, in order: ~/.claude/skills, then the member's. */
+export function syncFolders(team: TeamState): string[] {
+  return [path.join(claudeDir(), 'skills'), ...(team.folders ?? [])]
 }
 
 function dataFile(name: string): string {
@@ -140,14 +154,16 @@ export function readHashCache(): HashCache {
 }
 
 /**
- * Keep the hashes a pass just saw. Under `scanned`, files the pass did not see
- * are gone and their entries dropped; anything else on disk is kept, so passes
- * for different teams merge rather than overwrite each other.
+ * Keep the hashes a pass just saw. Under the `scanned` folders, files the pass
+ * did not see are gone and their entries dropped; anything else on disk is kept,
+ * so passes for different teams merge rather than overwrite each other.
  */
-export function saveHashCache(seen: HashCache, scanned: string) {
-  const prefix = scanned.endsWith(path.sep) ? scanned : `${scanned}${path.sep}`
+export function saveHashCache(seen: HashCache, scanned: readonly string[]) {
+  const prefixes = scanned.map((dir) => (dir.endsWith(path.sep) ? dir : `${dir}${path.sep}`))
   const kept = Object.fromEntries(
-    Object.entries(readHashCache()).filter(([file]) => !file.startsWith(prefix)),
+    Object.entries(readHashCache()).filter(
+      ([file]) => !prefixes.some((prefix) => file.startsWith(prefix)),
+    ),
   )
 
   writeJson(HASHES_FILE, { hashes: { ...kept, ...seen } })

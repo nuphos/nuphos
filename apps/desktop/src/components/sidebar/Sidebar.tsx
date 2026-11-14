@@ -43,7 +43,6 @@ export const Sidebar = memo(function Sidebar({
   onLogout,
   grafanaInstance,
   teamSegment,
-  teamSkeleton = false,
   identitySegment,
   repositoryNav,
   canGoBack = false,
@@ -64,6 +63,7 @@ export const Sidebar = memo(function Sidebar({
   onRejectInvitation,
   rootIntegrations,
   rootIntegrationsLoading = false,
+  connectorsOpen = false,
   collapsed = false,
   onToggleCollapse,
   dynamicNavigation = false,
@@ -74,7 +74,7 @@ export const Sidebar = memo(function Sidebar({
   )
   const [sidebarPage, changeSidebarPage] = useSidebarMode(scope.teamId, agentSessionId)
   const teamId = scope.teamId
-  const chrome = useSidebarChrome({ teamId, collapsed })
+  const chrome = useSidebarChrome({ teamId, collapsed, page: sidebarPage })
   const { width, dragging, setDragging, peek, setPeek } = chrome
   const { agentSessions, chatItems, newChatActive, archiveChat, unlinkChat, archivingIds } =
     useSidebarChats({
@@ -137,10 +137,10 @@ export const Sidebar = memo(function Sidebar({
 
   useChatNavKeys(
     teamView
-      ? sidebarSections.filter((section) =>
-          sidebarPage === 0
-            ? section.title === 'Channels'
-            : sidebarPage === 1 && section.title === 'Tasks',
+      ? sidebarSections.filter(
+          // The Inbox page moves through its questions with its own keys.
+          (section) =>
+            sidebarPage !== 2 && section.title === (sidebarPage === 0 ? 'Channels' : 'Tasks'),
         )
       : sidebarSections,
     chrome.isGroupCollapsed,
@@ -221,7 +221,7 @@ export const Sidebar = memo(function Sidebar({
         />
         <SidebarTeamSwitcher
           teamSegment={teamSegment}
-          loading={teamSkeleton}
+          loading={false}
           onOpenSettings={onOpenSettings}
           onOpenMyPreferences={onOpenMyPreferences}
           onCreateTeam={onCreateTeam}
@@ -259,7 +259,7 @@ export const Sidebar = memo(function Sidebar({
             </div>
           )}
         <SidebarFooter
-          active={active}
+          connectorsOpen={connectorsOpen}
           onSelect={onSelect}
           {...{
             user,

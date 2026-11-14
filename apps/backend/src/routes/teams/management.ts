@@ -208,7 +208,10 @@ export function registerTeamManagementRoutes(teamScoped: Hono<{ Variables: TeamA
     const result = await removeUserFromTeam(c.get('teamId'), memberId, c.get('userId'))
 
     if (result === 'removed') {
-      await revokeTeamMemberAccess(c.get('teamId'), memberId)
+      await revokeTeamMemberAccess(c.get('teamId'), memberId, {
+        actorUserId: c.get('userId'),
+        via: 'team_removal',
+      })
 
       return c.body(null, 204)
     }
@@ -270,7 +273,10 @@ export function registerTeamManagementRoutes(teamScoped: Hono<{ Variables: TeamA
     const result = await leaveTeam(c.get('teamId'), c.get('userId'))
 
     if (result === 'left') {
-      await revokeTeamMemberAccess(c.get('teamId'), c.get('userId'))
+      await revokeTeamMemberAccess(c.get('teamId'), c.get('userId'), {
+        actorUserId: c.get('userId'),
+        via: 'team_leave',
+      })
 
       return c.body(null, 204)
     }

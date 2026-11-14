@@ -8,7 +8,6 @@ import ai.nuphos.android.data.TransferDownloadGroup
 import ai.nuphos.android.model.AgentConversationDetail
 import ai.nuphos.android.model.ChannelAgent
 import ai.nuphos.android.model.ChatFace
-import ai.nuphos.android.model.botFace
 import ai.nuphos.android.model.ChannelPost
 import ai.nuphos.android.model.ChannelReply
 import kotlinx.coroutines.CancellationException
@@ -79,6 +78,8 @@ class ChannelSession(
         private set
     /** The chat's icon: the members other than the viewer that it shows. */
     var faces by mutableStateOf<List<ChatFace>>(emptyList())
+    /** The Bot this is the 1:1 chat of; null in a group chat, even one with only a Bot in it. */
+    var botId by mutableStateOf<String?>(null)
     var stored by mutableStateOf<List<ChannelPost>>(emptyList())
         private set
     var events by mutableStateOf<List<AgentConversationDetail.TimelineEvent>>(emptyList())
@@ -134,13 +135,17 @@ class ChannelSession(
 
     /** A Bot's chat reads the pending listing, as Desktop's does; any other chat has none. */
     suspend fun refreshQuestions() {
-        val bot = faces.botFace?.id ?: return
+        val bot = botId ?: return
         open.refresh { BotQuestions.under(bot, it) }
     }
 
     /** Answers a question in this chat: the server wakes the agent that asked, which replies where it asked. */
     fun answer(question: BotQuestion, text: String, scope: kotlinx.coroutines.CoroutineScope) =
         open.answer(question, text, scope)
+
+    /** Answers a several-question or multi-select card with what its form built. */
+    fun answer(question: BotQuestion, body: ai.nuphos.android.data.JsonValue, scope: kotlinx.coroutines.CoroutineScope) =
+        open.answer(question, body, scope)
 
     fun retry(agentId: String, scope: kotlinx.coroutines.CoroutineScope) {
         scope.launch {
@@ -289,6 +294,7 @@ class ChannelSession(
         readOnly = detail.readOnly == true
         detail.title?.takeIf { it.isNotBlank() }?.let { title = it }
         faces = detail.faces
+        botId = detail.botId
         noteActivity(detail)
         revision = stamp(detail)
         loadError = null

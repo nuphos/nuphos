@@ -5,7 +5,7 @@ import { ChatLinkMenuContext } from '../../components/agent/chatLinkMenuContext'
 import { ConfettiBurst } from '../../components/ConfettiBurst'
 import { PortForwardBottomBar } from '../../components/PortForwardBottomBar'
 import { ShortcutsHelpModal } from '../../components/ShortcutsHelpModal'
-import { Sidebar } from '../../components/Sidebar'
+import { NoTeamSidebar } from '../../components/sidebar/NoTeamSidebar'
 import { TeamInvitationsTakeover } from '../../components/TeamInvitationsPanel'
 import { t } from '../../i18n'
 import { recordSessionVisit } from '../../lib/sessionHistory'
@@ -14,6 +14,7 @@ import { OnboardingFlow } from '../../views/onboarding/OnboardingFlow'
 import { SettingsPage } from '../../views/SettingsPage'
 import { UnknownTeamGate } from '../../views/UnknownTeamGate'
 
+import { ConnectorsDialog } from './ConnectorsDialog'
 import { ActivePaneSidebar } from './SidebarSlotHost'
 import { usePaletteCommand } from './usePaletteCommand'
 import { useWorkspaceController } from './useWorkspaceController'
@@ -136,13 +137,10 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
   if (!scope) {
     return (
       <div className="flex h-full text-main overflow-hidden">
-        <Sidebar
-          scope={{ kind: 'team', teamId: '' }}
-          active=""
-          onSelect={() => {}}
+        <NoTeamSidebar
           user={user}
           onLogout={handleLogout}
-          teamSkeleton={!teamsLoaded && !error}
+          loading={!teamsLoaded && !error}
           onCreateTeam={openCreateTeam}
           pendingInvitations={pendingInvitations}
           onAcceptInvitation={acceptInvitation}
@@ -240,6 +238,7 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
         </div>
         <PortForwardBottomBar />
         <WorkspaceBindDialogs ws={ws} />
+        <ConnectorsDialog ws={ws} user={user} />
       </div>
       {settingsOpen && (
         <SettingsPage

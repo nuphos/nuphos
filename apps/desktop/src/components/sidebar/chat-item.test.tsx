@@ -38,7 +38,10 @@ test('Bots never receive task Idle classification, but removing their avatar res
 })
 test('a pinned face receives its actual rendering size rather than a larger wrapper', () => {
   const face = createElement(ChatIcon, { sidebar: true, title: 'Bot' })
-  const result = BotPinFace({ item: { key: 'bot-a', label: 'Bot', enabled: true, face }, size: 56 })
+  const result = BotPinFace({
+    item: { key: 'bot-a', label: 'Bot', enabled: true, iconNode: face },
+    size: 56,
+  })
 
   assert.ok(isValidElement<{ size: number; sidebar: boolean }>(result))
   assert.equal(result.props.size, 56)
@@ -74,4 +77,55 @@ test('Bots show actual sub-agents directly, without a duplicate own Task', () =>
       ['agent-session:kid', 'chat'],
     ],
   )
+})
+
+test('a Bot an agent nested is a top-level Bot; a nested Task keeps its parent', () => {
+  const nested = (picked?: string | null) =>
+    chatSidebarItem({
+      conversation: { ...conversation, parentSessionId: 'lead' },
+      teamId: 'team-a',
+      active: false,
+      runtimeState: undefined,
+      unread: false,
+      picked,
+    })
+
+  assert.equal(nested().parentKey, undefined)
+  assert.equal(nested(null).parentKey, 'agent-session:lead')
+})
+
+test('reading a Bot question clears its dot but keeps the action-needed preview', () => {
+  const chat = { ...item(), key: 'chat', channel: true }
+  const bot = {
+    conversation: {
+      ...conversation,
+      inputRequests: [
+        {
+          id: 'q',
+          category: 'preference' as const,
+          question: 'Which?',
+          status: 'open' as const,
+          askedAt: '2026-11-12T00:00:00Z',
+        },
+      ],
+    },
+    runtimeState: undefined,
+  }
+
+  for (const unread of [false, true]) {
+    const [row] = botChatRows({
+      chat,
+      bot,
+      kids: [],
+      faces: [],
+      teamId: 'team-a',
+      unread,
+      openId: undefined,
+    })
+
+    assert.ok(isValidElement<{ dot: string | null }>(row?.trailing))
+    assert.equal(row.trailing.props.dot, unread ? 'unread' : null)
+    assert.equal(row.dot, unread ? 'unread' : null)
+    assert.ok(row?.previewNode)
+  }
 })

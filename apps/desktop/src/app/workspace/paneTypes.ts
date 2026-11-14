@@ -76,6 +76,4 @@ export type WorkspaceTabPaneProps = {
   onRequestBindGithub: (target: { teamId: string; tabId: string }) => void
   onRequestBindGitlab: (target: { teamId: string; tabId: string }) => void
   onOpenSettingsSection: (section: string) => void
-  slackBindRequested: boolean
-  onSlackBindHandled: () => void
 }

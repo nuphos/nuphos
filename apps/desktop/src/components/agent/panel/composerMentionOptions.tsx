@@ -72,7 +72,7 @@ function MentionOptionRow({
               size={18}
             />
           }
-          label={option.session.title || option.session.firstMessage || t('Untitled agent')}
+          label={option.session.title || option.session.firstMessage || t('Untitled task')}
         />
       )
   }

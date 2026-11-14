@@ -1,5 +1,5 @@
 use crate::acp::connection::AcpConnection;
-use anyhow::Result;
+use crate::acp::pool::SessionStartError;
 use rand::Rng;
 use std::collections::HashMap;
 use std::time::Duration;
@@ -29,7 +29,7 @@ pub(crate) struct AgentCommand<'a> {
 pub(crate) async fn spawn_initialized(
     agent: &AgentCommand<'_>,
     retry_delays: &[Duration],
-) -> Result<AcpConnection> {
+) -> Result<AcpConnection, SessionStartError> {
     let mut attempt = 1;
     loop {
         let err = match spawn_and_initialize(agent).await {
@@ -55,7 +55,9 @@ pub(crate) async fn spawn_initialized(
     }
 }
 
-async fn spawn_and_initialize(agent: &AgentCommand<'_>) -> Result<AcpConnection> {
+async fn spawn_and_initialize(
+    agent: &AgentCommand<'_>,
+) -> Result<AcpConnection, SessionStartError> {
     let mut conn = AcpConnection::spawn(
         agent.command,
         agent.args,
@@ -68,7 +70,7 @@ async fn spawn_and_initialize(agent: &AgentCommand<'_>) -> Result<AcpConnection>
     Ok(conn)
 }
 
-fn is_locked_state(err: &anyhow::Error) -> bool {
+fn is_locked_state(err: &SessionStartError) -> bool {
     format!("{err:#}").contains(LOCKED_STATE_SIGNATURE)
 }
 

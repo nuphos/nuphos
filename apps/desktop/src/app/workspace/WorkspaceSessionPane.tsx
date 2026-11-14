@@ -98,6 +98,10 @@ export function WorkspaceSessionPane({
             onOpenTask={onOpenTask}
             onOpenSession={(agentId) => ws.workspaceActions.selectSession(agentId, { teamId })}
             onOpenNuphosLink={ws.stableOpenNuphosLinkFromChat}
+            fixes={{
+              isTeamAdmin: ws.currentTeam?.role === 'ADMINISTRATOR',
+              onOpenAgentSettings: () => ws.openSettingsSection('workspace.agent'),
+            }}
           />
         </main>
       )}

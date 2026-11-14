@@ -18,6 +18,8 @@ struct RuntimeInstance: Codable, Identifiable, Equatable, Hashable, Sendable {
         static let grok = Self(rawValue: "grok")
         static let antigravity = Self(rawValue: "antigravity")
         static let opencode = Self(rawValue: "opencode")
+        static let hermes = Self(rawValue: "hermes")
+        static let dsh = Self(rawValue: "dsh")
     }
     enum Status: String, Codable, Sendable { case active, disabled }
 
@@ -123,6 +125,8 @@ extension RuntimeInstance.Provider {
         case "grok": "Grok Build"
         case "antigravity": "Antigravity"
         case "opencode": "OpenCode"
+        case "hermes": "Hermes Agent"
+        case "dsh": "DeepSeek Harness"
         case "nuphos": "Nuphos"
         default: raw?.isEmpty == false ? "Unknown runtime" : "Runtime"
         }
@@ -221,7 +225,7 @@ struct SessionConfigState: Codable, Equatable, Sendable {
     var hint: String? {
         switch status {
         case .busy: "Changes apply after this reply."
-        case .dormant: options.isEmpty ? "Send a message to start this agent before changing model settings." : nil
+        case .dormant: options.isEmpty ? "Send a message to start this task before changing model settings." : nil
         case .offline: "This runtime is offline. Model settings return when it reconnects."
         case .ready, .unsupported: nil
         }

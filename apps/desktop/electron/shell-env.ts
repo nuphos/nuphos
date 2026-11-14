@@ -29,11 +29,12 @@ export function userShell(): string {
   return shell || process.env.SHELL || (process.platform === 'darwin' ? '/bin/zsh' : '/bin/sh')
 }
 
-function parseEnvBlock(block: string): NodeJS.ProcessEnv {
+export function parseEnvBlock(block: string): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {}
   let current: string | undefined
 
-  for (const line of block.split('\n')) {
+  // `env` ends its last line with a newline; that one is not part of the last value.
+  for (const line of block.replace(/\n$/u, '').split('\n')) {
     const match = /^([A-Za-z_]\w*)=(.*)$/.exec(line)
 
     if (match) {

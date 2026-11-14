@@ -29,11 +29,14 @@ function ProviderLogo({ provider }: { provider: ConnectProvider }) {
 function RowAction({
   status,
   interactive,
+  blocked,
   onConnect,
   onUse,
 }: {
   status: ConnectRowStatus
   interactive: boolean
+  /** Why this viewer cannot bind it: shown instead of Connect, which could only fail. */
+  blocked?: { label: string }
   onConnect: () => void
   onUse: () => void
 }) {
@@ -51,6 +54,12 @@ function RowAction({
       <span className="text-[12px] text-tertiary">{t('Pick one in the credential picker')}</span>
     )
   }
+  // Only Connect is blocked: selecting what the team already bound is not a bind,
+  // so an `available` row keeps its "Use in agent" for every member.
+  const use = status === 'available'
+
+  if (blocked && !use) return <span className="text-[12px] text-tertiary">{blocked.label}</span>
+
   const busy = status === 'connecting'
   const label = ACTION_LABEL[status] ?? t('Connect')
 
@@ -64,7 +73,7 @@ function RowAction({
         size="sm"
         className="h-7 min-w-[84px] px-2.5 text-[12.5px]"
         disabled={busy}
-        onClick={status === 'available' ? onUse : onConnect}
+        onClick={use ? onUse : onConnect}
       >
         {busy ? (
           <Loader2 className="h-3.5 w-3.5 animate-spin" aria-label={t('Connecting')} />
@@ -80,12 +89,14 @@ export function ConnectRow({
   provider,
   status,
   interactive,
+  blocked,
   onConnect,
   onUse,
 }: {
   provider: ConnectProvider
   status: ConnectRowStatus
   interactive: boolean
+  blocked?: { label: string }
   onConnect: () => void
   onUse: () => void
 }) {
@@ -102,6 +113,7 @@ export function ConnectRow({
         key={status}
         status={status}
         interactive={interactive}
+        blocked={blocked}
         onConnect={onConnect}
         onUse={onUse}
       />

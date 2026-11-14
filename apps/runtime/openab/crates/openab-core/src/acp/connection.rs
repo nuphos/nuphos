@@ -1,6 +1,7 @@
+use crate::acp::pool::SessionStartError;
 use crate::acp::protocol::{
-    parse_config_options, parse_usage_report, ConfigOption, JsonRpcMessage, JsonRpcRequest,
-    JsonRpcResponse, UsageReport,
+    parse_config_options, parse_usage_report, ConfigOption, JsonRpcError, JsonRpcMessage,
+    JsonRpcRequest, JsonRpcResponse, UsageReport,
 };
 use anyhow::{anyhow, Result};
 use serde_json::{json, Value};
@@ -17,6 +18,22 @@ use tracing::{debug, error, info, trace};
 /// the reader applies backpressure to the agent stdout pipe instead of growing
 /// process memory without limit.
 pub const ACP_NOTIFICATION_CAPACITY: usize = 1024;
+
+/// Why an ACP request got no usable response, so callers can branch on the
+/// cause instead of matching message text.
+#[derive(Debug, thiserror::Error)]
+pub enum AcpRequestError {
+    /// The agent answered with a JSON-RPC error; its code and `data` are kept.
+    #[error(transparent)]
+    Agent(#[from] JsonRpcError),
+    #[error("timeout waiting for {method} response")]
+    Timeout { method: String },
+    #[error("connection closed waiting for {method}")]
+    ConnectionClosed { method: String },
+    /// The request could not be written, or its response was unusable.
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
 
 type NotificationSender = Arc<Mutex<Option<mpsc::Sender<JsonRpcMessage>>>>;
 
@@ -488,6 +505,9 @@ pub struct AcpConnection {
     /// their tool lists only then, so a later declaration needs a new process.
     pub mcp_servers: Vec<serde_json::Value>,
     pub supports_load_session: bool,
+    /// The agent also offers `session/resume`: the same restore without replaying
+    /// the history, which nobody here reads.
+    supports_resume_session: bool,
     supports_steering: bool,
     /// Agent name from `initialize` (`agentInfo.name`), e.g. "Kiro CLI Agent".
     /// Used to gate agent-specific extension methods.
@@ -897,7 +917,7 @@ impl AcpConnection {
         working_dir: &str,
         env: &std::collections::HashMap<String, String>,
         inherit_env: &[String],
-    ) -> Result<Self> {
+    ) -> Result<Self, SessionStartError> {
         info!(cmd = command, ?args, cwd = working_dir, "spawning agent");
 
         let mut cmd = baseline_command(command, args, working_dir);
@@ -922,9 +942,10 @@ impl AcpConnection {
                 "[agent].env/inherit_env is set -- these values are accessible to the agent and could be exfiltrated via prompt injection"
             );
         }
-        let mut proc = cmd
-            .spawn()
-            .map_err(|e| anyhow!("failed to spawn {command}: {e}"))?;
+        let mut proc = cmd.spawn().map_err(|source| SessionStartError::Spawn {
+            command: command.to_string(),
+            source,
+        })?;
         let child_pgid = proc.id().and_then(|pid| i32::try_from(pid).ok());
 
         let stdout = proc.stdout.take().ok_or_else(|| anyhow!("no stdout"))?;
@@ -995,6 +1016,7 @@ impl AcpConnection {
             acp_session_id: None,
             mcp_servers: Vec::new(),
             supports_load_session: false,
+            supports_resume_session: false,
             supports_steering: false,
             agent_name: String::new(),
             config_options: Vec::new(),
@@ -1049,10 +1071,14 @@ impl AcpConnection {
         Ok(())
     }
 
-    async fn send_request(&self, method: &str, params: Option<Value>) -> Result<JsonRpcMessage> {
+    async fn send_request(
+        &self,
+        method: &str,
+        params: Option<Value>,
+    ) -> Result<JsonRpcMessage, AcpRequestError> {
         let resp = self.send_request_response(method, params).await?;
         if let Some(err) = &resp.error {
-            return Err(anyhow::Error::new(err.clone()));
+            return Err(err.clone().into());
         }
         Ok(resp)
     }
@@ -1062,10 +1088,10 @@ impl AcpConnection {
         &self,
         method: &str,
         params: Option<Value>,
-    ) -> Result<JsonRpcMessage> {
+    ) -> Result<JsonRpcMessage, AcpRequestError> {
         let id = self.next_id();
         let req = JsonRpcRequest::new(id, method, params);
-        let data = serde_json::to_string(&req)?;
+        let data = serde_json::to_string(&req).map_err(anyhow::Error::from)?;
 
         let (tx, rx) = oneshot::channel();
         self.pending.lock().await.insert(id, tx);
@@ -1073,20 +1099,25 @@ impl AcpConnection {
         self.send_raw(&data).await?;
 
         let timeout_secs = if method == "session/new" { 120 } else { 30 };
+        let closed = || AcpRequestError::ConnectionClosed {
+            method: method.to_string(),
+        };
         let resp = tokio::time::timeout(std::time::Duration::from_secs(timeout_secs), rx)
             .await
-            .map_err(|_| anyhow!("timeout waiting for {method} response"))?
-            .map_err(|_| anyhow!("channel closed waiting for {method}"))?;
+            .map_err(|_| AcpRequestError::Timeout {
+                method: method.to_string(),
+            })?
+            .map_err(|_| closed())?;
 
         // The reader synthesizes an id-less error when stdout closes. It is
         // not an agent acknowledgement and cannot confirm a write's outcome.
         if resp.id.is_none() {
-            return Err(anyhow!("connection closed waiting for {method}"));
+            return Err(closed());
         }
         Ok(with_recent_stderr(resp, &self.activity))
     }
 
-    pub async fn initialize(&mut self) -> Result<()> {
+    pub async fn initialize(&mut self) -> Result<(), AcpRequestError> {
         let resp = self
             .send_request(
                 "initialize",
@@ -1132,9 +1163,13 @@ impl AcpConnection {
             .and_then(|c| c.get("loadSession"))
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
+        self.supports_resume_session = result
+            .and_then(|r| r.pointer("/agentCapabilities/sessionCapabilities/resume"))
+            .is_some_and(|v| !v.is_null());
         info!(
             agent = agent_name,
             load_session = self.supports_load_session,
+            resume_session = self.supports_resume_session,
             "initialized"
         );
         Ok(())
@@ -1145,7 +1180,7 @@ impl AcpConnection {
         cwd: &str,
         mcp_servers: &[serde_json::Value],
         session_meta: Option<&serde_json::Value>,
-    ) -> Result<String> {
+    ) -> Result<String, AcpRequestError> {
         let resp = self
             .send_request(
                 "session/new",
@@ -1274,7 +1309,7 @@ impl AcpConnection {
                 // A lost response may have applied: stop advertising the old
                 // value until the agent next publishes its actual state.
                 self.config_options.clear();
-                Err(error)
+                Err(error.into())
             }
         }
     }
@@ -1425,18 +1460,24 @@ impl AcpConnection {
         !self._reader_handle.is_finished()
     }
 
-    /// Resume a previous session by ID. Returns Ok(()) if the agent accepted
-    /// the load, or an error if it failed (caller should fall back to session/new).
+    /// Resume a previous session by ID, with `session/resume` when the agent offers it.
+    /// Returns Ok(()) if the agent accepted the restore, or an error if it failed
+    /// (caller should fall back to session/new).
     pub async fn session_load(
         &mut self,
         session_id: &str,
         cwd: &str,
         mcp_servers: &[serde_json::Value],
         session_meta: Option<&serde_json::Value>,
-    ) -> Result<()> {
+    ) -> Result<(), AcpRequestError> {
+        let method = if self.supports_resume_session {
+            "session/resume"
+        } else {
+            "session/load"
+        };
         let resp = self
             .send_request(
-                "session/load",
+                method,
                 Some(session_load_params(
                     session_id,
                     cwd,
@@ -1445,10 +1486,6 @@ impl AcpConnection {
                 )),
             )
             .await?;
-        // Accept any non-error response as success
-        if resp.error.is_some() {
-            return Err(anyhow!("session/load rejected"));
-        }
         info!(session_id, "session loaded");
         self.acp_session_id = Some(session_id.to_string());
         self.mcp_servers = mcp_servers.to_vec();
@@ -1483,7 +1520,7 @@ fn session_new_params(
     params
 }
 
-/// `session/load` params — same `mcpServers` / `_meta` passthrough as `session_new_params`.
+/// `session/load` and `session/resume` params — same `mcpServers` / `_meta` passthrough as `session_new_params`.
 fn session_load_params(
     session_id: &str,
     cwd: &str,
@@ -1767,6 +1804,53 @@ mod tests {
             unsafe { libc::kill(pid.parse().unwrap(), libc::SIGKILL) };
         }
         assert!(died, "agent {pid} outlived openab");
+    }
+}
+
+#[cfg(all(test, unix))]
+mod request_error_tests {
+    use super::{AcpConnection, AcpRequestError};
+
+    async fn load_against(script: &str) -> Result<(), AcpRequestError> {
+        let args = vec!["-c".to_string(), script.to_string()];
+        let mut conn = AcpConnection::spawn("sh", &args, ".", &Default::default(), &[])
+            .await
+            .unwrap();
+        conn.session_load("sid", ".", &[], None).await
+    }
+
+    #[tokio::test]
+    async fn an_agent_rejection_keeps_its_code() {
+        let reply = r#"read line; printf '{"jsonrpc":"2.0","id":%s,"error":{"code":-32002,"message":"Resource not found"}}\n' "$(printf '%s' "$line" | sed -n 's/.*"id":\([0-9]*\).*/\1/p')"; sleep 5"#;
+        match load_against(reply).await {
+            Err(AcpRequestError::Agent(err)) => assert_eq!(err.code, -32002),
+            other => panic!("expected an agent error, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn an_agent_that_exits_is_a_closed_connection() {
+        match load_against("read line").await {
+            Err(AcpRequestError::ConnectionClosed { method }) => {
+                assert_eq!(method, "session/load")
+            }
+            other => panic!("expected a closed connection, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn an_agent_that_offers_resume_is_restored_with_it() {
+        let args = vec!["-c".to_string(), "read line".to_string()];
+        let mut conn = AcpConnection::spawn("sh", &args, ".", &Default::default(), &[])
+            .await
+            .unwrap();
+        conn.supports_resume_session = true;
+        match conn.session_load("sid", ".", &[], None).await {
+            Err(AcpRequestError::ConnectionClosed { method }) => {
+                assert_eq!(method, "session/resume")
+            }
+            other => panic!("expected a closed connection, got {other:?}"),
+        }
     }
 }
 

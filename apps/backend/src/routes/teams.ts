@@ -67,8 +67,9 @@ import {
   requireUserOrConversationAuth,
 } from '@/routes/teams/conversation-auth'
 import { registerTeamInvitationRoutes } from '@/routes/teams/invitations'
-import { registerLocalAgentSharingRoutes } from '@/routes/teams/local-agent-sharing'
 import { registerTeamManagementRoutes } from '@/routes/teams/management'
+import { registerTeamImportRoutes } from '@/routes/teams/migration-import'
+import { registerTeamMigrationRoutes } from '@/routes/teams/migration'
 import { registerTeamsRootRoutes } from '@/routes/teams/root'
 import { tencentAccountsRoutes } from '@/routes/tencent-accounts'
 import { trelloIntegrationsRoutes } from '@/routes/trello-integrations'
@@ -89,6 +90,7 @@ export const teamsRoutes = new Hono<{ Variables: ConversationTeamAuthVariables }
 teamsRoutes.use('*', requireUserOrConversationAuth)
 
 registerTeamsRootRoutes(teamsRoutes)
+registerTeamImportRoutes(teamsRoutes)
 
 const activityQuerySchema = z.object({
   range: z.enum(Object.keys(ACTIVITY_RANGES) as [keyof typeof ACTIVITY_RANGES]).default('7d'),
@@ -108,7 +110,7 @@ teamScoped.use('*', requireTeamMember())
 teamScoped.use('*', dispatchConversationTeamApi)
 
 registerTeamManagementRoutes(teamScoped)
-registerLocalAgentSharingRoutes(teamScoped)
+registerTeamMigrationRoutes(teamScoped)
 registerTeamInvitationRoutes(teamScoped)
 registerAgentRuntimeRoutes(teamScoped)
 registerExternalRuntimeRoute(teamScoped)

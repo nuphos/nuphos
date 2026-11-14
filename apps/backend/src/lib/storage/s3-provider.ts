@@ -32,9 +32,12 @@ export class S3StorageProvider implements StorageProvider {
   readonly bucket: string
   readonly region: string
   private readonly client: S3Client
+  // Signs the URLs clients fetch; differs from `client` only in its endpoint.
+  private readonly presigner: S3Client
 
-  private constructor(client: S3Client, bucket: string, region: string) {
+  private constructor(client: S3Client, presigner: S3Client, bucket: string, region: string) {
     this.client = client
+    this.presigner = presigner
     this.bucket = bucket
     this.region = region
   }
@@ -42,7 +45,8 @@ export class S3StorageProvider implements StorageProvider {
   // Throws a clear 503 when the transfer store isn't configured rather than
   // failing deep inside the AWS SDK.
   static fromConfig(): S3StorageProvider {
-    const { bucket, region, accessKeyId, secretAccessKey, endpoint } = config.fileTransfer.s3
+    const { bucket, region, accessKeyId, secretAccessKey, endpoint, publicEndpoint } =
+      config.fileTransfer.s3
 
     if (!bucket || !accessKeyId || !secretAccessKey) {
       throw new AppError(
@@ -52,14 +56,18 @@ export class S3StorageProvider implements StorageProvider {
       )
     }
 
-    return new S3StorageProvider(
+    const clientAt = (url: string | undefined) =>
       makeS3Client({
         region,
         accessKeyId,
         secretAccessKey,
-        endpoint,
+        endpoint: url,
         requestChecksumCalculation: 'WHEN_REQUIRED',
-      }),
+      })
+
+    return new S3StorageProvider(
+      clientAt(endpoint),
+      clientAt(publicEndpoint ?? endpoint),
       bucket,
       region,
     )
@@ -72,7 +80,7 @@ export class S3StorageProvider implements StorageProvider {
     size: number,
   ): Promise<PresignedUrl> {
     const url = await getSignedUrl(
-      this.client,
+      this.presigner,
       new PutObjectCommand({
         Bucket: this.bucket,
         Key: key,
@@ -91,7 +99,7 @@ export class S3StorageProvider implements StorageProvider {
     expiresInSeconds: number,
   ): Promise<PresignedUrl> {
     const url = await getSignedUrl(
-      this.client,
+      this.presigner,
       new GetObjectCommand({
         Bucket: ref.bucket,
         Key: ref.key,

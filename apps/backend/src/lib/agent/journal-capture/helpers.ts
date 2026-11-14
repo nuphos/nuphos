@@ -28,9 +28,6 @@ export const MUTATING_TOOL_NAMES = [
   'slack_react',
   'slack_post',
   'sonarqube_scan_fixture',
-  'trigger_group_create',
-  'trigger_delete',
-  'trigger_finalize_wiring',
 ] as const
 export const FAIL_CLOSED_TOOLS = new Set<string>(MUTATING_TOOL_NAMES)
 
@@ -40,7 +37,6 @@ const CLIENT_TOOL_NAMES = new Set([
   'port_forward_start',
   'port_forward_stop',
   'port_forward_list',
-  'upload_attachment',
 ])
 
 export const OUTPUT_PREVIEW_CHARS = 400

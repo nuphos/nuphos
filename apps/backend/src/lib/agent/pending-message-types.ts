@@ -31,6 +31,8 @@ export type PendingUserMessage = {
   chat?: QueuedChatTurn
   /** Times a turn took this message and could not run it. */
   attempts?: number
+  /** When a turn first found its computer offline; reported once that outlasts a reconnect. */
+  offlineSince?: string
 }
 
 // A resource wake-up is only "<event> on <PR>"; the session reads the PR itself.

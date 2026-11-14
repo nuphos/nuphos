@@ -12,6 +12,7 @@ import {
 } from './openab-acp-session.ts'
 import { createCallTimer, refreshSessionTimers } from './openab-acp-timers.ts'
 import { observeOpenAbSessionUpdates, routeOpenAbSessionUpdate } from './openab-acp-updates.ts'
+import { createdSession } from './openab-session-created'
 import { rememberPushedRuntimeState } from './runtime-state-store'
 
 import type { OpenAbAcpConnection } from './openab-acp-connect.ts'
@@ -26,6 +27,7 @@ import type {
   PromptSessionContext,
 } from './openab-acp-session.ts'
 import type { OpenAbSessionUpdate } from './openab-acp-updates.ts'
+import type { CreatedSession } from './openab-session-created'
 import type { PreviewAgentUpdate, PreviewTextMetadata } from './preview-agent-update.ts'
 import type { PromptAttachment } from './runtime-attachments'
 
@@ -69,12 +71,17 @@ export class OpenAbAcpClient extends OpenAbAcpLifecycle {
   initialize(): Promise<JsonRpcResult> {
     return this.call('initialize', ACP_INITIALIZE_PARAMS, {}, this.callTimeoutMs, true)
   }
+  /**
+   * Creates the session and reports the settings the runtime started it with.
+   * `session/new` names them, so the chip can show the model during the very
+   * first turn instead of waiting for the turn to settle.
+   */
   async createSession(
     cwd: string,
     mcpServers: AcpHttpMcpServer[] = [],
     systemPrompt?: string,
     runtime?: OpenAbSessionRuntime,
-  ): Promise<string> {
+  ): Promise<CreatedSession> {
     const result = await this.call(
       'session/new',
       {
@@ -86,13 +93,8 @@ export class OpenAbAcpClient extends OpenAbAcpLifecycle {
       this.callTimeoutMs,
       true,
     )
-    const sessionId = result.sessionId
 
-    if (typeof sessionId !== 'string' || sessionId.length === 0) {
-      throw new Error('OpenAB returned an invalid ACP session id')
-    }
-
-    return sessionId
+    return createdSession(result)
   }
   async loadSession(
     sessionId: string,
@@ -288,11 +290,8 @@ export class OpenAbAcpClient extends OpenAbAcpLifecycle {
       pending.reject(new OpenAbConnectionLostError(event?.reason, pending.accepted === true))
     }
     this.pending.clear()
-    for (const handlers of this.sessionUpdateHandlers.values()) {
-      for (const handler of handlers) {
-        handler({ kind: 'interrupted', reason: 'runtime_connection_lost' })
-      }
-    }
+    // Observers hear nothing: a lost transport is not the end of the agent's
+    // turn, which goes on once the session reattaches (#704).
     this.sessionUpdateHandlers.clear()
     this.cancelledSessions.clear()
     this.disconnect()

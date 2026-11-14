@@ -4,9 +4,10 @@ import { initializeSessionBypass } from '@/lib/agent/auto-mode/store'
 import { getConversationBySessionId } from '@/lib/agent/db'
 import { startTraceSpan } from '@/lib/agent/tracing'
 import { recordRuntimeTurnUsage } from '@/lib/agent/turn-usage-record'
+import { registry } from '@/lib/claude-code-preview/agent-chat-registry'
 import { resolveConversationChatRuntime } from '@/lib/claude-code-preview/agent-chat-runtime'
 import { fallBackBeforeTurn } from '@/lib/claude-code-preview/runtime-fallback'
-import { logError, logEvent } from '@/lib/observability'
+import { logError } from '@/lib/observability'
 import { getSlackAgentThreadBySessionId } from '@/lib/slack/agent-bot'
 
 import { ensurePreviewChannelCredentialsSafe } from './chat-preview-credentials'
@@ -29,9 +30,8 @@ import type { AgentRunFrameSink } from './run-registry'
 import type { AgentRun, AgentRunTrace } from './types'
 import type { ConversationTriggerRun } from '@/lib/agent/conversation-trigger-run'
 import type { AgentClientMeta, AgentCredentialAccess } from '@/lib/agent/db'
+import type { AgentSessionOrigin } from '@/lib/agent/message-origin'
 import type { LarkReplyToolContext, SlackReplyToolContext } from '@/lib/agent/tools-skilled/types'
-import type { AgentSessionOrigin } from '@/lib/agent/tools-triggers-shared'
-import type { SlackTriggerNotificationContext } from '@/lib/slack/incident-notifications'
 import type { UIMessage } from 'ai'
 
 export type { AgentRunFrameSink } from './run-registry'
@@ -61,7 +61,6 @@ export type TriggerRunParams = {
   slackReply?: SlackReplyToolContext
   larkReply?: LarkReplyToolContext
   frameSink?: AgentRunFrameSink
-  triggerNotification?: SlackTriggerNotificationContext
   /** A refused turn is not recorded as interrupted; the caller requeues its messages. */
   clientResendsRefusal?: boolean
   /** The channels whose posts this turn answers. */
@@ -251,7 +250,12 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
 
     return { status: 'completed', finishReason: ended ?? 'stop' }
   } catch (err) {
-    recordTriggerRunFailure(err, runTrace, source)
+    recordTriggerRunFailure(
+      err,
+      runTrace,
+      source,
+      teamId ? registry.connectionInfo(teamId, [chatRuntime.endpoint.url]) : {},
+    )
     chatSpan.end()
     if (!run.abortController.signal.aborted) {
       appendAgentRunError(run, err)

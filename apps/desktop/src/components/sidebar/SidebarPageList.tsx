@@ -4,7 +4,7 @@ import { useRef } from 'react'
 
 import { t } from '../../i18n'
 
-import { unpinnedChatItems } from './chat-sections'
+import { BOTS_SECTION, foldKey, unpinnedChatItems } from './chat-sections'
 import { AddProjectButton } from './project-actions'
 import { SidebarSectionList } from './sections-list'
 import { SidebarArchiveSection } from './SidebarArchiveSection'
@@ -37,7 +37,9 @@ export function SidebarPageList({
     page === 1
       ? taskPageSections(source.flatMap((section) => section.items))
       : sections.filter((section) => section.title === 'Channels' || section.title === 'Favorites')
-  const pinned = (item: Item) => Boolean(listProps.favoriteMatch(item))
+  // Only a Bot or chat pins; an older Task pin stays stored but is no Bot.
+  const pinned = (item: Item) =>
+    Boolean((item.bot || item.channel) && listProps.favoriteMatch(item))
   const visible = shown
     .filter((section) => section.title !== 'Tasks' || section.items.length > 0 || section.loading)
     .map((section) => ({
@@ -50,12 +52,19 @@ export function SidebarPageList({
   const empty =
     source.every((section) => !section.loading) &&
     shown.every((section) => section.items.length === 0)
+  // Bots drops its title to hide its heading, so its row folds take back the Bots scope.
+  const scoped = (fold: Pick<Section, 'title' | 'defaultCollapsed'>) =>
+    page === 0 && fold.title?.startsWith('agent-session:')
+      ? { ...fold, title: foldKey({ title: BOTS_SECTION }, fold.title) }
+      : fold
   const props = {
     ...listProps,
     isGroupCollapsed: (section: Pick<Section, 'title' | 'defaultCollapsed'>) =>
       section.title === 'Tasks' || section.title === 'Channels'
         ? false
-        : listProps.isGroupCollapsed(section),
+        : listProps.isGroupCollapsed(scoped(section)),
+    toggleGroup: (section: Pick<Section, 'title' | 'defaultCollapsed'>) =>
+      listProps.toggleGroup(scoped(section)),
   }
   const list = <SidebarSectionList {...props} sections={visible} />
 

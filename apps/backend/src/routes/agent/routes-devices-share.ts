@@ -180,7 +180,9 @@ export function createDeviceShareRoutes(deps: DeviceShareRouteDependencies = def
       const managers = chosenManagers(device, { userId, teamId }, memberIds, input, ask)
       const use = withManagers(ask, managers.ids)
 
-      if (!(await deps.setUse(device.userId, device.deviceId, teamId, use, managers)))
+      const by = { actorUserId: userId, via: 'share' as const }
+
+      if (!(await deps.setUse(device.userId, device.deviceId, teamId, use, by, managers)))
         throw new AppError(404, 'device_not_found', 'Device is not available')
       const lost = losingUse(memberIds, device, teamId, use, managers.ids)
 

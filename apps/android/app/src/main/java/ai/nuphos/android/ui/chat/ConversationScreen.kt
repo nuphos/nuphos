@@ -119,8 +119,8 @@ fun ConversationScreen(
     val selectedTeamId = store.selectedTeam?.id
     val conversation = store.conversations.firstOrNull { it.sessionId == sessionId && (it.teamId == null || it.teamId == selectedTeamId) }
     val session = remember(store, sessionId, selectedTeamId) {
-        if (fresh) store.session(sessionId, "New agent")
-        else conversation?.let { store.session(it) } ?: store.session(sessionId, "Agent")
+        if (fresh) store.session(sessionId, "New task")
+        else conversation?.let { store.session(it) } ?: store.session(sessionId, "Task")
     }
     // A chat named by a link before the list knew it: show it as a chat once its detail says so.
     if (session.isChannel) {
@@ -251,7 +251,7 @@ fun ConversationScreen(
                         Column(Modifier.weight(1f)) {
                             Text(session.title, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.titleMedium,
-                                modifier = Modifier.clickable { showTriggers = true }.semantics { contentDescription = "Show conversation triggers" })
+                                modifier = Modifier.clickable { showTriggers = true }.semantics { contentDescription = "Show task triggers" })
                             val label = session.runtimeDeviceLabel
                             if (session.agentRuntime != null || label != null) {
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -266,7 +266,7 @@ fun ConversationScreen(
                     }
                 },
                 navigationIcon = {
-                    if (newChat) TextButton(onClick = onBack) { Text("New agent") }
+                    if (newChat) TextButton(onClick = onBack) { Text("New task") }
                     else IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back") }
                 },
                 actions = {
@@ -291,7 +291,7 @@ fun ConversationScreen(
                 onRefresh = { refreshResources++ },
             )
             if (session.loaded && session.loadError == null && session.isArchived) {
-                Text("Archived agent", Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                Text("Archived task", Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (session.canReadDownloads && session.downloadsError != null) Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -393,7 +393,7 @@ fun ConversationScreen(
                                 }
                             }
                         }
-                        if (session.readOnly) Text("Read-only agent", modifier = Modifier.padding(horizontal = 16.dp))
+                        if (session.readOnly) Text("Read-only task", modifier = Modifier.padding(horizontal = 16.dp))
                         if (session.queued.isNotEmpty()) {
                             Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 session.queued.forEachIndexed { i, item ->
@@ -482,7 +482,6 @@ fun ConversationScreen(
                     var recalledFiles by remember(session, queueGeneration, queueWorkspace, queueConsent) {
                         mutableStateOf(emptyList<ai.nuphos.android.model.ComposerAttachment>())
                     }
-                    session.answering?.let { ai.nuphos.android.ui.chats.ReplyChip(it.quote) { session.answering = null } }
                     ServerQueuedMessages(session.serverQueue, writable = !session.readOnly && !session.isArchived,
                         canSteer = session.canSteer, onRecall = { recalled ->
                             if (draft == null) false else runCatching {
@@ -803,7 +802,7 @@ private fun ToolCallRow(
                 Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(modifier = Modifier.testTag("approve-once:${part.toolCallId}"), enabled = !session.readOnly && (if (session.isNative) session.canReply else session.canSubmit), onClick = { session.decide(part.toolCallId, ChatSession.ApprovalDecision.Once) }) { Text("Approve once") }
                     if (part.approval?.source != "openab") {
-                        FilledTonalButton(enabled = session.canManage, onClick = { session.decide(part.toolCallId, ChatSession.ApprovalDecision.Session) }) { Text("For this agent") }
+                        FilledTonalButton(enabled = session.canManage, onClick = { session.decide(part.toolCallId, ChatSession.ApprovalDecision.Session) }) { Text("For this task") }
                     }
                 }
                 Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

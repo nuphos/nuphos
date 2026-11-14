@@ -89,13 +89,21 @@ function listening(socket: string): Promise<boolean> {
 
 let host: ChildProcess | undefined
 
-/** Starts the bundle's host for this screen unless one already listens; rejects with its reason. */
-export async function startHost(pool: string, binary: string): Promise<void> {
+/**
+ * Starts the bundle's host for this screen unless one already listens; rejects with its reason.
+ * `ownPermissions`: the host holds Screen Recording and Accessibility itself, not whoever started this process.
+ */
+export async function startHost(
+  pool: string,
+  binary: string,
+  ownPermissions = false,
+): Promise<void> {
   const socket = screenSocket(pool)
 
   if (await listening(socket)) return
   host?.kill()
-  const child = spawn(binary, [socket], { stdio: ['ignore', 'pipe', 'pipe'] })
+  const args = ownPermissions ? [socket, '--own-permissions'] : [socket]
+  const child = spawn(binary, args, { stdio: ['ignore', 'pipe', 'pipe'] })
   let output = ''
 
   host = child
@@ -167,15 +175,18 @@ export function macScreenDeps(
   host: {
     binary: () => string
     /** A viewer took the screen over (true) or handed it back (false): the Mac says so on screen. */
-    handOver: (human: boolean) => void
+    handOver?: (human: boolean) => void
     /** The account signed in on this Mac: the only viewer its screen admits. */
     owner: () => string | null
+    /** The CLI's: the host asks for its own permissions (see startHost). */
+    ownPermissions?: boolean
   },
   instances?: (request: unknown) => Promise<unknown>,
 ) {
   return {
     instances: withDesktopRequests(
-      (sessionId) => openMacScreen(pool, sessionId, () => startHost(pool, host.binary())),
+      (sessionId) =>
+        openMacScreen(pool, sessionId, () => startHost(pool, host.binary(), host.ownPermissions)),
       instances,
     ),
     connectVnc: () => new VncStream(pool, () => screenSocket(pool), host.handOver, host.owner),

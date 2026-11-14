@@ -47,7 +47,7 @@ export function BotChatQuestion({
           onClick={() => onOpenSession(request.sessionId)}
           className="flex items-center gap-1 self-start text-[12px] text-tertiary hover:text-main"
         >
-          {t('From {name}', { name: request.title || t('Untitled agent') })}
+          {t('From {name}', { name: request.title || t('Untitled task') })}
           <ArrowUpRight aria-hidden className="size-3.5" />
         </button>
       )}

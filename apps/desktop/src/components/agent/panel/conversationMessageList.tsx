@@ -143,8 +143,8 @@ function MessageList({
   )
 
   return (
-    // Match the composer's column and inner padding so messages stay inside its edges.
-    <div className="mx-auto w-full max-w-[760px] space-y-4 px-3">
+    // The composer's inner padding, so messages stay inside its edges.
+    <div className="space-y-4 px-3">
       {hasEarlier && (
         <div
           // Read by SessionFindBar: part of the conversation is not in the DOM.

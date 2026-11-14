@@ -5,8 +5,7 @@ import type { SlackAgentThread } from '@/lib/slack/agent-bot/collections'
 
 /**
  * Bind a Slack root message to an existing Nuphos conversation. A session is
- * intentionally bound to at most one Slack root: one trigger firing creates
- * one incident conversation and one replyable notification thread.
+ * intentionally bound to at most one Slack root.
  */
 export async function bindSlackAgentThread(data: {
   slackWorkspaceId: string
@@ -104,63 +103,5 @@ export async function bindSlackAgentThread(data: {
       return raced
     }
     throw new Error('Could not bind this conversation to the Slack thread', { cause: err })
-  }
-}
-
-/**
- * Hand an existing thread to the run that is now working this alert, so replies
- * reach the live investigation rather than the run that handled the last
- * firing. sessionId is uniquely indexed, so this is a move, not a second
- * binding: the adopting run must not already own a thread.
- */
-export async function rebindSlackAgentThreadSession(data: {
-  slackWorkspaceId: string
-  slackChannelId: string
-  slackThreadTs: string
-  sessionId: string
-  /** The team this run belongs to. A thread is only ever handed within it. */
-  teamId: string
-  agentUserId: string
-}): Promise<void> {
-  const rootKey = {
-    slackWorkspaceId: data.slackWorkspaceId,
-    slackChannelId: data.slackChannelId,
-    slackThreadTs: data.slackThreadTs,
-  }
-  const existingRoot = await slackAgentThreads().findOne(rootKey)
-
-  if (!existingRoot) throw new Error('That Slack thread is not bound to any Nuphos conversation')
-  // The root key is workspace + channel + ts only, and a channel can be shared
-  // with another Nuphos team through a mapping grant. Without this, that team's
-  // thread could be moved onto this run and its inbound replies redirected.
-  // bindSlackAgentThread makes the same check; this path must fail closed too.
-  if (existingRoot.teamId !== data.teamId || existingRoot.agentUserId !== data.agentUserId) {
-    throw new Error('That Slack thread belongs to a different Nuphos conversation owner')
-  }
-  if (existingRoot.sessionId === data.sessionId) return
-
-  const existingSession = await slackAgentThreads().findOne({ sessionId: data.sessionId })
-
-  if (existingSession) {
-    throw new Error('This Nuphos conversation is already bound to a Slack thread')
-  }
-  // Compare-and-swap on the old session: matching nothing means another
-  // delivery already moved the thread, and the caller must not be told this
-  // one succeeded.
-  let moved
-
-  try {
-    moved = await slackAgentThreads().updateOne(
-      { _id: existingRoot._id, sessionId: existingRoot.sessionId },
-      { $set: { sessionId: data.sessionId, lastActiveAt: new Date() } },
-    )
-  } catch (err) {
-    if ((err as { code?: number }).code !== 11000) throw err
-    throw new Error('This Nuphos conversation is already bound to a Slack thread', {
-      cause: err,
-    })
-  }
-  if (moved.matchedCount === 0) {
-    throw new Error('That Slack thread was rebound to another conversation concurrently')
   }
 }

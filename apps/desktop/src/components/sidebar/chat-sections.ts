@@ -11,6 +11,11 @@ export function foldKey(section: Pick<Section, 'title'>, key: string): string {
   return section.title === BOTS_SECTION ? `bots:${key}` : key
 }
 
+/** A Bot tree fold, not its done group: folded at rest, opened only by hand and never remembered. */
+export function isBotTreeFold(title: string): boolean {
+  return title.startsWith('bots:') && !title.endsWith(':done')
+}
+
 type Fold = Pick<Section, 'title' | 'defaultCollapsed'>
 
 /** A section's rows as nested, with its thread folds and done groups read and toggled by row key. */
@@ -47,11 +52,8 @@ export function withChatSections(
   )
   const sessionOf = (item: Item) => item.key.replace('agent-session:', '')
   const copies = new Set(agents.items.filter((item) => item.botNested).map((item) => item.key))
-  // A Bot without a chat that is copied under another Bot's chat is listed once, as the copy.
   const isChat = (item: Item) =>
-    item.channel ||
-    item.botNested ||
-    (item.bot && !chatted.has(sessionOf(item)) && !copies.has(item.key))
+    item.channel || item.botNested || (item.bot && !chatted.has(sessionOf(item)))
   // Read ancestry from the original rows, before Bot-chat copies reparent them.
   const originals = new Map(
     agents.items.filter((item) => !item.botNested).map((item) => [item.key, item]),

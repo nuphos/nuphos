@@ -96,7 +96,7 @@ export async function recordAttributionSignal(input: {
   )
 }
 
-/** A6 erasure — called from deleteConversation. Scores are lineage-keyed and
+/** A6 erasure for one conversation. Scores are lineage-keyed and
  * periodically recomputed, so they need no per-conversation purge. */
 export async function purgeConversationAttribution(conversationId: string): Promise<void> {
   await Promise.all([

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 
 import { useDb } from '@/lib/test/doubles/db'
+import { useIdentity } from '@/lib/test/doubles/identity'
 import { useRedis } from '@/lib/test/doubles/redis'
 import { useFakeRuntimeRequests } from '@/lib/test/doubles/runtime-request-store'
 
@@ -13,6 +14,8 @@ const conversationUpdates: Record<string, unknown>[][] = []
 let matchedCount = 1
 // The conversation findOne reads back.
 let storedConversation: Record<string, unknown> | null = null
+// Other conversations by sessionId, read back instead of storedConversation.
+let otherConversations: Record<string, Record<string, unknown>> = {}
 // The conversations find returns, and the query it was asked.
 let foundConversations: Record<string, unknown>[] = []
 let findQuery: Record<string, unknown> | undefined
@@ -25,7 +28,8 @@ useDb({
 
         return { matchedCount }
       },
-      findOne: async () => storedConversation,
+      findOne: async (filter?: { sessionId?: string }) =>
+        (filter?.sessionId && otherConversations[filter.sessionId]) || storedConversation,
       find: (query: Record<string, unknown>) => {
         findQuery = query
 
@@ -41,6 +45,9 @@ const {
   resetLocalPreviewWaits,
   resolvePreviewDecision,
 } = await import('../decision-waiter')
+
+useIdentity({ getTeamMembership: async () => ({ role: 'member' }) as never })
+
 const { decisionToolModule: createDecisionToolModule } = await import('./decisions')
 
 const decisionToolModule = (options: Parameters<typeof createDecisionToolModule>[0]) =>
@@ -81,7 +88,6 @@ describe('decision tool module', () => {
         'port_forward_start',
         'port_forward_stop',
         'port_forward_list',
-        'upload_attachment',
       ]),
     )
     // local_exec is a real backend-executed tool now (see preview-tools/local-exec.ts),
@@ -131,7 +137,6 @@ describe('decision tool module', () => {
                 status: 'open',
               },
             ],
-            $slice: -100,
           },
         },
       },
@@ -323,7 +328,7 @@ describe('decision tool module', () => {
       {
         sessionId: 'conv-1',
         userId: 'u1',
-        inputRequests: { $elemMatch: { id: 'nuphos-1', status: 'open' } },
+        'inputRequests.id': 'nuphos-1',
       },
       { $set: { 'inputRequests.$.options': ['Delete', 'Keep', 'Back up, then delete'] } },
     ])
@@ -384,7 +389,7 @@ describe('decision tool module', () => {
     })
   })
 
-  test('withdraw_user_decision dismisses the open request', async () => {
+  test('withdraw_user_decision takes the open request off the list', async () => {
     const tools = decisionToolModule({ publish: async () => {} }).handlers(ctx)
     const result = await tools.withdraw_user_decision!({ label: 'Withdraw', requestId: 'nuphos-1' })
 
@@ -393,14 +398,9 @@ describe('decision tool module', () => {
       {
         sessionId: 'conv-1',
         userId: 'u1',
-        inputRequests: { $elemMatch: { id: 'nuphos-1', status: 'open' } },
+        'inputRequests.id': 'nuphos-1',
       },
-      {
-        $set: {
-          'inputRequests.$.status': 'dismissed',
-          'inputRequests.$.resolvedAt': expect.any(Date),
-        },
-      },
+      { $pull: { inputRequests: { id: 'nuphos-1' } } },
     ])
   })
 
@@ -761,6 +761,38 @@ describe('decision tool module', () => {
     expect(unknown.isError).toBe(true)
     expect(JSON.stringify(unknown.content)).toContain('list_session_resources')
     expect(conversationUpdates).toHaveLength(before)
+  })
+
+  test("a question may be about another conversation of the same owner, never another member's or a channel", async () => {
+    storedConversation = { sessionId: 'conv-1', userId: 'u1', teamId: 't1' }
+    otherConversations = {
+      reviewer: { sessionId: 'reviewer', userId: 'u1', teamId: 't1' },
+      stranger: { sessionId: 'stranger', userId: 'u2', teamId: 't1' },
+      room: { sessionId: 'room', userId: 'u1', teamId: 't1', kind: 'channel' },
+    }
+    const tools = decisionToolModule({ publish: async () => {} }).handlers(ctx)
+    const ask = (about: string[]) =>
+      tools.request_user_decision!({
+        label: 'Ask to approve',
+        category: 'approval',
+        question: 'Approve the PR?',
+        about,
+      })
+
+    try {
+      expect((await ask(['reviewer'])).isError).toBeFalsy()
+      expect(conversationUpdates.at(-1)?.[1]).toMatchObject({
+        $push: { inputRequests: { $each: [{ about: ['reviewer'] }] } },
+      })
+      for (const ref of ['stranger', 'room']) {
+        const refused = await ask([ref])
+
+        expect(refused.isError).toBe(true)
+        expect(JSON.stringify(refused.content)).toContain('another conversation you own')
+      }
+    } finally {
+      otherConversations = {}
+    }
   })
 
   test('a wake from a resource lists the open questions about it, and nothing when there are none', () => {

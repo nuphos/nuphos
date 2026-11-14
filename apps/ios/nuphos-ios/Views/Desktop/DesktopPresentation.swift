@@ -6,23 +6,43 @@ extension EnvironmentValues {
     @Entry var desktopBeside: ((Bool) -> Void)?
 }
 
+/// What opens beside a conversation, or full screen: a desktop or a terminal. It streams while open.
+protocol BesidePane: AnyObject {
+    func start()
+    func stop()
+    func screen(close: @escaping () -> Void) -> AnyView
+}
+
+extension DesktopSession: BesidePane {
+    func screen(close: @escaping () -> Void) -> AnyView { AnyView(DesktopScreen(desktop: self, close: close)) }
+}
+
+extension TerminalSession: BesidePane {
+    func screen(close: @escaping () -> Void) -> AnyView { AnyView(TerminalScreen(terminal: self, close: close)) }
+}
+
 extension View {
     /// Shows `desktop` while it is set: beside this view, on its right, where the window is wide
     /// (the iPhone Duo open, an iPad), else full screen. Closing it sets it to nil.
     func desktop(_ desktop: Binding<DesktopSession?>) -> some View {
-        modifier(DesktopPresentation(desktop: desktop))
+        pane(Binding(get: { desktop.wrappedValue }, set: { desktop.wrappedValue = $0 as? DesktopSession }))
+    }
+
+    /// Shows a desktop or a terminal as `desktop(_:)` shows a desktop; one at a time.
+    func pane(_ pane: Binding<(any BesidePane)?>) -> some View {
+        modifier(DesktopPresentation(desktop: pane))
     }
 }
 
 private struct DesktopPresentation: ViewModifier {
-    @Binding var desktop: DesktopSession?
+    @Binding var desktop: (any BesidePane)?
     @Environment(\.desktopBeside) private var beside
     /// The iPhone Duo's fold while half open. Down the middle (the book pose), the conversation
     /// and the desktop go on either side of it; across (the laptop pose), the desktop takes the
     /// screen, as in Sill: the picture above the fold, the controls below.
     @State private var fold: CGRect?
     /// The desktop whose stream runs: one for as long as it is open, wherever it is shown.
-    @State private var running: DesktopSession?
+    @State private var running: (any BesidePane)?
 
     /// Beside what opened it: a wide window, unless the fold runs across it (the laptop pose).
     private var besides: Bool { beside != nil && fold.map { $0.height > $0.width } != false }
@@ -34,13 +54,13 @@ private struct DesktopPresentation: ViewModifier {
                 .frame(width: desktop == nil || !besides ? nil : band?.minX)
             if besides, let desktop {
                 if let band { Color.clear.frame(width: band.width) }
-                DesktopScreen(desktop: desktop) { self.desktop = nil }
+                desktop.screen { self.desktop = nil }
                     .id(ObjectIdentifier(desktop))
                     .containerRelativeFrame(.horizontal) { width, _ in band.map { width - $0.maxX } ?? (width * 0.6).rounded() }
             }
         }
         .readsFold($fold)
-        .onChange(of: desktop.map(ObjectIdentifier.init), initial: true) {
+        .onChange(of: desktop.map { ObjectIdentifier($0) }, initial: true) {
             beside?(desktop != nil)
             if running !== desktop {
                 running?.stop()
@@ -58,7 +78,7 @@ private struct DesktopPresentation: ViewModifier {
         // Only X closes it (it sets `desktop` to nil); a fold or a wider window moves it beside instead.
         .fullScreenCover(isPresented: Binding(get: { !besides && desktop != nil }, set: { _ in })) {
             if let desktop {
-                DesktopScreen(desktop: desktop) { self.desktop = nil }
+                desktop.screen { self.desktop = nil }
                     .statusBarHidden()
                     .persistentSystemOverlays(.hidden)
             }

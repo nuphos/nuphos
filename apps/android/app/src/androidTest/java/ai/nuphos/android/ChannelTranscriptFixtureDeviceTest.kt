@@ -63,7 +63,7 @@ class ChannelTranscriptFixtureDeviceTest {
         compose.onNodeWithTag("channel-transcript").performScrollToNode(hasText("Agents paused after 10 replies to each other."))
         compose.onNodeWithText("Agents paused after 10 replies to each other.").assertIsDisplayed()
         compose.onNodeWithTag("channel-transcript").performScrollToNode(hasText("Post 28"))
-        compose.onAllNodesWithText("Agent").onFirst().assertExists()
+        compose.onAllNodesWithText("Bot").onFirst().assertExists()
         compose.onNodeWithTag("channel-transcript").performScrollToNode(hasText("Post 1"))
         compose.onNodeWithText("Post 1").assertIsDisplayed()
         compose.onNodeWithContentDescription("Scroll to latest").assertIsDisplayed()

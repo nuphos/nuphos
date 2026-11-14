@@ -140,8 +140,9 @@ export async function backfillAgentRunHistory(ctx: StreamResumeContext): Promise
 export async function tailAgentRunStream(ctx: StreamResumeContext): Promise<void> {
   // A blocking XREAD parks the whole ioredis connection for TAIL_BLOCK_MS;
   // on the shared client every concurrent withRedis() op queues behind it and
-  // trips the 500ms op timeout, so each tail gets its own connection.
-  const client = getRedis().duplicate()
+  // trips the 500ms op timeout, so each tail gets its own connection. An
+  // idle BLOCK receives nothing by design, so the socket timeout is off here.
+  const client = getRedis().duplicate({ socketTimeout: undefined })
 
   client.on('error', () => {
     // Surfaced per-XREAD by the catch below; an unhandled 'error' event kills the process.

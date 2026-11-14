@@ -71,6 +71,40 @@ class TransferDownloads(private val storage: Call.Factory = OkHttpClient.Builder
         }
     }
 
+    /**
+     * Up to [length] bytes of the file from [start], with a Range request, so a video's first frame needs only its
+     * first bytes. A server that ignores Range answers with the whole file, read up to the same bytes. Empty past the end.
+     * Blocking: for a media framework's own reading thread, never the main thread.
+     */
+    fun range(file: TransferDownloadFile, start: Long, length: Int, allowed: () -> Boolean = { true }): ByteArray {
+        require(start >= 0 && length in 1..(1 shl 20))
+        if (!allowed()) throw CancellationException("Attachment access changed")
+        val request = request(file).newBuilder().header("Range", "bytes=$start-${start + length - 1}").build()
+        storage.newCall(request).execute().use { response ->
+            if (response.code == 416) return ByteArray(0)
+            if (!response.isSuccessful) throw IOException("Attachment unavailable")
+            response.body.byteStream().use { input ->
+                if (response.code != 206) {
+                    var skipped = 0L
+                    while (skipped < start) {
+                        if (!allowed()) throw CancellationException("Attachment access changed")
+                        val step = input.skip(start - skipped)
+                        if (step <= 0) { if (input.read() < 0) return ByteArray(0) else skipped++ } else skipped += step
+                    }
+                }
+                val out = java.io.ByteArrayOutputStream(length)
+                val buffer = ByteArray(8192)
+                while (out.size() < length) {
+                    if (!allowed()) throw CancellationException("Attachment access changed")
+                    val read = input.read(buffer, 0, minOf(buffer.size, length - out.size()))
+                    if (read < 0) break
+                    out.write(buffer, 0, read)
+                }
+                return out.toByteArray()
+            }
+        }
+    }
+
     suspend fun copy(file: TransferDownloadFile, output: OutputStream, allowed: () -> Boolean = { true }) {
         if (!allowed()) throw CancellationException("Attachment access changed")
         val request = request(file)

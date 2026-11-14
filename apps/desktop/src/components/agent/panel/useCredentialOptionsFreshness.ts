@@ -27,14 +27,9 @@ export function useCredentialOptionsFreshness({
     )
 
     window.addEventListener('focus', refresh.trigger)
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') refresh.trigger()
-    }, 10_000)
-
     document.addEventListener('visibilitychange', refresh.trigger)
 
     return () => {
-      clearInterval(timer)
       document.removeEventListener('visibilitychange', refresh.trigger)
       window.removeEventListener('focus', refresh.trigger)
       refresh.cancel()

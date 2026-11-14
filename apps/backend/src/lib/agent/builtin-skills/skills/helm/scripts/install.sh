@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if command -v helm >/dev/null 2>&1; then
+# Installed means it runs: a binary for another OS is on PATH and still fails.
+if helm version --short >/dev/null 2>&1; then
   echo "helm already installed: $(helm version --short)"
   exit 0
 fi
@@ -25,14 +26,15 @@ if [ -z "$latest" ]; then
   exit 1
 fi
 
-url="https://get.helm.sh/helm-${latest}-linux-${helm_arch}.tar.gz"
+os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+url="https://get.helm.sh/helm-${latest}-${os}-${helm_arch}.tar.gz"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
 curl -fsSL "$url" -o "${tmp}/helm.tar.gz"
 tar -xzf "${tmp}/helm.tar.gz" -C "$tmp"
 
-bin="${tmp}/linux-${helm_arch}/helm"
+bin="${tmp}/${os}-${helm_arch}/helm"
 chmod +x "$bin"
 
 if [ -w /usr/local/bin ]; then

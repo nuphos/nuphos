@@ -43,6 +43,7 @@ export type InstructionActor = {
   role: NuphosTeamRole
 }
 
+/** Editors write team instructions as they write team skills and memories (#2394). */
 export function canManageTeamInstructions(role: NuphosTeamRole): boolean {
-  return role === 'ADMINISTRATOR'
+  return role !== 'VIEWER'
 }

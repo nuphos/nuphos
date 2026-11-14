@@ -1,11 +1,15 @@
 import assert from 'node:assert/strict'
-import { test } from 'node:test'
-
-import { resolveStreamOutcome } from './chat-outcome.ts'
-import { consumeChatStream } from './chat-read.ts'
-import { createChatStreamState } from './chat-shared.ts'
+import { mock, test } from 'node:test'
 
 import type { ChatStreamCtx } from './chat-shared.ts'
+
+mock.module('../client-version.ts', {
+  namedExports: { CLIENT_VERSION_HEADER: 'x-test', CLIENT_VERSION_VALUE: 'test' },
+})
+
+const { resolveStreamOutcome } = await import('./chat-outcome.ts')
+const { consumeChatStream } = await import('./chat-read.ts')
+const { createChatStreamState } = await import('./chat-shared.ts')
 
 function sse(...frames: Record<string, unknown>[]): Response {
   return new Response(frames.map((frame) => `data: ${JSON.stringify(frame)}\n\n`).join(''), {

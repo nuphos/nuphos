@@ -4,16 +4,8 @@ import { ObjectId } from 'mongodb'
 import { createSlackOutboundContext } from './agent-outbound'
 
 import type { SlackOutboundDependencies } from './agent-outbound'
-import type { SlackIncidentReservation, SlackIncidentReserveResult } from './incident-notifications'
 
 const teamId = new ObjectId().toHexString()
-const incidentIdentity = {
-  teamId,
-  triggerId: 'trigger-1',
-  incidentScope: 'default',
-  slackWorkspaceId: 'T1',
-  slackChannelId: 'C1',
-}
 let installed = true
 let channelGrants: { slackWorkspaceId: string; slackChannelId: string }[] = []
 let workspaceBot: { botToken: string; workspaceName: string } | null = {
@@ -24,16 +16,8 @@ let selfMapping: { slackUserId: string } | null = { slackUserId: 'U1' }
 let existingThread: { slackChannelId: string } | null = null
 let postCount = 0
 const bindings: Record<string, unknown>[] = []
-const rebinds: Record<string, unknown>[] = []
 const postedMessages: Record<string, unknown>[] = []
 const transcriptAppends: { key: Record<string, unknown>; message: Record<string, unknown> }[] = []
-const channelTriggerNotification = {
-  triggerId: 'trigger-1',
-  incidentScope: 'default',
-  triggerConfigRevision: 1,
-  approvedDestination: { type: 'channel' as const, channelId: 'C1' },
-}
-const newChannelTriggerNotification = channelTriggerNotification
 const FORK_SESSION_ID = 'forked-session-1'
 
 const dependencies: SlackOutboundDependencies = {
@@ -50,7 +34,6 @@ const dependencies: SlackOutboundDependencies = {
   resolveWorkspaceBot: async () => workspaceBot,
   getSelfMapping: async () => selfMapping,
   canViewPrivateChannels: async () => true,
-  isTriggerConfigurationCurrent: async () => true,
   getThreadBySessionId: async () => existingThread,
   bindThread: async (input) => {
     bindings.push(input)
@@ -74,16 +57,6 @@ const dependencies: SlackOutboundDependencies = {
 
     return { ok: true, channel: input.channel, ts: input.threadTs ? '123.789' : '123.456' }
   },
-  reserveIncident: async () => {
-    throw new Error('Unexpected incident reservation')
-  },
-  listAlertThreads: async () => ['111.222'],
-  rebindThreadSession: async (input) => {
-    rebinds.push(input)
-  },
-  completeIncident: async () => {},
-  recordIncidentDelivery: async () => {},
-  abortIncident: async () => {},
 }
 
 beforeEach(() => {
@@ -94,7 +67,6 @@ beforeEach(() => {
   existingThread = null
   postCount = 0
   bindings.length = 0
-  rebinds.length = 0
   postedMessages.length = 0
   transcriptAppends.length = 0
 })
@@ -195,369 +167,13 @@ describe('agent outbound Slack context', () => {
     expect(postCount).toBe(1)
   })
 
-  test('posts a material trigger update into the existing incident thread', async () => {
-    const reservation: SlackIncidentReservation = {
-      recordId: new ObjectId(),
-      token: 'lease-1',
-      action: 'post_thread',
-      contentHash: 'hash',
-      sessionId: 'conv-1',
-      triggerConfigRevision: 1,
-      createdNew: false,
-      threadTs: '111.222',
-      postCountInWindow: 0,
-      identity: incidentIdentity,
-    }
-    let completed: SlackIncidentReservation | undefined
-    const incidentDependencies: SlackOutboundDependencies = {
-      ...dependencies,
-      reserveIncident: async (): Promise<SlackIncidentReserveResult> => ({
-        action: 'post_thread',
-        reservation,
-      }),
-      completeIncident: async (value) => {
-        completed = value
-      },
-    }
-    const context = await createSlackOutboundContext(
-      {
-        userId: 'user-1',
-        conversationId: 'conv-1',
-        teamId,
-        triggerNotification: channelTriggerNotification,
-      },
-      incidentDependencies,
-    )
-
-    await expect(
-      context?.post({
-        destination: { type: 'channel', channelId: 'C1' },
-        text: 'Impact expanded to two regions',
-        bindConversation: true,
-        replyToThread: '111.222',
-      }),
-    ).resolves.toEqual({
-      ok: true,
-      destination: { type: 'channel', channelId: 'C1', label: '#ops' },
-      delivery: 'thread_update',
-      messageTs: '123.789',
-      rootThreadTs: '111.222',
-      threadBound: true,
-    })
-    expect(postedMessages).toEqual([
-      expect.objectContaining({ channel: 'C1', threadTs: '111.222' }),
-    ])
-    expect(bindings).toHaveLength(0)
-    expect(completed).toEqual(reservation)
-    // The update the bot just posted must reach the transcript the addressing
-    // judge reads, keyed by the real Slack ts so a redelivery cannot double it.
-    expect(transcriptAppends).toEqual([
-      {
-        key: { slackWorkspaceId: 'T1', slackChannelId: 'C1', slackThreadTs: '111.222' },
-        message: {
-          ts: '123.789',
-          authorName: 'Nuphos',
-          text: 'Impact expanded to two regions',
-          fromBot: true,
-        },
-      },
-    ])
-  })
-
-  test('a failed transcript append never fails a delivered thread update', async () => {
-    const reservation: SlackIncidentReservation = {
-      recordId: new ObjectId(),
-      token: 'lease-1',
-      action: 'post_thread',
-      contentHash: 'hash',
-      sessionId: 'conv-1',
-      triggerConfigRevision: 1,
-      createdNew: false,
-      threadTs: '111.222',
-      postCountInWindow: 0,
-      identity: incidentIdentity,
-    }
-    let completed: SlackIncidentReservation | undefined
-    const context = await createSlackOutboundContext(
-      {
-        userId: 'user-1',
-        conversationId: 'conv-1',
-        teamId,
-        triggerNotification: channelTriggerNotification,
-      },
-      {
-        ...dependencies,
-        reserveIncident: async (): Promise<SlackIncidentReserveResult> => ({
-          action: 'post_thread',
-          reservation,
-        }),
-        completeIncident: async (value) => {
-          completed = value
-        },
-        appendThreadMessage: async () => {
-          throw new Error('mongo down')
-        },
-      },
-    )
-
-    await expect(
-      context?.post({
-        destination: { type: 'channel', channelId: 'C1' },
-        text: 'Impact expanded to two regions',
-        bindConversation: true,
-        replyToThread: '111.222',
-      }),
-    ).resolves.toEqual(
-      expect.objectContaining({ ok: true, delivery: 'thread_update', threadBound: true }),
-    )
-    expect(completed).toEqual(reservation)
-  })
-
-  test('reserves and binds exactly one root for a new trigger incident', async () => {
-    const reservation: SlackIncidentReservation = {
-      recordId: new ObjectId(),
-      token: 'lease-root',
-      action: 'post_root',
-      contentHash: 'hash',
-      sessionId: 'conv-root',
-      triggerConfigRevision: 1,
-      createdNew: true,
-      postCountInWindow: 0,
-      identity: incidentIdentity,
-    }
-    let completed = false
-    const context = await createSlackOutboundContext(
-      {
-        userId: 'user-1',
-        conversationId: 'conv-root',
-        teamId,
-        triggerNotification: newChannelTriggerNotification,
-      },
-      {
-        ...dependencies,
-        reserveIncident: async () => ({ action: 'post_root', reservation }),
-        completeIncident: async () => {
-          completed = true
-        },
-      },
-    )
-
-    await expect(
-      context?.post({
-        destination: { type: 'channel', channelId: 'C1' },
-        text: 'New production incident',
-        bindConversation: true,
-      }),
-    ).resolves.toEqual(expect.objectContaining({ ok: true, delivery: 'root' }))
-    expect(postCount).toBe(1)
-    expect(bindings).toEqual([
-      expect.objectContaining({ sessionId: 'conv-root', slackThreadTs: '123.456' }),
-    ])
-    expect(completed).toBe(true)
-  })
-
-  test('posts a new incident alert before one investigation result in the same thread', async () => {
-    const rootReservation: SlackIncidentReservation = {
-      recordId: new ObjectId(),
-      token: 'lease-root-two-phase',
-      action: 'post_root',
-      contentHash: 'root-hash',
-      sessionId: 'conv-two-phase',
-      triggerConfigRevision: 1,
-      createdNew: true,
-      postCountInWindow: 0,
-      identity: incidentIdentity,
-    }
-    const resultReservation: SlackIncidentReservation = {
-      recordId: rootReservation.recordId,
-      token: 'lease-result-two-phase',
-      action: 'post_thread',
-      contentHash: 'result-hash',
-      sessionId: 'conv-two-phase',
-      triggerConfigRevision: 1,
-      createdNew: false,
-      threadTs: '123.456',
-      postCountInWindow: 0,
-      identity: incidentIdentity,
-    }
-    let reservationCalls = 0
-    const context = await createSlackOutboundContext(
-      {
-        userId: 'user-1',
-        conversationId: 'conv-two-phase',
-        teamId,
-        triggerNotification: newChannelTriggerNotification,
-      },
-      {
-        ...dependencies,
-        reserveIncident: async () => {
-          reservationCalls += 1
-
-          return reservationCalls === 1
-            ? { action: 'post_root', reservation: rootReservation }
-            : { action: 'post_thread', reservation: resultReservation }
-        },
-      },
-    )
-
-    await expect(
-      context?.post({
-        destination: { type: 'channel', channelId: 'C1' },
-        text: 'CPU alert fired; Nuphos is investigating.',
-        bindConversation: true,
-      }),
-    ).resolves.toEqual(expect.objectContaining({ ok: true, delivery: 'root' }))
-    await expect(
-      context?.post({
-        destination: { type: 'channel', channelId: 'C1' },
-        text: 'Investigation found a runaway deployment.',
-        bindConversation: true,
-        replyToThread: '111.222',
-      }),
-    ).resolves.toEqual(expect.objectContaining({ ok: true, delivery: 'thread_update' }))
-
-    expect(postCount).toBe(2)
-    expect(postedMessages).toHaveLength(2)
-    expect(postedMessages[0]).toEqual(expect.objectContaining({ channel: 'C1' }))
-    expect(postedMessages[0]).not.toHaveProperty('threadTs')
-    expect(postedMessages[1]).toEqual(
-      expect.objectContaining({ channel: 'C1', threadTs: '123.456' }),
-    )
-  })
-
-  test('lets the on-call choose to reply first, with no server-imposed ordering', async () => {
-    // The old contract forced an "initial" post before anything else. Whether
-    // to reply into an existing thread rather than open a new one is exactly
-    // the judgment this design hands to the agent, so the store is consulted
-    // rather than the call being refused up front.
-    let seenPlacement: string | undefined
-    const context = await createSlackOutboundContext(
-      {
-        userId: 'user-1',
-        conversationId: 'conv-reply-first',
-        teamId,
-        triggerNotification: newChannelTriggerNotification,
-      },
-      {
-        ...dependencies,
-        reserveIncident: async (input) => {
-          seenPlacement = input.placement.type
-
-          return {
-            action: 'post_thread',
-            reservation: {
-              recordId: new ObjectId(),
-              token: 'lease-reply',
-              action: 'post_thread',
-              contentHash: 'hash',
-              sessionId: 'conv-reply-first',
-              triggerConfigRevision: 1,
-              createdNew: false,
-              threadTs: '111.222',
-              postCountInWindow: 0,
-              identity: incidentIdentity,
-            },
-          }
-        },
-      },
-    )
-
-    await expect(
-      context?.post({
-        destination: { type: 'channel', channelId: 'C1' },
-        text: 'Same problem as an hour ago, picking it up.',
-        bindConversation: true,
-        replyToThread: '111.222',
-      }),
-    ).resolves.toEqual(expect.objectContaining({ ok: true, delivery: 'thread_update' }))
-    expect(seenPlacement).toBe('reply')
-    expect(postedMessages).toEqual([
-      expect.objectContaining({ channel: 'C1', threadTs: '111.222' }),
-    ])
-    // Continuing a thread hands it to the run that is working the alert now, and
-    // carries the owner so the move cannot cross into another team's thread.
-    expect(rebinds).toEqual([
-      expect.objectContaining({
-        slackThreadTs: '111.222',
-        sessionId: 'conv-reply-first',
-        teamId,
-        agentUserId: 'user-1',
-      }),
-    ])
-  })
-
-  test('a post rejected before it reaches Slack does not cost the incident its opening post', async () => {
-    // Reproduced live: the model aimed its first post at a channel instead of
-    // the trigger's approved DM. The rejection never reached Slack but still
-    // consumed the one opening post a new incident turn gets, so the corrected
-    // post and the investigation result were both refused and the firing
-    // notified nobody.
-    const rootReservation: SlackIncidentReservation = {
-      recordId: new ObjectId(),
-      token: 'lease-root',
-      action: 'post_root',
-      contentHash: 'root-hash',
-      sessionId: 'conv-wrong-dest',
-      triggerConfigRevision: 1,
-      createdNew: true,
-      postCountInWindow: 0,
-      identity: incidentIdentity,
-    }
-    const context = await createSlackOutboundContext(
-      {
-        userId: 'user-1',
-        conversationId: 'conv-wrong-dest',
-        teamId,
-        triggerNotification: {
-          ...newChannelTriggerNotification,
-          approvedDestination: { type: 'dm_self' as const },
-        },
-      },
-      {
-        ...dependencies,
-        reserveIncident: async () => ({ action: 'post_root', reservation: rootReservation }),
-      },
-    )
-
-    await expect(
-      context?.post({
-        destination: { type: 'channel', channelId: 'C1' },
-        text: 'Alert fired.',
-        bindConversation: true,
-      }),
-    ).resolves.toEqual(
-      expect.objectContaining({
-        ok: false,
-        error: expect.stringContaining('different Slack destination'),
-      }),
-    )
-    expect(postCount).toBe(0)
-
-    await expect(
-      context?.post({
-        destination: { type: 'dm_self' },
-        text: 'Alert fired.',
-        bindConversation: true,
-      }),
-    ).resolves.toEqual(expect.objectContaining({ ok: true, delivery: 'root' }))
-    expect(postCount).toBe(1)
-  })
-
   test('a non-destination rejection is capped too, so no validation path loops', async () => {
     // Every pre-delivery rejection must reach the same cap. An unbound-DM
     // refusal hits the datastore on each call, so an uncapped path is a real
     // loop, not just a noisy one.
     selfMapping = null
     const context = await createSlackOutboundContext(
-      {
-        userId: 'user-1',
-        conversationId: 'conv-dm-loop',
-        teamId,
-        triggerNotification: {
-          ...newChannelTriggerNotification,
-          approvedDestination: { type: 'dm_self' as const },
-        },
-      },
+      { userId: 'user-1', conversationId: 'conv-dm-loop', teamId },
       dependencies,
     )
     const unlinkedDm = () =>
@@ -578,51 +194,12 @@ describe('agent outbound Slack context', () => {
     expect(postCount).toBe(0)
   })
 
-  test('repeated invalid posts still stop, so a confused model cannot loop forever', async () => {
-    const context = await createSlackOutboundContext(
-      {
-        userId: 'user-1',
-        conversationId: 'conv-loop-invalid',
-        teamId,
-        triggerNotification: {
-          ...newChannelTriggerNotification,
-          approvedDestination: { type: 'dm_self' as const },
-        },
-      },
-      dependencies,
-    )
-    const wrongDestination = () =>
-      context?.post({
-        destination: { type: 'channel', channelId: 'C1' },
-        text: 'Alert fired.',
-        bindConversation: true,
-      })
-
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      await expect(wrongDestination()).resolves.toEqual(
-        expect.objectContaining({
-          ok: false,
-          error: expect.stringContaining('different Slack destination'),
-        }),
-      )
-    }
-    await expect(wrongDestination()).resolves.toEqual(
-      expect.objectContaining({ ok: false, error: expect.stringContaining('Too many invalid') }),
-    )
-    expect(postCount).toBe(0)
-  })
-
   test('a throwing dependency is capped too, so a failing channel cannot loop', async () => {
     // Resolving a channel calls Slack, so an uncapped retry here is a loop
     // against their API rather than a local one.
     let lookups = 0
     const context = await createSlackOutboundContext(
-      {
-        userId: 'user-1',
-        conversationId: 'conv-throwing',
-        teamId,
-        triggerNotification: newChannelTriggerNotification,
-      },
+      { userId: 'user-1', conversationId: 'conv-throwing', teamId },
       {
         ...dependencies,
         getChannel: async () => {
@@ -648,96 +225,6 @@ describe('agent outbound Slack context', () => {
     )
     expect(lookups).toBe(5)
     expect(postCount).toBe(0)
-  })
-
-  test('a repeatedly wrong thread is capped, and does not spend the delivery budget', async () => {
-    // This rejection happens after the attempt was committed, so it has to
-    // both refund the delivery budget and count as a rejection. Getting only
-    // the refund right leaves an unbounded loop over reserveIncident and
-    // listAlertThreads — database I/O driven by model output.
-    let reserveCalls = 0
-    const context = await createSlackOutboundContext(
-      {
-        userId: 'user-1',
-        conversationId: 'conv-wrong-thread',
-        teamId,
-        triggerNotification: newChannelTriggerNotification,
-      },
-      {
-        ...dependencies,
-        listAlertThreads: async () => ['111.222'],
-        reserveIncident: async () => {
-          reserveCalls += 1
-
-          return { action: 'suppress', reason: 'unknown_thread' }
-        },
-      },
-    )
-    const wrongThread = () =>
-      context?.post({
-        destination: { type: 'channel', channelId: 'C1' },
-        text: 'Alert fired.',
-        bindConversation: true,
-        replyToThread: '999.999',
-      })
-
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      await expect(wrongThread()).resolves.toEqual(
-        expect.objectContaining({ ok: false, error: expect.stringContaining('does not belong') }),
-      )
-    }
-    await expect(wrongThread()).resolves.toEqual(
-      expect.objectContaining({ ok: false, error: expect.stringContaining('Too many invalid') }),
-    )
-    expect(reserveCalls).toBe(5)
-    expect(postCount).toBe(0)
-  })
-
-  test('hands the delivered text and placement to completion, which is what the ledger keeps', async () => {
-    // Found live: completion accepted these and dropped them, so the ledger had
-    // no threadTs. incident_history then had no thread to offer, a reply could
-    // never be validated, and the agent could not continue its own thread —
-    // all from one silently ignored argument.
-    const rootReservation: SlackIncidentReservation = {
-      recordId: new ObjectId(),
-      token: 'lease-root',
-      action: 'post_root',
-      contentHash: 'root-hash',
-      sessionId: 'conv-ledger',
-      triggerConfigRevision: 1,
-      createdNew: true,
-      postCountInWindow: 0,
-      identity: incidentIdentity,
-    }
-    let completedWith: { threadTs: string; text?: string; startedNewThread?: boolean } | undefined
-    const context = await createSlackOutboundContext(
-      {
-        userId: 'user-1',
-        conversationId: 'conv-ledger',
-        teamId,
-        triggerNotification: newChannelTriggerNotification,
-      },
-      {
-        ...dependencies,
-        reserveIncident: async () => ({ action: 'post_root', reservation: rootReservation }),
-        completeIncident: async (_reservation, result) => {
-          completedWith = result
-        },
-      },
-    )
-
-    await expect(
-      context?.post({
-        destination: { type: 'channel', channelId: 'C1' },
-        text: 'CPU is saturated on prod-1.',
-        bindConversation: true,
-      }),
-    ).resolves.toEqual(expect.objectContaining({ ok: true, delivery: 'root' }))
-    expect(completedWith).toEqual({
-      threadTs: '123.456',
-      text: 'CPU is saturated on prod-1.',
-      startedNewThread: true,
-    })
   })
 
   test('two ordinary posts issued together cannot both spend the same budget', async () => {
@@ -771,140 +258,6 @@ describe('agent outbound Slack context', () => {
     expect(postCount).toBe(1)
   })
 
-  test('keeps an accepted Slack delivery reserved when thread binding fails', async () => {
-    const reservation: SlackIncidentReservation = {
-      recordId: new ObjectId(),
-      token: 'lease-accepted',
-      action: 'post_root',
-      contentHash: 'hash',
-      sessionId: 'conv-accepted',
-      triggerConfigRevision: 1,
-      createdNew: true,
-      postCountInWindow: 0,
-      identity: incidentIdentity,
-    }
-    let recorded = false
-    let aborted = false
-    const context = await createSlackOutboundContext(
-      {
-        userId: 'user-1',
-        conversationId: 'conv-accepted',
-        teamId,
-        triggerNotification: newChannelTriggerNotification,
-      },
-      {
-        ...dependencies,
-        reserveIncident: async () => ({ action: 'post_root', reservation }),
-        recordIncidentDelivery: async () => {
-          recorded = true
-        },
-        bindThread: async () => {
-          throw new Error('temporary binding failure')
-        },
-        abortIncident: async () => {
-          aborted = true
-        },
-      },
-    )
-
-    await expect(
-      context?.post({
-        destination: { type: 'channel', channelId: 'C1' },
-        text: 'Accepted incident root',
-        bindConversation: true,
-      }),
-    ).resolves.toEqual(expect.objectContaining({ ok: false, error: 'temporary binding failure' }))
-    expect(recorded).toBe(true)
-    expect(aborted).toBe(false)
-    expect(postCount).toBe(1)
-  })
-
-  test('treats a byte-identical repeat as success and never calls Slack', async () => {
-    const context = await createSlackOutboundContext(
-      {
-        userId: 'user-1',
-        conversationId: 'conv-2',
-        teamId,
-        triggerNotification: channelTriggerNotification,
-      },
-      {
-        ...dependencies,
-        reserveIncident: async () => ({
-          action: 'suppress',
-          reason: 'duplicate_content',
-          threadTs: '111.222',
-        }),
-      },
-    )
-
-    await expect(
-      context?.post({
-        destination: { type: 'channel', channelId: 'C1' },
-        text: 'Same incident again',
-        bindConversation: true,
-      }),
-    ).resolves.toEqual({
-      ok: true,
-      destination: { type: 'channel', channelId: 'C1', label: '#ops' },
-      delivery: 'suppressed',
-      rootThreadTs: '111.222',
-      suppressedReason: 'duplicate_content',
-      threadBound: true,
-    })
-    expect(postCount).toBe(0)
-  })
-
-  test("a reply to a thread that is not this alert's is correctable, not fatal", async () => {
-    const rootReservation: SlackIncidentReservation = {
-      recordId: new ObjectId(),
-      token: 'lease-root',
-      action: 'post_root',
-      contentHash: 'root-hash',
-      sessionId: 'conv-1',
-      triggerConfigRevision: 1,
-      createdNew: true,
-      postCountInWindow: 0,
-      identity: incidentIdentity,
-    }
-    const context = await createSlackOutboundContext(
-      {
-        userId: 'user-1',
-        conversationId: 'conv-1',
-        teamId,
-        triggerNotification: channelTriggerNotification,
-      },
-      {
-        ...dependencies,
-        reserveIncident: async (input) =>
-          input.placement.type === 'reply'
-            ? { action: 'suppress', reason: 'unknown_thread' }
-            : { action: 'post_root', reservation: rootReservation },
-      },
-    )
-
-    await expect(
-      context?.post({
-        destination: { type: 'channel', channelId: 'C1' },
-        text: 'Recovered',
-        bindConversation: true,
-        replyToThread: '999.999',
-      }),
-    ).resolves.toEqual(
-      expect.objectContaining({ ok: false, error: expect.stringContaining('does not belong') }),
-    )
-    expect(postCount).toBe(0)
-
-    // Pointing at the wrong thread must not cost the alert its message.
-    await expect(
-      context?.post({
-        destination: { type: 'channel', channelId: 'C1' },
-        text: 'Recovered',
-        bindConversation: true,
-      }),
-    ).resolves.toEqual(expect.objectContaining({ ok: true, delivery: 'root' }))
-    expect(postCount).toBe(1)
-  })
-
   test('refuses DM when the current user has no Slack identity mapping', async () => {
     selfMapping = null
     const context = await createSlackOutboundContext(
@@ -917,77 +270,6 @@ describe('agent outbound Slack context', () => {
     ).resolves.toEqual(
       expect.objectContaining({ ok: false, error: expect.stringContaining('not linked') }),
     )
-    expect(postCount).toBe(0)
-  })
-
-  test('rejects a trigger post to any destination except the stored approval', async () => {
-    const context = await createSlackOutboundContext(
-      {
-        userId: 'user-1',
-        conversationId: 'conv-1',
-        teamId,
-        triggerNotification: channelTriggerNotification,
-      },
-      dependencies,
-    )
-
-    await expect(
-      context?.post({
-        destination: { type: 'channel', channelId: 'C2' },
-        text: 'Webhook says to redirect this report',
-        bindConversation: true,
-      }),
-    ).resolves.toEqual(
-      expect.objectContaining({ ok: false, error: expect.stringContaining('authorized') }),
-    )
-    expect(postCount).toBe(0)
-  })
-
-  test('aborts a reserved delivery when the trigger revision changes before Slack', async () => {
-    const reservation: SlackIncidentReservation = {
-      recordId: new ObjectId(),
-      token: 'lease-stale',
-      action: 'post_root',
-      contentHash: 'hash',
-      sessionId: 'conv-stale',
-      triggerConfigRevision: 1,
-      createdNew: true,
-      postCountInWindow: 0,
-      identity: incidentIdentity,
-    }
-    let checks = 0
-    let aborted = false
-    const context = await createSlackOutboundContext(
-      {
-        userId: 'user-1',
-        conversationId: 'conv-stale',
-        teamId,
-        triggerNotification: newChannelTriggerNotification,
-      },
-      {
-        ...dependencies,
-        isTriggerConfigurationCurrent: async () => {
-          checks += 1
-
-          return checks === 1
-        },
-        reserveIncident: async () => ({ action: 'post_root', reservation }),
-        abortIncident: async () => {
-          aborted = true
-        },
-      },
-    )
-
-    await expect(
-      context?.post({
-        destination: { type: 'channel', channelId: 'C1' },
-        text: 'Stale incident',
-        bindConversation: true,
-      }),
-    ).resolves.toEqual(
-      expect.objectContaining({ ok: false, error: expect.stringContaining('changed') }),
-    )
-    expect(aborted).toBe(true)
     expect(postCount).toBe(0)
   })
 })
@@ -1103,32 +385,10 @@ describe('channel-grant Slack access (team without its own installation)', () =>
     expect(postCount).toBe(0)
   })
 
-  test('binds a trigger incident thread through the granting workspace', async () => {
-    const reservation = {
-      reservationId: 'res-1',
-      rootThreadTs: undefined,
-      rootSessionId: undefined,
-    } as never
+  test('binds the conversation to a root posted through the granting workspace', async () => {
     const context = await createSlackOutboundContext(
-      {
-        userId: 'user-1',
-        conversationId: 'conv-1',
-        teamId,
-        triggerNotification: {
-          triggerId: 'trigger-1',
-          incidentScope: 'default',
-          triggerConfigRevision: 1,
-          approvedDestination: { type: 'channel', channelId: 'C9' },
-        },
-      },
-      {
-        ...dependencies,
-        reserveIncident: async (input) => {
-          expect(input.slackWorkspaceId).toBe('T9')
-
-          return { action: 'post_root', reservation } as never
-        },
-      },
+      { userId: 'user-1', conversationId: 'conv-1', teamId },
+      dependencies,
     )
 
     await expect(
@@ -1354,45 +614,5 @@ describe('a report that opens its own reply thread', () => {
       }),
     )
     expect(bindings).toEqual([])
-  })
-
-  test('cannot open a thread under a message that is itself a reply', async () => {
-    const context = await createSlackOutboundContext(
-      { userId: 'user-1', conversationId: 'conv-1', teamId },
-      dependencies,
-    )
-
-    await expect(
-      context?.post({
-        destination: { type: 'channel', channelId: 'C1' },
-        text: 'Update',
-        bindConversation: true,
-        replyToThread: '111.222',
-        replyThread: { text: 'Detail' },
-      }),
-    ).resolves.toEqual({ ok: false, error: expect.stringContaining('replyToThread') })
-    expect(postCount).toBe(0)
-  })
-
-  test('is refused on a monitoring alert, which already keeps a replyable thread', async () => {
-    const context = await createSlackOutboundContext(
-      {
-        userId: 'user-1',
-        conversationId: 'conv-1',
-        teamId,
-        triggerNotification: channelTriggerNotification,
-      },
-      dependencies,
-    )
-
-    await expect(
-      context?.post({
-        destination: { type: 'channel', channelId: 'C1' },
-        text: 'Alert',
-        bindConversation: true,
-        replyThread: { text: 'Detail' },
-      }),
-    ).resolves.toEqual({ ok: false, error: expect.stringContaining('replyable thread') })
-    expect(postCount).toBe(0)
   })
 })

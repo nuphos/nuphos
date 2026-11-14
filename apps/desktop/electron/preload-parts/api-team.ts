@@ -1,6 +1,8 @@
 import { ipcRenderer } from 'electron'
 
+import { localSetupApi } from './api-local-setup'
 import { runtimeApi } from './api-runtimes'
+import { teamDataApi } from './api-team-data'
 
 import type { DashboardViewRange } from '../../src/dashboards/schema'
 import type { AgentProvider } from '../../src/types/runtime'
@@ -14,6 +16,9 @@ export const teamApi = {
     ipcRenderer.invoke('atlas:deleteTeamGoogleClient', teamId),
   ...runtimeApi,
   updaterInstall: () => ipcRenderer.invoke('updater:install'),
+  updaterGetAutoInstall: () => ipcRenderer.invoke('updater:getAutoInstall'),
+  updaterSetAutoInstall: (enabled: boolean) =>
+    ipcRenderer.invoke('updater:setAutoInstall', { enabled }),
   onUpdaterStatus: (cb: (state: unknown) => void) => {
     const handler = (_e: unknown, state: unknown) => cb(state)
 
@@ -119,15 +124,7 @@ export const teamApi = {
     scope?: string,
   ) => ipcRenderer.invoke('teamSkills:putObject', teamId, key, file, scope),
   teamSkillsListLocal: () => ipcRenderer.invoke('teamSkills:listLocal'),
-  localSetupStatus: (teamId: string) => ipcRenderer.invoke('localSetup:status', teamId),
-  localSetupSync: (teamId: string) => ipcRenderer.invoke('localSetup:sync', teamId),
-  localSetupApproveLinks: (
-    teamId: string,
-    name: string,
-    reviewed: { relPath: string; realPath: string }[],
-  ) => ipcRenderer.invoke('localSetup:approveLinks', teamId, name, reviewed),
-  localSetupSetAutoSync: (teamId: string, enabled: boolean) =>
-    ipcRenderer.invoke('localSetup:setAutoSync', teamId, enabled),
+  ...localSetupApi,
   teamSkillsImportLocal: (
     teamId: string,
     scope: string | undefined,
@@ -147,9 +144,7 @@ export const teamApi = {
     ipcRenderer.invoke('teamSkills:githubPreview', teamId, source, scope),
   teamSkillsGithubInstall: (teamId: string, input: unknown, scope?: string) =>
     ipcRenderer.invoke('teamSkills:githubInstall', teamId, input, scope),
-  atlasCreateTeam: (name: string) => ipcRenderer.invoke('atlas:createTeam', name),
-  atlasUpdateTeam: (teamId: string, input: { name: string }) =>
-    ipcRenderer.invoke('atlas:updateTeam', teamId, input),
+  ...teamDataApi,
   atlasSetTeamAvatar: (teamId: string, image: Uint8Array | null) =>
     ipcRenderer.invoke('atlas:setTeamAvatar', teamId, image),
   atlasSetTeamEmailDomainDiscovery: (teamId: string, enabled: boolean) =>

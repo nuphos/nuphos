@@ -22,7 +22,6 @@ export function toUiMessages(messages: Message[]): unknown[] {
               mediaType: p.mediaType,
               url: p.url,
               ...(p.fileName ? { filename: p.fileName } : {}),
-              ...(p.attachmentId ? { attachmentId: p.attachmentId } : {}),
             },
           ]
         }

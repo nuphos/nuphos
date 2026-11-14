@@ -8,8 +8,13 @@ export function recordTriggerRunFailure(
   error: unknown,
   trace: AgentRunTrace,
   source: string,
+  runtime: { buildSha?: string; adapterVersion?: string } = {},
 ): void {
-  const errorContext = { source }
+  const errorContext = {
+    source,
+    build_sha: runtime.buildSha ?? null,
+    adapter_version: runtime.adapterVersion ?? null,
+  }
 
   traceAgentChatError('agent.trigger.request.error', error, trace, errorContext)
   captureException(error, {

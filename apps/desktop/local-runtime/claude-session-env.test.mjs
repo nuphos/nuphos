@@ -1,10 +1,20 @@
 import assert from 'node:assert/strict'
-import { execFileSync } from 'node:child_process'
-import { mkdtempSync, rmSync, statSync, symlinkSync, readFileSync, writeFileSync } from 'node:fs'
+import { execFileSync, spawnSync } from 'node:child_process'
+import {
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
 
+import { shellGuardEnv } from '../electron/main/local-runtime/shell-guard.ts'
 import { nuphosDesktopClaudeEnv } from './claude-session-env.mjs'
 
 test(
@@ -71,5 +81,42 @@ test(
     symlinkSync(target, path.join(root, 'tool-shell.sh'))
     assert.throws(() => nuphosDesktopClaudeEnv({ HOME: root }, { HOME: '/host' }, 'darwin'))
     assert.equal(readFileSync(target, 'utf8'), 'unchanged')
+  },
+)
+
+test(
+  'a macOS tool command, run by /bin/sh through the wrapper, reads the current conversation token',
+  { skip: process.platform === 'win32' },
+  (t) => {
+    const root = mkdtempSync(path.join(os.tmpdir(), 'nuphos-tool-shell-'))
+    t.after(() => rmSync(root, { recursive: true, force: true }))
+    const credentials = path.join(root, 'credentials')
+    mkdirSync(credentials)
+    copyFileSync(
+      path.join(import.meta.dirname, '../../runtime/image/runtime-guard.sh'),
+      path.join(root, 'runtime-guard.sh'),
+    )
+    const wrapper = nuphosDesktopClaudeEnv(
+      { HOME: path.join(root, 'session-home') },
+      { HOME: root },
+      'darwin',
+    ).CLAUDE_CODE_SHELL_PREFIX
+    // Claude Code runs `bash -c "<prefix> <command>"` with a socket for stdin.
+    const token = () =>
+      spawnSync('/bin/bash', ['-c', `'${wrapper}' 'printf %s "$NUPHOS_TOKEN"'`], {
+        env: {
+          PATH: process.env.PATH,
+          ...shellGuardEnv({ bundle: { root }, openabHome: root }),
+          OPENAB_CREDENTIALS_DIR: credentials,
+          NUPHOS_TOKEN: 'spawn',
+        },
+        encoding: 'utf8',
+        stdio: 'pipe',
+      }).stdout
+
+    writeFileSync(path.join(credentials, 'NUPHOS_TOKEN'), 'turn-1')
+    assert.equal(token(), 'turn-1')
+    writeFileSync(path.join(credentials, 'NUPHOS_TOKEN'), 'turn-2')
+    assert.equal(token(), 'turn-2')
   },
 )

@@ -9,8 +9,26 @@ import Foundation
 ///   the message, even on a Claude Code / Codex runtime.
 /// - `stream_not_resumable`: the stream is gone. A Claude Code / Codex runtime
 ///   keeps its own transcript and may already hold the message, so only the
-///   Nuphos runtime starts over.
+///   Nuphos runtime starts over, and only after `afterStreamGone` finds no
+///   reply and no run on the server.
 struct ResumeFallback {
+    enum StreamGone: Equatable {
+        /// A run is live on the server: follow it instead of asking again.
+        case follow(String)
+        /// The server already stored the reply this device missed.
+        case replied
+        /// Nothing on the server answers the turn: send it once more.
+        case resend
+    }
+
+    /// What a turn whose stream is gone does, from the conversation detail:
+    /// `sent` identifies the user message whose reply must not be repeated.
+    static func afterStreamGone(stored: [ChatMessage], activeRun: String?, sent: String?) -> StreamGone {
+        if let activeRun { return .follow(activeRun) }
+        guard let sent, let i = stored.firstIndex(where: { $0.id == sent }) else { return .resend }
+        return stored[(i + 1)...].contains { $0.role == .assistant } ? .replied : .resend
+    }
+
     private(set) var used = false
 
     /// Whether the next POST resumes the run instead of starting the turn.

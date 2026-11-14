@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // The Nuphos layer for agents that ship their own ACP server (Grok Build, Google
-// Antigravity, OpenCode). Claude Code and Codex get this layer by patching their Node adapters;
+// Antigravity, OpenCode, Hermes Agent, DeepSeek Harness). Claude Code and Codex get this layer by patching their Node adapters;
 // a native binary cannot be patched, so this process sits in front of it instead and
 // passes every frame through, except where a Nuphos session needs something:
 //
@@ -17,6 +17,7 @@ import { dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { pathToFileURL } from 'node:url'
 
+import { hermesProfile } from './hermes-session.mjs'
 import { nuphosBridgeMcpServers } from './mcp-bridge-config.mjs'
 import { nuphosApplyRuntimeDefaults, nuphosSyncRuntimeSkills } from './runtime-defaults.mjs'
 import { nuphosSessionHomeEnv } from './session-home.mjs'
@@ -83,6 +84,26 @@ export const PROVIDERS = {
     // A prompt sent while a turn runs joins that turn instead of starting its own.
     serialPrompts: true,
   },
+  hermes: {
+    command: ['hermes', 'acp'],
+    // A profile, and so a background daemon, of the session home's own: see hermes-session.mjs.
+    home: (runtimeHome, sessionHome) => ({
+      HERMES_HOME: hermesProfile(runtimeHome, sessionHome ?? runtimeHome),
+    }),
+    // Hermes reads no _meta: the instructions lead the first prompt.
+    instruct: null,
+    serialPrompts: true,
+  },
+  dsh: {
+    command: ['dsh', '--profile', 'acp'],
+    // Its login (.credentials.yaml), profiles and sessions, in the runtime home.
+    home: (runtimeHome) => ({ DSH_HOME: join(runtimeHome, '.dsh') }),
+    instruct: null,
+    serialPrompts: true,
+    // DSH resumes a session without replaying it, and has no session/load; OpenAB only
+    // loads, so a load is sent as a resume.
+    loadAsResume: true,
+  },
 }
 
 export function sessionContext(params) {
@@ -106,7 +127,7 @@ export function agentEnv(provider, context, runtimeEnv = process.env) {
     ...runtimeEnv,
     ...env,
     ...sessionHome,
-    ...PROVIDERS[provider].home(runtimeHome),
+    ...PROVIDERS[provider].home(runtimeHome, sessionHome.NUPHOS_SESSION_HOME),
   }
 }
 
@@ -167,7 +188,11 @@ export function runShim({
   output = process.stdout,
   runtimeEnv = process.env,
   spawnAgent = (command, env) =>
-    spawn(command[0], command.slice(1), { env, stdio: ['pipe', 'pipe', 'inherit'] }),
+    spawn(command[0], command.slice(1), {
+      env,
+      stdio: ['pipe', 'pipe', 'inherit'],
+      windowsHide: true,
+    }),
   onExit = (code) => process.exit(code),
   // How long a prompt's answer gets to close its turn upstream before the
   // turn the agent started next is released.
@@ -378,7 +403,21 @@ export function runShim({
         },
       }
       initialize = message
+      if (spec.loadAsResume)
+        transforms.set(message.id, async (reply) => {
+          const capabilities = reply.result?.agentCapabilities
+          if (!capabilities) return reply
+          return {
+            ...reply,
+            result: {
+              ...reply.result,
+              agentCapabilities: { ...capabilities, loadSession: true },
+            },
+          }
+        })
     }
+    if (spec.loadAsResume && message.method === 'session/load')
+      message = { ...message, method: 'session/resume' }
     if (['session/new', 'session/load', 'session/resume'].includes(message.method))
       return openSession(message)
     const sessionId = message.params?.sessionId

@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 
-import { buildTriggerRunStamp } from './conversation-trigger-run'
 import { postChannelMessage } from './channel-chat'
+import { buildTriggerRunStamp } from './conversation-trigger-run'
 import { executeConversationTurn } from './conversation-turn'
 import { systemSender } from './message-metadata'
 import { agentTriggers, isRetiredTriggerShape } from './trigger-db'
@@ -12,7 +12,6 @@ import type { ConversationTriggerRun, ConversationTriggerRunKind } from './conve
 import type { AgentConversation } from './db'
 import type { MessageMetadata } from './message-metadata'
 import type { AgentTrigger } from './trigger-db'
-import type { TriggerGroupMember } from './trigger-group-db'
 
 export { resolveMessageTemplate } from './trigger-executor-context'
 
@@ -27,7 +26,6 @@ type TriggerFireOptions = {
   deliveryId?: string
   /** Stable per fire (the BullMQ job id), so a redelivered fire is not delivered twice. */
   fireId?: string
-  groupMember?: TriggerGroupMember
 }
 
 export async function executeTrigger(
@@ -48,7 +46,6 @@ export async function executeTrigger(
   const runStamp = buildTriggerRunStamp({
     triggerId,
     runKind: options.runKind,
-    ...(options.groupMember ? { groupMember: options.groupMember } : {}),
     ...(options.fireId ? { fireId: options.fireId } : {}),
   })
 
@@ -109,10 +106,7 @@ async function deliverToTargetSession(
       'agent.resource',
       triggerMetadata(trigger),
     )
-  await agentTriggers().updateOne(
-    { _id: trigger._id },
-    { $set: { lastRunAt: new Date(), updatedAt: new Date() } },
-  )
+  await agentTriggers().updateOne({ _id: trigger._id }, { $set: { lastRunAt: new Date() } })
 }
 
 /**
@@ -134,19 +128,6 @@ function templateContext(
       firedAt: new Date().toISOString(),
       ...(options.deliveryId ? { deliveryId: options.deliveryId } : {}),
       ...(reportedStatus ? { reportedStatus } : {}),
-      ...(options.groupMember
-        ? {
-            group: {
-              member: {
-                key: options.groupMember.key,
-                provider: options.groupMember.provider,
-                integrationId: options.groupMember.integrationId,
-                kind: options.groupMember.kind,
-                resourceId: options.groupMember.resourceId,
-              },
-            },
-          }
-        : {}),
     },
     ...(webhookPayload !== undefined ? { payload: webhookPayload } : {}),
   }

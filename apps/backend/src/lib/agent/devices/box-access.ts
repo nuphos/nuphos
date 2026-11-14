@@ -16,7 +16,10 @@ import type { HolderMessage } from './local-runtime/protocol'
 import type { AgentDevice } from './store'
 import type { NuphosTeamRole } from '@/lib/identity/types'
 
-/** What a person may do with a computer: `use` is everything but managing it. */
+/**
+ * What a person may do with a computer: `use` runs its agents through Nuphos; `manage` also opens
+ * a shell on it, signs its agents in and out, and chooses who uses it.
+ */
 export type DeviceAccessLevel = 'use' | 'manage' | 'owner'
 
 const RANK: Record<DeviceAccessLevel, number> = { use: 0, manage: 1, owner: 2 }

@@ -1,8 +1,13 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, spyOn, test } from 'bun:test'
 
-import { signalAgentRunCancellation } from './run-cancel'
+import * as runStore from '@/lib/agent/run-store'
+import * as runtime from '@/lib/claude-code-preview/session-execution-state'
+import * as recall from '@/lib/meetings/recall'
+
+import { signalAgentRunCancellation, stopConversationTurn } from './run-cancel'
 
 import type { AgentRun } from './types'
+import type { AgentConversation } from '@/lib/agent/db'
 
 function createRun(): AgentRun {
   const now = Date.now()
@@ -40,5 +45,28 @@ describe('signalAgentRunCancellation', () => {
     run.done = true
     expect(signalAgentRunCancellation(run)).toBe(false)
     expect(run.abortController.signal.aborted).toBe(false)
+  })
+})
+
+describe('stopConversationTurn', () => {
+  test('stopping a meeting’s Task takes its bot out of the call', async () => {
+    const spies = [
+      spyOn(runStore, 'getActiveAgentRunForSession').mockResolvedValue(null as never),
+      spyOn(runtime, 'cancelConversationRuntime').mockResolvedValue(undefined as never),
+    ]
+    const left = spyOn(recall, 'leaveMeeting').mockResolvedValue()
+    const task = { userId: 'user-1', sessionId: 'session-1' } as AgentConversation
+
+    try {
+      await stopConversationTurn(task)
+      expect(left).not.toHaveBeenCalled()
+      await stopConversationTurn({
+        ...task,
+        meeting: { botId: 'recall-bot', botName: 'Ada', url: 'https://meet.example.com/abc' },
+      })
+      expect(left).toHaveBeenCalledWith('recall-bot')
+    } finally {
+      for (const spy of [...spies, left]) spy.mockRestore()
+    }
   })
 })

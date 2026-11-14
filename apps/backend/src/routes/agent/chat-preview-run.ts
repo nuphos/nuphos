@@ -16,8 +16,8 @@ import {
 import { createAgentRun, registerAgentRun } from './run-registry'
 
 import type { AgentChatBody, AgentRun } from './types'
+import type { AgentSessionOrigin } from '@/lib/agent/message-origin'
 import type { PendingUserMessage } from '@/lib/agent/pending-messages'
-import type { AgentSessionOrigin } from '@/lib/agent/tools-triggers-shared'
 import type { PreviewDecision, PreviewWait } from '@/lib/claude-code-preview/decision-waiter'
 import type { PreviewFrameConsumer } from '@/lib/claude-code-preview/run-frame-bridge'
 import type { TeamRuntimeEndpoint } from '@/lib/claude-code-preview/team-openab-runtime'

@@ -12,6 +12,7 @@ import {
   userDir,
 } from './controller-types.ts'
 import { InstanceControllers } from './instance-controllers.ts'
+import { startOpenab } from './openab-start.ts'
 import { AGENT_HOME_UNAVAILABLE, INSTALL_HINT } from './providers.ts'
 import { createUsageSampler } from './usage-sampler.ts'
 
@@ -54,7 +55,7 @@ export class LocalRuntimeController {
           this.changed()
           this.tunnel?.sendStatus()
         },
-        { restartDefault: (provider) => this.refresh(true, [provider]) },
+        { refreshDefault: (provider, restart) => this.refresh(restart, [provider]) },
       )
     this.deps = deps
     this.usage = createUsageSampler(
@@ -244,33 +245,9 @@ export class LocalRuntimeController {
     const workspace = userDir(this.deps.dataDir(), run.userId, 'workspace')
 
     agent.process = process
-    let startedAt = 0
-    const launchedAt = Date.now()
+    agent.runtime = await startOpenab(this.deps, process, run, { bundle, adapter, workspace })
+    const startedAt = Date.now()
 
-    try {
-      agent.runtime = await process.start({
-        provider: run.provider,
-        bundle,
-        adapter,
-        nodeExecPath: this.deps.nodeExecPath,
-        cliPath: run.cliPath,
-        agentHome: run.agentHome,
-        workspace,
-        openabHome: userDir(this.deps.dataDir(), run.userId, `openab-home-${run.provider}`),
-        logDir: userDir(this.deps.dataDir(), run.userId, run.provider),
-        env: run.env,
-      })
-      startedAt = Date.now()
-      this.deps.log?.('local agent: openab up', {
-        provider: run.provider,
-        ms: startedAt - launchedAt,
-      })
-    } catch (error) {
-      this.deps.log?.('local agent: openab failed', {
-        provider: run.provider,
-        error: String(error),
-      })
-    }
     if (!run.current()) {
       await process.stop()
 

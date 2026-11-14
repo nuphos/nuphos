@@ -2,6 +2,7 @@ import { accountFailure, accountSignal, signedIn, stillCurrent } from '../accoun
 import { buildAtlasError } from '../atlas/error.ts'
 import { requestContext } from '../auth/request-context.ts'
 import { authSession } from '../auth-session.ts'
+import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../client-version.ts'
 import { beginGet, notModified, readJson } from '../conditional-get.ts'
 import { backendFailure, tagRequest } from '../fetch-error.ts'
 
@@ -78,7 +79,10 @@ export async function callJson<T>(
   timeoutMs?: number,
 ): Promise<T> {
   const account = await agentAccount()
-  const headers: Record<string, string> = { authorization: `Bearer ${account.token}` }
+  const headers: Record<string, string> = {
+    authorization: `Bearer ${account.token}`,
+    [CLIENT_VERSION_HEADER]: CLIENT_VERSION_VALUE,
+  }
   const requestId = tagRequest(headers)
   const get = beginGet(account, method, route, headers)
   const init: RequestInit = { method, headers, signal: accountSignal(account, timeoutMs) }

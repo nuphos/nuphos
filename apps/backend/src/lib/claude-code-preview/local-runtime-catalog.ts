@@ -8,7 +8,6 @@ import {
   deviceAccessDeps,
   deviceOwner,
   listAccessibleDevices,
-  requireDeviceAccess,
 } from '@/lib/agent/devices/box-access'
 import {
   localRuntimeId,
@@ -17,6 +16,7 @@ import {
 } from '@/lib/agent/devices/local-runtime/address'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { LOCAL_AGENT_PROVIDERS } from '@/lib/agent/devices/local-runtime/protocol'
+import { requireAgentSignInAccess, requireDeviceUse } from '@/lib/agent/devices/manage-access'
 import { isActiveTeamMember } from '@/lib/agent/devices/store'
 import { AppError } from '@/lib/errors'
 
@@ -203,16 +203,16 @@ export async function resolveLocalRuntimeEndpoint(
   const ref = parseLocalRuntimeId(runtimeId)
 
   if (!ref || !(await deps.isMember(userId, teamId))) throw notAvailable()
-  let deviceLabel: string
+  let label: string
 
   try {
-    // Anyone who may use the computer may sign in its agents, as they may add them.
-    const device = await requireDeviceAccess(userId, teamId, ref.deviceId, 'use', deps.access)
+    const access = purpose === 'login' ? requireAgentSignInAccess : requireDeviceUse
+    const device = await access(userId, teamId, ref.deviceId, deps.access)
 
     // One removed while its computer was offline is gone, not waiting for the computer.
     if (device.userId !== ref.userId || isPendingRemoval(ref, device.removedAgents ?? []))
       throw notAvailable()
-    deviceLabel = device.label
+    label = `${runtimeLabel(ref.provider)} in ${device.label}`
   } catch (error) {
     if (error instanceof AppError && error.status === 404) throw notAvailable()
     throw error
@@ -229,7 +229,7 @@ export async function resolveLocalRuntimeEndpoint(
       'runtime_offline',
       'The computer running this agent is offline. Open Nuphos on it with the local agent turned on.',
       // The placement just authorized: a send to an offline Box queues for it (queueForOfflineBox).
-      { runtimeId, runtimeLabel: `${runtimeLabel(ref.provider)} in ${deviceLabel}` },
+      { runtimeId, deviceId: ref.deviceId, runtimeLabel: label },
     )
   if (agent?.cli.loggedIn === false && purpose !== 'login')
     throw new AppError(
@@ -266,12 +266,13 @@ export async function localRuntimeModels(
       message: 'The computer running this agent has not reported its models yet. Retry shortly.',
     }
   const modelId = model && model !== 'default' ? model : catalog.defaultModel
-  const controls = catalog.controls[modelId]
+  // A controls-only report names no model: its entry answers a caller asking for none.
+  const split = catalog.controlsOnly && (!model || model === 'default')
+  const controls = catalog.controls[modelId] ?? (split ? catalog.controls.default : undefined)
 
-  return {
-    models: catalog.models,
-    ...(controls ? { controls: { modelId, ...controls } } : {}),
-  }
+  if (!controls) return { models: catalog.models }
+
+  return { models: catalog.models, controls: { ...(modelId ? { modelId } : {}), ...controls } }
 }
 
 /** A local runtime's status comes from its computer's tunnel, not a probe. */
