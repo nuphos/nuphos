@@ -4,7 +4,7 @@ import { createWriteStream, mkdirSync, writeFileSync } from 'node:fs'
 import net from 'node:net'
 import path from 'node:path'
 
-import { deriveControlKey, openabConfigToml, openabEnv } from './config.ts'
+import { deriveControlKey, openabConfigToml, openabEnv, zshenv } from './config.ts'
 
 import type { LocalRuntimeLaunch } from './config.ts'
 import type { ChildProcess } from 'node:child_process'
@@ -189,6 +189,10 @@ export class OpenabProcess {
     for (const dir of [options.logDir, options.workspace, options.openabHome])
       mkdirSync(dir, { recursive: true, mode: 0o700 })
     writeFileSync(configPath, openabConfigToml(launch), { mode: 0o600 })
+    const zsh = zshenv(launch)
+
+    mkdirSync(path.dirname(zsh.file), { recursive: true, mode: 0o700 })
+    writeFileSync(zsh.file, zsh.contents, { mode: 0o600 })
     const log = createWriteStream(path.join(options.logDir, 'openab.log'), { flags: 'a' })
 
     log.write(`\n=== ${new Date().toISOString()} openab on 127.0.0.1:${String(port)} ===\n`)

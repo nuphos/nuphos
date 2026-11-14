@@ -1,12 +1,20 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { createHmac } from 'node:crypto'
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
 
-import { agentEnv, agentLoginEnv, deriveControlKey, openabConfigToml, openabEnv } from './config.ts'
+import { nuphosDesktopClaudeEnv } from '../../../local-runtime/claude-session-env.mjs'
+import {
+  agentEnv,
+  agentLoginEnv,
+  deriveControlKey,
+  openabConfigToml,
+  openabEnv,
+  zshenv,
+} from './config.ts'
 
 import type { LocalRuntimeLaunch } from './config.ts'
 
@@ -137,11 +145,17 @@ test('the config quotes paths as TOML strings', () => {
 })
 
 test(
-  'every bash the agent runs reads the current conversation token, not the spawn-time one',
+  'every shell the agent runs reads the current conversation token, not the spawn-time one',
   { skip: process.platform === 'win32' },
   () => {
     const root = mkdtempSync(path.join(tmpdir(), 'nuphos-guard-'))
     const credentials = path.join(root, 'credentials')
+    const bundled = {
+      ...launch,
+      bundle: { ...launch.bundle, root },
+      openabHome: path.join(root, 'openab-home'),
+    }
+    const print = 'printf %s "$NUPHOS_TOKEN"'
 
     try {
       mkdirSync(credentials)
@@ -149,23 +163,44 @@ test(
         path.join(import.meta.dirname, '../../../../runtime/image/runtime-guard.sh'),
         path.join(root, 'runtime-guard.sh'),
       )
-      const { BASH_ENV } = agentEnv({ ...launch, bundle: { ...launch.bundle, root } })
-      const token = () =>
-        spawnSync('/bin/bash', ['-c', 'printf %s "$NUPHOS_TOKEN"'], {
+      const zsh = zshenv(bundled)
+
+      mkdirSync(path.dirname(zsh.file), { recursive: true })
+      writeFileSync(zsh.file, zsh.contents)
+      const { BASH_ENV, SHLVL, ZDOTDIR } = agentEnv(bundled)
+      // Claude Code on macOS runs bash -c "tool-shell.sh <command>", which runs /bin/sh.
+      const { CLAUDE_CODE_SHELL_PREFIX: wrapper } = nuphosDesktopClaudeEnv(
+        { HOME: path.join(root, 'session-home') },
+        { HOME: root },
+        'darwin',
+      )
+      const zshPath = ['/bin/zsh', '/usr/bin/zsh'].find((file) => existsSync(file))
+      const shells: Record<string, string[]> = {
+        bash: ['/bin/bash', '-c', print],
+        'Claude Code on macOS': ['/bin/bash', '-c', `'${wrapper}' '${print}'`],
+        ...(zshPath ? { zsh: [zshPath, '-c', print], 'zsh login': [zshPath, '-lc', print] } : {}),
+      }
+      const token = ([command, ...args]: string[]) =>
+        spawnSync(command, args, {
           env: {
             PATH: process.env.PATH,
             BASH_ENV,
+            SHLVL,
+            ZDOTDIR,
             OPENAB_CREDENTIALS_DIR: credentials,
             NUPHOS_TOKEN: 'spawn',
           },
           encoding: 'utf8',
-          stdio: ['ignore', 'pipe', 'pipe'],
+          // A pipe is a socket here, as it is for Claude Code's shell.
+          stdio: 'pipe',
         }).stdout
 
-      writeFileSync(path.join(credentials, 'NUPHOS_TOKEN'), 'turn-1')
-      assert.equal(token(), 'turn-1')
-      writeFileSync(path.join(credentials, 'NUPHOS_TOKEN'), 'turn-2')
-      assert.equal(token(), 'turn-2')
+      for (const [name, shell] of Object.entries(shells)) {
+        writeFileSync(path.join(credentials, 'NUPHOS_TOKEN'), `${name} 1`)
+        assert.equal(token(shell), `${name} 1`, name)
+        writeFileSync(path.join(credentials, 'NUPHOS_TOKEN'), `${name} 2`)
+        assert.equal(token(shell), `${name} 2`, name)
+      }
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
