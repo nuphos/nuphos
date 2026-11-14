@@ -54,6 +54,7 @@ mock.module('../../../api', () => ({
 }))
 mock.module('../../../api/errors', () => ({ decideErrorToast: () => ({ action: 'show' }) }))
 mock.module('../../../i18n/index.ts', () => ({ t: (text: string) => text }))
+mock.module('../../../lib/agentAvatarChoices.ts', () => ({ agentAvatarPick: () => undefined }))
 mock.module('../../../lib/localAgentSharing', () => ({
   localAgentMoveWarning: () => {},
   moveNotice: () => notice,

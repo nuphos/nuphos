@@ -22,7 +22,7 @@ import { toast } from '../ui/toast'
 import { botOfChannel } from './botChannel'
 import { BotTaskButton } from './BotTaskButton'
 import { ChannelMessages } from './ChannelMessages'
-import { ChatHeaderIcon, ChatIcon, ReplyingBanner } from './channelParts'
+import { ChannelIntro, ChatHeaderIcon, ReplyingBanner } from './channelParts'
 import { ChannelTitle } from './ChannelTitle'
 import { sendingPost, stillSending } from './sendingPosts'
 import { useBotChatQuestions } from './useBotChatQuestions'
@@ -180,7 +180,7 @@ export function ChannelPane({
             bot={bot}
             title={title}
             teamId={teamId}
-            canRename={agents.some((agent) => agent.sessionId === bot && agent.ownerId === user.id)}
+            canRename={botOwned}
             onRenamed={refresh}
           />
         </div>
@@ -231,17 +231,7 @@ export function ChannelPane({
         {/* The column: one box, so its height says when anything below grows, and
             the one width every row takes, the composer's own. */}
         <ChatColumn>
-          {detail && messages.length === 0 && (
-            <div className="flex flex-col items-start gap-3 pt-10">
-              <ChatIcon faces={detail.faces} title={title} size={44} />
-              <div className="text-lg font-semibold leading-snug text-main">{title}</div>
-              <div className="max-w-[560px] text-[13px] leading-relaxed text-secondary">
-                {t(
-                  'Everyone here sees each message and decides for themselves whether to reply, as in any group chat.',
-                )}
-              </div>
-            </div>
-          )}
+          {detail && messages.length === 0 && <ChannelIntro faces={detail.faces} title={title} />}
           {detail && (
             <ChannelMessages
               messages={messages}
