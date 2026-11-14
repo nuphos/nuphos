@@ -89,6 +89,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -233,6 +234,8 @@ fun ChatComposer(
     }
     val fieldValue = TextFieldValue(text, fieldState.selection)
     var dismissedAt by remember(draft, mentions?.teamId) { mutableIntStateOf(-1) }
+    // The `@Title`s picked into the draft, and the links they are sent as.
+    val mentionLinks = remember(draft, mentions?.teamId) { mutableStateMapOf<String, String>() }
     val mentionQuery = if (effectiveDraftingEnabled && focused && mentions != null) SessionMention.query(fieldValue) else null
     val activeMention = mentionQuery?.takeUnless { text.lastIndexOf('@') == dismissedAt }
     var mentionRows by remember(activeMention, draft, mentions) { mutableStateOf<List<ai.nuphos.android.model.AgentConversation>>(emptyList()) }
@@ -532,7 +535,7 @@ fun ChatComposer(
                 if (!latestSendAllowed || latestSendKey != key || incomingShares.state.value != null ||
                     (key != null && (!incomingShares.isBound(key.accountId) || store.selectedTeam?.id != key.teamId)) ||
                     fieldState.text.toString() != submittedText || attachments.map { it.id } != submittedFiles.map { it.id }) return@launch
-                accepted = latestOnSend(ComposerSubmission(submittedText.trim(), submittedFiles))
+                accepted = latestOnSend(ComposerSubmission(SessionMention.expand(submittedText, mentionLinks).trim(), submittedFiles))
                 if (accepted) {
                     if (key != null) incomingShares.sent(key, submittedFiles) else incomingShares.handoff(submittedFiles)
                 }
@@ -543,6 +546,7 @@ fun ChatComposer(
             } finally {
                 if (accepted) {
                     if (draft != null) draft.submitted(true, submittedText) else localText = ""
+                    mentionLinks.clear()
                     if (fieldState.text.toString() == submittedText) fieldState.edit { replace(0, length, "") }
                     attachments.removeAll { file -> submittedFiles.any { it.id == file.id } }
                 }
@@ -680,7 +684,9 @@ fun ChatComposer(
                                 Modifier.fillMaxWidth().clickable(role = Role.Button) {
                                     // Recheck the current draft; never insert a result from a replaced query.
                                     if (SessionMention.query(fieldValue) == activeMention && effectiveDraftingEnabled) {
-                                        val inserted = SessionMention.insert(text, SessionMention.link(mentions.teamId, row.sessionId))
+                                        val name = "@" + row.displayTitle
+                                        mentionLinks[name] = SessionMention.link(mentions.teamId, row.sessionId)
+                                        val inserted = SessionMention.insert(text, name)
                                         updateText(inserted)
                                     }
                                 }.padding(vertical = 8.dp),
