@@ -138,6 +138,14 @@ export function ChannelMessages({
                   if (reply) setMenu({ reply, x: event.clientX, y: event.clientY })
                 })
               }
+              onReply={
+                onReply &&
+                (() => {
+                  const reply = replyTo(message)
+
+                  if (reply) onReply(reply)
+                })
+              }
             />
           </>
         ),
