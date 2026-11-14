@@ -84,7 +84,7 @@ async function joinToken(): Promise<string> {
 On the machine (keep NUPHOS_API_URL set for later runs, e.g. in its systemd unit):
 
   curl -fsSL https://nuphos.ai/install | sh
-  NUPHOS_API_URL=${api} nuphos agent --join -    # paste the token`
+  NUPHOS_API_URL=${api} ~/.local/bin/nuphos agent --join -    # paste the token`
 }
 
 async function telemetry(): Promise<string> {

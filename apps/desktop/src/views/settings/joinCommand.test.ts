@@ -8,7 +8,7 @@ test('the two commands to run on the machine, naming only a non-default API', ()
 
   assert.equal(
     joinCommand(join),
-    'curl -fsSL https://nuphos.ai/install | sh\nNUPHOS_JOIN_TOKEN=tok nuphos agent',
+    'curl -fsSL https://nuphos.ai/install | sh\nNUPHOS_JOIN_TOKEN=tok ~/.local/bin/nuphos agent',
   )
   assert.match(
     joinCommand({ ...join, apiUrl: 'https://api.dev' }),

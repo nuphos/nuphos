@@ -107,7 +107,7 @@ self-hosted backend with `nuphos-admin join-token --team <id>` in its container
 
 ```sh
 curl -fsSL https://nuphos.ai/install | sh
-nuphos agent --join -        # paste the token, then Enter
+~/.local/bin/nuphos agent --join -   # paste the token, then Enter
 ```
 
 `--join -` reads the token from stdin, and `NUPHOS_JOIN_TOKEN` in the

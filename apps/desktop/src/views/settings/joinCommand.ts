@@ -10,5 +10,6 @@ export function joinCommand(join: BoxJoin): string {
     .filter(Boolean)
     .join(' ')
 
-  return `curl -fsSL https://nuphos.ai/install | sh\n${env} nuphos agent`
+  // By its install path: on a fresh machine ~/.local/bin is often not on PATH yet.
+  return `curl -fsSL https://nuphos.ai/install | sh\n${env} ~/.local/bin/nuphos agent`
 }
