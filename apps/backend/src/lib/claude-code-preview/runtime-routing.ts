@@ -29,11 +29,10 @@ export function assertClaudeCodeSetupConfigured(
 }
 
 /**
- * The agent a conversation nothing pins runs on: the first usable agent in its owner's
- * fallback list, else a ready team agent, else the owner's first online Box agent,
- * else the owner's own signed-in agent on any computer they may use, shared ones included, most
- * recently used first. Only that last step reaches a teammate's shared computer: an agent there
- * is the owner's when they added it, so another member's is never chosen.
+ * The agent a conversation nothing pins runs on: a ready team agent, else the owner's first
+ * online Box agent, else the owner's own signed-in agent on any computer they may use, shared
+ * ones included, most recently used first. Only that last step reaches a teammate's shared
+ * computer: an agent there is the owner's when they added it, so another member's is never chosen.
  */
 export function defaultConversationRuntimeId(
   instances: readonly Pick<
@@ -42,11 +41,9 @@ export function defaultConversationRuntimeId(
   >[],
   userId: string,
   {
-    fallbackIds = [],
     recentIds = [],
     provider,
   }: {
-    fallbackIds?: readonly string[]
     /** The agents of the owner's latest conversations, most recent first. */
     recentIds?: readonly string[]
     provider?: OpenAbProvider
@@ -59,11 +56,7 @@ export function defaultConversationRuntimeId(
       Boolean(
         instance.local?.online && !instance.local.shared && instance.local.signedIn !== false,
       ))
-  const listed = fallbackIds
-    .map((id) => instances.find((instance) => instance.id === id))
-    .find((instance) => instance && usable(instance))
 
-  if (listed) return listed.id
   // A ready team agent runs it: the caller resolves the team's own.
   if (
     instances.some(

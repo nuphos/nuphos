@@ -112,11 +112,11 @@ export const useRuntimeQuotaHistoryQuery = (teamId: string, range: RuntimeQuotaH
     refetchInterval: QUOTA_HISTORY_POLL_MS,
   })
 
-/** The agents your conversations move to, in order, when theirs cannot take a turn. */
+/** Each runtime's fallback in the team, by runtime id. */
 export const runtimeFallbackQuery = (teamId: string) =>
   queryOptions({
     queryKey: queryKeys.runtimeFallback(teamId),
-    queryFn: async () => (await api.atlasGetRuntimeFallback(teamId)).runtimeIds,
+    queryFn: async () => (await api.atlasGetRuntimeFallback(teamId)).fallbacks,
   })
 
 /** Every team's agents and usage that a view shows are read again, each once. */

@@ -211,7 +211,11 @@ test('a manually registered in-cluster source remains movable using history', as
   expect(conversation.runtimeId).toBe('new')
 })
 
-useModels({ userTeamRuntimeFallbacks: () => ({ findOne: async () => ({ runtimeIds: ['new'] }) }) })
+useModels({
+  teamRuntimeFallbacks: () => ({
+    find: () => ({ toArray: async () => [{ runtimeId: 'old', fallbackRuntimeId: 'new' }] }),
+  }),
+})
 useConversationChatRoute({ resolveConversationChatRuntime: async () => ({}) })
 const runtimeCatalogOverride = useRuntimeCatalog({
   requireRuntimeInstance: async () => target,

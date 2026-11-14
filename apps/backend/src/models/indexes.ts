@@ -48,7 +48,7 @@ import { agentInstructions } from '@/models/instructions'
 import {
   teamHomeLayouts,
   teamInvitations,
-  userTeamRuntimeFallbacks,
+  teamRuntimeFallbacks,
   userTeamSidebarFavorites,
 } from '@/models/team'
 
@@ -165,9 +165,9 @@ async function setupHomeLayoutIndexes(): Promise<void> {
 }
 
 async function setupRuntimeFallbackIndexes(): Promise<void> {
-  await userTeamRuntimeFallbacks().createIndex(
-    { teamId: 1, userId: 1 },
-    { unique: true, name: 'user_team_runtime_fallbacks_scope_unique' },
+  await teamRuntimeFallbacks().createIndex(
+    { teamId: 1, runtimeId: 1 },
+    { unique: true, name: 'team_runtime_fallbacks_runtime_unique' },
   )
 }
 
