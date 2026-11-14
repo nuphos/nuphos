@@ -22,11 +22,38 @@ type SelectorProps = CredentialSelectorControl & {
 }
 
 export function CredentialSelectorButton(props: SelectorProps) {
+  if (props.inherited) return <InheritedSelection {...props.inherited} hero={props.hero} />
+
   return (
     <>
       <SelectionButton {...props} devices={false} />
       <SelectionButton {...props} devices />
     </>
+  )
+}
+
+/** A Task under a Bot: it uses the Bot's selection, changed there. */
+function InheritedSelection({
+  title,
+  onOpen,
+  hero,
+}: NonNullable<CredentialSelectorControl['inherited']> & { hero: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={clsx(
+        'flex min-w-0 max-w-[220px] flex-shrink items-center gap-1.5 text-secondary transition-colors hover:bg-state-hover hover:text-main',
+        hero ? 'h-8 rounded-full px-2' : 'h-7 rounded-md px-1.5',
+      )}
+      title={t('Uses the credentials and computers of {title}. Open it to change them.', {
+        title,
+      })}
+    >
+      <Shield className="h-3.5 w-3.5 flex-shrink-0" strokeWidth={2} />
+      <Laptop className="h-4 w-4 flex-shrink-0" strokeWidth={1.75} />
+      <span className="truncate text-[11.5px] leading-none">{t('From {title}', { title })}</span>
+    </button>
   )
 }
 

@@ -18,6 +18,7 @@ type Acc = Pick<
   | 'dragDepthRef'
   | 'effectiveCredentialAccess'
   | 'homeDropRef'
+  | 'openConversation'
   | 'openingConversation'
   | 'pendingPrompt'
   | 'refreshCredentialOptions'
@@ -40,6 +41,7 @@ export function computePanelRenderState(acc: Acc): PanelRenderState {
     dragDepthRef,
     effectiveCredentialAccess,
     homeDropRef,
+    openConversation,
     openingConversation,
     pendingPrompt,
     refreshCredentialOptions,
@@ -95,6 +97,16 @@ export function computePanelRenderState(acc: Acc): PanelRenderState {
     (!activeTab.readOnly || activeTab.slackThread)
       ? {
           ...credentialSelectorControl,
+          ...(activeTab.credentialSource && {
+            inherited: {
+              title: activeTab.credentialSource.title,
+              onOpen: () => {
+                const { sessionId, title } = activeTab.credentialSource!
+
+                void openConversation(sessionId, title)
+              },
+            },
+          }),
           unseen: credentialOptionsLoaded(credentialOptions)
             ? unseenCredentials(
                 allCredentialAccess(credentialOptions),

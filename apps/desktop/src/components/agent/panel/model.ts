@@ -126,6 +126,8 @@ export type Tab = {
   // MAX_AUTO_RESUME_ATTEMPTS to stop transport-level retry loops.
   autoResumeAttempts: number
   credentialAccess: AgentCredentialSelection
+  // A Task under a Bot uses that conversation's selection and has no picker of its own.
+  credentialSource?: { sessionId: string; title: string }
   // Absolute transcript index of messages[0]. > 0 when the conversation was
   // opened with a paginated tail and earlier messages exist server-side; every
   // send/sync forwards it as `baseIndex` so the backend hydrates the stored
