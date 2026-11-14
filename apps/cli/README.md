@@ -103,13 +103,13 @@ A machine nobody signs in on, such as a VM, a Mac mini or a container, joins
 with a one-time token instead of a session. Create one while signed in
 (`POST /agent/devices/join-tokens`, valid 15 minutes by default), or on a
 self-hosted backend with `nuphos-admin join-token --team <id>` in its container
-(and set `NUPHOS_API_URL` to that backend), then on the machine:
+(and add `--api-url` with that backend's URL), then on the machine:
 
 ```sh
-curl -fsSL https://nuphos.ai/install | NUPHOS_JOIN_TOKEN=<token> sh
+curl -fsSL https://nuphos.ai/install | sh -s -- --join <token>
 ```
 
-Given `NUPHOS_JOIN_TOKEN`, the installer starts `nuphos agent` by its path, so
+Given `--join`, the installer starts `nuphos agent` by its path, so
 it works before `~/.local/bin` is on `PATH`. From a script or cloud-init, write
 the token to a file only the runtime's account can read and pipe it:
 `nuphos agent --join - < /run/nuphos-join`.
