@@ -22,12 +22,13 @@ fail() {
   exit 1
 }
 
+# The usage message names no argument, so a misplaced token is never printed.
 while [ $# -gt 0 ]; do
-  [ $# -ge 2 ] || fail "$1 needs a value"
-  case "$1" in
-    --join) JOIN=$2 ;;
-    --api-url) export NUPHOS_API_URL="$2" ;;
-    *) fail "unknown option $1; use --join TOKEN [--api-url URL]" ;;
+  case "$#:$1" in
+    1:*) fail "usage: sh -s -- --join TOKEN [--api-url URL]" ;;
+    *:--join) JOIN=$2 ;;
+    *:--api-url) export NUPHOS_API_URL="$2" ;;
+    *) fail "usage: sh -s -- --join TOKEN [--api-url URL]" ;;
   esac
   shift 2
 done
