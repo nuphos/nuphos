@@ -18,6 +18,8 @@ import type { MessageMetadata } from '../message-metadata'
 export type ChannelFields = {
   /** Absent is an ordinary agent conversation. */
   kind?: 'channel'
+  /** Started as a group chat: never a Bot's 1:1 chat, even with only one Bot in it. */
+  group?: true
   agentSessionIds?: string[]
   /** An ordinary member selected as the group's lead; never an access grant. */
   leadAgentSessionId?: string

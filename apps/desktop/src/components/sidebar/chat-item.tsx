@@ -53,7 +53,11 @@ export function chatSidebarItem({
 
   return {
     key: `agent-session:${conversation.sessionId}`,
-    label: conversation.title || conversation.firstMessage || t('Untitled agent'),
+    label:
+      conversation.title ||
+      conversation.firstMessage ||
+      // An unnamed chat is called by its other members; until anyone joins, this.
+      (conversation.kind === 'channel' ? t('New Group Chat') : t('Untitled agent')),
     ...chatRowIcon(conversation),
     preview: chatPreview(conversation.lastMessage, conversation.faces),
     lastActiveAt: conversation.lastActiveAt,
@@ -72,7 +76,7 @@ export function chatSidebarItem({
     ...(conversation.kind === 'channel'
       ? {
           channel: true,
-          botChannelOf: botOfChannel(conversation.faces),
+          botChannelOf: botOfChannel(conversation),
           channelAgentIds: conversation.agentSessionIds,
         }
       : {}),

@@ -79,9 +79,9 @@ export function ChannelPane({
   const composerRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const dropRef = useRef<((dt: DataTransfer) => void) | null>(null)
-  const title = detail?.title ?? ''
+  const title = detail ? detail.title || t('New Group Chat') : ''
   // A Bot's chat opens the Bot's desktop in this chat's dock, as its Task page's dock does.
-  const bot = botOfChannel(detail?.faces)
+  const bot = botOfChannel(detail)
   const botState = useSyncExternalStore(subscribeRuntimeStates, () => runtimeStateOf(bot))
   const botOwned = agents.some((agent) => agent.sessionId === bot && agent.ownerId === user.id)
   const canOpenTask = useBotTaskAccess(teamId, bot, botOwned)
@@ -199,24 +199,27 @@ export function ChannelPane({
             }}
           />
         )}
-        <SessionParticipants
-          key={channelId}
-          sessionId={channelId}
-          teamId={teamId}
-          title={title}
-          currentUserId={user.id}
-          canManage={detail?.isOwner === true || detail?.canManage === true}
-          compact={false}
-          channel={
-            detail
-              ? {
-                  agents,
-                  ownerId: detail.owner?.id ?? (detail.isOwner ? user.id : ''),
-                  onAgentsChange: refresh,
-                }
-              : undefined
-          }
-        />
+        {/* A Bot's 1:1 chat stays the two of you; a group chat starts from "+" on Bots. */}
+        {!bot && (
+          <SessionParticipants
+            key={channelId}
+            sessionId={channelId}
+            teamId={teamId}
+            title={title}
+            currentUserId={user.id}
+            canManage={detail?.isOwner === true || detail?.canManage === true}
+            compact={false}
+            channel={
+              detail
+                ? {
+                    agents,
+                    ownerId: detail.owner?.id ?? (detail.isOwner ? user.id : ''),
+                    onAgentsChange: refresh,
+                  }
+                : undefined
+            }
+          />
+        )}
         {grip}
       </div>
       <HeaderEdge

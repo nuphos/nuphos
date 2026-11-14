@@ -125,6 +125,18 @@ describe('creating a channel', () => {
     expect(await agentConversations().findOne({ sessionId })).toMatchObject({ title: '' })
   })
 
+  test("a group chat is marked as one; a Bot's 1:1 chat is not", async () => {
+    const group = (await (await send('POST', '/channels', { group: true })).json()) as {
+      sessionId: string
+    }
+    const chat = (await (await send('POST', '/channels', {})).json()) as { sessionId: string }
+
+    expect((await agentConversations().findOne({ sessionId: group.sessionId }))?.group).toBe(true)
+    expect(
+      (await agentConversations().findOne({ sessionId: chat.sessionId }))?.group,
+    ).toBeUndefined()
+  })
+
   test('needs a short title, if any, and a team the caller belongs to', async () => {
     expect((await send('POST', '/channels', { title: 'x'.repeat(201) })).status).toBe(400)
     viewer = 'outsider'

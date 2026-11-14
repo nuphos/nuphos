@@ -4,8 +4,12 @@ import type {
   ChannelFace,
 } from '../../api/agent-types.ts'
 
-/** A Bot's chat is a channel whose one other member is the Bot: its face and name. */
-export function botOfChannel(faces: ChannelFace[] | undefined): string | undefined {
+/** A Bot's chat is a channel whose one other member is the Bot, unless it began as a group. */
+export function botOfChannel(
+  chat: { faces?: ChannelFace[]; group?: true } | null | undefined,
+): string | undefined {
+  const faces = chat?.group ? undefined : chat?.faces
+
   return faces?.length === 1 && faces[0]?.agent ? faces[0].id : undefined
 }
 
@@ -28,7 +32,7 @@ export async function readBotChats(
   do {
     const page = await readPage(cursor)
 
-    chats.push(...page.conversations.filter((chat) => botOfChannel(chat.faces) === botId))
+    chats.push(...page.conversations.filter((chat) => botOfChannel(chat) === botId))
     cursor = page.nextCursor ?? undefined
     if (cursor && cursors.has(cursor)) break
     if (cursor) cursors.add(cursor)

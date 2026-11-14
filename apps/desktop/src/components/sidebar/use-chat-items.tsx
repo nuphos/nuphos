@@ -104,7 +104,7 @@ export function useChatItems({
       }),
       actions: <RowMenuButton title={item.label} />,
     }
-    const botId = conversation.kind === 'channel' ? botOfChannel(conversation.faces) : undefined
+    const botId = conversation.kind === 'channel' ? botOfChannel(conversation) : undefined
 
     if (!botId) return [row]
     const bot = byId.get(botId)

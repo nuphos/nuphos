@@ -11,7 +11,7 @@ export type WindowChannelsApi = {
     selection: BotImportSelection,
   ): Promise<BotImportPreview>
   agentSaveGrokExportSkill(): Promise<void>
-  agentCreateChannel(teamId: string): Promise<{ sessionId: string }>
+  agentCreateChannel(teamId: string, group?: boolean): Promise<{ sessionId: string }>
   agentCreateBot(
     teamId: string,
     bot?: {
