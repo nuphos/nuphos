@@ -129,6 +129,23 @@ describe('materializeMergedSkillsDir', () => {
     expect(second.rebuilt).toBe(false)
     expect(second.directory).toBe(first.directory)
   })
+
+  test('concurrent rebuilds both succeed and publish one complete tree', async () => {
+    await writeScopeManifest(`teams/${TEAM_ID}`, '2026-07-06T10:00:00.000Z')
+    await writeCachedSkill(`teams/${TEAM_ID}`, 'demo-skill', 'demo')
+
+    const results = await Promise.all(
+      Array.from({ length: 4 }, () => materializeMergedSkillsDir(TEAM_ID)),
+    )
+    const directory = results[0]!.directory
+
+    for (const result of results) {
+      expect(result.directory).toBe(directory)
+      expect(result.skillNames).toContain('demo-skill')
+    }
+    expect(await fs.readFile(path.join(directory, 'demo-skill/SKILL.md'), 'utf8')).toBe('demo')
+    expect(await fs.readdir(path.join(isolatedCacheRoot, '.merged'))).toEqual([`team-${TEAM_ID}`])
+  })
 })
 
 describe('resolveSkillsDirectory', () => {
