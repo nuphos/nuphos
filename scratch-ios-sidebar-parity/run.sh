@@ -16,7 +16,7 @@ run() { # name udid
   local name=$1 udid=$2
   mkdir -p "$out/$name"
   TEST_RUNNER_NUPHOS_SHOTS="$out/$name" xcodebuild test-without-building -project nuphos-ios.xcodeproj -scheme nuphos-ios \
-    -destination "id=$udid" -derivedDataPath "$dd" -only-testing:nuphos-iosUITests/BotsAndTasksListUITests -parallel-testing-enabled NO \
+    -destination "id=$udid" -derivedDataPath "$dd" -only-testing:nuphos-iosUITests/BotsAndTasksListUITests -only-testing:nuphos-iosUITests/PinsTasksLayoutArchiveUITests -parallel-testing-enabled NO \
     -resultBundlePath "$RUNNER_TEMP/$name.xcresult" 2>&1 | grep -vE "IDESchemeAction|IDELaunchParameters" | tail -300 | tee "$out/$name/tests.txt"
   [ "${PIPESTATUS[0]}" -eq 0 ] || status=1
   xcrun simctl shutdown "$udid"
