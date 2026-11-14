@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
+import { canManage } from './agentPresentation.ts'
 import {
   seenFrom,
   boxSessions,
@@ -9,7 +10,6 @@ import {
   removal,
   BOX_BADGE,
   boxActions,
-  canManage,
   boxAgents,
   boxSetupPhase,
   boxSetupProblem,
