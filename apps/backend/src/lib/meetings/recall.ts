@@ -42,6 +42,18 @@ export async function createMeetingBot(input: {
   const bot = (await recallFetch('/bot/', {
     meeting_url: input.meetingUrl,
     bot_name: input.botName,
+    // Recall leaves an empty call in seconds, but takes ten minutes or more when only bots are left.
+    automatic_leave: {
+      bot_detection: {
+        // A participant that has not spoken or shared a screen in the whole call counts as a bot.
+        using_participant_events: { timeout: 60, activate_after: 300 },
+        using_participant_names: {
+          matches: ['notetaker', 'recorder', 'assistant'],
+          timeout: 60,
+          activate_after: 60,
+        },
+      },
+    },
     recording_config: {
       // Zero data retention: only the real-time stream is used, so Recall keeps no media.
       retention: null,
