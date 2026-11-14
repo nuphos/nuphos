@@ -341,16 +341,6 @@ const shared = (
   })
 
 describe('defaultConversationRuntimeId', () => {
-  test("takes the first usable agent in the owner's fallback list", () => {
-    const instances = [box('offline', { online: false }), box('signed-out', { signedIn: false })]
-
-    expect(
-      defaultConversationRuntimeId([...instances, registered('team'), box('listed')], ME, {
-        fallbackIds: ['gone', 'offline', 'signed-out', 'listed', 'team'],
-      }),
-    ).toBe('listed')
-  })
-
   test('falls back to an online Box only when no team agent is ready', () => {
     const boxes = [box('laptop', { box: undefined }), box('asleep', { online: false }), box('box')]
 
@@ -380,16 +370,12 @@ describe('defaultConversationRuntimeId', () => {
       'box',
     )
     expect(defaultConversationRuntimeId([registered('team'), mine], ME)).toBeUndefined()
-    expect(
-      defaultConversationRuntimeId([mine, registered('team')], ME, { fallbackIds: ['team'] }),
-    ).toBe('team')
   })
 
   test('with nothing else to run on, takes the own signed-in agent on a shared computer', () => {
     const mine = shared('mine', ME)
 
     expect(defaultConversationRuntimeId([mine], ME)).toBe('mine')
-    expect(defaultConversationRuntimeId([mine], ME, { fallbackIds: ['gone'] })).toBe('mine')
     expect(
       defaultConversationRuntimeId([shared('asleep', ME, { online: false })], ME),
     ).toBeUndefined()
@@ -412,13 +398,9 @@ describe('defaultConversationRuntimeId', () => {
     const codex = { ...box('codex'), provider: 'codex' } as RuntimeInstance
     const ids = theirs.map(({ id }) => id)
 
-    expect(defaultConversationRuntimeId(theirs, ME, { fallbackIds: ids })).toBeUndefined()
     expect(defaultConversationRuntimeId(theirs, ME, { recentIds: ids })).toBeUndefined()
     expect(
-      defaultConversationRuntimeId([codex], ME, {
-        fallbackIds: ['codex'],
-        provider: 'claude-code',
-      }),
+      defaultConversationRuntimeId([codex], ME, { recentIds: ['codex'], provider: 'claude-code' }),
     ).toBeUndefined()
     expect(defaultConversationRuntimeId([codex], ME, { provider: 'codex' })).toBe('codex')
   })

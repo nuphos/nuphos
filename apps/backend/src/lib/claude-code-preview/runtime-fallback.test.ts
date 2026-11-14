@@ -48,8 +48,17 @@ const quota = (runtimeId: string, used: number, resetsAt: string | null = null):
   windows: [{ id: 'five_hour', label: '5-hour', usedPercent: used, resetsAt }],
 })
 
+// Each listed agent is the fallback of the one before it, starting from the conversation's.
 useModels({
-  userTeamRuntimeFallbacks: () => ({ findOne: async () => ({ runtimeIds: list }) }),
+  teamRuntimeFallbacks: () => ({
+    find: () => ({
+      toArray: async () =>
+        list.map((fallbackRuntimeId, index) => ({
+          runtimeId: index ? list[index - 1] : 'a',
+          fallbackRuntimeId,
+        })),
+    }),
+  }),
 })
 useAgentDb({
   getConversationBySessionId: async () => conversation,
@@ -279,4 +288,15 @@ test('an agent that is still starting is waited for, not moved away from', async
 
   expect(await fallBackBeforeTurn(conversation, 'owner')).toBe(conversation)
   expect(moves).toEqual([])
+})
+
+test('two agents that are each other’s fallback hand the conversation back and forth', async () => {
+  offline = true
+  list = ['b', 'a']
+
+  const moved = await fallBackBeforeTurn(conversation, 'owner')
+
+  expect(moved?.runtimeId).toBe('b')
+  expect((await fallBackBeforeTurn(moved, 'owner'))?.runtimeId).toBe('a')
+  expect(moves.map((move) => move.to)).toEqual(['b', 'a'])
 })

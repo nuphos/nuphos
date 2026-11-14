@@ -89,8 +89,8 @@ export const teamApi = {
   ) => window.api.atlasPutSidebarFavorites(teamId, entries, expectedRevision),
   atlasGetHomeLayout: (teamId: string) => window.api.atlasGetHomeLayout(teamId),
   atlasGetRuntimeFallback: (teamId: string) => window.api.atlasGetRuntimeFallback(teamId),
-  atlasPutRuntimeFallback: (teamId: string, runtimeIds: string[]) =>
-    window.api.atlasPutRuntimeFallback(teamId, runtimeIds),
+  atlasPutRuntimeFallback: (teamId: string, runtimeId: string, fallbackRuntimeId: string | null) =>
+    window.api.atlasPutRuntimeFallback(teamId, runtimeId, fallbackRuntimeId),
   atlasGetTeamActivity: (teamId: string, range: TeamActivityRange) =>
     window.api.atlasGetTeamActivity(teamId, range),
   atlasGetAgentStats: (teamId: string, query: AgentStatsQuery) =>

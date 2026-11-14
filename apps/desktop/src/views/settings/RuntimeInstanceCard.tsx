@@ -19,6 +19,7 @@ import { AgentAddedBy } from './AgentAddedBy'
 import { agentName, localSignIn } from './agentPresentation'
 import { LocalAgentSignInRow } from './LocalAgentSignInRow'
 import { RuntimeActionsMenu } from './RuntimeActionsMenu'
+import { RuntimeFallbackPicker } from './RuntimeFallbackPicker'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 import { RuntimeMetricsCharts } from './RuntimeMetricsCharts'
 import { RuntimeOverview, RuntimeUsageSection } from './RuntimeOverview'
@@ -239,6 +240,9 @@ export function RuntimeInstanceCard({
             )}
             <div className="px-5 py-6">
               <RuntimeUsageSection quota={quota} />
+            </div>
+            <div className="px-5 py-6">
+              <RuntimeFallbackPicker teamId={teamId} instance={instance} canEdit={canEdit} />
             </div>
             <div className="px-5 py-6">
               <RuntimeOverview instance={instance} runtime={runtime} statusError={statusError} />

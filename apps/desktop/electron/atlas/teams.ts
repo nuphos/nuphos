@@ -114,16 +114,21 @@ export async function getAgentStats(teamId: string, query: AgentStatsQuery): Pro
   )
 }
 
-/** The caller's ordered fallback agents; an empty list turns fallback off. */
+/** Each runtime's fallback in the team, by runtime id. */
 export async function getRuntimeFallback(teamId: string): Promise<unknown> {
-  return call('GET', `/teams/${encodeURIComponent(teamId)}/runtime-fallback`)
+  return call('GET', `/teams/${encodeURIComponent(teamId)}/runtime-fallbacks`)
 }
 
-export async function putRuntimeFallback(teamId: string, runtimeIds: string[]): Promise<unknown> {
+/** Null clears the runtime's fallback. */
+export async function putRuntimeFallback(
+  teamId: string,
+  runtimeId: string,
+  fallbackRuntimeId: string | null,
+): Promise<unknown> {
   return call(
     'PUT',
-    `/teams/${encodeURIComponent(teamId)}/runtime-fallback`,
-    { runtimeIds },
+    `/teams/${encodeURIComponent(teamId)}/runtime-fallbacks/${encodeURIComponent(runtimeId)}`,
+    { fallbackRuntimeId },
     { retry: false },
   )
 }
