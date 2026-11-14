@@ -43,15 +43,17 @@ extension NuphosAPI {
         scope: String = "mine",
         channels: Bool = false,
         bots: Bool = false,
-        pendingDecision: Bool = false
+        pendingDecision: Bool = false,
+        archived: Bool = false
     ) async throws -> AgentConversationsPage {
         var query = [
             URLQueryItem(name: "teamId", value: teamId),
             URLQueryItem(name: "limit", value: String(limit)),
             URLQueryItem(name: "scope", value: scope),
-            URLQueryItem(name: "sort", value: "activity"),
-            URLQueryItem(name: "archived", value: "exclude"),
         ]
+        // `sort=archived` lists only archived conversations, newest archived first.
+        query += archived ? [URLQueryItem(name: "sort", value: "archived")]
+            : [URLQueryItem(name: "sort", value: "activity"), URLQueryItem(name: "archived", value: "exclude")]
         if let cursor { query.append(URLQueryItem(name: "cursor", value: cursor)) }
         if let search, !search.isEmpty { query.append(URLQueryItem(name: "search", value: search)) }
         // Chats are their own listing: the server never mixes them with agents.
@@ -119,6 +121,13 @@ extension NuphosAPI {
     /// `GET /teams/:id/favorites` — pinned chats live here.
     static func sidebarFavorites(token: String, teamId: String) async throws -> SidebarFavorites {
         try await get("teams/\(teamId)/favorites", token: token, timeout: 20)
+    }
+
+    /// `PUT /teams/:id/favorites` — replaces the whole list. A 409 means it changed
+    /// since `revision` was read.
+    static func saveSidebarFavorites(token: String, teamId: String, entries: [SidebarFavorites.Entry], revision: Int) async throws {
+        struct Body: Encodable { let expectedRevision: Int; let entries: [SidebarFavorites.Entry] }
+        try await AgentChatAPI.send("PUT", "teams/\(teamId)/favorites", token: token, body: Body(expectedRevision: revision, entries: entries), timeout: 20)
     }
 
     // MARK: - Transport

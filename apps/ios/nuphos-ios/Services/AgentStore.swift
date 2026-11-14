@@ -154,6 +154,22 @@ final class AgentStore {
         bot(of: row)?.displayTitle ?? row.displayTitle
     }
 
+    /// The row's most pressing state: a question, a turn, background work, an unread reply.
+    func indicator(_ row: AgentConversation) -> ConversationIndicator {
+        let team = row.teamId ?? selectedTeam?.id ?? ""
+        let isUnread = unread.contains(team: team, session: row.sessionId)
+        guard row.isNativeRuntime else { return row.isWaiting ? .waiting : row.activeRun != nil ? .turn : isUnread ? .unread : .none }
+        return ConversationIndicator(observations.value(team: team, session: row.sessionId), unread: isUnread, waiting: row.isWaiting)
+    }
+
+    /// A thread its parent may count as done instead of listing, as Desktop's
+    /// `threadFoldsAway`: nothing to read or answer, not running, its run did
+    /// not fail, and not the open chat.
+    private func finished(_ row: AgentConversation, open: String?) -> Bool {
+        let phase = observations.value(team: row.teamId ?? selectedTeam?.id ?? "", session: row.sessionId)?.phase
+        return row.sessionId != open && indicator(row) == .none && phase != "failed" && phase != "resume_failed"
+    }
+
     /// A turn runs in this conversation, on any client.
     func inTurn(_ row: AgentConversation) -> Bool {
         guard row.isNativeRuntime else { return row.activeRun != nil }
@@ -169,8 +185,12 @@ final class AgentStore {
     /// its pages. Open questions count in the Inbox, not here (#2669).
     var pageCounts: [HomePage: Int] {
         let team = selectedTeam?.id ?? ""
+        // A Bot's chat waits on what its Bot or the Bot's threads ask, as its row shows.
+        let waits = { (row: AgentConversation) in
+            (self.bot(of: row).map { [$0] + self.threads(of: $0) } ?? [row]).contains(where: \.isWaiting)
+        }
         let asks = { (row: AgentConversation) in
-            !row.isWaiting && self.unread.contains(team: row.teamId ?? team, session: row.sessionId)
+            !waits(row) && self.unread.contains(team: row.teamId ?? team, session: row.sessionId)
         }
         return [.chats: channels.filter(asks).count, .agent: listedConversations.filter(asks).count]
     }
@@ -186,6 +206,7 @@ final class AgentStore {
             removeFromList(sessionId)
             // A Bot goes with its chat on the server, so the chats list drops it too.
             await loadChannels()
+            await loadArchived()
         } catch {
             rowActionFailed(error, scope: scope) { [weak self] in await self?.archive(sessionId: sessionId, teamId: teamId) }
         }
@@ -239,25 +260,125 @@ final class AgentStore {
         (UserDefaults.standard.dictionary(forKey: AgentStore.foldedThreadsKey) as? [String: [String]] ?? [:])
             .mapValues(Set.init)
 
-    /// The Tasks rows: agent-opened threads under the conversation that opened them.
-    var nestedConversations: [NestedConversation] {
-        ConversationNesting.nest(listedConversations, folded: foldedThreads[selectedTeam?.id ?? ""] ?? [], byFamily: true)
+    /// The Tasks rows: under their projects, agent-opened threads under the
+    /// conversation that opened them, and families that ask for the viewer first.
+    func taskRows(open: String?) -> [NestedConversation] {
+        ConversationNesting.nest(
+            ConversationNesting.withProjects(listedConversations), folded: foldedThreads[selectedTeam?.id ?? ""] ?? [],
+            finished: { self.finished($0, open: open) },
+            attention: { self.indicator($0) == .waiting || self.indicator($0) == .unread }
+        )
+    }
+
+    /// The Bots rows: each chat or Bot that is not pinned, with what a Bot dispatched under it.
+    /// Folded unless opened by hand; done groups keep their own remembered folds.
+    func botRows(open: String?) -> [NestedConversation] {
+        let rows = ConversationNesting.botRows(botsList, threads: conversations, owners: botOwners, pinned: Set(pinnedIds))
+        let done = (foldedThreads[selectedTeam?.id ?? ""] ?? []).filter { $0.hasSuffix(":done") }
+        let folded = Set(rows.map(\.sessionId)).subtracting(openedBotRows).union(done)
+        return ConversationNesting.nest(rows, folded: folded, finished: { self.finished($0, open: open) })
     }
 
     /// Rows opened by hand on Bots. Everything there is folded at rest: it
     /// folds again when Bots is left, the team changes or the app starts.
     private var openedBotRows: Set<String> = []
 
-    /// The Bots rows: each chat or Bot, with what a Bot dispatched under it, folded.
-    var nestedBots: [NestedConversation] {
-        let rows = ConversationNesting.botRows(botsList, threads: conversations, owners: botOwners)
-        return ConversationNesting.nest(rows, folded: Set(rows.map(\.sessionId)).subtracting(openedBotRows))
-    }
-
     func foldBots() { openedBotRows = [] }
 
     func isFolded(_ sessionId: String, onBots: Bool = false) -> Bool {
         onBots ? !openedBotRows.contains(sessionId) : foldedThreads[selectedTeam?.id ?? ""]?.contains(sessionId) == true
+    }
+
+    /// A row's done group starts closed; it is remembered with the folds.
+    func isDoneOpen(_ sessionId: String) -> Bool { isFolded(sessionId + ":done") }
+    func toggleDone(_ sessionId: String) { toggleFolded(sessionId + ":done") }
+
+    // MARK: - Pins
+
+    /// The viewer's favorites in this team, which Desktop pins Bots and chats into.
+    private(set) var favorites: SidebarFavorites?
+
+    /// Pinned chats and Bots, in the order they were pinned or arranged.
+    private var pinnedIds: [String] { favorites?.entries.compactMap(\.sessionId) ?? [] }
+
+    /// The pin shelf above Bots: only Bots and chats pin; an older Task pin stays stored.
+    var pins: [AgentConversation] {
+        let rows = Dictionary(botsList.map { ($0.sessionId, $0) }, uniquingKeysWith: { first, _ in first })
+        return pinnedIds.compactMap { rows[$0] }
+    }
+
+    func isPinned(_ row: AgentConversation) -> Bool { pinnedIds.contains(row.sessionId) }
+
+    func loadFavorites() async {
+        guard let team = selectedTeam?.id, let saved = try? await NuphosAPI.sidebarFavorites(token: token, teamId: team),
+              team == selectedTeam?.id else { return }
+        favorites = saved
+    }
+
+    /// Pins or unpins at once, then writes the whole list over the one on the
+    /// server, reading it again when another client changed it meanwhile.
+    func setPinned(_ pinned: Bool, _ row: AgentConversation) async {
+        guard let team = selectedTeam?.id else { return }
+        let scope = workspaceScope
+        func apply(_ entries: [SidebarFavorites.Entry]) -> [SidebarFavorites.Entry] {
+            let rest = entries.filter { $0.sessionId != row.sessionId }
+            return pinned ? rest + [.init(label: title(of: row), href: "/teams/\(team)/agent/\(row.sessionId)")] : rest
+        }
+        favorites = SidebarFavorites(entries: apply(favorites?.entries ?? []), revision: favorites?.revision ?? 0)
+        var lastError: Error?
+        for _ in 0..<4 {
+            do {
+                let current = try await NuphosAPI.sidebarFavorites(token: token, teamId: team)
+                let entries = apply(current.entries)
+                try await NuphosAPI.saveSidebarFavorites(token: token, teamId: team, entries: entries, revision: current.revision)
+                guard scope == workspaceScope else { return }
+                favorites = SidebarFavorites(entries: entries, revision: current.revision + 1)
+                return
+            } catch { lastError = error }
+        }
+        guard scope == workspaceScope else { return }
+        await loadFavorites()
+        rowActionFailed(lastError ?? NuphosAPI.Failure.invalidResponse, scope: scope) { [weak self] in await self?.setPinned(pinned, row) }
+    }
+
+    // MARK: - Archived
+
+    /// The viewer's archived conversations, newest archived first, a page at a time.
+    private(set) var archived: [AgentConversation] = []
+    private(set) var archivedHasMore = false
+    private(set) var archivedFailed = false
+    private var archivedCursor: String?
+
+    func loadArchived(more: Bool = false) async {
+        guard let team = selectedTeam?.id else { return }
+        do {
+            let page = try await NuphosAPI.conversations(
+                token: token, teamId: team, cursor: more ? archivedCursor : nil, archived: true
+            )
+            guard team == selectedTeam?.id else { return }
+            let seen = more ? Set(archived.map(\.sessionId)) : []
+            archived = (more ? archived : []) + page.conversations.filter { !seen.contains($0.sessionId) }
+            archivedCursor = page.hasMore ? page.nextCursor : nil
+            archivedHasMore = page.hasMore
+            archivedFailed = false
+        } catch {
+            guard team == selectedTeam?.id else { return }
+            archivedFailed = true
+        }
+    }
+
+    /// Unarchiving a Bot or its chat brings back the other one too, on the server.
+    func unarchive(_ row: AgentConversation) async {
+        guard let teamId = row.teamId ?? selectedTeam?.id else { return }
+        let scope = workspaceScope
+        do {
+            try await AgentChatAPI.setArchived(token: token, teamId: teamId, sessionId: row.sessionId, archived: false)
+            guard scope == workspaceScope else { return }
+            archived.removeAll { $0.sessionId == row.sessionId }
+            await reload(afterChange: true)
+        } catch {
+            rowActionFailed(error, scope: scope) { [weak self] in await self?.unarchive(row) }
+        }
     }
 
     func toggleFolded(_ sessionId: String, onBots: Bool = false) {
@@ -486,6 +607,11 @@ final class AgentStore {
         channels = []
         bots = []
         openedBotRows = []
+        favorites = nil
+        archived = []
+        archivedHasMore = false
+        archivedFailed = false
+        archivedCursor = nil
         runtimes = []
         agentDevices = []
         agentDevicesError = false
@@ -668,12 +794,14 @@ final class AgentStore {
         if conversations.isEmpty { phase = .loading }
         async let runtimesLoad: () = loadRuntimes()
         async let channelsLoad: () = loadChannels()
+        async let pinsLoad: () = loadFavorites()
+        async let archivedLoad: () = loadArchived()
 
         do {
             let page = try await NuphosAPI.conversations(
                 token: token, teamId: team.id, limit: Self.pageSize, search: search
             )
-            _ = await (runtimesLoad, channelsLoad)
+            _ = await (runtimesLoad, channelsLoad, pinsLoad, archivedLoad)
             guard generation == loadGeneration else { return }
             conversations = page.rows
             nextCursor = page.nextCursor

@@ -4,7 +4,7 @@ import XCTest
 /// is named after the Bot and carries what the Bot dispatched, which Tasks
 /// leaves out. Uses a copy of the offline chats fixture with its own rows.
 final class BotsAndTasksListUITests: XCTestCase {
-    private static let team = "64b5f1c2e4b0a1d2c3e4f5a6"
+    static let team = "64b5f1c2e4b0a1d2c3e4f5a6"
     private var live: URL!
     private var app: XCUIApplication!
 
@@ -29,9 +29,9 @@ final class BotsAndTasksListUITests: XCTestCase {
             Self.row("agent-notes", "Write the changelog", at: "09:40"),
             // What the Bots dispatched, at any depth: listed under Bots, never in Tasks.
             Self.row("agent-ci", "Check the CI flake", at: "09:45", parent: "bot-lead", question: "Retry the flaky iOS job?"),
-            Self.row("agent-rerun", "Rerun the iOS job", at: "09:46", parent: "agent-ci"),
+            Self.row("agent-rerun", "Rerun the iOS job", at: "09:46", parent: "agent-ci", working: true),
             Self.row("agent-links", "Fix broken links", at: "09:44", parent: "bot-docs", working: true),
-            Self.row("agent-logs", "Collect crash logs", at: "09:21", parent: "bot-helper"),
+            Self.row("agent-logs", "Collect crash logs", at: "09:21", parent: "bot-helper", unread: true),
         ]
         let chats = [
             // Named before the Bot was renamed: the row shows the Bot's name.
@@ -107,9 +107,9 @@ final class BotsAndTasksListUITests: XCTestCase {
         app.launch()
     }
 
-    private static func row(
+    static func row(
         _ id: String, _ title: String, at time: String, parent: String? = nil, avatar: String? = nil,
-        question: String? = nil, working: Bool = false
+        question: String? = nil, working: Bool = false, workspace: String? = nil, unread: Bool = false
     ) -> [String: Any] {
         var row: [String: Any] = [
             "sessionId": id, "teamId": team, "title": title, "firstMessage": title, "messageCount": 4,
@@ -122,6 +122,8 @@ final class BotsAndTasksListUITests: XCTestCase {
             "activitySeq": 2, "readSeq": 2,
         ]
         if let parent { row["parentSessionId"] = parent }
+        if let workspace { row["workspace"] = ["kind": "folder", "path": workspace, "runtimeId": "11111111-1111-4111-8111-111111111111"] }
+        if unread { row["readSeq"] = 1 }
         if let avatar { row["avatar"] = avatar }
         if let question {
             row["inputRequests"] = [["id": "q-\(id)", "question": question, "options": ["Yes", "No"], "askedAt": "2026-11-03T\(time):00Z"]]
@@ -129,11 +131,11 @@ final class BotsAndTasksListUITests: XCTestCase {
         return row
     }
 
-    private static func face(_ id: String, _ name: String, _ avatar: String) -> [String: Any] {
+    static func face(_ id: String, _ name: String, _ avatar: String) -> [String: Any] {
         ["id": id, "name": name, "agent": ["avatar": avatar, "provider": "claude-code"]]
     }
 
-    private static func chat(_ id: String, _ title: String, at time: String, faces: [[String: Any]], group: Bool = false, agents: [String]? = nil) -> [String: Any] {
+    static func chat(_ id: String, _ title: String, at time: String, faces: [[String: Any]], group: Bool = false, agents: [String]? = nil) -> [String: Any] {
         var chat: [String: Any] = [
             "sessionId": id, "teamId": team, "kind": "channel", "title": title, "firstMessage": "", "messageCount": 3,
             "createdAt": "2026-11-02T08:00:00Z", "lastActiveAt": "2026-11-03T\(time):00Z",
@@ -145,7 +147,7 @@ final class BotsAndTasksListUITests: XCTestCase {
         return chat
     }
 
-    private static func page(_ rows: [[String: Any]]) -> [String: Any] {
+    static func page(_ rows: [[String: Any]]) -> [String: Any] {
         ["status": 200, "body": ["conversations": rows, "parents": [], "nextCursor": NSNull(), "hasMore": false]]
     }
 
