@@ -5217,6 +5217,7 @@
   "Your running computers use {used} of {limit} vCPU. They keep running; starting or resuming a computer that doesn't fit is refused until you pause a computer.": "実行中のコンピュータは {limit} vCPU のうち {used} vCPU を使用しています。実行中のものはそのまま動作しますが、コンピュータを一時停止するまで、収まらないコンピュータの起動・再開はできません。",
   "Your sign-in email cannot be changed here.": "サインイン用のメールアドレスはここでは変更できません。",
   "Your team has no vCPU limit for computers.": "チームのコンピュータには vCPU の上限がありません。",
+  "Your team will see this name in the sidebar.": "チームのメンバーにはサイドバーにこの名前が表示されます。",
   "Your team's computer plan, billed monthly.": "チームのコンピュータプランです。毎月請求されます。",
   "Your vote is already included in this plan.": "あなたの投票はすでにこのプランに含まれています。",
   "Your workspace": "あなたのワークスペース",

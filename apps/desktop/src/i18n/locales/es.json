@@ -5217,6 +5217,7 @@
   "Your running computers use {used} of {limit} vCPU. They keep running; starting or resuming a computer that doesn't fit is refused until you pause a computer.": "Tus computadoras en ejecución usan {used} de {limit} vCPU. Siguen funcionando, pero no se podrá iniciar ni reanudar una computadora que no quepa hasta que pauses otra.",
   "Your sign-in email cannot be changed here.": "Tu correo de inicio de sesión no se puede cambiar aquí.",
   "Your team has no vCPU limit for computers.": "Tu equipo no tiene límite de vCPU para las computadoras.",
+  "Your team will see this name in the sidebar.": "Tu equipo verá este nombre en la barra lateral.",
   "Your team's computer plan, billed monthly.": "El plan de computadoras de tu equipo, con facturación mensual.",
   "Your vote is already included in this plan.": "Tu voto ya está incluido en este plan.",
   "Your workspace": "Tu espacio de trabajo",
