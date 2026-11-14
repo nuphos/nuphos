@@ -69,6 +69,17 @@ describe('eventText', () => {
     data: { data, bot: { id: 'bot-1' } },
   })
 
+  test('says why speech is not heard when transcription fails', () => {
+    expect(
+      eventText(
+        event('transcript.failed', { sub_code: 'provider_connection_failed' }),
+        'Secretary',
+      ),
+    ).toBe(
+      "Speech recognition failed in this meeting (provider_connection_failed), so speech can't be heard. The chat still works.",
+    )
+  })
+
   test('turns speech and chat into post text', () => {
     expect(eventText(event('transcript.data', { words: [{ text: 'hello' }] }), 'Secretary')).toBe(
       'hello',
