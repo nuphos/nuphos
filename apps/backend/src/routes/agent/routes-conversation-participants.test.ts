@@ -158,6 +158,21 @@ describe('conversation participants API', () => {
     expect((await invite([TEAMMATE, OWNER])).status).toBe(200)
     expect(participantIds()).toEqual([TEAMMATE])
     expect(conversation?.timelineEvents).toBeUndefined()
+    expect(conversation?.mentions).toBeUndefined()
+  })
+
+  test('the invitee alone gets an Inbox entry, once, until they are removed', async () => {
+    await invite([INVITEE])
+    const entry = conversation?.mentions?.[INVITEE]
+
+    expect(entry?.messageId).toStartWith('invite:')
+    expect(entry?.by).toEqual({ id: OWNER, name: `${OWNER} name` })
+    expect(Object.keys(conversation?.mentions ?? {})).toEqual([INVITEE])
+    // A second invite of someone already here changes nothing.
+    await invite([INVITEE])
+    expect(conversation?.mentions?.[INVITEE]).toEqual(entry)
+    await remove(INVITEE)
+    expect(conversation?.mentions?.[INVITEE]).toBeUndefined()
   })
 
   test('only the owner invites, and only current team members can be invited', async () => {

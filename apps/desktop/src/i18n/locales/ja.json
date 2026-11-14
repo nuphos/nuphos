@@ -5630,6 +5630,7 @@
   "{name} did not change": "{name} は変更されませんでした",
   "{name} disconnected": "{name} の接続を解除しました",
   "{name} installed": "{name} をインストールしました",
+  "{name} invited you to {title}": "{name} が {title} にあなたを招待しました",
   "{name} is connected. Your local runtime is ready.": "{name} を接続しました。ローカルランタイムの準備ができました。",
   "{name} is no longer available.": "{name} は利用できなくなりました。",
   "{name} is not installed on this computer.": "{name} はこのコンピュータにインストールされていません。",

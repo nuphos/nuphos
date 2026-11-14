@@ -5630,6 +5630,7 @@
   "{name} did not change": "{name} tidak berubah",
   "{name} disconnected": "{name} diputuskan",
   "{name} installed": "{name} terinstal",
+  "{name} invited you to {title}": "{name} mengundang Anda ke {title}",
   "{name} is connected. Your local runtime is ready.": "{name} terhubung. Runtime lokal Anda siap.",
   "{name} is no longer available.": "{name} tidak lagi tersedia.",
   "{name} is not installed on this computer.": "{name} belum terinstal di komputer ini.",

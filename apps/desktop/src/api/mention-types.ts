@@ -1,11 +1,17 @@
-/** A message that @mentions the viewer in a channel or shared agent they have not posted in since. */
+/**
+ * A message that @mentions the viewer, or an invite that brought them in, in a
+ * channel or shared agent they have not posted in since.
+ */
 export type ChannelMention = {
   /** The conversation: a channel, or an agent shared with the viewer. */
   channelId: string
   kind?: 'channel' | 'agent'
   title: string
+  /** An invite's is `invite:…`, with no message behind it. */
   messageId: string
   at: string
+  /** Someone added the viewer here: announced, never listed. `sender` did it; `text` is empty. */
+  invited?: boolean
   sender: { type: 'user' | 'agent' | 'system'; id: string; name: string } | null
   text: string
 }

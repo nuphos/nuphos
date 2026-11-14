@@ -8,7 +8,7 @@ import { freshMentions } from './mentionNotice'
 import type { ChannelMention } from '../../api'
 
 /**
- * Tells the viewer, through a system notification, about each new @mention: the
+ * Tells the viewer, through a system notification, about each new @mention or invite: the
  * Inbox badge alone goes unseen while the window is in the background.
  */
 export function useMentionNotifications(
@@ -27,7 +27,9 @@ export function useMentionNotifications(
       void api
         .agentNotifyMention({
           messageId: mention.messageId,
-          title: t('{name} mentioned you in {title}', { name, title: mention.title }),
+          title: mention.invited
+            ? t('{name} invited you to {title}', { name, title: mention.title })
+            : t('{name} mentioned you in {title}', { name, title: mention.title }),
           body: mention.text,
           sessionId: mention.channelId,
           teamId,

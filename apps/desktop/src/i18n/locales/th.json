@@ -5630,6 +5630,7 @@
   "{name} did not change": "{name} ไม่มีการเปลี่ยนแปลง",
   "{name} disconnected": "ยกเลิกการเชื่อมต่อ {name} แล้ว",
   "{name} installed": "ติดตั้ง {name} แล้ว",
+  "{name} invited you to {title}": "{name} เชิญคุณเข้าร่วม {title}",
   "{name} is connected. Your local runtime is ready.": "เชื่อมต่อ {name} แล้ว รันไทม์ในเครื่องของคุณพร้อมใช้งาน",
   "{name} is no longer available.": "{name} ใช้งานไม่ได้อีกต่อไป",
   "{name} is not installed on this computer.": "ยังไม่ได้ติดตั้ง {name} บนคอมพิวเตอร์เครื่องนี้",

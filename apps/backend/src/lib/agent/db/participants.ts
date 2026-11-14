@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto'
+
 import { agentConversations } from './shared'
 
 import type { GeneralAccess } from './access'
@@ -35,17 +37,21 @@ export function pushTimelineEvent(event: ConversationTimelineEvent) {
 }
 
 /**
- * Bring teammates in on someone's behalf and record who did it. Each id is a
+ * Bring teammates in on someone's behalf, record who did it, and give each an
+ * entry kept like an @mention's, which their desktop announces. Each id is a
  * separate conditional write, so only a person who was actually absent gets an
- * "invited" event — re-inviting a participant, the owner, or racing another
- * invite of the same person adds nothing twice.
+ * "invited" event and an entry — re-inviting a participant, the owner, or
+ * racing another invite of the same person adds nothing twice.
  */
 export async function inviteConversationParticipants(
   sessionId: string,
-  actorId: string,
+  actor: { id: string; name: string },
   userIds: readonly string[],
 ): Promise<AgentConversation | null> {
   for (const id of new Set(userIds)) {
+    const at = new Date()
+    const entry = { messageId: `invite:${randomUUID()}`, at, by: actor }
+
     await agentConversations().updateOne(
       { sessionId, userId: { $ne: id }, participantIds: { $ne: id } },
       {
@@ -53,11 +59,12 @@ export async function inviteConversationParticipants(
           participantIds: id,
           ...pushTimelineEvent({
             kind: 'participant_invited',
-            at: new Date(),
-            actorId,
+            at,
+            actorId: actor.id,
             targetId: id,
           }),
         },
+        $set: { [`mentions.${id}`]: entry },
       },
     )
   }
@@ -86,6 +93,8 @@ export async function removeConversationParticipant(
     { sessionId, participantIds: userId },
     {
       $pull: { participantIds: userId },
+      // Their mention or invite entry here goes with them.
+      $unset: { [`mentions.${userId}`]: '' },
       $push: pushTimelineEvent({
         kind: 'participant_removed',
         at: new Date(),

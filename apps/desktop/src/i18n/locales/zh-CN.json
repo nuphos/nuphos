@@ -5630,6 +5630,7 @@
   "{name} did not change": "{name} 未更改",
   "{name} disconnected": "{name} 已断开连接",
   "{name} installed": "{name} 已安装",
+  "{name} invited you to {title}": "{name} 邀请你加入 {title}",
   "{name} is connected. Your local runtime is ready.": "{name} 已连接，本地运行环境已就绪。",
   "{name} is no longer available.": "{name} 已不可用。",
   "{name} is not installed on this computer.": "此电脑上未安装 {name}。",

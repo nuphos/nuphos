@@ -45,7 +45,8 @@ export function InboxView({
   const all = useInboxQuestions(teamId, refreshKey)
   const selected = useInboxSelection(teamId)
   const shareApprovals = useShareApprovals(teamId)
-  const mentions = useChannelMentions(teamId) ?? []
+  // An invite is only announced, never listed.
+  const mentions = useChannelMentions(teamId)?.filter((mention) => !mention.invited) ?? []
   const needle = query.trim().toLowerCase()
   const rows = all?.filter(
     ({ conversation, request }) =>
