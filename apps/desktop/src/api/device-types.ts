@@ -183,7 +183,7 @@ export type LocalShareApproval = {
   requestedAt: string
 }
 
-/** Who may use a Box besides the team's admins, who always may. */
+/** Who may use a Box besides its owner and managers, who always may. */
 export type BoxAccess = { everyone: boolean; userIds: string[] }
 
 export type BoxStatus = {
