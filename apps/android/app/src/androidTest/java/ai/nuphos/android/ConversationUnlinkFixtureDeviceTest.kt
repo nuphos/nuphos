@@ -259,7 +259,7 @@ class ConversationUnlinkFixtureDeviceTest {
         render()
         compose.onNodeWithTag("conversation-row:child").performTouchInput { longClick() }
         compose.onNodeWithText("Rename").performClick()
-        waitText("Title")
+        waitText("Rename task")
         compose.onNode(hasSetTextAction() and hasText("Title")).performTextReplacement("Changed title")
         compose.onNodeWithText("Cancel").performClick()
         assertTrue(requests.none { it.method == "PATCH" })

@@ -140,7 +140,7 @@ internal fun ConversationRowActions(
             .focusRequester(moreFocus)
             .combinedClickable(
                 onClick = { if (interactions.revealedId != null) interactions.dismiss() else onClick() },
-                onLongClickLabel = "Show actions",
+                onLongClickLabel = "Show task actions",
                 onLongClick = { interactions.menu(id) },
             )
             .semantics {

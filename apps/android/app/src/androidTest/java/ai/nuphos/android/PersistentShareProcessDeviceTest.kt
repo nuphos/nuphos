@@ -466,7 +466,7 @@ class PersistentShareProcessDeviceTest {
             "denyConversation" -> {
                 detailStatus = 403
                 open(existing = true)
-                awaitText("Could not open")
+                awaitText("Could not open task")
                 assertFiles(newKey())
                 assertEquals(mergedText, app.incomingShares.text(newKey()))
             }

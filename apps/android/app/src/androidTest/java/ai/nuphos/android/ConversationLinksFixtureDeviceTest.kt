@@ -362,7 +362,7 @@ class ConversationLinksFixtureDeviceTest {
     @Test fun nonMemberLinkNeverReadsConversation() {
         identity()
         launch(link("507f1f77bcf86cd799439099"))
-        awaitText("This is unavailable or your account does not have access.")
+        awaitText("This task is unavailable or your account does not have access.")
         assertFalse(requests.any { it.url.encodedPath == "/agent/conversations/fixture-chat" })
         assertNull(app.conversationLinks.value.value)
     }
@@ -371,12 +371,12 @@ class ConversationLinksFixtureDeviceTest {
         identity()
         detailStatus = 403
         launch(link())
-        awaitText("This is unavailable or your account does not have access.")
+        awaitText("This task is unavailable or your account does not have access.")
         assertTrue(compose.onAllNodesWithText("Fixture content: fixture-chat").fetchSemanticsNodes().isEmpty())
         detailStatus = 404
         warm(link(id = "deleted-fixture-chat"))
         compose.waitUntil(10_000) { requests.any { it.url.encodedPath.endsWith("/deleted-fixture-chat") } && app.conversationLinks.value.value == null }
-        awaitText("This is unavailable or your account does not have access.")
+        awaitText("This task is unavailable or your account does not have access.")
         assertTrue(compose.onAllNodesWithText("Fixture content: deleted-fixture-chat").fetchSemanticsNodes().isEmpty())
     }
 
@@ -418,7 +418,7 @@ class ConversationLinksFixtureDeviceTest {
         detailStatus = 403
         warm(link(id = "denied-fixture-chat"))
         compose.waitUntil(10_000) { requests.any { it.url.encodedPath.endsWith("/denied-fixture-chat") } && app.conversationLinks.value.value == null }
-        awaitText("This is unavailable or your account does not have access.")
+        awaitText("This task is unavailable or your account does not have access.")
         assertTrue(compose.onAllNodesWithText("Fixture content: denied-fixture-chat").fetchSemanticsNodes().isEmpty())
     }
 

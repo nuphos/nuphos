@@ -144,7 +144,7 @@ class ConversationNestingFixtureDeviceTest {
         compose.onNodeWithText("Synthetic child").assertExists()
         compose.onNodeWithContentDescription("Hide 2 sub-agents").performClick()
         compose.onNodeWithText("Synthetic child").assertDoesNotExist()
-        compose.onNodeWithText("My Bots and tasks").assertDoesNotExist()
+        compose.onNodeWithText("My tasks").assertDoesNotExist()
         compose.onNodeWithText("Shared").assertDoesNotExist()
         compose.onNode(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "Unread reply")).assertExists()
         shot("collapsed")
@@ -165,7 +165,7 @@ class ConversationNestingFixtureDeviceTest {
             AgentStore::class.java.getDeclaredField("nextCursor").also { it.isAccessible = true }.set(store, "next")
         }
         shot("load-more")
-        compose.onNodeWithText("Load more").performClick()
+        compose.onNodeWithText("Load more tasks").performClick()
         compose.waitUntil(5_000) { requests.any { it.url.queryParameter("cursor") == "next" } && !store.hasMore }
         assertTrue(requests.none { it.method != "GET" })
     }

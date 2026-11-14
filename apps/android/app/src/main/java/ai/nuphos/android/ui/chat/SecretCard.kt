@@ -56,11 +56,11 @@ internal fun SecretCard(part: ChatPart.Tool, reply: String?, session: ChatSessio
 
     // The value reached the runtime: sent from here, or the reply says so (Desktop and iOS send the same text).
     val saved = sent || reply?.startsWith(ChatPart.Tool.SecretRequest.savedReply(request.name)) == true
-    if (saved) return SecretLine(Icons.Outlined.Lock, "${request.name} saved on the runtime.")
+    if (saved) return SecretLine(Icons.Outlined.Lock, "${request.name} saved on the task's runtime.")
     if (reply != null) return SecretLine(Icons.Outlined.LockOpen, "${request.name} request closed. Ask the agent to request it again.")
 
     val blocked = when {
-        !session.isOwner -> "Only the owner can provide this secret."
+        !session.isOwner -> "Only the owner of this task can provide this secret."
         session.isStreaming -> "The agent is working. You can send this when its turn ends."
         else -> null
     }
@@ -116,7 +116,7 @@ internal fun SecretCard(part: ChatPart.Tool, reply: String?, session: ChatSessio
                 Text(if (saving) "Saving…" else "Send securely")
             }
             failure?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error) }
-            Text(blocked ?: "The value is written to a file on the runtime and never appears here.",
+            Text(blocked ?: "The value is written to a file on the task's runtime and never appears in this task.",
                 style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }

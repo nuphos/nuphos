@@ -40,7 +40,7 @@ fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> 
     // Keep the popup's anchor local to the toolbar button rather than the
     // containing app bar. Logical end positioning also works in RTL.
     Box {
-    IconButton(onClick = { open = true }) { Icon(Icons.Outlined.MoreVert, "Actions") }
+    IconButton(onClick = { open = true }) { Icon(Icons.Outlined.MoreVert, "Task actions") }
     DropdownMenu(expanded = open, onDismissRequest = { open = false },
         modifier = Modifier.widthIn(min = 220.dp, max = 320.dp),
         offset = DpOffset(0.dp, 4.dp), shape = RoundedCornerShape(24.dp)) {
@@ -68,7 +68,7 @@ fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> 
         val sharing = remember(session) { session.sharingState() }
         ShareSessionSheet(sharing, ConversationActions.shareUrl(session.teamId, session.sessionId)) { share = false }
     }
-    if (rename) AlertDialog(onDismissRequest = { if (!busy) rename = false }, title = { Text("Rename") },
+    if (rename) AlertDialog(onDismissRequest = { if (!busy) rename = false }, title = { Text("Rename task") },
         text = { TextField(value = title, onValueChange = { title = it }, label = { Text("Title") }, enabled = !busy, singleLine = true) },
         confirmButton = { TextButton(enabled = !busy && ConversationActions.validTitle(title) != null, onClick = { perform { store.rename(session, title); rename = false } }) { Text("Save") } },
         dismissButton = { TextButton(enabled = !busy, onClick = { rename = false }) { Text("Cancel") } })

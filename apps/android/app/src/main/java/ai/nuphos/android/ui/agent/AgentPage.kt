@@ -147,7 +147,7 @@ fun AgentPage(
         var title by remember(target.sessionId) { mutableStateOf(target.displayTitle) }
         val busy = store.rowActionSessionId != null
         AlertDialog(onDismissRequest = { if (!busy) { renameTarget = null; store.clearRowActionError() } },
-            title = { Text("Rename") },
+            title = { Text("Rename task") },
             text = { Column {
                 OutlinedTextField(value = title, onValueChange = { title = it }, singleLine = true,
                     enabled = !busy, label = { Text("Title") }, isError = ai.nuphos.android.data.ConversationActions.validTitle(title) == null)
@@ -209,7 +209,7 @@ fun AgentPage(
         }
         if (store.phase == AgentStore.Phase.Loaded && store.phaseError != null) {
             Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Could not refresh the list. Showing last loaded history.", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                Text("Could not refresh tasks. Showing last loaded history.", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
                 Button(onClick = { scope.launch { store.reload() } }) { Text("Retry history") }
             }
         }
@@ -223,14 +223,14 @@ fun AgentPage(
                     RefreshableHistoryState {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
-                            Text("Loading Bots and tasks…", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Loading tasks…", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
                 store.phase == AgentStore.Phase.Failed -> {
                     RefreshableHistoryState { EmptyState(
                         icon = Icons.Outlined.WifiOff,
-                        title = "Couldn't load Bots and tasks",
+                        title = "Couldn't load tasks",
                         body = store.phaseError.orEmpty(),
                         action = "Try again",
                         onAction = { scope.launch { store.reload() } },
@@ -286,7 +286,7 @@ fun AgentPage(
                         if (store.hasMore) {
                             item(key = "history:more") {
                                 TextButton(onClick = { scope.launch { store.loadMore() } }, modifier = Modifier.fillMaxWidth()) {
-                                    Text("Load more")
+                                    Text("Load more tasks")
                                 }
                             }
                         }
@@ -407,7 +407,7 @@ internal fun UnlinkConfirmation(target: AgentConversation, busy: Boolean, error:
         onDismissRequest = { if (!busy) onDismiss() },
         title = { Text("Unlink task?") },
         text = { Column {
-            Text("“${target.displayTitle}” will appear on its own in the list. Its messages and sharing permissions will stay the same.")
+            Text("“${target.displayTitle}” will appear on its own in the task list. Its messages and sharing permissions will stay the same.")
             if (error != null) Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 12.dp))
         } },
         confirmButton = { TextButton(onClick = onConfirm, enabled = !busy) { Text(if (busy) "Unlinking…" else "Unlink") } },

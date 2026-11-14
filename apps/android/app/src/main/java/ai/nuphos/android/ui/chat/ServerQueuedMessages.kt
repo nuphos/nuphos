@@ -24,7 +24,7 @@ internal fun ServerQueuedMessages(queue: ServerQueueStore, writable: Boolean, ca
                 TextButton(onClick = { scope.launch { queue.refresh() } }, enabled = queue.busy.isEmpty()) { Text("Refresh queue") }
             }
             queue.recoveredText?.let { text ->
-                Text("Taken back. Restore this text before you leave.", style = MaterialTheme.typography.bodySmall)
+                Text("Taken back. Restore this text before leaving the task.", style = MaterialTheme.typography.bodySmall)
                 androidx.compose.foundation.text.selection.SelectionContainer { Text(text.text) }
                 if (text.files.isNotEmpty()) Text(text.files.joinToString(", ") { it.filename ?: "Queued attachment" })
                 TextButton(onClick = { queue.restoreRecovered(onRecall) }) { Text("Restore draft") }

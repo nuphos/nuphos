@@ -211,7 +211,7 @@ object AgentChatApi {
 
     sealed class Conflict : Exception() {
         data class TranscriptOutOfSync(val storedMessageCount: Int?) : Conflict() {
-            override val message = "This changed elsewhere; resyncing."
+            override val message = "The task changed elsewhere; resyncing."
         }
         data object StreamNotResumable : Conflict() {
             private fun readResolve(): Any = StreamNotResumable
@@ -219,11 +219,11 @@ object AgentChatApi {
         }
         data object StreamConflict : Conflict() {
             private fun readResolve(): Any = StreamConflict
-            override val message = "That stream belongs to another agent."
+            override val message = "That stream belongs to another task."
         }
         data object ConversationBusy : Conflict() {
             private fun readResolve(): Any = ConversationBusy
-            override val message = "Busy with another reply."
+            override val message = "This task is busy with another reply."
         }
         data class Other(val code: String?, val serverMessage: String, val status: Int) : Conflict() {
             override val message = serverMessage
@@ -237,7 +237,7 @@ object AgentChatApi {
     /** Said on a phone, where the desktop's Runtimes page is not; the same words as iOS. */
     private val RUNTIME_BLOCKED = mapOf(
         "runtime_login_required" to "This runtime is signed out. Sign it in from Nuphos on the computer it runs on, or switch to another runtime.",
-        "runtime_disabled" to "This runtime is disabled. Switch to another runtime to continue.",
+        "runtime_disabled" to "This task's runtime is disabled. Switch to another runtime to continue.",
         "runtime_not_found" to "This runtime is no longer available in this workspace. Switch to another runtime to continue.",
         "runtime_offline" to "The computer running this runtime is offline. Open Nuphos on it, or switch to another runtime.",
     )

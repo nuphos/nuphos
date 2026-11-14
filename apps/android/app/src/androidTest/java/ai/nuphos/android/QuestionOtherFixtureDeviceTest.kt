@@ -104,7 +104,7 @@ class QuestionOtherFixtureDeviceTest {
         compose.onNodeWithText("Use your own GitHub").assertIsDisplayed()
         // Answered here, in the asking conversation's credential picker, not in the conversation.
         compose.onAllNodesWithTag("bot-question-connect").assertCountEquals(2)
-        compose.onNodeWithText("Open to answer").assertDoesNotExist()
+        compose.onNodeWithText("Answer in the task").assertDoesNotExist()
         capture("inbox-integration")
         compose.onNodeWithText("Choose credentials").performClick()
         assertEquals(github, connecting)

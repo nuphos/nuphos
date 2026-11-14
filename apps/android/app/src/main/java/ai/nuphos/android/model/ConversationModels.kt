@@ -75,7 +75,7 @@ data class AgentConversation(
     val id: String get() = sessionId
 
     val displayTitle: String
-        get() = title.ifEmpty { firstMessage.ifEmpty { "Untitled" } }
+        get() = title.ifEmpty { firstMessage.ifEmpty { "Untitled task" } }
 
     val isArchived: Boolean get() = archivedAt != null
 

@@ -209,8 +209,8 @@ class AgentsLoadingFixtureDeviceTest {
     @Test fun coldHistoryHasLoadingButNoFakeRowsOrEmptyMessage() {
         holdNextList = true; render()
         compose.waitUntil(5_000) { listHeld.count == 0L }
-        waitText("Loading Bots and tasks…")
-        compose.onNodeWithText("Loading Bots and tasks…").assertIsDisplayed()
+        waitText("Loading tasks…")
+        compose.onNodeWithText("Loading tasks…").assertIsDisplayed()
         compose.onNodeWithText("No tasks yet").assertDoesNotExist()
         compose.onNodeWithText("History fixture").assertDoesNotExist()
         listRelease.countDown(); waitText("History fixture")
@@ -221,15 +221,15 @@ class AgentsLoadingFixtureDeviceTest {
         compose.runOnIdle { store.refresh() }
         compose.waitUntil(5_000) { listHeld.count == 0L }
         compose.onNodeWithText("History fixture").assertIsDisplayed()
-        compose.onNodeWithText("Loading Bots and tasks…").assertDoesNotExist()
+        compose.onNodeWithText("Loading tasks…").assertDoesNotExist()
         listRelease.countDown()
-        waitText("Could not refresh the list. Showing last loaded history.")
+        waitText("Could not refresh tasks. Showing last loaded history.")
         compose.onNodeWithText("History fixture").assertIsDisplayed()
         failList = false; compose.onNodeWithText("Retry history").performClick()
         compose.waitUntil(5_000) { store.phaseError == null }
     }
     @Test fun initialFailureRemainsVisibleAndRetryRecovers() {
-        failList = true; render(); waitText("Couldn't load Bots and tasks")
+        failList = true; render(); waitText("Couldn't load tasks")
         compose.onNodeWithText("No tasks yet").assertDoesNotExist()
         failList = false; compose.onNodeWithText("Try again").performClick()
         waitText("History fixture")
@@ -251,7 +251,7 @@ class AgentsLoadingFixtureDeviceTest {
         compose.waitUntil(5_000) { listHeld.count == 0L }
         failList = true
         compose.runOnIdle { store.updateSearch("different"); assertTrue(store.conversations.isEmpty()) }
-        waitText("Couldn't load Bots and tasks")
+        waitText("Couldn't load tasks")
         listRelease.countDown()
         compose.onNodeWithText("History fixture").assertDoesNotExist()
         compose.onNodeWithText("No matches").assertDoesNotExist()

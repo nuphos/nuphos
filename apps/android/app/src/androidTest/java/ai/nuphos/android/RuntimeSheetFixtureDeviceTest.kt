@@ -150,7 +150,7 @@ class RuntimeSheetFixtureDeviceTest {
     }
     /** The runtime picker is opened from the agent menu. */
     private fun openMenuItem() {
-        compose.onNodeWithContentDescription("Actions").performClick()
+        compose.onNodeWithContentDescription("Task actions").performClick()
         compose.onNodeWithText("Switch runtime").performClick()
     }
     private fun open() {
@@ -204,7 +204,7 @@ class RuntimeSheetFixtureDeviceTest {
     }
     @Test fun everyOpeningFrameAndLateCatalogHaveOneSettledAnchor() {
         render(snapshot(phase="completed",send=true), native=false, owner=true)
-        compose.onNodeWithContentDescription("Actions").performClick()
+        compose.onNodeWithContentDescription("Task actions").performClick()
         compose.waitForIdle()
         compose.mainClock.autoAdvance=false
         compose.onNodeWithText("Switch runtime").performClick()
@@ -240,7 +240,7 @@ class RuntimeSheetFixtureDeviceTest {
     @Test fun readOnlyDoesNotExposeMoves() {
         render(snapshot(phase="completed",send=true), native=false, owner=false, readOnly=true)
         // Without manage rights the menu doesn't offer the move, so the sheet can't open.
-        compose.onNodeWithContentDescription("Actions").performClick()
+        compose.onNodeWithContentDescription("Task actions").performClick()
         compose.onNodeWithText("Switch runtime").assertDoesNotExist()
         gate.countDown()
         Assert.assertTrue(requests.none { it.method != "GET" })

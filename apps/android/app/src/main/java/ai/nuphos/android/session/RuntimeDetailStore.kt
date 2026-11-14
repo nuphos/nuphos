@@ -83,6 +83,6 @@ class RuntimeDetailStore(
         selection.saveCatalog(if (deleting) selection.catalog.map { if (it.id == runtimeId) it.copy(deleting = true) else it }
             else selection.catalog.filterNot { it.id == runtimeId })
         removed = !deleting; selection.managementReview.remove(runtimeId); reconciled = true
-        message = if (deleting) "Removal requested. The runtime is being deleted; the history of your Bots and tasks stays in Nuphos." else "Runtime disconnected. The history of your Bots and tasks stays in Nuphos."
+        message = if (deleting) "Removal requested. The runtime is being deleted; task history stays in Nuphos." else "Runtime disconnected. Task history stays in Nuphos."
     }
 }

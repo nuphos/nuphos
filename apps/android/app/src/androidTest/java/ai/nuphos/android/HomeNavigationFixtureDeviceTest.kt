@@ -280,7 +280,7 @@ class HomeNavigationFixtureDeviceTest {
         render(); waitText("Synthetic active conversation")
         compose.onNodeWithTag("home-search").assertIsDisplayed()
         compose.onNodeWithTag("home-filter").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Filter Bots and tasks").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Filter tasks").assertDoesNotExist()
         shot("agents-toolbar")
         assertFixedListSelectors(); noWrites()
     }

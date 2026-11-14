@@ -946,7 +946,7 @@ class AgentStore(
                 isReloading = false
                 if (phase == Phase.Loading) {
                     phase = if (hasLoadedHistory) Phase.Loaded else Phase.Failed
-                    if (!hasLoadedHistory) phaseError = "The list refresh was interrupted. Try again."
+                    if (!hasLoadedHistory) phaseError = "Task list refresh was interrupted. Try again."
                 }
             }
         }
