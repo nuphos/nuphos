@@ -60,6 +60,8 @@ data class AgentConversation(
     val runtimeLabel: String? = null,
     /** `channel` for a chat where people and agents talk; null for an agent. */
     val kind: String? = null,
+    /** Started as a group chat: never a Bot's 1:1 chat, even with one Bot in it. */
+    val group: Boolean? = null,
     /** A chat's icon: up to two members other than the viewer, whoever spoke last first. */
     val faces: List<ChatFace>? = null,
     /** A Bot's face, e.g. `05-rembrandt`; null for a Task. */
@@ -83,7 +85,7 @@ data class AgentConversation(
     val isBot: Boolean get() = avatar != null && !isChannel
 
     /** The Bot this chat is the 1:1 of: its one other member is an agent with a face. */
-    val botId: String? get() = faces?.takeIf { isChannel }?.botFace?.id
+    val botId: String? get() = faces?.takeIf { isChannel && group != true }?.botFace?.id
 
     /** The Bot of this 1:1 chat is in a turn that answers it: the chat's dots, which its row shows in place of [previewLine]. */
     fun botTyping(typingIn: (botId: String, chatId: String) -> Boolean): Boolean = botId?.let { typingIn(it, sessionId) } == true

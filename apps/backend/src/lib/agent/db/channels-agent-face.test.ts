@@ -100,3 +100,22 @@ test('a Bot made a Task leaves its group chats and its 1:1 chat is archived with
   expect(group?.agentSessionIds).toEqual(['agent-2'])
   expect(group?.leadAgentSessionId).toBeUndefined()
 })
+
+test('a group chat with only that Bot in it is left, not archived as its 1:1 chat', async () => {
+  bot()
+  memory.rows('agent_conversations').push({
+    sessionId: 'new-group',
+    userId: 'owner',
+    teamId: 'team',
+    kind: 'channel',
+    group: true,
+    agentSessionIds: ['agent-1'],
+  })
+
+  await leaveChats('agent-1')
+
+  const group = await agentConversations().findOne({ sessionId: 'new-group' })
+
+  expect(group?.archivedAt).toBeUndefined()
+  expect(group?.agentSessionIds).toEqual([])
+})

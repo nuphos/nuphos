@@ -113,7 +113,7 @@ export function useArchivedChats({
         const ids = [
           sessionId,
           ...items.flatMap((c) =>
-            botOfChannel(conversation.faces) === c.sessionId || botOfChannel(c.faces) === sessionId
+            botOfChannel(conversation) === c.sessionId || botOfChannel(c) === sessionId
               ? [c.sessionId]
               : [],
           ),

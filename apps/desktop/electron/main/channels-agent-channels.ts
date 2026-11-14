@@ -18,7 +18,8 @@ export const agentChannelChannels = {
     selection: BotImportSelection,
   ) => agent.applyBotImport(target, id, selection),
   'agent:saveGrokExportSkill': () => agent.saveGrokExportSkill(),
-  'agent:createChannel': (_e: unknown, teamId: string) => agent.createChannel(teamId),
+  'agent:createChannel': (_e: unknown, teamId: string, group?: boolean) =>
+    agent.createChannel(teamId, group),
   'agent:createBot': (_e: unknown, teamId: string, bot?: agent.NewBot) =>
     agent.createBot(teamId, bot),
   'agent:makeBot': (_e: unknown, sessionId: string, teamId: string) =>

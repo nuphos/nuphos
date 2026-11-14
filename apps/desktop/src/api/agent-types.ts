@@ -61,6 +61,8 @@ export type ChannelFace = {
 export type AgentConversation = {
   /** A channel: a place where people and agents talk. It runs no agent of its own. */
   kind?: 'channel'
+  /** Started as a group chat: never a Bot's 1:1 chat, even with one Bot in it. */
+  group?: true
   faces?: ChannelFace[]
   /** A channel's agents, as their session ids. */
   agentSessionIds?: string[]
