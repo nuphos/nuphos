@@ -116,8 +116,8 @@ final class OpenQuestions {
         } catch {
             answered.remove(question.id)
             failures[question.id] = error.localizedDescription
-            // Back to it, with why.
-            selected = question.id
+            // Back to it, with why, unless another question is open by now.
+            if selected == nil { selected = question.id }
         }
     }
 
