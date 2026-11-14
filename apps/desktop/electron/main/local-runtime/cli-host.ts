@@ -12,6 +12,7 @@ import { dialBackend } from '../../backend-socket.ts'
 import { CLI_CONFIG_PATH } from '../../cli-config-path.ts'
 import {
   defaultDeviceLabel,
+  machineModel,
   parseDeviceIdentity,
   readMachineKey,
   stableDeviceId,
@@ -160,6 +161,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       deviceId: device.deviceId,
       label: device.label,
       platform: process.platform,
+      model: await machineModel(),
       allowLocalExec: true,
     })
   },

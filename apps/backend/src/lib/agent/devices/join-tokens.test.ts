@@ -104,6 +104,15 @@ describe('device join tokens', () => {
     expect(await redeemDeviceJoinToken(token, MACHINE)).toBeNull()
   })
 
+  test('a joining Mac keeps the model it names, so it is drawn as that machine', async () => {
+    const { token } = await issueDeviceJoinToken('u1', {})
+
+    await redeemDeviceJoinToken(token, { label: 'mini', platform: 'darwin', model: 'Mac mini' })
+    expect(collection('agent_devices').docs).toEqual([
+      expect.objectContaining({ platform: 'darwin', model: 'Mac mini' }),
+    ])
+  })
+
   test('an expired or unknown token does nothing', async () => {
     const { token } = await issueDeviceJoinToken('u1', { expiresInSec: -1 })
 
