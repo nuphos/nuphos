@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import { sessionsByConversation } from '@/lib/claude-code-preview/agent-chat-registry'
 import { isRuntimeRefusal } from '@/lib/claude-code-preview/runtime-refusal'
+import { AppError } from '@/lib/errors'
 import { signNuphosToken } from '@/lib/identity'
 import { logError } from '@/lib/observability'
 import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
@@ -95,6 +96,15 @@ export async function startConversationTurn(
   return { status: 'started', run: run() }
 }
 
+// A computer's tunnel redials for about 20s after it drops, so a turn that finds it
+// offline waits in the queue. One still offline after this is gone; its senders are told.
+const OFFLINE_GRACE_MS = 60_000
+
+const reconnecting = (error: unknown, message: PendingUserMessage) =>
+  error instanceof AppError &&
+  error.code === 'runtime_offline' &&
+  Date.now() - Date.parse(message.offlineSince ?? new Date().toISOString()) < OFFLINE_GRACE_MS
+
 type DeliveredTo = Pick<ConversationTurn, 'userId' | 'teamId' | 'targetSessionId'> & {
   locale?: string
 }
@@ -165,11 +175,17 @@ export async function runTurn(
         ...(data.trigger ? { trigger: data.trigger } : {}),
       })
       .catch(async (error: unknown) => {
-        // The runtime took another turn after the check. Back to the front, retried
-        // after a wait rather than on the release that follows.
-        if (!isRuntimeRefusal(error)) throw error
+        // The runtime took another turn after the check, or its computer is reconnecting.
+        // Back to the front, retried after a wait rather than on the release that follows.
+        const offline = reconnecting(error, head)
+
+        if (!offline && !isRuntimeRefusal(error)) throw error
         taken = []
-        await requeueTurnQueue(data.userId, data.targetSessionId, rest, head)
+        await requeueTurnQueue(data.userId, data.targetSessionId, rest, {
+          ...head,
+          // Only an unbroken run of offline tries counts toward the grace.
+          offlineSince: offline ? (head.offlineSince ?? new Date().toISOString()) : undefined,
+        })
 
         return null
       })
