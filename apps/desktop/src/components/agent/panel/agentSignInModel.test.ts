@@ -89,6 +89,18 @@ test('a Box handed to a new owner is theirs to sign in; its first owner asks the
   })
 })
 
+test("those who manage a member's computer sign its agents in; those who only use it ask", () => {
+  const runtimeId = 'local_u-editor_box-1'
+  const instance = { ...managed, id: runtimeId, kind: 'local' as const }
+  const viewer = { ...base, runtimeId, instance, viewerId: 'u-first-admin' }
+
+  assert.deepEqual(signInRoute({ ...viewer, manages: true }), { kind: 'dialog', instance })
+  assert.deepEqual(signInRoute({ ...viewer, manages: false }), {
+    kind: 'ask',
+    name: 'Name u-editor',
+  })
+})
+
 test("this computer's agent signs in through its own CLI", () => {
   const route = (runtimeId: string) => signInRoute({ ...base, runtimeId, onThisComputer: true })
 

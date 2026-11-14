@@ -15,8 +15,8 @@ import { queryKeys } from '../../lib/query/keys'
 import { useRuntimeStatusQuery } from '../../lib/query/runtime'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
-import { AgentAddedBy } from './AgentAddedBy'
-import { agentName, localSignIn } from './agentPresentation'
+import { AgentAddedBy, AgentSignedInBy } from './AgentAddedBy'
+import { agentName, canEditAgent, localSignIn, managesDevice } from './agentPresentation'
 import { LocalAgentSignInRow } from './LocalAgentSignInRow'
 import { RuntimeActionsMenu } from './RuntimeActionsMenu'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
@@ -28,6 +28,7 @@ import { RuntimeSignIn } from './RuntimeSignIn'
 import { RuntimeUpdateNotice } from './RuntimeUpdateNotice'
 import { runtimeUpdatePresentation } from './runtimeUpdatePresentation'
 import { RuntimeUsageBar } from './RuntimeUsageBar'
+import { useAgentDevices } from './useAgentDevices'
 
 import type { PolledRuntimeStatus } from '../../lib/query/runtime'
 import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
@@ -47,7 +48,10 @@ export function RuntimeInstanceCard({
   const me = useCurrentUser()
   const [signingIn, setSigningIn] = useState(false)
   const [cliSigningIn, setCliSigningIn] = useState(false)
-  const signIn = localSignIn(instance, useThisComputer())
+  // Who manages a computer, besides its owner, is on the device list.
+  const devices = useAgentDevices(() => 0, teamId, { teamId, enabled: instance.kind === 'local' })
+  const manages = instance.local && managesDevice(devices.list?.devices, instance.local.deviceId)
+  const signIn = localSignIn(instance, useThisComputer(), manages === true)
   const [editing, setEditing] = useState(false)
   const [confirmRemoval, setConfirmRemoval] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -78,11 +82,7 @@ export function RuntimeInstanceCard({
           label,
         )
       : api.atlasUpdateRuntimeInstance(teamId, instance.id, { label })
-  // A computer's agents answer to its owner, not to a team role (box-access.ts).
-  const canEdit =
-    (instance.local ? instance.local.ownerUserId === me?.id : isAdmin) &&
-    instance.kind !== 'development' &&
-    !instance.deletion
+  const canEdit = canEditAgent(instance, me?.id, manages, isAdmin)
   const status = runtimeStatusView(instance, runtime, statusError)
   const kindTag =
     instance.kind === 'external'
@@ -141,6 +141,9 @@ export function RuntimeInstanceCard({
             </p>
             {instance.local?.addedBy && (
               <AgentAddedBy teamId={teamId} addedBy={instance.local.addedBy} />
+            )}
+            {instance.local?.signedInBy && (
+              <AgentSignedInBy teamId={teamId} signedInBy={instance.local.signedInBy} />
             )}
           </div>
         </div>

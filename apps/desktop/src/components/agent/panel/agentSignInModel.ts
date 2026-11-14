@@ -23,7 +23,7 @@ export function localRuntimeOwner(runtimeId: string | undefined): string | undef
 
 /**
  * Mirrors the backend's rule: a team's agent is signed in by an administrator, a
- * member's own computer or Box by that member only.
+ * member's own computer or Box by that member and those who manage it.
  */
 export function signInRoute({
   runtimeId,
@@ -32,6 +32,7 @@ export function signInRoute({
   onThisComputer,
   instance,
   members,
+  manages,
 }: {
   runtimeId: string | undefined
   viewerId: string | undefined
@@ -39,6 +40,8 @@ export function signInRoute({
   onThisComputer: boolean
   instance: RuntimeInstance | undefined
   members: TeamMember[] | null
+  /** The viewer manages the agent's computer; known only where the device list is. */
+  manages?: boolean
 }): SignInRoute {
   if (!runtimeId) return { kind: 'none' }
   // Grok Build and OpenCode sign in with the runtime sign-in below, as in settings, not their own
@@ -49,7 +52,7 @@ export function signInRoute({
   const owner = instance?.local?.ownerUserId ?? localRuntimeOwner(runtimeId)
 
   if (owner) {
-    if (owner !== viewerId) return { kind: 'ask', name: memberName(members, owner) }
+    if (owner !== viewerId && !manages) return { kind: 'ask', name: memberName(members, owner) }
 
     return instance ? { kind: 'dialog', instance } : { kind: 'none' }
   }

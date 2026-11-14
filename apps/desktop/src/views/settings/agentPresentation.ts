@@ -1,7 +1,7 @@
 import { t } from '../../i18n/index.ts'
 import { AGENT_PROVIDER } from '../../types/runtime.ts'
 
-import type { LocalAgentProvider } from '../../api/device-types'
+import type { AgentDevice, LocalAgentProvider } from '../../api/device-types'
 import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
 
 /**
@@ -118,16 +118,19 @@ export function agentRunsOn(
  * How the viewer signs in one of their own computers' agents while it is not signed in. This
  * computer's default Claude Code or Codex agent signs in through its CLI. Any other agent, added
  * or on another computer, signs in through the runtime sign-in, which reaches exactly that agent
- * (the CLI's login is only this computer's default agent's). Someone else's agent: none.
+ * (the CLI's login is only this computer's default agent's). Someone else's agent: the runtime
+ * sign-in when the viewer manages its computer, else none.
  */
 export function localSignIn(
   instance: RuntimeInstance,
   thisComputer: { userId: string; deviceId: string } | null,
+  manages = false,
 ): 'claude-code' | 'codex' | 'runtime' | undefined {
   const local = instance.local
+  const mine = local?.ownerUserId === thisComputer?.userId
 
-  if (!local || local.signedIn === true || local.ownerUserId !== thisComputer?.userId)
-    return undefined
+  if (!local || local.signedIn === true || !(mine || manages)) return undefined
+  if (!mine || !thisComputer) return 'runtime'
   if (instance.provider !== 'claude-code' && instance.provider !== 'codex') return 'runtime'
 
   return !local.instanceId && local.deviceId === thisComputer.deviceId
@@ -150,4 +153,35 @@ export function newAgentAction(
   if (provider === 'antigravity') return null
 
   return agents.some((agent) => agent.local?.agentInstances === true) ? { create: true } : null
+}
+
+/** Whether the viewer manages the computer `deviceId`; undefined until the list has it. */
+export function managesDevice(
+  devices: Pick<AgentDevice, 'deviceId' | 'access'>[] | undefined,
+  deviceId: string,
+): boolean | undefined {
+  const access = devices?.find((device) => device.deviceId === deviceId)?.access
+
+  return access === undefined ? undefined : access !== 'use'
+}
+
+/**
+ * Who renames an agent and signs it in. A computer's agents answer to those who manage it, not
+ * to a team role (box-access.ts); its owner alone until the device list says who else does.
+ */
+export function canEditAgent(
+  instance: RuntimeInstance,
+  viewerId: string | undefined,
+  manages: boolean | undefined,
+  isAdmin: boolean,
+): boolean {
+  if (instance.kind === 'development' || instance.deletion) return false
+  if (!instance.local) return isAdmin
+
+  return manages === true || instance.local.ownerUserId === viewerId
+}
+
+/** Whose account a computer's agent runs as: whoever signed it in through Nuphos. */
+export function signedInAs(name: string, signerId: string, viewerId: string | undefined): string {
+  return signerId === viewerId ? t('Signed in as you') : t('Signed in as {name}', { name })
 }

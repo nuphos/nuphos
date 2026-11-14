@@ -65,6 +65,7 @@ const viewer = (viewerId: string, isTeamAdmin = false, here = false) => ({
   isTeamAdmin,
   onThisComputer: () => here,
   members,
+  manages: () => false,
 })
 
 test('a ready agent has no problem', () => {
@@ -100,6 +101,18 @@ test("a teammate's signed-out computer is signed in by its owner", () => {
 
   // A sign-in, so a conversation can send the ask; a paused computer's ask is only said.
   assert.deepEqual(problem?.fix, { kind: 'ask', name: 'Bryan', runtimeId: 'local_u-bryan_d1' })
+})
+
+test("someone who manages a teammate's computer signs its agent in themselves", () => {
+  const agent = local('u-bryan', { signedIn: false })
+  const manager = { ...viewer('u-shant'), manages: () => true }
+  const user = viewer('u-shant')
+
+  assert.deepEqual(agentProblem(agent, undefined, manager)?.fix, {
+    kind: 'signIn',
+    instance: agent,
+  })
+  assert.equal(agentProblem(agent, undefined, user)?.fix.kind, 'ask')
 })
 
 test("your own paused Box resumes; someone else's asks its owner; an offline computer retries", () => {
