@@ -362,6 +362,9 @@ struct AgentConversationDetail: Decodable, Sendable {
     let title: String?
     /// The conversation's stored IAM choice (`AgentCredentialAccess`).
     let credentialAccess: JSONValue?
+    /// A Task under a Bot (`credentialSource`): it uses that Bot's credentials,
+    /// computers and permission mode, and has none of its own to change.
+    let followsBot: Bool
     let agentRuntime: String?
     let runtimeId: String?
     let runtimeLabel: String?
@@ -402,7 +405,7 @@ struct AgentConversationDetail: Decodable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case faces, group, kind, messageCount, transcriptUpdatedAt, isOwner, canManage, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, watching, timelineEvents, promptSuggestion
+        case faces, group, kind, messageCount, transcriptUpdatedAt, isOwner, canManage, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, credentialSource, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, watching, timelineEvents, promptSuggestion
     }
 
     init(from decoder: Decoder) throws {
@@ -421,6 +424,7 @@ struct AgentConversationDetail: Decodable, Sendable {
         readOnly = try c.decodeIfPresent(Bool.self, forKey: .readOnly)
         title = try c.decodeIfPresent(String.self, forKey: .title)
         credentialAccess = try? c.decodeIfPresent(JSONValue.self, forKey: .credentialAccess)
+        followsBot = c.contains(.credentialSource)
         agentRuntime = try c.decodeIfPresent(String.self, forKey: .agentRuntime)
         runtimeId = try c.decodeIfPresent(String.self, forKey: .runtimeId)
         runtimeLabel = try c.decodeIfPresent(String.self, forKey: .runtimeLabel)
