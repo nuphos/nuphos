@@ -11,8 +11,6 @@ export type CredentialSelectorControl = {
   /** Called when the menu opens, to refresh available credential options. */
   onOpen: () => void
   onChange: (value: AgentCredentialSelection) => void
-  /** Uses another conversation's selection: shown as a link to it instead of a picker. */
-  inherited?: { title: string; onOpen: () => void }
 }
 
 export type CredentialSection = {

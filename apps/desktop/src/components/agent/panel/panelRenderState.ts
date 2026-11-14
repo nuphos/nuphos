@@ -18,7 +18,6 @@ type Acc = Pick<
   | 'dragDepthRef'
   | 'effectiveCredentialAccess'
   | 'homeDropRef'
-  | 'openConversation'
   | 'openingConversation'
   | 'pendingPrompt'
   | 'refreshCredentialOptions'
@@ -41,7 +40,6 @@ export function computePanelRenderState(acc: Acc): PanelRenderState {
     dragDepthRef,
     effectiveCredentialAccess,
     homeDropRef,
-    openConversation,
     openingConversation,
     pendingPrompt,
     refreshCredentialOptions,
@@ -94,19 +92,11 @@ export function computePanelRenderState(acc: Acc): PanelRenderState {
     activeTab &&
     (!activeTab.foreign || activeTab.canManage) &&
     credentialSelectorControl &&
-    (!activeTab.readOnly || activeTab.slackThread)
+    (!activeTab.readOnly || activeTab.slackThread) &&
+    // A Task under a Bot uses the Bot's selection and has no picker of its own.
+    !activeTab.credentialSource
       ? {
           ...credentialSelectorControl,
-          ...(activeTab.credentialSource && {
-            inherited: {
-              title: activeTab.credentialSource.title,
-              onOpen: () => {
-                const { sessionId, title } = activeTab.credentialSource!
-
-                void openConversation(sessionId, title)
-              },
-            },
-          }),
           unseen: credentialOptionsLoaded(credentialOptions)
             ? unseenCredentials(
                 allCredentialAccess(credentialOptions),
