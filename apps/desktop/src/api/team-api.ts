@@ -17,6 +17,9 @@ import type {
 } from '../types/team.ts'
 
 export const teamApi = {
+  atlasPreviewTeamImport: () => window.api.atlasPreviewTeamImport(),
+  atlasConfirmTeamImport: (token: string, sourceMember?: string) =>
+    window.api.atlasConfirmTeamImport(token, sourceMember),
   atlasExportTeam: (teamId: string) => window.api.atlasExportTeam(teamId),
   atlasGetTeamGoogleClient: (teamId: string) => window.api.atlasGetTeamGoogleClient(teamId),
   atlasSetTeamGoogleClient: (teamId: string, clientId: string, clientSecret: string) =>

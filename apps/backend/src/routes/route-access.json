@@ -730,6 +730,8 @@
   "POST /slack/events": "public",
   "POST /slack/interactions": "public",
   "POST /teams": "user",
+  "POST /teams/migration/import": "user",
+  "POST /teams/migration/preview": "user",
   "POST /teams/:teamId/agent-runtimes": "admin",
   "POST /teams/:teamId/agent-runtimes/:runtimeId/files/transfer": "member",
   "POST /teams/:teamId/agent-runtimes/:runtimeId/login": "member",

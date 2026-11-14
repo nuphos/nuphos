@@ -1,10 +1,10 @@
 import * as atlas from '../atlas'
-import { saveTeamExport } from '../atlas/team-migration'
 import * as discordInstall from '../discord-install'
 import * as slackInstall from '../slack-install'
 
 import { designChannels } from './channels-designs'
 import { skillChannels } from './channels-skills'
+import { migrationChannels } from './channels-team-migration'
 
 import type { DashboardViewRange } from '../../src/dashboards/schema'
 import type {
@@ -14,10 +14,9 @@ import type {
   RuntimeQuotaHistoryRange,
   UpdateRuntimeInput,
 } from '../../src/types/runtime'
-import type { IpcMainInvokeEvent } from 'electron'
 
 export const teamChannels = {
-  'atlas:exportTeam': (event: IpcMainInvokeEvent, teamId: string) => saveTeamExport(event, teamId),
+  ...migrationChannels,
   'atlas:getTeamGoogleClient': (_e: unknown, teamId: string) => atlas.getTeamGoogleClient(teamId),
   'atlas:setTeamGoogleClient': (
     _e: unknown,

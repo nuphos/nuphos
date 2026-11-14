@@ -68,6 +68,7 @@ import {
 } from '@/routes/teams/conversation-auth'
 import { registerTeamInvitationRoutes } from '@/routes/teams/invitations'
 import { registerTeamManagementRoutes } from '@/routes/teams/management'
+import { registerTeamImportRoutes } from '@/routes/teams/migration-import'
 import { registerTeamMigrationRoutes } from '@/routes/teams/migration'
 import { registerTeamsRootRoutes } from '@/routes/teams/root'
 import { tencentAccountsRoutes } from '@/routes/tencent-accounts'
@@ -89,6 +90,7 @@ export const teamsRoutes = new Hono<{ Variables: ConversationTeamAuthVariables }
 teamsRoutes.use('*', requireUserOrConversationAuth)
 
 registerTeamsRootRoutes(teamsRoutes)
+registerTeamImportRoutes(teamsRoutes)
 
 const activityQuerySchema = z.object({
   range: z.enum(Object.keys(ACTIVITY_RANGES) as [keyof typeof ACTIVITY_RANGES]).default('7d'),
