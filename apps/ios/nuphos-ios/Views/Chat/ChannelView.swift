@@ -174,6 +174,10 @@ struct ChannelView: View {
                 text: $draft,
                 canSend: channel.loaded && !channel.readOnly,
                 editRequest: $channel.unsent,
+                // As in a Task: `@` offers the viewer's other Bots and tasks, as their links.
+                mentions: MentionSource(teamId: channel.teamId, search: { query in
+                    await store.mentionableSessions(teamId: channel.teamId, excluding: channel.botId, matching: query)
+                }),
                 voiceTeamId: channel.teamId,
                 recipient: channel.title,
                 focusRequest: replyFocus,
