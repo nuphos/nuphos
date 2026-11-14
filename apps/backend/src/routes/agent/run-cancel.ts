@@ -47,8 +47,9 @@ export async function stopConversationTurn(conversation: AgentConversation): Pro
   const { userId, sessionId } = conversation
 
   // The call's next sentence would start the turn again, so its bot leaves.
+  // Not awaited: Stop never waits on Recall.
   if (conversation.meeting)
-    await leaveMeeting(conversation.meeting.botId).catch((error: unknown) => {
+    void leaveMeeting(conversation.meeting.botId).catch((error: unknown) => {
       logError('meeting.leave_failed', error, { session_id: sessionId })
     })
   const runStopped = await cancelSessionRun(userId, sessionId)

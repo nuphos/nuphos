@@ -71,7 +71,9 @@ export function meetingToolModule(): PreviewToolModule {
       },
       {
         name: 'meeting_leave',
-        description: 'Leave a call joined with meeting_join. Its Task stays, with the transcript.',
+        description:
+          'Leave a call joined with meeting_join. Its Task stays, with the transcript. ' +
+          'Stopping that Task leaves the call too.',
         inputSchema: toolInputJsonSchema(leave),
       },
     ],
