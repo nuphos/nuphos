@@ -8,12 +8,7 @@ import { logEvent } from '@/lib/observability'
 import { instrumentRedis } from '@/otel/instrumentation/redis'
 
 import { trackRedisOp } from './redis-op-log'
-import {
-  REDIS_OP_TIMEOUT_MESSAGE,
-  anyClientEnded,
-  createRedisWedgeDetector,
-  forceReconnect,
-} from './redis-wedge'
+import { anyClientEnded, forceReconnect } from './redis-wedge'
 
 import type { RedisOptions } from 'ioredis'
 
@@ -24,13 +19,16 @@ import type { RedisOptions } from 'ioredis'
 export const replicaId: string =
   config.hostname ?? `atlas-${String(process.pid)}-${randomBytes(4).toString('hex')}`
 
+const REDIS_OP_TIMEOUT_MESSAGE = 'redis op timeout'
+
+// A socket that has received nothing this long after a command was written is
+// dead (half-open), so ioredis destroys it and the retry strategy reconnects.
+// A slow reply or a short event-loop stall still delivers bytes and keeps the
+// connection; only the ops that outlive withRedis()'s timeout fail.
+export const REDIS_SOCKET_TIMEOUT_MS = 5_000
+
 let _client: Redis | null = null
 let _subscriber: Redis | null = null
-const wedge = createRedisWedgeDetector(() => {
-  if (_client && forceReconnect(_client)) {
-    logEvent('warn', 'redis.client.forced_reconnect', { replica_id: replicaId })
-  }
-})
 
 function buildOptions(): RedisOptions {
   if (config.redis.sentinels.length === 0) {
@@ -74,6 +72,7 @@ function buildOptions(): RedisOptions {
     // forever while Redis is unhealthy.
     maxRetriesPerRequest: 1,
     retryStrategy: (times: number) => Math.min(times * 200, 2_000),
+    socketTimeout: REDIS_SOCKET_TIMEOUT_MS,
   }
 }
 
@@ -99,11 +98,6 @@ function newClient(role: 'client' | 'subscriber'): Redis {
     if (isShuttingDown()) return
     logEvent('error', 'redis.client.ended', { role, replica_id: replicaId })
   })
-  if (role === 'client') {
-    client.on('ready', () => {
-      wedge.connected()
-    })
-  }
   instrumentRedis(client, { role })
 
   return client
@@ -164,11 +158,8 @@ export async function withRedis<T>(op: (client: Redis) => Promise<T>): Promise<T
       }),
     ])
 
-    wedge.success()
-
     return result
   } catch (err) {
-    wedge.failure(err)
     logEvent('warn', 'redis.operation.failed', {
       replica_id: replicaId,
       ...tracked?.fields(),

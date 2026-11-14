@@ -317,7 +317,6 @@
   "push.live_activity_failed",
   "redis.client.ended",
   "redis.client.error",
-  "redis.client.forced_reconnect",
   "redis.operation.failed",
   "redis.subscriber.forced_reconnect",
   "relay.status_unavailable",
