@@ -33,11 +33,11 @@ struct PageTitleMenu: View {
                     .offset(y: style == .large ? 2 : 1)
                 if inboxCount > 0 {
                     Text(inboxCount, format: .number)
-                        .font(.caption.weight(.bold).monospacedDigit())
+                        .font(.system(size: 12, weight: .semibold).monospacedDigit())
                         .foregroundStyle(.white)
                         .padding(.horizontal, 6)
                         .frame(minWidth: 20, minHeight: 20)
-                        .background(.red, in: Capsule())
+                        .background(Theme.badge, in: Capsule())
                 }
             }
             .foregroundStyle(Theme.heading)

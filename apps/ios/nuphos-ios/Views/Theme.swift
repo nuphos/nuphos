@@ -36,6 +36,14 @@ enum Theme {
     /// Desktop `--color-warning`, darkened in light mode for contrast.
     static let warning = adaptive(light: 0xA04606, dark: 0xF5A623)
     static let hairline = adaptive(light: 0x18181B, dark: 0xFFFFFF, lightAlpha: 0.08, darkAlpha: 0.10)
+    /// The selected row of a list that keeps its selection beside it, as the Inbox's.
+    static let selected = adaptive(light: 0xE2E2E6, dark: 0x2E2E33)
+    /// A secondary button's fill, and a toggled one's.
+    static let control = adaptive(light: 0xE4E4E7, dark: 0x2A2A2E)
+    /// A text field's outline.
+    static let fieldBorder = adaptive(light: 0xA1A1AA, dark: 0x52525B)
+    /// A count waiting for the viewer, as the Inbox's.
+    static let badge = adaptive(light: 0xB83A0A, dark: 0xE0592A)
 
     private static func adaptive(
         light: UInt32, dark: UInt32,
