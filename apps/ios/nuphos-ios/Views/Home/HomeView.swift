@@ -68,7 +68,7 @@ struct HomeView: View {
             .toolbar(removing: .sidebarToggle)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    PageTitleMenu(selection: $page, style: .bar, inboxCount: inbox?.list.count ?? 0)
+                    PageTitleMenu(selection: $page, style: .bar, inboxCount: inbox?.list.count ?? 0, pageCounts: store?.pageCounts ?? [:])
                 }
                 .sharedBackgroundHidden()
 
@@ -201,6 +201,8 @@ struct HomeView: View {
             if autoPage { autoPage = false } else { pageChosen = true }
             isSearching = false
             openChat = nil
+            // What was opened on Bots folds again once Bots is left.
+            store?.foldBots()
             UIEventLog.pageTransition(from: oldPage.rawValue, to: newPage.rawValue)
             Analytics.shared.screen(newPage.rawValue, teamID: store?.selectedTeam?.id)
         }
