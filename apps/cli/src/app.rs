@@ -45,9 +45,9 @@ const LOGO: [&str; 7] = [
     "⠀⠀⠀⠀⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀",
 ];
 const TIPS: [&str; 4] = [
-    "Press ctrl+\\ to jump between your agents.",
+    "Press ctrl+\\ to jump between your Bots and tasks.",
     "A reply keeps running on the server when you quit; `nuphos resume` picks it up.",
-    "Use /agents to run this agent on another runtime, or to add one.",
+    "Use /agents to switch runtimes, or to add one.",
     "Use /model to change the model and reasoning effort.",
 ];
 /// The agents Nuphos can run for a team, as the desktop's Add agent offers them.
@@ -64,12 +64,12 @@ const SIGN_IN_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 const SPINNER: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const COMMANDS: [(&str, &str); 9] = [
     ("/model", "choose the model and reasoning effort"),
-    ("/full-access", "allow the agent's actions without asking, or ask again"),
+    ("/full-access", "allow actions without asking, or ask again"),
     ("/team", "switch to another team"),
     ("/agents", "choose, add or sign in the runtimes this team runs on"),
-    ("/new", "start a new agent"),
-    ("/resume", "continue a previous agent"),
-    ("/archive", "archive this agent and start a new one"),
+    ("/new", "start a new task"),
+    ("/resume", "continue a previous Bot or task"),
+    ("/archive", "archive this one and start a new task"),
     ("/logout", "sign out of Nuphos here and in the desktop app"),
     ("/quit", "exit"),
 ];
@@ -577,14 +577,14 @@ impl App {
         .areas(area);
         self.draw_top_bar(f, top);
         if let Some(picker) = self.picker.as_ref().filter(|_| sessions) {
-            let empty = if self.sessions_loading { "Loading…" } else { "No agents yet." };
+            let empty = if self.sessions_loading { "Loading…" } else { "No Bots or tasks yet." };
             f.render_widget(Paragraph::new(session_lines(picker, chat_area, empty)), chat_area);
             self.draw_composer(f, composer_area);
             return f.render_widget(Paragraph::new(self.footer_hints(footer.width)), footer);
         }
         if self.loading {
             let spinner = SPINNER[self.tick % SPINNER.len()];
-            let line = Line::from(Span::styled(format!("{spinner} Loading agent…"), dim()));
+            let line = Line::from(Span::styled(format!("{spinner} Loading…"), dim()));
             f.render_widget(Paragraph::new(vec![Line::default(), line]), chat_area);
         }
         let text_area = Rect { width: chat_area.width.saturating_sub(2), ..chat_area };
@@ -615,7 +615,7 @@ impl App {
     fn draw_welcome(&mut self, f: &mut Frame, area: Rect) {
         let bold = Style::default().add_modifier(Modifier::BOLD);
         let menu = [
-            ("Agents", "ctrl+\\"),
+            ("Bots and tasks", "ctrl+\\"),
             ("Switch team", "/team"),
             ("Runtimes", "/agents"),
             ("Model and effort", "/model"),
@@ -1061,7 +1061,7 @@ impl App {
             return;
         }
         if self.stream.is_some() || self.loading {
-            let busy = if self.loading { "the agent to load" } else { "the reply to finish" };
+            let busy = if self.loading { "it to load" } else { "the reply to finish" };
             self.notice = Some(format!("Wait for {busy}, or press esc to stop it."));
             return;
         }
@@ -1284,7 +1284,7 @@ impl App {
                 return;
             }
             "error" => {
-                self.notice = Some(frame["errorText"].as_str().unwrap_or("The agent hit an error.").to_string());
+                self.notice = Some(frame["errorText"].as_str().unwrap_or("The reply ended with an error.").to_string());
                 return;
             }
             k if k.starts_with("atlas-")
@@ -1678,7 +1678,7 @@ impl App {
     fn open_conversation_picker(&mut self) {
         self.fetch_sessions();
         self.picker = Some(Picker {
-            title: "Agents".into(),
+            title: "Bots and tasks".into(),
             items: self.session_items(),
             selected: 0,
             action: PickAction::Conversation,
@@ -1741,7 +1741,7 @@ impl App {
             rows.push(("Pinned", c));
         }
         rows.extend(self.shared_sessions.iter().filter(|c| !is_pinned(c)).map(|c| ("Shared", c.clone())));
-        rows.extend(self.sessions.iter().filter(|c| !is_pinned(c)).map(|c| ("Agents", c.clone())));
+        rows.extend(self.sessions.iter().filter(|c| !is_pinned(c)).map(|c| ("Bots and tasks", c.clone())));
         rows.into_iter()
             .map(|(section, mut c)| {
                 let mut detail = shared::conversation_time(&c);
@@ -1791,7 +1791,7 @@ impl App {
         self.new_conversation();
         self.session_id = id.clone();
         self.is_new = false;
-        self.title = Some(shared::conversation_title(&summary)).filter(|t| t != "Untitled agent");
+        self.title = Some(shared::conversation_title(&summary)).filter(|t| t != "Untitled");
         self.model_label = None;
         self.loading = true;
         let (api, team) = (self.api.clone(), self.team_id());
@@ -1971,7 +1971,7 @@ impl App {
 /// it was active (and, if shared, whose it is) on the right; ● is running.
 fn session_lines(picker: &Picker, area: Rect, empty: &'static str) -> Vec<Line<'static>> {
     let width = area.width as usize;
-    let mut lines = vec![Line::from(Span::styled("Agents", Style::default().add_modifier(Modifier::BOLD)))];
+    let mut lines = vec![Line::from(Span::styled("Bots and tasks", Style::default().add_modifier(Modifier::BOLD)))];
     if picker.items.is_empty() {
         lines.extend([Line::default(), Line::from(Span::styled(empty, dim()))]);
     }

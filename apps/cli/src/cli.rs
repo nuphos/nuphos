@@ -102,7 +102,7 @@ pub async fn runtime(ctx: &mut Ctx, name: Option<String>, session: Option<String
             if ctx.json {
                 ctx.print_json(&target);
             } else {
-                println!("New agents in {} run on {}", label(&ctx.team), label(&target));
+                println!("New tasks in {} run on {}", label(&ctx.team), label(&target));
             }
         }
         Some(id) => {
@@ -223,7 +223,7 @@ pub async fn model(
     }
 
     if value.is_some() || effort.is_some() {
-        bail!("Pick a model per agent: pass --session, or choose one in the app before the first message.");
+        bail!("Pick a model per Bot or task: pass --session, or choose one in the app before the first message.");
     }
     let runtimes = ctx.runtimes().await?;
     let runtime = shared::default_runtime(&runtimes, &ctx.prefs, &team, &ctx.me_id)
@@ -334,7 +334,7 @@ pub async fn exec(
             body["agentRuntime"] = r["provider"].clone();
         }
     } else if runtime.is_some() {
-        bail!("--agent picks the runtime for a new agent; use `nuphos agents NAME --session ID` to move one.");
+        bail!("--agent picks the runtime for a new task; use `nuphos agents NAME --session ID` to move one.");
     }
 
     let (sender, mut rx) = unbounded_channel();
@@ -434,7 +434,7 @@ pub async fn exec(
     if ctx.json {
         println!("{}", json!({ "type": "nuphos-session", "sessionId": session_id, "teamId": team }));
     } else {
-        eprintln!("agent {session_id}");
+        eprintln!("task {session_id}");
     }
     if let Some(error) = error {
         eprintln!("nuphos: {}", clean(&error));

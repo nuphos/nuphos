@@ -118,8 +118,7 @@ pub fn current_name(option: &Value) -> Option<String> {
 }
 
 pub fn conversation_title(c: &Value) -> String {
-    let title =
-        c["title"].as_str().filter(|t| !t.is_empty()).or(c["firstMessage"].as_str()).unwrap_or("Untitled agent");
+    let title = c["title"].as_str().filter(|t| !t.is_empty()).or(c["firstMessage"].as_str()).unwrap_or("Untitled");
     clean(title.lines().next().unwrap_or_default()).chars().take(70).collect()
 }
 
