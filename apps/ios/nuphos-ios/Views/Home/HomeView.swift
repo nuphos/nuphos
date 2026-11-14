@@ -205,6 +205,9 @@ struct HomeView: View {
             isSearching = false
             openChat = nil
             inbox?.selected = nil
+            // An answer held for Undo goes once the Inbox is left.
+            let left = inbox
+            Task { await left?.sendHeld() }
             UIEventLog.pageTransition(from: oldPage.rawValue, to: newPage.rawValue)
             Analytics.shared.screen(newPage.rawValue, teamID: store?.selectedTeam?.id)
         }
@@ -212,12 +215,18 @@ struct HomeView: View {
         .task(id: scenePhase == .active ? store?.selectedTeam?.id : nil) {
             guard scenePhase == .active, let store, let team = store.selectedTeam?.id else { return }
             if inbox?.teamId != team {
+                let left = inbox
+                Task { await left?.sendHeld() }
                 inbox = OpenQuestions(token: store.token, teamId: team)
             }
             while !Task.isCancelled {
                 await inbox?.refresh()
                 try? await Task.sleep(for: .seconds(15))
             }
+        }
+        // Nor does a held answer wait for an app that is put away.
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { Task { await inbox?.sendHeld() } }
         }
         .onChange(of: store?.selectedTeam?.id) { _, teamID in
             Analytics.shared.screen(page.rawValue, teamID: teamID)

@@ -245,7 +245,7 @@ struct InboxQuestionView: View {
 
     private func answer(_ answer: DecisionAnswer) {
         focused = false
-        Task { await inbox.answer(question, with: answer) }
+        Task { await inbox.hold(question, with: answer) }
     }
 
     /// Nuphos pages open in the app, as a conversation's links do; anything else leaves.

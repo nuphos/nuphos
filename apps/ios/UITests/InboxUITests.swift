@@ -72,12 +72,20 @@ final class InboxUITests: XCTestCase {
 
         // The answer leaves the list, says so, and opens the next question.
         app.buttons["Ship it"].tap()
-        try listQuestions([notes, staging])
-        let toast = app.descendants(matching: .any)["inbox.toast"]
-        XCTAssertTrue(toast.waitForExistence(timeout: 5), "No toast for the answer")
-        XCTAssertTrue(toast.label.contains("Roll out 1.4 to production?"), "The toast does not say what was answered")
+        let toast = app.staticTexts["Answered “Roll out 1.4 to production?”"]
+        XCTAssertTrue(toast.waitForExistence(timeout: 5), "No toast saying what was answered")
+        XCTAssertTrue(app.buttons["Undo"].exists, "No Undo on the toast")
         XCTAssertTrue(app.buttons["Friendly"].waitForExistence(timeout: 5), "The next question did not open")
         shot("4-answered")
+
+        // Undo takes it back before it is sent: the question is open again.
+        app.buttons["Undo"].tap()
+        XCTAssertTrue(app.buttons["Ship it"].waitForExistence(timeout: 5), "Undo did not bring the question back")
+        XCTAssertFalse(toast.exists)
+        app.buttons["Ship it"].tap()
+        // Sent after five seconds: the toast goes with it.
+        XCTAssertTrue(toast.waitForNonExistence(timeout: 10), "The answer was never sent")
+        try listQuestions([notes, staging])
 
         // Skip opens the one after it without answering.
         app.buttons["Skip"].tap()
@@ -109,7 +117,7 @@ final class InboxUITests: XCTestCase {
         shot("5-other")
         app.buttons["Send answer"].firstMatch.tap()
         try listQuestions([staging, plan])
-        XCTAssertTrue(app.descendants(matching: .any)["inbox.toast"].waitForExistence(timeout: 5), "No toast for the answer")
+        XCTAssertTrue(app.buttons["Undo"].waitForExistence(timeout: 5), "No toast for the answer")
 
         // Words only: the box is there without Other….
         openQuestion("Which node pool should the staging cluster use?")

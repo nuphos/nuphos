@@ -26,8 +26,10 @@ final class OpenQuestions {
 
     /// The question open beside the list, or pushed over it on iPhone.
     var selected: String?
-    /// The last question answered here, for the "Answered …" toast until it is cleared.
-    var toast: String?
+    /// The Inbox's last answer, not sent yet so it can be undone.
+    private var held: (token: UUID, question: BotQuestion, answer: DecisionAnswer)?
+    /// The question that answer is to, for the "Answered …" toast while it can be undone.
+    var toast: String? { held?.question.request.question }
 
     /// The list by the conversation that asked.
     var groups: [[BotQuestion]] { BotQuestions.grouped(list) }
@@ -103,12 +105,10 @@ final class OpenQuestions {
     }
 
     /// Answers a question: the server wakes the agent that asked with the answer, and no
-    /// message is sent. Hidden at once; if the answer is refused, the card comes back with why.
+    /// message is sent. Hidden at once; if the answer is refused, the question comes back with why.
     func answer(_ question: BotQuestion, with answer: DecisionAnswer) async {
-        if selected == question.id { selected = next(after: question.id) }
         answered.insert(question.id)
         failures[question.id] = nil
-        toast = question.request.question
         do {
             _ = try await AgentChatAPI.send(
                 "POST", "agent/conversations/\(question.sessionId)/decisions/\(question.request.id)/answer",
@@ -118,7 +118,36 @@ final class OpenQuestions {
             failures[question.id] = error.localizedDescription
             // Back to it, with why.
             selected = question.id
-            toast = nil
         }
+    }
+
+    /// The Inbox's answer: the question leaves and the next one opens at once, but the answer is
+    /// sent only after five seconds, so Undo can take it back. The one held before goes now.
+    func hold(_ question: BotQuestion, with answer: DecisionAnswer) async {
+        await sendHeld()
+        if selected == question.id { selected = next(after: question.id) }
+        answered.insert(question.id)
+        failures[question.id] = nil
+        let token = UUID()
+        held = (token, question, answer)
+        Task {
+            try? await Task.sleep(for: .seconds(5))
+            if held?.token == token { await sendHeld() }
+        }
+    }
+
+    /// Takes the held answer back: nothing is sent, and its question is open again.
+    func undo() {
+        guard let held else { return }
+        self.held = nil
+        answered.remove(held.question.id)
+        selected = held.question.id
+    }
+
+    /// Sends the held answer now: when the five seconds are up, or the Inbox is left.
+    func sendHeld() async {
+        guard let held else { return }
+        self.held = nil
+        await answer(held.question, with: held.answer)
     }
 }

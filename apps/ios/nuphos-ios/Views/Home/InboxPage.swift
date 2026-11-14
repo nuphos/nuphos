@@ -82,26 +82,32 @@ struct InboxSource: View {
     }
 }
 
-/// "Answered "…"" for a few seconds after an answer.
+/// "Answered "…"" with Undo, while the answer is held.
 struct InboxToast: View {
     let inbox: OpenQuestions
 
     var body: some View {
         if let answered = inbox.toast {
-            Text("Answered “\(answered)”")
-                .font(.system(size: 14))
-                .foregroundStyle(.white)
-                .lineLimit(1)
-                .padding(.horizontal, 18)
-                .frame(height: 44)
-                .background(Color(hex: 0x18181B), in: Capsule())
-                .padding(.horizontal, 20)
-                .accessibilityIdentifier("inbox.toast")
-                .transition(.opacity.combined(with: .move(edge: .bottom)))
-                .task(id: answered) {
-                    try? await Task.sleep(for: .seconds(4))
-                    if !Task.isCancelled, inbox.toast == answered { withAnimation { inbox.toast = nil } }
-                }
+            HStack(spacing: 12) {
+                Text("Answered “\(answered)”")
+                    .font(.system(size: 14))
+                    .lineLimit(1)
+                Button("Undo") { withAnimation(.snappy) { inbox.undo() } }
+                    .font(.system(size: 14, weight: .semibold))
+                    .padding(.horizontal, 12)
+                    .frame(height: 32)
+                    .background(.white.opacity(0.16), in: Capsule())
+                    .buttonStyle(.plain)
+            }
+            .foregroundStyle(.white)
+            .padding(.leading, 18)
+            .padding(.trailing, 6)
+            .frame(height: 44)
+            .background(Color(hex: 0x18181B), in: Capsule())
+            .padding(.horizontal, 20)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("inbox.toast")
+            .transition(.opacity.combined(with: .move(edge: .bottom)))
         }
     }
 }
