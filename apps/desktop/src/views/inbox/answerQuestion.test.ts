@@ -108,3 +108,31 @@ test('an answer the server refuses brings the card back', async () => {
   answerFails = false
   assert.equal(count(), 1)
 })
+
+test('a held Inbox answer leaves at once, comes back on Undo, and is sent when the next is given', async () => {
+  answerFails = false
+  publish([waiting('h1'), waiting('h2')])
+  const before = answers.length
+  const undo = inbox.holdAnswer('team', 'agent', 'h1', { choices: ['Yes'] })
+
+  assert.equal(count(), 1)
+  undo()
+  assert.equal(count(), 2)
+  assert.equal(answers.length, before, 'an undone answer is never sent')
+
+  inbox.holdAnswer('team', 'agent', 'h1', { choices: ['Yes'] })
+  inbox.holdAnswer('team', 'agent', 'h2', { choices: ['No'] })
+  await settle()
+  assert.deepEqual(
+    answers.slice(before).map((args) => args[1]),
+    ['h1'],
+    'the next answer sends the one held before it',
+  )
+  inbox.sendHeldAnswer()
+  await settle()
+  assert.deepEqual(
+    answers.slice(before).map((args) => args[1]),
+    ['h1', 'h2'],
+  )
+  assert.equal(count(), 0)
+})

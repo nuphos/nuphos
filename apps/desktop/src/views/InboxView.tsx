@@ -12,7 +12,7 @@ import { openQuestion } from './inbox/inboxItems'
 import { selectInboxQuestion, useInboxSelection } from './inbox/inboxSelection'
 import { ShareApprovalRequests } from './inbox/ShareApprovalRequests'
 import { useChannelMentions } from './inbox/useChannelMentions'
-import { answerDecision, useInboxQuestions } from './inbox/useInbox'
+import { ANSWER_UNDO_MS, holdAnswer, sendHeldAnswer, useInboxQuestions } from './inbox/useInbox'
 import { useShareApprovals } from './inbox/useShareApprovals'
 
 import type { InboxQuestion } from './inbox/inboxItems'
@@ -30,8 +30,8 @@ type Props = {
 /**
  * Teammates asking to use the viewer's own computer and channel @mentions,
  * above one open question at a time, the one the sidebar's Inbox list opens.
- * Answering it wakes the agent that asked and opens the next; ↑ ↓ or Skip move
- * between them. Its Bot or Task opens from the question's source line.
+ * Answering it opens the next, and wakes the agent that asked once its Undo
+ * window passes, or at once when the viewer leaves; ↑ ↓ or Skip move between them. Its Bot or Task opens from the question's source line.
  */
 export function InboxView({
   teamId,
@@ -90,14 +90,36 @@ export function InboxView({
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [isActive, rows, at, move])
 
+  // Leaving the Inbox sends the answer still waiting out its Undo window.
+  useEffect(() => {
+    if (!isActive) return
+
+    return sendHeldAnswer
+  }, [isActive])
+
   const answer = (row: InboxQuestion, reply: DecisionAnswer) => {
     // The answered question leaves the list, and the one that takes its place opens.
-    selectInboxQuestion(teamId, { id: row.request.id, index: at })
-    void answerDecision(teamId, row.conversation.sessionId, row.request.id, reply)
+    const selection = { id: row.request.id, index: at }
+
+    selectInboxQuestion(teamId, selection)
+    const undo = holdAnswer(teamId, row.conversation.sessionId, row.request.id, reply)
+
     toast.success(
       t('Answered “{answer}”', {
         answer: reply.choices?.join(', ') ?? reply.text ?? row.request.question,
       }),
+      undefined,
+      {
+        timeoutMs: ANSWER_UNDO_MS,
+        dedupe: false,
+        action: {
+          label: t('Undo'),
+          onClick: () => {
+            undo()
+            selectInboxQuestion(teamId, selection)
+          },
+        },
+      },
     )
   }
 
