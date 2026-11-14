@@ -71,7 +71,7 @@ function CellTooltip({
                         className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left outline-none transition-colors hover:bg-state-hover hover:text-main focus-visible:bg-state-hover"
                       >
                         <AgentAvatar agentId={s.id} provider={s.runtime} size={14} />
-                        <span className="truncate">{s.title || t('Untitled agent')}</span>
+                        <span className="truncate">{s.title || t('Untitled task')}</span>
                       </BaseButton>
                     ))}
                     {hover.cell.sessions.length > MAX_TITLES && (

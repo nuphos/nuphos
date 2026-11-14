@@ -8,7 +8,7 @@ import type { CSSProperties, RefObject } from 'react'
 /** The split pane a summary panel belongs to. */
 export const PANE = '[data-workspace-focus-surface="session"]'
 
-export const TOGGLE = () => `[aria-label="${CSS.escape(t('Toggle agent summary'))}"]`
+export const TOGGLE = () => `[aria-label="${CSS.escape(t('Toggle task summary'))}"]`
 
 // Matches the menus' Positioner: 6px under the trigger, end-aligned.
 const SIDE_OFFSET = 6

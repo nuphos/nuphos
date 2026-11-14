@@ -142,7 +142,7 @@ export function HistoryConversationRow({
                 titleClassName,
               )}
             >
-              {conversation.title || conversation.firstMessage || t('Untitled agent')}
+              {conversation.title || conversation.firstMessage || t('Untitled task')}
             </span>
             {/* Beside the title, not in the preview, so a narrow column never cuts it off. */}
             {questionCount && (

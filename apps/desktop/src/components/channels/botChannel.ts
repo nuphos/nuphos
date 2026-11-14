@@ -80,7 +80,7 @@ function ensureBotChannel(teamId: string, botId: string): Promise<string> {
 export function openBotChannel(teamId: string, botId: string, open: (key: string) => void) {
   ensureBotChannel(teamId, botId).then(
     (chatId) => open(`agent-session:${chatId}`),
-    (error: unknown) => toast.apiError(t('Failed to open agent'), error),
+    (error: unknown) => toast.apiError(t('Failed to open task'), error),
   )
 }
 

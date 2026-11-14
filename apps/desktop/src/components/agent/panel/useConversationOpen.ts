@@ -196,7 +196,7 @@ export function useConversationOpen(acc: Acc) {
 
         if (edit && cut < 0) {
           setOpeningConversation(null)
-          toast.error(t('Could not edit message'), t('That message is no longer in this agent.'))
+          toast.error(t('Could not edit message'), t('That message is no longer in this task.'))
 
           return
         }
