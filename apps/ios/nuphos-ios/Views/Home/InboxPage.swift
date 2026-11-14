@@ -57,8 +57,9 @@ struct InboxPage: View {
                                 .listRowSeparator(.hidden)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .contentShape(Rectangle())
-                                // Alongside, not instead of, the list's own tap that pushes on iPhone.
-                                .simultaneousGesture(TapGesture().onEnded { if wide { inbox.selected = question.id } })
+                                // Wide only: on iPhone even an idle tap gesture keeps the list's selection from pushing.
+                                .simultaneousGesture(TapGesture().onEnded { inbox.selected = question.id },
+                                                     including: wide ? .all : .subviews)
                                 .accessibilityIdentifier("inbox.row")
                             }
                         } header: {
