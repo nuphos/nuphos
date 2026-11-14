@@ -184,7 +184,7 @@ function SendControls({
             hero ? 'w-8 h-8 rounded-full' : 'w-7 h-7 rounded-md',
             'bg-surface-sunken hover:bg-state-hover text-main flex items-center justify-center transition-colors',
           )}
-          title={t('Stop agent')}
+          title={t('Stop')}
         >
           <Square className="w-3 h-3 fill-current" strokeWidth={2.2} />
         </button>
