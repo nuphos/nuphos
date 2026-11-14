@@ -59,7 +59,6 @@ struct InboxPage: View {
                                 .contentShape(Rectangle())
                                 // Alongside, not instead of, the list's own tap that pushes on iPhone.
                                 .simultaneousGesture(TapGesture().onEnded { if wide { inbox.selected = question.id } })
-                                .accessibilityAddTraits(.isButton)
                                 .accessibilityIdentifier("inbox.row")
                             }
                         } header: {
