@@ -195,7 +195,8 @@ internal fun ChannelFiles(
                     Row(horizontalArrangement = Arrangement.spacedBy(GAP)) {
                         row.forEach { file ->
                             Tile(file, loader, busy == file.key) {
-                                if (file.file.isImage) pager = files.images.indexOf(file) else if (idle) download(file)
+                                // A video opens in the viewer with the post's images, as on iOS.
+                                pager = files.media.indexOf(file)
                             }
                         }
                     }
@@ -209,9 +210,28 @@ internal fun ChannelFiles(
         if (failed) Text("Couldn't save the file. Try again.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         if (!loading && missing.isNotEmpty()) TextButton(enabled = idle, onClick = { failed = false; retry++ }) { Text("Retry attachments") }
     }
-    if (pager >= 0 && files.images.isNotEmpty()) {
-        val images = files.images.map { it.key }
-        MessageImagePager(images, pager.coerceAtMost(images.lastIndex), loader = loader,
+    if (pager >= 0 && files.media.isNotEmpty()) {
+        val media = files.media.map { it.key }
+        MessageImagePager(media, pager.coerceAtMost(media.lastIndex), loader = loader,
+            videos = files.media.filter { it.file.isVideo }.map { it.key }.toSet(),
+            videoLoader = { key ->
+                try {
+                    val file = byKey[key] ?: error("Unknown file")
+                    cached[key]?.takeIf { it.isFile } ?: run {
+                        val remote = fresh(file)
+                        withContext(Dispatchers.IO) {
+                            val target = File.createTempFile("video-", ".${file.file.fileName.substringAfterLast('.', "mp4")}", directory)
+                            try {
+                                target.outputStream().use { downloads.copy(remote, it) { latestAllowed() } }
+                                cached[key] = target
+                                target
+                            } catch (error: Exception) { target.delete(); throw error }
+                        }
+                    }.takeIf { latestAllowed() }
+                } catch (cancelled: CancellationException) { throw cancelled }
+                catch (_: Exception) { null }
+            },
+            onSaveVideo = { key -> byKey[key]?.let { if (idle) download(it) } },
             originalWriter = { key, destination ->
                 val file = byKey[key] ?: error("Unknown file")
                 val remote = fresh(file)

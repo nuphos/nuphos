@@ -32,6 +32,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
 import androidx.compose.ui.semantics.*
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -44,6 +45,8 @@ import java.io.IOException
 import java.io.File
 
 internal typealias MessageImageLoader = suspend (String, Int) -> ImageBitmap?
+/** Fetches a video to a local file for the viewer to play, or null when it can't be read. */
+internal typealias MessageVideoLoader = suspend (String) -> java.io.File?
 private val inlineImageLoader: MessageImageLoader = { source, edge -> MessageImageDecoder.decode(source, edge) }
 
 /** No URL fetching: conversation File parts currently contain inline data images.
@@ -164,7 +167,10 @@ internal fun MessageImages(images: List<String>, messageId: String, loader: Mess
 }
 
 @Composable
-internal fun MessageImagePager(images: List<String>, initialIndex: Int, onPage: (Int) -> Unit = {}, loader: MessageImageLoader = inlineImageLoader, originalWriter: ImageOriginalWriter = ImageExports::writeInline, onDismiss: () -> Unit) {
+internal fun MessageImagePager(images: List<String>, initialIndex: Int, onPage: (Int) -> Unit = {}, loader: MessageImageLoader = inlineImageLoader, originalWriter: ImageOriginalWriter = ImageExports::writeInline,
+    /** The items that are videos, as on iOS: they play in the same viewer as the images beside them. */
+    videos: Set<String> = emptySet(), videoLoader: MessageVideoLoader? = null, onSaveVideo: ((String) -> Unit)? = null,
+    onDismiss: () -> Unit) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         val view = LocalView.current
         DisposableEffect(view) {
@@ -198,16 +204,26 @@ internal fun MessageImagePager(images: List<String>, initialIndex: Int, onPage: 
                 Text("${pager.currentPage + 1} / ${images.size}", color = Color.White,
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
                 Spacer(Modifier.weight(1f))
-                TextButton(onClick = { zoomed = false }) { Text("Reset zoom", color = Color.White) }
+                // A video has nothing to zoom; an empty slot keeps the count centred.
+                if (images[pager.currentPage] in videos) Spacer(Modifier.width(48.dp))
+                else TextButton(onClick = { zoomed = false }) { Text("Reset zoom", color = Color.White) }
             }
             HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth(), userScrollEnabled = !zoomed,
                 beyondViewportPageCount = 0) { page ->
                 // Adjacent pages keep only placeholders, preventing multiple full-size decodes.
-                if (page == pager.currentPage) {
-                    key(page, images[page]) { ZoomImage(images[page], page, images.size, zoomed, loader) { zoomed = it } }
+                if (page == pager.currentPage) key(page, images[page]) {
+                    if (images[page] in videos && videoLoader != null) VideoPage(images[page], page, images.size, videoLoader)
+                    else ZoomImage(images[page], page, images.size, zoomed, loader) { zoomed = it }
                 }
             }
-            key(images[pager.currentPage]) { ImageExportActions(images[pager.currentPage], originalWriter) }
+            key(images[pager.currentPage]) {
+                val current = images[pager.currentPage]
+                if (current in videos) onSaveVideo?.let { save ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                        TextButton(onClick = { save(current) }) { Text("Save video", color = Color.White) }
+                    }
+                } else ImageExportActions(current, originalWriter)
+            }
             if (images.size > 1) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 TextButton(onClick = { zoomed = false; scope.launch { pager.scrollToPage((pager.currentPage - 1 + images.size) % images.size) } }) {
                     Text("Previous image", color = Color.White)
@@ -261,6 +277,53 @@ private fun ZoomImage(source: String, index: Int, count: Int, zoomed: Boolean, l
             }, contentScale = ContentScale.Fit)
             ImageLoad.Loading -> Text("Loading image", color = Color.White)
             ImageLoad.Unavailable -> Text("Image unavailable", color = Color.White)
+        }
+    }
+}
+
+private sealed interface VideoLoad {
+    data object Loading : VideoLoad
+    data object Failed : VideoLoad
+    data class Ready(val file: java.io.File) : VideoLoad
+}
+
+/**
+ * A video in the viewer, as on iOS: fetched when its page shows, waiting with its controls rather
+ * than playing on its own, and stopped when the page goes. One that can't load says so and retries.
+ */
+@Composable
+private fun VideoPage(source: String, index: Int, count: Int, loader: MessageVideoLoader) {
+    var attempt by remember(source) { mutableIntStateOf(0) }
+    var broken by remember(source, attempt) { mutableStateOf(false) }
+    val load by produceState<VideoLoad>(VideoLoad.Loading, source, attempt) {
+        value = VideoLoad.Loading
+        value = loader(source)?.let { VideoLoad.Ready(it) } ?: VideoLoad.Failed
+    }
+    Box(Modifier.fillMaxSize().semantics { contentDescription = "Video ${index + 1} of $count" }, contentAlignment = Alignment.Center) {
+        val ready = load as? VideoLoad.Ready
+        when {
+            load == VideoLoad.Loading -> Text("Loading video", color = Color.White)
+            load == VideoLoad.Failed || broken -> TextButton(onClick = { attempt++ }, modifier = androidx.compose.ui.Modifier.semantics { this.testTag = "video-retry" }) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(androidx.compose.material.icons.Icons.Outlined.Refresh, null, tint = Color.White)
+                    Text("Couldn't load the video. Try again.", color = Color.White)
+                }
+            }
+            ready != null -> androidx.compose.ui.viewinterop.AndroidView(
+                factory = { context ->
+                    android.widget.VideoView(context).apply {
+                        val controls = android.widget.MediaController(context)
+                        controls.setAnchorView(this)
+                        setMediaController(controls)
+                        // The first frame, still, until it's played.
+                        setOnPreparedListener { seekTo(1); controls.show(0) }
+                        setOnErrorListener { _, _, _ -> broken = true; true }
+                        setVideoPath(ready.file.absolutePath)
+                    }
+                },
+                onRelease = { it.stopPlayback() },
+                modifier = Modifier.fillMaxSize().semantics { this.testTag = "video-player" },
+            )
         }
     }
 }
