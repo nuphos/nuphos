@@ -9,7 +9,7 @@ import { agentConversations } from '@/lib/agent/db/shared'
 import { systemSender } from '@/lib/agent/message-metadata'
 import { stripTrailingSlashes } from '@/lib/agent/text-scan'
 
-import { createMeetingBot, leaveMeeting, recallConfig } from './recall'
+import { createMeetingBot, forwardToMeeting, leaveMeeting, recallConfig } from './recall'
 
 import type { AgentConversation } from '@/lib/agent/db'
 
@@ -17,7 +17,12 @@ type Participant = { id?: number; name?: string | null }
 export type RecallEvent = {
   event: string
   data: {
-    data: { words?: { text: string }[]; participant?: Participant; data?: { text?: string } }
+    data: {
+      words?: { text: string }[]
+      participant?: Participant
+      data?: { text?: string }
+      sub_code?: string | null
+    }
     bot: { id: string }
   }
 }
@@ -127,6 +132,8 @@ export function eventText(event: RecallEvent, botName: string): string | undefin
   const { words, participant, data } = event.data.data
 
   if (event.event === 'transcript.data') return joinWords(words ?? []) || undefined
+  if (event.event === 'transcript.failed')
+    return `Speech recognition failed in this meeting (${event.data.data.sub_code ?? 'no reason given'}), so speech can't be heard. The chat still works.`
   if (event.event !== 'participant_events.chat_message' || participant?.name === botName) return
   const text = data?.text?.trim()
 
@@ -151,4 +158,6 @@ export async function handleRecallEvent(deliveryId: string, event: RecallEvent):
     text,
     metadata: systemSender(`meeting:${speaker?.id ?? 'unknown'}`, speaker?.name || 'Participant'),
   })
+  // Otherwise the bot just goes quiet and nobody in the call knows why.
+  if (event.event === 'transcript.failed') forwardToMeeting(channel, text)
 }
