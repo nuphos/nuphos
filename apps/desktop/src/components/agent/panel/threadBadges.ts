@@ -3,14 +3,14 @@ import { AGENT_PROVIDER } from '../../../types/runtime.ts'
 import type { Part, ToolPart } from './parts.ts'
 import type { AgentProvider } from '../../../types/runtime.ts'
 
-const THREAD_TOOLS = new Set(['create_thread', 'send_message_to_thread'])
+const THREAD_TOOLS = new Set(['create_thread', 'send_message_to_thread', 'create_bot'])
 const UUID = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i
 
 export type ThreadBadgeInfo = {
   threadId: string | null
   /** The title the agent gave a new thread; a messaged thread's comes from the server. */
   title: string | null
-  verb: 'started' | 'messaged'
+  verb: 'started' | 'messaged' | 'created'
   pending: boolean
   /** The model and effort a new thread was started on, when the agent chose them, and why. */
   model: string | null
@@ -54,8 +54,13 @@ export function threadBadgeInfo(part: ToolPart): ThreadBadgeInfo | null {
   const input = record(part.input)
   const pending = part.state !== 'output-available'
   const threadId = threadIdOf(input?.threadId) ?? threadIdOf(receipt(part.output)?.threadId)
-  const title = nonEmpty(input?.title)
+  const created = part.toolName === 'create_bot'
+  const title = nonEmpty(created ? input?.name : input?.title)
   const started = part.toolName === 'create_thread'
+  const verbs: Record<string, ThreadBadgeInfo['verb']> = {
+    create_bot: 'created',
+    create_thread: 'started',
+  }
   // A message to a thread changes no model, so only a started thread has one.
   const chosen = (key: string) => (started ? nonEmpty(input?.[key]) : null)
 
@@ -66,7 +71,7 @@ export function threadBadgeInfo(part: ToolPart): ThreadBadgeInfo | null {
   return {
     threadId,
     title,
-    verb: started ? 'started' : 'messaged',
+    verb: verbs[part.toolName] ?? 'messaged',
     pending,
     model: chosen('model'),
     effort: chosen('effort'),

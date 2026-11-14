@@ -2,6 +2,7 @@ import { tool } from 'ai'
 import { z } from 'zod'
 
 import {
+  getConversationBySessionId,
   getConversations,
   getConversationTranscriptForAgent,
   liveTurnTranscriptLine,
@@ -37,8 +38,9 @@ const UPDATE_SELF_DESCRIPTION =
 const CREATE_BOT_DESCRIPTION =
   'Create a new Bot: a persistent agent with its own name, face and standing instructions, as "+ New Bot" does. ' +
   'Use it only when the person you work for explicitly asks for a new Bot; to delegate or background work, use create_thread instead. ' +
-  'The Bot belongs to that person and is their 1:1 chat with it; it starts idle on their default agent, in your own permission mode. ' +
-  'Pass instructions in the second person, drafted from what they asked for. Returns its session_id.'
+  'The Bot belongs to that person and is their 1:1 chat with it; it starts idle on your own agent and computer, in your own permission mode. ' +
+  'Pass instructions in the second person, drafted from what they asked for. Returns its threadId, for update_thread and send_message_to_thread. ' +
+  'The chat shows the new Bot as a link people can open, so do not paste its URL or id in your reply.'
 
 function conversationSummary(
   c: {
@@ -245,17 +247,26 @@ export function createSessionTools(
       execute: async ({ name, avatar, instructions }) => {
         // Never more access than the caller has, as create_thread does.
         const bypass = await getSessionBypass(conversationId, userId)
-        const bot = await createBot(userId, teamId, bypass, { title: name, avatar })
+        const caller = await getConversationBySessionId(conversationId)
+        // On the caller's agent and computer, as create_thread; a teammate's runtime is not theirs to use.
+        const runtime =
+          caller?.userId === userId && caller.teamId === teamId
+            ? {
+                agentRuntime: caller.agentRuntime,
+                runtimeId: caller.runtimeId,
+                runtimeLabel: caller.runtimeLabel,
+              }
+            : {}
+        const bot = await createBot(userId, teamId, bypass, { title: name, avatar, ...runtime })
         const saved =
           !instructions || (await updateBotSelf(bot.sessionId, userId, teamId, { instructions }))
 
         return {
-          session_id: bot.sessionId,
+          threadId: bot.sessionId,
           name: bot.title,
           avatar: bot.avatar,
           full_access: bypass,
           ...(saved ? {} : { error: 'The Bot was created, but its instructions were not saved.' }),
-          _links: { web: `/teams/${teamId}/agent/${bot.sessionId}` },
         }
       },
     }),

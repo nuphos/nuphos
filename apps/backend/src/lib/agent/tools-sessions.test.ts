@@ -102,6 +102,11 @@ useAgentDb({
     sessionId === 'c'
       ? ({
           sessionId,
+          userId: 'u',
+          teamId: 'team',
+          agentRuntime: 'codex',
+          runtimeId: 'devbox',
+          runtimeLabel: 'devbox',
           title: currentTitle,
           firstMessage: 'fix the deploy',
           titleManuallySet: false,
@@ -308,27 +313,30 @@ test('create_bot makes a Bot owned by the person the agent works for, as "+ New 
   const result = (await createSessionTools('u', 'c', 'team').create_bot!.execute!(
     { label: 'New Bot', name: 'Release Helper', avatar: '07-ada', instructions: 'Watch releases.' },
     { toolCallId: 'bot', messages: [] },
-  )) as { session_id: string; [field: string]: unknown }
+  )) as { threadId: string; [field: string]: unknown }
   const shell = shells.at(-1)
 
-  // The person's own 1:1 Bot, on their default agent, never nested under the caller.
+  // The person's own 1:1 Bot, on the caller's agent and computer, never nested under the caller.
   expect(shell).toEqual({
-    sessionId: result.session_id,
+    sessionId: result.threadId,
     userId: 'u',
     teamId: 'team',
     title: 'Release Helper',
     firstMessage: '',
     avatar: '07-ada',
+    agentRuntime: 'codex',
+    runtimeId: 'devbox',
+    runtimeLabel: 'devbox',
   })
+  // No URL: the chat shows the call as a link to the Bot.
   expect(result).toEqual({
-    session_id: result.session_id,
+    threadId: result.threadId,
     name: 'Release Helper',
     avatar: '07-ada',
     full_access: true,
-    _links: { web: `/teams/team/agent/${result.session_id}` },
   })
   // A caller in full access makes a Bot in full access.
-  expect(bypass.get(`u:${result.session_id}`)).toBe(true)
+  expect(bypass.get(`u:${result.threadId}`)).toBe(true)
   expect(selfUpdates.at(-1)).toEqual({ instructions: 'Watch releases.' })
 })
 
@@ -349,10 +357,10 @@ test('create_bot gives a caller that needs approvals a Bot that needs them too',
     const result = (await createSessionTools('u', 'c', 'team').create_bot!.execute!(
       { label: 'New Bot', name: 'Helper' },
       { toolCallId: 'bot', messages: [] },
-    )) as { session_id: string; full_access: boolean }
+    )) as { threadId: string; full_access: boolean }
 
     expect(result.full_access).toBe(false)
-    expect(bypass.get(`u:${result.session_id}`)).toBe(false)
+    expect(bypass.get(`u:${result.threadId}`)).toBe(false)
   } finally {
     callerBypass = true
   }
@@ -366,7 +374,7 @@ test('create_bot says so when the instructions were not saved', async () => {
       { toolCallId: 'bot', messages: [] },
     )
 
-    expect(result).toHaveProperty('session_id')
+    expect(result).toHaveProperty('threadId')
     expect(result).toHaveProperty('error')
   } finally {
     instructionsSaved = true
