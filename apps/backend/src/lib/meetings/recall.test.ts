@@ -28,7 +28,11 @@ function answer(status: number, body: object) {
 
 describe('createMeetingBot', () => {
   test('asks Recall to leave a call of notetakers, telling bots by name only', async () => {
-    let sent: { automatic_leave?: { bot_detection?: Record<string, { timeout: number }> } } = {}
+    let sent: {
+      automatic_leave?: {
+        bot_detection?: Record<string, { timeout: number; activate_after: number }>
+      }
+    } = {}
 
     globalThis.fetch = ((_url: string, init: RequestInit) => {
       sent = JSON.parse(init.body as string)
@@ -44,8 +48,9 @@ describe('createMeetingBot', () => {
 
     const detection = sent.automatic_leave?.bot_detection
 
-    // Judging by activity would take people who only type in the chat for bots.
-    expect(detection?.using_participant_events).toBeUndefined()
+    // Judging by activity would take people who only type in the chat for bots, and Recall has no
+    // way to turn it off, so it starts later than any call lasts.
+    expect(detection?.using_participant_events?.activate_after).toBe(86_400)
     expect(detection?.using_participant_names?.timeout).toBe(60)
   })
 })
