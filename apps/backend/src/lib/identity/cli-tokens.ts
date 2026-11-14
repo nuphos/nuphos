@@ -267,9 +267,12 @@ const AGENT_DENIED: [RegExp, RegExp][] = [
   [/^POST$/, /^\/teams\/discoverable\//],
   [/^(PUT|PATCH|DELETE)$/, /^\/teams\/[^/]+\/?$/],
   [/^(PUT|PATCH|DELETE)$/, /^\/teams\/[^/]+\/(agent-runtime|allowed-email-domains)\/?$/],
+  // Every write to the team's agents and the user's agent fallback, except a
+  // runtime's files, login and sign-in requests. A new write route is denied
+  // until it is listed in the exception.
   [
     /^(POST|PUT|PATCH|DELETE)$/,
-    /^\/teams\/[^/]+\/(agent-runtimes|claude-code-runtimes|codex-runtimes)(\/[^/]+(\/(update|keys))?)?\/?$/,
+    /^\/teams\/[^/]+\/(runtime-fallback|(agent|claude-code|codex)-runtimes(?!\/[^/]+\/(files|login|sign-in-requests)(\/|$)))(\/|$)/,
   ],
   [/^(POST|PUT|PATCH|DELETE)$/, /^\/teams\/[^/]+\/(members|invitations)(\/|$)/],
   [/./, /^\/teams\/[^/]+\/(leave|billing|transfer-ownership)(\/|$)/],

@@ -389,6 +389,8 @@ describe('what each token kind may call', () => {
       ['POST', `/teams/${TEAM}/codex-runtimes`],
       ['PUT', `/teams/${TEAM}/codex-runtimes/r1/keys`],
       ['DELETE', `/teams/${TEAM}/codex-runtimes/r1`],
+      ['POST', `/teams/${TEAM}/agent-runtimes/r1/some-new-write`],
+      ['PUT', `/teams/${TEAM}/runtime-fallback`],
     ]) {
       for (const kind of [agent, run]) {
         expect([kind.kind, method, path, cliTokenDenied(kind, method!, path!)]).not.toEqual([
@@ -413,6 +415,10 @@ describe('what each token kind may call', () => {
       ['GET', `/teams/${TEAM}/agent-runtimes/r1/files`],
       ['POST', `/teams/${TEAM}/agent-runtimes/r1/files/transfer`],
       ['POST', `/teams/${TEAM}/agent-runtimes/r1/login`],
+      ['POST', `/teams/${TEAM}/agent-runtimes/r1/login/code`],
+      ['DELETE', `/teams/${TEAM}/agent-runtimes/r1/login`],
+      ['DELETE', `/teams/${TEAM}/agent-runtimes/r1/sign-in-requests`],
+      ['GET', `/teams/${TEAM}/runtime-fallback`],
       ['POST', `/teams/${TEAM}/agent-runtimes/r1/sign-in-requests`],
       ['GET', `/teams/${TEAM}/claude-code-runtimes`],
       ['POST', `/teams/${TEAM}/agent-triggers`],
