@@ -5,8 +5,8 @@ import { Avatar } from '../Avatar'
 
 import { SidebarTeamSwitcher } from './header'
 
-// Widths of the skeleton chat rows, so the list reads as chats rather than bars.
-const CHATS = ['72%', '58%', '80%', '50%', '66%', '44%']
+// Widths of the skeleton chat titles, so the list reads as chats rather than bars.
+const CHATS = ['64%', '48%', '72%', '40%', '56%', '36%']
 
 /**
  * A quiet, non-interactive picture of the Nuphos window for the "name your
@@ -51,7 +51,10 @@ export function SidebarNamePreview({ name }: { name: string }) {
         <div className="space-y-3.5 px-[18px] pt-5">
           <div className="h-2 w-14 rounded bg-state-selected opacity-70" />
           {CHATS.map((width) => (
-            <div key={width} className="h-2.5 rounded bg-state-selected" style={{ width }} />
+            <div key={width} className="flex items-center gap-2.5">
+              <div className="h-4 w-4 flex-shrink-0 rounded-full bg-state-selected" />
+              <div className="h-2.5 rounded bg-state-selected" style={{ width }} />
+            </div>
           ))}
         </div>
       </div>

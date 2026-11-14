@@ -226,8 +226,9 @@ export function CreateOrJoinTeamView({ onClose, onJoin, onCreate }: Props) {
           </div>
         </div>
         {/* The name shows in the sidebar as it is typed (wide windows only). The
-            column runs up under the titlebar strip, so it stays draggable. */}
-        <div className="titlebar-drag -mt-[44px] hidden lg:flex w-[42%] items-center overflow-hidden pl-12 border-l border-line-control/60 bg-surface-sunken">
+            column runs up under the titlebar strip, so it stays draggable, and its
+            top lines up with the heading (44px titlebar + 64px padding). */}
+        <div className="titlebar-drag -mt-[44px] hidden lg:flex w-[42%] items-start overflow-hidden pl-12 pt-[108px] border-l border-line-control/60 bg-surface-sunken">
           <SidebarNamePreview name={name.trim() || t('Engineering')} />
         </div>
       </div>
