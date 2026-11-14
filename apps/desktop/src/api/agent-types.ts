@@ -88,7 +88,7 @@ export type AgentConversation = {
   owner?: AgentConversationPerson
   credentialAccess?: AgentCredentialAccess
   /** A Task under a Bot: the conversation whose credentials and computers it uses. */
-  credentialSource?: { sessionId: string; title: string }
+  credentialSource?: { sessionId: string }
   transcriptUpdatedAt?: string
   createdAt: string
   lastActiveAt: string
