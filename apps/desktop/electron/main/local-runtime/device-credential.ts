@@ -5,6 +5,8 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
+import { machineModel } from '../device-identity-core.ts'
+
 export type DeviceCredential = {
   apiUrl: string
   userId: string
@@ -18,7 +20,12 @@ export type DeviceCredential = {
 export const ownsMachine = (credential: DeviceCredential | null): boolean =>
   credential?.box === true
 
-export type JoinRequest = { token: string; label: string; platform: string }
+export type JoinRequest = {
+  token: string
+  label: string
+  platform: string
+  model?: string
+}
 
 export const tunnelUrlFor = (apiUrl: string, deviceId: string, reclaim = false) =>
   `${apiUrl}/agent/devices/${encodeURIComponent(deviceId)}/runtime-tunnel${reclaim ? '?reclaim=1' : ''}`
@@ -125,7 +132,12 @@ export async function deviceCredentialFor(options: {
   }
   const joined = await joinDevice(
     options.apiUrl,
-    { token: options.joinToken, label: options.label, platform: process.platform },
+    {
+      token: options.joinToken,
+      label: options.label,
+      platform: process.platform,
+      model: await machineModel(),
+    },
     options.headers,
   )
 

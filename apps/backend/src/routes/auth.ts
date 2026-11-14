@@ -171,15 +171,15 @@ const deviceJoinSchema = z.object({
   token: z.string().min(1).max(200),
   label: z.string().trim().min(1).max(200),
   platform: z.string().trim().min(1).max(64),
+  model: z.string().trim().min(1).max(64).optional(),
 })
 
 auth.post('/devices/join', zv('json', deviceJoinSchema), async (c) => {
   const { token, ...device } = c.req.valid('json')
   const joined = await redeemDeviceJoinToken(token, device)
 
-  if (!joined) {
+  if (!joined)
     throw new AppError(401, 'invalid_join_token', 'This join token is invalid, used or expired')
-  }
 
   return c.json(joined, 201)
 })
