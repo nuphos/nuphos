@@ -1,5 +1,7 @@
 import { getTeamMembers } from '@/lib/identity'
 import { notifyNudge } from '@/lib/push/notify'
+import { plainText, truncate } from '@/lib/push/turn-outcome'
+import { watcherCanRead } from '@/lib/push/watchers'
 
 import { agentConversations } from './db/shared'
 import { canReplyIn } from './devices/conversation-computer'
@@ -102,4 +104,32 @@ export async function noteMentions(
     title: `${senderLabel(sender)} mentioned you${where}`,
     body: message.text.slice(0, PUSH_BODY_CHARS),
   })
+}
+
+/**
+ * A channel post's pushes: the people it @mentions, and for an agent's post the
+ * people watching the channel. channel_post is where a channel-woken turn
+ * speaks, so its end pushes nothing (see `runEnded`).
+ */
+export async function notePost(
+  channel: AgentConversation & { teamId: string },
+  post: Mentioning,
+  byAgent: boolean,
+): Promise<void> {
+  await noteMentions(channel, post)
+  if (!byAgent) return
+  const watchers = channel.watcherIds ?? []
+  // A nudge still alerts someone who cannot read the conversation, so they are left out here.
+  const reads = await Promise.all(watchers.map((id) => watcherCanRead(channel, id)))
+  const where = channel.title ? ` in ${channel.title}` : ''
+
+  notifyNudge(
+    watchers.filter((_, index) => reads[index]),
+    {
+      sessionId: channel.sessionId,
+      teamId: channel.teamId,
+      title: `${senderLabel(post.metadata.sender)}${where}`,
+      body: truncate(plainText(post.text)) || 'File',
+    },
+  )
 }
