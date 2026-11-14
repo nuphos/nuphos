@@ -1,7 +1,9 @@
+import clsx from 'clsx'
 import { useReducedMotion } from 'framer-motion'
 import { ArrowLeft, LogOut } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
+import { SidebarNamePreview } from '../../components/sidebar/SidebarNamePreview'
 import { useLocalRuntimeState } from '../../hooks/useLocalRuntimeState'
 import { t } from '../../i18n'
 
@@ -85,8 +87,8 @@ export function OnboardingFlow({
 
   // Back returns from the create form to the team list — the only screen
   // there is to go back to.
-  const canGoBack =
-    chatStep === 'workspace' && effectiveWorkspaceMode === 'create' && hasJoinOptions
+  const namingWorkspace = chatStep === 'workspace' && effectiveWorkspaceMode === 'create'
+  const canGoBack = namingWorkspace && hasJoinOptions
 
   const { handleCreate, toggleInvitationSelected, toggleTeamSelected, handleContinueSelected } =
     useWorkspaceActions({
@@ -143,29 +145,41 @@ export function OnboardingFlow({
     // `titlebar-drag` makes the whole page a window-drag region; interactive
     // controls opt out with `titlebar-no-drag`.
     <div className="titlebar-drag fixed inset-0 z-40 flex flex-col text-main">
-      <div className="relative flex-1 min-h-0">
-        <AgentPanelStage
-          chatStep={chatStep}
-          user={user}
-          reduce={reduce}
-          workspaceName={workspaceName}
-          onWorkspaceNameChange={setWorkspaceName}
-          creating={creating}
-          onCreate={() => void handleCreate()}
-          invitations={invitations}
-          actingInvitationId={actingInvitationId}
-          discoverableTeams={discoverableTeams}
-          joiningTeamId={joiningTeamId}
-          selectedInvitationIds={selectedInvitationIds}
-          selectedTeamIds={selectedTeamIds}
-          committing={committing}
-          onToggleInvitation={toggleInvitationSelected}
-          onToggleTeam={toggleTeamSelected}
-          workspaceMode={effectiveWorkspaceMode}
-          onShowCreateWorkspace={handleShowCreateWorkspace}
-          joinedTeams={joinedTeams}
-          onContinueJoined={() => void handleContinueSelected()}
-        />
+      <div className="relative flex flex-1 min-h-0">
+        <div className="flex min-w-0 flex-1">
+          <AgentPanelStage
+            chatStep={chatStep}
+            user={user}
+            reduce={reduce}
+            workspaceName={workspaceName}
+            onWorkspaceNameChange={setWorkspaceName}
+            creating={creating}
+            onCreate={() => void handleCreate()}
+            invitations={invitations}
+            actingInvitationId={actingInvitationId}
+            discoverableTeams={discoverableTeams}
+            joiningTeamId={joiningTeamId}
+            selectedInvitationIds={selectedInvitationIds}
+            selectedTeamIds={selectedTeamIds}
+            committing={committing}
+            onToggleInvitation={toggleInvitationSelected}
+            onToggleTeam={toggleTeamSelected}
+            workspaceMode={effectiveWorkspaceMode}
+            onShowCreateWorkspace={handleShowCreateWorkspace}
+            joinedTeams={joinedTeams}
+            onContinueJoined={() => void handleContinueSelected()}
+          />
+        </div>
+        {/* While the name is being typed, show it in the sidebar it will live
+            in (wide windows only); the column folds away once it is sent. */}
+        <div
+          className={clsx(
+            'titlebar-no-drag bg-surface-sunken hidden lg:flex items-center justify-center overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]',
+            namingWorkspace ? 'w-[40%] opacity-100' : 'w-0 opacity-0',
+          )}
+        >
+          <SidebarNamePreview name={workspaceName} className="flex-shrink-0" />
+        </div>
         {/* Back — top-left, directly mirroring Log out at the bottom-left. It
             sits BELOW the 42px titlebar row rather than inside it, so it never
             crowds the macOS traffic lights. */}
