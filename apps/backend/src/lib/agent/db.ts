@@ -43,7 +43,6 @@ export {
   setupAgentIndexes,
 } from './db/events'
 export {
-  deleteConversation,
   getCompactionSummary,
   updateCompactionSummary,
   updateConversationTitle,
