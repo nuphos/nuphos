@@ -37,10 +37,11 @@ else:
     `#!/usr/bin/env python3
 import os, sys
 from pathlib import Path
-config = Path(os.environ['GH_CONFIG_DIR'])
 if sys.argv[1:] == ['--version']:
     print('gh version 0.0.0')
-elif sys.argv[1:3] == ['auth', 'setup-git']:
+    sys.exit()
+config = Path(os.environ['GH_CONFIG_DIR'])
+if sys.argv[1:3] == ['auth', 'setup-git']:
     Path(os.environ.get('GIT_CONFIG_GLOBAL', os.environ['HOME'] + '/.gitconfig')).write_text('session-helper-' + os.environ['TEST_ACCOUNT'])
 else:
     raise AssertionError(sys.argv)
