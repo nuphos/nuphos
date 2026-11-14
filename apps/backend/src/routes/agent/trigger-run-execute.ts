@@ -4,6 +4,7 @@ import { initializeSessionBypass } from '@/lib/agent/auto-mode/store'
 import { getConversationBySessionId } from '@/lib/agent/db'
 import { startTraceSpan } from '@/lib/agent/tracing'
 import { recordRuntimeTurnUsage } from '@/lib/agent/turn-usage-record'
+import { registry } from '@/lib/claude-code-preview/agent-chat-registry'
 import { resolveConversationChatRuntime } from '@/lib/claude-code-preview/agent-chat-runtime'
 import { fallBackBeforeTurn } from '@/lib/claude-code-preview/runtime-fallback'
 import { logError } from '@/lib/observability'
@@ -249,7 +250,12 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
 
     return { status: 'completed', finishReason: ended ?? 'stop' }
   } catch (err) {
-    recordTriggerRunFailure(err, runTrace, source)
+    recordTriggerRunFailure(
+      err,
+      runTrace,
+      source,
+      teamId ? registry.connectionInfo(teamId, [chatRuntime.endpoint.url]) : {},
+    )
     chatSpan.end()
     if (!run.abortController.signal.aborted) {
       appendAgentRunError(run, err)
