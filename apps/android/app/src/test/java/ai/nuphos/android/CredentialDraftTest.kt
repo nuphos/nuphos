@@ -155,12 +155,22 @@ class CredentialDraftTest {
         assertTrue(reopened.selection.ids["githubInstallationIds"]!!.isEmpty())
     }
 
-    @Test fun latestRequestWinsForSuccessAndFailure() {
+    @Test fun anEarlierResultShowsWhenANewerRequestNeverFinishes() {
+        // #2580: the newer request is cancelled (the sheet closed, or its caller left the screen),
+        // so the earlier one's result is the only one that will ever arrive.
         val first = CredentialDraft().begin()
         val second = first.begin()
-        assertSame(second, second.finish(first.request, Result.success(mixed)))
-        assertSame(second, second.finish(first.request, Result.failure(IllegalStateException("stale"))))
-        assertTrue(second.finish(second.request, Result.success(mixed)).isReady)
+        assertTrue(second.finish(first.request, Result.success(mixed)).isReady)
+        assertTrue(second.finish(first.request, Result.failure(IllegalStateException("unavailable"))).isReady)
+    }
+
+    @Test fun anOlderResultNeverReplacesANewerOne() {
+        val first = CredentialDraft().begin()
+        val second = first.begin()
+        val fresh = second.finish(second.request, Result.success(mixed))
+        assertTrue(fresh.isReady)
+        assertSame(fresh, fresh.finish(first.request, Result.success(catalog("""{"devices":[]}"""))))
+        assertSame(fresh, fresh.finish(first.request, Result.failure(IllegalStateException("stale"))))
     }
 
     @Test fun resetOrphansRequestsAcrossTeamSwitchIncludingAwayAndBack() {
