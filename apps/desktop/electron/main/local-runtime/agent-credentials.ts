@@ -74,9 +74,15 @@ export function deleteDefaultCredentials(
   if (provider === 'codex') rmSync(path.join(codexOwnerHome(env), 'auth.json'), { force: true })
 }
 
+const OPENCODE_SIGNED_IN =
+  'OpenCode still holds provider credentials Nuphos cannot remove. Sign them out in OpenCode, then try again'
+const OPENCODE_UNREAD =
+  'Nuphos could not read which providers OpenCode is signed in to, so it did not sign it out. Try again'
+
 /**
  * OpenCode 2.x keeps its providers' credentials in its own database, not in a file: asks it
- * whether any is left, so a reset fails rather than reports a sign-out it could not make.
+ * whether any is left, so a reset fails rather than reports a sign-out it could not make. Only
+ * a list it read and found empty will do; a 1.x CLI has no list, its login being the files.
  * The error to fail with, or undefined.
  */
 export async function credentialsLeft(
@@ -85,11 +91,14 @@ export async function credentialsLeft(
   deps: Pick<LocalRuntimeControllerDeps, 'probeCli' | 'userEnv'>,
 ): Promise<Error | undefined> {
   if (provider !== 'opencode') return undefined
-  const cli = await deps.probeCli(provider, await deps.userEnv(), home).catch(() => undefined)
+  const cli = await deps.probeCli(provider, await deps.userEnv(), home).catch(() => {})
 
-  return cli?.installed && cli.loggedIn === true
-    ? new Error(
-        'OpenCode still holds provider credentials Nuphos cannot remove. Sign them out in OpenCode, then try again',
-      )
+  if (!cli) return new Error(OPENCODE_UNREAD)
+  if (!cli.installed) return undefined
+  if (cli.loggedIn === true) return new Error(OPENCODE_SIGNED_IN)
+  const major = Number(cli.version?.split('.')[0])
+
+  return cli.credentialsUnread && (Number.isNaN(major) || major >= 2)
+    ? new Error(OPENCODE_UNREAD)
     : undefined
 }

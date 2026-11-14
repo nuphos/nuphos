@@ -132,25 +132,42 @@ test('a default Codex also loses the owner login its home links to', (t) => {
   assert.equal(existsSync(path.join(root, 'owner/.codex/auth.json')), true)
 })
 
-test('only an OpenCode still holding a provider, as a 2.x database can, fails the check', async () => {
+test('a reset of OpenCode passes only on a list it read empty, or a 1.x CLI without one', async () => {
   const asked: string[] = []
-  const answering = (loggedIn: boolean | null) =>
+  const answering = (cli: object | Error) =>
     ({
       userEnv: async () => ({}),
       probeCli: async (provider: string, _env: unknown, home: string | undefined) => {
         asked.push(`${provider} ${String(home)}`)
+        if (cli instanceof Error) throw cli
 
-        return { installed: true, loggedIn }
+        return cli
       },
     }) as unknown as Pick<LocalRuntimeControllerDeps, 'probeCli' | 'userEnv'>
+  const left = async (cli: object | Error, provider: 'opencode' | 'codex' = 'opencode') =>
+    String(await credentialsLeft(provider, '/home/oc', answering(cli)))
 
+  // A 2.x database still holding a provider, as no file deletion reaches.
   assert.match(
-    String(await credentialsLeft('opencode', '/home/oc', answering(true))),
-    /OpenCode still holds provider credentials/,
+    await left({ installed: true, version: '2.0.1', loggedIn: true }),
+    /still holds provider credentials/,
   )
-  assert.equal(await credentialsLeft('opencode', '/home/oc', answering(false)), undefined)
-  assert.equal(await credentialsLeft('opencode', '/home/oc', answering(null)), undefined)
+  // A 2.x list that could not be read, or a probe that failed, proves nothing.
+  for (const cli of [
+    { installed: true, version: '2.0.1', loggedIn: false, credentialsUnread: true },
+    { installed: true, loggedIn: false, credentialsUnread: true },
+    new Error('probe failed'),
+  ])
+    assert.match(await left(cli), /could not read which providers/)
+  assert.equal(await left({ installed: true, version: '2.0.1', loggedIn: false }), 'undefined')
+  // 1.x keeps no list: its login is the auth.json deleted above.
+  assert.equal(
+    await left({ installed: true, version: '1.19.5', loggedIn: false, credentialsUnread: true }),
+    'undefined',
+  )
+  assert.equal(await left({ installed: false }), 'undefined')
   // Every other agent's sign-in is the files deleted above, so none is asked.
-  assert.equal(await credentialsLeft('codex', '/home/cx', answering(true)), undefined)
-  assert.deepEqual(asked, ['opencode /home/oc', 'opencode /home/oc', 'opencode /home/oc'])
+  asked.length = 0
+  assert.equal(await left({ installed: true, loggedIn: true }, 'codex'), 'undefined')
+  assert.deepEqual(asked, [])
 })
