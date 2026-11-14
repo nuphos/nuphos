@@ -98,19 +98,6 @@ export function createLocalTools(localToolsEnabled: boolean): Record<string, unk
     },
   )
 
-  localTools.upload_attachment = clientToolWithLabel(
-    'Transfer a file the user attached to the conversation into the Nuphos file-transfer store so you can pull it into the sandbox. ' +
-      'Attached images are shown to you as vision (you can see them), but their bytes are NOT in the sandbox. ' +
-      'When the user wants the actual file moved or saved — e.g. `kubectl cp` an attached image into a pod, or write it to disk — call this with the `attachmentId` from the "[Attached image …]" note in the message to get a transfer groupId, then pull it: ' +
-      'bash skills/file-transfer/scripts/transfer-pull.sh "$TEAM" <groupId> ./uploads. ' +
-      'Returns { ok: true, groupId, fileName }. No re-approval prompt — the user already attached the file, so transferring it is implied consent.',
-    {
-      attachmentId: z
-        .string()
-        .describe('The attachmentId from the "[Attached image …]" note in the user message'),
-    },
-  )
-
   localTools.port_forward_list = clientToolWithLabel(
     "List active port-forwards on the user's machine. Returns every forward the desktop is currently running, " +
       'whether opened by you (via port_forward_start) or by the user from the UI. ' +

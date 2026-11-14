@@ -67,21 +67,6 @@ pick up late arrivals.
 The same command pulls a group pushed by one of your sub-agents (or their
 sub-agents), so you can review what a thread produced.
 
-### Attached images (vision) you need as actual files
-
-Images the user attaches are shown to you as **vision** — you can see them, but
-their bytes are NOT in the sandbox. When the user wants the actual image file
-moved or saved (e.g. `kubectl cp` it into a pod, or write it to disk), call the
-**`upload_attachment`** tool with the `attachmentId` from the `[Attached image …]`
-note in the message. It returns a `groupId`; pull it like any other upload:
-
-```bash
-bash skills/file-transfer/scripts/transfer-pull.sh <TEAM> <groupId> ./uploads
-```
-
-Never ask the user to re-upload an image they already attached — use
-`upload_attachment`.
-
 ### Folder / multi-file uploads come as one archive
 
 The desktop uses a **hybrid** upload model:

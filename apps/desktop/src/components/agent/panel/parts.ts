@@ -30,9 +30,6 @@ export type ImageAttachmentPart = {
   url: string // data: URL (downscaled in the main process when oversized)
   fileName: string
   path?: string
-  // Opaque handle the agent can pass to the upload_attachment tool to transfer
-  // the actual file into the sandbox on demand.
-  attachmentId?: string
 }
 // Files the user uploaded to the Nuphos transfer store. The bytes
 // live in S3; the agent pulls them into its sandbox via the file-transfer

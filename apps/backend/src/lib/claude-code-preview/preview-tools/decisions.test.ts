@@ -88,7 +88,6 @@ describe('decision tool module', () => {
         'port_forward_start',
         'port_forward_stop',
         'port_forward_list',
-        'upload_attachment',
       ]),
     )
     // local_exec is a real backend-executed tool now (see preview-tools/local-exec.ts),

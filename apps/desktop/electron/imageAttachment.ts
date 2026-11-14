@@ -35,41 +35,6 @@ function mediaTypeFor(name: string): string {
   }
 }
 
-// Registry mapping an opaque attachmentId → the local file path, so the agent
-// can ask to transfer an already-attached image without ever
-// seeing or nominating a local path itself. Populated when the renderer reads an
-// image for vision; resolved when the `upload_attachment` client tool runs.
-type RegisteredAttachment = { path: string; size: number; mtimeMs: number }
-const attachmentPaths = new Map<string, RegisteredAttachment>()
-let attachmentSeq = 0
-
-export async function registerAttachment(path: string): Promise<string> {
-  const st = await fs.stat(path)
-  const id = `att_${String(++attachmentSeq)}_${Date.now().toString(36)}`
-
-  attachmentPaths.set(id, { path, size: st.size, mtimeMs: st.mtimeMs })
-
-  return id
-}
-
-// Resolve an attachmentId to its path, rejecting if the file changed since
-// registration (size/mtime) so the upload can't transfer different bytes than
-// the ones the model was shown (TOCTOU integrity).
-export async function resolveAttachment(id: string): Promise<string | undefined> {
-  const entry = attachmentPaths.get(id)
-
-  if (!entry) return undefined
-  try {
-    const st = await fs.stat(entry.path)
-
-    if (st.size !== entry.size || st.mtimeMs !== entry.mtimeMs) return undefined
-  } catch {
-    return undefined
-  }
-
-  return entry.path
-}
-
 export type ImageAttachment = { mediaType: string; url: string; fileName: string }
 
 export async function readImageAttachment(path: string): Promise<ImageAttachment | null> {

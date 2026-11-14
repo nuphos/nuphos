@@ -11,7 +11,6 @@ import {
   reportFailure,
   traceStream,
 } from './chat-shared'
-import { setSessionTeam } from './client-tools'
 import { agentAccount, teamIdFromUrl } from './http'
 import { logLocalTool } from './local-exec'
 import { broadcast } from './notify'
@@ -25,9 +24,6 @@ export async function startChat(args: StartChatArgs): Promise<void> {
   const { streamId, sessionId, messages, continueAfterInterruption, resumeReason } = args
   const teamId = args.teamId ?? teamIdFromUrl(args.url)
 
-  // Remember which team this session belongs to so the upload_attachment client
-  // tool can team-scope its transfer (it only receives sessionId).
-  if (teamId) setSessionTeam(sessionId, teamId)
   const explicitResume = args.resume === true
 
   // Paired with the renderer's `agent_resume_dispatched`: if that fires and
