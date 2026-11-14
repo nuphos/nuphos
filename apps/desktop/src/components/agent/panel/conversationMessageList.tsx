@@ -144,7 +144,7 @@ function MessageList({
 
   return (
     // The composer's inner padding, so messages stay inside its edges.
-    <div className="space-y-4 px-3">
+    <div className="flex flex-col gap-4 px-3">
       {hasEarlier && (
         <div
           // Read by SessionFindBar: part of the conversation is not in the DOM.
@@ -194,7 +194,7 @@ function MessageList({
               <div
                 key={m.id}
                 data-message-id={m.id}
-                className="pt-4 transition-shadow first:pt-0" // A new turn: the room goes above it.
+                className="mt-4 transition-shadow first:mt-0" // A new turn: the room goes above it.
                 style={wrapperStyle}
               >
                 <UserMessage
