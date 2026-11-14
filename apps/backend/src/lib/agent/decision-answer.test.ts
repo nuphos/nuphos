@@ -231,3 +231,45 @@ test('a conversation that cannot be told leaves the question answered', async ()
   expect(turns.map((turn) => turn.session)).toEqual(['bot'])
   expect(reopened).toBe(0)
 })
+
+test('credential-category status choices can be answered without entering a secret', async () => {
+  await answerDecision({
+    conversation: ask({ category: 'credential', options: ['Signed in', 'Later'] }),
+    requestId: 'q1',
+    answer: { choices: ['Signed in'] },
+    actor,
+    teamId: 't1',
+  })
+  expect(turns).toHaveLength(1)
+})
+
+test('credential status choices cannot smuggle typed text or an unknown choice', async () => {
+  for (const answer of [
+    { choices: ['not an option'] },
+    { choices: ['Signed in'], text: 'secret' },
+  ]) {
+    await expect(
+      answerDecision({
+        conversation: ask({ category: 'credential', options: ['Signed in'] }),
+        requestId: 'q1',
+        answer,
+        actor,
+        teamId: 't1',
+      }),
+    ).rejects.toThrow('its own card')
+  }
+  expect(turns).toHaveLength(0)
+})
+
+test('a masked secret card cannot be answered by selecting a status option', async () => {
+  await expect(
+    answerDecision({
+      conversation: ask({ category: 'credential', secretName: 'API_KEY', options: ['Signed in'] }),
+      requestId: 'q1',
+      answer: { choices: ['Signed in'] },
+      actor,
+      teamId: 't1',
+    }),
+  ).rejects.toThrow('its own card')
+  expect(turns).toHaveLength(0)
+})

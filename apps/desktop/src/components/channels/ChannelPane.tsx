@@ -26,6 +26,7 @@ import { ChatHeaderIcon, ChatIcon, ReplyingBanner } from './channelParts'
 import { ChannelTitle } from './ChannelTitle'
 import { sendingPost, stillSending } from './sendingPosts'
 import { useBotChatQuestions } from './useBotChatQuestions'
+import { useBotRuntimeControl } from './useBotRuntimeControl'
 import { useBotTaskAccess } from './useBotTaskAccess'
 import { useChannel } from './useChannel'
 import { useStickToBottom } from './useStickToBottom'
@@ -84,6 +85,7 @@ export function ChannelPane({
   const bot = botOfChannel(detail)
   const botState = useSyncExternalStore(subscribeRuntimeStates, () => runtimeStateOf(bot))
   const botOwned = agents.some((agent) => agent.sessionId === bot && agent.ownerId === user.id)
+  const runtimeControl = useBotRuntimeControl(teamId, bot, botOwned, user, botState, refresh)
   const canOpenTask = useBotTaskAccess(teamId, bot, botOwned)
   const canOpenBotDesktop =
     bot !== undefined &&
@@ -292,6 +294,7 @@ export function ChannelPane({
             }}
             placeholder={t('Message {name}', { name: title })}
             credentialSelector={questions.credentials}
+            runtimeControl={runtimeControl}
           />
         </div>
       </ChatColumn>
