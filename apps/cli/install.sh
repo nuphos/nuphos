@@ -84,9 +84,9 @@ echo "Installed $("$DIR/nuphos" --version)"
 # Like rustup and bun, put $DIR on PATH for new shells by adding one line to the
 # login shell's profile, once.
 line="export PATH=\"$DIR:\$PATH\""
-case "${SHELL##*/}" in
-  zsh) profile=${ZDOTDIR:-$HOME}/.zprofile ;;
-  bash)
+case "${SHELL:-}" in
+  *zsh) profile=${ZDOTDIR:-$HOME}/.zprofile ;;
+  *bash)
     # A login bash reads only the first of these that exists.
     profile=$HOME/.profile
     for f in "$HOME/.bash_login" "$HOME/.bash_profile"; do
