@@ -53,6 +53,8 @@ struct InboxPage: View {
                                     // Wide, the open question stays marked.
                                     selected: wide && inbox.selected == question.id))
                                 .listRowSeparator(.hidden)
+                                // iPadOS rings the selected row of a focused list; the fill marks it instead.
+                                .focusEffectDisabled()
                                 .accessibilityIdentifier("inbox.row")
                             }
                         } header: {
@@ -63,8 +65,6 @@ struct InboxPage: View {
                 }
                 // Grouped, not inset: the groups' corners and margins are drawn by InboxRowBackground.
                 .listStyle(.grouped)
-                // The open question is marked by its fill, not a keyboard's focus ring.
-                .focusEffectDisabled()
                 .listSectionSpacing(wide ? 16 : 18)
                 .environment(\.defaultMinListRowHeight, wide ? 44 : 46)
                 .scrollContentBackground(.hidden)
