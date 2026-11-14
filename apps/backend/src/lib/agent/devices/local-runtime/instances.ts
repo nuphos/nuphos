@@ -26,7 +26,7 @@ type Answer = { instance?: AgentInstance; display?: number }
 /** One request over the device's own tunnel; the host answers once and closes. */
 function requestInstances(
   target: Target,
-  body: { method: 'create' | 'commit' | 'remove' | 'desktop' } & Record<string, unknown>,
+  body: { method: 'create' | 'commit' | 'remove' | 'reset' | 'desktop' } & Record<string, unknown>,
   options: Options,
 ): Promise<Answer> {
   const socket = new DeviceRuntimeSocket(
@@ -128,6 +128,19 @@ export async function removeLocalAgentInstance(
 ): Promise<void> {
   // Stopping a starting agent first waits for it, so allow more than a request.
   await requestInstances(target, { method: 'remove', ...agent }, { timeoutMs: 45_000, ...options })
+}
+
+/**
+ * Signs an agent out but keeps it: the host stops it, deletes every credential it holds and
+ * starts it again signed out. Only a host that reports `agentReset` can.
+ */
+export async function resetLocalAgentInstance(
+  target: Target,
+  agent: RemovableAgent,
+  options: Options = {},
+): Promise<void> {
+  // Stopping a starting agent first waits for it, as removal does.
+  await requestInstances(target, { method: 'reset', ...agent }, { timeoutMs: 45_000, ...options })
 }
 
 /** Has the Box hold a desktop for the session, its own if it has one; answers the display. */

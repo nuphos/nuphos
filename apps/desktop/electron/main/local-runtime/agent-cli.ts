@@ -35,6 +35,8 @@ export type AgentCliStatus =
       plan?: string
       /** Kept by a desktop app (Claude, ChatGPT), which updates it, even when reached through a symlink. */
       bundled?: true
+      /** OpenCode's credential list could not be read: a 1.x CLI has none, a 2.x one failed. */
+      credentialsUnread?: true
     }
 
 const PROBE_TIMEOUT_MS = 15_000
@@ -90,6 +92,7 @@ async function loginOf(
   if (fromHome === false && provider === 'opencode')
     return run(file, OPENCODE_AUTH_LIST, runtimeEnv).then(parseOpenCodeAuthList, () => ({
       loggedIn: false,
+      credentialsUnread: true as const,
     }))
   if (fromHome !== undefined) return { loggedIn: fromHome }
   if (provider === 'claude-code') return claudeLogin(runtimeEnv)
