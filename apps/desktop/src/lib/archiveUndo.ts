@@ -29,12 +29,12 @@ export function offerArchiveUndo({
   let restoring = false
 
   toast.success(
-    noun === 'bot' ? t('Bot archived') : noun === 'chat' ? t('Chat archived') : t('Agent archived'),
-    // A chat is not listed in Archived agents, so its receipt promises only Undo.
+    noun === 'bot' ? t('Bot archived') : noun === 'chat' ? t('Chat archived') : t('Task archived'),
+    // A chat is not listed in Archived Bots and tasks, so its receipt promises only Undo.
     noun === 'chat'
       ? undefined
       : noun === 'bot'
-        ? t('"{title}" is still available in Archived agents.', { title })
+        ? t('"{title}" is still available in Archived Bots and tasks.', { title })
         : t('"{title}" is still available in the Agent history.', { title }),
     {
       dedupe: false,

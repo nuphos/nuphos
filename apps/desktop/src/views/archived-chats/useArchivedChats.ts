@@ -2,9 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { useDebouncedValue } from '../../components/agent/panel/historyPageHooks'
+import { botOfChannel } from '../../components/channels/botChannel'
+import { isBotRow } from '../../components/sidebar/chat-item'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n/index.ts'
-import { botOfChannel } from '../../components/channels/botChannel'
 import { announceChatUnarchived } from '../../lib/chatArchiveEvents'
 
 import { appendArchivedPage } from './archivedChatsList'
@@ -72,7 +73,7 @@ export function useArchivedChats({
       .catch((err: unknown) => {
         if (requestIdRef.current !== requestId) return
         setFailed(true)
-        toast.apiError(t('Could not load archived agents'), err)
+        toast.apiError(t('Could not load archived Bots and tasks'), err)
       })
       .finally(() => {
         if (requestIdRef.current !== requestId) return
@@ -96,7 +97,7 @@ export function useArchivedChats({
       setCursor(page.hasMore ? page.nextCursor : null)
     } catch (err) {
       if (requestIdRef.current === requestId)
-        toast.apiError(t('Could not load archived agents'), err)
+        toast.apiError(t('Could not load archived Bots and tasks'), err)
     } finally {
       setLoadingMore(false)
     }
@@ -105,6 +106,7 @@ export function useArchivedChats({
   const unarchive = useCallback(
     async (conversation: AgentConversation) => {
       const { sessionId } = conversation
+      const bot = isBotRow(conversation)
 
       if (restoringIds.has(sessionId)) return
       setRestoringIds((prev) => new Set(prev).add(sessionId))
@@ -122,12 +124,16 @@ export function useArchivedChats({
         await Promise.all(ids.map((id) => api.agentSetConversationArchived(id, false, teamId)))
         setItems((prev) => prev.filter((c) => !ids.includes(c.sessionId)))
         ids.forEach(announceChatUnarchived)
+        const name = chatLabel(conversation)
+
         toast.success(
-          t('Agent unarchived'),
-          t('"{name}" is back in Agents.', { name: chatLabel(conversation) }),
+          bot ? t('Bot unarchived') : t('Task unarchived'),
+          bot
+            ? t('"{name}" is back in Bots.', { name })
+            : t('"{name}" is back in Tasks.', { name }),
         )
       } catch (err) {
-        toast.apiError(t('Could not unarchive agent'), err)
+        toast.apiError(bot ? t('Could not unarchive Bot') : t('Could not unarchive task'), err)
       } finally {
         setRestoringIds((prev) => {
           const next = new Set(prev)

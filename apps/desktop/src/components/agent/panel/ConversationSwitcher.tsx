@@ -79,7 +79,7 @@ export function ConversationSwitcher({
       })
       .catch((err: unknown) => {
         if (requestIdRef.current !== requestId) return
-        toast.apiError(t('Failed to load agents'), err)
+        toast.apiError(t('Failed to load Bots and tasks'), err)
       })
       .finally(() => {
         if (requestIdRef.current === requestId) setLoading(false)
@@ -105,7 +105,12 @@ export function ConversationSwitcher({
         {/* Menus carry a flat `p-1`; the search box needs the same breathing
             room top and bottom, or it reads as pushed against the lid. */}
         <div className="px-1.5 pb-1.5 pt-1.5">
-          <SearchBox filter={query} onFilterChange={setQuery} fill label={t('Search agents')} />
+          <SearchBox
+            filter={query}
+            onFilterChange={setQuery}
+            fill
+            label={t('Search Bots and tasks')}
+          />
         </div>
         <div className="max-h-[320px] overflow-y-auto scrollbar-thin px-1 pb-1">
           {loading && items === null && (
@@ -116,7 +121,9 @@ export function ConversationSwitcher({
           )}
           {items?.length === 0 && (
             <div className="px-2 py-2 text-[12.5px] text-tertiary">
-              {debouncedQuery ? t('No agents match your search.') : t('No agents yet.')}
+              {debouncedQuery
+                ? t('No Bots or tasks match your search.')
+                : t('No Bots or tasks yet.')}
             </div>
           )}
           {items?.map((conversation) => (

@@ -63,7 +63,7 @@ export function installApplicationMenu() {
       label: t('File'),
       submenu: [
         {
-          label: t('Search Agents'),
+          label: t('Search Bots and Tasks'),
           accelerator: 'CommandOrControl+K',
           click: () => dispatchAppShortcut('search-sessions'),
         },

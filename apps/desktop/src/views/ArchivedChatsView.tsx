@@ -50,16 +50,16 @@ export function ArchivedChatsView({
   if (!loading && failed && items.length === 0)
     return (
       <div className="mx-auto w-full max-w-[820px] px-9 pt-6">
-        <LoadFailed message={t('Couldn’t load archived agents.')} onRetry={retry} />
+        <LoadFailed message={t('Couldn’t load archived Bots and tasks.')} onRetry={retry} />
       </div>
     )
   if (!loading && items.length === 0 && !search) {
     return (
       <EmptyState
         icon={Archive}
-        title={t('No archived agents')}
+        title={t('No archived Bots or tasks')}
         description={t(
-          'Agents you archive, and agents left idle for a week, are kept here. Unarchive one to put it back in Agents.',
+          'Bots and tasks you archive, and those left idle for a week, are kept here. Unarchive one to put it back.',
         )}
       />
     )
@@ -79,7 +79,7 @@ export function ArchivedChatsView({
         >
           {items.length === 0 && (
             <div className="px-3 py-4 text-[12.5px] text-tertiary">
-              {loading ? t('Loading…') : t('No archived agents match your search.')}
+              {loading ? t('Loading…') : t('No archived Bots or tasks match your search.')}
             </div>
           )}
           {items.map((conversation) => (

@@ -128,8 +128,8 @@ export function SearchResults({
     mode === 'people'
       ? t('People in {team}', { team: teamName })
       : owner
-        ? t('Agents by {name}', { name: owner.name || owner.email })
-        : t('Agents')
+        ? t('Bots and tasks by {name}', { name: owner.name || owner.email })
+        : t('Bots and tasks')
   const sessionRow = (result: SessionResult, index: number) => {
     const { conversation } = result
     const at = commands.length + index
@@ -209,7 +209,7 @@ export function SearchResults({
                   className="shrink-0 rounded-full"
                 />
               }
-              action={t('View agents')}
+              action={t('View Bots and tasks')}
               onSelect={() => setSelected(index)}
               onOpen={() => {
                 trackOpened('person', index, 'mouse', query)
@@ -236,10 +236,10 @@ export function SearchResults({
         {!busy && !results.error && resultCount === 0 && (
           <p className="py-5">
             {results.recent
-              ? t('Agents you open will appear here. Type to search your team.')
+              ? t('Bots and tasks you open will appear here. Type to search your team.')
               : mode === 'people'
                 ? t('No people found. Try another name or email.')
-                : t('No agents found. Try another search or clear the person filter.')}
+                : t('No Bots or tasks found. Try another search or clear the person filter.')}
           </p>
         )}
         {!busy && results.error && (
@@ -257,12 +257,12 @@ export function SearchResults({
           disabled={results.loadingMore}
           onClick={() => void results.loadMore()}
         >
-          {results.loadingMore ? t('Loading…') : t('Load more agents')}
+          {results.loadingMore ? t('Loading…') : t('Load more Bots and tasks')}
         </button>
       )}
       {!busy && mode === 'people' && count > 0 && (
         <p className="px-4 pb-3 text-xs text-secondary">
-          {t('Choose a teammate, then search within their agents.')}
+          {t('Choose a teammate, then search within their Bots and tasks.')}
         </p>
       )}
     </div>

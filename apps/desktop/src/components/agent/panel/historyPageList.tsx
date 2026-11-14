@@ -101,7 +101,7 @@ export function HistoryPageList({
         {loading
           ? t('Loading…')
           : debouncedQuery
-            ? t('No agents match your search.')
+            ? t('No Bots or tasks match your search.')
             : (emptyLabel ??
               (ownerId
                 ? t('No agents from this member yet.')
