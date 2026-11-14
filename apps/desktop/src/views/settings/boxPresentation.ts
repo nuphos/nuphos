@@ -144,7 +144,7 @@ export function accessHint(device: AgentDevice): string | null {
 
   if (!access || !canManage(device)) return null
   if (access.everyone) return t('Everyone')
-  if (!access.userIds.length) return t('Owner and managers only')
+  if (!access.userIds.length) return t('Admins only')
 
   return t('Shared with {n}', { n: access.userIds.length })
 }

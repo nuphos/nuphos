@@ -280,10 +280,7 @@ test('only a manager sees who may use a Box', () => {
     accessHint(shared({ everyone: false, userIds: ['u1', 'u2'] }, 'manage')),
     'Shared with 2',
   )
-  assert.equal(
-    accessHint(shared({ everyone: false, userIds: [] }, 'manage')),
-    'Owner and managers only',
-  )
+  assert.equal(accessHint(shared({ everyone: false, userIds: [] }, 'manage')), 'Admins only')
   assert.equal(accessHint(shared({ everyone: true, userIds: [] }, 'use')), null)
   assert.equal(accessHint({ deviceId: 'c1', label: 'Mac', platform: 'darwin' }), null)
 })

@@ -22,7 +22,7 @@ const SEARCH_FROM = 6
 const STACK = 4
 
 const MODES: { mode: AccessMode; icon: typeof Users; title: string }[] = [
-  { mode: 'admins', icon: ShieldCheck, title: t('Owner and managers only') },
+  { mode: 'admins', icon: ShieldCheck, title: t('Admins only') },
   { mode: 'everyone', icon: Users, title: t('Everyone') },
   { mode: 'members', icon: UserCheck, title: t('Specific people') },
 ]
@@ -121,7 +121,7 @@ export function BoxAccessFields({
   }, [loaded])
 
   const descriptions: Record<AccessMode, string> = {
-    admins: t('No one else in the team'),
+    admins: t('Only team admins'),
     everyone: loaded ? t('All {n} in the team', { n: members.length }) : t('The whole team'),
     members: t('Pick who can use it'),
   }
