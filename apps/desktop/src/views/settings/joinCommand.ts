@@ -1,6 +1,6 @@
 export type BoxJoin = { token: string; expiresAt: string; apiUrl: string | null }
 
-/** The two commands that make a machine one of your computers, run on the machine itself. */
+/** The command that makes a machine one of your computers, run on the machine itself. */
 export function joinCommand(join: BoxJoin): string {
   // Nuphos Cloud is the CLI's default; only another deployment (self-hosted, dev) names itself.
   const env = [
@@ -10,6 +10,6 @@ export function joinCommand(join: BoxJoin): string {
     .filter(Boolean)
     .join(' ')
 
-  // By its install path: on a fresh machine ~/.local/bin is often not on PATH yet.
-  return `curl -fsSL https://nuphos.ai/install | sh\n${env} ~/.local/bin/nuphos agent`
+  // The installer starts `nuphos agent` when given a token, so a PATH without it does not matter.
+  return `curl -fsSL https://nuphos.ai/install | ${env} sh`
 }

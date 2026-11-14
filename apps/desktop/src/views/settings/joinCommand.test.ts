@@ -3,12 +3,12 @@ import { test } from 'node:test'
 
 import { joinCommand } from './joinCommand.ts'
 
-test('the two commands to run on the machine, naming only a non-default API', () => {
+test('the command to run on the machine, naming only a non-default API', () => {
   const join = { token: 'tok', expiresAt: '', apiUrl: 'https://api.nuphos.ai' }
 
   assert.equal(
     joinCommand(join),
-    'curl -fsSL https://nuphos.ai/install | sh\nNUPHOS_JOIN_TOKEN=tok ~/.local/bin/nuphos agent',
+    'curl -fsSL https://nuphos.ai/install | NUPHOS_JOIN_TOKEN=tok sh',
   )
   assert.match(
     joinCommand({ ...join, apiUrl: 'https://api.dev' }),

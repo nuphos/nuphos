@@ -106,14 +106,13 @@ self-hosted backend with `nuphos-admin join-token --team <id>` in its container
 (and set `NUPHOS_API_URL` to that backend), then on the machine:
 
 ```sh
-curl -fsSL https://nuphos.ai/install | sh
-~/.local/bin/nuphos agent --join -   # paste the token, then Enter
+curl -fsSL https://nuphos.ai/install | NUPHOS_JOIN_TOKEN=<token> sh
 ```
 
-`--join -` reads the token from stdin, and `NUPHOS_JOIN_TOKEN` in the
-environment works too, so it never lands in the shell history or in `ps`. From
-a script or cloud-init, write it to a file only the runtime's account can read and
-pipe it: `nuphos agent --join - < /run/nuphos-join`.
+Given `NUPHOS_JOIN_TOKEN`, the installer starts `nuphos agent` by its path, so
+it works before `~/.local/bin` is on `PATH`. From a script or cloud-init, write
+the token to a file only the runtime's account can read and pipe it:
+`nuphos agent --join - < /run/nuphos-join`.
 
 The token works once. The machine keeps its own credential in
 `~/.local/share/nuphos/agent/device-credential.json` (`NUPHOS_AGENT_HOME`

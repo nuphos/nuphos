@@ -6,6 +6,7 @@
 # NUPHOS_VERSION=X.Y.Z pins a version, NUPHOS_INSTALL_DIR changes where it
 # goes (default ~/.local/bin), NUPHOS_DOWNLOAD_URL points at a mirror of the
 # release assets, and NUPHOS_LATEST_URL at another backend's /cli/latest.
+# With NUPHOS_JOIN_TOKEN set it then joins this machine with `nuphos agent`.
 set -eu
 
 REPO=nuphos/nuphos
@@ -71,3 +72,9 @@ case ":$PATH:" in
     echo "  export PATH=\"$DIR:\$PATH\"" >&2
     ;;
 esac
+
+# Started here by its path, since this shell's PATH change cannot reach the caller's.
+if [ -n "${NUPHOS_JOIN_TOKEN:-}" ]; then
+  rm -rf "$tmp"
+  exec "$DIR/nuphos" agent
+fi
