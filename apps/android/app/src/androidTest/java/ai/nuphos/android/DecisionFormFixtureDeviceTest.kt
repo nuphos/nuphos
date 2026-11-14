@@ -8,7 +8,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.*
@@ -18,6 +21,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import ai.nuphos.android.data.Http
 import ai.nuphos.android.data.JsonValue
+import ai.nuphos.android.model.DecisionQuestion
 import ai.nuphos.android.model.InputRequest
 import ai.nuphos.android.session.AgentStore
 import ai.nuphos.android.session.BotQuestion
@@ -84,6 +88,27 @@ class DecisionFormFixtureDeviceTest {
         capture("form-typed")
         compose.onNodeWithTag("bot-question-form-send").performScrollTo().performClick()
         assertEquals(listOf("""{"questions":[{"choices":["Ship it"]},{"text":"Only us-east, then wait a day"}]}"""),
+            sent.map { it.compact })
+    }
+
+    @Test fun aCardTheAgentCorrectsStartsItsFormOver() {
+        val sent = mutableListOf<JsonValue>()
+        var card by mutableStateOf(release)
+        screen { BotQuestionCard(card, onOpen = {}, onAnswer = {}, onForm = { sent += it }) }
+        compose.onNodeWithText("Ship it").performClick()
+        // Same card id, one more question: the form is rebuilt for three, not indexed past two.
+        val questions = release.request.questions!! + DecisionQuestion("Who watches the rollout?", listOf("Can", "Yuanlin"))
+        // The backend writes the corrected list into the body again, which the form leaves out.
+        card = release.copy(request = release.request.copy(questions = questions,
+            body = "The canary has been clean for a day." + BotQuestion.writtenQuestions(questions)))
+        compose.onAllNodesWithTag("bot-question-choice").assertCountEquals(7)
+        compose.onAllNodesWithTag("bot-question-form-text").assertCountEquals(3)
+        compose.onNodeWithTag("bot-question-form-send").assertIsNotEnabled()
+        compose.onNodeWithText("Wait for QA").performClick()
+        compose.onNodeWithText("eu-west").performClick()
+        compose.onNodeWithText("Yuanlin").performScrollTo().performClick()
+        compose.onNodeWithTag("bot-question-form-send").performScrollTo().performClick()
+        assertEquals(listOf("""{"questions":[{"choices":["Wait for QA"]},{"choices":["eu-west"]},{"choices":["Yuanlin"]}]}"""),
             sent.map { it.compact })
     }
 

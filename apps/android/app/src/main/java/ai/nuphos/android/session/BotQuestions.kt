@@ -54,7 +54,10 @@ data class BotQuestion(val sessionId: String, val title: String, val request: In
     }
 
     companion object {
-        /** The backend's `writtenQuestions`: the questions as markdown after a `---` separator, one line each. */
+        /**
+         * The backend's `writtenQuestions` (apps/backend/src/lib/agent/tools-skilled/decision-tools.ts): the
+         * questions as markdown after a `---` separator, one line each. A change there needs the same change here.
+         */
         fun writtenQuestions(questions: List<DecisionQuestion>): String {
             fun line(text: String) = text.split(Regex("\\s+")).filter { it.isNotEmpty() }.joinToString(" ")
             val list = questions.mapIndexed { index, item ->

@@ -141,8 +141,9 @@ internal fun cardReplies(question: BotQuestion): List<Pair<String, String>>? {
  */
 @Composable
 private fun DecisionForm(id: String, questions: List<DecisionQuestion>, onSubmit: (JsonValue) -> Unit) {
-    val picked = remember(id) { mutableStateListOf(*Array(questions.size) { emptyList<String>() }) }
-    val typed = remember(id) { mutableStateListOf(*Array(questions.size) { "" }) }
+    // Keyed on the questions too: an agent can correct an open card, keeping its id, and the form starts over.
+    val picked = remember(id, questions) { mutableStateListOf(*Array(questions.size) { emptyList<String>() }) }
+    val typed = remember(id, questions) { mutableStateListOf(*Array(questions.size) { "" }) }
     val complete = questions.indices.all { BotQuestion.answerText(picked[it], typed[it]).isNotEmpty() }
     Column(Modifier.testTag("bot-question-form"), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         questions.forEachIndexed { index, item ->
