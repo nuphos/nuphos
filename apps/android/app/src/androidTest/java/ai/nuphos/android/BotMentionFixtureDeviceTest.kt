@@ -96,9 +96,8 @@ class BotMentionFixtureDeviceTest {
                     .let { """{"agents":[{"sessionId":"${it.id}","title":"${it.title}","ownerId":"viewer"}]}""" }
                 path.endsWith("/ai-consent") -> """{"version":"${ai.nuphos.android.data.AccountApi.AI_CONSENT_VERSION}","accepted":true}"""
                 path.endsWith("/auth/me") -> """{"id":"viewer","email":"viewer@example.com","name":"Preview User"}"""
-                // The search an `@` runs: every Bot, the chat's own one included, as the server lists them.
-                path.endsWith("/agent/conversations") &&
-                    (request.url.queryParameter("search") != null || request.url.queryParameter("bots") == "true") ->
+                // Every listing but the chats one: an `@` (blank or not) and the Bots read, as the server lists them.
+                path.endsWith("/agent/conversations") && request.url.queryParameter("kind") != "channel" ->
                     bots.values.joinToString(",", """{"conversations":[""", """],"hasMore":false}""") {
                         """{"sessionId":"${it.id}","teamId":"${team.id}","title":"${it.title}","isOwner":true}"""
                     }
