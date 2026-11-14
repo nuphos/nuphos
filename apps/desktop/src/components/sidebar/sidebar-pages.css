@@ -5,12 +5,12 @@
 }
 .sidebar-swipe-track {
   display: flex;
-  width: 200%;
+  width: 300%;
   height: 100%;
   will-change: transform;
 }
 .sidebar-swipe-page {
-  flex: 0 0 50%;
+  flex: 0 0 calc(100% / 3);
   min-width: 0;
   height: 100%;
 }

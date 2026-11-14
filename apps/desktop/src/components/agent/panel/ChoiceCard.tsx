@@ -28,8 +28,7 @@ const TITLE: Record<string, string> = {
 
 /**
  * A user decision other than a Connect card: the question, with each option an
- * answer, like quick-reply chips, and "Other…" to type one in the card instead;
- * where the card is the page it is read on (the Inbox), the text box is always there.
+ * answer, like quick-reply chips, and "Other…" to type one in the card instead.
  * A multi-select or several questions are a form sent as one answer. The answer
  * wakes the agent that asked; no message is sent. Once answered, the options go.
  */
@@ -62,8 +61,6 @@ export function ChoiceCard({
   const [typing, setTyping] = useState(false)
   const interactive = Boolean(ctx?.answer) && canAct && !chosen
   const typeable = interactive && category !== 'credential'
-  // The Inbox shows the text box at once, beside the options, rather than behind "Other…".
-  const inline = typeable && Boolean(ctx?.fullBody)
   // "Other…" is the same form with the question alone and no options.
   const form = typing
     ? [{ question, options: [], multiSelect: false }]
@@ -105,24 +102,13 @@ export function ChoiceCard({
             onSubmit={(answer) => act(() => submit(answer))}
           />
         ) : (
-          <>
-            {(options.length > 0 || !inline) && (
-              <ChoiceActions
-                options={options}
-                interactive={interactive}
-                canAct={canAct}
-                onChoose={(option) => act(() => choose(option))}
-                onReply={typeable && !inline ? () => setTyping(true) : undefined}
-              />
-            )}
-            {inline && (
-              <DecisionForm
-                questions={[{ question, options: [], multiSelect: false }]}
-                disabled={false}
-                onSubmit={(answer) => act(() => submit(answer))}
-              />
-            )}
-          </>
+          <ChoiceActions
+            options={options}
+            interactive={interactive}
+            canAct={canAct}
+            onChoose={(option) => act(() => choose(option))}
+            onReply={typeable ? () => setTyping(true) : undefined}
+          />
         ))}
     </div>
   )

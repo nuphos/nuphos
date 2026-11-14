@@ -47,8 +47,7 @@ useDb({ db: () => ({ collection: (name: string) => store.collection(name) }) })
 const { reconcileHostedRuntimes } = await import('./runtime-provisioner')
 const { createManagedRuntimeInstance } = await import('./runtime-instances')
 const { requestRuntimeUpdate } = await import('./runtime-updates')
-const { registerTeamRuntime, resolveTeamRuntimeEndpoints, setTeamRuntimeStatus } =
-  await import('./runtime-registry')
+const { registerTeamRuntime, runtimes, setTeamRuntimeStatus } = await import('./runtime-registry')
 
 type PodSpec = {
   initContainers?: unknown[]
@@ -240,11 +239,11 @@ describe('reconcileHostedRuntimes', () => {
         'Deployment',
         'Service',
       ])
-      const [endpoint] = await resolveTeamRuntimeEndpoints('team-a', undefined, provider)
+      const doc = await runtimes().findOne({ _id: agent.id })
       const [secret] = ofKind<KubeObject & { stringData: Record<string, string> }>(kube, 'Secret')
 
       expect(secret?.metadata.name).toBe(secretName)
-      expect(secret?.stringData).toEqual({ OPENAB_ACP_AUTH_KEY: endpoint!.authKey })
+      expect(Object.keys(secret?.stringData ?? {})).toEqual(['OPENAB_ACP_AUTH_KEY'])
       expect(ofKind(kube, 'PersistentVolumeClaim').map((claim) => claim.metadata.name)).toEqual([
         `${name}-home`,
         `${name}-workspace`,
@@ -257,7 +256,7 @@ describe('reconcileHostedRuntimes', () => {
       expect(service?.metadata.name).toBe(name)
       // The first sign-in connects as soon as the pod listens, not after its readiness probe.
       expect(service?.spec.publishNotReadyAddresses).toBe(true)
-      expect(endpoint?.url).toBe(hostedRuntimeUrl(name, namespace()))
+      expect(doc?.url).toBe(hostedRuntimeUrl(name, namespace()))
 
       const [deployment] = ofKind<Deployment>(kube, 'Deployment')
       const pod = deployment!.spec.template.spec

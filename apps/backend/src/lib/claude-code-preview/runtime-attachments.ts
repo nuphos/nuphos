@@ -10,11 +10,9 @@ import { attachmentFileUrl } from './attachment-path'
 import { resolveConversationChatRuntime } from './conversation-chat-route'
 import { localAttachments } from './local-attachments'
 import { ATTACHMENT_RUNNER } from './runtime-attachment-runner'
-import { uploadPromptImages } from './upload-prompt-images'
 
 import type { RuntimeAttachment } from './runtime-attachment-types'
 import type { TeamRuntimeEndpoint } from './team-openab-runtime'
-import type { PromptImage } from '../agent/image-parts'
 
 export type { RuntimeAttachment } from './runtime-attachment-types'
 
@@ -30,17 +28,10 @@ export type PromptAttachment = {
 export async function runtimeAttachments(
   parts: readonly unknown[],
   scope: { teamId: string; userId: string; sessionId: string },
-  images: PromptImage[],
 ): Promise<RuntimeAttachment[]> {
   const files: RuntimeAttachment[] = []
-  const imageGroup = images.length
-    ? await uploadPromptImages({ ...scope, teamId: new ObjectId(scope.teamId) }, images)
-    : null
-  const transfers = imageGroup
-    ? [...parts, { type: 'transfer-upload', groupId: imageGroup }]
-    : parts
 
-  for (const raw of transfers) {
+  for (const raw of parts) {
     if (!raw || typeof raw !== 'object') continue
     const part = raw as {
       type?: string

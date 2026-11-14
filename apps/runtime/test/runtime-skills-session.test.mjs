@@ -122,7 +122,7 @@ test('a session cannot choose the workspace the sync writes to', async () => {
   )
 })
 
-test('personal skills follow the turn’s credential, and the session is rebuilt only when they change', async () => {
+test('personal skills follow the turn’s credential, and a prompt never rebuilds the session', async () => {
   // The fake installs one skill named after whoever the credential names; `none` has none.
   const install = [
     '[ -n "$NUPHOS_RUNTIME_PERSONAL_SKILLS_DIR" ] || exit 0',
@@ -153,21 +153,10 @@ test('personal skills follow the turn’s credential, and the session is rebuilt
     }
     const calls = []
     const agent = {
-      sessions: { s1: { configOptions: [{ id: 'model', currentValue: 'picked' }] } },
+      sessions: { s1: {} },
       teardownSession: async (id) => calls.push(['teardown', id]),
-      createSession: async (created, opts) => {
-        calls.push(['create', created.cwd, opts.resume])
-
-        return { configOptions: [{ id: 'model', currentValue: 'default' }] }
-      },
-      setSessionConfigOption: async (option) =>
-        calls.push(['config', option.configId, option.value]),
+      createSession: async (created, opts) => calls.push(['create', created.cwd, opts.resume]),
     }
-    const rebuild = [
-      ['teardown', 's1'],
-      ['create', '/workspace', 's1'],
-      ['config', 'model', 'picked'],
-    ]
     // One prompt with the given credential file; returns what the session went through.
     const prompt = async (token) => {
       calls.length = 0
@@ -184,15 +173,15 @@ test('personal skills follow the turn’s credential, and the session is rebuilt
     assert.deepEqual(params._meta.claudeCode.options.additionalDirectories, [personal])
     assert.deepEqual(await readdir(skills), ['owner'])
 
-    // The owner again, under a freshly minted credential: nothing changed, nothing rebuilt.
+    // The owner again, under a freshly minted credential: nothing changes.
     assert.deepEqual(await prompt('p.owner.2.sig'), [])
 
-    // A guest's turn names nobody: the owner's skills go and the session is rebuilt.
-    assert.deepEqual(await prompt('p.none.3.sig'), rebuild)
+    // A guest’s turn names nobody: the owner’s skills go, and the session stays as it is.
+    assert.deepEqual(await prompt('p.none.3.sig'), [])
     assert.deepEqual(await readdir(skills), [])
 
-    // Back to the owner: installed again, rebuilt again.
-    assert.deepEqual(await prompt('p.owner.4.sig'), rebuild)
+    // Back to the owner: installed again.
+    assert.deepEqual(await prompt('p.owner.4.sig'), [])
     assert.deepEqual(await readdir(skills), ['owner'])
 
     // The owner's sync fails: skills are never fatal, so what is installed stays.
@@ -201,24 +190,24 @@ test('personal skills follow the turn’s credential, and the session is rebuilt
     assert.deepEqual(await readdir(skills), ['owner'])
 
     // Someone else's sync fails: the owner's skills must not stay for that turn.
-    assert.deepEqual(await prompt('p.other.6.sig'), rebuild)
+    assert.deepEqual(await prompt('p.other.6.sig'), [])
     assert.deepEqual(await readdir(skills), [])
     await rm(`${record}.fail`)
 
     // A prompt without its own credential never falls back to the one the session
     // opened with.
-    assert.deepEqual(await prompt('p.owner.7.sig'), rebuild)
-    assert.deepEqual(await prompt(undefined), rebuild)
+    assert.deepEqual(await prompt('p.owner.7.sig'), [])
+    assert.deepEqual(await prompt(undefined), [])
     assert.deepEqual(await readdir(skills), [])
 
-    // With no personal skills on either side, switching senders rebuilds nothing.
+    // With no personal skills on either side, switching senders changes nothing.
     assert.deepEqual(await prompt('p.none.8.sig'), [])
     assert.deepEqual(await prompt(undefined), [])
 
     // The adapter process is replaced and a guest's turn reopens the session while the
     // owner's skills are still in the home. The guest's sync fails: nothing here has
     // synced yet, so the tree cannot be trusted and is emptied.
-    assert.deepEqual(await prompt('p.owner.9.sig'), rebuild)
+    assert.deepEqual(await prompt('p.owner.9.sig'), [])
     assert.deepEqual(await readdir(skills), ['owner'])
     await writeFile(`${record}.fail`, '')
     await writeFile(credential, 'p.none.10.sig\n')

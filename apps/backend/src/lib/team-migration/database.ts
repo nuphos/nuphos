@@ -60,7 +60,6 @@ async function writeIdentity(
     name: team.name,
     allowedEmailDomains: team.allowedEmailDomains ?? [],
     agentRuntime: team.agentRuntime,
-    localAgentSharing: team.localAgentSharing,
     homeLayout: home
       ? {
           team: home.layout.team,

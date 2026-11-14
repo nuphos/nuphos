@@ -13,7 +13,7 @@ import * as atlas from '../atlas'
 import * as auth from '../auth'
 import { removeAvatar, updateProfile, uploadAvatar } from '../auth/profile'
 import * as fileTransfer from '../fileTransfer'
-import { readImageAttachment, registerAttachment } from '../imageAttachment'
+import { readImageAttachment } from '../imageAttachment'
 import { raiseWindow } from '../window-raise'
 
 import { getChangelogState } from './changelog'
@@ -215,15 +215,8 @@ export const appChannels = {
     args: { teamId: string; sessionId?: string },
   ) => atlas.listFileTransferDownloads(args.teamId, args.sessionId),
   ...fileTransferReadChannels,
-  // Read an attached image into a vision data URL — no upload. Also
-  // registers the path so a later upload_attachment tool call can transfer it.
-  'attachment:readImage': async (_e: IpcMainInvokeEvent, path: string) => {
-    const img = await readImageAttachment(path)
-
-    if (!img) return null
-
-    return { ...img, attachmentId: await registerAttachment(path) }
-  },
+  // Read an attached image into a data URL for the composer's thumbnail — no upload.
+  'attachment:readImage': (_e: IpcMainInvokeEvent, path: string) => readImageAttachment(path),
   // Which of these paths are directories — drop gives paths but not
   // their kind, so the composer asks here to label folder chips correctly.
   'attachment:directoryPaths': async (_e: IpcMainInvokeEvent, paths: string[]) => {

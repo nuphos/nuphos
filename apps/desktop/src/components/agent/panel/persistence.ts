@@ -45,11 +45,6 @@ export function normalizePersistedPart(part: unknown): Part | null {
       mediaType: value.mediaType,
       fileName: typeof value.fileName === 'string' ? value.fileName : 'image',
       ...(typeof value.path === 'string' ? { path: value.path } : {}),
-      // Keep the attachmentId so on-demand upload still works after reopening a
-      // chat within the same session (the main-process registry is still live).
-      // After an app restart the registry is empty, and upload_attachment returns
-      // a clear "re-attach" error — graceful, not a false promise.
-      ...(typeof value.attachmentId === 'string' ? { attachmentId: value.attachmentId } : {}),
     }
   }
   if (value.type === 'transfer-upload') return normalizeTransferUploadPart(value)

@@ -39,6 +39,12 @@ export function useSidebarModeNavigation(
   const changePage = useCallback(
     (next: SidebarPage) => {
       onPage(next)
+      if (next === 2) {
+        activation.cancel()
+        if (list.active !== 'team.inbox') list.onSelect('team.inbox')
+
+        return
+      }
       const mode = next === 0 ? 1 : 2
       const target = restoreModeItem(next === 0 ? bots : tasks, readModeSelection(teamId, mode))
 

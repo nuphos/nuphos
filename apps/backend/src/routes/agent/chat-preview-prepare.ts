@@ -10,7 +10,6 @@ import {
   openConversationPromptSuggestion,
   setConversationPreviewContext,
 } from '@/lib/agent/db'
-import { promptImages } from '@/lib/agent/image-parts'
 import {
   attributionHeader,
   parseMessageMetadata,
@@ -229,13 +228,11 @@ export async function preparePreviewTurn(
   args.run.queuedMessageIds = carried.map((entry) => entry.id)
   const messages = turnPromptMessages(args.messages, args.resume)
   const inputs = turnInputMessages(messages)
-  const images = args.resume ? [] : inputs.flatMap((m) => promptImages(m.parts))
   const attachments = args.resume
     ? []
     : await runtimeAttachments(
         inputs.flatMap((m) => m.parts),
         { teamId, userId: actorUserId, sessionId },
-        images,
       )
 
   const { lead, text } = turnPrompt({

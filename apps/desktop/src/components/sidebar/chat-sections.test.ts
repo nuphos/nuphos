@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { foldKey, unpinnedChatItems, withChatSections } from './chat-sections.ts'
+import { foldKey, isBotTreeFold, unpinnedChatItems, withChatSections } from './chat-sections.ts'
 import { nestItems } from './nest-items.ts'
 
 import type { Item, Section } from './types'
@@ -299,4 +299,10 @@ test('pin filtering tolerates missing parents and parent cycles', () => {
     unpinnedChatItems(items, (item) => item.key === 'a').map((item) => item.key),
     ['orphan'],
   )
+})
+
+test('a Bot tree folds at rest, but its done group and Tasks folds do not', () => {
+  assert.equal(isBotTreeFold(foldKey({ title: 'Channels' }, 'agent-session:bot')), true)
+  assert.equal(isBotTreeFold(`${foldKey({ title: 'Channels' }, 'agent-session:bot')}:done`), false)
+  assert.equal(isBotTreeFold(foldKey({ title: 'Tasks' }, 'agent-session:task')), false)
 })

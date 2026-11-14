@@ -210,7 +210,7 @@ class RuntimeControlFixtureDeviceTest {
     @Test fun readOnlyNativeStatusRemainsVisibleWithoutActions() {
         render(snapshot(reply = true, steer = true, cancel = true), readOnly = true)
         compose.onNodeWithText("Running fixture").assertIsDisplayed()
-        compose.onNodeWithText("Read-only agent").assertIsDisplayed()
+        compose.onNodeWithText("Read-only task").assertIsDisplayed()
         // Read-only conversations disable drafting entirely (checkpoint behavior), so nothing can be typed or sent.
         // Nothing can be queued here, so nothing says it can.
         compose.onNodeWithContentDescription("Ask Nuphos anything").assertIsNotEnabled()

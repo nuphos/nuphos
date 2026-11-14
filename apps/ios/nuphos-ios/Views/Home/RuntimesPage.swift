@@ -9,8 +9,12 @@ struct RuntimesPage: View {
     /// A computer's own desktop, opened from its box.
     @State private var desktop: DesktopSession?
 
-    private var boxes: [SelectorBox] { SelectorBox.grouped(store.runtimes, devices: store.agentDevices) }
-    private var administrator: Bool { store.selectedTeam?.isAdministrator == true }
+    /// Like Desktop's Computers page, every computer is listed, one with no runtimes too.
+    private var boxes: [SelectorBox] {
+        let grouped = SelectorBox.grouped(store.runtimes, devices: store.agentDevices)
+        let empty = store.agentDevices.filter { device in !grouped.contains { $0.id == "device:\(device.deviceId)" } }
+        return grouped + empty.map { SelectorBox(id: "device:\($0.deviceId)", label: $0.label, device: $0, agents: []) }
+    }
 
     var body: some View {
         // Pushed views do not inherit the store here, so they are handed this one.
@@ -58,9 +62,7 @@ struct RuntimesPage: View {
     private var list: some View {
         List {
             if boxes.isEmpty {
-                ContentUnavailableView("No runtimes", systemImage: "cpu", description: Text(administrator
-                    ? "Open Nuphos on your computer to add a Box or connect your own computer."
-                    : "Ask a workspace administrator to add a runtime."))
+                ContentUnavailableView("No runtimes", systemImage: "cpu", description: Text("Open Nuphos on your computer to connect it and add a runtime."))
                     .listRowBackground(Color.clear)
             }
             ForEach(boxes) { box in
@@ -82,6 +84,13 @@ struct RuntimesPage: View {
                             SelectorAgentRow(runtime: runtime, quota: store.quotas[runtime.id], selected: false)
                         }
                         .listRowInsets(EdgeInsets(top: 12, leading: 20, bottom: 12, trailing: 20))
+                    }
+                    if box.agents.isEmpty, let device = box.device, device.box == nil {
+                        Text(device.access == "use"
+                            ? "No runtime yet. Ask its owner to add one."
+                            : "No runtime yet. Install Claude Code or Codex on \(device.label) and sign in.")
+                            .font(.system(size: 13)).foregroundStyle(Theme.muted)
+                            .listRowInsets(EdgeInsets(top: 12, leading: 20, bottom: 12, trailing: 20))
                     }
                 }
                 .listRowBackground(Theme.surface)

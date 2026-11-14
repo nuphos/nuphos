@@ -11,9 +11,7 @@ const OWNER = '64b5f1c2e4b0a1d2c3e4f5a7'
 
 type Conversation = Record<string, unknown> & { sessionId: string }
 let conversations: Conversation[] = []
-let updated = 0
-let approved = 0
-let retried = 0
+let writes = 0
 let listed: Record<string, unknown> | undefined
 
 const plan = (number: number, sourceConversationId?: string) => ({
@@ -55,17 +53,12 @@ useAgentPlans({
     })
   },
   recordPlanApproval: () => {
-    approved++
+    writes++
 
     return Promise.resolve({ plan: null, thresholdReached: false } as never)
   },
-  retryPlan: () => {
-    retried++
-
-    return Promise.resolve(null)
-  },
   updatePlan: () => {
-    updated++
+    writes++
 
     return Promise.resolve(plan(2, 'shared') as never)
   },
@@ -76,9 +69,7 @@ const { agent } = await import('./router')
 const app = new Hono().route('/agent', agent).onError(errorHandler)
 
 beforeEach(() => {
-  updated = 0
-  approved = 0
-  retried = 0
+  writes = 0
   conversations = [
     { sessionId: 'private', userId: OWNER, teamId: 't', generalAccess: 'none' },
     { sessionId: 'shared', userId: OWNER, teamId: 't', generalAccess: 'view' },
@@ -101,39 +92,29 @@ describe('plans follow their conversation access', () => {
     expect((await app.request('/agent/plans/2')).status).toBe(200)
   })
 
-  test('changing a plan needs reply access to its conversation', async () => {
-    const response = await app.request('/agent/plans/2', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'cancelled' }),
-    })
-
-    expect(response.status).toBe(403)
-    expect(updated).toBe(0)
-  })
-
-  test('approving and retrying need reply access too', async () => {
-    const post = (path: string) =>
+  test('every write answers that plans are retired and changes nothing', async () => {
+    const send = (method: string, path: string) =>
       app.request(path, {
-        method: 'POST',
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ status: 'cancelled' }),
       })
 
-    expect((await post('/agent/plans/2/approvals')).status).toBe(403)
-    expect((await post('/agent/plans/2/retry')).status).toBe(403)
-    expect(approved + retried).toBe(0)
+    for (const [method, path] of [
+      ['PATCH', '/agent/plans/3'],
+      ['POST', '/agent/plans/3/approvals'],
+      ['POST', '/agent/plans/3/retry'],
+      ['PUT', '/agent/plan-approval-policy'],
+    ] as const) {
+      const response = await send(method, path)
+
+      expect(response.status).toBe(410)
+      expect(await response.json()).toMatchObject({ error: { code: 'plans_retired' } })
+    }
+    expect(writes).toBe(0)
   })
 
   test('a plan without a source conversation stays team-wide', async () => {
     expect((await app.request('/agent/plans/3')).status).toBe(200)
-    const response = await app.request('/agent/plans/3', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'cancelled' }),
-    })
-
-    expect(response.status).toBe(200)
-    expect(updated).toBe(1)
   })
 })

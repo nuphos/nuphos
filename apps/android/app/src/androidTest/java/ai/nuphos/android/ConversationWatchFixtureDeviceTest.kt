@@ -189,13 +189,13 @@ class ConversationWatchFixtureDeviceTest {
         shot("list-after-cascade")
         compose.onNodeWithText("Synthetic shared parent").performClick()
         waitText("Synthetic shared conversation")
-        compose.onNodeWithContentDescription("Agent actions").performClick()
+        compose.onNodeWithContentDescription("Task actions").performClick()
         waitText("Watch")
         shot("shared-menu-watch")
         compose.onNodeWithText("Rename").assertDoesNotExist()
         compose.onNodeWithText("Watch").performClick()
         compose.waitUntil(5_000) { watched && !store.isChangingWatch("parent") }
-        compose.onNodeWithContentDescription("Agent actions").performClick()
+        compose.onNodeWithContentDescription("Task actions").performClick()
         waitText("Unwatch")
         shot("shared-menu-unwatch")
         val writes = requests.filter { it.method in setOf("PUT", "DELETE") }
@@ -235,7 +235,7 @@ class ConversationWatchFixtureDeviceTest {
         shot("legacy-list")
         compose.onNodeWithText("Synthetic shared parent").performClick()
         waitText("Synthetic shared conversation")
-        compose.onNodeWithContentDescription("Agent actions").performClick()
+        compose.onNodeWithContentDescription("Task actions").performClick()
         compose.onAllNodesWithText("Unwatch").assertCountEquals(0)
         compose.onAllNodesWithText("Watch").assertCountEquals(0)
         shot("legacy-menu")
@@ -394,7 +394,7 @@ class ConversationWatchFixtureDeviceTest {
         render()
         compose.onNodeWithText("Synthetic shared parent").performClick()
         waitText("Synthetic shared conversation")
-        compose.onNodeWithContentDescription("Agent actions").performClick()
+        compose.onNodeWithContentDescription("Task actions").performClick()
         waitText("Unwatch")
         val reads = java.util.concurrent.CountDownLatch(1)
         holdNextList = reads
@@ -402,7 +402,7 @@ class ConversationWatchFixtureDeviceTest {
         try {
             compose.onNodeWithText("Unwatch").performClick()
             compose.waitUntil(5_000) { !watched && store.conversations.first { it.sessionId == "parent" }.watching == false }
-            compose.onNodeWithContentDescription("Agent actions").performClick()
+            compose.onNodeWithContentDescription("Task actions").performClick()
             waitText("Watch")
             compose.onAllNodesWithText("Unwatch").assertCountEquals(0)
             shot("menu-flipped-before-reread")

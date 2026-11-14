@@ -63,6 +63,7 @@ export const teamSchema = z
     name: text.trim().min(1).max(80),
     allowedEmailDomains: z.array(text),
     agentRuntime: z.enum([...OPENAB_PROVIDERS, 'nuphos']).optional(),
+    // Written by archives exported before the setting was retired (#2403); ignored.
     localAgentSharing: z.enum(['off', 'approve', 'full']).optional(),
     homeLayout: z
       .object({

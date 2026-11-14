@@ -11,7 +11,7 @@ import java.util.UUID
 
 /** Only catalog identity and admission fields are retained, never connection defaults. */
 data class AgentRuntime(val id: String, val provider: String, val label: String, val status: String, val kind: String, val deleting: Boolean = false, val signedIn: Boolean? = null, val local: RuntimeHost? = null) {
-    val selectable get() = id.matches(Regex("[A-Za-z0-9_-]{1,200}")) && provider in setOf("claude-code", "codex", "grok", "antigravity", "opencode", "hermes") &&
+    val selectable get() = id.matches(Regex("[A-Za-z0-9_-]{1,200}")) && provider in setOf("claude-code", "codex", "grok", "antigravity", "opencode", "hermes", "dsh") &&
         signedIn != false && status == "active" && kind in setOf("managed", "external", "development", "local") && !deleting
 }
 

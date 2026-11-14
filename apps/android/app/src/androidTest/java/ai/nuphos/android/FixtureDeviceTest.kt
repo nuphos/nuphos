@@ -126,7 +126,7 @@ class FixtureDeviceTest {
     @Test fun conversationTitleOpensTriggers() {
         triggerFixture = """[{"id": "digest", "name": "Morning PR digest", "enabled": true, "triggerType": "cron", "cronExpression": "0 9 * * 1-5", "scheduleDescription": "Weekdays at 09:00 UTC", "nextRunAt": "2027-01-04T09:00:00.000Z", "canManage": true}, {"id": "watch", "name": "Production alerts", "enabled": true, "triggerType": "webhook", "scheduleDescription": "When a webhook arrives", "canManage": true}, {"id": "weekly", "name": "Weekly dependency review", "enabled": false, "triggerType": "cron", "cronExpression": "0 10 * * 1", "scheduleDescription": "Mondays at 10:00 UTC", "canManage": true}]"""
         render(emptyList())
-        compose.onNodeWithContentDescription("Show conversation triggers").performClick()
+        compose.onNodeWithContentDescription("Show task triggers").performClick()
         compose.waitUntil(10_000) { compose.onAllNodesWithText("Morning PR digest").fetchSemanticsNodes().isNotEmpty() }
         compose.waitForIdle() // The rows exist while the sheet is still animating in.
         compose.onNodeWithText("Production alerts").assertIsDisplayed()
@@ -183,7 +183,7 @@ class FixtureDeviceTest {
         Assert.assertTrue(session.canSubmit)
         Assert.assertFalse(session.canManage)
         Assert.assertFalse(session.canCancel)
-        compose.onNodeWithContentDescription("Agent actions").performClick()
+        compose.onNodeWithContentDescription("Task actions").performClick()
         compose.onNodeWithText("Share").assertExists()
         compose.onNodeWithText("Rename").assertDoesNotExist()
         compose.onNodeWithText("Archive").assertDoesNotExist()

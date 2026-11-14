@@ -106,9 +106,9 @@ class ChatConflictCodesDeviceTest {
     }
 
     @Test fun aBusyConversationRefusesAndKeepsTheDraft() =
-        refusedKeepsTheDraft("conversation_busy", "busy", "This agent is busy with another reply.")
+        refusedKeepsTheDraft("conversation_busy", "busy", "This task is busy with another reply.")
     @Test fun aStreamConflictRefusesAndKeepsTheDraft() =
-        refusedKeepsTheDraft("stream_conflict", "Stream id belongs to another conversation", "That stream belongs to another agent.")
+        refusedKeepsTheDraft("stream_conflict", "Stream id belongs to another conversation", "That stream belongs to another task.")
     @Test fun anOfflineRuntimeSaysSoInTheAppsWordsAndKeepsTheDraft() {
         refusedKeepsTheDraft("runtime_offline", "The Box is offline", "The computer running this runtime is offline. Open Nuphos on it, or switch to another runtime.")
     }
@@ -137,7 +137,7 @@ class ChatConflictCodesDeviceTest {
         assertEquals("Try, rebase, full resend, then stop", 3, posted.size)
         assertEquals("One message, so no duplicate on the server", 1, posted.flatMap { userIds(it).takeLast(1) }.distinct().size)
         assertEquals("One stream, so the server attaches to a run instead of starting another", 1, posted.map { it["streamId"] }.distinct().size)
-        assertEquals("The app's words", "The agent changed elsewhere; resyncing.", session.error)
+        assertEquals("The app's words", "The task changed elsewhere; resyncing.", session.error)
         assertEquals("Refused, so the draft comes back", "Next", session.rejectedSubmission?.text)
     }
     @Test fun outOfSyncThatRecoversSendsOneTurnAndNoError() {
@@ -240,7 +240,7 @@ class ChatConflictCodesDeviceTest {
         answers += 400 to error("invalid_message_batch", "Send one new user message at a time, as the final message.")
         val session = send()
         assertEquals("No retry", 1, posted.size)
-        assertEquals("This agent changed elsewhere and was reloaded. Retry to send your message.", session.error)
+        assertEquals("This task changed elsewhere and was reloaded. Retry to send your message.", session.error)
         assertEquals("Next", session.rejectedSubmission?.text)
         assertEquals("The server's transcript", listOf("one", "two"), session.messages.map { it.id })
     }

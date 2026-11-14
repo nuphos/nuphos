@@ -1,7 +1,7 @@
 {
   "name": "k8s-gui",
   "private": true,
-  "version": "0.119.0",
+  "version": "0.120.0",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -14,7 +14,7 @@
     "release": "vite build && electron-builder --publish always",
     "local-runtime:prepare": "node local-runtime/prepare.mjs",
     "postinstall": "node scripts/prepare-terminal.mjs",
-    "test:ui": "bun test src/app/workspace/WorkspaceBotsStart.test.tsx && bun test src/components/sidebar/NewChatButton.test.tsx && bun test src/components/sidebar/SidebarPinShelf.test.tsx && bun test src/components/sidebar/SidebarStatsButton.test.tsx && bun test src/components/sidebar/chat-item.test.tsx && bun test src/components/sidebar/SidebarPageList.test.tsx && bun test src/components/channels/ReplyButton.test.tsx"
+    "test:ui": "bun test src/app/workspace/WorkspaceBotsStart.test.tsx && bun test src/components/sidebar/NewChatButton.test.tsx && bun test src/components/sidebar/SidebarPinShelf.test.tsx && bun test src/components/sidebar/SidebarStatsButton.test.tsx && bun test src/components/sidebar/chat-item.test.tsx && bun test src/components/sidebar/use-chat-items.test.tsx && bun test src/components/sidebar/SidebarPageList.test.tsx && bun test src/components/channels/ReplyButton.test.tsx && bun test src/components/channels/BotWorkStatus.test.tsx && bun test src/components/agent/panel/conversationRuntimeControl.test.tsx && bun test src/components/sidebar/SidebarPageTabs.test.tsx"
   },
   "dependencies": {
     "@kubernetes/client-node": "^1.4.0",

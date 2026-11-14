@@ -29,10 +29,10 @@ final class AgentListFailureUITests: XCTestCase {
         launch()
 
         try unwatch()
-        let alert = app.alerts["Couldn't update agent"]
+        let alert = app.alerts["Couldn't update task"]
         XCTAssertTrue(alert.waitForExistence(timeout: 5), "The failure was not reported")
         XCTAssertTrue(alert.staticTexts["Synthetic write failure"].exists)
-        XCTAssertFalse(app.staticTexts["Couldn't load agents"].exists, "The list was replaced")
+        XCTAssertFalse(app.staticTexts["Couldn't load tasks"].exists, "The list was replaced")
         XCTAssertTrue(row("Release ops").exists, "The row is gone")
 
         // Trying again repeats the write, which now works.
@@ -49,9 +49,9 @@ final class AgentListFailureUITests: XCTestCase {
 
         try respond(list, status: 500, body: ["error": ["message": "Synthetic read failure"]])
         try unwatch()
-        let alert = app.alerts["Couldn't refresh agents"]
+        let alert = app.alerts["Couldn't refresh tasks"]
         XCTAssertTrue(alert.waitForExistence(timeout: 5), "The failed read was not reported")
-        XCTAssertFalse(app.staticTexts["Couldn't load agents"].exists, "The list was replaced")
+        XCTAssertFalse(app.staticTexts["Couldn't load tasks"].exists, "The list was replaced")
         alert.buttons["OK"].tap()
         XCTAssertTrue(row("Release ops").exists, "The row is gone")
         try assertMenu(shows: "Watch")
@@ -70,7 +70,7 @@ final class AgentListFailureUITests: XCTestCase {
         // The first write has already read its answer. A second one would get this.
         try respond(watch, status: 500, body: ["error": ["message": "Sent twice"]])
         try unwatch()
-        XCTAssertFalse(app.alerts["Couldn't update agent"].waitForExistence(timeout: 14), "A second Unwatch was sent")
+        XCTAssertFalse(app.alerts["Couldn't update task"].waitForExistence(timeout: 14), "A second Unwatch was sent")
     }
 
     func testAFailureFromTheLastWorkspaceDoesNotShowInTheNextOne() throws {
@@ -90,7 +90,7 @@ final class AgentListFailureUITests: XCTestCase {
 
         try respond(list, status: 500, body: ["error": ["message": "First failure"]])
         launch(page: false)
-        XCTAssertTrue(app.staticTexts["Couldn't load agents"].waitForExistence(timeout: 10), "The first read should fail")
+        XCTAssertTrue(app.staticTexts["Couldn't load tasks"].waitForExistence(timeout: 10), "The first read should fail")
         XCTAssertTrue(app.staticTexts["First failure"].exists)
 
         // Polling reads quietly, so only Try again can change the message.
@@ -111,9 +111,9 @@ final class AgentListFailureUITests: XCTestCase {
         let window = app.windows.firstMatch
         window.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.3))
             .press(forDuration: 0.05, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.9)))
-        let alert = app.alerts["Couldn't refresh agents"]
+        let alert = app.alerts["Couldn't refresh tasks"]
         XCTAssertTrue(alert.waitForExistence(timeout: 8), "The failed refresh was not reported")
-        XCTAssertFalse(app.staticTexts["Couldn't load agents"].exists, "The list was replaced")
+        XCTAssertFalse(app.staticTexts["Couldn't load tasks"].exists, "The list was replaced")
         responses[list] = original
         try write()
         // A spinner that never stops holds the tap until the app counts as idle, a full minute.
@@ -140,7 +140,7 @@ final class AgentListFailureUITests: XCTestCase {
         try unwatch()
         let names = list.compactMap { $0["name"] as? String }
         for _ in 0..<switches { switchWorkspace(among: names) }
-        XCTAssertFalse(app.alerts["Couldn't update agent"].waitForExistence(timeout: 22), "A failure from the last workspace showed")
+        XCTAssertFalse(app.alerts["Couldn't update task"].waitForExistence(timeout: 22), "A failure from the last workspace showed")
     }
 
     private func switchWorkspace(among names: [String]) {

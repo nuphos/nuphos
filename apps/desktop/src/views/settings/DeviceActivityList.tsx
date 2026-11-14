@@ -43,7 +43,7 @@ function ActivityRow({
 }) {
   const outcome = outcomeSummary(entry)
   const preview = commandPreview(entry.command)
-  const title = entry.conversationTitle ?? t('Untitled agent')
+  const title = entry.conversationTitle ?? t('Untitled task')
 
   return (
     <div className="border-t border-line-control/60 bg-surface px-4 py-2.5 first:border-t-0">

@@ -116,11 +116,11 @@ function EventLine({
     return (
       <Rule title={title}>
         {from
-          ? fill(t('{actor} moved this agent from {from} to {to}'), {
+          ? fill(t('{actor} moved this task from {from} to {to}'), {
               ...people,
               from: <Runtime runtime={from} />,
             })
-          : fill(t('{actor} moved this agent to {to}'), people)}
+          : fill(t('{actor} moved this task to {to}'), people)}
       </Rule>
     )
   }
@@ -128,17 +128,17 @@ function EventLine({
   const people = { actor: <Person person={actor} />, target: <Person person={target} /> }
 
   if (event.kind === 'participant_invited')
-    return <Rule title={title}>{fill(t('{actor} invited {target} into this agent'), people)}</Rule>
+    return <Rule title={title}>{fill(t('{actor} invited {target} into this task'), people)}</Rule>
   if (target.id === actor.id)
-    return <Rule title={title}>{fill(t('{actor} left this agent'), people)}</Rule>
+    return <Rule title={title}>{fill(t('{actor} left this task'), people)}</Rule>
 
-  return <Rule title={title}>{fill(t('{actor} removed {target} from this agent'), people)}</Rule>
+  return <Rule title={title}>{fill(t('{actor} removed {target} from this task'), people)}</Rule>
 }
 
 const FALLBACK_LINE = {
-  quota: t('{from} was low on usage, so this agent moved to {to}'),
-  offline: t('{from} was unreachable, so this agent moved to {to}'),
-  failure: t('{from} failed a turn, so this agent moved to {to}'),
+  quota: t('{from} was low on usage, so this task moved to {to}'),
+  offline: t('{from} was unreachable, so this task moved to {to}'),
+  failure: t('{from} failed a turn, so this task moved to {to}'),
 }
 
 /** Puts the people and runtimes into a translated sentence where its
@@ -158,7 +158,7 @@ export function MovingSessionLine({ label }: { label: string }) {
     <PlanRevealSection revealKey={label}>
       <div role="status">
         <Rule>
-          <LoadingText>{t('Moving this agent to {label}…', { label })}</LoadingText>
+          <LoadingText>{t('Moving this task to {label}…', { label })}</LoadingText>
         </Rule>
       </div>
     </PlanRevealSection>

@@ -1,7 +1,7 @@
 import { t } from '../../i18n/index.ts'
 import { AGENT_PROVIDER } from '../../types/runtime.ts'
 
-import { agentName } from './agentPresentation.ts'
+import { agentName, canManage } from './agentPresentation.ts'
 
 import type { RuntimeStatusView } from './runtimePresentation'
 import type { AgentDevice, BoxState, BoxStatus, LocalAgentProvider } from '../../api/device-types'
@@ -32,11 +32,6 @@ export const BOX_BADGE: Record<MachineState, RuntimeStatusView> = {
   paused: { label: t('Paused'), tone: 'off' },
   stopped: { label: t('Offline'), tone: 'off' },
   error: { label: t("Didn't start"), tone: 'error' },
-}
-
-/** A member who may only use a machine sees it, not the controls the backend would refuse. */
-export function canManage(device: AgentDevice): boolean {
-  return device.access !== 'use'
 }
 
 /** Shown when the backend gives no reason, e.g. an older backend without the route. */
@@ -149,7 +144,7 @@ export function accessHint(device: AgentDevice): string | null {
 
   if (!access || !canManage(device)) return null
   if (access.everyone) return t('Everyone')
-  if (!access.userIds.length) return t('Admins only')
+  if (!access.userIds.length) return t('Private')
 
   return t('Shared with {n}', { n: access.userIds.length })
 }

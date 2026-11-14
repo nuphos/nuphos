@@ -47,19 +47,19 @@ enum Command {
     /// Send a message without the TUI and print the reply (reads stdin if no PROMPT).
     Exec {
         prompt: Option<String>,
-        /// Continue this agent instead of starting one.
+        /// Continue this task instead of starting one.
         #[arg(long)]
         session: Option<String>,
-        /// Runtime for a new agent (id or label).
+        /// Runtime for a new task (id or label).
         #[arg(long = "agent", alias = "runtime")]
         runtime: Option<String>,
         /// Approve commands that need approval (otherwise they are denied).
         #[arg(long)]
         approve: bool,
     },
-    /// Open the TUI on an agent, or pick one.
+    /// Open the TUI on a task, or pick one.
     Resume { session: Option<String> },
-    /// List recent agents, or find them by a word in the title or first message.
+    /// List recent tasks, or find them by a word in the title or first message.
     Conversations { query: Option<String> },
     /// List teams, make TEAM the default, or create it with --create.
     Team {
@@ -68,8 +68,8 @@ enum Command {
         #[arg(long, requires = "name")]
         create: bool,
     },
-    /// List runtimes (what agents run on, such as Claude Code; find agents with
-    /// `nuphos conversations`), pick one for new agents (or move --session to it),
+    /// List runtimes (what tasks run on, such as Claude Code; find tasks with
+    /// `nuphos conversations`), pick one for new tasks (or move --session to it),
     /// or sign an existing runtime in with --login.
     #[command(name = "agents", alias = "runtime")]
     Runtime {
@@ -94,7 +94,7 @@ enum Command {
         #[arg(long = "agent", alias = "runtime", requires = "create")]
         runtime: Option<String>,
     },
-    /// Show or set an agent's model and reasoning effort (--session), or list the runtime's models.
+    /// Show or set a task's model and reasoning effort (--session), or list the runtime's models.
     Model {
         value: Option<String>,
         #[arg(long)]
@@ -507,7 +507,7 @@ async fn tui(start: app::Start, team: Option<String>) -> Result<i32> {
     if let Some((team_id, session_id)) = app.run(start, team).await? {
         let web = std::env::var("NUPHOS_WEB_URL").unwrap_or_else(|_| "https://nuphos.ai".into());
         let path = render::clean(&format!("/teams/{team_id}/agent/{session_id}"));
-        println!("Agent: {}{path}", web.trim_end_matches('/'));
+        println!("Task: {}{path}", web.trim_end_matches('/'));
         println!("Continue with: nuphos resume {}", render::clean(&session_id));
     }
     Ok(0)

@@ -61,14 +61,13 @@ export async function importTeam(archive: ValidatedArchive, actorId: string, sel
     await session.withTransaction(
       async () => {
         team = await createTeamForUser(actorId, settings.name, { session, id: teamId })
-        // Email-domain auto-join and local computer sharing are permissions, not
-        // portable grants. The importer reconnects/invites only after commit.
+        // Email-domain auto-join is a permission, not a portable grant. The
+        // importer reconnects/invites only after commit.
         await teams().updateOne(
           { _id: teamId },
           {
             $set: {
               agentRuntime: settings.agentRuntime,
-              localAgentSharing: 'off',
               allowedEmailDomains: [],
             },
           },

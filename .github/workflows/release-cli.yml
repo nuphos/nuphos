@@ -138,6 +138,8 @@ jobs:
   # local runtime (openab and the ACP adapters) plus its host for plain Node.
   agent:
     needs: [provenance, validate]
+    # macOS signs the bundle's helpers with Desktop's identity, behind its release approval.
+    environment: ${{ startsWith(matrix.runner, 'macos') && 'desktop-release' || '' }}
     strategy:
       fail-fast: true
       matrix:
@@ -182,6 +184,36 @@ jobs:
         env:
           TARGETS: ${{ matrix.targets }}
         run: node local-runtime/prepare.mjs --targets "$TARGETS" --require
+      - name: Import macOS signing certificate
+        if: runner.os == 'macOS'
+        id: signing
+        uses: apple-actions/import-codesign-certs@77ba2a2a8f5cfc8c405ebf3159f767c323e238f9 # v7
+        with:
+          p12-file-base64: ${{ secrets.MAC_CERTS }}
+          p12-password: ${{ secrets.MAC_CERTS_PASSWORD }}
+      # Under the CLI, mac-screen-host holds Screen Recording and Accessibility
+      # itself. A Developer ID signature with a fixed identifier keeps those
+      # grants across updates; an ad-hoc one would change with every release.
+      # Not notarized: the CLI downloads the bundle itself, so it is not quarantined.
+      - name: Sign the macOS helpers
+        if: runner.os == 'macOS'
+        env:
+          TARGETS: ${{ matrix.targets }}
+          SIGNING_IDENTITIES: ${{ steps.signing.outputs.identities }}
+        run: |
+          set -euo pipefail
+          IDENTITY=$(jq -er '
+            [.[] | select(.name | startswith("Developer ID Application:") and endswith("(6T873K59LQ)"))]
+            | if length == 1 then .[0].hash else error("Expected one Nuphos Developer ID identity") end
+          ' <<< "$SIGNING_IDENTITIES")
+          for target in ${TARGETS//,/ }; do
+            for helper in mac-screen-host cua-permission; do
+              file="build/local-runtime/$target/$helper"
+              codesign --force --sign "$IDENTITY" --identifier "ai.nuphos.$helper" \
+                --options runtime --timestamp "$file"
+              codesign --verify --strict --verbose=2 "$file"
+            done
+          done
       - name: Pack and upload
         env:
           GH_TOKEN: ${{ github.token }}

@@ -1,14 +1,10 @@
 import { planApprovalRequirementSchema, planSchema } from './core-schemas'
 import {
-  agentUpdatePlanBodyFieldsSchema,
   listPlansAgentInputSchema,
   listPlansQuerySchema,
   listPlansResponseSchema,
   planApprovalPolicyQuerySchema,
   planIdPathSchema,
-  recordPlanApprovalBodySchema,
-  updatePlanApprovalPolicyBodySchema,
-  updatePlanBodySchema,
 } from './update-schemas'
 
 import type { ApiOperation } from '../registry'
@@ -50,43 +46,6 @@ export const planGetOperation = {
   },
 } satisfies ApiOperation
 
-export const planUpdateOperation = {
-  operationId: 'plans.update',
-  method: 'patch',
-  path: '/agent/plans/{planId}',
-  tags: ['Plans'],
-  summary: 'Update a plan',
-  description:
-    'Update plan lifecycle or per-command progress, or build/revise a still-proposed plan: ' +
-    'decisions, appendStep (+insertAt), editStep, removeStep, title/overview, cost, and risk fields. ' +
-    'Content revisions are rejected once the plan is approved.',
-  auth: 'bearer',
-  pathSchema: planIdPathSchema,
-  requestSchema: updatePlanBodySchema,
-  responseSchema: planSchema,
-  agent: {
-    toolName: 'plan_update',
-    readOnly: false,
-    description: 'Update a plan as work happens: set lifecycle status or per-command statuses.',
-    inputSchema: planIdPathSchema.merge(agentUpdatePlanBodyFieldsSchema),
-    requiresNonEmptyPatch: true,
-  },
-} satisfies ApiOperation
-
-export const planApproveOperation = {
-  operationId: 'plans.approve',
-  method: 'post',
-  path: '/agent/plans/{planId}/approvals',
-  tags: ['Plans'],
-  summary: 'Approve a plan',
-  description:
-    'Record the current human as an approver. The plan becomes approved only when its policy snapshot is satisfied.',
-  auth: 'bearer',
-  pathSchema: planIdPathSchema,
-  requestSchema: recordPlanApprovalBodySchema,
-  responseSchema: planSchema,
-} satisfies ApiOperation
-
 export const planApprovalPolicyGetOperation = {
   operationId: 'plans.getApprovalPolicy',
   method: 'get',
@@ -99,23 +58,8 @@ export const planApprovalPolicyGetOperation = {
   responseSchema: planApprovalRequirementSchema,
 } satisfies ApiOperation
 
-export const planApprovalPolicyUpdateOperation = {
-  operationId: 'plans.updateApprovalPolicy',
-  method: 'put',
-  path: '/agent/plan-approval-policy',
-  tags: ['Plans'],
-  summary: 'Update the team plan approval policy',
-  description: 'Administrator-only. Invalidates approvals on proposed team plans.',
-  auth: 'bearer',
-  requestSchema: updatePlanApprovalPolicyBodySchema,
-  responseSchema: planApprovalRequirementSchema,
-} satisfies ApiOperation
-
 export const planApiOperations = [
   planListOperation,
   planGetOperation,
-  planUpdateOperation,
-  planApproveOperation,
   planApprovalPolicyGetOperation,
-  planApprovalPolicyUpdateOperation,
 ] as const satisfies readonly ApiOperation[]

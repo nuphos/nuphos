@@ -171,7 +171,6 @@ test('stream completion preserves the screenshot and its identity instead of rep
           mediaType: 'image/png',
           url: 'data:image/png;base64,aGVsbG8=',
           filename: 'screenshot.png',
-          attachmentId: 'att_test',
         },
       ],
     },
@@ -185,7 +184,6 @@ test('stream completion preserves the screenshot and its identity instead of rep
       mediaType: 'image/png',
       url: 'data:image/png;base64,aGVsbG8=',
       fileName: 'screenshot.png',
-      attachmentId: 'att_test',
     },
   ])
   expect(JSON.stringify(persisted)).not.toContain('attachment shown')

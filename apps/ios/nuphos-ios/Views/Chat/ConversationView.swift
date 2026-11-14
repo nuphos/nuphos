@@ -57,7 +57,7 @@ struct ConversationView: View {
         if !session.loaded || session.awaitingReplay {
             ProgressView().tint(Theme.muted)
         } else if let loadError = session.loadError {
-            ContentUnavailableView("Couldn't load this agent", systemImage: "exclamationmark.bubble", description: Text(loadError))
+            ContentUnavailableView("Couldn't load this task", systemImage: "exclamationmark.bubble", description: Text(loadError))
         }
     }
 
@@ -118,7 +118,7 @@ struct ConversationView: View {
         .onDisappear {
             UIEventLog.pageTransition(from: "chat", to: sourcePage)
         }
-        .alert("Rename agent", isPresented: $showRename) {
+        .alert("Rename task", isPresented: $showRename) {
             TextField("Title", text: $renamedTitle)
             Button("Cancel", role: .cancel) {}
             Button("Save") {
@@ -188,14 +188,14 @@ struct ConversationView: View {
                         // A Label, not a bare Image: the bar takes it as a
                         // native item, so the whole glass answers, not just
                         // the glyph.
-                        Label("Agent options", systemImage: "ellipsis")
+                        Label("Task options", systemImage: "ellipsis")
                     }
                     .disabled(updating)
-                    .accessibilityLabel("Agent options")
+                    .accessibilityLabel("Task options")
                 }
             }
         }
-        .alert("Couldn't update agent", isPresented: Binding(get: { archiveError != nil }, set: { if !$0 { archiveError = nil } })) {
+        .alert("Couldn't update task", isPresented: Binding(get: { archiveError != nil }, set: { if !$0 { archiveError = nil } })) {
             Button("OK") { archiveError = nil }
         } message: {
             Text(archiveError ?? "")
@@ -276,7 +276,7 @@ struct ConversationView: View {
         .buttonStyle(.plain)
         .disabled(session.isNew)
         .contentShape(Rectangle())
-        .accessibilityHint("Show conversation triggers")
+        .accessibilityHint("Show task triggers")
         .accessibilityIdentifier("conversation-trigger-entry")
     }
 
@@ -496,12 +496,14 @@ struct ConversationView: View {
             if let submission = session.failedSubmission {
                 FailedBubble(submission: submission, onRetry: session.retryFailed, onEdit: session.editFailed)
             }
-        case .hint(_, let text, let isError):
+        case .hint(let id, let text, let isError):
             // A runtime that can't take the turn: moving the conversation is the way on.
             HintRow(
                 text: text, isError: isError,
                 onSwitchRuntime: session.canManage && AgentChatAPI.switchRuntimeErrors.contains(text) ? { showRuntimes = true } : nil,
-                ask: text == AgentChatAPI.Conflict.runtimeLoginRequired.errorDescription ? signInAskRow : nil
+                ask: text == AgentChatAPI.Conflict.runtimeLoginRequired.errorDescription ? signInAskRow : nil,
+                onRetry: session.failedTurn?.rowId == id ? { session.retryFailedTurn() } : nil,
+                copyText: isError ? ChatRow.failureReport(rowId: id, in: session.messages) : nil
             )
         case .event(_, let event):
             EventLine(event: event, onLink: open(link:), teamId: session.teamId)
@@ -709,6 +711,12 @@ struct HintRow: View {
     var onSwitchRuntime: (() -> Void)? = nil
     /// Set when someone else can sign this agent in for the viewer.
     var ask: Ask? = nil
+    /// Set on the latest failed turn's line when its prompt can be resent.
+    var onRetry: (() -> Void)? = nil
+    /// Set on a failed turn's line: the report Copy puts on the clipboard.
+    var copyText: String? = nil
+
+    @State private var copied = false
 
     /// Asks them through their Inbox and a push; once asked, says so instead.
     struct Ask {
@@ -730,7 +738,7 @@ struct HintRow: View {
             if let status = ask?.status {
                 Text(status).font(Theme.Text.label).foregroundStyle(Theme.muted)
             }
-            if ask?.asked == false || onSwitchRuntime != nil {
+            if ask?.asked == false || onSwitchRuntime != nil || onRetry != nil || copyText != nil {
                 HStack(spacing: 8) {
                     if let ask, !ask.asked {
                         Button(ask.label, systemImage: "hand.wave", action: ask.action)
@@ -741,7 +749,20 @@ struct HintRow: View {
                     if let onSwitchRuntime {
                         SwitchRuntimeButton(action: onSwitchRuntime)
                     }
+                    if let onRetry {
+                        Button("Retry", systemImage: "arrow.clockwise", action: onRetry)
+                    }
+                    if let copyText {
+                        Button(copied ? "Copied" : "Copy", systemImage: copied ? "checkmark" : "doc.on.doc") {
+                            UIPasteboard.general.string = copyText
+                            copied = true
+                        }
+                        .contentTransition(.symbolEffect(.replace))
+                    }
                 }
+                .font(Theme.Text.label.weight(.medium))
+                .buttonStyle(.bordered)
+                .controlSize(.small)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

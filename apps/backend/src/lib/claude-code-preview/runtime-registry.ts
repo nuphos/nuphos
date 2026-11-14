@@ -1,14 +1,11 @@
 import { randomUUID } from 'node:crypto'
 
-import { config } from '@/config'
-import { localRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { db } from '@/lib/db'
 import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 
 import { isValidOpenAbTransportKey } from './gate'
 import { isAllowedRemoteOpenAbUrl, isInternalRuntimeUrl } from './runtime-backend-url'
-import { placementNamespace } from './runtime-controllers'
 import { deleteRuntimeAuthSecret } from './runtime-credential-secret'
 import { revokePairedBinding } from './runtime-pairing-client'
 import { runtimeDeletions } from './runtime-portability-store'
@@ -226,24 +223,6 @@ export async function renameTeamRuntime(teamId: string, id: string, label: strin
   await runtimes().updateOne({ _id: id, teamId }, { $set: { label, updatedAt: new Date() } })
 }
 
-/** Through a joined pod's tunnel the key names the purpose; the host holds the real keys. */
-function tunnelEndpoint(
-  doc: ClaudeCodeRuntimeDoc,
-  provider: OpenAbProvider,
-  purpose: 'transport' | 'control',
-): TeamRuntimeEndpoint | undefined {
-  if (!doc.hostedBy || !doc.device || (provider !== 'claude-code' && provider !== 'codex'))
-    return undefined
-
-  return {
-    url: doc.url,
-    authKey: purpose,
-    runtimeId: doc._id,
-    ...(provider === 'claude-code' ? {} : { provider }),
-    tunnelUrl: localRuntimeUrl({ ...doc.device, provider }, doc.teamId),
-  }
-}
-
 /** Eligible endpoints, oldest first. Callers select an explicit instance or the first endpoint. */
 export async function resolveTeamRuntimeEndpoints(
   teamId: string,
@@ -265,20 +244,9 @@ export async function resolveTeamRuntimeEndpoints(
   const endpoints: TeamRuntimeEndpoint[] = []
 
   for (const doc of docs) {
-    if (runtimeProvider(doc.provider) !== provider || deleting.has(doc._id)) continue
-    // The registry is shared across environments; a hosted runtime is reachable only
-    // from the one that deploys it.
-    if (
-      doc.hostedBy &&
-      placementNamespace(doc.url) !== config.claudeCodeRuntimeProvisioner.namespace
-    )
+    // Nuphos-hosted runtimes are retired (#2401): nothing dials them any more.
+    if (runtimeProvider(doc.provider) !== provider || deleting.has(doc._id) || doc.hostedBy)
       continue
-    const tunnel = tunnelEndpoint(doc, provider, purpose)
-
-    if (tunnel) {
-      endpoints.push(tunnel)
-      continue
-    }
     const stored =
       purpose === 'transport'
         ? storedAuthKey(doc.authKeyEnvelope)

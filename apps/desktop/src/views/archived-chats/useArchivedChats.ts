@@ -14,7 +14,7 @@ import type { AgentConversation } from '../../api'
 const PAGE_SIZE = 30
 
 function chatLabel(conversation: AgentConversation): string {
-  return conversation.title || conversation.firstMessage || t('Untitled agent')
+  return conversation.title || conversation.firstMessage || t('Untitled task')
 }
 
 export function useArchivedChats({

@@ -93,7 +93,6 @@ const screenshot = {
   mediaType: 'image/png',
   url: 'data:image/png;base64,aGVsbG8=',
   filename: 'screenshot.png',
-  attachmentId: 'att_test',
 }
 
 test('structured attachments never become transfer instructions in message text', () => {

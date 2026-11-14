@@ -445,7 +445,7 @@ final class DesktopSession {
         let json = try? JSONDecoder().decode(JSONValue.self, from: data)
         if (200..<300).contains(status), let display = json?["display"]?.numberValue { return Int(display) }
         if status == 401 { throw NuphosAPI.Failure.unauthorized }
-        if status == 404 { throw OpenFailure(message: "This agent's computer can't show a desktop. Update Nuphos on it, or check that it is online.") }
+        if status == 404 { throw OpenFailure(message: "This task's computer can't show a desktop. Update Nuphos on it, or check that it is online.") }
         throw OpenFailure(message: json?["error"]?["message"]?.stringValue ?? "The desktop could not be opened (\(status)).")
     }
 }

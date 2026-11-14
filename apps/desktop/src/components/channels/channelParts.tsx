@@ -135,6 +135,21 @@ function Face({
   )
 }
 
+/** What an empty chat shows before its first message. */
+export function ChannelIntro({ faces, title }: { faces?: ChannelFace[]; title: string }) {
+  return (
+    <div className="flex flex-col items-start gap-3 pt-10">
+      <ChatIcon faces={faces} title={title} size={44} />
+      <div className="text-lg font-semibold leading-snug text-main">{title}</div>
+      <div className="max-w-[560px] text-[13px] leading-relaxed text-secondary">
+        {t(
+          'Everyone here sees each message and decides for themselves whether to reply, as in any group chat.',
+        )}
+      </div>
+    </div>
+  )
+}
+
 /** The post the next one answers, above the composer and as wide as it. */
 export function ReplyingBanner({
   reply,

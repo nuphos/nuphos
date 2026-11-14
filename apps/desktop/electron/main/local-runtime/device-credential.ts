@@ -23,8 +23,12 @@ export type JoinRequest = { token: string; label: string; platform: string }
 export const tunnelUrlFor = (apiUrl: string, deviceId: string, reclaim = false) =>
   `${apiUrl}/agent/devices/${encodeURIComponent(deviceId)}/runtime-tunnel${reclaim ? '?reclaim=1' : ''}`
 
-/** A service manager treats this exit as final, so a revoked computer does not restart. */
-export const EXIT_REVOKED = 78
+/**
+ * A service manager treats this exit as final, so a revoked computer does not restart:
+ * systemd by RestartPreventExitStatus=78, and the LaunchAgent, which restarts only a
+ * failed exit, by 0.
+ */
+export const EXIT_REVOKED = process.env.XPC_SERVICE_NAME === 'ai.nuphos.agent' ? 0 : 78
 
 export function deviceCredentialStore(dataDir: string) {
   const file = path.join(dataDir, 'device-credential.json')

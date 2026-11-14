@@ -92,19 +92,19 @@ class SessionMentionFixtureDeviceTest {
         compose.onNodeWithText("Synthetic project notes").assertDoesNotExist()
         assertEquals(0, sends)
         field().performTextReplacement("email@example.com")
-        compose.onNodeWithContentDescription("Dismiss agent mentions").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Dismiss task mentions").assertDoesNotExist()
         field().performTextReplacement("@")
-        compose.onNodeWithContentDescription("Dismiss agent mentions").performClick()
+        compose.onNodeWithContentDescription("Dismiss task mentions").performClick()
         field().assertTextEquals("@")
-        compose.onNodeWithContentDescription("Dismiss agent mentions").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Dismiss task mentions").assertDoesNotExist()
         val dismissedCalls = calls.size
         field().performTextInput("x")
         Thread.sleep(300)
-        compose.onNodeWithContentDescription("Dismiss agent mentions").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Dismiss task mentions").assertDoesNotExist()
         assertEquals(dismissedCalls, calls.size)
         field().performTextInput(" @again")
         compose.waitUntil(5000) { calls.contains("again") }
-        compose.onNodeWithContentDescription("Dismiss agent mentions").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Dismiss task mentions").assertIsDisplayed()
         assertEquals(0, sends)
     }
 
@@ -134,15 +134,15 @@ class SessionMentionFixtureDeviceTest {
         snap("synthetic-mention-loading")
         field().performTextReplacement("@empty")
         compose.waitUntil(5000) { calls.any { it.endsWith(":empty") } }
-        compose.onNodeWithText("No matching agents").assertIsDisplayed()
+        compose.onNodeWithText("No matching tasks").assertIsDisplayed()
         snap("synthetic-mention-empty")
         // Wait beyond the deliberately non-cooperative old request.
-        compose.waitUntil(5000) { compose.onAllNodesWithText("Searching agents…").fetchSemanticsNodes().isEmpty() }
+        compose.waitUntil(5000) { compose.onAllNodesWithText("Searching tasks…").fetchSemanticsNodes().isEmpty() }
         Thread.sleep(900)
         compose.onNodeWithText("Stale result").assertDoesNotExist()
         field().performTextReplacement("@error")
         compose.waitUntil(5000) { calls.any { it.endsWith(":error") } }
-        compose.onNodeWithText("Could not search agents. You can keep typing.").assertIsDisplayed()
+        compose.onNodeWithText("Could not search tasks. You can keep typing.").assertIsDisplayed()
         snap("synthetic-mention-error")
         field().performTextReplacement("@next")
         compose.waitUntil(5000) { calls.any { it.endsWith(":next") } }

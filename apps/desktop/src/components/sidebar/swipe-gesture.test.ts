@@ -15,5 +15,6 @@ test('slow swipes use distance and cannot pass the first or last page', () => {
   assert.equal(swipeDestination(0, -45, 248), 1)
   assert.equal(swipeDestination(1, 45, 248), 0)
   assert.equal(swipeDestination(0, 120, 248), 0)
-  assert.equal(swipeDestination(1, -120, 248), 1)
+  assert.equal(swipeDestination(1, -120, 248), 2)
+  assert.equal(swipeDestination(2, -120, 248), 2)
 })

@@ -16,7 +16,7 @@ export function triggerSourceTitle(trigger: AgentTrigger): string {
     const sessionId = trigger.sourceContext?.sessionId
 
     return sessionId
-      ? t('Created by the agent in agent {sessionId}', { sessionId })
+      ? t('Created by the agent in task {sessionId}', { sessionId })
       : t('Created by the agent')
   }
 

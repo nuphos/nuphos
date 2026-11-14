@@ -33,7 +33,7 @@ export type ChannelFields = {
   channelWakes?: string[]
   /** People @mentioned here, in a channel or a shared agent, who have not posted since: their Inbox entry. */
   mentions?: Record<string, { messageId: string; at: Date }>
-  /** A live call mirrored here: speech and chat come in, agents' posts go to its chat. */
+  /** On a Task: the live call it is in, whose speech and chat arrive as its messages. */
   meeting?: { botId: string; botName: string; url: string }
 }
 

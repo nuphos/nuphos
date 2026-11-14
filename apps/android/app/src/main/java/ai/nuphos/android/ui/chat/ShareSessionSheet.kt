@@ -40,11 +40,11 @@ fun ShareSessionSheet(state: SharingState, url: String?, onDismiss: () -> Unit) 
             if (url != null) item {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedButton(onClick = {
-                        (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Agent link", url))
+                        (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Task link", url))
                         copied = true
                     }) { Text(if (copied) "Copied" else "Copy link") }
                     OutlinedButton(onClick = {
-                        context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, url) }, "Share agent"))
+                        context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, url) }, "Share task"))
                     }) { Text("Share link") }
                 }
             }
@@ -122,7 +122,7 @@ fun ShareSessionSheet(state: SharingState, url: String?, onDismiss: () -> Unit) 
     }
     state.needsComputer?.let {
         AlertDialog(onDismissRequest = state::cancelComputer, title = { Text("Also give use of this computer?") },
-            text = { Text("Adding this person to the conversation also gives them use of this computer. Continue?") },
+            text = { Text("Adding this person to the task also gives them use of this computer. Continue?") },
             confirmButton = { TextButton(enabled = state.canInvite, onClick = { scope.launch { state.confirmComputer() } }) { Text("Continue") } },
             dismissButton = { TextButton(onClick = state::cancelComputer) { Text("Cancel") } })
     }

@@ -315,6 +315,7 @@ describe('how long a token lasts', () => {
 describe('what each token kind may call', () => {
   const agent = { kind: 'agent' as const }
   const personal = { kind: 'personal' as const }
+  const run = { kind: 'run' as const }
 
   test('neither kind mints agent tokens or approves device codes', () => {
     for (const kind of [agent, personal]) {
@@ -347,7 +348,7 @@ describe('what each token kind may call', () => {
     }
   })
 
-  test('an agent token stays off the account, tokens, membership and billing', () => {
+  test('a bot or task stays off the account, tokens, computers, agents, membership and billing', () => {
     for (const [method, path] of [
       ['GET', '/auth/cli-tokens'],
       ['DELETE', '/auth/cli-tokens/abc'],
@@ -370,26 +371,74 @@ describe('what each token kind may call', () => {
       ['DELETE', '/agent/devices/d1'],
       ['DELETE', '/agent/devices/d1/credential'],
       ['POST', '/agent/devices/boxes'],
+      ['POST', '/agent/devices/d1/agents'],
+      ['DELETE', '/agent/devices/d1/agents/a1'],
+      ['PUT', '/agent/devices/d1/share'],
+      ['PUT', `/teams/${TEAM}/agent-runtime`],
+      ['POST', `/teams/${TEAM}/agent-runtimes`],
+      ['POST', `/teams/${TEAM}/agent-runtimes/external`],
+      ['POST', `/teams/${TEAM}/agent-runtimes/pair`],
+      ['POST', `/teams/${TEAM}/agent-runtimes/probe-provider`],
+      ['PATCH', `/teams/${TEAM}/agent-runtimes/r1`],
+      ['DELETE', `/teams/${TEAM}/agent-runtimes/r1`],
+      ['POST', `/teams/${TEAM}/agent-runtimes/r1/update`],
+      ['POST', `/teams/${TEAM}/claude-code-runtimes`],
+      ['PATCH', `/teams/${TEAM}/claude-code-runtimes/r1`],
+      ['PUT', `/teams/${TEAM}/claude-code-runtimes/r1/keys`],
+      ['DELETE', `/teams/${TEAM}/claude-code-runtimes/r1`],
+      ['POST', `/teams/${TEAM}/codex-runtimes`],
+      ['PUT', `/teams/${TEAM}/codex-runtimes/r1/keys`],
+      ['DELETE', `/teams/${TEAM}/codex-runtimes/r1`],
+      ['POST', `/teams/${TEAM}/agent-runtimes/r1/some-new-write`],
+      ['PUT', `/teams/${TEAM}/runtime-fallback`],
     ]) {
-      expect([method, path, cliTokenDenied(agent, method!, path!)]).not.toEqual([
-        method,
-        path,
-        null,
-      ])
+      for (const kind of [agent, run]) {
+        expect([kind.kind, method, path, cliTokenDenied(kind, method!, path!)]).not.toEqual([
+          kind.kind,
+          method,
+          path,
+          null,
+        ])
+      }
     }
   })
 
-  test('an agent token does the work its user can', () => {
+  test('a bot or task does the work its user can', () => {
     for (const [method, path] of [
       ['GET', '/auth/me'],
       ['POST', '/agent/chat'],
       ['GET', '/agent/conversations'],
+      ['GET', `/teams/${TEAM}`],
       ['GET', `/teams/${TEAM}/members`],
       ['GET', `/teams/${TEAM}/agent-runtimes`],
+      ['GET', `/teams/${TEAM}/agent-runtimes/r1/status`],
+      ['GET', `/teams/${TEAM}/agent-runtimes/r1/files`],
+      ['POST', `/teams/${TEAM}/agent-runtimes/r1/files/transfer`],
+      ['POST', `/teams/${TEAM}/agent-runtimes/r1/login`],
+      ['POST', `/teams/${TEAM}/agent-runtimes/r1/login/code`],
+      ['DELETE', `/teams/${TEAM}/agent-runtimes/r1/login`],
+      ['DELETE', `/teams/${TEAM}/agent-runtimes/r1/sign-in-requests`],
+      ['GET', `/teams/${TEAM}/runtime-fallback`],
+      ['POST', `/teams/${TEAM}/agent-runtimes/r1/sign-in-requests`],
+      ['GET', `/teams/${TEAM}/claude-code-runtimes`],
       ['POST', `/teams/${TEAM}/agent-triggers`],
+      ['GET', `/teams/${TEAM}/personal-credentials/linear/token`],
+      ['POST', `/agent-sessions/s1/teams/${TEAM}/file-transfers`],
     ]) {
-      expect(cliTokenDenied(agent, method!, path!)).toBeNull()
+      for (const kind of [agent, run]) {
+        expect([kind.kind, method, path, cliTokenDenied(kind, method!, path!)]).toEqual([
+          kind.kind,
+          method,
+          path,
+          null,
+        ])
+      }
     }
+  })
+
+  test('a personal token still manages computers and agents', () => {
+    expect(cliTokenDenied(personal, 'PUT', '/agent/devices/d1/share')).toBeNull()
+    expect(cliTokenDenied(personal, 'POST', `/teams/${TEAM}/agent-runtimes/pair`)).toBeNull()
   })
 })
 
