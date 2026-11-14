@@ -3,7 +3,7 @@ import { Fragment, useCallback, useState } from 'react'
 
 import { t } from '../../i18n'
 import { useAgentLinks } from '../agent/panel/useAgentLinks'
-import { renderMemberMentionLink } from '../agent/panel/messageInlineLinks'
+import { renderAtlasMentionLink, renderMemberMentionLink } from '../agent/panel/messageInlineLinks'
 import { parseMessageMetadata } from '../agent/panel/messageMetadata'
 import { ContextMenu } from '../ContextMenu'
 
@@ -90,8 +90,10 @@ export function ChannelMessages({
   // which drops a selection the reader is dragging.
   const renderLink = useCallback(
     (href: string, children: ReactNode) =>
-      renderMemberMentionLink(href, children, teamId) ?? renderAgentLink(href, children),
-    [teamId, renderAgentLink],
+      renderMemberMentionLink(href, children, teamId) ??
+      renderAtlasMentionLink(href, children, onOpenNuphosLink) ??
+      renderAgentLink(href, children),
+    [teamId, renderAgentLink, onOpenNuphosLink],
   )
   const links = { channelId, renderLink, onLinkClick: onOpenNuphosLink }
   // What was here on opening stays put; only posts that arrive later spring in.

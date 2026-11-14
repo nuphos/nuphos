@@ -279,7 +279,6 @@ export function ChannelPane({
             mentionScope={{
               teamId,
               sessionId: channelId,
-              channel: true,
               only: { agentIds: agents.map((agent) => agent.sessionId), selfId: user.id },
             }}
             placeholder={t('Message {name}', { name: title })}
