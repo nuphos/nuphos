@@ -53,7 +53,9 @@ print(json.dumps(dict(token='fixture', accountLogin='different-org', installatio
       join(bin, 'gh'),
       `#!/usr/bin/env python3
 import json, os, sys
-if sys.argv[1:] == ['auth', 'setup-git', '--hostname', 'github.com']:
+if sys.argv[1:] == ['--version']:
+    print('gh version 0.0.0')
+elif sys.argv[1:] == ['auth', 'setup-git', '--hostname', 'github.com']:
     pass
 else:
     raise AssertionError(sys.argv)

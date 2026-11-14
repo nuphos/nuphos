@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { watcherCanRead } from './watchers'
+import { readingWatchers, watcherCanRead } from './watchers'
 
 const member = async () => ({ role: 'MEMBER' })
 const removed = async () => null
@@ -30,5 +30,16 @@ describe('watcherCanRead', () => {
 
   test('a watcher removed from the team is not', async () => {
     expect(await watcherCanRead(shared, 'b', removed)).toBe(false)
+  })
+})
+
+describe('readingWatchers', () => {
+  test('a push reaches the watchers who can still read, and none who cannot', async () => {
+    const channel = { ...shared, watcherIds: ['owner', 'b', 'gone'] }
+
+    expect(await readingWatchers(channel, member)).toEqual(['owner', 'b'])
+    // Out of the team, only the owner is left.
+    expect(await readingWatchers(channel, removed)).toEqual(['owner'])
+    expect(await readingWatchers(shared, member)).toEqual([])
   })
 })

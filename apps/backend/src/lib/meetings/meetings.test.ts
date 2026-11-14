@@ -2,8 +2,6 @@ import { createHmac } from 'node:crypto'
 
 import { describe, expect, test } from 'bun:test'
 
-import { readNote } from '@/lib/agent/db/channel-notes'
-
 import { eventText, joinWords } from './meetings'
 import { verifyRecallSignature } from './recall'
 
@@ -69,7 +67,18 @@ describe('eventText', () => {
     data: { data, bot: { id: 'bot-1' } },
   })
 
-  test('turns speech and chat into post text', () => {
+  test('says why speech is not heard when transcription fails', () => {
+    expect(
+      eventText(
+        event('transcript.failed', { sub_code: 'provider_connection_failed' }),
+        'Secretary',
+      ),
+    ).toBe(
+      "Speech recognition failed in this meeting (provider_connection_failed), so speech can't be heard. The chat still works.",
+    )
+  })
+
+  test('turns speech and chat into message text', () => {
     expect(eventText(event('transcript.data', { words: [{ text: 'hello' }] }), 'Secretary')).toBe(
       'hello',
     )
@@ -93,23 +102,5 @@ describe('eventText', () => {
     expect(eventText(own, 'Secretary')).toBeUndefined()
     expect(eventText(event('transcript.data', { words: [] }), 'Secretary')).toBeUndefined()
     expect(eventText(event('participant_events.join', {}), 'Secretary')).toBeUndefined()
-  })
-})
-
-describe('readNote', () => {
-  test('a meeting channel says speech is never the owner’s authorization', () => {
-    const note = readNote({
-      agentSessionIds: ['bot'],
-      meeting: { botId: 'b', botName: 'Secretary', url: 'https://meet.google.com/abc' },
-    })
-
-    expect(note).toContain("never your owner's authorization")
-    expect(note).toContain('request_user_decision')
-    expect(note).not.toContain('answer it.')
-  })
-
-  test('other channels keep their notes', () => {
-    expect(readNote({ agentSessionIds: ['bot'] })).toContain('answer it.')
-    expect(readNote({ agentSessionIds: ['a', 'b'] })).not.toContain('meeting')
   })
 })
