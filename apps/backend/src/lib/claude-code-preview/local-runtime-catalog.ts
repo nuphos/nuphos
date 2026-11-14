@@ -203,7 +203,7 @@ export async function resolveLocalRuntimeEndpoint(
   const ref = parseLocalRuntimeId(runtimeId)
 
   if (!ref || !(await deps.isMember(userId, teamId))) throw notAvailable()
-  let deviceLabel: string
+  let label: string
 
   try {
     const access = purpose === 'login' ? requireAgentSignInAccess : requireDeviceUse
@@ -212,7 +212,7 @@ export async function resolveLocalRuntimeEndpoint(
     // One removed while its computer was offline is gone, not waiting for the computer.
     if (device.userId !== ref.userId || isPendingRemoval(ref, device.removedAgents ?? []))
       throw notAvailable()
-    deviceLabel = device.label
+    label = `${runtimeLabel(ref.provider)} in ${device.label}`
   } catch (error) {
     if (error instanceof AppError && error.status === 404) throw notAvailable()
     throw error
@@ -229,7 +229,7 @@ export async function resolveLocalRuntimeEndpoint(
       'runtime_offline',
       'The computer running this agent is offline. Open Nuphos on it with the local agent turned on.',
       // The placement just authorized: a send to an offline Box queues for it (queueForOfflineBox).
-      { runtimeId, runtimeLabel: `${runtimeLabel(ref.provider)} in ${deviceLabel}` },
+      { runtimeId, deviceId: ref.deviceId, runtimeLabel: label },
     )
   if (agent?.cli.loggedIn === false && purpose !== 'login')
     throw new AppError(
