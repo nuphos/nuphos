@@ -36,7 +36,18 @@ class TokenStore(context: Context) {
         prefs.edit().remove(KEY).remove(ORIGIN_KEY).apply()
     }
 
+    private val encrypted = prefs is EncryptedSharedPreferences
+
+    /** Every account kept on this device, including the current one. */
+    var accounts: List<SavedAccount>
+        get() = SavedAccounts.decode(prefs.getString(ACCOUNTS_KEY, null))
+        set(value) {
+            val kept = if (encrypted) value else SavedAccounts.onlyCurrent(value, prefs.getString(KEY, null))
+            prefs.edit().putString(ACCOUNTS_KEY, SavedAccounts.encode(kept)).apply()
+        }
+
     companion object {
+        private const val ACCOUNTS_KEY = "saved-accounts-v1"
         private const val FILE = "nuphos.secure"
         private const val FALLBACK_FILE = "nuphos.secure.fallback"
         private const val ORIGIN_KEY = "session-origin"

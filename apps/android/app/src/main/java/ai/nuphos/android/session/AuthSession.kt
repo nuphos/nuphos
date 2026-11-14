@@ -14,6 +14,8 @@ import ai.nuphos.android.data.AccountApi
 import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.data.NuphosWeb
 import ai.nuphos.android.data.NativeLogin
+import ai.nuphos.android.data.SavedAccount
+import ai.nuphos.android.data.SavedAccounts
 import ai.nuphos.android.data.TokenStore
 import ai.nuphos.android.model.NuphosUser
 import kotlinx.coroutines.CoroutineScope
@@ -55,15 +57,87 @@ class AuthSession(
         check(state is State.SignedOut) { "Sign out before changing servers." }
         val origin = BackendOrigin.normalize(address)
         if (origin == serverOrigin) return
-        check(app.getSharedPreferences("nuphos.backend", Application.MODE_PRIVATE)
-            .edit().putString("origin", origin).commit()) { "Could not save the server address." }
+        useServer(origin)
         cancelLogin()
         beginIdentity()
         clearToken()
+        state = State.SignedOut(null)
+    }
+
+    private fun useServer(origin: String) {
+        if (origin == serverOrigin) return
+        check(app.getSharedPreferences("nuphos.backend", Application.MODE_PRIVATE)
+            .edit().putString("origin", origin).commit()) { "Could not save the server address." }
         (app as? ai.nuphos.android.NuphosApplication)?.conversationLinks?.clear()
         BackendOrigin.select(origin)
         serverOrigin = origin
+    }
+
+    /** Every account kept on this device; the current one holds [token]. */
+    var savedAccounts: List<SavedAccount> by mutableStateOf(emptyList())
+        private set
+    /** While adding an account, the one that Cancel returns to. */
+    var addingFrom: String? by mutableStateOf(null)
+        private set
+
+    private fun saveAccounts(next: List<SavedAccount>) {
+        tokenStore.accounts = next
+        savedAccounts = next
+    }
+
+    /** Starts a sign-in beside the current account, which stays saved. */
+    fun addAccount(origin: String = serverOrigin) {
+        if (state is State.SigningIn) return
+        val current = token?.let { t -> savedAccounts.firstOrNull { it.token == t }?.id }
+        beginIdentity()
+        cancelLogin()
+        token = null
+        useServer(origin)
+        addingFrom = current ?: addingFrom
         state = State.SignedOut(null)
+    }
+
+    fun cancelAddAccount() {
+        val back = addingFrom ?: return
+        addingFrom = null
+        selectAccount(back)
+    }
+
+    /** Switching never ends the previous session on the server; it stays saved. */
+    fun selectAccount(id: String) {
+        val account = savedAccounts.firstOrNull { it.id == id } ?: return
+        val saved = account.token ?: return addAccount(account.origin)
+        if (state is State.SigningIn || (saved == token && state is State.SignedIn)) return
+        beginIdentity()
+        cancelLogin()
+        token = null
+        addingFrom = null
+        useServer(account.origin)
+        BackendOrigin.bind(saved, account.origin)
+        tokenStore.write(saved)
+        state = State.Restoring
+        val expected = generation
+        scope.launch {
+            // Let the previous account's queued private-draft deletion finish first.
+            try { awaitIdentityCleanup?.invoke() } catch (failure: Exception) {
+                if (failure is CancellationException) throw failure
+                if (generation == expected) state = State.SignedOut("Saved draft cleanup failed. Check storage, then try again.")
+                return@launch
+            }
+            if (generation == expected) restore()
+        }
+    }
+
+    /** Signs one account out; the current one goes through [signOut]. */
+    fun removeAccount(id: String) {
+        val account = savedAccounts.firstOrNull { it.id == id } ?: return
+        if (account.token != null && account.token == token) return signOut()
+        saveAccounts(SavedAccounts.forget(savedAccounts, id))
+        if (addingFrom == id) addingFrom = null
+        account.token?.let { ended ->
+            BackendOrigin.bind(ended, account.origin)
+            scope.launch { AccountApi(ended).endSession() }
+        }
     }
 
     val user: NuphosUser?
@@ -253,11 +327,12 @@ class AuthSession(
     private var loginResumed: CompletableDeferred<Unit>? = null
 
     fun restore() {
-        if (state is State.SigningIn || (state is State.SignedIn && token != null)) return
+        if (state is State.SigningIn || (state is State.SignedIn && token != null) || addingFrom != null) return
         val expected = beginIdentity(preserveDrafts = true)
         scope.launch {
-            val saved = withContext(Dispatchers.IO) { tokenStore.read() }
+            val (saved, accounts) = withContext(Dispatchers.IO) { tokenStore.read() to tokenStore.accounts }
             if (generation != expected) return@launch
+            savedAccounts = accounts
             if (saved == null) {
                 composerDrafts.clear()
                 state = State.SignedOut(null)
@@ -267,12 +342,10 @@ class AuthSession(
             try {
                 val restored = NuphosApi.currentUser(saved)
                 if (generation != expected) return@launch
-                AiAccess.activate(saved)
-                composerDrafts.onIdentity(restored.id)
-                state = State.SignedIn(restored)
-                loadAIConsent()
+                enter(restored, saved)
             } catch (_: NuphosApi.Failure.Unauthorized) {
                 if (generation != expected) return@launch
+                saveAccounts(SavedAccounts.expire(savedAccounts, saved))
                 clearToken()
                 state = State.SignedOut(null)
             } catch (_: Exception) {
@@ -331,12 +404,7 @@ class AuthSession(
                 val user = NuphosApi.currentUser(received)
                 ensureActive()
                 if (generation != expected || state !is State.SigningIn || loginAttempt !== attempt) return@launch
-                tokenStore.write(received)
-                token = received
-                AiAccess.activate(received)
-                composerDrafts.onIdentity(user.id)
-                state = State.SignedIn(user)
-                loadAIConsent()
+                enter(user, received)
             } catch (e: CancellationException) {
                 throw e
             } catch (_: ActivityNotFoundException) {
@@ -427,12 +495,7 @@ class AuthSession(
                 val user = NuphosApi.currentUser(received)
                 ensureActive()
                 if (generation != expected || state !is State.SigningIn) return@launch
-                tokenStore.write(received)
-                token = received
-                AiAccess.activate(received)
-                composerDrafts.onIdentity(user.id)
-                state = State.SignedIn(user)
-                loadAIConsent()
+                enter(user, received)
             } catch (e: CancellationException) {
                 throw e
             } catch (_: NuphosApi.Failure.Unauthorized) {
@@ -493,8 +556,23 @@ class AuthSession(
         }
     }
 
+    /** A verified session becomes the current account and stays saved for switching. */
+    private fun enter(user: NuphosUser, received: String) {
+        tokenStore.write(received)
+        saveAccounts(SavedAccounts.remember(savedAccounts, BackendOrigin.forToken(received), user, received))
+        token = received
+        addingFrom = null
+        AiAccess.activate(received)
+        composerDrafts.onIdentity(user.id)
+        state = State.SignedIn(user)
+        loadAIConsent()
+    }
+
     fun signOut(error: String? = null) {
         val ended = token
+        // Every sign-out with an error is a rejected session.
+        if (ended != null) saveAccounts(SavedAccounts.signedOut(savedAccounts, ended, rejected = error != null))
+        addingFrom = null
         val expected = beginIdentity()
         // Signed out here at once; ending the session on the server is best effort.
         if (ended != null) scope.launch {
