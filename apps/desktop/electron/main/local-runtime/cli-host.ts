@@ -211,23 +211,20 @@ let tunnel: RuntimeTunnelClient | undefined
 
 // A desktop appearing or going changes the status; the pool directory says when.
 if (desktopPool) watchDesktops(desktopPool, () => tunnel?.sendStatus())
-// A Mac shows its own screen instead (mac-screen.ts).
+// A Mac shows its own screen instead (mac-screen.ts); its host, not the terminal or node, holds
+// Screen Recording and Accessibility.
 const macScreen = enableMacScreen(dataDir, () => tunnel?.sendStatus())
+const macScreenHost = {
+  binary: () => path.join(bundleRoot, 'mac-screen-host'),
+  handOver: (human: boolean) =>
+    console.log(human ? 'A viewer took the screen.' : 'The viewer let go.'),
+  owner: () => owner,
+  ownPermissions: true,
+}
 
 /** The tunnel's desktops, whose holders ride along with the agents' status. */
 function desktops(status: () => LocalRuntimeTunnelStatus, instances?: Instances) {
-  if (macScreen)
-    return macScreenDeps(
-      macScreen,
-      status,
-      {
-        binary: () => path.join(bundleRoot, 'mac-screen-host'),
-        owner: () => owner,
-        // Screen Recording and Accessibility are the host's own, not the terminal's or node's.
-        ownPermissions: true,
-      },
-      instances,
-    )
+  if (macScreen) return macScreenDeps(macScreen, status, macScreenHost, instances)
   if (!desktopPool) return {}
 
   return {

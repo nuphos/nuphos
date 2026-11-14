@@ -138,7 +138,7 @@ jobs:
   # local runtime (openab and the ACP adapters) plus its host for plain Node.
   agent:
     needs: [provenance, validate]
-    # macOS signs mac-screen-host with Desktop's identity, behind its release approval.
+    # macOS signs the bundle's helpers with Desktop's identity, behind its release approval.
     environment: ${{ startsWith(matrix.runner, 'macos') && 'desktop-release' || '' }}
     strategy:
       fail-fast: true
@@ -194,7 +194,8 @@ jobs:
       # Under the CLI, mac-screen-host holds Screen Recording and Accessibility
       # itself. A Developer ID signature with a fixed identifier keeps those
       # grants across updates; an ad-hoc one would change with every release.
-      - name: Sign mac-screen-host
+      # Not notarized: the CLI downloads the bundle itself, so it is not quarantined.
+      - name: Sign the macOS helpers
         if: runner.os == 'macOS'
         env:
           TARGETS: ${{ matrix.targets }}
@@ -206,10 +207,12 @@ jobs:
             | if length == 1 then .[0].hash else error("Expected one Nuphos Developer ID identity") end
           ' <<< "$SIGNING_IDENTITIES")
           for target in ${TARGETS//,/ }; do
-            host="build/local-runtime/$target/mac-screen-host"
-            codesign --force --sign "$IDENTITY" --identifier ai.nuphos.mac-screen-host \
-              --options runtime --timestamp "$host"
-            codesign --verify --strict --verbose=2 "$host"
+            for helper in mac-screen-host cua-permission; do
+              file="build/local-runtime/$target/$helper"
+              codesign --force --sign "$IDENTITY" --identifier "ai.nuphos.$helper" \
+                --options runtime --timestamp "$file"
+              codesign --verify --strict --verbose=2 "$file"
+            done
           done
       - name: Pack and upload
         env:
