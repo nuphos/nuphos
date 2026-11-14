@@ -155,7 +155,7 @@ export function RuntimeSelector({
   )
   const classes = clsx(
     hero ? 'h-8 px-2.5' : 'h-7 px-2',
-    'hidden min-w-0 max-w-fit grow basis-16 items-center gap-1.5 overflow-hidden rounded-full text-[12px] text-secondary @[230px]:flex',
+    'flex min-w-0 max-w-fit grow basis-16 items-center gap-1.5 overflow-hidden rounded-full text-[12px] text-secondary',
   )
 
   return (
@@ -177,6 +177,7 @@ export function RuntimeSelector({
       )}
       <Menu open={open} onOpenChange={setOpen}>
         <MenuTrigger
+          data-keep=""
           aria-label={t('Agent runtime: {label}', { label })}
           title={`${label} · ${providerName}`}
           className={`${classes} transition-colors hover:bg-state-hover hover:text-main`}
