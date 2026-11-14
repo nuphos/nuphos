@@ -810,7 +810,7 @@ describe('the loop guard and mentions', () => {
     expect(await listChannelMentions(TEAM, 'mei')).toEqual([])
   })
 
-  test('an invite waits in the invitee’s Inbox, and only theirs, until they post here', async () => {
+  test('an invite is announced to the invitee alone, until they post here', async () => {
     const owner = (await channel()).userId
 
     await inviteToConversation(TEAM, 'channel', owner, ['mei'])
