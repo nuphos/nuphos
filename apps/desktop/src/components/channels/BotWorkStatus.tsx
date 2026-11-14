@@ -51,15 +51,12 @@ export function BotWorkStatus({
   channelId,
   agent,
   onOpenSession,
-  onShowQuestion,
 }: {
   teamId: string
   channelId: string
   agent: ChannelAgent
   /** Opens a sub-agent; absent for a viewer who does not own the Bot. */
   onOpenSession?: (sessionId: string) => void
-  /** Brings the question the line names into view, where its card answers it. */
-  onShowQuestion?: () => void
 }) {
   const { work: live, since } = useBotWork(teamId, agent.sessionId, channelId)
   const now = useTicking(live !== null)
@@ -92,20 +89,9 @@ export function BotWorkStatus({
           {work && (
             <div className="flex min-w-0 items-center gap-1.5 text-[13px] text-tertiary">
               {/* Shimmers while the Bot works, as its name does in the sidebar. */}
-              {work.kind === 'asking' && onShowQuestion ? (
-                <button
-                  type="button"
-                  onClick={onShowQuestion}
-                  className="t-shimmer min-w-0 max-w-full truncate text-left align-top hover:text-main hover:underline"
-                  data-text={text}
-                >
-                  {text}
-                </button>
-              ) : (
-                <span className="t-shimmer min-w-0 max-w-full truncate align-top" data-text={text}>
-                  {text}
-                </span>
-              )}
+              <span className="t-shimmer min-w-0 max-w-full truncate align-top" data-text={text}>
+                {text}
+              </span>
               {work.kind === 'waiting' && (
                 <span className="flex min-w-0 items-center gap-1 truncate">
                   {work.kids.map((kid, index) => (

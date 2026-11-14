@@ -29,7 +29,7 @@ export function useBotWork(
   const kids = botId ? (sessions ?? []).filter((row) => row.parentSessionId === botId).map(run) : []
   const work = botWorkOf(bot, kids, channelId)
 
-  return { work, since: workSince(work, bot) }
+  return { work, since: workSince(work, bot, kids) }
 }
 
 /** The time now, once a second while `on`. */
