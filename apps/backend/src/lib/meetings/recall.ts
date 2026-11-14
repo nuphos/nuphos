@@ -33,12 +33,6 @@ async function recallFetch(path: string, body: object): Promise<unknown> {
   return response.json()
 }
 
-function transcriptProvider(recall: Recall): object {
-  return recall.transcriptProvider
-    ? { [recall.transcriptProvider]: {} }
-    : { recallai_streaming: { mode: 'prioritize_low_latency', language_code: 'en' } }
-}
-
 /** Sends a bot into the meeting; its transcript and chat arrive at `webhookUrl`. */
 export async function createMeetingBot(input: {
   meetingUrl: string
@@ -53,7 +47,9 @@ export async function createMeetingBot(input: {
       // Zero data retention: only the real-time stream is used, so Recall keeps no media.
       retention: null,
       transcript: {
-        provider: transcriptProvider(recall),
+        provider: recall.transcriptProvider ?? {
+          recallai_streaming: { mode: 'prioritize_low_latency', language_code: 'en' },
+        },
         diarization: { use_separate_streams_when_available: true },
       },
       realtime_endpoints: [
