@@ -1,7 +1,7 @@
 // Serves this Mac's main display as a conversation's desktop, with no Mac
 // account: the viewer reaches it only through the owner's authenticated relay.
 //
-//   mac-screen-host <socket-path>
+//   mac-screen-host <socket-path> [--own-permissions]
 //
 // It speaks the part of RFB 3.8 the relay and both viewers already use, with
 // security None, and sends the screen as Open H.264 rectangles (encoding 50).
@@ -14,7 +14,7 @@
 // asked for one, so exactly one frame is ever in flight.
 //
 // Needs Screen Recording (capture) and Accessibility (input) for the app that
-// launches it.
+// launches it, or for this host itself with --own-permissions.
 
 import AppKit
 import CoreMedia
@@ -25,8 +25,54 @@ import VideoToolbox
 setvbuf(stdout, nil, _IOLBF, 0)
 // A viewer that leaves mid-write must not take the host down with it.
 signal(SIGPIPE, SIG_IGN)
+
+func fail(_ message: String) -> Never {
+    fputs("mac-screen-host: \(message)\n", stderr)
+    exit(1)
+}
+
+let arguments = CommandLine.arguments
+guard arguments.count == 2 || (arguments.count == 3 && arguments[2] == "--own-permissions") else {
+    fputs("usage: mac-screen-host <socket-path> [--own-permissions]\n", stderr)
+    exit(64)
+}
+let socketPath = arguments[1]
+/// Set in the copy --own-permissions starts: the pid of the Nuphos that started the first one.
+let parentKey = "NUPHOS_MAC_SCREEN_PARENT"
+
+@_silgen_name("responsibility_spawnattrs_setdisclaim")
+func responsibility_spawnattrs_setdisclaim(_ attrs: UnsafeMutablePointer<posix_spawnattr_t?>, _ disclaim: Int32) -> Int32
+
+nonisolated(unsafe) var disclaimedHost: pid_t = 0
+
+/// macOS charges a child's Screen Recording and Accessibility to whoever is
+/// responsible for it: under the CLI that is Terminal, or node under launchd.
+/// This starts a copy of the host that disclaims that, so the grants are the
+/// host's own, then passes SIGTERM on to it and exits as it does.
+func runDisclaimed() -> Never {
+    var attrs: posix_spawnattr_t?
+    posix_spawnattr_init(&attrs)
+    guard responsibility_spawnattrs_setdisclaim(&attrs, 1) == 0 else { fail("could not take its own permissions") }
+    let path = Bundle.main.executablePath ?? arguments[0]
+    var environment = ProcessInfo.processInfo.environment
+    environment[parentKey] = String(getppid())
+    let argv: [UnsafeMutablePointer<CChar>?] = [strdup(path), strdup(socketPath), nil]
+    let envp: [UnsafeMutablePointer<CChar>?] = environment.map { strdup("\($0.key)=\($0.value)") } + [nil]
+    var pid: pid_t = 0
+    let error = posix_spawn(&pid, path, nil, &attrs, argv, envp)
+    guard error == 0 else { fail("could not start: \(String(cString: strerror(error)))") }
+    disclaimedHost = pid
+    signal(SIGTERM) { _ in kill(disclaimedHost, SIGTERM) }
+    var status: Int32 = 0
+    while waitpid(pid, &status, 0) == -1 && errno == EINTR {}
+    // Exited normally: its code; killed by a signal: a failure.
+    exit(status & 0x7f == 0 ? (status >> 8) & 0xff : 1)
+}
+if arguments.count == 3 { runDisclaimed() }
+let ownPermissions = ProcessInfo.processInfo.environment[parentKey] != nil
+
 // Nuphos started this host; only Nuphos may connect, and the host goes when Nuphos does.
-let parent = getppid()
+let parent = ProcessInfo.processInfo.environment[parentKey].flatMap { pid_t($0) } ?? getppid()
 let parentGone = DispatchSource.makeProcessSource(identifier: parent, eventMask: .exit, queue: .main)
 parentGone.setEventHandler { leave() }
 parentGone.resume()
@@ -47,21 +93,12 @@ func leave() -> Never {
     for window in windows { window.restore() }
     exit(0)
 }
-if getppid() != parent { exit(0) }
-guard CommandLine.arguments.count == 2 else {
-    fputs("usage: mac-screen-host <socket-path>\n", stderr)
-    exit(64)
-}
-let socketPath = CommandLine.arguments[1]
-
-func fail(_ message: String) -> Never {
-    fputs("mac-screen-host: \(message)\n", stderr)
-    exit(1)
-}
+// Nuphos went before the watch above began.
+if kill(parent, 0) != 0 { exit(0) }
 
 if !CGPreflightScreenCaptureAccess() {
     CGRequestScreenCaptureAccess()
-    fail("Screen Recording is not allowed for Nuphos yet")
+    fail("Screen Recording is not allowed for \(ownPermissions ? "mac-screen-host" : "Nuphos") yet")
 }
 if !AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary) {
     print("Accessibility is not allowed yet: the viewer can watch but not control")

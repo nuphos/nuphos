@@ -97,6 +97,18 @@ Windows use a separate Claude sign-in for Nuphos. Codex uses your `codex login`.
 runs as its own computer, so the desktop app on the same computer is unaffected;
 `NUPHOS_LOCAL_RUNTIME_DIR` points it at a locally staged runtime instead.
 
+On macOS, the Desktop app and the iPhone can open this Mac's screen as the
+desktop of a conversation running here, as they can with the desktop app. The
+bundled `mac-screen-host` serves it and holds the permissions itself, not your
+terminal or `node`. The first time the screen is opened, macOS asks on this Mac
+to allow `mac-screen-host` under **Screen Recording** (to show the screen) and
+**Accessibility** (to control it); open it again after allowing. Someone must be
+signed in to the Mac's desktop, since a locked Mac or the login window cannot be
+shown. A `nuphos agent` started over SSH runs outside that desktop and cannot
+show it, so start it from a terminal on the Mac or from a LaunchAgent. On a Mac
+without a display, approve the two prompts once through the built-in Screen
+Sharing.
+
 ### On a server
 
 A machine nobody signs in on, such as a VM, a Mac mini or a container, joins
