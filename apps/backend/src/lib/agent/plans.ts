@@ -4,7 +4,6 @@ export {
   getTeamPlanApprovalRequirement,
   normalizePlanApprovalRequirement,
   normalizePlanApprovals,
-  updateTeamPlanApprovalRequirement,
 } from './plans/approval-policy'
 export { recordPlanApproval } from './plans/approvals'
 export type { RecordPlanApprovalResult } from './plans/approvals'
@@ -22,7 +21,6 @@ export {
   listPlans,
 } from './plans/queries'
 export { cancelOpenAgentPlans } from './plans/retire'
-export { retryPlan } from './plans/retry'
 export type { PlanScope } from './plans/scope'
 export { serializePlan } from './plans/serialize'
 export type { PlanDTO } from './plans/serialize'
