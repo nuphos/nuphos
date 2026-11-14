@@ -142,7 +142,11 @@ class BotMentionFixtureDeviceTest {
 
     @Test fun atOffersTheOtherBotByName() {
         // The viewer's Bots, as the Chats list loads them, so a link to one reads as its name.
-        runBlocking { store.loadChannels() }
+        runBlocking {
+            store.loadChannels()
+            // The root binds shares to the signed-in account; until then a chat's composer takes no text.
+            (inst.targetContext.applicationContext as NuphosApplication).incomingShares.bindAccount(requireNotNull(auth.user).id)
+        }
         compose.setContent {
             NuphosTheme(darkTheme = false) {
                 CompositionLocalProvider(LocalAgentStore provides store, LocalAuthSession provides auth) {
