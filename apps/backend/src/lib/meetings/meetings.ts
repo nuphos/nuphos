@@ -1,4 +1,5 @@
 import { config } from '@/config'
+import { getSessionBypass } from '@/lib/agent/auto-mode/store'
 import { getConversationBySessionId } from '@/lib/agent/db'
 import { speakingBot } from '@/lib/agent/db/bot-membership'
 import { agentConversations } from '@/lib/agent/db/shared'
@@ -86,6 +87,8 @@ export async function joinMeeting(actor: ThreadActor, meetingUrl: string, brief?
       { ...actor, sessionId: bot.sessionId },
       meetingBrief(url.href, brief),
       `Meeting ${url.pathname.replace(/^\//, '') || url.host}`,
+      // Never more than its caller: a Task set to Auto Mode keeps the call there.
+      { fullAccess: await getSessionBypass(actor.sessionId, actor.userId) },
     )
 
     await agentConversations().updateOne(
@@ -152,8 +155,9 @@ export function eventText(event: RecallEvent, botName: string): string | undefin
 export async function handleRecallEvent(deliveryId: string, event: RecallEvent): Promise<void> {
   const task = await agentConversations().findOne({ 'meeting.botId': event.data.bot.id })
 
-  // An archived Task stays archived: the call goes on without waking it back.
-  if (!task?.meeting || !task.teamId || task.archivedAt) return
+  if (!task?.meeting || !task.teamId) return
+  // An archived Task stays archived, and nobody is left to hear the call.
+  if (task.archivedAt) return leaveMeeting(task.meeting.botId)
   const text = eventText(event, task.meeting.botName)
 
   // A Task runs as its owner, so it goes quiet once its owner leaves the team.
@@ -176,7 +180,8 @@ export async function handleRecallEvent(deliveryId: string, event: RecallEvent):
       locale: task.metadata?.locale ?? 'en-US',
     },
     task,
-    speaker ? `${speaker.name || 'Participant'}: ${text}` : text,
+    // On every message: the first one, which says so, can fall out of a long call.
+    speaker ? `${speaker.name || 'Participant'} (in the call, not your owner): ${text}` : text,
     'agent.resource',
     // One sender for the whole call, so what was said during a turn is the next turn.
     systemSender(`meeting:${task.meeting.botId}`, 'Meeting'),

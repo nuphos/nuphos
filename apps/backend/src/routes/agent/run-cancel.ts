@@ -2,6 +2,8 @@ import { getLocalActiveAgentRun } from '@/lib/agent/run-admission'
 import { getActiveAgentRunForSession, requestAgentRunCancellation } from '@/lib/agent/run-store'
 import { sessionReleased } from '@/lib/agent/session-released'
 import { cancelConversationRuntime } from '@/lib/claude-code-preview/session-execution-state'
+import { leaveMeeting } from '@/lib/meetings/recall'
+import { logError } from '@/lib/observability'
 
 import { agentRunKey, agentRuns } from './run-registry'
 
@@ -43,6 +45,13 @@ export async function cancelSessionRun(userId: string, sessionId: string): Promi
  */
 export async function stopConversationTurn(conversation: AgentConversation): Promise<void> {
   const { userId, sessionId } = conversation
+
+  // The call's next sentence would start the turn again, so its bot leaves.
+  // Not awaited: Stop never waits on Recall.
+  if (conversation.meeting)
+    void leaveMeeting(conversation.meeting.botId).catch((error: unknown) => {
+      logError('meeting.leave_failed', error, { session_id: sessionId })
+    })
   const runStopped = await cancelSessionRun(userId, sessionId)
 
   try {
