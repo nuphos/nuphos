@@ -2,7 +2,6 @@ import { readFile } from 'node:fs/promises'
 
 import { config } from '@/config'
 import { BOT_AVATARS, derivedAvatar } from '@/lib/agent/bot-avatars'
-import { getSessionBypass } from '@/lib/agent/auto-mode/store'
 import { getConversationBySessionId } from '@/lib/agent/db'
 import { speakingBot } from '@/lib/agent/db/bot-membership'
 import { agentConversations } from '@/lib/agent/db/shared'
@@ -103,8 +102,6 @@ export async function joinMeeting(actor: ThreadActor, meetingUrl: string, brief?
       { ...actor, sessionId: bot.sessionId },
       meetingBrief(url.href, brief),
       `Meeting ${url.pathname.replace(/^\//, '') || url.host}`,
-      // Never more than its caller: a Task set to Auto Mode keeps the call there.
-      { fullAccess: await getSessionBypass(actor.sessionId, actor.userId) },
     )
 
     await agentConversations().updateOne(

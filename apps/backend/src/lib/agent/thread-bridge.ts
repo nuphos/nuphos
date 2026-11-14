@@ -1,10 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
-import {
-  getSessionBypass,
-  initializeSessionBypass,
-  setSessionBypass,
-} from '@/lib/agent/auto-mode/store'
+import { getSessionBypass, setSessionBypass } from '@/lib/agent/auto-mode/store'
 import { wakeOfflineBox } from '@/lib/agent/devices/box-wake'
 import { resolveConversationChatRuntime } from '@/lib/claude-code-preview/conversation-chat-route'
 import { fallBackBeforeTurn } from '@/lib/claude-code-preview/runtime-fallback'
@@ -84,7 +80,7 @@ export async function createAgentThread(
   actor: ThreadActor,
   prompt: string,
   title: string,
-  pick: ThreadModelPick & { fullAccess?: boolean } = {},
+  pick: ThreadModelPick = {},
 ) {
   const source = await authorizeThreadActor(actor)
   const threadId = randomUUID()
@@ -105,12 +101,6 @@ export async function createAgentThread(
     parentGrants: source,
     workspace: source.workspace,
   })
-  // A thread runs in its parent's permission mode, or in Auto Mode when `fullAccess` is false.
-  await initializeSessionBypass(
-    threadId,
-    actor.userId,
-    pick.fullAccess !== false && (await getSessionBypass(actor.sessionId, actor.userId)),
-  )
   const { setThreadModel } = await import('./thread-runtime')
 
   try {
@@ -146,8 +136,9 @@ export async function listThreadRuntimes(actor: ThreadActor) {
 
 /**
  * Controls for another conversation the actor owns: its permission mode, never
- * more than this conversation has, and the agent it runs on. Its credentials are
- * its topmost parent's (credentialSource), so there is nothing to grant here.
+ * more than this conversation has, and the agent it runs on. A Task under a Bot
+ * takes its credentials and its permission mode from its topmost parent
+ * (credentialSource), so neither can be changed on the Task.
  */
 export async function updateThread(
   actor: ThreadActor,
@@ -162,6 +153,16 @@ export async function updateThread(
   if (change.fullAccess && !(await getSessionBypass(actor.sessionId, actor.userId))) {
     throw new Error('Only a conversation in Full Access can give a thread Full Access.')
   }
+  // First, so a Task under a Bot is refused before anything else changes.
+  if (change.fullAccess !== undefined) {
+    await setSessionBypass(threadId, actor.userId, change.fullAccess)
+    recordAgentEvent({
+      conversationId: threadId,
+      userId: actor.userId,
+      event: change.fullAccess ? 'auth.bypass_enabled' : 'auth.bypass_disabled',
+      data: { sourceSessionId: actor.sessionId },
+    })
+  }
   const { assertThreadRuntime, setThreadModel } = await import('./thread-runtime')
 
   await assertThreadRuntime(actor, change.runtimeId)
@@ -172,16 +173,6 @@ export async function updateThread(
     : undefined
   // Apply any explicit choice after the move has preserved compatible settings.
   const model = await setThreadModel(threadId, actor.userId, change)
-
-  if (change.fullAccess !== undefined) {
-    await setSessionBypass(threadId, actor.userId, change.fullAccess)
-    recordAgentEvent({
-      conversationId: threadId,
-      userId: actor.userId,
-      event: change.fullAccess ? 'auth.bypass_enabled' : 'auth.bypass_disabled',
-      data: { sourceSessionId: actor.sessionId },
-    })
-  }
 
   return {
     threadId,
