@@ -52,6 +52,19 @@ function browserTabs(conversation: string): WebContents[] {
   )
 }
 
+/**
+ * Makes `window` one of `conversation`'s tabs. A popup its page opens is one too,
+ * hidden with it (webview-guard.ts), so the agent can list it and `show` it.
+ */
+function track(window: BrowserWindow, conversation: string): void {
+  const contents = window.webContents
+
+  tabs.set(contents, { conversation, window })
+  extensionHost()?.extensions.addTab(contents, window)
+  window.on('closed', () => tabs.delete(contents))
+  contents.on('did-create-window', (popup) => track(popup, conversation))
+}
+
 /** A hidden window on the user's browser session, so its pages keep the user's sign-ins. */
 function openTab(url: string, conversation: string): WebContents {
   const window = new BrowserWindow({
@@ -70,7 +83,7 @@ function openTab(url: string, conversation: string): WebContents {
   })
   const contents = window.webContents
 
-  tabs.set(contents, { conversation, window })
+  track(window, conversation)
   // Shown once, unseen, the page paints and can be captured; hidden again, it sleeps
   // like a background tab, so an idle tab costs no battery.
   window.once('ready-to-show', () => {
@@ -80,7 +93,6 @@ function openTab(url: string, conversation: string): WebContents {
     }
     window.setOpacity(1)
   })
-  extensionHost()?.extensions.addTab(contents, window)
   // Closing a shown tab hides it again, as the conversation still drives it.
   // A quit closes it for real, or the app never exits and an update never installs.
   window.on('close', (event) => {
@@ -88,7 +100,6 @@ function openTab(url: string, conversation: string): WebContents {
     event.preventDefault()
     window.hide()
   })
-  window.on('closed', () => tabs.delete(contents))
   contents.loadURL(url).catch(() => {
     // A failed load leaves the tab on its error page, which `describe` reports.
   })

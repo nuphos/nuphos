@@ -218,6 +218,25 @@ test('show puts the tab on screen, and closing its window hides it again', async
   assert.deepEqual(await listed('show-1'), [page.id])
 })
 
+test("a popup the tab's page opens is the conversation's tab too, and closes when its page closes it", async () => {
+  const { page } = await opened('popup-1')
+  const popup = new Window({ show: false, webPreferences: { session: browserSession } })
+
+  page.emit('did-create-window', popup)
+  assert.deepEqual(await listed('popup-1'), [page.id, popup.webContents.id])
+  await runBrowserCall({
+    action: 'show',
+    team: 't1',
+    session: 'popup-1',
+    tab: popup.webContents.id,
+  })
+  assert.equal(popup.visible, true)
+  // A sign-in popup closes itself when done; its opener waits for that.
+  popup.close()
+  assert.equal(popup.destroyed, true)
+  assert.deepEqual(await listed('popup-1'), [page.id])
+})
+
 test('an update restart closes a hidden tab, so the app can quit and install', async () => {
   const { window } = await opened('update-1')
 

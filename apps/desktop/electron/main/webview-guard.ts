@@ -103,6 +103,11 @@ export function initWebviewGuard() {
     }
 
     contents.setWindowOpenHandler(({ url, disposition }) => {
+      const opener =
+        BrowserWindow.fromWebContents(contents.hostWebContents ?? contents) ?? undefined
+      // A hidden agent tab's popup stays hidden, as a tab of its own, until the agent shows it.
+      const hidden = opener?.isVisible() === false
+
       // A link in an extension's page opens in a new window, as in Chrome, not over the page.
       if (
         (browser && isHttp(url) && isPopup(url, disposition)) ||
@@ -113,8 +118,8 @@ export function initWebviewGuard() {
         return {
           action: 'allow',
           overrideBrowserWindowOptions: {
-            parent:
-              BrowserWindow.fromWebContents(contents.hostWebContents ?? contents) ?? undefined,
+            parent: hidden ? undefined : opener,
+            show: !hidden,
             autoHideMenuBar: true,
             webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
           },
