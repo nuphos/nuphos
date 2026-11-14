@@ -26,7 +26,6 @@ import { setupHostedRuntimeSlotIndexes } from '@/lib/claude-code-preview/runtime
 import { setupRuntimeLoginIndexes } from '@/lib/claude-code-preview/runtime-login-store'
 import { setupRuntimeMetricIndexes } from '@/lib/claude-code-preview/runtime-metrics-store'
 import { setupRuntimeQuotaHistoryIndexes } from '@/lib/claude-code-preview/runtime-quota-history'
-import { db } from '@/lib/db'
 import { setupDiscordIndexes } from '@/lib/discord/store'
 import { setupDownloadLinkEmailIndexes } from '@/lib/download-link-email'
 import { setupEmailOtpIndexes } from '@/lib/email-otp'
@@ -170,12 +169,6 @@ async function setupRuntimeFallbackIndexes(): Promise<void> {
     { teamId: 1, runtimeId: 1 },
     { unique: true, name: 'team_runtime_fallbacks_runtime_unique' },
   )
-  // Each runtime now has its own fallback; the old per-member lists are discarded.
-  try {
-    await db().dropCollection('user_team_runtime_fallbacks')
-  } catch (err) {
-    if ((err as { codeName?: string }).codeName !== 'NamespaceNotFound') throw err
-  }
 }
 
 async function setupAgentInstructionIndexes(): Promise<void> {
