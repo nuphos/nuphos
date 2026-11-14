@@ -62,8 +62,8 @@ fun RuntimeDetailPage(store: RuntimeDetailStore, quota: RuntimeQuota?, onBack: (
         onDismissRequest = { confirmRemoval = false },
         title = { Text("Remove ${runtime.label}?") },
         text = { Text(if (runtime.kind == "managed")
-            "This stops the runtime and permanently deletes its files and sign-in. Your agent history stays in Nuphos."
-            else "This disconnects the runtime. Your agents stay in Nuphos.") },
+            "This stops the runtime and permanently deletes its files and sign-in. Your task history stays in Nuphos."
+            else "This disconnects the runtime. Your tasks stay in Nuphos.") },
         confirmButton = { TextButton(onClick = { confirmRemoval = false; store.remove() },
             colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("Remove runtime") } },
         dismissButton = { TextButton(onClick = { confirmRemoval = false }) { Text("Cancel") } },

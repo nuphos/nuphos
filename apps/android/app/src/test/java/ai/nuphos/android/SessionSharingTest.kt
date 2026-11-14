@@ -27,7 +27,7 @@ class SessionSharingTest {
         override suspend fun invite(userId: String, grantComputerUse: Boolean): SessionAccess {
             grants += grantComputerUse
             // The real parser, so the state matches what the transport throws.
-            if (userId !in withComputer && !grantComputerUse) throw AgentChatApi.conflict(409, """{"error":{"code":"computer_use_required","message":"Adding this person to the conversation also gives them use of Mac. Continue?"}}""")
+            if (userId !in withComputer && !grantComputerUse) throw AgentChatApi.conflict(409, """{"error":{"code":"computer_use_required","message":"Adding this person to the task also gives them use of Mac. Continue?"}}""")
             withComputer += userId
             val joined = state.participants.filterNot { it.id == userId } + SessionAccess.Participant(userId, "New", "", false, "reply")
             return write(state.copy(participants = joined))

@@ -117,7 +117,9 @@ final class AgentStore {
         channel.viewerId = userId
         channel.me = me
         // The list row's icon shows at once; the chat's own load keeps it current.
-        channel.faces = channels.first { $0.sessionId == sessionId }?.faces ?? []
+        let row = channels.first { $0.sessionId == sessionId }
+        channel.faces = row?.faces ?? []
+        channel.botId = row?.botId
         return channel
     }
 
@@ -174,7 +176,7 @@ final class AgentStore {
 
     private func rowActionFailed(_ error: Error, scope: Int, retry: @escaping @MainActor () async -> Void) {
         guard scope == workspaceScope else { return }
-        rowActionFailure = RowActionFailure(title: "Couldn't update agent", message: error.localizedDescription) { [weak self] in
+        rowActionFailure = RowActionFailure(title: "Couldn't update task", message: error.localizedDescription) { [weak self] in
             guard self?.workspaceScope == scope else { return }
             await retry()
         }
@@ -629,7 +631,7 @@ final class AgentStore {
                 return
             }
             rowActionFailure = RowActionFailure(
-                title: "Couldn't refresh agents",
+                title: "Couldn't refresh tasks",
                 message: afterChange ? "Your change was saved, but the list could not refresh." : error.localizedDescription,
                 retry: { [weak self] in await self?.reload() }
             )

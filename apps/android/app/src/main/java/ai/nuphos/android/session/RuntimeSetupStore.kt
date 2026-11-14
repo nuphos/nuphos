@@ -105,7 +105,7 @@ class RuntimeSetupStore(
         if (selection.select(id)) {
             signInTargetId = null
             generation++; poll?.cancel(); state = state.copy(attempt = null, loginReconciled = false, attemptMismatch = false,
-                message = "Runtime selected for new agents. Registration does not confirm provider readiness.")
+                message = "Runtime selected for new tasks. Registration does not confirm provider readiness.")
             if (selection.loginReview && selection.loginRuntimeId == id && canSignIn) refreshLogin()
         }
     }
