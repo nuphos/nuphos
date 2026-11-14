@@ -1,5 +1,8 @@
 import { getTeamMembers } from '@/lib/identity'
+import { logError } from '@/lib/observability'
 import { notifyNudge } from '@/lib/push/notify'
+import { plainText, truncate } from '@/lib/push/turn-outcome'
+import { readingWatchers } from '@/lib/push/watchers'
 
 import { agentConversations } from './db/shared'
 import { canReplyIn } from './devices/conversation-computer'
@@ -102,4 +105,32 @@ export async function noteMentions(
     title: `${senderLabel(sender)} mentioned you${where}`,
     body: message.text.slice(0, PUSH_BODY_CHARS),
   })
+}
+
+/**
+ * A channel post's pushes: the people it @mentions, and for an agent's post the
+ * people watching the channel. channel_post is where a channel-woken turn
+ * speaks, so its end pushes nothing (see `runEnded`). The post is stored by
+ * now, so a failure here is logged and never fails the post.
+ */
+export async function notePost(
+  channel: AgentConversation & { teamId: string },
+  post: Mentioning,
+  byAgent: boolean,
+): Promise<void> {
+  try {
+    await noteMentions(channel, post)
+    if (!byAgent) return
+    const where = channel.title ? ` in ${channel.title}` : ''
+
+    // A nudge still alerts someone who cannot read the conversation, so they are left out here.
+    notifyNudge(await readingWatchers(channel), {
+      sessionId: channel.sessionId,
+      teamId: channel.teamId,
+      title: `${senderLabel(post.metadata.sender)}${where}`,
+      body: truncate(plainText(post.text)) || 'File',
+    })
+  } catch (error) {
+    logError('agent.channel.post_notify_failed', error, { channel_id: channel.sessionId })
+  }
 }

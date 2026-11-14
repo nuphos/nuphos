@@ -1,4 +1,4 @@
-import { lstatSync, readdirSync, realpathSync } from 'node:fs'
+import { lstatSync, readdirSync, readFileSync, realpathSync } from 'node:fs'
 import { isAbsolute, join, relative, sep, win32 } from 'node:path'
 
 /** Whether `target` lies inside `root`, component-wise and across Windows drives. */
@@ -42,4 +42,39 @@ export function findBrokenLinks(root) {
   walk(root)
 
   return broken
+}
+
+/**
+ * The apps/runtime/image pieces every local shell depends on for a fresh
+ * conversation token. runtime-guard.sh ships as a file; session-home.mjs and
+ * Codex's session-config.mjs are inlined by the adapter patches, or copied
+ * beside a shim. Returns what a staged bundle at `root` lacks.
+ */
+export function findMissingShared(root, adapters) {
+  const required = [
+    ['runtime-guard.sh', 'OPENAB_CREDENTIALS_DIR'],
+    ...Object.entries(adapters).flatMap(([provider, adapter]) => {
+      const file = join(
+        'adapters',
+        provider,
+        adapter.shim ? 'session-home.mjs' : adapter.patchTarget,
+      )
+
+      return [
+        [file, 'function nuphosSessionHomeEnv'],
+        ...(provider === 'codex' ? [[file, 'function nuphosCodexSessionConfig']] : []),
+      ]
+    }),
+  ]
+  const has = (file, text) => {
+    try {
+      return readFileSync(join(root, file), 'utf8').includes(text)
+    } catch {
+      return false
+    }
+  }
+
+  return required
+    .filter(([file, text]) => !has(file, text))
+    .map(([file, text]) => `${file}: ${text}`)
 }

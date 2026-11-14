@@ -158,7 +158,11 @@ describe('OpenAbAcpClient', () => {
 
     h.socket().reject(1006, 'The computer running this agent disconnected')
 
-    await expect(connecting).rejects.toMatchObject({ status: 409, code: 'runtime_offline' })
+    await expect(connecting).rejects.toMatchObject({
+      status: 409,
+      code: 'runtime_offline',
+      details: { deviceId: 'device-1' },
+    })
   })
 
   test('times out an ACP request that never receives a response', async () => {

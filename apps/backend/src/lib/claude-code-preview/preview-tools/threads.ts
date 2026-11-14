@@ -8,6 +8,7 @@ import {
   setAgentThreadParent,
   updateThread,
 } from '@/lib/agent/thread-bridge'
+import { stopAgentThread } from '@/lib/agent/thread-stop'
 
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 
@@ -91,6 +92,7 @@ const archive = z
     archived: z.boolean().default(true).describe('false restores an archived conversation.'),
   })
   .strict()
+const stop = z.object({ label: common.label, threadId: z.string().uuid() }).strict()
 const list = z.object({ label: common.label }).strict()
 
 // A refusal is the answer the agent needs, so it gets the reason, as tools served
@@ -149,6 +151,16 @@ export function threadToolModule(
           'Use threadId from create_thread or session_id from ' +
           'list_recent_conversations.',
         inputSchema: toolInputJsonSchema(archive),
+      },
+      {
+        name: 'stop_thread',
+        description:
+          'Stop the running turn of another Nuphos conversation you own in this team, the same ' +
+          'as the Stop button in that conversation. Messages that agents queued for it with ' +
+          'send_message_to_thread are dropped so they do not start another turn; messages people ' +
+          'sent stay and run next. Its history stays. Use threadId from create_thread or ' +
+          'session_id from list_recent_conversations.',
+        inputSchema: toolInputJsonSchema(stop),
       },
       {
         name: 'list_agent_runtimes',
@@ -210,6 +222,13 @@ export function threadToolModule(
         if (!parsed.success) return toolError(parsed.error.message)
 
         return answer(setAgentThreadArchived(ctx, parsed.data.threadId, parsed.data.archived))
+      },
+      stop_thread: async (args) => {
+        const parsed = stop.safeParse(args)
+
+        if (!parsed.success) return toolError(parsed.error.message)
+
+        return answer(stopAgentThread(ctx, parsed.data.threadId))
       },
       list_agent_runtimes: async (args) => {
         const parsed = list.safeParse(args)

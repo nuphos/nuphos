@@ -36,7 +36,7 @@ export function loginFrameReader(
   onFrame: (frame: RuntimeLoginFrame) => void,
   // The provider's own advice when its sign-in fails.
   failed = LOGIN_ERRORS.get('failed'),
-  // Whether this runtime may ask the user in steps (OpenCode).
+  // Whether this runtime may ask the user in steps (OpenCode, DeepSeek Harness).
   steps = false,
 ) {
   let pending = ''
