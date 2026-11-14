@@ -243,7 +243,7 @@ export async function runOpenConversation(
     }
     const settled = openingAfterFailure(sessionId, err)
 
-    if (!settled) toast.apiError(t('Failed to open agent'), err)
+    if (!settled) toast.apiError(t('Failed to open task'), err)
     clearPendingOpen(sessionId)
     setOpeningConversation(settled)
   }

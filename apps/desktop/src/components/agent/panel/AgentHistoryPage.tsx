@@ -146,7 +146,7 @@ export function AgentHistoryPage({
       })
       .catch((err: unknown) => {
         if (requestIdRef.current !== requestId) return
-        toast.apiError(t('Failed to load agent history'), err)
+        toast.apiError(t('Failed to load task history'), err)
       })
       .finally(() => {
         if (requestIdRef.current === requestId) setLoading(false)
@@ -181,7 +181,7 @@ export function AgentHistoryPage({
       setNextPage(page.hasMore && page.nextCursor ? { cursor: page.nextCursor, requestId } : null)
     } catch (err) {
       if (requestIdRef.current === requestId) {
-        toast.apiError(t('Failed to load more agents'), err)
+        toast.apiError(t('Failed to load more tasks'), err)
       }
     } finally {
       loadMoreInFlightRef.current = false
@@ -195,7 +195,7 @@ export function AgentHistoryPage({
   // conversations, so the row leaves at once; Undo restores it and puts it
   // back where it was rather than waiting for the next listing.
   async function archiveConversation(conversation: AgentConversation) {
-    const label = conversation.title || conversation.firstMessage || t('Untitled agent')
+    const label = conversation.title || conversation.firstMessage || t('Untitled task')
 
     let botSessionId: string | undefined
 

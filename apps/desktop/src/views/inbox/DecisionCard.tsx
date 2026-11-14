@@ -42,9 +42,9 @@ export function DecisionCard({
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 pb-5 pt-4">
       <div className="flex items-center gap-2 text-[12px] text-tertiary">
-        <span className="min-w-0 flex-1 truncate">{title || t('Untitled agent')}</span>
+        <span className="min-w-0 flex-1 truncate">{title || t('Untitled task')}</span>
         <button type="button" onClick={onOpenConversation} className="shrink-0 hover:text-main">
-          {t('Open agent conversation')}
+          {t('Open task')}
         </button>
       </div>
       <section>

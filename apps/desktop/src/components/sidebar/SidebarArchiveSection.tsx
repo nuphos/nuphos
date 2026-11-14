@@ -123,7 +123,7 @@ function ArchiveItems({ listProps, archive }: ArchiveProps) {
             loading: archive.loading,
             items: archive.items.map((chat) => ({
               key: `agent-session:${chat.sessionId}`,
-              label: chat.title || chat.firstMessage || t('Untitled agent'),
+              label: chat.title || chat.firstMessage || t('Untitled task'),
               enabled: true,
               task: true,
               readOnlyChat: true,

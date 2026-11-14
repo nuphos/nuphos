@@ -9,7 +9,7 @@ import 'streamdown/styles.css'
 import { t } from '../../i18n'
 import { remarkCodexDirectives } from '../../lib/codexDirectives'
 import { linkClickMode } from '../../lib/linkClickMode'
-import { isSynthesizedAutolink, remarkEndBareUrls } from '../../lib/markdownAutolink'
+import { isSynthesizedAutolink } from '../../lib/markdownAutolink'
 import { messageRehypePlugins } from '../../lib/messageRehypePlugins'
 import { isMac } from '../../lib/platform'
 import { ContextMenu } from '../ContextMenu'
@@ -26,12 +26,8 @@ import type { ComponentProps, MouseEvent, ReactNode } from 'react'
 type StreamdownComponents = ComponentProps<typeof Streamdown>['components']
 type StreamdownAnimated = ComponentProps<typeof Streamdown>['animated']
 
-// Streamdown's defaults (GFM), then the plugins that need GFM's nodes.
-const messageRemarkPlugins = [
-  ...Object.values(defaultRemarkPlugins),
-  remarkEndBareUrls,
-  remarkCodexDirectives,
-]
+// Streamdown's defaults (GFM), then Codex directives, which need GFM's nodes.
+const messageRemarkPlugins = [...Object.values(defaultRemarkPlugins), remarkCodexDirectives]
 
 const STREAMING_TEXT_ANIMATION: StreamdownAnimated = {
   animation: 'atlas-stream-in',
