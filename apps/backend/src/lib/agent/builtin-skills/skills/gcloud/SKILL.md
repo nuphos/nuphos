@@ -122,10 +122,12 @@ policy change.
 - Every constraint in force must allow the principal, so relaxing one does not
   help while another still denies it.
 
-The narrowest exception is therefore on the project that holds the connector
-service account: a managed policy that keeps the organization's principal set
-and every parent value and adds the Nuphos principal to `allowedMemberSubjects`,
-then, once it is in effect, `allowAll` for the legacy constraint on that project.
+For the administrator to weigh, not a policy to hand over: the narrowest
+exception would be on the project that holds the connector service account, a
+managed policy that keeps the organization's principal set and every parent
+value and adds the Nuphos principal to `allowedMemberSubjects`, then, once it is
+in effect, `allowAll` for the legacy constraint on that project. The managed
+behavior above was tested; that the legacy step completes the grant was not.
 See https://docs.cloud.google.com/organization-policy/restrict-domains.
 
 The one piece of evidence needed is which of the two constraints is in force on
