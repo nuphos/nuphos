@@ -172,7 +172,7 @@ export function OnboardingFlow({
         {/* While the name is being typed, show it in the sidebar it will live
             in (wide windows only); the column goes once it is sent. */}
         {namingWorkspace && (
-          <div className="titlebar-no-drag bg-surface-sunken hidden lg:flex w-[40%] items-center justify-center px-10">
+          <div className="titlebar-no-drag bg-main hidden lg:flex w-[40%] items-center overflow-hidden border-l border-line-control/60 pl-16">
             <SidebarNamePreview name={workspaceName} />
           </div>
         )}
