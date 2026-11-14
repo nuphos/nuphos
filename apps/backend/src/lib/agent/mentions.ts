@@ -1,7 +1,6 @@
 import { getTeamMembers } from '@/lib/identity'
 import { notifyNudge } from '@/lib/push/notify'
 
-import { inviteConversationParticipants } from './db/participants'
 import { agentConversations } from './db/shared'
 import { canReplyIn } from './devices/conversation-computer'
 import { senderLabel } from './message-metadata'
@@ -103,40 +102,4 @@ export async function noteMentions(
     title: `${senderLabel(sender)} mentioned you${where}`,
     body: message.text.slice(0, PUSH_BODY_CHARS),
   })
-}
-
-/**
- * Bring teammates into a conversation on someone's behalf. Each person actually
- * added gets an Inbox entry, kept like a mention's, and a push now.
- */
-export async function inviteToConversation(
-  teamId: string,
-  sessionId: string,
-  actorId: string,
-  userIds: readonly string[],
-): Promise<AgentConversation | null> {
-  if (userIds.length === 0) return await agentConversations().findOne({ sessionId })
-  const actor = (await getTeamMembers(teamId)).find((member) => member.id === actorId)
-  const name = (actor && mentionName(actor)) || 'Someone'
-  const { conversation, invited } = await inviteConversationParticipants(
-    sessionId,
-    { id: actorId, name },
-    userIds,
-  )
-
-  if (conversation && invited.length > 0) {
-    notifyNudge(invited, {
-      sessionId,
-      teamId,
-      title: conversation.title
-        ? `${name} invited you to ${conversation.title}`
-        : `${name} invited you`,
-      body:
-        conversation.kind === 'channel'
-          ? 'You were added to a chat.'
-          : 'You were added to an agent conversation.',
-    })
-  }
-
-  return conversation
 }
