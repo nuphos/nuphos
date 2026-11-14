@@ -86,6 +86,7 @@ fun ProfileSheet(user: NuphosUser, workspaceName: String? = null, onWorkspace: (
             onDeletion = { deletion = true },
             onSignOut = { confirm = true },
             onCopyUserId = { clipboard.setText(AnnotatedString((auth.user ?: user).id)) },
+            accounts = { SavedAccountsList(auth, allowAdding = true, onSwitch = onDismiss) },
             voiceSettings = { ai.nuphos.android.voice.VoiceSettingsSection(voiceServices) },
             workspaceSettings = if (onWorkspace != null || workspacePicker != null) ({
                 ProfileAction("Workspace", subtitle = workspaceName, disclosure = true,
@@ -145,6 +146,7 @@ internal fun ProfileContent(
     onCopyUserId: () -> Unit = {},
     voiceSettings: @Composable () -> Unit,
     workspaceSettings: (@Composable () -> Unit)? = null,
+    accounts: (@Composable () -> Unit)? = null,
 ) {
     Column(
         Modifier
@@ -172,6 +174,7 @@ internal fun ProfileContent(
                 }
                 Text(user.email, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
             }
+            if (accounts != null) ProfileGroup("Accounts") { accounts() }
             ProfileGroup("Account") {
                 ProfileAction("Edit profile", onClick = onEdit)
                 ProfileDivider(Modifier.testTag("profile-account-line-edit"))
