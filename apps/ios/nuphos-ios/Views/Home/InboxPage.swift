@@ -29,7 +29,9 @@ struct InboxPage: View {
                     systemImage: "tray",
                     description: Text("When an agent needs you to decide something, it shows up here. Answer it and it leaves the Inbox."))
             } else {
-                List(selection: Bindable(inbox).selected) {
+                // On iPhone the list's selection pushes the question. Wide, a tap opens it beside the
+                // list, and its fill marks it: the system's selection would ring it on iPad.
+                List(selection: wide ? nil : Bindable(inbox).selected) {
                     ForEach(inbox.groups, id: \.[0].sessionId) { group in
                         Section {
                             ForEach(group) { question in
@@ -53,8 +55,11 @@ struct InboxPage: View {
                                     // Wide, the open question stays marked.
                                     selected: wide && inbox.selected == question.id))
                                 .listRowSeparator(.hidden)
-                                // iPadOS rings the selected row of a focused list; the fill marks it instead.
-                                .focusEffectDisabled()
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
+                                // Alongside, not instead of, the list's own tap that pushes on iPhone.
+                                .simultaneousGesture(TapGesture().onEnded { if wide { inbox.selected = question.id } })
+                                .accessibilityAddTraits(.isButton)
                                 .accessibilityIdentifier("inbox.row")
                             }
                         } header: {
