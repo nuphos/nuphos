@@ -35,8 +35,8 @@ function app(overrides: Partial<DeviceAgentRouteDeps> = {}) {
     removeInstance: async (target, agent) => {
       calls.push({ target, removed: agent })
     },
-    forgetAgent: async (userId, deviceId, agent) => {
-      calls.push({ forgot: [userId, deviceId, agent] })
+    forgetAgent: async (userId, deviceId, agent, options) => {
+      calls.push({ forgot: [userId, deviceId, agent, ...(options ? [options] : [])] })
     },
     renameAgent: async (userId, deviceId, key, label) => {
       calls.push({ renamed: [userId, deviceId, key, label] })
@@ -190,9 +190,12 @@ test("a Box removes its default agent; a person's computer only forgets its own"
   ])
   const computer = app()
 
-  // Its CLI login is the person's: the computer is never asked to remove it.
+  // Its CLI login is the person's: the computer is never asked to remove it, and who signed
+  // it in is kept, while a Box's removal deletes its accounts and drops that record.
   expect((await computer.remove('claude-code')).status).toBe(204)
-  expect(computer.calls).toEqual([{ forgot: ['owner', 'box', { provider: 'claude-code' }] }])
+  expect(computer.calls).toEqual([
+    { forgot: ['owner', 'box', { provider: 'claude-code' }, { forgetOnly: true }] },
+  ])
 })
 
 test('remove without access or on an older host never reaches the host', async () => {
@@ -289,7 +292,9 @@ test("an offline person's computer's default agent is only forgotten, never queu
   const response = await remove('claude-code', '&force=true')
 
   expect(response.status).toBe(204)
-  expect(calls).toEqual([{ forgot: ['owner', 'box', { provider: 'claude-code' }] }])
+  expect(calls).toEqual([
+    { forgot: ['owner', 'box', { provider: 'claude-code' }, { forgetOnly: true }] },
+  ])
 })
 
 test("removing anyway is for the computer's managers only", async () => {

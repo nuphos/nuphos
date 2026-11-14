@@ -96,6 +96,27 @@ test("this computer's agent signs in through its own CLI", () => {
   assert.deepEqual(route('local_u-editor_dev-1_codex'), { kind: 'cli', provider: 'codex' })
 })
 
+test("an ended sign-in on this computer is renewed through Nuphos, not the CLI's own login", () => {
+  const runtimeId = 'local_u-editor_dev-1_codex'
+  const instance = {
+    ...managed,
+    id: runtimeId,
+    kind: 'local' as const,
+    local: {
+      ownerUserId: 'u-editor',
+      deviceId: 'dev-1',
+      deviceLabel: 'Mac',
+      signedIn: false,
+      signInEnded: true as const,
+    },
+  }
+
+  assert.deepEqual(signInRoute({ ...base, runtimeId, instance, onThisComputer: true }), {
+    kind: 'dialog',
+    instance,
+  })
+})
+
 test('Grok Build on this computer signs in with the runtime sign-in, as in settings', () => {
   const runtimeId = 'local_u-editor_dev-1_grok'
   const instance = { ...managed, id: runtimeId, kind: 'local' as const }

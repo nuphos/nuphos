@@ -17,6 +17,7 @@ function box(t: { after: (fn: () => void) => void }, ownsMachine: boolean) {
   const owner = path.join(root, 'home', '.codex')
   const env = { PATH: '/mock', HOME: path.join(root, 'home') }
   const claudeLogin = path.join(root, 'users', 'alice', 'claude-home', '.credentials.json')
+  let stops = 0
 
   t.after(() => rmSync(root, { recursive: true, force: true }))
   mkdirSync(owner, { recursive: true })
@@ -52,7 +53,9 @@ function box(t: { after: (fn: () => void) => void }, ownsMachine: boolean) {
     probeModels: async () => ({ models: [], defaultModel: '', controls: {} }),
     createProcess: () => ({
       start: async () => ({ port: 1, authKey: 'mock', controlKey: 'mock' }),
-      stop: async () => {},
+      stop: async () => {
+        stops += 1
+      },
       onExit: () => () => {},
     }),
     createTunnel: () => ({ start() {}, stop() {}, sendStatus() {}, reconnectNow() {} }),
@@ -76,7 +79,7 @@ function box(t: { after: (fn: () => void) => void }, ownsMachine: boolean) {
         ]),
     )
 
-  return { start, signedIn, owner }
+  return { start, signedIn, owner, claudeHome: path.dirname(claudeLogin), stops: () => stops }
 }
 
 test('a Box removes its default agents for good, also across a restart', async (t) => {
@@ -169,4 +172,46 @@ test('AGY removal cannot pretend deleting its home signs out the native keyring'
     /official Antigravity CLI/,
   )
   assert.equal(touched, false)
+})
+
+test('a Box resets a default agent: it is stopped and its logins go, its sessions stay', async (t) => {
+  const { start, signedIn, owner, claudeHome, stops } = box(t, true)
+  const session = path.join(claudeHome, 'projects', 'work', 'session.jsonl')
+  const controller = await start()
+
+  mkdirSync(path.dirname(session), { recursive: true })
+  writeFileSync(session, '{}\n')
+  writeFileSync(path.join(owner, 'config.toml'), '')
+  const before = stops()
+
+  for (const provider of ['claude-code', 'codex'])
+    assert.deepEqual(await controller.instanceRequest({ method: 'reset', provider }), {})
+  assert.equal(stops() - before, 2)
+  assert.deepEqual(signedIn(controller), { 'claude-code': false, codex: false })
+  assert.equal(existsSync(path.join(owner, 'auth.json')), false)
+  assert.equal(existsSync(path.join(owner, 'config.toml')), true)
+  assert.equal(existsSync(session), true)
+  assert.equal(existsSync(path.join(claudeHome, 'settings.json')), true)
+  await controller.shutdown()
+  const restarted = await start()
+
+  assert.deepEqual(signedIn(restarted), { 'claude-code': false, codex: false })
+  await assert.rejects(
+    restarted.instanceRequest({ method: 'reset', provider: 'antigravity' }),
+    /official Antigravity CLI/u,
+  )
+})
+
+test('a person’s computer never resets a default agent or touches its login', async (t) => {
+  const { start, signedIn, owner, stops } = box(t, false)
+  const controller = await start()
+  const before = stops()
+
+  await assert.rejects(
+    controller.instanceRequest({ method: 'reset', provider: 'claude-code' }),
+    /Only a cloud computer/u,
+  )
+  assert.equal(stops(), before)
+  assert.equal(existsSync(path.join(owner, 'auth.json')), true)
+  assert.deepEqual(signedIn(controller), { 'claude-code': true, codex: true })
 })

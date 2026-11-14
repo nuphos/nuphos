@@ -1,17 +1,19 @@
 import { rmSync } from 'node:fs'
 import path from 'node:path'
 
+import { credentialsLeft, deleteAgentCredentials } from './agent-credentials.ts'
 import { parseInstance, readInstances, writeInstances } from './agent-instances.ts'
 import { deleteClaudeKeychainEntry } from './claude-keychain.ts'
 import { defaultAgentRequest } from './default-agent.ts'
 import { userDir } from './controller-types.ts'
 import { instanceControllerDeps, secureStorageEnv } from './instance-deps.ts'
 import { instanceStates, instanceStatus, publicMetadata } from './instance-entries.ts'
+import { agentHomeName } from './providers.ts'
 
 import type { LocalAgentProvider } from './agent-cli.ts'
 import type { AgentInstanceRecord } from './agent-instances.ts'
 import type { LocalRuntimeControllerDeps } from './controller-types.ts'
-import type { RefreshDefault } from './default-agent.ts'
+import type { DefaultAgentControl } from './default-agent.ts'
 import type { Controller, Entry } from './instance-entries.ts'
 import type { RunningRuntime } from './openab-process.ts'
 
@@ -19,11 +21,10 @@ import type { RunningRuntime } from './openab-process.ts'
 export const PENDING_TTL_MS = 20 * 60_000
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u
 
-export type InstanceControllersOptions = {
+export type InstanceControllersOptions = DefaultAgentControl & {
   now?: () => number
   /** Deletes what a removed agent stored outside its own directory. */
   removeCredential?: (env: NodeJS.ProcessEnv) => Promise<void>
-  refreshDefault?: RefreshDefault
 }
 
 /**
@@ -41,7 +42,7 @@ export class InstanceControllers {
   private readonly changed: () => void
   private readonly now: () => number
   private readonly removeCredential: (env: NodeJS.ProcessEnv) => Promise<void>
-  private readonly refreshDefault?: RefreshDefault
+  private readonly defaults: DefaultAgentControl
   private userId: string | null = null
   constructor(
     deps: LocalRuntimeControllerDeps,
@@ -54,7 +55,7 @@ export class InstanceControllers {
     this.changed = changed
     this.now = options.now ?? Date.now
     this.removeCredential = options.removeCredential ?? deleteClaudeKeychainEntry
-    this.refreshDefault = options.refreshDefault
+    this.defaults = options
   }
 
   async load(userId: string | null): Promise<void> {
@@ -194,37 +195,71 @@ export class InstanceControllers {
     rmSync(dir, { recursive: true, force: true })
   }
 
+  /** Signs an added agent out but keeps it: its record, settings, sessions and workspace stay. */
+  private async reset(entry: Entry, userId: string): Promise<unknown> {
+    const { instanceId, provider } = entry.metadata
+    const dir = this.instanceDir(instanceId)
+
+    const home = userDir(dir, userId, agentHomeName(provider))
+
+    await entry.starting?.catch(() => {})
+    await entry.controller.shutdown()
+    deleteAgentCredentials(provider, home)
+    if (provider === 'claude-code') await this.removeCredential(secureStorageEnv(dir, userId))
+    const left = await credentialsLeft(provider, home, this.deps)
+
+    // Removed meanwhile: starting it again would bring back an agent no one lists.
+    if (this.entries.get(instanceId) !== entry) throw new Error('Runtime instance not found')
+    entry.starting = entry.controller.setUser(userId).then(this.changed)
+    entry.starting.catch(() => {
+      /* The controller reports its own start failure. */
+    })
+    this.changed()
+    if (left) throw left
+
+    return { instance: publicMetadata(entry.metadata) }
+  }
+
+  /** A request about an added agent, which names it by its instance id. */
+  private async instanceRequest(
+    method: 'remove' | 'commit' | 'reset',
+    instanceId: unknown,
+    userId: string,
+  ): Promise<unknown> {
+    if (typeof instanceId !== 'string' || !UUID.test(instanceId))
+      throw new Error('Invalid runtime instance')
+    if (method === 'remove') {
+      await this.remove(instanceId, userId)
+
+      return {}
+    }
+    const entry = this.entries.get(instanceId)
+
+    if (!entry) throw new Error('Runtime instance not found')
+    if (method === 'reset') return this.reset(entry, userId)
+    await entry.starting?.catch(() => {})
+    await entry.controller.refresh(false)
+    if (!(await this.settle(entry, false))) throw new Error('The runtime is not signed in yet')
+
+    return { instance: publicMetadata(entry.metadata) }
+  }
+
   async request(request: unknown, userId: string | null): Promise<unknown> {
     if (!userId) throw new Error('Sign in to Nuphos first')
     if (!request || typeof request !== 'object') throw new Error('Invalid instance request')
     const body = request as { method?: string; instanceId?: unknown; provider?: unknown }
+    const { method } = body
+    const named = method === 'remove' || method === 'commit' || method === 'reset'
 
     // The computer's own agent is named by its provider, an added one by its instance id.
-    if (body.instanceId === undefined && (body.method === 'remove' || body.method === 'commit'))
-      return defaultAgentRequest(this.deps, userId, body.method, body.provider, this.refreshDefault)
-
-    if (body.method === 'list')
+    if (named && body.instanceId === undefined)
+      return defaultAgentRequest(this.deps, userId, method, body.provider, this.defaults)
+    if (named) return this.instanceRequest(method, body.instanceId, userId)
+    if (method === 'list')
       return {
         instances: [...this.entries.values()].map(({ metadata }) => publicMetadata(metadata)),
       }
-    if (body.method === 'remove' || body.method === 'commit') {
-      if (typeof body.instanceId !== 'string' || !UUID.test(body.instanceId))
-        throw new Error('Invalid runtime instance')
-      const entry = this.entries.get(body.instanceId)
-
-      if (body.method === 'remove') {
-        await this.remove(body.instanceId, userId)
-
-        return {}
-      }
-      if (!entry) throw new Error('Runtime instance not found')
-      await entry.starting?.catch(() => {})
-      await entry.controller.refresh(false)
-      if (!(await this.settle(entry, false))) throw new Error('The runtime is not signed in yet')
-
-      return { instance: publicMetadata(entry.metadata) }
-    }
-    if (body.method !== 'create') throw new Error('Unsupported instance method')
+    if (method !== 'create') throw new Error('Unsupported instance method')
     const metadata = parseInstance(request)
 
     if (metadata.provider === 'antigravity')

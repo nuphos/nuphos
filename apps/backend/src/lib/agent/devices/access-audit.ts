@@ -21,7 +21,7 @@ const MEMBERSHIP_VIAS = new Set<DeviceAccessChangeVia>(['team_leave', 'team_remo
 /** Who changes a computer's access, and through what. */
 export type DeviceAccessChanger = { actorUserId: string; via: DeviceAccessChangeVia }
 
-type TeamAccess = Omit<DeviceGrant, 'teamId'>
+export type TeamAccess = Omit<DeviceGrant, 'teamId'>
 
 /** One change to who may use or manage a computer in a team, kept as long as device exec audits. */
 export type DeviceAccessAuditEntry = {
@@ -81,6 +81,11 @@ function authorityOf(
   return previous?.managerIds.includes(by.actorUserId) ? 'manage' : null
 }
 
+/** This team's grant on the computer, if any. */
+export function teamGrant(device: AgentDevice, teamId: string): DeviceGrant | undefined {
+  return device.access?.find((grant) => grant.teamId === teamId)
+}
+
 /** The audit row for a change, from the computer as it was just before it. */
 export function buildDeviceAccessAuditEntry(
   before: AgentDevice,
@@ -89,7 +94,7 @@ export function buildDeviceAccessAuditEntry(
   by: DeviceAccessChanger,
   changedAt: Date = new Date(),
 ): DeviceAccessAuditEntry {
-  const previous = grantAccess(before.access?.find((grant) => grant.teamId === teamId))
+  const previous = grantAccess(teamGrant(before, teamId))
 
   return {
     ownerUserId: before.userId,

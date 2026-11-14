@@ -37,6 +37,7 @@ function setup() {
 
       return Promise.resolve()
     },
+    endSignIns: async (team, by) => record(`end-sign-ins ${team} by ${by.actorUserId}`),
     teamOwner: () => Promise.resolve('boss'),
     dropApprovals: async (_team, userId) => record(`drop-approvals ${userId}`),
     dropTrusts: async (_team, userId) => record(`drop-trusts ${userId}`),
@@ -55,6 +56,8 @@ test('a guest leaving loses their streams, their place in grants, and their appr
   expect(log).toEqual([
     'boxes',
     'streams owner,other -> mate',
+    // Computers granted to everyone in the team name no one, so their sign-ins end here.
+    'end-sign-ins team by mate',
     'drop-from-grants mate by mate team_leave',
     'drop-owner-grants mate by mate team_leave',
     'transfer mate -> boss by mate team_leave',

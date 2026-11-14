@@ -17,7 +17,7 @@ import os from 'node:os'
 import path from 'node:path'
 
 import { applyCodexProvider, claudeProviderSettings } from './custom-provider.ts'
-import { prepareShimHome } from './providers.ts'
+import { agentHomeName, prepareShimHome } from './providers.ts'
 
 import type { LocalAgentProvider } from './agent-cli.ts'
 
@@ -232,10 +232,7 @@ export function deleteDefaultLogin(
   userDir: string,
   env: NodeJS.ProcessEnv,
 ): void {
-  rmSync(path.join(userDir, provider === 'claude-code' ? 'claude-home' : `${provider}-home`), {
-    recursive: true,
-    force: true,
-  })
+  rmSync(path.join(userDir, agentHomeName(provider)), { recursive: true, force: true })
   if (provider === 'codex') rmSync(path.join(codexOwnerHome(env), 'auth.json'), { force: true })
 }
 

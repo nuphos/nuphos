@@ -1,7 +1,7 @@
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 
-import { teamGrant } from './device-grants'
+import { teamGrant } from './access-audit'
 import { tunnelBus } from './local-runtime/bus'
 import { holderChannel } from './local-runtime/protocol'
 import {

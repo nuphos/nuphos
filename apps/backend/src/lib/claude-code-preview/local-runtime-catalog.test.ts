@@ -518,3 +518,52 @@ describe('a computer that reports settings without a model list', () => {
     expect(catalog.controls?.modelId).toBe('opus')
   })
 })
+
+describe('who an agent is signed in as', () => {
+  const at = new Date('2026-11-13T00:00:00Z')
+  const signedInAs = (endedAt?: Date): LocalRuntimeCatalogDeps => {
+    const mac = {
+      ...device('owner', 'mac-1', 'Olivia’s MacBook'),
+      signIns: [
+        {
+          agent: 'claude-code',
+          userId: 'owner',
+          teamId: 't1',
+          at,
+          ...(endedAt ? { endedAt } : {}),
+        },
+      ],
+    }
+
+    return {
+      ...deps,
+      access: { ...deps.access, getDevice: async () => mac, listDevices: async () => [mac] },
+    }
+  }
+
+  test('the listing says who signed the agent in through Nuphos', async () => {
+    const [listed] = await listOwnLocalRuntimes('t1', 'owner', signedInAs())
+
+    expect(listed?.local).toMatchObject({
+      signedIn: true,
+      signedInBy: { userId: 'owner', at: at.toISOString() },
+    })
+  })
+
+  test('an ended sign-in runs nothing until someone who manages the computer signs in again', async () => {
+    const ended = signedInAs(at)
+    const [listed] = await listOwnLocalRuntimes('t1', 'owner', ended)
+
+    expect(listed?.local.signedIn).toBe(false)
+    expect(listed?.local.signedInBy).toBeUndefined()
+    // The Desktop then renews it through Nuphos, not the CLI's own login.
+    expect(listed?.local.signInEnded).toBe(true)
+    for (const purpose of ['transport', 'control'] as const)
+      await expect(
+        resolveLocalRuntimeEndpoint('t1', runtimeId, 'owner', purpose, ended),
+      ).rejects.toMatchObject({ status: 409, code: 'runtime_login_required' })
+    expect(
+      (await resolveLocalRuntimeEndpoint('t1', runtimeId, 'owner', 'login', ended)).authKey,
+    ).toBe('control')
+  })
+})
