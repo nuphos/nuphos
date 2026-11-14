@@ -7,7 +7,6 @@ import { byCodeUnit } from '@/lib/agent/sort-order'
 import { AppError } from '@/lib/errors'
 
 import { getBuiltinSkillsDirectory } from '../inject'
-import { invalidateMergedSkillsForScope } from '../merge'
 import { normalizeSkillScope } from '../scope'
 import { getSkillsStore } from '../skills-s3'
 import { syncScope } from '../sync'
@@ -238,7 +237,6 @@ export function mutationError(err: unknown): string {
 export async function refreshScopeAfterMutation(scope: string): Promise<void> {
   try {
     await syncScope(scope)
-    await invalidateMergedSkillsForScope(scope)
   } catch {
     // S3 mutation succeeded; cache refresh is best-effort and retried on the next resolve.
   }

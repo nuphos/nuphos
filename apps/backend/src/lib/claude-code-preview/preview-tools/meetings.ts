@@ -1,14 +1,12 @@
 import { z } from 'zod'
 
 import { config } from '@/config'
-import { getConversationBySessionId } from '@/lib/agent/db'
-import { getTeamMembership } from '@/lib/identity'
-import { joinMeeting, leaveMeetingChannel } from '@/lib/meetings/meetings'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
+import { chatInMeeting, joinMeeting, leaveMeetingTask } from '@/lib/meetings/meetings'
 
 import { toolInputJsonSchema } from './ai-sdk-adapter'
 
-import type { PreviewToolContext, PreviewToolModule } from '../preview-tool-context'
+import type { PreviewToolModule } from '../preview-tool-context'
 
 const label = z
   .string()
@@ -20,10 +18,25 @@ const join = z
   .object({
     label,
     url: z.string().url().describe('The meeting link, e.g. https://meet.google.com/abc-defg-hij.'),
+    brief: z
+      .string()
+      .trim()
+      .min(1)
+      .max(3000)
+      .optional()
+      .describe('What to do in the call and what to know for it; never include credentials.'),
   })
   .strict()
+const chat = z.object({ label, text: z.string().trim().min(1).max(4096) }).strict()
 const leave = z
-  .object({ label, channelId: z.string().uuid().describe('The channelId meeting_join returned.') })
+  .object({
+    label,
+    threadId: z
+      .string()
+      .uuid()
+      .optional()
+      .describe("The threadId meeting_join returned; omit inside the meeting's own Task."),
+  })
   .strict()
 
 // A refusal is the answer the agent needs, so it gets the reason.
@@ -31,16 +44,6 @@ function answer(work: Promise<unknown>) {
   return work.then(toolResult, (error: unknown) =>
     toolError(error instanceof Error ? error.message : String(error)),
   )
-}
-
-/** The calling agent, whose owner must still be on the team. */
-async function self(ctx: PreviewToolContext) {
-  const conversation = await getConversationBySessionId(ctx.sessionId)
-
-  if (!conversation || !(await getTeamMembership(conversation.userId, ctx.teamId)))
-    throw new Error('This agent’s owner is no longer on the team.')
-
-  return conversation
 }
 
 /** Off unless this server has Recall.ai set up. */
@@ -52,16 +55,25 @@ export function meetingToolModule(): PreviewToolModule {
       {
         name: 'meeting_join',
         description:
-          'Join a Google Meet, Zoom or Teams call as your Bot (a Task joins as the Bot above it) ' +
-          'to listen and type in its chat; you never speak aloud. Use it when the user asks ' +
-          'you to join a meeting. It opens a channel for the call: what people say there ' +
-          'reaches you as channel messages, and your channel_post in it goes to the meeting ' +
-          'chat. The host may have to admit you. Call meeting_leave when asked to leave.',
+          'Join a Google Meet, Zoom or Teams call as your Bot (a Task joins as the Bot above it). ' +
+          'Use it when the user asks you to join a meeting. It starts a Task under your Bot for ' +
+          'the call: that Task hears what people say and types in the meeting chat, never aloud, ' +
+          'and keeps the transcript once the call is over. It does not see this conversation, so ' +
+          'put what it should do there in brief; send_message_to_thread reaches it later. The ' +
+          'host may have to admit it. Call meeting_leave when asked to leave.',
         inputSchema: toolInputJsonSchema(join),
       },
       {
+        name: 'meeting_chat',
+        description:
+          'Type in the chat of the call this Task is in. Only the Task meeting_join started has one.',
+        inputSchema: toolInputJsonSchema(chat),
+      },
+      {
         name: 'meeting_leave',
-        description: 'Leave a call you joined with meeting_join.',
+        description:
+          'Leave a call joined with meeting_join. Its Task stays, with the transcript. ' +
+          'Stopping that Task leaves the call too.',
         inputSchema: toolInputJsonSchema(leave),
       },
     ],
@@ -71,20 +83,21 @@ export function meetingToolModule(): PreviewToolModule {
 
         if (!parsed.success) return toolError(parsed.error.message)
 
-        return answer((async () => joinMeeting(await self(ctx), ctx.teamId, parsed.data.url))())
+        return answer(joinMeeting(ctx, parsed.data.url, parsed.data.brief))
+      },
+      meeting_chat: async (args) => {
+        const parsed = chat.safeParse(args)
+
+        if (!parsed.success) return toolError(parsed.error.message)
+
+        return answer(chatInMeeting(ctx, parsed.data.text).then(() => ({ sent: true })))
       },
       meeting_leave: async (args) => {
         const parsed = leave.safeParse(args)
 
         if (!parsed.success) return toolError(parsed.error.message)
 
-        return answer(
-          (async () => {
-            await leaveMeetingChannel(parsed.data.channelId, await self(ctx))
-
-            return { left: true }
-          })(),
-        )
+        return answer(leaveMeetingTask(ctx, parsed.data.threadId).then(() => ({ left: true })))
       },
     }),
   }

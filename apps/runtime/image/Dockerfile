@@ -10,7 +10,7 @@
 # No default: a baked-in default would publish the operator's registry path in
 # the image config, and every caller already knows which base it is taking from.
 ARG BASE_IMAGE
-# Selects the final stage below: claude-code, codex, grok, antigravity, opencode or hermes.
+# Selects the final stage below: claude-code, codex, grok, antigravity, opencode, hermes or dsh.
 ARG RUNTIME_PROVIDER=claude-code
 
 FROM ${BASE_IMAGE:?BASE_IMAGE-build-arg-is-required-see-the-README} AS openab
@@ -50,7 +50,7 @@ COPY reply-image-stream.mjs reply-images.mjs runtime-defaults.mjs mcp-bridge-con
 COPY --chmod=644 runtime-guard.sh /opt/nuphos-runtime/runtime-guard.sh
 COPY codex-login.mjs claude-login.mjs mcp-http-bridge.mjs panel-job.mjs /opt/nuphos-runtime/
 COPY grok-login.mjs antigravity-login.mjs antigravity-status.mjs antigravity-status-cli.mjs opencode-login.mjs \
-     hermes-login.mjs /opt/nuphos-runtime/
+     hermes-login.mjs dsh-login.mjs dsh-sign-in.mjs /opt/nuphos-runtime/
 # COPY --chmod also affects newly created destination directories.
 # Runtime helpers must be traversable by the non-root init and agent containers.
 RUN chmod 755 /opt/nuphos-runtime \
@@ -58,6 +58,7 @@ RUN chmod 755 /opt/nuphos-runtime \
       /opt/nuphos-runtime/claude-login.mjs /opt/nuphos-runtime/grok-login.mjs \
       /opt/nuphos-runtime/antigravity-login.mjs /opt/nuphos-runtime/opencode-login.mjs \
       /opt/nuphos-runtime/hermes-login.mjs \
+      /opt/nuphos-runtime/dsh-login.mjs /opt/nuphos-runtime/dsh-sign-in.mjs \
       /opt/nuphos-runtime/mcp-http-bridge.mjs /opt/nuphos-runtime/panel-job.mjs
 
 FROM common AS claude-code
@@ -165,6 +166,26 @@ ENV OPENAB_AGENT_COMMAND="node /opt/acp-shim.mjs hermes" \
     OPENAB_ADAPTER_VERSION="hermes@0.23.1" \
     HERMES_DISABLE_LAZY_INSTALLS=1
 
+# DeepSeek Harness (MIT, npm) needs Node 24, so this stage alone carries it beside the
+# image's Node 22, which every other process keeps using. `dsh` runs on Node 24.
+FROM node:24-trixie-slim AS node24
+FROM common AS dsh
+ARG DSH_VERSION=0.2.2-rc.1
+COPY --from=node24 /usr/local/bin/node /opt/nuphos-node24/bin/node
+COPY --from=node24 /usr/local/lib/node_modules/npm /opt/nuphos-node24/lib/node_modules/npm
+RUN PATH="/opt/nuphos-node24/bin:${PATH}" \
+    node /opt/nuphos-node24/lib/node_modules/npm/bin/npm-cli.js install \
+      --prefix /opt/nuphos-dsh --omit=dev --no-audit --no-fund "@deepseek-ai/dsh@${DSH_VERSION}" \
+ && rm -rf /opt/nuphos-node24/lib/node_modules/npm /root/.npm \
+ && printf '#!/bin/sh\nexec /opt/nuphos-node24/bin/node /opt/nuphos-dsh/node_modules/@deepseek-ai/dsh/lib/bin.js "$@"\n' \
+      > /usr/local/bin/dsh \
+ && chmod 755 /usr/local/bin/dsh \
+ && chmod -R a+rX /opt/nuphos-node24 /opt/nuphos-dsh \
+ && test "$(dsh --version)" = "${DSH_VERSION}"
+ENV OPENAB_AGENT_COMMAND="node /opt/acp-shim.mjs dsh" \
+    OPENAB_ADAPTER_VERSION="dsh@${DSH_VERSION}" \
+    DSH_HOME=/home/node/.dsh
+
 FROM ${RUNTIME_PROVIDER}
 ARG RUNTIME_PROVIDER
 
@@ -244,7 +265,7 @@ ENV OPENAB_RUNTIME_LABEL="${RUNTIME_LABEL}" \
 # replaces this file; openab reads that single path and merges nothing.
 COPY openab-config.claude-code.toml openab-config.codex.toml openab-config.grok.toml \
      openab-config.antigravity.toml openab-config.opencode.toml openab-config.hermes.toml \
-     /tmp/nuphos-config/
+     openab-config.dsh.toml /tmp/nuphos-config/
 RUN install -d -m 755 /etc/openab \
  && install -m 644 "/tmp/nuphos-config/openab-config.${RUNTIME_PROVIDER}.toml" \
       /etc/openab/config.toml \
@@ -274,6 +295,8 @@ RUN test -x /opt/nuphos-runtime \
  && test -r /opt/nuphos-runtime/antigravity-status-cli.mjs \
  && test -r /opt/nuphos-runtime/opencode-login.mjs \
  && test -r /opt/nuphos-runtime/hermes-login.mjs \
+ && test -r /opt/nuphos-runtime/dsh-login.mjs \
+ && test -r /opt/nuphos-runtime/dsh-sign-in.mjs \
  && test -r /opt/nuphos-runtime/panel-job.mjs \
  && test -r /opt/nuphos-agent/host.mjs \
  && test -r /etc/openab/config.toml \

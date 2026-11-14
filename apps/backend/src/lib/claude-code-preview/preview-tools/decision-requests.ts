@@ -11,6 +11,8 @@ import {
 import { parseMessageMetadata } from '@/lib/agent/message-metadata'
 import { queuedAnswers } from '@/lib/agent/pending-queue'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
+import { notifyNudge } from '@/lib/push/notify'
+import { plainText, truncate } from '@/lib/push/turn-outcome'
 
 import type { PreviewToolContext } from '../preview-tool-context'
 import type { AiSdkToolLike } from './ai-sdk-adapter'
@@ -134,7 +136,7 @@ export async function aboutRefs(
  * they talk to it, when it has exactly one open. Otherwise none is guessed,
  * nor for the questions a card answers by itself.
  */
-export async function askedInChannel(
+async function askedInChannel(
   ctx: PreviewToolContext,
   category: unknown,
 ): Promise<{ channelId?: string }> {
@@ -150,6 +152,32 @@ export async function askedInChannel(
     (await botChat(ctx.sessionId, owner))
 
   return channelId ? { channelId } : {}
+}
+
+/**
+ * Where the question is asked, telling its owner there: the turn does not stop
+ * for a question, so its end says nothing of it.
+ */
+export async function askInChannel(
+  ctx: PreviewToolContext,
+  category: unknown,
+  question: string,
+): Promise<{ channelId?: string }> {
+  const asked = await askedInChannel(ctx, category)
+
+  if (asked.channelId) {
+    // The card is already out: an unread title falls back to the generic name.
+    const bot = await getConversationBySessionId(ctx.sessionId).catch(() => null)
+
+    notifyNudge([requestOwner(ctx)], {
+      sessionId: asked.channelId,
+      teamId: ctx.teamId,
+      title: `${bot?.title || 'Nuphos agent'} has a question for you`,
+      body: truncate(plainText(question)),
+    })
+  }
+
+  return asked
 }
 
 /** The owner's one open 1:1 chat with this Bot: a channel whose only members are the two. */

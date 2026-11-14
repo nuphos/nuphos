@@ -1,5 +1,5 @@
 import { CornerUpLeft, Pause } from 'lucide-react'
-import { Fragment, useCallback, useState } from 'react'
+import { Fragment, useCallback, useRef, useState } from 'react'
 
 import { t } from '../../i18n'
 import { useAgentLinks } from '../agent/panel/useAgentLinks'
@@ -100,6 +100,7 @@ export function ChannelMessages({
   )
   const [openedAt] = useState(Date.now)
   const [menu, setMenu] = useState<{ reply: AgentMessageReply; x: number; y: number } | null>(null)
+  const timeline = useRef<HTMLDivElement>(null)
   const bot = agents.find((agent) => agent.sessionId === botId)
   const lastEvent = events.at(-1)
   const lastPostAt = Math.max(0, ...messages.map(postedAt))
@@ -176,7 +177,7 @@ export function ChannelMessages({
   ].sort((a, b) => a.at - b.at)
 
   return (
-    <div className="flex flex-col gap-3">
+    <div ref={timeline} className="flex flex-col gap-3">
       {rows.map((row) => (
         <Fragment key={row.key}>{row.node}</Fragment>
       ))}
@@ -187,6 +188,12 @@ export function ChannelMessages({
           channelId={channelId}
           agent={bot}
           onOpenSession={owned.has(bot.sessionId) ? onOpenSession : undefined}
+          // The oldest open question, the one the line names, wherever it was asked.
+          onShowQuestion={() =>
+            timeline.current
+              ?.querySelector('[data-open-question]')
+              ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          }
         />
       )}
       {menu && onReply && (

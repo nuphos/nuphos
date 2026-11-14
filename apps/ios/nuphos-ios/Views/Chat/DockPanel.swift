@@ -7,6 +7,8 @@ import SwiftUI
 struct DockPanel: View {
     let session: ChatSession
     var openDesktop: () -> Void
+    /// A shell on the conversation's computer, as the Mac's Runtime terminal.
+    var openTerminal: () -> Void
     /// A web page in the phone's browser: its address (nil for a blank one) and its dock tab.
     var openWeb: (URL?, String?) -> Void
     /// A screen the iPhone has: Runtimes or Connectors.
@@ -218,6 +220,7 @@ struct DockPanel: View {
         switch destination {
         case .web, .newBrowser: "globe"
         case .desktop: "display"
+        case .terminal: "terminal"
         case .runtimes: "cpu"
         case .connectors: "link"
         case .chat: "bubble.left"
@@ -262,6 +265,7 @@ struct DockPanel: View {
             if tab != nil { openWeb(url, tab) } else { openAddress(url) }
         case .newBrowser: openWeb(nil, nil)
         case .desktop: openDesktop()
+        case .terminal: openTerminal()
         case .runtimes, .connectors: openScreen(destination)
         case .chat(let id):
             if let link = URL(string: "https://nuphos.ai/teams/\(session.teamId)/agent/\(id)") { openURL(link) }

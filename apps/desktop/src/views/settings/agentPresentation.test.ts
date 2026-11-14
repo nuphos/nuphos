@@ -8,6 +8,7 @@ import {
   agentRunsOn,
   localRemovalId,
   localSignIn,
+  managesRuntime,
   newAgentAction,
   visibleAgent,
 } from './agentPresentation.ts'
@@ -244,8 +245,8 @@ test("a computer's agent goes by the name given to it, else its provider's", () 
   assert.equal(agentName({ ...agent, local: { ...agent.local!, agentLabel: 'Review' } }), 'Review')
 })
 
-test("every signed-out agent on the viewer's own computers can sign in; others' cannot", () => {
-  const here = { userId: 'owner', deviceId: 'mac' }
+test('every signed-out agent can sign in, by its own CLI or the runtime sign-in', () => {
+  const here = { deviceId: 'mac' }
   const codex = local('a', 'mac', false)
   const added = { ...codex, local: { ...codex.local!, instanceId: 'x' } }
 
@@ -256,13 +257,29 @@ test("every signed-out agent on the viewer's own computers can sign in; others' 
   // runtime sign-in reaches.
   assert.equal(localSignIn(added, here), 'runtime')
   assert.equal(localSignIn(local('a', 'box1', false), here), 'runtime')
+  assert.equal(localSignIn(local('a', 'box1', false), null), 'runtime')
   assert.equal(localSignIn({ ...codex, provider: 'grok' }, here), 'runtime')
-  // Signed in already, or someone else's agent: nothing to offer.
+  // Signed in already, or a team runtime: nothing to offer.
   assert.equal(localSignIn(local('a', 'mac', true), here), undefined)
   assert.equal(localSignIn(local('a', 'box1', true), here), undefined)
-  assert.equal(localSignIn(codex, { ...here, userId: 'other' }), undefined)
-  assert.equal(localSignIn(codex, null), undefined)
   assert.equal(localSignIn(teamAgent('managed'), here), undefined)
+})
+
+test("a computer's owner and managers rename, remove and sign in its agents; its users do not", () => {
+  const agent = local('a', 'box1', false)
+
+  assert.equal(managesRuntime(agent, { access: 'owner' }, false), true)
+  assert.equal(managesRuntime(agent, { access: 'manage' }, false), true)
+  assert.equal(managesRuntime(agent, { access: 'use' }, false), false)
+  // Team roles confer nothing on a computer (box-access.ts).
+  assert.equal(managesRuntime(agent, { access: 'use' }, true), false)
+  // The viewer's own computer, listed without an access field.
+  assert.equal(managesRuntime(agent, {}, false), true)
+  // Not in the computer list yet: no controls the backend could refuse.
+  assert.equal(managesRuntime(agent, undefined, true), false)
+  // A team runtime is its administrators'.
+  assert.equal(managesRuntime(teamAgent('external'), undefined, true), true)
+  assert.equal(managesRuntime(teamAgent('external'), undefined, false), false)
 })
 
 const hostAgent = (

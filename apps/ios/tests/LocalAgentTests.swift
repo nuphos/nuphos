@@ -134,5 +134,7 @@ enum LocalAgentTests {
         precondition(antigravity.providerName == "Antigravity" && RuntimeInstance.Provider.logo("antigravity") == "logo-antigravity")
         let opencode = agent(#"{"id":"rt_4","provider":"opencode","label":"Team OpenCode","status":"active","kind":"managed"}"#)
         precondition(opencode.providerName == "OpenCode" && RuntimeInstance.Provider.logo("opencode") == "logo-opencode")
+        let dsh = agent(#"{"id":"rt_5","provider":"dsh","label":"Team DSH","status":"active","kind":"managed"}"#)
+        precondition(dsh.providerName == "DeepSeek Harness" && RuntimeInstance.Provider.logo("dsh") == "logo-deepseek")
     }
 }

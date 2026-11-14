@@ -14,6 +14,7 @@ import {
   enqueuePendingUserMessage,
   hasPendingUserMessages,
 } from './pending-messages'
+import { listPendingUserMessages } from './pending-queue'
 import { startQueuedTurn } from './queued-turn'
 import { startThreadTurn } from './thread-bridge'
 import { installTurnRunner, resetTurnRunner } from './turn-runner'
@@ -210,6 +211,53 @@ test('a queued message whose turn fails tells its sender', async () => {
   await settle()
   expect(notices()).toHaveLength(1)
   expect(noticeText()).toContain('did not run: Thread run failed')
+})
+
+// A computer's tunnel reconnect is a few seconds offline; the queue waits it out.
+function offlineUntil(online: () => boolean) {
+  installTurnRunner({
+    claimAgentRunForSession: async () => () => {},
+    hasActiveAgentRunForSession: async () => false,
+    claimAgentRunOrEnqueue: async () => ({ mode: 'run', carried: [], release: () => {} }),
+    runAgentForTrigger: async (args) => {
+      if (args.sessionId === 'target' && !online())
+        throw new AppError(409, 'runtime_offline', 'The computer running this agent is offline.')
+      runs.push(args)
+
+      return { status: 'completed' }
+    },
+  })
+}
+
+test('a queued message waits out a reconnecting computer, then runs', async () => {
+  let online = false
+
+  offlineUntil(() => online)
+  await enqueuePendingUserMessage('owner', 'target', threadMessage())
+
+  await startQueuedTurn('owner', 'target')
+  await startQueuedTurn('owner', 'target')
+  const [waiting] = await listPendingUserMessages('owner', 'target')
+
+  expect(waiting?.offlineSince).toBeString()
+  online = true
+  await startQueuedTurn('owner', 'target')
+  await settle()
+  expect(runs.map((run) => run.sessionId)).toEqual(['target'])
+  expect(await hasPendingUserMessages('owner', 'target')).toBe(false)
+})
+
+test('a computer offline past the grace fails the queued message and tells its sender', async () => {
+  offlineUntil(() => false)
+  await enqueuePendingUserMessage('owner', 'target', {
+    ...threadMessage(),
+    offlineSince: new Date(Date.now() - 61_000).toISOString(),
+  })
+
+  await expect(startQueuedTurn('owner', 'target')).rejects.toThrow('offline')
+  await settle()
+  expect(await hasPendingUserMessages('owner', 'target')).toBe(false)
+  expect(noticeText()).toContain('did not run: The computer running this agent is offline.')
 })
 
 test('an archived sender is still told, and its notice turn restores it', async () => {

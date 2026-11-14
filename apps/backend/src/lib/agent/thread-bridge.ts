@@ -85,7 +85,7 @@ export async function createAgentThread(
   actor: ThreadActor,
   prompt: string,
   title: string,
-  pick: ThreadModelPick & { credentials?: CredentialRef[] } = {},
+  pick: ThreadModelPick & { credentials?: CredentialRef[]; fullAccess?: boolean } = {},
 ) {
   const source = await authorizeThreadActor(actor)
   const { threadCredentialAccess } = await import('./thread-credentials')
@@ -110,11 +110,11 @@ export async function createAgentThread(
     parentGrants: source,
     workspace: source.workspace,
   })
-  // A thread runs in its parent's permission mode, as a hand-opened chat in the user's pick.
+  // A thread runs in its parent's permission mode, or in Auto Mode when `fullAccess` is false.
   await initializeSessionBypass(
     threadId,
     actor.userId,
-    await getSessionBypass(actor.sessionId, actor.userId),
+    pick.fullAccess !== false && (await getSessionBypass(actor.sessionId, actor.userId)),
   )
   const { setThreadModel } = await import('./thread-runtime')
 
