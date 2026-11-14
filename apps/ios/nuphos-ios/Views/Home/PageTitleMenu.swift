@@ -31,7 +31,7 @@ struct PageTitleMenu: View {
                     // Optically centre on the cap height rather than the
                     // full line box, which sits a touch low.
                     .offset(y: style == .large ? 2 : 1)
-                if inboxCount > 0, selection != .inbox {
+                if inboxCount > 0 {
                     Text(inboxCount, format: .number)
                         .font(.caption.weight(.bold).monospacedDigit())
                         .foregroundStyle(.white)

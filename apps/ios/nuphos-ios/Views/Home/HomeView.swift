@@ -134,6 +134,9 @@ struct HomeView: View {
                         // Compact pops back to the list's composer; wide has
                         // no back, so this returns the column to it.
                         .toolbar { newAgentItem }
+                } else if page == .inbox, let inbox, let question = inbox.list.first(where: { $0.id == inbox.selected }) {
+                    InboxQuestionView(inbox: inbox, question: question)
+                        .id(question.id)
                 } else if page == .agent, store != nil, sizeClass == .regular {
                     Theme.chatCanvas.ignoresSafeArea()
                         .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -143,6 +146,19 @@ struct HomeView: View {
                     Theme.canvas.ignoresSafeArea()
                 }
             }
+        }
+        // What was just answered, under the bar on every page.
+        .overlay(alignment: .top) {
+            if let answered = inbox?.toast {
+                InboxToast(question: answered)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .animation(.snappy, value: inbox?.toast)
+        .task(id: inbox?.toast) {
+            guard inbox?.toast != nil else { return }
+            try? await Task.sleep(for: .seconds(4))
+            if !Task.isCancelled { inbox?.toast = nil }
         }
         // Wide, the list stays beside the detail. The automatic style overlays
         // it on a portrait-shaped window, where picking a chat put it away.
@@ -201,6 +217,7 @@ struct HomeView: View {
             if autoPage { autoPage = false } else { pageChosen = true }
             isSearching = false
             openChat = nil
+            inbox?.selected = nil
             UIEventLog.pageTransition(from: oldPage.rawValue, to: newPage.rawValue)
             Analytics.shared.screen(newPage.rawValue, teamID: store?.selectedTeam?.id)
         }
@@ -273,6 +290,27 @@ struct HomeView: View {
             RuntimesPage()
                 .onAppear { titleCollapsed = false }
         }
+    }
+}
+
+/// "Answered "…"" for a moment after an Inbox answer.
+private struct InboxToast: View {
+    let question: String
+
+    var body: some View {
+        Label {
+            Text("Answered “\(question)”").lineLimit(1)
+        } icon: {
+            Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+        }
+        .font(Theme.Text.label.weight(.medium))
+        .foregroundStyle(Theme.heading)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .glass(in: Capsule())
+        .padding(.horizontal, 20)
+        .padding(.top, 8)
+        .accessibilityIdentifier("inbox.toast")
     }
 }
 

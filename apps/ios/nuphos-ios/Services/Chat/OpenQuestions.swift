@@ -21,8 +21,19 @@ final class OpenQuestions {
         self.teamId = teamId
     }
 
-    /// What the cards show: the listing, less what was answered here.
+    /// What the Inbox lists: the listing, less what was answered here.
     var list: [BotQuestion] { listed.filter { !answered.contains($0.id) } }
+
+    /// The question open beside the list, or pushed over it on iPhone.
+    var selected: String?
+    /// The last question answered here, for the "Answered …" toast until it is cleared.
+    var toast: String?
+
+    /// The list by the conversation that asked.
+    var groups: [[BotQuestion]] { BotQuestions.grouped(list) }
+
+    /// The question to open after `id`.
+    func next(after id: String) -> String? { BotQuestions.next(after: id, in: groups) }
 
     func refresh(pick: @MainActor ([AgentConversation]) -> [BotQuestion] = BotQuestions.open) async {
         do {
@@ -36,8 +47,12 @@ final class OpenQuestions {
                 guard page.hasMore, let next = page.nextCursor, next != cursor else { break }
                 cursor = next
             }
+            // A Bot's group wears its face, even before the Bot list loads.
+            await MainActor.run { BotFaces.shared.learn(rows) }
             listed = pick(rows)
             answered.formIntersection(listed.map(\.id))
+            // Answered elsewhere: nothing stays open on it.
+            if let selected, !list.contains(where: { $0.id == selected }) { self.selected = nil }
             loaded = true
         } catch {
             // Kept as they were; the next poll tries again.
@@ -90,8 +105,10 @@ final class OpenQuestions {
     /// Answers a question: the server wakes the agent that asked with the answer, and no
     /// message is sent. Hidden at once; if the answer is refused, the card comes back with why.
     func answer(_ question: BotQuestion, with answer: DecisionAnswer) async {
+        if selected == question.id { selected = next(after: question.id) }
         answered.insert(question.id)
         failures[question.id] = nil
+        toast = question.request.question
         do {
             _ = try await AgentChatAPI.send(
                 "POST", "agent/conversations/\(question.sessionId)/decisions/\(question.request.id)/answer",
@@ -99,6 +116,9 @@ final class OpenQuestions {
         } catch {
             answered.remove(question.id)
             failures[question.id] = error.localizedDescription
+            // Back to it, with why.
+            selected = question.id
+            toast = nil
         }
     }
 }
