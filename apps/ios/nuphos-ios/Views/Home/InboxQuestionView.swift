@@ -33,14 +33,12 @@ struct InboxQuestionView: View {
         return options.isEmpty && !question.typed ? nil : options
     }
 
-    /// iPhone Duo's inner display, as opposed to an iPad: the question's margins differ.
-    private var duo: Bool { wide && UIDevice.current.userInterfaceIdiom != .pad }
-
-    /// Margins: iPhone 20 at the sides, right under the bar; iPad 56 and 25 from the top;
-    /// iPhone Duo's inner display 40 / 96 from the screen's edges, past the status column on its right, and 51 from the top.
+    /// Margins: iPhone 20 at the sides, right under the bar; iPad 56 and 25 from the top. A wide
+    /// iPhone, as iPhone Duo's inner display, takes 40 / 16 and 51 from the top: the 16 is past the
+    /// Duo's status column, which the safe area already keeps clear.
     private var margins: (top: CGFloat, leading: CGFloat, trailing: CGFloat) {
         guard wide else { return (0, 20, 20) }
-        return duo ? (51, 40, 96) : (25, 56, 56)
+        return UIDevice.current.userInterfaceIdiom == .pad ? (25, 56, 56) : (51, 40, 16)
     }
 
     var body: some View {
@@ -75,8 +73,6 @@ struct InboxQuestionView: View {
             .padding(.bottom, 16)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        // The trailing 96 already clears the Duo's status column.
-        .ignoresSafeArea(.container, edges: duo ? .trailing : [])
         .scrollDismissesKeyboard(.interactively)
         .background(Theme.canvas.ignoresSafeArea())
         // Wide, the list and the question share the canvas: a hairline parts them.
