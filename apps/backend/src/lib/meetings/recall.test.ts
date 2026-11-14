@@ -27,7 +27,7 @@ function answer(status: number, body: object) {
 }
 
 describe('createMeetingBot', () => {
-  test('asks Recall to leave within a minute once only bots are left', async () => {
+  test('asks Recall to leave a call of notetakers, telling bots by name only', async () => {
     let sent: { automatic_leave?: { bot_detection?: Record<string, { timeout: number }> } } = {}
 
     globalThis.fetch = ((_url: string, init: RequestInit) => {
@@ -44,7 +44,8 @@ describe('createMeetingBot', () => {
 
     const detection = sent.automatic_leave?.bot_detection
 
-    expect(detection?.using_participant_events?.timeout).toBe(60)
+    // Judging by activity would take people who only type in the chat for bots.
+    expect(detection?.using_participant_events).toBeUndefined()
     expect(detection?.using_participant_names?.timeout).toBe(60)
   })
 })
