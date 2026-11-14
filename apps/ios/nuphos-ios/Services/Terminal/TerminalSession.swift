@@ -56,11 +56,12 @@ final class TerminalSession {
     /// What was typed. The backend takes at most 16 KB a frame, so a long paste goes in pieces.
     func input(_ bytes: ArraySlice<UInt8>) {
         guard case .live = phase else { return }
-        var text = Substring(String(decoding: bytes, as: UTF8.self))
-        while !text.isEmpty {
-            let piece = text.prefix(4096)
+        // 4096 scalars are at most 16 KB of UTF-8, however they combine into characters.
+        var scalars = String(decoding: bytes, as: UTF8.self).unicodeScalars[...]
+        while !scalars.isEmpty {
+            let piece = scalars.prefix(4096)
             send(["type": "input", "data": String(piece)])
-            text = text.dropFirst(piece.count)
+            scalars = scalars.dropFirst(piece.count)
         }
     }
 
