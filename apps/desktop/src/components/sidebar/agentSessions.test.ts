@@ -5,26 +5,25 @@ import { QueryObserver } from '@tanstack/react-query'
 
 import type { AgentConversation } from '../../api/agent-types.ts'
 
-type Page = { conversations: AgentConversation[]; nextCursor: null }
+type Page = { conversations: AgentConversation[]; nextCursor: string | null }
 // The next listing's rows; the four listings of one load all read them, channels excluded.
 let next: () => Promise<AgentConversation[]> = async () => []
+let respond = async (options: { kind?: string }): Promise<Page> => ({
+  conversations: options.kind ? [] : await next(),
+  nextCursor: null,
+})
 
 mock.module('../../api.ts', {
   namedExports: {
     api: {
-      agentListConversations: async (_team: string, options: { kind?: string }): Promise<Page> => ({
-        conversations: options.kind ? [] : await next(),
-        nextCursor: null,
-      }),
+      agentListConversations: (_team: string, options: { kind?: string }) => respond(options),
     },
   },
 })
 
 const { createQueryClient } = await import('../../lib/query/client.ts')
 const { queryKeys } = await import('../../lib/query/keys.ts')
-const { removeChat, restoreChat } = await import('./agentSessions.ts')
-const { loadSidebarChats } = await import('./load-sidebar-chats.ts')
-const { api } = await import('../../api.ts')
+const { agentSessionsQuery, removeChat, restoreChat } = await import('./agentSessions.ts')
 
 const chat = (sessionId: string, lastActiveAt: string) =>
   ({ sessionId, lastActiveAt }) as AgentConversation
@@ -34,14 +33,7 @@ const settle = () => new Promise((resolve) => setImmediate(resolve))
 async function shown(rows: AgentConversation[]) {
   next = async () => rows
   const client = createQueryClient()
-  const observer = new QueryObserver(client, {
-    queryKey: queryKeys.agentSessions('t'),
-    queryFn: async () =>
-      (await loadSidebarChats(
-        (o) => api.agentListConversations('t', o),
-        () => true,
-      )) ?? [],
-  })
+  const observer = new QueryObserver(client, agentSessionsQuery('t'))
   const stop = observer.subscribe(() => {})
 
   await settle()
@@ -77,6 +69,29 @@ test('Undo lists the chat again at once, in activity order, before any listing h
   older.resolve([chat('x', '3'), chat('y', '2'), chat('z', '1')])
   await settle()
   assert.deepEqual(list.ids(), ['x', 'y', 'z'])
+  list.stop()
+  list.client.clear()
+})
+
+test('a cancelled Chats listing stops paging', async () => {
+  const list = await shown([chat('a', '1')])
+  const firstPage = Promise.withResolvers<Page>()
+  let pages = 0
+
+  respond = () => {
+    pages += 1
+
+    return pages === 1
+      ? firstPage.promise
+      : Promise.resolve({ conversations: [], nextCursor: null })
+  }
+  void list.client.refetchQueries({ queryKey: queryKeys.agentSessions('t') })
+  await settle()
+  // An archive replaced it while its first page was still loading, and more pages remain.
+  await list.client.cancelQueries({ queryKey: queryKeys.agentSessions('t') })
+  firstPage.resolve({ conversations: [], nextCursor: 'more' })
+  await settle()
+  assert.equal(pages, 1)
   list.stop()
   list.client.clear()
 })

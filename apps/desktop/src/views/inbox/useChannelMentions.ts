@@ -18,6 +18,8 @@ export function useChannelMentions(teamId: string): ChannelMention[] | null {
     queryFn: async () => (await api.agentListChannelMentions(teamId)).mentions,
     enabled: Boolean(teamId),
     refetchInterval: MENTION_POLL_MS,
+    // A retry would pause until the window is focused; the next poll is the retry.
+    retry: false,
     // A new one is notified, so it is read in the background too.
     refetchIntervalInBackground: true,
   })
