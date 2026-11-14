@@ -1,8 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { readFile } from 'node:fs/promises'
 
 import { config } from '@/config'
-import { BOT_AVATARS, derivedAvatar } from '@/lib/agent/bot-avatars'
 import { postChannelMessage } from '@/lib/agent/channel-chat'
 import { getConversationBySessionId, upsertConversationShell } from '@/lib/agent/db'
 import { speakingBot } from '@/lib/agent/db/bot-membership'
@@ -72,13 +70,6 @@ export async function assertMeetingBudget(teamId: string, limit: number, now = D
     )
 }
 
-/** The face the apps show for `agent`, as the JPEG in ./faces (rendered from their SVGs). */
-export async function faceJpeg(agent: Pick<AgentConversation, 'sessionId' | 'avatar'>) {
-  const face = BOT_AVATARS.find((name) => name === agent.avatar) ?? derivedAvatar(agent.sessionId)
-
-  return (await readFile(new URL(`./faces/${face}.jpg`, import.meta.url))).toString('base64')
-}
-
 /**
  * Sends the caller's Bot into the call under its name, with a channel of its
  * own where the call's speech arrives and its posts go out to the call's chat.
@@ -92,12 +83,7 @@ export async function joinMeeting(caller: AgentConversation, teamId: string, mee
 
   await assertMeetingBudget(teamId, recallConfig().botsPerTeamPerDay)
   const botName = agent.title || 'Nuphos agent'
-  const botId = await createMeetingBot({
-    meetingUrl: url.href,
-    botName,
-    face: await faceJpeg(agent),
-    webhookUrl: webhookUrl(),
-  })
+  const botId = await createMeetingBot({ meetingUrl: url.href, botName, webhookUrl: webhookUrl() })
   const channelId = randomUUID()
 
   try {
