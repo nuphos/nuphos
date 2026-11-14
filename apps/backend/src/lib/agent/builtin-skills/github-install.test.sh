@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Runs the github skill's install.sh against a fake release that holds only the
 # archive for this OS and CPU, so asking for any other platform's build fails.
+# Runs it again with a gh on PATH that cannot execute, which must be replaced.
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -50,20 +51,33 @@ esac
 EOF
 chmod 755 "$work/bin/curl"
 
-out="$(env -i HOME="$work/home" PATH="$work/bin" FAKE_RELEASE="$work/release" \
-  "$BASH" "$here/skills/github/scripts/install.sh")" || {
-  echo "FAIL: install.sh failed on $(uname -s) $(uname -m)" >&2
-  exit 1
+# install_and_check LABEL: runs install.sh, then requires the fake release's gh.
+install_and_check() {
+  out="$(env -i HOME="$work/home" PATH="$work/home/.local/bin:$work/bin" \
+    FAKE_RELEASE="$work/release" "$BASH" "$here/skills/github/scripts/install.sh" 2>&1)" || {
+    echo "FAIL ($1): install.sh failed on $(uname -s) $(uname -m): $out" >&2
+    exit 1
+  }
+  case "$out" in
+    *"gh version 0.0.0"*) ;;
+    *)
+      echo "FAIL ($1): the installed gh did not run: $out" >&2
+      exit 1
+      ;;
+  esac
 }
+
+install_and_check "no gh on PATH"
+
+# A gh that is on PATH but cannot run, as a build for another OS would be.
+printf '\177ELF\0\0\0' >"$work/home/.local/bin/gh"
+chmod 755 "$work/home/.local/bin/gh"
+install_and_check "a gh that cannot run"
 case "$out" in
-  *"gh version 0.0.0"*) ;;
-  *)
-    echo "FAIL: the installed gh did not run: $out" >&2
+  *"already installed"*)
+    echo "FAIL: a gh that cannot run was taken as installed" >&2
     exit 1
     ;;
 esac
-[ -x "$work/home/.local/bin/gh" ] || {
-  echo "FAIL: gh is not in ~/.local/bin" >&2
-  exit 1
-}
-echo "ok: install.sh installs a runnable gh on $(uname -s) $(uname -m)"
+
+echo "ok: install.sh installs a runnable gh, also over one that cannot run, on $(uname -s) $(uname -m)"

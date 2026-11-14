@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if command -v eksctl >/dev/null 2>&1; then
+# Installed means it runs: a binary for another OS is on PATH and still fails.
+if eksctl version >/dev/null 2>&1; then
   echo "eksctl already installed: $(eksctl version)"
   exit 0
 fi
