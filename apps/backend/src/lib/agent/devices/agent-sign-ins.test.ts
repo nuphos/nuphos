@@ -68,14 +68,13 @@ const entry = (
   changedAt: at,
   ...(owner ? { owner } : {}),
 })
+// The records each update ended: one conditional update per record.
 const ended = () =>
-  calls.map((call) => (call.options as { arrayFilters: Record<string, unknown>[] }).arrayFilters[0])
-const endedOnly = (...agents: string[]) => [
-  {
-    $or: agents.map((agent) => ({ 's.agent': agent, 's.at': at })),
-    's.endedAt': { $exists: false },
-  },
-]
+  calls.map(
+    (call) => (call.filter as { signIns: { $elemMatch: { agent: string } } }).signIns.$elemMatch,
+  )
+const endedOnly = (...agents: string[]) =>
+  agents.map((agent) => ({ agent, at, endedAt: { $exists: false } }))
 
 let resets: { device: unknown; agent: RemovableAgent; by: unknown }[] = []
 /** A host that resets each agent asked, or refuses with `refusal`. */
@@ -155,6 +154,17 @@ test('anyone losing access ends every sign-in on the computer and resets its age
       onBox({ instanceId: 'i1' }, 'owner'),
     ])
   }
+})
+
+test('a sign-in recorded while access changed is neither ended nor reset', async () => {
+  fresh()
+  // Someone signed the agent in again after the change read it: its old record no longer matches.
+  matched = 0
+  await endSignInsAfter(device(), entry(grant(['user'], ['lead']), grant([], ['lead'])), reset())
+  matched = 1
+
+  expect(ended()).toEqual(endedOnly('claude-code'))
+  expect(resets).toEqual([])
 })
 
 test('a signer who stops managing the computer ends only their own sign-ins', async () => {

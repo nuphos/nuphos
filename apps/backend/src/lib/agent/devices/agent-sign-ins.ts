@@ -83,26 +83,22 @@ async function endSignIns(
   by: { actorId: string; teamId: string },
   reset: Reset,
 ): Promise<void> {
-  if (!ending.length) return
   const { userId, deviceId } = device
+  const endedAt = new Date()
 
-  await agentDevices().updateOne(
-    { userId, deviceId },
-    { $set: { 'signIns.$[s].endedAt': new Date() } },
-    {
-      // These records only: a sign-in recorded since is not the one that went out of reach.
-      arrayFilters: [
-        {
-          $or: ending.map(({ agent, at }) => ({ 's.agent': agent, 's.at': at })),
-          's.endedAt': { $exists: false },
-        },
-      ],
-    },
-  )
-  for (const { agent } of ending)
-    void reset({ userId, deviceId }, removable(agent), by).catch((error: unknown) => {
-      logError('backend.device_agent_reset_failed', error, { deviceId, agent })
-    })
+  for (const { agent, at } of ending) {
+    // This record only, and its agent reset only if it was: a sign-in recorded since is not
+    // the one that went out of reach, and resetting would sign it out.
+    const { matchedCount } = await agentDevices().updateOne(
+      { userId, deviceId, signIns: { $elemMatch: { agent, at, endedAt: { $exists: false } } } },
+      { $set: { 'signIns.$.endedAt': endedAt } },
+    )
+
+    if (matchedCount)
+      void reset({ userId, deviceId }, removable(agent), by).catch((error: unknown) => {
+        logError('backend.device_agent_reset_failed', error, { deviceId, agent })
+      })
+  }
 }
 
 /** Ends this person's sign-in of the agent, for one who lost managing it while signing in. */

@@ -70,8 +70,11 @@ useDb({
         update: { $set?: Partial<RuntimeLoginDoc>; $unset?: Query },
         options?: { arrayFilters?: unknown[] },
       ) => {
-        if (options?.arrayFilters) {
-          ended.push(options.arrayFilters[0])
+        // Ending one sign-in on a computer: matched on that record while it is current.
+        const signIn = (query.signIns as { $elemMatch?: unknown } | undefined)?.$elemMatch
+
+        if (options?.arrayFilters || signIn) {
+          ended.push(signIn ?? options?.arrayFilters?.[0])
 
           return Promise.resolve({ matchedCount: 1 })
         }
@@ -467,9 +470,7 @@ test('a sign-in completed by someone who stopped managing the computer meanwhile
   await performRuntimeLogin(doc, deps)
 
   expect(computers).toHaveLength(1)
-  expect(ended).toEqual([
-    { $or: [{ 's.agent': 'codex', 's.at': at }], 's.endedAt': { $exists: false } },
-  ])
+  expect(ended).toEqual([{ agent: 'codex', at, endedAt: { $exists: false } }])
   // Its agent is reset too, as the computer's owner.
   expect(asked).toEqual([
     {
