@@ -21,6 +21,7 @@ import { LocalAgentSignInRow } from './LocalAgentSignInRow'
 import { RuntimeActionsMenu } from './RuntimeActionsMenu'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 import { RuntimeMetricsCharts } from './RuntimeMetricsCharts'
+import { PreviewTag } from './PreviewTag'
 import { RuntimeOverview, RuntimeUsageSection } from './RuntimeOverview'
 import { STATUS_DOT, runtimeRemovalDescription, runtimeStatusView } from './runtimePresentation'
 import { removeRuntime } from './runtimeRemoval'
@@ -136,6 +137,7 @@ export function RuntimeInstanceCard({
             </div>
             <p className="mt-0.5 truncate text-xs text-tertiary">
               {AGENT_PROVIDER[instance.provider].label}
+              {AGENT_PROVIDER[instance.provider].preview && <PreviewTag />}
               {instance.local && <span> · {instance.local.deviceLabel}</span>}
               {runtime?.runtimeVersion && <span> · v{runtime.runtimeVersion}</span>}
             </p>

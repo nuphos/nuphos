@@ -19,6 +19,7 @@ case "$OPENAB_AGENT_COMMAND" in
   'node /opt/acp-shim.mjs opencode') opencode --version ;;
   # A home of its own: the check writes logs, and the runtime's home holds only the login.
   'node /opt/acp-shim.mjs hermes') HERMES_HOME="$(mktemp -d)" hermes acp --check ;;
+  'node /opt/acp-shim.mjs dsh') dsh --version ;;
   *) fail "unexpected agent command $OPENAB_AGENT_COMMAND" ;;
 esac
 [ -z "$(ls /usr/local/lib/node_modules | grep -v -x -e npm -e corepack)" ] \
