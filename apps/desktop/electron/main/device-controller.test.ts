@@ -10,6 +10,9 @@ process.env.NUPHOS_CLI_CONFIG = path.join(dir, 'cli.yaml')
 process.env.NUPHOS_API_URL = 'http://127.0.0.1:3718'
 delete process.env.ATLAS_API_URL
 mock.module('./env.ts', { namedExports: { isDev: true } })
+mock.module('../client-version.ts', {
+  namedExports: { CLIENT_VERSION_HEADER: 'x-test', CLIENT_VERSION_VALUE: 'test' },
+})
 mock.module('./device-identity.ts', {
   namedExports: {
     readDeviceIdentity: () => ({ deviceId: 'dev-device', label: 'M5', createdAt: '' }),
