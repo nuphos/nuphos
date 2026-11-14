@@ -31,8 +31,8 @@ export type ChannelFields = {
   agentTurns?: number
   /** On an agent: the channels it posted in this turn, woken once when the turn ends. */
   channelWakes?: string[]
-  /** People @mentioned here, in a channel or a shared agent, who have not posted since: their Inbox entry. */
-  mentions?: Record<string, { messageId: string; at: Date }>
+  /** People @mentioned here, or invited `by` someone, who have not posted since: their entry. */
+  mentions?: Record<string, { messageId: string; at: Date; by?: { id: string; name: string } }>
   /** On a Task: the live call it is in, whose speech and chat arrive as its messages. */
   meeting?: { botId: string; botName: string; url: string }
 }
@@ -243,7 +243,7 @@ export async function readChannelMessages(
 }
 
 /**
- * Where the viewer was @mentioned and has not posted since, the newest first.
+ * Where the viewer was @mentioned or invited and has not posted since, the newest first.
  * Not where they cannot reply now: they could never post to clear it.
  */
 export async function listChannelMentions(teamId: string, viewerId: string) {
@@ -259,14 +259,15 @@ export async function listChannelMentions(teamId: string, viewerId: string) {
       const mention = channel.mentions?.[viewerId]
       const message =
         mention &&
+        !mention.by &&
         (await agentMessages().findOne({
           sessionId: channel.sessionId,
           userId: channel.userId,
           messageId: mention.messageId,
         }))
 
-      if (!mention || !message) return []
-      const metadata = parseMessageMetadata(message.metadata)
+      if (!mention || (!message && !mention.by)) return []
+      const metadata = message && parseMessageMetadata(message.metadata)
 
       return [
         {
@@ -275,14 +276,17 @@ export async function listChannelMentions(teamId: string, viewerId: string) {
           title: channel.title,
           messageId: mention.messageId,
           at: mention.at.toISOString(),
-          sender: metadata
-            ? {
-                type: metadata.sender.type,
-                id: metadata.sender.id,
-                name: metadata.sender.displayName,
-              }
-            : null,
-          text: postText(message.parts),
+          invited: Boolean(mention.by),
+          sender: mention.by
+            ? { type: 'user', ...mention.by }
+            : metadata
+              ? {
+                  type: metadata.sender.type,
+                  id: metadata.sender.id,
+                  name: metadata.sender.displayName,
+                }
+              : null,
+          text: message ? postText(message.parts) : '',
         },
       ]
     }),

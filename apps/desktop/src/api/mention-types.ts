@@ -10,7 +10,7 @@ export type ChannelMention = {
   /** An invite's is `invite:…`, with no message behind it. */
   messageId: string
   at: string
-  /** Someone added the viewer here; `sender` is who did it and `text` is empty. */
+  /** Someone added the viewer here: announced, never listed. `sender` did it; `text` is empty. */
   invited?: boolean
   sender: { type: 'user' | 'agent' | 'system'; id: string; name: string } | null
   text: string

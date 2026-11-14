@@ -166,7 +166,7 @@ describe('conversation participants API', () => {
     const entry = conversation?.mentions?.[INVITEE]
 
     expect(entry?.messageId).toStartWith('invite:')
-    expect(entry?.invitedBy).toEqual({ id: OWNER, name: `${OWNER} name` })
+    expect(entry?.by).toEqual({ id: OWNER, name: `${OWNER} name` })
     expect(Object.keys(conversation?.mentions ?? {})).toEqual([INVITEE])
     // A second invite of someone already here changes nothing.
     await invite([INVITEE])

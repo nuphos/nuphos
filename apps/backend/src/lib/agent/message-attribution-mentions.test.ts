@@ -5,7 +5,7 @@ import { useIdentity } from '@/lib/test/doubles/identity'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import { agentConversations, agentMessages } from './db'
-import { listChannelMentions } from './db/channel-mentions'
+import { listChannelMentions } from './db/channels'
 import { localRuntimeId } from './devices/local-runtime/address'
 import { attributeAppMessages } from './message-attribution'
 

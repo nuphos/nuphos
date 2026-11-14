@@ -12,10 +12,10 @@ import {
   addChannelAgent,
   isChannel,
   listChannelAgents,
+  listChannelMentions,
   ownsChannelAgent,
   removeChannelAgent,
 } from '@/lib/agent/db/channels'
-import { listChannelMentions } from '@/lib/agent/db/channel-mentions'
 import { addConversationParticipants } from '@/lib/agent/db/participants'
 import { channelUploadPart, resolveChannelFiles } from '@/lib/agent/channel-attachments'
 import { channelFacesField } from '@/lib/agent/channel-faces'

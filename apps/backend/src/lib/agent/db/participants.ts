@@ -38,22 +38,21 @@ export function pushTimelineEvent(event: ConversationTimelineEvent) {
 
 /**
  * Bring teammates in on someone's behalf, record who did it, and give each an
- * Inbox entry as an @mention does. Each id is a separate conditional write, so
- * only a person who was actually absent gets an "invited" event and an entry —
- * re-inviting a participant, the owner, or racing another invite of the same
- * person adds nothing twice. Answers with who was actually invited.
+ * entry kept like an @mention's, which their desktop announces. Each id is a
+ * separate conditional write, so only a person who was actually absent gets an
+ * "invited" event and an entry — re-inviting a participant, the owner, or
+ * racing another invite of the same person adds nothing twice.
  */
 export async function inviteConversationParticipants(
   sessionId: string,
   actor: { id: string; name: string },
   userIds: readonly string[],
-): Promise<{ conversation: AgentConversation | null; invited: string[] }> {
-  const invited: string[] = []
-
+): Promise<AgentConversation | null> {
   for (const id of new Set(userIds)) {
     const at = new Date()
-    const entry = { messageId: `invite:${randomUUID()}`, at, invitedBy: actor }
-    const { modifiedCount } = await agentConversations().updateOne(
+    const entry = { messageId: `invite:${randomUUID()}`, at, by: actor }
+
+    await agentConversations().updateOne(
       { sessionId, userId: { $ne: id }, participantIds: { $ne: id } },
       {
         $push: {
@@ -68,11 +67,9 @@ export async function inviteConversationParticipants(
         $set: { [`mentions.${id}`]: entry },
       },
     )
-
-    if (modifiedCount > 0) invited.push(id)
   }
 
-  return { conversation: await agentConversations().findOne({ sessionId }), invited }
+  return await agentConversations().findOne({ sessionId })
 }
 
 export async function setGeneralAccess(
@@ -96,7 +93,7 @@ export async function removeConversationParticipant(
     { sessionId, participantIds: userId },
     {
       $pull: { participantIds: userId },
-      // Their Inbox entry here goes with them.
+      // Their mention or invite entry here goes with them.
       $unset: { [`mentions.${userId}`]: '' },
       $push: pushTimelineEvent({
         kind: 'participant_removed',

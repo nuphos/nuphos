@@ -11,8 +11,7 @@ import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import { agentConversations, agentMessages } from './db'
 import { QUEUED_NOTICE_STEER, withChannelPosts } from './channel-wake'
-import { listChannelMentions } from './db/channel-mentions'
-import { readChannelMessages } from './db/channels'
+import { listChannelMentions, readChannelMessages } from './db/channels'
 import {
   CHANNEL_AGENT_TURN_BUDGET,
   postAsAgent,
