@@ -27,7 +27,7 @@ import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 
 import { patchDesktopAdapter, patchDesktopBridge, patchDesktopShim } from './adapter-patches.mjs'
-import { findBrokenLinks } from './bundle-check.mjs'
+import { findBrokenLinks, findMissingShared } from './bundle-check.mjs'
 import {
   ATTACHMENT_JOB,
   bundleStamp,
@@ -304,6 +304,10 @@ export async function prepare({ targets, openab, skipOpenab, require }) {
 
     if (broken.length)
       throw new Error(`${target}: symlinks that leave the bundle: ${broken.join(', ')}`)
+    const missing = findMissingShared(out, ADAPTERS)
+
+    if (missing.length)
+      throw new Error(`${target}: missing shared runtime code: ${missing.join(', ')}`)
     rmSync(final, { recursive: true, force: true })
     renameSync(out, final)
     console.log(`[local-runtime] staged ${final}`)

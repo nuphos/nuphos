@@ -93,6 +93,8 @@ jobs:
             desktop:
               - 'apps/desktop/**'
               - 'apps/backend/src/lib/claude-code-preview/runtime-file-program.ts'
+              # The local runtime bundles most of the runtime image (apps/runtime/README.md).
+              - 'apps/runtime/image/**'
               - '.github/workflows/ci.yml'
             # What electron-builder adds beyond the vite bundle, which every
             # desktop change still builds. The single `*` takes the top-level
@@ -100,6 +102,7 @@ jobs:
             desktop_package:
               - 'apps/desktop/*'
               - 'apps/backend/src/lib/claude-code-preview/runtime-file-program.ts'
+              - 'apps/runtime/image/**'
               - 'apps/desktop/electron/**'
               - 'apps/desktop/local-runtime/**'
               - 'apps/desktop/build/**'
