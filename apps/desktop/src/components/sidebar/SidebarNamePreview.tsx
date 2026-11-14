@@ -70,7 +70,7 @@ export function SidebarNamePreview({ name, user }: { name: string; user: UserInf
           ))}
         </div>
         <div className="sidebar-mode-switcher">
-          <SidebarPageTabs page={0} onPage={noop} count={0} />
+          <SidebarPageTabs page={0} onPage={noop} counts={[0, 0, 0]} />
         </div>
         <SidebarFooter connectorsOpen={false} onSelect={noop} user={user} onLogout={noop} />
       </div>
