@@ -2,28 +2,6 @@ import { callJson, callJsonForRenderer, teamQuery } from './http'
 
 export type AgentTriggerType = 'cron' | 'webhook'
 
-export type ManagedProviderResourcePlan = {
-  provider: string
-  providerLabel?: string
-  cleanupMode?: 'automatic' | 'manual'
-  integrationLabel?: string
-  recordedAt?: string
-  resources: {
-    kind: string
-    name: string
-    id: string
-    url?: string
-    ownership: 'created' | 'modified' | 'referenced'
-    cleanupAction: 'delete' | 'detach' | 'restore' | 'preserve' | 'manual'
-    description: string
-  }[]
-  cleanupSteps: {
-    action: 'disable' | 'delete' | 'detach' | 'restore' | 'preserve' | 'manual'
-    description: string
-    resourceId?: string
-  }[]
-}
-
 export type AgentTrigger = {
   id: string
   userId: string
@@ -38,20 +16,6 @@ export type AgentTrigger = {
   cronExpression?: string
   messageTemplate: string
   enabled: boolean
-  watchGroupId?: string
-  watchGroupPartitionKey?: string
-  watchGroupMemberKeys?: string[]
-  providerWiring?: {
-    provider: 'grafana' | 'gcp' | 'betterstack' | 'aws' | 'generic' | 'watch_group'
-  }
-  providerWiringFinalizedAt?: string
-  managedProviderResources?: ManagedProviderResourcePlan
-  providerHint?: string
-  requiresProviderCleanup?: boolean
-  cleanupStatus?: 'deleting' | 'cleanup_failed'
-  cleanupError?: string
-  cleanupStartedAt?: string
-  cleanupUpdatedAt?: string
   lastRunAt?: string
   createdAt: string
   updatedAt: string
@@ -68,8 +32,7 @@ export type UpdateAgentTriggerInput = {
   enabled?: boolean
 }
 
-export type DeleteAgentTriggerResult =
-  { ok: true; deleted: true } | { ok: true; deleted: false; trigger: AgentTrigger }
+export type DeleteAgentTriggerResult = { ok: true; deleted: true }
 
 export async function listAgentTriggers(
   teamId?: string,
@@ -105,13 +68,9 @@ export async function updateAgentTrigger(
 export async function deleteAgentTrigger(
   triggerId: string,
   teamId?: string,
-  withoutProviderCleanup = false,
 ): Promise<DeleteAgentTriggerResult> {
-  const path = `/agent/triggers/${encodeURIComponent(triggerId)}${teamQuery(teamId)}`
-  const separator = teamId ? '&' : '?'
-
   return callJson<DeleteAgentTriggerResult>(
     'DELETE',
-    withoutProviderCleanup ? `${path}${separator}withoutProviderCleanup=true` : path,
+    `/agent/triggers/${encodeURIComponent(triggerId)}${teamQuery(teamId)}`,
   )
 }

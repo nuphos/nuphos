@@ -1,4 +1,3 @@
-import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n/index.ts'
 
 import type { AgentTrigger } from '../../api'
@@ -22,17 +21,6 @@ export function triggerSourceTitle(trigger: AgentTrigger): string {
   }
 
   return t('Created by automation')
-}
-
-export function reportCleanupFailures(triggers: AgentTrigger[]) {
-  for (const trigger of triggers) {
-    if (trigger.cleanupStatus === 'cleanup_failed') {
-      toast.error(
-        t('Could not remove {name}', { name: trigger.name }),
-        trigger.cleanupError ?? t('Provider cleanup failed'),
-      )
-    }
-  }
 }
 
 export function executionPrincipalLabel(members: TeamMember[], principalId: string): string {

@@ -3,8 +3,6 @@ import { test } from 'node:test'
 
 import {
   gcpDashboardWatchPrompt,
-  monitoringWatchGroupMemberKey,
-  monitoringWatchGroupPrompt,
   monitoringWatchPrompt,
   slackDmRecipientCopy,
 } from './monitoringWatch.ts'
@@ -42,7 +40,10 @@ test('monitoringWatchPrompt keeps the editable handoff focused on intent', () =>
       '- Report to: Nuphos.',
     ].join('\n'),
   )
-  assert.doesNotMatch(prompt, /Completion requirements|contact point|incidentMode|roll back/)
+  assert.doesNotMatch(
+    prompt,
+    /Completion requirements|contact point|incidentMode|roll back|group|finalize/i,
+  )
 })
 
 test('monitoringWatchPrompt keeps the selected Slack channel stable and replyable', () => {
@@ -64,41 +65,6 @@ test('monitoringWatchPrompt makes Slack DM an explicit destination', () => {
 
   assert.match(prompt, /Report to: my Slack DM, with a replyable incident thread/)
   assert.doesNotMatch(prompt, /channel ID/)
-})
-
-test('monitoringWatchGroupPrompt preserves exact members and one destination', () => {
-  const second: MonitoringOverviewRow = {
-    ...GRAFANA_RULE,
-    provider: 'gcp',
-    integrationId: 'project-prod',
-    integrationLabel: 'production',
-    providerResourceId: 'policy-456',
-    kind: 'alert-policy',
-    name: 'high-cpu',
-  }
-  const prompt = monitoringWatchGroupPrompt('Production alerts', [GRAFANA_RULE, second], {
-    type: 'slack_dm',
-  })
-
-  assert.match(prompt, /^Watch these monitoring items as one group:/)
-  assert.match(prompt, /Group: "Production alerts"/)
-  assert.match(prompt, /Members: 2; create one shared ingress per provider\/integration/)
-  assert.match(prompt, /Keep incidents isolated by the matched member/)
-  assert.match(prompt, /Grafana · alert rule "certificate-failure-rate"/)
-  assert.match(prompt, /GCP Cloud Monitoring · alert policy "high-cpu"/)
-  assert.match(prompt, /Report to: my Slack DM, with a replyable incident thread/)
-  assert.ok(prompt.includes(JSON.stringify(monitoringWatchGroupMemberKey(GRAFANA_RULE))))
-})
-
-test('monitoringWatchGroupMemberKey is stable and distinguishes integrations', () => {
-  assert.equal(
-    monitoringWatchGroupMemberKey(GRAFANA_RULE),
-    '["grafana","grafana-1","alert-rule","rule-123"]',
-  )
-  assert.notEqual(
-    monitoringWatchGroupMemberKey(GRAFANA_RULE),
-    monitoringWatchGroupMemberKey({ ...GRAFANA_RULE, integrationId: 'grafana-2' }),
-  )
 })
 
 test('gcpDashboardWatchPrompt anchors the watch to the saved dashboard widget', () => {

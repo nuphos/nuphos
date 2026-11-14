@@ -1,27 +1,20 @@
-import { faEye, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons'
+import { faTriangleExclamation } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { Cloud, HeartPulse } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 
-import { BulkActionBar } from '../components/BulkActionBar'
 import { ContextMenu } from '../components/ContextMenu'
 import { EmptyState } from '../components/EmptyState'
 import { Table } from '../components/Table'
 import { TableSkeleton } from '../components/TableSkeleton'
 import { VisibleErrorReporter } from '../components/VisibleErrorReporter'
-import { toast } from '../components/ui/toast'
 import { useToolbarSlot } from '../hooks/useToolbarControls'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { t } from '../i18n'
 import { monitoringItemPath } from '../lib/monitoringLink'
-import {
-  monitoringWatchGroupPrompt,
-  monitoringWatchPrompt,
-  PROVIDER_LABEL,
-} from '../lib/monitoringWatch'
+import { monitoringWatchPrompt, PROVIDER_LABEL } from '../lib/monitoringWatch'
 import { readSwrCache } from '../lib/swrCache'
-import { useRowSelection } from '../lib/useRowSelection'
 import { useWorkspaceRowLink } from '../lib/workspaceRowLink'
 
 import { buildMonitoringColumns } from './monitoring/columns'
@@ -34,7 +27,6 @@ import {
 import { FilterSelect } from './monitoring/parts'
 import { menuItems } from './monitoring/rowActions'
 import { useMonitoringOverviewSync } from './monitoring/useMonitoringOverviewSync'
-import { MAX_WATCH_GROUP_MEMBERS, planWatchSelection } from './monitoring/watchSelection'
 import { WatchDestinationDialog } from './monitoring/WatchDestinationDialog'
 
 import type { MonitoringOverview, MonitoringOverviewRow } from '../types'
@@ -110,35 +102,6 @@ export function MonitoringView({
     [rows, search, statusFilter, providerFilter],
   )
 
-  // Row multi-select → a floating BulkActionBar offers "Watch selected", which hands the
-  // group off to the agent as a single Watch Group; the per-row "Watch" stays for one item.
-  const {
-    selectedKeys,
-    setSelectedKeys,
-    selectedItems,
-    clear: clearSelection,
-  } = useRowSelection(filtered, monitoringRowKey, teamId)
-  const [watchGroupRows, setWatchGroupRows] = useState<MonitoringOverviewRow[] | null>(null)
-  const beginWatchGroup = useCallback(() => {
-    const plan = planWatchSelection(selectedItems)
-
-    if (plan.kind === 'none') return
-    // One item is not a group: send it through the single-item Watch, which is
-    // both what was meant and the only shape trigger_group_create accepts.
-    if (plan.kind === 'single') {
-      setWatchRow(plan.row)
-
-      return
-    }
-    if (plan.truncated) {
-      toast.info(
-        t('Watch Group limited to {count} items', { count: MAX_WATCH_GROUP_MEMBERS }),
-        t('Split larger selections into separate groups so provisioning stays reviewable.'),
-      )
-    }
-    setWatchGroupRows(plan.rows)
-  }, [selectedItems])
-
   const columns = useMemo(() => buildMonitoringColumns(), [])
   const hasProviderErrors = (overview?.providerErrors.length ?? 0) > 0
 
@@ -190,51 +153,7 @@ export function MonitoringView({
             if (!watchRow) return
             onOpenAgentChat(monitoringWatchPrompt(watchRow, destination), { send: false })
             setWatchRow(null)
-            // Reached from the row menu (nothing selected — a no-op) and from
-            // "Watch selected" with one row, where the bar should not linger
-            // after the item has been handed to the agent.
-            clearSelection()
           }}
-        />
-      )}
-
-      {onOpenAgentChat && watchGroupRows && (
-        <WatchDestinationDialog
-          key={`group:${watchGroupRows.map(monitoringRowKey).join('|')}`}
-          subjectName={t('{count} monitoring items', { count: watchGroupRows.length })}
-          teamId={teamId}
-          group={{
-            memberCount: watchGroupRows.length,
-            defaultName: `${watchGroupRows[0]?.name ?? 'Monitoring'} group`,
-          }}
-          onClose={() => setWatchGroupRows(null)}
-          onContinue={(destination, groupName) => {
-            onOpenAgentChat(
-              monitoringWatchGroupPrompt(
-                groupName || 'Monitoring Watch Group',
-                watchGroupRows,
-                destination,
-              ),
-              { send: false },
-            )
-            setWatchGroupRows(null)
-            clearSelection()
-          }}
-        />
-      )}
-
-      {onOpenAgentChat && (
-        <BulkActionBar
-          count={selectedItems.length}
-          onClear={clearSelection}
-          actions={[
-            {
-              key: 'watch',
-              label: t('Watch selected'),
-              icon: faEye,
-              onClick: beginWatchGroup,
-            },
-          ]}
         />
       )}
 
@@ -281,9 +200,6 @@ export function MonitoringView({
             columns={columns}
             rows={filtered}
             rowKey={monitoringRowKey}
-            selectable={Boolean(onOpenAgentChat)}
-            selectedKeys={selectedKeys}
-            onSelectedKeysChange={setSelectedKeys}
             loading={loading && rows.length === 0}
             storageKey="monitoring-overview"
             onRowContextMenu={(row, e) => setMenu({ row, x: e.clientX, y: e.clientY })}

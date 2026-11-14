@@ -38,10 +38,6 @@ function monitoringKindLabel(kind: MonitoringOverviewRow['kind']): string {
         : kind
 }
 
-export function monitoringWatchGroupMemberKey(row: MonitoringOverviewRow): string {
-  return JSON.stringify([row.provider, row.integrationId, row.kind, row.providerResourceId])
-}
-
 export function slackDmRecipientCopy(mapping: SlackUserMapping): {
   title: string
   description: string
@@ -71,8 +67,8 @@ export function slackDmRecipientCopy(mapping: SlackUserMapping): {
  *
  * Keep this user-facing message focused on intent: what to watch, what the
  * Agent should do, and where it should report. Provider wiring, verification,
- * incident deduplication, and rollback are enforced by the Agent's monitoring
- * workflow guidance and provider skills instead of being exposed here.
+ * and rollback are left to the Agent's monitoring-workflow and provider skills
+ * instead of being spelled out here.
  */
 export function monitoringWatchPrompt(
   row: MonitoringOverviewRow,
@@ -88,28 +84,6 @@ export function monitoringWatchPrompt(
     `- Item: ${kindLabel} "${row.name}" (id ${row.providerResourceId})`,
     `- When it ${fires}: investigate the likely cause using available monitoring and infrastructure tools.`,
     `- Report to: ${reportTo}`,
-  ].join('\n')
-}
-
-/** Editable handoff for a bounded Watch Group with shared provider ingresses. */
-export function monitoringWatchGroupPrompt(
-  name: string,
-  rows: MonitoringOverviewRow[],
-  destination: WatchDestination,
-): string {
-  const itemLines = rows.flatMap((row) => [
-    `- ${PROVIDER_LABEL[row.provider]} · ${monitoringKindLabel(row.kind)} ${promptData(row.name)}`,
-    `  integration=${promptData(row.integrationLabel)}; id=${promptData(row.providerResourceId)}; memberKey=${promptData(monitoringWatchGroupMemberKey(row))}`,
-  ])
-
-  return [
-    'Watch these monitoring items as one group:',
-    `- Group: ${promptData(name)}`,
-    `- Members: ${String(rows.length)}; create one shared ingress per provider/integration, not one Nuphos trigger per item.`,
-    ...itemLines,
-    '- When an item fires: investigate the likely cause using available monitoring and infrastructure tools.',
-    '- Keep incidents isolated by the matched member so unrelated alerts never share a Slack thread.',
-    `- Report to: ${watchDestinationCopy(destination)}`,
   ].join('\n')
 }
 

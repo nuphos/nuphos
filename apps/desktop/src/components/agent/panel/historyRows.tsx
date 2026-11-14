@@ -177,7 +177,6 @@ export function HistoryConversationRow({
                 </span>
               </>
             )}
-            {runLabel?.memberKey && <> · {runLabel.memberKey}</>}
           </div>
         </div>
       </button>
