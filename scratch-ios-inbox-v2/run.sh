@@ -16,7 +16,11 @@ new=old+"""        if let dir = ProcessInfo.processInfo.environment["NUPHOS_SHOT
             return
         }
 """
-assert old in s; open(p,'w').write(s.replace(old,new,1))
+assert old in s; s=s.replace(old,new,1)
+old='        XCTAssertTrue(toast.waitForExistence(timeout: 5), "No toast saying what was answered")\n'
+assert old in s
+s=s.replace(old,'        if !toast.waitForExistence(timeout: 5) { print("TOAST-MISSING", Date(), app.debugDescription) }\n'+old,1)
+open(p,'w').write(s)
 PY
 dd="$RUNNER_TEMP/dd"
 R="$RUNNER_TEMP/sill/Tests/duorig/run.sh"
@@ -33,13 +37,9 @@ run() { # name udid [only-testing...]
   [ ${#only[@]} -eq 0 ] && only=(-only-testing:nuphos-iosUITests/InboxUITests)
   TEST_RUNNER_NUPHOS_SHOTS="$out/$name" TEST_RUNNER_NUPHOS_RIG="${NUPHOS_RIG:-}" xcodebuild test-without-building -project nuphos-ios.xcodeproj -scheme nuphos-ios \
     -destination "id=$udid" -derivedDataPath "$dd" "${only[@]}" -parallel-testing-enabled NO \
-    -resultBundlePath "$RUNNER_TEMP/$name.xcresult" 2>&1 | grep -E "error|failed|passed|Test Case|XCTAssert" | tail -60 | tee "$out/$name/tests.txt"
+    -resultBundlePath "$RUNNER_TEMP/$name.xcresult" 2>&1 | grep -vE "IDESchemeAction|IDELaunchParameters" | tail -400 | tee "$out/$name/tests.txt"
 }
-phone=$(boot phone "$(type_of 'iPhone 17 Pro')")
-run iphone "$phone"
-xcrun simctl shutdown "$phone"
-
-ipad=$(boot ipad "$(type_of 'iPad Air 11-inch.*|iPad Pro 11-inch.*|iPad \(A16\)')")
+ipad=$(boot ipad "$(type_of 'iPad Pro 13-inch.*')")
 run ipad "$ipad" testAnswersAQuestionFromTheInbox testAnswersInWordsWithOther
 xcrun simctl shutdown "$ipad"
 
