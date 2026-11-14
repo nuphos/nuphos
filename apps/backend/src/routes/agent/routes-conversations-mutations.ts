@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { addedCredentialIds, answerCredentialAsks } from '@/lib/agent/credential-asks'
 
 import {
+  credentialSource,
   getConversationBySessionId,
   getReadableConversation,
   recordAgentEvent,
@@ -98,19 +99,22 @@ agent.patch('/conversations/:sessionId/credentials', async (c) => {
   const sessionId = c.req.param('sessionId')
   const body = await c.req.json()
   const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c, body.teamId))
-  const stored = await getConversationBySessionId(sessionId)
+  const found = await getConversationBySessionId(sessionId)
+  // A Task under a Bot uses the Bot's selection, so that is the one to change.
+  const stored = found && (await credentialSource(found))
+  const target = stored?.sessionId ?? sessionId
   const { access, options } = await resolveAgentCredentialAccess({
     teamId,
     userId,
     selection: body.credentialAccess,
     ...(stored?.userId === userId ? { stored: stored.credentialAccess } : {}),
   })
-  const conversation = await updateConversationCredentialAccess(sessionId, userId, teamId, access)
+  const conversation = await updateConversationCredentialAccess(target, userId, teamId, access)
 
   if (!conversation) {
     throw new AppError(404, 'not_found', 'Conversation not found')
   }
-  void answerCredentialAsks(sessionId, addedCredentialIds(stored?.credentialAccess, access))
+  void answerCredentialAsks(target, addedCredentialIds(stored?.credentialAccess, access))
 
   return c.json({ credentialAccess: credentialAccessResponse(access), options })
 })

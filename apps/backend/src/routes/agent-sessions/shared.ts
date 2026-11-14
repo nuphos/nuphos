@@ -1,6 +1,6 @@
 import { ObjectId } from 'mongodb'
 
-import { agentConversations } from '@/lib/agent/db'
+import { agentConversations, credentialSource } from '@/lib/agent/db'
 import { agentSubjectId } from '@/lib/agents/identity'
 import { canMintCredentials, isCloudCredentialPath } from '@/lib/byos/credential-role'
 import { dashboardPanelIdFromSessionId } from '@/lib/dashboards/panel-principal'
@@ -119,6 +119,16 @@ export function limitCredentialAccess<T extends Record<string, unknown>>(
   return limited as T
 }
 
+// What credentialSource follows, the selection, and where the conversation came from.
+const projection = {
+  sessionId: 1,
+  userId: 1,
+  teamId: 1,
+  parentSessionId: 1,
+  credentialAccess: 1,
+  'metadata.source': 1,
+}
+
 async function selectedCredentialAccess(agent: AgentRef, teamId: string) {
   const panelId = dashboardPanelIdFromSessionId(agent.sessionId)
 
@@ -130,9 +140,9 @@ async function selectedCredentialAccess(agent: AgentRef, teamId: string) {
       userId: conversationOwnerUserId,
       teamId,
     },
-    { projection: { credentialAccess: 1, 'metadata.source': 1 } },
+    { projection },
   )
-  const conversation =
+  const found =
     teamConversation ??
     (await agentConversations().findOne(
       {
@@ -140,12 +150,14 @@ async function selectedCredentialAccess(agent: AgentRef, teamId: string) {
         userId: conversationOwnerUserId,
         teamId: { $exists: false },
       },
-      { projection: { credentialAccess: 1, 'metadata.source': 1 } },
+      { projection },
     ))
 
-  if (!conversation) {
+  if (!found) {
     throw new AppError(403, 'forbidden', 'Session not found or not owned by caller')
   }
+  // A Task under a Bot has no selection of its own: it uses the Bot's.
+  const conversation = await credentialSource(found)
 
   // Never reuse the owner's persisted credential selection for another
   // teammate. Shared-channel turns derive a fresh upper bound from the
@@ -158,8 +170,7 @@ async function selectedCredentialAccess(agent: AgentRef, teamId: string) {
       agent,
       conversation.credentialAccess,
       options,
-      conversation.metadata?.source === 'slack.agent' ||
-        conversation.metadata?.source === 'discord.agent',
+      found.metadata?.source === 'slack.agent' || found.metadata?.source === 'discord.agent',
     )
   }
 
