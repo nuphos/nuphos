@@ -142,7 +142,7 @@ services:
     restart: unless-stopped
 
   runtime:
-    image: ghcr.io/nuphos/runtime:${RUNTIME_TAG:-0.1.56-claude-code}
+    image: ghcr.io/nuphos/runtime:${RUNTIME_TAG:-0.1.57-claude-code}
     environment:
       OPENAB_STREAM_EDIT_INTERVAL_MS: '300'
       # A fresh volume otherwise waits for someone to open the setup screen;
