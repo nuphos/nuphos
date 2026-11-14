@@ -147,7 +147,7 @@ final class InboxUITests: XCTestCase {
         app.buttons["Inbox"].firstMatch.tap()
         let choose = app.buttons["Choose credentials"]
         XCTAssertTrue(choose.waitForExistence(timeout: 10), "The integration card does not offer its credentials")
-        XCTAssertFalse(app.buttons["Answer in the conversation"].exists)
+        XCTAssertFalse(app.buttons["Open to answer"].exists)
         XCTAssertTrue(app.buttons["Use your own GitHub"].exists, "The own-GitHub question does not offer the member's credential")
         shot("9-inbox-integration")
 

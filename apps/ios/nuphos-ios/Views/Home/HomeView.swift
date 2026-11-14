@@ -79,7 +79,7 @@ struct HomeView: View {
                         Button {
                             isSearching.toggle()
                         } label: {
-                            Label("Search agents", systemImage: "magnifyingglass")
+                            Label("Search Bots and tasks", systemImage: "magnifyingglass")
                         }
                     }
                     GlassGroupSpacer()

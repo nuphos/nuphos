@@ -107,7 +107,7 @@ struct BotQuestionCard: View {
                         .controlSize(.small)
                         .tint(Theme.heading)
                 } else {
-                    Button("Answer in the conversation", action: onOpen)
+                    Button("Open to answer", action: onOpen)
                         .buttonStyle(.bordered)
                         .controlSize(.small)
                         .tint(Theme.heading)

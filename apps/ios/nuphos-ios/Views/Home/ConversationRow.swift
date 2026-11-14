@@ -49,7 +49,7 @@ struct ConversationRow: View {
                 ProgressView()
                     .controlSize(.small)
                     .tint(Theme.muted)
-                    .accessibilityLabel("Agent is working")
+                    .accessibilityLabel("Working")
             case .background:
                 Circle().fill(Theme.warning).frame(width: 7, height: 7).accessibilityLabel("Background task running")
             case .unread:

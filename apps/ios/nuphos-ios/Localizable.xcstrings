@@ -10,40 +10,22 @@
     "Continue in agent" : {
 
     },
-    "Couldn't load agents" : {
+    "Couldn't load Bots and tasks" : {
 
     },
-    "Couldn't load this agent" : {
+    "Couldn't load the messages" : {
 
     },
-    "Filter agents" : {
-
-    },
-    "Loading agents…" : {
-
-    },
-    "My agents" : {
+    "Loading…" : {
 
     },
     "New task" : {
 
     },
-    "No agents match your search." : {
-
-    },
-    "No agents yet" : {
-
-    },
     "Open agent" : {
 
     },
-    "Search agents" : {
-
-    },
-    "Start an agent from the bar below." : {
-
-    },
-    "Team agents" : {
+    "Search Bots and tasks" : {
 
     },
     "·" : {
