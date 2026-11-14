@@ -65,6 +65,7 @@ export type WindowShellApi = {
     cols: number,
     rows: number,
     target?: TerminalTarget,
+    conversationId?: string,
   ): Promise<{ id: string; shell: string }>
   localTerminalReplay(id: string): Promise<void>
   localTerminalInput(id: string, data: string): Promise<void>

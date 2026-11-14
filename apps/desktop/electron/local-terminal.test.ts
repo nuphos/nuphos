@@ -204,19 +204,19 @@ test(
 )
 
 test(
-  'agent terminal is scoped and remains shared after user input',
+  'conversation terminals are shared with their agent, whoever opened them',
   { timeout: 20_000, skip: process.platform === 'win32' },
   async (t) => {
     const sessions = new LocalTerminalSessions()
 
     t.after(() => sessions.closeAll())
     const { owner, emitter } = renderer()
-    const scope = JSON.stringify(['team', 'conversation'])
+    const scope = 'conversation'
 
     sessions.start(owner, 'agent-tab', 80, 24, undefined, scope)
     assert.throws(
       () => sessions.agentRequest('agent-tab', 'another-conversation', 'echo bad\r'),
-      /another agent/,
+      /another conversation/,
     )
     const ready = waitForOutput(emitter, 'AGENT_SHARED_OUTPUT')
 
@@ -238,12 +238,15 @@ test(
     await agentExited
     sessions.close(owner, 'agent-tab')
     assert.throws(() => sessions.agentRequest('agent-tab', scope), /no longer available/)
-    sessions.start(owner, 'user-tab', 80, 24)
+    sessions.start(owner, 'user-tab', 80, 24, undefined, scope)
+    sessions.start(owner, 'loose-tab', 80, 24)
+    assert.deepEqual(sessions.agentList(scope), [{ terminalId: 'user-tab', exited: false }])
+    assert.throws(() => sessions.agentRequest('loose-tab', scope), /another conversation/)
     const userReady = waitForOutput(emitter, 'USER_SHELL_READY')
 
     sessions.input(owner, 'user-tab', "printf '%s%s\\n' USER_SHELL_ READY\r")
     await userReady
-    assert.throws(() => sessions.agentRequest('user-tab', scope), /another agent/)
+    assert.match(sessions.agentRequest('user-tab', scope).output, /USER_SHELL_READY/)
     const exited = waitForExit(emitter, 'user-tab', t.signal)
 
     sessions.input(owner, 'user-tab', 'exit\r')

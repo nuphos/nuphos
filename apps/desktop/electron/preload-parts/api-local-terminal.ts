@@ -18,8 +18,13 @@ export const localTerminalApi = {
     return () => ipcRenderer.off('local-terminal:open-dock', handler)
   },
   localTerminalProcesses: () => ipcRenderer.invoke('local-terminal:processes'),
-  localTerminalStart: (id: string, cols: number, rows: number, target?: TerminalTarget) =>
-    ipcRenderer.invoke('local-terminal:start', id, cols, rows, target),
+  localTerminalStart: (
+    id: string,
+    cols: number,
+    rows: number,
+    target?: TerminalTarget,
+    conversationId?: string,
+  ) => ipcRenderer.invoke('local-terminal:start', id, cols, rows, target, conversationId),
   localTerminalReplay: (id: string) => ipcRenderer.invoke('local-terminal:replay', id),
   localTerminalInput: (id: string, data: string) =>
     ipcRenderer.invoke('local-terminal:input', id, data),
