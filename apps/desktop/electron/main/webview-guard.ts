@@ -28,6 +28,17 @@ function isPopup(url: string, disposition: string) {
   )
 }
 
+/**
+ * A popup sits above the window that opened it. A hidden agent tab's popup stays
+ * hidden instead, as a tab of its own (browser-tabs.ts), until it or its tab is shown;
+ * transparent until its first paint, like that tab.
+ */
+function popupPlacement(opener: BrowserWindow | null) {
+  return opener?.isVisible() === false
+    ? { show: false, opacity: 0 }
+    : { parent: opener ?? undefined }
+}
+
 function openExternally(url: string) {
   openExternal(url).catch((e: unknown) => {
     console.error('[open-external]', url, e)
@@ -103,11 +114,6 @@ export function initWebviewGuard() {
     }
 
     contents.setWindowOpenHandler(({ url, disposition }) => {
-      const opener =
-        BrowserWindow.fromWebContents(contents.hostWebContents ?? contents) ?? undefined
-      // A hidden agent tab's popup stays hidden, as a tab of its own, until the agent shows it.
-      const hidden = opener?.isVisible() === false
-
       // A link in an extension's page opens in a new window, as in Chrome, not over the page.
       if (
         (browser && isHttp(url) && isPopup(url, disposition)) ||
@@ -118,8 +124,7 @@ export function initWebviewGuard() {
         return {
           action: 'allow',
           overrideBrowserWindowOptions: {
-            parent: hidden ? undefined : opener,
-            show: !hidden,
+            ...popupPlacement(BrowserWindow.fromWebContents(contents.hostWebContents ?? contents)),
             autoHideMenuBar: true,
             webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
           },

@@ -58,6 +58,7 @@ type OpenResult = {
   overrideBrowserWindowOptions?: {
     parent?: unknown
     show?: boolean
+    opacity?: number
     webPreferences?: Record<string, boolean>
   }
 }
@@ -241,9 +242,12 @@ test("a hidden agent tab's popup stays hidden and unparented; a shown page's pop
 
   try {
     opener = { isVisible: () => false }
-    assert.deepEqual([options()?.show, options()?.parent], [false, undefined])
+    assert.deepEqual(
+      [options()?.show, options()?.opacity, options()?.parent],
+      [false, 0, undefined],
+    )
     opener = { isVisible: () => true }
-    assert.deepEqual([options()?.show, options()?.parent], [true, opener])
+    assert.deepEqual([options()?.show, options()?.parent], [undefined, opener])
   } finally {
     opener = null
   }
