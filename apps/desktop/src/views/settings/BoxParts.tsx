@@ -145,7 +145,7 @@ export function NewAgentMenu({
   )
 }
 
-/** For a manager: who besides the admins may use this Box. */
+/** For a manager: who besides its owner and managers may use this Box. */
 export function AccessHint({ device }: { device: AgentDevice }) {
   const hint = accessHint(device)
 

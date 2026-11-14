@@ -7,7 +7,6 @@ import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { InlineRename } from '../../components/ui/inline-rename'
 import { toast } from '../../components/ui/toast'
-import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
 import { useThisComputer } from '../../hooks/useThisComputer'
 import { t } from '../../i18n'
@@ -16,7 +15,7 @@ import { useRuntimeStatusQuery } from '../../lib/query/runtime'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { AgentAddedBy } from './AgentAddedBy'
-import { agentName, localSignIn } from './agentPresentation'
+import { agentName, localSignIn, managesRuntime } from './agentPresentation'
 import { LocalAgentSignInRow } from './LocalAgentSignInRow'
 import { RuntimeActionsMenu } from './RuntimeActionsMenu'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
@@ -28,6 +27,7 @@ import { RuntimeSignIn } from './RuntimeSignIn'
 import { RuntimeUpdateNotice } from './RuntimeUpdateNotice'
 import { runtimeUpdatePresentation } from './runtimeUpdatePresentation'
 import { RuntimeUsageBar } from './RuntimeUsageBar'
+import { useAgentDevices } from './useAgentDevices'
 
 import type { PolledRuntimeStatus } from '../../lib/query/runtime'
 import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
@@ -44,10 +44,15 @@ export function RuntimeInstanceCard({
   quota?: RuntimeQuota
   isAdmin: boolean
 }) {
-  const me = useCurrentUser()
   const [signingIn, setSigningIn] = useState(false)
   const [cliSigningIn, setCliSigningIn] = useState(false)
-  const signIn = localSignIn(instance, useThisComputer())
+  const thisComputer = useThisComputer()
+  const computer = useAgentDevices(() => 0, teamId, {
+    teamId,
+    enabled: instance.local !== undefined,
+  }).list?.devices.find((device) => device.deviceId === instance.local?.deviceId)
+  const manages = managesRuntime(instance, computer, isAdmin)
+  const signIn = manages ? localSignIn(instance, thisComputer) : undefined
   const [editing, setEditing] = useState(false)
   const [confirmRemoval, setConfirmRemoval] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -78,11 +83,7 @@ export function RuntimeInstanceCard({
           label,
         )
       : api.atlasUpdateRuntimeInstance(teamId, instance.id, { label })
-  // A computer's agents answer to its owner, not to a team role (box-access.ts).
-  const canEdit =
-    (instance.local ? instance.local.ownerUserId === me?.id : isAdmin) &&
-    instance.kind !== 'development' &&
-    !instance.deletion
+  const canEdit = manages && instance.kind !== 'development' && !instance.deletion
   const status = runtimeStatusView(instance, runtime, statusError)
   const kindTag =
     instance.kind === 'external'
