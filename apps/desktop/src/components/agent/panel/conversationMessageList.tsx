@@ -194,7 +194,7 @@ function MessageList({
               <div
                 key={m.id}
                 data-message-id={m.id}
-                className="transition-shadow"
+                className="pt-4 transition-shadow first:pt-0" // A new turn: the room goes above it.
                 style={wrapperStyle}
               >
                 <UserMessage
