@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { api } from '../../../api'
 import { t } from '../../../i18n'
+import { agentAvatarPick } from '../../../lib/agentAvatarChoices'
 import { archiveChat } from '../../../lib/archiveChat'
 import { offerArchiveUndo } from '../../../lib/archiveUndo'
 import { announceChatArchived } from '../../../lib/chatArchiveEvents'
@@ -201,7 +202,12 @@ export function AgentHistoryPage({
     try {
       ;({ botSessionId } = await archiveChat(conversation.sessionId, teamId))
     } catch (err) {
-      toast.apiError(t('Could not archive agent'), err)
+      toast.apiError(
+        agentAvatarPick(conversation.sessionId)
+          ? t('Could not archive Bot')
+          : t('Could not archive task'),
+        err,
+      )
 
       return
     }

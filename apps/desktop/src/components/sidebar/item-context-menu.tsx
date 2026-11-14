@@ -195,7 +195,18 @@ function watchChat(item: Item, teamId: string) {
   api
     .agentSetConversationWatched(item.key.slice('agent-session:'.length), watching, teamId)
     .catch((err: unknown) => {
-      toast.apiError(watching ? t('Could not watch agent') : t('Could not unwatch agent'), err)
+      const bot = Boolean(item.bot || item.botChannelOf)
+
+      toast.apiError(
+        bot
+          ? watching
+            ? t('Could not watch Bot')
+            : t('Could not unwatch Bot')
+          : watching
+            ? t('Could not watch task')
+            : t('Could not unwatch task'),
+        err,
+      )
     })
 }
 

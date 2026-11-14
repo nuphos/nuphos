@@ -165,7 +165,7 @@ export function ParticipantList({
   currentUserId,
   canManage,
   pending,
-  label = t('In this agent'),
+  label = t('People'),
   onAllowReply,
   onRemove,
 }: {
