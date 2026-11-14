@@ -2,11 +2,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
 
 import { api } from '../../api'
-import { AppSelect } from '../../components/ui/select'
+import { RuntimeSelector } from '../../components/agent/panel/RuntimeSelector'
 import { toast } from '../../components/ui/toast'
 import { useRuntimeInstances } from '../../hooks/useRuntimeInstances'
 import { t } from '../../i18n'
-import { runtimeFallbackQuery } from '../../lib/query/runtime'
+import { runtimeFallbackQuery, useRuntimeQuotasQuery } from '../../lib/query/runtime'
 
 import { PanelHeading } from './RuntimePanel'
 
@@ -36,17 +36,10 @@ export function RuntimeFallbackPicker({
     if (error) toast.apiError(t('Could not load the fallback agent'), error)
   }, [error])
 
-  const current = fallbacks?.[instance.id] ?? ''
-  const options = [
-    { value: '', label: t('None') },
-    ...instances
-      .filter((other) => other.id !== instance.id && other.status === 'active')
-      .map((other) => ({
-        value: other.id,
-        label: other.label,
-        description: other.local ? other.local.deviceLabel : t('Team agent'),
-      })),
-  ]
+  const { data: quotas } = useRuntimeQuotasQuery(teamId)
+  const current = fallbacks?.[instance.id]
+  const target = instances.find((other) => other.id === current)
+  const editable = canEdit && Boolean(fallbacks)
 
   return (
     <div>
@@ -56,16 +49,22 @@ export function RuntimeFallbackPicker({
           'When this agent is low on usage, offline, or fails a turn, its conversations move to the agent chosen here, then on to that agent’s fallback. The conversation history always moves; files in this agent’s working directory may stay behind.',
         )}
       />
-      <AppSelect
-        size="sm"
-        className="w-72"
-        value={current}
-        ariaLabel={t('Fallback')}
-        disabled={!canEdit || !fallbacks || isPending}
-        options={options}
-        onValueChange={(next) => {
-          if (next !== current) mutate(next || null)
-        }}
+      <RuntimeSelector
+        teamId={teamId}
+        value={target ?? null}
+        options={instances.filter((other) => other.id !== instance.id && other.status === 'active')}
+        quotas={quotas}
+        loading={!fallbacks}
+        selectDisabled={isPending}
+        emptyLabel={t('None')}
+        onSelect={
+          editable
+            ? (next) => {
+                if (next !== current) mutate(next)
+              }
+            : undefined
+        }
+        onClear={editable && current ? () => mutate(null) : undefined}
       />
     </div>
   )
