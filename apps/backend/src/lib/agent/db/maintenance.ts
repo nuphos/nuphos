@@ -1,10 +1,4 @@
-import { purgeConversationAttribution } from '@/lib/agent/memory-slots/attribution-store'
-import { purgeConversationPreviewMemoryActivity } from '@/lib/agent/memory-slots/preview-activity-store'
-import { logError } from '@/lib/observability'
-
-import { purgeConversationTraces } from '../trace-store/store'
-
-import { agentConversations, agentMessages, withTeamScope } from './shared'
+import { agentConversations, withTeamScope } from './shared'
 
 // Refuses to blank a title. The conversation already carries a usable one from
 // insert (`fallbackTitle`); overwriting it with '' leaves every reader falling
@@ -179,35 +173,4 @@ export async function updateCompactionSummary(
     },
     { $set: { compactionSummary: summary, compactionMessageCount: messageCount } },
   )
-}
-
-export async function deleteConversation(
-  sessionId: string,
-  userId: string,
-  teamId?: string,
-): Promise<boolean> {
-  const result = await agentConversations().deleteOne(withTeamScope({ sessionId, userId }, teamId))
-
-  if (result.deletedCount === 0) return false
-  await agentMessages().deleteMany({ sessionId, userId })
-  // An agent leaves every channel it was in with its session.
-  await agentConversations().updateMany(
-    { agentSessionIds: sessionId },
-    { $pull: { agentSessionIds: sessionId } },
-  )
-  await purgeConversationTraces(sessionId).catch((err: unknown) => {
-    logError('agent.trace.purge_failed', err, { sessionId })
-  })
-  // A6: measurement rows carry PII (userId/teamId/notes) and must die with
-  // the conversation. Fail-open: the conversation is already gone, so a
-  // transient purge error must not 5xx the delete (a retry would then 404);
-  // analytics never blocks a user operation.
-  await purgeConversationAttribution(sessionId).catch((err: unknown) => {
-    logError('memory.attribution_purge_failed', err, { sessionId })
-  })
-  await purgeConversationPreviewMemoryActivity(sessionId).catch((err: unknown) => {
-    logError('memory.preview_activity_purge_failed', err, { sessionId })
-  })
-
-  return true
 }
