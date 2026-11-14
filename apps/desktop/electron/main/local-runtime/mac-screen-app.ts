@@ -5,6 +5,8 @@ import path from 'node:path'
 
 import { Notification } from 'electron'
 
+import { t } from '../i18n.ts'
+
 import { enableMacScreen, macScreenDeps } from './mac-screen.ts'
 
 import type { LocalRuntimeTunnelStatus } from './tunnel-protocol.ts'
@@ -13,8 +15,10 @@ import type { LocalRuntimeTunnelStatus } from './tunnel-protocol.ts'
 function announceControl(human: boolean): void {
   if (!human || !Notification.isSupported()) return
   new Notification({
-    title: 'This Mac is controlled from your phone',
-    body: 'Nuphos on your phone took over this screen. It stops when the phone hands it back or closes the desktop.',
+    title: t('This Mac is controlled from your phone'),
+    body: t(
+      'Nuphos on your phone took over this screen. It stops when the phone hands it back or closes the desktop.',
+    ),
   }).show()
 }
 

@@ -242,3 +242,25 @@ jobs:
       - name: Remove temporary signing files
         if: always()
         run: rm -rf -- "$RUNNER_TEMP"/android-sign-* "$RUNNER_TEMP/android-signed"
+
+  release:
+    name: Publish the GitHub release
+    needs: sign
+    if: github.event_name == 'workflow_dispatch' && github.repository == 'nuphos/nuphos' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Tag the released commit and publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION_CODE: ${{ inputs.version_code }}
+          VERSION_NAME: ${{ inputs.version_name }}
+        run: |
+          set -euo pipefail
+          tag="android-v$VERSION_NAME"
+          gh release view "$tag" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            || gh release create "$tag" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+              --latest=false --title "Android v$VERSION_NAME" \
+              --notes "Uploaded to Google Play production as $VERSION_NAME ($VERSION_CODE) from commit $GITHUB_SHA."

@@ -13,10 +13,12 @@ export function SkeletonReveal({
   ready,
   skeleton,
   children,
+  className,
 }: {
   ready: boolean
   skeleton: ReactNode
   children: ReactNode
+  className?: string
 }) {
   const root = useRef<HTMLDivElement>(null)
   const skeletonLayer = useRef<HTMLDivElement>(null)
@@ -41,7 +43,7 @@ export function SkeletonReveal({
   }, [ready])
 
   return (
-    <div ref={root} className="t-skel" data-state={ready ? 'ready' : 'loading'}>
+    <div ref={root} className={clsx('t-skel', className)} data-state={ready ? 'ready' : 'loading'}>
       <div
         ref={skeletonLayer}
         aria-hidden={ready}

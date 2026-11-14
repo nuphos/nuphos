@@ -7,7 +7,8 @@ use crate::api::Api;
 use crate::config::{self, Prefs};
 use crate::render::clean;
 
-pub const ADD_AGENT_HINT: &str = "Add a runtime with `nuphos agents claude-code --create` (or codex).";
+pub const ADD_AGENT_HINT: &str =
+    "Add a Box or connect your computer in Nuphos, or pair a self-hosted runtime from /agents in the TUI.";
 
 /// `--team` (or `NUPHOS_TEAM`), the team used last time, then the first team.
 pub fn pick_team(teams: &[Value], prefs: &Prefs, wanted: Option<&str>) -> Result<Value> {
@@ -117,8 +118,7 @@ pub fn current_name(option: &Value) -> Option<String> {
 }
 
 pub fn conversation_title(c: &Value) -> String {
-    let title =
-        c["title"].as_str().filter(|t| !t.is_empty()).or(c["firstMessage"].as_str()).unwrap_or("Untitled agent");
+    let title = c["title"].as_str().filter(|t| !t.is_empty()).or(c["firstMessage"].as_str()).unwrap_or("Untitled task");
     clean(title.lines().next().unwrap_or_default()).chars().take(70).collect()
 }
 

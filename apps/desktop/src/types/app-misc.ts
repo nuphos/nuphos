@@ -37,6 +37,7 @@ import type {
   VantaIntegration,
   VolcengineAccount,
 } from './provider-accounts.ts'
+import type { SocialProvider } from './team.ts'
 
 // ---------- Monitoring overview (BYOS aggregation) ----------
 
@@ -148,3 +149,6 @@ export type SlackLinkedChannelsSummary = {
   count: number
   grantWorkspaces: { id: string; name: string | null }[]
 }
+
+/** A sign-in provider the backend offers, with the name its button shows. */
+export type SocialOption = { provider: SocialProvider; name: string }

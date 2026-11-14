@@ -121,8 +121,7 @@ export async function sessionThreadResources(
 /**
  * Unbinding deletes the routing row, so the thread is treated like one Nuphos
  * never joined: the session stops posting there and a new mention starts a new
- * session. A thread Nuphos posted itself stays bound: its trigger's incident
- * record keeps posting updates into it.
+ * session. A thread Nuphos posted itself (a slack_post root) stays bound.
  */
 export async function unlinkSessionThread(sessionId: string, id: string) {
   const [provider, channelId, threadTs] = id.split(':')

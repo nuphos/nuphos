@@ -1,3 +1,4 @@
+use crate::acp::pool::SessionStartError;
 use crate::acp::protocol::{
     parse_config_options, parse_usage_report, ConfigOption, JsonRpcError, JsonRpcMessage,
     JsonRpcRequest, JsonRpcResponse, UsageReport,
@@ -504,6 +505,9 @@ pub struct AcpConnection {
     /// their tool lists only then, so a later declaration needs a new process.
     pub mcp_servers: Vec<serde_json::Value>,
     pub supports_load_session: bool,
+    /// The agent also offers `session/resume`: the same restore without replaying
+    /// the history, which nobody here reads.
+    supports_resume_session: bool,
     supports_steering: bool,
     /// Agent name from `initialize` (`agentInfo.name`), e.g. "Kiro CLI Agent".
     /// Used to gate agent-specific extension methods.
@@ -913,7 +917,7 @@ impl AcpConnection {
         working_dir: &str,
         env: &std::collections::HashMap<String, String>,
         inherit_env: &[String],
-    ) -> Result<Self> {
+    ) -> Result<Self, SessionStartError> {
         info!(cmd = command, ?args, cwd = working_dir, "spawning agent");
 
         let mut cmd = baseline_command(command, args, working_dir);
@@ -938,9 +942,10 @@ impl AcpConnection {
                 "[agent].env/inherit_env is set -- these values are accessible to the agent and could be exfiltrated via prompt injection"
             );
         }
-        let mut proc = cmd
-            .spawn()
-            .map_err(|e| anyhow!("failed to spawn {command}: {e}"))?;
+        let mut proc = cmd.spawn().map_err(|source| SessionStartError::Spawn {
+            command: command.to_string(),
+            source,
+        })?;
         let child_pgid = proc.id().and_then(|pid| i32::try_from(pid).ok());
 
         let stdout = proc.stdout.take().ok_or_else(|| anyhow!("no stdout"))?;
@@ -1011,6 +1016,7 @@ impl AcpConnection {
             acp_session_id: None,
             mcp_servers: Vec::new(),
             supports_load_session: false,
+            supports_resume_session: false,
             supports_steering: false,
             agent_name: String::new(),
             config_options: Vec::new(),
@@ -1157,9 +1163,13 @@ impl AcpConnection {
             .and_then(|c| c.get("loadSession"))
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
+        self.supports_resume_session = result
+            .and_then(|r| r.pointer("/agentCapabilities/sessionCapabilities/resume"))
+            .is_some_and(|v| !v.is_null());
         info!(
             agent = agent_name,
             load_session = self.supports_load_session,
+            resume_session = self.supports_resume_session,
             "initialized"
         );
         Ok(())
@@ -1450,8 +1460,9 @@ impl AcpConnection {
         !self._reader_handle.is_finished()
     }
 
-    /// Resume a previous session by ID. Returns Ok(()) if the agent accepted
-    /// the load, or an error if it failed (caller should fall back to session/new).
+    /// Resume a previous session by ID, with `session/resume` when the agent offers it.
+    /// Returns Ok(()) if the agent accepted the restore, or an error if it failed
+    /// (caller should fall back to session/new).
     pub async fn session_load(
         &mut self,
         session_id: &str,
@@ -1459,9 +1470,14 @@ impl AcpConnection {
         mcp_servers: &[serde_json::Value],
         session_meta: Option<&serde_json::Value>,
     ) -> Result<(), AcpRequestError> {
+        let method = if self.supports_resume_session {
+            "session/resume"
+        } else {
+            "session/load"
+        };
         let resp = self
             .send_request(
-                "session/load",
+                method,
                 Some(session_load_params(
                     session_id,
                     cwd,
@@ -1504,7 +1520,7 @@ fn session_new_params(
     params
 }
 
-/// `session/load` params — same `mcpServers` / `_meta` passthrough as `session_new_params`.
+/// `session/load` and `session/resume` params — same `mcpServers` / `_meta` passthrough as `session_new_params`.
 fn session_load_params(
     session_id: &str,
     cwd: &str,
@@ -1817,6 +1833,21 @@ mod request_error_tests {
         match load_against("read line").await {
             Err(AcpRequestError::ConnectionClosed { method }) => {
                 assert_eq!(method, "session/load")
+            }
+            other => panic!("expected a closed connection, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn an_agent_that_offers_resume_is_restored_with_it() {
+        let args = vec!["-c".to_string(), "read line".to_string()];
+        let mut conn = AcpConnection::spawn("sh", &args, ".", &Default::default(), &[])
+            .await
+            .unwrap();
+        conn.supports_resume_session = true;
+        match conn.session_load("sid", ".", &[], None).await {
+            Err(AcpRequestError::ConnectionClosed { method }) => {
+                assert_eq!(method, "session/resume")
             }
             other => panic!("expected a closed connection, got {other:?}"),
         }

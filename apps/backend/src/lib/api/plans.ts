@@ -47,22 +47,14 @@ export {
 export {
   planApiOperations,
   planApprovalPolicyGetOperation,
-  planApprovalPolicyUpdateOperation,
-  planApproveOperation,
   planGetOperation,
   planListOperation,
-  planUpdateOperation,
 } from './plans/operations'
-export type { ListPlansAgentInput, UpdatePlanBody } from './plans/update-schemas'
+export type { ListPlansAgentInput } from './plans/update-schemas'
 export {
-  agentUpdatePlanBodyFieldsSchema,
   listPlansAgentInputSchema,
   listPlansQuerySchema,
   listPlansResponseSchema,
-  normalizeAgentPlanUpdatePatch,
   planApprovalPolicyQuerySchema,
   planIdPathSchema,
-  recordPlanApprovalBodySchema,
-  updatePlanApprovalPolicyBodySchema,
-  updatePlanBodySchema,
 } from './plans/update-schemas'

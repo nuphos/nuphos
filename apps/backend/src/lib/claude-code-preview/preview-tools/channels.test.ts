@@ -75,8 +75,8 @@ beforeEach(async () => {
   })
   await seed(CHANNEL, { kind: 'channel', agentSessionIds: ['agent-a', 'agent-b'] })
   await seed(OTHER_CHANNEL, { kind: 'channel', agentSessionIds: ['agent-b'] })
-  await seed('agent-a', { agentRuntime: 'claude-code' })
-  await seed('agent-b')
+  await seed('agent-a', { agentRuntime: 'claude-code', avatar: '07-ada' })
+  await seed('agent-b', { avatar: '05-rembrandt' })
 })
 afterEach(() => {
   resetTurnRunner()
@@ -161,6 +161,46 @@ test('only teammates and the owner’s own agents can be brought in', async () =
   })
 
   expect(foreignAgent).toMatchObject({ isError: true })
+  expect(await channels()).toHaveLength(before)
+})
+
+test('a Task opens a chat with the Bot above it in its place', async () => {
+  await seed('task-a', { parentSessionId: 'agent-a' })
+  const result = await tools('task-a').channel_create?.({
+    label: 'x',
+    name: 'Launch',
+    people: ['alice'],
+    message: 'Hello.',
+  })
+  const { channelId } = (result as { structuredContent: { channelId: string } }).structuredContent
+
+  expect((await agentConversations().findOne({ sessionId: channelId }))?.agentSessionIds).toEqual([
+    'agent-a',
+  ])
+  expect(appended[0]).toMatchObject({
+    messages: [{ metadata: { sender: { type: 'agent', id: 'agent-a' } } }],
+  })
+})
+
+test('a Task with no Bot above it, or a Task brought in, opens no chat', async () => {
+  const before = (await channels()).length
+
+  await seed('task-alone')
+  await seed('task-b', { parentSessionId: 'agent-a' })
+  const alone = await tools('task-alone').channel_create?.({
+    label: 'x',
+    name: 'Nope',
+    people: ['alice'],
+  })
+  const withTask = await tools('agent-a').channel_create?.({
+    label: 'x',
+    name: 'Nope',
+    people: ['alice'],
+    agents: ['task-b'],
+  })
+
+  expect(JSON.stringify(alone)).toContain('Only a Bot can be in a chat')
+  expect(JSON.stringify(withTask)).toContain('Only a Bot can be in a chat')
   expect(await channels()).toHaveLength(before)
 })
 

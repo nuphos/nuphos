@@ -3,6 +3,7 @@ import { useRef, useState } from 'react'
 
 import { api } from '../../../api'
 import { t } from '../../../i18n'
+import { useAgentAvatarPick } from '../../../lib/agentAvatarChoices'
 import { announceChatTitle } from '../../../lib/chatTitleEvents'
 import { sessionShortcutCombo } from '../../../lib/sessionShortcuts'
 import { Modal } from '../../Modal'
@@ -30,6 +31,7 @@ export function EditableConversationTitle({
   const [localEditing, setLocalEditing] = useState(false)
   const editing = editingProp ?? localEditing
   const setEditing = onEditingChange ?? setLocalEditing
+  const bot = Boolean(useAgentAvatarPick(sessionId ?? ''))
 
   if (!sessionId || !canRename) return <span className="truncate">{title}</span>
 
@@ -47,12 +49,17 @@ export function EditableConversationTitle({
         side="bottom"
         triggerClassName="min-w-0"
         content={
-          <ShortcutLabel label={t('Rename agent')} combo={sessionShortcutCombo('rename-chat')} />
+          <ShortcutLabel
+            label={bot ? t('Rename Bot') : t('Rename task')}
+            combo={sessionShortcutCombo('rename-chat')}
+          />
         }
       >
         <button
           type="button"
-          aria-label={t('Rename agent: {title}', { title })}
+          aria-label={
+            bot ? t('Rename Bot: {title}', { title }) : t('Rename task: {title}', { title })
+          }
           onClick={() => setEditing(true)}
           className="titlebar-no-drag group flex min-w-0 items-center gap-1.5 rounded px-1 py-1 text-left hover:bg-state-hover"
         >
@@ -79,6 +86,7 @@ export function RenameConversationDialog({
   title: string
   onClose: () => void
 }) {
+  const bot = Boolean(useAgentAvatarPick(sessionId))
   const [draft, setDraft] = useState(title)
   const [saving, setSaving] = useState(false)
   const inFlight = useRef(false)
@@ -100,7 +108,7 @@ export function RenameConversationDialog({
       announceChatTitle({ sessionId, teamId, title: result.title })
       onClose()
     } catch (error) {
-      toast.apiError(t('Could not rename agent'), error)
+      toast.apiError(bot ? t('Could not rename Bot') : t('Could not rename task'), error)
     } finally {
       inFlight.current = false
       setSaving(false)
@@ -108,7 +116,13 @@ export function RenameConversationDialog({
   }
 
   return (
-    <Modal open title={t('Rename agent')} appearance="prompt" width={420} onClose={onClose}>
+    <Modal
+      open
+      title={bot ? t('Rename Bot') : t('Rename task')}
+      appearance="prompt"
+      width={420}
+      onClose={onClose}
+    >
       <form
         className="titlebar-no-drag"
         onSubmit={(event) => {

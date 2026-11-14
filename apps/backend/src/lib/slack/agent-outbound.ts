@@ -12,7 +12,6 @@ import type {
   SlackOutboundContext,
   SlackOutboundDependencies,
 } from '@/lib/slack/agent-outbound/types'
-import type { SlackTriggerNotificationContext } from '@/lib/slack/incident-notifications'
 
 export type { SlackOutboundDestination } from '@/lib/slack/destinations'
 
@@ -34,7 +33,6 @@ export async function createSlackOutboundContext(
     userId: string
     conversationId: string
     teamId?: string | null
-    triggerNotification?: SlackTriggerNotificationContext
   },
   dependencies: SlackOutboundDependencies = defaultDependencies,
 ): Promise<SlackOutboundContext | null> {

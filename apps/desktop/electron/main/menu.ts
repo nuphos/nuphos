@@ -1,5 +1,6 @@
 import { app, BrowserWindow, Menu } from 'electron'
 
+import { t } from './i18n.ts'
 import { createWindow, dispatchAppShortcut } from './windows'
 import { zoom } from './zoom'
 
@@ -18,6 +19,7 @@ const zoomItem = (label: string, accelerator: string, step: ZoomStep) => ({
   },
 })
 
+/** Built again when the app's language changes (i18n-electron.ts). */
 export function installApplicationMenu() {
   const isMac = process.platform === 'darwin'
 
@@ -36,104 +38,107 @@ export function installApplicationMenu() {
           {
             label: app.name,
             submenu: [
-              { role: 'about' as const },
+              { role: 'about' as const, label: t('About {app}', { app: app.name }) },
               {
-                label: 'Check for Updates…',
+                label: t('Check for Updates…'),
                 click: () => dispatchAppShortcut('open-updates'),
               },
               { type: 'separator' as const },
               {
-                label: 'Settings…',
+                label: t('Settings…'),
                 accelerator: 'CommandOrControl+,',
                 click: () => dispatchAppShortcut('open-settings'),
               },
               { type: 'separator' as const },
-              { role: 'hide' as const },
-              { role: 'hideOthers' as const },
-              { role: 'unhide' as const },
+              { role: 'hide' as const, label: t('Hide {app}', { app: app.name }) },
+              { role: 'hideOthers' as const, label: t('Hide Others') },
+              { role: 'unhide' as const, label: t('Show All') },
               { type: 'separator' as const },
-              { role: 'quit' as const },
+              { role: 'quit' as const, label: t('Quit {app}', { app: app.name }) },
             ],
           },
         ]
       : []),
     {
-      label: 'File',
+      label: t('File'),
       submenu: [
         {
-          label: 'Search Agents',
+          label: t('Search Agents'),
           accelerator: 'CommandOrControl+K',
           click: () => dispatchAppShortcut('search-sessions'),
         },
         {
-          label: 'New Agent',
+          label: t('New Task'),
           accelerator: 'CommandOrControl+N',
           click: () => dispatchAppShortcut('new-chat'),
         },
         {
-          label: 'New Window',
+          label: t('New Window'),
           accelerator: 'CommandOrControl+Shift+N',
           click: () => createWindow(null),
         },
         {
-          label: 'New Tab',
+          label: t('New Tab'),
           accelerator: 'CommandOrControl+T',
           click: () => dispatchAppShortcut('new-tab'),
         },
         {
-          label: 'Close Tab',
+          label: t('Close Tab'),
           accelerator: 'CommandOrControl+W',
           click: () => dispatchAppShortcut('close-tab'),
         },
       ],
     },
     {
-      label: 'Edit',
+      label: t('Edit'),
       submenu: [
-        { role: 'undo' },
-        { role: 'redo' },
+        { role: 'undo', label: t('Undo') },
+        { role: 'redo', label: t('Redo') },
         { type: 'separator' },
-        { role: 'cut' },
-        { role: 'copy' },
-        { role: 'paste' },
-        { role: 'selectAll' },
+        { role: 'cut', label: t('Cut') },
+        { role: 'copy', label: t('Copy') },
+        { role: 'paste', label: t('Paste') },
+        { role: 'selectAll', label: t('Select All') },
       ],
     },
     {
-      label: 'View',
+      label: t('View'),
       submenu: [
-        { role: 'reload' },
-        { role: 'toggleDevTools' },
+        { role: 'reload', label: t('Reload') },
+        { role: 'toggleDevTools', label: t('Toggle Developer Tools') },
         { type: 'separator' },
-        zoomItem('Actual Size', 'CommandOrControl+0', 'reset'),
-        zoomItem('Zoom In', 'CommandOrControl+Plus', 'in'),
-        zoomItem('Zoom Out', 'CommandOrControl+-', 'out'),
+        zoomItem(t('Actual Size'), 'CommandOrControl+0', 'reset'),
+        zoomItem(t('Zoom In'), 'CommandOrControl+Plus', 'in'),
+        zoomItem(t('Zoom Out'), 'CommandOrControl+-', 'out'),
         { type: 'separator' },
         {
-          label: 'Toggle Sidebar',
+          label: t('Toggle Sidebar'),
           accelerator: 'CommandOrControl+B',
           click: () => dispatchAppShortcut('toggle-sidebar'),
         },
         { type: 'separator' },
-        { role: 'togglefullscreen' },
+        { role: 'togglefullscreen', label: t('Toggle Full Screen') },
       ],
     },
     {
-      label: 'Window',
+      label: t('Window'),
       submenu: [
-        { role: 'minimize' },
-        { role: 'zoom' },
+        { role: 'minimize', label: t('Minimize') },
+        { role: 'zoom', label: t('Zoom') },
         ...(isMac
-          ? [{ type: 'separator' as const }, { role: 'front' as const }]
-          : [{ role: 'close' as const }]),
+          ? [
+              { type: 'separator' as const },
+              { role: 'front' as const, label: t('Bring All to Front') },
+            ]
+          : [{ role: 'close' as const, label: t('Close Window') }]),
       ],
     },
     {
-      label: 'Help',
+      label: t('Help'),
       role: 'help',
       submenu: [
         {
-          label: 'Keyboard Shortcuts',
+          label: t('Keyboard Shortcuts'),
           accelerator: 'CommandOrControl+/',
           click: () => dispatchAppShortcut('shortcuts-help'),
         },

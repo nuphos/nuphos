@@ -11,6 +11,7 @@ import { cardAnswers } from '../../../views/inbox/useInbox'
 import { toast } from '../../ui/toast'
 import { PermissionResumeContext } from '../permissionResumeContext'
 
+import { ChatColumn } from './ChatColumn'
 import { Composer } from './Composer'
 import { composerDraftKey } from './composerDrafts'
 import { hidingRetracted, sentHistory } from './composerRecall'
@@ -208,79 +209,80 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
               </ConnectCardContext.Provider>
             </div>
             <div ref={composerRef} className="col-start-1 row-start-2 z-10">
-              {waitingMessages(activeTab).length > 0 && (
-                <QueuedStrip
-                  items={waitingMessages(activeTab)}
-                  approval={queuedApproval}
-                  canSteer={runtimeAllows(activeTab.runtimeState, 'steer')}
-                  onRemove={(queuedId) => void removeQueued(activeTab.id, queuedId)}
-                  onSteer={(queuedId) => void steerQueued(activeTab.id, queuedId)}
-                  sidebar={isSidebarMode}
-                />
-              )}
-              {activeTab.messages.length === 0 ? (
-                <DelayedPanelReveal>
-                  <Composer
-                    onSend={(text, filePaths, mentions, { mode } = {}) =>
-                      sendInActive(text, filePaths, undefined, c.decisionReplyTo, mentions, mode)
-                    }
-                    onStop={stopActive}
-                    autoFocus={focusComposerOnOpen}
-                    runtimeState={activeTab.runtimeState}
-                    executing={runtimeIsExecuting(activeTab.runtimeState)}
-                    readOnly={activeTab.readOnly}
-                    readOnlyNotice={readOnlyNotice}
-                    activitySource={activeTab.activitySource}
-                    slackThread={activeTab.slackThread}
-                    credentialSelector={visibleConversationCredentialSelector}
-                    runtimeControl={runtimeControl}
-                    modelSession={modelSession}
-                    bypassControl={bypassControl}
-                    pendingSeed={pendingPromptReady}
-                    onSeedConsumed={onPromptConsumed}
-                    sidebar={isSidebarMode}
-                    dropRegisterRef={conversationDropRef}
-                    draftKey={composerDraftKey(teamId, c.composerDraftId ?? activeTab.sessionId)}
-                    recall={{ retract: retractLatest, history: [] }}
-                    mentionScope={teamId ? { teamId, sessionId: inviteSessionId } : undefined}
+              <ChatColumn sidebar={isSidebarMode}>
+                {waitingMessages(activeTab).length > 0 && (
+                  <QueuedStrip
+                    items={waitingMessages(activeTab)}
+                    approval={queuedApproval}
+                    canSteer={runtimeAllows(activeTab.runtimeState, 'steer')}
+                    onRemove={(queuedId) => void removeQueued(activeTab.id, queuedId)}
+                    onSteer={(queuedId) => void steerQueued(activeTab.id, queuedId)}
                   />
-                </DelayedPanelReveal>
-              ) : (
-                <>
-                  {c.replyTarget?.sessionId === activeTab.sessionId && !activeTab.readOnly && (
-                    <ReplyTargetChip target={c.replyTarget} sidebar={isSidebarMode} />
-                  )}
-                  <Composer
-                    onSend={(text, filePaths, mentions, { mode } = {}) =>
-                      sendInActive(text, filePaths, undefined, c.decisionReplyTo, mentions, mode)
-                    }
-                    onStop={stopActive}
-                    promptSuggestion={
-                      activeTab.streaming || runtimeIsExecuting(activeTab.runtimeState)
-                        ? null
-                        : activeTab.promptSuggestion
-                    }
-                    autoFocus={focusComposerOnOpen}
-                    runtimeState={activeTab.runtimeState}
-                    canStop={canStopTurn(activeTab)}
-                    readOnly={activeTab.readOnly}
-                    readOnlyNotice={readOnlyNotice}
-                    activitySource={activeTab.activitySource}
-                    slackThread={activeTab.slackThread}
-                    credentialSelector={visibleConversationCredentialSelector}
-                    runtimeControl={runtimeControl}
-                    modelSession={modelSession}
-                    bypassControl={bypassControl}
-                    pendingSeed={pendingPromptReady}
-                    onSeedConsumed={onPromptConsumed}
-                    sidebar={isSidebarMode}
-                    dropRegisterRef={conversationDropRef}
-                    draftKey={composerDraftKey(teamId, c.composerDraftId ?? activeTab.sessionId)}
-                    recall={{ retract: retractLatest, history }}
-                    mentionScope={teamId ? { teamId, sessionId: inviteSessionId } : undefined}
-                  />
-                </>
-              )}
+                )}
+                {activeTab.messages.length === 0 ? (
+                  <DelayedPanelReveal>
+                    <Composer
+                      onSend={(text, filePaths, mentions, { mode } = {}) =>
+                        sendInActive(text, filePaths, undefined, c.decisionReplyTo, mentions, mode)
+                      }
+                      onStop={stopActive}
+                      autoFocus={focusComposerOnOpen}
+                      runtimeState={activeTab.runtimeState}
+                      executing={runtimeIsExecuting(activeTab.runtimeState)}
+                      readOnly={activeTab.readOnly}
+                      readOnlyNotice={readOnlyNotice}
+                      activitySource={activeTab.activitySource}
+                      slackThread={activeTab.slackThread}
+                      credentialSelector={visibleConversationCredentialSelector}
+                      runtimeControl={runtimeControl}
+                      modelSession={modelSession}
+                      bypassControl={bypassControl}
+                      pendingSeed={pendingPromptReady}
+                      onSeedConsumed={onPromptConsumed}
+                      sidebar={isSidebarMode}
+                      dropRegisterRef={conversationDropRef}
+                      draftKey={composerDraftKey(teamId, c.composerDraftId ?? activeTab.sessionId)}
+                      recall={{ retract: retractLatest, history: [] }}
+                      mentionScope={teamId ? { teamId, sessionId: inviteSessionId } : undefined}
+                    />
+                  </DelayedPanelReveal>
+                ) : (
+                  <>
+                    {c.replyTarget?.sessionId === activeTab.sessionId && !activeTab.readOnly && (
+                      <ReplyTargetChip target={c.replyTarget} />
+                    )}
+                    <Composer
+                      onSend={(text, filePaths, mentions, { mode } = {}) =>
+                        sendInActive(text, filePaths, undefined, c.decisionReplyTo, mentions, mode)
+                      }
+                      onStop={stopActive}
+                      promptSuggestion={
+                        activeTab.streaming || runtimeIsExecuting(activeTab.runtimeState)
+                          ? null
+                          : activeTab.promptSuggestion
+                      }
+                      autoFocus={focusComposerOnOpen}
+                      runtimeState={activeTab.runtimeState}
+                      canStop={canStopTurn(activeTab)}
+                      readOnly={activeTab.readOnly}
+                      readOnlyNotice={readOnlyNotice}
+                      activitySource={activeTab.activitySource}
+                      slackThread={activeTab.slackThread}
+                      credentialSelector={visibleConversationCredentialSelector}
+                      runtimeControl={runtimeControl}
+                      modelSession={modelSession}
+                      bypassControl={bypassControl}
+                      pendingSeed={pendingPromptReady}
+                      onSeedConsumed={onPromptConsumed}
+                      sidebar={isSidebarMode}
+                      dropRegisterRef={conversationDropRef}
+                      draftKey={composerDraftKey(teamId, c.composerDraftId ?? activeTab.sessionId)}
+                      recall={{ retract: retractLatest, history }}
+                      mentionScope={teamId ? { teamId, sessionId: inviteSessionId } : undefined}
+                    />
+                  </>
+                )}
+              </ChatColumn>
             </div>
           </div>
         </AuthorizationActionContext.Provider>

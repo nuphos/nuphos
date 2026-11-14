@@ -8,7 +8,7 @@ import { toolError, toolResult } from '@/lib/mcp/protocol'
 
 import { toolInputJsonSchema } from './ai-sdk-adapter'
 
-import type { PreviewToolModule } from '../preview-tool-context'
+import type { PreviewToolContext, PreviewToolModule } from '../preview-tool-context'
 
 const label = z
   .string()
@@ -33,6 +33,16 @@ function answer(work: Promise<unknown>) {
   )
 }
 
+/** The calling agent, whose owner must still be on the team. */
+async function self(ctx: PreviewToolContext) {
+  const conversation = await getConversationBySessionId(ctx.sessionId)
+
+  if (!conversation || !(await getTeamMembership(conversation.userId, ctx.teamId)))
+    throw new Error('This agent’s owner is no longer on the team.')
+
+  return conversation
+}
+
 /** Off unless this server has Recall.ai set up. */
 export function meetingToolModule(): PreviewToolModule {
   if (!config.meetings.recall) return { definitions: [], handlers: () => ({}) }
@@ -42,7 +52,7 @@ export function meetingToolModule(): PreviewToolModule {
       {
         name: 'meeting_join',
         description:
-          'Join a Google Meet, Zoom or Teams call as yourself (under this conversation’s name) ' +
+          'Join a Google Meet, Zoom or Teams call as your Bot (a Task joins as the Bot above it) ' +
           'to listen and type in its chat; you never speak aloud. Use it when the user asks ' +
           'you to join a meeting. It opens a channel for the call: what people say there ' +
           'reaches you as channel messages, and your channel_post in it goes to the meeting ' +
@@ -61,16 +71,7 @@ export function meetingToolModule(): PreviewToolModule {
 
         if (!parsed.success) return toolError(parsed.error.message)
 
-        return answer(
-          (async () => {
-            const self = await getConversationBySessionId(ctx.sessionId)
-
-            if (!self || !(await getTeamMembership(self.userId, ctx.teamId)))
-              throw new Error('This agent’s owner is no longer on the team.')
-
-            return joinMeeting(self, ctx.teamId, parsed.data.url)
-          })(),
-        )
+        return answer((async () => joinMeeting(await self(ctx), ctx.teamId, parsed.data.url))())
       },
       meeting_leave: async (args) => {
         const parsed = leave.safeParse(args)
@@ -78,7 +79,11 @@ export function meetingToolModule(): PreviewToolModule {
         if (!parsed.success) return toolError(parsed.error.message)
 
         return answer(
-          leaveMeetingChannel(parsed.data.channelId, ctx.sessionId).then(() => ({ left: true })),
+          (async () => {
+            await leaveMeetingChannel(parsed.data.channelId, await self(ctx))
+
+            return { left: true }
+          })(),
         )
       },
     }),

@@ -39,11 +39,12 @@ export function addableAgents(
 ): Pickable[] {
   const inChannel = new Set(agents.map((agent) => agent.sessionId))
 
+  // A chat holds people and Bots; a Task speaks through the Bot above it.
   return ownAgents(teamId, viewerId)
-    .filter((agent) => !inChannel.has(agent.sessionId))
+    .filter((agent) => agent.avatar && !inChannel.has(agent.sessionId))
     .map((agent) => ({
       id: agent.sessionId,
-      name: agent.title || t('Untitled agent'),
+      name: agent.title || t('Untitled task'),
       email: '',
       agent: { avatar: agent.avatar, provider: agent.agentRuntime },
     }))

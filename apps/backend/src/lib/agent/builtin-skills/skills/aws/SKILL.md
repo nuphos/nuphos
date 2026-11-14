@@ -1,6 +1,6 @@
 ---
 name: aws
-description: Run AWS CLI v2 commands from the sandbox to inspect or change AWS resources (CloudWatch, SNS, EKS, EC2, IAM, VPC, etc.). Includes the managed CloudWatch Alarm to Nuphos Trigger and Slack workflow.
+description: Run AWS CLI v2 commands from the sandbox to inspect or change AWS resources (CloudWatch, SNS, EKS, EC2, IAM, VPC, etc.). Includes the CloudWatch Alarm to Nuphos Trigger and Slack workflow.
 ---
 
 # AWS CLI
@@ -95,11 +95,11 @@ Always pass `--region` (or set `AWS_DEFAULT_REGION`); never rely on a default re
 
 ## Watching a CloudWatch alarm
 
-Use this recipe when the user asks to create/watch a CloudWatch alarm and notify or investigate through Slack. The managed architecture is:
+Use this recipe when the user asks to create/watch a CloudWatch alarm and notify or investigate through Slack. The architecture is:
 
 ```text
 CloudWatch Alarm -> SNS HTTPS subscription -> Nuphos webhook trigger
-  -> first-party slack_post initial alert -> investigation -> same Slack thread
+  -> the bound conversation investigates -> first-party slack_post
 ```
 
 Do **not** replace it with AWS Chatbot, Amazon Q Developer in chat applications, Lambda forwarding, or a Slack Incoming Webhook unless the user explicitly asks for that different architecture. Nuphos owns the inbound webhook trigger and posts through its already-connected first-party Slack App.
@@ -122,15 +122,17 @@ First revalidate the exact AWS account, region, and alarm with `sts get-caller-i
 
 ### Complete CloudWatch -> Nuphos wiring recipe
 
-The workflow is not live when only the trigger exists. Finish every step, read it back, drill it, and persist the secret-free receipt.
+The workflow is not live when only the trigger exists. Finish every step, read it back, and drill it. The topic, subscription, and alarm actions are AWS resources you manage: Nuphos does not record them, and deleting the trigger leaves them in place.
 
 1. **Snapshot the exact alarm and connected binding.** Record the operational AWS role binding ID, 12-digit account ID, region, full alarm ARN, alarm kind (`metric` or `composite`), whether the alarm already existed, and its complete ALARM/OK/INSUFFICIENT_DATA action arrays. Refuse a permission-admin binding. The setup role needs `cloudwatch:DescribeAlarms`, `cloudwatch:PutMetricAlarm` or `cloudwatch:PutCompositeAlarm`, and the scoped SNS create/subscribe/read/delete permissions.
 
-2. **Create the Nuphos webhook trigger** with:
+2. **Create the Nuphos webhook trigger** through the `triggers` skill with:
 
    - `triggerType: "webhook"`
-   - `monitoringIdentity: {provider:"aws", integrationId:"<operational role binding ObjectId>", resourceId:"<full alarm ARN>"}`
+   - `targetSessionId`: this conversation unless the user names another of theirs
    - a retry-burst `minIntervalSeconds` such as 60
+
+   First list the triggers bound to that conversation and reuse one that already receives this alarm.
 
    Use this normalized payload contract in `messageTemplate`:
 
@@ -139,12 +141,11 @@ The workflow is not live when only the trigger exists. Finish every step, read i
    Status: {{payload.status}}; alarm: {{payload.alarm.name}}; state: {{payload.alarm.newState}}
    Reason: {{payload.alarm.reason}}; changed at: {{payload.alarm.stateChangedAt}}
    If payload contains "test": true or "drill": true, reply "test delivery received" and STOP — no investigation and no Slack post.
-   For Slack, handle it the way an on-call engineer would. First check the earlier firings in this conversation to see whether this alert has gone off before and in which thread, and slack_read_channel if you want to know what is already in the channel. Post something quickly so whoever is watching knows it is being looked at, then investigate and follow up in the same thread when you know more.
-   Pass replyToThread with that earlier threadTs when this firing is the same problem still going or coming back; omit it to start a new thread when it is genuinely different. There is no message type to declare. When it has recovered, say so in its thread and stop — nothing needs to be closed. Post to the exact destination the user approved, as written in the messageTemplate, including slackWorkspaceId when it is known: {"type":"channel","channelId":"<the selected stable ID>","slackWorkspaceId":"<its workspace>"} for a channel, or {"type":"dm_self"} for a DM.
+   For Slack, first check the earlier firings in this conversation to see whether this alert has already been reported. Investigate, then call slack_post once when this firing is worth telling people about — a new problem, a material change, or its recovery; an unchanged repeat needs no post. Post to the exact destination the user approved, as written in the messageTemplate, including slackWorkspaceId when it is known: {"type":"channel","channelId":"<the selected stable ID>","slackWorkspaceId":"<its workspace>"} for a channel, or {"type":"dm_self"} for a DM. Keep bindConversation on unless this conversation is already bound to a Slack thread, in which case pass bindConversation=false.
    For Nuphos-only delivery, keep the findings here and do not call slack_post.
    ```
 
-   `trigger_create` returns the webhook URL and its secret once. Require an absolute permanent `https://` URL. If it is temporary and the user has not already accepted local-debug wiring, ask whether to use it and STOP; never invent or substitute a host.
+   The create response returns the webhook URL and its secret once. Require an absolute permanent `https://` URL. If it is temporary and the user has not already accepted local-debug wiring, ask whether to use it and STOP; never invent or substitute a host.
 
 3. **Create a dedicated SNS topic and HTTPS subscription.** Create a uniquely named topic such as `nuphos-watch-<triggerId>`, set its `SignatureVersion` topic attribute to `2`, and subscribe the exact endpoint `<webhookUrl>?secret=<url-encoded webhookSecret>` using protocol `https`. Nuphos verifies the AWS SNS signature and automatically confirms a valid `SubscriptionConfirmation`; do not fetch `SubscribeURL` yourself. Poll `list-subscriptions-by-topic` briefly until it returns a real subscription ARN instead of `PendingConfirmation`.
 
@@ -159,28 +160,9 @@ The workflow is not live when only the trigger exists. Finish every step, read i
    - topic signature version is `2`;
    - the subscription ARN is confirmed, protocol is `https`, and endpoint targets the exact Nuphos trigger path.
 
-   Then call `trigger_test_fire` with a normalized `{"test":true,"provider":"aws_cloudwatch","status":"firing","alarm":{"name":"<name>","newState":"ALARM"}}` payload. It must take the STOP branch and not post to Slack. The signed subscription-confirmation delivery proves the SNS -> Nuphos hop; do not publish a fake unsigned provider notification.
+   Then `POST /{triggerId}/test-fire` (see the `triggers` skill) with a normalized `{"test":true,"provider":"aws_cloudwatch","status":"firing","alarm":{"name":"<name>","newState":"ALARM"}}` payload. It must take the STOP branch and not post to Slack. The signed subscription-confirmation delivery proves the SNS -> Nuphos hop; do not publish a fake unsigned provider notification.
 
-6. **Persist deterministic cleanup.** Call `trigger_finalize_wiring` only after read-back and the drill succeed:
-
-   ```json
-   {
-     "provider": "aws",
-     "integrationId": "<operational role binding ObjectId>",
-     "accountId": "123456789012",
-     "region": "us-east-1",
-     "alarmName": "High CPU",
-     "alarmArn": "arn:aws:cloudwatch:us-east-1:123456789012:alarm:High CPU",
-     "alarmKind": "metric",
-     "alarmOrigin": "existing",
-     "snsTopicArn": "arn:aws:sns:us-east-1:123456789012:nuphos-watch-...",
-     "snsTopicOrigin": "created",
-     "snsSubscriptionArn": "arn:aws:sns:us-east-1:123456789012:nuphos-watch-...:uuid",
-     "attachedActions": ["alarm", "ok"]
-   }
-   ```
-
-   The receipt contains identifiers/provenance only, never the webhook secret or AWS credentials. Future Remove Watch uses it to detach only Nuphos actions, preserve the alarm and all old destinations, delete the owned subscription, and delete a dedicated topic only when no unrelated subscription uses it.
+6. **Report what you created.** Name the alarm ARN, the topic ARN and whether you created it, the subscription ARN, and the actions you attached, so they can be found and removed later. To tear down, detach only the Nuphos topic from the alarm actions (concurrency-checked as in step 4), unsubscribe, delete the topic if you created it and nothing else subscribes, then delete the trigger.
 
 7. **Rollback on any incomplete attempt.** Disable the trigger first, restore the alarm's original action arrays from a concurrency-checked fresh read, unsubscribe the owned subscription, delete the newly created topic when unreferenced, and delete the trigger. Report the exact permission/capability blocker; never leave an enabled half-workflow or hand ordinary setup steps back to the user when the connected role can perform them.
 

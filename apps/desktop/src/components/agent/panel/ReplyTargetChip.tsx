@@ -1,4 +1,3 @@
-import clsx from 'clsx'
 import { ChevronDown, CornerUpLeft, X } from 'lucide-react'
 import { useRef } from 'react'
 
@@ -14,13 +13,7 @@ import type { MouseEvent } from 'react'
 const keepComposerFocus = (event: MouseEvent) => event.preventDefault()
 
 /** Which open question the next message answers, above the composer; with several, a menu picks one. */
-export function ReplyTargetChip({
-  target,
-  sidebar = false,
-}: {
-  target: ComposerReplyTarget
-  sidebar?: boolean
-}) {
+export function ReplyTargetChip({ target }: { target: ComposerReplyTarget }) {
   const ref = useRef<HTMLDivElement>(null)
   const chosen = target.questions.find((question) => question.id === target.chosen)
 
@@ -33,7 +26,7 @@ export function ReplyTargetChip({
   }
 
   return (
-    <div className={clsx('mx-auto flex w-full px-1 pb-1.5', sidebar ? '' : 'max-w-[760px]')}>
+    <div className="flex px-1 pb-1.5">
       <div
         ref={ref}
         role="group"

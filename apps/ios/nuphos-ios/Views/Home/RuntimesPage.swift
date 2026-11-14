@@ -6,12 +6,15 @@ import SwiftUI
 struct RuntimesPage: View {
     @Environment(AgentStore.self) private var store
     @Environment(\.scenePhase) private var scenePhase
-    @State private var showSetup = false
     /// A computer's own desktop, opened from its box.
     @State private var desktop: DesktopSession?
 
-    private var boxes: [SelectorBox] { SelectorBox.grouped(store.runtimes, devices: store.agentDevices) }
-    private var administrator: Bool { store.selectedTeam?.isAdministrator == true }
+    /// Like Desktop's Computers page, every computer is listed, one with no runtimes too.
+    private var boxes: [SelectorBox] {
+        let grouped = SelectorBox.grouped(store.runtimes, devices: store.agentDevices)
+        let empty = store.agentDevices.filter { device in !grouped.contains { $0.id == "device:\(device.deviceId)" } }
+        return grouped + empty.map { SelectorBox(id: "device:\($0.deviceId)", label: $0.label, device: $0, agents: []) }
+    }
 
     var body: some View {
         // Pushed views do not inherit the store here, so they are handed this one.
@@ -32,7 +35,6 @@ struct RuntimesPage: View {
         // Full screen even where wide: beside this list, the list itself would be put away.
         .desktop($desktop)
         .environment(\.desktopBeside, nil)
-        .navigationDestination(isPresented: $showSetup) { if let team = store.selectedTeam { AgentSetupView(team: team, selectOnCompletion: false).environment(store) } }
         .task(id: store.selectedTeam?.id) {
             if store.teams.isEmpty { await store.loadTeams() }
             async let agents: Void = store.loadRuntimes(force: true)
@@ -60,9 +62,7 @@ struct RuntimesPage: View {
     private var list: some View {
         List {
             if boxes.isEmpty {
-                ContentUnavailableView("No runtimes", systemImage: "cpu", description: Text(administrator
-                    ? "Add a cloud runtime here, or open Nuphos on your computer to connect a runtime."
-                    : "Ask a workspace administrator to add a runtime."))
+                ContentUnavailableView("No runtimes", systemImage: "cpu", description: Text("Open Nuphos on your computer to connect it and add a runtime."))
                     .listRowBackground(Color.clear)
             }
             ForEach(boxes) { box in
@@ -85,13 +85,12 @@ struct RuntimesPage: View {
                         }
                         .listRowInsets(EdgeInsets(top: 12, leading: 20, bottom: 12, trailing: 20))
                     }
-                }
-                .listRowBackground(Theme.surface)
-            }
-            if administrator {
-                Section {
-                    Button { showSetup = true } label: {
-                        Label("Add runtime", systemImage: "plus").font(.system(size: 15)).foregroundStyle(Theme.brandText)
+                    if box.agents.isEmpty, let device = box.device, device.box == nil {
+                        Text(device.access == "use"
+                            ? "No runtime yet. Ask its owner to add one."
+                            : "No runtime yet. Install Claude Code or Codex on \(device.label) and sign in.")
+                            .font(.system(size: 13)).foregroundStyle(Theme.muted)
+                            .listRowInsets(EdgeInsets(top: 12, leading: 20, bottom: 12, trailing: 20))
                     }
                 }
                 .listRowBackground(Theme.surface)

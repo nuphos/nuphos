@@ -20,6 +20,13 @@ use tracing::{info, warn};
 pub enum SessionStartError {
     #[error(transparent)]
     Request(#[from] AcpRequestError),
+    #[error("pool exhausted ({0} sessions)")]
+    PoolExhausted(usize),
+    #[error("failed to spawn {command}: {source}")]
+    Spawn {
+        command: String,
+        source: std::io::Error,
+    },
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -631,7 +638,7 @@ impl SessionPool {
         thread_id: &str,
         eviction_candidate: Option<EvictionCandidate>,
         skipped_locked_candidates: usize,
-    ) -> Result<OwnedSemaphorePermit> {
+    ) -> Result<OwnedSemaphorePermit, SessionStartError> {
         let mut state = self.state.write().await;
 
         // Rebuilding a dead connection consumes the same logical slot. Move
@@ -652,7 +659,7 @@ impl SessionPool {
                     max_sessions = self.max_sessions,
                     "pool full but the idle eviction candidate became busy"
                 );
-                return Err(anyhow!("pool exhausted ({} sessions)", self.max_sessions));
+                return Err(SessionStartError::PoolExhausted(self.max_sessions));
             };
 
             let activity = state.activity.get(&key).map(Arc::as_ref);
@@ -666,7 +673,7 @@ impl SessionPool {
                     std::time::Duration::from_secs(self.hung_threshold_secs),
                 )
             {
-                return Err(anyhow!("pool exhausted ({} sessions)", self.max_sessions));
+                return Err(SessionStartError::PoolExhausted(self.max_sessions));
             }
             if remove_if_same_handle(&mut state.active, &key, &expected_conn).is_some() {
                 state.admission_permits.remove(&key);
@@ -697,7 +704,7 @@ impl SessionPool {
 
         Arc::clone(&self.admission)
             .try_acquire_owned()
-            .map_err(|_| anyhow!("pool exhausted ({} sessions)", self.max_sessions))
+            .map_err(|_| SessionStartError::PoolExhausted(self.max_sessions))
     }
 
     /// Check if session state exists for this thread (active, suspended, or persisted).

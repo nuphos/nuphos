@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import { createHmac } from 'node:crypto'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
@@ -134,6 +135,42 @@ test('the config quotes paths as TOML strings', () => {
   assert.match(toml, /working_dir = "C:\\\\Users\\\\me \\"x\\""/u)
   assert.match(toml, /^\[agent\.env\]$/mu)
 })
+
+test(
+  'every bash the agent runs reads the current conversation token, not the spawn-time one',
+  { skip: process.platform === 'win32' },
+  () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'nuphos-guard-'))
+    const credentials = path.join(root, 'credentials')
+
+    try {
+      mkdirSync(credentials)
+      copyFileSync(
+        path.join(import.meta.dirname, '../../../../runtime/image/runtime-guard.sh'),
+        path.join(root, 'runtime-guard.sh'),
+      )
+      const { BASH_ENV } = agentEnv({ ...launch, bundle: { ...launch.bundle, root } })
+      const token = () =>
+        spawnSync('/bin/bash', ['-c', 'printf %s "$NUPHOS_TOKEN"'], {
+          env: {
+            PATH: process.env.PATH,
+            BASH_ENV,
+            OPENAB_CREDENTIALS_DIR: credentials,
+            NUPHOS_TOKEN: 'spawn',
+          },
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'pipe'],
+        }).stdout
+
+      writeFileSync(path.join(credentials, 'NUPHOS_TOKEN'), 'turn-1')
+      assert.equal(token(), 'turn-1')
+      writeFileSync(path.join(credentials, 'NUPHOS_TOKEN'), 'turn-2')
+      assert.equal(token(), 'turn-2')
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  },
+)
 
 test('an idle agent is reaped after an hour', () => {
   assert.match(openabConfigToml(launch), /^\[pool\]\nsession_ttl_hours = 1$/mu)

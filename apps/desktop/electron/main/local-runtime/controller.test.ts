@@ -456,6 +456,7 @@ test('a host run by the `nuphos` CLI reports that CLI, which a Box updates by', 
     grok: { runtime: null },
     antigravity: { runtime: null },
     opencode: { runtime: null },
+    dsh: { runtime: null },
   } as unknown as Parameters<typeof tunnelStatusOf>[0]
   const before = process.env.NUPHOS_CLI_VERSION
 

@@ -8,12 +8,7 @@ const KIND_LABELS: Record<AgentTriggerRunKind, { label: string; description: str
   manual: { label: t('Manual'), description: t('Fired by hand from Nuphos') },
 }
 
-export type TriggerRunLabel = {
-  label?: string
-  description?: string
-  /** Watch group runs: the monitored item this run was about. */
-  memberKey?: string
-}
+export type TriggerRunLabel = { label: string; description: string }
 
 /**
  * What to show beside a run in a Trigger's run list.
@@ -26,13 +21,8 @@ export type TriggerRunLabel = {
 export function triggerRunLabel(
   run: AgentConversationTriggerRun | undefined,
 ): TriggerRunLabel | null {
-  if (!run) return null
-  const kind = run.kind ? KIND_LABELS[run.kind] : undefined
+  // A legacy stamp may carry a kind this table no longer names.
+  const label = run?.kind ? (KIND_LABELS[run.kind] as TriggerRunLabel | undefined) : undefined
 
-  if (!kind && !run.memberKey) return null
-
-  return {
-    ...kind,
-    ...(run.memberKey ? { memberKey: run.memberKey } : {}),
-  }
+  return label ?? null
 }

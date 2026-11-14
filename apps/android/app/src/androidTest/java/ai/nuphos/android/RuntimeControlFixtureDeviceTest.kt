@@ -210,7 +210,7 @@ class RuntimeControlFixtureDeviceTest {
     @Test fun readOnlyNativeStatusRemainsVisibleWithoutActions() {
         render(snapshot(reply = true, steer = true, cancel = true), readOnly = true)
         compose.onNodeWithText("Running fixture").assertIsDisplayed()
-        compose.onNodeWithText("Read-only agent").assertIsDisplayed()
+        compose.onNodeWithText("Read-only task").assertIsDisplayed()
         // Read-only conversations disable drafting entirely (checkpoint behavior), so nothing can be typed or sent.
         // Nothing can be queued here, so nothing says it can.
         compose.onNodeWithContentDescription("Ask Nuphos anything").assertIsNotEnabled()
@@ -356,7 +356,9 @@ class RuntimeControlFixtureDeviceTest {
         Assert.assertEquals("fixture", chats.single().body["id"]?.stringValue)
         Assert.assertEquals("ui-team", chats.single().body["teamId"]?.stringValue)
         val wire = chats.single().body.compact
-        Assert.assertTrue(wire.contains(transport.group) && wire.contains("transfer-pull.sh"))
+        // A runtime gets the transfer-upload part, not the built-in agent's instruction (#2081).
+        Assert.assertTrue(wire.contains(transport.group) && wire.contains("transfer-upload"))
+        Assert.assertFalse(wire.contains("transfer-pull.sh"))
         Assert.assertTrue(wire.contains("Read the retained fixture"))
         Assert.assertFalse(wire.contains("secret-file-marker"))
         Assert.assertNull(session.uploadDraft)

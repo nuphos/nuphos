@@ -17,7 +17,6 @@ struct AgentPage: View {
     /// Whether the keyboard on screen is this page's composer's.
     @State private var ownsKeyboard = false
     @State private var showWorkspaceSetup = false
-    @State private var showAgentSetup = false
     @State private var showNewBot = false
     @State private var renaming: AgentConversation?
     @State private var archivingBot: AgentConversation?
@@ -60,7 +59,6 @@ struct AgentPage: View {
                 if store.selectedTeam == nil { await store.loadTeams() } else { await store.reload() }
             }
             .sheet(isPresented: $showWorkspaceSetup) { WorkspaceSetupSheet() }
-            .sheet(isPresented: $showAgentSetup) { if let team = store.selectedTeam { AgentSetupSheet(team: team) } }
             .sheet(isPresented: $showNewBot) {
                 NewBotSheet { title, avatar in
                     guard let bot = try await store.createBot(title: title, avatar: avatar) else { return }
@@ -84,7 +82,7 @@ struct AgentPage: View {
             } message: { _ in
                 Text("Its chat is archived with it. Unarchive either one to bring both back.")
             }
-            .alert("Rename agent", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } }), presenting: renaming) { conversation in
+            .alert("Rename task", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } }), presenting: renaming) { conversation in
                 let title = renamedTitle.trimmingCharacters(in: .whitespacesAndNewlines)
                 TextField("Title", text: $renamedTitle)
                 Button("Cancel", role: .cancel) {}
@@ -148,7 +146,6 @@ struct AgentPage: View {
                 if CommandLine.arguments.contains("-open-first-chat") {
                     openChat = store.conversations.first.map { OpenChat(session: store.session(for: $0)) }
                 }
-                if CommandLine.arguments.contains("-show-agent-setup") { showAgentSetup = true }
                 if CommandLine.arguments.contains("-show-new-bot") { showNewBot = true }
                 if CommandLine.arguments.contains("-preview-agent-login") { previewLogin = true }
                 // `-preview-approval`: a canned tool run + pending approval, for UI work.
@@ -264,19 +261,15 @@ struct AgentPage: View {
             ContentUnavailableView {
                 Label("Connect your first runtime", systemImage: "cpu")
             } description: {
-                Text(store.selectedTeam?.isAdministrator == true ? "Create a cloud runtime and sign in with your AI provider." : "Ask a workspace administrator to connect a cloud runtime, or open Nuphos on your computer to connect your own local runtime.")
-            } actions: {
-                if store.selectedTeam?.isAdministrator == true {
-                    Button("Set up runtime") { showAgentSetup = true }.prominentButton()
-                }
+                Text("Open Nuphos on your computer to add a Box or connect your own computer, or ask a workspace administrator to connect one.")
             }
         case .idle, .loading:
-            ProgressView("Loading agents…")
+            ProgressView("Loading tasks…")
                 .tint(Theme.muted)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .failed(let message):
             ContentUnavailableView {
-                Label("Couldn't load agents", systemImage: "wifi.exclamationmark")
+                Label("Couldn't load tasks", systemImage: "wifi.exclamationmark")
             } description: {
                 Text(message)
             } actions: {
@@ -537,7 +530,7 @@ struct ChannelRow: View {
 /// decides how the query is applied.
 struct SearchBar: View {
     @Binding var text: String
-    var placeholder: LocalizedStringKey = "Search agents"
+    var placeholder: LocalizedStringKey = "Search tasks"
     var onCancel: () -> Void
     @FocusState private var focused: Bool
 

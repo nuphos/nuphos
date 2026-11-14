@@ -16,3 +16,10 @@ test('personal listings stay owner-scoped when filtering by conversation', () =>
     targetSessionId: 'conversation',
   })
 })
+
+test('a team listing without a conversation returns only the caller’s own Triggers', () => {
+  const filter = triggerListFilter({ userId: 'viewer', teamId: 'team' })
+
+  expect(filter).toMatchObject({ teamId: 'team', userId: 'viewer' })
+  expect(filter).not.toHaveProperty('targetSessionId')
+})

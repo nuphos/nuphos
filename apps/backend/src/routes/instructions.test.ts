@@ -7,7 +7,7 @@ import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useModels } from '@/lib/test/doubles/models'
 import { createFakeInstructionsCollection } from '@/lib/test/fake-instructions-collection'
 
-import type { AgentSessionOrigin } from '@/lib/agent/tools-triggers-shared'
+import type { AgentSessionOrigin } from '@/lib/agent/message-origin'
 import type { NuphosTeamRole } from '@/lib/identity'
 import type { TeamAuthVariables } from '@/middleware/auth'
 import type { ConversationTeamAuthVariables } from '@/routes/teams/conversation-auth'

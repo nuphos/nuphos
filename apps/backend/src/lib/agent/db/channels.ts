@@ -7,6 +7,7 @@ import { parseMessageMetadata } from '../message-metadata'
 import { fenceUntrusted } from '../untrusted-content'
 
 import { canReply, readableConversationScope } from './access'
+import { assertBot } from './bot-membership'
 import { readNote } from './channel-notes'
 import { agentConversations, agentMessages } from './shared'
 
@@ -17,6 +18,8 @@ import type { MessageMetadata } from '../message-metadata'
 export type ChannelFields = {
   /** Absent is an ordinary agent conversation. */
   kind?: 'channel'
+  /** Started as a group chat: never a Bot's 1:1 chat, even with only one Bot in it. */
+  group?: true
   agentSessionIds?: string[]
   /** An ordinary member selected as the group's lead; never an access grant. */
   leadAgentSessionId?: string
@@ -47,24 +50,18 @@ export function assertNotChannel(conversation: ChannelFields | null | undefined)
     throw new AppError(409, 'channel_conversation', 'A channel has no agent of its own to run')
 }
 
-/** Adding a session makes it a Bot and preserves an existing face. */
+/** Adding a session leaves it as it was, and only a Bot is added. */
 export async function addChannelAgent(
   channelId: string,
   agentSessionId: string,
 ): Promise<AgentConversation | null> {
-  const channel = await agentConversations().findOneAndUpdate(
+  await assertBot(agentSessionId)
+
+  return agentConversations().findOneAndUpdate(
     { sessionId: channelId, kind: 'channel' },
     { $addToSet: { agentSessionIds: agentSessionId } },
     { returnDocument: 'after' },
   )
-
-  if (channel)
-    await agentConversations().updateOne(
-      { sessionId: agentSessionId, kind: { $ne: 'channel' }, avatar: { $exists: false } },
-      { $set: { avatar: derivedAvatar(agentSessionId) } },
-    )
-
-  return channel
 }
 
 /** Only a Bot's owner can bring it into a channel of this team. */
@@ -110,7 +107,8 @@ export async function listChannelAgents(channel: ChannelFields & { teamId?: stri
             sessionId: id,
             title: session.title,
             ownerId: session.userId,
-            ...(session.avatar ? { avatar: session.avatar } : {}),
+            // A Task has no stored face; in a channel it wears the one its id derives.
+            avatar: session.avatar ?? derivedAvatar(id),
             provider: runtimeProvider(session.agentRuntime),
           },
         ]

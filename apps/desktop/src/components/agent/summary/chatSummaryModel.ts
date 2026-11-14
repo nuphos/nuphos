@@ -2,8 +2,6 @@ import { isPull } from '../../../api/session-resource-types.ts'
 import { t } from '../../../i18n/index.ts'
 import { subAgentState } from '../../../lib/subAgentState.ts'
 import { changeStatus, resourceLabel } from '../../sidebar/sessionResourcePresentation.ts'
-import { normalizeCredentialAccess } from '../panel/credentialAccess.ts'
-import { countSelectedCredentials } from '../panel/credentialSelectorButtonCounts.ts'
 
 import type { AgentConversation } from '../../../api/agent-types.ts'
 import type { SessionResource } from '../../../api/session-resource-types.ts'
@@ -250,28 +248,4 @@ export function splitFileName(fileName: string): [string, string] {
   const dot = fileName.lastIndexOf('.')
 
   return dot > 0 ? [fileName.slice(0, dot), fileName.slice(dot)] : [fileName, '']
-}
-
-// A stored selection can predate newer credential kinds or carry null for an
-// unset one, so it goes through the same normalizer as the credential selector.
-function credentialAccessOf(conversation: AgentConversation | undefined) {
-  return normalizeCredentialAccess(conversation?.credentialAccess)
-}
-
-/** Connectors ticked for this chat, devices aside: those are shown with the runtime. */
-export function connectorCount(conversation: AgentConversation | undefined): number {
-  return countSelectedCredentials(credentialAccessOf(conversation))
-}
-
-export function deviceCount(conversation: AgentConversation | undefined): number {
-  return credentialAccessOf(conversation).deviceIds.length
-}
-
-/** The machine a runtime label names: "MacBook-Pro.local · Claude Code" → "MacBook-Pro.local". */
-export function machineName(label: string | undefined, local: boolean): string {
-  const name = label?.split(' · ')[0]?.trim()
-
-  if (name) return name
-
-  return local ? t('This computer') : t('Cloud runtime')
 }

@@ -264,6 +264,8 @@ export async function reattachAfterTransportLoss(
         ...errorTelemetryProperties(failure.error),
         team_id: session.teamId,
         session_id: session.conversationId,
+        runtime_id: session.endpoint.runtimeId,
+        device_id: session.endpoint.local?.deviceId,
         attempts: failure.attempts,
       })
       await markBackgroundWorkLost(session, 'unreachable')

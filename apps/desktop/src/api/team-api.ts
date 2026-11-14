@@ -2,7 +2,6 @@ import type { SessionConfigPick } from './session-config-types.ts'
 import type { LarkBindInput } from '../types/messaging.ts'
 import type {
   AgentProvider,
-  CreateRuntimeInput,
   ExternalRuntimeProviderProbe,
   PairExternalRuntimeInput,
   RegisterExternalRuntimeInput,
@@ -18,6 +17,10 @@ import type {
 } from '../types/team.ts'
 
 export const teamApi = {
+  atlasPreviewTeamImport: () => window.api.atlasPreviewTeamImport(),
+  atlasConfirmTeamImport: (token: string, sourceMember?: string) =>
+    window.api.atlasConfirmTeamImport(token, sourceMember),
+  atlasExportTeam: (teamId: string) => window.api.atlasExportTeam(teamId),
   atlasGetTeamGoogleClient: (teamId: string) => window.api.atlasGetTeamGoogleClient(teamId),
   atlasSetTeamGoogleClient: (teamId: string, clientId: string, clientSecret: string) =>
     window.api.atlasSetTeamGoogleClient(teamId, clientId, clientSecret),
@@ -55,8 +58,6 @@ export const teamApi = {
   atlasListRuntimeQuotas: (teamId: string) => window.api.atlasListRuntimeQuotas(teamId),
   atlasGetRuntimeQuotaHistory: (teamId: string, range: RuntimeQuotaHistoryRange) =>
     window.api.atlasGetRuntimeQuotaHistory(teamId, range),
-  atlasCreateRuntimeInstance: (teamId: string, input: CreateRuntimeInput) =>
-    window.api.atlasCreateRuntimeInstance(teamId, input),
   atlasProbeExternalRuntimeProvider: (
     teamId: string,
     url: string,

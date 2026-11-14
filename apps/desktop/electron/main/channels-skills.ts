@@ -1,8 +1,9 @@
 import * as atlas from '../atlas'
 
 import { approveLinkedSkill } from './local-setup-snapshot'
+import { readTeam, stateKey } from './local-setup-state'
 import { localSetupStatus, syncLocalSetup, syncLocalSetupAfter } from './local-setup-sync'
-import { setLocalSetupAutoSync } from './local-setup-watch'
+import { setLocalSetupAutoSync, setLocalSetupFolders } from './local-setup-watch'
 import { importLocalSkills } from './local-skill-import'
 import { listLocalSkills } from './local-skills'
 
@@ -71,4 +72,9 @@ export const skillChannels = {
   },
   'localSetup:setAutoSync': (_e: unknown, teamId: string, enabled: boolean) =>
     setLocalSetupAutoSync(teamId, enabled),
+  'localSetup:setFolders': (_e: unknown, teamId: string, folders: string[]) =>
+    setLocalSetupFolders(teamId, folders),
+  // The folder each synced skill came from, as of the last pass: no disk walk.
+  'localSetup:sources': async (_e: unknown, teamId: string) =>
+    readTeam(await stateKey(teamId)).sources ?? {},
 }

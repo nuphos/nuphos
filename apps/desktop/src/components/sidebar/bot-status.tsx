@@ -5,14 +5,12 @@ import { BotStatusLine } from './bot-status-line'
 import { chatSidebarItem } from './chat-item'
 import { ChatRowStatus } from './ChatRowStatus'
 
-import type { Activity, Run } from './bot-activity'
+import type { Run } from './bot-activity'
 import type { Item } from './types'
 import type { ChannelFace } from '../../api/agent-types'
 
-/** A question outranks an unread reply; work alone shows no dot. */
-function rowDot(activity: Activity, unread: boolean): 'waiting' | 'unread' | null {
-  if (activity.kind === 'asking') return 'waiting'
-
+/** Reading clears the neutral dot; pending questions stay in the preview. */
+function rowDot(unread: boolean): 'unread' | null {
   return unread ? 'unread' : null
 }
 
@@ -63,11 +61,12 @@ export function botChatRows({
   const busy = activity.kind === 'working' || activity.kind === 'background'
   const row: Item = {
     ...chat,
+    dot: rowDot(unread),
     // The motion says "working"; the mark keeps only what asks for attention.
     trailing: (
       <ChatRowStatus
         runtimeState={activity.kind === 'error' ? bot?.runtimeState : undefined}
-        dot={rowDot(activity, unread)}
+        dot={rowDot(unread)}
       />
     ),
     ...(busy && {

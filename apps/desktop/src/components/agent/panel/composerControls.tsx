@@ -184,7 +184,7 @@ function SendControls({
             hero ? 'w-8 h-8 rounded-full' : 'w-7 h-7 rounded-md',
             'bg-surface-sunken hover:bg-state-hover text-main flex items-center justify-center transition-colors',
           )}
-          title={t('Stop agent')}
+          title={t('Stop')}
         >
           <Square className="w-3 h-3 fill-current" strokeWidth={2.2} />
         </button>
@@ -225,9 +225,9 @@ function SendControls({
 }
 
 /**
- * The toolbar's left controls on one row. A control that does not fit wraps
- * whole onto a second line the row never shows, and is made inert there so
- * keyboard focus cannot land on it or scroll it into view; a menu it had open closes.
+ * The toolbar's left controls on one row. A control that does not fit wraps whole onto a second line the
+ * row never shows, and is made inert there so keyboard focus cannot land on it or scroll it into view; a menu
+ * it had open closes. A `data-keep` control outranks those before it: they leave, nearest first, until it fits.
  */
 export function ComposerTools({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -242,12 +242,18 @@ export function ComposerTools({ children }: { children: ReactNode }) {
         (child): child is HTMLElement =>
           child instanceof HTMLElement && !child.matches('[data-base-ui-focus-guard], [aria-owns]'),
       )
+      const keep = controls.find((control) => control.matches('[data-keep]'))
+      const before = keep ? controls.slice(0, controls.indexOf(keep)) : []
+
+      for (const control of before) control.style.display = ''
       const first = controls[0]
 
       if (!first) return
       // Controls on the first line differ in height by a few pixels; the hidden line starts a full row lower.
       const nextLine = first.offsetTop + first.offsetHeight
 
+      for (const control of before.toReversed())
+        if (keep && keep.offsetTop >= nextLine) control.style.display = 'none'
       for (const control of controls) control.inert = control.offsetTop >= nextLine
       // A menu whose trigger just dropped out has nothing to anchor to or return focus to.
       if (
@@ -271,7 +277,7 @@ export function ComposerTools({ children }: { children: ReactNode }) {
   return (
     <div
       ref={ref}
-      className="-my-3 flex h-14 min-w-0 flex-1 flex-wrap content-start items-center gap-x-0.5 gap-y-6 overflow-hidden py-3 @[320px]:gap-x-1"
+      className="-my-3 flex h-14 min-w-16 flex-auto flex-wrap content-start items-center gap-x-0.5 gap-y-6 overflow-hidden py-3 @[320px]:gap-x-1"
     >
       {children}
     </div>

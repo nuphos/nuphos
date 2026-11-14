@@ -21,7 +21,17 @@ useSlackAgentBot({ getSlackAgentThreadsBySessionIds: async () => [] })
 useDb({
   db: () =>
     ({
-      collection: () => ({ find: () => ({ toArray: async () => [] }) }),
+      collection: () => {
+        // Empty, and chainable the way a chat's faces and preview read it.
+        const cursor = {
+          sort: () => cursor,
+          limit: () => cursor,
+          project: () => cursor,
+          toArray: async () => [],
+        }
+
+        return { find: () => cursor, findOne: async () => null }
+      },
     }) as never,
 })
 useAgentRunStore({
@@ -146,4 +156,18 @@ test('a row leaves out what only the open conversation or the server reads', asy
   ]) {
     expect(row).not.toHaveProperty(field)
   }
+})
+
+test("a group chat says so, so a client never takes it for a Bot's 1:1 chat", async () => {
+  const [group, chat] = (await serializeConversationList(
+    [
+      { ...conversation('group'), kind: 'channel', group: true, agentSessionIds: [] },
+      { ...conversation('chat'), kind: 'channel', agentSessionIds: [] },
+    ],
+    { userId: 'user-a' } as never,
+    'team-a',
+  )) as Record<string, unknown>[]
+
+  expect(group?.group).toBe(true)
+  expect(chat?.group).toBeUndefined()
 })

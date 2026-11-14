@@ -33,12 +33,6 @@ async function recallFetch(path: string, body: object): Promise<unknown> {
   return response.json()
 }
 
-function transcriptProvider(recall: Recall): object {
-  return recall.transcriptProvider
-    ? { [recall.transcriptProvider]: {} }
-    : { recallai_streaming: { mode: 'prioritize_low_latency', language_code: 'en' } }
-}
-
 /** Sends a bot into the meeting; its transcript and chat arrive at `webhookUrl`. */
 export async function createMeetingBot(input: {
   meetingUrl: string
@@ -53,7 +47,9 @@ export async function createMeetingBot(input: {
       // Zero data retention: only the real-time stream is used, so Recall keeps no media.
       retention: null,
       transcript: {
-        provider: transcriptProvider(recall),
+        provider: recall.transcriptProvider ?? {
+          recallai_streaming: { mode: 'prioritize_low_latency', language_code: 'en' },
+        },
         diarization: { use_separate_streams_when_available: true },
       },
       realtime_endpoints: [
@@ -85,7 +81,11 @@ export function forwardToMeeting(
 }
 
 export async function leaveMeeting(botId: string): Promise<void> {
-  await recallFetch(`/bot/${botId}/leave_call/`, {})
+  await recallFetch(`/bot/${botId}/leave_call/`, {}).catch((error: unknown) => {
+    // Recall calls a bot whose call already ended "unstarted": it is out either way.
+    if (!(error instanceof AppError && error.message.includes('cannot_command_unstarted_bot')))
+      throw error
+  })
 }
 
 /** Recall signs `id.timestamp.body` with the workspace secret (Standard Webhooks). */

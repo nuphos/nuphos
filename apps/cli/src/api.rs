@@ -163,6 +163,37 @@ impl Api {
         Ok(v["conversations"].as_array().cloned().unwrap_or_default())
     }
 
+    /// My Bots in the team: conversations with an avatar, newest activity first.
+    /// Follows `nextCursor` for up to `BOT_PAGES` pages; the flag says more remain.
+    pub async fn bots(&self, team: &str) -> Result<(Vec<Value>, bool), ApiError> {
+        const BOT_PAGES: usize = 10;
+        let mut bots = Vec::new();
+        let mut cursor: Option<String> = None;
+        for _ in 0..BOT_PAGES {
+            let mut query = vec![
+                ("teamId", team),
+                ("limit", "100"),
+                ("scope", "mine"),
+                ("sort", "activity"),
+                ("archived", "exclude"),
+                ("bots", "true"),
+            ];
+            query.extend(cursor.as_deref().map(|c| ("cursor", c)));
+            let v = self.call(Method::GET, "/agent/conversations", &query, None).await?;
+            bots.extend(v["conversations"].as_array().cloned().unwrap_or_default());
+            match v["nextCursor"].as_str().filter(|_| v["hasMore"] == true) {
+                Some(next) => cursor = Some(next.to_string()),
+                None => return Ok((bots, false)),
+            }
+        }
+        Ok((bots, true))
+    }
+
+    /// Creates a Bot in Full Access: `{ sessionId, title, avatar }`.
+    pub async fn create_bot(&self, team: &str, body: &Value) -> Result<Value, ApiError> {
+        self.call(Method::POST, "/agent/bots", &[("teamId", team)], Some(body)).await
+    }
+
     /// The sidebar favorites, pinned conversations among them: `{ entries, revision }`.
     pub async fn favorites(&self, team: &str) -> Result<Value, ApiError> {
         self.call(Method::GET, &format!("/teams/{team}/favorites"), &[], None).await
@@ -194,12 +225,6 @@ impl Api {
     pub async fn runtimes(&self, team: &str) -> Result<Vec<Value>, ApiError> {
         let v = self.call(Method::GET, &format!("/teams/{team}/agent-runtimes"), &[], None).await?;
         Ok(v["runtimes"].as_array().cloned().unwrap_or_default())
-    }
-
-    /// A Nuphos-managed Cloud agent; administrators only.
-    pub async fn create_runtime(&self, team: &str, provider: &str) -> Result<Value, ApiError> {
-        let body = json!({ "provider": provider });
-        self.call(Method::POST, &format!("/teams/{team}/agent-runtimes"), &[], Some(&body)).await
     }
 
     /// `{ online, … }` — whether the agent answers yet.

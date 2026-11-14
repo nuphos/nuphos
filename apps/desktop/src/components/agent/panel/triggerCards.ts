@@ -30,7 +30,7 @@ function outputText(output: unknown): string {
 }
 
 // `trigger-api.sh <team> POST '' @body` creates; `PATCH <id> @body` updates.
-// Sub-routes (test-fire, groups, finalize-wiring) are not a trigger's settings.
+// Sub-routes such as test-fire are not a trigger's settings.
 function scriptCall(command: string): { action: TriggerCardInfo['action']; path: string } | null {
   if (!command.includes('trigger-api.sh')) return null
   const tokens = command.split(/\s+/).map(unquote)

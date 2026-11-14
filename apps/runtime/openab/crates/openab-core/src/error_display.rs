@@ -1,57 +1,64 @@
-/// Format any error for user display in Discord.
-///
-/// Handles two error categories:
-/// - **Coded errors** (code != 0): JSON-RPC or HTTP status codes from upstream agent.
-/// - **Startup/connection errors** (code == 0): Errors from pool.rs or connection.rs
-///   where only the message string is available.
-///
-/// Provider-agnostic: no provider-specific strings, message text passed through verbatim.
-pub fn format_user_error(message: &str) -> String {
-    let msg_lower = message.to_lowercase();
+use crate::acp::connection::AcpRequestError;
+use crate::acp::pool::SessionStartError;
+use std::io::ErrorKind;
 
+/// Format a session start failure for user display in Discord.
+///
+/// Causes the runtime knows are matched by variant. Only the agent's own text
+/// (an agent error's message, or an untyped failure) is read for a disk-full or
+/// sign-in cause; anything else is passed through verbatim.
+pub fn format_user_error(e: &SessionStartError) -> String {
+    let auth_required = match e {
+        SessionStartError::Request(AcpRequestError::Timeout { method }) => {
+            return format!("**Request Timeout**\nTimeout waiting for {method}, please try again.");
+        }
+        SessionStartError::Request(AcpRequestError::ConnectionClosed { .. }) => {
+            return "**Connection Lost**\nThe connection to the agent was lost, please try again."
+                .to_string();
+        }
+        SessionStartError::PoolExhausted(_) => {
+            return "**Service Busy**\nAll agent sessions are in use, please try again shortly."
+                .to_string();
+        }
+        SessionStartError::Spawn { source, .. } if source.kind() != ErrorKind::StorageFull => {
+            return "**Agent Not Found**\nCould not start the agent — please check your configuration."
+                .to_string();
+        }
+        SessionStartError::Request(AcpRequestError::Agent(err))
+            if err.code == -32603
+                && err.message.trim() == "Internal error"
+                && err.data_message().is_none() =>
+        {
+            return "**Internal Error** (code: -32603)\nThe agent failed without reporting a reason. \
+                    Try again; if it keeps happening, check the agent's logs or switch to another \
+                    runtime."
+                .to_string();
+        }
+        // ACP `auth_required`.
+        SessionStartError::Request(AcpRequestError::Agent(err)) => {
+            err.code == -32000
+                && err
+                    .message
+                    .to_lowercase()
+                    .contains("authentication required")
+        }
+        _ => false,
+    };
+
+    let message = e.to_string();
+    let msg_lower = message.to_lowercase();
     // `ENOSPC` is an errno, not prose, so it names a fix reliably; the raw cause stays quoted.
-    if msg_lower.contains("enospc") || msg_lower.contains("no space left on device") {
+    let disk_full = matches!(e, SessionStartError::Spawn { source, .. } if source.kind() == ErrorKind::StorageFull)
+        || msg_lower.contains("enospc")
+        || msg_lower.contains("no space left on device");
+    if disk_full {
         return format!(
             "**Disk Full**\nThe machine running the agent is out of disk space, so the agent \
              could not start. Free up disk space there or switch to another runtime, then try \
              again.\n> {message}"
         );
     }
-    if message.trim() == "JSON-RPC error -32603: Internal error" {
-        return "**Internal Error** (code: -32603)\nThe agent failed without reporting a reason. \
-                Try again; if it keeps happening, check the agent's logs or switch to another \
-                runtime."
-            .to_string();
-    }
-
-    // Startup / connection errors (code == 0 from anyhow)
-    if msg_lower.contains("timeout waiting for") {
-        // Use msg_lower for extraction to stay case-insistent with the match above.
-        // msg_lower and message are the same length, so byte offsets are valid.
-        if let Some(start) = msg_lower.find("timeout waiting for ") {
-            let rest = &message[start + "timeout waiting for ".len()..];
-            let method = rest.split_whitespace().next().unwrap_or("request");
-            return format!(
-                "**Request Timeout**\nTimeout waiting for {}, please try again.",
-                method
-            );
-        }
-        return "**Request Timeout**\nTimeout waiting for a response, please try again."
-            .to_string();
-    }
-    if msg_lower.contains("connection closed") || msg_lower.contains("channel closed") {
-        return "**Connection Lost**\nThe connection to the agent was lost, please try again."
-            .to_string();
-    }
-    if msg_lower.contains("failed to spawn") || msg_lower.contains("no such file") {
-        return "**Agent Not Found**\nCould not start the agent — please check your configuration."
-            .to_string();
-    }
-    if msg_lower.contains("pool exhausted") {
-        return "**Service Busy**\nAll agent sessions are in use, please try again shortly."
-            .to_string();
-    }
-    if is_sign_in_failure(&msg_lower) {
+    if auth_required || is_sign_in_notice(&msg_lower) {
         return format!(
             "**Sign-in Required**\nThe agent's sign-in with its model provider is missing or no \
              longer valid, so it could not start. Sign the agent in again (or update its API \
@@ -59,7 +66,6 @@ pub fn format_user_error(message: &str) -> String {
         );
     }
 
-    // Unknown error — pass through as-is
     if message.is_empty() {
         "**Error**\nAn unknown error occurred.".to_string()
     } else {
@@ -67,15 +73,17 @@ pub fn format_user_error(message: &str) -> String {
     }
 }
 
-/// ACP `auth_required` (-32000), Claude Code's own sign-in notices, and the plain 401s
-/// this branch always covered. Free-text guesses (e.g. "token expired") stay unmatched.
-fn is_sign_in_failure(msg_lower: &str) -> bool {
-    let acp_auth_required =
-        msg_lower.contains("-32000") && msg_lower.contains("authentication required");
-    acp_auth_required
-        || ["failed to authenticate", "please run /login", "invalid api key", "unauthorized"]
-            .iter()
-            .any(|needle| msg_lower.contains(needle))
+/// Claude Code's own sign-in notices and the plain 401s this branch always covered.
+/// Free-text guesses (e.g. "token expired") stay unmatched.
+fn is_sign_in_notice(msg_lower: &str) -> bool {
+    [
+        "failed to authenticate",
+        "please run /login",
+        "invalid api key",
+        "unauthorized",
+    ]
+    .iter()
+    .any(|needle| msg_lower.contains(needle))
 }
 
 /// Format coded error from ACP agent for display in Discord.
@@ -133,64 +141,93 @@ mod tests {
 
     // ─── format_user_error tests ─────────────────────────────────────────────
 
+    use crate::acp::protocol::JsonRpcError;
+
+    fn agent(code: i64, message: &str, detail: Option<&str>) -> SessionStartError {
+        AcpRequestError::from(JsonRpcError {
+            code,
+            message: message.into(),
+            data: detail.map(|d| serde_json::json!({ "message": d })),
+        })
+        .into()
+    }
+
+    fn text(message: &str) -> SessionStartError {
+        anyhow::anyhow!("{message}").into()
+    }
+
     #[test]
     fn format_user_error_timeout() {
-        let result = format_user_error("timeout waiting for session/new response");
+        let e = AcpRequestError::Timeout {
+            method: "session/new".into(),
+        };
+        let result = format_user_error(&e.into());
         assert!(result.contains("Request Timeout"));
         assert!(result.contains("session/new"));
     }
 
     #[test]
     fn format_user_error_connection_closed() {
-        let result = format_user_error("connection closed");
-        assert!(result.contains("Connection Lost"));
-    }
-
-    #[test]
-    fn format_user_error_channel_closed() {
-        let result = format_user_error("channel closed");
-        assert!(result.contains("Connection Lost"));
+        let e = AcpRequestError::ConnectionClosed {
+            method: "initialize".into(),
+        };
+        assert!(format_user_error(&e.into()).contains("Connection Lost"));
     }
 
     #[test]
     fn format_user_error_failed_to_spawn() {
-        let result = format_user_error("failed to spawn /some/path: No such file");
+        let e = SessionStartError::Spawn {
+            command: "/some/path".into(),
+            source: std::io::Error::from(ErrorKind::NotFound),
+        };
+        let result = format_user_error(&e);
         assert!(result.contains("Agent Not Found"));
         assert!(result.contains("the agent")); // generic, no provider name
     }
 
     #[test]
-    fn format_user_error_no_such_file() {
-        let result = format_user_error("binary /usr/bin/nonexistent: no such file");
-        assert!(result.contains("Agent Not Found"));
+    fn format_user_error_spawn_on_a_full_disk_says_disk_full() {
+        let e = SessionStartError::Spawn {
+            command: "/some/path".into(),
+            source: std::io::Error::from(ErrorKind::StorageFull),
+        };
+        assert!(format_user_error(&e).starts_with("**Disk Full**"));
     }
 
     #[test]
     fn format_user_error_pool_exhausted() {
-        let result = format_user_error("pool exhausted (5 sessions)");
+        let result = format_user_error(&SessionStartError::PoolExhausted(5));
         assert!(result.contains("Service Busy"));
     }
 
     #[test]
     fn format_user_error_invalid_api_key() {
-        let result = format_user_error("invalid api key");
-        assert!(result.contains("Sign-in Required"));
+        assert!(format_user_error(&text("invalid api key")).contains("Sign-in Required"));
     }
 
     #[test]
     fn format_user_error_unauthorized() {
-        let result = format_user_error("unauthorized: token rejected");
+        let result = format_user_error(&text("unauthorized: token rejected"));
         assert!(result.contains("Sign-in Required"));
     }
 
     #[test]
     fn format_user_error_signed_out_agent_says_to_sign_in_again() {
-        for raw in [
-            "JSON-RPC error -32000: Authentication required",
-            "JSON-RPC error -32603: Internal error — Invalid API key · Please run /login",
-            "Internal error: Failed to authenticate. API Error: 401 OAuth token has expired",
+        for e in [
+            agent(-32000, "Authentication required", None),
+            agent(
+                -32603,
+                "Internal error",
+                Some("Invalid API key · Please run /login"),
+            ),
+            agent(
+                -32603,
+                "Internal error: Failed to authenticate. API Error: 401 OAuth token has expired",
+                None,
+            ),
         ] {
-            let result = format_user_error(raw);
+            let raw = e.to_string();
+            let result = format_user_error(&e);
             assert!(result.starts_with("**Sign-in Required**"), "{raw}");
             assert!(result.contains("Sign the agent in again"), "{raw}");
             assert!(result.ends_with(&format!("> {raw}")), "{raw}");
@@ -204,36 +241,38 @@ mod tests {
             "refresh token was revoked",
             "Authentication required for MCP server github",
         ] {
-            assert!(format_user_error(raw).starts_with("**Error**"), "{raw}");
+            assert!(
+                format_user_error(&text(raw)).starts_with("**Error**"),
+                "{raw}"
+            );
         }
+        let other_code = agent(-32001, "Authentication required", None);
+        assert!(format_user_error(&other_code).starts_with("**Error**"));
     }
 
     #[test]
     fn format_user_error_unknown() {
-        let result = format_user_error("something went wrong");
+        let result = format_user_error(&text("something went wrong"));
         assert!(result.contains("Error"));
         assert!(result.contains("something went wrong"));
     }
 
     #[test]
     fn format_user_error_empty() {
-        let result = format_user_error("");
+        let result = format_user_error(&text(""));
         assert!(result.contains("Error"));
         assert!(result.contains("unknown"));
     }
 
     #[test]
-    fn format_user_error_case_insensitive() {
-        assert!(format_user_error("TIMEOUT WAITING FOR foo").contains("Timeout"));
-        assert!(format_user_error("CONNECTION CLOSED").contains("Connection"));
-        assert!(format_user_error("POOL EXHAUSTED").contains("Busy"));
-    }
-
-    #[test]
     fn format_user_error_disk_full_names_the_fix_and_keeps_the_cause() {
-        let raw =
-            "JSON-RPC error -32603: Internal error — ENOSPC: no space left on device, mkdir '/x'";
-        let result = format_user_error(raw);
+        let e = agent(
+            -32603,
+            "Internal error",
+            Some("ENOSPC: no space left on device, mkdir '/x'"),
+        );
+        let raw = e.to_string();
+        let result = format_user_error(&e);
         assert!(result.starts_with("**Disk Full**"));
         assert!(result.contains("Free up disk space"));
         assert!(result.ends_with(&format!("> {raw}")));
@@ -241,15 +280,20 @@ mod tests {
 
     #[test]
     fn format_user_error_keeps_the_adapters_own_process_death_notice() {
-        let raw = "JSON-RPC error -32603: Internal error — Claude Code ran out of memory: this \
-                   computer's agents reached their memory limit (3.6 GB) and the system stopped \
-                   it. Send a message to continue.";
-        assert_eq!(format_user_error(raw), format!("**Error**\n{raw}"));
+        let e = agent(
+            -32603,
+            "Internal error",
+            Some(
+                "Claude Code ran out of memory: this computer's agents reached their memory \
+                 limit (3.6 GB) and the system stopped it. Send a message to continue.",
+            ),
+        );
+        assert_eq!(format_user_error(&e), format!("**Error**\n{e}"));
     }
 
     #[test]
     fn format_user_error_bare_internal_error_says_what_to_do() {
-        let result = format_user_error("JSON-RPC error -32603: Internal error");
+        let result = format_user_error(&agent(-32603, "Internal error", None));
         assert!(result.starts_with("**Internal Error** (code: -32603)"));
         assert!(result.contains("without reporting a reason"));
         assert!(!result.contains("JSON-RPC error"));
@@ -257,16 +301,14 @@ mod tests {
 
     #[test]
     fn format_user_error_internal_error_with_detail_passes_it_through() {
-        let raw = "JSON-RPC error -32603: Internal error — model not found";
-        assert_eq!(format_user_error(raw), format!("**Error**\n{raw}"));
+        let e = agent(-32603, "Internal error", Some("model not found"));
+        assert_eq!(format_user_error(&e), format!("**Error**\n{e}"));
     }
 
     #[test]
-    fn format_user_error_mixed_case_timeout() {
-        // Case-insensitive matching should still extract method correctly
-        let result = format_user_error("Timeout Waiting For custom/method");
-        assert!(result.contains("Request Timeout"));
-        assert!(result.contains("custom/method"));
+    fn format_user_error_matches_by_variant_not_by_wording() {
+        let reworded = text("timeout waiting for session/new response");
+        assert!(format_user_error(&reworded).starts_with("**Error**"));
     }
 
     // ─── format_coded_error tests ───────────────────────────────────────────

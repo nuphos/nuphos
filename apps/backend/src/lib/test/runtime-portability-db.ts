@@ -97,7 +97,10 @@ function update(doc: Doc, query: Doc, mutation: Doc) {
     const drop = (entry: unknown) =>
       value && typeof value === 'object' && '$in' in value
         ? value.$in.includes(entry)
-        : entry === value
+        : value && typeof value === 'object'
+          ? Boolean(entry) &&
+            Object.entries(value).every(([field, wanted]) => (entry as Doc)[field] === wanted)
+          : entry === value
 
     doc[key] = (doc[key] ?? []).filter((entry: unknown) => !drop(entry))
   }

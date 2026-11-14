@@ -30,7 +30,7 @@ fun AgentChip(selection: RuntimeSelections.Selection?, enabled: Boolean, onClick
         else -> "Choose runtime"
     }
     TextButton(
-        modifier = modifier.semantics { contentDescription = if (labelOverride == null) "Runtime for new agents: $label" else "Runtime for this agent: $label" },
+        modifier = modifier.semantics { contentDescription = if (labelOverride == null) "Runtime for new tasks: $label" else "Runtime for this task: $label" },
         enabled = enabled,
         onClick = onClick,
     ) {

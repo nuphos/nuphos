@@ -17,7 +17,8 @@ import { withLabel } from './tools-skilled/labeling'
 const LIST_DESCRIPTION =
   'List the most recent conversations in this workspace (newest first), optionally filtered by a substring of their title or first message. ' +
   'Pages with cursor — pass the returned next_cursor to continue. ' +
-  'Use it when the user refers to an earlier conversation — "what did we decide last time", "the chat from this morning about billing", "that cluster we set up" — to find it by title, topic or recency before asking them to repeat themselves, then read_conversation to read it.'
+  'Use it when the user refers to an earlier conversation — "what did we decide last time", "the chat from this morning about billing", "that cluster we set up" — to find it by title, topic or recency before asking them to repeat themselves, then read_conversation to read it. ' +
+  'Set bots to list only Bots, however long ago they were active: the way to find another Bot to message with send_message_to_thread.'
 
 const READ_DESCRIPTION =
   "Read one conversation's transcript in compact form: one line per message (`#index role: text`), tool calls summarized as `[tool: name]`. " +
@@ -92,12 +93,13 @@ export function createSessionTools(
       .boolean()
       .optional()
       .describe("true lists only this conversation's sub-agents (threads nested under it)."),
+    bots: z.boolean().optional().describe('true lists only Bots (conversations with a face).'),
   }
   const list_recent_conversations = withLabel(
     tool({
       description: LIST_DESCRIPTION,
       inputSchema: z.object(listShape),
-      execute: async ({ limit, search, scope, cursor, children }) => {
+      execute: async ({ limit, search, scope, cursor, children, bots }) => {
         const { conversations, nextCursor } = await getConversations(userId, {
           teamId,
           limit: limit ?? 15,
@@ -105,6 +107,7 @@ export function createSessionTools(
           // Sub-agents are the user's own threads, so children stays owner-scoped.
           scope: children ? 'mine' : (scope ?? 'mine'),
           cursor,
+          bots,
           ...(children ? { parentSessionId: conversationId } : {}),
         })
 

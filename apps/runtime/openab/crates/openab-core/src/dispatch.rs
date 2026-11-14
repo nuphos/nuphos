@@ -463,10 +463,7 @@ impl Dispatcher {
                 let _ = adapter
                     .send_message(
                         &thread_channel,
-                        &format!(
-                            "⚠️ {}",
-                            format_user_error("dispatch consumer exited unexpectedly")
-                        ),
+                        "⚠️ **Error**\ndispatch consumer exited unexpectedly",
                     )
                     .await;
                 return Err(DispatchError::ConsumerDead);
@@ -645,7 +642,7 @@ async fn consumer_loop(
 /// chat platforms keep the readable notice.
 async fn report_session_failure(adapter: &Arc<dyn ChatAdapter>, channel: &ChannelRef, e: &SessionStartError) {
     if channel.platform != "acp" {
-        let user_msg = format_user_error(&e.to_string());
+        let user_msg = format_user_error(e);
         let _ = adapter.send_message(channel, &format!("⚠️ {user_msg}")).await;
         return;
     }
@@ -654,7 +651,7 @@ async fn report_session_failure(adapter: &Arc<dyn ChatAdapter>, channel: &Channe
             format_coded_error(err.code, &err.message, err.data_message().as_deref()),
             Some(err.relay_data()),
         ),
-        _ => (format_user_error(&e.to_string()), None),
+        _ => (format_user_error(e), None),
     };
     if let Err(send_err) = adapter.fail_agent_turn(channel, "", &error, data).await {
         warn!(error = %send_err, "failed to report session start failure");
@@ -1447,9 +1444,7 @@ mod tests {
         reactions: ReactionsConfig,
         calls: Mutex<Vec<RecordedDispatch>>,
         /// If set, `ensure_session` returns this error once.
-        ensure_err: Mutex<Option<String>>,
-        /// If set, `ensure_session` returns this adapter error once.
-        ensure_rpc_err: Mutex<Option<JsonRpcError>>,
+        ensure_err: Mutex<Option<SessionStartError>>,
         /// If set, `stream_prompt_blocks` returns this error once.
         stream_err: Mutex<Option<String>>,
     }
@@ -1460,7 +1455,6 @@ mod tests {
                 reactions: ReactionsConfig::default(),
                 calls: Mutex::new(Vec::new()),
                 ensure_err: Mutex::new(None),
-                ensure_rpc_err: Mutex::new(None),
                 stream_err: Mutex::new(None),
             }
         }
@@ -1491,11 +1485,8 @@ mod tests {
             _mcp_servers: &[serde_json::Value],
             _session_meta: Option<&serde_json::Value>,
         ) -> Result<bool, SessionStartError> {
-            if let Some(msg) = self.ensure_err.lock().unwrap().take() {
-                return Err(anyhow::anyhow!(msg).into());
-            }
-            if let Some(err) = self.ensure_rpc_err.lock().unwrap().take() {
-                return Err(AcpRequestError::from(err).into());
+            if let Some(err) = self.ensure_err.lock().unwrap().take() {
+                return Err(err);
             }
             Ok(true)
         }
@@ -1648,11 +1639,14 @@ mod tests {
     #[tokio::test]
     async fn acp_session_start_failure_fails_the_turn_with_the_adapter_code() {
         let mock = Arc::new(MockDispatchTarget::new());
-        *mock.ensure_rpc_err.lock().unwrap() = Some(JsonRpcError {
-            code: -32000,
-            message: "Authentication required".into(),
-            data: None,
-        });
+        *mock.ensure_err.lock().unwrap() = Some(
+            AcpRequestError::from(JsonRpcError {
+                code: -32000,
+                message: "Authentication required".into(),
+                data: None,
+            })
+            .into(),
+        );
 
         let recorder = run_failed_session_start("acp", mock.clone()).await;
 
@@ -1670,7 +1664,12 @@ mod tests {
     #[tokio::test]
     async fn acp_session_start_failure_without_a_code_still_fails_the_turn() {
         let mock = Arc::new(MockDispatchTarget::new());
-        *mock.ensure_err.lock().unwrap() = Some("timeout waiting for session/new response".into());
+        *mock.ensure_err.lock().unwrap() = Some(
+            AcpRequestError::Timeout {
+                method: "session/new".into(),
+            }
+            .into(),
+        );
 
         let recorder = run_failed_session_start("acp", mock).await;
 
@@ -1683,11 +1682,14 @@ mod tests {
     #[tokio::test]
     async fn chat_platform_session_start_failure_keeps_the_text_notice() {
         let mock = Arc::new(MockDispatchTarget::new());
-        *mock.ensure_rpc_err.lock().unwrap() = Some(JsonRpcError {
-            code: -32603,
-            message: "Internal error".into(),
-            data: None,
-        });
+        *mock.ensure_err.lock().unwrap() = Some(
+            AcpRequestError::from(JsonRpcError {
+                code: -32603,
+                message: "Internal error".into(),
+                data: None,
+            })
+            .into(),
+        );
 
         let recorder = run_failed_session_start("discord", mock).await;
 

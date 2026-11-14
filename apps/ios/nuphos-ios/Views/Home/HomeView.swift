@@ -79,7 +79,7 @@ struct HomeView: View {
                         Button {
                             isSearching.toggle()
                         } label: {
-                            Label("Search agents", systemImage: "magnifyingglass")
+                            Label("Search tasks", systemImage: "magnifyingglass")
                         }
                     }
                     GlassGroupSpacer()
@@ -242,7 +242,7 @@ struct HomeView: View {
     private var newAgentItem: some ToolbarContent {
         if sizeClass == .regular {
             ToolbarItem(placement: .topBarLeading) {
-                Button("New agent", systemImage: "square.and.pencil") { openChat = nil }
+                Button("New task", systemImage: "square.and.pencil") { openChat = nil }
             }
         }
     }
@@ -307,7 +307,7 @@ private extension ToolbarContent {
 /// that Xcode rendered each SVG.
 private struct LogoPreviewGrid: View {
     private var names: [String] {
-        CredentialCatalog.providers.map(\.logo) + ["logo-claude", "logo-openai", "logo-grok", "logo-antigravity", "logo-opencode"]
+        CredentialCatalog.providers.map(\.logo) + ["logo-claude", "logo-openai", "logo-grok", "logo-antigravity", "logo-opencode", "logo-deepseek"]
     }
 
     var body: some View {

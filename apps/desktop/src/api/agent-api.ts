@@ -7,11 +7,7 @@ import { receiveSubAgents } from '../lib/subAgentIds.ts'
 
 import type { AgentAuditListArgs, AgentMemoryScope } from './agent-audit-types.ts'
 import type { DecisionAnswer } from './agent-chat-types.ts'
-import type {
-  CreateAgentTriggerInput,
-  UpdateAgentTriggerGroupInput,
-  UpdateAgentTriggerInput,
-} from './agent-trigger-types.ts'
+import type { UpdateAgentTriggerInput } from './agent-trigger-types.ts'
 import type {
   AgentCredentialSelection,
   AgentPersistedMessage,
@@ -241,23 +237,10 @@ export const agentApi = {
     window.api.agentUpdatePlanApprovalPolicy(teamId, minimumOtherApprovals),
   agentListTriggers: (teamId?: string, targetSessionId?: string) =>
     window.api.agentListTriggers(teamId, targetSessionId),
-  agentListTriggerGroups: (teamId?: string) => window.api.agentListTriggerGroups(teamId),
-  agentUpdateTriggerGroup: (groupId: string, patch: UpdateAgentTriggerGroupInput, teamId: string) =>
-    window.api.agentUpdateTriggerGroup(groupId, patch, teamId),
-  agentTestFireTriggerGroup: (groupId: string, teamId: string) =>
-    window.api.agentTestFireTriggerGroup(groupId, teamId),
   agentGetTrigger: (triggerId: string, teamId?: string) =>
     window.api.agentGetTrigger(triggerId, teamId),
-  agentCreateTrigger: (input: CreateAgentTriggerInput) => window.api.agentCreateTrigger(input),
   agentUpdateTrigger: (triggerId: string, patch: UpdateAgentTriggerInput, teamId?: string) =>
     window.api.agentUpdateTrigger(triggerId, patch, teamId),
-  agentDeleteTrigger: (triggerId: string, teamId?: string, withoutProviderCleanup?: boolean) =>
-    window.api.agentDeleteTrigger(triggerId, teamId, withoutProviderCleanup),
-  agentTestFireTrigger: (triggerId: string, payload?: Record<string, unknown>, teamId?: string) =>
-    window.api.agentTestFireTrigger(triggerId, payload, teamId),
-  agentTransferTriggerExecutionPrincipal: (triggerId: string, userId: string, teamId?: string) =>
-    window.api.agentTransferTriggerExecutionPrincipal(triggerId, userId, teamId),
-  agentTransferTriggerGroupExecutionPrincipal: (groupId: string, userId: string, teamId?: string) =>
-    window.api.agentTransferTriggerGroupExecutionPrincipal(groupId, userId, teamId),
-  agentGetTriggerSchedulerStatus: () => window.api.agentGetTriggerSchedulerStatus(),
+  agentDeleteTrigger: (triggerId: string, teamId?: string) =>
+    window.api.agentDeleteTrigger(triggerId, teamId),
 }

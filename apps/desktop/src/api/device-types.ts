@@ -35,7 +35,8 @@ export type DeviceExecAuditPage = {
 }
 
 /** This computer's own agent CLI; team runtimes can run more (`AgentProvider`). */
-export type LocalAgentProvider = 'claude-code' | 'codex' | 'grok' | 'antigravity' | 'opencode'
+export type LocalAgentProvider =
+  'claude-code' | 'codex' | 'grok' | 'antigravity' | 'opencode' | 'dsh'
 
 /** The agents this app signs in itself, through their own CLI login; the rest sign in from Nuphos. */
 export type CliLoginProvider = 'claude-code' | 'codex'
@@ -152,10 +153,9 @@ export type LocalShareInput = {
   managerIds?: string[]
 }
 
-/** A computer's share in one team, the most the team's administrators allow, and its managers. */
+/** A computer's share in one team and its managers. */
 export type LocalAgentShareState = {
   share: LocalShareInput
-  ceiling: LocalShareLevel
   /** Absent from older backends. */
   managerIds?: string[]
 }

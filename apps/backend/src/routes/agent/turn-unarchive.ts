@@ -2,7 +2,7 @@ import { restoreArchivedConversation } from '@/lib/agent/db'
 import { logError, logEvent } from '@/lib/observability'
 
 import type { AgentConversation } from '@/lib/agent/db'
-import type { AgentSessionOrigin } from '@/lib/agent/tools-triggers-shared'
+import type { AgentSessionOrigin } from '@/lib/agent/message-origin'
 
 type ArchivableConversation = Pick<AgentConversation, 'sessionId' | 'archivedAt'>
 

@@ -5,7 +5,7 @@ import { aboutField } from './decision-about'
 import { labelField, withLabel } from './labeling'
 
 import type { ExplicitUserDecision } from './types'
-import type { AgentSessionOrigin } from '../tools-triggers'
+import type { AgentSessionOrigin } from '@/lib/agent/message-origin'
 import type { SelectionKey } from '@/lib/claude-code-preview/credential-lister'
 
 // Connectors the desktop's in-chat Connect card can bind and then select for the
@@ -196,7 +196,7 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
         'Put choices in `options`, never in the question text; set `multiSelect` when several may apply. The user can always answer in their own words instead. ' +
         'Ask related questions together in one call through `questions` rather than one card after another; `question` is then the headline. ' +
         'The question is listed in the Inbox until answered: put what the user needs to decide in `body`, so they can answer there without reading the chat. ' +
-        'When it is about a PR or issue linked with bind_session_resource, or one of your sub-agent threads, name them in `about`: their changes then remind you of the question, to withdraw or update it. ' +
+        'When it is about a PR or issue linked with bind_session_resource, or another of your conversations (a sub-agent thread, or the session that will act on the answer), name them in `about`: their changes then remind you of the question, to withdraw or update it, and the conversations named are told the answer too, so they need not ask again. ' +
         'The result carries a `requestId`; while the question is open, update_user_decision corrects it and withdraw_user_decision removes it once it no longer applies. ' +
         'After it returns, never make the choice yourself or do the work that depends on it. You may continue with work that does not depend on the answer, or end your turn: the answer arrives as a new message either way.',
       // Strict: a misnamed field, e.g. `choices` for `options`, is refused rather than dropped.

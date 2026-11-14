@@ -7,7 +7,7 @@ import type { LocalAgentProvider } from './agent-cli.ts'
 const UPDATE_TIMEOUT_MS = 5 * 60_000
 const LATEST_TIMEOUT_MS = 10_000
 const LATEST_TTL_MS = 60 * 60_000
-/** Grok Build and OpenCode update through their own installers, so Nuphos offers no update. */
+/** Grok Build, OpenCode and DeepSeek Harness update on their own, so Nuphos offers no update. */
 const NPM_PACKAGE: Partial<Record<LocalAgentProvider, string>> = {
   'claude-code': '@anthropic-ai/claude-code',
   codex: '@openai/codex',

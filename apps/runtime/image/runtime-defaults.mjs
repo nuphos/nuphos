@@ -106,11 +106,6 @@ export async function nuphosSyncRuntimeSkills(params, run) {
     await fs.rm(revisionFile, { force: true }).catch(() => {})
     await fs.rm(holderFile, { force: true }).catch(() => {})
   }
-  // No personal skills is one state, whoever the credential names.
-  const installed = async () =>
-    (await fs.readdir(skills).catch(() => [])).length === 0
-      ? ''
-      : await fs.readFile(revisionFile, 'utf8').catch(() => '')
   // The part of the credential that says whose it is; the rest changes on every mint.
   const holder = (credential) => credential.split('.')[1] ?? ''
   const owner = () => fs.readFile(holderFile, 'utf8').catch(() => '')
@@ -131,7 +126,6 @@ export async function nuphosSyncRuntimeSkills(params, run) {
     return usable ? refreshed : atPrompt && credentials ? '' : token
   }
   const syncPersonal = async (timeoutMs, atPrompt) => {
-    const before = await installed()
     const credential = await credentialFor(atPrompt)
 
     if (!credential) await empty()
@@ -147,45 +141,13 @@ export async function nuphosSyncRuntimeSkills(params, run) {
     // A failed sync must not leave another member's skills in place. For the same
     // member it changes nothing: what is installed stays.
     else if (holder(credential) !== (await owner())) await empty()
-
-    return (await installed()) !== before
   }
 
-  // A running Claude Code session reads its skills when it starts, and its file watcher
-  // can lag a change by half a minute once the session is idle. So when the skills on
-  // disk changed, the session is rebuilt the way the adapter itself rebuilds one whose
-  // parameters changed: torn down and resumed, keeping the transcript and the settings
-  // the session had. Anything short of that leaves the session as it is.
-  globalThis.nuphosRefreshPersonalSkills = async (agent, prompt) => {
-    const changed = await syncPersonal(5_000, true).catch(() => false)
-    const id = prompt?.sessionId
-    const live = agent?.sessions?.[id]
-
-    if (!changed || !live) return
-    const kept = (live.configOptions ?? []).map((option) => [option.id, option.currentValue])
-    const resume = () =>
-      agent.createSession(
-        {
-          cwd: params.cwd,
-          mcpServers: params.mcpServers ?? [],
-          additionalDirectories: params.additionalDirectories,
-          _meta: params._meta,
-        },
-        { resume: id },
-      )
-
-    await agent.teardownSession(id)
-    // Past the teardown there is no session to fall back to, so try twice before
-    // letting the turn fail.
-    const rebuilt = await resume().catch(resume)
-
-    for (const [configId, value] of kept) {
-      const now = rebuilt.configOptions?.find((option) => option.id === configId)
-
-      if (now && now.currentValue !== value)
-        await agent.setSessionConfigOption({ sessionId: id, configId, value }).catch(() => {})
-    }
-  }
+  // A prompt only syncs the skills on disk. The running session picks a change up
+  // through its own file watcher, and a new process reads it on start. Rebuilding the
+  // session here meant tearing it down before resuming it, and a failed resume left
+  // the runtime holding a connection with no session (#2612).
+  globalThis.nuphosRefreshPersonalSkills = () => syncPersonal(5_000, true).catch(() => {})
   // A session reads its skills when it starts, and the fetch runs behind it. So skills
   // left here for anyone but the member opening it are cleared first; that is local.
   const opener = holder(await credentialFor(false))

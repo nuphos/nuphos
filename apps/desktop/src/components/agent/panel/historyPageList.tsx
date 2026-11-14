@@ -104,10 +104,10 @@ export function HistoryPageList({
             ? t('No agents match your search.')
             : (emptyLabel ??
               (ownerId
-                ? t('No agents from this member yet.')
+                ? t('No tasks from this member yet.')
                 : historyScope === 'team'
-                  ? t('No team agents yet.')
-                  : t("You haven't started any agents yet.")))}
+                  ? t('No team tasks yet.')
+                  : t("You haven't started any tasks yet.")))}
       </div>
     )
   }

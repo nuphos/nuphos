@@ -52,7 +52,7 @@ export function SessionInputQueue({
           <MessageCircleQuestion aria-hidden className="mt-0.5 size-3.5 shrink-0 text-warning" />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[12px] font-medium text-main">
-              {request.title || t('Untitled agent')}
+              {request.title || t('Untitled task')}
             </span>
             <span className="mt-0.5 line-clamp-2 block text-[12px] leading-5 text-secondary">
               {request.inputRequest.question}
@@ -127,11 +127,11 @@ export function SessionInputReply({
           <ArrowLeft aria-hidden className="size-4" />
         </button>
         <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-main">
-          {t('Reply to {name}', { name: request.title || t('Untitled agent') })}
+          {t('Reply to {name}', { name: request.title || t('Untitled task') })}
         </span>
         <button
           type="button"
-          aria-label={t('Open agent conversation')}
+          aria-label={t('Open task')}
           onClick={() => onOpenSession(request.sessionId, questionTarget)}
           className="rounded p-1 text-secondary hover:text-main"
         >
@@ -154,7 +154,7 @@ export function SessionInputReply({
               ? t('This request is no longer pending.')
               : request.inputRequest.category === 'credential'
                 ? t('Answer in the secure card below. Never paste a secret in a message.')
-                : t('Your reply goes to this agent only.')}
+                : t('Your reply goes to this task only.')}
           </span>
           {next && (
             <button type="button" onClick={() => onSelect(next)} className="shrink-0 text-primary">

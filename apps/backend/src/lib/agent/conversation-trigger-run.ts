@@ -8,17 +8,10 @@ export type ConversationTriggerRunKind = 'scheduled' | 'webhook' | 'manual'
 
 const RUN_KINDS = new Set<string>(['scheduled', 'webhook', 'manual'])
 
-/**
- * A conversation's link back to the trigger that fired it.
- *
- * `memberKey` is only set for Watch group runs: one partition trigger serves
- * every monitored item behind a provider's shared ingress, so the trigger id
- * alone would collapse a group's items into one indistinguishable run list.
- */
+/** A conversation's link back to the trigger that fired it. */
 export type ConversationTriggerRun = {
   id: string
   kind?: ConversationTriggerRunKind
-  memberKey?: string
   /**
    * The single fire this turn belongs to (the queue job id), when the caller
    * has one. A bound conversation accumulates turns from many fires, so the
@@ -38,13 +31,11 @@ export type ConversationTriggerRun = {
 export function buildTriggerRunStamp(args: {
   triggerId: string
   runKind: ConversationTriggerRunKind
-  groupMember?: { key: string }
   fireId?: string
 }): ConversationTriggerRun {
   return {
     id: args.triggerId,
     kind: args.runKind,
-    ...(args.groupMember?.key ? { memberKey: args.groupMember.key } : {}),
     ...(args.fireId ? { fireId: args.fireId } : {}),
   }
 }
@@ -63,7 +54,7 @@ export function normalizeConversationTriggerRun(
   const stamp = metadata?.trigger
 
   if (!stamp || typeof stamp !== 'object' || Array.isArray(stamp)) return null
-  const { id, kind, memberKey, fireId } = stamp as Record<string, unknown>
+  const { id, kind, fireId } = stamp as Record<string, unknown>
 
   if (typeof id !== 'string' || !id) return null
 
@@ -72,7 +63,6 @@ export function normalizeConversationTriggerRun(
     ...(typeof kind === 'string' && RUN_KINDS.has(kind)
       ? { kind: kind as ConversationTriggerRunKind }
       : {}),
-    ...(typeof memberKey === 'string' && memberKey ? { memberKey } : {}),
     ...(typeof fireId === 'string' && fireId ? { fireId } : {}),
   }
 }

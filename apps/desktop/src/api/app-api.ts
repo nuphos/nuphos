@@ -211,6 +211,9 @@ export const appApi = {
   ) => window.api.localSetupApproveLinks(teamId, name, reviewed),
   localSetupSetAutoSync: (teamId: string, enabled: boolean) =>
     window.api.localSetupSetAutoSync(teamId, enabled),
+  localSetupSetFolders: (teamId: string, folders: string[]) =>
+    window.api.localSetupSetFolders(teamId, folders),
+  localSetupSources: (teamId: string) => window.api.localSetupSources(teamId),
   teamSkillsImportLocal: (
     teamId: string,
     scope: SkillScope | undefined,

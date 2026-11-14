@@ -184,6 +184,48 @@ internal fun ChannelFiles(
             finally { local?.delete(); busy = null }
         }
     }
+    /** A video fetched to this post's cache, or null when it can't be. With [again], the copy kept before is fetched anew. */
+    suspend fun video(key: String, again: Boolean): File? = try {
+        val file = byKey[key] ?: error("Unknown file")
+        if (again) cached.remove(key)?.delete()
+        cached[key]?.takeIf { it.isFile } ?: run {
+            val remote = fresh(file)
+            withContext(Dispatchers.IO) {
+                val target = File.createTempFile("video-", ".${file.file.fileName.substringAfterLast('.', "mp4")}", directory)
+                try {
+                    target.outputStream().use { downloads.copy(remote, it) { latestAllowed() } }
+                    cached[key] = target
+                    target
+                } catch (error: Exception) { target.delete(); throw error }
+            }
+        }.takeIf { latestAllowed() }
+    } catch (cancelled: CancellationException) { throw cancelled }
+    catch (_: Exception) { null }
+    // A video's tile wears its first frame, as on iOS: read from the copy the viewer keeps, or else just the start of the file.
+    val frames: MessageImageLoader = remember(directory, retry, downloads, byKey.keys) {
+        { key, edge ->
+            try {
+                val file = byKey[key.removeSuffix(FRAME)] ?: error("Unknown file")
+                val remote = fresh(file)
+                withContext(Dispatchers.IO) {
+                    VideoFrames.first(cached[file.key]?.takeIf { it.isFile }, { RangedVideo(downloads, remote) { latestAllowed() } }, edge)
+                }?.takeIf { latestAllowed() }
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { null }
+        }
+    }
+    var openFailed by remember(ids) { mutableStateOf(false) }
+    /** As on iOS, a video that can't be fetched leaves the viewer shut and says so here; tapping it again retries. */
+    fun open(file: PostFile) {
+        openFailed = false
+        if (file.file.isImage || cached[file.key]?.isFile == true) { pager = files.media.indexOf(file); return }
+        busy = file.key
+        scope.launch {
+            try {
+                if (video(file.key, again = false) != null) pager = files.media.indexOf(file) else openFailed = true
+            } finally { busy = null }
+        }
+    }
     val idle = busy == null && pendingSave == null
     Column(horizontalAlignment = if (mine) Alignment.End else Alignment.Start, verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.testTag("channel-files")) {
@@ -194,9 +236,8 @@ internal fun ChannelFiles(
                 files.media.chunked(3).forEach { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(GAP)) {
                         row.forEach { file ->
-                            Tile(file, loader, busy == file.key) {
-                                if (file.file.isImage) pager = files.images.indexOf(file) else if (idle) download(file)
-                            }
+                            // A video opens in the viewer with the post's images, as on iOS.
+                            Tile(file, loader, frames, busy == file.key) { if (idle) open(file) }
                         }
                     }
                 }
@@ -206,12 +247,16 @@ internal fun ChannelFiles(
         // None could be read: the names the post carried, as iOS shows them.
         if (!loading && loaded.values.all { it.isEmpty() } && missing.isNotEmpty())
             groups.flatMap { it.names }.forEach { Chip(it, busy = false, enabled = false) {} }
+        if (openFailed) Text("Couldn't open the file. Try again.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         if (failed) Text("Couldn't save the file. Try again.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         if (!loading && missing.isNotEmpty()) TextButton(enabled = idle, onClick = { failed = false; retry++ }) { Text("Retry attachments") }
     }
-    if (pager >= 0 && files.images.isNotEmpty()) {
-        val images = files.images.map { it.key }
-        MessageImagePager(images, pager.coerceAtMost(images.lastIndex), loader = loader,
+    if (pager >= 0 && files.media.isNotEmpty()) {
+        val media = files.media.map { it.key }
+        MessageImagePager(media, pager.coerceAtMost(media.lastIndex), loader = loader,
+            videos = files.media.filter { it.file.isVideo }.map { it.key }.toSet(),
+            videoLoader = ::video,
+            onSaveVideo = { key -> byKey[key]?.let { if (idle) download(it) } },
             originalWriter = { key, destination ->
                 val file = byKey[key] ?: error("Unknown file")
                 val remote = fresh(file)
@@ -242,17 +287,17 @@ private fun LoneImage(file: PostFile, loader: MessageImageLoader, mine: Boolean,
     }
 }
 
+private const val FRAME = "#frame"
+
 @Composable
-private fun Tile(file: PostFile, loader: MessageImageLoader, busy: Boolean, onOpen: () -> Unit) {
+private fun Tile(file: PostFile, loader: MessageImageLoader, frames: MessageImageLoader, busy: Boolean, onOpen: () -> Unit) {
     val shape = RoundedCornerShape(12.dp)
     Box(Modifier.size(TILE).clip(shape).background(if (file.file.isVideo) Color.Black else MaterialTheme.colorScheme.surfaceContainerHigh)
         .border(1.dp, MaterialTheme.colorScheme.surfaceContainerHigh, shape)
         .clickable(onClickLabel = "Open ${file.file.fileName}", onClick = onOpen)
         .semantics { contentDescription = file.file.fileName }, contentAlignment = Alignment.Center) {
-        if (file.file.isImage) {
-            val load by imageLoad(file.key, 256, loader)
-            (load as? ImageLoad.Ready)?.let { Image(it.bitmap, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
-        }
+        val load by imageLoad(if (file.file.isImage) file.key else file.key + FRAME, 256, if (file.file.isImage) loader else frames)
+        (load as? ImageLoad.Ready)?.let { Image(it.bitmap, null, Modifier.fillMaxSize().testTag(if (file.file.isVideo) "video-frame" else "image-thumb"), contentScale = ContentScale.Crop) }
         if (busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
         else if (file.file.isVideo) Box(Modifier.size(28.dp).background(Color.Black.copy(alpha = .6f), CircleShape), contentAlignment = Alignment.Center) {
             Icon(Icons.Outlined.PlayArrow, null, Modifier.size(16.dp), tint = Color.White)

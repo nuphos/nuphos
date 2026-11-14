@@ -9,6 +9,7 @@ import { useDb } from '@/lib/test/doubles/db'
 import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-route'
 import { useIdentity } from '@/lib/test/doubles/identity'
 import { useRuntimeCatalog } from '@/lib/test/doubles/runtime-catalog'
+import { useRuntimeModels } from '@/lib/test/doubles/runtime-models'
 import { useSessionConfig } from '@/lib/test/doubles/session-config'
 
 import { clearPendingUserMessages } from './pending-messages'
@@ -190,6 +191,14 @@ useRuntimeCatalog({
         ]
       : []),
   ],
+})
+// What each agent offers to a delegating agent; one that cannot say is listed without models.
+useRuntimeModels({
+  runtimeModelCatalog: async (_teamId, runtimeId) => {
+    if (runtimeId !== 'runtime-2') throw new Error('offline')
+
+    return { models: [{ id: 'gpt-5.5', name: 'GPT-5.5', description: 'Strongest' }] }
+  },
 })
 // The model picker: what each conversation was set to, and the runtime's catalog.
 const picks: { sessionId: string; configId: string; value: string }[] = []
@@ -697,6 +706,16 @@ describe('conversation-scoped thread tools', () => {
     const { runtimes } = await listThreadRuntimes(actor)
 
     expect(runtimes.map((runtime) => runtime.runtimeId)).toEqual(['runtime-2', 'box-1'])
+  })
+
+  test('lists the models each agent offers, so a delegating agent can choose one', async () => {
+    const { runtimes } = await listThreadRuntimes(actor)
+
+    expect(runtimes[0]?.models).toEqual([
+      { id: 'gpt-5.5', name: 'GPT-5.5', description: 'Strongest' },
+    ])
+    // An agent that cannot list its models is still listed, without them.
+    expect(runtimes[1]).not.toHaveProperty('models')
   })
 
   test('a parent moves its thread onto a Box', async () => {

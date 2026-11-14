@@ -48,7 +48,7 @@ const requestFollowUps = {
       : toolError(NOT_OPEN)
   },
   withdraw_user_decision: async (ctx: PreviewToolContext, { requestId }: RequestFollowUp) =>
-    (await resolveInputRequest(ctx.sessionId, requestOwner(ctx), requestId, 'dismissed'))
+    (await resolveInputRequest(ctx.sessionId, requestOwner(ctx), requestId))
       ? toolResult({ ok: true, requestId, status: 'withdrawn' })
       : toolError(NOT_OPEN),
   list_user_decisions: async (ctx: PreviewToolContext) => {
@@ -99,7 +99,8 @@ export function isRequestFollowUp(name: string): name is keyof typeof requestFol
 
 /**
  * The `about` refs of a question, each a resource linked to this conversation
- * or one of its own sub-agent threads, or why one is not.
+ * or another conversation it may message (send_message_to_thread), or why one
+ * is not. Those conversations are told the answer too.
  */
 export async function aboutRefs(
   ctx: PreviewToolContext,
@@ -109,13 +110,18 @@ export async function aboutRefs(
   const refs = [...new Set(about.filter((ref): ref is string => typeof ref === 'string'))]
   const conversation = await getConversationBySessionId(ctx.sessionId)
   const linked = new Set(conversation?.linkedResources?.map((resource) => resource.id))
+  const { authorizeThreadDelivery } = await import('@/lib/agent/thread-bridge')
+  const actor = { ...ctx, userId: requestOwner(ctx) }
 
   for (const ref of refs) {
     if (linked.has(ref)) continue
-    const thread = await getConversationBySessionId(ref)
+    const deliverable = await authorizeThreadDelivery({ ...actor, targetSessionId: ref }).then(
+      () => true,
+      () => false,
+    )
 
-    if (thread?.parentSessionId !== ctx.sessionId)
-      return `\`about\` names ${JSON.stringify(ref)}, which is neither a resource linked to this conversation (see list_session_resources) nor one of its sub-agent threads.`
+    if (!deliverable)
+      return `\`about\` names ${JSON.stringify(ref)}, which is neither a resource linked to this conversation (see list_session_resources) nor another conversation you own in this team.`
   }
 
   return refs

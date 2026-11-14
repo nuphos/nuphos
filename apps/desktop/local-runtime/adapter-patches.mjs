@@ -33,7 +33,7 @@ export function patchDesktopBridge(source) {
 }
 
 /**
- * The image's ACP shim, for Grok Build and OpenCode: the same bridge as the
+ * The image's ACP shim, for Grok Build, OpenCode and DeepSeek Harness: the same bridge as the
  * adapters (in its own module), and the desktop's skills sync.
  */
 export function patchDesktopShim(source) {

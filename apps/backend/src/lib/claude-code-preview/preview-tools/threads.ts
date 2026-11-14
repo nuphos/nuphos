@@ -8,6 +8,7 @@ import {
   setAgentThreadParent,
   updateThread,
 } from '@/lib/agent/thread-bridge'
+import { stopAgentThread } from '@/lib/agent/thread-stop'
 
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 
@@ -50,6 +51,13 @@ const create = z
         '[] gives it none; omit to give it your whole selection.',
     ),
     ...modelPick,
+    modelReason: z
+      .string()
+      .trim()
+      .min(1)
+      .max(300)
+      .optional()
+      .describe('Why this model and effort fit the work, in one sentence; shown to the person.'),
   })
   .strict()
 const send = z.object({ ...common, threadId: z.string().uuid() }).strict()
@@ -84,6 +92,7 @@ const archive = z
     archived: z.boolean().default(true).describe('false restores an archived conversation.'),
   })
   .strict()
+const stop = z.object({ label: common.label, threadId: z.string().uuid() }).strict()
 const list = z.object({ label: common.label }).strict()
 
 // A refusal is the answer the agent needs, so it gets the reason, as tools served
@@ -110,6 +119,9 @@ export function threadToolModule(
           'task needs; the thread gets exactly those, and anything you have not selected is ' +
           'refused. Without credentials it gets your whole selection. ' +
           "model and effort set its model picker before its first turn; its agent's defaults otherwise. " +
+          'Unless the person named a model for this work, choose them yourself from the models ' +
+          'list_agent_runtimes shows for its agent: a lighter, cheaper model for simple or mechanical ' +
+          'work, a stronger one for hard reasoning or risky changes. Say why in modelReason. ' +
           'The current chat stays available. Specify a completion condition and ask the worker to use ' +
           'send_message_to_thread to report back. Returns a Nuphos threadId (not a Codex internal ID). ' +
           'Only available for conversations owned by the current actor.',
@@ -141,17 +153,27 @@ export function threadToolModule(
         inputSchema: toolInputJsonSchema(archive),
       },
       {
+        name: 'stop_thread',
+        description:
+          'Stop the running turn of another Nuphos conversation you own in this team, the same ' +
+          'as the Stop button in that conversation. Messages that agents queued for it with ' +
+          'send_message_to_thread are dropped so they do not start another turn; messages people ' +
+          'sent stay and run next. Its history stays. Use threadId from create_thread or ' +
+          'session_id from list_recent_conversations.',
+        inputSchema: toolInputJsonSchema(stop),
+      },
+      {
         name: 'list_agent_runtimes',
         description:
-          "List the team's agents (runtimes) and your Boxes' agents that your threads can run on, with each one's readiness and " +
-          'usage quota. Use it to pick a runtimeId for update_thread, for example when a thread ' +
-          "has hit its agent's usage limit.",
+          "List the team's agents (runtimes) and your Boxes' agents that your threads can run on, with each one's readiness, " +
+          'usage quota and the models it offers. Use it to pick a model for create_thread, or a ' +
+          "runtimeId for update_thread, for example when a thread has hit its agent's usage limit.",
         inputSchema: toolInputJsonSchema(list),
       },
       {
         name: 'update_thread',
         description:
-          'Change another Nuphos thread you own in this team. fullAccess switches it ' +
+          'Change another Nuphos thread or Bot you own in this team. fullAccess switches it ' +
           'between Full Access (true) and Auto Mode (false); Full Access is allowed only while ' +
           'this conversation itself has Full Access, Auto Mode always. runtimeId moves it, with ' +
           'its conversation history, to another agent from list_agent_runtimes ' +
@@ -200,6 +222,13 @@ export function threadToolModule(
         if (!parsed.success) return toolError(parsed.error.message)
 
         return answer(setAgentThreadArchived(ctx, parsed.data.threadId, parsed.data.archived))
+      },
+      stop_thread: async (args) => {
+        const parsed = stop.safeParse(args)
+
+        if (!parsed.success) return toolError(parsed.error.message)
+
+        return answer(stopAgentThread(ctx, parsed.data.threadId))
       },
       list_agent_runtimes: async (args) => {
         const parsed = list.safeParse(args)

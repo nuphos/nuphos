@@ -4,11 +4,11 @@ import * as slackInstall from '../slack-install'
 
 import { designChannels } from './channels-designs'
 import { skillChannels } from './channels-skills'
+import { migrationChannels } from './channels-team-migration'
 
 import type { DashboardViewRange } from '../../src/dashboards/schema'
 import type {
   AgentProvider,
-  CreateRuntimeInput,
   PairExternalRuntimeInput,
   RegisterExternalRuntimeInput,
   RuntimeQuotaHistoryRange,
@@ -16,6 +16,7 @@ import type {
 } from '../../src/types/runtime'
 
 export const teamChannels = {
+  ...migrationChannels,
   'atlas:getTeamGoogleClient': (_e: unknown, teamId: string) => atlas.getTeamGoogleClient(teamId),
   'atlas:setTeamGoogleClient': (
     _e: unknown,
@@ -42,8 +43,6 @@ export const teamChannels = {
   'atlas:listRuntimeQuotas': (_e: unknown, teamId: string) => atlas.listRuntimeQuotas(teamId),
   'atlas:getRuntimeQuotaHistory': (_e: unknown, teamId: string, range: RuntimeQuotaHistoryRange) =>
     atlas.getRuntimeQuotaHistory(teamId, range),
-  'atlas:createRuntimeInstance': (_e: unknown, teamId: string, input: CreateRuntimeInput) =>
-    atlas.createRuntimeInstance(teamId, input),
   'atlas:probeExternalRuntimeProvider': (
     _e: unknown,
     teamId: string,
@@ -102,7 +101,6 @@ export const teamChannels = {
     runtimeId: string,
     hours: number,
   ) => atlas.getRuntimeInstanceMetrics(teamId, runtimeId, hours),
-
   'atlas:listTeams': () => atlas.listTeams(),
   'atlas:getSidebarFavorites': (_e: unknown, teamId: string) => atlas.getSidebarFavorites(teamId),
   'atlas:putSidebarFavorites': (

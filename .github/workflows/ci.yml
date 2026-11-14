@@ -93,6 +93,8 @@ jobs:
             desktop:
               - 'apps/desktop/**'
               - 'apps/backend/src/lib/claude-code-preview/runtime-file-program.ts'
+              # The local runtime bundles most of the runtime image (apps/runtime/README.md).
+              - 'apps/runtime/image/**'
               - '.github/workflows/ci.yml'
             # What electron-builder adds beyond the vite bundle, which every
             # desktop change still builds. The single `*` takes the top-level
@@ -100,6 +102,7 @@ jobs:
             desktop_package:
               - 'apps/desktop/*'
               - 'apps/backend/src/lib/claude-code-preview/runtime-file-program.ts'
+              - 'apps/runtime/image/**'
               - 'apps/desktop/electron/**'
               - 'apps/desktop/local-runtime/**'
               - 'apps/desktop/build/**'
@@ -213,6 +216,10 @@ jobs:
         run: cargo clippy --locked --all-targets -- -D warnings
       - name: Test
         run: cargo test --locked
+      - name: Test install.sh
+        run: |
+          sudo apt-get update && sudo apt-get install -y zsh
+          sh install.test.sh
       # The release builds this target; catch a break before a tag does.
       - name: Static Linux build
         run: |
@@ -237,6 +244,8 @@ jobs:
         run: cargo clippy --locked --all-targets -- -D warnings
       - name: Test
         run: cargo test --locked
+      - name: Test install.sh
+        run: sh install.test.sh
 
   openab:
     name: openab (clippy + test)

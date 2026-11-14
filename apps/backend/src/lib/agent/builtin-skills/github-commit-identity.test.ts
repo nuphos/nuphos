@@ -45,7 +45,7 @@ test('commit setup reports the current participant without changing Git authors'
       join(bin, 'curl'),
       `#!/usr/bin/env python3
 import json, os
-print(json.dumps(dict(token='fixture', accountLogin='different-org', commitCoAuthor=dict(name=os.environ['TEST_AUTHOR_NAME'], email=os.environ['TEST_AUTHOR_EMAIL']))))
+print(json.dumps(dict(token='fixture', accountLogin='different-org', installationId=123, accountType='Organization', permissions=dict(issues='write', contents='read'), commitCoAuthor=dict(name=os.environ['TEST_AUTHOR_NAME'], email=os.environ['TEST_AUTHOR_EMAIL']))))
 `,
       { mode: 0o755 },
     )
@@ -62,7 +62,12 @@ else:
     )
     git(repo, 'init')
     git(other, 'init')
-    expect(run()).toContain('Co-authored-by: Current Teammate <teammate@example.invalid>')
+    const output = run()
+
+    expect(output).toContain('Co-authored-by: Current Teammate <teammate@example.invalid>')
+    // The installation's permissions and where its owner changes them.
+    expect(output).toContain('App permissions on different-org: contents=read, issues=write')
+    expect(output).toContain('https://github.com/organizations/different-org/settings/installations/123')
     expect(git(repo, 'config', 'user.email')).toBe('human@example.invalid')
     expect(git(other, 'config', 'user.email')).toBe('human@example.invalid')
     expect(readFileSync(globalConfig, 'utf8')).toBe(original)

@@ -24,6 +24,7 @@ enum ChatRowTests {
         placesTimelineEventsBetweenMessages()
         anchorsAgentDownloadsToTheirTurn()
         repeatsNoFailureTheTranscriptShows()
+        offersRetryOnlyForTheViewersLatestFailure()
         print("Chat row grouping, reasoning text, run following and tool timing passed")
     }
 
@@ -231,6 +232,31 @@ enum ChatRowTests {
         let stopped = ChatMessage(id: "s", role: .assistant, parts: [interrupted(.cancelled, "The turn was stopped before the agent finished.")])
         precondition(ChatRow.shownFailure(in: [stopped]) == nil)
         precondition(ChatRow.shownFailure(in: [failed, .user("retry")]) == nil)
+    }
+
+    private static func offersRetryOnlyForTheViewersLatestFailure() {
+        let asked = ChatMessage.user("Deploy the API")
+        let failed = ChatMessage(id: "f", role: .assistant, parts: [.text(.init(text: "Starting", state: .done)), interrupted(.error, "The agent could not start.")])
+        let offered = ChatRow.failedTurn(in: [asked, failed], userId: "me", foreignChat: false)
+        precondition(offered?.rowId == "interrupted.f.int" && offered?.prompt == "Deploy the API")
+        let timedOut = ChatMessage(id: "t", role: .assistant, parts: [interrupted(.timeout, "Timed out.")])
+        precondition(ChatRow.failedTurn(in: [asked, timedOut], userId: "me", foreignChat: false) != nil)
+        // A stopped turn, a later prompt, or an earlier failure offers nothing.
+        let stopped = ChatMessage(id: "s", role: .assistant, parts: [interrupted(.cancelled, "Stopped.")])
+        precondition(ChatRow.failedTurn(in: [asked, stopped], userId: "me", foreignChat: false) == nil)
+        precondition(ChatRow.failedTurn(in: [asked, failed, .user("again")], userId: "me", foreignChat: false) == nil)
+        // Resending only the text of a prompt with files would ask something else.
+        let withFile = ChatMessage(role: .user, parts: [.text(.init(text: "Read this", state: .done)), .file(.init(mediaType: "image/jpeg", filename: "a.jpg", url: "data:,"))])
+        precondition(ChatRow.failedTurn(in: [withFile, failed], userId: "me", foreignChat: false) == nil)
+        // A teammate's prompt is never resent by someone else.
+        var theirs = ChatMessage.user("Deploy the API")
+        theirs.metadata = .object(["sender": .object(["type": .string("user"), "id": .string("kim"), "displayName": .string("Kim")])])
+        precondition(ChatRow.failedTurn(in: [theirs, failed], userId: "me", foreignChat: false) == nil)
+        precondition(ChatRow.failedTurn(in: [theirs, failed], userId: "kim", foreignChat: true)?.prompt == "Deploy the API")
+        precondition(ChatRow.failedTurn(in: [asked, failed], userId: "me", foreignChat: true) == nil)
+        // Copy reports the headline, the error and its time; a stopped line has none.
+        precondition(ChatRow.failureReport(rowId: "interrupted.f.int", in: [asked, failed]) == "Turn failed.\nThe agent could not start.\n2026-01-01T00:00:00.000Z")
+        precondition(ChatRow.failureReport(rowId: "interrupted.s.int", in: [asked, stopped]) == nil)
     }
 
     private static func tool(_ id: String, state: ChatPart.ToolPart.State = .outputAvailable) -> ChatPart {

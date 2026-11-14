@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
+import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
+import { errorHandler } from '@/lib/errors'
 import { useDb } from '@/lib/test/doubles/db'
 import { useTriggerExecutor } from '@/lib/test/doubles/trigger-executor'
-import { useTriggerGroupService } from '@/lib/test/doubles/trigger-group-service'
 
 import type { AgentTrigger } from '@/lib/agent/trigger-db'
-import type { TriggerGroupMember } from '@/lib/agent/trigger-group-db'
 
 const SECRET = 'a'.repeat(64)
 const fires: { trigger: AgentTrigger; payload: unknown; options: Record<string, unknown> }[] = []
@@ -23,19 +23,13 @@ useDb({
 })
 useTriggerExecutor({
   executeTrigger: (trigger, payload, options) => {
-    fires.push({ trigger, payload, options: options as Record<string, unknown> })
+    fires.push({ trigger, payload, options })
 
     return Promise.resolve('session')
   },
 })
-const member = { key: 'cpu', provider: 'grafana' } as TriggerGroupMember
-
-useTriggerGroupService({
-  matchTriggerGroupMembers: () => Promise.resolve([{ member, payload: { member: 'cpu' } }]),
-  claimTriggerGroupMemberRun: () => Promise.resolve(true),
-})
-
 const { webhooksRoutes } = await import('./webhooks')
+const app = new Hono().onError(errorHandler).route('/', webhooksRoutes)
 
 function webhook(overrides: Partial<AgentTrigger> = {}): AgentTrigger {
   return {
@@ -52,12 +46,25 @@ function webhook(overrides: Partial<AgentTrigger> = {}): AgentTrigger {
   } as AgentTrigger
 }
 
-async function post(body: unknown = { status: 'firing' }) {
-  return await webhooksRoutes.request(`/${stored._id!.toHexString()}`, {
+async function post(body: unknown = { status: 'firing' }, headers: Record<string, string> = {}) {
+  return await app.request(`/${stored._id!.toHexString()}`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'X-Webhook-Secret': SECRET },
+    headers: { 'content-type': 'application/json', 'X-Webhook-Secret': SECRET, ...headers },
     body: JSON.stringify(body),
   })
+}
+
+// Signed SNS envelope whose certificate URL is not an SNS host, so verification
+// fails before any network fetch.
+const unverifiableSnsEnvelope = {
+  Type: 'Notification',
+  MessageId: 'message-1',
+  TopicArn: 'arn:aws:sns:us-east-1:123456789012:alerts',
+  Message: '{"AlarmName":"High CPU","NewStateValue":"ALARM"}',
+  Timestamp: '2026-07-23T10:00:00.000Z',
+  SignatureVersion: '2',
+  Signature: 'forged',
+  SigningCertURL: 'https://example.test/SimpleNotificationService-x.pem',
 }
 
 beforeEach(() => {
@@ -65,7 +72,7 @@ beforeEach(() => {
 })
 
 describe('POST /webhooks/:triggerId', () => {
-  test('delivers a bound Watch through the executor with its payload', async () => {
+  test('delivers a bound Trigger through the executor with its payload', async () => {
     stored = webhook()
 
     const res = await post({ status: 'firing' })
@@ -76,14 +83,46 @@ describe('POST /webhooks/:triggerId', () => {
     expect(fires[0]?.options).toEqual({ runKind: 'webhook' })
   })
 
-  test('fans a Watch Group delivery out per matched member', async () => {
-    stored = webhook({ watchGroupId: new ObjectId() })
+  test('rejects the secret before looking at the body', async () => {
+    stored = webhook()
 
-    const res = await post()
+    const res = await app.request(`/${stored._id!.toHexString()}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'X-Webhook-Secret': 'b'.repeat(64) },
+      body: JSON.stringify(unverifiableSnsEnvelope),
+    })
 
-    expect(await res.json()).toMatchObject({ ok: true, matched: 1, accepted: 1 })
-    expect(fires).toHaveLength(1)
-    expect(fires[0]?.options).toEqual({ groupMember: member, runKind: 'webhook' })
+    expect(res.status).toBe(401)
+    expect(await res.json()).toMatchObject({ error: { code: 'invalid_secret' } })
+    expect(fires).toHaveLength(0)
+  })
+
+  test('delivers a generic payload with its own Type field unchanged', async () => {
+    stored = webhook()
+
+    const res = await post({ Type: 'Notification', status: 'firing' })
+
+    expect(res.status).toBe(200)
+    expect(fires[0]?.payload).toEqual({ Type: 'Notification', status: 'firing' })
+  })
+
+  test('treats a signed SNS envelope as SNS even without the header', async () => {
+    stored = webhook()
+
+    const res = await post(unverifiableSnsEnvelope)
+
+    expect(res.status).toBe(401)
+    expect(await res.json()).toMatchObject({ error: { code: 'invalid_sns_message' } })
+    expect(fires).toHaveLength(0)
+  })
+
+  test('refuses an SNS header whose body is not a signed envelope', async () => {
+    stored = webhook()
+
+    const res = await post({ status: 'firing' }, { 'x-amz-sns-message-type': 'Notification' })
+
+    expect(res.status).toBe(401)
+    expect(fires).toHaveLength(0)
   })
 
   test('no longer routes a stored session-routing row into its own session', async () => {
@@ -100,7 +139,7 @@ describe('POST /webhooks/:triggerId', () => {
     expect(fires).toHaveLength(1)
   })
 
-  test('still refuses a disabled Watch without firing', async () => {
+  test('still refuses a disabled Trigger without firing', async () => {
     stored = webhook({ enabled: false })
 
     const res = await post()

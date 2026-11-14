@@ -93,7 +93,16 @@ export function SessionHeaderMenu({
     setToggled(next)
     void api.agentSetConversationWatched(sessionId, next, teamId).catch((err: unknown) => {
       setToggled(!next)
-      toast.apiError(next ? t('Could not watch agent') : t('Could not unwatch agent'), err)
+      toast.apiError(
+        isBot
+          ? next
+            ? t('Could not watch Bot')
+            : t('Could not unwatch Bot')
+          : next
+            ? t('Could not watch task')
+            : t('Could not unwatch task'),
+        err,
+      )
     })
   }
   // "Turn into a Task" takes the face and the chats away; "Make this a Bot" is shared with the row menu.

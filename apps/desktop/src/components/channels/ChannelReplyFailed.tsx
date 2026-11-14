@@ -22,7 +22,7 @@ type ReplyFailedEvent = AgentTimelineEvent & {
 
 /**
  * An agent could not reply: what happened and why (the server's line), when its
- * usage returns, and the fix. Only the latest line offers it; Switch agent only
+ * usage returns, and the fix. Only the latest line offers it; Switch runtime only
  * to the agent's owner, the one who can move it.
  */
 export function ChannelReplyFailed({

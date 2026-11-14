@@ -220,7 +220,7 @@ export function SessionParticipants({
           'text-[12px] font-medium text-secondary transition-colors',
           'data-[popup-open]:bg-state-selected data-[popup-open]:text-main hover:bg-state-hover hover:text-main',
         )}
-        title={t('Share this agent with a teammate')}
+        title={t('Share with a teammate')}
       >
         <ShareButtonFace participants={everyone} compact={compact} />
       </Popover.Trigger>

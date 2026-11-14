@@ -8,6 +8,7 @@ import { t } from '../../i18n'
 import { runtimeStateOf, subscribeRuntimeStates } from '../../lib/agentRuntimeStates'
 import { forgetSessionDesktops, publishSessionDesktops } from '../../lib/sessionDesktops'
 import { makeAttachmentTurn } from '../agent/panel/attachments'
+import { ChatColumn } from '../agent/panel/ChatColumn'
 import { Composer } from '../agent/panel/Composer'
 import { composerDraftKey } from '../agent/panel/composerDrafts'
 import { FileDropZone } from '../agent/panel/FileDropZone'
@@ -21,10 +22,11 @@ import { toast } from '../ui/toast'
 import { botOfChannel } from './botChannel'
 import { BotTaskButton } from './BotTaskButton'
 import { ChannelMessages } from './ChannelMessages'
-import { ChatHeaderIcon, ChatIcon, ReplyingBanner } from './channelParts'
+import { ChannelIntro, ChatHeaderIcon, ReplyingBanner } from './channelParts'
 import { ChannelTitle } from './ChannelTitle'
 import { sendingPost, stillSending } from './sendingPosts'
 import { useBotChatQuestions } from './useBotChatQuestions'
+import { useBotRuntimeControl } from './useBotRuntimeControl'
 import { useBotTaskAccess } from './useBotTaskAccess'
 import { useChannel } from './useChannel'
 import { useStickToBottom } from './useStickToBottom'
@@ -78,11 +80,12 @@ export function ChannelPane({
   const composerRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const dropRef = useRef<((dt: DataTransfer) => void) | null>(null)
-  const title = detail?.title ?? ''
+  const title = detail ? detail.title || t('New Group Chat') : ''
   // A Bot's chat opens the Bot's desktop in this chat's dock, as its Task page's dock does.
-  const bot = botOfChannel(detail?.faces)
+  const bot = botOfChannel(detail)
   const botState = useSyncExternalStore(subscribeRuntimeStates, () => runtimeStateOf(bot))
   const botOwned = agents.some((agent) => agent.sessionId === bot && agent.ownerId === user.id)
+  const runtimeControl = useBotRuntimeControl(teamId, bot, botOwned, user, botState, refresh)
   const canOpenTask = useBotTaskAccess(teamId, bot, botOwned)
   const canOpenBotDesktop =
     bot !== undefined &&
@@ -177,7 +180,7 @@ export function ChannelPane({
             bot={bot}
             title={title}
             teamId={teamId}
-            canRename={agents.some((agent) => agent.sessionId === bot && agent.ownerId === user.id)}
+            canRename={botOwned}
             onRenamed={refresh}
           />
         </div>
@@ -198,44 +201,37 @@ export function ChannelPane({
             }}
           />
         )}
-        <SessionParticipants
-          key={channelId}
-          sessionId={channelId}
-          teamId={teamId}
-          title={title}
-          currentUserId={user.id}
-          canManage={detail?.isOwner === true || detail?.canManage === true}
-          compact={false}
-          channel={
-            detail
-              ? {
-                  agents,
-                  ownerId: detail.owner?.id ?? (detail.isOwner ? user.id : ''),
-                  onAgentsChange: refresh,
-                }
-              : undefined
-          }
-        />
+        {/* A Bot's 1:1 chat stays the two of you; a group chat starts from "+" on Bots. */}
+        {!bot && (
+          <SessionParticipants
+            key={channelId}
+            sessionId={channelId}
+            teamId={teamId}
+            title={title}
+            currentUserId={user.id}
+            canManage={detail?.isOwner === true || detail?.canManage === true}
+            compact={false}
+            channel={
+              detail
+                ? {
+                    agents,
+                    ownerId: detail.owner?.id ?? (detail.isOwner ? user.id : ''),
+                    onAgentsChange: refresh,
+                  }
+                : undefined
+            }
+          />
+        )}
         {grip}
       </div>
       <HeaderEdge
         ref={scrollRef}
-        className="min-h-0 flex-1 overflow-y-auto scrollbar-thin px-3 pt-5 pb-4 selectable"
+        className="min-h-0 flex-1 overflow-y-auto scrollbar-thin pt-5 pb-4 selectable"
       >
         {/* The column: one box, so its height says when anything below grows, and
-            the one width every row takes, the composer's own (px-3, 760px). */}
-        <div className="mx-auto w-full max-w-[760px]">
-          {detail && messages.length === 0 && (
-            <div className="flex flex-col items-start gap-3 pt-10">
-              <ChatIcon faces={detail.faces} title={title} size={44} />
-              <div className="text-lg font-semibold leading-snug text-main">{title}</div>
-              <div className="max-w-[560px] text-[13px] leading-relaxed text-secondary">
-                {t(
-                  'Everyone here sees each message and decides for themselves whether to reply, as in any group chat.',
-                )}
-              </div>
-            </div>
-          )}
+            the one width every row takes, the composer's own. */}
+        <ChatColumn>
+          {detail && messages.length === 0 && <ChannelIntro faces={detail.faces} title={title} />}
           {detail && (
             <ChannelMessages
               messages={messages}
@@ -246,6 +242,7 @@ export function ChannelPane({
               onOpenSession={onOpenSession}
               onOpenNuphosLink={onOpenNuphosLink}
               channelId={channelId}
+              botId={bot}
               extraRows={questions.rows}
               fixes={fixes}
               onReply={
@@ -258,19 +255,19 @@ export function ChannelPane({
               }
             />
           )}
-        </div>
+        </ChatColumn>
       </HeaderEdge>
-      <div
-        ref={composerRef}
-        onKeyDown={(event) => {
-          if (event.key === 'Escape' && replying && !event.defaultPrevented) setReplying(null)
-        }}
-      >
-        {replying && <ReplyingBanner reply={replying} onCancel={() => setReplying(null)} />}
-        {/* Inset past the faces on both sides, so the composer lines up with the
-            bubbles: the column's own width (760px plus the Composer's px-3), less a
-            face and its gap (2.375rem) on each side. */}
-        <div className="mx-auto w-full max-w-[calc(760px+1.5rem)] px-[2.375rem]">
+      <ChatColumn>
+        {/* Inset past the faces on both sides, so the reply bar and the composer
+            line up with the bubbles: a face and its gap (2.375rem) on each side. */}
+        <div
+          ref={composerRef}
+          className="px-[2.375rem]"
+          onKeyDown={(event) => {
+            if (event.key === 'Escape' && replying && !event.defaultPrevented) setReplying(null)
+          }}
+        >
+          {replying && <ReplyingBanner reply={replying} onCancel={() => setReplying(null)} />}
           <Composer
             onSend={send}
             onStop={() => {}}
@@ -287,9 +284,10 @@ export function ChannelPane({
             }}
             placeholder={t('Message {name}', { name: title })}
             credentialSelector={questions.credentials}
+            runtimeControl={runtimeControl}
           />
         </div>
-      </div>
+      </ChatColumn>
     </FileDropZone>
   )
 }

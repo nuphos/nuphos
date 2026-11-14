@@ -45,18 +45,20 @@ const LOGO: [&str; 7] = [
     "⠀⠀⠀⠀⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀",
 ];
 const TIPS: [&str; 4] = [
-    "Press ctrl+\\ to jump between your agents.",
+    "Press ctrl+\\ to jump between your tasks.",
     "A reply keeps running on the server when you quit; `nuphos resume` picks it up.",
-    "Use /agents to run this agent on another runtime, or to add one.",
+    "Use /agents to run this task on another runtime, or to add one.",
     "Use /model to change the model and reasoning effort.",
 ];
 /// The agents Nuphos can run for a team, as the desktop's Add agent offers them.
-const PROVIDERS: [(&str, &str); 5] = [
+const PROVIDERS: &[(&str, &str)] = &[
     ("claude-code", "Claude Code"),
     ("codex", "Codex"),
     ("grok", "Grok Build"),
     ("antigravity", "Antigravity"),
     ("opencode", "OpenCode"),
+    ("hermes", "Hermes Agent"),
+    ("dsh", "DeepSeek Harness"),
 ];
 /// How long a sign-in may take, from starting the agent to the browser.
 const SIGN_IN_TIMEOUT: Duration = Duration::from_secs(10 * 60);
@@ -66,9 +68,9 @@ const COMMANDS: [(&str, &str); 9] = [
     ("/full-access", "allow the agent's actions without asking, or ask again"),
     ("/team", "switch to another team"),
     ("/agents", "choose, add or sign in the runtimes this team runs on"),
-    ("/new", "start a new agent"),
-    ("/resume", "continue a previous agent"),
-    ("/archive", "archive this agent and start a new one"),
+    ("/new", "start a new task"),
+    ("/resume", "continue a previous task"),
+    ("/archive", "archive this task and start a new one"),
     ("/logout", "sign out of Nuphos here and in the desktop app"),
     ("/quit", "exit"),
 ];
@@ -576,14 +578,14 @@ impl App {
         .areas(area);
         self.draw_top_bar(f, top);
         if let Some(picker) = self.picker.as_ref().filter(|_| sessions) {
-            let empty = if self.sessions_loading { "Loading…" } else { "No agents yet." };
+            let empty = if self.sessions_loading { "Loading…" } else { "No tasks yet." };
             f.render_widget(Paragraph::new(session_lines(picker, chat_area, empty)), chat_area);
             self.draw_composer(f, composer_area);
             return f.render_widget(Paragraph::new(self.footer_hints(footer.width)), footer);
         }
         if self.loading {
             let spinner = SPINNER[self.tick % SPINNER.len()];
-            let line = Line::from(Span::styled(format!("{spinner} Loading agent…"), dim()));
+            let line = Line::from(Span::styled(format!("{spinner} Loading task…"), dim()));
             f.render_widget(Paragraph::new(vec![Line::default(), line]), chat_area);
         }
         let text_area = Rect { width: chat_area.width.saturating_sub(2), ..chat_area };
@@ -614,7 +616,7 @@ impl App {
     fn draw_welcome(&mut self, f: &mut Frame, area: Rect) {
         let bold = Style::default().add_modifier(Modifier::BOLD);
         let menu = [
-            ("Agents", "ctrl+\\"),
+            ("Tasks", "ctrl+\\"),
             ("Switch team", "/team"),
             ("Runtimes", "/agents"),
             ("Model and effort", "/model"),
@@ -701,7 +703,7 @@ impl App {
 
     /// The conversation's title on the left, the team on the right.
     fn draw_top_bar(&self, f: &mut Frame, area: Rect) {
-        let title = self.title.as_deref().unwrap_or("New agent");
+        let title = self.title.as_deref().unwrap_or("New task");
         let team = self.team_label();
         let room = (area.width as usize).saturating_sub(team.width() + 2);
         let title: String = render::clean(title).chars().take(room).collect();
@@ -1060,7 +1062,7 @@ impl App {
             return;
         }
         if self.stream.is_some() || self.loading {
-            let busy = if self.loading { "the agent to load" } else { "the reply to finish" };
+            let busy = if self.loading { "the task to load" } else { "the reply to finish" };
             self.notice = Some(format!("Wait for {busy}, or press esc to stop it."));
             return;
         }
@@ -1375,37 +1377,14 @@ impl App {
         });
     }
 
-    /// `/agents`: the team's agents to run this conversation on, then ways to
-    /// add one: a Nuphos-managed agent, or a self-hosted one by pairing code.
+    /// `/agents`: existing agents, plus connecting a self-hosted one by pairing code.
     fn open_agents(&mut self) {
         let current = self.runtime.as_ref().map(|r| r["id"].clone());
         let mut items: Vec<_> =
             self.runtimes.iter().map(|r| (shared::label(r), shared::runtime_detail(r), r.clone())).collect();
         let selected = items.iter().position(|(_, _, r)| Some(&r["id"]) == current.as_ref()).unwrap_or(0);
-        for (provider, name) in PROVIDERS {
-            items.push((format!("+ New {name} runtime"), "Nuphos-managed".into(), json!({ "add": provider })));
-        }
         items.push(("+ Connect a self-hosted runtime".into(), "pairing code".into(), json!({ "add": "self-hosted" })));
         self.picker = Some(Picker { title: "Runtimes".into(), items, selected, action: PickAction::Runtime });
-    }
-
-    fn add_agent(&mut self, kind: &str) {
-        if kind == "self-hosted" {
-            self.ask = Some(("The runtime's URL, from its console (https://… or wss://…)".into(), Ask::PairUrl));
-            return;
-        }
-        let (api, team, provider) = (self.api.clone(), self.team_id(), kind.to_string());
-        self.background(true, async move {
-            let result = api.create_runtime(&team, &provider).await;
-            Box::new(move |app: &mut App| match result {
-                Ok(runtime) => {
-                    app.notice = Some(format!("Added {}.", shared::label(&runtime)));
-                    app.adopt_agent(&runtime);
-                    app.sign_in_agent(runtime);
-                }
-                Err(e) => app.notice = Some(e.message),
-            }) as Apply
-        });
     }
 
     /// A new agent becomes the one new conversations start on.
@@ -1700,7 +1679,7 @@ impl App {
     fn open_conversation_picker(&mut self) {
         self.fetch_sessions();
         self.picker = Some(Picker {
-            title: "Agents".into(),
+            title: "Tasks".into(),
             items: self.session_items(),
             selected: 0,
             action: PickAction::Conversation,
@@ -1763,7 +1742,7 @@ impl App {
             rows.push(("Pinned", c));
         }
         rows.extend(self.shared_sessions.iter().filter(|c| !is_pinned(c)).map(|c| ("Shared", c.clone())));
-        rows.extend(self.sessions.iter().filter(|c| !is_pinned(c)).map(|c| ("Agents", c.clone())));
+        rows.extend(self.sessions.iter().filter(|c| !is_pinned(c)).map(|c| ("Tasks", c.clone())));
         rows.into_iter()
             .map(|(section, mut c)| {
                 let mut detail = shared::conversation_time(&c);
@@ -1813,7 +1792,7 @@ impl App {
         self.new_conversation();
         self.session_id = id.clone();
         self.is_new = false;
-        self.title = Some(shared::conversation_title(&summary)).filter(|t| t != "Untitled agent");
+        self.title = Some(shared::conversation_title(&summary)).filter(|t| t != "Untitled task");
         self.model_label = None;
         self.loading = true;
         let (api, team) = (self.api.clone(), self.team_id());
@@ -1972,7 +1951,12 @@ impl App {
                         self.choose_team(value);
                     }
                     PickAction::Runtime => match value["add"].as_str() {
-                        Some(kind) => self.add_agent(kind),
+                        Some(_) => {
+                            self.ask = Some((
+                                "The runtime's URL, from its console (https://… or wss://…)".into(),
+                                Ask::PairUrl,
+                            ));
+                        }
                         None => self.choose_runtime(value),
                     },
                     PickAction::Conversation => self.resume(value),
@@ -1988,7 +1972,7 @@ impl App {
 /// it was active (and, if shared, whose it is) on the right; ● is running.
 fn session_lines(picker: &Picker, area: Rect, empty: &'static str) -> Vec<Line<'static>> {
     let width = area.width as usize;
-    let mut lines = vec![Line::from(Span::styled("Agents", Style::default().add_modifier(Modifier::BOLD)))];
+    let mut lines = vec![Line::from(Span::styled("Tasks", Style::default().add_modifier(Modifier::BOLD)))];
     if picker.items.is_empty() {
         lines.extend([Line::default(), Line::from(Span::styled(empty, dim()))]);
     }

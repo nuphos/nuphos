@@ -42,7 +42,6 @@ class RuntimeDetailFixtureDeviceTest {
             saved = listOf(result); return result
         }
         override suspend fun remove(runtimeId: String): Boolean { removals++; return true }
-        override suspend fun create(provider: String, label: String?): AgentRuntime = error("unused")
         override suspend fun start(runtimeId: String): RuntimeLogin { signIns++; return RuntimeLogin("00000000-0000-4000-8000-000000000001", "connected", Long.MAX_VALUE) }
         override suspend fun login(runtimeId: String): RuntimeLogin = error("unused")
         override suspend fun code(runtimeId: String, attemptId: String, code: String): RuntimeLogin = error("unused")

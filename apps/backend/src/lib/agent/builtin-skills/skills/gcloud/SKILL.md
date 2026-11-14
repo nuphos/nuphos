@@ -101,6 +101,44 @@ gcloud iam service-accounts add-iam-policy-binding \
 After the local command succeeds, retry `setup-credentials.sh` or the original
 GCP operation to verify the impersonation grant works.
 
+### Token Creator grant rejected: "do not belong to a permitted customer"
+
+Google returns this when an organization policy limits which identities may
+appear in IAM policies. Do not tell the user to turn a policy off, and do not
+hand them a policy to apply: a human administrator decides on and makes any
+policy change.
+
+- This message comes from Domain Restricted Sharing
+  (`iam.allowedPolicyMemberDomains`), enforced by default on organizations
+  created on or after 2024-05-03. It only accepts organization principal sets
+  and Google Workspace customer IDs, never a single principal.
+- `iam.managed.allowedPolicyMembers` reports a different error,
+  `Operation denied by org policy ... constraints/iam.managed.allowedPolicyMembers`.
+  Its `allowedMemberSubjects` accepts the single Nuphos `principal://` value and
+  allows only that exact subject; `allowedPrincipalSets` must be non-empty and
+  list only `//cloudresourcemanager.googleapis.com/organizations/<id>` values. A
+  project policy replaces the parent policy rather than merging with it, and a
+  new policy takes several minutes to take effect.
+- Every constraint in force must allow the principal, so relaxing one does not
+  help while another still denies it.
+
+For the administrator to weigh, not a policy to hand over: the narrowest
+exception would be on the project that holds the connector service account, a
+managed policy that keeps the organization's principal set and every parent
+value and adds the Nuphos principal to `allowedMemberSubjects`, then, once it is
+in effect, `allowAll` for the legacy constraint on that project. The managed
+behavior above was tested; that the legacy step completes the grant was not.
+See https://docs.cloud.google.com/organization-policy/restrict-domains.
+
+The one piece of evidence needed is which of the two constraints is in force on
+the project that holds the connector service account. Ask the administrator for
+the output of these read-only commands, and nothing broader:
+
+```bash
+gcloud org-policies describe iam.allowedPolicyMemberDomains --project=<project-id> --effective
+gcloud org-policies describe iam.managed.allowedPolicyMembers --project=<project-id> --effective
+```
+
 ### No binding, or a binding on the wrong project
 
 Creating the Nuphos-side binding is a human step. `POST /teams/:teamId/gcp-projects`
@@ -164,7 +202,7 @@ The desktop's dashboard Watch prompt identifies the exact project, service-accou
 3. A chart is not automatically an alert policy. If the widget references an existing alert policy, read that policy back and use its exact condition. If a **new** alert policy is required, confirmation is a hard boundary even when the chart contains threshold markers or the recent baseline suggests an obvious value:
 
    - Read-only inspection is allowed. Use the saved query and recent data to prepare one concrete proposal covering the comparison and threshold, duration, per-series versus cross-series aggregation/reducer, and missing-data/auto-close behavior.
-   - Present that exact proposal to the user, call `request_user_decision` with category `approval` (include approve and adjust as the options), ask them to approve or adjust it, then **STOP and end the turn**. Do not call `trigger_create`; do not create or update an alert policy, notification channel, or any other provider resource in that turn.
+   - Present that exact proposal to the user, call `request_user_decision` with category `approval` (include approve and adjust as the options), ask them to approve or adjust it, then **STOP and end the turn**. Do not create a trigger; do not create or update an alert policy, notification channel, or any other provider resource in that turn.
    - Only a later user message that explicitly accepts or specifies the alert condition authorizes creation. The Watch click, destination choice, the agent's own recommendation, silence, or an unrelated reply is not approval. Never treat your proposed threshold as the user's confirmation.
 
 4. Once an exact alert policy exists, use the additive webhook wiring recipe below. Preserve all existing notification channels and scope the new path only to that policy.
@@ -173,22 +211,21 @@ The desktop's dashboard Watch prompt identifies the exact project, service-accou
 
 Use this when the user says "watch this alert policy / when X fires, do Y". Same pattern as the grafana skill's recipe: GCP keeps the condition (the alert policy), Nuphos receives the notification (a webhook trigger), the conversation the trigger is bound to performs Y. Requires `roles/monitoring.editor` (or the channel+policy editor pair) on the project — a 403 means the bound service account lacks it; guide the user to grant instead of improvising.
 
-**Completion contract:** `trigger_create` only creates the Nuphos receiver; the Watch is not live until the GCP notification channel is created, attached additively to the exact alert policy, read back, and drill-tested. For an existing alert policy, the generated Watch prompt authorizes those scoped additive changes. For a dashboard panel that needs a new policy, the user's later explicit approval of the exact condition authorizes policy creation and the scoped wiring; after that approval, do not ask for another confirmation or hand setup commands back to the user when the connected service account can run them.
+**Completion contract:** creating the trigger only creates the Nuphos receiver; the Watch is not live until the GCP notification channel is created, attached additively to the exact alert policy, read back, and drill-tested. For an existing alert policy, the generated Watch prompt authorizes those scoped additive changes. For a dashboard panel that needs a new policy, the user's later explicit approval of the exact condition authorizes policy creation and the scoped wiring; after that approval, do not ask for another confirmation or hand setup commands back to the user when the connected service account can run them.
 
 If the requested destination is Slack, call `slack_list_destinations` before creating the trigger. Use only the user's explicit DM/channel choice and name its stable ID/DM in the messageTemplate. If the user chose Nuphos, do not add Slack delivery.
 
-1. **Create the webhook trigger** with `trigger_create` (`triggerType: "webhook"`; set `monitoringIdentity` to `{provider:"gcp", integrationId:"<project ID>:<connected service-account email>", resourceId:"<full alert-policy name>"}` so retries reuse one trigger). Cloud Monitoring's webhook body is `{"version": "1.2", "incident": {...}}` — the useful fields are `incident.state` ("open" | "closed"), `incident.policy_name`, `incident.condition_name`, `incident.summary`, `incident.url` (console deep link), `incident.started_at`. Write the messageTemplate as the ACTION, branching on state:
+1. **Create the webhook trigger** through the `triggers` skill (`triggerType: "webhook"`, `targetSessionId` this conversation unless the user names another of theirs; first list the triggers bound to it and reuse one that already receives this policy). Cloud Monitoring's webhook body is `{"version": "1.2", "incident": {...}}` — the useful fields are `incident.state` ("open" | "closed"), `incident.policy_name`, `incident.condition_name`, `incident.summary`, `incident.url` (console deep link), `incident.started_at`. Write the messageTemplate as the ACTION, branching on state:
 
    ```text
    Cloud Monitoring notification received (state: {{payload.incident.state}}).
    Policy: {{payload.incident.policy_name}} — {{payload.incident.summary}}
    If the payload contains "test": true or "drill": true, reply "test delivery received" and STOP — no investigation.
-   For Slack, handle it the way an on-call engineer would. First check the earlier firings in this conversation to see whether this alert has gone off before and in which thread, and slack_read_channel if you want to know what is already in the channel. Post something quickly so whoever is watching knows it is being looked at, then investigate and follow up in the same thread when you know more.
-   Pass replyToThread with that earlier threadTs when this firing is the same problem still going or coming back; omit it to start a new thread when it is genuinely different. There is no message type to declare. When it has recovered, say so in its thread and stop — nothing needs to be closed. Post to the exact destination the user approved, as written in the messageTemplate, including slackWorkspaceId when it is known: {"type":"channel","channelId":"<the selected stable ID>","slackWorkspaceId":"<its workspace>"} for a channel, or {"type":"dm_self"} for a DM.
+   For Slack, first check the earlier firings in this conversation to see whether this alert has already been reported. Investigate, then call slack_post once when this firing is worth telling people about — a new problem, a material change, or its recovery; an unchanged repeat needs no post. Post to the exact destination the user approved, as written in the messageTemplate, including slackWorkspaceId when it is known: {"type":"channel","channelId":"<the selected stable ID>","slackWorkspaceId":"<its workspace>"} for a channel, or {"type":"dm_self"} for a DM. Keep bindConversation on unless this conversation is already bound to a Slack thread, in which case pass bindConversation=false.
    For Nuphos-only delivery, keep the findings here and do not call slack_post.
    ```
 
-   A Slack firing notification uses one root message per problem, followed by one investigation-result reply. Later meaningful changes and recovery also stay in that thread. Tell the user they can reply there to continue with Nuphos.
+   Each Slack post is one message from this conversation; replies in the thread under the first, bound post continue this conversation. Tell the user they can reply there to continue with Nuphos.
 
    The result gives you `webhookUrl` and `webhookSecret` (returned only once). Sanity check: the `webhookUrl` must be an absolute `https://` URL — a bare path means the backend has no public base URL; STOP and tell the user. NEVER substitute a different host.
 
@@ -220,15 +257,15 @@ If the requested destination is Slack, call `slack_list_destinations` before cre
 
    If the user instead wants ONLY the agent notified, confirm before removing existing channels — never silently detach a team's notifications.
 
-4. **Control noise at every layer.** Cloud Monitoring is naturally transition-oriented; keep a sensible condition duration/retest window and set `minIntervalSeconds` for retries. For Slack, keep one root per problem, only material in-thread updates (at most once per 15 minutes / three per hour), and one resolution. Repeated timestamps, small metric movement, and unchanged evidence should not call `slack_post`.
+4. **Control noise at every layer.** Cloud Monitoring is naturally transition-oriented; keep a sensible condition duration/retest window and set `minIntervalSeconds` for retries. For Slack, post only for a new problem, a material change, and its resolution. Repeated timestamps, small metric movement, and unchanged evidence should not call `slack_post`.
 
-5. **Verify before saying live**: describe the new notification channel and alert policy, and verify the policy contains the new channel plus every channel it had before. Then run `trigger_test_fire` with a representative payload (`{"test": true, "incident": {"state": "open", "policy_name": "...", "summary": "..."}}`) to check the cheap action branch. GCP has no channel test-send CLI; changing a live condition to force an incident is a separate risky action and still requires explicit approval.
+5. **Verify before saying live**: describe the new notification channel and alert policy, and verify the policy contains the new channel plus every channel it had before. Then `POST /{triggerId}/test-fire` (see the `triggers` skill) with a representative payload (`{"test": true, "incident": {"state": "open", "policy_name": "...", "summary": "..."}}`) to check the cheap action branch. GCP has no channel test-send CLI; changing a live condition to force an incident is a separate risky action and still requires explicit approval.
 
-6. **Register deterministic cleanup.** After read-back and the drill succeed, call `trigger_finalize_wiring` with `provider: "gcp"`, the project ID, connected service-account email, full alert-policy name, full notification-channel name, and `alertPolicyOrigin`. Use `existing` when the alert policy predated this Watch; use `created` only when this workflow created the policy after the user explicitly approved its exact condition. Store resource names and provenance only — never access tokens or the webhook secret. The Watch is not complete until this call succeeds.
+6. **Report what you created**: the full notification-channel name, the alert-policy name, and whether this workflow created the policy. Nuphos does not record them, and removing the trigger leaves them in GCP.
 
 If channel creation, policy attachment, read-back, or the drill fails, remove the channel from the policy, delete the newly created channel, and delete the newly created trigger when safe. Report the exact blocker; do not leave an enabled half-configured workflow.
 
-To tear down, confirm with the user and call `trigger_delete`; the backend removes only the finalized channel from the exact policy, verifies it, deletes the channel, then deletes the local trigger. Do not separately mutate GCP first.
+To tear down, confirm with the user, remove only the Nuphos channel from the exact policy (`--remove-notification-channels`), read the policy back, delete the channel, then delete the trigger. Deleting the trigger alone does not touch GCP.
 
 ## Safety
 

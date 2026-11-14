@@ -2,9 +2,10 @@ import { useRef, useState } from 'react'
 
 import { api } from '../../../api'
 import { t } from '../../../i18n'
+import { agentAvatarPick } from '../../../lib/agentAvatarChoices'
 import { AppAlertDialog } from '../../ui/alert-dialog'
-import { ComputerUseConfirm } from '../ComputerUseConfirm'
 import { needsComputerUse } from '../computerUse'
+import { ComputerUseConfirm } from '../ComputerUseConfirm'
 
 import { matchDevices, matchMembers, mentionQuery } from './composerMention'
 import { mentionedMembers, optionChip } from './composerMentionChips'
@@ -214,6 +215,8 @@ export function useComposerMentions(
     }
   }
 
+  const bot = Boolean(scope?.sessionId && agentAvatarPick(scope.sessionId))
+
   const names = uninvited.map((member) => member.name || member.email)
   const ui = (
     <>
@@ -230,12 +233,22 @@ export function useComposerMentions(
         open={uninvited.length > 0}
         title={
           uninvited.length === 1
-            ? t('Invite {name} to this agent?', { name: names[0] })
-            : t('Invite {n} people to this agent?', { n: String(uninvited.length) })
+            ? bot
+              ? t('Invite {name} to this Bot?', { name: names[0] })
+              : t('Invite {name} to this task?', { name: names[0] })
+            : bot
+              ? t('Invite {n} people to this Bot?', { n: String(uninvited.length) })
+              : t('Invite {n} people to this task?', { n: String(uninvited.length) })
         }
-        description={t('You mentioned {names}, but they are not in this agent yet.', {
-          names: names.join(', '),
-        })}
+        description={
+          bot
+            ? t('You mentioned {names}, but they are not in this Bot yet.', {
+                names: names.join(', '),
+              })
+            : t('You mentioned {names}, but they are not in this task yet.', {
+                names: names.join(', '),
+              })
+        }
         confirmLabel={t('Invite')}
         cancelLabel={t("Don't invite")}
         onConfirm={async () => {

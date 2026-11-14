@@ -82,14 +82,14 @@ internal fun ConversationAgentSheet(
                 verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 if (session.movingAgent || committing) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text("Switching runtime…") }
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                if (!session.canManage) Text("You can view this agent's runtime, but cannot move it.")
+                if (!session.canManage) Text("You can view this task's runtime, but cannot move it.")
                 else if (!session.canMoveAgent && !session.movingAgent) Text("Wait for the current response or pending message to finish before switching runtimes.")
                 if (refreshing) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text("Loading runtimes…") }
                 val choices = catalog?.filter { (session.isOwner || it.kind == "managed") && it.selectable &&
                     it.local?.online != false && quotas[it.id]?.needsSignIn != true }
                 if (choices != null && choices.isEmpty()) {
                     Text("No available runtimes.", style = MaterialTheme.typography.titleMedium)
-                    Text("Set up a cloud runtime, or open Nuphos on your computer to connect a runtime.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Open Nuphos on your computer to add a Box or connect your own computer.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (choices != null) ai.nuphos.android.ui.agent.RuntimeChoiceList(choices, session.runtimeId, quotas,
                     enabled = !refreshing && !committing && session.canMoveAgent, devices = devices, onSelect = { target ->
@@ -109,7 +109,7 @@ internal fun ConversationAgentSheet(
     }
     pendingLocal?.let { target ->
         AlertDialog(onDismissRequest = { pendingLocal = null }, title = { Text("Move to ${target.label}?") },
-            text = { Text("This runtime runs on your computer. After the move, people in this conversation can reply only if they can use this computer; the others can still read it.") },
+            text = { Text("This runtime runs on your computer. After the move, people in this task can reply only if they can use this computer; the others can still read it.") },
             confirmButton = { TextButton(enabled = isCurrent() && session.canMoveAgent, onClick = { pendingLocal = null; move(target) }) { Text("Move") } },
             dismissButton = { TextButton(onClick = { pendingLocal = null }) { Text("Cancel") } })
     }

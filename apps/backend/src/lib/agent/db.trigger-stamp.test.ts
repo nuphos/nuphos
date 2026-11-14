@@ -43,7 +43,7 @@ class FakeConversations {
 
 const convs = new FakeConversations()
 
-useDb({ db: (() => ({ collection: () => convs })) as unknown as typeof dbActual.db })
+useDb({ db: () => ({ collection: () => convs }) })
 
 const TRIGGER = '6512f0a1b2c3d4e5f6a7b8c9'
 
@@ -81,23 +81,6 @@ describe('upsertConversationShell trigger stamp', () => {
     expect(normalizeConversationTriggerRun(storedMetadata())).toEqual({
       id: TRIGGER,
       kind: 'scheduled',
-    })
-  })
-
-  test('a Watch group run records which member it fired for', async () => {
-    await upsertConversationShell({
-      sessionId: 's1',
-      userId: 'u1',
-      title: 'T',
-      firstMessage: 'Alert',
-      source: 'agent.trigger',
-      trigger: { id: TRIGGER, kind: 'webhook', memberKey: 'grafana:api-latency' },
-    })
-
-    expect(normalizeConversationTriggerRun(storedMetadata())).toEqual({
-      id: TRIGGER,
-      kind: 'webhook',
-      memberKey: 'grafana:api-latency',
     })
   })
 

@@ -34,7 +34,7 @@ struct SelectorBox: Identifiable {
     let label: String
     let device: AgentDevice?
     var agents: [RuntimeInstance]
-    var isComputer: Bool { device?.box == nil && agents.first?.local != nil }
+    var isComputer: Bool { device.map { $0.box == nil } ?? (agents.first?.local != nil) }
 
     static func grouped(_ agents: [RuntimeInstance], devices: [AgentDevice]) -> [SelectorBox] {
         var groups: [SelectorBox] = []

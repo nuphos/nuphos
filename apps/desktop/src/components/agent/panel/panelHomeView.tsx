@@ -6,6 +6,7 @@ import { pickNextTaskAgent, useNextTaskProject } from '../../../lib/taskProjects
 import { openAgentSetup } from '../../../views/onboarding/setup/agentSetupStore'
 
 import { AgentHomePage } from './AgentHomePage'
+import { ChatColumn } from './ChatColumn'
 import { Composer } from './Composer'
 import { newChatDraftKey } from './composerDrafts'
 import { Welcome } from './homeAnimation'
@@ -134,24 +135,26 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
     <>
       {addAgent.dialog}
       <Welcome onPick={(prompt) => (onConnectAgent ? onConnectAgent() : startChatWith(prompt))} />
-      <Composer
-        newChat
-        onSend={(text, filePaths, mentions) =>
-          sendInActive(text, filePaths, undefined, undefined, mentions)
-        }
-        onStop={stopActive}
-        credentialSelector={visibleHomeCredentialSelector}
-        runtimeControl={runtimeControl}
-        newConversationModelControl={newConversationModelControl}
-        bypassControl={bypassControl}
-        pendingSeed={pendingPromptReady}
-        onSeedConsumed={onPromptConsumed}
-        sidebar={isSidebarMode}
-        dropRegisterRef={homeDropRef}
-        draftKey={draftKey}
-        onImportSession={importSession}
-        mentionScope={teamId ? { teamId } : undefined}
-      />
+      <ChatColumn sidebar={isSidebarMode}>
+        <Composer
+          newChat
+          onSend={(text, filePaths, mentions) =>
+            sendInActive(text, filePaths, undefined, undefined, mentions)
+          }
+          onStop={stopActive}
+          credentialSelector={visibleHomeCredentialSelector}
+          runtimeControl={runtimeControl}
+          newConversationModelControl={newConversationModelControl}
+          bypassControl={bypassControl}
+          pendingSeed={pendingPromptReady}
+          onSeedConsumed={onPromptConsumed}
+          sidebar={isSidebarMode}
+          dropRegisterRef={homeDropRef}
+          draftKey={draftKey}
+          onImportSession={importSession}
+          mentionScope={teamId ? { teamId } : undefined}
+        />
+      </ChatColumn>
     </>
   )
 }

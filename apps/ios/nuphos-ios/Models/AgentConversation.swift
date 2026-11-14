@@ -110,7 +110,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     let canManage: Bool
     let tokenUsage: TokenUsage?
     let activitySource: ActivitySource?
-    /// `nuphos` | `claude-code` | `codex` | `grok` | `antigravity` | `opencode`.
+    /// `nuphos` | `claude-code` | `codex` | `grok` | `antigravity` | `opencode` | `dsh`.
     let agentRuntime: String?
     let runtimeId: String?
     let runtimeLabel: String?
@@ -127,6 +127,8 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     var watching: Bool?
     /// `channel` for a chat where people and agents talk; nil for an agent.
     var kind: String?
+    /// Started as a group chat: never a Bot's 1:1 chat, even with one Bot in it.
+    var group: Bool?
     /// A chat's icon: up to two members other than the viewer, whoever spoke last first.
     var faces: [ChatFace]?
     /// A Bot's face, e.g. `05-rembrandt`; nil for a Task (#1691).
@@ -144,7 +146,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     var isBot: Bool { avatar != nil && !isChannel }
 
     /// The Bot this chat is the 1:1 of: its one other member is an agent with a face.
-    var botId: String? { isChannel ? faces?.botId : nil }
+    var botId: String? { isChannel && group != true ? faces?.botId : nil }
 
     /// The list's preview line. Only a chat with more than one other member
     /// names who posted: in a 1:1 the row already is the sender.
@@ -168,7 +170,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     var displayTitle: String {
         if !title.isEmpty { return title }
         if !firstMessage.isEmpty { return firstMessage }
-        return "Untitled agent"
+        return "Untitled task"
     }
 
     var ownsChat: Bool { isOwner == true && readOnly != true }
@@ -198,6 +200,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         parentSessionId = try c.decodeIfPresent(String.self, forKey: .parentSessionId)
         watching = try? c.decodeIfPresent(Bool.self, forKey: .watching)
         kind = try? c.decodeIfPresent(String.self, forKey: .kind)
+        group = try? c.decodeIfPresent(Bool.self, forKey: .group)
         faces = try? c.decodeIfPresent([ChatFace].self, forKey: .faces)
         avatar = try? c.decodeIfPresent(String.self, forKey: .avatar)
         lastMessage = try? c.decodeIfPresent(LastMessage.self, forKey: .lastMessage)
@@ -377,8 +380,13 @@ struct AgentConversationDetail: Decodable, Sendable {
 
     /// A chat's icon, as the list row carries it.
     let faces: [ChatFace]
+    /// Started as a group chat: never a Bot's 1:1 chat, even with one Bot in it.
+    let group: Bool?
 
     var isChannel: Bool { kind == "channel" }
+
+    /// The Bot this chat is the 1:1 of, as the list row's `botId` decides it.
+    var botId: String? { group != true ? faces.botId : nil }
 
     /// What an open chat shows, as its probe reports it: a change means a full read. Its name and
     /// faces count too: an untitled Bot chat is named after the Bot, so renaming the Bot changes them without a post.
@@ -394,7 +402,7 @@ struct AgentConversationDetail: Decodable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case faces, kind, messageCount, transcriptUpdatedAt, isOwner, canManage, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, watching, timelineEvents, promptSuggestion
+        case faces, group, kind, messageCount, transcriptUpdatedAt, isOwner, canManage, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, watching, timelineEvents, promptSuggestion
     }
 
     init(from decoder: Decoder) throws {
@@ -425,6 +433,7 @@ struct AgentConversationDetail: Decodable, Sendable {
         kind = try? c.decodeIfPresent(String.self, forKey: .kind)
         messageCount = try? c.decodeIfPresent(Int.self, forKey: .messageCount)
         faces = (try? c.decodeIfPresent([ChatFace].self, forKey: .faces)) ?? []
+        group = try? c.decodeIfPresent(Bool.self, forKey: .group)
         transcriptUpdatedAt = try? c.decodeIfPresent(String.self, forKey: .transcriptUpdatedAt)
     }
 }

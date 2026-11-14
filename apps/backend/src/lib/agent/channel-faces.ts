@@ -46,7 +46,7 @@ export async function channelMembers(
     members.set(agent.sessionId, {
       id: agent.sessionId,
       name: agent.title,
-      agent: { ...(agent.avatar ? { avatar: agent.avatar } : {}), provider: agent.provider },
+      agent: { avatar: agent.avatar, provider: agent.provider },
     })
   for (const id of conversationParticipantIds(channel)) {
     const person = people.get(id)

@@ -12,7 +12,7 @@ import type {
   TeamMembership,
   TeamUpdateInput,
 } from '@/lib/identity/types'
-import type { Filter } from 'mongodb'
+import type { ClientSession, Filter, ObjectId } from 'mongodb'
 
 export async function getTeamMembership(
   userId: string,
@@ -65,7 +65,11 @@ export async function getTeamsByIds(teamIds: string[]): Promise<NuphosTeam[]> {
   return docs.map(mapTeam)
 }
 
-export async function createTeamForUser(userId: string, name: string): Promise<NuphosTeam> {
+export async function createTeamForUser(
+  userId: string,
+  name: string,
+  importing?: { session: ClientSession; id: ObjectId },
+): Promise<NuphosTeam> {
   const teamName = name.trim()
 
   if (!teamName) {
@@ -79,10 +83,13 @@ export async function createTeamForUser(userId: string, name: string): Promise<N
     throw new Error('Invalid userId')
   }
   const userObjectId = new MongoObjectId(userId)
-  const user = await users().findOne({
-    _id: userObjectId,
-    deletedAt: { $exists: false },
-  })
+  const user = await users().findOne(
+    {
+      _id: userObjectId,
+      deletedAt: { $exists: false },
+    },
+    { session: importing?.session },
+  )
 
   if (!user) {
     throw new Error('User not found')
@@ -94,7 +101,7 @@ export async function createTeamForUser(userId: string, name: string): Promise<N
   // make the response disagree with what was persisted.
   const creator = { userId: user._id, role: 'ADMINISTRATOR' as const, joinedAt: now }
   const team: NuphosTeamDoc = {
-    _id: new MongoObjectId(),
+    _id: importing?.id ?? new MongoObjectId(),
     name: teamName,
     avatarUrl: '',
     ownerID: user._id,
@@ -104,10 +111,10 @@ export async function createTeamForUser(userId: string, name: string): Promise<N
     updatedAt: now,
   }
 
-  await teams().insertOne(team)
+  await teams().insertOne(team, { session: importing?.session })
   const mapped = mapTeam(team)
 
-  upsertCachedTeam(mapped)
+  if (!importing) upsertCachedTeam(mapped)
 
   return { ...mapped, role: creator.role }
 }
