@@ -1,10 +1,13 @@
-import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test'
+import { afterAll, beforeEach, expect, spyOn, test } from 'bun:test'
 
+import * as turns from '@/lib/agent/conversation-turn'
 import { agentConversations } from '@/lib/agent/db/shared'
+import * as threads from '@/lib/agent/thread-bridge'
+import * as identity from '@/lib/identity'
 import { useDb } from '@/lib/test/doubles/db'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
-import { joinMeeting } from './meetings'
+import { chatInMeeting, handleRecallEvent, joinMeeting, leaveMeetingTask } from './meetings'
 import * as recall from './recall'
 
 import type { AgentConversation } from '@/lib/agent/db'
@@ -14,13 +17,41 @@ let memory = portabilityDb()
 
 useDb({ db: (() => memory) as unknown as typeof dbActual.db })
 const created = spyOn(recall, 'createMeetingBot')
+const left = spyOn(recall, 'leaveMeeting')
+const typed = spyOn(recall, 'sendMeetingChat')
+const thread = spyOn(threads, 'createAgentThread')
+const turn = spyOn(turns, 'startConversationTurn')
 
-spyOn(recall, 'recallConfig').mockReturnValue({ botsPerTeamPerDay: 10 } as never)
+const configured = spyOn(recall, 'recallConfig').mockReturnValue({
+  botsPerTeamPerDay: 10,
+} as never)
+const member = spyOn(identity, 'getTeamMembership').mockResolvedValue({ role: 'member' } as never)
+
+const actor = (sessionId: string) => ({ userId: 'owner', teamId: 'team', sessionId, locale: 'en' })
 
 beforeEach(() => {
   memory = portabilityDb()
-  created.mockReset()
+  for (const spy of [created, left, typed, thread, turn]) spy.mockReset()
   created.mockResolvedValue('recall-bot')
+  left.mockResolvedValue()
+  typed.mockResolvedValue()
+  turn.mockResolvedValue({ status: 'started', run: Promise.resolve(undefined) })
+  // The Task create_thread would make: a conversation under the actor.
+  thread.mockImplementation((from, _prompt, title) => {
+    memory.rows('agent_conversations').push({
+      _id: 'meeting',
+      sessionId: 'meeting',
+      userId: from.userId,
+      teamId: from.teamId,
+      title,
+      parentSessionId: from.sessionId,
+    })
+
+    return Promise.resolve({
+      threadId: 'meeting',
+      _links: { web: '/teams/team/agent/meeting' },
+    } as never)
+  })
   memory.rows('agent_conversations').push(
     {
       _id: 'bot',
@@ -41,29 +72,90 @@ beforeEach(() => {
     { _id: 'lone-task', sessionId: 'lone-task', userId: 'owner', teamId: 'team', title: 'Alone' },
   )
 })
-afterEach(() => {
-  created.mockReset()
+// Other files in the run use the real ones.
+afterAll(() => {
+  for (const spy of [created, left, typed, thread, turn, configured, member]) spy.mockRestore()
 })
 
 const conversation = async (sessionId: string) =>
   (await agentConversations().findOne({ sessionId })) as AgentConversation
 
-test('a Task joins the call as the Bot above it, which hears the call', async () => {
-  const { channelId } = await joinMeeting(
-    await conversation('task'),
-    'team',
-    'https://meet.example.com/abc',
-  )
+test('a meeting is a Task under the Bot, which is in the call under the Bot’s name', async () => {
+  const { threadId } = await joinMeeting(actor('task'), 'https://meet.example.com/abc', 'Notes.')
+  const meeting = await conversation(threadId)
 
   expect(created.mock.calls[0]?.[0]).toMatchObject({ botName: 'Ada' })
-  expect((await conversation(channelId)).agentSessionIds).toEqual(['bot'])
-  expect((await conversation('task')).avatar).toBeUndefined()
+  expect(thread.mock.calls[0]?.[1]).toContain('Notes.')
+  expect(meeting).toMatchObject({
+    parentSessionId: 'bot',
+    title: 'Meeting abc',
+    meeting: { botId: 'recall-bot', botName: 'Ada' },
+  })
+  // No chat is opened for the call, so the Bots list gains no row.
+  expect(await agentConversations().find({ kind: 'channel' }).toArray()).toEqual([])
 })
 
-test('a Task with no Bot above it is refused before any call bot or chat is made', async () => {
-  await expect(
-    joinMeeting(await conversation('lone-task'), 'team', 'https://meet.example.com/abc'),
-  ).rejects.toThrow('Only a Bot can be in a chat')
+test('a Task with no Bot above it is refused before any call bot or Task is made', async () => {
+  await expect(joinMeeting(actor('lone-task'), 'https://meet.example.com/abc')).rejects.toThrow(
+    'Only a Bot can be in a chat',
+  )
   expect(created).not.toHaveBeenCalled()
-  expect(await agentConversations().find({ kind: 'channel' }).toArray()).toEqual([])
+  expect(thread).not.toHaveBeenCalled()
+})
+
+test('the call bot leaves when its Task cannot be made', async () => {
+  thread.mockRejectedValue(new Error('no runtime'))
+
+  await expect(joinMeeting(actor('bot'), 'https://meet.example.com/abc')).rejects.toThrow(
+    'no runtime',
+  )
+  expect(left).toHaveBeenCalledWith('recall-bot')
+})
+
+test('speech reaches the meeting’s Task under its speaker’s name, until it is archived', async () => {
+  const { threadId } = await joinMeeting(actor('bot'), 'https://meet.example.com/abc')
+  const said = {
+    event: 'transcript.data',
+    data: {
+      data: { words: [{ text: 'hello' }], participant: { id: 1, name: 'Can' } },
+      bot: { id: 'recall-bot' },
+    },
+  }
+
+  await handleRecallEvent('delivery-1', said)
+  expect(turn.mock.calls[0]?.[0]).toMatchObject({
+    targetSessionId: threadId,
+    messageId: 'delivery-1',
+  })
+  expect(turn.mock.calls[0]?.[2]).toBe('Can: hello')
+
+  await agentConversations().updateOne(
+    { sessionId: threadId },
+    { $set: { archivedAt: new Date() } },
+  )
+  await handleRecallEvent('delivery-2', said)
+  expect(turn).toHaveBeenCalledTimes(1)
+})
+
+test('the Task types in its call, and it or its Bot ends the call', async () => {
+  const { threadId } = await joinMeeting(actor('bot'), 'https://meet.example.com/abc')
+
+  await chatInMeeting(actor(threadId), 'On it.')
+  expect(typed).toHaveBeenCalledWith('recall-bot', 'On it.')
+  await expect(chatInMeeting(actor('bot'), 'hi')).rejects.toThrow('not in a meeting')
+
+  await leaveMeetingTask(actor('bot'), threadId)
+  await leaveMeetingTask(actor(threadId))
+  expect(left).toHaveBeenCalledTimes(2)
+})
+
+test('failed transcription is said in the call’s chat and to its Task', async () => {
+  await joinMeeting(actor('bot'), 'https://meet.example.com/abc')
+  await handleRecallEvent('delivery-1', {
+    event: 'transcript.failed',
+    data: { data: { sub_code: 'provider_connection_failed' }, bot: { id: 'recall-bot' } },
+  })
+
+  expect(typed.mock.calls[0]?.[1]).toContain('Speech recognition failed')
+  expect(turn.mock.calls[0]?.[2]).toStartWith('Speech recognition failed')
 })
