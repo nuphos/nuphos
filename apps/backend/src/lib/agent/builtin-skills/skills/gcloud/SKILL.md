@@ -104,39 +104,34 @@ GCP operation to verify the impersonation grant works.
 ### Token Creator grant rejected: "do not belong to a permitted customer"
 
 Google returns this when an organization policy limits which identities may
-appear in IAM policies, most often Domain Restricted Sharing
-(`iam.allowedPolicyMemberDomains`, enforced by default on organizations created
-on or after 2024-05-03). The Nuphos principal lives outside the customer's
-Google Workspace / Cloud Identity customer. Do not tell the user to turn the
-policy off, and do not hand them a policy that replaces their existing values.
+appear in IAM policies. The error does not name the constraint. Do not tell the
+user to turn a policy off, and do not hand them a policy to apply: a human
+administrator decides on and makes any policy change.
 
-First confirm which constraint applies to the project that holds the connector
-service account. These commands are read-only:
+Documented by Google
+(https://docs.cloud.google.com/organization-policy/restrict-domains):
+
+- The message is the documented violation of Domain Restricted Sharing
+  (`iam.allowedPolicyMemberDomains`), enforced by default on organizations
+  created on or after 2024-05-03. That constraint only accepts organization
+  principal sets and Google Workspace customer IDs, never a single principal.
+- `iam.managed.allowedPolicyMembers` can also deny the grant. A project policy
+  for it replaces the parent policy rather than merging with it.
+- Every constraint in force must allow the principal, so relaxing one does not
+  help while another still denies it.
+
+Not documented: whether `allowedMemberSubjects` in the managed constraint
+accepts a workload identity `principal://` value. Do not present either
+constraint as a working fix until that is confirmed.
+
+The one piece of evidence needed is which of the two constraints is in force on
+the project that holds the connector service account. Ask the administrator for
+the output of these read-only commands, and nothing broader:
 
 ```bash
 gcloud org-policies describe iam.allowedPolicyMemberDomains --project=<project-id> --effective
 gcloud org-policies describe iam.managed.allowedPolicyMembers --project=<project-id> --effective
 ```
-
-Then describe each constraint again without `--effective`, at the project and at
-the organization, to see the existing values, conditions and inheritance. Back
-up any project policy before changing it.
-
-- `iam.allowedPolicyMemberDomains` only accepts organization principal sets and
-  Google Workspace customer IDs, so it cannot allow a single principal. Adding
-  the organization that owns the Nuphos pool allows every identity in that
-  organization to be named in the project's policies; that is the customer's
-  security decision, and the value comes from Nuphos support.
-- `iam.managed.allowedPolicyMembers` is not merged with its parent, so a project
-  policy must repeat every parent value and add the Nuphos principal to
-  `allowedMemberSubjects`. Google documents prefixed members such as `user:` and
-  `serviceAccount:` there but does not say whether `principal://` identities are
-  accepted. Apply it first with `--update-mask=dryRunSpec`, which blocks nothing.
-
-Every constraint in force must allow the principal. Roll back by re-applying the
-backup, or with `gcloud org-policies delete <constraint> --project=<project-id>`
-when the project had no policy before. See
-https://docs.cloud.google.com/organization-policy/restrict-domains.
 
 ### No binding, or a binding on the wrong project
 
