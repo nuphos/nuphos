@@ -3145,6 +3145,7 @@
   "Only the first 100 skills are shown; paste a folder to narrow it down.": "仅显示前 100 个技能；请粘贴文件夹以缩小范围。",
   "Only the first 200 indexes are shown.": "仅显示前 200 个索引。",
   "Only the most recently active sessions were counted, so the numbers may be low.": "只统计了最近活跃的会话，因此数字可能偏低。",
+  "Only the owner can change model settings.": "只有所有者可以更改模型设置。",
   "Only the owner can change who has access.": "只有所有者可以更改访问权限。",
   "Only the owner can choose who manages it.": "只有所有者可以选择管理者。",
   "Only the owner of this conversation can connect this.": "只有此对话的所有者可以连接此项。",

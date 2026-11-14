@@ -3145,6 +3145,7 @@
   "Only the first 100 skills are shown; paste a folder to narrow it down.": "最初の 100 個のスキルのみ表示しています。フォルダーを指定して絞り込んでください。",
   "Only the first 200 indexes are shown.": "最初の 200 件のインデックスのみ表示しています。",
   "Only the most recently active sessions were counted, so the numbers may be low.": "最近アクティブだったセッションのみを数えたため、実際より少ない可能性があります。",
+  "Only the owner can change model settings.": "モデル設定を変更できるのはオーナーのみです。",
   "Only the owner can change who has access.": "アクセスできるユーザーを変更できるのはオーナーのみです。",
   "Only the owner can choose who manages it.": "管理者を選べるのはオーナーだけです。",
   "Only the owner of this conversation can connect this.": "これを接続できるのはこの会話のオーナーだけです。",

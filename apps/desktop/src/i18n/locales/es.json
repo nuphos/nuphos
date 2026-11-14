@@ -3145,6 +3145,7 @@
   "Only the first 100 skills are shown; paste a folder to narrow it down.": "Solo se muestran las primeras 100 habilidades; pega una carpeta para acotar.",
   "Only the first 200 indexes are shown.": "Solo se muestran los primeros 200 índices.",
   "Only the most recently active sessions were counted, so the numbers may be low.": "Solo se contaron las sesiones con actividad más reciente, así que las cifras pueden quedarse cortas.",
+  "Only the owner can change model settings.": "Solo el propietario puede cambiar la configuración del modelo.",
   "Only the owner can change who has access.": "Solo el propietario puede cambiar quién tiene acceso.",
   "Only the owner can choose who manages it.": "Solo el propietario puede elegir quién la gestiona.",
   "Only the owner of this conversation can connect this.": "Solo el propietario de esta conversación puede conectar esto.",

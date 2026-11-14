@@ -11,6 +11,7 @@ export function ModelChipLabel({
   levels,
   choosingEffort,
   fast,
+  inline = false,
 }: {
   name: string
   loading: boolean
@@ -21,6 +22,8 @@ export function ModelChipLabel({
   choosingEffort: boolean
   /** The fast option's value: 'on' (Fast), 'ultrafast', or off. */
   fast?: string
+  /** Always shows the model and effort, outside a composer's container queries. */
+  inline?: boolean
 }) {
   // Fast mode shows in the chip, as Codex shows its mode icon.
   const FastIcon = fast === 'ultrafast' ? Rocket : fast === 'on' && Zap
@@ -44,8 +47,10 @@ export function ModelChipLabel({
     // every level share one cell, so the chip keeps the width of the
     // widest and centers its text, as Codex does.
     <>
-      <Sparkles aria-hidden size={14} strokeWidth={1.8} className="shrink-0 @[320px]:hidden" />
-      <span className="hidden min-w-0 @[320px]:grid">
+      {!inline && (
+        <Sparkles aria-hidden size={14} strokeWidth={1.8} className="shrink-0 @[320px]:hidden" />
+      )}
+      <span className={clsx('min-w-0', inline ? 'grid' : 'hidden @[320px]:grid')}>
         {levels.map((choice) => (
           <span
             key={choice}
@@ -54,7 +59,9 @@ export function ModelChipLabel({
           >
             {fastIcon}
             <span className="min-w-0 truncate">{name}</span>
-            <span className="hidden shrink-0 @[440px]:inline">{choice}</span>
+            <span className={clsx('shrink-0', inline ? 'inline' : 'hidden @[440px]:inline')}>
+              {choice}
+            </span>
           </span>
         ))}
         <span
@@ -67,7 +74,12 @@ export function ModelChipLabel({
           {fastIcon}
           <span className="min-w-0 truncate">{name}</span>
           {level && (
-            <span className="hidden shrink-0 whitespace-nowrap text-tertiary @[440px]:inline">
+            <span
+              className={clsx(
+                'shrink-0 whitespace-nowrap text-tertiary',
+                inline ? 'inline' : 'hidden @[440px]:inline',
+              )}
+            >
               {level}
             </span>
           )}

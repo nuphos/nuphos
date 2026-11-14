@@ -20,6 +20,7 @@ import { IconButton } from '../ui/icon-button'
 import { toast } from '../ui/toast'
 
 import { botOfChannel } from './botChannel'
+import { BotModelControl } from './BotModelControl'
 import { BotTaskButton } from './BotTaskButton'
 import { ChannelMessages } from './ChannelMessages'
 import { ChatHeaderIcon, ChatIcon, ReplyingBanner } from './channelParts'
@@ -84,6 +85,7 @@ export function ChannelPane({
   const bot = botOfChannel(detail)
   const botState = useSyncExternalStore(subscribeRuntimeStates, () => runtimeStateOf(bot))
   const botOwned = agents.some((agent) => agent.sessionId === bot && agent.ownerId === user.id)
+  const botProvider = agents.find((agent) => agent.sessionId === bot)?.provider
   const canOpenTask = useBotTaskAccess(teamId, bot, botOwned)
   const canOpenBotDesktop =
     bot !== undefined &&
@@ -183,10 +185,13 @@ export function ChannelPane({
           />
         </div>
         {bot && canOpenTask && (
-          <BotTaskButton
-            provider={agents.find((agent) => agent.sessionId === bot)?.provider}
-            onClick={() => (onOpenTask ?? onOpenSession)(bot)}
-          />
+          <>
+            <BotModelControl teamId={teamId} botId={bot} provider={botProvider} owned={botOwned} />
+            <BotTaskButton
+              provider={botProvider}
+              onClick={() => (onOpenTask ?? onOpenSession)(bot)}
+            />
+          </>
         )}
         {bot && canOpenBotDesktop && (
           <IconButton
