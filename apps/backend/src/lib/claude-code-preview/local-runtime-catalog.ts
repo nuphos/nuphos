@@ -216,10 +216,10 @@ export async function resolveLocalRuntimeEndpoint(
   const presence = await deps.getPresence(ref.userId, ref.deviceId)
   const agent = reportedLocalAgent(presence?.status, ref)
 
+  // Removed from its computer: no report will bring it back, so it is gone, not offline.
+  if (!agent && !kept && purpose !== 'login') throw runtimeGone()
   // Signing in needs only the computer: an agent added a moment ago may not be in its last
   // report yet, and the host's own sign-in answers for it (the login retries while it starts).
-  // Removed from an online computer: no report will bring it back, so it is gone, not offline.
-  if (!agent && !kept && purpose !== 'login') throw runtimeGone()
   if (!presence || (!agent && purpose !== 'login'))
     throw new AppError(
       409,
