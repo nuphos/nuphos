@@ -1,5 +1,9 @@
 import { LOCAL_AGENT_PROVIDERS } from './agent-cli.ts'
-import { ANTIGRAVITY_SIGN_OUT, deleteDefaultCredentials } from './agent-credentials.ts'
+import {
+  ANTIGRAVITY_SIGN_OUT,
+  credentialsLeft,
+  deleteDefaultCredentials,
+} from './agent-credentials.ts'
 import { deleteDefaultLogin } from './agent-home.ts'
 import { prepareHomeFor, userDir } from './controller-types.ts'
 import { agentHomeName } from './providers.ts'
@@ -60,14 +64,16 @@ async function resetDefaultAgent(
   const agent = deletableProvider(provider)
   const env = await deps.userEnv()
 
-  await stop(agent)
-  deleteDefaultCredentials(
-    agent,
+  const home =
     prepareHomeFor(deps, agent, userId, env) ??
-      userDir(deps.dataDir(), userId, agentHomeName(agent)),
-    env,
-  )
+    userDir(deps.dataDir(), userId, agentHomeName(agent))
+
+  await stop(agent)
+  deleteDefaultCredentials(agent, home, env)
+  const left = await credentialsLeft(agent, home, deps)
+
   await refresh(agent, false)
+  if (left) throw left
 
   return {}
 }

@@ -1,7 +1,7 @@
 import { rmSync } from 'node:fs'
 import path from 'node:path'
 
-import { deleteAgentCredentials } from './agent-credentials.ts'
+import { credentialsLeft, deleteAgentCredentials } from './agent-credentials.ts'
 import { parseInstance, readInstances, writeInstances } from './agent-instances.ts'
 import { deleteClaudeKeychainEntry } from './claude-keychain.ts'
 import { defaultAgentRequest } from './default-agent.ts'
@@ -200,15 +200,22 @@ export class InstanceControllers {
     const { instanceId, provider } = entry.metadata
     const dir = this.instanceDir(instanceId)
 
+    const home = userDir(dir, userId, agentHomeName(provider))
+
     await entry.starting?.catch(() => {})
     await entry.controller.shutdown()
-    deleteAgentCredentials(provider, userDir(dir, userId, agentHomeName(provider)))
+    deleteAgentCredentials(provider, home)
     if (provider === 'claude-code') await this.removeCredential(secureStorageEnv(dir, userId))
+    const left = await credentialsLeft(provider, home, this.deps)
+
+    // Removed meanwhile: starting it again would bring back an agent no one lists.
+    if (this.entries.get(instanceId) !== entry) throw new Error('Runtime instance not found')
     entry.starting = entry.controller.setUser(userId).then(this.changed)
     entry.starting.catch(() => {
       /* The controller reports its own start failure. */
     })
     this.changed()
+    if (left) throw left
 
     return { instance: publicMetadata(entry.metadata) }
   }

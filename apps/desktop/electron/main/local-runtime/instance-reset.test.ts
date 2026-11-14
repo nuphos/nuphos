@@ -13,6 +13,7 @@ import type { LocalRuntimeControllerDeps } from './controller-types.ts'
 const LOGIN = {
   'claude-code': 'claude-home/.credentials.json',
   codex: 'codex-home/auth.json',
+  opencode: 'opencode-home/.local/share/opencode/auth.json',
 }
 
 // An added agent whose login is the file its CLI reads; the controller is a fake that
@@ -23,9 +24,13 @@ function setup(t: { after: (fn: () => void) => void }) {
   t.after(() => rmSync(root, { recursive: true, force: true }))
   const events: string[] = []
   const removedCredentials: string[] = []
+  // What OpenCode answers once its files are gone, and a stop that waits when held.
+  const probe = { loggedIn: false }
+  let held: Promise<void> | undefined
   const deps = {
     dataDir: () => root,
     userEnv: async () => ({}),
+    probeCli: async () => ({ installed: true, loggedIn: probe.loggedIn }),
   } as unknown as LocalRuntimeControllerDeps
   const instances = new InstanceControllers(
     deps,
@@ -42,6 +47,7 @@ function setup(t: { after: (fn: () => void) => void }) {
           events.push('start')
         },
         shutdown: async () => {
+          await held
           events.push('stop')
         },
         refresh: async () => ({}) as never,
@@ -71,11 +77,15 @@ function setup(t: { after: (fn: () => void) => void }) {
     writeFileSync(file, '{}')
   }
 
-  return { root, instances, events, removedCredentials, dirOf, write }
+  const hold = (until: Promise<void>) => {
+    held = until
+  }
+
+  return { root, instances, events, removedCredentials, dirOf, write, probe, hold }
 }
 
 /** Created and signed in, as the backend leaves an added agent once its sign-in finished. */
-async function signedIn(setupOf: ReturnType<typeof setup>, provider: 'claude-code' | 'codex') {
+async function signedIn(setupOf: ReturnType<typeof setup>, provider: keyof typeof LOGIN) {
   const agent = { instanceId: randomUUID(), provider, label: 'Work' }
 
   await setupOf.instances.request({ method: 'create', ...agent }, 'alice')
@@ -143,4 +153,47 @@ test('reset refuses an unknown or invalid agent', async (t) => {
     instances.request({ method: 'reset', instanceId: '../escape' }, 'alice'),
     /Invalid/u,
   )
+})
+
+test('an OpenCode that still reports a provider fails the reset, and runs again', async (t) => {
+  const context = setup(t)
+  const { instances, events, dirOf, probe } = context
+
+  await instances.load('alice')
+  const agent = await signedIn(context, 'opencode')
+
+  // OpenCode 2.x keeps provider credentials in its database, which no file deletion reaches.
+  probe.loggedIn = true
+  await assert.rejects(
+    instances.request({ method: 'reset', instanceId: agent.instanceId }, 'alice'),
+    /OpenCode still holds provider credentials/,
+  )
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.deepEqual(events, ['stop', 'start'])
+  assert.equal(existsSync(path.join(dirOf(agent.instanceId), LOGIN.opencode)), false)
+})
+
+test('an agent removed while its reset stops it is not started again', async (t) => {
+  const context = setup(t)
+  const { instances, events, dirOf, hold } = context
+
+  await instances.load('alice')
+  const agent = await signedIn(context, 'codex')
+  let resolveStop = () => {}
+
+  hold(
+    new Promise<void>((resolve) => {
+      resolveStop = resolve
+    }),
+  )
+  const reset = instances.request({ method: 'reset', instanceId: agent.instanceId }, 'alice')
+  const removed = instances.request({ method: 'remove', instanceId: agent.instanceId }, 'alice')
+
+  resolveStop()
+  await removed
+  await assert.rejects(reset, /Runtime instance not found/)
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.equal(events.includes('start'), false)
+  assert.equal(existsSync(dirOf(agent.instanceId)), false)
+  assert.equal(instances.status().length, 0)
 })

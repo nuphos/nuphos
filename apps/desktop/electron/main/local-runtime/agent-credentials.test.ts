@@ -4,7 +4,13 @@ import os from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
 
-import { deleteAgentCredentials, deleteDefaultCredentials } from './agent-credentials.ts'
+import {
+  credentialsLeft,
+  deleteAgentCredentials,
+  deleteDefaultCredentials,
+} from './agent-credentials.ts'
+
+import type { LocalRuntimeControllerDeps } from './controller-types.ts'
 
 function home(t: { after: (fn: () => void) => void }, files: Record<string, string>) {
   const root = mkdtempSync(path.join(os.tmpdir(), 'nuphos-agent-credentials-'))
@@ -124,4 +130,27 @@ test('a default Codex also loses the owner login its home links to', (t) => {
   writeFileSync(path.join(root, 'owner/.codex/auth.json'), '{}')
   deleteDefaultCredentials('claude-code', path.join(root, 'claude-home'), env)
   assert.equal(existsSync(path.join(root, 'owner/.codex/auth.json')), true)
+})
+
+test('only an OpenCode still holding a provider, as a 2.x database can, fails the check', async () => {
+  const asked: string[] = []
+  const answering = (loggedIn: boolean | null) =>
+    ({
+      userEnv: async () => ({}),
+      probeCli: async (provider: string, _env: unknown, home: string | undefined) => {
+        asked.push(`${provider} ${String(home)}`)
+
+        return { installed: true, loggedIn }
+      },
+    }) as unknown as Pick<LocalRuntimeControllerDeps, 'probeCli' | 'userEnv'>
+
+  assert.match(
+    String(await credentialsLeft('opencode', '/home/oc', answering(true))),
+    /OpenCode still holds provider credentials/,
+  )
+  assert.equal(await credentialsLeft('opencode', '/home/oc', answering(false)), undefined)
+  assert.equal(await credentialsLeft('opencode', '/home/oc', answering(null)), undefined)
+  // Every other agent's sign-in is the files deleted above, so none is asked.
+  assert.equal(await credentialsLeft('codex', '/home/cx', answering(true)), undefined)
+  assert.deepEqual(asked, ['opencode /home/oc', 'opencode /home/oc', 'opencode /home/oc'])
 })
