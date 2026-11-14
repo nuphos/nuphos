@@ -137,7 +137,8 @@ export async function answerDecision(args: {
     throw new AppError(409, 'decision_already_answered', 'This question is no longer open')
   const who = { displayName: actor.displayName, owner: actor.id === conversation.userId }
   const { startConversationTurn } = await import('./conversation-turn')
-  // The question was taken; if the agent cannot be told, it is open again so the answer can be retried.
+  // The question was taken; if the agent cannot be told, now or once its turn
+  // comes, it is open again so the answer can be retried.
   const { run } = await startConversationTurn(
     {
       userId: conversation.userId,
@@ -145,6 +146,7 @@ export async function answerDecision(args: {
       targetSessionId: conversation.sessionId,
       messageId: randomUUID(),
       locale: conversation.metadata?.locale ?? 'en-US',
+      answers: request,
     },
     conversation,
     answerNotice(request, answer, who),

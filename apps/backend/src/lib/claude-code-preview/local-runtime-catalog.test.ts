@@ -291,6 +291,33 @@ describe('local runtime catalog', () => {
       resolveLocalRuntimeEndpoint('t1', runtimeId, 'owner', 'transport', removing),
     ).rejects.toMatchObject({ code: 'runtime_not_found' })
   })
+
+  test('an added agent removed from its computer is gone, while one it still has is only offline', async () => {
+    const INSTANCE = '1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed'
+    const added = localRuntimeId({ ...ref, instanceId: INSTANCE })
+    const keeping: LocalRuntimeCatalogDeps = {
+      ...deps,
+      access: {
+        ...deps.access,
+        getDevice: async (owner, id) => ({
+          ...device(owner, id, 'Olivia’s MacBook'),
+          agents: [{ provider: 'claude-code', instanceId: INSTANCE, signedIn: true }],
+        }),
+      },
+    }
+
+    // The computer is online with its other agents; conversations left on this one must move.
+    await expect(
+      resolveLocalRuntimeEndpoint('t1', added, 'owner', 'transport', deps),
+    ).rejects.toMatchObject({ code: 'runtime_not_found' })
+    await expect(
+      resolveLocalRuntimeEndpoint('t1', added, 'owner', 'transport', keeping),
+    ).rejects.toMatchObject({ code: 'runtime_offline' })
+    // Its sign-in reaches an agent added a moment ago, before any report or record of it.
+    expect((await resolveLocalRuntimeEndpoint('t1', added, 'owner', 'login', deps)).authKey).toBe(
+      'control',
+    )
+  })
 })
 
 describe('team Box runtime authorization before transport', () => {
