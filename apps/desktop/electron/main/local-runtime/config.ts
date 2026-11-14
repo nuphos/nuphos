@@ -4,6 +4,7 @@ import path from 'node:path'
 
 import { envValue } from './agent-cli-apps.ts'
 import { LOCAL_AGENT_PROVIDERS, shimEnv } from './providers.ts'
+import { shellGuardEnv } from './shell-guard.ts'
 
 import type { LocalAgentProvider } from './providers.ts'
 
@@ -130,26 +131,7 @@ export function agentEnv(launch: LocalRuntimeLaunch): Record<string, string> {
     NUPHOS_MCP_BRIDGE: launch.adapter.bridge,
     NUPHOS_CUA_PERMISSION_CLIENT: path.join(launch.bundle.root, 'cua-permission'),
     NUPHOS_RUNTIME_WORKSPACE: launch.workspace,
-    // The conversation token in the spawn-time env expires after a day; bash
-    // re-reads the current one from OPENAB_CREDENTIALS_DIR, as in the runtime image.
-    BASH_ENV: path.join(launch.bundle.root, 'runtime-guard.sh'),
-    // Claude Code gives its shell a socket for stdin, and a top-level bash with a
-    // socket stdin is a "remote shell" that skips BASH_ENV. A terminal sets SHLVL;
-    // an app launched from the Dock or a service does not.
-    SHLVL: '1',
-    // zsh, Codex's shell on macOS, reads $ZDOTDIR/.zshenv instead (see zshenv).
-    ZDOTDIR: path.dirname(zshenv(launch).file),
-  }
-}
-
-/** Has zsh source the same guard bash gets through BASH_ENV; written at every start. */
-export function zshenv(launch: LocalRuntimeLaunch): { file: string; contents: string } {
-  const guard = path.join(launch.bundle.root, 'runtime-guard.sh')
-
-  return {
-    // Not in the bundle: the packaged app drops dotfiles.
-    file: path.join(launch.openabHome, 'zsh', '.zshenv'),
-    contents: `. '${guard.replaceAll("'", "'\\''")}'\n`,
+    ...shellGuardEnv(launch),
   }
 }
 
