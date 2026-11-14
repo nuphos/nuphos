@@ -14,6 +14,7 @@ import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence
 import { DEVICE_CREDENTIAL_PREFIX } from '@/lib/agent/devices/join-tokens'
 import { recordDeviceAgents } from '@/lib/agent/devices/agent-registry-store'
 import { settlePendingRemovals } from '@/lib/agent/devices/pending-removals'
+import { presenceChanged } from '@/lib/agent/devices/presence-alerts'
 import { getAgentDevice, isActiveTeamMember } from '@/lib/agent/devices/store'
 import { recordDeviceMetricSample } from '@/lib/claude-code-preview/runtime-metrics-store'
 import { AppError } from '@/lib/errors'
@@ -56,8 +57,9 @@ function defaultDependencies(): DeviceRuntimeRouteDependencies {
         // Back online: it deletes what was removed while it was away (settling never throws).
         void settlePendingRemovals(userId, deviceId, status).catch(() => undefined)
       },
-      connectionChanged: (userId, deviceId) => {
+      connectionChanged: (userId, deviceId, online) => {
         void noteBoxPresence(userId, deviceId, getAgentDevice)
+        void presenceChanged(userId, deviceId, online).catch(() => undefined)
       },
       recordMetrics: recordDeviceMetricSample,
     },

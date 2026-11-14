@@ -24,8 +24,8 @@ export type TunnelHolderDeps = {
     status: LocalRuntimeStatus,
     from?: RequestOrigin,
   ) => Promise<void>
-  /** Told when the tunnel opens or closes, and of every usage report; neither may throw. */
-  connectionChanged?: (userId: string, deviceId: string) => void
+  /** Told when the tunnel opens and when it ends, however it ends; it may not throw. */
+  connectionChanged?: (userId: string, deviceId: string, online: boolean) => void
   recordMetrics?: (userId: string, deviceId: string, metrics: BoxMetrics) => void
 }
 
