@@ -3,8 +3,8 @@ import SwiftUI
 
 /// One Inbox question: who asked (the name opens that Bot or Task), when, the
 /// question and its markdown body, then its answers. On iPhone the options are
-/// full-width buttons pinned to the bottom with "Other…" and "Skip" below; wide,
-/// a row of capsules with "Skip" at its end. A form, an integration question
+/// full-width buttons pinned to the bottom with "Other…" and "Skip" as outlined halves
+/// below; wide, a row of capsules with an outlined "Skip" at its end. A form, an integration question
 /// and a plan keep their own controls.
 struct InboxQuestionView: View {
     @Environment(AgentStore.self) private var store
@@ -167,20 +167,7 @@ struct InboxQuestionView: View {
                                         answer(DecisionAnswer(choices: [option]))
                                     }
                                 }
-                                // Plain text until it is toggled, then a light capsule.
-                                if question.typed, !options.isEmpty {
-                                    Button(action: other) {
-                                        Text("Other…")
-                                            .font(.system(size: 15, weight: typing ? .semibold : .regular))
-                                            .foregroundStyle(typing ? Theme.heading : Theme.body)
-                                            .padding(.horizontal, 14)
-                                            .frame(minHeight: 40)
-                                            .background(typing ? Theme.control : .clear, in: Capsule())
-                                            .contentShape(Capsule())
-                                    }
-                                    .buttonStyle(.plain)
-                                    .accessibilityAddTraits(typing ? .isSelected : [])
-                                }
+                                if question.typed, !options.isEmpty { otherButton }
                             }
                         }
                         .scrollClipDisabled()
@@ -192,20 +179,11 @@ struct InboxQuestionView: View {
                             answer(DecisionAnswer(choices: [option]))
                         }
                     }
-                    HStack {
-                        if question.typed, !options.isEmpty {
-                            Button("Other…", action: other)
-                                .fontWeight(typing ? .semibold : .regular)
-                                .foregroundStyle(typing ? Theme.heading : Theme.body)
-                        }
-                        Spacer()
+                    // Two halves; Skip keeps the right one when there is no Other….
+                    HStack(spacing: 10) {
+                        if question.typed, !options.isEmpty { otherButton } else { Color.clear.frame(maxWidth: .infinity) }
                         skip
                     }
-                    .font(.system(size: 15))
-                    .foregroundStyle(Theme.body)
-                    .buttonStyle(.plain)
-                    .frame(height: 44)
-                    .padding(.horizontal, 6)
                 }
                 if typing || (options.isEmpty && question.typed) { field }
             }
@@ -253,11 +231,12 @@ struct InboxQuestionView: View {
         .padding(.horizontal, wide ? 0 : -4)
     }
 
+    private var otherButton: some View {
+        InboxOutlineButton(title: String(localized: "Other…"), fill: !wide, toggled: typing, action: other)
+    }
+
     private var skip: some View {
-        Button("Skip") { inbox.selected = inbox.next(after: question.id) }
-            .font(.system(size: 15))
-            .foregroundStyle(Theme.body)
-            .buttonStyle(.plain)
+        InboxOutlineButton(title: String(localized: "Skip"), fill: !wide) { inbox.selected = inbox.next(after: question.id) }
             .disabled(inbox.list.count < 2 && wide)
     }
 
@@ -331,5 +310,32 @@ private struct InboxOption: View {
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// Other… and Skip: an outlined capsule, filled light instead while toggled. Half the row on
+/// iPhone at 44pt; wide, as wide as its title at 40pt.
+private struct InboxOutlineButton: View {
+    let title: String
+    let fill: Bool
+    var toggled = false
+    let action: () -> Void
+    @Environment(\.isEnabled) private var enabled
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 15, weight: .semibold))
+                .lineLimit(1)
+                .foregroundStyle(Theme.heading)
+                .padding(.horizontal, 18)
+                .frame(maxWidth: fill ? .infinity : nil, minHeight: fill ? 44 : 40)
+                .background(toggled ? Theme.control : .clear, in: Capsule())
+                .overlay { if !toggled { Capsule().strokeBorder(Theme.outline, lineWidth: 1) } }
+                .contentShape(Capsule())
+                .opacity(enabled ? 1 : 0.4)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(toggled ? .isSelected : [])
     }
 }
