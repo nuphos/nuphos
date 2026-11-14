@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // The Nuphos layer for agents that ship their own ACP server (Grok Build, Google
-// Antigravity, OpenCode, Hermes Agent). Claude Code and Codex get this layer by patching their Node adapters;
+// Antigravity, OpenCode, Hermes Agent, DeepSeek Harness). Claude Code and Codex get this layer by patching their Node adapters;
 // a native binary cannot be patched, so this process sits in front of it instead and
 // passes every frame through, except where a Nuphos session needs something:
 //
@@ -93,6 +93,16 @@ export const PROVIDERS = {
     // Hermes reads no _meta: the instructions lead the first prompt.
     instruct: null,
     serialPrompts: true,
+  },
+  dsh: {
+    command: ['dsh', '--profile', 'acp'],
+    // Its login (.credentials.yaml), profiles and sessions, in the runtime home.
+    home: (runtimeHome) => ({ DSH_HOME: join(runtimeHome, '.dsh') }),
+    instruct: null,
+    serialPrompts: true,
+    // DSH resumes a session without replaying it, and has no session/load; OpenAB only
+    // loads, so a load is sent as a resume.
+    loadAsResume: true,
   },
 }
 
@@ -393,7 +403,21 @@ export function runShim({
         },
       }
       initialize = message
+      if (spec.loadAsResume)
+        transforms.set(message.id, async (reply) => {
+          const capabilities = reply.result?.agentCapabilities
+          if (!capabilities) return reply
+          return {
+            ...reply,
+            result: {
+              ...reply.result,
+              agentCapabilities: { ...capabilities, loadSession: true },
+            },
+          }
+        })
     }
+    if (spec.loadAsResume && message.method === 'session/load')
+      message = { ...message, method: 'session/resume' }
     if (['session/new', 'session/load', 'session/resume'].includes(message.method))
       return openSession(message)
     const sessionId = message.params?.sessionId

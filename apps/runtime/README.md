@@ -72,6 +72,12 @@ Three things, in layers:
    connector credentials, and exits 30 seconds after the conversation's agent
    stops. Profiles share the login in `~/.hermes`. Hermes's own long-term memory
    is off; Nuphos memory is the only one.
+   DeepSeek Harness (`dsh --profile acp`) is open source and speaks ACP too, and
+   runs behind the same shim. It needs Node 24, so the `dsh` image installs the
+   pinned npm release at build time with its own Node 24 binary; everything else
+   keeps the image's Node 22. It signs in with a DeepSeek API key or a DeepSeek
+   account. DSH has no `session/load`, so the shim turns OpenAB's load into a
+   `session/resume`, which restores the session without replaying it.
 3. **The Nuphos toolset layer**, built from [`image/`](image) in this
    repository: a set of patches to the adapters, a handful of helper programs,
    and the command-line tools an agent is expected to be able to reach for.
@@ -82,25 +88,26 @@ The adapters are patched at build time rather than forked. Each patch pins the
 SHA-256 of the upstream bundle it edits, so an adapter upgrade fails the build
 until someone re-reviews the patch.
 
-| Path in the image                           | What it does                                                                                                                                                                                                                                                                                                                                 |
-| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/opt/nuphos-claude-agent-acp`              | Claude adapter (0.74.0, Agent SDK 0.3.322), patched to publish session state and to bridge HTTP MCP servers                                                                                                                                                                                                                                  |
-| `/opt/nuphos-codex-acp`                     | Codex adapter (1.1.4, Codex CLI 0.167.0), patched for per-session instructions and environment, MCP bridging, and steering an active turn                                                                                                                                                                                                    |
-| `/usr/local/bin/nuphos-runtime-start`       | The entrypoint: checks a password set in the environment and derives the operator key from it, points openab's console at a password file from an earlier version, lays out `/workspace` the way a provisioned pod does, then becomes openab                                                                                                 |
-| `/etc/openab/config.toml`                   | The gateway config openab reads, so the container starts with nothing mounted; a mount at this path replaces it                                                                                                                                                                                                                              |
-| `/opt/runtime-defaults.mjs`                 | Applies a model, reasoning effort and fast-mode default to a new session                                                                                                                                                                                                                                                                     |
-| `/opt/nuphos-runtime/mcp-http-bridge.mjs`   | Relays a stdio MCP server to a bearer-authenticated HTTP endpoint, re-reading the token per request                                                                                                                                                                                                                                          |
-| `/opt/nuphos-runtime/runtime-guard.sh`      | Sourced via `BASH_ENV`; refreshes per-turn credentials into the shell environment                                                                                                                                                                                                                                                            |
-| `/opt/nuphos-runtime/panel-job.mjs`         | The `panel` job OpenAB runs for `_openab/runtime/job`: writes the panel runner, script and params into a fresh directory and runs `node runner.mjs <dir>`, passing stdout and the exit code through                                                                                                                                          |
-| `/opt/nuphos-runtime/codex-login.mjs`       | Drives Codex's device-code login in an isolated `CODEX_HOME`                                                                                                                                                                                                                                                                                 |
-| `/opt/acp-shim.mjs`                         | The Nuphos layer for Grok Build, Antigravity, OpenCode and Hermes Agent: respawns the agent with the conversation's environment and CLI home, syncs skills, applies runtime defaults, bridges MCP credentials, and hands over Nuphos's instructions (Grok's `_meta.rules`; otherwise ahead of the first prompt after each session is opened) |
-| `/opt/nuphos-runtime/grok-login.mjs`        | Drives `grok login --device-auth` and reports the xAI device code                                                                                                                                                                                                                                                                            |
-| `/opt/nuphos-runtime/opencode-login.mjs`    | Drives OpenCode's own server through every sign-in it offers: reports the provider, method and field choices, then an API key prompt or the provider's page, and passes back what the user picks, types or pastes                                                                                                                            |
-| `/opt/nuphos-runtime/hermes-login.mjs`      | Drives `hermes auth add` for the provider and method the user picks: an API key on stdin, a device page and its code, or a page whose code is pasted back. Then makes that provider and its model Hermes's default                                                                                                                           |
-| `/opt/nuphos-runtime/antigravity-login.mjs` | Runs the official `agy acp --login`: reports its Google authorize URL and passes the code or callback URL back over stdin; the CLI owns the credential store                                                                                                                                                                                 |
-| `/opt/nuphos-runtime/claude-login.mjs`      | Drives `claude auth login`: reports the authorize URL, passes back the code the user pastes, and leaves the credential in `~/.claude`                                                                                                                                                                                                        |
-| `/usr/local/bin/nuphos-sync-skills`         | Fetches the workspace's skill bundle and swaps it in atomically — pushed by the provisioner for a managed pod, run per session by `runtime-defaults.mjs` for a self-hosted one                                                                                                                                                               |
-| `/usr/local/bin/nuphos-seed-codex-auth`     | Seeds Codex credentials from a mounted secret, once per credential revision                                                                                                                                                                                                                                                                  |
+| Path in the image                           | What it does                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/opt/nuphos-claude-agent-acp`              | Claude adapter (0.74.0, Agent SDK 0.3.322), patched to publish session state and to bridge HTTP MCP servers                                                                                                                                                                                                                                                    |
+| `/opt/nuphos-codex-acp`                     | Codex adapter (1.1.4, Codex CLI 0.167.0), patched for per-session instructions and environment, MCP bridging, and steering an active turn                                                                                                                                                                                                                      |
+| `/usr/local/bin/nuphos-runtime-start`       | The entrypoint: checks a password set in the environment and derives the operator key from it, points openab's console at a password file from an earlier version, lays out `/workspace` the way a provisioned pod does, then becomes openab                                                                                                                   |
+| `/etc/openab/config.toml`                   | The gateway config openab reads, so the container starts with nothing mounted; a mount at this path replaces it                                                                                                                                                                                                                                                |
+| `/opt/runtime-defaults.mjs`                 | Applies a model, reasoning effort and fast-mode default to a new session                                                                                                                                                                                                                                                                                       |
+| `/opt/nuphos-runtime/mcp-http-bridge.mjs`   | Relays a stdio MCP server to a bearer-authenticated HTTP endpoint, re-reading the token per request                                                                                                                                                                                                                                                            |
+| `/opt/nuphos-runtime/runtime-guard.sh`      | Sourced via `BASH_ENV`; refreshes per-turn credentials into the shell environment                                                                                                                                                                                                                                                                              |
+| `/opt/nuphos-runtime/panel-job.mjs`         | The `panel` job OpenAB runs for `_openab/runtime/job`: writes the panel runner, script and params into a fresh directory and runs `node runner.mjs <dir>`, passing stdout and the exit code through                                                                                                                                                            |
+| `/opt/nuphos-runtime/codex-login.mjs`       | Drives Codex's device-code login in an isolated `CODEX_HOME`                                                                                                                                                                                                                                                                                                   |
+| `/opt/acp-shim.mjs`                         | The Nuphos layer for Grok Build, Antigravity, OpenCode, Hermes Agent and DeepSeek Harness: respawns the agent with the conversation's environment and CLI home, syncs skills, applies runtime defaults, bridges MCP credentials, and hands over Nuphos's instructions (Grok's `_meta.rules`; otherwise ahead of the first prompt after each session is opened) |
+| `/opt/nuphos-runtime/grok-login.mjs`        | Drives `grok login --device-auth` and reports the xAI device code                                                                                                                                                                                                                                                                                              |
+| `/opt/nuphos-runtime/opencode-login.mjs`    | Drives OpenCode's own server through every sign-in it offers: reports the provider, method and field choices, then an API key prompt or the provider's page, and passes back what the user picks, types or pastes                                                                                                                                              |
+| `/opt/nuphos-runtime/hermes-login.mjs`      | Drives `hermes auth add` for the provider and method the user picks: an API key on stdin, a device page and its code, or a page whose code is pasted back. Then makes that provider and its model Hermes's default                                                                                                                                             |
+| `/opt/nuphos-runtime/dsh-login.mjs`         | Signs DeepSeek Harness in with an API key or a DeepSeek account: boots the `acp` profile with a `--patch` overlay that swaps the ACP server for DSH's web server on loopback and `dsh-sign-in.mjs`, which asks DSH's own services to store the key or run the browser sign-in; the user pastes back the loopback address the browser lands on                  |
+| `/opt/nuphos-runtime/antigravity-login.mjs` | Runs the official `agy acp --login`: reports its Google authorize URL and passes the code or callback URL back over stdin; the CLI owns the credential store                                                                                                                                                                                                   |
+| `/opt/nuphos-runtime/claude-login.mjs`      | Drives `claude auth login`: reports the authorize URL, passes back the code the user pastes, and leaves the credential in `~/.claude`                                                                                                                                                                                                                          |
+| `/usr/local/bin/nuphos-sync-skills`         | Fetches the workspace's skill bundle and swaps it in atomically — pushed by the provisioner for a managed pod, run per session by `runtime-defaults.mjs` for a self-hosted one                                                                                                                                                                                 |
+| `/usr/local/bin/nuphos-seed-codex-auth`     | Seeds Codex credentials from a mounted secret, once per credential revision                                                                                                                                                                                                                                                                                    |
 
 `OPENAB_AGENT_COMMAND` names the patched adapter, and `claude` on `PATH` is the
 same native CLI the Claude adapter runs.
@@ -196,7 +203,7 @@ docker build -f image/Dockerfile \
   -t nuphos-runtime-codex:local image
 ```
 
-For the other runtimes use `RUNTIME_PROVIDER=claude-code`, `grok`, `antigravity`, `opencode` or `hermes`. Any image with
+For the other runtimes use `RUNTIME_PROVIDER=claude-code`, `grok`, `antigravity`, `opencode`, `hermes` or `dsh`. Any image with
 the binary at `/usr/local/bin/openab` works as `BASE_IMAGE`, including a
 published `X.Y.Z-base-<provider>` tag.
 
@@ -321,6 +328,7 @@ one to a runtime it did not provision; it only shows what the runtime reports.
 | `antigravity` | Sign in from the app (below)                                                          | Official CLI keyring (status via `agy models`) |
 | `opencode`    | `docker exec -it nuphos-runtime opencode providers login`                             | `/home/node/.local/share/opencode/auth.json`   |
 | `hermes`      | Sign in from the app (below)                                                          | `/home/node/.hermes/auth.json`                 |
+| `dsh`         | Sign in from the app (below)                                                          | `/home/node/.dsh/.credentials.yaml`            |
 
 You can also sign in from the app once the runtime is connected (see below). Either
 way the credential is written inside the container, so mount the `/home/node` volume
@@ -374,7 +382,9 @@ the runtime home and are shared by every conversation: `GOCACHE`, `GOMODCACHE`,
 `UV_CACHE_DIR`. `XDG_CACHE_HOME` remains
 per conversation because some tools keep login state there. On the OpenCode
 runtime, `$XDG_DATA_HOME/opencode` (OpenCode's login and sessions) links to the
-runtime home; the rest of `XDG_DATA_HOME` stays per conversation. Go does not
+runtime home; the rest of `XDG_DATA_HOME` stays per conversation. On the DeepSeek
+Harness runtime, `DSH_HOME` (its login, profiles and sessions) is the runtime
+home's `.dsh`. Go does not
 re-authenticate cached modules, so a private module fetched with one
 conversation's Git credentials is readable by every conversation on the runtime.
 The same holds for packages pip and uv fetch from a private index, and both reuse
@@ -502,6 +512,9 @@ and the credential path. A hand-built image has to pass them itself:
 # Hermes Agent
 --build-arg 'RUNTIME_LOGIN_COMMAND=node /opt/nuphos-runtime/hermes-login.mjs' \
 --build-arg RUNTIME_AUTH_FILE=/home/node/.hermes/auth.json
+# DeepSeek Harness
+--build-arg 'RUNTIME_LOGIN_COMMAND=node /opt/nuphos-runtime/dsh-login.mjs' \
+--build-arg RUNTIME_AUTH_FILE=/home/node/.dsh/.credentials.yaml
 ```
 
 Self-hosting the rest of Nuphos is in progress and not documented here.
@@ -525,6 +538,7 @@ linux/amd64 and linux/arm64:
 | Runtime             | `X.Y.Z-antigravity`      | `commit-<runtime-sha>-antigravity` |
 | Runtime             | `X.Y.Z-opencode`         | `commit-<runtime-sha>-opencode`    |
 | Runtime             | `X.Y.Z-hermes`           | `commit-<runtime-sha>-hermes`      |
+| Runtime             | `X.Y.Z-dsh`              | `commit-<runtime-sha>-dsh`         |
 | Base (gateway only) | `X.Y.Z-base-claude-code` | `<openab-tree12>-base-claude-code` |
 | Base (gateway only) | `X.Y.Z-base-codex`       | `<openab-tree12>-base-codex`       |
 

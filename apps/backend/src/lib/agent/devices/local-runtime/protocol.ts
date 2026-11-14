@@ -22,6 +22,7 @@ export const LOCAL_AGENT_PROVIDERS = [
   'grok',
   'antigravity',
   'opencode',
+  'dsh',
 ] as const
 
 export type LocalAgentProvider = (typeof LOCAL_AGENT_PROVIDERS)[number]
@@ -182,6 +183,7 @@ export const localRuntimeStatusSchema = z.object({
     grok: localAgentStatusSchema.optional(),
     antigravity: localAgentStatusSchema.optional(),
     opencode: localAgentStatusSchema.optional(),
+    dsh: localAgentStatusSchema.optional(),
   }),
   backendUrl: z.string().url().max(500).optional(),
 })
