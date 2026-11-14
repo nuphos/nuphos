@@ -1,4 +1,3 @@
-import { openInputRequests } from '../../lib/agentInputRequests.ts'
 import { runtimeTypingIn, runtimeTurnActive } from '../../lib/runtimeExecution.ts'
 import { subAgentState } from '../../lib/subAgentState.ts'
 import { activityOf } from '../sidebar/bot-activity.ts'
@@ -104,24 +103,13 @@ const earliest = (times: (number | undefined)[]) => {
 /**
  * When the Bot took up this work, from the runs themselves, so it reads the same
  * from anywhere and does not start over when the chat is opened. Undefined when
- * no run says: the row then shows no time rather than a wrong one.
+ * no run says: the row then shows no time rather than a wrong one. A question
+ * has none: its card already stands in the chat at the time it was asked.
  */
-export function workSince(
-  work: BotWork | null,
-  bot: Run | undefined,
-  kids: Run[],
-): number | undefined {
+export function workSince(work: BotWork | null, bot: Run | undefined): number | undefined {
   if (!work) return undefined
   if (work.kind === 'turn') return runStartedAt(bot)
   if (work.kind === 'waiting') return earliest(work.kids.map(runStartedAt))
-  if (work.kind === 'asking')
-    return earliest(
-      [...(bot ? [bot] : []), ...kids].flatMap((run) =>
-        openInputRequests(run.conversation).map(
-          (request) => Date.parse(request.askedAt) || undefined,
-        ),
-      ),
-    )
 
   return undefined
 }
