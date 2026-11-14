@@ -343,7 +343,7 @@ private fun PostRow(session: ChannelSession, post: ChannelPost, first: Boolean, 
                 modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 4.dp)) {
                 Box(Modifier.testTag("channel-avatar")) { SenderAvatar(post) }
                 Text(post.name, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-                if (post.isAgent) Text("Agent", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                if (post.isAgent) Text("Bot", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)
                         .padding(horizontal = 6.dp, vertical = 2.dp))
             }
@@ -438,7 +438,7 @@ private fun ReplyFailedLine(event: ai.nuphos.android.model.AgentConversationDeta
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (onSwitch != null || onRetry != null) Row(Modifier.padding(start = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            onSwitch?.let { OutlinedButton(onClick = it) { Text("Switch agent") } }
+            onSwitch?.let { OutlinedButton(onClick = it) { Text("Switch runtime") } }
             onRetry?.let { TextButton(onClick = it) { Text("Retry") } }
         }
     }
@@ -475,7 +475,7 @@ private fun TypingRow(agents: List<ChannelAgent>) {
     Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         agents.forEach { agent ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.semantics { contentDescription = "${agent.title.ifBlank { "Agent" }} is typing" }) {
+                modifier = Modifier.semantics { contentDescription = "${agent.title.ifBlank { "Bot" }} is typing" }) {
                 AgentAvatar(agent.sessionId, runtime = agent.provider, size = 36.dp)
                 Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
                     TypingDots(Modifier.padding(horizontal = 16.dp, vertical = 14.dp))

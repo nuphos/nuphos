@@ -714,7 +714,7 @@ class AgentStore(
             if (isCurrent()) unlinkError = when {
                 e is NuphosApi.Failure.Unauthorized -> "Your session has expired. Please sign in again."
                 e is ai.nuphos.android.data.AgentChatApi.Conflict.Other && e.status in setOf(403, 404) ->
-                    "This agent is unavailable or you no longer have permission to unlink it."
+                    "This task is unavailable or you no longer have permission to unlink it."
                 else -> "Could not unlink agent. Try again."
             }
         } finally {
@@ -950,7 +950,7 @@ class AgentStore(
                 isReloading = false
                 if (phase == Phase.Loading) {
                     phase = if (hasLoadedHistory) Phase.Loaded else Phase.Failed
-                    if (!hasLoadedHistory) phaseError = "Agent list refresh was interrupted. Try again."
+                    if (!hasLoadedHistory) phaseError = "Task list refresh was interrupted. Try again."
                 }
             }
         }

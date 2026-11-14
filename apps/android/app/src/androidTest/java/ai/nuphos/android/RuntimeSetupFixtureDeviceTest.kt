@@ -126,7 +126,7 @@ class RuntimeSetupFixtureDeviceTest {
         selection.saveCatalog(listOf(AgentRuntime("computer", "codex", "My laptop", "active", "local")))
         compose.setContent { NuphosTheme { AgentChip(selection, true, {}) } }
         compose.onNodeWithText("Choose runtime").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Runtime for new agents: Choose runtime").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Runtime for new tasks: Choose runtime").assertIsDisplayed()
         compose.runOnIdle { assertTrue(selection.select("computer")) }
         compose.onNodeWithText("Codex · My laptop").assertIsDisplayed()
         compose.runOnIdle { selection.saveCatalog(emptyList()) }
