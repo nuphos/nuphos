@@ -12,9 +12,11 @@ import {
 } from './openab-acp-session.ts'
 import { createCallTimer, refreshSessionTimers } from './openab-acp-timers.ts'
 import { observeOpenAbSessionUpdates, routeOpenAbSessionUpdate } from './openab-acp-updates.ts'
+import { createdSession } from './openab-session-created'
 import { rememberPushedRuntimeState } from './runtime-state-store'
 
 import type { OpenAbAcpConnection } from './openab-acp-connect.ts'
+import type { CreatedSession } from './openab-session-created'
 import type {
   AcpHttpMcpServer,
   AcpSocket,
@@ -69,12 +71,17 @@ export class OpenAbAcpClient extends OpenAbAcpLifecycle {
   initialize(): Promise<JsonRpcResult> {
     return this.call('initialize', ACP_INITIALIZE_PARAMS, {}, this.callTimeoutMs, true)
   }
+  /**
+   * Creates the session and reports the settings the runtime started it with.
+   * `session/new` names them, so the chip can show the model during the very
+   * first turn instead of waiting for the turn to settle.
+   */
   async createSession(
     cwd: string,
     mcpServers: AcpHttpMcpServer[] = [],
     systemPrompt?: string,
     runtime?: OpenAbSessionRuntime,
-  ): Promise<string> {
+  ): Promise<CreatedSession> {
     const result = await this.call(
       'session/new',
       {
@@ -86,13 +93,8 @@ export class OpenAbAcpClient extends OpenAbAcpLifecycle {
       this.callTimeoutMs,
       true,
     )
-    const sessionId = result.sessionId
 
-    if (typeof sessionId !== 'string' || sessionId.length === 0) {
-      throw new Error('OpenAB returned an invalid ACP session id')
-    }
-
-    return sessionId
+    return createdSession(result)
   }
   async loadSession(
     sessionId: string,

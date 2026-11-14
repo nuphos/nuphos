@@ -1,6 +1,8 @@
 import { beforeEach, expect, test } from 'bun:test'
 
 import { attachOpenAbSession } from './openab-session-attach'
+import { sessionConfigView } from './session-config'
+import { storedPick } from './session-config-options'
 import { localRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 
 import type { OpenAbSessionRuntime } from './openab-acp-session'
@@ -35,6 +37,14 @@ useDb({
 })
 
 const noop = () => {}
+// The catalog the chip lists; only its ids matter to which value counts as confirmed.
+const catalog = () =>
+  Promise.resolve({
+    models: [
+      { id: 'opus', name: 'Opus' },
+      { id: 'haiku', name: 'Haiku' },
+    ],
+  })
 
 function client(overrides: Partial<TeamPreviewClient> = {}): TeamPreviewClient {
   return {
@@ -49,7 +59,7 @@ function client(overrides: Partial<TeamPreviewClient> = {}): TeamPreviewClient {
     createSession: (_cwd, _mcp, _prompt, runtime) => {
       calls.push({ method: 'create', runtime })
 
-      return Promise.resolve('new-session')
+      return Promise.resolve({ sessionId: 'new-session' })
     },
     loadSession: (_id, _cwd, _mcp, _prompt, runtime) => {
       calls.push({ method: 'resume', runtime })
@@ -92,6 +102,55 @@ test('a new session snapshots the conversation’s picks into native session met
     runtimeUrl: endpoint.url,
     runtimeDefaults: defaults,
   })
+})
+
+test('a new session stores the settings the runtime started it with', async () => {
+  const sessionConfig = [
+    {
+      id: 'model',
+      name: 'Model',
+      kind: 'model' as const,
+      currentValue: 'opus',
+      options: [{ value: 'opus', name: 'Opus' }],
+    },
+  ]
+
+  await attach(
+    client({ createSession: () => Promise.resolve({ sessionId: 'new-session', sessionConfig }) }),
+  )
+
+  expect(attachment).toEqual({
+    openabSessionId: 'new-session',
+    runtimeUrl: endpoint.url,
+    runtimeDefaults: {},
+    sessionConfig,
+  })
+})
+
+test('a Bot’s first turn names the model the new session started on, before any reply settles', async () => {
+  const sessionConfig = [
+    {
+      id: 'model',
+      name: 'Model',
+      kind: 'model' as const,
+      currentValue: 'opus',
+      options: [
+        { value: 'opus', name: 'Opus' },
+        { value: 'haiku', name: 'Haiku' },
+      ],
+    },
+  ]
+
+  await attach(
+    client({ createSession: () => Promise.resolve({ sessionId: 'new-session', sessionConfig }) }),
+  )
+  // Nobody picked a model, so the chip has no confirmed pick to fall back on.
+  expect(attachment?.runtimeDefaults).toEqual({})
+  const chip = await sessionConfigView(storedPick(attachment ?? undefined), catalog)
+
+  expect(chip.options.map(({ kind, currentValue }) => [kind, currentValue])).toEqual([
+    ['model', 'opus'],
+  ])
 })
 
 test('a later pick never overwrites a started session on resume or session replacement', async () => {
