@@ -28,6 +28,8 @@ final class ComputerAlertsShotsUITests: XCTestCase {
         Thread.sleep(forTimeInterval: 1)
         shot("1-setting")
         XCUIDevice.shared.press(.home)
+        let later = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Allow"]
+        if later.waitForExistence(timeout: 15) { later.tap() }
         Thread.sleep(forTimeInterval: 2)
         shot("2-offline")
         Thread.sleep(forTimeInterval: 6)
