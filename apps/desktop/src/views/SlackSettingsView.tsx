@@ -45,7 +45,7 @@ export function SlackSettingsView({
   embedded = false,
   onChanged,
 }: {
-  teamId: string | undefined
+  teamId: string
   currentUserId: string
   embedded?: boolean
   /** Invoked after a reinstall/disconnect so the parent's connector list re-syncs. */
@@ -79,17 +79,12 @@ export function SlackSettingsView({
     deleteChannel,
   } = useSlackSettings(teamId, currentUserId)
 
-  if (!teamId) {
-    return <div className="text-[13px] text-tertiary">{t('No workspace selected.')}</div>
-  }
-
   const installed = !!installation || status?.installed === true
   // A stored binding whose token Slack no longer honours: only a reinstall
   // can repair it, so say so instead of leaving the page looking healthy.
   const tokenRevoked = !!installation && status?.installed === false
 
   async function disconnect() {
-    if (!teamId) return
     try {
       await api.atlasDisconnectSlack(teamId)
     } catch (err) {

@@ -8,15 +8,23 @@ import { Avatar } from '../../Avatar'
 import type { TeamMember } from '../../../types'
 import type { ReactNode } from 'react'
 
-function MemberCard({ teamId, userId, label }: { teamId?: string; userId: string; label: string }) {
-  const { data: members } = useQuery({
-    ...teamMembersQuery(teamId ?? ''),
-    enabled: Boolean(teamId),
-  })
+function TeamMemberCard({
+  teamId,
+  userId,
+  label,
+}: {
+  teamId: string
+  userId: string
+  label: string
+}) {
+  const { data: members } = useQuery(teamMembersQuery(teamId))
   // Undefined while loading or after a failed read; null once known not to be a member.
-  let member: TeamMember | null | undefined = teamId ? undefined : null
+  const member = members && (members.find((entry) => entry.id === userId) ?? null)
 
-  if (members) member = members.find((entry) => entry.id === userId) ?? null
+  return <MemberCard member={member} label={label} />
+}
+
+function MemberCard({ member, label }: { member: TeamMember | null | undefined; label: string }) {
   const name = member?.name || member?.username || label
 
   return (
@@ -57,7 +65,11 @@ export function MemberMention({
       <Popover.Portal>
         <Popover.Positioner sideOffset={6} collisionPadding={12} className="z-[1000]">
           <Popover.Popup className="w-[260px] rounded-xl border border-line-control/60 bg-main shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)] outline-none">
-            <MemberCard teamId={teamId} userId={userId} label={label} />
+            {teamId ? (
+              <TeamMemberCard teamId={teamId} userId={userId} label={label} />
+            ) : (
+              <MemberCard member={null} label={label} />
+            )}
           </Popover.Popup>
         </Popover.Positioner>
       </Popover.Portal>
