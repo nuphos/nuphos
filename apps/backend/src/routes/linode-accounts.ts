@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
 import { createDefaultAccess } from '@/lib/byos/access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { appendEnvironmentBinding } from '@/lib/byos/environment-bindings'
 import {
   listLinodeInstances,
@@ -100,6 +101,10 @@ linodeAccountsRoutes.post(
 const accountScoped = new Hono<{ Variables: LinodeAccountVariables }>()
 
 accountScoped.use('*', requireLinodeAccount())
+registerBindingAccessRoutes(accountScoped, 'linodeAccounts', (c) => ({
+  id: c.get('linodeAccountId'),
+  access: c.get('linodeAccess'),
+}))
 
 accountScoped.get('/', (c) => {
   return c.json({

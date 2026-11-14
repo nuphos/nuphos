@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
 import { createDefaultAccess } from '@/lib/byos/access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import {
   NOTION_VERSION,
   NotionApiError,
@@ -116,6 +117,7 @@ notionIntegrationsRoutes.post(
 const integrationScoped = new Hono<{ Variables: NotionIntegrationVariables }>()
 
 integrationScoped.use('*', requireNotionIntegration())
+registerBindingAccessRoutes(integrationScoped, 'notionIntegrations', (c) => c.get('notionBinding'))
 
 integrationScoped.get('/', (c) => {
   const binding = c.get('notionBinding')

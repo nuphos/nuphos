@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import {
   invalidateAccessToken,
   getAccessTokenWithExpiry,
@@ -39,15 +40,10 @@ const pipelinesQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
 })
 
-export function registerGitlabBindingScopedRoutes(
+/** Disconnecting and the member list are the admin's, so they skip the member gate. */
+export function registerGitlabBindingAdminRoutes(
   bindingScoped: Hono<{ Variables: GitlabBindingVariables }>,
 ) {
-  bindingScoped.get('/', (c) => {
-    const binding = c.get('gitlabBinding')
-
-    return c.json(publicView(binding))
-  })
-
   bindingScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
     const binding = c.get('gitlabBinding')
@@ -62,6 +58,18 @@ export function registerGitlabBindingScopedRoutes(
     invalidateAccessToken(teamId, binding.id)
 
     return c.body(null, 204)
+  })
+
+  registerBindingAccessRoutes(bindingScoped, 'gitlabAccounts', (c) => c.get('gitlabBinding'))
+}
+
+export function registerGitlabBindingScopedRoutes(
+  bindingScoped: Hono<{ Variables: GitlabBindingVariables }>,
+) {
+  bindingScoped.get('/', (c) => {
+    const binding = c.get('gitlabBinding')
+
+    return c.json(publicView(binding))
   })
 
   // Agent credential handout, mirroring github-installations /token: the

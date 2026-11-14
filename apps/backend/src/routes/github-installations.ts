@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 
 import { githubReviewScope, assertGithubReviewRequest } from '@/lib/agent/github-review-scope'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { findGithubInstallation } from '@/lib/byos/account'
 import {
   GithubApiError,
@@ -17,7 +18,11 @@ import { getNuphosUserById } from '@/lib/identity'
 import { parseObjectId } from '@/lib/objectid'
 import { personalCredentialSubjectFor, personalGithubToken } from '@/lib/personal-credentials'
 import { zv } from '@/lib/validate'
-import { requireTeamRole, requireGithubInstallation } from '@/middleware/auth'
+import {
+  requireGithubInstallation,
+  requireGithubMemberAccess,
+  requireTeamRole,
+} from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 import { registerGithubRepoDataRoutes } from '@/routes/github-installations/repo-data'
 import { handleGithubError, publicView } from '@/routes/github-installations/shared'
@@ -110,6 +115,30 @@ const installationScoped = new Hono<{ Variables: GithubInstallationVariables }>(
 
 installationScoped.use('*', requireGithubInstallation())
 
+installationScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
+  const teamId = parseObjectId(c.get('teamId'), 'teamId')
+  const installationId = c.get('githubInstallationId')
+
+  await teamByosBindings().updateOne(
+    { _id: teamId },
+    {
+      $pull: { githubInstallations: { installationId } },
+      $set: { updatedAt: new Date() },
+    },
+  )
+  invalidateInstallationToken(installationId)
+
+  return c.body(null, 204)
+})
+
+registerBindingAccessRoutes(installationScoped, 'githubInstallations', (c) =>
+  c.get('githubBinding'),
+)
+
+// Registered after the admin routes above, so it guards only the routes below,
+// which all act with an installation token.
+installationScoped.use('*', requireGithubMemberAccess())
+
 installationScoped.get('/', async (c) => {
   const installationId = c.get('githubInstallationId')
   const accountLogin = c.get('githubAccountLogin')
@@ -140,22 +169,6 @@ installationScoped.get('/', async (c) => {
     permissions: live.permissions,
     events: live.events,
   })
-})
-
-installationScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
-  const teamId = parseObjectId(c.get('teamId'), 'teamId')
-  const installationId = c.get('githubInstallationId')
-
-  await teamByosBindings().updateOne(
-    { _id: teamId },
-    {
-      $pull: { githubInstallations: { installationId } },
-      $set: { updatedAt: new Date() },
-    },
-  )
-  invalidateInstallationToken(installationId)
-
-  return c.body(null, 204)
 })
 
 installationScoped.get('/repositories', async (c) => {
