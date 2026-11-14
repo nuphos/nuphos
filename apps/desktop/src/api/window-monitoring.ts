@@ -77,7 +77,7 @@ export type WindowMonitoringApi = {
   fileTransferRevealInFolder(path: string): Promise<void>
   readImageAttachment(
     path: string,
-  ): Promise<{ mediaType: string; url: string; fileName: string; attachmentId: string } | null>
+  ): Promise<{ mediaType: string; url: string; fileName: string } | null>
   attachmentDirectoryPaths(paths: string[]): Promise<string[]>
   fileTransferDownloadOne(args: {
     teamId: string
