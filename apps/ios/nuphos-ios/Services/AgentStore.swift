@@ -244,15 +244,27 @@ final class AgentStore {
         ConversationNesting.nest(listedConversations, folded: foldedThreads[selectedTeam?.id ?? ""] ?? [], byFamily: true)
     }
 
-    /// The Bots rows: each chat or Bot, with what a Bot dispatched under it.
+    /// Rows opened by hand on Bots. Everything there is folded at rest: it
+    /// folds again when Bots is left, the team changes or the app starts.
+    private var openedBotRows: Set<String> = []
+
+    /// The Bots rows: each chat or Bot, with what a Bot dispatched under it, folded.
     var nestedBots: [NestedConversation] {
         let rows = ConversationNesting.botRows(botsList, threads: conversations, owners: botOwners)
-        return ConversationNesting.nest(rows, folded: foldedThreads[selectedTeam?.id ?? ""] ?? [])
+        return ConversationNesting.nest(rows, folded: Set(rows.map(\.sessionId)).subtracting(openedBotRows))
     }
 
-    func isFolded(_ sessionId: String) -> Bool { foldedThreads[selectedTeam?.id ?? ""]?.contains(sessionId) == true }
+    func foldBots() { openedBotRows = [] }
 
-    func toggleFolded(_ sessionId: String) {
+    func isFolded(_ sessionId: String, onBots: Bool = false) -> Bool {
+        onBots ? !openedBotRows.contains(sessionId) : foldedThreads[selectedTeam?.id ?? ""]?.contains(sessionId) == true
+    }
+
+    func toggleFolded(_ sessionId: String, onBots: Bool = false) {
+        if onBots {
+            if openedBotRows.remove(sessionId) == nil { openedBotRows.insert(sessionId) }
+            return
+        }
         guard let team = selectedTeam?.id else { return }
         var folded = foldedThreads[team] ?? []
         if folded.remove(sessionId) == nil { folded.insert(sessionId) }
@@ -473,6 +485,7 @@ final class AgentStore {
         credentials.reset()
         channels = []
         bots = []
+        openedBotRows = []
         runtimes = []
         agentDevices = []
         agentDevicesError = false

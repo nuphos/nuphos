@@ -63,6 +63,14 @@ final class BotsAndTasksListUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["Triage Bot"].exists, "A Bot in a chat still has a row of its own")
         XCTAssertTrue(app.staticTexts["Helper Bot"].exists, "A Bot opened by a Task is not listed as a Bot")
 
+        // Folded at rest: a Bot's threads show only once opened by hand.
+        XCTAssertFalse(app.staticTexts["Check the CI flake"].exists, "A Bot's threads are open at rest")
+        shot("1-bots")
+        app.buttons["Show 2 sub-agents"].firstMatch.tap()
+        for _ in 0..<4 where app.buttons["Show 1 sub-agents"].firstMatch.exists {
+            app.buttons["Show 1 sub-agents"].firstMatch.tap()
+        }
+
         // What each Bot dispatched, nested under it, deeper threads under theirs.
         for (thread, below) in [("Check the CI flake", lead), ("Fix broken links", app.staticTexts["Docs Bot"].firstMatch),
                                 ("Collect crash logs", app.staticTexts["Helper Bot"].firstMatch)] {
@@ -73,11 +81,7 @@ final class BotsAndTasksListUITests: XCTestCase {
         }
         let rerun = app.staticTexts["Rerun the iOS job"].firstMatch
         XCTAssertGreaterThan(rerun.frame.minX, app.staticTexts["Check the CI flake"].firstMatch.frame.minX, "A deeper thread lost its parent")
-        shot("1-bots")
-
-        app.buttons["Hide 2 sub-agents"].firstMatch.tap()
-        XCTAssertFalse(app.staticTexts["Check the CI flake"].waitForExistence(timeout: 2), "Folding kept the Bot's threads")
-        shot("2-bots-folded")
+        shot("2-bots-opened")
     }
 
     func testTasksLeaveOutBotsAndWhatTheyDispatched() throws {

@@ -201,6 +201,8 @@ struct HomeView: View {
             if autoPage { autoPage = false } else { pageChosen = true }
             isSearching = false
             openChat = nil
+            // What was opened on Bots folds again once Bots is left.
+            store?.foldBots()
             UIEventLog.pageTransition(from: oldPage.rawValue, to: newPage.rawValue)
             Analytics.shared.screen(newPage.rawValue, teamID: store?.selectedTeam?.id)
         }

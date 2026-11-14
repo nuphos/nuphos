@@ -321,7 +321,7 @@ struct AgentPage: View {
                 .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 16))
                 .listSectionSeparator(.hidden, edges: .top)
                 // A separator would cut through the lines of an open tree.
-                .listRowSeparator(item.depth > 0 || (item.hasChildren && !store.isFolded(conversation.sessionId)) ? .hidden : .automatic)
+                .listRowSeparator(item.depth > 0 || (item.hasChildren && !store.isFolded(conversation.sessionId, onBots: page == .chats)) ? .hidden : .automatic)
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) { if let acted { rowActions(acted) } }
                 // The same actions for a long press or a secondary click.
                 .contextMenu { if let acted { rowActions(acted) } }
@@ -329,12 +329,12 @@ struct AgentPage: View {
 
     /// A row's content with its thread count, indented on the tree's lines.
     private func treeRow<Row: View>(_ item: NestedConversation, @ViewBuilder row: () -> Row) -> some View {
-        let folded = item.hasChildren && store.isFolded(item.id)
+        let folded = item.hasChildren && store.isFolded(item.id, onBots: page == .chats)
         return HStack(spacing: 0) {
             row()
             if item.hasChildren {
                 // The thread count, so it never reads as the row's own disclosure chevron.
-                Button { store.toggleFolded(item.id) } label: {
+                Button { store.toggleFolded(item.id, onBots: page == .chats) } label: {
                     HStack(spacing: 3) {
                         Text("\(item.threads)")
                         Image(systemName: folded ? "chevron.down" : "chevron.up")
