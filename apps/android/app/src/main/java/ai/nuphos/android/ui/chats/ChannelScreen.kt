@@ -177,6 +177,8 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
                     val scope = rememberCoroutineScope()
                     TextButton(onClick = { scope.launch { session.refresh(force = true) } }) { Text("Try again") }
                 }
+                // Nothing posted yet: say what kind of place this is, as on iOS.
+                session.loadError == null && items.isEmpty() -> EmptyChat(session.faces, session.title, Modifier.align(Alignment.CenterStart))
                 else -> {
                     val consent = AiAccess.revision
                     ChannelTranscript(session, items, viewerId, onLink, allowed = {
@@ -192,6 +194,17 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
             ChannelComposer(session)
         }
         }
+    }
+}
+
+/** A chat with no posts yet: its icon, its name and how a chat works, the same words as iOS. */
+@Composable
+private fun EmptyChat(faces: List<ai.nuphos.android.model.ChatFace>, title: String, modifier: Modifier = Modifier) {
+    Column(modifier.fillMaxWidth().padding(24.dp).testTag("chat-empty"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        ChatIcon(faces, title, 44.dp)
+        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+        Text("Everyone here sees each message and decides for themselves whether to reply, as in any group chat.",
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
