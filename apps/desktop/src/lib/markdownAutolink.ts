@@ -26,3 +26,40 @@ export function isSynthesizedAutolink(href: string, text: string): boolean {
   // label is an explicit link and stays one.
   return href.startsWith('http://')
 }
+
+// GFM ends a bare URL only at ASCII whitespace, so the full-width punctuation
+// right after it in CJK prose — `…/pull/2595（Fixes #2594）` — and the word
+// after that become part of the link. A bare URL ends at its first non-ASCII
+// punctuation or space instead; CJK letters in a path still belong to it.
+const BARE_URL_BREAK = /(?!\p{ASCII})[\p{P}\p{Z}]/u
+
+type Node = { type: string; value?: string; url?: string; children?: Node[] }
+
+function endBareUrls(parent: Node): void {
+  const children = parent.children ?? []
+
+  for (const [i, node] of children.entries()) {
+    const [only, ...more] = node.children ?? []
+
+    // A link whose text is its own URL (GFM adds `http://` before a bare `www.`).
+    if (node.type !== 'link' || only?.type !== 'text' || more.length > 0) {
+      endBareUrls(node)
+      continue
+    }
+    const literal = only.value ?? ''
+    const end = literal.search(BARE_URL_BREAK)
+
+    if (end > 0 && node.url?.endsWith(literal)) {
+      const rest = literal.slice(end)
+
+      node.url = node.url.slice(0, -rest.length)
+      only.value = literal.slice(0, end)
+      children.splice(i + 1, 0, { type: 'text', value: rest })
+    }
+  }
+}
+
+/** Remark plugin: ends each bare URL at its first non-ASCII punctuation or space. */
+export function remarkEndBareUrls() {
+  return endBareUrls
+}

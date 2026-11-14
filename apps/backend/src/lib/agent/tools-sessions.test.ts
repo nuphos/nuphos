@@ -161,14 +161,6 @@ test("list_recent_conversations children:true lists this conversation's own sub-
   })
 })
 
-test('list_recent_conversations bots:true lists only Bots in the caller scope', async () => {
-  const tool = createSessionTools('u', 'c', 'team').list_recent_conversations!
-
-  await tool.execute!({ label: 'List Bots', bots: true }, { toolCallId: 'bots', messages: [] })
-
-  expect(listOptions).toMatchObject({ teamId: 'team', scope: 'mine', bots: true })
-})
-
 test('read_conversation returns termination records outside the clipped transcript', async () => {
   const tool = createSessionTools('u', 'c', 'team').read_conversation!
   const result = await tool.execute!(

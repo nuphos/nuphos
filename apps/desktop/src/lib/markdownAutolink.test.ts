@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { isSynthesizedAutolink } from './markdownAutolink.ts'
+import { isSynthesizedAutolink, remarkEndBareUrls } from './markdownAutolink.ts'
 
 test('a bare www./domain literal got its http:// from GFM, not the author', () => {
   assert.equal(
@@ -55,4 +55,49 @@ test('surrounding whitespace from streaming word spans does not defeat the match
 
 test('empty link text is left alone', () => {
   assert.equal(isSynthesizedAutolink('http://www.example.com', '   '), false)
+})
+
+// The paragraph GFM parses around a bare URL: the link runs on to the next ASCII space.
+function endBareUrl(literal: string, url = literal) {
+  const tree = {
+    type: 'root',
+    children: [
+      {
+        type: 'paragraph',
+        children: [{ type: 'link', url, children: [{ type: 'text', value: literal }] }],
+      },
+    ],
+  }
+
+  remarkEndBareUrls()(tree)
+
+  return tree.children[0]?.children
+}
+
+const link = (url: string, text = url) => ({
+  type: 'link',
+  url,
+  children: [{ type: 'text', value: text }],
+})
+
+test('a bare URL ends before full-width punctuation', () => {
+  const pr = 'https://github.com/nuphos/nuphos/pull/2595'
+
+  assert.deepEqual(endBareUrl(`${pr}（Fixes`), [link(pr), { type: 'text', value: '（Fixes' }])
+  assert.deepEqual(endBareUrl(`${pr}，下一句`), [link(pr), { type: 'text', value: '，下一句' }])
+  assert.deepEqual(endBareUrl(`${pr}。`), [link(pr), { type: 'text', value: '。' }])
+  assert.deepEqual(endBareUrl(`${pr}\u3000next`), [link(pr), { type: 'text', value: '\u3000next' }])
+  assert.deepEqual(endBareUrl('www.example.com、b', 'http://www.example.com、b'), [
+    link('http://www.example.com', 'www.example.com'),
+    { type: 'text', value: '、b' },
+  ])
+})
+
+test('CJK letters, ASCII punctuation and explicit labels stay in the link', () => {
+  for (const url of ['https://zh.wikipedia.org/wiki/台灣', 'https://example.com/a?b=c,d']) {
+    assert.deepEqual(endBareUrl(url), [link(url)])
+  }
+  assert.deepEqual(endBareUrl('看這裡，', 'https://example.com'), [
+    link('https://example.com', '看這裡，'),
+  ])
 })
