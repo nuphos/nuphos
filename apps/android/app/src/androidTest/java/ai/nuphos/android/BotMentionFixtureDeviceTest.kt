@@ -20,6 +20,7 @@ import ai.nuphos.android.ui.LocalAgentStore
 import ai.nuphos.android.ui.LocalAuthSession
 import ai.nuphos.android.ui.chats.ChannelScreen
 import ai.nuphos.android.ui.theme.NuphosTheme
+import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Response
@@ -32,7 +33,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 
-/** Synthetic Bot chats only: `@` in a Bot's chat offers the viewer's other Bots, as a Task's composer does. Never touches a live API. */
+/** Synthetic Bot chats only: `@` in a Bot's chat offers the viewer's other Bots by name, as a Task's composer does, and a post linking one shows its name. Never touches a live API. */
 @RunWith(AndroidJUnit4::class)
 class BotMentionFixtureDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
@@ -62,9 +63,13 @@ class BotMentionFixtureDeviceTest {
         val posts = listOf(
             post("u", """{"type":"user","id":"viewer","displayName":"Preview User"}""", bot.asked, "2026-11-08T09:38:00Z"),
             post("a", """{"type":"agent","id":"${bot.id}","displayName":"${bot.title}"}""", bot.answer, "2026-11-08T09:39:00Z"),
-        ).joinToString(",")
+        ) + listOfNotNull(
+            // A post that links the other Bot, as a picked mention is sent.
+            if (id == "chat-plain") post("m", """{"type":"user","id":"viewer","displayName":"Preview User"}""",
+                "Ask https://nuphos.ai/teams/${team.id}/agent/bot-box how the login fix went", "2026-11-08T09:40:00Z") else null,
+        )
         return """{"sessionId":"$id","kind":"channel","title":"${bot.title}","isOwner":true,"transcriptUpdatedAt":"t","messageCount":2,"activitySeq":2,"readSeq":2,
-            "faces":[{"id":"${bot.id}","name":"${bot.title}","agent":{"avatar":"${bot.avatar}"}}],"messages":[$posts]}"""
+            "faces":[{"id":"${bot.id}","name":"${bot.title}","agent":{"avatar":"${bot.avatar}"}}],"messages":[${posts.joinToString(",")}]}"""
     }
     private fun bot(bot: Bot): String {
         val desktop = if (bot.desktop) ""","canOpenDesktop":true""" else ""
@@ -92,7 +97,8 @@ class BotMentionFixtureDeviceTest {
                 path.endsWith("/ai-consent") -> """{"version":"${ai.nuphos.android.data.AccountApi.AI_CONSENT_VERSION}","accepted":true}"""
                 path.endsWith("/auth/me") -> """{"id":"viewer","email":"viewer@example.com","name":"Preview User"}"""
                 // The search an `@` runs: every Bot, the chat's own one included, as the server lists them.
-                path.endsWith("/agent/conversations") && request.url.queryParameter("search") != null ->
+                path.endsWith("/agent/conversations") &&
+                    (request.url.queryParameter("search") != null || request.url.queryParameter("bots") == "true") ->
                     bots.values.joinToString(",", """{"conversations":[""", """],"hasMore":false}""") {
                         """{"sessionId":"${it.id}","teamId":"${team.id}","title":"${it.title}","isOwner":true}"""
                     }
@@ -134,7 +140,9 @@ class BotMentionFixtureDeviceTest {
         Http::class.java.getDeclaredField("client").also { it.isAccessible = true }.set(null, original)
     }
 
-    @Test fun atOffersTheOtherBotAndInsertsItsLink() {
+    @Test fun atOffersTheOtherBotByName() {
+        // The viewer's Bots, as the Chats list loads them, so a link to one reads as its name.
+        runBlocking { store.loadChannels() }
         compose.setContent {
             NuphosTheme(darkTheme = false) {
                 CompositionLocalProvider(LocalAgentStore provides store, LocalAuthSession provides auth) {
@@ -144,6 +152,9 @@ class BotMentionFixtureDeviceTest {
         }
         val plain = bots.getValue("chat-plain")
         compose.waitUntil(5_000) { compose.onAllNodesWithText(plain.answer).fetchSemanticsNodes().isNotEmpty() }
+        val posted = compose.onAllNodesWithText("Ask @Sign-in helper how the login fix went", substring = true)
+            .fetchSemanticsNodes().isNotEmpty()
+        capture("0-post")
         val field = compose.onNodeWithContentDescription("Message ${plain.title}")
         val ownTitle = { compose.onAllNodesWithText(plain.title).fetchSemanticsNodes().size }
         val ownBefore = ownTitle()
@@ -152,11 +163,12 @@ class BotMentionFixtureDeviceTest {
         val offered = runCatching { compose.waitUntil(5_000) { compose.onAllNodes(other).fetchSemanticsNodes().isNotEmpty() } }.isSuccess
         capture("1-mention-list")
         if (InstrumentationRegistry.getArguments().getString("evidenceBaseline") == "true") return
+        assertTrue("A post linking another Bot does not show it by name", posted)
         assertTrue("`@` in a Bot's chat does not offer the other Bot", offered)
         // The chat's own Bot is never offered.
         assertEquals(ownBefore, ownTitle())
         compose.onNode(other).performClick()
-        field.assertTextEquals("Ask https://nuphos.ai/teams/${team.id}/agent/bot-box ")
+        field.assertTextEquals("Ask @Sign-in helper ")
         capture("2-mention-picked")
     }
 

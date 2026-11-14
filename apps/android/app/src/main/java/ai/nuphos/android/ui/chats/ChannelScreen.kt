@@ -373,9 +373,11 @@ private fun PostRow(session: ChannelSession, post: ChannelPost, first: Boolean, 
                     else -> MaterialTheme.colorScheme.surfaceContainerHigh
                 }) {
                 Box(Modifier.padding(horizontal = 14.dp, vertical = 9.dp)) {
+                    val store = LocalAgentStore.current
+                    val shown = ai.nuphos.android.ui.chat.SessionMention.named(post.text, store::title)
                     if (selecting) androidx.compose.foundation.text.selection.SelectionContainer(Modifier.testTag("post-selectable")) {
-                        MarkdownText(post.text, onLink = onLink, compact = true)
-                    } else MarkdownText(post.text, onLink = onLink, compact = true)
+                        MarkdownText(shown, onLink = onLink, compact = true)
+                    } else MarkdownText(shown, onLink = onLink, compact = true)
                 }
             }
             // An agent's files show below its words, every group in one grid.
