@@ -36,4 +36,12 @@ object SavedAccounts {
         accounts.map { if (it.token == token) it.copy(token = null) else it }
 
     fun forget(accounts: List<SavedAccount>, id: String): List<SavedAccount> = accounts.filter { it.id != id }
+
+    /** A rejected session stays listed to sign in again; a chosen sign-out removes the account. */
+    fun signedOut(accounts: List<SavedAccount>, token: String, rejected: Boolean): List<SavedAccount> =
+        if (rejected) expire(accounts, token) else accounts.filter { it.token != token }
+
+    /** Without encryption only the current session is kept; the others must sign in again. */
+    fun onlyCurrent(accounts: List<SavedAccount>, current: String?): List<SavedAccount> =
+        accounts.map { if (it.token != null && it.token != current) it.copy(token = null) else it }
 }

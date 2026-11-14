@@ -42,6 +42,24 @@ class SavedAccountsTest {
         assertEquals(listOf("u1"), accounts.map { it.user.id })
     }
 
+    @Test fun rejectedSignOutKeepsTheAccountToSignInAgain() {
+        val accounts = SavedAccounts.remember(SavedAccounts.remember(emptyList(), cloud, ada, "t1"), cloud, bob, "t2")
+        val rejected = SavedAccounts.signedOut(accounts, "t1", rejected = true)
+        assertEquals(listOf("u1", "u2"), rejected.map { it.user.id })
+        assertNull(rejected[0].token)
+        assertEquals("t2", rejected[1].token)
+        assertEquals(listOf("u2"), SavedAccounts.signedOut(accounts, "t1", rejected = false).map { it.user.id })
+    }
+
+    @Test fun withoutEncryptionOnlyTheCurrentTokenIsKept() {
+        val accounts = SavedAccounts.remember(SavedAccounts.remember(emptyList(), cloud, ada, "t1"), cloud, bob, "t2")
+        val kept = SavedAccounts.onlyCurrent(accounts, "t2")
+        assertEquals(listOf("u1", "u2"), kept.map { it.user.id })
+        assertNull(kept[0].token)
+        assertEquals("t2", kept[1].token)
+        assertTrue(SavedAccounts.onlyCurrent(accounts, null).all { it.token == null })
+    }
+
     @Test fun roundTripsAndTreatsUnreadableDataAsEmpty() {
         val accounts = SavedAccounts.remember(emptyList(), cloud, ada, "t1")
         assertEquals(accounts, SavedAccounts.decode(SavedAccounts.encode(accounts)))

@@ -570,7 +570,8 @@ class AuthSession(
 
     fun signOut(error: String? = null) {
         val ended = token
-        if (ended != null) saveAccounts(savedAccounts.filter { it.token != ended })
+        // Every sign-out with an error is a rejected session.
+        if (ended != null) saveAccounts(SavedAccounts.signedOut(savedAccounts, ended, rejected = error != null))
         addingFrom = null
         val expected = beginIdentity()
         // Signed out here at once; ending the session on the server is best effort.
