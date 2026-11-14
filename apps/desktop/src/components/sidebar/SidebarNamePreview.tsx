@@ -1,5 +1,3 @@
-import clsx from 'clsx'
-
 import { t } from '../../i18n'
 import { Avatar } from '../Avatar'
 
@@ -18,17 +16,14 @@ const SECTIONS = [
  * the real team switcher row carries the name as it is typed, so people see
  * where the name will live before they commit to it.
  */
-export function SidebarNamePreview({ name, className }: { name: string; className?: string }) {
+export function SidebarNamePreview({ name }: { name: string }) {
   const label = name.trim() || t('Workspace')
 
   return (
     <div
       inert
       aria-hidden
-      className={clsx(
-        'sidebar-surface flex h-[440px] w-[248px] select-none flex-col rounded-xl border border-line-control/70 pt-3 shadow-sm',
-        className,
-      )}
+      className="sidebar-surface flex h-[440px] w-[248px] select-none flex-col rounded-xl border border-line-control/70 pt-3 shadow-sm"
     >
       <SidebarTeamSwitcher
         loading={false}

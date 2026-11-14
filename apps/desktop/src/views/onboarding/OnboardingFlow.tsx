@@ -1,4 +1,3 @@
-import clsx from 'clsx'
 import { useReducedMotion } from 'framer-motion'
 import { ArrowLeft, LogOut } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
@@ -171,15 +170,12 @@ export function OnboardingFlow({
           />
         </div>
         {/* While the name is being typed, show it in the sidebar it will live
-            in (wide windows only); the column folds away once it is sent. */}
-        <div
-          className={clsx(
-            'titlebar-no-drag bg-surface-sunken hidden lg:flex items-center justify-center overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]',
-            namingWorkspace ? 'w-[40%] opacity-100' : 'w-0 opacity-0',
-          )}
-        >
-          <SidebarNamePreview name={workspaceName} className="flex-shrink-0" />
-        </div>
+            in (wide windows only); the column goes once it is sent. */}
+        {namingWorkspace && (
+          <div className="titlebar-no-drag bg-surface-sunken hidden lg:flex w-[40%] items-center justify-center">
+            <SidebarNamePreview name={workspaceName} />
+          </div>
+        )}
         {/* Back — top-left, directly mirroring Log out at the bottom-left. It
             sits BELOW the 42px titlebar row rather than inside it, so it never
             crowds the macOS traffic lights. */}
