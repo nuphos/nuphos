@@ -48,6 +48,10 @@ run() { # name udid [only-testing...]
     -destination "id=$udid" -derivedDataPath "$dd" "${only[@]}" -parallel-testing-enabled NO \
     -resultBundlePath "$RUNNER_TEMP/$name.xcresult" 2>&1 | grep -vE "IDESchemeAction|IDELaunchParameters" | tail -400 | tee "$out/$name/tests.txt"
 }
+phone=$(boot phone "$(type_of 'iPhone 17 Pro')")
+run iphone "$phone"
+xcrun simctl shutdown "$phone"
+
 ipad=$(boot ipad "$(type_of 'iPad Pro 13-inch.*')")
 run ipad "$ipad" testAnswersAQuestionFromTheInbox testAnswersInWordsWithOther
 xcrun simctl shutdown "$ipad"
