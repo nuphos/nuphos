@@ -238,9 +238,17 @@ test("a hidden tab's popup is the conversation's tab too: unseen, driven, and sh
   })
 
   assert.equal(textOf(result), 'signed in')
-  // Showing the tab brings the popup it opened on screen with it.
+  // Showing the tab brings the popup it opened on screen with it, and any popup that one opened.
+  const nested = new Window({
+    show: false,
+    opacity: 0,
+    webPreferences: { session: browserSession },
+  })
+
+  popup.webContents.emit('did-create-window', nested)
   await runBrowserCall({ action: 'show', team: 't1', session: 'popup-1', tab: page.id })
-  assert.deepEqual([window.visible, popup.visible], [true, true])
+  assert.deepEqual([window.visible, popup.visible, nested.visible], [true, true, true])
+  nested.destroy()
   // A sign-in popup closes itself when done; its opener waits for that.
   popup.close()
   assert.equal(popup.destroyed, true)

@@ -111,10 +111,10 @@ function openTab(url: string, conversation: string): WebContents {
   return contents
 }
 
-/** Puts a tab on screen, with any sign-in popup its page opened above it. */
+/** Puts a tab on screen, with the sign-in popups its page opened, and theirs, above it. */
 function show(contents: WebContents): void {
   raiseWindow(tabs.get(contents)?.window)
-  for (const tab of tabs.values()) if (tab.opener === contents) raiseWindow(tab.window)
+  for (const [popup, tab] of tabs) if (tab.opener === contents) show(popup)
 }
 
 /** Ends every agent tab, for when the app's last window closes where that quits it. */
