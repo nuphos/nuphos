@@ -75,8 +75,8 @@ struct AgentDetailView: View {
             Button("Remove Runtime", role: .destructive) { remove() }
         } message: {
             Text(current.kind == "managed"
-                ? "This stops the runtime and permanently deletes its files and sign-in. The history of your Bots and tasks stays in Nuphos."
-                : "This disconnects the runtime. Your Bots and tasks stay in Nuphos.")
+                ? "This stops the runtime and permanently deletes its files and sign-in. Your tasks' history stays in Nuphos."
+                : "This disconnects the runtime. Your tasks stay in Nuphos.")
         }
     }
 

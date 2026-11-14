@@ -103,7 +103,7 @@ struct ShareSessionSheet: View {
                 Button("Continue") { invite(person.id, grantComputerUse: true) }
                 Button("Cancel", role: .cancel) {}
             } message: { _ in
-                Text("Adding this person also gives them use of this computer. Continue?")
+                Text("Adding this person to the task also gives them use of this computer. Continue?")
             }
             .task {
                 do { access = try await session.access("GET") } catch { loadError = error.localizedDescription }
@@ -139,7 +139,7 @@ struct ShareSessionSheet: View {
                 participantRow(participant)
             }
         } header: {
-            Text("People")
+            Text("In this task")
         } footer: {
             if !canManage { Text("Only the owner can change who has access.") }
         }

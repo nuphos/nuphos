@@ -223,7 +223,7 @@ struct SessionConfigState: Codable, Equatable, Sendable {
     var hint: String? {
         switch status {
         case .busy: "Changes apply after this reply."
-        case .dormant: options.isEmpty ? "Send a message first, then change model settings." : nil
+        case .dormant: options.isEmpty ? "Send a message to start this task before changing model settings." : nil
         case .offline: "This runtime is offline. Model settings return when it reconnects."
         case .ready, .unsupported: nil
         }

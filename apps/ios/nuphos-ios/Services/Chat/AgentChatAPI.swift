@@ -416,19 +416,19 @@ enum AgentChatAPI {
 
         var errorDescription: String? {
             switch self {
-            case .transcriptOutOfSync: "This changed elsewhere; resyncing."
+            case .transcriptOutOfSync: "The task changed elsewhere; resyncing."
             case .streamNotResumable: "The previous reply can no longer be resumed."
-            case .streamConflict: "That reply belongs to another Bot or task."
+            case .streamConflict: "That stream belongs to another task."
             case .conversationBusy: "This agent is busy with another reply."
             case .runtimeNotReady: "The runtime is not ready for a new message yet. Try again in a moment."
             case .runtimeLoginRequired: "This runtime is signed out. Sign it in from Nuphos on the computer it runs on, or switch to another runtime."
-            case .runtimeDisabled: "This runtime is disabled. Switch to another runtime to continue."
+            case .runtimeDisabled: "This task's runtime is disabled. Switch to another runtime to continue."
             case .runtimeNotFound: "This runtime is no longer available in this workspace. Switch to another runtime to continue."
             case .runtimeOffline: "The computer running this runtime is offline. Open Nuphos on it, or switch to another runtime."
             case .runtimeUnavailable(let message): message
             case .runtimeBusy: "Wait for the current reply to finish before changing model settings."
-            case .conversationNotRunning: "The reply is no longer running."
-            case .conversationInUseByTeammate: "A teammate's turn is running here. Try again after it finishes."
+            case .conversationNotRunning: "This task is no longer running."
+            case .conversationInUseByTeammate: "A teammate is using this task right now. Try again after their turn finishes."
             case .other(_, let message, _): message
             }
         }

@@ -57,7 +57,7 @@ struct ConversationView: View {
         if !session.loaded || session.awaitingReplay {
             ProgressView().tint(Theme.muted)
         } else if let loadError = session.loadError {
-            ContentUnavailableView("Couldn't load the messages", systemImage: "exclamationmark.bubble", description: Text(loadError))
+            ContentUnavailableView("Couldn't load this task", systemImage: "exclamationmark.bubble", description: Text(loadError))
         }
     }
 
@@ -118,7 +118,7 @@ struct ConversationView: View {
         .onDisappear {
             UIEventLog.pageTransition(from: "chat", to: sourcePage)
         }
-        .alert("Rename", isPresented: $showRename) {
+        .alert("Rename task", isPresented: $showRename) {
             TextField("Title", text: $renamedTitle)
             Button("Cancel", role: .cancel) {}
             Button("Save") {
@@ -188,20 +188,20 @@ struct ConversationView: View {
                         // A Label, not a bare Image: the bar takes it as a
                         // native item, so the whole glass answers, not just
                         // the glyph.
-                        Label("Options", systemImage: "ellipsis")
+                        Label("Task options", systemImage: "ellipsis")
                     }
                     .disabled(updating)
-                    .accessibilityLabel("Options")
+                    .accessibilityLabel("Task options")
                 }
             }
         }
-        .alert("Couldn't save the change", isPresented: Binding(get: { archiveError != nil }, set: { if !$0 { archiveError = nil } })) {
+        .alert("Couldn't update task", isPresented: Binding(get: { archiveError != nil }, set: { if !$0 { archiveError = nil } })) {
             Button("OK") { archiveError = nil }
         } message: {
             Text(archiveError ?? "")
         }
         // Wherever the reader is in the transcript, a refused Stop is answered.
-        .alert("Couldn't stop the reply", isPresented: Binding(get: { session.stopRefusal != nil }, set: { if !$0 { session.stopRefusal = nil } })) {
+        .alert("Couldn't stop the agent", isPresented: Binding(get: { session.stopRefusal != nil }, set: { if !$0 { session.stopRefusal = nil } })) {
             Button("OK") { session.stopRefusal = nil }
         } message: {
             Text(session.stopRefusal ?? "")
@@ -276,7 +276,7 @@ struct ConversationView: View {
         .buttonStyle(.plain)
         .disabled(session.isNew)
         .contentShape(Rectangle())
-        .accessibilityHint("Show triggers")
+        .accessibilityHint("Show task triggers")
         .accessibilityIdentifier("conversation-trigger-entry")
     }
 

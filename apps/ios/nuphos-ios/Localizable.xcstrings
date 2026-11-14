@@ -10,13 +10,13 @@
     "Continue in agent" : {
 
     },
-    "Couldn't load Bots and tasks" : {
+    "Couldn't load tasks" : {
 
     },
-    "Couldn't load the messages" : {
+    "Couldn't load this task" : {
 
     },
-    "Loading…" : {
+    "Loading tasks…" : {
 
     },
     "New task" : {
@@ -25,7 +25,7 @@
     "Open agent" : {
 
     },
-    "Search Bots and tasks" : {
+    "Search tasks" : {
 
     },
     "·" : {

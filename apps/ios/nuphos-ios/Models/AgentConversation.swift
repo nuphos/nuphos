@@ -170,7 +170,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     var displayTitle: String {
         if !title.isEmpty { return title }
         if !firstMessage.isEmpty { return firstMessage }
-        return "Untitled"
+        return "Untitled task"
     }
 
     var ownsChat: Bool { isOwner == true && readOnly != true }

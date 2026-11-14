@@ -174,7 +174,7 @@ final class AgentStore {
 
     private func rowActionFailed(_ error: Error, scope: Int, retry: @escaping @MainActor () async -> Void) {
         guard scope == workspaceScope else { return }
-        rowActionFailure = RowActionFailure(title: "Couldn't save the change", message: error.localizedDescription) { [weak self] in
+        rowActionFailure = RowActionFailure(title: "Couldn't update task", message: error.localizedDescription) { [weak self] in
             guard self?.workspaceScope == scope else { return }
             await retry()
         }
@@ -629,7 +629,7 @@ final class AgentStore {
                 return
             }
             rowActionFailure = RowActionFailure(
-                title: "Couldn't refresh the list",
+                title: "Couldn't refresh tasks",
                 message: afterChange ? "Your change was saved, but the list could not refresh." : error.localizedDescription,
                 retry: { [weak self] in await self?.reload() }
             )

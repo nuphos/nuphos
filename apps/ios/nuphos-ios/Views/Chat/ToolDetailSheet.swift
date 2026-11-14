@@ -74,11 +74,11 @@ struct ToolDetailSheet: View {
                 Button("Choose credentials") { choosingCredentials = true }
                     .buttonStyle(.bordered)
                     .accessibilityIdentifier("integration.chooseCredentials")
-                Text("Choose a connected account to use here.")
+                Text("Choose a connected account to let this task use it.")
                     .font(Theme.Text.caption)
                     .foregroundStyle(Theme.muted)
             } else {
-                Text("The owner can choose credentials here.")
+                Text("The task owner can choose credentials for this task.")
                     .font(Theme.Text.caption)
                     .foregroundStyle(Theme.muted)
             }
