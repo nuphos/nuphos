@@ -16,7 +16,7 @@ const NAV: { icon: LucideIcon; label: string }[] = [
 // The team's own bots and tasks don't exist yet, so those rows stay blank.
 const SECTIONS: { icon: LucideIcon; label: string; rows: string[] }[] = [
   { icon: Bot, label: t('Bots'), rows: ['56%', '40%'] },
-  { icon: ListTodo, label: t('Tasks'), rows: ['64%', '48%', '36%'] },
+  { icon: ListTodo, label: t('Tasks'), rows: ['64%', '44%'] },
 ]
 
 /**
@@ -47,10 +47,10 @@ export function SidebarNamePreview({ name }: { name: string }) {
             icon: <Avatar name={label} size={20} className="rounded-[5px] !shadow-none" />,
           }}
         />
-        <div className="space-y-0.5 px-2.5 text-[13.5px] text-secondary">
+        <div className="space-y-0.5 px-2.5 text-[13px] text-main">
           {NAV.map(({ icon: Icon, label: text }) => (
             <div key={text} className="flex h-8 items-center gap-2.5 px-2">
-              <Icon className="h-4 w-4 flex-shrink-0 text-tertiary" strokeWidth={1.8} />
+              <Icon className="h-4 w-4 flex-shrink-0 text-secondary" strokeWidth={1.8} />
               {text}
             </div>
           ))}
