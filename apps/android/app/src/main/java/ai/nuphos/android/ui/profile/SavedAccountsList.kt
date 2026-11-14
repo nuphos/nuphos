@@ -71,7 +71,8 @@ fun SavedAccountsList(auth: AuthSession, allowAdding: Boolean, onSwitch: () -> U
     removing?.let { account ->
         AlertDialog(
             onDismissRequest = { removing = null },
-            title = { Text("Sign out of ${account.user.email.ifEmpty { account.user.displayName }}?") },
+            title = { Text("Sign out of this account?") },
+            text = { Text(account.user.email.ifEmpty { account.user.displayName }) },
             confirmButton = {
                 TextButton(onClick = { removing = null; auth.removeAccount(account.id) }) {
                     Text("Sign out", color = MaterialTheme.colorScheme.error)
