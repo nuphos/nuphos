@@ -506,6 +506,7 @@ fun ConversationScreen(
                     ChatComposer(
                         promptSuggestion = { session.promptSuggestion },
                         modelSettings = session.modelSettings,
+                        followsBot = session.followsBot,
                         recalledFiles = recalledFiles,
                         onRecalledFilesRestored = { recalledFiles = emptyList() },
                         mentions = if (store.selectedTeam?.id != draftTeam) null else remember(store, draftTeam, sessionId) {
@@ -513,7 +514,8 @@ fun ConversationScreen(
                                 store.mentionableSessions(draftTeam, query)
                             }
                         },
-                        devices = if (!session.canManage || store.selectedTeam?.id != draftTeam) null
+                        // Mentioning a computer selects it, and a Task under a Bot has no selection of its own.
+                        devices = if (!session.canManage || session.followsBot || store.selectedTeam?.id != draftTeam) null
                         else remember(store, session, draftTeam, store.workspaceRevision) {
                             DeviceMentionSource(draftTeam,
                                 load = { store.mentionableComputers(draftTeam) },

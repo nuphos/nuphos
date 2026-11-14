@@ -210,6 +210,8 @@ data class AgentConversationDetail(
     @Serializable(with = InstantAsStringSerializerNullable::class)
     val archivedAt: Instant? = null,
     val credentialAccess: JsonValue? = null,
+    /** A Task under a Bot: the conversation whose credentials, computers and permission mode it uses. */
+    val credentialSource: JsonValue? = null,
     val timelineEvents: List<TimelineEvent> = emptyList(),
     val promptSuggestion: String? = null,
     /** `channel` for a chat; such a session never runs an agent turn of its own. */
