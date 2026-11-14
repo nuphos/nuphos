@@ -1,5 +1,6 @@
 import {
   isPendingRemoval,
+  keepsAgent,
   registryKey,
   reportedAgents,
   withReport,
@@ -15,12 +16,12 @@ import {
   parseLocalRuntimeId,
 } from '@/lib/agent/devices/local-runtime/address'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
-import { LOCAL_AGENT_PROVIDERS } from '@/lib/agent/devices/local-runtime/protocol'
 import { requireAgentSignInAccess, requireDeviceUse } from '@/lib/agent/devices/manage-access'
 import { isActiveTeamMember } from '@/lib/agent/devices/store'
 import { AppError } from '@/lib/errors'
 
 import { runtimeLabel } from './runtime-provider'
+import { runtimeGone } from './runtime-refusal'
 
 import type { RuntimeModelCatalog } from './runtime-models'
 import type { PreviewRuntimeStatus } from './runtime-status'
@@ -180,14 +181,6 @@ export async function listOwnLocalRuntimes(
   return listed.flat()
 }
 
-function notAvailable(): AppError {
-  return new AppError(
-    404,
-    'runtime_not_found',
-    'This agent is no longer available in this workspace. Move this conversation to another agent to continue.',
-  )
-}
-
 /**
  * Checked on every turn and control call: someone who may use the computer, in a
  * team they still belong to.
@@ -202,8 +195,9 @@ export async function resolveLocalRuntimeEndpoint(
 ): Promise<TeamRuntimeEndpoint & { runtimeId: string }> {
   const ref = parseLocalRuntimeId(runtimeId)
 
-  if (!ref || !(await deps.isMember(userId, teamId))) throw notAvailable()
+  if (!ref || !(await deps.isMember(userId, teamId))) throw runtimeGone()
   let label: string
+  let kept: boolean
 
   try {
     const access = purpose === 'login' ? requireAgentSignInAccess : requireDeviceUse
@@ -211,16 +205,19 @@ export async function resolveLocalRuntimeEndpoint(
 
     // One removed while its computer was offline is gone, not waiting for the computer.
     if (device.userId !== ref.userId || isPendingRemoval(ref, device.removedAgents ?? []))
-      throw notAvailable()
+      throw runtimeGone()
     label = `${runtimeLabel(ref.provider)} in ${device.label}`
+    kept = keepsAgent(ref, device)
   } catch (error) {
-    if (error instanceof AppError && error.status === 404) throw notAvailable()
+    if (error instanceof AppError && error.status === 404) throw runtimeGone()
     throw error
   }
   // An offline Box is not woken here: the session queue waits for it (queued-turn.ts).
   const presence = await deps.getPresence(ref.userId, ref.deviceId)
   const agent = reportedLocalAgent(presence?.status, ref)
 
+  // Removed from its computer: no report will bring it back, so it is gone, not offline.
+  if (!agent && !kept && purpose !== 'login') throw runtimeGone()
   // Signing in needs only the computer: an agent added a moment ago may not be in its last
   // report yet, and the host's own sign-in answers for it (the login retries while it starts).
   if (!presence || (!agent && purpose !== 'login'))

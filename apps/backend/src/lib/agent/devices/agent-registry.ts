@@ -57,6 +57,20 @@ export function isPendingRemoval(
   )
 }
 
+/**
+ * Whether a computer's record still has this agent. An added agent leaves it when it is
+ * removed, so no report will bring that one back; a computer's default agent never does.
+ */
+export function keepsAgent(
+  agent: Pick<RegisteredAgent, 'instanceId'>,
+  { agents = [], addedAgents = [] }: DeviceAgentRecords,
+): boolean {
+  return (
+    !agent.instanceId ||
+    [...agents, ...addedAgents].some((entry) => entry.instanceId === agent.instanceId)
+  )
+}
+
 /** An agent as a report shows it now. Once registered, its name is the registry's alone:
  *  a report names only an agent that joins, so a cleared name stays cleared. */
 export function withReport(
