@@ -112,6 +112,8 @@ class FixtureDeviceTest {
     /** Saved under the app's files, `review-2030/`, for the PR's screenshots. */
     private fun capture(name: String) {
         compose.waitForIdle()
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+        Thread.sleep(300) // Wait for the actual window after the Compose idle frame.
         val directory = java.io.File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null), "review-2030").apply { mkdirs() }
         val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot() ?: error("Screenshot unavailable")
         java.io.File(directory, "$name.png").outputStream().use { check(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)) }
@@ -126,6 +128,7 @@ class FixtureDeviceTest {
         render(emptyList())
         compose.onNodeWithContentDescription("Show conversation triggers").performClick()
         compose.waitUntil(10_000) { compose.onAllNodesWithText("Morning PR digest").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitForIdle() // The rows exist while the sheet is still animating in.
         compose.onNodeWithText("Production alerts").assertIsDisplayed()
         compose.onNodeWithText("Weekly dependency review").assertIsDisplayed()
         capture("triggers-2096-android")
