@@ -516,6 +516,21 @@ final class ChatSession {
         send(submission)
     }
 
+    /// The signed-in person's id: whose prompts a failed turn's Retry may resend.
+    var userId: String?
+
+    /// The latest failed turn's line and the prompt Retry resends, while it can be sent.
+    var failedTurn: (rowId: String, prompt: String)? {
+        guard !isStreaming, canSubmit else { return nil }
+        return ChatRow.failedTurn(in: messages, userId: userId, foreignChat: !isOwner)
+    }
+
+    /// Sends the failed turn's prompt again, as the composer would.
+    func retryFailedTurn() {
+        guard let prompt = failedTurn?.prompt else { return }
+        send(prompt)
+    }
+
     /// Moves the unsent message back into the composer.
     func editFailed() {
         guard let submission = failedSubmission else { return }

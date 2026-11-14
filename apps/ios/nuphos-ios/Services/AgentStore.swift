@@ -679,6 +679,7 @@ final class AgentStore {
             runtimeLabel: conversation.runtimeLabel
         )
         session.me = me
+        session.userId = userId
         Task { await session.load() }
         return session
     }
@@ -688,6 +689,7 @@ final class AgentStore {
     func session(sessionId: String, title: String, teamId: String? = nil) -> ChatSession {
         let session = ChatSession(token: token, teamId: teamId ?? selectedTeam?.id ?? "", sessionId: sessionId, title: title)
         session.me = me
+        session.userId = userId
         Task { await session.load() }
         return session
     }
@@ -699,6 +701,7 @@ final class AgentStore {
         guard let team = selectedTeam, credentialsReady else { return nil }
         let session = ChatSession.fresh(token: token, teamId: team.id)
         session.me = me
+        session.userId = userId
         session.presetPermissionMode(permissionMode)
         session.credentialAccess = credentialSelection.isEmpty ? nil : credentialSelection
         session.runtime = newConversationRuntime
