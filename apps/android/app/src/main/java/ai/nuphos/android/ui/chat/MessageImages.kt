@@ -287,7 +287,8 @@ private fun ZoomImage(source: String, index: Int, count: Int, zoomed: Boolean, l
 private sealed interface VideoLoad {
     data object Loading : VideoLoad
     data object Failed : VideoLoad
-    data class Ready(val file: java.io.File) : VideoLoad
+    /** [attempt]: which try fetched it, so a file from an earlier try (perhaps since deleted) is never played. */
+    data class Ready(val file: java.io.File, val attempt: Int) : VideoLoad
 }
 
 /**
@@ -302,22 +303,22 @@ private fun VideoPage(source: String, index: Int, count: Int, loader: MessageVid
     val load by produceState<VideoLoad>(VideoLoad.Loading, source, attempt) {
         value = VideoLoad.Loading
         // Trying again fetches anew, so a file that wouldn't play isn't the one played again.
-        value = loader(source, attempt > 0)?.let { VideoLoad.Ready(it) } ?: VideoLoad.Failed
+        value = loader(source, attempt > 0)?.let { VideoLoad.Ready(it, attempt) } ?: VideoLoad.Failed
     }
     Box(Modifier.fillMaxSize().semantics {
         contentDescription = "Video ${index + 1} of $count"
         if (prepared && !broken) stateDescription = "Ready to play"
     }, contentAlignment = Alignment.Center) {
-        val ready = load as? VideoLoad.Ready
+        val ready = (load as? VideoLoad.Ready)?.takeIf { it.attempt == attempt }
         when {
-            load == VideoLoad.Loading -> Text("Loading video", color = Color.White)
+            load == VideoLoad.Loading || (load is VideoLoad.Ready && ready == null) -> Text("Loading video", color = Color.White)
             load == VideoLoad.Failed || broken -> TextButton(onClick = { attempt++ }, modifier = androidx.compose.ui.Modifier.semantics { this.testTag = "video-retry" }) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(androidx.compose.material.icons.Icons.Outlined.Refresh, null, tint = Color.White)
                     Text("Couldn't load the video. Try again.", color = Color.White)
                 }
             }
-            ready != null -> androidx.compose.ui.viewinterop.AndroidView(
+            ready != null -> key(ready.file.absolutePath) { androidx.compose.ui.viewinterop.AndroidView(
                 factory = { context ->
                     android.widget.VideoView(context).apply {
                         val controls = android.widget.MediaController(context)
@@ -331,7 +332,7 @@ private fun VideoPage(source: String, index: Int, count: Int, loader: MessageVid
                 },
                 onRelease = { it.stopPlayback() },
                 modifier = Modifier.fillMaxSize().semantics { this.testTag = "video-player" },
-            )
+            ) }
         }
     }
 }

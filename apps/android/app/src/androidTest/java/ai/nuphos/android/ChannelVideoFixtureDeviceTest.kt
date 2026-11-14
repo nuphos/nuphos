@@ -49,14 +49,24 @@ class ChannelVideoFixtureDeviceTest {
         Canvas(bitmap).drawColor(0xFF5E35B1.toInt())
         ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
     }
+    /** Range reads, for a first frame, counted apart from whole downloads. */
+    private val ranged = ConcurrentHashMap<String, AtomicInteger>()
     private val storage = TransferDownloads(OkHttpClient.Builder().addInterceptor { chain ->
         val request = chain.request()
         val name = request.url.pathSegments.last()
-        fetched.getOrPut(name) { AtomicInteger() }.incrementAndGet()
+        val range = request.header("Range")?.let { Regex("bytes=(\\d+)-(\\d+)").find(it) }
+        (if (range != null) ranged else fetched).getOrPut(name) { AtomicInteger() }.incrementAndGet()
         val builder = Response.Builder().request(request).protocol(Protocol.HTTP_1_1).message("fixture")
-        if (name == "clip" && videoFails) builder.code(404).body(ByteArray(0).toResponseBody(null)).build()
-        else if (name == "clip" && videoBroken) builder.code(200).body("not a video".toByteArray().toResponseBody(null)).build()
-        else builder.code(200).body((if (name == "clip") clip else image).toResponseBody(null)).build()
+        val bytes = if (name == "clip") (if (videoBroken) "not a video".toByteArray() else clip) else image
+        when {
+            name == "clip" && videoFails -> builder.code(404).body(ByteArray(0).toResponseBody(null)).build()
+            range != null -> {
+                val from = range.groupValues[1].toInt(); val to = minOf(range.groupValues[2].toInt(), bytes.size - 1)
+                if (from >= bytes.size) builder.code(416).body(ByteArray(0).toResponseBody(null)).build()
+                else builder.code(206).body(bytes.copyOfRange(from, to + 1).toResponseBody(null)).build()
+            }
+            else -> builder.code(200).body(bytes.toResponseBody(null)).build()
+        }
     }.build())
     private fun file(id: String, name: String, type: String) = TransferDownloadFile(id, name, "ready", type, "https://fixture.invalid/$id")
 
@@ -110,10 +120,13 @@ class ChannelVideoFixtureDeviceTest {
         compose.waitUntil(8_000) { player() }
     }
 
-    @Test fun aVideoThatCantLoadSaysSoAndCanBeTriedAgain() {
+    @Test fun aVideoThatCantLoadInTheViewerSaysSoAndCanBeTriedAgain() {
         videoFails = true
         render()
-        compose.onNodeWithContentDescription("clip.mp4").performClick()
+        // Opened on the image, then paged to the video: the viewer says so itself, as on iOS.
+        compose.onNodeWithContentDescription("wide.png").performClick()
+        compose.waitUntil(5_000) { has("1 / 2") }
+        compose.onNodeWithText("Next image").performClick()
         compose.waitUntil(8_000) { has("Couldn't load the video. Try again.") }
         assertFalse(player())
         videoFails = false
@@ -141,6 +154,26 @@ class ChannelVideoFixtureDeviceTest {
         compose.onNodeWithContentDescription("wide.png").performClick()
         compose.waitUntil(5_000) { has("1 / 2") }
         assertFalse(player())
-        assertNull("The video isn't fetched until its page shows", fetched["clip"])
+        assertNull("The video isn't downloaded until its page shows", fetched["clip"])
+    }
+
+    @Test fun aVideoTileWearsItsFirstFrameFromTheStartOfTheFile() {
+        render()
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("video-frame", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        assertTrue("Read with Range requests", (ranged["clip"]?.get() ?: 0) > 0)
+        assertNull("Never downloaded whole for its tile", fetched["clip"])
+    }
+
+    @Test fun aTappedVideoThatCantLoadKeepsTheViewerShutAndRetriesOnTheNextTap() {
+        videoFails = true
+        render()
+        compose.onNodeWithContentDescription("clip.mp4").performClick()
+        compose.waitUntil(8_000) { has("Couldn't open the file. Try again.") }
+        assertFalse("The viewer stays shut", has("2 / 2"))
+        videoFails = false
+        compose.onNodeWithContentDescription("clip.mp4").performClick()
+        compose.waitUntil(8_000) { has("2 / 2") }
+        compose.waitUntil(8_000) { ready() }
+        assertFalse(has("Couldn't open the file. Try again."))
     }
 }
