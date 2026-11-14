@@ -1,5 +1,7 @@
 export type BindingAccess = {
   memberAllowList: string[]
+  /** The member who connected the binding; absent on bindings connected before it was kept. */
+  ownerUserId?: string
   updatedAt: Date
   updatedBy: string
 }

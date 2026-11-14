@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 
 import { agentSubjectId } from '@/lib/agents/identity'
-import { canUseAllowList } from '@/lib/byos/access'
+import { canPrincipalsUseAllowList } from '@/lib/byos/access'
 import { getCloudflareOAuthAccessToken } from '@/lib/byos/cloudflare-oauth'
 import {
   decryptCloudflareApiKey,
@@ -11,11 +11,12 @@ import {
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import {
+  canRequestUseBinding,
   requireCloudflareAccount,
-  requireLinodeAccount,
   requireHetznerAccount,
+  requireLinodeAccount,
 } from '@/middleware/auth'
-import { getAgentCredentialAccess } from '@/routes/agent-sessions/shared'
+import { agentPrincipals, getAgentCredentialAccess } from '@/routes/agent-sessions/shared'
 
 import type { CloudflareAccountVariables } from '@/middleware/auth'
 import type { AgentHetznerVars, AgentLinodeVars, AgentVars } from '@/routes/agent-sessions/shared'
@@ -111,7 +112,9 @@ function requireSelectedCloudflareAgentCredential(): MiddlewareHandler<{
         'This Cloudflare account is not enabled for this agent session',
       )
     }
-    if (!canUseAllowList(c.get('cloudflareBinding').access?.memberAllowList, c.get('userId'))) {
+    const allowList = c.get('cloudflareBinding').access?.memberAllowList
+
+    if (!canPrincipalsUseAllowList(allowList, agentPrincipals(c))) {
       throw new AppError(
         403,
         'cloudflare_account_agent_access_denied',
@@ -146,7 +149,7 @@ function requireSelectedLinodeAgentCredential(): MiddlewareHandler<{ Variables: 
         'This Linode account is not enabled for this agent session',
       )
     }
-    if (!canUseAllowList(c.get('linodeAccess')?.memberAllowList, c.get('userId'))) {
+    if (!canRequestUseBinding(c, c.get('linodeAccess'))) {
       throw new AppError(
         403,
         'linode_account_agent_access_denied',
@@ -183,7 +186,7 @@ function requireSelectedHetznerAgentCredential(): MiddlewareHandler<{
         'This Hetzner account is not enabled for this agent session',
       )
     }
-    if (!canUseAllowList(c.get('hetznerAccess')?.memberAllowList, c.get('userId'))) {
+    if (!canRequestUseBinding(c, c.get('hetznerAccess'))) {
       throw new AppError(
         403,
         'hetzner_account_agent_access_denied',

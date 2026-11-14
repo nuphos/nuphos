@@ -3,12 +3,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
-import {
-  accessView,
-  bindingAccessUpdateSchema,
-  canUseAllowList,
-  normalizeAccessInput,
-} from '@/lib/byos/access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import {
   buildPlaudAuthorizeUrl,
   invalidatePlaudAccessToken,
@@ -19,8 +14,7 @@ import {
 import { encryptPlaudSecret } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
-import { zv } from '@/lib/validate'
-import { requireTeamRole } from '@/middleware/auth'
+import { canRequestUseBinding, requireTeamRole } from '@/middleware/auth'
 import { plaudPendingOAuth, teamByosBindings } from '@/models'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
@@ -81,7 +75,7 @@ export function requirePlaudMemberAccess(): MiddlewareHandler<{
   Variables: PlaudAccountVariables
 }> {
   return async (c, next) => {
-    if (!canUseAllowList(c.get('plaudBinding').access?.memberAllowList, c.get('userId'))) {
+    if (!canRequestUseBinding(c, c.get('plaudBinding').access)) {
       throw new AppError(
         403,
         'plaud_account_access_denied',
@@ -174,25 +168,6 @@ bindingScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
   return c.body(null, 204)
 })
 
-bindingScoped.get('/access', requireTeamRole('ADMINISTRATOR'), (c) =>
-  c.json(accessView(c.get('plaudBinding').access)),
-)
-
-bindingScoped.put(
-  '/access',
-  requireTeamRole('ADMINISTRATOR'),
-  zv('json', bindingAccessUpdateSchema),
-  async (c) => {
-    const teamId = parseObjectId(c.get('teamId'), 'teamId')
-    const access = normalizeAccessInput(c.req.valid('json'), c.get('userId'))
-
-    await teamByosBindings().updateOne(
-      { _id: teamId, 'plaudAccounts.id': c.get('plaudBinding').id },
-      { $set: { 'plaudAccounts.$.access': access, updatedAt: new Date() } },
-    )
-
-    return c.json(accessView(access))
-  },
-)
+registerBindingAccessRoutes(bindingScoped, 'plaudAccounts', (c) => c.get('plaudBinding'))
 
 plaudAccountsRoutes.route('/:bindingId', bindingScoped)
