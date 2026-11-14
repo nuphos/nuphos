@@ -89,6 +89,8 @@ useDb({
 
         return Promise.resolve()
       },
+      // A new Bot has no parent to take its mode from.
+      findOne: () => Promise.resolve(null),
       // The chats a Bot made a Task leaves.
       find: (filter: { agentSessionIds?: string }) => {
         if (filter.agentSessionIds) left.push(filter.agentSessionIds)
