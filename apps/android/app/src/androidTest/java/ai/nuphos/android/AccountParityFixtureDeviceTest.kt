@@ -244,7 +244,12 @@ class AccountParityFixtureDeviceTest {
             throw AssertionError("Missing $text; requests=$requests; receipt=$receipt; consent=$accepted; generation=${app.authSession.generation}; failure image in app cache", e)
         }
     }
-    private fun tap(text: String) = compose.onNodeWithText(text).performScrollTo().performClick()
+    /** An open keyboard can cover the target or swallow Back, so every tap and Back closes it first. */
+    private fun hideKeyboard() {
+        androidx.test.espresso.Espresso.closeSoftKeyboard()
+        compose.waitForIdle()
+    }
+    private fun tap(text: String) { hideKeyboard(); compose.onNodeWithText(text).performScrollTo().performClick() }
     private fun account() {
         awaitText("Before you use AI agents")
         screenshot("consent")
@@ -254,7 +259,7 @@ class AccountParityFixtureDeviceTest {
     }
     private fun deletion() { account(); tap("Account deletion request"); awaitText("Request permanent deletion") }
     /** The profile sheet's top bar doesn't scroll, so its actions are tapped where they are. */
-    private fun tapAction(text: String) = compose.onNodeWithText(text).performClick()
+    private fun tapAction(text: String) { hideKeyboard(); compose.onNodeWithText(text).performClick() }
     private fun enter(label: String, value: String) = compose.onNodeWithText(label).performScrollTo().performTextReplacement(value)
     private fun submits() = count("POST", "/auth/account-deletion")
 
@@ -489,6 +494,7 @@ class AccountParityFixtureDeviceTest {
         compose.onAllNodesWithText("Updated fixture name").onFirst().assertIsDisplayed()
         assertEquals("Profile save initialized teams before agreement", 0, count("GET", "/teams"))
         assertEquals("Expected one conflict and one successful profile save", 2, count("PATCH", "/auth/me"))
+        hideKeyboard()
         assertTrue(InstrumentationRegistry.getInstrumentation().uiAutomation.performGlobalAction(
             android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK))
         compose.waitUntil(8_000) { compose.onAllNodesWithText("Edit profile").fetchSemanticsNodes().isEmpty() }
@@ -636,6 +642,7 @@ class AccountParityFixtureDeviceTest {
         tap("Manage my account")
         awaitText("Edit profile")
         assertNotNull("Consent error removed authenticated account access", app.authSession.user)
+        hideKeyboard()
         assertTrue(InstrumentationRegistry.getInstrumentation().uiAutomation.performGlobalAction(
             android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK))
         compose.waitUntil(8_000) { compose.onAllNodesWithText("Edit profile").fetchSemanticsNodes().isEmpty() }
