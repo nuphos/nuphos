@@ -1,0 +1,58 @@
+name: scratch android accounts shots
+on: push
+permissions:
+  contents: read
+jobs:
+  shots:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - name: SDK
+        run: |
+          (yes || true) | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "platform-tools" > /dev/null
+      - name: Unit tests
+        working-directory: apps/android
+        run: ./gradlew --no-daemon :app:testDebugUnitTest --tests 'ai.nuphos.android.data.SavedAccountsTest' -q || echo "UNIT TESTS FAILED"
+      - name: Build
+        working-directory: apps/android
+        run: ./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest -q
+      - name: Script
+        run: |
+          cat > "$RUNNER_TEMP/shots.sh" <<'S'
+          set -u
+          cd apps/android
+          mkdir -p "$RUNNER_TEMP/out"
+          adb shell cmd uimode night no
+          for c in SavedAccountsFixtureDeviceTest; do
+            ./gradlew --no-daemon :app:connectedDebugAndroidTest \
+              -Pandroid.testInstrumentationRunnerArguments.class=ai.nuphos.android.$c \
+              -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true > "$RUNNER_TEMP/out/$c.log" 2>&1 && echo "$c PASSED" || { echo "$c FAILED"; tail -60 "$RUNNER_TEMP/out/$c.log"; }
+          done
+          for f in $(adb shell "find /sdcard/Android/data -path '*saved-accounts*' -name '*.png'" | tr -d '\r'); do adb pull "$f" "$RUNNER_TEMP/out/"; done
+          ls -R "$RUNNER_TEMP/out"
+          S
+      - uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7
+          disable-animations: true
+          script: bash "$RUNNER_TEMP/shots.sh"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
+        with:
+          name: shots
+          path: ${{ runner.temp }}/out
