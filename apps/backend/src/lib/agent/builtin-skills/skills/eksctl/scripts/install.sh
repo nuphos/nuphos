@@ -16,7 +16,7 @@ case "$arch" in
     ;;
 esac
 
-url="https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_Linux_${eks_arch}.tar.gz"
+url="https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$(uname -s)_${eks_arch}.tar.gz"
 
 tmp="$(mktemp -d)"
 curl -fsSL "$url" -o "$tmp/eksctl.tar.gz"

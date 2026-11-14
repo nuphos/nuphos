@@ -25,14 +25,15 @@ if [ -z "$latest" ]; then
   exit 1
 fi
 
-url="https://get.helm.sh/helm-${latest}-linux-${helm_arch}.tar.gz"
+os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+url="https://get.helm.sh/helm-${latest}-${os}-${helm_arch}.tar.gz"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
 curl -fsSL "$url" -o "${tmp}/helm.tar.gz"
 tar -xzf "${tmp}/helm.tar.gz" -C "$tmp"
 
-bin="${tmp}/linux-${helm_arch}/helm"
+bin="${tmp}/${os}-${helm_arch}/helm"
 chmod +x "$bin"
 
 if [ -w /usr/local/bin ]; then
