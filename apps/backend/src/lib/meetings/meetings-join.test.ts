@@ -1,5 +1,6 @@
 import { afterAll, beforeEach, expect, spyOn, test } from 'bun:test'
 
+import * as modes from '@/lib/agent/auto-mode/store'
 import * as turns from '@/lib/agent/conversation-turn'
 import { agentConversations } from '@/lib/agent/db/shared'
 import * as threads from '@/lib/agent/thread-bridge'
@@ -21,6 +22,8 @@ const left = spyOn(recall, 'leaveMeeting')
 const typed = spyOn(recall, 'sendMeetingChat')
 const thread = spyOn(threads, 'createAgentThread')
 const turn = spyOn(turns, 'startConversationTurn')
+// Full Access per conversation; the Bot's own is createAgentThread's to apply.
+const fullAccess = spyOn(modes, 'getSessionBypass')
 
 const configured = spyOn(recall, 'recallConfig').mockReturnValue({
   botsPerTeamPerDay: 10,
@@ -36,6 +39,8 @@ beforeEach(() => {
   left.mockResolvedValue()
   typed.mockResolvedValue()
   turn.mockResolvedValue({ status: 'started', run: Promise.resolve(undefined) })
+  fullAccess.mockReset()
+  fullAccess.mockImplementation((sessionId) => Promise.resolve(sessionId === 'bot'))
   // The Task create_thread would make: a conversation under the actor.
   thread.mockImplementation((from, _prompt, title) => {
     memory.rows('agent_conversations').push({
@@ -74,7 +79,8 @@ beforeEach(() => {
 })
 // Other files in the run use the real ones.
 afterAll(() => {
-  for (const spy of [created, left, typed, thread, turn, configured, member]) spy.mockRestore()
+  for (const spy of [created, left, typed, thread, turn, configured, member, fullAccess])
+    spy.mockRestore()
 })
 
 const conversation = async (sessionId: string) =>
@@ -95,6 +101,15 @@ test('a meeting is a Task under the Bot, which is in the call under the Bot’s 
   expect(await agentConversations().find({ kind: 'channel' }).toArray()).toEqual([])
 })
 
+test('a Task in Auto Mode under a Full Access Bot keeps its meeting in Auto Mode', async () => {
+  await joinMeeting(actor('task'), 'https://meet.example.com/abc')
+  expect(thread.mock.calls[0]?.[0]).toMatchObject({ sessionId: 'bot' })
+  expect(thread.mock.calls[0]?.[3]).toEqual({ fullAccess: false })
+
+  await joinMeeting(actor('bot'), 'https://meet.example.com/abc')
+  expect(thread.mock.calls[1]?.[3]).toEqual({ fullAccess: true })
+})
+
 test('a Task with no Bot above it is refused before any call bot or Task is made', async () => {
   await expect(joinMeeting(actor('lone-task'), 'https://meet.example.com/abc')).rejects.toThrow(
     'Only a Bot can be in a chat',
@@ -112,7 +127,7 @@ test('the call bot leaves when its Task cannot be made', async () => {
   expect(left).toHaveBeenCalledWith('recall-bot')
 })
 
-test('speech reaches the meeting’s Task under its speaker’s name, until it is archived', async () => {
+test('speech reaches the meeting’s Task under its speaker’s name, until it is archived and the bot leaves', async () => {
   const { threadId } = await joinMeeting(actor('bot'), 'https://meet.example.com/abc')
   const said = {
     event: 'transcript.data',
@@ -127,7 +142,9 @@ test('speech reaches the meeting’s Task under its speaker’s name, until it i
     targetSessionId: threadId,
     messageId: 'delivery-1',
   })
-  expect(turn.mock.calls[0]?.[2]).toBe('Can: hello')
+  // Every message says it, not only the first: nobody in the call speaks for the owner.
+  expect(turn.mock.calls[0]?.[2]).toBe('Can (in the call, not your owner): hello')
+  expect(left).not.toHaveBeenCalled()
 
   await agentConversations().updateOne(
     { sessionId: threadId },
@@ -135,6 +152,8 @@ test('speech reaches the meeting’s Task under its speaker’s name, until it i
   )
   await handleRecallEvent('delivery-2', said)
   expect(turn).toHaveBeenCalledTimes(1)
+  // Nobody is left to hear the call, so its bot leaves.
+  expect(left).toHaveBeenCalledWith('recall-bot')
 })
 
 test('the Task types in its call, and it or its Bot ends the call', async () => {

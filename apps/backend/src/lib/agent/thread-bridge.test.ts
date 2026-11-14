@@ -378,6 +378,13 @@ describe('conversation-scoped thread tools', () => {
     expect(await getSessionBypass(result.threadId, 'owner')).toBe(on)
   })
 
+  test('a thread asked to start in Auto Mode does, under a Full Access parent', async () => {
+    await setSessionBypass('source', 'owner', true)
+    const { threadId } = await createAgentThread(actor, 'Work', 'Task', { fullAccess: false })
+
+    expect(await getSessionBypass(threadId, 'owner')).toBe(false)
+  })
+
   test('a Full Access parent switches its thread to Auto Mode and back', async () => {
     await setSessionBypass('source', 'owner', true)
     const { threadId } = await createAgentThread(actor, 'Work', 'Task')
