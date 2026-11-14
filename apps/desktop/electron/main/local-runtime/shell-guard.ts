@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
 type GuardLaunch = { bundle: { root: string }; openabHome: string }
+type GuardEnv = { BASH_ENV: string; SHLVL: string; ZDOTDIR: string }
 
 /**
  * The conversation token in the spawn-time env expires after a day. Every shell an
@@ -11,7 +12,7 @@ type GuardLaunch = { bundle: { root: string }; openabHome: string }
  * bash with one is a "remote shell" that skips BASH_ENV; SHLVL makes it nested, as
  * in a terminal. An app launched from the Dock or a service starts without it.
  */
-export function shellGuardEnv(launch: GuardLaunch): Record<string, string> {
+export function shellGuardEnv(launch: GuardLaunch): GuardEnv {
   return {
     BASH_ENV: path.join(launch.bundle.root, 'runtime-guard.sh'),
     SHLVL: '1',

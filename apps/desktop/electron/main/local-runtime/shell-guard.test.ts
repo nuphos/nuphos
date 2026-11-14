@@ -24,11 +24,11 @@ test(
       )
       writeZshenv(launch)
       const zsh = ['/bin/zsh', '/usr/bin/zsh'].find((file) => existsSync(file))
-      const shells: Record<string, string[]> = {
+      const shells: Record<string, [string, ...string[]]> = {
         bash: ['/bin/bash', '-c', print],
         ...(zsh ? { zsh: [zsh, '-c', print], 'zsh login': [zsh, '-lc', print] } : {}),
       }
-      const token = ([command, ...args]: string[]) =>
+      const token = ([command, ...args]: [string, ...string[]]) =>
         spawnSync(command, args, {
           env: {
             PATH: process.env.PATH,
