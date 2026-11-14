@@ -91,7 +91,14 @@ struct InboxQuestionView: View {
         }
         .overlay(alignment: .bottom) {
             // 32 from the screen's bottom edge, not the home indicator's.
-            if wide { InboxToast(inbox: inbox).padding(.bottom, 32).ignoresSafeArea(.container, edges: .bottom) }
+            // Centred on the question's text, inside its margins.
+            if wide {
+                InboxToast(inbox: inbox)
+                    .padding(.leading, margins.leading)
+                    .padding(.trailing, margins.trailing)
+                    .padding(.bottom, 32)
+                    .ignoresSafeArea(.container, edges: .bottom)
+            }
         }
         .animation(.snappy, value: inbox.toast)
         .animation(.snappy, value: typing)
@@ -216,7 +223,7 @@ struct InboxQuestionView: View {
                 .padding(.vertical, 11)
                 .frame(minHeight: 44)
                 .background(Theme.chatCanvas, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Theme.fieldBorder, lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Theme.faint, lineWidth: 1))
             Button(action: sendWords) {
                 Image(systemName: "arrow.up")
                     .font(.system(size: 17, weight: .semibold))
@@ -328,7 +335,7 @@ private struct InboxOutlineButton: View {
                 .font(.system(size: 15, weight: .semibold))
                 .lineLimit(1)
                 .foregroundStyle(Theme.heading)
-                .padding(.horizontal, 18)
+                .padding(.horizontal, 14)
                 .frame(maxWidth: fill ? .infinity : nil, minHeight: fill ? 44 : 40)
                 .background(toggled ? Theme.control : .clear, in: Capsule())
                 .overlay { if !toggled { Capsule().strokeBorder(Theme.outline, lineWidth: 1) } }

@@ -42,8 +42,8 @@ enum Theme {
     static let control = adaptive(light: 0xE4E4E7, dark: 0x2A2A2E)
     /// An outlined button's edge, as the Inbox's Other… and Skip.
     static let outline = adaptive(light: 0xD4D4D8, dark: 0x3F3F46)
-    /// A text field's outline.
-    static let fieldBorder = adaptive(light: 0xA1A1AA, dark: 0x52525B)
+    /// A quiet edge or mark: a text field's outline, a row's disclosure chevron.
+    static let faint = adaptive(light: 0xA1A1AA, dark: 0x52525B)
     /// A divider drawn on the page, as between the Inbox's rows and columns.
     static let separator = adaptive(light: 0xDEDEE2, dark: 0x2E2E33)
     /// A count waiting for the viewer, as the Inbox's.

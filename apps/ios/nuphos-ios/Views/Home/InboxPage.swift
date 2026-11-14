@@ -45,8 +45,8 @@ struct InboxPage: View {
                                     if !wide {
                                         Spacer(minLength: 0)
                                         Image(systemName: "chevron.right")
-                                            .font(.system(size: 13, weight: .semibold))
-                                            .foregroundStyle(Theme.muted)
+                                            .font(.system(size: 12, weight: .semibold))
+                                            .foregroundStyle(Theme.faint)
                                     }
                                 }
                                 .listRowInsets(EdgeInsets(top: 0, leading: Self.margin + 14, bottom: 0, trailing: Self.margin + 14))
@@ -145,6 +145,7 @@ struct InboxToast: View {
             .padding(.trailing, 6)
             .frame(height: 44)
             .background(Color(hex: 0x18181B), in: Capsule())
+            .shadow(color: .black.opacity(0.25), radius: 12, y: 8)
             .padding(.horizontal, 20)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("inbox.toast")
