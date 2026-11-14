@@ -143,7 +143,7 @@ export function SessionSearchDialog({
               }
             }}
           >
-            <Dialog.Title className="sr-only">{t('Search agents and people')}</Dialog.Title>
+            <Dialog.Title className="sr-only">{t('Search Bots, tasks and people')}</Dialog.Title>
             {/* One line of text to type in: no box inside the sheet, one hairline under it. */}
             {/* Focus shows as the hairline darkening, not as a box around the query. */}
             <InputGroup className="flex h-14 shrink-0 items-center gap-2.5 border-b border-line-control px-4 focus-within:!ring-0 focus-within:border-line-focus">
@@ -156,9 +156,11 @@ export function SessionSearchDialog({
                 role="combobox"
                 aria-expanded
                 aria-autocomplete="list"
-                aria-label={mode === 'people' ? t('Search people') : t('Search agents')}
+                aria-label={mode === 'people' ? t('Search people') : t('Search Bots and tasks')}
                 placeholder={
-                  mode === 'people' ? t('Search people…') : t('Search agents, people or pages…')
+                  mode === 'people'
+                    ? t('Search people…')
+                    : t('Search Bots, tasks, people or pages…')
                 }
                 className="text-[15px] text-main placeholder:text-tertiary"
               />
@@ -181,7 +183,7 @@ export function SessionSearchDialog({
                 <Tooltip
                   content={
                     <span className="inline-flex items-center gap-1.5">
-                      {mode === 'people' ? t('Back to agents') : t('Search people')}{' '}
+                      {mode === 'people' ? t('Back to Bots and tasks') : t('Search people')}{' '}
                       <Kbd combo="tab" />
                     </span>
                   }

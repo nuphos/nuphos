@@ -81,7 +81,7 @@ const TEAM_GROUPS: SettingsNavGroup[] = [
       { key: 'workspace.instructions', label: t('Instructions'), icon: FileText },
       { key: 'workspace.skills', label: t('Skills'), icon: Sparkles },
       { key: 'workspace.memories', label: t('Memories'), icon: Brain },
-      { key: 'workspace.archived', label: t('Archived agents'), icon: Archive },
+      { key: 'workspace.archived', label: t('Archived Bots and tasks'), icon: Archive },
       { key: 'workspace.audit', label: t('Audit log'), icon: ScrollText },
     ],
   },

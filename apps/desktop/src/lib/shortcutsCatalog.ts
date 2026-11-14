@@ -36,7 +36,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
     title: t('App'),
     entries: [
-      { label: t('Search agents and people'), combos: ['mod+k'] },
+      { label: t('Search Bots, tasks and people'), combos: ['mod+k'] },
       { label: t('Switch Bot or task'), combos: ['alt+up', 'alt+down'] },
       { label: t('Agent needing you'), combos: ['alt+shift+up', 'alt+shift+down'] },
       {
