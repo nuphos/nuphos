@@ -1,7 +1,4 @@
-import { readFile } from 'node:fs/promises'
-
 import { config } from '@/config'
-import { BOT_AVATARS, derivedAvatar } from '@/lib/agent/bot-avatars'
 import { getConversationBySessionId } from '@/lib/agent/db'
 import { speakingBot } from '@/lib/agent/db/bot-membership'
 import { agentConversations } from '@/lib/agent/db/shared'
@@ -13,7 +10,6 @@ import { logError } from '@/lib/observability'
 
 import { createMeetingBot, leaveMeeting, recallConfig, sendMeetingChat } from './recall'
 
-import type { AgentConversation } from '@/lib/agent/db'
 import type { ThreadActor } from '@/lib/agent/thread-bridge'
 
 type Participant = { id?: number; name?: string | null }
@@ -70,13 +66,6 @@ export async function assertMeetingBudget(teamId: string, limit: number, now = D
     )
 }
 
-/** The face the apps show for `agent`, as the JPEG in ./faces (rendered from their SVGs). */
-export async function faceJpeg(agent: Pick<AgentConversation, 'sessionId' | 'avatar'>) {
-  const face = BOT_AVATARS.find((name) => name === agent.avatar) ?? derivedAvatar(agent.sessionId)
-
-  return (await readFile(new URL(`./faces/${face}.jpg`, import.meta.url))).toString('base64')
-}
-
 /**
  * Sends the caller's Bot into the call under its name. The call is a Task under
  * that Bot: its speech arrives there, and stays there once the call is over.
@@ -90,12 +79,7 @@ export async function joinMeeting(actor: ThreadActor, meetingUrl: string, brief?
 
   await assertMeetingBudget(actor.teamId, recallConfig().botsPerTeamPerDay)
   const botName = bot.title || 'Nuphos agent'
-  const botId = await createMeetingBot({
-    meetingUrl: url.href,
-    botName,
-    face: await faceJpeg(bot),
-    webhookUrl: webhookUrl(),
-  })
+  const botId = await createMeetingBot({ meetingUrl: url.href, botName, webhookUrl: webhookUrl() })
 
   try {
     const task = await createAgentThread(
