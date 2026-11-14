@@ -172,14 +172,13 @@ If the requested destination is Slack, call `slack_list_destinations` before cre
    Grafana alert notification received (status: {{payload.status}}).
    Title: {{payload.title}}
    If the payload contains "test": true or "drill": true, or clearly identifies Grafana's contact-point test notification, reply "test delivery received" and STOP — no investigation.
-   For Slack, handle it the way an on-call engineer would. First check the earlier firings in this conversation to see whether this alert has gone off before and in which thread, and slack_read_channel if you want to know what is already in the channel. Post something quickly so whoever is watching knows it is being looked at, then investigate and follow up in the same thread when you know more.
-   Pass replyToThread with that earlier threadTs when this firing is the same problem still going or coming back; omit it to start a new thread when it is genuinely different. There is no message type to declare. When it has recovered, say so in its thread and stop — nothing needs to be closed. Post to the exact destination the user approved, as written in the messageTemplate, including slackWorkspaceId when it is known: {"type":"channel","channelId":"<the selected stable ID>","slackWorkspaceId":"<its workspace>"} for a channel, or {"type":"dm_self"} for a DM.
+   For Slack, first check the earlier firings in this conversation to see whether this alert has already been reported. Investigate, then call slack_post once when this firing is worth telling people about — a new problem, a material change, or its recovery; an unchanged repeat needs no post. Post to the exact destination the user approved, as written in the messageTemplate, including slackWorkspaceId when it is known: {"type":"channel","channelId":"<the selected stable ID>","slackWorkspaceId":"<its workspace>"} for a channel, or {"type":"dm_self"} for a DM. Keep bindConversation on unless this conversation is already bound to a Slack thread, in which case pass bindConversation=false.
    For Nuphos-only delivery, keep the findings here and do not call slack_post.
    ```
 
    Always include the drill line: delivery tests then cost one short reply instead of a full investigation session — send `{"test": true, "status": "firing"}` when verifying.
 
-   A Slack firing notification uses one root message per problem, followed by one investigation-result reply. Later meaningful changes and recovery also stay in that thread. Mention in the root that the user can reply there to continue with Nuphos.
+   Each Slack post is one message from this conversation; replies in the thread under the first, bound post continue this conversation. Tell the user they can reply there to continue with Nuphos.
 
    The result gives you `webhookUrl` and `webhookSecret` (returned only once).
 
@@ -212,7 +211,7 @@ If the requested destination is Slack, call `slack_list_destinations` before cre
 
    Do not append the webhook integration to a shared receiver: that would send every alert using the receiver to Nuphos. If the user explicitly asks to replace existing notifications or enable Agent for a whole shared receiver, explain the blast radius and confirm that broader change separately.
 
-4. **Control noise at every layer.** Grafana re-sends on `repeat_interval` while an alert stays firing. Set a long `repeat_interval` (e.g. `4h`) and a sensible `group_wait` so the trigger fires mostly on transitions; set `minIntervalSeconds` for retry bursts. For Slack, keep one root per problem, material updates in its thread no more than once per 15 minutes / three per hour, and one resolution. The Agent makes the semantic SRE judgment: repeated timestamps, minor metric movement, and unchanged evidence are not material and should not call `slack_post`.
+4. **Control noise at every layer.** Grafana re-sends on `repeat_interval` while an alert stays firing. Set a long `repeat_interval` (e.g. `4h`) and a sensible `group_wait` so the trigger fires mostly on transitions; set `minIntervalSeconds` for retry bursts. For Slack, post only for a new problem, a material change, and its resolution. The Agent makes the semantic SRE judgment: repeated timestamps, minor metric movement, and unchanged evidence are not material and should not call `slack_post`.
 
 5. **Verify end-to-end before saying live**:
    - GET the contact points and verify the new Nuphos receiver exists and targets this trigger.

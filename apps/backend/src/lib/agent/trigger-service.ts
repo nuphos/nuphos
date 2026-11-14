@@ -18,6 +18,5 @@ export type {
   TriggerCallerContext,
   UpdateTriggerPatch,
 } from './trigger-service/shared'
-export { testFireTrigger, testTriggerDestination } from './trigger-service/test-fire'
-export type { TestTriggerDestinationResult } from './trigger-service/test-fire'
+export { testFireTrigger } from './trigger-service/test-fire'
 export { updateTrigger } from './trigger-service/update'

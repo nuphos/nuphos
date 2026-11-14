@@ -8,7 +8,7 @@ const TEAM = new ObjectId().toHexString()
 const triggerId = new ObjectId()
 const writes: { collection: string; update: Record<string, Record<string, unknown>> }[] = []
 
-// Created before binding was required: unbound, with incident delivery.
+// Created before binding was required: unbound.
 const legacyTrigger = {
   _id: triggerId,
   userId: OWNER,
@@ -16,8 +16,6 @@ const legacyTrigger = {
   name: 'CPU alert',
   messageTemplate: 'Investigate the alert',
   triggerType: 'webhook',
-  incidentMode: true,
-  slackDestination: { type: 'dm_self' },
   enabled: true,
   configRevision: 1,
   createdAt: new Date(),

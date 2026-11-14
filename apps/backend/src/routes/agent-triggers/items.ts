@@ -3,7 +3,6 @@ import {
   deleteTrigger,
   getTrigger,
   testFireTrigger,
-  testTriggerDestination,
   updateTrigger,
 } from '@/lib/agent/trigger-service'
 import { getTriggerUsage } from '@/lib/agent/trigger-usage'
@@ -128,11 +127,8 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
     return c.json({ ok: true, deleted: true })
   })
 
-  // Verify the destination configured by the desktop UI. Slack-backed Watches
-  // receive one clearly marked direct test, bypassing incident investigation and
-  // dedupe. Nuphos-only triggers retain the background agent verification.
-  // Agent sessions still use testFireTrigger, so this UI-only behavior cannot
-  // alter real alert handling.
+  // Queue one fire into the Trigger's bound Task, with an optional payload
+  // override standing in for the webhook body.
   agentTriggersRoutes.post('/:triggerId/test-fire', async (c) => {
     const { triggerId } = c.req.param()
     const actor = await triggerActor(c, c.req.query('teamId'))
@@ -159,20 +155,12 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
       body = parsed as Record<string, unknown>
     }
 
-    const conversationAgent = (
-      c as unknown as { get(key: 'conversationAgent'): { sessionId: string } | undefined }
-    ).get('conversationAgent')
+    const result = await testFireTrigger(
+      triggerId,
+      actor,
+      body.payload && typeof body.payload === 'object' ? body.payload : undefined,
+    )
 
-    if (conversationAgent) {
-      const result = await testFireTrigger(
-        triggerId,
-        actor,
-        body.payload && typeof body.payload === 'object' ? body.payload : undefined,
-      )
-
-      return c.json({ ok: true, fired: result.name })
-    }
-
-    return c.json(await testTriggerDestination(triggerId, actor, body.payload))
+    return c.json({ ok: true, fired: result.name })
   })
 }
