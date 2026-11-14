@@ -117,7 +117,9 @@ final class AgentStore {
         channel.viewerId = userId
         channel.me = me
         // The list row's icon shows at once; the chat's own load keeps it current.
-        channel.faces = channels.first { $0.sessionId == sessionId }?.faces ?? []
+        let row = channels.first { $0.sessionId == sessionId }
+        channel.faces = row?.faces ?? []
+        channel.botId = row?.botId
         return channel
     }
 
