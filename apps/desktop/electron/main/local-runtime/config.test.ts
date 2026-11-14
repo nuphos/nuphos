@@ -151,7 +151,7 @@ test(
       )
       const { BASH_ENV } = agentEnv({ ...launch, bundle: { ...launch.bundle, root } })
       const token = () =>
-        spawnSync('bash', ['-c', 'printf %s "$NUPHOS_TOKEN"'], {
+        spawnSync('/bin/bash', ['-c', 'printf %s "$NUPHOS_TOKEN"'], {
           env: {
             PATH: process.env.PATH,
             BASH_ENV,
