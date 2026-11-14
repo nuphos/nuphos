@@ -73,15 +73,20 @@ export function MediaPreview({
   )
 }
 
-/** A video's square: the still frame with a play badge, opened full size by the caller. */
+/**
+ * A video's square: the still frame with a play badge, opened full size by the
+ * caller. Audio has no frame, so its square carries the file name instead.
+ */
 export function VideoThumb({
   url,
   name,
+  audio,
   onOpen,
   onError,
 }: {
   url: string
   name: string
+  audio?: boolean
   onOpen: () => void
   onError?: () => void
 }) {
@@ -93,16 +98,23 @@ export function VideoThumb({
       aria-label={t('Play {name}', { name })}
       className={clsx(
         MEDIA_BOX,
-        'relative flex-shrink-0 cursor-zoom-in overflow-hidden rounded-lg border border-line-control bg-black',
+        'relative flex-shrink-0 cursor-zoom-in overflow-hidden rounded-lg border border-line-control',
+        audio ? 'bg-surface-sheet' : 'bg-black',
       )}
     >
-      <video
-        src={url}
-        preload="metadata"
-        muted
-        onError={onError}
-        className="h-full w-full object-cover"
-      />
+      {audio ? (
+        <span className="absolute inset-x-1.5 bottom-1 truncate text-[10px] leading-4 text-secondary">
+          {name}
+        </span>
+      ) : (
+        <video
+          src={url}
+          preload="metadata"
+          muted
+          onError={onError}
+          className="h-full w-full object-cover"
+        />
+      )}
       <span className="absolute inset-0 flex items-center justify-center">
         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white">
           <Play className="ml-0.5 h-3.5 w-3.5 fill-current" strokeWidth={2} />

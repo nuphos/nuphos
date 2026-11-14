@@ -4190,6 +4190,7 @@
   "Show": "表示",
   "Show All": "すべてを表示",
   "Show OAuth app settings": "OAuth アプリの設定を表示",
+  "Show all {n} files": "{n} 件のファイルをすべて表示",
   "Show current port forwards": "現在のポートフォワードを表示",
   "Show fewer items": "表示を減らす",
   "Show full history": "すべての履歴を表示",

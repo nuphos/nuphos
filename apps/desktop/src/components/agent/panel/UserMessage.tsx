@@ -19,7 +19,7 @@ import { senderLabel } from './messageMetadata'
 import { PastedTextDialog } from './PastedTextDialog'
 import { ReplyQuote } from './ReplyQuote'
 import { formatMessageTimestamp } from './streamText'
-import { UploadedFilesCard } from './transferCards'
+import { UploadedFilesCard } from './uploadedFilesCard'
 import { useSentMessageMotion } from './useSentMessageMotion'
 
 import type { Message } from './model'

@@ -10,13 +10,13 @@ import { previewKind } from './transferDownloads'
 import type { FileTransferFile } from '../../../types'
 import type { ReactNode } from 'react'
 
-// Inline previews for the images and videos in a transfer group (or several,
+// Inline previews for the images, videos and audio in a transfer group (or several,
 // drawn as one row with one pager), whichever side sent it. Presigned URLs last minutes, so a preview that breaks after
-// its links have aged re-resolves them. Every image and video gets the same
-// square, drawn empty while the links resolve; the preview opens any of them
-// full size and steps through all of them. `children` receives the names of
-// the images and videos actually previewed (null while resolving), so a card
-// can list every other file as a row.
+// its links have aged re-resolves them. Every one gets the same square, drawn
+// empty while the links resolve; the preview opens any of them full size (or
+// plays it) and steps through all of them. `children` receives the names of
+// the files actually previewed (null while resolving), so a card can list
+// every other file as a row.
 export function TransferPreviews({
   teamId,
   groupId,
@@ -35,10 +35,7 @@ export function TransferPreviews({
   onDownload?: (file: FileTransferFile & { groupId: string }) => void
   /** A chat's files load through the chat, so every member sees them. */
   channelId?: string
-  children?: (
-    previewedImages: ReadonlySet<string> | null,
-    previewedVideos: ReadonlySet<string> | null,
-  ) => ReactNode
+  children?: (previewed: ReadonlySet<string> | null) => ReactNode
 }) {
   const [files, setFiles] = useState<(FileTransferFile & { groupId: string })[] | null>(null)
   // A stable key for the effect: an array prop is a new value on every render.
@@ -69,27 +66,32 @@ export function TransferPreviews({
             <ImageAttachmentThumb key={i} size="md" fileName="" />
           ))}
         </div>
-        {children?.(null, null)}
+        {children?.(null)}
       </>
     )
   // A link that fails right after resolving is broken, not expired: don't loop.
   const retry = () => {
     if (Date.now() - resolvedAt.current > 60_000) resolve()
   }
-  const media = files.flatMap((f) =>
-    f.downloadUrl ? [{ ...f, url: f.downloadUrl, video: previewKind(f) === 'video' }] : [],
-  )
+  const media = files.flatMap((f) => {
+    const kind = previewKind(f)
+
+    return f.downloadUrl
+      ? [{ ...f, url: f.downloadUrl, video: kind === 'video', audio: kind === 'audio' }]
+      : []
+  })
 
   return (
     <>
       {media.length > 0 && (
         <div className={rowClass}>
           {media.map((f, i) =>
-            f.video ? (
+            f.video || f.audio ? (
               <VideoThumb
                 key={f.id}
                 url={f.url}
                 name={f.fileName}
+                audio={f.audio}
                 onOpen={() => setPreview(i)}
                 onError={retry}
               />
@@ -112,10 +114,7 @@ export function TransferPreviews({
           />
         </div>
       )}
-      {children?.(
-        new Set(media.flatMap((f) => (f.video ? [] : [f.fileName]))),
-        new Set(media.flatMap((f) => (f.video ? [f.fileName] : []))),
-      )}
+      {children?.(new Set(media.map((f) => f.fileName)))}
     </>
   )
 }

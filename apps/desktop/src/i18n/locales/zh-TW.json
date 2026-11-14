@@ -4190,6 +4190,7 @@
   "Show": "顯示",
   "Show All": "顯示全部",
   "Show OAuth app settings": "顯示 OAuth 應用程式設定",
+  "Show all {n} files": "顯示全部 {n} 個檔案",
   "Show current port forwards": "顯示目前的連接埠轉送",
   "Show fewer items": "顯示較少項目",
   "Show full history": "顯示完整歷史記錄",

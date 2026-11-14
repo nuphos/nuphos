@@ -4190,6 +4190,7 @@
   "Show": "แสดง",
   "Show All": "แสดงทั้งหมด",
   "Show OAuth app settings": "แสดงการตั้งค่าแอป OAuth",
+  "Show all {n} files": "แสดงไฟล์ทั้งหมด {n} ไฟล์",
   "Show current port forwards": "แสดงพอร์ตฟอร์เวิร์ดที่ใช้งานอยู่",
   "Show fewer items": "แสดงรายการน้อยลง",
   "Show full history": "แสดงประวัติทั้งหมด",

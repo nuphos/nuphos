@@ -1,7 +1,7 @@
 import { firstMessageNewerThan } from './messagePlacement.ts'
 
 import type { Message, Tab } from './model'
-import type { FileTransferFile, FileTransferGroup } from '../../../types'
+import type { FileTransferGroup } from '../../../types'
 
 // GET …/file-transfers/downloads is owner-only; a teammate viewing read-only gets a 403.
 // It is read whatever the runtime is doing: a conversation opened mid-turn
@@ -82,10 +82,17 @@ const VIDEO_EXTENSIONS = /\.(mp4|mov|m4v|webm)$/i
 const AUDIO_EXTENSIONS = /\.(mp3|m4a|aac|wav|ogg|oga|flac|opus)$/i
 const PDF_EXTENSIONS = /\.pdf$/i
 
-// Images and videos the agent sent are shown, not just offered for download.
+// Images, videos and audio the agent sent are shown, not just offered for
+// download: each is a square that the lightbox opens and plays. PDFs stay rows.
 // Agent pushes often carry no content type, so the file name decides then.
-export function previewKind(file: FileTransferFile): 'image' | 'video' | null {
-  return file.status === 'ready' ? mediaKind(file.fileName, file.contentType) : null
+export function previewKind(file: {
+  fileName: string
+  status: string
+  contentType?: string | null
+}): Exclude<ViewerKind, 'pdf'> | null {
+  const kind = file.status === 'ready' ? viewerKind(file.fileName, file.contentType) : null
+
+  return kind === 'pdf' ? null : kind
 }
 
 export function mediaKind(fileName: string, contentType?: string | null): 'image' | 'video' | null {
@@ -102,9 +109,8 @@ export type ViewerKind = 'image' | 'video' | 'audio' | 'pdf'
 
 /**
  * Which viewer an inline preview sends a file to: the images and videos above,
- * plus the audio and PDFs that only it renders. The same rule as `mediaKind` —
- * the content type decides when the push carries one, and the file name decides
- * when it does not — so a file the chat's squares hold back stays held back.
+ * plus audio and PDFs. The same rule as `mediaKind` — the content type decides
+ * when the push carries one, and the file name decides when it does not.
  */
 export function viewerKind(fileName: string, contentType?: string | null): ViewerKind | null {
   const media = mediaKind(fileName, contentType)
@@ -120,20 +126,15 @@ export function viewerKind(fileName: string, contentType?: string | null): Viewe
 
 /**
  * The files a card still lists as rows beside its previews. While previews
- * resolve (`previewedImages` null) only images that should become thumbnails
- * are held back; once resolved, every file that did not become one is listed —
- * a failed or unresolved image included. Videos keep their row (and its
- * Download button): the lightbox only steps through images.
+ * resolve (`previewed` null) the files that should become squares are held
+ * back; once resolved, every file that did not become one is listed — a failed
+ * or unresolved one included. A previewed file is saved from the lightbox.
  */
 export function filesBesidePreviews<T extends { fileName: string; status: string }>(
   files: readonly T[],
-  previewedImages: ReadonlySet<string> | null,
+  previewed: ReadonlySet<string> | null,
 ): T[] {
-  return files.filter((f) =>
-    previewedImages
-      ? !previewedImages.has(f.fileName)
-      : !(f.status === 'ready' && mediaKind(f.fileName) === 'image'),
-  )
+  return files.filter((f) => (previewed ? !previewed.has(f.fileName) : !previewKind(f)))
 }
 
 export function formatTransferBytes(bytes: number | null): string {
