@@ -10,10 +10,12 @@ import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
 import { t } from '../i18n'
 
-import type { DiscoverableTeam } from '../types'
+import type { DiscoverableTeam, UserInfo } from '../types'
 import type { FormEvent } from 'react'
 
 type Props = {
+  /** Signed-in user, shown in the sidebar preview's footer. */
+  user: UserInfo
   onClose: () => void
   /** Joins the team and refreshes the app's team list. */
   onJoin: (teamId: string) => Promise<void>
@@ -28,7 +30,7 @@ type Props = {
  * dismissals, so a dismissed workspace can always be joined later — followed
  * by the create-a-team form. With no discoverable teams, only the form shows.
  */
-export function CreateOrJoinTeamView({ onClose, onJoin, onCreate }: Props) {
+export function CreateOrJoinTeamView({ user, onClose, onJoin, onCreate }: Props) {
   const [discoverable, setDiscoverable] = useState<DiscoverableTeam[] | null>(null)
   const [joiningId, setJoiningId] = useState<string | null>(null)
   const [joinedIds, setJoinedIds] = useState<Set<string>>(new Set())
@@ -112,9 +114,7 @@ export function CreateOrJoinTeamView({ onClose, onJoin, onCreate }: Props) {
           <div className="w-full max-w-[440px] mx-auto py-16 px-6">
             {hasDiscoverable && (
               <>
-                <h1 className="text-[20px] font-semibold text-main text-center">
-                  {t('Join a team')}
-                </h1>
+                <h1 className="text-[20px] font-semibold text-main">{t('Join a team')}</h1>
                 <div className="mt-6 rounded-lg border border-line-control/70 bg-surface divide-y divide-line-control/60">
                   {discoverable!.map((team) => {
                     const joined = joinedIds.has(team.id)
@@ -187,12 +187,15 @@ export function CreateOrJoinTeamView({ onClose, onJoin, onCreate }: Props) {
 
             <h1
               className={clsx(
-                'font-semibold text-main text-center',
+                'font-semibold text-main',
                 hasDiscoverable ? 'text-[16px]' : 'text-[20px]',
               )}
             >
               {t('Create a team')}
             </h1>
+            <p className="mt-1.5 text-[13px] text-tertiary">
+              {t('Your team will see this name in the sidebar.')}
+            </p>
             <form onSubmit={(e) => void create(e)} className="mt-6 space-y-5">
               <label className="block">
                 <span className="block text-[12.5px] text-tertiary mb-1.5">{t('Name')}</span>
@@ -229,7 +232,7 @@ export function CreateOrJoinTeamView({ onClose, onJoin, onCreate }: Props) {
             column runs up under the titlebar strip, so it stays draggable, and its
             top lines up with the heading (44px titlebar + 64px padding). */}
         <div className="titlebar-drag -mt-[44px] hidden lg:flex w-[42%] items-start overflow-hidden pl-16 pt-[108px] border-l border-line-control/60 bg-main">
-          <SidebarNamePreview name={name.trim() || t('Engineering')} />
+          <SidebarNamePreview name={name.trim() || t('Engineering')} user={user} />
         </div>
       </div>
     </div>

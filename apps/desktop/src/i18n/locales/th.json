@@ -5216,6 +5216,7 @@
   "Your running computers use {used} of {limit} vCPU. They keep running; starting or resuming a computer that doesn't fit is refused until you pause a computer.": "คอมพิวเตอร์ที่กำลังทำงานใช้ {used} จาก {limit} vCPU เครื่องเหล่านี้จะยังทำงานต่อ แต่จะเริ่มหรือเริ่มต่อคอมพิวเตอร์ที่เกินโควตาไม่ได้จนกว่าคุณจะหยุดคอมพิวเตอร์บางเครื่องชั่วคราว",
   "Your sign-in email cannot be changed here.": "ไม่สามารถเปลี่ยนอีเมลที่ใช้ลงชื่อเข้าใช้ได้ที่นี่",
   "Your team has no vCPU limit for computers.": "ทีมของคุณไม่มีขีดจำกัด vCPU สำหรับคอมพิวเตอร์",
+  "Your team will see this name in the sidebar.": "สมาชิกในทีมจะเห็นชื่อนี้ในแถบด้านข้าง",
   "Your team's computer plan, billed monthly.": "แพ็กเกจคอมพิวเตอร์ของทีม เรียกเก็บเงินรายเดือน",
   "Your vote is already included in this plan.": "คะแนนโหวตของคุณรวมอยู่ในแผนนี้แล้ว",
   "Your workspace": "เวิร์กสเปซของคุณ",

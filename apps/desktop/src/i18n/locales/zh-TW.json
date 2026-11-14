@@ -5216,6 +5216,7 @@
   "Your running computers use {used} of {limit} vCPU. They keep running; starting or resuming a computer that doesn't fit is refused until you pause a computer.": "執行中的電腦已使用 {used}/{limit} vCPU。這些電腦會繼續執行；但在你暫停電腦前，無法啟動或繼續超出額度的電腦。",
   "Your sign-in email cannot be changed here.": "無法在此變更登入電子郵件。",
   "Your team has no vCPU limit for computers.": "你的團隊沒有電腦 vCPU 上限。",
+  "Your team will see this name in the sidebar.": "團隊成員會在側邊欄看到這個名稱。",
   "Your team's computer plan, billed monthly.": "你團隊的電腦方案，按月計費。",
   "Your vote is already included in this plan.": "你的投票已包含在此計畫中。",
   "Your workspace": "你的工作區",

@@ -173,7 +173,7 @@ export function OnboardingFlow({
             in (wide windows only); the column goes once it is sent. */}
         {namingWorkspace && (
           <div className="titlebar-no-drag bg-main hidden lg:flex w-[40%] items-center overflow-hidden border-l border-line-control/60 pl-16">
-            <SidebarNamePreview name={workspaceName} />
+            <SidebarNamePreview name={workspaceName} user={user} />
           </div>
         )}
         {/* Back — top-left, directly mirroring Log out at the bottom-left. It
