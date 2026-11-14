@@ -130,6 +130,9 @@ export function agentEnv(launch: LocalRuntimeLaunch): Record<string, string> {
     NUPHOS_MCP_BRIDGE: launch.adapter.bridge,
     NUPHOS_CUA_PERMISSION_CLIENT: path.join(launch.bundle.root, 'cua-permission'),
     NUPHOS_RUNTIME_WORKSPACE: launch.workspace,
+    // The conversation token in the spawn-time env expires after a day; bash
+    // re-reads the current one from OPENAB_CREDENTIALS_DIR, as in the runtime image.
+    BASH_ENV: path.join(launch.bundle.root, 'runtime-guard.sh'),
   }
 }
 

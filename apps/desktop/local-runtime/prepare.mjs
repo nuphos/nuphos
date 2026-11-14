@@ -230,6 +230,8 @@ export async function prepare({ targets, openab, skipOpenab, require }) {
     cpSync(join(RUNTIME_DIR, 'grok-login.mjs'), join(out, 'grok-login.mjs'))
     cpSync(join(RUNTIME_DIR, 'antigravity-login.mjs'), join(out, 'antigravity-login.mjs'))
     cpSync(join(RUNTIME_DIR, 'opencode-login.mjs'), join(out, 'opencode-login.mjs'))
+    // Every bash an agent runs sources it to read the current conversation token.
+    cpSync(join(RUNTIME_DIR, 'runtime-guard.sh'), join(out, 'runtime-guard.sh'))
     // The `panel` job a machine Nuphos made offers, the one the runtime image runs.
     cpSync(join(RUNTIME_DIR, 'panel-job.mjs'), join(out, 'panel-job.mjs'))
     // A desktop per session on a Linux Box: the MCP wrapper Claude runs there.
