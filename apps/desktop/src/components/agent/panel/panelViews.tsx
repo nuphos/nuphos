@@ -77,11 +77,8 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
   const readOnlyNotice = useViewOnlyNotice(c)
   const questions = c.openQuestions ?? c.replyTarget?.questions
   const composerRef = useRef<HTMLDivElement>(null)
-  // The composer answers a question where it names one: the "Replying to" chip, or a fixed one.
-  const canReply =
-    activeTab !== null &&
-    !activeTab.readOnly &&
-    (c.replyTarget?.sessionId === activeTab.sessionId || c.decisionReplyTo !== undefined)
+  // A card answers while its conversation has an open question, whatever the composer replies to.
+  const canReply = activeTab !== null && !activeTab.readOnly && Boolean(questions?.length)
   // The fork needs the chat stored on the server; each message is then gated on its author.
   const editableSessionId =
     activeTab && !activeTab.readOnly && !activeTab.unsaved ? activeTab.sessionId : undefined
