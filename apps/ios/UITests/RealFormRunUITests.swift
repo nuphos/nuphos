@@ -21,23 +21,25 @@ final class RealFormRunUITests: XCTestCase {
         }
         app.launch()
 
+        // The simulator keeps a session across runs: sign in only when asked to.
         let field = app.textFields["login.email"]
-        XCTAssertTrue(field.waitForExistence(timeout: 20), "No sign-in form")
-        field.tap()
-        field.typeText(email)
-        app.buttons["login.submit"].tap()
-        let code = app.textFields["login.code"]
-        XCTAssertTrue(code.waitForExistence(timeout: 10), "No code field")
-        // The backend logs the code it would have mailed; the newest one for this address.
-        var digits: String?
-        for _ in 0..<20 where digits == nil {
-            sleep(1)
-            let lines = (try? String(contentsOfFile: log, encoding: .utf8))?.split(separator: "\n") ?? []
-            digits = lines.last { $0.contains(email) && $0.contains("sign_in_code") }
-                .flatMap { $0.firstMatch(of: /"sign_in_code"\s*:\s*"(\d{6})"/) }.map { String($0.1) }
+        if field.waitForExistence(timeout: 12) {
+            field.tap()
+            field.typeText(email)
+            app.buttons["login.submit"].tap()
+            let code = app.textFields["login.code"]
+            XCTAssertTrue(code.waitForExistence(timeout: 10), "No code field")
+            // The backend logs the code it would have mailed; the newest one for this address.
+            var digits: String?
+            for _ in 0..<20 where digits == nil {
+                sleep(1)
+                let lines = (try? String(contentsOfFile: log, encoding: .utf8))?.split(separator: "\n") ?? []
+                digits = lines.last { $0.contains(email) && $0.contains("sign_in_code") }
+                    .flatMap { $0.firstMatch(of: /"sign_in_code"\s*:\s*"(\d{6})"/) }.map { String($0.1) }
+            }
+            code.tap()
+            code.typeText(try XCTUnwrap(digits, "No sign-in code in the backend log"))
         }
-        code.tap()
-        code.typeText(try XCTUnwrap(digits, "No sign-in code in the backend log"))
         // A synthetic account on a local backend: it agrees to AI use, as a person would on first sign-in.
         let agree = app.buttons["Agree and continue"]
         if agree.waitForExistence(timeout: 15) {
