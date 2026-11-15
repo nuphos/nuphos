@@ -84,9 +84,18 @@ const bypass = new Map<string, Record<string, unknown>>()
 const events: { conversationId: string; event: string }[] = []
 const moves: { sessionId: string; runtimeId: string; userId: string }[] = []
 
+// The conversations the mode is resolved through: a thread runs in its parent's.
+const conversations = {
+  findOne: ({ sessionId }: { sessionId: string }) =>
+    Promise.resolve(
+      [source, target, ...shells].find((conversation) => conversation.sessionId === sessionId) ??
+        null,
+    ),
+}
+
 useDb({
   db: () => ({
-    collection: () => ({
+    collection: (name: string) => ({
       updateOne(
         filter: { conversationId: string; userId: string },
         update: { $setOnInsert?: Record<string, unknown>; $set?: Record<string, unknown> },
@@ -106,6 +115,7 @@ useDb({
       findOne(filter: { conversationId: string; userId: string }) {
         return Promise.resolve(bypass.get(`${filter.userId}:${filter.conversationId}`) ?? null)
       },
+      ...(name === 'agent_conversations' ? conversations : {}),
     }),
   }),
 })
@@ -300,46 +310,31 @@ describe('conversation-scoped thread tools', () => {
     )
   })
 
-  test.each([true, false])("a thread starts in its parent's mode (Full Access %p)", async (on) => {
-    await setSessionBypass('source', 'owner', on)
-    const result = await createAgentThread(actor, 'Work', 'Task')
-
-    expect(await getSessionBypass(result.threadId, 'owner')).toBe(on)
-  })
-
-  test('a thread asked to start in Auto Mode does, under a Full Access parent', async () => {
-    await setSessionBypass('source', 'owner', true)
-    const { threadId } = await createAgentThread(actor, 'Work', 'Task', { fullAccess: false })
-
-    expect(await getSessionBypass(threadId, 'owner')).toBe(false)
-  })
-
-  test('a Full Access parent switches its thread to Auto Mode and back', async () => {
+  test("a thread runs in its parent's mode and follows it when it changes", async () => {
     await setSessionBypass('source', 'owner', true)
     const { threadId } = await createAgentThread(actor, 'Work', 'Task')
 
-    await updateThread(actor, threadId, { fullAccess: false })
-    expect(await getSessionBypass(threadId, 'owner')).toBe(false)
-    await updateThread(actor, threadId, { fullAccess: true })
     expect(await getSessionBypass(threadId, 'owner')).toBe(true)
-    expect(events.map((e) => [e.conversationId, e.event])).toEqual([
-      [threadId, 'auth.bypass_disabled'],
-      [threadId, 'auth.bypass_enabled'],
-    ])
-  })
-
-  test('an Auto Mode parent cannot give its thread Full Access, but can still lower it', async () => {
-    await setSessionBypass('source', 'owner', true)
-    const { threadId } = await createAgentThread(actor, 'Work', 'Task')
-
+    // Nothing is stored for the thread itself.
+    expect([...bypass.keys()]).toEqual(['owner:source'])
     await setSessionBypass('source', 'owner', false)
-    await expect(updateThread(actor, threadId, { fullAccess: true })).rejects.toThrow('Full Access')
-    expect(await getSessionBypass(threadId, 'owner')).toBe(true)
-    await updateThread(actor, threadId, { fullAccess: false })
     expect(await getSessionBypass(threadId, 'owner')).toBe(false)
+  })
+
+  test("a thread's mode cannot be changed on the thread, and nothing else changes with it", async () => {
+    await setSessionBypass('source', 'owner', true)
+    const { threadId } = await createAgentThread(actor, 'Work', 'Task')
+
+    await expect(
+      updateThread(actor, threadId, { fullAccess: false, runtimeId: 'runtime-2' }),
+    ).rejects.toThrow("its Bot's permission mode")
+    expect(await getSessionBypass(threadId, 'owner')).toBe(true)
+    expect(moves).toHaveLength(0)
+    expect(events).toEqual([])
   })
 
   test('changes any other conversation the owner has in this team, nested or not', async () => {
+    await expect(updateThread(actor, 'target', { fullAccess: true })).rejects.toThrow('Full Access')
     await setSessionBypass('source', 'owner', true)
     await updateThread(actor, 'target', { fullAccess: true })
     expect(await getSessionBypass('target', 'owner')).toBe(true)

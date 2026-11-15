@@ -13,10 +13,12 @@ MCP surface for either agent runtime, without patching another upstream bundle.
 
 1. Create a thread with a bounded task, completion condition, and a request to
    report back. The tool creates a visible conversation with the same owner,
-   team, runtime, credential selection, and permission mode (Full Access or Auto
-   Mode), then starts its first turn the same way a message typed into a new chat
-   does. The source can later change it, or any other conversation the owner has
-   in the team, with `update_thread`: switch it
+   team, runtime and credential selection, then starts its first turn the same
+   way a message typed into a new chat does. It always runs in the permission
+   mode (Full Access or Auto Mode) of the conversation at the top of its
+   parents, and that mode cannot be changed on the thread. The source can later
+   change it, or any other conversation the owner has in the team, with
+   `update_thread`: switch a conversation with no parent
    between the two modes (Full Access requires the source itself to be in Full
    Access) or move it, with its history, to another agent picked from
    `list_agent_runtimes`, for example when it hits that agent's usage limit.

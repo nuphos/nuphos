@@ -16,6 +16,11 @@ const log = (entry) =>
 const held = new Map()
 // The Nuphos tools server each session was given, when the backend offers one.
 const tools = new Map()
+// Requests this agent made of its client, waiting for their answers. OpenAB reads ids as numbers.
+const asked = new Map()
+let nextRequest = 1_000_000
+// The thread E2E_THREAD started last, for E2E_POKE to message.
+let thread
 // Each session's model settings, as a real agent reports and changes them.
 const settings = new Map()
 const choice = (value) => ({ value, name: value })
@@ -126,6 +131,47 @@ async function delegate(sessionId, fast) {
   if (fast) log({ sessionId, event: 'refused', detail: detail(await start(CHILD, 'warp')) })
 }
 
+/** Starts a thread that asks for a permission, then tries to move it to Auto Mode on its own. */
+async function startThread(sessionId, marker) {
+  const started = await call(sessionId, 'create_thread', {
+    label: 'Start a thread',
+    title: 'E2E thread',
+    prompt: 'Run a command E2E_PERMISSION E2E_DELIVERY:thread',
+  })
+
+  thread = /threadId[\\"]*:[\\"]*([0-9a-f-]{36})/.exec(JSON.stringify(started))?.[1]
+  const change = await call(sessionId, 'update_thread', {
+    label: 'Move the thread to Auto Mode',
+    threadId: thread,
+    fullAccess: false,
+  })
+
+  log({ sessionId, marker, event: refused(change) ? 'thread-mode-refused' : 'thread-mode-changed' })
+}
+
+/** Asks the client to allow a command, as a runtime does before it runs one. */
+async function permission(sessionId, marker) {
+  const id = nextRequest++
+  const answered = new Promise((resolve) => asked.set(id, resolve))
+
+  log({ sessionId, marker, event: 'permission-asked' })
+  send({
+    id,
+    method: 'session/request_permission',
+    params: {
+      sessionId,
+      toolCall: { toolCallId: randomUUID(), title: 'echo e2e', kind: 'execute', status: 'pending' },
+      options: [
+        { optionId: 'allow', name: 'Allow', kind: 'allow_once' },
+        { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
+      ],
+    },
+  })
+  const outcome = (await answered)?.outcome
+
+  log({ sessionId, marker, event: `permission-${outcome?.optionId ?? outcome?.outcome ?? 'none'}` })
+}
+
 async function prompt({ sessionId, prompt: parts }) {
   const text = parts
     .filter((part) => part.type === 'text')
@@ -140,6 +186,18 @@ async function prompt({ sessionId, prompt: parts }) {
   if (text.includes('E2E_ASK')) {
     await ask(sessionId, text.includes('E2E_ASK_CREDENTIAL') ? 'credential' : 'preference')
   }
+  // The thread's own prompt can carry its parent's words; only the parent starts one.
+  if (text.includes('E2E_THREAD') && !text.includes('E2E_PERMISSION')) {
+    await startThread(sessionId, marker)
+  }
+  if (text.includes('E2E_POKE')) {
+    await call(sessionId, 'send_message_to_thread', {
+      label: 'Message the thread',
+      threadId: thread,
+      prompt: 'Run it again E2E_PERMISSION E2E_DELIVERY:thread-again',
+    })
+  }
+  if (text.includes('E2E_PERMISSION')) await permission(sessionId, marker)
   if (text.includes('E2E_HOLD')) {
     await new Promise((resolve) => held.set(sessionId, resolve))
     log({ sessionId, marker, event: 'cancelled' })
@@ -210,6 +268,12 @@ async function answer(request) {
 for await (const line of createInterface({ input: process.stdin })) {
   const request = JSON.parse(line)
 
+  // An answer to a request of this agent's own.
+  if (request.method === undefined) {
+    asked.get(request.id)?.(request.result)
+    asked.delete(request.id)
+    continue
+  }
   if (request.method === 'session/cancel') {
     held.get(request.params.sessionId)?.()
     held.delete(request.params.sessionId)

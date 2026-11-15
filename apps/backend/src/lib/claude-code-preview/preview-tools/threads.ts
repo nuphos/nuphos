@@ -70,7 +70,10 @@ const update = z
   .object({
     label: common.label,
     threadId: z.string().uuid(),
-    fullAccess: z.boolean().optional().describe('true for Full Access, false for Auto Mode.'),
+    fullAccess: z
+      .boolean()
+      .optional()
+      .describe('true for Full Access, false for Auto Mode. Refused for a thread under a parent.'),
     runtimeId,
     ...modelPick,
   })
@@ -104,7 +107,8 @@ export function threadToolModule(
         name: 'create_thread',
         description:
           'Start a Nuphos sub-agent: a separate Nuphos conversation. Use it only when asked for a sub-agent or to delegate/background work. ' +
-          'Inherits your permission mode, not your transcript. It runs on your agent, or on the ' +
+          'It does not inherit your transcript. It always runs in the permission mode of the ' +
+          'conversation at the top of yours. It runs on your agent, or on the ' +
           "one runtimeId names from list_agent_runtimes (never someone's computer). " +
           'It uses the credentials and computers of the conversation at the top of yours, ' +
           'always the same as yours, and changes when that selection changes. ' +
@@ -163,15 +167,17 @@ export function threadToolModule(
       {
         name: 'update_thread',
         description:
-          'Change another Nuphos thread or Bot you own in this team. fullAccess switches it ' +
-          'between Full Access (true) and Auto Mode (false); Full Access is allowed only while ' +
-          'this conversation itself has Full Access, Auto Mode always. runtimeId moves it, with ' +
+          'Change another Nuphos thread or Bot you own in this team. fullAccess switches a ' +
+          'conversation with no parent between Full Access (true) and Auto Mode (false); Full ' +
+          'Access is allowed only while this conversation itself has Full Access, Auto Mode ' +
+          "always. A thread under a parent always runs in its top conversation's mode, so " +
+          'fullAccess is refused for it. runtimeId moves it, with ' +
           'its conversation history, to another agent from list_agent_runtimes ' +
           "(never to someone's computer); its next turn " +
           "runs there. model, effort and fast set the thread's model picker for its " +
           'next turn, after any runtimeId move; a value its agent does not offer is refused with ' +
-          "the choices. A new thread already starts in this conversation's " +
-          "mode, and on its agent unless create_thread named another. Its credentials and computers are always the top conversation's, " +
+          "the choices. A new thread already starts on this conversation's " +
+          "agent unless create_thread named another. Its credentials and computers are always the top conversation's, " +
           'so there is nothing to grant.',
         inputSchema: toolInputJsonSchema(update),
       },

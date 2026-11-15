@@ -107,6 +107,7 @@ useDb({
       },
       updateMany: () => Promise.resolve(),
       // An uploaded face: nothing else is stored for this Bot, and nothing to prune.
+      // A new Bot also has no parent to take its permission mode from.
       findOne: () => Promise.resolve(null),
       deleteMany: (filter: { userId: unknown }) => {
         pruned.push(String(filter.userId))
