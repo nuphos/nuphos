@@ -71,7 +71,7 @@ const scenarios: Scenario[] = [
     },
   },
   {
-    // #2812: Stop used to drop a message that was waiting for the turn to end.
+    // The flow #2812 was reported in. Its race (a Stop during the queued turn's startup) is not reproduced.
     name: 'queue a message during a turn, press Stop, and the queued message still runs',
     run: async (page, stack) => {
       await newTask(page)
@@ -94,7 +94,7 @@ const scenarios: Scenario[] = [
     },
   },
   {
-    // #2412: answering a choice card from its own buttons was refused.
+    // An ordinary question. #2412 was a credential-category card in a Bot chat, which this does not cover.
     name: 'the agent asks a question and the answer on its card reaches the agent',
     run: async (page) => {
       await newTask(page)
@@ -105,7 +105,7 @@ const scenarios: Scenario[] = [
     },
   },
   {
-    // #2844: a link in an Inbox question replaced the question with an empty page.
+    // The flow #2844 was reported in. Reverting its fix does not fail this, so its trigger is not covered.
     name: 'a link in an Inbox question keeps the question, which is then answered from the Inbox',
     run: async (page, stack) => {
       await send(page, 'Ask again E2E_ASK E2E_DELIVERY:again')
@@ -123,7 +123,7 @@ const scenarios: Scenario[] = [
     },
   },
   {
-    // #2612: turns after a runtime restart failed to restore the previous session.
+    // A runtime restart between turns, the situation #2612 was reported in. Not checked against its fix.
     name: 'the agent host restarts between two messages and the conversation carries on',
     run: async (page, stack) => {
       await newTask(page)

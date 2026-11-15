@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
-import { artifacts, freePort, logPath, spawn, stop, until } from './processes.ts'
+import { artifacts, freePorts, logPath, spawn, stop, until } from './processes.ts'
 
 const ROOT = resolve(import.meta.dirname, '../..')
 const BACKEND_DIR = join(ROOT, 'apps/backend')
@@ -48,9 +48,9 @@ function onPath(command: string): boolean {
 }
 
 /** E2E_MONGODB_URI, else a mongod on this computer (MONGOD names it), else the compose stack's image. */
-async function startMongo(): Promise<string> {
+function startMongo(freePort: number): string {
   if (process.env.E2E_MONGODB_URI) return process.env.E2E_MONGODB_URI
-  const port = String(await freePort())
+  const port = String(freePort)
   const mongod = process.env.MONGOD ?? 'mongod'
 
   if (onPath(mongod)) {
@@ -112,10 +112,10 @@ function signInCode(address: string): string | undefined {
 }
 
 export async function startStack(): Promise<Stack> {
-  const mongoUri = await startMongo()
+  const [mongoPort, backendPort, runtimePort] = await freePorts(3)
+  const mongoUri = startMongo(mongoPort)
 
   await until('MongoDB to become primary', async () => initiateReplicaSet(mongoUri))
-  const [backendPort, runtimePort] = [await freePort(), await freePort()]
   const apiUrl = `http://127.0.0.1:${String(backendPort)}`
   const acpLog = join(artifacts, 'acp.jsonl')
 

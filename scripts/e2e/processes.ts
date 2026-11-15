@@ -15,15 +15,18 @@ export function logPath(name: string): string {
   return join(artifacts, `${name}.log`)
 }
 
-export async function freePort(): Promise<number> {
-  const server = createServer()
+/** Distinct free ports. They are held open together, or the system can hand out the same one twice. */
+export async function freePorts(count: number): Promise<number[]> {
+  const servers = Array.from({ length: count }, () => createServer())
 
-  await new Promise<void>((done) => server.listen(0, '127.0.0.1', done))
-  const { port } = server.address() as { port: number }
+  await Promise.all(
+    servers.map((server) => new Promise<void>((done) => server.listen(0, '127.0.0.1', done))),
+  )
+  const ports = servers.map((server) => (server.address() as { port: number }).port)
 
-  await new Promise<void>((done) => server.close(() => done()))
+  await Promise.all(servers.map((server) => new Promise((done) => server.close(done))))
 
-  return port
+  return ports
 }
 
 export async function until(label: string, check: () => Promise<unknown>, timeoutMs = 60_000) {

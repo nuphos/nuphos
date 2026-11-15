@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path'
 
 import { chromium } from 'playwright-core'
 
-import { artifacts, freePort, logPath, spawn, until } from './processes.ts'
+import { artifacts, freePorts, logPath, spawn, until } from './processes.ts'
 
 import type { Page } from 'playwright-core'
 
@@ -16,7 +16,7 @@ const DESKTOP_DIR = resolve(import.meta.dirname, '../../apps/desktop')
 export type Desktop = { page: Page; profile: string; close: () => Promise<void> }
 
 export async function startDesktop(apiUrl: string): Promise<Desktop> {
-  const [vitePort, cdpPort] = [await freePort(), await freePort()]
+  const [vitePort, cdpPort] = await freePorts(2)
   const signIn = join(artifacts, 'sign-in')
 
   mkdirSync(signIn, { recursive: true })
