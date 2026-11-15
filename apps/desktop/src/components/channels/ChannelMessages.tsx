@@ -4,9 +4,9 @@ import { Fragment, useCallback, useRef, useState } from 'react'
 import { t } from '../../i18n'
 import { useAgentLinks } from '../agent/panel/useAgentLinks'
 import { renderAtlasMentionLink, renderMemberMentionLink } from '../agent/panel/messageInlineLinks'
-import { parseMessageMetadata } from '../agent/panel/messageMetadata'
 import { ContextMenu } from '../ContextMenu'
 
+import { postedAt, senderOf, stamp } from './channelPosts'
 import { replyTo } from './channelReply'
 import { ChannelReplyFailed } from './ChannelReplyFailed'
 import { ChannelMessage } from './ChannelPost'
@@ -22,13 +22,6 @@ import type {
 } from '../../api'
 import type { ChannelFixes } from './ChannelReplyFix'
 import type { ReactNode } from 'react'
-
-/** Who posted: the sender's id, so consecutive posts from one sender form a run. */
-function senderOf(message: AgentPersistedMessage): string | undefined {
-  const metadata = parseMessageMetadata(message.metadata)
-
-  return metadata ? (metadata.sourceSessionId ?? metadata.sender.id) : undefined
-}
 
 /** A line from the chat itself: its loop guard paused agents. */
 function Notice({ event }: { event: AgentTimelineEvent }) {
@@ -49,10 +42,6 @@ function Notice({ event }: { event: AgentTimelineEvent }) {
 
 /** A line placed in the chat by its time, beside the posts. */
 export type TimelineRow = { at: number; key: string; node: ReactNode }
-
-const stamp = (value: string | undefined) => Date.parse(value ?? '') || 0
-const postedAt = (message: AgentPersistedMessage) =>
-  stamp(parseMessageMetadata(message.metadata)?.sentAt ?? message.createdAt)
 
 export function ChannelMessages({
   messages,

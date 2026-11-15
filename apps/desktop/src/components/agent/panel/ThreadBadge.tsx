@@ -33,7 +33,8 @@ const BADGE =
 const LINKED =
   'hover:border-line-control hover:bg-state-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-line-focus'
 
-function StatusLabel({ status, pending }: { status: ThreadStatus; pending: boolean }) {
+/** A Task's state in words, as its badge and the Delegated work card say it. */
+export function StatusLabel({ status, pending }: { status: ThreadStatus; pending: boolean }) {
   const {
     label,
     icon: Icon,

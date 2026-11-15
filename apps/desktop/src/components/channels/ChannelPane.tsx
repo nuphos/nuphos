@@ -29,10 +29,11 @@ import { useBotChatQuestions } from './useBotChatQuestions'
 import { useBotRuntimeControl } from './useBotRuntimeControl'
 import { useBotTaskAccess } from './useBotTaskAccess'
 import { useChannel } from './useChannel'
+import { useDelegatedWork } from './useDelegatedWork'
 import { useStickToBottom } from './useStickToBottom'
 
-import type { AgentMessageReply, AgentPersistedMessage } from '../../api'
 import type { ChannelFixes } from './ChannelReplyFix'
+import type { AgentMessageReply, AgentPersistedMessage } from '../../api'
 import type { UserInfo } from '../../types'
 import type { ComposerSend } from '../agent/panel/composerMentionChips'
 import type { AgentPromptSeed } from '../agent/panel/model'
@@ -109,6 +110,8 @@ export function ChannelPane({
 
   const stickToBottom = useStickToBottom(scrollRef)
   const questions = useBotChatQuestions(teamId, bot, botOwned, onOpenSession)
+  const openTask = onOpenTask ?? onOpenSession
+  const delegated = useDelegatedWork(teamId, bot, stored, openTask, canOpenTask)
 
   // The optimistic post owns the draft immediately; failure restores it through setRestore.
   const send: ComposerSend = (text, filePaths, mentions, options) => {
@@ -187,7 +190,7 @@ export function ChannelPane({
         {bot && canOpenTask && (
           <BotTaskButton
             provider={agents.find((agent) => agent.sessionId === bot)?.provider}
-            onClick={() => (onOpenTask ?? onOpenSession)(bot)}
+            onClick={() => openTask(bot)}
           />
         )}
         {bot && canOpenBotDesktop && (
@@ -243,7 +246,7 @@ export function ChannelPane({
               onOpenNuphosLink={onOpenNuphosLink}
               channelId={channelId}
               botId={bot}
-              extraRows={questions.rows}
+              extraRows={[...questions.rows, ...delegated]}
               fixes={fixes}
               onReply={
                 detail.readOnly
