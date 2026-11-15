@@ -26,7 +26,8 @@ export function ReplyTargetChip({ target }: { target: ComposerReplyTarget }) {
   }
 
   return (
-    <div className="flex px-1 pb-1.5">
+    // Gone while a card's own field is open, so the answer has one place to go.
+    <div className="flex px-1 pb-1.5 [body:has([data-card-answer-field])_&]:hidden">
       <div
         ref={ref}
         role="group"

@@ -7,6 +7,7 @@ import { useStableCallback } from '../../../hooks/useStableCallback'
 import { t } from '../../../i18n'
 import { track } from '../../../lib/analytics'
 import { runtimeIsExecuting, runtimeAllows } from '../../../lib/runtimeExecution'
+import { dismissQuestion } from '../../../views/inbox/dismissQuestion'
 import { cardAnswers } from '../../../views/inbox/useInbox'
 import { toast } from '../../ui/toast'
 import { PermissionResumeContext } from '../permissionResumeContext'
@@ -168,6 +169,10 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                     sendInActive(text, [], undefined, card && cardReplyId(card, questions)),
                   answer: canReply
                     ? cardAnswers(teamId, activeTab.sessionId, questions)
+                    : undefined,
+                  skip: canReply
+                    ? (card) =>
+                        dismissQuestion(teamId, activeTab.sessionId, cardReplyId(card, questions))
                     : undefined,
                   // Only the owner provides a secret; it lands on their runtime.
                   saveSecret:
