@@ -260,6 +260,9 @@ private final class PlayerPage: UIViewController, Page {
                 return
             }
         }
+        // The default category is muted by the silent switch, and voice input
+        // leaves it on .record; a video plays its sound like Photos does.
+        try? AVAudioSession.sharedInstance().setCategory(.playback)
         player.player = AVPlayer(url: url)
     }
 
