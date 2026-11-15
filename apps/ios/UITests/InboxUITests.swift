@@ -191,6 +191,12 @@ final class InboxUITests: XCTestCase {
         XCTAssertEqual(more.label, "Show more")
         more.tap()
         XCTAssertEqual(more.label, "Show less")
+        // Once the expansion settles, the row sits under the whole body, not on it.
+        let body = app.descendants(matching: .any)["botQuestion.body"]
+        let settled = NSPredicate { _, _ in body.frame.maxY <= more.frame.minY + 1 }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: settled, object: nil)], timeout: 5),
+                       .completed, "Show less is drawn over the body")
+        sleep(1)
         shot("14-bot-chat-card-expanded")
 
         app.buttons["Skip"].tap()
@@ -358,7 +364,8 @@ final class InboxUITests: XCTestCase {
 
     /// The simulator's screen only; also saved to `NUPHOS_SHOTS` when the run sets it.
     private func shot(_ name: String) {
-        let screenshot = XCUIScreen.main.screenshot()
+        // The app's own display: on an unfolded Duo the main screen is the dark cover.
+        let screenshot = app.screenshot()
         let attachment = XCTAttachment(screenshot: screenshot)
         attachment.name = name
         attachment.lifetime = .keepAlways

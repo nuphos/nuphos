@@ -59,6 +59,8 @@ struct BotQuestionCard: View {
             .padding(EdgeInsets(top: 14, leading: 16, bottom: 10, trailing: 16))
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            // Wide, the body's lines stay readable.
+            .frame(maxWidth: wide ? 640 : nil)
             if let failure {
                 Label("Couldn't send the message · \(failure)", systemImage: "exclamationmark.circle")
                     .font(Theme.Text.caption)
@@ -66,6 +68,7 @@ struct BotQuestionCard: View {
                     .accessibilityIdentifier("botQuestion.failure")
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("botQuestion.card")
     }
