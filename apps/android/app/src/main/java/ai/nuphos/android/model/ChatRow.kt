@@ -9,6 +9,8 @@ sealed class ChatRow {
     data class Timestamp(override val id: String, val date: Instant) : ChatRow()
     data class User(override val id: String, val messageId: String, val text: String, val images: List<String>, val uploads: List<TransferUpload> = emptyList(), val sender: MessageAttribution? = null) : ChatRow()
     data class Event(override val id: String, val content: User) : ChatRow()
+    /** A question someone answered, in place of the notice that told the agent. */
+    data class Answered(override val id: String, val question: AnsweredQuestion) : ChatRow()
     data class AssistantText(override val id: String, val messageId: String, val text: String, val streaming: Boolean) : ChatRow()
     data class Reasoning(override val id: String, val part: ChatPart.Reasoning) : ChatRow()
     data class Tool(override val id: String, val messageId: String, val part: ChatPart.Tool, val canDecide: Boolean) : ChatRow()
@@ -87,7 +89,10 @@ sealed class ChatRow {
                         val images = if (display.uploads.isNotEmpty()) emptyList() else message.parts.mapNotNull { part ->
                             (part as? ChatPart.File)?.takeIf { it.mediaType.startsWith("image/") }?.url
                         }
-                        if (text.isNotEmpty() || images.isNotEmpty() || display.uploads.isNotEmpty()) {
+                        val answered = if (sender?.id == AnsweredQuestion.SENDER && sender.isEvent) AnsweredQuestion.all(message, text, messages) else null
+                        if (answered != null) {
+                            rows += answered.mapIndexed { at, question -> Answered("answered.${message.id}.$at", question) }
+                        } else if (text.isNotEmpty() || images.isNotEmpty() || display.uploads.isNotEmpty()) {
                             val user = User("user.${message.id}", message.id, text, images, display.uploads, sender)
                             rows += if (sender?.isEvent == true) Event("event.${message.id}", user) else user
                         }

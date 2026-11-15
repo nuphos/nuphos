@@ -598,6 +598,7 @@ private fun ChatRowView(
         is ChatRow.Event -> AgentEventRow(row, onLink, onOpenChannel) {
             UserAttachments(row.content, session)
         }
+        is ChatRow.Answered -> AnsweredLine(row, onLink)
         is ChatRow.User -> UserMessageContent(row.sender, row.text) { UserAttachments(row, session) }
         is ChatRow.AssistantText -> MarkdownText(row.text, streaming = row.streaming, onLink = onLink)
         is ChatRow.Downloads -> {
