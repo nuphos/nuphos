@@ -61,6 +61,8 @@ struct InboxPage: View {
                                 .simultaneousGesture(TapGesture().onEnded { inbox.selected = question.id },
                                                      including: wide ? .all : .subviews)
                                 .accessibilityIdentifier("inbox.row")
+                                // Wide, VoiceOver says the tap opens it; on iPhone the list's selection does.
+                                .accessibilityAddTraits(wide ? .isButton : [])
                             }
                         } header: {
                             InboxSource(question: group[0])
