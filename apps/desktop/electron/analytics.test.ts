@@ -44,7 +44,8 @@ test('the setting never builds the client before the app is ready, and toggles i
 })
 
 test('a client that is off at launch is never built, so nothing can be sent', async () => {
-  const fresh = (await import('./analytics.ts?off')) as typeof Analytics
+  // A module instance of its own, as at a launch.
+  const fresh = (await import(`./analytics.ts?launch=${String(calls.length)}`)) as typeof Analytics
   const before = calls.length
 
   // What crash-reporter.ts passes for a self-hosted backend, or with the setting off.

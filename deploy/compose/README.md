@@ -220,6 +220,10 @@ Admins can do the same over HTTP with `GET /admin/telemetry` and
 delivered is retried twice, then dropped with one `backend.telemetry.send_failed`
 log line; it never blocks a request.
 
+The Desktop and iOS apps send usage analytics only while they are connected to
+Nuphos Cloud. Connected to your instance they send none, and Desktop crash
+reports go to your own backend.
+
 ## Test managed agents locally (OrbStack)
 
 Managed agents are the one thing this stack cannot run: they are Kubernetes
