@@ -119,6 +119,7 @@ enum AgentChatAPI {
         var environment: String
         var bundleId: String
         var liveActivityStartToken: String?
+        var computerAlerts: Bool
         var platform = "ios"
     }
 
