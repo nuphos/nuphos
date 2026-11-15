@@ -43,6 +43,8 @@ export async function upsertSlackChannelMapping(data: {
   teamId: string
   createdBy: string
   enabled?: boolean
+  // Omitted keeps what is stored; null clears it.
+  wakeSessionId?: string | null
 }): Promise<SlackChannelMapping> {
   const now = new Date()
   const mapping = await slackChannelMappings().findOneAndUpdate(
@@ -59,8 +61,13 @@ export async function upsertSlackChannelMapping(data: {
         teamId: data.teamId,
         enabled: data.enabled ?? true,
         updatedAt: now,
+        ...(data.wakeSessionId ? { wakeSessionId: data.wakeSessionId } : {}),
       },
-      $unset: { agentUserId: '', credentialAccess: '' },
+      $unset: {
+        agentUserId: '',
+        credentialAccess: '',
+        ...(data.wakeSessionId === null ? { wakeSessionId: '' } : {}),
+      },
     },
     { upsert: true, returnDocument: 'after' },
   )

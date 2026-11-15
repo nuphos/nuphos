@@ -1,3 +1,4 @@
+import { getConversationBySessionId } from '@/lib/agent/db'
 import { AppError } from '@/lib/errors'
 import { getTeamsByIds } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
@@ -95,7 +96,7 @@ export function registerSlackMappingRoutes(slackRoutes: Hono<{ Variables: AuthVa
 
   slackRoutes.put('/mappings', async (c) => {
     const userId = c.get('userId')
-    const body = (await c.req.json()) as Record<string, unknown>
+    const body = (await c.req.json())
     const teamId = await resolveVerifiedTeamId(
       c,
       typeof body.teamId === 'string' ? body.teamId : undefined,
@@ -116,12 +117,26 @@ export function registerSlackMappingRoutes(slackRoutes: Hono<{ Variables: AuthVa
       slackWorkspaceId,
       slackChannelId,
     })
+    const wakeSessionId = body.wakeSessionId as string | null | undefined
+
+    // Only a conversation of this team can be woken by the channel.
+    if (
+      wakeSessionId != null &&
+      (typeof wakeSessionId !== 'string' ||
+        (await getConversationBySessionId(wakeSessionId))?.teamId !== teamId)
+    )
+      throw new AppError(
+        400,
+        'invalid_request',
+        'wakeSessionId must be a conversation of this team',
+      )
     const mapping = await upsertSlackChannelMapping({
       slackWorkspaceId,
       slackChannelId,
       teamId,
       createdBy: userId,
       enabled: typeof body.enabled === 'boolean' ? body.enabled : true,
+      wakeSessionId,
     })
 
     logEvent('info', 'slack.agent.mapping.upsert', {

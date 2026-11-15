@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto'
 
-import type { SlackEventEnvelope, SlackRuntime } from '@/routes/slack/types'
 
 import { appendMessageOriginLine, buildSlackMessageOrigin } from '@/lib/agent/message-origin'
 import { signNuphosToken } from '@/lib/identity'
@@ -13,6 +12,7 @@ import { resolveSlackBotForWorkspace } from '@/lib/slack/installations'
 import { getSlackThreadTurnIdentity } from '@/lib/slack/thread-access'
 import { fetchSlackUserName } from '@/lib/slack/user-profile'
 import { ingestSlackAttachments } from '@/routes/slack/attachments'
+import { wakeSlackChannelSession } from '@/routes/slack/channel-wake'
 import { fetchSlackChannelName, resolveSlackUserMapping } from '@/routes/slack/identity'
 import { appendAttachmentNote, buildMessagesForRenderedTurn } from '@/routes/slack/messages'
 import {
@@ -32,6 +32,8 @@ import { beginThreadStatus } from '@/routes/slack/status'
 import { checkNotificationReplyAccess, verifyThreadTeamAccess } from '@/routes/slack/thread-gates'
 import { executeSlackAgentTurn } from '@/routes/slack/turn'
 import { claimSlackTurnOrQueue } from '@/routes/slack/turn-admission'
+
+import type { SlackEventEnvelope, SlackRuntime } from '@/routes/slack/types'
 
 // Exported for tests (see handleAppMention).
 export async function handleThreadMessage(envelope: SlackEventEnvelope): Promise<void> {
@@ -68,6 +70,7 @@ export async function handleThreadMessage(envelope: SlackEventEnvelope): Promise
     !event.user ||
     event.ts === event.thread_ts
   ) {
+    await wakeSlackChannelSession(slackWorkspaceId, runtime, event)
     await markSlackEvent(eventId, 'ignored')
 
     return
