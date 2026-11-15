@@ -39,8 +39,10 @@ function TaskRow({
   onOpenTask: (sessionId: string) => void
 }) {
   const finished = status === 'done' || status === 'stopped'
-  const said = taskSaid(task)
-  const line = finished ? firstSentence(said) : said
+  // Only a finished Task's newest message is surely its own: while it runs, that
+  // may be a follow-up the Bot sent it, so the line stays empty.
+  const said = finished ? taskSaid(task) : ''
+  const line = firstSentence(said)
 
   return (
     <li>
@@ -77,7 +79,7 @@ function TaskRow({
       {open && (
         <div className="flex flex-col gap-2 pb-2 pl-[1.875rem] pr-1.5 pt-1.5">
           {task.firstMessage && <Detail label={t('Handed over')}>{task.firstMessage}</Detail>}
-          {finished && said && <Detail label={t('Result')}>{said}</Detail>}
+          {said && <Detail label={t('Result')}>{said}</Detail>}
           <button
             type="button"
             onClick={() => onOpenTask(task.sessionId)}
@@ -94,7 +96,7 @@ function TaskRow({
 
 /**
  * Under a Bot's last message of a turn: the Tasks it started in that turn, each
- * with its state and one line of progress or result. A row opens to what was
+ * with its state and, once it has finished, one line of its result. A row opens to what was
  * handed over and what came back; the steps stay in the Task itself.
  */
 export function DelegatedWorkCard({
