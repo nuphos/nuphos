@@ -14,6 +14,8 @@ import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.ui.LocalAuthSession
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import androidx.compose.ui.res.stringResource
+import ai.nuphos.android.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -24,6 +26,11 @@ fun AccountDeletionSheet(onDismiss: () -> Unit) {
     val generation = auth.generation
     val scope = rememberCoroutineScope()
     val uri = LocalUriHandler.current
+    val checkFailed = stringResource(R.string.profile_deletion_check_failed)
+    val sendCodeFailed = stringResource(R.string.profile_deletion_send_code_failed)
+    val noReceipt = stringResource(R.string.profile_deletion_no_receipt)
+    val unconfirmed = stringResource(R.string.profile_deletion_unconfirmed)
+    val notFound = stringResource(R.string.profile_deletion_not_found)
     var loaded by remember(token, generation) { mutableStateOf(false) }
     var busy by remember(token, generation) { mutableStateOf(false) }
     var status by remember(token, generation) { mutableStateOf<String?>(null) }
@@ -52,7 +59,7 @@ fun AccountDeletionSheet(onDismiss: () -> Unit) {
         } catch (e: CancellationException) { throw e
         } catch (e: Exception) {
             if (current()) {
-                error = "We could not check your deletion request. Retry the status check before submitting."
+                error = checkFailed
                 if (e is NuphosApi.Failure.Unauthorized) auth.signOut(e.message)
             }
             false
@@ -62,21 +69,21 @@ fun AccountDeletionSheet(onDismiss: () -> Unit) {
     DisposableEffect(token, generation) { onDispose { clearSecrets() } }
     ModalBottomSheet(onDismissRequest = { clearSecrets(); onDismiss() }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Delete account", style = MaterialTheme.typography.headlineSmall)
-            Text("We will permanently delete your account and associated personal data within 30 days. Our team will coordinate workspace ownership and shared data. Records required by law and data jointly held by your team may be retained.")
-            Text("This submits a request. It does not instantly erase your account. You can continue using your account while it is processed. Signing in again does not cancel the request.")
-            TextButton(onClick = { uri.openUri("https://nuphos.ai/privacy") }) { Text("Privacy policy") }
+            Text(stringResource(R.string.profile_deletion_title), style = MaterialTheme.typography.headlineSmall)
+            Text(stringResource(R.string.profile_deletion_body))
+            Text(stringResource(R.string.profile_deletion_request_note))
+            TextButton(onClick = { uri.openUri("https://nuphos.ai/privacy") }) { Text(stringResource(R.string.profile_privacy_policy)) }
             if (status != null) {
-                Text("Request received", style = MaterialTheme.typography.titleMedium)
-                Text("Status: " + when (status) { "requested" -> "Requested"; "in_progress" -> "In progress"; "completed" -> "Completed"; else -> "Unknown status (${status})" })
-                Text("Requested at: $requestedAt")
-                Text("Complete by: $dueAt")
-                Text("Your request has been saved. You do not need to contact support to start deletion.")
+                Text(stringResource(R.string.profile_deletion_received), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.profile_deletion_status, when (status) { "requested" -> stringResource(R.string.profile_deletion_status_requested); "in_progress" -> stringResource(R.string.profile_deletion_status_in_progress); "completed" -> stringResource(R.string.profile_deletion_status_completed); else -> stringResource(R.string.profile_deletion_status_unknown, status.orEmpty()) }))
+                Text(stringResource(R.string.profile_deletion_requested_at, requestedAt))
+                Text(stringResource(R.string.profile_deletion_complete_by, dueAt))
+                Text(stringResource(R.string.profile_deletion_saved))
             } else {
                 if (passwordMode) {
-                    OutlinedTextField(password, { password = it; error = null }, label = { Text("Account password") }, visualTransformation = PasswordVisualTransformation(), enabled = !busy && loaded, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(password, { password = it; error = null }, label = { Text(stringResource(R.string.profile_deletion_password_label)) }, visualTransformation = PasswordVisualTransformation(), enabled = !busy && loaded, modifier = Modifier.fillMaxWidth())
                 } else {
-                    Text("Send a verification code to ${user.email}.")
+                    Text(stringResource(R.string.profile_deletion_send_code_to, user.email))
                     TextButton(enabled = loaded && !busy && !sent, onClick = {
                         busy = true; error = null
                         scope.launch {
@@ -85,14 +92,14 @@ fun AccountDeletionSheet(onDismiss: () -> Unit) {
                                 AccountApi(token).requestCode(user.email)
                                 if (current()) sent = true
                             } catch (e: CancellationException) { throw e
-                            } catch (e: Exception) { if (current()) error = "We could not send the code. Please try again." }
+                            } catch (e: Exception) { if (current()) error = sendCodeFailed }
                             finally { if (current()) busy = false }
                         }
-                    }) { Text(if (sent) "Code sent — check your inbox" else "Send verification code") }
-                    OutlinedTextField(code, { code = it; error = null }, label = { Text("Verification code") }, enabled = !busy && loaded, modifier = Modifier.fillMaxWidth())
+                    }) { Text(if (sent) stringResource(R.string.profile_deletion_code_sent) else stringResource(R.string.profile_deletion_send_code)) }
+                    OutlinedTextField(code, { code = it; error = null }, label = { Text(stringResource(R.string.profile_deletion_code_label)) }, enabled = !busy && loaded, modifier = Modifier.fillMaxWidth())
                 }
-                TextButton(enabled = !busy, onClick = { passwordMode = !passwordMode; clearSecrets(); error = null }) { Text(if (passwordMode) "Confirm with an email code" else "Confirm with my password") }
-                OutlinedTextField(confirmation, { confirmation = it; error = null }, label = { Text("Type DELETE") }, enabled = !busy && loaded, modifier = Modifier.fillMaxWidth())
+                TextButton(enabled = !busy, onClick = { passwordMode = !passwordMode; clearSecrets(); error = null }) { Text(if (passwordMode) stringResource(R.string.profile_deletion_confirm_with_code) else stringResource(R.string.profile_deletion_confirm_with_password)) }
+                OutlinedTextField(confirmation, { confirmation = it; error = null }, label = { Text(stringResource(R.string.profile_deletion_type_delete)) }, enabled = !busy && loaded, modifier = Modifier.fillMaxWidth())
                 Button(enabled = loaded && !busy && confirmation == "DELETE" && (if (passwordMode) password.length >= 12 else code.length == 6), onClick = {
                     busy = true; error = null
                     scope.launch {
@@ -106,24 +113,24 @@ fun AccountDeletionSheet(onDismiss: () -> Unit) {
                                 dueAt = response.request?.dueAt.orEmpty()
                                 if (status == null) {
                                     loaded = false
-                                    error = "The server did not return a receipt. Check request status before trying again."
+                                    error = noReceipt
                                 }
                             }
                         } catch (e: CancellationException) { throw e
                         } catch (e: Exception) {
                             if (current()) {
                                 clearSecrets()
-                                error = "Submission was not confirmed. Checking request status…"
-                                if (load()) error = if (status == null) "No request was found. Enter your verification again to submit manually." else null
+                                error = unconfirmed
+                                if (load()) error = if (status == null) notFound else null
                             }
                         } finally { if (current()) busy = false }
                     }
-                }, modifier = Modifier.fillMaxWidth()) { Text("Request permanent deletion") }
+                }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.profile_deletion_submit)) }
             }
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             if (busy) CircularProgressIndicator()
-            TextButton(enabled = !busy, onClick = { busy = true; error = null; scope.launch { load(); if (current()) busy = false } }) { Text("Refresh request status") }
-            TextButton(onClick = { clearSecrets(); onDismiss() }, modifier = Modifier.fillMaxWidth()) { Text("Close") }
+            TextButton(enabled = !busy, onClick = { busy = true; error = null; scope.launch { load(); if (current()) busy = false } }) { Text(stringResource(R.string.profile_deletion_refresh)) }
+            TextButton(onClick = { clearSecrets(); onDismiss() }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.profile_close)) }
         }
     }
 }
