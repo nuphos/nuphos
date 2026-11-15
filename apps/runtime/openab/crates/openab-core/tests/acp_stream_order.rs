@@ -769,15 +769,15 @@ fn session_new_calls(fx: &Fixture) -> usize {
         .count()
 }
 
-/// The session id `thread_map.json` currently persists for `key`.
+/// The session id `thread_map.json` currently persists for `key`. The file is a plain
+/// thread → session id object, the shape every runtime reads.
 fn persisted_session(fx: &Fixture, key: &str) -> String {
     let data = std::fs::read_to_string(fx._tmp.path().join(".openab/thread_map.json")).unwrap();
-    let map: serde_json::Value = serde_json::from_str(&data).unwrap();
-    map.get("sessions")
-        .and_then(|sessions| sessions.get(key))
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or_else(|| panic!("no persisted session for {key} in {map}"))
-        .to_string()
+    let map: HashMap<String, String> = serde_json::from_str(&data)
+        .unwrap_or_else(|e| panic!("thread_map.json must stay a plain map: {e}\n{data}"));
+    map.get(key)
+        .cloned()
+        .unwrap_or_else(|| panic!("no persisted session for {key} in {data}"))
 }
 
 /// Run a turn the agent never answers: it fails on the inactivity timeout and the agent is
@@ -844,6 +844,28 @@ async fn acp_session_load_gives_up_after_three_consecutive_failures() {
         .await
         .unwrap();
     assert!(reset, "the user must see the session-reset banner");
+}
+
+// The failure streak is memory-only, on purpose: what a failed load leaves on disk must still be
+// the plain thread → session id map a runtime without the bounded fallback can read.
+#[cfg(unix)]
+#[tokio::test(flavor = "multi_thread")]
+async fn acp_a_failed_load_leaves_the_thread_map_in_its_plain_shape() {
+    let _guard = env_lock();
+    let key = "acp:load-map-shape";
+    let fx = setup_with_timeout("acp", key, LOAD_KNOBS_AGENT, 1).await;
+    kill_agent_with_a_timed_out_turn(&fx, key).await;
+
+    fx.router
+        .pool()
+        .get_or_create(key, None, &[], None)
+        .await
+        .expect_err("the first failure keeps the saved session");
+
+    let raw = std::fs::read_to_string(fx._tmp.path().join(".openab/thread_map.json")).unwrap();
+    let map: HashMap<String, String> = serde_json::from_str(&raw)
+        .unwrap_or_else(|e| panic!("a failed load must not change the file shape: {e}\n{raw}"));
+    assert_eq!(map.get(key).map(String::as_str), Some("sess_new1"));
 }
 
 // codex-acp reports a session it cannot find as invalid params that names it. That proves the
