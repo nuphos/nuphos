@@ -98,7 +98,7 @@ export async function startConversationTurn(
 // offline waits in the queue. One still offline after this is gone; its senders are told.
 const OFFLINE_GRACE_MS = 60_000
 
-const reconnecting = (error: unknown, message: PendingUserMessage) =>
+export const reconnecting = (error: unknown, message: PendingUserMessage) =>
   error instanceof AppError &&
   error.code === 'runtime_offline' &&
   Date.now() - Date.parse(message.offlineSince ?? new Date().toISOString()) < OFFLINE_GRACE_MS

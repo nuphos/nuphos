@@ -225,7 +225,7 @@ export async function resolveLocalRuntimeEndpoint(
       409,
       'runtime_offline',
       'The computer running this agent is offline. Open Nuphos on it with the local agent turned on.',
-      // The placement just authorized: a send to an offline Box queues for it (queueForOfflineBox).
+      // The placement just authorized: a send to an offline computer queues for it (queueForOfflineComputer).
       { runtimeId, deviceId: ref.deviceId, runtimeLabel: label },
     )
   if (agent?.cli.loggedIn === false && purpose !== 'login')
