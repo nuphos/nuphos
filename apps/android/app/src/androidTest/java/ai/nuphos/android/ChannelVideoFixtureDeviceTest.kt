@@ -111,12 +111,12 @@ class ChannelVideoFixtureDeviceTest {
         render()
         compose.onNodeWithContentDescription("clip.mp4").performClick()
         compose.waitUntil(8_000) { player() }
-        compose.onNodeWithText("Next image").performClick()
+        compose.onNodeWithText("Next").performClick()
         compose.waitUntil(3_000) { has("1 / 2") }
         compose.onNodeWithContentDescription("Image 1 of 2", useUnmergedTree = true).assertExists()
         compose.onNodeWithText("Reset zoom").assertExists()
         assertFalse("A page that goes takes its player with it", player())
-        compose.onNodeWithText("Previous image").performClick()
+        compose.onNodeWithText("Previous").performClick()
         compose.waitUntil(8_000) { player() }
     }
 
@@ -126,12 +126,14 @@ class ChannelVideoFixtureDeviceTest {
         // Opened on the image, then paged to the video: the viewer says so itself, as on iOS.
         compose.onNodeWithContentDescription("wide.png").performClick()
         compose.waitUntil(5_000) { has("1 / 2") }
-        compose.onNodeWithText("Next image").performClick()
+        compose.onNodeWithText("Next").performClick()
         compose.waitUntil(8_000) { has("Couldn't load the video. Try again.") }
         assertFalse(player())
+        assertFalse("Nothing to save from a video that didn't load", has("Save video"))
         videoFails = false
         compose.onNodeWithText("Couldn't load the video. Try again.").performClick()
         compose.waitUntil(8_000) { ready() }
+        compose.onNodeWithText("Save video").assertExists()
     }
 
     @Test fun aVideoThatWontPlayIsFetchedAgainOnTryAgain() {
@@ -141,6 +143,7 @@ class ChannelVideoFixtureDeviceTest {
         // The download succeeds; the player is what can't use it.
         compose.waitUntil(10_000) { has("Couldn't load the video. Try again.") }
         assertFalse(ready())
+        assertFalse("Nothing to save from a video that won't play", has("Save video"))
         assertEquals(1, fetched["clip"]?.get())
         // The file is fixed on the server: trying again fetches it anew instead of replaying the copy that failed.
         videoBroken = false

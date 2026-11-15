@@ -134,9 +134,9 @@ class ChannelFilesFixtureDeviceTest {
         compose.onNodeWithContentDescription("three.png").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithText("3 / 3").fetchSemanticsNodes().isNotEmpty() }
         shot("channel-files-pager")
-        compose.onNodeWithText("Next image").performClick()
+        compose.onNodeWithText("Next").performClick()
         compose.onNodeWithText("1 / 3").assertExists()
-        compose.onNodeWithText("Next image").performClick()
+        compose.onNodeWithText("Next").performClick()
         compose.onNodeWithText("2 / 3").assertExists()
         compose.onNodeWithText("Close").performClick()
         compose.onNodeWithText("2 / 3").assertDoesNotExist()
