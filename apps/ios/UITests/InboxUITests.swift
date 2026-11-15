@@ -55,8 +55,12 @@ final class InboxUITests: XCTestCase {
         inbox.tap()
 
         // Grouped under who asked; still badged on the Inbox title.
-        let row = app.staticTexts["Roll out 1.4 to production?"].firstMatch
+        let row = listed("Roll out 1.4 to production?")
         XCTAssertTrue(row.waitForExistence(timeout: 5), "The question is not listed")
+        // Wide, a tap opens it beside the list: VoiceOver must say it can be activated.
+        if app.windows.firstMatch.horizontalSizeClass == .regular {
+            XCTAssertEqual(row.elementType, .button, "A wide row is not announced as a button")
+        }
         XCTAssertTrue(app.staticTexts["Release Lead"].exists, "No group for the Bot that asked")
         XCTAssertTrue(app.staticTexts["Check the staging cluster"].exists, "No group for the Task that asked")
         XCTAssertTrue(menu.value.map { "\($0)".contains("4 in Inbox") } ?? false, "The Inbox title lost its badge")
@@ -110,7 +114,7 @@ final class InboxUITests: XCTestCase {
         app.buttons["Switch page"].firstMatch.tap()
         app.buttons["Inbox"].firstMatch.tap()
 
-        app.staticTexts["Roll out 1.4 to production?"].firstMatch.tap()
+        listed("Roll out 1.4 to production?").tap()
         XCTAssertTrue(app.buttons["Other…"].waitForExistence(timeout: 10), "No Other…")
         XCTAssertFalse(app.textFields["Your answer"].exists, "The text box shows before Other…")
         app.buttons["Other…"].tap()
@@ -218,7 +222,7 @@ final class InboxUITests: XCTestCase {
         app = launch(page: "agent")
         app.buttons["Switch page"].firstMatch.tap()
         app.buttons["Inbox"].firstMatch.tap()
-        XCTAssertTrue(app.staticTexts["How should the staging rollout go?"].waitForExistence(timeout: 10),
+        XCTAssertTrue(listed("How should the staging rollout go?").waitForExistence(timeout: 10),
                       "The question is not listed")
         openQuestion("How should the staging rollout go?")
         shot("11-inbox-several-questions")
@@ -239,15 +243,21 @@ final class InboxUITests: XCTestCase {
 
         send.tap()
         try listQuestions([])
-        XCTAssertTrue(app.staticTexts["How should the staging rollout go?"].waitForNonExistence(timeout: 5),
+        XCTAssertTrue(listed("How should the staging rollout go?").waitForNonExistence(timeout: 5),
                       "The answered question stayed")
     }
 
     /// Its row in the list; wide, it may already be open beside it.
     private func openQuestion(_ question: String) {
         let back = app.navigationBars.buttons.firstMatch
-        if !app.staticTexts[question].firstMatch.waitForExistence(timeout: 2), back.exists { back.tap() }
-        app.staticTexts[question].firstMatch.tap()
+        if !listed(question).waitForExistence(timeout: 2), back.exists { back.tap() }
+        listed(question).tap()
+    }
+
+    /// Its row by its words, whatever it is to accessibility: wide, a row is a button.
+    private func listed(_ question: String) -> XCUIElement {
+        app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == %@ AND label == %@", "inbox.row", question)).firstMatch
     }
 
     private static let typedAnswer = NSPredicate(format: "label IN %@", ["Other…", "Reply…"])
