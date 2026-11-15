@@ -8,6 +8,7 @@ import {
   resolveInputRequest,
   updateInputRequest,
 } from '@/lib/agent/db/pending-decision'
+import { botFace } from '@/lib/agent/mentions'
 import { parseMessageMetadata } from '@/lib/agent/message-metadata'
 import { queuedAnswers } from '@/lib/agent/pending-queue'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
@@ -172,8 +173,10 @@ export async function askInChannel(
     notifyNudge([requestOwner(ctx)], {
       sessionId: asked.channelId,
       teamId: ctx.teamId,
-      title: `${bot?.title || 'Nuphos agent'} has a question for you`,
+      title: bot?.title || 'Nuphos agent',
+      subtitle: 'Has a question for you',
       body: truncate(plainText(question)),
+      ...botFace(bot),
     })
   }
 

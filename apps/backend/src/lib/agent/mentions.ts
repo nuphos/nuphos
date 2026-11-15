@@ -1,5 +1,6 @@
 import { getTeamMembers } from '@/lib/identity'
 import { logError } from '@/lib/observability'
+import { notificationIdentity } from '@/lib/push/notification-identity'
 import { notifyNudge } from '@/lib/push/notify'
 import { plainText, truncate } from '@/lib/push/turn-outcome'
 import { readingWatchers } from '@/lib/push/watchers'
@@ -108,6 +109,10 @@ export async function noteMentions(
   })
 }
 
+/** The poster's face on an alert that opens a channel: mutable-content wakes the iOS extension that draws it. */
+export const botFace = (bot: Parameters<typeof notificationIdentity>[0] | null) =>
+  bot ? { speaker: notificationIdentity(bot), aps: { 'mutable-content': 1 } } : {}
+
 /**
  * A channel post's pushes: the people it @mentions, and for an agent's post the
  * people watching the channel. channel_post is where a channel-woken turn
@@ -122,14 +127,16 @@ export async function notePost(
   try {
     await noteMentions(channel, post)
     if (!byAgent) return
-    const where = channel.title ? ` in ${channel.title}` : ''
+    const bot = await agentConversations().findOne({ sessionId: post.metadata.sender.id })
 
     // A nudge still alerts someone who cannot read the conversation, so they are left out here.
     notifyNudge(await readingWatchers(channel), {
       sessionId: channel.sessionId,
       teamId: channel.teamId,
-      title: `${senderLabel(post.metadata.sender)}${where}`,
+      title: senderLabel(post.metadata.sender),
+      ...(channel.title ? { subtitle: channel.title } : {}),
       body: truncate(plainText(post.text)) || 'File',
+      ...botFace(bot),
     })
   } catch (error) {
     logError('agent.channel.post_notify_failed', error, { channel_id: channel.sessionId })
