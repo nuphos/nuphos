@@ -84,9 +84,12 @@ export async function createAgentThread(
   actor: ThreadActor,
   prompt: string,
   title: string,
-  pick: ThreadModelPick & { fullAccess?: boolean } = {},
+  pick: ThreadModelPick & { fullAccess?: boolean; runtimeId?: string } = {},
 ) {
   const source = await authorizeThreadActor(actor)
+  const { assertThreadRuntime, setThreadModel } = await import('./thread-runtime')
+  // The agent asked for, or its parent's.
+  const runtime = await assertThreadRuntime(actor, pick.runtimeId)
   const threadId = randomUUID()
   const messageId = randomUUID()
 
@@ -98,9 +101,9 @@ export async function createAgentThread(
     firstMessage: prompt,
     locale: actor.locale,
     source: 'agent.thread',
-    agentRuntime: source.agentRuntime,
-    runtimeId: source.runtimeId,
-    runtimeLabel: source.runtimeLabel,
+    agentRuntime: runtime?.provider ?? source.agentRuntime,
+    runtimeId: runtime?.id ?? source.runtimeId,
+    runtimeLabel: runtime?.label ?? source.runtimeLabel,
     parentSessionId: actor.sessionId,
     parentGrants: source,
     workspace: source.workspace,
@@ -111,7 +114,6 @@ export async function createAgentThread(
     actor.userId,
     pick.fullAccess !== false && (await getSessionBypass(actor.sessionId, actor.userId)),
   )
-  const { setThreadModel } = await import('./thread-runtime')
 
   try {
     await setThreadModel(threadId, actor.userId, pick)

@@ -39,13 +39,38 @@ async function newTask(page: Page) {
   await page.getByRole('button', { name: 'New task', exact: true }).click()
 }
 
-/** What the fixture agent did, in order: `start`, `finish`, `cancelled` or `asked`, each with its marker. */
-function agentEvents(stack: Stack): string[] {
+type AgentEntry = {
+  /** The runtime it ran on: `first` or `second`. */
+  agent: string
+  sessionId: string
+  event: string
+  marker?: string
+  /** The model settings a new session was created with. */
+  defaults?: { fast?: string }
+  isError?: boolean
+  detail?: string
+}
+
+function agentLog(stack: Stack): AgentEntry[] {
   return readFileSync(stack.acpLog, 'utf8')
     .split('\n')
     .filter(Boolean)
-    .map((line) => JSON.parse(line) as { event: string; marker?: string })
-    .map(({ event, marker }) => (marker ? `${event} ${marker}` : event))
+    .map((line) => JSON.parse(line) as AgentEntry)
+}
+
+/** What the fixture agent did, in order: `start`, `finish`, `cancelled` or `asked`, each with its marker. */
+function agentEvents(stack: Stack): string[] {
+  return agentLog(stack).map(({ event, marker }) => (marker ? `${event} ${marker}` : event))
+}
+
+/** The turn a delegated Task ran, once it has finished. A refused create_thread fails at once. */
+function delegatedTurn(stack: Stack, marker: string): AgentEntry | undefined {
+  const log = agentLog(stack)
+  const refusal = log.find((entry) => entry.event === 'delegated' && entry.isError)
+
+  if (refusal) throw new Error(`create_thread was refused: ${refusal.detail ?? ''}`)
+
+  return log.find((entry) => entry.event === 'finish' && entry.marker === marker)
 }
 
 const scenarios: Scenario[] = [
@@ -155,6 +180,42 @@ const scenarios: Scenario[] = [
       await page.getByText('ACK E2E_DELIVERY:after').waitFor()
       if (!agentEvents(stack).includes('loaded')) {
         throw new Error('The agent was not asked to load the earlier session')
+      }
+    },
+  },
+  {
+    // #2760 and #2761: create_thread names the agent and the fast mode a new Task starts with.
+    name: 'the agent delegates to another agent, and the new Task starts there, then in fast mode',
+    run: async (page, stack) => {
+      await newTask(page)
+      await send(page, 'Delegate E2E_DELEGATE E2E_DELIVERY:delegating')
+      await until('the delegated Task to finish', async () =>
+        delegatedTurn(stack, 'E2E_DELIVERY:child'),
+      )
+      await page.getByText('ACK E2E_DELIVERY:delegating', { exact: true }).waitFor()
+      await send(page, 'Delegate fast E2E_DELEGATE_FAST E2E_DELIVERY:delegating-fast')
+      await until('the fast delegated Task to finish', async () =>
+        delegatedTurn(stack, 'E2E_DELIVERY:child-fast'),
+      )
+      const log = agentLog(stack)
+      const children = log.filter((entry) => entry.marker?.startsWith('E2E_DELIVERY:child'))
+      const strays = children.filter((entry) => entry.agent !== 'second')
+
+      if (strays.length > 0) {
+        throw new Error(`A delegated Task ran on its parent's agent: ${JSON.stringify(strays)}`)
+      }
+      const fast = delegatedTurn(stack, 'E2E_DELIVERY:child-fast')
+      const session = log.find(
+        (entry) => entry.event === 'session' && entry.sessionId === fast?.sessionId,
+      )
+
+      if (session?.defaults?.fast !== 'on') {
+        throw new Error(`The fast Task's session was not created fast: ${JSON.stringify(session)}`)
+      }
+      const refusal = log.find((entry) => entry.event === 'refused')?.detail
+
+      if (!refusal?.includes('Choose one of: off, on')) {
+        throw new Error(`A speed not on offer was not refused with the choices: ${refusal ?? ''}`)
       }
     },
   },

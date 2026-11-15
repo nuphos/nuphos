@@ -112,7 +112,7 @@ function signInCode(address: string): string | undefined {
 }
 
 export async function startStack(): Promise<Stack> {
-  const [mongoPort, backendPort, runtimePort] = await freePorts(3)
+  const [mongoPort, backendPort, runtimePort, secondRuntimePort] = await freePorts(4)
   const mongoUri = startMongo(mongoPort)
 
   await until('MongoDB to become primary', async () => initiateReplicaSet(mongoUri))
@@ -120,32 +120,42 @@ export async function startStack(): Promise<Stack> {
   const acpLog = join(artifacts, 'acp.jsonl')
 
   writeFileSync(acpLog, '')
-  writeFileSync(
-    join(artifacts, 'openab.toml'),
-    [
-      '[agent]',
-      `command = ${JSON.stringify(process.execPath)}`,
-      `args = [${JSON.stringify(FIXTURE)}]`,
-      `working_dir = ${JSON.stringify(artifacts)}`,
-      '[agent.env]',
-      `E2E_ACP_LOG = ${JSON.stringify(acpLog)}`,
-      '[pool]',
-      'max_sessions = 4',
-      'session_ttl_hours = 1',
-      '',
-    ].join('\n'),
-  )
-  const startAgentHost = () =>
-    spawn('openab', [findOpenab(), 'run', '-c', join(artifacts, 'openab.toml')], {
+  // One OpenAB per runtime. The fixture logs `agent` with every entry, and each
+  // OpenAB keeps its session files in a home of its own.
+  const startAgentHost = (agent = 'first', port = runtimePort) => {
+    const config = join(artifacts, `openab-${agent}.toml`)
+    const home = join(artifacts, `home-${agent}`)
+
+    mkdirSync(home, { recursive: true })
+    writeFileSync(
+      config,
+      [
+        '[agent]',
+        `command = ${JSON.stringify(process.execPath)}`,
+        `args = [${JSON.stringify(FIXTURE)}]`,
+        `working_dir = ${JSON.stringify(artifacts)}`,
+        '[agent.env]',
+        `E2E_ACP_LOG = ${JSON.stringify(acpLog)}`,
+        `E2E_AGENT = ${JSON.stringify(agent)}`,
+        '[pool]',
+        'max_sessions = 4',
+        'session_ttl_hours = 1',
+        '',
+      ].join('\n'),
+    )
+
+    return spawn(`openab-${agent}`, [findOpenab(), 'run', '-c', config], {
       env: {
+        HOME: home,
         GATEWAY_ALLOWED_USERS: 'acp_client',
         OPENAB_ACP_ENABLED: 'true',
         OPENAB_ACP_AUTH_KEY: AUTH_KEY,
         OPENAB_ACP_CONTROL_KEY: CONTROL_KEY,
         OPENAB_ACP_MCP_SERVERS: 'true',
-        GATEWAY_LISTEN: `127.0.0.1:${String(runtimePort)}`,
+        GATEWAY_LISTEN: `127.0.0.1:${String(port)}`,
       },
     })
+  }
   const agentHosts = [startAgentHost()]
   const restartAgentHost = async () => {
     await stop(agentHosts.at(-1)!)
@@ -198,13 +208,23 @@ export async function startStack(): Promise<Stack> {
   token = (await post('/auth/email/verify-code', { email, code: signInCode(email) })).token
   const teamId = (await post('/teams', { name: 'E2E' })).team.id
 
-  await post(`/teams/${teamId}/agent-runtimes/external`, {
-    url: `ws://127.0.0.1:${String(runtimePort)}/acp`,
-    authKey: AUTH_KEY,
-    controlKey: CONTROL_KEY,
-    provider: 'claude-code',
-    label: 'E2E fixture agent',
-  })
+  // A second runtime, for work an agent delegates to another agent.
+  startAgentHost('second', secondRuntimePort)
+  for (const [port, label] of [
+    [runtimePort, 'E2E fixture agent'],
+    [secondRuntimePort, 'E2E second agent'],
+  ] as const) {
+    await until(`OpenAB on ${String(port)} to listen`, async () =>
+      fetch(`http://127.0.0.1:${String(port)}/`),
+    )
+    await post(`/teams/${teamId}/agent-runtimes/external`, {
+      url: `ws://127.0.0.1:${String(port)}/acp`,
+      authKey: AUTH_KEY,
+      controlKey: CONTROL_KEY,
+      provider: 'claude-code',
+      label,
+    })
+  }
 
   return { apiUrl, email, token, teamId, acpLog, signInCode, restartAgentHost }
 }
