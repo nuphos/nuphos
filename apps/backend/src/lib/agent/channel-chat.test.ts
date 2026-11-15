@@ -298,6 +298,25 @@ describe('waking a channel’s agents', () => {
     })
   })
 
+  test('a disabled agent says where to move, so the chat can offer Switch agent', async () => {
+    const disabled = 'This agent has been retired. Move this conversation to another agent.'
+
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async ({ sessionId }) => {
+        if (sessionId === 'agent-a') throw new AppError(409, 'runtime_disabled', disabled)
+
+        return { status: 'completed' }
+      },
+    })
+    await say('hello')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(
+      (await channel()).timelineEvents?.find((event) => event.kind === 'agent_reply_failed'),
+    ).toMatchObject({ agentId: 'agent-a', cause: 'offline', reason: disabled })
+  })
+
   test('posts at the same moment leave one notice per agent', async () => {
     await Promise.all([say('one'), say('two'), say('three')])
     expect(await listPendingUserMessages('agent-a-owner', 'agent-a')).toHaveLength(1)
