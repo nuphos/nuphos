@@ -182,6 +182,28 @@ It starts the local stack, backend, runtime and Electron Desktop with isolated
 configuration. Do not start Desktop on its own or use the web-only Vite server
 as the default dev loop.
 
+### End-to-end test
+
+```bash
+bun run e2e
+```
+
+It starts a MongoDB, the backend, OpenAB and the Desktop app, all on free ports
+and with a profile of their own, and walks the app through the flows people use
+most: sign in, send a message and read the reply, queue a message and press
+Stop, answer an agent's question from its card and from the Inbox. A scripted
+agent stands in for the model, so no model account or network access is needed
+and the run takes about a minute. It does not touch a running `bun run dev`.
+
+It needs the dependencies of `apps/backend` and `apps/desktop` installed, an
+`openab` binary (`node apps/desktop/local-runtime/prepare.mjs` builds one, or
+set `OPENAB` to an existing one), and either `mongod` on the PATH or Docker.
+Logs and a screenshot after each scenario are written to the directory the run
+prints first; set `E2E_ARTIFACTS` to choose it.
+
+The scenarios are in `scripts/e2e/run.ts`. When a flow breaks after merge, the
+pull request that repairs it adds the scenario that would have caught it.
+
 ### Parallel instances
 
 Every worktree or clone can run `bun run dev` at the same time. All of them
