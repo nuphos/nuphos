@@ -1,0 +1,324 @@
+[
+  {
+    "id": "openrouter",
+    "name": "OpenRouter",
+    "key": true,
+    "oauth": true,
+    "model": "z-ai/glm-5.3"
+  },
+  {
+    "id": "nous",
+    "name": "Nous Portal",
+    "key": false,
+    "oauth": true,
+    "model": "z-ai/glm-5.3"
+  },
+  {
+    "id": "openai-codex",
+    "name": "OpenAI Codex",
+    "key": false,
+    "oauth": true,
+    "model": "gpt-6-sol"
+  },
+  {
+    "id": "openai-api",
+    "name": "OpenAI API",
+    "key": true,
+    "oauth": false,
+    "model": "gpt-6.1-sol"
+  },
+  {
+    "id": "xai-oauth",
+    "name": "xAI Grok OAuth (SuperGrok / Premium+)",
+    "key": false,
+    "oauth": true,
+    "model": "grok-4.6"
+  },
+  {
+    "id": "lmstudio",
+    "name": "LM Studio",
+    "key": true,
+    "oauth": false,
+    "model": ""
+  },
+  {
+    "id": "gemini",
+    "name": "Google AI Studio",
+    "key": true,
+    "oauth": false,
+    "model": "gemini-3.8-flash"
+  },
+  {
+    "id": "zai",
+    "name": "Z.AI / GLM",
+    "key": true,
+    "oauth": false,
+    "model": "glm-5.3"
+  },
+  {
+    "id": "kimi-coding",
+    "name": "Kimi / Moonshot",
+    "key": true,
+    "oauth": false,
+    "model": "kimi-k3"
+  },
+  {
+    "id": "kimi-coding-cn",
+    "name": "Kimi / Moonshot (China)",
+    "key": true,
+    "oauth": false,
+    "model": "kimi-k3"
+  },
+  {
+    "id": "stepfun",
+    "name": "StepFun Step Plan",
+    "key": true,
+    "oauth": false,
+    "model": "step-3.7-flash"
+  },
+  {
+    "id": "arcee",
+    "name": "Arcee AI",
+    "key": true,
+    "oauth": false,
+    "model": "trinity-large-thinking"
+  },
+  {
+    "id": "gmi",
+    "name": "GMI Cloud",
+    "key": true,
+    "oauth": false,
+    "model": "zai-org/GLM-5.1-FP8"
+  },
+  {
+    "id": "actual",
+    "name": "Actual Computer",
+    "key": true,
+    "oauth": false,
+    "model": ""
+  },
+  {
+    "id": "minimax",
+    "name": "MiniMax",
+    "key": true,
+    "oauth": false,
+    "model": "MiniMax-M3"
+  },
+  {
+    "id": "minimax-oauth",
+    "name": "MiniMax (OAuth \u00b7 minimax.io)",
+    "key": false,
+    "oauth": true,
+    "model": "MiniMax-M3"
+  },
+  {
+    "id": "anthropic",
+    "name": "Anthropic",
+    "key": true,
+    "oauth": true,
+    "model": "claude-fable-5-2"
+  },
+  {
+    "id": "alibaba",
+    "name": "Qwen Cloud",
+    "key": true,
+    "oauth": false,
+    "model": "qwen3.8-max"
+  },
+  {
+    "id": "alibaba-coding-plan",
+    "name": "Alibaba Cloud (Coding Plan)",
+    "key": true,
+    "oauth": false,
+    "model": "qwen3.7-plus"
+  },
+  {
+    "id": "minimax-cn",
+    "name": "MiniMax (China)",
+    "key": true,
+    "oauth": false,
+    "model": "MiniMax-M3"
+  },
+  {
+    "id": "deepseek",
+    "name": "DeepSeek",
+    "key": true,
+    "oauth": false,
+    "model": "deepseek-flash"
+  },
+  {
+    "id": "xai",
+    "name": "xAI",
+    "key": true,
+    "oauth": false,
+    "model": "grok-4.6"
+  },
+  {
+    "id": "nvidia",
+    "name": "NVIDIA NIM",
+    "key": true,
+    "oauth": false,
+    "model": "nvidia/nemotron-3.5-super-vl-120b-a12b"
+  },
+  {
+    "id": "ai-gateway",
+    "name": "Vercel AI Gateway",
+    "key": true,
+    "oauth": false,
+    "model": "moonshotai/kimi-k2.6"
+  },
+  {
+    "id": "opencode-zen",
+    "name": "OpenCode Zen",
+    "key": true,
+    "oauth": false,
+    "model": "x-preview-f-free"
+  },
+  {
+    "id": "opencode-go",
+    "name": "OpenCode Go",
+    "key": true,
+    "oauth": false,
+    "model": "kimi-k3"
+  },
+  {
+    "id": "kilocode",
+    "name": "Kilo Code",
+    "key": true,
+    "oauth": false,
+    "model": "anthropic/claude-opus-4.6"
+  },
+  {
+    "id": "huggingface",
+    "name": "Hugging Face",
+    "key": true,
+    "oauth": false,
+    "model": "moonshotai/Kimi-K2.5"
+  },
+  {
+    "id": "xiaomi",
+    "name": "Xiaomi MiMo",
+    "key": true,
+    "oauth": false,
+    "model": "mimo-v2.6-pro"
+  },
+  {
+    "id": "tencent-tokenhub",
+    "name": "Tencent TokenHub",
+    "key": true,
+    "oauth": false,
+    "model": "hy4-preview"
+  },
+  {
+    "id": "tencent-tokenplan",
+    "name": "Tencent TokenPlan",
+    "key": true,
+    "oauth": false,
+    "model": "hy4-preview"
+  },
+  {
+    "id": "ollama-cloud",
+    "name": "Ollama Cloud",
+    "key": true,
+    "oauth": false,
+    "model": ""
+  },
+  {
+    "id": "azure-foundry",
+    "name": "Azure Foundry",
+    "key": true,
+    "oauth": false,
+    "model": ""
+  },
+  {
+    "id": "alibaba-cn",
+    "name": "Alibaba Cloud DashScope (China)",
+    "key": true,
+    "oauth": false,
+    "model": "qwen3.8-max"
+  },
+  {
+    "id": "alibaba-token-plan",
+    "name": "Alibaba Cloud (Token Plan)",
+    "key": true,
+    "oauth": false,
+    "model": "qwen3.8-max-0902"
+  },
+  {
+    "id": "alibaba-token-plan-cn",
+    "name": "Alibaba Cloud (Token Plan, China)",
+    "key": true,
+    "oauth": false,
+    "model": "qwen3.8-max-0902"
+  },
+  {
+    "id": "alibaba-coding-plan-cn",
+    "name": "Alibaba Cloud (Coding Plan, China)",
+    "key": true,
+    "oauth": false,
+    "model": "qwen3.7-plus"
+  },
+  {
+    "id": "commandcode",
+    "name": "CommandCode",
+    "key": true,
+    "oauth": false,
+    "model": ""
+  },
+  {
+    "id": "commandcode-anthropic",
+    "name": "CommandCode (Anthropic)",
+    "key": true,
+    "oauth": false,
+    "model": ""
+  },
+  {
+    "id": "deepinfra",
+    "name": "DeepInfra",
+    "key": true,
+    "oauth": false,
+    "model": ""
+  },
+  {
+    "id": "fireworks",
+    "name": "Fireworks AI",
+    "key": true,
+    "oauth": false,
+    "model": ""
+  },
+  {
+    "id": "meta-ai",
+    "name": "Meta Model API",
+    "key": true,
+    "oauth": false,
+    "model": ""
+  },
+  {
+    "id": "nebius-token-factory",
+    "name": "Nebius Token Factory",
+    "key": true,
+    "oauth": false,
+    "model": ""
+  },
+  {
+    "id": "novita",
+    "name": "NovitaAI",
+    "key": true,
+    "oauth": false,
+    "model": "moonshotai/kimi-k2.5"
+  },
+  {
+    "id": "router",
+    "name": "Ramp Router",
+    "key": true,
+    "oauth": false,
+    "model": ""
+  },
+  {
+    "id": "upstage",
+    "name": "Upstage Solar",
+    "key": true,
+    "oauth": false,
+    "model": ""
+  }
+]

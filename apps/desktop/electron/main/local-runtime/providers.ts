@@ -2,17 +2,10 @@ import { mkdirSync } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import path from 'node:path'
 
-/** The agents a computer can run for Nuphos. */
-export const LOCAL_AGENT_PROVIDERS = [
-  'claude-code',
-  'codex',
-  'grok',
-  'antigravity',
-  'opencode',
-  'dsh',
-] as const
+import type { LocalAgentProvider } from '../../../src/api/local-agent-providers.ts'
 
-export type LocalAgentProvider = (typeof LOCAL_AGENT_PROVIDERS)[number]
+export { LOCAL_AGENT_PROVIDERS } from '../../../src/api/local-agent-providers.ts'
+export type { LocalAgentProvider } from '../../../src/api/local-agent-providers.ts'
 
 export const LOCAL_AGENT_NAMES: Record<LocalAgentProvider, string> = {
   'claude-code': 'Claude Code',
@@ -21,11 +14,12 @@ export const LOCAL_AGENT_NAMES: Record<LocalAgentProvider, string> = {
   antigravity: 'Antigravity',
   opencode: 'OpenCode',
   dsh: 'DeepSeek Harness',
+  hermes: 'Hermes Agent',
 }
 
 /**
- * Grok Build, Antigravity, OpenCode and DeepSeek Harness run behind the image's ACP shim,
- * whose /home/node this home stands in for. openab runs their login wrapper under its own
+ * Grok Build, Antigravity, OpenCode, DeepSeek Harness and Hermes Agent run behind the image's
+ * ACP shim, whose /home/node this home stands in for. openab runs their login wrapper under its own
  * HOME, so the shim and the wrapper are both told the CLI and the home.
  */
 export function shimEnv(cliPath: string, home: string): Record<string, string> {
@@ -49,12 +43,13 @@ export function prepareShimHome(provider: LocalAgentProvider, userDir: string): 
   }
 }
 
-/** Grok Build, OpenCode 1.x and DeepSeek Harness have no status command: their login is
- *  this file, as in the cloud runtime. */
+/** Grok Build, OpenCode 1.x, DeepSeek Harness and Hermes Agent have no status command: their
+ *  login is this file, as in the cloud runtime. */
 const LOGIN_FILE: Partial<Record<LocalAgentProvider, string>> = {
   grok: '.grok/auth.json',
   opencode: '.local/share/opencode/auth.json',
   dsh: '.dsh/.credentials.yaml',
+  hermes: '.hermes/auth.json',
 }
 
 /** Whether the agent's home holds its login; undefined for an agent its CLI reports on. */
@@ -78,6 +73,7 @@ export const AGENT_HOME_UNAVAILABLE: Record<LocalAgentProvider, string> = {
   antigravity: 'Nuphos could not prepare a separate Antigravity home on this computer.',
   opencode: 'Nuphos could not prepare a separate OpenCode home on this computer.',
   dsh: 'Nuphos could not prepare a separate DeepSeek Harness home on this computer.',
+  hermes: 'Nuphos could not prepare a separate Hermes Agent home on this computer.',
 }
 
 export const INSTALL_HINT: Record<LocalAgentProvider, string> = {
@@ -88,4 +84,6 @@ export const INSTALL_HINT: Record<LocalAgentProvider, string> = {
     'Install Antigravity CLI 1.5.0 or newer on this computer to run it as a local runtime.',
   opencode: 'Install OpenCode on this computer to run it as a local runtime.',
   dsh: 'Install DeepSeek Harness with `npm install -g @deepseek-ai/dsh` (Node.js 24.9 or newer) to run it as a local runtime.',
+  hermes:
+    'Install Hermes Agent with its one-line installer from hermes-agent.nousresearch.com, which sets up Python and uv itself, to run it as a local runtime.',
 }
