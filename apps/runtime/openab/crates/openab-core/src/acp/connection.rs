@@ -522,6 +522,10 @@ pub struct AcpConnection {
     pub terminal: Arc<super::terminal::TerminalManager>,
     _reader_handle: JoinHandle<()>,
     _stderr_handle: Option<JoinHandle<()>>,
+    /// The pool must not route to this connection again, even if the reader has not
+    /// observed the agent's exit yet. Set with [`AcpConnection::retire`] when a killed
+    /// process outlives the grace the caller gave it.
+    retired: bool,
     /// Revokes this session's facade token when the connection is dropped, on any evict path.
     /// Held only for its `Drop` side effect (never read).
     ///
@@ -1026,6 +1030,7 @@ impl AcpConnection {
             terminal,
             _reader_handle: reader_handle,
             _stderr_handle: stderr_handle,
+            retired: false,
             #[cfg(feature = "acp-mcp")]
             facade_token_guard: None,
         })
@@ -1457,7 +1462,16 @@ impl AcpConnection {
     }
 
     pub fn alive(&self) -> bool {
-        !self._reader_handle.is_finished()
+        !self.retired && !self._reader_handle.is_finished()
+    }
+
+    /// Stop routing to this connection, whatever the reader has seen. [`kill_agent`] waits for
+    /// its stdout to close; when that grace runs out the process is stuck or unkillable, and the
+    /// pool must rebuild instead of handing it the next prompt.
+    ///
+    /// [`kill_agent`]: AcpConnection::kill_agent
+    pub(crate) fn retire(&mut self) {
+        self.retired = true;
     }
 
     /// Resume a previous session by ID, with `session/resume` when the agent offers it.
@@ -1858,6 +1872,27 @@ mod request_error_tests {
             }
             other => panic!("expected a closed connection, got {other:?}"),
         }
+    }
+}
+
+/// A process that outlived `kill_agent`'s grace must stop being routable even though its reader
+/// has seen no EOF. No timing here: the reader stays alive for the whole test.
+#[cfg(all(test, unix))]
+mod retirement_tests {
+    use super::AcpConnection;
+
+    #[tokio::test]
+    async fn a_retired_connection_stops_reporting_alive() {
+        let args = vec!["-c".to_string(), "sleep 30".to_string()];
+        let mut conn = AcpConnection::spawn("sh", &args, ".", &Default::default(), &[])
+            .await
+            .unwrap();
+        assert!(conn.alive());
+        conn.retire();
+        assert!(
+            !conn.alive(),
+            "a retired connection must not take the next prompt"
+        );
     }
 }
 

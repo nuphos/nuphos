@@ -1166,7 +1166,7 @@ impl AdapterRouter {
                                     // prompt takes the dead-agent path instead: a new
                                     // process that resumes the session.
                                     conn.kill_agent();
-                                    let _ = tokio::time::timeout(
+                                    let stopped = tokio::time::timeout(
                                         std::time::Duration::from_secs(2),
                                         async {
                                             while conn.alive() {
@@ -1177,7 +1177,18 @@ impl AdapterRouter {
                                             }
                                         },
                                     )
-                                    .await;
+                                    .await
+                                    .is_ok();
+                                    if !stopped {
+                                        // Still not observed dead: never let the next prompt be
+                                        // routed to a process we already gave up on. Retiring it
+                                        // makes the pool rebuild and resume the session instead.
+                                        warn!(
+                                            thread_id = %crate::redact::redact_session_ids(thread_key),
+                                            "killed agent still reported alive after 2s; retiring the connection"
+                                        );
+                                        conn.retire();
+                                    }
                                     break;
                                 }
                                 let elapsed = last_activity.elapsed();
