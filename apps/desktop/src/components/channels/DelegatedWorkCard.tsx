@@ -40,10 +40,10 @@ function TaskRow({
   onToggle: () => void
   onOpenTask: (sessionId: string) => void
 }) {
-  const finished = status === 'done' || status === 'stopped'
-  // Only a finished Task's newest message is surely its own: while it runs, that
-  // may be a follow-up the Bot sent it, so the line stays empty.
-  const said = finished ? taskSaid(task) : ''
+  // Only a Task that ended on its own surely said its result last: while it runs
+  // that may be a follow-up the Bot sent it, and a stopped Task may have been cut
+  // off mid-sentence. Either way the line stays empty.
+  const said = status === 'done' ? taskSaid(task) : ''
   const line = firstSentence(said)
 
   return (
