@@ -124,7 +124,10 @@ const scenarios: Scenario[] = [
     run: async (page) => {
       await newTask(page)
       await send(page, 'Ask me E2E_ASK E2E_DELIVERY:asking')
-      await page.getByText('Decision needed').waitFor()
+      await page
+        .getByRole('heading', { name: 'Which marker should the fixture use?' })
+        .last()
+        .waitFor()
       await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).click()
       await page.getByText('ACK E2E_DELIVERY:answered').waitFor()
     },
@@ -157,7 +160,11 @@ const scenarios: Scenario[] = [
 
       await newTask(page)
       await send(page, 'Ask me E2E_ASK_CREDENTIAL E2E_DELIVERY:credential')
-      await page.getByText('Credential needed').waitFor()
+      // A credential question with choices is an ordinary question card, with no category label.
+      await page
+        .getByRole('heading', { name: 'Which marker should the fixture use?' })
+        .last()
+        .waitFor()
       await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).click()
       await page.getByText('ACK E2E_DELIVERY:answered').waitFor()
       await send(page, 'Ask again E2E_ASK_CREDENTIAL E2E_DELIVERY:credential-again')

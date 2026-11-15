@@ -1,11 +1,16 @@
 import clsx from 'clsx'
+import { ArrowUpRight } from 'lucide-react'
 
 import { AgentAvatar } from '../../components/agent/AgentAvatar'
+import { chatTime } from '../../components/sidebar/chat-preview'
 import { t } from '../../i18n'
 
 import { inboxGroups, inboxSource } from './inboxItems'
 
 import type { InboxQuestion } from './inboxItems'
+import type { AgentConversation } from '../../api/agent-types'
+
+type Source = Pick<AgentConversation, 'sessionId' | 'title' | 'avatar' | 'agentRuntime'>
 
 /**
  * The Inbox's list in the sidebar: the open questions grouped by the Bot or
@@ -62,18 +67,43 @@ export function QuestionRail({
   )
 }
 
-/** A Bot's face, or a Task's Runtime icon. */
-export function QuestionSourceIcon({
+/** Who asked a question and when: its face or Runtime icon, its name, which opens it, and the time. */
+export function QuestionSource({
   conversation,
+  askedAt,
+  onOpen,
 }: {
-  conversation: InboxQuestion['conversation']
+  conversation: Source
+  askedAt: string
+  onOpen: () => void
 }) {
+  return (
+    <header className="flex min-w-0 items-center gap-1.5 text-[12px] leading-4 text-tertiary">
+      <QuestionSourceIcon conversation={conversation} size={14} />
+      <button
+        type="button"
+        onClick={onOpen}
+        className="flex min-w-0 items-center gap-1 font-medium text-main hover:underline"
+      >
+        <span className="truncate">{conversation.title || t('Untitled task')}</span>
+        <ArrowUpRight aria-hidden className="size-3 shrink-0" />
+      </button>
+      <span aria-hidden>·</span>
+      <time dateTime={askedAt} className="shrink-0">
+        {chatTime(askedAt)}
+      </time>
+    </header>
+  )
+}
+
+/** A Bot's face, or a Task's Runtime icon. */
+function QuestionSourceIcon({ conversation, size = 16 }: { conversation: Source; size?: number }) {
   return (
     <AgentAvatar
       agentId={conversation.sessionId}
       avatar={conversation.avatar}
       provider={conversation.agentRuntime}
-      size={16}
+      size={size}
       showBadge={false}
     />
   )
