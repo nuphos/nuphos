@@ -211,10 +211,11 @@ test('a computer with no agent still opens its own desktop, for its owner in its
       status: { agents: {}, ...status } as LocalRuntimeStatus,
       seenAt: Date.now(),
     })
-  const refused = (user: string, target = own) =>
-    expect(openRuntimeDesktop('team', user, target, { presence, open })).rejects.toThrow(
+  const refused = async (user: string, target = own) => {
+    await expect(openRuntimeDesktop('team', user, target, { presence, open })).rejects.toThrow(
       'not found',
     )
+  }
 
   // Offline: no address and nothing opens.
   expect(await computerDesktopRuntimeId(mac, 'owner', presence)).toBeUndefined()
