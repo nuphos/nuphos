@@ -24,8 +24,8 @@ export type Stack = {
   signInCode: typeof signInCode
   /** Keeps the agent from opening new sessions, as a slow start does, until the returned function is called. */
   holdSessionOpening: () => () => void
-  /** Stops OpenAB and its agents, then starts it again on the same address, as a runtime restart does. */
-  restartAgentHost: () => Promise<void>
+  /** Stops OpenAB and its agents, runs `whileDown`, then starts it again on the same address, as a runtime restart does. */
+  restartAgentHost: (whileDown?: () => Promise<void>) => Promise<void>
 }
 
 function findOpenab(): string {
@@ -166,8 +166,9 @@ export async function startStack(): Promise<Stack> {
     })
   }
   const agentHosts = [startAgentHost()]
-  const restartAgentHost = async () => {
+  const restartAgentHost = async (whileDown?: () => Promise<void>) => {
     await stop(agentHosts.at(-1)!)
+    await whileDown?.()
     agentHosts.push(startAgentHost())
     await until('OpenAB to listen again', async () =>
       fetch(`http://127.0.0.1:${String(runtimePort)}/`),

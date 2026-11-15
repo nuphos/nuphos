@@ -1,10 +1,11 @@
 // `bun run e2e`: the Desktop app against a real backend, database and OpenAB, with a
 // deterministic agent in place of a model. Each scenario is a flow a person takes.
-import { readFileSync, rmSync } from 'node:fs'
+import { rmSync } from 'node:fs'
 
 import { agentEvents, agentLog, delegatedTurn } from './agent-log.ts'
+import { backendFailures, backendLines, backendLog } from './backend-log.ts'
 import { startDesktop } from './desktop.ts'
-import { artifacts, logPath, stopAll, until } from './processes.ts'
+import { artifacts, stopAll, until } from './processes.ts'
 import { startStack } from './stack.ts'
 import { newTask, send } from './ui.ts'
 
@@ -13,21 +14,6 @@ import type { Stack } from './stack.ts'
 import type { Page } from 'playwright-core'
 
 type Scenario = { name: string; run: (page: Page, stack: Stack) => Promise<void> }
-
-// The sign-in page asks which social providers exist; this stack configures none.
-const EXPECTED_FAILURE = /"path":"\/auth\/social\/login"|Social sign-in is not configured/
-
-/** Requests the backend refused or failed, and errors it logged, since `from` lines in. */
-function backendFailures(from: number): string[] {
-  return readFileSync(logPath('backend'), 'utf8')
-    .split('\n')
-    .slice(from)
-    .filter(
-      (line) => /"level":"error"|"status":[45]\d\d/.test(line) && !EXPECTED_FAILURE.test(line),
-    )
-}
-
-const backendLines = () => readFileSync(logPath('backend'), 'utf8').split('\n').length
 
 const scenarios: Scenario[] = [
   {
@@ -181,7 +167,15 @@ const scenarios: Scenario[] = [
       await newTask(page)
       await send(page, 'Before the restart E2E_DELIVERY:before')
       await page.getByText('ACK E2E_DELIVERY:before').waitFor()
-      await stack.restartAgentHost()
+      await stack.restartAgentHost(async () => {
+        // #2901: opened while its agent host is down, the conversation is prewarmed.
+        const from = backendLines()
+
+        await page.reload()
+        await until('the app to read the conversation’s settings', async () =>
+          backendLog(from).some((line) => line.includes('/model-config"')),
+        )
+      })
       await send(page, 'After the restart E2E_DELIVERY:after')
       await page.getByText('ACK E2E_DELIVERY:after').waitFor()
       if (!agentEvents(stack).includes('loaded')) {
