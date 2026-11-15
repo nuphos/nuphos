@@ -7,7 +7,6 @@ use crate::acp::session_credentials::{
 use crate::acp::startup::{spawn_initialized, AgentCommand, LOCKED_STATE_RETRY_DELAYS};
 use crate::config::AgentConfig;
 use anyhow::{anyhow, Result};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -65,8 +64,8 @@ struct PoolState {
     /// Includes both suspended sessions and active sessions so a process restart
     /// can recover any live thread via `session/load`.
     persisted: HashMap<String, String>,
-    /// Consecutive `session/load` failures per thread_key, persisted alongside `persisted` so
-    /// the count survives a restart instead of granting a stuck session a fresh set of attempts.
+    /// Consecutive `session/load` failures per thread_key, in memory only: a restart clears them
+    /// so `thread_map.json` keeps the shape every runtime can read (see [`LoadFailure`]).
     load_failures: HashMap<String, LoadFailure>,
     /// Serializes create/resume work per thread so rapid same-thread requests
     /// cannot race each other into duplicate `session/load` attempts.
@@ -401,38 +400,35 @@ fn load_error_text(err: &JsonRpcError) -> String {
 ///
 /// Three, not one: a single failure is a blip (a locked store, an agent killed mid-load), and
 /// falling back on the first one would drop the saved context of a session that is still there.
+///
+/// The streak is in memory only, so restarting the runtime starts it over — [`LoadFailure`] says
+/// why that trade is deliberate.
 const LOAD_FAILURE_LIMIT: u32 = 3;
 
-/// A consecutive-failure streak for one thread's saved session, persisted with the thread map.
+/// A consecutive-failure streak for one thread's saved session.
+///
+/// Held in memory only, deliberately: `thread_map.json` stays the plain thread → session id map
+/// every runtime since then reads, so a rollback — or two runtimes sharing one agent home — cannot
+/// mistake the file for a corrupt one and drop every saved session id. The cost is that a restart
+/// forgets the streak, which is the safe direction: a session that can never load gets at most
+/// [`LOAD_FAILURE_LIMIT`] more tries rather than being abandoned on a count from an earlier boot.
 ///
 /// The session id is part of the value, not just the key: a streak only counts against the id it
 /// started on, so a different saved session starts over instead of inheriting failures that were
 /// never about it.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug)]
 struct LoadFailure {
     session_id: String,
     consecutive: u32,
 }
 
-/// What `thread_map.json` is written as: the resumable sessions and their failure streaks.
-#[derive(Serialize)]
-struct ThreadMapFile<'a> {
-    sessions: &'a HashMap<String, String>,
-    load_failures: &'a HashMap<String, LoadFailure>,
-}
-
-/// What `thread_map.json` may be read as: this object, or the bare `{"thread": "session id"}`
-/// map it was before failure streaks existed.
-#[derive(Deserialize)]
-#[serde(untagged)]
-enum ThreadMapFileRead {
-    Sessions(HashMap<String, String>),
-    Tracked {
-        #[serde(default)]
-        sessions: HashMap<String, String>,
-        #[serde(default)]
-        load_failures: HashMap<String, LoadFailure>,
-    },
+/// The streak length one more failure produces: `previous` continued when it was counted against
+/// the same session, and restarted at one when the saved session id changed.
+fn next_load_failure(previous: Option<&LoadFailure>, session_id: &str) -> u32 {
+    match previous {
+        Some(previous) if previous.session_id == session_id => previous.consecutive + 1,
+        _ => 1,
+    }
 }
 
 /// Escalating kill for a hung agent's process group: wait 10s after the
@@ -640,7 +636,7 @@ impl SessionPool {
         let mapping_path = openab_dir.join("thread_map.json");
         let meta_path = openab_dir.join("session_meta.json");
         let credentials_root = openab_dir.join("credentials");
-        let (suspended, load_failures) = Self::read_thread_map(&mapping_path);
+        let suspended = Self::load_mapping(&mapping_path);
         let session_workdirs = Self::load_mapping(&meta_path);
         Self {
             state: RwLock::new(PoolState {
@@ -654,7 +650,7 @@ impl SessionPool {
                 pgids: HashMap::new(),
                 persisted: suspended.clone(),
                 suspended,
-                load_failures,
+                load_failures: HashMap::new(),
                 creating: HashMap::new(),
                 session_workdirs,
                 session_mcp_servers: HashMap::new(),
@@ -706,33 +702,8 @@ impl SessionPool {
         }
     }
 
-    /// Read `thread_map.json`: the resumable sessions and their failure streaks.
-    ///
-    /// The file used to be a bare `{"thread": "session id"}` map, and files written by an older
-    /// runtime (or by hand) still are, so that shape is read as sessions with no streaks.
-    fn read_thread_map(path: &Path) -> (HashMap<String, String>, HashMap<String, LoadFailure>) {
-        let data = match std::fs::read_to_string(path) {
-            Ok(data) => data,
-            Err(_) => return (HashMap::new(), HashMap::new()),
-        };
-        match serde_json::from_str::<ThreadMapFileRead>(&data) {
-            Ok(ThreadMapFileRead::Sessions(sessions)) => (sessions, HashMap::new()),
-            Ok(ThreadMapFileRead::Tracked {
-                sessions,
-                load_failures,
-            }) => (sessions, load_failures),
-            Err(e) => {
-                warn!(path = %path.display(), error = %e, "corrupt mapping file, starting fresh");
-                (HashMap::new(), HashMap::new())
-            }
-        }
-    }
-
-    fn save_mapping(&self, state: &PoolState) {
-        let data = match serde_json::to_string_pretty(&ThreadMapFile {
-            sessions: &state.persisted,
-            load_failures: &state.load_failures,
-        }) {
+    fn save_mapping(&self, persisted: &HashMap<String, String>) {
+        let data = match serde_json::to_string_pretty(persisted) {
             Ok(d) => d,
             Err(e) => {
                 warn!(error = %e, "failed to serialize thread mapping");
@@ -826,7 +797,7 @@ impl SessionPool {
                 } else {
                     state.persisted.remove(&key);
                 }
-                self.save_mapping(&state);
+                self.save_mapping(&state.persisted);
             } else {
                 warn!(evicted = %crate::redact::redact_session_ids(&key), "pool full but eviction candidate changed before removal");
             }
@@ -916,7 +887,7 @@ impl SessionPool {
         state.pgids.remove(thread_id);
         state.persisted.insert(thread_id.to_string(), sid.clone());
         state.suspended.insert(thread_id.to_string(), sid.clone());
-        self.save_mapping(&state);
+        self.save_mapping(&state.persisted);
         Some(sid)
     }
 
@@ -1380,7 +1351,7 @@ impl SessionPool {
                 self.session_registrar.as_ref(),
             );
         }
-        self.save_mapping(&state);
+        self.save_mapping(&state.persisted);
 
         // Persist workspace override only after session spawn succeeded (口渡 F2).
         if working_dir_override.is_some() {
@@ -1400,19 +1371,16 @@ impl SessionPool {
         Ok(is_fresh)
     }
 
-    /// Count one `session/load` failure against `thread_id`'s saved session, persist the streak,
-    /// and return its new length.
+    /// Count one `session/load` failure against `thread_id`'s saved session and return the new
+    /// streak length.
     ///
     /// Called only for failures that say nothing about whether the session exists; the caller
-    /// gives up on the session once the streak reaches [`LOAD_FAILURE_LIMIT`]. Persisted, so a
-    /// restart does not hand a session that cannot load a fresh set of attempts.
+    /// gives up on the session once the streak reaches [`LOAD_FAILURE_LIMIT`]. The streak is in
+    /// memory only, so a runtime restart gives a stuck session at most [`LOAD_FAILURE_LIMIT`] more
+    /// tries — which is what keeps `thread_map.json` in the shape older runtimes can read.
     async fn record_load_failure(&self, thread_id: &str, session_id: &str) -> u32 {
         let mut state = self.state.write().await;
-        let consecutive = match state.load_failures.get(thread_id) {
-            // A streak only counts against the id it started on.
-            Some(previous) if previous.session_id == session_id => previous.consecutive + 1,
-            _ => 1,
-        };
+        let consecutive = next_load_failure(state.load_failures.get(thread_id), session_id);
         state.load_failures.insert(
             thread_id.to_string(),
             LoadFailure {
@@ -1420,7 +1388,6 @@ impl SessionPool {
                 consecutive,
             },
         );
-        self.save_mapping(&state);
         consecutive
     }
 
@@ -1604,7 +1571,7 @@ impl SessionPool {
         // guard cannot revoke — do it synchronously here too (F3).
         #[cfg(feature = "acp-mcp")]
         revoke_facade_token_for_key(&mut state, thread_id, self.session_registrar.as_ref());
-        self.save_mapping(&state);
+        self.save_mapping(&state.persisted);
         self.save_meta(&state.session_workdirs);
         if had_active {
             info!(thread_id = %crate::redact::redact_session_ids(thread_id), "session reset");
@@ -1751,7 +1718,7 @@ impl SessionPool {
                 warn!(thread_id = %crate::redact::redact_session_ids(&key), "hung session was replaced before eviction; maps untouched");
             }
         }
-        self.save_mapping(&state);
+        self.save_mapping(&state.persisted);
         self.save_meta(&state.session_workdirs);
     }
 
@@ -1781,7 +1748,7 @@ impl SessionPool {
             state.persisted.insert(key.clone(), sid.clone());
             state.suspended.insert(key, sid);
         }
-        self.save_mapping(&state);
+        self.save_mapping(&state.persisted);
         let count = state.active.len();
         state.active.clear();
         state.admission_permits.clear();
@@ -2494,35 +2461,24 @@ mod tests {
         }
     }
 
-    /// An old `thread_map.json` — a bare thread → session id map, written before failure streaks
-    /// existed — still loads, and the current shape round-trips through the reader.
+    /// A streak is counted against the session id it started on: the same id continues it, a
+    /// different one restarts at a single failure, and a cleared streak starts over.
     #[test]
-    fn an_old_thread_map_loads_and_streaks_round_trip() {
-        let dir = tempfile::tempdir().expect("tempdir");
-        let path = dir.path().join("thread_map.json");
+    fn a_streak_continues_only_for_the_same_saved_session() {
+        let counted = |session_id: &str, consecutive: u32| super::LoadFailure {
+            session_id: session_id.to_string(),
+            consecutive,
+        };
 
-        std::fs::write(&path, r#"{"acp:old": "sess_old"}"#).unwrap();
-        let (sessions, streaks) = super::SessionPool::read_thread_map(&path);
-        assert_eq!(sessions.get("acp:old"), Some(&"sess_old".to_string()));
-        assert!(streaks.is_empty(), "an old file carries no streaks: {streaks:?}");
-
-        let sessions = HashMap::from([("acp:new".to_string(), "sess_new".to_string())]);
-        let streaks = HashMap::from([(
-            "acp:new".to_string(),
-            super::LoadFailure {
-                session_id: "sess_new".to_string(),
-                consecutive: 2,
-            },
-        )]);
-        let written = serde_json::to_string(&super::ThreadMapFile {
-            sessions: &sessions,
-            load_failures: &streaks,
-        })
-        .unwrap();
-        std::fs::write(&path, written).unwrap();
-
-        let (read_sessions, read_streaks) = super::SessionPool::read_thread_map(&path);
-        assert_eq!(read_sessions.get("acp:new"), Some(&"sess_new".to_string()));
-        assert_eq!(read_streaks, streaks, "a streak must survive the round trip");
+        assert_eq!(super::next_load_failure(None, "sess_1"), 1);
+        assert_eq!(
+            super::next_load_failure(Some(&counted("sess_1", 1)), "sess_1"),
+            2
+        );
+        assert_eq!(
+            super::next_load_failure(Some(&counted("sess_1", 2)), "sess_2"),
+            1,
+            "a changed saved session must not inherit the old session's failures"
+        );
     }
 }
