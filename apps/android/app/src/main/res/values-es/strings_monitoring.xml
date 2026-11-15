@@ -1,0 +1,29 @@
+<resources>
+    <string name="monitoring_search">Buscar en supervisión</string>
+    <string name="monitoring_clear_filters">Borrar filtros</string>
+    <string name="monitoring_refresh">Actualizar</string>
+    <string name="monitoring_all_providers">Todos los proveedores</string>
+    <string name="monitoring_all_statuses">Todos los estados</string>
+    <string name="monitoring_select_team">Selecciona un equipo para ver la supervisión.</string>
+    <string name="monitoring_loading">Cargando supervisión…</string>
+    <string name="monitoring_access_denied">Acceso a la supervisión denegado. Comprueba tu pertenencia al equipo.</string>
+    <string name="monitoring_load_failed">No se pudo cargar la supervisión. %1$s</string>
+    <string name="monitoring_stale">Datos desactualizados: no se pudo actualizar. %1$s</string>
+    <string name="monitoring_provider_errors_title">No se pudieron cargar algunos proveedores</string>
+    <string name="monitoring_hide_provider_errors">Ocultar errores de proveedores</string>
+    <string name="monitoring_show_provider_errors">Mostrar errores de proveedores</string>
+    <string name="monitoring_empty_title">No hay comprobaciones de supervisión</string>
+    <string name="monitoring_empty_body">Aquí aparecen las comprobaciones compatibles de Better Stack, Grafana y GCP.</string>
+    <string name="monitoring_open_connectors">Abrir Conectores</string>
+    <string name="monitoring_no_matching_checks">Ninguna comprobación coincide</string>
+    <string name="monitoring_detail_status">Estado: %1$s</string>
+    <string name="monitoring_detail_provider">Proveedor: %1$s</string>
+    <string name="monitoring_detail_connector">Conector: %1$s</string>
+    <string name="monitoring_detail_last_incident">Último incidente: %1$s</string>
+    <string name="monitoring_detail_kind">Tipo: %1$s</string>
+    <string name="monitoring_detail_resource">Recurso: %1$s</string>
+    <string name="monitoring_detail_target">Destino: %1$s</string>
+    <string name="monitoring_open_provider">Abrir en el proveedor</string>
+    <string name="monitoring_open_provider_failed">No se pudo abrir el enlace del proveedor.</string>
+    <string name="monitoring_close">Cerrar</string>
+</resources>

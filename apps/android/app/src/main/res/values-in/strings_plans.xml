@@ -1,0 +1,40 @@
+<resources>
+    <string name="plans_title_fallback">Rencana</string>
+    <string name="plans_back">Kembali</string>
+    <string name="plans_actions">Tindakan</string>
+    <string name="plans_mark_unplanned">Tandai di luar rencana</string>
+    <string name="plans_plan_number">Rencana %1$s</string>
+    <string name="plans_untitled">Rencana tanpa judul</string>
+    <string name="plans_still_building">Agen masih menyusun rencana ini — langkah, biaya, dan risiko akan muncul sebelum rencana dapat disetujui.</string>
+    <string name="plans_decisions">Keputusan</string>
+    <string name="plans_steps">Langkah</string>
+    <string name="plans_cost">Biaya</string>
+    <string name="plans_cost_one_time">"Sekali bayar  %1$s"</string>
+    <string name="plans_cost_monthly">"Bulanan  %1$s"</string>
+    <string name="plans_cost_savings">"Penghematan  %1$s"</string>
+    <string name="plans_risk">Risiko</string>
+    <string name="plans_risk_worst_case">"Skenario terburuk  %1$s"</string>
+    <string name="plans_approval">Persetujuan</string>
+    <string name="plans_approval_requester">Peminta %1$s</string>
+    <string name="plans_approval_team">Tim %1$d/%2$d</string>
+    <string name="plans_loading">Memuat rencana…</string>
+    <string name="plans_unplan_confirm_title">Tandai rencana %1$s di luar rencana?</string>
+    <string name="plans_unplan_confirm_body">Rencana disimpan sebagai referensi, tetapi tidak akan dijalankan lagi.</string>
+    <string name="plans_error_title">Terjadi kesalahan</string>
+    <string name="plans_ok">OK</string>
+    <string name="plans_approval_notice_title">Persetujuan rencana</string>
+    <string name="plans_approval_already_recorded">Persetujuan Anda untuk rencana ini sudah tercatat.</string>
+    <string name="plans_approve_failed">Tidak dapat menyetujui rencana.</string>
+    <plurals name="plans_step_count">
+        <item quantity="other">%1$d langkah</item>
+    </plurals>
+    <plurals name="plans_job_count">
+        <item quantity="other">%1$d job</item>
+    </plurals>
+    <plurals name="plans_command_count">
+        <item quantity="other">%1$d perintah</item>
+    </plurals>
+    <plurals name="plans_approvals_recorded">
+        <item quantity="other">%1$d persetujuan tercatat.</item>
+    </plurals>
+</resources>
