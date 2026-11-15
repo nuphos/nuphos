@@ -186,6 +186,12 @@ async function prompt({ sessionId, prompt: parts }) {
   if (text.includes('E2E_ASK')) {
     await ask(sessionId, text.includes('E2E_ASK_CREDENTIAL') ? 'credential' : 'preference')
   }
+  // A Bot is woken by its chat's posts and answers there, as only channel_post can.
+  const channelId = /\(channelId ([^)]+)\)/.exec(text)?.[1]
+
+  if (channelId) {
+    await call(sessionId, 'channel_post', { label: 'Answer', channelId, text: `POSTED ${marker}` })
+  }
   // The thread's own prompt can carry its parent's words; only the parent starts one.
   if (text.includes('E2E_THREAD') && !text.includes('E2E_PERMISSION')) {
     await startThread(sessionId, marker)

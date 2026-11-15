@@ -6,6 +6,7 @@ import { agentEvents, agentLog, delegatedTurn } from './agent-log.ts'
 import { startDesktop } from './desktop.ts'
 import { artifacts, logPath, stopAll, until } from './processes.ts'
 import { startStack } from './stack.ts'
+import { newTask, send } from './ui.ts'
 
 import type { Desktop } from './desktop.ts'
 import type { Stack } from './stack.ts'
@@ -30,18 +31,6 @@ function backendFailures(from: number): string[] {
 
 const backendLines = () => readFileSync(logPath('backend'), 'utf8').split('\n').length
 
-/** Types into the conversation composer and sends. */
-async function send(page: Page, text: string) {
-  await page.getByRole('textbox', { name: 'Message' }).click()
-  await page.keyboard.type(text)
-  await page.keyboard.press('Enter')
-}
-
-async function newTask(page: Page) {
-  await page.getByRole('tab', { name: 'Tasks' }).click()
-  await page.getByRole('button', { name: 'New task', exact: true }).click()
-}
-
 const scenarios: Scenario[] = [
   {
     name: 'sign in with an email code and land in the team',
@@ -54,6 +43,21 @@ const scenarios: Scenario[] = [
       // Entering the sixth digit submits the form.
       await page.locator('input[placeholder="000000"]').fill(stack.signInCode(stack.email) ?? '')
       await page.getByText('Start with your first Bot').waitFor()
+    },
+  },
+  {
+    // The flow #2412 was reported in: a Bot's credential question with choices, answered in its chat.
+    name: 'create a Bot, talk to it in its chat, and answer its question there',
+    run: async (page, stack) => {
+      await page.getByRole('button', { name: 'New Bot', exact: true }).click()
+      await page.getByRole('textbox', { name: 'Agent name' }).fill('E2E Bot')
+      await page.getByRole('button', { name: 'Create', exact: true }).click()
+      await send(page, 'Ask me E2E_ASK_CREDENTIAL E2E_DELIVERY:bot')
+      await page.getByText('POSTED E2E_DELIVERY:bot', { exact: true }).waitFor()
+      await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).click()
+      await until('the answer in the Bot chat to reach the Bot', async () =>
+        agentEvents(stack).includes('finish E2E_DELIVERY:answered'),
+      )
     },
   },
   {
