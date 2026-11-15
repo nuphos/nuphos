@@ -198,7 +198,6 @@ export type BoxStatus = {
   updateStartedAt?: string
 }
 
-/** One of the signed-in user's devices; `box` is set when Nuphos hosts it. */
 export type DeviceMetrics = {
   sampledAt: string
   cpuPercent: number
@@ -232,6 +231,7 @@ export type AgentDevice = {
   box?: BoxStatus
   /** A Box's displays of the viewer's own conversations, besides its own :1. */
   desktops?: { display: number; sessionId: string; title: string }[]
+  desktopRuntimeId?: string // The viewer's own computer: the runtime id that opens its screen.
 }
 
 export type AgentDeviceList = {

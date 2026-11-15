@@ -5,11 +5,12 @@
 // stored: when the desktop goes, so does the entry.
 
 import { agentConversations } from '@/lib/agent/db/shared'
-import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
+import { localRuntimeId, parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { getAgentDevice } from '@/lib/agent/devices/store'
 
 import type { SessionExecutionState } from './runtime-execution-snapshot'
+import type { LocalRuntimeRef } from '@/lib/agent/devices/local-runtime/address'
 
 export type DesktopOwner = { sessionId: string; runtimeId?: string | null }
 type DeviceLabel = (userId: string, deviceId: string) => Promise<string | undefined>
@@ -106,6 +107,23 @@ export async function boxDesktops(
     .filter((desktop) => own.has(desktop.sessionId))
     .map((desktop) => ({ ...desktop, title: own.get(desktop.sessionId) ?? '' }))
     .sort((a, b) => a.display - b.display)
+}
+
+/**
+ * The runtime id the viewer's own computer opens its desktop by (runtime-desktop.ts), when its
+ * host opens one on request; a Box opens through its own link. It names the computer, which
+ * needs no agent for it: the catalog lists a runtime only per installed agent.
+ */
+export async function computerDesktopRuntimeId(
+  { userId, deviceId, box }: LocalRuntimeRef & { box?: unknown },
+  viewerId: string,
+  presence = runtimePresenceStore(),
+): Promise<string | undefined> {
+  if (box || userId !== viewerId) return undefined
+
+  return (await presence.get(userId, deviceId))?.status?.desktopOpen === true
+    ? localRuntimeId({ userId, deviceId, provider: 'claude-code' })
+    : undefined
 }
 
 export async function withSessionDesktops<T extends SessionExecutionState>(
