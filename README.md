@@ -62,11 +62,12 @@ affiliated with xAI.
 | `apps/desktop` | Electron/Vite/React client — the workspace itself                       |
 | `apps/runtime` | Claude Code / Codex container images, adapters and independent releases |
 | `apps/ios`     | SwiftUI client: pick a session back up away from your desk              |
-| `apps/android` | Jetpack Compose client for Nuphos Cloud                                 |
+| `apps/android` | Jetpack Compose client for Nuphos Cloud or a self-hosted backend        |
 
 See [`apps/android/README.md`](apps/android/README.md) for Android build and test
-instructions. The Android client currently uses Nuphos Cloud sign-in; custom
-self-hosted endpoints are not yet supported.
+instructions. The Android client defaults to Nuphos Cloud, and **Server
+settings** on its welcome screen takes the HTTPS address of a self-hosted
+backend. A self-hosted session gets no push notifications, only local ones.
 
 The agent runtime lives in [`apps/runtime`](apps/runtime) (Apache-2.0).
 Its image executes a turn, and a self-hosted deployment registers its own.
@@ -106,8 +107,9 @@ What to know before you plan around it:
 - **The runtime signs in to Claude itself**, once, from its own console. You
   supply your own account; there is no key to configure in Nuphos.
 - **Point the clients at your backend from the sign-in screen.** Desktop and
-  iOS both have a "Self-hosted? Set API endpoint" link there, and email
-  sign-in works against any backend. Emailing codes needs a Resend key;
+  iOS both have a "Self-hosted? Set API endpoint" link there, Android has
+  **Server settings** on its welcome screen, and email sign-in works against
+  any backend. Emailing codes needs a Resend key;
   without one, `nuphos-admin` in the backend image creates the first user and
   team and prints sign-in codes and server join tokens (see the
   [Helm README](deploy/helm/README.md#first-user-and-team)). A launch-time `NUPHOS_API_URL` (as
