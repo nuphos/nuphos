@@ -27,6 +27,8 @@ function harness(
   const exits: ((code: number | null) => void)[] = []
   let tunnelChange: ((connected: boolean, superseded: boolean) => void) | undefined
   let tunnelStatus: (() => LocalRuntimeTunnelStatus) | undefined
+  let tunnelRuntime: ((provider: LocalAgentProvider) => unknown) | undefined
+  const envReads: boolean[] = []
   let usage: unknown
   let usageReads = 0
   const usageEnvs: { provider: LocalAgentProvider; env: NodeJS.ProcessEnv }[] = []
@@ -42,7 +44,11 @@ function harness(
     dataDir: () => '/data',
     nodeExecPath: '/electron',
     backendUrl: 'https://api.example.com',
-    userEnv: () => Promise.resolve({ PATH: '/bin' }),
+    userEnv: (fresh = false) => {
+      envReads.push(fresh)
+
+      return Promise.resolve({ PATH: '/bin' })
+    },
     probeCli: (provider, _env, agentHome) => {
       probeHomes.push(agentHome)
 
@@ -89,7 +95,8 @@ function harness(
         return () => {}
       },
     }),
-    createTunnel: (_runtime, status, onChange) => {
+    createTunnel: (runtime, status, onChange) => {
+      tunnelRuntime = runtime
       tunnelChange = onChange
       tunnelStatus = status
 
@@ -116,6 +123,9 @@ function harness(
       tunnelChange?.(connected, superseded)
     },
     status: () => tunnelStatus?.(),
+    /** What a stream from Nuphos gets when it asks for this agent. */
+    stream: (provider: LocalAgentProvider) => tunnelRuntime?.(provider) ?? null,
+    envReads,
     reportUsage: (value: unknown) => {
       usage = value
     },
@@ -198,6 +208,30 @@ test('installing a CLI later starts that agent on the next check', async () => {
   await controller.refresh()
 
   assert.deepEqual(events, [started('codex')])
+})
+
+test('a stream asking for an agent whose CLI was missing looks for it again', async () => {
+  const cli: Partial<Record<LocalAgentProvider, AgentCliStatus>> = { codex: { installed: false } }
+  const { controller, events, stream, envReads } = harness(cli)
+
+  await controller.setUser('alice')
+  events.length = 0
+  envReads.length = 0
+
+  // Still missing: asked twice at once, it looks once, with the shell's current PATH.
+  assert.equal(stream('codex'), null)
+  assert.equal(stream('codex'), null)
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.deepEqual(envReads, [true])
+  assert.deepEqual(events, [])
+
+  // Installed since: the next ask starts it, and the one after is served by it.
+  delete cli.codex
+  assert.equal(stream('codex'), null)
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.deepEqual(events, [started('codex')])
+  assert.ok(stream('codex'))
+  assert.equal(envReads.filter(Boolean).length, 2)
 })
 
 test('a bundle staged while the app runs starts the agents without a restart', async () => {
