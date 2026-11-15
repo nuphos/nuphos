@@ -3,6 +3,7 @@ package ai.nuphos.android
 import android.content.Context
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.MutableState
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -244,20 +245,18 @@ class AccountParityFixtureDeviceTest {
             throw AssertionError("Missing $text; requests=$requests; receipt=$receipt; consent=$accepted; generation=${app.authSession.generation}; failure image in app cache", e)
         }
     }
-    /** An open keyboard can cover the target or swallow Back, so every tap and Back closes it first. */
-    private fun hideKeyboard() {
-        val instrumentation = InstrumentationRegistry.getInstrumentation()
-        // Sheets are their own windows; hide the keyboard on whichever window has focus. Never press Back for it.
-        instrumentation.runOnMainSync {
-            android.view.inspector.WindowInspector.getGlobalWindowViews().firstOrNull { it.hasWindowFocus() }
-                ?.windowInsetsController?.hide(android.view.WindowInsets.Type.ime())
+    /** An open keyboard can cover the target and take a touch, so taps invoke the click action itself. */
+    private fun tap(text: String) = compose.onNodeWithText(text).performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+    /** Back first closes an open keyboard, so press it again only while Account is still showing. */
+    private fun closeAccount() {
+        fun open() = compose.onAllNodesWithText("Edit profile").fetchSemanticsNodes().isNotEmpty()
+        repeat(2) {
+            if (!open()) return
+            assertTrue(InstrumentationRegistry.getInstrumentation().uiAutomation.performGlobalAction(
+                android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK))
+            runCatching { compose.waitUntil(3_000) { !open() } }
         }
-        val ui = instrumentation.uiAutomation
-        ui.serviceInfo = ui.serviceInfo.apply { flags = flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS }
-        compose.waitUntil(5_000) { ui.windows.none { it.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_INPUT_METHOD } }
-        compose.waitForIdle()
     }
-    private fun tap(text: String) { hideKeyboard(); compose.onNodeWithText(text).performScrollTo().performClick() }
     private fun account() {
         awaitText("Before you use AI agents")
         screenshot("consent")
@@ -267,7 +266,7 @@ class AccountParityFixtureDeviceTest {
     }
     private fun deletion() { account(); tap("Account deletion request"); awaitText("Request permanent deletion") }
     /** The profile sheet's top bar doesn't scroll, so its actions are tapped where they are. */
-    private fun tapAction(text: String) { hideKeyboard(); compose.onNodeWithText(text).performClick() }
+    private fun tapAction(text: String) = compose.onNodeWithText(text).performSemanticsAction(SemanticsActions.OnClick)
     private fun enter(label: String, value: String) = compose.onNodeWithText(label).performScrollTo().performTextReplacement(value)
     private fun submits() = count("POST", "/auth/account-deletion")
 
@@ -502,9 +501,7 @@ class AccountParityFixtureDeviceTest {
         compose.onAllNodesWithText("Updated fixture name").onFirst().assertIsDisplayed()
         assertEquals("Profile save initialized teams before agreement", 0, count("GET", "/teams"))
         assertEquals("Expected one conflict and one successful profile save", 2, count("PATCH", "/auth/me"))
-        hideKeyboard()
-        assertTrue(InstrumentationRegistry.getInstrumentation().uiAutomation.performGlobalAction(
-            android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK))
+        closeAccount()
         compose.waitUntil(8_000) { compose.onAllNodesWithText("Edit profile").fetchSemanticsNodes().isEmpty() }
         awaitText("Agree and continue")
         tap("Agree and continue")
@@ -650,9 +647,7 @@ class AccountParityFixtureDeviceTest {
         tap("Manage my account")
         awaitText("Edit profile")
         assertNotNull("Consent error removed authenticated account access", app.authSession.user)
-        hideKeyboard()
-        assertTrue(InstrumentationRegistry.getInstrumentation().uiAutomation.performGlobalAction(
-            android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK))
+        closeAccount()
         compose.waitUntil(8_000) { compose.onAllNodesWithText("Edit profile").fetchSemanticsNodes().isEmpty() }
         consentReadMode = "unsupported"
         tap("Retry loading consent")
