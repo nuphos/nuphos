@@ -91,7 +91,8 @@ export type WindowAppApi = {
   analyticsSetTeam(teamId: string | null): Promise<void>
   sendDiagnostics(): boolean
   setSendDiagnostics(send: boolean): Promise<boolean>
-  onSendDiagnosticsChanged(listener: (send: boolean) => void): () => void
+  sendUsageData(): boolean
+  onSendUsageDataChanged(listener: (send: boolean) => void): () => void
   appGetVersion(): Promise<string>
   appSetApiEndpoint(url: string | null): Promise<string>
   appGetPlatform(): Promise<string>
