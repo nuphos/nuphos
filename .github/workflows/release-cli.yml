@@ -224,6 +224,8 @@ jobs:
           for target in ${TARGETS//,/ }; do
             dir="build/local-runtime/$target"
             bun build electron/main/local-runtime/cli-host.ts --target=node --format=esm --external @napi-rs/keyring --outfile "$dir/host.mjs"
+            # The host must load under plain Node before it ships (#2749).
+            (env -u NUPHOS_AGENT_HOME node "$dir/host.mjs" 2>&1 || true) | tee /dev/stderr | grep -qF 'NUPHOS_AGENT_HOME is not set'
             ASSET="nuphos-agent-$target.tar.gz"
             tar -czf "$ASSET" -C "$dir" .
             if command -v sha256sum >/dev/null; then sha256sum "$ASSET" > "$ASSET.sha256"; else shasum -a 256 "$ASSET" > "$ASSET.sha256"; fi
