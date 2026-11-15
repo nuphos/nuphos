@@ -82,3 +82,13 @@ export function useAgentAvatarPick(agentId: string): string | null | undefined {
 export function useAgentAvatarPicks(): ReadonlyMap<string, string | null> {
   return useSyncExternalStore(subscribe, () => picks)
 }
+
+/** A Bot: a face, picked in this app since the list loaded (null: taken away) or stored. */
+export function isBotRow(
+  conversation: { avatar?: string; kind?: string },
+  picked?: string | null,
+): boolean {
+  return Boolean(
+    (picked === undefined ? conversation.avatar : picked) && conversation.kind !== 'channel',
+  )
+}
