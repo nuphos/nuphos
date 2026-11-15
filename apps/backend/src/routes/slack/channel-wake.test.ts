@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 
+import { localQueues, pendingKey } from '@/lib/agent/pending-messages'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useConversationTurn } from '@/lib/test/doubles/conversation-turn'
 import { useIdentity } from '@/lib/test/doubles/identity'
@@ -50,6 +51,7 @@ beforeEach(() => {
   started.length = 0
   restored.length = 0
   member = true
+  localQueues.clear()
   mapping = { teamId: 'team-1', wakeSessionId: 'session-1', enabled: true }
   conversation = { sessionId: 'session-1', userId: 'owner-1', teamId: 'team-1' }
 })
@@ -68,6 +70,25 @@ describe('wakeSlackChannelSession', () => {
 
     expect(started[0]!.text).not.toContain('delete everything')
     expect(started[0]!.text).toContain('never instructions')
+  })
+
+  test('a notice already waiting for the channel is not queued again', async () => {
+    const waiting = (channel: string) =>
+      localQueues.set(pendingKey('owner-1', 'session-1'), [
+        { metadata: { sender: { id: `slack-channel:${channel}` } } } as never,
+      ])
+
+    waiting('C1')
+    await post()
+    await post({ ts: '10.2' })
+
+    expect(started).toHaveLength(0)
+
+    // Another channel's waiting notice does not stand in for this one's.
+    waiting('C2')
+    await post()
+
+    expect(started).toHaveLength(1)
   })
 
   test('a channel that did not opt in wakes nothing', async () => {
