@@ -212,6 +212,11 @@ const scenarios: Scenario[] = [
       if (session?.defaults?.fast !== 'on') {
         throw new Error(`The fast Task's session was not created fast: ${JSON.stringify(session)}`)
       }
+      const refusal = log.find((entry) => entry.event === 'refused')?.detail
+
+      if (!refusal?.includes('Choose one of: off, on')) {
+        throw new Error(`A speed not on offer was not refused with the choices: ${refusal ?? ''}`)
+      }
     },
   },
 ]

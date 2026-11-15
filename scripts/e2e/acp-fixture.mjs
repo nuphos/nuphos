@@ -99,24 +99,31 @@ async function ask(sessionId, category) {
   log({ sessionId, event: 'asked', isError: refused(message) })
 }
 
+// A delegated turn names its sender by title, which carries the sender's own
+// markers, so the fixture tells such a turn by its prompt and does not delegate again.
+const CHILD = 'Child task'
+
 /** Starts a sub-agent on an agent other than this one, in fast mode when asked. */
 async function delegate(sessionId, fast) {
   const listed = await call(sessionId, 'list_agent_runtimes', { label: 'List the agents' })
   const other = listed.result?.structuredContent?.runtimes?.find((runtime) => !runtime.current)
-  const message = await call(sessionId, 'create_thread', {
-    label: 'Delegate to another agent',
-    title: 'E2E child',
-    prompt: `Child task E2E_DELIVERY:${fast ? 'child-fast' : 'child'}`,
-    runtimeId: other?.runtimeId,
-    ...(fast ? { fast: 'on' } : {}),
-  })
+  const start = (prompt, speed) =>
+    call(sessionId, 'create_thread', {
+      label: 'Delegate to another agent',
+      title: 'E2E child',
+      prompt,
+      runtimeId: other?.runtimeId,
+      ...(speed ? { fast: speed } : {}),
+    })
+  const detail = (message) => message.error?.message ?? message.result?.content?.[0]?.text
+  const message = await start(
+    `${CHILD} E2E_DELIVERY:${fast ? 'child-fast' : 'child'}`,
+    fast && 'on',
+  )
 
-  log({
-    sessionId,
-    event: 'delegated',
-    isError: refused(message),
-    detail: message.error?.message ?? message.result?.content?.[0]?.text,
-  })
+  log({ sessionId, event: 'delegated', isError: refused(message), detail: detail(message) })
+  // A speed the agent does not offer is refused, and the refusal names the ones it does.
+  if (fast) log({ sessionId, event: 'refused', detail: detail(await start(CHILD, 'warp')) })
 }
 
 async function prompt({ sessionId, prompt: parts }) {
@@ -127,7 +134,9 @@ async function prompt({ sessionId, prompt: parts }) {
   const marker = (text.match(/E2E_DELIVERY:[a-z0-9-]+/g) ?? []).at(-1) ?? 'E2E_DELIVERY:missing'
 
   log({ sessionId, marker, event: 'start' })
-  if (text.includes('E2E_DELEGATE')) await delegate(sessionId, text.includes('E2E_DELEGATE_FAST'))
+  if (text.includes('E2E_DELEGATE') && !text.includes(CHILD)) {
+    await delegate(sessionId, text.includes('E2E_DELEGATE_FAST'))
+  }
   if (text.includes('E2E_ASK')) {
     await ask(sessionId, text.includes('E2E_ASK_CREDENTIAL') ? 'credential' : 'preference')
   }
