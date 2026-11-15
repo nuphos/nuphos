@@ -1,4 +1,4 @@
-import { getSessionBypass, setSessionBypass } from '@/lib/agent/auto-mode/store'
+import { getSessionBypass, modeSource, setSessionBypass } from '@/lib/agent/auto-mode/store'
 import { getConversationBySessionId, getConversations, recordAgentEvent } from '@/lib/agent/db'
 import { openInputRequests } from '@/lib/agent/db/pending-decision'
 import { setThreadModel } from '@/lib/agent/thread-runtime'
@@ -80,6 +80,15 @@ export async function nuphosUpdateSession(
     return toolError(`Session not found: ${sessionId}`)
   }
 
+  // A Task under a Bot runs in its Bot's permission mode. Refused before
+  // anything changes, like update_thread.
+  const modeFrom = await modeSource(sessionId)
+
+  if (fullAccess !== undefined && modeFrom !== sessionId) {
+    return toolError(
+      `This Task runs in the permission mode of its Bot (session ${modeFrom}) and has none of its own. Change Full Access on the Bot.`,
+    )
+  }
   let pick: Awaited<ReturnType<typeof setThreadModel>>
 
   try {
@@ -104,5 +113,6 @@ export async function nuphosUpdateSession(
     session_id: sessionId,
     ...pick,
     full_access: await getSessionBypass(sessionId, ctx.userId),
+    ...(modeFrom === sessionId ? {} : { full_access_follows: modeFrom }),
   })
 }

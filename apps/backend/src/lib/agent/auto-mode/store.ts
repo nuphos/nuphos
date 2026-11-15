@@ -42,7 +42,7 @@ const authorizations = (): Collection<AutoModeAuthorizationsDoc> =>
   db().collection<AutoModeAuthorizationsDoc>(AUTHORIZATIONS_COLLECTION)
 
 /** The conversation whose switch `conversationId` runs under: itself unless it is a Task under a Bot. */
-async function modeSource(conversationId: string): Promise<string> {
+export async function modeSource(conversationId: string): Promise<string> {
   return (await credentialSourceOf(conversationId))?.sessionId ?? conversationId
 }
 
