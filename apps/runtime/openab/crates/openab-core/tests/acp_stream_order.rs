@@ -654,6 +654,70 @@ async fn acp_inactivity_timeout_drops_late_cancel_updates() {
     assert_failed_turn(FAILING_AGENT, "inactivity timeout", 1).await;
 }
 
+// The first process takes a prompt and never writes again, without exiting and
+// without answering `session/cancel`. A process that restored the session answers.
+const SILENT_AGENT: &str = r##"#!/bin/sh
+echo spawn >> calls
+restored=
+while IFS= read -r line; do
+  id=$(printf '%s' "$line" | sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p')
+  case "$line" in
+    *'"initialize"'*)
+      printf '{"jsonrpc":"2.0","id":%s,"result":{"agentInfo":{"name":"fake","version":"0"},"agentCapabilities":{"loadSession":true}}}\n' "$id" ;;
+    *'"session/new"'*)
+      printf '{"jsonrpc":"2.0","id":%s,"result":{"sessionId":"sess_fake"}}\n' "$id" ;;
+    *'"session/load"'*)
+      echo "load $line" >> calls
+      restored=1
+      printf '{"jsonrpc":"2.0","id":%s,"result":{}}\n' "$id" ;;
+    *'"session/prompt"'*)
+      [ -n "$restored" ] && printf '{"jsonrpc":"2.0","id":%s,"result":{"stopReason":"end_turn"}}\n' "$id" ;;
+  esac
+done
+"##;
+
+// A process that stayed silent for the whole inactivity timeout is not kept: the
+// next prompt is answered by a new process that restored the same session.
+#[cfg(unix)]
+#[tokio::test(flavor = "multi_thread")]
+async fn acp_prompt_after_an_inactivity_timeout_gets_a_new_agent_process() {
+    let _guard = env_lock();
+    let key = "acp:silent";
+    let fx = setup_with_timeout("acp", key, SILENT_AGENT, 1).await;
+    let recorder = Arc::new(RecordingAdapter::new(false));
+    let adapter: Arc<dyn ChatAdapter> = recorder.clone();
+
+    run_turn(&fx, &adapter, key).await;
+    assert!(
+        matches!(recorder.calls().last(), Some(Call::Failure { error, .. })
+        if error.contains("inactivity timeout")),
+        "{:?}",
+        recorder.calls()
+    );
+
+    fx.router
+        .pool()
+        .get_or_create(key, None, &[], None)
+        .await
+        .expect("the session is restored for the next prompt");
+    run_turn(&fx, &adapter, key).await;
+
+    let calls = std::fs::read_to_string(fx._tmp.path().join("calls")).unwrap();
+    assert_eq!(calls.matches("spawn").count(), 2, "{calls}");
+    assert!(
+        calls
+            .lines()
+            .any(|l| l.starts_with("load ") && l.contains("\"sess_fake\"")),
+        "the new process must session/load the same session: {calls}"
+    );
+    assert!(
+        matches!(recorder.calls().last(), Some(Call::Terminal { stop_reason: Some(reason), .. })
+        if reason == "end_turn"),
+        "{:?}",
+        recorder.calls()
+    );
+}
+
 // Stop answers a relayed permission request `cancelled` (gateway); the agent itself must
 // receive that answer to its `session/request_permission`, so its turn can end.
 #[tokio::test(flavor = "multi_thread")]

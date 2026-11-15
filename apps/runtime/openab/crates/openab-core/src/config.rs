@@ -1721,9 +1721,9 @@ pub struct PoolConfig {
     pub session_ttl_hours: u64,
     /// Maximum silence during a single prompt (#732). Each agent notification
     /// resets the timer, so a productive turn may run longer than this value.
-    /// Once the agent is inactive for this long, the broker abandons the
-    /// request, sends `session/cancel`, and clears the pending entry so late
-    /// responses cannot leak into the next prompt's subscriber. Time spent
+    /// Once the agent is inactive for this long, the broker fails the turn and
+    /// ends the agent process, so the next prompt starts a new process that
+    /// resumes the session instead of reusing a stalled one. Time spent
     /// awaiting a human permission decision is excluded until the pool's hung
     /// threshold, so an abandoned decision cannot pin a session forever.
     ///
