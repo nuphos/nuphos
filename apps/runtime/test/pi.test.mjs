@@ -6,7 +6,7 @@ import { test } from 'node:test'
 
 import { agentEnv } from '../image/acp-shim.mjs'
 import { listedModels, runPiLogin } from '../image/pi-login.mjs'
-import { literal, piTurnError, writePiMcpServers } from '../image/pi-session.mjs'
+import { literal, piTurnError, redactKeys, writePiMcpServers } from '../image/pi-session.mjs'
 
 const readJson = (file) => JSON.parse(readFileSync(file, 'utf8'))
 const LOGIN = { deepseek: { type: 'api_key', key: 'sk-test' } }
@@ -189,4 +189,19 @@ test('MCP values reach Pi as they are, never as a variable or a command', () => 
   assert.equal(literal('a$HOME${PATH}'), 'a$$HOME$${PATH}')
   assert.equal(literal('!rm -rf ~'), '$!rm -rf ~')
   assert.equal(literal('$!x'), '$$!x')
+})
+
+test('a provider error shown in the conversation carries no part of a key', () => {
+  assert.equal(
+    redactKeys('401 Incorrect API key provided: sk-proj-****abcd. You can find your API key'),
+    '401 Incorrect API key provided: [redacted]. You can find your API key',
+  )
+  assert.equal(
+    redactKeys('key AIzaSyA1234567890abc and Bearer xyz.123'),
+    'key [redacted] and [redacted]',
+  )
+  assert.equal(
+    redactKeys('401 {"type":"authentication_error","message":"invalid x-api-key"}'),
+    '401 {"type":"authentication_error","message":"invalid x-api-key"}',
+  )
 })
