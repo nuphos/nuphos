@@ -112,6 +112,7 @@ export async function runHermesLogin({
   run = runHermes,
   settleMs = 500,
   providers = JSON.parse(readFileSync(CATALOG, 'utf8')),
+  windows = WINDOWS,
 }) {
   const answer = async () => {
     const { value, done } = await lines.next()
@@ -131,29 +132,29 @@ export async function runHermesLogin({
     return value
   }
 
-  const id = await choose('Choose a model provider', providerOptions(providers))
-  const provider = providers.find((entry) => entry.id === id)
-  const methods = [
-    ...(provider.oauth
-      ? [{ value: 'oauth', label: 'Sign in with a browser', ...SUBSCRIPTION[id] }]
-      : []),
-    ...(provider.key ? [{ value: 'api-key', label: 'API key' }] : []),
-  ]
+  // Hermes asks for an API key, and for OpenRouter's code, with a hidden prompt, which on
+  // Windows reads the console and never stdin; those sign-ins wait for a later Hermes there.
+  const methodsOf = ({ id, oauth, key }) =>
+    [
+      ...(oauth ? [{ value: 'oauth', label: 'Sign in with a browser', ...SUBSCRIPTION[id] }] : []),
+      ...(key ? [{ value: 'api-key', label: 'API key' }] : []),
+    ].filter(({ value }) => !windows || !(value === 'api-key' || id === 'openrouter'))
+  const offered = providers.filter((entry) => methodsOf(entry).length)
+  const id = await choose(
+    windows
+      ? 'Choose a model provider. API keys cannot be added on Windows yet.'
+      : 'Choose a model provider',
+    providerOptions(offered),
+  )
+  const provider = offered.find((entry) => entry.id === id)
+  const methods = methodsOf(provider)
   const method =
     methods.length === 1 ? methods[0].value : await choose(`Sign in to ${provider.name}`, methods)
 
   if (method === 'api-key') {
     const key = await input({ message: `${provider.name} API key`, secret: true })
-    // On stdin, not the command line, where every process in the container could read it.
-    // On Windows, Python reads a hidden answer from the console, never stdin.
-    const add = run(HERMES, [
-      'auth',
-      'add',
-      id,
-      '--type',
-      'api-key',
-      ...(WINDOWS ? ['--api-key', key] : []),
-    ])
+    // On stdin, never the command line, where every process on the computer could read it.
+    const add = run(HERMES, ['auth', 'add', id, '--type', 'api-key'])
     add.write(`${key}\n`)
     add.end()
     await add.done
