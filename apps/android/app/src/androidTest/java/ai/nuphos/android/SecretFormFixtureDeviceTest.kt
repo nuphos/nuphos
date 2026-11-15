@@ -6,6 +6,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -37,6 +40,8 @@ import java.io.File
 @RunWith(AndroidJUnit4::class)
 class SecretFormFixtureDeviceTest {
     @get:Rule val compose = createComposeRule()
+
+    private val password = SemanticsMatcher.keyIsDefined(SemanticsProperties.Password)
 
     private fun ask(input: String) = ChatPart.Tool(
         toolCallId = "ask",
@@ -76,11 +81,12 @@ class SecretFormFixtureDeviceTest {
         compose.onNodeWithText("Send securely").assertIsNotEnabled()
         compose.onNodeWithTag("secret-value:ask:BIRTH_DATE").performTextInput("1990-04-12")
         compose.onNodeWithText("Send securely").assertIsEnabled()
-        compose.onNodeWithText("A123456789").assertDoesNotExist()
+        // Masked: both inputs are password fields, which is what keeps the typed text off the screen.
+        for (name in listOf("NATIONAL_ID", "BIRTH_DATE")) compose.onNodeWithTag("secret-value:ask:$name").assert(password)
         capture("form-masked")
         compose.onNodeWithTag("secret-reveal:ask").performClick()
-        compose.onNodeWithText("A123456789").assertExists()
-        compose.onNodeWithText("1990-04-12").assertExists()
+        for (name in listOf("NATIONAL_ID", "BIRTH_DATE")) compose.onNodeWithTag("secret-value:ask:$name").assert(!password)
+        compose.onNodeWithText("Hide values").assertExists()
         capture("form-revealed")
     }
 
