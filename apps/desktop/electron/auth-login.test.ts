@@ -729,5 +729,6 @@ test('asking for a sign-in code names the app, so the email can say so', async (
   await auth.requestEmailCode('dev@example.com')
 
   const { CLIENT_VERSION_VALUE } = await import('./client-version.ts')
+
   assert.deepEqual(codeRequestClients, [CLIENT_VERSION_VALUE])
 })
