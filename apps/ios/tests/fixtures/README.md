@@ -59,3 +59,10 @@ links can point at local images (`file://$FIXTURE_DIR/…`).
 runs where its runtime reports `canOpenDesktop`, so its chat header has the desktop
 button; "Release notes" has none. `BotDesktopUITests` taps the button and expects the
 desktop viewer, which cannot connect offline and shows its error with Close.
+
+# Runtimes desktop fixture
+
+`runtimes-desktop-responses.json` serves three computers: yours with a runtime, yours
+with none, and a teammate's shared with you. The device list names a desktop for the
+first two only. `RuntimesDesktopUITests` expects the Desktop button on exactly those
+and opens the one with no runtime.

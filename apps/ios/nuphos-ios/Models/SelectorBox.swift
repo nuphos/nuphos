@@ -21,6 +21,8 @@ struct AgentDevice: Decodable, Sendable {
     let box: Box?
     let metricsStatus: String?
     let metrics: Metrics?
+    /// The id this computer opens its desktop by: present on the viewer's own online computer whose host can.
+    var desktopRuntimeId: String? = nil
     /// A live, sane reading, or nil: the picker then shows no meters at all.
     var liveMetrics: Metrics? {
         guard metricsStatus == "live", let metrics, metrics.cpuPercent.isFinite, (0...100).contains(metrics.cpuPercent),
