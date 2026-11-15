@@ -103,6 +103,11 @@ android {
     kotlin {
         jvmToolchain(17)
     }
+    // Lists the values-<locale> languages in system settings, as Desktop's languages.
+    androidResources {
+        generateLocaleConfig = true
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true

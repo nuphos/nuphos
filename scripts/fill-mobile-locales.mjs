@@ -1,14 +1,20 @@
 // Fills the missing translations of the mobile apps' strings from Desktop,
 // wherever the English text is the same. Safe to run again.
 //   node scripts/fill-mobile-locales.mjs ios
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
+//   node scripts/fill-mobile-locales.mjs android
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 const desktopLocales = new URL('../apps/desktop/src/i18n/locales/', import.meta.url)
 const iosCatalog = new URL('../apps/ios/nuphos-ios/Localizable.xcstrings', import.meta.url)
 
+const androidRes = new URL('../apps/android/app/src/main/res/', import.meta.url)
+
 /** Desktop locale code to the code iOS uses for the same language. */
 const IOS_LANGUAGE = { 'zh-TW': 'zh-Hant', 'zh-CN': 'zh-Hans' }
+
+/** Desktop locale code to the Android resource qualifier of the same language. */
+const ANDROID_QUALIFIER = { 'zh-TW': 'zh-rTW', 'zh-CN': 'zh-rCN', id: 'in' }
 
 // Any placeholder, so `{name} answered` and `%@ answered` compare equal.
 export const SLOT = '\u0000'
@@ -104,6 +110,56 @@ export function catalogJSON(value, indent = '') {
   return `${open}\n${items.join(',\n')}\n${indent}${close}`
 }
 
+const ANDROID_FORMAT = /%(?:\d+\$)?([sd])/g
+const ANDROID_ENTRY = /<(string|plurals) name="(\w+)"([^>]*)>([\s\S]*?)<\/\1>/g
+const ANDROID_ESCAPES = [
+  ['&', '&amp;'],
+  ['<', '&lt;'],
+  ["'", "\\'"],
+  ['"', '\\"'],
+]
+
+/**
+ * One locale's copy of an Android strings file: the entries of `source` in
+ * their order, each kept as `localized` has it or filled from Desktop.
+ */
+export function fillStrings(source, localized, translate) {
+  const existing = new Map([...localized.matchAll(ANDROID_ENTRY)].map((m) => [m[2], m[0]]))
+  const entries = []
+  let filled = 0
+
+  for (const [, kind, name, attributes, body] of source.matchAll(ANDROID_ENTRY)) {
+    if (attributes.includes('translatable="false"')) continue
+    if (existing.has(name)) entries.push(existing.get(name))
+    // Plurals differ per language, and `%%` is left for a person as on iOS.
+    if (existing.has(name) || kind === 'plurals' || body.includes('%%')) continue
+    const english = ANDROID_ESCAPES.reduce(
+      (text, [raw, escaped]) => text.replaceAll(escaped, raw),
+      body,
+    )
+    const types = [...english.matchAll(ANDROID_FORMAT)].map((m) => m[1])
+    const value = translate(
+      english.replaceAll(ANDROID_FORMAT, SLOT),
+      types.map((type, i) => `%${i + 1}$${type}`),
+    )
+
+    if (value === undefined || (types.length > 0 && value.split('%').length - 1 !== types.length))
+      continue
+    const text = ANDROID_ESCAPES.reduce(
+      (out, [raw, escaped]) => out.replaceAll(raw, escaped),
+      value,
+    )
+
+    entries.push(`<string name="${name}">${text}</string>`)
+    filled++
+  }
+
+  return {
+    xml: `<resources>\n${entries.map((entry) => `    ${entry}\n`).join('')}</resources>\n`,
+    filled,
+  }
+}
+
 function desktopTranslators(languageOf) {
   const translators = {}
 
@@ -128,6 +184,28 @@ const TARGETS = {
     writeFileSync(iosCatalog, catalogJSON(catalog))
 
     return filled
+  },
+  android() {
+    const translators = desktopTranslators((locale) => ANDROID_QUALIFIER[locale] ?? locale)
+    const values = new URL('values/', androidRes)
+    let total = 0
+
+    for (const name of readdirSync(values).filter((file) => file.startsWith('strings'))) {
+      const source = readFileSync(new URL(name, values), 'utf8')
+
+      for (const [qualifier, translate] of Object.entries(translators)) {
+        const directory = new URL(`values-${qualifier}/`, androidRes)
+        const file = new URL(name, directory)
+        const localized = existsSync(file) ? readFileSync(file, 'utf8') : ''
+        const { xml, filled } = fillStrings(source, localized, translate)
+
+        mkdirSync(directory, { recursive: true })
+        writeFileSync(file, xml)
+        total += filled
+      }
+    }
+
+    return total
   },
 }
 
