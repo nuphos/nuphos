@@ -14,6 +14,7 @@ struct MediaPager: View {
     var load: (URL) async throws -> Void = { _ in }
     @State private var pull: CGFloat = 0
     @State private var closing = false
+    @State private var topInset: CGFloat = 0
     @Environment(\.dismiss) private var dismiss
 
     /// Whether the pager can show `url`: a video, or an image UIImage decodes.
@@ -43,12 +44,17 @@ struct MediaPager: View {
             .font(.body.weight(.medium))
             .foregroundStyle(.white)
             .padding(.horizontal, 8)
+            // With nothing above it, as on an iPhone Duo whose status bar is
+            // at the side, the bar keeps off the top edge: a touch there goes
+            // to the system's pull-down first.
+            .padding(.top, max(0, 20 - topInset))
             .opacity(pull > 0 ? 0 : 1)
             Pages(urls: urls, current: $current, pull: $pull, load: load, close: close)
                 .ignoresSafeArea(edges: [.horizontal, .bottom])
         }
         .background(Color.black.opacity(1 - min(pull / 300, 0.6)).ignoresSafeArea())
         .opacity(closing ? 0 : 1)
+        .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.top } action: { topInset = $0 }
         .presentationBackground(.clear)
     }
 
