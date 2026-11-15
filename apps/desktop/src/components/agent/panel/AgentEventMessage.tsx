@@ -9,6 +9,8 @@ import { ChatIcon } from '../../channels/channelParts'
 import { AgentAvatar } from '../AgentAvatar'
 import { MessageResponse } from '../MessageResponse'
 
+import { AnsweredNotice } from './AnsweredNotice'
+import { DECISION_NOTICE, parseDecisionNotice } from './decisionNotice'
 import { Rule } from './TimelineEventLine'
 
 import type { AgentMessageMetadata } from '../../../api/agent-types'
@@ -67,6 +69,11 @@ export function AgentEventMessage({
       </Rule>
     )
   }
+
+  // An answered question is written for the agent: people get who answered what.
+  const answered = metadata.sender.id === DECISION_NOTICE ? parseDecisionNotice(text) : null
+
+  if (answered) return <AnsweredNotice notice={answered} sentAt={metadata.sentAt} />
 
   let icon = <Avatar name={displayName} size={14} className="shrink-0 rounded-full" />
 
