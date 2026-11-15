@@ -43,7 +43,7 @@ struct BotQuestionCard: View {
             VStack(alignment: .leading, spacing: 0) {
                 if showsFrom {
                     QuestionSource(question: question, prominent: true, identifier: "botQuestion.source", open: onOpen)
-                        .padding(.bottom, 8)
+                        .padding(.bottom, 6)
                 }
                 Text(question.request.question)
                     .font(.system(size: 17, weight: .semibold))
@@ -51,11 +51,12 @@ struct BotQuestionCard: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityAddTraits(.isHeader)
                 if let body = question.ownBody {
-                    questionBody(body).padding(.top, 8)
+                    questionBody(body).padding(.top, 4)
                 }
-                answers.padding(.top, 14)
+                // "Show more" is its own 44pt of room above the answers.
+                answers.padding(.top, question.ownBody.map(BotQuestion.isLongBody) == true ? 0 : 12)
             }
-            .padding(14)
+            .padding(EdgeInsets(top: 14, leading: 16, bottom: 10, trailing: 16))
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             if let failure {
@@ -73,29 +74,27 @@ struct BotQuestionCard: View {
             DecisionForm(questions: form, onSubmit: onAnswer)
             HStack { Spacer(); skip }.padding(.top, 12)
         } else if let options {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: wide ? 10 : 8) {
                 if wide {
-                    HStack(spacing: 10) {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 10) {
-                                buttons(for: options)
-                                if question.typed, !options.isEmpty { other }
-                            }
+                    // One row, Skip at its end; long options take the row and the outlined two the next.
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 10) { buttons(for: options); other; Spacer(minLength: 10); skip }
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack(spacing: 10) { buttons(for: options) }
+                            HStack(spacing: 10) { other; Spacer(minLength: 10); skip }
                         }
-                        skip
                     }
-                    if typing || options.isEmpty { field }
+                    if typing { field }
                 } else {
                     buttons(for: options)
-                    // "Other…" gives its row to the text box; Skip keeps the right half without it.
+                    // "Other…" gives its row to the text box.
                     if typing {
                         field
                     } else {
-                        HStack(spacing: 10) {
-                            if question.typed, !options.isEmpty { other } else { Color.clear.frame(maxWidth: .infinity) }
+                        HStack(spacing: 8) {
+                            if question.typed { other } else { Color.clear.frame(maxWidth: .infinity) }
                             skip
                         }
-                        if options.isEmpty { field }
                     }
                 }
             }
@@ -105,9 +104,9 @@ struct BotQuestionCard: View {
             if wide {
                 HStack(spacing: 10) { open; Spacer(); skip }
             } else {
-                VStack(spacing: 10) {
+                VStack(spacing: 8) {
                     open
-                    HStack(spacing: 10) { Color.clear.frame(maxWidth: .infinity); skip }
+                    HStack(spacing: 8) { Color.clear.frame(maxWidth: .infinity); skip }
                 }
             }
         }
@@ -115,16 +114,20 @@ struct BotQuestionCard: View {
 
     private func buttons(for options: [String]) -> some View {
         ForEach(Array(options.enumerated()), id: \.element) { index, option in
-            InboxOption(title: option, primary: index == 0, height: wide ? 40 : 44, size: 15, fill: !wide) {
+            InboxOption(title: option, primary: index == 0, height: wide ? 40 : 44, size: wide ? 15 : 16, fill: !wide) {
                 onAnswer(DecisionAnswer(choices: [option]))
             }
         }
     }
 
-    private var other: some View {
-        InboxOutlineButton(title: String(localized: "Other…"), fill: !wide, toggled: typing) {
-            typing.toggle()
-            focused = typing
+    /// "Other…" beside options; "Reply…" when there are none. A plan or a secret is never answered in words.
+    @ViewBuilder private var other: some View {
+        let title = options?.isEmpty == true ? String(localized: "Reply…") : String(localized: "Other…")
+        if question.typed {
+            InboxOutlineButton(title: title, fill: !wide, toggled: typing) {
+                typing.toggle()
+                focused = typing
+            }
         }
     }
 
@@ -139,26 +142,17 @@ struct BotQuestionCard: View {
         }
     }
 
-    /// Four lines of the body's text.
-    private static var collapsedHeight: CGFloat {
-        #if canImport(UIKit)
-        (Theme.Text.uiFont(.subheadline).lineHeight + Theme.Text.leading) * 4
-        #else
-        96
-        #endif
-    }
-
-    /// The question's markdown body: four lines at first, the last fading out, and a full-width
+    /// The question's markdown body: four lines (84pt) at first, the last fading out, and a full-width
     /// "Show more" for the rest. The collapsed body opens it too.
     @ViewBuilder private func questionBody(_ text: String) -> some View {
         let long = BotQuestion.isLongBody(text)
         let collapsed = long && !expanded
         VStack(alignment: .leading, spacing: 0) {
             AssistantMarkdown(text: text, theme: InboxQuestionView.bodyTheme, onLink: { onLink?($0) ?? openURL($0) })
-                .frame(maxHeight: collapsed ? Self.collapsedHeight : nil, alignment: .top)
+                .frame(maxHeight: collapsed ? 84 : nil, alignment: .top)
                 .clipped()
                 .mask(LinearGradient(
-                    stops: [.init(color: .black, location: collapsed ? 0.75 : 1), .init(color: collapsed ? .clear : .black, location: 1)],
+                    stops: [.init(color: .black, location: collapsed ? 54.0 / 84 : 1), .init(color: collapsed ? .clear : .black, location: 1)],
                     startPoint: .top, endPoint: .bottom))
                 .overlay {
                     if collapsed { Color.clear.contentShape(Rectangle()).onTapGesture { expanded = true } }
@@ -166,11 +160,13 @@ struct BotQuestionCard: View {
                 .accessibilityIdentifier("botQuestion.body")
             if long {
                 Button { expanded.toggle() } label: {
-                    Text(expanded ? "Show less" : "Show more")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Theme.heading)
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                        .contentShape(Rectangle())
+                    HStack(spacing: 6) {
+                        Text(expanded ? "Show less" : "Show more").font(.system(size: 15, weight: .semibold))
+                        Image(systemName: expanded ? "chevron.up" : "chevron.down").font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundStyle(Theme.heading)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("botQuestion.more")
