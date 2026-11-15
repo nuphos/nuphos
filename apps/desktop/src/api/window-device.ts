@@ -51,6 +51,8 @@ export type WindowDeviceApi = {
   localRuntimeGetState(): Promise<LocalRuntimeState>
   onLocalRuntimeState(cb: (state: LocalRuntimeState) => void): () => void
   localRuntimeRefresh(): Promise<LocalRuntimeState>
+  /** Reads this computer's running agents' models again; true when a list changed. */
+  localRuntimeRefreshModels(): Promise<boolean>
   localRuntimeUpdateAgent(provider: LocalAgentProvider): Promise<LocalRuntimeState>
   localRuntimeInstallAgent(provider: LocalAgentProvider): Promise<LocalRuntimeState>
   localRuntimeLatestAgentVersions(): Promise<Partial<Record<LocalAgentProvider, string>>>

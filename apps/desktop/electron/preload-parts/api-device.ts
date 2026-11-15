@@ -43,6 +43,7 @@ export const deviceApi = {
     return () => ipcRenderer.off('localRuntime:state', handler)
   },
   localRuntimeRefresh: () => ipcRenderer.invoke('localRuntime:refresh'),
+  localRuntimeRefreshModels: () => ipcRenderer.invoke('localRuntime:refreshModels'),
   localRuntimeUpdateAgent: (provider: string) =>
     ipcRenderer.invoke('localRuntime:updateAgent', provider),
   localRuntimeInstallAgent: (provider: string) =>

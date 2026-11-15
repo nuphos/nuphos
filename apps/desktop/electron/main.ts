@@ -64,7 +64,8 @@ import { applyAppIcon, readAppIcon } from './main/app-icon'
 import { readPersistedThemeSource } from './main/theme'
 import { initAutoUpdaterEvents, startUpdatePolling, stopUpdatePolling } from './main/updater'
 import { initBrowserSessions } from './main/browser-sessions'
-import { initWindowSessionChannels, markAppQuitting } from './main/window-session'
+import { initWindowChannels } from './main/window-channels'
+import { markAppQuitting } from './main/window-session'
 import { focusedAppWindow, restoreWindows, showMainWindow } from './main/windows'
 import * as podExec from './pod-exec'
 import * as plaudInstall from './plaud-install'
@@ -166,7 +167,7 @@ let quitCaptured = false
 let quitTeardownRan = false
 let nodeShellCleanupAwaited = false
 
-initWindowSessionChannels()
+initWindowChannels()
 
 app.on('before-quit', (e) => {
   markAppQuitting()
