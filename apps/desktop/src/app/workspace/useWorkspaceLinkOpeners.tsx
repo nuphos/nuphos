@@ -1,7 +1,6 @@
 import { useCallback, useEffect } from 'react'
 
 import { hydrateNavigationCredentialState } from '../../app/accountScopes'
-import { navigationFromMentionTarget } from '../../app/mentionNavigation'
 import { scopeChip } from '../../app/scopeChip'
 import {
   createWorkspaceTab,
@@ -15,13 +14,13 @@ import {
   pageLocationForNavigation,
   teamIdFromAppPath,
 } from '../../lib/appRoutes'
-import { parseAtlasLink } from '../../lib/atlasLinkMention'
 import { isConnectorsPage } from '../../lib/connectorScopeCrumb'
 import { requestArtifactOpen } from '../../lib/sessionArtifacts'
 import { isTeamId } from '../../lib/teamId'
 import { ATLAS_WEB_BASE_URL, toAbsoluteAtlasUrl } from '../../lib/webBaseUrl'
 import { settingsLinkTarget, settingsSectionForPage } from '../../views/settings/settingsNav'
 
+import { navigationForLink } from './linkNavigation'
 import { connectorsDialogOf } from './store/connectorsDialog'
 import { selectActiveTab, selectCurrentBucket, selectScope } from './store/workspaceState'
 import { useWorkspacePane } from './WorkspacePaneContext'
@@ -43,8 +42,6 @@ import type { WorkspaceTeamsResult } from './useWorkspaceTeams'
 import type { WorkspaceToolbarResult } from './useWorkspaceToolbar'
 import type { WorkspaceProps } from './workspaceProps'
 import type { AppOpenDeepLinkPayload } from '../../api'
-
-const ROUTE_TABLE_FIRST = new Set<string>(['cluster', 'github-repo', 'github-pr', 'agent-session'])
 
 type Args = WorkspaceProps &
   WorkspaceShellStateResult &
@@ -106,16 +103,7 @@ export function useWorkspaceLinkOpeners(a: Args) {
       if (!isRelativeNuphosLink && !isCanonicalNuphosLink) return false
       if (!url.pathname.startsWith('/teams/')) return false
 
-      // Resource-level mention links first (they carry filter/label niceties), but
-      // the route table reads ROUTE_TABLE_FIRST's queries (a chat's `?artifact=`),
-      // and section pages, drill-downs and legacy aliases.
-      const target = parseAtlasLink(url.toString())
-      const mentionNavigation =
-        target && !ROUTE_TABLE_FIRST.has(target.type) ? navigationFromMentionTarget(target) : null
-      const navigation =
-        mentionNavigation ??
-        navigationFromAppPath(`${url.pathname}${url.search}`) ??
-        (target ? navigationFromMentionTarget(target) : null)
+      const navigation = navigationForLink(url)
 
       if (!navigation) return false
       const settingsTarget = settingsLinkTarget(
