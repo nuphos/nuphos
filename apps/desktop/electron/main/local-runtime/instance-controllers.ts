@@ -94,10 +94,13 @@ export class InstanceControllers {
     )
   }
 
+  /** The added agent a stream asks for. */
   runtime(instanceId: string, provider: LocalAgentProvider): RunningRuntime | null {
     const entry = this.entries.get(instanceId)
 
-    return entry?.metadata.provider === provider ? entry.controller.runtime(provider) : null
+    return entry?.metadata.provider === provider
+      ? entry.controller.runtimeForStream(provider)
+      : null
   }
 
   states(online: boolean) {

@@ -18,8 +18,8 @@ export function instanceControllerDeps(
   return {
     ...deps,
     dataDir: () => dir,
-    userEnv: async () => ({
-      ...(await deps.userEnv()),
+    userEnv: async (fresh) => ({
+      ...(await deps.userEnv(fresh)),
       ...secureStorageEnv(dir, userId),
     }),
     prepareAgentHome: prepareIsolatedAgentHome,
