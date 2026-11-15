@@ -68,8 +68,8 @@
     <string name="chat_image_close">Tutup</string>
     <string name="chat_image_reset_zoom">Atur ulang zoom</string>
     <string name="chat_video_save">Simpan video</string>
-    <string name="chat_image_previous">Gambar sebelumnya</string>
-    <string name="chat_image_next">Gambar berikutnya</string>
+    <string name="chat_image_previous">Sebelumnya</string>
+    <string name="chat_image_next">Berikutnya</string>
     <string name="chat_image_zoom_in">Perbesar</string>
     <string name="chat_image_zoom_percent">Zoom %1$d%%</string>
     <string name="chat_video_position">Video %1$d dari %2$d</string>

@@ -86,12 +86,12 @@ class MessageImagesFixtureDeviceTest {
         page(1).assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "100 percent zoom"))
         page(1).performTouchInput { swipeLeft() }
         ready(2)
-        compose.onNodeWithText("Previous image").performClick()
+        compose.onNodeWithText("Previous").performClick()
         ready(1)
-        compose.onNodeWithText("Previous image").performClick()
+        compose.onNodeWithText("Previous").performClick()
         ready(5)
         screenshot("synthetic-image-fifth")
-        compose.onNodeWithText("Next image").performClick()
+        compose.onNodeWithText("Next").performClick()
         ready(1)
         compose.onNodeWithText("Close").performClick()
         compose.onNodeWithText("1 / 5").assertDoesNotExist()
@@ -167,7 +167,7 @@ class MessageImagesFixtureDeviceTest {
         page(3).performTouchInput { doubleClick() }
         screenshot("synthetic-image-dark-zoom")
         compose.onNodeWithText("Reset zoom").performClick()
-        compose.onNodeWithText("Next image").performClick()
+        compose.onNodeWithText("Next").performClick()
         ready(4)
         compose.onNodeWithText("Close").performClick()
     }

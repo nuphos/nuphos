@@ -100,10 +100,11 @@ class ChannelFilesFixtureDeviceTest {
             post("p4", 3, "One group gone, one fine:", downloads = listOf("gD1", "gD2")),
             post("p5", 4, "Both groups gone:", uploads = listOf(TransferUpload("gE1", listOf("old-a.png")), TransferUpload("gE2", listOf("old-b.png"))), agent = false),
         )
+        val agents = ai.nuphos.android.session.AgentStore("synthetic-no-credentials", androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext)
         compose.setContent {
             NuphosTheme(darkTheme = dark) {
                 androidx.compose.material3.Surface {
-                    ChannelTranscript(session, ChannelPost.items(posts, emptyList(), emptyList()), viewerId = "me", onLink = {}, downloads = storage)
+                    androidx.compose.runtime.CompositionLocalProvider(ai.nuphos.android.ui.LocalAgentStore provides agents) { ChannelTranscript(session, ChannelPost.items(posts, emptyList(), emptyList()), viewerId = "me", onLink = {}, downloads = storage) }
                 }
             }
         }
@@ -134,9 +135,9 @@ class ChannelFilesFixtureDeviceTest {
         compose.onNodeWithContentDescription("three.png").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithText("3 / 3").fetchSemanticsNodes().isNotEmpty() }
         shot("channel-files-pager")
-        compose.onNodeWithText("Next image").performClick()
+        compose.onNodeWithText("Next").performClick()
         compose.onNodeWithText("1 / 3").assertExists()
-        compose.onNodeWithText("Next image").performClick()
+        compose.onNodeWithText("Next").performClick()
         compose.onNodeWithText("2 / 3").assertExists()
         compose.onNodeWithText("Close").performClick()
         compose.onNodeWithText("2 / 3").assertDoesNotExist()
