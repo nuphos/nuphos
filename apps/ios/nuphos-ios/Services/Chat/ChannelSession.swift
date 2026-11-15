@@ -140,6 +140,11 @@ final class ChannelSession {
         Task { await questions.answer(question, with: answer) }
     }
 
+    /// Withdraws a question unanswered, as the desktop's dismissal does: it wakes no one.
+    func skip(_ question: BotQuestion) {
+        Task { await questions.dismiss(question) }
+    }
+
     // MARK: - Posting
 
     /// Shown at once; files upload first, then the post goes out with their group.

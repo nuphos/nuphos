@@ -118,7 +118,7 @@ struct InboxQuestionView: View {
     }
 
     /// The body as the design sets it: 15pt in the body color, 12 between paragraphs and 8 between list items.
-    private static var bodyTheme: MarkdownTheme {
+    static var bodyTheme: MarkdownTheme {
         var theme = AssistantMarkdown.theme
         #if canImport(UIKit)
         theme.colors.body = UIColor(Theme.body)
@@ -132,31 +132,11 @@ struct InboxQuestionView: View {
         return theme
     }
 
-    /// The source's icon and name, which opens it, then when it asked. On iPhone the name is
-    /// muted like the time, since the bar's ↗ opens it too; wide, it is dark with its own ↗.
+    /// On iPhone the name is muted like the time, since the bar's ↗ opens it too.
     private var source: some View {
-        HStack(spacing: 6) {
-            Button { open(link: question.link(team: inbox.teamId)) } label: {
-                HStack(spacing: 6) {
-                    AgentAvatar(agentId: question.sessionId, runtime: question.runtime, size: 16, showBadge: false)
-                    Text(question.title).lineLimit(1)
-                        .fontWeight(wide ? .medium : .regular)
-                        .foregroundStyle(wide ? Theme.heading : Theme.muted)
-                    if wide {
-                        Image(systemName: "arrow.up.right").font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(Theme.heading)
-                    }
-                }
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("inbox.source")
-            if let asked = question.askedDate {
-                Text("·")
-                Text(HistoryTime.format(asked)).lineLimit(1)
-            }
+        QuestionSource(question: question, prominent: wide, identifier: "inbox.source") {
+            open(link: question.link(team: inbox.teamId))
         }
-        .font(.system(size: 13))
-        .foregroundStyle(Theme.muted)
     }
 
     @ViewBuilder private var answers: some View {
@@ -211,31 +191,9 @@ struct InboxQuestionView: View {
         focused = typing
     }
 
-    /// The answer in words, with its send button.
     private var field: some View {
-        HStack(spacing: 8) {
-            TextField("Your answer", text: $words, axis: .vertical)
-                .font(.system(size: 16))
-                .lineLimit(1...5)
-                .focused($focused)
-                .onSubmit(sendWords)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 11)
-                .frame(minHeight: 44)
-                .background(Theme.chatCanvas, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Theme.faint, lineWidth: 1))
-            Button(action: sendWords) {
-                Image(systemName: "arrow.up")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(Theme.chatCanvas)
-                    .frame(width: 44, height: 44)
-                    .background(Theme.heading, in: Circle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Send answer")
-            .disabled(words.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-        }
-        .padding(.horizontal, wide ? 0 : -4)
+        AnswerField(words: $words, focused: $focused, send: sendWords)
+            .padding(.horizontal, wide ? 0 : -4)
     }
 
     private var otherButton: some View {
@@ -296,8 +254,8 @@ struct InboxQuestionView: View {
     }
 }
 
-/// An Inbox answer as a capsule: the first one dark, the rest light.
-private struct InboxOption: View {
+/// An answer as a capsule, in the Inbox and on a chat's question card: the first one dark, the rest light.
+struct InboxOption: View {
     let title: String
     let primary: Bool
     let height: CGFloat
@@ -322,7 +280,7 @@ private struct InboxOption: View {
 
 /// Other… and Skip: an outlined capsule, filled light instead while toggled. Half the row on
 /// iPhone at 44pt; wide, as wide as its title at 40pt.
-private struct InboxOutlineButton: View {
+struct InboxOutlineButton: View {
     let title: String
     let fill: Bool
     var toggled = false
@@ -344,5 +302,71 @@ private struct InboxOutlineButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(toggled ? .isSelected : [])
+    }
+}
+
+/// Who asked: the source's icon and name, which opens it, then when it asked. `prominent`, the
+/// name is dark with its own ↗.
+struct QuestionSource: View {
+    let question: BotQuestion
+    let prominent: Bool
+    let identifier: String
+    let open: () -> Void
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Button(action: open) {
+                HStack(spacing: 6) {
+                    AgentAvatar(agentId: question.sessionId, runtime: question.runtime, size: 16, showBadge: false)
+                    Text(question.title).lineLimit(1)
+                        .fontWeight(prominent ? .medium : .regular)
+                        .foregroundStyle(prominent ? Theme.heading : Theme.muted)
+                    if prominent {
+                        Image(systemName: "arrow.up.right").font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Theme.heading)
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier(identifier)
+            if let asked = question.askedDate {
+                Text("·")
+                Text(HistoryTime.format(asked)).lineLimit(1)
+            }
+        }
+        .font(.system(size: 13))
+        .foregroundStyle(Theme.muted)
+    }
+}
+
+/// The answer in words, with its send button.
+struct AnswerField: View {
+    @Binding var words: String
+    var focused: FocusState<Bool>.Binding
+    let send: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            TextField("Your answer", text: $words, axis: .vertical)
+                .font(.system(size: 16))
+                .lineLimit(1...5)
+                .focused(focused)
+                .onSubmit(send)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 11)
+                .frame(minHeight: 44)
+                .background(Theme.chatCanvas, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Theme.faint, lineWidth: 1))
+            Button(action: send) {
+                Image(systemName: "arrow.up")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Theme.chatCanvas)
+                    .frame(width: 44, height: 44)
+                    .background(Theme.heading, in: Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Send answer")
+            .disabled(words.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
     }
 }

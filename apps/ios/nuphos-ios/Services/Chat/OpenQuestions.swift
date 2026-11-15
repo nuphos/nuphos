@@ -111,12 +111,27 @@ final class OpenQuestions {
     /// Answers a question: the server wakes the agent that asked with the answer, and no
     /// message is sent. Hidden at once; if the answer is refused, the question comes back with why.
     func answer(_ question: BotQuestion, with answer: DecisionAnswer) async {
+        await close(question) {
+            _ = try await AgentChatAPI.send(
+                "POST", "agent/conversations/\(question.sessionId)/decisions/\(question.request.id)/answer",
+                query: [URLQueryItem(name: "teamId", value: self.teamId)], token: self.token, body: answer.json)
+        }
+    }
+
+    /// Withdraws a question unanswered: it wakes no one. Hidden at once, and back with why if refused.
+    func dismiss(_ question: BotQuestion) async {
+        await close(question) {
+            try await AgentChatAPI.resolveDecision(
+                token: self.token, teamId: self.teamId, sessionId: question.sessionId,
+                requestId: question.request.id, resolution: "dismissed")
+        }
+    }
+
+    private func close(_ question: BotQuestion, _ request: () async throws -> Void) async {
         answered.insert(question.id)
         failures[question.id] = nil
         do {
-            _ = try await AgentChatAPI.send(
-                "POST", "agent/conversations/\(question.sessionId)/decisions/\(question.request.id)/answer",
-                query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: answer.json)
+            try await request()
         } catch {
             answered.remove(question.id)
             failures[question.id] = error.localizedDescription

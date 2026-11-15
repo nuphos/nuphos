@@ -139,21 +139,11 @@ final class InboxUITests: XCTestCase {
 
     /// In a Bot's chat too, "Other…" asks for the answer in the card, not in the chat's composer.
     func testOtherAnswersInWordsInABotChat() throws {
-        // The release chat as a Bot's 1:1, whose own questions show in it.
-        var detail = try XCTUnwrap(responses["GET /agent/conversations/chat-release"] as? [String: Any])
-        var body = try XCTUnwrap(detail["body"] as? [String: Any])
-        body["faces"] = [["id": "bot-release", "name": "Release Lead", "agent": ["avatar": "05"]]]
-        detail["body"] = body
-        responses["GET /agent/conversations/chat-release"] = detail
         let ask = { (row: [String: Any]) in (row["inputRequests"] as? [[String: Any]])?.first ?? [:] }
         var own = InboxUITests.row("bot-release", "Release Lead", ask(deploy))
         own["inputRequests"] = [ask(deploy), ask(plan)]
-        try listQuestions([own])
-        app = launch()
-        app.staticTexts["release-planning"].firstMatch.tap()
-        XCTAssertTrue(app.staticTexts["Roll out 1.4 to production?"].waitForExistence(timeout: 15),
-                      "The Bot's question is not in its chat")
-        XCTAssertEqual(app.buttons.matching(Self.typedAnswer).count, 1, "Other… on the plan, or missing")
+        try openBotChat(listing: [own])
+        XCTAssertEqual(app.buttons.matching(identifier: "Other…").count, 1, "Other… on the plan, or missing")
         shot("7-bot-chat")
 
         app.buttons["Other…"].firstMatch.tap()
@@ -162,6 +152,63 @@ final class InboxUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH %@", "Replying to")).firstMatch.exists,
                        "The chat's composer quotes the question")
         shot("8-bot-chat-other-typed")
+    }
+
+    /// A Bot's chat shows a question as the Inbox does: the question as the heading under who asked,
+    /// the first option first, "Other…", "Skip" and "Show more" each a full touch target. Skip
+    /// withdraws it unanswered.
+    func testABotChatCardLeadsWithTheQuestionAndSkips() throws {
+        responses["POST /agent/conversations/agent-ops/decisions/q-deploy/resolve"] = ["status": 200, "body": ["ok": true]]
+        // Asked by a Task under the Bot, with more to read than four lines.
+        var task = deploy
+        task["parentSessionId"] = "bot-release"
+        var request = (task["inputRequests"] as? [[String: Any]])?.first ?? [:]
+        request["body"] = (1...8).map { "Finding \($0): the canary held for thirty minutes." }.joined(separator: "\n\n")
+        task["inputRequests"] = [request]
+        try openBotChat(listing: [task])
+        shot("13-bot-chat-card")
+
+        let heading = app.staticTexts["Roll out 1.4 to production?"]
+        for label in ["Approval needed", "Decision needed", "From Release ops"] {
+            XCTAssertFalse(app.staticTexts[label].exists || app.buttons[label].exists, "The card still shows “\(label)”")
+        }
+        XCTAssertEqual(app.buttons["botQuestion.source"].label, "Release ops", "The source line does not name who asked")
+        let options = ["Ship it", "Wait for QA"].map { app.buttons[$0].frame }
+        let wide = app.windows.firstMatch.horizontalSizeClass == .regular
+        XCTAssertTrue(wide ? options[0].minX < options[1].minX : options[0].minY < options[1].minY, "The first option is not first")
+
+        // Touch targets: 44pt on iPhone; wide, 40pt capsules. "Show more" spans the card.
+        for label in ["Other…", "Skip"] {
+            XCTAssertGreaterThanOrEqual(app.buttons[label].frame.height, wide ? 40 : 44, "\(label) is too small to hit")
+        }
+        if !wide {
+            XCTAssertEqual(app.buttons["Other…"].frame.width, app.buttons["Skip"].frame.width, accuracy: 1, "Not two halves")
+            XCTAssertEqual(app.buttons["Other…"].frame.minY, app.buttons["Skip"].frame.minY, accuracy: 1, "Not side by side")
+        }
+        let more = app.buttons["botQuestion.more"]
+        XCTAssertGreaterThanOrEqual(more.frame.height, 44, "Show more is too small to hit")
+        XCTAssertEqual(more.frame.width, options[0].union(app.buttons["Skip"].frame).width, accuracy: 1, "Show more is not full-width")
+        XCTAssertEqual(more.label, "Show more")
+        more.tap()
+        XCTAssertEqual(more.label, "Show less")
+        shot("14-bot-chat-card-expanded")
+
+        app.buttons["Skip"].tap()
+        XCTAssertTrue(heading.waitForNonExistence(timeout: 5), "Skip left the question in the chat")
+    }
+
+    /// Opens the release chat as a Bot's 1:1, where the Bot's questions and those under it show.
+    private func openBotChat(listing: [[String: Any]]) throws {
+        var detail = try XCTUnwrap(responses["GET /agent/conversations/chat-release"] as? [String: Any])
+        var body = try XCTUnwrap(detail["body"] as? [String: Any])
+        body["faces"] = [["id": "bot-release", "name": "Release Lead", "agent": ["avatar": "05"]]]
+        detail["body"] = body
+        responses["GET /agent/conversations/chat-release"] = detail
+        try listQuestions(listing)
+        app = launch()
+        app.staticTexts["release-planning"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["Roll out 1.4 to production?"].waitForExistence(timeout: 15),
+                      "The question is not in the Bot's chat")
     }
 
     /// An integration question is answered in the Inbox: its conversation's credential picker
@@ -259,8 +306,6 @@ final class InboxUITests: XCTestCase {
         app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier == %@ AND label == %@", "inbox.row", question)).firstMatch
     }
-
-    private static let typedAnswer = NSPredicate(format: "label IN %@", ["Other…", "Reply…"])
 
     private func launch(page: String? = nil) -> XCUIApplication {
         let app = XCUIApplication()
