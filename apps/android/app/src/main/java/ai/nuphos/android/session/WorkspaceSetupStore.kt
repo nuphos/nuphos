@@ -7,6 +7,7 @@ import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.data.WorkspaceTransport
 import ai.nuphos.android.data.WorkspaceAlreadyMember
 import ai.nuphos.android.model.Team
+import ai.nuphos.android.R
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -38,7 +39,10 @@ class WorkspaceSetupStore(
     private val applyMemberships: (List<Team>, Team?) -> Boolean,
     private val expired: () -> Unit,
     private val review: WorkspaceWriteReview = WorkspaceWriteReview(),
+    /** Messages for the sheet; absent in JVM tests, where they read as empty. */
+    private val strings: android.content.res.Resources? = null,
 ) {
+    private fun text(id: Int, vararg args: Any): String = strings?.getString(id, *args).orEmpty()
     var state by mutableStateOf(WorkspaceSetupState(reviewRequired = review.required))
         private set
     private var generation = 0L
@@ -52,7 +56,7 @@ class WorkspaceSetupStore(
     fun close() {
         active = false; generation++
         if (writePending) state = state.copy(reviewRequired = true, reconciled = false,
-            message = "The request may have saved a workspace. Refresh and review your saved workspaces before continuing.")
+            message = text(R.string.shell_workspace_closed_pending))
         job?.cancel(); job = null; writePending = false
         state = state.copy(busy = false)
     }
@@ -74,7 +78,7 @@ class WorkspaceSetupStore(
                     if (e is CancellationException) throw e
                     if (current(ticket)) {
                         if (e is NuphosApi.Failure.Unauthorized) expired()
-                        else state = state.copy(discoveryError = "We could not load workspaces to join. ${errorText(e)}")
+                        else state = state.copy(discoveryError = text(R.string.shell_workspace_discovery_failed, errorText(e)))
                     }
                 }
             } catch (e: Exception) {
@@ -85,7 +89,7 @@ class WorkspaceSetupStore(
     }
     fun create(name: String) {
         if (name.trim().length !in 1..80) {
-            if (!state.busy) state = state.copy(error = "Use a workspace name with 1–80 characters.")
+            if (!state.busy) state = state.copy(error = text(R.string.shell_workspace_name_length))
             return
         }
         write(null) { api.create(name.trim()) }
@@ -117,7 +121,7 @@ class WorkspaceSetupStore(
                 if (!current(ticket)) return@launch
                 // From here, even a failed read must not enable another POST.
                 state = state.copy(reviewRequired = true,
-                    message = "The request may have saved a workspace. Review your saved workspaces before continuing.")
+                    message = text(R.string.shell_workspace_review_pending))
                 val saved = api.memberships()
                 if (!current(ticket)) return@launch
                 val verified = if (uncertain) null else saved.firstOrNull { it.id == target }
@@ -125,8 +129,8 @@ class WorkspaceSetupStore(
                 review.required = verified == null
                 state = state.copy(memberships = saved, reconciled = true,
                     reviewRequired = review.required,
-                    message = if (verified != null) "Workspace selected: ${verified.name}" else
-                        "We could not identify the saved result. Review your saved workspaces; no request was sent again.")
+                    message = if (verified != null) text(R.string.shell_workspace_selected, verified.name) else
+                        text(R.string.shell_workspace_unidentified))
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 if (current(ticket)) fail(e)
@@ -139,12 +143,12 @@ class WorkspaceSetupStore(
     fun reviewSaved(id: String) {
         if (!active || !sourceCurrent() || state.busy || !state.reconciled) return
         val saved = state.memberships.firstOrNull { it.id == id } ?: return
-        if (applyMemberships(state.memberships, saved)) state = state.copy(message = "Workspace selected: ${saved.name}")
+        if (applyMemberships(state.memberships, saved)) state = state.copy(message = text(R.string.shell_workspace_selected, saved.name))
     }
     fun confirmReviewed() {
         if (active && sourceCurrent() && !state.busy && state.reconciled) {
             review.required = false
-            state = state.copy(reviewRequired = false, message = "Review complete. A new action can create or join another workspace.")
+            state = state.copy(reviewRequired = false, message = text(R.string.shell_workspace_review_complete))
         }
     }
     private fun fail(e: Exception) {
@@ -152,10 +156,10 @@ class WorkspaceSetupStore(
         else state = state.copy(error = errorText(e))
     }
     private fun errorText(e: Exception) = when {
-        e is NuphosApi.Failure.Http && e.code == 403 -> "You are not allowed to join this workspace."
-        e is NuphosApi.Failure.Http && e.code == 404 -> "This workspace is no longer available."
-        e is NuphosApi.Failure.Http && e.code == 400 -> "The workspace request was rejected. Check the name or refresh the list."
-        e is NuphosApi.Failure.Http && e.code == 409 -> "The workspace request conflicts with saved state. Refresh your workspaces."
-        else -> "We could not confirm the result. Refresh your saved workspaces."
+        e is NuphosApi.Failure.Http && e.code == 403 -> text(R.string.shell_workspace_forbidden)
+        e is NuphosApi.Failure.Http && e.code == 404 -> text(R.string.shell_workspace_gone)
+        e is NuphosApi.Failure.Http && e.code == 400 -> text(R.string.shell_workspace_rejected)
+        e is NuphosApi.Failure.Http && e.code == 409 -> text(R.string.shell_workspace_conflict)
+        else -> text(R.string.shell_workspace_unconfirmed)
     }
 }

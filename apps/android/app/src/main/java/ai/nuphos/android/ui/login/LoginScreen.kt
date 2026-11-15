@@ -116,7 +116,8 @@ fun LoginScreen(
                         Text(stringResource(R.string.welcome_title), style = MaterialTheme.typography.displaySmall,
                             color = MaterialTheme.colorScheme.onBackground, textAlign = TextAlign.Center)
                         TextButton(onClick = { showServer = true }, enabled = !busy) {
-                            Text(if (ai.nuphos.android.data.BackendOrigin.isCloud(origin)) "Nuphos Cloud · Server settings" else "$origin · Server settings")
+                            Text(if (ai.nuphos.android.data.BackendOrigin.isCloud(origin)) stringResource(R.string.shell_server_cloud_settings)
+                                else stringResource(R.string.shell_server_custom_settings, origin))
                         }
                         Spacer(Modifier.height(8.dp))
                         Text(stringResource(R.string.welcome_body), style = MaterialTheme.typography.bodyLarge,
@@ -128,7 +129,7 @@ fun LoginScreen(
                             }
                         }
                         if (auth.addingFrom != null) TextButton(onClick = auth::cancelAddAccount, enabled = !busy) {
-                            Text("Cancel adding account")
+                            Text(stringResource(R.string.shell_cancel_adding_account))
                         }
                     }
                 },
@@ -136,11 +137,11 @@ fun LoginScreen(
                     when (val current = options) {
                         ProviderOptions.Loading -> Unit
                         ProviderOptions.Failed -> TextButton(onClick = ::refresh, enabled = !busy,
-                            modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("Retry sign-in options") }
+                            modifier = Modifier.align(Alignment.CenterHorizontally)) { Text(stringResource(R.string.shell_retry_sign_in_options)) }
                         is ProviderOptions.Ready -> if (current.providers.isNotEmpty()) {
                             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                                 HorizontalDivider(Modifier.weight(1f))
-                                Text("or", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                Text(stringResource(R.string.shell_or), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(horizontal = 12.dp))
                                 HorizontalDivider(Modifier.weight(1f))
                             }
@@ -149,7 +150,7 @@ fun LoginScreen(
                                     onClick = { activity?.let { auth.signIn(it, provider) } },
                                     enabled = !busy && activity != null,
                                     modifier = Modifier.fillMaxWidth().height(52.dp),
-                                ) { Text("Continue with ${provider.title}", style = MaterialTheme.typography.titleMedium) }
+                                ) { Text(stringResource(R.string.shell_continue_with, provider.title), style = MaterialTheme.typography.titleMedium) }
                             }
                         }
                     }
@@ -191,18 +192,19 @@ fun SplashScreen(modifier: Modifier = Modifier) {
 private fun MfaLoginContent(auth: ai.nuphos.android.session.AuthSession) {
     androidx.activity.compose.BackHandler { auth.cancelMfa() }
     Column(Modifier.fillMaxSize().padding(24.dp).padding(top = 72.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text("Two-factor authentication", style = MaterialTheme.typography.headlineMedium,
+        Text(stringResource(R.string.shell_two_factor_title), style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onBackground)
-        Text("Enter the 6-digit code from your authenticator app.", style = MaterialTheme.typography.bodyLarge,
+        Text(stringResource(R.string.shell_two_factor_body), style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         val activity = androidx.activity.compose.LocalActivity.current
-        ai.nuphos.android.ui.MfaCodeForm("Sign in", onSubmit = { code ->
+        val expiredMessage = stringResource(R.string.shell_sign_in_expired)
+        ai.nuphos.android.ui.MfaCodeForm(stringResource(R.string.sign_in), onSubmit = { code ->
             kotlinx.coroutines.suspendCancellableCoroutine<Unit> { done ->
                 // A refused code comes back here; a success leaves this screen.
                 auth.verifyMfa(code) { message -> done.resumeWith(Result.failure(Exception(message))) }
             }
         }, passkey = if (activity == null) null else ({
-            val challenge = auth.mfaChallenge ?: throw IllegalStateException("This sign-in has expired. Sign in again.")
+            val challenge = auth.mfaChallenge ?: throw IllegalStateException(expiredMessage)
             val answer = ai.nuphos.android.data.Passkeys.answer(
                 activity, ai.nuphos.android.data.AccountApi("").signInPasskeyOptions(challenge),
             )
@@ -210,6 +212,6 @@ private fun MfaLoginContent(auth: ai.nuphos.android.session.AuthSession) {
                 auth.verifyMfaPasskey(answer) { message -> done.resumeWith(Result.failure(Exception(message))) }
             }
         }))
-        TextButton(onClick = auth::cancelMfa) { Text("Back to sign-in") }
+        TextButton(onClick = auth::cancelMfa) { Text(stringResource(R.string.shell_back_to_sign_in)) }
     }
 }

@@ -65,6 +65,8 @@ import com.mikepenz.markdown.model.rememberMarkdownState
 import com.mikepenz.markdown.model.rememberStreamingMarkdownState
 import com.mikepenz.markdown.utils.getUnescapedTextInNode
 import java.net.URI
+import androidx.compose.ui.res.stringResource
+import ai.nuphos.android.R
 import org.intellij.markdown.MarkdownElementTypes
 import org.intellij.markdown.ast.findChildOfType
 import org.intellij.markdown.flavours.gfm.GFMElementTypes.HEADER
@@ -252,7 +254,7 @@ private fun NuphosMarkdownTable(model: MarkdownComponentModel) {
         Column {
             if (columns * dimens.tableCellWidth > availableWidth) {
                 Text(
-                    "Swipe horizontally to see more columns",
+                    stringResource(R.string.shell_table_swipe_hint),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 4.dp),

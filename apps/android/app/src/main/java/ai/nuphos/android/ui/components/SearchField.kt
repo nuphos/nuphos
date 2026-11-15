@@ -22,6 +22,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import ai.nuphos.android.R
 
 @Composable
 fun SearchField(
@@ -49,7 +51,7 @@ fun SearchField(
             trailingIcon = {
                 if (value.isNotEmpty()) {
                     IconButton(onClick = { onValueChange("") }) {
-                        Icon(Icons.Outlined.Close, contentDescription = "Clear")
+                        Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.shell_clear))
                     }
                 }
             },
@@ -62,6 +64,6 @@ fun SearchField(
                 unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             ),
         )
-        TextButton(onClick = onCancel) { Text("Cancel") }
+        TextButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) }
     }
 }
