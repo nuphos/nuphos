@@ -6,9 +6,9 @@ import { postThreadMessage } from '@/routes/slack/shared'
 
 import type { SlackRuntime } from '@/routes/slack/types'
 
-// A mention in a channel with no mapping for this workspace: either point at
-// the other workspace's bot already serving the channel, or offer one-click
-// linking. Always marks the event; the mention handler is done afterwards.
+// A mention no team can be resolved for: the channel has no mapping and the
+// event came through the legacy shared bot, which no team installed. Point at
+// another workspace's bot serving the channel, or offer linking.
 export async function handleUnmappedChannelMention(args: {
   runtime: SlackRuntime
   slackWorkspaceId: string

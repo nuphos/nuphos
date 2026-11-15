@@ -46,9 +46,10 @@ export async function verifyThreadTeamAccess(args: {
 
     return true
   }
+  // A channel nobody linked belongs to the team that installed the workspace.
   const mapping = await getSlackChannelMapping(args.slackWorkspaceId, channelId)
 
-  if (!mapping || mapping.teamId !== thread.teamId) {
+  if ((mapping?.teamId ?? args.botNuphosTeamId) !== thread.teamId) {
     await postThreadMessage(
       runtime,
       channelId,

@@ -190,7 +190,7 @@ export function linkedChannelBlocks(model: SlackHomeViewModel): unknown[] {
 export function howToUseBlocks(model: SlackHomeViewModel): unknown[] {
   const mention = model.botUserId ? `<@${model.botUserId}>` : '@Nuphos'
   const lines = [
-    `• Mention ${mention} in a linked channel to start working in a thread — replies in that thread don't need another mention.`,
+    `• Mention ${mention} in a channel I've been added to, to start working in a thread — replies in that thread don't need another mention.`,
     '• Open the *Chat* tab above to talk 1:1; *History* lists your past conversations.',
     '• When a change needs sign-off, Nuphos posts a plan card — press *Approve* to let it execute.',
   ]

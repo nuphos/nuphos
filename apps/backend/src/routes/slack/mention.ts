@@ -101,9 +101,11 @@ export async function handleAppMention(envelope: SlackEventEnvelope): Promise<vo
   }
   const text = stripBotMention(event.text ?? '', runtime.botUserId)
 
+  // A channel nobody linked belongs to the team that installed the workspace.
   const mapping = await getSlackChannelMapping(slackWorkspaceId, event.channel)
+  const teamId = mapping?.teamId ?? botContext.nuphosTeamId
 
-  if (!mapping) {
+  if (!teamId) {
     await handleUnmappedChannelMention({
       runtime,
       slackWorkspaceId,
@@ -116,7 +118,7 @@ export async function handleAppMention(envelope: SlackEventEnvelope): Promise<vo
   }
   const { mapping: userMapping, email } = await resolveSlackUserMapping(
     slackWorkspaceId,
-    mapping.teamId,
+    teamId,
     event.user,
     runtime.botToken,
   )
@@ -140,7 +142,7 @@ export async function handleAppMention(envelope: SlackEventEnvelope): Promise<vo
     slackWorkspaceId,
     slackChannelId: event.channel,
     slackThreadTs,
-    teamId: mapping.teamId,
+    teamId,
     agentUserId: userMapping.nuphosUserId,
     createdBySlackUserId: event.user,
     lastSlackEventId: eventId,

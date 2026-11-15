@@ -298,8 +298,32 @@ describe('bare mention', () => {
     expect(agentRuns[0]!.teamId).toBe(TEAM)
   })
 
-  test('in an unlinked channel posts the channel-link prompt instead of the hint', async () => {
+  test('in an unlinked channel runs in the team that installed the workspace', async () => {
     state.channelMapping = null
+
+    await handleAppMention(mentionEnvelope(`<@${BOT_USER}> check prod`))
+
+    expect(threadUpserts).toEqual([expect.objectContaining({ teamId: TEAM })])
+    expect(agentRuns).toHaveLength(1)
+    expect(agentRuns[0]!.teamId).toBe(TEAM)
+    expect(posted).toHaveLength(0)
+
+    // A reply in that thread passes the team gate without a mapping.
+    await handleThreadMessage(threadReplyEnvelope('and staging?'))
+    expect(posted).toHaveLength(0)
+  })
+
+  test('a linked channel still routes to the team it was linked to', async () => {
+    state.installTeamId = 'installingTeam'
+
+    await handleAppMention(mentionEnvelope(`<@${BOT_USER}> check prod`))
+
+    expect(threadUpserts).toEqual([expect.objectContaining({ teamId: TEAM })])
+  })
+
+  test('in an unlinked channel of the legacy shared bot posts the channel-link prompt', async () => {
+    state.channelMapping = null
+    state.installTeamId = ''
 
     await handleAppMention(mentionEnvelope(`<@${BOT_USER}>`))
 
@@ -381,9 +405,10 @@ describe('thread replies never fail silently', () => {
     }
   })
 
-  test('reply in a thread whose channel was unlinked explains instead of ignoring', async () => {
+  test('reply in a thread whose channel was unlinked from another team explains instead of ignoring', async () => {
     state.thread = makeThread()
     state.channelMapping = null
+    state.installTeamId = 'someOtherTeam'
 
     await handleThreadMessage(threadReplyEnvelope('status?'))
 
