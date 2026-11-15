@@ -32,10 +32,13 @@ class FakeSocket extends EventTarget {
 }
 const sockets: FakeSocket[] = []
 
+const urls: string[] = []
+
 globalThis.WebSocket = class extends FakeSocket {
-  constructor() {
+  constructor(url: URL) {
     super()
     sockets.push(this)
+    urls.push(String(url))
   }
 } as never
 
@@ -77,4 +80,13 @@ test('a reload closes the old page’s desktop socket', async () => {
   // The id is free again for the reloaded page.
   await desktops.start(owner, 'view', target)
   assert.equal(sockets.at(-1)?.closed, 0)
+})
+
+test('a computer’s own screen reaches its runtime route, a slash and all', async () => {
+  const desktops = new RuntimeDesktopSessions()
+  const { owner } = page()
+
+  await desktops.start(owner, 'computer', { teamId: 'team', sessionId: 'runtime/r 1', display: 2 })
+  desktops.close(owner, 'computer')
+  assert.equal(urls.at(-1), 'wss://api.example.test/teams/team/runtime-desktop/runtime/r%201/2')
 })

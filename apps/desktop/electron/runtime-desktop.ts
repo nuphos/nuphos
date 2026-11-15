@@ -33,7 +33,7 @@ export class RuntimeDesktopSessions {
     if (!account) throw new Error('Signed out')
     stillCurrent(account)
     const url = new URL(
-      `/teams/${encodeURIComponent(target.teamId)}/runtime-desktop/${encodeURIComponent(target.sessionId)}/${String(target.display)}`,
+      `/teams/${encodeURIComponent(target.teamId)}/runtime-desktop/${target.sessionId.split('/').map(encodeURIComponent).join('/')}/${String(target.display)}`,
       account.api,
     )
 

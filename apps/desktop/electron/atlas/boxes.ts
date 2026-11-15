@@ -170,14 +170,17 @@ export function boxDesktop(
 ): Promise<{ url: string; label: string }> {
   return call('POST', box(deviceId, '/desktop', teamId), undefined, { retry: false })
 }
-/** Has the conversation's Box hold a desktop for it: its own when it has one. */
+/**
+ * Has the conversation's Box hold a desktop for it: its own when it has one. `runtime/<id>`
+ * asks a computer for its own screen instead, so each part of the id is encoded on its own.
+ */
 export function openSessionDesktop(
   teamId: string,
   sessionId: string,
 ): Promise<{ display: number }> {
   return call(
     'POST',
-    `/teams/${encodeURIComponent(teamId)}/runtime-desktop/${encodeURIComponent(sessionId)}`,
+    `/teams/${encodeURIComponent(teamId)}/runtime-desktop/${sessionId.split('/').map(encodeURIComponent).join('/')}`,
     undefined,
     { retry: false },
   )

@@ -19,21 +19,21 @@ function BoxScreens({
   const deviceId = target.kind === 'box' ? target.deviceId : ''
   // Sessions open and close their displays on their own; look again now and then.
   const { list } = useAgentDevices(() => 15_000, teamId, { teamId })
-  const options = desktopScreens(
-    list?.devices.find((device) => device.deviceId === deviceId),
-    deviceId,
-  )
+  const device = list?.devices.find((each) => each.deviceId === deviceId)
+  const options = desktopScreens(device, deviceId)
   const screen = target.kind === 'box' ? target.screen : undefined
-  const switcher = (
-    <AppSelect
-      ariaLabel={t('Screen')}
-      value={desktopFilter(deviceId, screen)}
-      onValueChange={onFilterChange}
-      options={options}
-      className="w-48 shrink-0"
-      triggerClassName="h-6 text-xs"
-    />
-  )
+  // Someone's own computer shows only its screen; the switcher is a Box's.
+  const switcher =
+    device && !device.box ? undefined : (
+      <AppSelect
+        ariaLabel={t('Screen')}
+        value={desktopFilter(deviceId, screen)}
+        onValueChange={onFilterChange}
+        options={options}
+        className="w-48 shrink-0"
+        triggerClassName="h-6 text-xs"
+      />
+    )
 
   // Each screen mounts its own view, so a switch connects afresh with a new link.
   return screen ? (
