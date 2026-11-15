@@ -36,4 +36,6 @@ export const queryKeys = {
   /** A Cloudflare account's resources, e.g. `cloudflare(teamId, accountId, 'pages', name)`. */
   cloudflare: (teamId: string, accountId: string, ...resource: string[]) =>
     [...queryKeys.team(teamId), 'cloudflare', accountId, ...resource] as const,
+  betterStack: (teamId: string, integrationId: string, ...resource: string[]) =>
+    [...queryKeys.team(teamId), 'betterstack', integrationId, ...resource] as const,
 }
