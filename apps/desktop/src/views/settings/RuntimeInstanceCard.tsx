@@ -15,7 +15,7 @@ import { useRuntimeStatusQuery } from '../../lib/query/runtime'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { AgentAddedBy } from './AgentAddedBy'
-import { agentName, localSignIn, managesRuntime } from './agentPresentation'
+import { agentName, localSignIn, managesRuntime, ownSignedInCli } from './agentPresentation'
 import { LocalAgentSignInRow } from './LocalAgentSignInRow'
 import { RuntimeActionsMenu } from './RuntimeActionsMenu'
 import { RuntimeFallbackPicker } from './RuntimeFallbackPicker'
@@ -251,6 +251,17 @@ export function RuntimeInstanceCard({
               <RuntimeOverview instance={instance} runtime={runtime} statusError={statusError} />
             </div>
             {hosted && enabled && <RuntimeMetricsCharts teamId={teamId} runtimeId={instance.id} />}
+            {instance.local && ownSignedInCli(instance) && (
+              <p className="px-5 py-4 text-xs leading-relaxed text-tertiary">
+                {t(
+                  'This runtime is the {provider} already signed in on {device}, so it cannot be removed from Nuphos.',
+                  {
+                    provider: AGENT_PROVIDER[instance.provider].label,
+                    device: instance.local.deviceLabel,
+                  },
+                )}
+              </p>
+            )}
           </>
         )}
       </div>

@@ -4719,6 +4719,7 @@
   "This restarts the runtime host on {boxLabel} to install the latest version available now.": "Ini memulai ulang host runtime di {boxLabel} untuk menginstal versi terbaru yang tersedia saat ini.",
   "This runtime does not report its sign-in yet.": "Runtime ini belum melaporkan status masuknya.",
   "This runtime is offline. Model settings return when it reconnects.": "Runtime ini sedang offline. Pengaturan model akan kembali saat runtime terhubung lagi.",
+  "This runtime is the {provider} already signed in on {device}, so it cannot be removed from Nuphos.": "Runtime ini adalah {provider} yang sudah masuk di {device}, sehingga tidak dapat dihapus dari Nuphos.",
   "This signs {name} out on {device} and deletes its CLI history and settings there. Agents on it stop working; their history stays in Nuphos.": "Ini mengeluarkan {name} di {device} dan menghapus riwayat CLI serta pengaturannya di sana. Agen di sana berhenti bekerja; riwayatnya tetap ada di Nuphos.",
   "This signs {name} out on {device} and deletes its settings there. Agents on it stop working; their history stays in Nuphos.": "Ini mengeluarkan {name} di {device} dan menghapus pengaturannya di sana. Agen di sana berhenti bekerja; riwayatnya tetap ada di Nuphos.",
   "This skill predates provenance tracking, so its original creator is not inferred.": "Skill ini ada sebelum pelacakan asal-usul, sehingga pembuat aslinya tidak disimpulkan.",

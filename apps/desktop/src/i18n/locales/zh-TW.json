@@ -4719,6 +4719,7 @@
   "This restarts the runtime host on {boxLabel} to install the latest version available now.": "這會重新啟動 {boxLabel} 上的執行環境主機，以安裝目前可用的最新版本。",
   "This runtime does not report its sign-in yet.": "此執行環境尚未回報登入狀態。",
   "This runtime is offline. Model settings return when it reconnects.": "此執行環境已離線。重新連線後即可恢復模型設定。",
+  "This runtime is the {provider} already signed in on {device}, so it cannot be removed from Nuphos.": "這個執行環境是 {device} 上本來就登入的 {provider}，所以無法從 Nuphos 中移除。",
   "This signs {name} out on {device} and deletes its CLI history and settings there. Agents on it stop working; their history stays in Nuphos.": "這會在 {device} 上登出 {name}，並刪除其 CLI 歷史記錄與設定。其上的 Agent 將停止運作，歷史記錄則會保留在 Nuphos 中。",
   "This signs {name} out on {device} and deletes its settings there. Agents on it stop working; their history stays in Nuphos.": "這會在 {device} 上登出 {name} 並刪除其設定。其上的 Agent 將停止運作，歷史記錄則會保留在 Nuphos 中。",
   "This skill predates provenance tracking, so its original creator is not inferred.": "此技能早於來源追蹤功能，因此不推測其原始建立者。",

@@ -4719,6 +4719,7 @@
   "This restarts the runtime host on {boxLabel} to install the latest version available now.": "การดำเนินการนี้จะรีสตาร์ทโฮสต์รันไทม์บน {boxLabel} เพื่อติดตั้งเวอร์ชันล่าสุดที่มีอยู่ในขณะนี้",
   "This runtime does not report its sign-in yet.": "รันไทม์นี้ยังไม่รายงานสถานะการลงชื่อเข้าใช้",
   "This runtime is offline. Model settings return when it reconnects.": "รันไทม์นี้ออฟไลน์อยู่ การตั้งค่าโมเดลจะกลับมาเมื่อเชื่อมต่อใหม่",
+  "This runtime is the {provider} already signed in on {device}, so it cannot be removed from Nuphos.": "รันไทม์นี้คือ {provider} ที่ลงชื่อเข้าใช้อยู่แล้วบน {device} จึงไม่สามารถนำออกจาก Nuphos ได้",
   "This signs {name} out on {device} and deletes its CLI history and settings there. Agents on it stop working; their history stays in Nuphos.": "การดำเนินการนี้จะออกจากระบบ {name} บน {device} และลบประวัติ CLI และการตั้งค่าบนเครื่องนั้น เอเจนต์บนรันไทม์นี้จะหยุดทำงาน แต่ประวัติยังคงอยู่ใน Nuphos",
   "This signs {name} out on {device} and deletes its settings there. Agents on it stop working; their history stays in Nuphos.": "การดำเนินการนี้จะออกจากระบบ {name} บน {device} และลบการตั้งค่าบนเครื่องนั้น เอเจนต์บนรันไทม์นี้จะหยุดทำงาน แต่ประวัติยังคงอยู่ใน Nuphos",
   "This skill predates provenance tracking, so its original creator is not inferred.": "ทักษะนี้มีมาก่อนการติดตามแหล่งที่มา จึงไม่สามารถระบุผู้สร้างดั้งเดิมได้",

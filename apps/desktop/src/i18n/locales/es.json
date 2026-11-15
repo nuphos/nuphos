@@ -4719,6 +4719,7 @@
   "This restarts the runtime host on {boxLabel} to install the latest version available now.": "Esto reinicia el host de entornos de ejecución de {boxLabel} para instalar la versión más reciente disponible.",
   "This runtime does not report its sign-in yet.": "Este entorno de ejecución aún no informa de su inicio de sesión.",
   "This runtime is offline. Model settings return when it reconnects.": "Este entorno de ejecución está sin conexión. La configuración del modelo volverá cuando se reconecte.",
+  "This runtime is the {provider} already signed in on {device}, so it cannot be removed from Nuphos.": "Este entorno de ejecución es el {provider} que ya tiene la sesión iniciada en {device}, por lo que no se puede quitar de Nuphos.",
   "This signs {name} out on {device} and deletes its CLI history and settings there. Agents on it stop working; their history stays in Nuphos.": "Esto cierra la sesión de {name} en {device} y elimina allí su historial de la CLI y su configuración. Los agentes que lo usan dejan de funcionar; su historial se conserva en Nuphos.",
   "This signs {name} out on {device} and deletes its settings there. Agents on it stop working; their history stays in Nuphos.": "Esto cierra la sesión de {name} en {device} y elimina allí su configuración. Los agentes que lo usan dejan de funcionar; su historial se conserva en Nuphos.",
   "This skill predates provenance tracking, so its original creator is not inferred.": "Esta habilidad es anterior al seguimiento de procedencia, por lo que no se infiere su creador original.",
