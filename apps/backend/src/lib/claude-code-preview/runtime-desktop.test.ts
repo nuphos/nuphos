@@ -5,6 +5,7 @@ import { createLocalTunnelBus } from '@/lib/agent/devices/local-runtime/bus'
 import { createMemoryPresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { holderChannel, streamChannel } from '@/lib/agent/devices/local-runtime/protocol'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useAgentDeviceStore } from '@/lib/test/doubles/agent-devices-store'
 import { useRuntimeCatalog } from '@/lib/test/doubles/runtime-catalog'
 
 import {
@@ -13,6 +14,7 @@ import {
   runtimeDesktopSessionId,
   runtimeDesktopTarget,
 } from './runtime-desktop'
+import { computerDesktopRuntimeId } from './session-desktops'
 
 import type { HolderMessage, LocalRuntimeStatus } from '@/lib/agent/devices/local-runtime/protocol'
 import type { WSContext, WSEvents } from 'hono/ws'
@@ -21,17 +23,29 @@ import type { WSContext, WSEvents } from 'hono/ws'
 
 const runtimeId = localRuntimeId({ userId: 'owner', deviceId: 'box', provider: 'claude-code' })
 let conversation: Record<string, unknown> | null
+// The owner's registered computers: `box` and `mac`, which has no agent.
+let box: { teamId: string } | undefined
+
+useAgentDeviceStore({
+  getAgentDevice: (async (userId: string, deviceId: string) =>
+    userId === 'owner' && (deviceId === 'box' || deviceId === 'mac')
+      ? { userId, deviceId, ...(box ? { box } : {}) }
+      : null) as never,
+})
 
 useAgentDb({ getReadableConversation: () => conversation })
 useRuntimeCatalog({
   // `boxmate` reaches the owner's Box through its team; `mate` only through a share.
   requireRuntimeInstance: (async (
     _team: string,
-    _runtime: string,
+    runtime: string,
     user?: string,
     options: { shared?: boolean } = {},
   ) => {
-    if (user !== 'owner' && user !== 'boxmate' && !(user === 'mate' && options.shared))
+    if (
+      !runtime.startsWith('local_owner_box') ||
+      (user !== 'owner' && user !== 'boxmate' && !(user === 'mate' && options.shared))
+    )
       throw new Error('runtime not found')
 
     return { id: runtimeId, label: 'Box', status: 'active', kind: 'local', provider: 'claude-code' }
@@ -48,6 +62,7 @@ const status = {
 
 beforeEach(async () => {
   conversation = { userId: 'owner', teamId: 'team', runtimeId }
+  box = undefined
   await presence.claim('owner', 'box', 'conn')
   await presence.put('owner', 'box', { conn: 'conn', status, seenAt: Date.now() })
 })
@@ -178,6 +193,66 @@ test('a computer’s own desktop opens from its runtime, for its owner alone', a
     runtimeDesktopTarget('team', 'owner', { runtimeId: 'managed-1' }, '3', presence),
   ).rejects.toThrow('not found')
   expect(opened).toHaveLength(1)
+})
+
+test('a computer with no agent still opens its own desktop, for its owner in its team', async () => {
+  // No agent CLI is installed there, so the catalog lists no runtime for it.
+  const mac = { userId: 'owner', deviceId: 'mac' }
+  const own = { runtimeId: 'local_owner_mac' }
+  const opened: string[] = []
+  const open = async (target: { actorId: string }) => {
+    opened.push(target.actorId)
+
+    return 0
+  }
+  const report = (status: Partial<LocalRuntimeStatus>) =>
+    presence.put('owner', 'mac', {
+      conn: 'conn',
+      status: { agents: {}, ...status } as LocalRuntimeStatus,
+      seenAt: Date.now(),
+    })
+  const refused = async (user: string, target = own) => {
+    await expect(openRuntimeDesktop('team', user, target, { presence, open })).rejects.toThrow(
+      'not found',
+    )
+  }
+
+  // Offline: no address and nothing opens.
+  expect(await computerDesktopRuntimeId(mac, 'owner', presence)).toBeUndefined()
+  await refused('owner')
+  // Online, but its host does not say it opens its screen (an older bundle, or not a Mac).
+  await presence.claim('owner', 'mac', 'conn')
+  await report({})
+  expect(await computerDesktopRuntimeId(mac, 'owner', presence)).toBeUndefined()
+  await refused('owner')
+  expect(opened).toEqual([])
+
+  await report({ desktopOpen: true })
+  expect(await computerDesktopRuntimeId(mac, 'owner', presence)).toBe(own.runtimeId)
+  expect(await openRuntimeDesktop('team', 'owner', own, { presence, open })).toEqual({ display: 0 })
+  expect(opened).toEqual(['owner'])
+  // Only its own person: not a teammate it is shared with, nor anyone naming it as theirs.
+  expect(await computerDesktopRuntimeId(mac, 'mate', presence)).toBeUndefined()
+  await refused('mate')
+  await refused('mate', { runtimeId: 'local_mate_mac' })
+  await expect(runtimeDesktopTarget('team', 'mate', own, '0', presence)).rejects.toThrow(
+    'not found',
+  )
+  // Not a computer that was removed, though its host is still connected.
+  await presence.claim('owner', 'gone', 'conn')
+  await presence.put('owner', 'gone', {
+    conn: 'conn',
+    status: { agents: {}, desktopOpen: true } as unknown as LocalRuntimeStatus,
+    seenAt: Date.now(),
+  })
+  await refused('owner', { runtimeId: 'local_owner_gone' })
+  // A Box gets no address in the device list, and opens by its runtime only inside its own team.
+  box = { teamId: 'team' }
+  expect(await computerDesktopRuntimeId({ ...mac, box }, 'owner', presence)).toBeUndefined()
+  expect(await openRuntimeDesktop('team', 'owner', own, { presence, open })).toEqual({ display: 0 })
+  box = { teamId: 'other' }
+  await refused('owner')
+  expect(opened).toEqual(['owner', 'owner'])
 })
 
 const b64 = (bytes: number[] | Buffer) => Buffer.from(bytes).toString('base64')

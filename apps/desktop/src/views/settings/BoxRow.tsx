@@ -69,8 +69,7 @@ export function BoxRow({
   const manage = canManage(device)
   const owner = useComputerOwner(teamId, device)
   // Besides a Box, another of the viewer's own computers whose host opens its screen.
-  const screen =
-    cloud || owner || thisComputer ? undefined : agents.find((agent) => agent.local?.desktopOpen)
+  const screen = thisComputer ? undefined : device.desktopRuntimeId
   const remove = removal(device)
   const badge = BOX_BADGE[state]
   const actions = cloud && !restart ? boxActions(state) : { pause: false, resume: false }
@@ -184,7 +183,7 @@ export function BoxRow({
             </MenuTrigger>
             <MenuContent align="end">
               {(cloud ? state === 'running' : screen) && (
-                <MenuItem onClick={() => openDesktop(device.deviceId, teamId, screen?.id)}>
+                <MenuItem onClick={() => openDesktop(device.deviceId, teamId, screen)}>
                   {t('Open desktop')}
                 </MenuItem>
               )}

@@ -152,6 +152,8 @@ function buildApp(box: BoxDeps | null = null) {
       },
       conversationTitlesFor: async (sessionIds) =>
         new Map(sessionIds.map((id) => [id, `Title ${id}`])),
+      computerDesktopRuntimeId: async ({ userId, deviceId }, viewer) =>
+        onlineNow && userId === viewer ? `local_${userId}_${deviceId}` : undefined,
       boxDesktops: async (owner, deviceId, viewer, team) => [
         { display: 2, sessionId: `${owner}:${deviceId}:${viewer}:${String(team)}`, title: 'Fix' },
       ],
@@ -567,6 +569,18 @@ describe('agent device routes', () => {
     expect((await list()).devices[0]?.desktops).toEqual([
       { display: 2, sessionId: 'user-1:b1:user-1:team-1', title: 'Fix' },
     ])
+  })
+
+  test('GET /devices tells the viewer where their own computer opens its screen', async () => {
+    registerDevice('user-1', 'mac')
+    const list = async () =>
+      (await (await buildApp().request('/agent/devices')).json()) as {
+        devices: { desktopRuntimeId?: string }[]
+      }
+
+    expect((await list()).devices[0]?.desktopRuntimeId).toBeUndefined()
+    onlineNow = true
+    expect((await list()).devices[0]?.desktopRuntimeId).toBe('local_user-1_mac')
   })
 
   test('an unnamed Box counts up from the highest "Computer N" the caller has', () => {
