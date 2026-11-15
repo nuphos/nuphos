@@ -405,6 +405,44 @@ describe('conversation-scoped thread tools', () => {
     expect(result.model).toEqual({ model: 'default', effort: 'high' })
   })
 
+  test('starts a thread on the agent it names, with no first turn on its parent', async () => {
+    await createAgentThread(actor, 'Work', 'Task', { runtimeId: 'box-1' })
+
+    expect(shells[0]).toMatchObject({
+      runtimeId: 'box-1',
+      runtimeLabel: 'Claude Code in Box',
+      agentRuntime: 'claude-code',
+    })
+    expect(claims).toHaveLength(1)
+    expect(moves).toHaveLength(0)
+  })
+
+  test("a thread never starts on the owner's computer", async () => {
+    await expect(
+      createAgentThread(actor, 'Work', 'Task', { runtimeId: 'local-1' }),
+    ).rejects.toThrow('computer')
+    expect(shells).toHaveLength(0)
+  })
+
+  test("sets a thread's fast mode after its model and effort", async () => {
+    const speeds = offered as Record<string, string[]>
+
+    speeds.fast = ['on', 'off']
+    try {
+      const { threadId } = await createAgentThread(actor, 'Work', 'Task', {
+        fast: 'on',
+        model: 'claude-fable-5-1',
+      })
+
+      expect(picks.map((pick) => pick.configId)).toEqual(['model', 'fast'])
+      await updateThread(actor, threadId, { fast: 'off' })
+      expect(picks.at(-1)).toEqual({ sessionId: threadId, configId: 'fast', value: 'off' })
+      await expect(updateThread(actor, threadId, { fast: 'ultra' })).rejects.toThrow('on, off')
+    } finally {
+      delete speeds.fast
+    }
+  })
+
   test('refuses a model the agent does not offer, naming the choices', async () => {
     await expect(createAgentThread(actor, 'Work', 'Task', { model: 'gpt-1' })).rejects.toThrow(
       'claude-fable-5-1, default',

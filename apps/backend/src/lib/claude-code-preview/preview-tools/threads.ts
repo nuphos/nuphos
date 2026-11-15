@@ -36,11 +36,14 @@ const common = {
 const modelPick = {
   model: z.string().trim().min(1).max(500).optional().describe('Model id, e.g. claude-fable-5-1.'),
   effort: z.string().trim().min(1).max(100).optional().describe('Reasoning effort, e.g. high.'),
+  fast: z.string().trim().min(1).max(100).optional().describe('Fast mode, e.g. on or off.'),
 }
+const runtimeId = z.string().trim().min(1).optional().describe('From list_agent_runtimes.')
 const create = z
   .object({
     ...common,
     title: z.string().trim().min(1).max(160),
+    runtimeId,
     ...modelPick,
     modelReason: z
       .string()
@@ -68,7 +71,7 @@ const update = z
     label: common.label,
     threadId: z.string().uuid(),
     fullAccess: z.boolean().optional().describe('true for Full Access, false for Auto Mode.'),
-    runtimeId: z.string().trim().min(1).optional().describe('From list_agent_runtimes.'),
+    runtimeId,
     ...modelPick,
   })
   .strict()
@@ -101,10 +104,11 @@ export function threadToolModule(
         name: 'create_thread',
         description:
           'Start a Nuphos sub-agent: a separate Nuphos conversation. Use it only when asked for a sub-agent or to delegate/background work. ' +
-          'Inherits your current runtime and permission mode, not your transcript. ' +
+          'Inherits your permission mode, not your transcript. It runs on your agent, or on the ' +
+          "one runtimeId names from list_agent_runtimes (never someone's computer). " +
           'It uses the credentials and computers of the conversation at the top of yours, ' +
           'always the same as yours, and changes when that selection changes. ' +
-          "model and effort set its model picker before its first turn; its agent's defaults otherwise. " +
+          "model, effort and fast set its model picker before its first turn; its agent's defaults otherwise. " +
           'Unless the person named a model for this work, choose them yourself from the models ' +
           'list_agent_runtimes shows for its agent: a lighter, cheaper model for simple or mechanical ' +
           'work, a stronger one for hard reasoning or risky changes. Say why in modelReason. ' +
@@ -152,8 +156,8 @@ export function threadToolModule(
         name: 'list_agent_runtimes',
         description:
           "List the team's agents (runtimes) and your Boxes' agents that your threads can run on, with each one's readiness, " +
-          'usage quota and the models it offers. Use it to pick a model for create_thread, or a ' +
-          "runtimeId for update_thread, for example when a thread has hit its agent's usage limit.",
+          'usage quota and the models it offers. Use it to pick a runtimeId or model for create_thread ' +
+          "or update_thread, for example when a thread has hit its agent's usage limit.",
         inputSchema: toolInputJsonSchema(list),
       },
       {
@@ -164,10 +168,10 @@ export function threadToolModule(
           'this conversation itself has Full Access, Auto Mode always. runtimeId moves it, with ' +
           'its conversation history, to another agent from list_agent_runtimes ' +
           "(never to someone's computer); its next turn " +
-          "runs there. model and effort set the thread's model picker for its " +
+          "runs there. model, effort and fast set the thread's model picker for its " +
           'next turn, after any runtimeId move; a value its agent does not offer is refused with ' +
           "the choices. A new thread already starts in this conversation's " +
-          "mode and agent. Its credentials and computers are always the top conversation's, " +
+          "mode, and on its agent unless create_thread named another. Its credentials and computers are always the top conversation's, " +
           'so there is nothing to grant.',
         inputSchema: toolInputJsonSchema(update),
       },
@@ -229,8 +233,10 @@ export function threadToolModule(
         if (!parsed.success) return toolError(parsed.error.message)
         const { threadId, ...change } = parsed.data
 
-        if (change.fullAccess === undefined && !change.runtimeId && !change.model && !change.effort)
-          return toolError('Set fullAccess, runtimeId, model or effort.')
+        const { fullAccess, runtimeId: runtime, model, effort, fast } = change
+
+        if (fullAccess === undefined && !runtime && !model && !effort && !fast)
+          return toolError('Set fullAccess, runtimeId, model, effort or fast.')
 
         return answer(updateThread(ctx, threadId, change))
       },
