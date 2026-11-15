@@ -100,10 +100,11 @@ class ChannelFilesFixtureDeviceTest {
             post("p4", 3, "One group gone, one fine:", downloads = listOf("gD1", "gD2")),
             post("p5", 4, "Both groups gone:", uploads = listOf(TransferUpload("gE1", listOf("old-a.png")), TransferUpload("gE2", listOf("old-b.png"))), agent = false),
         )
+        val agents = ai.nuphos.android.session.AgentStore("synthetic-no-credentials", androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext)
         compose.setContent {
             NuphosTheme(darkTheme = dark) {
                 androidx.compose.material3.Surface {
-                    ChannelTranscript(session, ChannelPost.items(posts, emptyList(), emptyList()), viewerId = "me", onLink = {}, downloads = storage)
+                    androidx.compose.runtime.CompositionLocalProvider(ai.nuphos.android.ui.LocalAgentStore provides agents) { ChannelTranscript(session, ChannelPost.items(posts, emptyList(), emptyList()), viewerId = "me", onLink = {}, downloads = storage) }
                 }
             }
         }

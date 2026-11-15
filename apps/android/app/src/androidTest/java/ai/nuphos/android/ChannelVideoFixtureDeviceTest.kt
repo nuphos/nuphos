@@ -83,9 +83,10 @@ class ChannelVideoFixtureDeviceTest {
         val session = ChannelSession("team", "chat-video", "release-planning", Transport())
         val posts = listOf(ChannelPost("p1", "agent-ops", true, "Release ops", text = "The recording and a still:",
             downloads = listOf("g1"), sentAt = Instant.parse("2026-11-03T12:00:00Z")))
+        val agents = ai.nuphos.android.session.AgentStore("synthetic-no-credentials", androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext)
         compose.setContent {
             NuphosTheme { androidx.compose.material3.Surface {
-                ChannelTranscript(session, ChannelPost.items(posts, emptyList(), emptyList()), viewerId = "me", onLink = {}, downloads = storage)
+                androidx.compose.runtime.CompositionLocalProvider(ai.nuphos.android.ui.LocalAgentStore provides agents) { ChannelTranscript(session, ChannelPost.items(posts, emptyList(), emptyList()), viewerId = "me", onLink = {}, downloads = storage) }
             } }
         }
         compose.waitUntil(5_000) { compose.onAllNodesWithContentDescription("clip.mp4").fetchSemanticsNodes().isNotEmpty() }
