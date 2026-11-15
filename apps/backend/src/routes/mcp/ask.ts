@@ -1,17 +1,22 @@
 import { randomUUID } from 'node:crypto'
 
-import { getConversationBySessionId, getConversationWithMessages } from '@/lib/agent/db'
+import {
+  getConversationBySessionId,
+  getConversationWithMessages,
+  getReadableConversation,
+} from '@/lib/agent/db'
+import { answerDecision } from '@/lib/agent/decision-answer'
+import { canReplyIn } from '@/lib/agent/devices/conversation-computer'
 import { createMessageMetadata } from '@/lib/agent/message-attribution'
 import { buildPendingUserMessage } from '@/lib/agent/pending-messages'
+import { AppError } from '@/lib/errors'
 import { getTeamMembership, signNuphosToken } from '@/lib/identity'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
-import {
-  claimAgentRunOrEnqueue,
-  hasActiveAgentRunForSession,
-  runAgentForTrigger,
-} from '@/routes/agent'
-import { partsToText, persistedMessageToUiMessage, readLatestAnswer } from '@/routes/mcp/transcript'
+import { logError } from '@/lib/observability'
+import { claimAgentRunOrEnqueue, runAgentForTrigger } from '@/routes/agent'
+import { persistedMessageToUiMessage, readLatestAnswer } from '@/routes/mcp/transcript'
 
+import type { AgentConversation } from '@/lib/agent/db'
 import type { ToolResult } from '@/lib/mcp/protocol'
 import type { McpCallContext } from '@/routes/mcp/types'
 import type { UIMessage } from 'ai'
@@ -19,6 +24,59 @@ import type { UIMessage } from 'ai'
 // Token TTL for the minted per-call Nuphos identity. Mirrors executeTrigger's
 // 8h window — long enough to outlive a slow run, short enough to stay bounded.
 const NUPHOS_TOKEN_TTL_SECONDS = 60 * 60 * 8
+
+/**
+ * Continuing a session: the caller's own, or one they take part in and may
+ * reply in, in the same team it was started in. Its turns stay its owner's.
+ */
+async function maySendTo(
+  conversation: AgentConversation,
+  teamId: string,
+  userId: string,
+): Promise<boolean> {
+  if ((conversation.teamId ?? undefined) !== teamId) return false
+  if (conversation.userId === userId) return true
+
+  return (
+    (await getReadableConversation(conversation.sessionId, userId, teamId)) !== null &&
+    (await canReplyIn(conversation, userId))
+  )
+}
+
+/**
+ * An answer to an open question is not a message: the question is resolved and
+ * the agent that asked is woken with it, as when a person answers its card.
+ */
+async function answerQuestion(
+  conversation: AgentConversation,
+  teamId: string,
+  requestId: string,
+  text: string,
+  ctx: McpCallContext,
+): Promise<ToolResult> {
+  try {
+    const { sender } = await createMessageMetadata(ctx.userId, 'nuphos')
+
+    await answerDecision({
+      conversation,
+      requestId,
+      answer: { text },
+      actor: { id: ctx.userId, displayName: sender.displayName },
+      teamId,
+    })
+  } catch (err) {
+    if (err instanceof AppError) return toolError(err.message)
+    throw err
+  }
+
+  return toolResult({
+    status: 'running',
+    session_id: conversation.sessionId,
+    progress: {
+      message: 'The answer was delivered and the Nuphos Agent carries on. Poll nuphos_check.',
+    },
+  })
+}
 
 export async function nuphosAsk(
   args: Record<string, unknown>,
@@ -49,17 +107,22 @@ export async function nuphosAsk(
       ? args.session_id.trim()
       : randomUUID()
 
-  // Continuing a session: it must be the caller's own, in the same team it was
-  // started in — otherwise the transcript sync below would clobber it.
   const existing = await getConversationBySessionId(sessionId)
 
-  if (existing && existing.userId !== ctx.userId) {
-    return toolError(`Session not found: ${sessionId}`)
-  }
-  if (existing && (existing.teamId ?? undefined) !== teamId) {
+  if (existing && !(await maySendTo(existing, teamId, ctx.userId))) {
     return toolError(
-      `Session ${sessionId} was started with a different team_id; pass the same team_id to continue it.`,
+      existing.userId === ctx.userId
+        ? `Session ${sessionId} was started with a different team_id; pass the same team_id to continue it.`
+        : `Session not found: ${sessionId}`,
     )
+  }
+  const ownerUserId = existing?.userId ?? ctx.userId
+  const requestId = typeof args.request_id === 'string' ? args.request_id.trim() : ''
+
+  if (requestId) {
+    return existing
+      ? answerQuestion(existing, teamId, requestId, prompt, ctx)
+      : toolError(`Session not found: ${sessionId}`)
   }
 
   // Fold optional structured context into the user turn. The agent takes plain
@@ -85,7 +148,7 @@ export async function nuphosAsk(
   // in flight instead of being refused: the agent sees it at its next step and
   // decides whether to ignore it, finish first, or change course.
   const claim = await claimAgentRunOrEnqueue({
-    userId: ctx.userId,
+    userId: ownerUserId,
     sessionId,
     message: buildPendingUserMessage({
       renderedText,
@@ -135,20 +198,42 @@ export async function nuphosAsk(
     },
   ]
 
-  try {
-    // Blocks until the run completes. runAgentForTrigger drives its own
-    // AbortController, so a dropped HTTP connection does not cancel the run —
-    // it finishes and persists, and nuphos_check can retrieve the answer.
-    await runAgentForTrigger({
-      userId: ctx.userId,
-      nuphosToken: signNuphosToken(ctx.userId, NUPHOS_TOKEN_TTL_SECONDS),
-      teamId,
-      sessionId,
-      messages,
-      firstMessage: prompt,
-      source: 'mcp',
-      client: ctx.client,
+  // runAgentForTrigger drives its own AbortController, so a dropped HTTP
+  // connection does not cancel the run: it finishes and persists, and
+  // nuphos_check can retrieve the answer.
+  // The claim is released however the run ends, also when it fails to start.
+  const run = (async () => {
+    try {
+      await runAgentForTrigger({
+        userId: ctx.userId,
+        conversationOwnerUserId: ownerUserId,
+        nuphosToken: signNuphosToken(ctx.userId, NUPHOS_TOKEN_TTL_SECONDS),
+        teamId,
+        sessionId,
+        messages,
+        firstMessage: prompt,
+        source: 'mcp',
+        client: ctx.client,
+      })
+    } finally {
+      release()
+    }
+  })()
+
+  if (args.wait === false) {
+    run.catch((err: unknown) => {
+      logError('mcp.ask.background_run_failed', err, { session_id: sessionId })
     })
+
+    return toolResult({
+      status: 'running',
+      session_id: sessionId,
+      progress: { message: 'The Nuphos Agent started on this request. Poll nuphos_check.' },
+    })
+  }
+
+  try {
+    await run
   } catch (err) {
     return toolResult({
       status: 'failed',
@@ -158,57 +243,9 @@ export async function nuphosAsk(
         message: err instanceof Error ? err.message : String(err),
       },
     })
-  } finally {
-    release()
   }
 
   const answer = await readLatestAnswer(sessionId, ctx.userId, teamId)
 
   return toolResult({ status: 'completed', session_id: sessionId, answer: answer ?? '' })
-}
-
-export async function nuphosCheck(
-  args: Record<string, unknown>,
-  ctx: McpCallContext,
-): Promise<ToolResult> {
-  const sessionId =
-    typeof args.session_id === 'string' && args.session_id.trim() ? args.session_id.trim() : ''
-
-  if (!sessionId) return toolError('`session_id` is required and must be a non-empty string.')
-
-  const result = await getConversationWithMessages(sessionId, ctx.userId)
-
-  if (!result) return toolError(`Session not found: ${sessionId}`)
-
-  // Active-run lookup keys on the conversation owner (the creator), which is the
-  // caller for their own sessions.
-  if (await hasActiveAgentRunForSession(result.conversation.userId, sessionId)) {
-    return toolResult({
-      status: 'running',
-      session_id: sessionId,
-      progress: { message: 'The Nuphos Agent is still working on this request.' },
-    })
-  }
-
-  const assistant = [...result.messages].reverse().find((m) => m.role === 'assistant')
-
-  if (assistant) {
-    return toolResult({
-      status: 'completed',
-      session_id: sessionId,
-      answer: partsToText(assistant.parts),
-    })
-  }
-
-  // No active run and no assistant turn: the run either failed or never started.
-  return toolResult({
-    status: 'failed',
-    session_id: sessionId,
-    error: {
-      code: 'no_result',
-      message:
-        'No assistant response found and no run is active. The request may have ' +
-        'failed or not started.',
-    },
-  })
 }
