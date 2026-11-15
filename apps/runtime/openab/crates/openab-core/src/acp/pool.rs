@@ -70,6 +70,9 @@ struct PoolState {
     /// Serializes create/resume work per thread so rapid same-thread requests
     /// cannot race each other into duplicate `session/load` attempts.
     creating: HashMap<String, Arc<Mutex<()>>>,
+    /// When Stop was last asked for a thread, including while its session was
+    /// still opening and there was nothing yet to send the cancel to.
+    stopped_at: HashMap<String, std::time::Instant>,
     /// Per-session working directory overrides (from control directives).
     /// thread_key → canonical workspace path.
     session_workdirs: HashMap<String, String>,
@@ -320,6 +323,7 @@ fn purge_session_entries(state: &mut PoolState, key: &str) {
     state.suspended.remove(key);
     state.persisted.remove(key);
     state.load_failures.remove(key);
+    state.stopped_at.remove(key);
     // Do NOT remove the creating gate: it is concurrency control, not session
     // state. Removing it while a holder still owns the old gate Arc would let
     // a concurrent get_or_create mint a fresh gate and run two creations for
@@ -652,6 +656,7 @@ impl SessionPool {
                 suspended,
                 load_failures: HashMap::new(),
                 creating: HashMap::new(),
+                stopped_at: HashMap::new(),
                 session_workdirs,
                 session_mcp_servers: HashMap::new(),
                 session_meta: HashMap::new(),
@@ -1522,7 +1527,10 @@ impl SessionPool {
     /// Uses pre-stored cancel handles to avoid locking the connection (which is held during streaming).
     pub async fn cancel_session(&self, thread_id: &str) -> Result<()> {
         let (stdin, session_id) = {
-            let state = self.state.read().await;
+            let mut state = self.state.write().await;
+            state
+                .stopped_at
+                .insert(thread_id.to_string(), std::time::Instant::now());
             if let Some(activity) = state.activity.get(thread_id) {
                 if activity.in_flight() || activity.execution.snapshot()["state"] == "active" {
                     activity.execution.operation("cancelling");
@@ -1541,6 +1549,16 @@ impl SessionPool {
         };
         tracing::info!(session_id = %crate::redact::redact_session_ids(&session_id), "sending session/cancel");
         send_session_cancel(&stdin, &session_id).await
+    }
+
+    /// Whether Stop was asked for this thread at or after `since`. A turn that has
+    /// waited since then for its session to open must not be sent to the agent.
+    pub async fn stopped_since(&self, thread_id: &str, since: std::time::Instant) -> bool {
+        let state = self.state.read().await;
+        state
+            .stopped_at
+            .get(thread_id)
+            .is_some_and(|at| *at >= since)
     }
 
     /// Reset a session: cancel any in-flight operation, remove the active connection,
@@ -1828,6 +1846,7 @@ mod tests {
             persisted: HashMap::new(),
             load_failures: HashMap::new(),
             creating: HashMap::new(),
+            stopped_at: HashMap::new(),
             session_workdirs: HashMap::new(),
             session_mcp_servers: HashMap::new(),
             session_meta: HashMap::new(),
@@ -1941,6 +1960,28 @@ mod tests {
             counting.minted.lock().unwrap().is_empty(),
             "the registrar must never be asked to mint when the config could not be written"
         );
+    }
+
+    /// #2872: a Stop pressed while the session is still opening has no agent to reach yet.
+    #[tokio::test]
+    async fn a_stop_before_the_session_exists_is_remembered() {
+        let pool = super::SessionPool::new(
+            crate::config::AgentConfig::default(),
+            1,
+            60,
+            HashMap::new(),
+        );
+        let before = std::time::Instant::now();
+
+        assert!(
+            pool.cancel_session("acp:opening").await.is_err(),
+            "there is no agent session to cancel yet"
+        );
+
+        assert!(pool.stopped_since("acp:opening", before).await);
+        assert!(!pool.stopped_since("acp:other", before).await);
+        let later = std::time::Instant::now() + std::time::Duration::from_millis(1);
+        assert!(!pool.stopped_since("acp:opening", later).await);
     }
 
     /// The happy path still mints exactly once, for the right channel.
@@ -2325,6 +2366,7 @@ mod tests {
             ]),
             load_failures: HashMap::new(),
             creating: HashMap::from([("hung".to_string(), Arc::new(Mutex::new(())))]),
+            stopped_at: HashMap::new(),
             session_workdirs: HashMap::from([("hung".to_string(), "/tmp/ws".to_string())]),
             session_mcp_servers: HashMap::from([(
                 "hung".to_string(),

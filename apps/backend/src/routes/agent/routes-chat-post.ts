@@ -281,6 +281,7 @@ agent.post('/chat', async (c) => {
           }
         : null,
       queued: queuedItem,
+      direct: true,
       storedTurn,
     })
 

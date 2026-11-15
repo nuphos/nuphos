@@ -156,6 +156,9 @@ pub trait DispatchTarget: Send + Sync + 'static {
     /// Destroy the session for `session_key` (used to rollback on directive failure).
     async fn reset_session(&self, session_key: &str);
 
+    /// Whether Stop was asked for `session_key` at or after `since`.
+    async fn stopped_since(&self, session_key: &str, since: Instant) -> bool;
+
     /// Drive one ACP turn with the pre-packed `content_blocks`.
     #[allow(clippy::too_many_arguments)]
     async fn stream_prompt_blocks(
@@ -198,6 +201,10 @@ impl DispatchTarget for AdapterRouter {
 
     async fn reset_session(&self, session_key: &str) {
         let _ = self.pool().reset_session(session_key).await;
+    }
+
+    async fn stopped_since(&self, session_key: &str, since: Instant) -> bool {
+        self.pool().stopped_since(session_key, since).await
     }
 
     async fn stream_prompt_blocks(
@@ -827,6 +834,16 @@ async fn dispatch_batch(
     ));
     // 👀 already applied above; skip set_queued() to avoid double-reaction.
 
+    // The one place a turn goes to the agent. A Stop asked while the turn waited
+    // here, for its session to open, ends it before the agent reads it.
+    if target.stopped_since(&session_key, dispatch_start).await {
+        info!("turn stopped before it reached the agent");
+        let _ = adapter
+            .send_terminal_message(&dispatch_channel, "", Some("cancelled"))
+            .await;
+        return;
+    }
+
     let result = target
         .stream_prompt_blocks(
             adapter,
@@ -1447,6 +1464,8 @@ mod tests {
         ensure_err: Mutex<Option<SessionStartError>>,
         /// If set, `stream_prompt_blocks` returns this error once.
         stream_err: Mutex<Option<String>>,
+        /// Stop was asked while the batch waited to be dispatched.
+        stopped: std::sync::atomic::AtomicBool,
     }
 
     impl MockDispatchTarget {
@@ -1456,6 +1475,7 @@ mod tests {
                 calls: Mutex::new(Vec::new()),
                 ensure_err: Mutex::new(None),
                 stream_err: Mutex::new(None),
+                stopped: std::sync::atomic::AtomicBool::new(false),
             }
         }
 
@@ -1492,6 +1512,10 @@ mod tests {
         }
 
         async fn reset_session(&self, _session_key: &str) {}
+
+        async fn stopped_since(&self, _session_key: &str, _since: Instant) -> bool {
+            self.stopped.load(Ordering::SeqCst)
+        }
 
         async fn stream_prompt_blocks(
             &self,
@@ -1561,6 +1585,8 @@ mod tests {
     struct RecordingAdapter {
         sent: Mutex<Vec<String>>,
         failed: Mutex<Vec<(String, Option<serde_json::Value>)>>,
+        /// Each turn ended without an error, as its text and stop reason.
+        ended: Mutex<Vec<(String, Option<String>)>>,
     }
 
     #[async_trait]
@@ -1576,6 +1602,21 @@ mod tests {
             Ok(MessageRef {
                 channel: channel.clone(),
                 message_id: "rec-msg".into(),
+            })
+        }
+        async fn send_terminal_message(
+            &self,
+            channel: &ChannelRef,
+            content: &str,
+            stop_reason: Option<&str>,
+        ) -> Result<MessageRef> {
+            self.ended
+                .lock()
+                .unwrap()
+                .push((content.into(), stop_reason.map(Into::into)));
+            Ok(MessageRef {
+                channel: channel.clone(),
+                message_id: "rec-end".into(),
             })
         }
         async fn fail_agent_turn(
@@ -1607,8 +1648,8 @@ mod tests {
         }
     }
 
-    /// Runs one message through a consumer whose session fails to start.
-    async fn run_failed_session_start(
+    /// Runs one message through a consumer and returns what the adapter was told.
+    async fn run_one_message(
         platform: &str,
         mock: Arc<MockDispatchTarget>,
     ) -> Arc<RecordingAdapter> {
@@ -1648,7 +1689,7 @@ mod tests {
             .into(),
         );
 
-        let recorder = run_failed_session_start("acp", mock.clone()).await;
+        let recorder = run_one_message("acp", mock.clone()).await;
 
         let failed = recorder.failed.lock().unwrap();
         assert_eq!(failed.len(), 1);
@@ -1661,6 +1702,24 @@ mod tests {
         assert!(mock.calls().is_empty(), "the prompt never runs");
     }
 
+    /// #2872: Stop was pressed while the agent's session was still opening.
+    #[tokio::test]
+    async fn a_turn_stopped_before_dispatch_never_reaches_the_agent() {
+        let mock = Arc::new(MockDispatchTarget::new());
+        mock.stopped.store(true, Ordering::SeqCst);
+
+        let recorder = run_one_message("acp", mock.clone()).await;
+
+        assert!(mock.calls().is_empty(), "the prompt never runs");
+        assert_eq!(
+            *recorder.ended.lock().unwrap(),
+            vec![(String::new(), Some("cancelled".to_string()))],
+            "the turn ends as cancelled"
+        );
+        assert!(recorder.failed.lock().unwrap().is_empty());
+        assert!(recorder.sent.lock().unwrap().is_empty());
+    }
+
     #[tokio::test]
     async fn acp_session_start_failure_without_a_code_still_fails_the_turn() {
         let mock = Arc::new(MockDispatchTarget::new());
@@ -1671,7 +1730,7 @@ mod tests {
             .into(),
         );
 
-        let recorder = run_failed_session_start("acp", mock).await;
+        let recorder = run_one_message("acp", mock).await;
 
         let failed = recorder.failed.lock().unwrap();
         assert_eq!(failed.len(), 1);
@@ -1691,7 +1750,7 @@ mod tests {
             .into(),
         );
 
-        let recorder = run_failed_session_start("discord", mock).await;
+        let recorder = run_one_message("discord", mock).await;
 
         assert!(recorder.failed.lock().unwrap().is_empty());
         let sent = recorder.sent.lock().unwrap();
