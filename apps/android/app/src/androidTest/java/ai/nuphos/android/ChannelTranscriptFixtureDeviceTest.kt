@@ -48,15 +48,21 @@ class ChannelTranscriptFixtureDeviceTest {
 
     private val dark get() = InstrumentationRegistry.getArguments().getString("darkTheme") == "true"
 
+    // A post's words name Bots through the store (#2656), so the transcript needs one.
+    private fun show(transcript: @androidx.compose.runtime.Composable () -> Unit) {
+        val agents = ai.nuphos.android.session.AgentStore("synthetic-no-credentials", InstrumentationRegistry.getInstrumentation().targetContext)
+        compose.setContent {
+            NuphosTheme(darkTheme = dark) {
+                androidx.compose.runtime.CompositionLocalProvider(ai.nuphos.android.ui.LocalAgentStore provides agents, transcript)
+            }
+        }
+    }
+
     @Test fun opensAtLatestKeepsTheReadersPlaceAndJumpsBack() {
         val transport = Transport()
         val session = ChannelSession("team", "chat-release", "Chat", transport)
         runBlocking { session.refresh(force = true) }
-        compose.setContent {
-            NuphosTheme(darkTheme = dark) {
-                ChannelTranscript(session, ChannelPost.items(session.posts, session.events, emptyList()), viewerId = "me", onLink = {})
-            }
-        }
+        show { ChannelTranscript(session, ChannelPost.items(session.posts, session.events, emptyList()), viewerId = "me", onLink = {}) }
         compose.onNodeWithText("Post 30").assertIsDisplayed()
         compose.onNodeWithContentDescription("Scroll to latest").assertDoesNotExist()
         // Read older posts: the tagged agent run, the paused line and people's names show.
@@ -111,11 +117,7 @@ class ChannelTranscriptFixtureDeviceTest {
             message("p6", "me", "Bruce Wayne", "2026-11-03T12:13:00Z", "Thumbs up"),
             message("p7", "me", "Bruce Wayne", "2026-11-03T12:14:00Z", "Synthetic sending check").copy(sending = true),
         )
-        compose.setContent {
-            NuphosTheme(darkTheme = dark) {
-                ChannelTranscript(session, ChannelPost.items(posts, emptyList(), emptyList()), viewerId = "me", onLink = {})
-            }
-        }
+        show { ChannelTranscript(session, ChannelPost.items(posts, emptyList(), emptyList()), viewerId = "me", onLink = {}) }
         compose.waitForIdle()
         val inst = InstrumentationRegistry.getInstrumentation()
         java.io.File(inst.targetContext.getExternalFilesDir(null), "channel-spacing-${if (dark) "dark" else "light"}.png").outputStream().use {
@@ -150,11 +152,7 @@ class ChannelTranscriptFixtureDeviceTest {
         val session = ChannelSession("team", "chat-typing", "Chat", transport)
         runBlocking { session.refresh(force = true) }
         val agents = androidx.compose.runtime.mutableStateOf(emptyList<ChannelAgent>())
-        compose.setContent {
-            NuphosTheme(darkTheme = dark) {
-                ChannelTranscript(session, ChannelPost.items(session.posts, session.events, agents.value), viewerId = "me", onLink = {})
-            }
-        }
+        show { ChannelTranscript(session, ChannelPost.items(session.posts, session.events, agents.value), viewerId = "me", onLink = {}) }
         val dots = hasContentDescription("Release ops is typing")
         compose.onNodeWithText("Post 30").assertIsDisplayed()
         compose.onNodeWithContentDescription("Scroll to latest").assertDoesNotExist()
