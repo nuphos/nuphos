@@ -118,21 +118,26 @@ const chart = (toolCallId: string, title: string, state = 'output-available') =>
   },
 })
 
-test('collects each chart as an artifact of its own, named by its place among the charts', () => {
-  const lines = collectArtifacts([
+test('collects each chart as an artifact of its own, named after its content', () => {
+  const all = collectArtifacts([
     { parts: [chart('c1', 'Spend'), chart('c-bad', 'Failed', 'output-error')] },
     { parts: [chart('c2', ' ')] },
   ])
+  // A window that has not loaded the earlier message names the later chart the same.
+  const latest = collectArtifacts([{ parts: [chart('c2', ' ')] }])
+  const [spend, untitled] = [...all.keys()]
 
-  assert.deepEqual([...lines.keys()], ['chart-1', 'chart-2'])
+  assert.equal(all.size, 2)
+  assert.match(spend ?? '', /^chart-[0-9a-z]+$/)
+  assert.deepEqual([...latest.keys()], [untitled])
   assert.deepEqual(
-    [...lines.values()].map(([v]) => [v?.toolCallId, v?.kind, v?.title, v?.version]),
+    [...all.values()].map(([v]) => [v?.toolCallId, v?.kind, v?.title, v?.version]),
     [
       ['c1', 'chart', 'Spend', 1],
       ['c2', 'chart', 'Chart', 1],
     ],
   )
-  assert.equal(JSON.parse(lines.get('chart-1')?.[0]?.content ?? '{}').xKey, 'day')
+  assert.equal(JSON.parse(all.get(spend ?? '')?.[0]?.content ?? '{}').xKey, 'day')
   assert.equal(artifactFileName({ title: 'Spend', kind: 'chart' }), 'spend.json')
 })
 
