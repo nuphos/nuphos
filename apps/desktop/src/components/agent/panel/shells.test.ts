@@ -68,6 +68,7 @@ test('adds unfinished background tasks after terminals, skipping one already lis
       a2: { id: 'a2', name: 'done', state: 'completed' },
       a3: { id: 'a3', name: 'npm test', state: 'running', toolCallId: 't1' },
       a4: { id: 'a4', state: 'pending' },
+      a5: { id: 'a5', name: 'cancelled', state: 'cancelled' },
     },
   } as RuntimeExecution
 
