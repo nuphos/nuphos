@@ -1,5 +1,5 @@
-// Renderer-side PostHog wrapper. Initializes posthog-js with autocapture +
-// masked session replay, and exposes typed helpers for identify/reset, custom
+// Renderer-side PostHog wrapper. Initializes posthog-js with autocapture
+// (no element text or attributes, no session replay), and exposes typed helpers for identify/reset, custom
 // events, and pageviews. All calls are safe no-ops until init() runs and finds
 // a key, so callers never need to null-check.
 import posthog from 'posthog-js'
@@ -127,16 +127,18 @@ export function setActiveTeam(teamId: string | null): void {
 }
 
 export function initAnalytics(): void {
-  if (!subscribed && window.api?.onSendDiagnosticsChanged) {
+  if (!subscribed && window.api?.onSendUsageDataChanged) {
     subscribed = true
-    // "Send crash reports and usage data" changed (main owns the setting).
-    window.api.onSendDiagnosticsChanged((send) => {
+    // The setting or the backend changed (main owns both). Usage data is only
+    // sent with "Send crash reports and usage data" on and Nuphos Cloud as the
+    // backend: a self-hosted backend never starts PostHog.
+    window.api.onSendUsageDataChanged((send) => {
       if (!started) initAnalytics()
       else if (send) posthog.opt_in_capturing()
       else posthog.opt_out_capturing()
     })
   }
-  if (started || !KEY || !(window.api?.sendDiagnostics() ?? true)) return
+  if (started || !KEY || !(window.api?.sendUsageData() ?? true)) return
   started = true
   setFrontendErrorReporter(trackError)
   posthog.init(KEY, {
@@ -152,14 +154,12 @@ export function initAnalytics(): void {
     // listener on the window that forced a layout on every scroll anywhere in
     // the app, including each frame of the dock's width transition.
     disable_scroll_properties: true,
-    // This tool renders secrets, tokens, env vars, and pod logs. Record with
-    // heavy masking: every input is masked, plus any element tagged sensitive
-    // (logs/code/secret values) has its text scrubbed from the replay.
-    disable_session_recording: false,
-    session_recording: {
-      maskAllInputs: true,
-      maskTextSelector: '[data-ph-mask], .secret, .token, .sensitive, pre, code',
-    },
+    // The screen shows conversation titles, resource names, secrets and logs.
+    // A click is recorded as "this kind of element was clicked", without its
+    // text or its attributes (title, aria-label, href), and nothing is replayed.
+    mask_all_text: true,
+    mask_all_element_attributes: true,
+    disable_session_recording: true,
     persistence: 'localStorage',
     // Prevent PostHog from fetching/injecting any out-of-bundle scripts
     // (surveys, toolbar) into the renderer at runtime — those would execute
