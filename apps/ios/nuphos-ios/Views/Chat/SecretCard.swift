@@ -136,10 +136,11 @@ struct SecretCard: View {
     @ViewBuilder
     private func input(_ index: Int, label: String) -> some View {
         Group {
+            // The label sits above the input, so the input itself carries no prompt.
             if revealed {
-                TextField(label, text: value(index))
+                TextField("", text: value(index))
             } else {
-                SecureField(label, text: value(index))
+                SecureField("", text: value(index))
             }
         }
         .font(Theme.Text.mono(.footnote))
