@@ -12,8 +12,9 @@ import { channelIdOf, withChannelPosts } from './channel-wake'
 import { systemSender } from './message-metadata'
 import { buildPendingUserMessage, hasPendingUserMessage } from './pending-messages'
 import { requeueTurnQueue } from './session-released'
+import { recordDroppedFires, recordFiresRan } from './trigger-missed-runs'
 import { turnRunner } from './turn-runner'
-import { keepUndeliveredSend } from './undelivered-send'
+import { keepUndeliveredSend, reopenUndeliveredAnswer } from './undelivered-send'
 
 import type { AgentConversation } from './db'
 import type { ConversationTriggerRun } from './conversation-trigger-run'
@@ -29,6 +30,8 @@ type ConversationTurn = {
   locale: string
   /** The Trigger fire this turn answers, when it came from one. */
   trigger?: ConversationTriggerRun
+  /** The question this message answers, when it carries a person's answer to one. */
+  answers?: NonNullable<PendingUserMessage['answers']>
 }
 
 type TurnArgs = [
@@ -41,9 +44,7 @@ type TurnArgs = [
 
 /** Shared durable delivery path for agent messages and authenticated resource events. */
 export async function executeConversationTurn(...args: TurnArgs): Promise<void> {
-  const { run } = await startConversationTurn(...args)
-
-  await run
+  await startConversationTurn(...args).then(({ run }) => run)
 }
 
 /**
@@ -62,11 +63,7 @@ export async function startConversationTurn(
 
   if (
     await agentMessages().findOne(
-      {
-        sessionId: data.targetSessionId,
-        userId: data.userId,
-        messageId: data.messageId,
-      },
+      { sessionId: data.targetSessionId, userId: data.userId, messageId: data.messageId },
       { projection: { _id: 1 } },
     )
   )
@@ -74,6 +71,7 @@ export async function startConversationTurn(
   const message = {
     ...buildPendingUserMessage({ renderedText, metadata, source, actorUserId: data.userId }),
     id: data.messageId,
+    ...(data.answers ? { answers: data.answers } : {}),
   }
   const claim = await turnRunner.claimAgentRunOrEnqueue({
     userId: data.userId,
@@ -100,7 +98,7 @@ export async function startConversationTurn(
 // offline waits in the queue. One still offline after this is gone; its senders are told.
 const OFFLINE_GRACE_MS = 60_000
 
-const reconnecting = (error: unknown, message: PendingUserMessage) =>
+export const reconnecting = (error: unknown, message: PendingUserMessage) =>
   error instanceof AppError &&
   error.code === 'runtime_offline' &&
   Date.now() - Date.parse(message.offlineSince ?? new Date().toISOString()) < OFFLINE_GRACE_MS
@@ -195,7 +193,7 @@ export async function runTurn(
     if (outcome.status === 'failed')
       throw new Error('Thread run failed; inspect the target conversation.')
     // The channel posts it carried were delivered: a retry would show them again.
-    await markRead()
+    await Promise.all([markRead(), recordFiresRan(fresh)])
     // Not awaited: it waits for the computer to come back, which may be never,
     // and this turn's claim must not wait with it.
     if (outcome.finishReason === 'connection-lost') void reportIfRestarted(data, fresh)
@@ -205,6 +203,7 @@ export async function runTurn(
     const reason = error instanceof Error ? error.message : String(error)
 
     await reportUndelivered(data, taken, `did not run: ${reason}`)
+    await recordDroppedFires(error, taken)
     throw error
   }
 }
@@ -254,6 +253,7 @@ export async function reportUndelivered(
     const senderId = message.metadata?.sourceSessionId
 
     if (message.chat) await keepUndeliveredSend(data, message, `This message ${reason}`)
+    if (message.answers) await reopenUndeliveredAnswer(data, message.answers, reason)
     // Only an agent's message is answered. The answer is Nuphos's own notice,
     // never an agent's, so it is never reported back: threads cannot ping-pong.
     if (message.source !== 'agent.thread' || !senderId) continue

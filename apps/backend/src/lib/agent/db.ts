@@ -50,6 +50,7 @@ export {
   setConversationAvatar,
   setConversationParent,
   updateBotSelf,
+  botChange,
   claimBotAvatar,
 } from './db/maintenance'
 export {
@@ -98,8 +99,6 @@ export type {
   ConversationsScope,
   ConversationsSort,
 } from './db/conversations-list'
-export {
-  addConversationCredentialIds,
-  removeConversationCredentialIds,
-  setConversationCredentialFields,
-} from './db/credential-fields'
+export { setConversationCredentialFields } from './db/credential-fields'
+export { credentialHeirs, credentialSource, credentialSourceOf } from './db/credential-source'
+export type { CredentialSource } from './db/credential-source'

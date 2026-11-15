@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 
-import { getCapabilities, handleMcpHttpPayload, handleMcpMessage, toolResult } from './protocol'
+import {
+  calledToolName,
+  getCapabilities,
+  handleMcpHttpPayload,
+  handleMcpMessage,
+  toolResult,
+} from './protocol'
 
 import type { ToolHandler } from './protocol'
 
@@ -202,4 +208,14 @@ describe('handleMcpHttpPayload', () => {
     expect(Array.isArray(body)).toBe(true)
     expect((body as { id: number }[]).map((entry) => entry.id)).toEqual([1, 2])
   })
+})
+
+test('calledToolName names the tool of a tools/call and nothing else', () => {
+  const call = { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'meeting_join' } }
+
+  expect(calledToolName(call)).toBe('meeting_join')
+  expect(calledToolName({ jsonrpc: '2.0', id: 1, method: 'tools/list' })).toBeUndefined()
+  expect(calledToolName({ method: 'tools/call', params: { name: 7 } })).toBeUndefined()
+  expect(calledToolName([call])).toBeUndefined()
+  expect(calledToolName(null)).toBeUndefined()
 })

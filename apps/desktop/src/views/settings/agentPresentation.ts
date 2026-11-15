@@ -1,18 +1,30 @@
 import { t } from '../../i18n/index.ts'
 import { AGENT_PROVIDER } from '../../types/runtime.ts'
 
-import type { LocalAgentProvider } from '../../api/device-types'
+import type { AgentDevice, LocalAgentProvider } from '../../api/device-types'
 import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
+
+/**
+ * A person's own computer's default agent whose CLI is signed in. That computer's report
+ * lists it whatever Nuphos forgets, so it cannot be removed while it stays signed in.
+ */
+export function ownSignedInCli(instance: RuntimeInstance): boolean {
+  const local = instance.local
+
+  return local !== undefined && !local.instanceId && !local.box && local.signedIn === true
+}
 
 /**
  * How a computer's agent is removed: an added one by its id, a default one by its provider
  * (as for rename). A person's own computer's default is their CLI login, so Nuphos only
- * forgets it; it shows again once that CLI is signed in (see visibleAgent).
+ * forgets it, and only while that CLI is signed out; it shows again once it signs in (see
+ * visibleAgent).
  */
 export function localRemovalId(instance: RuntimeInstance): string | undefined {
   const local = instance.local
 
-  if (!local || (instance.provider === 'antigravity' && !local.instanceId)) return undefined
+  if (!local || ownSignedInCli(instance)) return undefined
+  if (instance.provider === 'antigravity' && !local.instanceId) return undefined
 
   return local.instanceId ?? instance.provider
 }
@@ -114,23 +126,40 @@ export function agentRunsOn(
   return agentOffline(instance, quota) ? t('{where} · Offline', { where }) : where
 }
 
+/** A member who may only use a machine sees it, not the controls the backend would refuse. */
+export function canManage(device: Pick<AgentDevice, 'access'>): boolean {
+  return device.access !== 'use'
+}
+
 /**
- * How the viewer signs in one of their own computers' agents while it is not signed in. This
- * computer's default Claude Code or Codex agent signs in through its CLI. Any other agent, added
- * or on another computer, signs in through the runtime sign-in, which reaches exactly that agent
- * (the CLI's login is only this computer's default agent's). Someone else's agent: none.
+ * Whether the viewer renames, removes and signs in this runtime: a computer's agent answers to
+ * those who manage its computer, as the computer list reports it, not to a team role
+ * (box-access.ts); a team runtime to its admins. Until the list has the computer: no one.
+ */
+export function managesRuntime(
+  instance: RuntimeInstance,
+  device: Pick<AgentDevice, 'access'> | undefined,
+  isAdmin: boolean,
+): boolean {
+  return instance.local ? device !== undefined && canManage(device) : isAdmin
+}
+
+/**
+ * How an agent signs in while it is not signed in, for those who manage its computer
+ * (managesRuntime). This computer's default Claude Code or Codex agent signs in through its CLI.
+ * Any other agent, added or on another computer, signs in through the runtime sign-in, which
+ * reaches exactly that agent (the CLI's login is only this computer's default agent's).
  */
 export function localSignIn(
   instance: RuntimeInstance,
-  thisComputer: { userId: string; deviceId: string } | null,
+  thisComputer: { deviceId: string } | null,
 ): 'claude-code' | 'codex' | 'runtime' | undefined {
   const local = instance.local
 
-  if (!local || local.signedIn === true || local.ownerUserId !== thisComputer?.userId)
-    return undefined
+  if (!local || local.signedIn === true) return undefined
   if (instance.provider !== 'claude-code' && instance.provider !== 'codex') return 'runtime'
 
-  return !local.instanceId && local.deviceId === thisComputer.deviceId
+  return !local.instanceId && local.deviceId === thisComputer?.deviceId
     ? instance.provider
     : 'runtime'
 }

@@ -1,5 +1,7 @@
 package ai.nuphos.android.ui.chat
 
+import ai.nuphos.android.R
+import androidx.compose.ui.res.stringResource
 import ai.nuphos.android.model.ChatPart
 import ai.nuphos.android.session.ChatSession
 import androidx.compose.foundation.BorderStroke
@@ -53,15 +55,16 @@ internal fun SecretCard(part: ChatPart.Tool, reply: String?, session: ChatSessio
     var sent by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val resources = androidx.compose.ui.platform.LocalResources.current
 
     // The value reached the runtime: sent from here, or the reply says so (Desktop and iOS send the same text).
     val saved = sent || reply?.startsWith(ChatPart.Tool.SecretRequest.savedReply(request.name)) == true
-    if (saved) return SecretLine(Icons.Outlined.Lock, "${request.name} saved on the task's runtime.")
-    if (reply != null) return SecretLine(Icons.Outlined.LockOpen, "${request.name} request closed. Ask the agent to request it again.")
+    if (saved) return SecretLine(Icons.Outlined.Lock, stringResource(R.string.composer_secret_saved, request.name))
+    if (reply != null) return SecretLine(Icons.Outlined.LockOpen, stringResource(R.string.composer_secret_closed, request.name))
 
     val blocked = when {
-        !session.isOwner -> "Only the owner of this task can provide this secret."
-        session.isStreaming -> "The agent is working. You can send this when its turn ends."
+        !session.isOwner -> stringResource(R.string.composer_secret_owner_only)
+        session.isStreaming -> stringResource(R.string.composer_secret_busy)
         else -> null
     }
     fun submit() {
@@ -75,7 +78,7 @@ internal fun SecretCard(part: ChatPart.Tool, reply: String?, session: ChatSessio
                 value = ""
                 sent = true
             } catch (e: Exception) {
-                failure = "Could not save it on the agent's runtime: ${e.message ?: "unknown error"}"
+                failure = resources.getString(R.string.composer_secret_save_failed, e.message ?: resources.getString(R.string.composer_unknown_error))
             } finally {
                 saving = false
             }
@@ -91,7 +94,7 @@ internal fun SecretCard(part: ChatPart.Tool, reply: String?, session: ChatSessio
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Icon(Icons.Outlined.Lock, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Secret needed:", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                Text(stringResource(R.string.composer_secret_needed), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                 Text(request.name, style = MaterialTheme.typography.bodyMedium, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium)
             }
             if (request.reason.isNotEmpty()) Text(request.reason, style = MaterialTheme.typography.bodySmall)
@@ -100,7 +103,7 @@ internal fun SecretCard(part: ChatPart.Tool, reply: String?, session: ChatSessio
                 onValueChange = { value = it },
                 enabled = blocked == null && !saving,
                 singleLine = true,
-                placeholder = { Text("Paste the value") },
+                placeholder = { Text(stringResource(R.string.composer_paste_value)) },
                 textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(
@@ -113,10 +116,10 @@ internal fun SecretCard(part: ChatPart.Tool, reply: String?, session: ChatSessio
                 modifier = Modifier.fillMaxWidth().testTag("secret-value:${part.toolCallId}"),
             )
             Button(onClick = ::submit, enabled = value.isNotEmpty() && !saving && blocked == null) {
-                Text(if (saving) "Saving…" else "Send securely")
+                Text(if (saving) stringResource(R.string.composer_saving) else stringResource(R.string.composer_send_securely))
             }
             failure?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error) }
-            Text(blocked ?: "The value is written to a file on the task's runtime and never appears in this task.",
+            Text(blocked ?: stringResource(R.string.composer_secret_footer),
                 style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }

@@ -1,3 +1,7 @@
+import type { LocalAgentProvider } from './local-agent-providers.ts'
+
+export type { LocalAgentProvider }
+
 export type DeviceIdentity = {
   deviceId: string
   label: string
@@ -33,9 +37,6 @@ export type DeviceExecAuditPage = {
   entries: DeviceExecAuditEntry[]
   nextCursor: string | null
 }
-
-/** This computer's own agent CLI; team runtimes can run more (`AgentProvider`). */
-export type LocalAgentProvider = 'claude-code' | 'codex' | 'grok' | 'antigravity' | 'opencode'
 
 /** The agents this app signs in itself, through their own CLI login; the rest sign in from Nuphos. */
 export type CliLoginProvider = 'claude-code' | 'codex'
@@ -183,7 +184,7 @@ export type LocalShareApproval = {
   requestedAt: string
 }
 
-/** Who may use a Box besides the team's admins, who always may. */
+/** Who may use a Box besides its owner and managers, who always may. */
 export type BoxAccess = { everyone: boolean; userIds: string[] }
 
 export type BoxStatus = {
@@ -197,7 +198,6 @@ export type BoxStatus = {
   updateStartedAt?: string
 }
 
-/** One of the signed-in user's devices; `box` is set when Nuphos hosts it. */
 export type DeviceMetrics = {
   sampledAt: string
   cpuPercent: number
@@ -231,6 +231,7 @@ export type AgentDevice = {
   box?: BoxStatus
   /** A Box's displays of the viewer's own conversations, besides its own :1. */
   desktops?: { display: number; sessionId: string; title: string }[]
+  desktopRuntimeId?: string // The viewer's own computer: the runtime id that opens its screen.
 }
 
 export type AgentDeviceList = {

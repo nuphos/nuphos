@@ -12,6 +12,7 @@ import { iconNameForType, svg } from './atlas-link-mention/icons.ts'
 import { initialLabel } from './atlas-link-mention/label.ts'
 import { parseClusterOrResource, parseInfraLink } from './atlas-link-mention/parseInfra.ts'
 import { resolveMentionLabel } from './atlas-link-mention/resolveLabel.ts'
+import { trustedAvatarURL } from './avatarUrl'
 import { botAvatarUrl } from './botAvatars'
 import { isKubernetesClusterProvider } from './kubernetesClusterRoutes'
 import { ATLAS_WEB_BASE_URL } from './webBaseUrl'
@@ -246,7 +247,9 @@ function chipIcon(target: MentionTarget): string {
   const avatar = target.type === 'agent-session' ? agentAvatarPick(target.sessionId) : null
 
   if (target.type === 'agent-session' && avatar) {
-    return `<img src="${botAvatarUrl(target.sessionId, avatar)}" alt="" draggable="false" class="atlas-mention-icon atlas-mention-avatar">`
+    const photo = trustedAvatarURL(avatar)
+
+    return `<img src="${photo ?? botAvatarUrl(target.sessionId, avatar)}" alt="" draggable="false" class="atlas-mention-icon atlas-mention-avatar${photo ? ' rounded-full' : ''}">`
   }
 
   return svg(iconNameForType(target))

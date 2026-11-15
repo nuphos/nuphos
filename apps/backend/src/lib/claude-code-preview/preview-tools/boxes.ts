@@ -5,7 +5,7 @@
 import { tool } from 'ai'
 import { z } from 'zod'
 
-import { agentConversations } from '@/lib/agent/db'
+import { agentConversations, credentialSourceOf } from '@/lib/agent/db'
 import { deviceAccessDeps, requireDeviceAccess } from '@/lib/agent/devices/box-access'
 import {
   boxState,
@@ -43,12 +43,10 @@ async function teamAccounts({ teamId, sessionId }: PreviewToolContext) {
       { _id: parseObjectId(teamId, 'teamId') },
       { projection: { instaboxAccounts: 1 } },
     ),
-    agentConversations().findOne(
-      { sessionId, teamId },
-      { projection: { 'credentialAccess.instaboxAccountIds': 1 } },
-    ),
+    credentialSourceOf(sessionId),
   ])
-  const selected = conversation?.credentialAccess?.instaboxAccountIds
+  const selected =
+    conversation?.teamId === teamId ? conversation.credentialAccess?.instaboxAccountIds : undefined
 
   return (doc?.instaboxAccounts ?? [])
     .map((a) => ({ id: a.id.toHexString(), label: a.label }))
@@ -116,8 +114,8 @@ export function boxToolModule(
         description:
           "Create a Box, a Linux cloud computer with a desktop, on one of the team's instabox accounts; " +
           'instabox bills that account. It joins the team as a Nuphos computer and is selected for ' +
-          'this conversation: use it with local_exec and local_cua, or hand it to a sub-agent with ' +
-          'update_thread (grant provider "device", or runtimeId of its agent from list_agent_runtimes). ' +
+          'this conversation and its sub-agents: use it with local_exec and local_cua, or move a ' +
+          'sub-agent onto its agent with update_thread runtimeId (from list_agent_runtimes). ' +
           'Waits until it has joined, usually under a minute. Needs a team administrator. ' +
           'Stop or delete it with update_box when the work is done.',
         inputSchema: z
@@ -149,7 +147,9 @@ export function boxToolModule(
           })
 
           // As if the user had picked it: a conversation without a selection yet gets one.
-          await agentConversations().updateOne({ sessionId: ctx.sessionId, teamId: ctx.teamId }, [
+          const source = (await credentialSourceOf(ctx.sessionId))?.sessionId ?? ctx.sessionId
+
+          await agentConversations().updateOne({ sessionId: source, teamId: ctx.teamId }, [
             {
               $set: {
                 credentialAccess: { $ifNull: ['$credentialAccess', { updatedAt: '$$NOW' }] },

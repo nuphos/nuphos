@@ -25,7 +25,7 @@ import { toolInputJsonSchema } from './ai-sdk-adapter'
 import { CLIENT_TOOL_INSTRUCTION, CLIENT_TOOL_UNREACHABLE_INSTRUCTION } from './decision-specs'
 import {
   aboutRefs,
-  askedInChannel,
+  askInChannel,
   checkedCall,
   followUpHandler,
   isRequestFollowUp,
@@ -201,7 +201,7 @@ function passthroughHandler(
 
     await addInputRequest(ctx.sessionId, requestOwner(ctx), {
       id: outcome.toolCallId,
-      ...(await askedInChannel(ctx, category)),
+      ...(await askInChannel(ctx, category, question)),
       category,
       question,
       ...(body ? { body } : {}),

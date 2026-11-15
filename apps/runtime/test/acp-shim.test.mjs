@@ -20,7 +20,8 @@ rl.on('line', (line) => {
     HOME: process.env.HOME, NUPHOS_TOKEN: process.env.NUPHOS_TOKEN, EXTRA: process.env.EXTRA,
     GROK_HOME: process.env.GROK_HOME, NUPHOS_AGENT_HOME: process.env.NUPHOS_AGENT_HOME,
     XDG_DATA_HOME: process.env.XDG_DATA_HOME, XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME,
-    OPENCODE_DISABLE_AUTOUPDATE: process.env.OPENCODE_DISABLE_AUTOUPDATE } }
+    OPENCODE_DISABLE_AUTOUPDATE: process.env.OPENCODE_DISABLE_AUTOUPDATE,
+    DSH_HOME: process.env.DSH_HOME } }
   const result = m.method === 'session/new' ? { sessionId: 's1', configOptions: [], seen } : { seen }
   process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: m.id, result }) + '\\n')
 })
@@ -167,6 +168,38 @@ test('opencode shares only its own data directory with the runtime home', async 
     assert.equal(seen.env.OPENCODE_DISABLE_AUTOUPDATE, '1')
     assert.equal(seen.params._meta.rules, undefined)
   })
+})
+
+// Like DeepSeek Harness: resumes sessions, but has no session/load.
+const RESUMING_AGENT = `
+const rl = require('node:readline').createInterface({ input: process.stdin })
+rl.on('line', (line) => {
+  const m = JSON.parse(line)
+  if (m.id === undefined) return
+  const result = m.method === 'initialize'
+    ? { protocolVersion: 1, agentCapabilities: { sessionCapabilities: { resume: {} } }, authMethods: [] }
+    : { method: m.method, sessionId: m.params?.sessionId, dshHome: process.env.DSH_HOME }
+  process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: m.id, result }) + '\\n')
+})
+`
+
+test('dsh keeps its home in the runtime home and resumes the sessions OpenAB loads', async () => {
+  await withShim(
+    'dsh',
+    async ({ call, children, home }) => {
+      const init = await call('initialize', { protocolVersion: 1 })
+      // OpenAB restores only agents that advertise load.
+      assert.equal(init.result.agentCapabilities.loadSession, true)
+      assert.deepEqual(init.result.agentCapabilities.sessionCapabilities, { resume: {} })
+
+      const reply = await call('session/load', { ...session('Be Nuphos.'), sessionId: 's1' })
+      assert.deepEqual(children[1].command, ['dsh', '--profile', 'acp'])
+      assert.equal(reply.result.method, 'session/resume')
+      assert.equal(reply.result.sessionId, 's1')
+      assert.equal(reply.result.dshHome, join(home, '.dsh'))
+    },
+    RESUMING_AGENT,
+  )
 })
 
 // Like OpenCode, replays a loaded session's history before answering session/load.

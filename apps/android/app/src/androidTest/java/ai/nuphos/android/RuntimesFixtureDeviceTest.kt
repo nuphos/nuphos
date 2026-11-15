@@ -42,7 +42,7 @@ class RuntimesFixtureDeviceTest {
     private val cloud = AgentRuntime("cloud", "codex", "Synthetic Cloud", "active", "managed")
     private val local = AgentRuntime("local", "claude-code", "Synthetic Desktop", "active", "local", local = RuntimeHost("host", "Synthetic Box", true))
     private val offline = local.copy(id = "offline", label = "Synthetic Offline", local = RuntimeHost("mac", "Synthetic Mac", false))
-    private fun render(rtl: Boolean = false, canManage: Boolean = true, waitLoaded: Boolean = true) {
+    private fun render(rtl: Boolean = false, waitLoaded: Boolean = true) {
         require(InstrumentationRegistry.getInstrumentation().targetContext.packageName in setOf("ai.nuphos.android.runtimes1373","ai.nuphos.android.agentsaudit1382"))
         compose.setContent {
             val scope = rememberCoroutineScope()
@@ -53,7 +53,7 @@ class RuntimesFixtureDeviceTest {
             CompositionLocalProvider(LocalLayoutDirection provides if (rtl) LayoutDirection.Rtl else LayoutDirection.Ltr,
                 LocalDensity provides Density(LocalDensity.current.density, if (rtl) 2f else 1f)) {
                 RuntimeFixtureTheme { Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.background) { Box(Modifier.fillMaxSize()) { Box(if(rtl) Modifier.width(320.dp) else Modifier.fillMaxSize()) {
-                    RuntimeInventory(store, canManage, { details = it; detailClicks++ })
+                    RuntimeInventory(store, { details = it; detailClicks++ })
                 } } } }
             }
         }
@@ -98,8 +98,8 @@ class RuntimesFixtureDeviceTest {
         compose.onNodeWithText("No runtimes").assertIsDisplayed()
         compose.onNodeWithText("Add runtime").assertDoesNotExist()
     }
-    @Test fun nonAdministratorHasNoAddButCanInspectRuntimeRows() {
-        render(canManage = false)
+    @Test fun runtimeRowsOpenDetailsWithoutAdd() {
+        render()
         compose.onNodeWithText("Add runtime").assertDoesNotExist()
         compose.onNodeWithTag("runtime-row-cloud").performClick()
         assertEquals("cloud", details);assertEquals(1,detailClicks);assertEquals(0,management)

@@ -1,7 +1,8 @@
-import { execFileSync } from 'node:child_process'
+import { execFile, execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import os from 'node:os'
+import { promisify } from 'node:util'
 
 export type DeviceIdentity = {
   deviceId: string
@@ -48,6 +49,26 @@ export const parseIoregPlatformUuid = (out: string): string | null =>
 
 export const parseRegMachineGuid = (out: string): string | null =>
   /MachineGuid\s+REG_SZ\s+(\S+)/u.exec(out)?.[1] ?? null
+
+export const parseModelName = (out: string): string | undefined =>
+  /Model Name:\s*(.+)/u.exec(out)?.[1]?.trim() || undefined
+
+let model: Promise<string | undefined> | undefined
+
+/** "MacBook Pro", "Mac mini"…: what the Computers page draws this computer as. Read once, off the main thread. */
+export function machineModel(): Promise<string | undefined> {
+  model ??=
+    process.platform === 'darwin'
+      ? promisify(execFile)('/usr/sbin/system_profiler', ['SPHardwareDataType'], {
+          timeout: 5_000,
+        }).then(
+          ({ stdout }) => parseModelName(stdout),
+          () => undefined,
+        )
+      : Promise.resolve(undefined)
+
+  return model
+}
 
 /** The OS's own id for this machine, or null where none can be read. */
 export function readMachineKey(platform: NodeJS.Platform = process.platform): string | null {

@@ -10,15 +10,14 @@ class RuntimeBlockedConflictTest {
             val conflict = AgentChatApi.conflict(409, """{"error":{"code":"$code","message":"Enable it in Settings → Agent."}}""")
             assertTrue(conflict is AgentChatApi.Conflict.RuntimeBlocked)
             assertFalse(conflict.message!!.contains("Settings"))
-            assertTrue(conflict.message in AgentChatApi.switchRuntimeErrors)
         }
     }
 
     @Test fun onlyASignedOutAgentOffersAnAsk() {
         val conflict = AgentChatApi.conflict(409, """{"error":{"code":"runtime_login_required","message":"Signed out."}}""")
-        assertEquals(AgentChatApi.signedOutError, conflict.message)
+        assertTrue((conflict as AgentChatApi.Conflict.RuntimeBlocked).signedOut)
         val offline = AgentChatApi.conflict(409, """{"error":{"code":"runtime_offline","message":"Offline."}}""")
-        assertNotEquals(AgentChatApi.signedOutError, offline.message)
+        assertFalse((offline as AgentChatApi.Conflict.RuntimeBlocked).signedOut)
     }
 
     @Test fun asksWhoeverCanSignTheAgentIn() {
@@ -34,6 +33,6 @@ class RuntimeBlockedConflictTest {
     @Test fun otherErrorsKeepTheServerText() {
         val conflict = AgentChatApi.conflict(409, """{"error":{"code":"runtime_busy","message":"Busy."}}""")
         assertEquals("Busy.", conflict.message)
-        assertFalse(conflict.message in AgentChatApi.switchRuntimeErrors)
+        assertFalse(conflict is AgentChatApi.Conflict.RuntimeBlocked)
     }
 }

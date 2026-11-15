@@ -38,6 +38,18 @@ enum Theme {
     /// Desktop `status.attention`: a row waiting on the viewer's answer.
     static let attention = adaptive(light: 0xB83A0A, dark: 0xF47A3F)
     static let hairline = adaptive(light: 0x18181B, dark: 0xFFFFFF, lightAlpha: 0.08, darkAlpha: 0.10)
+    /// The selected row of a list that keeps its selection beside it, as the Inbox's.
+    static let selected = adaptive(light: 0xE2E2E6, dark: 0x2E2E33)
+    /// A secondary button's fill, and a toggled one's.
+    static let control = adaptive(light: 0xE4E4E7, dark: 0x2A2A2E)
+    /// An outlined button's edge, as the Inbox's Other… and Skip.
+    static let outline = adaptive(light: 0xD4D4D8, dark: 0x3F3F46)
+    /// A quiet edge or mark: a text field's outline, a row's disclosure chevron.
+    static let faint = adaptive(light: 0xA1A1AA, dark: 0x52525B)
+    /// A divider drawn on the page, as between the Inbox's rows and columns.
+    static let separator = adaptive(light: 0xDEDEE2, dark: 0x2E2E33)
+    /// A count waiting for the viewer, as the Inbox's.
+    static let badge = adaptive(light: 0xB83A0A, dark: 0xE0592A)
 
     private static func adaptive(
         light: UInt32, dark: UInt32,

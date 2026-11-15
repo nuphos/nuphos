@@ -2,7 +2,6 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
 
 import { config } from '@/config'
 import { AppError } from '@/lib/errors'
-import { logError } from '@/lib/observability'
 
 import type { MeetingsConfig } from '@/config/meetings'
 
@@ -37,12 +36,30 @@ async function recallFetch(path: string, body: object): Promise<unknown> {
 export async function createMeetingBot(input: {
   meetingUrl: string
   botName: string
+  /** Base64 JPEG the bot shows as its camera. */
+  face: string
   webhookUrl: string
 }): Promise<string> {
   const recall = recallConfig()
+  const image = { kind: 'jpeg', b64_data: input.face }
   const bot = (await recallFetch('/bot/', {
     meeting_url: input.meetingUrl,
     bot_name: input.botName,
+    automatic_video_output: { in_call_recording: image, in_call_not_recording: image },
+    // Recall leaves an empty call in seconds by default; this also leaves one where only notetakers
+    // are left. Bots are told by name only: people who just type in the chat never count as bots.
+    automatic_leave: {
+      bot_detection: {
+        // Recall has no switch for its activity check and fills in a default when it is left out,
+        // so it is set to start a day into the call, which no call reaches.
+        using_participant_events: { timeout: 600, activate_after: 86_400 },
+        using_participant_names: {
+          matches: ['notetaker', 'recorder', 'assistant'],
+          timeout: 60,
+          activate_after: 60,
+        },
+      },
+    },
     recording_config: {
       // Zero data retention: only the real-time stream is used, so Recall keeps no media.
       retention: null,
@@ -67,17 +84,6 @@ export async function createMeetingBot(input: {
 
 export async function sendMeetingChat(botId: string, message: string): Promise<void> {
   await recallFetch(`/bot/${botId}/send_chat_message/`, { message: message.slice(0, 4096) })
-}
-
-/** A meeting channel's post also goes to the call's chat; the post stands if that fails. */
-export function forwardToMeeting(
-  channel: { sessionId: string; meeting?: { botId: string } },
-  text: string,
-): void {
-  if (!channel.meeting) return
-  void sendMeetingChat(channel.meeting.botId, text).catch((error: unknown) => {
-    logError('meeting.chat_failed', error, { channel_id: channel.sessionId })
-  })
 }
 
 export async function leaveMeeting(botId: string): Promise<void> {

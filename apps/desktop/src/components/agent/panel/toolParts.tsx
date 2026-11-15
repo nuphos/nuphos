@@ -1,3 +1,5 @@
+import { artifactPagePath } from '../../../lib/sessionArtifacts'
+import { useArtifactCall } from '../artifacts/useSessionArtifacts'
 import { Chart } from '../Chart'
 import { tryParseChartPayload } from '../chartPayload'
 import { tryParsePlanPayload } from '../planPayload'
@@ -8,6 +10,7 @@ import { LoadingText, ToolElapsedBadge } from './partChrome'
 import { getToolLabel } from './toolPartUtils'
 import { ToolPartView } from './ToolPartView'
 
+import type { OpenLink } from './LocalUrlChip'
 import type { ToolPart } from './parts'
 
 export function PlanToolPart({
@@ -143,7 +146,19 @@ export function AssistantPlanPart({
   )
 }
 
-export function ChartToolPart({ part, now }: { part: ToolPart; now: number }) {
+export function ChartToolPart({
+  part,
+  now,
+  teamId,
+  onOpen,
+}: {
+  part: ToolPart
+  now: number
+  teamId: string | undefined
+  onOpen: OpenLink | undefined
+}) {
+  // The chat collects each chart as an artifact, so it opens in the artifact's dock tab.
+  const call = useArtifactCall(part.toolCallId)
   // The tool's execute() echoes the validated input, so either side carries the
   // payload. Prefer output (post-validation) but fall back to input so a chart
   // can render mid-stream before the tool result lands.
@@ -169,5 +184,14 @@ export function ChartToolPart({ part, now }: { part: ToolPart; now: number }) {
     )
   }
 
-  return <Chart payload={payload} />
+  return (
+    <Chart
+      payload={payload}
+      onOpen={
+        teamId && onOpen && call
+          ? () => onOpen(artifactPagePath(teamId, call.artifactId), false)
+          : undefined
+      }
+    />
+  )
 }

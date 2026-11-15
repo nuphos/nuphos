@@ -2,7 +2,7 @@ import { t } from '../../i18n'
 import { openQuestion } from '../../views/inbox/inboxItems'
 import { selectInboxQuestion, useInboxSelection } from '../../views/inbox/inboxSelection'
 import { QuestionRail } from '../../views/inbox/QuestionRail'
-import { useInboxQuestions } from '../../views/inbox/useInbox'
+import { useInboxQuestions } from '../../views/inbox/useInboxQuestions'
 import { SIDEBAR_GROUP_TITLE_CLASS } from '../SidebarNavItem'
 
 import type { UIEventHandler } from 'react'

@@ -50,7 +50,8 @@ class RuntimeSessionRegressionTest {
         metadata(session, AgentConversationDetail(agentRuntime = "openab", canRespondToRun = true,
             runtimeState = JsonValue.parse("""{"schemaVersion":2,"actions":{"reply":false,"send":false,"steer":true,"cancel":true}}""")))
         state(session, "queued", listOf("delivery uncertain"))
-        state(session, "error", "Steering delivery is unconfirmed. Check the task before retrying.")
+        val pendingType = Class.forName("ai.nuphos.android.session.ChatSession\$PendingSteering")
+        state(session, "steeringHold", pendingType.declaredConstructors.first().apply { isAccessible = true }.newInstance("delivery uncertain", null, emptySet<String>()))
         assertFalse(session.canSteer)
         assertFalse(session.canSubmit)
     }

@@ -3,7 +3,7 @@ import { Fragment, useCallback, useState } from 'react'
 
 import { t } from '../../i18n'
 import { useAgentLinks } from '../agent/panel/useAgentLinks'
-import { renderMemberMentionLink } from '../agent/panel/messageInlineLinks'
+import { renderAtlasMentionLink, renderMemberMentionLink } from '../agent/panel/messageInlineLinks'
 import { parseMessageMetadata } from '../agent/panel/messageMetadata'
 import { ContextMenu } from '../ContextMenu'
 
@@ -12,7 +12,6 @@ import { ChannelReplyFailed } from './ChannelReplyFailed'
 import { ChannelMessage } from './ChannelPost'
 import { sentSinceOpening, startsTimeGap, timeGapLabel } from './chatTime'
 import { Typing } from './ChannelTyping'
-import { BotWorkStatus } from './BotWorkStatus'
 
 import type {
   AgentMessageReply,
@@ -63,7 +62,6 @@ export function ChannelMessages({
   onOpenSession,
   onOpenNuphosLink,
   channelId,
-  botId,
   onReply,
   extraRows = [],
   fixes,
@@ -76,8 +74,6 @@ export function ChannelMessages({
   onOpenSession: (sessionId: string) => void
   onOpenNuphosLink?: (href: string, beside?: boolean) => boolean
   channelId: string
-  /** A Bot's chat: what the Bot is doing shows in place of its typing dots. */
-  botId?: string
   /** Replies to a post; absent where the viewer cannot post. */
   onReply?: (reply: AgentMessageReply) => void
   /** Other lines in the timeline, such as the questions a Bot's chat waits on. */
@@ -90,8 +86,10 @@ export function ChannelMessages({
   // which drops a selection the reader is dragging.
   const renderLink = useCallback(
     (href: string, children: ReactNode) =>
-      renderMemberMentionLink(href, children, teamId) ?? renderAgentLink(href, children),
-    [teamId, renderAgentLink],
+      renderMemberMentionLink(href, children, teamId) ??
+      renderAtlasMentionLink(href, children, onOpenNuphosLink) ??
+      renderAgentLink(href, children),
+    [teamId, renderAgentLink, onOpenNuphosLink],
   )
   const links = { channelId, renderLink, onLinkClick: onOpenNuphosLink }
   // What was here on opening stays put; only posts that arrive later spring in.
@@ -100,7 +98,6 @@ export function ChannelMessages({
   )
   const [openedAt] = useState(Date.now)
   const [menu, setMenu] = useState<{ reply: AgentMessageReply; x: number; y: number } | null>(null)
-  const bot = agents.find((agent) => agent.sessionId === botId)
   const lastEvent = events.at(-1)
   const lastPostAt = Math.max(0, ...messages.map(postedAt))
   // Posts and timeline lines in the order they happened.
@@ -180,15 +177,7 @@ export function ChannelMessages({
       {rows.map((row) => (
         <Fragment key={row.key}>{row.node}</Fragment>
       ))}
-      <Typing agents={agents.filter((agent) => agent !== bot)} channelId={channelId} />
-      {bot && (
-        <BotWorkStatus
-          teamId={teamId}
-          channelId={channelId}
-          agent={bot}
-          onOpenSession={owned.has(bot.sessionId) ? onOpenSession : undefined}
-        />
-      )}
+      <Typing agents={agents} channelId={channelId} />
       {menu && onReply && (
         <ContextMenu
           x={menu.x}

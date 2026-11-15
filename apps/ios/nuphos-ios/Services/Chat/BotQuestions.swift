@@ -10,6 +10,8 @@ struct BotQuestion: Identifiable, Equatable, Sendable {
     let sessionId: String
     let title: String
     let request: AgentConversation.InputRequest
+    /// The asking conversation's runtime: its mark when it is a Task, its badge when a Bot.
+    var runtime: String? = nil
 
     var id: String { "\(sessionId):\(request.id)" }
 
@@ -105,19 +107,41 @@ enum BotQuestions {
         return open(rows: rows.filter { isUnder($0.sessionId) })
     }
 
+    /// The Inbox's list by the conversation that asked: the group with the newest question first,
+    /// each group's questions oldest first, as `open` lists them.
+    static func grouped(_ list: [BotQuestion]) -> [[BotQuestion]] {
+        Dictionary(grouping: list, by: \.sessionId).values
+            .sorted { ($0.last?.request.askedAt ?? "", $0[0].sessionId) > ($1.last?.request.askedAt ?? "", $1[0].sessionId) }
+    }
+
+    /// The question to open after `id`: the one listed after it, else the first other one.
+    static func next(after id: String, in groups: [[BotQuestion]]) -> String? {
+        let ids = groups.joined().map(\.id)
+        guard let index = ids.firstIndex(of: id) else { return ids.first }
+        return (ids[(index + 1)...] + ids[..<index]).first
+    }
+
     /// The viewer's own open questions in `rows`, oldest first: the Inbox's list.
     static func open(rows: [AgentConversation]) -> [BotQuestion] {
         var listed = Set<String>()
         return rows
             .filter { $0.isOwner == true && listed.insert($0.sessionId).inserted }
             .flatMap { row in
-                (row.inputRequests ?? []).map { BotQuestion(sessionId: row.sessionId, title: row.displayTitle, request: $0) }
+                (row.inputRequests ?? []).map { BotQuestion(sessionId: row.sessionId, title: row.displayTitle, request: $0, runtime: row.agentRuntime) }
             }
             .sorted { ($0.request.askedAt ?? "", $0.id) < ($1.request.askedAt ?? "", $1.id) }
     }
 }
 
 extension BotQuestion {
+    /// When it was asked, if the listing said.
+    var askedDate: Date? {
+        guard let raw = request.askedAt else { return nil }
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return iso.date(from: raw) ?? ISO8601DateFormatter().date(from: raw)
+    }
+
     /// The conversation that asked, opened in the app like any Nuphos link.
     func link(team: String) -> URL {
         URL(string: "https://nuphos.ai/teams/\(team)/agent/\(sessionId)")!

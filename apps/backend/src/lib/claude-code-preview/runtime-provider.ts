@@ -6,6 +6,7 @@ export const OPENAB_PROVIDERS = [
   'antigravity',
   'opencode',
   'hermes',
+  'dsh',
 ] as const
 
 export type OpenAbProvider = (typeof OPENAB_PROVIDERS)[number]
@@ -27,6 +28,7 @@ const PROVIDERS: Record<
   },
   opencode: { label: 'OpenCode', errorPrefix: 'opencode', short: 'opencode', shim: true },
   hermes: { label: 'Hermes Agent', errorPrefix: 'hermes', short: 'hermes', shim: true },
+  dsh: { label: 'DeepSeek Harness', errorPrefix: 'dsh', short: 'dsh', shim: true },
 }
 
 export function isOpenAbProvider(value: unknown): value is OpenAbProvider {

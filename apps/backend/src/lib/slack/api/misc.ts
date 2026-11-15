@@ -1,5 +1,6 @@
 import { readBoundedBody } from '@/lib/agent/inbound-files'
 import { AppError } from '@/lib/errors'
+import { logEvent } from '@/lib/observability'
 import { slackApi, slackApiGet } from '@/lib/slack/api/client'
 
 import type { SlackApiResponse } from '@/lib/slack/api/client'
@@ -13,13 +14,21 @@ import type { SlackApiResponse } from '@/lib/slack/api/client'
 // needs the bot token as a bearer credential AND the files:read scope. A
 // workspace installed before that scope was requested gets 401/403 here, which
 // the caller degrades into "I couldn't read your attachment" rather than a
-// failed turn.
+// failed turn. The token goes only to Slack's own file hosts: the URL comes
+// from a message payload, so any other host is refused.
 export async function downloadSlackFile(args: {
   token: string
   urlPrivate: string
   maxBytes: number
 }): Promise<{ bytes: Uint8Array; contentType: string | null } | null> {
-  const response = await fetch(args.urlPrivate, {
+  const url = URL.parse(args.urlPrivate)
+
+  if (url?.protocol !== 'https:' || !/(^|\.)slack\.com$/u.test(url.hostname)) {
+    logEvent('warn', 'slack.files.download.host_refused', { host: url?.hostname ?? null })
+
+    return null
+  }
+  const response = await fetch(url, {
     headers: { authorization: `Bearer ${args.token}` },
     // A slow or endless response would otherwise pin the worker handling this
     // webhook for as long as the sender likes.

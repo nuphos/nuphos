@@ -22,7 +22,6 @@ import {
 import { isChannel } from './db/channels'
 import { relatedQuestionsNote } from './db/pending-decision'
 
-import type { CredentialRef } from './thread-credentials'
 import type { ThreadModelPick } from './thread-runtime'
 import type { AgentConversation } from './db'
 
@@ -85,12 +84,9 @@ export async function createAgentThread(
   actor: ThreadActor,
   prompt: string,
   title: string,
-  pick: ThreadModelPick & { credentials?: CredentialRef[] } = {},
+  pick: ThreadModelPick & { fullAccess?: boolean } = {},
 ) {
   const source = await authorizeThreadActor(actor)
-  const { threadCredentialAccess } = await import('./thread-credentials')
-  // Checked before anything is written, so a refused grant leaves no conversation.
-  const credentialAccess = await threadCredentialAccess(actor, source, pick.credentials)
   const threadId = randomUUID()
   const messageId = randomUUID()
 
@@ -102,7 +98,6 @@ export async function createAgentThread(
     firstMessage: prompt,
     locale: actor.locale,
     source: 'agent.thread',
-    credentialAccess,
     agentRuntime: source.agentRuntime,
     runtimeId: source.runtimeId,
     runtimeLabel: source.runtimeLabel,
@@ -110,11 +105,11 @@ export async function createAgentThread(
     parentGrants: source,
     workspace: source.workspace,
   })
-  // A thread runs in its parent's permission mode, as a hand-opened chat in the user's pick.
+  // A thread runs in its parent's permission mode, or in Auto Mode when `fullAccess` is false.
   await initializeSessionBypass(
     threadId,
     actor.userId,
-    await getSessionBypass(actor.sessionId, actor.userId),
+    pick.fullAccess !== false && (await getSessionBypass(actor.sessionId, actor.userId)),
   )
   const { setThreadModel } = await import('./thread-runtime')
 
@@ -150,8 +145,9 @@ export async function listThreadRuntimes(actor: ThreadActor) {
 }
 
 /**
- * Controls for another conversation the actor owns: its permission mode and
- * credentials, never more access than this conversation has, and the agent it runs on.
+ * Controls for another conversation the actor owns: its permission mode, never
+ * more than this conversation has, and the agent it runs on. Its credentials are
+ * its topmost parent's (credentialSource), so there is nothing to grant here.
  */
 export async function updateThread(
   actor: ThreadActor,
@@ -159,8 +155,6 @@ export async function updateThread(
   change: {
     fullAccess?: boolean
     runtimeId?: string
-    grant?: CredentialRef[]
-    revoke?: CredentialRef[]
   } & ThreadModelPick,
 ) {
   const { target } = await authorizeThreadDelivery({ ...actor, targetSessionId: threadId })
@@ -171,8 +165,6 @@ export async function updateThread(
   const { assertThreadRuntime, setThreadModel } = await import('./thread-runtime')
 
   await assertThreadRuntime(actor, change.runtimeId)
-  const { changeThreadCredentials } = await import('./thread-credentials')
-  const credentials = await changeThreadCredentials(actor, threadId, change)
   const { moveConversationRuntime } =
     await import('@/lib/claude-code-preview/conversation-runtime-move')
   const runtime = change.runtimeId
@@ -193,7 +185,6 @@ export async function updateThread(
 
   return {
     threadId,
-    ...credentials,
     ...(change.fullAccess === undefined
       ? {}
       : { mode: change.fullAccess ? 'full_access' : 'auto' }),

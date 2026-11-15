@@ -3,13 +3,14 @@ import clsx from 'clsx'
 import { AgentAvatar } from '../../components/agent/AgentAvatar'
 import { t } from '../../i18n'
 
-import { inboxGroups } from './inboxItems'
+import { inboxGroups, inboxSource } from './inboxItems'
 
 import type { InboxQuestion } from './inboxItems'
 
 /**
  * The Inbox's list in the sidebar: the open questions grouped by the Bot or
  * Task that asked, under its face or its Runtime's icon, one line each.
+ * A question from a Bot's task is in the Bot's group, followed by the task's name.
  */
 export function QuestionRail({
   rows,
@@ -23,7 +24,7 @@ export function QuestionRail({
   return (
     <div className="flex flex-col gap-2">
       {inboxGroups(rows).map((group) => {
-        const { conversation } = group[0]
+        const conversation = inboxSource(group[0])
 
         return (
           <section key={conversation.sessionId} className="flex flex-col gap-px">
@@ -46,6 +47,12 @@ export function QuestionRail({
                 )}
               >
                 {row.request.question}
+                {row.bot && (
+                  <span className="text-tertiary">
+                    {' · '}
+                    {row.conversation.title || t('Untitled task')}
+                  </span>
+                )}
               </button>
             ))}
           </section>

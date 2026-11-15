@@ -22,8 +22,6 @@ export type AgentTrigger = {
   timeZone?: string
   /** Every fire is delivered into this conversation instead of a new one. */
   targetSessionId?: string
-  /** Present on webhook triggers that route to a session per resource. */
-  sessionRouting?: object
   messageTemplate: string
   enabled: boolean
   source?: AgentTriggerSource

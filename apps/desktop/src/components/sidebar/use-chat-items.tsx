@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { useAgentAvatarPicks } from '../../lib/agentAvatarChoices'
+import { isBotRow, useAgentAvatarPicks } from '../../lib/agentAvatarChoices'
 import { useAgentRuntimeStates } from '../../lib/agentRuntimeStates'
 import { useAgentActivityTimes, useAgentUnreadSessions } from '../../lib/agentUnreadSessions'
 import { runtimeTurnActive, runtimeBackgroundRunning } from '../../lib/runtimeExecution'
 import { botOfChannel } from '../channels/botChannel'
 
 import { botChatRows } from './bot-status'
-import { chatSidebarItem, isBotRow } from './chat-item'
+import { chatSidebarItem } from './chat-item'
 import { nextReplyInbox } from './replyInbox'
 import { RowMenuButton } from './row-menu-button'
 
@@ -84,13 +84,9 @@ export function useChatItems({
 
   return agentSessions.flatMap((conversation) => {
     const unread = unreadSessions.has(conversation.sessionId)
-    const botId = conversation.kind === 'channel' ? botOfChannel(conversation) : undefined
-    const bot = botId ? byId.get(botId) : undefined
     const item = chatSidebarItem({
       conversation: {
         ...conversation,
-        // A Bot's chat is named after the Bot, so renaming the Bot renames its row.
-        title: bot?.title ?? conversation.title,
         lastActiveAt: activityTimes.get(conversation.sessionId) ?? conversation.lastActiveAt,
       },
       teamId,
@@ -108,8 +104,10 @@ export function useChatItems({
       }),
       actions: <RowMenuButton title={item.label} />,
     }
+    const botId = conversation.kind === 'channel' ? botOfChannel(conversation) : undefined
 
     if (!botId) return [row]
+    const bot = byId.get(botId)
 
     return botChatRows({
       openId,

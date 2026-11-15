@@ -43,7 +43,7 @@ enum BotAvatarTests {
         for raw in [nil, "", "future-provider"] as [String?] {
             precondition(RuntimeInstance.Provider.logo(raw) == "logo-runtime")
         }
-        for (raw, logo) in [("codex", "openai"), ("claude-code", "claude"), ("grok", "grok"), ("opencode", "opencode"), ("antigravity", "antigravity")] {
+        for (raw, logo) in [("codex", "openai"), ("claude-code", "claude"), ("grok", "grok"), ("opencode", "opencode"), ("antigravity", "antigravity"), ("dsh", "deepseek")] {
             precondition(RuntimeInstance.Provider.logo(raw) == "logo-" + logo)
         }
         precondition(RuntimeInstance.Provider.detail("codex", instance: "Codex") == "Codex")

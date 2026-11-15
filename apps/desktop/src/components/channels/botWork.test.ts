@@ -103,6 +103,24 @@ test('a question from the Bot or a sub-agent is asking', () => {
   assert.equal(work?.kind === 'asking' && work.question, 'Which region?')
 })
 
+const ask = (id: string, askedAt: string) => ({
+  inputRequests: [{ id, category: 'x', question: `${id}?`, status: 'open', askedAt }],
+})
+
+test('several open questions name the oldest and say how many', () => {
+  const work = botWorkOf(
+    run('bot', idle, ask('newer', '2026-11-14T00:00:00Z')),
+    [run('kid', idle, ask('older', '2026-11-13T00:00:00Z'))],
+    'c',
+  )
+
+  assert.deepEqual(work?.kind === 'asking' && [work.question, work.id, work.count], [
+    'older?',
+    'older',
+    2,
+  ])
+})
+
 test("a run's start reads both list formats and nothing else", () => {
   const started = (startedAt: string | null) =>
     runStartedAt(run('bot', turn(), { activeRun: { streamId: 's', startedAt } }))
@@ -120,10 +138,10 @@ test("the Bot's own turn counts from its run, and shows no time without one", ()
     activeRun: { streamId: 's', startedAt: '1000' },
   })
 
-  assert.equal(workSince(botWorkOf(bot, [], 'c'), bot, []), 1000)
+  assert.equal(workSince(botWorkOf(bot, [], 'c'), bot), 1000)
   const unknown = run('bot', turn({ channelIds: ['c'] }))
 
-  assert.equal(workSince(botWorkOf(unknown, [], 'c'), unknown, []), undefined)
+  assert.equal(workSince(botWorkOf(unknown, [], 'c'), unknown), undefined)
 })
 
 test('waiting counts from the earliest sub-agent that says when it started', () => {
@@ -134,11 +152,12 @@ test('waiting counts from the earliest sub-agent that says when it started', () 
   ]
   const bot = run('bot', idle)
 
-  assert.equal(workSince(botWorkOf(bot, kids, 'c'), bot, kids), 3000)
-  assert.equal(workSince(botWorkOf(bot, [run('c', turn())], 'c'), bot, []), undefined)
+  assert.equal(workSince(botWorkOf(bot, kids, 'c'), bot), 3000)
+  assert.equal(workSince(botWorkOf(bot, [run('c', turn())], 'c'), bot), undefined)
 })
 
-test('a question counts from when it was asked; background work has no start', () => {
+// A question can stay open for days; its card already shows when it was asked.
+test('a question and background work show no time', () => {
   const kid = run('kid', turn(), {
     inputRequests: [
       { id: 'q', category: 'x', question: 'Q?', status: 'open', askedAt: '2026-11-13T12:00:00Z' },
@@ -146,12 +165,10 @@ test('a question counts from when it was asked; background work has no start', (
   })
   const bot = run('bot', idle)
 
-  assert.equal(
-    workSince(botWorkOf(bot, [kid], 'c'), bot, [kid]),
-    Date.parse('2026-11-13T12:00:00Z'),
-  )
+  assert.equal(botWorkOf(bot, [kid], 'c')?.kind, 'asking')
+  assert.equal(workSince(botWorkOf(bot, [kid], 'c'), bot), undefined)
   const busy = run('bot', { ...idle, phase: 'background_tools' })
 
-  assert.equal(workSince(botWorkOf(busy, [], 'c'), busy, []), undefined)
-  assert.equal(workSince(null, bot, []), undefined)
+  assert.equal(workSince(botWorkOf(busy, [], 'c'), busy), undefined)
+  assert.equal(workSince(null, bot), undefined)
 })

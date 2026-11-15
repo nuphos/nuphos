@@ -5,6 +5,7 @@ import {
   createWorkspaceState,
   currentSessionKey,
   selectCurrentBucket,
+  selectMainPageTab,
   sessionKeyOf,
 } from './workspaceState.ts'
 
@@ -104,8 +105,6 @@ export function createWorkspaceStore(
   }
   const inCurrentSession = (action: CurrentSessionAction) =>
     dispatch({ ...action, sessionKey: currentSessionKey(state) })
-  const showChat = () =>
-    dispatch({ type: 'selectSession', sessionId: state.sessionId, readOnly: state.sessionReadOnly })
 
   const actions: WorkspaceActions = {
     selectSession: (sessionId, options) =>
@@ -131,16 +130,7 @@ export function createWorkspaceStore(
     setDockOpen: (open) => inCurrentSession({ type: 'setDockOpen', open }),
     toggleDock: () =>
       inCurrentSession({ type: 'setDockOpen', open: !selectCurrentBucket(state).dockOpen }),
-    openTab: (tab, options) => {
-      const fromMainPage = state.mainPageOpen
-
-      showChat()
-      inCurrentSession({
-        type: 'openTab',
-        tab,
-        options: fromMainPage ? { ...options, openDock: true } : options,
-      })
-    },
+    openTab: (tab, options) => inCurrentSession({ type: 'openTab', tab, options }),
     openTabInSession: (sessionId, tab) =>
       dispatch({
         type: 'openTab',
@@ -161,8 +151,9 @@ export function createWorkspaceStore(
       dispatch({ type: 'reorderTab', tabId, targetTabId, placement }),
     updateTab: (tabId, updater, options) =>
       dispatch({ type: 'updateTab', tabId, updater, history: options?.history }),
+    // With no tab in its dock, the main page is the page being navigated.
     updateActiveTab: (updater, options) => {
-      const tabId = selectCurrentBucket(state).activeTabId
+      const tabId = selectCurrentBucket(state).activeTabId ?? selectMainPageTab(state)?.id
 
       if (tabId) dispatch({ type: 'updateTab', tabId, updater, history: options?.history })
     },

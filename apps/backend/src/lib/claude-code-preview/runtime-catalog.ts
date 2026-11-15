@@ -1,12 +1,12 @@
 import { config } from '@/config'
 import { isLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
-import { AppError } from '@/lib/errors'
 
 import { listOwnLocalRuntimes, resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { runtimeLogins } from './runtime-login-store'
 import { runtimeDeletions } from './runtime-portability-store'
 import { OPENAB_PROVIDERS, runtimeLabel } from './runtime-provider'
 import { fetchRuntimeQuota } from './runtime-quota'
+import { runtimeGone } from './runtime-refusal'
 import { listTeamRuntimes, resolveTeamRuntimeEndpoints } from './runtime-registry'
 
 import type { RuntimeInstance } from './runtime-instances'
@@ -148,12 +148,7 @@ export async function requireRuntimeInstance(
 
   if (!instance && userId && isLocalRuntimeId(runtimeId))
     await resolveLocalRuntimeEndpoint(teamId, runtimeId, userId, 'transport')
-  if (!instance)
-    throw new AppError(
-      404,
-      'runtime_not_found',
-      'This agent is no longer available in this workspace. Move this conversation to another agent to continue.',
-    )
+  if (!instance) throw runtimeGone()
 
   return instance
 }

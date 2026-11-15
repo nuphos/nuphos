@@ -1,5 +1,7 @@
 package ai.nuphos.android.ui.agent
 
+import ai.nuphos.android.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.runtime.Composable
@@ -9,7 +11,7 @@ import androidx.compose.runtime.Composable
 fun FirstRuntimePrompt() {
     EmptyState(
         icon = Icons.Outlined.Memory,
-        title = "Connect your first runtime",
-        body = "Open Nuphos on your computer to add a Box or connect your own computer, or ask a workspace administrator to connect one.",
+        title = stringResource(R.string.agent_first_runtime_title),
+        body = stringResource(R.string.agent_first_runtime_body),
     )
 }

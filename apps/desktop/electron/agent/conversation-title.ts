@@ -1,3 +1,5 @@
+import { call } from '../atlas/client.ts'
+
 import { callJson, teamQuery } from './http'
 
 export async function renameConversation(
@@ -22,5 +24,19 @@ export async function setConversationAvatar(
     'PATCH',
     `/agent/conversations/${encodeURIComponent(sessionId)}/avatar${teamQuery(teamId)}`,
     { avatar },
+  )
+}
+
+/** Uploads an already-cropped photo as a Bot's face (the backend re-encodes it). */
+export async function uploadConversationAvatar(
+  sessionId: string,
+  image: Uint8Array,
+  teamId?: string,
+): Promise<{ avatar: string }> {
+  return call(
+    'PUT',
+    `/agent/conversations/${encodeURIComponent(sessionId)}/avatar/image${teamQuery(teamId)}`,
+    image,
+    { retry: false },
   )
 }

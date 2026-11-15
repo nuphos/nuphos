@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 
 import { config } from '@/config'
-import { getConversationBySessionId } from '@/lib/agent/db'
+import { credentialSource, getConversationBySessionId } from '@/lib/agent/db'
 import { verifyPreviewMcpToken } from '@/lib/claude-code-preview/mcp-token'
 import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
 import { AppError } from '@/lib/errors'
@@ -176,7 +176,9 @@ personalCredentialTokenRoutes.get('/:provider/token', async (c) => {
 
     if (
       conversation?.userId !== claims.own ||
-      !conversation.credentialAccess?.personalCredentialIds?.includes(provider)
+      !(await credentialSource(conversation)).credentialAccess?.personalCredentialIds?.includes(
+        provider,
+      )
     ) {
       throw new AppError(
         403,

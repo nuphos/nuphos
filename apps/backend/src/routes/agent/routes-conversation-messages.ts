@@ -1,4 +1,5 @@
 import { getConversationMessages, getReadableConversation } from '@/lib/agent/db'
+import { withCurrentAgentNames } from '@/lib/agent/sender-names'
 import { AppError } from '@/lib/errors'
 
 import { serializeMessageDoc } from './errors'
@@ -33,7 +34,7 @@ agent.get('/conversations/:sessionId/messages', async (c) => {
   })
 
   return c.json({
-    messages: messages.map(serializeMessageDoc),
+    messages: (await withCurrentAgentNames(messages, teamId)).map(serializeMessageDoc),
     firstIndex: messages[0]?.index ?? 0,
   })
 })

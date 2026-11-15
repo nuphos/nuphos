@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../../api.ts'
 import { t } from '../../i18n/index.ts'
 import { refreshInputRequests } from '../../lib/inputRequestRefresh.ts'
+import { queryClient } from '../../lib/query/client.ts'
+import { queryKeys } from '../../lib/query/keys.ts'
 import { EMPTY_CREDENTIAL_OPTIONS } from '../agent/panel/constants.ts'
 import {
   normalizeCredentialAccess,
@@ -10,6 +12,8 @@ import {
   reconcileStoredCredentialAccess,
 } from '../agent/panel/credentialAccess.ts'
 import { toast } from '../ui/toast.ts'
+
+import { listedConversation } from './channelShared.ts'
 
 import type { AgentCredentialOptions, AgentCredentialSelection } from '../../api.ts'
 import type { CredentialSelectorControl } from '../agent/panel/credentialSections'
@@ -24,9 +28,30 @@ export function useBotCredentials(
   teamId: string,
   botId: string | undefined,
 ): CredentialSelectorControl | undefined {
-  const [options, setOptions] = useState<AgentCredentialOptions>(EMPTY_CREDENTIAL_OPTIONS)
+  // Both start from what is already known, so the picker is there from the first frame:
+  // the team's options as any chat last loaded them, the selection as the sidebar listed it.
+  const [options, setOptions] = useState<AgentCredentialOptions>(
+    () =>
+      queryClient.getQueryData<AgentCredentialOptions>(queryKeys.credentialOptions(teamId)) ??
+      EMPTY_CREDENTIAL_OPTIONS,
+  )
   // The stored selection and an unsaved change, each kept with the Bot it is for.
-  const [stored, setStored] = useState<Held<Partial<AgentCredentialSelection> | null>>()
+  const [stored, setStored] = useState<Held<Partial<AgentCredentialSelection> | null> | undefined>(
+    () => {
+      const listed = listedConversation(teamId, botId)
+
+      return botId && listed ? { botId, value: listed.credentialAccess ?? null } : undefined
+    },
+  )
+  const keepOptions = useCallback(
+    (loaded: AgentCredentialOptions) => {
+      const next = normalizeCredentialOptions(loaded)
+
+      queryClient.setQueryData(queryKeys.credentialOptions(teamId), next)
+      setOptions(next)
+    },
+    [teamId],
+  )
   const [draft, setDraft] = useState<Held<AgentCredentialSelection>>()
   const [refreshing, setRefreshing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -35,11 +60,11 @@ export function useBotCredentials(
 
   const loadOptions = useCallback(async () => {
     try {
-      setOptions(normalizeCredentialOptions(await api.agentGetCredentialOptions(teamId)))
+      keepOptions(await api.agentGetCredentialOptions(teamId))
     } catch (err) {
       console.warn('[bot-chat] failed to load credential options', err)
     }
-  }, [teamId])
+  }, [teamId, keepOptions])
 
   useEffect(() => {
     if (!botId) return
@@ -51,7 +76,7 @@ export function useBotCredentials(
     ])
       .then(([loaded, detail]) => {
         if (!alive) return
-        setOptions(normalizeCredentialOptions(loaded))
+        keepOptions(loaded)
         setStored({ botId, value: detail.credentialAccess ?? null })
       })
       .catch((err: unknown) => console.warn('[bot-chat] failed to load credentials', err))
@@ -59,7 +84,7 @@ export function useBotCredentials(
     return () => {
       alive = false
     }
-  }, [teamId, botId])
+  }, [teamId, botId, keepOptions])
 
   if (!botId || stored?.botId !== botId) return undefined
 
@@ -81,7 +106,7 @@ export function useBotCredentials(
         .agentUpdateConversationCredentials({ sessionId: botId, teamId, credentialAccess: next })
         .then((result) => {
           if (latest.current !== request) return
-          setOptions(normalizeCredentialOptions(result.options))
+          keepOptions(result.options)
           setStored({ botId, value: normalizeCredentialAccess(result.credentialAccess) })
           setDraft(undefined)
           // Selecting a credential a question asked for answers it on the server.

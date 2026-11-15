@@ -18,7 +18,7 @@ export type BotWork =
   | { kind: 'turn'; step: Step; reason: 'chat' | 'report' | 'other'; kids: Run[] }
   | { kind: 'waiting'; kids: Run[] }
   | { kind: 'background'; kids: Run[] }
-  | { kind: 'asking'; question: string; kids: Run[] }
+  | { kind: 'asking'; question: string; id: string; count: number; kids: Run[] }
 
 const RUNNING = new Set(['running', 'in_progress', 'pending'])
 
@@ -55,11 +55,23 @@ function reasonOf(bot: Run, kids: Run[], channelId: string): 'chat' | 'report' |
 }
 
 export function botWorkOf(bot: Run | undefined, kids: Run[], channelId: string): BotWork | null {
-  const activity = activityOf(bot, kids)
   const working = activeKids(kids)
+  // Every open question of the Bot and the agents under it, the oldest first.
+  const open = [...(bot ? [bot] : []), ...kids]
+    .flatMap((run) => openInputRequests(run.conversation))
+    .sort((a, b) => a.askedAt.localeCompare(b.askedAt))
+  const oldest = open.at(0)
 
-  if (activity.kind === 'asking')
-    return { kind: 'asking', question: activity.question, kids: working }
+  if (oldest)
+    return {
+      kind: 'asking',
+      question: oldest.question,
+      id: oldest.id,
+      count: open.length,
+      kids: working,
+    }
+  const activity = activityOf(bot, kids)
+
   if (
     activity.kind === 'working' &&
     bot &&
@@ -104,24 +116,13 @@ const earliest = (times: (number | undefined)[]) => {
 /**
  * When the Bot took up this work, from the runs themselves, so it reads the same
  * from anywhere and does not start over when the chat is opened. Undefined when
- * no run says: the row then shows no time rather than a wrong one.
+ * no run says: the row then shows no time rather than a wrong one. A question
+ * has none: its card already stands in the chat at the time it was asked.
  */
-export function workSince(
-  work: BotWork | null,
-  bot: Run | undefined,
-  kids: Run[],
-): number | undefined {
+export function workSince(work: BotWork | null, bot: Run | undefined): number | undefined {
   if (!work) return undefined
   if (work.kind === 'turn') return runStartedAt(bot)
   if (work.kind === 'waiting') return earliest(work.kids.map(runStartedAt))
-  if (work.kind === 'asking')
-    return earliest(
-      [...(bot ? [bot] : []), ...kids].flatMap((run) =>
-        openInputRequests(run.conversation).map(
-          (request) => Date.parse(request.askedAt) || undefined,
-        ),
-      ),
-    )
 
   return undefined
 }

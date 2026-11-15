@@ -53,7 +53,7 @@ impl SessionSnapshots {
             tasks.values().any(|task| {
                 !matches!(
                     task["state"].as_str(),
-                    Some("completed" | "failed" | "stopped")
+                    Some("completed" | "failed" | "cancelled" | "stopped")
                 )
             })
         });
@@ -273,6 +273,17 @@ mod tests {
             snapshots.project("t", json!({"state":"idle"}), false)["commands"],
             Value::Null
         );
+    }
+    #[test]
+    fn a_cancelled_background_task_is_over() {
+        let phase = |state: &str| {
+            let provider = json!({"state":"idle","asyncTasks":{"t":{"id":"t","state":state}}});
+            SessionSnapshots::default().project("s", provider, false)["phase"].clone()
+        };
+        assert_eq!(phase("running"), "background_tools");
+        for over in ["completed", "failed", "cancelled", "stopped"] {
+            assert_eq!(phase(over), "idle", "{over}");
+        }
     }
     #[test]
     fn native_steering_capability_is_runtime_owned() {

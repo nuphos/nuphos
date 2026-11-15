@@ -17,7 +17,7 @@ import {
 } from '@/lib/dashboards/panel-principal'
 import { AppError, errorHandler, notFoundHandler } from '@/lib/errors'
 import { isTokenRevoked } from '@/lib/internal-token/revocation'
-import { fail, handleMcpHttpPayload } from '@/lib/mcp/protocol'
+import { calledToolName, fail, handleMcpHttpPayload } from '@/lib/mcp/protocol'
 import { requireAuth, requireTeamMember } from '@/middleware/auth'
 import { accountScoped } from '@/routes/agent-sessions/aws'
 import { betterStackScoped } from '@/routes/agent-sessions/betterstack'
@@ -191,6 +191,8 @@ async function serveMcp(
   } catch {
     return c.json(fail(null, -32700, 'Parse error'), 400)
   }
+  // Every tool is called on the same path, so the access log needs its name.
+  c.set('toolName', calledToolName(payload))
 
   const { status, body } = await handleMcpHttpPayload(payload, tools, surface)
 

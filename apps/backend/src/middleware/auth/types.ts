@@ -71,7 +71,6 @@ export type GrafanaInstanceVariables = TeamAuthVariables & {
 }
 
 export type GithubInstallationVariables = TeamAuthVariables & {
-  githubRepositoryId?: number
   githubInstallationId: number
   githubAccountLogin: string
   githubAccountType: 'User' | 'Organization'

@@ -25,6 +25,7 @@ const READ_DESCRIPTION =
   'A Nuphos session link (`/teams/<team>/agent/<session_id>`) in a message names a conversation; pass its last segment as session_id. ' +
   'Pages by message index — pass the returned next_index to continue. Read only the window you need. ' +
   'A turn still running is the last line of the last page, marked in progress with its start and last update times, and returned in in_progress; once it ends it is replaced by the stored message. ' +
+  "A Bot's current standing instructions are returned in full in instructions, whatever its transcript shows. " +
   'Turn termination records are returned separately in turn_diagnostics, even when transcript text is truncated; timestamps describe backend observations and missing fields were not recorded. ' +
   'Tool inputs/outputs are omitted by default to keep the transcript small; set include_tool_details only when the exact command or result matters.'
 
@@ -175,6 +176,9 @@ export function createSessionTools(
           created_at: page.conversation.createdAt.toISOString(),
           message_count: page.conversation.messageCount,
           ...(session_id === conversationId ? { is_current_conversation: true } : {}),
+          ...(page.conversation.instructions
+            ? { instructions: page.conversation.instructions }
+            : {}),
           turn_diagnostics: page.turnDiagnostics,
           ...(live
             ? {
@@ -245,7 +249,11 @@ export function createSessionTools(
       execute: async ({ name, avatar, instructions }) => {
         // Never more access than the caller has, as create_thread does.
         const bypass = await getSessionBypass(conversationId, userId)
-        const bot = await createBot(userId, teamId, bypass, { title: name, avatar })
+        const bot = await createBot(userId, teamId, bypass, {
+          source: { via: 'create_bot', sessionId: conversationId },
+          title: name,
+          avatar,
+        })
         const saved =
           !instructions || (await updateBotSelf(bot.sessionId, userId, teamId, { instructions }))
 

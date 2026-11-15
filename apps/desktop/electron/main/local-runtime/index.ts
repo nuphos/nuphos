@@ -67,8 +67,8 @@ const findBundle = (): LocalRuntimeBundle | null => readBundle(bundleRoot())
 const providerKeys = keychainFor(PROVIDER_KEYCHAIN_SERVICE)
 const ownDir = (userId: string) => path.join(dataDir(), 'users', userId)
 
-export async function userEnv(): Promise<NodeJS.ProcessEnv> {
-  return { ...process.env, ...((await resolveShellEnv()) ?? {}) }
+export async function userEnv(fresh?: boolean): Promise<NodeJS.ProcessEnv> {
+  return { ...process.env, ...((await resolveShellEnv(fresh)) ?? {}) }
 }
 
 function broadcastState(): void {

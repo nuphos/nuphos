@@ -52,9 +52,10 @@ export function stripMarkdown(input: string): string {
   s = s.replace(/\[([^[\]]*)\]\([^)]*\)/g, '$1')
   // Inline code: `code` -> code
   s = s.replace(/(?=(`+))\1([^`]+)`+/g, '$2')
-  // Bold/italic: **x**, __x__, *x*, _x_, ~~x~~
-  s = s.replace(/(\*\*|__)(.*?)\1/g, '$2')
-  s = s.replace(/([*_])(.*?)\1/g, '$2')
+  // Bold/italic: **x**, __x__, *x*, _x_, ~~x~~. An underscore inside a word
+  // marks no emphasis, so NUPHOS_AGENT_HOME keeps its underscores.
+  s = s.replace(/\*\*(.*?)\*\*|(?<!\w)__(.*?)__(?!\w)/g, '$1$2')
+  s = s.replace(/\*(.*?)\*|(?<!\w)_(.*?)_(?!\w)/g, '$1$2')
   s = s.replace(/~~(.*?)~~/g, '$1')
   // Headings, blockquotes, list markers at line starts.
   s = s.replace(/^\s{0,3}#{1,6}\s+/gm, '')

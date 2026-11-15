@@ -38,7 +38,9 @@ export function renderCardToolPart(
   if (isTriggerCardPart(part)) {
     return <TriggerCard key={key} part={part} teamId={teamId} onOpen={onOpen} />
   }
-  if (part.toolName === 'render_chart') return <ChartToolPart key={key} part={part} now={now} />
+  if (part.toolName === 'render_chart') {
+    return <ChartToolPart key={key} part={part} now={now} teamId={teamId} onOpen={onOpen} />
+  }
   if (part.toolName === 'render_artifact') {
     return <ArtifactToolPart key={key} part={part} now={now} teamId={teamId} onOpen={onOpen} />
   }

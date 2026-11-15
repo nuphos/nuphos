@@ -102,6 +102,39 @@ describe('slack preview tool module', () => {
     })
   })
 
+  test('history with files never returns the Slack URLs that need the bot token', async () => {
+    installSlackApi({
+      fetchSlackChannelHistory: () =>
+        Promise.resolve({
+          messages: [
+            {
+              ts: '99.1',
+              files: [{ id: 'F1', name: 'shot.png', url_private: 'https://files.slack.com/shot' }],
+            },
+          ],
+          hasMore: false,
+        }),
+      downloadSlackFile: () => Promise.resolve(null),
+    })
+    const tools = await previewChannelToolSet({
+      ...base,
+      slackThread: { teamId: 'T-installed', channelId: 'C1', threadTs: '100.1' },
+    })
+    const tool = tools.slack_channel_history as AiSdkToolLike
+    const result = (await tool.execute!({ label: 'Open the screenshot', files: true }, {})) as {
+      messages: unknown[]
+      note: string
+    }
+
+    expect(result.messages).toEqual([
+      {
+        ts: '99.1',
+        files: [{ id: 'F1', name: 'shot.png', error: 'Could not be fetched, or is too large.' }],
+      },
+    ])
+    expect(result.note).toContain('untrusted data')
+  })
+
   test('history reports Slack failures without pretending the channel is empty', async () => {
     installSlackApi({
       fetchSlackChannelHistory: () =>

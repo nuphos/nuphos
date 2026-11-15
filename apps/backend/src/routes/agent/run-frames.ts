@@ -12,7 +12,7 @@ import {
 } from './constants'
 import { agentStreamErrorFrame } from './errors'
 import { listInFlightAgentRuns, scheduleAgentRunCleanup } from './run-registry'
-import { traceAgentChatError, traceAgentChatEvent } from './trace'
+import { traceAgentChatEvent, traceAgentChatRefusal } from './trace'
 
 import type { AgentRun } from './types'
 
@@ -160,7 +160,12 @@ export function finishAgentRun(run: AgentRun, terminalPauseReason = 'stream-ende
 }
 
 export function appendAgentRunError(run: AgentRun, error: unknown) {
-  traceAgentChatError('agent.chat.run.error_frame_appended', error, run.trace, {
+  const event = {
+    error: 'agent.chat.run.error_frame_appended',
+    queued: 'agent.chat.run.queued_frame_appended',
+  }
+
+  traceAgentChatRefusal(event, error, run.trace, {
     frame_count: run.frames.length,
     last_finish_reason: run.lastFinishReason,
     run_age_ms: Date.now() - run.createdAt,

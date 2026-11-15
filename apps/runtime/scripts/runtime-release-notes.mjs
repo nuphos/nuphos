@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 
-const PROVIDERS = ['claude', 'codex', 'grok', 'antigravity', 'opencode', 'hermes']
+const PROVIDERS = ['claude', 'codex', 'grok', 'antigravity', 'opencode', 'hermes', 'dsh']
 const [tag, provider] = process.argv.slice(2)
 if (!/^runtime-v\d+\.\d+\.\d+$/.test(tag) || ![...PROVIDERS, 'all'].includes(provider))
   throw new Error(
@@ -60,6 +60,10 @@ if (includes('opencode')) lines.push(`| OpenCode | ${tools.opencode.version} |`)
 if (includes('hermes')) {
   const dockerfile = git('show', `${tag}:apps/runtime/image/Dockerfile`)
   lines.push(`| Hermes Agent | ${/^ARG HERMES_VERSION=(\S+)$/mu.exec(dockerfile)[1]} |`)
+}
+if (includes('dsh')) {
+  const dockerfile = git('show', `${tag}:apps/runtime/image/Dockerfile`)
+  lines.push(`| DeepSeek Harness | ${/^ARG DSH_VERSION=(\S+)$/mu.exec(dockerfile)?.[1]} |`)
 }
 lines.push('', '## Container images', '')
 for (const name of PROVIDERS.filter(includes))

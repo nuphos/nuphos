@@ -27,8 +27,8 @@ struct ConversationView: View {
     /// The last sign-in ask from this screen, for the runtime it was about.
     @State private var signInAsk: (runtimeId: String, status: String, asked: Bool)?
     @State private var showShare = false
-    /// The desktop open from this conversation: beside it where the window is wide, else full screen.
-    @State private var desktop: DesktopSession?
+    /// The desktop or terminal open from this conversation: beside it where the window is wide, else full screen.
+    @State private var pane: (any BesidePane)?
     /// The dock panel: this conversation's dock, mirrored from the Mac.
     @State private var dockOpen = false
     /// A dock page open in the phone's own browser.
@@ -77,7 +77,10 @@ struct ConversationView: View {
         .dock(isOpen: Binding(get: { dockOpen }, set: { dockOpen = $0 && hasDock })) {
             DockPanel(session: session) {
                 dockOpen = false
-                desktop = session.makeDesktop()
+                pane = session.makeDesktop()
+            } openTerminal: {
+                dockOpen = false
+                pane = session.makeTerminal()
             } openWeb: { url, tab in
                 dockOpen = false
                 web = DockWeb(url: url, tabId: tab)
@@ -91,7 +94,7 @@ struct ConversationView: View {
             NativeBrowser(session: session, url: page.url, tabId: page.tabId) { tab in
                 web = nil
                 // The Mac's own page, live: only when asked for, from the browser's menu.
-                desktop = session.makeLiveView(tab: tab, size: Self.screenSize)
+                pane = session.makeLiveView(tab: tab, size: Self.screenSize)
             } close: {
                 web = nil
             }
@@ -99,7 +102,7 @@ struct ConversationView: View {
         .sheet(item: $dockScreen) { screen in
             NavigationStack { DockScreen(destination: screen) }
         }
-        .desktop($desktop)
+        .pane($pane)
         .background(Theme.chatCanvas)
         .safeAreaInset(edge: .top, spacing: 0) {
             if !session.resources.isEmpty { ResourceStrip(resources: session.resources) }
@@ -444,6 +447,7 @@ struct ConversationView: View {
         case .timestamp: 14
         case .reasoning, .tool, .toolRun, .work, .memory, .memoryRecall, .downloads: 14
         case .activity, .hint, .event: 18
+        case .answered: 6
         case .channel: 0
         }
     }
@@ -507,6 +511,8 @@ struct ConversationView: View {
             )
         case .event(_, let event):
             EventLine(event: event, onLink: open(link:), teamId: session.teamId)
+        case .answered(_, let question):
+            AnsweredLine(question: question, onLink: open(link:))
         case .channel:
             EmptyView()
         }

@@ -31,6 +31,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import ai.nuphos.android.model.ChatRow
+import ai.nuphos.android.R
+import androidx.compose.ui.res.stringResource
 
 /**
  * Follow content only while the reader is at the end or explicitly asks for it.
@@ -98,6 +100,7 @@ internal fun TranscriptList(
                 }
             }
     }
+    val scrollToLatest = stringResource(R.string.chat_scroll_to_latest)
     Box(modifier) {
         LazyColumn(
             state = state,
@@ -111,7 +114,7 @@ internal fun TranscriptList(
             onClick = { following = true; jumpRequest++ },
             // The button keeps a 48 dp touch target around its 40 dp circle, so this draws it 16 dp from the side and 12 dp up.
             modifier = Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 8.dp + bottomInset)
-                .semantics { contentDescription = "Scroll to latest" },
+                .semantics { contentDescription = scrollToLatest },
         ) { Icon(Icons.Outlined.ArrowDownward, null) }
     }
 }

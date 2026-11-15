@@ -33,6 +33,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import ai.nuphos.android.R
+import androidx.compose.ui.res.stringResource
 
 // Each icon is a launcher activity-alias `.Icon<id>` in the manifest; the art comes from
 // apps/desktop/scripts/render-app-icons.mjs. B2 is the default; A is the original mark.
@@ -44,11 +45,13 @@ private val APP_ICONS = listOf(
     "E1" to listOf(R.drawable.app_icon_e1), "E2" to listOf(R.drawable.app_icon_e2), "E3" to listOf(R.drawable.app_icon_e3),
     "F1" to listOf(R.drawable.app_icon_f1), "F2" to listOf(R.drawable.app_icon_f2), "F3" to listOf(R.drawable.app_icon_f3),
 )
-private val NAMES = listOf("Napoleon", "Pearl Earring", "Van Gogh", "The Scream", "Son of Man")
-private val LAYOUTS = listOf("Classic", "Bleed", "Peek")
+private val NAMES = listOf(R.string.profile_app_icon_napoleon, R.string.profile_app_icon_pearl_earring, R.string.profile_app_icon_van_gogh,
+    R.string.profile_app_icon_the_scream, R.string.profile_app_icon_son_of_man)
+private val LAYOUTS = listOf(R.string.profile_app_icon_layout_classic, R.string.profile_app_icon_layout_bleed, R.string.profile_app_icon_layout_peek)
 
+@Composable
 private fun iconName(id: String) =
-    if (id == "A") "Nuphos" else "${NAMES["BCDEF".indexOf(id[0])]}, ${LAYOUTS[id[1].digitToInt() - 1]}"
+    if (id == "A") "Nuphos" else "${stringResource(NAMES["BCDEF".indexOf(id[0])])}, ${stringResource(LAYOUTS[id[1].digitToInt() - 1])}"
 
 private fun alias(context: Context, id: String) = ComponentName(context, "ai.nuphos.android.Icon$id")
 
@@ -76,6 +79,7 @@ internal fun AppIconPicker() {
     ) {
         for ((id, layers) in APP_ICONS) {
             val shape = RoundedCornerShape(16.dp)
+            val name = iconName(id)
             Box(
                 Modifier
                     .size(56.dp)
@@ -87,7 +91,7 @@ internal fun AppIconPicker() {
                         setAppIcon(context, id)
                     }
                     .semantics {
-                        contentDescription = iconName(id)
+                        contentDescription = name
                         selected = current == id
                     },
             ) {

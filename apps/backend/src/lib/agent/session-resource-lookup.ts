@@ -10,8 +10,8 @@ import { withLinearAccessToken } from '@/lib/byos/linear-tokens'
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 
+import { credentialSource } from './db'
 import { fetchPullHealth } from './github-pull-health'
-import { githubReviewScope } from './github-review-scope'
 import { mergedAtOf } from './merged-at'
 
 import type { AgentConversation } from './db'
@@ -28,7 +28,7 @@ export async function resourceCredentialAllowed(
 ) {
   if (!conversation.teamId || !(await getTeamMembership(conversation.userId, conversation.teamId)))
     return false
-  const access = conversation.credentialAccess
+  const { credentialAccess: access } = await credentialSource(conversation)
   const selected = {
     github: access?.githubInstallationIds,
     gitlab: access?.gitlabBindingIds,
@@ -81,12 +81,7 @@ export async function resolveResource(
     )
   }
   if (input.provider === 'github') {
-    const scope = await githubReviewScope(conversation.sessionId, conversation.teamId!)
-
-    if (scope && scope.installationId !== input.installationId) {
-      throw new AppError(403, 'github_review_scope', 'Resource is outside the review repository')
-    }
-    const { token } = await getInstallationToken(input.installationId, scope?.repositoryId)
+    const { token } = await getInstallationToken(input.installationId)
     const response = await githubFetch(
       `${GITHUB_API}/repos/${input.repository}/pulls/${input.number}`,
       {
@@ -110,8 +105,6 @@ export async function resolveResource(
 
     const mergedAt = mergedAtOf(pr.merged_at)
 
-    if (scope && scope.repositoryId !== pr.base.repo.id)
-      throw new AppError(403, 'github_review_scope', 'Resource is outside the review repository')
     const repository = pr.base.repo.full_name
     const health = await fetchPullHealth(input.installationId, repository, pr.number, pr).catch(
       () => null,

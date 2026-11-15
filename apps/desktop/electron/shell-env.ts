@@ -100,11 +100,18 @@ let cached: Promise<NodeJS.ProcessEnv | null> | undefined
 /**
  * Environment of the user's interactive login shell, or null if it could not
  * be resolved (Windows, exotic shells, rc files that hang). Resolved once per
- * app run and cached, including failures.
+ * app run and cached, including failures. `fresh` asks the shell again, for a PATH
+ * that changed while the app ran, and keeps the last answer if the shell gives none.
  */
-export function resolveShellEnv(): Promise<NodeJS.ProcessEnv | null> {
+export function resolveShellEnv(fresh = false): Promise<NodeJS.ProcessEnv | null> {
   if (process.platform === 'win32') return Promise.resolve(null)
-  cached ??= probeShellEnv().catch(() => null)
+  if (!cached || fresh) {
+    const last = cached
+
+    cached = probeShellEnv()
+      .catch(() => null)
+      .then((env) => env ?? last ?? null)
+  }
 
   return cached
 }
