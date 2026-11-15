@@ -190,13 +190,7 @@ async function prompt({ sessionId, prompt: parts }) {
   const channelId = /\(channelId ([^)]+)\)/.exec(text)?.[1]
 
   if (channelId) {
-    const message = await call(sessionId, 'channel_post', {
-      label: 'Answer in the chat',
-      channelId,
-      text: `POSTED ${marker}`,
-    })
-
-    log({ sessionId, marker, event: 'posted', isError: refused(message) })
+    await call(sessionId, 'channel_post', { label: 'Answer', channelId, text: `POSTED ${marker}` })
   }
   // The thread's own prompt can carry its parent's words; only the parent starts one.
   if (text.includes('E2E_THREAD') && !text.includes('E2E_PERMISSION')) {
