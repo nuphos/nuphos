@@ -229,6 +229,7 @@ agent.post('/chat', async (c) => {
       currentUrl:
         c.req.header('X-Atlas-Url') ?? c.req.header('referer') ?? c.req.header('origin') ?? null,
       localToolsEnabled,
+      secretCardEnabled: body.clientCapabilities?.secretCard === true,
       kubeContext,
       diagramId: c.req.header('X-Atlas-Diagram-Id')?.trim() || undefined,
       isInApp: true,

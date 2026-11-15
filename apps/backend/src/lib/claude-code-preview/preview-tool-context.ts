@@ -19,6 +19,8 @@ export type PreviewToolContext = {
   locale: string
   /** Whether the client driving this turn can run tools on the user's machine. */
   localTools?: boolean
+  /** Whether that client draws the secure input card, as the phone apps do without local tools. */
+  secretCard?: boolean
   /** Architecture diagram the desktop tab has open, when any. */
   diagramId?: string
   /** Slack thread the conversation is bound to, when any. */

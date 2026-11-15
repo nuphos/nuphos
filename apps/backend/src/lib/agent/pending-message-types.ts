@@ -10,6 +10,8 @@ export type QueuedChatTurn = {
   message: UIMessage
   locale: string
   localTools: boolean
+  /** The sender's client draws the secure input card. */
+  secretCard?: boolean
   /** The question this message answers, resolved when the queued turn is admitted. */
   decisionReplyTo?: string
   kubeContext?: string

@@ -1224,7 +1224,7 @@ final class ChatSession {
                 agentRuntime: firstPost ? options.agentRuntime : nil,
                 runtimeId: firstPost ? options.runtimeId : nil,
                 initialSessionConfig: firstPost ? options.initialSessionConfig : nil,
-                clientCapabilities: ["localTools": false, "serverQueue": true],
+                clientCapabilities: ["localTools": false, "serverQueue": true, "secretCard": true],
                 decisionReplyTo: firstPost ? options.decisionReplyTo : nil
             )
 
