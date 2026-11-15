@@ -143,7 +143,8 @@ export function CloudflareKvNamespaceDetailView({
             <div className="px-4 py-2 border-t border-line-control flex items-center justify-center">
               <button
                 onClick={() => void query.fetchNextPage()}
-                disabled={query.isFetchingNextPage}
+                // Paging during a reload would cancel it and append to the pages read before.
+                disabled={query.isFetching}
                 className="px-3 py-1 rounded-md bg-surface-sunken hover:bg-state-hover text-secondary text-[12px] disabled:opacity-50"
               >
                 {query.isFetchingNextPage ? t('Loading…') : t('Load more')}
