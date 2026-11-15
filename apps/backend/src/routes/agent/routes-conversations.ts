@@ -38,6 +38,7 @@ import { recheckLinkedResources } from '@/lib/agent/resource-recheck'
 import { runChannels } from '@/lib/agent/run-admission'
 import { getActiveAgentRunForSession } from '@/lib/agent/run-store'
 import { liveAttachment } from '@/lib/agent/db/shared'
+import { withCurrentAgentNames } from '@/lib/agent/sender-names'
 import { withRunChannels } from '@/lib/claude-code-preview/runtime-execution-snapshot'
 import { readRuntimeStates } from '@/lib/claude-code-preview/runtime-state-store'
 import { conversationExecutionState } from '@/lib/claude-code-preview/session-execution-state'
@@ -267,7 +268,7 @@ agent.get('/conversations/:sessionId', async (c) => {
     // either, so a transient read-only view is the cheaper failure.
     readOnly: slackThreadLookupFailed ? true : conversationForViewer.readOnly,
     slackThread,
-    messages: result.messages.map(serializeMessageDoc),
+    messages: (await withCurrentAgentNames(result.messages, teamId)).map(serializeMessageDoc),
     transcriptUpdatedAt: result.conversation.transcriptUpdatedAt?.toISOString() ?? null,
     timelineEvents: serializeTimelineEvents(result.conversation.timelineEvents, ownerById),
     runtimeState,
