@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Nuphos</string>
+    <string name="app_name" translatable="false">Nuphos</string>
     <string name="welcome_title">Welcome to Nuphos</string>
     <string name="welcome_body">Sign in or create an account.</string>
     <string name="sign_in">Sign in</string>
@@ -38,7 +38,7 @@
     <string name="for_session">For this task</string>
     <string name="always_allow">Always allow…</string>
     <string name="deny">Deny</string>
-    <string name="iam">IAM</string>
+    <string name="iam" translatable="false">IAM</string>
     <string name="auto_mode">Auto Mode</string>
     <string name="bypass_permissions">Bypass Permissions</string>
 </resources>
