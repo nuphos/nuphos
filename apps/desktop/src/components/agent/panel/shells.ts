@@ -29,7 +29,7 @@ export function shellsFromRuntimeState(snapshot: RuntimeExecution | undefined): 
   )
   const listed = new Set(shells.map((shell) => shell.id))
   const tasks = Object.values(snapshot?.asyncTasks ?? {}).flatMap((task) =>
-    ['completed', 'failed', 'stopped'].includes(task.state) ||
+    ['completed', 'failed', 'cancelled', 'stopped'].includes(task.state) ||
     (task.toolCallId && listed.has(task.toolCallId))
       ? []
       : [{ id: task.id, terminalId: '', command: task.name ?? task.id, output: '', task: true }],
