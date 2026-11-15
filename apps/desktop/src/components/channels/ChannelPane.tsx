@@ -242,7 +242,6 @@ export function ChannelPane({
               onOpenSession={onOpenSession}
               onOpenNuphosLink={onOpenNuphosLink}
               channelId={channelId}
-              botId={bot}
               extraRows={questions.rows}
               fixes={fixes}
               onReply={
