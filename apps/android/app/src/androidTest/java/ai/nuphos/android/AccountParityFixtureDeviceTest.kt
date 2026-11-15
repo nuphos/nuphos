@@ -246,14 +246,15 @@ class AccountParityFixtureDeviceTest {
     }
     /** An open keyboard can cover the target or swallow Back, so every tap and Back closes it first. */
     private fun hideKeyboard() {
-        val ui = InstrumentationRegistry.getInstrumentation().uiAutomation
-        ui.serviceInfo = ui.serviceInfo.apply { flags = flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS }
-        fun open() = ui.windows.any { it.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_INPUT_METHOD }
-        // Sheets are their own windows, so close the keyboard the way a person does: Back while it is open.
-        if (open()) {
-            ui.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK)
-            compose.waitUntil(5_000) { !open() }
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        // Sheets are their own windows; hide the keyboard on whichever window has focus. Never press Back for it.
+        instrumentation.runOnMainSync {
+            android.view.inspector.WindowInspector.getGlobalWindowViews().firstOrNull { it.hasWindowFocus() }
+                ?.windowInsetsController?.hide(android.view.WindowInsets.Type.ime())
         }
+        val ui = instrumentation.uiAutomation
+        ui.serviceInfo = ui.serviceInfo.apply { flags = flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS }
+        compose.waitUntil(5_000) { ui.windows.none { it.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_INPUT_METHOD } }
         compose.waitForIdle()
     }
     private fun tap(text: String) { hideKeyboard(); compose.onNodeWithText(text).performScrollTo().performClick() }
