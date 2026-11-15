@@ -990,11 +990,11 @@ private struct TranscriptDisclosureFixture: View {
     var body: some View {
         DisclosureGroup(isExpanded: $expanded) {
             ForEach(0..<12) { index in
-                Text("Command \(index): expanded content below the stationary step title.")
+                Text(verbatim: "Command \(index): expanded content below the stationary step title.")
                     .padding(.vertical, 8)
             }
         } label: {
-            Text("Step 1 — expand downward")
+            Text(verbatim: "Step 1 — expand downward")
                 .background(TranscriptStepMarkerView(marker: marker))
         }
         .disclosureGroupStyle(PlanStepDisclosureStyle())
@@ -1013,10 +1013,10 @@ private struct TranscriptResizingFixture: View {
     @State private var loaded = false
     var body: some View {
         VStack(alignment: .leading) {
-            Text("Asynchronously loaded plan")
+            Text(verbatim: "Asynchronously loaded plan")
             if loaded {
                 ForEach(0..<12) { index in
-                    Text("Step \(index): Card content must push the following message down.")
+                    Text(verbatim: "Step \(index): Card content must push the following message down.")
                         .padding(.vertical, 6)
                 }
             } else { ProgressView() }

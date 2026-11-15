@@ -26,8 +26,8 @@ struct SecretCard: View {
 
     /// Why the value can't be sent right now; nil when it can.
     private var blocked: String? {
-        if !session.ownsChat { return "Only the owner of this task can provide this secret." }
-        if session.isStreaming { return "The agent is working. You can send this when its turn ends." }
+        if !session.ownsChat { return String(localized: "Only the owner of this task can provide this secret.") }
+        if session.isStreaming { return String(localized: "The agent is working. You can send this when its turn ends.") }
         return nil
     }
 
@@ -42,7 +42,7 @@ struct SecretCard: View {
     }
 
     /// The answered card: one line, no field.
-    private func line(_ symbol: String, _ text: String) -> some View {
+    private func line(_ symbol: String, _ text: LocalizedStringKey) -> some View {
         Label(text, systemImage: symbol)
             .font(Theme.Text.label)
             .foregroundStyle(Theme.muted)
@@ -74,7 +74,7 @@ struct SecretCard: View {
                     .background(Theme.chatCanvas, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Theme.hairline, lineWidth: 1))
                 Button(action: submit) {
-                    Text(saving ? "Saving…" : "Send securely")
+                    saving ? Text("Saving…") : Text("Send securely")
                 }
                 .prominentButton()
                 .controlSize(.small)
@@ -85,7 +85,7 @@ struct SecretCard: View {
             if case .failed(let message) = phase {
                 Text(message).font(Theme.Text.caption).foregroundStyle(.red)
             }
-            Text(blocked ?? "The value is written to a file on the task's runtime and never appears in this task.")
+            Text(blocked ?? String(localized: "The value is written to a file on the task's runtime and never appears in this task."))
                 .font(Theme.Text.caption).foregroundStyle(Theme.muted)
         }
         .padding(14)
@@ -104,7 +104,7 @@ struct SecretCard: View {
                 value = ""
                 phase = .sent
             } catch {
-                phase = .failed("Could not save it on the task's runtime: \(error.localizedDescription)")
+                phase = .failed(String(localized: "Could not save it on the task's runtime: \(error.localizedDescription)"))
             }
         }
     }
