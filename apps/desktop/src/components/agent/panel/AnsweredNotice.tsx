@@ -85,7 +85,7 @@ function AnsweredLine({
       {open && (
         <div
           id={cardId}
-          className="mt-2 rounded-[14px] surface-raised bg-surface-raised px-4 pt-3.5 pb-3"
+          className="mt-2 rounded-[14px] bg-surface-raised px-4 pt-3.5 pb-3 shadow-[0_0_0_1px_rgb(var(--color-line-control)),0_1px_2px_rgba(0,0,0,0.04)]"
         >
           <div className="selectable mb-1.5 whitespace-pre-wrap text-[16px] leading-[23px] font-semibold tracking-[-0.01em] text-main">
             {question}
