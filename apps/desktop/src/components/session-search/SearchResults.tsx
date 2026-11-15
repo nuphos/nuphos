@@ -126,12 +126,7 @@ export function SearchResults({
   ])
 
   const ownerName = owner ? owner.name || owner.email : ''
-  const heading =
-    mode === 'people'
-      ? t('People in {team}', { team: teamName })
-      : owner
-        ? t('Bots and tasks by {name}', { name: ownerName })
-        : t('Bots and tasks')
+  const heading = t('People in {team}', { team: teamName })
   const sessionRow = (result: SessionResult, index: number) => {
     const { conversation } = result
     const at = commands.length + index
@@ -188,7 +183,7 @@ export function SearchResults({
       <div
         id={listId}
         role="listbox"
-        aria-label={heading}
+        aria-label={mode === 'people' ? heading : t('Search Bots and tasks')}
         aria-busy={busy}
         className="space-y-0.5 px-2 pb-2"
       >

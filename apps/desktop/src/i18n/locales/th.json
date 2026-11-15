@@ -586,8 +586,6 @@
   "Bot user ID": "ID ผู้ใช้ของบอต",
   "Both fields are required.": "ต้องกรอกทั้งสองช่อง",
   "Bots": "บอท",
-  "Bots and tasks": "บอทและงาน",
-  "Bots and tasks by {name}": "บอทและงานของ {name}",
   "Bots and tasks you archive, and those left idle for a week, are kept here. Unarchive one to put it back.": "บอทและงานที่คุณเก็บถาวร และที่ไม่ได้ใช้งานนานหนึ่งสัปดาห์จะถูกเก็บไว้ที่นี่ ยกเลิกการเก็บถาวรเพื่อนำกลับคืน",
   "Bots and tasks you open will appear here. Type to search your team.": "บอทและงานที่คุณเปิดจะแสดงที่นี่ พิมพ์เพื่อค้นหาในทีมของคุณ",
   "Bots by {name}": "บอทของ {name}",

@@ -586,8 +586,6 @@
   "Bot user ID": "机器人用户 ID",
   "Both fields are required.": "两个字段均为必填项。",
   "Bots": "Bot",
-  "Bots and tasks": "Bot 和任务",
-  "Bots and tasks by {name}": "{name} 的 Bot 和任务",
   "Bots and tasks you archive, and those left idle for a week, are kept here. Unarchive one to put it back.": "你归档的 Bot 和任务，以及闲置一周的，都会保存在这里。取消归档即可放回原处。",
   "Bots and tasks you open will appear here. Type to search your team.": "你打开的 Bot 和任务会显示在这里。输入文字即可搜索团队。",
   "Bots by {name}": "{name} 的 Bot",

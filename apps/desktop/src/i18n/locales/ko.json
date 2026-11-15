@@ -586,8 +586,6 @@
   "Bot user ID": "봇 사용자 ID",
   "Both fields are required.": "두 필드 모두 필수입니다.",
   "Bots": "봇",
-  "Bots and tasks": "봇과 태스크",
-  "Bots and tasks by {name}": "{name}의 봇과 태스크",
   "Bots and tasks you archive, and those left idle for a week, are kept here. Unarchive one to put it back.": "보관한 봇과 태스크, 그리고 일주일간 유휴 상태인 항목이 여기에 보관됩니다. 보관 해제하면 원래 위치로 돌아갑니다.",
   "Bots and tasks you open will appear here. Type to search your team.": "연 봇과 태스크가 여기에 표시됩니다. 입력하면 팀을 검색할 수 있습니다.",
   "Bots by {name}": "{name}의 봇",

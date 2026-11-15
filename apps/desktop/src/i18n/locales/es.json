@@ -586,8 +586,6 @@
   "Bot user ID": "ID de usuario del bot",
   "Both fields are required.": "Ambos campos son obligatorios.",
   "Bots": "Bots",
-  "Bots and tasks": "Bots y tareas",
-  "Bots and tasks by {name}": "Bots y tareas de {name}",
   "Bots and tasks you archive, and those left idle for a week, are kept here. Unarchive one to put it back.": "Los bots y tareas que archives y los que queden inactivos durante una semana se guardan aquí. Desarchiva uno para devolverlo a su lugar.",
   "Bots and tasks you open will appear here. Type to search your team.": "Los bots y tareas que abras aparecerán aquí. Escribe para buscar en tu equipo.",
   "Bots by {name}": "Bots de {name}",

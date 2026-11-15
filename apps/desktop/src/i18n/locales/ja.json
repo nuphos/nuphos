@@ -586,8 +586,6 @@
   "Bot user ID": "ボットのユーザー ID",
   "Both fields are required.": "両方のフィールドが必須です。",
   "Bots": "ボット",
-  "Bots and tasks": "ボットとタスク",
-  "Bots and tasks by {name}": "{name} のボットとタスク",
   "Bots and tasks you archive, and those left idle for a week, are kept here. Unarchive one to put it back.": "アーカイブしたボットとタスク、1 週間アイドル状態のものはここに保管されます。アーカイブを解除すると元に戻ります。",
   "Bots and tasks you open will appear here. Type to search your team.": "開いたボットとタスクがここに表示されます。入力するとチーム内を検索できます。",
   "Bots by {name}": "{name} のボット",

@@ -20,11 +20,6 @@ import type { AgentConversation } from '../../api'
 import type { RuntimeExecution } from '../../lib/runtimeExecution'
 
 /** A Bot: a face, picked in this app since the list loaded (null: taken away) or stored. */
-/** Whether the row belongs on the Bots page (chats and Bots) rather than Tasks. */
-export function onBotsPage(conversation: Pick<AgentConversation, 'avatar' | 'kind'>): boolean {
-  return conversation.kind === 'channel' || isBotRow(conversation)
-}
-
 export function isBotRow(
   conversation: Pick<AgentConversation, 'avatar' | 'kind'>,
   picked?: string | null,
@@ -32,6 +27,11 @@ export function isBotRow(
   return Boolean(
     (picked === undefined ? conversation.avatar : picked) && conversation.kind !== 'channel',
   )
+}
+
+/** Whether the row belongs on the Bots page (chats and Bots) rather than Tasks. */
+export function onBotsPage(conversation: Pick<AgentConversation, 'avatar' | 'kind'>): boolean {
+  return conversation.kind === 'channel' || isBotRow(conversation)
 }
 
 /** One chat row in the sidebar; the caller adds its row actions. */
