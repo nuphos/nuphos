@@ -10,6 +10,8 @@ export const shellApi = {
   sidebarAlignmentFeedback: () => window.api.sidebarAlignmentFeedback?.(),
   takeWindowSurface: () => window.api.takeWindowSurface?.() ?? Promise.resolve(null),
   reportWindowSurface: (surface: WindowSurface) => window.api.reportWindowSurface?.(surface),
+  openPageWindow: (url: string) => window.api.openPageWindow?.(url),
+  takeWindowPage: () => window.api.takeWindowPage?.() ?? Promise.resolve(null),
   acceptDockTerminal: (id: string) => window.api.acceptDockTerminal(id),
   onDockTerminalRequest: (...args: Parameters<typeof window.api.onDockTerminalRequest>) =>
     window.api.onDockTerminalRequest(...args),

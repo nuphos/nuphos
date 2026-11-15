@@ -6,6 +6,7 @@ import { IconButton } from '../../components/ui/icon-button'
 import { t } from '../../i18n'
 import { reportShellRender } from '../../lib/tabSwitchLog'
 
+import { pageWindowUrl } from './pageWindow'
 import { useWorkspacePane } from './WorkspacePaneContext'
 
 import type { WorkspaceController } from './useWorkspaceController'
@@ -27,6 +28,7 @@ export function WorkspaceTabStrip({ ws, userId }: { ws: WorkspaceController; use
     duplicateTab,
     closeOtherTabs,
     reorderTab,
+    selectedSessionId,
   } = ws
 
   return (
@@ -44,6 +46,11 @@ export function WorkspaceTabStrip({ ws, userId }: { ws: WorkspaceController; use
         onCloseOthers={closeOtherTabs}
         onReorder={reorderTab}
         onCopyPageUrl={copyLink}
+        pageWindowUrl={(tabId) => {
+          const tab = tabs.find((item) => item.id === tabId)
+
+          return tab ? pageWindowUrl(tab, selectedSessionId) : null
+        }}
         // Only an expanded dock reaches the window's corner; docked, the chat header holds the toggle.
         sidebarCollapsed={workspaceDockExpanded && (pane?.cornerPane ?? false)}
         onToggleSidebarCollapse={toggleSidebarCollapsed}
