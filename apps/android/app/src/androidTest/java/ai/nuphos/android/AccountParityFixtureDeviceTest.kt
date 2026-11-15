@@ -246,7 +246,14 @@ class AccountParityFixtureDeviceTest {
     }
     /** An open keyboard can cover the target or swallow Back, so every tap and Back closes it first. */
     private fun hideKeyboard() {
-        androidx.test.espresso.Espresso.closeSoftKeyboard()
+        val ui = InstrumentationRegistry.getInstrumentation().uiAutomation
+        ui.serviceInfo = ui.serviceInfo.apply { flags = flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS }
+        fun open() = ui.windows.any { it.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_INPUT_METHOD }
+        // Sheets are their own windows, so close the keyboard the way a person does: Back while it is open.
+        if (open()) {
+            ui.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK)
+            compose.waitUntil(5_000) { !open() }
+        }
         compose.waitForIdle()
     }
     private fun tap(text: String) { hideKeyboard(); compose.onNodeWithText(text).performScrollTo().performClick() }
