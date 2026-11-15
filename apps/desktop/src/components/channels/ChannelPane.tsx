@@ -20,6 +20,7 @@ import { IconButton } from '../ui/icon-button'
 import { toast } from '../ui/toast'
 
 import { botOfChannel } from './botChannel'
+import { BotStatusPill } from './BotStatusPill'
 import { BotTaskButton } from './BotTaskButton'
 import { ChannelMessages } from './ChannelMessages'
 import { ChannelIntro, ChatHeaderIcon, ReplyingBanner } from './channelParts'
@@ -182,6 +183,14 @@ export function ChannelPane({
             teamId={teamId}
             canRename={botOwned}
             onRenamed={refresh}
+          />
+          <BotStatusPill
+            teamId={teamId}
+            botId={bot}
+            channelId={channelId}
+            chat={scrollRef}
+            onOpenTask={canOpenTask ? (onOpenTask ?? onOpenSession) : undefined}
+            onOpenLink={onOpenNuphosLink}
           />
         </div>
         {bot && canOpenTask && (
