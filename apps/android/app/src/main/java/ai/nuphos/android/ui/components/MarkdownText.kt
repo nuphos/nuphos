@@ -29,12 +29,14 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.times
 import androidx.compose.ui.unit.sp
@@ -61,9 +63,12 @@ import com.mikepenz.markdown.model.markdownAnnotatorConfig
 import com.mikepenz.markdown.model.markdownPadding
 import com.mikepenz.markdown.model.rememberMarkdownState
 import com.mikepenz.markdown.model.rememberStreamingMarkdownState
+import com.mikepenz.markdown.utils.getUnescapedTextInNode
 import java.net.URI
+import org.intellij.markdown.MarkdownElementTypes
 import org.intellij.markdown.ast.findChildOfType
 import org.intellij.markdown.flavours.gfm.GFMElementTypes.HEADER
+import org.intellij.markdown.flavours.gfm.GFMTokenTypes
 import org.intellij.markdown.flavours.gfm.GFMTokenTypes.CELL
 
 @Composable
@@ -165,6 +170,12 @@ private class MarkdownChrome(
 private fun NuphosMarkdown(compact: Boolean, content: @Composable (MarkdownChrome) -> Unit) {
     val body = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp, lineHeight = 22.sp)
     val colors = markdownColor(text = MaterialTheme.colorScheme.onSurface)
+    val linkStyles = TextLinkStyles(
+        style = body.copy(
+            color = MaterialTheme.colorScheme.primary,
+            textDecoration = TextDecoration.Underline,
+        ).toSpanStyle(),
+    )
     val typography = markdownTypography(
         h1 = body.copy(fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold),
         h2 = body.copy(fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold),
@@ -182,12 +193,7 @@ private fun NuphosMarkdown(compact: Boolean, content: @Composable (MarkdownChrom
         inlineCode = body.copy(fontFamily = FontFamily.Monospace, fontSize = 13.5.sp),
         table = body,
         alertTitle = body.copy(fontWeight = FontWeight.Bold),
-        textLink = TextLinkStyles(
-            style = body.copy(
-                color = MaterialTheme.colorScheme.primary,
-                textDecoration = TextDecoration.Underline,
-            ).toSpanStyle(),
-        ),
+        textLink = linkStyles,
     )
     val animations = markdownAnimations(animateTextSize = { this })
     val components = markdownComponents(
@@ -205,7 +211,20 @@ private fun NuphosMarkdown(compact: Boolean, content: @Composable (MarkdownChrom
     val padding = if (compact) markdownPadding(block = 3.dp, list = 0.dp, listItemTop = 2.dp, listItemBottom = 2.dp)
         else markdownPadding()
     // Markdown joins a single newline into a space; a chat post keeps the line the person typed.
-    val annotator = markdownAnnotator(config = markdownAnnotatorConfig(eolAsNewLine = compact))
+    // A bare URL ends where bareUrlEnd says, not at the next ASCII space.
+    val annotator = remember(compact, linkStyles) {
+        markdownAnnotator(config = markdownAnnotatorConfig(eolAsNewLine = compact)) { content, child ->
+            if (child.type != GFMTokenTypes.GFM_AUTOLINK || child.parent?.type == MarkdownElementTypes.LINK_TEXT) {
+                return@markdownAnnotator false
+            }
+            val literal = child.getUnescapedTextInNode(content)
+            val url = literal.take(bareUrlEnd(literal))
+            if (url == literal) return@markdownAnnotator false
+            withLink(LinkAnnotation.Url(url, linkStyles)) { append(url) }
+            append(literal.drop(url.length))
+            true
+        }
+    }
     content(MarkdownChrome(colors, typography, animations, components, padding, annotator))
 }
 
@@ -253,6 +272,14 @@ private fun NuphosMarkdownTable(model: MarkdownComponentModel) {
         }
     }
 }
+
+/**
+ * GFM ends a bare URL only at ASCII whitespace, so the full-width punctuation right after it in CJK
+ * prose — `…/pull/2595（Fixes #2594）` — and the word after that become part of the link. A bare URL
+ * ends at its first non-ASCII punctuation or space instead; CJK letters in a path still belong to it.
+ */
+internal fun bareUrlEnd(literal: String): Int =
+    literal.indexOfFirst { it.code > 0x7F && it.category.code[0] in "PZ" }.takeIf { it >= 0 } ?: literal.length
 
 internal sealed class MarkdownStreamUpdate {
     data object None : MarkdownStreamUpdate()
