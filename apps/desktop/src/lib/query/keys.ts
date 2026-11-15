@@ -11,6 +11,7 @@ export const queryKeys = {
   inbox: (teamId: string) => [...queryKeys.team(teamId), 'inbox'] as const,
   shareApprovals: (teamId: string) => [...queryKeys.team(teamId), 'share-approvals'] as const,
   channelMentions: (teamId: string) => [...queryKeys.team(teamId), 'channel-mentions'] as const,
+  credentialOptions: (teamId: string) => [...queryKeys.team(teamId), 'credential-options'] as const,
   channel: (teamId: string, channelId: string) =>
     [...queryKeys.team(teamId), 'channel', channelId] as const,
   runtimeInstances: (teamId: string) => [...queryKeys.team(teamId), 'runtime-instances'] as const,

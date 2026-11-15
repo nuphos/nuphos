@@ -9,8 +9,24 @@ import { toast } from '../ui/toast'
 
 import { chooseBotChat, openBotChats, readBotChats } from './botChats'
 import { markChannel } from './channelKind'
+import { listedConversation } from './channelShared'
+
+import type { ChannelAgent } from '../../api'
 
 export { botOfChannel } from './botChats'
+
+/** Whether the viewer owns a chat's Bot: by the chat's agents, or by the sidebar's row
+ *  of the Bot until the chat loads. */
+export function ownsBot(
+  teamId: string,
+  botId: string | undefined,
+  viewerId: string,
+  agents: ChannelAgent[] | null,
+): boolean {
+  return agents
+    ? agents.some((agent) => agent.sessionId === botId && agent.ownerId === viewerId)
+    : listedConversation(teamId, botId)?.isOwner === true
+}
 
 const making = new Map<string, Promise<string>>()
 
