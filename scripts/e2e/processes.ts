@@ -30,12 +30,13 @@ export async function freePorts(count: number): Promise<number[]> {
 }
 
 // Retries `check` until it is truthy. It may throw while what it waits for is starting;
-// a timeout reports its last error.
+// a timeout reports the error of its last attempt, if that attempt threw.
 export async function until(label: string, check: () => Promise<unknown>, timeoutMs = 60_000) {
   const deadline = Date.now() + timeoutMs
   let failure: unknown
 
   while (Date.now() < deadline) {
+    failure = undefined
     const passed = await check().then(Boolean, (error: unknown) => {
       failure = error
 
