@@ -146,6 +146,9 @@ class AgentStore(
     /** The viewer's own Bots, listed by the server rather than found in the loaded history. */
     var bots by mutableStateOf<List<AgentConversation>>(emptyList())
         private set
+
+    /** The title of one of the viewer's Bots or tasks the store has loaded. */
+    fun title(sessionId: String): String? = (bots + conversations).firstOrNull { it.sessionId == sessionId }?.title
     private var channelGeneration = 0
 
     /** The Bots page: every chat, and each Bot without one yet. */

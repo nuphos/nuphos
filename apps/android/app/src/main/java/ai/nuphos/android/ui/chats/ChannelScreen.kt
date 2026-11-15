@@ -373,9 +373,11 @@ private fun PostRow(session: ChannelSession, post: ChannelPost, first: Boolean, 
                     else -> MaterialTheme.colorScheme.surfaceContainerHigh
                 }) {
                 Box(Modifier.padding(horizontal = 14.dp, vertical = 9.dp)) {
+                    val store = LocalAgentStore.current
+                    val shown = ai.nuphos.android.ui.chat.SessionMention.named(post.text, store::title)
                     if (selecting) androidx.compose.foundation.text.selection.SelectionContainer(Modifier.testTag("post-selectable")) {
-                        MarkdownText(post.text, onLink = onLink, compact = true)
-                    } else MarkdownText(post.text, onLink = onLink, compact = true)
+                        MarkdownText(shown, onLink = onLink, compact = true)
+                    } else MarkdownText(shown, onLink = onLink, compact = true)
                 }
             }
             // An agent's files show below its words, every group in one grid.
@@ -534,6 +536,12 @@ private fun ChannelComposer(session: ChannelSession) {
             session.send(submission, user?.id, user?.name, user?.avatar, scope, allowed)
         },
         canSubmit = auth.aiAllowed && store.selectedTeam?.id == session.teamId,
+        // As in a Task: `@` offers the viewer's other Bots and tasks, as their links.
+        mentions = if (store.selectedTeam?.id != session.teamId) null else remember(store, session.teamId, session.botId) {
+            ai.nuphos.android.ui.chat.SessionMentionSource(session.teamId, session.botId) { query ->
+                store.mentionableSessions(session.teamId, query)
+            }
+        },
         draft = draft,
         draftingEnabled = draft != null && auth.aiAllowed,
         // A post that failed goes back into the composer.
