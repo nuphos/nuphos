@@ -25,6 +25,21 @@ test('FCM data payload preserves guarded routing and lets the app control displa
   expect(payload.message.android.ttl).toBe('3600s')
 })
 
+test('a subtitle follows the title, since Android shows one title line', () => {
+  const payload = fcmMessage({
+    token: 'opaque',
+    userId: 'account',
+    teamId: 'team',
+    sessionId: 'channel',
+    title: 'Ada',
+    subtitle: 'Release',
+    body: 'Done',
+  })
+
+  expect(payload.message.data).toMatchObject({ title: 'Ada · Release', body: 'Done' })
+  expect(payload.message.data).not.toHaveProperty('subtitle')
+})
+
 test('only the FCM UNREGISTERED error invalidates the registration', () => {
   const error = (errorCode: string) => ({
     error: {

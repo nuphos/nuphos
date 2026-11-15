@@ -4,7 +4,7 @@ import { logError, logEvent } from '@/lib/observability'
 import { apnsCredentials, isDeadToken, sendApns } from './apns'
 import { beginLiveActivityStart, pushDeviceStore, takeLiveActivityPending } from './devices'
 import { liveActivityStore } from './live-activity-store'
-import { conversationTitle } from './notify'
+import { conversationTitle } from './turn-outcome'
 import { watcherCanRead } from './watchers'
 
 import type { ApnsCredentials, ApnsRequest, ApnsResponse } from './apns'
@@ -16,7 +16,7 @@ import type {
   LiveActivityStore,
   LiveActivityToken,
 } from './live-activity-store'
-import type { PushConversation } from './notify'
+import type { PushConversation } from './notification-identity'
 import type { SessionExecutionState } from '@/lib/claude-code-preview/runtime-execution-snapshot'
 
 export type {

@@ -17,7 +17,7 @@ import type {
   LiveActivityStore,
   LiveActivityToken,
 } from './live-activities'
-import type { PushConversation } from './notify'
+import type { PushConversation } from './notification-identity'
 import type { SessionExecutionState } from '@/lib/claude-code-preview/runtime-execution-snapshot'
 
 let sessions: Map<string, LiveActivitySession>
