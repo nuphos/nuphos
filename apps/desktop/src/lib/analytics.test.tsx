@@ -30,6 +30,8 @@ Object.assign(dom, {
     send() {}
   },
 })
+// posthog-js sends nothing from a browser it takes for an automated one.
+Object.defineProperty(dom.navigator, 'webdriver', { value: false })
 Object.assign(dom.navigator, {
   sendBeacon: (url: unknown) => {
     sent(url)
@@ -61,6 +63,9 @@ for (const [key, value] of Object.entries({
   Element: dom.Element,
   HTMLElement: dom.HTMLElement,
   Node: dom.Node,
+  MouseEvent: dom.MouseEvent,
+  fetch: dom.fetch,
+  XMLHttpRequest: dom.XMLHttpRequest,
 }))
   Object.defineProperty(globalThis, key, { value, configurable: true })
 process.env.VITE_POSTHOG_KEY = 'phc_test'
@@ -78,6 +83,8 @@ const button = dom.document.createElement('button')
 button.textContent = TITLE
 button.setAttribute('title', TITLE)
 button.setAttribute('aria-label', TITLE)
+// posthog-js reads attributes by index, which happy-dom's attribute map does not offer.
+Object.defineProperty(button, 'attributes', { value: [...button.attributes] })
 dom.document.body.append(button)
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 50))
