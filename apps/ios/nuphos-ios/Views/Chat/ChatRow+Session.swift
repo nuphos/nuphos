@@ -23,6 +23,10 @@ extension ChatRow {
                 if message.event == nil, ChatTime.showsTimestamp(message.createdAt, after: previous), let date = message.createdAt {
                     rows.append(.timestamp(id: "time.\(message.id)", date: date))
                 }
+                if let answered = AnsweredQuestion.all(message, in: messages) {
+                    rows.append(contentsOf: answered.enumerated().map { .answered(id: "answered.\(message.id).\($0)", question: $1) })
+                    continue
+                }
                 let me = session.sentHere.contains(message.id) ? session.me : nil
                 if let row = userRow(message, id: "user.\(message.id)", messageId: message.id, fallback: me) { rows.append(row) }
             case .assistant:

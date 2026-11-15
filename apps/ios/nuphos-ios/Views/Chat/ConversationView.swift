@@ -447,6 +447,7 @@ struct ConversationView: View {
         case .timestamp: 14
         case .reasoning, .tool, .toolRun, .work, .memory, .memoryRecall, .downloads: 14
         case .activity, .hint, .event: 18
+        case .answered: 6
         case .channel: 0
         }
     }
@@ -510,6 +511,8 @@ struct ConversationView: View {
             )
         case .event(_, let event):
             EventLine(event: event, onLink: open(link:), teamId: session.teamId)
+        case .answered(_, let question):
+            AnsweredLine(question: question, onLink: open(link:))
         case .channel:
             EmptyView()
         }
