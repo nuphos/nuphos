@@ -11,6 +11,10 @@ const log = (entry) => appendFileSync(process.env.E2E_ACP_LOG, `${JSON.stringify
 const held = new Map()
 // The Nuphos tools server each session was given, when the backend offers one.
 const tools = new Map()
+// Requests this agent made of its client, waiting for their answers.
+const asked = new Map()
+// The thread E2E_THREAD started last, for E2E_POKE to message.
+let thread
 
 /** One JSON-RPC call to a streamable-HTTP MCP server; the reply is JSON or a one-event stream. */
 async function mcp(server, sessionHeader, method, params) {
@@ -30,8 +34,8 @@ async function mcp(server, sessionHeader, method, params) {
   return { message: JSON.parse(data), session: response.headers.get('mcp-session-id') }
 }
 
-/** Asks the person a question the way a real agent does, through request_user_decision. */
-async function ask(sessionId, category) {
+/** Calls one Nuphos tool the way a real agent does; `refused` is a tool error. */
+async function tool(sessionId, name, args) {
   const server = tools.get(sessionId)
   const opened = await mcp(server, {}, 'initialize', {
     protocolVersion: '2025-06-18',
@@ -42,20 +46,69 @@ async function ask(sessionId, category) {
     server,
     opened.session ? { 'mcp-session-id': opened.session } : {},
     'tools/call',
-    {
-      name: 'request_user_decision',
-      arguments: {
-        label: 'Ask which marker to use',
-        category,
-        question: 'Which marker should the fixture use?',
-        // A link the app can open without leaving this computer.
-        body: `Background is at ${new URL(server.url).origin}/health/ready`,
-        options: ['E2E_DELIVERY:answered', 'E2E_DELIVERY:other'],
-      },
-    },
+    { name, arguments: args },
   )
 
-  log({ sessionId, event: 'asked', isError: Boolean(message.error ?? message.result?.isError) })
+  return {
+    refused: Boolean(message.error ?? message.result?.isError),
+    text: JSON.stringify(message),
+  }
+}
+
+/** Asks the person a question through request_user_decision. */
+async function ask(sessionId, category) {
+  const server = tools.get(sessionId)
+  const { refused } = await tool(sessionId, 'request_user_decision', {
+    label: 'Ask which marker to use',
+    category,
+    question: 'Which marker should the fixture use?',
+    // A link the app can open without leaving this computer.
+    body: `Background is at ${new URL(server.url).origin}/health/ready`,
+    options: ['E2E_DELIVERY:answered', 'E2E_DELIVERY:other'],
+  })
+
+  log({ sessionId, event: 'asked', isError: refused })
+}
+
+/** Starts a thread that asks for a permission, then tries to move it to Auto Mode on its own. */
+async function startThread(sessionId, marker) {
+  const started = await tool(sessionId, 'create_thread', {
+    label: 'Start a thread',
+    title: 'E2E thread',
+    prompt: 'Run a command E2E_PERMISSION E2E_DELIVERY:thread',
+  })
+
+  thread = /threadId[\\"]*:[\\"]*([0-9a-f-]{36})/.exec(started.text)?.[1]
+  const change = await tool(sessionId, 'update_thread', {
+    label: 'Move the thread to Auto Mode',
+    threadId: thread,
+    fullAccess: false,
+  })
+
+  log({ sessionId, marker, event: change.refused ? 'thread-mode-refused' : 'thread-mode-changed' })
+}
+
+/** Asks the client to allow a command, as a runtime does before it runs one. */
+async function permission(sessionId, marker) {
+  const id = randomUUID()
+  const answered = new Promise((resolve) => asked.set(id, resolve))
+
+  log({ sessionId, marker, event: 'permission-asked' })
+  send({
+    id,
+    method: 'session/request_permission',
+    params: {
+      sessionId,
+      toolCall: { toolCallId: randomUUID(), title: 'echo e2e', kind: 'execute', status: 'pending' },
+      options: [
+        { optionId: 'allow', name: 'Allow', kind: 'allow_once' },
+        { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
+      ],
+    },
+  })
+  const outcome = (await answered)?.outcome
+
+  log({ sessionId, marker, event: `permission-${outcome?.optionId ?? outcome?.outcome ?? 'none'}` })
 }
 
 async function prompt({ sessionId, prompt: parts }) {
@@ -69,6 +122,15 @@ async function prompt({ sessionId, prompt: parts }) {
   if (text.includes('E2E_ASK')) {
     await ask(sessionId, text.includes('E2E_ASK_CREDENTIAL') ? 'credential' : 'preference')
   }
+  if (text.includes('E2E_THREAD')) await startThread(sessionId, marker)
+  if (text.includes('E2E_POKE')) {
+    await tool(sessionId, 'send_message_to_thread', {
+      label: 'Message the thread',
+      threadId: thread,
+      prompt: 'Run it again E2E_PERMISSION E2E_DELIVERY:thread-again',
+    })
+  }
+  if (text.includes('E2E_PERMISSION')) await permission(sessionId, marker)
   if (text.includes('E2E_HOLD')) {
     await new Promise((resolve) => held.set(sessionId, resolve))
     log({ sessionId, marker, event: 'cancelled' })
@@ -129,6 +191,12 @@ async function answer(request) {
 for await (const line of createInterface({ input: process.stdin })) {
   const request = JSON.parse(line)
 
+  // An answer to a request of this agent's own.
+  if (request.method === undefined) {
+    asked.get(request.id)?.(request.result)
+    asked.delete(request.id)
+    continue
+  }
   if (request.method === 'session/cancel') {
     held.get(request.params.sessionId)?.()
     held.delete(request.params.sessionId)
