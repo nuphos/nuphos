@@ -66,6 +66,7 @@ struct BotQuestionCard: View {
                     .accessibilityIdentifier("botQuestion.failure")
             }
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("botQuestion.card")
     }
 
@@ -162,7 +163,7 @@ struct BotQuestionCard: View {
                 Button { expanded.toggle() } label: {
                     HStack(spacing: 6) {
                         Text(expanded ? "Show less" : "Show more").font(.system(size: 15, weight: .semibold))
-                        Image(systemName: expanded ? "chevron.up" : "chevron.down").font(.system(size: 12, weight: .semibold))
+                        Image(systemName: expanded ? "chevron.up" : "chevron.down").font(.system(size: 16, weight: .semibold))
                     }
                     .foregroundStyle(Theme.heading)
                     .frame(maxWidth: .infinity, minHeight: 44)
