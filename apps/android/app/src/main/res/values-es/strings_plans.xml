@@ -1,0 +1,44 @@
+<resources>
+    <string name="plans_title_fallback">Plan</string>
+    <string name="plans_back">Atrás</string>
+    <string name="plans_actions">Acciones</string>
+    <string name="plans_mark_unplanned">Marcar como fuera del plan</string>
+    <string name="plans_plan_number">Plan %1$s</string>
+    <string name="plans_untitled">Plan sin título</string>
+    <string name="plans_still_building">El agente aún está preparando este plan: los pasos, el costo y el riesgo llegarán antes de que se pueda aprobar.</string>
+    <string name="plans_decisions">Decisiones</string>
+    <string name="plans_steps">Pasos</string>
+    <string name="plans_cost">Costo</string>
+    <string name="plans_cost_one_time">"Único  %1$s"</string>
+    <string name="plans_cost_monthly">"Mensual  %1$s"</string>
+    <string name="plans_cost_savings">"Ahorro  %1$s"</string>
+    <string name="plans_risk">Riesgo</string>
+    <string name="plans_risk_worst_case">"Peor caso  %1$s"</string>
+    <string name="plans_approval">Aprobación</string>
+    <string name="plans_approval_requester">Solicitante %1$s</string>
+    <string name="plans_approval_team">Equipo %1$d/%2$d</string>
+    <string name="plans_loading">Cargando plan…</string>
+    <string name="plans_unplan_confirm_title">¿Marcar el plan %1$s como fuera del plan?</string>
+    <string name="plans_unplan_confirm_body">El plan se conserva como referencia, pero ya no se ejecutará.</string>
+    <string name="plans_error_title">Algo salió mal</string>
+    <string name="plans_ok">Aceptar</string>
+    <string name="plans_approval_notice_title">Aprobación del plan</string>
+    <string name="plans_approval_already_recorded">Tu aprobación ya está registrada en este plan.</string>
+    <string name="plans_approve_failed">No se pudo aprobar el plan.</string>
+    <plurals name="plans_step_count">
+        <item quantity="one">%1$d paso</item>
+        <item quantity="other">%1$d pasos</item>
+    </plurals>
+    <plurals name="plans_job_count">
+        <item quantity="one">%1$d tarea</item>
+        <item quantity="other">%1$d tareas</item>
+    </plurals>
+    <plurals name="plans_command_count">
+        <item quantity="one">%1$d comando</item>
+        <item quantity="other">%1$d comandos</item>
+    </plurals>
+    <plurals name="plans_approvals_recorded">
+        <item quantity="one">%1$d aprobación registrada.</item>
+        <item quantity="other">%1$d aprobaciones registradas.</item>
+    </plurals>
+</resources>
