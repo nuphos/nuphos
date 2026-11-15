@@ -1,5 +1,7 @@
 package ai.nuphos.android.model
 
+import ai.nuphos.android.R
+
 /** New-composer state only, matching iOS CredentialDraft. Never persisted or applied to stored chats. */
 data class CredentialDraft(
     val catalog: CredentialCatalog? = null,
@@ -21,7 +23,7 @@ data class CredentialDraft(
         return result.fold(
             onSuccess = { fresh -> copy(catalog = fresh, error = null, shown = request,
                 selection = (if (catalog == null) selection.selectDefaults(fresh) else selection).pruned(fresh)) },
-            onFailure = { copy(error = it.message ?: "Could not load IAM. Try again.", shown = request) },
+            onFailure = { copy(error = it.message ?: Words(R.string.storetext_credentials_load_failed), shown = request) },
         )
     }
 

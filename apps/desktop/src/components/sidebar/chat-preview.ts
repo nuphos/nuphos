@@ -1,10 +1,10 @@
 import { t } from '../../i18n/index.ts'
-import { stripMarkdown } from '../../lib/agentStopNotification.ts'
 
 import type { AgentConversation } from '../../api/agent-types'
 
 /**
  * A chat row's one-line preview, iMessage style, or `Attachment` for files only.
+ * The server sends the text already plain (#2781).
  * Only a chat with more than one other member names who posted (`Ann: text`):
  * in a 1:1 the row already is the sender.
  */
@@ -13,7 +13,7 @@ export function chatPreview(
   faces?: AgentConversation['faces'],
 ): string | undefined {
   if (!lastMessage) return undefined
-  const text = stripMarkdown(lastMessage.text) || t('Attachment')
+  const text = lastMessage.text || t('Attachment')
 
   return lastMessage.from && (faces?.length ?? 0) > 1 ? `${lastMessage.from}: ${text}` : text
 }

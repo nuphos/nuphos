@@ -1,0 +1,180 @@
+<resources>
+    <!-- Runtime chip and picker -->
+    <string name="agent_choose_available_runtime">Choose an available runtime</string>
+    <string name="agent_choose_runtime">Choose runtime</string>
+    <string name="agent_runtime_for_new_tasks">Runtime for new tasks: %1$s</string>
+    <string name="agent_runtime_for_this_task">Runtime for this task: %1$s</string>
+    <string name="agent_close_runtime_picker">Close runtime picker</string>
+
+    <!-- Task list -->
+    <string name="agent_action_failed">Action failed</string>
+    <string name="agent_refresh">Refresh</string>
+    <string name="agent_restore_task_title">Restore task?</string>
+    <string name="agent_archive_task_title">Archive task?</string>
+    <string name="agent_restore_task_body">Move this task to Active.</string>
+    <string name="agent_archive_task_body">It leaves the Tasks list. Open it again to restore it.</string>
+    <string name="agent_saving">Saving…</string>
+    <string name="agent_restore">Restore</string>
+    <string name="agent_archive">Archive</string>
+    <string name="agent_rename_task">Rename task</string>
+    <string name="agent_title">Title</string>
+    <string name="agent_save">Save</string>
+    <string name="agent_watch_failed">Watch update failed</string>
+    <string name="agent_refresh_failed">Could not refresh tasks. Showing last loaded history.</string>
+    <string name="agent_retry_history">Retry history</string>
+    <string name="agent_no_search_matches">No tasks match your search.</string>
+    <string name="agent_start_task_beside">Start a task in the pane beside this list.</string>
+    <string name="agent_load_more_tasks">Load more tasks</string>
+    <string name="agent_sub_agent_level">Sub-agent level %1$d</string>
+    <string name="agent_rename">Rename</string>
+    <string name="agent_watch">Watch</string>
+    <string name="agent_unwatch">Unwatch</string>
+    <string name="agent_unlink">Unlink</string>
+    <string name="agent_unlinking">Unlinking…</string>
+    <string name="agent_turn_into_task">Turn into a Task</string>
+    <string name="agent_make_bot">Make this a Bot</string>
+    <string name="agent_archive_bot">Archive Bot</string>
+    <string name="agent_collapsed">Collapsed</string>
+    <string name="agent_expanded">Expanded</string>
+    <!-- English keeps "sub-agents" for one, as before. -->
+    <plurals name="agent_show_sub_agents">
+        <item quantity="one">Show %1$d sub-agents</item>
+        <item quantity="other">Show %1$d sub-agents</item>
+    </plurals>
+    <plurals name="agent_hide_sub_agents">
+        <item quantity="one">Hide %1$d sub-agents</item>
+        <item quantity="other">Hide %1$d sub-agents</item>
+    </plurals>
+    <string name="agent_unread_reply">Unread reply</string>
+    <string name="agent_archived">Archived</string>
+    <string name="agent_unlink_task_title">Unlink task?</string>
+    <string name="agent_unlink_task_body">“%1$s” will appear on its own in the task list. Its messages and sharing permissions will stay the same.</string>
+    <string name="agent_select_runtime_before_start">Select an available runtime before starting a new agent.</string>
+    <string name="agent_show_task_actions">Show task actions</string>
+
+    <!-- Archive Bot -->
+    <string name="agent_archive_bot_title">Archive Bot?</string>
+    <string name="agent_archive_bot_body">“%1$s” and your chats with it are archived together.</string>
+    <string name="agent_archiving">Archiving…</string>
+    <string name="agent_bot_state_archived">archived</string>
+    <string name="agent_bot_state_not_archived">not archived</string>
+    <string name="agent_bot_state_unknown">unknown, as its request didn\'t get an answer</string>
+    <string name="agent_archive_bot_unfinished">Archive Bot didn\'t finish</string>
+    <string name="agent_chats_restored">Chats restored</string>
+    <string name="agent_bot_not_archived">Bot not archived</string>
+    <string name="agent_bot_archive_state">“%1$s”: %2$s.</string>
+    <string name="agent_bot_chats_archived_unknown">Your chats with it: %1$d archived, %2$d unknown.</string>
+    <string name="agent_bot_chats_archived">Your chats with it: %1$d archived.</string>
+    <string name="agent_bot_chats_unknown">Your chats with it: %1$d unknown.</string>
+    <string name="agent_restore_chats">Restore chats</string>
+    <string name="agent_working">Working…</string>
+    <string name="agent_ok">OK</string>
+
+    <!-- First runtime -->
+    <string name="agent_first_runtime_title">Connect your first runtime</string>
+    <string name="agent_first_runtime_body">Open Nuphos on your computer to add a Box or connect your own computer, or ask a workspace administrator to connect one.</string>
+
+    <!-- Runtime list and inventory -->
+    <string name="agent_cloud">Cloud</string>
+    <plurals name="agent_runtime_count">
+        <item quantity="one">%1$d runtime</item>
+        <item quantity="other">%1$d runtimes</item>
+    </plurals>
+    <string name="agent_runtime_count_current">%1$s · Current</string>
+    <string name="agent_meter_cpu" translatable="false">CPU</string>
+    <string name="agent_meter_mem">MEM</string>
+    <string name="agent_meter_disk">DISK</string>
+    <string name="agent_memory_disk">Memory %1$s · Disk %2$s</string>
+    <string name="agent_capacity_gb">%1$.1f / %2$.1f GB</string>
+    <string name="agent_collapse_computer">Collapse computer</string>
+    <string name="agent_expand_computer">Expand computer</string>
+    <string name="agent_selected_runtime_named">Selected %1$s</string>
+    <string name="agent_use_runtime_named">Use %1$s</string>
+    <string name="agent_computer_offline">Computer offline</string>
+    <string name="agent_sign_in_required">Sign in required</string>
+    <string name="agent_details_for">Details for %1$s</string>
+    <string name="agent_selected_runtime">Selected runtime</string>
+    <string name="agent_meter_usage">%1$s usage</string>
+    <string name="agent_percent_used">%1$d percent used</string>
+    <string name="agent_percent">%1$d%%</string>
+    <string name="agent_couldnt_load_runtimes">Couldn\'t load runtimes</string>
+    <string name="agent_no_runtimes">No runtimes</string>
+    <string name="agent_no_runtimes_body">Open Nuphos on your computer to connect it and add a runtime.</string>
+    <string name="agent_deleting">Deleting</string>
+    <string name="agent_disabled">Disabled</string>
+    <string name="agent_offline">Offline</string>
+    <string name="agent_limit_reached">Limit reached</string>
+    <string name="agent_percent_left">%1$s%% left</string>
+    <string name="agent_window_percent_left">%1$s: %2$s%% left</string>
+    <string name="agent_resets_in_minutes">resets in %1$dm</string>
+    <string name="agent_resets_in_hours">resets in %1$dh %2$dm</string>
+    <string name="agent_resets_at">resets %1$s</string>
+    <string name="agent_usage_unavailable">Usage unavailable</string>
+
+    <!-- Runtime sign-in instructions -->
+    <string name="agent_sign_in">Sign in</string>
+    <string name="agent_runtime_unavailable">Runtime unavailable</string>
+    <string name="agent_ask_owner_sign_in">Ask its owner to sign in</string>
+    <string name="agent_sign_in_on">Sign in on %1$s</string>
+    <string name="agent_ask_admin_sign_in">Ask an administrator to sign in</string>
+    <string name="agent_runtime_gone_body">This runtime is no longer in the current workspace. Refresh runtimes before continuing.</string>
+    <string name="agent_runtime_disabled_body">This runtime is disabled or being removed. Ask an administrator to check its saved state.</string>
+    <string name="agent_teammate_sign_in_body">%1$s belongs to a teammate, so only they can sign it in. Ask them to open Nuphos on it and choose Sign in on the Runtimes page.</string>
+    <string name="agent_host_sign_in_body">On %1$s, open Nuphos, go to the Runtimes page and choose Sign in for this runtime.</string>
+    <string name="agent_admin_sign_in_body">A workspace administrator can sign it in from the Runtimes page in Nuphos on their computer.</string>
+
+    <!-- Runtime details -->
+    <string name="agent_back_to_runtimes">Back to runtimes</string>
+    <string name="agent_runtime">Runtime</string>
+    <string name="agent_runtime_removed">This runtime has been removed.</string>
+    <string name="agent_runtime_is_unavailable">This runtime is unavailable.</string>
+    <string name="agent_name">Name</string>
+    <string name="agent_runtime_name">Runtime name</string>
+    <string name="agent_save_name">Save name</string>
+    <string name="agent_usage">Usage</string>
+    <string name="agent_sign_in_again">Sign In Again</string>
+    <string name="agent_enabled">Enabled</string>
+    <string name="agent_enable_before_sign_in">Enable this runtime before signing in.</string>
+    <string name="agent_remove_runtime">Remove runtime</string>
+    <string name="agent_removal_in_progress">Removal is in progress. Refresh to check saved state.</string>
+    <string name="agent_manage_on_host">Manage this runtime and its sign-in on the computer that hosts it.</string>
+    <string name="agent_manage_in_development">Manage this runtime in its local development configuration.</string>
+    <string name="agent_admins_only_manage">Only workspace administrators can rename, enable, or remove this runtime and manage its sign-in.</string>
+    <string name="agent_unreconciled">A request may have reached the server. Refresh saved state before another change.</string>
+    <string name="agent_refresh_runtime">Refresh runtime</string>
+    <string name="agent_remove_named">Remove %1$s?</string>
+    <string name="agent_remove_managed_body">This stops the runtime and permanently deletes its files and sign-in. Your task history stays in Nuphos.</string>
+    <string name="agent_remove_body">This disconnects the runtime. Your tasks stay in Nuphos.</string>
+
+    <!-- Runtime setup sheet -->
+    <string name="agent_runtime_details">Runtime details</string>
+    <string name="agent_manage_runtimes">Manage runtimes</string>
+    <string name="agent_for_new_tasks">For new tasks. Existing tasks keep their current runtime.</string>
+    <string name="agent_retry_runtime_list">Retry runtime list</string>
+    <string name="agent_reselect_runtime">The selected runtime is unavailable. Select a saved active runtime before starting a new agent.</string>
+    <string name="agent_no_available_runtimes">No available runtimes.</string>
+    <string name="agent_manage_computers_runtimes">Manage computers and runtimes</string>
+    <string name="agent_refresh_runtimes">Refresh runtimes</string>
+    <string name="agent_runtime_sign_in">Runtime sign-in</string>
+    <string name="agent_change_runtime">Change runtime</string>
+    <string name="agent_start_provider_sign_in">Start provider sign-in</string>
+    <string name="agent_other_unconfirmed_sign_in">Another runtime has an unconfirmed sign-in. Select that runtime and refresh its sign-in before starting another.</string>
+    <string name="agent_sign_in_state">Sign-in: %1$s</string>
+    <string name="agent_unconfirmed">unconfirmed</string>
+    <string name="agent_refresh_sign_in">Refresh sign-in</string>
+    <string name="agent_continuing_sign_in">Continuing sign-in…</string>
+    <string name="agent_provider_code">Provider code: %1$s</string>
+    <string name="agent_open_provider_sign_in">Open provider sign-in</string>
+    <string name="agent_browser_error">Could not open the provider browser.</string>
+    <string name="agent_redirect_address">Redirect address</string>
+    <string name="agent_authorization_code">Authorization code</string>
+    <string name="agent_submit_sign_in_code">Submit sign-in code</string>
+    <string name="agent_continue">Continue</string>
+    <string name="agent_cancel_sign_in">Cancel sign-in</string>
+    <string name="agent_review_new_sign_in">Review and allow a new sign-in</string>
+    <string name="agent_self_hosted_unavailable">Provider setup for self-hosted runtimes is not available here.</string>
+    <string name="agent_sign_in_unavailable">Sign-in is unavailable. Refresh the runtime list and check your computer access.</string>
+    <string name="agent_admins_only_create">Only a current workspace administrator can create runtimes.</string>
+    <string name="agent_closing_stops_polling">Closing this sheet stops local polling. It does not cancel server sign-in.</string>
+    <string name="agent_close">Close</string>
+</resources>

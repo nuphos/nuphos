@@ -952,6 +952,9 @@ impl AdapterRouter {
         let result = self.pool
             .with_connection(thread_key, |conn| {
                 let content_blocks = content_blocks.clone();
+                // Redacted out here, not in the async block: `with_connection` returns a future
+                // that outlives any borrow of `thread_key`, so it may only capture owned values.
+                let redacted_thread_key = crate::redact::redact_session_ids(thread_key);
                 Box::pin(async move {
                     let reset = conn.session_reset;
                     conn.session_reset = false;
@@ -1160,7 +1163,35 @@ impl AdapterRouter {
                                         "Agent exceeded inactivity timeout ({}s)",
                                         prompt_inactivity_timeout.as_secs(),
                                     ));
-                                    conn.abandon_request(request_id).await;
+                                    // Alive but silent for the whole timeout: a cancel
+                                    // would leave this process to take the next prompt
+                                    // and stall it the same way. End it, so the next
+                                    // prompt takes the dead-agent path instead: a new
+                                    // process that resumes the session.
+                                    conn.kill_agent();
+                                    let stopped = tokio::time::timeout(
+                                        std::time::Duration::from_secs(2),
+                                        async {
+                                            while conn.alive() {
+                                                tokio::time::sleep(
+                                                    std::time::Duration::from_millis(20),
+                                                )
+                                                .await;
+                                            }
+                                        },
+                                    )
+                                    .await
+                                    .is_ok();
+                                    if !stopped {
+                                        // Still not observed dead: never let the next prompt be
+                                        // routed to a process we already gave up on. Retiring it
+                                        // makes the pool rebuild and resume the session instead.
+                                        warn!(
+                                            thread_id = %redacted_thread_key,
+                                            "killed agent still reported alive after 2s; retiring the connection"
+                                        );
+                                        conn.retire();
+                                    }
                                     break;
                                 }
                                 let elapsed = last_activity.elapsed();

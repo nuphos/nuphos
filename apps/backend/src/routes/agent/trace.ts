@@ -1,4 +1,5 @@
 import { logSpanError, startTraceSpan } from '@/lib/agent/tracing'
+import { isMessageQueued } from '@/lib/claude-code-preview/runtime-refusal'
 import { errorTelemetryProperties, logError, logEvent } from '@/lib/observability'
 import { capture } from '@/lib/posthog'
 
@@ -125,6 +126,21 @@ export function traceAgentChatError(
     span.event(event, { ...extras, ...errorProps, ...metrics, level: 'error' })
   }
   capturePhaseToPostHog(event, trace, { ...extras, ...errorProps }, metrics)
+}
+
+/** How a turn ended early: a failure, unless the message only waits in the queue. */
+export function traceAgentChatRefusal(
+  event: { error: string; queued: string },
+  error: unknown,
+  trace: AgentRunTrace | undefined,
+  extras?: Record<string, unknown>,
+): void {
+  if (isMessageQueued(error))
+    traceAgentChatEvent('info', event.queued, trace, {
+      ...extras,
+      ...errorTelemetryProperties(error),
+    })
+  else traceAgentChatError(event.error, error, trace, extras)
 }
 
 // Significant lifecycle events (turn pauses, the terminal client failure, pump

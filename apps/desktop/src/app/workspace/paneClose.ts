@@ -1,6 +1,7 @@
 import { paneIdsOf } from './store/windowSurfaceSync.ts'
 import {
   MAIN_PAGE_BUCKET_KEY,
+  MAIN_PAGE_DOCK_KEY,
   selectAllResidentTabs,
   selectBucket,
 } from './store/workspaceState.ts'
@@ -11,13 +12,15 @@ import type { WorkspaceStore } from './store/workspaceStore'
 
 /**
  * Tabs that end with a closing split pane instead of moving to its heir: the
- * main page stays the pane's own, so its pages (and any pod or node shell they
- * hold) close with it, and an SSH tab still connecting would hand its session
+ * main page stays the pane's own, so its pages and its dock (and any pod or
+ * node shell they hold) close with it, and an SSH tab still connecting would hand its session
  * to this pane's store after it unmounts. Closing them before unmount lets the
  * teardown observer end their sessions.
  */
 export function tabsEndingWithPane(state: WorkspaceState): string[] {
-  const mainPage = selectBucket(state, MAIN_PAGE_BUCKET_KEY).tabs
+  const mainPage = [MAIN_PAGE_BUCKET_KEY, MAIN_PAGE_DOCK_KEY].flatMap(
+    (key) => selectBucket(state, key).tabs,
+  )
   const connecting = selectAllResidentTabs(state).filter(
     (tab) => tab.sshTerminal?.status === 'connecting' && !mainPage.includes(tab),
   )

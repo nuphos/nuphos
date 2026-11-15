@@ -104,6 +104,43 @@ test('numbers each artifact’s versions in chat order and skips calls that fail
   assert.equal(lines.get('doc')?.[0]?.version, 1)
 })
 
+const chart = (toolCallId: string, title: string, state = 'output-available') => ({
+  type: 'tool',
+  toolCallId,
+  toolName: 'render_chart',
+  state,
+  input: {
+    type: 'bar',
+    title,
+    xKey: 'day',
+    series: [{ key: 'n' }],
+    data: [{ day: 'Mon', n: 1 }],
+  },
+})
+
+test('collects each chart as an artifact of its own, named after its content', () => {
+  const all = collectArtifacts([
+    { parts: [chart('c1', 'Spend'), chart('c-bad', 'Failed', 'output-error')] },
+    { parts: [chart('c2', ' ')] },
+  ])
+  // A window that has not loaded the earlier message names the later chart the same.
+  const latest = collectArtifacts([{ parts: [chart('c2', ' ')] }])
+  const [spend, untitled] = [...all.keys()]
+
+  assert.equal(all.size, 2)
+  assert.match(spend ?? '', /^chart-[0-9a-z]+$/)
+  assert.deepEqual([...latest.keys()], [untitled])
+  assert.deepEqual(
+    [...all.values()].map(([v]) => [v?.toolCallId, v?.kind, v?.title, v?.version]),
+    [
+      ['c1', 'chart', 'Spend', 1],
+      ['c2', 'chart', 'Chart', 1],
+    ],
+  )
+  assert.equal(JSON.parse(all.get(spend ?? '')?.[0]?.content ?? '{}').xKey, 'day')
+  assert.equal(artifactFileName({ title: 'Spend', kind: 'chart' }), 'spend.json')
+})
+
 test('names downloads after the title with the kind’s extension', () => {
   assert.equal(
     artifactFileName({ title: 'Q3 Cost Report!', kind: 'markdown' }),

@@ -725,6 +725,7 @@ describe('OpenAbAcpClient', () => {
         state: 'completed',
         toolCallId: 'tool-1',
       },
+      { sessionUpdate: 'async_task_state_update', asyncTaskId: 'task-2', state: 'cancelled' },
     ]) {
       h.socket().receive({
         jsonrpc: '2.0',
@@ -754,6 +755,7 @@ describe('OpenAbAcpClient', () => {
         state: 'completed',
         toolCallId: 'tool-1',
       },
+      { kind: 'async-task', asyncTaskId: 'task-2', phase: 'terminal', state: 'cancelled' },
     ])
   })
 

@@ -13,7 +13,9 @@ import {
   validateRequestedRuntimeId,
 } from '@/lib/claude-code-preview/runtime-routing'
 import { AppError } from '@/lib/errors'
+import { pruneAvatars, storeAvatar } from '@/lib/identity/avatar-upload'
 import { logError } from '@/lib/observability'
+import { avatarBodyLimit } from '@/routes/auth'
 
 import { agent } from './router'
 import { readTeamIdCandidate, resolveVerifiedTeamId } from './team-scope'
@@ -42,15 +44,38 @@ agent.patch('/conversations/:sessionId/avatar', async (c) => {
 
   if (!conversation || conversation.userId !== userId)
     throw new AppError(404, 'not_found', 'Conversation not found')
-  if (!(await setConversationAvatar(sessionId, body.data.avatar))) {
+  if (!(await setConversationAvatar(sessionId, body.data.avatar, userId))) {
     if (body.data.avatar !== null && !conversation.avatar)
       throw new AppError(400, 'invalid_request', 'Only a Bot has a face to change')
     throw new AppError(404, 'not_found', 'Conversation not found')
   }
+  // A photo the Bot wore until now is no longer its face.
+  if (conversation._id) await pruneAvatars(conversation._id.toHexString())
   // A Task is never in a chat.
   if (body.data.avatar === null) await leaveChats(sessionId)
 
   return c.json({ avatar: body.data.avatar })
+})
+
+// The owner gives a Bot a photo for a face. Like the PATCH above, it never makes a Task a Bot.
+agent.put('/conversations/:sessionId/avatar/image', avatarBodyLimit, async (c) => {
+  const userId = c.get('userId')
+  const sessionId = c.req.param('sessionId')
+  const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c))
+  const conversation = await getReadableConversation(sessionId, userId, teamId)
+
+  if (!conversation?._id || conversation.userId !== userId)
+    throw new AppError(404, 'not_found', 'Conversation not found')
+  if (!conversation.avatar)
+    throw new AppError(400, 'invalid_request', 'Only a Bot has a face to change')
+  const botId = conversation._id.toHexString()
+  const avatar = await storeAvatar(botId, new Uint8Array(await c.req.arrayBuffer()))
+
+  if (!(await setConversationAvatar(sessionId, avatar, userId)))
+    throw new AppError(404, 'not_found', 'Conversation not found')
+  await pruneAvatars(botId)
+
+  return c.json({ avatar })
 })
 
 // "+" on Bots. It is placed on the runtime the client would start a new chat on, so its
@@ -81,6 +106,7 @@ agent.post('/bots', async (c) => {
   return c.json(
     // A Bot works on its own, so it starts in full access, as a new chat would set it.
     await createBot(c.get('userId'), teamId, true, {
+      source: { via: 'new_bot' },
       title: body.data.title,
       avatar: body.data.avatar,
       agentRuntime,
@@ -113,7 +139,7 @@ agent.post('/conversations/:sessionId/bot', async (c) => {
   const avatar = derivedAvatar(sessionId)
 
   // A second click that lost the race finds the face set: nothing more to do.
-  if (!(await claimBotAvatar(sessionId, avatar))) {
+  if (!(await claimBotAvatar(sessionId, avatar, userId))) {
     const current = await getReadableConversation(sessionId, userId, teamId)
 
     return c.json({ avatar: current?.avatar ?? avatar })

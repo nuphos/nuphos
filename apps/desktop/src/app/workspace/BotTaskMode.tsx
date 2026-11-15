@@ -61,7 +61,7 @@ export function BotTaskMode({
     <section
       ref={panelRef}
       data-open={open ? 'true' : 'false'}
-      className="t-bot-task-mode workspace-content-surface absolute inset-0 z-20 flex min-h-0 min-w-0 flex-col overflow-hidden"
+      className={`t-bot-task-mode workspace-content-surface absolute inset-0 z-20 flex min-h-0 min-w-0 flex-col overflow-hidden ${ws.dockOpen ? 'workspace-content-surface--leading' : ''}`}
     >
       <header
         className={`sheet-titlebar-row titlebar-drag flex flex-shrink-0 items-center gap-3 px-3 ${corner ? CORNER_TITLEBAR_CLASS : ''}`}

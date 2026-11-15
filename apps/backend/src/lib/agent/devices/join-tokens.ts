@@ -89,7 +89,7 @@ export async function isDeviceJoinTokenLive(token: string): Promise<boolean> {
  */
 export async function redeemDeviceJoinToken(
   token: string,
-  device: Pick<AgentDeviceRegistration, 'label' | 'platform'>,
+  device: Pick<AgentDeviceRegistration, 'label' | 'platform' | 'model'>,
 ): Promise<{ userId: string; deviceId: string; credential: string; box?: true } | null> {
   if (!token.startsWith(DEVICE_JOIN_TOKEN_PREFIX)) return null
   const now = new Date()
@@ -122,6 +122,7 @@ export async function redeemDeviceJoinToken(
       deviceId,
       label: used.label ?? device.label,
       platform: device.platform,
+      ...(device.model ? { model: device.model } : {}),
       allowLocalExec: true,
     },
     credentialHash,

@@ -19,6 +19,8 @@ import ai.nuphos.android.model.ComposerSubmission
 import ai.nuphos.android.model.CredentialSelection
 import ai.nuphos.android.model.PermissionMode
 import ai.nuphos.android.model.Plan
+import ai.nuphos.android.model.Words
+import ai.nuphos.android.R
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,7 +41,7 @@ class ChatSession(
     private val token: String,
     val teamId: String,
     val sessionId: String = UUID.randomUUID().toString().lowercase(),
-    title: String = "New task",
+    title: String = Words(R.string.chat_new_task),
     private val transfers: AttachmentTransfers = AttachmentTransfers(),
     private val readDetail: suspend (String, String, String) -> AgentConversationDetail = NuphosApi::conversationDetail,
     private val aiAllowed: () -> Boolean = AiAccess.bind(token),
@@ -120,14 +122,14 @@ class ChatSession(
             if (canReadDownloads && generation == detailLoadGeneration) { downloads = result; downloadsError = null }
         } catch (error: CancellationException) { throw error }
         catch (_: Exception) {
-            if (canReadDownloads && generation == detailLoadGeneration) downloadsError = "Could not refresh agent files."
+            if (canReadDownloads && generation == detailLoadGeneration) downloadsError = Words(R.string.convtext_downloads_refresh_failed)
         }
     }
 
     suspend fun transferGroup(groupId: String): ai.nuphos.android.data.TransferDownloadGroup {
-        check(hasAiAccess) { "Attachment access unavailable" }
+        check(hasAiAccess) { Words(R.string.convtext_attachment_access_unavailable) }
         val group = ai.nuphos.android.data.TransferDownloads.group(token, teamId, groupId)
-        check(hasAiAccess) { "Attachment access unavailable" }
+        check(hasAiAccess) { Words(R.string.convtext_attachment_access_unavailable) }
         group.readyFiles(groupId)
         return group
     }
@@ -209,7 +211,16 @@ class ChatSession(
     private var steeringPending by mutableStateOf(false)
     private data class PendingSteering(val text: String, val assistantId: String?, val existingIds: Set<String>)
     private var steeringHold by mutableStateOf<PendingSteering?>(null)
-    private val steeringUnconfirmed get() = steeringHold != null || error?.startsWith("Steering delivery is unconfirmed.") == true
+    private val steeringUnconfirmed get() = steeringHold != null
+    /** A runtime's refusal of the turn, with the error it was shown as; any later error retires it. */
+    private var blockedError by mutableStateOf<Pair<String, AgentChatApi.Conflict.RuntimeBlocked>?>(null)
+    /** The runtime refusal [error] shows: the conversation offers Switch runtime, and an ask when it is signed out. */
+    val runtimeBlock: AgentChatApi.Conflict.RuntimeBlocked? get() = blockedError?.takeIf { it.first == error }?.second
+    private fun showError(e: Exception, fallback: String? = null) {
+        val message = e.message ?: fallback
+        error = message
+        blockedError = (e as? AgentChatApi.Conflict.RuntimeBlocked)?.let { conflict -> message?.let { it to conflict } }
+    }
     var rejectedSubmission by mutableStateOf<ComposerSubmission?>(null)
         private set
     private var pendingSubmission: ComposerSubmission? = null
@@ -268,8 +279,8 @@ class ChatSession(
         !movingAgent && !submissionPending && !uploadBusy && !runtimeRecoveryRequired && !steeringUnconfirmed && queued.isEmpty()
 
     suspend fun moveAgent(target: ai.nuphos.android.data.AgentRuntime) {
-        check(canMoveAgent) { "Wait for the current response to finish before switching runtimes." }
-        require(target.selectable && (isOwner || target.kind == "managed")) { "Choose an available runtime." }
+        check(canMoveAgent) { Words(R.string.convtext_move_wait) }
+        require(target.selectable && (isOwner || target.kind == "managed")) { Words(R.string.convtext_move_choose_runtime) }
         if (target.id == runtimeId) return
         movingAgent = true
         transportGeneration++
@@ -311,7 +322,7 @@ class ChatSession(
     val canCancel get() = permissions.cancel && !cancelRequested && (if (isNative) runtimeObservation?.allows("cancel", RuntimeObservation.now()) == true else isStreaming)
     val runtimeLabel get() = if (isNative) {
         val observation = runtimeObservation
-        if (observation == null) "Runtime status unavailable" else observation.status(observationClock)
+        if (observation == null) Words(R.string.convtext_runtime_status_unavailable) else observation.status(observationClock)
     } else null
 
     /** The runtime says a turn is running, whether or not this device started it. */
@@ -342,7 +353,7 @@ class ChatSession(
                 AgentChatApi.setBypass(token, sessionId, mode == PermissionMode.Bypass)
             } catch (e: Exception) {
                 permissionMode = previous
-                error = e.message
+                showError(e)
             }
         }
     }
@@ -361,7 +372,7 @@ class ChatSession(
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                error = e.message
+                showError(e)
             }
         }
     }
@@ -470,10 +481,10 @@ class ChatSession(
         observationClock = RuntimeObservation.now()
         if (submission.attachments.isEmpty()) return sendPrepared(submission)
         if (!canSubmit || isStreaming || (isNative && (canReply || canEnqueueSteering))) {
-            error = "Keep attachments for a new message after the current run."
+            error = Words(R.string.convtext_attachments_after_run)
             return false
         }
-        if (uploadDraft != null) { error = "Retry or remove the retained attachment batch first."; return false }
+        if (uploadDraft != null) { error = Words(R.string.convtext_retry_attachments_first); return false }
         val pending = try { preparedTransfer?.takeIf { it.attachmentIds == submission.attachments.map { a -> a.id } } ?: transfers.retain(submission.attachments) }
             catch (e: Exception) { error = e.message; return false }
         uploadDraft = submission
@@ -493,7 +504,7 @@ class ChatSession(
         uploadJob = null
         retainedTransfer = null
         uploadBusy = false
-        uploadError = "Upload cancelled. Your message and files are retained."
+        uploadError = Words(R.string.convtext_upload_cancelled)
     }
     fun discardUpload() {
         cancelUpload()
@@ -522,7 +533,7 @@ class ChatSession(
                 uploadBusy = false
                 observationClock = RuntimeObservation.now()
                 if (!canSubmit || isStreaming || (isNative && (canReply || canEnqueueSteering))) {
-                    uploadError = "Files are ready. Wait for the current run, then retry this message."
+                    uploadError = Words(R.string.convtext_files_ready_wait)
                     return@launch
                 }
                 // A runtime gets the files from the structured part, as from iOS and Desktop; only the
@@ -536,7 +547,7 @@ class ChatSession(
                     retainedTransfer = null
                 }
             } catch (e: CancellationException) { throw e }
-            catch (e: Exception) { uploadError = e.message ?: "Upload failed. Retry the retained message." }
+            catch (e: Exception) { uploadError = e.message ?: Words(R.string.convtext_upload_failed) }
             finally { if (generation == uploadGeneration) { uploadBusy = false; uploadJob = null } }
         }
     }
@@ -548,13 +559,13 @@ class ChatSession(
         if ((trimmed.isEmpty() && attachments.isEmpty()) || !canSubmit) return false
         suggestedPrompt = null
         if (isNative && canEnqueueSteering) {
-            if (attachments.isNotEmpty()) { error = "Steering accepts text only. Keep attachments for the next message."; return false }
+            if (attachments.isNotEmpty()) { error = Words(R.string.convtext_steering_text_only); return false }
             queued = queued + trimmed
             submitSteering()
             return true
         }
         if (!isNative && isStreaming) {
-            if (attachments.isNotEmpty()) { error = "Keep attachments until the current reply finishes."; return false }
+            if (attachments.isNotEmpty()) { error = Words(R.string.convtext_attachments_until_reply); return false }
             if (trimmed.isNotEmpty()) queued = queued + trimmed
             return true
         }
@@ -572,7 +583,7 @@ class ChatSession(
         }
         val message = retryUserMessage?.takeIf { retrySubmission == submission } ?: ChatMessage(role = ChatMessage.Role.User, parts = parts)
         submissionAccepted = false
-        scope.launch { dispatch(message, if (trimmed.isEmpty()) "Photo" else trimmed, reply) }
+        scope.launch { dispatch(message, if (trimmed.isEmpty()) Words(R.string.convtext_photo_title) else trimmed, reply) }
         return true
     }
 
@@ -643,7 +654,7 @@ class ChatSession(
                 submissionPending = false
                 replySubmissionPending = false
                 replaceTool(mi, pi, part)
-                error = e.message
+                showError(e)
             }
         }
     }
@@ -657,10 +668,10 @@ class ChatSession(
     suspend fun askSignIn(runtimeId: String) {
         signInAsk = try {
             val name = AgentChatApi.runtimeSignInAsk(token, teamId, runtimeId, sessionId)
-            SignInAsk(runtimeId, "Asked $name. You can send once they sign it in.", true)
+            SignInAsk(runtimeId, Words(R.string.convtext_sign_in_asked, name), true)
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
-            SignInAsk(runtimeId, e.message ?: "Couldn't ask. Try again.", false)
+            SignInAsk(runtimeId, e.message ?: Words(R.string.convtext_sign_in_ask_failed), false)
         }
     }
 
@@ -671,23 +682,23 @@ class ChatSession(
         canManage && runCatching { AgentChatApi.deletePolicyRule(token, ruleId) }.isSuccess
 
     suspend fun plan(planId: String): Plan {
-        check(hasAiAccess) { "AI consent is required." }
+        check(hasAiAccess) { Words(R.string.convtext_ai_consent_required) }
         return AgentChatApi.plan(token, teamId, planId)
     }
 
     /** The backend wakes the agent once the approval completes the plan's gate. */
     suspend fun approvePlan(planId: String): Plan {
-        check(permissions.writable) { "This task is read-only." }
+        check(permissions.writable) { Words(R.string.convtext_read_only) }
         return AgentChatApi.updatePlan(token, teamId, planId, "approved")
     }
 
     suspend fun rejectPlan(planId: String): Plan {
-        check(permissions.writable) { "This task is read-only." }
+        check(permissions.writable) { Words(R.string.convtext_read_only) }
         return AgentChatApi.updatePlan(token, teamId, planId, "rejected")
     }
 
     fun requestPlanChanges(reason: String) {
-        send("Requested changes to the plan. $reason")
+        send(Words(R.string.convtext_plan_changes_requested, reason))
     }
 
     suspend fun rate(messageId: String, rating: String?) {
@@ -706,7 +717,7 @@ class ChatSession(
                 try { if (!hasAiAccess) return@launch; RuntimeApi.cancel(token, teamId, sessionId) }
                 catch (e: Exception) {
                     cancelRequested = false
-                    error = e.message
+                    showError(e)
                     // The reader asked for this and may be far up the transcript: show them why it didn't happen.
                     scrollToLatestRevision += 1
                 }
@@ -718,7 +729,7 @@ class ChatSession(
         streamJob = null
         val i = messages.indexOfLast { it.role == ChatMessage.Role.Assistant }
         if (i >= 0) {
-            val finalized = messages[i].finalizeIncompleteTools("Stopped by user.").copy(stoppedByUser = true)
+            val finalized = messages[i].finalizeIncompleteTools(Words(R.string.convtext_stopped_by_user)).copy(stoppedByUser = true)
             val r = UIStreamReducer(finalized).also { it.finishStreamingParts() }
             messages = messages.toMutableList().also { it[i] = r.message }
         }
@@ -744,7 +755,7 @@ class ChatSession(
 
     private sealed class TurnResult {
         data class Completed(val sawTurnComplete: Boolean, val paused: Paused?) : TurnResult()
-        data class Failed(val message: String, val definiteRejection: Boolean = false) : TurnResult()
+        data class Failed(val message: String, val definiteRejection: Boolean = false, val blocked: AgentChatApi.Conflict.RuntimeBlocked? = null) : TurnResult()
         data object Aborted : TurnResult()
         /** The server holds the message in the session queue; the idle poll follows its turn. */
         data object Queued : TurnResult()
@@ -785,6 +796,7 @@ class ChatSession(
                     }
                     is TurnResult.Failed -> {
                         finishTurn(result.message, result.definiteRejection)
+                        blockedError = result.blocked?.let { result.message to it }
                         return@launch
                     }
                     is TurnResult.Follow -> {
@@ -855,7 +867,7 @@ class ChatSession(
             error = message
             scheduleTranscriptSync(250)
         } else if (messages.lastOrNull()?.let { it.role == ChatMessage.Role.Assistant && !it.hasRenderableContent } == true) {
-            error = "The agent returned an empty reply."
+            error = Words(R.string.convtext_empty_reply)
             scheduleTranscriptSync(250)
         }
         if (message == null && bounceClientOnlyTools()) return
@@ -977,10 +989,10 @@ class ChatSession(
                 if (!hasAiAccess) return@launch
                 if (RuntimeApi.definitelyRejected(e)) {
                     steeringRetryRequired = true
-                    error = e.message ?: "Steering was rejected. Retry when the runtime permits it."
+                    showError(e, Words(R.string.convtext_steering_rejected))
                 } else {
                     steeringHold = pending
-                    error = "Steering delivery is unconfirmed. Check the task before retrying."
+                    error = Words(R.string.convtext_steering_unconfirmed)
                     reconcileSteeringReceipts()
                 }
             } finally {
@@ -1030,7 +1042,7 @@ class ChatSession(
         if (!confirmed) return
         if (queued.firstOrNull() == pending.text) queued = queued.drop(1)
         steeringHold = null
-        if (error?.startsWith("Steering delivery is unconfirmed.") == true) error = null
+        if (error == Words(R.string.convtext_steering_unconfirmed)) error = null
     }
 
     private fun adoptMessages(server: List<ChatMessage>, serverBase: Int) {
@@ -1228,7 +1240,7 @@ class ChatSession(
                             if (code == "stream_unresumable" && sawTurnComplete) return@collect
                             // Another turn took the runtime mid-start; the server put the message back at the head of the queue.
                             if (code == "message_queued") { queuedByServer = true; throw Terminal() }
-                            lastErrorText = frame["errorText"]?.stringValue ?: "The agent hit an error."
+                            lastErrorText = frame["errorText"]?.stringValue ?: Words(R.string.convtext_agent_error)
                             needsFreshRetry = true
                             return@collect
                         }
@@ -1263,7 +1275,7 @@ class ChatSession(
             if (err is CancellationException) return TurnResult.Aborted
             if (queuedByServer || err is SseClient.Failure.Queued) return TurnResult.Queued
             if (err is SseClient.Failure.BadStatus) {
-                if (pendingSubmission != null && !accepted && err.code >= 500) return TurnResult.Failed("Message delivery is unconfirmed. Resume the original connection.")
+                if (pendingSubmission != null && !accepted && err.code >= 500) return TurnResult.Failed(Words(R.string.convtext_delivery_unconfirmed))
                 val conflict = AgentChatApi.conflict(err.code, err.rawBody ?: err.body)
                 val code = (conflict as? AgentChatApi.Conflict.Other)?.code
                 when {
@@ -1301,14 +1313,14 @@ class ChatSession(
                     // A send the server queue doesn't take can still meet a runtime that is starting up.
                     code == "runtime_not_accepting_message" && !accepted && notReadyRetries < 30 -> {
                         notReadyRetries += 1
-                        phaseLabel = "Waiting for the runtime to be ready…"
+                        phaseLabel = Words(R.string.convtext_phase_waiting_runtime)
                         delay(backoff(notReadyRetries, 0.5, 3.0).toLong())
                         continue
                     }
                     // Messages here the server never stored: take the server's transcript.
                     code == "invalid_message_batch" && !accepted -> {
                         runCatching { readDetail(token, teamId, sessionId) }.getOrNull()?.let { adoptMessages(it.messages, it.messagesFirstIndex ?: 0) }
-                        return TurnResult.Failed("This task changed elsewhere and was reloaded. Retry to send your message.", definiteRejection = true)
+                        return TurnResult.Failed(Words(R.string.convtext_task_reloaded), definiteRejection = true)
                     }
                     conflict is AgentChatApi.Conflict.Other && reconnects == 0 && err.code in GATEWAY && gatewayRetries < 3 -> {
                         gatewayRetries += 1
@@ -1320,30 +1332,31 @@ class ChatSession(
                         }
                         continue
                     }
-                    else -> return TurnResult.Failed(conflict.message ?: conflict.toString(), err.code in 400..499 && err.code != 408 && !accepted && !shouldResume)
+                    else -> return TurnResult.Failed(conflict.message ?: conflict.toString(), err.code in 400..499 && err.code != 408 && !accepted && !shouldResume,
+                        conflict as? AgentChatApi.Conflict.RuntimeBlocked)
                 }
             }
             if (err is SseClient.Failure.IdleTimeout) {
-                if (pendingSubmission != null && !accepted && resumeFrom == 0) return TurnResult.Failed("Message delivery is unconfirmed. Resume the original connection.")
+                if (pendingSubmission != null && !accepted && resumeFrom == 0) return TurnResult.Failed(Words(R.string.convtext_delivery_unconfirmed))
                 idleTimeouts += 1
-                if (idleTimeouts > 3) return TurnResult.Failed("The connection kept going quiet; please try again.")
+                if (idleTimeouts > 3) return TurnResult.Failed(Words(R.string.convtext_connection_quiet))
                 reconnects = 0
                 continue
             }
             if (err != null && err !is Terminal) {
                 reconnects += 1
-                phaseLabel = "Reconnecting…"
-                if (reconnects > 20) return TurnResult.Failed(err.message ?: "Lost the connection to Nuphos.")
+                phaseLabel = Words(R.string.convtext_phase_reconnecting)
+                if (reconnects > 20) return TurnResult.Failed(err.message ?: Words(R.string.convtext_connection_lost))
                 delay(backoff(reconnects, 0.5, 5.0).toLong())
                 continue
             }
             if (!coroutineContext.isActive) return TurnResult.Aborted
             if (needsFreshRetry) {
                 if (isNative || options.explicitResume || toolExecutionMayHaveStarted) {
-                    return TurnResult.Failed(lastErrorText ?: "The agent hit an error.")
+                    return TurnResult.Failed(lastErrorText ?: Words(R.string.convtext_agent_error))
                 }
                 freshRetries += 1
-                if (freshRetries > 3) return TurnResult.Failed(lastErrorText ?: "The agent hit an error.")
+                if (freshRetries > 3) return TurnResult.Failed(lastErrorText ?: Words(R.string.convtext_agent_error))
                 assistantIndex?.let { i ->
                     if (i in messages.indices) messages = messages.toMutableList().also { it.removeAt(i) }
                 }
@@ -1357,8 +1370,8 @@ class ChatSession(
             }
             if (terminal || sawTurnComplete) return TurnResult.Completed(sawTurnComplete, paused)
             reconnects += 1
-            phaseLabel = "Reconnecting…"
-            if (reconnects > 20) return TurnResult.Failed("Lost the connection to Nuphos.")
+            phaseLabel = Words(R.string.convtext_phase_reconnecting)
+            if (reconnects > 20) return TurnResult.Failed(Words(R.string.convtext_connection_lost))
             delay(backoff(reconnects, 0.5, 5.0).toLong())
         }
         return TurnResult.Aborted
@@ -1448,7 +1461,7 @@ class ChatSession(
         val i = idx ?: return idx to red
         if (i !in messages.indices) return idx to red
         if (red == null) red = UIStreamReducer(messages[i])
-        if (type == "start") phaseLabel = phaseLabel ?: "Thinking…"
+        if (type == "start") phaseLabel = phaseLabel ?: Words(R.string.convtext_phase_thinking)
         if (type in setOf("text-delta", "reasoning-delta", "tool-input-start")) phaseLabel = null
         if (type in setOf("tool-output-available", "tool-output-denied")) phaseLabel = null
         val outcome = red.apply(frame)
@@ -1634,13 +1647,13 @@ class ChatSession(
         min(cap, base * 2.0.pow(maxOf(0, attempt - 1).toDouble())) * 1000
 
     private fun describeStall(paused: Paused) = when (paused.reason) {
-        "model-silence" -> "The model stopped responding. Send a message to continue."
-        "tool-execution-timeout" -> "A tool ran for too long and was stopped."
-        "output-budget" -> "The reply hit its length limit."
-        "turn-deadline" -> "The reply hit its time limit."
-        "content-filter" -> "The reply was blocked by a content filter."
-        "shutdown" -> "The server restarted mid-reply. Send a message to continue."
-        else -> "The reply was interrupted."
+        "model-silence" -> Words(R.string.convtext_stall_model_silence)
+        "tool-execution-timeout" -> Words(R.string.convtext_stall_tool_timeout)
+        "output-budget" -> Words(R.string.convtext_stall_output_budget)
+        "turn-deadline" -> Words(R.string.convtext_stall_turn_deadline)
+        "content-filter" -> Words(R.string.convtext_stall_content_filter)
+        "shutdown" -> Words(R.string.convtext_stall_shutdown)
+        else -> Words(R.string.convtext_stall_interrupted)
     }
 
     companion object {
@@ -1650,17 +1663,17 @@ class ChatSession(
         fun fresh(token: String, teamId: String, binding: ai.nuphos.android.data.RuntimeBinding? = null) = ChatSession(token, teamId, creationRuntimeBinding = binding).also { it.loaded = true }
 
         fun phaseLabel(phase: String?): String? = when (phase) {
-            "request-accepted" -> "Starting…"
-            "saving-turn" -> "Saving…"
-            "building-context" -> "Building context…"
-            "loading-credentials" -> "Loading credentials…"
-            "preparing-tools" -> "Preparing tools…"
-            "building-prompt" -> "Building prompt…"
-            "recalling-memory" -> "Recalling memory…"
-            "loading-compaction" -> "Loading history…"
-            "preparing-model" -> "Preparing model…"
-            "connecting-model" -> "Connecting…"
-            "thinking" -> "Thinking…"
+            "request-accepted" -> Words(R.string.convtext_phase_starting)
+            "saving-turn" -> Words(R.string.convtext_phase_saving)
+            "building-context" -> Words(R.string.convtext_phase_building_context)
+            "loading-credentials" -> Words(R.string.convtext_phase_loading_credentials)
+            "preparing-tools" -> Words(R.string.convtext_phase_preparing_tools)
+            "building-prompt" -> Words(R.string.convtext_phase_building_prompt)
+            "recalling-memory" -> Words(R.string.convtext_phase_recalling_memory)
+            "loading-compaction" -> Words(R.string.convtext_phase_loading_history)
+            "preparing-model" -> Words(R.string.convtext_phase_preparing_model)
+            "connecting-model" -> Words(R.string.convtext_phase_connecting)
+            "thinking" -> Words(R.string.convtext_phase_thinking)
             else -> null
         }
     }

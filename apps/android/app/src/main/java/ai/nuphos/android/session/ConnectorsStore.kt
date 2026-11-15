@@ -1,5 +1,6 @@
 package ai.nuphos.android.session
 
+import ai.nuphos.android.R
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -69,7 +70,7 @@ class ConnectorsStore(
         } catch (e: CancellationException) { throw e } catch (_: Exception) {
             if (generation == this.generation && request == refreshGeneration) {
                 phase = Phase.Failed
-                loadError = "Could not load connectors. Try again."
+                loadError = Words(R.string.storetext_connectors_load_failed)
             }
             false
         }
@@ -93,7 +94,7 @@ class ConnectorsStore(
         val selected = team ?: return false
         if (!canAdd || provider.fields.isEmpty() || ConnectorCatalog.named(provider.key) != provider) return false
         val validation = provider.validate(values)
-        if (!validation.valid) { actionError = "Check the highlighted fields."; return false }
+        if (!validation.valid) { actionError = Words(R.string.storetext_connectors_check_fields); return false }
         busy = true
         actionError = null
         notice = null
@@ -106,16 +107,16 @@ class ConnectorsStore(
                 inventory = refreshed
                 phase = Phase.Loaded
                 val confirmed = ids.isNotEmpty() && refreshed.rows.any { it.provider == provider.key && it.bindingId in ids }
-                if (confirmed) { notice = "Connector saved and verified."; true } else {
+                if (confirmed) { notice = Words(R.string.storetext_connectors_saved); true } else {
                     uncertain = true
-                    actionError = "The save response could not be verified. Review refreshed connectors before adding again."
+                    actionError = Words(R.string.storetext_connectors_save_unverified)
                     false
                 }
             }
         } catch (e: CancellationException) {
             if (same(selected, operation)) {
                 uncertain = true
-                actionError = "The save was interrupted. Refresh and review connectors before adding again."
+                actionError = Words(R.string.storetext_connectors_save_interrupted)
             }
             throw e
         } catch (failure: Exception) {
@@ -124,7 +125,7 @@ class ConnectorsStore(
             if (same(selected, operation)) {
                 if (readback != null) { inventory = readback; phase = Phase.Loaded }
                 uncertain = failure !is ConnectorHttpFailure || failure.code >= 500 || failure.code in setOf(408, 409)
-                actionError = if (uncertain) "Could not confirm the save. Refresh and review connectors; your form is kept for review." else "The server rejected the connection settings (${(failure as ConnectorHttpFailure).code}). Check the fields and try again."
+                actionError = if (uncertain) Words(R.string.storetext_connectors_save_unconfirmed) else Words(R.string.storetext_connectors_save_rejected, (failure as ConnectorHttpFailure).code)
             }
             false
         } finally { if (same(selected, operation)) busy = false }
@@ -152,11 +153,11 @@ class ConnectorsStore(
             if (!same(selected, operation)) { cleanup(started); null } else { rememberPending(started); url }
         } catch (e: CancellationException) { started?.let { cleanup(it) }; throw e } catch (_: Exception) {
             started?.let { cleanup(it) }
-            if (same(selected, operation)) actionError = "Could not start authorization. Try again."
+            if (same(selected, operation)) actionError = Words(R.string.storetext_connectors_start_failed)
             null
         } finally { if (same(selected, operation)) busy = false }
     }
-    suspend fun cancel(message: String = "Authorization canceled. Refreshed connectors show the current saved state.") {
+    suspend fun cancel(message: String = Words(R.string.storetext_connectors_auth_canceled)) {
         val value = pending ?: return
         clearPending() // Invalidate before any suspension; late callbacks cannot bind.
         val operation = ++generation
@@ -168,7 +169,7 @@ class ConnectorsStore(
         }
     }
     suspend fun expire() {
-        if (pending?.expiresAt?.let { now() >= it } == true) cancel("Authorization expired. Refresh connectors and start again.")
+        if (pending?.expiresAt?.let { now() >= it } == true) cancel(Words(R.string.storetext_connectors_auth_expired))
     }
     suspend fun handleCallback(uri: String) {
         if (!ConnectorCallback.isConnectorUri(uri)) return
@@ -177,10 +178,10 @@ class ConnectorsStore(
         if (value == null) {
             if (ConnectorCallback.state(uri) in retiredStates) return
             if (team != null) refresh()
-            notice = "No pending authorization matches this return. Review current connectors."
+            notice = Words(R.string.storetext_connectors_no_pending)
             return
         }
-        if (team?.id != value.teamId || team?.isAdministrator != true) { cancel("Authorization belongs to another team or is no longer permitted."); return }
+        if (team?.id != value.teamId || team?.isAdministrator != true) { cancel(Words(R.string.storetext_connectors_auth_other_team)); return }
         if (ConnectorCallback.state(uri) != value.state) return
         val result = ConnectorCallback.validate(uri, value, now())
         if (result is ConnectorReturn.Invalid) { cancel(result.message); return }
@@ -214,12 +215,12 @@ class ConnectorsStore(
                     is ConnectorReturn.Github -> refreshed.rows.any { it.provider == "github" && it.installationId == result.installationId && (expectedId == null || it.bindingId == expectedId) }
                     else -> false
                 }
-                if (confirmed) notice = "Connector saved and verified." else actionError = "Authorization returned, but the expected connector is missing. Refresh and review connectors."
+                if (confirmed) notice = Words(R.string.storetext_connectors_saved) else actionError = Words(R.string.storetext_connectors_auth_missing)
             }
         } catch (e: CancellationException) { throw e } catch (_: Exception) {
             if (same(selected, operation)) {
                 uncertain = true
-                actionError = "Could not confirm authorization. Refresh and review connectors before starting again."
+                actionError = Words(R.string.storetext_connectors_auth_unconfirmed)
                 refresh()
             }
         } finally { if (same(selected, operation)) busy = false }

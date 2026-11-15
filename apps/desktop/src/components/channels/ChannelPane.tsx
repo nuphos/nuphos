@@ -19,7 +19,8 @@ import { HeaderEdge } from '../ui/header-edge'
 import { IconButton } from '../ui/icon-button'
 import { toast } from '../ui/toast'
 
-import { botOfChannel } from './botChannel'
+import { botOfChannel, ownsBot } from './botChannel'
+import { BotStatusPill } from './BotStatusPill'
 import { BotTaskButton } from './BotTaskButton'
 import { ChannelMessages } from './ChannelMessages'
 import { ChannelIntro, ChatHeaderIcon, ReplyingBanner } from './channelParts'
@@ -66,7 +67,7 @@ export function ChannelPane({
   /** What the workspace lends to repair an agent that could not reply. */
   fixes?: ChannelFixes
 }) {
-  const { detail, agents, refresh } = useChannel(teamId, channelId)
+  const { detail, chat, agents, refresh } = useChannel(teamId, channelId)
 
   useConversationRead(channelId, visible)
   // Text that could not be posted goes back into the composer.
@@ -80,11 +81,11 @@ export function ChannelPane({
   const composerRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const dropRef = useRef<((dt: DataTransfer) => void) | null>(null)
-  const title = detail ? detail.title || t('New Group Chat') : ''
+  const title = chat ? chat.title || t('New Group Chat') : ''
   // A Bot's chat opens the Bot's desktop in this chat's dock, as its Task page's dock does.
-  const bot = botOfChannel(detail)
+  const bot = botOfChannel(chat)
   const botState = useSyncExternalStore(subscribeRuntimeStates, () => runtimeStateOf(bot))
-  const botOwned = agents.some((agent) => agent.sessionId === bot && agent.ownerId === user.id)
+  const botOwned = ownsBot(teamId, bot, user.id, detail && agents)
   const runtimeControl = useBotRuntimeControl(teamId, bot, botOwned, user, botState, refresh)
   const canOpenTask = useBotTaskAccess(teamId, bot, botOwned)
   const canOpenBotDesktop =
@@ -175,13 +176,21 @@ export function ChannelPane({
       >
         {titlebarLeading}
         <div className="titlebar-drag flex min-w-0 flex-1 self-stretch items-center gap-2 overflow-hidden text-[13px] font-medium text-secondary">
-          <ChatHeaderIcon faces={detail?.faces} title={title} loading={!detail} />
+          <ChatHeaderIcon faces={chat?.faces} title={title} loading={!chat} />
           <ChannelTitle
             bot={bot}
             title={title}
             teamId={teamId}
             canRename={botOwned}
             onRenamed={refresh}
+          />
+          <BotStatusPill
+            teamId={teamId}
+            botId={bot}
+            channelId={channelId}
+            chat={scrollRef}
+            onOpenTask={canOpenTask ? (onOpenTask ?? onOpenSession) : undefined}
+            onOpenLink={onOpenNuphosLink}
           />
         </div>
         {bot && canOpenTask && (
@@ -242,7 +251,6 @@ export function ChannelPane({
               onOpenSession={onOpenSession}
               onOpenNuphosLink={onOpenNuphosLink}
               channelId={channelId}
-              botId={bot}
               extraRows={questions.rows}
               fixes={fixes}
               onReply={
@@ -279,7 +287,6 @@ export function ChannelPane({
             mentionScope={{
               teamId,
               sessionId: channelId,
-              channel: true,
               only: { agentIds: agents.map((agent) => agent.sessionId), selfId: user.id },
             }}
             placeholder={t('Message {name}', { name: title })}

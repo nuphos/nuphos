@@ -1,7 +1,6 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 
-import { githubReviewScope, assertGithubReviewRequest } from '@/lib/agent/github-review-scope'
 import { findGithubInstallation } from '@/lib/byos/account'
 import {
   GithubApiError,
@@ -26,22 +25,7 @@ import type { TeamAuthVariables, GithubInstallationVariables } from '@/middlewar
 
 export { publicView } from '@/routes/github-installations/shared'
 
-export const githubInstallationsRoutes = new Hono<{
-  Variables: TeamAuthVariables & { githubRepositoryId?: number }
-}>()
-
-githubInstallationsRoutes.use('*', async (c, next) => {
-  const agent = (
-    c as unknown as { get(key: 'conversationAgent'): { sessionId: string } | undefined }
-  ).get('conversationAgent')
-  const scope = await githubReviewScope(agent?.sessionId, c.get('teamId'))
-
-  if (scope) {
-    assertGithubReviewRequest(scope, c.req.method, c.req.path)
-    c.set('githubRepositoryId', scope.repositoryId)
-  }
-  await next()
-})
+export const githubInstallationsRoutes = new Hono<{ Variables: TeamAuthVariables }>()
 
 const bindSchema = z.object({
   installationId: z.number().int().positive(),
@@ -176,18 +160,14 @@ installationScoped.get('/token', requireTeamRole('ADMINISTRATOR', 'EDITOR'), asy
   try {
     // The turn acts as its member (the sender, or the session owner for
     // automated work) when they connected a Personal Credential, unless the
-    // agent asks for the team identity. A repository-scoped conversation keeps
-    // its narrower App token.
-    const repositoryId = c.get('githubRepositoryId')
+    // agent asks for the team identity.
     const subject = await personalCredentialSubjectFor(
       'github',
       c.req.header('Authorization'),
       c.req.query('identity'),
     )
-    const personal =
-      subject && !repositoryId ? await personalGithubToken(subject, installationId) : null
-    const { token, expiresAt } =
-      personal ?? (await getInstallationToken(installationId, repositoryId))
+    const personal = subject ? await personalGithubToken(subject, installationId) : null
+    const { token, expiresAt } = personal ?? (await getInstallationToken(installationId))
 
     // Conversation auth sets userId to the current actor, not the runtime owner.
     const actor = await getNuphosUserById(c.get('userId'))

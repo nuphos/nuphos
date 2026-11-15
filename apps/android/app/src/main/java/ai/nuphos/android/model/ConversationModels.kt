@@ -1,5 +1,6 @@
 package ai.nuphos.android.model
 
+import ai.nuphos.android.R
 import ai.nuphos.android.data.Instants
 import ai.nuphos.android.data.JsonValue
 import kotlinx.serialization.KSerializer
@@ -75,7 +76,7 @@ data class AgentConversation(
     val id: String get() = sessionId
 
     val displayTitle: String
-        get() = title.ifEmpty { firstMessage.ifEmpty { "Untitled task" } }
+        get() = title.ifEmpty { firstMessage.ifEmpty { Words(R.string.convtext_untitled_task) } }
 
     val isArchived: Boolean get() = archivedAt != null
 
@@ -97,7 +98,7 @@ data class AgentConversation(
      * member names who posted: in a 1:1 the row already is the sender.
      */
     val previewLine: String? get() = lastPost?.let { post ->
-        val text = post.text.ifBlank { "Attachment" }
+        val text = post.text.ifBlank { Words(R.string.convtext_attachment) }
         if (post.from != null && (faces?.size ?: 0) > 1) "${post.from}: $text" else text
     }
 
@@ -112,7 +113,7 @@ data class AgentConversation(
         val deactivated: Boolean? = null,
     ) {
         val displayName: String
-            get() = name?.takeIf { it.isNotEmpty() } ?: email?.takeIf { it.isNotEmpty() } ?: "User"
+            get() = name?.takeIf { it.isNotEmpty() } ?: email?.takeIf { it.isNotEmpty() } ?: Words(R.string.convtext_user)
     }
 
     @Serializable
@@ -253,18 +254,18 @@ enum class HistoryTime {
         fun format(instant: Instant, now: Instant = Instant.now()): String {
             val seconds = maxOf(0L, now.epochSecond - instant.epochSecond)
             val minutes = (seconds / 60).toInt()
-            if (minutes < 1) return "now"
-            if (minutes < 60) return "$minutes min"
+            if (minutes < 1) return Words(R.string.convtext_age_now)
+            if (minutes < 60) return Words(R.string.convtext_age_minutes, minutes)
             val hours = minutes / 60
-            if (hours < 24) return plural(hours, "hr")
+            if (hours < 24) return plural(R.plurals.convtext_age_hours, hours)
             val days = hours / 24
-            if (days < 30) return plural(days, "day")
+            if (days < 30) return plural(R.plurals.convtext_age_days, days)
             val months = days / 30
-            if (months < 12) return plural(months, "mo")
-            return plural(months / 12, "yr")
+            if (months < 12) return plural(R.plurals.convtext_age_months, months)
+            return plural(R.plurals.convtext_age_years, months / 12)
         }
 
-        private fun plural(n: Int, unit: String) = "$n $unit${if (n == 1) "" else "s"}"
+        private fun plural(id: Int, n: Int) = Words.plural(id, n, n)
     }
 }
 
@@ -273,11 +274,11 @@ object ChatTime {
 
     fun label(date: Instant, now: Instant = Instant.now()): String {
         val seconds = now.epochSecond - date.epochSecond
-        if (seconds < 60) return "Just now"
+        if (seconds < 60) return Words(R.string.convtext_just_now)
         val minutes = (seconds / 60).toInt()
-        if (minutes < 60) return "$minutes min ago"
+        if (minutes < 60) return Words(R.string.convtext_minutes_ago, minutes)
         val hours = minutes / 60
-        if (hours <= 3) return "$hours hr ago"
+        if (hours <= 3) return Words(R.string.convtext_hours_ago, hours)
         val time = java.time.format.DateTimeFormatter.ofLocalizedTime(java.time.format.FormatStyle.SHORT)
             .withZone(java.time.ZoneId.systemDefault())
             .format(date)
@@ -288,8 +289,8 @@ object ChatTime {
         ).toInt()
         return when (days) {
             0 -> time
-            1 -> "Yesterday $time"
-            2 -> "2 days ago $time"
+            1 -> Words(R.string.convtext_yesterday_at, time)
+            2 -> Words(R.string.convtext_two_days_ago_at, time)
             else -> {
                 val sameYear = date.atZone(zone).year == now.atZone(zone).year
                 val day = if (sameYear) {
@@ -297,7 +298,7 @@ object ChatTime {
                 } else {
                     java.time.format.DateTimeFormatter.ofPattern("MM/dd/yyyy").withZone(zone).format(date)
                 }
-                if (sameYear) "$time, $day" else "$time $day"
+                Words(if (sameYear) R.string.convtext_time_day else R.string.convtext_time_date, time, day)
             }
         }
     }

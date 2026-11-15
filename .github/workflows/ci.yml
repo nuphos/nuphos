@@ -415,6 +415,13 @@ jobs:
       - name: Build renderer and main bundles
         working-directory: apps/desktop
         run: pnpm exec vite build
+      # `nuphos agent` runs this bundle under plain Node. An `electron` import
+      # that reaches it only fails when the host loads (#2749), so load it.
+      - name: Load the nuphos agent host bundle
+        working-directory: apps/desktop
+        run: |
+          bun build electron/main/local-runtime/cli-host.ts --target=node --format=esm --external @napi-rs/keyring --outfile "$RUNNER_TEMP/host.mjs"
+          (env -u NUPHOS_AGENT_HOME node "$RUNNER_TEMP/host.mjs" 2>&1 || true) | tee /dev/stderr | grep -qF 'NUPHOS_AGENT_HOME is not set'
       # Staging and electron-builder cost ~4 minutes and have not caught
       # anything the steps above missed, so they run only on a pull request that
       # changes a packaging input. The merge queue re-runs the steps above on
@@ -516,6 +523,8 @@ jobs:
         run: bun run lint
       - name: Test the dev launcher's local stack wiring
         run: node --test --experimental-strip-types scripts/dev*.test.ts
+      - name: Test filling mobile strings from the Desktop translations
+        run: node --test scripts/fill-mobile-locales.test.mjs
       - name: Test that every release runs the provenance gate
         run: node --test scripts/release-workflows.test.mjs
       # BLOCKING. The custom comment-discipline rules are only worth having if

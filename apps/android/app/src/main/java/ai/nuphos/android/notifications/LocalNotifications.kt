@@ -51,12 +51,12 @@ class LocalNotifications(
         return true
     }
 
-    fun post(target: LocalNotificationTarget, title: String = "Nuphos", body: String = "Open task history", badge: Int? = null): Boolean {
+    fun post(target: LocalNotificationTarget, title: String = "Nuphos", body: String? = null, badge: Int? = null): Boolean {
         if (LocalNotificationTarget.from(target.accountId, target.teamId, target.sessionId) != target ||
             account() != target.accountId || !aiAllowed() ||
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED ||
             !manager.areNotificationsEnabled()) return false
-        manager.createNotificationChannel(NotificationChannel(CHANNEL, "Task updates", NotificationManager.IMPORTANCE_DEFAULT))
+        manager.createNotificationChannel(NotificationChannel(CHANNEL, context.getString(R.string.shell_notification_channel), NotificationManager.IMPORTANCE_DEFAULT))
         if (manager.getNotificationChannel(CHANNEL).importance == NotificationManager.IMPORTANCE_NONE) return false
         val intent = Intent(context, MainActivity::class.java).setAction(ACTION)
             .setData(Uri.Builder().scheme("nuphos-local").authority("conversation")
@@ -67,16 +67,16 @@ class LocalNotifications(
         // Mutable so the system can fill in the typed text; the explicit receiver keeps it private.
         val replyIntent = Intent(context, NotificationReplyReceiver::class.java).setData(intent.data)
             .putExtra(ACCOUNT, target.accountId).putExtra(TEAM, target.teamId).putExtra(SESSION, target.sessionId)
-        val reply = NotificationCompat.Action.Builder(R.drawable.ic_notification, "Reply",
+        val reply = NotificationCompat.Action.Builder(R.drawable.ic_notification, context.getString(R.string.shell_notification_reply),
             PendingIntent.getBroadcast(context, 0, replyIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE))
-            .addRemoteInput(RemoteInput.Builder(REPLY).setLabel("Message").build())
+            .addRemoteInput(RemoteInput.Builder(REPLY).setLabel(context.getString(R.string.shell_notification_message)).build())
             // Unlocking first: a reply can start agent work on the team's accounts.
             .setAuthenticationRequired(true)
             .build()
         val notification = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
-            .setContentText(body)
+            .setContentText(body ?: context.getString(R.string.shell_notification_open_history))
             .setNumber(badge ?: 0).setContentIntent(tap).setAutoCancel(true).addAction(reply)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).build()
         manager.notify(TAG, target.hashCode(), notification)

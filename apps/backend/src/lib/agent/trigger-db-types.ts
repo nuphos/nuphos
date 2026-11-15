@@ -1,5 +1,4 @@
 import type { AgentCredentialAccess } from './db'
-import type { SessionRouting } from './session-routing'
 import type { TriggerCredentialMode } from './trigger-credential-access'
 import type { ObjectId } from 'mongodb'
 
@@ -46,8 +45,6 @@ export type AgentTrigger = {
   cronExpression?: string
   timeZone?: string
   webhookSecret?: string
-  /** Legacy: only on rows created before binding was required. Binding clears it. */
-  sessionRouting?: SessionRouting
   /**
    * The existing conversation every fire is delivered into. It must belong to
    * the execution principal in the same team. Required on every new Trigger;
@@ -77,7 +74,7 @@ export type AgentTrigger = {
   lastRunAt?: Date
   /** When a scheduled fire last reached the worker, whatever the turn's outcome. */
   lastFiredAt?: Date
-  /** Scheduled time of the latest fire that never ran; unset by the next fire. */
+  /** Time of the latest fire that never ran; unset by the next turn that runs. */
   missedRunAt?: Date
   createdAt: Date
   updatedAt: Date

@@ -27,22 +27,22 @@ struct MediaPager: View {
 
     var body: some View {
         // The bar sits above the pages rather than over them: a SwiftUI
-        // button drawn over the UIKit pager never gets its tap.
+        // button drawn over the UIKit pager never gets its tap. Each button
+        // takes a 44 pt square, not just its glyph, so a finger finds it.
         VStack(spacing: 0) {
             HStack {
-                Button("Done", systemImage: "xmark", action: close)
+                Button(action: close) { Label("Done", systemImage: "xmark").frame(width: 44, height: 44).contentShape(.rect) }
                 Spacer()
                 if urls.count > 1, let index = urls.firstIndex(of: current) {
                     Text(verbatim: "\(index + 1) / \(urls.count)").monospacedDigit()
                 }
                 Spacer()
-                ShareLink(item: current) { Image(systemName: "square.and.arrow.up") }
+                ShareLink(item: current) { Image(systemName: "square.and.arrow.up").frame(width: 44, height: 44).contentShape(.rect) }
             }
             .labelStyle(.iconOnly)
             .font(.body.weight(.medium))
             .foregroundStyle(.white)
-            .padding(.horizontal, 20)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 8)
             .opacity(pull > 0 ? 0 : 1)
             Pages(urls: urls, current: $current, pull: $pull, load: load, close: close)
                 .ignoresSafeArea(edges: [.horizontal, .bottom])
@@ -260,6 +260,9 @@ private final class PlayerPage: UIViewController, Page {
                 return
             }
         }
+        // The default category is muted by the silent switch, and voice input
+        // leaves it on .record; a video plays its sound like Photos does.
+        try? AVAudioSession.sharedInstance().setCategory(.playback)
         player.player = AVPlayer(url: url)
     }
 
@@ -272,6 +275,8 @@ private final class PlayerPage: UIViewController, Page {
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         player.player?.pause()
+        // Music the video paused resumes in its own app.
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 }
 #endif

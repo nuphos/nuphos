@@ -169,7 +169,7 @@ export class LocalRuntimeController {
       (provider, instanceId) =>
         instanceId !== undefined
           ? (this.instances?.runtime(instanceId, provider) ?? null)
-          : this.agents[provider].runtime,
+          : this.runtimeForStream(provider),
       () => ({
         ...this.status(),
         ...(this.instances ? { instances: this.instances.status() } : {}),
@@ -186,6 +186,20 @@ export class LocalRuntimeController {
   runtime(provider: LocalAgentProvider) {
     return this.agents[provider].runtime
   }
+  /**
+   * The running agent, for a stream that asks for it. One whose CLI was missing is looked
+   * for again: it may have been installed since, and nothing else would notice until a restart.
+   */
+  runtimeForStream(provider: LocalAgentProvider) {
+    const agent = this.agents[provider]
+
+    if (!agent.runtime && agent.cli?.installed === false)
+      agent.recheck ??= this.launch(provider, true).finally(() => {
+        agent.recheck = undefined
+      })
+
+    return agent.runtime
+  }
   status() {
     return tunnelStatusOf(this.agents, this.deps.backendUrl)
   }
@@ -194,7 +208,7 @@ export class LocalRuntimeController {
 
     return this.instances.request(request, this.userId)
   }
-  private async launch(provider: LocalAgentProvider): Promise<void> {
+  private async launch(provider: LocalAgentProvider, freshEnv = false): Promise<void> {
     const userId = this.userId
 
     if (!userId) return
@@ -209,7 +223,7 @@ export class LocalRuntimeController {
 
       return
     }
-    const env = await this.deps.userEnv()
+    const env = await this.deps.userEnv(freshEnv)
     const probedAt = Date.now()
 
     if (!current()) return

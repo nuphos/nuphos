@@ -94,12 +94,18 @@ export function RuntimeSelector({
   confirm,
   hero = false,
   quiet = false,
+  emptyLabel,
+  onClear,
 }: RuntimeControl & {
   /** Lets the composer open the list, e.g. from the agent-status banner. */
   menuOpen?: boolean
   onMenuOpenChange?: (open: boolean) => void
   /** Sized like the hero composer's other controls; compact otherwise. */
   hero?: boolean
+  /** Shown when no agent is chosen, in place of "Choose runtime". */
+  emptyLabel?: string
+  /** Offers a first item that clears the choice, labelled with emptyLabel. */
+  onClear?: () => void
 }) {
   const providerName = AGENT_PROVIDER[value?.provider ?? 'claude-code'].label
   const owner = useThisComputer()
@@ -120,7 +126,7 @@ export function RuntimeSelector({
     ? agentName(selected ?? { ...(value.id ? { id: value.id } : {}), label: value.label }, owner)
     : loading
       ? t('Loading runtimes…')
-      : t('Choose runtime')
+      : (emptyLabel ?? t('Choose runtime'))
   const updates = useAgentUpdates(teamId, options, canUpdateTeamAgents)
   const { fixes, dialogs } = usePickerFixes({
     teamId,
@@ -196,6 +202,11 @@ export function RuntimeSelector({
             </p>
           )}
           <div className="max-h-96 overflow-auto">
+            {onClear && (
+              <MenuItem disabled={selectDisabled} onClick={onClear}>
+                {emptyLabel ?? t('None')}
+              </MenuItem>
+            )}
             {groups.map((group) => (
               <SelectorBoxMenu
                 key={group.id}

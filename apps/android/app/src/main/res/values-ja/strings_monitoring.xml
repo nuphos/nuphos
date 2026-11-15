@@ -1,0 +1,29 @@
+<resources>
+    <string name="monitoring_search">モニタリングを検索</string>
+    <string name="monitoring_clear_filters">フィルターをクリア</string>
+    <string name="monitoring_refresh">更新</string>
+    <string name="monitoring_all_providers">すべてのプロバイダー</string>
+    <string name="monitoring_all_statuses">すべてのステータス</string>
+    <string name="monitoring_select_team">モニタリングを表示するにはチームを選択してください。</string>
+    <string name="monitoring_loading">モニタリングを読み込み中…</string>
+    <string name="monitoring_access_denied">モニタリングへのアクセスが拒否されました。チームのメンバーシップを確認してください。</string>
+    <string name="monitoring_load_failed">モニタリングを読み込めませんでした。%1$s</string>
+    <string name="monitoring_stale">データが古くなっています。更新に失敗しました。%1$s</string>
+    <string name="monitoring_provider_errors_title">一部のプロバイダーを読み込めませんでした</string>
+    <string name="monitoring_hide_provider_errors">プロバイダーのエラーを非表示</string>
+    <string name="monitoring_show_provider_errors">プロバイダーのエラーを表示</string>
+    <string name="monitoring_empty_title">モニタリングのチェックはありません</string>
+    <string name="monitoring_empty_body">Better Stack、Grafana、GCP の対応しているチェックがここに表示されます。</string>
+    <string name="monitoring_open_connectors">コネクタを開く</string>
+    <string name="monitoring_no_matching_checks">一致するチェックはありません</string>
+    <string name="monitoring_detail_status">ステータス：%1$s</string>
+    <string name="monitoring_detail_provider">プロバイダー：%1$s</string>
+    <string name="monitoring_detail_connector">コネクタ：%1$s</string>
+    <string name="monitoring_detail_last_incident">最新のインシデント：%1$s</string>
+    <string name="monitoring_detail_kind">種類：%1$s</string>
+    <string name="monitoring_detail_resource">リソース：%1$s</string>
+    <string name="monitoring_detail_target">対象：%1$s</string>
+    <string name="monitoring_open_provider">プロバイダーで開く</string>
+    <string name="monitoring_open_provider_failed">プロバイダーのリンクを開けませんでした。</string>
+    <string name="monitoring_close">閉じる</string>
+</resources>

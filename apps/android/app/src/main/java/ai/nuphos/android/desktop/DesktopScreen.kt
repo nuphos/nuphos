@@ -34,6 +34,8 @@ import ai.nuphos.android.session.ChatSession
 import ai.nuphos.android.session.AgentStore
 import ai.nuphos.android.ui.LocalAuthSession
 import kotlinx.coroutines.*
+import androidx.compose.ui.res.stringResource
+import ai.nuphos.android.R
 
 @Composable
 internal fun DesktopScreen(chat: ChatSession,store: AgentStore,onClose: () -> Unit) {
@@ -53,6 +55,7 @@ internal fun DesktopScreen(chat: ChatSession,store: AgentStore,onClose: () -> Un
     val decoder=remember(desktop) { DesktopVideo() }
     val recovery=remember(decoder) { DesktopDecodeRecovery(decoder::drain,decoder::close) }
     var video by remember(desktop) { mutableStateOf(false) }
+    val decodeFailed = stringResource(R.string.shell_desktop_decode_failed)
     DisposableEffect(desktop,lifecycle) {
         val observer=LifecycleEventObserver { _,event -> if(event==Lifecycle.Event.ON_PAUSE || event==Lifecycle.Event.ON_STOP) { desktop.stop(); foreground=false; onClose() } }
         lifecycle.addObserver(observer)
@@ -60,24 +63,24 @@ internal fun DesktopScreen(chat: ChatSession,store: AgentStore,onClose: () -> Un
         onDispose { lifecycle.removeObserver(observer); desktop.onVideo=null; desktop.stop(); decoder.surface(null) }
     }
     LaunchedEffect(desktop,valid) { if(valid)desktop.start() else { desktop.stop(); onClose() } }
-    LaunchedEffect(decoder) { withContext(Dispatchers.IO) { while(isActive) { if(recovery.tick()) withContext(Dispatchers.Main) { video=false; desktop.fail("Could not decode this desktop. Retry to start a fresh connection.") }; delay(16) } } }
+    LaunchedEffect(decoder) { withContext(Dispatchers.IO) { while(isActive) { if(recovery.tick()) withContext(Dispatchers.Main) { video=false; desktop.fail(decodeFailed) }; delay(16) } } }
     Dialog(onDismissRequest=onClose,properties=DialogProperties(usePlatformDefaultWidth=false)) {
         Surface(Modifier.fillMaxSize()) {
             Column(Modifier.fillMaxSize().systemBarsPadding().padding(12.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(10.dp)) {
                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-                    Text("Desktop",Modifier.weight(1f),style=MaterialTheme.typography.titleLarge)
-                    TextButton(onClick=onClose) { Text("Close") }
+                    Text(stringResource(R.string.shell_desktop),Modifier.weight(1f),style=MaterialTheme.typography.titleLarge)
+                    TextButton(onClick=onClose) { Text(stringResource(R.string.shell_close)) }
                 }
                 Text(when(desktop.phase) {
-                    DesktopSession.Phase.Connecting -> "Connecting…"
-                    DesktopSession.Phase.Live -> if(desktop.controlling) { if(desktop.display==0) "You have the Mac’s screen; the agent can still use it too." else "You have control. Hand back to let the agent use this desktop." } else "Watching. Take over to use the pointer and keyboard."
-                    DesktopSession.Phase.Failed -> desktop.error ?: "Desktop connection failed."
-                    DesktopSession.Phase.Closed -> "Desktop closed."
+                    DesktopSession.Phase.Connecting -> stringResource(R.string.shell_desktop_connecting)
+                    DesktopSession.Phase.Live -> if(desktop.controlling) { if(desktop.display==0) stringResource(R.string.shell_desktop_mac_shared) else stringResource(R.string.shell_desktop_in_control) } else stringResource(R.string.shell_desktop_watching)
+                    DesktopSession.Phase.Failed -> desktop.error ?: stringResource(R.string.shell_desktop_failed)
+                    DesktopSession.Phase.Closed -> stringResource(R.string.shell_desktop_closed)
                 })
                 DesktopCanvas(desktop,decoder,video)
                 Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                    Button(onClick={ desktop.control(!desktop.controlling) },enabled=desktop.phase==DesktopSession.Phase.Live) { Text(if(desktop.controlling) "Hand back" else "Take over") }
-                    if(desktop.phase==DesktopSession.Phase.Failed) OutlinedButton(onClick={ recovery.reset(); video=false; desktop.retry() }) { Text("Retry") }
+                    Button(onClick={ desktop.control(!desktop.controlling) },enabled=desktop.phase==DesktopSession.Phase.Live) { Text(stringResource(if(desktop.controlling) R.string.shell_desktop_hand_back else R.string.shell_desktop_take_over)) }
+                    if(desktop.phase==DesktopSession.Phase.Failed) OutlinedButton(onClick={ recovery.reset(); video=false; desktop.retry() }) { Text(stringResource(R.string.shell_retry)) }
                 }
                 if(desktop.controlling) DesktopKeyboard(desktop)
             }
@@ -88,15 +91,16 @@ internal fun DesktopScreen(chat: ChatSession,store: AgentStore,onClose: () -> Un
 @Composable
 private fun DesktopCanvas(session: DesktopSession,decoder: DesktopVideo,video: Boolean) {
     var size by remember { mutableStateOf(IntSize.Zero) }
+    val pictureLabel=stringResource(R.string.shell_desktop_picture)
     var x by remember { mutableFloatStateOf(0f) }; var y by remember { mutableFloatStateOf(0f) }
     val ratio=if(session.width>0 && session.height>0)session.width.toFloat()/session.height else 1.6f
     fun move(px: Float,py: Float,mask: Int) { if(size.width>0 && size.height>0) { x=px/size.width*session.width; y=py/size.height*session.height; session.pointer(x,y,mask) } }
     val image=remember(session.picture) { session.picture?.let { Bitmap.createBitmap(it,session.width,session.height,Bitmap.Config.ARGB_8888).asImageBitmap() } }
     Box(Modifier.fillMaxWidth().aspectRatio(ratio).background(Color.Black).onSizeChanged { size=it }
-        .semantics { contentDescription="Remote desktop picture" }
+        .semantics { contentDescription=pictureLabel }
         .pointerInput(session,session.controlling) { detectTapGestures(onTap={ if(session.controlling) { move(it.x,it.y,1); move(it.x,it.y,0) } },onLongPress={ if(session.controlling) { move(it.x,it.y,4); move(it.x,it.y,0) } }) }
         .pointerInput(session,session.controlling) { detectDragGestures(onDragStart={ move(it.x,it.y,1) },onDragEnd={ session.pointer(x,y,0) },onDragCancel={ session.pointer(x,y,0) }) { change,_ -> change.consume(); move(change.position.x,change.position.y,1) } }) {
-        if(image!=null && !video) Image(image,"Remote desktop frame",Modifier.fillMaxSize())
+        if(image!=null && !video) Image(image,stringResource(R.string.shell_desktop_frame),Modifier.fillMaxSize())
         AndroidView(factory={ context -> TextureView(context).apply {
             surfaceTextureListener=object: TextureView.SurfaceTextureListener {
                 private var output: Surface?=null
@@ -113,7 +117,7 @@ private fun DesktopCanvas(session: DesktopSession,decoder: DesktopVideo,video: B
 private fun DesktopKeyboard(session: DesktopSession) {
     var input by remember(session) { mutableStateOf(TextFieldValue()) }
     var modifiers by remember(session.controlling) { mutableStateOf(setOf<Int>()) }
-    Text("Tap to click, hold to right-click, or drag the picture. Compose text below, then tap Type to send it to this desktop.",style=MaterialTheme.typography.bodySmall)
+    Text(stringResource(R.string.shell_desktop_keyboard_help),style=MaterialTheme.typography.bodySmall)
     Row(horizontalArrangement=Arrangement.spacedBy(4.dp)) {
         for((label,code) in listOf("Esc" to 0xff1b,"Tab" to 0xff09,"⌫" to 0xff08,"Enter" to 0xff0d)) OutlinedButton(onClick={ session.key(code) },contentPadding=PaddingValues(8.dp)) { Text(label) }
     }
@@ -124,9 +128,9 @@ private fun DesktopKeyboard(session: DesktopSession) {
         for((label,code) in listOf("←" to 0xff51,"↑" to 0xff52,"↓" to 0xff54,"→" to 0xff53)) OutlinedButton(onClick={ session.key(code) },contentPadding=PaddingValues(8.dp)) { Text(label) }
     }
     Row(horizontalArrangement=Arrangement.spacedBy(4.dp)) {
-        for((label,mask) in listOf("Scroll up" to 8,"Scroll down" to 16)) OutlinedButton(onClick={ session.pointer(session.width/2f,session.height/2f,mask); session.pointer(session.width/2f,session.height/2f,0) }) { Text(label) }
+        for((label,mask) in listOf(stringResource(R.string.shell_desktop_scroll_up) to 8,stringResource(R.string.shell_desktop_scroll_down) to 16)) OutlinedButton(onClick={ session.pointer(session.width/2f,session.height/2f,mask); session.pointer(session.width/2f,session.height/2f,0) }) { Text(label) }
     }
-    OutlinedTextField(input,onValueChange={ input=it },label={ Text("Type on desktop") },modifier=Modifier.fillMaxWidth())
+    OutlinedTextField(input,onValueChange={ input=it },label={ Text(stringResource(R.string.shell_desktop_type_on)) },modifier=Modifier.fillMaxWidth())
     Button(enabled=!session.typing && input.composition==null && input.text.isNotEmpty() && input.text.length<=4096,
-        onClick={ if(session.type(input.text)) input=TextFieldValue() }) { Text(if(session.typing) "Typing…" else "Type") }
+        onClick={ if(session.type(input.text)) input=TextFieldValue() }) { Text(stringResource(if(session.typing) R.string.shell_desktop_typing else R.string.shell_desktop_type)) }
 }

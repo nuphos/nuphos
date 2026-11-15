@@ -1,0 +1,129 @@
+<resources>
+    <!-- ChatComposer -->
+    <string name="composer_draft_save_failed">Could not save this draft. Free storage and try again.</string>
+    <string name="composer_voice_unavailable">Choose a workspace and confirm your AI sharing choice to use voice input.</string>
+    <string name="composer_voice_start_failed">Could not start voice input. Check microphone permission and try again.</string>
+    <string name="composer_voice_failed">Voice input failed</string>
+    <string name="composer_add_to_draft">Add to draft</string>
+    <string name="composer_ok">OK</string>
+    <string name="composer_discard_transcript">Discard transcript</string>
+    <string name="composer_recalled_files_failed">Queued attachments are retained but could not fit in this draft. Remove an attachment and try again.</string>
+    <string name="composer_files_still_loading">Wait for the current files to finish loading, then try again.</string>
+    <string name="composer_max_files">Select at most 20 files.</string>
+    <string name="composer_draft_changed_reading">The draft changed while reading files. Select the files again.</string>
+    <string name="composer_read_files_failed">Could not read the selected files.</string>
+    <string name="composer_draft_changed_choosing">The draft changed while choosing files. Select the files again.</string>
+    <string name="composer_share_save_failed">Could not save this share. Check the draft limits and free storage, then try again.</string>
+    <string name="composer_sent_cleanup_failed">Message accepted, but saved draft cleanup failed. Do not resend it.</string>
+    <string name="composer_drafts_update_failed">Could not update saved drafts. Free storage before sending.</string>
+    <string name="composer_suggested_next">Suggested next message</string>
+    <string name="composer_mention">Mention</string>
+    <string name="composer_dismiss_task_mentions">Dismiss task mentions</string>
+    <string name="composer_dismiss_mentions">Dismiss mentions</string>
+    <string name="composer_computers">Computers</string>
+    <string name="composer_computers_hint">Selecting allows this agent to operate the computer.</string>
+    <string name="composer_loading_computers">Loading computers…</string>
+    <string name="composer_computers_failed">Could not load computers. You can keep typing.</string>
+    <string name="composer_no_matching_computers">No matching computers</string>
+    <string name="composer_device_unavailable">%1$s · Unavailable</string>
+    <string name="composer_device_selected">%1$s · Selected</string>
+    <string name="composer_computer_pick_failed">Computer selection unavailable. IAM was not changed.</string>
+    <string name="composer_searching_tasks">Searching tasks…</string>
+    <string name="composer_search_tasks_failed">Could not search tasks. You can keep typing.</string>
+    <string name="composer_no_matching_tasks">No matching tasks</string>
+    <string name="composer_rejected_retained">A rejected message is retained. Clear this draft to restore it.</string>
+    <string name="composer_reading_files">Reading files…</string>
+    <string name="composer_model">Model</string>
+    <string name="composer_credentials">Credentials</string>
+    <string name="composer_credentials_count">Credentials · %1$d</string>
+    <string name="composer_computers_count">Computers · %1$d</string>
+    <string name="composer_queue_a_message">Queue a message</string>
+    <string name="composer_ask_nuphos">Ask Nuphos anything</string>
+    <string name="composer_remove_attachment_failed">Could not remove this saved attachment. Check storage and try again.</string>
+    <string name="composer_photos">Photos</string>
+    <string name="composer_files">Files</string>
+    <string name="composer_paste">Paste</string>
+    <string name="composer_paste_failed">Could not paste this item. Try choosing it from Files.</string>
+    <string name="composer_runtime_usage">Runtime usage</string>
+    <string name="composer_collapse">Collapse composer</string>
+    <string name="composer_queue_message">Queue message</string>
+    <string name="composer_remove">Remove</string>
+    <string name="composer_content_only">Only content-provider attachments are supported.</string>
+    <string name="composer_open_file_failed">Could not open the selected file.</string>
+
+    <!-- CredentialSheets -->
+    <string name="composer_clear_all">Clear all</string>
+    <string name="composer_select_all">Select all</string>
+    <string name="composer_choose_computers">Choose computers</string>
+    <string name="composer_clear">Clear</string>
+    <string name="composer_retry">Retry</string>
+    <string name="composer_loading_iam">Loading IAM…</string>
+    <string name="composer_no_computers">No computers available. Connect a computer in Nuphos to use it here.</string>
+    <string name="composer_no_computers_or_iam">No computers or IAM available. Connect a computer or cloud account in Nuphos to use it here.</string>
+    <string name="composer_allow_computers">Allow this agent to operate the computers you select.</string>
+    <string name="composer_permission_mode">Permission mode</string>
+
+    <!-- ConversationAgentSheet -->
+    <string name="composer_load_runtimes_failed">Could not load runtimes.</string>
+    <string name="composer_switch_runtime_failed">Could not switch runtimes. Refresh and try again.</string>
+    <string name="composer_switching_runtime">Switching runtime…</string>
+    <string name="composer_runtime_view_only">You can view this task\'s runtime, but cannot move it.</string>
+    <string name="composer_runtime_wait">Wait for the current response or pending message to finish before switching runtimes.</string>
+    <string name="composer_loading_runtimes">Loading runtimes…</string>
+    <string name="composer_no_runtimes">No available runtimes.</string>
+    <string name="composer_no_runtimes_body">Open Nuphos on your computer to add a Box or connect your own computer.</string>
+    <string name="composer_manage_runtimes">Manage computers and runtimes</string>
+    <string name="composer_refresh_runtimes">Refresh runtimes</string>
+    <string name="composer_move_to">Move to %1$s?</string>
+    <string name="composer_move_local_body">This runtime runs on your computer. After the move, people in this task can reply only if they can use this computer; the others can still read it.</string>
+    <string name="composer_move">Move</string>
+
+    <!-- ModelSettingsSheet -->
+    <string name="composer_changes_not_applied">Changes have not been applied.</string>
+    <string name="composer_updating_model">Updating model settings…</string>
+    <string name="composer_changes_after_reply">Changes apply after this reply.</string>
+    <string name="composer_cancel_pending">Cancel pending changes</string>
+    <string name="composer_runtime_offline">This runtime is offline. Model settings return when it reconnects.</string>
+    <string name="composer_runtime_no_model">This runtime does not offer model settings.</string>
+
+    <!-- IncomingShareSheet -->
+    <string name="composer_share_open_failed">Could not open this draft. Your share has not been sent.</string>
+    <string name="composer_share_no_workspace">Open a workspace in Account to receive this share. Nothing has been sent.</string>
+    <string name="composer_preparing_draft">Preparing draft</string>
+    <string name="composer_open_draft_failed">Could not open draft</string>
+    <string name="composer_preparing_share">Preparing shared content…</string>
+    <string name="composer_opening_draft">Opening your new draft. Nothing has been sent.</string>
+    <string name="composer_cancel_share">Cancel share</string>
+
+    <!-- ServerQueuedMessages -->
+    <string name="composer_queued_messages">Queued messages</string>
+    <string name="composer_refresh_queue">Refresh queue</string>
+    <string name="composer_taken_back">Taken back. Restore this text before leaving the task.</string>
+    <string name="composer_queued_attachment">Queued attachment</string>
+    <string name="composer_restore_draft">Restore draft</string>
+    <string name="composer_edit">Edit</string>
+    <string name="composer_send_into_turn">Send into turn</string>
+
+    <!-- SecretCard -->
+    <string name="composer_secret_saved">%1$s saved on the task\'s runtime.</string>
+    <string name="composer_secret_closed">%1$s request closed. Ask the agent to request it again.</string>
+    <string name="composer_secret_owner_only">Only the owner of this task can provide this secret.</string>
+    <string name="composer_secret_busy">The agent is working. You can send this when its turn ends.</string>
+    <string name="composer_secret_save_failed">Could not save it on the agent\'s runtime: %1$s</string>
+    <string name="composer_unknown_error">unknown error</string>
+    <string name="composer_secret_needed">Secret needed:</string>
+    <string name="composer_paste_value">Paste the value</string>
+    <string name="composer_saving">Saving…</string>
+    <string name="composer_send_securely">Send securely</string>
+    <string name="composer_secret_footer">The value is written to a file on the task\'s runtime and never appears in this task.</string>
+
+    <!-- TransferCard -->
+    <string name="composer_attachments_unavailable">Attachments unavailable</string>
+    <string name="composer_attachments">Attachments</string>
+    <string name="composer_loading_attachments">Loading attachments…</string>
+    <string name="composer_save_file">Save %1$s</string>
+    <string name="composer_downloading">Downloading…</string>
+    <string name="composer_attachments_expired">Attachments expired or unavailable</string>
+    <string name="composer_save_failed">Couldn\'t save the file. Try again.</string>
+    <string name="composer_retry_attachments">Retry attachments</string>
+</resources>

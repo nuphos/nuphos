@@ -222,6 +222,7 @@ export const WorkspaceTabPane = memo(
                             isTeamAdmin={isTeamAdmin}
                             onOpenAuditConversation={onOpenAuditConversation}
                             onOpenNodeLink={onOpenNodeLink}
+                            onOpenNuphosLink={onOpenNuphosLink}
                           />
                         )}
                       </KubeContextProvider>

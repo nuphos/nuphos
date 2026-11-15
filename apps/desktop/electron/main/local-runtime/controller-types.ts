@@ -70,7 +70,8 @@ export type LocalRuntimeControllerDeps = {
   nodeExecPath: string
   /** Where this app reaches Nuphos; the agents on this computer use the same address. */
   backendUrl: string
-  userEnv: () => Promise<NodeJS.ProcessEnv>
+  /** `fresh` reads the shell again instead of reusing what it said when the app started. */
+  userEnv: (fresh?: boolean) => Promise<NodeJS.ProcessEnv>
   probeCli: (
     provider: LocalAgentProvider,
     env: NodeJS.ProcessEnv,
@@ -121,6 +122,8 @@ export type Agent = {
   restartAttempt: number
   restartTimer?: ReturnType<typeof setTimeout>
   generation: number
+  /** The look for a CLI that was missing, while it runs. */
+  recheck?: Promise<void>
 }
 
 /** Everything a user's local agents keep lives under their own directory. */

@@ -301,9 +301,9 @@ private struct MarkdownTextRepresentable: UIViewRepresentable {
             let content = if plain {
                 MarkdownContent(blocks: [.paragraph(content: [.text(text)])], rendered: [:], highlightMaps: [:])
             } else if keepsLineBreaks {
-                MarkdownContent(markdown: text, theme: theme).keepingLineBreaks
+                MarkdownContent(markdown: text, theme: theme).endingBareURLs.keepingLineBreaks
             } else {
-                MarkdownContent(markdown: text, theme: theme)
+                MarkdownContent(markdown: text, theme: theme).endingBareURLs
             }
             fills = content.blocks.contains(where: \.isWide)
             view.setContentImmediately(content, theme: theme)
@@ -402,6 +402,22 @@ private struct MarkdownTextRepresentable: View {
 private extension MarkdownContent {
     var keepingLineBreaks: MarkdownContent {
         MarkdownContent(blocks: blocks.map(\.keepingLineBreaks), rendered: rendered, highlightMaps: highlightMaps, locale: locale)
+    }
+}
+
+/// Each bare URL ends where `BareURL` says, not at the next ASCII space. GFM
+/// gives a bare URL a link whose text is that URL (a bare `www.` gets `http://`).
+private extension MarkdownContent {
+    var endingBareURLs: MarkdownContent {
+        let ended = blocks.rewrite { (node: MarkdownInlineNode) -> [MarkdownInlineNode] in
+            guard case let .link(destination, children) = node, children.count == 1,
+                  case let .text(literal) = children[0], destination.hasSuffix(literal),
+                  let split = BareURL.split(literal)
+            else { return [node] }
+            let url = String(destination.dropLast(split.rest.count))
+            return [.link(destination: url, children: [.text(split.url)]), .text(split.rest)]
+        }
+        return MarkdownContent(blocks: ended, rendered: rendered, highlightMaps: highlightMaps, locale: locale)
     }
 }
 

@@ -8,6 +8,7 @@ import { appendTranscriptMessages, getConversationMessagesHead } from '@/lib/age
 import { mergePreviewMemoryActivity } from '@/lib/agent/memory-slots/preview-activity-store'
 import { askPlanDecisions } from '@/lib/agent/plan-decision'
 import { listPlansCreatedForConversation } from '@/lib/agent/plans'
+import { withCurrentAgentNames } from '@/lib/agent/sender-names'
 import { partsWithoutFailureNotice } from '@/lib/claude-code-preview/codex-turn-failure'
 import { completedTurnOutput } from '@/lib/claude-code-preview/empty-turn'
 import {
@@ -131,7 +132,10 @@ export async function finishPreviewTurn(args: {
     })
     // Emit the stored timestamps too: download cards use them to stay with
     // their original turn instead of briefly piling onto the latest reply.
-    const stored = await getConversationMessagesHead(sessionId, userId, count)
+    const stored = await withCurrentAgentNames(
+      await getConversationMessagesHead(sessionId, userId, count),
+      teamId,
+    )
 
     args.emit(transcriptTailFrame(stored, count - tail.length))
   } catch (err) {
@@ -232,7 +236,10 @@ export async function persistInterruptedPreviewTurn(args: {
     })
     // Emit the stored timestamps too: download cards use them to stay with
     // their original turn instead of briefly piling onto the latest reply.
-    const stored = await getConversationMessagesHead(sessionId, userId, count)
+    const stored = await withCurrentAgentNames(
+      await getConversationMessagesHead(sessionId, userId, count),
+      teamId,
+    )
 
     args.emit(transcriptTailFrame(stored, count - args.steered.length - 1))
   } catch (err) {

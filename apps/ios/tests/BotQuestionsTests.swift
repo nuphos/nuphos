@@ -10,7 +10,27 @@ enum BotQuestionsTests {
         aPlanOrASecretIsNeverAnsweredInWords()
         aQuestionNamingTheMembersOwnCredentialIsConnectable()
         aMultiSelectOrSeveralQuestionsAreAForm()
+        theInboxGroupsBySourceAndOpensTheNextQuestion()
         print("Bot questions passed")
+    }
+
+    private static func theInboxGroupsBySourceAndOpensTheNextQuestion() {
+        func ask(_ session: String, _ id: String, _ at: String) -> BotQuestion {
+            BotQuestion(sessionId: session, title: session, request: .init(id: id, category: "preference", question: id,
+                                                                          options: nil, askedAt: at))
+        }
+        // Oldest first, as the listing gives them.
+        let list = [ask("ops", "a", "2026-11-14T09:00:00Z"), ask("bot", "b", "2026-11-14T09:10:00Z"),
+                    ask("ops", "c", "2026-11-14T09:20:00Z")]
+        let groups = BotQuestions.grouped(list)
+        // The source with the newest question first; its questions oldest first.
+        precondition(groups.map { $0.map(\.request.id) } == [["a", "c"], ["b"]])
+        precondition(BotQuestions.next(after: "ops:a", in: groups) == "ops:c")
+        precondition(BotQuestions.next(after: "ops:c", in: groups) == "bot:b")
+        // Past the end, back to the first; never the question itself.
+        precondition(BotQuestions.next(after: "bot:b", in: groups) == "ops:a")
+        precondition(BotQuestions.next(after: "ops:a", in: [[list[0]]]) == nil)
+        precondition(list[0].askedDate != nil)
     }
 
     private static func aMultiSelectOrSeveralQuestionsAreAForm() {

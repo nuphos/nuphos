@@ -12,11 +12,97 @@ import { downloadSlackFile } from '@/lib/slack/api'
 import { shareTransferGroupsToSlackThread } from '@/lib/slack/files'
 
 import type { InboundFile } from '@/lib/agent/inbound-files'
-import type { SlackMessageEvent, SlackRuntime } from '@/routes/slack/types'
+import type { SlackFileRef, SlackMessageEvent, SlackRuntime } from '@/routes/slack/types'
 
 // A Slack attachment above this stays pull-only from the transfer store; the
 // store's own ceilings still apply on top (config.fileTransfer).
 const MAX_SLACK_ATTACHMENT_BYTES = 25 * 1024 * 1024
+
+// One slack_channel_history call buffers every file it fetches in this process
+// before handing them on, so a page is bounded in count and in total bytes.
+const MAX_HISTORY_FILES = 10
+const MAX_HISTORY_FILE_BYTES = 50 * 1024 * 1024
+
+function slackFileName(ref: SlackFileRef): string {
+  return ref.name || ref.title || `${ref.id ?? 'attachment'}.${ref.filetype ?? 'bin'}`
+}
+
+/**
+ * Fetches the files on a page of channel history with the bot token and hands
+ * the bytes to `place`, which returns where each one landed. Every message's
+ * `files` becomes a short list of local paths: the Slack URLs it replaces are
+ * useless without the token, which stays here. A file that cannot be fetched
+ * says why instead of failing the page.
+ */
+export async function placeSlackHistoryFiles(
+  token: string,
+  messages: Record<string, unknown>[],
+  place: (files: InboundFile[]) => Promise<string[]>,
+): Promise<Record<string, unknown>[]> {
+  const fetched: InboundFile[] = []
+  // `at` is the file's place in `fetched`, and so in what `place` returns.
+  const slots: { id?: string; name: string; at?: number; error?: string }[][] = []
+  let bytesLeft = MAX_HISTORY_FILE_BYTES
+
+  for (const message of messages) {
+    const refs = Array.isArray(message.files) ? (message.files as SlackFileRef[]) : []
+    const entries: (typeof slots)[number] = []
+
+    for (const ref of refs) {
+      const entry: (typeof entries)[number] = { id: ref.id, name: slackFileName(ref) }
+
+      entries.push(entry)
+      if (!ref.url_private) {
+        entry.error = 'Slack did not share this file with the Nuphos app.'
+        continue
+      }
+      if (fetched.length >= MAX_HISTORY_FILES || bytesLeft <= 0) {
+        entry.error = 'Not fetched: this call reached its file limit. Read a narrower page.'
+        continue
+      }
+      const file = await downloadSlackFile({
+        token,
+        urlPrivate: ref.url_private,
+        maxBytes: Math.min(MAX_SLACK_ATTACHMENT_BYTES, bytesLeft),
+      }).catch(() => null)
+
+      if (!file) {
+        entry.error = 'Could not be fetched, or is too large.'
+        continue
+      }
+      bytesLeft -= file.bytes.byteLength
+      entry.at = fetched.length
+      fetched.push({
+        fileName: entry.name,
+        contentType: file.contentType ?? ref.mimetype ?? null,
+        bytes: file.bytes,
+      })
+    }
+    slots.push(entries)
+  }
+  const placed = fetched.length
+    ? await place(fetched).catch((err: unknown) =>
+        err instanceof Error ? err.message : String(err),
+      )
+    : []
+
+  return messages.map((message, index) => {
+    const entries = slots[index]!
+
+    if (entries.length === 0) return message
+
+    return {
+      ...message,
+      files: entries.map(({ at, ...entry }) => {
+        if (at === undefined) return entry
+
+        return typeof placed === 'string'
+          ? { ...entry, error: placed }
+          : { ...entry, path: placed[at] }
+      }),
+    }
+  })
+}
 
 // Downloads whatever the user attached and puts it in the transfer store, so
 // the turn can tell the agent where to pull it from. Returns the text to append
@@ -70,7 +156,7 @@ export async function ingestSlackAttachments(args: {
         continue
       }
       downloaded.push({
-        fileName: ref.name || ref.title || `${ref.id ?? 'attachment'}.${ref.filetype ?? 'bin'}`,
+        fileName: slackFileName(ref),
         contentType: file.contentType ?? ref.mimetype ?? null,
         bytes: file.bytes,
       })

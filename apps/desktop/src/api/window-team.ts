@@ -160,7 +160,11 @@ export type WindowTeamApi = {
   ): Promise<SidebarFavoritesCloudSnapshot>
   atlasGetHomeLayout(teamId: string): Promise<HomeLayouts>
   atlasGetRuntimeFallback(teamId: string): Promise<RuntimeFallback>
-  atlasPutRuntimeFallback(teamId: string, runtimeIds: string[]): Promise<RuntimeFallback>
+  atlasPutRuntimeFallback(
+    teamId: string,
+    runtimeId: string,
+    fallbackRuntimeId: string | null,
+  ): Promise<unknown>
   atlasGetTeamActivity(teamId: string, range: TeamActivityRange): Promise<TeamActivity>
   atlasGetAgentStats(teamId: string, query: AgentStatsQuery): Promise<AgentStats>
   atlasPutHomeLayout(

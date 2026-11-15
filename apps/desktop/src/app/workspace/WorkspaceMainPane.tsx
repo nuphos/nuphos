@@ -1,7 +1,9 @@
+import { clsx } from 'clsx'
 import { Profiler, useEffect, useRef, useState } from 'react'
 
 import { WorkspaceTabPane } from '../../app/workspace/WorkspaceTabPane'
 import { EMPTY_LIST } from '../../app/workspaceTabState'
+import { HeaderEdge } from '../../components/ui/header-edge'
 import { PageAsideContext } from '../../hooks/usePageAside'
 import { ToolbarSlotsContext } from '../../hooks/useToolbarControls'
 import { ToolbarPrimaryActionContext } from '../../hooks/useToolbarPrimaryAction'
@@ -10,7 +12,6 @@ import { reportPaneRender } from '../../lib/tabSwitchLog'
 import { usePaneOrder } from './usePaneOrder'
 import { WorkspacePageToolbar } from './WorkspacePageToolbar'
 import { useWorkspacePane } from './WorkspacePaneContext'
-import { HeaderEdge } from '../../components/ui/header-edge'
 
 import type { WorkspaceController } from './useWorkspaceController'
 import type { UserInfo } from '../../types'
@@ -26,7 +27,16 @@ function keepsFocus(element: Element | null): boolean {
   return surface?.dataset.workspaceFocusSurface === 'tab'
 }
 
-export function WorkspaceMainPane({ ws, user }: { ws: WorkspaceController; user: UserInfo }) {
+/** The pages of a dock, or with `mainPage` the one management page shown in the chat's place. */
+export function WorkspaceMainPane({
+  ws,
+  user,
+  mainPage = false,
+}: {
+  ws: WorkspaceController
+  user: UserInfo
+  mainPage?: boolean
+}) {
   const {
     teams,
     databaseConnectionsByTeam,
@@ -87,7 +97,7 @@ export function WorkspaceMainPane({ ws, user }: { ws: WorkspaceController; user:
   // surface also promotes its pane to the split's active one, so reacting to
   // `paneActive` itself would hijack the pane the user just clicked into.
   useEffect(() => {
-    const surfaced = dockOpen || mainPageOpen ? activeTabId : null
+    const surfaced = dockOpen || mainPage ? activeTabId : null
 
     if (surfaced === focusedTabRef.current) return
     focusedTabRef.current = surfaced
@@ -98,7 +108,7 @@ export function WorkspaceMainPane({ ws, user }: { ws: WorkspaceController; user:
     if (!surfaced || !paneActive || !surface) return
     if (keepsFocus(document.activeElement)) return
     surface.focus({ preventScroll: true })
-  }, [activeTabId, dockOpen, mainPageOpen, paneActive])
+  }, [activeTabId, dockOpen, mainPage, paneActive])
 
   // Browser panes come last and outlive a session switch, so their webviews are
   // never unmounted or moved — see usePaneOrder.
@@ -110,12 +120,21 @@ export function WorkspaceMainPane({ ws, user }: { ws: WorkspaceController; user:
     <main
       ref={surfaceRef}
       tabIndex={-1}
-      data-workspace-focus-surface="tab"
+      // The management page stands where the chat does, so it is that region.
+      data-workspace-focus-surface={mainPage ? 'session' : 'tab'}
+      // An expanded dock shrinks this column to zero width, as it does the chat.
+      inert={mainPage && ws.workspaceDockExpanded}
       className="@container flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden outline-none"
     >
       <div className="flex flex-1 min-h-0">
-        <div className="flex flex-1 min-h-0 min-w-0 flex-col overflow-hidden workspace-content-surface">
-          <WorkspacePageToolbar ws={ws} />
+        <div
+          className={clsx(
+            'flex flex-1 min-h-0 min-w-0 flex-col overflow-hidden workspace-content-surface',
+            mainPage && dockOpen && 'workspace-content-surface--leading',
+            mainPage && ws.workspaceDockExpanded && 'workspace-content-surface--collapsed',
+          )}
+        >
+          <WorkspacePageToolbar ws={ws} mainPage={mainPage} />
           <HeaderEdge className="flex-1 flex flex-col min-h-0">
             {error && (
               <div className="px-6 py-2 bg-error/15 text-error text-[12.5px] border-b border-error/30">

@@ -9,6 +9,7 @@ export type FcmRequest = {
   teamId: string
   sessionId: string
   title: string
+  subtitle?: string // Android shows one title line: it follows the title.
   body: string
 }
 export type FcmResponse = { status: number; deadToken: boolean }
@@ -26,7 +27,7 @@ export function fcmMessage(request: FcmRequest) {
         accountId: request.userId,
         teamId: request.teamId,
         sessionId: request.sessionId,
-        title: request.title,
+        title: request.subtitle ? `${request.title} · ${request.subtitle}` : request.title,
         body: request.body,
         ...(request.badge !== undefined ? { badge: String(request.badge) } : {}),
       },

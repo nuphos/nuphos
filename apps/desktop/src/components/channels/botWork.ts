@@ -1,3 +1,4 @@
+import { openInputRequests } from '../../lib/agentInputRequests.ts'
 import { runtimeTypingIn, runtimeTurnActive } from '../../lib/runtimeExecution.ts'
 import { subAgentState } from '../../lib/subAgentState.ts'
 import { activityOf } from '../sidebar/bot-activity.ts'
@@ -17,7 +18,7 @@ export type BotWork =
   | { kind: 'turn'; step: Step; reason: 'chat' | 'report' | 'other'; kids: Run[] }
   | { kind: 'waiting'; kids: Run[] }
   | { kind: 'background'; kids: Run[] }
-  | { kind: 'asking'; question: string; kids: Run[] }
+  | { kind: 'asking'; question: string; id: string; count: number; kids: Run[] }
 
 const RUNNING = new Set(['running', 'in_progress', 'pending'])
 
@@ -54,11 +55,23 @@ function reasonOf(bot: Run, kids: Run[], channelId: string): 'chat' | 'report' |
 }
 
 export function botWorkOf(bot: Run | undefined, kids: Run[], channelId: string): BotWork | null {
-  const activity = activityOf(bot, kids)
   const working = activeKids(kids)
+  // Every open question of the Bot and the agents under it, the oldest first.
+  const open = [...(bot ? [bot] : []), ...kids]
+    .flatMap((run) => openInputRequests(run.conversation))
+    .sort((a, b) => a.askedAt.localeCompare(b.askedAt))
+  const oldest = open.at(0)
 
-  if (activity.kind === 'asking')
-    return { kind: 'asking', question: activity.question, kids: working }
+  if (oldest)
+    return {
+      kind: 'asking',
+      question: oldest.question,
+      id: oldest.id,
+      count: open.length,
+      kids: working,
+    }
+  const activity = activityOf(bot, kids)
+
   if (
     activity.kind === 'working' &&
     bot &&

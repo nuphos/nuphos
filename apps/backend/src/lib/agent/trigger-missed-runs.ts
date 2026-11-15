@@ -1,9 +1,13 @@
+import { ObjectId } from 'mongodb'
+
 import { parseUtcCron } from '@/lib/cron'
+import { AppError } from '@/lib/errors'
 import { logError, logEvent } from '@/lib/observability'
 import { notifyNudge } from '@/lib/push/notify'
 
 import { agentTriggers, liveTriggerShapeFilter, triggerConfigRevisionFilter } from './trigger-db'
 
+import type { MessageMetadata } from './message-metadata'
 import type { AgentTrigger } from './trigger-db'
 import type { Collection } from 'mongodb'
 
@@ -114,27 +118,79 @@ async function claimMissedRun(
   )
 
   if (!before || before.missedRunAt) return false
+  alertMissedRun(trigger, expected, deps.notify)
+
+  return true
+}
+
+/** Tells the owner a run was missed. Callers alert once per outage. */
+function alertMissedRun(trigger: AgentTrigger, expected: Date, notify: typeof notifyNudge): void {
   logEvent('warn', 'agent.trigger.missed_run', {
     trigger_id: trigger._id?.toString(),
     team_id: trigger.teamId,
     expected_at: expected.toISOString(),
   })
   if (trigger.targetSessionId && trigger.teamId) {
-    deps.notify([trigger.userId], {
+    notify([trigger.userId], {
       sessionId: trigger.targetSessionId,
       teamId: trigger.teamId,
       title: 'Trigger missed a run',
       body: `${trigger.name} was due at ${describeDueTime(expected, trigger.timeZone)} and did not run.`,
     })
   }
+}
 
-  return true
+export const TRIGGER_SENDER_PREFIX = 'trigger:'
+
+/** The Trigger a message is a fire of, if it is one. */
+export function triggerIdOf(message: { source?: string; metadata?: MessageMetadata }) {
+  const id = message.metadata?.sender?.id
+
+  if (message.source !== 'agent.resource' || !id?.startsWith(TRIGGER_SENDER_PREFIX))
+    return undefined
+  const triggerId = id.slice(TRIGGER_SENDER_PREFIX.length)
+
+  return ObjectId.isValid(triggerId) ? triggerId : undefined
+}
+
+export type TriggerRunDeps = {
+  triggers: Pick<Collection<AgentTrigger>, 'updateOne' | 'findOneAndUpdate'>
+  notify: typeof notifyNudge
+}
+
+const runDeps = (): TriggerRunDeps => ({ triggers: agentTriggers(), notify: notifyNudge })
+
+/** A fire's turn ran: the Trigger ran, and any outage it was in is over. */
+export async function recordTriggerRan(triggerId: string, deps = runDeps()): Promise<void> {
+  await deps.triggers.updateOne(
+    { _id: new ObjectId(triggerId) },
+    { $set: { lastRunAt: new Date() }, $unset: { missedRunAt: '' } },
+  )
+}
+
+/**
+ * A fire reached the worker and was dropped because its computer stayed
+ * offline: a missed run like one that never fired. Only the first of an outage
+ * finds no earlier `missedRunAt` and alerts; the run that ends it clears it.
+ */
+export async function recordDroppedFire(
+  triggerId: string,
+  firedAt: Date,
+  deps = runDeps(),
+): Promise<void> {
+  const before = await deps.triggers.findOneAndUpdate(
+    { _id: new ObjectId(triggerId), enabled: true },
+    { $set: { missedRunAt: firedAt } },
+    { returnDocument: 'before' },
+  )
+
+  if (before && !before.missedRunAt) alertMissedRun(before, firedAt, deps.notify)
 }
 
 /**
  * Keeps `missedRunAt` at the latest missed fire, claimed once per occurrence
  * across replicas, and alerts once per outage: only the claim that finds no
- * earlier `missedRunAt` notifies. A fire clears it, so the next outage alerts
+ * earlier `missedRunAt` notifies. A run clears it, so the next outage alerts
  * again. One failing row is logged and skipped. Returns the alerts raised.
  */
 export async function sweepMissedTriggerRuns(
@@ -171,6 +227,36 @@ export async function sweepMissedTriggerRuns(
   }
 
   return alerted
+}
+
+type Delivered = { source?: string; metadata?: MessageMetadata; receivedAt: string }
+
+/** The fires among the messages of a turn that ran. */
+export async function recordFiresRan(messages: readonly Delivered[]): Promise<void> {
+  for (const id of new Set(messages.flatMap((message) => triggerIdOf(message) ?? [])))
+    await recordTriggerRan(id)
+}
+
+/**
+ * The fires among the messages of a turn that gave up on an offline computer.
+ * A Trigger has no sender to tell, so each is a missed run. Never throws: the
+ * turn is already failing with `error`.
+ */
+export async function recordDroppedFires(
+  error: unknown,
+  messages: readonly Delivered[],
+): Promise<void> {
+  if (!(error instanceof AppError) || error.code !== 'runtime_offline') return
+  for (const message of messages) {
+    const triggerId = triggerIdOf(message)
+
+    if (!triggerId) continue
+    try {
+      await recordDroppedFire(triggerId, new Date(message.receivedAt))
+    } catch (err) {
+      logError('agent.trigger.dropped_fire_record_failed', err, { trigger_id: triggerId })
+    }
+  }
 }
 
 let sweepTimer: ReturnType<typeof setInterval> | undefined

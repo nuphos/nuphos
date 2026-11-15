@@ -29,6 +29,10 @@ mock.module('../../lib/inputRequestRefresh.ts', {
     },
   },
 })
+// Nothing is listed or kept from an earlier chat: the hook starts empty and loads.
+mock.module('../../lib/query/client.ts', {
+  namedExports: { queryClient: { getQueryData: () => undefined, setQueryData: () => {} } },
+})
 mock.module('../ui/toast.ts', { namedExports: { toast: { apiError: () => {} } } })
 mock.module('../../i18n/index.ts', { namedExports: { t: (text: string) => text } })
 mock.module('react', {

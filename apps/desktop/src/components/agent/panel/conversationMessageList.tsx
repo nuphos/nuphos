@@ -12,7 +12,7 @@ import {
 import { conversationActivity } from './activity'
 import { AssistantMessage } from './AssistantMessage'
 import { toolAnchorIds } from './chatTarget'
-import { DecisionAnswersContext, decisionAnswers } from './decisionAnswers'
+import { DecisionCardsProvider } from './DecisionCardsProvider'
 import { AgentHomeAnimation } from './homeAnimation'
 import { OpenQuestionCards } from './OpenQuestionCards'
 import { CollapsedWorkView, LoadingText } from './partChrome'
@@ -290,11 +290,9 @@ function MessageList({
 
 /** The transcript; each choice card reads its answer from the replies after it. */
 export function ConversationMessageList(props: Parameters<typeof MessageList>[0]) {
-  const answers = useMemo(() => decisionAnswers(props.tab.messages), [props.tab.messages])
-
   return (
-    <DecisionAnswersContext.Provider value={answers}>
+    <DecisionCardsProvider messages={props.tab.messages}>
       <MessageList {...props} />
-    </DecisionAnswersContext.Provider>
+    </DecisionCardsProvider>
   )
 }

@@ -54,7 +54,7 @@ export function WorkspaceSidebarPanel({ ws, user }: { ws: WorkspaceController; u
     onSidebarOpenPath,
     handleLogout,
     selectedSessionId,
-    mainPageOpen,
+    mainPageTab,
     workspaceActions,
   } = ws
 
@@ -122,7 +122,7 @@ export function WorkspaceSidebarPanel({ ws, user }: { ws: WorkspaceController; u
   const pageHasOwnNavigation =
     sidebarView(scope, ws.sidebarActive, grafanaInstance, sidebarRepositoryNav).level > 0
   const { dynamicNavigation, active, chatShown } = sidebarSurface(
-    mainPageOpen,
+    mainPageTab?.active ?? null,
     ws.workspaceDockExpanded && pageHasOwnNavigation,
     ws.sidebarActive,
   )

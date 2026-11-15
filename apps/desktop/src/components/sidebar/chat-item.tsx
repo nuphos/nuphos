@@ -1,4 +1,5 @@
 import { t } from '../../i18n'
+import { isBotRow } from '../../lib/agentAvatarChoices'
 import { openInputRequests } from '../../lib/agentInputRequests'
 import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
 import { runtimeTurnActive, runtimeBackgroundRunning } from '../../lib/runtimeExecution'
@@ -19,14 +20,9 @@ import type { Item } from './types'
 import type { AgentConversation } from '../../api'
 import type { RuntimeExecution } from '../../lib/runtimeExecution'
 
-/** A Bot: a face, picked in this app since the list loaded (null: taken away) or stored. */
-export function isBotRow(
-  conversation: Pick<AgentConversation, 'avatar' | 'kind'>,
-  picked?: string | null,
-): boolean {
-  return Boolean(
-    (picked === undefined ? conversation.avatar : picked) && conversation.kind !== 'channel',
-  )
+/** Whether the row belongs on the Bots page (chats and Bots) rather than Tasks. */
+export function onBotsPage(conversation: Pick<AgentConversation, 'avatar' | 'kind'>): boolean {
+  return conversation.kind === 'channel' || isBotRow(conversation)
 }
 
 /** One chat row in the sidebar; the caller adds its row actions. */

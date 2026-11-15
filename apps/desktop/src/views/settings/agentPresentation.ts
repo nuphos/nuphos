@@ -5,14 +5,26 @@ import type { AgentDevice, LocalAgentProvider } from '../../api/device-types'
 import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
 
 /**
+ * A person's own computer's default agent whose CLI is signed in. That computer's report
+ * lists it whatever Nuphos forgets, so it cannot be removed while it stays signed in.
+ */
+export function ownSignedInCli(instance: RuntimeInstance): boolean {
+  const local = instance.local
+
+  return local !== undefined && !local.instanceId && !local.box && local.signedIn === true
+}
+
+/**
  * How a computer's agent is removed: an added one by its id, a default one by its provider
  * (as for rename). A person's own computer's default is their CLI login, so Nuphos only
- * forgets it; it shows again once that CLI is signed in (see visibleAgent).
+ * forgets it, and only while that CLI is signed out; it shows again once it signs in (see
+ * visibleAgent).
  */
 export function localRemovalId(instance: RuntimeInstance): string | undefined {
   const local = instance.local
 
-  if (!local || (instance.provider === 'antigravity' && !local.instanceId)) return undefined
+  if (!local || ownSignedInCli(instance)) return undefined
+  if (instance.provider === 'antigravity' && !local.instanceId) return undefined
 
   return local.instanceId ?? instance.provider
 }
