@@ -133,6 +133,10 @@ export abstract class OpenAbAcpLifecycle {
       ...(restore ? { restore } : {}),
     })
   }
+  /** What a new session would offer, read from an agent the runtime starts and stops. */
+  getAgentConfigOptions(model?: string): Promise<Record<string, unknown>> {
+    return this.call('_openab/agent/config_options', model ? { model } : {}, {}, 60_000)
+  }
   setSessionConfigOption(
     sessionId: string,
     configId: string,

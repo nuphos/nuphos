@@ -3,7 +3,6 @@ import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 
 import { config } from '@/config'
-import { agentConversations } from '@/lib/agent/db/shared'
 import { localRuntimeId, parseLocalRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { fastChoicesSchema } from '@/lib/agent/devices/local-runtime/protocol'
 
@@ -134,7 +133,7 @@ async function probeConnectedModels(
   return runtimeModelCatalogSchema.parse(JSON.parse(result.stdout))
 }
 
-/** Read advertised choices without resuming, modifying, or claiming a live conversation. */
+/** Ask the runtime what a new session of its agent offers; no conversation is involved. */
 async function observedModels(
   teamId: string,
   instance: RuntimeInstance,
@@ -147,19 +146,6 @@ async function observedModels(
   const endpoint = endpoints.find((candidate) => candidate.runtimeId === instance.id)
 
   if (!endpoint) return { models: [] }
-  const sessions = await agentConversations()
-    .find(
-      {
-        teamId,
-        'claudeCodePreview.runtimeUrl': endpoint.url,
-      },
-      { projection: { claudeCodePreview: 1 } },
-    )
-    .sort({ lastActiveAt: -1 })
-    .limit(5)
-    .toArray()
-
-  if (!sessions.length) return { models: [] }
   const client = await OpenAbAcpClient.connect({
     ...(await reachableRuntimeEndpoint(endpoint)),
     callTimeoutMs: 5_000,
@@ -167,54 +153,35 @@ async function observedModels(
 
   try {
     await client.initialize()
-    let observed: RuntimeModelCatalog = { models: [] }
+    const result = await client.getAgentConfigOptions(selectedModel)
+    const options = parseSessionConfigOptions(result.configOptions)
+    const model = options.find((option) => option.kind === 'model')
+    const effort = options.find((option) => option.kind === 'effort')
+    const speeds = options.find((option) => option.kind === 'fast')
 
-    for (const session of sessions) {
-      const id = session.claudeCodePreview?.openabSessionId
+    if (!model?.options.length) return { models: [] }
 
-      if (!id) continue
-      try {
-        const result = await client.getSessionConfigOptions(id)
-        const options = parseSessionConfigOptions(result.configOptions)
-        const model = options.find((option) => option.kind === 'model')
-        const speeds = options.find((option) => option.kind === 'fast')?.options
-
-        if (model?.options.length) {
-          observed = runtimeModelCatalogSchema.parse({
-            models: model.options.map((option) => ({
-              id: option.value,
-              name: option.name,
-              description: option.description,
-            })),
-            ...(!selectedModel || model.currentValue === selectedModel
-              ? {
-                  controls: {
-                    modelId: model.currentValue,
-                    defaultEffort: options.find((o) => o.kind === 'effort')?.currentValue,
-                    defaultFast: options.find((o) => o.kind === 'fast')?.currentValue,
-                    effort:
-                      options
-                        .find((o) => o.kind === 'effort')
-                        ?.options.map(({ value, name, description }) => ({
-                          value,
-                          name,
-                          ...(description ? { description } : {}),
-                        })) ?? [],
-                    fast: speeds?.some((o) => o.value === 'off')
-                      ? speeds.map(({ value, name }) => ({ value, name }))
-                      : [],
-                  },
-                }
-              : {}),
-          })
-          if (observed.controls || !selectedModel) return observed
-        }
-      } catch {
-        /* A dormant or busy session must not affect an active conversation. */
-      }
-    }
-
-    return observed
+    return runtimeModelCatalogSchema.parse({
+      models: model.options.map((option) => ({
+        id: option.value,
+        name: option.name,
+        description: option.description,
+      })),
+      controls: {
+        modelId: model.currentValue,
+        defaultEffort: effort?.currentValue,
+        defaultFast: speeds?.currentValue,
+        effort:
+          effort?.options.map(({ value, name, description }) => ({
+            value,
+            name,
+            ...(description ? { description } : {}),
+          })) ?? [],
+        fast: speeds?.options.some((o) => o.value === 'off')
+          ? speeds.options.map(({ value, name }) => ({ value, name }))
+          : [],
+      },
+    })
   } finally {
     client.close()
   }
@@ -245,21 +212,14 @@ export async function discoverModels(
 
       if (catalog.models.length) return catalog
     } catch {
-      /* Older runtimes can still advertise choices through an active session. */
+      /* An older image without the probe still runs its agent through OpenAB. */
     }
   }
-  const catalog = await observedModels(teamId, instance, model)
+  // Runtimes older than the agent probe answer it with an error: they need an update.
+  const catalog = await observedModels(teamId, instance, model).catch(() => null)
 
-  return catalog.models.length
-    ? {
-        ...catalog,
-        ...(!catalog.controls
-          ? {
-              message:
-                'This runtime could not report settings for the selected model. Check its sign-in and runtime version, then retry.',
-            }
-          : {}),
-      }
+  return catalog?.models.length
+    ? catalog
     : {
         models: [],
         message:

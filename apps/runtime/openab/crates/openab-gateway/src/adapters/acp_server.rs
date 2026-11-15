@@ -2363,6 +2363,7 @@ async fn handle_acp_connection(
                     | "session/prompt"
                     | "session/set_config_option"
                     | "_openab/session/config_options"
+                    | "_openab/agent/config_options"
                     | "_openab/session/steer"
                     | "_openab/session/state"
                     | "_openab/runtime/state"
@@ -3246,6 +3247,62 @@ async fn handle_acp_connection(
                         mcp_enabled,
                     )
                     .await;
+                    let _ = out_tx.send(serde_json::to_string(&resp).unwrap());
+                }));
+            }
+            // What a new session would offer, without creating one here: the
+            // client learns the agent's models before its first conversation.
+            "_openab/agent/config_options" => {
+                if !initialized {
+                    let resp = JsonRpcResponse::error(id, -32002, "Not initialized");
+                    let _ = out_tx.send(serde_json::to_string(&resp).unwrap());
+                    continue;
+                }
+                let model = req.params.as_ref().and_then(|p| p.get("model"));
+                let model = match model {
+                    None | Some(Value::Null) => None,
+                    Some(Value::String(m)) if !m.is_empty() && m.len() <= 500 => Some(m.clone()),
+                    Some(_) => {
+                        let resp = JsonRpcResponse::error(id, -32602, "model must be a string");
+                        let _ = out_tx.send(serde_json::to_string(&resp).unwrap());
+                        continue;
+                    }
+                };
+                let Some(tx) = state.acp_fresh_config.clone() else {
+                    let resp = JsonRpcResponse::error(
+                        id,
+                        -32601,
+                        "Session configuration requires the unified runtime",
+                    );
+                    let _ = out_tx.send(serde_json::to_string(&resp).unwrap());
+                    continue;
+                };
+                if prompt_tasks.len() >= MAX_INFLIGHT_PROMPTS {
+                    let resp =
+                        JsonRpcResponse::error(id, ACP_OVERLOADED, "Too many in-flight requests");
+                    let _ = out_tx.send(serde_json::to_string(&resp).unwrap());
+                    continue;
+                }
+                let out_tx = out_tx.clone();
+                prompt_tasks.push(tokio::spawn(async move {
+                    let (reply, response) = tokio::sync::oneshot::channel();
+                    let resp = if tx.try_send((model, reply)).is_err() {
+                        JsonRpcResponse::error(id, ACP_OVERLOADED, "Configuration queue is full")
+                    } else {
+                        match tokio::time::timeout(std::time::Duration::from_secs(60), response)
+                            .await
+                        {
+                            Ok(Ok(Ok(value))) => JsonRpcResponse::success(id, value),
+                            Ok(Ok(Err((code, message)))) => {
+                                JsonRpcResponse::error(id, code, message)
+                            }
+                            _ => JsonRpcResponse::error(
+                                id,
+                                -32603,
+                                "Agent did not report its configuration",
+                            ),
+                        }
+                    };
                     let _ = out_tx.send(serde_json::to_string(&resp).unwrap());
                 }));
             }
