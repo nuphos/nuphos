@@ -14,13 +14,15 @@ import type { ThreadStatus } from '../agent/panel/threadStatus'
 import type { ReactNode } from 'react'
 
 const SHOWN = 5
-const LINK = 'flex items-center gap-1 self-start text-[12px] hover:text-main hover:underline'
+const LINK = 'flex items-center gap-1 hover:text-main hover:underline'
+// What a row or the card offers to do, as its text reads.
+const ACTION = `${LINK} text-[12.5px] font-medium text-main`
 
 function Detail({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
       <div className="text-[11px] font-medium leading-4 text-secondary">{label}</div>
-      <div className="line-clamp-4 break-words text-[12px] leading-5 text-main">{children}</div>
+      <div className="line-clamp-4 break-words text-[12.5px] leading-5 text-main">{children}</div>
     </div>
   )
 }
@@ -59,7 +61,7 @@ function TaskRow({
         />
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2">
-            <span className="min-w-0 flex-1 truncate text-[13px] font-medium leading-5 text-main">
+            <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium leading-5 text-main">
               {task.title}
             </span>
             <StatusLabel status={status} pending={false} />
@@ -72,7 +74,7 @@ function TaskRow({
             />
           </span>
           {line && (
-            <span className="block truncate text-[12px] leading-5 text-secondary">{line}</span>
+            <span className="block truncate text-[12.5px] leading-5 text-secondary">{line}</span>
           )}
         </span>
       </button>
@@ -83,7 +85,7 @@ function TaskRow({
           <button
             type="button"
             onClick={() => onOpenTask(task.sessionId)}
-            className={clsx(LINK, 'font-medium text-main')}
+            className={clsx(ACTION, 'self-start')}
           >
             {t('Open Task')}
             <ArrowUpRight aria-hidden className="size-3.5" />
@@ -119,7 +121,7 @@ export function DelegatedWorkCard({
     // Under the bubbles: past the face and its gap, no wider than a post.
     <div className="flex w-full gap-2.5">
       <div className="w-7 shrink-0" />
-      <section className="flex min-w-0 max-w-[85%] flex-1 flex-col gap-0.5 rounded-xl border border-line-control bg-main px-2 py-2.5">
+      <section className="flex min-w-0 max-w-[85%] flex-1 flex-col gap-0.5 rounded-[14px] bg-surface-raised px-2 py-2.5 shadow-[0_0_0_1px_rgb(var(--color-line-control)),0_1px_2px_rgba(0,0,0,0.04)]">
         <header className="flex items-center gap-2 px-1.5 pb-1 text-[12px] leading-4">
           <h3 className="font-semibold text-main">{t('Delegated work')}</h3>
           <span className="rounded bg-state-selected px-1.5 text-[11px] tabular-nums text-secondary">
@@ -143,12 +145,16 @@ export function DelegatedWorkCard({
         </ul>
         <div className="flex flex-col gap-1.5 pl-[1.875rem] pt-1 text-secondary empty:hidden">
           {!all && tasks.length > SHOWN && (
-            <button type="button" onClick={() => setAll(true)} className={LINK}>
+            <button type="button" onClick={() => setAll(true)} className={clsx(ACTION, 'w-full')}>
               {t('Show all {count}', { count: tasks.length })}
             </button>
           )}
           {onOpenRecord && (
-            <button type="button" onClick={onOpenRecord} className={LINK}>
+            <button
+              type="button"
+              onClick={onOpenRecord}
+              className={clsx(LINK, 'self-start text-[12px]')}
+            >
               {t('Full record in the Task view')}
               <ArrowUpRight aria-hidden className="size-3.5" />
             </button>
