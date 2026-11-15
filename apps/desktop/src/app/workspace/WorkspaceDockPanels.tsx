@@ -6,6 +6,7 @@ import { t } from '../../i18n'
 import { comboText } from '../../lib/platform'
 
 import { cycleFocusRegion, moveFocusWithDock } from './dockFocus'
+import { usePageWindow } from './pageWindow'
 import { WorkspaceMainPane } from './WorkspaceMainPane'
 import { useWorkspacePane } from './WorkspacePaneContext'
 import { WorkspaceTabStrip } from './WorkspaceTabStrip'
@@ -28,6 +29,7 @@ export function WorkspaceDockPanels({ ws, user }: { ws: WorkspaceController; use
     workspaceDockExpanded,
     setWorkspaceDockExpanded,
     scope,
+    stableOpenNuphosLinkFromChat,
   } = ws
   const dockRef = useRef<HTMLElement | null>(null)
   const [widthVw, setWidthVw] = useState(() => {
@@ -71,6 +73,8 @@ export function WorkspaceDockPanels({ ws, user }: { ws: WorkspaceController; use
       `${String(widthVw)}cqw`,
     )
   }, [widthVw, scope?.teamId])
+
+  usePageWindow(stableOpenNuphosLinkFromChat, dockOpen, setWorkspaceDockExpanded)
 
   useEffect(() => {
     // Expanded is the dock's own state, so a management page must not clear it.
