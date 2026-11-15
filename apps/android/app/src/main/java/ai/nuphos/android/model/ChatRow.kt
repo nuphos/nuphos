@@ -1,5 +1,6 @@
 package ai.nuphos.android.model
 
+import ai.nuphos.android.R
 import ai.nuphos.android.session.ChatSession
 import java.time.Instant
 
@@ -103,8 +104,8 @@ sealed class ChatRow {
                         rows += anchoredDownloads[message.id].orEmpty().map { Downloads("downloads.${it.groupId}", it) }
                         if (message.stoppedByUser == true && !isLive) {
                             val calls = message.parts.count { it is ChatPart.Tool }
-                            val suffix = when (calls) { 0 -> ""; 1 -> " · 1 call"; else -> " · $calls calls" }
-                            rows += Hint("stopped.${message.id}", "Stopped by you$suffix", false)
+                            val text = if (calls == 0) Words(R.string.convtext_stopped_by_you) else Words.plural(R.plurals.convtext_stopped_by_you_calls, calls, calls)
+                            rows += Hint("stopped.${message.id}", text, false)
                         }
                     }
                     ChatMessage.Role.System -> Unit
@@ -114,7 +115,7 @@ sealed class ChatRow {
             // A native runtime reports its own status; it's the transcript's last row, as on iOS.
             if (!runtimeStatus.isNullOrBlank()) rows += Activity(runtimeStatus, live = isStreaming || runtimeTurnActive)
             else if (isStreaming || !phaseLabel.isNullOrBlank()) rows += Activity(phaseLabel, live = isStreaming)
-            if (cancelRequested) rows += Hint("cancel-requested", "Cancellation requested", false)
+            if (cancelRequested) rows += Hint("cancel-requested", Words(R.string.convtext_cancellation_requested), false)
             error?.takeIf { !stoppedByUser }?.let { rows += Hint("error", it, true) }
             rows += Bottom
             return rows

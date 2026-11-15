@@ -132,7 +132,12 @@ fun CredentialPickerSheet(
                     item {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                             if (computersOnly) Icon(Icons.Outlined.Computer, null, Modifier.size(18.dp).padding(end = 4.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(section.provider.title, style = MaterialTheme.typography.titleSmall, color = if (computersOnly) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f).padding(vertical = 8.dp))
+                            Text(when (section.provider.optionsKey) {
+                                "devices" -> stringResource(R.string.composer_computers)
+                                "onpremClusters" -> stringResource(R.string.storetext_credentials_clusters)
+                                "personalCredentials" -> stringResource(R.string.storetext_credentials_personal)
+                                else -> section.provider.title
+                            }, style = MaterialTheme.typography.titleSmall, color = if (computersOnly) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f).padding(vertical = 8.dp))
                             if (!computersOnly && section.provider.optionsKey == "devices") {
                                 val allSelected = selection.containsAllComputers(catalog)
                                 TextButton(onClick = {

@@ -1,5 +1,7 @@
 package ai.nuphos.android.session
 
+import ai.nuphos.android.model.Words
+import ai.nuphos.android.R
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -44,18 +46,18 @@ class RuntimesStore(
             }
             try {
                 var catalogDenied = false
-                val catalog = read("Could not refresh runtimes.") {
+                val catalog = read(Words(R.string.storetext_runtimes_refresh_failed)) {
                     try { readCatalog() } catch (failure: RuntimeHttpFailure) { catalogDenied = failure.status == 403; throw failure }
                 }
                 if (!current(ticket)) return@launch
                 if (catalogDenied) {
                     runtimes = emptyList(); quotas = emptyMap(); devices = emptyList(); loaded = false
-                    errors = listOf("Runtime access is no longer available in this workspace.")
+                    errors = listOf(Words(R.string.storetext_runtimes_access_lost))
                     return@launch
                 }
-                val usage = read("Usage unavailable. Try refreshing.", readQuotas)
+                val usage = read(Words(R.string.storetext_runtimes_usage_unavailable), readQuotas)
                 if (!current(ticket)) return@launch
-                val hosts = read("Computer status unavailable. Try refreshing.", readDevices)
+                val hosts = read(Words(R.string.storetext_runtimes_computers_unavailable), readDevices)
                 if (!current(ticket)) return@launch
                 if (catalog != null) { runtimes = catalog; loaded = true }
                 // A failed observation never keeps stale metrics or usage on screen.
@@ -71,7 +73,7 @@ fun runtimeGroups(runtimes: List<AgentRuntime>, devices: List<RuntimeDevice>): L
         .map { (key, rows) ->
             val host = rows.first().local
             val device = host?.deviceId?.let { id -> devices.firstOrNull { it.id == id } }
-            RuntimeGroup(key, if (key == "cloud") "Cloud" else device?.label ?: host?.deviceLabel ?: rows.first().label, device, rows)
+            RuntimeGroup(key, if (key == "cloud") Words(R.string.agent_cloud) else device?.label ?: host?.deviceLabel ?: rows.first().label, device, rows)
         }.sortedBy { if (it.key == "cloud") 0 else 1 }
 
 /** Unknown access never grants sign-in; the API also checks the current actor. */
