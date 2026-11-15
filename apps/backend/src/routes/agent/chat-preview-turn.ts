@@ -264,7 +264,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
   if (state.signal.aborted && !(state.signal.reason instanceof RunHandoff)) {
     pauses.abort()
     try {
-      if (!(await prompt).unsent || !(await requeueUnsent(args, prepared.carried, steered)))
+      if (!(await prompt).unsent || !(await requeueUnsent(args, prepared.carried, steered, true)))
         await persistInterrupted(state.signal.reason)
     } finally {
       await clearActiveTurn()

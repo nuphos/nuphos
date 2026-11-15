@@ -1,7 +1,7 @@
 // The stack under test: a real MongoDB, backend and OpenAB, with a deterministic
 // ACP agent in place of a model. Nothing here talks to the internet.
 import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
@@ -22,6 +22,8 @@ export type Stack = {
   /** One JSON line per turn the fixture agent started or finished. */
   acpLog: string
   signInCode: typeof signInCode
+  /** Keeps the agent from opening new sessions, as a slow start does, until the returned function is called. */
+  holdSessionOpening: () => () => void
   /** Stops OpenAB and its agents, then starts it again on the same address, as a runtime restart does. */
   restartAgentHost: () => Promise<void>
 }
@@ -118,6 +120,12 @@ export async function startStack(): Promise<Stack> {
   await until('MongoDB to become primary', async () => initiateReplicaSet(mongoUri))
   const apiUrl = `http://127.0.0.1:${String(backendPort)}`
   const acpLog = join(artifacts, 'acp.jsonl')
+  const holdOpening = join(artifacts, 'hold-opening')
+  const holdSessionOpening = () => {
+    writeFileSync(holdOpening, '')
+
+    return () => rmSync(holdOpening)
+  }
 
   writeFileSync(acpLog, '')
   // One OpenAB per runtime. The fixture logs `agent` with every entry, and each
@@ -137,6 +145,7 @@ export async function startStack(): Promise<Stack> {
         '[agent.env]',
         `E2E_ACP_LOG = ${JSON.stringify(acpLog)}`,
         `E2E_AGENT = ${JSON.stringify(agent)}`,
+        `E2E_HOLD_OPENING = ${JSON.stringify(holdOpening)}`,
         '[pool]',
         'max_sessions = 4',
         'session_ttl_hours = 1',
@@ -226,5 +235,5 @@ export async function startStack(): Promise<Stack> {
     })
   }
 
-  return { apiUrl, email, token, teamId, acpLog, signInCode, restartAgentHost }
+  return { apiUrl, email, token, teamId, acpLog, signInCode, holdSessionOpening, restartAgentHost }
 }
