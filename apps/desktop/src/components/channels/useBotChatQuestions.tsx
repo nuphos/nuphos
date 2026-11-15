@@ -1,4 +1,5 @@
 import { DismissQuestionButton } from '../../views/inbox/DismissQuestionButton'
+import { selectInboxQuestion } from '../../views/inbox/inboxSelection'
 import { answerDecision } from '../../views/inbox/useInbox'
 import { inputRequestKey } from '../agent/summary/sessionInputRequests'
 import { useSessionInputRequests } from '../agent/summary/useSessionInputRequests'
@@ -40,7 +41,7 @@ export function useBotChatQuestions(
       key: `question-${inputRequestKey(request)}`,
       node: (
         // Inset past the faces on both sides, so the card lines up with the bubbles.
-        <div className="flex flex-col gap-1 px-[2.375rem]">
+        <div className="flex flex-col gap-1 px-[2.375rem]" data-open-question>
           <BotChatQuestion
             request={request}
             teamId={teamId}
@@ -62,4 +63,26 @@ export function useBotChatQuestions(
   })
 
   return { rows, credentials: botCredentials }
+}
+
+/**
+ * Brings an open question to the viewer: its card in this chat, the oldest
+ * first, marked for a moment; where the chat draws none, the Inbox opens on it.
+ */
+export function showBotQuestion(
+  chat: HTMLElement | null,
+  teamId: string,
+  id: string,
+  openLink?: (href: string) => boolean,
+) {
+  const card = chat?.querySelector('[data-open-question]')
+
+  if (card) {
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    card.animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 450, iterations: 2 })
+
+    return
+  }
+  selectInboxQuestion(teamId, { id, index: 0 })
+  openLink?.(`/teams/${teamId}/inbox`)
 }
