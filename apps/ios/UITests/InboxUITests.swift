@@ -57,6 +57,10 @@ final class InboxUITests: XCTestCase {
         // Grouped under who asked; still badged on the Inbox title.
         let row = listed("Roll out 1.4 to production?")
         XCTAssertTrue(row.waitForExistence(timeout: 5), "The question is not listed")
+        // Wide, a tap opens it beside the list: VoiceOver must say it can be activated.
+        if app.windows.firstMatch.horizontalSizeClass == .regular {
+            XCTAssertEqual(row.elementType, .button, "A wide row is not announced as a button")
+        }
         XCTAssertTrue(app.staticTexts["Release Lead"].exists, "No group for the Bot that asked")
         XCTAssertTrue(app.staticTexts["Check the staging cluster"].exists, "No group for the Task that asked")
         XCTAssertTrue(menu.value.map { "\($0)".contains("4 in Inbox") } ?? false, "The Inbox title lost its badge")
