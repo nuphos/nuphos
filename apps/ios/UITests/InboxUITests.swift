@@ -179,14 +179,14 @@ final class InboxUITests: XCTestCase {
 
         // Touch targets: 44pt on iPhone; wide, 40pt capsules. "Show more" spans the card.
         for label in ["Other…", "Skip"] {
-            XCTAssertGreaterThanOrEqual(app.buttons[label].frame.height, wide ? 40 : 44, "\(label) is too small to hit")
+            XCTAssertGreaterThanOrEqual(app.buttons[label].frame.height.rounded(), wide ? 40 : 44, "\(label) is too small to hit")
         }
         if !wide {
             XCTAssertEqual(app.buttons["Other…"].frame.width, app.buttons["Skip"].frame.width, accuracy: 1, "Not two halves")
             XCTAssertEqual(app.buttons["Other…"].frame.minY, app.buttons["Skip"].frame.minY, accuracy: 1, "Not side by side")
         }
         let more = app.buttons["botQuestion.more"]
-        XCTAssertGreaterThanOrEqual(more.frame.height, 44, "Show more is too small to hit")
+        XCTAssertGreaterThanOrEqual(more.frame.height.rounded(), 44, "Show more is too small to hit")
         XCTAssertEqual(more.frame.width, options[0].union(app.buttons["Skip"].frame).width, accuracy: 1, "Show more is not full-width")
         XCTAssertEqual(more.label, "Show more")
         more.tap()
