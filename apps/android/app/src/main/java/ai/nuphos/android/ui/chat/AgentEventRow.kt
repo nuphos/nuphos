@@ -32,6 +32,8 @@ import ai.nuphos.android.model.ChatRow
 import androidx.compose.ui.platform.testTag
 import ai.nuphos.android.model.MessageAttribution
 import ai.nuphos.android.ui.components.MarkdownText
+import ai.nuphos.android.R
+import androidx.compose.ui.res.stringResource
 
 @Composable
 internal fun MessageSenderLabel(sender: MessageAttribution) {
@@ -70,10 +72,11 @@ internal fun AgentEventRow(
         return
     }
     var expanded by rememberSaveable(row.id) { mutableStateOf(false) }
+    val expandedState = stringResource(if (expanded) R.string.chat_expanded else R.string.chat_collapsed)
     Column(Modifier.fillMaxWidth()) {
         Surface(
             onClick = { expanded = !expanded },
-            modifier = Modifier.fillMaxWidth().semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" },
+            modifier = Modifier.fillMaxWidth().semantics { stateDescription = expandedState },
             color = MaterialTheme.colorScheme.surface,
         ) {
             Row(Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -84,7 +87,7 @@ internal fun AgentEventRow(
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(2f).padding(start = 8.dp))
                 Icon(if (expanded) Icons.Outlined.ExpandMore else Icons.Outlined.ChevronRight,
-                    contentDescription = if (expanded) "Collapse event" else "Expand event")
+                    contentDescription = if (expanded) stringResource(R.string.chat_event_collapse) else stringResource(R.string.chat_event_expand))
             }
         }
         if (expanded) {
@@ -100,10 +103,10 @@ internal fun AgentEventRow(
 
 @Composable
 private fun ChannelNoticeRow(name: String, onOpen: (() -> Unit)?) {
-    val label = "New messages in #$name"
+    val label = stringResource(R.string.chat_channel_new_messages, name)
     Text(label, style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
         modifier = Modifier.fillMaxWidth().testTag("channel-notice")
-            .then(if (onOpen != null) Modifier.clickable(onClickLabel = "Open channel", onClick = onOpen) else Modifier)
+            .then(if (onOpen != null) Modifier.clickable(onClickLabel = stringResource(R.string.chat_open_channel), onClick = onOpen) else Modifier)
             .padding(vertical = 8.dp))
 }
