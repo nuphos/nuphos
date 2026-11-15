@@ -6,7 +6,15 @@
 //
 // It signs in with the root's login (~/.pi/agent/auth.json) and starts on the model the
 // sign-in chose, which is copied from the root's settings.
-import { lstatSync, mkdirSync, readFileSync, renameSync, symlinkSync, writeFileSync } from 'node:fs'
+import {
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { join } from 'node:path'
 
 /** The settings a sign-in writes: the model every conversation starts on. */
@@ -77,4 +85,32 @@ export function writePiMcpServers(agentDir, servers = []) {
     ]),
   )
   writeJson(join(agentDir, 'mcp.json'), { mcpServers })
+}
+
+/**
+ * Why a session's last turn failed, as Pi recorded it, or undefined. pi-acp drops the
+ * error a provider answered with (a rejected key, a spent quota) and ends the turn as if
+ * it had replied, so the answer is read from the session file Pi keeps.
+ */
+export function piTurnError(agentDir, sessionId) {
+  const sessions = join(agentDir, 'sessions')
+  try {
+    for (const folder of readdirSync(sessions)) {
+      const name = readdirSync(join(sessions, folder)).find((file) =>
+        file.endsWith(`_${sessionId}.jsonl`),
+      )
+      if (!name) continue
+      const last = readFileSync(join(sessions, folder, name), 'utf8')
+        .trimEnd()
+        .split('\n')
+        .at(-1)
+      const { message } = JSON.parse(last)
+      return message?.role === 'assistant' && message.stopReason === 'error'
+        ? String(message.errorMessage || 'The model provider returned an error.')
+        : undefined
+    }
+  } catch {
+    return undefined
+  }
+  return undefined
 }

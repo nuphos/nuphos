@@ -549,3 +549,34 @@ test('pi runs through the pi-acp adapter and gets the session MCP servers as its
     assert.deepEqual(Object.keys(mcp.mcpServers), ['nuphos'])
   })
 })
+
+test('a pi turn the provider refused shows why, which pi-acp drops', async () => {
+  await withShim('pi', async ({ call, home, notifications }) => {
+    await call('initialize', { protocolVersion: 1 })
+    await call('session/new', session('Be Nuphos.'))
+    const { mkdir, readdir, writeFile } = await import('node:fs/promises')
+    const sessions = join(home, '.nuphos', 'session-homes')
+    const [sessionHome] = await readdir(sessions)
+    const folder = join(sessions, sessionHome, '.pi', 'agent', 'sessions', '--workspace--')
+    await mkdir(folder, { recursive: true })
+    const failed = {
+      type: 'message',
+      message: {
+        role: 'assistant',
+        content: [],
+        stopReason: 'error',
+        errorMessage: '401 invalid x-api-key',
+      },
+    }
+    await writeFile(
+      join(folder, '2026-11-15T00-00-00-000Z_s1.jsonl'),
+      `{"type":"session"}\n${JSON.stringify(failed)}\n`,
+    )
+    await call('session/prompt', { sessionId: 's1', prompt: [{ type: 'text', text: 'hi' }] })
+    const shown = notifications.filter(
+      (n) => n.params?.update?.sessionUpdate === 'agent_message_chunk',
+    )
+    assert.equal(shown.length, 1)
+    assert.match(shown[0].params.update.content.text, /401 invalid x-api-key/u)
+  })
+})

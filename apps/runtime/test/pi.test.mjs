@@ -14,7 +14,7 @@ import { test } from 'node:test'
 
 import { agentEnv } from '../image/acp-shim.mjs'
 import { listedModels, runPiLogin } from '../image/pi-login.mjs'
-import { writePiMcpServers } from '../image/pi-session.mjs'
+import { piTurnError, writePiMcpServers } from '../image/pi-session.mjs'
 
 const readJson = (file) => JSON.parse(readFileSync(file, 'utf8'))
 
@@ -164,5 +164,23 @@ test('a key Pi does not accept leaves the login as it was', async () => {
     })
   } finally {
     rmSync(home, { recursive: true, force: true })
+  }
+})
+
+test("a turn's error is read from the session file Pi keeps", () => {
+  const dir = mkdtempSync(join(tmpdir(), 'pi-turn-'))
+  try {
+    const folder = join(dir, 'sessions', '--workspace--')
+    mkdirSync(folder, { recursive: true })
+    const file = join(folder, '2026-11-15T00-00-00-000Z_abc.jsonl')
+    const line = (message) => `${JSON.stringify({ type: 'message', message })}\n`
+    writeFileSync(file, line({ role: 'assistant', stopReason: 'error', errorMessage: '429 quota' }))
+    assert.equal(piTurnError(dir, 'abc'), '429 quota')
+    writeFileSync(file, line({ role: 'assistant', stopReason: 'stop', content: [] }))
+    assert.equal(piTurnError(dir, 'abc'), undefined)
+    assert.equal(piTurnError(dir, 'other'), undefined)
+    assert.equal(piTurnError(join(dir, 'none'), 'abc'), undefined)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
   }
 })

@@ -20,7 +20,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { hermesProfile } from './hermes-session.mjs'
 import { nuphosBridgeMcpServers } from './mcp-bridge-config.mjs'
-import { piAgentDir, writePiMcpServers } from './pi-session.mjs'
+import { piAgentDir, piTurnError, writePiMcpServers } from './pi-session.mjs'
 import { nuphosApplyRuntimeDefaults, nuphosSyncRuntimeSkills } from './runtime-defaults.mjs'
 import { nuphosSessionHomeEnv } from './session-home.mjs'
 
@@ -120,6 +120,8 @@ export const PROVIDERS = {
     }),
     // pi-acp passes a session's MCP servers nowhere; Pi reads them from its agent directory.
     mcpServers: (env, servers) => writePiMcpServers(env.PI_CODING_AGENT_DIR, servers),
+    // pi-acp ends a failed turn as if Pi had replied; Pi's session file says why it failed.
+    turnError: (env, sessionId) => piTurnError(env.PI_CODING_AGENT_DIR, sessionId),
     instruct: null,
     serialPrompts: true,
   },
@@ -295,6 +297,19 @@ export function runShim({
     if (message.method === undefined && prompts.has(message.id)) {
       const promptSession = prompts.get(message.id)
       prompts.delete(message.id)
+      const failure = message.result && spec.turnError?.(agentEnvironment, promptSession)
+      if (failure)
+        write({
+          jsonrpc: '2.0',
+          method: 'session/update',
+          params: {
+            sessionId: promptSession,
+            update: {
+              sessionUpdate: 'agent_message_chunk',
+              content: { type: 'text', text: `The model provider refused the request: ${failure}` },
+            },
+          },
+        })
       forward(message)
       const next = queued.get(promptSession)?.shift()
       if (next) sendPrompt(next)
