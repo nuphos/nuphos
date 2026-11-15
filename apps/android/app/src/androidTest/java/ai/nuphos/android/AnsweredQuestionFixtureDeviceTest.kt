@@ -29,12 +29,12 @@ class AnsweredQuestionFixtureDeviceTest {
     private val answered = Instant.parse("2026-11-14T01:47:00Z")
     private val questions = listOf(
         AnsweredQuestion(
-            "Yuanlin Lin", "How should I run the sessions migration?", "Online, about 3 hours",
+            "Jamie Doe", "How should I run the sessions migration?", "Online, about 3 hours",
             "The migration touches the `sessions` table.\n\n- **Online** keeps the API up.\n- **Offline** needs a 20 minute window.",
             listOf("Online, about 3 hours", "Offline, 20 minute window", "Not yet"), asked, answered,
         ),
-        AnsweredQuestion("Yuanlin Lin", "Which platforms ship today?", "Desktop, iOS", null, listOf("Desktop", "iOS", "Android"), asked, answered),
-        AnsweredQuestion("Yuanlin Lin", "What goes in the changelog?", "One line about the answered notice, nothing else.", null, listOf("Nothing"), asked, answered),
+        AnsweredQuestion("Jamie Doe", "Which platforms ship today?", "Desktop, iOS", null, listOf("Desktop", "iOS", "Android"), asked, answered),
+        AnsweredQuestion("Jamie Doe", "What goes in the changelog?", "One line about the answered notice, nothing else.", null, listOf("Nothing"), asked, answered),
     )
 
     private fun capture(name: String) {
