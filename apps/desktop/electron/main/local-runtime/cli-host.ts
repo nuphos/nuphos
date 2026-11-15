@@ -13,6 +13,7 @@ import { CLI_CONFIG_PATH } from '../../cli-config-path.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../../client-version.ts'
 import {
   defaultDeviceLabel,
+  machineModel,
   parseDeviceIdentity,
   readMachineKey,
   stableDeviceId,
@@ -88,6 +89,7 @@ const log = (message: string, data?: Record<string, unknown>) => {
 }
 let lastSummary = ''
 let stopping = false
+let tunnel: RuntimeTunnelClient | undefined
 
 // From `nuphos agent` (the keychain trusts the CLI, not node); kept from the agents.
 const launchToken = process.env.NUPHOS_SESSION_TOKEN || null
@@ -160,6 +162,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       deviceId: device.deviceId,
       label: device.label,
       platform: process.platform,
+      model: await machineModel(),
       allowLocalExec: true,
     })
   },
@@ -210,12 +213,9 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
   log,
 })
 
-let tunnel: RuntimeTunnelClient | undefined
-
 // A desktop appearing or going changes the status; the pool directory says when.
 if (desktopPool) watchDesktops(desktopPool, () => tunnel?.sendStatus())
-// A Mac shows its own screen instead (mac-screen.ts); its host, not the terminal or node, holds
-// Screen Recording and Accessibility.
+// A Mac shows its own screen (mac-screen.ts); its host, not node, holds the screen permissions.
 const macScreen = enableMacScreen(dataDir, () => tunnel?.sendStatus())
 const macScreenHost = {
   binary: () => path.join(bundleRoot, 'mac-screen-host'),
