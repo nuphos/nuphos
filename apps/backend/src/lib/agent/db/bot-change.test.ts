@@ -1,4 +1,5 @@
 import { beforeEach, expect, test } from 'bun:test'
+import { ObjectId } from 'mongodb'
 
 import { useDb } from '@/lib/test/doubles/db'
 
@@ -11,6 +12,9 @@ type Update = { $set?: object; $unset?: object; $push?: object; $setOnInsert?: o
 
 // Each write as it reaches Mongo: the face and its record must be one update.
 let updates: Update[] = []
+const botId = new ObjectId()
+// The Bots whose stored photos were pruned.
+let pruned: string[] = []
 
 useDb({
   db: (() => ({
@@ -19,6 +23,18 @@ useDb({
         updates.push(update)
 
         return Promise.resolve({ matchedCount: 1, modifiedCount: 1, upsertedCount: 1 })
+      },
+      findOneAndUpdate: (_filter: object, update: Update) => {
+        updates.push(update)
+
+        return Promise.resolve({ _id: botId })
+      },
+      // Pruning: the Bot's current face is not a stored photo here.
+      findOne: () => Promise.resolve(null),
+      deleteMany: (filter: { userId: ObjectId }) => {
+        pruned.push(filter.userId.toHexString())
+
+        return Promise.resolve()
       },
     }),
   })) as unknown as typeof dbActual.db,
@@ -33,6 +49,7 @@ const recorded = (event: object) => ({
 
 beforeEach(() => {
   updates = []
+  pruned = []
 })
 
 test('"Make this a Bot" records who did it with the face', async () => {
@@ -76,6 +93,8 @@ test('a Bot editing itself is recorded only when its face changes', async () => 
       $push: recorded({ actorId: 'alice', via: 'bot_import', avatar: 'stored-file' }),
     },
   ])
+  // Each new face drops the photos the Bot wore before; other edits keep them.
+  expect(pruned).toEqual([botId.toHexString(), botId.toHexString()])
 })
 
 test('a conversation created as a Bot starts with the record', async () => {
