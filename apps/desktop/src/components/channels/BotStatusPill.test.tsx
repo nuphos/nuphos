@@ -5,13 +5,14 @@ import { Window } from 'happy-dom'
 import { act, cloneElement, createElement } from 'react'
 
 import type { BotWork } from './botWork'
+import type { Run } from '../sidebar/bot-activity'
 import type { ReactElement, ReactNode } from 'react'
 
 let reading: { work: BotWork | null; since: number | undefined } = { work: null, since: undefined }
 const shown: string[] = []
 
 mock.module('./useBotWork', () => ({ useBotWork: () => reading, useTicking: () => 60_000 }))
-mock.module('./useBotChatQuestions', () => ({
+mock.module('./showBotQuestion', () => ({
   showBotQuestion: (_chat: unknown, _team: string, id: string) => shown.push(id),
 }))
 mock.module('../ui/tooltip', () => ({
@@ -74,6 +75,17 @@ test('the pill rests, opens the Task while working, and shows the oldest questio
     // A viewer who may not open the Task gets words, not a button.
     await render()
     assert.equal(button(), null)
+
+    // Tasks are named in the line itself: one, then several.
+    const kid = (title: string) => ({ conversation: { sessionId: title, title } }) as Run
+    const waiting = (...titles: string[]): BotWork => ({ kind: 'waiting', kids: titles.map(kid) })
+
+    reading = { work: waiting('Draft notes'), since: undefined }
+    await render()
+    assert.equal(container.textContent, 'Waiting on 1 Task: Draft notes')
+    reading = { work: waiting('Draft notes', 'Verify staging'), since: 15_000 }
+    await render()
+    assert.equal(container.textContent, 'Waiting on 2 Tasks: Draft notes, Verify staging0:45')
 
     reading = {
       work: { kind: 'asking', question: 'Connect Sentry?', id: 'q1', count: 2, kids: [] },
