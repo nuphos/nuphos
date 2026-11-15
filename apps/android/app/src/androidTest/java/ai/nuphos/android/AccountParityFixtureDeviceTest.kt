@@ -73,6 +73,8 @@ class AccountParityFixtureDeviceTest {
     private val network = object : ExternalResource() {
         override fun before() {
             app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as NuphosApplication
+            // A fresh install would otherwise cover the first test that reaches Home with the notification prompt.
+            InstrumentationRegistry.getInstrumentation().uiAutomation.grantRuntimePermission(app.packageName, android.Manifest.permission.POST_NOTIFICATIONS)
             settleAuth(app.authSession)
             savedToken = app.tokenStore.read()
             savedAccounts = app.tokenStore.accounts
