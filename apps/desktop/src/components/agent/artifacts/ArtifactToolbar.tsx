@@ -1,8 +1,17 @@
 import { Toggle } from '@base-ui/react/toggle'
 import { ToggleGroup } from '@base-ui/react/toggle-group'
-import { Code2, Copy, Download, Eye, LayoutTemplate, Wrench } from 'lucide-react'
+import {
+  Code2,
+  Copy,
+  Download,
+  Eye,
+  LayoutTemplate,
+  SquareArrowOutUpRight,
+  Wrench,
+} from 'lucide-react'
 import { createPortal } from 'react-dom'
 
+import { api } from '../../../api'
 import { useToolbarSlot } from '../../../hooks/useToolbarControls'
 import { t } from '../../../i18n'
 import { Button } from '../../ui/button'
@@ -99,7 +108,11 @@ export function ArtifactToolbar(props: ArtifactToolbarProps) {
               <ViewToggle view={props.view} onView={props.onView} />
             )}
             {density === 'full' ? (
-              <InlineActions current={current} onAddToDesign={props.onAddToDesign} />
+              <InlineActions
+                current={current}
+                link={props.link}
+                onAddToDesign={props.onAddToDesign}
+              />
             ) : (
               <MoreMenu {...props} {...steps} />
             )}
@@ -159,9 +172,11 @@ export function ViewToggle({
 
 function InlineActions({
   current,
+  link,
   onAddToDesign,
 }: {
   current: ArtifactVersion
+  link: string | null
   onAddToDesign?: () => void
 }) {
   return (
@@ -176,6 +191,19 @@ function InlineActions({
             onClick={onAddToDesign}
           >
             <LayoutTemplate className="h-3.5 w-3.5" />
+          </Button>
+        </Tooltip>
+      )}
+      {link && (
+        <Tooltip content={t('Open in new window')}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="h-7 w-7"
+            aria-label={t('Open in new window')}
+            onClick={() => api.openPageWindow(link)}
+          >
+            <SquareArrowOutUpRight className="h-3.5 w-3.5" />
           </Button>
         </Tooltip>
       )}
