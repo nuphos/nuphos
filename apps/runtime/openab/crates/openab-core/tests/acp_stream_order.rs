@@ -718,6 +718,72 @@ async fn acp_prompt_after_an_inactivity_timeout_gets_a_new_agent_process() {
     );
 }
 
+// Same silence as SILENT_AGENT, but the restore is refused with the agent's own internal
+// error — the shape of a locked or half-written session store, not a missing session.
+const LOAD_FAILS_AGENT: &str = r##"#!/bin/sh
+echo spawn >> calls
+while IFS= read -r line; do
+  id=$(printf '%s' "$line" | sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p')
+  case "$line" in
+    *'"initialize"'*)
+      printf '{"jsonrpc":"2.0","id":%s,"result":{"agentInfo":{"name":"fake","version":"0"},"agentCapabilities":{"loadSession":true}}}\n' "$id" ;;
+    *'"session/new"'*)
+      echo "new $line" >> calls
+      printf '{"jsonrpc":"2.0","id":%s,"result":{"sessionId":"sess_fake"}}\n' "$id" ;;
+    *'"session/load"'*)
+      echo "load $line" >> calls
+      printf '{"jsonrpc":"2.0","id":%s,"error":{"code":-32603,"message":"Internal error","data":{"details":"session store is locked"}}}\n' "$id" ;;
+  esac
+done
+"##;
+
+// A transient session/load failure must not be answered with session/new: that overwrites
+// the persisted session id and destroys the conversation. The id survives, the caller gets
+// an error, and the next prompt retries the load.
+#[cfg(unix)]
+#[tokio::test(flavor = "multi_thread")]
+async fn acp_session_load_internal_error_preserves_the_persisted_session() {
+    let _guard = env_lock();
+    let key = "acp:load-internal-error";
+    let fx = setup_with_timeout("acp", key, LOAD_FAILS_AGENT, 1).await;
+    let recorder = Arc::new(RecordingAdapter::new(false));
+    let adapter: Arc<dyn ChatAdapter> = recorder.clone();
+
+    // The silent agent is killed by the inactivity timeout; the next prompt resumes it.
+    run_turn(&fx, &adapter, key).await;
+
+    let err = fx
+        .router
+        .pool()
+        .get_or_create(key, None, &[], None)
+        .await
+        .expect_err("a failed session/load must not silently start a new session");
+    assert!(err.to_string().contains("kept for the next attempt"), "{err}");
+
+    let calls = std::fs::read_to_string(fx._tmp.path().join("calls")).unwrap();
+    assert_eq!(calls.matches("spawn").count(), 2, "{calls}");
+    assert!(
+        calls
+            .lines()
+            .any(|l| l.starts_with("load ") && l.contains("\"sess_fake\"")),
+        "the retry must session/load the same session: {calls}"
+    );
+    assert_eq!(
+        calls.lines().filter(|l| l.starts_with("new ")).count(),
+        1,
+        "session/new must not be called again: {calls}"
+    );
+
+    // The id the conversation was created under is still the persisted one.
+    let mapping = std::fs::read_to_string(fx._tmp.path().join(".openab/thread_map.json")).unwrap();
+    let mapping: serde_json::Value = serde_json::from_str(&mapping).unwrap();
+    assert_eq!(
+        mapping.get(key).and_then(serde_json::Value::as_str),
+        Some("sess_fake"),
+        "{mapping}"
+    );
+}
+
 // Stop answers a relayed permission request `cancelled` (gateway); the agent itself must
 // receive that answer to its `session/request_permission`, so its turn can end.
 #[tokio::test(flavor = "multi_thread")]
