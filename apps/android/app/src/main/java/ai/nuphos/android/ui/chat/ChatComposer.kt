@@ -176,6 +176,8 @@ fun ChatComposer(
     onSelectionChange: ((CredentialSelection) -> Unit)? = null,
     mode: PermissionMode? = null,
     onModeChange: ((PermissionMode) -> Unit)? = null,
+    /** A Task under a Bot uses the Bot's credentials, computers and permission mode, so it offers none. */
+    followsBot: Boolean = false,
     agent: RuntimeSelections.Selection? = null,
     agentEnabled: Boolean = true,
     modelSettings: ai.nuphos.android.session.ModelSettingsStore? = null,
@@ -730,24 +732,26 @@ fun ChatComposer(
                             onClick = { showModel = true },
                             label = { Text(modelSettings.config?.modelTitle ?: stringResource(R.string.composer_model)) },
                         )
-                        FilterChip(
-                            selected = !resolvedSelection.isEmpty,
-                            onClick = { showIam = true },
-                            label = { Text(if (resolvedSelection.isEmpty) stringResource(R.string.composer_credentials) else stringResource(R.string.composer_credentials_count, resolvedSelection.count)) },
-                            leadingIcon = { Icon(Icons.Outlined.Key, contentDescription = null, modifier = Modifier.size(16.dp)) },
-                        )
-                        FilterChip(
-                            selected = resolvedSelection.ids["deviceIds"].orEmpty().isNotEmpty(),
-                            onClick = { showComputers = true },
-                            label = { Text(resolvedSelection.ids["deviceIds"].orEmpty().size.takeIf { it > 0 }?.let { stringResource(R.string.composer_computers_count, it) } ?: stringResource(R.string.composer_computers)) },
-                            leadingIcon = { Icon(Icons.Outlined.Computer, null, Modifier.size(16.dp)) },
-                        )
-                        FilterChip(
-                            selected = resolvedMode == PermissionMode.Bypass,
-                            onClick = { showMode = true },
-                            label = { Text(resolvedMode.title) },
-                            leadingIcon = { Icon(Icons.Rounded.VerifiedUser, contentDescription = null, modifier = Modifier.size(16.dp)) },
-                        )
+                        if (!followsBot) {
+                            FilterChip(
+                                selected = !resolvedSelection.isEmpty,
+                                onClick = { showIam = true },
+                                label = { Text(if (resolvedSelection.isEmpty) stringResource(R.string.composer_credentials) else stringResource(R.string.composer_credentials_count, resolvedSelection.count)) },
+                                leadingIcon = { Icon(Icons.Outlined.Key, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                            )
+                            FilterChip(
+                                selected = resolvedSelection.ids["deviceIds"].orEmpty().isNotEmpty(),
+                                onClick = { showComputers = true },
+                                label = { Text(resolvedSelection.ids["deviceIds"].orEmpty().size.takeIf { it > 0 }?.let { stringResource(R.string.composer_computers_count, it) } ?: stringResource(R.string.composer_computers)) },
+                                leadingIcon = { Icon(Icons.Outlined.Computer, null, Modifier.size(16.dp)) },
+                            )
+                            FilterChip(
+                                selected = resolvedMode == PermissionMode.Bypass,
+                                onClick = { showMode = true },
+                                label = { Text(resolvedMode.title) },
+                                leadingIcon = { Icon(Icons.Rounded.VerifiedUser, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                            )
+                        }
                     }
                 }
             }
