@@ -182,10 +182,10 @@ export function WorkspaceAgentPane({
                 )
               }
             />
-            {selectedSessionId && (
+            {savedSessionId && (
               <SessionTitlebarResources
-                key={`resources-${selectedSessionId}`}
-                sessionId={selectedSessionId}
+                key={`resources-${savedSessionId}`}
+                sessionId={savedSessionId}
                 teamId={teamId}
                 onOpen={stableOpenSessionResource}
                 onOpenTab={openDockTab}
