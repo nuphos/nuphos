@@ -23,6 +23,7 @@ import { useConversationRuntimeControl } from './conversationRuntimeControl'
 import { DelayedPanelReveal } from './homeAnimation'
 import { canEditMessage } from './messageEdit'
 import { AuthorizationActionContext } from './parts'
+import { ownsPermissionMode } from './permissionModeMenu'
 import { canStopTurn, waitingMessages } from './queuedAutoSend'
 import { useQueuedShareApproval } from './queuedShareApproval'
 import { QueuedStrip } from './QueuedStrip'
@@ -137,10 +138,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
   // for the teammates they mention.
   const inviteSessionId = activeTab?.foreign ? undefined : activeTab?.sessionId
   const bypassControl =
-    activeTab?.sessionId &&
-    !activeTab.readOnly &&
-    (!activeTab.foreign || activeTab.canManage) &&
-    !activeTab.credentialSource // A Task under a Bot runs in the Bot's mode.
+    activeTab && ownsPermissionMode(activeTab)
       ? {
           active: bypassBySession[activeTab.sessionId] ?? false,
           onSelect: selectBypassMode,
