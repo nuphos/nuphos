@@ -192,7 +192,12 @@ private final class ZoomPage: UIViewController, Page, UIScrollViewDelegate {
         scroll.showsVerticalScrollIndicator = false
         scroll.showsHorizontalScrollIndicator = false
         scroll.contentInsetAdjustmentBehavior = .never
-        image.image = UIImage(contentsOfFile: url.path)
+        if url.isFileURL {
+            image.image = UIImage(contentsOfFile: url.path)
+        } else {
+            // A Markdown image opens with its remote URL.
+            Task { [image, url] in image.image = try? await UIImage(data: URLSession.shared.data(from: url).0) }
+        }
         image.contentMode = .scaleAspectFit
         image.frame = scroll.bounds
         image.autoresizingMask = [.flexibleWidth, .flexibleHeight]
