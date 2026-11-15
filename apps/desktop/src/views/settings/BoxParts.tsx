@@ -6,6 +6,7 @@ import { relativeTimeFromNow } from '../../components/agent/panel/textUtils'
 import { Button } from '../../components/ui/button'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../../components/ui/menu'
 import { t } from '../../i18n'
+import { LOCAL_AGENT_PROVIDERS } from '../../api/device-types'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { agentName, agentOffline, newAgentAction } from './agentPresentation'
@@ -92,15 +93,6 @@ export function MachineLine({ device, dim }: { device: AgentDevice; dim: boolean
   )
 }
 
-const PROVIDERS: LocalAgentProvider[] = [
-  'claude-code',
-  'codex',
-  'grok',
-  'antigravity',
-  'opencode',
-  'dsh',
-]
-
 /** Add an agent to a machine; an older host can only sign in the agents it already has. */
 export function NewAgentMenu({
   device,
@@ -126,7 +118,7 @@ export function NewAgentMenu({
         <Plus className="h-3.5 w-3.5" />
       </MenuTrigger>
       <MenuContent align="start">
-        {PROVIDERS.map((provider) => {
+        {LOCAL_AGENT_PROVIDERS.map((provider) => {
           const action = newAgentAction(agents, provider)
           const { label, preview } = AGENT_PROVIDER[provider]
 

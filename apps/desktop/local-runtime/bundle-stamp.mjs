@@ -37,6 +37,8 @@ export const RUNTIME_SOURCES = [
   'opencode-login.mjs',
   'dsh-login.mjs',
   'dsh-sign-in.mjs',
+  'hermes-login.mjs',
+  'hermes-providers.json',
   'acp-shim.mjs',
   'hermes-session.mjs',
   'reply-images.mjs',

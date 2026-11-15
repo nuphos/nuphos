@@ -8,12 +8,17 @@
 // Hermes writes the credential to ~/.hermes/auth.json itself and no frame carries it.
 // The provider and a model then become the root config's model, which every
 // conversation's profile copies (hermes-session.mjs).
+//
+// The same wrapper signs in Hermes on a computer, which names its own CLI and home.
 import { spawn } from 'node:child_process'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { pathToFileURL } from 'node:url'
 
-const HERMES = 'hermes'
-const PYTHON = '/opt/hermes/.venv/bin/python'
+const HERMES = process.env.NUPHOS_AGENT_EXECUTABLE || 'hermes'
+const HOME = process.env.NUPHOS_AGENT_HOME || process.env.HOME || '/home/node'
+const WINDOWS = process.platform === 'win32'
 // Listed first; every other provider follows by name.
 const FEATURED = ['nous', 'openai-codex', 'anthropic', 'openrouter', 'openai-api', 'gemini']
 // Sign-ins whose page shows a code to paste back; the others are device pages.
@@ -24,32 +29,18 @@ const SUBSCRIPTION = {
     hint: 'Needs a Claude Max plan with extra usage turned on',
   },
 }
-// What `hermes auth add` signs in to, from Hermes itself. OpenRouter is Hermes's default
-// rather than a registry entry. Qwen OAuth only copies a Qwen CLI login from the same
-// computer, and providers with an id of their own share a name with the first one.
-const CATALOG = `
-import json
-from hermes_cli.auth import PROVIDER_REGISTRY
-from hermes_cli.auth_commands import _OAUTH_ADD_SPECS
-from hermes_cli.models import get_default_model_for_provider as model
-out = [{"id": "openrouter", "name": "OpenRouter", "key": True, "oauth": True, "model": model("openrouter")}]
-names = {"OpenRouter"}
-for id, provider in PROVIDER_REGISTRY.items():
-    oauth = id == "nous" or (id in _OAUTH_ADD_SPECS and id != "qwen-oauth")
-    if provider.name in names or not (oauth or provider.auth_type == "api_key"):
-        continue
-    names.add(provider.name)
-    out.append({"id": id, "name": provider.name, "key": provider.auth_type == "api_key",
-                "oauth": oauth, "model": model(id)})
-print(json.dumps(out))
-`
+// What `hermes auth add` signs in to, written by hermes-providers.py from the pinned Hermes.
+const CATALOG = new URL('./hermes-providers.json', import.meta.url)
 
 class LoginError extends Error {}
 
 // Not the gateway's environment: no transport keys or session tokens.
 const hermesEnv = (extra = {}) => ({
-  HOME: process.env.HOME ?? '/home/node',
+  HOME,
+  HERMES_HOME: join(HOME, '.hermes'),
   PATH: process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin',
+  // Python cannot start on Windows without it.
+  ...(process.env.SYSTEMROOT ? { SYSTEMROOT: process.env.SYSTEMROOT } : {}),
   HERMES_DISABLE_LAZY_INSTALLS: '1',
   NO_COLOR: '1',
   TERM: 'dumb',
@@ -58,13 +49,20 @@ const hermesEnv = (extra = {}) => ({
 
 /**
  * Runs a Hermes command. `detached` starts it without a terminal, so the prompts that
- * would read one read stdin; `kill` reaches the whole group it starts.
+ * would read one read stdin; `kill` reaches the whole group it starts. Windows has no
+ * process groups, and a detached child there gets a console window of its own.
  */
 export function runHermes(command, args, { env = hermesEnv(), onOutput } = {}) {
-  const child = spawn(command, args, { env, stdio: ['pipe', 'pipe', 'pipe'], detached: true })
+  const child = spawn(command, args, {
+    env,
+    stdio: ['pipe', 'pipe', 'pipe'],
+    detached: !WINDOWS,
+    windowsHide: true,
+  })
   const kill = () => {
     try {
-      process.kill(-child.pid, 'SIGKILL')
+      if (WINDOWS) child.kill()
+      else process.kill(-child.pid, 'SIGKILL')
     } catch {}
   }
   process.once('exit', kill)
@@ -108,6 +106,7 @@ export async function runHermesLogin({
   emit = (frame) => process.stdout.write(`${JSON.stringify(frame)}\n`),
   run = runHermes,
   settleMs = 500,
+  providers = JSON.parse(readFileSync(CATALOG, 'utf8')),
 }) {
   const answer = async () => {
     const { value, done } = await lines.next()
@@ -127,7 +126,6 @@ export async function runHermesLogin({
     return value
   }
 
-  const providers = JSON.parse(await run(PYTHON, ['-I', '-c', CATALOG]).done)
   const id = await choose('Choose a model provider', providerOptions(providers))
   const provider = providers.find((entry) => entry.id === id)
   const methods = [
@@ -142,7 +140,15 @@ export async function runHermesLogin({
   if (method === 'api-key') {
     const key = await input({ message: `${provider.name} API key`, secret: true })
     // On stdin, not the command line, where every process in the container could read it.
-    const add = run(HERMES, ['auth', 'add', id, '--type', 'api-key'])
+    // On Windows, Python reads a hidden answer from the console, never stdin.
+    const add = run(HERMES, [
+      'auth',
+      'add',
+      id,
+      '--type',
+      'api-key',
+      ...(WINDOWS ? ['--api-key', key] : []),
+    ])
     add.write(`${key}\n`)
     add.end()
     await add.done

@@ -50,14 +50,14 @@ COPY reply-image-stream.mjs reply-images.mjs runtime-defaults.mjs mcp-bridge-con
 COPY --chmod=644 runtime-guard.sh /opt/nuphos-runtime/runtime-guard.sh
 COPY codex-login.mjs claude-login.mjs mcp-http-bridge.mjs panel-job.mjs /opt/nuphos-runtime/
 COPY grok-login.mjs antigravity-login.mjs antigravity-status.mjs antigravity-status-cli.mjs opencode-login.mjs \
-     hermes-login.mjs dsh-login.mjs dsh-sign-in.mjs /opt/nuphos-runtime/
+     hermes-login.mjs hermes-providers.json dsh-login.mjs dsh-sign-in.mjs /opt/nuphos-runtime/
 # COPY --chmod also affects newly created destination directories.
 # Runtime helpers must be traversable by the non-root init and agent containers.
 RUN chmod 755 /opt/nuphos-runtime \
  && chmod 644 /opt/nuphos-runtime/runtime-guard.sh /opt/nuphos-runtime/codex-login.mjs \
       /opt/nuphos-runtime/claude-login.mjs /opt/nuphos-runtime/grok-login.mjs \
       /opt/nuphos-runtime/antigravity-login.mjs /opt/nuphos-runtime/opencode-login.mjs \
-      /opt/nuphos-runtime/hermes-login.mjs \
+      /opt/nuphos-runtime/hermes-login.mjs /opt/nuphos-runtime/hermes-providers.json \
       /opt/nuphos-runtime/dsh-login.mjs /opt/nuphos-runtime/dsh-sign-in.mjs \
       /opt/nuphos-runtime/mcp-http-bridge.mjs /opt/nuphos-runtime/panel-job.mjs
 
@@ -132,6 +132,8 @@ ENV OPENAB_AGENT_COMMAND="node /opt/acp-shim.mjs opencode" \
 # with the uv build Hermes's own installer pins. On-demand installs stay off: they build
 # a second environment, without ACP, and every later start moves to it.
 FROM common AS hermes
+# The sign-in's provider list, regenerated from the pinned Hermes below and compared.
+COPY hermes-providers.py /tmp/hermes-providers.py
 ARG HERMES_VERSION=0.23.1
 ARG HERMES_SHA256=52a8eb321f368576034f40595491abf9646b60c3861eee0cf45f610e5faa9bb6
 ARG UV_VERSION=0.13.5
@@ -160,7 +162,11 @@ RUN arch=$(uname -m) \
  && chmod -R a+rX /opt/hermes /opt/hermes-python \
  && ln -s /opt/hermes/.venv/bin/hermes /usr/local/bin/hermes \
  && HERMES_HOME=/tmp/hermes-check HERMES_DISABLE_LAZY_INSTALLS=1 hermes acp --check \
- && rm -rf /tmp/hermes-check
+ && HERMES_HOME=/tmp/hermes-check HERMES_DISABLE_LAZY_INSTALLS=1 \
+      /opt/hermes/.venv/bin/python -I /tmp/hermes-providers.py > /tmp/hermes-providers.json \
+ && node -e 'const { readFileSync: r } = require("node:fs"); require("node:assert").deepStrictEqual(JSON.parse(r(process.argv[1])), JSON.parse(r(process.argv[2])), "hermes-providers.json is stale: regenerate it with hermes-providers.py")' \
+      /tmp/hermes-providers.json /opt/nuphos-runtime/hermes-providers.json \
+ && rm -rf /tmp/hermes-check /tmp/hermes-providers.py /tmp/hermes-providers.json
 ENV OPENAB_AGENT_COMMAND="node /opt/acp-shim.mjs hermes" \
     OPENAB_AGENT_AUTH_COMMAND="hermes auth add" \
     OPENAB_ADAPTER_VERSION="hermes@0.23.1" \
@@ -295,6 +301,7 @@ RUN test -x /opt/nuphos-runtime \
  && test -r /opt/nuphos-runtime/antigravity-status-cli.mjs \
  && test -r /opt/nuphos-runtime/opencode-login.mjs \
  && test -r /opt/nuphos-runtime/hermes-login.mjs \
+ && test -r /opt/nuphos-runtime/hermes-providers.json \
  && test -r /opt/nuphos-runtime/dsh-login.mjs \
  && test -r /opt/nuphos-runtime/dsh-sign-in.mjs \
  && test -r /opt/nuphos-runtime/panel-job.mjs \

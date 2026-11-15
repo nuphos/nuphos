@@ -34,9 +34,18 @@ export type DeviceExecAuditPage = {
   nextCursor: string | null
 }
 
-/** This computer's own agent CLI; team runtimes can run more (`AgentProvider`). */
-export type LocalAgentProvider =
-  'claude-code' | 'codex' | 'grok' | 'antigravity' | 'opencode' | 'dsh'
+/** The agents a computer can run itself; team runtimes can run more (`AgentProvider`). */
+export const LOCAL_AGENT_PROVIDERS = [
+  'claude-code',
+  'codex',
+  'grok',
+  'antigravity',
+  'opencode',
+  'dsh',
+  'hermes',
+] as const
+
+export type LocalAgentProvider = (typeof LOCAL_AGENT_PROVIDERS)[number]
 
 /** The agents this app signs in itself, through their own CLI login; the rest sign in from Nuphos. */
 export type CliLoginProvider = 'claude-code' | 'codex'

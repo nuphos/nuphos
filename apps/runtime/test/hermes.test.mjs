@@ -77,8 +77,7 @@ function fakeHermes(output = {}) {
     const done = new Promise((resolve) => {
       finish = resolve
     })
-    if (args[0] === '-I') finish(JSON.stringify(PROVIDERS))
-    else if (args[0] === 'config') finish('')
+    if (args[0] === 'config') finish('')
     else if (args[3] === 'api-key') {
       /* finishes once the key arrives */
     } else
@@ -104,7 +103,13 @@ async function signIn(answers, hermes) {
   const lines = (async function* () {
     for (const answer of answers) yield answer
   })()
-  await runHermesLogin({ lines, emit: (frame) => frames.push(frame), run: hermes.run, settleMs: 0 })
+  await runHermesLogin({
+    lines,
+    emit: (frame) => frames.push(frame),
+    run: hermes.run,
+    settleMs: 0,
+    providers: PROVIDERS,
+  })
   return frames
 }
 
@@ -170,4 +175,15 @@ test('Codex prints its code on the line after the prompt, in color', () => {
     ),
     { url: 'https://auth.openai.com/codex/device', instructions: 'Enter code: GCRU-S2PVN' },
   )
+})
+
+test('the shipped provider list has what the sign-in features and offers', () => {
+  const providers = JSON.parse(
+    readFileSync(new URL('../image/hermes-providers.json', import.meta.url), 'utf8'),
+  )
+  const ids = providers.map((provider) => provider.id)
+  for (const id of ['nous', 'openai-codex', 'anthropic', 'openrouter'])
+    assert.ok(ids.includes(id), id)
+  assert.ok(!ids.includes('qwen-oauth'))
+  assert.equal(new Set(providers.map((provider) => provider.name)).size, providers.length)
 })
