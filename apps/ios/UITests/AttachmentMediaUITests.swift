@@ -50,6 +50,32 @@ final class AttachmentMediaUITests: XCTestCase {
         shot("viewer-closed")
     }
 
+    /// On a video, ✕ and share are finger-sized: a tap near a button's edge,
+    /// off its glyph, still works.
+    func testBarButtonsTakeTapsOffTheirGlyphs() throws {
+        let app = try launch(videoLink: "file://$FIXTURE_DIR/media/clip.mp4")
+        let video = app.buttons["Open clip.mp4"]
+        XCTAssertTrue(video.waitForExistence(timeout: 10), "The video never showed")
+        video.tap()
+        let counter = app.staticTexts["1 / 3"]
+        XCTAssertTrue(counter.waitForExistence(timeout: 10), "The viewer did not open on the video")
+        let done = app.buttons["Done"], share = app.buttons["Share"]
+        for button in [done, share] {
+            XCTAssertGreaterThanOrEqual(button.frame.width, 44, "\(button.label) is narrower than 44 pt")
+            XCTAssertGreaterThanOrEqual(button.frame.height, 44, "\(button.label) is shorter than 44 pt")
+        }
+        shot("video-bar")
+        done.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.9)).tap()
+        XCTAssertTrue(counter.waitForNonExistence(timeout: 5), "A tap near ✕'s edge did not close the viewer")
+
+        video.tap()
+        XCTAssertTrue(counter.waitForExistence(timeout: 10), "The viewer did not reopen on the video")
+        share.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.9)).tap()
+        XCTAssertTrue(app.otherElements["ActivityListView"].waitForExistence(timeout: 10)
+            || app.navigationBars["UIActivityContentView"].exists, "A tap near share's edge did not open the share sheet")
+        shot("video-share")
+    }
+
     /// The video's link answers only after 20 s: the image opens at once, and
     /// the video's page fetches it when swiped to.
     func testImageOpensWithoutWaitingForVideo() throws {
