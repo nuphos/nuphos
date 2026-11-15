@@ -364,8 +364,7 @@ final class InboxUITests: XCTestCase {
 
     /// The simulator's screen only; also saved to `NUPHOS_SHOTS` when the run sets it.
     private func shot(_ name: String) {
-        // The app's own display: on an unfolded Duo the main screen is the dark cover.
-        let screenshot = app.screenshot()
+        let screenshot = XCUIScreen.main.screenshot()
         let attachment = XCTAttachment(screenshot: screenshot)
         attachment.name = name
         attachment.lifetime = .keepAlways
