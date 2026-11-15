@@ -17,6 +17,8 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import ai.nuphos.android.model.Team
+import androidx.compose.ui.res.stringResource
+import ai.nuphos.android.R
 
 /** The Account sheet owns this page. Opening or dismissing it never selects a team. */
 @Composable
@@ -29,13 +31,13 @@ internal fun WorkspacePickerContent(
 ) {
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back to Account") }
-            Text("Workspace", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).testTag("workspace-picker-title"))
-            TextButton(onClick = onBack) { Text("Cancel") }
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.profile_workspace_back)) }
+            Text(stringResource(R.string.profile_workspace), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).testTag("workspace-picker-title"))
+            TextButton(onClick = onBack) { Text(stringResource(R.string.cancel)) }
         }
         LazyColumn(Modifier.fillMaxWidth().heightIn(max = 520.dp), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp)) {
             if (teams.isEmpty()) item {
-                Text("No workspaces available", Modifier.padding(vertical = 20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.profile_workspace_none), Modifier.padding(vertical = 20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             items(teams.distinctBy { it.id }, key = { it.id }) { team ->
                 val current = team.id == selectedId
@@ -44,11 +46,11 @@ internal fun WorkspacePickerContent(
                     .padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(team.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-                    if (current) Icon(Icons.Outlined.Check, "Current workspace", tint = MaterialTheme.colorScheme.primary)
+                    if (current) Icon(Icons.Outlined.Check, stringResource(R.string.profile_workspace_current), tint = MaterialTheme.colorScheme.primary)
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
-            item { TextButton(onClick = onSetup, modifier = Modifier.fillMaxWidth()) { Text("Set up a workspace") } }
+            item { TextButton(onClick = onSetup, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.profile_workspace_setup)) } }
         }
     }
 }
