@@ -162,3 +162,32 @@ test('failed transcription is said in the call’s chat and to its Task', async 
   expect(typed.mock.calls[0]?.[1]).toContain('Speech recognition failed')
   expect(turn.mock.calls[0]?.[2]).toStartWith('Speech recognition failed')
 })
+
+const ended = (sub_code: string, event = 'bot.call_ended') => ({
+  event,
+  data: { data: { code: 'call_ended', sub_code }, bot: { id: 'recall-bot' } },
+})
+
+test('a bot that leaves on its own tells its Task once and ends the meeting', async () => {
+  const { threadId } = await joinMeeting(actor('bot'), 'https://meet.example.com/abc')
+
+  await handleRecallEvent('delivery-1', ended('timeout_exceeded_everyone_left'))
+  expect(turn).toHaveBeenCalledTimes(1)
+  expect(turn.mock.calls[0]?.[2]).toStartWith(
+    'You are no longer in the call (timeout_exceeded_everyone_left)',
+  )
+  await expect(chatInMeeting(actor(threadId), 'hi')).rejects.toThrow('not in a meeting')
+  await expect(leaveMeetingTask(actor(threadId))).rejects.toThrow('not in a meeting')
+
+  // A later end event for the same bot says nothing again.
+  await handleRecallEvent('delivery-2', ended('bot_errored', 'bot.fatal'))
+  expect(turn).toHaveBeenCalledTimes(1)
+})
+
+test('a bot that leaves because its Task asked ends the meeting without waking the Task', async () => {
+  const { threadId } = await joinMeeting(actor('bot'), 'https://meet.example.com/abc')
+
+  await handleRecallEvent('delivery-1', ended('bot_received_leave_call'))
+  expect(turn).not.toHaveBeenCalled()
+  await expect(chatInMeeting(actor(threadId), 'hi')).rejects.toThrow('not in a meeting')
+})
