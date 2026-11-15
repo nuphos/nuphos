@@ -1,4 +1,4 @@
-import { Copy, Link, Plus, Star, StarOff, X } from 'lucide-react'
+import { Copy, Link, Plus, SquareArrowOutUpRight, Star, StarOff, X } from 'lucide-react'
 
 import { ContextMenu } from '../../../components/ContextMenu'
 import { Kbd } from '../../../components/ui/kbd'
@@ -15,6 +15,8 @@ type WorkspaceTabsContextMenuProps = {
   onNew: () => void
   onDuplicate: (id: string) => void
   onCopyPageUrl: (href: string) => void | Promise<void>
+  /** Opens the tab in a window of its own; absent when only this window holds its page. */
+  onOpenInWindow?: () => void
   toggleFavorite: (teamId: string, appHref: string, title: string) => boolean
   handleClose: (id: string) => void
   onCloseOthers: (id: string) => void
@@ -29,6 +31,7 @@ export function WorkspaceTabsContextMenu({
   onNew,
   onDuplicate,
   onCopyPageUrl,
+  onOpenInWindow,
   toggleFavorite,
   handleClose,
   onCloseOthers,
@@ -57,6 +60,13 @@ export function WorkspaceTabsContextMenu({
           label: t('Copy URL'),
           icon: Link,
           onSelect: () => onCopyPageUrl(menu.href),
+        },
+        {
+          key: 'open-in-window',
+          label: t('Open in new window'),
+          icon: SquareArrowOutUpRight,
+          disabled: !onOpenInWindow,
+          onSelect: () => onOpenInWindow?.(),
         },
         ...(canFavorite
           ? [
