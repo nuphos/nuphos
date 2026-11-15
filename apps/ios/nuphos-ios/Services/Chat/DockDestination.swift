@@ -41,7 +41,9 @@ enum DockDestination: Equatable, Hashable, Sendable {
     case runtimes
     case connectors
     case chat(sessionId: String)
-    /// Files, terminals, Architecture, Designs, Dashboards, Monitoring: Mac only for now. The
+    /// The Runtime terminal: a shell on the computer the conversation runs on, opened here.
+    case terminal
+    /// Files, the Mac's own terminal, Architecture, Designs, Dashboards, Monitoring: Mac only for now. The
     /// Mac opens `href` where there is one, else the page by its key.
     case onMac(page: String, href: String?)
 
@@ -59,6 +61,10 @@ enum DockDestination: Equatable, Hashable, Sendable {
         let page = kind ?? Self.page(ofPath: href)
         if page == "team.agent", let session = Self.segments(href).dropFirst(3).first {
             self = .chat(sessionId: session)
+            return
+        }
+        if page == "team.terminal", Self.segments(href).dropFirst(3).first == "runtime" {
+            self = .terminal
             return
         }
         self = Self.phonePages[page] ?? .onMac(page: page, href: href.isEmpty ? nil : href)

@@ -4,6 +4,7 @@ import { notifyNudge } from '@/lib/push/notify'
 import { plainText, truncate } from '@/lib/push/turn-outcome'
 import { readingWatchers } from '@/lib/push/watchers'
 
+import { inviteConversationParticipants } from './db/participants'
 import { agentConversations } from './db/shared'
 import { canReplyIn } from './devices/conversation-computer'
 import { senderLabel } from './message-metadata'
@@ -133,4 +134,21 @@ export async function notePost(
   } catch (error) {
     logError('agent.channel.post_notify_failed', error, { channel_id: channel.sessionId })
   }
+}
+
+/**
+ * Bring teammates into a conversation on someone's behalf. Each person actually
+ * added gets an entry kept like a mention's, so their desktop announces the invite.
+ */
+export async function inviteToConversation(
+  teamId: string,
+  sessionId: string,
+  actorId: string,
+  userIds: readonly string[],
+): Promise<AgentConversation | null> {
+  if (userIds.length === 0) return await agentConversations().findOne({ sessionId })
+  const actor = (await getTeamMembers(teamId)).find((member) => member.id === actorId)
+  const name = (actor && mentionName(actor)) || 'Someone'
+
+  return await inviteConversationParticipants(sessionId, { id: actorId, name }, userIds)
 }

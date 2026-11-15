@@ -1,4 +1,4 @@
-import { agentConversations } from '@/lib/agent/db'
+import { agentConversations, credentialSource } from '@/lib/agent/db'
 import { canMintCredentials } from '@/lib/byos/credential-role'
 import { relayConfigured, relayProxyUrl } from '@/lib/byos/relay-token'
 import { parseObjectId } from '@/lib/objectid'
@@ -51,7 +51,7 @@ export async function agentSessionClusterContexts(
   const conversationOwnerUserId = opts.conversationOwnerUserId ?? userId
   const conversation = await agentConversations().findOne(
     { sessionId, userId: conversationOwnerUserId },
-    { projection: { teamId: 1, credentialAccess: 1 } },
+    { projection: { sessionId: 1, userId: 1, teamId: 1, parentSessionId: 1, credentialAccess: 1 } },
   )
 
   if (!conversation?.teamId) return null
@@ -78,7 +78,7 @@ export async function agentSessionClusterContexts(
   const bindings = scopeAgentK8sBindings(
     selectAgentK8sBindings({
       bindings: bindingsDoc,
-      selected: opts.credentialAccess ?? conversation.credentialAccess,
+      selected: opts.credentialAccess ?? (await credentialSource(conversation)).credentialAccess,
       userId,
     }),
     opts.scope ?? 'all',

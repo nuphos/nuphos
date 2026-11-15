@@ -10,7 +10,9 @@
  ABC100000000000000000002 = {isa = PBXBuildFile; productRef = 000000000000000000000201; };
  ABC100000000000000000001 = {isa = PBXBuildFile; productRef = 000000000000000000000211; };
  ABC100000000000000000000 = {isa = PBXBuildFile; productRef = 000000000000000000000221; };
+ ABC100000000000000000003 = {isa = PBXBuildFile; productRef = 000000000000000000000231; };
 		000000000000000000000222 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000221 /* PostHog */; };
+		000000000000000000000232 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000231 /* SwiftTerm */; };
 		000000000000000000000212 /* ChatLayout in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000211 /* ChatLayout */; };
 		000000000000000000000202 /* MarkdownView in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000201 /* MarkdownView */; };
 		000000000000000000000502 /* NuphosNotifications.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 000000000000000000000501 /* NuphosNotifications.appex */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -65,7 +67,7 @@
 				000000000000000000000420 /* Shared */,
                 000000000000000000000520 /* BotAvatars */,
 			);
-            packageProductDependencies = (000000000000000000000221, 000000000000000000000211, 000000000000000000000201, );
+            packageProductDependencies = (000000000000000000000221, 000000000000000000000211, 000000000000000000000201, 000000000000000000000231, );
 			name = NuphosShare;
 			productName = NuphosShare;
 			productReference = A1022A000000000000000401 /* NuphosShare.appex */;
@@ -146,6 +148,7 @@
  ABC100000000000000000002,
  ABC100000000000000000001,
  ABC100000000000000000000,
+ ABC100000000000000000003,
 			);
 		};
 		A1022A000000000440000000 /* Resources */ = {
@@ -288,6 +291,7 @@
 				000000000000000000000222 /* PostHog in Frameworks */,
 				000000000000000000000212 /* ChatLayout in Frameworks */,
 				000000000000000000000202 /* MarkdownView in Frameworks */,
+				000000000000000000000232 /* SwiftTerm in Frameworks */,
 			);
 		};
 		000000000000000230000000 /* Frameworks */ = {
@@ -382,6 +386,7 @@
 				000000000000000000000221 /* PostHog */,
 				000000000000000000000211 /* ChatLayout */,
 				000000000000000000000201 /* MarkdownView */,
+				000000000000000000000231 /* SwiftTerm */,
 			);
 			productName = MyApp;
 			productReference = 000000000000000000000120 /* nuphos-ios.app */;
@@ -468,6 +473,7 @@
 				000000000000000000000220 /* XCRemoteSwiftPackageReference "PostHog" */,
 				000000000000000000000210 /* XCRemoteSwiftPackageReference "ChatLayout" */,
 				000000000000000000000200 /* XCRemoteSwiftPackageReference "MarkdownView" */,
+				000000000000000000000230 /* XCRemoteSwiftPackageReference "SwiftTerm" */,
 			);
 			preferredProjectObjectVersion = 90;
 			productRefGroup = 000000000000000000000020 /* Products */;
@@ -966,6 +972,11 @@
 				minimumVersion = 4.1.0;
 			};
 		};
+		000000000000000000000230 /* XCRemoteSwiftPackageReference "SwiftTerm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/migueldeicaza/SwiftTerm";
+			requirement = { kind = exactVersion; version = 1.10.1; };
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -983,6 +994,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 000000000000000000000200 /* XCRemoteSwiftPackageReference "MarkdownView" */;
 			productName = MarkdownView;
+		};
+		000000000000000000000231 /* SwiftTerm */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 000000000000000000000230 /* XCRemoteSwiftPackageReference "SwiftTerm" */;
+			productName = SwiftTerm;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

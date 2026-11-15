@@ -34,6 +34,7 @@ const registrationSchema = z.preprocess(
       environment: z.enum(['sandbox', 'production']),
       bundleId: z.string().trim().max(200).optional(),
       liveActivityStartToken: apnsToken.optional(),
+      computerAlerts: z.boolean().optional(),
     }),
     z.object({
       token: fcmToken,

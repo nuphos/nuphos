@@ -3,14 +3,26 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { useDb } from '@/lib/test/doubles/db'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
-import { agentMessages } from './db'
+import { agentConversations, agentMessages } from './db'
 import { lastMessage } from './last-message'
 
 import type * as dbActual from '@/lib/db'
 
 let memory = portabilityDb()
 
-useDb({ db: () => memory })
+// Which collections a call opened, to tell whether it looked anything else up.
+const opened: string[] = []
+
+useDb({
+  db: () => ({
+    ...memory,
+    collection: (name: string) => {
+      opened.push(name)
+
+      return memory.collection(name)
+    },
+  }),
+})
 
 const chat = { sessionId: 'chat', userId: 'me' }
 const channel = { ...chat, kind: 'channel' }
@@ -97,6 +109,24 @@ describe('lastMessage', () => {
     memory = portabilityDb()
     await post([{ type: 'text', text: 'ok' }], { type: 'agent', id: 'a1', name: 'Code Reviewer' })
     expect(await lastMessage(channel, 'me')).toEqual({ text: 'ok', from: 'Code Reviewer' })
+  })
+
+  test('a group chat names an agent by its current title, and only a group chat looks it up', async () => {
+    await agentConversations().insertOne({
+      sessionId: 'a1',
+      userId: 'me',
+      teamId: 'team',
+      title: 'Account Manager',
+    } as never)
+    await post([{ type: 'text', text: 'ok' }], { type: 'agent', id: 'a1', name: 'CSM' })
+
+    expect(await lastMessage({ ...channel, teamId: 'team' }, 'me')).toEqual({
+      text: 'ok',
+      from: 'Account Manager',
+    })
+    opened.length = 0
+    expect(await lastMessage({ ...chat, teamId: 'team' }, 'me')).toEqual({ text: 'ok' })
+    expect(opened).not.toContain('agent_conversations')
   })
 
   test("the viewer's own post and a 1:1 chat carry no sender", async () => {

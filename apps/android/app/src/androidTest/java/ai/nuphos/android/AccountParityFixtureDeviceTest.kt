@@ -45,6 +45,7 @@ class AccountParityFixtureDeviceTest {
         runBlocking { scope.coroutineContext[Job]!!.children.toList().forEach { it.cancelAndJoin() } }
     }
     private var savedToken: String? = null
+    private var savedAccounts = emptyList<ai.nuphos.android.data.SavedAccount>()
     private var preferences: Map<String, *> = emptyMap<String, Any>()
     @Volatile private var rejectRestoredToken = false
     @Volatile private var consentReadMode = "valid"
@@ -72,9 +73,10 @@ class AccountParityFixtureDeviceTest {
             app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as NuphosApplication
             settleAuth(app.authSession)
             savedToken = app.tokenStore.read()
+            savedAccounts = app.tokenStore.accounts
             preferences = app.getSharedPreferences("nuphos.prefs", Context.MODE_PRIVATE).all.toMap()
             InstrumentationRegistry.getInstrumentation().runOnMainSync {
-                for (name in listOf("state", "generation", "consentVersion", "consentBusy", "consentError", "profileError")) {
+                for (name in listOf("state", "generation", "consentVersion", "consentBusy", "consentError", "profileError", "savedAccounts", "addingFrom")) {
                     authSnapshot["$name\$delegate"] = authState(name).value
                 }
                 for (name in listOf("token", "consentRequest", "customTabsOpen")) {
@@ -196,6 +198,7 @@ class AccountParityFixtureDeviceTest {
                 accessState().value = accessSnapshot
             }
             if (savedToken == null) app.tokenStore.clear() else app.tokenStore.write(requireNotNull(savedToken))
+            app.tokenStore.accounts = savedAccounts
             originals.forEach { (name, client) -> Http::class.java.getDeclaredField(name).also { it.isAccessible = true }.set(null, client) }
             assertTrue("Installed token changed (values withheld)", savedToken == app.tokenStore.read())
             // Loading the fixture's team and chats makes the app remember both.

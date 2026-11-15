@@ -154,6 +154,7 @@ export async function runOpenConversation(
       autoResumeAttempts: 0,
       historyBaseIndex,
       credentialAccess,
+      ...(detail.credentialSource ? { credentialSource: detail.credentialSource } : {}),
       readOnly: detail.readOnly === true || opts?.forceReadOnly === true,
       auditForcedReadOnly:
         opts?.forceReadOnly === true && detail.readOnly !== true ? true : undefined,

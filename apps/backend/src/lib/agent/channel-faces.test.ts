@@ -11,7 +11,7 @@ import type * as dbActual from '@/lib/db'
 
 let memory = portabilityDb()
 
-useDb({ db: (() => memory) as unknown as typeof dbActual.db })
+useDb({ db: () => memory })
 
 const people = new Map([
   ['me', { id: 'me', name: 'Me', avatarURL: 'https://a/me.png' }],
@@ -147,6 +147,16 @@ describe('a single Bot keeps its chat identity when people reply', () => {
     expect((await channelFacesField({ ...shared, title: '' }, 'me', people)).title).toBe(
       'Ann, Bob, Writer',
     )
+  })
+
+  test("a Bot's own chat is named after the Bot, over a name it stored", async () => {
+    const own = { ...channel, title: 'Old name', participantIds: [], agentSessionIds: ['a1'] }
+
+    expect((await channelFacesField(own, 'me', people)).title).toBe('Writer')
+    // A group that began with one Bot keeps the name someone gave it.
+    expect(
+      (await channelFacesField({ ...own, group: true as const }, 'me', people)).title,
+    ).toBeUndefined()
   })
 
   test('the collaborator also sees the Bot first when its owner replies', async () => {

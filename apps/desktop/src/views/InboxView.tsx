@@ -25,6 +25,8 @@ type Props = {
   onCount?: (n: number) => void
   onLoading?: (loading: boolean) => void
   onOpenConversation: (sessionId: string) => void
+  /** Opens a link in a question's text, as the conversation does. */
+  onOpenLink: (href: string, beside: boolean) => boolean
 }
 
 /**
@@ -40,12 +42,14 @@ export function InboxView({
   onCount,
   onLoading,
   onOpenConversation,
+  onOpenLink,
 }: Props) {
   const { isActive } = useWorkspaceTab()
   const all = useInboxQuestions(teamId, refreshKey)
   const selected = useInboxSelection(teamId)
   const shareApprovals = useShareApprovals(teamId)
-  const mentions = useChannelMentions(teamId) ?? []
+  // An invite is only announced, never listed.
+  const mentions = useChannelMentions(teamId)?.filter((mention) => !mention.invited) ?? []
   const needle = query.trim().toLowerCase()
   const rows = all?.filter(
     ({ conversation, request }) =>
@@ -149,6 +153,7 @@ export function InboxView({
           onAnswer={(reply) => answer(open, reply)}
           onSkip={rows && rows.length > 1 ? () => move(rows.at(at + 1) ?? rows[0]) : undefined}
           onOpenConversation={() => onOpenConversation(open.conversation.sessionId)}
+          onOpenLink={onOpenLink}
         />
       )}
     </div>

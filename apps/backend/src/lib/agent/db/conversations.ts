@@ -21,6 +21,7 @@ import type {
   ConversationPreviewContext,
   AgentMessage,
 } from './shared'
+import type { ConversationTimelineEvent } from './timeline-events'
 
 // Sticky content-filter model-fallback helpers live in a sibling file (this
 // one is at the max-lines limit); re-exported so existing import paths hold.
@@ -57,8 +58,9 @@ export async function upsertConversationShell(data: {
   /** A thread's parent, whose readers it copies in place of what its source starts with. */
   parentGrants?: ReadGrants
   kind?: 'channel'
-  /** Created as a Bot: its face, and a name the title generator leaves alone. */
-  avatar?: string
+  /** Created as a Bot: its face, the record of who made it and how, and a name
+   *  the title generator leaves alone. */
+  bot?: { avatar: string; change: ConversationTimelineEvent }
   workspace?: NonNullable<AgentConversation['workspace']>
 }): Promise<{ isNew: boolean }> {
   const now = new Date()
@@ -82,7 +84,9 @@ export async function upsertConversationShell(data: {
     ...(data.runtimeId ? { runtimeId: data.runtimeId, runtimeLabel: data.runtimeLabel } : {}),
     ...(data.parentSessionId ? { parentSessionId: data.parentSessionId } : {}),
     ...(data.kind ? { kind: data.kind } : {}),
-    ...(data.avatar ? { avatar: data.avatar, titleManuallySet: true } : {}),
+    ...(data.bot
+      ? { avatar: data.bot.avatar, titleManuallySet: true, timelineEvents: [data.bot.change] }
+      : {}),
     ...(data.workspace ? { workspace: data.workspace } : {}),
     metadata: {
       locale: data.locale,

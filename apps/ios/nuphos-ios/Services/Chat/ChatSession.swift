@@ -102,6 +102,8 @@ final class ChatSession {
     /// Mac, and says it can show one or already does.
     var canOpenDesktop: Bool { ownsChat && runtimeObservation?.canOpenDesktop == true }
     func makeDesktop() -> DesktopSession { DesktopSession(teamId: teamId, sessionId: sessionId, token: token) }
+    /// A shell on this conversation's computer; the backend checks the owner may open one there.
+    func makeTerminal() -> TerminalSession { TerminalSession(teamId: teamId, sessionId: sessionId, token: token) }
     /// This conversation's whole dock on its owner's computer, mirrored for the phone.
     func dock() async throws -> DockState {
         try await AgentChatAPI.dock(token: token, teamId: teamId, sessionId: sessionId)

@@ -43,6 +43,7 @@ describe('createMeetingBot', () => {
     await createMeetingBot({
       meetingUrl: 'https://meet.google.com/a',
       botName: 'B',
+      face: 'jpeg',
       webhookUrl: 'https://w',
     })
 

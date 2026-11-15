@@ -1,5 +1,6 @@
 import { agentMessages } from './db/shared'
 import { parseMessageMetadata } from './message-metadata'
+import { withCurrentAgentNames } from './sender-names'
 
 import type { AgentConversation } from './db/shared'
 
@@ -16,7 +17,7 @@ const FILE_PARTS = new Set(['file', 'transfer-upload', 'transfer-download'])
 type Part = { type?: unknown; text?: unknown }
 
 export async function lastMessage(
-  conversation: Pick<AgentConversation, 'sessionId' | 'userId'> & { kind?: string },
+  conversation: Pick<AgentConversation, 'sessionId' | 'userId' | 'teamId'> & { kind?: string },
   viewerId: string,
 ): Promise<LastMessage | undefined> {
   const [message] = await agentMessages()
@@ -62,11 +63,13 @@ export async function lastMessage(
   const files = parts.some((part) => FILE_PARTS.has(part.type as string))
 
   if (!text && !files) return undefined
-  const sender = parseMessageMetadata(message.metadata)?.sender
-  const from =
-    conversation.kind === 'channel' && sender && sender.id !== viewerId
-      ? shortName(sender.type, sender.displayName)
+  const metadata = parseMessageMetadata(message.metadata)
+  // Only a group chat's row names its sender, so only it looks the name up.
+  const sender =
+    conversation.kind === 'channel' && metadata && metadata.sender.id !== viewerId
+      ? (await withCurrentAgentNames([{ metadata }], conversation.teamId))[0]?.metadata.sender
       : undefined
+  const from = sender && shortName(sender.type, sender.displayName)
 
   return { text: text?.slice(0, PREVIEW_CHARS) ?? '', ...(from ? { from } : {}) }
 }

@@ -450,6 +450,11 @@ final class AgentStore {
     private var loadedPageCursors: [String] = []
     private var refreshPageIndex = 0
 
+    /// The title of one of the viewer's Bots or tasks the store has loaded.
+    func title(ofSession sessionId: String) -> String? {
+        (bots + conversations).first { $0.sessionId == sessionId }?.title
+    }
+
     /// The viewer's own sessions whose title or first message contains
     /// `query`, newest first, other than `excluded` — what an `@` offers.
     func mentionableSessions(teamId: String, excluding excluded: String?, matching query: String) async -> [AgentConversation] {

@@ -17,7 +17,6 @@ import { agentSlots, askToAdd, canAddAgent } from './boxAgentSlots'
 import { DeskArt } from './BoxDesk'
 import { DeskAgents, DeskReadings } from './BoxDeskInfo'
 import { deskModel } from './boxDeskModel'
-import { openBoxDesktop } from './boxDesktop'
 import { BoxHostUpdate } from './BoxHostUpdate'
 import { AccessHint, LiveDot, MachineLine, OwnerLine } from './BoxParts'
 import { copyUid } from './boxCopyUid'
@@ -25,6 +24,7 @@ import { openBoxPaywall } from './boxPaywallStore'
 import { BOX_BADGE, boxActions, boxState, removal } from './boxPresentation'
 import { boxRestartLabel, boxRestartOf, boxUpdateLabel } from './boxRestartPresentation'
 import { boxRestarts, useBoxRestart } from './boxRestartStore'
+import { openDesktop } from './computerDesktop'
 import { LocalAgentShareDialog } from './LocalAgentShareDialog'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 import { useBoxHostUpdate } from './useBoxHostUpdate'
@@ -68,6 +68,9 @@ export function BoxRow({
   const AccessDialog = cloud ? BoxAccessDialog : LocalAgentShareDialog
   const manage = canManage(device)
   const owner = useComputerOwner(teamId, device)
+  // Besides a Box, another of the viewer's own computers whose host opens its screen.
+  const screen =
+    cloud || owner || thisComputer ? undefined : agents.find((agent) => agent.local?.desktopOpen)
   const remove = removal(device)
   const badge = BOX_BADGE[state]
   const actions = cloud && !restart ? boxActions(state) : { pause: false, resume: false }
@@ -180,8 +183,8 @@ export function BoxRow({
               <Ellipsis className="h-4 w-4" />
             </MenuTrigger>
             <MenuContent align="end">
-              {cloud && state === 'running' && (
-                <MenuItem onClick={() => openBoxDesktop(device.deviceId, teamId)}>
+              {(cloud ? state === 'running' : screen) && (
+                <MenuItem onClick={() => openDesktop(device.deviceId, teamId, screen?.id)}>
                   {t('Open desktop')}
                 </MenuItem>
               )}

@@ -127,3 +127,15 @@ test('a normal fork has its own confirmation and destination', () => {
     },
   ])
 })
+
+test('the record of a Bot change is left out: it is not a transcript line', () => {
+  const withRecord: ConversationTimelineEvent[] = [
+    { kind: 'bot_changed', at, actorId: 'gone', via: 'make_bot', avatar: '07-ada' },
+    ...events.slice(0, 1),
+  ]
+
+  expect(serializeTimelineEvents(withRecord, people).map((event) => event.kind)).toEqual([
+    'participant_invited',
+  ])
+  expect(timelineEventUserIds(withRecord)).toEqual(['alice', 'bob'])
+})

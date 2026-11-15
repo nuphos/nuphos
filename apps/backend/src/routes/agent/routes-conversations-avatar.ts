@@ -42,7 +42,7 @@ agent.patch('/conversations/:sessionId/avatar', async (c) => {
 
   if (!conversation || conversation.userId !== userId)
     throw new AppError(404, 'not_found', 'Conversation not found')
-  if (!(await setConversationAvatar(sessionId, body.data.avatar))) {
+  if (!(await setConversationAvatar(sessionId, body.data.avatar, userId))) {
     if (body.data.avatar !== null && !conversation.avatar)
       throw new AppError(400, 'invalid_request', 'Only a Bot has a face to change')
     throw new AppError(404, 'not_found', 'Conversation not found')
@@ -81,6 +81,7 @@ agent.post('/bots', async (c) => {
   return c.json(
     // A Bot works on its own, so it starts in full access, as a new chat would set it.
     await createBot(c.get('userId'), teamId, true, {
+      source: { via: 'new_bot' },
       title: body.data.title,
       avatar: body.data.avatar,
       agentRuntime,
@@ -113,7 +114,7 @@ agent.post('/conversations/:sessionId/bot', async (c) => {
   const avatar = derivedAvatar(sessionId)
 
   // A second click that lost the race finds the face set: nothing more to do.
-  if (!(await claimBotAvatar(sessionId, avatar))) {
+  if (!(await claimBotAvatar(sessionId, avatar, userId))) {
     const current = await getReadableConversation(sessionId, userId, teamId)
 
     return c.json({ avatar: current?.avatar ?? avatar })
