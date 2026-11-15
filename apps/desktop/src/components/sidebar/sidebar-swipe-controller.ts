@@ -186,6 +186,13 @@ export function attachSidebarSwipe(
   }
 
   return {
+    /** Jump to a slot without animating or reporting a page change (the order moved). */
+    place: (target: SidebarPage) => {
+      freeze()
+      selected = target
+      position = -target * width
+      paint(position)
+    },
     nativePhase: (phase: 'begin' | 'end') => {
       clearTimeout(end)
       if (phase === 'begin') {
