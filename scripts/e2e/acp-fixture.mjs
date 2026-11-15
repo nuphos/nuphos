@@ -11,8 +11,9 @@ const log = (entry) => appendFileSync(process.env.E2E_ACP_LOG, `${JSON.stringify
 const held = new Map()
 // The Nuphos tools server each session was given, when the backend offers one.
 const tools = new Map()
-// Requests this agent made of its client, waiting for their answers.
+// Requests this agent made of its client, waiting for their answers. OpenAB reads ids as numbers.
 const asked = new Map()
+let nextRequest = 1_000_000
 // The thread E2E_THREAD started last, for E2E_POKE to message.
 let thread
 
@@ -90,7 +91,7 @@ async function startThread(sessionId, marker) {
 
 /** Asks the client to allow a command, as a runtime does before it runs one. */
 async function permission(sessionId, marker) {
-  const id = randomUUID()
+  const id = nextRequest++
   const answered = new Promise((resolve) => asked.set(id, resolve))
 
   log({ sessionId, marker, event: 'permission-asked' })
@@ -122,7 +123,10 @@ async function prompt({ sessionId, prompt: parts }) {
   if (text.includes('E2E_ASK')) {
     await ask(sessionId, text.includes('E2E_ASK_CREDENTIAL') ? 'credential' : 'preference')
   }
-  if (text.includes('E2E_THREAD')) await startThread(sessionId, marker)
+  // The thread's own prompt can carry its parent's words; only the parent starts one.
+  if (text.includes('E2E_THREAD') && !text.includes('E2E_PERMISSION')) {
+    await startThread(sessionId, marker)
+  }
   if (text.includes('E2E_POKE')) {
     await tool(sessionId, 'send_message_to_thread', {
       label: 'Message the thread',
