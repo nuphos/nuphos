@@ -49,6 +49,8 @@ agent.patch('/conversations/:sessionId/avatar', async (c) => {
       throw new AppError(400, 'invalid_request', 'Only a Bot has a face to change')
     throw new AppError(404, 'not_found', 'Conversation not found')
   }
+  // A photo the Bot wore until now is no longer its face.
+  if (conversation._id) await pruneAvatars(conversation._id.toHexString())
   // A Task is never in a chat.
   if (body.data.avatar === null) await leaveChats(sessionId)
 

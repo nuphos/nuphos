@@ -85,6 +85,8 @@ useAgentDb({
 // Full-access grants a new Bot starts with: \`${userId}:${conversationId}\` → bypass.
 const bypass = new Map<string, unknown>()
 let left: string[] = []
+// The Bots whose stored photos were pruned.
+let pruned: string[] = []
 
 useDb({
   db: () => ({
@@ -106,7 +108,11 @@ useDb({
       updateMany: () => Promise.resolve(),
       // An uploaded face: nothing else is stored for this Bot, and nothing to prune.
       findOne: () => Promise.resolve(null),
-      deleteMany: () => Promise.resolve(),
+      deleteMany: (filter: { userId: unknown }) => {
+        pruned.push(String(filter.userId))
+
+        return Promise.resolve()
+      },
     }),
   }),
 })
@@ -117,6 +123,7 @@ app.onError((error, c) =>
 )
 beforeEach(() => {
   left = []
+  pruned = []
   owner = caller
   managerIds = []
   saved = []
@@ -142,6 +149,8 @@ test("the owner changes a Bot's face, and taking it away makes it a Task", async
 
   expect(response.status).toBe(200)
   expect(await response.json()).toEqual({ avatar: '05-rembrandt' })
+  // A photo it wore before is not kept.
+  expect(pruned).toEqual([botId])
   expect(left).toEqual([])
   expect((await pick(null)).status).toBe(200)
   expect(saved).toEqual(['05-rembrandt', null])
