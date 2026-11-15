@@ -51,10 +51,13 @@ final class AttachmentMediaUITests: XCTestCase {
     }
 
     /// On a video, ✕ and share are finger-sized: a tap near a button's edge,
-    /// off its glyph, still works.
+    /// off its glyph, still works. They keep off the top edge even where the
+    /// status bar isn't above them, as on an iPhone Duo.
     func testBarButtonsTakeTapsOffTheirGlyphs() throws {
         let app = try launch(videoLink: "file://$FIXTURE_DIR/media/clip.mp4")
         let video = app.buttons["Open clip.mp4"]
+        // A short screen, such as an iPhone Duo's cover, opens the chat below the video.
+        for _ in 0..<6 where !video.waitForExistence(timeout: 3) || !video.isHittable { app.swipeDown() }
         XCTAssertTrue(video.waitForExistence(timeout: 10), "The video never showed")
         video.tap()
         let counter = app.staticTexts["1 / 3"]
@@ -63,6 +66,8 @@ final class AttachmentMediaUITests: XCTestCase {
         for button in [done, share] {
             XCTAssertGreaterThanOrEqual(button.frame.width, 44, "\(button.label) is narrower than 44 pt")
             XCTAssertGreaterThanOrEqual(button.frame.height, 44, "\(button.label) is shorter than 44 pt")
+            // A touch at the screen's top edge goes to the system first.
+            XCTAssertGreaterThanOrEqual(button.frame.minY - app.windows.firstMatch.frame.minY, 20, "\(button.label) touches the top edge")
         }
         shot("video-bar")
         done.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.9)).tap()
