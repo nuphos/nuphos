@@ -4717,6 +4717,7 @@
   "This restarts the runtime host on {boxLabel} to install the latest version available now.": "{boxLabel} のランタイムホストを再起動し、現在利用可能な最新バージョンをインストールします。",
   "This runtime does not report its sign-in yet.": "このランタイムはまだサインイン状態を報告していません。",
   "This runtime is offline. Model settings return when it reconnects.": "このランタイムはオフラインです。再接続するとモデル設定が表示されます。",
+  "This runtime is the {provider} already signed in on {device}, so it cannot be removed from Nuphos.": "このランタイムは {device} ですでにサインインしている {provider} のため、Nuphos から削除できません。",
   "This signs {name} out on {device} and deletes its CLI history and settings there. Agents on it stop working; their history stays in Nuphos.": "{device} で {name} からサインアウトし、CLI の履歴と設定を削除します。そのランタイムのエージェントは動作しなくなりますが、履歴は Nuphos に残ります。",
   "This signs {name} out on {device} and deletes its settings there. Agents on it stop working; their history stays in Nuphos.": "{device} で {name} からサインアウトし、その設定を削除します。そのランタイムのエージェントは動作しなくなりますが、履歴は Nuphos に残ります。",
   "This skill predates provenance tracking, so its original creator is not inferred.": "このスキルは由来の追跡より前に作成されたため、元の作成者は推定されません。",
