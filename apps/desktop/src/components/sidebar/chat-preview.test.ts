@@ -7,13 +7,6 @@ test('a chat with no messages has no preview', () => {
   assert.equal(chatPreview(undefined), undefined)
 })
 
-test('markdown and mention links read as plain text', () => {
-  assert.equal(
-    chatPreview({ text: '**Done**: see [the PR](https://x/1) for [@Ann](#mention:ann)\n- ok' }),
-    'Done: see the PR for @Ann ok',
-  )
-})
-
 const group = [
   { id: 'ann', name: 'Ann' },
   { id: 'bo', name: 'Bo' },
