@@ -38,7 +38,13 @@ final class RealFormRunUITests: XCTestCase {
         }
         code.tap()
         code.typeText(try XCTUnwrap(digits, "No sign-in code in the backend log"))
-        sleep(6)
+        // A synthetic account on a local backend: it agrees to AI use, as a person would on first sign-in.
+        let agree = app.buttons["Agree and continue"]
+        if agree.waitForExistence(timeout: 15) {
+            for _ in 0..<4 where !agree.isHittable { app.swipeUp() }
+            agree.tap()
+        }
+        sleep(5)
         capture("1-signed-in")
 
         let task = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", marker)).firstMatch
