@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
+import type { SlackEventEnvelope, SlackRuntime } from '@/routes/slack/types'
 
 import { appendMessageOriginLine, buildSlackMessageOrigin } from '@/lib/agent/message-origin'
 import { signNuphosToken } from '@/lib/identity'
@@ -32,8 +33,6 @@ import { beginThreadStatus } from '@/routes/slack/status'
 import { checkNotificationReplyAccess, verifyThreadTeamAccess } from '@/routes/slack/thread-gates'
 import { executeSlackAgentTurn } from '@/routes/slack/turn'
 import { claimSlackTurnOrQueue } from '@/routes/slack/turn-admission'
-
-import type { SlackEventEnvelope, SlackRuntime } from '@/routes/slack/types'
 
 // Exported for tests (see handleAppMention).
 export async function handleThreadMessage(envelope: SlackEventEnvelope): Promise<void> {

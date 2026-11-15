@@ -96,7 +96,7 @@ export function registerSlackMappingRoutes(slackRoutes: Hono<{ Variables: AuthVa
 
   slackRoutes.put('/mappings', async (c) => {
     const userId = c.get('userId')
-    const body = (await c.req.json())
+    const body = await c.req.json()
     const teamId = await resolveVerifiedTeamId(
       c,
       typeof body.teamId === 'string' ? body.teamId : undefined,
