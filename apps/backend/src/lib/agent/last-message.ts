@@ -1,3 +1,5 @@
+import { plainText } from '@/lib/push/turn-outcome'
+
 import { agentMessages } from './db/shared'
 import { parseMessageMetadata } from './message-metadata'
 import { withCurrentAgentNames } from './sender-names'
@@ -5,8 +7,9 @@ import { withCurrentAgentNames } from './sender-names'
 import type { AgentConversation } from './db/shared'
 
 /**
- * A chat's newest message, for its list row's preview. `text` is the raw
- * markdown, cut short; it is empty when the message only carries files.
+ * A chat's newest message, for its list row's preview. `text` is plain text,
+ * as a notification shows it, so no client renders markdown syntax; it is
+ * empty when the message only carries files.
  * `from` names who sent it in a group chat, unless it was the viewer.
  */
 export type LastMessage = { text: string; from?: string }
@@ -71,7 +74,7 @@ export async function lastMessage(
       : undefined
   const from = sender && shortName(sender.type, sender.displayName)
 
-  return { text: text?.slice(0, PREVIEW_CHARS) ?? '', ...(from ? { from } : {}) }
+  return { text: plainText(text?.slice(0, PREVIEW_CHARS) ?? ''), ...(from ? { from } : {}) }
 }
 
 /** A person by their first name, as iMessage does; an agent's title is its only name. */

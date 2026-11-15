@@ -116,6 +116,11 @@ describe('plainText', () => {
       plainText('# Title\n- see [docs](https://x.io)\n```ts\nconst a = 1\n```\n> _done_'),
     ).toBe('Title see docs (code) done')
   })
+
+  test('drops a code block or link URL that a cut left open', () => {
+    expect(plainText('Run\n```sh\nnpm i')).toBe('Run (code)')
+    expect(plainText('See [docs](https://x.io/do')).toBe('See docs')
+  })
 })
 
 test('an explicit final text block replaces earlier commentary for notification classification', () => {
