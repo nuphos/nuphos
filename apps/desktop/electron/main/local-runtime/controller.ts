@@ -169,7 +169,7 @@ export class LocalRuntimeController {
       (provider, instanceId) =>
         instanceId !== undefined
           ? (this.instances?.runtime(instanceId, provider) ?? null)
-          : this.runtime(provider),
+          : this.runtimeForStream(provider),
       () => ({
         ...this.status(),
         ...(this.instances ? { instances: this.instances.status() } : {}),
@@ -183,11 +183,14 @@ export class LocalRuntimeController {
     )
     this.tunnel.start()
   }
+  runtime(provider: LocalAgentProvider) {
+    return this.agents[provider].runtime
+  }
   /**
    * The running agent, for a stream that asks for it. One whose CLI was missing is looked
    * for again: it may have been installed since, and nothing else would notice until a restart.
    */
-  runtime(provider: LocalAgentProvider) {
+  runtimeForStream(provider: LocalAgentProvider) {
     const agent = this.agents[provider]
 
     if (!agent.runtime && agent.cli?.installed === false)

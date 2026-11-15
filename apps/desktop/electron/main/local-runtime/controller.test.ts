@@ -225,6 +225,12 @@ test('a stream asking for an agent whose CLI was missing looks for it again', as
   assert.deepEqual(envReads, [true])
   assert.deepEqual(events, [])
 
+  // Reading the state is not asking for the agent.
+  controller.state()
+  controller.runtime('codex')
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.deepEqual(envReads, [true])
+
   // Installed since: the next ask starts it, and the one after is served by it.
   delete cli.codex
   assert.equal(stream('codex'), null)
