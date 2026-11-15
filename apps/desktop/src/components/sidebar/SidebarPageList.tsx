@@ -7,7 +7,6 @@ import { t } from '../../i18n'
 import { BOTS_SECTION, foldKey, unpinnedChatItems } from './chat-sections'
 import { AddProjectButton } from './project-actions'
 import { SidebarSectionList } from './sections-list'
-import { SidebarArchiveSection } from './SidebarArchiveSection'
 import { SidebarBotPins } from './SidebarBotPins'
 import { SidebarSectionHeading } from './SidebarSectionHeading'
 import { taskPageSections } from './task-page-sections'
@@ -129,11 +128,6 @@ export function SidebarPageList({
           </div>
         )}
       </nav>
-      {page === 1 && (
-        <div className="shrink-0 px-2.5 pb-1">
-          <SidebarArchiveSection listProps={listProps} />
-        </div>
-      )}
     </div>
   )
 }

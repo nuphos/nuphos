@@ -68,15 +68,15 @@
   height: 360px;
   transition: height 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
-.sidebar-page-layout:has([data-archive-expanded='true']) .sidebar-page-list {
+[data-mode-pages]:has([data-archive-expanded='true']) .sidebar-page-list {
   /* Reveal the actual sidebar surface, including macOS vibrancy, rather than
-     painting an opaque approximation over the tasks. The overlay overlaps the
-     28px footer, so the rest of its height covers the scrolling list. */
+     painting an opaque approximation over the list. The overlay sits above the
+     footer row, so its whole height covers the scrolling list. */
   mask-image: linear-gradient(
     to top,
     transparent 0,
-    transparent max(0px, calc(var(--sidebar-archive-height, 360px) - 28px)),
-    #000 var(--sidebar-archive-height, 360px),
+    transparent var(--sidebar-archive-height, 360px),
+    #000 calc(var(--sidebar-archive-height, 360px) + 28px),
     #000 100%
   );
 }

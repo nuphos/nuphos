@@ -881,6 +881,7 @@
   "Computer renamed": "电脑已重命名",
   "Computer setup failed": "电脑设置失败",
   "Computers": "电脑",
+  "Computers and runtimes": "电脑和运行环境",
   "Computers for the whole team at once": "同时为整个团队提供电脑",
   "Computers have no vCPU limit on this deployment.": "此部署中的电脑没有 vCPU 限制。",
   "Computers made on this account are billed to it by instabox, not to your Nuphos plan.": "在此账号上创建的电脑由 instabox 向这个账号计费，不计入你的 Nuphos 套餐。",
