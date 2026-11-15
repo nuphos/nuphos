@@ -2,12 +2,15 @@ import { randomUUID } from 'node:crypto'
 
 import { initializeSessionBypass } from './auto-mode/store'
 import { derivedAvatar } from './bot-avatars'
-import { upsertConversationShell } from './db'
+import { botChange, upsertConversationShell } from './db'
 
 import type { BotAvatar } from './bot-avatars'
 import type { AgentConversation } from './db'
+import type { BotChangeSource } from './db/timeline-events'
 
 export type NewBot = {
+  /** What is making it, for the record kept with its face. */
+  source: BotChangeSource
   title?: string
   avatar?: BotAvatar
   agentRuntime?: NonNullable<AgentConversation['agentRuntime']>
@@ -25,12 +28,12 @@ export async function createBot(
   userId: string,
   teamId: string,
   bypass: boolean,
-  bot: NewBot = {},
+  bot: NewBot,
   sessionId: string = randomUUID(),
 ) {
   const avatar = bot.avatar ?? derivedAvatar(sessionId)
   const title = bot.title ?? 'New Bot'
-  const { agentRuntime, runtimeId, runtimeLabel } = bot
+  const { source, agentRuntime, runtimeId, runtimeLabel } = bot
 
   await upsertConversationShell({
     sessionId,
@@ -38,7 +41,7 @@ export async function createBot(
     teamId,
     title,
     firstMessage: '',
-    avatar,
+    bot: { avatar, change: botChange({ actorId: userId, ...source }, avatar) },
     ...(agentRuntime ? { agentRuntime } : {}),
     ...(runtimeId ? { runtimeId, ...(runtimeLabel ? { runtimeLabel } : {}) } : {}),
   })

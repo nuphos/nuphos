@@ -34,6 +34,8 @@ import type { MiddlewareHandler } from 'hono'
 
 export type AgentVars = AuthVariables & {
   agent: AgentRef
+  /** The tool an MCP `tools/call` named, for the access log. */
+  toolName?: string
 }
 export type AgentAwsVars = AgentVars & AwsAccountVariables
 export type AgentGcpVars = AgentVars & GcpProjectVariables

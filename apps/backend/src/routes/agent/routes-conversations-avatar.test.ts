@@ -27,6 +27,8 @@ const caller = 'bbbbbbbbbbbbbbbbbbbbbbbb'
 let owner = caller
 let managerIds: string[] = []
 let saved: (string | null)[] = []
+// Who each saved face is recorded as changed by.
+let actors: string[] = []
 let stillThere = true
 let shells: Record<string, unknown>[] = []
 let currentAvatar: string | undefined
@@ -56,20 +58,22 @@ useAgentDb({
 
     return { isNew: true }
   },
-  claimBotAvatar: async (_session, avatar) => {
+  claimBotAvatar: async (_session, avatar, actorId) => {
     if (!claimWins) {
       currentAvatar = '07-ada'
 
       return false
     }
     saved.push(avatar)
+    actors.push(actorId)
 
     return true
   },
   // As the write: a face changes only on a Bot; taking it away works on any.
-  setConversationAvatar: async (_session, avatar) => {
+  setConversationAvatar: async (_session, avatar, actorId) => {
     if (!stillThere || (avatar !== null && !currentAvatar)) return false
     saved.push(avatar)
+    actors.push(actorId)
 
     return true
   },
@@ -109,6 +113,7 @@ beforeEach(() => {
   owner = caller
   managerIds = []
   saved = []
+  actors = []
   stillThere = true
   shells = []
   currentAvatar = undefined
@@ -133,6 +138,7 @@ test("the owner changes a Bot's face, and taking it away makes it a Task", async
   expect(left).toEqual([])
   expect((await pick(null)).status).toBe(200)
   expect(saved).toEqual(['05-rembrandt', null])
+  expect(actors).toEqual([caller, caller])
   // A Task is never in a chat.
   expect(left).toEqual(['s1'])
 })
@@ -194,7 +200,16 @@ test('"+" on Bots creates a Bot with a name and its derived face, before any mes
       teamId,
       title: 'New Bot',
       firstMessage: '',
-      avatar: body.avatar,
+      bot: {
+        avatar: body.avatar,
+        change: {
+          kind: 'bot_changed',
+          at: expect.any(Date),
+          actorId: caller,
+          via: 'new_bot',
+          avatar: body.avatar,
+        },
+      },
     },
   ])
 })
@@ -211,6 +226,7 @@ test('"Make this a Bot" gives the Task its face and asks it to name itself', asy
 
   expect(response.status).toBe(200)
   expect(saved).toEqual([avatar])
+  expect(actors).toEqual([caller])
   expect(turns).toHaveLength(1)
   expect(turns[0]?.avatar).toBe(avatar)
   expect(turns[0]?.text).toContain('update_self')
