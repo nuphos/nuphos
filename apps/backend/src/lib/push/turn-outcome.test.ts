@@ -117,6 +117,12 @@ describe('plainText', () => {
     ).toBe('Title see docs (code) done')
   })
 
+  test('keeps underscores inside a word', () => {
+    expect(plainText('Set `NUPHOS_AGENT_HOME` to _your_ __home__')).toBe(
+      'Set NUPHOS_AGENT_HOME to your home',
+    )
+  })
+
   test('drops a code block or link URL that a cut left open', () => {
     expect(plainText('Run\n```sh\nnpm i')).toBe('Run (code)')
     expect(plainText('See [docs](https://x.io/do')).toBe('See docs')
