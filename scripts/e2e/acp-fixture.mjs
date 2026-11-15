@@ -1,7 +1,7 @@
 // Deterministic model substitute, behind the real OpenAB executable and ACP transport.
 // No network tools, GitHub credentials, or real inference are used.
 import { randomUUID } from 'node:crypto'
-import { appendFileSync } from 'node:fs'
+import { appendFileSync, existsSync } from 'node:fs'
 import { createInterface } from 'node:readline'
 
 const send = (message) =>
@@ -231,6 +231,12 @@ async function answer(request) {
       }
     case 'session/new': {
       const sessionId = randomUUID()
+
+      log({ event: 'opening' })
+      // A slow agent start: the session does not open while this file exists.
+      while (existsSync(process.env.E2E_HOLD_OPENING)) {
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      }
 
       tools.set(
         sessionId,

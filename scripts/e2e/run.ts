@@ -2,6 +2,7 @@
 // deterministic agent in place of a model. Each scenario is a flow a person takes.
 import { readFileSync, rmSync } from 'node:fs'
 
+import { agentEvents, agentLog, delegatedTurn } from './agent-log.ts'
 import { startDesktop } from './desktop.ts'
 import { artifacts, logPath, stopAll, until } from './processes.ts'
 import { startStack } from './stack.ts'
@@ -12,8 +13,10 @@ import type { Page } from 'playwright-core'
 
 type Scenario = { name: string; run: (page: Page, stack: Stack) => Promise<void> }
 
-// The sign-in page asks which social providers exist; this stack configures none.
-const EXPECTED_FAILURE = /"path":"\/auth\/social\/login"|Social sign-in is not configured/
+// The sign-in page asks which social providers exist; this stack configures none. The app also
+// asks for a new Task's resources as its first message is sent, before that message has stored it.
+const EXPECTED_FAILURE =
+  /"path":"\/auth\/social\/login"|Social sign-in is not configured|\/resources","status":404/
 
 /** Requests the backend refused or failed, and errors it logged, since `from` lines in. */
 function backendFailures(from: number): string[] {
@@ -37,40 +40,6 @@ async function send(page: Page, text: string) {
 async function newTask(page: Page) {
   await page.getByRole('tab', { name: 'Tasks' }).click()
   await page.getByRole('button', { name: 'New task', exact: true }).click()
-}
-
-type AgentEntry = {
-  /** The runtime it ran on: `first` or `second`. */
-  agent: string
-  sessionId: string
-  event: string
-  marker?: string
-  /** The model settings a new session was created with. */
-  defaults?: { fast?: string }
-  isError?: boolean
-  detail?: string
-}
-
-function agentLog(stack: Stack): AgentEntry[] {
-  return readFileSync(stack.acpLog, 'utf8')
-    .split('\n')
-    .filter(Boolean)
-    .map((line) => JSON.parse(line) as AgentEntry)
-}
-
-/** What the fixture agent did, in order: `start`, `finish`, `cancelled` or `asked`, each with its marker. */
-function agentEvents(stack: Stack): string[] {
-  return agentLog(stack).map(({ event, marker }) => (marker ? `${event} ${marker}` : event))
-}
-
-/** The turn a delegated Task ran, once it has finished. A refused create_thread fails at once. */
-function delegatedTurn(stack: Stack, marker: string): AgentEntry | undefined {
-  const log = agentLog(stack)
-  const refusal = log.find((entry) => entry.event === 'delegated' && entry.isError)
-
-  if (refusal) throw new Error(`create_thread was refused: ${refusal.detail ?? ''}`)
-
-  return log.find((entry) => entry.event === 'finish' && entry.marker === marker)
 }
 
 const scenarios: Scenario[] = [
@@ -115,6 +84,34 @@ const scenarios: Scenario[] = [
         events.indexOf('cancelled E2E_DELIVERY:held') > events.indexOf('start E2E_DELIVERY:queued')
       ) {
         throw new Error(`The queued message ran before the turn was stopped: ${events.join(', ')}`)
+      }
+    },
+  },
+  {
+    // #2872: the agent read the message once its session opened, seconds after the Stop.
+    name: 'Stop while the agent is still starting, and the agent never reads the message',
+    run: async (page, stack) => {
+      const openings = () => agentEvents(stack).filter((event) => event === 'opening').length
+      const before = openings()
+      const open = stack.holdSessionOpening()
+
+      try {
+        await newTask(page)
+        await send(page, 'Stopped before it starts E2E_DELIVERY:stopped')
+        await until('the agent to be asked for a session', async () => openings() > before)
+        await page.locator('button[title="Stop"]').click()
+        // The Stop has to reach the agent host while the session is still opening.
+        await page.waitForTimeout(2_000)
+      } finally {
+        open()
+      }
+      await page.getByText('Turn stopped').waitFor()
+      await send(page, 'Sent after the stop E2E_DELIVERY:after-stop')
+      await page.getByText('ACK E2E_DELIVERY:after-stop').waitFor()
+      const events = agentEvents(stack)
+
+      if (events.includes('start E2E_DELIVERY:stopped')) {
+        throw new Error(`The agent read a message stopped before it started: ${events.join(', ')}`)
       }
     },
   },
