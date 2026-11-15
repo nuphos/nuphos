@@ -135,9 +135,10 @@ export function classifyTurn(facts: TurnFacts): TurnOutcome | null {
 }
 
 export function plainText(input: string): string {
+  // A preview may end inside a code block or a link's URL; those go too.
   return input
-    .replaceAll(/```[\s\S]*?```/g, '(code)')
-    .replaceAll(/\]\([^()\s]*\)/g, '')
+    .replaceAll(/```[\s\S]*?(?:```|$)/g, '(code)')
+    .replaceAll(/\]\([^()\s]*(?:\)|$)/g, '')
     .replaceAll(/[*_~`[\]]+/g, '')
     .replaceAll(/^[ \t]*(?:#{1,6}|>|[-+]|\d+\.)[ \t]/gm, '')
     .replaceAll(/\s+/g, ' ')

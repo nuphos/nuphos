@@ -85,7 +85,7 @@ describe('lastMessage', () => {
       { type: 'text', text: '**Done**, all green.' },
     ])
 
-    expect(await lastMessage(chat, 'me')).toEqual({ text: '**Done**, all green.' })
+    expect(await lastMessage(chat, 'me')).toEqual({ text: 'Done, all green.' })
   })
 
   test('a file-only message has empty text', async () => {
@@ -133,6 +133,19 @@ describe('lastMessage', () => {
     await post([{ type: 'text', text: 'hi' }], { type: 'user', id: 'me', name: 'Me' })
     expect(await lastMessage(channel, 'me')).toEqual({ text: 'hi' })
     expect(await lastMessage(chat, 'ann')).toEqual({ text: 'hi' })
+  })
+
+  test('markdown reads as plain text, a link cut short included', async () => {
+    await post([
+      {
+        type: 'text',
+        text: `Fixed in [CLI 0.17.1](https://x.io/r) by \`npm i\`. ${'a'.repeat(230)} [docs](https://x.io/docs/long`,
+      },
+    ])
+
+    expect((await lastMessage(chat, 'me'))?.text).toBe(
+      `Fixed in CLI 0.17.1 by npm i. ${'a'.repeat(230)} docs`,
+    )
   })
 
   test('long text is cut short', async () => {
