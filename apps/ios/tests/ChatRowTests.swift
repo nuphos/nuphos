@@ -455,6 +455,43 @@ enum ChatRowTests {
         precondition(ask(["category": .string("approval"), "secretName": .string("KEY")]).secretRequest == nil)
         precondition(ask(["category": .string("credential"), "secretName": .string("KEY")]).decisionRequestId == "ask")
 
+        // A website form's details: several labeled fields and the site they are entered on.
+        func field(_ name: String, _ label: String) -> JSONValue { .object(["name": .string(name), "label": .string(label)]) }
+        func form(_ fields: [JSONValue], site: JSONValue? = .string("www.clinic.example")) -> ChatPart.ToolPart {
+            var input: [String: JSONValue] = ["category": .string("credential"), "secretName": .string("CLINIC_LOOKUP"), "fields": .array(fields)]
+            input["site"] = site
+            return ask(input)
+        }
+        let details = form([field("NATIONAL_ID", " National ID number "), field("BIRTH_DATE", "Date of birth (YYYY-MM-DD)")])
+        precondition(details.secretRequest?.name == "CLINIC_LOOKUP")
+        precondition(details.secretRequest?.fields == [
+            .init(name: "NATIONAL_ID", label: "National ID number"),
+            .init(name: "BIRTH_DATE", label: "Date of birth (YYYY-MM-DD)"),
+        ])
+        precondition(details.secretRequest?.site == "www.clinic.example")
+        precondition(details.kind == .question)
+        // Fields or a site it cannot trust leave the one masked input, never a looser card.
+        let id = field("NATIONAL_ID", "National ID number")
+        for untrusted in [
+            form([id], site: nil), form([id], site: .string("https://www.clinic.example/lookup")), form([id], site: .string("clinic")),
+            form([id], site: .string("WWW.Clinic.Example")), form([id], site: .string("www.clinic.example:0")),
+            form([]), form([field("../x", "ID")]), form([field("ID", " ")]), form([id, id]),
+            form((0..<7).map { field("F\($0)", "x") }),
+        ] {
+            precondition(untrusted.secretRequest?.name == "CLINIC_LOOKUP")
+            precondition(untrusted.secretRequest?.fields == nil && untrusted.secretRequest?.site == nil)
+        }
+        precondition(form([id], site: .string("localhost:5199")).secretRequest?.site == "localhost:5199")
+        // Every client reads a reply that opens as a single secret's does as the request's saved answer.
+        let reply = ChatPart.ToolPart.secretFieldsSavedReply("CLINIC_LOOKUP", saved: [
+            (name: "NATIONAL_ID", path: "/runtime/nuphos-secret-a/0/NATIONAL_ID"),
+            (name: "BIRTH_DATE", path: "/runtime/nuphos-secret-b/0/BIRTH_DATE"),
+        ])
+        precondition(reply.hasPrefix(ChatPart.ToolPart.secretSavedReply("CLINIC_LOOKUP")))
+        precondition(reply.split(separator: "\n").dropFirst() == [
+            "NATIONAL_ID: /runtime/nuphos-secret-a/0/NATIONAL_ID", "BIRTH_DATE: /runtime/nuphos-secret-b/0/BIRTH_DATE",
+        ])
+
         let message = ChatMessage(id: "m", role: .assistant, parts: [tool("a"), tool("b"), .tool(secret), text("Use the card below.")])
         let rows = ChatRow.assistantRows(message, live: false, lastApprovalCallId: nil)
         precondition(shape(rows) == ["work[run:tool.a,tool.b]", "tool.ask", "text:Use the card below."], "\(shape(rows))")
