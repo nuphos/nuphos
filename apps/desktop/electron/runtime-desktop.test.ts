@@ -82,11 +82,19 @@ test('a reload closes the old page’s desktop socket', async () => {
   assert.equal(sockets.at(-1)?.closed, 0)
 })
 
-test('a computer’s own screen reaches its runtime route, a slash and all', async () => {
+test('only runtime/<id> reaches the runtime route; any other id stays one segment', async () => {
   const desktops = new RuntimeDesktopSessions()
   const { owner } = page()
+  const base = 'wss://api.example.test/teams/team/runtime-desktop'
 
-  await desktops.start(owner, 'computer', { teamId: 'team', sessionId: 'runtime/r 1', display: 2 })
-  desktops.close(owner, 'computer')
-  assert.equal(urls.at(-1), 'wss://api.example.test/teams/team/runtime-desktop/runtime/r%201/2')
+  for (const sessionId of ['runtime/r 1', 'runtime/../../x', '../agent', 'a/b']) {
+    await desktops.start(owner, sessionId, { teamId: 'team', sessionId, display: 2 })
+    desktops.close(owner, sessionId)
+  }
+  assert.deepEqual(urls.slice(-4), [
+    `${base}/runtime/r%201/2`,
+    `${base}/runtime/..%2F..%2Fx/2`,
+    `${base}/..%2Fagent/2`,
+    `${base}/a%2Fb/2`,
+  ])
 })

@@ -1,6 +1,7 @@
 import { signedIn, stillCurrent } from './account-request.ts'
 import { authSession } from './auth-session.ts'
 import { dialBackend } from './backend-socket.ts'
+import { desktopPath } from './runtime-desktop-path.ts'
 import { onPageGone } from './page-owner.ts'
 
 import type { DesktopTarget, RuntimeDesktopEvent } from '../src/api/local-terminal-types.ts'
@@ -33,7 +34,7 @@ export class RuntimeDesktopSessions {
     if (!account) throw new Error('Signed out')
     stillCurrent(account)
     const url = new URL(
-      `/teams/${encodeURIComponent(target.teamId)}/runtime-desktop/${target.sessionId.split('/').map(encodeURIComponent).join('/')}/${String(target.display)}`,
+      `/teams/${encodeURIComponent(target.teamId)}/runtime-desktop/${desktopPath(target.sessionId)}/${String(target.display)}`,
       account.api,
     )
 

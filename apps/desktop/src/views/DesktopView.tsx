@@ -22,18 +22,17 @@ function BoxScreens({
   const device = list?.devices.find((each) => each.deviceId === deviceId)
   const options = desktopScreens(device, deviceId)
   const screen = target.kind === 'box' ? target.screen : undefined
-  // Someone's own computer shows only its screen; the switcher is a Box's.
-  const switcher =
-    device && !device.box ? undefined : (
-      <AppSelect
-        ariaLabel={t('Screen')}
-        value={desktopFilter(deviceId, screen)}
-        onValueChange={onFilterChange}
-        options={options}
-        className="w-48 shrink-0"
-        triggerClassName="h-6 text-xs"
-      />
-    )
+  // Only a Box has screens to switch between; someone's own computer shows its one screen.
+  const switcher = device?.box && (
+    <AppSelect
+      ariaLabel={t('Screen')}
+      value={desktopFilter(deviceId, screen)}
+      onValueChange={onFilterChange}
+      options={options}
+      className="w-48 shrink-0"
+      triggerClassName="h-6 text-xs"
+    />
+  )
 
   // Each screen mounts its own view, so a switch connects afresh with a new link.
   return screen ? (
