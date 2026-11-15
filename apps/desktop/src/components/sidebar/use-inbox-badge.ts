@@ -7,7 +7,7 @@ import { useShareApprovals } from '../../views/inbox/useShareApprovals'
 /**
  * The Inbox tab's badge: how many questions wait on the viewer,
  * how many teammates ask to use their computer, telling the owner about each new ask,
- * and the chats and agents that @mention them, announcing each new one.
+ * and the chats and agents that @mention them, announcing each new one and each invite.
  */
 export function useInboxBadge(teamId: string): number {
   const { approvals } = useShareApprovals(teamId)
@@ -16,5 +16,7 @@ export function useInboxBadge(teamId: string): number {
   useShareApprovalNotifications(teamId, approvals)
   useMentionNotifications(teamId, mentions)
 
-  return useInboxCount(teamId) + approvals.length + (mentions?.length ?? 0)
+  const listed = mentions?.filter((mention) => !mention.invited).length ?? 0
+
+  return useInboxCount(teamId) + approvals.length + listed
 }

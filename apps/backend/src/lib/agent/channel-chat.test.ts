@@ -20,7 +20,7 @@ import {
   wakeAfterTurn,
 } from './channel-chat'
 import { startConversationTurn } from './conversation-turn'
-import { resolveMentions } from './mentions'
+import { inviteToConversation, resolveMentions } from './mentions'
 import { renderAttributedMessage } from './message-metadata'
 import { clearPendingUserMessages, enqueuePendingUserMessage } from './pending-messages'
 import { listPendingUserMessages } from './pending-queue'
@@ -807,6 +807,18 @@ describe('the loop guard and mentions', () => {
       sender: { type: 'user', id: 'mei', displayName: 'Mei Chen' },
     })
     expect((await channel()).mentions?.mei).toBeUndefined()
+    expect(await listChannelMentions(TEAM, 'mei')).toEqual([])
+  })
+
+  test('an invite is announced to the invitee alone, until they post here', async () => {
+    const owner = (await channel()).userId
+
+    await inviteToConversation(TEAM, 'channel', owner, ['mei'])
+    expect(await listChannelMentions(TEAM, 'mei')).toMatchObject([
+      { channelId: 'channel', kind: 'channel', invited: true, sender: { id: owner }, text: '' },
+    ])
+    expect(await listChannelMentions(TEAM, 'lin')).toEqual([])
+    await say('On it.', { ...person, sender: { type: 'user', id: 'mei', displayName: 'Mei Chen' } })
     expect(await listChannelMentions(TEAM, 'mei')).toEqual([])
   })
 
