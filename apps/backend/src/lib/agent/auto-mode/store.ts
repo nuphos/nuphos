@@ -1,7 +1,11 @@
 // Full Access, per conversation: when the switch is on, the runtime's permission
-// requests are allowed without asking (see openab-permission-bridge). The
-// collection keeps its original name; it once also held per-command grants.
+// requests are allowed without asking (see openab-permission-bridge). A Task
+// under a Bot has no switch of its own and runs in the mode of its topmost
+// parent, the conversation its credentials come from. The collection keeps its
+// original name; it once also held per-command grants.
+import { credentialSourceOf } from '@/lib/agent/db/credential-source'
 import { db } from '@/lib/db'
+import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 
 import type { Collection, ObjectId } from 'mongodb'
@@ -37,12 +41,18 @@ const AUTHORIZATIONS_COLLECTION = 'auto_mode_authorizations'
 const authorizations = (): Collection<AutoModeAuthorizationsDoc> =>
   db().collection<AutoModeAuthorizationsDoc>(AUTHORIZATIONS_COLLECTION)
 
+/** The conversation whose switch `conversationId` runs under: itself unless it is a Task under a Bot. */
+async function modeSource(conversationId: string): Promise<string> {
+  return (await credentialSourceOf(conversationId))?.sessionId ?? conversationId
+}
+
 /** First-turn preference: never overwrite an explicit toggle or a retry's state. */
 export async function initializeSessionBypass(
   conversationId: string,
   userId: string,
   enabled: boolean,
 ): Promise<void> {
+  if ((await modeSource(conversationId)) !== conversationId) return
   const now = new Date()
 
   await authorizations().updateOne(
@@ -65,6 +75,13 @@ export async function setSessionBypass(
   userId: string,
   enabled: boolean,
 ): Promise<void> {
+  if ((await modeSource(conversationId)) !== conversationId) {
+    throw new AppError(
+      409,
+      'mode_follows_bot',
+      "A Task under a Bot runs in its Bot's permission mode. Change the mode on the Bot.",
+    )
+  }
   const now = new Date()
 
   await authorizations().updateOne(
@@ -79,7 +96,7 @@ export async function setSessionBypass(
 
 export async function getSessionBypass(conversationId: string, userId: string): Promise<boolean> {
   const doc = await authorizations().findOne(
-    { conversationId, userId },
+    { conversationId: await modeSource(conversationId), userId },
     { projection: { bypass: 1 } },
   )
 
