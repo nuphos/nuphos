@@ -55,23 +55,23 @@ function reasonOf(bot: Run, kids: Run[], channelId: string): 'chat' | 'report' |
 }
 
 export function botWorkOf(bot: Run | undefined, kids: Run[], channelId: string): BotWork | null {
-  const activity = activityOf(bot, kids)
   const working = activeKids(kids)
+  // Every open question of the Bot and the agents under it, the oldest first.
+  const open = [...(bot ? [bot] : []), ...kids]
+    .flatMap((run) => openInputRequests(run.conversation))
+    .sort((a, b) => a.askedAt.localeCompare(b.askedAt))
+  const oldest = open.at(0)
 
-  if (activity.kind === 'asking') {
-    // Every open question of the Bot and the agents under it, the oldest first.
-    const open = [...(bot ? [bot] : []), ...kids]
-      .flatMap((run) => openInputRequests(run.conversation))
-      .sort((a, b) => a.askedAt.localeCompare(b.askedAt))
-
+  if (oldest)
     return {
       kind: 'asking',
-      question: open[0]?.question ?? activity.question,
-      id: open[0]?.id ?? '',
+      question: oldest.question,
+      id: oldest.id,
       count: open.length,
       kids: working,
     }
-  }
+  const activity = activityOf(bot, kids)
+
   if (
     activity.kind === 'working' &&
     bot &&
