@@ -91,7 +91,11 @@ export function ChoiceCard({
           {TITLE[category] ?? t('Decision needed')}
         </div>
         <AgentQuote text={question} />
-        <DecisionBody text={ownBody(body, questions)} full={ctx?.fullBody} />
+        <DecisionBody
+          text={ownBody(body, questions)}
+          full={ctx?.fullBody}
+          onLinkClick={ctx?.onLinkClick}
+        />
         <AnswerStatus recorded={recorded} failed={failed} />
       </div>
       {!chosen &&
@@ -208,7 +212,15 @@ function ChoiceActions({
 }
 
 /** The question's markdown body, a few lines at first; "Show more" reveals the rest. */
-function DecisionBody({ text, full = false }: { text: string | undefined; full?: boolean }) {
+function DecisionBody({
+  text,
+  full = false,
+  onLinkClick,
+}: {
+  text: string | undefined
+  full?: boolean
+  onLinkClick?: (href: string, beside: boolean) => boolean
+}) {
   const ref = useRef<HTMLDivElement>(null)
   const [overflows, setOverflows] = useState(false)
   const [expanded, setExpanded] = useState(full)
@@ -224,7 +236,11 @@ function DecisionBody({ text, full = false }: { text: string | undefined; full?:
   return (
     <div className="mt-2">
       <div ref={ref} className={clsx('overflow-hidden', !expanded && 'max-h-[4.5em]')}>
-        <MessageResponse className="selectable text-[12.5px] text-secondary" streaming={false}>
+        <MessageResponse
+          className="selectable text-[12.5px] text-secondary"
+          streaming={false}
+          onLinkClick={onLinkClick}
+        >
           {text}
         </MessageResponse>
       </div>

@@ -179,6 +179,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                           (await api.agentSaveSecret(activeTab.sessionId, name, value, teamId))
                             .path,
                   openQuestions: c.openQuestions,
+                  onLinkClick: onOpenNuphosLink,
                 }}
               >
                 <TurnSwitchAgentContext.Provider value={turnSwitchAgent(activeTab)}>
