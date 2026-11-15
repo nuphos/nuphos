@@ -3,7 +3,7 @@ import { test } from 'node:test'
 
 import { createWorkspaceTab } from '../../workspaceTabFactory.ts'
 
-import { createWorkspaceState, selectActiveTab, selectHistoryStep } from './workspaceState.ts'
+import { createWorkspaceState, selectHistoryStep, selectMainPageTab } from './workspaceState.ts'
 import { createWorkspaceStore } from './workspaceStore.ts'
 
 import type { WorkspaceTabState } from '../../workspaceTabState'
@@ -26,7 +26,7 @@ function setup() {
 const page = (active: string) => (tab: WorkspaceTabState) => ({ ...tab, active })
 
 function shown(state: ReturnType<ReturnType<typeof setup>['store']['getState']>) {
-  return state.mainPageOpen ? selectActiveTab(state)?.active : state.sessionId
+  return state.mainPageOpen ? selectMainPageTab(state)?.active : state.sessionId
 }
 
 test('Back from a page opened in a chat returns to that chat, not an earlier page', () => {
