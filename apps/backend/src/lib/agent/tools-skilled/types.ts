@@ -22,6 +22,7 @@ export type SlackHistoryToolInput = {
   cursor?: string
   oldest?: string
   latest?: string
+  files?: boolean
 }
 
 export type SlackHistoryToolResult = {
@@ -30,6 +31,7 @@ export type SlackHistoryToolResult = {
   messages?: Record<string, unknown>[]
   hasMore?: boolean
   nextCursor?: string
+  note?: string
   error?: string
 }
 
