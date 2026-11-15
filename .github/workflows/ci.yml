@@ -199,8 +199,14 @@ jobs:
         run: |
           set -euo pipefail
           xcodebuild -project nuphos-ios.xcodeproj -scheme nuphos-ios -configuration Debug \
-            -destination 'generic/platform=iOS Simulator' \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO build -quiet
+      # A string added in code without a catalog entry would ship untranslated.
+      - name: Check that the string catalog matches the code
+        working-directory: apps/ios
+        run: |
+          bash tests/sync-strings.sh build
+          git diff --exit-code nuphos-ios/Localizable.xcstrings
 
   cli:
     name: CLI (fmt + clippy + test)
