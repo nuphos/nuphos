@@ -63,10 +63,8 @@ export async function initTriggerScheduler(): Promise<boolean> {
       if (trigger.expiresAt && trigger.expiresAt.getTime() <= Date.now()) return
       if (trigger.triggerType !== 'cron') return
       // Recorded before the turn so a long or failing turn still counts as fired.
-      await agentTriggers().updateOne(
-        { _id: trigger._id },
-        { $set: { lastFiredAt: new Date() }, $unset: { missedRunAt: '' } },
-      )
+      // A missed run is over only once a turn has run (recordTriggerRan).
+      await agentTriggers().updateOne({ _id: trigger._id }, { $set: { lastFiredAt: new Date() } })
       await executeTrigger(trigger, undefined, {
         runKind: 'scheduled',
         ...(job.id ? { fireId: job.id } : {}),
