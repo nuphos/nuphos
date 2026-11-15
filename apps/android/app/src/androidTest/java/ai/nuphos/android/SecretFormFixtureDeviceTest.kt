@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsEnabled
@@ -41,7 +42,10 @@ import java.io.File
 class SecretFormFixtureDeviceTest {
     @get:Rule val compose = createComposeRule()
 
-    private val password = SemanticsMatcher.keyIsDefined(SemanticsProperties.Password)
+    /** The text an input shows, after its visual transformation: bullets while masked. */
+    private fun draws(text: String) = SemanticsMatcher("draws $text") {
+        it.config.getOrNull(SemanticsProperties.EditableText)?.text == text
+    }
 
     private fun ask(input: String) = ChatPart.Tool(
         toolCallId = "ask",
@@ -81,11 +85,13 @@ class SecretFormFixtureDeviceTest {
         compose.onNodeWithText("Send securely").assertIsNotEnabled()
         compose.onNodeWithTag("secret-value:ask:BIRTH_DATE").performTextInput("1990-04-12")
         compose.onNodeWithText("Send securely").assertIsEnabled()
-        // Masked: both inputs are password fields, which is what keeps the typed text off the screen.
-        for (name in listOf("NATIONAL_ID", "BIRTH_DATE")) compose.onNodeWithTag("secret-value:ask:$name").assert(password)
+        // Masked: what each input draws is not what was typed.
+        compose.onNodeWithTag("secret-value:ask:NATIONAL_ID").assert(!draws("A123456789"))
+        compose.onNodeWithTag("secret-value:ask:BIRTH_DATE").assert(!draws("1990-04-12"))
         capture("form-masked")
         compose.onNodeWithTag("secret-reveal:ask").performClick()
-        for (name in listOf("NATIONAL_ID", "BIRTH_DATE")) compose.onNodeWithTag("secret-value:ask:$name").assert(!password)
+        compose.onNodeWithTag("secret-value:ask:NATIONAL_ID").assert(draws("A123456789"))
+        compose.onNodeWithTag("secret-value:ask:BIRTH_DATE").assert(draws("1990-04-12"))
         compose.onNodeWithText("Hide values").assertExists()
         capture("form-revealed")
     }
