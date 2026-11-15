@@ -3,6 +3,7 @@ import crypto from 'node:crypto'
 import { Hono } from 'hono'
 import { z } from 'zod'
 
+import { canPrincipalsUseAllowList } from '@/lib/byos/access'
 import {
   buildAuthorizeUrl,
   getSetupRedirect,
@@ -15,9 +16,17 @@ import { encryptGitlabSecret } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
-import { requireTeamRole, requireGitlabBinding } from '@/middleware/auth'
+import {
+  bindingAccessPrincipals,
+  requireGitlabMemberAccess,
+  requireGitlabBinding,
+  requireTeamRole,
+} from '@/middleware/auth'
 import { teamByosBindings, gitlabPendingOAuth } from '@/models'
-import { registerGitlabBindingScopedRoutes } from '@/routes/gitlab-bindings/binding-scoped'
+import {
+  registerGitlabBindingAdminRoutes,
+  registerGitlabBindingScopedRoutes,
+} from '@/routes/gitlab-bindings/binding-scoped'
 import { handleGitlabError, publicView } from '@/routes/gitlab-bindings/shared'
 
 import type { TeamAuthVariables, GitlabBindingVariables } from '@/middleware/auth'
@@ -184,7 +193,10 @@ gitlabBindingsRoutes.delete('/start-oauth/:state', requireTeamRole('ADMINISTRATO
 const bindingScoped = new Hono<{ Variables: GitlabBindingVariables }>()
 
 bindingScoped.use('*', requireGitlabBinding())
-
+registerGitlabBindingAdminRoutes(bindingScoped)
+// Registered after the admin routes, so it guards only the routes below,
+// which all act with the binding's token.
+bindingScoped.use('*', requireGitlabMemberAccess())
 registerGitlabBindingScopedRoutes(bindingScoped)
 
 // Flat view across every binding — one call for the sidebar to render all
@@ -196,7 +208,10 @@ gitlabBindingsRoutes.get('/namespaces', async (c) => {
     { _id: teamId },
     { projection: { gitlabAccounts: 1 } },
   )
-  const bindings = doc?.gitlabAccounts ?? []
+  const principals = bindingAccessPrincipals(c)
+  const bindings = (doc?.gitlabAccounts ?? []).filter((b) =>
+    canPrincipalsUseAllowList(b.access?.memberAllowList, principals),
+  )
   const results = await Promise.all(
     bindings.map(async (b) => {
       const base = { bindingId: b.id.toHexString(), hostUrl: b.hostUrl, username: b.username }
