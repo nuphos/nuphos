@@ -248,8 +248,7 @@ enum AgentChatAPI {
         return try JSONDecoder().decode(Saved.self, from: data).path
     }
 
-    /// `POST /agent/conversations/:id/decisions/:requestId/resolve` — marks a question answered.
-    /// `PATCH /agent/conversations/:id/credentials` — the conversation's whole credential
+        /// `PATCH /agent/conversations/:id/credentials` — the conversation's whole credential
     /// selection, as its owner sets it. The server answers an open integration question
     /// the selection now covers, and tells the agent.
     static func updateCredentials(token: String, teamId: String, sessionId: String, selection: CredentialSelection) async throws {
@@ -258,9 +257,13 @@ enum AgentChatAPI {
             body: JSONValue.object(["teamId": .string(teamId), "credentialAccess": selection.json]))
     }
 
-    static func resolveDecision(token: String, teamId: String, sessionId: String, requestId: String) async throws {
+    /// `POST /agent/conversations/:id/decisions/:requestId/resolve` — marks a question answered,
+    /// or `dismissed`: withdrawn unanswered.
+    static func resolveDecision(
+        token: String, teamId: String, sessionId: String, requestId: String, resolution: String = "answered"
+    ) async throws {
         _ = try await send("POST", "agent/conversations/\(sessionId)/decisions/\(requestId)/resolve",
-            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: ["resolution": "answered"])
+            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: ["resolution": resolution])
     }
 
     /// `POST /agent/conversations/:id/steer` — hands a message to the turn
