@@ -104,6 +104,38 @@ test('numbers each artifact’s versions in chat order and skips calls that fail
   assert.equal(lines.get('doc')?.[0]?.version, 1)
 })
 
+const chart = (toolCallId: string, title: string, state = 'output-available') => ({
+  type: 'tool',
+  toolCallId,
+  toolName: 'render_chart',
+  state,
+  input: {
+    type: 'bar',
+    title,
+    xKey: 'day',
+    series: [{ key: 'n' }],
+    data: [{ day: 'Mon', n: 1 }],
+  },
+})
+
+test('collects each chart as an artifact of its own, named by its place among the charts', () => {
+  const lines = collectArtifacts([
+    { parts: [chart('c1', 'Spend'), chart('c-bad', 'Failed', 'output-error')] },
+    { parts: [chart('c2', ' ')] },
+  ])
+
+  assert.deepEqual([...lines.keys()], ['chart-1', 'chart-2'])
+  assert.deepEqual(
+    [...lines.values()].map(([v]) => [v?.toolCallId, v?.kind, v?.title, v?.version]),
+    [
+      ['c1', 'chart', 'Spend', 1],
+      ['c2', 'chart', 'Chart', 1],
+    ],
+  )
+  assert.equal(JSON.parse(lines.get('chart-1')?.[0]?.content ?? '{}').xKey, 'day')
+  assert.equal(artifactFileName({ title: 'Spend', kind: 'chart' }), 'spend.json')
+})
+
 test('names downloads after the title with the kind’s extension', () => {
   assert.equal(
     artifactFileName({ title: 'Q3 Cost Report!', kind: 'markdown' }),
