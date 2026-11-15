@@ -36,6 +36,7 @@ let stored: AgentConversation | null
 let running: boolean
 let bypass: boolean
 let picked: Record<string, unknown> | undefined
+let lastParts: unknown[]
 
 useIdentity({ getTeamMembership: async () => ({ role: 'MEMBER' }) as never })
 useAgentRunStore({ getActiveAgentRunForSession: async () => (running ? ({} as never) : null) })
@@ -69,7 +70,7 @@ useAgentDb({
   getConversationWithMessages: async () =>
     stored && {
       conversation: stored,
-      messages: [{ role: 'assistant', parts: [{ type: 'text', text: 'Done so far.' }] }] as never,
+      messages: [{ index: 1, role: 'assistant', parts: lastParts }] as never,
     },
   getConversationTranscriptForAgent: async () =>
     ({ lines: ['#0 user: hi', '#1 assistant: Done so far.'], nextIndex: null }) as never,
@@ -89,6 +90,7 @@ beforeEach(() => {
   running = false
   bypass = false
   picked = undefined
+  lastParts = [{ type: 'text', text: 'Done so far.' }]
 })
 
 describe('nuphos_list_sessions', () => {
@@ -165,6 +167,14 @@ describe('nuphos_check', () => {
 
     expect(result.status).toBe('running')
     expect(result.in_progress).toContain('[tool: bash]')
+  })
+
+  test('a turn that ended on an error is failed, with the reason', async () => {
+    lastParts = [{ type: 'turn-interrupted', reason: 'error', message: 'Sign-in expired' }]
+    const result = body(await nuphosCheck({ session_id: 's1' }, ctx))
+
+    expect(result.status).toBe('failed')
+    expect(result.error).toMatchObject({ code: 'turn_interrupted', reason: 'error' })
   })
 
   test('from_index adds a page of the transcript', async () => {

@@ -4,6 +4,7 @@ import {
   liveTurnTranscriptLine,
 } from '@/lib/agent/db'
 import { openInputRequests } from '@/lib/agent/db/pending-decision'
+import { transcriptTurnDiagnostics } from '@/lib/agent/db/transcript-diagnostics'
 import { getLiveTurn } from '@/lib/agent/live-turn'
 import { queuedAnswers } from '@/lib/agent/pending-queue'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
@@ -59,6 +60,8 @@ export async function nuphosCheck(
       : null
   const assistant = [...result.messages].reverse().find((m) => m.role === 'assistant')
   const answer = assistant ? partsToText(assistant.parts) : undefined
+  // The last turn ended on an error, a timeout or a stop rather than an answer.
+  const [interrupted] = assistant ? await transcriptTurnDiagnostics(assistant) : []
   const details = {
     session_id: sessionId,
     // What the turn in flight has done so far: its text and tool calls.
@@ -83,6 +86,13 @@ export async function nuphosCheck(
   // Stopped on a question: nothing more happens until it is answered.
   if (requests.length) {
     return toolResult({ status: 'waiting_for_input', ...details, answer: answer ?? '' })
+  }
+  if (interrupted) {
+    return toolResult({
+      status: 'failed',
+      ...details,
+      error: { code: 'turn_interrupted', ...interrupted },
+    })
   }
   if (answer !== undefined) return toolResult({ status: 'completed', ...details, answer })
 
