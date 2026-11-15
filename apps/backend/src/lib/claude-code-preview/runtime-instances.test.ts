@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
 
-import { OPENAB_PROVIDERS } from './runtime-provider'
+import { IMAGE_PROVIDERS } from './runtime-provider'
 import { afterAll, beforeEach, expect, test } from 'bun:test'
 import { Hono } from 'hono'
 
@@ -68,7 +68,7 @@ beforeEach(async () => {
 })
 
 test('an existing managed runtime keeps its row but no longer resolves', async () => {
-  for (const provider of OPENAB_PROVIDERS) {
+  for (const provider of IMAGE_PROVIDERS) {
     const created = await existing(`${provider} work`, provider)
     const row = runtimeRows().find((doc) => doc._id === created.id)!
 

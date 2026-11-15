@@ -9,7 +9,7 @@ object RuntimeIdentity {
     }
     fun name(provider: String?): String = when (provider) {
         "codex" -> "Codex"; "claude-code" -> "Claude Code"; "grok" -> "Grok Build"
-        "opencode" -> "OpenCode"; "antigravity" -> "Antigravity"; "hermes" -> "Hermes Agent"; "dsh" -> "DeepSeek Harness"; "nuphos" -> "Nuphos"
+        "opencode" -> "OpenCode"; "antigravity" -> "Antigravity"; "hermes" -> "Hermes Agent"; "dsh" -> "DeepSeek Harness"; "pi" -> "Pi"; "nuphos" -> "Nuphos"
         null, "" -> Words(R.string.agent_runtime); else -> Words(R.string.storetext_runtime_unknown)
     }
     fun detail(provider: String?, instance: String?): String =

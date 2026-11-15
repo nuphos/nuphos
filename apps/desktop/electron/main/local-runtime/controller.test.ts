@@ -498,6 +498,7 @@ test('a host run by the `nuphos` CLI reports that CLI, which a Box updates by', 
     opencode: { runtime: null },
     dsh: { runtime: null },
     hermes: { runtime: null },
+    pi: { runtime: null },
   } as unknown as Parameters<typeof tunnelStatusOf>[0]
   const before = process.env.NUPHOS_CLI_VERSION
 

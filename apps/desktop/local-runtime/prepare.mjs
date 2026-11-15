@@ -62,11 +62,14 @@ export const ADAPTERS = {
   opencode: { shim: true, entry: 'index.mjs', version: 'opencode@acp-shim' },
   dsh: { shim: true, entry: 'index.mjs', version: 'dsh@acp-shim' },
   hermes: { shim: true, entry: 'index.mjs', version: 'hermes@acp-shim' },
+  // Pi speaks its own RPC: the shim runs it through the pi-acp adapter, installed beside it.
+  pi: { shim: true, dir: 'pi-acp', entry: 'index.mjs', version: 'pi-acp@0.0.34' },
 }
 /** The shim and the modules it imports, as the image ships them. */
 const SHIM_SOURCES = [
   'acp-shim.mjs',
   'hermes-session.mjs',
+  'pi-session.mjs',
   'mcp-bridge-config.mjs',
   'mcp-http-bridge.mjs',
   'runtime-defaults.mjs',
@@ -118,6 +121,19 @@ function buildShim(provider, out) {
     join(out, 'index.mjs'),
     `import { runShim } from './acp-shim.mjs'\n\nrunShim({ provider: ${JSON.stringify(provider)} })\n`,
   )
+  // The adapter the shim runs the agent through, at the version its lockfile pins.
+  const { dir } = ADAPTERS[provider]
+
+  if (dir) {
+    for (const file of ['package.json', 'package-lock.json'])
+      cpSync(join(RUNTIME_DIR, dir, file), join(out, file))
+    run(
+      'npm',
+      ['ci', '--omit=dev', '--omit=optional', '--ignore-scripts', '--no-audit', '--no-fund'],
+      out,
+    )
+    rmSync(join(out, 'node_modules', '.bin'), { recursive: true, force: true })
+  }
   writeFileSync(join(out, '.complete'), '')
 
   return out
@@ -238,6 +254,8 @@ export async function prepare({ targets, openab, skipOpenab, require }) {
     cpSync(join(RUNTIME_DIR, 'dsh-sign-in.mjs'), join(out, 'dsh-sign-in.mjs'))
     cpSync(join(RUNTIME_DIR, 'hermes-login.mjs'), join(out, 'hermes-login.mjs'))
     cpSync(join(RUNTIME_DIR, 'hermes-providers.json'), join(out, 'hermes-providers.json'))
+    cpSync(join(RUNTIME_DIR, 'pi-login.mjs'), join(out, 'pi-login.mjs'))
+    cpSync(join(RUNTIME_DIR, 'pi-session.mjs'), join(out, 'pi-session.mjs'))
     // The `panel` job a machine Nuphos made offers, the one the runtime image runs.
     cpSync(join(RUNTIME_DIR, 'panel-job.mjs'), join(out, 'panel-job.mjs'))
     // A desktop per session on a Linux Box: the MCP wrapper Claude runs there.

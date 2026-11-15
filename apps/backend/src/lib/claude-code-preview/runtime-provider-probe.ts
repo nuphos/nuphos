@@ -41,6 +41,7 @@ export async function probeExternalRuntimeProvider(
     if (adapterVersion?.startsWith('opencode@')) return 'opencode'
     if (adapterVersion?.startsWith('hermes@')) return 'hermes'
     if (adapterVersion?.startsWith('dsh@')) return 'dsh'
+    if (adapterVersion?.startsWith('pi-acp@')) return 'pi'
 
     return undefined
   } catch {

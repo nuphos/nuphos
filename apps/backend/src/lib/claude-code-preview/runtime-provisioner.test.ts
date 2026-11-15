@@ -13,7 +13,7 @@ import {
   runtimeAuthSecretName,
   runtimeConfigMapObject,
 } from './runtime-objects'
-import { OPENAB_PROVIDERS, runsBehindAcpShim } from './runtime-provider'
+import { IMAGE_PROVIDERS, runsBehindAcpShim } from './runtime-provider'
 import {
   publishedRuntimeImage,
   runtimeFeedRequests,
@@ -213,7 +213,7 @@ describe('runtime object builders', () => {
 })
 
 describe('reconcileHostedRuntimes', () => {
-  test.each([...OPENAB_PROVIDERS])(
+  test.each([...IMAGE_PROVIDERS])(
     'deploys a %s agent as the self-hosted image started with its own password',
     async (provider) => {
       const agent = await addAgent(provider)
