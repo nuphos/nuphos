@@ -131,6 +131,8 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     var group: Bool?
     /// A chat's icon: up to two members other than the viewer, whoever spoke last first.
     var faces: [ChatFace]?
+    /// A chat's agent members, all of them; a Bot in any chat needs no row of its own.
+    var agentSessionIds: [String]?
     /// A Bot's face, e.g. `05-rembrandt`; nil for a Task (#1691).
     var avatar: String?
     /// Absent when the chat has no post yet, or from an older backend.
@@ -165,13 +167,16 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
 
     var isNativeRuntime: Bool { agentRuntime != nil && agentRuntime != "nuphos" }
 
-    /// `title || firstMessage || 'Untitled chat'` — titles are often empty on
-    /// fresh conversations.
+    /// `title || firstMessage || 'New Group Chat'` for a chat, `'Untitled task'`
+    /// for a Task — titles are often empty on fresh conversations.
     var displayTitle: String {
         if !title.isEmpty { return title }
         if !firstMessage.isEmpty { return firstMessage }
-        return "Untitled task"
+        return isChannel ? "New Group Chat" : "Untitled task"
     }
+
+    /// An open question waits on the viewer.
+    var isWaiting: Bool { inputRequests?.isEmpty == false }
 
     var ownsChat: Bool { isOwner == true && readOnly != true }
 
@@ -202,6 +207,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         kind = try? c.decodeIfPresent(String.self, forKey: .kind)
         group = try? c.decodeIfPresent(Bool.self, forKey: .group)
         faces = try? c.decodeIfPresent([ChatFace].self, forKey: .faces)
+        agentSessionIds = try? c.decodeIfPresent([String].self, forKey: .agentSessionIds)
         avatar = try? c.decodeIfPresent(String.self, forKey: .avatar)
         lastMessage = try? c.decodeIfPresent(LastMessage.self, forKey: .lastMessage)
         inputRequests = try? c.decodeIfPresent([InputRequest].self, forKey: .inputRequests)

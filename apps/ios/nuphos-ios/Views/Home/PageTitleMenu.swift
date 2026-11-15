@@ -8,6 +8,8 @@ struct PageTitleMenu: View {
     var style: Style = .large
     /// Open questions waiting in the Inbox, badged on the menu like the desktop's sidebar.
     var inboxCount = 0
+    /// What asks for the viewer on the other pages, badged in the picker as Desktop badges its pages.
+    var pageCounts: [HomePage: Int] = [:]
 
     enum Style { case large, inline, bar }
 
@@ -16,7 +18,7 @@ struct PageTitleMenu: View {
             Picker("Page", selection: $selection) {
                 ForEach(HomePage.allCases) { page in
                     Label(page.title, systemImage: page.systemImage)
-                        .badge(page == .inbox ? inboxCount : 0)
+                        .badge(page == .inbox ? inboxCount : pageCounts[page] ?? 0)
                         .tag(page)
                 }
             }

@@ -18,8 +18,8 @@ struct ConversationRow: View {
 
     private func indicator(for row: AgentConversation) -> ConversationIndicator {
         let unread = store.unread.contains(team: team, session: row.sessionId)
-        guard row.isNativeRuntime else { return row.activeRun != nil ? .turn : unread ? .unread : .none }
-        return ConversationIndicator(observations.value(team: team, session: row.sessionId), unread: unread)
+        guard row.isNativeRuntime else { return row.isWaiting ? .waiting : row.activeRun != nil ? .turn : unread ? .unread : .none }
+        return ConversationIndicator(observations.value(team: team, session: row.sessionId), unread: unread, waiting: row.isWaiting)
     }
 
     var body: some View {
@@ -45,6 +45,8 @@ struct ConversationRow: View {
             Spacer(minLength: 0)
 
             switch shownIndicator {
+            case .waiting:
+                Circle().fill(Theme.attention).frame(width: 7, height: 7).accessibilityLabel("Needs your input")
             case .turn:
                 ProgressView()
                     .controlSize(.small)
