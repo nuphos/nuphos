@@ -3,7 +3,9 @@ package ai.nuphos.android
 import android.content.Context
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.MutableState
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -255,10 +257,20 @@ class AccountParityFixtureDeviceTest {
         tap("Not now — manage my account")
         awaitText("Edit profile")
     }
+    /**
+     * Leaves Account with its own Done button. A system Back goes to whichever window the system has focused,
+     * which trails the app by a few frames after a sheet opens or closes, so it can miss the Account sheet.
+     */
+    private fun closeAccount() = tapAction("Done")
     private fun deletion() { account(); tap("Account deletion request"); awaitText("Request permanent deletion") }
     /** The profile sheet's top bar doesn't scroll, so its actions are tapped where they are. */
     private fun tapAction(text: String) = compose.onNodeWithText(text).performClick()
-    private fun enter(label: String, value: String) = compose.onNodeWithText(label).performScrollTo().performTextReplacement(value)
+    /**
+     * Sets a sheet field's text without focusing it, so no keyboard opens. An open keyboard resizes the sheet
+     * between a scroll and the tap that follows, and takes the next Back press for itself.
+     */
+    private fun enter(label: String, value: String) = compose.onNodeWithText(label).performScrollTo()
+        .performSemanticsAction(SemanticsActions.SetText) { it(AnnotatedString(value)) }
     private fun submits() = count("POST", "/auth/account-deletion")
 
     @Test fun rejectedSavedTokenClearsDraftsBeforeAnIdentityWasRestored() {
@@ -492,8 +504,7 @@ class AccountParityFixtureDeviceTest {
         compose.onAllNodesWithText("Updated fixture name").onFirst().assertIsDisplayed()
         assertEquals("Profile save initialized teams before agreement", 0, count("GET", "/teams"))
         assertEquals("Expected one conflict and one successful profile save", 2, count("PATCH", "/auth/me"))
-        assertTrue(InstrumentationRegistry.getInstrumentation().uiAutomation.performGlobalAction(
-            android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK))
+        closeAccount()
         compose.waitUntil(8_000) { compose.onAllNodesWithText("Edit profile").fetchSemanticsNodes().isEmpty() }
         awaitText("Agree and continue")
         tap("Agree and continue")
@@ -535,7 +546,8 @@ class AccountParityFixtureDeviceTest {
         compose.waitUntil(8_000) { compose.onAllNodes(hasText("Send verification code") and isEnabled()).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
         tap("Confirm with my password")
         // Appending one character must remain too short: the old password cannot survive.
-        compose.onNodeWithText("Account password").performScrollTo().performTextInput("x")
+        compose.onNodeWithText("Account password").performScrollTo()
+            .performSemanticsAction(SemanticsActions.InsertTextAtCursor) { it(AnnotatedString("x")) }
         enter("Type DELETE", "DELETE")
         compose.onNodeWithText("Request permanent deletion").assertIsNotEnabled()
         enter("Account password", "synthetic-password-only")
@@ -639,8 +651,7 @@ class AccountParityFixtureDeviceTest {
         tap("Manage my account")
         awaitText("Edit profile")
         assertNotNull("Consent error removed authenticated account access", app.authSession.user)
-        assertTrue(InstrumentationRegistry.getInstrumentation().uiAutomation.performGlobalAction(
-            android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK))
+        closeAccount()
         compose.waitUntil(8_000) { compose.onAllNodesWithText("Edit profile").fetchSemanticsNodes().isEmpty() }
         consentReadMode = "unsupported"
         tap("Retry loading consent")
