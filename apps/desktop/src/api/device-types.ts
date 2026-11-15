@@ -1,3 +1,7 @@
+import type { LocalAgentProvider } from './local-agent-providers.ts'
+
+export type { LocalAgentProvider }
+
 export type DeviceIdentity = {
   deviceId: string
   label: string
@@ -33,19 +37,6 @@ export type DeviceExecAuditPage = {
   entries: DeviceExecAuditEntry[]
   nextCursor: string | null
 }
-
-/** The agents a computer can run itself; team runtimes can run more (`AgentProvider`). */
-export const LOCAL_AGENT_PROVIDERS = [
-  'claude-code',
-  'codex',
-  'grok',
-  'antigravity',
-  'opencode',
-  'dsh',
-  'hermes',
-] as const
-
-export type LocalAgentProvider = (typeof LOCAL_AGENT_PROVIDERS)[number]
 
 /** The agents this app signs in itself, through their own CLI login; the rest sign in from Nuphos. */
 export type CliLoginProvider = 'claude-code' | 'codex'

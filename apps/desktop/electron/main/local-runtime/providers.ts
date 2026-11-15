@@ -2,18 +2,10 @@ import { mkdirSync } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import path from 'node:path'
 
-/** The agents a computer can run for Nuphos. */
-export const LOCAL_AGENT_PROVIDERS = [
-  'claude-code',
-  'codex',
-  'grok',
-  'antigravity',
-  'opencode',
-  'dsh',
-  'hermes',
-] as const
+import type { LocalAgentProvider } from '../../../src/api/local-agent-providers.ts'
 
-export type LocalAgentProvider = (typeof LOCAL_AGENT_PROVIDERS)[number]
+export { LOCAL_AGENT_PROVIDERS } from '../../../src/api/local-agent-providers.ts'
+export type { LocalAgentProvider } from '../../../src/api/local-agent-providers.ts'
 
 export const LOCAL_AGENT_NAMES: Record<LocalAgentProvider, string> = {
   'claude-code': 'Claude Code',
@@ -93,5 +85,5 @@ export const INSTALL_HINT: Record<LocalAgentProvider, string> = {
   opencode: 'Install OpenCode on this computer to run it as a local runtime.',
   dsh: 'Install DeepSeek Harness with `npm install -g @deepseek-ai/dsh` (Node.js 24.9 or newer) to run it as a local runtime.',
   hermes:
-    'Install Hermes Agent from hermes-agent.nousresearch.com on this computer to run it as a local runtime.',
+    'Install Hermes Agent with its one-line installer from hermes-agent.nousresearch.com, which sets up Python and uv itself, to run it as a local runtime.',
 }

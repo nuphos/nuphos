@@ -1,12 +1,12 @@
 import clsx from 'clsx'
 import { Plus } from 'lucide-react'
 
+import { LOCAL_AGENT_PROVIDERS } from '../../api/local-agent-providers'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { relativeTimeFromNow } from '../../components/agent/panel/textUtils'
 import { Button } from '../../components/ui/button'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../../components/ui/menu'
 import { t } from '../../i18n'
-import { LOCAL_AGENT_PROVIDERS } from '../../api/device-types'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { agentName, agentOffline, newAgentAction } from './agentPresentation'
