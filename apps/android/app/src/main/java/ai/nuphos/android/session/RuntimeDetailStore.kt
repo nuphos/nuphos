@@ -1,6 +1,8 @@
 package ai.nuphos.android.session
 
 import androidx.compose.runtime.getValue
+import ai.nuphos.android.model.Words
+import ai.nuphos.android.R
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import ai.nuphos.android.data.*
@@ -46,7 +48,7 @@ class RuntimeDetailStore(
                 if (current(ticket)) {
                     if (e is NuphosApi.Failure.Unauthorized) expired()
                     else error = when {
-                        e is RuntimeHttpFailure && e.status == 403 -> "Administrator permission is required. Your account stays signed in."
+                        e is RuntimeHttpFailure && e.status == 403 -> Words(R.string.storetext_runtime_admin_required)
                         else -> "Could not confirm the result. Refresh this runtime before continuing."
                     }
                 }

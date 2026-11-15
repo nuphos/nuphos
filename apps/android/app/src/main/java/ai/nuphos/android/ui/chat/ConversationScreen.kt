@@ -661,11 +661,12 @@ private fun ChatRowView(
             Text(row.text, color = if (row.isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline, style = MaterialTheme.typography.bodySmall)
             // A signed-out agent the viewer can't sign in: whoever can is asked through their Inbox.
             val runtimeId = session.runtimeId
-            val askLabel = if (row.text == AgentChatApi.signedOutError) AgentChatApi.signInAsk(runtimeId, LocalAuthSession.current.user?.id,
+            val block = session.runtimeBlock?.takeIf { row.isError }
+            val askLabel = if (block?.signedOut == true) AgentChatApi.signInAsk(runtimeId, LocalAuthSession.current.user?.id,
                 LocalAgentStore.current.teams.firstOrNull { it.id == session.teamId }?.isAdministrator == true) else null
             val ask = session.signInAsk?.takeIf { askLabel != null && it.runtimeId == runtimeId }
             if (ask != null) Text(ask.status, color = MaterialTheme.colorScheme.outline, style = MaterialTheme.typography.bodySmall)
-            val switch = onSwitchRuntime?.takeIf { row.text in AgentChatApi.switchRuntimeErrors }
+            val switch = onSwitchRuntime?.takeIf { block != null }
             if ((askLabel != null && ask?.asked != true) || switch != null) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (askLabel != null && runtimeId != null && ask?.asked != true) {
                     val scope = rememberCoroutineScope()

@@ -1,5 +1,6 @@
 package ai.nuphos.android.model
 
+import ai.nuphos.android.R
 import ai.nuphos.android.data.Instants
 import ai.nuphos.android.data.JsonValue
 import java.time.Instant
@@ -8,7 +9,7 @@ data class Plan(
     val id: String,
     val teamId: String? = null,
     val number: Int? = null,
-    val title: String = "Plan",
+    val title: String = Words(R.string.plans_title_fallback),
     val overview: String = "",
     var status: String = "proposed",
     val steps: List<Step> = emptyList(),

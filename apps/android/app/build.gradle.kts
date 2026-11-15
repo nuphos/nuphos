@@ -166,6 +166,8 @@ dependencies {
 tasks.withType<Test>().configureEach {
     forkEvery = 1
     maxParallelForks = 1
+    // Off a device, [ai.nuphos.android.model.Words] reads the English strings from here.
+    systemProperty("nuphos.strings", file("src/main/res/values").absolutePath)
 }
 
 // Debug builds may omit Firebase, but shipping variants must include the reviewed client config.
