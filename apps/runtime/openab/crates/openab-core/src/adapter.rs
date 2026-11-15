@@ -952,6 +952,9 @@ impl AdapterRouter {
         let result = self.pool
             .with_connection(thread_key, |conn| {
                 let content_blocks = content_blocks.clone();
+                // Redacted out here, not in the async block: `with_connection` returns a future
+                // that outlives any borrow of `thread_key`, so it may only capture owned values.
+                let redacted_thread_key = crate::redact::redact_session_ids(thread_key);
                 Box::pin(async move {
                     let reset = conn.session_reset;
                     conn.session_reset = false;
@@ -1184,7 +1187,7 @@ impl AdapterRouter {
                                         // routed to a process we already gave up on. Retiring it
                                         // makes the pool rebuild and resume the session instead.
                                         warn!(
-                                            thread_id = %crate::redact::redact_session_ids(thread_key),
+                                            thread_id = %redacted_thread_key,
                                             "killed agent still reported alive after 2s; retiring the connection"
                                         );
                                         conn.retire();
