@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import { navigationFromAppPath } from '../../lib/appRoutes.ts'
-import { openBoxDesktop } from '../../views/settings/boxDesktop.ts'
+import { openBoxDesktop, openComputerScreen } from '../../views/settings/boxDesktop.ts'
 import { createWorkspaceTabFromNavigation } from '../workspaceTabFactory.ts'
 
 import { listenOpenInApp } from './openInApp.ts'
@@ -62,4 +62,17 @@ test('a link asked for after the listener stops opens nowhere', () => {
   stop()
   openBoxDesktop('device-1', '0123456789abcdef01234567')
   assert.deepEqual(opened, [])
+})
+
+test('your own computer’s screen opens as that runtime’s display on the computer', () => {
+  const opened: string[] = []
+  const stop = listenOpenInApp(new Map([['a', (href: string) => opened.push(href)]]), 'a')
+
+  try {
+    openComputerScreen('device-1', '0123456789abcdef01234567', 'runtime/r1', 3)
+  } finally {
+    stop()
+  }
+  assert.equal(opened.length, 1)
+  assert.equal(navigationFromAppPath(opened[0] ?? '')?.filter, 'device-1:3:runtime/r1')
 })

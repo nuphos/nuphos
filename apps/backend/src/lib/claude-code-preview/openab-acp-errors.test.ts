@@ -63,6 +63,7 @@ describe('turnFailureCause', () => {
     expect(turnFailureCause(new AppError(503, 'claude_code_runtime_offline', 'Offline'))).toBe(
       'offline',
     )
+    expect(turnFailureCause(new AppError(409, 'runtime_disabled', 'Retired'))).toBe('offline')
     expect(turnFailureCause(new AppError(409, 'conversation_busy', 'Busy'))).toBe('other')
     expect(turnFailureCause(new Error('internal detail'))).toBe('other')
   })

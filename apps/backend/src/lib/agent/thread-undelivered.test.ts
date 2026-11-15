@@ -394,3 +394,39 @@ test('an answer its agent never gets reopens the question, saying why', async ()
   await settle()
   expect(notices()).toHaveLength(0)
 })
+
+test('an answer whose turn starts on a disabled agent reopens the question, saying why', async () => {
+  const retired = 'Nuphos-hosted agents have been retired. Move this conversation to continue.'
+
+  installTurnRunner({
+    claimAgentRunOrEnqueue: async () => ({ mode: 'run', carried: [], release: () => {} }),
+    runAgentForTrigger: async () => {
+      throw new AppError(409, 'runtime_disabled', retired)
+    },
+  })
+
+  // The answer's turn starts at once, then finds its agent disabled.
+  const { status, run } = await startConversationTurn(
+    {
+      ...data,
+      messageId: 'answer',
+      answers: {
+        id: 'q2',
+        category: 'preference',
+        question: 'Which regions?',
+        status: 'open',
+        askedAt: new Date(),
+      },
+    },
+    { ...base, sessionId: 'target' },
+    'Your question (requestId q2) was answered from the Inbox.',
+    'agent.resource',
+    systemSender('nuphos:decision', 'Nuphos'),
+  )
+
+  expect(status).toBe('started')
+  await expect(run).rejects.toThrow(retired)
+  expect(reopened).toHaveLength(1)
+  expect(reopened[0]).toMatchObject({ id: 'q2', status: 'open' })
+  expect(reopened[0]?.body).toBe(`> Your earlier answer did not run: ${retired}\n\n`)
+})

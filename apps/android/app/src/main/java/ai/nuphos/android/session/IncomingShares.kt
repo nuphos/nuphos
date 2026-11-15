@@ -1,7 +1,9 @@
 package ai.nuphos.android.session
 
 import ai.nuphos.android.data.ShareDraftStore
+import ai.nuphos.android.R
 import ai.nuphos.android.model.ComposerAttachment
+import ai.nuphos.android.model.Words
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicBoolean
@@ -97,7 +99,7 @@ class IncomingShares(
         }
     }
     private suspend fun reportFailure() = withContext(uiDispatcher) {
-        mutableError.value = "Could not save this draft. Check storage and try again before closing the app."
+        mutableError.value = Words(R.string.convtext_share_draft_save_failed)
     }
     private suspend fun publish(box: IncomingShareMailbox, afterProjection: () -> Unit = {}) {
         val next = box.projection()

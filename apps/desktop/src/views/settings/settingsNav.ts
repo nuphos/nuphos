@@ -7,7 +7,6 @@ import {
   FileText,
   KeyRound,
   LockKeyhole,
-  LifeBuoy,
   Monitor,
   MonitorSmartphone,
   NotebookPen,
@@ -81,7 +80,7 @@ const TEAM_GROUPS: SettingsNavGroup[] = [
       { key: 'workspace.instructions', label: t('Instructions'), icon: FileText },
       { key: 'workspace.skills', label: t('Skills'), icon: Sparkles },
       { key: 'workspace.memories', label: t('Memories'), icon: Brain },
-      { key: 'workspace.archived', label: t('Archived agents'), icon: Archive },
+      { key: 'workspace.archived', label: t('Archived'), icon: Archive },
       { key: 'workspace.audit', label: t('Audit log'), icon: ScrollText },
     ],
   },
@@ -90,7 +89,6 @@ const TEAM_GROUPS: SettingsNavGroup[] = [
     items: [
       { key: 'preferences.instructions', label: t('Personal instructions'), icon: NotebookPen },
       { key: 'preferences.localSetup', label: t('Sync my setup'), icon: RefreshCw },
-      { key: 'preferences.runtimeFallback', label: t('Agent fallback'), icon: LifeBuoy },
     ],
   },
 ]

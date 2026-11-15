@@ -1,5 +1,7 @@
 package ai.nuphos.android.model
 
+import androidx.annotation.StringRes
+import ai.nuphos.android.R
 import ai.nuphos.android.data.JsonValue
 import kotlinx.serialization.Serializable
 
@@ -48,7 +50,7 @@ data class CredentialCatalog(
     companion object {
         private fun computerDetail(platform: String?, unavailable: Boolean): String? {
             val name = platform?.let(::platformName)
-            return if (unavailable) listOfNotNull(name, "Unavailable").joinToString(" · ") else name
+            return if (unavailable) listOfNotNull(name, Words(R.string.storetext_credentials_unavailable)).joinToString(" · ") else name
         }
 
         private fun platformName(platform: String) = when (platform) {
@@ -179,9 +181,12 @@ data class CredentialSelection(
     }
 }
 
-enum class PermissionMode(val raw: String, val title: String, val subtitle: String) {
-    Auto("auto", "Auto Mode", "Risky commands ask for your approval"),
-    Bypass("bypass", "Bypass Permissions", "Run every command without asking");
+enum class PermissionMode(val raw: String, @StringRes private val titleId: Int, @StringRes private val subtitleId: Int) {
+    Auto("auto", R.string.auto_mode, R.string.storetext_permission_auto_subtitle),
+    Bypass("bypass", R.string.bypass_permissions, R.string.storetext_permission_bypass_subtitle);
+
+    val title: String get() = Words(titleId)
+    val subtitle: String get() = Words(subtitleId)
 
     companion object {
         fun from(raw: String?) = entries.firstOrNull { it.raw == raw } ?: Auto

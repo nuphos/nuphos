@@ -4,6 +4,17 @@
     "" : {
 
     },
+    "%@ answered" : {
+      "comment" : "Answered question: who answered it",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 已回答"
+          }
+        }
+      }
+    },
     "Agents" : {
 
     },
@@ -135,6 +146,28 @@
     },
     "Account" : {
 
+    },
+    "Answered %@ from the Inbox" : {
+      "comment" : "Answered question: when it was answered",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 在收件箱回答"
+          }
+        }
+      }
+    },
+    "Asked %@ · Answered %@ from the Inbox" : {
+      "comment" : "Answered question: when it was asked and answered",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ 提问 · %2$@ 在收件箱回答"
+          }
+        }
+      }
     },
     "Approval" : {
 

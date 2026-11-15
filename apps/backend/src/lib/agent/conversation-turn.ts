@@ -12,6 +12,7 @@ import { channelIdOf, withChannelPosts } from './channel-wake'
 import { systemSender } from './message-metadata'
 import { buildPendingUserMessage, hasPendingUserMessage } from './pending-messages'
 import { requeueTurnQueue } from './session-released'
+import { recordDroppedFires, recordFiresRan } from './trigger-missed-runs'
 import { turnRunner } from './turn-runner'
 import { keepUndeliveredSend, reopenUndeliveredAnswer } from './undelivered-send'
 
@@ -43,9 +44,7 @@ type TurnArgs = [
 
 /** Shared durable delivery path for agent messages and authenticated resource events. */
 export async function executeConversationTurn(...args: TurnArgs): Promise<void> {
-  const { run } = await startConversationTurn(...args)
-
-  await run
+  await startConversationTurn(...args).then(({ run }) => run)
 }
 
 /**
@@ -99,7 +98,7 @@ export async function startConversationTurn(
 // offline waits in the queue. One still offline after this is gone; its senders are told.
 const OFFLINE_GRACE_MS = 60_000
 
-const reconnecting = (error: unknown, message: PendingUserMessage) =>
+export const reconnecting = (error: unknown, message: PendingUserMessage) =>
   error instanceof AppError &&
   error.code === 'runtime_offline' &&
   Date.now() - Date.parse(message.offlineSince ?? new Date().toISOString()) < OFFLINE_GRACE_MS
@@ -194,7 +193,7 @@ export async function runTurn(
     if (outcome.status === 'failed')
       throw new Error('Thread run failed; inspect the target conversation.')
     // The channel posts it carried were delivered: a retry would show them again.
-    await markRead()
+    await Promise.all([markRead(), recordFiresRan(fresh)])
     // Not awaited: it waits for the computer to come back, which may be never,
     // and this turn's claim must not wait with it.
     if (outcome.finishReason === 'connection-lost') void reportIfRestarted(data, fresh)
@@ -204,6 +203,7 @@ export async function runTurn(
     const reason = error instanceof Error ? error.message : String(error)
 
     await reportUndelivered(data, taken, `did not run: ${reason}`)
+    await recordDroppedFires(error, taken)
     throw error
   }
 }

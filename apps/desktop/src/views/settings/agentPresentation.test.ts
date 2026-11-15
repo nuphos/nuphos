@@ -10,6 +10,7 @@ import {
   localSignIn,
   managesRuntime,
   newAgentAction,
+  ownSignedInCli,
   visibleAgent,
 } from './agentPresentation.ts'
 import { boxAgents } from './boxPresentation.ts'
@@ -216,11 +217,20 @@ test('a self-hosted agent reads offline only when its Usage reading could not re
   assert.equal(agentOffline({ ...selfHosted, notReady: true }), false)
 })
 
-test("any computer's default agent can be removed; a person's own is only forgotten", () => {
-  const computer = local('mac-codex', 'mac', true)
-  const box = { ...computer, local: { ...computer.local!, box: { state: 'running' } } }
+test("a person's own default agent is removable only while its CLI is signed out", () => {
+  const signedIn = local('mac-codex', 'mac', true)
+  const computer = local('mac-codex', 'mac', false)
+  const box = { ...signedIn, local: { ...signedIn.local!, box: { state: 'running' } } }
 
+  // Its computer's report lists a signed-in CLI whatever Nuphos forgets (#2846).
+  assert.equal(ownSignedInCli(signedIn), true)
+  assert.equal(localRemovalId(signedIn), undefined)
+  assert.equal(
+    localRemovalId({ ...signedIn, local: { ...signedIn.local!, online: false } }),
+    undefined,
+  )
   // Online or not: a signed-out default Nuphos forgets stays hidden until it signs in again.
+  assert.equal(ownSignedInCli(computer), false)
   assert.equal(localRemovalId(computer), 'codex')
   assert.equal(
     localRemovalId({ ...computer, local: { ...computer.local!, online: true } }),
@@ -230,9 +240,11 @@ test("any computer's default agent can be removed; a person's own is only forgot
     localRemovalId({ ...computer, local: { ...computer.local!, online: false } }),
     'codex',
   )
+  // A Box's default agent and an added agent are deleted on the computer, signed in or not.
+  assert.equal(ownSignedInCli(box as RuntimeInstance), false)
   assert.equal(localRemovalId(box as RuntimeInstance), 'codex')
   assert.equal(
-    localRemovalId({ ...computer, local: { ...computer.local!, instanceId: 'id-1' } }),
+    localRemovalId({ ...signedIn, local: { ...signedIn.local!, instanceId: 'id-1' } }),
     'id-1',
   )
   assert.equal(localRemovalId({ ...computer, kind: 'managed', local: undefined }), undefined)

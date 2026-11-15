@@ -191,12 +191,13 @@ class ProfileLayoutDeviceTest {
         compose.onNodeWithText("Signed-in devices").performScrollTo()
         val group = compose.onNodeWithTag("profile-group-Account").fetchSemanticsNode().boundsInRoot
         val density = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
-        for (suffix in listOf("edit", "name", "username", "email")) {
+        for (suffix in listOf("edit", "name", "username", "email", "devices")) {
             val line = compose.onNodeWithTag("profile-account-line-$suffix").fetchSemanticsNode().boundsInRoot
             assertEquals(16f * density, line.left - group.left, 1f)
             assertEquals(16f * density, group.right - line.right, 1f)
         }
-        compose.onNodeWithTag("profile-account-line-devices").assertDoesNotExist()
+        // Two-factor authentication is the last row; nothing rules it off from below.
+        compose.onNodeWithTag("profile-account-line-workspace").assertDoesNotExist()
         compose.onNodeWithTag("profile-disclosure-Signed-in devices", useUnmergedTree = true).assertExists()
         compose.onNodeWithText("Signed-in devices").performClick()
         assertEquals(listOf("devices"), calls)

@@ -62,6 +62,7 @@ export function renderTeamToolPages(ctx: ScopeRenderContext): React.ReactNode | 
     onOpenAuditConversation,
     onOpenConversation,
     onOpenNodeLink,
+    onOpenNuphosLink,
     onSelectActive,
     renderPage,
   } = ctx
@@ -148,7 +149,7 @@ export function renderTeamToolPages(ctx: ScopeRenderContext): React.ReactNode | 
   if (active === 'team.archived-chats') {
     return renderPage(
       'team.archived-chats',
-      t('Archived agents'),
+      t('Archived'),
       <Archive className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <ArchivedChatsView
         teamId={scope.teamId}
@@ -172,6 +173,7 @@ export function renderTeamToolPages(ctx: ScopeRenderContext): React.ReactNode | 
         onCount={onCount}
         onLoading={onLoading}
         onOpenConversation={onOpenConversation}
+        onOpenLink={onOpenNuphosLink}
       />,
     )
   }

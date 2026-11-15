@@ -13,6 +13,7 @@ import { resolveSlackBotForWorkspace } from '@/lib/slack/installations'
 import { getSlackThreadTurnIdentity } from '@/lib/slack/thread-access'
 import { fetchSlackUserName } from '@/lib/slack/user-profile'
 import { ingestSlackAttachments } from '@/routes/slack/attachments'
+import { wakeSlackChannelSession } from '@/routes/slack/channel-wake'
 import { fetchSlackChannelName, resolveSlackUserMapping } from '@/routes/slack/identity'
 import { appendAttachmentNote, buildMessagesForRenderedTurn } from '@/routes/slack/messages'
 import {
@@ -68,6 +69,7 @@ export async function handleThreadMessage(envelope: SlackEventEnvelope): Promise
     !event.user ||
     event.ts === event.thread_ts
   ) {
+    await wakeSlackChannelSession(slackWorkspaceId, runtime, event)
     await markSlackEvent(eventId, 'ignored')
 
     return

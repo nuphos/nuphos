@@ -216,6 +216,8 @@ function replyFailedReason(
       ? `its ${label}account hit its usage limit (${notice}).`
       : `its ${label}account hit its usage limit.`
   if (cause === 'auth') return `its ${label}sign-in is no longer valid.`
+  // A disabled agent's own message says where to move the conversation.
+  if (error instanceof AppError && error.code === 'runtime_disabled') return error.message
   if (cause === 'offline') return `its ${label}runtime could not be reached.`
 
   return error instanceof AppError ? error.message : undefined

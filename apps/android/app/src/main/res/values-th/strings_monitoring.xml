@@ -1,0 +1,29 @@
+<resources>
+    <string name="monitoring_search">ค้นหาการตรวจสอบ</string>
+    <string name="monitoring_clear_filters">ล้างตัวกรอง</string>
+    <string name="monitoring_refresh">รีเฟรช</string>
+    <string name="monitoring_all_providers">ผู้ให้บริการทั้งหมด</string>
+    <string name="monitoring_all_statuses">ทุกสถานะ</string>
+    <string name="monitoring_select_team">เลือกทีมเพื่อดูการตรวจสอบ</string>
+    <string name="monitoring_loading">กำลังโหลดการตรวจสอบ…</string>
+    <string name="monitoring_access_denied">ไม่มีสิทธิ์เข้าถึงการตรวจสอบ โปรดตรวจสอบการเป็นสมาชิกทีมของคุณ</string>
+    <string name="monitoring_load_failed">โหลดการตรวจสอบไม่สำเร็จ %1$s</string>
+    <string name="monitoring_stale">ข้อมูลไม่เป็นปัจจุบัน — รีเฟรชไม่สำเร็จ %1$s</string>
+    <string name="monitoring_provider_errors_title">โหลดผู้ให้บริการบางรายไม่สำเร็จ</string>
+    <string name="monitoring_hide_provider_errors">ซ่อนข้อผิดพลาดของผู้ให้บริการ</string>
+    <string name="monitoring_show_provider_errors">แสดงข้อผิดพลาดของผู้ให้บริการ</string>
+    <string name="monitoring_empty_title">ไม่มีรายการตรวจสอบ</string>
+    <string name="monitoring_empty_body">รายการตรวจสอบที่รองรับจาก Better Stack, Grafana และ GCP จะแสดงที่นี่</string>
+    <string name="monitoring_open_connectors">เปิดตัวเชื่อมต่อ</string>
+    <string name="monitoring_no_matching_checks">ไม่มีรายการตรวจสอบที่ตรงกัน</string>
+    <string name="monitoring_detail_status">สถานะ: %1$s</string>
+    <string name="monitoring_detail_provider">ผู้ให้บริการ: %1$s</string>
+    <string name="monitoring_detail_connector">ตัวเชื่อมต่อ: %1$s</string>
+    <string name="monitoring_detail_last_incident">เหตุขัดข้องล่าสุด: %1$s</string>
+    <string name="monitoring_detail_kind">ประเภท: %1$s</string>
+    <string name="monitoring_detail_resource">ทรัพยากร: %1$s</string>
+    <string name="monitoring_detail_target">เป้าหมาย: %1$s</string>
+    <string name="monitoring_open_provider">เปิดในผู้ให้บริการ</string>
+    <string name="monitoring_open_provider_failed">เปิดลิงก์ของผู้ให้บริการไม่ได้</string>
+    <string name="monitoring_close">ปิด</string>
+</resources>

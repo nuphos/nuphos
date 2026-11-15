@@ -50,6 +50,7 @@ export {
   setConversationAvatar,
   setConversationParent,
   updateBotSelf,
+  botChange,
   claimBotAvatar,
 } from './db/maintenance'
 export {

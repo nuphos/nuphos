@@ -2,6 +2,7 @@ import { faPlus } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { useEffect, useRef, useState } from 'react'
 
+import { api } from '../../../api'
 import { SidebarToggleButton } from '../../../components/Sidebar'
 import { Kbd } from '../../../components/ui/kbd'
 import { Tooltip } from '../../../components/ui/tooltip'
@@ -33,6 +34,7 @@ export function WorkspaceTabs({
   onCloseOthers,
   onReorder,
   onCopyPageUrl,
+  pageWindowUrl,
   sidebarCollapsed,
   onToggleSidebarCollapse,
   leading,
@@ -50,6 +52,7 @@ export function WorkspaceTabs({
   // same closeTab action as Cmd+W, whose single-tab branch replaces the tab
   // with a fresh one and closes the right-hand workspace panel.
   const showClose = tabs.length > 0
+  const contextMenuWindowUrl = tabContextMenu && pageWindowUrl(tabContextMenu.tabId)
 
   const favoriteTeamKey = Array.from(new Set(tabs.map((tab) => tab.scope.teamId)))
     .sort((a, b) => a.localeCompare(b))
@@ -241,6 +244,9 @@ export function WorkspaceTabs({
           onNew={onNew}
           onDuplicate={onDuplicate}
           onCopyPageUrl={onCopyPageUrl}
+          onOpenInWindow={
+            contextMenuWindowUrl ? () => api.openPageWindow(contextMenuWindowUrl) : undefined
+          }
           toggleFavorite={toggleFavorite}
           handleClose={onClose}
           onCloseOthers={onCloseOthers}

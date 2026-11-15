@@ -20,7 +20,7 @@ import {
   wakeAfterTurn,
 } from './channel-chat'
 import { startConversationTurn } from './conversation-turn'
-import { resolveMentions } from './mentions'
+import { inviteToConversation, resolveMentions } from './mentions'
 import { renderAttributedMessage } from './message-metadata'
 import { clearPendingUserMessages, enqueuePendingUserMessage } from './pending-messages'
 import { listPendingUserMessages } from './pending-queue'
@@ -296,6 +296,25 @@ describe('waking a channel’s agents', () => {
       cause: 'usage_limit',
       reason: "its account hit its usage limit (You've hit your weekly limit · resets 4pm (UTC)).",
     })
+  })
+
+  test('a disabled agent says where to move, so the chat can offer Switch agent', async () => {
+    const disabled = 'This agent has been retired. Move this conversation to another agent.'
+
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async ({ sessionId }) => {
+        if (sessionId === 'agent-a') throw new AppError(409, 'runtime_disabled', disabled)
+
+        return { status: 'completed' }
+      },
+    })
+    await say('hello')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(
+      (await channel()).timelineEvents?.find((event) => event.kind === 'agent_reply_failed'),
+    ).toMatchObject({ agentId: 'agent-a', cause: 'offline', reason: disabled })
   })
 
   test('posts at the same moment leave one notice per agent', async () => {
@@ -807,6 +826,18 @@ describe('the loop guard and mentions', () => {
       sender: { type: 'user', id: 'mei', displayName: 'Mei Chen' },
     })
     expect((await channel()).mentions?.mei).toBeUndefined()
+    expect(await listChannelMentions(TEAM, 'mei')).toEqual([])
+  })
+
+  test('an invite is announced to the invitee alone, until they post here', async () => {
+    const owner = (await channel()).userId
+
+    await inviteToConversation(TEAM, 'channel', owner, ['mei'])
+    expect(await listChannelMentions(TEAM, 'mei')).toMatchObject([
+      { channelId: 'channel', kind: 'channel', invited: true, sender: { id: owner }, text: '' },
+    ])
+    expect(await listChannelMentions(TEAM, 'lin')).toEqual([])
+    await say('On it.', { ...person, sender: { type: 'user', id: 'mei', displayName: 'Mei Chen' } })
     expect(await listChannelMentions(TEAM, 'mei')).toEqual([])
   })
 

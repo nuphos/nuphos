@@ -114,7 +114,7 @@ agent.patch('/conversations/:sessionId/credentials', async (c) => {
   if (!conversation) {
     throw new AppError(404, 'not_found', 'Conversation not found')
   }
-  void answerCredentialAsks(target, addedCredentialIds(stored?.credentialAccess, access))
+  await answerCredentialAsks(target, addedCredentialIds(stored?.credentialAccess, access))
 
   return c.json({ credentialAccess: credentialAccessResponse(access), options })
 })

@@ -6,7 +6,7 @@ import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
 
-import { reportUndelivered, runTurn } from './conversation-turn'
+import { reconnecting, reportUndelivered, runTurn } from './conversation-turn'
 import { getConversationBySessionId } from './db'
 import { canReplyIn } from './devices/conversation-computer'
 import { listPendingUserMessages, queueHead, takePendingUserMessages } from './pending-queue'
@@ -127,7 +127,8 @@ const RETRYABLE_STATUS = new Set([408, 409, 425, 429])
  * A send that failed to start waits for another try when the failure can pass:
  * a busy or rate-limited runtime, an approval still to come, or a server error. Anything else
  * (an agent that is gone or signed out, a declined computer) never will, so
- * its sender is told instead of the queue being held behind it.
+ * its sender is told instead of the queue being held behind it. An offline computer
+ * is waited for only while it may be reconnecting, as `runTurn` does.
  */
 const mayStartLater = (error: unknown) =>
   !(error instanceof AppError) ||
@@ -169,7 +170,14 @@ async function launchChat(
       ...fields,
       error: error instanceof Error ? error.message : String(error),
     })
-    if (mayStartLater(error)) await requeueTurnQueue(target.userId, target.sessionId, [], item)
+    const offline = error instanceof AppError && error.code === 'runtime_offline'
+
+    if (offline ? reconnecting(error, item) : mayStartLater(error))
+      await requeueTurnQueue(target.userId, target.sessionId, [], {
+        ...item,
+        // Only an unbroken run of offline tries counts toward the grace.
+        offlineSince: offline ? (item.offlineSince ?? new Date().toISOString()) : undefined,
+      })
     else
       await reportUndelivered(
         { userId: target.userId, teamId: target.teamId, targetSessionId: target.sessionId },

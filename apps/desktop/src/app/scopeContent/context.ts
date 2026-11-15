@@ -152,6 +152,8 @@ export type ScopeContentProps = {
   onOpenAuditConversation: (sessionId: string, locate?: JournalChatTarget) => void
   /** Open a node's link: nuphos.ai pages open in-app, everything else external. */
   onOpenNodeLink: (url: string) => void
+  /** Opens a link clicked in an agent's text as the conversation does: in the dock, this page staying. */
+  onOpenNuphosLink: (href: string, beside?: boolean) => boolean
 }
 
 export type RenderPage = (

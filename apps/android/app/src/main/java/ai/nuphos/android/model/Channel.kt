@@ -1,5 +1,6 @@
 package ai.nuphos.android.model
 
+import ai.nuphos.android.R
 import ai.nuphos.android.data.JsonValue
 import ai.nuphos.android.session.BotQuestion
 import kotlinx.serialization.Serializable
@@ -42,7 +43,7 @@ data class ChannelPost(
     fun isMine(viewerId: String?): Boolean = !isAgent && viewerId != null && senderId == viewerId
 
     /** What a reply to this post quotes until the chat stores its own snapshot. */
-    fun asReply(): ChannelReply = ChannelReply(id, name, text.trim().take(200).ifEmpty { "File" })
+    fun asReply(): ChannelReply = ChannelReply(id, name, text.trim().take(200).ifEmpty { Words(R.string.convtext_file) })
     val groups: List<String> get() = uploads.map { it.groupId } + downloads
 
     companion object {

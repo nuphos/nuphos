@@ -19,12 +19,11 @@ function BoxScreens({
   const deviceId = target.kind === 'box' ? target.deviceId : ''
   // Sessions open and close their displays on their own; look again now and then.
   const { list } = useAgentDevices(() => 15_000, teamId, { teamId })
-  const options = desktopScreens(
-    list?.devices.find((device) => device.deviceId === deviceId),
-    deviceId,
-  )
+  const device = list?.devices.find((each) => each.deviceId === deviceId)
+  const options = desktopScreens(device, deviceId)
   const screen = target.kind === 'box' ? target.screen : undefined
-  const switcher = (
+  // Only a Box has screens to switch between; someone's own computer shows its one screen.
+  const switcher = device?.box && (
     <AppSelect
       ariaLabel={t('Screen')}
       value={desktopFilter(deviceId, screen)}

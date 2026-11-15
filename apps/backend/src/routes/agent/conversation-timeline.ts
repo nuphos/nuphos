@@ -2,6 +2,11 @@ import type { ConversationOwner } from './conversation-view'
 import type { ConversationTimelineEvent } from '@/lib/agent/db/timeline-events'
 import type { OpenAbProvider } from '@/lib/claude-code-preview/runtime-provider'
 
+/** `bot_changed` is a record for whoever investigates, not a line in the transcript. */
+type ShownEvent = Exclude<ConversationTimelineEvent, { kind: 'bot_changed' }>
+const isShown = (event: ConversationTimelineEvent): event is ShownEvent =>
+  event.kind !== 'bot_changed'
+
 type Person = { id: string; name: string; avatarURL: string }
 type Runtime = { label: string; provider?: OpenAbProvider }
 
@@ -12,9 +17,9 @@ const FALLBACK_CAUSE = {
 }
 
 export function timelineEventUserIds(events: readonly ConversationTimelineEvent[] = []): string[] {
-  return events.flatMap((event) =>
-    'targetId' in event ? [event.actorId, event.targetId] : [event.actorId],
-  )
+  return events
+    .filter(isShown)
+    .flatMap((event) => ('targetId' in event ? [event.actorId, event.targetId] : [event.actorId]))
 }
 
 /**
@@ -32,7 +37,7 @@ export function serializeTimelineEvents(
     return { id, name: owner?.name ?? 'Someone', avatarURL: owner?.avatarURL ?? '' }
   }
 
-  return events.map((event) => {
+  return events.filter(isShown).map((event) => {
     const at = event.at.toISOString()
 
     // No one did this: the channel's loop guard did.

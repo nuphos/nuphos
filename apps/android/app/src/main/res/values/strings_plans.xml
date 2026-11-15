@@ -1,0 +1,44 @@
+<resources>
+    <string name="plans_title_fallback">Plan</string>
+    <string name="plans_back">Back</string>
+    <string name="plans_actions">Actions</string>
+    <string name="plans_mark_unplanned">Mark as unplanned</string>
+    <string name="plans_plan_number">Plan %1$s</string>
+    <string name="plans_untitled">Untitled plan</string>
+    <string name="plans_still_building">The agent is still building this plan — steps, cost and risk arrive before it can be approved.</string>
+    <string name="plans_decisions">Decisions</string>
+    <string name="plans_steps">Steps</string>
+    <string name="plans_cost">Cost</string>
+    <string name="plans_cost_one_time">"One-time  %1$s"</string>
+    <string name="plans_cost_monthly">"Monthly  %1$s"</string>
+    <string name="plans_cost_savings">"Savings  %1$s"</string>
+    <string name="plans_risk">Risk</string>
+    <string name="plans_risk_worst_case">"Worst case  %1$s"</string>
+    <string name="plans_approval">Approval</string>
+    <string name="plans_approval_requester">Requester %1$s</string>
+    <string name="plans_approval_team">Team %1$d/%2$d</string>
+    <string name="plans_loading">Loading plan…</string>
+    <string name="plans_unplan_confirm_title">Mark plan %1$s as unplanned?</string>
+    <string name="plans_unplan_confirm_body">The plan is kept for reference but will no longer be run.</string>
+    <string name="plans_error_title">Something went wrong</string>
+    <string name="plans_ok">OK</string>
+    <string name="plans_approval_notice_title">Plan approval</string>
+    <string name="plans_approval_already_recorded">Your approval is already recorded on this plan.</string>
+    <string name="plans_approve_failed">Could not approve plan.</string>
+    <plurals name="plans_step_count">
+        <item quantity="one">%1$d steps</item>
+        <item quantity="other">%1$d steps</item>
+    </plurals>
+    <plurals name="plans_job_count">
+        <item quantity="one">%1$d jobs</item>
+        <item quantity="other">%1$d jobs</item>
+    </plurals>
+    <plurals name="plans_command_count">
+        <item quantity="one">%1$d commands</item>
+        <item quantity="other">%1$d commands</item>
+    </plurals>
+    <plurals name="plans_approvals_recorded">
+        <item quantity="one">%1$d approval(s) recorded.</item>
+        <item quantity="other">%1$d approval(s) recorded.</item>
+    </plurals>
+</resources>

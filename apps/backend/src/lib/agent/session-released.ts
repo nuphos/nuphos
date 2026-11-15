@@ -1,5 +1,6 @@
+import { AppError } from '@/lib/errors'
 import { isShuttingDown } from '@/lib/lifecycle'
-import { logError } from '@/lib/observability'
+import { logError, logEvent } from '@/lib/observability'
 
 import { enqueuePendingUserMessage } from './pending-messages'
 import {
@@ -32,10 +33,12 @@ function start(userId: string, sessionId: string): void {
   void (async () => {
     if (await hasQueuedTranscriptMessage(userId, sessionId)) await run(userId, sessionId)
   })().catch((error: unknown) => {
-    logError('agent.pending_messages.queued_turn_failed', error, {
-      user_id: userId,
-      session_id: sessionId,
-    })
+    const fields = { user_id: userId, session_id: sessionId }
+
+    // Expected, and already reported to whoever sent the messages (runTurn).
+    if (error instanceof AppError && error.code === 'runtime_offline')
+      logEvent('warn', 'agent.pending_messages.queued_turn_offline', fields)
+    else logError('agent.pending_messages.queued_turn_failed', error, fields)
   })
 }
 

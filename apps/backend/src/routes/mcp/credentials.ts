@@ -170,7 +170,10 @@ export async function nuphosUpdateCredentials(
     )
 
     if (!updated?.credentialAccess) return toolError(`Session not found: ${sessionId}`)
-    void answerCredentialAsks(source.sessionId, addedCredentialIds(source.credentialAccess, fields))
+    await answerCredentialAsks(
+      source.sessionId,
+      addedCredentialIds(source.credentialAccess, fields),
+    )
 
     return toolResult({
       session_id: sessionId,

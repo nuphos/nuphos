@@ -225,6 +225,7 @@ struct RuntimeObservationTests {
         MacPageSchemeTests.run()
         MessagePreviewTests.run()
         MarkdownImagesTests.run()
+        BareURLTests.run()
         ComposerActionTests.run()
         SessionLinkTests.run()
         AppLinkTests.run()

@@ -10,6 +10,8 @@ export type Controller = {
   refresh(restart: boolean): Promise<LocalRuntimeState>
   state(): LocalRuntimeState
   runtime(provider: LocalAgentProvider): RunningRuntime | null
+  /** `runtime`, for a stream that asks for the agent. */
+  runtimeForStream(provider: LocalAgentProvider): RunningRuntime | null
   status(): LocalRuntimeTunnelStatus
 }
 

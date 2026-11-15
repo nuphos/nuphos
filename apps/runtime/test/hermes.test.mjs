@@ -77,8 +77,7 @@ function fakeHermes(output = {}) {
     const done = new Promise((resolve) => {
       finish = resolve
     })
-    if (args[0] === '-I') finish(JSON.stringify(PROVIDERS))
-    else if (args[0] === 'config') finish('')
+    if (args[0] === 'config') finish('')
     else if (args[3] === 'api-key') {
       /* finishes once the key arrives */
     } else
@@ -99,12 +98,19 @@ function fakeHermes(output = {}) {
   return { calls, run }
 }
 
-async function signIn(answers, hermes) {
+async function signIn(answers, hermes, windows = false) {
   const frames = []
   const lines = (async function* () {
     for (const answer of answers) yield answer
   })()
-  await runHermesLogin({ lines, emit: (frame) => frames.push(frame), run: hermes.run, settleMs: 0 })
+  await runHermesLogin({
+    lines,
+    emit: (frame) => frames.push(frame),
+    run: hermes.run,
+    settleMs: 0,
+    providers: PROVIDERS,
+    windows,
+  })
   return frames
 }
 
@@ -170,4 +176,33 @@ test('Codex prints its code on the line after the prompt, in color', () => {
     ),
     { url: 'https://auth.openai.com/codex/device', instructions: 'Enter code: GCRU-S2PVN' },
   )
+})
+
+test('the shipped provider list has what the sign-in features and offers', () => {
+  const providers = JSON.parse(
+    readFileSync(new URL('../image/hermes-providers.json', import.meta.url), 'utf8'),
+  )
+  const ids = providers.map((provider) => provider.id)
+  for (const id of ['nous', 'openai-codex', 'anthropic', 'openrouter'])
+    assert.ok(ids.includes(id), id)
+  assert.ok(!ids.includes('qwen-oauth'))
+  assert.equal(new Set(providers.map((provider) => provider.name)).size, providers.length)
+})
+
+test('on Windows, only sign-ins that never use the hidden prompt are offered', async () => {
+  const hermes = fakeHermes({
+    paste: true,
+    anthropic: 'Open this link:\n  https://claude.ai/oauth/authorize?x=1\n\nAuthorization code: ',
+  })
+  const frames = await signIn(['anthropic', 'pasted-code'], hermes, true)
+  // No API key anywhere, and OpenRouter's code goes through the hidden prompt too.
+  assert.deepEqual(
+    frames[0].options.map((option) => option.value),
+    ['nous', 'anthropic'],
+  )
+  assert.match(frames[0].message, /API keys cannot be added on Windows yet/u)
+  // A Claude subscription is the only method left, so there is nothing to choose.
+  assert.equal(frames[1].type, 'browser')
+  assert.ok(hermes.calls.every((call) => !call.args.includes('api-key')))
+  assert.deepEqual(frames.at(-1), { type: 'authenticated' })
 })

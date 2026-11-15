@@ -1,7 +1,9 @@
 package ai.nuphos.android.session
 
 import ai.nuphos.android.data.JsonValue
+import ai.nuphos.android.R
 import ai.nuphos.android.model.AgentConversation
+import ai.nuphos.android.model.Words
 
 object HistoryStatus {
     fun sequence(value: JsonValue?): Long? = value?.numberValue?.takeIf {
@@ -15,9 +17,9 @@ object HistoryStatus {
             val state = runtime.snapshot["state"]?.stringValue
             if (state !in setOf("active", "idle", "dormant", "interrupted")) return null
             return when {
-                runtime.phase == "resume_disconnected" -> "Paused"
-                state == "active" || activeRun -> "Running"
-                runtime.phase == "background_tools" -> "Background tools"
+                runtime.phase == "resume_disconnected" -> Words(R.string.convtext_status_paused)
+                state == "active" || activeRun -> Words(R.string.convtext_status_running)
+                runtime.phase == "background_tools" -> Words(R.string.convtext_status_background_tools)
                 else -> null
             }
         }

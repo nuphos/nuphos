@@ -1,5 +1,6 @@
 package ai.nuphos.android.model
 
+import ai.nuphos.android.R
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -12,17 +13,17 @@ data class AccountDeletionRequest(val status: String, val requestedAt: String, v
 data class AccountDeletionResponse(val request: AccountDeletionRequest?)
 
 fun profileValidationError(name: String, username: String): String? {
-    if (name.trim().length !in 1..100) return "Enter a name of 1–100 characters."
+    if (name.trim().length !in 1..100) return Words(R.string.storetext_account_name_length)
     if (username.trim().length !in 1..40 || !Regex("^[a-zA-Z0-9_-]+$").matches(username.trim()))
-        return "Use 1–40 letters, numbers, underscores or hyphens for your username."
+        return Words(R.string.storetext_account_username_rule)
     return null
 }
 
 fun deletionValidationError(confirmation: String, password: String? = null, code: String? = null): String? = when {
-    confirmation != "DELETE" -> "Enter DELETE to confirm."
-    (password == null) == (code == null) -> "Use either your password or an email code."
-    password != null && password.length < 12 -> "Enter a password of at least 12 characters."
-    code != null && code.length != 6 -> "Enter the six-character email code."
+    confirmation != "DELETE" -> Words(R.string.storetext_account_delete_confirm)
+    (password == null) == (code == null) -> Words(R.string.storetext_account_delete_password_or_code)
+    password != null && password.length < 12 -> Words(R.string.storetext_account_delete_password_length)
+    code != null && code.length != 6 -> Words(R.string.storetext_account_delete_code_length)
     else -> null
 }
 

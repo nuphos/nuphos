@@ -15,6 +15,7 @@ function sampler(read: () => Promise<unknown>, readTookMs = 0) {
     antigravity: freshAgent(),
     opencode: freshAgent(),
     dsh: freshAgent(),
+    hermes: freshAgent(),
   }
 
   for (const agent of Object.values(agents))

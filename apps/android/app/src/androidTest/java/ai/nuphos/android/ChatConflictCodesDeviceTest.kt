@@ -114,8 +114,7 @@ class ChatConflictCodesDeviceTest {
     }
     @Test fun everyBlockedRuntimeOffersSwitchRuntime() {
         for (code in listOf("runtime_login_required", "runtime_disabled", "runtime_not_found", "runtime_offline")) {
-            val message = AgentChatApi.conflict(409, error(code, "Server wording")).message
-            assertTrue(code, message in AgentChatApi.switchRuntimeErrors)
+            assertTrue(code, AgentChatApi.conflict(409, error(code, "Server wording")) is AgentChatApi.Conflict.RuntimeBlocked)
         }
     }
     @Test fun anOtherRefusalShowsTheServersWordsAndKeepsTheDraft() =

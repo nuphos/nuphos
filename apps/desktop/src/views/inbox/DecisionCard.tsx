@@ -39,6 +39,7 @@ export function DecisionCard({
   onAnswer,
   onSkip,
   onOpenConversation,
+  onOpenLink,
 }: {
   teamId: string
   conversation: AgentConversation
@@ -48,6 +49,8 @@ export function DecisionCard({
   onAnswer: (answer: DecisionAnswer) => void
   onSkip: (() => void) | undefined
   onOpenConversation: () => void
+  /** Opens a link in the question's text, as the conversation does. */
+  onOpenLink: (href: string, beside: boolean) => boolean
 }) {
   const { sessionId } = conversation
   const canManage = Boolean(conversation.canManage) && !conversation.readOnly
@@ -90,6 +93,7 @@ export function DecisionCard({
               <MessageResponse
                 className="selectable mt-3 text-[13.5px] text-secondary"
                 streaming={false}
+                onLinkClick={onOpenLink}
               >
                 {choice.body}
               </MessageResponse>
@@ -111,6 +115,7 @@ export function DecisionCard({
               teamId={teamId}
               credentials={credentials}
               onAnswer={(answer) => onAnswer(answer)}
+              onLinkClick={onOpenLink}
               fullBody
             />
             {/* The conversation's own picker, as its composer has it: a personal

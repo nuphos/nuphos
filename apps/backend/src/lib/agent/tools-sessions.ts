@@ -249,7 +249,11 @@ export function createSessionTools(
       execute: async ({ name, avatar, instructions }) => {
         // Never more access than the caller has, as create_thread does.
         const bypass = await getSessionBypass(conversationId, userId)
-        const bot = await createBot(userId, teamId, bypass, { title: name, avatar })
+        const bot = await createBot(userId, teamId, bypass, {
+          source: { via: 'create_bot', sessionId: conversationId },
+          title: name,
+          avatar,
+        })
         const saved =
           !instructions || (await updateBotSelf(bot.sessionId, userId, teamId, { instructions }))
 

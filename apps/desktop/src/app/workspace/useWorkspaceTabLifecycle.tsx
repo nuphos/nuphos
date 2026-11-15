@@ -8,6 +8,7 @@ import { collectLocalTerminalTabIds, planSshTeardownForLogout } from '../../lib/
 import {
   selectAllResidentTabs,
   selectCurrentBucket,
+  selectMainPageTab,
   selectTabLocation,
 } from './store/workspaceState'
 import { useWorkspacePane } from './WorkspacePaneContext'
@@ -156,7 +157,9 @@ export function useWorkspaceTabLifecycle(a: Args) {
         logNewTabRequested('cmd+t')
         newTab()
       } else if (action === 'close-tab') {
-        const { activeTabId } = selectCurrentBucket(workspaceStore.getState())
+        const state = workspaceStore.getState()
+        // With no tab in its dock, the management page is what closes.
+        const activeTabId = selectCurrentBucket(state).activeTabId ?? selectMainPageTab(state)?.id
 
         if (isTabFocused?.()) {
           if (activeTabId) closeTab(activeTabId)

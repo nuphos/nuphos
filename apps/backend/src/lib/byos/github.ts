@@ -115,26 +115,7 @@ type InstallationToken = { token: string; expiresAt: Date }
 const installationTokenCache = new Map<number, InstallationToken>()
 const installationTokenInflight = new Map<number, Promise<InstallationToken>>()
 
-export async function getInstallationToken(
-  installationId: number,
-  repositoryId?: number,
-): Promise<InstallationToken> {
-  // Never reuse the installation-wide cache for an untrusted PR review.
-  if (repositoryId !== undefined) {
-    const raw = await appRequest<{ token: string; expires_at: string }>(
-      `/app/installations/${String(installationId)}/access_tokens`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          repository_ids: [repositoryId],
-          permissions: { contents: 'read', pull_requests: 'write', metadata: 'read' },
-        }),
-      },
-    )
-
-    return { token: raw.token, expiresAt: new Date(raw.expires_at) }
-  }
+export async function getInstallationToken(installationId: number): Promise<InstallationToken> {
   const cached = installationTokenCache.get(installationId)
 
   if (cached && cached.expiresAt.getTime() - 60_000 > Date.now()) return cached
