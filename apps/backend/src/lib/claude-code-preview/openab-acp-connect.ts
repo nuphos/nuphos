@@ -35,6 +35,9 @@ const DEFAULT_RETIRE_GRACE_MS = 30_000
  * drops: an expected state the person can fix, not a server fault. Its cause is
  * already logged by the tunnel (tunnel_closed, stream_failed).
  */
+/** The agent host did not take the connection: it is down, restarting or out of reach. */
+export class OpenAbConnectError extends Error {}
+
 function connectionFailure(url: string, event: SocketEvent): Error {
   if (isLocalRuntimeUrl(url) && event.code === 1006)
     return new AppError(
@@ -45,7 +48,7 @@ function connectionFailure(url: string, event: SocketEvent): Error {
       { deviceId: parseLocalRuntimeUrl(url)?.deviceId },
     )
 
-  return new Error(connectionFailureMessage(event))
+  return new OpenAbConnectError(connectionFailureMessage(event))
 }
 
 export async function connectOpenAbAcpSocket(
@@ -61,7 +64,7 @@ export async function connectOpenAbAcpSocket(
     const timer = setTimeout(() => {
       cleanup()
       socket.close()
-      reject(new Error('OpenAB ACP connection timed out'))
+      reject(new OpenAbConnectError('OpenAB ACP connection timed out'))
     }, options.connectTimeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS)
     const onOpen = () => {
       cleanup()
