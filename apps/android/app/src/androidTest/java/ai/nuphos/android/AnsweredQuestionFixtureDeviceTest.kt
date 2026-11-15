@@ -41,7 +41,8 @@ class AnsweredQuestionFixtureDeviceTest {
         compose.waitForIdle()
         val inst = InstrumentationRegistry.getInstrumentation()
         inst.waitForIdleSync()
-        android.os.SystemClock.sleep(500)
+        // Past the press ripple of the row just tapped.
+        android.os.SystemClock.sleep(1500)
         File(inst.targetContext.getExternalFilesDir(null), name).outputStream().use {
             inst.uiAutomation.takeScreenshot().compress(Bitmap.CompressFormat.PNG, 100, it)
         }

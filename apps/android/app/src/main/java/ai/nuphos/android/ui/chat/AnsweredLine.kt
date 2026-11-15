@@ -28,7 +28,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.selected
@@ -99,15 +98,16 @@ internal fun AnsweredLine(row: ChatRow.Answered, onLink: (String) -> Unit) {
         Surface(shape = RoundedCornerShape(14.dp), color = colors.surfaceContainerHigh, modifier = Modifier.fillMaxWidth().testTag("answered-card")) {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(question.question, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = colors.onSurface)
-                question.body?.let { MarkdownText(it, onLink = onLink, compact = true) }
+                // The body reads under the question, in the secondary color.
+                question.body?.let { MaterialTheme(colorScheme = colors.copy(onSurface = colors.onSurfaceVariant)) { MarkdownText(it, onLink = onLink, compact = true) } }
                 val picked = question.picked
                 for (option in question.options) {
                     val chosen = option in picked
                     Surface(
                         shape = CircleShape,
                         color = if (chosen) colors.onSurface else colors.surfaceContainerHighest,
-                        contentColor = if (chosen) colors.surface else colors.onSurface,
-                        modifier = Modifier.fillMaxWidth().alpha(if (chosen) 1f else 0.45f).semantics { selected = chosen },
+                        contentColor = if (chosen) colors.surface else colors.onSurface.copy(alpha = 0.45f),
+                        modifier = Modifier.fillMaxWidth().semantics { selected = chosen },
                     ) {
                         Row(
                             Modifier.heightIn(min = 44.dp).padding(horizontal = 16.dp),
@@ -125,7 +125,7 @@ internal fun AnsweredLine(row: ChatRow.Answered, onLink: (String) -> Unit) {
                 val answered = question.answered?.let(ChatTime::label).orEmpty()
                 Text(
                     question.asked?.let { "Asked ${ChatTime.label(it)} · Answered $answered from the Inbox" } ?: "Answered $answered from the Inbox",
-                    style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall, color = colors.outline,
                 )
             }
         }
