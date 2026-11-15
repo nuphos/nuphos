@@ -304,6 +304,16 @@ jobs:
           - 6379:6379
         options: >-
           --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
+      # For the `*.mongo.test.ts` suites, which check what the database itself does
+      # with a document. Same image and rseq setting as deploy/compose.
+      mongo:
+        image: mongo:8.0.32
+        env:
+          GLIBC_TUNABLES: glibc.pthread.rseq=1
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok'" --health-interval 5s --health-timeout 5s --health-retries 12
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -360,6 +370,15 @@ jobs:
             bun test "$suite"
             echo "::endgroup::"
           done
+      # Their own process: MONGODB_URI is read once, when the config module loads,
+      # and the unit tests above must keep the unreachable address they are given.
+      - name: Tests against a real MongoDB
+        working-directory: apps/backend
+        env:
+          TEST_MONGODB_URI: mongodb://127.0.0.1:27017
+          MONGODB_URI: mongodb://127.0.0.1:27017
+          MONGODB_DB: nuphos_test
+        run: bun test $(find src -name '*.mongo.test.ts' | sort)
       - name: Check API schema is up-to-date
         working-directory: apps/backend
         run: bun run check:api
