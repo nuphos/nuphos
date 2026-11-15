@@ -30,6 +30,11 @@ export async function nuphosListSessions(
     ...(text(args.search) ? { search: text(args.search) } : {}),
     ...(text(args.cursor) ? { cursor: text(args.cursor) } : {}),
     ...(args.waiting_for_input === true ? { pendingDecision: true } : {}),
+    // A Bot's Tasks, or a Task's sub-agents, whoever started them, as far as
+    // the caller may read them.
+    ...(text(args.parent_session_id)
+      ? { parentSessionId: text(args.parent_session_id), scope: 'team' as const }
+      : {}),
   })
 
   return toolResult({
@@ -43,6 +48,7 @@ export async function nuphosListSessions(
         waiting_for_input: openInputRequests(c).length > 0,
         ...(c.runtimeLabel ? { agent: c.runtimeLabel } : {}),
         ...(c.parentSessionId ? { parent_session_id: c.parentSessionId } : {}),
+        ...(c.avatar ? { bot: true } : {}),
         ...(c.userId === ctx.userId ? {} : { owner: 'teammate' }),
       })),
     ),
@@ -90,6 +96,7 @@ export async function nuphosUpdateSession(
       conversationId: sessionId,
       userId: ctx.userId,
       event: fullAccess ? 'auth.bypass_enabled' : 'auth.bypass_disabled',
+      data: { via: 'mcp', ...(ctx.client?.name ? { client: ctx.client.name } : {}) },
     })
   }
 

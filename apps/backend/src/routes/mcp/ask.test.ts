@@ -23,6 +23,7 @@ let answered: { requestId: string; answer: unknown; actor: string }[]
 let refuse: AppError | undefined
 let runs: Record<string, unknown>[]
 let finishRun: () => void
+let events: { event: string; data?: Record<string, unknown> }[]
 let claims: { userId: string; actorUserId?: string }[]
 
 useIdentity({ getTeamMembership: async () => ({ role: 'MEMBER' }) as never })
@@ -57,6 +58,9 @@ useTriggerRunExecute({
 useAgentDb({
   getConversationBySessionId: async () => stored,
   getReadableConversation: async () => (participant ? stored : null),
+  recordAgentEvent: ({ event, data }) => {
+    events.push({ event, data })
+  },
   getConversationWithMessages: async () =>
     stored && {
       conversation: stored,
@@ -77,6 +81,7 @@ beforeEach(() => {
   answered = []
   refuse = undefined
   runs = []
+  events = []
   claims = []
   finishRun = () => undefined
 })
@@ -88,6 +93,7 @@ describe('nuphos_ask request_id', () => {
     expect(result).toMatchObject({ status: 'running', session_id: 's1' })
     expect(answered).toEqual([{ requestId: 'q1', answer: { text: 'eu' }, actor: ME }])
     expect(runs).toEqual([])
+    expect(events).toEqual([{ event: 'decision.answered', data: { requestId: 'q1', via: 'mcp' } }])
   })
 
   test('a question that must be answered in its own card is a tool error', async () => {

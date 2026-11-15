@@ -4,6 +4,7 @@ import {
   getConversationBySessionId,
   getConversationWithMessages,
   getReadableConversation,
+  recordAgentEvent,
 } from '@/lib/agent/db'
 import { answerDecision } from '@/lib/agent/decision-answer'
 import { canReplyIn } from '@/lib/agent/devices/conversation-computer'
@@ -63,6 +64,12 @@ async function answerQuestion(
       answer: { text },
       actor: { id: ctx.userId, displayName: sender.displayName },
       teamId,
+    })
+    recordAgentEvent({
+      conversationId: conversation.sessionId,
+      userId: ctx.userId,
+      event: 'decision.answered',
+      data: { requestId, via: 'mcp', ...(ctx.client?.name ? { client: ctx.client.name } : {}) },
     })
   } catch (err) {
     if (err instanceof AppError) return toolError(err.message)

@@ -129,6 +129,12 @@ export const TOOL_DEFINITIONS = [
           enum: ['mine', 'shared'],
           description: 'mine (default): sessions you own. shared: sessions you joined.',
         },
+        parent_session_id: {
+          type: 'string',
+          description:
+            "Only the Tasks under this session: a Bot's Tasks (rows with bot: true " +
+            "are Bots) or a Task's sub-agents, whoever started them.",
+        },
         limit: { type: 'number', description: 'Max sessions, 1 to 30 (default 15).' },
         cursor: { type: 'string', description: 'next_cursor from the previous page.' },
       },

@@ -37,6 +37,7 @@ let running: boolean
 let bypass: boolean
 let picked: Record<string, unknown> | undefined
 let lastParts: unknown[]
+let events: { event: string; data?: Record<string, unknown> }[]
 
 useIdentity({ getTeamMembership: async () => ({ role: 'MEMBER' }) as never })
 useAgentRunStore({ getActiveAgentRunForSession: async () => (running ? ({} as never) : null) })
@@ -75,7 +76,9 @@ useAgentDb({
   getConversationTranscriptForAgent: async () =>
     ({ lines: ['#0 user: hi', '#1 assistant: Done so far.'], nextIndex: null }) as never,
   liveTurnTranscriptLine: () => '#4 assistant (in progress): [tool: bash]',
-  recordAgentEvent: () => undefined,
+  recordAgentEvent: ({ event, data }) => {
+    events.push({ event, data })
+  },
 })
 
 const { nuphosListSessions, nuphosUpdateSession } = await import('./sessions')
@@ -90,6 +93,7 @@ beforeEach(() => {
   running = false
   bypass = false
   picked = undefined
+  events = []
   lastParts = [{ type: 'text', text: 'Done so far.' }]
 })
 
@@ -111,6 +115,13 @@ describe('nuphos_list_sessions', () => {
 
     expect(listed?.options).toMatchObject({ scope: 'shared', pendingDecision: true })
   })
+
+  test("lists a Bot's Tasks whoever started them", async () => {
+    await nuphosListSessions({ team_id: 't1', parent_session_id: 'bot1' }, ctx)
+
+    expect(listed?.viewer).toBe('u1')
+    expect(listed?.options).toMatchObject({ parentSessionId: 'bot1', scope: 'team' })
+  })
 })
 
 describe('nuphos_update_session', () => {
@@ -118,12 +129,16 @@ describe('nuphos_update_session', () => {
     const result = body(
       await nuphosUpdateSession(
         { session_id: 's1', model: 'opus', effort: 'high', full_access: true },
-        ctx,
+        { ...ctx, client: { name: 'Claude Code' } },
       ),
     )
 
     expect(picked).toEqual({ model: 'opus', effort: 'high' })
     expect(result).toMatchObject({ session_id: 's1', model: 'opus', full_access: true })
+    // Turning Full Access on from outside is recorded with where it came from.
+    expect(events).toEqual([
+      { event: 'auth.bypass_enabled', data: { via: 'mcp', client: 'Claude Code' } },
+    ])
   })
 
   test('refuses a session the caller does not own, and changes nothing', async () => {
