@@ -13,9 +13,16 @@ export function foldKey(section: Pick<Section, 'title'>, key: string): string {
   return section.title === BOTS_SECTION ? `bots:${key}` : key
 }
 
-/** A Bot tree fold, not its done group: folded at rest, opened only by hand and never remembered. */
+/** A Bot tree fold, not its done group: folded until opened by hand, then remembered per team. */
 export function isBotTreeFold(title: string): boolean {
   return title.startsWith('bots:') && !title.endsWith(':done')
+}
+
+/** The stored folds of a Bots row: its tree and its done group. */
+export function botFoldTitles(sessionId: string): string[] {
+  const tree = foldKey({ title: BOTS_SECTION }, `agent-session:${sessionId}`)
+
+  return [tree, `${tree}:done`]
 }
 
 type Fold = Pick<Section, 'title' | 'defaultCollapsed'>
