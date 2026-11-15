@@ -186,6 +186,9 @@ class ChatSession(
     var permissionMode by mutableStateOf(PermissionMode.Auto)
         private set
     var credentialAccess by mutableStateOf<CredentialSelection?>(null)
+    /** A Task under a Bot: its credentials, computers and permission mode are the Bot's. */
+    var followsBot by mutableStateOf(false)
+        private set
 
     var isArchived by mutableStateOf(false)
         private set
@@ -404,6 +407,7 @@ class ChatSession(
             if (detail.isChannel) markChannel()
             // Nothing stored is still stored: every kind shows, and a save sends back only what changed.
             credentialAccess = CredentialSelection(detail.credentialAccess ?: JsonValue.Obj(emptyMap()))
+            followsBot = detail.credentialSource != null
             val run = detail.activeRun
             if (run != null) {
                 val lastUser = msgs.indexOfLast { it.role == ChatMessage.Role.User }
