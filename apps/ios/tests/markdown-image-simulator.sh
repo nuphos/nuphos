@@ -28,7 +28,8 @@ flaky = 0
 
 class Handler(http.server.SimpleHTTPRequestHandler):
     # flaky.png fails its second request, the viewer's, so the viewer must
-    # offer to try again. Nothing may be cached, or a request never comes.
+    # offer to try again. Nothing may be reused, or the viewer never asks:
+    # no-store alone still let it show the reply's copy.
     def do_GET(self):
         global flaky
         if self.path == "/flaky.png":
@@ -39,6 +40,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def end_headers(self):
         self.send_header("Cache-Control", "no-store")
+        self.send_header("Vary", "*")
         super().end_headers()
 
 server = http.server.HTTPServer(("127.0.0.1", 8765), functools.partial(Handler, directory=root))
