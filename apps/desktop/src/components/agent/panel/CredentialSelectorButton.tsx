@@ -3,12 +3,13 @@ import { Laptop, Loader2, Shield, X } from 'lucide-react'
 import { useState } from 'react'
 
 import { t } from '../../../i18n'
+import { usePersonalCredentialsQuery } from '../../../lib/query/account'
 import { Menu, MenuCheckboxItem, MenuContent, MenuTrigger } from '../../ui/menu'
 
 import { allCredentialAccess, emptyCredentialAccess } from './credentialAccess'
 import { buildDeviceCredentialSections, selectAllDevices, shownDevices } from './credentialSections'
 import { countSelectedCredentials, countTotalCredentials } from './credentialSelectorButtonCounts'
-import { useCredentialSections, usePersonalCredentials } from './credentialSelectorButtonHooks'
+import { useCredentialSections } from './credentialSelectorButtonHooks'
 import { CredentialSelectorSectionList } from './credentialSelectorButtonSections'
 import { personalRows, setAllPersonal } from './personalIdentity'
 
@@ -43,7 +44,8 @@ function SelectionButton({
   devices,
 }: SelectorProps & { devices: boolean }) {
   const [menuOpen, setMenuOpen] = useState(false)
-  const personal = usePersonalCredentials(Boolean(personalIdentity) && !devices && menuOpen)
+  const personal =
+    usePersonalCredentialsQuery(Boolean(personalIdentity) && !devices && menuOpen).data ?? null
   const listedDevices = shownDevices(options.devices, value.deviceIds)
   // The member's own GitHub / Linear rows count like the credentials beside them.
   const rows = personalIdentity && !devices ? personalRows(options, value) : []

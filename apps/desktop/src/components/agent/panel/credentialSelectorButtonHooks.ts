@@ -1,7 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
-
-import { api } from '../../../api'
-import { PERSONAL_CREDENTIALS_CHANGED } from '../../../views/settings/personalCredentials'
+import { useMemo } from 'react'
 
 import {
   buildAliyunCredentialSections,
@@ -43,37 +40,6 @@ import {
 } from './credentialSectionsC'
 
 import type { CredentialSelectorControl } from './credentialSections'
-import type { PersonalCredential } from '../../../types'
-
-/** The member's Personal Credentials, fetched while `enabled` (the picker is open). */
-export function usePersonalCredentials(enabled: boolean): PersonalCredential[] | null {
-  const [credentials, setCredentials] = useState<PersonalCredential[] | null>(null)
-
-  useEffect(() => {
-    if (!enabled) return
-    let alive = true
-    const refresh = () => {
-      api
-        .atlasListPersonalCredentials()
-        .then((list) => {
-          if (alive) setCredentials(list)
-        })
-        .catch((err: unknown) => console.warn('[agent] failed to load personal credentials', err))
-    }
-
-    refresh()
-    window.addEventListener('focus', refresh)
-    window.addEventListener(PERSONAL_CREDENTIALS_CHANGED, refresh)
-
-    return () => {
-      alive = false
-      window.removeEventListener('focus', refresh)
-      window.removeEventListener(PERSONAL_CREDENTIALS_CHANGED, refresh)
-    }
-  }, [enabled])
-
-  return credentials
-}
 
 export function useCredentialSections(options: CredentialSelectorControl['options']) {
   const awsSections = useMemo(
