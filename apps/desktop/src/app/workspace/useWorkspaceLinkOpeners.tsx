@@ -44,7 +44,7 @@ import type { WorkspaceToolbarResult } from './useWorkspaceToolbar'
 import type { WorkspaceProps } from './workspaceProps'
 import type { AppOpenDeepLinkPayload } from '../../api'
 
-const ROUTE_TABLE_FIRST = new Set<string>(['cluster', 'github-repo', 'github-pr'])
+const ROUTE_TABLE_FIRST = new Set<string>(['cluster', 'github-repo', 'github-pr', 'agent-session'])
 
 type Args = WorkspaceProps &
   WorkspaceShellStateResult &
@@ -106,9 +106,9 @@ export function useWorkspaceLinkOpeners(a: Args) {
       if (!isRelativeNuphosLink && !isCanonicalNuphosLink) return false
       if (!url.pathname.startsWith('/teams/')) return false
 
-      // Resource-level mention links first (they carry filter/label niceties);
-      // anything else the route table can parse — section pages, drill-downs,
-      // legacy aliases — resolves through the shared parser.
+      // Resource-level mention links first (they carry filter/label niceties), but
+      // the route table reads ROUTE_TABLE_FIRST's queries (a chat's `?artifact=`),
+      // and section pages, drill-downs and legacy aliases.
       const target = parseAtlasLink(url.toString())
       const mentionNavigation =
         target && !ROUTE_TABLE_FIRST.has(target.type) ? navigationFromMentionTarget(target) : null
