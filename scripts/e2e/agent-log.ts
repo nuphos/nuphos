@@ -27,7 +27,7 @@ export function agentEvents(stack: Stack): string[] {
   return agentLog(stack).map(({ event, marker }) => (marker ? `${event} ${marker}` : event))
 }
 
-/** The turn a delegated Task ran, once it has finished. A refused create_thread fails at once. */
+/** The turn a delegated Task ran, once it has finished. A refused create_thread throws its reason. */
 export function delegatedTurn(stack: Stack, marker: string): AgentEntry | undefined {
   const log = agentLog(stack)
   const refusal = log.find((entry) => entry.event === 'delegated' && entry.isError)

@@ -29,14 +29,25 @@ export async function freePorts(count: number): Promise<number[]> {
   return ports
 }
 
+// Retries `check` until it is truthy. It may throw while what it waits for is starting;
+// a timeout reports its last error.
 export async function until(label: string, check: () => Promise<unknown>, timeoutMs = 60_000) {
   const deadline = Date.now() + timeoutMs
+  let failure: unknown
 
   while (Date.now() < deadline) {
-    if (await check().catch(() => false)) return
+    const passed = await check().then(Boolean, (error: unknown) => {
+      failure = error
+
+      return false
+    })
+
+    if (passed) return
     await new Promise((resolve) => setTimeout(resolve, 250))
   }
-  throw new Error(`Timed out waiting for ${label}; logs are in ${artifacts}`)
+  const last = failure instanceof Error ? ` (last error: ${failure.message})` : ''
+
+  throw new Error(`Timed out waiting for ${label}${last}; logs are in ${artifacts}`)
 }
 
 type SpawnOptions = { cwd?: string; env?: Record<string, string> }
