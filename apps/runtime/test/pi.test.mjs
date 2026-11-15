@@ -1,13 +1,5 @@
 import assert from 'node:assert/strict'
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  readlinkSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -17,12 +9,14 @@ import { listedModels, runPiLogin } from '../image/pi-login.mjs'
 import { piTurnError, writePiMcpServers } from '../image/pi-session.mjs'
 
 const readJson = (file) => JSON.parse(readFileSync(file, 'utf8'))
+const LOGIN = { deepseek: { type: 'api_key', key: 'sk-test' } }
 
 test('each conversation and each teammate in it runs Pi from an agent directory of its own', () => {
   const home = mkdtempSync(join(tmpdir(), 'pi-runtime-'))
   try {
     const root = join(home, '.pi', 'agent')
     mkdirSync(root, { recursive: true })
+    writeFileSync(join(root, 'auth.json'), JSON.stringify(LOGIN))
     writeFileSync(
       join(root, 'settings.json'),
       JSON.stringify({ defaultProvider: 'deepseek', defaultModel: 'deepseek-chat', theme: 'x' }),
@@ -41,7 +35,7 @@ test('each conversation and each teammate in it runs Pi from an agent directory 
     for (const dir of dirs) {
       assert.notEqual(dir, root)
       // Signed in with the root's login, on the model the sign-in chose.
-      assert.equal(readlinkSync(join(dir, 'auth.json')), join(root, 'auth.json'))
+      assert.deepEqual(readJson(join(dir, 'auth.json')), LOGIN)
       const settings = readJson(join(dir, 'settings.json'))
       assert.equal(settings.defaultProvider, 'deepseek')
       assert.equal(settings.defaultModel, 'deepseek-chat')
@@ -52,6 +46,11 @@ test('each conversation and each teammate in it runs Pi from an agent directory 
     // pi-acp runs the CLI the computer names.
     assert.equal(owner.PI_ACP_PI_COMMAND, '/opt/pi/bin/pi')
     assert.equal(agentEnv('pi', undefined, { HOME: home }).PI_ACP_PI_COMMAND, 'pi')
+    // A conversation opened after a new sign-in uses the new key.
+    const renewed = { deepseek: { type: 'api_key', key: 'sk-new' } }
+    writeFileSync(join(root, 'auth.json'), JSON.stringify(renewed))
+    const again = env({ NUPHOS_SESSION_ID: 'conversation-a', NUPHOS_TOKEN: 'a' })
+    assert.deepEqual(readJson(join(again.PI_CODING_AGENT_DIR, 'auth.json')), renewed)
   } finally {
     rmSync(home, { recursive: true, force: true })
   }

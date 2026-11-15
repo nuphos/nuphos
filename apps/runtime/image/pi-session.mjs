@@ -7,12 +7,12 @@
 // It signs in with the root's login (~/.pi/agent/auth.json) and starts on the model the
 // sign-in chose, which is copied from the root's settings.
 import {
-  lstatSync,
+  copyFileSync,
   mkdirSync,
   readdirSync,
   readFileSync,
   renameSync,
-  symlinkSync,
+  rmSync,
   writeFileSync,
 } from 'node:fs'
 import { join } from 'node:path'
@@ -40,13 +40,15 @@ export function piAgentDir(runtimeHome, sessionHome, workspace = process.cwd()) 
   const dir = join(sessionHome, '.pi', 'agent')
   mkdirSync(root, { recursive: true, mode: 0o700 })
   mkdirSync(dir, { recursive: true, mode: 0o700 })
-  // The login and the user's own model providers, where the sign-in keeps them.
+  // The login and the user's own model providers, as the sign-in last left them: copied,
+  // as Windows links files only for administrators.
   if (dir !== root)
     for (const name of ['auth.json', 'models.json']) {
+      rmSync(join(dir, name), { force: true })
       try {
-        lstatSync(join(dir, name))
+        copyFileSync(join(root, name), join(dir, name))
       } catch {
-        symlinkSync(join(root, name), join(dir, name))
+        // None yet.
       }
     }
   const chosen = readJson(join(root, 'settings.json'))
