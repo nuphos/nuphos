@@ -1,7 +1,6 @@
 // Fills the missing translations of the mobile apps' strings from Desktop,
 // wherever the English text is the same. Safe to run again.
-//   node scripts/fill-mobile-locales.mjs ios
-//   node scripts/fill-mobile-locales.mjs android
+//   node scripts/fill-mobile-locales.mjs <ios|android>
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
@@ -119,10 +118,8 @@ const ANDROID_ESCAPES = [
   ['"', '\\"'],
 ]
 
-/**
- * One locale's copy of an Android strings file: the entries of `source` in
- * their order, each kept as `localized` has it or filled from Desktop.
- */
+// One locale's copy of an Android strings file: the entries of `source` in
+// their order, each kept as `localized` has it or filled from Desktop.
 export function fillStrings(source, localized, translate) {
   const existing = new Map([...localized.matchAll(ANDROID_ENTRY)].map((m) => [m[2], m[0]]))
   const entries = []
@@ -155,7 +152,7 @@ export function fillStrings(source, localized, translate) {
   }
 
   return {
-    xml: `<resources>\n${entries.map((entry) => `    ${entry}\n`).join('')}</resources>\n`,
+    xml: ['<resources>', ...entries.map((entry) => `    ${entry}`), '</resources>', ''].join('\n'),
     filled,
   }
 }
