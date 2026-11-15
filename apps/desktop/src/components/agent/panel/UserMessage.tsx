@@ -221,7 +221,8 @@ export const UserMessage = memo(
             )}
             <PastedTextDialog text={viewingPaste} onClose={() => setViewingPaste(null)} />
             {!editing && (copyableText || typeof message.createdAt === 'number') && (
-              <div className="-mt-1 flex min-h-7 items-center justify-end gap-1 opacity-0 group-hover/message:opacity-100 group-focus-within/message:opacity-100 transition-opacity">
+              // Hidden until hover, so it takes the place of the gaps around it.
+              <div className="-my-2 flex min-h-7 items-center justify-end gap-1 opacity-0 group-hover/message:opacity-100 group-focus-within/message:opacity-100 transition-opacity">
                 {typeof message.createdAt === 'number' && (
                   <span className="pr-0.5 text-[11px] text-tertiary tabular-nums">
                     {formatMessageTimestamp(message.createdAt)}
