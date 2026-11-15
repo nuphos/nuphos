@@ -4,6 +4,7 @@
 // on a new streamId once it has decided).
 import { randomUUID } from 'node:crypto'
 
+import { requeueTurnQueue } from '@/lib/agent/session-released'
 import { bindPreviewRunFrameBridge } from '@/lib/claude-code-preview/run-frame-bridge'
 
 import {
@@ -57,6 +58,23 @@ export type PreviewChatTurnArgs = {
   onRunHandoff?: (next: AgentRun) => void
   /** The usage the runtime reported for this turn, for per-turn accounting. */
   onTurnUsage?: (usage: unknown) => void
+}
+
+/**
+ * The agent never received this turn's messages: the runtime refused them, or
+ * the turn was stopped before its prompt went out. What the turn took from the
+ * queue waits there again instead of being recorded as read. True when the
+ * message that started the turn went back too, leaving nothing to record.
+ */
+export async function requeueUnsent(
+  turn: Pick<PreviewChatTurnArgs, 'userId' | 'sessionId' | 'queued'>,
+  carried: PendingUserMessage[],
+  steered: UIMessage[],
+): Promise<boolean> {
+  await requeueTurnQueue(turn.userId, turn.sessionId, carried, turn.queued)
+  steered.length = 0
+
+  return Boolean(turn.queued)
 }
 
 /** Set when the runtime connection dropped mid-turn and the turn was left to it. */
