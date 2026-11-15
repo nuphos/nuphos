@@ -41,4 +41,9 @@ export type WindowSessionAccessApi = {
     avatar: string | null,
     teamId?: string,
   ): Promise<{ avatar: string | null }>
+  agentUploadConversationAvatar(
+    sessionId: string,
+    image: Uint8Array,
+    teamId?: string,
+  ): Promise<{ avatar: string }>
 }

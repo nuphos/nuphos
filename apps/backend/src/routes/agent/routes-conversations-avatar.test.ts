@@ -2,7 +2,9 @@ import '@/routes/agent'
 
 import { beforeEach, expect, test } from 'bun:test'
 import { Hono } from 'hono'
+import { ObjectId } from 'mongodb'
 
+import { hostedAvatarOwner } from '@/lib/identity/avatar-url'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useConversationTurn } from '@/lib/test/doubles/conversation-turn'
 import { useDb } from '@/lib/test/doubles/db'
@@ -23,6 +25,7 @@ useConversationTurn({
 const teamId = 'aaaaaaaaaaaaaaaaaaaaaaaa'
 const otherTeam = 'cccccccccccccccccccccccc'
 const caller = 'bbbbbbbbbbbbbbbbbbbbbbbb'
+const botId = 'dddddddddddddddddddddddd'
 
 let owner = caller
 let managerIds: string[] = []
@@ -44,6 +47,7 @@ useAgentDb({
   getReadableConversation: async (_session, _user, team) =>
     team === teamId
       ? {
+          _id: new ObjectId(botId),
           sessionId: 's1',
           userId: owner,
           teamId,
@@ -100,6 +104,9 @@ useDb({
         return { toArray: () => Promise.resolve([]) }
       },
       updateMany: () => Promise.resolve(),
+      // An uploaded face: nothing else is stored for this Bot, and nothing to prune.
+      findOne: () => Promise.resolve(null),
+      deleteMany: () => Promise.resolve(),
     }),
   }),
 })
@@ -174,6 +181,38 @@ test('a face never makes a Task a Bot', async () => {
 
   expect(response.status).toBe(400)
   expect(await response.json()).toEqual({ error: 'Only a Bot has a face to change' })
+  expect(saved).toEqual([])
+})
+
+// A 1x1 PNG.
+const photo = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+  'base64',
+)
+const upload = (body: Uint8Array) =>
+  app.request(`/agent/conversations/s1/avatar/image?teamId=${teamId}`, {
+    method: 'PUT',
+    headers: { authorization: 'Bearer test-token', 'content-type': 'application/octet-stream' },
+    body,
+  })
+
+test("the owner uploads a photo as a Bot's face", async () => {
+  currentAvatar = '07-ada'
+  const response = await upload(photo)
+  const { avatar } = (await response.json()) as { avatar: string }
+
+  expect(response.status).toBe(200)
+  expect(hostedAvatarOwner(avatar)).toBe(botId)
+  expect(saved).toEqual([avatar])
+  expect(actors).toEqual([caller])
+})
+
+test('a photo is only for a Bot, from its owner, and must be an image', async () => {
+  expect((await upload(photo)).status).toBe(400)
+  currentAvatar = '07-ada'
+  expect((await upload(Buffer.from('not an image'))).status).toBe(415)
+  owner = 'someone-else'
+  expect((await upload(photo)).status).toBe(404)
   expect(saved).toEqual([])
 })
 

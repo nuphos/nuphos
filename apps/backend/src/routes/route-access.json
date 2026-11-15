@@ -859,6 +859,7 @@
   "POST /webhooks/:triggerId": "public",
   "PUT /admin/telemetry": "user",
   "PUT /agent/auto-mode/bypass": "user",
+  "PUT /agent/conversations/:sessionId/avatar/image": "user",
   "PUT /agent/conversations/:sessionId/parent": "user",
   "PUT /agent/conversations/:sessionId/transcript": "user",
   "PUT /agent/conversations/:sessionId/watch": "user",
