@@ -196,7 +196,7 @@ final class InboxUITests: XCTestCase {
         shot("10-inbox-integration-picker")
         app.buttons["Done"].firstMatch.tap()
         // Saved in place: the Inbox stays.
-        XCTAssertTrue(listed("Select your own GitHub so I can open the PR as you.").waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Select your own GitHub so I can open the PR as you."].waitForExistence(timeout: 5))
 
         openQuestion("Connect your own GitHub so I can push as you.")
         XCTAssertTrue(app.buttons["Use your own GitHub"].waitForExistence(timeout: 5),
