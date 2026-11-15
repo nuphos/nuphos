@@ -134,6 +134,9 @@ struct HomeView: View {
                         // Compact pops back to the list's composer; wide has
                         // no back, so this returns the column to it.
                         .toolbar { newAgentItem }
+                } else if page == .inbox, let inbox, let question = inbox.list.first(where: { $0.id == inbox.selected }) {
+                    InboxQuestionView(inbox: inbox, question: question)
+                        .id(question.id)
                 } else if page == .agent, store != nil, sizeClass == .regular {
                     Theme.chatCanvas.ignoresSafeArea()
                         .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -201,6 +204,10 @@ struct HomeView: View {
             if autoPage { autoPage = false } else { pageChosen = true }
             isSearching = false
             openChat = nil
+            inbox?.selected = nil
+            // An answer held for Undo goes once the Inbox is left.
+            let left = inbox
+            Task { await left?.sendHeld() }
             UIEventLog.pageTransition(from: oldPage.rawValue, to: newPage.rawValue)
             Analytics.shared.screen(newPage.rawValue, teamID: store?.selectedTeam?.id)
         }
@@ -208,12 +215,18 @@ struct HomeView: View {
         .task(id: scenePhase == .active ? store?.selectedTeam?.id : nil) {
             guard scenePhase == .active, let store, let team = store.selectedTeam?.id else { return }
             if inbox?.teamId != team {
+                let left = inbox
+                Task { await left?.sendHeld() }
                 inbox = OpenQuestions(token: store.token, teamId: team)
             }
             while !Task.isCancelled {
                 await inbox?.refresh()
                 try? await Task.sleep(for: .seconds(15))
             }
+        }
+        // Nor does a held answer wait for an app that is put away.
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { Task { await inbox?.sendHeld() } }
         }
         .onChange(of: store?.selectedTeam?.id) { _, teamID in
             Analytics.shared.screen(page.rawValue, teamID: teamID)
@@ -264,7 +277,7 @@ struct HomeView: View {
         case .chats, .agent:
             AgentPage(page: $page, isSearching: $isSearching, titleCollapsed: $titleCollapsed, openChat: $openChat, showsComposer: sizeClass != .regular)
         case .inbox:
-            InboxPage(inbox: inbox)
+            InboxPage(inbox: inbox, wide: sizeClass == .regular)
                 .onAppear { titleCollapsed = false }
         case .connectors:
             ConnectorsPage()

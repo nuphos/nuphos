@@ -1,10 +1,8 @@
 import SwiftUI
 
-/// An open question, in a Bot's chat or the Inbox, like the desktop's decision
-/// card: which agent asked, the question and what the agent wrote to decide it
-/// from, each option an answer, and "Other…" to type the answer in the card
-/// (in the Inbox, the text box is always there). A
-/// multi-select or several questions are a form, sent as one answer. An answer
+/// An open question in a Bot's chat, like the desktop's decision card: which
+/// agent asked, the question and what the agent wrote to decide it from, each
+/// option an answer, and "Other…" to type the answer in the card. A multi-select or several questions are a form, sent as one answer. An answer
 /// wakes the agent that asked; no message is sent. A connect or secure-input question is answered in the
 /// conversation that asked, which the link opens. `showsFrom` is off for the
 /// Bot's own questions in its own chat.
@@ -17,10 +15,6 @@ struct BotQuestionCard: View {
     var onLink: ((URL) -> Void)?
     /// Why the last answer could not be sent; the question is still open.
     var failure: String?
-    /// Chooses the asking conversation's credentials here, for an integration question; absent where it cannot.
-    var onConnect: (() -> Void)?
-    /// The text box is always on the card, rather than behind "Other…", as the Inbox shows it.
-    var answersInPlace = false
 
     @State private var expanded = false
     /// "Other…" was tapped: the card asks for the answer in words.
@@ -34,13 +28,6 @@ struct BotQuestionCard: View {
         // Neither an option nor words answer it here.
         if options.isEmpty && !question.typed { return nil }
         return options.map { ($0, DecisionAnswer(choices: [$0])) }
-    }
-
-    /// "Use your own GitHub" for a question naming the member's own credential; otherwise the picker.
-    private var connectLabel: String {
-        guard let own = question.personalCredentials else { return String(localized: "Choose credentials") }
-        let names = own.map { $0 == "github" ? "GitHub" : $0 == "linear" ? "Linear" : $0 }
-        return String(localized: "Use your own \(names.joined(separator: " and "))")
     }
 
     /// "Other…" beside options; "Reply…" when there are none.
@@ -92,7 +79,7 @@ struct BotQuestionCard: View {
                             }
                         }
                     }
-                    if question.typed && (typing || answersInPlace) {
+                    if question.typed && typing {
                         // The answer in words: the same form with the question alone and no options.
                         DecisionForm(questions: [.init(question: question.request.question)], onSubmit: onAnswer)
                     } else if question.typed {
@@ -101,11 +88,6 @@ struct BotQuestionCard: View {
                             .foregroundStyle(Theme.muted)
                             .buttonStyle(.plain)
                     }
-                } else if let onConnect, question.connectable {
-                    Button(connectLabel, action: onConnect)
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                        .tint(Theme.heading)
                 } else {
                     Button("Answer in the task", action: onOpen)
                         .buttonStyle(.bordered)
@@ -144,9 +126,9 @@ struct BotQuestionCard: View {
     }
 }
 
-/// The desktop's `DecisionForm`: each question's options toggled, one or any
+/// The desktop's `DecisionForm`, here and in the Inbox: each question's options toggled, one or any
 /// number, or the answer typed in their place, sent together as one answer.
-private struct DecisionForm: View {
+struct DecisionForm: View {
     let questions: [AgentConversation.DecisionQuestion]
     let onSubmit: (DecisionAnswer) -> Void
 
