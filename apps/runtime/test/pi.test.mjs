@@ -6,7 +6,7 @@ import { test } from 'node:test'
 
 import { agentEnv } from '../image/acp-shim.mjs'
 import { listedModels, runPiLogin } from '../image/pi-login.mjs'
-import { piTurnError, writePiMcpServers } from '../image/pi-session.mjs'
+import { literal, piTurnError, writePiMcpServers } from '../image/pi-session.mjs'
 
 const readJson = (file) => JSON.parse(readFileSync(file, 'utf8'))
 const LOGIN = { deepseek: { type: 'api_key', key: 'sk-test' } }
@@ -182,4 +182,11 @@ test("a turn's error is read from the session file Pi keeps", () => {
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
+})
+
+test('MCP values reach Pi as they are, never as a variable or a command', () => {
+  assert.equal(literal('Bearer abc'), 'Bearer abc')
+  assert.equal(literal('a$HOME${PATH}'), 'a$$HOME$${PATH}')
+  assert.equal(literal('!rm -rf ~'), '$!rm -rf ~')
+  assert.equal(literal('$!x'), '$$!x')
 })

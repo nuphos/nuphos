@@ -70,7 +70,15 @@ export function piAgentDir(runtimeHome, sessionHome, workspace = process.cwd()) 
   return dir
 }
 
-const pairs = (values) => Object.fromEntries((values ?? []).map(({ name, value }) => [name, value]))
+// Pi reads `$NAME` in these values as an environment variable and a leading `!` as a command
+// to run; a session's values are taken as they are.
+export const literal = (value) => {
+  const escaped = String(value).replace(/\$/gu, () => '$$')
+  return escaped.startsWith('!') ? `$${escaped}` : escaped
+}
+
+const pairs = (values) =>
+  Object.fromEntries((values ?? []).map(({ name, value }) => [name, literal(value)]))
 
 /** Writes a session's ACP MCP servers as the mcp.json Pi reads when it starts. */
 export function writePiMcpServers(agentDir, servers = []) {
