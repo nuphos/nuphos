@@ -58,7 +58,7 @@ test('the receipt names the chat and never merges with another archive', () => {
 
   assert.equal(shown.length, 1)
   assert.equal(shown[0].title, 'Task archived')
-  assert.equal(shown[0].description, '"Deploy notes" is still available in the Agent history.')
+  assert.equal(shown[0].description, '"Deploy notes" is still available in Archived.')
   assert.equal(shown[0].action?.label, 'Undo')
   assert.equal(shown[0].dedupe, false)
 })
@@ -124,8 +124,8 @@ test('a failed restore always shows an error and leaves the chat archived', asyn
   assert.deepEqual(log, [])
   assert.deepEqual(failures, [
     {
-      title: 'Could not restore agent',
-      fallback: 'The agent is still archived. Try again from the Agent history.',
+      title: 'Could not undo archive',
+      fallback: '"Deploy notes" is still archived.',
     },
   ])
 })
