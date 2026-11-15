@@ -16,11 +16,7 @@ struct ConversationRow: View {
         ([conversation] + hidden).map(indicator(for:)).max { $0.urgency < $1.urgency } ?? .none
     }
 
-    private func indicator(for row: AgentConversation) -> ConversationIndicator {
-        let unread = store.unread.contains(team: team, session: row.sessionId)
-        guard row.isNativeRuntime else { return row.isWaiting ? .waiting : row.activeRun != nil ? .turn : unread ? .unread : .none }
-        return ConversationIndicator(observations.value(team: team, session: row.sessionId), unread: unread, waiting: row.isWaiting)
-    }
+    private func indicator(for row: AgentConversation) -> ConversationIndicator { store.indicator(row) }
 
     var body: some View {
         HStack(spacing: 12) {

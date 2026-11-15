@@ -22,6 +22,7 @@ struct AgentPage: View {
     @State private var archivingBot: AgentConversation?
     @State private var renamedTitle = ""
     @State private var refreshing = false
+    @State private var showArchived = false
     #if DEBUG
     /// `-preview-agent-login`: the authorization-code step with a canned attempt.
     @State private var previewLogin = false
@@ -297,9 +298,15 @@ struct AgentPage: View {
     private func agentRow(_ item: NestedConversation) -> some View {
                 let conversation = item.conversation
                 // A Bot's chat acts for the Bot, as on Desktop; a group chat has no actions here.
-                let acted = conversation.isChannel ? store.bot(of: conversation) : conversation
+                let acted = conversation.isProject ? nil : conversation.isChannel ? store.bot(of: conversation) : conversation
                 Group {
-                    if conversation.isChannel {
+                    if conversation.isProject {
+                        // A project folds its Tasks; it opens nothing.
+                        Button { store.toggleFolded(conversation.sessionId) } label: {
+                            treeRow(item) { ProjectRow(project: conversation) }.contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    } else if conversation.isChannel {
                         NavigationLink(value: conversation.sessionId) { treeRow(item) { ChannelRow(channel: conversation) } }
                     } else if conversation.isBot {
                         // A Bot with no 1:1 chat yet: the list stays while it is made.
@@ -322,9 +329,15 @@ struct AgentPage: View {
                 .listSectionSeparator(.hidden, edges: .top)
                 // A separator would cut through the lines of an open tree.
                 .listRowSeparator(item.depth > 0 || (item.hasChildren && !store.isFolded(conversation.sessionId, onBots: page == .chats)) ? .hidden : .automatic)
-                .swipeActions(edge: .trailing, allowsFullSwipe: false) { if let acted { rowActions(acted) } }
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    pinAction(conversation)
+                    if let acted { rowActions(acted) }
+                }
                 // The same actions for a long press or a secondary click.
-                .contextMenu { if let acted { rowActions(acted) } }
+                .contextMenu {
+                    pinAction(conversation)
+                    if let acted { rowActions(acted) }
+                }
     }
 
     /// A row's content with its thread count, indented on the tree's lines.
@@ -352,12 +365,51 @@ struct AgentPage: View {
                 .buttonStyle(.borderless)
                 .accessibilityLabel(folded ? "Show \(item.threads) sub-agents" : "Hide \(item.threads) sub-agents")
             }
+            if item.done > 0 {
+                // Finished threads, counted rather than listed until opened.
+                let open = store.isDoneOpen(item.id)
+                Button { store.toggleDone(item.id) } label: {
+                    HStack(spacing: 3) {
+                        Image(systemName: "checkmark.circle")
+                        Text("\(item.done) done")
+                        Image(systemName: open ? "chevron.up" : "chevron.down")
+                            .font(Theme.Text.caption.weight(.semibold))
+                    }
+                    .font(Theme.Text.label.weight(.medium))
+                    .foregroundStyle(Theme.muted)
+                    .padding(.leading, 8)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel(open ? "Hide \(item.done) done" : "Show \(item.done) done")
+            }
         }
         // Insets live here, not on the row, so the tree lines span the whole row.
         .padding(.leading, CGFloat(item.depth) * ThreadTree.indent)
         .padding(.vertical, 12)
         .background(alignment: .leading) {
             ThreadTree(trail: item.trail, expanded: item.hasChildren && !folded)
+        }
+        // Tasks that ask for the viewer sit above this line, the rest below.
+        .padding(.top, item.divider ? 9 : 0)
+        .overlay(alignment: .top) {
+            if item.divider { Rectangle().fill(Theme.muted.opacity(0.25)).frame(height: 1).accessibilityHidden(true) }
+        }
+    }
+
+    /// Pin or unpin a Bot or chat, kept in the favorites Desktop shares.
+    @ViewBuilder
+    private func pinAction(_ row: AgentConversation) -> some View {
+        if row.isChannel || row.isBot {
+            let pinned = store.isPinned(row)
+            let noun = row.isBot || row.botId != nil ? " Bot" : ""
+            Button {
+                Task { await store.setPinned(!pinned, row) }
+            } label: {
+                Label(pinned ? "Unpin\(noun)" : "Pin\(noun)", systemImage: pinned ? "pin.slash" : "pin")
+            }
+            .tint(.yellow)
         }
     }
 
@@ -437,8 +489,19 @@ struct AgentPage: View {
     private var list: some View {
         List(selection: selection) {
             if page == .chats {
+                if !store.pins.isEmpty {
+                    Section {
+                        PinShelf(pins: store.pins) { row in
+                            if row.isChannel { openChat = OpenChat(channel: store.channel(for: row)) }
+                            else { Task { await openBotChat(row.sessionId) } }
+                        }
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
+                        .listRowSeparator(.hidden)
+                    }
+                }
                 Section {
-                    ForEach(store.nestedBots) { item in agentRow(item) }
+                    ForEach(store.botRows(open: openChat?.id)) { item in agentRow(item) }
                 } header: {
                     sectionHeader("Bots") {
                         Button { showNewBot = true } label: {
@@ -454,7 +517,7 @@ struct AgentPage: View {
                 }
             } else {
                 Section {
-                    ForEach(store.nestedConversations) { item in agentRow(item) }
+                    ForEach(store.taskRows(open: openChat?.id)) { item in agentRow(item) }
 
                     if store.hasMore {
                         HStack {
@@ -464,6 +527,24 @@ struct AgentPage: View {
                         }
                         .listRowBackground(Color.clear)
                         .task { await store.loadMore() }
+                    }
+                    // As on Desktop, only once there is something archived or the list failed to load.
+                    if !store.archived.isEmpty || store.archivedFailed {
+                        Button { showArchived = true } label: {
+                            HStack(spacing: 4) {
+                                Text("Archived")
+                                Image(systemName: "chevron.right").font(Theme.Text.caption.weight(.semibold))
+                                Spacer()
+                            }
+                            .font(Theme.Text.label.weight(.medium))
+                            .foregroundStyle(Theme.muted)
+                            .frame(minHeight: 44)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Archived")
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
                     }
                 }
             }
@@ -477,6 +558,12 @@ struct AgentPage: View {
         .scrollContentBackground(.hidden)
         .background(Theme.canvas)
         .scrollDismissesKeyboard(.interactively)
+        .sheet(isPresented: $showArchived) {
+            ArchivedList { row in
+                showArchived = false
+                openChat = row.isChannel ? OpenChat(channel: store.channel(for: row)) : OpenChat(session: store.session(for: row))
+            }
+        }
     }
 }
 

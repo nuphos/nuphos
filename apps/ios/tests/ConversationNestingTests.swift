@@ -12,6 +12,10 @@ enum ConversationNestingTests {
         aBotOwnsWhatItDispatchedAtAnyDepth()
         botsListWhatEachBotDispatched()
         chatsAndTasksFallBackToTheirOwnNames()
+        finishedThreadsFoldIntoTheirParentsDoneGroup()
+        tasksGroupUnderTheirProjects()
+        familiesThatAskComeBeforeTheDivider()
+        aPinnedBotLeavesBotsWithItsThreads()
         print("Conversation nesting passed")
     }
 
@@ -99,7 +103,7 @@ enum ConversationNestingTests {
         asking.inputRequests = [.init(id: "q", category: nil, question: "Ship?", options: nil, askedAt: nil)]
         let rows = [row("recent", active: 30), row("old", active: 10), row("busy", parent: "old", active: 40), asking]
         precondition(ConversationNesting.nest(rows).map(\.id) == ["recent", "old", "busy", "asking"])
-        precondition(ConversationNesting.nest(rows, byFamily: true).map(\.id) == ["asking", "old", "busy", "recent"])
+        precondition(ConversationNesting.nest(rows, attention: { $0.isWaiting }).map(\.id) == ["asking", "old", "busy", "recent"])
     }
 
     /// The nearest Bot up a row's parents owns it; Bots and plain Tasks are owned by none.
@@ -125,5 +129,47 @@ enum ConversationNestingTests {
         precondition(untitled.displayTitle == "Untitled task")
         untitled.kind = "channel"
         precondition(untitled.displayTitle == "New Group Chat")
+    }
+
+    /// A finished thread is counted, not listed, until its parent's done group opens;
+    /// one with an unfinished thread below it stays listed.
+    private static func finishedThreadsFoldIntoTheirParentsDoneGroup() {
+        let rows = [row("lead"), row("a", parent: "lead"), row("b", parent: "lead"), row("c", parent: "b"), row("d", parent: "lead")]
+        let finished: (AgentConversation) -> Bool = { $0.sessionId != "c" }
+        let closed = ConversationNesting.nest(rows, finished: finished)
+        precondition(closed.map(\.id) == ["lead", "b", "c"] && closed[0].done == 2)
+        let open = ConversationNesting.nest(rows, folded: ["lead:done"], finished: finished)
+        precondition(open.map(\.id) == ["lead", "b", "c", "a", "d"] && open[0].done == 2)
+        precondition(ConversationNesting.nest(rows, folded: ["lead"], finished: finished)[0].done == 0)
+    }
+
+    /// With any Task in a folder, Tasks group under one row per folder, then No project.
+    private static func tasksGroupUnderTheirProjects() {
+        precondition(ConversationNesting.withProjects([row("a")]).map(\.sessionId) == ["a"])
+        var app = row("app"), api = row("api")
+        app.workspace = .init(path: "/Users/me/src/app")
+        api.workspace = .init(path: "/Users/me/src/app")
+        let rows = ConversationNesting.withProjects([app, row("sub", parent: "app"), row("loose"), api])
+        let nested = ConversationNesting.nest(rows, finished: { _ in true })
+        precondition(nested.map(\.id) == ["project:/Users/me/src/app", "app", "api", "project:none", "loose"])
+        precondition(nested.map(\.depth) == [0, 1, 1, 0, 1] && nested[1].done == 1)
+        precondition(nested[0].conversation.displayTitle == "app" && nested[3].conversation.displayTitle == "No project")
+    }
+
+    /// Families that ask for the viewer lead; the first of the rest carries the divider.
+    private static func familiesThatAskComeBeforeTheDivider() {
+        let rows = [row("new", active: 30), row("old", active: 10), row("reply", parent: "old", active: 5)]
+        let nested = ConversationNesting.nest(rows, attention: { $0.sessionId == "reply" })
+        precondition(nested.map(\.id) == ["old", "reply", "new"] && nested.map(\.divider) == [false, false, true])
+        precondition(!ConversationNesting.nest(rows, attention: { _ in false }).contains(where: \.divider))
+    }
+
+    /// A pinned chat leaves Bots with what its Bot dispatched; the other Bots stay.
+    private static func aPinnedBotLeavesBotsWithItsThreads() {
+        let threads = [row("job", parent: "lead"), row("draft", parent: "solo")]
+        let list = [chat("lead-chat", with: "lead"), bot("solo")]
+        let owners = ConversationNesting.botOwners(threads + [bot("lead"), bot("solo")])
+        let rows = ConversationNesting.botRows(list, threads: threads, owners: owners, pinned: ["lead-chat"])
+        precondition(ConversationNesting.nest(rows).map(\.id) == ["solo", "draft"])
     }
 }
