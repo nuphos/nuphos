@@ -201,8 +201,7 @@ private final class ZoomPage: UIViewController, Page, UIScrollViewDelegate {
         if url.isFileURL {
             image.image = UIImage(contentsOfFile: url.path)
         } else {
-            // A Markdown image opens with its remote URL.
-            Task { [image, url] in image.image = try? await UIImage(data: URLSession.shared.data(from: url).0) }
+            fetch()
         }
         image.contentMode = .scaleAspectFit
         image.frame = scroll.bounds
@@ -210,6 +209,18 @@ private final class ZoomPage: UIViewController, Page, UIScrollViewDelegate {
         image.accessibilityIdentifier = url.lastPathComponent
         scroll.addSubview(image)
         view.addSubview(scroll)
+    }
+
+    /// A Markdown image opens with its remote URL. If it can't load, the page
+    /// says so and offers to try again, as a video's does.
+    private func fetch() {
+        Task {
+            if let data = try? await URLSession.shared.data(from: url).0, let fetched = UIImage(data: data) {
+                image.image = fetched
+            } else {
+                offerRetry(String(localized: "Couldn't load the image. Try again.")) { [weak self] in self?.fetch() }
+            }
+        }
     }
 
     func viewForZooming(in scrollView: UIScrollView) -> UIView? { image }
@@ -256,18 +267,7 @@ private final class PlayerPage: UIViewController, Page {
             do {
                 try await load(url)
             } catch {
-                var retry = UIButton.Configuration.plain()
-                retry.title = String(localized: "Couldn't load the video. Try again.")
-                retry.image = UIImage(systemName: "arrow.clockwise")
-                retry.imagePlacement = .top
-                retry.imagePadding = 8
-                retry.baseForegroundColor = .white
-                let button = UIButton(configuration: retry, primaryAction: UIAction { [weak self] action in
-                    (action.sender as? UIView)?.removeFromSuperview()
-                    Task { await self?.show() }
-                })
-                button.sizeToFit()
-                centre(button)
+                offerRetry(String(localized: "Couldn't load the video. Try again.")) { [weak self] in Task { await self?.show() } }
                 return
             }
         }
@@ -277,17 +277,35 @@ private final class PlayerPage: UIViewController, Page {
         player.player = AVPlayer(url: url)
     }
 
-    private func centre(_ subview: UIView) {
-        subview.center = CGPoint(x: view.bounds.midX, y: view.bounds.midY)
-        subview.autoresizingMask = [.flexibleTopMargin, .flexibleBottomMargin, .flexibleLeftMargin, .flexibleRightMargin]
-        view.addSubview(subview)
-    }
-
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         player.player?.pause()
         // Music the video paused resumes in its own app.
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+}
+
+private extension UIViewController {
+    func centre(_ subview: UIView) {
+        subview.center = CGPoint(x: view.bounds.midX, y: view.bounds.midY)
+        subview.autoresizingMask = [.flexibleTopMargin, .flexibleBottomMargin, .flexibleLeftMargin, .flexibleRightMargin]
+        view.addSubview(subview)
+    }
+
+    /// `message` in the middle of the page; tapping it takes it away and calls `retry`.
+    func offerRetry(_ message: String, retry: @escaping @MainActor () -> Void) {
+        var config = UIButton.Configuration.plain()
+        config.title = message
+        config.image = UIImage(systemName: "arrow.clockwise")
+        config.imagePlacement = .top
+        config.imagePadding = 8
+        config.baseForegroundColor = .white
+        let button = UIButton(configuration: config, primaryAction: UIAction { action in
+            (action.sender as? UIView)?.removeFromSuperview()
+            retry()
+        })
+        button.sizeToFit()
+        centre(button)
     }
 }
 #endif
