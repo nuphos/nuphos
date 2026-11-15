@@ -149,8 +149,9 @@ export function runtimeUsageExhaustedMessage(error: unknown): string | undefined
   return `This agent’s provider account has no usage left${detail}. Add credits or wait for its allowance to reset, or switch to another agent, then resend your message.`
 }
 
-/** The runtime itself cannot take the turn, as opposed to the conversation being busy. */
-const RUNTIME_UNAVAILABLE = /(?:^|_)runtime_(?:offline|unreachable|unavailable|login_required)$/u
+/** The runtime cannot take the turn (offline, signed out, disabled), not a busy conversation. */
+const RUNTIME_UNAVAILABLE =
+  /(?:^|_)runtime_(?:offline|unreachable|unavailable|login_required|disabled)$/u
 
 /** Why an agent could not take a turn, when the cause was the agent itself; `other` when it was not. */
 export type TurnFailureCause = 'usage_limit' | 'auth' | 'offline' | 'other'
