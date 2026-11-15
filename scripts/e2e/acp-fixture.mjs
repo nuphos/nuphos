@@ -31,7 +31,7 @@ async function mcp(server, sessionHeader, method, params) {
 }
 
 /** Asks the person a question the way a real agent does, through request_user_decision. */
-async function ask(sessionId) {
+async function ask(sessionId, category) {
   const server = tools.get(sessionId)
   const opened = await mcp(server, {}, 'initialize', {
     protocolVersion: '2025-06-18',
@@ -46,7 +46,7 @@ async function ask(sessionId) {
       name: 'request_user_decision',
       arguments: {
         label: 'Ask which marker to use',
-        category: 'preference',
+        category,
         question: 'Which marker should the fixture use?',
         // A link the app can open without leaving this computer.
         body: `Background is at ${new URL(server.url).origin}/health/ready`,
@@ -66,7 +66,9 @@ async function prompt({ sessionId, prompt: parts }) {
   const marker = (text.match(/E2E_DELIVERY:[a-z0-9-]+/g) ?? []).at(-1) ?? 'E2E_DELIVERY:missing'
 
   log({ sessionId, marker, event: 'start' })
-  if (text.includes('E2E_ASK')) await ask(sessionId)
+  if (text.includes('E2E_ASK')) {
+    await ask(sessionId, text.includes('E2E_ASK_CREDENTIAL') ? 'credential' : 'preference')
+  }
   if (text.includes('E2E_HOLD')) {
     await new Promise((resolve) => held.set(sessionId, resolve))
     log({ sessionId, marker, event: 'cancelled' })
