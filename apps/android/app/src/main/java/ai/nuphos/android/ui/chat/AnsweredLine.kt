@@ -36,6 +36,8 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import ai.nuphos.android.R
+import androidx.compose.ui.res.stringResource
 
 /**
  * "✓ Sam answered  Which region?  [ us-east ]  ⌄": a question someone answered, on one line.
@@ -47,9 +49,10 @@ internal fun AnsweredLine(row: ChatRow.Answered, onLink: (String) -> Unit) {
     val question = row.question
     val colors = MaterialTheme.colorScheme
     var expanded by rememberSaveable(row.id) { mutableStateOf(false) }
+    val expandedState = stringResource(if (expanded) R.string.chat_expanded else R.string.chat_collapsed)
     val who: @Composable () -> Unit = {
         Icon(Icons.Outlined.Check, contentDescription = null, tint = colors.onSurfaceVariant, modifier = Modifier.size(16.dp))
-        Text("${question.name} answered", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = colors.onSurface, maxLines = 1, softWrap = false)
+        Text(stringResource(R.string.chat_answered_by, question.name), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = colors.onSurface, maxLines = 1, softWrap = false)
     }
     val asked: @Composable (Modifier) -> Unit = { modifier ->
         Text(question.question, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = modifier)
@@ -67,7 +70,7 @@ internal fun AnsweredLine(row: ChatRow.Answered, onLink: (String) -> Unit) {
     val chevron: @Composable () -> Unit = {
         Icon(
             if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-            contentDescription = if (expanded) "Collapse question" else "Expand question",
+            contentDescription = if (expanded) stringResource(R.string.chat_question_collapse) else stringResource(R.string.chat_question_expand),
             tint = colors.onSurfaceVariant, modifier = Modifier.size(18.dp),
         )
     }
@@ -76,7 +79,7 @@ internal fun AnsweredLine(row: ChatRow.Answered, onLink: (String) -> Unit) {
         Surface(
             onClick = { expanded = !expanded },
             modifier = Modifier.fillMaxWidth().testTag("answered-line")
-                .semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" },
+                .semantics { stateDescription = expandedState },
             color = colors.surface,
         ) {
             // One line when it all fits; a narrow screen gives the question and its answer a line of their own.
@@ -124,7 +127,7 @@ internal fun AnsweredLine(row: ChatRow.Answered, onLink: (String) -> Unit) {
                 }
                 val answered = question.answered?.let(ChatTime::label).orEmpty()
                 Text(
-                    question.asked?.let { "Asked ${ChatTime.label(it)} · Answered $answered from the Inbox" } ?: "Answered $answered from the Inbox",
+                    question.asked?.let { stringResource(R.string.chat_answered_asked_and_answered, ChatTime.label(it), answered) } ?: stringResource(R.string.chat_answered_from_inbox, answered),
                     style = MaterialTheme.typography.bodySmall, color = colors.outline,
                 )
             }
