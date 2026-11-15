@@ -140,7 +140,7 @@ async function saveAvatar(
     throw new Error('Bot avatar destination not found')
   const avatar = await storeAvatar(bot._id.toHexString(), bytes)
 
-  if (!(await updateBotSelf(item.sessionId, batch.userId, batch.teamId, { avatar })))
+  if (!(await updateBotSelf(item.sessionId, batch.userId, batch.teamId, { avatar }, 'bot_import')))
     throw new Error('Bot avatar could not be saved')
 }
 
@@ -164,6 +164,7 @@ export function importOperations(
           batch.teamId,
           false,
           {
+            source: { via: 'bot_import' },
             title: source.name,
             runtimeId: batch.runtimeId,
             agentRuntime: batch.agentRuntime,

@@ -331,7 +331,18 @@ test('create_bot makes a Bot owned by the person the agent works for, as "+ New 
     teamId: 'team',
     title: 'Release Helper',
     firstMessage: '',
-    avatar: '07-ada',
+    bot: {
+      avatar: '07-ada',
+      // The record says which conversation's agent made it.
+      change: {
+        kind: 'bot_changed',
+        at: expect.any(Date),
+        actorId: 'u',
+        via: 'create_bot',
+        sessionId: 'c',
+        avatar: '07-ada',
+      },
+    },
   })
   expect(result).toEqual({
     session_id: result.session_id,
