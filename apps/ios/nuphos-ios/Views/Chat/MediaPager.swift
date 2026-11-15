@@ -275,6 +275,8 @@ private final class PlayerPage: UIViewController, Page {
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         player.player?.pause()
+        // Music the video paused resumes in its own app.
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 }
 #endif
