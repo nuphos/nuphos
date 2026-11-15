@@ -15,9 +15,10 @@ export async function withCurrentAgentNames<T extends { metadata?: MessageMetada
     message.metadata?.sender.type === 'agent' ? message.metadata.sender.id : undefined
   const ids = [...new Set(messages.flatMap((message) => agentId(message) ?? []))]
 
-  if (ids.length === 0) return messages
+  // Without a team there is no scope to look an agent up in.
+  if (ids.length === 0 || !teamId) return messages
   const agents = await agentConversations()
-    .find({ sessionId: { $in: ids }, ...(teamId ? { teamId } : {}) })
+    .find({ sessionId: { $in: ids }, teamId })
     .project<{ sessionId: string; title?: string }>({ _id: 0, sessionId: 1, title: 1 })
     .toArray()
   const names = new Map(

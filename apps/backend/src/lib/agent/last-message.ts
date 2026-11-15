@@ -64,13 +64,12 @@ export async function lastMessage(
 
   if (!text && !files) return undefined
   const metadata = parseMessageMetadata(message.metadata)
+  // Only a group chat's row names its sender, so only it looks the name up.
   const sender =
-    metadata &&
-    (await withCurrentAgentNames([{ metadata }], conversation.teamId))[0]?.metadata.sender
-  const from =
-    conversation.kind === 'channel' && sender && sender.id !== viewerId
-      ? shortName(sender.type, sender.displayName)
+    conversation.kind === 'channel' && metadata && metadata.sender.id !== viewerId
+      ? (await withCurrentAgentNames([{ metadata }], conversation.teamId))[0]?.metadata.sender
       : undefined
+  const from = sender && shortName(sender.type, sender.displayName)
 
   return { text: text?.slice(0, PREVIEW_CHARS) ?? '', ...(from ? { from } : {}) }
 }
