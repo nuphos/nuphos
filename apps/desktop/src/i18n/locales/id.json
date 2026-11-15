@@ -2121,6 +2121,7 @@
   "Identity provider: {provider} · Audience: {audience}": "Penyedia identitas: {provider} · Audience: {audience}",
   "Idle": "Menganggur",
   "If Claude shows an authorization code, paste it here.": "Jika Claude menampilkan kode otorisasi, tempel di sini.",
+  "If Google rejects the grant with {error}, an organization policy (Domain Restricted Sharing) blocked it — the principal is not wrong. An organization policy administrator can allow this one principal on the project that holds {account}, without relaxing the policy for the whole organization. {link}": "Jika Google menolak pemberian akses dengan {error}, kebijakan organisasi (Domain Restricted Sharing) yang memblokirnya — principal tersebut tidak salah. Administrator kebijakan organisasi dapat mengizinkan satu principal ini di project yang memuat {account}, tanpa melonggarkan kebijakan untuk seluruh organisasi. {link}",
   "If nothing happens, make sure your OS routes {scheme} URLs to this app.": "Jika tidak terjadi apa-apa, pastikan OS Anda mengarahkan URL {scheme} ke aplikasi ini.",
   "If nothing happens, make sure your browser allowed the popup and that your OS routes {scheme} URLs to this app.": "Jika tidak terjadi apa-apa, pastikan browser Anda mengizinkan popup dan OS Anda meneruskan URL {scheme} ke aplikasi ini.",
   "If you lose your authenticator, each code signs you in once. They are shown only now.": "Jika autentikator Anda hilang, setiap kode dapat dipakai masuk satu kali. Kode hanya ditampilkan sekarang.",

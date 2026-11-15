@@ -2121,6 +2121,7 @@
   "Identity provider: {provider} · Audience: {audience}": "ID 공급자: {provider} · Audience: {audience}",
   "Idle": "유휴",
   "If Claude shows an authorization code, paste it here.": "Claude에 인증 코드가 표시되면 여기에 붙여넣으세요.",
+  "If Google rejects the grant with {error}, an organization policy (Domain Restricted Sharing) blocked it — the principal is not wrong. An organization policy administrator can allow this one principal on the project that holds {account}, without relaxing the policy for the whole organization. {link}": "Google이 {error} 오류로 이 권한 부여를 거부했다면 조직 정책(Domain Restricted Sharing)이 차단한 것이며, 주 구성원이 잘못된 것은 아닙니다. 조직 정책 관리자는 조직 전체의 정책을 완화하지 않고 {account}이(가) 있는 프로젝트에서 이 주 구성원 하나만 허용할 수 있습니다. {link}",
   "If nothing happens, make sure your OS routes {scheme} URLs to this app.": "아무 일도 일어나지 않으면 OS가 {scheme} URL을 이 앱으로 연결하도록 설정되어 있는지 확인하세요.",
   "If nothing happens, make sure your browser allowed the popup and that your OS routes {scheme} URLs to this app.": "아무 반응이 없으면 브라우저에서 팝업이 허용되었는지, 그리고 OS가 {scheme} URL을 이 앱으로 연결하는지 확인하세요.",
   "If you lose your authenticator, each code signs you in once. They are shown only now.": "인증 앱을 잃어버리면 각 코드로 한 번씩 로그인할 수 있습니다. 지금만 표시됩니다.",

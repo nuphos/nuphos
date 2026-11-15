@@ -1,6 +1,6 @@
 import { t } from '../../i18n'
 
-import { CopyableValue, Fill, StepNote } from './shared'
+import { ConsoleLink, CopyableValue, Fill, StepNote } from './shared'
 
 import type { GcpWifInfo } from '../../types'
 
@@ -33,16 +33,36 @@ export function GcpTokenCreatorNote({ wif, saName }: { wif: GcpWifInfo | null; s
   }
 
   return (
-    <StepNote>
-      <Fill
-        text={t(
-          'That principal is {own} — the one field in this setup where you paste our identity instead of yours. It is scoped to your team, so it is the only Nuphos identity that can use this grant. Token Creator lets it {actAs} {account} for minutes at a time and nothing else; it gives that account no new power of its own, and Nuphos holds no key. Watch the Role field: it opens on {role}, which is a different thing.',
-        )}
-        own={<span className="text-main">{t("Nuphos's own")}</span>}
-        actAs={<span className="text-main">{t('act as')}</span>}
-        account={saName}
-        role={<span className="text-main">Service Account Admin</span>}
-      />
-    </StepNote>
+    <>
+      <StepNote>
+        <Fill
+          text={t(
+            'That principal is {own} — the one field in this setup where you paste our identity instead of yours. It is scoped to your team, so it is the only Nuphos identity that can use this grant. Token Creator lets it {actAs} {account} for minutes at a time and nothing else; it gives that account no new power of its own, and Nuphos holds no key. Watch the Role field: it opens on {role}, which is a different thing.',
+          )}
+          own={<span className="text-main">{t("Nuphos's own")}</span>}
+          actAs={<span className="text-main">{t('act as')}</span>}
+          account={saName}
+          role={<span className="text-main">Service Account Admin</span>}
+        />
+      </StepNote>
+      <StepNote>
+        <Fill
+          text={t(
+            'If Google rejects the grant with {error}, an organization policy (Domain Restricted Sharing) blocked it — the principal is not wrong. An organization policy administrator can allow this one principal on the project that holds {account}, without relaxing the policy for the whole organization. {link}',
+          )}
+          error={
+            <span className="text-main">
+              “One or more users named in the policy do not belong to a permitted customer”
+            </span>
+          }
+          account={saName}
+          link={
+            <ConsoleLink href="https://docs.cloud.google.com/organization-policy/restrict-domains">
+              Restricting identities by domain
+            </ConsoleLink>
+          }
+        />
+      </StepNote>
+    </>
   )
 }
