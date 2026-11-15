@@ -5,6 +5,7 @@ import { rmSync } from 'node:fs'
 import { agentEvents, agentLog, delegatedTurn } from './agent-log.ts'
 import { backendFailures, backendLines, backendLog } from './backend-log.ts'
 import { startDesktop } from './desktop.ts'
+import { formScenario } from './form-scenario.ts'
 import { artifacts, stopAll, until } from './processes.ts'
 import { startStack } from './stack.ts'
 import { newTask, send } from './ui.ts'
@@ -13,7 +14,12 @@ import type { Desktop } from './desktop.ts'
 import type { Stack } from './stack.ts'
 import type { Page } from 'playwright-core'
 
-type Scenario = { name: string; run: (page: Page, stack: Stack) => Promise<void> }
+type Scenario = {
+  name: string
+  run: (page: Page, stack: Stack) => Promise<void>
+  /** A backend failure this scenario alone is known to cause. */
+  expected?: RegExp
+}
 
 const scenarios: Scenario[] = [
   {
@@ -256,6 +262,8 @@ const scenarios: Scenario[] = [
   },
 ]
 
+scenarios.push(formScenario)
+
 let desktop: Desktop | undefined
 let failed = false
 
@@ -269,7 +277,7 @@ try {
     const from = backendLines()
 
     await scenario.run(desktop.page, stack)
-    const failures = backendFailures(from)
+    const failures = backendFailures(from, scenario.expected)
 
     await desktop.page.screenshot({ path: `${artifacts}/${String(index + 1)}.png` })
     if (failures.length > 0)

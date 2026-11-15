@@ -13,9 +13,12 @@ export function backendLog(from = 0): string[] {
 
 export const backendLines = () => backendLog().length
 
-/** Requests the backend refused or failed, and errors it logged, since `from` lines in. */
-export function backendFailures(from: number): string[] {
+/** The backend's refused or failed requests and logged errors since `from` lines in, but those `expected` of the scenario asking. */
+export function backendFailures(from: number, expected?: RegExp): string[] {
   return backendLog(from).filter(
-    (line) => /"level":"error"|"status":[45]\d\d/.test(line) && !EXPECTED_FAILURE.test(line),
+    (line) =>
+      /"level":"error"|"status":[45]\d\d/.test(line) &&
+      !EXPECTED_FAILURE.test(line) &&
+      !expected?.test(line),
   )
 }

@@ -1,9 +1,11 @@
 import type { AgentCredentialAccess } from './agent-credential-types.ts'
+import type { AgentInputRequest } from './agent-input-request.ts'
 import type { AgentMessageMention } from './mention-types.ts'
 import type { SessionResource } from './session-resource-types'
 import type { AgentProvider } from '../types/runtime.ts'
 
 export type { AgentMessageMention, ChannelMention } from './mention-types.ts'
+export type { AgentInputRequest }
 
 /** The message a message replies to, e.g. a Discord reply; `id` is a channel post's. */
 export type AgentMessageReply = { id?: string; authorName: string; text: string }
@@ -127,27 +129,6 @@ export type AgentSignInRequest = {
   askedUserIds: string[]
   askedName: string
   askedAt: string
-}
-
-export type AgentInputRequest = {
-  /** The request_user_decision tool call id. */
-  id: string
-  category: string
-  question: string
-  /** Markdown the agent wrote so the question can be decided without the chat. */
-  body?: string
-  options?: string[]
-  /** Any number of `options` may be picked. */
-  multiSelect?: boolean
-  /** Related questions answered together; `question` is their headline. */
-  questions?: { question: string; options?: string[]; multiSelect?: boolean }[]
-  /** The secret a `credential` request asks for, the providers an `integration` one connects (any access) or the member's own credentials it asks for (only selecting one answers), or the plan it approves. */
-  secretName?: string
-  providers?: string[]
-  credentials?: { provider: 'personal'; id: 'github' | 'linear' }[]
-  planId?: string
-  askedAt: string
-  status: 'open' | 'answered' | 'dismissed'
 }
 
 export type AgentConversationActivitySource = {

@@ -16,6 +16,9 @@ export type ReplyQuestion = {
   questions?: AgentInputRequest['questions']
   secret?: true
   secretName?: string
+  /** The details a secure card asks for together, and the site they are entered on. */
+  fields?: AgentInputRequest['fields']
+  site?: string
   /** The providers an `integration` request asks to connect. */
   providers?: string[]
   /** The member's own credential an `integration` request asks for. */
@@ -43,6 +46,8 @@ export function requestQuestion({
   questions,
   category,
   secretName,
+  fields,
+  site,
   providers,
   credentials,
 }: Pick<
@@ -55,6 +60,8 @@ export function requestQuestion({
   | 'questions'
   | 'category'
   | 'secretName'
+  | 'fields'
+  | 'site'
   | 'providers'
   | 'credentials'
 >): ReplyQuestion {
@@ -67,6 +74,7 @@ export function requestQuestion({
     ...(questions?.length && { questions }),
     ...(category === 'credential' && { secret: true as const }),
     ...(secretName && { secretName }),
+    ...(secretName && fields?.length && site && { fields, site }),
     ...(category === 'integration' && providers?.length && { providers }),
     ...(category === 'integration' && credentials?.length && { credentials }),
   }

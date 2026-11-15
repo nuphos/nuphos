@@ -9,6 +9,7 @@ import { artifacts, freePorts, logPath, spawn, stop, until } from './processes.t
 
 const ROOT = resolve(import.meta.dirname, '../..')
 const BACKEND_DIR = join(ROOT, 'apps/backend')
+const PANEL_JOB = resolve(import.meta.dirname, '../../apps/runtime/image/panel-job.mjs')
 const FIXTURE = join(import.meta.dirname, 'acp-fixture.mjs')
 const AUTH_KEY = 'local-e2e-openab-transport-key-123456789'
 const CONTROL_KEY = 'local-e2e-openab-control-key-123456789'
@@ -162,6 +163,8 @@ export async function startStack(): Promise<Stack> {
         OPENAB_ACP_CONTROL_KEY: CONTROL_KEY,
         OPENAB_ACP_MCP_SERVERS: 'true',
         GATEWAY_LISTEN: `127.0.0.1:${String(port)}`,
+        // The runtime image's `panel` job: how the backend puts a file on a runtime and reads one back.
+        OPENAB_RUNTIME_JOBS: `panel=${process.execPath} ${PANEL_JOB}`,
       },
     })
   }

@@ -12,8 +12,9 @@ import {
   createUserDecisionTools,
   withQuestionsInBody,
   isConnectableProvider,
-  integrationTargetProblem,
+  cardProblem,
 } from '@/lib/agent/tools-skilled/decision-tools'
+import { secretFieldsOf, withoutSecretCard } from '@/lib/agent/tools-skilled/decision-secrets'
 import { createLocalTools } from '@/lib/agent/tools-skilled/local-tools'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 import { logError, logEvent } from '@/lib/observability'
@@ -173,14 +174,10 @@ function passthroughHandler(
     const args = written === undefined ? raw : { ...raw, body: written }
     // Only the Desktop app renders the Connect and secure input cards; elsewhere
     // (Slack, Discord, Lark) the question goes out as plain text.
-    const {
-      providers: _providers,
-      credentials: _credentials,
-      secretName: _secretName,
-      ...plain
-    } = args
+    const { providers: _providers, credentials: _credentials, ...rest } = args
+    const plain = withoutSecretCard(rest)
     const input = name === 'request_user_decision' && ctx.localTools !== true ? plain : args
-    const target = name === 'request_user_decision' ? integrationTargetProblem(args) : null
+    const target = name === 'request_user_decision' ? cardProblem(args) : null
 
     if (target) return toolError(target)
     const about = name === 'request_user_decision' ? await aboutRefs(ctx, args.about) : []
@@ -213,6 +210,7 @@ function passthroughHandler(
       ...(category === 'credential' && typeof args.secretName === 'string'
         ? { secretName: args.secretName }
         : {}),
+      ...secretFieldsOf(args),
       ...(category === 'integration' && Array.isArray(args.providers)
         ? { providers: args.providers.filter(isConnectableProvider) }
         : {}),
