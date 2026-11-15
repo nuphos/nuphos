@@ -43,7 +43,9 @@ export const TOOL_DEFINITIONS = [
           type: 'boolean',
           description:
             'false returns once the turn is accepted, with status "running", ' +
-            'instead of blocking until it ends. Default true.',
+            'instead of blocking until it ends. Default true. For a new session ' +
+            'it waits up to 5 seconds for the session to be stored; if ' +
+            'nuphos_check then says "Session not found", retry it shortly.',
         },
         request_id: {
           type: 'string',
@@ -148,7 +150,9 @@ export const TOOL_DEFINITIONS = [
       'Full Access. With Full Access on, the agent runs commands without asking ' +
       'for approval, so turn it on only when the person you work for wants this ' +
       'session to run unattended. A model or effort its agent does not offer is ' +
-      'refused with the choices. Applies from the next turn.',
+      'refused with the choices. Applies from the next turn. A Task under a Bot ' +
+      "runs in its Bot's permission mode (full_access_follows names it): change " +
+      'Full Access on the Bot instead.',
     inputSchema: {
       type: 'object',
       properties: {

@@ -3,6 +3,7 @@ import '@/routes/agent'
 
 import { beforeEach, describe, expect, test } from 'bun:test'
 
+import { AppError } from '@/lib/errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useAgentRunStore } from '@/lib/test/doubles/agent-run-store'
 import { useAutoModeStore } from '@/lib/test/doubles/auto-mode-store'
@@ -35,6 +36,8 @@ let listed: { viewer: string; options: Record<string, unknown> } | undefined
 let stored: AgentConversation | null
 let running: boolean
 let bypass: boolean
+// The Bot a Task runs under, whose permission mode it follows.
+let bot: string | undefined
 let picked: Record<string, unknown> | undefined
 let lastParts: unknown[]
 let events: { event: string; data?: Record<string, unknown> }[]
@@ -45,8 +48,11 @@ useLiveTurn({ getLiveTurn: async () => ({ parts: [] }) as never })
 useAutoModeStore({
   getSessionBypass: async () => bypass,
   setSessionBypass: async (_session, _user, enabled) => {
+    if (bot)
+      throw new AppError(409, 'mode_follows_bot', "A Task under a Bot runs in its Bot's mode.")
     bypass = enabled
   },
+  modeSource: async (session) => bot ?? session,
 })
 useThreadRuntime({
   setThreadModel: async (_session, _user, pick) => {
@@ -92,6 +98,7 @@ beforeEach(() => {
   stored = session()
   running = false
   bypass = false
+  bot = undefined
   picked = undefined
   events = []
   lastParts = [{ type: 'text', text: 'Done so far.' }]
@@ -157,6 +164,30 @@ describe('nuphos_update_session', () => {
 
     expect(result.isError).toBe(true)
     expect(bypass).toBe(false)
+  })
+})
+
+describe('nuphos_update_session on a Task under a Bot', () => {
+  test('Full Access is refused, naming the Bot, and nothing else changes', async () => {
+    bot = 'bot1'
+    const result = await nuphosUpdateSession(
+      { session_id: 's1', model: 'opus', full_access: true },
+      ctx,
+    )
+
+    expect(result.isError).toBe(true)
+    expect(result.content[0]).toMatchObject({ text: expect.stringContaining('bot1') })
+    expect(picked).toBeUndefined()
+    expect(events).toEqual([])
+  })
+
+  test('model and effort still change, and the result says whose mode it runs in', async () => {
+    bot = 'bot1'
+    bypass = true
+    const result = body(await nuphosUpdateSession({ session_id: 's1', effort: 'high' }, ctx))
+
+    expect(picked).toEqual({ effort: 'high' })
+    expect(result).toMatchObject({ full_access: true, full_access_follows: 'bot1' })
   })
 })
 
