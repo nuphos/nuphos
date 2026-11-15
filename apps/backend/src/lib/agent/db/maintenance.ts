@@ -1,3 +1,5 @@
+import { pruneAvatars } from '@/lib/identity/avatar-upload'
+
 import { pushTimelineEvent } from './participants'
 import { agentConversations, withTeamScope } from './shared'
 
@@ -95,7 +97,7 @@ export async function updateBotSelf(
   update: BotSelfUpdate,
   via: 'update_self' | 'bot_import' = 'update_self',
 ): Promise<boolean> {
-  const result = await agentConversations().updateOne(
+  const bot = await agentConversations().findOneAndUpdate(
     withTeamScope({ sessionId, userId, avatar: { $exists: true } }, teamId),
     {
       $set: {
@@ -106,9 +108,13 @@ export async function updateBotSelf(
         ? {}
         : { $push: botChanged({ actorId: userId, via }, update.avatar) }),
     },
+    { projection: { _id: 1 } },
   )
 
-  return result.matchedCount > 0
+  // A photo the Bot wore until now is no longer its face.
+  if (bot && update.avatar !== undefined) await pruneAvatars(bot._id.toHexString())
+
+  return bot !== null
 }
 
 // Nests a conversation under another one, or stops nesting it when
