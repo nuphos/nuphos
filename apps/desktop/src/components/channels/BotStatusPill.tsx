@@ -6,7 +6,7 @@ import { t } from '../../i18n'
 import { formatElapsed } from '../agent/panel/voiceDictation'
 import { Tooltip } from '../ui/tooltip'
 
-import { showBotQuestion } from './useBotChatQuestions'
+import { showBotQuestion } from './showBotQuestion'
 import { useBotWork, useTicking } from './useBotWork'
 
 import type { BotWork, Step } from './botWork'
