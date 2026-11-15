@@ -232,6 +232,7 @@ struct RuntimeObservationTests {
         SidebarFavoritesTests.run()
         LaunchCacheTests.run()
         ConversationNestingTests.run()
+        TaskFollowsBotTests.run()
         ResourceStripTests.run()
         BotQuestionsTests.run()
         ComposerDraftsTests.run()
