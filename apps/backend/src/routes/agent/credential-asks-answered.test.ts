@@ -59,6 +59,7 @@ const options = {
 
 let open: boolean
 let woken: number
+let woke: PromiseWithResolvers<void>
 const conversation = () =>
   ({
     sessionId: 's1',
@@ -98,7 +99,10 @@ useDb({
         updateOne: async (filter: Record<string, unknown>) => {
           // A real write takes longer than the response's own microtasks.
           await new Promise((resolve) => setTimeout(resolve, 5))
-          const closes = 'inputRequests.id' in filter && open
+          // Only the write that closes the question: background writes other
+          // suites left running in this process reach this double too.
+          if (!('inputRequests.id' in filter)) return { matchedCount: 0 }
+          const closes = open
 
           open = false
 
@@ -110,6 +114,7 @@ useDb({
 useConversationTurn({
   startConversationTurn: async () => {
     woken += 1
+    woke.resolve()
 
     return { status: 'started' as const, run: new Promise<undefined>(() => {}) }
   },
@@ -122,6 +127,7 @@ app.onError((error, c) => c.json({ error: error.message }, 500))
 beforeEach(() => {
   open = true
   woken = 0
+  woke = Promise.withResolvers()
 })
 
 test('the picker responds with the question it answered already closed', async () => {
@@ -147,6 +153,6 @@ test('update_credentials responds with the question it answered already closed',
 
   expect(JSON.stringify(result)).not.toContain('isError":true')
   expect(open).toBe(false)
-  await new Promise((resolve) => setTimeout(resolve, 10))
+  await woke.promise
   expect(woken).toBe(1)
 })
