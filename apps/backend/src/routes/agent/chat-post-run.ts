@@ -22,7 +22,7 @@ import {
   finishAgentRun,
 } from './run-frames'
 import { attachAgentRunFrameSink } from './run-registry'
-import { traceAgentChatError } from './trace'
+import { traceAgentChatError, traceAgentChatRefusal } from './trace'
 import { persistAcceptedConversationTurn } from './transcript'
 import { restoreArchivedSession } from './turn-unarchive'
 
@@ -245,7 +245,9 @@ export function launchAcceptedChatTurn(args: {
       chatSpan.end()
     } catch (err) {
       pumpError = err
-      traceAgentChatError('agent.chat.request.error', err, run.trace, {
+      const event = { error: 'agent.chat.request.error', queued: 'agent.chat.request.queued' }
+
+      traceAgentChatRefusal(event, err, run.trace, {
         provider: chatRuntime.runtime,
         model_id: chatRuntime.runtime,
         aborted: run.abortController.signal.aborted,
