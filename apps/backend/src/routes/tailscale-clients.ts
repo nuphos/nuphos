@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
 import { createDefaultAccess } from '@/lib/byos/access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { encryptTailscaleClientSecret } from '@/lib/byos/secrets'
 import {
   tailscaleFederationAudience,
@@ -129,6 +130,10 @@ tailscaleClientsRoutes.post(
 const clientScoped = new Hono<{ Variables: TailscaleClientVariables }>()
 
 clientScoped.use('*', requireTailscaleClient())
+registerBindingAccessRoutes(clientScoped, 'tailscaleClients', (c) => ({
+  id: c.get('tailscaleClientId'),
+  access: c.get('tailscaleAccess'),
+}))
 
 registerTailscaleClientScopedRoutes(clientScoped)
 

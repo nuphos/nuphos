@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
 import { createDefaultAccess } from '@/lib/byos/access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { encryptSonarqubeSecret } from '@/lib/byos/secrets'
 import { blockedSonarqubeBaseUrlReason, verifySonarqubeCredentials } from '@/lib/byos/sonarqube'
 import { parseObjectId } from '@/lib/objectid'
@@ -89,6 +90,7 @@ sonarqubeIntegrationsRoutes.post(
 const scoped = new Hono<{ Variables: SonarqubeIntegrationVariables }>()
 
 scoped.use('*', requireSonarqubeIntegration())
+registerBindingAccessRoutes(scoped, 'sonarqubeIntegrations', (c) => c.get('sonarqubeBinding'))
 
 registerSonarqubeScopedRoutes(scoped)
 

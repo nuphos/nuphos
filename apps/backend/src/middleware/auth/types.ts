@@ -4,6 +4,7 @@ import type { CliTokenPrincipal } from '@/lib/identity/cli-tokens'
 import type {
   AwsRoleBinding,
   BindingAccess,
+  GithubInstallationBinding,
   BetterStackIntegrationBinding,
   UptimeKumaInstanceBinding,
   CloudflareAccountBinding,
@@ -74,7 +75,7 @@ export type GithubInstallationVariables = TeamAuthVariables & {
   githubInstallationId: number
   githubAccountLogin: string
   githubAccountType: 'User' | 'Organization'
-  githubAccess?: BindingAccess
+  githubBinding: GithubInstallationBinding
 }
 
 export type GitlabBindingVariables = TeamAuthVariables & {
