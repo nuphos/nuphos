@@ -29,6 +29,11 @@ export function isBotRow(
   )
 }
 
+/** Whether the row belongs on the Bots page (chats and Bots) rather than Tasks. */
+export function onBotsPage(conversation: Pick<AgentConversation, 'avatar' | 'kind'>): boolean {
+  return conversation.kind === 'channel' || isBotRow(conversation)
+}
+
 /** One chat row in the sidebar; the caller adds its row actions. */
 export function chatSidebarItem({
   conversation,
