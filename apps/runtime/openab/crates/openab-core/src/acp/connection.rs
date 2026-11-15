@@ -1496,6 +1496,13 @@ impl AcpConnection {
         Ok(())
     }
 
+    /// End the agent process now. Its stdout closes, so the connection stops
+    /// reporting alive and the pool rebuilds it on the next message.
+    pub(crate) fn kill_agent(&mut self) {
+        let _ = self._proc.start_kill();
+        self.kill_process_group();
+    }
+
     /// Kill the entire process group: SIGTERM → SIGKILL.
     fn kill_process_group(&mut self) {
         if let Some(pgid) = self.child_pgid {

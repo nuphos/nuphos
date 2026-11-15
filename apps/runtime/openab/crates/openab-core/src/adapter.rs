@@ -1160,7 +1160,24 @@ impl AdapterRouter {
                                         "Agent exceeded inactivity timeout ({}s)",
                                         prompt_inactivity_timeout.as_secs(),
                                     ));
-                                    conn.abandon_request(request_id).await;
+                                    // Alive but silent for the whole timeout: a cancel
+                                    // would leave this process to take the next prompt
+                                    // and stall it the same way. End it, so the next
+                                    // prompt takes the dead-agent path instead: a new
+                                    // process that resumes the session.
+                                    conn.kill_agent();
+                                    let _ = tokio::time::timeout(
+                                        std::time::Duration::from_secs(2),
+                                        async {
+                                            while conn.alive() {
+                                                tokio::time::sleep(
+                                                    std::time::Duration::from_millis(20),
+                                                )
+                                                .await;
+                                            }
+                                        },
+                                    )
+                                    .await;
                                     break;
                                 }
                                 let elapsed = last_activity.elapsed();
