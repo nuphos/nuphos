@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Check, ChevronDown } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp } from 'lucide-react'
 import { useContext, useId, useState } from 'react'
 
 import { t } from '../../../i18n'
@@ -28,7 +28,7 @@ export function AnsweredNotice({ notice, sentAt }: { notice: DecisionNotice; sen
   }
 
   return (
-    <div className="flex flex-col gap-0.5">
+    <div className="flex flex-col gap-3">
       {notice.answers.map(({ question, answer }, index) => (
         <AnsweredLine
           key={`${String(index)}:${question}`}
@@ -63,6 +63,7 @@ function AnsweredLine({
   const [open, setOpen] = useState(false)
   const cardId = useId()
   const picked = pickedOptions(options, answer)
+  const Chevron = open ? ChevronUp : ChevronDown
 
   return (
     <div>
@@ -71,33 +72,26 @@ function AnsweredLine({
         aria-expanded={open}
         aria-controls={cardId}
         onClick={() => setOpen((value) => !value)}
-        className="flex w-full min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12.5px] hover:bg-state-hover"
+        className="-mx-2 flex min-h-7 max-w-[calc(100%+1rem)] min-w-0 items-center gap-2 rounded-lg px-2 text-left text-[12.5px] leading-[18px] hover:bg-[rgba(var(--color-text-primary),0.04)]"
       >
-        <Check className="size-3.5 shrink-0 text-secondary" />
-        <span className="max-w-[40%] shrink-0 truncate font-medium text-main">
-          {t('{name} answered', { name })}
-        </span>
-        <span className="min-w-0 flex-1 truncate text-tertiary">{question}</span>
-        <span className="max-w-[45%] shrink-0 truncate rounded-md bg-surface-sunken px-2 py-0.5 text-[12px] font-medium text-main">
+        <Check className="size-3.5 shrink-0 text-tertiary" strokeWidth={2.2} />
+        <span className="shrink-0 font-medium text-main">{t('{name} answered', { name })}</span>
+        <span className="min-w-0 truncate text-tertiary">{question}</span>
+        <span className="h-[22px] max-w-[50%] shrink-0 truncate rounded-md bg-[rgba(var(--color-text-primary),0.07)] px-2 leading-[22px] font-medium text-main">
           {answer}
         </span>
-        <ChevronDown
-          className={clsx(
-            'size-3.5 shrink-0 text-tertiary transition-transform',
-            open && 'rotate-180',
-          )}
-        />
+        <Chevron className="size-3.5 shrink-0 text-tertiary" strokeWidth={2} />
       </button>
       {open && (
         <div
           id={cardId}
-          className="mt-1 mb-1.5 rounded-xl surface-raised bg-surface-raised px-4 py-3.5"
+          className="mt-2 rounded-[14px] surface-raised bg-surface-raised px-4 pt-3.5 pb-3"
         >
-          <div className="selectable whitespace-pre-wrap text-[13.5px] font-medium text-main">
+          <div className="selectable mb-1.5 whitespace-pre-wrap text-[16px] leading-[23px] font-semibold tracking-[-0.01em] text-main">
             {question}
           </div>
           {body && (
-            <MessageResponse className="selectable mt-2 text-[12.5px] text-secondary">
+            <MessageResponse className="selectable text-[13.5px] text-secondary">
               {body}
             </MessageResponse>
           )}
@@ -111,11 +105,16 @@ function AnsweredLine({
             </div>
           )}
           {picked.length === 0 && (
-            <div className="selectable mt-3 whitespace-pre-wrap text-[13px] text-main">
+            <div
+              className={clsx(
+                'selectable rounded-[9px] bg-[rgba(var(--color-text-primary),0.05)] px-3 py-2 text-[13.5px] leading-5 whitespace-pre-wrap text-main',
+                options.length > 0 ? 'mt-2' : 'mt-3',
+              )}
+            >
               {answer}
             </div>
           )}
-          <div className="mt-3 text-[11.5px] text-tertiary">
+          <div className="mt-2.5 text-[12px] leading-4 text-tertiary">
             {times.asked
               ? t('Asked {asked} · Answered {answered} from the Inbox', {
                   asked: times.asked,
@@ -134,13 +133,13 @@ function Option({ chosen, children }: { chosen: boolean; children: string }) {
   return (
     <span
       className={clsx(
-        'inline-flex min-h-7 items-center gap-1.5 rounded-lg px-2.5 py-1 text-[12.5px] font-medium',
+        'inline-flex min-h-8 items-center gap-1.5 rounded-[9px] px-[13px] py-1 text-[13px] font-medium',
         chosen
           ? 'bg-action-primary text-inverse'
-          : 'bg-surface-raised text-primary opacity-50 shadow-[0_0_0_1px_rgb(var(--color-line-control))]',
+          : 'bg-surface-raised text-main opacity-45 shadow-[0_0_0_1px_rgb(var(--color-line-control))]',
       )}
     >
-      {chosen && <Check className="size-3.5 shrink-0" />}
+      {chosen && <Check className="size-[13px] shrink-0" strokeWidth={2.6} />}
       {children}
     </span>
   )
