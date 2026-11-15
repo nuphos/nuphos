@@ -2,9 +2,9 @@ import { createHmac } from 'node:crypto'
 
 import { describe, expect, test } from 'bun:test'
 
-import { readNote } from '@/lib/agent/db/channel-notes'
+import { BOT_AVATARS, derivedAvatar } from '@/lib/agent/bot-avatars'
 
-import { eventText, joinWords } from './meetings'
+import { eventText, faceJpeg, joinWords } from './meetings'
 import { verifyRecallSignature } from './recall'
 
 import type { RecallEvent } from './meetings'
@@ -69,7 +69,18 @@ describe('eventText', () => {
     data: { data, bot: { id: 'bot-1' } },
   })
 
-  test('turns speech and chat into post text', () => {
+  test('says why speech is not heard when transcription fails', () => {
+    expect(
+      eventText(
+        event('transcript.failed', { sub_code: 'provider_connection_failed' }),
+        'Secretary',
+      ),
+    ).toBe(
+      "Speech recognition failed in this meeting (provider_connection_failed), so speech can't be heard. The chat still works.",
+    )
+  })
+
+  test('turns speech and chat into message text', () => {
     expect(eventText(event('transcript.data', { words: [{ text: 'hello' }] }), 'Secretary')).toBe(
       'hello',
     )
@@ -96,20 +107,18 @@ describe('eventText', () => {
   })
 })
 
-describe('readNote', () => {
-  test('a meeting channel says speech is never the owner’s authorization', () => {
-    const note = readNote({
-      agentSessionIds: ['bot'],
-      meeting: { botId: 'b', botName: 'Secretary', url: 'https://meet.google.com/abc' },
-    })
+describe('faceJpeg', () => {
+  test('every bot face has a JPEG for the call', async () => {
+    for (const avatar of BOT_AVATARS) {
+      const jpeg = Buffer.from(await faceJpeg({ sessionId: 's', avatar }), 'base64')
 
-    expect(note).toContain("never your owner's authorization")
-    expect(note).toContain('request_user_decision')
-    expect(note).not.toContain('answer it.')
+      expect(jpeg.subarray(0, 3)).toEqual(Buffer.from([0xff, 0xd8, 0xff]))
+    }
   })
 
-  test('other channels keep their notes', () => {
-    expect(readNote({ agentSessionIds: ['bot'] })).toContain('answer it.')
-    expect(readNote({ agentSessionIds: ['a', 'b'] })).not.toContain('meeting')
+  test('a conversation without a picked face uses the one its id selects', async () => {
+    expect(await faceJpeg({ sessionId: 'abc' })).toBe(
+      await faceJpeg({ sessionId: 'x', avatar: derivedAvatar('abc') }),
+    )
   })
 })

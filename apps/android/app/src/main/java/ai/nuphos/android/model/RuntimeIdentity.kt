@@ -3,11 +3,11 @@ package ai.nuphos.android.model
 object RuntimeIdentity {
     fun logo(provider: String?): String? = when (provider) {
         "codex" -> "openai"; "claude-code" -> "claude"; "grok" -> "grok"
-        "opencode" -> "opencode"; "antigravity" -> "antigravity"; else -> null
+        "opencode" -> "opencode"; "antigravity" -> "antigravity"; "dsh" -> "deepseek"; else -> null
     }
     fun name(provider: String?): String = when (provider) {
         "codex" -> "Codex"; "claude-code" -> "Claude Code"; "grok" -> "Grok Build"
-        "opencode" -> "OpenCode"; "antigravity" -> "Antigravity"; "hermes" -> "Hermes Agent"; "nuphos" -> "Nuphos"
+        "opencode" -> "OpenCode"; "antigravity" -> "Antigravity"; "hermes" -> "Hermes Agent"; "dsh" -> "DeepSeek Harness"; "nuphos" -> "Nuphos"
         null, "" -> "Runtime"; else -> "Unknown runtime"
     }
     fun detail(provider: String?, instance: String?): String =

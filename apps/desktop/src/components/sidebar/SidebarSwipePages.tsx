@@ -1,5 +1,6 @@
 import './sidebar-pages.css'
 
+import { SIDEBAR_PAGES } from './swipe-gesture'
 import { useSidebarSwipe } from './useSidebarSwipe'
 
 import type { SidebarPage, SidebarPageChange } from './swipe-gesture'
@@ -8,23 +9,19 @@ import type { ReactNode } from 'react'
 export function SidebarSwipePages({
   page,
   onPage,
-  bots,
-  tasks,
+  pages,
 }: {
   page: SidebarPage
   onPage: SidebarPageChange
-  bots: ReactNode
-  tasks: ReactNode
+  /** Bots, Tasks and Inbox, in page order. */
+  pages: readonly [ReactNode, ReactNode, ReactNode]
 }) {
   const { viewport, track } = useSidebarSwipe(page, onPage)
 
   return (
     <div ref={viewport} className="sidebar-swipe-viewport min-h-0 flex-1">
       <div ref={track} className="sidebar-swipe-track">
-        {[
-          { id: 'bots', content: bots },
-          { id: 'tasks', content: tasks },
-        ].map(({ id, content }, index) => (
+        {SIDEBAR_PAGES.map((id, index) => (
           <div
             key={id}
             id={`sidebar-${id}-page`}
@@ -33,7 +30,7 @@ export function SidebarSwipePages({
             inert={page !== index}
             className="sidebar-swipe-page"
           >
-            {content}
+            {pages[index]}
           </div>
         ))}
       </div>

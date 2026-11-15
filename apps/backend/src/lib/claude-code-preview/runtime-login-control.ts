@@ -28,6 +28,7 @@ const LOGIN_FAILED: Record<OpenAbProvider, string> = {
     'Sign-in did not complete. Start again and paste the code or full callback address Google shows you.',
   opencode: 'Sign-in did not complete. Start again and check the details you entered.',
   hermes: 'Sign-in did not complete. Start again and check the details you entered.',
+  dsh: 'Sign-in did not complete. Start again and paste the full address the browser ends on.',
 }
 
 async function controlEndpoint(teamId: string, runtimeId: string, userId?: string) {
@@ -208,7 +209,7 @@ async function execControlRuntimeLogin(
     signal,
     doc,
     LOGIN_FAILED[provider],
-    provider === 'opencode' || provider === 'hermes',
+    provider === 'opencode' || provider === 'hermes' || provider === 'dsh',
   )
 }
 

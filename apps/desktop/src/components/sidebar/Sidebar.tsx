@@ -74,7 +74,7 @@ export const Sidebar = memo(function Sidebar({
   )
   const [sidebarPage, changeSidebarPage] = useSidebarMode(scope.teamId, agentSessionId)
   const teamId = scope.teamId
-  const chrome = useSidebarChrome({ teamId, collapsed })
+  const chrome = useSidebarChrome({ teamId, collapsed, page: sidebarPage })
   const { width, dragging, setDragging, peek, setPeek } = chrome
   const { agentSessions, chatItems, newChatActive, archiveChat, unlinkChat, archivingIds } =
     useSidebarChats({
@@ -138,7 +138,9 @@ export const Sidebar = memo(function Sidebar({
   useChatNavKeys(
     teamView
       ? sidebarSections.filter(
-          (section) => section.title === (sidebarPage === 0 ? 'Channels' : 'Tasks'),
+          // The Inbox page moves through its questions with its own keys.
+          (section) =>
+            sidebarPage !== 2 && section.title === (sidebarPage === 0 ? 'Channels' : 'Tasks'),
         )
       : sidebarSections,
     chrome.isGroupCollapsed,

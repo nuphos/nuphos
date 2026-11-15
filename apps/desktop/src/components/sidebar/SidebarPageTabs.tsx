@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { MessagesSquare } from 'lucide-react'
+import { Inbox, MessagesSquare } from 'lucide-react'
 
 import { t } from '../../i18n'
 import { CountBadge } from '../ui/count-badge'
@@ -7,29 +7,32 @@ import { Tooltip } from '../ui/tooltip'
 
 import { BotsModeIcon } from './BotsModeIcon'
 
+import { SIDEBAR_PAGES } from './swipe-gesture'
+
 import type { SidebarPage } from './swipe-gesture'
 
-/** Semantic mode switches, with a visible attention count on Tasks. */
+/** Semantic mode switches, each with a visible count: unread Bots and Tasks, open questions on the Inbox. */
 export function SidebarPageTabs({
   page,
   onPage,
-  count,
-  botCount = 0,
+  counts,
 }: {
   page: SidebarPage
   onPage: (page: SidebarPage) => void
-  count: number
-  botCount?: number
+  /** Bots, Tasks and Inbox, in page order. */
+  counts: readonly [number, number, number]
 }) {
+  const labels = [t('Bots'), t('Tasks'), t('Inbox')]
+
   return (
     <div
       className="sidebar-page-indicators flex shrink-0 justify-center titlebar-no-drag"
       role="tablist"
-      aria-label={`${t('Bots')} / ${t('Tasks')}`}
+      aria-label={labels.join(' / ')}
     >
-      {(['bots', 'tasks'] as const).map((id, index) => {
-        const label = [t('Bots'), t('Tasks')][index]
-        const shownCount = index === 0 ? botCount : count
+      {SIDEBAR_PAGES.map((id, index) => {
+        const label = labels[index]
+        const shownCount = counts[index]
         const accessibleLabel = shownCount > 0 ? `${label} · ${String(shownCount)}` : label
 
         return (
@@ -50,21 +53,22 @@ export function SidebarPageTabs({
                   event.preventDefault()
                   const next = Math.max(
                     0,
-                    Math.min(1, index + (event.key === 'ArrowRight' ? 1 : -1)),
+                    Math.min(
+                      SIDEBAR_PAGES.length - 1,
+                      index + (event.key === 'ArrowRight' ? 1 : -1),
+                    ),
                   ) as SidebarPage
 
                   onPage(next)
-                  document.getElementById(`sidebar-${['bots', 'tasks'][next]}-tab`)?.focus()
+                  document.getElementById(`sidebar-${SIDEBAR_PAGES[next]}-tab`)?.focus()
                 }}
                 className={clsx('sidebar-page-indicator', page === index && 'is-active')}
               />
             }
           >
-            {index === 0 ? (
-              <BotsModeIcon />
-            ) : (
-              <MessagesSquare aria-hidden strokeWidth={1.8} className="size-4" />
-            )}
+            {id === 'bots' && <BotsModeIcon />}
+            {id === 'tasks' && <MessagesSquare aria-hidden strokeWidth={1.8} className="size-4" />}
+            {id === 'inbox' && <Inbox aria-hidden strokeWidth={1.8} className="size-4" />}
             {shownCount > 0 && (
               <CountBadge count={shownCount} size="sm" className="absolute -right-1 -top-1" />
             )}

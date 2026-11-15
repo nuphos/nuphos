@@ -1,4 +1,19 @@
+import { pushTimelineEvent } from './participants'
 import { agentConversations, withTeamScope } from './shared'
+
+import type { BotChangeSource, ConversationTimelineEvent } from './timeline-events'
+
+/** The record of a face given, changed or (null) taken away: who did it and how. */
+export function botChange(
+  by: { actorId: string } & BotChangeSource,
+  avatar: string | null,
+): ConversationTimelineEvent {
+  return { kind: 'bot_changed', at: new Date(), ...by, ...(avatar === null ? {} : { avatar }) }
+}
+
+// Written in the same update as the face, so one cannot exist without the other.
+const botChanged = (...change: Parameters<typeof botChange>) =>
+  pushTimelineEvent(botChange(...change))
 
 // Refuses to blank a title. The conversation already carries a usable one from
 // insert (`fallbackTitle`); overwriting it with '' leaves every reader falling
@@ -43,10 +58,12 @@ export async function renameConversation(
 export async function setConversationAvatar(
   sessionId: string,
   avatar: string | null,
+  actorId: string,
 ): Promise<boolean> {
+  const $push = botChanged({ actorId, via: 'avatar_route' }, avatar)
   const result = await agentConversations().updateOne(
     avatar === null ? { sessionId } : { sessionId, avatar: { $exists: true } },
-    avatar === null ? { $unset: { avatar: '' } } : { $set: { avatar } },
+    avatar === null ? { $unset: { avatar: '' }, $push } : { $set: { avatar }, $push },
   )
 
   return result.matchedCount > 0
@@ -54,10 +71,14 @@ export async function setConversationAvatar(
 
 // "Make this a Bot": the face is set only while there is none, so of two
 // requests racing, exactly one wins and the other sees it already done.
-export async function claimBotAvatar(sessionId: string, avatar: string): Promise<boolean> {
+export async function claimBotAvatar(
+  sessionId: string,
+  avatar: string,
+  actorId: string,
+): Promise<boolean> {
   const result = await agentConversations().updateOne(
     { sessionId, avatar: { $exists: false } },
-    { $set: { avatar } },
+    { $set: { avatar }, $push: botChanged({ actorId, via: 'make_bot' }, avatar) },
   )
 
   return result.modifiedCount > 0
@@ -72,6 +93,7 @@ export async function updateBotSelf(
   userId: string,
   teamId: string | undefined,
   update: BotSelfUpdate,
+  via: 'update_self' | 'bot_import' = 'update_self',
 ): Promise<boolean> {
   const result = await agentConversations().updateOne(
     withTeamScope({ sessionId, userId, avatar: { $exists: true } }, teamId),
@@ -80,6 +102,9 @@ export async function updateBotSelf(
         ...update,
         ...(update.title === undefined ? {} : { titleManuallySet: true }),
       },
+      ...(update.avatar === undefined
+        ? {}
+        : { $push: botChanged({ actorId: userId, via }, update.avatar) }),
     },
   )
 

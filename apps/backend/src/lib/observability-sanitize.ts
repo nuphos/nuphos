@@ -243,6 +243,12 @@ export function normalizeError(error: unknown): Record<string, Primitive> {
 
   if (typeof record.retryable === 'boolean') normalized.retryable = record.retryable
   if (typeof record.code === 'string') normalized.provider_error_code = truncate(record.code, 200)
+  // An unreachable runtime names itself, so a log tells which computer was offline.
+  const details = isRecord(record.details) ? record.details : undefined
+
+  if (typeof details?.runtimeId === 'string')
+    normalized.runtime_id = truncate(details.runtimeId, 200)
+  if (typeof details?.deviceId === 'string') normalized.device_id = truncate(details.deviceId, 200)
 
   Object.assign(normalized, errorResponseSummary(record))
 

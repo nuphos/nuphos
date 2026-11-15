@@ -7,7 +7,6 @@ import {
   FileText,
   KeyRound,
   LockKeyhole,
-  LifeBuoy,
   Monitor,
   MonitorSmartphone,
   NotebookPen,
@@ -90,7 +89,6 @@ const TEAM_GROUPS: SettingsNavGroup[] = [
     items: [
       { key: 'preferences.instructions', label: t('Personal instructions'), icon: NotebookPen },
       { key: 'preferences.localSetup', label: t('Sync my setup'), icon: RefreshCw },
-      { key: 'preferences.runtimeFallback', label: t('Agent fallback'), icon: LifeBuoy },
     ],
   },
 ]

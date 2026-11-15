@@ -13,12 +13,16 @@ const resolved: unknown[] = []
 // Whether the store still holds the question open, so this call resolves it.
 let stillOpen = true
 let conversation: Partial<AgentConversation> | null = null
+// The turn that tells the agent, which settles when the agent's turn ends.
+let run: Promise<undefined> = Promise.resolve(undefined)
+// The agents wake after the questions close: lets that run.
+const woken = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 useConversationTurn({
   startConversationTurn: (data, _target, text) => {
     turns.push({ sessionId: data.targetSessionId, text })
 
-    return Promise.resolve({ status: 'started' as const, run: Promise.resolve(undefined) })
+    return Promise.resolve({ status: 'started' as const, run })
   },
 })
 useAgentDb({
@@ -54,6 +58,7 @@ beforeEach(() => {
   turns.length = 0
   resolved.length = 0
   stillOpen = true
+  run = Promise.resolve(undefined)
   conversation = {
     sessionId: 's1',
     userId: 'owner',
@@ -123,8 +128,17 @@ describe('selectedProviders', () => {
 })
 
 describe('answerCredentialAsks', () => {
+  test('returns once the question is closed, without waiting for the agent', async () => {
+    run = new Promise(() => {})
+
+    await answerCredentialAsks('s1', { githubInstallationIds: ['1'] })
+
+    expect(resolved).toHaveLength(1)
+  })
+
   test('answers the question that asked for the provider and resumes the agent', async () => {
     await answerCredentialAsks('s1', { personalCredentialIds: ['github'] })
+    await woken()
 
     expect(resolved).toHaveLength(1)
     expect(resolved[0]).toMatchObject({ $pull: { inputRequests: { id: expect.any(String) } } })
@@ -145,6 +159,8 @@ describe('answerCredentialAsks', () => {
       ),
     )
 
+    await woken()
+
     expect(resolved).toHaveLength(1)
     expect(resolved[0]).toMatchObject({ $pull: { inputRequests: { id: expect.any(String) } } })
     expect(turns).toHaveLength(1)
@@ -160,6 +176,8 @@ describe('answerCredentialAsks', () => {
 
     await answerCredentialAsks('s1', addedCredentialIds(stored, saved))
 
+    await woken()
+
     expect(resolved).toHaveLength(1)
     expect(turns.map((turn) => turn.sessionId)).toEqual(['s1'])
   })
@@ -170,12 +188,15 @@ describe('answerCredentialAsks', () => {
 
     await answerCredentialAsks('s1', addedCredentialIds(stored, saved))
 
+    await woken()
+
     expect(resolved).toEqual([])
     expect(turns).toEqual([])
   })
 
   test('another provider leaves the question open and the agent idle', async () => {
     await answerCredentialAsks('s1', { awsRoleIds: ['r'] })
+    await woken()
 
     expect(resolved).toEqual([])
     expect(turns).toEqual([])
@@ -184,6 +205,7 @@ describe('answerCredentialAsks', () => {
   test('a question someone else already resolved does not wake the agent again', async () => {
     stillOpen = false
     await answerCredentialAsks('s1', { githubInstallationIds: ['1'] })
+    await woken()
 
     expect(turns).toEqual([])
   })

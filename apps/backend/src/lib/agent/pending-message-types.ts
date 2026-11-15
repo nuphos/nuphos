@@ -1,3 +1,4 @@
+import type { InputRequest } from './db/pending-decision'
 import type { AgentCredentialAccess } from './db/shared'
 import type { MessageMetadata } from './message-metadata'
 import type { UIMessage } from 'ai'
@@ -31,6 +32,10 @@ export type PendingUserMessage = {
   chat?: QueuedChatTurn
   /** Times a turn took this message and could not run it. */
   attempts?: number
+  /** When a turn first found its computer offline; reported once that outlasts a reconnect. */
+  offlineSince?: string
+  /** The question this notice answers: open again when the notice never runs. */
+  answers?: InputRequest
 }
 
 // A resource wake-up is only "<event> on <PR>"; the session reads the PR itself.

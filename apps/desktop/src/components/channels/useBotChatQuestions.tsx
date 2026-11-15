@@ -40,7 +40,7 @@ export function useBotChatQuestions(
       key: `question-${inputRequestKey(request)}`,
       node: (
         // Inset past the faces on both sides, so the card lines up with the bubbles.
-        <div className="flex flex-col gap-1 px-[2.375rem]">
+        <div className="flex flex-col gap-1 px-[2.375rem]" data-open-question>
           <BotChatQuestion
             request={request}
             teamId={teamId}

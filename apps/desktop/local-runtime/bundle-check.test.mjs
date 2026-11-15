@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
-import { findBrokenLinks, isInside, windowsPaths } from './bundle-check.mjs'
+import { findBrokenLinks, findMissingShared, isInside, windowsPaths } from './bundle-check.mjs'
 
 function bundle() {
   const root = mkdtempSync(join(tmpdir(), 'bundle-'))
@@ -40,4 +40,33 @@ test('containment is component-wise and holds across Windows drives', () => {
   assert.equal(isInside('C:\\b', 'C:\\b\\pkg\\cli.js', windowsPaths), true)
   assert.equal(isInside('C:\\b', 'D:\\b\\pkg\\cli.js', windowsPaths), false)
   assert.equal(isInside('C:\\b', 'C:\\other', windowsPaths), false)
+})
+
+test('a staged bundle carries the guard, and adapters carry session-home and Codex session-config', () => {
+  const root = mkdtempSync(join(tmpdir(), 'bundle-'))
+  const adapters = {
+    'claude-code': { patchTarget: 'dist/acp-agent.js' },
+    codex: { patchTarget: 'dist/index.js' },
+    grok: { shim: true },
+  }
+  const write = (file, text) => {
+    mkdirSync(join(root, file, '..'), { recursive: true })
+    writeFileSync(join(root, file), text)
+  }
+
+  write('runtime-guard.sh', 'if [ -n "${OPENAB_CREDENTIALS_DIR:-}" ]; then :; fi')
+  write('adapters/claude-code/dist/acp-agent.js', 'function nuphosSessionHomeEnv() {}')
+  write(
+    'adapters/codex/dist/index.js',
+    'function nuphosSessionHomeEnv() {}\nfunction nuphosCodexSessionConfig() {}',
+  )
+  write('adapters/grok/session-home.mjs', 'export function nuphosSessionHomeEnv() {}')
+  assert.deepEqual(findMissingShared(root, adapters), [])
+
+  write('adapters/codex/dist/index.js', 'function nuphosSessionHomeEnv() {}')
+  rmSync(join(root, 'runtime-guard.sh'))
+  assert.deepEqual(findMissingShared(root, adapters), [
+    'runtime-guard.sh: OPENAB_CREDENTIALS_DIR',
+    'adapters/codex/dist/index.js: function nuphosCodexSessionConfig',
+  ])
 })

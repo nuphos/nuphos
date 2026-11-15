@@ -11,6 +11,11 @@ export function foldKey(section: Pick<Section, 'title'>, key: string): string {
   return section.title === BOTS_SECTION ? `bots:${key}` : key
 }
 
+/** A Bot tree fold, not its done group: folded at rest, opened only by hand and never remembered. */
+export function isBotTreeFold(title: string): boolean {
+  return title.startsWith('bots:') && !title.endsWith(':done')
+}
+
 type Fold = Pick<Section, 'title' | 'defaultCollapsed'>
 
 /** A section's rows as nested, with its thread folds and done groups read and toggled by row key. */

@@ -10,6 +10,7 @@ import { withLinearAccessToken } from '@/lib/byos/linear-tokens'
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 
+import { credentialSource } from './db'
 import { fetchPullHealth } from './github-pull-health'
 import { githubReviewScope } from './github-review-scope'
 import { mergedAtOf } from './merged-at'
@@ -28,7 +29,7 @@ export async function resourceCredentialAllowed(
 ) {
   if (!conversation.teamId || !(await getTeamMembership(conversation.userId, conversation.teamId)))
     return false
-  const access = conversation.credentialAccess
+  const { credentialAccess: access } = await credentialSource(conversation)
   const selected = {
     github: access?.githubInstallationIds,
     gitlab: access?.gitlabBindingIds,

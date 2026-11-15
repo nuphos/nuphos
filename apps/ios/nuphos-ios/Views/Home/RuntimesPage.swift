@@ -15,7 +15,6 @@ struct RuntimesPage: View {
         let empty = store.agentDevices.filter { device in !grouped.contains { $0.id == "device:\(device.deviceId)" } }
         return grouped + empty.map { SelectorBox(id: "device:\($0.deviceId)", label: $0.label, device: $0, agents: []) }
     }
-    private var administrator: Bool { store.selectedTeam?.isAdministrator == true }
 
     var body: some View {
         // Pushed views do not inherit the store here, so they are handed this one.
@@ -63,9 +62,7 @@ struct RuntimesPage: View {
     private var list: some View {
         List {
             if boxes.isEmpty {
-                ContentUnavailableView("No runtimes", systemImage: "cpu", description: Text(administrator
-                    ? "Open Nuphos on your computer to add a Box or connect your own computer."
-                    : "Ask a workspace administrator to add a runtime."))
+                ContentUnavailableView("No runtimes", systemImage: "cpu", description: Text("Open Nuphos on your computer to connect it and add a runtime."))
                     .listRowBackground(Color.clear)
             }
             ForEach(boxes) { box in

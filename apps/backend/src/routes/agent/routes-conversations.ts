@@ -26,6 +26,7 @@ import { getLocalActiveAgentRun } from './run-registry'
 import { normalizeOptionalTeamId, readTeamIdCandidate, resolveVerifiedTeamId } from './team-scope'
 
 import {
+  credentialSource,
   getConversationMessages,
   getConversationWithMessages,
   getConversations,
@@ -242,6 +243,11 @@ agent.get('/conversations/:sessionId', async (c) => {
       })
     }
   }
+  // A Task under a Bot shows the Bot's selection, the one it uses.
+  const source = await credentialSource(result.conversation)
+  const inherited = source.sessionId !== sessionId
+
+  if (inherited) result.conversation.credentialAccess = source.credentialAccess
   const conversationForViewer = serializeConversationForViewer(
     result.conversation,
     viewer,
@@ -253,6 +259,7 @@ agent.get('/conversations/:sessionId', async (c) => {
 
   return c.json({
     ...conversationForViewer,
+    ...(inherited ? { credentialSource: { sessionId: source.sessionId } } : {}),
     ...(await channelFacesField(result.conversation, viewer.id, ownerById)),
     // A resolved Slack binding no longer forces read-only: the turn is mirrored
     // into the thread (the Slack-bound branch in routes-chat-post.ts). A FAILED

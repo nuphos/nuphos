@@ -127,7 +127,10 @@ describe('sweepMissedTriggerRuns', () => {
   // One stored row that findOneAndUpdate treats like Mongo would for the
   // claim filter: the fields it re-checks, and the before-image it returns.
   function fakeDeps(initial: AgentTrigger, afterRead?: () => void) {
-    const state = { row: initial, readRevision: initial.configRevision ?? 0 }
+    const state: { row: AgentTrigger; readRevision: number; filter?: Record<string, unknown> } = {
+      row: initial,
+      readRevision: initial.configRevision ?? 0,
+    }
     const findOneAndUpdate = mock(
       (_filter: Record<string, unknown>, update: Record<string, unknown>) => {
         const expected = (update.$set as { missedRunAt: Date }).missedRunAt
@@ -147,8 +150,9 @@ describe('sweepMissedTriggerRuns', () => {
     const notify = mock(() => {})
     const deps = {
       triggers: {
-        find: () => ({
+        find: (filter: Record<string, unknown>) => ({
           toArray: () => {
+            state.filter = filter
             const snapshot = [state.row]
 
             state.readRevision = state.row.configRevision ?? 0
@@ -183,6 +187,16 @@ describe('sweepMissedTriggerRuns', () => {
       title: 'Trigger missed a run',
       body: 'Morning digest was due at 2026-11-13 09:00 (UTC) and did not run.',
     })
+  })
+
+  test('reads only triggers that have not fired within the grace period', async () => {
+    const { deps, state } = fakeDeps(trigger({}))
+
+    await sweepMissedTriggerRuns(STARTED_EARLY, NOW, deps)
+    expect(state.filter?.$or).toEqual([
+      { lastFiredAt: { $exists: false } },
+      { lastFiredAt: { $lt: new Date(NOW.getTime() - MISSED_RUN_GRACE_MS) } },
+    ])
   })
 
   test('alerts once per outage, and again after a fire ends it', async () => {

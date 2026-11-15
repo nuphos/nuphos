@@ -2,17 +2,17 @@ import { queryOptions, useQuery } from '@tanstack/react-query'
 import { useEffect, useRef, useSyncExternalStore } from 'react'
 
 import { api } from '../../api.ts'
+import { cardReplyId } from '../../components/agent/panel/replyTarget.ts'
 import { onInputRequestsRefresh, refreshInputRequests } from '../../lib/inputRequestRefresh.ts'
 import { queryClient } from '../../lib/query/client.ts'
 import { queryKeys } from '../../lib/query/keys.ts'
 
-import { cardReplyId } from '../../components/agent/panel/replyTarget.ts'
+import { answeredIn, inboxCount, inboxQuestions } from './inboxItems.ts'
 
-import { answeredIn, inboxCount } from './inboxItems.ts'
-
+import type { InboxQuestion } from './inboxItems.ts'
 import type { DecisionAnswer } from '../../api/agent-chat-types'
-import type { DecisionCardRef, ReplyQuestion } from '../../components/agent/panel/replyTarget.ts'
 import type { AgentConversation } from '../../api/agent-types'
+import type { DecisionCardRef, ReplyQuestion } from '../../components/agent/panel/replyTarget.ts'
 
 export const INBOX_POLL_MS = 15_000
 // A reply the server took but has not applied yet (one queued behind a turn)
@@ -140,6 +140,51 @@ export function answerDecision(
   )
 }
 
+/** How long an Inbox answer waits, its question already gone, before it is sent: its Undo window. */
+export const ANSWER_UNDO_MS = 5_000
+
+// The one Inbox answer waiting out its Undo window: sent with true, undone with false.
+let held: ((send: boolean) => boolean) | undefined
+
+/** Sends the Inbox answer waiting out its Undo window now, if there is one. */
+export function sendHeldAnswer() {
+  held?.(true)
+}
+
+// Closing the window must not lose an answer the viewer already gave.
+if (typeof window !== 'undefined') window.addEventListener('pagehide', sendHeldAnswer)
+
+/**
+ * Answers an Inbox question after {@link ANSWER_UNDO_MS}: it leaves at once, and
+ * the returned undo brings it back unsent until then, and says whether it did. The answer still waiting
+ * goes at once when another is given, or with {@link sendHeldAnswer}.
+ */
+export function holdAnswer(
+  teamId: string,
+  sessionId: string,
+  requestId: string,
+  answer: DecisionAnswer,
+): () => boolean {
+  sendHeldAnswer()
+  answered.set(requestId, Infinity)
+  failures.delete(requestId)
+  emit()
+  const finish = (send: boolean): boolean => {
+    clearTimeout(timer)
+    if (held !== finish) return false
+    held = undefined
+    if (send) void answerDecision(teamId, sessionId, requestId, answer)
+    else if (answered.delete(requestId)) emit()
+
+    return true
+  }
+  const timer = setTimeout(() => finish(true), ANSWER_UNDO_MS)
+
+  held = finish
+
+  return () => finish(false)
+}
+
 /** A conversation's cards answered through the server, each naming the open request it shows. */
 export function cardAnswers(
   teamId: string | undefined,
@@ -219,6 +264,14 @@ export function useInboxListing(teamId: string, reloadKey?: unknown) {
   }, [reloadKey, teamId, refetch])
 
   return listing
+}
+
+/** The Inbox's rows, as the sidebar's list and the Inbox page both show them; null while loading. */
+export function useInboxQuestions(teamId: string, reloadKey?: unknown): InboxQuestion[] | null {
+  const listing = useInboxListing(teamId, reloadKey).data
+  const onDevice = useAnsweredOnDevice()
+
+  return listing ? inboxQuestions(listing, onDevice) : null
 }
 
 /** How many questions wait on the viewer in this team, settling this device's answers. */

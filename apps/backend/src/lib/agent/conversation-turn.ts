@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import { sessionsByConversation } from '@/lib/claude-code-preview/agent-chat-registry'
 import { isRuntimeRefusal } from '@/lib/claude-code-preview/runtime-refusal'
+import { AppError } from '@/lib/errors'
 import { signNuphosToken } from '@/lib/identity'
 import { logError } from '@/lib/observability'
 import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
@@ -12,7 +13,7 @@ import { systemSender } from './message-metadata'
 import { buildPendingUserMessage, hasPendingUserMessage } from './pending-messages'
 import { requeueTurnQueue } from './session-released'
 import { turnRunner } from './turn-runner'
-import { keepUndeliveredSend } from './undelivered-send'
+import { keepUndeliveredSend, reopenUndeliveredAnswer } from './undelivered-send'
 
 import type { AgentConversation } from './db'
 import type { ConversationTriggerRun } from './conversation-trigger-run'
@@ -28,6 +29,8 @@ type ConversationTurn = {
   locale: string
   /** The Trigger fire this turn answers, when it came from one. */
   trigger?: ConversationTriggerRun
+  /** The question this message answers, when it carries a person's answer to one. */
+  answers?: NonNullable<PendingUserMessage['answers']>
 }
 
 type TurnArgs = [
@@ -61,11 +64,7 @@ export async function startConversationTurn(
 
   if (
     await agentMessages().findOne(
-      {
-        sessionId: data.targetSessionId,
-        userId: data.userId,
-        messageId: data.messageId,
-      },
+      { sessionId: data.targetSessionId, userId: data.userId, messageId: data.messageId },
       { projection: { _id: 1 } },
     )
   )
@@ -73,6 +72,7 @@ export async function startConversationTurn(
   const message = {
     ...buildPendingUserMessage({ renderedText, metadata, source, actorUserId: data.userId }),
     id: data.messageId,
+    ...(data.answers ? { answers: data.answers } : {}),
   }
   const claim = await turnRunner.claimAgentRunOrEnqueue({
     userId: data.userId,
@@ -94,6 +94,15 @@ export async function startConversationTurn(
 
   return { status: 'started', run: run() }
 }
+
+// A computer's tunnel redials for about 20s after it drops, so a turn that finds it
+// offline waits in the queue. One still offline after this is gone; its senders are told.
+const OFFLINE_GRACE_MS = 60_000
+
+const reconnecting = (error: unknown, message: PendingUserMessage) =>
+  error instanceof AppError &&
+  error.code === 'runtime_offline' &&
+  Date.now() - Date.parse(message.offlineSince ?? new Date().toISOString()) < OFFLINE_GRACE_MS
 
 type DeliveredTo = Pick<ConversationTurn, 'userId' | 'teamId' | 'targetSessionId'> & {
   locale?: string
@@ -165,11 +174,17 @@ export async function runTurn(
         ...(data.trigger ? { trigger: data.trigger } : {}),
       })
       .catch(async (error: unknown) => {
-        // The runtime took another turn after the check. Back to the front, retried
-        // after a wait rather than on the release that follows.
-        if (!isRuntimeRefusal(error)) throw error
+        // The runtime took another turn after the check, or its computer is reconnecting.
+        // Back to the front, retried after a wait rather than on the release that follows.
+        const offline = reconnecting(error, head)
+
+        if (!offline && !isRuntimeRefusal(error)) throw error
         taken = []
-        await requeueTurnQueue(data.userId, data.targetSessionId, rest, head)
+        await requeueTurnQueue(data.userId, data.targetSessionId, rest, {
+          ...head,
+          // Only an unbroken run of offline tries counts toward the grace.
+          offlineSince: offline ? (head.offlineSince ?? new Date().toISOString()) : undefined,
+        })
 
         return null
       })
@@ -238,6 +253,7 @@ export async function reportUndelivered(
     const senderId = message.metadata?.sourceSessionId
 
     if (message.chat) await keepUndeliveredSend(data, message, `This message ${reason}`)
+    if (message.answers) await reopenUndeliveredAnswer(data, message.answers, reason)
     // Only an agent's message is answered. The answer is Nuphos's own notice,
     // never an agent's, so it is never reported back: threads cannot ping-pong.
     if (message.source !== 'agent.thread' || !senderId) continue

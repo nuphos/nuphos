@@ -142,12 +142,25 @@ export async function sweepMissedTriggerRuns(
   now = new Date(),
   deps: MissedRunSweepDeps = { triggers: agentTriggers(), notify: notifyNudge },
 ): Promise<number> {
+  // A trigger that fired within the grace period cannot have missed a fire that is due
+  // only after it, so only the rest are worth a cron parse.
   const candidates = await deps.triggers
-    .find({ ...liveTriggerShapeFilter, triggerType: 'cron', enabled: true })
+    .find({
+      ...liveTriggerShapeFilter,
+      triggerType: 'cron',
+      enabled: true,
+      $or: [
+        { lastFiredAt: { $exists: false } },
+        { lastFiredAt: { $lt: new Date(now.getTime() - MISSED_RUN_GRACE_MS) } },
+      ],
+    })
     .toArray()
   let alerted = 0
 
   for (const trigger of candidates) {
+    // A cron parse takes milliseconds; yielding between rows keeps a long list
+    // from holding the event loop (and every Redis reply behind it) in one go.
+    await new Promise((resolve) => setImmediate(resolve))
     try {
       const expected = findMissedRun(trigger, now, legacyFloor)
 

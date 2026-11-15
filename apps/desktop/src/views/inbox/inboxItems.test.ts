@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { answeredIn, inboxCount, inboxQuestions, openQuestion } from './inboxItems.ts'
+import { answeredIn, inboxCount, inboxGroups, inboxQuestions, openQuestion } from './inboxItems.ts'
 
 import type { AgentConversation } from '../../api/agent-types.ts'
 
@@ -37,15 +37,21 @@ test("the Inbox lists only the viewer's own conversations' questions", () => {
   )
 })
 
-test('the Inbox lists every open question, newest first, without those answered here', () => {
+test('the Inbox groups open questions by who asked, newest first, without those answered here', () => {
   const listing = [waiting('a', 'q1', 'q3'), waiting('b', 'q2')]
   const ids = (answered: Map<string, number>) =>
     inboxQuestions(listing, answered).map(
       (row) => `${row.conversation.sessionId}:${row.request.id}`,
     )
 
-  assert.deepEqual(ids(new Map()), ['a:q3', 'b:q2', 'a:q1'])
+  assert.deepEqual(ids(new Map()), ['a:q3', 'a:q1', 'b:q2'])
   assert.deepEqual(ids(new Map([['q3', Infinity]])), ['b:q2', 'a:q1'])
+  assert.deepEqual(
+    inboxGroups(inboxQuestions(listing, new Map())).map((group) =>
+      group.map((row) => row.request.id),
+    ),
+    [['q3', 'q1'], ['q2']],
+  )
 })
 
 test('the Inbox keeps the open question, and opens the next row once it is answered', () => {

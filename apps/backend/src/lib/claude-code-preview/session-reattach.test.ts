@@ -389,6 +389,11 @@ test('an offline computer logs no error per retry, and one warning when reattach
   acquire = spyOn(registry, 'acquire').mockRejectedValue(
     new Error('The computer running this agent is offline'),
   )
+  session.endpoint = {
+    ...endpoint,
+    runtimeId: 'runtime-mac',
+    local: { userId: 'owner', deviceId: 'mac' },
+  }
 
   try {
     expect(await reattachAfterTransportLoss(session, session.client, [0, 0, 0], instant)).toBe(
@@ -396,8 +401,14 @@ test('an offline computer logs no error per retry, and one warning when reattach
     )
     expect(acquire).toHaveBeenCalledTimes(3)
     expect(error).not.toHaveBeenCalled()
+    // Which computer it was, so a log tells an offline one from a wrong presence.
     expect(warn.mock.calls.map(([line]) => JSON.parse(String(line)))).toEqual([
-      expect.objectContaining({ event: 'agent.openab_session.reattach_failed', attempts: 3 }),
+      expect.objectContaining({
+        event: 'agent.openab_session.reattach_failed',
+        attempts: 3,
+        runtime_id: 'runtime-mac',
+        device_id: 'mac',
+      }),
     ])
   } finally {
     error.mockRestore()

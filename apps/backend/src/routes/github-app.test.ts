@@ -18,15 +18,18 @@ const ADMIN = 'admin-user'
 const OTHER_INSTALLATION = 7
 const OWN_INSTALLATION = 42
 
-let bindings: { _id: ObjectId; githubInstallations: { installationId: number }[] } | null
+let bindings: { _id: ObjectId; githubInstallations?: { installationId: number }[] } | null
 let revoked: string[]
 
 useModels({
   teamByosBindings: () => ({
     findOne: () => Promise.resolve(bindings),
     updateOne: (_filter: unknown, update: { $push: { githubInstallations: never } }) => {
-      bindings ??= { _id: TEAM, githubInstallations: [] }
-      bindings.githubInstallations.push(update.$push.githubInstallations)
+      bindings ??= { _id: TEAM }
+      bindings.githubInstallations = [
+        ...(bindings.githubInstallations ?? []),
+        update.$push.githubInstallations,
+      ]
 
       return Promise.resolve({ modifiedCount: 1, upsertedCount: 0 })
     },
@@ -158,7 +161,16 @@ describe('GitHub installation flow', () => {
     expect(back.origin + back.pathname).toBe('https://app.nuphos.test/github-callback')
     expect(back.searchParams.get('installation_id')).toBe(String(OWN_INSTALLATION))
     expect(back.searchParams.get('state')).toBe('client-nonce')
-    expect(bindings?.githubInstallations.map((b) => b.installationId)).toEqual([OWN_INSTALLATION])
+    expect(bindings?.githubInstallations?.map((b) => b.installationId)).toEqual([OWN_INSTALLATION])
+  })
+
+  test('binds into a team document another connector created without the field', async () => {
+    bindings = { _id: TEAM }
+    const { opener, done } = await runFlow(OWN_INSTALLATION)
+    const confirmed = await confirm(await done.text(), opener)
+
+    expect(confirmed.status).toBe(302)
+    expect(bindings.githubInstallations?.map((b) => b.installationId)).toEqual([OWN_INSTALLATION])
   })
 
   test("does not bind an installation the GitHub user can't access", async () => {

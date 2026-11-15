@@ -14,12 +14,15 @@ export function requestLog(log: typeof logEvent = logEvent): MiddlewareHandler {
       // Set by the auth middleware inside next(); answers "who did this?" for
       // actions like pausing a Box, which leave no other record.
       const userId: unknown = c.get('userId')
+      // Set by an MCP mount for `tools/call`: the path alone is the same for every tool.
+      const toolName: unknown = c.get('toolName')
 
       log('info', 'http.request', {
         request_id: typeof requestId === 'string' ? requestId : undefined,
         user_id: typeof userId === 'string' ? userId : undefined,
         method: c.req.method,
         path: c.req.path,
+        tool_name: typeof toolName === 'string' ? toolName : undefined,
         status: c.res.status,
         error_code: c.res.status >= 400 ? responseErrorCode(c) : undefined,
         duration_ms: Date.now() - startedAt,
