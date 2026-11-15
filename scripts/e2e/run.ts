@@ -14,10 +14,8 @@ import type { Page } from 'playwright-core'
 
 type Scenario = { name: string; run: (page: Page, stack: Stack) => Promise<void> }
 
-// The sign-in page asks which social providers exist; this stack configures none. The app also
-// asks for a new Task's resources as its first message is sent, before that message has stored it.
-const EXPECTED_FAILURE =
-  /"path":"\/auth\/social\/login"|Social sign-in is not configured|\/resources","status":404/
+// The sign-in page asks which social providers exist; this stack configures none.
+const EXPECTED_FAILURE = /"path":"\/auth\/social\/login"|Social sign-in is not configured/
 
 /** Requests the backend refused or failed, and errors it logged, since `from` lines in. */
 function backendFailures(from: number): string[] {
