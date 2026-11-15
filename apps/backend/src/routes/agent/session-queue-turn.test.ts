@@ -535,6 +535,23 @@ test('an ordinary duplicate persisted input still releases its claim without lau
   expect(historyReads).toBe(0)
 })
 
+test('a queued phone message keeps that its sender draws the secure input card', () => {
+  const c = { req: { header: () => {} } } as unknown as Parameters<typeof queuedChatContext>[0]
+  const phone = { clientCapabilities: { localTools: false, secretCard: true } }
+
+  expect(queuedChatContext(c, 'en', phone, undefined)).toMatchObject({
+    localTools: false,
+    secretCard: true,
+  })
+  expect(queuedChatContext(c, 'en', {}, undefined)).not.toHaveProperty('secretCard')
+  const chat = { streamId: 'stream-p', message: message('queued-phone'), locale: 'en' }
+
+  expect(
+    queuedChatBody('conv-1', 'team-1', { ...chat, localTools: false, secretCard: true })
+      .clientCapabilities,
+  ).toEqual({ localTools: false, secretCard: true })
+})
+
 test('a queued answer keeps the question it names and is admitted naming it', () => {
   const c = { req: { header: () => {} } } as unknown as Parameters<typeof queuedChatContext>[0]
   const context = queuedChatContext(

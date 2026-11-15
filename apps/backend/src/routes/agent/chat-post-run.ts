@@ -225,6 +225,7 @@ export function launchAcceptedChatTurn(args: {
           })
         },
         localToolsEnabled: chatCtx.localToolsEnabled,
+        secretCardEnabled: chatCtx.secretCardEnabled,
         decisionReplyTo: decisionReplyOf(body),
         ...(args.queued ? { queued: args.queued, direct: args.direct } : {}),
         ...(body.continueAfterInterruption

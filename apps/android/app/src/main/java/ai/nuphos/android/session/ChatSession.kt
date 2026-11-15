@@ -1212,7 +1212,7 @@ class ChatSession(
                 resumeReason = if (firstPost) options.resumeReason else null,
                 permissionMode = options.permissionMode,
                 credentialAccess = credentialAccess?.json,
-                clientCapabilities = mapOf("localTools" to false, "serverQueue" to true),
+                clientCapabilities = mapOf("localTools" to false, "serverQueue" to true, "secretCard" to true),
                 runtimeId = if (shouldResume == true) null else outgoingCreationBinding?.runtimeId,
                 agentRuntime = if (shouldResume == true) null else outgoingCreationBinding?.agentRuntime,
                 initialSessionConfig = if (firstPost && !shouldResume) options.initialSessionConfig else null,

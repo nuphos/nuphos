@@ -61,6 +61,7 @@ export function queuedChatContext(
   return {
     locale,
     localTools: capabilities?.localTools === true,
+    ...(capabilities?.secretCard === true ? { secretCard: true } : {}),
     ...(decisionReplyTo ? { decisionReplyTo } : {}),
     currentUrl:
       c.req.header('X-Atlas-Url') ?? c.req.header('referer') ?? c.req.header('origin') ?? null,
@@ -245,6 +246,7 @@ export async function launchQueuedChatTurn(
     locale: chat.locale,
     currentUrl: chat.currentUrl ?? null,
     localToolsEnabled: chat.localTools,
+    secretCardEnabled: chat.secretCard,
     kubeContext: chat.kubeContext,
     diagramId: chat.diagramId,
     isInApp: true,

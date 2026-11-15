@@ -171,15 +171,12 @@ function passthroughHandler(
     // Written out in the body too, for clients that draw only question and body.
     const written = name === 'request_user_decision' ? withQuestionsInBody(raw) : undefined
     const args = written === undefined ? raw : { ...raw, body: written }
-    // Only the Desktop app renders the Connect and secure input cards; elsewhere
-    // (Slack, Discord, Lark) the question goes out as plain text.
-    const {
-      providers: _providers,
-      credentials: _credentials,
-      secretName: _secretName,
-      ...plain
-    } = args
-    const input = name === 'request_user_decision' && ctx.localTools !== true ? plain : args
+    // The Desktop app draws the Connect and secure input cards and a phone the secure input
+    // card; elsewhere (Slack, Discord, Lark) the question goes out as plain text.
+    const { providers: _providers, credentials: _credentials, ...phone } = args
+    const { secretName: _secretName, ...plain } = phone
+    const shown = ctx.localTools === true ? args : ctx.secretCard === true ? phone : plain
+    const input = name === 'request_user_decision' ? shown : args
     const target = name === 'request_user_decision' ? integrationTargetProblem(args) : null
 
     if (target) return toolError(target)
