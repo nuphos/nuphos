@@ -33,8 +33,11 @@ export type ChannelFields = {
   channelWakes?: string[]
   /** People @mentioned here, or invited `by` someone, who have not posted since: their entry. */
   mentions?: Record<string, { messageId: string; at: Date; by?: { id: string; name: string } }>
-  /** On a Task: the live call it is in, whose speech and chat arrive as its messages. */
-  meeting?: { botId: string; botName: string; url: string }
+  /**
+   * On a Task: the live call it is in, whose speech and chat arrive as its messages. Kept once
+   * the call ends, with `endedAt`, so it still counts toward the team's meeting budget.
+   */
+  meeting?: { botId: string; botName: string; url: string; endedAt?: Date }
 }
 
 /** The sender id a channel notice carries, which also picks its instructions. */
