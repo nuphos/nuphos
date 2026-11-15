@@ -127,7 +127,7 @@ export function BotStatusPill({
         {asking ? (
           <span className="size-1.5 shrink-0 rounded-full bg-current" aria-hidden />
         ) : (
-          <Loader2 className="size-3 shrink-0 animate-spin" strokeWidth={2.25} aria-hidden />
+          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
         )}
         <span ref={words} className={clsx('min-w-0 truncate', asking && 'font-medium')}>
           {text}
