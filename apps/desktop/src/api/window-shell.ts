@@ -57,6 +57,10 @@ export type WindowShellApi = {
   sidebarAlignmentFeedback?(): void
   takeWindowSurface?(): Promise<WindowSurface | null>
   reportWindowSurface?(surface: WindowSurface): void
+  /** Opens a new window showing the page at `url`, with its dock expanded. */
+  openPageWindow?(url: string): void
+  /** The page this window was opened to show; null once taken or for any other window. */
+  takeWindowPage?(): Promise<string | null>
   acceptDockTerminal(id: string): Promise<boolean>
   onDockTerminalRequest(callback: (request: DockTerminalRequest) => void): () => void
   localTerminalProcesses(): Promise<{ id: string; name: string }[]>

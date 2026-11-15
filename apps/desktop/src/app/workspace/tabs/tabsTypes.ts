@@ -17,6 +17,8 @@ export type WorkspaceTabsProps = {
   onCloseOthers: (id: string) => void
   onReorder: (tabId: string, targetTabId: string, placement: TabDropPlacement) => void
   onCopyPageUrl: (href: string) => void | Promise<void>
+  /** The link a new window opens to show a tab; null when only this window holds its page. */
+  pageWindowUrl: (tabId: string) => string | null
   sidebarCollapsed?: boolean
   onToggleSidebarCollapse?: () => void
   /** Shown before the tabs, e.g. the way back from an expanded dock. */
