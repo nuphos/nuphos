@@ -121,6 +121,15 @@ fun LoginScreen(
                         Spacer(Modifier.height(8.dp))
                         Text(stringResource(R.string.welcome_body), style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                        if (auth.savedAccounts.isNotEmpty()) {
+                            Spacer(Modifier.height(16.dp))
+                            Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface) {
+                                ai.nuphos.android.ui.profile.SavedAccountsList(auth, allowAdding = false)
+                            }
+                        }
+                        if (auth.addingFrom != null) TextButton(onClick = auth::cancelAddAccount, enabled = !busy) {
+                            Text("Cancel adding account")
+                        }
                     }
                 },
                 alternatives = {
