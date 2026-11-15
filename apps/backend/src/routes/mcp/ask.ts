@@ -78,6 +78,14 @@ async function answerQuestion(
   })
 }
 
+/** Resolves once the conversation exists, or after five seconds without it. */
+async function untilStored(sessionId: string): Promise<void> {
+  for (let tries = 0; tries < 100; tries++) {
+    if (await getConversationBySessionId(sessionId)) return
+    await new Promise((resolve) => setTimeout(resolve, 50))
+  }
+}
+
 export async function nuphosAsk(
   args: Record<string, unknown>,
   ctx: McpCallContext,
@@ -221,9 +229,13 @@ export async function nuphosAsk(
   })()
 
   if (args.wait === false) {
-    run.catch((err: unknown) => {
+    const settled = run.catch((err: unknown) => {
       logError('mcp.ask.background_run_failed', err, { session_id: sessionId })
     })
+
+    // A new session is stored as its first turn starts. Return once it is, so
+    // the nuphos_check that follows finds it.
+    if (!existing) await Promise.race([settled, untilStored(sessionId)])
 
     return toolResult({
       status: 'running',

@@ -140,10 +140,18 @@ describe('nuphos_ask on a teammate’s session', () => {
 
 describe('nuphos_ask wait', () => {
   test('false returns once the turn is accepted; the default waits for the answer', async () => {
+    // A new session is returned only once it is stored, so a check finds it.
     stored = null
-    const started = body(await nuphosAsk({ prompt: 'Go.', team_id: 't1', wait: false }, ctx))
+    const starting = nuphosAsk({ prompt: 'Go.', team_id: 't1', wait: false }, ctx)
+    let returned = false
 
-    expect(started.status).toBe('running')
+    void starting.then(() => {
+      returned = true
+    })
+    await new Promise((resolve) => setTimeout(resolve, 120))
+    expect(returned).toBe(false)
+    stored = session()
+    expect(body(await starting).status).toBe('running')
     expect(runs).toHaveLength(1)
     finishRun()
 
