@@ -2121,6 +2121,7 @@
   "Identity provider: {provider} · Audience: {audience}": "ผู้ให้บริการข้อมูลประจำตัว: {provider} · Audience: {audience}",
   "Idle": "ว่าง",
   "If Claude shows an authorization code, paste it here.": "หาก Claude แสดงรหัสการอนุญาต ให้วางที่นี่",
+  "If Google rejects the grant with {error}, an organization policy (Domain Restricted Sharing) blocked it — the principal is not wrong. An organization policy administrator can allow this one principal on the project that holds {account}, without relaxing the policy for the whole organization. {link}": "หาก Google ปฏิเสธการให้สิทธิ์ด้วย {error} แสดงว่านโยบายขององค์กร (Domain Restricted Sharing) บล็อกไว้ ไม่ได้หมายความว่า principal ผิด ผู้ดูแลนโยบายขององค์กรสามารถอนุญาต principal นี้เพียงรายการเดียวในโปรเจกต์ที่มี {account} ได้ โดยไม่ต้องผ่อนปรนนโยบายทั้งองค์กร {link}",
   "If nothing happens, make sure your OS routes {scheme} URLs to this app.": "หากไม่มีอะไรเกิดขึ้น ตรวจสอบว่าระบบปฏิบัติการส่ง URL {scheme} มายังแอปนี้",
   "If nothing happens, make sure your browser allowed the popup and that your OS routes {scheme} URLs to this app.": "หากไม่มีอะไรเกิดขึ้น ให้ตรวจสอบว่าเบราว์เซอร์อนุญาตป๊อปอัปแล้ว และระบบปฏิบัติการส่ง URL แบบ {scheme} มายังแอปนี้",
   "If you lose your authenticator, each code signs you in once. They are shown only now.": "หากทำแอปยืนยันตัวตนหาย แต่ละรหัสใช้ลงชื่อเข้าใช้ได้หนึ่งครั้ง จะแสดงเฉพาะตอนนี้เท่านั้น",

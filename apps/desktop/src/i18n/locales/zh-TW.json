@@ -2121,6 +2121,7 @@
   "Identity provider: {provider} · Audience: {audience}": "識別提供者：{provider} · Audience：{audience}",
   "Idle": "閒置",
   "If Claude shows an authorization code, paste it here.": "如果 Claude 顯示授權碼，請貼到這裡。",
+  "If Google rejects the grant with {error}, an organization policy (Domain Restricted Sharing) blocked it — the principal is not wrong. An organization policy administrator can allow this one principal on the project that holds {account}, without relaxing the policy for the whole organization. {link}": "如果 Google 以 {error} 拒絕這項授權，代表是組織政策（Domain Restricted Sharing）擋下了它，主體本身並沒有填錯。組織政策管理員可以在 {account} 所在的專案上只放行這一個主體，不需要放寬整個組織的政策。{link}",
   "If nothing happens, make sure your OS routes {scheme} URLs to this app.": "若沒有任何反應，請確認你的作業系統會將 {scheme} 網址交給此應用程式處理。",
   "If nothing happens, make sure your browser allowed the popup and that your OS routes {scheme} URLs to this app.": "如果沒有任何反應，請確認瀏覽器已允許彈出視窗，且作業系統會將 {scheme} 網址交由此 App 開啟。",
   "If you lose your authenticator, each code signs you in once. They are shown only now.": "如果遺失驗證器，每組復原碼可登入一次。這些復原碼只會顯示這一次。",

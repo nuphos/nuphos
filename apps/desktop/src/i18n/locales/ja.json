@@ -2121,6 +2121,7 @@
   "Identity provider: {provider} · Audience: {audience}": "ID プロバイダー：{provider} · Audience：{audience}",
   "Idle": "待機中",
   "If Claude shows an authorization code, paste it here.": "Claude に認証コードが表示された場合は、ここに貼り付けてください。",
+  "If Google rejects the grant with {error}, an organization policy (Domain Restricted Sharing) blocked it — the principal is not wrong. An organization policy administrator can allow this one principal on the project that holds {account}, without relaxing the policy for the whole organization. {link}": "Google が {error} でこの付与を拒否した場合は、組織ポリシー（Domain Restricted Sharing）によってブロックされています。プリンシパルが間違っているわけではありません。組織ポリシー管理者は、組織全体のポリシーを緩めることなく、{account} があるプロジェクトでこのプリンシパルだけを許可できます。{link}",
   "If nothing happens, make sure your OS routes {scheme} URLs to this app.": "何も起こらない場合は、OS が {scheme} URL をこのアプリに関連付けているか確認してください。",
   "If nothing happens, make sure your browser allowed the popup and that your OS routes {scheme} URLs to this app.": "何も起こらない場合は、ブラウザでポップアップが許可されているか、また OS が {scheme} URL をこのアプリで開くよう設定されているかを確認してください。",
   "If you lose your authenticator, each code signs you in once. They are shown only now.": "認証アプリをなくした場合、各コードで 1 回サインインできます。表示されるのは今回だけです。",

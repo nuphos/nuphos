@@ -2121,6 +2121,7 @@
   "Identity provider: {provider} · Audience: {audience}": "身份提供商：{provider} · Audience：{audience}",
   "Idle": "空闲",
   "If Claude shows an authorization code, paste it here.": "如果 Claude 显示了授权码，请粘贴到这里。",
+  "If Google rejects the grant with {error}, an organization policy (Domain Restricted Sharing) blocked it — the principal is not wrong. An organization policy administrator can allow this one principal on the project that holds {account}, without relaxing the policy for the whole organization. {link}": "如果 Google 以 {error} 拒绝这项授权，说明是组织政策（Domain Restricted Sharing）拦下了它，主账号本身并没有填错。组织政策管理员可以在 {account} 所在的项目上只放行这一个主账号，无需放宽整个组织的政策。{link}",
   "If nothing happens, make sure your OS routes {scheme} URLs to this app.": "如果没有反应，请确认你的操作系统已将 {scheme} URL 交由此应用处理。",
   "If nothing happens, make sure your browser allowed the popup and that your OS routes {scheme} URLs to this app.": "如果没有任何反应，请确认浏览器已允许弹出窗口，并且操作系统会将 {scheme} 链接交由此应用打开。",
   "If you lose your authenticator, each code signs you in once. They are shown only now.": "如果丢失验证器，每个恢复码可登录一次。这些恢复码只会显示这一次。",

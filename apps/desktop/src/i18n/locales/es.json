@@ -2121,6 +2121,7 @@
   "Identity provider: {provider} · Audience: {audience}": "Proveedor de identidad: {provider} · Audience: {audience}",
   "Idle": "Inactivo",
   "If Claude shows an authorization code, paste it here.": "Si Claude muestra un código de autorización, pégalo aquí.",
+  "If Google rejects the grant with {error}, an organization policy (Domain Restricted Sharing) blocked it — the principal is not wrong. An organization policy administrator can allow this one principal on the project that holds {account}, without relaxing the policy for the whole organization. {link}": "Si Google rechaza la concesión con {error}, la bloqueó una política de la organización (Domain Restricted Sharing); el principal no es incorrecto. Un administrador de políticas de la organización puede permitir solo este principal en el proyecto que contiene {account}, sin relajar la política para toda la organización. {link}",
   "If nothing happens, make sure your OS routes {scheme} URLs to this app.": "Si no ocurre nada, verifica que tu sistema operativo dirija las URL {scheme} a esta app.",
   "If nothing happens, make sure your browser allowed the popup and that your OS routes {scheme} URLs to this app.": "Si no pasa nada, asegúrate de que el navegador haya permitido la ventana emergente y de que tu sistema operativo abra las URL {scheme} con esta app.",
   "If you lose your authenticator, each code signs you in once. They are shown only now.": "Si pierdes tu app de autenticación, cada código te permite iniciar sesión una vez. Solo se muestran ahora.",
