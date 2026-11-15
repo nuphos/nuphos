@@ -362,8 +362,9 @@ struct ConversationView: View {
                 editRequest: $session.editingSubmission,
                 mentions: MentionSource(
                     teamId: session.teamId,
-                    // Only someone who may change the session's devices can bring one in.
-                    devices: session.canManage ? store.credentialCatalog?.scoped(to: .devices).allItems ?? [] : [],
+                    // Only someone who may change the session's devices can bring one in,
+                    // and a Task under a Bot has none of its own to change.
+                    devices: session.canManage && !session.followsBot ? store.credentialCatalog?.scoped(to: .devices).allItems ?? [] : [],
                     pickDevice: { device in
                         var selection = session.credentialAccess ?? CredentialSelection()
                         if !selection.contains(device) { selection.toggle(device); session.setCredentials(selection) }

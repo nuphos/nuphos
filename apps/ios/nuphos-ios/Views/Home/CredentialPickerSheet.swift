@@ -113,32 +113,8 @@ struct ComposerControls: View {
 
     // Desktop's order: Credentials, then how it runs (mode, runtime, model).
     var body: some View {
-        Button { showPicker = true } label: {
-            ComposerChip(systemImage: "key", title: credentialsTitle, isActive: selection.count(in: .credentials) > 0)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Choose Credentials")
-        .sheet(isPresented: $showPicker) { CredentialPickerSheet(selection: $selection).presentationDetents([.medium, .large]) }
-        #if DEBUG
-        .onAppear { if ProcessInfo.processInfo.arguments.contains("-show-iam") { showPicker = true } }
-        #endif
-
-        Button { showDevices = true } label: {
-            ComposerChip(systemImage: "laptopcomputer", title: deviceTitle, isActive: selection.count(in: .devices) > 0)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Choose computers")
-        .sheet(isPresented: $showDevices) { CredentialPickerSheet(selection: $selection, scope: .devices).presentationDetents([.medium, .large]) }
-
-        Button { showModes = true } label: {
-            ComposerChip(title: mode.title, isActive: mode == .bypass)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Permission mode")
-        .sheet(isPresented: $showModes) { PermissionModeSheet(mode: $mode) }
-        #if DEBUG
-        .onAppear { if ProcessInfo.processInfo.arguments.contains("-show-modes") { showModes = true } }
-        #endif
+        // A Task under a Bot uses the Bot's and has none of its own to change.
+        if session?.followsBot != true { ownSelection }
 
         runtimeChip
 
@@ -169,6 +145,36 @@ struct ComposerControls: View {
                 await store.loadNewModelConfig()
             }
         }
+    }
+
+    /// Credentials, computers and permission mode: what a conversation with no Bot above it picks.
+    @ViewBuilder private var ownSelection: some View {
+        Button { showPicker = true } label: {
+            ComposerChip(systemImage: "key", title: credentialsTitle, isActive: selection.count(in: .credentials) > 0)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Choose Credentials")
+        .sheet(isPresented: $showPicker) { CredentialPickerSheet(selection: $selection).presentationDetents([.medium, .large]) }
+        #if DEBUG
+        .onAppear { if ProcessInfo.processInfo.arguments.contains("-show-iam") { showPicker = true } }
+        #endif
+
+        Button { showDevices = true } label: {
+            ComposerChip(systemImage: "laptopcomputer", title: deviceTitle, isActive: selection.count(in: .devices) > 0)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Choose computers")
+        .sheet(isPresented: $showDevices) { CredentialPickerSheet(selection: $selection, scope: .devices).presentationDetents([.medium, .large]) }
+
+        Button { showModes = true } label: {
+            ComposerChip(title: mode.title, isActive: mode == .bypass)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Permission mode")
+        .sheet(isPresented: $showModes) { PermissionModeSheet(mode: $mode) }
+        #if DEBUG
+        .onAppear { if ProcessInfo.processInfo.arguments.contains("-show-modes") { showModes = true } }
+        #endif
     }
 
     /// A new chat picks its runtime here; an open one switches it here too,
