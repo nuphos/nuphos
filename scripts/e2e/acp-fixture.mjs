@@ -89,7 +89,7 @@ async function ask(sessionId, category) {
   log({ sessionId, event: 'asked', isError: refused(message) })
 }
 
-const form = formSteps({ call, log, refused })
+const form = formSteps({ call, log, refused, send })
 
 // A delegated turn names its sender by title, which carries the sender's own
 // markers, so the fixture tells such a turn by its prompt and does not delegate again.

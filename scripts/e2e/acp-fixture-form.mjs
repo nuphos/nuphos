@@ -2,13 +2,13 @@
 // secure card, then enters the saved files with local_browser `fill`. It never opens them.
 
 /** `call`, `log` and `refused` are the fixture's own; the result handles one prompt's text. */
-export function formSteps({ call, log, refused }) {
+export function formSteps({ call, log, refused, send }) {
   // The site each session asked a form's details for, as `host:port`.
   const forms = new Map()
 
   async function ask(sessionId, site) {
     forms.set(sessionId, site)
-    const message = await call(sessionId, 'request_user_decision', {
+    const args = {
       label: 'Ask for the form details',
       category: 'credential',
       question: 'The lookup form needs these details.',
@@ -18,6 +18,24 @@ export function formSteps({ call, log, refused }) {
         { name: 'E2E_BIRTH', label: 'Date of birth' },
       ],
       site,
+    }
+    const message = await call(sessionId, 'request_user_decision', args)
+
+    // A real agent's tool call is part of its turn, which is where a phone reads the card from.
+    send({
+      method: 'session/update',
+      params: {
+        sessionId,
+        update: {
+          sessionUpdate: 'tool_call',
+          toolCallId: `ask-${Date.now()}`,
+          title: 'mcp__nuphos-tools__request_user_decision',
+          kind: 'other',
+          status: 'completed',
+          rawInput: args,
+          rawOutput: message.result?.structuredContent ?? {},
+        },
+      },
     })
 
     log({ sessionId, event: 'form-asked', isError: refused(message) })
