@@ -123,6 +123,27 @@ const scenarios: Scenario[] = [
     },
   },
   {
+    // #2870: a credential question with choices and no secret to save is an ordinary choice card.
+    name: 'the agent asks a credential question with choices and its card and the Inbox answer it',
+    run: async (page, stack) => {
+      const finished = () =>
+        agentEvents(stack).filter((event) => event === 'finish E2E_DELIVERY:other').length
+      const before = finished()
+
+      await newTask(page)
+      await send(page, 'Ask me E2E_ASK_CREDENTIAL E2E_DELIVERY:credential')
+      await page.getByText('Credential needed').waitFor()
+      await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).click()
+      await page.getByText('ACK E2E_DELIVERY:answered').waitFor()
+      await send(page, 'Ask again E2E_ASK_CREDENTIAL E2E_DELIVERY:credential-again')
+      await page.getByText('ACK E2E_DELIVERY:credential-again').waitFor()
+      await page.getByRole('tab', { name: 'Inbox' }).click()
+      await page.getByRole('button', { name: 'E2E_DELIVERY:other' }).click()
+      await page.getByRole('heading', { name: /^Answered/ }).waitFor()
+      await until('the Inbox answer to reach the agent', async () => finished() === before + 1)
+    },
+  },
+  {
     // A runtime restart between turns, the situation #2612 was reported in. Not checked against its fix.
     name: 'the agent host restarts between two messages and the conversation carries on',
     run: async (page, stack) => {
