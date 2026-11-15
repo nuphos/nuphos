@@ -523,6 +523,8 @@ jobs:
         run: bun run lint
       - name: Test the dev launcher's local stack wiring
         run: node --test --experimental-strip-types scripts/dev*.test.ts
+      - name: Test filling mobile strings from the Desktop translations
+        run: node --test scripts/fill-mobile-locales.test.mjs
       - name: Test that every release runs the provenance gate
         run: node --test scripts/release-workflows.test.mjs
       # BLOCKING. The custom comment-discipline rules are only worth having if
