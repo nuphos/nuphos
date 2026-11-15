@@ -3,7 +3,7 @@ import { useLayoutEffect, useRef } from 'react'
 import { api } from '../../api'
 
 import { attachSidebarSwipe } from './sidebar-swipe-controller'
-import { slotOf } from './sidebar-tab-order'
+import { pageAtSlot, slotOf, trackStep } from './sidebar-tab-order'
 
 import type { SidebarTabOrder } from './sidebar-tab-order'
 import type { SidebarPage, SidebarPageChange } from './swipe-gesture'
@@ -39,7 +39,7 @@ export function useSidebarSwipe(
       el,
       layer,
       slotOf(slots.current, page),
-      (slot) => change.current(slots.current[slot]),
+      (slot) => change.current(pageAtSlot(slots.current, slot)),
       {
         onStart: () => change.current.cancelPending?.(),
         onThreshold: () => api.sidebarAlignmentFeedback?.(),
@@ -58,14 +58,12 @@ export function useSidebarSwipe(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   useLayoutEffect(() => {
-    // A new order moves the open page's panel in the DOM; follow it without sliding.
-    if (slots.current !== order) {
-      slots.current = order
-      control.current?.place(slotOf(order, page))
+    // A new order moves the open page's panel along the track: jump there, don't slide.
+    const step = trackStep(slots.current, order, page)
 
-      return
-    }
-    control.current?.go(slotOf(order, page))
+    slots.current = order
+    if (step.jump) control.current?.place(step.slot)
+    else control.current?.go(step.slot)
   }, [page, order])
 
   return { viewport, track }

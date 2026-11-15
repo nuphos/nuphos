@@ -43,6 +43,19 @@ export function slotOf(order: SidebarTabOrder, page: SidebarPage): SidebarPage {
   return Math.max(0, order.indexOf(page)) as SidebarPage
 }
 
+/** The page shown in a slot of the swipe track. */
+export function pageAtSlot(order: SidebarTabOrder, slot: SidebarPage): SidebarPage {
+  return order[slot] ?? order[0]
+}
+
+/**
+ * How the swipe track follows the open page. A new order moves the page to another
+ * slot without the user asking to go anywhere, so the track jumps; a new page slides.
+ */
+export function trackStep(previous: SidebarTabOrder, order: SidebarTabOrder, page: SidebarPage) {
+  return { slot: slotOf(order, page), jump: !sameOrder(previous, order) }
+}
+
 /** The neighbour on screen, for arrow keys; stays put at the ends. */
 export function pageBeside(order: SidebarTabOrder, page: SidebarPage, delta: number) {
   const slot = Math.max(0, Math.min(order.length - 1, slotOf(order, page) + delta))
