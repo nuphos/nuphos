@@ -170,10 +170,9 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   answer: canReply
                     ? cardAnswers(teamId, activeTab.sessionId, questions)
                     : undefined,
-                  skip: canReply
-                    ? (card) =>
-                        dismissQuestion(teamId, activeTab.sessionId, cardReplyId(card, questions))
-                    : undefined,
+                  // Offered only on a card that can be answered, so `answer` already gates it.
+                  skip: (card) =>
+                    dismissQuestion(teamId, activeTab.sessionId, cardReplyId(card, questions)),
                   // Only the owner provides a secret; it lands on their runtime.
                   saveSecret:
                     activeTab.readOnly || activeTab.foreign
