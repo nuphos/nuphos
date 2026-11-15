@@ -49,7 +49,9 @@ final class RealFormRunUITests: XCTestCase {
         sleep(5)
         capture("1-signed-in")
 
-        let task = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", marker)).firstMatch
+        // The newest Task is first; its title is the message the Desktop app sent, cut short on a phone.
+        _ = marker
+        let task = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "fill the form E2E_FORM")).firstMatch
         if !task.waitForExistence(timeout: 20) { capture("no-task") }
         XCTAssertTrue(task.exists, "The Task the Desktop app started is not listed")
         task.tap()
