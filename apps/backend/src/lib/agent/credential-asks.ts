@@ -10,7 +10,7 @@ import { openInputRequests, resolveInputRequest } from './db/pending-decision'
 import { systemSender } from './message-metadata'
 import { CONNECTABLE_PROVIDERS, isConnectableProvider } from './tools-skilled/decision-tools'
 
-import type { AgentCredentialAccess } from './db'
+import type { AgentConversation, AgentCredentialAccess } from './db'
 import type { InputRequest } from './db/pending-decision'
 import type { SelectionKey } from '@/lib/claude-code-preview/credential-lister'
 
@@ -53,8 +53,10 @@ export function selectedProviders(request: InputRequest, added: AddedCredentialI
 /**
  * Answers the open questions that `added` selects a provider of, in the
  * conversation and in the Tasks below it that use its selection, then starts a
- * turn that tells each agent so. Best-effort: the selection is already saved,
- * and a question left open can still be answered by hand.
+ * turn that tells each agent so. It returns once the questions are closed, so a
+ * client that reloads them when the selection is saved sees them gone; the
+ * agents wake after. Best-effort: the selection is already saved, and a
+ * question left open can still be answered by hand.
  */
 export async function answerCredentialAsks(sessionId: string, added: AddedCredentialIds) {
   if (Object.keys(added).length === 0) return
@@ -91,17 +93,31 @@ async function answerAsksIn(sessionId: string, added: AddedCredentialIds) {
       session_id: sessionId,
       request_ids: answered.join(','),
     })
+    void wake(conversation, conversation.teamId, answered, [...providers])
+  } catch (error) {
+    logError('agent.pending_decision.credential_selected_failed', error, { session_id: sessionId })
+  }
+}
+
+/** Tells the agent its questions are answered by the credentials now selected. */
+async function wake(
+  conversation: AgentConversation,
+  teamId: string,
+  answered: string[],
+  providers: string[],
+) {
+  try {
     const { startConversationTurn } = await import('./conversation-turn')
     const { run } = await startConversationTurn(
       {
         userId: conversation.userId,
-        teamId: conversation.teamId,
-        targetSessionId: sessionId,
+        teamId,
+        targetSessionId: conversation.sessionId,
         messageId: randomUUID(),
         locale: conversation.metadata?.locale ?? 'en-US',
       },
       conversation,
-      `The credentials you asked for are now selected for this conversation (${[...providers].join(', ')}), ` +
+      `The credentials you asked for are now selected for this conversation (${providers.join(', ')}), ` +
         `so your question is answered (requestId ${answered.join(', ')}). ` +
         'Call list_credentials to see them, then continue the task.',
       'agent.resource',
@@ -110,6 +126,8 @@ async function answerAsksIn(sessionId: string, added: AddedCredentialIds) {
 
     await run
   } catch (error) {
-    logError('agent.pending_decision.credential_selected_failed', error, { session_id: sessionId })
+    logError('agent.pending_decision.credential_selected_failed', error, {
+      session_id: conversation.sessionId,
+    })
   }
 }
