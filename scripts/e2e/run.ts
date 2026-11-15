@@ -192,17 +192,21 @@ const scenarios: Scenario[] = [
   },
   {
     // #2760 and #2761: create_thread names the agent and the fast mode a new Task starts with.
-    name: 'the agent delegates to another agent, and the new Task starts there, then in fast mode',
+    // #2885: the fast Task comes first, on an agent that has not run a conversation yet.
+    name: 'the agent delegates to another agent in fast mode, and the new Task starts there',
     run: async (page, stack) => {
+      if (agentLog(stack).some((entry) => entry.agent === 'second' && entry.event === 'start')) {
+        throw new Error('The second agent ran a conversation before this scenario')
+      }
       await newTask(page)
-      await send(page, 'Delegate E2E_DELEGATE E2E_DELIVERY:delegating')
-      await until('the delegated Task to finish', async () =>
-        delegatedTurn(stack, 'E2E_DELIVERY:child'),
-      )
-      await page.getByText('ACK E2E_DELIVERY:delegating', { exact: true }).waitFor()
       await send(page, 'Delegate fast E2E_DELEGATE_FAST E2E_DELIVERY:delegating-fast')
       await until('the fast delegated Task to finish', async () =>
         delegatedTurn(stack, 'E2E_DELIVERY:child-fast'),
+      )
+      await page.getByText('ACK E2E_DELIVERY:delegating-fast', { exact: true }).waitFor()
+      await send(page, 'Delegate E2E_DELEGATE E2E_DELIVERY:delegating')
+      await until('the delegated Task to finish', async () =>
+        delegatedTurn(stack, 'E2E_DELIVERY:child'),
       )
       const log = agentLog(stack)
       const children = log.filter((entry) => entry.marker?.startsWith('E2E_DELIVERY:child'))

@@ -232,7 +232,16 @@ pub struct AppState {
     pub acp_pool_liveness: Option<AcpPoolLivenessTx>,
     #[cfg(feature = "acp")]
     pub acp_pool_config: Option<tokio::sync::mpsc::Sender<AcpPoolConfigRequest>>,
+    /// Reads what a new session of the agent offers: `(model, reply)`.
+    #[cfg(feature = "acp")]
+    pub acp_fresh_config: Option<AcpFreshConfigTx>,
 }
+
+#[cfg(feature = "acp")]
+pub type AcpFreshConfigTx = tokio::sync::mpsc::Sender<(
+    Option<String>,
+    tokio::sync::oneshot::Sender<Result<serde_json::Value, (i32, String)>>,
+)>;
 
 /// Sender half of the pool-liveness query bridge: `(thread_key, reply)`.
 #[cfg(feature = "acp")]
@@ -302,6 +311,8 @@ impl AppState {
             acp_pool_liveness: None,
             #[cfg(feature = "acp")]
             acp_pool_config: None,
+            #[cfg(feature = "acp")]
+            acp_fresh_config: None,
             #[cfg(feature = "lineworks")]
             lineworks: None,
             ws_token: None,
@@ -456,6 +467,8 @@ impl AppState {
             acp_pool_liveness: None,
             #[cfg(feature = "acp")]
             acp_pool_config: None,
+            #[cfg(feature = "acp")]
+            acp_fresh_config: None,
             #[cfg(feature = "lineworks")]
             lineworks,
             ws_token,
@@ -1115,6 +1128,8 @@ pub async fn serve(config: ServeConfig) -> anyhow::Result<()> {
         acp_pool_liveness: None,
         #[cfg(feature = "acp")]
         acp_pool_config: None,
+        #[cfg(feature = "acp")]
+        acp_fresh_config: None,
         #[cfg(feature = "lineworks")]
         lineworks,
         ws_token,

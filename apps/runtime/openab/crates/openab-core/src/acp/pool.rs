@@ -1418,6 +1418,50 @@ impl SessionPool {
         f(&mut conn).await
     }
 
+    /// What a new session of this agent offers, read from a process that never
+    /// joins the pool and is killed when this returns. With `model`, the
+    /// choices are read after selecting it, since effort and speed depend on it.
+    pub async fn fresh_config_options(
+        &self,
+        model: Option<&str>,
+    ) -> std::result::Result<serde_json::Value, (i32, String)> {
+        let workdir = &self.config.working_dir;
+        let _ = std::fs::create_dir_all(workdir);
+        let mut conn = spawn_initialized(
+            &AgentCommand {
+                command: &self.config.command,
+                args: &self.config.args,
+                working_dir: workdir,
+                env: &self.config.env,
+                inherit_env: &self.config.inherit_env,
+            },
+            &[],
+        )
+        .await
+        .map_err(|_| (-32603, "Agent did not start".to_string()))?;
+        conn.session_new(workdir, &[], None)
+            .await
+            .map_err(|_| (-32603, "Agent did not start a session".to_string()))?;
+        for (config_id, value) in &self.default_config_options {
+            let _ = conn.set_config_option_strict(config_id, value).await;
+        }
+        if let Some(model) = model {
+            let option = conn
+                .config_options
+                .iter()
+                .find(|o| o.category.as_deref() == Some("model") || o.id == "model")
+                .filter(|o| o.options.iter().any(|choice| choice.value == model))
+                .ok_or((-32602, "Unknown model".to_string()))?;
+            if option.current_value != model {
+                let id = option.id.clone();
+                conn.set_config_option_strict(&id, model)
+                    .await
+                    .map_err(|_| (-32603, "Agent did not select the model".to_string()))?;
+            }
+        }
+        Ok(serde_json::json!({ "configOptions": conn.config_options }))
+    }
+
     /// Get cached configOptions for a session (e.g. available models).
     pub async fn get_config_options(&self, thread_id: &str) -> Vec<ConfigOption> {
         let state = self.state.read().await;
