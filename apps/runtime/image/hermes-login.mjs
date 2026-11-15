@@ -19,6 +19,8 @@ import { pathToFileURL } from 'node:url'
 const HERMES = process.env.NUPHOS_AGENT_EXECUTABLE || 'hermes'
 const HOME = process.env.NUPHOS_AGENT_HOME || process.env.HOME || '/home/node'
 const WINDOWS = process.platform === 'win32'
+// What Python on Windows needs to start, find its temp folder and run commands.
+const WINDOWS_ENV = ['SYSTEMROOT', 'TEMP', 'TMP', 'PATHEXT', 'LOCALAPPDATA', 'APPDATA']
 // Listed first; every other provider follows by name.
 const FEATURED = ['nous', 'openai-codex', 'anthropic', 'openrouter', 'openai-api', 'gemini']
 // Sign-ins whose page shows a code to paste back; the others are device pages.
@@ -37,10 +39,13 @@ class LoginError extends Error {}
 // Not the gateway's environment: no transport keys or session tokens.
 const hermesEnv = (extra = {}) => ({
   HOME,
+  // Windows finds the home here, not in HOME.
+  USERPROFILE: HOME,
   HERMES_HOME: join(HOME, '.hermes'),
   PATH: process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin',
-  // Python cannot start on Windows without it.
-  ...(process.env.SYSTEMROOT ? { SYSTEMROOT: process.env.SYSTEMROOT } : {}),
+  ...Object.fromEntries(
+    WINDOWS_ENV.filter((key) => process.env[key]).map((key) => [key, process.env[key]]),
+  ),
   HERMES_DISABLE_LAZY_INSTALLS: '1',
   NO_COLOR: '1',
   TERM: 'dumb',
