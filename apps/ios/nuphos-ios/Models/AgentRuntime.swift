@@ -127,6 +127,7 @@ extension RuntimeInstance.Provider {
         case "opencode": "OpenCode"
         case "hermes": "Hermes Agent"
         case "dsh": "DeepSeek Harness"
+        case "pi": "Pi"
         case "nuphos": "Nuphos"
         default: raw?.isEmpty == false ? "Unknown runtime" : "Runtime"
         }

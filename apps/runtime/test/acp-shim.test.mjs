@@ -531,3 +531,21 @@ test('Antigravity forwards advertised capabilities, errors and process exit', as
  })`,
   )
 })
+
+test('pi runs through the pi-acp adapter and gets the session MCP servers as its mcp.json', async () => {
+  await withShim('pi', async ({ call, children, home }) => {
+    await call('initialize', { protocolVersion: 1 })
+    const servers = [{ name: 'nuphos', command: 'node', args: ['bridge.mjs'], env: [] }]
+    await call('session/new', { ...session('Be Nuphos.'), mcpServers: servers })
+    const [executable, adapter] = children.at(-1).command
+    assert.equal(executable, process.execPath)
+    assert.match(adapter, /node_modules[\\/]pi-acp[\\/]dist[\\/]index\.js$/u)
+    const { readdir, readFile } = await import('node:fs/promises')
+    const sessions = join(home, '.nuphos', 'session-homes')
+    const [sessionHome] = await readdir(sessions)
+    const mcp = JSON.parse(
+      await readFile(join(sessions, sessionHome, '.pi', 'agent', 'mcp.json'), 'utf8'),
+    )
+    assert.deepEqual(Object.keys(mcp.mcpServers), ['nuphos'])
+  })
+})

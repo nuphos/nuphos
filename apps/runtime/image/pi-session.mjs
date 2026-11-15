@@ -1,0 +1,80 @@
+// Pi keeps everything it has in its agent directory: its login (auth.json), its settings,
+// its sessions and the MCP servers it connects to (mcp.json). pi-acp passes the session's
+// MCP servers nowhere, so they are written to that file, and they hold this conversation's
+// credentials. So each session home, that is each conversation and each teammate acting
+// in it, gets an agent directory of its own.
+//
+// It signs in with the root's login (~/.pi/agent/auth.json) and starts on the model the
+// sign-in chose, which is copied from the root's settings.
+import { lstatSync, mkdirSync, readFileSync, renameSync, symlinkSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+
+/** The settings a sign-in writes: the model every conversation starts on. */
+export const MODEL_SETTINGS = ['defaultProvider', 'defaultModel']
+
+export function readJson(file) {
+  try {
+    return JSON.parse(readFileSync(file, 'utf8'))
+  } catch {
+    return {}
+  }
+}
+
+export function writeJson(file, value) {
+  const temporary = `${file}.${String(process.pid)}.tmp`
+  writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 })
+  renameSync(temporary, file)
+}
+
+/** Prepares the agent directory for `sessionHome` and returns it (PI_CODING_AGENT_DIR). */
+export function piAgentDir(runtimeHome, sessionHome, workspace = process.cwd()) {
+  const root = join(runtimeHome, '.pi', 'agent')
+  const dir = join(sessionHome, '.pi', 'agent')
+  mkdirSync(root, { recursive: true, mode: 0o700 })
+  mkdirSync(dir, { recursive: true, mode: 0o700 })
+  // The login and the user's own model providers, where the sign-in keeps them.
+  if (dir !== root)
+    for (const name of ['auth.json', 'models.json']) {
+      try {
+        lstatSync(join(dir, name))
+      } catch {
+        symlinkSync(join(root, name), join(dir, name))
+      }
+    }
+  const chosen = readJson(join(root, 'settings.json'))
+  writeJson(join(dir, 'settings.json'), {
+    ...(dir === root ? chosen : {}),
+    ...Object.fromEntries(
+      MODEL_SETTINGS.filter((key) => typeof chosen[key] === 'string').map((key) => [
+        key,
+        chosen[key],
+      ]),
+    ),
+    // pi-acp sends the startup listing as the agent's first message otherwise.
+    quietStartup: true,
+    enableInstallTelemetry: false,
+    // A workspace's own extensions and settings never load: no terminal is there to ask.
+    defaultProjectTrust: 'never',
+    skills: [join(workspace, '.agents', 'skills')],
+  })
+  return dir
+}
+
+const pairs = (values) => Object.fromEntries((values ?? []).map(({ name, value }) => [name, value]))
+
+/** Writes a session's ACP MCP servers as the mcp.json Pi reads when it starts. */
+export function writePiMcpServers(agentDir, servers = []) {
+  const mcpServers = Object.fromEntries(
+    servers.map((server) => [
+      server.name,
+      {
+        ...(server.url
+          ? { url: server.url, headers: pairs(server.headers) }
+          : { command: server.command, args: server.args ?? [], env: pairs(server.env) }),
+        // Offered as tools of their own, as every other agent offers them.
+        exposure: 'direct',
+      },
+    ]),
+  )
+  writeJson(join(agentDir, 'mcp.json'), { mcpServers })
+}

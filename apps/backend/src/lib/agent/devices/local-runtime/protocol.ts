@@ -24,6 +24,7 @@ export const LOCAL_AGENT_PROVIDERS = [
   'opencode',
   'dsh',
   'hermes',
+  'pi',
 ] as const
 
 export type LocalAgentProvider = (typeof LOCAL_AGENT_PROVIDERS)[number]
@@ -186,6 +187,7 @@ export const localRuntimeStatusSchema = z.object({
     opencode: localAgentStatusSchema.optional(),
     dsh: localAgentStatusSchema.optional(),
     hermes: localAgentStatusSchema.optional(),
+    pi: localAgentStatusSchema.optional(),
   }),
   backendUrl: z.string().url().max(500).optional(),
 })
