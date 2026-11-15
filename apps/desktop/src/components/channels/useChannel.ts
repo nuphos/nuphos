@@ -6,6 +6,7 @@ import { WorkspaceTabContext } from '../../hooks/useWorkspaceTab.ts'
 import { queryKeys } from '../../lib/query/keys.ts'
 
 import { channelRevision } from './channelRevision.ts'
+import { listedConversation } from './channelShared.ts'
 
 import type { AgentConversationDetail, ChannelAgent } from '../../api'
 import type { QueryClient, QueryState } from '@tanstack/react-query'
@@ -78,5 +79,14 @@ export function useChannel(teamId: string, channelId: string) {
     [client, teamId, channelId],
   )
 
-  return { detail: data?.detail ?? null, agents: data?.agents ?? [], refresh }
+  const detail = data?.detail ?? null
+
+  // Until the chat loads, the sidebar's row says its name and its Bot, so the header and
+  // the composer open as they will stay.
+  return {
+    detail,
+    chat: detail ?? listedConversation(teamId, channelId),
+    agents: data?.agents ?? [],
+    refresh,
+  }
 }
