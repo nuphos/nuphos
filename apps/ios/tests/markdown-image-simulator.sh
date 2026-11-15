@@ -46,7 +46,8 @@ context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 context.load_cert_chain(f"{root}/cert.pem", f"{root}/key.pem")
 server.socket = context.wrap_socket(server.socket, server_side=True)
 server.serve_forever()
-PYserver=$!
+PY
+server=$!
 xcrun simctl keychain "$device" add-root-cert "$tmp/cert.pem"
 
 TEST_RUNNER_MARKDOWN_IMAGE_URL=https://127.0.0.1:8765/wide.png \
