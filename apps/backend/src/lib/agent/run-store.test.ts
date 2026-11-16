@@ -168,6 +168,10 @@ class FakeRedis {
 
   // Only the run-store Lua scripts reach here; branch on their shape rather
   // than interpreting Lua. They compare ownership before refreshing/deleting.
+  smembers(key: string): Promise<string[]> {
+    return Promise.resolve([...(this.sets.get(key) ?? [])])
+  }
+
   sadd(key: string, ...members: string[]): Promise<number> {
     const set = this.sets.get(key) ?? this.sets.set(key, new Set()).get(key)!
 
@@ -262,7 +266,18 @@ class FakeRedis {
     const ops: [string, unknown[]][] = []
     const rec: Record<string, (...a: unknown[]) => unknown> = {}
 
-    for (const method of ['set', 'hset', 'hsetnx', 'expire', 'del', 'xadd', 'exists', 'sadd']) {
+    for (const method of [
+      'set',
+      'hset',
+      'hsetnx',
+      'expire',
+      'del',
+      'xadd',
+      'exists',
+      'sadd',
+      'hmget',
+      'smembers',
+    ]) {
       rec[method] = (...a: unknown[]) => {
         ops.push([method, a])
 
@@ -451,7 +466,7 @@ describe('agent run busy-guard lifecycle (issue #338)', () => {
     }
   })
 
-  test('many sessions are read in one pipeline, and only a live one in full', async () => {
+  test('many sessions are read in one pipeline, without a read per live one', async () => {
     const release = await claimSession()
     const hmget = redis.hmget.bind(redis)
     const fullReads: string[] = []
@@ -469,7 +484,11 @@ describe('agent run busy-guard lifecycle (issue #338)', () => {
       ])
 
       expect(runs.map((run) => run?.streamId ?? null)).toEqual([null, STREAM, null])
-      expect(fullReads).toEqual([`atlas:agentrun-active:${USER}:${SESSION}`])
+      expect(fullReads).toEqual([
+        `atlas:agentrun-active:${USER}:quiet`,
+        `atlas:agentrun-active:${USER}:${SESSION}`,
+        `atlas:agentrun-active:u2:${SESSION}`,
+      ])
     } finally {
       redis.hmget = hmget
       release()
