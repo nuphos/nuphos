@@ -86,6 +86,36 @@ test('native IPC shortcuts use the current order and unsubscribe on unmount', as
     dom.document.body.append(modal)
     await act(() => emit('select-sidebar-tab-1'))
     assert.deepEqual(pages, [2, 0])
+    modal.remove()
+    const { isMac } = await import('../../lib/platform')
+    const control = (type: string, down: boolean) =>
+      dom.dispatchEvent(
+        new dom.KeyboardEvent(type, {
+          key: isMac ? 'Control' : 'Alt',
+          ctrlKey: down && isMac,
+          altKey: down && !isMac,
+        }),
+      )
+
+    await act(() => control('keydown', true))
+    assert.equal(container.querySelectorAll('[data-sidebar-shortcut-hint]').length, 0)
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 650))
+    })
+    assert.deepEqual(
+      [...container.querySelectorAll('[data-sidebar-shortcut-hint]')].map((el) => el.textContent),
+      ['1', '2', '3'],
+    )
+    await act(() => control('keyup', false))
+    assert.equal(container.querySelectorAll('[data-sidebar-shortcut-hint]').length, 0)
+    await act(() => {
+      control('keydown', true)
+      control('keyup', false)
+    })
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 650))
+    })
+    assert.equal(container.querySelectorAll('[data-sidebar-shortcut-hint]').length, 0)
   } finally {
     await act(() => root.unmount())
     assert.equal(listeners.size, 0)

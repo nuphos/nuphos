@@ -10,6 +10,7 @@ import { moveTab, pageBeside, setSidebarTabOrder } from './sidebar-tab-order'
 import { SidebarPageTab } from './SidebarPageTab'
 import { SIDEBAR_PAGES } from './swipe-gesture'
 import { useSidebarTabOrder } from './useSidebarMode'
+import { useSidebarShortcutHints } from './useSidebarShortcutHints'
 
 import type { SidebarTabOrder } from './sidebar-tab-order'
 import type { SidebarPage } from './swipe-gesture'
@@ -31,6 +32,7 @@ export function SidebarPageTabs({
 }) {
   const labels = [t('Bots'), t('Tasks'), t('Inbox')]
   const order = useSidebarTabOrder()
+  const showHints = useSidebarShortcutHints()
 
   useEffect(() => {
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
@@ -130,6 +132,7 @@ export function SidebarPageTabs({
               key={SIDEBAR_PAGES[id]}
               page={id}
               label={label(id)}
+              shortcutHint={showHints ? String(index + 1) : undefined}
               shortcut={`${isMac ? 'ctrl' : 'alt'}+${String(index + 1)}`}
               count={counts[id]}
               active={page === id}

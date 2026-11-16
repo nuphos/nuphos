@@ -39,6 +39,7 @@ export function SidebarPageTab({
   page,
   label,
   shortcut,
+  shortcutHint,
   count,
   active,
   bounds,
@@ -51,6 +52,7 @@ export function SidebarPageTab({
   /** Accessible name, already carrying the count when there is one. */
   label: string
   shortcut: string
+  shortcutHint?: string
   count: number
   active: boolean
   bounds: RefObject<HTMLDivElement | null>
@@ -111,6 +113,11 @@ export function SidebarPageTab({
         {id === 'bots' && <BotsModeIcon />}
         {id === 'tasks' && <MessagesSquare aria-hidden strokeWidth={1.8} className="size-4" />}
         {id === 'inbox' && <Inbox aria-hidden strokeWidth={1.8} className="size-4" />}
+        {shortcutHint && (
+          <kbd aria-hidden data-sidebar-shortcut-hint className="sidebar-page-shortcut">
+            {shortcutHint}
+          </kbd>
+        )}
         {count > 0 && <CountBadge count={count} size="sm" className="absolute -right-1 -top-1" />}
       </Tooltip>
     </Reorder.Item>
