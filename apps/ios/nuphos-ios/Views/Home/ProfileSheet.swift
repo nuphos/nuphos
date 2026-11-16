@@ -8,7 +8,6 @@ struct ProfileSheet: View {
     @Environment(\.dismiss) private var dismiss
     /// Absent when shown before sign-in finishes (the AI consent screen).
     @Environment(AgentStore.self) private var store: AgentStore?
-    @Environment(ConnectorsStore.self) private var connectors: ConnectorsStore?
     let user: NuphosUser
     private var currentUser: NuphosUser { session.user ?? user }
     @State private var editing = false
@@ -45,18 +44,14 @@ struct ProfileSheet: View {
                     .listRowBackground(Theme.surface)
                 }
 
-                if store != nil, connectors != nil {
+                if store != nil {
                     Section("Workspace") {
                         NavigationLink {
                             RuntimesPage().navigationTitle("Computers")
                         } label: {
                             Label("Computers", systemImage: "desktopcomputer")
                         }
-                        NavigationLink {
-                            ConnectorsPage().navigationTitle("Connectors")
-                        } label: {
-                            Label("Connectors", systemImage: "app.connected.to.app.below.fill")
-                        }
+
                     }
                     .listRowBackground(Theme.surface)
                 }

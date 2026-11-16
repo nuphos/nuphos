@@ -87,6 +87,20 @@ struct HomeView: View {
                     }
                     GlassGroupSpacer()
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        workspacePage = .connectors
+                    } label: {
+                        Image(systemName: HomePage.connectors.systemImage)
+                            .frame(width: 30, height: 30)
+                            .padding(7)
+                            .glass(interactive: true, in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Connectors")
+                    .disabled(connectors == nil)
+                }
+                .sharedBackgroundHidden()
                 // The avatar draws its own circular glass: the system glass
                 // for a non-icon label is a capsule, not a circle.
                 ToolbarItem(placement: .topBarTrailing) {
