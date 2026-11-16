@@ -5,6 +5,7 @@ import {
   Bot,
   Hash,
   Link2,
+  LogOut,
   Pencil,
   SmilePlus,
   Pin,
@@ -15,9 +16,11 @@ import {
 } from 'lucide-react'
 
 import { api } from '../../api'
+import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { t } from '../../i18n'
 import { openChangeBotAvatar } from '../../lib/changeBotAvatar'
 import { copyLinkWithFeedback } from '../../lib/copyLink'
+import { leaveSession } from '../agent/channelPeople'
 import { agentSessionUrl } from '../agent/sessionUrl'
 import { makeBot } from '../channels/botChannel'
 import { ContextMenu } from '../ContextMenu'
@@ -56,6 +59,8 @@ export function SidebarItemContextMenu({
   // A Bot is a Bot in either section (its chat or itself); otherwise a Task or a group chat.
   const noun = menu.item.bot || menu.item.botChannelOf ? 'bot' : channel ? 'chat' : 'task'
   const sessionId = menu.item.key.slice('agent-session:'.length)
+  const viewerId = useCurrentUser()?.id ?? ''
+  const leaves = noun === 'chat' && menu.item.joinedChat === true
 
   return (
     <ContextMenu
@@ -167,7 +172,22 @@ export function SidebarItemContextMenu({
               },
             ]
           : []),
-        ...(menu.item.key.startsWith('agent-session:') &&
+        // Only a group chat's owner archives it; anyone else in it leaves.
+        ...(leaves
+          ? [
+              {
+                key: 'leave',
+                label: t('Leave chat'),
+                icon: LogOut,
+                onSelect: () =>
+                  void leaveSession(sessionId, teamId, viewerId).catch((err: unknown) =>
+                    toast.apiError(t('Could not leave chat'), err),
+                  ),
+              },
+            ]
+          : []),
+        ...(!leaves &&
+        menu.item.key.startsWith('agent-session:') &&
         (!menu.item.readOnlyChat || menu.item.managedChat)
           ? [
               {
