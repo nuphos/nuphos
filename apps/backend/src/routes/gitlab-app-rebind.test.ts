@@ -31,7 +31,13 @@ useModels({
 })
 
 test('reauthorizing a GitLab account keeps who may use the binding', async () => {
-  const fresh = { memberAllowList: ['*'], updatedAt: new Date(), updatedBy: 'u2' }
+  // The member on the list re-authorizes it.
+  const fresh = {
+    memberAllowList: ['*'],
+    ownerUserId: 'u1',
+    updatedAt: new Date(),
+    updatedBy: 'u1',
+  }
 
   await persistGitlabBinding(
     new ObjectId(),
@@ -61,4 +67,18 @@ test('reauthorizing a binding from before member lists keeps it open to the team
   ]
 
   expect(written).not.toHaveProperty('access')
+})
+
+test("someone off a private binding's list cannot re-authorize it, and nothing is written", async () => {
+  stored = existing
+  writes.length = 0
+
+  await expect(
+    persistGitlabBinding(
+      new ObjectId(),
+      { hostUrl: existing.hostUrl, accountId: existing.accountId } as never,
+      { memberAllowList: ['u2'], ownerUserId: 'u2', updatedAt: new Date(), updatedBy: 'u2' },
+    ),
+  ).rejects.toMatchObject({ status: 403, code: 'binding_private' })
+  expect(writes).toHaveLength(0)
 })

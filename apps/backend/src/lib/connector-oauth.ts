@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto'
 
 import { config } from '@/config'
+import { canUseAllowList, isPrivateAccess } from '@/lib/byos/access'
 import { initialBindingAccess } from '@/lib/byos/initial-access'
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
@@ -20,6 +21,27 @@ export type ConnectorBindPersist<B> = (
 ) => Promise<Record<string, string>>
 
 /**
+ * A rebind replaces the binding's grant, so another member's private binding
+ * may only be re-authorized by someone on its list: otherwise its owner would
+ * be handed the requester's account, and the requester locked out of it.
+ * `access` is the decided list, whose owner is the member re-authorizing.
+ */
+export function assertMayRebind(existing: { access?: BindingAccess }, access: BindingAccess): void {
+  const requester = access.ownerUserId
+
+  if (
+    isPrivateAccess(existing.access) &&
+    !(requester && canUseAllowList(existing.access?.memberAllowList, requester))
+  ) {
+    throw new AppError(
+      403,
+      'binding_private',
+      "Only someone it is shared with can re-authorize another member's private connection",
+    )
+  }
+}
+
+/**
  * The list a rebound binding is written with: a rebind keeps what the binding
  * had, including no list at all, and only a new binding takes the decided one.
  */
@@ -28,6 +50,7 @@ export function reboundAccess(
   access: BindingAccess,
 ): { access?: BindingAccess } {
   if (!existing) return { access }
+  assertMayRebind(existing, access)
 
   return existing.access ? { access: existing.access } : {}
 }

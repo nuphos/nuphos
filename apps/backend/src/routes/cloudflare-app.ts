@@ -10,7 +10,7 @@ import {
 } from '@/lib/byos/cloudflare-oauth'
 import { appendEnvironmentBinding } from '@/lib/byos/environment-bindings'
 import { encryptCloudflareApiKey } from '@/lib/byos/secrets'
-import { finishConnectorOAuth } from '@/lib/connector-oauth'
+import { assertMayRebind, finishConnectorOAuth } from '@/lib/connector-oauth'
 import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
 import { AppError } from '@/lib/errors'
 import { cloudflarePendingOAuth, cloudflareOAuthResult, teamByosBindings } from '@/models'
@@ -180,6 +180,13 @@ export async function persistCloudflareBinding(
   }
 
   let bindingId: ObjectId
+  const current = await teamByosBindings().findOne(
+    { _id: teamId, 'cloudflareAccounts.accountId': accountId },
+    { projection: { 'cloudflareAccounts.$': 1 } },
+  )
+  const existing = current?.cloudflareAccounts?.[0]
+
+  if (existing) assertMayRebind(existing, access)
 
   if ((await rebindInPlace()).matchedCount > 0) {
     bindingId = await idForAccount()
