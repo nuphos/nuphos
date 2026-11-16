@@ -282,6 +282,7 @@ struct ChannelView: View {
                     showsFrom: question.sessionId != channel.botId,
                     onOpen: { open(link: question.link(team: channel.teamId)) },
                     teamId: channel.teamId,
+                    questions: channel.questions,
                     onAnswer: { channel.answer(question, with: $0) },
                     onSkip: { channel.skip(question) },
                     onLink: open(link:),

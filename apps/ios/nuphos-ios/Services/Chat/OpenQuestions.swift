@@ -41,7 +41,11 @@ final class OpenQuestions {
     /// The question to open after `id`.
     func next(after id: String) -> String? { BotQuestions.next(after: id, in: groups) }
 
-    func refresh(pick: @MainActor ([AgentConversation]) -> [BotQuestion] = BotQuestions.open) async {
+    /// Which of the listing's questions this list shows: all of them, or a Bot's; kept for refreshes after a save.
+    private var pick: @MainActor ([AgentConversation]) -> [BotQuestion] = BotQuestions.open
+
+    func refresh(pick: (@MainActor ([AgentConversation]) -> [BotQuestion])? = nil) async {
+        if let pick { self.pick = pick }
         do {
             var rows: [AgentConversation] = []
             var cursor: String?
@@ -55,7 +59,7 @@ final class OpenQuestions {
             }
             // A Bot's group wears its face, even before the Bot list loads.
             await MainActor.run { BotFaces.shared.learn(rows) }
-            listed = pick(rows)
+            listed = self.pick(rows)
             answered.formIntersection(listed.map(\.id))
             // Answered elsewhere: nothing stays open on it.
             if let selected, !list.contains(where: { $0.id == selected }) { self.selected = nil }

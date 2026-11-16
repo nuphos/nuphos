@@ -51,8 +51,9 @@ import androidx.compose.ui.res.stringResource
  * the question and what the agent wrote to decide it from, each option an answer, and "Other…" to
  * type the answer in the card (in the Inbox, [answersInPlace], the text box is always there). A card
  * with several questions or any number of picks is a form, sent once as [onForm]. An answer
- * wakes the agent that asked; no message is sent. A connect or secure-input question is answered in the
- * conversation that asked, which the link opens. [showsFrom] is off for the Bot's own questions in its own chat.
+ * wakes the agent that asked; no message is sent. A connect question opens the asking conversation's
+ * credential picker ([onConnect]); a secret one, its secure input. [showsFrom] is off for the Bot's own
+ * questions in its own chat.
  */
 @Composable
 internal fun BotQuestionCard(
@@ -64,7 +65,7 @@ internal fun BotQuestionCard(
     /** Why the last answer could not be sent; the question is still open. */
     failure: String? = null,
     /** Chooses the asking conversation's credentials here, for an integration question; absent where it cannot. */
-    onConnect: (() -> Unit)? = null,
+    onConnect: () -> Unit,
     /** The text box is always on the card, rather than behind "Other…", as the Inbox shows it. */
     answersInPlace: Boolean = false,
     /** A several-question or multi-select card's answer, as its form builds it. */
@@ -90,15 +91,12 @@ internal fun BotQuestionCard(
                 val secret = question.secretPart
                 if (form != null) DecisionForm(question.id, form, onForm)
                 else if (secret != null) AskedSecretCard(question, secret)
-                else if (replies == null && onConnect != null && question.connectable) {
+                else if (replies == null) {
                     val own = question.personalCredentials?.map { if (it == "github") "GitHub" else if (it == "linear") "Linear" else it }
                         ?.foldIndexed("") { index, all, name -> if (index == 0) name else stringResource(R.string.chats_question_credentials_and, all, name) }
                     OutlinedButton(onClick = onConnect, modifier = Modifier.testTag("bot-question-connect")) {
                         Text(own?.let { stringResource(R.string.chats_question_use_own, it) } ?: stringResource(R.string.chats_question_choose_credentials))
                     }
-                } else if (replies == null) {
-                    // A connection where no picker is offered, as in a Bot's chat: chosen in the conversation that asked.
-                    OutlinedButton(onClick = onOpen) { Text(stringResource(R.string.chats_question_answer_in_task)) }
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         replies.forEach { (label, reply) ->
