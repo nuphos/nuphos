@@ -1,16 +1,18 @@
-import { AppError } from '@/lib/errors'
+import { turnFailureCause } from '@/lib/claude-code-preview/openab-acp-errors'
 import { captureException } from '@/lib/posthog'
 
 import { traceAgentChatError } from './trace'
 
 import type { AgentRunTrace } from './types'
 
-const isOfflineError = (e: unknown) => e instanceof AppError && e.code === 'runtime_offline'
-
-/** The agent's computer is offline: a state the person fixes by opening Nuphos
- *  on it, not a fault. The state probe keeps it as its cause. */
-function isRuntimeOffline(error: unknown): boolean {
-  return isOfflineError(error) || (error instanceof Error && isOfflineError(error.cause))
+/** The agent's own state, which the app already names: its computer is offline,
+ *  its provider hit a usage limit, or it needs signing in. Not a fault. The state
+ *  probe keeps the original failure as its cause. */
+function isAgentState(error: unknown): boolean {
+  return (
+    turnFailureCause(error) !== 'other' ||
+    (error instanceof Error && turnFailureCause(error.cause) !== 'other')
+  )
 }
 
 export function recordTriggerRunFailure(
@@ -26,7 +28,7 @@ export function recordTriggerRunFailure(
   }
 
   traceAgentChatError('agent.trigger.request.error', error, trace, errorContext)
-  if (isRuntimeOffline(error)) return
+  if (isAgentState(error)) return
   captureException(error, {
     source: 'agent.trigger.request',
     distinctId: trace.userId,
