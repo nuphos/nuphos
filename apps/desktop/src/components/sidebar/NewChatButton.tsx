@@ -1,8 +1,8 @@
 import { Bot, Plus, Users } from 'lucide-react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
 import { api } from '../../api'
-import { t } from '../../i18n'
+import { locale, t } from '../../i18n'
 import { receiveAgentAvatars } from '../../lib/agentAvatarChoices'
 import { usable } from '../../lib/agentName'
 import { botAvatarName, derivedBotAvatar } from '../../lib/botAvatars'
@@ -15,6 +15,7 @@ import { markChannel } from '../channels/channelKind'
 import { Modal } from '../Modal'
 import { Button } from '../ui/button'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../ui/menu'
+import { Checkbox } from '../ui/checkbox'
 import { toast } from '../ui/toast'
 
 import { BotStartIntro } from './BotStartIntro'
@@ -143,6 +144,14 @@ function NewBotForm({
   const [avatar, setAvatar] = useState(() => derivedBotAvatar(crypto.randomUUID()))
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
+  const [coordinate, setCoordinate] = useState(false)
+  const [createdBot, setCreatedBot] = useState<{
+    sessionId: string
+    title: string
+    avatar: string
+  } | null>(null)
+  const channel = useRef<string | null>(null)
+  const creating = useRef(false)
   // The Bot runs where a new chat would, so it is ready the moment it opens.
   const {
     newConversationRuntime: runtime,
@@ -153,7 +162,7 @@ function NewBotForm({
   async function create() {
     const title = name.trim()
 
-    if (!title || busy || loading) return
+    if (!title || creating.current || loading) return
     if (runtimeError) {
       toast.apiError(t('Could not load agents'), runtimeError)
 
@@ -164,23 +173,34 @@ function NewBotForm({
 
       return
     }
+    creating.current = true
     setBusy(true)
     try {
       const startedAt = Date.now()
-      const bot = await api.agentCreateBot(teamId, {
-        title,
-        avatar: botAvatarName(avatar),
-        runtimeId: runtime.id,
-        agentRuntime: runtime.provider,
-        runtimeLabel: runtime.label,
-      })
+      const bot =
+        createdBot ??
+        (await api.agentCreateBot(teamId, {
+          onboarding: true,
+          locale,
+          ...(coordinate ? { starter: 'coordinate' as const } : {}),
+          title,
+          avatar: botAvatarName(avatar),
+          ...(runtime
+            ? { runtimeId: runtime.id, agentRuntime: runtime.provider, runtimeLabel: runtime.label }
+            : {}),
+        }))
 
+      setCreatedBot(bot)
       receiveAgentAvatars([bot], startedAt)
       // A Bot is talked to in its own chat: a channel with the Bot in it.
-      onCreated(await createBotChannel(teamId, bot.sessionId))
+      channel.current ??= await createBotChannel(teamId, bot.sessionId)
+      await api.agentStartBotOnboarding(bot.sessionId, teamId, channel.current)
+      onCreated(channel.current)
     } catch (error) {
-      toast.apiError(t('Could not create the Bot'), error)
+      toast.apiError(t('Could not finish setting up the Bot. Retry to continue.'), error)
       setBusy(false)
+    } finally {
+      creating.current = false
     }
   }
 
@@ -198,9 +218,28 @@ function NewBotForm({
         avatar={avatar}
         onAvatarChange={setAvatar}
         busy={busy}
+        identityLocked={!!createdBot}
         disabled={loading}
-        submitLabel={t('Create')}
-      />
+        submitLabel={createdBot ? t('Retry setup') : t('Create')}
+      >
+        <div className="space-y-1.5">
+          <label className="flex w-fit cursor-pointer items-center gap-2 text-[13px] text-secondary">
+            <Checkbox
+              checked={coordinate}
+              onCheckedChange={(checked) => setCoordinate(checked)}
+              disabled={busy || !!createdBot}
+              aria-describedby="bot-coordination-description"
+            />
+            {t('Help me coordinate work')}
+          </label>
+          <p
+            id="bot-coordination-description"
+            className="pl-6 text-[12px] leading-relaxed text-tertiary"
+          >
+            {t('Break down work, delegate tasks, and follow up on results.')}
+          </p>
+        </div>
+      </BotIdentityFields>
     </form>
   )
 }
