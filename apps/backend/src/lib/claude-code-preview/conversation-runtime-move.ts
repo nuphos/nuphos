@@ -16,6 +16,7 @@ import { assertRuntimeNotDeleting } from './runtime-portability-store'
 import { runtimeProvider } from './runtime-provider'
 import { runtimeModelCatalog } from './runtime-models'
 import { findHostedRuntime, resolveTeamRuntimeEndpoints } from './runtime-registry'
+import { reclaimSessionHome } from './runtime-session-home'
 import { offeredSessionConfig } from './session-config-catalog'
 import { storedPick } from './session-config-options'
 
@@ -210,15 +211,18 @@ export async function moveConversationRuntime(
 
 /**
  * The old runtime keeps an idle session for hours so it can be resumed, and a
- * moved one never is: end it there. Best effort, since the move is already done;
- * the runtime's idle sweep still frees whatever this misses.
+ * moved one never is: end it there, then remove the home it leaves on another
+ * computer. Best effort, since the move is already done; the hourly reclaim
+ * sweep retries a home still in use, and the runtime's idle sweep frees the rest.
  */
 function closeMovedSession(teamId: string, conversationId: string) {
   const key = `${teamId}:${conversationId}`
   const session = sessionsByConversation.get(key)
 
-  if (!session) return
-  session.stopObserving?.()
+  session?.stopObserving?.()
   sessionsByConversation.delete(key)
-  session.client.closeSession(session.openabSessionId).catch(() => {})
+  void (session?.client.closeSession(session.openabSessionId) ?? Promise.resolve())
+    .catch(() => {})
+    .then(() => reclaimSessionHome(conversationId))
+    .catch(() => {})
 }
