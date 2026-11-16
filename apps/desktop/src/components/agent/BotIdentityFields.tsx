@@ -49,7 +49,7 @@ export function BotIdentityFields({
           disabled={busy}
           onChange={(event) => onNameChange(event.target.value)}
           onKeyDown={(event) => {
-            event.stopPropagation()
+            if (event.key !== 'Escape') event.stopPropagation()
             if (event.key === 'Enter' && event.nativeEvent.isComposing) event.preventDefault()
           }}
           className="min-w-0 flex-1 rounded-md border border-main bg-main px-3 py-2 text-[13px] text-main outline-none focus:border-line-focus"
