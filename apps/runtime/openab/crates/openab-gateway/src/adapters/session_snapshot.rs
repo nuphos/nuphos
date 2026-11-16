@@ -173,11 +173,9 @@ impl SessionSnapshots {
                 "finishing",
                 "Waiting for the runtime to finish the request…".to_string(),
             )
-        } else if let Some(error) = provider
-            .pointer("/gateway/lastOutcome/error/message")
-            .and_then(Value::as_str)
-        {
-            ("failed", format!("Request failed: {error}"))
+        } else if provider.pointer("/gateway/lastOutcome/error").is_some() {
+            // Why it failed is the turn's own notice; the agent's raw error is not for people.
+            ("failed", "Request failed".to_string())
         } else if provider
             .pointer("/gateway/lastOutcome/result/stopReason")
             .and_then(Value::as_str)
