@@ -9,6 +9,21 @@ xcodebuild -project nuphos-ios.xcodeproj -scheme nuphos-ios -configuration Debug
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
 ```
 
+## Before and after evidence for a UI test
+
+To show that a new UI test fails without a fix and passes with it, check out both
+commits side by side as `before` and `after`, copy the new test file into `before`, and run:
+
+```sh
+bash after/apps/ios/tests/ui-evidence.sh before after BotsAndTasksListUITests/testBotsKeepWhatWasOpenedByHand \
+  -destination "id=$udid" -only-testing:nuphos-iosUITests/BotsAndTasksListUITests
+```
+
+It reads each side's result bundle, not the exit code, writes a per-test table to the
+job summary and fails unless every test passes after the change and the new test fails
+before it on an assertion. Link that table and the uploaded `ui-evidence/*.xcresult` as
+evidence, never only a run's status, and never hide a test command's exit code with `|| true`.
+
 ## Transcript regression checks
 
 After installing a Debug simulator build, run:
