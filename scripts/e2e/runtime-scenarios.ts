@@ -52,6 +52,24 @@ export const runtimeScenarios: Scenario[] = [
     },
   },
   {
+    // #3082: a send while the agent host does not answer waits for it, never refused.
+    name: 'a message sent while the agent host is down runs once it is back',
+    run: async (page, stack) => {
+      await newTask(page)
+      await send(page, 'Before the outage E2E_DELIVERY:up')
+      await page.getByText('ACK E2E_DELIVERY:up').waitFor()
+      await stack.restartAgentHost(async () => {
+        const from = backendLines()
+
+        await send(page, 'During the outage E2E_DELIVERY:down')
+        await until('the backend to queue the message', async () =>
+          backendLog(from).some((line) => line.includes('"agent.chat.queued"')),
+        )
+      })
+      await page.getByText('ACK E2E_DELIVERY:down').waitFor({ timeout: 60_000 })
+    },
+  },
+  {
     // #2760 and #2761: create_thread names the agent and the fast mode a new Task starts with.
     // #2885: the fast Task comes first, on an agent that has not run a conversation yet.
     name: 'the agent delegates to another agent in fast mode, and the new Task starts there',
