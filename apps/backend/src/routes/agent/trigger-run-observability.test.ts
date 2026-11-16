@@ -63,6 +63,20 @@ test('a provider usage limit or a missing sign-in is not reported', () => {
   expect(captured).toHaveLength(0)
 })
 
+test('a Codex usage limit is not reported', () => {
+  recordTriggerRunFailure(
+    new OpenAbRpcError(
+      '**Internal Error** (code: -32603)\nInternal error\n> You’ve hit your usage limit. Visit https://chatgpt.com/settings/usage to purchase more credits or try again at 5:12 PM.',
+      -32603,
+      { code: -32603, message: 'Internal error' },
+    ),
+    trace,
+    'agent.thread',
+  )
+
+  expect(captured).toHaveLength(0)
+})
+
 test('a probe that times out, and any other failure, are still reported', async () => {
   const timeout = await RuntimeStateProbeError.from(new Error('OpenAB ACP initialize timed out'))
 

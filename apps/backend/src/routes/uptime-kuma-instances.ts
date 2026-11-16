@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
 import { createDefaultAccess } from '@/lib/byos/access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { verifyUptimeKumaCredentials } from '@/lib/byos/uptime-kuma'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
@@ -108,6 +109,9 @@ uptimeKumaInstancesRoutes.post(
 const instanceScoped = new Hono<{ Variables: UptimeKumaInstanceVariables }>()
 
 instanceScoped.use('*', requireUptimeKumaInstance())
+registerBindingAccessRoutes(instanceScoped, 'uptimeKumaInstances', (c) =>
+  c.get('uptimeKumaBinding'),
+)
 
 registerUptimeKumaInstanceRoutes(instanceScoped)
 registerUptimeKumaMonitorRoutes(instanceScoped)

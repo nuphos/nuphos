@@ -57,9 +57,6 @@
     <string name="shell_request_code_in">Puedes solicitar otro código en %1$d s.</string>
     <string name="shell_use_email_code">Usar un código por correo</string>
     <string name="shell_use_password">Usar una contraseña</string>
-    <string name="shell_terms_agreement">Al continuar, aceptas nuestros %1$s y nuestra %2$s.</string>
-    <string name="shell_terms_of_service">Términos del servicio</string>
-    <string name="shell_privacy_policy">Política de privacidad</string>
     <string name="shell_email_code_field">Código de correo de 6 dígitos</string>
     <string name="shell_auth_cleanup_failed">No se pudieron limpiar los borradores guardados. Revisa el almacenamiento e inténtalo de nuevo.</string>
     <string name="shell_auth_signed_out_cleanup_failed">Se cerró la sesión, pero no se pudieron limpiar los borradores guardados. Revisa el almacenamiento antes de cerrar la app.</string>
@@ -153,7 +150,6 @@
     <string name="shell_voice_prompt_save_failed">No se pudo guardar el prompt.</string>
     <string name="shell_voice_prompt">Prompt de transcripción</string>
     <string name="shell_voice_reset_prompt">Restablecer prompt</string>
-    <string name="shell_voice_prompt_help">El prompt orienta la ortografía y el estilo de escritura. OpenAI transcribe las grabaciones a través de Nuphos.</string>
     <string name="shell_desktop">Escritorio</string>
     <string name="shell_desktop_decode_failed">No se pudo decodificar este escritorio. Reintenta para iniciar una conexión nueva.</string>
     <string name="shell_desktop_connecting">Conectando…</string>

@@ -231,8 +231,11 @@ struct HomeView: View {
         .onChange(of: store?.selectedTeam?.id) { _, teamID in
             Analytics.shared.screen(page.rawValue, teamID: teamID)
         }
+        // Off the lists, a notification or link opens over the list it is on: Tasks lists no Bot,
+        // chat or Bot's Task (#2708), so anything but a listed Task returns to Bots.
         .onChange(of: PushNotifications.shared.pendingTarget, initial: true) { _, target in
-            if target != nil, !page.isHomeList { page = .agent }
+            guard let target, !page.isHomeList else { return }
+            page = store?.listedConversations.contains { $0.sessionId == target.sessionId } == true ? .agent : .chats
         }
         // The default tab, once the chats are known: Chats when there is one.
         // Never after the viewer picked a page, nor under a chat already open.

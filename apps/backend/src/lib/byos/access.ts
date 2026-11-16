@@ -82,6 +82,14 @@ export function canUseAllowList(list: string[] | undefined, userId: string): boo
   return normalized.includes('*') || normalized.includes(userId)
 }
 
+/** A binding is usable only when every principal a request acts for is on its list. */
+export function canPrincipalsUseAllowList(
+  list: string[] | undefined,
+  principals: readonly string[],
+): boolean {
+  return principals.length > 0 && principals.every((id) => canUseAllowList(list, id))
+}
+
 function normalizeAllowList(list: string[] | undefined): string[] {
   if (list === undefined) return [...DEFAULT_ALLOW_LIST]
   if (list.includes('*')) return [...DEFAULT_ALLOW_LIST]

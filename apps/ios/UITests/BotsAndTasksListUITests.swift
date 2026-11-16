@@ -100,6 +100,38 @@ final class BotsAndTasksListUITests: XCTestCase {
         shot("3-tasks")
     }
 
+    /// What the Inbox opens, as a notification does, lands over the list that has it (#2964): Tasks
+    /// lists no Bot nor what one dispatched, so those go back to Bots, never to a Tasks page without them.
+    func testWhatTheInboxOpensReturnsToItsList() throws {
+        var responses = try JSONSerialization.jsonObject(with: Data(contentsOf: live)) as! [String: Any]
+        let pending = [Self.row("bot-lead", "Release Lead", at: "09:00", avatar: "05-rembrandt", question: "Ship 2.4 today?"),
+                       Self.row("agent-ci", "Check the CI flake", at: "09:45", parent: "bot-lead", question: "Retry the flaky iOS job?"),
+                       Self.row("agent-staging", "Check the staging cluster", at: "09:30", question: "Scale the staging pool?")]
+        responses["GET /agent/conversations?pendingDecision=true"] = Self.page(pending)
+        try JSONSerialization.data(withJSONObject: responses).write(to: live, options: .atomic)
+
+        for (question, list) in [("Ship 2.4 today?", "Bots"), ("Retry the flaky iOS job?", "Bots"), ("Scale the staging pool?", "Tasks")] {
+            launch(page: "inbox")
+            let menu = app.buttons["Switch page"].firstMatch
+            let row = app.descendants(matching: .any)
+                .matching(NSPredicate(format: "identifier == %@ AND label BEGINSWITH %@", "inbox.row", question)).firstMatch
+            XCTAssertTrue(row.waitForExistence(timeout: 10), "\(question) is not in the Inbox")
+            row.tap()
+            let source = app.buttons["inbox.source"].firstMatch
+            XCTAssertTrue(source.waitForExistence(timeout: 5), "\(question) has no source to open")
+            source.tap()
+            // Opened over the list: the page menu leaves the bar.
+            expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: menu)
+            waitForExpectations(timeout: 10)
+            sleep(1)
+            app.navigationBars.buttons.firstMatch.tap()
+            XCTAssertTrue(menu.waitForExistence(timeout: 5), "No list after going back from \(question)")
+            shot("back-from-\(list)-\(question.prefix(5))")
+            XCTAssertTrue((menu.value as? String ?? "").hasPrefix(list), "\(question) went back to \(menu.value ?? "nothing"), not \(list)")
+            app.terminate()
+        }
+    }
+
     private func launch(page: String) {
         app = XCUIApplication()
         app.launchArguments = ["-preview-home", "-preview-no-push", "-page", page]

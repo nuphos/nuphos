@@ -100,9 +100,6 @@ export type SleepState = SleepPreferences & {
   reason: 'unsupported' | 'off' | 'battery' | 'signed-out' | 'idle' | 'active'
 }
 
-/** Whether the OS opens Nuphos at login (macOS and Windows releases only). */
-export type LoginItemState = { supported: boolean; openAtLogin: boolean }
-
 export type LocalRuntimeState = {
   detectionDisabled?: boolean
   sleepPrevention?: SleepState
@@ -113,6 +110,8 @@ export type LocalRuntimeState = {
   instances?: LocalAgentInstance[]
   workspace: string | null
   userId: string | null
+  /** This computer's own connection to Nuphos, while someone is signed in. */
+  connection?: 'online' | 'reconnecting' | 'superseded' | 'revoked'
   customProviders?: Partial<Record<CliLoginProvider, { baseUrl: string; models: string[] }>>
   deviceId?: string
   devBundle?: DevBundleHint

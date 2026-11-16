@@ -8,6 +8,7 @@ import { InlineRename } from '../../components/ui/inline-rename'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../../components/ui/menu'
 import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
+import { useThisComputerBadge } from '../../hooks/useThisComputer'
 import { t } from '../../i18n'
 
 import { canManage, newAgentAction } from './agentPresentation'
@@ -71,7 +72,7 @@ export function BoxRow({
   // Besides a Box, another of the viewer's own computers whose host opens its screen.
   const screen = thisComputer ? undefined : device.desktopRuntimeId
   const remove = removal(device)
-  const badge = BOX_BADGE[state]
+  const badge = useThisComputerBadge(thisComputer) ?? BOX_BADGE[state]
   const actions = cloud && !restart ? boxActions(state) : { pause: false, resume: false }
   // Every Box action names the Box and the page's team.
   const act = (
@@ -230,7 +231,7 @@ export function BoxRow({
           )}
           {restart ? boxRestartLabel(restart.kind) : badge.label}
         </span>
-        <MachineLine device={device} dim={dim} />
+        <MachineLine device={device} dim={dim} live={badge !== BOX_BADGE[state]} />
         <AccessHint device={device} />
         {updateVersion !== undefined && (
           <BoxHostUpdate
