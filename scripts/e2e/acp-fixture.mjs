@@ -148,6 +148,9 @@ async function permission(sessionId, marker) {
   log({ sessionId, marker, event: `permission-${outcome?.optionId ?? outcome?.outcome ?? 'none'}` })
 }
 
+// Sessions whose answer the first agent refuses as out of usage (#3055).
+const late = new Set()
+
 async function prompt({ sessionId, prompt: parts }) {
   const text = parts
     .filter((part) => part.type === 'text')
@@ -157,7 +160,12 @@ async function prompt({ sessionId, prompt: parts }) {
 
   log({ sessionId, marker, event: 'start' })
   // #3051: the first agent refuses this prompt as out of usage, as Claude Code words it.
-  if (text.includes('E2E_USAGE_LIMIT') && process.env.E2E_AGENT !== 'second') {
+  // #3055: and the answer to a question asked with E2E_ASK_LATE.
+  if (text.includes('E2E_ASK_LATE')) late.add(sessionId)
+  const outOfUsage =
+    text.includes('E2E_USAGE_LIMIT') || (late.has(sessionId) && !text.includes('E2E_ASK'))
+
+  if (outOfUsage && process.env.E2E_AGENT !== 'second') {
     throw Object.assign(new Error('Internal error: You’ve hit your usage limit'), { code: -32603 })
   }
   // Nuphos tells the agent when a person skips its question.
