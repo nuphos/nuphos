@@ -285,8 +285,7 @@ struct ChannelView: View {
                     questions: channel.questions,
                     onAnswer: { channel.answer(question, with: $0) },
                     onSkip: { channel.skip(question) },
-                    onLink: open(link:),
-                    failure: channel.questions.failures[question.id])
+                    onLink: open(link:))
             }
         }
     }

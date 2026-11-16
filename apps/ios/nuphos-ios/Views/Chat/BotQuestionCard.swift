@@ -15,14 +15,13 @@ struct BotQuestionCard: View {
     let onOpen: () -> Void
     /// The chat's team: a secret is saved in the conversation that asked.
     let teamId: String
-    /// The chat's open questions, which a connect question's picker saves through.
+    /// The chat's open questions: a connect question's picker saves through them, and they say why
+    /// the last answer or save failed while the question is still open.
     let questions: OpenQuestions
     let onAnswer: (DecisionAnswer) -> Void
     let onSkip: () -> Void
     /// A tapped link in the body. Absent, the system opens it.
     var onLink: ((URL) -> Void)?
-    /// Why the last answer could not be sent; the question is still open.
-    var failure: String?
 
     @State private var expanded = false
     /// "Other…" was tapped: the card asks for the answer in words.
@@ -39,7 +38,8 @@ struct BotQuestionCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             if let part = question.secretPart { secret(part, teamId) } else { card }
-            if let failure {
+            // Read here, not passed in: the transcript redraws a row only when the row itself changes.
+            if let failure = questions.failures[question.id] {
                 Label("Couldn't send the message · \(failure)", systemImage: "exclamationmark.circle")
                     .font(Theme.Text.caption)
                     .foregroundStyle(.red)
