@@ -51,8 +51,9 @@ async function tryRedis<T>(op: (client: Redis) => Promise<T>): Promise<T | null>
   }
 }
 
-export async function indexQueuedSession(userId: string, sessionId: string): Promise<void> {
-  await tryRedis((c) => c.sadd(QUEUED_SESSIONS_KEY, `${userId}:${sessionId}`))
+/** A session's entry in QUEUED_SESSIONS_KEY, written with its queue. */
+export function queuedSession(userId: string, sessionId: string): string {
+  return `${userId}:${sessionId}`
 }
 
 export function buildPendingUserMessage(args: {
@@ -96,6 +97,7 @@ export async function enqueuePendingUserMessage(
   const stored = await tryRedis((c) =>
     c.eval(
       `
+        redis.call('SADD', KEYS[2], ARGV[3])
         for _, raw in ipairs(ARGV[2] ~= '' and redis.call('LRANGE', KEYS[1], 0, -1) or {}) do
           local ok, item = pcall(cjson.decode, raw)
           if ok and type(item) == 'table' and (item.source == 'app' and 'app ' .. tostring(item.id)
@@ -107,18 +109,16 @@ export async function enqueuePendingUserMessage(
         redis.call('RPUSH', KEYS[1], ARGV[1])
         return 1
       `,
-      1,
+      2,
       key,
+      QUEUED_SESSIONS_KEY,
       JSON.stringify(message),
       wakeUp,
+      queuedSession(userId, sessionId),
     ),
   )
 
-  if (stored === 1) {
-    await indexQueuedSession(userId, sessionId)
-
-    return true
-  }
+  if (stored === 1) return true
   logEvent('error', 'agent.pending_messages.enqueue_failed', {
     user_id: userId,
     session_id: sessionId,
