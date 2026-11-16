@@ -62,6 +62,26 @@ test('Grok Build loses its login file only', (t) => {
   assert.deepEqual(left(), ['.grok/settings.json'])
 })
 
+test('the copies of a login in each conversation home go too, and their sessions stay', (t) => {
+  const session = '.nuphos/session-homes/abc'
+  const { root, left } = home(t, {
+    '.pi/agent/auth.json': '{}',
+    '.pi/agent/settings.json': '{}',
+    // Pi copies its login into each conversation's home.
+    [`${session}/.pi/agent/auth.json`]: '{"key":"old"}',
+    [`${session}/.pi/agent/settings.json`]: '{}',
+    [`${session}/.pi/agent/sessions/1.jsonl`]: '{}',
+    [`${session}.teammate/.pi/agent/auth.json`]: '{}',
+  })
+
+  deleteAgentCredentials('pi', root)
+  assert.deepEqual(left(), [
+    '.pi/agent/settings.json',
+    `${session}/.pi/agent/settings.json`,
+    `${session}/.pi/agent/sessions/1.jsonl`,
+  ])
+})
+
 test('OpenCode loses every provider login and its Bedrock keys, and keeps the rest', (t) => {
   const config = '.config/opencode/opencode.json'
   const { root, left, json } = home(t, {

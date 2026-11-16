@@ -1,4 +1,4 @@
-import { readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
 import { logoutOpenCode } from './agent-cli.ts'
@@ -19,6 +19,14 @@ const CREDENTIAL_FILES: Partial<Record<LocalAgentProvider, readonly string[]>> =
 
 /** What opencode-login.mjs saves in OpenCode's config for Bedrock; its region stays. */
 const BEDROCK_SECRETS = ['accessKeyId', 'secretAccessKey', 'sessionToken', 'apiKey']
+
+const readdirSafe = (dir: string): string[] => {
+  try {
+    return readdirSync(dir)
+  } catch {
+    return []
+  }
+}
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -53,8 +61,12 @@ function dropJsonKeys(file: string, at: readonly string[], keys: readonly string
  */
 export function deleteAgentCredentials(provider: LocalAgentProvider, home: string): void {
   if (provider === 'antigravity') throw new Error(ANTIGRAVITY_SIGN_OUT)
-  for (const file of [...(CREDENTIAL_FILES[provider] ?? []), LOGIN_FILE[provider]])
-    if (file) rmSync(path.join(home, file), { force: true })
+  const files = [...(CREDENTIAL_FILES[provider] ?? []), LOGIN_FILE[provider] ?? []].flat()
+  // Each conversation's home mirrors this one, and Pi copies its login into it.
+  const sessions = path.join(home, '.nuphos', 'session-homes')
+  const homes = [home, ...readdirSafe(sessions).map((name) => path.join(sessions, name))]
+
+  for (const at of homes) for (const file of files) rmSync(path.join(at, file), { force: true })
   if (provider === 'claude-code')
     dropJsonKeys(path.join(home, 'settings.json'), ['env'], ['ANTHROPIC_API_KEY'])
   if (provider === 'opencode')
