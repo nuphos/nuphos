@@ -26,7 +26,7 @@ struct AccountDeletionView: View {
             }
             if let request {
                 Section("Request received") {
-                    LabeledContent("Status", value: request.status == "in_progress" ? "In progress" : "Requested")
+                    LabeledContent("Status", value: request.status == "in_progress" ? String(localized: "In progress") : String(localized: "Requested"))
                     LabeledContent("Complete by", value: String(request.dueAt.prefix(10)))
                     Text("Your request has been saved. You do not need to contact support to start deletion.")
                 }
