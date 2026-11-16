@@ -91,6 +91,11 @@ enum ChannelPostTests {
         precondition(record?.isRecord == true)
         let rows = ChannelPost.items(posts: [record!], events: [], typing: [])
         precondition(rows.map(\.item) == [.time(record!.sentAt!), .record("Yuanlin answered: Ship? → Ship it")])
+        // And the record a change of owner leaves when the owner leaves the chat.
+        let owner: [String: JSONValue] = ["type": .string("system"), "id": .string("nuphos:chat"),
+                                          "displayName": .string("Nuphos")]
+        let handed = ChannelPost(message("o", sender: owner, parts: [text("Ann left. Bruce now owns this chat.")]))
+        precondition(handed?.isRecord == true)
     }
 
     private static func post(_ id: String, _ sender: String, at seconds: TimeInterval, sending: Bool = false) -> ChannelPost {
