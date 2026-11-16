@@ -741,6 +741,13 @@ final class ComposerPaste: NSObject, UITextPasteDelegate {
         self.textView = textView
         textView.allowsEditingTextAttributes = true
         textView.pasteDelegate = self
+        #if DEBUG
+        // UI tests: uncommitted input method text, as Zhuyin leaves ㄋㄧˇ
+        // before a candidate is chosen.
+        if CommandLine.arguments.contains("-preview-marked-text"), textView.text.isEmpty {
+            textView.setMarkedText("ㄋㄧˇ", selectedRange: NSRange(location: 3, length: 0))
+        }
+        #endif
     }
 
     func textPasteConfigurationSupporting(_ textPasteConfigurationSupporting: any UITextPasteConfigurationSupporting,

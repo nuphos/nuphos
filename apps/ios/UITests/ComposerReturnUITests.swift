@@ -37,13 +37,30 @@ final class ComposerReturnUITests: XCTestCase {
         XCTAssertGreaterThan((composer.value as? String ?? "").count, committed.count, "The composer lost focus")
     }
 
-    private func openComposer() throws -> XCUIElement {
+    /// The same case without depending on the simulator's input method: the
+    /// app starts the composer with marked text (setMarkedText), and Return
+    /// still comes from the hardware key path.
+    func testReturnCommitsMarkedText() throws {
+        let composer = try openComposer(markedText: true)
+        let marked = NSPredicate(format: "value == %@", "ㄋㄧˇ")
+        expectation(for: marked, evaluatedWith: composer)
+        waitForExpectations(timeout: 5)
+
+        composer.typeKey(.return, modifierFlags: [])
+        sleep(2)
+        XCTAssertEqual(composer.value as? String, "ㄋㄧˇ", "Return while composing lost the text or sent it")
+
+        composer.typeText("ok")
+        XCTAssertEqual(composer.value as? String, "ㄋㄧˇok", "The composer lost focus")
+    }
+
+    private func openComposer(markedText: Bool = false) throws -> XCUIElement {
         try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "Hardware key presses need an iPad")
         let fixture = URL(filePath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent()
             .appending(path: "tests/fixtures/push-responses.json")
         let app = XCUIApplication()
-        app.launchArguments = ["-preview-home", "-preview-no-push"]
+        app.launchArguments = ["-preview-home", "-preview-no-push"] + (markedText ? ["-preview-marked-text"] : [])
         app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": fixture.path]
         app.launch()
 
