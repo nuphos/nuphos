@@ -2,10 +2,19 @@
   "sourceLanguage" : "en",
   "strings" : {
     "" : {
-      "shouldTranslate" : false
+      "shouldTranslate" : false,
+      "localizations" : {
+
+      }
     },
     " " : {
-      "shouldTranslate" : false
+      "shouldTranslate" : false,
+      "localizations" : {
+
+      }
+    },
+    "#%@" : {
+
     },
     "%@ %@" : {
       "comment" : "Chat timestamp, other year: time month/day/year",
@@ -752,7 +761,10 @@
       "shouldTranslate" : false
     },
     "%lld" : {
-      "shouldTranslate" : false
+      "shouldTranslate" : false,
+      "localizations" : {
+
+      }
     },
     "%lld %@" : {
       "localizations" : {
@@ -764,6 +776,16 @@
         }
       },
       "shouldTranslate" : false
+    },
+    "%lld approval%@ recorded." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld approval%2$@ recorded."
+          }
+        }
+      }
     },
     "%lld approvals recorded." : {
       "localizations" : {
@@ -1154,7 +1176,10 @@
       }
     },
     "%lld%%" : {
-      "shouldTranslate" : false
+      "shouldTranslate" : false,
+      "localizations" : {
+
+      }
     },
     "%lld%% left" : {
       "localizations" : {
@@ -1295,7 +1320,10 @@
       }
     },
     "000000" : {
-      "shouldTranslate" : false
+      "shouldTranslate" : false,
+      "localizations" : {
+
+      }
     },
     "1 approval recorded." : {
       "localizations" : {
@@ -1667,7 +1695,10 @@
       }
     },
     "@%@" : {
-      "shouldTranslate" : false
+      "shouldTranslate" : false,
+      "localizations" : {
+
+      }
     },
     "A browser on %@" : {
       "localizations" : {
@@ -14974,7 +15005,10 @@
       }
     },
     "Nuphos" : {
-      "shouldTranslate" : false
+      "shouldTranslate" : false,
+      "localizations" : {
+
+      }
     },
     "Nuphos encrypts it on its way to the runtime, which keeps it; Nuphos does not keep a copy." : {
       "localizations" : {
@@ -16125,6 +16159,9 @@
           }
         }
       }
+    },
+    "Opens the channel at this post" : {
+
     },
     "Or type your own answer" : {
       "localizations" : {
@@ -29070,6 +29107,16 @@
         }
       }
     },
+    "Waiting for %lld more required approval%@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Waiting for %1$lld more required approval%2$@."
+          }
+        }
+      }
+    },
     "Waiting for %lld more required approvals." : {
       "localizations" : {
         "es" : {
@@ -31010,13 +31057,22 @@
       }
     },
     "http://127.0.0.1…" : {
-      "shouldTranslate" : false
+      "shouldTranslate" : false,
+      "localizations" : {
+
+      }
     },
     "http://localhost…" : {
-      "shouldTranslate" : false
+      "shouldTranslate" : false,
+      "localizations" : {
+
+      }
     },
     "https://nuphos.example.com" : {
-      "shouldTranslate" : false
+      "shouldTranslate" : false,
+      "localizations" : {
+
+      }
     },
     "judged safe" : {
       "localizations" : {
@@ -31393,10 +31449,16 @@
       }
     },
     "xxxx-xxxx-xxxx-xxxx" : {
-      "shouldTranslate" : false
+      "shouldTranslate" : false,
+      "localizations" : {
+
+      }
     },
     "·" : {
-      "shouldTranslate" : false
+      "shouldTranslate" : false,
+      "localizations" : {
+
+      }
     },
     "· %lld calls" : {
       "localizations" : {
