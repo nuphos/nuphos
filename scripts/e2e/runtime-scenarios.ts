@@ -86,7 +86,7 @@ export const runtimeScenarios: Scenario[] = [
       // The computer's row opens a submenu of its runtimes.
       await page.getByRole('menu').getByText('E2E second agent').click()
       await page.getByRole('menuitem', { name: /^E2E second agent.*Claude Code/ }).click()
-      await page.getByRole('button', { name: 'Move', exact: true }).click()
+      await page.getByText('moved this task from E2E fixture agent to E2E second agent').waitFor()
       await send(page, 'After the move E2E_DELIVERY:after-move')
       await until('the moved Task to finish on the second agent', async () =>
         agentLog(stack).some(
