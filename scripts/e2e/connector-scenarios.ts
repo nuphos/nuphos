@@ -28,7 +28,10 @@ export const connectorScenarios: Scenario[] = [
       const response = await fetch(`${stack.apiUrl}/cloudflare-app/setup?${query.toString()}`)
 
       if (!response.ok) throw new Error(`The callback answered ${String(response.status)}`)
-      await page.getByText(/not allowed to request scope 'dns-firewall\.read'/).waitFor()
+      await page
+        .getByRole('region', { name: 'Notifications' })
+        .getByText(/not allowed to request scope 'dns-firewall\.read'/)
+        .waitFor()
       await page.screenshot({ path: `${artifacts}/cloudflare-rejected.png` })
       await page.keyboard.press('Escape')
       await page.keyboard.press('Escape')
