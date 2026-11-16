@@ -58,6 +58,7 @@ const installQueueTurn = useSessionQueueTurn({
       item: undefined,
     }),
 })
+
 useChatSlackBound({
   findSlackBoundThread: () => Promise.resolve(null),
   buildSlackBoundTurnPlan: () => Promise.resolve(null),
