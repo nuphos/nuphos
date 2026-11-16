@@ -106,6 +106,7 @@ export function WorkspaceSidebarPanel({ ws, user }: { ws: WorkspaceController; u
     setSettingsInitialSection(null)
     setSettingsOpen(true)
   })
+  const openComputers = useStableCallback(() => openSettingsSection('workspace.computers'))
   const openMyPreferences = useStableCallback(() =>
     openSettingsSection(MY_PREFERENCES_DEFAULT_SECTION),
   )
@@ -163,6 +164,7 @@ export function WorkspaceSidebarPanel({ ws, user }: { ws: WorkspaceController; u
         history={history}
         onSidebarBack={inDatasourceExplorer || sidebarBack ? sidebarBackToParent : undefined}
         hierarchy={breadcrumb}
+        onOpenComputers={currentTeam ? openComputers : undefined}
         onOpenSettings={currentTeam ? openSettings : undefined}
         onOpenMyPreferences={currentTeam ? openMyPreferences : undefined}
         onOpenUserSettings={openUserSettings}

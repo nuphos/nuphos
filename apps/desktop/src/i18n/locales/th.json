@@ -879,6 +879,7 @@
   "Computer renamed": "เปลี่ยนชื่อคอมพิวเตอร์แล้ว",
   "Computer setup failed": "ตั้งค่าคอมพิวเตอร์ไม่สำเร็จ",
   "Computers": "คอมพิวเตอร์",
+  "Computers & runtimes": "คอมพิวเตอร์และรันไทม์",
   "Computers for the whole team at once": "คอมพิวเตอร์สำหรับทั้งทีมพร้อมกัน",
   "Computers have no vCPU limit on this deployment.": "คอมพิวเตอร์ในระบบนี้ไม่มีขีดจำกัด vCPU",
   "Computers made on this account are billed to it by instabox, not to your Nuphos plan.": "คอมพิวเตอร์ที่สร้างในบัญชีนี้จะถูก instabox เรียกเก็บเงินที่บัญชีนี้ ไม่ใช่แผน Nuphos ของคุณ",

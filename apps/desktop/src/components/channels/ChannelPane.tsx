@@ -32,8 +32,8 @@ import { useBotTaskAccess } from './useBotTaskAccess'
 import { useChannel } from './useChannel'
 import { useStickToBottom } from './useStickToBottom'
 
-import type { AgentMessageReply, AgentPersistedMessage } from '../../api'
 import type { ChannelFixes } from './ChannelReplyFix'
+import type { AgentMessageReply, AgentPersistedMessage } from '../../api'
 import type { UserInfo } from '../../types'
 import type { ComposerSend } from '../agent/panel/composerMentionChips'
 import type { AgentPromptSeed } from '../agent/panel/model'
@@ -70,29 +70,31 @@ export function ChannelPane({
   const { detail, chat, agents, refresh } = useChannel(teamId, channelId)
 
   useConversationRead(channelId, visible)
-  // Text that could not be posted goes back into the composer.
   const [restore, setRestore] = useState<AgentPromptSeed | null>(null)
-  // A resend of the same post reuses its id, so a post that did land is not doubled.
   const unsent = useRef<{ key: string; id: string } | null>(null)
-  // Posts shown at once, until the channel returns them under the same id.
   const [sending, setSending] = useState<AgentPersistedMessage[]>([])
-  // The post the next one answers, quoted above the composer.
   const [replying, setReplying] = useState<AgentMessageReply | null>(null)
   const composerRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const dropRef = useRef<((dt: DataTransfer) => void) | null>(null)
   const title = chat ? chat.title || t('New Group Chat') : ''
-  // A Bot's chat opens the Bot's desktop in this chat's dock, as its Task page's dock does.
   const bot = botOfChannel(chat)
   const botState = useSyncExternalStore(subscribeRuntimeStates, () => runtimeStateOf(bot))
   const botOwned = ownsBot(teamId, bot, user.id, detail && agents)
-  const runtimeControl = useBotRuntimeControl(teamId, bot, botOwned, user, botState, refresh)
+  const runtimeControl = useBotRuntimeControl(
+    teamId,
+    bot,
+    botOwned,
+    user,
+    botState,
+    refresh,
+    fixes?.onOpenAgentSettings,
+  )
   const canOpenTask = useBotTaskAccess(teamId, bot, botOwned)
   const canOpenBotDesktop =
     bot !== undefined &&
     sessionDesktopsOf(teamId, { runtimeState: botState, foreign: !botOwned }).canOpen
 
-  // Published as the Bot's Task page publishes it, with this chat's dock holding its tabs.
   useEffect(() => {
     if (!bot) return
     publishSessionDesktops(bot, {
@@ -110,8 +112,6 @@ export function ChannelPane({
 
   const stickToBottom = useStickToBottom(scrollRef)
   const questions = useBotChatQuestions(teamId, bot, botOwned, onOpenSession)
-
-  // The optimistic post owns the draft immediately; failure restores it through setRestore.
   const send: ComposerSend = (text, filePaths, mentions, options) => {
     void postDraft(text, filePaths, mentions, options)
 
@@ -129,7 +129,6 @@ export function ChannelPane({
     const reply = replying ?? undefined
     const key = [reply?.id, text, ...paths].join('\n')
     const id = unsent.current?.key === key ? unsent.current.id : crypto.randomUUID()
-    // Files take the conversation's upload path: shown at once, uploaded, then posted.
     const files = paths.length
       ? makeAttachmentTurn(text, paths, teamId, { previews: options?.imageThumbs })
       : null
