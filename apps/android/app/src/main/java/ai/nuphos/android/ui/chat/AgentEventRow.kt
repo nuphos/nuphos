@@ -32,7 +32,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material.icons.outlined.ArrowOutward
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -41,7 +40,9 @@ import androidx.compose.ui.platform.testTag
 import ai.nuphos.android.model.ChannelPostJump
 import ai.nuphos.android.model.ChannelPostPreview
 import ai.nuphos.android.model.MessageAttribution
+import ai.nuphos.android.model.NuphosUser
 import ai.nuphos.android.ui.components.AgentAvatar
+import ai.nuphos.android.ui.components.NuphosAvatar
 import ai.nuphos.android.ui.components.MarkdownText
 import ai.nuphos.android.R
 import androidx.compose.ui.res.stringResource
@@ -140,13 +141,7 @@ private fun ChannelPostRow(channel: String, post: ChannelPostPreview, onOpen: ((
             overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 160.dp))
         Text("·", style = style, color = muted.copy(alpha = 0.6f))
         if (post.agentId != null) AgentAvatar(post.agentId, post.runtime, size = 16.dp, showBadge = false)
-        else androidx.compose.foundation.layout.Box(
-            Modifier.size(16.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center,
-        ) {
-            Text(post.name.take(1).uppercase(), style = style.copy(fontSize = 9.sp, lineHeight = 9.sp), color = muted)
-            post.avatarURL?.let { coil3.compose.AsyncImage(model = it, contentDescription = null, modifier = Modifier.size(16.dp),
-                contentScale = androidx.compose.ui.layout.ContentScale.Crop) }
-        }
+        else NuphosAvatar(NuphosUser(id = post.name, name = post.name, avatarURL = post.avatarURL.orEmpty()), size = 16.dp)
         Text(post.name, style = style, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, softWrap = false)
         Text(post.text.ifEmpty { stringResource(R.string.chat_channel_sent_file) }, style = style, color = muted, maxLines = 1,
             overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
