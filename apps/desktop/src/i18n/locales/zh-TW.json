@@ -3135,6 +3135,7 @@
   "Only administrators and editors can change them.": "只有管理員和編輯者可以變更。",
   "Only apply to your own agents. Injected after team instructions.": "僅套用於你自己的 Agent。在團隊指示之後注入。",
   "Only import a ZIP you trust. Conversation text, instructions and scripts may contain secrets or unsafe content.": "只匯入可信任的 ZIP。對話文字、指令與腳本可能含有機密或不安全的內容。",
+  "Only its owner can change who may use it.": "只有擁有者可以變更誰能使用。",
   "Only mutations (skill changes, bash, outbound messages)": "僅限變更（技能變更、bash、對外訊息）",
   "Only needed for TKE (Kubernetes) clusters — no clusters, or CVM only? Hit Next and skip this step. The authorization page lives inside each cluster, so there is no direct link.": "只有 TKE（Kubernetes）叢集需要此步驟。沒有叢集或只有 CVM？請點選「下一步」略過此步驟。授權頁面位於各叢集內，因此沒有直接連結。",
   "Only needed for VKE (Kubernetes) clusters — no clusters, or ECS only? Hit Next and skip this step.": "只有 VKE（Kubernetes）叢集需要此步驟。沒有叢集或只有 ECS？請點選「下一步」略過此步驟。",
