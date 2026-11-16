@@ -28,9 +28,21 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material.icons.outlined.ArrowOutward
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import ai.nuphos.android.model.ChatRow
 import androidx.compose.ui.platform.testTag
+import ai.nuphos.android.model.ChannelPostJump
+import ai.nuphos.android.model.ChannelPostPreview
 import ai.nuphos.android.model.MessageAttribution
+import ai.nuphos.android.model.NuphosUser
+import ai.nuphos.android.ui.components.AgentAvatar
+import ai.nuphos.android.ui.components.NuphosAvatar
 import ai.nuphos.android.ui.components.MarkdownText
 import ai.nuphos.android.R
 import androidx.compose.ui.res.stringResource
@@ -68,7 +80,9 @@ internal fun AgentEventRow(
     val sender = content.sender
     val channelId = sender?.channelId
     if (sender != null && channelId != null) {
-        ChannelNoticeRow(sender.name, onOpenChannel?.let { open -> { open(channelId) } })
+        val post = sender.channelPost
+        val open = onOpenChannel?.let { open -> { post?.let { ChannelPostJump.pending[channelId] = it.id }; open(channelId) } }
+        if (post != null) ChannelPostRow(sender.name, post, open) else ChannelNoticeRow(sender.name, open)
         return
     }
     var expanded by rememberSaveable(row.id) { mutableStateOf(false) }
@@ -109,4 +123,35 @@ private fun ChannelNoticeRow(name: String, onOpen: (() -> Unit)?) {
         modifier = Modifier.fillMaxWidth().testTag("channel-notice")
             .then(if (onOpen != null) Modifier.clickable(onClickLabel = stringResource(R.string.chat_open_channel), onClick = onOpen) else Modifier)
             .padding(vertical = 8.dp))
+}
+
+/** "#channel · avatar name first line +N more ↗": the preview gives way first, then the channel; the poster and the count stay. */
+@Composable
+private fun ChannelPostRow(channel: String, post: ChannelPostPreview, onOpen: (() -> Unit)?) {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val style = MaterialTheme.typography.labelMedium
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 44.dp).testTag("channel-notice")
+            .then(if (onOpen != null) Modifier.clickable(onClickLabel = stringResource(R.string.chat_open_channel), onClick = onOpen) else Modifier),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        // The preview takes what is left, so it gives way first; a long channel name only past its cap.
+        Text("#$channel", style = style, fontWeight = FontWeight.Medium, color = muted, maxLines = 1,
+            overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 160.dp))
+        Text("·", style = style, color = muted.copy(alpha = 0.6f))
+        if (post.agentId != null) AgentAvatar(post.agentId, post.runtime, size = 16.dp, showBadge = false)
+        else NuphosAvatar(NuphosUser(id = post.name, name = post.name, avatarURL = post.avatarURL.orEmpty()), size = 16.dp)
+        Text(post.name, style = style, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, softWrap = false)
+        Text(post.text.ifEmpty { stringResource(R.string.chat_channel_sent_file) }, style = style, color = muted, maxLines = 1,
+            overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+        if (post.more > 0) androidx.compose.foundation.layout.Box(
+            Modifier.height(18.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f), RoundedCornerShape(9.dp))
+                .padding(horizontal = 6.dp), contentAlignment = Alignment.Center,
+        ) {
+            Text(stringResource(R.string.chat_channel_more_posts, post.more), style = style.copy(fontSize = 11.sp, lineHeight = 11.sp),
+                color = muted, maxLines = 1, softWrap = false)
+        }
+        Icon(Icons.Outlined.ArrowOutward, contentDescription = null, tint = muted, modifier = Modifier.size(12.dp))
+    }
 }

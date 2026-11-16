@@ -73,6 +73,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
+import ai.nuphos.android.model.ChannelPostJump
 import ai.nuphos.android.model.ChannelAgent
 import ai.nuphos.android.model.ChannelItem
 import ai.nuphos.android.model.ChannelPost
@@ -257,6 +258,12 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
             delay(900)
             if (flashed == reply.id) flashed = null
         }
+    }
+    // Opened from a wake-up's line: once loaded, go to the post it named. A post no longer
+    // loaded leaves the transcript at its newest post.
+    LaunchedEffect(session.loaded, reversed.size) {
+        if (!session.loaded) return@LaunchedEffect
+        ChannelPostJump.pending.remove(session.channelId)?.let { id -> jump(ChannelReply(id, "", "")) }
     }
     // Your own send returns the transcript to the end.
     LaunchedEffect(session.lastSubmittedKey) { if (session.lastSubmittedKey != null && reversed.isNotEmpty()) state.scrollToItem(0) }

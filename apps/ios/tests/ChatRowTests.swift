@@ -105,6 +105,19 @@ enum ChatRowTests {
         precondition(message("agent.resource", "system", "channel:", "Launch").event?.channelId == nil)
         precondition(message("agent.resource", "system", "GitHub", "GitHub").event?.channelId == nil)
         precondition(message("agent.thread", "agent", "channel:c1", "Launch").event?.channelId == nil)
+        // A wake-up carries its newest post for the line: who, the first line, how many more.
+        func wake(_ post: JSONValue) -> ChatMessage.Event? {
+            var m = message("agent.resource", "system", "channel:c1", "Launch")
+            if case .object(var fields) = m.metadata { fields["channelPost"] = post; m.metadata = .object(fields) }
+            return m.event
+        }
+        let post = wake(.object(["id": .string("p7"), "text": .string("deploy failed"), "more": .number(2),
+                                 "sender": .object(["type": .string("agent"), "id": .string("s9"), "displayName": .string("Reviewer"),
+                                                    "agentRuntime": .string("codex")])]))?.post
+        precondition(post?.id == "p7" && post?.text == "deploy failed" && post?.more == 2)
+        precondition(post?.sender.name == "Reviewer" && post?.agentId == "s9" && post?.runtime == "codex")
+        precondition(wake(.object(["id": .string("p7"), "text": .string("x")]))?.post == nil, "No count: today's line")
+        precondition(message("agent.resource", "system", "channel:c1", "Launch").event?.post == nil)
     }
 
     /// The notice an answer wakes the agent with is read back for people:

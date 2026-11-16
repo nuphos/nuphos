@@ -1,12 +1,9 @@
 import type { AgentCredentialAccess } from './agent-credential-types.ts'
-import type { AgentMessageMention } from './mention-types.ts'
+import type { AgentChannelPost, AgentMessageMention, AgentMessageReply } from './mention-types.ts'
 import type { SessionResource } from './session-resource-types'
 import type { AgentProvider } from '../types/runtime.ts'
 
-export type { AgentMessageMention, ChannelMention } from './mention-types.ts'
-
-/** The message a message replies to, e.g. a Discord reply; `id` is a channel post's. */
-export type AgentMessageReply = { id?: string; authorName: string; text: string }
+export type { AgentMessageMention, AgentMessageReply, ChannelMention } from './mention-types.ts'
 
 /** Someone on a conversation: its owner, or a teammate who joined it. */
 export type AgentConversationPerson = {
@@ -235,6 +232,8 @@ export type AgentMessageMetadata = {
   unattested?: true
   /** Teammates it @mentions, as the server resolved them. */
   mentions?: AgentMessageMention[]
+  /** A channel's wake notice: the newest post it brought. */
+  channelPost?: AgentChannelPost
 }
 
 export type AgentPersistedMessage = {

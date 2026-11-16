@@ -4126,6 +4126,7 @@
   "Sending code…": "コードを送信中…",
   "Sending…": "送信中…",
   "Sensitive paths redacted: {paths}": "秘匿した機密パス：{paths}",
+  "Sent a file": "ファイルを送信しました",
   "Sentry account": "Sentry アカウント",
   "Series": "系列",
   "Series or column key": "系列または列のキー",

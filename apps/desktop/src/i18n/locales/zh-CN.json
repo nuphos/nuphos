@@ -4126,6 +4126,7 @@
   "Sending code…": "正在发送验证码…",
   "Sending…": "正在发送…",
   "Sensitive paths redacted: {paths}": "已脱敏的敏感路径：{paths}",
+  "Sent a file": "发送了文件",
   "Sentry account": "Sentry 账号",
   "Series": "序列",
   "Series or column key": "序列或列键",

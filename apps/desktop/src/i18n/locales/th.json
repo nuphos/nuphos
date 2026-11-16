@@ -4126,6 +4126,7 @@
   "Sending code…": "กำลังส่งรหัส…",
   "Sending…": "กำลังส่ง…",
   "Sensitive paths redacted: {paths}": "เส้นทางที่ละเอียดอ่อนซึ่งถูกปกปิด: {paths}",
+  "Sent a file": "ส่งไฟล์แล้ว",
   "Sentry account": "บัญชี Sentry",
   "Series": "ชุดข้อมูล",
   "Series or column key": "คีย์ชุดข้อมูลหรือคอลัมน์",
