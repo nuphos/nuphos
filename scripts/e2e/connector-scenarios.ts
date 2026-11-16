@@ -34,8 +34,7 @@ export const connectorScenarios: Scenario[] = [
         .waitFor()
       await page.screenshot({ path: `${artifacts}/cloudflare-rejected.png` })
       await page.keyboard.press('Escape')
-      // While it closes, the bind dialog's title falls back to another provider.
-      await page.getByRole('dialog', { name: /^Connect / }).waitFor({ state: 'detached' })
+      await page.getByRole('dialog', { name: 'Connect Cloudflare' }).waitFor({ state: 'detached' })
       // Leave Connectors closed for the next scenario.
       const connectors = page.getByRole('dialog', { name: 'Connectors' })
 
