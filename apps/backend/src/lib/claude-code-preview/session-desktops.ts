@@ -11,6 +11,7 @@ import { getAgentDevice } from '@/lib/agent/devices/store'
 
 import type { SessionExecutionState } from './runtime-execution-snapshot'
 import type { LocalRuntimeRef } from '@/lib/agent/devices/local-runtime/address'
+import type { LocalRuntimeStatus } from '@/lib/agent/devices/local-runtime/protocol'
 
 export type DesktopOwner = { sessionId: string; runtimeId?: string | null }
 type DeviceLabel = (userId: string, deviceId: string) => Promise<string | undefined>
@@ -110,20 +111,26 @@ export async function boxDesktops(
 }
 
 /**
- * The runtime id the viewer's own computer opens its desktop by (runtime-desktop.ts), when its
- * host opens one on request; a Box opens through its own link. It names the computer, which
- * needs no agent for it: the catalog lists a runtime only per installed agent.
+ * What the device list tells the person whose computer it is: the runtime id it opens its
+ * desktop by (runtime-desktop.ts), when its host opens one on request, and the Nuphos Desktop
+ * running it with the update it found (computer-app-update.ts). The runtime id names the
+ * computer, which needs no agent for it: the catalog lists a runtime only per installed agent.
+ * A Box opens through its own link and updates its host instead.
  */
-export async function computerDesktopRuntimeId(
+export async function ownComputer(
   { userId, deviceId, box }: LocalRuntimeRef & { box?: unknown },
   viewerId: string,
   presence = runtimePresenceStore(),
-): Promise<string | undefined> {
-  if (box || userId !== viewerId) return undefined
+): Promise<{ desktopRuntimeId?: string; app?: NonNullable<LocalRuntimeStatus['app']> }> {
+  if (box || userId !== viewerId) return {}
+  const status = (await presence.get(userId, deviceId))?.status
 
-  return (await presence.get(userId, deviceId))?.status?.desktopOpen === true
-    ? localRuntimeId({ userId, deviceId, provider: 'claude-code' })
-    : undefined
+  return {
+    ...(status?.desktopOpen === true
+      ? { desktopRuntimeId: localRuntimeId({ userId, deviceId, provider: 'claude-code' }) }
+      : {}),
+    ...(status?.app ? { app: status.app } : {}),
+  }
 }
 
 export async function withSessionDesktops<T extends SessionExecutionState>(

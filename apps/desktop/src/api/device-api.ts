@@ -59,6 +59,8 @@ export const deviceApi = {
   boxResume: (deviceId: string, teamId: string) => window.api.boxResume(deviceId, teamId),
   boxDelete: (deviceId: string, teamId: string) => window.api.boxDelete(deviceId, teamId),
   deviceRemove: (deviceId: string, teamId: string) => window.api.deviceRemove(deviceId, teamId),
+  deviceAppUpdate: (deviceId: string, teamId: string) =>
+    window.api.deviceAppUpdate(deviceId, teamId),
   boxDesktop: (deviceId: string, teamId: string) => window.api.boxDesktop(deviceId, teamId),
   boxJoinToken: () => window.api.boxJoinToken(),
   sshHosts: () => window.api.sshHosts(),

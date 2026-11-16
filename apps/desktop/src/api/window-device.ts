@@ -74,6 +74,7 @@ export type WindowDeviceApi = {
   boxResume(deviceId: string, teamId: string): Promise<{ box: BoxStatus }>
   boxDelete(deviceId: string, teamId: string): Promise<{ ok: true }>
   deviceRemove(deviceId: string, teamId: string): Promise<{ ok: true }>
+  deviceAppUpdate(deviceId: string, teamId: string): Promise<{ version: string }>
   boxCreateAgent(
     deviceId: string,
     teamId: string,
