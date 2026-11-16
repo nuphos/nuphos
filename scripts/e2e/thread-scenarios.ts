@@ -6,10 +6,7 @@ import { newTask, send } from './ui.ts'
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
 
-/**
- * The line a thread card shows under its title: the verb, the agent and the status.
- * Empty while the card is missing, so the scenario's own wait reports it.
- */
+/** A thread card's line under its title (verb, agent, status), empty while the card is missing. */
 async function cardLine(page: Page, verb: 'Started' | 'Messaged') {
   return await page
     .locator('span.flex', { has: page.getByText(verb, { exact: true }) })
