@@ -1,6 +1,6 @@
 import { ObjectId } from 'mongodb'
 
-import { canUseAllowList } from '@/lib/byos/access'
+import { canPrincipalsUseAllowList } from '@/lib/byos/access'
 import { findGithubInstallation, findGitlabBinding, findLinearWorkspace } from '@/lib/byos/account'
 import { getInstallationToken } from '@/lib/byos/github'
 import { GITHUB_API, githubFetch } from '@/lib/byos/github-http'
@@ -36,22 +36,22 @@ export async function resourceCredentialAllowed(
   }[resource.provider]
 
   if (!selected?.includes(resource.integrationId)) return false
-  const team = new ObjectId(conversation.teamId)
-
-  if (resource.provider === 'github')
-    return Boolean(await findGithubInstallation(team, Number(resource.integrationId)))
-  const id = new ObjectId(resource.integrationId)
-  const binding =
-    resource.provider === 'gitlab'
-      ? await findGitlabBinding(team, id)
-      : await findLinearWorkspace(team, id)
-  const allowList = binding?.access?.memberAllowList
+  const binding = await findResourceBinding(new ObjectId(conversation.teamId), resource)
 
   return Boolean(
     binding &&
-    canUseAllowList(allowList, actorId) &&
-    canUseAllowList(allowList, conversation.userId),
+    canPrincipalsUseAllowList(binding.access?.memberAllowList, [actorId, conversation.userId]),
   )
+}
+
+function findResourceBinding(
+  team: ObjectId,
+  { provider, integrationId }: Pick<SessionResource, 'provider' | 'integrationId'>,
+) {
+  if (provider === 'github') return findGithubInstallation(team, Number(integrationId))
+  const id = new ObjectId(integrationId)
+
+  return provider === 'gitlab' ? findGitlabBinding(team, id) : findLinearWorkspace(team, id)
 }
 
 function inputIntegrationId(input: z.infer<typeof sessionResourceInput>) {

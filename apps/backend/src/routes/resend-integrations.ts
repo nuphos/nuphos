@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
 import { createDefaultAccess } from '@/lib/byos/access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { ResendApiError, verifyResendApiKey } from '@/lib/byos/resend'
 import { encryptResendSecret } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
@@ -110,6 +111,7 @@ resendIntegrationsRoutes.post(
 const integrationScoped = new Hono<{ Variables: ResendIntegrationVariables }>()
 
 integrationScoped.use('*', requireResendIntegration())
+registerBindingAccessRoutes(integrationScoped, 'resendIntegrations', (c) => c.get('resendBinding'))
 
 integrationScoped.get('/', (c) => {
   return c.json(publicView(c.get('resendBinding')))
