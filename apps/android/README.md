@@ -44,6 +44,34 @@ replacement key, replace a global keystore, uninstall the app, or clear its data
 to bypass a signing mismatch. Keep private keys outside Git and public artifacts.
 Play app signing and CI upload keys remain separate from this development key.
 
+## Translations
+
+The app follows the system language, using the seven languages Desktop ships
+(`zh-rTW`, `zh-rCN`, `ja`, `ko`, `th`, `in` for Indonesian, `es`) with English as
+the fallback. Android 13 and later list them in the app's language setting; there
+is no in-app picker.
+
+Put user-facing text in `res/values/strings_<area>.xml` and read it with
+`stringResource` in Compose. Code outside Compose, such as a store's error
+message, reads it with `Words(R.string.key)`; JVM tests then see the English from
+the same file. Never branch on a displayed string, since it changes with the
+language. Server text, logs and text the model reads stay as they are.
+
+After adding or changing a string, fill what Desktop already translates, from the
+repository root:
+
+```sh
+node scripts/fill-mobile-locales.mjs android
+```
+
+It keeps translations written by hand and copies Desktop's where the English
+matches exactly. Write the rest, and every plural, in each
+`values-<locale>/strings_<area>.xml`. `lintDebug` fails when a string is missing
+any of the languages (`MissingTranslation`). Mark text that must stay as written
+`translatable="false"`. If you cannot write all seven languages, ask for
+translations in the pull request; a follow-up commit on the same branch fills
+them before it merges.
+
 ## Service support
 
 The app defaults to Nuphos Cloud (`api.nuphos.ai`). On the welcome screen,
