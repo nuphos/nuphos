@@ -88,14 +88,20 @@ export async function prepareThread(
     actor.userId,
     await getSessionBypass(actor.sessionId, actor.userId),
   )
-  const { setThreadModel } = await import('./thread-runtime')
+  const { currentPick, setThreadModel } = await import('./thread-runtime')
+  // With nothing picked, a thread on its parent's agent starts on the parent's model.
+  const inherits =
+    !pick.model && !pick.effort && !pick.fast && (!runtime || runtime.id === source.runtimeId)
 
   try {
-    await setThreadModel(threadId, actor.userId, pick)
+    await setThreadModel(threadId, actor.userId, inherits ? currentPick(source) : pick)
   } catch (error) {
-    // Nothing ran yet; a refused pick hides the unused conversation.
-    await setConversationArchived(threadId, true)
-    throw error
+    // A parent's model the agent no longer offers leaves the thread on the agent's defaults.
+    if (!inherits) {
+      // Nothing ran yet; a refused pick hides the unused conversation.
+      await setConversationArchived(threadId, true)
+      throw error
+    }
   }
   if (delegation)
     await agentConversations().updateOne(
