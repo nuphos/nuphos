@@ -60,7 +60,6 @@ export function SidebarItemContextMenu({
   const noun = menu.item.bot || menu.item.botChannelOf ? 'bot' : channel ? 'chat' : 'task'
   const sessionId = menu.item.key.slice('agent-session:'.length)
   const viewerId = useCurrentUser()?.id ?? ''
-  const leaves = noun === 'chat' && menu.item.joinedChat === true
 
   return (
     <ContextMenu
@@ -172,8 +171,8 @@ export function SidebarItemContextMenu({
               },
             ]
           : []),
-        // Only a group chat's owner archives it; anyone else in it leaves.
-        ...(leaves
+        // A group chat is left, by its owner too; it outlives whoever leaves it.
+        ...(noun === 'chat'
           ? [
               {
                 key: 'leave',
@@ -186,7 +185,7 @@ export function SidebarItemContextMenu({
               },
             ]
           : []),
-        ...(!leaves &&
+        ...(noun !== 'chat' &&
         menu.item.key.startsWith('agent-session:') &&
         (!menu.item.readOnlyChat || menu.item.managedChat)
           ? [
@@ -243,7 +242,6 @@ const RENAME = {
 const ARCHIVE = {
   task: () => t('Archive Task'),
   bot: () => t('Archive Bot'),
-  chat: () => t('Archive chat'),
 }
 const COPIED = {
   Link: () => t('Link copied'),
