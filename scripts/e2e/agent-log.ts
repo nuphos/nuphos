@@ -36,3 +36,17 @@ export function delegatedTurn(stack: Stack, marker: string): AgentEntry | undefi
 
   return log.find((entry) => entry.event === 'finish' && entry.marker === marker)
 }
+
+/** The first agent applied `model` to the session that ran the turn marked `marker`. */
+export function firstAgentHolds(stack: Stack, marker: string, model: string) {
+  const log = agentLog(stack)
+  const session = log.find((entry) => entry.marker === marker)?.sessionId
+
+  return log.some(
+    (entry) =>
+      entry.agent === 'first' &&
+      entry.sessionId === session &&
+      entry.event === 'setting' &&
+      entry.detail === `model=${model}`,
+  )
+}
