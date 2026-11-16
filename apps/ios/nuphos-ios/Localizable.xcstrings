@@ -2,7 +2,7 @@
   "sourceLanguage" : "en",
   "strings" : {
     "" : {
-
+      "shouldTranslate" : false
     },
     " " : {
 
@@ -202,6 +202,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ 正在思考"
+          }
+        }
+      }
+    },
+    "%@ on %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ on %2$@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ en %2$@"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ di %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%2$@ の %1$@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%2$@의 %1$@"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ บน %2$@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@（%2$@）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@（%2$@）"
           }
         }
       }
@@ -671,10 +723,53 @@
       }
     },
     "000000" : {
-
+      "shouldTranslate" : false
     },
     "1. Add Nuphos to your authenticator app" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1. Añade Nuphos a tu app de autenticación"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1. Tambahkan Nuphos ke aplikasi autentikator Anda"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1. 認証アプリに Nuphos を追加"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1. 인증 앱에 Nuphos 추가"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1. เพิ่ม Nuphos ในแอปยืนยันตัวตน"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1. 将 Nuphos 添加到你的验证器 App"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1. 將 Nuphos 加入你的驗證器 App"
+          }
+        }
+      }
     },
     "1. Copy this code.\n2. Open the sign-in page and sign in with your %@ account.\n3. Enter the code when asked. This page updates once you're signed in." : {
 
@@ -775,6 +870,52 @@
     "@%@" : {
 
     },
+    "A browser on %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un navegador en %@"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Browser di %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 上のブラウザ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 브라우저"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เบราว์เซอร์บน %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 上的浏览器"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 上的瀏覽器"
+          }
+        }
+      }
+    },
     "A team administrator can connect cloud accounts and integrations." : {
 
     },
@@ -834,13 +975,188 @@
 
     },
     "Account options for %@" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opciones de la cuenta %@"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opsi akun untuk %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ のアカウントオプション"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 계정 옵션"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตัวเลือกบัญชีของ %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 的账号选项"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 的帳號選項"
+          }
+        }
+      }
     },
     "Account password" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contraseña de la cuenta"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kata sandi akun"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アカウントのパスワード"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "계정 비밀번호"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "รหัสผ่านบัญชี"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "账号密码"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "帳號密碼"
+          }
+        }
+      }
     },
     "Active account" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cuenta activa"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Akun aktif"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用中のアカウント"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사용 중인 계정"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "บัญชีที่ใช้งานอยู่"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前使用的账号"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目前使用的帳號"
+          }
+        }
+      }
+    },
+    "Active now" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activo ahora"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aktif sekarang"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "現在アクティブ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "현재 활성"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใช้งานอยู่ตอนนี้"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前活跃"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目前使用中"
+          }
+        }
+      }
     },
     "Add a passkey" : {
       "localizations" : {
@@ -996,7 +1312,50 @@
 
     },
     "Agree and continue" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aceptar y continuar"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Setuju dan lanjutkan"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同意して続行"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "동의하고 계속"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยอมรับและดำเนินการต่อ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同意并继续"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同意並繼續"
+          }
+        }
+      }
     },
     "Already invited? Accept the invitation from your email, then refresh your workspaces." : {
 
@@ -1810,7 +2169,50 @@
       }
     },
     "Before you use AI agents" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antes de usar agentes de IA"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sebelum Anda menggunakan agen AI"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI エージェントを使う前に"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 에이전트를 사용하기 전에"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ก่อนใช้เอเจนต์ AI"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用 AI Agent 之前"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用 AI Agent 之前"
+          }
+        }
+      }
     },
     "Bot" : {
 
@@ -1865,7 +2267,50 @@
       }
     },
     "By continuing, you agree to our [Terms of Service](https://nuphos.ai/terms) and [Privacy Policy](https://nuphos.ai/privacy)." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Al continuar, aceptas nuestros [Términos del servicio](https://nuphos.ai/terms) y nuestra [Política de privacidad](https://nuphos.ai/privacy)."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dengan melanjutkan, Anda menyetujui [Ketentuan Layanan](https://nuphos.ai/terms) dan [Kebijakan Privasi](https://nuphos.ai/privacy) kami."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "続行すると、[利用規約](https://nuphos.ai/terms)と[プライバシーポリシー](https://nuphos.ai/privacy)に同意したことになります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "계속하면 [서비스 약관](https://nuphos.ai/terms) 및 [개인정보 처리방침](https://nuphos.ai/privacy)에 동의하게 됩니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การดำเนินการต่อถือว่าคุณยอมรับ[ข้อกำหนดการให้บริการ](https://nuphos.ai/terms)และ[นโยบายความเป็นส่วนตัว](https://nuphos.ai/privacy)ของเรา"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "继续即表示你同意我们的[服务条款](https://nuphos.ai/terms)和[隐私政策](https://nuphos.ai/privacy)。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "繼續即表示你同意我們的[服務條款](https://nuphos.ai/terms)與[隱私權政策](https://nuphos.ai/privacy)。"
+          }
+        }
+      }
     },
     "Can reply" : {
       "localizations" : {
@@ -2006,7 +2451,50 @@
       }
     },
     "Cancel adding account" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelar la adición de la cuenta"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Batalkan penambahan akun"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アカウントの追加をキャンセル"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "계정 추가 취소"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยกเลิกการเพิ่มบัญชี"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消添加账号"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消新增帳號"
+          }
+        }
+      }
     },
     "Cancel reply" : {
       "localizations" : {
@@ -2058,7 +2546,50 @@
 
     },
     "Change" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cambiar"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ubah"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "変更"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "변경"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปลี่ยน"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更改"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "變更"
+          }
+        }
+      }
     },
     "Change photo" : {
       "localizations" : {
@@ -2107,7 +2638,50 @@
       }
     },
     "Check your email" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revisa tu correo"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Periksa email Anda"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "メールを確認してください"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이메일을 확인하세요"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตรวจสอบอีเมลของคุณ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请查看你的电子邮件"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請查看你的電子郵件"
+          }
+        }
+      }
     },
     "Choose Credentials" : {
 
@@ -2370,7 +2944,50 @@
 
     },
     "Code sent — check your inbox" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Código enviado: revisa tu bandeja de entrada"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kode terkirim — periksa kotak masuk Anda"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コードを送信しました。受信トレイを確認してください"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "코드를 보냈습니다. 받은편지함을 확인하세요"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ส่งรหัสแล้ว ตรวจสอบกล่องจดหมายของคุณ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "验证码已发送，请查看收件箱"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "驗證碼已寄出，請查看收件匣"
+          }
+        }
+      }
     },
     "Collapsed" : {
 
@@ -2382,13 +2999,99 @@
 
     },
     "Complete by" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fecha límite"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selesai paling lambat"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完了予定日"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "완료 예정일"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำหนดเสร็จ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "预计完成日"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "預計完成日"
+          }
+        }
+      }
     },
     "Computers going offline" : {
 
     },
     "Confirm it is you" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirma que eres tú"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Konfirmasi bahwa ini Anda"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本人確認"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "본인 확인"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยืนยันว่าเป็นคุณ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "确认是你本人"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "確認是你本人"
+          }
+        }
+      }
     },
     "Confirm it’s you" : {
       "localizations" : {
@@ -2437,10 +3140,96 @@
       }
     },
     "Confirm with an email code" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirmar con un código por correo"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Konfirmasi dengan kode email"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "メールのコードで確認"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이메일 코드로 확인"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยืนยันด้วยรหัสทางอีเมล"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "改用电子邮件验证码确认"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "改用電子郵件驗證碼確認"
+          }
+        }
+      }
     },
     "Confirm with my password" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirmar con mi contraseña"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Konfirmasi dengan kata sandi saya"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "パスワードで確認"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "비밀번호로 확인"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยืนยันด้วยรหัสผ่าน"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "改用密码确认"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "改用密碼確認"
+          }
+        }
+      }
     },
     "Connect" : {
       "localizations" : {
@@ -2780,7 +3569,50 @@
       }
     },
     "Continue with Google" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continuar con Google"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lanjutkan dengan Google"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google で続行"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google로 계속"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ดำเนินการต่อด้วย Google"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用 Google 继续"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用 Google 繼續"
+          }
+        }
+      }
     },
     "Continuing sign-in…" : {
       "localizations" : {
@@ -3058,6 +3890,52 @@
         }
       }
     },
+    "Could not sign out. %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo cerrar la sesión. %@"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak dapat keluar. %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サインアウトできませんでした。%@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그아웃할 수 없습니다. %@"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ออกจากระบบไม่สำเร็จ %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法退出登录。%@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法登出。%@"
+          }
+        }
+      }
+    },
     "Couldn't approve plan" : {
 
     },
@@ -3220,10 +4098,96 @@
 
     },
     "Couldn’t load two-factor authentication. %@" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo cargar la verificación en dos pasos. %@"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak dapat memuat autentikasi dua faktor. %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "2 段階認証を読み込めませんでした。%@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "2단계 인증을 불러올 수 없습니다. %@"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โหลดการยืนยันตัวตนแบบสองขั้นตอนไม่สำเร็จ %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法加载两步验证。%@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法載入兩步驟驗證。%@"
+          }
+        }
+      }
     },
     "Couldn’t load your signed-in devices. %@" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudieron cargar tus dispositivos con sesión iniciada. %@"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak dapat memuat perangkat yang masuk. %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サインイン中のデバイスを読み込めませんでした。%@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그인된 기기를 불러올 수 없습니다. %@"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โหลดอุปกรณ์ที่ลงชื่อเข้าใช้ไม่สำเร็จ %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法加载已登录的设备。%@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法載入已登入的裝置。%@"
+          }
+        }
+      }
     },
     "Create" : {
       "localizations" : {
@@ -3468,7 +4432,50 @@
       }
     },
     "Depending on your runtime and model, this includes Anthropic (Claude), OpenAI (Codex), xAI (Grok), Google (Antigravity), DeepSeek (DeepSeek Harness), the model provider an OpenCode runtime uses (OpenCode Zen when it is not signed in to one), or Amazon Web Services. When tracing is enabled, Nuphos stores AI execution traces, which can include conversation and tool content, for diagnostics and service improvement." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Según tu entorno de ejecución y modelo, esto incluye Anthropic (Claude), OpenAI (Codex), xAI (Grok), Google (Antigravity), DeepSeek (DeepSeek Harness), el proveedor de modelos que usa un entorno de OpenCode (OpenCode Zen si no ha iniciado sesión en ninguno) o Amazon Web Services. Cuando el rastreo está activado, Nuphos guarda los rastros de ejecución de la IA, que pueden incluir contenido de conversaciones y herramientas, para diagnóstico y mejora del servicio."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bergantung pada runtime dan model Anda, ini mencakup Anthropic (Claude), OpenAI (Codex), xAI (Grok), Google (Antigravity), DeepSeek (DeepSeek Harness), penyedia model yang digunakan runtime OpenCode (OpenCode Zen jika tidak masuk ke salah satunya), atau Amazon Web Services. Saat pelacakan diaktifkan, Nuphos menyimpan jejak eksekusi AI, yang dapat mencakup konten percakapan dan alat, untuk diagnostik dan peningkatan layanan."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "実行環境とモデルに応じて、Anthropic（Claude）、OpenAI（Codex）、xAI（Grok）、Google（Antigravity）、DeepSeek（DeepSeek Harness）、OpenCode 実行環境が使用するモデルプロバイダー（サインインしていない場合は OpenCode Zen）、または Amazon Web Services が含まれます。トレースが有効な場合、Nuphos は診断とサービス改善のために AI の実行トレース（会話やツールの内容を含む場合があります）を保存します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "런타임과 모델에 따라 Anthropic(Claude), OpenAI(Codex), xAI(Grok), Google(Antigravity), DeepSeek(DeepSeek Harness), OpenCode 런타임이 사용하는 모델 제공업체(로그인하지 않은 경우 OpenCode Zen) 또는 Amazon Web Services가 포함됩니다. 추적이 활성화되면 Nuphos는 진단과 서비스 개선을 위해 AI 실행 추적(대화 및 도구 내용이 포함될 수 있음)을 저장합니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ขึ้นอยู่กับรันไทม์และโมเดลของคุณ ซึ่งรวมถึง Anthropic (Claude), OpenAI (Codex), xAI (Grok), Google (Antigravity), DeepSeek (DeepSeek Harness), ผู้ให้บริการโมเดลที่รันไทม์ OpenCode ใช้ (OpenCode Zen เมื่อไม่ได้ลงชื่อเข้าใช้) หรือ Amazon Web Services เมื่อเปิดใช้การติดตาม Nuphos จะจัดเก็บร่องรอยการทำงานของ AI ซึ่งอาจมีเนื้อหาการสนทนาและเครื่องมือ เพื่อการวินิจฉัยและปรับปรุงบริการ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "视你使用的运行环境和模型而定，可能包括 Anthropic（Claude）、OpenAI（Codex）、xAI（Grok）、Google（Antigravity）、DeepSeek（DeepSeek Harness）、OpenCode 运行环境使用的模型提供商（未登录时为 OpenCode Zen），或 Amazon Web Services。启用追踪时，Nuphos 会存储 AI 执行追踪记录（可能包含对话和工具内容），用于诊断和改进服务。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "視你使用的執行環境與模型而定，可能包括 Anthropic（Claude）、OpenAI（Codex）、xAI（Grok）、Google（Antigravity）、DeepSeek（DeepSeek Harness）、OpenCode 執行環境使用的模型供應商（未登入時為 OpenCode Zen），或 Amazon Web Services。啟用追蹤時，Nuphos 會儲存 AI 執行追蹤紀錄（可能包含對話與工具內容），用於診斷與改善服務。"
+          }
+        }
+      }
     },
     "Desktop" : {
       "localizations" : {
@@ -3517,7 +4524,50 @@
       }
     },
     "Didn't get a code?" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿No recibiste el código?"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak menerima kode?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コードが届きませんか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "코드를 받지 못하셨나요?"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่ได้รับรหัสใช่ไหม"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没收到验证码？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "沒收到驗證碼？"
+          }
+        }
+      }
     },
     "Disabled" : {
       "localizations" : {
@@ -3716,7 +4766,50 @@
 
     },
     "Email address" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Correo electrónico"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alamat email"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "メールアドレス"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이메일 주소"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ที่อยู่อีเมล"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "电子邮件地址"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "電子郵件地址"
+          }
+        }
+      }
     },
     "Enable %@" : {
 
@@ -3813,6 +4906,52 @@
         }
       }
     },
+    "Enter a full URL, e.g. https://nuphos.example.com" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Introduce una URL completa, p. ej., https://nuphos.example.com"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Masukkan URL lengkap, misalnya https://nuphos.example.com"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完全な URL を入力してください（例：https://nuphos.example.com）"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "전체 URL을 입력하세요(예: https://nuphos.example.com)"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ป้อน URL แบบเต็ม เช่น https://nuphos.example.com"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请输入完整网址，例如 https://nuphos.example.com"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請輸入完整網址，例如 https://nuphos.example.com"
+          }
+        }
+      }
+    },
     "Enter the 6-digit code from your authenticator app." : {
       "localizations" : {
         "es" : {
@@ -3860,7 +4999,142 @@
       }
     },
     "Enter the 6-digit code sent to" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Introduce el código de 6 dígitos enviado a"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Masukkan kode 6 digit yang dikirim ke"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "次のアドレスに送信された 6 桁のコードを入力してください"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다음 주소로 보낸 6자리 코드를 입력하세요"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ป้อนรหัส 6 หลักที่ส่งไปยัง"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请输入发送到以下地址的 6 位验证码"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請輸入寄到以下地址的 6 位數驗證碼"
+          }
+        }
+      }
+    },
+    "Enter the code from your authenticator app." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Introduce el código de tu app de autenticación."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Masukkan kode dari aplikasi autentikator Anda."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "認証アプリのコードを入力してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "인증 앱의 코드를 입력하세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ป้อนรหัสจากแอปยืนยันตัวตนของคุณ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请输入验证器 App 中的验证码。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請輸入驗證器 App 中的驗證碼。"
+          }
+        }
+      }
+    },
+    "Enter the six-digit code." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Introduce el código de seis dígitos."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Masukkan kode enam digit."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "6 桁のコードを入力してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "6자리 코드를 입력하세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ป้อนรหัส 6 หลัก"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请输入 6 位验证码。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請輸入 6 位數驗證碼。"
+          }
+        }
+      }
     },
     "Every device except this one will need to sign in again." : {
       "localizations" : {
@@ -4100,6 +5374,52 @@
     },
     "Fit the front window" : {
 
+    },
+    "For your security, sign in again to continue." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Por tu seguridad, vuelve a iniciar sesión para continuar."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Demi keamanan Anda, masuk lagi untuk melanjutkan."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "セキュリティのため、続行するには再度サインインしてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "보안을 위해 계속하려면 다시 로그인하세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เพื่อความปลอดภัย โปรดลงชื่อเข้าใช้อีกครั้งเพื่อดำเนินการต่อ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "为了你的安全，请重新登录以继续。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "為了你的安全，請重新登入以繼續。"
+          }
+        }
+      }
     },
     "For your security, this needs a sign-in from the last 10 minutes." : {
       "localizations" : {
@@ -4395,6 +5715,52 @@
         }
       }
     },
+    "In progress" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En curso"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sedang berlangsung"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "進行中"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "진행 중"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังดำเนินการ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "进行中"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "進行中"
+          }
+        }
+      }
+    },
     "In this task" : {
 
     },
@@ -4540,8 +5906,143 @@
         }
       }
     },
+    "Last active %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Última actividad: %@"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terakhir aktif %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最終アクティブ：%@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "마지막 활동: %@"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใช้งานล่าสุด %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上次活跃：%@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上次使用：%@"
+          }
+        }
+      }
+    },
+    "Last active: unknown" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Última actividad: desconocida"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terakhir aktif: tidak diketahui"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最終アクティブ：不明"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "마지막 활동: 알 수 없음"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใช้งานล่าสุด: ไม่ทราบ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上次活动时间：未知"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上次活動時間：不明"
+          }
+        }
+      }
+    },
     "Leave this unchanged to use Nuphos Cloud. Enter your server address to use a self-hosted instance." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Déjalo sin cambios para usar Nuphos Cloud. Introduce la dirección de tu servidor para usar una instancia autoalojada."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Biarkan tidak berubah untuk menggunakan Nuphos Cloud. Masukkan alamat server Anda untuk menggunakan instans yang di-host sendiri."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos Cloud を使う場合は変更しないでください。セルフホストのインスタンスを使う場合はサーバーのアドレスを入力してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos Cloud를 사용하려면 그대로 두세요. 자체 호스팅 인스턴스를 사용하려면 서버 주소를 입력하세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่ต้องเปลี่ยนหากใช้ Nuphos Cloud ป้อนที่อยู่เซิร์ฟเวอร์ของคุณเพื่อใช้อินสแตนซ์ที่โฮสต์เอง"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保持不变即使用 Nuphos Cloud。如需使用自托管实例，请输入你的服务器地址。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保持不變即使用 Nuphos Cloud。若要使用自架服務，請輸入你的伺服器位址。"
+          }
+        }
+      }
     },
     "Let them reply" : {
       "localizations" : {
@@ -5846,7 +7347,50 @@
 
     },
     "Not now — manage my account" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ahora no: gestionar mi cuenta"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nanti saja — kelola akun saya"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今はしない — アカウントを管理"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "나중에 — 계정 관리"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่ใช่ตอนนี้ — จัดการบัญชีของฉัน"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂时不要，先管理我的账号"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暫時不要，先管理我的帳號"
+          }
+        }
+      }
     },
     "Not sent" : {
 
@@ -5899,6 +7443,144 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nuphos 會在傳送至執行環境的過程中加密，並由執行環境保存；Nuphos 不會保留副本。"
+          }
+        }
+      }
+    },
+    "Nuphos returned an unexpected response (%lld)." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos devolvió una respuesta inesperada (%lld)."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos mengembalikan respons yang tidak terduga (%lld)."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos から予期しない応答がありました（%lld）。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos에서 예기치 않은 응답을 반환했습니다(%lld)."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos ส่งการตอบกลับที่ไม่คาดคิด (%lld)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos 返回了意外的响应（%lld）。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos 傳回了非預期的回應（%lld）。"
+          }
+        }
+      }
+    },
+    "Nuphos returned something we could not read." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos devolvió algo que no pudimos leer."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos mengembalikan sesuatu yang tidak dapat kami baca."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos から読み取れない応答がありました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos에서 읽을 수 없는 응답을 반환했습니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos ส่งข้อมูลที่อ่านไม่ได้กลับมา"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos 返回了无法读取的内容。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos 傳回了無法讀取的內容。"
+          }
+        }
+      }
+    },
+    "Nuphos sent passkey options this app could not read." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos envió opciones de llave de acceso que esta app no pudo leer."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos mengirim opsi passkey yang tidak dapat dibaca aplikasi ini."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos から送られたパスキーの設定をこのアプリで読み取れませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos에서 보낸 패스키 옵션을 이 앱에서 읽을 수 없습니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แอปนี้อ่านตัวเลือกพาสคีย์ที่ Nuphos ส่งมาไม่ได้"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos 发送的通行密钥选项无法被此 App 读取。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos 傳來的通行密鑰選項無法被此 App 讀取。"
           }
         }
       }
@@ -6094,7 +7776,50 @@
       }
     },
     "Only share information you are authorized to share. You can decline and still manage your account or request its deletion. You can withdraw permission in Account → AI data sharing. Withdrawal stops new AI use from this app; it does not undo completed transfers or stop work already running, including work started on other devices or by scheduled agents." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comparte solo la información que tengas autorización para compartir. Puedes rechazarlo y seguir gestionando tu cuenta o solicitar su eliminación. Puedes retirar el permiso en Cuenta → Uso compartido de datos con IA. Retirarlo detiene el nuevo uso de IA desde esta app; no deshace las transferencias completadas ni detiene el trabajo que ya está en curso, incluido el iniciado en otros dispositivos o por agentes programados."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hanya bagikan informasi yang boleh Anda bagikan. Anda dapat menolak dan tetap mengelola akun atau meminta penghapusannya. Anda dapat menarik izin di Akun → Berbagi data AI. Penarikan menghentikan penggunaan AI baru dari aplikasi ini; tidak membatalkan transfer yang sudah selesai atau menghentikan pekerjaan yang sedang berjalan, termasuk pekerjaan yang dimulai di perangkat lain atau oleh agen terjadwal."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共有する権限のある情報のみを共有してください。同意しなくても、アカウントの管理や削除のリクエストは引き続き行えます。同意は「アカウント → AI データ共有」で撤回できます。撤回するとこのアプリからの新たな AI 利用は停止しますが、完了した送信は取り消されず、他のデバイスやスケジュールされたエージェントが開始したものを含め、実行中の作業も停止しません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "공유할 권한이 있는 정보만 공유하세요. 거부하더라도 계정을 관리하거나 삭제를 요청할 수 있습니다. 동의는 계정 → AI 데이터 공유에서 철회할 수 있습니다. 철회하면 이 앱에서의 새로운 AI 사용이 중지되지만, 완료된 전송은 취소되지 않으며 다른 기기나 예약된 에이전트가 시작한 작업을 포함해 이미 실행 중인 작업도 중지되지 않습니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แชร์เฉพาะข้อมูลที่คุณได้รับอนุญาตให้แชร์ คุณปฏิเสธได้และยังจัดการบัญชีหรือขอลบบัญชีได้ คุณถอนความยินยอมได้ที่ บัญชี → การแชร์ข้อมูล AI การถอนความยินยอมจะหยุดการใช้ AI ใหม่จากแอปนี้ แต่จะไม่ยกเลิกการส่งข้อมูลที่เสร็จแล้วหรือหยุดงานที่กำลังทำงานอยู่ รวมถึงงานที่เริ่มจากอุปกรณ์อื่นหรือจากเอเจนต์ที่ตั้งเวลาไว้"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请只分享你有权分享的信息。你可以拒绝，仍然能管理账号或申请删除账号。你可以在“账号 → AI 数据分享”中撤回同意。撤回后此 App 将停止新的 AI 使用，但不会撤销已完成的传输，也不会停止已在运行的工作，包括在其他设备上或由定时 Agent 启动的工作。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請只分享你有權分享的資訊。你可以拒絕，仍然能管理帳號或申請刪除帳號。你可以在「帳號 → AI 資料分享」中撤回同意。撤回後此 App 將停止新的 AI 使用，但不會撤銷已完成的傳送，也不會停止已在執行的工作，包括在其他裝置上或由排程 Agent 啟動的工作。"
+          }
+        }
+      }
     },
     "Only the owner can change who has access." : {
       "localizations" : {
@@ -6253,7 +7978,50 @@
 
     },
     "Open in authenticator app" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir en la app de autenticación"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buka di aplikasi autentikator"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "認証アプリで開く"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "인증 앱에서 열기"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิดในแอปยืนยันตัวตน"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在验证器 App 中打开"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在驗證器 App 中開啟"
+          }
+        }
+      }
     },
     "Opens the channel" : {
 
@@ -6690,8 +8458,97 @@
     "Plan actions" : {
 
     },
+    "Please update Nuphos to read the latest AI notice." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actualiza Nuphos para leer el aviso de IA más reciente."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perbarui Nuphos untuk membaca pemberitahuan AI terbaru."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最新の AI に関するお知らせを読むには Nuphos をアップデートしてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "최신 AI 안내를 읽으려면 Nuphos를 업데이트하세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โปรดอัปเดต Nuphos เพื่ออ่านประกาศ AI ล่าสุด"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请更新 Nuphos 以阅读最新的 AI 告知事项。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請更新 Nuphos 以閱讀最新的 AI 告知事項。"
+          }
+        }
+      }
+    },
     "Please wait…" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Espera…"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Harap tunggu…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "お待ちください…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "잠시 기다려 주세요…"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โปรดรอสักครู่…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请稍候…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請稍候…"
+          }
+        }
+      }
     },
     "Preparing conversation…" : {
 
@@ -6857,7 +8714,50 @@
 
     },
     "Read the privacy policy" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leer la política de privacidad"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Baca kebijakan privasi"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プライバシーポリシーを読む"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "개인정보 처리방침 읽기"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "อ่านนโยบายความเป็นส่วนตัว"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "阅读隐私政策"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "閱讀隱私權政策"
+          }
+        }
+      }
     },
     "Recent" : {
       "localizations" : {
@@ -6906,7 +8806,50 @@
       }
     },
     "Recovery codes left" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Códigos de recuperación restantes"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kode pemulihan tersisa"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "残りのリカバリーコード"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "남은 복구 코드"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "รหัสกู้คืนที่เหลือ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "剩余的恢复码"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "剩餘的復原碼"
+          }
+        }
+      }
     },
     "Redirect Address" : {
 
@@ -7624,13 +9567,188 @@
       }
     },
     "Request permanent account deletion" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solicitar la eliminación permanente de la cuenta"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Minta penghapusan akun permanen"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アカウントの完全削除をリクエスト"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "계정 영구 삭제 요청"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ขอลบบัญชีอย่างถาวร"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "申请永久删除账号"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "申請永久刪除帳號"
+          }
+        }
+      }
     },
     "Request permanent deletion" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solicitar la eliminación permanente"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Minta penghapusan permanen"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完全削除をリクエスト"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "영구 삭제 요청"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ขอลบอย่างถาวร"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "申请永久删除"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "申請永久刪除"
+          }
+        }
+      }
     },
     "Request received" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solicitud recibida"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permintaan diterima"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リクエストを受け付けました"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "요청이 접수되었습니다"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ได้รับคำขอแล้ว"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已收到申请"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已收到申請"
+          }
+        }
+      }
+    },
+    "Requested" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solicitado"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diminta"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要求容量"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "요청 용량"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ที่ขอ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请求量"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請求量"
+          }
+        }
+      }
     },
     "Resend code" : {
       "localizations" : {
@@ -7679,7 +9797,50 @@
       }
     },
     "Resend code in %llds" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reenviar el código en %lld s"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kirim ulang kode dalam %lld dtk"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 秒後に再送信できます"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld초 후 코드 재전송"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ส่งรหัสอีกครั้งได้ใน %lld วินาที"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 秒后可重新发送"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 秒後可重新寄送"
+          }
+        }
+      }
     },
     "Reset prompt" : {
 
@@ -7734,10 +9895,96 @@
       }
     },
     "Retry loading consent" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reintentar cargar el consentimiento"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coba muat persetujuan lagi"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同意内容を再読み込み"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "동의 내용 다시 불러오기"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลองโหลดความยินยอมอีกครั้ง"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新加载同意事项"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新載入同意事項"
+          }
+        }
+      }
     },
     "Retry sign-in options" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reintentar cargar las opciones de inicio de sesión"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coba muat opsi masuk lagi"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サインイン方法を再読み込み"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그인 옵션 다시 불러오기"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลองโหลดตัวเลือกการลงชื่อเข้าใช้อีกครั้ง"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新加载登录选项"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新載入登入選項"
+          }
+        }
+      }
     },
     "Risk" : {
       "localizations" : {
@@ -8017,6 +10264,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "儲存你的復原碼"
+          }
+        }
+      }
+    },
+    "Saved accounts could not be read. Try again before adding an account." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudieron leer las cuentas guardadas. Vuelve a intentarlo antes de añadir una cuenta."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Akun tersimpan tidak dapat dibaca. Coba lagi sebelum menambahkan akun."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存済みのアカウントを読み込めませんでした。アカウントを追加する前にもう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장된 계정을 읽을 수 없습니다. 계정을 추가하기 전에 다시 시도하세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "อ่านบัญชีที่บันทึกไว้ไม่ได้ ลองอีกครั้งก่อนเพิ่มบัญชี"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法读取已保存的账号。请重试后再添加账号。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法讀取已儲存的帳號。請重試後再新增帳號。"
           }
         }
       }
@@ -8448,7 +10741,50 @@
 
     },
     "Send a verification code to %@." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviar un código de verificación a %@."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kirim kode verifikasi ke %@."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ に確認コードを送信します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@(으)로 인증 코드를 보냅니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ส่งรหัสยืนยันไปที่ %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "发送验证码到 %@。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "寄送驗證碼到 %@。"
+          }
+        }
+      }
     },
     "Send answer" : {
       "localizations" : {
@@ -8589,19 +10925,191 @@
       }
     },
     "Send verification code" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviar código de verificación"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kirim kode verifikasi"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "確認コードを送信"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "인증 코드 보내기"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ส่งรหัสยืนยัน"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "发送验证码"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "寄送驗證碼"
+          }
+        }
+      }
     },
     "Send voice input" : {
 
     },
     "Server address" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dirección del servidor"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alamat server"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サーバーのアドレス"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "서버 주소"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ที่อยู่เซิร์ฟเวอร์"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务器地址"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "伺服器位址"
+          }
+        }
+      }
     },
     "Server settings" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajustes del servidor"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pengaturan server"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サーバー設定"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "서버 설정"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การตั้งค่าเซิร์ฟเวอร์"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务器设置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "伺服器設定"
+          }
+        }
+      }
     },
     "Server: %@" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Servidor: %@"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サーバー：%@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "서버: %@"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เซิร์ฟเวอร์: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务器：%@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "伺服器：%@"
+          }
+        }
+      }
     },
     "Set up workspace" : {
 
@@ -8962,7 +11470,50 @@
       }
     },
     "Sign in or create an account." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inicia sesión o crea una cuenta."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Masuk atau buat akun."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サインインまたはアカウントを作成してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그인하거나 계정을 만드세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลงชื่อเข้าใช้หรือสร้างบัญชี"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登录或创建账号。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登入或建立帳號。"
+          }
+        }
+      }
     },
     "Sign in to %@" : {
       "localizations" : {
@@ -9056,6 +11607,52 @@
         }
       }
     },
+    "Sign out %@?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Cerrar la sesión de %@?"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keluar dari %@?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ からサインアウトしますか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@에서 로그아웃할까요?"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ออกจากระบบ %@ ใช่ไหม"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要退出 %@ 的登录吗？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要登出 %@ 嗎？"
+          }
+        }
+      }
+    },
     "Sign out all other devices" : {
       "localizations" : {
         "es" : {
@@ -9098,6 +11695,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "登出所有其他裝置"
+          }
+        }
+      }
+    },
+    "Sign out all other devices?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Cerrar la sesión en todos los demás dispositivos?"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keluar dari semua perangkat lain?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "他のすべてのデバイスからサインアウトしますか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다른 모든 기기에서 로그아웃할까요?"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ออกจากระบบอุปกรณ์อื่นทั้งหมดใช่ไหม"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要退出其他所有设备的登录吗？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要登出其他所有裝置嗎？"
           }
         }
       }
@@ -9152,7 +11795,50 @@
 
     },
     "Sign out of this account?" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Cerrar la sesión de esta cuenta?"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keluar dari akun ini?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このアカウントからサインアウトしますか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 계정에서 로그아웃할까요?"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ออกจากระบบบัญชีนี้ใช่ไหม"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要退出这个账号吗？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要登出這個帳號嗎？"
+          }
+        }
+      }
     },
     "Sign-in will no longer ask for a code. Enter one to confirm." : {
       "localizations" : {
@@ -9749,13 +12435,148 @@
       }
     },
     "The code expires in 10 minutes." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El código caduca en 10 minutos."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kode kedaluwarsa dalam 10 menit."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コードの有効期限は 10 分です。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "코드는 10분 후에 만료됩니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "รหัสจะหมดอายุใน 10 นาที"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "验证码将在 10 分钟后失效。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "驗證碼將在 10 分鐘後失效。"
+          }
+        }
+      }
+    },
+    "The passkey request was cancelled." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se canceló la solicitud de la llave de acceso."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permintaan passkey dibatalkan."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "パスキーのリクエストがキャンセルされました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "패스키 요청이 취소되었습니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คำขอพาสคีย์ถูกยกเลิก"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通行密钥请求已取消。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通行密鑰請求已取消。"
+          }
+        }
+      }
     },
     "The plan is kept for reference but will no longer be run." : {
 
     },
     "The prompt sets the writing style and spells names Whisper doesn't know, such as products and services. Voice input is included with a Nuphos subscription; recordings are transcribed by OpenAI Whisper." : {
 
+    },
+    "The sign-in window closed before finishing. Please try again." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La ventana de inicio de sesión se cerró antes de terminar. Inténtalo de nuevo."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jendela masuk tertutup sebelum selesai. Coba lagi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完了する前にサインイン画面が閉じられました。もう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그인 창이 완료되기 전에 닫혔습니다. 다시 시도하세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "หน้าต่างลงชื่อเข้าใช้ปิดก่อนเสร็จสิ้น โปรดลองอีกครั้ง"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登录窗口在完成前就关闭了。请重试。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登入視窗在完成前就關閉了。請再試一次。"
+          }
+        }
+      }
     },
     "The task owner can choose credentials for this task." : {
 
@@ -9802,6 +12623,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "這個值會寫入任務執行環境中的檔案，不會出現在此任務中。"
+          }
+        }
+      }
+    },
+    "This account's session expired. Sign in again." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La sesión de esta cuenta caducó. Vuelve a iniciar sesión."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sesi akun ini telah kedaluwarsa. Masuk lagi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このアカウントのセッションの有効期限が切れました。もう一度サインインしてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 계정의 세션이 만료되었습니다. 다시 로그인하세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เซสชันของบัญชีนี้หมดอายุแล้ว โปรดลงชื่อเข้าใช้อีกครั้ง"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这个账号的登录已过期。请重新登录。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這個帳號的登入已過期。請重新登入。"
           }
         }
       }
@@ -9996,11 +12863,100 @@
     "This runtime runs on your computer. After the move, people in this task can reply only if they can use this computer; the others can still read it." : {
 
     },
+    "This session is saved for more than one server. Sign in with a fresh session." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta sesión está guardada para más de un servidor. Inicia sesión con una sesión nueva."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sesi ini tersimpan untuk lebih dari satu server. Masuk dengan sesi baru."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このセッションは複数のサーバーに保存されています。新しいセッションでサインインしてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 세션이 둘 이상의 서버에 저장되어 있습니다. 새 세션으로 로그인하세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เซสชันนี้ถูกบันทึกไว้สำหรับเซิร์ฟเวอร์มากกว่าหนึ่งแห่ง โปรดลงชื่อเข้าใช้ด้วยเซสชันใหม่"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这个登录会话同时保存在多个服务器。请重新登录以创建新的会话。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這個登入工作階段同時儲存在多個伺服器。請重新登入以建立新的工作階段。"
+          }
+        }
+      }
+    },
     "This stops the runtime and permanently deletes its files and sign-in. Your tasks' history stays in Nuphos." : {
 
     },
     "This submits a deletion request; it does not instantly erase your account. You can continue using your account while the request is processed. Signing in again does not cancel the request." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esto envía una solicitud de eliminación; no borra tu cuenta al instante. Puedes seguir usando tu cuenta mientras se procesa la solicitud. Volver a iniciar sesión no cancela la solicitud."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ini mengirim permintaan penghapusan; akun Anda tidak langsung dihapus. Anda tetap dapat menggunakan akun selama permintaan diproses. Masuk lagi tidak membatalkan permintaan."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "これは削除のリクエストを送信するもので、アカウントがすぐに消去されるわけではありません。リクエストの処理中もアカウントを引き続き使用できます。再度サインインしてもリクエストは取り消されません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "삭제 요청을 제출하며 계정이 즉시 지워지지는 않습니다. 요청이 처리되는 동안에도 계정을 계속 사용할 수 있습니다. 다시 로그인해도 요청은 취소되지 않습니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การดำเนินการนี้จะส่งคำขอลบ แต่จะไม่ลบบัญชีของคุณทันที คุณยังใช้บัญชีต่อได้ระหว่างที่ดำเนินการคำขอ การลงชื่อเข้าใช้อีกครั้งจะไม่ยกเลิกคำขอ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这会提交删除申请，不会立即清除你的账号。申请处理期间你仍可继续使用账号。重新登录不会取消申请。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這會送出刪除申請，不會立即清除你的帳號。申請處理期間你仍可繼續使用帳號。重新登入不會取消申請。"
+          }
+        }
+      }
     },
     "Title" : {
       "localizations" : {
@@ -10423,7 +13379,50 @@
       }
     },
     "Type DELETE" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escribe DELETE"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ketik DELETE"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DELETE と入力"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DELETE 입력"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "พิมพ์ DELETE"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "输入 DELETE"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "輸入 DELETE"
+          }
+        }
+      }
     },
     "Unavailable" : {
       "localizations" : {
@@ -10513,6 +13512,144 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "復原"
+          }
+        }
+      }
+    },
+    "Unexpected sign-in response. Please try again." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Respuesta de inicio de sesión inesperada. Inténtalo de nuevo."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Respons masuk tidak terduga. Coba lagi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サインインの応答が予期しないものでした。もう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "예기치 않은 로그인 응답입니다. 다시 시도하세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การตอบกลับการลงชื่อเข้าใช้ไม่ถูกต้อง โปรดลองอีกครั้ง"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登录响应异常。请重试。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登入回應異常。請再試一次。"
+          }
+        }
+      }
+    },
+    "Unknown device" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dispositivo desconocido"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perangkat tidak dikenal"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不明なデバイス"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "알 수 없는 기기"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "อุปกรณ์ที่ไม่รู้จัก"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未知设备"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未知裝置"
+          }
+        }
+      }
+    },
+    "Unknown location" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ubicación desconocida"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lokasi tidak dikenal"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不明な場所"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "알 수 없는 위치"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่ทราบตำแหน่ง"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未知位置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未知位置"
           }
         }
       }
@@ -10662,7 +13799,50 @@
       }
     },
     "Use Nuphos Cloud" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usar Nuphos Cloud"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gunakan Nuphos Cloud"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos Cloud を使用"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos Cloud 사용"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใช้ Nuphos Cloud"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用 Nuphos Cloud"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用 Nuphos Cloud"
+          }
+        }
+      }
     },
     "Use a different email" : {
       "localizations" : {
@@ -10757,7 +13937,50 @@
       }
     },
     "Use a password" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usar una contraseña"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gunakan kata sandi"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "パスワードを使う"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "비밀번호 사용"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใช้รหัสผ่าน"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "改用密码"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "改用密碼"
+          }
+        }
+      }
     },
     "Use a recovery code" : {
       "localizations" : {
@@ -10806,7 +14029,50 @@
       }
     },
     "Use an email code instead" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usar un código por correo"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gunakan kode email"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "メールのコードを使う"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이메일 코드 사용"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใช้รหัสทางอีเมลแทน"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "改用电子邮件验证码"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "改用電子郵件驗證碼"
+          }
+        }
+      }
     },
     "Use suggestion: %@" : {
 
@@ -10910,13 +14176,99 @@
 
     },
     "Using an agent sends your prompts, conversation history, uploaded images and files, and relevant results from connected tools to the providers needed to carry out your request." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Al usar un agente, tus instrucciones, el historial de la conversación, las imágenes y archivos subidos y los resultados relevantes de las herramientas conectadas se envían a los proveedores necesarios para llevar a cabo tu solicitud."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Menggunakan agen akan mengirim prompt, riwayat percakapan, gambar dan file yang diunggah, serta hasil terkait dari alat yang terhubung ke penyedia yang diperlukan untuk menjalankan permintaan Anda."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "エージェントを使用すると、プロンプト、会話履歴、アップロードした画像とファイル、接続済みツールの関連する結果が、リクエストの実行に必要なプロバイダーに送信されます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "에이전트를 사용하면 프롬프트, 대화 기록, 업로드한 이미지와 파일, 연결된 도구의 관련 결과가 요청을 처리하는 데 필요한 제공업체로 전송됩니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การใช้เอเจนต์จะส่งพรอมต์ ประวัติการสนทนา รูปภาพและไฟล์ที่อัปโหลด และผลลัพธ์ที่เกี่ยวข้องจากเครื่องมือที่เชื่อมต่อ ไปยังผู้ให้บริการที่จำเป็นต่อการดำเนินการตามคำขอของคุณ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用 Agent 时，你的提示、对话记录、上传的图片和文件，以及已连接工具的相关结果，会发送给执行你的请求所需的服务提供商。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用 Agent 時，你的提示、對話紀錄、上傳的圖片與檔案，以及已連接工具的相關結果，會傳送給執行你的請求所需的服務供應商。"
+          }
+        }
+      }
     },
     "Verification Code" : {
 
     },
     "Verification code" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Código de verificación"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kode verifikasi"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "確認コード"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "인증 코드"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "รหัสยืนยัน"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "验证码"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "驗證碼"
+          }
+        }
+      }
     },
     "Verifying…" : {
       "localizations" : {
@@ -11210,8 +14562,419 @@
         }
       }
     },
+    "We could not open the sign-in window. Please try again." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pudimos abrir la ventana de inicio de sesión. Inténtalo de nuevo."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kami tidak dapat membuka jendela masuk. Coba lagi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サインイン画面を開けませんでした。もう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그인 창을 열 수 없습니다. 다시 시도하세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิดหน้าต่างลงชื่อเข้าใช้ไม่ได้ โปรดลองอีกครั้ง"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法打开登录窗口。请重试。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法開啟登入視窗。請再試一次。"
+          }
+        }
+      }
+    },
+    "We could not open this account. Check your connection and try again." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pudimos abrir esta cuenta. Comprueba tu conexión e inténtalo de nuevo."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kami tidak dapat membuka akun ini. Periksa koneksi Anda dan coba lagi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このアカウントを開けませんでした。接続を確認してもう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 계정을 열 수 없습니다. 연결을 확인하고 다시 시도하세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิดบัญชีนี้ไม่ได้ ตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法打开这个账号。请检查网络连接后重试。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法開啟這個帳號。請檢查網路連線後再試一次。"
+          }
+        }
+      }
+    },
+    "We could not reach Nuphos. Check your connection and try again." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pudimos conectar con Nuphos. Comprueba tu conexión e inténtalo de nuevo."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kami tidak dapat menjangkau Nuphos. Periksa koneksi Anda dan coba lagi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos に接続できませんでした。接続を確認してもう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos에 연결할 수 없습니다. 연결을 확인하고 다시 시도하세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เชื่อมต่อ Nuphos ไม่ได้ ตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法连接到 Nuphos。请检查网络连接后重试。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法連線到 Nuphos。請檢查網路連線後再試一次。"
+          }
+        }
+      }
+    },
+    "We could not remove the expired session. Try again." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pudimos quitar la sesión caducada. Inténtalo de nuevo."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kami tidak dapat menghapus sesi yang kedaluwarsa. Coba lagi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "期限切れのセッションを削除できませんでした。もう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "만료된 세션을 제거할 수 없습니다. 다시 시도하세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลบเซสชันที่หมดอายุไม่ได้ ลองอีกครั้ง"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法移除已过期的登录。请重试。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法移除已過期的登入。請再試一次。"
+          }
+        }
+      }
+    },
+    "We could not remove this saved account. Try again." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pudimos quitar esta cuenta guardada. Inténtalo de nuevo."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kami tidak dapat menghapus akun tersimpan ini. Coba lagi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この保存済みアカウントを削除できませんでした。もう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장된 계정을 제거할 수 없습니다. 다시 시도하세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลบบัญชีที่บันทึกไว้นี้ไม่ได้ ลองอีกครั้ง"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法移除这个已保存的账号。请重试。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法移除這個已儲存的帳號。請再試一次。"
+          }
+        }
+      }
+    },
+    "We could not save the account selection. Try again." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pudimos guardar la cuenta seleccionada. Inténtalo de nuevo."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kami tidak dapat menyimpan pilihan akun. Coba lagi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アカウントの選択を保存できませんでした。もう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "계정 선택을 저장할 수 없습니다. 다시 시도하세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "บันทึกการเลือกบัญชีไม่ได้ ลองอีกครั้ง"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法保存账号选择。请重试。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法儲存帳號選擇。請再試一次。"
+          }
+        }
+      }
+    },
+    "We could not sign out. Try again." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pudimos cerrar la sesión. Inténtalo de nuevo."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kami tidak dapat keluar. Coba lagi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サインアウトできませんでした。もう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그아웃할 수 없습니다. 다시 시도하세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ออกจากระบบไม่ได้ ลองอีกครั้ง"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法退出登录。请重试。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法登出。請再試一次。"
+          }
+        }
+      }
+    },
     "We will permanently delete your account and associated personal data within 30 days. Our team will coordinate any workspace ownership and shared-data handling. Records required by law and data jointly held by your team may be retained where necessary." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminaremos de forma permanente tu cuenta y los datos personales asociados en un plazo de 30 días. Nuestro equipo coordinará la titularidad de los espacios de trabajo y el tratamiento de los datos compartidos. Los registros exigidos por ley y los datos que tu equipo posee en común pueden conservarse cuando sea necesario."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kami akan menghapus akun Anda dan data pribadi terkait secara permanen dalam 30 hari. Tim kami akan mengoordinasikan kepemilikan ruang kerja dan penanganan data bersama. Catatan yang diwajibkan oleh hukum dan data yang dimiliki bersama oleh tim Anda dapat disimpan bila diperlukan."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "30 日以内にアカウントと関連する個人データを完全に削除します。ワークスペースの所有権や共有データの扱いは当社のチームが調整します。法律で義務付けられた記録や、チームと共同で保有するデータは、必要に応じて保持される場合があります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "30일 이내에 계정과 관련 개인 데이터를 영구적으로 삭제합니다. 워크스페이스 소유권과 공유 데이터 처리는 저희 팀이 조율합니다. 법률상 보관해야 하는 기록과 팀이 공동으로 보유한 데이터는 필요한 경우 보관될 수 있습니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เราจะลบบัญชีและข้อมูลส่วนบุคคลที่เกี่ยวข้องของคุณอย่างถาวรภายใน 30 วัน ทีมของเราจะประสานงานเรื่องความเป็นเจ้าของเวิร์กสเปซและการจัดการข้อมูลที่แชร์ บันทึกที่กฎหมายกำหนดและข้อมูลที่ถือร่วมกับทีมของคุณอาจถูกเก็บไว้เมื่อจำเป็น"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我们会在 30 天内永久删除你的账号及相关个人数据。我们的团队会协调工作区所有权和共享数据的处理。依法须保存的记录，以及与你的团队共同持有的数据，可能会在必要时保留。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我們會在 30 天內永久刪除你的帳號及相關個人資料。我們的團隊會協調工作區擁有權與共用資料的處理。依法須保存的紀錄，以及與你的團隊共同持有的資料，可能會在必要時保留。"
+          }
+        }
+      }
+    },
+    "Web sign-in (nuphos.ai)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inicio de sesión web (nuphos.ai)"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Masuk via web (nuphos.ai)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Web サインイン（nuphos.ai）"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "웹 로그인(nuphos.ai)"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลงชื่อเข้าใช้ผ่านเว็บ (nuphos.ai)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "网页登录（nuphos.ai）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "網頁登入（nuphos.ai）"
+          }
+        }
+      }
     },
     "Welcome to Nuphos" : {
       "localizations" : {
@@ -11312,7 +15075,50 @@
       }
     },
     "Who receives this data" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quién recibe estos datos"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Siapa yang menerima data ini"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このデータを受け取る相手"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 데이터를 받는 곳"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใครได้รับข้อมูลนี้"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "谁会收到这些数据"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "誰會收到這些資料"
+          }
+        }
+      }
     },
     "Withdraw AI data sharing permission" : {
 
@@ -11512,7 +15318,50 @@
       }
     },
     "Your choice" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu elección"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pilihan Anda"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "あなたの選択"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "선택 사항"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตัวเลือกของคุณ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的选择"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的選擇"
+          }
+        }
+      }
     },
     "Your current recovery codes will stop working. Enter a code to confirm." : {
       "localizations" : {
@@ -11561,7 +15410,96 @@
       }
     },
     "Your request has been saved. You do not need to contact support to start deletion." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu solicitud se guardó. No necesitas contactar con soporte para iniciar la eliminación."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permintaan Anda telah disimpan. Anda tidak perlu menghubungi dukungan untuk memulai penghapusan."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リクエストを保存しました。削除を開始するためにサポートへ連絡する必要はありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "요청이 저장되었습니다. 삭제를 시작하기 위해 지원팀에 문의할 필요가 없습니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "บันทึกคำขอของคุณแล้ว คุณไม่ต้องติดต่อฝ่ายสนับสนุนเพื่อเริ่มการลบ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的申请已保存。无需联系客服即可开始删除。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的申請已儲存。不需要聯絡客服即可開始刪除。"
+          }
+        }
+      }
+    },
+    "Your session has expired. Please sign in again." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu sesión caducó. Vuelve a iniciar sesión."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sesi Anda telah kedaluwarsa. Masuk lagi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "セッションの有効期限が切れました。もう一度サインインしてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "세션이 만료되었습니다. 다시 로그인하세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เซสชันของคุณหมดอายุแล้ว โปรดลงชื่อเข้าใช้อีกครั้ง"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的登录已过期。请重新登录。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的登入已過期。請重新登入。"
+          }
+        }
+      }
     },
     "http://127.0.0.1…" : {
 
@@ -11570,7 +15508,7 @@
 
     },
     "https://nuphos.example.com" : {
-
+      "shouldTranslate" : false
     },
     "just now" : {
       "localizations" : {
@@ -11711,7 +15649,7 @@
       }
     },
     "xxxx-xxxx-xxxx-xxxx" : {
-
+      "shouldTranslate" : false
     },
     "·" : {
 

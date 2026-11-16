@@ -127,8 +127,8 @@ struct SignedInDevicesView: View {
 
     private var confirmTitle: String {
         switch confirming {
-        case .one(let device): "Sign out \(SignInSessions.device(device))?"
-        case .others: "Sign out all other devices?"
+        case .one(let device): String(localized: "Sign out \(SignInSessions.device(device))?")
+        case .others: String(localized: "Sign out all other devices?")
         case nil: ""
         }
     }
@@ -160,7 +160,7 @@ struct SignedInDevicesView: View {
             case .others: _ = try await AccountAPI.signOutOtherSessions(token: token)
             }
         } catch {
-            actionError = "Could not sign out. \(error.localizedDescription)"
+            actionError = String(localized: "Could not sign out. \(error.localizedDescription)")
         }
         await refresh()
     }

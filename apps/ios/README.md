@@ -36,6 +36,20 @@ preserve the visible row; sends return to the end, above the composer. Dragging 
 before a fresh cell is measured. The existing SwiftUI transcript remains the
 fallback on other platforms.
 
+## Translations
+
+The app follows the system language, using the seven languages Desktop ships (`zh-Hant`, `zh-Hans`, `ja`, `ko`, `th`, `id`, `es`) with English as the fallback. Write user-facing text as a `Text`/`Button` literal, `LocalizedStringKey` or `String(localized:)`; a plain `String` is never translated.
+
+After adding or changing a string, build the app and sync the catalog, then fill what Desktop already translates:
+
+```sh
+xcodebuild -project nuphos-ios.xcodeproj -scheme nuphos-ios -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+bash tests/sync-strings.sh build
+node ../../scripts/fill-mobile-locales.mjs ios
+```
+
+Commit `nuphos-ios/Localizable.xcstrings` with the change: CI fails when the catalog does not match the code, and `tests/run.sh` fails when a string has only some of the languages.
+
 ## Run on a device
 
 ```sh
