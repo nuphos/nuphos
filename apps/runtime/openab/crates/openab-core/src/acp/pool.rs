@@ -348,6 +348,13 @@ fn purge_session_entries(state: &mut PoolState, key: &str) {
 /// `session/load` with for a conversation it never persisted.
 pub(crate) const ACP_RESOURCE_NOT_FOUND: i64 = -32002;
 
+/// The agent no longer holds this session. ACP says "resource not found"; claude-agent-acp
+/// throws a plain "Session not found", which the ACP SDK relays as an internal error.
+pub(crate) fn session_lost(err: &JsonRpcError) -> bool {
+    err.code == ACP_RESOURCE_NOT_FOUND
+        || (err.code == -32603 && err.data_message().as_deref() == Some("Session not found"))
+}
+
 /// JSON-RPC "invalid params" (`-32602`), which codex-acp also uses for `Unknown session: <id>`.
 const INVALID_PARAMS: i64 = -32602;
 
@@ -1565,7 +1572,7 @@ impl SessionPool {
                 if let Err(e) = conn.set_config_option_strict(id, value).await {
                     let session_gone = e
                         .downcast_ref::<JsonRpcError>()
-                        .is_some_and(|e| e.code == ACP_RESOURCE_NOT_FOUND);
+                        .is_some_and(session_lost);
                     if !(session_gone && retry_lost_session) {
                         return Err((
                             -32603,
