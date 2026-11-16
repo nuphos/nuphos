@@ -331,7 +331,7 @@ final class ChatSession {
         token: String,
         teamId: String,
         sessionId: String = UUID().uuidString.lowercased(),
-        title: String = "New task",
+        title: String = String(localized: "New task"),
         agentRuntime: String? = nil,
         runtimeLabel: String? = nil
     ) {

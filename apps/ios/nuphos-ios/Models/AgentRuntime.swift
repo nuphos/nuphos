@@ -127,7 +127,7 @@ extension RuntimeInstance.Provider {
         case "dsh": "DeepSeek Harness"
         case "pi": "Pi"
         case "nuphos": "Nuphos"
-        default: raw?.isEmpty == false ? "Unknown runtime" : "Runtime"
+        default: raw?.isEmpty == false ? String(localized: "Unknown runtime") : String(localized: "Runtime")
         }
     }
 }
