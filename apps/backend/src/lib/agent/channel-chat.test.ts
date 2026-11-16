@@ -303,6 +303,33 @@ describe('waking a channel’s agents', () => {
     })
   })
 
+  test('a Codex agent out of usage says why too', async () => {
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async ({ sessionId }) => {
+        if (sessionId === 'agent-a')
+          throw new OpenAbRpcError(
+            '**Internal Error** (code: -32603)\nInternal error\n> You’ve hit your usage limit. Visit https://chatgpt.com/settings/usage to purchase more credits or try again at 5:12 PM.',
+            -32603,
+            { code: -32603, message: 'Internal error' },
+          )
+
+        return { status: 'completed' }
+      },
+    })
+    await say('hello')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(
+      (await channel()).timelineEvents?.find((event) => event.kind === 'agent_reply_failed'),
+    ).toMatchObject({
+      agentId: 'agent-a',
+      cause: 'usage_limit',
+      reason:
+        'its account hit its usage limit (You’ve hit your usage limit. Visit https://chatgpt.com/settings/usage to purchase more credits or try again at 5:12 PM.).',
+    })
+  })
+
   test('a disabled agent says where to move, so the chat can offer Switch agent', async () => {
     const disabled = 'This agent has been retired. Move this conversation to another agent.'
 
