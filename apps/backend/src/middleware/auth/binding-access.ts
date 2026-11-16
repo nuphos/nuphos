@@ -81,3 +81,23 @@ export function requireCanDisconnect(
     await next()
   }
 }
+
+/**
+ * Refuses binding a cloud identity again when it is already bound to a
+ * binding this request may not use. GCP and Azure bindings are scoped to a
+ * project or subscription, but the token is the identity's, so a second
+ * binding under another scope would hand out a member's private credentials.
+ */
+export function assertMayBindIdentity(
+  c: Context,
+  bindings: readonly { access?: BindingAccess }[],
+  identity: string,
+): void {
+  if (bindings.some((binding) => !canRequestUseBinding(c, binding.access))) {
+    throw new AppError(
+      403,
+      'identity_bound_privately',
+      `${identity} is already connected privately by another member`,
+    )
+  }
+}

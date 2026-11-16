@@ -10,7 +10,7 @@ import { gcpWifConfigured, gcpWifPrincipalForTeam } from '@/lib/byos/gcp-wif'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
-import { requireTeamRole } from '@/middleware/auth'
+import { assertMayBindIdentity, requireTeamRole } from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
@@ -106,6 +106,18 @@ export function registerGcpBindingRoutes(
           `GCP service account ${serviceAccountEmail} is already bound to project ${projectId}`,
         )
       }
+      const sameAccount = await teamByosBindings().findOne(
+        { _id: teamId },
+        { projection: { gcpServiceAccounts: 1 } },
+      )
+
+      assertMayBindIdentity(
+        c,
+        (sameAccount?.gcpServiceAccounts ?? []).filter(
+          (binding) => binding.serviceAccountEmail === serviceAccountEmail,
+        ),
+        `GCP service account ${serviceAccountEmail}`,
+      )
       // After the duplicate check (re-binding a known account adds no
       // environment) but before the credential round trips.
 
