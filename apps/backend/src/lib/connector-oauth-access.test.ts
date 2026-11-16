@@ -44,6 +44,7 @@ async function accessFor(input: {
     draft: {},
     persist: async (_team, _draft, given) => {
       access = given
+
       return {}
     },
     ...input,
