@@ -17,7 +17,7 @@ import {
   sessionReleased,
 } from './session-released'
 import { openSignInRequest, releaseWhenAskLapses } from './sign-in-request'
-import { reconnecting, withinOfflineGrace } from './turn-offline'
+import { withinOfflineGrace } from './turn-offline'
 import { turnRunner } from './turn-runner'
 
 import type { AgentConversation } from './db'
@@ -29,7 +29,9 @@ const runtimeAccepts = (state: SessionExecutionState) =>
 
 /**
  * Whether this conversation may run its queue now; schedules a retry when it should wait.
- * `detached` when its runtime did not answer the status read.
+ * `detached` when its runtime did not answer the status read: the same `disconnected`
+ * state the chat route queues a new message on (routes-chat-post.ts, admitQueueableChat).
+ * Keep the two in step.
  */
 async function ready(userId: string, sessionId: string, target: AgentConversation | null) {
   // The holder runs this again when it lets go.
@@ -158,21 +160,25 @@ export async function startQueuedTurn(userId: string, sessionId: string): Promis
   }
 }
 
-// Busy, timed out, too early, rate limited: each passes with time.
+// Busy, timed out, too early, rate limited: each passes with time, however long it takes.
 const RETRYABLE_STATUS = new Set([408, 409, 425, 429])
 
 /**
  * A send that failed to start waits for another try when the failure can pass:
- * a busy or rate-limited runtime, an approval still to come, or a server error. Anything else
+ * a busy or rate-limited runtime, or an approval still to come. Anything else
  * (an agent that is gone or signed out, a declined computer) never will, so
- * its sender is told instead of the queue being held behind it. An offline computer
- * is waited for only while it may be reconnecting, as `runTurn` does.
+ * its sender is told instead of the queue being held behind it.
  */
 const mayStartLater = (error: unknown) =>
-  !(error instanceof AppError) ||
-  error.status >= 500 ||
-  RETRYABLE_STATUS.has(error.status) ||
-  error.code === 'local_share_approval_required'
+  error instanceof AppError &&
+  (RETRYABLE_STATUS.has(error.status) || error.code === 'local_share_approval_required')
+
+/**
+ * A server error or an offline computer usually passes within moments. It is retried
+ * only for the grace a reconnecting computer gets, as `runTurn` does; then the sender is told.
+ */
+const passesSoon = (error: unknown) =>
+  !(error instanceof AppError) || error.status >= 500 || error.code === 'runtime_offline'
 
 /** True once the turn holds the claim; a failure before that puts the message back. */
 async function launchChat(
@@ -208,13 +214,13 @@ async function launchChat(
       ...fields,
       error: error instanceof Error ? error.message : String(error),
     })
-    const offline = error instanceof AppError && error.code === 'runtime_offline'
+    const failing = passesSoon(error)
 
-    if (offline ? reconnecting(error, item) : mayStartLater(error))
+    if (failing ? withinOfflineGrace(item) : mayStartLater(error))
       await requeueTurnQueue(target.userId, target.sessionId, [], {
         ...item,
-        // Only an unbroken run of offline tries counts toward the grace.
-        offlineSince: offline ? (item.offlineSince ?? new Date().toISOString()) : undefined,
+        // Only an unbroken run of such tries counts toward the grace.
+        offlineSince: failing ? (item.offlineSince ?? new Date().toISOString()) : undefined,
       })
     else
       await reportUndelivered(

@@ -380,6 +380,54 @@ for (const failure of [
   })
 }
 
+test('a send that keeps failing to start is retried for the grace, then kept with the reason', async () => {
+  installTurnRunner({
+    hasActiveAgentRunForSession: async () => false,
+    claimAgentRunForSession: async () => () => {},
+    launchQueuedChatTurn: async () => {
+      throw new Error('runtime lookup failed')
+    },
+  })
+  await queue(human('broken'), human('next'))
+  await startQueuedTurn(OWNER, SESSION)
+
+  // The first failure starts the grace.
+  expect(await waiting()).toEqual(['broken', 'next'])
+  expect((await listPendingUserMessages(OWNER, SESSION))[0]?.offlineSince).toBeString()
+
+  // Still failing a minute later: its sender is told, and the queue moves on.
+  await clearPendingUserMessages(OWNER, SESSION)
+  await queue(
+    { ...human('broken'), offlineSince: new Date(Date.now() - 61_000).toISOString() },
+    human('next'),
+  )
+  await startQueuedTurn(OWNER, SESSION)
+
+  expect(await waiting()).toEqual(['next'])
+  expect(JSON.stringify(kept[0]?.messages[1]?.parts)).toContain('runtime lookup failed')
+})
+
+test('a busy runtime or a pending approval is waited for past the grace', async () => {
+  for (const failure of [
+    new AppError(409, 'runtime_not_accepting_message', 'Busy'),
+    new AppError(403, 'local_share_approval_required', 'Waiting for the owner'),
+  ]) {
+    installTurnRunner({
+      hasActiveAgentRunForSession: async () => false,
+      claimAgentRunForSession: async () => () => {},
+      launchQueuedChatTurn: async () => {
+        throw failure
+      },
+    })
+    await clearPendingUserMessages(OWNER, SESSION)
+    await queue({ ...human('patient'), offlineSince: new Date(Date.now() - 61_000).toISOString() })
+    await startQueuedTurn(OWNER, SESSION)
+
+    expect(await waiting()).toEqual(['patient'])
+    expect(kept).toEqual([])
+  }
+})
+
 test('a queued send waits out a reconnecting computer, then is kept with the reason', async () => {
   installTurnRunner({
     hasActiveAgentRunForSession: async () => false,
