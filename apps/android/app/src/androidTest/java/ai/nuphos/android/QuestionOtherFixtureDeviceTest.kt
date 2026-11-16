@@ -53,7 +53,7 @@ class QuestionOtherFixtureDeviceTest {
         screen {
             Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
                 for (question in listOf(deploy, plan)) {
-                    BotQuestionCard(question, onOpen = {}, onAnswer = { answers += it }, showsFrom = false)
+                    BotQuestionCard(question, onOpen = {}, onConnect = {}, onAnswer = { answers += it }, showsFrom = false)
                 }
             }
         }
@@ -73,7 +73,7 @@ class QuestionOtherFixtureDeviceTest {
         screen {
             Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
                 for (question in listOf(deploy, staging, plan)) {
-                    BotQuestionCard(question, onOpen = {}, onAnswer = { answers += it }, answersInPlace = true)
+                    BotQuestionCard(question, onOpen = {}, onConnect = {}, onAnswer = { answers += it }, answersInPlace = true)
                 }
             }
         }

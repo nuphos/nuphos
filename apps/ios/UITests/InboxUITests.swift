@@ -287,6 +287,44 @@ final class InboxUITests: XCTestCase {
         shot("19-inbox-secret-saved")
     }
 
+    /// In a Bot's chat, an integration question naming providers opens the same scoped credential picker
+    /// as the Inbox, never "Answer in the task"; once saved, the chat still lists only the Bot's questions.
+    func testABotChatIntegrationQuestionChoosesCredentialsOnItsCard() throws {
+        responses["GET /agent/credential-options"] = ["status": 200, "body": [
+            "awsRoles": [["roleId": "role-prod", "accountId": "111122223333", "accountAlias": "prod-account"]],
+            "gcpServiceAccounts": [["serviceAccountId": "sa-release", "projectId": "release-builds",
+                                    "serviceAccountEmail": "release@release-builds.iam.gserviceaccount.com"]]]]
+        responses["PATCH /agent/conversations/agent-ops/credentials"] = ["status": 200, "body": [
+            "credentialAccess": ["gcpServiceAccountIds": ["sa-release"]], "options": [:]]]
+        let question = "Select a Google Cloud account so I can read the release bucket."
+        var task = InboxUITests.row("agent-ops", "Release ops", [
+            "id": "q-gcp", "category": "integration", "question": question,
+            "providers": ["gcp"], "askedAt": "2026-11-03T09:40:00Z", "status": "open"])
+        task["parentSessionId"] = "bot-release"
+        // Asked outside this Bot: never in its chat, before or after a save.
+        try openBotChat(listing: [task, staging], asking: question)
+        let choose = app.buttons["Choose credentials"]
+        let offered = choose.waitForExistence(timeout: 10)
+        shot("20-bot-chat-integration")
+        XCTAssertTrue(offered, "The Bot chat's integration card does not offer its credentials")
+        XCTAssertFalse(app.buttons["Answer in the task"].exists, "The question is still sent to the task to be answered")
+
+        choose.tap()
+        let account = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "release-builds")).firstMatch
+        XCTAssertTrue(account.waitForExistence(timeout: 10), "The picker does not list the Google Cloud account")
+        XCTAssertFalse(app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "prod-account")).firstMatch.exists,
+                       "The picker lists a provider the question did not ask for")
+        account.tap()
+        shot("21-bot-chat-picker")
+        // Done with the question still listed open: the card says why, and the other Bot's question stays out.
+        app.buttons["Done"].firstMatch.tap()
+        let failure = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "adds no credential")).firstMatch
+        XCTAssertTrue(failure.waitForExistence(timeout: 10), "A save that leaves the question open says nothing")
+        XCTAssertFalse(app.staticTexts["Which node pool should the staging cluster use?"].exists,
+                       "A question outside this Bot joined its chat after the save")
+        shot("22-bot-chat-still-open")
+    }
+
     /// Opens the release chat as a Bot's 1:1, where the Bot's questions and those under it show.
     private func openBotChat(listing: [[String: Any]], asking question: String = "Roll out 1.4 to production?") throws {
         var detail = try XCTUnwrap(responses["GET /agent/conversations/chat-release"] as? [String: Any])
