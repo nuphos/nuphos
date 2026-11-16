@@ -7,6 +7,7 @@ import { AppError } from '@/lib/errors'
 import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { requireRuntimeInstance } from './runtime-catalog'
 import { controlLoginTransport } from './runtime-login-control'
+import { noteSignIn, resetBeforeSignIn } from './runtime-login-signer'
 import { acceptsAnswer } from './runtime-login-step'
 import {
   AUTHORIZATION_FIELDS,
@@ -18,12 +19,13 @@ import {
   submitLoginCode,
 } from './runtime-login-store'
 
+import type { SignerDeps } from './runtime-login-signer'
 import type { RuntimeLoginFrame } from './runtime-login-step'
 import type { RuntimeLoginDoc, RuntimeLoginStatus } from './runtime-login-store'
 
 const running = new Map<string, AbortController>()
 
-export type RuntimeLoginDeps<Target> = {
+export type RuntimeLoginDeps<Target> = SignerDeps & {
   prepare: (teamId: string, runtimeId: string, userId?: string) => Promise<Target>
   exec: (
     target: Target,
@@ -132,12 +134,14 @@ export async function performRuntimeLogin<Target>(
     if (controller.signal.aborted) throw new Error('Sign-in cancelled')
     // `signedOut`: the runtime removed its API key, as asked.
     let finished: 'authenticated' | 'signedOut' | undefined
+    let signedInAt = new Date()
     let updates = Promise.resolve()
     let updateFailed = false
 
     await deps.exec(
       target,
       (frame) => {
+        if (frame.type === 'authenticated') signedInAt = new Date()
         if (frame.type === 'authenticated' || frame.type === 'signedOut') finished = frame.type
         else if (frame.type === 'error')
           throw new AppError(422, 'runtime_login_failed', frame.message)
@@ -179,6 +183,9 @@ export async function performRuntimeLogin<Target>(
       throw new Error('Sign-in did not complete')
     const signedOut = finished === 'signedOut'
 
+    // The runtime has installed the account by now, so who signed it in is kept even if this
+    // attempt is cancelled or fails to keep the agent below.
+    if (!signedOut) await noteSignIn(doc, signedInAt, deps)
     // Connected keeps the agent, listed at once; a removed API key keeps and runs nothing.
     if (!signedOut) await (deps.commit ?? commitSignedInAgent)(doc)
     // The runtime installed the credential itself, so it is already in use.
@@ -221,6 +228,7 @@ export async function startRuntimeLogin(
   userId: string,
 ): Promise<RuntimeLoginStatus> {
   await requireLoginInstance(teamId, runtimeId, userId)
+  await resetBeforeSignIn(teamId, runtimeId, userId)
   const doc = await claimRuntimeLogin(teamId, runtimeId, userId)
 
   void performRuntimeLogin(doc, controlLoginTransport).catch(() => {

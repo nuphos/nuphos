@@ -83,6 +83,10 @@ class FakeCollection {
           (entry) => !(named(entry) && (entry.at as Date) < (at as { $lt: Date }).$lt),
         )
       }
+      if (hit && field === 'signIns')
+        hit[field] = ((hit[field] ?? []) as Doc[]).filter(
+          (entry) => entry.agent !== (pulled as Doc).agent,
+        )
     }
 
     return { matchedCount: hit ? 1 : 0 }
@@ -198,6 +202,32 @@ describe('who added an agent', () => {
     expect((await getAgentDevice('u1', 'mac-1'))?.addedAgents).toEqual([first])
     await removeDeviceAgent('u1', 'mac-1', { instanceId: work })
     expect((await getAgentDevice('u1', 'mac-1'))?.addedAgents).toEqual([])
+  })
+
+  test('an agent its host removed takes its sign-in along; a forgotten one keeps it', async () => {
+    const at = new Date()
+
+    await devices.updateOne(
+      { userId: 'u1', deviceId: 'mac-1' },
+      {
+        $set: {
+          signIns: [
+            { agent: work, userId: 'u3', teamId: 't1', at, endedAt: at },
+            { agent: 'codex', userId: 'u3', teamId: 't1', at },
+            { agent: 'claude-code', userId: 'u3', teamId: 't1', at },
+          ],
+        },
+      },
+    )
+    await removeDeviceAgent('u1', 'mac-1', { instanceId: work })
+    // A Box's default agent removed through its host goes with its accounts too.
+    await removeDeviceAgent('u1', 'mac-1', { provider: 'codex' })
+    // A person's own default agent forgotten keeps its CLI login, so its sign-in stays to be ended.
+    await removeDeviceAgent('u1', 'mac-1', { provider: 'claude-code' }, { forgetOnly: true })
+
+    expect((await getAgentDevice('u1', 'mac-1'))?.signIns?.map((entry) => entry.agent)).toEqual([
+      'claude-code',
+    ])
   })
 
   test('a report from the host forgets an agent it no longer has', async () => {

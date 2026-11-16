@@ -89,18 +89,24 @@ export async function forgetAgentAddition(
 /**
  * Drops one agent from a computer's registry, the only way a signed-in agent leaves it.
  * A default agent is its provider's entry without an instance id (null also matches absent).
+ * Its host removing it deletes its accounts, so its sign-in goes too; a person's own default
+ * agent is only forgotten (`forgetOnly`) while its CLI keeps the login, so its record stays.
  */
 export async function removeDeviceAgent(
   userId: string,
   deviceId: string,
   agent: RemovableAgent,
+  { forgetOnly = false }: { forgetOnly?: boolean } = {},
 ): Promise<void> {
+  const key = 'instanceId' in agent ? agent.instanceId : agent.provider
+
   await agentDevices().updateOne(
     { userId, deviceId },
     {
       $pull: {
         agents: { instanceId: null, ...agent },
         ...('instanceId' in agent ? { addedAgents: { instanceId: agent.instanceId } } : {}),
+        ...(forgetOnly ? {} : { signIns: { agent: key } }),
       },
     },
   )
