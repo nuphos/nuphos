@@ -1,4 +1,4 @@
-import { Bot, Loader2, Plus, Users } from 'lucide-react'
+import { Bot, Plus, Users } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../api'
@@ -7,8 +7,7 @@ import { receiveAgentAvatars } from '../../lib/agentAvatarChoices'
 import { usable } from '../../lib/agentName'
 import { botAvatarName, derivedBotAvatar } from '../../lib/botAvatars'
 import { LocalAgentSetupCards } from '../../views/onboarding/setup/LocalAgentsStep'
-import { AgentAvatarGrid } from '../agent/AgentAvatarGrid'
-import { BotAvatarImage } from '../agent/BotAvatarImage'
+import { BotIdentityFields } from '../agent/BotIdentityFields'
 import { useNewConversationRuntime } from '../agent/panel/useNewConversationRuntime'
 import { createBotChannel } from '../channels/botChannel'
 import { BotImportDialog } from '../channels/BotImportDialog'
@@ -19,8 +18,6 @@ import { Menu, MenuContent, MenuItem, MenuTrigger } from '../ui/menu'
 import { toast } from '../ui/toast'
 
 import { BotStartIntro } from './BotStartIntro'
-
-import type { BotAvatarFile } from '../../lib/botAvatars'
 
 /** "+" on Bots: a new Bot, with the face and name picked here, or a new group chat. */
 export function NewChatButton({
@@ -144,7 +141,6 @@ function NewBotForm({
 }) {
   // The face a new Bot would get anyway, until another is picked.
   const [avatar, setAvatar] = useState(() => derivedBotAvatar(crypto.randomUUID()))
-  const [preview, setPreview] = useState<BotAvatarFile | null>(null)
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   // The Bot runs where a new chat would, so it is ready the moment it opens.
@@ -153,7 +149,6 @@ function NewBotForm({
     runtimeInstancesLoading: loading,
     runtimeInstancesError: runtimeError,
   } = useNewConversationRuntime(teamId)
-  const shown = preview ?? avatar
 
   async function create() {
     const title = name.trim()
@@ -197,33 +192,15 @@ function NewBotForm({
         void create()
       }}
     >
-      <div className="flex items-center gap-3">
-        <BotAvatarImage file={shown} className="size-10 shrink-0 object-contain" />
-        <input
-          aria-label={t('Agent name')}
-          placeholder={t('Name')}
-          autoFocus
-          maxLength={120}
-          value={name}
-          disabled={busy}
-          onChange={(event) => setName(event.target.value)}
-          onKeyDown={(event) => {
-            event.stopPropagation()
-            if (event.key === 'Enter' && event.nativeEvent.isComposing) event.preventDefault()
-          }}
-          className="min-w-0 flex-1 rounded-md border border-main bg-main px-3 py-2 text-[13px] text-main outline-none focus:border-line-focus"
-        />
-        <Button
-          type="submit"
-          variant="neutral"
-          size="sm"
-          disabled={busy || loading || !name.trim()}
-        >
-          {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-          {t('Create')}
-        </Button>
-      </div>
-      <AgentAvatarGrid value={avatar} onChange={setAvatar} onPreview={setPreview} />
+      <BotIdentityFields
+        name={name}
+        onNameChange={setName}
+        avatar={avatar}
+        onAvatarChange={setAvatar}
+        busy={busy}
+        disabled={loading}
+        submitLabel={t('Create')}
+      />
     </form>
   )
 }
