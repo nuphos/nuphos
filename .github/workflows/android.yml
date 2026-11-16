@@ -65,7 +65,9 @@ jobs:
           working-directory: apps/android
           script: ./gradlew --no-daemon :app:connectedDebugAndroidTest
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: failure()
+        # Green runs keep the per-test report too, so a pull request can show that a test ran and passed.
+        if: ${{ !cancelled() }}
         with:
           name: android-device-tests
           path: apps/android/app/build/reports/androidTests
+          retention-days: 7
