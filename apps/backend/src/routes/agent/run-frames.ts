@@ -30,11 +30,13 @@ export function appendAgentRunFrame(run: AgentRun, frame: string) {
 
     return
   }
+  const frameType = agentRunFrameType(frame)
+
+  if (frameType === 'runtime-state' && unchangedRuntimeState(run, frame)) return
   run.frames.push(frame)
   run.lastAccessAt = Date.now()
   run.lastFrameAt = run.lastAccessAt
   mirrorAgentRunFrame(run.userId, run.streamId, frame)
-  const frameType = agentRunFrameType(frame)
 
   if (
     frameType === 'error' ||
@@ -62,6 +64,22 @@ export function appendAgentRunFrame(run: AgentRun, frame: string) {
     notifyApprovalRequested(run)
   }
   for (const subscriber of run.subscribers) subscriber.poke()
+}
+
+/**
+ * A runtime re-sends its whole snapshot several times a second, mostly unchanged.
+ * A repeat tells no reader anything, yet every one was kept and mirrored: about
+ * 9 KB each, most of a long run's Redis stream.
+ */
+function unchangedRuntimeState(run: AgentRun, frame: string): boolean {
+  const snapshot = JSON.stringify(
+    (JSON.parse(frame.slice('data: '.length)) as { snapshot?: unknown }).snapshot,
+  )
+
+  if (snapshot === run.lastRuntimeSnapshot) return true
+  run.lastRuntimeSnapshot = snapshot
+
+  return false
 }
 
 function recordConversationActivity(run: AgentRun) {
