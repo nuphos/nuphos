@@ -64,6 +64,16 @@ test('anything else is left alone', () => {
         'owner',
       ),
     ).toBeNull()
+  // Nuphos's own message (an answer, a trigger, a GitHub event) is not resent: the
+  // question it answers is open again, so the person decides what runs.
+  const answer: MessageMetadata = {
+    version: 1,
+    sender: { type: 'system', id: 'nuphos', displayName: 'Nuphos' },
+    source: 'agent.resource',
+    sentAt: '2026-11-16T00:00:00.000Z',
+  }
+
+  expect(failedPrompt([asked('Answered: yes', answer), failed()], 'owner')).toBeNull()
   // A teammate's prompt would run as the owner; one with a file is more than its text.
   expect(failedPrompt([asked('Fix it', sender('mate')), failed()], 'owner')).toBeNull()
   const file = [

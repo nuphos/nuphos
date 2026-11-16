@@ -15,8 +15,9 @@ const typeOf = (part: unknown) => (part as { type?: unknown } | null)?.type
 /**
  * The prompt behind the last turn when its runtime (usage, sign-in, offline)
  * stopped it before it did anything: no text, reasoning or tool call, so
- * running it again elsewhere repeats nothing. A resend runs as the owner, so a
- * teammate's prompt is left for them; one with a file is more than its text.
+ * running it again elsewhere repeats nothing. Only a person's or an agent's
+ * prompt: a resend runs as the owner, so a teammate's prompt is left for them,
+ * and one with a file is more than its text.
  */
 export function failedPrompt(
   messages: Pick<AgentMessage, 'role' | 'parts' | 'metadata'>[],
@@ -32,7 +33,10 @@ export function failedPrompt(
   if (parts.length !== 1 || only?.type !== 'turn-interrupted' || !only.cause) return null
   const metadata = parseMessageMetadata(asked.metadata)
 
-  if (!metadata || (metadata.sender.type === 'user' && metadata.sender.id !== ownerId)) return null
+  // Nuphos's own message (an answer, a trigger, an event) is not resent: an
+  // answer's question is open again, and the person decides what runs.
+  if (!metadata || metadata.source === 'agent.resource') return null
+  if (metadata.sender.type === 'user' && metadata.sender.id !== ownerId) return null
   if (!asked.parts.every((part) => typeOf(part) === 'text')) return null
   const text = (asked.parts as { text: string }[]).map((part) => part.text).join('')
 
@@ -59,7 +63,7 @@ export function resendFailedPrompt(sessionId: string, prompt: FailedPrompt): voi
       },
       moved,
       prompt.text,
-      prompt.metadata.source === 'agent.resource' ? 'agent.resource' : 'agent.thread',
+      'agent.thread',
       { ...prompt.metadata, sentAt: new Date().toISOString() },
     )
 
