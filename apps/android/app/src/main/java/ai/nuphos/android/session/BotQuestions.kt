@@ -2,6 +2,7 @@ package ai.nuphos.android.session
 
 import ai.nuphos.android.data.JsonValue
 import ai.nuphos.android.model.AgentConversation
+import ai.nuphos.android.model.ChatPart
 import ai.nuphos.android.model.DecisionQuestion
 import ai.nuphos.android.model.InputRequest
 
@@ -25,6 +26,18 @@ data class BotQuestion(val sessionId: String, val title: String, val request: In
     val personalCredentials: List<String>? get() = request.credentials
         ?.takeIf { request.providers == null && it.isNotEmpty() && it.all { ref -> ref.provider == "personal" } }
         ?.map { it.id }
+
+    /**
+     * A secret request as its tool call carries it in the transcript, so the card draws the conversation's
+     * `SecretCard`; null unless the question names a secret.
+     */
+    val secretPart: ChatPart.Tool? get() {
+        val name = request.secretName ?: return null
+        return ChatPart.Tool(request.id, "request_user_decision", isDynamic = true, state = ChatPart.Tool.State.InputAvailable,
+            input = JsonValue.obj("category" to JsonValue.Str(request.category.orEmpty()),
+                "question" to JsonValue.Str(request.question), "secretName" to JsonValue.Str(name)))
+            .takeIf { it.secretRequest != null }
+    }
 
     /** An integration question the Inbox answers in place: by its providers, or by the member's own credentials. */
     val connectable: Boolean get() = request.category == "integration" &&
