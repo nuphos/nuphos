@@ -1,4 +1,4 @@
-import { ArrowUpRight, ChevronRight } from 'lucide-react'
+import { ArrowUpRight, ChevronRight, Hash } from 'lucide-react'
 import { useId, useState } from 'react'
 
 import { t } from '../../../i18n'
@@ -54,7 +54,11 @@ export function AgentEventMessage({
     const post = metadata.channelPost
     const line = (
       <>
-        <ChatIcon title={displayName} size={14} />
+        {post ? (
+          <Hash className="size-3.5 shrink-0" strokeWidth={2} />
+        ) : (
+          <ChatIcon title={displayName} size={14} />
+        )}
         {!post && <span>{t('New messages in')}</span>}
         <span className={`font-medium text-secondary ${post ? 'shrink-0' : 'min-w-0 truncate'}`}>
           #{displayName}
@@ -75,7 +79,7 @@ export function AgentEventMessage({
               />
             )}
             <span className="shrink-0 font-medium text-primary">{post.sender.displayName}</span>
-            <span className="min-w-0 flex-1 truncate text-secondary group-hover/wake:underline">
+            <span className="min-w-0 truncate text-secondary group-hover/wake:underline">
               {post.text || t('Sent a file')}
             </span>
             {post.more > 0 && (
