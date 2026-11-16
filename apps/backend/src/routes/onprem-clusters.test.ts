@@ -209,6 +209,16 @@ describe('PUT /onprem-clusters/:id/kubeconfig', () => {
 
     expect(response.status).toBe(404)
   })
+
+  test("refuses a member off a private cluster's list, and writes nothing", async () => {
+    storedDoc = storedCluster({
+      access: { memberAllowList: ['someone-else'], ownerUserId: 'someone-else' },
+    })
+    const response = await put(`/${CLUSTER_ID}/kubeconfig`, { kubeconfig: KUBECONFIG })
+
+    expect(response.status).toBe(403)
+    expect(updateCalls).toHaveLength(0)
+  })
 })
 
 describe('GET /onprem-clusters/:id/access', () => {

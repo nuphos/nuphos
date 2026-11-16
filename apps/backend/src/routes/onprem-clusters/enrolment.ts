@@ -11,7 +11,7 @@ import { canEditAccess } from '@/lib/byos/access'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
-import { requireTeamRole } from '@/middleware/auth'
+import { canRequestUseBinding, requireTeamRole } from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 import {
   appendCluster,
@@ -125,6 +125,14 @@ export function registerOnpremEnrolmentRoutes(
     async (c) => {
       const teamId = parseObjectId(c.get('teamId'), 'teamId')
       const binding = await loadBinding(teamId, c.req.param('clusterId'))
+
+      if (!canRequestUseBinding(c, binding.access)) {
+        throw new AppError(
+          403,
+          'onprem_cluster_access_denied',
+          'You are not allowed to use this cluster',
+        )
+      }
       const { kubeconfig } = c.req.valid('json')
       const { endpoint } = parseKubeconfigOrFail(kubeconfig)
 
@@ -170,6 +178,13 @@ export function registerOnpremEnrolmentRoutes(
       const clusterId = c.req.param('clusterId')
       const binding = await loadBinding(teamId, clusterId)
 
+      if (!canRequestUseBinding(c, binding.access)) {
+        throw new AppError(
+          403,
+          'onprem_cluster_access_denied',
+          'You are not allowed to use this cluster',
+        )
+      }
       const clusterKey = randomBytes(16).toString('hex')
       const now = new Date()
 
