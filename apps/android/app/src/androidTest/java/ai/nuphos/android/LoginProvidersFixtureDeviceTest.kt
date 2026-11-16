@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.ContextWrapper
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import ai.nuphos.android.data.NuphosWeb
 import ai.nuphos.android.data.TokenStore
