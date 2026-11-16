@@ -2,19 +2,13 @@
   "sourceLanguage" : "en",
   "strings" : {
     "" : {
-      "shouldTranslate" : false,
-      "localizations" : {
-
-      }
+      "shouldTranslate" : false
     },
     " " : {
-      "shouldTranslate" : false,
-      "localizations" : {
-
-      }
+      "shouldTranslate" : false
     },
     "#%@" : {
-
+      "shouldTranslate" : false
     },
     "%@ %@" : {
       "comment" : "Chat timestamp, other year: time month/day/year",
@@ -761,10 +755,7 @@
       "shouldTranslate" : false
     },
     "%lld" : {
-      "shouldTranslate" : false,
-      "localizations" : {
-
-      }
+      "shouldTranslate" : false
     },
     "%lld %@" : {
       "localizations" : {
@@ -776,16 +767,6 @@
         }
       },
       "shouldTranslate" : false
-    },
-    "%lld approval%@ recorded." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$lld approval%2$@ recorded."
-          }
-        }
-      }
     },
     "%lld approvals recorded." : {
       "localizations" : {
@@ -1176,10 +1157,7 @@
       }
     },
     "%lld%%" : {
-      "shouldTranslate" : false,
-      "localizations" : {
-
-      }
+      "shouldTranslate" : false
     },
     "%lld%% left" : {
       "localizations" : {
@@ -1320,10 +1298,7 @@
       }
     },
     "000000" : {
-      "shouldTranslate" : false,
-      "localizations" : {
-
-      }
+      "shouldTranslate" : false
     },
     "1 approval recorded." : {
       "localizations" : {
@@ -1695,10 +1670,7 @@
       }
     },
     "@%@" : {
-      "shouldTranslate" : false,
-      "localizations" : {
-
-      }
+      "shouldTranslate" : false
     },
     "A browser on %@" : {
       "localizations" : {
@@ -15005,10 +14977,7 @@
       }
     },
     "Nuphos" : {
-      "shouldTranslate" : false,
-      "localizations" : {
-
-      }
+      "shouldTranslate" : false
     },
     "Nuphos encrypts it on its way to the runtime, which keeps it; Nuphos does not keep a copy." : {
       "localizations" : {
@@ -16161,7 +16130,50 @@
       }
     },
     "Opens the channel at this post" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abre el canal en esta publicación"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Membuka saluran di postingan ini"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "チャンネルのこの投稿を開く"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "채널에서 이 게시물 열기"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิดช่องที่โพสต์นี้"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在频道中打开这条帖子"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在頻道中開啟這則貼文"
+          }
+        }
+      }
     },
     "Or type your own answer" : {
       "localizations" : {
@@ -29107,16 +29119,6 @@
         }
       }
     },
-    "Waiting for %lld more required approval%@." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Waiting for %1$lld more required approval%2$@."
-          }
-        }
-      }
-    },
     "Waiting for %lld more required approvals." : {
       "localizations" : {
         "es" : {
@@ -31057,22 +31059,13 @@
       }
     },
     "http://127.0.0.1…" : {
-      "shouldTranslate" : false,
-      "localizations" : {
-
-      }
+      "shouldTranslate" : false
     },
     "http://localhost…" : {
-      "shouldTranslate" : false,
-      "localizations" : {
-
-      }
+      "shouldTranslate" : false
     },
     "https://nuphos.example.com" : {
-      "shouldTranslate" : false,
-      "localizations" : {
-
-      }
+      "shouldTranslate" : false
     },
     "judged safe" : {
       "localizations" : {
@@ -31449,16 +31442,10 @@
       }
     },
     "xxxx-xxxx-xxxx-xxxx" : {
-      "shouldTranslate" : false,
-      "localizations" : {
-
-      }
+      "shouldTranslate" : false
     },
     "·" : {
-      "shouldTranslate" : false,
-      "localizations" : {
-
-      }
+      "shouldTranslate" : false
     },
     "· %lld calls" : {
       "localizations" : {
