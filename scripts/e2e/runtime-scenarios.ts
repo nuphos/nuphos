@@ -14,6 +14,26 @@ async function pickAgent(page: Page, label: string) {
   await page.getByRole('menuitem', { name: new RegExp(`^${label}.*Claude Code`) }).click()
 }
 
+/** Sends while the agent host is `away`, expects the backend to queue the message, then its reply. */
+async function sendWhileAway(
+  page: Page,
+  marker: string,
+  away: (during: () => Promise<void>) => Promise<void>,
+) {
+  await newTask(page)
+  await send(page, `Before it is away E2E_DELIVERY:${marker}-before`)
+  await page.getByText(`ACK E2E_DELIVERY:${marker}-before`).waitFor()
+  await away(async () => {
+    const from = backendLines()
+
+    await send(page, `While it is away E2E_DELIVERY:${marker}-during`)
+    await until('the backend to queue the message', async () =>
+      backendLog(from).some((line) => line.includes('"agent.chat.queued"')),
+    )
+  })
+  await page.getByText(`ACK E2E_DELIVERY:${marker}-during`).waitFor({ timeout: 60_000 })
+}
+
 // The delegation scenario needs the second agent unused, so the move comes after it.
 export const runtimeScenarios: Scenario[] = [
   {
@@ -54,20 +74,12 @@ export const runtimeScenarios: Scenario[] = [
   {
     // #3082: a send while the agent host does not answer waits for it, never refused.
     name: 'a message sent while the agent host is down runs once it is back',
-    run: async (page, stack) => {
-      await newTask(page)
-      await send(page, 'Before the outage E2E_DELIVERY:up')
-      await page.getByText('ACK E2E_DELIVERY:up').waitFor()
-      await stack.restartAgentHost(async () => {
-        const from = backendLines()
-
-        await send(page, 'During the outage E2E_DELIVERY:down')
-        await until('the backend to queue the message', async () =>
-          backendLog(from).some((line) => line.includes('"agent.chat.queued"')),
-        )
-      })
-      await page.getByText('ACK E2E_DELIVERY:down').waitFor({ timeout: 60_000 })
-    },
+    run: (page, stack) => sendWhileAway(page, 'down', stack.restartAgentHost),
+  },
+  {
+    // The same with its sockets open and nothing answering, as a computer mid-reconnect is.
+    name: 'a message sent while the agent host hangs runs once it answers again',
+    run: (page, stack) => sendWhileAway(page, 'frozen', stack.freezeAgentHost),
   },
   {
     // #2760 and #2761: create_thread names the agent and the fast mode a new Task starts with.
