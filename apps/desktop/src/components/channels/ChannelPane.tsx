@@ -6,6 +6,7 @@ import { api } from '../../api'
 import { openSessionDesktop } from '../../app/workspace/openSessionDesktop'
 import { t } from '../../i18n'
 import { runtimeStateOf, subscribeRuntimeStates } from '../../lib/agentRuntimeStates'
+import { runtimeTurnActive } from '../../lib/runtimeExecution'
 import { forgetSessionDesktops, publishSessionDesktops } from '../../lib/sessionDesktops'
 import { makeAttachmentTurn } from '../agent/panel/attachments'
 import { ChatColumn } from '../agent/panel/ChatColumn'
@@ -23,8 +24,9 @@ import { botOfChannel, ownsBot } from './botChannel'
 import { BotStatusPill } from './BotStatusPill'
 import { BotTaskButton } from './BotTaskButton'
 import { ChannelMessages } from './ChannelMessages'
-import { ChannelIntro, ChatHeaderIcon, ReplyingBanner } from './channelParts'
 import { ChannelTitle } from './ChannelTitle'
+import { ChatHeaderIcon, ReplyingBanner } from './channelParts'
+import { ChannelEmptyState } from './ChannelEmptyState'
 import { sendingPost, stillSending } from './sendingPosts'
 import { useBotChatQuestions } from './useBotChatQuestions'
 import { useBotRuntimeControl } from './useBotRuntimeControl'
@@ -64,11 +66,9 @@ export function ChannelPane({
   onOpenSession: (sessionId: string) => void
   onOpenTask?: (sessionId: string) => void
   onOpenNuphosLink?: (href: string, beside?: boolean) => boolean
-  /** What the workspace lends to repair an agent that could not reply. */
   fixes?: ChannelFixes
 }) {
   const { detail, chat, agents, refresh } = useChannel(teamId, channelId)
-
   useConversationRead(channelId, visible)
   const [restore, setRestore] = useState<AgentPromptSeed | null>(null)
   const unsent = useRef<{ key: string; id: string } | null>(null)
@@ -80,6 +80,9 @@ export function ChannelPane({
   const title = chat ? chat.title || t('New Group Chat') : ''
   const bot = botOfChannel(chat)
   const botState = useSyncExternalStore(subscribeRuntimeStates, () => runtimeStateOf(bot))
+  const preparingFirstReply = runtimeTurnActive(botState)
+  const firstReplyFailed =
+    detail?.timelineEvents?.some((event) => event.kind === 'agent_reply_failed') ?? false
   const botOwned = ownsBot(teamId, bot, user.id, detail && agents)
   const runtimeControl = useBotRuntimeControl(
     teamId,
@@ -94,30 +97,24 @@ export function ChannelPane({
   const canOpenBotDesktop =
     bot !== undefined &&
     sessionDesktopsOf(teamId, { runtimeState: botState, foreign: !botOwned }).canOpen
-
   useEffect(() => {
     if (!bot) return
     publishSessionDesktops(bot, {
       ...sessionDesktopsOf(teamId, { runtimeState: botState, foreign: !botOwned }),
       dock: channelId,
     })
-
     return () => forgetSessionDesktops(bot, channelId)
   }, [bot, teamId, botState, botOwned, channelId])
   const stored = detail?.messages ?? []
   const pending = stillSending(stored, sending)
-
   if (pending !== sending) setSending(pending)
   const messages = [...stored, ...pending]
-
   const stickToBottom = useStickToBottom(scrollRef)
   const questions = useBotChatQuestions(teamId, bot, botOwned, onOpenSession)
   const send: ComposerSend = (text, filePaths, mentions, options) => {
     void postDraft(text, filePaths, mentions, options)
-
     return true
   }
-
   function focusComposer() {
     requestAnimationFrame(() =>
       composerRef.current?.querySelector<HTMLElement>('[contenteditable="true"]')?.focus(),
@@ -209,7 +206,6 @@ export function ChannelPane({
             }}
           />
         )}
-        {/* A Bot's 1:1 chat stays the two of you; a group chat starts from "+" on Bots. */}
         {!bot && (
           <SessionParticipants
             key={channelId}
@@ -236,12 +232,19 @@ export function ChannelPane({
         ref={scrollRef}
         className="min-h-0 flex-1 overflow-y-auto scrollbar-thin pt-5 pb-4 selectable"
       >
-        {/* The column: one box, so its height says when anything below grows, and
-            the one width every row takes, the composer's own. */}
         <ChatColumn>
-          {detail && messages.length === 0 && <ChannelIntro faces={detail.faces} title={title} />}
+          {detail && messages.length === 0 && (
+            <ChannelEmptyState
+              faces={detail.faces}
+              title={title}
+              bot={Boolean(bot)}
+              preparingFirstReply={preparingFirstReply}
+              firstReplyFailed={firstReplyFailed}
+            />
+          )}
           {detail && (
             <ChannelMessages
+              initialBotId={messages.length === 0 ? bot : undefined}
               messages={messages}
               events={detail?.timelineEvents ?? []}
               agents={agents}
@@ -265,8 +268,6 @@ export function ChannelPane({
         </ChatColumn>
       </HeaderEdge>
       <ChatColumn>
-        {/* Inset past the faces on both sides, so the reply bar and the composer
-            line up with the bubbles: a face and its gap (2.375rem) on each side. */}
         <div
           ref={composerRef}
           className="px-[2.375rem]"
