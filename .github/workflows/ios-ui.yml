@@ -1,15 +1,14 @@
-# The iOS UI tests on a simulator: every night on main, and on a pull request
-# labelled `ios-ui`. They run serially, one suite after another on one
-# simulator, and a failed test fails the job. A failed nightly run opens or
-# updates an issue that lists the failed tests.
+# The iOS UI tests on a simulator: every night on main, and on any branch when
+# dispatched by hand (Actions > iOS UI tests > Run workflow, or
+# `gh workflow run ios-ui.yml --ref <branch>`). They run serially, one suite
+# after another on one simulator, and a failed test fails the job. A failed
+# nightly run opens or updates an issue that lists the failed tests.
 name: iOS UI tests
 
 on:
   schedule:
     - cron: '0 18 * * *'
   workflow_dispatch:
-  pull_request:
-    types: [labeled, synchronize]
 
 permissions:
   contents: read
@@ -21,7 +20,6 @@ concurrency:
 jobs:
   ui:
     name: iOS UI tests (simulator)
-    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ios-ui')
     # Same Xcode as the iOS build in ci.yml.
     runs-on: xcode-27
     timeout-minutes: 150
