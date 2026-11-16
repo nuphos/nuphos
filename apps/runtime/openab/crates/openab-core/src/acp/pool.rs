@@ -357,20 +357,26 @@ const SESSION_GONE_PHRASES: &[&str] = &[
     "no conversation found",
 ];
 
-/// Whether a failed `session/load` says the persisted session does not exist, so starting a fresh
-/// one loses nothing.
+/// Whether a failed `session/load` starts a new session right away instead of failing the turn.
 ///
-/// Two things can prove it: the code (ACP's "resource not found") or the agent's own wording (a
-/// missing thread/rollout). Everything else — a timeout, a closed connection, an agent-internal
-/// error — says nothing about whether the conversation is still on disk, and `state.persisted` is
-/// the only pointer to it. Those failures are counted instead ([`LOAD_FAILURE_LIMIT`]), so a
-/// session that can never be loaded again is still abandoned, just not on the first error.
+/// Two cases do. The agent says the persisted session does not exist — by code (ACP's "resource
+/// not found") or by its own wording (a missing thread/rollout) — so starting fresh loses nothing.
+/// Or the restore timed out: it gets the same budget as `session/new`, which does the same work
+/// minus reading the transcript, so a restore still running by then is hung rather than slow, and
+/// retrying it would only hang the next turn too.
+///
+/// Everything else — a closed connection, an agent-internal error — says nothing about whether
+/// the conversation is still on disk, and `state.persisted` is the only pointer to it. Those
+/// failures are counted instead ([`LOAD_FAILURE_LIMIT`]), so a session that can never be loaded
+/// again is still abandoned, just not on the first error.
 ///
 /// The wording match is necessarily a guess about what an agent prints; the counter is what makes
 /// a wrong guess cost three attempts rather than the wrong outcome.
-fn session_load_proves_session_gone(err: &AcpRequestError) -> bool {
-    let AcpRequestError::Agent(err) = err else {
-        return false;
+fn session_load_falls_back_at_once(err: &AcpRequestError) -> bool {
+    let err = match err {
+        AcpRequestError::Timeout { .. } => return true,
+        AcpRequestError::Agent(err) => err,
+        _ => return false,
     };
     if err.code == ACP_RESOURCE_NOT_FOUND {
         return true;
@@ -1217,19 +1223,10 @@ impl SessionPool {
                             .context("Could not restore the saved native session")
                             .into());
                     }
-                    // A timeout says nothing about whether the session exists — the agent may
-                    // simply be slow to replay a large history — so it keeps the id and does not
-                    // count toward the limit. Counting it would let three slow loads replace a
-                    // session that is still there.
-                    Err(e @ AcpRequestError::Timeout { .. }) => {
-                        warn!(thread_id = %crate::redact::redact_session_ids(thread_id), session_id = %crate::redact::redact_session_ids(sid), error = %e,
-                            "session/load timed out, preserving session ID for retry");
-                        load_failed = Some(e);
-                    }
                     // Anything else keeps the id until it has failed `LOAD_FAILURE_LIMIT` times in
                     // a row: one failure is a blip, but a session that can never load again must
                     // not fail every prompt for ever.
-                    Err(e) if !session_load_proves_session_gone(&e) => {
+                    Err(e) if !session_load_falls_back_at_once(&e) => {
                         let consecutive = self.record_load_failure(thread_id, sid).await;
                         if consecutive >= LOAD_FAILURE_LIMIT {
                             // Out of attempts: start a fresh session. `session_reset` below makes
@@ -1244,7 +1241,7 @@ impl SessionPool {
                     }
                     Err(e) => {
                         warn!(thread_id = %crate::redact::redact_session_ids(thread_id), session_id = %crate::redact::redact_session_ids(sid), error = %e,
-                            "session/load reports the session is gone, creating new session");
+                            "session/load reports the session is gone or timed out, creating new session");
                     }
                 }
             }
@@ -2492,11 +2489,11 @@ mod tests {
         assert_eq!(meta_working_dir(None), None);
     }
 
-    /// A session may be replaced only when the agent proves it is gone: ACP's "resource not
-    /// found", or a code and wording that name a missing session. Everything else keeps
-    /// `state.persisted` and is counted toward the retry limit instead.
+    /// A session is replaced at once only when the agent proves it is gone — ACP's "resource not
+    /// found", or a code and wording that name a missing session — or when the restore timed out.
+    /// Everything else keeps `state.persisted` and is counted toward the retry limit instead.
     #[test]
-    fn a_missing_session_is_proved_by_code_or_by_wording() {
+    fn a_missing_session_or_a_timed_out_restore_falls_back_at_once() {
         let agent_error = |code: i64, message: &str, detail: Option<&str>| {
             AcpRequestError::Agent(JsonRpcError {
                 code,
@@ -2519,10 +2516,14 @@ mod tests {
                 "Internal error",
                 Some("no rollout found for thread id 3f2a"),
             ),
+            // A restore still running after session/new's budget is hung, not slow.
+            AcpRequestError::Timeout {
+                method: "session/resume".into(),
+            },
         ] {
             assert!(
-                super::session_load_proves_session_gone(&gone),
-                "{gone} must prove the session is gone"
+                super::session_load_falls_back_at_once(&gone),
+                "{gone} must start a new session"
             );
         }
 
@@ -2532,16 +2533,13 @@ mod tests {
             agent_error(-32603, "Internal error", None),
             // Invalid params about something other than the session.
             agent_error(-32602, "Invalid params: cwd must be an absolute path", None),
-            AcpRequestError::Timeout {
-                method: "session/load".into(),
-            },
             AcpRequestError::ConnectionClosed {
                 method: "session/load".into(),
             },
             AcpRequestError::Other(anyhow::anyhow!("response was unusable")),
         ] {
             assert!(
-                !super::session_load_proves_session_gone(&kept),
+                !super::session_load_falls_back_at_once(&kept),
                 "{kept} must preserve the persisted session id"
             );
         }
