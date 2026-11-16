@@ -1,11 +1,9 @@
 import clsx from 'clsx'
-import { PinOff } from 'lucide-react'
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { SESSION_DRAG_TYPE } from '../../app/workspace/splitLayout'
 import { t } from '../../i18n'
-import { ContextMenu } from '../ContextMenu'
 
 import { BOT_PIN_DRAG_TYPE } from './bot-pin-drag'
 import { previewPinOrder } from './bot-pin-order'
@@ -15,7 +13,7 @@ import { SidebarPinShelf } from './SidebarPinShelf'
 import { useBotPinDrag } from './useBotPinDrag'
 import { usePinPreview } from './usePinPreview'
 
-import type { Item } from './types'
+import type { Item, ItemMenuRequest } from './types'
 import type { ReactNode } from 'react'
 
 type Props = {
@@ -24,6 +22,7 @@ type Props = {
   bots: Item[]
   pinned: (item: Item) => boolean
   toggle: (item: Item) => void
+  onItemMenu: (menu: ItemMenuRequest) => void
   onSelect: (key: string) => void
   teamId: string
   children: ReactNode
@@ -35,6 +34,7 @@ export function SidebarBotPins({
   pinned,
   toggle,
   onSelect,
+  onItemMenu,
   teamId,
   children,
   order = [],
@@ -75,7 +75,6 @@ export function SidebarBotPins({
     { onMove: movePin, onPinDrop: commitPin, onEnd: resetPin },
   )
   const [over, setOver] = useState(false)
-  const [menu, setMenu] = useState<{ bot: Item; x: number; y: number } | null>(null)
   const draggedBot = bots.find((bot) => bot.key === dragged)
   const preview = pinPreview && pinPreview.key === draggedBot?.key ? pinPreview.before : undefined
   const displayPins = previewPinOrder(pins, draggedBot, preview)
@@ -89,16 +88,6 @@ export function SidebarBotPins({
 
   return (
     <div {...pointerHandlers} className="flex min-h-full select-none flex-col">
-      {menu && (
-        <ContextMenu
-          x={menu.x}
-          y={menu.y}
-          onClose={() => setMenu(null)}
-          items={[
-            { key: 'unpin', label: t('Unpin Bot'), icon: PinOff, onSelect: () => toggle(menu.bot) },
-          ]}
-        />
-      )}
       {draggedBot &&
         createPortal(
           <div
@@ -167,7 +156,7 @@ export function SidebarBotPins({
                 }
                 onContextMenu={(event) => {
                   event.preventDefault()
-                  setMenu({ bot, x: event.clientX, y: event.clientY })
+                  onItemMenu({ item: bot, x: event.clientX, y: event.clientY })
                 }}
                 onDragStart={(event) => {
                   event.dataTransfer.effectAllowed = 'copyMove'
