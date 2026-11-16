@@ -265,26 +265,28 @@ struct ChatComposerBar<Controls: View>: View {
             .padding(Self.textInset)
             .frame(maxWidth: .infinity, alignment: .leading)
             .hidden()
-            .overlay(alignment: .topLeading) {
-                if text.isEmpty {
-                    Text(prompt)
-                        .lineLimit(1)
-                        .foregroundStyle(.tertiary)
-                        .padding(Self.textInset)
-                        .allowsHitTesting(false)
-                        .accessibilityHidden(true)
-                }
-                TextEditor(text: $text)
-                    .scrollContentBackground(.hidden)
-                    .focused($focused)
-                    .accessibilityLabel(Text(prompt))
-                    // The numeric keypad's Enter may arrive as its own key.
-                    .onKeyPress(keys: [.return, KeyEquivalent("\u{3}")], phases: .down) { press in
-                        guard ComposerReturn.on(press.modifiers, composing: composing) == .send
-                        else { return .ignored }
-                        send(keepingFocus: true)
-                        return .handled
+            .overlay {
+                ZStack(alignment: .topLeading) {
+                    if text.isEmpty {
+                        Text(prompt)
+                            .lineLimit(1)
+                            .foregroundStyle(.tertiary)
+                            .padding(Self.textInset)
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
                     }
+                    TextEditor(text: $text)
+                        .scrollContentBackground(.hidden)
+                        .focused($focused)
+                        .accessibilityLabel(Text(prompt))
+                        // The numeric keypad's Enter may arrive as its own key.
+                        .onKeyPress(keys: [.return, KeyEquivalent("\u{3}")], phases: .down) { press in
+                            guard ComposerReturn.on(press.modifiers, composing: composing) == .send
+                            else { return .ignored }
+                            send(keepingFocus: true)
+                            return .handled
+                        }
+                }
             }
         // The text view's own inset, taken back so the text sits where the field's did.
         .padding(.horizontal, -Self.textInset.leading)

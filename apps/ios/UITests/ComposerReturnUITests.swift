@@ -122,12 +122,12 @@ final class ComposerReturnUITests: XCTestCase {
         XCTAssertGreaterThan(composer.frame.height, oneLine + 1, "One more character did not wrap")
 
         composer.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: count + 1))
-        shot("9-placeholder-after-editing")
         XCTAssertEqual(composer.value as? String ?? "", composer.placeholderValue ?? "", "The draft was not deleted")
         XCTAssertEqual(composer.frame.height, oneLine, accuracy: 1, "The empty field is not one line tall")
         XCTAssertGreaterThan(composer.frame.width, fullWidth, "The emptied field is not a full line wide")
         expectation(for: NSPredicate(format: "isEnabled == false"), evaluatedWith: app.buttons["Send"])
         waitForExpectations(timeout: 3)
+        shot("9-placeholder-after-editing")
     }
 
     /// The on-screen keyboard's Return types a line break and never sends.
