@@ -14102,6 +14102,52 @@
         }
       }
     },
+    "New conversation" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nueva conversación"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Percakapan baru"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新しい会話"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "새 대화"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การสนทนาใหม่"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新对话"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新對話"
+          }
+        }
+      }
+    },
     "New messages in #%@" : {
       "localizations" : {
         "es" : {
@@ -15803,6 +15849,144 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "開啟連接器"
+          }
+        }
+      }
+    },
+    "Open Nuphos and select the workspace for this share." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abre Nuphos y selecciona el espacio de trabajo para compartir."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buka Nuphos dan pilih workspace untuk berbagi ini."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos を開いて、この共有のワークスペースを選択してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos를 열고 이 공유에 사용할 워크스페이스를 선택하세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิด Nuphos แล้วเลือกเวิร์กสเปซสำหรับการแชร์นี้"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请打开 Nuphos 并选择这次分享的工作区。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請開啟 Nuphos 並選擇這次分享的工作區。"
+          }
+        }
+      }
+    },
+    "Open Nuphos and sign in before sharing." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abre Nuphos e inicia sesión antes de compartir."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buka Nuphos dan masuk sebelum berbagi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共有する前に Nuphos を開いてサインインしてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "공유하기 전에 Nuphos를 열고 로그인하세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิด Nuphos และลงชื่อเข้าใช้ก่อนแชร์"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分享前请先打开 Nuphos 并登录。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分享前請先開啟 Nuphos 並登入。"
+          }
+        }
+      }
+    },
+    "Open Nuphos and sign in. Shared Keychain provisioning is required before real sending is available." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abre Nuphos e inicia sesión. Se necesita configurar el llavero compartido antes de poder enviar."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buka Nuphos dan masuk. Penyediaan Keychain bersama diperlukan sebelum pengiriman sebenarnya tersedia."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos を開いてサインインしてください。実際に送信するには、共有キーチェーンのプロビジョニングが必要です。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos를 열고 로그인하세요. 실제로 보내려면 공유 키체인 프로비저닝이 필요합니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิด Nuphos แล้วลงชื่อเข้าใช้ ต้องตั้งค่าพวงกุญแจที่แชร์ก่อนจึงจะส่งได้จริง"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请打开 Nuphos 并登录。必须先配置共享钥匙串，才能实际发送。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請開啟 Nuphos 並登入。必須先設定共用鑰匙圈，才能實際傳送。"
           }
         }
       }
@@ -21569,6 +21753,144 @@
         }
       }
     },
+    "Share up to 10 attachments, 20 MB each, and 256 KB of text." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comparte hasta 10 archivos adjuntos de 20 MB cada uno y 256 KB de texto."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bagikan hingga 10 lampiran, masing-masing 20 MB, dan teks 256 KB."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共有できるのは添付ファイル 10 件（各 20 MB）と 256 KB のテキストまでです。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "첨부 파일 최대 10개(각 20MB)와 텍스트 256KB까지 공유할 수 있습니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แชร์ไฟล์แนบได้สูงสุด 10 ไฟล์ ไฟล์ละ 20 MB และข้อความ 256 KB"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最多可分享 10 个附件（每个 20 MB）及 256 KB 的文字。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最多可分享 10 個附件（每個 20 MB）及 256 KB 的文字。"
+          }
+        }
+      }
+    },
+    "Shared Keychain access failed (%d). Both App IDs and profiles need the same shared Keychain group." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo acceder al llavero compartido (%d). Ambos App ID y perfiles necesitan el mismo grupo de llavero compartido."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Akses Keychain bersama gagal (%d). Kedua App ID dan profil memerlukan grup Keychain bersama yang sama."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共有キーチェーンにアクセスできませんでした（%d）。両方の App ID とプロファイルに同じ共有キーチェーングループが必要です。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "공유 키체인에 접근하지 못했습니다(%d). 두 App ID와 프로파일 모두 같은 공유 키체인 그룹이 필요합니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เข้าถึงพวงกุญแจที่แชร์ไม่สำเร็จ (%d) App ID และโปรไฟล์ทั้งสองต้องใช้กลุ่มพวงกุญแจที่แชร์เดียวกัน"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法访问共享钥匙串（%d）。两个 App ID 和描述文件都需要相同的共享钥匙串组。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法存取共用鑰匙圈（%d）。兩個 App ID 與描述檔都需要相同的共用鑰匙圈群組。"
+          }
+        }
+      }
+    },
+    "Shared sign-in is unavailable. Open Nuphos and sign in; both targets require matching shared Keychain provisioning." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El inicio de sesión compartido no está disponible. Abre Nuphos e inicia sesión; ambos destinos necesitan la misma configuración de llavero compartido."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Masuk bersama tidak tersedia. Buka Nuphos dan masuk; kedua target memerlukan penyediaan Keychain bersama yang cocok."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共有サインインを利用できません。Nuphos を開いてサインインしてください。両方のターゲットに一致する共有キーチェーンのプロビジョニングが必要です。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "공유 로그인을 사용할 수 없습니다. Nuphos를 열고 로그인하세요. 두 타깃 모두 일치하는 공유 키체인 프로비저닝이 필요합니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใช้การลงชื่อเข้าใช้ที่แชร์ไม่ได้ เปิด Nuphos แล้วลงชื่อเข้าใช้ ทั้งสองเป้าหมายต้องตั้งค่าพวงกุญแจที่แชร์ให้ตรงกัน"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法使用共享登录。请打开 Nuphos 并登录；两个 target 都需要匹配的共享钥匙串配置。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法使用共用登入。請開啟 Nuphos 並登入；兩個 target 都需要相符的共用鑰匙圈設定。"
+          }
+        }
+      }
+    },
     "Sharing unavailable" : {
       "localizations" : {
         "es" : {
@@ -25301,6 +25623,52 @@
         }
       }
     },
+    "The shared sign-in no longer matches this account. Sign in again in Nuphos." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El inicio de sesión compartido ya no coincide con esta cuenta. Vuelve a iniciar sesión en Nuphos."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Masuk bersama tidak lagi cocok dengan akun ini. Masuk lagi di Nuphos."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共有サインインがこのアカウントと一致しなくなりました。Nuphos でもう一度サインインしてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "공유 로그인이 더 이상 이 계정과 일치하지 않습니다. Nuphos에서 다시 로그인하세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การลงชื่อเข้าใช้ที่แชร์ไม่ตรงกับบัญชีนี้แล้ว ลงชื่อเข้าใช้อีกครั้งใน Nuphos"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享登录与这个账号不再匹配。请在 Nuphos 中重新登录。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共用登入與這個帳號不再相符。請在 Nuphos 中重新登入。"
+          }
+        }
+      }
+    },
     "The sign-in window closed before finishing. Please try again." : {
       "localizations" : {
         "es" : {
@@ -26355,6 +26723,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "這個登入工作階段同時儲存在多個伺服器。請重新登入以建立新的工作階段。"
+          }
+        }
+      }
+    },
+    "This shared content cannot be imported. Nothing was sent." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se puede importar este contenido compartido. No se envió nada."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Konten yang dibagikan ini tidak dapat diimpor. Tidak ada yang dikirim."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この共有コンテンツは取り込めません。何も送信されていません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 공유 콘텐츠를 가져올 수 없습니다. 아무것도 보내지 않았습니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "นำเข้าเนื้อหาที่แชร์นี้ไม่ได้ ไม่มีสิ่งใดถูกส่ง"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法导入这个分享的内容。没有发送任何东西。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法匯入這個分享的內容。沒有傳送任何東西。"
           }
         }
       }
@@ -30732,6 +31146,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你都處理完了"
+          }
+        }
+      }
+    },
+    "Your account or workspace changed. Cancel this share and share again. Nothing else will be sent." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu cuenta o espacio de trabajo cambió. Cancela este envío y vuelve a compartir. No se enviará nada más."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Akun atau workspace Anda berubah. Batalkan berbagi ini dan bagikan lagi. Tidak ada lagi yang akan dikirim."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アカウントまたはワークスペースが変更されました。この共有をキャンセルしてもう一度共有してください。これ以上は何も送信されません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "계정 또는 워크스페이스가 변경되었습니다. 이 공유를 취소하고 다시 공유하세요. 더 이상 아무것도 보내지 않습니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "บัญชีหรือเวิร์กสเปซของคุณเปลี่ยนไป ยกเลิกการแชร์นี้แล้วแชร์ใหม่ จะไม่มีการส่งสิ่งอื่นอีก"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的账号或工作区已更改。请取消这次分享后重新分享。不会再发送其他内容。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的帳號或工作區已變更。請取消這次分享後重新分享。不會再傳送其他內容。"
           }
         }
       }
