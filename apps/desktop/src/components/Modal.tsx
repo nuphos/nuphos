@@ -1,59 +1,59 @@
-import clsx from "clsx";
-import { X } from "lucide-react";
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
+import clsx from 'clsx'
+import { X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 
-import { t } from "../i18n";
-import { cssDurationMs } from "../lib/motion";
+import { t } from '../i18n'
+import { cssDurationMs } from '../lib/motion'
 
-import { useModalFocus } from "./modalFocus";
+import { useModalFocus } from './modalFocus'
 
-import type { ReactNode } from "react";
+import type { ReactNode } from 'react'
 
 type Props = {
-  open: boolean;
-  onClose: () => void;
-  title: string;
-  description?: ReactNode;
-  children: ReactNode;
+  open: boolean
+  onClose: () => void
+  title: string
+  description?: ReactNode
+  children: ReactNode
   /** Optional pinned footer. Rendered outside the scrollable body so it stays
    *  fixed at the bottom while a tall body scrolls. */
-  footer?: ReactNode;
-  width?: number;
+  footer?: ReactNode
+  width?: number
   /** Lightweight single-field dialogs, without section dividers. */
-  appearance?: "default" | "prompt";
-  surface?: "dark" | "light";
+  appearance?: 'default' | 'prompt'
+  surface?: 'dark' | 'light'
   /**
    * Hold the panel at its maximum height instead of sizing it to the content.
    * For a body whose content changes as the user works in it — a filterable
    * catalog — where a content-driven height means the panel resizes under the
    * cursor on every keystroke.
    */
-  fillHeight?: boolean;
+  fillHeight?: boolean
   /** Single-row header with tighter padding and a muted title — the
    *  Linear-changelog-style chrome the What's New reader uses. */
-  headerCompact?: boolean;
+  headerCompact?: boolean
   /** Legacy divider option. Areas are separated by space, so no divider is drawn. */
-  headerDivider?: boolean;
+  headerDivider?: boolean
   /** Optional icon button rendered before the title (e.g. a back arrow). */
-  headerLeading?: ReactNode;
+  headerLeading?: ReactNode
   /** Optional icon buttons rendered in the top-right corner, just left of
    *  the close button (e.g. an open-in-browser action). */
-  headerActions?: ReactNode;
+  headerActions?: ReactNode
   /**
    * Whether clicking the backdrop scrim closes the modal (default true). Turn
    * off for multi-step flows where a stray click outside would silently throw
    * away the user's progress — closing then requires an explicit action
    * (Escape, the X button, or a Cancel/Done button).
    */
-  closeOnBackdrop?: boolean;
+  closeOnBackdrop?: boolean
   /** Focus the first control in the body on open (default); false focuses the panel itself, so nothing looks selected and Tab still enters the body. */
-  focusFirstControl?: boolean;
+  focusFirstControl?: boolean
   /** `wide` lines the header controls up with a body that pads its content 32px from each side. */
-  headerInset?: "default" | "wide";
+  headerInset?: 'default' | 'wide'
   /** Keep the title for screen readers only, when the body already shows it as a heading. */
-  titleHidden?: boolean;
-};
+  titleHidden?: boolean
+}
 
 export function Modal({
   open,
@@ -63,31 +63,31 @@ export function Modal({
   children,
   footer,
   width = 460,
-  appearance = "default",
+  appearance = 'default',
   fillHeight = false,
   headerCompact = false,
   headerLeading,
   headerActions,
   closeOnBackdrop = true,
   focusFirstControl = true,
-  headerInset = "default",
+  headerInset = 'default',
   titleHidden = false,
 }: Props) {
-  const isPrompt = appearance === "prompt";
+  const isPrompt = appearance === 'prompt'
 
   // Two-phase visibility so the panel can animate on both open AND close:
   //  - `mounted` keeps the portal in the DOM through the exit transition.
   //  - `shown` drives the enter/leave CSS state (flipped a frame after mount
   //    so the browser has an initial "hidden" style to transition from).
-  const [mounted, setMounted] = useState(open);
-  const [shown, setShown] = useState(false);
+  const [mounted, setMounted] = useState(open)
+  const [shown, setShown] = useState(false)
 
   // Opening mounts immediately; closing keeps the portal alive for --modal-close-dur so
   // the exit transition can play.
-  if (open && !mounted) setMounted(true);
-  if (!open && shown) setShown(false);
+  if (open && !mounted) setMounted(true)
+  if (!open && shown) setShown(false)
 
-  const { panelRef, bodyRef, titleId } = useModalFocus(open, focusFirstControl);
+  const { panelRef, bodyRef, titleId } = useModalFocus(open, focusFirstControl)
 
   useEffect(() => {
     if (open) {
@@ -95,46 +95,43 @@ export function Modal({
       // the second flips to `shown=true` so the browser actually sees a
       // start→end change to transition (a single rAF gets batched into the
       // same paint as the mount, killing the enter animation).
-      let raf2 = 0;
+      let raf2 = 0
       const raf1 = requestAnimationFrame(() => {
-        raf2 = requestAnimationFrame(() => setShown(true));
-      });
+        raf2 = requestAnimationFrame(() => setShown(true))
+      })
 
       return () => {
-        cancelAnimationFrame(raf1);
-        cancelAnimationFrame(raf2);
-      };
+        cancelAnimationFrame(raf1)
+        cancelAnimationFrame(raf2)
+      }
     }
     // The panel's `.t-modal` close transition runs on --modal-close-dur.
-    const timer = setTimeout(
-      () => setMounted(false),
-      cssDurationMs("--modal-close-dur", 160),
-    );
+    const timer = setTimeout(() => setMounted(false), cssDurationMs('--modal-close-dur', 160))
 
-    return () => clearTimeout(timer);
-  }, [open]);
+    return () => clearTimeout(timer)
+  }, [open])
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) return
     function onKey(e: KeyboardEvent) {
-      if (e.key !== "Escape") return;
+      if (e.key !== 'Escape') return
       // A modal opened over this one (a bind dialog or a confirm over
       // Connectors) takes Escape for itself; only the topmost layer closes.
       // Toasts are non-modal alert dialogs and do not count.
       const dialogs = document.querySelectorAll(
         '[role="dialog"][aria-modal="true"], [role="alertdialog"]:not([aria-modal="false"])',
-      );
-      const topmost = dialogs.item(dialogs.length - 1) as Element | null;
+      )
+      const topmost = dialogs.item(dialogs.length - 1) as Element | null
 
-      if (topmost && panelRef.current && topmost !== panelRef.current) return;
-      onClose();
+      if (topmost && panelRef.current && topmost !== panelRef.current) return
+      onClose()
     }
-    document.addEventListener("keydown", onKey);
+    document.addEventListener('keydown', onKey)
 
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose, panelRef]);
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open, onClose, panelRef])
 
-  if (!mounted) return null;
+  if (!mounted) return null
 
   return createPortal(
     <div
@@ -142,7 +139,7 @@ export function Modal({
       // Electron drag regions punch through normal z-index. Keep the whole
       // portal explicitly no-drag so a tall modal never lands its close button
       // over the app titlebar's drag hit-area.
-      style={{ transform: "translateZ(0)", willChange: "transform" }}
+      style={{ transform: 'translateZ(0)', willChange: 'transform' }}
     >
       {/*
         Solid translucent scrim — deliberately NO `backdrop-filter`. A
@@ -158,12 +155,10 @@ export function Modal({
         aria-hidden
         onMouseDown={closeOnBackdrop ? onClose : undefined}
         className={clsx(
-          "titlebar-no-drag absolute inset-0 transition-opacity ease-[var(--modal-ease)] motion-reduce:transition-none",
-          shown
-            ? "duration-[var(--modal-open-dur)]"
-            : "duration-[var(--modal-close-dur)]",
-          "bg-[var(--modal-scrim)]",
-          shown ? "opacity-100" : "opacity-0",
+          'titlebar-no-drag absolute inset-0 transition-opacity ease-[var(--modal-ease)] motion-reduce:transition-none',
+          shown ? 'duration-[var(--modal-open-dur)]' : 'duration-[var(--modal-close-dur)]',
+          'bg-[var(--modal-scrim)]',
+          shown ? 'opacity-100' : 'opacity-0',
         )}
       />
       <div
@@ -174,12 +169,12 @@ export function Modal({
         tabIndex={-1}
         style={{ width }}
         className={clsx(
-          "titlebar-no-drag relative isolate z-10 flex max-w-[calc(100vw-32px)] flex-col overflow-hidden border shadow-2xl outline-none",
-          isPrompt ? "rounded-[20px]" : "rounded-xl",
-          fillHeight ? "h-[80vh]" : "max-h-[80vh]",
-          "t-modal",
-          shown ? "is-open" : !open && "is-closing",
-          "border-line-control bg-surface-sheet shadow-[var(--surface-shadow-raised)]",
+          'titlebar-no-drag relative isolate z-10 flex max-w-[calc(100vw-32px)] flex-col overflow-hidden border shadow-2xl outline-none',
+          isPrompt ? 'rounded-[20px]' : 'rounded-xl',
+          fillHeight ? 'h-[80vh]' : 'max-h-[80vh]',
+          't-modal',
+          shown ? 'is-open' : !open && 'is-closing',
+          'border-line-control bg-surface-sheet shadow-[var(--surface-shadow-raised)]',
         )}
       >
         <div
@@ -187,12 +182,12 @@ export function Modal({
             // shrink-0 so a tall/scrolling body (e.g. expanded Raw JSON) can't
             // squeeze the header — which otherwise let the scrollable content
             // layer overlap the close button and swallow its clicks.
-            "relative z-20 flex shrink-0 items-start gap-2",
-            headerInset === "wide"
-              ? "px-8 pb-2 pt-4 pr-16"
+            'relative z-20 flex shrink-0 items-start gap-2',
+            headerInset === 'wide'
+              ? 'px-8 pb-2 pt-4 pr-16'
               : headerCompact
-                ? "px-4 py-2.5 pr-12"
-                : "px-5 py-4 pr-14",
+                ? 'px-4 py-2.5 pr-12'
+                : 'px-5 py-4 pr-14',
           )}
         >
           {headerLeading}
@@ -200,13 +195,13 @@ export function Modal({
             <div
               id={titleId}
               className={clsx(
-                titleHidden && "sr-only",
+                titleHidden && 'sr-only',
                 isPrompt
-                  ? "text-xl font-semibold tracking-tight"
+                  ? 'text-xl font-semibold tracking-tight'
                   : headerCompact
-                    ? "text-[12.5px] font-medium"
-                    : "text-[14px] font-semibold",
-                headerCompact ? "text-secondary" : "text-main",
+                    ? 'text-[12.5px] font-medium'
+                    : 'text-[14px] font-semibold',
+                headerCompact ? 'text-secondary' : 'text-main',
               )}
             >
               {title}
@@ -214,10 +209,8 @@ export function Modal({
             {description != null && (
               <div
                 className={clsx(
-                  isPrompt
-                    ? "mt-1.5 text-sm leading-5"
-                    : "mt-1 text-[12.5px] leading-5",
-                  "text-secondary",
+                  isPrompt ? 'mt-1.5 text-sm leading-5' : 'mt-1 text-[12.5px] leading-5',
+                  'text-secondary',
                 )}
               >
                 {description}
@@ -226,25 +219,25 @@ export function Modal({
           </div>
         </div>
         <div
-          style={{ transform: "translateZ(0)", willChange: "transform" }}
+          style={{ transform: 'translateZ(0)', willChange: 'transform' }}
           className={clsx(
-            "titlebar-no-drag absolute z-50 flex items-center gap-0.5",
-            headerInset === "wide"
-              ? "right-[26px] top-4"
+            'titlebar-no-drag absolute z-50 flex items-center gap-0.5',
+            headerInset === 'wide'
+              ? 'right-[26px] top-4'
               : headerCompact
-                ? "right-2 top-1.5"
-                : "right-3.5 top-3.5",
+                ? 'right-2 top-1.5'
+                : 'right-3.5 top-3.5',
           )}
         >
           {headerActions}
           <button
             type="button"
-            aria-label={t("Close modal")}
+            aria-label={t('Close modal')}
             onMouseDown={(e) => e.stopPropagation()}
             onClick={onClose}
             className={clsx(
-              "flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md transition-colors",
-              "text-tertiary hover:bg-state-hover hover:text-main",
+              'flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md transition-colors',
+              'text-tertiary hover:bg-state-hover hover:text-main',
             )}
           >
             <X className="h-3.5 w-3.5" strokeWidth={2} />
@@ -263,7 +256,7 @@ export function Modal({
           <div
             className={clsx(
               // shrink-0 pins the footer below the scrollable body.
-              "relative z-20 shrink-0",
+              'relative z-20 shrink-0',
             )}
           >
             {footer}
@@ -272,5 +265,5 @@ export function Modal({
       </div>
     </div>,
     document.body,
-  );
+  )
 }

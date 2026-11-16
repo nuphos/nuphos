@@ -1,8 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef } from 'react'
 
-import { t } from "../../../i18n";
-import { Button } from "../../ui/button";
-import { Tooltip } from "../../ui/tooltip";
+import { t } from '../../../i18n'
+import { Button } from '../../ui/button'
+import { Tooltip } from '../../ui/tooltip'
 
 /**
  * A question answered in words: a field and "Send", opened by "Other…". Esc
@@ -14,21 +14,21 @@ export function AnswerField({
   onSend,
   onClose,
 }: {
-  text: string;
-  onText: (text: string) => void;
-  onSend: (text: string) => void;
-  onClose: () => void;
+  text: string
+  onText: (text: string) => void
+  onSend: (text: string) => void
+  onClose: () => void
 }) {
-  const field = useRef<HTMLInputElement>(null);
+  const field = useRef<HTMLInputElement>(null)
 
-  useEffect(() => field.current?.focus(), []);
+  useEffect(() => field.current?.focus(), [])
 
   return (
     <form
       className="flex items-center gap-2"
       onSubmit={(event) => {
-        event.preventDefault();
-        if (text.trim()) onSend(text.trim());
+        event.preventDefault()
+        if (text.trim()) onSend(text.trim())
       }}
     >
       <input
@@ -37,16 +37,16 @@ export function AnswerField({
         value={text}
         onChange={(event) => onText(event.target.value)}
         onKeyDown={(event) => {
-          if (event.key !== "Escape") return;
-          event.preventDefault();
-          event.stopPropagation();
-          onClose();
+          if (event.key !== 'Escape') return
+          event.preventDefault()
+          event.stopPropagation()
+          onClose()
         }}
-        aria-label={t("Your answer")}
+        aria-label={t('Your answer')}
         className="h-[38px] min-w-0 flex-1 rounded-[10px] bg-surface-raised px-3 text-[13.5px] text-main shadow-[0_0_0_1px_rgb(var(--color-line-control))] outline-none placeholder:text-tertiary focus:ring-2 focus:ring-line-focus"
       />
       <Tooltip
-        content={`${t("Send")}  ↵`}
+        content={`${t('Send')}  ↵`}
         trigger={
           <Button
             type="submit"
@@ -56,8 +56,8 @@ export function AnswerField({
           />
         }
       >
-        {t("Send")}
+        {t('Send')}
       </Tooltip>
     </form>
-  );
+  )
 }

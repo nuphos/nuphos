@@ -1,28 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react'
 
-import { MessageResponse } from "../../components/agent/MessageResponse";
-import { AnswerField } from "../../components/agent/panel/AnswerField";
+import { MessageResponse } from '../../components/agent/MessageResponse'
+import { AnswerField } from '../../components/agent/panel/AnswerField'
 import {
   parseChoiceRequest,
   parseConnectRequest,
-} from "../../components/agent/panel/connectCardModel";
-import { CredentialSelectorButton } from "../../components/agent/panel/CredentialSelectorButton";
-import { botChatQuestion } from "../../components/channels/botChatQuestion";
-import { BotChatQuestion } from "../../components/channels/BotChatQuestions";
-import { useBotCredentials } from "../../components/channels/useBotCredentials";
-import { Button } from "../../components/ui/button";
-import { Tooltip } from "../../components/ui/tooltip";
-import { t } from "../../i18n";
+} from '../../components/agent/panel/connectCardModel'
+import { CredentialSelectorButton } from '../../components/agent/panel/CredentialSelectorButton'
+import { botChatQuestion } from '../../components/channels/botChatQuestion'
+import { BotChatQuestion } from '../../components/channels/BotChatQuestions'
+import { useBotCredentials } from '../../components/channels/useBotCredentials'
+import { Button } from '../../components/ui/button'
+import { Tooltip } from '../../components/ui/tooltip'
+import { t } from '../../i18n'
 
-import { AnswerFailure } from "./AnswerFailure";
-import { QuestionSource } from "./QuestionRail";
-import { useAnswerFailure } from "./useInbox";
+import { AnswerFailure } from './AnswerFailure'
+import { QuestionSource } from './QuestionRail'
+import { useAnswerFailure } from './useInbox'
 
-import type { DecisionAnswer } from "../../api/agent-chat-types";
-import type {
-  AgentConversation,
-  AgentInputRequest,
-} from "../../api/agent-types";
+import type { DecisionAnswer } from '../../api/agent-chat-types'
+import type { AgentConversation, AgentInputRequest } from '../../api/agent-types'
 
 /**
  * The Inbox's open question, read as a page: who asked and when, the question
@@ -43,33 +40,30 @@ export function DecisionCard({
   onOpenConversation,
   onOpenLink,
 }: {
-  teamId: string;
-  conversation: AgentConversation;
-  request: AgentInputRequest;
+  teamId: string
+  conversation: AgentConversation
+  request: AgentInputRequest
   /** Its keys are live: 1–9 choose, Esc closes "Other…". */
-  keys: boolean;
-  onAnswer: (answer: DecisionAnswer) => void;
-  onSkip: (() => void) | undefined;
-  onOpenConversation: () => void;
+  keys: boolean
+  onAnswer: (answer: DecisionAnswer) => void
+  onSkip: (() => void) | undefined
+  onOpenConversation: () => void
   /** Opens a link in the question's text, as the conversation does. */
-  onOpenLink: (href: string, beside: boolean) => boolean;
+  onOpenLink: (href: string, beside: boolean) => boolean
 }) {
-  const { sessionId } = conversation;
-  const canManage = Boolean(conversation.canManage) && !conversation.readOnly;
-  const connect = parseConnectRequest(request) !== null;
-  const credentials = useBotCredentials(
-    teamId,
-    connect && canManage ? sessionId : undefined,
-  );
-  const { part, typed } = botChatQuestion(request);
-  const choice = parseChoiceRequest(part.input);
+  const { sessionId } = conversation
+  const canManage = Boolean(conversation.canManage) && !conversation.readOnly
+  const connect = parseConnectRequest(request) !== null
+  const credentials = useBotCredentials(teamId, connect && canManage ? sessionId : undefined)
+  const { part, typed } = botChatQuestion(request)
+  const choice = parseChoiceRequest(part.input)
   // A plain choice is answered on the page; anything else on its own card.
   const plain =
     choice !== null &&
     !choice.multiSelect &&
     !choice.questions?.length &&
-    (choice.options.length > 0 || typed);
-  const [other, setOther] = useState(false);
+    (choice.options.length > 0 || typed)
+  const [other, setOther] = useState(false)
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
@@ -121,35 +115,27 @@ export function DecisionCard({
                 credential, or one of several, is chosen here. */}
             {credentials && (
               <div>
-                <CredentialSelectorButton
-                  {...credentials}
-                  hero={false}
-                  personalIdentity
-                />
+                <CredentialSelectorButton {...credentials} hero={false} personalIdentity />
               </div>
             )}
             {/* Only its owner selects a conversation's credentials; anyone else answers there. */}
             {connect && !canManage && (
               <span className="text-[12px] text-tertiary">
-                {t("Only the owner of this conversation can connect this.")}
+                {t('Only the owner of this conversation can connect this.')}
               </span>
             )}
           </div>
         )}
         <footer className="mt-4 flex items-center gap-3 text-[11.5px] text-tertiary">
           {onSkip && (
-            <button
-              type="button"
-              onClick={onSkip}
-              className="ml-auto hover:text-main"
-            >
-              {t("Skip")}
+            <button type="button" onClick={onSkip} className="ml-auto hover:text-main">
+              {t('Skip')}
             </button>
           )}
         </footer>
       </article>
     </div>
-  );
+  )
 }
 
 /**
@@ -165,48 +151,37 @@ function ChoiceRow({
   onOther,
   onAnswer,
 }: {
-  requestId: string;
-  options: string[];
+  requestId: string
+  options: string[]
   /** It may be answered in words. */
-  typed: boolean;
-  keys: boolean;
-  other: boolean;
-  onOther: (open: boolean) => void;
-  onAnswer: (answer: DecisionAnswer) => void;
+  typed: boolean
+  keys: boolean
+  other: boolean
+  onOther: (open: boolean) => void
+  onAnswer: (answer: DecisionAnswer) => void
 }) {
-  const failure = useAnswerFailure(requestId);
-  const [draft, setDraft] = useState("");
+  const failure = useAnswerFailure(requestId)
+  const [draft, setDraft] = useState('')
 
   useEffect(() => {
-    if (!keys || other) return;
+    if (!keys || other) return
     const onKeyDown = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
+      const target = event.target as HTMLElement | null
 
-      if (
-        event.metaKey ||
-        event.ctrlKey ||
-        event.altKey ||
-        event.defaultPrevented
-      )
-        return;
-      if (
-        target?.isContentEditable ||
-        /^(INPUT|TEXTAREA|SELECT)$/.test(target?.tagName ?? "")
-      )
-        return;
-      const option = /^[1-9]$/.test(event.key)
-        ? options[Number(event.key) - 1]
-        : undefined;
+      if (event.metaKey || event.ctrlKey || event.altKey || event.defaultPrevented) return
+      if (target?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target?.tagName ?? ''))
+        return
+      const option = /^[1-9]$/.test(event.key) ? options[Number(event.key) - 1] : undefined
 
-      if (option === undefined) return;
-      event.preventDefault();
-      onAnswer({ choices: [option] });
-    };
+      if (option === undefined) return
+      event.preventDefault()
+      onAnswer({ choices: [option] })
+    }
 
-    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener('keydown', onKeyDown)
 
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [keys, other, options, onAnswer]);
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [keys, other, options, onAnswer])
 
   return (
     <div className="mt-5 flex flex-col gap-2">
@@ -214,12 +189,10 @@ function ChoiceRow({
         {options.map((option, index) => (
           <Tooltip
             key={option}
-            content={
-              keys && index < 9 ? `${option}  ${String(index + 1)}` : option
-            }
+            content={keys && index < 9 ? `${option}  ${String(index + 1)}` : option}
             trigger={
               <Button
-                variant={index === 0 ? "primary" : "secondary"}
+                variant={index === 0 ? 'primary' : 'secondary'}
                 size="sm"
                 className="h-auto min-h-8 whitespace-normal py-1.5 text-left"
                 onClick={() => onAnswer({ choices: [option] })}
@@ -231,12 +204,12 @@ function ChoiceRow({
         ))}
         {typed && (
           <Button
-            variant={other ? "secondary" : "ghost"}
+            variant={other ? 'secondary' : 'ghost'}
             size="sm"
             aria-expanded={other}
             onClick={() => onOther(!other)}
           >
-            {options.length > 0 ? t("Other…") : t("Reply…")}
+            {options.length > 0 ? t('Other…') : t('Reply…')}
           </Button>
         )}
       </div>
@@ -250,5 +223,5 @@ function ChoiceRow({
       )}
       {failure && <AnswerFailure message={failure} />}
     </div>
-  );
+  )
 }
