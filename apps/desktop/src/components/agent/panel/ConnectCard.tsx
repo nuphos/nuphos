@@ -265,7 +265,6 @@ export function DecisionToolPart({
       <ChoiceCard
         {...choice}
         toolCallId={part.toolCallId}
-        requestId={requestId}
         canAct={state({ question: choice.question, options: choice.options }) === 'open'}
       />
     )

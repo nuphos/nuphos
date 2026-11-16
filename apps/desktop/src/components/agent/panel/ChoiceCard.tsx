@@ -9,7 +9,7 @@ import { MessageResponse } from '../MessageResponse'
 
 import { AnswerField } from './AnswerField'
 import { ConnectCardContext } from './connectCardContext'
-import { DecisionAnswersContext, WaitingAnswersContext } from './decisionAnswers'
+import { DecisionAnswersContext } from './decisionAnswers'
 import { DecisionForm } from './DecisionForm'
 import { formQuestions, ownBody } from './decisionFormModel'
 import { useDecisionKeys } from './useDecisionKeys'
@@ -28,7 +28,6 @@ import type { DecisionAnswer } from '../../../api/agent-chat-types'
  */
 export function ChoiceCard({
   toolCallId,
-  requestId,
   category,
   question,
   body,
@@ -38,8 +37,6 @@ export function ChoiceCard({
   canAct,
 }: {
   toolCallId: string
-  /** The question's id on the server, when it differs from the call's. */
-  requestId?: string
   category: string
   question: string
   /** What the agent wrote to decide from: context, findings, links, risks. */
@@ -54,7 +51,6 @@ export function ChoiceCard({
   const ctx = useContext(ConnectCardContext)
   // What the server recorded when it woke the agent with the answer, read from the transcript.
   const recorded = useContext(DecisionAnswersContext).get(toolCallId)?.option
-  const waiting = useContext(WaitingAnswersContext).get(requestId ?? toolCallId)
   const card = { toolCallId, question, options }
   const { chosen, failed, submit } = useSubmit(ctx, card, recorded)
   const [typing, setTyping] = useState(false)
@@ -108,7 +104,6 @@ export function ChoiceCard({
         onLinkClick={ctx?.onLinkClick}
       />
       <AnswerStatus recorded={recorded} failed={failed} skipped={skipped === 'yes'} />
-      {waiting ? <div className="mt-1 text-[12.5px] text-status-warning">{waiting}</div> : null}
       {!chosen &&
         (form ? (
           <DecisionForm
