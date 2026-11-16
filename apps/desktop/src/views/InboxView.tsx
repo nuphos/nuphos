@@ -107,7 +107,9 @@ export function InboxView({
     const selection = { id: row.request.id, index: at }
 
     selectInboxQuestion(teamId, selection)
-    const undo = holdAnswer(teamId, row.conversation.sessionId, row.request.id, reply)
+    const undo = holdAnswer(teamId, row.conversation.sessionId, row.request.id, reply, (reason) =>
+      toast.error(t('Could not send your answer'), reason),
+    )
 
     toast.success(
       t('Answered “{answer}”', {

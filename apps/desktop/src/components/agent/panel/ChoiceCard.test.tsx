@@ -40,6 +40,8 @@ test('the card leads with its question, answers with its buttons, and is skipped
   const root = createRoot(container as unknown as HTMLElement)
   const answers: DecisionAnswer[] = []
   const skipped: string[] = []
+  // Whether the server withdraws the question the card skips.
+  let withdrawn = false
   const ctx: ConnectCardContextValue = {
     send: () => true,
     // Refused, so the card stays open for the next step.
@@ -51,7 +53,7 @@ test('the card leads with its question, answers with its buttons, and is skipped
     skip: (card) => {
       skipped.push(card.toolCallId)
 
-      return Promise.resolve(true)
+      return Promise.resolve(withdrawn)
     },
     source: createElement('span', null, 'Release notes · 5:52 PM'),
   }
@@ -119,9 +121,17 @@ test('the card leads with its question, answers with its buttons, and is skipped
     await click('Other…')
     assert.equal(container.querySelector('input')?.value, 'After the freeze')
 
+    // A skip the server refused leaves the card live, and claims nothing.
     await click('Skip')
     assert.deepEqual(skipped, ['q1'])
-    // Withdrawn: nothing on it answers or skips any more.
+    assert.notEqual(button('Skip'), undefined)
+    assert.doesNotMatch(container.textContent ?? '', /Skipped/)
+
+    withdrawn = true
+    await click('Skip')
+    assert.deepEqual(skipped, ['q1', 'q1'])
+    // Withdrawn: it says so, and nothing on it answers or skips any more.
+    assert.match(container.textContent ?? '', /Skipped\. The agent carries on without an answer\./)
     assert.equal(button('Skip'), undefined)
     assert.equal(button('Other…'), undefined)
     assert.equal(button('Merge')?.disabled, true)

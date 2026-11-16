@@ -156,13 +156,15 @@ if (typeof window !== 'undefined') window.addEventListener('pagehide', sendHeldA
 /**
  * Answers an Inbox question after {@link ANSWER_UNDO_MS}: it leaves at once, and
  * the returned undo brings it back unsent until then, and says whether it did. The answer still waiting
- * goes at once when another is given, or with {@link sendHeldAnswer}.
+ * goes at once when another is given, or with {@link sendHeldAnswer}. The viewer has moved on by
+ * the time it is sent, so `onFailed` hears why it was refused.
  */
 export function holdAnswer(
   teamId: string,
   sessionId: string,
   requestId: string,
   answer: DecisionAnswer,
+  onFailed: (reason: string | undefined) => void,
 ): () => boolean {
   sendHeldAnswer()
   answered.set(requestId, Infinity)
@@ -172,7 +174,10 @@ export function holdAnswer(
     clearTimeout(timer)
     if (held !== finish) return false
     held = undefined
-    if (send) void answerDecision(teamId, sessionId, requestId, answer)
+    if (send)
+      void answerDecision(teamId, sessionId, requestId, answer).then((ok) => {
+        if (!ok) onFailed(failures.get(requestId))
+      })
     else if (answered.delete(requestId)) emit()
 
     return true

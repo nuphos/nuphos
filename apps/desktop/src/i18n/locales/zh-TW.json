@@ -4279,6 +4279,7 @@
   "Skills on this computer": "此電腦上的技能",
   "Skills shared with everyone in this team": "與此團隊所有人共用的技能",
   "Skip": "略過",
+  "Skipped. The agent carries on without an answer.": "已略過，Agent 會在沒有回答的情況下繼續。",
   "Skipping this? Clusters still bind, but their contents stay forbidden — Nuphos will show this same guidance when you open one.": "要略過這一步嗎？叢集仍可綁定，但其內容仍無法存取；開啟叢集時，Nuphos 也會顯示同樣的指引。",
   "Slack DM": "Slack 私訊",
   "Slack DM · {name}": "Slack 私訊 · {name}",

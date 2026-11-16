@@ -156,6 +156,8 @@ async function prompt({ sessionId, prompt: parts }) {
   const marker = (text.match(/E2E_DELIVERY:[a-z0-9-]+/g) ?? []).at(-1) ?? 'E2E_DELIVERY:missing'
 
   log({ sessionId, marker, event: 'start' })
+  // Nuphos tells the agent when a person skips its question.
+  if (text.includes('was skipped')) log({ sessionId, marker, event: 'skipped' })
   if (text.includes('E2E_DELEGATE') && !text.includes(CHILD)) {
     await delegate(sessionId, text.includes('E2E_DELEGATE_FAST'))
   }
