@@ -41,8 +41,8 @@ useRedis({
 })
 
 const { getActiveAgentRunsForSessions } = await import('./active-runs')
-const { ACTIVE_RUN_TTL_SEC, ABANDONED_GUARD_GRACE_MS, activeRunKey, streamKey } =
-  await import('./shared')
+const { ACTIVE_RUN_TTL_SEC, ABANDONED_GUARD_GRACE_MS, activeRunKey } = await import('./shared')
+const { channelsKey } = await import('./run-channels')
 
 const USER = 'list-user'
 const sessions = Array.from({ length: 20 }, (_, i) => ({ userId: USER, sessionId: `list-${i}` }))
@@ -60,7 +60,7 @@ describe.skipIf(!client)('live runs for a page of the conversation list', () => 
   beforeEach(async () => {
     const keys = sessions.map(({ sessionId }) => activeRunKey(USER, sessionId))
 
-    await client!.del(...keys, ...live.map((_, i) => `${streamKey(USER, `stream-${i}`)}:channels`))
+    await client!.del(...keys, ...live.map((_, i) => channelsKey(USER, `stream-${i}`)))
     for (const [i, { sessionId }] of live.entries()) {
       await client!.hset(activeRunKey(USER, sessionId), {
         streamId: `stream-${i}`,
@@ -68,8 +68,8 @@ describe.skipIf(!client)('live runs for a page of the conversation list', () => 
       })
       await client!.expire(activeRunKey(USER, sessionId), ACTIVE_RUN_TTL_SEC)
     }
-    await client!.sadd(`${streamKey(USER, 'stream-0')}:channels`, 'channel-a')
-    await client!.sadd(`${streamKey(USER, 'stream-1')}:channels`, 'channel-b', 'channel-c')
+    await client!.sadd(channelsKey(USER, 'stream-0'), 'channel-a')
+    await client!.sadd(channelsKey(USER, 'stream-1'), 'channel-b', 'channel-c')
     commands.length = 0
   })
 
