@@ -38,7 +38,7 @@ struct InboxPage: View {
                                 HStack(spacing: 8) {
                                     // A Bot's group names the Task that asked after the question, as on Desktop.
                                     (Text(question.request.question).foregroundStyle(Theme.heading)
-                                        + Text(question.bot == nil ? "" : " · \(question.title)").foregroundStyle(Theme.faint))
+                                        + Text(verbatim: question.bot == nil ? "" : " · \(question.title)").foregroundStyle(Theme.faint))
                                         .font(.system(size: 15))
                                         .lineLimit(1)
                                         .truncationMode(.tail)
