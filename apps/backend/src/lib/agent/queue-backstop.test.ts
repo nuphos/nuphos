@@ -3,6 +3,8 @@ import Redis from 'ioredis'
 
 import { useRedis } from '@/lib/test/doubles/redis'
 
+import type { PendingUserMessage } from './pending-message-types'
+
 process.env.MONGODB_URI ??= 'mongodb://localhost:27017'
 
 // Every replica runs the queue backstop every 2 s on the shared Redis client, so
@@ -59,7 +61,7 @@ const count = () =>
 
 // A person's send, which a turn starts; a teammate's old steering message, which only
 // that teammate's own turn may answer, so nothing starts for it.
-const waiting = (text: string) => ({
+const waiting = (text: string): PendingUserMessage => ({
   ...buildPendingUserMessage({ renderedText: text, source: 'app', actorUserId: OWNER }),
   chat: {
     streamId: `stream-${text}`,
