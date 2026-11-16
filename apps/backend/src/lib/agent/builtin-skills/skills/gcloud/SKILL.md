@@ -89,8 +89,9 @@ that a team admin must reconnect the GCP connector for this project, then stop.
 
 If `setup-credentials.sh` fails with HTTP 409 `gcp_connector_permission_missing`,
 the platform cannot mint a token for the bound connector service account. Do not
-retry the setup command: it fails the same way until the grant exists. Do not
-create a plan for local execution.
+retry the setup command: it fails the same way until the grant exists. If the
+user just granted it, IAM can take a couple of minutes to propagate: wait, then
+try once more. Do not create a plan for local execution.
 Tell the user to use their locally authenticated `gcloud` to grant Token Creator
 on the bound service account to the team-scoped workload identity principal
 shown by the GCP binding wizard, then retry after IAM propagation.
