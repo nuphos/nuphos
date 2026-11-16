@@ -107,8 +107,12 @@ class SecretQuestionFixtureDeviceTest {
                 }
             } }
         }
-        compose.waitUntil(10_000) { compose.onAllNodesWithTag("secret-value:q-key").fetchSemanticsNodes().isNotEmpty() }
+        fun shows(tag: String) = compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+        // Whatever the card settles on is captured first, so a regression is seen as well as reported.
+        compose.waitUntil(10_000) { shows("secret-value:q-key") || compose.onAllNodesWithText("Answer in the task").fetchSemanticsNodes().isNotEmpty() }
+        capture("secret-card-first")
         compose.onNodeWithText("Answer in the task").assertDoesNotExist()
+        compose.onNodeWithTag("secret-value:q-key").assertIsDisplayed()
         compose.onNodeWithTag("secret-value:q-key").performTextInput(value)
         capture("secret-card")
         compose.onNodeWithText("Send securely").performClick()
