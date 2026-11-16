@@ -4573,6 +4573,7 @@
       }
     },
     "By continuing, you agree to our [Terms of Service](https://nuphos.ai/terms) and [Privacy Policy](https://nuphos.ai/privacy)." : {
+      "comment" : "Legal text",
       "shouldTranslate" : false
     },
     "Can reply" : {
@@ -9544,6 +9545,7 @@
       }
     },
     "Depending on your runtime and model, this includes Anthropic (Claude), OpenAI (Codex), xAI (Grok), Google (Antigravity), DeepSeek (DeepSeek Harness), the model provider an OpenCode runtime uses (OpenCode Zen when it is not signed in to one), or Amazon Web Services. When tracing is enabled, Nuphos stores AI execution traces, which can include conversation and tool content, for diagnostics and service improvement." : {
+      "comment" : "Legal text",
       "shouldTranslate" : false
     },
     "Desktop" : {
@@ -15538,6 +15540,7 @@
       }
     },
     "Only share information you are authorized to share. You can decline and still manage your account or request its deletion. You can withdraw permission in Account → AI data sharing. Withdrawal stops new AI use from this app; it does not undo completed transfers or stop work already running, including work started on other devices or by scheduled agents." : {
+      "comment" : "Legal text",
       "shouldTranslate" : false
     },
     "Only the owner can change who has access." : {
@@ -25219,50 +25222,8 @@
       }
     },
     "The prompt sets the writing style and spells names Whisper doesn't know, such as products and services. Voice input is included with a Nuphos subscription; recordings are transcribed by OpenAI Whisper." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La instrucción define el estilo de escritura y cómo escribir nombres que Whisper no conoce, como productos y servicios. La entrada de voz está incluida en la suscripción de Nuphos; las grabaciones se transcriben con OpenAI Whisper."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Prompt mengatur gaya penulisan dan mengeja nama yang tidak dikenal Whisper, seperti produk dan layanan. Input suara termasuk dalam langganan Nuphos; rekaman ditranskripsikan oleh OpenAI Whisper."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "プロンプトで文体を指定したり、製品やサービス名など Whisper が知らない名前の綴りを伝えたりできます。音声入力は Nuphos のサブスクリプションに含まれ、録音は OpenAI Whisper で文字起こしされます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "프롬프트로 문체를 정하고 제품이나 서비스 이름처럼 Whisper가 모르는 이름의 철자를 알려줄 수 있습니다. 음성 입력은 Nuphos 구독에 포함되며 녹음은 OpenAI Whisper로 텍스트 변환됩니다."
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "พรอมต์ใช้กำหนดรูปแบบการเขียนและสะกดชื่อที่ Whisper ไม่รู้จัก เช่น ชื่อผลิตภัณฑ์และบริการ การป้อนด้วยเสียงรวมอยู่ในการสมัครใช้งาน Nuphos และการบันทึกเสียงจะถอดความโดย OpenAI Whisper"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "提示可设置书写风格，并拼出 Whisper 不认识的名称，例如产品和服务名称。语音输入已包含在 Nuphos 订阅中；录音由 OpenAI Whisper 转写。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "提示可設定書寫風格，並拼出 Whisper 不認得的名稱，例如產品與服務名稱。語音輸入已包含在 Nuphos 訂閱中；錄音由 OpenAI Whisper 轉寫。"
-          }
-        }
-      }
+      "comment" : "Legal text",
+      "shouldTranslate" : false
     },
     "The provider came back with a mismatched request. Please try again." : {
       "localizations" : {
@@ -26691,6 +26652,7 @@
       }
     },
     "This submits a deletion request; it does not instantly erase your account. You can continue using your account while the request is processed. Signing in again does not cancel the request." : {
+      "comment" : "Legal text",
       "shouldTranslate" : false
     },
     "This task is no longer running." : {
@@ -28994,6 +28956,7 @@
       }
     },
     "Using an agent sends your prompts, conversation history, uploaded images and files, and relevant results from connected tools to the providers needed to carry out your request." : {
+      "comment" : "Legal text",
       "shouldTranslate" : false
     },
     "Verification Code" : {
@@ -29917,6 +29880,7 @@
       }
     },
     "We will permanently delete your account and associated personal data within 30 days. Our team will coordinate any workspace ownership and shared-data handling. Records required by law and data jointly held by your team may be retained where necessary." : {
+      "comment" : "Legal text",
       "shouldTranslate" : false
     },
     "Web sign-in (nuphos.ai)" : {
@@ -31169,6 +31133,7 @@
       }
     },
     "Your request has been saved. You do not need to contact support to start deletion." : {
+      "comment" : "Legal text",
       "shouldTranslate" : false
     },
     "Your session has expired. Please sign in again." : {
