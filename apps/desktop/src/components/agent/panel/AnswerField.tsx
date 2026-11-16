@@ -1,24 +1,40 @@
 import { useEffect, useRef } from 'react'
 
 import { t } from '../../../i18n'
+import { isMac } from '../../../lib/platform'
 import { Button } from '../../ui/button'
+
+import { ComposerVoiceButton } from './ComposerVoiceButton'
+import { useVoiceDictation } from './useVoiceDictation'
+import { dictationInsert, isVoiceShortcut } from './voiceDictation'
 
 /**
  * A question answered in words: a field and "Send", opened by "Other…". Esc
  * closes it; the caller keeps `text`, so what was typed is there when it opens again.
+ * With `voiceTeamId`, a microphone (or mod+shift+U) dictates into the field, as in
+ * the composer; the transcript waits there to be read and sent.
  */
 export function AnswerField({
   text,
   onText,
   onSend,
   onClose,
+  voiceTeamId,
 }: {
   text: string
   onText: (text: string) => void
   onSend: (text: string) => void
   onClose: () => void
+  voiceTeamId?: string
 }) {
   const field = useRef<HTMLInputElement>(null)
+  const voice = useVoiceDictation({
+    teamId: voiceTeamId,
+    onText: (spoken) => {
+      onText(text + dictationInsert(spoken, text))
+      field.current?.focus()
+    },
+  })
 
   useEffect(() => field.current?.focus(), [])
 
@@ -36,6 +52,12 @@ export function AnswerField({
         value={text}
         onChange={(event) => onText(event.target.value)}
         onKeyDown={(event) => {
+          if (voice.available && isVoiceShortcut(event.nativeEvent, isMac)) {
+            event.preventDefault()
+            voice.toggle()
+
+            return
+          }
           if (event.key !== 'Escape') return
           event.preventDefault()
           event.stopPropagation()
@@ -44,6 +66,16 @@ export function AnswerField({
         aria-label={t('Your answer')}
         className="h-[38px] min-w-0 flex-1 rounded-[10px] bg-surface-raised px-3 text-[13.5px] text-main shadow-[0_0_0_1px_rgb(var(--color-line-control))] outline-none placeholder:text-tertiary focus:shadow-[0_0_0_1px_rgb(var(--color-line-focus)),0_0_0_4px_rgba(28,26,23,0.05)]"
       />
+      {voice.available && (
+        <ComposerVoiceButton
+          phase={voice.phase}
+          elapsedMs={voice.elapsedMs}
+          hero={false}
+          onStart={() => void voice.start()}
+          onStop={voice.stop}
+          onCancel={voice.cancel}
+        />
+      )}
       <Button
         type="submit"
         size="md"
