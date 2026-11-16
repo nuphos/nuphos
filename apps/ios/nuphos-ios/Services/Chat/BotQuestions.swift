@@ -45,7 +45,8 @@ struct BotQuestion: Identifiable, Equatable, Sendable {
 
     /// An integration question the Inbox answers in place: by its providers, or by the member's own credentials.
     var connectable: Bool {
-        request.category == "integration" && (!(request.providers ?? []).isEmpty || personalCredentials != nil)
+        request.category == "integration"
+            && (personalCredentials != nil || (request.credentials == nil && !(request.providers ?? []).isEmpty))
     }
 
     /// The desktop's `formQuestions`: the questions a multi-select or several-question card answers

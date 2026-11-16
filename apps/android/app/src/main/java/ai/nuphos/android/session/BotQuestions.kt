@@ -27,7 +27,8 @@ data class BotQuestion(val sessionId: String, val title: String, val request: In
         ?.map { it.id }
 
     /** An integration question the Inbox answers in place: by its providers, or by the member's own credentials. */
-    val connectable: Boolean get() = request.category == "integration" && (!request.providers.isNullOrEmpty() || personalCredentials != null)
+    val connectable: Boolean get() = request.category == "integration" &&
+        (personalCredentials != null || (request.credentials == null && !request.providers.isNullOrEmpty()))
 
     /**
      * Desktop's `formQuestions`: the questions a multi-select or several-question card answers as a
