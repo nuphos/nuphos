@@ -69,6 +69,8 @@ let conversationRuntime = 'managed-1'
 useRedis({
   withRedis: (async (op: (client: unknown) => unknown) =>
     fakeRedis ? op(fakeRedis) : null) as never,
+  // One replica per backstop tick is covered in queue-backstop.test.ts.
+  claimRun: async () => true,
 })
 
 useIdentity({
@@ -576,7 +578,7 @@ test('with Redis, the backstop finds a waiting queue without scanning the keyspa
   const store: Record<string, (...args: never[]) => Promise<unknown>> = {
     // The enqueue script: KEYS = queue, index; ARGV = message, wake-up key, index entry.
     eval: async (
-      _script: string,
+      script: string,
       _keys: number,
       key: string,
       index: string,
@@ -584,12 +586,24 @@ test('with Redis, the backstop finds a waiting queue without scanning the keyspa
       _wakeUp: string,
       member: string,
     ) => {
+      // The backstop drops the entry of a queue that is gone: ARGV = index entry.
+      if (script.startsWith("if redis.call('EXISTS'"))
+        return lists.has(key) ? 0 : Number(members(index).delete(raw))
       members(index).add(member)
       lists.set(key, [...(lists.get(key) ?? []), raw])
 
       return 1
     },
     lrange: async (key: string) => lists.get(key) ?? [],
+    pipeline: () => {
+      const reads: string[] = []
+      const write = {
+        lrange: (key: string) => (reads.push(key), write),
+        exec: async () => reads.map((key) => [null, lists.get(key) ?? []]),
+      }
+
+      return write
+    },
     exists: async (key: string) => (lists.has(key) ? 1 : 0),
     del: async (key: string) => Number(lists.delete(key)),
     sadd: async (key: string, ...values: string[]) => values.map((v) => members(key).add(v)),
