@@ -14470,52 +14470,6 @@
         }
       }
     },
-    "No credential this question asks for was newly selected, so it is still open." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No se seleccionó ninguna credencial nueva de las que pide esta pregunta, así que sigue abierta."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tidak ada kredensial baru yang diminta pertanyaan ini yang dipilih, jadi pertanyaan masih terbuka."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "この質問が求める認証情報が新たに選択されていないため、質問は開いたままです。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "이 질문이 요청한 자격 증명이 새로 선택되지 않아 질문이 아직 열려 있습니다."
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ไม่ได้เลือกข้อมูลรับรองใหม่ที่คำถามนี้ขอ คำถามจึงยังเปิดอยู่"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "没有新选择此问题所需的凭据，因此问题仍未关闭。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "沒有新選取此問題所需的憑證，因此問題仍未關閉。"
-          }
-        }
-      }
-    },
     "No credentials connected" : {
       "localizations" : {
         "es" : {
@@ -25665,6 +25619,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "執行環境沒有回應，回覆已結束。"
+          }
+        }
+      }
+    },
+    "The selection adds no credential this question asks for." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La selección no añade ninguna credencial de las que pide esta pregunta."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pilihan ini tidak menambahkan kredensial yang diminta pertanyaan ini."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この選択では、この質問が求める認証情報が追加されません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 선택에는 이 질문이 요청한 자격 증명이 추가되지 않습니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การเลือกนี้ไม่ได้เพิ่มข้อมูลรับรองที่คำถามนี้ขอ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "所选内容没有新增此问题所需的凭据。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "所選內容沒有新增此問題所需的憑證。"
           }
         }
       }

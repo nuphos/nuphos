@@ -132,7 +132,7 @@ class OpenQuestions(private val source: Source) {
         }
         refresh()
         if (listed.any { it.id == question.id }) {
-            failures = failures + (question.id to "No credential this question asks for was newly selected, so it is still open.")
+            failures = failures + (question.id to "The selection adds no credential this question asks for.")
         }
     }
 

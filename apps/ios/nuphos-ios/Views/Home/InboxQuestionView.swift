@@ -170,7 +170,7 @@ struct InboxQuestionView: View {
                     }
                     // Two halves; Skip keeps the right one when there is no Other….
                     HStack(spacing: 10) {
-                        if question.typed, !options.isEmpty { otherButton } else { Color.clear.frame(maxWidth: .infinity) }
+                        if question.typed, !options.isEmpty { otherButton } else { Color.clear.frame(maxWidth: .infinity, maxHeight: 0) }
                         skip
                     }
                 }

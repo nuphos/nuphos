@@ -216,7 +216,7 @@ class BotQuestionsTest {
                 isOwner = true, inputRequests = listOf(gcp.request)))
         })
         inbox.select(CredentialSelection(), gcp)
-        assertEquals("No credential this question asks for was newly selected, so it is still open.", inbox.failures[gcp.id])
+        assertEquals("The selection adds no credential this question asks for.", inbox.failures[gcp.id])
     }
 
     @Test fun anInboxSaveSendsOnlyTheKindsTheConversationHad() = runTest {

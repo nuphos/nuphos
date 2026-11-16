@@ -377,7 +377,7 @@ final class InboxUITests: XCTestCase {
         shot("2-picker-scoped")
         // Done with nothing new selected: the card says why it is still open.
         app.buttons["Done"].firstMatch.tap()
-        let failure = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "newly selected")).firstMatch
+        let failure = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "adds no credential")).firstMatch
         XCTAssertTrue(failure.waitForExistence(timeout: 10), "A save that leaves the question open says nothing")
         shot("3-still-open-says-why")
 
@@ -397,6 +397,8 @@ final class InboxUITests: XCTestCase {
         XCTAssertFalse(app.buttons["Choose credentials"].exists, "A question naming no provider offers a picker that can't answer it")
         let field = app.textFields["Your answer"].firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 5), "A question naming no provider can't be answered in words")
+        // The answers sit at the bottom, under the question, not over it.
+        XCTAssertGreaterThan(app.buttons["Skip"].firstMatch.frame.minY, app.frame.height * 0.7, "The answers cover the question")
         shot("5-no-provider-takes-words")
         field.tap()
         field.typeText("Check the review status by hand and tell me")

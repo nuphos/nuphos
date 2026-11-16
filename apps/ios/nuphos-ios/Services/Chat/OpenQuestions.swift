@@ -109,7 +109,7 @@ final class OpenQuestions {
         }
         await refresh()
         if listed.contains(where: { $0.id == question.id }) {
-            failures[question.id] = String(localized: "No credential this question asks for was newly selected, so it is still open.")
+            failures[question.id] = String(localized: "The selection adds no credential this question asks for.")
         }
     }
 
