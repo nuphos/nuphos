@@ -4626,6 +4626,7 @@
   "The runtime did not accept the move. Check your connection and try again.": "런타임이 이동을 수락하지 않았습니다. 연결을 확인하고 다시 시도하세요.",
   "The runtime did not accept the update.": "런타임이 업데이트를 받아들이지 않았습니다.",
   "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "런타임이 키를 받지 않았습니다. 런타임이 실행되는 컴퓨터의 Nuphos를 업데이트한 후 다시 시도하세요.",
+  "The runtime didn't respond; the turn was stopped here.": "런타임이 응답하지 않아 이 턴을 여기서 중지했습니다.",
   "The runtime is reconnecting. This may take a moment.": "런타임에 다시 연결하는 중입니다. 잠시만 기다려 주세요.",
   "The runtime isn't ready yet": "런타임이 아직 준비되지 않았습니다",
   "The runtime keeps the sign-in; Nuphos does not store it.": "로그인 정보는 런타임에 보관되며 Nuphos는 저장하지 않습니다.",

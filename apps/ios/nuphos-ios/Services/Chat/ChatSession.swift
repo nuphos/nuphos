@@ -41,6 +41,9 @@ final class ChatSession {
     /// Not a transcript row: one at the end is off screen to a reader of
     /// older messages, so the tap looked like it did nothing.
     var stopRefusal: String?
+    /// Set when the runtime never heard the Stop and the server stopped the
+    /// turn on its side, so the tap is answered rather than looking ignored.
+    var stopNotice: String?
     /// New conversation: sent on the first POST. Existing: mirrors the
     /// server's bypass flag — change it with `setPermissionMode`.
     private(set) var permissionMode: PermissionMode = .auto
@@ -858,7 +861,9 @@ final class ChatSession {
             Task {
                 defer { isStopping = false }
                 do {
-                    try await AgentChatAPI.cancelRuntime(token: token, teamId: teamId, sessionId: sessionId)
+                    if try await AgentChatAPI.cancelRuntime(token: token, teamId: teamId, sessionId: sessionId) == "runtime_unreachable" {
+                        stopNotice = String(localized: "The runtime didn't respond; the turn was stopped here.")
+                    }
                     // Show the stopped turn now, not at the next idle poll.
                     let observedAt = ProcessInfo.processInfo.systemUptime
                     if let detail = try? await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: sessionId, tail: 1) {

@@ -714,7 +714,15 @@ class ChatSession(
         if (isNative) {
             cancelRequested = true
             scope.launch {
-                try { if (!hasAiAccess) return@launch; RuntimeApi.cancel(token, teamId, sessionId) }
+                try {
+                    if (!hasAiAccess) return@launch
+                    // The runtime never heard the Stop; the server ended the turn on its side. Say so, or the tap looks ignored.
+                    if (RuntimeApi.cancel(token, teamId, sessionId) == "runtime_unreachable") {
+                        cancelRequested = false
+                        error = Words(R.string.convtext_stop_runtime_unreachable)
+                        scrollToLatestRevision += 1
+                    }
+                }
                 catch (e: Exception) {
                     cancelRequested = false
                     showError(e)

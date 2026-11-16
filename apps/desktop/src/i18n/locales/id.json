@@ -4626,6 +4626,7 @@
   "The runtime did not accept the move. Check your connection and try again.": "Runtime tidak menerima pemindahan. Periksa koneksi Anda lalu coba lagi.",
   "The runtime did not accept the update.": "Runtime tidak menerima pembaruan.",
   "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "Runtime tidak menerima kunci. Perbarui Nuphos di komputer tempat runtime berjalan, lalu coba lagi.",
+  "The runtime didn't respond; the turn was stopped here.": "Runtime tidak merespons; giliran ini dihentikan di sini.",
   "The runtime is reconnecting. This may take a moment.": "Runtime sedang menghubungkan ulang. Mungkin perlu beberapa saat.",
   "The runtime isn't ready yet": "Runtime belum siap",
   "The runtime keeps the sign-in; Nuphos does not store it.": "Runtime yang menyimpan info masuk; Nuphos tidak menyimpannya.",

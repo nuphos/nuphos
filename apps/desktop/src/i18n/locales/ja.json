@@ -4626,6 +4626,7 @@
   "The runtime did not accept the move. Check your connection and try again.": "ランタイムが移動を受け付けませんでした。接続を確認して、もう一度お試しください。",
   "The runtime did not accept the update.": "ランタイムが更新を受け付けませんでした。",
   "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "ランタイムがキーを受け取りませんでした。実行しているコンピューターの Nuphos を更新してから、もう一度お試しください。",
+  "The runtime didn't respond; the turn was stopped here.": "ランタイムが応答しなかったため、このターンはここで停止しました。",
   "The runtime is reconnecting. This may take a moment.": "ランタイムに再接続しています。しばらくお待ちください。",
   "The runtime isn't ready yet": "ランタイムの準備がまだできていません",
   "The runtime keeps the sign-in; Nuphos does not store it.": "サインイン情報はランタイムが保持し、Nuphos には保存されません。",

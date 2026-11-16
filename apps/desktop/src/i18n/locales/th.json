@@ -4626,6 +4626,7 @@
   "The runtime did not accept the move. Check your connection and try again.": "รันไทม์ไม่ยอมรับการย้าย ตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง",
   "The runtime did not accept the update.": "รันไทม์ไม่รับการอัปเดต",
   "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "รันไทม์ไม่ได้รับคีย์ โปรดอัปเดต Nuphos บนคอมพิวเตอร์ที่รันไทม์ทำงานอยู่ แล้วลองอีกครั้ง",
+  "The runtime didn't respond; the turn was stopped here.": "รันไทม์ไม่ตอบสนอง จึงหยุดเทิร์นนี้ไว้ที่นี่แล้ว",
   "The runtime is reconnecting. This may take a moment.": "รันไทม์กำลังเชื่อมต่อใหม่ อาจใช้เวลาสักครู่",
   "The runtime isn't ready yet": "รันไทม์ยังไม่พร้อม",
   "The runtime keeps the sign-in; Nuphos does not store it.": "รันไทม์เป็นผู้เก็บข้อมูลการลงชื่อเข้าใช้ Nuphos ไม่ได้จัดเก็บไว้",

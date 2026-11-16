@@ -296,9 +296,13 @@ enum AgentChatAPI {
             query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: Optional<Int>.none)
     }
 
-    static func cancelRuntime(token: String, teamId: String, sessionId: String) async throws {
-        _ = try await send("POST", "agent/conversations/\(sessionId)/cancel-runtime",
+    /// The server's word on the Stop: "runtime_unreachable" when the runtime
+    /// never heard it and the turn was stopped on the server instead.
+    static func cancelRuntime(token: String, teamId: String, sessionId: String) async throws -> String? {
+        struct Stop: Decodable { let status: String? }
+        let data = try await send("POST", "agent/conversations/\(sessionId)/cancel-runtime",
             query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: Optional<Int>.none)
+        return (try? JSONDecoder().decode(Stop.self, from: data))?.status
     }
 
     struct RuntimeMove: Decodable { let runtimeId: String; let runtimeLabel: String; let agentRuntime: String }
