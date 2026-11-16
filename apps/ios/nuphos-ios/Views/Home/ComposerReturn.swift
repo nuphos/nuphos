@@ -11,9 +11,9 @@ enum ComposerReturn: Equatable {
     /// typed is lost.
     case textView
 
-    /// Caps Lock and the numeric keypad's Enter are not held modifiers, so
-    /// they still send.
+    /// Only Shift keeps Return from sending, so Caps Lock or the numeric
+    /// keypad's Enter still send.
     static func on(_ modifiers: EventModifiers, composing: Bool) -> ComposerReturn {
-        composing || !modifiers.isDisjoint(with: [.shift, .control, .option, .command]) ? .textView : .send
+        composing || modifiers.contains(.shift) ? .textView : .send
     }
 }

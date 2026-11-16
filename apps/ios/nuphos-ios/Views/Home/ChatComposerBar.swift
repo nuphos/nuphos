@@ -276,7 +276,8 @@ struct ChatComposerBar<Controls: View>: View {
                 .scrollContentBackground(.hidden)
                 .focused($focused)
                 .accessibilityLabel(Text(prompt))
-                .onKeyPress(.return, phases: .down) { press in
+                // The numeric keypad's Enter may arrive as its own key.
+                .onKeyPress(keys: [.return, KeyEquivalent("\u{3}")], phases: .down) { press in
                     guard ComposerReturn.on(press.modifiers, composing: composing) == .send
                     else { return .ignored }
                     send(keepingFocus: true)

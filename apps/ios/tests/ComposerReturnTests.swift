@@ -9,6 +9,7 @@ enum ComposerReturnTests {
         expect(.on(.shift, composing: true), .textView, "Shift-Return while composing")
         expect(.on(.capsLock, composing: false), .send, "Return with Caps Lock on")
         expect(.on(.numericPad, composing: false), .send, "Enter on the numeric keypad")
+        expect(.on([.capsLock, .shift], composing: false), .textView, "Shift-Return with Caps Lock on")
         print("Composer Return passed")
     }
 
