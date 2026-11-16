@@ -4,11 +4,13 @@ import { agent } from './router'
 import { readTeamIdCandidate, resolveVerifiedTeamId } from './team-scope'
 
 import { getReadableConversation, resolveInputRequest } from '@/lib/agent/db'
-import { answerDecision } from '@/lib/agent/decision-answer'
+import { answerDecision, skipDecision } from '@/lib/agent/decision-answer'
 import { canReplyIn } from '@/lib/agent/devices/conversation-computer'
 import { createMessageMetadata } from '@/lib/agent/message-attribution'
 import { AppError } from '@/lib/errors'
 import { logEvent } from '@/lib/observability'
+
+import type { AgentConversation } from '@/lib/agent/db'
 
 const choices = z.array(z.string().trim().min(1).max(300)).max(10)
 const text = z.string().trim().min(1).max(8_000)
@@ -24,6 +26,7 @@ const answerBody = z
   .strict()
   .refine((answer) => answer.choices?.length || answer.text || answer.questions?.length)
 
+/** Marks a question answered, or skips it: withdrawn, and the agent that asked is told. */
 agent.post('/conversations/:sessionId/decisions/:toolCallId/resolve', async (c) => {
   const userId = c.get('userId')
   const sessionId = c.req.param('sessionId')
@@ -44,7 +47,10 @@ agent.post('/conversations/:sessionId/decisions/:toolCallId/resolve', async (c) 
     (resolution !== 'answered' && resolution !== 'dismissed')
   )
     throw new AppError(400, 'invalid_request', 'A question id and resolution are required')
-  const resolved = await resolveInputRequest(sessionId, conversation.userId, toolCallId)
+  const resolved =
+    resolution === 'dismissed'
+      ? await skip(conversation, toolCallId, userId)
+      : await resolveInputRequest(sessionId, conversation.userId, toolCallId)
 
   if (resolved)
     logEvent('info', 'agent.pending_decision.resolved', {
@@ -56,6 +62,21 @@ agent.post('/conversations/:sessionId/decisions/:toolCallId/resolve', async (c) 
 
   return c.json({ ok: true, resolved })
 })
+
+/** Skipping tells the agent that asked, and says so when there was nothing left to skip. */
+async function skip(conversation: AgentConversation, requestId: string, userId: string) {
+  if (!conversation.teamId) throw new AppError(404, 'not_found', 'Conversation not found')
+  const { sender } = await createMessageMetadata(userId, 'nuphos')
+
+  await skipDecision({
+    conversation,
+    requestId,
+    actor: { id: userId, displayName: sender.displayName },
+    teamId: conversation.teamId,
+  })
+
+  return true
+}
 
 /** A person answers a question: no message is sent; the asking agent is woken with the answer. */
 agent.post('/conversations/:sessionId/decisions/:requestId/answer', async (c) => {

@@ -60,7 +60,7 @@ useConversationTurn({
   },
 })
 
-const { answerDecision } = await import('./decision-answer')
+const { answerDecision, skipDecision } = await import('./decision-answer')
 
 const ask = (extra: Record<string, unknown> = {}, conversation: Record<string, unknown> = {}) =>
   ({
@@ -181,6 +181,28 @@ test('an answered question, or one that lost the race, is refused and wakes no o
   matchedCount = 0
   await expect(
     answerDecision({ conversation: ask(), requestId: 'q1', answer, actor, teamId: 't1' }),
+  ).rejects.toThrow('no longer open')
+  expect(turns).toEqual([])
+})
+
+test('a skip withdraws the question and wakes the asking agent to carry on without it', async () => {
+  await skipDecision({ conversation: ask(), requestId: 'q1', actor: teammate, teamId: 't1' })
+
+  expect(turns).toHaveLength(1)
+  expect(turns[0]).toMatchObject({ session: 'bot', sender: 'nuphos:decision' })
+  expect(turns[0]!.text).toContain('Your question (requestId q1) was skipped: no answer is coming.')
+  expect(turns[0]!.text).toContain('Skipped by: "Sam", a teammate.')
+  expect(turns[0]!.text).toContain('Question: Which regions?')
+  expect(turns[0]!.text).toContain('Carry on without it')
+})
+
+test('a skip of a question that is gone is refused and wakes no one', async () => {
+  await expect(
+    skipDecision({ conversation: ask(), requestId: 'q2', actor, teamId: 't1' }),
+  ).rejects.toThrow('no longer open')
+  matchedCount = 0
+  await expect(
+    skipDecision({ conversation: ask(), requestId: 'q1', actor, teamId: 't1' }),
   ).rejects.toThrow('no longer open')
   expect(turns).toEqual([])
 })

@@ -4279,6 +4279,7 @@
   "Skills on this computer": "このコンピューターのスキル",
   "Skills shared with everyone in this team": "このチームの全員と共有されるスキル",
   "Skip": "スキップ",
+  "Skipped. The agent carries on without an answer.": "スキップしました。エージェントは回答なしで続行します。",
   "Skipping this? Clusters still bind, but their contents stay forbidden — Nuphos will show this same guidance when you open one.": "スキップしますか？クラスターは紐付けられますが、その中身にはアクセスできません。クラスターを開いたときにも、Nuphos が同じ案内を表示します。",
   "Slack DM": "Slack DM",
   "Slack DM · {name}": "Slack DM · {name}",

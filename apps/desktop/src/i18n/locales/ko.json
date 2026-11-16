@@ -4279,6 +4279,7 @@
   "Skills on this computer": "이 컴퓨터의 스킬",
   "Skills shared with everyone in this team": "이 팀의 모든 사람과 공유된 스킬",
   "Skip": "건너뛰기",
+  "Skipped. The agent carries on without an answer.": "건너뛰었습니다. 에이전트가 답변 없이 계속 진행합니다.",
   "Skipping this? Clusters still bind, but their contents stay forbidden — Nuphos will show this same guidance when you open one.": "건너뛸까요? 클러스터는 계속 연결되지만 그 내용에는 접근할 수 없습니다. 클러스터를 열면 Nuphos가 이와 같은 안내를 표시합니다.",
   "Slack DM": "Slack DM",
   "Slack DM · {name}": "Slack DM · {name}",

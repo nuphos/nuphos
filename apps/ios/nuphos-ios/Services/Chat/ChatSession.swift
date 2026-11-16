@@ -159,7 +159,7 @@ final class ChatSession {
     func cancelSending() { sending?.task?.cancel() }
     private(set) var steeringPending = false
     /// This device's send has no runtime status yet. Only this turn's own
-    /// runtime state clears it, so "Sending…" holds until the runtime's first
+    /// runtime state clears it, so String(localized: "Sending…") holds until the runtime's first
     /// status replaces it: another turn executing says nothing about this message.
     private var awaitingAdmission = false
     var canSteer: Bool { !readOnly && isNativeRuntime && allows("steer") && !allows("reply") && !steeringPending }

@@ -116,7 +116,7 @@ final class TerminalSession {
         while !Task.isCancelled {
             guard case .string(let text) = try await socket.receive(),
                   let frame = try? JSONDecoder().decode(Frame.self, from: Data(text.utf8))
-            else { throw Failure(message: String(localized: "The terminal sent something it couldn't read.")) }
+            else { throw Failure(message: "The terminal sent something it couldn't read.") }
             switch frame.type {
             case "ready":
                 phase = .live(frame.label ?? "Runtime")
@@ -130,7 +130,7 @@ final class TerminalSession {
                 }
                 if let sequence = frame.sequence { send(["type": "ack", "sequence": sequence]) }
             case "error":
-                throw Failure(message: frame.message ?? String(localized: "Could not connect to the runtime terminal."))
+                throw Failure(message: frame.message ?? "Could not connect to the runtime terminal.")
             case "exit":
                 return
             default:
@@ -147,10 +147,10 @@ final class TerminalSession {
     /// Why the backend refused the socket before it opened.
     private static func refusal(_ response: URLResponse?) -> String {
         switch (response as? HTTPURLResponse)?.statusCode {
-        case 403: String(localized: "Only people who manage this computer can open a terminal on it.")
-        case 404: String(localized: "This conversation has no computer to open a terminal on.")
-        case 503: String(localized: "This conversation's computer is offline.")
-        default: String(localized: "Could not connect to the runtime terminal.")
+        case 403: "Only people who manage this computer can open a terminal on it."
+        case 404: "This conversation has no computer to open a terminal on."
+        case 503: "This conversation's computer is offline."
+        default: "Could not connect to the runtime terminal."
         }
     }
 }

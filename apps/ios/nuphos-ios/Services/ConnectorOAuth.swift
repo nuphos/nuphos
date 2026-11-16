@@ -15,7 +15,7 @@ final class ConnectorOAuth {
 
         var errorDescription: String? {
             switch self {
-            case .cancelled: String(localized: "Connection cancelled.")
+            case .cancelled: "Connection cancelled."
             case .provider(let message): message
             }
         }
@@ -35,7 +35,7 @@ final class ConnectorOAuth {
     func run(url: URL, expectedHost: String) async throws -> [String: String] {
         let callback = try await authenticate(url: url)
         guard callback.host()?.lowercased() == expectedHost else {
-            throw Failure.provider(String(localized: "The browser came back to an unexpected address."))
+            throw Failure.provider("The browser came back to an unexpected address.")
         }
         let items = URLComponents(url: callback, resolvingAgainstBaseURL: false)?.queryItems ?? []
         var query: [String: String] = [:]
@@ -61,7 +61,7 @@ final class ConnectorOAuth {
                 } else if let callbackURL {
                     continuation.resume(returning: callbackURL)
                 } else {
-                    continuation.resume(throwing: Failure.provider(String(localized: "The provider did not complete the connection.")))
+                    continuation.resume(throwing: Failure.provider("The provider did not complete the connection."))
                 }
             }
             session.presentationContextProvider = presentationContext
@@ -71,7 +71,7 @@ final class ConnectorOAuth {
             session.prefersEphemeralWebBrowserSession = false
             self.session = session
             if !session.start() {
-                continuation.resume(throwing: Failure.provider(String(localized: "Could not open the browser.")))
+                continuation.resume(throwing: Failure.provider("Could not open the browser."))
             }
         }
     }

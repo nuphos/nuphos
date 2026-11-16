@@ -4279,6 +4279,7 @@
   "Skills on this computer": "ทักษะบนคอมพิวเตอร์เครื่องนี้",
   "Skills shared with everyone in this team": "ทักษะที่แชร์กับทุกคนในทีมนี้",
   "Skip": "ข้าม",
+  "Skipped. The agent carries on without an answer.": "ข้ามแล้ว Agent จะทำงานต่อโดยไม่มีคำตอบ",
   "Skipping this? Clusters still bind, but their contents stay forbidden — Nuphos will show this same guidance when you open one.": "จะข้ามขั้นตอนนี้ไหม คลัสเตอร์ยังผูกได้ แต่จะยังเข้าถึงเนื้อหาภายในไม่ได้ — Nuphos จะแสดงคำแนะนำเดียวกันนี้เมื่อคุณเปิดคลัสเตอร์",
   "Slack DM": "DM ของ Slack",
   "Slack DM · {name}": "DM ของ Slack · {name}",

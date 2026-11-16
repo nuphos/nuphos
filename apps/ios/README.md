@@ -48,7 +48,7 @@ bash tests/sync-strings.sh build
 node ../../scripts/fill-mobile-locales.mjs ios
 ```
 
-Commit `nuphos-ios/Localizable.xcstrings` with the change: CI fails when the catalog does not match the code, and `tests/run.sh` fails when a string is missing any of the languages. Mark text that must stay as written, such as a format or an example value, as not translatable in the catalog.
+Commit `nuphos-ios/Localizable.xcstrings` with the change: CI fails when the catalog does not match the code, and `tests/run.sh` fails when a string has only some of the languages.
 
 ## Run on a device
 

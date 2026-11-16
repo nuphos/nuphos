@@ -35,7 +35,7 @@ struct TerminalScreen: View {
 
     private var title: String {
         if case .live(let label) = terminal.phase { return label }
-        return String(localized: "Terminal")
+        return "Terminal"
     }
 
     @ViewBuilder
