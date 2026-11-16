@@ -37,6 +37,8 @@ export type AgentRowViewer = {
   /** Whether the agent runs on the computer this window is on. */
   onThisComputer: (instance: RuntimeInstance) => boolean
   members: TeamMember[] | null
+  /** Whether the viewer manages the agent's computer, where the device list says so. */
+  manages: (instance: RuntimeInstance) => boolean
 }
 
 /** What stops this agent taking a turn, and its fix; null when it is ready. */
@@ -73,6 +75,7 @@ export function agentProblem(
     onThisComputer: viewer.onThisComputer(instance),
     instance,
     members: viewer.members,
+    manages: viewer.manages(instance),
   })
   const fix: AgentFix =
     route.kind === 'cli'

@@ -180,3 +180,18 @@ export function newAgentAction(
 
   return agents.some((agent) => agent.local?.agentInstances === true) ? { create: true } : null
 }
+
+/** Whether the viewer manages the computer `deviceId`; undefined until the list has it. */
+export function managesDevice(
+  devices: Pick<AgentDevice, 'deviceId' | 'access'>[] | undefined,
+  deviceId: string,
+): boolean | undefined {
+  const access = devices?.find((device) => device.deviceId === deviceId)?.access
+
+  return access === undefined ? undefined : access !== 'use'
+}
+
+/** Whose account a computer's agent runs as: whoever signed it in through Nuphos. */
+export function signedInAs(name: string, signerId: string, viewerId: string | undefined): string {
+  return signerId === viewerId ? t('Signed in as you') : t('Signed in as {name}', { name })
+}

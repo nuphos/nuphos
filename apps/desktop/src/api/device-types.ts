@@ -142,10 +142,8 @@ export type BoxState = 'creating' | 'connecting' | 'running' | 'paused' | 'error
 /** How far an owner lets teammates use their own computer's Local Agent. */
 export type LocalShareLevel = 'off' | 'approve' | 'full'
 
-/**
- * Who a computer is shared with in one team, and how far. `managerIds` also manage it; only its
- * owner sends them, and leaving them out keeps them.
- */
+/** Who a computer is shared with in one team, and how far. `managerIds` also manage it; only
+ *  its owner sends them, and leaving them out keeps them. */
 export type LocalShareInput = {
   level: LocalShareLevel
   everyone: boolean
@@ -189,8 +187,9 @@ export type BoxAccess = { everyone: boolean; userIds: string[] }
 
 export type BoxStatus = {
   provider: 'instabox'
-  /** Only for those who manage the Box. */
+  /** Only for those who manage the Box; useTerminal lets those who only use it open a terminal. */
   access?: BoxAccess
+  useTerminal?: boolean
   /** Set once the machine exists. */
   sandboxId?: string
   state: BoxState

@@ -17,6 +17,7 @@ import {
   unbindInstaboxAccount,
   renameBox,
   setBoxAccess,
+  setBoxTerminalAccess,
   renameDeviceAgent,
   listAgentDevices,
   pauseBox,
@@ -163,6 +164,16 @@ export const boxChannels = {
   'box:join-token': () => boxJoinToken(),
   'box:setAccess': (_e: unknown, deviceId: unknown, teamId: unknown, access: unknown) =>
     setBoxAccess(string(deviceId), string(teamId), boxAccess(access)),
+  'box:setTerminalAccess': (
+    _e: unknown,
+    deviceId: unknown,
+    teamId: unknown,
+    useTerminal: unknown,
+  ) => {
+    if (typeof useTerminal !== 'boolean') throw new TypeError('Expected a terminal setting')
+
+    return setBoxTerminalAccess(string(deviceId), string(teamId), useTerminal)
+  },
   'box:openSessionDesktop': (_e: unknown, teamId: unknown, sessionId: unknown) =>
     openSessionDesktop(string(teamId), string(sessionId)),
   'box:rename': (_e: unknown, deviceId: unknown, teamId: unknown, label: unknown) =>
