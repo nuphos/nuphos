@@ -1,9 +1,14 @@
-import { faCheck, faCopy, faArrowLeft, faRotateRight } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { Globe } from 'lucide-react'
+import {
+  Check as CheckIcon,
+  Copy as CopyIcon,
+  ArrowLeft as ArrowLeftIcon,
+  RotateCw as RotateCwIcon,
+  Globe,
+} from 'lucide-react'
 
 import { api } from '../../api'
 import { AppSelect } from '../../components/ui/select'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { t } from '../../i18n'
 
 import { ErrorBlock } from './ErrorBlock'
@@ -90,7 +95,7 @@ export function LogGroupEventsView({
             className="inline-flex items-center gap-1 text-tertiary hover:text-main shrink-0"
             title={t('Back to log groups')}
           >
-            <FontAwesomeIcon icon={faArrowLeft} className="w-3.5 h-3.5" />
+            <UiIcon size={16} icon={ArrowLeftIcon} className="w-4 h-4" />
           </button>
         )}
         <span className="font-mono text-secondary truncate" title={group.name}>
@@ -107,9 +112,10 @@ export function LogGroupEventsView({
             className="inline-flex items-center gap-1 text-tertiary hover:text-main disabled:opacity-50"
             title={live ? t('Live tail is appending automatically') : t('Reload events')}
           >
-            <FontAwesomeIcon
-              icon={faRotateRight}
-              className={`w-3.5 h-3.5${loading ? ' animate-spin' : ''}`}
+            <UiIcon
+              size={16}
+              icon={RotateCwIcon}
+              className={`w-4 h-4${loading ? ' animate-spin' : ''}`}
             />
             {t('Reload')}
           </button>
@@ -120,7 +126,7 @@ export function LogGroupEventsView({
             className="inline-flex items-center gap-1 text-tertiary hover:text-main disabled:opacity-50"
             title={t('Copy all loaded events')}
           >
-            <FontAwesomeIcon icon={copied ? faCheck : faCopy} className="w-3.5 h-3.5" />
+            <UiIcon size={16} icon={copied ? CheckIcon : CopyIcon} className="w-4 h-4" />
             {copied ? t('Copied') : t('Copy all')}
           </button>
           <button
