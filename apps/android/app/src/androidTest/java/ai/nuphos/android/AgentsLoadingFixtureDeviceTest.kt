@@ -31,6 +31,7 @@ import java.time.Instant
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import org.junit.Assume.assumeTrue
 
 /** All HTTP requests are intercepted; no credentials or server are used. */
 @RunWith(AndroidJUnit4::class)
@@ -87,7 +88,7 @@ class AgentsLoadingFixtureDeviceTest {
     private val favoritesRelease = CountDownLatch(1)
     private val network = object : ExternalResource() {
         override fun before() {
-            check(InstrumentationRegistry.getInstrumentation().targetContext.packageName.endsWith(".agentsaudit1382"))
+            assumeTrue("Runs only in its isolated fixture package", InstrumentationRegistry.getInstrumentation().targetContext.packageName.endsWith(".agentsaudit1382"))
             app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as NuphosApplication
             savedLastTeam = app.getSharedPreferences("nuphos.prefs", Context.MODE_PRIVATE).getString("nuphos.workspace.lastTeamId", null)
             InstrumentationRegistry.getInstrumentation().runOnMainSync {

@@ -18,6 +18,7 @@ import ai.nuphos.android.ui.LocalAuthSession
 import ai.nuphos.android.ui.LocalAgentStore
 import ai.nuphos.android.ui.chat.ConversationScreen
 import ai.nuphos.android.ui.theme.NuphosTheme
+import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.cancel
@@ -27,6 +28,7 @@ import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.*
 import org.junit.runner.RunWith
 import java.util.concurrent.CopyOnWriteArrayList
+import org.junit.Assume.assumeTrue
 
 /** Actual Compose controls with synthetic sessions, blocked HTTP, and deferred acknowledgements. */
 @RunWith(AndroidJUnit4::class)
@@ -46,8 +48,13 @@ class RuntimeSheetFixtureDeviceTest {
     private var gate = java.util.concurrent.CountDownLatch(1)
     @Volatile private var catalogStatus = 200
     @Volatile private var catalogBody = """{"runtimes":[{"id":"cloud","provider":"codex","label":"Synthetic Cloud","status":"active","kind":"managed"},{"id":"local","provider":"codex","label":"Synthetic Computer","status":"active","kind":"local","local":{"online":true}}]}"""
+    companion object {
+        // Skips the whole class, so its @Before and @After never run outside its package.
+        @BeforeClass @JvmStatic fun isolatedPackageOnly() =
+            assumeTrue("Runs only in its isolated fixture package", InstrumentationRegistry.getInstrumentation().targetContext.packageName == "ai.nuphos.android.runtimesheet1375")
+    }
+
     @Before fun blockNetwork() {
-        require(compose.activity.packageName == "ai.nuphos.android.runtimesheet1375")
         compose.runOnIdle {
             savedAccess = accessState().value
             AiAccess.activate(fixtureToken)

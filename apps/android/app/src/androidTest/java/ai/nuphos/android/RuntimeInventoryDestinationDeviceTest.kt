@@ -13,12 +13,19 @@ import ai.nuphos.android.ui.agent.*
 import ai.nuphos.android.ui.theme.NuphosTheme
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.Assert.*
+import org.junit.Assume.assumeTrue
+import org.junit.BeforeClass
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class RuntimeInventoryDestinationDeviceTest {
     @get:Rule val compose=createComposeRule()
+    companion object {
+        // Skips the whole class, so no test reaches the shared helpers below outside its package.
+        @BeforeClass @JvmStatic fun isolatedPackageOnly() =
+            assumeTrue("Runs only in its isolated fixture package", InstrumentationRegistry.getInstrumentation().targetContext.packageName.endsWith(".agentsaudit1382"))
+    }
     private val cloud=AgentRuntime("cloud","codex","Synthetic current","active","managed")
     private val box=AgentRuntime("box","opencode","Synthetic Box runtime","active","local",local=RuntimeHost("host","Synthetic Box",true))
     private var creates=0;private var starts=0;private var answers=0;private var cancels=0;private var closes=0
@@ -35,7 +42,6 @@ class RuntimeInventoryDestinationDeviceTest {
         override suspend fun cancel(runtimeId:String,attemptId:String){cancels++}
     }
     private fun render(boxSignIn:Boolean=false,pickerMode:Boolean=false) {
-        check(InstrumentationRegistry.getInstrumentation().targetContext.packageName.endsWith(".agentsaudit1382"))
         compose.setContent {
             val scope=rememberCoroutineScope()
             selection=remember {RuntimeSelections().bind("fixture-account","fixture-team").apply {saveCatalog(listOf(cloud,box));select(cloud.id)}}

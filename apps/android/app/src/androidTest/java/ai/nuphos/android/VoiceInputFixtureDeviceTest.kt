@@ -33,6 +33,8 @@ import ai.nuphos.android.model.NuphosUser
 import ai.nuphos.android.ui.LocalAuthSession
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.cancel
+import org.junit.Assume.assumeTrue
+import org.junit.BeforeClass
 import org.junit.runner.RunWith
 
 /** No login, real keys, microphone audio or network. Screens explicitly identify fixtures. */
@@ -66,8 +68,13 @@ class VoiceInputFixtureDeviceTest {
     @Suppress("UNCHECKED_CAST") private fun state(target: Any, name: String, value: Any) {
         (target.javaClass.getDeclaredField(name + "$" + "delegate").also { it.isAccessible = true }.get(target) as MutableState<Any>).value = value
     }
+    companion object {
+        // Skips the whole class, so its @Before and @After never run outside its package.
+        @BeforeClass @JvmStatic fun isolatedPackageOnly() =
+            assumeTrue("Runs only in its isolated fixture package", InstrumentationRegistry.getInstrumentation().targetContext.packageName.endsWith(".agentsaudit1382"))
+    }
+
     @Before fun isolate() {
-        check(InstrumentationRegistry.getInstrumentation().targetContext.packageName.endsWith(".agentsaudit1382"))
         savedAccess = accessState().value
     }
     @After fun restore() {

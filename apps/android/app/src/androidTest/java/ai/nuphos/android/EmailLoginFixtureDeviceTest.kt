@@ -19,6 +19,7 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import java.util.concurrent.atomic.AtomicLong
+import org.junit.Assume.assumeTrue
 
 /** Standalone synthetic content; never reads tokens, preferences or a live API. */
 class EmailLoginFixtureDeviceTest {
@@ -34,7 +35,7 @@ class EmailLoginFixtureDeviceTest {
     private var transport: suspend () -> Unit = {}
 
     @Before fun isolatedPackageOnly() {
-        check(InstrumentationRegistry.getInstrumentation().targetContext.packageName == "ai.nuphos.android.emailfixture1335")
+        assumeTrue("Runs only in its isolated fixture package", InstrumentationRegistry.getInstrumentation().targetContext.packageName == "ai.nuphos.android.emailfixture1335")
     }
     @androidx.compose.runtime.Composable
     private fun content() {
