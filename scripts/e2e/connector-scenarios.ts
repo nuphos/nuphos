@@ -38,7 +38,10 @@ export const connectorScenarios: Scenario[] = [
       await page.keyboard.press('Escape')
       await page.getByRole('dialog', { name: 'Connect Cloudflare' }).waitFor({ state: 'detached' })
       await page.keyboard.press('Escape')
-      await page.locator('[role="dialog"][aria-modal="true"]').first().waitFor({ state: 'detached' })
+      await page
+        .locator('[role="dialog"][aria-modal="true"]')
+        .first()
+        .waitFor({ state: 'detached' })
     },
   },
 ]
