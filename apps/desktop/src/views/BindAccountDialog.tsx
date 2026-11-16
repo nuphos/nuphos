@@ -41,6 +41,7 @@ export function BindAccountDialog({
 }: Props) {
   const st = useBindAccountState(initialProvider)
   const [shareList, setShareList] = useState<string[] | null>(null)
+  const [defaultShareList, setDefaultShareList] = useState<string[]>([])
 
   useResetOnKey(`${String(open)}|${initialProvider}`, () => {
     if (open) st.setProvider(initialProvider)
@@ -101,7 +102,9 @@ export function BindAccountDialog({
           teamId,
           onBound,
           onClose,
-          ...(shareList ? { share: shareFromAllowList(shareList) } : {}),
+          ...(SHAREABLE_PROVIDERS.has(provider)
+            ? { share: shareFromAllowList(shareList ?? defaultShareList) }
+            : {}),
         })
       }
       onCloseRequest={close}
@@ -143,6 +146,7 @@ export function BindAccountDialog({
             provider={provider}
             value={shareList}
             onChange={setShareList}
+            onDefaultChange={setDefaultShareList}
           />
         )}
 
