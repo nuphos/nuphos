@@ -14,7 +14,7 @@ import { revokeReplacedGrant } from '@/lib/byos/posthog-revoke'
 import { decodeScopeSet, POSTHOG_SCOPE_CEILING } from '@/lib/byos/posthog-scopes'
 import { invalidatePosthogAccessToken } from '@/lib/byos/posthog-tokens'
 import { decryptPosthogSecret, encryptPosthogSecret } from '@/lib/byos/secrets'
-import { finishConnectorOAuth } from '@/lib/connector-oauth'
+import { assertMayRebind, finishConnectorOAuth } from '@/lib/connector-oauth'
 import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
 import { AppError } from '@/lib/errors'
 import { emptyTeamByosBindings, posthogPendingOAuth, teamByosBindings } from '@/models'
@@ -168,6 +168,9 @@ export async function persistPosthogBinding(
   const pending = { ...draft.pending, teamId }
   const { discovery } = draft
   const existing = await findExisting(pending, draft.apiBaseUrl, discovery.user)
+
+  // Before anything is replaced or revoked, also when completed later.
+  if (existing) assertMayRebind(existing, access)
   const binding = buildBinding(pending, existing, draft)
 
   await persistBinding(pending, binding, existing, access)

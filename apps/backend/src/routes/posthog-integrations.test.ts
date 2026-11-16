@@ -355,6 +355,28 @@ describe('GET /posthog-app', () => {
     expect(replaced.encryptedAccessToken).toEqual(seal('pha_1'))
   })
 
+  test("reconnecting another member's private binding replaces and revokes nothing", async () => {
+    const existing = storedBinding({
+      access: {
+        memberAllowList: ['someone-else'],
+        ownerUserId: 'someone-else',
+        updatedAt: new Date(),
+        updatedBy: 'someone-else',
+      },
+    })
+
+    stored = [existing]
+    await post('/team/start-oauth', {
+      label: 'ignored',
+      region: 'us',
+      integrationId: existing.id.toHexString(),
+    })
+    await app().request(`/posthog-app/callback?state=${pending[0]!._id}&code=c2`)
+
+    expect(updates).toHaveLength(0)
+    expect(revoked).toHaveLength(0)
+  })
+
   test('re-authorizing replaces the grant atomically and revokes the old tokens', async () => {
     const existing = storedBinding({ reconnectRequired: false })
 
