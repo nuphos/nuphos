@@ -101,3 +101,18 @@ test('a connection is answered from its Connect card where the chat can select c
   // Without the asking conversation's picker, the card is only shown.
   assert.equal(botChatQuestion(connect).answerable, false)
 })
+
+test('every open question the Inbox lists is answered on its card', () => {
+  // A sign-in status card, an integration naming no provider, and words under a markdown body.
+  for (const fields of [
+    { category: 'credential', options: ['Signed in', 'Not now'] },
+    { category: 'integration', options: ['I check', 'Wait'] },
+    { category: 'preference', body: '**Done**: `x`\n1. repo' },
+  ] as Partial<AgentInputRequest>[]) {
+    const question = botChatQuestion(request(fields))
+
+    assert.equal(question.answerable, true, fields.category)
+    assert.ok(question.part.input && typeof question.part.input === 'object')
+  }
+  assert.equal(botChatQuestion(request({ category: 'integration', options: ['A'] })).typed, true)
+})

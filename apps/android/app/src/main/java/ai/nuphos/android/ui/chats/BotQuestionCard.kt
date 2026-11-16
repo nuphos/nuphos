@@ -128,14 +128,11 @@ private fun QuestionBody(id: String, text: String, onLink: ((String) -> Unit)?) 
 /** More than about three lines of text: shown collapsed until asked for. */
 internal fun isLongBody(text: String): Boolean = text.trim().lines().size > 3 || text.length > 240
 
-/** One (label, reply) per option, possibly none; null when only the conversation can answer it. */
+/** One (label, reply) per option, possibly none; null for a secret or a connection, answered in their own way. */
 internal fun cardReplies(question: BotQuestion): List<Pair<String, String>>? {
     val request = question.request
-    if (request.category == "credential" || request.category == "integration") return null
-    val options = request.options.orEmpty().filter { it.isNotBlank() }
-    // Neither an option nor words answer it here.
-    if (options.isEmpty() && !question.typed) return null
-    return options.map { it to it }
+    if (request.secretName != null || question.connectable) return null
+    return request.options.orEmpty().filter { it.isNotBlank() }.map { it to it }
 }
 
 /**
