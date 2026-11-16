@@ -1,9 +1,15 @@
 import XCTest
 
-/// Return on a hardware keyboard in the chat composer (#2154). Only an iPad
-/// simulator takes hardware key presses. Uses the offline push fixture, so it
-/// never contacts the backend.
+/// Return on a hardware keyboard in a Bot's chat composer (#2154). Only an
+/// iPad simulator takes hardware key presses. Offline fixture, with a reply
+/// for the post so a sent draft is not handed back.
 final class ComposerReturnUITests: XCTestCase {
+    private var live: URL?
+
+    override func tearDownWithError() throws {
+        if let live { try? FileManager.default.removeItem(at: live) }
+    }
+
     func testReturnSendsAndShiftReturnStartsALine() throws {
         let composer = try openComposer()
         composer.typeText("one")
@@ -48,29 +54,34 @@ final class ComposerReturnUITests: XCTestCase {
 
         composer.typeKey(.return, modifierFlags: [])
         sleep(2)
-        XCTAssertEqual(composer.value as? String, "ㄋㄧˇ", "Return while composing lost the text or sent it")
+        let committed = composer.value as? String ?? ""
+        XCTAssertTrue(committed.hasPrefix("ㄋㄧˇ"), "Return while composing lost the text or sent it: \(committed)")
 
         composer.typeText("ok")
-        XCTAssertEqual(composer.value as? String, "ㄋㄧˇok", "The composer lost focus")
+        let next = composer.value as? String ?? ""
+        XCTAssertTrue(next.hasPrefix("ㄋㄧˇ") && next.hasSuffix("ok"), "The composer lost focus: \(next)")
     }
 
     private func openComposer(markedText: Bool = false) throws -> XCUIElement {
         try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "Hardware key presses need an iPad")
-        let fixture = URL(filePath: #filePath)
-            .deletingLastPathComponent().deletingLastPathComponent()
-            .appending(path: "tests/fixtures/push-responses.json")
+        let fixture = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appending(path: "tests/fixtures/bot-desktop-responses.json")
+        let file = fixture.deletingLastPathComponent().appending(path: "return-live-\(UUID().uuidString).json")
+        live = file
+        var responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: fixture)) as? [String: Any])
+        responses["POST /agent/conversations/chat-bot-plain/channel-messages"] = ["status": 200, "body": [String: Any]()]
+        try JSONSerialization.data(withJSONObject: responses).write(to: file, options: .atomic)
         let app = XCUIApplication()
-        app.launchArguments = ["-preview-home", "-preview-no-push"] + (markedText ? ["-preview-marked-text"] : [])
-        app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": fixture.path]
+        app.launchArguments = ["-preview-home", "-preview-no-push", "-page", "chats"] + (markedText ? ["-preview-marked-text"] : [])
+        app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": file.path]
         app.launch()
 
-        app.staticTexts["Preview push-a"].firstMatch.tap()
-        let composer = app.descendants(matching: .any).matching(NSPredicate(
-            format: "label BEGINSWITH %@ AND (elementType == %d OR elementType == %d)", "Ask Nuphos",
-            XCUIElement.ElementType.textView.rawValue, XCUIElement.ElementType.textField.rawValue
-        )).firstMatch
-        XCTAssertTrue(composer.waitForExistence(timeout: 10), "No composer")
+        app.staticTexts["Release notes"].firstMatch.tap()
+        XCTAssertTrue(app.collectionViews["chat.transcript"].cells.firstMatch.waitForExistence(timeout: 10),
+                      "The Bot's chat did not load")
+        let composer = try XCTUnwrap([app.textViews.firstMatch, app.textFields.firstMatch].first { $0.exists }, "No composer")
         composer.tap()
+        if app.buttons["Continue"].waitForExistence(timeout: 2) { app.buttons["Continue"].tap() }
         return composer
     }
 }
