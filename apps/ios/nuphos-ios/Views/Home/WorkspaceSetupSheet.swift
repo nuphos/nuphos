@@ -5,7 +5,8 @@ struct WorkspaceSetupSheet: View {
     @Environment(AuthSession.self) private var auth
     @Environment(AgentStore.self) private var store
     @Environment(\.dismiss) private var dismiss
-    @State private var name = String(localized: "My workspace")
+    // Stored as the workspace name, so it stays English like Desktop's default.
+    @State private var name = "My workspace"
     @State private var discoverable: [Team] = []
     @State private var busy = false
     @State private var error: String?

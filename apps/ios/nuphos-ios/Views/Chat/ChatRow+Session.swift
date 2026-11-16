@@ -4,7 +4,7 @@ extension ChatRow {
     /// Closes a turn the user stopped, as the desktop does.
     static func stoppedText(_ message: ChatMessage) -> String {
         let calls = message.parts.filter { if case .tool(let t) = $0 { return !ToolRuns.hiddenTools.contains(t.toolName) }; return false }.count
-        return calls == 0 ? "Stopped by you" : "Stopped by you · \(calls) \(calls == 1 ? "call" : "calls")"
+        return calls == 0 ? String(localized: "Stopped by you") : calls == 1 ? String(localized: "Stopped by you · 1 call") : String(localized: "Stopped by you · \(calls) calls")
     }
 
     /// Builds rows for the whole transcript.
@@ -55,7 +55,7 @@ extension ChatRow {
                 rows.append(.activity(text: status, live: session.isStreaming))
             }
         } else if session.isStreaming {
-            rows.append(.activity(text: session.phaseLabel ?? "Thinking…", live: true))
+            rows.append(.activity(text: session.phaseLabel ?? String(localized: "Thinking…"), live: true))
         }
         if let error = session.error, !session.stoppedByUser, error != failure {
             rows.append(.hint(id: "error", text: error, isError: true))

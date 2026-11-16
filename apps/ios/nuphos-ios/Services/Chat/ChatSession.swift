@@ -142,9 +142,9 @@ final class ChatSession {
         DesktopSession(teamId: teamId, sessionId: sessionId, token: token, browserTab: (id, size))
     }
     var runtimeStatus: String? {
-        if submitting || awaitingAdmission { return "Sending…" }
+        if submitting || awaitingAdmission { return String(localized: "Sending…") }
         guard isNativeRuntime, !isNew else { return nil }
-        guard let runtimeObservation else { return "Connection lost — runtime status unavailable" }
+        guard let runtimeObservation else { return String(localized: "Connection lost — runtime status unavailable") }
         return runtimeObservation.status
     }
     /// What the user just sent, shown as their bubble until the request is
@@ -159,7 +159,7 @@ final class ChatSession {
     func cancelSending() { sending?.task?.cancel() }
     private(set) var steeringPending = false
     /// This device's send has no runtime status yet. Only this turn's own
-    /// runtime state clears it, so "Sending…" holds until the runtime's first
+    /// runtime state clears it, so String(localized: "Sending…") holds until the runtime's first
     /// status replaces it: another turn executing says nothing about this message.
     private var awaitingAdmission = false
     var canSteer: Bool { !readOnly && isNativeRuntime && allows("steer") && !allows("reply") && !steeringPending }
@@ -331,7 +331,7 @@ final class ChatSession {
         token: String,
         teamId: String,
         sessionId: String = UUID().uuidString.lowercased(),
-        title: String = "New task",
+        title: String = String(localized: "New task"),
         agentRuntime: String? = nil,
         runtimeLabel: String? = nil
     ) {

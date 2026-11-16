@@ -376,7 +376,8 @@ private struct QuotaLine: View {
         if minutes < 24 * 60 {
             return minutes < 60 ? String(localized: "resets in \(max(1, minutes))m") : String(localized: "resets in \(minutes / 60)h \(minutes % 60)m")
         }
-        return String(localized: "resets \(date.formatted(.dateTime.weekday(.abbreviated).hour().minute()))")
+        let locale = Locale(identifier: Bundle.main.preferredLocalizations.first ?? "en")
+        return String(localized: "resets \(date.formatted(.dateTime.weekday(.abbreviated).hour().minute().locale(locale)))")
     }
 }
 
