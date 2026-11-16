@@ -1,6 +1,6 @@
 import Foundation
 
-// The languages Desktop ships; the catalog must translate a string into all of them or none.
+// The languages Desktop ships; every string needs all of them unless it is marked not to be translated.
 let languages: Set = ["zh-Hant", "zh-Hans", "ja", "ko", "th", "id", "es"]
 let file = URL(filePath: CommandLine.arguments[1])
 let catalog = try JSONSerialization.jsonObject(with: Data(contentsOf: file)) as! [String: Any]
@@ -9,7 +9,7 @@ var translated = 0
 
 for (key, entry) in strings {
     let present = languages.intersection((entry["localizations"] as? [String: Any] ?? [:]).keys)
-    if present.isEmpty { continue }
+    if entry["shouldTranslate"] as? Bool == false { continue }
     precondition(present == languages, "\"\(key)\" is missing \(languages.subtracting(present).sorted())")
     translated += 1
 }
