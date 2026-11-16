@@ -3,7 +3,6 @@ import { fileURLToPath } from 'node:url'
 
 import { BrowserWindow, session } from 'electron'
 
-import { regionShortcut } from '../../src/lib/regionShortcut'
 import { apiUrl } from '../api-endpoint'
 import * as k8s from '../k8s'
 import * as podExec from '../pod-exec'
@@ -11,13 +10,12 @@ import * as terminal from '../terminal'
 import { raiseWindow } from '../window-raise'
 
 import { flushPendingDeepLinks } from './deep-links'
-import { APP_NAME, isDev } from './env'
 import { guardFilePreviewFrames } from './file-preview-guard'
+import { APP_NAME, isDev } from './env'
 import { closeBrowserTabs } from './local-runtime/browser-tabs'
 import { openExternal } from './open-external'
-import { liveSessionShortcut } from './session-shortcuts'
 import { initSidebarGestures } from './sidebar-gestures'
-import { sidebarShortcutAction } from './sidebar-shortcuts'
+import { windowShortcut } from './window-shortcuts'
 import { lastClosedWindow, placementFor, readSavedWindows, trackWindow } from './window-session'
 import { MIN_WINDOW_SIZE } from './window-session-core'
 import { titleBarOverlayFor } from './window-titlebar'
@@ -215,7 +213,8 @@ export function createWindow(restore: SavedWindow | null = lastClosedWindow()): 
     flushPendingDeepLinks(win)
   })
 
-  // Flush queued deep links once the window regains focus.
+  // A queued deep link raised this window; retry as soon as it is usable again
+  // (the new document's listeners attach shortly after focus).
   win.on('focus', () => {
     flushPendingDeepLinks(win)
   })
@@ -225,13 +224,12 @@ export function createWindow(restore: SavedWindow | null = lastClosedWindow()): 
     const key = input.key.toLowerCase()
     const code = input.code
     const commandOrControl = input.meta || input.control
+    // ⌘ alone on macOS, where ⌃J and ⌃K are terminal keys; Ctrl alone elsewhere.
     const modOnly =
       process.platform === 'darwin' ? input.meta && !input.control : input.control && !input.meta
-    // Sidebar, session and F6 shortcuts route before the workspace number keys.
-    const sessionAction =
-      sidebarShortcutAction(input, process.platform === 'darwin') ??
-      liveSessionShortcut(win.webContents, input) ??
-      regionShortcut(input)
+    // Session-menu combos (⌥⌘R, ⇧⌘A, …) match the physical key, and F6 has no
+    // modifier at all, so they run before the bail-out below. F6 must leave a terminal.
+    const sessionAction = windowShortcut(win.webContents, input)
 
     if (sessionAction) {
       event.preventDefault()
@@ -250,7 +248,8 @@ export function createWindow(restore: SavedWindow | null = lastClosedWindow()): 
       return
     }
 
-    // Prevent duplicate delivery from the matching macOS menu accelerator.
+    // preventDefault also stops the matching macOS menu accelerator from
+    // firing, so each combo dispatches exactly once.
     const sendShortcut = (action: AppShortcut) => {
       event.preventDefault()
       win.webContents.send('app:shortcut', action)
