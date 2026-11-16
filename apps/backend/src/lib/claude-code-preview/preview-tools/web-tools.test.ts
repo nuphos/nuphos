@@ -72,7 +72,7 @@ describe('webToolModule', () => {
       })
       expect(calls[0]!.url).toBe('https://api.keenable.ai/v1/search/public')
       expect(headers.get('X-Keenable-Title')).toBe('nuphos')
-      expect(headers.get('X-Keenable-Session-Id')).toBe('conv-1')
+      expect(headers.get('X-Keenable-Session-Id')).toBeNull()
     } finally {
       globalThis.fetch = previous
     }
@@ -104,4 +104,102 @@ describe('webToolModule', () => {
       globalThis.fetch = previous
     }
   })
+
+  test('registered handlers run web_search then web_fetch together', async () => {
+    const previous = globalThis.fetch
+    const calls: { url: string; init: RequestInit }[] = []
+
+    globalThis.fetch = (async (input, init) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+      calls.push({ url, init: init ?? {} })
+      if (url.includes('/v1/search')) {
+        return jsonResponse({
+          query: 'nuphos',
+          results: [
+            {
+              title: 'Nuphos',
+              url: 'https://github.com/nuphos/nuphos',
+              snippet: 'Grok Bot alternative',
+            },
+          ],
+        })
+      }
+      return jsonResponse({
+        url: 'https://github.com/nuphos/nuphos',
+        title: 'nuphos/nuphos',
+        content: 'readme text',
+        truncated: false,
+      })
+    }) as typeof fetch
+    const module = webToolModule({ webSearchProvider: 'keenable', webFetchProvider: 'keenable' })
+    const handlers = module.handlers(ctx)
+
+    try {
+      expect(module.definitions.map((tool) => (tool as { name: string }).name)).toEqual([
+        'web_search',
+        'web_fetch',
+      ])
+      const search = await handlers.web_search!({ query: 'nuphos', max_results: 1 })
+      const hit = (search.structuredContent as { results: { url: string }[] }).results[0]!
+      const page = await handlers.web_fetch!({ url: hit.url, max_chars: 2000 })
+
+      expect(search.isError).toBeUndefined()
+      expect(page.isError).toBeUndefined()
+      expect(calls[0]!.url).toBe('https://api.keenable.ai/v1/search/public')
+      expect(new URL(calls[1]!.url).pathname).toBe('/v1/fetch/public')
+      expect(page.structuredContent).toMatchObject({
+        title: 'nuphos/nuphos',
+        content: 'readme text',
+      })
+    } finally {
+      globalThis.fetch = previous
+    }
+  })
+
+  test('web_search returns a tool error when Keenable rejects published_after', async () => {
+    const previous = globalThis.fetch
+
+    globalThis.fetch = (async () =>
+      jsonResponse(
+        { error: 'invalid_parameter', message: 'published_after must be a date, timestamp, or relative offset' },
+        400,
+      )) as typeof fetch
+    const handlers = webToolModule({ webSearchProvider: 'keenable' }).handlers(ctx)
+
+    try {
+      const result = await handlers.web_search!({ query: 'nuphos', published_after: 'bogus' })
+
+      expect(result.isError).toBe(true)
+      expect(JSON.stringify(result)).toContain('published_after')
+    } finally {
+      globalThis.fetch = previous
+    }
+  })
+})
+
+const live = process.env.KEENABLE_LIVE === '1'
+
+describe.skipIf(!live)('web tools live through the MCP handlers', () => {
+  test(
+    'web_search then web_fetch return real pages',
+    async () => {
+      const module = webToolModule({ webSearchProvider: 'keenable', webFetchProvider: 'keenable' })
+      const handlers = module.handlers(ctx)
+      const search = await handlers.web_search!({
+        query: 'Open-source Grok Bot alternative',
+        max_results: 2,
+      })
+
+      expect(search.isError).toBeUndefined()
+      const hits = (search.structuredContent as { results: { url: string; title: string }[] }).results
+      expect(hits.length).toBeGreaterThan(0)
+      expect(hits[0]?.url).toMatch(/^https?:\/\//)
+      const page = await handlers.web_fetch!({ url: hits[0]!.url, max_chars: 2000 })
+
+      expect(page.isError).toBeUndefined()
+      const content = (page.structuredContent as { content: string; truncated?: boolean }).content
+      expect(content.length).toBeGreaterThan(0)
+    },
+    { timeout: 30_000 },
+  )
 })

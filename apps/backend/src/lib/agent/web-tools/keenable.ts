@@ -2,13 +2,13 @@ const DEFAULT_BASE_URL = 'https://api.keenable.ai'
 const DEFAULT_TITLE = 'nuphos'
 const DEFAULT_MAX_RESULTS = 10
 const MAX_RESULTS_CAP = 50
+const MAX_FETCH_CHARS = 50_000
 const REQUEST_TIMEOUT_MS = 30_000
 
 export type KeenableRequestOptions = {
   apiKey?: string
   baseUrl?: string
   title?: string
-  sessionId?: string
   fetchImpl?: typeof fetch
 }
 
@@ -50,6 +50,11 @@ export function clampMaxResults(value: number | undefined): number {
   return Math.min(MAX_RESULTS_CAP, Math.max(1, Math.trunc(value)))
 }
 
+export function clampMaxChars(value: number | undefined): number {
+  if (value == null || !Number.isFinite(value)) return MAX_FETCH_CHARS
+  return Math.min(MAX_FETCH_CHARS, Math.max(1, Math.trunc(value)))
+}
+
 function rootUrl(baseUrl?: string): string {
   return (baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, '')
 }
@@ -58,7 +63,6 @@ function headers(options: KeenableRequestOptions, jsonBody: boolean): Record<str
   const out: Record<string, string> = { Accept: 'application/json' }
 
   if (jsonBody) out['Content-Type'] = 'application/json'
-  if (options.sessionId) out['X-Keenable-Session-Id'] = options.sessionId
   if (options.apiKey) {
     out['X-API-Key'] = options.apiKey
     return out
@@ -156,9 +160,11 @@ export async function keenableFetch(
   const target = new URL(endpoint)
 
   target.searchParams.set('url', page)
+  const maxChars = clampMaxChars(args.max_chars)
+
   if (args.live) target.searchParams.set('live', 'true')
   if (args.prompt) target.searchParams.set('prompt', args.prompt)
-  if (args.max_chars != null) target.searchParams.set('max_chars', String(args.max_chars))
+  target.searchParams.set('max_chars', String(maxChars))
   const response = await (options.fetchImpl ?? fetch)(target, {
     method: 'GET',
     headers: headers(options, false),
@@ -169,12 +175,19 @@ export async function keenableFetch(
     (typeof payload.content === 'string' && payload.content) ||
     (typeof payload.markdown === 'string' && payload.markdown) ||
     ''
+  let truncated = typeof payload.truncated === 'boolean' ? payload.truncated : undefined
+  let body = content
+
+  if (body.length > maxChars) {
+    body = body.slice(0, maxChars)
+    truncated = true
+  }
   const result: KeenableFetchResult = {
     url: typeof payload.url === 'string' ? payload.url : page,
-    content,
+    content: body,
   }
 
   if (typeof payload.title === 'string' && payload.title) result.title = payload.title
-  if (typeof payload.truncated === 'boolean') result.truncated = payload.truncated
+  if (typeof truncated === 'boolean') result.truncated = truncated
   return result
 }

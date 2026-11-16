@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  clampMaxChars,
   clampMaxResults,
   keenableFetch,
   keenableSearch,
@@ -52,12 +53,22 @@ describe('clampMaxResults', () => {
   })
 })
 
+describe('clampMaxChars', () => {
+  test('defaults to 50_000 and clamps to 1-50_000', () => {
+    expect(clampMaxChars(undefined)).toBe(50_000)
+    expect(clampMaxChars(0)).toBe(1)
+    expect(clampMaxChars(1200.9)).toBe(1200)
+    expect(clampMaxChars(50_000)).toBe(50_000)
+    expect(clampMaxChars(80_000)).toBe(50_000)
+  })
+})
+
 describe('keenableSearch', () => {
   test('calls the public endpoint with X-Keenable-Title and no API key', async () => {
     const { fetchImpl, calls } = mockFetch(() => jsonResponse(searchHits))
     const result = await keenableSearch(
       { query: 'nuphos', max_results: 2, site: 'github.com', published_after: '7d' },
-      { fetchImpl, sessionId: 'conv-1' },
+      { fetchImpl },
     )
     const request = calls[0]!
     const headers = new Headers(request.init.headers)
@@ -67,7 +78,7 @@ describe('keenableSearch', () => {
     expect(request.init.method).toBe('POST')
     expect(headers.get('X-Keenable-Title')).toBe('nuphos')
     expect(headers.get('X-API-Key')).toBeNull()
-    expect(headers.get('X-Keenable-Session-Id')).toBe('conv-1')
+    expect(headers.get('X-Keenable-Session-Id')).toBeNull()
     expect(body).toEqual({
       query: 'nuphos',
       max_results: 2,
@@ -108,6 +119,24 @@ describe('keenableSearch', () => {
     await expect(keenableSearch({ query: 'nuphos' }, { fetchImpl })).rejects.toThrow(
       'Keenable 400: missing_app_title: X-Keenable-Title is required',
     )
+  })
+
+  test('surfaces a Keenable rejection of an invalid published_after value', async () => {
+    const { fetchImpl, calls } = mockFetch(() =>
+      jsonResponse(
+        { error: 'invalid_parameter', message: 'published_after must be a date, timestamp, or relative offset' },
+        400,
+      ),
+    )
+
+    await expect(
+      keenableSearch({ query: 'nuphos', published_after: 'not-a-date' }, { fetchImpl }),
+    ).rejects.toThrow(
+      'Keenable 400: invalid_parameter: published_after must be a date, timestamp, or relative offset',
+    )
+    const body = JSON.parse(String(calls[0]!.init.body)) as Record<string, unknown>
+
+    expect(body.published_after).toBe('not-a-date')
   })
 })
 
@@ -155,6 +184,35 @@ describe('keenableFetch', () => {
     expect(headers.get('X-Keenable-Title')).toBeNull()
   })
 
+  test('caps oversized content and sets truncated', async () => {
+    const { fetchImpl, calls } = mockFetch(() =>
+      jsonResponse({ url: 'https://example.com', content: 'abcdefghij', truncated: false }),
+    )
+    const result = await keenableFetch(
+      { url: 'https://example.com', max_chars: 4 },
+      { fetchImpl },
+    )
+    const target = new URL(calls[0]!.url)
+
+    expect(target.searchParams.get('max_chars')).toBe('4')
+    expect(result).toEqual({
+      url: 'https://example.com',
+      content: 'abcd',
+      truncated: true,
+    })
+  })
+
+  test('applies the 50_000 character cap when max_chars is omitted', async () => {
+    const { fetchImpl, calls } = mockFetch(() =>
+      jsonResponse({ url: 'https://example.com', content: 'x'.repeat(50_001) }),
+    )
+    const result = await keenableFetch({ url: 'https://example.com' }, { fetchImpl })
+
+    expect(new URL(calls[0]!.url).searchParams.get('max_chars')).toBe('50000')
+    expect(result.content).toHaveLength(50_000)
+    expect(result.truncated).toBe(true)
+  })
+
   test('rejects a missing url and maps a 404', async () => {
     await expect(keenableFetch({ url: '' })).rejects.toThrow('url is required')
     const { fetchImpl } = mockFetch(() => jsonResponse({ message: 'Not Found' }, 404))
@@ -196,5 +254,23 @@ describe.skipIf(!live)('keenable live keyless', () => {
       expect(page.url).toContain('keenable.ai')
     },
     { timeout: 20_000 },
+  )
+
+  test(
+    'search then fetch of the first result returns page content',
+    async () => {
+      const search = await keenableSearch(
+        { query: 'Open-source Grok Bot alternative', max_results: 2 },
+        options,
+      )
+      const hit = search.results[0]
+
+      expect(hit?.url).toMatch(/^https?:\/\//)
+      const page = await keenableFetch({ url: hit!.url, max_chars: 2000 }, options)
+
+      expect(page.content.length).toBeGreaterThan(0)
+      expect(page.content.length).toBeLessThanOrEqual(2000)
+    },
+    { timeout: 30_000 },
   )
 })

@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 import { config } from '@/config'
-import { keenableFetch, keenableSearch } from '@/lib/agent/web-tools/keenable'
+import { clampMaxChars, keenableFetch, keenableSearch } from '@/lib/agent/web-tools/keenable'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 
 import { toolInputJsonSchema } from './ai-sdk-adapter'
@@ -28,15 +28,17 @@ const fetchInput = z
     url: z.string().trim().url(),
     live: z.boolean().optional(),
     prompt: z.string().trim().min(1).max(2000).optional(),
-    max_chars: z.number().int().min(1).optional(),
+    max_chars: z.number().int().min(1).max(50_000).optional(),
   })
   .strict()
 
-function keenableOptions(agent: WebToolConfig, sessionId: string) {
+// WEB_SEARCH_PROVIDER / WEB_FETCH_PROVIDER is the opt-in seam. Only
+// `keenable` is implemented today. A second provider would add a client
+// next to keenable.ts and a branch in this module; any other value stays inert.
+function keenableOptions(agent: WebToolConfig) {
   return {
     ...(agent.keenableApiKey ? { apiKey: agent.keenableApiKey } : {}),
     title: 'nuphos',
-    sessionId,
   }
 }
 
@@ -79,7 +81,7 @@ export function webToolModule(agent: WebToolConfig = config.agent): PreviewToolM
               if (!parsed.success) return toolError(parsed.error.message)
               try {
                 return toolResult(
-                  await keenableSearch(parsed.data, keenableOptions(agent, ctx.sessionId)),
+                  await keenableSearch(parsed.data, keenableOptions(agent)),
                 )
               } catch (error) {
                 return toolError(error instanceof Error ? error.message : 'Keenable search failed')
@@ -94,9 +96,8 @@ export function webToolModule(agent: WebToolConfig = config.agent): PreviewToolM
 
               if (!parsed.success) return toolError(parsed.error.message)
               try {
-                return toolResult(
-                  await keenableFetch(parsed.data, keenableOptions(agent, ctx.sessionId)),
-                )
+                const args = { ...parsed.data, max_chars: clampMaxChars(parsed.data.max_chars) }
+                return toolResult(await keenableFetch(args, keenableOptions(agent)))
               } catch (error) {
                 return toolError(error instanceof Error ? error.message : 'Keenable fetch failed')
               }
