@@ -72,6 +72,8 @@ test('the copies of a login in each conversation home go too, and their sessions
     [`${session}/.pi/agent/settings.json`]: '{}',
     [`${session}/.pi/agent/sessions/1.jsonl`]: '{}',
     [`${session}.teammate/.pi/agent/auth.json`]: '{}',
+    // The marker session-home.mjs keeps beside the homes, not a home itself.
+    '.nuphos/session-homes/.sweep': '1',
   })
 
   deleteAgentCredentials('pi', root)
@@ -79,6 +81,7 @@ test('the copies of a login in each conversation home go too, and their sessions
     '.pi/agent/settings.json',
     `${session}/.pi/agent/settings.json`,
     `${session}/.pi/agent/sessions/1.jsonl`,
+    '.nuphos/session-homes/.sweep',
   ])
 })
 

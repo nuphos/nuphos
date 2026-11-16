@@ -20,9 +20,12 @@ const CREDENTIAL_FILES: Partial<Record<LocalAgentProvider, readonly string[]>> =
 /** What opencode-login.mjs saves in OpenCode's config for Bedrock; its region stays. */
 const BEDROCK_SECRETS = ['accessKeyId', 'secretAccessKey', 'sessionToken', 'apiKey']
 
-const readdirSafe = (dir: string): string[] => {
+/** The homes in `dir`: its directories only, as markers such as `.sweep` sit beside them. */
+const homesIn = (dir: string): string[] => {
   try {
-    return readdirSync(dir)
+    return readdirSync(dir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => path.join(dir, entry.name))
   } catch {
     return []
   }
@@ -64,7 +67,7 @@ export function deleteAgentCredentials(provider: LocalAgentProvider, home: strin
   const files = [...(CREDENTIAL_FILES[provider] ?? []), LOGIN_FILE[provider] ?? []].flat()
   // Each conversation's home mirrors this one, and Pi copies its login into it.
   const sessions = path.join(home, '.nuphos', 'session-homes')
-  const homes = [home, ...readdirSafe(sessions).map((name) => path.join(sessions, name))]
+  const homes = [home, ...homesIn(sessions)]
 
   for (const at of homes) for (const file of files) rmSync(path.join(at, file), { force: true })
   if (provider === 'claude-code')
