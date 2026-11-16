@@ -12,6 +12,7 @@ import { useChatPreviewTurn } from '@/lib/test/doubles/chat-preview-turn'
 import { useChatSlackBound } from '@/lib/test/doubles/chat-slack-bound'
 import { useChatValidate } from '@/lib/test/doubles/chat-validate'
 import { useClaudeCodePreviewRuntime } from '@/lib/test/doubles/claude-code-preview-runtime'
+import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-state'
 import { useSessionQueueSignIn } from '@/lib/test/doubles/session-queue-sign-in'
 import { useSessionQueueTurn } from '@/lib/test/doubles/session-queue-turn'
 import { useTeamScope } from '@/lib/test/doubles/team-scope'
@@ -43,8 +44,11 @@ useClaudeCodePreviewRuntime({
   resolveConversationChatRuntime: () =>
     Promise.resolve({ runtime: 'claude-code', endpoint: { url: 'ws://runtime', authKey: 'k' } }),
 })
-useChatPreviewResume({ resolvePreviewWaitFromChat: () => Promise.resolve(null) })
-useSessionQueueTurn({
+const installPreviewResume = useChatPreviewResume({
+  resolvePreviewWaitFromChat: () => Promise.resolve(null),
+})
+const installExecutionState = useSessionExecutionState({})
+const installQueueTurn = useSessionQueueTurn({
   admitQueueableChat: () =>
     Promise.resolve({
       mode: 'run',
@@ -150,4 +154,19 @@ test('a new conversation without a team is refused before anything is written', 
   expect(response.status).toBe(400)
   expect(order).toEqual([])
   expect(state.released).toBe(1)
+})
+
+test('a new message to a runtime that does not answer queues without asking it for its waits', async () => {
+  state.conversation = { sessionId: 'old-2', userId: USER, teamId: 'team-1', claudeCodePreview: {} }
+  installExecutionState({ conversationExecutionState: async () => ({ state: 'disconnected' }) })
+  // The runtime owns the waits, so asking fails the same way its status read did.
+  installPreviewResume({
+    resolvePreviewWaitFromChat: () => Promise.reject(new Error('Failed to connect to OpenAB')),
+  })
+  installQueueTurn({ admitQueueableChat: () => Promise.resolve({ mode: 'queued' }) })
+  const response = await post('old-2')
+
+  expect(response.status).toBe(200)
+  expect(await response.text()).toContain('atlas-stream-done')
+  expect(order).toEqual([])
 })
