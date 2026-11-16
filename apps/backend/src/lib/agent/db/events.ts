@@ -37,6 +37,9 @@ export async function setupAgentIndexes(): Promise<void> {
     // Without both, its $or reads the team's whole history to find a few.
     await c.createIndex({ teamId: 1, 'inputRequests.status': 1 }, { background: true })
     await c.createIndex({ teamId: 1, 'signInRequest.askedUserIds': 1 }, { background: true })
+    // The app badge counts what a person watches and has not archived. Most of a heavy
+    // user's conversations are opened by agents and triggers, which start unwatched.
+    await c.createIndex({ watcherIds: 1, archivedAt: 1 }, { background: true })
     // Channel mentions are keyed by person (`mentions.<userId>`).
     await c.createIndex({ 'mentions.$**': 1 }, { background: true })
     await c.createIndex({ sessionId: 1 }, { unique: true, background: true })
