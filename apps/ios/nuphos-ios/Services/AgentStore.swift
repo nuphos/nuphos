@@ -483,7 +483,6 @@ final class AgentStore {
         credentials.reset()
         channels = []
         bots = []
-        openedBotRows = []
         runtimes = []
         agentDevices = []
         agentDevicesError = false
