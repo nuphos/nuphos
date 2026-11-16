@@ -179,7 +179,7 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
             conversationId
               ? loading
                 ? undefined
-                : t('Select a runtime for this agent, then refresh Files.')
+                : t('Select a runtime for this task, then refresh Files.')
               : t('Select an agent to browse its workspace.')
           }
         />

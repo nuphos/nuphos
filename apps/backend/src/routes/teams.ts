@@ -67,6 +67,7 @@ import {
   requireUserOrConversationAuth,
 } from '@/routes/teams/conversation-auth'
 import { registerTeamInvitationRoutes } from '@/routes/teams/invitations'
+import { registerBindingShareRoutes } from '@/routes/teams/binding-share'
 import { registerTeamManagementRoutes } from '@/routes/teams/management'
 import { registerTeamImportRoutes } from '@/routes/teams/migration-import'
 import { registerTeamMigrationRoutes } from '@/routes/teams/migration'
@@ -111,6 +112,7 @@ teamScoped.use('*', dispatchConversationTeamApi)
 
 registerTeamManagementRoutes(teamScoped)
 registerTeamMigrationRoutes(teamScoped)
+registerBindingShareRoutes(teamScoped)
 registerTeamInvitationRoutes(teamScoped)
 registerAgentRuntimeRoutes(teamScoped)
 registerExternalRuntimeRoute(teamScoped)
@@ -146,7 +148,7 @@ teamScoped.get(
 )
 teamScoped.route('/favorites', sidebarFavoritesRoutes)
 teamScoped.route('/home-layout', homeLayoutRoutes)
-teamScoped.route('/runtime-fallback', runtimeFallbackRoutes)
+teamScoped.route('/runtime-fallbacks', runtimeFallbackRoutes)
 teamScoped.route('/instructions', instructionsRoutes)
 teamScoped.route('/voice-transcriptions', voiceTranscriptionsRoutes)
 

@@ -7,6 +7,7 @@ import { useStableCallback } from '../../../hooks/useStableCallback'
 import { t } from '../../../i18n'
 import { track } from '../../../lib/analytics'
 import { runtimeIsExecuting, runtimeAllows } from '../../../lib/runtimeExecution'
+import { dismissQuestion } from '../../../views/inbox/dismissQuestion'
 import { cardAnswers } from '../../../views/inbox/useInbox'
 import { toast } from '../../ui/toast'
 import { PermissionResumeContext } from '../permissionResumeContext'
@@ -23,11 +24,11 @@ import { useConversationRuntimeControl } from './conversationRuntimeControl'
 import { DelayedPanelReveal } from './homeAnimation'
 import { canEditMessage } from './messageEdit'
 import { AuthorizationActionContext } from './parts'
+import { ownsPermissionMode } from './permissionModeMenu'
 import { canStopTurn, waitingMessages } from './queuedAutoSend'
 import { useQueuedShareApproval } from './queuedShareApproval'
 import { QueuedStrip } from './QueuedStrip'
 import { cardReplyId } from './replyTarget'
-import { ReplyTargetChip } from './ReplyTargetChip'
 import { serverHasConversation } from './sessionActions'
 import { TurnSwitchAgentContext, turnSwitchAgent } from './turnFailureActions'
 import { TurnRetryContext, useFailedTurnRetry } from './turnRetryContext'
@@ -75,13 +76,10 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
   const { runtimeControl: conversationControl } = useConversationRuntimeControl(c)
   const { runtimeControl, queuedApproval } = useQueuedShareApproval(conversationControl, activeTab)
   const readOnlyNotice = useViewOnlyNotice(c)
-  const questions = c.openQuestions ?? c.replyTarget?.questions
+  const questions = c.openQuestions
   const composerRef = useRef<HTMLDivElement>(null)
-  // The composer answers a question where it names one: the "Replying to" chip, or a fixed one.
-  const canReply =
-    activeTab !== null &&
-    !activeTab.readOnly &&
-    (c.replyTarget?.sessionId === activeTab.sessionId || c.decisionReplyTo !== undefined)
+  // A card answers while its conversation has an open question, whatever the composer replies to.
+  const canReply = activeTab !== null && !activeTab.readOnly && Boolean(questions?.length)
   // The fork needs the chat stored on the server; each message is then gated on its author.
   const editableSessionId =
     activeTab && !activeTab.readOnly && !activeTab.unsaved ? activeTab.sessionId : undefined
@@ -137,7 +135,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
   // for the teammates they mention.
   const inviteSessionId = activeTab?.foreign ? undefined : activeTab?.sessionId
   const bypassControl =
-    activeTab?.sessionId && !activeTab.readOnly && (!activeTab.foreign || activeTab.canManage)
+    activeTab && ownsPermissionMode(activeTab)
       ? {
           active: bypassBySession[activeTab.sessionId] ?? false,
           onSelect: selectBypassMode,
@@ -171,6 +169,9 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   answer: canReply
                     ? cardAnswers(teamId, activeTab.sessionId, questions)
                     : undefined,
+                  // Offered only on a card that can be answered, so `answer` already gates it.
+                  skip: (card) =>
+                    dismissQuestion(teamId, activeTab.sessionId, cardReplyId(card, questions)),
                   // Only the owner provides a secret; it lands on their runtime.
                   saveSecret:
                     activeTab.readOnly || activeTab.foreign
@@ -179,6 +180,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                           (await api.agentSaveSecret(activeTab.sessionId, name, value, teamId))
                             .path,
                   openQuestions: c.openQuestions,
+                  onLinkClick: onOpenNuphosLink,
                 }}
               >
                 <TurnSwitchAgentContext.Provider value={turnSwitchAgent(activeTab)}>
@@ -223,7 +225,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   <DelayedPanelReveal>
                     <Composer
                       onSend={(text, filePaths, mentions, { mode } = {}) =>
-                        sendInActive(text, filePaths, undefined, c.decisionReplyTo, mentions, mode)
+                        sendInActive(text, filePaths, undefined, undefined, mentions, mode)
                       }
                       onStop={stopActive}
                       autoFocus={focusComposerOnOpen}
@@ -248,12 +250,9 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   </DelayedPanelReveal>
                 ) : (
                   <>
-                    {c.replyTarget?.sessionId === activeTab.sessionId && !activeTab.readOnly && (
-                      <ReplyTargetChip target={c.replyTarget} />
-                    )}
                     <Composer
                       onSend={(text, filePaths, mentions, { mode } = {}) =>
-                        sendInActive(text, filePaths, undefined, c.decisionReplyTo, mentions, mode)
+                        sendInActive(text, filePaths, undefined, undefined, mentions, mode)
                       }
                       onStop={stopActive}
                       promptSuggestion={

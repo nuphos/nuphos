@@ -138,6 +138,7 @@ export async function persistPreviewTurnContext(
       activeTurnKey: requestId,
       activeTurnOrigin: args.origin,
       ...(args.localToolsEnabled ? { localTools: true } : {}),
+      ...(args.secretCardEnabled ? { secretCard: true } : {}),
       ...(args.diagramId ? { diagramId: args.diagramId } : {}),
       ...(args.kubeContext ? { kubeContext: args.kubeContext } : {}),
     })
@@ -224,8 +225,6 @@ export async function preparePreviewTurn(
   // A channel that syncs its thread into the transcript may already hold a queued message.
   const carried = drained.filter((entry) => !args.messages.some((m) => m.id === entry.id))
 
-  // What this turn took from the queue has reached the agent; a retract can tell.
-  args.run.queuedMessageIds = carried.map((entry) => entry.id)
   const messages = turnPromptMessages(args.messages, args.resume)
   const inputs = turnInputMessages(messages)
   const attachments = args.resume

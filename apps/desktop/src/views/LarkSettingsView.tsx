@@ -1,5 +1,4 @@
-import { faCheck, faCopy } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { Check as CheckIcon, Copy as CopyIcon } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../api'
@@ -7,15 +6,16 @@ import { WizardConsoleLink, WizardCopyableValue } from '../components/ConnectorW
 import { AppAlertDialog } from '../components/ui/alert-dialog'
 import { Switch } from '../components/ui/Switch'
 import { toast } from '../components/ui/toast'
+import { UiIcon } from '../components/ui/ui-icon'
 import { t } from '../i18n'
 
 import { Fill } from './bind-account/shared'
 import { LARK_SUBSCRIBE_EVENTS, larkAppPageUrl } from './bind-lark/console'
 import { BindLarkDialog } from './BindLarkDialog'
-import { ConnectionActions } from './messaging-settings/ConnectionActions'
 import { LarkLinkedAccountsCard } from './lark-settings/LarkLinkedAccountsCard'
 import { LarkPairCard } from './lark-settings/LarkPairCard'
 import { useLarkSettings } from './lark-settings/useLarkSettings'
+import { ConnectionActions } from './messaging-settings/ConnectionActions'
 
 export function LarkSettingsView({
   teamId,
@@ -54,7 +54,7 @@ export function LarkSettingsView({
     load,
   } = useLarkSettings(teamId, currentUserId, refreshKey)
 
-  const installed = !!installation || status?.installed === true
+  const installed = Boolean(installation) || status?.installed === true
   const consoleDomain = installation?.domain ?? status?.domain
   const consoleAppId = installation?.appId ?? status?.appId
 
@@ -82,7 +82,7 @@ export function LarkSettingsView({
           void load()
           onChanged?.()
         }}
-        onBound={() => undefined}
+        onBound={() => {}}
       />
       <AppAlertDialog
         open={confirmDisconnectOpen}
@@ -129,7 +129,7 @@ export function LarkSettingsView({
               onClick={() => void copyWebhook()}
               className="inline-flex h-9 flex-shrink-0 items-center gap-1.5 rounded-md border border-line-control px-3 text-[12.5px] font-medium text-secondary transition-colors hover:border-line-control hover:text-main"
             >
-              <FontAwesomeIcon icon={webhookCopied ? faCheck : faCopy} className="h-3 w-3" />
+              <UiIcon size={16} icon={webhookCopied ? CheckIcon : CopyIcon} className="h-4 w-4" />
               {webhookCopied ? t('Copied') : t('Copy')}
             </button>
           </div>
@@ -270,7 +270,7 @@ export function LarkSettingsView({
 
       {!canManage && (
         <div className="mt-2 flex items-center gap-2 text-[12.5px] text-tertiary">
-          <FontAwesomeIcon icon={faCheck} className="h-3 w-3" />
+          <UiIcon size={14} icon={CheckIcon} className="h-3.5 w-3.5" />
           {t('Ask a team administrator to link chats and manage Lark access.')}
         </div>
       )}

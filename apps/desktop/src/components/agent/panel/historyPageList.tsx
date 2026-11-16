@@ -101,7 +101,7 @@ export function HistoryPageList({
         {loading
           ? t('Loading…')
           : debouncedQuery
-            ? t('No agents match your search.')
+            ? t('No Bots or tasks match your search.')
             : (emptyLabel ??
               (ownerId
                 ? t('No tasks from this member yet.')
@@ -161,7 +161,7 @@ export function HistoryPageList({
               ? ([
                   {
                     key: 'rename',
-                    label: rowMenu.conversation.avatar ? t('Rename Bot') : t('Rename task'),
+                    label: rowMenu.conversation.avatar ? t('Edit Bot') : t('Rename task'),
                     icon: Pencil,
                     disabled: !teamId,
                     onSelect: () => setRenameTarget(rowMenu.conversation),

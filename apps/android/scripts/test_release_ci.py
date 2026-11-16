@@ -174,15 +174,21 @@ class WorkflowBoundaryTest(unittest.TestCase):
     def test_release_is_manual_canonical_main_and_secrets_are_isolated(self):
         text = WORKFLOW.read_text()
         guard = "github.event_name == 'workflow_dispatch' && github.repository == 'nuphos/nuphos' && github.ref == 'refs/heads/main'"
-        self.assertEqual(text.count('if: ' + guard), 2)
+        self.assertEqual(text.count('if: ' + guard), 3)
         self.assertNotIn('pull_request:', text)
-        build, sign = text.split('\n  sign:\n', 1)
+        build, rest = text.split('\n  sign:\n', 1)
+        sign, release = rest.split('\n  release:\n', 1)
         self.assertNotIn('secrets.', build)
         self.assertNotIn('actions/checkout', sign)
         self.assertIn('environment: android-release', sign)
         self.assertIn('needs: build', sign)
         self.assertIn('artifact-ids: ${{ needs.build.outputs.artifact_id }}', sign)
         self.assertIn('if: always()', sign)
+        self.assertIn('needs: sign', release)
+        self.assertIn('contents: write', release)
+        self.assertNotIn('contents: write', build + sign)
+        for forbidden in ('secrets.', 'id-token', 'actions/checkout', 'environment:'):
+            self.assertNotIn(forbidden, release)
         self.assertNotIn('packages: write', text)
         for ref in re.findall(r'uses: (\S+)', text):
             self.assertRegex(ref, r'@([a-f0-9]{40})$')

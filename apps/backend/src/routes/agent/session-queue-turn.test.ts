@@ -21,7 +21,7 @@ import { claimAgentRunOrEnqueue } from './claim-or-enqueue'
 import { answeringIds } from './decision-reply'
 import { agentRuns, createAgentRun, registerAgentRun } from './run-registry'
 import { queuedChatBody } from './session-queue-body'
-import { queueForOfflineBox } from './session-queue-offline'
+import { queueForOfflineComputer } from './session-queue-offline'
 import { queueForSignIn } from './session-queue-sign-in'
 import {
   admitQueueableChat,
@@ -266,7 +266,7 @@ test('a send to an offline Box queues at once, even on a free session without a 
   ])
 })
 
-test('a send queues only for the Box its runtime resolution authorized', async () => {
+test('a send queues only for the computer its runtime resolution authorized', async () => {
   const offline = (runtimeId?: string) =>
     new AppError(409, 'runtime_offline', 'offline', runtimeId ? { runtimeId } : undefined)
   const send = (id: string, pinned?: string) => ({
@@ -291,25 +291,25 @@ test('a send queues only for the Box its runtime resolution authorized', async (
 
   woken.length = 0
   stamped.length = 0
-  await expect(queueForOfflineBox(new Error('boom'), send('a'))).rejects.toThrow('boom')
+  await expect(queueForOfflineComputer(new Error('boom'), send('a'))).rejects.toThrow('boom')
   // No authorized placement (a body-named Box, another team's): nothing is woken.
   const unplaced = offline()
 
-  await expect(queueForOfflineBox(unplaced, send('a'))).rejects.toBe(unplaced)
+  await expect(queueForOfflineComputer(unplaced, send('a'))).rejects.toBe(unplaced)
   expect(woken).toEqual([])
+  // A computer that is not a Box has nothing to resume: it queues while its tunnel redials.
   boxOffline = false
-  const awake = offline('box-a')
-
-  await expect(queueForOfflineBox(awake, send('a', 'box-a'))).rejects.toBe(awake)
+  expect(await queueForOfflineComputer(offline('box-a'), send('laptop', 'box-a'))).toBeNull()
   boxOffline = true
   // Pinned to A, the body asking for B: A is woken and kept, B is ignored.
-  expect(await queueForOfflineBox(offline('box-a'), send('pinned', 'box-a'))).toBeNull()
+  expect(await queueForOfflineComputer(offline('box-a'), send('pinned', 'box-a'))).toBeNull()
   expect(woken).toEqual(['box-a', 'box-a'])
   expect(stamped).toEqual([])
   // An unpinned conversation keeps the Box chosen here for the queue to start it on.
-  expect(await queueForOfflineBox(offline('box-a'), send('unpinned'))).toBeNull()
+  expect(await queueForOfflineComputer(offline('box-a'), send('unpinned'))).toBeNull()
   expect(stamped).toEqual(['box-a'])
   expect((await listPendingUserMessages(OWNER, SESSION)).map((item) => item.id)).toEqual([
+    'laptop',
     'pinned',
     'unpinned',
   ])
@@ -533,6 +533,23 @@ test('an ordinary duplicate persisted input still releases its claim without lau
   })
   expect(released).toBe(1)
   expect(historyReads).toBe(0)
+})
+
+test('a queued phone message keeps that its sender draws the secure input card', () => {
+  const c = { req: { header: () => {} } } as unknown as Parameters<typeof queuedChatContext>[0]
+  const phone = { clientCapabilities: { localTools: false, secretCard: true } }
+
+  expect(queuedChatContext(c, 'en', phone, undefined)).toMatchObject({
+    localTools: false,
+    secretCard: true,
+  })
+  expect(queuedChatContext(c, 'en', {}, undefined)).not.toHaveProperty('secretCard')
+  const chat = { streamId: 'stream-p', message: message('queued-phone'), locale: 'en' }
+
+  expect(
+    queuedChatBody('conv-1', 'team-1', { ...chat, localTools: false, secretCard: true })
+      .clientCapabilities,
+  ).toEqual({ localTools: false, secretCard: true })
 })
 
 test('a queued answer keeps the question it names and is admitted naming it', () => {

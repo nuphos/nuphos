@@ -36,6 +36,24 @@ preserve the visible row; sends return to the end, above the composer. Dragging 
 before a fresh cell is measured. The existing SwiftUI transcript remains the
 fallback on other platforms.
 
+## Translations
+
+The app follows the system language, using the seven languages Desktop ships (`zh-Hant`, `zh-Hans`, `ja`, `ko`, `th`, `id`, `es`) with English as the fallback. Write user-facing text as a `Text`/`Button` literal, `LocalizedStringKey` or `String(localized:)`; a plain `String` is never translated.
+
+After adding or changing a string, build the app and sync the catalog, then fill what Desktop already translates:
+
+```sh
+xcodebuild -project nuphos-ios.xcodeproj -scheme nuphos-ios -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+bash tests/sync-strings.sh build
+node ../../scripts/fill-mobile-locales.mjs ios
+```
+
+Commit `Shared/Localizable.xcstrings` with the change: CI fails when the catalog does not match the code, and `tests/run.sh` fails when a string is missing any of the languages. Mark text that must stay as written, such as a format or an example value, as not translatable in the catalog.
+
+If you cannot write all seven languages, run the fill script for what Desktop already has, add the rest in English for now, and ask for translations in the pull request; a follow-up commit on the same branch fills them before it merges.
+
+`Shared/Localizable.xcstrings` is shared by the app, the share extension and the widgets, since all three include the `Shared` folder. Legal and consent text, such as the AI consent, account deletion and privacy prompt explanations, stays in English until a native speaker reviews its translations (#3031). Mark it with `comment: "Legal text"` in code (or in the `InfoPlist.xcstrings` entry) and `shouldTranslate: false` in the catalog; `tests/run.sh` fails if such a string gets a translation. After the review, add the translations and change the comment to `"Legal text. Reviewed translations"`.
+
 ## Run on a device
 
 ```sh

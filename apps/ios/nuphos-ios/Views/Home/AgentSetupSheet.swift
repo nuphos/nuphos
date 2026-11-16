@@ -43,6 +43,7 @@ struct AgentSetupView: View {
     private static let providers: [(RuntimeInstance.Provider, vendor: String)] = [
         (.claudeCode, "Anthropic"), (.codex, "OpenAI"), (.grok, "xAI"), (.antigravity, "Google"), (.opencode, "OpenCode"),
         (.hermes, "Nous Research"),
+        (.dsh, "DeepSeek"),
     ]
 
     private var connected: Bool { login?.state == "connected" }
@@ -224,7 +225,7 @@ struct AgentSetupView: View {
                     .disabled(busy)
                 }
             } header: {
-                Text(step.message ?? "Choose")
+                Text(step.message ?? String(localized: "Choose"))
             }
         } else if step.kind == "input" {
             Section {
@@ -289,14 +290,14 @@ struct AgentSetupView: View {
     }
 
     private func headline(_ runtime: RuntimeInstance) -> String {
-        if agentStarting { return "A new runtime takes a moment to start." }
-        guard let login else { return "Use your own \(account(runtime.provider)) account. Your plan's usage limits apply." }
+        if agentStarting { return String(localized: "A new runtime takes a moment to start.") }
+        guard let login else { return String(localized: "Use your own \(account(runtime.provider)) account. Your plan's usage limits apply.") }
         switch login.state {
-        case "connected": return "\(runtime.label) is ready to use."
+        case "connected": return String(localized: "\(runtime.label) is ready to use.")
         case "starting", "awaiting_authorization":
-            if login.step != nil, login.url == nil { return "Choose how to sign in, then follow the steps." }
-            return login.url == nil ? "Getting your sign-in page ready." : "Sign in with your \(account(runtime.provider)) account, then come back here."
-        default: return login.error ?? "Sign-in didn't finish."
+            if login.step != nil, login.url == nil { return String(localized: "Choose how to sign in, then follow the steps.") }
+            return login.url == nil ? String(localized: "Getting your sign-in page ready.") : String(localized: "Sign in with your \(account(runtime.provider)) account, then come back here.")
+        default: return login.error ?? String(localized: "Sign-in didn't finish.")
         }
     }
 

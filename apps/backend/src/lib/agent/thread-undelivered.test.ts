@@ -4,6 +4,7 @@ import { AppError } from '@/lib/errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useBoxWake } from '@/lib/test/doubles/box-wake'
 import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-route'
+import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
 
 import { startConversationTurn } from './conversation-turn'
@@ -14,6 +15,7 @@ import {
   enqueuePendingUserMessage,
   hasPendingUserMessages,
 } from './pending-messages'
+import { listPendingUserMessages } from './pending-queue'
 import { startQueuedTurn } from './queued-turn'
 import { startThreadTurn } from './thread-bridge'
 import { installTurnRunner, resetTurnRunner } from './turn-runner'
@@ -21,6 +23,7 @@ import { installTurnRunner, resetTurnRunner } from './turn-runner'
 import type { AgentConversation, AgentCredentialAccess } from './db'
 import type { ThreadTurn } from './thread-bridge'
 import type { TurnRunner } from './turn-runner'
+import type * as dbActual from '@/lib/db'
 
 // Every accepted thread message either runs as a turn of its target or its
 // sender hears, once, that it did not. A target that cannot run at all is an
@@ -64,6 +67,18 @@ useConversationChatRoute({
   },
 })
 useBoxWake({ wakeOfflineBox: async () => boxResuming })
+// The questions put back on a conversation's open list.
+const reopened: { id: string; body: string }[] = []
+
+useDb({
+  db: (() => ({
+    collection: () => ({
+      updateOne: async (_filter: unknown, update: { $push: { inputRequests: { $each: [] } } }) => {
+        reopened.push(...update.$push.inputRequests.$each)
+      },
+    }),
+  })) as unknown as typeof dbActual.db,
+})
 useAgentDb({
   agentMessages: () => ({ findOne: async () => null }),
   getConversationBySessionId: async (id) =>
@@ -110,6 +125,7 @@ beforeEach(() => {
   boxResuming = false
   claims = 0
   runs.length = 0
+  reopened.length = 0
   installTurnRunner({
     claimAgentRunOrEnqueue: async () => {
       claims++
@@ -212,6 +228,53 @@ test('a queued message whose turn fails tells its sender', async () => {
   expect(noticeText()).toContain('did not run: Thread run failed')
 })
 
+// A computer's tunnel reconnect is a few seconds offline; the queue waits it out.
+function offlineUntil(online: () => boolean) {
+  installTurnRunner({
+    claimAgentRunForSession: async () => () => {},
+    hasActiveAgentRunForSession: async () => false,
+    claimAgentRunOrEnqueue: async () => ({ mode: 'run', carried: [], release: () => {} }),
+    runAgentForTrigger: async (args) => {
+      if (args.sessionId === 'target' && !online())
+        throw new AppError(409, 'runtime_offline', 'The computer running this agent is offline.')
+      runs.push(args)
+
+      return { status: 'completed' }
+    },
+  })
+}
+
+test('a queued message waits out a reconnecting computer, then runs', async () => {
+  let online = false
+
+  offlineUntil(() => online)
+  await enqueuePendingUserMessage('owner', 'target', threadMessage())
+
+  await startQueuedTurn('owner', 'target')
+  await startQueuedTurn('owner', 'target')
+  const [waiting] = await listPendingUserMessages('owner', 'target')
+
+  expect(waiting?.offlineSince).toBeString()
+  online = true
+  await startQueuedTurn('owner', 'target')
+  await settle()
+  expect(runs.map((run) => run.sessionId)).toEqual(['target'])
+  expect(await hasPendingUserMessages('owner', 'target')).toBe(false)
+})
+
+test('a computer offline past the grace fails the queued message and tells its sender', async () => {
+  offlineUntil(() => false)
+  await enqueuePendingUserMessage('owner', 'target', {
+    ...threadMessage(),
+    offlineSince: new Date(Date.now() - 61_000).toISOString(),
+  })
+
+  await expect(startQueuedTurn('owner', 'target')).rejects.toThrow('offline')
+  await settle()
+  expect(await hasPendingUserMessages('owner', 'target')).toBe(false)
+  expect(noticeText()).toContain('did not run: The computer running this agent is offline.')
+})
+
 test('an archived sender is still told, and its notice turn restores it', async () => {
   installTurnRunner({
     claimAgentRunForSession: async () => () => {},
@@ -298,4 +361,72 @@ test('a notice that does not run is not reported back', async () => {
   await expect(run).rejects.toThrow('Thread run failed')
   await settle()
   expect(runs.map((entry) => entry.sessionId)).toEqual(['target'])
+})
+
+test('an answer its agent never gets reopens the question, saying why', async () => {
+  offlineUntil(() => false)
+  await enqueuePendingUserMessage('owner', 'target', {
+    ...buildPendingUserMessage({
+      renderedText: 'Your question (requestId q1) was answered from the Inbox.',
+      source: 'agent.resource',
+      actorUserId: 'owner',
+      metadata: systemSender('nuphos:decision', 'Nuphos'),
+    }),
+    offlineSince: new Date(Date.now() - 61_000).toISOString(),
+    answers: {
+      id: 'q1',
+      category: 'preference',
+      question: 'Which regions?',
+      // A second failed answer replaces the first one's line.
+      body: '> Your earlier answer did not run: Sign in first.\n\nPick one.',
+      status: 'open',
+      askedAt: new Date(),
+    },
+  })
+
+  await expect(startQueuedTurn('owner', 'target')).rejects.toThrow('offline')
+  expect(reopened).toHaveLength(1)
+  expect(reopened[0]).toMatchObject({ id: 'q1', question: 'Which regions?', status: 'open' })
+  expect(reopened[0]?.body).toBe(
+    '> Your earlier answer did not run: The computer running this agent is offline.\n\nPick one.',
+  )
+  // Nuphos's own notice has no sender to tell.
+  await settle()
+  expect(notices()).toHaveLength(0)
+})
+
+test('an answer whose turn starts on a disabled agent reopens the question, saying why', async () => {
+  const retired = 'Nuphos-hosted agents have been retired. Move this conversation to continue.'
+
+  installTurnRunner({
+    claimAgentRunOrEnqueue: async () => ({ mode: 'run', carried: [], release: () => {} }),
+    runAgentForTrigger: async () => {
+      throw new AppError(409, 'runtime_disabled', retired)
+    },
+  })
+
+  // The answer's turn starts at once, then finds its agent disabled.
+  const { status, run } = await startConversationTurn(
+    {
+      ...data,
+      messageId: 'answer',
+      answers: {
+        id: 'q2',
+        category: 'preference',
+        question: 'Which regions?',
+        status: 'open',
+        askedAt: new Date(),
+      },
+    },
+    { ...base, sessionId: 'target' },
+    'Your question (requestId q2) was answered from the Inbox.',
+    'agent.resource',
+    systemSender('nuphos:decision', 'Nuphos'),
+  )
+
+  expect(status).toBe('started')
+  await expect(run).rejects.toThrow(retired)
+  expect(reopened).toHaveLength(1)
+  expect(reopened[0]).toMatchObject({ id: 'q2', status: 'open' })
+  expect(reopened[0]?.body).toBe(`> Your earlier answer did not run: ${retired}\n\n`)
 })

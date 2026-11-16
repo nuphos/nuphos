@@ -24,6 +24,7 @@ import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
 import { openLocalDesktop } from '@/lib/agent/devices/local-runtime/instances'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { DeviceRuntimeSocket } from '@/lib/agent/devices/local-runtime/socket'
+import { getAgentDevice } from '@/lib/agent/devices/store'
 import { AppError } from '@/lib/errors'
 
 import { clientInputFilter } from './rfb-client-input'
@@ -68,19 +69,13 @@ export function runtimeDesktopSessionId({ userId, deviceId }: LocalRuntimeRef): 
   return `runtime:${localRuntimeId({ userId, deviceId, provider: 'claude-code' })}`
 }
 
-/** The runtime's computer, for one who may use it, with the desktops it reports; none where it has no pool. */
+/** The computer's desktops as its host reports them; none where it has no pool. */
 async function desktopHost(
-  teamId: string,
-  userId: string,
-  runtimeId: string,
+  ref: LocalRuntimeRef,
   sessionId: string,
   presence: ReturnType<typeof runtimePresenceStore>,
 ) {
-  const ref = parseLocalRuntimeId(runtimeId)
-
-  if (!ref || sessionId.length > MAX_SESSION_ID) throw notFound()
-  // The same access the runtime terminal requires; a local runtime admits only its owner.
-  await requireRuntimeInstance(teamId, runtimeId, userId)
+  if (sessionId.length > MAX_SESSION_ID) throw notFound()
   const status = (await presence.get(ref.userId, ref.deviceId))?.status
 
   return { ref, sessionId, desktops: status?.desktops, canOpen: status?.desktopOpen === true }
@@ -98,15 +93,24 @@ async function ownedDesktopHost(
 
     // Only the computer's own person; a team Box's other members open theirs through a conversation.
     if (ref?.userId !== userId) throw notFound()
+    // The computer itself, with or without an agent on it; a Box only in its own team.
+    const device = await getAgentDevice(userId, ref.deviceId)
 
-    return desktopHost(teamId, userId, owner.runtimeId, runtimeDesktopSessionId(ref), presence)
+    if (!device || (device.box && device.box.teamId !== teamId)) throw notFound()
+
+    return desktopHost(ref, runtimeDesktopSessionId(ref), presence)
   }
   const conversation = await getReadableConversation(owner, userId, teamId)
 
   if (!conversation?.runtimeId || conversation.userId !== userId || conversation.teamId !== teamId)
     throw notFound()
+  const ref = parseLocalRuntimeId(conversation.runtimeId)
 
-  return desktopHost(teamId, userId, conversation.runtimeId, owner, presence)
+  if (!ref) throw notFound()
+  // The same access the runtime terminal requires; a local runtime admits only its owner.
+  await requireRuntimeInstance(teamId, conversation.runtimeId, userId)
+
+  return desktopHost(ref, owner, presence)
 }
 
 /** The owner, for a display the host reports as held by this conversation or computer. */
@@ -137,18 +141,18 @@ export async function openRuntimeDesktop(
   owner: DesktopOwner,
   deps: { presence?: ReturnType<typeof runtimePresenceStore>; open?: typeof openLocalDesktop } = {},
 ): Promise<{ display: number }> {
-  const {
-    ref,
-    sessionId,
-    desktops = [],
-    canOpen,
-  } = await ownedDesktopHost(teamId, userId, owner, deps.presence ?? runtimePresenceStore())
+  const { ref, sessionId, canOpen } = await ownedDesktopHost(
+    teamId,
+    userId,
+    owner,
+    deps.presence ?? runtimePresenceStore(),
+  )
 
   // Only a host whose bundle opens desktops on request says so.
   if (!canOpen) throw notFound()
-  const held = desktops.find((desktop) => desktop.sessionId === sessionId)
-
-  if (held) return { display: held.display }
+  // Always the host, even for a display it reports held: its desktop may have
+  // exited since (a Mac's screen host leaves a minute after its last viewer,
+  // while the lock stays for three), and opening brings it back.
   const target = { userId: ref.userId, actorId: userId, deviceId: ref.deviceId, teamId }
 
   return { display: await (deps.open ?? openLocalDesktop)(target, sessionId) }

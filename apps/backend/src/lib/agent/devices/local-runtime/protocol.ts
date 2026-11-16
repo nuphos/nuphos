@@ -22,6 +22,9 @@ export const LOCAL_AGENT_PROVIDERS = [
   'grok',
   'antigravity',
   'opencode',
+  'dsh',
+  'hermes',
+  'pi',
 ] as const
 
 export type LocalAgentProvider = (typeof LOCAL_AGENT_PROVIDERS)[number]
@@ -166,6 +169,15 @@ export const localRuntimeStatusSchema = z.object({
   desktopOpen: z.boolean().optional(),
   /** The `nuphos` CLI running this host; a Box updates by installing a newer one. */
   cliVersion: z.string().max(50).optional(),
+  /** The Nuphos Desktop running this host, and an update it found: downloading, or staged for
+   *  the restart its owner may ask for from another computer (`method: 'update'`). Never fatal. */
+  app: z
+    .object({
+      version: z.string().max(50),
+      update: z.object({ version: z.string().max(50), ready: z.boolean() }).optional(),
+    })
+    .optional()
+    .catch(undefined),
   /** Desktops this computer runs for conversations (a Box: one X display per session; a Mac: its screen, :0). */
   desktops: z
     .array(
@@ -182,6 +194,9 @@ export const localRuntimeStatusSchema = z.object({
     grok: localAgentStatusSchema.optional(),
     antigravity: localAgentStatusSchema.optional(),
     opencode: localAgentStatusSchema.optional(),
+    dsh: localAgentStatusSchema.optional(),
+    hermes: localAgentStatusSchema.optional(),
+    pi: localAgentStatusSchema.optional(),
   }),
   backendUrl: z.string().url().max(500).optional(),
 })

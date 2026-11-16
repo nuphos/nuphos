@@ -24,7 +24,9 @@ useModels({
       expiresAt: new Date(Date.now() + 60000),
     }),
     updateOne: async () => ({ modifiedCount: 1 }),
+    insertOne: async () => ({}),
   }),
+  fileTransferAdmissions: () => ({ updateOne: async () => ({ modifiedCount: 1 }) }),
   fileTransferItems: () => ({
     find: () => ({
       toArray: async () => [
@@ -46,10 +48,15 @@ useModels({
 
       return { modifiedCount: 1 }
     },
+    insertMany: async () => ({}),
   }),
 })
 useStorage({
   getStorageProvider: () => ({
+    id: 'test',
+    bucket: 'test',
+    region: 'test',
+    presignUpload: async () => ({ url: 'https://upload.test', expiresAt: new Date() }),
     headObject: async () => ({ size: actualSize, contentType: null }),
     deleteObject: async () => {
       if (deleteFails) throw new Error('delete unavailable')
@@ -90,4 +97,21 @@ test('failed deletion never marks a mismatched object ready', async () => {
     real.finalizeTransfer({ teamId, userId: 'user' }, groupId.toHexString()),
   ).rejects.toThrow('delete unavailable')
   expect(readyWrites).toBe(0)
+})
+
+test('group ids carry no timestamp or per-process prefix a neighbour could reveal', async () => {
+  const create = async () =>
+    new ObjectId(
+      (
+        await real.createTransfer({ teamId, userId: 'user' }, 'download', [
+          { fileName: 'a.txt', size: 1 },
+        ])
+      ).groupId,
+    )
+  const [a, b] = [await create(), await create()]
+  const hex = (id: ObjectId) => id.toHexString()
+
+  // A default ObjectId shares its first 18 hex chars (timestamp + process value)
+  // with every id minted in the same second by the same process.
+  expect(hex(a).slice(0, 18)).not.toBe(hex(b).slice(0, 18))
 })

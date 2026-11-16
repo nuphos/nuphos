@@ -18,8 +18,8 @@ struct ConversationRow: View {
 
     private func indicator(for row: AgentConversation) -> ConversationIndicator {
         let unread = store.unread.contains(team: team, session: row.sessionId)
-        guard row.isNativeRuntime else { return row.activeRun != nil ? .turn : unread ? .unread : .none }
-        return ConversationIndicator(observations.value(team: team, session: row.sessionId), unread: unread)
+        guard row.isNativeRuntime else { return row.isWaiting ? .waiting : row.activeRun != nil ? .turn : unread ? .unread : .none }
+        return ConversationIndicator(observations.value(team: team, session: row.sessionId), unread: unread, waiting: row.isWaiting)
     }
 
     var body: some View {
@@ -45,6 +45,8 @@ struct ConversationRow: View {
             Spacer(minLength: 0)
 
             switch shownIndicator {
+            case .waiting:
+                Circle().fill(Theme.attention).frame(width: 7, height: 7).accessibilityLabel("Needs your input")
             case .turn:
                 ProgressView()
                     .controlSize(.small)
@@ -64,7 +66,7 @@ struct ConversationRow: View {
             } else if observation?.paused == true {
                 Image(systemName: "exclamationmark.circle")
                     .foregroundStyle(Theme.muted)
-                    .accessibilityLabel(observation?.status ?? "Automatic continuation paused")
+                    .accessibilityLabel(observation?.status ?? String(localized: "Automatic continuation paused"))
             }
         }
         .padding(.vertical, 6)
@@ -73,7 +75,7 @@ struct ConversationRow: View {
 
     private var meta: String {
         let status = [.turn, .background].contains(indicator) || observation?.paused == true
-        var parts = [status ? (observation?.status ?? "Working…") : HistoryTime.format(conversation.lastActiveAt)]
+        var parts = [status ? (observation?.status ?? String(localized: "Working…")) : HistoryTime.format(conversation.lastActiveAt)]
         if let origin = conversation.activitySource?.origin, origin != "nuphos", origin != "unknown" {
             parts.append(origin.capitalized)
         }

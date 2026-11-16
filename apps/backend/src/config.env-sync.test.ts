@@ -88,9 +88,6 @@ const SCRIPTS_BYPASS_ALLOWLIST = new Set([
   'scripts/agent-drive.ts',
   'scripts/test-deploy-flow.ts',
   'scripts/xtrace-webhook.ts',
-  // Isolated process E2E: binary overrides and a sanitized child environment.
-  'scripts/webhook-routing-e2e/run.ts',
-  'scripts/webhook-routing-e2e/processes.ts',
 ])
 
 /**

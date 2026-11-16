@@ -10,7 +10,7 @@ import { sessionReleased } from '@/lib/agent/session-released'
 import { AppError } from '@/lib/errors'
 import { logEvent } from '@/lib/observability'
 
-import { queueForOfflineBox } from './session-queue-offline'
+import { queueForOfflineComputer } from './session-queue-offline'
 import { admitQueueableChat, messageText } from './session-queue-turn'
 
 import type { SignInWait } from './session-queue-sign-in'
@@ -19,7 +19,7 @@ import type { ShareApproval } from '@/lib/agent/devices/local-share-store'
 
 /** What the sender is told while the message waits. */
 export type ShareApprovalWait = { waiting: 'share_approval'; message: string }
-/** A send the queue holds: for an offline Box (null), an owner's approval, or a sign-in. */
+/** A send the queue holds: for an offline computer (null), an owner's approval, or a sign-in. */
 export type QueuedSend = ShareApprovalWait | SignInWait | null
 
 export function isQueued<T extends object>(runtime: T | QueuedSend): runtime is QueuedSend {
@@ -44,7 +44,7 @@ type WaitingChat = Omit<QueueableChat, 'snapshot' | 'runtimeOffline'> & {
 
 /** A send whose runtime cannot take it yet waits in the queue; anything else is rethrown. */
 export function queueForWaitingRuntime(error: unknown, args: WaitingChat): Promise<QueuedSend> {
-  return queueForOfflineBox(error, args).catch((refused: unknown) =>
+  return queueForOfflineComputer(error, args).catch((refused: unknown) =>
     queueForShareApproval(refused, args),
   )
 }

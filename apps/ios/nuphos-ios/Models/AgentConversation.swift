@@ -34,7 +34,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         var displayName: String {
             if let name, !name.isEmpty { return name }
             if let email, !email.isEmpty { return email }
-            return "User"
+            return String(localized: "User")
         }
     }
 
@@ -75,6 +75,8 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         /// An integration question's providers (any access answers it), or the exact credentials it names.
         var providers: [String]? = nil
         var credentials: [CredentialRef]? = nil
+        /// The secret a credential question asks for: answered with the secure input card.
+        var secretName: String? = nil
         /// Any number of `options` may be picked.
         var multiSelect: Bool? = nil
         /// Related questions answered together; `question` is their headline.
@@ -110,7 +112,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     let canManage: Bool
     let tokenUsage: TokenUsage?
     let activitySource: ActivitySource?
-    /// `nuphos` | `claude-code` | `codex` | `grok` | `antigravity` | `opencode`.
+    /// `nuphos` | `claude-code` | `codex` | `grok` | `antigravity` | `opencode` | `dsh`.
     let agentRuntime: String?
     let runtimeId: String?
     let runtimeLabel: String?
@@ -131,6 +133,8 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     var group: Bool?
     /// A chat's icon: up to two members other than the viewer, whoever spoke last first.
     var faces: [ChatFace]?
+    /// A chat's agent members, all of them; a Bot in any chat needs no row of its own.
+    var agentSessionIds: [String]?
     /// A Bot's face, e.g. `05-rembrandt`; nil for a Task (#1691).
     var avatar: String?
     /// Absent when the chat has no post yet, or from an older backend.
@@ -165,13 +169,16 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
 
     var isNativeRuntime: Bool { agentRuntime != nil && agentRuntime != "nuphos" }
 
-    /// `title || firstMessage || 'Untitled chat'` — titles are often empty on
-    /// fresh conversations.
+    /// `title || firstMessage || 'New Group Chat'` for a chat, `'Untitled task'`
+    /// for a Task — titles are often empty on fresh conversations.
     var displayTitle: String {
         if !title.isEmpty { return title }
         if !firstMessage.isEmpty { return firstMessage }
-        return "Untitled task"
+        return isChannel ? String(localized: "New Group Chat") : String(localized: "Untitled task")
     }
+
+    /// An open question waits on the viewer.
+    var isWaiting: Bool { inputRequests?.isEmpty == false }
 
     var ownsChat: Bool { isOwner == true && readOnly != true }
 
@@ -202,6 +209,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         kind = try? c.decodeIfPresent(String.self, forKey: .kind)
         group = try? c.decodeIfPresent(Bool.self, forKey: .group)
         faces = try? c.decodeIfPresent([ChatFace].self, forKey: .faces)
+        agentSessionIds = try? c.decodeIfPresent([String].self, forKey: .agentSessionIds)
         avatar = try? c.decodeIfPresent(String.self, forKey: .avatar)
         lastMessage = try? c.decodeIfPresent(LastMessage.self, forKey: .lastMessage)
         inputRequests = try? c.decodeIfPresent([InputRequest].self, forKey: .inputRequests)
@@ -362,6 +370,9 @@ struct AgentConversationDetail: Decodable, Sendable {
     let title: String?
     /// The conversation's stored IAM choice (`AgentCredentialAccess`).
     let credentialAccess: JSONValue?
+    /// A Task under a Bot (`credentialSource`): it uses that Bot's credentials,
+    /// computers and permission mode, and has none of its own to change.
+    let followsBot: Bool
     let agentRuntime: String?
     let runtimeId: String?
     let runtimeLabel: String?
@@ -402,7 +413,7 @@ struct AgentConversationDetail: Decodable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case faces, group, kind, messageCount, transcriptUpdatedAt, isOwner, canManage, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, watching, timelineEvents, promptSuggestion
+        case faces, group, kind, messageCount, transcriptUpdatedAt, isOwner, canManage, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, credentialSource, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, watching, timelineEvents, promptSuggestion
     }
 
     init(from decoder: Decoder) throws {
@@ -421,6 +432,7 @@ struct AgentConversationDetail: Decodable, Sendable {
         readOnly = try c.decodeIfPresent(Bool.self, forKey: .readOnly)
         title = try c.decodeIfPresent(String.self, forKey: .title)
         credentialAccess = try? c.decodeIfPresent(JSONValue.self, forKey: .credentialAccess)
+        followsBot = c.contains(.credentialSource)
         agentRuntime = try c.decodeIfPresent(String.self, forKey: .agentRuntime)
         runtimeId = try c.decodeIfPresent(String.self, forKey: .runtimeId)
         runtimeLabel = try c.decodeIfPresent(String.self, forKey: .runtimeLabel)

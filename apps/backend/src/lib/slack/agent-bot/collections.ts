@@ -8,6 +8,9 @@ export type SlackChannelMapping = {
   slackChannelId: string
   teamId: string
   agentUserId?: string
+  // Opt-in: the conversation a top-level message in this channel wakes, with no
+  // mention needed. Unset for every channel unless an admin sets it.
+  wakeSessionId?: string
   enabled: boolean
   createdBy: string
   createdAt: Date

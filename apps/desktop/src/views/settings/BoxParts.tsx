@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 import { Plus } from 'lucide-react'
 
+import { LOCAL_AGENT_PROVIDERS } from '../../api/local-agent-providers'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { relativeTimeFromNow } from '../../components/agent/panel/textUtils'
 import { Button } from '../../components/ui/button'
@@ -10,6 +11,7 @@ import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { agentName, agentOffline, newAgentAction } from './agentPresentation'
 import { accessHint, machineLine, seenFrom } from './boxPresentation'
+import { PreviewTag } from './PreviewTag'
 import { STATUS_DOT } from './runtimePresentation'
 
 import type { AgentDevice } from '../../api'
@@ -67,9 +69,19 @@ export function LiveDot() {
 
 /** One short line after the status: the machine's kind, and when it was last seen if it is away. For a manager the
  * tooltip adds its UID and where it last reported from; Copy UID lives in its ⋯ menu. */
-export function MachineLine({ device, dim }: { device: AgentDevice; dim: boolean }) {
+/** `live`: the status beside it is this computer's own, so the backend's last sighting is left out. */
+export function MachineLine({
+  device,
+  dim,
+  live = false,
+}: {
+  device: AgentDevice
+  dim: boolean
+  live?: boolean
+}) {
   const seen = seenFrom(device)
-  const away = device.lastSeenAt && !device.online ? relativeTimeFromNow(device.lastSeenAt) : null
+  const away =
+    !live && device.lastSeenAt && !device.online ? relativeTimeFromNow(device.lastSeenAt) : null
   const line = away ? `${machineLine(device)} · ${away}` : machineLine(device)
   const details =
     device.access === 'manage'
@@ -90,8 +102,6 @@ export function MachineLine({ device, dim }: { device: AgentDevice; dim: boolean
     </span>
   )
 }
-
-const PROVIDERS: LocalAgentProvider[] = ['claude-code', 'codex', 'grok', 'antigravity', 'opencode']
 
 /** Add an agent to a machine; an older host can only sign in the agents it already has. */
 export function NewAgentMenu({
@@ -118,9 +128,9 @@ export function NewAgentMenu({
         <Plus className="h-3.5 w-3.5" />
       </MenuTrigger>
       <MenuContent align="start">
-        {PROVIDERS.map((provider) => {
+        {LOCAL_AGENT_PROVIDERS.map((provider) => {
           const action = newAgentAction(agents, provider)
-          const label = AGENT_PROVIDER[provider].label
+          const { label, preview } = AGENT_PROVIDER[provider]
 
           return (
             <MenuItem
@@ -134,6 +144,7 @@ export function NewAgentMenu({
                 : action && 'create' in action
                   ? label
                   : t('Sign in to {provider}', { provider: label })}
+              {preview && <PreviewTag />}
             </MenuItem>
           )
         })}

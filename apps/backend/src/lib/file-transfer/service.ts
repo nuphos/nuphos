@@ -11,6 +11,8 @@
 // sandbox or its lease. TTL lives on the records (Mongo) + the bucket
 // lifecycle rule.
 
+import { randomBytes } from 'node:crypto'
+
 import { ObjectId } from 'mongodb'
 
 import { admitFileTransfer } from './admission'
@@ -54,7 +56,10 @@ export async function createTransfer(
 
   const now = new Date()
   const expiresAt = new Date(now.getTime() + config.fileTransfer.ttlSeconds * 1000)
-  const groupId = new ObjectId()
+  // Holding the group id is what lets a teammate read the group, so it must not
+  // be guessable: a default ObjectId is a timestamp, a per-process constant and
+  // a counter, which a neighbouring id gives away.
+  const groupId = new ObjectId(randomBytes(12))
 
   const group: FileTransferGroup = {
     _id: groupId,

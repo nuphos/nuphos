@@ -36,7 +36,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
     title: t('App'),
     entries: [
-      { label: t('Search agents and people'), combos: ['mod+k'] },
+      { label: t('Search Bots, tasks and people'), combos: ['mod+k'] },
       { label: t('Switch Bot or task'), combos: ['alt+up', 'alt+down'] },
       { label: t('Agent needing you'), combos: ['alt+shift+up', 'alt+shift+down'] },
       {
@@ -45,6 +45,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       },
       { label: t('User settings'), combos: ['mod+,'] },
       { label: t('Team settings'), combos: ['mod+shift+,'] },
+      { label: t('Computers & runtimes'), combos: ['mod+shift+e'] },
       { label: t('Toggle sidebar'), combos: ['mod+b'] },
       { label: t('Toggle workspace panel'), combos: ['mod+j'] },
       { label: t('Next / previous area'), combos: ['F6', 'shift+F6'] },

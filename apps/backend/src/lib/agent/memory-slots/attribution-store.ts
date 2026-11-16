@@ -4,6 +4,7 @@
 import { ObjectId } from 'mongodb'
 
 import { logError, logEvent } from '@/lib/observability'
+import { claimRun } from '@/lib/redis'
 
 import {
   agentMemories,
@@ -13,9 +14,10 @@ import {
 } from '../memory-native/store'
 
 import { attributionEvents, attributionScores } from './attribution-db'
-import { finalizeRetentionScores, foldRetentionRow, MIN_SCORE_TURNS } from './attribution-rollup'
+import { retentionScorePipeline } from './attribution-pipeline'
+import { MIN_SCORE_TURNS } from './attribution-rollup'
 
-import type { RetentionAccumulator } from './attribution-rollup'
+import type { MemoryRetentionScore } from './attribution-types'
 
 export {
   attributionEvents,
@@ -35,6 +37,7 @@ export { computeRetentionScores, computeTurnScorecard, MIN_SCORE_TURNS } from '.
 // read "does this memory actually help" as a number.
 
 const ROLLUP_WINDOW_DAYS = 90
+const SCORE_CHUNK = 500
 const ROLLUP_INTERVAL_MS = 60 * 60 * 1000
 
 /** lineage per memoryId, resolved AT ROLLUP/READ TIME (capture stores null by
@@ -61,56 +64,64 @@ export async function resolveLineages(memoryIds: string[]): Promise<Map<string, 
   return out
 }
 
-/** Full recompute over the trailing window; stale score docs (no window
- * activity) are dropped afterwards. Never cached on any provider doc.
- * Streams the window row-by-row: memory use is bounded by the pool size
- * (distinct lineages + their reach id sets), never by the row count. */
+/** Upserts one chunk of scores. Chunked so no single write serializes them all. */
+async function writeScores(scores: MemoryRetentionScore[]): Promise<void> {
+  await attributionScores().bulkWrite(
+    scores.map((s) => ({
+      updateOne: {
+        filter: { provider: s.provider, teamId: s.teamId, lineage: s.lineage },
+        update: { $set: s },
+        upsert: true,
+      },
+    })),
+    { ordered: false },
+  )
+}
+
+/** Full recompute over the trailing window. The database folds the rows into
+ * one score per lineage, so the backend only reads the scores and writes them
+ * back in chunks; it no longer decodes every row in the window, which held its
+ * event loop for most of a second. Stale score docs (no window activity) are
+ * dropped afterwards. */
 export async function rollupRetentionScores(now = new Date()): Promise<number> {
   const cutoff = new Date(now.getTime() - ROLLUP_WINDOW_DAYS * 24 * 60 * 60 * 1000)
   const filter = { provider: 'native', updatedAt: { $gte: cutoff } }
-  // Lineage resolution needs only the distinct memory ids — pool-sized, so
-  // distinct()'s 16MB result cap is far out of reach.
-  const memoryIds = await attributionEvents().distinct('memoryId', filter)
-  const lineages = await resolveLineages(memoryIds)
-  const lineageOf = (id: string) => lineages.get(id) ?? id
-  const groups = new Map<string, RetentionAccumulator>()
-  let rowCount = 0
-  const cursor = attributionEvents().find(filter, { projection: { 'signals.note': 0 } })
+  const cursor = attributionEvents().aggregate<MemoryRetentionScore>(
+    retentionScorePipeline(filter, teamMemories().collectionName, now),
+    { allowDiskUse: true, batchSize: SCORE_CHUNK },
+  )
+  let chunk: MemoryRetentionScore[] = []
+  let scores = 0
 
-  for await (const row of cursor) {
-    foldRetentionRow(groups, row, lineageOf)
-    rowCount += 1
+  for await (const score of cursor) {
+    chunk.push(score)
+    if (chunk.length < SCORE_CHUNK) continue
+    await writeScores(chunk)
+    scores += chunk.length
+    chunk = []
   }
-  const scores = finalizeRetentionScores(groups, now)
-
-  if (scores.length) {
-    await attributionScores().bulkWrite(
-      scores.map((s) => ({
-        updateOne: {
-          filter: { provider: s.provider, teamId: s.teamId, lineage: s.lineage },
-          update: { $set: s },
-          upsert: true,
-        },
-      })),
-      { ordered: false },
-    )
-  }
+  if (chunk.length) await writeScores(chunk)
+  scores += chunk.length
   await attributionScores().deleteMany({ provider: 'native', computedAt: { $lt: now } })
-  logEvent('info', 'memory.retention_rollup.completed', { scores: scores.length, rows: rowCount })
+  logEvent('info', 'memory.retention_rollup.completed', { scores })
 
-  return scores.length
+  return scores
 }
 
 let rollupWarmupTimer: ReturnType<typeof setTimeout> | undefined
 let rollupTimer: ReturnType<typeof setInterval> | undefined
 
-/** Plain hourly interval on EVERY replica — the recompute is an
- * idempotent full upsert, so concurrent runs waste work but never corrupt
- * data. Move to a BullMQ repeatable (seal-scheduler pattern) if replica
- * count × window size starts to matter. */
+/** The hourly recompute, on one replica: every replica ticks, the first to
+ * claim the hour runs it. The claim lasts a little under the interval, so the
+ * next hour can be claimed again. */
+export async function rollupOnOneReplica(): Promise<void> {
+  if (await claimRun('memory:retention-rollup', ROLLUP_INTERVAL_MS - 5 * 60 * 1000))
+    await rollupRetentionScores()
+}
+
 export function initMemoryRetentionRollup(): void {
   const run = () =>
-    void rollupRetentionScores().catch((err: unknown) => {
+    void rollupOnOneReplica().catch((err: unknown) => {
       logError('memory.retention_rollup_failed', err)
     })
 

@@ -41,6 +41,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
+import ai.nuphos.android.R
+import androidx.compose.ui.res.stringResource
 
 /** One file of a post, with the group it came from: each group keeps its own fresh links. */
 internal data class PostFile(val groupId: String, val file: TransferDownloadFile) {
@@ -247,9 +249,9 @@ internal fun ChannelFiles(
         // None could be read: the names the post carried, as iOS shows them.
         if (!loading && loaded.values.all { it.isEmpty() } && missing.isNotEmpty())
             groups.flatMap { it.names }.forEach { Chip(it, busy = false, enabled = false) {} }
-        if (openFailed) Text("Couldn't open the file. Try again.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-        if (failed) Text("Couldn't save the file. Try again.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-        if (!loading && missing.isNotEmpty()) TextButton(enabled = idle, onClick = { failed = false; retry++ }) { Text("Retry attachments") }
+        if (openFailed) Text(stringResource(R.string.chats_file_open_failed), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        if (failed) Text(stringResource(R.string.chats_file_save_failed), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        if (!loading && missing.isNotEmpty()) TextButton(enabled = idle, onClick = { failed = false; retry++ }) { Text(stringResource(R.string.chats_retry_attachments)) }
     }
     if (pager >= 0 && files.media.isNotEmpty()) {
         val media = files.media.map { it.key }
@@ -274,7 +276,7 @@ private fun LoneImage(file: PostFile, loader: MessageImageLoader, mine: Boolean,
     // The frame takes the image's shape, with its longer side at LONE, so there's no empty band around a wide one.
     Box(Modifier.widthIn(max = LONE), contentAlignment = if (mine) Alignment.CenterEnd else Alignment.CenterStart) {
         val open = Modifier.clip(shape).border(1.dp, MaterialTheme.colorScheme.surfaceContainerHigh, shape)
-            .clickable(onClickLabel = "Open ${file.file.fileName}", onClick = onOpen)
+            .clickable(onClickLabel = stringResource(R.string.chats_file_open, file.file.fileName), onClick = onOpen)
         when (val result = load) {
             is ImageLoad.Ready -> {
                 val ratio = result.bitmap.width.toFloat() / result.bitmap.height.coerceAtLeast(1)
@@ -294,7 +296,7 @@ private fun Tile(file: PostFile, loader: MessageImageLoader, frames: MessageImag
     val shape = RoundedCornerShape(12.dp)
     Box(Modifier.size(TILE).clip(shape).background(if (file.file.isVideo) Color.Black else MaterialTheme.colorScheme.surfaceContainerHigh)
         .border(1.dp, MaterialTheme.colorScheme.surfaceContainerHigh, shape)
-        .clickable(onClickLabel = "Open ${file.file.fileName}", onClick = onOpen)
+        .clickable(onClickLabel = stringResource(R.string.chats_file_open, file.file.fileName), onClick = onOpen)
         .semantics { contentDescription = file.file.fileName }, contentAlignment = Alignment.Center) {
         val load by imageLoad(if (file.file.isImage) file.key else file.key + FRAME, 256, if (file.file.isImage) loader else frames)
         (load as? ImageLoad.Ready)?.let { Image(it.bitmap, null, Modifier.fillMaxSize().testTag(if (file.file.isVideo) "video-frame" else "image-thumb"), contentScale = ContentScale.Crop) }
@@ -308,7 +310,7 @@ private fun Tile(file: PostFile, loader: MessageImageLoader, frames: MessageImag
 @Composable
 private fun Chip(name: String, busy: Boolean, enabled: Boolean, onClick: () -> Unit) {
     Row(Modifier.clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)
-        .clickable(enabled = enabled, onClickLabel = "Save $name", onClick = onClick).padding(horizontal = 12.dp, vertical = 8.dp),
+        .clickable(enabled = enabled, onClickLabel = stringResource(R.string.chats_file_save, name), onClick = onClick).padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         if (busy) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
         else Icon(Icons.Outlined.InsertDriveFile, null, Modifier.size(18.dp))

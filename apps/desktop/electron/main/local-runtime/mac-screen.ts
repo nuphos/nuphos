@@ -180,13 +180,19 @@ export function macScreenDeps(
     owner: () => string | null
     /** The CLI's: the host asks for its own permissions (see startHost). */
     ownPermissions?: boolean
+    /** Asks whoever sits at this Mac for what the host needs; macOS shows no prompt the host itself asks for. */
+    ask?: () => void
   },
   instances?: (request: unknown) => Promise<unknown>,
 ) {
   return {
     instances: withDesktopRequests(
       (sessionId) =>
-        openMacScreen(pool, sessionId, () => startHost(pool, host.binary(), host.ownPermissions)),
+        openMacScreen(pool, sessionId, () => {
+          host.ask?.()
+
+          return startHost(pool, host.binary(), host.ownPermissions)
+        }),
       instances,
     ),
     connectVnc: () => new VncStream(pool, () => screenSocket(pool), host.handOver, host.owner),

@@ -172,6 +172,18 @@ export async function withRedis<T>(op: (client: Redis) => Promise<T>): Promise<T
   }
 }
 
+/**
+ * One run of a periodic job across every replica: true for the first replica to
+ * claim `key`, false for the others until the claim expires after `ttlMs`.
+ * Without Redis there is one process, so it always runs; a Redis error skips the
+ * run rather than letting every replica do it.
+ */
+export async function claimRun(key: string, ttlMs: number): Promise<boolean> {
+  if (!redisEnabled()) return true
+
+  return (await withRedis((c) => c.set(key, replicaId, 'PX', ttlMs, 'NX'))) === 'OK'
+}
+
 export async function pingRedis(): Promise<boolean> {
   const result = await withRedis((c) => c.ping())
 

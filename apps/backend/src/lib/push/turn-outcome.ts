@@ -135,13 +135,22 @@ export function classifyTurn(facts: TurnFacts): TurnOutcome | null {
 }
 
 export function plainText(input: string): string {
+  // A preview may end inside a code block or a link's URL; those go too.
   return input
-    .replaceAll(/```[\s\S]*?```/g, '(code)')
-    .replaceAll(/\]\([^()\s]*\)/g, '')
-    .replaceAll(/[*_~`[\]]+/g, '')
+    .replaceAll(/```[\s\S]*?(?:```|$)/g, '(code)')
+    .replaceAll(/\]\([^()\s]*(?:\)|$)/g, '')
+    .replaceAll(/[*~`[\]]+/g, '')
+    .replaceAll(/_+/g, keepInWord)
     .replaceAll(/^[ \t]*(?:#{1,6}|>|[-+]|\d+\.)[ \t]/gm, '')
     .replaceAll(/\s+/g, ' ')
     .trim()
+}
+
+const WORD = /[\p{L}\p{N}]/u
+
+/** An underscore inside a word marks no emphasis: NUPHOS_AGENT_HOME stays. */
+function keepInWord(run: string, at: number, text: string): string {
+  return WORD.test(text[at - 1] ?? '') && WORD.test(text[at + run.length] ?? '') ? run : ''
 }
 
 export function truncate(text: string, max = NOTIFICATION_MAX_CHARS): string {

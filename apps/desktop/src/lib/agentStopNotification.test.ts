@@ -169,6 +169,13 @@ test('long bodies are truncated without splitting an emoji', () => {
   assert.ok(body.endsWith('🚀…'))
 })
 
+test('stripMarkdown keeps underscores inside a word', () => {
+  assert.equal(
+    stripMarkdown('Set `NUPHOS_AGENT_HOME` to _your_ __home__ and **this**'),
+    'Set NUPHOS_AGENT_HOME to your home and this',
+  )
+})
+
 test('stripMarkdown collapses fenced code to a marker', () => {
   assert.equal(stripMarkdown('Run:\n```sh\nkubectl get pods\n```\ndone'), 'Run: [code] done')
 })

@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 
-import { githubReviewScope, assertGithubReviewRequest } from '@/lib/agent/github-review-scope'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { findGithubInstallation } from '@/lib/byos/account'
 import {
   GithubApiError,
@@ -17,7 +17,12 @@ import { getNuphosUserById } from '@/lib/identity'
 import { parseObjectId } from '@/lib/objectid'
 import { personalCredentialSubjectFor, personalGithubToken } from '@/lib/personal-credentials'
 import { zv } from '@/lib/validate'
-import { requireTeamRole, requireGithubInstallation } from '@/middleware/auth'
+import {
+  requireCanDisconnect,
+  requireGithubInstallation,
+  requireGithubMemberAccess,
+  requireTeamRole,
+} from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 import { registerGithubRepoDataRoutes } from '@/routes/github-installations/repo-data'
 import { handleGithubError, publicView } from '@/routes/github-installations/shared'
@@ -26,22 +31,7 @@ import type { TeamAuthVariables, GithubInstallationVariables } from '@/middlewar
 
 export { publicView } from '@/routes/github-installations/shared'
 
-export const githubInstallationsRoutes = new Hono<{
-  Variables: TeamAuthVariables & { githubRepositoryId?: number }
-}>()
-
-githubInstallationsRoutes.use('*', async (c, next) => {
-  const agent = (
-    c as unknown as { get(key: 'conversationAgent'): { sessionId: string } | undefined }
-  ).get('conversationAgent')
-  const scope = await githubReviewScope(agent?.sessionId, c.get('teamId'))
-
-  if (scope) {
-    assertGithubReviewRequest(scope, c.req.method, c.req.path)
-    c.set('githubRepositoryId', scope.repositoryId)
-  }
-  await next()
-})
+export const githubInstallationsRoutes = new Hono<{ Variables: TeamAuthVariables }>()
 
 const bindSchema = z.object({
   installationId: z.number().int().positive(),
@@ -110,6 +100,35 @@ const installationScoped = new Hono<{ Variables: GithubInstallationVariables }>(
 
 installationScoped.use('*', requireGithubInstallation())
 
+installationScoped.delete(
+  '/',
+  requireTeamRole('ADMINISTRATOR'),
+  requireCanDisconnect('githubBinding'),
+  async (c) => {
+    const teamId = parseObjectId(c.get('teamId'), 'teamId')
+    const installationId = c.get('githubInstallationId')
+
+    await teamByosBindings().updateOne(
+      { _id: teamId },
+      {
+        $pull: { githubInstallations: { installationId } },
+        $set: { updatedAt: new Date() },
+      },
+    )
+    invalidateInstallationToken(installationId)
+
+    return c.body(null, 204)
+  },
+)
+
+registerBindingAccessRoutes(installationScoped, 'githubInstallations', (c) =>
+  c.get('githubBinding'),
+)
+
+// Registered after the admin routes above, so it guards only the routes below,
+// which all act with an installation token.
+installationScoped.use('*', requireGithubMemberAccess())
+
 installationScoped.get('/', async (c) => {
   const installationId = c.get('githubInstallationId')
   const accountLogin = c.get('githubAccountLogin')
@@ -142,22 +161,6 @@ installationScoped.get('/', async (c) => {
   })
 })
 
-installationScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
-  const teamId = parseObjectId(c.get('teamId'), 'teamId')
-  const installationId = c.get('githubInstallationId')
-
-  await teamByosBindings().updateOne(
-    { _id: teamId },
-    {
-      $pull: { githubInstallations: { installationId } },
-      $set: { updatedAt: new Date() },
-    },
-  )
-  invalidateInstallationToken(installationId)
-
-  return c.body(null, 204)
-})
-
 installationScoped.get('/repositories', async (c) => {
   const installationId = c.get('githubInstallationId')
 
@@ -176,18 +179,14 @@ installationScoped.get('/token', requireTeamRole('ADMINISTRATOR', 'EDITOR'), asy
   try {
     // The turn acts as its member (the sender, or the session owner for
     // automated work) when they connected a Personal Credential, unless the
-    // agent asks for the team identity. A repository-scoped conversation keeps
-    // its narrower App token.
-    const repositoryId = c.get('githubRepositoryId')
+    // agent asks for the team identity.
     const subject = await personalCredentialSubjectFor(
       'github',
       c.req.header('Authorization'),
       c.req.query('identity'),
     )
-    const personal =
-      subject && !repositoryId ? await personalGithubToken(subject, installationId) : null
-    const { token, expiresAt } =
-      personal ?? (await getInstallationToken(installationId, repositoryId))
+    const personal = subject ? await personalGithubToken(subject, installationId) : null
+    const { token, expiresAt } = personal ?? (await getInstallationToken(installationId))
 
     // Conversation auth sets userId to the current actor, not the runtime owner.
     const actor = await getNuphosUserById(c.get('userId'))

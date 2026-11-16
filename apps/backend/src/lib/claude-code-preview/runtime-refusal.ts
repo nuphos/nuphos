@@ -18,3 +18,15 @@ export const queuedRefusal = (error: unknown, queued: unknown) =>
   queued && isRuntimeRefusal(error)
     ? new AppError(409, 'message_queued', 'Your message waits for the turn ahead')
     : error
+
+/** The message waits in the session queue: the expected outcome, not a failure. */
+export const isMessageQueued = (error: unknown) =>
+  error instanceof AppError && error.code === 'message_queued'
+
+/** The conversation's agent is not in the workspace any more: only moving it helps. */
+export const runtimeGone = () =>
+  new AppError(
+    404,
+    'runtime_not_found',
+    'This agent is no longer available in this workspace. Move this conversation to another agent to continue.',
+  )

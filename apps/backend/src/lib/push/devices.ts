@@ -17,6 +17,8 @@ export type PushDevice = {
   liveActivityStartedAt?: Date
   /** Conversations waiting for that card. */
   liveActivityPending?: PendingLiveActivityRow[]
+  /** False when this phone turned off alerts about computers going offline (iOS). */
+  computerAlerts?: boolean
   createdAt: Date
   updatedAt: Date
 }
@@ -32,6 +34,7 @@ export type PushDeviceRegistration = Pick<
   | 'bundleId'
   | 'projectId'
   | 'liveActivityStartToken'
+  | 'computerAlerts'
 >
 
 export type PushDeviceStore = {

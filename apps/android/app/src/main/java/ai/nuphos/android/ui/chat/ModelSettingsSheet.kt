@@ -1,5 +1,7 @@
 package ai.nuphos.android.ui.chat
 
+import ai.nuphos.android.R
+import androidx.compose.ui.res.stringResource
 import ai.nuphos.android.session.ModelSettingsStore
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -17,20 +19,20 @@ fun ModelSettingsSheet(store: ModelSettingsStore, onDismiss: () -> Unit) {
     LaunchedEffect(store) { store.refresh() }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Model", style = MaterialTheme.typography.headlineSmall)
+            Text(stringResource(R.string.composer_model), style = MaterialTheme.typography.headlineSmall)
             if (store.loading || store.saving) LinearProgressIndicator(Modifier.fillMaxWidth())
             if (store.pending.isNotEmpty()) {
-                Text(if (store.error != null) "Changes have not been applied." else if (store.isPreview) "Updating model settings…" else "Changes apply after this reply.", style = MaterialTheme.typography.bodySmall)
-                TextButton(onClick = store::cancelPending, enabled = !store.saving) { Text("Cancel pending changes") }
+                Text(if (store.error != null) stringResource(R.string.composer_changes_not_applied) else if (store.isPreview) stringResource(R.string.composer_updating_model) else stringResource(R.string.composer_changes_after_reply), style = MaterialTheme.typography.bodySmall)
+                TextButton(onClick = store::cancelPending, enabled = !store.saving) { Text(stringResource(R.string.composer_cancel_pending)) }
             }
             store.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             if (store.error != null || store.config?.options.isNullOrEmpty()) {
-                TextButton(onClick = { scope.launch { store.refresh() } }, enabled = !store.loading && !store.saving) { Text("Try again") }
+                TextButton(onClick = { scope.launch { store.refresh() } }, enabled = !store.loading && !store.saving) { Text(stringResource(R.string.try_again)) }
             }
             when (store.config?.status) {
-                "offline" -> Text("This runtime is offline. Model settings return when it reconnects.")
-                "unsupported" -> Text("This runtime does not offer model settings.")
-                "busy" -> if (store.pending.isEmpty()) Text("Changes apply after this reply.")
+                "offline" -> Text(stringResource(R.string.composer_runtime_offline))
+                "unsupported" -> Text(stringResource(R.string.composer_runtime_no_model))
+                "busy" -> if (store.pending.isEmpty()) Text(stringResource(R.string.composer_changes_after_reply))
             }
             store.config?.options?.forEach { option ->
                 Text(option.name, style = MaterialTheme.typography.titleSmall)
@@ -47,7 +49,7 @@ fun ModelSettingsSheet(store: ModelSettingsStore, onDismiss: () -> Unit) {
                     }
                 }
             }
-            TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("Done") }
+            TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.done)) }
         }
     }
 }

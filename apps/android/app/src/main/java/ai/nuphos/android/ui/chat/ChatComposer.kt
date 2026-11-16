@@ -1,5 +1,7 @@
 package ai.nuphos.android.ui.chat
 
+import ai.nuphos.android.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 
@@ -89,6 +91,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -173,6 +176,8 @@ fun ChatComposer(
     onSelectionChange: ((CredentialSelection) -> Unit)? = null,
     mode: PermissionMode? = null,
     onModeChange: ((PermissionMode) -> Unit)? = null,
+    /** A Task under a Bot uses the Bot's credentials, computers and permission mode, so it offers none. */
+    followsBot: Boolean = false,
     agent: RuntimeSelections.Selection? = null,
     agentEnabled: Boolean = true,
     modelSettings: ai.nuphos.android.session.ModelSettingsStore? = null,
@@ -187,6 +192,7 @@ fun ChatComposer(
 ) {
     val store = LocalAgentStore.current
     val context = LocalContext.current
+    val resources = androidx.compose.ui.platform.LocalResources.current
     val incomingShares = (context.applicationContext as ai.nuphos.android.NuphosApplication).incomingShares
     val scope = rememberCoroutineScope()
     val shareReady by incomingShares.ready.collectAsState()
@@ -214,7 +220,7 @@ fun ChatComposer(
     fun updateText(value: String) {
         if (!effectiveDraftingEnabled || savingSend) return
         try { draft?.key?.let { incomingShares.writeText(it, value) } }
-        catch (_: Exception) { pickerError = "Could not save this draft. Free storage and try again."; return }
+        catch (_: Exception) { pickerError = resources.getString(R.string.composer_draft_save_failed); return }
         fieldState.edit {
             replace(0, length, value)
             this.selection = TextRange(value.length)
@@ -233,6 +239,8 @@ fun ChatComposer(
     }
     val fieldValue = TextFieldValue(text, fieldState.selection)
     var dismissedAt by remember(draft, mentions?.teamId) { mutableIntStateOf(-1) }
+    // The `@Title`s picked into the draft, and the links they are sent as.
+    val mentionLinks = remember(draft, mentions?.teamId) { mutableStateMapOf<String, String>() }
     val mentionQuery = if (effectiveDraftingEnabled && focused && mentions != null) SessionMention.query(fieldValue) else null
     val activeMention = mentionQuery?.takeUnless { text.lastIndexOf('@') == dismissedAt }
     var mentionRows by remember(activeMention, draft, mentions) { mutableStateOf<List<ai.nuphos.android.model.AgentConversation>>(emptyList()) }
@@ -344,14 +352,14 @@ fun ChatComposer(
     fun startVoice() {
         if (voice.active || !effectiveDraftingEnabled || picking) return
         try {
-            if (!voice.available) { voice.error = "Choose a workspace and confirm your AI sharing choice to use voice input."; return }
+            if (!voice.available) { voice.error = resources.getString(R.string.composer_voice_unavailable); return }
             focusManager.clearFocus()
             keyboard?.hide()
             voice.awaitingPermission()
             if (voiceServices.microphonePermissionGranted()) voice.permissionResult(true)
             else if (permissionTarget == null) { permissionTarget = voice; permission.launch(Manifest.permission.RECORD_AUDIO) }
             else voice.cancel()
-        } catch (_: Exception) { voice.cancel(); voice.error = "Could not start voice input. Check microphone permission and try again." }
+        } catch (_: Exception) { voice.cancel(); voice.error = resources.getString(R.string.composer_voice_start_failed) }
     }
     val voiceView = androidx.compose.ui.platform.LocalView.current
     DisposableEffect(voice.phase == VoiceInput.Phase.Recording, voiceView) {
@@ -371,16 +379,16 @@ fun ChatComposer(
     LaunchedEffect(effectiveDraftingEnabled) { if (!effectiveDraftingEnabled) voice.cancel() }
     BackHandler(enabled = voice.active) { voice.cancel() }
     voice.error?.let { message ->
-        AlertDialog(onDismissRequest = { voice.error = null }, title = { Text("Voice input failed") },
+        AlertDialog(onDismissRequest = { voice.error = null }, title = { Text(stringResource(R.string.composer_voice_failed)) },
             text = { Column {
                 Text(message)
                 voice.pendingText?.let { words -> androidx.compose.foundation.text.selection.SelectionContainer { Text(words) } }
             } },
             confirmButton = {
-                if (voice.pendingText != null) TextButton(onClick = voice::retryText) { Text("Add to draft") }
-                else TextButton(onClick = { voice.error = null }) { Text("OK") }
+                if (voice.pendingText != null) TextButton(onClick = voice::retryText) { Text(stringResource(R.string.composer_add_to_draft)) }
+                else TextButton(onClick = { voice.error = null }) { Text(stringResource(R.string.composer_ok)) }
             },
-            dismissButton = { if (voice.pendingText != null) TextButton(onClick = voice::discardText) { Text("Discard transcript") } })
+            dismissButton = { if (voice.pendingText != null) TextButton(onClick = voice::discardText) { Text(stringResource(R.string.composer_discard_transcript)) } })
     }
     val hasText = text.isNotBlank()
     val hasPayload = hasText || attachments.isNotEmpty()
@@ -402,7 +410,7 @@ fun ChatComposer(
                 attachments.addAll(missing)
                 onRecalledFilesRestored()
             } catch (error: Exception) {
-                pickerError = "Queued attachments are retained but could not fit in this draft. Remove an attachment and try again."
+                pickerError = resources.getString(R.string.composer_recalled_files_failed)
             }
         }
     }
@@ -415,7 +423,7 @@ fun ChatComposer(
     var pickerTarget by remember { mutableStateOf<Any?>(null) }
     fun loadSelection(uris: List<Uri>, images: Boolean, permissionOwner: Any? = null) {
         if (!effectiveDraftingEnabled || savingSend || voice.active) return
-        if (picking) { pickerError = "Wait for the current files to finish loading, then try again."; return }
+        if (picking) { pickerError = resources.getString(R.string.composer_files_still_loading); return }
         if (uris.isEmpty()) return
         picking = true
         pickerError = null
@@ -423,7 +431,7 @@ fun ChatComposer(
         attachmentJob = scope.launch {
             var loaded: List<ComposerAttachment> = emptyList()
             try {
-                require(existing.size + uris.size <= AttachmentTransfers.MAX_FILES) { "Select at most 20 files." }
+                require(existing.size + uris.size <= AttachmentTransfers.MAX_FILES) { resources.getString(R.string.composer_max_files) }
                 withContext(Dispatchers.IO) {
                     val work = currentCoroutineContext()
                     val inputs = uris.map { selectionInput(context, it, images) }
@@ -432,14 +440,14 @@ fun ChatComposer(
                     )
                 }
                 check(latestSelectionScope === selectionScope && latestDraftingAllowed) {
-                    "The draft changed while reading files. Select the files again."
+                    resources.getString(R.string.composer_draft_changed_reading)
                 }
                 AttachmentTransfers().retain(attachments.toList() + loaded)
                 attachments.addAll(loaded)
             } catch (e: Exception) {
                 loaded.forEach { it.releaseOwnedCopy() }
                 if (e is CancellationException) throw e
-                pickerError = e.message ?: "Could not read the selected files."
+                pickerError = e.message ?: resources.getString(R.string.composer_read_files_failed)
             } finally {
                 java.lang.ref.Reference.reachabilityFence(permissionOwner)
                 picking = false
@@ -451,7 +459,7 @@ fun ChatComposer(
         pickerTarget = null
         if (uris.isEmpty()) return
         if (target !== selectionScope || !effectiveDraftingEnabled || savingSend || voice.active) {
-            pickerError = "The draft changed while choosing files. Select the files again."
+            pickerError = resources.getString(R.string.composer_draft_changed_choosing)
             return
         }
         loadSelection(uris, images)
@@ -510,7 +518,7 @@ fun ChatComposer(
                 // Queue cleanup after any already-enqueued consumption/deletion, so cancellation cannot unlink an in-flight commit.
                 incomingShares.releaseUnowned(staged.filter { file -> before.none { it === file } && shared.attachments.none { it === file } })
                 if (failure !is CancellationException)
-                    incomingShares.failed(shared.id, "Could not save this share. Check the draft limits and free storage, then try again.", retryable = true)
+                    incomingShares.failed(shared.id, resources.getString(R.string.composer_share_save_failed), retryable = true)
             }
             if (failure is CancellationException) throw failure
         }
@@ -532,17 +540,18 @@ fun ChatComposer(
                 if (!latestSendAllowed || latestSendKey != key || incomingShares.state.value != null ||
                     (key != null && (!incomingShares.isBound(key.accountId) || store.selectedTeam?.id != key.teamId)) ||
                     fieldState.text.toString() != submittedText || attachments.map { it.id } != submittedFiles.map { it.id }) return@launch
-                accepted = latestOnSend(ComposerSubmission(submittedText.trim(), submittedFiles))
+                accepted = latestOnSend(ComposerSubmission(SessionMention.expand(submittedText, mentionLinks).trim(), submittedFiles))
                 if (accepted) {
                     if (key != null) incomingShares.sent(key, submittedFiles) else incomingShares.handoff(submittedFiles)
                 }
             } catch (failure: Exception) {
                 if (failure is CancellationException) throw failure
-                pickerError = if (accepted) "Message accepted, but saved draft cleanup failed. Do not resend it."
-                    else "Could not update saved drafts. Free storage before sending."
+                pickerError = if (accepted) resources.getString(R.string.composer_sent_cleanup_failed)
+                    else resources.getString(R.string.composer_drafts_update_failed)
             } finally {
                 if (accepted) {
                     if (draft != null) draft.submitted(true, submittedText) else localText = ""
+                    mentionLinks.clear()
                     if (fieldState.text.toString() == submittedText) fieldState.edit { replace(0, length, "") }
                     attachments.removeAll { file -> submittedFiles.any { it.id == file.id } }
                 }
@@ -594,6 +603,8 @@ fun ChatComposer(
     val suggestion = promptSuggestion()?.takeIf {
         it.isNotBlank() && it.length <= ai.nuphos.android.data.IncomingShareIntents.MAX_TEXT && canFillPrompt()
     }
+    val suggestedNextLabel = stringResource(R.string.composer_suggested_next)
+    val fieldLabel = if (offersQueue) stringResource(R.string.composer_queue_a_message) else placeholder ?: stringResource(R.string.composer_ask_nuphos)
     Column(modifier.fillMaxWidth().imePadding().padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
     if (suggestion != null) {
@@ -601,10 +612,10 @@ fun ChatComposer(
             // Check the live session and ownership again; tapping a stale chip never submits anything.
             if (canFillPrompt() && promptSuggestion() == suggestion) {
                 try { updateText(suggestion) }
-                catch (_: Exception) { pickerError = "Could not save this draft. Free storage and try again." }
+                catch (_: Exception) { pickerError = resources.getString(R.string.composer_draft_save_failed) }
             }
         }, shape = RoundedCornerShape(20.dp), color = colors.surfaceContainerHigh,
-            modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Suggested next message" }) {
+            modifier = Modifier.fillMaxWidth().semantics { contentDescription = suggestedNextLabel }) {
             Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("✦", color = colors.onSurfaceVariant)
@@ -628,20 +639,20 @@ fun ChatComposer(
             if (activeMention != null && mentions != null) {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(if (devices == null) "My tasks" else "Mention", style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
+                        Text(if (devices == null) stringResource(R.string.my_chats) else stringResource(R.string.composer_mention), style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
                         IconButton(onClick = { dismissedAt = text.lastIndexOf('@') }, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Outlined.Close, contentDescription = if (devices == null) "Dismiss task mentions" else "Dismiss mentions", modifier = Modifier.size(16.dp))
+                            Icon(Icons.Outlined.Close, contentDescription = if (devices == null) stringResource(R.string.composer_dismiss_task_mentions) else stringResource(R.string.composer_dismiss_mentions), modifier = Modifier.size(16.dp))
                         }
                     }
                     Column(Modifier.heightIn(max = 80.dp).verticalScroll(rememberScrollState())) {
                     if (devices != null && devices.teamId == mentions.teamId) {
-                        Text("Computers", style = MaterialTheme.typography.labelSmall)
-                        Text("Selecting allows this agent to operate the computer.", style = MaterialTheme.typography.labelSmall)
+                        Text(stringResource(R.string.composer_computers), style = MaterialTheme.typography.labelSmall)
+                        Text(stringResource(R.string.composer_computers_hint), style = MaterialTheme.typography.labelSmall)
                         val computers = DeviceMention.results(deviceRows, activeMention, resolvedSelection)
                         when {
-                            devicesLoading -> Text("Loading computers…", style = MaterialTheme.typography.bodySmall)
-                            devicesFailed -> Text("Could not load computers. You can keep typing.", style = MaterialTheme.typography.bodySmall)
-                            computers.isEmpty() -> Text("No matching computers", style = MaterialTheme.typography.bodySmall)
+                            devicesLoading -> Text(stringResource(R.string.composer_loading_computers), style = MaterialTheme.typography.bodySmall)
+                            devicesFailed -> Text(stringResource(R.string.composer_computers_failed), style = MaterialTheme.typography.bodySmall)
+                            computers.isEmpty() -> Text(stringResource(R.string.composer_no_matching_computers), style = MaterialTheme.typography.bodySmall)
                             else -> computers.forEach { device ->
                                 Column(Modifier.fillMaxWidth().clickable(enabled = !device.unavailable, role = Role.Button) {
                                     if (SessionMention.query(fieldValue) == activeMention && effectiveDraftingEnabled) {
@@ -653,10 +664,10 @@ fun ChatComposer(
                                     }
                                 }.padding(vertical = 8.dp)) {
                                     Text(
-                                        device.label + when {
-                                            device.unavailable -> " · Unavailable"
-                                            resolvedSelection.contains(device) -> " · Selected"
-                                            else -> ""
+                                        when {
+                                            device.unavailable -> stringResource(R.string.composer_device_unavailable, device.label)
+                                            resolvedSelection.contains(device) -> stringResource(R.string.composer_device_selected, device.label)
+                                            else -> device.label
                                         },
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
@@ -668,19 +679,21 @@ fun ChatComposer(
                                 }
                             }
                         }
-                        if (devicePickFailed) Text("Computer selection unavailable. IAM was not changed.", style = MaterialTheme.typography.bodySmall)
-                        Text("My tasks", style = MaterialTheme.typography.labelSmall)
+                        if (devicePickFailed) Text(stringResource(R.string.composer_computer_pick_failed), style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.my_chats), style = MaterialTheme.typography.labelSmall)
                     }
                     when {
-                        mentionLoading -> Text("Searching tasks…", style = MaterialTheme.typography.bodySmall)
-                        mentionFailed -> Text("Could not search tasks. You can keep typing.", style = MaterialTheme.typography.bodySmall)
-                        mentionRows.isEmpty() -> Text("No matching tasks", style = MaterialTheme.typography.bodySmall)
+                        mentionLoading -> Text(stringResource(R.string.composer_searching_tasks), style = MaterialTheme.typography.bodySmall)
+                        mentionFailed -> Text(stringResource(R.string.composer_search_tasks_failed), style = MaterialTheme.typography.bodySmall)
+                        mentionRows.isEmpty() -> Text(stringResource(R.string.composer_no_matching_tasks), style = MaterialTheme.typography.bodySmall)
                         else -> mentionRows.forEach { row ->
                             Row(
                                 Modifier.fillMaxWidth().clickable(role = Role.Button) {
                                     // Recheck the current draft; never insert a result from a replaced query.
                                     if (SessionMention.query(fieldValue) == activeMention && effectiveDraftingEnabled) {
-                                        val inserted = SessionMention.insert(text, SessionMention.link(mentions.teamId, row.sessionId))
+                                        val name = "@" + row.displayTitle
+                                        mentionLinks[name] = SessionMention.link(mentions.teamId, row.sessionId)
+                                        val inserted = SessionMention.insert(text, name)
                                         updateText(inserted)
                                     }
                                 }.padding(vertical = 8.dp),
@@ -695,8 +708,8 @@ fun ChatComposer(
                     }
                 }
             }
-            if (rejectedSubmission != null) Text("A rejected message is retained. Clear this draft to restore it.", modifier = Modifier.padding(horizontal = 12.dp))
-            if (picking) Text("Reading files…", modifier = Modifier.padding(horizontal = 12.dp))
+            if (rejectedSubmission != null) Text(stringResource(R.string.composer_rejected_retained), modifier = Modifier.padding(horizontal = 12.dp))
+            if (picking) Text(stringResource(R.string.composer_reading_files), modifier = Modifier.padding(horizontal = 12.dp))
             (pickerError ?: storageError)?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 12.dp)) }
 
             if (showControls) {
@@ -717,26 +730,28 @@ fun ChatComposer(
                         if (modelSettings != null) FilterChip(
                             selected = modelSettings.pending.isNotEmpty(),
                             onClick = { showModel = true },
-                            label = { Text(modelSettings.config?.modelTitle ?: "Model") },
+                            label = { Text(modelSettings.config?.modelTitle ?: stringResource(R.string.composer_model)) },
                         )
-                        FilterChip(
-                            selected = !resolvedSelection.isEmpty,
-                            onClick = { showIam = true },
-                            label = { Text(if (resolvedSelection.isEmpty) "Credentials" else "Credentials · ${resolvedSelection.count}") },
-                            leadingIcon = { Icon(Icons.Outlined.Key, contentDescription = null, modifier = Modifier.size(16.dp)) },
-                        )
-                        FilterChip(
-                            selected = resolvedSelection.ids["deviceIds"].orEmpty().isNotEmpty(),
-                            onClick = { showComputers = true },
-                            label = { Text("Computers" + resolvedSelection.ids["deviceIds"].orEmpty().size.takeIf { it > 0 }?.let { " · $it" }.orEmpty()) },
-                            leadingIcon = { Icon(Icons.Outlined.Computer, null, Modifier.size(16.dp)) },
-                        )
-                        FilterChip(
-                            selected = resolvedMode == PermissionMode.Bypass,
-                            onClick = { showMode = true },
-                            label = { Text(resolvedMode.title) },
-                            leadingIcon = { Icon(Icons.Rounded.VerifiedUser, contentDescription = null, modifier = Modifier.size(16.dp)) },
-                        )
+                        if (!followsBot) {
+                            FilterChip(
+                                selected = !resolvedSelection.isEmpty,
+                                onClick = { showIam = true },
+                                label = { Text(if (resolvedSelection.isEmpty) stringResource(R.string.composer_credentials) else stringResource(R.string.composer_credentials_count, resolvedSelection.count)) },
+                                leadingIcon = { Icon(Icons.Outlined.Key, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                            )
+                            FilterChip(
+                                selected = resolvedSelection.ids["deviceIds"].orEmpty().isNotEmpty(),
+                                onClick = { showComputers = true },
+                                label = { Text(resolvedSelection.ids["deviceIds"].orEmpty().size.takeIf { it > 0 }?.let { stringResource(R.string.composer_computers_count, it) } ?: stringResource(R.string.composer_computers)) },
+                                leadingIcon = { Icon(Icons.Outlined.Computer, null, Modifier.size(16.dp)) },
+                            )
+                            FilterChip(
+                                selected = resolvedMode == PermissionMode.Bypass,
+                                onClick = { showMode = true },
+                                label = { Text(resolvedMode.title) },
+                                leadingIcon = { Icon(Icons.Rounded.VerifiedUser, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                            )
+                        }
                     }
                 }
             }
@@ -764,7 +779,7 @@ fun ChatComposer(
                                 if (draft != null) draft.write(value) else localText = value
                             } catch (_: Exception) {
                                 revertAllChanges()
-                                pickerError = "Could not save this draft. Free storage and try again."
+                                pickerError = resources.getString(R.string.composer_draft_save_failed)
                             }
                         }
                     },
@@ -780,7 +795,7 @@ fun ChatComposer(
                             if (state.isFocused) collapsedByUser = false
                         }
                         .semantics {
-                            contentDescription = if (offersQueue) "Queue a message" else placeholder ?: "Ask Nuphos anything"
+                            contentDescription = fieldLabel
                         },
                     textStyle = fieldStyle,
                     cursorBrush = SolidColor(colors.primary),
@@ -795,7 +810,7 @@ fun ChatComposer(
                         Box(contentAlignment = Alignment.CenterStart) {
                             if (text.isEmpty()) {
                                 Text(
-                                    if (offersQueue) "Queue a message…" else placeholder ?: "Ask Nuphos anything…",
+                                    if (offersQueue) stringResource(R.string.queue_message) else placeholder ?: stringResource(R.string.ask_nuphos),
                                     style = MaterialTheme.typography.bodyLarge,
                                     maxLines = if (expanded) 8 else 1,
                                     overflow = TextOverflow.Ellipsis,
@@ -831,7 +846,7 @@ fun ChatComposer(
                                     withContext(Dispatchers.IO) { attachment.releaseOwnedCopy() }
                                 } catch (failure: Exception) {
                                     if (failure is CancellationException) throw failure
-                                    pickerError = "Could not remove this saved attachment. Check storage and try again."
+                                    pickerError = resources.getString(R.string.composer_remove_attachment_failed)
                                 }
                             }
                         }
@@ -845,10 +860,10 @@ fun ChatComposer(
                 ) {
                     IconButton(onClick = { pickerTarget = selectionScope; photos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) },
                         enabled = effectiveDraftingEnabled && !savingSend && !picking && !voice.active, modifier = Modifier.size(40.dp)) {
-                        Icon(Icons.Outlined.Photo, "Photos")
+                        Icon(Icons.Outlined.Photo, stringResource(R.string.composer_photos))
                     }
                     IconButton(onClick = { pickerTarget = selectionScope; files.launch("*/*") }, enabled = effectiveDraftingEnabled && !savingSend && !picking && !voice.active,
-                        modifier = Modifier.size(40.dp)) { Icon(Icons.Outlined.AttachFile, "Files") }
+                        modifier = Modifier.size(40.dp)) { Icon(Icons.Outlined.AttachFile, stringResource(R.string.composer_files)) }
                     IconButton(onClick = {
                         try {
                             val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
@@ -865,9 +880,9 @@ fun ChatComposer(
                             }
                             if (pasted.isNotEmpty()) updateText(text + pasted)
                             if (uris.isNotEmpty()) loadSelection(uris, false, clip)
-                        } catch (_: Exception) { pickerError = "Could not paste this item. Try choosing it from Files." }
+                        } catch (_: Exception) { pickerError = resources.getString(R.string.composer_paste_failed) }
                     }, enabled = effectiveDraftingEnabled && !savingSend && !picking && !voice.active, modifier = Modifier.size(40.dp)) {
-                        Icon(Icons.Outlined.ContentPaste, "Paste")
+                        Icon(Icons.Outlined.ContentPaste, stringResource(R.string.composer_paste))
                     }
                     Spacer(Modifier.weight(1f))
                     VoiceMic(enabled = effectiveDraftingEnabled && !picking && !voice.active, onClick = ::startVoice)
@@ -887,9 +902,9 @@ fun ChatComposer(
     }
     if (showAgentUsage) {
         AlertDialog(onDismissRequest = { showAgentUsage = false },
-            title = { Text(agentLabel ?: "Runtime usage") },
+            title = { Text(agentLabel ?: stringResource(R.string.composer_runtime_usage)) },
             text = { ai.nuphos.android.ui.agent.RuntimeUsage(agentQuota) },
-            confirmButton = { TextButton(onClick = { showAgentUsage = false }) { Text("Done") } })
+            confirmButton = { TextButton(onClick = { showAgentUsage = false }) { Text(stringResource(R.string.done)) } })
     }
     if (showModel && modelSettings != null) ModelSettingsSheet(modelSettings, onDismiss = { showModel = false })
     if (showComputers && store != null) {
@@ -931,12 +946,13 @@ fun ChatComposer(
 
 @Composable
 private fun ComposerDragHandle(modifier: Modifier = Modifier) {
+    val collapseLabel = stringResource(R.string.composer_collapse)
     Box(
         modifier
             .fillMaxWidth()
             .height(28.dp)
             .semantics {
-                contentDescription = "Collapse composer"
+                contentDescription = collapseLabel
                 role = Role.Button
             },
         contentAlignment = Alignment.Center,
@@ -1009,7 +1025,7 @@ private fun TrailingButton(
             modifier = Modifier.size(36.dp),
             shape = CircleShape,
         ) {
-            Icon(Icons.Rounded.Stop, contentDescription = "Stop", modifier = Modifier.size(16.dp))
+            Icon(Icons.Rounded.Stop, contentDescription = stringResource(R.string.stop), modifier = Modifier.size(16.dp))
         }
     } else {
         FilledIconButton(
@@ -1023,7 +1039,7 @@ private fun TrailingButton(
                 disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
             ),
         ) {
-            Icon(if (sendQueues) Icons.Outlined.PlaylistAdd else Icons.Rounded.ArrowUpward, contentDescription = if (offersQueue) "Queue message" else "Send", modifier = Modifier.size(18.dp))
+            Icon(if (sendQueues) Icons.Outlined.PlaylistAdd else Icons.Rounded.ArrowUpward, contentDescription = if (offersQueue) stringResource(R.string.composer_queue_message) else stringResource(R.string.send), modifier = Modifier.size(18.dp))
         }
     }
 }
@@ -1057,7 +1073,7 @@ private fun AttachmentTile(attachment: ComposerAttachment, onRemove: () -> Unit)
                 Modifier.size(RemoveBadgeSize).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Outlined.Close, contentDescription = "Remove", tint = MaterialTheme.colorScheme.surface, modifier = Modifier.size(10.dp))
+                Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.composer_remove), tint = MaterialTheme.colorScheme.surface, modifier = Modifier.size(10.dp))
             }
         }
     }
@@ -1102,7 +1118,7 @@ private fun AttachmentThumbnail(attachment: ComposerAttachment) {
 }
 
 internal fun selectionInput(context: android.content.Context, uri: Uri, images: Boolean): AttachmentRetention.Input {
-    require(uri.scheme == "content") { "Only content-provider attachments are supported." }
+    require(uri.scheme == "content") { context.getString(R.string.composer_content_only) }
     var name = "attachment"
     var size: Long? = null
     context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { cursor ->
@@ -1115,7 +1131,7 @@ internal fun selectionInput(context: android.content.Context, uri: Uri, images: 
     }
     val mime = context.contentResolver.getType(uri) ?: "application/octet-stream"
     return AttachmentRetention.Input(name, mime, size, (images && !mime.startsWith("video/")) || mime.startsWith("image/")) {
-        requireNotNull(context.contentResolver.openInputStream(uri)) { "Could not open the selected file." }
+        requireNotNull(context.contentResolver.openInputStream(uri)) { context.getString(R.string.composer_open_file_failed) }
     }
 }
 

@@ -1,4 +1,3 @@
-import { faRotateLeft, faTrash } from '@fortawesome/free-solid-svg-icons'
 import { Network, RotateCcw, Terminal, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
@@ -236,13 +235,13 @@ export function PodsView({
           {
             key: 'restart',
             label: t('Restart'),
-            icon: faRotateLeft,
+            icon: RotateCcw,
             onClick: () => setConfirmRestart(true),
           },
           {
             key: 'delete',
             label: t('Delete'),
-            icon: faTrash,
+            icon: Trash2,
             destructive: true,
             confirm: bulkDeleteText(selectedItems.length),
             onClick: async () => {

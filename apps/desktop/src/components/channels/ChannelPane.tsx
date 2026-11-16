@@ -19,7 +19,8 @@ import { HeaderEdge } from '../ui/header-edge'
 import { IconButton } from '../ui/icon-button'
 import { toast } from '../ui/toast'
 
-import { botOfChannel } from './botChannel'
+import { botOfChannel, ownsBot } from './botChannel'
+import { BotStatusPill } from './BotStatusPill'
 import { BotTaskButton } from './BotTaskButton'
 import { ChannelMessages } from './ChannelMessages'
 import { ChannelIntro, ChatHeaderIcon, ReplyingBanner } from './channelParts'
@@ -31,8 +32,8 @@ import { useBotTaskAccess } from './useBotTaskAccess'
 import { useChannel } from './useChannel'
 import { useStickToBottom } from './useStickToBottom'
 
-import type { AgentMessageReply, AgentPersistedMessage } from '../../api'
 import type { ChannelFixes } from './ChannelReplyFix'
+import type { AgentMessageReply, AgentPersistedMessage } from '../../api'
 import type { UserInfo } from '../../types'
 import type { ComposerSend } from '../agent/panel/composerMentionChips'
 import type { AgentPromptSeed } from '../agent/panel/model'
@@ -66,32 +67,34 @@ export function ChannelPane({
   /** What the workspace lends to repair an agent that could not reply. */
   fixes?: ChannelFixes
 }) {
-  const { detail, agents, refresh } = useChannel(teamId, channelId)
+  const { detail, chat, agents, refresh } = useChannel(teamId, channelId)
 
   useConversationRead(channelId, visible)
-  // Text that could not be posted goes back into the composer.
   const [restore, setRestore] = useState<AgentPromptSeed | null>(null)
-  // A resend of the same post reuses its id, so a post that did land is not doubled.
   const unsent = useRef<{ key: string; id: string } | null>(null)
-  // Posts shown at once, until the channel returns them under the same id.
   const [sending, setSending] = useState<AgentPersistedMessage[]>([])
-  // The post the next one answers, quoted above the composer.
   const [replying, setReplying] = useState<AgentMessageReply | null>(null)
   const composerRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const dropRef = useRef<((dt: DataTransfer) => void) | null>(null)
-  const title = detail ? detail.title || t('New Group Chat') : ''
-  // A Bot's chat opens the Bot's desktop in this chat's dock, as its Task page's dock does.
-  const bot = botOfChannel(detail)
+  const title = chat ? chat.title || t('New Group Chat') : ''
+  const bot = botOfChannel(chat)
   const botState = useSyncExternalStore(subscribeRuntimeStates, () => runtimeStateOf(bot))
-  const botOwned = agents.some((agent) => agent.sessionId === bot && agent.ownerId === user.id)
-  const runtimeControl = useBotRuntimeControl(teamId, bot, botOwned, user, botState, refresh)
+  const botOwned = ownsBot(teamId, bot, user.id, detail && agents)
+  const runtimeControl = useBotRuntimeControl(
+    teamId,
+    bot,
+    botOwned,
+    user,
+    botState,
+    refresh,
+    fixes?.onOpenAgentSettings,
+  )
   const canOpenTask = useBotTaskAccess(teamId, bot, botOwned)
   const canOpenBotDesktop =
     bot !== undefined &&
     sessionDesktopsOf(teamId, { runtimeState: botState, foreign: !botOwned }).canOpen
 
-  // Published as the Bot's Task page publishes it, with this chat's dock holding its tabs.
   useEffect(() => {
     if (!bot) return
     publishSessionDesktops(bot, {
@@ -109,8 +112,6 @@ export function ChannelPane({
 
   const stickToBottom = useStickToBottom(scrollRef)
   const questions = useBotChatQuestions(teamId, bot, botOwned, onOpenSession)
-
-  // The optimistic post owns the draft immediately; failure restores it through setRestore.
   const send: ComposerSend = (text, filePaths, mentions, options) => {
     void postDraft(text, filePaths, mentions, options)
 
@@ -128,7 +129,6 @@ export function ChannelPane({
     const reply = replying ?? undefined
     const key = [reply?.id, text, ...paths].join('\n')
     const id = unsent.current?.key === key ? unsent.current.id : crypto.randomUUID()
-    // Files take the conversation's upload path: shown at once, uploaded, then posted.
     const files = paths.length
       ? makeAttachmentTurn(text, paths, teamId, { previews: options?.imageThumbs })
       : null
@@ -175,13 +175,21 @@ export function ChannelPane({
       >
         {titlebarLeading}
         <div className="titlebar-drag flex min-w-0 flex-1 self-stretch items-center gap-2 overflow-hidden text-[13px] font-medium text-secondary">
-          <ChatHeaderIcon faces={detail?.faces} title={title} loading={!detail} />
+          <ChatHeaderIcon faces={chat?.faces} title={title} loading={!chat} />
           <ChannelTitle
             bot={bot}
             title={title}
             teamId={teamId}
             canRename={botOwned}
             onRenamed={refresh}
+          />
+          <BotStatusPill
+            teamId={teamId}
+            botId={bot}
+            channelId={channelId}
+            chat={scrollRef}
+            onOpenTask={canOpenTask ? (onOpenTask ?? onOpenSession) : undefined}
+            onOpenLink={onOpenNuphosLink}
           />
         </div>
         {bot && canOpenTask && (
@@ -242,7 +250,6 @@ export function ChannelPane({
               onOpenSession={onOpenSession}
               onOpenNuphosLink={onOpenNuphosLink}
               channelId={channelId}
-              botId={bot}
               extraRows={questions.rows}
               fixes={fixes}
               onReply={
@@ -279,7 +286,6 @@ export function ChannelPane({
             mentionScope={{
               teamId,
               sessionId: channelId,
-              channel: true,
               only: { agentIds: agents.map((agent) => agent.sessionId), selfId: user.id },
             }}
             placeholder={t('Message {name}', { name: title })}

@@ -245,7 +245,7 @@ class FakeRedis {
     const ops: [string, unknown[]][] = []
     const rec: Record<string, (...a: unknown[]) => unknown> = {}
 
-    for (const method of ['set', 'hset', 'hsetnx', 'expire', 'del', 'xadd']) {
+    for (const method of ['set', 'hset', 'hsetnx', 'expire', 'del', 'xadd', 'exists']) {
       rec[method] = (...a: unknown[]) => {
         ops.push([method, a])
 
@@ -280,6 +280,7 @@ const {
   flushGuardWrites,
   mirrorAgentRunFrame,
   getActiveAgentRunForSession,
+  getActiveAgentRunsForSessions,
   requestAgentRunCancellation,
   reserveActiveAgentRunForSession,
   startAgentRunOwnership,
@@ -425,6 +426,32 @@ describe('agent run busy-guard lifecycle (issue #338)', () => {
     } finally {
       releaseTurn()
       releaseAutonomous()
+      await flush()
+    }
+  })
+
+  test('many sessions are read in one pipeline, and only a live one in full', async () => {
+    const release = await claimSession()
+    const hmget = redis.hmget.bind(redis)
+    const fullReads: string[] = []
+
+    redis.hmget = (key: string, ...fields: string[]) => {
+      fullReads.push(key)
+
+      return hmget(key, ...fields)
+    }
+    try {
+      const runs = await getActiveAgentRunsForSessions([
+        { userId: USER, sessionId: 'quiet' },
+        { userId: USER, sessionId: SESSION },
+        { userId: 'u2', sessionId: SESSION },
+      ])
+
+      expect(runs.map((run) => run?.streamId ?? null)).toEqual([null, STREAM, null])
+      expect(fullReads).toEqual([`atlas:agentrun-active:${USER}:${SESSION}`])
+    } finally {
+      redis.hmget = hmget
+      release()
       await flush()
     }
   })

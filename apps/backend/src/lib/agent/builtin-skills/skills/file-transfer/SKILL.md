@@ -64,8 +64,9 @@ bash skills/file-transfer/scripts/transfer-pull.sh <TEAM> <groupId> <dest-dir>
 If some files are still uploading/failed the script reports them; re-run to
 pick up late arrivals.
 
-The same command pulls a group pushed by one of your sub-agents (or their
-sub-agents), so you can review what a thread produced.
+The same command pulls any group of your team by its id, whoever pushed it:
+another conversation, a sub-agent or a sibling thread. To hand files to
+another conversation, push them and send it the groupId.
 
 ### Folder / multi-file uploads come as one archive
 

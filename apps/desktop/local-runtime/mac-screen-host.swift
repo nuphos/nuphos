@@ -96,12 +96,14 @@ func leave() -> Never {
 // Nuphos went before the watch above began.
 if kill(parent, 0) != 0 { exit(0) }
 
+let permissionHolder = ownPermissions ? "mac-screen-host" : "Nuphos"
 if !CGPreflightScreenCaptureAccess() {
     CGRequestScreenCaptureAccess()
-    fail("Screen Recording is not allowed for \(ownPermissions ? "mac-screen-host" : "Nuphos") yet")
+    fail("Screen Recording is not allowed for \(permissionHolder) yet")
 }
+// Without it macOS drops every event the viewer sends, silently: a screen nobody can use.
 if !AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary) {
-    print("Accessibility is not allowed yet: the viewer can watch but not control")
+    fail("Accessibility is not allowed for \(permissionHolder) yet. Allow it on this Mac in System Settings > Privacy & Security > Accessibility.")
 }
 
 // MARK: - Socket

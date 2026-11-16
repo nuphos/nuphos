@@ -9,7 +9,9 @@ import { queryKeys } from '../../lib/query/keys'
 import { runtimeTurnActive } from '../../lib/runtimeExecution'
 import { useSessionRuntimeControl } from '../agent/panel/conversationRuntimeControl'
 
-import type { AgentConversationDetail } from '../../api'
+import { listedConversation } from './channelShared'
+
+import type { AgentConversation } from '../../api'
 import type { RuntimeExecution } from '../../lib/runtimeExecution'
 import type { UserInfo } from '../../types'
 
@@ -21,12 +23,16 @@ export function useBotRuntimeControl(
   user: UserInfo,
   runtimeState: RuntimeExecution | undefined,
   refresh: () => void,
+  onOpenAgentSettings?: () => void,
 ) {
   const client = useQueryClient()
   const catalog = useRuntimeInstances(botId ? teamId : undefined)
   const instances = useAccountLabelledInstances(catalog.instances)
   const quotas = useRuntimeQuotas(botId ? teamId : undefined)
-  const [detail, setDetail] = useState<AgentConversationDetail | null>(null)
+  // Starts from the sidebar's row of the Bot, so the selector is there from the first frame.
+  const [detail, setDetail] = useState<AgentConversation | null>(
+    () => listedConversation(teamId, botId) ?? null,
+  )
   const [movingTo, setMovingTo] = useState<string>()
 
   useEffect(() => {
@@ -58,7 +64,7 @@ export function useBotRuntimeControl(
     runtimeInstancesLoading: catalog.loading,
     runtimeInstancesError: catalog.error,
     runtimeQuotas: quotas,
-    onOpenAgentSettings: undefined,
+    onOpenAgentSettings,
     activeTab: current
       ? {
           id: current.sessionId,

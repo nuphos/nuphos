@@ -5,6 +5,7 @@ import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence
 
 import { controlRegistry } from './agent-chat-registry'
 import { reportedLocalAgent } from './local-runtime-catalog'
+import { OpenAbConnectError } from './openab-acp-connect'
 import { resolveTeamRuntimeEndpoints } from './runtime-registry'
 
 import type { RuntimeInstance } from './runtime-instances'
@@ -215,7 +216,13 @@ export async function probeRuntimeQuota(
 
   if (!endpoint) return { error: 'Agent is offline', offline: true }
   if (endpoint.tunnelUrl) return reportedQuota(endpoint.tunnelUrl)
-  const client = await controlRegistry.acquire(teamId, endpoint)
+  // A host that did not take the connection, as while it restarts, is offline too.
+  const client = await controlRegistry.acquire(teamId, endpoint).catch((error: unknown) => {
+    if (error instanceof OpenAbConnectError) return undefined
+    throw error
+  })
+
+  if (!client) return { error: 'Agent is offline', offline: true }
 
   if (!controlRegistry.runtimeJobs(teamId, endpoint).includes(PROBE_JOB))
     return { error: 'This agent runs an image that cannot report usage' }

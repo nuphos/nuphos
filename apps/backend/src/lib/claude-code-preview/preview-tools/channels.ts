@@ -12,9 +12,8 @@ import {
   ownsChannelAgent,
   readChannelMessages,
 } from '@/lib/agent/db/channels'
-import { inviteConversationParticipants } from '@/lib/agent/db/participants'
+import { inviteToConversation } from '@/lib/agent/mentions'
 import { getTeamMembers, getTeamMembership } from '@/lib/identity'
-import { forwardToMeeting } from '@/lib/meetings/recall'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 
 import { placeOnConversationRuntime } from '../session-execution-state'
@@ -184,7 +183,7 @@ async function createChannel(ctx: PreviewToolContext, input: z.infer<typeof crea
   const invitees = people.flatMap((member) =>
     member && member.id !== self.userId ? [member.id] : [],
   )
-  const channel = await inviteConversationParticipants(sessionId, self.userId, invitees)
+  const channel = await inviteToConversation(ctx.teamId, sessionId, self.userId, invitees)
 
   if (channel && input.message) await postAsAgent(sessionId, speaker, input.message)
 
@@ -268,9 +267,8 @@ export function channelToolModule(): PreviewToolModule {
         const { channelId: id, text, files = [] } = parsed.data
 
         return answer(
-          memberChannel(ctx, id).then(async ({ channel, self }) => {
+          memberChannel(ctx, id).then(async ({ self }) => {
             await postAsAgent(id, self, text, await agentFileParts(self, files))
-            forwardToMeeting(channel, text)
 
             return { posted: true, channelId: id, files: files.length }
           }),

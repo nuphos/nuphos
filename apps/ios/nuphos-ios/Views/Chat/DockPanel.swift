@@ -7,6 +7,8 @@ import SwiftUI
 struct DockPanel: View {
     let session: ChatSession
     var openDesktop: () -> Void
+    /// A shell on the conversation's computer, as the Mac's Runtime terminal.
+    var openTerminal: () -> Void
     /// A web page in the phone's browser: its address (nil for a blank one) and its dock tab.
     var openWeb: (URL?, String?) -> Void
     /// A screen the iPhone has: Runtimes or Connectors.
@@ -86,7 +88,7 @@ struct DockPanel: View {
             Button { open(tab.destination, tab: tab.id, title: tab.title) } label: {
                 HStack(spacing: 6) {
                     icon(tab.destination, kind: tab.kind)
-                    Text(tab.title.isEmpty ? "Untitled" : tab.title)
+                    Text(tab.title.isEmpty ? String(localized: "Untitled") : tab.title)
                         .font(Theme.Text.label)
                         .foregroundStyle(front ? Theme.heading : Theme.body)
                         .lineLimit(1)
@@ -142,7 +144,7 @@ struct DockPanel: View {
                 }
             }
         }
-        Section("Workspace") {
+        Section(String(localized: "Workspace")) {
             ForEach(DockWorkspaceItem.all(teamId: session.teamId, desktop: session.canOpenDesktop)) { item in
                 row(item.title, detail: nil, destination: item.destination, id: "workspace-\(item.id)", systemImage: item.systemImage)
             }
@@ -165,14 +167,14 @@ struct DockPanel: View {
         let matches: (String) -> Bool = { text in terms.allSatisfy { text.lowercased().contains($0) } }
         Section {
             if let url = DockDestination.addressOrSearch(query) {
-                let label = DockDestination.address(query) != nil ? "Open \(url.absoluteString)" : "Search for “\(query)”"
+                let label = DockDestination.address(query) != nil ? String(localized: "Open \(url.absoluteString)") : String(localized: "Search for “\(query)”")
                 row(label, detail: nil, destination: .web(url), id: "address", systemImage: "globe")
             }
             ForEach((dock?.recent ?? []).filter { matches($0.title + " " + ($0.url ?? "")) }) {
                 row($0.title, detail: $0.url, destination: $0.destination, id: "recent-\($0.href)")
             }
             ForEach(DockWorkspaceItem.all(teamId: session.teamId, desktop: session.canOpenDesktop).filter { matches($0.title) }) { item in
-                row(item.title, detail: "Workspace", destination: item.destination, id: "workspace-\(item.id)", systemImage: item.systemImage)
+                row(item.title, detail: String(localized: "Workspace"), destination: item.destination, id: "workspace-\(item.id)", systemImage: item.systemImage)
             }
         }
     }
@@ -218,6 +220,7 @@ struct DockPanel: View {
         switch destination {
         case .web, .newBrowser: "globe"
         case .desktop: "display"
+        case .terminal: "terminal"
         case .runtimes: "cpu"
         case .connectors: "link"
         case .chat: "bubble.left"
@@ -262,6 +265,7 @@ struct DockPanel: View {
             if tab != nil { openWeb(url, tab) } else { openAddress(url) }
         case .newBrowser: openWeb(nil, nil)
         case .desktop: openDesktop()
+        case .terminal: openTerminal()
         case .runtimes, .connectors: openScreen(destination)
         case .chat(let id):
             if let link = URL(string: "https://nuphos.ai/teams/\(session.teamId)/agent/\(id)") { openURL(link) }
@@ -285,7 +289,7 @@ struct DockPanel: View {
             let id: String
             if let tab { id = tab } else { id = try await session.openDockTab(href: href, page: href == nil ? page : nil) }
             try await session.focusDockTab(id)
-            notice = "\(title) isn't on iPhone yet. It's open on your Mac."
+            notice = String(localized: "\(title) isn't on iPhone yet. It's open on your Mac.")
             await load()
         } catch {
             problem = error.localizedDescription

@@ -1008,14 +1008,19 @@
 
   /* Reserve room on the trailing edge of the tab strip for the Windows and
      Linux caption buttons (minimize/maximize/close) that the native title-bar
-     overlay draws over the top-right of the window. macOS keeps the normal
-     inset because its traffic lights sit on the leading edge. */
+     overlay draws over the top-right of the window. The overlay reports where
+     they start, already in zoomed CSS px, so the reserve follows the real
+     buttons at any display scale, page zoom or button layout. macOS keeps the
+     normal inset because its traffic lights sit on the leading edge. */
+  :root {
+    --caption-reserve: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw));
+  }
   .titlebar-caption-pad {
     padding-right: 0.75rem;
   }
   html.platform-windows .titlebar-caption-pad,
   html.platform-linux .titlebar-caption-pad {
-    padding-right: calc(138px / var(--zoom-factor, 1));
+    padding-right: calc(var(--caption-reserve));
   }
 
   /* The workspace-dock toggle is viewport-anchored so opening the dock never
@@ -1032,11 +1037,11 @@
   }
   html.platform-windows .workspace-dock-toggle,
   html.platform-linux .workspace-dock-toggle {
-    right: calc(138px / var(--zoom-factor, 1) + 0.75rem + var(--sheet-inset));
+    right: calc(var(--caption-reserve) + 0.75rem + var(--sheet-inset));
   }
   html.platform-windows .workspace-dock-toggle-pad,
   html.platform-linux .workspace-dock-toggle-pad {
-    padding-right: calc(138px / var(--zoom-factor, 1) + 2.5rem + 4px);
+    padding-right: calc(var(--caption-reserve) + 2.5rem + 4px);
   }
 
   [data-base-ui-inert] {

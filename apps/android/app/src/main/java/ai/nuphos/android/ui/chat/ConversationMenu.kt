@@ -16,6 +16,8 @@ import ai.nuphos.android.data.ConversationActions
 import ai.nuphos.android.session.AgentStore
 import ai.nuphos.android.session.ChatSession
 import kotlinx.coroutines.launch
+import ai.nuphos.android.R
+import androidx.compose.ui.res.stringResource
 
 @Composable
 fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> Unit, onChooseRuntime: (() -> Unit)? = null) {
@@ -28,38 +30,39 @@ fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> 
     var title by remember(session, store.workspaceRevision) { mutableStateOf(session.title) }
     var busy by remember(session, store.workspaceRevision) { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    val actionFailed = stringResource(R.string.chat_action_failed_retry)
     fun perform(block: suspend () -> Unit) {
         if (busy) return
         busy = true
         error = null
         scope.launch {
-            try { block() } catch (e: Exception) { error = e.message ?: "Action failed. Try again." }
+            try { block() } catch (e: Exception) { error = e.message ?: actionFailed }
             finally { busy = false }
         }
     }
     // Keep the popup's anchor local to the toolbar button rather than the
     // containing app bar. Logical end positioning also works in RTL.
     Box {
-    IconButton(onClick = { open = true }) { Icon(Icons.Outlined.MoreVert, "Task actions") }
+    IconButton(onClick = { open = true }) { Icon(Icons.Outlined.MoreVert, stringResource(R.string.chat_task_actions)) }
     DropdownMenu(expanded = open, onDismissRequest = { open = false },
         modifier = Modifier.widthIn(min = 220.dp, max = 320.dp),
         offset = DpOffset(0.dp, 4.dp), shape = RoundedCornerShape(24.dp)) {
-        DropdownMenuItem(text = { Text("Share") }, leadingIcon = { Icon(Icons.Outlined.PersonAdd, null) }, enabled = session.loaded && session.loadError == null, onClick = {
+        DropdownMenuItem(text = { Text(stringResource(R.string.chat_share)) }, leadingIcon = { Icon(Icons.Outlined.PersonAdd, null) }, enabled = session.loaded && session.loadError == null, onClick = {
             open = false
             share = true
         })
-        if (session.canOpenDesktop) DropdownMenuItem(text = { Text("Desktop") }, leadingIcon = { Icon(Icons.Outlined.DesktopWindows, null) }, onClick = { open = false; desktop = true })
+        if (session.canOpenDesktop) DropdownMenuItem(text = { Text(stringResource(R.string.chat_menu_desktop)) }, leadingIcon = { Icon(Icons.Outlined.DesktopWindows, null) }, onClick = { open = false; desktop = true })
         if (session.canWatch) DropdownMenuItem(
-            text = { Text(if (session.watching == true) "Unwatch" else "Watch") },
+            text = { Text(if (session.watching == true) stringResource(R.string.chat_menu_unwatch) else stringResource(R.string.chat_menu_watch)) },
             leadingIcon = { Icon(if (session.watching == true) Icons.Outlined.NotificationsOff else Icons.Outlined.Notifications, null) },
             enabled = !busy && !store.isChangingWatch(session.sessionId),
             onClick = { open = false; perform { store.setWatching(session); error = store.watchError } },
         )
         if (session.canManage) {
-            DropdownMenuItem(text = { Text("Rename") }, leadingIcon = { Icon(Icons.Outlined.Edit, null) }, enabled = !busy, onClick = { open = false; title = session.title; rename = true })
-            if (onChooseRuntime != null) DropdownMenuItem(text = { Text("Switch runtime") }, leadingIcon = { Icon(Icons.Outlined.SwapHoriz, null) },
+            DropdownMenuItem(text = { Text(stringResource(R.string.chat_menu_rename)) }, leadingIcon = { Icon(Icons.Outlined.Edit, null) }, enabled = !busy, onClick = { open = false; title = session.title; rename = true })
+            if (onChooseRuntime != null) DropdownMenuItem(text = { Text(stringResource(R.string.chat_switch_runtime)) }, leadingIcon = { Icon(Icons.Outlined.SwapHoriz, null) },
                 enabled = !busy && session.canMoveAgent, onClick = { open = false; onChooseRuntime() })
-            DropdownMenuItem(text = { Text(if (session.isArchived) "Restore" else "Archive") }, leadingIcon = { Icon(Icons.Outlined.Archive, null) }, enabled = !busy, onClick = { open = false; archive = true })
+            DropdownMenuItem(text = { Text(if (session.isArchived) stringResource(R.string.chat_menu_restore) else stringResource(R.string.chat_menu_archive)) }, leadingIcon = { Icon(Icons.Outlined.Archive, null) }, enabled = !busy, onClick = { open = false; archive = true })
         }
     }
     }
@@ -68,13 +71,13 @@ fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> 
         val sharing = remember(session) { session.sharingState() }
         ShareSessionSheet(sharing, ConversationActions.shareUrl(session.teamId, session.sessionId)) { share = false }
     }
-    if (rename) AlertDialog(onDismissRequest = { if (!busy) rename = false }, title = { Text("Rename task") },
-        text = { TextField(value = title, onValueChange = { title = it }, label = { Text("Title") }, enabled = !busy, singleLine = true) },
-        confirmButton = { TextButton(enabled = !busy && ConversationActions.validTitle(title) != null, onClick = { perform { store.rename(session, title); rename = false } }) { Text("Save") } },
-        dismissButton = { TextButton(enabled = !busy, onClick = { rename = false }) { Text("Cancel") } })
-    if (archive) AlertDialog(onDismissRequest = { if (!busy) archive = false }, title = { Text(if (session.isArchived) "Restore task?" else "Archive task?") },
-        text = { Text(if (session.isArchived) "Move this task to Active." else "It leaves the Tasks list. Open it again to restore it.") },
-        confirmButton = { TextButton(enabled = !busy, onClick = { perform { val restore = session.isArchived; store.archive(session, !restore); archive = false; if (!restore) onArchived() } }) { Text(if (session.isArchived) "Restore" else "Archive") } },
-        dismissButton = { TextButton(enabled = !busy, onClick = { archive = false }) { Text("Cancel") } })
-    if (error != null) AlertDialog(onDismissRequest = { error = null }, title = { Text("Action failed") }, text = { Text(error.orEmpty()) }, confirmButton = { TextButton(onClick = { error = null }) { Text("OK") } })
+    if (rename) AlertDialog(onDismissRequest = { if (!busy) rename = false }, title = { Text(stringResource(R.string.chat_rename_task_title)) },
+        text = { TextField(value = title, onValueChange = { title = it }, label = { Text(stringResource(R.string.chat_rename_title_label)) }, enabled = !busy, singleLine = true) },
+        confirmButton = { TextButton(enabled = !busy && ConversationActions.validTitle(title) != null, onClick = { perform { store.rename(session, title); rename = false } }) { Text(stringResource(R.string.chat_save)) } },
+        dismissButton = { TextButton(enabled = !busy, onClick = { rename = false }) { Text(stringResource(R.string.cancel)) } })
+    if (archive) AlertDialog(onDismissRequest = { if (!busy) archive = false }, title = { Text(if (session.isArchived) stringResource(R.string.chat_restore_task_title) else stringResource(R.string.chat_archive_task_title)) },
+        text = { Text(if (session.isArchived) stringResource(R.string.chat_restore_task_body) else stringResource(R.string.chat_archive_task_body)) },
+        confirmButton = { TextButton(enabled = !busy, onClick = { perform { val restore = session.isArchived; store.archive(session, !restore); archive = false; if (!restore) onArchived() } }) { Text(if (session.isArchived) stringResource(R.string.chat_menu_restore) else stringResource(R.string.chat_menu_archive)) } },
+        dismissButton = { TextButton(enabled = !busy, onClick = { archive = false }) { Text(stringResource(R.string.cancel)) } })
+    if (error != null) AlertDialog(onDismissRequest = { error = null }, title = { Text(stringResource(R.string.chat_action_failed_title)) }, text = { Text(error.orEmpty()) }, confirmButton = { TextButton(onClick = { error = null }) { Text(stringResource(R.string.chat_ok)) } })
 }

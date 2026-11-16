@@ -52,6 +52,7 @@ export const Sidebar = memo(function Sidebar({
   onForward,
   onSidebarBack,
   hierarchy,
+  onOpenComputers,
   onOpenSettings,
   onOpenMyPreferences,
   onOpenUserSettings,
@@ -74,7 +75,7 @@ export const Sidebar = memo(function Sidebar({
   )
   const [sidebarPage, changeSidebarPage] = useSidebarMode(scope.teamId, agentSessionId)
   const teamId = scope.teamId
-  const chrome = useSidebarChrome({ teamId, collapsed })
+  const chrome = useSidebarChrome({ teamId, collapsed, page: sidebarPage })
   const { width, dragging, setDragging, peek, setPeek } = chrome
   const { agentSessions, chatItems, newChatActive, archiveChat, unlinkChat, archivingIds } =
     useSidebarChats({
@@ -138,7 +139,8 @@ export const Sidebar = memo(function Sidebar({
   useChatNavKeys(
     teamView
       ? sidebarSections.filter(
-          (section) => section.title === (sidebarPage === 0 ? 'Channels' : 'Tasks'),
+          (section) =>
+            sidebarPage !== 2 && section.title === (sidebarPage === 0 ? 'Channels' : 'Tasks'),
         )
       : sidebarSections,
     chrome.isGroupCollapsed,
@@ -163,7 +165,6 @@ export const Sidebar = memo(function Sidebar({
   }
   const showSidebar = !collapsed || peek
 
-  // Keep the titlebar underneath the floating sidebar from stealing its clicks.
   useSuspendTitlebarDrag(collapsed && peek)
 
   return (
@@ -220,6 +221,7 @@ export const Sidebar = memo(function Sidebar({
         <SidebarTeamSwitcher
           teamSegment={teamSegment}
           loading={false}
+          onOpenComputers={onOpenComputers}
           onOpenSettings={onOpenSettings}
           onOpenMyPreferences={onOpenMyPreferences}
           onCreateTeam={onCreateTeam}

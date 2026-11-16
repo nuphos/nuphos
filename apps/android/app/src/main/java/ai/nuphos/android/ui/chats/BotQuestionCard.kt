@@ -42,6 +42,8 @@ import ai.nuphos.android.session.BotQuestion
 import ai.nuphos.android.ui.components.MarkdownText
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.draw.clipToBounds
+import ai.nuphos.android.R
+import androidx.compose.ui.res.stringResource
 
 /**
  * An open question, in a Bot's chat or the Inbox, like Desktop's decision card: which agent asked,
@@ -73,7 +75,7 @@ internal fun BotQuestionCard(
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp).testTag("bot-question"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         if (showsFrom) Row(Modifier.clickable(onClick = onOpen).testTag("bot-question-from"), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("From ${question.title}", style = MaterialTheme.typography.labelMedium,
+            Text(stringResource(R.string.chats_question_from, question.title), style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Icon(Icons.AutoMirrored.Outlined.OpenInNew, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -86,12 +88,13 @@ internal fun BotQuestionCard(
                 val form = question.form
                 if (form != null) DecisionForm(question.id, form, onForm)
                 else if (replies == null && onConnect != null && question.connectable) {
-                    val own = question.personalCredentials?.joinToString(" and ") { if (it == "github") "GitHub" else if (it == "linear") "Linear" else it }
+                    val own = question.personalCredentials?.map { if (it == "github") "GitHub" else if (it == "linear") "Linear" else it }
+                        ?.foldIndexed("") { index, all, name -> if (index == 0) name else stringResource(R.string.chats_question_credentials_and, all, name) }
                     OutlinedButton(onClick = onConnect, modifier = Modifier.testTag("bot-question-connect")) {
-                        Text(own?.let { "Use your own $it" } ?: "Choose credentials")
+                        Text(own?.let { stringResource(R.string.chats_question_use_own, it) } ?: stringResource(R.string.chats_question_choose_credentials))
                     }
                 } else if (replies == null) {
-                    OutlinedButton(onClick = onOpen) { Text("Answer in the task") }
+                    OutlinedButton(onClick = onOpen) { Text(stringResource(R.string.chats_question_answer_in_task)) }
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         replies.forEach { (label, reply) ->
@@ -100,12 +103,12 @@ internal fun BotQuestionCard(
                     }
                     if (question.typed && (typing || answersInPlace)) TypedAnswer(question.id, onAnswer)
                     else if (question.typed) TextButton(onClick = { typing = true }, Modifier.testTag("bot-question-other")) {
-                        Text(if (replies.isNotEmpty()) "Other…" else "Reply…")
+                        Text(stringResource(if (replies.isNotEmpty()) R.string.chats_question_other else R.string.chats_question_reply))
                     }
                 }
             }
         }
-        if (failure != null) Text("Couldn't send the message · $failure", Modifier.testTag("bot-question-failure"),
+        if (failure != null) Text(stringResource(R.string.chats_question_send_failed, failure), Modifier.testTag("bot-question-failure"),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
     }
 }
@@ -118,21 +121,18 @@ private fun QuestionBody(id: String, text: String, onLink: ((String) -> Unit)?) 
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         val clip = if (long && !expanded) Modifier.heightIn(max = 64.dp).clipToBounds() else Modifier
         MarkdownText(text, clip.testTag("bot-question-body"), onLink = onLink, compact = true)
-        if (long) TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "Show less" else "Show more") }
+        if (long) TextButton(onClick = { expanded = !expanded }) { Text(stringResource(if (expanded) R.string.chats_show_less else R.string.chats_show_more)) }
     }
 }
 
 /** More than about three lines of text: shown collapsed until asked for. */
 internal fun isLongBody(text: String): Boolean = text.trim().lines().size > 3 || text.length > 240
 
-/** One (label, reply) per option, possibly none; null when only the conversation can answer it. */
+/** One (label, reply) per option, possibly none; null for a secret or a connection, answered in their own way. */
 internal fun cardReplies(question: BotQuestion): List<Pair<String, String>>? {
     val request = question.request
-    if (request.category == "credential" || request.category == "integration") return null
-    val options = request.options.orEmpty().filter { it.isNotBlank() }
-    // Neither an option nor words answer it here.
-    if (options.isEmpty() && !question.typed) return null
-    return options.map { it to it }
+    if (request.secretName != null || question.connectable) return null
+    return request.options.orEmpty().filter { it.isNotBlank() }.map { it to it }
 }
 
 /**
@@ -168,12 +168,12 @@ private fun DecisionForm(id: String, questions: List<DecisionQuestion>, onSubmit
                     else OutlinedButton(onClick = toggle, modifier = tag) { label() }
                 }
                 OutlinedTextField(typed[index], { typed[index] = it }, Modifier.fillMaxWidth().testTag("bot-question-form-text"),
-                    placeholder = { Text(if (item.options.isNullOrEmpty()) "Your answer" else "Or type your own answer") },
+                    placeholder = { Text(stringResource(if (item.options.isNullOrEmpty()) R.string.chats_question_your_answer else R.string.chats_question_or_type_answer)) },
                     textStyle = MaterialTheme.typography.bodyMedium)
             }
         }
         Button(onClick = { onSubmit(BotQuestion.formAnswer(questions, picked.toList(), typed.toList())) }, enabled = complete,
-            modifier = Modifier.testTag("bot-question-form-send")) { Text("Send answer") }
+            modifier = Modifier.testTag("bot-question-form-send")) { Text(stringResource(R.string.chats_question_send_answer)) }
     }
 }
 
@@ -183,17 +183,18 @@ private fun TypedAnswer(id: String, onAnswer: (String) -> Unit) {
     var text by rememberSaveable(id) { mutableStateOf("") }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(text, { text = it }, Modifier.fillMaxWidth().testTag("bot-question-answer"),
-            placeholder = { Text("Your answer") }, textStyle = MaterialTheme.typography.bodyMedium)
+            placeholder = { Text(stringResource(R.string.chats_question_your_answer)) }, textStyle = MaterialTheme.typography.bodyMedium)
         Button(onClick = { onAnswer(text.trim()) }, enabled = text.isNotBlank(),
-            modifier = Modifier.testTag("bot-question-send")) { Text("Send answer") }
+            modifier = Modifier.testTag("bot-question-send")) { Text(stringResource(R.string.chats_question_send_answer)) }
     }
 }
 
-private fun heading(category: String?): String = when (category) {
-    "approval" -> "Approval needed"
-    "preference" -> "Your choice"
-    "credential" -> "Credential needed"
-    "integration" -> "Integration needed"
-    "risk_tradeoff" -> "Weigh the tradeoff"
-    else -> "Decision needed"
-}
+@Composable
+private fun heading(category: String?): String = stringResource(when (category) {
+    "approval" -> R.string.chats_question_heading_approval
+    "preference" -> R.string.chats_question_heading_preference
+    "credential" -> R.string.chats_question_heading_credential
+    "integration" -> R.string.chats_question_heading_integration
+    "risk_tradeoff" -> R.string.chats_question_heading_tradeoff
+    else -> R.string.chats_question_heading_decision
+})

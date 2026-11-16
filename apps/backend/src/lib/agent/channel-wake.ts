@@ -6,7 +6,9 @@ import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 
 import { getConversationBySessionId } from './db'
-import { CHANNEL_SENDER_PREFIX, markChannelRead, readChannelMessages } from './db/channels'
+import { markChannelRead, unmarkChannelRead } from './db/channel-cursor'
+import { newestPost } from './channel-newest-post'
+import { CHANNEL_SENDER_PREFIX, readChannelMessages } from './db/channels'
 import { pushTimelineEvent } from './db/participants'
 import { agentConversations } from './db/shared'
 import {
@@ -66,7 +68,7 @@ export async function steerRunningTurn(
   try {
     await steerConversationRuntime(
       agent,
-      { text: messages[0].renderedText, userId: agent.userId, metadata },
+      { text: messages[0].renderedText, userId: agent.userId, metadata: messages[0].metadata },
       randomUUID(),
     )
   } catch {
@@ -140,15 +142,17 @@ export function channelIdOf(message: { source?: string; metadata?: MessageMetada
 /**
  * Puts what a channel notice is about into it: the posts the agent has not read,
  * so it answers what was said rather than relying on it to call channel_read.
- * Nothing is marked read until `markRead`, once the turn ran, so a refused or
- * failed turn delivers the same posts again. A notice with nothing to show
- * (the agent caught up during the turn it waited behind) is dropped.
+ * Nothing is marked read until `markRead`, as the turn is handed over, so
+ * channel_read in that turn goes on from the posts it was shown. A refused or
+ * failed turn takes that back, and delivers the same posts again. A notice with nothing to show (the agent caught up during the
+ * turn it waited behind) is dropped.
  */
 export async function withChannelPosts<
   M extends { source?: string; metadata?: MessageMetadata; renderedText: string },
 >(agentSessionId: string, ownerId: string, messages: M[]) {
   const kept: M[] = []
-  const read: [string, number][] = []
+  // Each channel's place before the notice, and the place it was shown up to.
+  const read: [string, number | undefined, number][] = []
 
   for (const message of messages) {
     const channelId = channelIdOf(message)
@@ -166,15 +170,29 @@ export async function withChannelPosts<
     const page = await readChannelMessages(channel, agentSessionId, ownerId, true)
 
     if (page.messages.length === 0) continue
-    if (page.upTo !== undefined) read.push([channelId, page.upTo])
-    // From the bare notice, so a requeued one does not carry its posts twice.
-    kept.push({ ...message, renderedText: `${channelNotice(channelId)}\n\n${channelPage(page)}` })
+    if (page.upTo !== undefined)
+      read.push([channelId, channel.agentReadIndex?.[agentSessionId], page.upTo])
+    const channelPost = message.metadata && (await newestPost(channel, page))
+
+    kept.push({
+      ...message,
+      // What people see of it: the newest post, as the agent got it.
+      ...(channelPost ? { metadata: { ...message.metadata!, channelPost } } : {}),
+      // From the bare notice, so a requeued one does not carry its posts twice.
+      renderedText: `${channelNotice(channelId)}\n\n${channelPage(page)}`,
+    })
   }
 
   return {
     messages: kept,
+    /** Marks the posts read; what it returns takes that back. */
     markRead: async () => {
-      for (const [channelId, index] of read) await markChannelRead(channelId, agentSessionId, index)
+      for (const [channelId, , upTo] of read) await markChannelRead(channelId, agentSessionId, upTo)
+
+      return async () => {
+        for (const [channelId, from, upTo] of read)
+          await unmarkChannelRead(channelId, agentSessionId, from, upTo)
+      }
     },
   }
 }
@@ -216,6 +234,8 @@ function replyFailedReason(
       ? `its ${label}account hit its usage limit (${notice}).`
       : `its ${label}account hit its usage limit.`
   if (cause === 'auth') return `its ${label}sign-in is no longer valid.`
+  // A disabled agent's own message says where to move the conversation.
+  if (error instanceof AppError && error.code === 'runtime_disabled') return error.message
   if (cause === 'offline') return `its ${label}runtime could not be reached.`
 
   return error instanceof AppError ? error.message : undefined

@@ -19,3 +19,14 @@ export async function watcherCanRead(
 
   return Boolean(await isMember(userId, conversation.teamId))
 }
+
+/** The watchers who can still read it: the people a push about it may reach. */
+export async function readingWatchers(
+  conversation: Parameters<typeof watcherCanRead>[0] & { watcherIds?: string[] },
+  isMember?: Parameters<typeof watcherCanRead>[2],
+): Promise<string[]> {
+  const watchers = conversation.watcherIds ?? []
+  const reads = await Promise.all(watchers.map((id) => watcherCanRead(conversation, id, isMember)))
+
+  return watchers.filter((_, index) => reads[index])
+}

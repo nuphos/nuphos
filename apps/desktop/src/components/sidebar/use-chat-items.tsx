@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { useAgentAvatarPicks } from '../../lib/agentAvatarChoices'
+import { isBotRow, useAgentAvatarPicks } from '../../lib/agentAvatarChoices'
 import { useAgentRuntimeStates } from '../../lib/agentRuntimeStates'
 import { useAgentActivityTimes, useAgentUnreadSessions } from '../../lib/agentUnreadSessions'
 import { runtimeTurnActive, runtimeBackgroundRunning } from '../../lib/runtimeExecution'
 import { botOfChannel } from '../channels/botChannel'
 
 import { botChatRows } from './bot-status'
-import { chatSidebarItem, isBotRow } from './chat-item'
+import { chatSidebarItem } from './chat-item'
 import { nextReplyInbox } from './replyInbox'
 import { RowMenuButton } from './row-menu-button'
 

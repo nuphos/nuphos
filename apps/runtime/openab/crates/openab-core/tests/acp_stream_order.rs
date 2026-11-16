@@ -654,6 +654,309 @@ async fn acp_inactivity_timeout_drops_late_cancel_updates() {
     assert_failed_turn(FAILING_AGENT, "inactivity timeout", 1).await;
 }
 
+// The first process takes a prompt and never writes again, without exiting and
+// without answering `session/cancel`. A process that restored the session answers.
+const SILENT_AGENT: &str = r##"#!/bin/sh
+echo spawn >> calls
+restored=
+while IFS= read -r line; do
+  id=$(printf '%s' "$line" | sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p')
+  case "$line" in
+    *'"initialize"'*)
+      printf '{"jsonrpc":"2.0","id":%s,"result":{"agentInfo":{"name":"fake","version":"0"},"agentCapabilities":{"loadSession":true}}}\n' "$id" ;;
+    *'"session/new"'*)
+      printf '{"jsonrpc":"2.0","id":%s,"result":{"sessionId":"sess_fake"}}\n' "$id" ;;
+    *'"session/load"'*)
+      echo "load $line" >> calls
+      restored=1
+      printf '{"jsonrpc":"2.0","id":%s,"result":{}}\n' "$id" ;;
+    *'"session/prompt"'*)
+      [ -n "$restored" ] && printf '{"jsonrpc":"2.0","id":%s,"result":{"stopReason":"end_turn"}}\n' "$id" ;;
+  esac
+done
+"##;
+
+// A process that stayed silent for the whole inactivity timeout is not kept: the
+// next prompt is answered by a new process that restored the same session.
+#[cfg(unix)]
+#[tokio::test(flavor = "multi_thread")]
+async fn acp_prompt_after_an_inactivity_timeout_gets_a_new_agent_process() {
+    let _guard = env_lock();
+    let key = "acp:silent";
+    let fx = setup_with_timeout("acp", key, SILENT_AGENT, 1).await;
+    let recorder = Arc::new(RecordingAdapter::new(false));
+    let adapter: Arc<dyn ChatAdapter> = recorder.clone();
+
+    run_turn(&fx, &adapter, key).await;
+    assert!(
+        matches!(recorder.calls().last(), Some(Call::Failure { error, .. })
+        if error.contains("inactivity timeout")),
+        "{:?}",
+        recorder.calls()
+    );
+
+    fx.router
+        .pool()
+        .get_or_create(key, None, &[], None)
+        .await
+        .expect("the session is restored for the next prompt");
+    run_turn(&fx, &adapter, key).await;
+
+    let calls = std::fs::read_to_string(fx._tmp.path().join("calls")).unwrap();
+    assert_eq!(calls.matches("spawn").count(), 2, "{calls}");
+    assert!(
+        calls
+            .lines()
+            .any(|l| l.starts_with("load ") && l.contains("\"sess_fake\"")),
+        "the new process must session/load the same session: {calls}"
+    );
+    assert!(
+        matches!(recorder.calls().last(), Some(Call::Terminal { stop_reason: Some(reason), .. })
+        if reason == "end_turn"),
+        "{:?}",
+        recorder.calls()
+    );
+}
+
+// A silent-on-prompt agent (so a turn dies on the inactivity timeout and the next prompt has to
+// resume through session/load) whose restore can be made to fail, and whose session ids differ
+// per process so a fallback to session/new is visible in the persisted map.
+//
+// Knobs, from files in the agent's working directory:
+// - `error_style`: what a failed load answers — "locked" (default), "unknown" or "rollout".
+// - `fail_until`: fail load calls up to and including this count, then succeed (default: never).
+const LOAD_KNOBS_AGENT: &str = r##"#!/bin/sh
+echo spawn >> calls
+while IFS= read -r line; do
+  id=$(printf '%s' "$line" | sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p')
+  case "$line" in
+    *'"initialize"'*)
+      printf '{"jsonrpc":"2.0","id":%s,"result":{"agentInfo":{"name":"fake","version":"0"},"agentCapabilities":{"loadSession":true}}}\n' "$id" ;;
+    *'"session/new"'*)
+      n=$(cat new_count 2>/dev/null || echo 0); n=$((n+1)); echo "$n" > new_count
+      echo "new $n" >> calls
+      printf '{"jsonrpc":"2.0","id":%s,"result":{"sessionId":"sess_new%s"}}\n' "$id" "$n" ;;
+    *'"session/load"'*)
+      n=$(cat load_count 2>/dev/null || echo 0); n=$((n+1)); echo "$n" > load_count
+      echo "load $n" >> calls
+      fail=$(cat fail_until 2>/dev/null || echo 999)
+      if [ "$n" -le "$fail" ]; then
+        case "$(cat error_style 2>/dev/null || echo locked)" in
+          unknown) printf '{"jsonrpc":"2.0","id":%s,"error":{"code":-32602,"message":"Invalid params: Unknown session: sess_new1"}}\n' "$id" ;;
+          rollout) printf '{"jsonrpc":"2.0","id":%s,"error":{"code":-32603,"message":"Internal error","data":{"details":"no rollout found for thread id 3f2a"}}}\n' "$id" ;;
+          *) printf '{"jsonrpc":"2.0","id":%s,"error":{"code":-32603,"message":"Internal error","data":{"details":"session store is locked"}}}\n' "$id" ;;
+        esac
+      else
+        printf '{"jsonrpc":"2.0","id":%s,"result":{}}\n' "$id"
+      fi ;;
+  esac
+done
+"##;
+
+fn set_knob(fx: &Fixture, name: &str, value: &str) {
+    std::fs::write(fx._tmp.path().join(name), value).unwrap();
+}
+
+fn recorded_calls(fx: &Fixture) -> String {
+    std::fs::read_to_string(fx._tmp.path().join("calls")).unwrap()
+}
+
+/// How many `session/new` calls the fake agents have answered so far.
+fn session_new_calls(fx: &Fixture) -> usize {
+    recorded_calls(fx)
+        .lines()
+        .filter(|line| line.starts_with("new "))
+        .count()
+}
+
+/// The session id `thread_map.json` currently persists for `key`. The file is a plain
+/// thread → session id object, the shape every runtime reads.
+fn persisted_session(fx: &Fixture, key: &str) -> String {
+    let data = std::fs::read_to_string(fx._tmp.path().join(".openab/thread_map.json")).unwrap();
+    let map: HashMap<String, String> = serde_json::from_str(&data)
+        .unwrap_or_else(|e| panic!("thread_map.json must stay a plain map: {e}\n{data}"));
+    map.get(key)
+        .cloned()
+        .unwrap_or_else(|| panic!("no persisted session for {key} in {data}"))
+}
+
+/// Run a turn the agent never answers: it fails on the inactivity timeout and the agent is
+/// killed, so the next `get_or_create` has to resume the session through `session/load`.
+async fn kill_agent_with_a_timed_out_turn(fx: &Fixture, key: &str) {
+    let recorder = Arc::new(RecordingAdapter::new(false));
+    let adapter: Arc<dyn ChatAdapter> = recorder.clone();
+    run_turn(fx, &adapter, key).await;
+    assert!(
+        matches!(recorder.calls().last(), Some(Call::Failure { error, .. })
+            if error.contains("inactivity timeout")),
+        "{:?}",
+        recorder.calls()
+    );
+}
+
+// An agent-internal error says nothing about whether the session is still on disk, so the saved
+// id is kept — but only for so long. After LOAD_FAILURE_LIMIT consecutive failures the thread
+// must work again with a fresh session, and the user must be told the saved context is gone.
+#[cfg(unix)]
+#[tokio::test(flavor = "multi_thread")]
+async fn acp_session_load_gives_up_after_three_consecutive_failures() {
+    let _guard = env_lock();
+    let key = "acp:load-bounded";
+    let fx = setup_with_timeout("acp", key, LOAD_KNOBS_AGENT, 1).await;
+    assert_eq!(persisted_session(&fx, key), "sess_new1");
+
+    kill_agent_with_a_timed_out_turn(&fx, key).await;
+
+    for attempt in 1..3 {
+        let err = fx
+            .router
+            .pool()
+            .get_or_create(key, None, &[], None)
+            .await
+            .expect_err("a failed session/load must not silently start a new session");
+        assert!(
+            err.to_string().contains("kept for the next attempt"),
+            "attempt {attempt}: {err}"
+        );
+        assert_eq!(
+            persisted_session(&fx, key),
+            "sess_new1",
+            "attempt {attempt} must keep the saved id"
+        );
+        assert_eq!(
+            session_new_calls(&fx),
+            1,
+            "attempt {attempt} must not create a session"
+        );
+    }
+
+    fx.router
+        .pool()
+        .get_or_create(key, None, &[], None)
+        .await
+        .expect("the third consecutive failure must fall back to a new session");
+    assert_eq!(persisted_session(&fx, key), "sess_new2");
+    assert_eq!(session_new_calls(&fx), 2);
+    let reset = fx
+        .router
+        .pool()
+        .with_connection(key, |conn| Box::pin(async move { Ok(conn.session_reset) }))
+        .await
+        .unwrap();
+    assert!(reset, "the user must see the session-reset banner");
+}
+
+// The failure streak is memory-only, on purpose: what a failed load leaves on disk must still be
+// the plain thread → session id map a runtime without the bounded fallback can read.
+#[cfg(unix)]
+#[tokio::test(flavor = "multi_thread")]
+async fn acp_a_failed_load_leaves_the_thread_map_in_its_plain_shape() {
+    let _guard = env_lock();
+    let key = "acp:load-map-shape";
+    let fx = setup_with_timeout("acp", key, LOAD_KNOBS_AGENT, 1).await;
+    kill_agent_with_a_timed_out_turn(&fx, key).await;
+
+    fx.router
+        .pool()
+        .get_or_create(key, None, &[], None)
+        .await
+        .expect_err("the first failure keeps the saved session");
+
+    let raw = std::fs::read_to_string(fx._tmp.path().join(".openab/thread_map.json")).unwrap();
+    let map: HashMap<String, String> = serde_json::from_str(&raw)
+        .unwrap_or_else(|e| panic!("a failed load must not change the file shape: {e}\n{raw}"));
+    assert_eq!(map.get(key).map(String::as_str), Some("sess_new1"));
+}
+
+// codex-acp reports a session it cannot find as invalid params that names it. That proves the
+// session is gone, so the fallback is immediate rather than after three attempts.
+#[cfg(unix)]
+#[tokio::test(flavor = "multi_thread")]
+async fn acp_unknown_session_load_falls_back_immediately() {
+    let _guard = env_lock();
+    let key = "acp:load-unknown";
+    let fx = setup_with_timeout("acp", key, LOAD_KNOBS_AGENT, 1).await;
+    set_knob(&fx, "error_style", "unknown");
+    kill_agent_with_a_timed_out_turn(&fx, key).await;
+
+    fx.router
+        .pool()
+        .get_or_create(key, None, &[], None)
+        .await
+        .expect("a session the agent says is unknown must be replaced");
+    assert_eq!(persisted_session(&fx, key), "sess_new2");
+    assert_eq!(session_new_calls(&fx), 2);
+}
+
+// codex's app-server says this when it has no transcript for the thread; codex-acp relays it as
+// an internal error, and the wording alone is proof enough.
+#[cfg(unix)]
+#[tokio::test(flavor = "multi_thread")]
+async fn acp_codex_missing_rollout_falls_back_immediately() {
+    let _guard = env_lock();
+    let key = "acp:load-rollout";
+    let fx = setup_with_timeout("acp", key, LOAD_KNOBS_AGENT, 1).await;
+    set_knob(&fx, "error_style", "rollout");
+    kill_agent_with_a_timed_out_turn(&fx, key).await;
+
+    fx.router
+        .pool()
+        .get_or_create(key, None, &[], None)
+        .await
+        .expect("a missing rollout must be replaced");
+    assert_eq!(persisted_session(&fx, key), "sess_new2");
+    assert_eq!(session_new_calls(&fx), 2);
+}
+
+// A successful load clears the streak, so failures before it never add up to a fallback: two
+// failures then a success then one more failure must still keep the session.
+#[cfg(unix)]
+#[tokio::test(flavor = "multi_thread")]
+async fn acp_a_successful_load_resets_the_failure_streak() {
+    let _guard = env_lock();
+    let key = "acp:load-reset";
+    let fx = setup_with_timeout("acp", key, LOAD_KNOBS_AGENT, 1).await;
+    set_knob(&fx, "fail_until", "2");
+    kill_agent_with_a_timed_out_turn(&fx, key).await;
+
+    for attempt in 1..=2 {
+        fx.router
+            .pool()
+            .get_or_create(key, None, &[], None)
+            .await
+            .expect_err("the first two failures keep the saved session");
+        assert_eq!(
+            persisted_session(&fx, key),
+            "sess_new1",
+            "attempt {attempt} must keep the saved id"
+        );
+    }
+    fx.router
+        .pool()
+        .get_or_create(key, None, &[], None)
+        .await
+        .expect("the third load succeeds");
+    assert_eq!(
+        persisted_session(&fx, key),
+        "sess_new1",
+        "a successful load keeps the saved id"
+    );
+
+    kill_agent_with_a_timed_out_turn(&fx, key).await;
+    set_knob(&fx, "fail_until", "4");
+    fx.router
+        .pool()
+        .get_or_create(key, None, &[], None)
+        .await
+        .expect_err("one failure after a success must not replace the session");
+    assert_eq!(persisted_session(&fx, key), "sess_new1");
+    assert_eq!(
+        session_new_calls(&fx),
+        1,
+        "no new session may have been created"
+    );
+}
+
 // Stop answers a relayed permission request `cancelled` (gateway); the agent itself must
 // receive that answer to its `session/request_permission`, so its turn can end.
 #[tokio::test(flavor = "multi_thread")]
@@ -678,5 +981,215 @@ async fn acp_agent_receives_cancelled_for_a_released_permission_request() {
             content: "cancelled".into(),
             stop_reason: Some("cancelled".into()),
         }],
+    );
+}
+
+/// Loses its session once: the first process answers the prompt with ACP "resource not
+/// found", as claude-agent-acp does for a session it no longer holds. Every later process
+/// restores the session with `session/load` and answers whether it was loaded.
+const SESSION_GONE_ONCE_AGENT: &str = r##"#!/bin/sh
+marker="$(dirname "$0")/session_gone_once"
+loaded=fresh
+while IFS= read -r line; do
+  id=$(printf '%s' "$line" | sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p')
+  case "$line" in
+    *'"initialize"'*)
+      printf '{"jsonrpc":"2.0","id":%s,"result":{"agentInfo":{"name":"fake","version":"0"},"agentCapabilities":{"loadSession":true}}}\n' "$id"
+      ;;
+    *'"session/new"'*)
+      printf '{"jsonrpc":"2.0","id":%s,"result":{"sessionId":"sess_fake"}}\n' "$id"
+      ;;
+    *'"session/load"'*)
+      loaded=loaded
+      printf '{"jsonrpc":"2.0","id":%s,"result":{}}\n' "$id"
+      ;;
+    *'"session/prompt"'*)
+      if [ ! -e "$marker" ]; then
+        : > "$marker"
+        printf '{"jsonrpc":"2.0","id":%s,"error":{"code":-32002,"message":"Resource not found: sess_fake","data":{"uri":"sess_fake"}}}\n' "$id"
+      else
+        printf '{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"sess_fake","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"%s"}}}}\n' "$loaded"
+        printf '{"jsonrpc":"2.0","id":%s,"result":{"stopReason":"end_turn"}}\n' "$id"
+      fi
+      ;;
+  esac
+done
+"##;
+
+// An agent that no longer holds the session answers the prompt with -32002 before any
+// output. The turn restores the saved session (session/load) and runs once more instead
+// of failing.
+#[tokio::test(flavor = "multi_thread")]
+async fn acp_prompt_for_a_lost_session_restores_it_and_runs_once_more() {
+    let _guard = env_lock();
+    let fx = setup_with_agent_and_streaming(
+        "acp",
+        "acp:session-gone-once",
+        SESSION_GONE_ONCE_AGENT,
+        false,
+    )
+    .await;
+    let recorder = Arc::new(RecordingAdapter::new(false));
+    let adapter: Arc<dyn ChatAdapter> = recorder.clone();
+
+    run_turn(&fx, &adapter, "acp:session-gone-once").await;
+
+    let calls = recorder.calls();
+    assert!(
+        !calls
+            .iter()
+            .any(|call| matches!(call, Call::Failure { .. })),
+        "the lost session failed the turn: {calls:?}"
+    );
+    assert!(
+        calls
+            .iter()
+            .any(|call| matches!(call, Call::Terminal { content, .. } if content == "loaded")),
+        "the turn did not run on the restored session: {calls:?}"
+    );
+}
+
+const GONE: &str = r#"printf '{"jsonrpc":"2.0","id":%s,"error":{"code":-32002,"message":"Resource not found: sess_fake","data":{"uri":"sess_fake"}}}\n' "$id""#;
+const INTERNAL_ERROR: &str = r#"printf '{"jsonrpc":"2.0","id":%s,"error":{"code":-32603,"message":"Internal error"}}\n' "$id""#;
+const PARTIAL_THEN_GONE: &str = r#"printf '{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"sess_fake","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"partial"}}}}\n'
+        printf '{"jsonrpc":"2.0","id":%s,"error":{"code":-32002,"message":"Resource not found: sess_fake","data":{"uri":"sess_fake"}}}\n' "$id""#;
+const PARTIAL_THEN_CANCELLED: &str = r#"printf '{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"sess_fake","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"partial"}}}}\n'
+        printf '{"jsonrpc":"2.0","id":%s,"result":{"stopReason":"cancelled"}}\n' "$id""#;
+
+/// A fake agent that can restore its session and gives every prompt, in any of its
+/// processes, the same `answer`. Each prompt adds a line to `prompts` beside the script.
+fn counting_agent(answer: &str) -> String {
+    format!(
+        r##"#!/bin/sh
+prompts="$(dirname "$0")/prompts"
+while IFS= read -r line; do
+  id=$(printf '%s' "$line" | sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p')
+  case "$line" in
+    *'"initialize"'*)
+      printf '{{"jsonrpc":"2.0","id":%s,"result":{{"agentInfo":{{"name":"fake","version":"0"}},"agentCapabilities":{{"loadSession":true}}}}}}\n' "$id"
+      ;;
+    *'"session/new"'*)
+      printf '{{"jsonrpc":"2.0","id":%s,"result":{{"sessionId":"sess_fake"}}}}\n' "$id"
+      ;;
+    *'"session/load"'*)
+      printf '{{"jsonrpc":"2.0","id":%s,"result":{{}}}}\n' "$id"
+      ;;
+    *'"session/prompt"'*)
+      echo prompt >> "$prompts"
+      {answer}
+      ;;
+  esac
+done
+"##
+    )
+}
+
+/// Runs one send-once ACP turn against an agent giving every prompt `answer`, and returns
+/// what the chat received and how many prompts the agent was sent.
+async fn turn_with_answer(thread_key: &str, answer: &str) -> (Vec<Call>, usize) {
+    let fx =
+        setup_with_agent_and_streaming("acp", thread_key, &counting_agent(answer), false).await;
+    let recorder = Arc::new(RecordingAdapter::new(false));
+    let adapter: Arc<dyn ChatAdapter> = recorder.clone();
+
+    run_turn(&fx, &adapter, thread_key).await;
+
+    let prompts = std::fs::read_to_string(fx._tmp.path().join("prompts")).unwrap_or_default();
+    (recorder.calls(), prompts.lines().count())
+}
+
+// Only "the agent lost the session" earns a second run; any other agent error fails the
+// turn as it did before.
+#[tokio::test(flavor = "multi_thread")]
+async fn acp_prompt_error_other_than_a_lost_session_is_not_retried() {
+    let _guard = env_lock();
+    let (calls, prompts) = turn_with_answer("acp:internal-error", INTERNAL_ERROR).await;
+
+    assert_eq!(prompts, 1, "{calls:?}");
+    assert!(
+        calls
+            .iter()
+            .any(|call| matches!(call, Call::Failure { .. })),
+        "{calls:?}"
+    );
+}
+
+// The rerun gets one chance: losing the session again fails the turn instead of looping.
+#[tokio::test(flavor = "multi_thread")]
+async fn acp_prompt_for_a_session_lost_twice_fails_after_one_retry() {
+    let _guard = env_lock();
+    let (calls, prompts) = turn_with_answer("acp:session-gone-twice", GONE).await;
+
+    assert_eq!(prompts, 2, "{calls:?}");
+    assert!(
+        calls
+            .iter()
+            .any(|call| matches!(call, Call::Failure { .. })),
+        "{calls:?}"
+    );
+}
+
+// Once the turn has shown output, running it again would show it twice, so a lost session
+// then fails the turn as before.
+#[tokio::test(flavor = "multi_thread")]
+async fn acp_session_lost_after_output_is_not_retried() {
+    let _guard = env_lock();
+    let (calls, prompts) =
+        turn_with_answer("acp:session-gone-after-output", PARTIAL_THEN_GONE).await;
+
+    assert_eq!(prompts, 1, "{calls:?}");
+    assert!(
+        calls
+            .iter()
+            .any(|call| matches!(call, Call::Failure { .. })),
+        "{calls:?}"
+    );
+}
+
+// A cancelled turn ends normally with its stop reason and is never run again.
+#[tokio::test(flavor = "multi_thread")]
+async fn acp_cancelled_turn_is_not_retried() {
+    let _guard = env_lock();
+    let (calls, prompts) = turn_with_answer("acp:cancelled-once", PARTIAL_THEN_CANCELLED).await;
+
+    assert_eq!(prompts, 1, "{calls:?}");
+    assert_eq!(
+        calls,
+        vec![Call::Terminal {
+            content: "partial".into(),
+            stop_reason: Some("cancelled".into()),
+        }],
+    );
+}
+
+// claude-agent-acp answers a prompt for a session it does not hold with a plain "Session not
+// found", which the ACP SDK relays as -32603 with the text in `data.details`.
+#[tokio::test(flavor = "multi_thread")]
+async fn acp_prompt_answered_session_not_found_restores_it_and_runs_once_more() {
+    let _guard = env_lock();
+    let agent = SESSION_GONE_ONCE_AGENT.replace(
+        r#"{"code":-32002,"message":"Resource not found: sess_fake","data":{"uri":"sess_fake"}}"#,
+        r#"{"code":-32603,"message":"Internal error","data":{"details":"Session not found"}}"#,
+    );
+    assert_ne!(agent, SESSION_GONE_ONCE_AGENT);
+    let fx =
+        setup_with_agent_and_streaming("acp", "acp:session-not-found-once", &agent, false).await;
+    let recorder = Arc::new(RecordingAdapter::new(false));
+    let adapter: Arc<dyn ChatAdapter> = recorder.clone();
+
+    run_turn(&fx, &adapter, "acp:session-not-found-once").await;
+
+    let calls = recorder.calls();
+    assert!(
+        !calls
+            .iter()
+            .any(|call| matches!(call, Call::Failure { .. })),
+        "the lost session failed the turn: {calls:?}"
+    );
+    assert!(
+        calls
+            .iter()
+            .any(|call| matches!(call, Call::Terminal { content, .. } if content == "loaded")),
+        "the turn did not run on the restored session: {calls:?}"
     );
 }

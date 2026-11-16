@@ -25,7 +25,7 @@ useModels({
     }) as never,
   cloudflareOAuthResult: () =>
     ({
-      updateOne: (filter: unknown, update: unknown) => {
+      replaceOne: (filter: unknown, update: unknown) => {
         results.push({ filter, update })
 
         return Promise.resolve({ acknowledged: true })

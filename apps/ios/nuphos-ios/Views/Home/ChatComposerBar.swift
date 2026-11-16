@@ -48,6 +48,8 @@ struct ChatComposerBar<Controls: View>: View {
     @State private var transcription: Task<Void, Never>?
     @State private var dictationError: String?
     @State private var mentionResults: [AgentConversation] = []
+    /// The `@Title`s picked into the draft, and the links they are sent as.
+    @State private var mentionLinks: [String: URL] = [:]
     #if canImport(UIKit)
     @State private var pasteHandler = ComposerPaste()
     #endif
@@ -185,7 +187,7 @@ struct ChatComposerBar<Controls: View>: View {
             Task {
                 for item in items {
                     if let attachment = await ComposerAttachment.load(item, temporaryDirectory: temporaryDirectory) { attachments.append(attachment) }
-                    else { attachmentError = "Couldn’t prepare this photo or video. Try a different one or choose it from Files." }
+                    else { attachmentError = String(localized: "Couldn’t prepare this photo or video. Try a different one or choose it from Files.") }
                 }
             }
         }
@@ -316,7 +318,9 @@ struct ChatComposerBar<Controls: View>: View {
         guard let source = mentions,
               let link = SessionLink.url(teamId: conversation.teamId ?? source.teamId, sessionId: conversation.sessionId)
         else { return }
-        text = SessionMention.insert(link.absoluteString, into: text)
+        let name = "@" + (conversation.title.isEmpty ? conversation.sessionId : conversation.title)
+        mentionLinks[name] = link
+        text = SessionMention.insert(name, into: text)
         mentionResults = []
     }
 
@@ -473,11 +477,11 @@ struct ChatComposerBar<Controls: View>: View {
                    }) {
                     text += string
                 } else if !allowsAttachments {
-                    attachmentError = "Send attachments after this turn; it takes text now."
+                    attachmentError = String(localized: "Send attachments after this turn; it takes text now.")
                 } else if let attachment = await ComposerAttachment.load(pasted: provider, temporaryDirectory: temporaryDirectory) {
                     attachments.append(attachment)
                 } else {
-                    attachmentError = "Couldn’t paste this item. Try choosing it from Files."
+                    attachmentError = String(localized: "Couldn’t paste this item. Try choosing it from Files.")
                 }
             }
         }
@@ -554,7 +558,7 @@ struct ChatComposerBar<Controls: View>: View {
 
     private func send() {
         guard !preparingSubmission, canSend, hasPayload, allowsAttachments || attachments.isEmpty else { return }
-        let draft = ComposerSubmission(text: text.trimmingCharacters(in: .whitespacesAndNewlines), attachments: attachments)
+        let draft = ComposerSubmission(text: SessionMention.expand(text, links: mentionLinks).trimmingCharacters(in: .whitespacesAndNewlines), attachments: attachments)
         preparingSubmission = true
         Task {
             defer { preparingSubmission = false }
@@ -581,6 +585,7 @@ struct ChatComposerBar<Controls: View>: View {
                 }.value
                 guard canSend, allowsAttachments || submission.attachments.isEmpty else { return }
                 text = ""
+                mentionLinks = [:]
                 attachments.removeAll { attachment in draft.attachments.contains { $0.id == attachment.id } }
                 focused = false
                 onSend(submission)

@@ -1,5 +1,6 @@
 import { signedIn, stillCurrent } from '../account-request.ts'
 import { readDeviceMetrics } from '../main/device-metrics.ts'
+import { desktopPath } from '../runtime-desktop-path.ts'
 
 import { call } from './client.ts'
 import { buildAtlasError } from './error.ts'
@@ -170,14 +171,14 @@ export function boxDesktop(
 ): Promise<{ url: string; label: string }> {
   return call('POST', box(deviceId, '/desktop', teamId), undefined, { retry: false })
 }
-/** Has the conversation's Box hold a desktop for it: its own when it has one. */
+/** Has the conversation's Box hold a desktop for it, or with `runtime/<id>` a computer its own screen. */
 export function openSessionDesktop(
   teamId: string,
   sessionId: string,
 ): Promise<{ display: number }> {
   return call(
     'POST',
-    `/teams/${encodeURIComponent(teamId)}/runtime-desktop/${encodeURIComponent(sessionId)}`,
+    `/teams/${encodeURIComponent(teamId)}/runtime-desktop/${desktopPath(sessionId)}`,
     undefined,
     { retry: false },
   )
@@ -191,6 +192,16 @@ export function boxJoinToken(): Promise<{
 }
 export function deleteBox(deviceId: string, teamId: string): Promise<{ ok: true }> {
   return call('DELETE', box(deviceId, '', teamId), undefined, { retry: false })
+}
+
+/** Restarts the caller's other computer into the Nuphos Desktop update it downloaded. */
+export function updateDeviceApp(deviceId: string, teamId: string): Promise<{ version: string }> {
+  return call(
+    'POST',
+    `/teams/${encodeURIComponent(teamId)}/computers/${encodeURIComponent(deviceId)}/app-update`,
+    undefined,
+    { retry: false },
+  )
 }
 
 /** Forgets an offline computer; the backend refuses Boxes and computers that are online. */

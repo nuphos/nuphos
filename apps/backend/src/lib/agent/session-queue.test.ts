@@ -373,6 +373,35 @@ for (const failure of [
   })
 }
 
+test('a queued send waits out a reconnecting computer, then is kept with the reason', async () => {
+  installTurnRunner({
+    hasActiveAgentRunForSession: async () => false,
+    claimAgentRunForSession: async () => () => {},
+    launchQueuedChatTurn: async () => {
+      throw new AppError(409, 'runtime_offline', 'The computer running this agent is offline.')
+    },
+  })
+  await queue(human('blip'), human('next'))
+  await startQueuedTurn(OWNER, SESSION)
+
+  const [head] = await listPendingUserMessages(OWNER, SESSION)
+
+  expect(await waiting()).toEqual(['blip', 'next'])
+  expect(kept).toEqual([])
+  expect(head?.offlineSince).toBeString()
+
+  // Still offline a minute later: it is gone, and the sender is told.
+  await clearPendingUserMessages(OWNER, SESSION)
+  await queue(
+    { ...human('gone'), offlineSince: new Date(Date.now() - 61_000).toISOString() },
+    human('next'),
+  )
+  await startQueuedTurn(OWNER, SESSION)
+
+  expect(await waiting()).toEqual(['next'])
+  expect(JSON.stringify(kept[0]?.messages[1]?.parts)).toContain('is offline')
+})
+
 test('two releases racing for one session start its head once', async () => {
   let held = false
 

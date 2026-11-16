@@ -45,7 +45,9 @@ useAgentDb({
   agentConversations: (() => ({
     findOne: () =>
       Promise.resolve(
-        selection === undefined ? null : { credentialAccess: { instaboxAccountIds: selection } },
+        selection === undefined
+          ? null
+          : { sessionId: 'session', teamId, credentialAccess: { instaboxAccountIds: selection } },
       ),
     updateOne: (filter: unknown, update: unknown) => {
       calls.push(['select', filter, update])

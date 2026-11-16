@@ -1,10 +1,12 @@
 import clsx from 'clsx'
 import { Archive, ArchiveRestore, Loader2 } from 'lucide-react'
-import { useEffect } from 'react'
+import { Fragment, useEffect } from 'react'
 
 import { useSentinelAutoLoad } from '../components/agent/panel/historyPageHooks'
 import { HistoryConversationRow } from '../components/agent/panel/historyRows'
 import { EmptyState } from '../components/EmptyState'
+import { GroupLabel } from '../components/session-search/searchResultParts'
+import { onBotsPage } from '../components/sidebar/chat-item'
 import { Button } from '../components/ui/button'
 import { t } from '../i18n'
 
@@ -42,6 +44,10 @@ export function ArchivedChatsView({
     unarchive,
   } = useArchivedChats({ teamId, filter, refreshKey, onLoading })
   const { scrollRef, sentinelRef } = useSentinelAutoLoad(hasMore, loadMore)
+  const groups = [
+    [t('Bots'), items.filter(onBotsPage)],
+    [t('Tasks'), items.filter((conversation) => !onBotsPage(conversation))],
+  ] as const
 
   useEffect(() => {
     onCount?.(items.length)
@@ -50,16 +56,16 @@ export function ArchivedChatsView({
   if (!loading && failed && items.length === 0)
     return (
       <div className="mx-auto w-full max-w-[820px] px-9 pt-6">
-        <LoadFailed message={t('Couldn’t load archived agents.')} onRetry={retry} />
+        <LoadFailed message={t('Couldn’t load archived Bots and tasks.')} onRetry={retry} />
       </div>
     )
   if (!loading && items.length === 0 && !search) {
     return (
       <EmptyState
         icon={Archive}
-        title={t('No archived agents')}
+        title={t('No archived Bots or tasks')}
         description={t(
-          'Agents you archive, and agents left idle for a week, are kept here. Unarchive one to put it back in Agents.',
+          'Bots and tasks you archive, and those left idle for a week, are kept here. Unarchive one to put it back.',
         )}
       />
     )
@@ -79,41 +85,48 @@ export function ArchivedChatsView({
         >
           {items.length === 0 && (
             <div className="px-3 py-4 text-[12.5px] text-tertiary">
-              {loading ? t('Loading…') : t('No archived agents match your search.')}
+              {loading ? t('Loading…') : t('No archived Bots or tasks match your search.')}
             </div>
           )}
-          {items.map((conversation) => (
-            <HistoryConversationRow
-              key={conversation.sessionId}
-              conversation={conversation}
-              opening={false}
-              className="sketch-divider-bottom"
-              titleClassName="text-[13px]"
-              timeClassName="mt-1"
-              avatarSize={28}
-              onOpenConversation={onOpenConversation}
-              trailing={
-                <div className="mr-3 flex flex-shrink-0 items-center gap-3">
-                  <span className="text-[11.5px] text-tertiary">
-                    {archivedAtLabel(conversation.archivedAt)}
-                  </span>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={restoringIds.has(conversation.sessionId)}
-                    onClick={() => void unarchive(conversation)}
-                  >
-                    <ArchiveRestore className="h-3.5 w-3.5" strokeWidth={1.8} />
-                    {conversation.kind === 'channel'
-                      ? t('Unarchive')
-                      : conversation.avatar
-                        ? t('Unarchive Bot')
-                        : t('Unarchive Task')}
-                  </Button>
-                </div>
-              }
-            />
-          ))}
+          {groups.map(([label, group]) =>
+            group.length > 0 ? (
+              <Fragment key={label}>
+                <GroupLabel text={label} />
+                {group.map((conversation) => (
+                  <HistoryConversationRow
+                    key={conversation.sessionId}
+                    conversation={conversation}
+                    opening={false}
+                    className="sketch-divider-bottom"
+                    titleClassName="text-[13px]"
+                    timeClassName="mt-1"
+                    avatarSize={28}
+                    onOpenConversation={onOpenConversation}
+                    trailing={
+                      <div className="mr-3 flex flex-shrink-0 items-center gap-3">
+                        <span className="text-[11.5px] text-tertiary">
+                          {archivedAtLabel(conversation.archivedAt)}
+                        </span>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled={restoringIds.has(conversation.sessionId)}
+                          onClick={() => void unarchive(conversation)}
+                        >
+                          <ArchiveRestore className="h-3.5 w-3.5" strokeWidth={1.8} />
+                          {conversation.kind === 'channel'
+                            ? t('Unarchive')
+                            : conversation.avatar
+                              ? t('Unarchive Bot')
+                              : t('Unarchive Task')}
+                        </Button>
+                      </div>
+                    }
+                  />
+                ))}
+              </Fragment>
+            ) : null,
+          )}
           {hasMore && (
             <div ref={sentinelRef} className="flex items-center justify-center py-3">
               {loadingMore && <Loader2 className="h-4 w-4 animate-spin text-primary" />}

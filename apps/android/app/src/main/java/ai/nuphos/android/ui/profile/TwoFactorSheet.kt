@@ -24,6 +24,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import ai.nuphos.android.R
 
 sealed interface TwoFactorLoad {
     data object Loading : TwoFactorLoad
@@ -70,43 +73,43 @@ fun TwoFactorSheet(onDismiss: () -> Unit) {
             Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Two-factor authentication", style = MaterialTheme.typography.headlineSmall)
+            Text(stringResource(R.string.profile_two_factor), style = MaterialTheme.typography.headlineSmall)
             Text(
-                "Ask for a code from an authenticator app each time you sign in, so a stolen password or email is not enough.",
+                stringResource(R.string.profile_two_factor_intro),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             when (val current = load) {
                 TwoFactorLoad.Loading -> CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally).padding(16.dp))
                 TwoFactorLoad.Failed -> Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Couldn’t load two-factor authentication.", Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    TextButton(onClick = { scope.launch { refresh() } }) { Text("Retry") }
+                    Text(stringResource(R.string.profile_two_factor_load_failed), Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    TextButton(onClick = { scope.launch { refresh() } }) { Text(stringResource(R.string.profile_retry)) }
                 }
                 TwoFactorLoad.SignInAgain -> Card {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Sign in again to turn on two-factor authentication.", style = MaterialTheme.typography.titleSmall)
-                        Text("For your security, this needs a sign-in from the last 10 minutes.",
+                        Text(stringResource(R.string.profile_two_factor_sign_in_again_title), style = MaterialTheme.typography.titleSmall)
+                        Text(stringResource(R.string.profile_two_factor_sign_in_again_body),
                             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Button(onClick = { onDismiss(); auth.signOut() }, modifier = Modifier.padding(top = 6.dp)) {
-                            Text("Sign out and sign in again")
+                            Text(stringResource(R.string.profile_sign_out_and_sign_in_again))
                         }
                     }
                 }
                 is TwoFactorLoad.Ready -> Card {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(if (current.status.enabled) "On" else "Off", style = MaterialTheme.typography.titleMedium)
+                        Text(if (current.status.enabled) stringResource(R.string.profile_two_factor_on) else stringResource(R.string.profile_two_factor_off), style = MaterialTheme.typography.titleMedium)
                         if (current.status.enabled) {
-                            Text("${current.status.recoveryCodesRemaining} recovery codes left",
+                            Text(pluralStringResource(R.plurals.profile_two_factor_recovery_codes_left, current.status.recoveryCodesRemaining, current.status.recoveryCodesRemaining),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedButton(onClick = { confirming = "codes" }) { Text("New recovery codes") }
-                                OutlinedButton(onClick = { confirming = "disable" }) { Text("Turn off") }
+                                OutlinedButton(onClick = { confirming = "codes" }) { Text(stringResource(R.string.profile_two_factor_new_recovery_codes)) }
+                                OutlinedButton(onClick = { confirming = "disable" }) { Text(stringResource(R.string.profile_two_factor_turn_off)) }
                             }
                             current.status.passkeys.forEach { passkey ->
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(passkey.name, Modifier.weight(1f))
                                     TextButton(onClick = { removing = passkey }) {
-                                        Text("Remove", color = MaterialTheme.colorScheme.error)
+                                        Text(stringResource(R.string.profile_two_factor_remove), color = MaterialTheme.colorScheme.error)
                                     }
                                 }
                             }
@@ -123,7 +126,7 @@ fun TwoFactorSheet(onDismiss: () -> Unit) {
                                         } catch (_: androidx.credentials.exceptions.CreateCredentialCancellationException) {
                                         } catch (e: Exception) { notice = e.message }
                                     }
-                                }) { Text("Add a passkey") }
+                                }) { Text(stringResource(R.string.profile_two_factor_add_passkey)) }
                             }
                         } else {
                             Button(onClick = {
@@ -135,38 +138,38 @@ fun TwoFactorSheet(onDismiss: () -> Unit) {
                                         if (e.needsFreshSignIn()) load = TwoFactorLoad.SignInAgain else notice = e.message
                                     }
                                 }
-                            }) { Text("Turn on") }
+                            }) { Text(stringResource(R.string.profile_two_factor_turn_on)) }
                         }
                     }
                 }
                 is TwoFactorLoad.Setup -> {
-                    Text("1. Add Nuphos to your authenticator app", style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.profile_two_factor_setup_step_add), style = MaterialTheme.typography.titleSmall)
                     OutlinedButton(onClick = { runCatching { uri.openUri(current.setup.otpauthUrl) } }) {
-                        Text("Open in authenticator app")
+                        Text(stringResource(R.string.profile_two_factor_open_authenticator))
                     }
-                    Text("Or enter this key:", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.profile_two_factor_enter_key), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     SelectionContainer {
                         Text(current.setup.secret.chunked(4).joinToString(" "), fontFamily = FontFamily.Monospace)
                     }
-                    Text("2. Enter the 6-digit code it shows", style = MaterialTheme.typography.titleSmall)
-                    MfaCodeForm("Turn on", onSubmit = { code ->
+                    Text(stringResource(R.string.profile_two_factor_setup_step_code), style = MaterialTheme.typography.titleSmall)
+                    MfaCodeForm(stringResource(R.string.profile_two_factor_turn_on), onSubmit = { code ->
                         load = TwoFactorLoad.Codes(AccountApi(token).confirmMfaSetup(code))
                     })
-                    TextButton(onClick = { scope.launch { refresh() } }) { Text("Cancel") }
+                    TextButton(onClick = { scope.launch { refresh() } }) { Text(stringResource(R.string.cancel)) }
                 }
                 is TwoFactorLoad.Codes -> Card {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Save your recovery codes", style = MaterialTheme.typography.titleSmall)
-                        Text("If you lose your authenticator, each code signs you in once. They are shown only now.",
+                        Text(stringResource(R.string.profile_two_factor_save_codes_title), style = MaterialTheme.typography.titleSmall)
+                        Text(stringResource(R.string.profile_two_factor_save_codes_body),
                             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         SelectionContainer {
                             Text(current.codes.joinToString("\n"), fontFamily = FontFamily.Monospace)
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(onClick = { clipboard.setText(AnnotatedString(current.codes.joinToString("\n"))) }) {
-                                Text("Copy codes")
+                                Text(stringResource(R.string.profile_two_factor_copy_codes))
                             }
-                            Button(onClick = { scope.launch { refresh() } }) { Text("I saved them") }
+                            Button(onClick = { scope.launch { refresh() } }) { Text(stringResource(R.string.profile_two_factor_codes_saved)) }
                         }
                     }
                 }
@@ -177,9 +180,9 @@ fun TwoFactorSheet(onDismiss: () -> Unit) {
     }
     removing?.let { passkey ->
         MfaCodeDialog(
-            title = "Remove passkey",
-            text = "“${passkey.name}” will no longer work for this account. Enter a code to confirm.",
-            submitLabel = "Remove",
+            title = stringResource(R.string.profile_two_factor_remove_passkey_title),
+            text = stringResource(R.string.profile_two_factor_remove_passkey_body, passkey.name),
+            submitLabel = stringResource(R.string.profile_two_factor_remove),
             onSubmit = { code ->
                 AccountApi(token).removePasskey(passkey.id, code)
                 removing = null
@@ -191,10 +194,10 @@ fun TwoFactorSheet(onDismiss: () -> Unit) {
     confirming?.let { action ->
         val disable = action == "disable"
         MfaCodeDialog(
-            title = if (disable) "Turn off two-factor authentication" else "Replace your recovery codes",
-            text = if (disable) "Sign-in will no longer ask for a code. Enter one to confirm."
-                else "Your current recovery codes will stop working. Enter a code to confirm.",
-            submitLabel = if (disable) "Turn off" else "Replace codes",
+            title = if (disable) stringResource(R.string.profile_two_factor_turn_off_title) else stringResource(R.string.profile_two_factor_replace_codes_title),
+            text = if (disable) stringResource(R.string.profile_two_factor_turn_off_body)
+                else stringResource(R.string.profile_two_factor_replace_codes_body),
+            submitLabel = if (disable) stringResource(R.string.profile_two_factor_turn_off) else stringResource(R.string.profile_two_factor_replace_codes),
             onSubmit = { code ->
                 if (disable) {
                     AccountApi(token).disableMfa(code)

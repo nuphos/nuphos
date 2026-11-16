@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { answeredIn, inboxCount, inboxQuestions, openQuestion } from './inboxItems.ts'
+import {
+  answeredIn,
+  botAbove,
+  inboxCount,
+  inboxGroups,
+  inboxQuestions,
+  openQuestion,
+} from './inboxItems.ts'
 
 import type { AgentConversation } from '../../api/agent-types.ts'
 
@@ -37,15 +44,50 @@ test("the Inbox lists only the viewer's own conversations' questions", () => {
   )
 })
 
-test('the Inbox lists every open question, newest first, without those answered here', () => {
+test('the Inbox groups open questions by who asked, newest first, without those answered here', () => {
   const listing = [waiting('a', 'q1', 'q3'), waiting('b', 'q2')]
   const ids = (answered: Map<string, number>) =>
     inboxQuestions(listing, answered).map(
       (row) => `${row.conversation.sessionId}:${row.request.id}`,
     )
 
-  assert.deepEqual(ids(new Map()), ['a:q3', 'b:q2', 'a:q1'])
+  assert.deepEqual(ids(new Map()), ['a:q3', 'a:q1', 'b:q2'])
   assert.deepEqual(ids(new Map([['q3', Infinity]])), ['b:q2', 'a:q1'])
+  assert.deepEqual(
+    inboxGroups(inboxQuestions(listing, new Map())).map((group) =>
+      group.map((row) => row.request.id),
+    ),
+    [['q3', 'q1'], ['q2']],
+  )
+})
+
+test("a Bot's tasks list their questions in the Bot's group, as the sidebar files them", () => {
+  const bot = { ...waiting('bot', 'q2'), avatar: 'face' }
+  const task = { ...waiting('task', 'q1', 'q4'), parentSessionId: 'bot' }
+  const subtask = { ...waiting('subtask', 'q5'), parentSessionId: 'task' }
+  const nestedBot = { ...waiting('nested', 'q6'), avatar: 'face', parentSessionId: 'bot' }
+  const orphan = { ...waiting('orphan', 'q7'), parentSessionId: 'unlisted' }
+  const listing = [bot, task, subtask, nestedBot, orphan, waiting('alone', 'q3')]
+  const byId = new Map(listing.map((row) => [row.sessionId, row]))
+  const rows = inboxQuestions(listing, new Map(), (conversation) =>
+    botAbove(conversation, byId, (row) => Boolean(row.avatar)),
+  )
+
+  // A Bot stands on its own even when nested; a task whose parents are not listed stays its own group.
+  assert.deepEqual(
+    inboxGroups(rows).map((group) =>
+      group.map(
+        (row) => `${row.bot?.sessionId ?? '-'}:${row.conversation.sessionId}:${row.request.id}`,
+      ),
+    ),
+    [
+      ['-:orphan:q7'],
+      ['-:nested:q6'],
+      ['bot:subtask:q5', 'bot:task:q4', '-:bot:q2', 'bot:task:q1'],
+      ['-:alone:q3'],
+    ],
+  )
+  assert.equal(inboxCount(listing, new Map()), 7)
 })
 
 test('the Inbox keeps the open question, and opens the next row once it is answered', () => {

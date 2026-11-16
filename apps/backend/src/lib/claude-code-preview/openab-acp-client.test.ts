@@ -158,7 +158,11 @@ describe('OpenAbAcpClient', () => {
 
     h.socket().reject(1006, 'The computer running this agent disconnected')
 
-    await expect(connecting).rejects.toMatchObject({ status: 409, code: 'runtime_offline' })
+    await expect(connecting).rejects.toMatchObject({
+      status: 409,
+      code: 'runtime_offline',
+      details: { deviceId: 'device-1' },
+    })
   })
 
   test('times out an ACP request that never receives a response', async () => {
@@ -721,6 +725,7 @@ describe('OpenAbAcpClient', () => {
         state: 'completed',
         toolCallId: 'tool-1',
       },
+      { sessionUpdate: 'async_task_state_update', asyncTaskId: 'task-2', state: 'cancelled' },
     ]) {
       h.socket().receive({
         jsonrpc: '2.0',
@@ -750,6 +755,7 @@ describe('OpenAbAcpClient', () => {
         state: 'completed',
         toolCallId: 'tool-1',
       },
+      { kind: 'async-task', asyncTaskId: 'task-2', phase: 'terminal', state: 'cancelled' },
     ])
   })
 

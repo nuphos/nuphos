@@ -12,7 +12,7 @@ import { useBoxAccessChoice } from './useBoxAccessChoice'
 
 import type { AgentDevice } from '../../api'
 
-/** Change who in the team may use a Box: its admins only, everyone, or specific people. */
+/** Change who in the team may use a Box: no one else, everyone, or specific people. */
 export function BoxAccessDialog({
   teamId,
   device,
@@ -58,7 +58,7 @@ export function BoxAccessDialog({
       }
     >
       <div className="space-y-4 p-5">
-        <BoxAccessFields teamId={teamId} choice={choice} />
+        <BoxAccessFields teamId={teamId} ownerUserId={device.ownerUserId} choice={choice} />
         <SharedComputerNotice />
       </div>
     </Modal>

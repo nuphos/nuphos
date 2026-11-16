@@ -14,7 +14,7 @@ export type OpenAbSessionUpdate =
       kind: 'async-task'
       asyncTaskId: string
       phase: 'spawned' | 'terminal'
-      state?: 'completed' | 'failed' | 'stopped'
+      state?: 'completed' | 'failed' | 'cancelled' | 'stopped'
       name?: string
       toolCallId?: string
     }
@@ -159,7 +159,7 @@ function normalizeUpdate(payload: Record<string, unknown>): OpenAbSessionUpdate 
     if (
       typeof asyncTaskId !== 'string' ||
       !asyncTaskId ||
-      (state !== 'completed' && state !== 'failed' && state !== 'stopped')
+      (state !== 'completed' && state !== 'failed' && state !== 'cancelled' && state !== 'stopped')
     )
       return null
 

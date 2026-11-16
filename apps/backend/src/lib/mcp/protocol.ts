@@ -53,6 +53,15 @@ export { getCapabilities, TOOL_DEFINITIONS } from './protocol-tools'
 // which get no reply per the spec. Tool implementations are supplied by the
 // caller as a name->handler map so this layer stays free of agent/DB imports.
 
+/** The tool a `tools/call` request names; undefined for any other request or a batch. */
+export function calledToolName(payload: unknown): string | undefined {
+  const call = payload as { method?: unknown; params?: { name?: unknown } } | null
+
+  return call?.method === 'tools/call' && typeof call.params?.name === 'string'
+    ? call.params.name
+    : undefined
+}
+
 // Streamable-HTTP JSON-mode framing over a parsed request body: one message or
 // a batch, 202 with no body when everything was a notification, 400 for an
 // empty batch. The HTTP routes own only parsing and auth.

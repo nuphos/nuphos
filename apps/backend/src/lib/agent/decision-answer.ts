@@ -81,8 +81,8 @@ export function answerNotice(
 
   return [
     asker
-      ? `A question about this conversation (requestId ${request.id}), asked by conversation ${askedBy}, was answered from the Inbox.`
-      : `Your question (requestId ${request.id}) was answered from the Inbox.`,
+      ? `A question about this conversation (requestId ${request.id}), asked by conversation ${askedBy}, was answered.`
+      : `Your question (requestId ${request.id}) was answered.`,
     `Answered by: ${JSON.stringify(who.displayName)}, ${
       who.owner
         ? "this conversation's owner: it is their own answer."
@@ -116,8 +116,10 @@ export async function answerDecision(args: {
   if (request?.status !== 'open')
     throw new AppError(409, 'decision_already_answered', 'This question is no longer open')
   // A secret is typed in its masked card and a connection is made by selecting it: never as text here.
+  // An integration question naming nothing to select, e.g. a service Nuphos cannot connect, takes words.
   if (
-    request.category === 'integration' ||
+    (request.category === 'integration' &&
+      (Boolean(request.providers?.length) || Boolean(request.credentials?.length))) ||
     (request.category === 'credential' && !credentialStatusChoice(request, answer))
   )
     throw new AppError(400, 'decision_not_answerable', 'Answer this question in its own card')
@@ -136,8 +138,57 @@ export async function answerDecision(args: {
   if (!(await resolveInputRequest(conversation.sessionId, conversation.userId, requestId)))
     throw new AppError(409, 'decision_already_answered', 'This question is no longer open')
   const who = { displayName: actor.displayName, owner: actor.id === conversation.userId }
+
+  await wakeAsker(conversation, request, teamId, answerNotice(request, answer, who))
+  if (request.channelId) await recordInChannel(request, answer, actor.displayName)
+  await tellAbout(conversation, request, answer, who, teamId)
+}
+
+/**
+ * A person skips an open question: it is withdrawn and the agent that asked is
+ * woken to carry on without it. Refused once the question is no longer open.
+ */
+export async function skipDecision(args: {
+  conversation: AgentConversation
+  requestId: string
+  actor: { id: string; displayName: string }
+  teamId: string
+}): Promise<void> {
+  const { conversation, requestId, actor, teamId } = args
+  const request = conversation.inputRequests?.find((entry) => entry.id === requestId)
+
+  if (
+    !request ||
+    !(await resolveInputRequest(conversation.sessionId, conversation.userId, requestId))
+  )
+    throw new AppError(409, 'decision_already_answered', 'This question is no longer open')
+  const who = { displayName: actor.displayName, owner: actor.id === conversation.userId }
+
+  await wakeAsker(
+    conversation,
+    request,
+    teamId,
+    [
+      `Your question (requestId ${request.id}) was skipped: no answer is coming.`,
+      `Skipped by: ${JSON.stringify(who.displayName)}, ${who.owner ? "this conversation's owner." : 'a teammate.'}`,
+      `Question: ${request.question}`,
+      'Carry on without it as far as you can and say what you assumed. Do not ask it again unless something has changed.',
+    ].join('\n'),
+  )
+}
+
+/**
+ * Wakes the agent that asked with what became of its question, which is
+ * already taken: if the agent cannot be told, now or once its turn comes, the
+ * question is open again so it can be retried.
+ */
+async function wakeAsker(
+  conversation: AgentConversation,
+  request: InputRequest,
+  teamId: string,
+  notice: string,
+) {
   const { startConversationTurn } = await import('./conversation-turn')
-  // The question was taken; if the agent cannot be told, it is open again so the answer can be retried.
   const { run } = await startConversationTurn(
     {
       userId: conversation.userId,
@@ -145,18 +196,16 @@ export async function answerDecision(args: {
       targetSessionId: conversation.sessionId,
       messageId: randomUUID(),
       locale: conversation.metadata?.locale ?? 'en-US',
+      answers: request,
     },
     conversation,
-    answerNotice(request, answer, who),
+    notice,
     'agent.resource',
     systemSender(SENDER, 'Nuphos'),
   ).catch(async (error: unknown) => {
     await reopenInputRequest(conversation.sessionId, conversation.userId, request)
     throw error
   })
-
-  if (request.channelId) await recordInChannel(request, answer, actor.displayName)
-  await tellAbout(conversation, request, answer, who, teamId)
 
   run.catch((error: unknown) => {
     logError('agent.decision.answer_turn_failed', error, { session_id: conversation.sessionId })

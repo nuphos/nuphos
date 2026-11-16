@@ -115,6 +115,8 @@ export const agentApi = {
     window.api.agentRenameConversation(sessionId, title, teamId),
   agentSetConversationAvatar: (sessionId: string, avatar: string | null, teamId?: string) =>
     window.api.agentSetConversationAvatar(sessionId, avatar, teamId),
+  agentUploadConversationAvatar: (sessionId: string, image: Uint8Array, teamId?: string) =>
+    window.api.agentUploadConversationAvatar(sessionId, image, teamId),
   agentSetConversationArchived: (sessionId: string, archived: boolean, teamId?: string) =>
     window.api.agentSetConversationArchived(sessionId, archived, teamId),
   agentSetConversationWatched: (sessionId: string, watching: boolean, teamId?: string) =>

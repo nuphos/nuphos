@@ -70,7 +70,7 @@ fi
 
 # Make sure `gh` exists; idempotent.
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if ! command -v gh >/dev/null 2>&1; then
+if ! gh --version >/dev/null 2>&1; then
   bash "$script_dir/install.sh"
   # install.sh's PATH export only lived in its own subshell; pick it up here
   # so the gh auth call below can find the binary in the fallback location.
@@ -81,14 +81,18 @@ if ! command -v gh >/dev/null 2>&1; then
   exit 1
 fi
 
-token_response="$(curl -fsSL \
-  --connect-timeout 10 \
-  --max-time 30 \
-  --retry 2 \
-  --retry-delay 1 \
-  --retry-all-errors \
-  -H @<(printf 'Authorization: Bearer %s\n' "$NUPHOS_TOKEN") \
-  "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}/teams/$team_id/$token_path")"
+team_get() {
+  curl -fsSL \
+    --connect-timeout 10 \
+    --max-time 30 \
+    --retry 2 \
+    --retry-delay 1 \
+    --retry-all-errors \
+    -H @<(printf 'Authorization: Bearer %s\n' "$NUPHOS_TOKEN") \
+    "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}/teams/$team_id/$1"
+}
+
+token_response="$(team_get "$token_path")"
 
 token="$(printf '%s' "$token_response" | python3 -c '
 import json, sys
@@ -130,6 +134,29 @@ gh auth setup-git --hostname github.com
 
 echo "GitHub installation token loaded for $account_login (installation $installation_id), acting as $acting_as"
 echo "Expires at: $expires_at"
+
+# Every identity here goes through the GitHub App, so its installation decides
+# what a call may do. Print that now: a later "Resource not accessible by
+# integration" then names a gap the reader can already see. Best effort only.
+if [ "$acting_as" = "the team App" ]; then
+  team_get "github-installations/$installation_id" 2>/dev/null
+else
+  gh api '/user/installations?per_page=100' 2>/dev/null
+fi | python3 -c '
+import json, sys
+want = sys.argv[1]
+data = json.load(sys.stdin)
+for inst in data.get("installations", [data]):
+    inst_id = str(inst.get("id", inst.get("installationId")))
+    if want not in ("personal", inst_id):
+        continue
+    login = (inst.get("account") or {}).get("login") or inst.get("accountLogin")
+    org = (inst.get("target_type") or inst.get("accountType")) == "Organization"
+    owner_path = f"organizations/{login}/" if org else ""
+    granted = ", ".join(f"{k}={v}" for k, v in sorted((inst.get("permissions") or {}).items()))
+    print(f"App permissions on {login}: {granted or None}")
+    print(f"  Installation settings: https://github.com/{owner_path}settings/installations/{inst_id}")
+' "$installation_id" 2>/dev/null || true
 echo
 echo "Use \`gh ...\` or \`gh api /repos/...\` directly. \`gh repo clone owner/repo\` and \`git push\` also work."
 echo "Re-run this script if you get 401."

@@ -6,6 +6,7 @@ import {
   mergeToolHandlers,
   NUPHOS_TOOLS_INSTRUCTIONS,
   nuphosToolsSurface,
+  toolsHash,
 } from './nuphos-tools-mcp'
 
 import type { PreviewToolContext, PreviewToolModule } from './preview-tool-context'
@@ -55,6 +56,26 @@ describe('nuphos-tools surface', () => {
     expect((await merged.a!({})).structuredContent).toEqual({ name: 'a' })
     expect(() => mergeToolHandlers([module(['a']), module(['a'])], ctx)).toThrow(
       'Duplicate preview tool name: a',
+    )
+  })
+})
+
+describe('the tools version', () => {
+  const tool = (properties: Record<string, unknown>, description = 'Start a sub-agent.') => ({
+    name: 'create_thread',
+    description,
+    inputSchema: { type: 'object', properties },
+  })
+
+  test('changes when an existing tool gains a parameter, so idle agents respawn', () => {
+    expect(toolsHash([tool({ model: {} })])).not.toBe(
+      toolsHash([tool({ model: {}, runtimeId: {} })]),
+    )
+  })
+
+  test('ignores descriptions, which carry per-turn data', () => {
+    expect(toolsHash([tool({ model: {} }, 'Today is Monday.')])).toBe(
+      toolsHash([tool({ model: {} }, 'Today is Tuesday.')]),
     )
   })
 })

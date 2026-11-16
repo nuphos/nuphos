@@ -1,12 +1,9 @@
 import type { AgentCredentialAccess } from './agent-credential-types.ts'
-import type { AgentMessageMention } from './mention-types.ts'
+import type { AgentChannelPost, AgentMessageMention, AgentMessageReply } from './mention-types.ts'
 import type { SessionResource } from './session-resource-types'
 import type { AgentProvider } from '../types/runtime.ts'
 
-export type { AgentMessageMention, ChannelMention } from './mention-types.ts'
-
-/** The message a message replies to, e.g. a Discord reply; `id` is a channel post's. */
-export type AgentMessageReply = { id?: string; authorName: string; text: string }
+export type { AgentMessageMention, AgentMessageReply, ChannelMention } from './mention-types.ts'
 
 /** Someone on a conversation: its owner, or a teammate who joined it. */
 export type AgentConversationPerson = {
@@ -73,6 +70,8 @@ export type AgentConversation = {
   title: string
   /** Picked bot avatar, e.g. `05-rembrandt`. Absent: the one its sessionId selects. */
   avatar?: string
+  /** A Bot's current standing instructions, in full. */
+  instructions?: string
   firstMessage: string
   messageCount: number
   tokenUsage?: AgentTokenUsageSummary
@@ -87,6 +86,8 @@ export type AgentConversation = {
   canManage?: boolean
   owner?: AgentConversationPerson
   credentialAccess?: AgentCredentialAccess
+  /** A Task under a Bot: the conversation whose credentials and computers it uses. */
+  credentialSource?: { sessionId: string }
   transcriptUpdatedAt?: string
   createdAt: string
   lastActiveAt: string
@@ -231,6 +232,8 @@ export type AgentMessageMetadata = {
   unattested?: true
   /** Teammates it @mentions, as the server resolved them. */
   mentions?: AgentMessageMention[]
+  /** A channel's wake notice: the newest post it brought. */
+  channelPost?: AgentChannelPost
 }
 
 export type AgentPersistedMessage = {
@@ -264,6 +267,7 @@ export type AgentTimelineEvent = {
   to?: AgentTimelineRuntime
   /** Set when a fallback moved the session: its agent was low on usage, unreachable, or failed a turn. */
   reason?: 'quota' | 'offline' | 'failure'
+  retrying?: boolean // runtime_moved: the turn that failed before the move runs again on `to`
   /** A fallback that found no agent: each one passed over, and why. */
   skipped?: { label: string; reason: string }[]
   /** message_edited / conversation_forked: the destination session. */

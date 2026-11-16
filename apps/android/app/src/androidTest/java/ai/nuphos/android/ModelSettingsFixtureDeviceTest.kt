@@ -24,10 +24,6 @@ import java.io.File
 @RunWith(AndroidJUnit4::class)
 class ModelSettingsFixtureDeviceTest {
     @get:Rule val compose = createComposeRule()
-    @org.junit.Before fun requireIsolatedPackage() {
-        org.junit.Assume.assumeTrue("Requires the isolated model fixture package",
-            InstrumentationRegistry.getInstrumentation().targetContext.packageName == "ai.nuphos.android.modelfixture")
-    }
     private lateinit var store: ModelSettingsStore
     private var busy = false
     private var failWrite = false

@@ -90,31 +90,32 @@ export function acpErrorCode(error: OpenAbRpcError): number | undefined {
  */
 const PROVIDER_PAYMENT_REQUIRED = /\(status 402 Payment Required\): ?([^\n]*)/u
 
-/**
- * Claude Code refuses a turn it cannot bill with its own one-line notice: it streams
- * it, then fails the prompt with -32603 `Internal error: <notice>` (first line only).
- */
+/** Claude: -32603 `Internal error: <notice>`. Codex: bare `Internal error`, notice on a `> ` line. */
 const CLAUDE_NOTICE = /^Internal error: ([^\n]*)/u
-/** The SDK's `USAGE_LIMIT_ERROR_PREFIXES` that name a limit; the notice already names the reset. */
+const DETAIL_NOTICE = /(?:^|\n)Internal error\n> ([^\n]*)/u
+/** The SDK's `USAGE_LIMIT_ERROR_PREFIXES` that name a limit, and Codex's (curly apostrophe). */
 const CLAUDE_USAGE_LIMIT =
-  /^(?:You've hit your|You've reached your|You're out of usage credits|Your org is out of usage)/u
+  /^(?:You['’]ve hit your|You['’]ve reached your|You['’]re out of usage credits|Your org is out of usage)/u
 /** A credential the CLI holds but can no longer use, e.g. `Failed to authenticate: OAuth session expired …`. */
 const CLAUDE_AUTH_FAILED = /^(?:Failed to authenticate\b|Invalid API key\b|.*Please run \/login\b)/u
+const isProductStateNotice = (n: string) => CLAUDE_USAGE_LIMIT.test(n) || CLAUDE_AUTH_FAILED.test(n)
 
-/** The runtime's own reason for a failed turn: the first line after `Internal error: `. */
+/** The agent's own reason: after `Internal error: `, or a usage/sign-in notice on a `> ` line. */
 export function claudeNotice(error: unknown): string | undefined {
   const adapter = error instanceof OpenAbRpcError ? adapterError(error) : undefined
 
-  return adapter?.code === -32603 ? CLAUDE_NOTICE.exec(adapter.message)?.[1]?.trim() : undefined
+  if (adapter?.code !== -32603) return undefined
+  const notice = CLAUDE_NOTICE.exec(adapter.message)?.[1]?.trim()
+  const detail = DETAIL_NOTICE.exec((error as OpenAbRpcError).message)?.[1]?.trim()
+
+  return notice || (detail && isProductStateNotice(detail) ? detail : undefined)
 }
 
 /** Claude Code's notice when it names a usage limit or a sign-in failure, or undefined. */
 export function claudeProductStateNotice(error: unknown): string | undefined {
   const notice = claudeNotice(error)
 
-  return notice && (CLAUDE_USAGE_LIMIT.test(notice) || CLAUDE_AUTH_FAILED.test(notice))
-    ? notice
-    : undefined
+  return notice && isProductStateNotice(notice) ? notice : undefined
 }
 
 export function isRuntimeAuthRequired(error: unknown): boolean {
@@ -149,8 +150,9 @@ export function runtimeUsageExhaustedMessage(error: unknown): string | undefined
   return `This agent’s provider account has no usage left${detail}. Add credits or wait for its allowance to reset, or switch to another agent, then resend your message.`
 }
 
-/** The runtime itself cannot take the turn, as opposed to the conversation being busy. */
-const RUNTIME_UNAVAILABLE = /(?:^|_)runtime_(?:offline|unreachable|unavailable|login_required)$/u
+/** The runtime cannot take the turn (offline, signed out, disabled), not a busy conversation. */
+const RUNTIME_UNAVAILABLE =
+  /(?:^|_)runtime_(?:offline|unreachable|unavailable|login_required|disabled)$/u
 
 /** Why an agent could not take a turn, when the cause was the agent itself; `other` when it was not. */
 export type TurnFailureCause = 'usage_limit' | 'auth' | 'offline' | 'other'

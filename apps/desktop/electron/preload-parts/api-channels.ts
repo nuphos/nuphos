@@ -49,7 +49,6 @@ export const channelsApi = {
     upload?: string,
     mentions?: string[],
     replyTo?: string,
-    decisionReplyTo?: string,
   ) =>
     ipcRenderer.invoke(
       'agent:postChannelMessage',
@@ -60,6 +59,5 @@ export const channelsApi = {
       upload,
       mentions,
       replyTo,
-      decisionReplyTo,
     ),
 }

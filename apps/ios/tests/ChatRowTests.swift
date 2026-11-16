@@ -8,6 +8,7 @@ enum ChatRowTests {
         preservesVerifiedSender()
         foldsDeliveredMessagesIntoEventLines()
         showsSteeredNoticesAsEventLines()
+        showsAnsweredQuestionsInsteadOfTheirNotice()
         decodesSharedConversationPermissions()
         keepsThePlaceOfMessagesThatDoNotDecode()
         windowStartsAfterUnreadableMessages()
@@ -104,6 +105,68 @@ enum ChatRowTests {
         precondition(message("agent.resource", "system", "channel:", "Launch").event?.channelId == nil)
         precondition(message("agent.resource", "system", "GitHub", "GitHub").event?.channelId == nil)
         precondition(message("agent.thread", "agent", "channel:c1", "Launch").event?.channelId == nil)
+        // A wake-up carries its newest post for the line: who, the first line, how many more.
+        func wake(_ post: JSONValue) -> ChatMessage.Event? {
+            var m = message("agent.resource", "system", "channel:c1", "Launch")
+            if case .object(var fields) = m.metadata { fields["channelPost"] = post; m.metadata = .object(fields) }
+            return m.event
+        }
+        let post = wake(.object(["id": .string("p7"), "text": .string("deploy failed"), "more": .number(2),
+                                 "sender": .object(["type": .string("agent"), "id": .string("s9"), "displayName": .string("Reviewer"),
+                                                    "agentRuntime": .string("codex")])]))?.post
+        precondition(post?.id == "p7" && post?.text == "deploy failed" && post?.more == 2)
+        precondition(post?.sender.name == "Reviewer" && post?.agentId == "s9" && post?.runtime == "codex")
+        precondition(wake(.object(["id": .string("p7"), "text": .string("x")]))?.post == nil, "No count: today's line")
+        precondition(message("agent.resource", "system", "channel:c1", "Launch").event?.post == nil)
+    }
+
+    /// The notice an answer wakes the agent with is read back for people:
+    /// who answered what, with the card's own body and options, and no ids.
+    private static func showsAnsweredQuestionsInsteadOfTheirNotice() {
+        func notice(_ lines: [String], sender: String = "nuphos:decision") -> ChatMessage {
+            var m = ChatMessage.user(lines.joined(separator: "\n"))
+            m.metadata = .object(["version": .number(1), "source": .string("agent.resource"),
+                                  "sender": .object(["type": .string("system"), "id": .string(sender), "displayName": .string("Nuphos")])])
+            return m
+        }
+        let by = "Answered by: \"Sam \\\"S\\\" Rivera\", this conversation's owner: it is their own answer."
+        let lines = [
+            "Your question (requestId q1) was answered from the Inbox.", by,
+            "Question: Which region?", "Context you gave: Two candidates.", "", "Answer:", "- cut short",
+            "Options: us-east | eu-west", "Answer:", "- Which region? → eu-west",
+            "About: 3f0c9d0e-1111-2222-3333-444455556666", "Continue the task with this answer.",
+        ]
+        // A conversation the question was only about has no card: the notice's own excerpt is shown.
+        let about = AnsweredQuestion.all(notice(lines), in: [])
+        precondition(about == [.init(name: "Sam \"S\" Rivera", question: "Which region?", answer: "eu-west",
+                                     body: "Two candidates.\n\nAnswer:\n- cut short", options: ["us-east", "eu-west"],
+                                     answered: about?.first?.answered)])
+        precondition(about?.first?.picked == ["eu-west"])
+
+        let input: JSONValue = .object([
+            "question": .string("Release settings"), "body": .string("The whole body."),
+            "questions": .array([
+                .object(["question": .string("Which platforms?"), "options": .array([.string("Desktop"), .string("iOS, iPadOS"), .string("Android")]), "multiSelect": .bool(true)]),
+                .object(["question": .string("Notes?"), "options": .array([.string("None")])]),
+            ]),
+        ])
+        var call = ChatPart.ToolPart(toolCallId: "call-1", toolName: "request_user_decision", isDynamic: true, state: .outputAvailable, input: input)
+        call.output = .object(["requestId": .string("q2")])
+        let asked = ChatMessage(role: .assistant, parts: [.tool(call)], createdAt: Date(timeIntervalSince1970: 100))
+        let several = notice([
+            "Your question (requestId q2) was answered from the Inbox.", by, "Question: Release settings",
+            "Context you gave: The whole", "Answer:", "- Which platforms? → iOS, iPadOS, Desktop", "- Notes? → Ship it", "on Friday.",
+            "Continue the task with this answer.",
+        ])
+        let answered = AnsweredQuestion.all(several, in: [asked, several]) ?? []
+        precondition(answered.map(\.question) == ["Which platforms?", "Notes?"])
+        precondition(answered.map(\.answer) == ["iOS, iPadOS, Desktop", "Ship it\non Friday."])
+        precondition(answered.allSatisfy { $0.body == "The whole body." && $0.asked == asked.createdAt })
+        precondition(answered[0].picked == ["Desktop", "iOS, iPadOS"] && answered[1].picked.isEmpty)
+
+        // Any other message, or the template from another sender, stays what it was.
+        precondition(AnsweredQuestion.all(notice(["Your question (requestId q1) was withdrawn."]), in: []) == nil)
+        precondition(AnsweredQuestion.all(notice(lines, sender: "github"), in: []) == nil)
     }
 
     /// A channel's notice steered into a running turn is the channel's event

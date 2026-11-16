@@ -93,7 +93,7 @@ class SentAttachmentsFixtureDeviceTest {
             compose.waitUntil(10000) { compose.onAllNodesWithText("Loading image").fetchSemanticsNodes().isEmpty() }
             compose.onNodeWithText("1 / 2").assertIsDisplayed()
             screenshot("sent-attachment-pager")
-            compose.onNodeWithText("Next image").performClick()
+            compose.onNodeWithText("Next").performClick()
             compose.onNodeWithText("2 / 2").assertIsDisplayed()
             compose.onNodeWithText("Close").performClick()
             compose.onNodeWithText("2 / 2").assertDoesNotExist()

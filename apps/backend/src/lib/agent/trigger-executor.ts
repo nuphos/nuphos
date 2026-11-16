@@ -4,9 +4,10 @@ import { postChannelMessage } from './channel-chat'
 import { buildTriggerRunStamp } from './conversation-trigger-run'
 import { executeConversationTurn } from './conversation-turn'
 import { systemSender } from './message-metadata'
-import { agentTriggers, isRetiredTriggerShape } from './trigger-db'
+import { isRetiredTriggerShape } from './trigger-db'
 import { resolveExecutionAuthorization } from './trigger-executor-authorization'
 import { readReportedStatus, resolveMessageTemplate } from './trigger-executor-context'
+import { TRIGGER_SENDER_PREFIX, recordTriggerRan } from './trigger-missed-runs'
 
 import type { ConversationTriggerRun, ConversationTriggerRunKind } from './conversation-trigger-run'
 import type { AgentConversation } from './db'
@@ -65,7 +66,7 @@ function triggerMetadata(trigger: AgentTrigger): MessageMetadata {
   const triggerId = trigger._id!.toHexString()
 
   return systemSender(
-    `trigger:${triggerId}`,
+    `${TRIGGER_SENDER_PREFIX}${triggerId}`,
     trigger.name,
     `/teams/${trigger.teamId}/triggers/${triggerId}`,
   )
@@ -90,7 +91,9 @@ async function deliverToTargetSession(
 
   if (target.kind === 'channel') {
     await postChannelMessage(target, { id: messageId, text, metadata: triggerMetadata(trigger) })
+    await recordTriggerRan(triggerId)
   } else
+    // The turn records the run once it has run (runTurn), which may be later, from the queue.
     await executeConversationTurn(
       {
         userId: target.userId,
@@ -106,7 +109,6 @@ async function deliverToTargetSession(
       'agent.resource',
       triggerMetadata(trigger),
     )
-  await agentTriggers().updateOne({ _id: trigger._id }, { $set: { lastRunAt: new Date() } })
 }
 
 /**

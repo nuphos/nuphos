@@ -1,4 +1,4 @@
-/** Every agent a runtime image can carry; the identifier is also the image variant. */
+/** Every agent a runtime can run; the identifier is also the image variant. */
 export const OPENAB_PROVIDERS = [
   'claude-code',
   'codex',
@@ -6,9 +6,14 @@ export const OPENAB_PROVIDERS = [
   'antigravity',
   'opencode',
   'hermes',
+  'dsh',
+  'pi',
 ] as const
 
 export type OpenAbProvider = (typeof OPENAB_PROVIDERS)[number]
+
+/** The agents a runtime image is published for: Pi runs only on a computer so far. */
+export const IMAGE_PROVIDERS = OPENAB_PROVIDERS.filter((provider) => provider !== 'pi')
 
 // `shim`: the agent speaks ACP itself and the image's ACP shim adds the Nuphos layer
 // in front of it (apps/runtime/image/acp-shim.mjs) instead of a patched adapter.
@@ -27,6 +32,8 @@ const PROVIDERS: Record<
   },
   opencode: { label: 'OpenCode', errorPrefix: 'opencode', short: 'opencode', shim: true },
   hermes: { label: 'Hermes Agent', errorPrefix: 'hermes', short: 'hermes', shim: true },
+  dsh: { label: 'DeepSeek Harness', errorPrefix: 'dsh', short: 'dsh', shim: true },
+  pi: { label: 'Pi', errorPrefix: 'pi', short: 'pi', shim: true },
 }
 
 export function isOpenAbProvider(value: unknown): value is OpenAbProvider {

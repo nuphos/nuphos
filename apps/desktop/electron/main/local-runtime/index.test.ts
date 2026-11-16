@@ -19,7 +19,12 @@ const noop = () => {}
 /* eslint-disable @typescript-eslint/no-extraneous-class -- Constructor-only mocks for Desktop startup. */
 const boundaries: Record<string, Record<string, unknown>> = {
   electron: {
-    app: { getPath: () => '/tmp', getAppPath: () => '/tmp', isPackaged: false },
+    app: {
+      getPath: () => '/tmp',
+      getAppPath: () => '/tmp',
+      getVersion: () => '0.0.0',
+      isPackaged: false,
+    },
     BrowserWindow: {},
     powerMonitor: {},
     shell: {},
@@ -50,6 +55,12 @@ const boundaries: Record<string, Record<string, unknown>> = {
     },
   },
   '../env.ts': { isDev: false },
+  '../updater.ts': {
+    getUpdaterState: () => ({ kind: 'idle' }),
+    installUpdate: noop,
+    readyUpdate: () => null,
+    watchUpdater: noop,
+  },
   './agent-cli.ts': {
     LOCAL_AGENT_PROVIDERS: [],
     findAgentCli: noop,

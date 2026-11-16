@@ -12,7 +12,7 @@ export function queuedChatBody(
     teamId,
     messages: [chat.message],
     streamId: chat.streamId,
-    clientCapabilities: { localTools: chat.localTools },
+    clientCapabilities: { localTools: chat.localTools, secretCard: chat.secretCard },
     ...(chat.decisionReplyTo ? { decisionReplyTo: chat.decisionReplyTo } : {}),
   }
 }

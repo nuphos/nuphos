@@ -111,7 +111,7 @@ afterEach(() => {
   acquire.mockRestore()
   sessionsByConversation.delete('team:conversation')
 })
-const run = (systemPrompt?: string) =>
+const run = (systemPrompt?: string, signal = new AbortController().signal) =>
   runClaudeCodePreviewPrompt({
     teamId: 'team',
     conversationId: 'conversation',
@@ -121,7 +121,7 @@ const run = (systemPrompt?: string) =>
     text: 'Continue',
     systemPrompt,
     endpoint,
-    signal: new AbortController().signal,
+    signal,
     onTextDelta: noop,
   })
 
@@ -199,6 +199,14 @@ test('a reattach that lost the inner agent reports it on the very next prompt', 
 test('an ordinary turn prompts the message itself', async () => {
   expect(await run()).toEqual({ stopReason: 'end_turn' })
   expect(prompted).toBe('Continue')
+})
+
+test('a turn stopped before its prompt is sent says the agent never received it', async () => {
+  const stop = new AbortController()
+
+  stop.abort()
+  expect(await run(undefined, stop.signal)).toEqual({ stopReason: 'cancelled', unsent: true })
+  expect(calls).not.toContain('prompt')
 })
 
 test('a turn the runtime refuses keeps the loss pending for the turn that lands', async () => {

@@ -68,7 +68,7 @@ struct HomeView: View {
             .toolbar(removing: .sidebarToggle)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    PageTitleMenu(selection: $page, style: .bar, inboxCount: inbox?.list.count ?? 0)
+                    PageTitleMenu(selection: $page, style: .bar, inboxCount: inbox?.list.count ?? 0, pageCounts: store?.pageCounts ?? [:])
                 }
                 .sharedBackgroundHidden()
 
@@ -134,6 +134,9 @@ struct HomeView: View {
                         // Compact pops back to the list's composer; wide has
                         // no back, so this returns the column to it.
                         .toolbar { newAgentItem }
+                } else if page == .inbox, let inbox, let question = inbox.list.first(where: { $0.id == inbox.selected }) {
+                    InboxQuestionView(inbox: inbox, question: question)
+                        .id(question.id)
                 } else if page == .agent, store != nil, sizeClass == .regular {
                     Theme.chatCanvas.ignoresSafeArea()
                         .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -201,6 +204,12 @@ struct HomeView: View {
             if autoPage { autoPage = false } else { pageChosen = true }
             isSearching = false
             openChat = nil
+            // What was opened on Bots folds again once Bots is left.
+            store?.foldBots()
+            inbox?.selected = nil
+            // An answer held for Undo goes once the Inbox is left.
+            let left = inbox
+            Task { await left?.sendHeld() }
             UIEventLog.pageTransition(from: oldPage.rawValue, to: newPage.rawValue)
             Analytics.shared.screen(newPage.rawValue, teamID: store?.selectedTeam?.id)
         }
@@ -208,6 +217,8 @@ struct HomeView: View {
         .task(id: scenePhase == .active ? store?.selectedTeam?.id : nil) {
             guard scenePhase == .active, let store, let team = store.selectedTeam?.id else { return }
             if inbox?.teamId != team {
+                let left = inbox
+                Task { await left?.sendHeld() }
                 inbox = OpenQuestions(token: store.token, teamId: team)
             }
             while !Task.isCancelled {
@@ -215,11 +226,18 @@ struct HomeView: View {
                 try? await Task.sleep(for: .seconds(15))
             }
         }
+        // Nor does a held answer wait for an app that is put away.
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { Task { await inbox?.sendHeld() } }
+        }
         .onChange(of: store?.selectedTeam?.id) { _, teamID in
             Analytics.shared.screen(page.rawValue, teamID: teamID)
         }
+        // Off the lists, a notification or link opens over the list it is on: Tasks lists no Bot,
+        // chat or Bot's Task (#2708), so anything but a listed Task returns to Bots.
         .onChange(of: PushNotifications.shared.pendingTarget, initial: true) { _, target in
-            if target != nil, !page.isHomeList { page = .agent }
+            guard let target, !page.isHomeList else { return }
+            page = store?.listedConversations.contains { $0.sessionId == target.sessionId } == true ? .agent : .chats
         }
         // The default tab, once the chats are known: Chats when there is one.
         // Never after the viewer picked a page, nor under a chat already open.
@@ -264,7 +282,7 @@ struct HomeView: View {
         case .chats, .agent:
             AgentPage(page: $page, isSearching: $isSearching, titleCollapsed: $titleCollapsed, openChat: $openChat, showsComposer: sizeClass != .regular)
         case .inbox:
-            InboxPage(inbox: inbox)
+            InboxPage(inbox: inbox, wide: sizeClass == .regular)
                 .onAppear { titleCollapsed = false }
         case .connectors:
             ConnectorsPage()
@@ -307,7 +325,7 @@ private extension ToolbarContent {
 /// that Xcode rendered each SVG.
 private struct LogoPreviewGrid: View {
     private var names: [String] {
-        CredentialCatalog.providers.map(\.logo) + ["logo-claude", "logo-openai", "logo-grok", "logo-antigravity", "logo-opencode"]
+        CredentialCatalog.providers.map(\.logo) + ["logo-claude", "logo-openai", "logo-grok", "logo-antigravity", "logo-opencode", "logo-deepseek"]
     }
 
     var body: some View {

@@ -52,7 +52,6 @@ class NotificationConsentRecoveryDeviceTest {
     private val fixture = object : ExternalResource() {
         override fun before() {
             app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as NuphosApplication
-            assumeTrue("Disposable navigation fixture only", app.packageName == "ai.nuphos.android.navigation1371")
             savedAccess = state(AiAccess, "state", false).value
             oldRevoked = AiAccess.onRevoked
             AiAccess.onRevoked = {} // A transient failure must not clear a tap, as in the application.

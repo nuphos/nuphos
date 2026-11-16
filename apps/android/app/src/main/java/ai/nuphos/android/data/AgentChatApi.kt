@@ -2,6 +2,8 @@ package ai.nuphos.android.data
 
 import ai.nuphos.android.model.ChatMessage
 import ai.nuphos.android.model.Plan
+import ai.nuphos.android.model.Words
+import ai.nuphos.android.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -27,8 +29,6 @@ object AgentChatApi {
         val runtimeId: String? = null,
         val agentRuntime: String? = null,
         val initialSessionConfig: Map<String, String>? = null,
-        /** The open question this message answers: the server resolves that request. */
-        val decisionReplyTo: String? = null,
     )
 
     fun chatRequest(token: String, body: ChatRequest): Request {
@@ -50,10 +50,10 @@ object AgentChatApi {
      * server reads the history itself, queues behind a running turn, and keeps
      * the turn going after this returns, so only the headers are awaited.
      */
-    fun reply(token: String, teamId: String, sessionId: String, text: String, decisionReplyTo: String? = null): Boolean {
+    fun reply(token: String, teamId: String, sessionId: String, text: String): Boolean {
         val body = ChatRequest(
             id = sessionId, teamId = teamId, messages = listOf(ChatMessage.user(text)),
-            streamId = java.util.UUID.randomUUID().toString(), decisionReplyTo = decisionReplyTo,
+            streamId = java.util.UUID.randomUUID().toString(),
         )
         return Http.client.newCall(chatRequest(token, body)).execute().use { it.isSuccessful }
     }
@@ -75,7 +75,6 @@ object AgentChatApi {
         val runtimeId: String? = null,
         val agentRuntime: String? = null,
         val initialSessionConfig: Map<String, String>? = null,
-        val decisionReplyTo: String? = null,
     ) {
         companion object {
             fun from(body: ChatRequest) = ChatRequestBody(
@@ -94,7 +93,6 @@ object AgentChatApi {
                 runtimeId = body.runtimeId,
                 agentRuntime = body.agentRuntime,
                 initialSessionConfig = body.initialSessionConfig,
-                decisionReplyTo = body.decisionReplyTo,
             )
         }
     }
@@ -211,42 +209,38 @@ object AgentChatApi {
 
     sealed class Conflict : Exception() {
         data class TranscriptOutOfSync(val storedMessageCount: Int?) : Conflict() {
-            override val message = "The task changed elsewhere; resyncing."
+            override val message: String get() = Words(R.string.convtext_conflict_out_of_sync)
         }
         data object StreamNotResumable : Conflict() {
             private fun readResolve(): Any = StreamNotResumable
-            override val message = "The previous reply can no longer be resumed."
+            override val message: String get() = Words(R.string.convtext_conflict_not_resumable)
         }
         data object StreamConflict : Conflict() {
             private fun readResolve(): Any = StreamConflict
-            override val message = "That stream belongs to another task."
+            override val message: String get() = Words(R.string.convtext_conflict_stream)
         }
         data object ConversationBusy : Conflict() {
             private fun readResolve(): Any = ConversationBusy
-            override val message = "This task is busy with another reply."
+            override val message: String get() = Words(R.string.convtext_conflict_busy)
         }
         data class Other(val code: String?, val serverMessage: String, val status: Int) : Conflict() {
             override val message = serverMessage
         }
         /** The conversation's runtime can't take a turn; another runtime gets past it. */
         data class RuntimeBlocked(val code: String) : Conflict() {
-            override val message = RUNTIME_BLOCKED.getValue(code)
+            override val message: String get() = Words(RUNTIME_BLOCKED.getValue(code))
+            /** Someone else may get past it for the viewer, by signing the agent in. */
+            val signedOut: Boolean get() = code == "runtime_login_required"
         }
     }
 
     /** Said on a phone, where the desktop's Runtimes page is not; the same words as iOS. */
     private val RUNTIME_BLOCKED = mapOf(
-        "runtime_login_required" to "This runtime is signed out. Sign it in from Nuphos on the computer it runs on, or switch to another runtime.",
-        "runtime_disabled" to "This task's runtime is disabled. Switch to another runtime to continue.",
-        "runtime_not_found" to "This runtime is no longer available in this workspace. Switch to another runtime to continue.",
-        "runtime_offline" to "The computer running this runtime is offline. Open Nuphos on it, or switch to another runtime.",
+        "runtime_login_required" to R.string.convtext_runtime_signed_out,
+        "runtime_disabled" to R.string.convtext_runtime_disabled,
+        "runtime_not_found" to R.string.convtext_runtime_not_found,
+        "runtime_offline" to R.string.convtext_runtime_offline,
     )
-
-    /** The errors the conversation shows Switch runtime beside. */
-    val switchRuntimeErrors: Set<String> = RUNTIME_BLOCKED.values.toSet()
-
-    /** The error someone else may get past for the viewer, by signing the agent in. */
-    val signedOutError: String = RUNTIME_BLOCKED.getValue("runtime_login_required")
 
     /**
      * Who signs this agent in when the viewer can't, as the backend decides: a
@@ -255,8 +249,8 @@ object AgentChatApi {
      */
     fun signInAsk(runtimeId: String?, viewerId: String?, isAdministrator: Boolean): String? {
         if (runtimeId == null || viewerId == null) return null
-        if (runtimeId.startsWith("local_")) return if (runtimeId.startsWith("local_${viewerId}_")) null else "Ask owner"
-        return if (isAdministrator) null else "Ask an admin"
+        if (runtimeId.startsWith("local_")) return if (runtimeId.startsWith("local_${viewerId}_")) null else Words(R.string.convtext_ask_owner)
+        return if (isAdministrator) null else Words(R.string.convtext_ask_admin)
     }
 
     /**
@@ -272,7 +266,7 @@ object AgentChatApi {
 
     fun conflict(status: Int, body: String?): Conflict {
         var code: String? = null
-        var message = body ?: "Nuphos returned status $status."
+        var message = body ?: Words(R.string.convtext_server_status, status)
         var stored: Int? = null
         body?.let { JsonValue.parse(it) }?.let { json ->
             val error = json["error"] ?: json

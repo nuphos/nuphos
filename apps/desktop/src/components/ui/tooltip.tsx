@@ -4,6 +4,7 @@ import clsx from 'clsx'
 import type { ReactElement, ReactNode } from 'react'
 
 type Side = NonNullable<TooltipPrimitive.Positioner.Props['side']>
+type Align = TooltipPrimitive.Positioner.Props['align']
 
 function popupOrigin(side: Side) {
   if (side === 'top') return 'bottom center'
@@ -32,6 +33,7 @@ export function Tooltip({
   trigger,
   children,
   side = 'top',
+  align,
   disabled,
   triggerClassName,
   delay = 300,
@@ -42,6 +44,7 @@ export function Tooltip({
   /** The element to hover. Rendered as the trigger, so it must accept a ref. */
   children: ReactNode
   side?: Side
+  align?: Align
   disabled?: boolean
   /** Extra classes for the wrapping span, e.g. `min-w-0` so a child can truncate. */
   triggerClassName?: string
@@ -60,7 +63,12 @@ export function Tooltip({
           {children}
         </TooltipPrimitive.Trigger>
         <TooltipPrimitive.Portal>
-          <TooltipPrimitive.Positioner side={side} sideOffset={6} className="z-[1000]">
+          <TooltipPrimitive.Positioner
+            side={side}
+            align={align}
+            sideOffset={6}
+            className="z-[1000]"
+          >
             <TooltipPrimitive.Popup
               className={(state) =>
                 clsx(

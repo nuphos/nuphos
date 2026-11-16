@@ -43,6 +43,7 @@ export const deviceApi = {
     return () => ipcRenderer.off('localRuntime:state', handler)
   },
   localRuntimeRefresh: () => ipcRenderer.invoke('localRuntime:refresh'),
+  localRuntimeRefreshModels: () => ipcRenderer.invoke('localRuntime:refreshModels'),
   localRuntimeUpdateAgent: (provider: string) =>
     ipcRenderer.invoke('localRuntime:updateAgent', provider),
   localRuntimeInstallAgent: (provider: string) =>
@@ -74,6 +75,8 @@ export const deviceApi = {
     ipcRenderer.invoke('box:delete', deviceId, teamId),
   deviceRemove: (deviceId: string, teamId: string) =>
     ipcRenderer.invoke('box:removeDevice', deviceId, teamId),
+  deviceAppUpdate: (deviceId: string, teamId: string) =>
+    ipcRenderer.invoke('box:appUpdate', deviceId, teamId),
   boxDesktop: (deviceId: string, teamId: string) =>
     ipcRenderer.invoke('box:desktop', deviceId, teamId),
   boxJoinToken: () => ipcRenderer.invoke('box:join-token'),

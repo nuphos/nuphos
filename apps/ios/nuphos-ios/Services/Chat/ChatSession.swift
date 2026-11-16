@@ -46,10 +46,12 @@ final class ChatSession {
     private(set) var permissionMode: PermissionMode = .auto
     /// Sent with each turn; nil keeps the conversation's stored choice.
     var credentialAccess: CredentialSelection?
+    /// A Task under a Bot: its credentials, computers and permission mode are the Bot's.
+    private(set) var followsBot = false
     /// New conversation: the runtime it starts on (nil lets the team default
     /// decide). Sent on the first PUT/POST only.
     var runtime: RuntimeInstance?
-    /// Existing conversation: `nuphos` | `claude-code` | `codex` | `grok` | `antigravity` | `opencode`.
+    /// Existing conversation: `nuphos` | `claude-code` | `codex` | `grok` | `antigravity` | `opencode` | `dsh`.
     private(set) var agentRuntime: String?
     private(set) var runtimeId: String?
     private(set) var runtimeLabel: String?
@@ -102,6 +104,8 @@ final class ChatSession {
     /// Mac, and says it can show one or already does.
     var canOpenDesktop: Bool { ownsChat && runtimeObservation?.canOpenDesktop == true }
     func makeDesktop() -> DesktopSession { DesktopSession(teamId: teamId, sessionId: sessionId, token: token) }
+    /// A shell on this conversation's computer; the backend checks the owner may open one there.
+    func makeTerminal() -> TerminalSession { TerminalSession(teamId: teamId, sessionId: sessionId, token: token) }
     /// This conversation's whole dock on its owner's computer, mirrored for the phone.
     func dock() async throws -> DockState {
         try await AgentChatAPI.dock(token: token, teamId: teamId, sessionId: sessionId)
@@ -138,9 +142,9 @@ final class ChatSession {
         DesktopSession(teamId: teamId, sessionId: sessionId, token: token, browserTab: (id, size))
     }
     var runtimeStatus: String? {
-        if submitting || awaitingAdmission { return "Sending…" }
+        if submitting || awaitingAdmission { return String(localized: "Sending…") }
         guard isNativeRuntime, !isNew else { return nil }
-        guard let runtimeObservation else { return "Connection lost — runtime status unavailable" }
+        guard let runtimeObservation else { return String(localized: "Connection lost — runtime status unavailable") }
         return runtimeObservation.status
     }
     /// What the user just sent, shown as their bubble until the request is
@@ -327,7 +331,7 @@ final class ChatSession {
         token: String,
         teamId: String,
         sessionId: String = UUID().uuidString.lowercased(),
-        title: String = "New task",
+        title: String = String(localized: "New task"),
         agentRuntime: String? = nil,
         runtimeLabel: String? = nil
     ) {
@@ -376,6 +380,7 @@ final class ChatSession {
             adoptRuntime(from: detail)
             receiveRuntime(detail.runtimeState, observedAt: observedAt)
             Task { await refreshQueue() }
+            followsBot = detail.followsBot
             if let stored = detail.credentialAccess {
                 let selection = CredentialSelection(json: stored)
                 credentialAccess = selection.isBlank ? nil : selection
@@ -415,9 +420,6 @@ final class ChatSession {
 
     // MARK: - Sending
 
-    /// The open question the next message answers, quoted above the composer: the Inbox's "Other…".
-    var answering: BotQuestion?
-
     /// Sends `text`, or queues it while a reply is streaming.
     func send(_ text: String) {
         send(ComposerSubmission(text: text, attachments: []))
@@ -430,11 +432,7 @@ final class ChatSession {
         guard let name = part.secretRequest?.name else { return }
         let path = try await AgentChatAPI.saveSecret(token: token, teamId: teamId, sessionId: sessionId, name: name, value: value)
         try? await AgentChatAPI.resolveDecision(token: token, teamId: teamId, sessionId: sessionId, requestId: part.decisionRequestId)
-        // The saved path answers the secret's own request, never a question quoted for "Other…".
-        let quoted = answering
-        answering = nil
         send(SecretCard.savedReply(name) + path)
-        answering = quoted
     }
 
     /// The first reply after the message that asked, if anyone replied yet.
@@ -466,9 +464,6 @@ final class ChatSession {
             }
             return
         }
-        // Words for the quoted question answer it, as its options do; with files, a message answering nothing.
-        let answers = attachments.isEmpty ? answering?.request.id : nil
-        answering = nil
         var parts: [ChatPart] = []
         if !trimmed.isEmpty { parts.append(.text(.init(text: trimmed, state: .done))) }
         let uploads = isNativeRuntime ? attachments : attachments.filter { !$0.isImage }
@@ -494,7 +489,7 @@ final class ChatSession {
                 sending = nil
                 let message = ChatMessage(role: .user, parts: parts)
                 await dispatch(message, title: trimmed.isEmpty ? (attachments.first?.name ?? "Attachment") : trimmed,
-                               submission: submission, decisionReplyTo: answers)
+                               submission: submission)
             } catch {
                 sending = nil
                 if !Task.isCancelled { self.error = error.localizedDescription }
@@ -763,8 +758,7 @@ final class ChatSession {
     var me: ChatMessage.Sender?
     private(set) var sentHere: Set<String> = []
 
-    private func dispatch(_ message: ChatMessage, title text: String, submission: ComposerSubmission? = nil,
-                          decisionReplyTo: String? = nil) async {
+    private func dispatch(_ message: ChatMessage, title text: String, submission: ComposerSubmission? = nil) async {
         sentHere.insert(message.id)
         let wasEmpty = messages.isEmpty
         // Send intent, matching Desktop; this is not a successful agent outcome.
@@ -793,8 +787,7 @@ final class ChatSession {
             permissionMode: wasEmpty ? permissionMode.rawValue : nil,
             agentRuntime: wasEmpty ? runtime?.provider.rawValue : nil,
             runtimeId: wasEmpty ? runtime?.id : nil,
-            initialSessionConfig: wasEmpty ? initialSessionConfig : nil,
-            decisionReplyTo: decisionReplyTo
+            initialSessionConfig: wasEmpty ? initialSessionConfig : nil
         ))
     }
 
@@ -928,8 +921,6 @@ final class ChatSession {
         var agentRuntime: String?
         var runtimeId: String?
         var initialSessionConfig: [String: String]?
-        /// The open question the message answers.
-        var decisionReplyTo: String?
     }
 
     private enum TurnResult {
@@ -1219,8 +1210,7 @@ final class ChatSession {
                 agentRuntime: firstPost ? options.agentRuntime : nil,
                 runtimeId: firstPost ? options.runtimeId : nil,
                 initialSessionConfig: firstPost ? options.initialSessionConfig : nil,
-                clientCapabilities: ["localTools": false, "serverQueue": true],
-                decisionReplyTo: firstPost ? options.decisionReplyTo : nil
+                clientCapabilities: ["localTools": false, "serverQueue": true, "secretCard": true]
             )
 
             var needsFreshRetry = false

@@ -1,3 +1,7 @@
+import type { LocalAgentProvider } from './local-agent-providers.ts'
+
+export type { LocalAgentProvider }
+
 export type DeviceIdentity = {
   deviceId: string
   label: string
@@ -33,9 +37,6 @@ export type DeviceExecAuditPage = {
   entries: DeviceExecAuditEntry[]
   nextCursor: string | null
 }
-
-/** This computer's own agent CLI; team runtimes can run more (`AgentProvider`). */
-export type LocalAgentProvider = 'claude-code' | 'codex' | 'grok' | 'antigravity' | 'opencode'
 
 /** The agents this app signs in itself, through their own CLI login; the rest sign in from Nuphos. */
 export type CliLoginProvider = 'claude-code' | 'codex'
@@ -99,9 +100,6 @@ export type SleepState = SleepPreferences & {
   reason: 'unsupported' | 'off' | 'battery' | 'signed-out' | 'idle' | 'active'
 }
 
-/** Whether the OS opens Nuphos at login (macOS and Windows releases only). */
-export type LoginItemState = { supported: boolean; openAtLogin: boolean }
-
 export type LocalRuntimeState = {
   detectionDisabled?: boolean
   sleepPrevention?: SleepState
@@ -112,6 +110,8 @@ export type LocalRuntimeState = {
   instances?: LocalAgentInstance[]
   workspace: string | null
   userId: string | null
+  /** This computer's own connection to Nuphos, while someone is signed in. */
+  connection?: 'online' | 'reconnecting' | 'superseded' | 'revoked'
   customProviders?: Partial<Record<CliLoginProvider, { baseUrl: string; models: string[] }>>
   deviceId?: string
   devBundle?: DevBundleHint
@@ -137,7 +137,6 @@ export type LocalRuntimeActivityPage = {
 /** `connecting`: the machine runs but its host has not joined yet. */
 export type BoxState = 'creating' | 'connecting' | 'running' | 'paused' | 'error'
 
-/** A Box: a device Nuphos runs in a sandbox for its owner. */
 /** How far an owner lets teammates use their own computer's Local Agent. */
 export type LocalShareLevel = 'off' | 'approve' | 'full'
 
@@ -183,7 +182,7 @@ export type LocalShareApproval = {
   requestedAt: string
 }
 
-/** Who may use a Box besides the team's admins, who always may. */
+/** Who may use a Box besides its owner and managers, who always may. */
 export type BoxAccess = { everyone: boolean; userIds: string[] }
 
 export type BoxStatus = {
@@ -197,7 +196,6 @@ export type BoxStatus = {
   updateStartedAt?: string
 }
 
-/** One of the signed-in user's devices; `box` is set when Nuphos hosts it. */
 export type DeviceMetrics = {
   sampledAt: string
   cpuPercent: number
@@ -231,6 +229,8 @@ export type AgentDevice = {
   box?: BoxStatus
   /** A Box's displays of the viewer's own conversations, besides its own :1. */
   desktops?: { display: number; sessionId: string; title: string }[]
+  desktopRuntimeId?: string // The viewer's own computer: the runtime id that opens its screen.
+  app?: { version: string; update?: { version: string; ready: boolean } } // The viewer's other computer's Nuphos Desktop.
 }
 
 export type AgentDeviceList = {

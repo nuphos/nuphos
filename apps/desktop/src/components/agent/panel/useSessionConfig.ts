@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { api } from '../../../api'
 
 import { newChatChoiceKey, saveNewChatChoice, sentChatChoice } from './newChatChoice'
+import { namesNoModel, refreshLocalModels } from './refreshLocalModels'
 import { SessionConfigSync } from './sessionConfigSync'
 
 import type { SessionConfigSelection } from '../../../api/session-config-types'
@@ -23,6 +24,7 @@ export function useSessionConfig(session: ModelSession | undefined, streaming: b
     [sessionId, teamId],
   )
   const state = useSyncExternalStore(sync.subscribe, sync.getSnapshot)
+  const unnamed = namesNoModel(state.data)
 
   useEffect(() => {
     if (sessionId && teamId) return sync.start()
@@ -42,6 +44,9 @@ export function useSessionConfig(session: ModelSession | undefined, streaming: b
     sync.setStreaming(streaming)
     if (open) void sync.refresh()
   }, [sync, open, streaming])
+  useEffect(() => {
+    if (unnamed) refreshLocalModels(api.localRuntimeRefreshModels, () => void sync.refresh())
+  }, [sync, unnamed])
   // A refused change explains itself while the picker is open; closing it lets
   // the reason go, so reopening starts from the settings the runtime holds.
   useEffect(() => {
@@ -51,7 +56,10 @@ export function useSessionConfig(session: ModelSession | undefined, streaming: b
   return {
     ...state,
     open,
-    setOpen,
+    setOpen: (next: boolean) => {
+      setOpen(next)
+      if (next) refreshLocalModels(api.localRuntimeRefreshModels, () => void sync.refresh())
+    },
     select: (selection: SessionConfigSelection) => {
       void sync.select(selection)
     },

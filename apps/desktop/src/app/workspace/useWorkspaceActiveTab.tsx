@@ -4,20 +4,41 @@ import {} from '../../app/sidebarBackTarget'
 import { pageLocationForTab } from '../../app/workspaceTabFactory'
 import { sourceText } from '../../i18n'
 import { setActiveTeam, trackPageview } from '../../lib/analytics'
-import { DEFAULT_GITHUB_NAV, DEFAULT_REPO_PROVIDER } from '../../lib/appRoutes'
 import { externalPageLink } from '../../lib/externalPageLink'
 import { toAbsoluteAtlasUrl } from '../../lib/webBaseUrl'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import { tabFields } from './tabFields'
 import { useWorkspacePane } from './WorkspacePaneContext'
 
 import type { WorkspaceShellStateResult } from './useWorkspaceShellState'
 import type { WorkspaceProps } from './workspaceProps'
-import type { RepoProvider } from '../../lib/appRoutes'
 import type { AtlasTeam } from '../../types'
+import type { WorkspaceTabState } from '../workspaceTabState'
 
 type Args = WorkspaceProps & WorkspaceShellStateResult
+
+/**
+ * Emits a PostHog pageview whenever the page's logical location changes.
+ * Navigation here is tab/scope-based rather than URL-based, so pageviews are
+ * driven off pageMeta.location instead of browser history.
+ */
+export function usePageview(tab: WorkspaceTabState | null, paneActive: boolean) {
+  const locationHref = tab?.pageMeta?.location.href ?? null
+
+  useEffect(() => {
+    if (!paneActive || !tab?.pageMeta) return
+    trackPageview(tab.pageMeta.location, {
+      scope_kind: tab.scope.kind,
+      active_key: tab.active,
+      // English, so pageviews group the same way in every locale.
+      title: sourceText(tab.pageMeta.title),
+    })
+    // locationHref is the change signal; other fields are read fresh.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paneActive, locationHref])
+}
 
 export function useWorkspaceActiveTab(a: Args) {
   const paneActive = useWorkspacePane()?.active ?? true
@@ -49,19 +70,33 @@ export function useWorkspaceActiveTab(a: Args) {
   const toolbarPageUrl = activeExternalLink?.url ?? activePageUrl
   const scope = workspaceScope
   const currentTeam = scope ? teams.find((team) => team.id === scope.teamId) : undefined
-  const active = activeTab?.active ?? ''
-  const filter = activeTab?.filter ?? ''
-  const refreshKey = activeTab?.refreshKey ?? 0
-  const count = activeTab?.count ?? 0
-  const viewLoading = activeTab?.viewLoading ?? false
-  const target = activeTab?.target ?? null
-  const s3Detail = activeTab?.s3Detail ?? null
-  const architectureDetail = activeTab?.architectureDetail ?? null
-  const designDetail = activeTab?.designDetail ?? null
-  const nuphosDashboard = activeTab?.nuphosDashboard ?? null
-  const nuphosDashboards = activeTab?.nuphosDashboards
-  const linearNav = activeTab?.linearNav ?? null
-  const connectorDetail = activeTab?.connectorDetail ?? null
+  const {
+    active,
+    filter,
+    refreshKey,
+    count,
+    viewLoading,
+    target,
+    s3Detail,
+    architectureDetail,
+    designDetail,
+    nuphosDashboard,
+    nuphosDashboards,
+    linearNav,
+    connectorDetail,
+    awsDetail,
+    cloudflareDetail,
+    grafanaInstance,
+    dashboardTarget,
+    traceDatasourceTarget,
+    logDatasourceTarget,
+    sshTerminal,
+    githubNav,
+    repoProvider,
+    namespaces,
+    switching,
+    clusterLabel,
+  } = tabFields(activeTab)
   // Title of the conversation the Agent page is showing, per tab — the
   // breadcrumb's leaf. The panel publishes it; the tab's own label comes from
   // pageMeta, which the page sets from the same value.
@@ -71,15 +106,6 @@ export function useWorkspaceActiveTab(a: Args) {
   }, [])
   const agentSessionTitle =
     activeTabId && activeTab?.agentSessionId ? (agentTitleByTab[activeTabId] ?? null) : null
-  const awsDetail = activeTab?.awsDetail ?? null
-  const cloudflareDetail = activeTab?.cloudflareDetail ?? null
-  const grafanaInstance = activeTab?.grafanaInstance ?? null
-  const dashboardTarget = activeTab?.dashboardTarget ?? null
-  const traceDatasourceTarget = activeTab?.traceDatasourceTarget ?? null
-  const logDatasourceTarget = activeTab?.logDatasourceTarget ?? null
-  const sshTerminal = activeTab?.sshTerminal ?? null
-  const githubNav = activeTab?.githubNav ?? DEFAULT_GITHUB_NAV
-  const repoProvider: RepoProvider = activeTab?.repoProvider ?? DEFAULT_REPO_PROVIDER
   // Inside an agent conversation the left "Agent" item is just an entry point
   // to Home, not the current location — so it must not look active once you're
   // reading a chat. A non-matching sentinel keeps every sidebar item
@@ -96,7 +122,6 @@ export function useWorkspaceActiveTab(a: Args) {
     scope?.kind === 'team' && active === 'team.repository' && githubNav.view === 'repo'
       ? { repoName: githubNav.repo.name, tab: githubNav.tab }
       : undefined
-  const namespaces = activeTab?.namespaces ?? []
   const handleTeamUpdated = useCallback(
     (updated: AtlasTeam) => {
       setTeams((prev) =>
@@ -105,8 +130,6 @@ export function useWorkspaceActiveTab(a: Args) {
     },
     [setTeams],
   )
-  const switching = activeTab?.switching ?? false
-  const clusterLabel = activeTab?.clusterLabel ?? null
   const closedSshTabsRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
@@ -126,22 +149,7 @@ export function useWorkspaceActiveTab(a: Args) {
     if (paneActive) setActiveTeam(activeTeamId)
   }, [paneActive, activeTeamId])
 
-  // Emit a PostHog pageview whenever the active tab's logical location changes.
-  // Navigation here is tab/scope-based rather than URL-based, so we drive
-  // pageviews off pageMeta.location instead of browser history.
-  const activeLocationHref = activeTab?.pageMeta?.location.href ?? null
-
-  useEffect(() => {
-    if (!paneActive || !activeTab?.pageMeta) return
-    trackPageview(activeTab.pageMeta.location, {
-      scope_kind: activeTab.scope.kind,
-      active_key: activeTab.active,
-      // English, so pageviews group the same way in every locale.
-      title: sourceText(activeTab.pageMeta.title),
-    })
-    // activeLocationHref is the change signal; other fields are read fresh.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paneActive, activeLocationHref])
+  usePageview(activeTab, paneActive)
 
   return {
     activeTab,
