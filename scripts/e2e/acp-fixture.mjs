@@ -4,6 +4,10 @@ import { randomUUID } from 'node:crypto'
 import { appendFileSync, existsSync } from 'node:fs'
 import { createInterface } from 'node:readline'
 
+import { nuphosApplyRuntimeDefaults } from '../../apps/runtime/image/runtime-defaults.mjs'
+
+import { applySetting } from './fixture-settings.mjs'
+
 const send = (message) =>
   process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', ...message })}\n`)
 // Every entry names the agent host it ran on, which is what tells two runtimes apart.
@@ -21,37 +25,6 @@ const asked = new Map()
 let nextRequest = 1_000_000
 // The thread E2E_THREAD started last, for E2E_POKE to message.
 let thread
-// Each session's model settings, as a real agent reports and changes them.
-const settings = new Map()
-const choice = (value) => ({ value, name: value })
-const newSettings = () => [
-  {
-    id: 'model',
-    name: 'Model',
-    category: 'model',
-    type: 'select',
-    currentValue: 'fixture',
-    options: [choice('fixture')],
-  },
-  {
-    id: 'fast',
-    name: 'Fast',
-    type: 'select',
-    currentValue: 'off',
-    options: [choice('off'), choice('on')],
-  },
-]
-
-function applySetting(sessionId, id, value) {
-  const list = settings.get(sessionId) ?? newSettings()
-  const option = list.find((candidate) => candidate.id === id)
-
-  if (option?.options.some((candidate) => candidate.value === value)) option.currentValue = value
-  settings.set(sessionId, list)
-
-  return list
-}
-
 /** One JSON-RPC call to a streamable-HTTP MCP server; the reply is JSON or a one-event stream. */
 async function mcp(server, sessionHeader, method, params) {
   const response = await fetch(server.url, {
@@ -249,13 +222,21 @@ async function answer(request) {
         request.params.mcpServers?.find(({ name }) => name === 'nuphos-tools'),
       )
 
-      // The settings the conversation was created with, which a real runtime applies here.
+      // The settings the conversation was created with, applied by the runtime's own code,
+      // which refuses to open a session on a value this agent does not offer.
       const defaults = request.params._meta?.['ai.nuphos/runtimeDefaults'] ?? {}
+      const agent = {
+        setSessionConfigOption: async ({ configId, value }) => ({
+          configOptions: applySetting(sessionId, configId, value),
+        }),
+      }
 
-      for (const [id, value] of Object.entries(defaults)) applySetting(sessionId, id, value)
       log({ sessionId, event: 'session', defaults })
 
-      return { sessionId, configOptions: applySetting(sessionId) }
+      return nuphosApplyRuntimeDefaults(agent, request.params, {
+        sessionId,
+        configOptions: applySetting(sessionId),
+      })
     }
     case 'session/prompt':
       return prompt(request.params)
