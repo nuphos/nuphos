@@ -5,6 +5,7 @@ import { InstaboxError } from '@insforge/instabox-sdk'
 
 import { config } from '@/config'
 import { AppError } from '@/lib/errors'
+import { logError } from '@/lib/observability'
 
 import { killMachine, listMachines } from './instabox-machines'
 
@@ -141,9 +142,16 @@ export function boxesAvailable(): boolean {
   return config.box.instabox !== null && boxBackendUrl() !== undefined
 }
 
-export const reason = (error: unknown) => (error instanceof Error ? error.message : String(error))
-export const unavailable = (what: string, error: unknown) =>
-  new AppError(503, 'box_unavailable', `${what}: ${reason(error)}`)
+/**
+ * A failed instabox call, in words for whoever asked: what failed, never instabox's own
+ * text, which can name the account and its owner. That text goes to the server log.
+ */
+export function unavailable(what: string, error: unknown): AppError {
+  if (error instanceof AppError) return error
+  logError('agent.box.instabox_failed', error, { what })
+
+  return new AppError(503, 'box_unavailable', `${what}. Try again in a few minutes.`)
+}
 
 /**
  * Deletes the machine a Box owns. A row that never got its machine id (the backend
