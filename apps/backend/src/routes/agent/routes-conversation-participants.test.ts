@@ -26,6 +26,8 @@ let conversation: AgentConversation | null
 let memory = portabilityDb()
 // What the server posted into the chat itself, and as whose chat.
 let notices: { userId: string; text: string }[] = []
+// A read taken before someone else's write landed.
+let stale: AgentConversation | null = null
 
 useDb({
   db: (() => memory) as unknown as typeof dbActual.db,
@@ -37,7 +39,7 @@ useAgentDb({
   // The route reads the doc through the viewer-scoped helper, so a viewer who
   // may not see the conversation gets null here rather than a filtered doc.
   getReadableConversation: async (_sessionId, viewerUserId, teamId) =>
-    teamId && MEMBERS.includes(viewerUserId) ? conversation : null,
+    teamId && MEMBERS.includes(viewerUserId) ? (stale ?? conversation) : null,
   getConversationBySessionId: async () => conversation,
   appendConversationMessages: async ({ userId, messages }) => {
     notices.push({ userId, text: (messages[0]?.parts[0] as { text: string }).text })
@@ -111,6 +113,7 @@ async function patch(path: string, body: Record<string, unknown>) {
 beforeEach(() => {
   viewer = OWNER
   notices = []
+  stale = null
   memory = portabilityDb()
   conversation = {
     sessionId: 'shared',
@@ -256,6 +259,17 @@ describe('conversation participants API', () => {
     expect(notices).toEqual([
       { userId: TEAMMATE, text: 'owner-user name left. teammate-user name now owns this chat.' },
     ])
+  })
+
+  test("a group chat's owner leaving as the next owner leaves is refused, and nothing is said", async () => {
+    Object.assign(conversation!, { kind: 'channel', group: true })
+    stale = { ...conversation!, participantIds: [TEAMMATE] }
+    conversation!.participantIds = []
+
+    expect((await remove(OWNER)).status).toBe(409)
+    expect(conversation?.userId).toBe(OWNER)
+    expect(conversation?.archivedAt).toBeUndefined()
+    expect(notices).toEqual([])
   })
 
   test("a group chat's owner alone in it archives it by leaving; a Bot's chat keeps its owner", async () => {
