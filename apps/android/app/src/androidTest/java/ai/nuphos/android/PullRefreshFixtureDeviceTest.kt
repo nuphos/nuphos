@@ -96,7 +96,7 @@ class PullRefreshFixtureDeviceTest {
                     path == "/agent/conversations" -> {
                         val title = historyTitle
                         val order = req.url.queryParameter("sort")
-                        if ((holdHistory && req.url.queryParameter("cursor") == null) || (holdPage && req.url.queryParameter("cursor") != null)) {
+                        if (isHistory(req) && ((holdHistory && req.url.queryParameter("cursor") == null) || (holdPage && req.url.queryParameter("cursor") != null))) {
                             holdHistory = false; holdPage = false; historyHeld.countDown()
                             check(historyRelease.await(15, TimeUnit.SECONDS))
                         }
