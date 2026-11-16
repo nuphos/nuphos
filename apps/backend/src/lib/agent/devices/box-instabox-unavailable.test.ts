@@ -1,5 +1,5 @@
 import { InstaboxError, Sandbox } from '@insforge/instabox-sdk'
-import { afterEach, beforeEach, expect, mock, spyOn, test } from 'bun:test'
+import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test'
 
 import { config } from '@/config'
 import { useAgentDeviceStore } from '@/lib/test/doubles/agent-devices-store'
@@ -30,17 +30,19 @@ beforeEach(() => {
 
 afterEach(() => {
   config.box.instabox = saved
-  mock.restore()
 })
 
 test('a failed instabox call is a 503 that says what failed, without instabox’s own text', async () => {
-  spyOn(Sandbox, 'connect').mockRejectedValue(new InstaboxError(raw, { status: 423 }))
+  const connect = spyOn(Sandbox, 'connect').mockRejectedValue(
+    new InstaboxError(raw, { status: 423 }),
+  )
 
   const error = await pauseBox('u1', 'd1').then(
     () => null,
     (e: unknown) => e as { status: number; code: string; message: string },
   )
 
+  connect.mockRestore()
   expect(error).toMatchObject({ status: 503, code: 'box_unavailable' })
   expect(error?.message).toBe('Could not pause the Box. Try again in a few minutes.')
 })
