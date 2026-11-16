@@ -2,6 +2,7 @@ import { tool } from 'ai'
 import { z } from 'zod'
 
 import { aboutField } from './decision-about'
+import { secretFieldsProblem, secretInstruction, secretSchema } from './decision-secrets'
 import { labelField, withLabel } from './labeling'
 
 import type { ExplicitUserDecision } from './types'
@@ -67,9 +68,6 @@ export function isConnectableProvider(name: unknown): name is ConnectableProvide
   return typeof name === 'string' && Object.hasOwn(CONNECTABLE_PROVIDERS, name)
 }
 
-/** A secret's name: also the file name it is written to on the runtime. */
-export const SECRET_NAME = /^[A-Za-z]\w{0,63}$/
-
 const questionField = z
   .string()
   .trim()
@@ -130,6 +128,11 @@ export function integrationTargetProblem(input: {
   }
 
   return null
+}
+
+/** Why a request's Connect or secure input card cannot be asked as its input names it. */
+export function cardProblem(input: Record<string, unknown>): string | null {
+  return integrationTargetProblem(input) ?? secretFieldsProblem(input)
 }
 
 type WrittenQuestion = { question: string; options?: string[]; multiSelect?: boolean }
@@ -193,6 +196,7 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
         'Never ask in a free-text question to tick a credential in the picker: only a question with `providers` resolves itself, and resumes you, once that credential is selected, by the user or by a parent agent. ' +
         'Name only providers the task actually needs. Do not use `providers` when the credential is already selected and a call fails with AccessDenied or 403 (connecting another account does not fix missing permissions), or for MCP servers. ' +
         'For an API key, password or other secret only the user can type, use category `credential` with `secretName`: in the Desktop app the user then gets a masked input that writes the value to a file on this runtime, never into the conversation. Never ask the user to paste a secret into chat. ' +
+        "When you are filling in a form on a website and it needs the user's own details (an ID number, a date of birth, a booking reference), ask for all of them in one such card: add `fields`, one per detail, and `site`, the host they will be entered on. Decide the page's other options yourself, then enter the saved values with local_browser `fill`. " +
         'Put choices in `options`, never in the question text; set `multiSelect` when several may apply. The user can always answer in their own words instead. ' +
         'Ask related questions together in one call through `questions` rather than one card after another; `question` is then the headline. ' +
         'The question is listed in the Inbox until answered: put what the user needs to decide in `body`, so they can answer there without reading the chat. ' +
@@ -222,23 +226,18 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
           .describe(
             "With category `integration`: the member's own credential, as the (provider, id) pair list_credentials shows, e.g. {provider: 'personal', id: 'github'}.",
           ),
-        secretName: z
-          .string()
-          .regex(SECRET_NAME)
-          .optional()
-          .describe(
-            'With category `credential`: an environment-variable style name for the secret the user types, e.g. OPENAI_API_KEY.',
-          ),
+        ...secretSchema,
         about: aboutField.optional(),
       }),
       execute: async (input) => {
-        const problem = integrationTargetProblem(input)
+        const problem = cardProblem(input)
 
         if (problem) throw new Error(problem)
         const { label: _label, category, question, body, options, multiSelect, questions } = input
         const providers = category === 'integration' ? input.providers : undefined
         const credentials = category === 'integration' ? input.credentials : undefined
         const secretName = category === 'credential' ? input.secretName : undefined
+        const fields = secretName ? input.fields : undefined
         const decision: ExplicitUserDecision = {
           category,
           question,
@@ -257,11 +256,12 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
           ...(providers ? { providers } : {}),
           ...(credentials ? { credentials } : {}),
           ...(secretName ? { secretName } : {}),
+          ...(fields ? { fields, site: input.site } : {}),
           instruction:
             providers || credentials
               ? 'The user sees a Connect card for these below your message; point to it in one short sentence that refers to "the card below" (never "above"). Once one is selected for this conversation, you are told so in a new message and continue from there.'
               : secretName
-                ? 'The user sees a secure input card below your message; point to it in one short sentence that refers to "the card below" (never "above"). Their answer, a new message, gives the path of a file holding the value: read it only inside the command that needs it, e.g. "$(cat <path>)", and never print, echo or copy its contents.'
+                ? secretInstruction(fields)
                 : 'Do not choose on their behalf or do the work that depends on the answer. Continue only with work that does not depend on it, or end your turn; the answer arrives as a new message.',
         }
       },

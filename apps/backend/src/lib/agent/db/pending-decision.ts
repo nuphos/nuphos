@@ -2,6 +2,7 @@ import { ownBody, withQuestionsInBody } from '@/lib/agent/tools-skilled/decision
 
 import { agentConversations } from './shared'
 
+import type { SecretField } from '@/lib/agent/tools-skilled/decision-secrets'
 import type { PersonalCredentialRef } from '@/lib/agent/tools-skilled/decision-tools'
 import type { ExplicitUserDecision } from '@/lib/agent/tools-skilled/types'
 
@@ -15,6 +16,9 @@ export type InputRequest = ExplicitUserDecision & {
   id: string
   /** The secret a `credential` request asks for, so its secure card finds it. */
   secretName?: string
+  /** The details a `credential` request asks for in one card, and the site they are entered on. */
+  fields?: SecretField[]
+  site?: string
   /** The plan (#N) a plan's approval question decides. */
   planId?: string
   /** The channel whose post woke the turn that asked: the answer is recorded there and the agent replies there. */
@@ -34,6 +38,38 @@ export type InputRequest = ExplicitUserDecision & {
 export type ConversationInputRequests = {
   /** The open questions asked through request_user_decision. */
   inputRequests?: InputRequest[]
+  /** The site each file a secure card saved was asked for; `local_browser` `fill` enters it nowhere else. */
+  secretSites?: { path: string; site: string }[]
+}
+
+/**
+ * The site a value saved under `name` is for: the one the open requests with
+ * that field name. None when no request asks for it, or two disagree.
+ */
+export function siteAskedFor(
+  conversation: ConversationInputRequests,
+  name: string,
+): string | undefined {
+  const sites = new Set(
+    openInputRequests(conversation)
+      .filter((request) => request.fields?.some((field) => field.name === name))
+      .map((request) => request.site),
+  )
+  const [site] = sites
+
+  return sites.size === 1 ? site : undefined
+}
+
+/** Keeps the site a saved file is for. The latest few are enough: the files expire. */
+export async function recordSecretSite(
+  sessionId: string,
+  userId: string,
+  entry: { path: string; site: string },
+): Promise<void> {
+  await agentConversations().updateOne(
+    { sessionId, userId },
+    { $push: { secretSites: { $each: [entry], $slice: -60 } } },
+  )
 }
 
 /** A new question joins the open ones; it never replaces another open request. */

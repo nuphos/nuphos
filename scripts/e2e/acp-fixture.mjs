@@ -6,6 +6,8 @@ import { createInterface } from 'node:readline'
 
 import { nuphosApplyRuntimeDefaults } from '../../apps/runtime/image/runtime-defaults.mjs'
 
+import { formSteps } from './acp-fixture-form.mjs'
+import { mcp } from './acp-fixture-mcp.mjs'
 import { applySetting } from './fixture-settings.mjs'
 
 const send = (message) =>
@@ -25,24 +27,6 @@ const asked = new Map()
 let nextRequest = 1_000_000
 // The thread E2E_THREAD started last, for E2E_POKE to message.
 let thread
-
-/** One JSON-RPC call to a streamable-HTTP MCP server; the reply is JSON or a one-event stream. */
-async function mcp(server, sessionHeader, method, params) {
-  const response = await fetch(server.url, {
-    method: 'POST',
-    headers: {
-      ...Object.fromEntries(server.headers.map(({ name, value }) => [name, value])),
-      ...sessionHeader,
-      'content-type': 'application/json',
-      accept: 'application/json, text/event-stream',
-    },
-    body: JSON.stringify({ jsonrpc: '2.0', id: randomUUID(), method, params }),
-  })
-  const text = await response.text()
-  const data = text.startsWith('{') ? text : (/^data: (.+)$/m.exec(text)?.[1] ?? '{}')
-
-  return { message: JSON.parse(data), session: response.headers.get('mcp-session-id') }
-}
 
 /** Calls one Nuphos tool the way a real agent does. */
 async function call(sessionId, name, args) {
@@ -77,6 +61,8 @@ async function ask(sessionId, category) {
 
   log({ sessionId, event: 'asked', isError: refused(message) })
 }
+
+const form = formSteps({ call, log, refused })
 
 // A delegated turn names its sender by title, which carries the sender's own
 // markers, so the fixture tells such a turn by its prompt and does not delegate again.
@@ -157,6 +143,7 @@ async function prompt({ sessionId, prompt: parts }) {
   if (text.includes('E2E_DELEGATE') && !text.includes(CHILD)) {
     await delegate(sessionId, text.includes('E2E_DELEGATE_FAST'))
   }
+  await form(sessionId, text)
   if (text.includes('E2E_ASK')) {
     await ask(sessionId, text.includes('E2E_ASK_CREDENTIAL') ? 'credential' : 'preference')
   }

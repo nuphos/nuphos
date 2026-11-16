@@ -5,6 +5,7 @@ import { rmSync } from 'node:fs'
 import { agentEvents } from './agent-log.ts'
 import { backendFailures, backendLines } from './backend-log.ts'
 import { startDesktop } from './desktop.ts'
+import { formScenario } from './form-scenario.ts'
 import { artifacts, stopAll, until } from './processes.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
 import { startStack } from './stack.ts'
@@ -192,6 +193,8 @@ const scenarios: Scenario[] = [
   },
 ]
 
+scenarios.push(formScenario)
+
 let desktop: Desktop | undefined
 let failed = false
 
@@ -205,7 +208,7 @@ try {
     const from = backendLines()
 
     await scenario.run(desktop.page, stack)
-    const failures = backendFailures(from)
+    const failures = backendFailures(from, scenario.expected)
 
     await desktop.page.screenshot({ path: `${artifacts}/${String(index + 1)}.png` })
     if (failures.length > 0)
