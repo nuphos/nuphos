@@ -72,6 +72,7 @@ export function useWorkspaceLinkOpeners(a: Args) {
     openInChat,
     openConversationInNewTab,
     openSettingsSection,
+    setSettingsOpen,
     teams,
   } = a
   const pane = useWorkspacePane()
@@ -121,6 +122,9 @@ export function useWorkspaceLinkOpeners(a: Args) {
 
         return true
       }
+      // Everything else opens in the workspace, which Settings covers while it is open:
+      // a computer's Open desktop there would otherwise open out of sight.
+      setSettingsOpen(false)
 
       // Connectors opens as a dialog over the page, in a team this account is in.
       if (isConnectorsPage(navigation.scope, navigation.active)) {
@@ -192,6 +196,7 @@ export function useWorkspaceLinkOpeners(a: Args) {
       openConversationInNewTab,
       openSessionBeside,
       openSettingsSection,
+      setSettingsOpen,
       teams,
       updateTab,
       workspaceActions,

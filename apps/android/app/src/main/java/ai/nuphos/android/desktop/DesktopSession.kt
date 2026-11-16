@@ -100,7 +100,7 @@ internal class DesktopSession(
             opening=call
             if(!active(owner)) { call.cancel(); throw CancellationException() }
             try { call.execute().use { response ->
-                require(response.isSuccessful) { "Desktop is not available to this account." }
+                require(response.isSuccessful) { desktopRefusal(response) }
                 val body=response.body ?: throw IOException("No desktop response")
                 require(body.contentLength()<=4096)
                 val source=body.source(); require(!source.request(4097));
@@ -175,3 +175,8 @@ internal class DesktopSession(
 internal data class DesktopTiming(val handshakeMillis: Long=10_000,val frameMillis: Long=20_000,val progressMillis: Long=10_000,val refreshMillis: Long=30_000,val maxFailures: Int=6)
 private class DesktopStalled : IOException()
 private fun desktopNow()=System.nanoTime()/1_000_000
+
+/** The backend's own reason, such as a Mac that has not allowed Accessibility for Nuphos. */
+internal fun desktopRefusal(response: Response): String=
+    runCatching { Json.parseToJsonElement(response.peekBody(4096).string()).jsonObject["error"]?.jsonObject?.get("message")?.jsonPrimitive?.contentOrNull }.getOrNull()
+        ?.takeIf { it.isNotBlank() } ?: "Desktop is not available to this account."
