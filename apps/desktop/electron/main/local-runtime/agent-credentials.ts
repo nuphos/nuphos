@@ -5,6 +5,7 @@ import { codexOwnerHome } from './agent-home.ts'
 import { LOGIN_FILE } from './providers.ts'
 
 import type { LocalAgentProvider } from './agent-cli.ts'
+import type { LocalRuntimeControllerDeps } from './controller-types.ts'
 
 export const ANTIGRAVITY_SIGN_OUT =
   'Sign out with the official Antigravity CLI; this may sign out other local Antigravity apps'
@@ -71,4 +72,24 @@ export function deleteDefaultCredentials(
 ): void {
   deleteAgentCredentials(provider, home)
   if (provider === 'codex') rmSync(path.join(codexOwnerHome(env), 'auth.json'), { force: true })
+}
+
+/**
+ * OpenCode 2.x keeps its providers' credentials in its own database, not in a file: asks it
+ * whether any is left, so a reset fails rather than reports a sign-out it could not make.
+ * The error to fail with, or undefined.
+ */
+export async function credentialsLeft(
+  provider: LocalAgentProvider,
+  home: string,
+  deps: Pick<LocalRuntimeControllerDeps, 'probeCli' | 'userEnv'>,
+): Promise<Error | undefined> {
+  if (provider !== 'opencode') return undefined
+  const cli = await deps.probeCli(provider, await deps.userEnv(), home).catch(() => undefined)
+
+  return cli?.installed && cli.loggedIn === true
+    ? new Error(
+        'OpenCode still holds provider credentials Nuphos cannot remove. Sign them out in OpenCode, then try again',
+      )
+    : undefined
 }
