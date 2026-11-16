@@ -12244,6 +12244,29 @@ mod acp_teardown_ownership {
 }
 
 #[cfg(test)]
+mod session_close_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn close_hands_the_session_thread_to_the_pool() {
+        let (events, _) = tokio::sync::broadcast::channel(1);
+        let mut state = crate::AppState::test_default(events);
+        let sid = format!("sess_{}", Uuid::new_v4());
+        let unified = handle_session_close(&state, json!(1), Some(&sid));
+        assert_eq!(unified.error.unwrap().code, -32601);
+        let (tx, mut rx) = mpsc::channel::<String>(1);
+        state.acp_pool_close = Some(tx);
+        let bad = handle_session_close(&state, json!(2), Some("bad"));
+        assert_eq!(bad.error.unwrap().code, -32602);
+        assert!(rx.try_recv().is_err());
+        let closed = handle_session_close(&state, json!(3), Some(&sid));
+        assert!(closed.error.is_none());
+        let channel = derive_channel_id(&sid).unwrap();
+        assert_eq!(rx.try_recv().unwrap(), format!("acp:{channel}"));
+    }
+}
+
+#[cfg(test)]
 mod session_config_tests {
     use super::*;
 
