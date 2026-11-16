@@ -74,7 +74,7 @@ describe.skipIf(!client)('run and queue indexes', () => {
       expect(await redis.sismember(INDEX, `${USER}:${session}`)).toBe(0)
     } finally {
       release()
-      await flushGuardWrites()
+      await flushGuardWrites(5_000)
       await redis.hdel(RUNTIME_HANDOFFS_KEY, `index-team:${session}`)
     }
   })
@@ -89,7 +89,7 @@ describe.skipIf(!client)('run and queue indexes', () => {
     await flush()
     expect(await redis.sismember(INDEX, `${USER}:${session}`)).toBe(1)
     release()
-    await flushGuardWrites()
+    await flushGuardWrites(5_000)
     expect(await redis.exists(`atlas:agentrun-active:${USER}:${session}`)).toBe(0)
     expect(await redis.sismember(INDEX, `${USER}:${session}`)).toBe(0)
   })
