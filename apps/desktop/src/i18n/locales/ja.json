@@ -3849,6 +3849,7 @@
   "Retry incomplete items": "未完了の項目を再試行",
   "Retry the failed items.": "失敗した項目を再試行してください。",
   "Retry update": "アップデートを再試行",
+  "Retrying on {to}": "{to} で再試行しています",
   "Retrying…": "再試行中…",
   "Rev": "リビジョン",
   "Reveal encoded Secret values before applying YAML.": "YAML を適用する前に、エンコードされた Secret の値を表示してください。",

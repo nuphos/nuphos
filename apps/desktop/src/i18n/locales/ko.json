@@ -3849,6 +3849,7 @@
   "Retry incomplete items": "미완료 항목 재시도",
   "Retry the failed items.": "실패한 항목을 다시 시도하세요.",
   "Retry update": "업데이트 다시 시도",
+  "Retrying on {to}": "{to}에서 다시 시도하는 중",
   "Retrying…": "다시 시도하는 중…",
   "Rev": "리비전",
   "Reveal encoded Secret values before applying YAML.": "YAML을 적용하기 전에 인코딩된 Secret 값을 표시하세요.",

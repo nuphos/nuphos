@@ -267,6 +267,8 @@ export type AgentTimelineEvent = {
   to?: AgentTimelineRuntime
   /** Set when a fallback moved the session: its agent was low on usage, unreachable, or failed a turn. */
   reason?: 'quota' | 'offline' | 'failure'
+  /** runtime_moved: the turn that failed before the move runs again on `to`. */
+  retrying?: boolean
   /** A fallback that found no agent: each one passed over, and why. */
   skipped?: { label: string; reason: string }[]
   /** message_edited / conversation_forked: the destination session. */
