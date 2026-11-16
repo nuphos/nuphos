@@ -69,7 +69,7 @@ export function appendAgentRunFrame(run: AgentRun, frame: string) {
   for (const subscriber of run.subscribers) subscriber.poke()
 }
 
-/** Drop a repeated snapshot, and its commands until they change: a client keeps its last list. */
+/** Drop a repeat, and unchanged commands: clients keep the last list (an empty one is `[]`). */
 function changedRuntimeState(run: AgentRun, frame: string): string | undefined {
   const payload = JSON.parse(frame.slice('data: '.length)) as {
     snapshot?: { commands?: unknown }
