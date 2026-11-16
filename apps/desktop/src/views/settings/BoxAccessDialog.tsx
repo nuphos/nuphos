@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 
+import { accessSaveSteps } from './boxAccessPresentation'
 import { BoxAccessFields } from './BoxAccessFields'
 import { isOwner } from './boxPresentation'
 import { BoxTerminalAccess } from './BoxTerminalAccess'
@@ -33,13 +34,20 @@ export function BoxAccessDialog({
   const [saving, setSaving] = useState(false)
   const save = async () => {
     setSaving(true)
-    let failed = t('Could not change who can use this computer')
+    let failed = ''
 
     try {
-      await api.boxSetAccess(device.deviceId, teamId, choice.payload())
-      failed = t('Could not change who can open a terminal')
-      if (owner && useTerminal !== savedTerminal)
-        await api.boxSetTerminalAccess(device.deviceId, teamId, useTerminal)
+      for (const step of accessSaveSteps(
+        owner && useTerminal !== savedTerminal ? useTerminal : undefined,
+      )) {
+        if (step === 'access') {
+          failed = t('Could not change who can use this computer')
+          await api.boxSetAccess(device.deviceId, teamId, choice.payload())
+        } else {
+          failed = t('Could not change who can open a terminal')
+          await api.boxSetTerminalAccess(device.deviceId, teamId, useTerminal)
+        }
+      }
       onSaved()
       onClose()
     } catch (error) {

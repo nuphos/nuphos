@@ -16,3 +16,14 @@ export function accessFor(mode: AccessMode, chosen: Iterable<string>): BoxAccess
 
   return { everyone: false, userIds: [...chosen] }
 }
+
+/**
+ * The order to save a Box's access in: turning terminals off before who may use it changes, and
+ * on after, so a save that fails halfway never leaves it more open than either state asked for.
+ * `terminal` is the new setting when it changes.
+ */
+export function accessSaveSteps(terminal: boolean | undefined): ('terminal' | 'access')[] {
+  if (terminal === undefined) return ['access']
+
+  return terminal ? ['access', 'terminal'] : ['terminal', 'access']
+}
