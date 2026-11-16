@@ -75,6 +75,8 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         /// An integration question's providers (any access answers it), or the exact credentials it names.
         var providers: [String]? = nil
         var credentials: [CredentialRef]? = nil
+        /// The secret a credential question asks for: answered with the secure input card.
+        var secretName: String? = nil
         /// Any number of `options` may be picked.
         var multiSelect: Bool? = nil
         /// Related questions answered together; `question` is their headline.

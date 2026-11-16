@@ -281,6 +281,7 @@ struct ChannelView: View {
                     // The Bot's own questions are this chat's; only an agent under it is named.
                     showsFrom: question.sessionId != channel.botId,
                     onOpen: { open(link: question.link(team: channel.teamId)) },
+                    asker: { store.session(sessionId: question.sessionId, title: question.title, teamId: channel.teamId) },
                     onAnswer: { channel.answer(question, with: $0) },
                     onSkip: { channel.skip(question) },
                     onLink: open(link:),

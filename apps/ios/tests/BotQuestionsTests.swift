@@ -8,6 +8,7 @@ enum BotQuestionsTests {
         theInboxListsEveryOwnQuestionOnce()
         keepsTheBodyTheAgentWroteToDecideFrom()
         aPlanOrASecretIsNeverAnsweredInWords()
+        aSecretRequestDrawsTheSecureInputCard()
         aQuestionNamingTheMembersOwnCredentialIsConnectable()
         aMultiSelectOrSeveralQuestionsAreAForm()
         theInboxGroupsBySourceAndOpensTheNextQuestion()
@@ -163,6 +164,21 @@ enum BotQuestionsTests {
         precondition(!BotQuestion.isLongBody("One finding.\nA second.\nA third.\nA fourth."))
         precondition(BotQuestion.isLongBody("1\n2\n3\n4\n5"))
         precondition(BotQuestion.isLongBody(String(repeating: "x", count: 241)))
+    }
+
+    /// The listing names the secret, so a Bot's chat asks for it as the task does.
+    private static func aSecretRequestDrawsTheSecureInputCard() {
+        func ask(_ json: String) -> BotQuestion {
+            BotQuestion(sessionId: "s", title: "Agent", request: try! JSONDecoder().decode(
+                AgentConversation.InputRequest.self, from: Data(json.utf8)))
+        }
+        let part = ask(#"{"id":"r","category":"credential","question":"The API needs a key.","secretName":"API_KEY"}"#).secretPart
+        precondition(part?.secretRequest?.name == "API_KEY")
+        precondition(part?.secretRequest?.reason == "The API needs a key.")
+        // Its request is the one the card closes once the value is saved.
+        precondition(part?.decisionRequestId == "r")
+        precondition(ask(#"{"id":"r","category":"credential","question":"Sign in."}"#).secretPart == nil)
+        precondition(ask(#"{"id":"r","category":"credential","question":"Key?","secretName":"not a name"}"#).secretPart == nil)
     }
 
     private static func aPlanOrASecretIsNeverAnsweredInWords() {

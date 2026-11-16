@@ -6,13 +6,15 @@ import SwiftUI
 /// card and "Skip" withdraws the question unanswered. On iPhone the options are full-width with
 /// "Other…" and "Skip" as outlined halves below; wide, one row of capsules with "Skip" at its end.
 /// A multi-select or several questions are a form, sent as one answer. An answer wakes the agent
-/// that asked; no message is sent. A connect or secure-input question is answered in the
-/// conversation that asked, which the button opens. `showsFrom` is off for the Bot's own
-/// questions in its own chat.
+/// that asked; no message is sent. A secret is asked for with the task's own `SecretCard`, saved
+/// and replied to in the conversation that asked. A connect question is answered in that
+/// conversation, which the button opens. `showsFrom` is off for the Bot's own questions in its own chat.
 struct BotQuestionCard: View {
     let question: BotQuestion
     var showsFrom = true
     let onOpen: () -> Void
+    /// The conversation that asked, where a secret is saved and its reply sent.
+    var asker: (() -> ChatSession)?
     let onAnswer: (DecisionAnswer) -> Void
     let onSkip: () -> Void
     /// A tapped link in the body. Absent, the system opens it.
@@ -24,6 +26,9 @@ struct BotQuestionCard: View {
     /// "Other…" was tapped: the card asks for the answer in words.
     @State private var typing = false
     @State private var words = ""
+    @State private var session: ChatSession?
+    /// The secret was sent: nothing is left to skip while the listing catches up.
+    @State private var saved = false
     @FocusState private var focused: Bool
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.openURL) private var openURL
@@ -40,27 +45,7 @@ struct BotQuestionCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            VStack(alignment: .leading, spacing: 0) {
-                if showsFrom {
-                    QuestionSource(question: question, prominent: true, identifier: "botQuestion.source", open: onOpen)
-                        .padding(.bottom, 6)
-                }
-                Text(question.request.question)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(Theme.heading)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityAddTraits(.isHeader)
-                if let body = question.ownBody {
-                    questionBody(body).padding(.top, 4)
-                }
-                // "Show more" is its own 44pt of room above the answers.
-                answers.padding(.top, question.ownBody.map(BotQuestion.isLongBody) == true ? 0 : 12)
-            }
-            .padding(EdgeInsets(top: 14, leading: 16, bottom: 10, trailing: 16))
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            // Wide, the body's lines stay readable.
-            .frame(maxWidth: wide ? 640 : nil)
+            if let part = question.secretPart, let asker { secret(part, asker) } else { card }
             if let failure {
                 Label("Couldn't send the message · \(failure)", systemImage: "exclamationmark.circle")
                     .font(Theme.Text.caption)
@@ -71,6 +56,46 @@ struct BotQuestionCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("botQuestion.card")
+    }
+
+    /// A secret: who asked, then the task's own card, sending in the conversation that asked.
+    private func secret(_ part: ChatPart.ToolPart, _ asker: @escaping () -> ChatSession) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if showsFrom {
+                QuestionSource(question: question, prominent: true, identifier: "botQuestion.source", open: onOpen)
+            }
+            // Whether the viewer may send it is known once the conversation loads.
+            if let session, session.loaded {
+                SecretCard(part: part, reply: nil, session: session) { saved = true }
+                if !saved { HStack(spacing: 8) { Color.clear.frame(maxWidth: .infinity); skip } }
+            }
+        }
+        .frame(maxWidth: wide ? 640 : nil, alignment: .leading)
+        .task { if session == nil { session = asker() } }
+    }
+
+    private var card: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if showsFrom {
+                QuestionSource(question: question, prominent: true, identifier: "botQuestion.source", open: onOpen)
+                    .padding(.bottom, 6)
+            }
+            Text(question.request.question)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(Theme.heading)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
+            if let body = question.ownBody {
+                questionBody(body).padding(.top, 4)
+            }
+            // "Show more" is its own 44pt of room above the answers.
+            answers.padding(.top, question.ownBody.map(BotQuestion.isLongBody) == true ? 0 : 12)
+        }
+        .padding(EdgeInsets(top: 14, leading: 16, bottom: 10, trailing: 16))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        // Wide, the body's lines stay readable.
+        .frame(maxWidth: wide ? 640 : nil)
     }
 
     @ViewBuilder private var answers: some View {
