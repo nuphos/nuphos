@@ -12,8 +12,8 @@ import { killMachine, listMachines } from './instabox-machines'
 export const BOX_TEMPLATE = 'agent-browser'
 /** Installing the CLI and the agents on a fresh machine. */
 export const INSTALL_TIMEOUT_MS = 9 * 60_000
-/** Ordering a machine. The create request waits for it, so it stays under the server's 120 s idle timeout. */
-export const CREATE_TIMEOUT_MS = 100_000
+/** Ordering a machine, in the background. */
+export const CREATE_TIMEOUT_MS = 3 * 60_000
 /** Anything on a turn's path: an instabox outage must not stall a conversation for long. */
 export const QUICK_TIMEOUT_MS = 30_000
 /** The most one HTTP request to instabox may take; long operations poll within their own budget. */

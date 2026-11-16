@@ -1,8 +1,9 @@
-// Creating a Box: the row first, then the machine, then its install and its join in
-// the background. The machine lives on the deployment's instabox account, or on
+// Creating a Box: the row first, then the machine's order, then its boot, install and
+// join in the background. The machine lives on the deployment's instabox account, or on
 // one the team bound (`accountId`), which instabox bills instead.
 
 import { randomUUID } from 'node:crypto'
+import { setTimeout as sleep } from 'node:timers/promises'
 
 import { Sandbox } from '@insforge/instabox-sdk'
 
@@ -37,14 +38,18 @@ import type { AgentDevice, AgentDeviceBox } from './store'
 const JOIN_TOKEN_TTL_SEC = 60 * 60
 /** How long a fresh machine may take to join after its host was started. */
 const JOIN_TIMEOUT_MS = 3 * 60_000
+/** The longest a create waits for instabox to accept or refuse the order; well under every client's and proxy's timeout. */
+const ANSWER_WAIT_MS = 10_000
 
 type Registration = { deviceId: string; label: string; box: AgentDeviceBox }
 
 /**
- * Registers the device row and orders the machine before answering, so a refusal (the
- * account's limit, a key it no longer takes) reaches whoever asked; installing and joining
- * run in the background. The row shows `creating` until the host joins. If any step fails,
- * the machine, the row and its token are removed again.
+ * Registers the device row and orders the machine. instabox answers an order at once:
+ * refused (the account's limit, a key it no longer takes), which fails this call with the
+ * reason, or accepted. Only that answer is awaited, and at most ANSWER_WAIT_MS, so every
+ * client and proxy gets a reply before its timeout and never retries into a second Box.
+ * Booting, installing and joining run in the background; the row shows `creating` until
+ * the host joins. If any step fails, the machine, the row and its token are removed again.
  * `shared` is whom it is shared with besides its creator, already limited to the team's members.
  */
 export async function createBox(
@@ -78,29 +83,48 @@ export async function createBox(
     },
   }
 
+  const connection = await boxConnection(account, CREATE_TIMEOUT_MS)
   const created = await startBox(account, { vcpus: size.vcpus }, () =>
     insertBoxAgentDevice(userId, registration, shared),
   )
-  let sandbox: Sandbox | undefined
+  let accept = () => {}
+  const accepted = new Promise<void>((resolve) => {
+    accept = resolve
+  })
+  const orderedAt = Date.now()
+  const ordering = Sandbox.create(BOX_TEMPLATE, {
+    ...connection,
+    // The order's only POST: a 2xx means instabox accepted it.
+    fetch: Object.assign(
+      async (...[input, init]: Parameters<typeof fetch>) => {
+        const response = await fetch(input, init)
 
-  try {
-    sandbox = await Sandbox.create(BOX_TEMPLATE, {
-      ...(await boxConnection(account, CREATE_TIMEOUT_MS)),
-      name: `nuphos-${deviceId.slice(0, 8)}`,
-      metadata: { teamId, deviceId, createdBy: userId },
-      vault: false,
-      autoSuspendMs: 0, // stays on until paused; instabox's default pauses after 30 idle minutes
-      ...size,
-    })
-    // Deleted while it was being ordered: the machine must not outlive the row.
-    if (!(await setAgentDeviceBoxSandbox(userId, deviceId, sandbox.sandboxId)))
-      throw new AppError(409, 'box_gone', 'The Box was deleted while it was being created')
-  } catch (error) {
-    await discard(userId, registration, sandbox?.sandboxId, error)
-    throw orderRefused(error, Boolean(accountId))
+        if (init?.method === 'POST' && response.ok) accept()
+
+        return response
+      },
+      { preconnect: fetch.preconnect },
+    ),
+    name: `nuphos-${deviceId.slice(0, 8)}`,
+    metadata: { teamId, deviceId, createdBy: userId },
+    vault: false,
+    autoSuspendMs: 0, // stays on until paused; instabox's default pauses after 30 idle minutes
+    ...size,
+  })
+  const settingUp = setUp(userId, url, registration, ordering, orderedAt)
+  const refused = await Promise.race([
+    accepted,
+    ordering,
+    sleep(ANSWER_WAIT_MS, undefined, { ref: false }),
+  ]).then(
+    () => null,
+    (error: unknown) => ({ error }),
+  )
+
+  if (refused) {
+    await settingUp // its cleanup: no row stays behind the error
+    throw orderRefused(refused.error, Boolean(accountId))
   }
-
-  void setUp(userId, url, registration, sandbox)
 
   return created
 }
@@ -109,17 +133,30 @@ async function setUp(
   userId: string,
   url: string,
   registration: Registration,
-  sandbox: Sandbox,
+  ordering: Promise<Sandbox>,
+  orderedAt: number,
 ): Promise<void> {
   const { deviceId, label, box } = registration
+  let sandbox: Sandbox | undefined
+  let issued = false
 
   try {
+    sandbox = await ordering
+    logEvent('info', 'agent.box.ordered', {
+      user_id: userId,
+      device_id: deviceId,
+      duration_ms: Date.now() - orderedAt,
+    })
+    // Deleted while it was being ordered: the machine must not outlive the row.
+    if (!(await setAgentDeviceBoxSandbox(userId, deviceId, sandbox.sandboxId)))
+      throw new AppError(409, 'box_gone', 'The Box was deleted while it was being created')
     const { token } = await issueDeviceJoinToken(userId, {
       label,
       deviceId,
       expiresInSec: JOIN_TOKEN_TTL_SEC,
     })
 
+    issued = true
     // The template comes from instabox's warm pool, so the install is the longest step.
     // It is one long exec request, so it runs on a connection without the per-request
     // cap: the exec request then waits as long as the command may run.
@@ -140,8 +177,8 @@ async function setUp(
       throw new Error('The machine did not join within the time allowed')
     logEvent('info', 'agent.box.provisioned', { user_id: userId, device_id: deviceId })
   } catch (error) {
-    await deleteDeviceJoinTokens(deviceId).catch(() => {})
-    await discard(userId, registration, sandbox.sandboxId, error)
+    if (issued) await deleteDeviceJoinTokens(deviceId).catch(() => {})
+    await discard(userId, registration, sandbox?.sandboxId, error)
   }
 }
 

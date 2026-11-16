@@ -1,5 +1,5 @@
 import { InstaboxAuthError, InstaboxQuotaError, Sandbox } from '@insforge/instabox-sdk'
-import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test'
+import { afterEach, beforeEach, expect, mock, spyOn, test } from 'bun:test'
 
 import { config } from '@/config'
 import { useAgentDeviceStore } from '@/lib/test/doubles/agent-devices-store'
@@ -52,6 +52,7 @@ beforeEach(() => {
 
 afterEach(() => {
   config.agent.publicBackendUrl = saved
+  mock.restore()
 })
 
 test('an account at its limit fails the create with a plain 4xx, and leaves no Box behind', async () => {
@@ -83,4 +84,22 @@ test('a key the account no longer accepts fails the create with a 4xx too', asyn
     code: 'instabox_key_rejected',
   })
   expect(deleted).toHaveLength(1)
+})
+
+test('an accepted order answers at once, while the machine still boots in the background', async () => {
+  // instabox accepts the POST; the machine itself never becomes ready within this test.
+  spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}', { status: 202 }))
+  spyOn(Sandbox, 'create').mockImplementation(((
+    _template: string,
+    options?: { fetch?: typeof fetch },
+  ) => {
+    void options?.fetch?.('https://instabox.test/v1/machines', { method: 'POST' })
+
+    return new Promise<Sandbox>(() => {})
+  }) as typeof Sandbox.create)
+
+  const created = await createBox('u1', teamId, 'Box', { accountId })
+
+  expect(created.deviceId).toBeString()
+  expect(deleted).toEqual([])
 })
