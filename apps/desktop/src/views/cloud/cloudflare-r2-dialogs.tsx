@@ -18,7 +18,7 @@ export function R2CredentialsGate({
     <div className="flex-1 flex flex-col min-h-0">
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="max-w-md text-center space-y-3">
-          <UiIcon size={14} icon={DatabaseIcon} className="w-8 h-8 mx-auto text-tertiary" />
+          <UiIcon size={20} icon={DatabaseIcon} className="w-5 h-5 mx-auto text-tertiary" />
           <div className="text-[13px] text-main font-medium">
             {t('Bind R2 S3 credentials to browse objects')}
           </div>
