@@ -403,8 +403,12 @@ test('a send that keeps failing to start is retried for the grace, then kept wit
   )
   await startQueuedTurn(OWNER, SESSION)
 
+  // The notice says so in its own words: an internal error's text is for the log only.
+  const notice = JSON.stringify(kept[0]?.messages[1]?.parts)
+
   expect(await waiting()).toEqual(['next'])
-  expect(JSON.stringify(kept[0]?.messages[1]?.parts)).toContain('runtime lookup failed')
+  expect(notice).toContain('could not be started')
+  expect(notice).not.toContain('runtime lookup failed')
 })
 
 test('a busy runtime or a pending approval is waited for past the grace', async () => {

@@ -226,7 +226,8 @@ async function launchChat(
       await reportUndelivered(
         { userId: target.userId, teamId: target.teamId, targetSessionId: target.sessionId },
         [item],
-        `was not sent: ${error instanceof Error ? error.message : 'its agent cannot run it.'}`,
+        // Only an AppError's message is written for people; any other stays in the log above.
+        `was not sent: ${error instanceof AppError ? error.message : 'its agent could not be started.'}`,
       )
 
     return false
