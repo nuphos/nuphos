@@ -1048,3 +1048,116 @@ async fn acp_prompt_for_a_lost_session_restores_it_and_runs_once_more() {
         "the turn did not run on the restored session: {calls:?}"
     );
 }
+
+const GONE: &str = r#"printf '{"jsonrpc":"2.0","id":%s,"error":{"code":-32002,"message":"Resource not found: sess_fake","data":{"uri":"sess_fake"}}}\n' "$id""#;
+const INTERNAL_ERROR: &str = r#"printf '{"jsonrpc":"2.0","id":%s,"error":{"code":-32603,"message":"Internal error"}}\n' "$id""#;
+const PARTIAL_THEN_GONE: &str = r#"printf '{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"sess_fake","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"partial"}}}}\n'
+        printf '{"jsonrpc":"2.0","id":%s,"error":{"code":-32002,"message":"Resource not found: sess_fake","data":{"uri":"sess_fake"}}}\n' "$id""#;
+const PARTIAL_THEN_CANCELLED: &str = r#"printf '{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"sess_fake","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"partial"}}}}\n'
+        printf '{"jsonrpc":"2.0","id":%s,"result":{"stopReason":"cancelled"}}\n' "$id""#;
+
+/// A fake agent that can restore its session and gives every prompt, in any of its
+/// processes, the same `answer`. Each prompt adds a line to `prompts` beside the script.
+fn counting_agent(answer: &str) -> String {
+    format!(
+        r##"#!/bin/sh
+prompts="$(dirname "$0")/prompts"
+while IFS= read -r line; do
+  id=$(printf '%s' "$line" | sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p')
+  case "$line" in
+    *'"initialize"'*)
+      printf '{{"jsonrpc":"2.0","id":%s,"result":{{"agentInfo":{{"name":"fake","version":"0"}},"agentCapabilities":{{"loadSession":true}}}}}}\n' "$id"
+      ;;
+    *'"session/new"'*)
+      printf '{{"jsonrpc":"2.0","id":%s,"result":{{"sessionId":"sess_fake"}}}}\n' "$id"
+      ;;
+    *'"session/load"'*)
+      printf '{{"jsonrpc":"2.0","id":%s,"result":{{}}}}\n' "$id"
+      ;;
+    *'"session/prompt"'*)
+      echo prompt >> "$prompts"
+      {answer}
+      ;;
+  esac
+done
+"##
+    )
+}
+
+/// Runs one send-once ACP turn against an agent giving every prompt `answer`, and returns
+/// what the chat received and how many prompts the agent was sent.
+async fn turn_with_answer(thread_key: &str, answer: &str) -> (Vec<Call>, usize) {
+    let fx =
+        setup_with_agent_and_streaming("acp", thread_key, &counting_agent(answer), false).await;
+    let recorder = Arc::new(RecordingAdapter::new(false));
+    let adapter: Arc<dyn ChatAdapter> = recorder.clone();
+
+    run_turn(&fx, &adapter, thread_key).await;
+
+    let prompts = std::fs::read_to_string(fx._tmp.path().join("prompts")).unwrap_or_default();
+    (recorder.calls(), prompts.lines().count())
+}
+
+// Only "the agent lost the session" earns a second run; any other agent error fails the
+// turn as it did before.
+#[tokio::test(flavor = "multi_thread")]
+async fn acp_prompt_error_other_than_a_lost_session_is_not_retried() {
+    let _guard = env_lock();
+    let (calls, prompts) = turn_with_answer("acp:internal-error", INTERNAL_ERROR).await;
+
+    assert_eq!(prompts, 1, "{calls:?}");
+    assert!(
+        calls
+            .iter()
+            .any(|call| matches!(call, Call::Failure { .. })),
+        "{calls:?}"
+    );
+}
+
+// The rerun gets one chance: losing the session again fails the turn instead of looping.
+#[tokio::test(flavor = "multi_thread")]
+async fn acp_prompt_for_a_session_lost_twice_fails_after_one_retry() {
+    let _guard = env_lock();
+    let (calls, prompts) = turn_with_answer("acp:session-gone-twice", GONE).await;
+
+    assert_eq!(prompts, 2, "{calls:?}");
+    assert!(
+        calls
+            .iter()
+            .any(|call| matches!(call, Call::Failure { .. })),
+        "{calls:?}"
+    );
+}
+
+// Once the turn has shown output, running it again would show it twice, so a lost session
+// then fails the turn as before.
+#[tokio::test(flavor = "multi_thread")]
+async fn acp_session_lost_after_output_is_not_retried() {
+    let _guard = env_lock();
+    let (calls, prompts) =
+        turn_with_answer("acp:session-gone-after-output", PARTIAL_THEN_GONE).await;
+
+    assert_eq!(prompts, 1, "{calls:?}");
+    assert!(
+        calls
+            .iter()
+            .any(|call| matches!(call, Call::Failure { .. })),
+        "{calls:?}"
+    );
+}
+
+// A cancelled turn ends normally with its stop reason and is never run again.
+#[tokio::test(flavor = "multi_thread")]
+async fn acp_cancelled_turn_is_not_retried() {
+    let _guard = env_lock();
+    let (calls, prompts) = turn_with_answer("acp:cancelled-once", PARTIAL_THEN_CANCELLED).await;
+
+    assert_eq!(prompts, 1, "{calls:?}");
+    assert_eq!(
+        calls,
+        vec![Call::Terminal {
+            content: "partial".into(),
+            stop_reason: Some("cancelled".into()),
+        }],
+    );
+}
