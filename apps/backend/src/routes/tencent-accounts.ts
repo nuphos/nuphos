@@ -9,7 +9,7 @@ import { verifyTencentRole, tencentOidcInfo } from '@/lib/byos/tencent'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
-import { assertMayBindRole, requireTeamRole } from '@/middleware/auth'
+import { assertMayBindRole, canRequestUseBinding, requireTeamRole } from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 import { tencentAccountScoped } from '@/routes/tencent-accounts-scoped'
 
@@ -82,6 +82,23 @@ tencentAccountsRoutes.post(
       (b: { roleArn: string }) => b.roleArn,
       roleArn,
     )
+    // A binding saved in the older role/<id> form names its role by an id we
+    // cannot match to a name, so while someone else holds one privately in
+    // this account, no other role in it can be bound past them.
+    const uin = /uin\/(\d+)/.exec(roleArn)?.[1]
+    const heldById = (bound?.tencentAccounts ?? []).some(
+      (binding) =>
+        /uin\/(\d+):role\//.exec(binding.roleArn)?.[1] === uin &&
+        !canRequestUseBinding(c, binding.access),
+    )
+
+    if (heldById) {
+      throw new AppError(
+        403,
+        'identity_bound_privately',
+        `Another member has a private connection to Tencent account ${uin ?? ''} saved by role id. Ask them to share it, or to connect it again by role name.`,
+      )
+    }
 
     // Refuse before the credential round trips below: a workspace at its
     // plan's environment limit shouldn't finish a bind it can't keep.

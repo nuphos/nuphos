@@ -43,6 +43,7 @@ useModels({
         ],
         tencentAccounts: [
           { id: new ObjectId(), roleArn: 'qcs::cam::uin/100001:roleName/Nuphos', access },
+          { id: new ObjectId(), roleArn: 'qcs::cam::uin/200002:role/4611686018427387905', access },
         ],
         azureAccounts: [
           { id: new ObjectId(), tenantId, clientId, subscriptionId: 'x', label: 'a', access },
@@ -126,4 +127,17 @@ test('a Tencent role is bound by its roleName form only', async () => {
   })
 
   expect(response.status).toBe(400)
+})
+
+test("a role can't be bound by name in an account where someone holds one privately by id", async () => {
+  const response = await post(tencentAccountsRoutes, {
+    label: 'mine',
+    roleArn: 'qcs::cam::uin/200002:roleName/Anything',
+    providerId: 'nuphos',
+  })
+
+  expect(response.status).toBe(403)
+  expect(((await response.json()) as { error: { message: string } }).error.message).toContain(
+    'Ask them to share it',
+  )
 })
