@@ -30,6 +30,20 @@ const scenarios: Scenario[] = [
     },
   },
   {
+    // The flow #3012 was reported in: the sidebar is on Bots, the page a new team opens on.
+    // The connector's CLI (`aws`) has to be on the PATH for the dialog to offer the agent.
+    name: 'set up a cloud connector with the agent from the Bots page, and the setup turn runs',
+    run: async (page, stack) => {
+      await page.getByRole('button', { name: 'Connectors', exact: true }).click()
+      await page.getByRole('button', { name: 'Add AWS' }).click()
+      await page.getByRole('button', { name: /Set up with agent/ }).click()
+      await page.getByText('ACK E2E_DELIVERY:missing').waitFor()
+      await until('the setup prompt to reach the agent', async () =>
+        agentEvents(stack).includes('finish E2E_DELIVERY:missing'),
+      )
+    },
+  },
+  {
     // The flow #2412 was reported in: a Bot's credential question with choices, answered in its chat.
     name: 'create a Bot, talk to it in its chat, and answer its question there',
     run: async (page, stack) => {
