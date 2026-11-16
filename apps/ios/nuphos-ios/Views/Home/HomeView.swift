@@ -295,15 +295,15 @@ struct HomeView: View {
     private var pageContent: some View {
         TabView(selection: $page) {
             homeList(.chats)
-                .tabItem { Label("Bots", systemImage: HomePage.chats.systemImage) }
+                .tabItem { Label("Bots", image: "home-tab-bots") }
                 .tag(HomePage.chats)
                 .badge(store?.pageCounts[.chats] ?? 0)
             homeList(.agent)
-                .tabItem { Label("Tasks", systemImage: HomePage.agent.systemImage) }
+                .tabItem { Label("Tasks", image: "home-tab-tasks") }
                 .tag(HomePage.agent)
                 .badge(store?.pageCounts[.agent] ?? 0)
             InboxPage(inbox: inbox, wide: sizeClass == .regular)
-                .tabItem { Label("Inbox", systemImage: HomePage.inbox.systemImage) }
+                .tabItem { Label("Inbox", image: "home-tab-inbox") }
                 .tag(HomePage.inbox)
                 .badge(inbox?.list.count ?? 0)
         }
