@@ -8,6 +8,7 @@ import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
 import {
+  requireCanDisconnect,
   requirePosthogIntegration,
   requirePosthogMemberAccess,
   requireTeamRole,
@@ -32,22 +33,27 @@ function notBound(): AppError {
 
 posthogIntegrationScoped.get('/', (c) => c.json(posthogPublicView(c.get('posthogBinding'))))
 
-posthogIntegrationScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
-  const teamId = parseObjectId(c.get('teamId'), 'teamId')
-  const bindingId = new ObjectId(c.get('posthogIntegrationId'))
-  const result = await teamByosBindings().updateOne(
-    { _id: teamId },
-    {
-      $pull: { posthogIntegrations: { id: bindingId } },
-      $set: { updatedAt: new Date() },
-    },
-  )
+posthogIntegrationScoped.delete(
+  '/',
+  requireTeamRole('ADMINISTRATOR'),
+  requireCanDisconnect('posthogAccess'),
+  async (c) => {
+    const teamId = parseObjectId(c.get('teamId'), 'teamId')
+    const bindingId = new ObjectId(c.get('posthogIntegrationId'))
+    const result = await teamByosBindings().updateOne(
+      { _id: teamId },
+      {
+        $pull: { posthogIntegrations: { id: bindingId } },
+        $set: { updatedAt: new Date() },
+      },
+    )
 
-  if (result.modifiedCount === 0) throw notBound()
-  invalidatePosthogAccessToken(teamId, bindingId)
+    if (result.modifiedCount === 0) throw notBound()
+    invalidatePosthogAccessToken(teamId, bindingId)
 
-  return c.body(null, 204)
-})
+    return c.body(null, 204)
+  },
+)
 
 registerBindingAccessRoutes(posthogIntegrationScoped, 'posthogIntegrations', (c) =>
   c.get('posthogBinding'),

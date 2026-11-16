@@ -8,7 +8,11 @@ import {
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
-import { requireBetterStackMemberAccess, requireTeamRole } from '@/middleware/auth'
+import {
+  requireBetterStackMemberAccess,
+  requireCanDisconnect,
+  requireTeamRole,
+} from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 import {
   betterStackCredentials,
@@ -136,27 +140,32 @@ export function registerBetterStackIntegrationRoutes(
     },
   )
 
-  integrationScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
-    const teamId = parseObjectId(c.get('teamId'), 'teamId')
-    const integrationId = new ObjectId(c.get('betterStackIntegrationId'))
-    const result = await teamByosBindings().updateOne(
-      { _id: teamId, 'betterStackIntegrations.id': integrationId },
-      {
-        $pull: { betterStackIntegrations: { id: integrationId } },
-        $set: { updatedAt: new Date() },
-      },
-    )
-
-    if (result.matchedCount === 0) {
-      throw new AppError(
-        404,
-        'betterstack_integration_not_bound',
-        'Better Stack integration not found',
+  integrationScoped.delete(
+    '/',
+    requireTeamRole('ADMINISTRATOR'),
+    requireCanDisconnect('betterStackAccess'),
+    async (c) => {
+      const teamId = parseObjectId(c.get('teamId'), 'teamId')
+      const integrationId = new ObjectId(c.get('betterStackIntegrationId'))
+      const result = await teamByosBindings().updateOne(
+        { _id: teamId, 'betterStackIntegrations.id': integrationId },
+        {
+          $pull: { betterStackIntegrations: { id: integrationId } },
+          $set: { updatedAt: new Date() },
+        },
       )
-    }
 
-    return c.body(null, 204)
-  })
+      if (result.matchedCount === 0) {
+        throw new AppError(
+          404,
+          'betterstack_integration_not_bound',
+          'Better Stack integration not found',
+        )
+      }
+
+      return c.body(null, 204)
+    },
+  )
 
   registerBindingAccessRoutes(integrationScoped, 'betterStackIntegrations', (c) =>
     c.get('betterStackBinding'),

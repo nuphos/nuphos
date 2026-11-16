@@ -16,7 +16,12 @@ import { encryptLinodeToken, decryptLinodeToken } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
-import { requireLinodeAccount, requireLinodeMemberAccess, requireTeamRole } from '@/middleware/auth'
+import {
+  requireCanDisconnect,
+  requireLinodeAccount,
+  requireLinodeMemberAccess,
+  requireTeamRole,
+} from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 
 import type { LinodeAccountVariables, TeamAuthVariables } from '@/middleware/auth'
@@ -114,23 +119,28 @@ accountScoped.get('/', (c) => {
   })
 })
 
-accountScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
-  const teamId = parseObjectId(c.get('teamId'), 'teamId')
-  const accountId = new ObjectId(c.get('linodeAccountId'))
-  const result = await teamByosBindings().updateOne(
-    { _id: teamId },
-    {
-      $pull: { linodeAccounts: { id: accountId } },
-      $set: { updatedAt: new Date() },
-    },
-  )
+accountScoped.delete(
+  '/',
+  requireTeamRole('ADMINISTRATOR'),
+  requireCanDisconnect('linodeAccess'),
+  async (c) => {
+    const teamId = parseObjectId(c.get('teamId'), 'teamId')
+    const accountId = new ObjectId(c.get('linodeAccountId'))
+    const result = await teamByosBindings().updateOne(
+      { _id: teamId },
+      {
+        $pull: { linodeAccounts: { id: accountId } },
+        $set: { updatedAt: new Date() },
+      },
+    )
 
-  if (result.modifiedCount === 0) {
-    throw new AppError(404, 'linode_account_not_bound', 'Linode account not found')
-  }
+    if (result.modifiedCount === 0) {
+      throw new AppError(404, 'linode_account_not_bound', 'Linode account not found')
+    }
 
-  return c.body(null, 204)
-})
+    return c.body(null, 204)
+  },
+)
 
 accountScoped.use('/credentials', requireTeamRole('ADMINISTRATOR', 'EDITOR'))
 accountScoped.get('/credentials', requireLinodeMemberAccess(), async (c) => {

@@ -15,6 +15,7 @@ import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
 import {
+  requireCanDisconnect,
   requireSecureframeIntegration,
   requireSecureframeMemberAccess,
   requireTeamRole,
@@ -128,27 +129,32 @@ integrationScoped.get('/', (c) => {
   })
 })
 
-integrationScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
-  const teamId = parseObjectId(c.get('teamId'), 'teamId')
-  const integrationId = new ObjectId(c.get('secureframeIntegrationId'))
-  const result = await teamByosBindings().updateOne(
-    { _id: teamId },
-    {
-      $pull: { secureframeIntegrations: { id: integrationId } },
-      $set: { updatedAt: new Date() },
-    },
-  )
-
-  if (result.modifiedCount === 0) {
-    throw new AppError(
-      404,
-      'secureframe_integration_not_bound',
-      'Secureframe integration not found',
+integrationScoped.delete(
+  '/',
+  requireTeamRole('ADMINISTRATOR'),
+  requireCanDisconnect('secureframeAccess'),
+  async (c) => {
+    const teamId = parseObjectId(c.get('teamId'), 'teamId')
+    const integrationId = new ObjectId(c.get('secureframeIntegrationId'))
+    const result = await teamByosBindings().updateOne(
+      { _id: teamId },
+      {
+        $pull: { secureframeIntegrations: { id: integrationId } },
+        $set: { updatedAt: new Date() },
+      },
     )
-  }
 
-  return c.body(null, 204)
-})
+    if (result.modifiedCount === 0) {
+      throw new AppError(
+        404,
+        'secureframe_integration_not_bound',
+        'Secureframe integration not found',
+      )
+    }
+
+    return c.body(null, 204)
+  },
+)
 
 const testsQuerySchema = z
   .object({

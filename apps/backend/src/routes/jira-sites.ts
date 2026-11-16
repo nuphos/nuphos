@@ -13,7 +13,12 @@ import {
 } from '@/lib/byos/jira'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
-import { requireTeamRole, requireJiraSite, requireJiraMemberAccess } from '@/middleware/auth'
+import {
+  requireCanDisconnect,
+  requireJiraMemberAccess,
+  requireJiraSite,
+  requireTeamRole,
+} from '@/middleware/auth'
 import { jiraPendingOAuth, teamByosBindings } from '@/models'
 
 import type { TeamAuthVariables, JiraSiteVariables } from '@/middleware/auth'
@@ -115,21 +120,26 @@ bindingScoped.get('/', (c) => {
   return c.json(publicView(c.get('jiraBinding')))
 })
 
-bindingScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
-  const teamId = parseObjectId(c.get('teamId'), 'teamId')
-  const binding = c.get('jiraBinding')
+bindingScoped.delete(
+  '/',
+  requireTeamRole('ADMINISTRATOR'),
+  requireCanDisconnect('jiraAccess'),
+  async (c) => {
+    const teamId = parseObjectId(c.get('teamId'), 'teamId')
+    const binding = c.get('jiraBinding')
 
-  await teamByosBindings().updateOne(
-    { _id: teamId },
-    {
-      $pull: { jiraSites: { id: binding.id } },
-      $set: { updatedAt: new Date() },
-    },
-  )
-  invalidateAccessToken(teamId, binding.id)
+    await teamByosBindings().updateOne(
+      { _id: teamId },
+      {
+        $pull: { jiraSites: { id: binding.id } },
+        $set: { updatedAt: new Date() },
+      },
+    )
+    invalidateAccessToken(teamId, binding.id)
 
-  return c.body(null, 204)
-})
+    return c.body(null, 204)
+  },
+)
 
 // Agent credential handout, mirroring linear-workspaces /credentials: the
 // sandbox exchanges its NUPHOS_TOKEN for a fresh (auto-refreshed) Atlassian

@@ -7,6 +7,7 @@ import { bindingShareSchema, newBindingAccess } from '@/lib/byos/initial-access'
 import { clearAgentClusterContextCache } from '@/lib/byos/agent-kubeconfig/collect'
 import { relayConfigured } from '@/lib/byos/relay-token'
 import { encryptOnpremKubeconfig } from '@/lib/byos/secrets'
+import { canEditAccess } from '@/lib/byos/access'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
@@ -192,6 +193,13 @@ export function registerOnpremEnrolmentRoutes(
     const clusterId = c.req.param('clusterId')
     const binding = await loadBinding(teamId, clusterId)
 
+    if (!canEditAccess(binding.access, c.get('userId'), c.get('teamRole'))) {
+      throw new AppError(
+        403,
+        'binding_private',
+        "Only its owner can disconnect another member's private binding",
+      )
+    }
     await teamByosBindings().updateOne(
       { _id: teamId },
       { $pull: { onpremClusters: { id: binding.id } }, $set: { updatedAt: new Date() } },

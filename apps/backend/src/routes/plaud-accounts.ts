@@ -14,7 +14,7 @@ import {
 import { encryptPlaudSecret } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
-import { canRequestUseBinding, requireTeamRole } from '@/middleware/auth'
+import { canRequestUseBinding, requireCanDisconnect, requireTeamRole } from '@/middleware/auth'
 import { plaudPendingOAuth, teamByosBindings } from '@/models'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
@@ -153,20 +153,25 @@ bindingScoped.use('*', requirePlaudAccount())
 
 bindingScoped.get('/', (c) => c.json(publicView(c.get('plaudBinding'))))
 
-bindingScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
-  const teamId = parseObjectId(c.get('teamId'), 'teamId')
-  const binding = c.get('plaudBinding')
+bindingScoped.delete(
+  '/',
+  requireTeamRole('ADMINISTRATOR'),
+  requireCanDisconnect('plaudBinding'),
+  async (c) => {
+    const teamId = parseObjectId(c.get('teamId'), 'teamId')
+    const binding = c.get('plaudBinding')
 
-  await teamByosBindings().updateOne(
-    { _id: teamId },
-    { $pull: { plaudAccounts: { id: binding.id } }, $set: { updatedAt: new Date() } },
-  )
-  // Revoke after the local delete so a Plaud outage never keeps the binding.
-  await revokePlaudGrant(teamId, binding)
-  invalidatePlaudAccessToken(teamId, binding.id)
+    await teamByosBindings().updateOne(
+      { _id: teamId },
+      { $pull: { plaudAccounts: { id: binding.id } }, $set: { updatedAt: new Date() } },
+    )
+    // Revoke after the local delete so a Plaud outage never keeps the binding.
+    await revokePlaudGrant(teamId, binding)
+    invalidatePlaudAccessToken(teamId, binding.id)
 
-  return c.body(null, 204)
-})
+    return c.body(null, 204)
+  },
+)
 
 registerBindingAccessRoutes(bindingScoped, 'plaudAccounts', (c) => c.get('plaudBinding'))
 

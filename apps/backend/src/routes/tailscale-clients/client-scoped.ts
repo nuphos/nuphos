@@ -12,7 +12,11 @@ import { tailscaleAuthHandle } from '@/lib/byos/tailscale-binding'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
-import { requireTailscaleMemberAccess, requireTeamRole } from '@/middleware/auth'
+import {
+  requireCanDisconnect,
+  requireTailscaleMemberAccess,
+  requireTeamRole,
+} from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 import { publicView } from '@/routes/tailscale-clients/shared'
 
@@ -54,23 +58,28 @@ export function registerTailscaleClientScopedRoutes(
     })
   })
 
-  clientScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
-    const teamId = parseObjectId(c.get('teamId'), 'teamId')
-    const clientId = new ObjectId(c.get('tailscaleClientId'))
-    const result = await teamByosBindings().updateOne(
-      { _id: teamId, 'tailscaleClients.id': clientId },
-      {
-        $pull: { tailscaleClients: { id: clientId } },
-        $set: { updatedAt: new Date() },
-      },
-    )
+  clientScoped.delete(
+    '/',
+    requireTeamRole('ADMINISTRATOR'),
+    requireCanDisconnect('tailscaleAccess'),
+    async (c) => {
+      const teamId = parseObjectId(c.get('teamId'), 'teamId')
+      const clientId = new ObjectId(c.get('tailscaleClientId'))
+      const result = await teamByosBindings().updateOne(
+        { _id: teamId, 'tailscaleClients.id': clientId },
+        {
+          $pull: { tailscaleClients: { id: clientId } },
+          $set: { updatedAt: new Date() },
+        },
+      )
 
-    if (result.matchedCount === 0) {
-      throw new AppError(404, 'tailscale_client_not_bound', 'Tailscale OAuth client not found')
-    }
+      if (result.matchedCount === 0) {
+        throw new AppError(404, 'tailscale_client_not_bound', 'Tailscale OAuth client not found')
+      }
 
-    return c.body(null, 204)
-  })
+      return c.body(null, 204)
+    },
+  )
 
   clientScoped.use('/credentials', requireTeamRole('ADMINISTRATOR', 'EDITOR'))
   clientScoped.get('/credentials', requireTailscaleMemberAccess(), async (c) => {

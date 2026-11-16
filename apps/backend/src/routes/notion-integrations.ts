@@ -15,6 +15,7 @@ import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
 import {
+  requireCanDisconnect,
   requireNotionIntegration,
   requireNotionMemberAccess,
   requireTeamRole,
@@ -130,23 +131,28 @@ integrationScoped.get('/', (c) => {
   })
 })
 
-integrationScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
-  const teamId = parseObjectId(c.get('teamId'), 'teamId')
-  const integrationId = new ObjectId(c.get('notionIntegrationId'))
-  const result = await teamByosBindings().updateOne(
-    { _id: teamId },
-    {
-      $pull: { notionIntegrations: { id: integrationId } },
-      $set: { updatedAt: new Date() },
-    },
-  )
+integrationScoped.delete(
+  '/',
+  requireTeamRole('ADMINISTRATOR'),
+  requireCanDisconnect('notionAccess'),
+  async (c) => {
+    const teamId = parseObjectId(c.get('teamId'), 'teamId')
+    const integrationId = new ObjectId(c.get('notionIntegrationId'))
+    const result = await teamByosBindings().updateOne(
+      { _id: teamId },
+      {
+        $pull: { notionIntegrations: { id: integrationId } },
+        $set: { updatedAt: new Date() },
+      },
+    )
 
-  if (result.modifiedCount === 0) {
-    throw new AppError(404, 'notion_integration_not_bound', 'Notion integration not found')
-  }
+    if (result.modifiedCount === 0) {
+      throw new AppError(404, 'notion_integration_not_bound', 'Notion integration not found')
+    }
 
-  return c.body(null, 204)
-})
+    return c.body(null, 204)
+  },
+)
 
 // Agent credential handout, mirroring linear-workspaces /credentials: the
 // sandbox exchanges its NUPHOS_TOKEN for the binding's Notion token and talks to
