@@ -108,6 +108,29 @@ final class InboxUITests: XCTestCase {
 
     /// "Other…" opens a text box with its send button; the words are the answer. A question with
     /// no options has the box already. A plan keeps only Approve and Reject.
+    /// A question from a Task a Bot dispatched is in the Bot's group, naming the Task, as on Desktop
+    /// (#2774): Tasks does not list that Task, so a group of its own would point at nothing there.
+    func testABotsTaskQuestionIsInTheBotsGroup() throws {
+        var changelog = InboxUITests.row(
+            "agent-changelog", "Write the changelog",
+            ["id": "q-guide", "category": "preference", "question": "Link the migration guide?",
+             "options": ["Yes", "No"], "askedAt": "2026-11-03T09:45:00Z", "status": "open"])
+        changelog["parentSessionId"] = "bot-release"
+        try listQuestions([deploy, notes, staging, changelog])
+        app = launch(page: "inbox")
+
+        let row = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == %@ AND label BEGINSWITH %@", "inbox.row", "Link the migration guide?")).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10), "The Task's question is not listed")
+        shot("bot-task-group")
+        XCTAssertEqual(row.label, "Link the migration guide? · Write the changelog", "The row does not name the Task that asked")
+        XCTAssertFalse(app.staticTexts["Write the changelog"].exists, "The Bot's Task has a group of its own")
+        let lead = app.staticTexts["Release Lead"].firstMatch
+        XCTAssertTrue(lead.exists, "No group for the Bot")
+        XCTAssertGreaterThan(row.frame.minY, lead.frame.minY, "The Task's question is not under its Bot")
+        XCTAssertLessThan(row.frame.minY, app.staticTexts["Release ops"].firstMatch.frame.minY, "The Bot's group lost its order")
+    }
+
     func testAnswersInWordsWithOther() throws {
         try listQuestions([deploy, staging, plan])
         app = launch(page: "agent")
