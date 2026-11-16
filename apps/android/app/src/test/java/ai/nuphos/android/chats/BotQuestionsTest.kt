@@ -297,6 +297,28 @@ class BotQuestionsTest {
         assertTrue(transport.posted.isEmpty())
     }
 
+    @Test fun aBotsChatChoosesAnIntegrationsCredentialsAsTheInboxDoesAndKeepsOnlyItsQuestions() = runTest {
+        val gcp = AgentConversation(sessionId = "docs", title = "docs", isOwner = true, parentSessionId = "bot-1",
+            inputRequests = listOf(InputRequest("q-gcp", "integration", "Select a GCP project", null, providers = listOf("gcp"))))
+        val elsewhere = row("other", null, true, "q-other" to "2026-11-09T03:04:00Z")
+        val saved = mutableListOf<String>()
+        val source = object : OpenQuestions.Source {
+            var rows = listOf(gcp, row("bot-1"), elsewhere)
+            override suspend fun pending() = rows
+            override suspend fun credentials(sessionId: String) = JsonValue.parse("""{"gcpServiceAccountIds":[]}""")
+            override suspend fun saveCredentials(sessionId: String, access: JsonValue) { saved += sessionId }
+        }
+        val chat = OpenQuestions(source)
+        chat.refresh { BotQuestions.under("bot-1", it) }
+        val ask = chat.list.single()
+        assertTrue(ask.connectable)
+        // The server has not answered it yet: the card stays, says why, and the chat still lists only the Bot's.
+        chat.select(requireNotNull(chat.storedSelection(ask)), ask)
+        assertEquals(listOf("docs"), saved)
+        assertEquals(listOf("q-gcp"), chat.list.map { it.id })
+        assertNotNull(chat.failures[ask.id])
+    }
+
     @Test fun aFailedAnswerBringsTheCardBack() = runTest {
         val transport = FakeTransport().apply { pending = listing; failAnswer = true }
         val session = ChannelSession("team", "chat-release", "Chat", transport)
