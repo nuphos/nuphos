@@ -371,7 +371,7 @@ class BotQuestionsTest {
         assertEquals(listOf(DecisionQuestion("Which?", listOf("a", "b"), true)), BotQuestion("s", "t", many).form)
         assertNull(BotQuestion("s", "t", InputRequest("q", "preference", "Which?", listOf("a", "b"))).form)
         // Never for a question only a connection or a plan answers.
-        assertNull(BotQuestion("s", "t", many.copy(category = "integration")).form)
+        assertNull(BotQuestion("s", "t", many.copy(category = "integration", providers = listOf("gcp"))).form)
         assertNull(BotQuestion("s", "t", many.copy(planId = "p")).form)
     }
 
