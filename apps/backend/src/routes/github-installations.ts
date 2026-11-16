@@ -18,6 +18,7 @@ import { parseObjectId } from '@/lib/objectid'
 import { personalCredentialSubjectFor, personalGithubToken } from '@/lib/personal-credentials'
 import { zv } from '@/lib/validate'
 import {
+  requireCanDisconnect,
   requireGithubInstallation,
   requireGithubMemberAccess,
   requireTeamRole,
@@ -99,21 +100,26 @@ const installationScoped = new Hono<{ Variables: GithubInstallationVariables }>(
 
 installationScoped.use('*', requireGithubInstallation())
 
-installationScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
-  const teamId = parseObjectId(c.get('teamId'), 'teamId')
-  const installationId = c.get('githubInstallationId')
+installationScoped.delete(
+  '/',
+  requireTeamRole('ADMINISTRATOR'),
+  requireCanDisconnect('githubBinding'),
+  async (c) => {
+    const teamId = parseObjectId(c.get('teamId'), 'teamId')
+    const installationId = c.get('githubInstallationId')
 
-  await teamByosBindings().updateOne(
-    { _id: teamId },
-    {
-      $pull: { githubInstallations: { installationId } },
-      $set: { updatedAt: new Date() },
-    },
-  )
-  invalidateInstallationToken(installationId)
+    await teamByosBindings().updateOne(
+      { _id: teamId },
+      {
+        $pull: { githubInstallations: { installationId } },
+        $set: { updatedAt: new Date() },
+      },
+    )
+    invalidateInstallationToken(installationId)
 
-  return c.body(null, 204)
-})
+    return c.body(null, 204)
+  },
+)
 
 registerBindingAccessRoutes(installationScoped, 'githubInstallations', (c) =>
   c.get('githubBinding'),

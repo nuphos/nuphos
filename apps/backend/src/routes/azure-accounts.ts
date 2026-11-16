@@ -1,14 +1,15 @@
 import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
-import { accessView, canUseAllowList, canUseBinding, createDefaultAccess } from '@/lib/byos/access'
+import { accessView, canUseAllowList, canUseBinding } from '@/lib/byos/access'
+import { newBindingAccess } from '@/lib/byos/initial-access'
 import { azureOidcInfo, verifyAzureBinding } from '@/lib/byos/azure'
 import { azureConnectorSchema } from '@/lib/byos/connector-schemas'
 import { appendEnvironmentBinding } from '@/lib/byos/environment-bindings'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
-import { requireTeamRole } from '@/middleware/auth'
+import { assertMayBindIdentity, requireTeamRole } from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 import { azureAccountScoped } from '@/routes/azure-accounts-scoped'
 
@@ -73,6 +74,21 @@ azureAccountsRoutes.post(
   async (c) => {
     const { label, tenantId, clientId, subscriptionId } = c.req.valid('json')
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
+    const sameApp = await teamByosBindings().findOne(
+      { _id: teamId },
+      { projection: { azureAccounts: 1 } },
+    )
+
+    assertMayBindIdentity(
+      c,
+      (sameApp?.azureAccounts ?? []).filter(
+        // Entra GUIDs are case-insensitive, so a different spelling is the same app.
+        (binding) =>
+          binding.tenantId.toLowerCase() === tenantId.toLowerCase() &&
+          binding.clientId.toLowerCase() === clientId.toLowerCase(),
+      ),
+      `Azure app ${clientId}`,
+    )
 
     // Refuse before the credential round trips below: a workspace at its
     // plan's environment limit shouldn't finish a bind it can't keep.
@@ -83,7 +99,7 @@ azureAccountsRoutes.post(
 
     const id = new ObjectId()
     const createdAt = new Date()
-    const access = createDefaultAccess(c.get('userId'), createdAt)
+    const access = await newBindingAccess(c, { now: createdAt, highPrivilege: true })
 
     const inserted = await appendEnvironmentBinding(
       teamId,

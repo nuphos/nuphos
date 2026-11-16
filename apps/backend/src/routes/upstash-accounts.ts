@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
-import { createBinderOnlyAccess } from '@/lib/byos/access'
+import { bindingShareSchema, newBindingAccess } from '@/lib/byos/initial-access'
 import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { encryptUpstashSecret } from '@/lib/byos/secrets'
 import {
@@ -15,9 +15,10 @@ import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
 import {
+  requireCanDisconnect,
+  requireTeamRole,
   requireUpstashAccount,
   requireUpstashMemberAccess,
-  requireTeamRole,
 } from '@/middleware/auth'
 import { emptyTeamByosBindings, teamByosBindings } from '@/models'
 
@@ -34,6 +35,7 @@ const bindSchema = z
     label: z.string().trim().min(1).max(100),
     email: z.string().trim().email().max(200),
     apiKey: z.string().trim().min(1).max(400),
+    share: bindingShareSchema.optional(),
   })
   .strict()
 
@@ -92,7 +94,7 @@ upstashAccountsRoutes.post(
       // Upstash Management key has no scopes and reaches every database's data,
       // so a new binding must not silently expose the whole account to the team.
       // Team admins are granted at the gate, not stored here.
-      access: createBinderOnlyAccess(c.get('userId'), now),
+      access: await newBindingAccess(c, { now: now, highPrivilege: true }),
     }
 
     // Dedup atomically rather than read-then-write: `email` is excluded in the
@@ -137,23 +139,28 @@ accountScoped.get('/', (c) => {
   })
 })
 
-accountScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
-  const teamId = parseObjectId(c.get('teamId'), 'teamId')
-  const accountId = new ObjectId(c.get('upstashAccountId'))
-  const result = await teamByosBindings().updateOne(
-    { _id: teamId },
-    {
-      $pull: { upstashAccounts: { id: accountId } },
-      $set: { updatedAt: new Date() },
-    },
-  )
+accountScoped.delete(
+  '/',
+  requireTeamRole('ADMINISTRATOR'),
+  requireCanDisconnect('upstashAccess'),
+  async (c) => {
+    const teamId = parseObjectId(c.get('teamId'), 'teamId')
+    const accountId = new ObjectId(c.get('upstashAccountId'))
+    const result = await teamByosBindings().updateOne(
+      { _id: teamId },
+      {
+        $pull: { upstashAccounts: { id: accountId } },
+        $set: { updatedAt: new Date() },
+      },
+    )
 
-  if (result.modifiedCount === 0) {
-    throw new AppError(404, 'upstash_account_not_bound', 'Upstash account not found')
-  }
+    if (result.modifiedCount === 0) {
+      throw new AppError(404, 'upstash_account_not_bound', 'Upstash account not found')
+    }
 
-  return c.body(null, 204)
-})
+    return c.body(null, 204)
+  },
+)
 
 registerBindingAccessRoutes(accountScoped, 'upstashAccounts', (c) => c.get('upstashBinding'))
 
