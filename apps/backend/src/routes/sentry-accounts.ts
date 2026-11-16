@@ -14,7 +14,12 @@ import {
 } from '@/lib/byos/sentry'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
-import { requireTeamRole, requireSentryAccount, requireSentryMemberAccess } from '@/middleware/auth'
+import {
+  requireCanDisconnect,
+  requireSentryAccount,
+  requireSentryMemberAccess,
+  requireTeamRole,
+} from '@/middleware/auth'
 import { sentryPendingOAuth, teamByosBindings } from '@/models'
 
 import type { TeamAuthVariables, SentryAccountVariables } from '@/middleware/auth'
@@ -119,26 +124,31 @@ bindingScoped.get('/', (c) => {
   return c.json(publicView(c.get('sentryBinding')))
 })
 
-bindingScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
-  const teamId = parseObjectId(c.get('teamId'), 'teamId')
-  const binding = c.get('sentryBinding')
+bindingScoped.delete(
+  '/',
+  requireTeamRole('ADMINISTRATOR'),
+  requireCanDisconnect('sentryAccess'),
+  async (c) => {
+    const teamId = parseObjectId(c.get('teamId'), 'teamId')
+    const binding = c.get('sentryBinding')
 
-  await teamByosBindings().updateOne(
-    { _id: teamId },
-    {
-      $pull: { sentryAccounts: { id: binding.id } },
-      $set: { updatedAt: new Date() },
-    },
-  )
-  // Unlike Asana/GitLab there is no revokeGrant step: Sentry exposes no OAuth
-  // revocation endpoint, so a token already handed to a sandbox stays valid at
-  // Sentry until it expires (~30d). Dropping the cache is all we can do server
-  // side; the user must revoke at Sentry's Authorized Applications page to kill
-  // the grant immediately.
-  invalidateSentryAccessToken(teamId, binding.id)
+    await teamByosBindings().updateOne(
+      { _id: teamId },
+      {
+        $pull: { sentryAccounts: { id: binding.id } },
+        $set: { updatedAt: new Date() },
+      },
+    )
+    // Unlike Asana/GitLab there is no revokeGrant step: Sentry exposes no OAuth
+    // revocation endpoint, so a token already handed to a sandbox stays valid at
+    // Sentry until it expires (~30d). Dropping the cache is all we can do server
+    // side; the user must revoke at Sentry's Authorized Applications page to kill
+    // the grant immediately.
+    invalidateSentryAccessToken(teamId, binding.id)
 
-  return c.body(null, 204)
-})
+    return c.body(null, 204)
+  },
+)
 
 // Agent credential handout, mirroring asana-accounts /credentials: the sandbox
 // exchanges its NUPHOS_TOKEN for a fresh (auto-refreshed) Sentry access token

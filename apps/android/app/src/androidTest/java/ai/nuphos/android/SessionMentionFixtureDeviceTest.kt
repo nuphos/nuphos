@@ -28,7 +28,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 import java.util.concurrent.CopyOnWriteArrayList
-import org.junit.Ignore
 
 /** Explicit separate install: no real account, data, permissions or network. */
 @RunWith(AndroidJUnit4::class)
@@ -54,7 +53,7 @@ class SessionMentionFixtureDeviceTest {
         File(dir, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
         bitmap.recycle()
     }
-    @Ignore("Fails in the default package since its own package was removed, not yet triaged: #1620") @Test fun selectionCancelEmailMultilineAndThemesNeverSend() {
+    @Test fun selectionCancelEmailMultilineAndThemesNeverSend() {
         var dark by mutableStateOf(false)
         val calls = CopyOnWriteArrayList<String>()
         val source = SessionMentionSource(team, "current") { query ->
@@ -88,7 +87,7 @@ class SessionMentionFixtureDeviceTest {
         compose.runOnIdle { dark = true }
         snap("synthetic-mention-dark")
         compose.onNodeWithText("Synthetic project notes").performClick()
-        field().assertTextEquals("context\nhttps://nuphos.ai/teams/$team/agent/synthetic-session ")
+        field().assertTextEquals("context\n@Synthetic project notes ")
         compose.onNodeWithText("Synthetic project notes").assertDoesNotExist()
         assertEquals(0, sends)
         field().performTextReplacement("email@example.com")
@@ -108,7 +107,7 @@ class SessionMentionFixtureDeviceTest {
         assertEquals(0, sends)
     }
 
-    @Ignore("Fails in the default package since its own package was removed, not yet triaged: #1620") @Test fun lateResponseErrorsEmptyAndTeamChangesCannotInsertStaleResults() {
+    @Test fun lateResponseErrorsEmptyAndTeamChangesCannotInsertStaleResults() {
         var teamId by mutableStateOf(team)
         val calls = CopyOnWriteArrayList<String>()
         compose.setContent {
@@ -151,7 +150,7 @@ class SessionMentionFixtureDeviceTest {
         compose.onNodeWithText("Fresh $team").assertDoesNotExist()
         compose.waitUntil(5000) { calls.contains("507f1f77bcf86cd799439012:next") }
         compose.onNodeWithText("Fresh 507f1f77bcf86cd799439012").performClick()
-        field().assertTextEquals("https://nuphos.ai/teams/507f1f77bcf86cd799439012/agent/fresh ")
+        field().assertTextEquals("@Fresh 507f1f77bcf86cd799439012 ")
         assertEquals(0, sends)
     }
 }

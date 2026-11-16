@@ -3,7 +3,6 @@ import { fileURLToPath } from 'node:url'
 
 import { BrowserWindow, session } from 'electron'
 
-import { regionShortcut } from '../../src/lib/regionShortcut'
 import { apiUrl } from '../api-endpoint'
 import * as k8s from '../k8s'
 import * as podExec from '../pod-exec'
@@ -16,7 +15,7 @@ import { APP_NAME, isDev } from './env'
 import { closeBrowserTabs } from './local-runtime/browser-tabs'
 import { openExternal } from './open-external'
 import { initSidebarGestures } from './sidebar-gestures'
-import { liveSessionShortcut } from './session-shortcuts'
+import { windowShortcut } from './window-shortcuts'
 import { lastClosedWindow, placementFor, readSavedWindows, trackWindow } from './window-session'
 import { MIN_WINDOW_SIZE } from './window-session-core'
 import { titleBarOverlayFor } from './window-titlebar'
@@ -230,7 +229,7 @@ export function createWindow(restore: SavedWindow | null = lastClosedWindow()): 
       process.platform === 'darwin' ? input.meta && !input.control : input.control && !input.meta
     // Session-menu combos (⌥⌘R, ⇧⌘A, …) match the physical key, and F6 has no
     // modifier at all, so they run before the bail-out below. F6 must leave a terminal.
-    const sessionAction = liveSessionShortcut(win.webContents, input) ?? regionShortcut(input)
+    const sessionAction = windowShortcut(win.webContents, input)
 
     if (sessionAction) {
       event.preventDefault()

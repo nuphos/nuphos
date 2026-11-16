@@ -6,7 +6,11 @@ import { verifyUptimeKumaCredentials } from '@/lib/byos/uptime-kuma'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
-import { requireTeamRole, requireUptimeKumaMemberAccess } from '@/middleware/auth'
+import {
+  requireCanDisconnect,
+  requireTeamRole,
+  requireUptimeKumaMemberAccess,
+} from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 import {
   baseUrlSchema,
@@ -42,6 +46,8 @@ export function registerUptimeKumaInstanceRoutes(
   instanceScoped.patch(
     '/',
     requireTeamRole('ADMINISTRATOR'),
+    // An edit can send the stored password or token to a new base URL.
+    requireUptimeKumaMemberAccess(),
     zv('json', updateSchema),
     async (c) => {
       const teamId = parseObjectId(c.get('teamId'), 'teamId')
@@ -134,39 +140,49 @@ export function registerUptimeKumaInstanceRoutes(
     },
   )
 
-  instanceScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
-    const teamId = parseObjectId(c.get('teamId'), 'teamId')
-    const instanceId = new ObjectId(c.get('uptimeKumaInstanceId'))
-    const result = await teamByosBindings().updateOne(
-      { _id: teamId },
-      {
-        $pull: { uptimeKumaInstances: { id: instanceId } },
-        $set: { updatedAt: new Date() },
-      },
-    )
+  instanceScoped.delete(
+    '/',
+    requireTeamRole('ADMINISTRATOR'),
+    requireCanDisconnect('uptimeKumaAccess'),
+    async (c) => {
+      const teamId = parseObjectId(c.get('teamId'), 'teamId')
+      const instanceId = new ObjectId(c.get('uptimeKumaInstanceId'))
+      const result = await teamByosBindings().updateOne(
+        { _id: teamId },
+        {
+          $pull: { uptimeKumaInstances: { id: instanceId } },
+          $set: { updatedAt: new Date() },
+        },
+      )
 
-    if (result.modifiedCount === 0) {
-      throw new AppError(404, 'uptime_kuma_instance_not_bound', 'Uptime Kuma instance not found')
-    }
+      if (result.modifiedCount === 0) {
+        throw new AppError(404, 'uptime_kuma_instance_not_bound', 'Uptime Kuma instance not found')
+      }
 
-    return c.body(null, 204)
-  })
+      return c.body(null, 204)
+    },
+  )
 
-  instanceScoped.get('/credentials', requireTeamRole('ADMINISTRATOR'), (c) => {
-    const binding = c.get('uptimeKumaBinding')
+  instanceScoped.get(
+    '/credentials',
+    requireTeamRole('ADMINISTRATOR'),
+    requireUptimeKumaMemberAccess(),
+    (c) => {
+      const binding = c.get('uptimeKumaBinding')
 
-    return c.json({
-      id: c.get('uptimeKumaInstanceId'),
-      instanceId: c.get('uptimeKumaInstanceId'),
-      label: binding.label,
-      baseUrl: binding.baseUrl,
-      username: binding.username ?? null,
-      password: binding.encryptedPassword
-        ? decryptUptimeKumaSecret(binding.encryptedPassword)
-        : null,
-      authToken: binding.encryptedAuthToken
-        ? decryptUptimeKumaSecret(binding.encryptedAuthToken)
-        : null,
-    })
-  })
+      return c.json({
+        id: c.get('uptimeKumaInstanceId'),
+        instanceId: c.get('uptimeKumaInstanceId'),
+        label: binding.label,
+        baseUrl: binding.baseUrl,
+        username: binding.username ?? null,
+        password: binding.encryptedPassword
+          ? decryptUptimeKumaSecret(binding.encryptedPassword)
+          : null,
+        authToken: binding.encryptedAuthToken
+          ? decryptUptimeKumaSecret(binding.encryptedAuthToken)
+          : null,
+      })
+    },
+  )
 }

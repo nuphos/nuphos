@@ -205,7 +205,7 @@ export function SessionHeaderMenu({
               renameOnClose.current = true
             }}
           >
-            {isBot ? t('Rename Bot') : t('Rename task')}
+            {isBot ? t('Edit Bot') : t('Rename task')}
           </MenuItem>
         )}
         {canRename && isBot && (

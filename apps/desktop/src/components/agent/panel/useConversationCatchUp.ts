@@ -6,7 +6,11 @@ import { publishRuntimeStates } from '../../../lib/agentRuntimeStates.ts'
 import { trackError } from '../../../lib/analytics.ts'
 import { shouldResumeRuntimeWakeup, wakeupTranscriptTail } from '../../../lib/runtimeWakeup.ts'
 
-import { fetchWakeupTranscriptTail, shouldDeferTranscriptCatchUp } from './conversationCatchUp.ts'
+import {
+  adoptStoredTranscript,
+  fetchWakeupTranscriptTail,
+  shouldDeferTranscriptCatchUp,
+} from './conversationCatchUp.ts'
 import { CONVERSATION_TAIL_LIMIT } from './model.ts'
 import { fromPersistedMessages, transcriptSignature } from './persistence.ts'
 import { getAgentLocale } from './textUtils.ts'
@@ -225,11 +229,10 @@ export function useConversationCatchUp(acc: Acc): void {
               revisions.current.set(sessionId, detail.transcriptUpdatedAt)
             lastSyncedRef.current.set(sessionId, transcriptSignature(next))
 
-            return {
-              ...tab,
+            return adoptStoredTranscript(tab, {
               messages: next.messages,
               historyBaseIndex: next.historyBaseIndex,
-            }
+            })
           }),
         )
       } catch {

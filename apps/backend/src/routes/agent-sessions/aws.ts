@@ -2,7 +2,6 @@ import { Hono } from 'hono'
 
 import { config } from '@/config'
 import { agentSubjectId } from '@/lib/agents/identity'
-import { canUseAllowList } from '@/lib/byos/access'
 import {
   sanitizeSessionName,
   assumeRoleAsConnector,
@@ -12,7 +11,7 @@ import {
 } from '@/lib/byos/aws'
 import { renderKubeconfig } from '@/lib/byos/kubeconfig'
 import { AppError } from '@/lib/errors'
-import { requireAwsAccount, requireAwsMemberAccess } from '@/middleware/auth'
+import { canRequestUseBinding, requireAwsAccount, requireAwsMemberAccess } from '@/middleware/auth'
 import { execCredentialResponse, getAgentCredentialAccess } from '@/routes/agent-sessions/shared'
 
 import type { EksAccessActor, EksAdminAccess } from '@/lib/byos/aws'
@@ -148,7 +147,7 @@ function requireSelectedAwsAgentCredential(): MiddlewareHandler<{ Variables: Age
         .find(
           (binding) =>
             selectedRoleIds.includes(binding.id.toHexString()) &&
-            canUseAllowList(binding.access?.memberAllowList, c.get('userId')),
+            canRequestUseBinding(c, binding.access),
         )
 
       if (selected) {
@@ -164,6 +163,15 @@ function requireSelectedAwsAgentCredential(): MiddlewareHandler<{ Variables: Age
         403,
         'aws_account_agent_access_denied',
         'This AWS role is not enabled for this agent session',
+      )
+    }
+    // The selection above may have swapped bindings, so the member gate that ran
+    // on the requested one is checked again on the one being vended.
+    if (!canRequestUseBinding(c, c.get('awsBinding').access)) {
+      throw new AppError(
+        403,
+        'aws_account_agent_access_denied',
+        'You are not allowed to use this AWS role',
       )
     }
     // Permission-admin bindings are human-only break-glass credentials: a role

@@ -13,9 +13,10 @@ import {
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import {
-  requireTeamRole,
-  requireLinearWorkspace,
+  requireCanDisconnect,
   requireLinearMemberAccess,
+  requireLinearWorkspace,
+  requireTeamRole,
 } from '@/middleware/auth'
 import { linearPendingOAuth, teamByosBindings } from '@/models'
 import { registerLinearBrowseRoutes } from '@/routes/linear-workspaces/browse'
@@ -127,21 +128,26 @@ bindingScoped.get('/', (c) => {
   return c.json(publicView(c.get('linearBinding')))
 })
 
-bindingScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
-  const teamId = parseObjectId(c.get('teamId'), 'teamId')
-  const binding = c.get('linearBinding')
+bindingScoped.delete(
+  '/',
+  requireTeamRole('ADMINISTRATOR'),
+  requireCanDisconnect('linearAccess'),
+  async (c) => {
+    const teamId = parseObjectId(c.get('teamId'), 'teamId')
+    const binding = c.get('linearBinding')
 
-  await teamByosBindings().updateOne(
-    { _id: teamId },
-    {
-      $pull: { linearWorkspaces: { id: binding.id } },
-      $set: { updatedAt: new Date() },
-    },
-  )
-  invalidateAccessToken(teamId, binding.id)
+    await teamByosBindings().updateOne(
+      { _id: teamId },
+      {
+        $pull: { linearWorkspaces: { id: binding.id } },
+        $set: { updatedAt: new Date() },
+      },
+    )
+    invalidateAccessToken(teamId, binding.id)
 
-  return c.body(null, 204)
-})
+    return c.body(null, 204)
+  },
+)
 
 // Agent credential handout, mirroring github-installations /token and
 // betterstack /credentials: the sandbox exchanges its NUPHOS_TOKEN for the

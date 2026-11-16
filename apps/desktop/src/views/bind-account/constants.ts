@@ -73,7 +73,7 @@ export const HUAWEI_AGENCY_NAME_PATTERN = /^[\w.-]{1,64}$/
 export const ALIYUN_ROLE_ARN_PATTERN = /^acs:ram::\d+:role\/.+$/
 export const ALIYUN_OIDC_PROVIDER_ARN_PATTERN = /^acs:ram::\d+:oidc-provider\/.+$/
 // Tencent CAM role ARN, e.g. qcs::cam::uin/123456789:roleName/Nuphos.
-export const TENCENT_ROLE_ARN_PATTERN = /^qcs::cam::uin\/\d+:role(Name)?\/.+$/
+export const TENCENT_ROLE_ARN_PATTERN = /^qcs::cam::uin\/\d+:roleName\/.+$/
 
 export function errorMessage(e: unknown): string {
   // parseAtlasError unwraps the __ATLAS_API_ERROR__ sentinel the main process

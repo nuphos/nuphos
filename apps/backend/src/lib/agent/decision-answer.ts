@@ -116,8 +116,10 @@ export async function answerDecision(args: {
   if (request?.status !== 'open')
     throw new AppError(409, 'decision_already_answered', 'This question is no longer open')
   // A secret is typed in its masked card and a connection is made by selecting it: never as text here.
+  // An integration question naming nothing to select, e.g. a service Nuphos cannot connect, takes words.
   if (
-    request.category === 'integration' ||
+    (request.category === 'integration' &&
+      (Boolean(request.providers?.length) || Boolean(request.credentials?.length))) ||
     (request.category === 'credential' && !credentialStatusChoice(request, answer))
   )
     throw new AppError(400, 'decision_not_answerable', 'Answer this question in its own card')

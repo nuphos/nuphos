@@ -348,6 +348,13 @@ fn purge_session_entries(state: &mut PoolState, key: &str) {
 /// `session/load` with for a conversation it never persisted.
 pub(crate) const ACP_RESOURCE_NOT_FOUND: i64 = -32002;
 
+/// The agent no longer holds this session. ACP says "resource not found"; claude-agent-acp
+/// throws a plain "Session not found", which the ACP SDK relays as an internal error.
+pub(crate) fn session_lost(err: &JsonRpcError) -> bool {
+    err.code == ACP_RESOURCE_NOT_FOUND
+        || (err.code == -32603 && err.data_message().as_deref() == Some("Session not found"))
+}
+
 /// JSON-RPC "invalid params" (`-32602`), which codex-acp also uses for `Unknown session: <id>`.
 const INVALID_PARAMS: i64 = -32602;
 
@@ -1522,54 +1529,70 @@ impl SessionPool {
     }
 
     /// Control an existing inner session without attaching an output sink,
-    /// starting a prompt, or changing the session's execution principal.
+    /// starting a prompt, or changing the session's execution principal. A setting the
+    /// agent rejects as a lost session restores the session once and is sent again.
     pub async fn session_config_options(
         &self,
         thread_id: &str,
         selection: Option<(&str, &str)>,
     ) -> std::result::Result<serde_json::Value, (i32, String)> {
-        let handle = self
-            .state
-            .read()
-            .await
-            .active
-            .get(thread_id)
-            .cloned()
-            .ok_or_else(|| {
-                (
-                    -32004,
-                    "Session is not running; send a message to resume it".into(),
-                )
-            })?;
-        let mut conn = handle.try_lock().map_err(|_| {
-            (
-                -32005,
-                "Session is responding; wait for the current turn to finish".into(),
-            )
-        })?;
-        if !conn.alive() {
-            return Err((
-                -32004,
-                "Session is not running; send a message to resume it".into(),
-            ));
-        }
-        if let Some((id, value)) = selection {
-            let valid = conn.config_options.iter().any(|option| {
-                option.id == id && option.options.iter().any(|choice| choice.value == value)
-            });
-            if !valid {
-                return Err((-32602, "Unknown configuration option or value".into()));
-            }
-            conn.set_config_option_strict(id, value)
+        for retry_lost_session in [true, false] {
+            let handle = self
+                .state
+                .read()
                 .await
-                .map_err(|_| {
+                .active
+                .get(thread_id)
+                .cloned()
+                .ok_or_else(|| {
                     (
-                        -32603,
-                        "Agent could not confirm the configuration change".into(),
+                        -32004,
+                        "Session is not running; send a message to resume it".into(),
                     )
                 })?;
+            let mut conn = handle.try_lock().map_err(|_| {
+                (
+                    -32005,
+                    "Session is responding; wait for the current turn to finish".into(),
+                )
+            })?;
+            if !conn.alive() {
+                return Err((
+                    -32004,
+                    "Session is not running; send a message to resume it".into(),
+                ));
+            }
+            if let Some((id, value)) = selection {
+                let valid = conn.config_options.iter().any(|option| {
+                    option.id == id && option.options.iter().any(|choice| choice.value == value)
+                });
+                if !valid {
+                    return Err((-32602, "Unknown configuration option or value".into()));
+                }
+                if let Err(e) = conn.set_config_option_strict(id, value).await {
+                    let session_gone = e
+                        .downcast_ref::<JsonRpcError>()
+                        .is_some_and(session_lost);
+                    if !(session_gone && retry_lost_session) {
+                        return Err((
+                            -32603,
+                            "Agent could not confirm the configuration change".into(),
+                        ));
+                    }
+                    // The agent lost the session: restore it as a prompt does, then send
+                    // the setting once more. The old process exits before the new starts.
+                    drop(conn);
+                    drop(handle);
+                    self.suspend_session(thread_id).await;
+                    self.restore_for_config(thread_id, &[], None)
+                        .await
+                        .map_err(|_| (-32004, "Saved session could not be restored".into()))?;
+                    continue;
+                }
+            }
+            return Ok(serde_json::json!({ "configOptions": conn.config_options }));
         }
-        Ok(serde_json::json!({ "configOptions": conn.config_options }))
+        unreachable!("the second pass never retries")
     }
 
     /// Query account-level usage/billing from the backend agent for a session
