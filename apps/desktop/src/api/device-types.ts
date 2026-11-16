@@ -138,7 +138,6 @@ export type LocalRuntimeActivityPage = {
 /** `connecting`: the machine runs but its host has not joined yet. */
 export type BoxState = 'creating' | 'connecting' | 'running' | 'paused' | 'error'
 
-/** A Box: a device Nuphos runs in a sandbox for its owner. */
 /** How far an owner lets teammates use their own computer's Local Agent. */
 export type LocalShareLevel = 'off' | 'approve' | 'full'
 
@@ -232,6 +231,7 @@ export type AgentDevice = {
   /** A Box's displays of the viewer's own conversations, besides its own :1. */
   desktops?: { display: number; sessionId: string; title: string }[]
   desktopRuntimeId?: string // The viewer's own computer: the runtime id that opens its screen.
+  app?: { version: string; update?: { version: string; ready: boolean } } // The viewer's other computer's Nuphos Desktop.
 }
 
 export type AgentDeviceList = {
