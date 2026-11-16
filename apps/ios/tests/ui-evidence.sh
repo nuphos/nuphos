@@ -6,11 +6,12 @@
 # Runs `xcodebuild test` in each checkout with the given arguments (such as -destination and
 # -only-testing), writes a per-test table to $GITHUB_STEP_SUMMARY (or stdout), and keeps
 # before.xcresult and after.xcresult in $UI_EVIDENCE_OUT (default ./ui-evidence) for upload.
-# Exits non-zero unless every test passes after the change and the named test fails before it
-# on an assertion, not on a build or launch error. Copy a new test file into the before
-# checkout first.
+# Exits non-zero unless every test passes after the change and, before it, the named test
+# fails with a message while at least one other test passes. That other test is the control:
+# it shows the app builds and launches, so include an existing test in -only-testing. Skipped
+# tests are shown and allowed. Copy a new test file into the before checkout first.
 set -euo pipefail
-[ $# -ge 3 ] || { sed -n 2,11p "$0"; exit 2; }
+[ $# -ge 3 ] || { sed -n 2,12p "$0"; exit 2; }
 before=$(cd "$1" && pwd) after=$(cd "$2" && pwd) new=$3; shift 3
 out=${UI_EVIDENCE_OUT:-$PWD/ui-evidence}
 rm -rf "$out"; mkdir -p "$out"
@@ -30,7 +31,7 @@ for side in before after; do
   fi
 done
 python3 -I - "$out" "$new" <<'EOF'
-import json, os, re, sys
+import json, os, sys
 out, new = sys.argv[1], sys.argv[2].removesuffix("()")
 def cases(side):
     found = {}
@@ -55,8 +56,10 @@ problems += [f"`{n}` is {r[0]} after the change" for n, r in after.items() if r[
 if after.get(new, ("",))[0] != "Passed": problems.append(f"`{new}` did not pass after the change")
 state, failures = before.get(new, ("not run", []))
 if state != "Failed": problems.append(f"`{new}` is {state} before the change, not Failed")
-elif not any(re.search(r"\.swift:\d+", f) for f in failures): problems.append(f"`{new}` failed before the change without an assertion (build or launch error)")
-verdict = "**Evidence holds:** the new test fails before the change on an assertion and every test passes after it." if not problems \
+elif not failures: problems.append(f"`{new}` failed before the change without a failure message")
+elif not any(r[0] == "Passed" for n, r in before.items() if n != new):
+    problems.append("no other test passed before the change, so a launch failure cannot be ruled out")
+verdict = "**Evidence holds:** before the change the new test fails while another test passes, and every test passes after it." if not problems \
     else "**Evidence does not hold:**\n" + "\n".join(f"- {p}" for p in problems)
 report = "\n".join(rows + ["", verdict, ""])
 print(report)

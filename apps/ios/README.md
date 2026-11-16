@@ -20,8 +20,10 @@ bash after/apps/ios/tests/ui-evidence.sh before after BotsAndTasksListUITests/te
 ```
 
 It reads each side's result bundle, not the exit code, writes a per-test table to the
-job summary and fails unless every test passes after the change and the new test fails
-before it on an assertion. Link that table and the uploaded `ui-evidence/*.xcresult` as
+job summary and fails unless every test passes after the change and, before it, the new
+test fails while at least one other test passes. That other test is the control that
+rules out a build or launch failure, so run an existing test alongside the new one.
+Skipped tests are shown in the table and allowed. Link that table and the uploaded `ui-evidence/*.xcresult` as
 evidence, never only a run's status, and never hide a test command's exit code with `|| true`.
 
 ## Transcript regression checks
