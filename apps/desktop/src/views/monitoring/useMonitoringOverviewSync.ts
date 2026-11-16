@@ -1,9 +1,12 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect } from 'react'
 
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n/index.ts'
 import { PROVIDER_LABEL } from '../../lib/monitoringWatch'
+import { queryKeys } from '../../lib/query/keys'
+import { refreshAfterWrite } from '../../lib/query/refreshAfterWrite'
 import { readSwrCache, writeSwrCache } from '../../lib/swrCache'
 import { useResetOnKey } from '../useResetOnKey'
 
@@ -31,6 +34,7 @@ export function useMonitoringOverviewSync({
   setOverview,
   setLoading,
 }: Params) {
+  const client = useQueryClient()
   const load = useCallback(() => {
     onLoading?.(true)
     api
@@ -93,6 +97,13 @@ export function useMonitoringOverviewSync({
         } else {
           throw new Error(`Deleting ${row.provider} ${row.kind} is not supported`)
         }
+        if (row.provider === 'betterstack') {
+          // The integration's own pages read their rows separately; don't let them show this one.
+          // A read already in flight may hold the row, so it is dropped rather than kept.
+          void refreshAfterWrite(client, {
+            queryKey: queryKeys.betterStack(teamId, row.integrationId),
+          })
+        }
         setOverview((prev) => {
           if (!prev) return prev
           const next = {
@@ -123,7 +134,7 @@ export function useMonitoringOverviewSync({
         toast.apiError(t('Failed to delete'), err)
       }
     },
-    [teamId, cacheKey, onCount, setOverview],
+    [client, teamId, cacheKey, onCount, setOverview],
   )
 
   return { deleteRow }
