@@ -84,6 +84,7 @@ test('a missing Token Creator grant is a lasting 409 that says what to grant', a
   expect(body.error.code).toBe('gcp_connector_permission_missing')
   expect(body.error.message).toContain('roles/iam.serviceAccountTokenCreator')
   expect(body.error.message).toContain('gone@project-a.iam.gserviceaccount.com')
+  expect(body.error.message).toContain('If you just granted it, wait a couple of minutes')
 })
 
 test('any other token failure keeps its answer', async () => {
