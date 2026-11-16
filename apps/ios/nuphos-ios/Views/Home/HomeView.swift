@@ -204,8 +204,6 @@ struct HomeView: View {
             if autoPage { autoPage = false } else { pageChosen = true }
             isSearching = false
             openChat = nil
-            // What was opened on Bots folds again once Bots is left.
-            store?.foldBots()
             inbox?.selected = nil
             // An answer held for Undo goes once the Inbox is left.
             let left = inbox
