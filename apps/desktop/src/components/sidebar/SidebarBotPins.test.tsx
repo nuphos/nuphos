@@ -114,7 +114,7 @@ test('a pinned Bot right-click shows all the normal Bot menu actions', async () 
         'Unpin Bot',
         'Copy link',
         'Copy Bot ID',
-        'Rename Bot',
+        'Edit Bot',
         'Change avatar',
         'Watch Bot',
         'Archive Bot',
