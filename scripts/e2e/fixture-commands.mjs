@@ -11,10 +11,6 @@ export function listCommands({ send, sessionId }) {
     availableCommands: [{ name: 'e2e-review', description: 'Review the change' }],
   })
   update({
-    sessionUpdate: 'agent_message_chunk',
-    content: { type: 'text', text: 'Listed commands' },
-  })
-  update({
     sessionUpdate: 'tool_call',
     toolCallId: randomUUID(),
     title: 'E2E long step',

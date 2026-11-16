@@ -25,12 +25,12 @@ export const commandScenarios: Scenario[] = [
       await until('the agent to start the held turn', async () =>
         agentEvents(stack).includes('start E2E_DELIVERY:commands'),
       )
-      await page.getByText('Listed commands').waitFor()
+      await page.getByText('E2E long step').waitFor()
       await menuLists(page, '/e2e-review')
       // Reopened mid-turn, the run replays from its first frame; no list is remembered locally.
       await page.evaluate(() => localStorage.removeItem('nuphos.agentCommands.v1'))
       await page.reload()
-      await page.getByText('Listed commands').waitFor()
+      await page.getByText('E2E long step').waitFor()
       await menuLists(page, '/e2e-review')
       await page.locator('button[title="Stop"]').click()
       await page.getByText('Turn stopped').waitFor()
