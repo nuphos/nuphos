@@ -39,7 +39,8 @@ final class ChannelWakeLineUITests: XCTestCase {
             "https://nuphos.ai/teams/64b5f1c2e4b0a1d2c3e4f5a6/agent/push-a"]
         app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path]
         app.launch()
-        XCTAssertTrue(app.staticTexts["Looking at the failed step now."].waitForExistence(timeout: 10))
+        let wake = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS 'launch-review'")).firstMatch
+        XCTAssertTrue(wake.waitForExistence(timeout: 10))
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "Channel wake line · light"
         shot.lifetime = .keepAlways
