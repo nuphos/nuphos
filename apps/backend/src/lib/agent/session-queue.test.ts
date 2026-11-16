@@ -598,8 +598,12 @@ test('with Redis, the backstop finds a waiting queue without scanning the keyspa
     // Synchronous, like ioredis: commands queue on it until exec().
     pipeline: (() => {
       const reads: string[] = []
-      const write = {
-        lrange: (key: string) => (reads.push(key), write),
+      const write: { lrange: (key: string) => unknown; exec: () => Promise<unknown[]> } = {
+        lrange: (key: string) => {
+          reads.push(key)
+
+          return write
+        },
         exec: async () => reads.map((key) => [null, lists.get(key) ?? []]),
       }
 

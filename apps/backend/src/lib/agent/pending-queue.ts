@@ -254,8 +254,7 @@ export async function scanQueuedSessions(
     ]
 
     // A queue that could not be read is tried; start() reads it again.
-    if (!read && page) sessions.push({ userId, sessionId })
-    else if (queueHead(queue, userId).length > 0) sessions.push({ userId, sessionId })
+    if ((!read && page) || queueHead(queue, userId).length > 0) sessions.push({ userId, sessionId })
   }
 
   return { cursor: page ? page[0] : cursor, sessions }
