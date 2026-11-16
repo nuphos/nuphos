@@ -12,7 +12,7 @@ import {
   verifyWebhookSignature,
 } from '@/lib/byos/linear'
 import { encryptLinearSecret } from '@/lib/byos/secrets'
-import { finishConnectorOAuth } from '@/lib/connector-oauth'
+import { finishConnectorOAuth, reboundAccess } from '@/lib/connector-oauth'
 import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
 import { AppError } from '@/lib/errors'
 import { logEvent } from '@/lib/observability'
@@ -155,7 +155,7 @@ export async function persistLinearBinding(
     id: bindingId,
     label: existing?.label ?? draft.workspaceName,
     createdAt: existing?.createdAt ?? new Date(),
-    access: existing?.access ?? access,
+    ...reboundAccess(existing, access),
   }
 
   if (existing) {

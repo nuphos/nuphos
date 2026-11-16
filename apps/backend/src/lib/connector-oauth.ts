@@ -19,6 +19,19 @@ export type ConnectorBindPersist<B> = (
   access: BindingAccess,
 ) => Promise<Record<string, string>>
 
+/**
+ * The list a rebound binding is written with: a rebind keeps what the binding
+ * had, including no list at all, and only a new binding takes the decided one.
+ */
+export function reboundAccess(
+  existing: { access?: BindingAccess } | null | undefined,
+  access: BindingAccess,
+): { access?: BindingAccess } {
+  if (!existing) return { access }
+
+  return existing.access ? { access: existing.access } : {}
+}
+
 const READY_TTL_MS = 10 * 60_000
 
 /**
