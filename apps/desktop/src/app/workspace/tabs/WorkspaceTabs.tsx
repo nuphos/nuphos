@@ -1,11 +1,11 @@
-import { faPlus } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { Plus as PlusIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../../../api'
 import { SidebarToggleButton } from '../../../components/Sidebar'
 import { Kbd } from '../../../components/ui/kbd'
 import { Tooltip } from '../../../components/ui/tooltip'
+import { UiIcon } from '../../../components/ui/ui-icon'
 import { t } from '../../../i18n'
 import { logNewTabRequested, logTabActivated } from '../../../lib/tabSwitchLog'
 import { isPermanentSidebarPage } from '../../navItems'
@@ -230,7 +230,7 @@ export function WorkspaceTabs({
             className="titlebar-no-drag ml-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-tertiary outline-none ring-0 transition-colors hover:bg-state-hover hover:text-main focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
             aria-label={t('New tab')}
           >
-            <FontAwesomeIcon icon={faPlus} className="w-3.5 h-3.5" />
+            <UiIcon size={16} icon={PlusIcon} className="w-4 h-4" />
           </button>
         </Tooltip>
       </div>

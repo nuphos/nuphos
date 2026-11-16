@@ -1,9 +1,8 @@
-import { faFolder } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { LayoutDashboard } from 'lucide-react'
+import { Folder as FolderIcon, LayoutDashboard } from 'lucide-react'
 
 import { activeNavItemFor, activeNavItemsFor } from '../../../app/navItems'
 import { CloudLogo } from '../../../components/CloudLogo'
+import { UiIcon } from '../../../components/ui/ui-icon'
 import { t } from '../../../i18n'
 import { CLOUDFLARE_DETAIL_ACTIVE } from '../../../lib/appRoutes'
 import { isSettingsNavigation, isTeamIntegrationsActive } from '../../../lib/connectorScopeCrumb'
@@ -195,7 +194,7 @@ export function pushNavPickerCrumbs(ctx: BreadcrumbContext, out: BreadcrumbSegme
           out.push({
             label: seg,
             isResource: true,
-            icon: <FontAwesomeIcon icon={faFolder} className="w-3.5 h-3.5 text-tertiary" />,
+            icon: <UiIcon size={14} icon={FolderIcon} className="w-3.5 h-3.5 text-tertiary" />,
             onClick: i === segments.length - 1 ? undefined : () => setR2(next),
           })
         })

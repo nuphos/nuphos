@@ -1,11 +1,7 @@
 import {
-  faDatabase,
-  faGaugeHigh,
-  faTableColumns,
-  faTriangleExclamation,
-} from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import {
+  Gauge as GaugeIcon,
+  PanelsTopLeft as PanelsTopLeftIcon,
+  TriangleAlert as TriangleAlertIcon,
   Bell,
   ChartLine,
   Compass,
@@ -24,6 +20,7 @@ import {
 import { t } from '../../i18n'
 import { groupByConnectorCategory } from '../../lib/connectorCategories'
 import { TEAM_SIDEBAR_NAV_ITEMS } from '../../lib/teamOverviewNav'
+import { UiIcon } from '../ui/ui-icon'
 
 import type { Item, Section } from './types'
 
@@ -35,14 +32,14 @@ export function betterStackSections(): Section[] {
         {
           key: 'betterstack.monitors',
           label: t('Monitors'),
-          iconNode: <FontAwesomeIcon icon={faGaugeHigh} className="w-3.5 h-3.5 text-tertiary" />,
+          iconNode: <UiIcon size={14} icon={GaugeIcon} className="w-3.5 h-3.5 text-tertiary" />,
           enabled: true,
         },
         {
           key: 'betterstack.incidents',
           label: t('Incidents'),
           iconNode: (
-            <FontAwesomeIcon icon={faTriangleExclamation} className="w-3.5 h-3.5 text-tertiary" />
+            <UiIcon size={14} icon={TriangleAlertIcon} className="w-3.5 h-3.5 text-tertiary" />
           ),
           enabled: true,
         },
@@ -54,13 +51,15 @@ export function betterStackSections(): Section[] {
         {
           key: 'betterstack.sources',
           label: t('Sources'),
-          iconNode: <FontAwesomeIcon icon={faDatabase} className="w-3.5 h-3.5 text-tertiary" />,
+          iconNode: <UiIcon size={14} icon={Database} className="w-3.5 h-3.5 text-tertiary" />,
           enabled: true,
         },
         {
           key: 'betterstack.dashboards',
           label: t('Dashboards'),
-          iconNode: <FontAwesomeIcon icon={faTableColumns} className="w-3.5 h-3.5 text-tertiary" />,
+          iconNode: (
+            <UiIcon size={14} icon={PanelsTopLeftIcon} className="w-3.5 h-3.5 text-tertiary" />
+          ),
           enabled: true,
         },
       ],
@@ -104,7 +103,7 @@ export function uptimeKumaSections(): Section[] {
         {
           key: 'uptime-kuma.monitors',
           label: t('Monitors'),
-          iconNode: <FontAwesomeIcon icon={faGaugeHigh} className="w-3.5 h-3.5 text-tertiary" />,
+          iconNode: <UiIcon size={14} icon={GaugeIcon} className="w-3.5 h-3.5 text-tertiary" />,
           enabled: true,
         },
       ],

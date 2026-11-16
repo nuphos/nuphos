@@ -1,15 +1,9 @@
 import {
-  faAlignLeft,
-  faBell,
-  faBolt,
-  faChartLine,
-  faDatabase,
-  faHardDrive,
-  faKey,
-  faLayerGroup,
-} from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import {
+  AlignLeft as AlignLeftIcon,
+  Bell as BellIcon,
+  Zap as ZapIcon,
+  ChartLine as ChartLineIcon,
+  HardDrive as HardDriveIcon,
   Cloud,
   Container,
   Database,
@@ -24,6 +18,7 @@ import {
   Workflow,
 } from 'lucide-react'
 
+import { UiIcon } from '../../components/ui/ui-icon'
 import { t } from '../../i18n'
 
 import type { NavItemMeta } from './types'
@@ -70,7 +65,7 @@ export function awsAccountNavItems(): NavItemMeta[] {
       key: 'aws.lambda',
       label: 'Lambda',
       group: t('Compute'),
-      icon: <FontAwesomeIcon icon={faBolt} className="w-3.5 h-3.5 text-tertiary" />,
+      icon: <UiIcon size={14} icon={ZapIcon} className="w-3.5 h-3.5 text-tertiary" />,
     },
     {
       key: 'aws.cloudformation',
@@ -88,19 +83,19 @@ export function awsAccountNavItems(): NavItemMeta[] {
       key: 'aws.cloudwatch',
       label: t('Logs'),
       group: 'CloudWatch',
-      icon: <FontAwesomeIcon icon={faAlignLeft} className="w-3.5 h-3.5 text-tertiary" />,
+      icon: <UiIcon size={14} icon={AlignLeftIcon} className="w-3.5 h-3.5 text-tertiary" />,
     },
     {
       key: 'aws.cloudwatch-alarms',
       label: t('Alarms'),
       group: 'CloudWatch',
-      icon: <FontAwesomeIcon icon={faBell} className="w-3.5 h-3.5 text-tertiary" />,
+      icon: <UiIcon size={14} icon={BellIcon} className="w-3.5 h-3.5 text-tertiary" />,
     },
     {
       key: 'aws.cloudwatch-metrics',
       label: t('Metrics'),
       group: 'CloudWatch',
-      icon: <FontAwesomeIcon icon={faChartLine} className="w-3.5 h-3.5 text-tertiary" />,
+      icon: <UiIcon size={14} icon={ChartLineIcon} className="w-3.5 h-3.5 text-tertiary" />,
     },
     {
       key: 'aws.roles',
@@ -147,7 +142,7 @@ export function gcpProjectNavItems(): NavItemMeta[] {
       key: 'gcp.metrics',
       label: t('Metrics'),
       group: t('Observability'),
-      icon: <FontAwesomeIcon icon={faChartLine} className="w-3.5 h-3.5 text-tertiary" />,
+      icon: <UiIcon size={14} icon={ChartLineIcon} className="w-3.5 h-3.5 text-tertiary" />,
     },
     {
       key: 'gcp.dashboards',
@@ -187,31 +182,31 @@ export function cloudflareAccountNavItems(): NavItemMeta[] {
       key: 'cloudflare.workers',
       label: 'Workers',
       group: t('Compute & Storage'),
-      icon: <FontAwesomeIcon icon={faBolt} className="w-3.5 h-3.5 text-tertiary" />,
+      icon: <UiIcon size={14} icon={ZapIcon} className="w-3.5 h-3.5 text-tertiary" />,
     },
     {
       key: 'cloudflare.r2',
       label: 'R2',
       group: t('Compute & Storage'),
-      icon: <FontAwesomeIcon icon={faHardDrive} className="w-3.5 h-3.5 text-tertiary" />,
+      icon: <UiIcon size={14} icon={HardDriveIcon} className="w-3.5 h-3.5 text-tertiary" />,
     },
     {
       key: 'cloudflare.pages',
       label: 'Pages',
       group: t('Compute & Storage'),
-      icon: <FontAwesomeIcon icon={faLayerGroup} className="w-3.5 h-3.5 text-tertiary" />,
+      icon: <UiIcon size={14} icon={Layers} className="w-3.5 h-3.5 text-tertiary" />,
     },
     {
       key: 'cloudflare.d1',
       label: 'D1',
       group: t('Data'),
-      icon: <FontAwesomeIcon icon={faDatabase} className="w-3.5 h-3.5 text-tertiary" />,
+      icon: <UiIcon size={14} icon={Database} className="w-3.5 h-3.5 text-tertiary" />,
     },
     {
       key: 'cloudflare.kv',
       label: 'KV',
       group: t('Data'),
-      icon: <FontAwesomeIcon icon={faKey} className="w-3.5 h-3.5 text-tertiary" />,
+      icon: <UiIcon size={14} icon={KeyRound} className="w-3.5 h-3.5 text-tertiary" />,
     },
     {
       key: 'cloudflare.iam',

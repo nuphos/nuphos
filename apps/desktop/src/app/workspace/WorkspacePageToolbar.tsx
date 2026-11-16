@@ -1,11 +1,11 @@
-import { faPlus } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { clsx } from 'clsx'
+import { Plus as PlusIcon } from 'lucide-react'
 import { Profiler } from 'react'
 
 import { FULL_BLEED_PAGE_KEYS } from '../../app/workspaceTabState'
 import { Toolbar } from '../../components/Toolbar'
 import { Button } from '../../components/ui/button'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { reportShellRender } from '../../lib/tabSwitchLog'
 
 import { CORNER_TITLEBAR_CLASS, CornerSidebarToggle } from './CornerSidebarToggle'
@@ -98,7 +98,7 @@ export function WorkspacePageToolbar({
                 disabled={toolbarPrimaryAction.disabled}
                 onClick={toolbarPrimaryAction.onClick}
               >
-                <FontAwesomeIcon icon={faPlus} className="w-3.5 h-3.5" />
+                <UiIcon size={16} icon={PlusIcon} className="w-4 h-4" />
                 {toolbarPrimaryAction.label}
               </Button>
             ) : null}
