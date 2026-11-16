@@ -33,6 +33,19 @@ export function queueSnapshot(snapshotId: ObjectId): void {
   })
 }
 
+/** A panel runs as its script's author, so it stops when the author can no longer
+ *  run scripts here; the message says why and who can take it over. */
+function authorUnavailable(stillMember: boolean): PanelExecError {
+  const why = stillMember
+    ? 'is now a Viewer in this team (a panel’s author must be an Administrator or Editor)'
+    : 'is no longer a member of this team'
+
+  return new PanelExecError(
+    'author_unavailable',
+    `This panel runs with its author’s access, and its author ${why}. An Administrator or Editor can take it over by editing and saving its script, or remove the panel.`,
+  )
+}
+
 type Run = {
   snapshot: DashboardPanelSnapshot
   panel: DashboardPanel
@@ -42,7 +55,7 @@ type Run = {
   leaseId?: string
 }
 
-async function scheduleSnapshot(snapshotId: ObjectId): Promise<void> {
+export async function scheduleSnapshot(snapshotId: ObjectId): Promise<void> {
   const snapshot = await dashboardPanelSnapshots().findOne({ _id: snapshotId, status: 'running' })
 
   if (!snapshot) return
@@ -57,14 +70,23 @@ async function scheduleSnapshot(snapshotId: ObjectId): Promise<void> {
   ])
 
   if (!dashboard || !panel) {
-    await failSnapshot({ snapshot }, new Error('Panel execution target no longer exists'))
+    await failSnapshot(
+      { snapshot },
+      new PanelExecError('internal', 'This panel or its dashboard was deleted.'),
+    )
 
     return
   }
   const version = panel.versions.find((candidate) => candidate.version === snapshot.scriptVersion)
 
   if (!version || version.codeHash !== snapshot.codeHash) {
-    await failSnapshot({ snapshot }, new Error('Panel script version is no longer available'))
+    await failSnapshot(
+      { snapshot },
+      new PanelExecError(
+        'internal',
+        'This panel’s script changed while it was queued. Refresh to run the current version.',
+      ),
+    )
 
     return
   }
@@ -73,10 +95,7 @@ async function scheduleSnapshot(snapshotId: ObjectId): Promise<void> {
   const canExecute = membership?.role === 'ADMINISTRATOR' || membership?.role === 'EDITOR'
 
   if (!canExecute) {
-    await failSnapshot(
-      { snapshot },
-      new Error('Panel author is no longer allowed to execute this script'),
-    )
+    await failSnapshot({ snapshot }, authorUnavailable(Boolean(membership)))
 
     return
   }

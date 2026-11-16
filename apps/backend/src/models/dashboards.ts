@@ -101,6 +101,8 @@ export type PanelSnapshotErrorKind =
   | 'invalid_output'
   | 'runtime_unavailable'
   | 'runtime_outdated'
+  /** The script's author can no longer run scripts in the team. */
+  | 'author_unavailable'
   /** Read-only: written by the retired sandbox executor. */
   | 'sandbox_expired'
   | 'internal'
