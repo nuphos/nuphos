@@ -303,7 +303,7 @@ export async function prepare({ targets, openab, skipOpenab, require }) {
       throw new Error(`No openab binary for ${target}: install a Rust toolchain or pass --openab`)
     } else {
       console.warn(
-        `[local-runtime] ${target}: no openab binary; the Local runtime is unavailable in this build`,
+        `[local-runtime] ${target}: no openab binary; the Local runtime is unavailable in this build. Install a Rust toolchain (https://rustup.rs) or pass --openab`,
       )
     }
     writeFileSync(

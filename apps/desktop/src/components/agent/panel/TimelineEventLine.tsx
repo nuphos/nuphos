@@ -121,6 +121,12 @@ function EventLine({
               from: <Runtime runtime={from} />,
             })
           : fill(t('{actor} moved this task to {to}'), people)}
+        {event.retrying ? (
+          <>
+            <span aria-hidden>·</span>
+            {fill(t('Retrying on {to}'), people)}
+          </>
+        ) : null}
       </Rule>
     )
   }

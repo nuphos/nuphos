@@ -55,4 +55,12 @@ class AnsweredQuestionTest {
         assertTrue(ChatRow.rows(listOf(notice("Your question (requestId q1) was withdrawn."))).any { it is ChatRow.Event })
         assertTrue(ChatRow.rows(listOf(notice(*lines, sender = "github"))).any { it is ChatRow.Event })
     }
+
+    @Test fun anAnswerStillWaitingForItsAgentSaysWhyUnderItsLine() {
+        val note = "Answered · waiting for Claude Code (out of usage until 11:20 UTC)"
+        val waiting = ChatRow.rows(listOf(notice(*lines)), waiting = mapOf("q1" to note))
+        assertEquals(note, waiting.filterIsInstance<ChatRow.Answered>().single().question.waiting)
+        // Delivered: nothing waits, no line.
+        assertNull(ChatRow.rows(listOf(notice(*lines))).filterIsInstance<ChatRow.Answered>().single().question.waiting)
+    }
 }

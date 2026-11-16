@@ -6,6 +6,7 @@ import {
   MODEL_ON_DEMAND_MS,
   MODEL_REFRESH_MS,
   MODEL_RETRY_MS,
+  MODEL_SIGNED_OUT_MS,
   refreshRunningModels,
 } from './agent-models.ts'
 
@@ -75,6 +76,43 @@ test('retries stop once the agent it probed for is stopped or replaced', async (
     await settle()
     assert.equal(replaced.probes(), 1)
     assert.equal(agent.models, undefined)
+  } finally {
+    mock.timers.reset()
+  }
+})
+
+test('a signed-out CLI is not started to list models until it signs in', async () => {
+  mock.timers.enable({ apis: ['setTimeout'] })
+  try {
+    let probes = 0
+    const deps = {
+      probeModels: () => {
+        probes++
+
+        return Promise.resolve(catalog)
+      },
+    } as unknown as LocalRuntimeControllerDeps
+    const run = { provider: 'codex', env: {}, current: () => true } as LocalAgentRun
+    const agent = {
+      runtime: { port: 1 },
+      cli: { installed: true, path: '/bin/codex', loggedIn: false },
+    } as unknown as Agent
+
+    let sent = 0
+
+    discoverModels(deps, run, agent, '/w', () => sent++)
+    await settle()
+    assert.equal(await refreshRunningModels(), false)
+    mock.timers.tick(3_600_000)
+    await settle()
+    assert.equal(probes, 0)
+
+    agent.cli = { installed: true, path: '/bin/codex', loggedIn: true }
+    mock.timers.tick(MODEL_SIGNED_OUT_MS)
+    await settle()
+    assert.equal(probes, 1)
+    assert.deepEqual(agent.models, catalog)
+    assert.equal(sent, 1)
   } finally {
     mock.timers.reset()
   }

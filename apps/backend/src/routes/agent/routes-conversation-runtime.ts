@@ -28,7 +28,8 @@ agent.post('/conversations/:sessionId/cancel-runtime', async (c) => {
   if (!conversation) throw new AppError(404, 'not_found', 'Conversation not found')
   if (!(await canReplyIn(conversation, userId)))
     throw new AppError(403, 'conversation_read_only', 'You can only view this conversation')
-  await stopConversationTurn(conversation)
+  const status = await stopConversationTurn(conversation)
+
   logEvent('info', 'agent.runtime.cancel_requested', {
     trace_id: c.get('requestId'),
     auth_source: 'authenticated_http',
@@ -36,9 +37,14 @@ agent.post('/conversations/:sessionId/cancel-runtime', async (c) => {
     team_id: teamId,
     session_id: sessionId,
     runtime_id: conversation.runtimeId,
+    status,
   })
 
-  return c.json({ ok: true, status: 'requested' })
+  return c.json(
+    status === 'runtime_unreachable'
+      ? { ok: true, status, message: "The runtime didn't respond; the turn was stopped here." }
+      : { ok: true, status },
+  )
 })
 
 agent.post('/conversations/:sessionId/steer', async (c) => {

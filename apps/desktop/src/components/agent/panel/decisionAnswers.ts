@@ -13,6 +13,9 @@ export type DecisionAnswer = { option: string }
  * card's saved reply, and for any other card the answer the server's notice
  * records when it wakes the agent (an answer itself sends no message).
  */
+/** The line each answered card shows while its answer waits for the agent, by request id. */
+export const WaitingAnswersContext = createContext<ReadonlyMap<string, string>>(new Map())
+
 export const DecisionAnswersContext = createContext<ReadonlyMap<string, DecisionAnswer>>(new Map())
 
 /** Which replies answer a secure card: its saved reply. */

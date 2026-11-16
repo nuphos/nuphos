@@ -53,7 +53,7 @@ class DeviceMentionFixtureDeviceTest {
         bitmap.recycle()
     }
 
-    @Ignore("Fails in the default package since its own package was removed, not yet triaged: #1620") @Test fun explicitDevicePickPreservesIamAndSessionMentionsWithBoundedControls() {
+    @Test fun explicitDevicePickPreservesIamAndSessionMentionsWithBoundedControls() {
         var selection by mutableStateOf(initial)
         var dark by mutableStateOf(false)
         var picks = 0
@@ -107,7 +107,7 @@ class DeviceMentionFixtureDeviceTest {
         field().performTextReplacement("@fixture")
         compose.waitUntil(5000) { compose.onAllNodesWithText("Fixture chat").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Fixture chat").performScrollTo().performClick()
-        field().assertTextEquals("https://nuphos.ai/teams/$team/agent/synthetic-chat ")
+        field().assertTextEquals("@Fixture chat ")
         val before = loads.get()
         field().performTextReplacement("mail@example.com")
         Thread.sleep(250)

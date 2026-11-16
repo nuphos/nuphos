@@ -1,6 +1,4 @@
-import { faPlus } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { CheckCircle2, Trash2 } from 'lucide-react'
+import { Plus as PlusIcon, CheckCircle2, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { api } from '../../api'
@@ -8,6 +6,7 @@ import { Age } from '../../components/Age'
 import { CloudLogo } from '../../components/CloudLogo'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Table } from '../../components/Table'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
 
@@ -183,7 +182,7 @@ export function BindingsList({
             onClick={onConnectGitlab}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-surface-sunken hover:bg-state-hover text-main text-[12.5px]"
           >
-            <FontAwesomeIcon icon={faPlus} className="w-3.5 h-3.5" />
+            <UiIcon size={16} icon={PlusIcon} className="w-4 h-4" />
             {t('Connect your first GitLab account')}
           </button>
         </div>

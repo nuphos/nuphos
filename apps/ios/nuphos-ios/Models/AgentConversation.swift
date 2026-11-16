@@ -381,6 +381,12 @@ struct AgentConversationDetail: Decodable, Sendable {
     let readSeq: Int?
     let watching: Bool?
     let timelineEvents: [TimelineEvent]
+    /// Answered questions whose agent has not run the answer yet, with the line their row shows.
+    let waitingAnswers: [WaitingAnswer]
+    struct WaitingAnswer: Decodable, Equatable, Sendable {
+        let requestId: String
+        let note: String
+    }
     /// The runtime's guess at what the user will send next.
     let promptSuggestion: String?
     /// `channel` for a chat; nil for an agent.
@@ -413,7 +419,7 @@ struct AgentConversationDetail: Decodable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case faces, group, kind, messageCount, transcriptUpdatedAt, isOwner, canManage, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, credentialSource, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, watching, timelineEvents, promptSuggestion
+        case faces, group, kind, messageCount, transcriptUpdatedAt, isOwner, canManage, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, credentialSource, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, watching, timelineEvents, waitingAnswers, promptSuggestion
     }
 
     init(from decoder: Decoder) throws {
@@ -441,6 +447,7 @@ struct AgentConversationDetail: Decodable, Sendable {
         readSeq = try? c.decodeIfPresent(Int.self, forKey: .readSeq)
         watching = try? c.decodeIfPresent(Bool.self, forKey: .watching)
         timelineEvents = (try? c.decodeIfPresent([TimelineEvent].self, forKey: .timelineEvents)) ?? []
+        waitingAnswers = (try? c.decodeIfPresent([WaitingAnswer].self, forKey: .waitingAnswers)) ?? []
         promptSuggestion = try? c.decodeIfPresent(String.self, forKey: .promptSuggestion)
         kind = try? c.decodeIfPresent(String.self, forKey: .kind)
         messageCount = try? c.decodeIfPresent(Int.self, forKey: .messageCount)

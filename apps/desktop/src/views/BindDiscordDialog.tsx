@@ -1,12 +1,13 @@
 import { faDiscord } from '@fortawesome/free-brands-svg-icons'
-import { faArrowUpRightFromSquare, faSpinner } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { LoaderCircle as LoaderCircleIcon, ExternalLink as ExternalLinkIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { api } from '../api'
 import { Modal } from '../components/Modal'
 import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
+import { UiIcon } from '../components/ui/ui-icon'
 import { t } from '../i18n'
 
 export function BindDiscordDialog({
@@ -93,9 +94,10 @@ export function BindDiscordDialog({
           {t('Cancel')}
         </button>
         <Button size="sm" type="button" disabled={waiting} onClick={() => void install()}>
-          <FontAwesomeIcon
-            icon={waiting ? faSpinner : faArrowUpRightFromSquare}
-            className={waiting ? 'h-3 w-3 animate-spin' : 'h-3 w-3'}
+          <UiIcon
+            size={16}
+            icon={waiting ? LoaderCircleIcon : ExternalLinkIcon}
+            className={waiting ? 'h-4 w-4 animate-spin' : 'h-4 w-4'}
           />
           {waiting
             ? t('Waiting for approval…')

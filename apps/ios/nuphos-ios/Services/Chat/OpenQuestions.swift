@@ -97,15 +97,20 @@ final class OpenQuestions {
     }
 
     /// Saves the asking conversation's selection, as its credential picker would. The server
-    /// answers the question once it covers a provider asked for; the card leaves with the listing.
+    /// answers the question once it adds a provider asked for; the card leaves with the listing,
+    /// or says why it is still open.
     func select(_ selection: CredentialSelection, for question: BotQuestion) async {
         failures[question.id] = nil
         do {
             try await AgentChatAPI.updateCredentials(token: token, teamId: teamId, sessionId: question.sessionId, selection: selection)
         } catch {
             failures[question.id] = error.localizedDescription
+            return
         }
         await refresh()
+        if listed.contains(where: { $0.id == question.id }) {
+            failures[question.id] = String(localized: "The selection adds no credential this question asks for.")
+        }
     }
 
     /// Answers a question: the server wakes the agent that asked with the answer, and no

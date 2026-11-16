@@ -10,7 +10,9 @@ import type { AgentConversation } from '../../api'
 export function chatRowIcon(conversation: AgentConversation): Pick<Item, 'icon' | 'iconNode'> {
   // A chat wears its members' faces, never an agent's own.
   if (conversation.kind === 'channel')
-    return { iconNode: <ChatIcon faces={conversation.faces} title={conversation.title} sidebar /> }
+    return {
+      iconNode: <ChatIcon faces={conversation.faces} title={conversation.title} sidebar />,
+    }
 
   // A session row is its Runtime; faces belong to chats.
   const runtime = (

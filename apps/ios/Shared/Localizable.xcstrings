@@ -2868,52 +2868,6 @@
         }
       }
     },
-    "Answer it in %@." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Respóndela en %@."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Jawab di %@."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ で回答してください。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@에서 답변하세요."
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ตอบใน %@"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "请在 %@ 中回答。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "請在 %@ 中回答。"
-          }
-        }
-      }
-    },
     "Answered %@ from the Inbox" : {
       "comment" : "Answered question: when it was answered",
       "localizations" : {
@@ -4573,50 +4527,8 @@
       }
     },
     "By continuing, you agree to our [Terms of Service](https://nuphos.ai/terms) and [Privacy Policy](https://nuphos.ai/privacy)." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Al continuar, aceptas nuestros [Términos del servicio](https://nuphos.ai/terms) y nuestra [Política de privacidad](https://nuphos.ai/privacy)."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dengan melanjutkan, Anda menyetujui [Ketentuan Layanan](https://nuphos.ai/terms) dan [Kebijakan Privasi](https://nuphos.ai/privacy) kami."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "続行すると、[利用規約](https://nuphos.ai/terms)と[プライバシーポリシー](https://nuphos.ai/privacy)に同意したことになります。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "계속하면 [서비스 약관](https://nuphos.ai/terms) 및 [개인정보 처리방침](https://nuphos.ai/privacy)에 동의하게 됩니다."
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "การดำเนินการต่อถือว่าคุณยอมรับ[ข้อกำหนดการให้บริการ](https://nuphos.ai/terms)และ[นโยบายความเป็นส่วนตัว](https://nuphos.ai/privacy)ของเรา"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "继续即表示你同意我们的[服务条款](https://nuphos.ai/terms)和[隐私政策](https://nuphos.ai/privacy)。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "繼續即表示你同意我們的[服務條款](https://nuphos.ai/terms)與[隱私權政策](https://nuphos.ai/privacy)。"
-          }
-        }
-      }
+      "comment" : "Legal text",
+      "shouldTranslate" : false
     },
     "Can reply" : {
       "localizations" : {
@@ -9587,50 +9499,8 @@
       }
     },
     "Depending on your runtime and model, this includes Anthropic (Claude), OpenAI (Codex), xAI (Grok), Google (Antigravity), DeepSeek (DeepSeek Harness), the model provider an OpenCode runtime uses (OpenCode Zen when it is not signed in to one), or Amazon Web Services. When tracing is enabled, Nuphos stores AI execution traces, which can include conversation and tool content, for diagnostics and service improvement." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Según tu entorno de ejecución y modelo, esto incluye Anthropic (Claude), OpenAI (Codex), xAI (Grok), Google (Antigravity), DeepSeek (DeepSeek Harness), el proveedor de modelos que usa un entorno de OpenCode (OpenCode Zen si no ha iniciado sesión en ninguno) o Amazon Web Services. Cuando el rastreo está activado, Nuphos guarda los rastros de ejecución de la IA, que pueden incluir contenido de conversaciones y herramientas, para diagnóstico y mejora del servicio."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bergantung pada runtime dan model Anda, ini mencakup Anthropic (Claude), OpenAI (Codex), xAI (Grok), Google (Antigravity), DeepSeek (DeepSeek Harness), penyedia model yang digunakan runtime OpenCode (OpenCode Zen jika tidak masuk ke salah satunya), atau Amazon Web Services. Saat pelacakan diaktifkan, Nuphos menyimpan jejak eksekusi AI, yang dapat mencakup konten percakapan dan alat, untuk diagnostik dan peningkatan layanan."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "実行環境とモデルに応じて、Anthropic（Claude）、OpenAI（Codex）、xAI（Grok）、Google（Antigravity）、DeepSeek（DeepSeek Harness）、OpenCode 実行環境が使用するモデルプロバイダー（サインインしていない場合は OpenCode Zen）、または Amazon Web Services が含まれます。トレースが有効な場合、Nuphos は診断とサービス改善のために AI の実行トレース（会話やツールの内容を含む場合があります）を保存します。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "런타임과 모델에 따라 Anthropic(Claude), OpenAI(Codex), xAI(Grok), Google(Antigravity), DeepSeek(DeepSeek Harness), OpenCode 런타임이 사용하는 모델 제공업체(로그인하지 않은 경우 OpenCode Zen) 또는 Amazon Web Services가 포함됩니다. 추적이 활성화되면 Nuphos는 진단과 서비스 개선을 위해 AI 실행 추적(대화 및 도구 내용이 포함될 수 있음)을 저장합니다."
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ขึ้นอยู่กับรันไทม์และโมเดลของคุณ ซึ่งรวมถึง Anthropic (Claude), OpenAI (Codex), xAI (Grok), Google (Antigravity), DeepSeek (DeepSeek Harness), ผู้ให้บริการโมเดลที่รันไทม์ OpenCode ใช้ (OpenCode Zen เมื่อไม่ได้ลงชื่อเข้าใช้) หรือ Amazon Web Services เมื่อเปิดใช้การติดตาม Nuphos จะจัดเก็บร่องรอยการทำงานของ AI ซึ่งอาจมีเนื้อหาการสนทนาและเครื่องมือ เพื่อการวินิจฉัยและปรับปรุงบริการ"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "视你使用的运行环境和模型而定，可能包括 Anthropic（Claude）、OpenAI（Codex）、xAI（Grok）、Google（Antigravity）、DeepSeek（DeepSeek Harness）、OpenCode 运行环境使用的模型提供商（未登录时为 OpenCode Zen），或 Amazon Web Services。启用追踪时，Nuphos 会存储 AI 执行追踪记录（可能包含对话和工具内容），用于诊断和改进服务。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "視你使用的執行環境與模型而定，可能包括 Anthropic（Claude）、OpenAI（Codex）、xAI（Grok）、Google（Antigravity）、DeepSeek（DeepSeek Harness）、OpenCode 執行環境使用的模型供應商（未登入時為 OpenCode Zen），或 Amazon Web Services。啟用追蹤時，Nuphos 會儲存 AI 執行追蹤紀錄（可能包含對話與工具內容），用於診斷與改善服務。"
-          }
-        }
-      }
+      "comment" : "Legal text",
+      "shouldTranslate" : false
     },
     "Desktop" : {
       "localizations" : {
@@ -15624,50 +15494,8 @@
       }
     },
     "Only share information you are authorized to share. You can decline and still manage your account or request its deletion. You can withdraw permission in Account → AI data sharing. Withdrawal stops new AI use from this app; it does not undo completed transfers or stop work already running, including work started on other devices or by scheduled agents." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Comparte solo la información que tengas autorización para compartir. Puedes rechazarlo y seguir gestionando tu cuenta o solicitar su eliminación. Puedes retirar el permiso en Cuenta → Uso compartido de datos con IA. Retirarlo detiene el nuevo uso de IA desde esta app; no deshace las transferencias completadas ni detiene el trabajo que ya está en curso, incluido el iniciado en otros dispositivos o por agentes programados."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hanya bagikan informasi yang boleh Anda bagikan. Anda dapat menolak dan tetap mengelola akun atau meminta penghapusannya. Anda dapat menarik izin di Akun → Berbagi data AI. Penarikan menghentikan penggunaan AI baru dari aplikasi ini; tidak membatalkan transfer yang sudah selesai atau menghentikan pekerjaan yang sedang berjalan, termasuk pekerjaan yang dimulai di perangkat lain atau oleh agen terjadwal."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "共有する権限のある情報のみを共有してください。同意しなくても、アカウントの管理や削除のリクエストは引き続き行えます。同意は「アカウント → AI データ共有」で撤回できます。撤回するとこのアプリからの新たな AI 利用は停止しますが、完了した送信は取り消されず、他のデバイスやスケジュールされたエージェントが開始したものを含め、実行中の作業も停止しません。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "공유할 권한이 있는 정보만 공유하세요. 거부하더라도 계정을 관리하거나 삭제를 요청할 수 있습니다. 동의는 계정 → AI 데이터 공유에서 철회할 수 있습니다. 철회하면 이 앱에서의 새로운 AI 사용이 중지되지만, 완료된 전송은 취소되지 않으며 다른 기기나 예약된 에이전트가 시작한 작업을 포함해 이미 실행 중인 작업도 중지되지 않습니다."
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "แชร์เฉพาะข้อมูลที่คุณได้รับอนุญาตให้แชร์ คุณปฏิเสธได้และยังจัดการบัญชีหรือขอลบบัญชีได้ คุณถอนความยินยอมได้ที่ บัญชี → การแชร์ข้อมูล AI การถอนความยินยอมจะหยุดการใช้ AI ใหม่จากแอปนี้ แต่จะไม่ยกเลิกการส่งข้อมูลที่เสร็จแล้วหรือหยุดงานที่กำลังทำงานอยู่ รวมถึงงานที่เริ่มจากอุปกรณ์อื่นหรือจากเอเจนต์ที่ตั้งเวลาไว้"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "请只分享你有权分享的信息。你可以拒绝，仍然能管理账号或申请删除账号。你可以在“账号 → AI 数据分享”中撤回同意。撤回后此 App 将停止新的 AI 使用，但不会撤销已完成的传输，也不会停止已在运行的工作，包括在其他设备上或由定时 Agent 启动的工作。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "請只分享你有權分享的資訊。你可以拒絕，仍然能管理帳號或申請刪除帳號。你可以在「帳號 → AI 資料分享」中撤回同意。撤回後此 App 將停止新的 AI 使用，但不會撤銷已完成的傳送，也不會停止已在執行的工作，包括在其他裝置上或由排程 Agent 啟動的工作。"
-          }
-        }
-      }
+      "comment" : "Legal text",
+      "shouldTranslate" : false
     },
     "Only the owner can change who has access." : {
       "localizations" : {
@@ -25348,50 +25176,8 @@
       }
     },
     "The prompt sets the writing style and spells names Whisper doesn't know, such as products and services. Voice input is included with a Nuphos subscription; recordings are transcribed by OpenAI Whisper." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La instrucción define el estilo de escritura y cómo escribir nombres que Whisper no conoce, como productos y servicios. La entrada de voz está incluida en la suscripción de Nuphos; las grabaciones se transcriben con OpenAI Whisper."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Prompt mengatur gaya penulisan dan mengeja nama yang tidak dikenal Whisper, seperti produk dan layanan. Input suara termasuk dalam langganan Nuphos; rekaman ditranskripsikan oleh OpenAI Whisper."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "プロンプトで文体を指定したり、製品やサービス名など Whisper が知らない名前の綴りを伝えたりできます。音声入力は Nuphos のサブスクリプションに含まれ、録音は OpenAI Whisper で文字起こしされます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "프롬프트로 문체를 정하고 제품이나 서비스 이름처럼 Whisper가 모르는 이름의 철자를 알려줄 수 있습니다. 음성 입력은 Nuphos 구독에 포함되며 녹음은 OpenAI Whisper로 텍스트 변환됩니다."
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "พรอมต์ใช้กำหนดรูปแบบการเขียนและสะกดชื่อที่ Whisper ไม่รู้จัก เช่น ชื่อผลิตภัณฑ์และบริการ การป้อนด้วยเสียงรวมอยู่ในการสมัครใช้งาน Nuphos และการบันทึกเสียงจะถอดความโดย OpenAI Whisper"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "提示可设置书写风格，并拼出 Whisper 不认识的名称，例如产品和服务名称。语音输入已包含在 Nuphos 订阅中；录音由 OpenAI Whisper 转写。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "提示可設定書寫風格，並拼出 Whisper 不認得的名稱，例如產品與服務名稱。語音輸入已包含在 Nuphos 訂閱中；錄音由 OpenAI Whisper 轉寫。"
-          }
-        }
-      }
+      "comment" : "Legal text",
+      "shouldTranslate" : false
     },
     "The provider came back with a mismatched request. Please try again." : {
       "localizations" : {
@@ -25619,6 +25405,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "執行環境沒有回應，回覆已結束。"
+          }
+        }
+      }
+    },
+    "The selection adds no credential this question asks for." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La selección no añade ninguna credencial de las que pide esta pregunta."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pilihan ini tidak menambahkan kredensial yang diminta pertanyaan ini."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この選択では、この質問が求める認証情報が追加されません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 선택에는 이 질문이 요청한 자격 증명이 추가되지 않습니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การเลือกนี้ไม่ได้เพิ่มข้อมูลรับรองที่คำถามนี้ขอ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "所选内容没有新增此问题所需的凭据。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "所選內容沒有新增此問題所需的憑證。"
           }
         }
       }
@@ -26820,50 +26652,8 @@
       }
     },
     "This submits a deletion request; it does not instantly erase your account. You can continue using your account while the request is processed. Signing in again does not cancel the request." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Esto envía una solicitud de eliminación; no borra tu cuenta al instante. Puedes seguir usando tu cuenta mientras se procesa la solicitud. Volver a iniciar sesión no cancela la solicitud."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ini mengirim permintaan penghapusan; akun Anda tidak langsung dihapus. Anda tetap dapat menggunakan akun selama permintaan diproses. Masuk lagi tidak membatalkan permintaan."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "これは削除のリクエストを送信するもので、アカウントがすぐに消去されるわけではありません。リクエストの処理中もアカウントを引き続き使用できます。再度サインインしてもリクエストは取り消されません。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "삭제 요청을 제출하며 계정이 즉시 지워지지는 않습니다. 요청이 처리되는 동안에도 계정을 계속 사용할 수 있습니다. 다시 로그인해도 요청은 취소되지 않습니다."
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "การดำเนินการนี้จะส่งคำขอลบ แต่จะไม่ลบบัญชีของคุณทันที คุณยังใช้บัญชีต่อได้ระหว่างที่ดำเนินการคำขอ การลงชื่อเข้าใช้อีกครั้งจะไม่ยกเลิกคำขอ"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "这会提交删除申请，不会立即清除你的账号。申请处理期间你仍可继续使用账号。重新登录不会取消申请。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這會送出刪除申請，不會立即清除你的帳號。申請處理期間你仍可繼續使用帳號。重新登入不會取消申請。"
-          }
-        }
-      }
+      "comment" : "Legal text",
+      "shouldTranslate" : false
     },
     "This task is no longer running." : {
       "localizations" : {
@@ -29166,50 +28956,8 @@
       }
     },
     "Using an agent sends your prompts, conversation history, uploaded images and files, and relevant results from connected tools to the providers needed to carry out your request." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Al usar un agente, tus instrucciones, el historial de la conversación, las imágenes y archivos subidos y los resultados relevantes de las herramientas conectadas se envían a los proveedores necesarios para llevar a cabo tu solicitud."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Menggunakan agen akan mengirim prompt, riwayat percakapan, gambar dan file yang diunggah, serta hasil terkait dari alat yang terhubung ke penyedia yang diperlukan untuk menjalankan permintaan Anda."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "エージェントを使用すると、プロンプト、会話履歴、アップロードした画像とファイル、接続済みツールの関連する結果が、リクエストの実行に必要なプロバイダーに送信されます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "에이전트를 사용하면 프롬프트, 대화 기록, 업로드한 이미지와 파일, 연결된 도구의 관련 결과가 요청을 처리하는 데 필요한 제공업체로 전송됩니다."
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "การใช้เอเจนต์จะส่งพรอมต์ ประวัติการสนทนา รูปภาพและไฟล์ที่อัปโหลด และผลลัพธ์ที่เกี่ยวข้องจากเครื่องมือที่เชื่อมต่อ ไปยังผู้ให้บริการที่จำเป็นต่อการดำเนินการตามคำขอของคุณ"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "使用 Agent 时，你的提示、对话记录、上传的图片和文件，以及已连接工具的相关结果，会发送给执行你的请求所需的服务提供商。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "使用 Agent 時，你的提示、對話紀錄、上傳的圖片與檔案，以及已連接工具的相關結果，會傳送給執行你的請求所需的服務供應商。"
-          }
-        }
-      }
+      "comment" : "Legal text",
+      "shouldTranslate" : false
     },
     "Verification Code" : {
       "localizations" : {
@@ -30132,50 +29880,8 @@
       }
     },
     "We will permanently delete your account and associated personal data within 30 days. Our team will coordinate any workspace ownership and shared-data handling. Records required by law and data jointly held by your team may be retained where necessary." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Eliminaremos de forma permanente tu cuenta y los datos personales asociados en un plazo de 30 días. Nuestro equipo coordinará la titularidad de los espacios de trabajo y el tratamiento de los datos compartidos. Los registros exigidos por ley y los datos que tu equipo posee en común pueden conservarse cuando sea necesario."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kami akan menghapus akun Anda dan data pribadi terkait secara permanen dalam 30 hari. Tim kami akan mengoordinasikan kepemilikan ruang kerja dan penanganan data bersama. Catatan yang diwajibkan oleh hukum dan data yang dimiliki bersama oleh tim Anda dapat disimpan bila diperlukan."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "30 日以内にアカウントと関連する個人データを完全に削除します。ワークスペースの所有権や共有データの扱いは当社のチームが調整します。法律で義務付けられた記録や、チームと共同で保有するデータは、必要に応じて保持される場合があります。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "30일 이내에 계정과 관련 개인 데이터를 영구적으로 삭제합니다. 워크스페이스 소유권과 공유 데이터 처리는 저희 팀이 조율합니다. 법률상 보관해야 하는 기록과 팀이 공동으로 보유한 데이터는 필요한 경우 보관될 수 있습니다."
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "เราจะลบบัญชีและข้อมูลส่วนบุคคลที่เกี่ยวข้องของคุณอย่างถาวรภายใน 30 วัน ทีมของเราจะประสานงานเรื่องความเป็นเจ้าของเวิร์กสเปซและการจัดการข้อมูลที่แชร์ บันทึกที่กฎหมายกำหนดและข้อมูลที่ถือร่วมกับทีมของคุณอาจถูกเก็บไว้เมื่อจำเป็น"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "我们会在 30 天内永久删除你的账号及相关个人数据。我们的团队会协调工作区所有权和共享数据的处理。依法须保存的记录，以及与你的团队共同持有的数据，可能会在必要时保留。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "我們會在 30 天內永久刪除你的帳號及相關個人資料。我們的團隊會協調工作區擁有權與共用資料的處理。依法須保存的紀錄，以及與你的團隊共同持有的資料，可能會在必要時保留。"
-          }
-        }
-      }
+      "comment" : "Legal text",
+      "shouldTranslate" : false
     },
     "Web sign-in (nuphos.ai)" : {
       "localizations" : {
@@ -31427,50 +31133,8 @@
       }
     },
     "Your request has been saved. You do not need to contact support to start deletion." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tu solicitud se guardó. No necesitas contactar con soporte para iniciar la eliminación."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Permintaan Anda telah disimpan. Anda tidak perlu menghubungi dukungan untuk memulai penghapusan."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "リクエストを保存しました。削除を開始するためにサポートへ連絡する必要はありません。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "요청이 저장되었습니다. 삭제를 시작하기 위해 지원팀에 문의할 필요가 없습니다."
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "บันทึกคำขอของคุณแล้ว คุณไม่ต้องติดต่อฝ่ายสนับสนุนเพื่อเริ่มการลบ"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你的申请已保存。无需联系客服即可开始删除。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你的申請已儲存。不需要聯絡客服即可開始刪除。"
-          }
-        }
-      }
+      "comment" : "Legal text",
+      "shouldTranslate" : false
     },
     "Your session has expired. Please sign in again." : {
       "localizations" : {

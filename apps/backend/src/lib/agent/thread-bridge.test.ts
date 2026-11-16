@@ -15,6 +15,7 @@ import { threadReadGrants } from './db/access'
 import {
   authorizeThreadDelivery,
   createAgentThread,
+  delegationThreadId,
   listThreadRuntimes,
   sendAgentThreadMessage,
   updateThread,
@@ -200,7 +201,7 @@ useSessionConfig({
     }
   },
 })
-useAgentDb({
+const installAgentDb = useAgentDb({
   setConversationArchived: async (...args) => {
     archives.push(args)
 
@@ -231,6 +232,48 @@ useAgentDb({
     conversation: { ...source, sessionId },
     messages: [],
   }),
+})
+
+test('a delegation key is stable and scoped to its parent, owner and team', () => {
+  const id = delegationThreadId(actor, 'request-1')
+
+  expect(id).toMatch(/^[\da-f]{8}-[\da-f]{4}-5[\da-f]{3}-a[\da-f]{3}-[\da-f]{12}$/)
+  expect(delegationThreadId(actor, 'request-1')).toBe(id)
+  for (const changed of [{ sessionId: 'elsewhere' }, { userId: 'other' }, { teamId: 'other' }])
+    expect(delegationThreadId({ ...actor, ...changed }, 'request-1')).not.toBe(id)
+})
+
+test('retrying a delegation preserves its task and delivery id; changed prompts are refused', async () => {
+  let stored: AgentConversation | undefined
+
+  installAgentDb({
+    upsertConversationShell: async (data) => {
+      if (stored) return { isNew: false }
+      stored = { ...source, ...data }
+
+      return { isNew: true }
+    },
+    getConversationBySessionId: async (id) =>
+      id === 'source' ? source : stored?.sessionId === id ? stored : null,
+    agentConversations: () => ({
+      findOne: async ({ sessionId }: { sessionId: string }) =>
+        sessionId === actor.sessionId ? source : stored,
+      updateOne: async () => {
+        stored!.delegation!.ready = true
+
+        return { matchedCount: 1 }
+      },
+    }),
+  })
+  const first = await createAgentThread(actor, 'Work', 'Task', { requestId: 'request-1' })
+  const retry = await createAgentThread(actor, 'Work', 'Task', { requestId: 'request-1' })
+
+  expect(retry.threadId).toBe(first.threadId)
+  expect(retry.messageId).toBe(first.messageId)
+  await expect(
+    createAgentThread(actor, 'Different work', 'Task', { requestId: 'request-1' }),
+  ).rejects.toThrow('different or archived work')
+  expect(stored?.firstMessage).toBe('Work')
 })
 
 describe('conversation-scoped thread tools', () => {

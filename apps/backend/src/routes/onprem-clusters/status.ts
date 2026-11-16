@@ -1,5 +1,5 @@
 import { config } from '@/config'
-import { canUseAllowList } from '@/lib/byos/access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { parseRelayedKubeconfig, renderAgentKubeconfig } from '@/lib/byos/agent-kubeconfig'
 import { readOnpremAccess } from '@/lib/byos/onprem-access'
 import { relayProxyUrl, relayStatusCredential } from '@/lib/byos/relay-token'
@@ -7,7 +7,7 @@ import { decryptOnpremKubeconfig } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { logError } from '@/lib/observability'
-import { requireTeamRole } from '@/middleware/auth'
+import { canRequestUseBinding, requireTeamRole } from '@/middleware/auth'
 import { loadBinding, requireRelay } from '@/routes/onprem-clusters/shared'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
@@ -59,6 +59,15 @@ export function registerOnpremStatusRoutes(
     }
   })
 
+  // `/access` reports what the cluster credential can do, so the member list
+  // has its own path here.
+  registerBindingAccessRoutes(
+    onpremClustersRoutes,
+    'onpremClusters',
+    (c) => loadBinding(parseObjectId(c.get('teamId'), 'teamId'), c.req.param('clusterId') ?? ''),
+    '/:clusterId/member-access',
+  )
+
   /**
    * What the credential can actually do, answered by the customer's own API server
    * through the tunnel. Shown at the end of enrolment so the operator sees the
@@ -69,7 +78,7 @@ export function registerOnpremStatusRoutes(
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
     const binding = await loadBinding(teamId, c.req.param('clusterId'))
 
-    if (!canUseAllowList(binding.access?.memberAllowList, c.get('userId'))) {
+    if (!canRequestUseBinding(c, binding.access)) {
       throw new AppError(403, 'forbidden', 'You do not have access to this on-prem cluster.')
     }
 
@@ -102,7 +111,7 @@ export function registerOnpremStatusRoutes(
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
     const binding = await loadBinding(teamId, c.req.param('clusterId'))
 
-    if (!canUseAllowList(binding.access?.memberAllowList, c.get('userId'))) {
+    if (!canRequestUseBinding(c, binding.access)) {
       throw new AppError(403, 'forbidden', 'You do not have access to this on-prem cluster.')
     }
     if (!binding.encryptedKubeconfig) {

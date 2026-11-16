@@ -224,7 +224,7 @@ describe('selectAgentK8sBindings', () => {
         awsRoleIds: [selectedAws, breakGlassAws, allowListedOut].map((b) => b.id.toHexString()),
         gcpServiceAccountIds: [selectedGcp.id.toHexString()],
       },
-      userId: USER,
+      principals: [USER],
     })
 
     expect(result.aws).toEqual([selectedAws])
@@ -238,14 +238,38 @@ describe('selectAgentK8sBindings', () => {
     const result = selectAgentK8sBindings({
       bindings: { tencentAccounts: [selected, unselected] },
       selected: { tencentAccountIds: [selected.id.toHexString()] },
-      userId: USER,
+      principals: [USER],
     })
 
     expect(result.tencent).toEqual([selected])
   })
 
+  test("leaves out a sender's private binding in a conversation owned by someone else", () => {
+    const sendersOwn = awsBinding({
+      access: {
+        memberAllowList: [USER],
+        ownerUserId: USER,
+        updatedAt: new Date(),
+        updatedBy: USER,
+      },
+    })
+    const selected = { awsRoleIds: [sendersOwn.id.toHexString()] }
+    const bindings = { awsRoles: [sendersOwn] }
+
+    expect(selectAgentK8sBindings({ bindings, selected, principals: [USER] }).aws).toEqual([
+      sendersOwn,
+    ])
+    expect(selectAgentK8sBindings({ bindings, selected, principals: [USER, 'owner'] }).aws).toEqual(
+      [],
+    )
+  })
+
   test('tolerates missing binding arrays and a session with no selection', () => {
-    const result = selectAgentK8sBindings({ bindings: null, selected: undefined, userId: USER })
+    const result = selectAgentK8sBindings({
+      bindings: null,
+      selected: undefined,
+      principals: [USER],
+    })
 
     expect(Object.values(result).every((list) => list.length === 0)).toBe(true)
   })

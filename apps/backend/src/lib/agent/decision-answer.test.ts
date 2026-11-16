@@ -154,10 +154,10 @@ test("a teammate's answer is told apart from the owner's", async () => {
 })
 
 test('a secret or a connection is never answered with text here', async () => {
-  for (const category of ['credential', 'integration'])
+  for (const asked of [{ category: 'credential' }, { category: 'integration', providers: ['gcp'] }])
     await expect(
       answerDecision({
-        conversation: ask({ category }),
+        conversation: ask(asked),
         requestId: 'q1',
         answer: { text: 'sk-secret' },
         actor,
@@ -165,6 +165,18 @@ test('a secret or a connection is never answered with text here', async () => {
       }),
     ).rejects.toThrow('its own card')
   expect(turns).toEqual([])
+})
+
+test('an integration question that names nothing to select is answered with text', async () => {
+  await answerDecision({
+    conversation: ask({ category: 'integration' }),
+    requestId: 'q1',
+    answer: { text: 'Check the Play Console by hand' },
+    actor,
+    teamId: 't1',
+  })
+
+  expect(turns[0]!.text).toContain('Check the Play Console by hand')
 })
 
 test('an answered question, or one that lost the race, is refused and wakes no one', async () => {
