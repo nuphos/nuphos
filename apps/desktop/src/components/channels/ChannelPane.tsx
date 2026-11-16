@@ -1,9 +1,7 @@
 import { clsx } from 'clsx'
-import { Monitor } from 'lucide-react'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 import { api } from '../../api'
-import { openSessionDesktop } from '../../app/workspace/openSessionDesktop'
 import { t } from '../../i18n'
 import { runtimeStateOf, subscribeRuntimeStates } from '../../lib/agentRuntimeStates'
 import { runtimeTurnActive } from '../../lib/runtimeExecution'
@@ -17,11 +15,11 @@ import { sessionDesktopsOf } from '../agent/panel/shells'
 import { useConversationRead } from '../agent/panel/useConversationRead'
 import { SessionParticipants } from '../agent/SessionParticipants'
 import { HeaderEdge } from '../ui/header-edge'
-import { IconButton } from '../ui/icon-button'
 import { toast } from '../ui/toast'
 
 import { botOfChannel, ownsBot } from './botChannel'
 import { BotStatusPill } from './BotStatusPill'
+import { BotDesktopButton } from './BotDesktopButton'
 import { BotTaskButton } from './BotTaskButton'
 import { ChannelEmptyState } from './ChannelEmptyState'
 import { ChannelMessages } from './ChannelMessages'
@@ -66,6 +64,7 @@ export function ChannelPane({
   onOpenSession: (sessionId: string) => void
   onOpenTask?: (sessionId: string) => void
   onOpenNuphosLink?: (href: string, beside?: boolean) => boolean
+  /** What the workspace lends to repair an agent that could not reply. */
   fixes?: ChannelFixes
 }) {
   const { detail, chat, agents, refresh } = useChannel(teamId, channelId)
@@ -194,17 +193,8 @@ export function ChannelPane({
             onClick={() => (onOpenTask ?? onOpenSession)(bot)}
           />
         )}
-        {bot && canOpenBotDesktop && (
-          <IconButton
-            label={t('Desktop')}
-            icon={<Monitor />}
-            onClick={() => {
-              openSessionDesktop(teamId, bot, api.openSessionDesktop).catch((error: unknown) =>
-                toast.apiError(t('Could not open the desktop'), error),
-              )
-            }}
-          />
-        )}
+        {bot && canOpenBotDesktop && <BotDesktopButton teamId={teamId} botId={bot} />}
+        {/* A Bot's 1:1 chat stays the two of you; a group chat starts from "+" on Bots. */}
         {!bot && (
           <SessionParticipants
             key={channelId}
@@ -231,6 +221,8 @@ export function ChannelPane({
         ref={scrollRef}
         className="min-h-0 flex-1 overflow-y-auto scrollbar-thin pt-5 pb-4 selectable"
       >
+        {/* The column: one box, so its height says when anything below grows, and
+            the one width every row takes, the composer's own. */}
         <ChatColumn>
           {detail && messages.length === 0 && (
             <ChannelEmptyState
@@ -267,6 +259,8 @@ export function ChannelPane({
         </ChatColumn>
       </HeaderEdge>
       <ChatColumn>
+        {/* Inset past the faces on both sides, so the reply bar and the composer
+            line up with the bubbles: a face and its gap (2.375rem) on each side. */}
         <div
           ref={composerRef}
           className="px-[2.375rem]"
