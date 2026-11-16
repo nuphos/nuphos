@@ -177,8 +177,6 @@ enum BotQuestionsTests {
         let plan = try! JSONDecoder().decode(
             AgentConversation.InputRequest.self, from: Data(#"{"id":"r","question":"Approve?","planId":"p1"}"#.utf8))
         precondition(plan.planId == "p1")
-        // "Other…" quotes the question above the composer, a quote no post in the chat has.
-        precondition(ask("preference").quote == ChannelReply(id: nil, authorName: "Agent", text: "Go?"))
     }
 
     private static func aQuestionNamingTheMembersOwnCredentialIsConnectable() {

@@ -29,8 +29,6 @@ object AgentChatApi {
         val runtimeId: String? = null,
         val agentRuntime: String? = null,
         val initialSessionConfig: Map<String, String>? = null,
-        /** The open question this message answers: the server resolves that request. */
-        val decisionReplyTo: String? = null,
     )
 
     fun chatRequest(token: String, body: ChatRequest): Request {
@@ -52,10 +50,10 @@ object AgentChatApi {
      * server reads the history itself, queues behind a running turn, and keeps
      * the turn going after this returns, so only the headers are awaited.
      */
-    fun reply(token: String, teamId: String, sessionId: String, text: String, decisionReplyTo: String? = null): Boolean {
+    fun reply(token: String, teamId: String, sessionId: String, text: String): Boolean {
         val body = ChatRequest(
             id = sessionId, teamId = teamId, messages = listOf(ChatMessage.user(text)),
-            streamId = java.util.UUID.randomUUID().toString(), decisionReplyTo = decisionReplyTo,
+            streamId = java.util.UUID.randomUUID().toString(),
         )
         return Http.client.newCall(chatRequest(token, body)).execute().use { it.isSuccessful }
     }
@@ -77,7 +75,6 @@ object AgentChatApi {
         val runtimeId: String? = null,
         val agentRuntime: String? = null,
         val initialSessionConfig: Map<String, String>? = null,
-        val decisionReplyTo: String? = null,
     ) {
         companion object {
             fun from(body: ChatRequest) = ChatRequestBody(
@@ -96,7 +93,6 @@ object AgentChatApi {
                 runtimeId = body.runtimeId,
                 agentRuntime = body.agentRuntime,
                 initialSessionConfig = body.initialSessionConfig,
-                decisionReplyTo = body.decisionReplyTo,
             )
         }
     }

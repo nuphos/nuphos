@@ -222,7 +222,6 @@ struct AgentPage: View {
             return
         }
         let session = store.session(sessionId: target.sessionId, title: target.title, teamId: target.teamId)
-        session.answering = target.answering.map { BotQuestion(sessionId: target.sessionId, title: target.title, request: $0) }
         openChat = OpenChat(session: session)
     }
 
