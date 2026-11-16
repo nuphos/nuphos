@@ -23,6 +23,7 @@ const attachment = {
 const noop = () => {}
 let promptError: Error
 let forgotten: unknown[] | undefined
+let forgetFails = false
 const client = {
   loadSession: async () => ({ alive: true }),
   prompt: async () => {
@@ -41,6 +42,7 @@ useAgentDb({
   consumeConversationWorkLost: async () => null,
   forgetConversationPreviewSession: async (...args: unknown[]) => {
     forgotten = args
+    if (forgetFails) throw new Error('database unavailable')
   },
 })
 useDb({ db: () => ({ collection: () => ({ findOne: async () => null }) }) })
@@ -49,6 +51,7 @@ useSessionExecutionState({
 })
 beforeEach(() => {
   forgotten = undefined
+  forgetFails = false
   sessionsByConversation.set('team:conversation', {
     teamId: 'team',
     conversationId: 'conversation',
@@ -117,4 +120,18 @@ test.each([
 
   await expect(run()).rejects.toBe(error)
   expect(forgotten).toBeUndefined()
+})
+
+// The user needs the agent's error, not the database's: a failed forget is only logged.
+test("a forget that cannot be written still fails the turn with the agent's error", async () => {
+  const error = new OpenAbRpcError(
+    '**Internal Error** (code: -32603)\nInternal error\n> Session not found',
+    -32603,
+  )
+
+  promptError = error
+  forgetFails = true
+
+  await expect(run()).rejects.toBe(error)
+  expect(forgotten).toBeDefined()
 })
