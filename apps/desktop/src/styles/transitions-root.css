@@ -9,10 +9,10 @@
   /* Durations */
   --duration-stagger: 40ms; /* per-item stagger offset */
   --duration-micro: 80ms; /* tooltip/path delay, shake segment, large stagger */
-  --duration-quick: 150ms; /* modal/dropdown close, text swap, tooltip appear */
-  --duration-fast: 250ms; /* icon swap, dropdown/modal open, tabs sliding, page slide */
-  --duration-medium: 350ms; /* panel close, toast close */
-  --duration-slow: 400ms; /* panel open, skeleton content reveal, input clear */
+  --duration-quick: 160ms; /* modal/dropdown close, text swap, tooltip appear */
+  --duration-fast: 280ms; /* icon swap, dropdown/modal open, tabs sliding, page slide */
+  --duration-medium: 280ms; /* panel close, toast close */
+  --duration-slow: 340ms; /* panel open, skeleton content reveal, input clear */
   --duration-very-slow: 500ms; /* emphasis moments, badge appear, text reveal, success check */
   /* Easings */
   --ease-smooth-out: cubic-bezier(
@@ -43,7 +43,7 @@
   --blur-large: 8px; /* success check open */
 
   /* Card resize */
-  --resize-dur: 300ms;
+  --resize-dur: 280ms;
   --resize-ease: cubic-bezier(0.22, 1, 0.36, 1);
   /* Number pop-in */
   --digit-dur: 500ms;
@@ -66,31 +66,31 @@
   --badge-pop-ease: cubic-bezier(0.34, 1.36, 0.64, 1);
   --badge-close-ease: cubic-bezier(0.4, 0, 0.2, 1);
   /* Text states swap */
-  --text-swap-dur: 150ms;
+  --text-swap-dur: 160ms;
   --text-swap-translate-y: 4px;
   --text-swap-blur: 2px;
   --text-swap-ease: ease-in-out;
   /* Menu dropdown */
-  --dropdown-open-dur: 250ms;
-  --dropdown-close-dur: 150ms;
+  --dropdown-open-dur: 340ms;
+  --dropdown-close-dur: 160ms;
   --dropdown-pre-scale: 0.97;
   --dropdown-closing-scale: 0.99;
   --dropdown-ease: cubic-bezier(0.22, 1, 0.36, 1);
   /* Modal open / close */
-  --modal-open-dur: 250ms;
-  --modal-close-dur: 150ms;
+  --modal-open-dur: 340ms;
+  --modal-close-dur: 160ms;
   --modal-scale: 0.96;
   --modal-scale-close: 0.96;
   --modal-ease: cubic-bezier(0.22, 1, 0.36, 1);
   /* Panel reveal */
-  --panel-open-dur: 400ms;
-  --panel-close-dur: 350ms;
+  --panel-open-dur: 340ms;
+  --panel-close-dur: 280ms;
   --panel-translate-y: 100px;
   --panel-blur: 2px;
   --panel-ease: cubic-bezier(0.22, 1, 0.36, 1);
   /* Page side-by-side */
-  --page-slide-dur: 250ms;
-  --page-fade-dur: 250ms;
+  --page-slide-dur: 280ms;
+  --page-fade-dur: 280ms;
   --page-slide-distance: 8px;
   --page-blur: 3px;
   --page-stagger: 0ms;
@@ -98,7 +98,7 @@
   --page-slide-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --page-fade-ease: cubic-bezier(0.22, 1, 0.36, 1);
   /* Icon swap */
-  --icon-swap-dur: 250ms;
+  --icon-swap-dur: 280ms;
   --icon-swap-blur: 2px;
   --icon-swap-start-scale: 0.25;
   --icon-swap-ease: ease-in-out;
@@ -149,7 +149,7 @@
   --pulse-dur: 1000ms;
   --pulse-count: 1;
   --pulse-min: 0.5;
-  --reveal-dur: 400ms;
+  --reveal-dur: 280ms;
   --reveal-blur: 2px;
   --reveal-ease: ease-in-out;
   /* Shimmer text */

@@ -1,26 +1,32 @@
-import { ChevronRight, ExternalLink, Plus, Unplug } from 'lucide-react'
+import { ChevronRight, ExternalLink, Plus, Unplug } from "lucide-react";
 
-import { api } from '../../api'
-import { CloudLogo } from '../../components/CloudLogo'
-import { LinearMark } from '../../components/LinearMark'
-import { toast } from '../../components/ui/toast'
-import { t } from '../../i18n'
-import { CATALOG } from '../addIntegrationCatalog'
+import { api } from "../../api";
+import { CloudLogo } from "../../components/CloudLogo";
+import { LinearMark } from "../../components/LinearMark";
+import { toast } from "../../components/ui/toast";
+import { t } from "../../i18n";
+import { CATALOG } from "../addIntegrationCatalog";
 
-import type { ConnectorInfo } from './types'
-import type { ConnectorInfoProvider } from '../../lib/appRoutes'
-import type { ReactNode } from 'react'
+import type { ConnectorInfo } from "./types";
+import type { ConnectorInfoProvider } from "../../lib/appRoutes";
+import type { ReactNode } from "react";
 
 export type ConnectorInfoAction = {
-  label: string
-  onOpen: () => void
-  kind?: 'primary' | 'secondary'
-}
+  label: string;
+  onOpen: () => void;
+  kind?: "primary" | "secondary";
+};
 
-function ConnectorLogo({ provider, size }: { provider: ConnectorInfoProvider; size: number }) {
-  if (provider === 'linear') return <LinearMark size={size} />
+function ConnectorLogo({
+  provider,
+  size,
+}: {
+  provider: ConnectorInfoProvider;
+  size: number;
+}) {
+  if (provider === "linear") return <LinearMark size={size} />;
 
-  return <CloudLogo provider={provider} size={size} />
+  return <CloudLogo provider={provider} size={size} />;
 }
 
 function ConnectionDetails({
@@ -29,18 +35,21 @@ function ConnectionDetails({
   actions,
   onDisconnect,
 }: {
-  info: ConnectorInfo
-  providerLabel: string
-  actions: ConnectorInfoAction[]
-  onDisconnect?: () => void
+  info: ConnectorInfo;
+  providerLabel: string;
+  actions: ConnectorInfoAction[];
+  onDisconnect?: () => void;
 }) {
-  const externalUrl = info.externalUrl
-  const hasActions = actions.length > 0 || Boolean(externalUrl) || Boolean(onDisconnect)
+  const externalUrl = info.externalUrl;
+  const hasActions =
+    actions.length > 0 || Boolean(externalUrl) || Boolean(onDisconnect);
 
   return (
     <div className="border-t border-line-control/55 bg-state-selected px-4 pb-5 pt-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-[12px] font-medium text-secondary">{t('Connection details')}</h3>
+        <h3 className="text-[12px] font-medium text-secondary">
+          {t("Connection details")}
+        </h3>
         {hasActions && (
           <div className="flex flex-wrap items-center gap-2">
             {actions.map((action) => (
@@ -49,9 +58,9 @@ function ConnectionDetails({
                 type="button"
                 onClick={action.onOpen}
                 className={
-                  action.kind === 'primary'
-                    ? 'flex h-8 items-center rounded-lg bg-line-control px-3 text-[12.5px] font-medium text-tertiary transition-colors hover:bg-state-hover'
-                    : 'flex h-8 items-center rounded-lg border border-line-control/60 bg-surface px-3 text-[12.5px] font-medium text-secondary transition-colors hover:bg-state-hover hover:text-main'
+                  action.kind === "primary"
+                    ? "flex h-8 items-center rounded-lg bg-line-control px-3 text-[12.5px] font-medium text-tertiary transition-colors hover:bg-state-hover"
+                    : "flex h-8 items-center rounded-lg border border-line-control/60 bg-surface px-3 text-[12.5px] font-medium text-secondary transition-colors hover:bg-state-hover hover:text-main"
                 }
               >
                 {action.label}
@@ -63,7 +72,11 @@ function ConnectionDetails({
                 onClick={() => {
                   void api
                     .appOpenExternal(externalUrl)
-                    .catch(() => toast.error(t('Could not open {name}', { name: providerLabel })))
+                    .catch(() =>
+                      toast.error(
+                        t("Could not open {name}", { name: providerLabel }),
+                      ),
+                    );
                 }}
                 className="flex h-8 items-center gap-1.5 rounded-lg border border-line-control/60 bg-surface px-3 text-[12.5px] font-medium text-secondary transition-colors hover:bg-state-hover hover:text-main"
               >
@@ -78,7 +91,7 @@ function ConnectionDetails({
                 className="flex h-8 items-center gap-1.5 rounded-lg border border-status-danger/25 bg-status-danger/5 px-3 text-[12.5px] font-medium text-status-danger transition-colors hover:border-status-danger/40 hover:bg-status-danger/10"
               >
                 <Unplug className="h-3.5 w-3.5" strokeWidth={1.9} />
-                {t('Disconnect')}
+                {t("Disconnect")}
               </button>
             )}
           </div>
@@ -86,13 +99,18 @@ function ConnectionDetails({
       </div>
       <dl className="mt-4 space-y-3">
         {info.fields.map((field) => (
-          <div key={field.label} className="grid grid-cols-[112px_minmax(0,1fr)] gap-4">
-            <dt className="text-[12px] leading-5 text-tertiary">{field.label}</dt>
+          <div
+            key={field.label}
+            className="grid grid-cols-[112px_minmax(0,1fr)] gap-4"
+          >
+            <dt className="text-[12px] leading-5 text-tertiary">
+              {field.label}
+            </dt>
             <dd
               className={
                 field.mono
-                  ? 'break-all font-mono text-[11.5px] leading-5 text-secondary'
-                  : 'min-w-0 break-words text-[12.5px] leading-5 text-main'
+                  ? "break-all font-mono text-[11.5px] leading-5 text-secondary"
+                  : "min-w-0 break-words text-[12.5px] leading-5 text-main"
               }
             >
               {field.value}
@@ -101,7 +119,7 @@ function ConnectionDetails({
         ))}
       </dl>
     </div>
-  )
+  );
 }
 
 export function ConnectorInfoPage({
@@ -113,27 +131,28 @@ export function ConnectorInfoPage({
   onDisconnect,
   addAction,
 }: {
-  provider: ConnectorInfoProvider
-  providerLabel: string
+  provider: ConnectorInfoProvider;
+  providerLabel: string;
   connections: {
-    id: string
-    info: ConnectorInfo
-    inAppActions?: ConnectorInfoAction[]
-    details?: ReactNode
-    canDisconnect?: boolean
+    id: string;
+    info: ConnectorInfo;
+    inAppActions?: ConnectorInfoAction[];
+    details?: ReactNode;
+    canDisconnect?: boolean;
     /** Replaces "Connected" when the connection needs someone to act. */
-    attention?: string
-  }[]
-  selectedId: string | null
-  onSelect: (id: string | null) => void
-  onDisconnect: (id: string, name: string) => void
-  addAction?: { label: string; onClick: () => void }
+    attention?: string;
+  }[];
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
+  onDisconnect: (id: string, name: string) => void;
+  addAction?: { label: string; onClick: () => void };
 }) {
   const catalogItem = CATALOG.flatMap((category) => category.items).find(
     (item) => item.key === provider,
-  )
+  );
   const description =
-    catalogItem?.description ?? t('{name} connector for Nuphos.', { name: providerLabel })
+    catalogItem?.description ??
+    t("{name} connector for Nuphos.", { name: providerLabel });
 
   return (
     <div className="w-full px-8 pb-8 pt-2">
@@ -147,19 +166,23 @@ export function ConnectorInfoPage({
             <h1 className="text-[20px] font-medium leading-tight tracking-[-0.015em] text-main">
               {providerLabel}
             </h1>
-            <p className="mt-1.5 text-[13px] leading-relaxed text-tertiary">{description}</p>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-tertiary">
+              {description}
+            </p>
           </div>
         </div>
       </header>
 
       <section className="mt-10">
         <div className="flex items-center justify-between border-b border-line-control/55 pb-2.5">
-          <h2 className="text-[13.5px] font-medium text-main">{t('Connections')}</h2>
+          <h2 className="text-[13.5px] font-medium text-main">
+            {t("Connections")}
+          </h2>
           <div className="flex items-center gap-3">
             <span className="text-[11.5px] text-tertiary">
               {connections.length === 1
-                ? t('{n} connection', { n: connections.length })
-                : t('{n} connections', { n: connections.length })}
+                ? t("{n} connection", { n: connections.length })
+                : t("{n} connections", { n: connections.length })}
             </span>
             {addAction && (
               <button
@@ -175,15 +198,15 @@ export function ConnectorInfoPage({
         </div>
         <div className="mt-3 space-y-2">
           {connections.map((connection) => {
-            const isSelected = connection.id === selectedId
+            const isSelected = connection.id === selectedId;
 
             return (
               <div
                 key={connection.id}
                 className={`overflow-hidden rounded-xl border transition-colors ${
                   isSelected
-                    ? 'border-line-control/70 bg-surface shadow-sm'
-                    : 'border-transparent hover:border-line-control/55 hover:bg-state-hover'
+                    ? "border-line-control/70 bg-surface shadow-sm"
+                    : "border-transparent hover:border-line-control/55 hover:bg-state-hover"
                 }`}
               >
                 <button
@@ -200,28 +223,32 @@ export function ConnectorInfoPage({
                       {connection.info.name}
                     </div>
                     <div className="mt-0.5 text-[11.5px] text-tertiary">
-                      {t('{name} connection', { name: providerLabel })}
+                      {t("{name} connection", { name: providerLabel })}
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 rounded-full border border-line-control/55 bg-surface px-2.5 py-1 text-[11.5px] text-secondary">
                     <span
                       className={`h-1.5 w-1.5 rounded-full ${
-                        connection.attention ? 'bg-warning' : 'bg-status-success'
+                        connection.attention
+                          ? "bg-warning"
+                          : "bg-status-success"
                       }`}
                     />
-                    {connection.attention ?? t('Connected')}
+                    {connection.attention ?? t("Connected")}
                   </div>
                   <ChevronRight
-                    className={`h-4 w-4 flex-none text-tertiary transition-transform duration-200 ${
-                      isSelected ? 'rotate-90' : ''
+                    className={`h-4 w-4 flex-none text-tertiary transition-transform duration-[280ms] ${
+                      isSelected ? "rotate-90" : ""
                     }`}
                   />
                 </button>
                 <div
                   aria-hidden={!isSelected}
                   inert={!isSelected}
-                  className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out ${
-                    isSelected ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+                  className={`grid transition-[grid-template-rows,opacity] duration-[280ms] ease-out ${
+                    isSelected
+                      ? "grid-rows-[1fr] opacity-100"
+                      : "grid-rows-[0fr] opacity-0"
                   }`}
                 >
                   <div className="min-h-0 overflow-hidden">
@@ -231,7 +258,8 @@ export function ConnectorInfoPage({
                       actions={connection.inAppActions ?? []}
                       onDisconnect={
                         connection.canDisconnect
-                          ? () => onDisconnect(connection.id, connection.info.name)
+                          ? () =>
+                              onDisconnect(connection.id, connection.info.name)
                           : undefined
                       }
                     />
@@ -243,10 +271,10 @@ export function ConnectorInfoPage({
                   </div>
                 </div>
               </div>
-            )
+            );
           })}
         </div>
       </section>
     </div>
-  )
+  );
 }

@@ -1,31 +1,35 @@
-import clsx from 'clsx'
-import { memo, useState } from 'react'
+import clsx from "clsx";
+import { memo, useState } from "react";
 
-import { useSuspendTitlebarDrag } from '../../hooks/useSuspendTitlebarDrag'
-import { RenameConversationDialog } from '../agent/panel/ConversationTitleEditor'
-import { openBotChannel } from '../channels/botChannel'
-import { SIDEBAR_PANEL_PADDING_CLASS } from '../SidebarNavItem'
+import { useSuspendTitlebarDrag } from "../../hooks/useSuspendTitlebarDrag";
+import { RenameConversationDialog } from "../agent/panel/ConversationTitleEditor";
+import { openBotChannel } from "../channels/botChannel";
+import { SIDEBAR_PANEL_PADDING_CLASS } from "../SidebarNavItem";
 
-import { useArchiveBotConfirm } from './archive-bot-confirm'
-import { isChatSection, withChatSections, withSectionActions } from './chat-sections'
-import { SidebarHeaderBar, SidebarTeamSwitcher } from './header'
-import { SidebarItemContextMenu } from './item-context-menu'
-import { SidebarBackControl, SidebarNavStack } from './nav-stack'
-import { SidebarIdentitySelector } from './parts'
-import { chatSectionActions, useProjectRows } from './section-actions'
-import { SidebarSectionList } from './sections-list'
-import { teamSections } from './sections-services'
-import { SidebarFooter } from './SidebarFooter'
-import { SidebarTeamPages } from './SidebarTeamPages'
-import { settingsBackTarget } from './types'
-import { useChatNavKeys } from './use-chat-nav-keys'
-import { useSidebarChrome } from './use-sidebar-chrome'
-import { useSidebarChats, useSidebarCrdSections } from './use-sidebar-data'
-import { useSidebarFavorites } from './use-sidebar-favorites'
-import { useSidebarMode } from './useSidebarMode'
-import { sectionsFor, sidebarView } from './view'
+import { useArchiveBotConfirm } from "./archive-bot-confirm";
+import {
+  isChatSection,
+  withChatSections,
+  withSectionActions,
+} from "./chat-sections";
+import { SidebarHeaderBar, SidebarTeamSwitcher } from "./header";
+import { SidebarItemContextMenu } from "./item-context-menu";
+import { SidebarBackControl, SidebarNavStack } from "./nav-stack";
+import { SidebarIdentitySelector } from "./parts";
+import { chatSectionActions, useProjectRows } from "./section-actions";
+import { SidebarSectionList } from "./sections-list";
+import { teamSections } from "./sections-services";
+import { SidebarFooter } from "./SidebarFooter";
+import { SidebarTeamPages } from "./SidebarTeamPages";
+import { settingsBackTarget } from "./types";
+import { useChatNavKeys } from "./use-chat-nav-keys";
+import { useSidebarChrome } from "./use-sidebar-chrome";
+import { useSidebarChats, useSidebarCrdSections } from "./use-sidebar-data";
+import { useSidebarFavorites } from "./use-sidebar-favorites";
+import { useSidebarMode } from "./useSidebarMode";
+import { sectionsFor, sidebarView } from "./view";
 
-import type { ItemMenuRequest, SidebarProps } from './types'
+import type { ItemMenuRequest, SidebarProps } from "./types";
 
 export const Sidebar = memo(function Sidebar({
   scope,
@@ -70,28 +74,38 @@ export const Sidebar = memo(function Sidebar({
   dynamicNavigation = false,
   chatNavKeysLive = false,
 }: SidebarProps) {
-  const [renameTarget, setRenameTarget] = useState<{ sessionId: string; title: string } | null>(
-    null,
-  )
-  const [sidebarPage, changeSidebarPage] = useSidebarMode(scope.teamId, agentSessionId)
-  const teamId = scope.teamId
-  const chrome = useSidebarChrome({ teamId, collapsed, page: sidebarPage })
-  const { width, dragging, setDragging, peek, setPeek } = chrome
-  const { agentSessions, chatItems, newChatActive, archiveChat, unlinkChat, archivingIds } =
-    useSidebarChats({
-      teamId,
-      agentSessionId,
-      chatShown,
-      onArchived: onChatArchived,
-      onBotArchiveSelect: chatShown && sidebarPage === 0 ? onSelect : undefined,
-    })
-  const teamScope = { kind: 'team' as const, teamId }
-  const navigationScope = dynamicNavigation ? scope : teamScope
+  const [renameTarget, setRenameTarget] = useState<{
+    sessionId: string;
+    title: string;
+  } | null>(null);
+  const [sidebarPage, changeSidebarPage] = useSidebarMode(
+    scope.teamId,
+    agentSessionId,
+  );
+  const teamId = scope.teamId;
+  const chrome = useSidebarChrome({ teamId, collapsed, page: sidebarPage });
+  const { width, dragging, setDragging, peek, setPeek } = chrome;
+  const {
+    agentSessions,
+    chatItems,
+    newChatActive,
+    archiveChat,
+    unlinkChat,
+    archivingIds,
+  } = useSidebarChats({
+    teamId,
+    agentSessionId,
+    chatShown,
+    onArchived: onChatArchived,
+    onBotArchiveSelect: chatShown && sidebarPage === 0 ? onSelect : undefined,
+  });
+  const teamScope = { kind: "team" as const, teamId };
+  const navigationScope = dynamicNavigation ? scope : teamScope;
   const customResourceTypeSections = useSidebarCrdSections({
     scope: navigationScope,
     kubeconfigContext: dynamicNavigation ? kubeconfigContext : null,
     active,
-  })
+  });
   const sections = dynamicNavigation
     ? sectionsFor(
         scope,
@@ -103,15 +117,17 @@ export const Sidebar = memo(function Sidebar({
         chatItems,
         customResourceTypeSections,
       )
-    : teamSections(rootIntegrations, rootIntegrationsLoading, chatItems)
+    : teamSections(rootIntegrations, rootIntegrationsLoading, chatItems);
   const view = dynamicNavigation
     ? sidebarView(scope, active, grafanaInstance, repositoryNav)
-    : { key: `team:${teamId}`, level: 0 }
-  const teamView = view.level === 0
-  const settingsBack = dynamicNavigation ? settingsBackTarget(scope, active) : null
+    : { key: `team:${teamId}`, level: 0 };
+  const teamView = view.level === 0;
+  const settingsBack = dynamicNavigation
+    ? settingsBackTarget(scope, active)
+    : null;
   const { favoriteMatch, canFavorite, toggleFavorite, favoriteItems, botPins } =
     useSidebarFavorites({
-      userId: user?.id ?? '',
+      userId: user?.id ?? "",
       teamId,
       teamView,
       sections,
@@ -119,34 +135,37 @@ export const Sidebar = memo(function Sidebar({
       scopeChipForPath,
       onOpenPath,
       onOpenKey,
-    })
-  const [itemMenu, setItemMenu] = useState<ItemMenuRequest | null>(null)
-  const archiveBot = useArchiveBotConfirm(archiveChat)
-  const projects = useProjectRows(teamId, onSelect, chrome.toggleGroup)
-  const openBot = (botId: string) => openBotChannel(teamId, botId, onSelect)
-  const renderSections = withChatSections(sections, openBot, projects.rows)
+    });
+  const [itemMenu, setItemMenu] = useState<ItemMenuRequest | null>(null);
+  const archiveBot = useArchiveBotConfirm(archiveChat);
+  const projects = useProjectRows(teamId, onSelect, chrome.toggleGroup);
+  const openBot = (botId: string) => openBotChannel(teamId, botId, onSelect);
+  const renderSections = withChatSections(sections, openBot, projects.rows);
 
   if (dynamicNavigation && teamView && favoriteItems.length > 0) {
-    renderSections.splice(1, 0, { title: 'Favorites', items: favoriteItems })
+    renderSections.splice(1, 0, { title: "Favorites", items: favoriteItems });
   }
   const sidebarSections = withSectionActions(
     dynamicNavigation
       ? renderSections
-      : renderSections.filter((section, index) => index === 0 || isChatSection(section)),
+      : renderSections.filter(
+          (section, index) => index === 0 || isChatSection(section),
+        ),
     chatSectionActions(teamId, onSelect),
-  )
+  );
 
   useChatNavKeys(
     teamView
       ? sidebarSections.filter(
           (section) =>
-            sidebarPage !== 2 && section.title === (sidebarPage === 0 ? 'Channels' : 'Tasks'),
+            sidebarPage !== 2 &&
+            section.title === (sidebarPage === 0 ? "Channels" : "Tasks"),
         )
       : sidebarSections,
     chrome.isGroupCollapsed,
     onSelect,
     chatNavKeysLive,
-  )
+  );
   const listProps = {
     scope: teamScope,
     active,
@@ -162,16 +181,16 @@ export const Sidebar = memo(function Sidebar({
     onItemMenu: setItemMenu,
     onSelect: projects.select,
     onOpenKey,
-  }
-  const showSidebar = !collapsed || peek
+  };
+  const showSidebar = !collapsed || peek;
 
-  useSuspendTitlebarDrag(collapsed && peek)
+  useSuspendTitlebarDrag(collapsed && peek);
 
   return (
     <>
       <div
         aria-hidden
-        className={clsx('flex-shrink-0', !dragging && 't-resize')}
+        className={clsx("flex-shrink-0", !dragging && "t-resize")}
         style={{ width: collapsed ? 0 : width }}
       />
       {collapsed && (
@@ -183,26 +202,28 @@ export const Sidebar = memo(function Sidebar({
       <aside
         style={{
           width,
-          transform: showSidebar ? 'translateX(0)' : 'translateX(-100%)',
+          transform: showSidebar ? "translateX(0)" : "translateX(-100%)",
         }}
         onMouseEnter={collapsed ? () => setPeek(true) : undefined}
         // Only leaving past the trailing edge dismisses the peek.
-        onMouseLeave={collapsed ? (event) => setPeek(event.clientX < width) : undefined}
-        data-focus-region={showSidebar ? 'sidebar' : undefined}
+        onMouseLeave={
+          collapsed ? (event) => setPeek(event.clientX < width) : undefined
+        }
+        data-focus-region={showSidebar ? "sidebar" : undefined}
         className={clsx(
-          'sidebar-surface absolute left-0 top-0 bottom-0 z-40 flex flex-col',
-          'transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
-          showSidebar ? 'pointer-events-auto' : 'pointer-events-none',
+          "sidebar-surface absolute left-0 top-0 bottom-0 z-40 flex flex-col",
+          "transition-transform duration-[340ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
+          showSidebar ? "pointer-events-auto" : "pointer-events-none",
           // Lift the panel off the content while it floats; docked it sits flush.
-          collapsed && peek && 'is-floating shadow-2xl rounded-r-xl',
+          collapsed && peek && "is-floating shadow-2xl rounded-r-xl",
         )}
       >
         {!collapsed && (
           <div
             onMouseDown={() => setDragging(true)}
             className={clsx(
-              'absolute right-0 top-[55px] bottom-3 w-0.5 cursor-col-resize z-10',
-              dragging ? 'bg-action-primary/30' : 'hover:bg-state-hover',
+              "absolute right-0 top-[55px] bottom-3 w-0.5 cursor-col-resize z-10",
+              dragging ? "bg-action-primary/30" : "hover:bg-state-hover",
             )}
           />
         )}
@@ -239,13 +260,16 @@ export const Sidebar = memo(function Sidebar({
             onScroll={chrome.handleNavScroll}
             className={clsx(
               SIDEBAR_PANEL_PADDING_CLASS,
-              'flex-1 overflow-x-hidden overflow-y-auto scrollbar-thin scrollbar-overlay',
-              'border-t border-transparent transition-colors duration-200 data-[scrolled]:border-line-control/60',
+              "flex-1 overflow-x-hidden overflow-y-auto scrollbar-thin scrollbar-overlay",
+              "transition-colors duration-[160ms]",
             )}
           >
             <SidebarNavStack viewKey={view.key} level={view.level}>
               {dynamicNavigation && !settingsBack && onSidebarBack && (
-                <SidebarBackControl hierarchy={hierarchy} onBack={() => onSidebarBack()} />
+                <SidebarBackControl
+                  hierarchy={hierarchy}
+                  onBack={() => onSidebarBack()}
+                />
               )}
               <SidebarSectionList {...listProps} sections={sidebarSections} />
             </SidebarNavStack>
@@ -253,9 +277,12 @@ export const Sidebar = memo(function Sidebar({
         )}
         {dynamicNavigation &&
           identitySegment &&
-          (scope.kind === 'aws-account' || scope.kind === 'gcp-project') && (
-            <div className="px-3.5 pt-2.5 pb-3.5 titlebar-no-drag border-t border-line-control/60">
-              <SidebarIdentitySelector scope={scope} segment={identitySegment} />
+          (scope.kind === "aws-account" || scope.kind === "gcp-project") && (
+            <div className="px-3.5 pt-2.5 pb-3.5 titlebar-no-drag">
+              <SidebarIdentitySelector
+                scope={scope}
+                segment={identitySegment}
+              />
             </div>
           )}
         <SidebarFooter
@@ -292,9 +319,11 @@ export const Sidebar = memo(function Sidebar({
           archiveChat={archiveChat}
           confirmArchiveBot={archiveBot.confirm}
           unlinkChat={unlinkChat}
-          renameChat={(sessionId, title) => setRenameTarget({ sessionId, title })}
+          renameChat={(sessionId, title) =>
+            setRenameTarget({ sessionId, title })
+          }
         />
       )}
     </>
-  )
-})
+  );
+});

@@ -1,19 +1,19 @@
-import clsx from 'clsx'
-import { Maximize2, SquarePen } from 'lucide-react'
+import clsx from "clsx";
+import { Maximize2, SquarePen } from "lucide-react";
 
-import { t } from '../../../i18n'
+import { t } from "../../../i18n";
 
-import { ConversationSwitcher } from './ConversationSwitcher'
-import { DropOverlay } from './FileDropZone'
+import { ConversationSwitcher } from "./ConversationSwitcher";
+import { DropOverlay } from "./FileDropZone";
 
-import type { PanelViewCtx } from './ctx'
-import type { ReactNode } from 'react'
+import type { PanelViewCtx } from "./ctx";
+import type { ReactNode } from "react";
 
 type ContentProps = {
-  c: PanelViewCtx
-  homePage: ReactNode
-  conversationPage: ReactNode
-}
+  c: PanelViewCtx;
+  homePage: ReactNode;
+  conversationPage: ReactNode;
+};
 
 export function PanelContent({ c, homePage, conversationPage }: ContentProps) {
   const {
@@ -31,7 +31,7 @@ export function PanelContent({ c, homePage, conversationPage }: ContentProps) {
     startNewChat,
     teamId,
     widthVw,
-  } = c
+  } = c;
 
   return (
     <div
@@ -48,18 +48,20 @@ export function PanelContent({ c, homePage, conversationPage }: ContentProps) {
             <button
               onClick={startNewChat}
               className="w-7 h-7 rounded-md hover:bg-state-hover text-secondary hover:text-main flex items-center justify-center transition-colors"
-              title={t('New task')}
-              aria-label={t('New task')}
+              title={t("New task")}
+              aria-label={t("New task")}
             >
               <SquarePen className="w-3.5 h-3.5" strokeWidth={1.8} />
             </button>
           )}
           {onExpandToPage && (
             <button
-              onClick={(event) => expandCurrentSession({ newTab: event.metaKey || event.ctrlKey })}
+              onClick={(event) =>
+                expandCurrentSession({ newTab: event.metaKey || event.ctrlKey })
+              }
               className="w-7 h-7 rounded-md hover:bg-state-hover text-secondary hover:text-main flex items-center justify-center transition-colors"
-              title={t('Open in tab')}
-              aria-label={t('Open agent chat in a tab')}
+              title={t("Open in tab")}
+              aria-label={t("Open agent chat in a tab")}
             >
               <Maximize2 className="w-3.5 h-3.5" strokeWidth={1.8} />
             </button>
@@ -68,7 +70,9 @@ export function PanelContent({ c, homePage, conversationPage }: ContentProps) {
             <ConversationSwitcher
               teamId={teamId}
               activeSessionId={activeTab?.sessionId ?? null}
-              onPick={(sessionId, titleHint) => void openConversation(sessionId, titleHint)}
+              onPick={(sessionId, titleHint) =>
+                void openConversation(sessionId, titleHint)
+              }
             />
           )}
         </div>
@@ -80,7 +84,7 @@ export function PanelContent({ c, homePage, conversationPage }: ContentProps) {
         onDragLeave={onPanelDragLeave}
         onDrop={onPanelDrop}
         className="t-page-slide relative flex-1 min-h-0"
-        data-page={showingConversationPage ? '2' : '1'}
+        data-page={showingConversationPage ? "2" : "1"}
       >
         <section className="t-page flex flex-col min-h-0" data-page-id="1">
           {homePage}
@@ -91,11 +95,17 @@ export function PanelContent({ c, homePage, conversationPage }: ContentProps) {
         {draggingFiles && <DropOverlay />}
       </div>
     </div>
-  )
+  );
 }
 
-export function PanelSidebarLayout({ c, content }: { c: PanelViewCtx; content: ReactNode }) {
-  const { dragging, open, setDragging, setPanelRoot, widthVw } = c
+export function PanelSidebarLayout({
+  c,
+  content,
+}: {
+  c: PanelViewCtx;
+  content: ReactNode;
+}) {
+  const { dragging, open, setDragging, setPanelRoot, widthVw } = c;
 
   return (
     <aside
@@ -106,16 +116,17 @@ export function PanelSidebarLayout({ c, content }: { c: PanelViewCtx; content: R
         // Match the app chrome (same surface as the left sidebar) instead of
         // the content-card background, which reads as a white panel in light
         // mode.
-        'flex-shrink-0 flex flex-col sidebar-surface relative outline-none',
+        "flex-shrink-0 flex flex-col sidebar-surface relative outline-none",
         // Closing collapses the panel to width 0 but keeps `content` mounted, so
         // the chat survives a toggle. Overflow has to be clipped while it is
         // closed or that content spills out of the zero-width box and paints
         // over whatever sits beside it — visibly so against the first-run
         // panel, which shares this dock slot and whose surface is translucent.
         // Open, it stays visible: popovers anchored inside need to escape.
-        open ? 'overflow-visible' : 'overflow-hidden',
+        open ? "overflow-visible" : "overflow-hidden",
         // Expand/collapse decelerates: starts fast, eases out at the end.
-        !dragging && 'transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+        !dragging &&
+          "transition-[width] duration-[340ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
       )}
     >
       {open && (
@@ -129,13 +140,13 @@ export function PanelSidebarLayout({ c, content }: { c: PanelViewCtx; content: R
         >
           <div
             className={clsx(
-              'h-full w-1 transition-colors',
-              dragging ? 'bg-action-primary/30' : 'group-hover:bg-state-hover',
+              "h-full w-1 transition-colors",
+              dragging ? "bg-action-primary/30" : "group-hover:bg-state-hover",
             )}
           />
         </div>
       )}
       {content}
     </aside>
-  )
+  );
 }
