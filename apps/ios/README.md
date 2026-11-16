@@ -48,7 +48,11 @@ bash tests/sync-strings.sh build
 node ../../scripts/fill-mobile-locales.mjs ios
 ```
 
-Commit `nuphos-ios/Localizable.xcstrings` with the change: CI fails when the catalog does not match the code, and `tests/run.sh` fails when a string is missing any of the languages. Mark text that must stay as written, such as a format or an example value, as not translatable in the catalog.
+Commit `Shared/Localizable.xcstrings` with the change: CI fails when the catalog does not match the code, and `tests/run.sh` fails when a string is missing any of the languages. Mark text that must stay as written, such as a format or an example value, as not translatable in the catalog.
+
+If you cannot write all seven languages, run the fill script for what Desktop already has, add the rest in English for now, and ask for translations in the pull request; a follow-up commit on the same branch fills them before it merges.
+
+`Shared/Localizable.xcstrings` is shared by the app, the share extension and the widgets, since all three include the `Shared` folder. The privacy prompts from `Info.plist` are translated in `nuphos-ios/InfoPlist.xcstrings`.
 
 ## Run on a device
 

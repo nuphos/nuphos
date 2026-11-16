@@ -21,4 +21,5 @@ swiftc NuphosShare/ShareFollowState.swift tests/ShareFollowStateTests.swift -o "
 swiftc nuphos-ios/Views/Home/HomeColumns.swift tests/HomeColumnsTests.swift -o "$test_dir/home-columns-tests"
 "$test_dir/home-columns-tests"
 swiftc tests/StringCatalogTests.swift -o "$test_dir/string-catalog-tests"
-"$test_dir/string-catalog-tests" nuphos-ios/Localizable.xcstrings
+"$test_dir/string-catalog-tests" Shared/Localizable.xcstrings
+"$test_dir/string-catalog-tests" nuphos-ios/InfoPlist.xcstrings
