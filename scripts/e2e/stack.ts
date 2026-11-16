@@ -24,6 +24,8 @@ export type Stack = {
   signInCode: typeof signInCode
   /** Keeps the agent from opening new sessions, as a slow start does, until the returned function is called. */
   holdSessionOpening: () => () => void
+  /** The first agent offers Claude Code's "Default" stand-in until the returned function is called. */
+  offerDefaultStandIn: () => () => void
   /** Stops OpenAB and its agents, runs `whileDown`, then starts it again on the same address, as a runtime restart does. */
   restartAgentHost: (whileDown?: () => Promise<void>) => Promise<void>
   /** Freezes OpenAB and its agents, so its sockets stay open and nothing answers, runs `whileFrozen`, then lets them go on. */
@@ -139,6 +141,12 @@ export async function startStack(): Promise<Stack> {
   const apiUrl = `http://127.0.0.1:${String(backendPort)}`
   const acpLog = join(artifacts, 'acp.jsonl')
   const holdOpening = join(artifacts, 'hold-opening')
+  const standIn = join(artifacts, 'stand-in')
+  const offerDefaultStandIn = () => {
+    writeFileSync(standIn, '')
+
+    return () => rmSync(standIn)
+  }
   const holdSessionOpening = () => {
     writeFileSync(holdOpening, '')
 
@@ -164,6 +172,7 @@ export async function startStack(): Promise<Stack> {
         `E2E_ACP_LOG = ${JSON.stringify(acpLog)}`,
         `E2E_AGENT = ${JSON.stringify(agent)}`,
         `E2E_HOLD_OPENING = ${JSON.stringify(holdOpening)}`,
+        `E2E_STAND_IN = ${JSON.stringify(standIn)}`,
         '[pool]',
         'max_sessions = 4',
         'session_ttl_hours = 1',
@@ -270,6 +279,7 @@ export async function startStack(): Promise<Stack> {
     acpLog,
     signInCode,
     holdSessionOpening,
+    offerDefaultStandIn,
     restartAgentHost,
     freezeAgentHost,
     cloudflareState: () => cloudflareState(mongoUri),

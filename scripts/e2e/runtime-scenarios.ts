@@ -213,6 +213,41 @@ export const runtimeScenarios: Scenario[] = [
     },
   },
   {
+    // A team's proxy serves only the models it names: a Task nobody picked a model for must
+    // never send the one Claude Code's "Default" stands for, here or after a move.
+    name: 'a Task whose model was never picked keeps the agent default, also after a move',
+    run: async (page, stack) => {
+      const stopOffering = stack.offerDefaultStandIn()
+
+      await newTask(page)
+      await pickAgent(page, 'E2E fixture agent')
+      await send(page, 'Never picked E2E_DELIVERY:unpicked')
+      await page.getByText('ACK E2E_DELIVERY:unpicked').waitFor()
+      await send(page, 'Still not picked E2E_DELIVERY:unpicked-again')
+      await page.getByText('ACK E2E_DELIVERY:unpicked-again').waitFor()
+      await pickAgent(page, 'E2E second agent')
+      await page.getByText('moved this task from E2E fixture agent to E2E second agent').waitFor()
+      await send(page, 'After the move E2E_DELIVERY:unpicked-moved')
+      await page.getByText('ACK E2E_DELIVERY:unpicked-moved').waitFor()
+      stopOffering()
+      const log = agentLog(stack)
+      const sessions = ['E2E_DELIVERY:unpicked', 'E2E_DELIVERY:unpicked-moved'].map((marker) => {
+        const turn = log.find((entry) => entry.event === 'finish' && entry.marker === marker)
+
+        return log.find((entry) => entry.event === 'session' && entry.sessionId === turn?.sessionId)
+      })
+      const explicit = sessions.filter(
+        (session) => !session || (session.defaults?.model ?? 'default') !== 'default',
+      )
+
+      if (explicit.length > 0) {
+        throw new Error(
+          `A Task nobody picked a model for opened a session on a named model: ${JSON.stringify(sessions)}`,
+        )
+      }
+    },
+  },
+  {
     // #3051: the person moves it off an agent out of usage, and the refused turn runs there once.
     name: 'a turn refused for usage runs again, once, after the Task moves to another agent',
     run: async (page, stack) => {
