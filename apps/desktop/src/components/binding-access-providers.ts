@@ -19,6 +19,7 @@ export type BindingAccessProvider =
   | 'cloudflare'
   | 'github'
   | 'gitlab'
+  | 'grafana'
   | 'linode'
   | 'hetzner'
   | 'tailscale'
@@ -120,6 +121,7 @@ export const PROVIDERS: Record<BindingAccessProvider, ProviderConfig> = {
   cloudflare: generic('cloudflare-accounts', t('Cloudflare account')),
   github: generic('github-installations', t('GitHub installation')),
   gitlab: generic('gitlab-bindings', t('GitLab account')),
+  grafana: generic('grafana-instances', t('Grafana instance')),
   linode: generic('linode-accounts', t('Linode account')),
   hetzner: generic('hetzner-accounts', t('Hetzner account')),
   tailscale: generic('tailscale-clients', t('Tailscale client')),

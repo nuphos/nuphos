@@ -18,6 +18,7 @@ export const ACCESS_EDITABLE_PROVIDERS: Partial<
   cloudflare: 'cloudflare',
   github: 'github',
   gitlab: 'gitlab',
+  grafana: 'grafana',
   linode: 'linode',
   hetzner: 'hetzner',
   tailscale: 'tailscale',
