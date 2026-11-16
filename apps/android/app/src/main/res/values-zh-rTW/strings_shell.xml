@@ -57,9 +57,6 @@
     <string name="shell_request_code_in">%1$d 秒後可再要求一組驗證碼。</string>
     <string name="shell_use_email_code">改用電子郵件驗證碼</string>
     <string name="shell_use_password">使用密碼</string>
-    <string name="shell_terms_agreement">繼續即表示你同意我們的%1$s和%2$s。</string>
-    <string name="shell_terms_of_service">服務條款</string>
-    <string name="shell_privacy_policy">隱私權政策</string>
     <string name="shell_email_code_field">6 位數電子郵件驗證碼</string>
     <string name="shell_auth_cleanup_failed">清除已儲存的草稿失敗。請檢查儲存空間後再試一次。</string>
     <string name="shell_auth_signed_out_cleanup_failed">已登出，但清除已儲存的草稿失敗。關閉 App 前請檢查儲存空間。</string>
@@ -153,7 +150,6 @@
     <string name="shell_voice_prompt_save_failed">無法儲存提示詞。</string>
     <string name="shell_voice_prompt">轉寫提示詞</string>
     <string name="shell_voice_reset_prompt">重設提示詞</string>
-    <string name="shell_voice_prompt_help">提示詞會引導拼寫與寫作風格。錄音由 OpenAI 透過 Nuphos 轉寫。</string>
     <string name="shell_desktop">桌面</string>
     <string name="shell_desktop_decode_failed">無法解碼此桌面。請重試以建立新的連線。</string>
     <string name="shell_desktop_connecting">正在連線…</string>
