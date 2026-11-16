@@ -1,7 +1,7 @@
 // Scenarios about the agent hosts a Task runs on: a restart, delegation, a move.
 import { agentEvents, agentLog, delegatedTurn } from './agent-log.ts'
 import { backendLines, backendLog } from './backend-log.ts'
-import { until } from './processes.ts'
+import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
@@ -162,6 +162,7 @@ export const runtimeScenarios: Scenario[] = [
       await page.getByText('You’ve hit your usage limit').first().waitFor()
       await page.reload()
       await page.getByText(/^Answered · waiting for E2E fixture agent \(out of usage/).waitFor()
+      await page.screenshot({ path: `${artifacts}/answer-waiting.png` })
       await pickAgent(page, 'E2E second agent')
       await until('the answer to reach the second agent', async () => answered() > before)
       // Long enough for a second delivery to have started, had there been one.
