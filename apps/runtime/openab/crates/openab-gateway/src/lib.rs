@@ -314,6 +314,7 @@ impl AppState {
             acp_pool_liveness: None,
             #[cfg(feature = "acp")]
             acp_pool_config: None,
+            #[cfg(feature = "acp")]
             acp_pool_close: None,
             #[cfg(feature = "acp")]
             acp_fresh_config: None,
@@ -471,6 +472,7 @@ impl AppState {
             acp_pool_liveness: None,
             #[cfg(feature = "acp")]
             acp_pool_config: None,
+            #[cfg(feature = "acp")]
             acp_pool_close: None,
             #[cfg(feature = "acp")]
             acp_fresh_config: None,
@@ -1133,6 +1135,7 @@ pub async fn serve(config: ServeConfig) -> anyhow::Result<()> {
         acp_pool_liveness: None,
         #[cfg(feature = "acp")]
         acp_pool_config: None,
+        #[cfg(feature = "acp")]
         acp_pool_close: None,
         #[cfg(feature = "acp")]
         acp_fresh_config: None,
