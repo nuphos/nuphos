@@ -6,6 +6,7 @@ import {
   bindingOwner,
   canEditAccess,
   canViewAccess,
+  isPrivateAccess,
   normalizeAccessInput,
 } from '@/lib/byos/access'
 import { AppError } from '@/lib/errors'
@@ -71,12 +72,17 @@ export function registerBindingAccessRoutes<V extends TeamAuthVariables>(
         "Only its owner can change who may use another member's private binding",
       )
     }
+    // An older private list's one member stays its owner once it is shared,
+    // and whoever makes an unowned binding private becomes its owner, so the
+    // list never ends up with nobody able to change it.
+    const input = c.req.valid('json')
+    const existingOwner = current?.ownerUserId ?? bindingOwner(current)
+    const becomesPrivate = isPrivateAccess(normalizeAccessInput(input, userId))
     const access = normalizeAccessInput(
-      c.req.valid('json'),
+      input,
       userId,
       new Date(),
-      // An older private list's one member stays its owner once it is shared.
-      current?.ownerUserId ?? bindingOwner(current),
+      existingOwner ?? (becomesPrivate ? userId : undefined),
     )
     const result = await teamByosBindings().updateOne(
       {
