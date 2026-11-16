@@ -5,7 +5,8 @@ import SwiftUI
 /// question and its markdown body, then its answers. On iPhone the options are
 /// full-width buttons pinned to the bottom with "Other…" and "Skip" as outlined halves
 /// below; wide, a row of capsules with an outlined "Skip" at its end. A form, an integration question
-/// and a plan keep their own controls.
+/// and a plan keep their own controls. A secret is asked for with the task's own `SecretCard`,
+/// which says the question itself.
 struct InboxQuestionView: View {
     @Environment(AgentStore.self) private var store
     let inbox: OpenQuestions
@@ -45,14 +46,16 @@ struct InboxQuestionView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 source
-                Text(question.request.question)
-                    .font(.system(size: 22, weight: .semibold))
-                    .tracking(-0.2)
-                    .lineSpacing(3)
-                    .foregroundStyle(Theme.heading)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityAddTraits(.isHeader)
-                    .padding(.top, 10)
+                if question.secretPart == nil {
+                    Text(question.request.question)
+                        .font(.system(size: 22, weight: .semibold))
+                        .tracking(-0.2)
+                        .lineSpacing(3)
+                        .foregroundStyle(Theme.heading)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityAddTraits(.isHeader)
+                        .padding(.top, 10)
+                }
                 if let body = question.ownBody {
                     AssistantMarkdown(text: body, theme: Self.bodyTheme, onLink: open(link:))
                         .padding(.top, 18)
@@ -174,6 +177,9 @@ struct InboxQuestionView: View {
                 }
                 if typing || (options.isEmpty && question.typed) { field }
             }
+        } else if let part = question.secretPart {
+            // Saved in the conversation that asked; the listing then drops the question.
+            AskedSecretCard(question: question, part: part, teamId: inbox.teamId) { Task { await inbox.refresh() } }
         } else if question.connectable {
             InboxOption(title: connectLabel, primary: true, height: wide ? 40 : 50, size: wide ? 15 : 16, fill: !wide) {
                 Task { await connect() }
