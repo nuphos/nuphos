@@ -241,7 +241,6 @@ export const Sidebar = memo(function Sidebar({
             className={clsx(
               SIDEBAR_PANEL_PADDING_CLASS,
               'flex-1 overflow-x-hidden overflow-y-auto scrollbar-thin scrollbar-overlay',
-              'transition-colors duration-[160ms]',
             )}
           >
             <SidebarNavStack viewKey={view.key} level={view.level}>
