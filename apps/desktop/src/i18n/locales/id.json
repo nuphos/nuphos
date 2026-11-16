@@ -5082,7 +5082,7 @@
   "Watch with Agent": "Pantau dengan agen",
   "Watching the agent’s desktop.": "Memantau desktop agen.",
   "We couldn't run an authoritative check (e.g. AWS iam:SimulatePrincipalPolicy was denied) and fell back to inferring from the policy documents.": "Kami tidak dapat menjalankan pemeriksaan otoritatif (mis. AWS iam:SimulatePrincipalPolicy ditolak) sehingga beralih ke inferensi dari dokumen kebijakan.",
-  "We found the {name} CLI on this computer. The agent can walk through setup with you, right in a new agent.": "Kami menemukan CLI {name} di komputer ini. Agen dapat memandu Anda melakukan penyiapan, langsung di agen baru.",
+  "We found the {name} CLI on this computer. The agent can walk through setup with you, right in a new task.": "Kami menemukan CLI {name} di komputer ini. Agen dapat memandu Anda melakukan penyiapan, langsung di tugas baru.",
   "Web sign-in (nuphos.ai)": "Masuk via web (nuphos.ai)",
   "Webhook": "Webhook",
   "Webhook & events": "Webhook & event",

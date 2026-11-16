@@ -5082,7 +5082,7 @@
   "Watch with Agent": "에이전트로 감시",
   "Watching the agent’s desktop.": "에이전트의 데스크톱을 보고 있습니다.",
   "We couldn't run an authoritative check (e.g. AWS iam:SimulatePrincipalPolicy was denied) and fell back to inferring from the policy documents.": "신뢰할 수 있는 검사를 실행할 수 없어(예: AWS iam:SimulatePrincipalPolicy 거부됨) 정책 문서에서 추론하는 방식으로 대체했습니다.",
-  "We found the {name} CLI on this computer. The agent can walk through setup with you, right in a new agent.": "이 컴퓨터에서 {name} CLI를 찾았습니다. 새 에이전트에서 에이전트가 설정을 함께 진행해 드립니다.",
+  "We found the {name} CLI on this computer. The agent can walk through setup with you, right in a new task.": "이 컴퓨터에서 {name} CLI를 찾았습니다. 새 태스크에서 에이전트가 설정을 함께 진행해 드립니다.",
   "Web sign-in (nuphos.ai)": "웹 로그인(nuphos.ai)",
   "Webhook": "Webhook",
   "Webhook & events": "Webhook 및 이벤트",
