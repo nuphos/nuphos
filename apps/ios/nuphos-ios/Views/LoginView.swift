@@ -425,8 +425,8 @@ private struct VerificationCodeInput: UIViewRepresentable {
         field.tintColor = .clear
         field.borderStyle = .none
         field.autocorrectionType = .no
-        field.accessibilityLabel = "Verification code"
-        field.accessibilityHint = "Enter the six-digit code."
+        field.accessibilityLabel = String(localized: "Verification code")
+        field.accessibilityHint = String(localized: "Enter the six-digit code.")
         field.accessibilityIdentifier = "login.code"
         field.delegate = context.coordinator
         field.addTarget(context.coordinator, action: #selector(Coordinator.changed(_:)), for: .editingChanged)
@@ -542,7 +542,7 @@ private struct LoginServerSettings: View {
         guard let url = URL(string: draft.trimmingCharacters(in: .whitespaces)),
               let scheme = url.scheme?.lowercased(), scheme == "https" || scheme == "http",
               let host = url.host(), !host.isEmpty
-        else { error = "Enter a full URL, e.g. https://nuphos.example.com"; return }
+        else { error = String(localized: "Enter a full URL, e.g. https://nuphos.example.com"); return }
         var origin = URLComponents()
         origin.scheme = scheme; origin.host = host; origin.port = url.port
         savedURL = origin.url?.absoluteString ?? ""

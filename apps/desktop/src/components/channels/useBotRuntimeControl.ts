@@ -23,6 +23,7 @@ export function useBotRuntimeControl(
   user: UserInfo,
   runtimeState: RuntimeExecution | undefined,
   refresh: () => void,
+  onOpenAgentSettings?: () => void,
 ) {
   const client = useQueryClient()
   const catalog = useRuntimeInstances(botId ? teamId : undefined)
@@ -63,7 +64,7 @@ export function useBotRuntimeControl(
     runtimeInstancesLoading: catalog.loading,
     runtimeInstancesError: catalog.error,
     runtimeQuotas: quotas,
-    onOpenAgentSettings: undefined,
+    onOpenAgentSettings,
     activeTab: current
       ? {
           id: current.sessionId,
