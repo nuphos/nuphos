@@ -167,7 +167,7 @@ struct ChatMessage: Identifiable, Equatable, Sendable {
     /// `approvalResponded` counts as mid-flight too: the user let the call
     /// through but its result never arrived, so the row would otherwise spin
     /// — and never show a time — for the rest of the conversation.
-    mutating func finalizeIncompleteTools(errorText: String = "Interrupted before the tool finished.") {
+    mutating func finalizeIncompleteTools(errorText: String = String(localized: "Interrupted before the tool finished.")) {
         for i in parts.indices {
             if case .tool(var t) = parts[i],
                t.state == .inputStreaming || t.state == .inputAvailable || t.state == .approvalResponded {
@@ -344,20 +344,20 @@ enum ChatPart: Equatable, Sendable {
 
         var kindLabel: String {
             switch kind {
-            case .terminal: "Terminal"
-            case .read: "Read file"
-            case .write: "Write file"
-            case .edit: "Edit file"
-            case .search: "Search"
-            case .fetch: "Fetch"
-            case .todos: "To-dos"
-            case .question: "Question"
-            case .task: "Subtask"
-            case .plan: "Plan"
-            case .skill: "Skill"
-            case .memory: "Memory"
-            case .chart: "Chart"
-            case .generic: toolName.count > 40 ? "Tool" : toolName
+            case .terminal: String(localized: "Terminal")
+            case .read: String(localized: "Read file")
+            case .write: String(localized: "Write file")
+            case .edit: String(localized: "Edit file")
+            case .search: String(localized: "Search")
+            case .fetch: String(localized: "Fetch")
+            case .todos: String(localized: "To-dos")
+            case .question: String(localized: "Question")
+            case .task: String(localized: "Subtask")
+            case .plan: String(localized: "Plan")
+            case .skill: String(localized: "Skill")
+            case .memory: String(localized: "Memory")
+            case .chart: String(localized: "Chart")
+            case .generic: toolName.count > 40 ? String(localized: "Tool") : toolName
             }
         }
 

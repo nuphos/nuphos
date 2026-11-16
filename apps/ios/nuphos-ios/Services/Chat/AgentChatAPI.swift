@@ -420,19 +420,19 @@ enum AgentChatAPI {
 
         var errorDescription: String? {
             switch self {
-            case .transcriptOutOfSync: "The task changed elsewhere; resyncing."
-            case .streamNotResumable: "The previous reply can no longer be resumed."
-            case .streamConflict: "That stream belongs to another task."
-            case .conversationBusy: "This agent is busy with another reply."
-            case .runtimeNotReady: "The runtime is not ready for a new message yet. Try again in a moment."
-            case .runtimeLoginRequired: "This runtime is signed out. Sign it in from Nuphos on the computer it runs on, or switch to another runtime."
-            case .runtimeDisabled: "This task's runtime is disabled. Switch to another runtime to continue."
-            case .runtimeNotFound: "This runtime is no longer available in this workspace. Switch to another runtime to continue."
-            case .runtimeOffline: "The computer running this runtime is offline. Open Nuphos on it, or switch to another runtime."
+            case .transcriptOutOfSync: String(localized: "The task changed elsewhere; resyncing.")
+            case .streamNotResumable: String(localized: "The previous reply can no longer be resumed.")
+            case .streamConflict: String(localized: "That stream belongs to another task.")
+            case .conversationBusy: String(localized: "This agent is busy with another reply.")
+            case .runtimeNotReady: String(localized: "The runtime is not ready for a new message yet. Try again in a moment.")
+            case .runtimeLoginRequired: String(localized: "This runtime is signed out. Sign it in from Nuphos on the computer it runs on, or switch to another runtime.")
+            case .runtimeDisabled: String(localized: "This task's runtime is disabled. Switch to another runtime to continue.")
+            case .runtimeNotFound: String(localized: "This runtime is no longer available in this workspace. Switch to another runtime to continue.")
+            case .runtimeOffline: String(localized: "The computer running this runtime is offline. Open Nuphos on it, or switch to another runtime.")
             case .runtimeUnavailable(let message): message
-            case .runtimeBusy: "Wait for the current reply to finish before changing model settings."
-            case .conversationNotRunning: "This task is no longer running."
-            case .conversationInUseByTeammate: "A teammate is using this task right now. Try again after their turn finishes."
+            case .runtimeBusy: String(localized: "Wait for the current reply to finish before changing model settings.")
+            case .conversationNotRunning: String(localized: "This task is no longer running.")
+            case .conversationInUseByTeammate: String(localized: "A teammate is using this task right now. Try again after their turn finishes.")
             case .other(_, let message, _): message
             }
         }
@@ -447,7 +447,7 @@ enum AgentChatAPI {
     static func conflict(status: Int, body: String?) -> Conflict {
         if status == 413 { return .other(code: "payload_too_large", message: ChatPayload.tooLargeMessage, status: status) }
         var code: String?
-        var message = body ?? "Nuphos returned status \(status)."
+        var message = body ?? String(localized: "Nuphos returned status \(status).")
         var stored: Int?
         if let body, let data = body.data(using: .utf8),
            let json = try? JSONDecoder().decode(JSONValue.self, from: data) {
@@ -722,7 +722,9 @@ struct PlanApprovalRequirement: Equatable, Sendable {
     /// The desktop's policy strip copy.
     var summary: String {
         minimumOtherApprovals == 0
-            ? "Requester only"
-            : "Requester + \(minimumOtherApprovals) other member\(minimumOtherApprovals == 1 ? "" : "s")"
+            ? String(localized: "Requester only")
+            : minimumOtherApprovals == 1
+            ? String(localized: "Requester + 1 other member")
+            : String(localized: "Requester + \(minimumOtherApprovals) other members")
     }
 }
