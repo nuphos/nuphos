@@ -62,6 +62,14 @@ struct ChatComposerBar<Controls: View>: View {
 
     private var hasText: Bool { !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     private var hasPayload: Bool { hasText || !attachments.isEmpty }
+    /// An input method has text it has not committed yet.
+    private var composing: Bool {
+        #if canImport(UIKit)
+        pasteHandler.textView?.markedTextRange != nil
+        #else
+        false
+        #endif
+    }
     private var expanded: Bool { focused || hasPayload }
     private var hasControls: Bool { Controls.self != EmptyView.self }
     private var mentionQuery: String? { mentions == nil ? nil : SessionMention.query(in: text) }
@@ -241,42 +249,75 @@ struct ChatComposerBar<Controls: View>: View {
             }
     }
 
+    /// Where UITextView puts its text: an 8 pt container inset and 5 pt line padding.
+    private static var textInset: EdgeInsets { EdgeInsets(top: 8, leading: 5, bottom: 8, trailing: 5) }
+
+    /// A text view, not a vertical text field: a text field ends editing on
+    /// a hardware keyboard's Return, which also threw away what an input
+    /// method had not committed yet (#2154). A text view leaves Return to the
+    /// input method. The hidden text sizes it, from one line to eight.
     private var field: some View {
-        TextField(prompt, text: $text, axis: .vertical)
-            .lineLimit(1...8)
-            .font(.body)
-            .foregroundStyle(Theme.heading)
-            .focused($focused)
-            // The field keeps a drag for itself once there is a draft to
-            // scroll or select in; empty, a pull down on it closes too.
-            .simultaneousGesture(pullDown, isEnabled: !hasText)
-            #if canImport(UIKit)
-            .onReceive(NotificationCenter.default.publisher(for: UITextView.textDidBeginEditingNotification)) { note in
-                guard let textView = note.object as? UITextView else { return }
-                // Focus lands a moment later; it tells this field from others.
-                // Checked once, a slow focus update left the field without the
-                // handler, so an image paste did nothing.
-                Task { @MainActor in
-                    for _ in 0..<10 {
-                        if focused, textView.isFirstResponder { pasteHandler.attach(to: textView) { paste($0) }; return }
-                        try? await Task.sleep(for: .milliseconds(50))
-                    }
+        ZStack(alignment: .topLeading) {
+            Text(text.isEmpty ? " " : text)
+                .lineLimit(1...8)
+                .padding(Self.textInset)
+                .hidden()
+            if text.isEmpty {
+                Text(prompt)
+                    .lineLimit(1)
+                    .foregroundStyle(.tertiary)
+                    .padding(Self.textInset)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+            TextEditor(text: $text)
+                .scrollContentBackground(.hidden)
+                .focused($focused)
+                .accessibilityLabel(Text(prompt))
+                // On a hardware keyboard Return sends and Shift-Return starts
+                // a new line, as in Messages. While an input method is still
+                // composing, Return is left to it to commit the candidate.
+                .onKeyPress(.return, phases: .down) { press in
+                    guard press.modifiers.isEmpty, !composing else { return .ignored }
+                    send(keepingFocus: true)
+                    return .handled
+                }
+        }
+        // The text view's own inset, taken back so the text sits where the field's did.
+        .padding(.horizontal, -Self.textInset.leading)
+        .padding(.vertical, -Self.textInset.top)
+        .font(.body)
+        .foregroundStyle(Theme.heading)
+        // The field keeps a drag for itself once there is a draft to
+        // scroll or select in; empty, a pull down on it closes too.
+        .simultaneousGesture(pullDown, isEnabled: !hasText)
+        #if canImport(UIKit)
+        .onReceive(NotificationCenter.default.publisher(for: UITextView.textDidBeginEditingNotification)) { note in
+            guard let textView = note.object as? UITextView else { return }
+            // Focus lands a moment later; it tells this field from others.
+            // Checked once, a slow focus update left the field without the
+            // handler, so an image paste did nothing.
+            Task { @MainActor in
+                for _ in 0..<10 {
+                    if focused, textView.isFirstResponder { pasteHandler.attach(to: textView) { paste($0) }; return }
+                    try? await Task.sleep(for: .milliseconds(50))
                 }
             }
-            #endif
-            .onChange(of: focusRequest) { focused = true }
-            .onChange(of: editRequest.wrappedValue != nil, initial: true) { _, requested in
-                guard requested, let submission = editRequest.wrappedValue else { return }
-                text = [submission.text, text].filter { !$0.isEmpty }.joined(separator: "\n\n")
-                attachments.insert(contentsOf: submission.attachments, at: 0)
-                editRequest.wrappedValue = nil
-                focused = true
-            }
-            .alert("Voice input failed", isPresented: Binding(get: { dictationError != nil }, set: { if !$0 { dictationError = nil } })) {
-                Button("OK", role: .cancel) { dictationError = nil }
-            } message: {
-                Text(dictationError ?? "")
-            }
+        }
+        #endif
+        .onChange(of: focusRequest) { focused = true }
+        .onChange(of: editRequest.wrappedValue != nil, initial: true) { _, requested in
+            guard requested, let submission = editRequest.wrappedValue else { return }
+            text = [submission.text, text].filter { !$0.isEmpty }.joined(separator: "\n\n")
+            attachments.insert(contentsOf: submission.attachments, at: 0)
+            editRequest.wrappedValue = nil
+            focused = true
+        }
+        .alert("Voice input failed", isPresented: Binding(get: { dictationError != nil }, set: { if !$0 { dictationError = nil } })) {
+            Button("OK", role: .cancel) { dictationError = nil }
+        } message: {
+            Text(dictationError ?? "")
+        }
     }
 
     // MARK: Mentions
@@ -556,7 +597,7 @@ struct ChatComposerBar<Controls: View>: View {
     /// take what has been typed.
     private var filled: Bool { action == .stop || hasPayload }
 
-    private func send() {
+    private func send(keepingFocus: Bool = false) {
         guard !preparingSubmission, canSend, hasPayload, allowsAttachments || attachments.isEmpty else { return }
         let draft = ComposerSubmission(text: SessionMention.expand(text, links: mentionLinks).trimmingCharacters(in: .whitespacesAndNewlines), attachments: attachments)
         preparingSubmission = true
@@ -587,7 +628,7 @@ struct ChatComposerBar<Controls: View>: View {
                 text = ""
                 mentionLinks = [:]
                 attachments.removeAll { attachment in draft.attachments.contains { $0.id == attachment.id } }
-                focused = false
+                focused = keepingFocus
                 onSend(submission)
             } catch {
                 attachmentError = error.localizedDescription
@@ -695,9 +736,11 @@ struct BrandLogo: View {
 /// those become attachments, as with the Paste button, and text stays plain.
 final class ComposerPaste: NSObject, UITextPasteDelegate {
     private var onAttach: ([NSItemProvider]) -> Void = { _ in }
+    private(set) weak var textView: UITextView?
 
     func attach(to textView: UITextView, onAttach: @escaping ([NSItemProvider]) -> Void) {
         self.onAttach = onAttach
+        self.textView = textView
         textView.allowsEditingTextAttributes = true
         textView.pasteDelegate = self
     }
