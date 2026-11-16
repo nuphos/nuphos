@@ -111,3 +111,48 @@ test('an accepted order answers at once, while the machine still boots in the ba
   expect(created.deviceId).toBeString()
   expect(deleted).toEqual([])
 })
+
+// instabox's free plan keeps its 30-minute idle pause and refuses an order that changes it.
+const idleRefusal = () =>
+  new InstaboxAuthError(
+    'Free users are not able to change idle time: a free sandbox pauses after 30 idle minutes (send 1800 or leave it out)',
+    { status: 403, code: 'spec_not_allowed' },
+  )
+
+test('a free plan that refuses the always-on setting gets a Box that pauses when idle, and is told so', async () => {
+  const orders: { autoSuspendMs?: number }[] = []
+
+  spies.push(spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}', { status: 202 })))
+  spies.push(
+    spyOn(Sandbox, 'create').mockImplementation(((
+      _template: string,
+      options: { fetch?: typeof fetch; autoSuspendMs?: number },
+    ) => {
+      orders.push({ autoSuspendMs: options.autoSuspendMs })
+      if (orders.length === 1) return Promise.reject(idleRefusal())
+      void options.fetch?.('https://instabox.test/v1/machines', { method: 'POST' })
+
+      return new Promise<Sandbox>(() => {})
+    }) as typeof Sandbox.create),
+  )
+
+  const created = await createBox('u1', teamId, 'Box', { accountId })
+
+  // Always on first, as a paid plan keeps it; the retry leaves the setting out.
+  expect(orders).toEqual([{ autoSuspendMs: 0 }, { autoSuspendMs: undefined }])
+  expect(created.notice).toContain('after 30 idle minutes')
+  expect(deleted).toEqual([])
+})
+
+test('a plan that still refuses the order says so, instead of blaming the API key', async () => {
+  spies.push(spyOn(Sandbox, 'create').mockRejectedValue(idleRefusal()))
+
+  const error = await createBox('u1', teamId, 'Box', { accountId }).then(
+    () => null,
+    (e: unknown) => e as { status: number; code: string; message: string },
+  )
+
+  expect(error).toMatchObject({ status: 409, code: 'instabox_plan_not_allowed' })
+  expect(error?.message).not.toContain('API key')
+  expect(deleted).toHaveLength(1)
+})
