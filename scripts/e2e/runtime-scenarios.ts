@@ -194,6 +194,8 @@ export const runtimeScenarios: Scenario[] = [
     // never send the one Claude Code's "Default" stands for, here or after a move.
     name: 'a Task whose model was never picked keeps the agent default, also after a move',
     run: async (page, stack) => {
+      const stopOffering = stack.offerDefaultStandIn()
+
       await newTask(page)
       await pickAgent(page, 'E2E fixture agent')
       await send(page, 'Never picked E2E_DELIVERY:unpicked')
@@ -204,6 +206,7 @@ export const runtimeScenarios: Scenario[] = [
       await page.getByText('moved this task from E2E fixture agent to E2E second agent').waitFor()
       await send(page, 'After the move E2E_DELIVERY:unpicked-moved')
       await page.getByText('ACK E2E_DELIVERY:unpicked-moved').waitFor()
+      stopOffering()
       const log = agentLog(stack)
       const sessions = ['E2E_DELIVERY:unpicked', 'E2E_DELIVERY:unpicked-moved'].map((marker) => {
         const turn = log.find((entry) => entry.event === 'finish' && entry.marker === marker)
