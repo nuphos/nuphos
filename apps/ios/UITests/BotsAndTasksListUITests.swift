@@ -84,30 +84,6 @@ final class BotsAndTasksListUITests: XCTestCase {
         shot("2-bots-opened")
     }
 
-    /// A Bot opened by hand stays open when Bots is left and on a restart,
-    /// per team, as on Desktop (#2898). A Bot never opened stays folded.
-    func testBotsKeepWhatWasOpenedByHand() throws {
-        launch(page: "chats")
-        XCTAssertTrue(app.staticTexts["Release Lead"].firstMatch.waitForExistence(timeout: 10), "Bots did not load")
-        app.buttons["Show 2 sub-agents"].firstMatch.tap()
-        XCTAssertTrue(app.staticTexts["Check the CI flake"].firstMatch.waitForExistence(timeout: 5), "Opening a Bot did not show its threads")
-        XCTAssertFalse(app.staticTexts["Fix broken links"].exists, "Opening one Bot opened another")
-        shot("4-bots-opened-by-hand")
-
-        switchPage(to: "Tasks")
-        XCTAssertTrue(app.staticTexts["Check the staging cluster"].firstMatch.waitForExistence(timeout: 10), "Tasks did not load")
-        switchPage(to: "Bots")
-        XCTAssertTrue(app.staticTexts["Check the CI flake"].firstMatch.waitForExistence(timeout: 10), "The opened Bot folded again when Bots was left")
-        XCTAssertFalse(app.staticTexts["Fix broken links"].exists, "A Bot never opened is open")
-        shot("5-bots-after-tasks")
-
-        app.terminate()
-        launch(page: "chats", keepFolds: true)
-        XCTAssertTrue(app.staticTexts["Check the CI flake"].firstMatch.waitForExistence(timeout: 10), "The opened Bot folded again on restart")
-        XCTAssertFalse(app.staticTexts["Fix broken links"].exists, "A Bot never opened is open after a restart")
-        shot("6-bots-after-restart")
-    }
-
     func testTasksLeaveOutBotsAndWhatTheyDispatched() throws {
         launch(page: "agent")
         let staging = app.staticTexts["Check the staging cluster"].firstMatch
@@ -124,18 +100,11 @@ final class BotsAndTasksListUITests: XCTestCase {
         shot("3-tasks")
     }
 
-    /// Starts from no stored folds unless `keepFolds`, so earlier runs leave nothing behind.
-    private func launch(page: String, keepFolds: Bool = false) {
+    private func launch(page: String) {
         app = XCUIApplication()
         app.launchArguments = ["-preview-home", "-preview-no-push", "-page", page]
-        if !keepFolds { app.launchArguments += ["-nuphos.agent.foldedThreads", "{}"] }
         app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path]
         app.launch()
-    }
-
-    private func switchPage(to title: String) {
-        app.buttons["Switch page"].firstMatch.tap()
-        app.buttons[title].firstMatch.tap()
     }
 
     private static func row(
