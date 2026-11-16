@@ -55,6 +55,7 @@ const postedAt = (message: AgentPersistedMessage) =>
   stamp(parseMessageMetadata(message.metadata)?.sentAt ?? message.createdAt)
 
 export function ChannelMessages({
+  initialBotId,
   messages,
   events,
   agents,
@@ -67,6 +68,7 @@ export function ChannelMessages({
   extraRows = [],
   fixes,
 }: {
+  initialBotId?: string
   messages: AgentPersistedMessage[]
   events: AgentTimelineEvent[]
   agents: ChannelAgent[]
@@ -180,7 +182,7 @@ export function ChannelMessages({
       {rows.map((row) => (
         <Fragment key={row.key}>{row.node}</Fragment>
       ))}
-      <Typing agents={agents} channelId={channelId} />
+      <Typing agents={agents} channelId={channelId} initialBotId={initialBotId} />
       {menu && onReply && (
         <ContextMenu
           x={menu.x}

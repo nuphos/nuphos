@@ -98,7 +98,29 @@ describe('Cloudflare binding member list', () => {
     expect(await response.json()).toMatchObject({ memberAllowList: ['u1'] })
   })
 
-  test('keeps the list itself from editors', async () => {
-    expect((await app(['u1'], { userId: 'u1' }).request('/access')).status).toBe(403)
+  test("keeps the list itself from editors who don't own the binding", async () => {
+    expect((await app(['u1', 'u2'], { userId: 'u2' }).request('/access')).status).toBe(403)
+  })
+
+  test('lets an admin off the list use a binding shared with specific people', async () => {
+    const admin = { role: 'ADMINISTRATOR' as const, userId: 'admin' }
+
+    expect((await app(['u1', 'u2'], admin).request('/credentials')).status).toBe(200)
+  })
+
+  test("refuses an admin another member's private binding", async () => {
+    const admin = { role: 'ADMINISTRATOR' as const, userId: 'admin' }
+
+    expect((await app(['u1'], admin).request('/credentials')).status).toBe(403)
+  })
+
+  test('gives a conversation token no admin exception', async () => {
+    const caller = {
+      role: 'ADMINISTRATOR' as const,
+      userId: 'admin',
+      conversationAgent: { userId: 'admin', sessionId: 's' },
+    }
+
+    expect((await app(['u1', 'u2'], caller).request('/credentials')).status).toBe(403)
   })
 })

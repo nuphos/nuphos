@@ -5,6 +5,7 @@ import { rmSync } from 'node:fs'
 import { agentEvents } from './agent-log.ts'
 import { backendFailures, backendLines } from './backend-log.ts'
 import { channelScenarios } from './channel-scenarios.ts'
+import { connectorScenarios } from './connector-scenarios.ts'
 import { startDesktop } from './desktop.ts'
 import { artifacts, stopAll, until } from './processes.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
@@ -30,12 +31,35 @@ const scenarios: Scenario[] = [
     },
   },
   {
+    // The flow #3012 was reported in: the sidebar is on Bots, the page a new team opens on.
+    // The connector's CLI (`aws`) has to be on the PATH for the dialog to offer the agent.
+    name: 'set up a cloud connector with the agent from the Bots page, and the setup turn runs',
+    run: async (page, stack) => {
+      await page.getByRole('button', { name: 'Connectors', exact: true }).click()
+      await page.getByRole('button', { name: 'Add AWS' }).click()
+      await page.getByRole('button', { name: /Set up with agent/ }).click()
+      await page.getByText('ACK E2E_DELIVERY:missing').waitFor()
+      await until('the setup prompt to reach the agent', async () =>
+        agentEvents(stack).includes('finish E2E_DELIVERY:missing'),
+      )
+      // Back where a new team starts, for the scenarios that follow.
+      await page.getByRole('tab', { name: 'Bots' }).click()
+    },
+  },
+  {
     // The flow #2412 was reported in: a Bot's credential question with choices, answered in its chat.
     name: 'create a Bot, talk to it in its chat, and answer its question there',
     run: async (page, stack) => {
       await page.getByRole('button', { name: 'New Bot', exact: true }).click()
       await page.getByRole('textbox', { name: 'Agent name' }).fill('E2E Bot')
       await page.getByRole('button', { name: 'Create', exact: true }).click()
+      // No user prompt precedes this reply: creating/opening the Bot starts its introduction.
+      // The fixture's missing marker proves the turn did not originate from a delivery prompt.
+      await page.getByText('POSTED E2E_DELIVERY:missing', { exact: true }).waitFor()
+      await until('the unprompted Bot introduction to finish', async () =>
+        agentEvents(stack).includes('finish E2E_DELIVERY:missing'),
+      )
+      await page.screenshot({ path: `${artifacts}/bot-first-reply.png` })
       await send(page, 'Ask me E2E_ASK_CREDENTIAL E2E_DELIVERY:bot')
       await page.getByText('POSTED E2E_DELIVERY:bot', { exact: true }).waitFor()
       await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).click()
@@ -186,6 +210,7 @@ const scenarios: Scenario[] = [
       await page.screenshot({ path: `${artifacts}/question-skipped.png` })
     },
   },
+  ...connectorScenarios,
   ...runtimeScenarios,
   ...threadScenarios,
   {

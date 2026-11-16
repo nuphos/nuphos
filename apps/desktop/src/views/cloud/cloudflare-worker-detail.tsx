@@ -1,6 +1,5 @@
-import { faPencil, faTrash } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Trash2 as Trash2Icon, Pencil as PencilIcon } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../api'
@@ -8,6 +7,7 @@ import { Age } from '../../components/Age'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Table } from '../../components/Table'
 import { toast } from '../../components/ui/toast'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { useReportLoading } from '../../components/useReportLoading'
 import { t } from '../../i18n'
 import { queryKeys } from '../../lib/query/keys'
@@ -60,7 +60,7 @@ export function CloudflareWorkerDetailView({
           className="h-7 px-2.5 rounded-md text-tertiary hover:bg-error/15 hover:text-error text-[12.5px] flex items-center gap-1.5"
           title={t('Delete Worker')}
         >
-          <FontAwesomeIcon icon={faTrash} className="w-3.5 h-3.5" />
+          <UiIcon size={16} icon={Trash2Icon} className="w-4 h-4" />
           {t('Delete')}
         </button>
       </CfDetailActionBar>
@@ -110,7 +110,7 @@ export function CloudflareWorkerDetailView({
                 onClick={() => setEditingCron(true)}
                 className="text-[12px] text-link hover:underline flex items-center gap-1"
               >
-                <FontAwesomeIcon icon={faPencil} className="w-3 h-3" /> {t('Edit')}
+                <UiIcon size={16} icon={PencilIcon} className="w-4 h-4" /> {t('Edit')}
               </button>
             </div>
             {crons.length === 0 ? (

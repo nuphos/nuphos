@@ -113,6 +113,9 @@ class ChatSession(
         private set
     var timelineEvents by mutableStateOf<List<AgentConversationDetail.TimelineEvent>>(emptyList())
         private set
+    /** What each answered question still waits for, by request id, already phrased by the backend. */
+    var waitingAnswers by mutableStateOf<Map<String, String>>(emptyMap())
+        private set
     val canReadDownloads get() = hasAiAccess && loaded && loadError == null && isOwner
     suspend fun refreshDownloads() {
         if (!canReadDownloads) { downloads = emptyList(); downloadsError = null; return }
@@ -913,6 +916,7 @@ class ChatSession(
         isArchived = detail.archivedAt != null
         readOnly = detail.readOnly ?: false
         timelineEvents = detail.timelineEvents
+        waitingAnswers = detail.waitingAnswers.associate { it.requestId to it.note }
         isOwner = detail.isOwner ?: false
         if (!isOwner) { downloads = emptyList(); downloadsError = null }
         manages = detail.canManage ?: isOwner
@@ -1603,6 +1607,7 @@ class ChatSession(
         downloads = emptyList()
         downloadsError = null
         timelineEvents = emptyList()
+        waitingAnswers = emptyMap()
         modelScopeActive = false
         resetModelSettings()
         initialModelPick = null

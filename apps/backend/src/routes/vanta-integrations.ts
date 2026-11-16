@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
-import { createDefaultAccess } from '@/lib/byos/access'
+import { bindingShareSchema, newBindingAccess } from '@/lib/byos/initial-access'
 import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { encryptVantaSecret } from '@/lib/byos/secrets'
 import {
@@ -16,9 +16,10 @@ import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
 import {
+  requireCanDisconnect,
+  requireTeamRole,
   requireVantaIntegration,
   requireVantaMemberAccess,
-  requireTeamRole,
 } from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 
@@ -35,6 +36,7 @@ const bindSchema = z
     label: z.string().trim().min(1).max(100),
     clientId: z.string().trim().min(1).max(200),
     clientSecret: z.string().trim().min(1).max(400),
+    share: bindingShareSchema.optional(),
   })
   .strict()
 
@@ -92,7 +94,7 @@ vantaIntegrationsRoutes.post(
         encryptedClientSecret: encryptVantaSecret(clientSecret),
       },
       createdAt: now,
-      access: createDefaultAccess(c.get('userId'), now),
+      access: await newBindingAccess(c, { now: now }),
     }
 
     await teamByosBindings().updateOne(
@@ -131,24 +133,29 @@ integrationScoped.get('/', (c) => {
   })
 })
 
-integrationScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
-  const teamId = parseObjectId(c.get('teamId'), 'teamId')
-  const integrationId = new ObjectId(c.get('vantaIntegrationId'))
-  const result = await teamByosBindings().updateOne(
-    { _id: teamId },
-    {
-      $pull: { vantaIntegrations: { id: integrationId } },
-      $set: { updatedAt: new Date() },
-    },
-  )
+integrationScoped.delete(
+  '/',
+  requireTeamRole('ADMINISTRATOR'),
+  requireCanDisconnect('vantaAccess'),
+  async (c) => {
+    const teamId = parseObjectId(c.get('teamId'), 'teamId')
+    const integrationId = new ObjectId(c.get('vantaIntegrationId'))
+    const result = await teamByosBindings().updateOne(
+      { _id: teamId },
+      {
+        $pull: { vantaIntegrations: { id: integrationId } },
+        $set: { updatedAt: new Date() },
+      },
+    )
 
-  if (result.modifiedCount === 0) {
-    throw new AppError(404, 'vanta_integration_not_bound', 'Vanta integration not found')
-  }
-  invalidateVantaAccessToken(teamId, integrationId)
+    if (result.modifiedCount === 0) {
+      throw new AppError(404, 'vanta_integration_not_bound', 'Vanta integration not found')
+    }
+    invalidateVantaAccessToken(teamId, integrationId)
 
-  return c.body(null, 204)
-})
+    return c.body(null, 204)
+  },
+)
 
 const testsQuerySchema = z
   .object({

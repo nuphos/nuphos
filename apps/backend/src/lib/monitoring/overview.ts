@@ -67,6 +67,7 @@ export async function aggregateMonitoringOverview(
   }
 
   for (const instance of bindings?.grafanaInstances ?? []) {
+    if (!canUseAllowList(instance.access?.memberAllowList, userId)) continue
     const integrationId = instance.id.toHexString()
 
     tasks.push(

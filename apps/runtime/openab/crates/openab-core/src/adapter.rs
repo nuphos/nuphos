@@ -7,7 +7,7 @@ use tracing::{error, warn};
 use crate::acp::connection::{
     build_permission_response, PermissionResponder, SessionActivity, ACP_NOTIFICATION_CAPACITY,
 };
-use crate::acp::pool::ACP_RESOURCE_NOT_FOUND;
+use crate::acp::pool::session_lost;
 use crate::acp::protocol::JsonRpcMessage;
 use crate::acp::{
     classify_notification, parse_turn_result, AcpEvent, ContentBlock, SessionPool, TurnResult,
@@ -1328,7 +1328,7 @@ impl AdapterRouter {
                             let notification =
                                 crate::acp::connection::with_recent_stderr(notification, &prompt_activity);
                             if let Some(ref err) = notification.error {
-                                session_gone = err.code == ACP_RESOURCE_NOT_FOUND;
+                                session_gone = session_lost(err);
                                 response_error = Some(format_coded_error(err.code, &err.message, err.data_message().as_deref()));
                                 response_error_data = Some(err.relay_data());
                             }

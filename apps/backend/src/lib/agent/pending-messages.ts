@@ -25,6 +25,9 @@ export function pendingKey(userId: string, sessionId: string): string {
   return `atlas:agentrun-pending:${userId}:${sessionId}`
 }
 
+// The sessions a queue was stored for, so finding queues never walks the keyspace.
+export const QUEUED_SESSIONS_KEY = 'atlas:agentrun-pending-sessions'
+
 // Never fall back here on Redis errors: another replica may own the run.
 export const localQueues = new Map<string, PendingUserMessage[]>()
 
@@ -46,6 +49,10 @@ async function tryRedis<T>(op: (client: Redis) => Promise<T>): Promise<T | null>
   } catch {
     return null
   }
+}
+
+export async function indexQueuedSession(userId: string, sessionId: string): Promise<void> {
+  await tryRedis((c) => c.sadd(QUEUED_SESSIONS_KEY, `${userId}:${sessionId}`))
 }
 
 export function buildPendingUserMessage(args: {
@@ -107,7 +114,11 @@ export async function enqueuePendingUserMessage(
     ),
   )
 
-  if (stored === 1) return true
+  if (stored === 1) {
+    await indexQueuedSession(userId, sessionId)
+
+    return true
+  }
   logEvent('error', 'agent.pending_messages.enqueue_failed', {
     user_id: userId,
     session_id: sessionId,

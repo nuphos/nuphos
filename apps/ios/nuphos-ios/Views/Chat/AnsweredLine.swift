@@ -35,6 +35,12 @@ struct AnsweredLine: View {
             .accessibilityLabel("\(question.name) answered \(question.question): \(question.answer)")
             .accessibilityHint(expanded ? "Collapses the question" : "Shows the question")
             .accessibilityIdentifier("answered.line")
+            if let waiting = question.waiting {
+                Text(waiting)
+                    .font(Theme.Text.caption)
+                    .foregroundStyle(Theme.warning)
+                    .padding(.horizontal, 6)
+            }
             if expanded { card }
         }
     }

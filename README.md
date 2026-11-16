@@ -139,6 +139,8 @@ change touches.
 - Bun for `apps/backend`.
 - Node.js 22 and pnpm 10 for `apps/desktop`.
 - Docker (Docker Desktop, or Docker Engine with Compose v2.24+) and `openssl` for the local stack `bun run dev` runs on.
+- Rust, installed with [rustup](https://rustup.rs), for the Local runtime's `openab` binary, which
+  `bun run dev` builds from `apps/runtime/openab`. The build installs the pinned toolchain itself.
 - Google OAuth credentials and `NUPHOS_JWT_SECRET` for Nuphos auth flows.
 
 ## Formatting and Linting
@@ -198,7 +200,7 @@ agent stands in for the model, so no model account or network access is needed
 and the run takes about a minute. It does not touch a running `bun run dev`.
 
 It needs the dependencies of `apps/backend` and `apps/desktop` installed, an
-`openab` binary (`node apps/desktop/local-runtime/prepare.mjs` builds one, or
+`openab` binary (`node apps/desktop/local-runtime/prepare.mjs` builds one with Rust, or
 set `OPENAB` to an existing one), and either `mongod` on the PATH or Docker.
 Logs and a screenshot after each scenario are written to the directory the run
 prints first; set `E2E_ARTIFACTS` to choose it.

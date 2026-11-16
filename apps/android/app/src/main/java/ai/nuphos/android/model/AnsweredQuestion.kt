@@ -17,6 +17,8 @@ data class AnsweredQuestion(
     val options: List<String> = emptyList(),
     val asked: Instant? = null,
     val answered: Instant? = null,
+    /** While its answer has not reached the agent: what it waits for, phrased by the backend. */
+    val waiting: String? = null,
 ) {
     /** The options the answer picked: none when it was typed instead. Several picks arrive joined by ", ". */
     val picked: List<String> get() {

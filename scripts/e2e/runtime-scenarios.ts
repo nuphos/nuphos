@@ -1,10 +1,18 @@
 // Scenarios about the agent hosts a Task runs on: a restart, delegation, a move.
 import { agentEvents, agentLog, delegatedTurn } from './agent-log.ts'
 import { backendLines, backendLog } from './backend-log.ts'
-import { until } from './processes.ts'
+import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
+import type { Page } from 'playwright-core'
+
+async function pickAgent(page: Page, label: string) {
+  await page.getByRole('button', { name: /^Agent runtime/ }).click()
+  // The computer's row opens a submenu of its runtimes.
+  await page.getByRole('menu').getByText(label).click()
+  await page.getByRole('menuitem', { name: new RegExp(`^${label}.*Claude Code`) }).click()
+}
 
 // The delegation scenario needs the second agent unused, so the move comes after it.
 export const runtimeScenarios: Scenario[] = [
@@ -94,10 +102,7 @@ export const runtimeScenarios: Scenario[] = [
       await page.getByRole('menuitemcheckbox', { name: /fixture-large/ }).click()
       await page.keyboard.press('Escape')
       await page.getByRole('button', { name: /^Model settings: fixture-large/ }).waitFor()
-      await page.getByRole('button', { name: /^Agent runtime/ }).click()
-      // The computer's row opens a submenu of its runtimes.
-      await page.getByRole('menu').getByText('E2E second agent').click()
-      await page.getByRole('menuitem', { name: /^E2E second agent.*Claude Code/ }).click()
+      await pickAgent(page, 'E2E second agent')
       await page.getByText('moved this task from E2E fixture agent to E2E second agent').waitFor()
       await send(page, 'After the move E2E_DELIVERY:after-move')
       await until('the moved Task to finish on the second agent', async () =>
@@ -106,6 +111,64 @@ export const runtimeScenarios: Scenario[] = [
         ),
       )
       await page.getByText('ACK E2E_DELIVERY:after-move').waitFor()
+    },
+  },
+  {
+    // #3051: the person moves it off an agent out of usage, and the refused turn runs there once.
+    name: 'a turn refused for usage runs again, once, after the Task moves to another agent',
+    run: async (page, stack) => {
+      const marker = 'E2E_DELIVERY:usage-limit'
+      const ran = () =>
+        agentLog(stack).filter(
+          (entry) =>
+            entry.agent === 'second' && entry.marker === marker && entry.event === 'finish',
+        )
+
+      await newTask(page)
+      // A new Task starts on the agent last used, the second one since the move above.
+      await pickAgent(page, 'E2E fixture agent')
+      await send(page, `Out of usage E2E_USAGE_LIMIT ${marker}`)
+      await page.getByText('You’ve hit your usage limit').first().waitFor()
+      await pickAgent(page, 'E2E second agent')
+      await page.getByText('Retrying on E2E second agent').waitFor()
+      await until('the refused turn to finish on the second agent', async () => ran().length > 0)
+      await page.getByText(`ACK ${marker}`).waitFor()
+      // Long enough for a second resend to have started, had there been one.
+      await new Promise((resolve) => setTimeout(resolve, 3000))
+      if (ran().length !== 1) throw new Error(`The turn ran ${ran().length} times on the new agent`)
+    },
+  },
+  {
+    // #3055: an answer its agent cannot run waits, says so, and reaches the agent the Task moves to.
+    name: 'an answer its agent is out of usage for waits, then reaches the agent the Task moves to, once',
+    run: async (page, stack) => {
+      const answered = () =>
+        agentLog(stack).filter(
+          (entry) =>
+            entry.agent === 'second' &&
+            entry.marker === 'E2E_DELIVERY:answered' &&
+            entry.event === 'finish',
+        ).length
+      const before = answered()
+
+      await newTask(page)
+      await pickAgent(page, 'E2E fixture agent')
+      await send(page, 'Ask me late E2E_ASK E2E_ASK_LATE E2E_DELIVERY:asking-late')
+      await page
+        .getByRole('heading', { name: 'Which marker should the fixture use?' })
+        .last()
+        .waitFor()
+      await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).click()
+      await page.getByText('You’ve hit your usage limit').first().waitFor()
+      await page.reload()
+      await page.getByText(/^Answered · waiting for E2E fixture agent \(out of usage/).waitFor()
+      await page.screenshot({ path: `${artifacts}/answer-waiting.png` })
+      await pickAgent(page, 'E2E second agent')
+      await until('the answer to reach the second agent', async () => answered() > before)
+      // Long enough for a second delivery to have started, had there been one.
+      await new Promise((resolve) => setTimeout(resolve, 3000))
+      if (answered() !== before + 1)
+        throw new Error(`The answer reached the second agent ${answered() - before} times`)
     },
   },
 ]

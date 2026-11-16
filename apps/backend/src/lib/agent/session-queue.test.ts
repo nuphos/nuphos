@@ -554,6 +554,56 @@ test('after a restart the backstop starts a waiting queue, at most once per inte
   }
 })
 
+test('with Redis, the backstop finds a waiting queue without scanning the keyspace', async () => {
+  const lists = new Map<string, string[]>()
+  const sets = new Map<string, Set<string>>()
+  const commands: string[] = []
+  const members = (key: string) => sets.get(key) ?? sets.set(key, new Set()).get(key)!
+  const store: Record<string, (...args: never[]) => Promise<unknown>> = {
+    eval: async (_script: string, _keys: number, key: string, raw: string) => {
+      lists.set(key, [...(lists.get(key) ?? []), raw])
+
+      return 1
+    },
+    lrange: async (key: string) => lists.get(key) ?? [],
+    exists: async (key: string) => (lists.has(key) ? 1 : 0),
+    del: async (key: string) => Number(lists.delete(key)),
+    sadd: async (key: string, ...values: string[]) => values.map((v) => members(key).add(v)),
+    srem: async (key: string, ...values: string[]) => values.map((v) => members(key).delete(v)),
+    sscan: async (key: string) => ['0', [...members(key)]],
+    scan: async () => ['0', [...lists.keys()]],
+  }
+  const started: string[] = []
+  const enabled = config.redis.enabled
+
+  fakeRedis = new Proxy(store, {
+    get: (target, name: string) => {
+      commands.push(name)
+
+      return target[name]
+    },
+  })
+  config.redis.enabled = true
+  installQueuedTurnStarter(async (_userId, sessionId) => {
+    started.push(sessionId)
+  })
+  try {
+    await enqueuePendingUserMessage(OWNER, 'indexed-session', human('left waiting'))
+    await sweepQueuedSessions('0')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(started.filter((id) => id === 'indexed-session')).toEqual(['indexed-session'])
+    expect(commands).not.toContain('scan')
+    // An emptied queue leaves the index.
+    await clearPendingUserMessages(OWNER, 'indexed-session')
+    await sweepQueuedSessions('0')
+    expect([...sets.values()].flatMap((set) => [...set])).toEqual([])
+  } finally {
+    installQueuedTurnStarter(startQueuedTurn)
+    fakeRedis = null
+    config.redis.enabled = enabled
+  }
+})
+
 const REFUSED = 'refused-session'
 const delivery = (messageId: string) =>
   startConversationTurn(

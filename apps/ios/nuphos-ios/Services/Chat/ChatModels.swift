@@ -343,6 +343,11 @@ enum ChatPart: Equatable, Sendable {
                 && input?["credentials"] == nil
         }
 
+        /// The providers an integration question asks for.
+        var integrationProviders: [String]? {
+            input?["providers"]?.arrayValue?.compactMap(\.stringValue)
+        }
+
         /// The request id the decision's result names; the call id otherwise.
         var decisionRequestId: String {
             output?["requestId"]?.stringValue ?? toolCallId

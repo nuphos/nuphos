@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 
 import { agentSubjectId } from '@/lib/agents/identity'
-import { canPrincipalsUseAllowList, canUseAllowList } from '@/lib/byos/access'
+import { canPrincipalsUseAllowList } from '@/lib/byos/access'
 import { getCloudflareOAuthAccessToken } from '@/lib/byos/cloudflare-oauth'
 import {
   decryptCloudflareApiKey,
@@ -11,9 +11,10 @@ import {
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import {
+  canRequestUseBinding,
   requireCloudflareAccount,
-  requireLinodeAccount,
   requireHetznerAccount,
+  requireLinodeAccount,
 } from '@/middleware/auth'
 import { agentPrincipals, getAgentCredentialAccess } from '@/routes/agent-sessions/shared'
 
@@ -148,7 +149,7 @@ function requireSelectedLinodeAgentCredential(): MiddlewareHandler<{ Variables: 
         'This Linode account is not enabled for this agent session',
       )
     }
-    if (!canUseAllowList(c.get('linodeAccess')?.memberAllowList, c.get('userId'))) {
+    if (!canRequestUseBinding(c, c.get('linodeAccess'))) {
       throw new AppError(
         403,
         'linode_account_agent_access_denied',
@@ -185,7 +186,7 @@ function requireSelectedHetznerAgentCredential(): MiddlewareHandler<{
         'This Hetzner account is not enabled for this agent session',
       )
     }
-    if (!canUseAllowList(c.get('hetznerAccess')?.memberAllowList, c.get('userId'))) {
+    if (!canRequestUseBinding(c, c.get('hetznerAccess'))) {
       throw new AppError(
         403,
         'hetzner_account_agent_access_denied',

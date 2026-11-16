@@ -63,6 +63,8 @@ final class ChatSession {
     private(set) var resources: [SessionResource] = []
     /// Invites, removals and runtime moves, refreshed with every detail read.
     private(set) var timelineEvents: [AgentConversationDetail.TimelineEvent] = []
+    /// What each answered question still waits for, by request id, already phrased by the backend.
+    private(set) var waitingAnswers: [String: String] = [:]
     /// The session is a chat, found on loading it from a link.
     private(set) var isChannel = false
     /// Files the agent sent the user here, read from the transfer store.
@@ -1114,6 +1116,7 @@ final class ChatSession {
         if let id = detail.runtimeId { runtimeId = id }
         if let l = detail.runtimeLabel { runtimeLabel = l }
         timelineEvents = detail.timelineEvents
+        waitingAnswers = Dictionary(detail.waitingAnswers.map { ($0.requestId, $0.note) }, uniquingKeysWith: { first, _ in first })
         isArchived = detail.archivedAt != nil
         isWatching = detail.watching
     }

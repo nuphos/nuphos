@@ -26,6 +26,8 @@ export type Stack = {
   holdSessionOpening: () => () => void
   /** Stops OpenAB and its agents, runs `whileDown`, then starts it again on the same address, as a runtime restart does. */
   restartAgentHost: (whileDown?: () => Promise<void>) => Promise<void>
+  /** The `state` of the newest Cloudflare authorization the app started. */
+  cloudflareState: () => string
 }
 
 function findOpenab(): string {
@@ -102,6 +104,20 @@ function initiateReplicaSet(uri: string): boolean {
   } catch {
     return false
   }
+}
+
+function cloudflareState(uri: string): string {
+  const script = `
+    import { MongoClient } from 'mongodb'
+    const client = await new MongoClient(process.argv[1]).connect()
+    const [pending] = await client.db('nuphos_e2e').collection('cloudflare_oauth_pending')
+      .find().sort({ expiresAt: -1 }).limit(1).toArray()
+    await client.close()
+    console.log(pending?._id ?? '')`
+
+  return execFileSync('bun', ['-e', script, uri], { cwd: BACKEND_DIR, timeout: 10_000 })
+    .toString()
+    .trim()
 }
 
 /** The newest six-digit sign-in code the backend logged for this address. */
@@ -188,6 +204,10 @@ export async function startStack(): Promise<Stack> {
       CLAUDE_CODE_RUNTIME_PROVISIONER_ENABLED: 'false',
       NUPHOS_DEV_EMAIL_OTP_LOG: 'true',
       NUPHOS_LOCAL_STACK: 'true',
+      // Cloudflare is never reached: a scenario answers for it on this redirect.
+      CLOUDFLARE_OAUTH_CLIENT_ID: 'e2e-cloudflare-client',
+      CLOUDFLARE_OAUTH_CLIENT_SECRET: 'e2e-cloudflare-secret-not-a-production-credential',
+      CLOUDFLARE_OAUTH_SETUP_REDIRECT: `${apiUrl}/cloudflare-app/setup`,
       // Where the agent reaches the backend's tools, as a runtime on this computer would.
       NUPHOS_BACKEND_URL: apiUrl,
     },
@@ -236,5 +256,15 @@ export async function startStack(): Promise<Stack> {
     })
   }
 
-  return { apiUrl, email, token, teamId, acpLog, signInCode, holdSessionOpening, restartAgentHost }
+  return {
+    apiUrl,
+    email,
+    token,
+    teamId,
+    acpLog,
+    signInCode,
+    holdSessionOpening,
+    restartAgentHost,
+    cloudflareState: () => cloudflareState(mongoUri),
+  }
 }

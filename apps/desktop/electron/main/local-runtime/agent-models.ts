@@ -4,6 +4,8 @@ import type { Agent, LocalAgentRun, LocalRuntimeControllerDeps } from './control
 export const MODEL_RETRY_MS = [60_000, 120_000, 300_000, 600_000]
 /** A good list is read again this often while the agent runs. */
 export const MODEL_REFRESH_MS = 30 * 60_000
+/** A signed-out CLI is checked for a sign-in this often before its models are read. */
+export const MODEL_SIGNED_OUT_MS = 60_000
 /** An opened model picker reads again at most this often. */
 export const MODEL_ON_DEMAND_MS = 60_000
 
@@ -66,7 +68,16 @@ export function discoverModels(
 
     return inFlight
   }
+  // Each read starts the CLI, and one signed out cannot list models: wait for its sign-in.
+  const signedOut = () => agent.cli?.installed === true && agent.cli.loggedIn === false
   const cycle = (failures: number) => {
+    if (signedOut()) {
+      setTimeout(() => {
+        if (live()) cycle(failures)
+      }, MODEL_SIGNED_OUT_MS).unref()
+
+      return
+    }
     void read().then((changed) => {
       if (!live()) return
       // The last good list stays reported while a failed read is tried again.
@@ -85,7 +96,8 @@ export function discoverModels(
   readers.add({
     live,
     read: () =>
-      inFlight ?? (Date.now() - readAt < MODEL_ON_DEMAND_MS ? Promise.resolve(false) : read()),
+      inFlight ??
+      (signedOut() || Date.now() - readAt < MODEL_ON_DEMAND_MS ? Promise.resolve(false) : read()),
   })
   cycle(0)
 }

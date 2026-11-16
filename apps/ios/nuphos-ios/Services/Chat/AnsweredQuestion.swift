@@ -12,6 +12,8 @@ struct AnsweredQuestion: Equatable, Sendable {
     var options: [String] = []
     var asked: Date? = nil
     var answered: Date? = nil
+    /// While its answer has not reached the agent: what it waits for, phrased by the backend.
+    var waiting: String? = nil
 
     /// The sender of the notice (`nuphos:decision`).
     static let sender = "nuphos:decision"
