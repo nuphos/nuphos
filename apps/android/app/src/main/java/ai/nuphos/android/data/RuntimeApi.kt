@@ -18,6 +18,6 @@ object RuntimeApi {
     }
     suspend fun cancel(token: String, teamId: String, sessionId: String) {
         val response = JsonValue.parse(AgentChatApi.send("POST", "agent/conversations/$sessionId/cancel-runtime", token, listOf("teamId" to teamId)))
-        if (response?.get("ok")?.boolValue != true || response["status"]?.stringValue != "requested") throw NuphosApi.Failure.InvalidResponse
+        if (response?.get("ok")?.boolValue != true) throw NuphosApi.Failure.InvalidResponse
     }
 }
