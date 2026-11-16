@@ -54,7 +54,7 @@ final class EmptyChatUITests: XCTestCase {
         try expectEmptyChat(named: Self.long, shot: "made-a-bot")
         // Back returns to the list the Bot was made from.
         app.navigationBars.buttons["BackButton"].tap()
-        XCTAssertTrue(app.buttons["Switch page"].firstMatch.waitForExistence(timeout: 5), "Back did not return to the list")
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 5), "Back did not return to the list")
     }
 
     // With the keyboard up there is less room. A simulator with a hardware keyboard shows none: skipped, not passed.

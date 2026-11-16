@@ -1,8 +1,7 @@
 import SwiftUI
 
-/// The signed-in shell: the page name is the (large) navigation title and
-/// doubles as the page switcher via the title menu; search, filter and the
-/// account avatar sit on the trailing edge. The Agent page brings its own composer.
+/// The signed-in shell shares its stores across three native home tabs.
+/// The split view keeps conversation navigation and its keyboard behavior intact.
 struct HomeView: View {
     @Environment(AuthSession.self) private var session
     let user: NuphosUser
@@ -14,7 +13,9 @@ struct HomeView: View {
     /// The next page change is the default tab, not the viewer's pick.
     @State private var autoPage = false
     @State private var showProfile = false
-    @State private var isSearching = false
+    @State private var searching: Set<HomePage> = []
+    @State private var searches: [HomePage: String] = [:]
+    @State private var workspacePage: HomePage? = Self.initialWorkspacePage
     @State private var titleCollapsed = false
     @State private var store: AgentStore?
     @State private var plans: PlansStore?
@@ -59,25 +60,30 @@ struct HomeView: View {
                     Theme.canvas
                 }
             }
-            // The page switcher sits in the bar, on the same row as search,
-            // filter and the account avatar.
+            // The title and workspace actions stay above the native home tabs.
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
+            .navigationTitle(page.title)
             // Wide, the list always stays: there is nothing to put it away with.
             .toolbar(removing: .sidebarToggle)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    PageTitleMenu(selection: $page, style: .bar, inboxCount: inbox?.list.count ?? 0, pageCounts: store?.pageCounts ?? [:])
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button("Computers", systemImage: "desktopcomputer") { workspacePage = .runtimes }
+                        Button("Connectors", systemImage: "app.connected.to.app.below.fill") { workspacePage = .connectors }
+                    } label: {
+                        Label("Workspace", systemImage: "ellipsis.circle")
+                    }
+                    .accessibilityLabel("Workspace")
+                    .disabled(store == nil || connectors == nil)
                 }
-                .sharedBackgroundHidden()
-
                 // Each control gets its own glass group
                 // (ToolbarSpacer(.fixed) splits groups, per the toolbar docs).
                 if page.isHomeList, store != nil {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button {
-                            isSearching.toggle()
+                            searchPresentation(for: page).wrappedValue.toggle()
                         } label: {
                             Label("Search tasks", systemImage: "magnifyingglass")
                         }
@@ -107,6 +113,19 @@ struct HomeView: View {
             #endif
             .sheet(isPresented: $showProfile) {
                 ProfileSheet(user: user)
+            }
+            .sheet(item: $workspacePage) { destination in
+                NavigationStack {
+                    workspaceContent(destination)
+                        .navigationTitle(destination == .runtimes ? Text("Computers") : Text("Connectors"))
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button("Done") { workspacePage = nil }
+                            }
+                        }
+                }
+                .environment(store)
+                .environment(connectors)
             }
             #if DEBUG
             .overlay {
@@ -202,10 +221,9 @@ struct HomeView: View {
         }
         .onChange(of: page) { oldPage, newPage in
             if autoPage { autoPage = false } else { pageChosen = true }
-            isSearching = false
+            searches[oldPage] = store?.search ?? ""
+            store?.search = searches[newPage] ?? ""
             openChat = nil
-            // What was opened on Bots folds again once Bots is left.
-            store?.foldBots()
             inbox?.selected = nil
             // An answer held for Undo goes once the Inbox is left.
             let left = inbox
@@ -266,29 +284,61 @@ struct HomeView: View {
     private static var initialPage: HomePage {
         #if DEBUG
         let args = CommandLine.arguments
-        if let i = args.firstIndex(of: "-page"), i + 1 < args.count, let page = HomePage(rawValue: args[i + 1]) {
+        if let i = args.firstIndex(of: "-page"), i + 1 < args.count, let page = HomePage(rawValue: args[i + 1]),
+           page.isHomeList || page == .inbox {
             return page
         }
         #endif
         return HomePage.hasChats ? .chats : .agent
     }
 
-    @ViewBuilder
     private var pageContent: some View {
-        switch page {
-        case .chats, .agent:
-            AgentPage(page: $page, isSearching: $isSearching, titleCollapsed: $titleCollapsed, openChat: $openChat, showsComposer: sizeClass != .regular)
-        case .inbox:
+        TabView(selection: $page) {
+            homeList(.chats)
+                .tabItem { Label("Bots", systemImage: HomePage.chats.systemImage) }
+                .tag(HomePage.chats)
+                .badge(store?.pageCounts[.chats] ?? 0)
+            homeList(.agent)
+                .tabItem { Label("Tasks", systemImage: HomePage.agent.systemImage) }
+                .tag(HomePage.agent)
+                .badge(store?.pageCounts[.agent] ?? 0)
             InboxPage(inbox: inbox, wide: sizeClass == .regular)
-                .onAppear { titleCollapsed = false }
-        case .connectors:
-            ConnectorsPage()
-                .onAppear { titleCollapsed = false }
-        case .runtimes:
-            RuntimesPage()
-                .onAppear { titleCollapsed = false }
+                .tabItem { Label("Inbox", systemImage: HomePage.inbox.systemImage) }
+                .tag(HomePage.inbox)
+                .badge(inbox?.list.count ?? 0)
         }
     }
+
+    private func homeList(_ tab: HomePage) -> some View {
+        AgentPage(page: .constant(tab), isSearching: searchPresentation(for: tab),
+                  titleCollapsed: $titleCollapsed, openChat: $openChat, showsComposer: sizeClass != .regular)
+    }
+
+    private func searchPresentation(for tab: HomePage) -> Binding<Bool> {
+        Binding(get: { searching.contains(tab) }, set: { shown in
+            if shown { searching.insert(tab) } else { searching.remove(tab) }
+        })
+    }
+
+    @ViewBuilder
+    private func workspaceContent(_ destination: HomePage) -> some View {
+        switch destination {
+        case .runtimes: RuntimesPage()
+        default: ConnectorsPage()
+        }
+    }
+
+    private static var initialWorkspacePage: HomePage? {
+        #if DEBUG
+        let args = CommandLine.arguments
+        if let i = args.firstIndex(of: "-page"), i + 1 < args.count,
+           let page = HomePage(rawValue: args[i + 1]), page == .runtimes || page == .connectors {
+            return page
+        }
+        #endif
+        return nil
+    }
+
 }
 
 /// Splits trailing controls into separate glass groups. Before iOS 26
