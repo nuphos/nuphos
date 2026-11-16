@@ -83,7 +83,6 @@ class HomeNavigationFixtureDeviceTest {
         target.javaClass.getDeclaredField(name + if (delegated) "\$delegate" else "").also { it.isAccessible = true }.get(target) as MutableState<Any?>
     private val network = object : ExternalResource() {
         override fun before() {
-            assumeTrue("Runs only in its isolated fixture package", InstrumentationRegistry.getInstrumentation().targetContext.packageName in setOf("ai.nuphos.android.navigation1371", "ai.nuphos.android.runtimes1373", "ai.nuphos.android.agentsaudit1382"))
             app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as NuphosApplication
             savedConfiguration = Configuration(app.resources.configuration)
             savedMetrics = DisplayMetrics().also { it.setTo(app.resources.displayMetrics) }

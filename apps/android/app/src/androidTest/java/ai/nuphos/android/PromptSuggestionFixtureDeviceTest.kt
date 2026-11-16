@@ -42,7 +42,6 @@ class PromptSuggestionFixtureDeviceTest {
     @Suppress("UNCHECKED_CAST") private fun state(target: Any, name: String, value: Any) {
         (target.javaClass.getDeclaredField(name + "\$delegate").also { it.isAccessible = true }.get(target) as MutableState<Any>).value = value
     }
-    @get:Rule(order = Int.MIN_VALUE) val isolated = isolatedPackage { it.endsWith(".prompt1327") }
 
     @Before fun setup() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
