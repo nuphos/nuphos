@@ -159,7 +159,7 @@ final class ChatSession {
     func cancelSending() { sending?.task?.cancel() }
     private(set) var steeringPending = false
     /// This device's send has no runtime status yet. Only this turn's own
-    /// runtime state clears it, so String(localized: "Sending…") holds until the runtime's first
+    /// runtime state clears it, so "Sending…" holds until the runtime's first
     /// status replaces it: another turn executing says nothing about this message.
     private var awaitingAdmission = false
     var canSteer: Bool { !readOnly && isNativeRuntime && allows("steer") && !allows("reply") && !steeringPending }
@@ -420,6 +420,9 @@ final class ChatSession {
 
     // MARK: - Sending
 
+    /// The open question the next message answers, quoted above the composer: the Inbox's "Other…".
+    var answering: BotQuestion?
+
     /// Sends `text`, or queues it while a reply is streaming.
     func send(_ text: String) {
         send(ComposerSubmission(text: text, attachments: []))
@@ -432,7 +435,11 @@ final class ChatSession {
         guard let name = part.secretRequest?.name else { return }
         let path = try await AgentChatAPI.saveSecret(token: token, teamId: teamId, sessionId: sessionId, name: name, value: value)
         try? await AgentChatAPI.resolveDecision(token: token, teamId: teamId, sessionId: sessionId, requestId: part.decisionRequestId)
+        // The saved path answers the secret's own request, never a question quoted for "Other…".
+        let quoted = answering
+        answering = nil
         send(SecretCard.savedReply(name) + path)
+        answering = quoted
     }
 
     /// The first reply after the message that asked, if anyone replied yet.
@@ -464,6 +471,9 @@ final class ChatSession {
             }
             return
         }
+        // Words for the quoted question answer it, as its options do; with files, a message answering nothing.
+        let answers = attachments.isEmpty ? answering?.request.id : nil
+        answering = nil
         var parts: [ChatPart] = []
         if !trimmed.isEmpty { parts.append(.text(.init(text: trimmed, state: .done))) }
         let uploads = isNativeRuntime ? attachments : attachments.filter { !$0.isImage }
@@ -489,7 +499,7 @@ final class ChatSession {
                 sending = nil
                 let message = ChatMessage(role: .user, parts: parts)
                 await dispatch(message, title: trimmed.isEmpty ? (attachments.first?.name ?? "Attachment") : trimmed,
-                               submission: submission)
+                               submission: submission, decisionReplyTo: answers)
             } catch {
                 sending = nil
                 if !Task.isCancelled { self.error = error.localizedDescription }
@@ -758,7 +768,8 @@ final class ChatSession {
     var me: ChatMessage.Sender?
     private(set) var sentHere: Set<String> = []
 
-    private func dispatch(_ message: ChatMessage, title text: String, submission: ComposerSubmission? = nil) async {
+    private func dispatch(_ message: ChatMessage, title text: String, submission: ComposerSubmission? = nil,
+                          decisionReplyTo: String? = nil) async {
         sentHere.insert(message.id)
         let wasEmpty = messages.isEmpty
         // Send intent, matching Desktop; this is not a successful agent outcome.
@@ -787,7 +798,8 @@ final class ChatSession {
             permissionMode: wasEmpty ? permissionMode.rawValue : nil,
             agentRuntime: wasEmpty ? runtime?.provider.rawValue : nil,
             runtimeId: wasEmpty ? runtime?.id : nil,
-            initialSessionConfig: wasEmpty ? initialSessionConfig : nil
+            initialSessionConfig: wasEmpty ? initialSessionConfig : nil,
+            decisionReplyTo: decisionReplyTo
         ))
     }
 
@@ -921,6 +933,8 @@ final class ChatSession {
         var agentRuntime: String?
         var runtimeId: String?
         var initialSessionConfig: [String: String]?
+        /// The open question the message answers.
+        var decisionReplyTo: String?
     }
 
     private enum TurnResult {
@@ -1210,7 +1224,8 @@ final class ChatSession {
                 agentRuntime: firstPost ? options.agentRuntime : nil,
                 runtimeId: firstPost ? options.runtimeId : nil,
                 initialSessionConfig: firstPost ? options.initialSessionConfig : nil,
-                clientCapabilities: ["localTools": false, "serverQueue": true, "secretCard": true]
+                clientCapabilities: ["localTools": false, "serverQueue": true, "secretCard": true],
+                decisionReplyTo: firstPost ? options.decisionReplyTo : nil
             )
 
             var needsFreshRetry = false

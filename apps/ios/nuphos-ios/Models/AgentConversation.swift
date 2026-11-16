@@ -34,7 +34,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         var displayName: String {
             if let name, !name.isEmpty { return name }
             if let email, !email.isEmpty { return email }
-            return "User"
+            return String(localized: "User")
         }
     }
 
@@ -172,7 +172,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     var displayTitle: String {
         if !title.isEmpty { return title }
         if !firstMessage.isEmpty { return firstMessage }
-        return isChannel ? "New Group Chat" : "Untitled task"
+        return isChannel ? String(localized: "New Group Chat") : String(localized: "Untitled task")
     }
 
     /// An open question waits on the viewer.
