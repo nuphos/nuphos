@@ -1,4 +1,5 @@
 import { forgetConversationPreviewSession } from '@/lib/agent/db'
+import { logError } from '@/lib/observability'
 
 import { acpErrorCode, OpenAbRpcError } from './openab-acp-errors'
 import { refusal } from './runtime-refusal'
@@ -29,16 +30,23 @@ export function agentLostSession(error: unknown): boolean {
 export async function promptFailure(
   error: unknown,
   session: Pick<TeamSession, 'conversationId' | 'teamId' | 'openabSessionId'>,
-  defaults: RuntimeDefaults = {},
+  defaults?: RuntimeDefaults,
 ): Promise<unknown> {
   if (error instanceof OpenAbRpcError && error.code === -32001) return refusal(error.message)
+  // A failed write must not replace the agent's error; the next message forgets it again.
   if (agentLostSession(error))
     await forgetConversationPreviewSession(
       session.conversationId,
       session.teamId,
       session.openabSessionId,
       defaults,
-    )
+    ).catch((writeError: unknown) => {
+      logError('agent.openab_session.forget_failed', writeError, {
+        team_id: session.teamId,
+        session_id: session.conversationId,
+        openab_session_id: session.openabSessionId,
+      })
+    })
 
   return error
 }
