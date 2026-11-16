@@ -5,6 +5,7 @@ import { rmSync } from 'node:fs'
 import { agentEvents } from './agent-log.ts'
 import { backendFailures, backendLines } from './backend-log.ts'
 import { channelScenarios } from './channel-scenarios.ts'
+import { commandScenarios } from './command-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
 import { startDesktop } from './desktop.ts'
 import { artifacts, stopAll, until } from './processes.ts'
@@ -212,6 +213,7 @@ const scenarios: Scenario[] = [
   },
   ...connectorScenarios,
   ...runtimeScenarios,
+  ...commandScenarios,
   ...threadScenarios,
   {
     // #2577: a Task under another has no permission mode of its own. The parent here is a
