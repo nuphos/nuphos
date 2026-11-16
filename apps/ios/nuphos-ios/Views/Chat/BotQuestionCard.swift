@@ -34,14 +34,6 @@ struct BotQuestionCard: View {
 
     private var wide: Bool { sizeClass == .regular }
 
-    /// The one-tap answers, possibly none; nil when only the conversation can answer it.
-    private var options: [String]? {
-        if question.request.category == "credential" || question.connectable { return nil }
-        let options = (question.request.options ?? []).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
-        // Neither an option nor words answer it here.
-        return options.isEmpty && !question.typed ? nil : options
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             if let part = question.secretPart, let teamId { secret(part, teamId) } else { card }
@@ -97,7 +89,7 @@ struct BotQuestionCard: View {
         if let form = question.form {
             DecisionForm(questions: form, onSubmit: onAnswer)
             HStack { Spacer(); skip }.padding(.top, 12)
-        } else if let options {
+        } else if let options = question.options {
             VStack(alignment: .leading, spacing: wide ? 10 : 8) {
                 if wide {
                     // One row, Skip at its end; long options take the row and the outlined two the next.
@@ -146,7 +138,7 @@ struct BotQuestionCard: View {
 
     /// "Other…" beside options; "Reply…" when there are none. A plan or a secret is never answered in words.
     @ViewBuilder private var other: some View {
-        let title = options?.isEmpty == true ? String(localized: "Reply…") : String(localized: "Other…")
+        let title = question.options?.isEmpty == true ? String(localized: "Reply…") : String(localized: "Other…")
         if question.typed {
             InboxOutlineButton(title: title, fill: !wide, toggled: typing) {
                 typing.toggle()

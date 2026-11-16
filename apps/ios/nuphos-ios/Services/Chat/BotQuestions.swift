@@ -43,6 +43,13 @@ struct BotQuestion: Identifiable, Equatable, Sendable {
         return refs.map(\.id)
     }
 
+    /// The one-tap answers, possibly none, beside Skip; nil for a form, a secret or a connection,
+    /// each answered in its own way. Every other open question is answered here, never elsewhere.
+    var options: [String]? {
+        guard form == nil, secretPart == nil, !connectable else { return nil }
+        return (request.options ?? []).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+    }
+
     /// An integration question the Inbox answers in place: by its providers, or by the member's own credentials.
     var connectable: Bool {
         request.category == "integration"

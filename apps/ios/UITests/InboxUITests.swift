@@ -340,8 +340,9 @@ final class InboxUITests: XCTestCase {
     }
 
     /// An integration question's picker lists only the providers it asks for. Done says why when the
-    /// question is still open, and leaves once a credential it asks for is selected. One that names no
-    /// provider, such as a service with no connector, is answered in words.
+    /// question is still open, and leaves once a credential it asks for is selected. Every other card is
+    /// answered on itself: one naming no provider with its options or words, a sign-in status card with
+    /// its options, and a words-only card under a markdown body with its question in view.
     func testAnIntegrationQuestionOffersItsProvidersAndOneNamingNoneTakesWords() throws {
         responses["GET /agent/credential-options"] = ["status": 200, "body": [
             "awsRoles": [["roleId": "role-prod", "accountId": "111122223333", "accountAlias": "prod-account"]],
@@ -349,16 +350,26 @@ final class InboxUITests: XCTestCase {
                                     "serviceAccountEmail": "release@release-builds.iam.gserviceaccount.com"]]]]
         responses["PATCH /agent/conversations/agent-ops/credentials"] = ["status": 200, "body": [
             "credentialAccess": ["gcpServiceAccountIds": ["sa-release"]], "options": [:]]]
-        responses["POST /agent/conversations/agent-ops/decisions/q-play/answer"] = ["status": 200, "body": ["ok": true]]
+        for id in ["q-play", "q-signin", "q-repo"] {
+            responses["POST /agent/conversations/agent-ops/decisions/\(id)/answer"] = ["status": 200, "body": ["ok": true]]
+        }
         let gcp: [String: Any] = ["id": "q-gcp", "category": "integration",
                                   "question": "Select a Google Cloud account so I can read the release bucket.",
                                   "providers": ["gcp"], "askedAt": "2026-11-03T09:40:00Z", "status": "open"]
         let play: [String: Any] = ["id": "q-play", "category": "integration",
                                    "question": "How should I handle Android releases stuck in Play review?",
                                    "body": "I have no read access to the Play Console, so I can't see the review status.",
+                                   "options": ["I'll check the Publishing overview", "Wait for it to go live"],
                                    "askedAt": "2026-11-03T09:41:00Z", "status": "open"]
+        let signIn: [String: Any] = ["id": "q-signin", "category": "credential",
+                                     "question": "Sign in to GitHub once on the Mac mini, then pick Signed in",
+                                     "options": ["Signed in", "Not now"], "askedAt": "2026-11-03T09:42:00Z", "status": "open"]
+        let repo: [String: Any] = ["id": "q-repo", "category": "preference",
+                                   "question": "Which repo gets the windows-signing environment?",
+                                   "body": "**Done**: the signer role is assigned to **ZeaburOSS**.\n\n**Missing**:\n1. The repo\n2. The six variable names",
+                                   "askedAt": "2026-11-03T09:43:00Z", "status": "open"]
         var ops = deploy
-        ops["inputRequests"] = [gcp, play]
+        ops["inputRequests"] = [gcp, play, signIn, repo]
         try listQuestions([ops])
         app = launch(page: "agent")
         app.buttons["Switch page"].firstMatch.tap()
@@ -385,29 +396,50 @@ final class InboxUITests: XCTestCase {
         choose.tap()
         XCTAssertTrue(account.waitForExistence(timeout: 10))
         account.tap()
-        ops["inputRequests"] = [play]
+        ops["inputRequests"] = [play, signIn, repo]
         try listQuestions([ops])
         app.buttons["Done"].firstMatch.tap()
         XCTAssertTrue(listed("Select a Google Cloud account so I can read the release bucket.").waitForNonExistence(timeout: 10),
                       "The answered question is still listed")
         shot("4-answered-leaves")
 
-        // No connector names Play Console: the question takes words instead of a picker.
+        // No connector names Play Console: its options and words, never a picker that can't answer it.
         openQuestion("How should I handle Android releases stuck in Play review?")
+        XCTAssertTrue(app.buttons["I'll check the Publishing overview"].waitForExistence(timeout: 5),
+                      "A question naming no provider hides its options")
         XCTAssertFalse(app.buttons["Choose credentials"].exists, "A question naming no provider offers a picker that can't answer it")
+        shot("5-no-provider-options")
+        app.buttons["Other…"].firstMatch.tap()
         let field = app.textFields["Your answer"].firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 5), "A question naming no provider can't be answered in words")
-        // The answers sit at the bottom, under the question, not over it.
-        XCTAssertGreaterThan(app.buttons["Skip"].firstMatch.frame.minY, app.frame.height * 0.7, "The answers cover the question")
-        shot("5-no-provider-takes-words")
-        field.tap()
         field.typeText("Check the review status by hand and tell me")
         shot("6-no-provider-typed")
+        ops["inputRequests"] = [signIn, repo]
+        try listQuestions([ops])
         app.buttons["Send answer"].firstMatch.tap()
-        // The last open question: the Inbox is empty, so no toast.
         XCTAssertTrue(listed("How should I handle Android releases stuck in Play review?").waitForNonExistence(timeout: 10),
                       "The answered question is still listed")
-        shot("7-no-provider-answered")
+
+        // A sign-in status card: its options, never "Answer it in" the task.
+        openQuestion("Sign in to GitHub once on the Mac mini, then pick Signed in")
+        XCTAssertTrue(app.buttons["Signed in"].waitForExistence(timeout: 5), "A sign-in status card hides its options")
+        XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH %@", "Answer it in")).firstMatch.exists,
+                       "A card sends its answer elsewhere")
+        shot("7-status-card-options")
+        ops["inputRequests"] = [repo]
+        try listQuestions([ops])
+        app.buttons["Signed in"].firstMatch.tap()
+        XCTAssertTrue(listed("Sign in to GitHub once on the Mac mini, then pick Signed in").waitForNonExistence(timeout: 10),
+                      "The answered question is still listed")
+
+        // Words only, under a markdown body: the question stays in view above its answers.
+        openQuestion("Which repo gets the windows-signing environment?")
+        let title = app.staticTexts["Which repo gets the windows-signing environment?"].firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: 5) && title.isHittable, "The question is hidden")
+        XCTAssertTrue(app.textFields["Your answer"].firstMatch.waitForExistence(timeout: 5), "A words-only question can't be answered")
+        // The answers sit at the bottom, under the question, not over it.
+        XCTAssertGreaterThan(app.buttons["Skip"].firstMatch.frame.minY, app.frame.height * 0.7, "The answers cover the question")
+        shot("8-words-only-in-view")
     }
 
     /// A card asking several questions, one of them multi-select, is a form answered in the Inbox

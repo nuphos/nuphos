@@ -26,13 +26,6 @@ struct InboxQuestionView: View {
 
     private var wide: Bool { sizeClass == .regular }
 
-    /// The one-tap answers; nil when this question is not answered with them.
-    private var options: [String]? {
-        guard question.form == nil, question.request.category != "credential", !question.connectable else { return nil }
-        let options = (question.request.options ?? []).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
-        return options.isEmpty && !question.typed ? nil : options
-    }
-
     /// Margins: iPhone 20 at the sides, right under the bar; iPad 56 and 25 from the top. A wide
     /// iPhone, as iPhone Duo's inner display, takes 40 / 16 and 51 from the top: the 16 is past the
     /// Duo's status column, which the safe area already keeps clear.
@@ -60,7 +53,7 @@ struct InboxQuestionView: View {
                         .padding(.top, 18)
                         .accessibilityIdentifier("inbox.body")
                 }
-                if wide || options == nil { answers.padding(.top, 24) }
+                if wide || question.options == nil { answers.padding(.top, 24) }
                 if let failure = inbox.failures[question.id] {
                     Label("Couldn't send the answer · \(failure)", systemImage: "exclamationmark.circle")
                         .font(Theme.Text.caption)
@@ -145,7 +138,7 @@ struct InboxQuestionView: View {
         if let form = question.form {
             DecisionForm(questions: form) { answer($0) }
             HStack { Spacer(); skip }.padding(.top, 12)
-        } else if let options {
+        } else if let options = question.options {
             VStack(alignment: .leading, spacing: 10) {
                 if wide {
                     HStack(spacing: 10) {
@@ -183,10 +176,6 @@ struct InboxQuestionView: View {
             InboxOption(title: connectLabel, primary: true, height: wide ? 40 : 50, size: wide ? 15 : 16, fill: !wide) {
                 Task { await connect() }
             }
-        } else {
-            Text("Answer it in \(question.title).")
-                .font(.system(size: 15))
-                .foregroundStyle(Theme.muted)
         }
     }
 

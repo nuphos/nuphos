@@ -219,6 +219,29 @@ class BotQuestionsTest {
         assertEquals("The selection adds no credential this question asks for.", inbox.failures[gcp.id])
     }
 
+    @Test fun everyOpenQuestionIsAnsweredOnItsCard() {
+        fun ask(json: String) = BotQuestion("agent-ops", "Release ops", Http.json.decodeFromString<InputRequest>(json))
+        // A sign-in status card: a credential with options and no secret is answered with them.
+        val signedIn = ask("""{"id":"q","category":"credential","question":"Sign in?","options":["Signed in","Not now"]}""")
+        assertEquals(listOf("Signed in", "Not now"), cardReplies(signedIn)?.map { it.first })
+        assertFalse(signedIn.typed)
+        // An integration naming no provider keeps its options and its words.
+        val play = ask("""{"id":"q","category":"integration","question":"Play review?","options":["I check","Wait"]}""")
+        assertEquals(listOf("I check", "Wait"), cardReplies(play)?.map { it.first })
+        assertTrue(play.typed)
+        // A question with a markdown body and no options is answered in words.
+        val repo = ask("""{"id":"q","category":"preference","question":"Which repo?","body":"**Done**: `x`"}""")
+        assertEquals(emptyList<Pair<String, String>>(), cardReplies(repo))
+        assertTrue(repo.typed)
+        // Only a secret or a connection is answered in its own card, never by "answer it in the task".
+        assertNull(cardReplies(ask("""{"id":"q","category":"credential","question":"Key?","secretName":"API_KEY"}""")))
+        assertNull(cardReplies(ask("""{"id":"q","category":"integration","question":"GCP?","providers":["gcp"]}""")))
+        for (question in listOf(signedIn, play, repo)) {
+            assertTrue(question.request.question.isNotEmpty())
+            assertTrue(question.typed || cardReplies(question).orEmpty().isNotEmpty())
+        }
+    }
+
     @Test fun anInboxSaveSendsOnlyTheKindsTheConversationHad() = runTest {
         val own = BotQuestion("agent-ops", "Release ops", Http.json.decodeFromString<InputRequest>(
             """{"id":"q-own","category":"integration","question":"?","credentials":[{"provider":"personal","id":"github"}]}"""))
