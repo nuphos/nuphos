@@ -101,3 +101,31 @@ export function assertMayBindIdentity(
     )
   }
 }
+
+/**
+ * The account and role name a cloud role ARN or TRN names, in lower case:
+ * AWS, Tencent, Aliyun and Volcengine treat role names case-insensitively, so
+ * two spellings of one role must compare equal.
+ */
+export function roleIdentity(arn: string): string {
+  const account = /(?:::|uin\/)(\d+)/.exec(arn)?.[1] ?? ''
+  const name = arn.slice(arn.lastIndexOf('/') + 1)
+
+  return `${account}/${name}`.toLowerCase()
+}
+
+/** Refuses binding a role another member holds privately, in any spelling. */
+export function assertMayBindRole(
+  c: Context,
+  bindings: readonly { access?: BindingAccess }[],
+  arnOf: (binding: never) => string,
+  arn: string,
+): void {
+  const identity = roleIdentity(arn)
+
+  assertMayBindIdentity(
+    c,
+    bindings.filter((binding) => roleIdentity(arnOf(binding as never)) === identity),
+    `Role ${arn}`,
+  )
+}

@@ -6,8 +6,10 @@ import { errorHandler } from '@/lib/errors'
 import { useByosAccount } from '@/lib/test/doubles/byos-account'
 import { useModels } from '@/lib/test/doubles/models'
 
+import { awsAccountsRoutes } from './aws-accounts'
 import { azureAccountsRoutes } from './azure-accounts'
 import { gcpProjectsRoutes } from './gcp-projects'
+import { tencentAccountsRoutes } from './tencent-accounts'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
 
@@ -20,7 +22,10 @@ const access = {
 const tenantId = 'aaaaaaaa-1111-1111-1111-111111111111'
 const clientId = 'bbbbbbbb-2222-2222-2222-222222222222'
 
-useByosAccount({ listGcpBindingsForProject: async () => [] })
+useByosAccount({
+  listGcpBindingsForProject: async () => [],
+  findAwsBindingByRoleArn: async () => null,
+})
 useModels({
   teamByosBindings: () =>
     ({
@@ -32,6 +37,12 @@ useModels({
             projectId: 'p',
             access,
           },
+        ],
+        awsRoles: [
+          { id: new ObjectId(), roleArn: 'arn:aws:iam::123456789012:role/Deploy', access },
+        ],
+        tencentAccounts: [
+          { id: new ObjectId(), roleArn: 'qcs::cam::uin/100001:roleName/Nuphos', access },
         ],
         azureAccounts: [
           { id: new ObjectId(), tenantId, clientId, subscriptionId: 'x', label: 'a', access },
@@ -87,4 +98,32 @@ test('a different spelling of the same Azure app is the same app', async () => {
   })
 
   expect(response.status).toBe(403)
+})
+
+test("an admin cannot bind another member's private AWS role spelled in another case", async () => {
+  const response = await post(awsAccountsRoutes, {
+    roleArn: 'arn:aws:iam::123456789012:role/deploy',
+  })
+
+  expect(response.status).toBe(403)
+})
+
+test("an admin cannot bind another member's private Tencent role spelled in another case", async () => {
+  const response = await post(tencentAccountsRoutes, {
+    label: 'mine',
+    roleArn: 'qcs::cam::uin/100001:roleName/NUPHOS',
+    providerId: 'nuphos',
+  })
+
+  expect(response.status).toBe(403)
+})
+
+test('a Tencent role is bound by its roleName form only', async () => {
+  const response = await post(tencentAccountsRoutes, {
+    label: 'mine',
+    roleArn: 'qcs::cam::uin/100001:role/4611686018427387904',
+    providerId: 'nuphos',
+  })
+
+  expect(response.status).toBe(400)
 })

@@ -9,7 +9,7 @@ import { verifyTencentRole, tencentOidcInfo } from '@/lib/byos/tencent'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
-import { requireTeamRole } from '@/middleware/auth'
+import { assertMayBindRole, requireTeamRole } from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 import { tencentAccountScoped } from '@/routes/tencent-accounts-scoped'
 
@@ -71,6 +71,17 @@ tencentAccountsRoutes.post(
   async (c) => {
     const { label, site, roleArn, providerId } = c.req.valid('json')
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
+    const bound = await teamByosBindings().findOne(
+      { _id: teamId },
+      { projection: { tencentAccounts: 1 } },
+    )
+
+    assertMayBindRole(
+      c,
+      bound?.tencentAccounts ?? [],
+      (b: { roleArn: string }) => b.roleArn,
+      roleArn,
+    )
 
     // Refuse before the credential round trips below: a workspace at its
     // plan's environment limit shouldn't finish a bind it can't keep.

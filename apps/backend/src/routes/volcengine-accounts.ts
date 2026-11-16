@@ -9,7 +9,7 @@ import { verifyVolcengineRole, volcengineOidcInfo } from '@/lib/byos/volcengine'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
-import { requireTeamRole } from '@/middleware/auth'
+import { assertMayBindRole, requireTeamRole } from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 import { volcengineAccountScoped } from '@/routes/volcengine-accounts-scoped'
 
@@ -69,6 +69,17 @@ volcengineAccountsRoutes.post(
   async (c) => {
     const { label, roleTrn } = c.req.valid('json')
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
+    const bound = await teamByosBindings().findOne(
+      { _id: teamId },
+      { projection: { volcengineAccounts: 1 } },
+    )
+
+    assertMayBindRole(
+      c,
+      bound?.volcengineAccounts ?? [],
+      (b: { roleTrn: string }) => b.roleTrn,
+      roleTrn,
+    )
 
     // Refuse before the credential round trips below: a workspace at its
     // plan's environment limit shouldn't finish a bind it can't keep.
