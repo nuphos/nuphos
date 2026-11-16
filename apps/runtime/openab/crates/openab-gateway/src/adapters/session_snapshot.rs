@@ -335,6 +335,16 @@ mod tests {
     }
 
     #[test]
+    fn a_successful_request_is_not_labelled_failed() {
+        // The gateway records every finished prompt as {result, error}; a success has a null error.
+        let provider = json!({"state":"idle","gateway":{"lastOutcome":{
+            "result":{"stopReason":"end_turn"},"error":null}}});
+        let snapshot = SessionSnapshots::default().project("s", provider, false);
+        assert_ne!(snapshot["phase"], "failed");
+        assert_ne!(snapshot["label"], "Request failed");
+    }
+
+    #[test]
     fn gateway_wait_is_visible_even_after_provider_idle() {
         let states = SessionSnapshots::default();
         let pending = states.project("a", json!({"state":"idle"}), true);
