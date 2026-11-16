@@ -8,7 +8,7 @@ import { finalizeIncompleteTools, latchTabError } from './clientTools'
 import { dispatchedDraft, showTurnQueued } from './queuedAutoSend'
 import { normalizeAgentError, uid } from './stall'
 import { stampAssistantTurnEnd } from './messagePlacement'
-import { updateCurrentAssistantParts } from './turnBoundaries'
+import { openReplyExplainsFailure, updateCurrentAssistantParts } from './turnBoundaries'
 
 import type { PanelCtx } from './ctx'
 
@@ -175,7 +175,7 @@ export function applyStreamEvent(
           phase: null,
           autoResumeAttempts: 0,
           agentSetupRequired: null,
-          ...latchTabError(t, err),
+          ...(openReplyExplainsFailure(t.messages) ? {} : latchTabError(t, err)),
         }
 
         queueTranscriptSync(nextTab, 250)
