@@ -154,6 +154,8 @@ data class InputRequest(
     /** An integration question's providers (any access answers it), or the exact credentials it names. */
     val providers: List<String>? = null,
     val credentials: List<CredentialRef>? = null,
+    /** A secret only the user can type, in its masked card in the conversation that asked. */
+    val secretName: String? = null,
     /** Any number of [options] may be picked. */
     val multiSelect: Boolean? = null,
     /** Related questions answered together; [question] is their headline. */

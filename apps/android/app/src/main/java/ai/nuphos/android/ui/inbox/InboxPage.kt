@@ -43,17 +43,17 @@ fun InboxPage(inbox: OpenQuestions?, nav: NavHostController, allowed: () -> Bool
     val scope = rememberCoroutineScope()
     val store = LocalAgentStore.current
     // The integration question whose conversation's credentials are being chosen, with that
-    // conversation's selection as stored and as edited in the picker.
+    // conversation's selection as edited in the picker.
     var connecting by remember { mutableStateOf<BotQuestion?>(null) }
-    var stored by remember { mutableStateOf(CredentialSelection()) }
     var selection by remember { mutableStateOf(CredentialSelection()) }
     connecting?.let { question ->
-        // Cancel or a swipe leaves the conversation as it was; Done saves a changed selection, and
-        // the server answers the question it covers.
-        CredentialPickerSheet(selection, onSelectionChange = { selection = it }, onDismiss = { connecting = null }, onConfirm = {
-            connecting = null
-            if (inbox != null && selection != stored && allowed()) scope.launch { inbox.select(selection, question) }
-        })
+        // Cancel or a swipe leaves the conversation as it was; Done saves the selection, and the server
+        // answers the question it covers, or the card says why not. Only what answers it is offered.
+        CredentialPickerSheet(selection, onSelectionChange = { selection = it }, onDismiss = { connecting = null },
+            providers = question.request.providers, onConfirm = {
+                connecting = null
+                if (inbox != null && allowed()) scope.launch { inbox.select(selection, question) }
+            })
     }
     Box(Modifier.fillMaxSize().testTag("inbox")) {
         when {
@@ -82,7 +82,7 @@ fun InboxPage(inbox: OpenQuestions?, nav: NavHostController, allowed: () -> Bool
                                     val connected = store.credentialCatalog?.allItems
                                         ?.filter { it.provider.selectionKey == "personalCredentialIds" }?.map { it.id }?.toSet()
                                     if (allowed()) inbox.useOwn(own, question, connected)
-                                } else inbox.storedSelection(question)?.let { stored = it; selection = it; connecting = question }
+                                } else inbox.storedSelection(question)?.let { selection = it; connecting = question }
                             }
                         })
                 }

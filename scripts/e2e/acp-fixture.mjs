@@ -156,6 +156,10 @@ async function prompt({ sessionId, prompt: parts }) {
   const marker = (text.match(/E2E_DELIVERY:[a-z0-9-]+/g) ?? []).at(-1) ?? 'E2E_DELIVERY:missing'
 
   log({ sessionId, marker, event: 'start' })
+  // #3051: the first agent refuses this prompt as out of usage, as Claude Code words it.
+  if (text.includes('E2E_USAGE_LIMIT') && process.env.E2E_AGENT !== 'second') {
+    throw Object.assign(new Error('Internal error: You’ve hit your usage limit'), { code: -32603 })
+  }
   // Nuphos tells the agent when a person skips its question.
   if (text.includes('was skipped')) log({ sessionId, marker, event: 'skipped' })
   if (text.includes('E2E_DELEGATE') && !text.includes(CHILD)) {
@@ -279,6 +283,7 @@ for await (const line of createInterface({ input: process.stdin })) {
   if (request.id === undefined) continue
   answer(request).then(
     (result) => send({ id: request.id, result }),
-    (error) => send({ id: request.id, error: { code: -32601, message: error.message } }),
+    (error) =>
+      send({ id: request.id, error: { code: error.code ?? -32601, message: error.message } }),
   )
 }

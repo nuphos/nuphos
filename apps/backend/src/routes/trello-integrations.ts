@@ -11,7 +11,7 @@ import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { logError } from '@/lib/observability'
 import { composioUserId, deleteComposioAccount } from '@/lib/personal-credentials/composio'
-import { requireTrelloIntegration, requireTeamRole } from '@/middleware/auth'
+import { requireCanDisconnect, requireTeamRole, requireTrelloIntegration } from '@/middleware/auth'
 import { teamByosBindings, trelloPendingOAuth } from '@/models'
 
 import type { TrelloIntegrationVariables, TeamAuthVariables } from '@/middleware/auth'
@@ -89,18 +89,23 @@ const integrationScoped = new Hono<{ Variables: TrelloIntegrationVariables }>()
 integrationScoped.use('*', requireTrelloIntegration())
 registerBindingAccessRoutes(integrationScoped, 'trelloIntegrations', (c) => c.get('trelloBinding'))
 integrationScoped.get('/', (c) => c.json(publicView(c.get('trelloBinding'))))
-integrationScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
-  const binding = c.get('trelloBinding')
+integrationScoped.delete(
+  '/',
+  requireTeamRole('ADMINISTRATOR'),
+  requireCanDisconnect('trelloAccess'),
+  async (c) => {
+    const binding = c.get('trelloBinding')
 
-  // Remove the remote connection first; on failure the local binding remains retryable.
-  await deleteComposioAccount(binding.composioAccountId)
-  await teamByosBindings().updateOne(
-    { _id: parseObjectId(c.get('teamId'), 'teamId') },
-    { $pull: { trelloIntegrations: { id: binding.id } }, $set: { updatedAt: new Date() } },
-  )
+    // Remove the remote connection first; on failure the local binding remains retryable.
+    await deleteComposioAccount(binding.composioAccountId)
+    await teamByosBindings().updateOne(
+      { _id: parseObjectId(c.get('teamId'), 'teamId') },
+      { $pull: { trelloIntegrations: { id: binding.id } }, $set: { updatedAt: new Date() } },
+    )
 
-  return c.body(null, 204)
-})
+    return c.body(null, 204)
+  },
+)
 trelloIntegrationsRoutes.route('/:integrationId', integrationScoped)
 
 type Draft = Pick<

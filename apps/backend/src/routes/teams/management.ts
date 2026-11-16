@@ -60,7 +60,7 @@ const updateAgentRuntimeSchema = z
   .strict()
 
 /** The team as its routes return it, or a 404 when the update found no team. */
-function teamJson(c: Context<{ Variables: TeamAuthVariables }>, team: NuphosTeam | null) {
+export function teamJson(c: Context<{ Variables: TeamAuthVariables }>, team: NuphosTeam | null) {
   if (!team) throw new AppError(404, 'team_not_found', 'Team not found')
 
   return c.json({ ...team, isOwner: team.ownerID === c.get('userId'), role: c.get('teamRole') })

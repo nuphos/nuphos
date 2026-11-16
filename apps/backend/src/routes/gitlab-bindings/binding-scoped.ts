@@ -11,7 +11,7 @@ import {
 } from '@/lib/byos/gitlab'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
-import { requireTeamRole } from '@/middleware/auth'
+import { requireCanDisconnect, requireTeamRole } from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 import { handleGitlabError, publicView } from '@/routes/gitlab-bindings/shared'
 
@@ -44,21 +44,26 @@ const pipelinesQuerySchema = z.object({
 export function registerGitlabBindingAdminRoutes(
   bindingScoped: Hono<{ Variables: GitlabBindingVariables }>,
 ) {
-  bindingScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
-    const teamId = parseObjectId(c.get('teamId'), 'teamId')
-    const binding = c.get('gitlabBinding')
+  bindingScoped.delete(
+    '/',
+    requireTeamRole('ADMINISTRATOR'),
+    requireCanDisconnect('gitlabBinding'),
+    async (c) => {
+      const teamId = parseObjectId(c.get('teamId'), 'teamId')
+      const binding = c.get('gitlabBinding')
 
-    await teamByosBindings().updateOne(
-      { _id: teamId },
-      {
-        $pull: { gitlabAccounts: { id: binding.id } },
-        $set: { updatedAt: new Date() },
-      },
-    )
-    invalidateAccessToken(teamId, binding.id)
+      await teamByosBindings().updateOne(
+        { _id: teamId },
+        {
+          $pull: { gitlabAccounts: { id: binding.id } },
+          $set: { updatedAt: new Date() },
+        },
+      )
+      invalidateAccessToken(teamId, binding.id)
 
-    return c.body(null, 204)
-  })
+      return c.body(null, 204)
+    },
+  )
 
   registerBindingAccessRoutes(bindingScoped, 'gitlabAccounts', (c) => c.get('gitlabBinding'))
 }

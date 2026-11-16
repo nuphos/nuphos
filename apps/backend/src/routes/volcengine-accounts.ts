@@ -1,14 +1,15 @@
 import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
-import { accessView, canUseAllowList, canUseBinding, createDefaultAccess } from '@/lib/byos/access'
+import { accessView, canUseAllowList, canUseBinding } from '@/lib/byos/access'
+import { newBindingAccess } from '@/lib/byos/initial-access'
 import { volcengineConnectorSchema } from '@/lib/byos/connector-schemas'
 import { appendEnvironmentBinding } from '@/lib/byos/environment-bindings'
 import { verifyVolcengineRole, volcengineOidcInfo } from '@/lib/byos/volcengine'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
-import { requireTeamRole } from '@/middleware/auth'
+import { assertMayBindRole, requireTeamRole } from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 import { volcengineAccountScoped } from '@/routes/volcengine-accounts-scoped'
 
@@ -68,6 +69,17 @@ volcengineAccountsRoutes.post(
   async (c) => {
     const { label, roleTrn } = c.req.valid('json')
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
+    const bound = await teamByosBindings().findOne(
+      { _id: teamId },
+      { projection: { volcengineAccounts: 1 } },
+    )
+
+    assertMayBindRole(
+      c,
+      bound?.volcengineAccounts ?? [],
+      (b: { roleTrn: string }) => b.roleTrn,
+      roleTrn,
+    )
 
     // Refuse before the credential round trips below: a workspace at its
     // plan's environment limit shouldn't finish a bind it can't keep.
@@ -77,7 +89,7 @@ volcengineAccountsRoutes.post(
 
     const id = new ObjectId()
     const createdAt = new Date()
-    const access = createDefaultAccess(c.get('userId'), createdAt)
+    const access = await newBindingAccess(c, { now: createdAt, highPrivilege: true })
 
     const inserted = await appendEnvironmentBinding(
       teamId,

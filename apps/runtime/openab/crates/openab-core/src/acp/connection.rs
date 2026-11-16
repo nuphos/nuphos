@@ -1302,7 +1302,7 @@ impl AcpConnection {
                 if let Some(error) = response.error {
                     // An explicit rejection leaves the last acknowledged state
                     // usable, so a subsequent valid selection can be retried.
-                    return Err(anyhow!("{error}"));
+                    return Err(error.into());
                 }
                 let options = response
                     .result

@@ -45,6 +45,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       },
       { label: t('User settings'), combos: ['mod+,'] },
       { label: t('Team settings'), combos: ['mod+shift+,'] },
+      { label: t('Computers & runtimes'), combos: ['mod+shift+e'] },
       { label: t('Toggle sidebar'), combos: ['mod+b'] },
       { label: t('Toggle workspace panel'), combos: ['mod+j'] },
       { label: t('Next / previous area'), combos: ['F6', 'shift+F6'] },

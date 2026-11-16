@@ -10,6 +10,7 @@ enum BotQuestionsTests {
         aPlanOrASecretIsNeverAnsweredInWords()
         aSecretRequestDrawsTheSecureInputCard()
         aQuestionNamingTheMembersOwnCredentialIsConnectable()
+        everyOpenQuestionIsAnsweredOnItsCard()
         aMultiSelectOrSeveralQuestionsAreAForm()
         theInboxGroupsBySourceAndOpensTheNextQuestion()
         aBotsTaskQuestionIsInTheBotsGroup()
@@ -189,10 +190,39 @@ enum BotQuestionsTests {
         precondition(ask("preference").typed)
         precondition(!ask("approval", planId: "p1").typed)
         precondition(!ask("credential").typed)
-        precondition(!ask("integration").typed)
+        // An integration question naming nothing to select, e.g. a service with no connector, takes words.
+        precondition(ask("integration").typed)
         let plan = try! JSONDecoder().decode(
             AgentConversation.InputRequest.self, from: Data(#"{"id":"r","question":"Approve?","planId":"p1"}"#.utf8))
         precondition(plan.planId == "p1")
+    }
+
+    /// No open question is left without a way to answer it on its card: options or words beside Skip,
+    /// a form, a secure card or a picker, never "answer it elsewhere".
+    private static func everyOpenQuestionIsAnsweredOnItsCard() {
+        func ask(_ json: String) -> BotQuestion {
+            BotQuestion(sessionId: "s", title: "Agent", request: try! JSONDecoder().decode(
+                AgentConversation.InputRequest.self, from: Data(json.utf8)))
+        }
+        // A sign-in status card: a credential with options and no secret is answered with them.
+        let signedIn = ask(#"{"id":"q","category":"credential","question":"Sign in?","options":["Signed in","Not now"]}"#)
+        precondition(signedIn.options == ["Signed in", "Not now"] && !signedIn.typed)
+        // An integration naming no provider keeps its options and its words.
+        let play = ask(#"{"id":"q","category":"integration","question":"Play review?","options":["I check","Wait"]}"#)
+        precondition(play.options == ["I check", "Wait"] && play.typed)
+        // A question with a markdown body and no options is answered in words.
+        let repo = ask(#"{"id":"q","category":"preference","question":"Which repo?","body":"**Done**: `x`\n1. repo"}"#)
+        precondition(repo.options == [] && repo.typed && repo.ownBody != nil)
+        let plan = ask(#"{"id":"q","category":"approval","question":"Ship?","options":["Approve","Reject"],"planId":"p"}"#)
+        precondition(plan.options == ["Approve", "Reject"])
+        for question in [signedIn, play, repo, plan,
+                         ask(#"{"id":"q","category":"credential","question":"Key?","secretName":"API_KEY"}"#),
+                         ask(#"{"id":"q","category":"integration","question":"GCP?","providers":["gcp"]}"#),
+                         ask(#"{"id":"q","category":"preference","question":"?","questions":[{"question":"A?","options":["1","2"],"multiSelect":true}]}"#)] {
+            precondition(!question.request.question.isEmpty)
+            precondition(question.options != nil || question.form != nil || question.secretPart != nil || question.connectable,
+                         "\(question.request.category ?? "") has no way to be answered on its card")
+        }
     }
 
     private static func aQuestionNamingTheMembersOwnCredentialIsConnectable() {
@@ -206,5 +236,10 @@ enum BotQuestionsTests {
         // A mix of providers and credentials, or a team credential named, gets no card in the Inbox.
         precondition(!ask(#"{"id":"q","category":"integration","question":"?","providers":["github"],"credentials":[{"provider":"personal","id":"github"}]}"#).connectable)
         precondition(!ask(#"{"id":"q","category":"integration","question":"?","credentials":[{"provider":"github","id":"166"}]}"#).connectable)
+        // Naming no provider, it is answered in words, never by a picker no selection can answer it from.
+        let unnamed = ask(#"{"id":"q","category":"integration","question":"Play Console?"}"#)
+        precondition(!unnamed.connectable && unnamed.typed)
+        precondition(!ask(#"{"id":"q","category":"integration","question":"?","providers":[]}"#).connectable)
+        precondition(!ask(#"{"id":"q","category":"integration","question":"?","providers":["github"]}"#).typed)
     }
 }

@@ -12,8 +12,11 @@ data class BotQuestion(val sessionId: String, val title: String, val request: In
     /** The conversation that asked, opened in the app like any Nuphos link. */
     fun link(teamId: String): String = "${ai.nuphos.android.data.NuphosWeb.SITE_URL}/teams/$teamId/agent/$sessionId"
 
-    /** Answered in words, "Other…": never a plan, approved or rejected, nor a credential or connection. */
-    val typed: Boolean get() = request.category != "credential" && request.category != "integration" && request.planId == null
+    /**
+     * Answered in words, "Other…": never a plan, approved or rejected, nor a credential or connection.
+     * An integration question naming nothing to select, e.g. a service Nuphos cannot connect, takes words.
+     */
+    val typed: Boolean get() = request.category != "credential" && !connectable && request.planId == null
 
     /**
      * The member's own credentials an integration question names, answered only by adding them to
@@ -24,7 +27,8 @@ data class BotQuestion(val sessionId: String, val title: String, val request: In
         ?.map { it.id }
 
     /** An integration question the Inbox answers in place: by its providers, or by the member's own credentials. */
-    val connectable: Boolean get() = request.category == "integration" && (request.credentials == null || personalCredentials != null)
+    val connectable: Boolean get() = request.category == "integration" &&
+        (personalCredentials != null || (request.credentials == null && !request.providers.isNullOrEmpty()))
 
     /**
      * Desktop's `formQuestions`: the questions a multi-select or several-question card answers as a
