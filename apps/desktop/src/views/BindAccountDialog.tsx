@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 
 import { api } from '../api'
 import { Modal } from '../components/Modal'
@@ -9,6 +9,8 @@ import { isCloudCliProvider } from '../lib/cloudCli'
 import { BindDialogBody } from './bind-account/body'
 import { CloudCliSetupChoice } from './bind-account/cli-setup'
 import { BindDialogFooter } from './bind-account/footer'
+import { SHAREABLE_PROVIDERS } from './bind-account/share'
+import { BindShareField } from './bind-account/share-field'
 import { submitBind } from './bind-account/submit'
 import { useBindAccountState, useBindDialogEffects } from './bind-account/use-bind-state'
 import { useCloudCliCheck } from './bind-account/use-cloud-cli-check'
@@ -37,10 +39,12 @@ export function BindAccountDialog({
   onOpenAgentChat,
 }: Props) {
   const st = useBindAccountState(initialProvider)
+  const [shareList, setShareList] = useState<string[] | null>(null)
 
   useResetOnKey(`${String(open)}|${initialProvider}`, () => {
     if (open) st.setProvider(initialProvider)
   })
+  useResetOnKey(`${String(open)}|${st.provider}`, () => setShareList(null))
   useBindDialogEffects(st, open, teamId)
 
   const { provider, submitting, cloudflareConnecting, reset, error } = st
@@ -91,7 +95,9 @@ export function BindAccountDialog({
     <BindDialogFooter
       st={st}
       valid={valid}
-      onSubmit={() => void submitBind(st, { teamId, onBound, onClose })}
+      onSubmit={() =>
+        void submitBind(st, { teamId, onBound, onClose, ...(shareList ? { shareList } : {}) })
+      }
       onCloseRequest={close}
     />
   ) : undefined
@@ -123,6 +129,14 @@ export function BindAccountDialog({
             st={st}
             teamId={teamId}
             onConnectCloudflare={(scopes) => void connectCloudflareOAuth(scopes)}
+          />
+        )}
+        {showFooter && SHAREABLE_PROVIDERS.has(provider) && (
+          <BindShareField
+            teamId={teamId}
+            provider={provider}
+            value={shareList}
+            onChange={setShareList}
           />
         )}
 

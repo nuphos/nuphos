@@ -13,6 +13,7 @@ import {
   TENCENT_ROLE_ARN_PATTERN,
   TRN_PATTERN,
 } from './constants'
+import { shareNewBinding } from './share'
 
 import type { SubmitEnv } from './submit-env'
 import type { BindState } from './use-bind-state'
@@ -99,7 +100,15 @@ export async function submitTencent(st: BindState, env: SubmitEnv) {
   }
   setSubmitting(true)
   try {
-    await api.atlasBindTencentAccount(env.teamId, label, st.tencentSite, roleArn, providerId)
+    const bound = await api.atlasBindTencentAccount(
+      env.teamId,
+      label,
+      st.tencentSite,
+      roleArn,
+      providerId,
+    )
+
+    await shareNewBinding(env, 'tencent', bound.id)
     reset()
     env.onBound()
     env.onClose()
@@ -142,7 +151,15 @@ export async function submitAliyun(st: BindState, env: SubmitEnv) {
   }
   setSubmitting(true)
   try {
-    await api.atlasBindAliyunAccount(env.teamId, label, st.aliyunSite, roleArn, oidcProviderArn)
+    const bound = await api.atlasBindAliyunAccount(
+      env.teamId,
+      label,
+      st.aliyunSite,
+      roleArn,
+      oidcProviderArn,
+    )
+
+    await shareNewBinding(env, 'aliyun', bound.id)
     reset()
     env.onBound()
     env.onClose()
@@ -175,7 +192,9 @@ export async function submitVolcengine(st: BindState, env: SubmitEnv) {
   }
   setSubmitting(true)
   try {
-    await api.atlasBindVolcengineAccount(env.teamId, label, roleTrn)
+    const bound = await api.atlasBindVolcengineAccount(env.teamId, label, roleTrn)
+
+    await shareNewBinding(env, 'volcengine', bound.id)
     reset()
     env.onBound()
     env.onClose()
@@ -216,7 +235,9 @@ export async function submitHuawei(st: BindState, env: SubmitEnv) {
   }
   setSubmitting(true)
   try {
-    await api.atlasBindHuaweiAccount(env.teamId, label, domainId, idpId, agencyName)
+    const bound = await api.atlasBindHuaweiAccount(env.teamId, label, domainId, idpId, agencyName)
+
+    await shareNewBinding(env, 'huawei', bound.id)
     reset()
     env.onBound()
     env.onClose()
