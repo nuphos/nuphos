@@ -166,6 +166,13 @@ export function orderRefused(error: unknown, ownAccount: boolean): AppError {
       'instabox_quota_exceeded',
       'Your instabox account has reached its limit of Boxes. Delete a Box there or upgrade its plan, then try again.',
     )
+  // instabox answers a setting the plan does not allow with a 403 too: not a key problem.
+  if (ownAccount && error instanceof InstaboxError && error.code === 'spec_not_allowed')
+    return new AppError(
+      409,
+      'instabox_plan_not_allowed',
+      'Your instabox plan does not allow this Box. Upgrade the plan there, then try again.',
+    )
   if (ownAccount && error instanceof InstaboxAuthError)
     return new AppError(
       409,

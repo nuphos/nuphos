@@ -65,7 +65,7 @@ export function createBox(
   vcpus?: number,
   access?: BoxAccess,
   instaboxAccountId?: string,
-): Promise<AgentDevice> {
+): Promise<AgentDevice & { notice?: string }> {
   return call(
     'POST',
     '/agent/devices/boxes',
