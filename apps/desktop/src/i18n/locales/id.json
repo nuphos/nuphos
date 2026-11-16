@@ -880,6 +880,7 @@
   "Computer renamed": "Nama komputer diganti",
   "Computer setup failed": "Penyiapan komputer gagal",
   "Computers": "Komputer",
+  "Computers & runtimes": "Komputer & runtime",
   "Computers for the whole team at once": "Komputer untuk seluruh tim sekaligus",
   "Computers have no vCPU limit on this deployment.": "Komputer tidak memiliki batas vCPU di deployment ini.",
   "Computers made on this account are billed to it by instabox, not to your Nuphos plan.": "Komputer yang dibuat di akun ini ditagih oleh instabox ke akun ini, bukan ke paket Nuphos Anda.",

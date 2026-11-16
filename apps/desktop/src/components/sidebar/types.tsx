@@ -230,6 +230,7 @@ export type SidebarProps = {
   onSidebarBack?: () => void
   /** Full breadcrumb path (team → … → current); rendered as the back hover tree. */
   hierarchy?: BreadcrumbSegment[]
+  onOpenComputers?: () => void
   onOpenSettings?: () => void
   onOpenMyPreferences?: () => void
   onOpenUserSettings?: () => void

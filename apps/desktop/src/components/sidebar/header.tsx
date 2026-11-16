@@ -1,5 +1,13 @@
 import clsx from 'clsx'
-import { ChevronRight, ChevronsUpDown, Loader2, LogOut, Settings, Users } from 'lucide-react'
+import {
+  ChevronRight,
+  ChevronsUpDown,
+  Loader2,
+  LogOut,
+  Monitor,
+  Settings,
+  Users,
+} from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../api'
@@ -98,6 +106,7 @@ function SidebarTeamSwitcherSkeleton() {
 }
 
 type TeamSwitcherActions = {
+  onOpenComputers?: () => void
   onOpenSettings?: () => void
   onOpenMyPreferences?: () => void
   onCreateTeam?: () => void
@@ -120,6 +129,7 @@ export function SidebarTeamSwitcher({
 
 function TeamSwitcherMenu({
   teamSegment,
+  onOpenComputers,
   onOpenSettings,
   onOpenMyPreferences,
   onCreateTeam,
@@ -145,6 +155,11 @@ function TeamSwitcherMenu({
           )}
         </MenuTrigger>
         <MenuContent side="bottom" align="start" className="w-[260px]">
+          {onOpenComputers && (
+            <MenuItem icon={<Monitor className="h-3.5 w-3.5" />} onClick={onOpenComputers}>
+              {t('Computers & runtimes')}
+            </MenuItem>
+          )}
           {onOpenSettings && (
             <MenuItem hint={<Kbd combo="mod+shift+," />} onClick={() => onOpenSettings()}>
               {t('Team settings')}

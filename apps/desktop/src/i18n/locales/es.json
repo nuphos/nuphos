@@ -880,6 +880,7 @@
   "Computer renamed": "Se cambió el nombre de la computadora",
   "Computer setup failed": "No se pudo configurar la computadora",
   "Computers": "Computadoras",
+  "Computers & runtimes": "Equipos y entornos de ejecución",
   "Computers for the whole team at once": "Computadoras para todo el equipo a la vez",
   "Computers have no vCPU limit on this deployment.": "Las computadoras no tienen límite de vCPU en esta implementación.",
   "Computers made on this account are billed to it by instabox, not to your Nuphos plan.": "Los ordenadores creados en esta cuenta los factura instabox a esta cuenta, no a tu plan de Nuphos.",

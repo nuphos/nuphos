@@ -75,6 +75,7 @@ test('a listed Bot chat opens with its name, runtime and credentials before it l
       } as AgentConversation['credentialAccess'],
     }),
   ])
+  let settingsOpened = 0
   const container = dom.document.createElement('div')
 
   dom.document.body.append(container)
@@ -90,6 +91,7 @@ test('a listed Bot chat opens with its name, runtime and credentials before it l
           channelId: 'chat',
           user: { id: 'me', name: 'Me' } as UserInfo,
           dockOpen: false,
+          fixes: { onOpenAgentSettings: () => settingsOpened++ },
           onOpenSession: () => {},
         }),
       ),
@@ -103,6 +105,9 @@ test('a listed Bot chat opens with its name, runtime and credentials before it l
     assert.equal(frame.runtimeControl?.value?.label, 'Claude Code on a laptop')
     assert.deepEqual(frame.credentialSelector?.value.personalCredentialIds, ['github'])
   }
+  assert.ok(frames.at(-1)?.runtimeControl?.onSettings)
+  frames.at(-1)?.runtimeControl?.onSettings?.()
+  assert.equal(settingsOpened, 1)
   await act(() => root.unmount())
   queryClient.clear()
 })

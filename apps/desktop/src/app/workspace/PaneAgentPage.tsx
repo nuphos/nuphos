@@ -64,6 +64,10 @@ export function PaneAgentPage({
         dockOpen
         onOpenSession={(sid) => updateTab(tabId, (cur) => ({ ...cur, agentSessionId: sid }))}
         onOpenNuphosLink={onOpenNuphosLink}
+        fixes={{
+          isTeamAdmin,
+          onOpenAgentSettings: () => onOpenSettingsSection('workspace.computers'),
+        }}
       />
     )
 
