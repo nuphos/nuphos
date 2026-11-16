@@ -5,6 +5,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { appendTranscriptMessages, getConversationMessagesHead } from '@/lib/agent/db'
+import { deliverWaitingAnswers } from '@/lib/agent/waiting-answers'
 import { mergePreviewMemoryActivity } from '@/lib/agent/memory-slots/preview-activity-store'
 import { askPlanDecisions } from '@/lib/agent/plan-decision'
 import { listPlansCreatedForConversation } from '@/lib/agent/plans'
@@ -146,6 +147,8 @@ export async function finishPreviewTurn(args: {
   // The durable answer is now available to every replica. Memory enrichment
   // must not prolong runtime execution in the UI.
   args.onRuntimeComplete?.()
+  // The agent can run again: an answer that waited for it goes next.
+  void deliverWaitingAnswers(sessionId)
   if (args.memory) {
     const accumulator = args.memory.turnMemory.accumulator
 

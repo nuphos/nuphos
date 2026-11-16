@@ -214,6 +214,8 @@ data class AgentConversationDetail(
     /** A Task under a Bot: the conversation whose credentials, computers and permission mode it uses. */
     val credentialSource: JsonValue? = null,
     val timelineEvents: List<TimelineEvent> = emptyList(),
+    /** Answered questions whose agent has not run the answer yet, with the line their row shows. */
+    val waitingAnswers: List<WaitingAnswer> = emptyList(),
     val promptSuggestion: String? = null,
     /** `channel` for a chat; such a session never runs an agent turn of its own. */
     val kind: String? = null,
@@ -227,6 +229,9 @@ data class AgentConversationDetail(
 
     /** The Bot this chat is the 1:1 of, as the list row's `botId` decides it. */
     val botId: String? get() = faces.takeIf { group != true }?.botFace?.id
+
+    @Serializable
+    data class WaitingAnswer(val requestId: String, val note: String)
 
     @Serializable
     data class TimelineEvent(

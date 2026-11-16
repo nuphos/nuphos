@@ -64,6 +64,13 @@ struct ToolCallRow: View {
                     .padding(.leading, 4)
             }
 
+            if let waiting = session.waitingAnswers[part.decisionRequestId] {
+                Text(waiting)
+                    .font(Theme.Text.caption)
+                    .foregroundStyle(Theme.warning)
+                    .padding(.leading, 4)
+            }
+
             if let planId {
                 PlanCard(planId: planId, session: session)
             }

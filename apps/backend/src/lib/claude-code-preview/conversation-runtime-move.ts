@@ -4,6 +4,7 @@ import { config } from '@/config'
 import { pushTimelineEvent } from '@/lib/agent/db/participants'
 import { agentConversations } from '@/lib/agent/db/shared'
 import { claimAgentRunForSession } from '@/lib/agent/run-admission'
+import { deliverWaitingAnswers } from '@/lib/agent/waiting-answers'
 import { AppError } from '@/lib/errors'
 
 import { lastFailedPrompt, resendFailedPrompt } from './failed-turn-retry'
@@ -200,6 +201,7 @@ export async function moveConversationRuntime(
     )
   }
   if (retry) resendFailedPrompt(conversation.sessionId, retry)
+  void deliverWaitingAnswers(conversation.sessionId)
 
   return { runtimeId: target.id, runtimeLabel: target.label, agentRuntime: target.provider }
 }

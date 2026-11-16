@@ -4,6 +4,7 @@ import { agentConversations } from './shared'
 
 import type { PersonalCredentialRef } from '@/lib/agent/tools-skilled/decision-tools'
 import type { ExplicitUserDecision } from '@/lib/agent/tools-skilled/types'
+import type { WaitingAnswer } from '@/lib/agent/waiting-answers'
 
 /**
  * A request_user_decision card the owner has to answer, kept on the conversation
@@ -34,6 +35,8 @@ export type InputRequest = ExplicitUserDecision & {
 export type ConversationInputRequests = {
   /** The open questions asked through request_user_decision. */
   inputRequests?: InputRequest[]
+  /** Answered questions whose agent could not run the answer yet. */
+  waitingAnswers?: WaitingAnswer[]
 }
 
 /** A new question joins the open ones; it never replaces another open request. */
