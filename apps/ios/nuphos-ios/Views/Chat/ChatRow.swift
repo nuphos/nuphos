@@ -125,7 +125,7 @@ extension ChatRow {
                     if let row = userRow(steer, id: "steering.\(id)", messageId: message.id) { body.append(row) }
                 }
             case .turnInterrupted(let p):
-                body.append(.hint(id: interruptedId(message.id, p.id), text: p.reason == .cancelled ? "Stopped." : p.message, isError: p.reason != .cancelled))
+                body.append(.hint(id: interruptedId(message.id, p.id), text: p.reason == .cancelled ? String(localized: "Stopped.") : p.message, isError: p.reason != .cancelled))
             case .other(let v) where v["type"]?.stringValue == "memory-ingest":
                 let created = Int(v["memoriesCreated"]?.numberValue ?? 0), updated = Int(v["memoriesUpdated"]?.numberValue ?? 0)
                 guard created + updated > 0 else { continue }
@@ -256,7 +256,7 @@ extension ChatRow {
     static func failureReport(rowId: String, in messages: [ChatMessage]) -> String? {
         for message in messages.reversed() {
             for case .turnInterrupted(let p) in message.parts where p.reason != .cancelled && interruptedId(message.id, p.id) == rowId {
-                return [p.reason == .timeout ? "Turn timed out." : "Turn failed.", p.message, p.createdAt].joined(separator: "\n")
+                return [p.reason == .timeout ? String(localized: "Turn timed out.") : String(localized: "Turn failed."), p.message, p.createdAt].joined(separator: "\n")
             }
         }
         return nil

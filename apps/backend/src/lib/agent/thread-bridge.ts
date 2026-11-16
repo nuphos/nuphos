@@ -64,15 +64,17 @@ export async function authorizeThreadDelivery(
 
 function receipt(
   actor: ThreadActor,
-  threadId: string,
   messageId: string,
-  status: 'started' | 'queued',
+  { status, target }: Awaited<ReturnType<typeof startThreadTurn>>,
 ) {
   return {
     status,
-    threadId,
+    threadId: target.sessionId,
     messageId,
-    _links: { web: `/teams/${actor.teamId}/agent/${threadId}` },
+    // Where this message runs, which the chat shows on its card.
+    ...(target.agentRuntime ? { agentRuntime: target.agentRuntime } : {}),
+    ...(target.runtimeLabel ? { runtimeLabel: target.runtimeLabel } : {}),
+    _links: { web: `/teams/${actor.teamId}/agent/${target.sessionId}` },
   }
 }
 
@@ -112,20 +114,15 @@ export async function createAgentThread(
     await setConversationArchived(threadId, true)
     throw error
   }
-  const { status } = await startThreadTurn({
-    ...actor,
-    targetSessionId: threadId,
-    messageId,
-    prompt,
-  })
+  const started = await startThreadTurn({ ...actor, targetSessionId: threadId, messageId, prompt })
 
-  return { ...receipt(actor, threadId, messageId, status), sourceThreadId: actor.sessionId }
+  return { ...receipt(actor, messageId, started), sourceThreadId: actor.sessionId }
 }
 
 export async function sendAgentThreadMessage(actor: ThreadActor, threadId: string, prompt: string) {
   const data = { ...actor, targetSessionId: threadId, messageId: randomUUID(), prompt }
 
-  return receipt(actor, threadId, data.messageId, (await startThreadTurn(data)).status)
+  return receipt(actor, data.messageId, await startThreadTurn(data))
 }
 
 /** The agents the owner can run a thread on, each with its readiness and usage. */
@@ -242,7 +239,7 @@ export async function startThreadTurn(data: ThreadTurn) {
     })
   })
 
-  return { status, run }
+  return { status, run, target }
 }
 
 export async function setAgentThreadParent(

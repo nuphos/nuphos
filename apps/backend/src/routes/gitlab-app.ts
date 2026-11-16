@@ -183,6 +183,8 @@ export async function persistGitlabBinding(
     ...draft,
     id: bindingId,
     createdAt: existing?.createdAt ?? new Date(),
+    // Reauthorizing renews the grant; who may use the binding stays as set.
+    ...(existing?.access ? { access: existing.access } : {}),
   }
 
   if (existing) {

@@ -29,7 +29,6 @@ import { canStopTurn, waitingMessages } from './queuedAutoSend'
 import { useQueuedShareApproval } from './queuedShareApproval'
 import { QueuedStrip } from './QueuedStrip'
 import { cardReplyId } from './replyTarget'
-import { ReplyTargetChip } from './ReplyTargetChip'
 import { serverHasConversation } from './sessionActions'
 import { TurnSwitchAgentContext, turnSwitchAgent } from './turnFailureActions'
 import { TurnRetryContext, useFailedTurnRetry } from './turnRetryContext'
@@ -77,7 +76,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
   const { runtimeControl: conversationControl } = useConversationRuntimeControl(c)
   const { runtimeControl, queuedApproval } = useQueuedShareApproval(conversationControl, activeTab)
   const readOnlyNotice = useViewOnlyNotice(c)
-  const questions = c.openQuestions ?? c.replyTarget?.questions
+  const questions = c.openQuestions
   const composerRef = useRef<HTMLDivElement>(null)
   // A card answers while its conversation has an open question, whatever the composer replies to.
   const canReply = activeTab !== null && !activeTab.readOnly && Boolean(questions?.length)
@@ -226,7 +225,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   <DelayedPanelReveal>
                     <Composer
                       onSend={(text, filePaths, mentions, { mode } = {}) =>
-                        sendInActive(text, filePaths, undefined, c.decisionReplyTo, mentions, mode)
+                        sendInActive(text, filePaths, undefined, undefined, mentions, mode)
                       }
                       onStop={stopActive}
                       autoFocus={focusComposerOnOpen}
@@ -251,12 +250,9 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   </DelayedPanelReveal>
                 ) : (
                   <>
-                    {c.replyTarget?.sessionId === activeTab.sessionId && !activeTab.readOnly && (
-                      <ReplyTargetChip target={c.replyTarget} />
-                    )}
                     <Composer
                       onSend={(text, filePaths, mentions, { mode } = {}) =>
-                        sendInActive(text, filePaths, undefined, c.decisionReplyTo, mentions, mode)
+                        sendInActive(text, filePaths, undefined, undefined, mentions, mode)
                       }
                       onStop={stopActive}
                       promptSuggestion={

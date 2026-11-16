@@ -140,7 +140,7 @@ final class ChannelSession {
         Task { await questions.answer(question, with: answer) }
     }
 
-    /// Withdraws a question unanswered, as the desktop's dismissal does: it wakes no one.
+    /// Withdraws a question unanswered, as the desktop's Skip does: the agent that asked is told.
     func skip(_ question: BotQuestion) {
         Task { await questions.dismiss(question) }
     }

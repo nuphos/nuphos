@@ -103,7 +103,7 @@ export function ChoiceCard({
         full={ctx?.fullBody}
         onLinkClick={ctx?.onLinkClick}
       />
-      <AnswerStatus recorded={recorded} failed={failed} />
+      <AnswerStatus recorded={recorded} failed={failed} skipped={skipped === 'yes'} />
       {!chosen &&
         (form ? (
           <DecisionForm
@@ -192,12 +192,27 @@ function useSubmit(
   return { chosen: sent || recorded !== undefined, failed, submit }
 }
 
-/** What answered the card, or that its answer was not taken. */
-function AnswerStatus({ recorded, failed }: { recorded: string | undefined; failed: boolean }) {
+/** What answered the card, that it was skipped, or that its answer was not taken. */
+function AnswerStatus({
+  recorded,
+  failed,
+  skipped,
+}: {
+  recorded: string | undefined
+  failed: boolean
+  skipped: boolean
+}) {
   if (recorded)
     return (
       <div className="mt-2 text-[12.5px] text-secondary">
         {t('Answered: {answer}', { answer: recorded })}
+      </div>
+    )
+
+  if (skipped)
+    return (
+      <div className="mt-2 text-[12.5px] text-secondary">
+        {t('Skipped. The agent carries on without an answer.')}
       </div>
     )
 

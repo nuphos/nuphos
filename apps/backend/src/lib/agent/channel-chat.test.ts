@@ -21,7 +21,12 @@ import {
 } from './channel-chat'
 import { runTurn, startConversationTurn } from './conversation-turn'
 import { inviteToConversation, resolveMentions } from './mentions'
-import { renderAttributedMessage } from './message-metadata'
+import { firstLine } from './channel-newest-post'
+import {
+  attributionHeader,
+  parseMessageMetadata,
+  renderAttributedMessage,
+} from './message-metadata'
 import { clearPendingUserMessages, enqueuePendingUserMessage } from './pending-messages'
 import { listPendingUserMessages } from './pending-queue'
 import { installTurnRunner, resetTurnRunner } from './turn-runner'
@@ -295,6 +300,33 @@ describe('waking a channel’s agents', () => {
       agentId: 'agent-a',
       cause: 'usage_limit',
       reason: "its account hit its usage limit (You've hit your weekly limit · resets 4pm (UTC)).",
+    })
+  })
+
+  test('a Codex agent out of usage says why too', async () => {
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async ({ sessionId }) => {
+        if (sessionId === 'agent-a')
+          throw new OpenAbRpcError(
+            '**Internal Error** (code: -32603)\nInternal error\n> You’ve hit your usage limit. Visit https://chatgpt.com/settings/usage to purchase more credits or try again at 5:12 PM.',
+            -32603,
+            { code: -32603, message: 'Internal error' },
+          )
+
+        return { status: 'completed' }
+      },
+    })
+    await say('hello')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(
+      (await channel()).timelineEvents?.find((event) => event.kind === 'agent_reply_failed'),
+    ).toMatchObject({
+      agentId: 'agent-a',
+      cause: 'usage_limit',
+      reason:
+        'its account hit its usage limit (You’ve hit your usage limit. Visit https://chatgpt.com/settings/usage to purchase more credits or try again at 5:12 PM.).',
     })
   })
 
@@ -761,6 +793,52 @@ describe('reading a channel', () => {
     const [message] = (await withChannelPosts('agent-b', 'agent-b-owner', [notice])).messages
 
     expect(message!.renderedText).toContain('"fromOwner": true')
+  })
+
+  test('the wake notice shows people its newest post, and keeps it out of the trusted metadata', async () => {
+    await say('first')
+    await say('\n  **deploy** failed on `prod`  \nstack trace follows')
+    const notice = wakes.find((wake) => wake.sessionId === 'agent-b')!.message as never as {
+      id: string
+      metadata: MessageMetadata
+      renderedText: string
+    }
+    const [message] = (await withChannelPosts('agent-b', 'agent-b-owner', [notice])).messages
+    const preview = {
+      id: 'm2',
+      sender: { type: 'user', id: 'owner', displayName: 'Owner' },
+      text: 'deploy failed on prod',
+      more: 1,
+    }
+
+    expect(message!.metadata.channelPost).toEqual(preview as never)
+    // Stored and read back as it was; the model gets the post only fenced in the body.
+    expect(parseMessageMetadata(message!.metadata)?.channelPost).toEqual(preview as never)
+    expect(attributionHeader(message!.id, message!.metadata)).not.toContain('deploy failed')
+    // An agent's post names its conversation; a file alone shows its name.
+    await catchUp()
+    await say('', agentSpeaker('agent-a'), 'agent-a')
+    await agentMessages().updateOne(
+      { sessionId: 'channel', messageId: 'm3' },
+      {
+        $set: {
+          parts: [{ type: 'transfer-upload', groupId: 'g', files: [{ fileName: 'a.png' }] }],
+        },
+      },
+    )
+    const [file] = (await withChannelPosts('agent-b', 'agent-b-owner', [notice])).messages
+
+    expect(file!.metadata.channelPost).toMatchObject({
+      id: 'm3',
+      sender: { type: 'agent', id: 'agent-a', displayName: 'agent-a title' },
+      text: 'a.png',
+    })
+  })
+
+  test("a post's preview is its first line as plain text", () => {
+    expect(firstLine('```ts\nconst a = 1\n```')).toBe('const a = 1')
+    expect(firstLine('## See [the run](https://x.y) > now')).toBe('See the run > now')
+    expect(firstLine('- ~~old~~ new')).toBe('old new')
   })
 
   test('a message cannot close its own fence', async () => {

@@ -18,6 +18,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import org.junit.*
 import org.junit.Assert.*
+import org.junit.Assume.assumeTrue
 
 /** Actual composer, scoped synthetic identity and drafts. No network Send or real account. */
 class PromptSuggestionFixtureDeviceTest {
@@ -41,9 +42,9 @@ class PromptSuggestionFixtureDeviceTest {
     @Suppress("UNCHECKED_CAST") private fun state(target: Any, name: String, value: Any) {
         (target.javaClass.getDeclaredField(name + "\$delegate").also { it.isAccessible = true }.get(target) as MutableState<Any>).value = value
     }
+
     @Before fun setup() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        check(context.packageName.endsWith(".prompt1327"))
         app = context.applicationContext as NuphosApplication
         savedAccess = accessState().value
         auth = AuthSession(app, app.tokenStore)

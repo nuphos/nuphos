@@ -118,7 +118,7 @@ final class OpenQuestions {
         }
     }
 
-    /// Withdraws a question unanswered: it wakes no one. Hidden at once, and back with why if refused.
+    /// Withdraws a question unanswered: the agent that asked is told it was skipped. Hidden at once, and back with why if refused.
     func dismiss(_ question: BotQuestion) async {
         await close(question) {
             try await AgentChatAPI.resolveDecision(

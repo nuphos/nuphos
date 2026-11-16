@@ -374,6 +374,7 @@ describe('what each token kind may call', () => {
       ['POST', '/agent/devices/d1/agents'],
       ['DELETE', '/agent/devices/d1/agents/a1'],
       ['PUT', '/agent/devices/d1/share'],
+      ['POST', `/teams/${TEAM}/computers/d1/app-update`],
       ['PUT', `/teams/${TEAM}/agent-runtime`],
       ['POST', `/teams/${TEAM}/agent-runtimes`],
       ['POST', `/teams/${TEAM}/agent-runtimes/external`],

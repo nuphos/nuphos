@@ -42,13 +42,13 @@ export function createDefaultAccess(userId: string, now = new Date()): BindingAc
  * via its rest_token). Those start closed — only the binder — instead of the
  * `['*']` every-member default.
  *
- * Team admins are NOT baked in here: roles change, and a frozen list would both
- * miss admins promoted later and keep access for admins demoted since. The
- * admin grant is evaluated per request at the gate instead.
+ * Admins are not baked in here either: a binding only its binder may use is
+ * private, and `canUseBinding` gives admins no way into it.
  */
 export function createBinderOnlyAccess(userId: string, now = new Date()): BindingAccess {
   return {
     memberAllowList: [userId],
+    ownerUserId: userId,
     updatedAt: now,
     updatedBy: userId,
   }
@@ -68,9 +68,11 @@ export function normalizeAccessInput(
   },
   userId: string,
   now = new Date(),
+  ownerUserId?: string,
 ): BindingAccess {
   return {
     memberAllowList: normalizeAllowList(input.memberAllowList),
+    ...(ownerUserId ? { ownerUserId } : {}),
     updatedAt: now,
     updatedBy: userId,
   }
@@ -80,6 +82,78 @@ export function canUseAllowList(list: string[] | undefined, userId: string): boo
   const normalized = normalizeAllowList(list)
 
   return normalized.includes('*') || normalized.includes(userId)
+}
+
+/**
+ * A binding no one but its owner may use. Without a recorded owner, a list
+ * of at most one member counts as that member's own.
+ */
+export function isPrivateAccess(access: BindingAccess | undefined): boolean {
+  const list = normalizeAllowList(access?.memberAllowList)
+
+  if (list.includes('*')) return false
+  const owner = access?.ownerUserId
+
+  return owner ? list.every((id) => id === owner) : list.length <= 1
+}
+
+/** Who connected the binding: its recorded owner, or the one member of an older private list. */
+export function bindingOwner(access: BindingAccess | undefined): string | undefined {
+  if (access?.ownerUserId) return access.ownerUserId
+  const list = normalizeAllowList(access?.memberAllowList)
+
+  return list.length === 1 && list[0] !== '*' ? list[0] : undefined
+}
+
+/** Admins and the binding's owner may see who it is shared with. */
+export function canViewAccess(
+  access: BindingAccess | undefined,
+  userId: string,
+  teamRole: string | undefined,
+): boolean {
+  return teamRole === 'ADMINISTRATOR' || bindingOwner(access) === userId
+}
+
+/**
+ * Its owner may always change who a binding is shared with; an admin only
+ * while it is shared, never another member's private binding.
+ */
+export function canEditAccess(
+  access: BindingAccess | undefined,
+  userId: string,
+  teamRole: string | undefined,
+): boolean {
+  const owner = bindingOwner(access)
+
+  if (owner === userId) return true
+  if (teamRole !== 'ADMINISTRATOR') return false
+  // A list emptied before owners were kept is nobody's to protect.
+  const unowned = !owner && normalizeAllowList(access?.memberAllowList).length === 0
+
+  return unowned || !isPrivateAccess(access)
+}
+
+/**
+ * The one rule for every binding: members on the list may use it, and admins
+ * may use any binding shared with the team or specific people, but never
+ * another member's private one.
+ */
+export function canUseBinding(
+  access: BindingAccess | undefined,
+  userId: string,
+  teamRole: string | undefined,
+): boolean {
+  if (canUseAllowList(access?.memberAllowList, userId)) return true
+
+  return teamRole === 'ADMINISTRATOR' && !isPrivateAccess(access)
+}
+
+/** A binding is usable only when every principal a request acts for is on its list. */
+export function canPrincipalsUseAllowList(
+  list: string[] | undefined,
+  principals: readonly string[],
+): boolean {
+  return principals.length > 0 && principals.every((id) => canUseAllowList(list, id))
 }
 
 function normalizeAllowList(list: string[] | undefined): string[] {

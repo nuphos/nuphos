@@ -206,7 +206,7 @@ jobs:
         working-directory: apps/ios
         run: |
           bash tests/sync-strings.sh build
-          git diff --exit-code nuphos-ios/Localizable.xcstrings
+          git diff --exit-code Shared/Localizable.xcstrings
 
   cli:
     name: CLI (fmt + clippy + test)

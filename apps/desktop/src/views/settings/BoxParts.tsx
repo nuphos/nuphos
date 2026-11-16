@@ -69,9 +69,19 @@ export function LiveDot() {
 
 /** One short line after the status: the machine's kind, and when it was last seen if it is away. For a manager the
  * tooltip adds its UID and where it last reported from; Copy UID lives in its ⋯ menu. */
-export function MachineLine({ device, dim }: { device: AgentDevice; dim: boolean }) {
+/** `live`: the status beside it is this computer's own, so the backend's last sighting is left out. */
+export function MachineLine({
+  device,
+  dim,
+  live = false,
+}: {
+  device: AgentDevice
+  dim: boolean
+  live?: boolean
+}) {
   const seen = seenFrom(device)
-  const away = device.lastSeenAt && !device.online ? relativeTimeFromNow(device.lastSeenAt) : null
+  const away =
+    !live && device.lastSeenAt && !device.online ? relativeTimeFromNow(device.lastSeenAt) : null
   const line = away ? `${machineLine(device)} · ${away}` : machineLine(device)
   const details =
     device.access === 'manage'

@@ -12,12 +12,14 @@ import ai.nuphos.android.model.AgentConversationDetail
 import ai.nuphos.android.session.*
 import ai.nuphos.android.ui.chat.ConversationAgentSheet
 import ai.nuphos.android.ui.theme.NuphosTheme
+import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.*
 import okhttp3.*
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.*
 import org.junit.runner.RunWith
 import java.util.concurrent.atomic.AtomicInteger
+import org.junit.Assume.assumeTrue
 
 @org.junit.FixMethodOrder(org.junit.runners.MethodSorters.NAME_ASCENDING)
 @RunWith(AndroidJUnit4::class)
@@ -40,9 +42,9 @@ class RuntimePickerParityDeviceTest {
     @Suppress("UNCHECKED_CAST") private fun set(name: String, value: Any?) {
         (ChatSession::class.java.getDeclaredField(name + "\$delegate").also { it.isAccessible=true }.get(session) as MutableState<Any?>).value=value
     }
+
     @Before fun setup() {
         originalConfiguration = android.content.res.Configuration(compose.activity.resources.configuration)
-        require(compose.activity.packageName == "ai.nuphos.android.agentsaudit1382")
         compose.runOnIdle { oldAccess=access().value; AiAccess.activate("synthetic-picker"); AiAccess.grant("synthetic-picker") }
         val field=Http::class.java.getDeclaredField("client").also { it.isAccessible=true }
         original=field.get(null) as OkHttpClient

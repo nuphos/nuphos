@@ -90,6 +90,29 @@ test('a host that cannot start says why and holds nothing', async () => {
   assert.deepEqual(macScreenStatus(pool).desktops, [])
 })
 
+// #2947: the host's own request for Accessibility shows nothing, so nobody at the Mac knew.
+test('opening the screen asks this Mac for its permissions, and the viewer hears why it failed', async () => {
+  const pool = newPool()
+  const host = fakeHost(
+    'echo "mac-screen-host: Accessibility is not allowed for Nuphos yet." >&2; exit 1',
+  )
+  let asked = 0
+  const deps = macScreenDeps(pool, () => ({ agents: {} }) as never, {
+    binary: () => host,
+    owner: () => 'u1',
+    ask: () => {
+      asked += 1
+    },
+  })
+
+  await assert.rejects(
+    deps.instances({ method: 'desktop', sessionId: 's1' }),
+    /^Error: Accessibility is not allowed for Nuphos yet\.$/u,
+  )
+  assert.equal(asked, 1)
+  assert.deepEqual(macScreenStatus(pool).desktops, [])
+})
+
 test('under the CLI the host is asked to hold its own permissions', async () => {
   const pool = newPool()
   const host = fakeHost('echo "mac-screen-host: $2" >&2; exit 1')

@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
 import { createDefaultAccess } from '@/lib/byos/access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { appendEnvironmentBinding } from '@/lib/byos/environment-bindings'
 import { listHetznerServers, verifyHetznerToken, HetznerApiError } from '@/lib/byos/hetzner'
 import { encryptHetznerToken, decryptHetznerToken } from '@/lib/byos/secrets'
@@ -98,6 +99,10 @@ hetznerAccountsRoutes.post(
 const accountScoped = new Hono<{ Variables: HetznerAccountVariables }>()
 
 accountScoped.use('*', requireHetznerAccount())
+registerBindingAccessRoutes(accountScoped, 'hetznerAccounts', (c) => ({
+  id: c.get('hetznerAccountId'),
+  access: c.get('hetznerAccess'),
+}))
 
 accountScoped.get('/', (c) => {
   return c.json({

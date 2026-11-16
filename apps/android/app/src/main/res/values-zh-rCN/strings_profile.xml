@@ -1,10 +1,7 @@
 <resources>
     <string name="profile_consent_title">使用 AI Agent 之前</string>
-    <string name="profile_consent_intro">使用 Agent 时，你的提示词、对话历史记录、上传的图片和文件，以及已连接工具的相关结果，会发送给执行你的请求所需的提供商。</string>
     <string name="profile_consent_recipients_title">谁会收到这些数据</string>
-    <string name="profile_consent_recipients_body">视你使用的运行环境和模型而定，可能包括 Anthropic（Claude）、OpenAI（Codex）、Google 或 Amazon Web Services。Nuphos 还会使用 Braintrust 存储 AI 执行追踪记录（可能包含对话和工具内容），用于诊断和改进服务。</string>
     <string name="profile_consent_choice_title">由你选择</string>
-    <string name="profile_consent_choice_body">请只分享你有权分享的信息。你可以拒绝，并仍能管理账号或申请删除账号。你可以在“账号 → AI 数据共享”中撤回许可。撤回后，此 App 将不再进行新的 AI 使用；但不会撤销已完成的传输，也不会停止已在运行的工作，包括在其他设备上或由定时 Agent 启动的工作。</string>
     <string name="profile_consent_read_privacy_policy">阅读隐私政策</string>
     <string name="profile_consent_agree">同意并继续</string>
     <string name="profile_consent_not_now">以后再说 — 管理我的账号</string>
@@ -23,11 +20,8 @@
     <string name="profile_username">用户名</string>
     <string name="profile_email">邮件</string>
     <string name="profile_deletion_title">删除账号</string>
-    <string name="profile_deletion_body">我们将在 30 天内永久删除你的账号及相关个人数据。我们的团队会协调工作区所有权和共享数据的处理。依法须保存的记录，以及你的团队共同持有的数据可能会被保留。</string>
-    <string name="profile_deletion_request_note">这会提交一项申请，不会立即清除你的账号。处理期间你仍可继续使用账号。重新登录不会取消此申请。</string>
     <string name="profile_privacy_policy">隐私政策</string>
     <string name="profile_deletion_received">已收到申请</string>
-    <string name="profile_deletion_saved">你的申请已保存。你无需联系客服即可开始删除。</string>
     <string name="profile_deletion_password_label">账号密码</string>
     <string name="profile_deletion_code_sent">验证码已发送 — 请查看你的收件箱</string>
     <string name="profile_deletion_send_code">发送验证码</string>
@@ -87,7 +81,6 @@
     <string name="profile_two_factor_replace_codes_body">当前的恢复码将失效。请输入一个验证码以确认。</string>
     <string name="profile_two_factor_replace_codes">更换恢复码</string>
     <string name="profile_withdraw_title">要撤回 AI 共享同意吗？</string>
-    <string name="profile_withdraw_body">服务器确认你的选择后，此 App 将无法再发起新的 AI 工作。这不会撤销已发送的数据，也不会停止现有、定时或在其他设备上的运行。尚未发送的草稿将被清除。</string>
     <string name="profile_withdraw_confirm">撤回</string>
     <string name="profile_group_accounts">账号</string>
     <string name="profile_group_app_icon">应用图标</string>

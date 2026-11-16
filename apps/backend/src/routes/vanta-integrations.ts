@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
 import { createDefaultAccess } from '@/lib/byos/access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { encryptVantaSecret } from '@/lib/byos/secrets'
 import {
   getVantaAccessToken,
@@ -119,6 +120,7 @@ vantaIntegrationsRoutes.post(
 const integrationScoped = new Hono<{ Variables: VantaIntegrationVariables }>()
 
 integrationScoped.use('*', requireVantaIntegration())
+registerBindingAccessRoutes(integrationScoped, 'vantaIntegrations', (c) => c.get('vantaBinding'))
 
 integrationScoped.get('/', (c) => {
   return c.json({

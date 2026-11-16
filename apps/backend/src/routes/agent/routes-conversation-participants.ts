@@ -237,6 +237,9 @@ async function leaveChannelAsOwner(
 
     return channel
   }
+  // Someone else changed the chat first (another leave): nothing moved, so nothing is said.
+  if (handed.userId === owner)
+    throw new AppError(409, 'conflict', 'The chat changed while you were leaving it. Try again.')
   const names = await buildConversationOwnerMap(teamId, [owner, handed.userId])
   const name = (id: string) => names.get(id)?.name ?? 'Someone'
 

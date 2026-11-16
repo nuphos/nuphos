@@ -3,19 +3,14 @@ import { randomBytes } from 'node:crypto'
 import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
-import {
-  accessView,
-  bindingAccessUpdateSchema,
-  normalizeAccessInput,
-  createBinderOnlyAccess,
-} from '@/lib/byos/access'
+import { createBinderOnlyAccess } from '@/lib/byos/access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { trelloConnectLink } from '@/lib/byos/trello'
 import { publicBackendUrl } from '@/lib/claude-code-preview/runtime-backend-url'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { logError } from '@/lib/observability'
 import { composioUserId, deleteComposioAccount } from '@/lib/personal-credentials/composio'
-import { zv } from '@/lib/validate'
 import { requireTrelloIntegration, requireTeamRole } from '@/middleware/auth'
 import { teamByosBindings, trelloPendingOAuth } from '@/models'
 
@@ -92,29 +87,7 @@ trelloIntegrationsRoutes.delete(
 const integrationScoped = new Hono<{ Variables: TrelloIntegrationVariables }>()
 
 integrationScoped.use('*', requireTrelloIntegration())
-integrationScoped.get('/access', requireTeamRole('ADMINISTRATOR'), (c) =>
-  c.json(accessView(c.get('trelloAccess'))),
-)
-integrationScoped.put(
-  '/access',
-  requireTeamRole('ADMINISTRATOR'),
-  zv('json', bindingAccessUpdateSchema),
-  async (c) => {
-    const access = normalizeAccessInput(c.req.valid('json'), c.get('userId'))
-    const result = await teamByosBindings().updateOne(
-      {
-        _id: parseObjectId(c.get('teamId'), 'teamId'),
-        'trelloIntegrations.id': c.get('trelloBinding').id,
-      },
-      { $set: { 'trelloIntegrations.$.access': access, updatedAt: new Date() } },
-    )
-
-    if (!result.matchedCount)
-      throw new AppError(404, 'trello_not_bound', 'Trello connection not found')
-
-    return c.json(accessView(access))
-  },
-)
+registerBindingAccessRoutes(integrationScoped, 'trelloIntegrations', (c) => c.get('trelloBinding'))
 integrationScoped.get('/', (c) => c.json(publicView(c.get('trelloBinding'))))
 integrationScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
   const binding = c.get('trelloBinding')

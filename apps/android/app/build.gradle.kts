@@ -51,39 +51,14 @@ android {
 
     buildTypes {
         debug {
-            if (providers.gradleProperty("nuphosIsolatedPromptFixture").orNull == "true") {
-                applicationIdSuffix = ".prompt1327"
-                manifestPlaceholders["contentInputFixtureAuthority"] = "ai.nuphos.prompt1327.test.contentinput"
-            }
-            if (providers.gradleProperty("nuphosIsolatedRuntimeSheetFixture").orNull == "true") {
-                applicationIdSuffix = ".runtimesheet1375"
-                manifestPlaceholders["contentInputFixtureAuthority"] = "ai.nuphos.runtimesheet1375.test.contentinput"
-            }
-            if (providers.gradleProperty("nuphosIsolatedRuntimesFixture").orNull == "true") {
-                applicationIdSuffix = ".runtimes1373"
-                manifestPlaceholders["contentInputFixtureAuthority"] = "ai.nuphos.runtimes1373.test.contentinput"
-            }
             if (providers.gradleProperty("nuphosIsolatedPersistentShareFixture").orNull == "true") {
                 applicationIdSuffix = ".sharepersist1359"
                 manifestPlaceholders["contentInputFixtureAuthority"] = "ai.nuphos.sharepersist1359.test.contentinput"
             }
-            if (providers.gradleProperty("nuphosIsolatedNavigationFixture").orNull == "true") {
-                applicationIdSuffix = ".navigation1371"
-                manifestPlaceholders["contentInputFixtureAuthority"] = "ai.nuphos.navigation1371.test.contentinput"
-            }
-            if (providers.gradleProperty("nuphosIsolatedPinIosFixture").orNull == "true") applicationIdSuffix = ".pinios1370"
-            if (providers.gradleProperty("nuphosIsolatedRowActionsFixture").orNull == "true") applicationIdSuffix = ".rowactions1357"
             if (providers.gradleProperty("nuphosIsolatedShareFixture").orNull == "true") {
                 applicationIdSuffix = ".shareinput1355"
                 manifestPlaceholders["contentInputFixtureAuthority"] = "ai.nuphos.shareinput1355.test.contentinput"
             }
-            if (providers.gradleProperty("nuphosIsolatedEmailFixture").orNull == "true") applicationIdSuffix = ".emailfixture1335"
-
-            if (providers.gradleProperty("nuphosIsolatedContentFixture").orNull == "true") {
-                applicationIdSuffix = ".contentinput1337"
-            }
-            if (providers.gradleProperty("nuphosIsolatedAdaptiveFixture").orNull == "true") applicationIdSuffix = ".adaptivefixture"
-            if (providers.gradleProperty("nuphosIsolatedImageExportFixture").orNull == "true") applicationIdSuffix = ".imageexport1336"
             buildConfigField("String", "PUSH_BASE_URL", "\"$debugPushBaseUrl\"")
             buildConfigField("String", "API_BASE_URL", "\"$debugApiBaseUrl\"")
         }
@@ -168,6 +143,7 @@ tasks.withType<Test>().configureEach {
     maxParallelForks = 1
     // Off a device, [ai.nuphos.android.model.Words] reads the English strings from here.
     systemProperty("nuphos.strings", file("src/main/res/values").absolutePath)
+    inputs.dir("src/main/res").withPathSensitivity(PathSensitivity.RELATIVE)
 }
 
 // Debug builds may omit Firebase, but shipping variants must include the reviewed client config.

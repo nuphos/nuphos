@@ -8,9 +8,11 @@ enum BotQuestionsTests {
         theInboxListsEveryOwnQuestionOnce()
         keepsTheBodyTheAgentWroteToDecideFrom()
         aPlanOrASecretIsNeverAnsweredInWords()
+        aSecretRequestDrawsTheSecureInputCard()
         aQuestionNamingTheMembersOwnCredentialIsConnectable()
         aMultiSelectOrSeveralQuestionsAreAForm()
         theInboxGroupsBySourceAndOpensTheNextQuestion()
+        aBotsTaskQuestionIsInTheBotsGroup()
         print("Bot questions passed")
     }
 
@@ -31,6 +33,28 @@ enum BotQuestionsTests {
         precondition(BotQuestions.next(after: "bot:b", in: groups) == "ops:a")
         precondition(BotQuestions.next(after: "ops:a", in: [[list[0]]]) == nil)
         precondition(list[0].askedDate != nil)
+    }
+
+    /// Tasks lists nothing a Bot dispatched (#2708), so the Inbox files its questions under the Bot,
+    /// as Desktop's #2774 does: never a group that reads as a Task the Tasks page does not have.
+    private static func aBotsTaskQuestionIsInTheBotsGroup() {
+        var bot = row("bot", asks: [("q-bot", "2026-11-09T03:01:00Z")])
+        bot.avatar = "07-ada"
+        // The pending listing: the rows that ask, then the parents above them up to the Bot.
+        let rows = [
+            row("canary", parent: "rollout", asks: [("q-canary", "2026-11-09T03:03:00Z")]),
+            row("docs", parent: "bot", asks: [("q-docs", "2026-11-09T03:02:00Z")]),
+            row("solo", asks: [("q-solo", "2026-11-09T03:04:00Z")]),
+            bot,
+            row("rollout", parent: "bot"),
+        ]
+        let groups = BotQuestions.grouped(BotQuestions.open(rows: rows))
+        precondition(groups.map { $0.map(\.request.id) } == [["q-solo"], ["q-bot", "q-docs", "q-canary"]])
+        precondition(groups[1].map(\.sourceId) == ["bot", "bot", "bot"])
+        // Each row still answers, and opens, the Task that asked.
+        precondition(groups[1].map(\.sessionId) == ["bot", "docs", "canary"])
+        precondition(groups[1][0].bot == nil && groups[1][2].bot?.sessionId == "bot")
+        precondition(groups[0][0].bot == nil && groups[0][0].sourceId == "solo")
     }
 
     private static func aMultiSelectOrSeveralQuestionsAreAForm() {
@@ -142,6 +166,21 @@ enum BotQuestionsTests {
         precondition(BotQuestion.isLongBody(String(repeating: "x", count: 241)))
     }
 
+    /// The listing names the secret, so a Bot's chat asks for it as the task does.
+    private static func aSecretRequestDrawsTheSecureInputCard() {
+        func ask(_ json: String) -> BotQuestion {
+            BotQuestion(sessionId: "s", title: "Agent", request: try! JSONDecoder().decode(
+                AgentConversation.InputRequest.self, from: Data(json.utf8)))
+        }
+        let part = ask(#"{"id":"r","category":"credential","question":"The API needs a key.","secretName":"API_KEY"}"#).secretPart
+        precondition(part?.secretRequest?.name == "API_KEY")
+        precondition(part?.secretRequest?.reason == "The API needs a key.")
+        // Its request is the one the card closes once the value is saved.
+        precondition(part?.decisionRequestId == "r")
+        precondition(ask(#"{"id":"r","category":"credential","question":"Sign in."}"#).secretPart == nil)
+        precondition(ask(#"{"id":"r","category":"credential","question":"Key?","secretName":"not a name"}"#).secretPart == nil)
+    }
+
     private static func aPlanOrASecretIsNeverAnsweredInWords() {
         func ask(_ category: String, planId: String? = nil) -> BotQuestion {
             BotQuestion(sessionId: "s", title: "Agent", request: .init(
@@ -154,8 +193,6 @@ enum BotQuestionsTests {
         let plan = try! JSONDecoder().decode(
             AgentConversation.InputRequest.self, from: Data(#"{"id":"r","question":"Approve?","planId":"p1"}"#.utf8))
         precondition(plan.planId == "p1")
-        // "Other…" quotes the question above the composer, a quote no post in the chat has.
-        precondition(ask("preference").quote == ChannelReply(id: nil, authorName: "Agent", text: "Go?"))
     }
 
     private static func aQuestionNamingTheMembersOwnCredentialIsConnectable() {

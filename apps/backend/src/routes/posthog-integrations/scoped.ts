@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
-import { accessView, bindingAccessUpdateSchema, normalizeAccessInput } from '@/lib/byos/access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { invalidatePosthogAccessToken } from '@/lib/byos/posthog-tokens'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
@@ -45,26 +45,8 @@ posthogIntegrationScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c)
   return c.body(null, 204)
 })
 
-posthogIntegrationScoped.get('/access', requireTeamRole('ADMINISTRATOR'), (c) =>
-  c.json(accessView(c.get('posthogAccess'))),
-)
-
-posthogIntegrationScoped.put(
-  '/access',
-  requireTeamRole('ADMINISTRATOR'),
-  zv('json', bindingAccessUpdateSchema),
-  async (c) => {
-    const teamId = parseObjectId(c.get('teamId'), 'teamId')
-    const access = normalizeAccessInput(c.req.valid('json'), c.get('userId'))
-    const res = await teamByosBindings().updateOne(
-      { _id: teamId, 'posthogIntegrations.id': new ObjectId(c.get('posthogIntegrationId')) },
-      { $set: { 'posthogIntegrations.$.access': access, updatedAt: new Date() } },
-    )
-
-    if (res.matchedCount === 0) throw notBound()
-
-    return c.json(accessView(access))
-  },
+registerBindingAccessRoutes(posthogIntegrationScoped, 'posthogIntegrations', (c) =>
+  c.get('posthogBinding'),
 )
 
 posthogIntegrationScoped.get('/available-projects', requireTeamRole('ADMINISTRATOR'), async (c) => {

@@ -2,6 +2,7 @@ import crypto from 'node:crypto'
 
 import { Hono } from 'hono'
 
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import {
   buildAuthorizeUrl,
   getAccessTokenWithExpiry,
@@ -113,6 +114,7 @@ asanaAccountsRoutes.delete('/start-oauth/:state', requireTeamRole('ADMINISTRATOR
 const bindingScoped = new Hono<{ Variables: AsanaAccountVariables }>()
 
 bindingScoped.use('*', requireAsanaAccount())
+registerBindingAccessRoutes(bindingScoped, 'asanaAccounts', (c) => c.get('asanaBinding'))
 
 bindingScoped.get('/', (c) => {
   return c.json(publicView(c.get('asanaBinding')))

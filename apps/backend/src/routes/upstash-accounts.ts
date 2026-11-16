@@ -2,12 +2,8 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
-import {
-  accessView,
-  bindingAccessUpdateSchema,
-  createBinderOnlyAccess,
-  normalizeAccessInput,
-} from '@/lib/byos/access'
+import { createBinderOnlyAccess } from '@/lib/byos/access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { encryptUpstashSecret } from '@/lib/byos/secrets'
 import {
   credentialsFromBinding,
@@ -159,32 +155,7 @@ accountScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
   return c.body(null, 204)
 })
 
-accountScoped.get('/access', requireTeamRole('ADMINISTRATOR'), (c) =>
-  c.json(accessView(c.get('upstashAccess'))),
-)
-
-accountScoped.put(
-  '/access',
-  requireTeamRole('ADMINISTRATOR'),
-  zv('json', bindingAccessUpdateSchema),
-  async (c) => {
-    const teamId = parseObjectId(c.get('teamId'), 'teamId')
-    const accountId = new ObjectId(c.get('upstashAccountId'))
-    const access = normalizeAccessInput(c.req.valid('json'), c.get('userId'))
-    const res = await teamByosBindings().updateOne(
-      { _id: teamId, 'upstashAccounts.id': accountId },
-      { $set: { 'upstashAccounts.$.access': access, updatedAt: new Date() } },
-    )
-
-    // Guard the concurrent-delete race: if the binding was removed between the
-    // middleware fetch and this write, don't report success for a no-op.
-    if (res.matchedCount === 0) {
-      throw new AppError(404, 'upstash_account_not_bound', 'Upstash account not found')
-    }
-
-    return c.json(accessView(access))
-  },
-)
+registerBindingAccessRoutes(accountScoped, 'upstashAccounts', (c) => c.get('upstashBinding'))
 
 // Server-side proxy so desktop can list databases without ever holding the API
 // key. The agent uses /credentials below and calls Upstash directly instead.
