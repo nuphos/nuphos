@@ -23,6 +23,7 @@ import { useRuntimeRegistry } from '@/lib/test/doubles/runtime-registry'
 import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-state'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
+import { controlRegistry } from './agent-chat-registry'
 import { RECLAIM_SESSION_HOME_PROGRAM, reclaimSessionHomes } from './runtime-session-home'
 
 const hash = (value: string) => createHash('sha256').update(value).digest('hex')
@@ -277,6 +278,9 @@ describe('reclaimSessionHomes', () => {
   let memory = portabilityDb()
   let state = 'dormant'
   let onProbe = () => {}
+  // Team runtimes: what the catalog knows and where each one is reached.
+  let instances: { id: string; provider: string }[] = []
+  let endpoints: { runtimeId: string; url: string }[] = []
 
   useDb({ db: () => memory })
   useSessionExecutionState({
@@ -286,8 +290,15 @@ describe('reclaimSessionHomes', () => {
       return { state }
     },
   })
-  useRuntimeRegistry({ resolveTeamRuntimeEndpoints: async () => [] })
+  useRuntimeRegistry({ resolveTeamRuntimeEndpoints: async () => endpoints as never })
   useRuntimeCatalog({
+    requireRuntimeInstance: async (_teamId: string, id: string) => {
+      const instance = instances.find((candidate) => candidate.id === id)
+
+      if (!instance) throw new Error('This agent no longer exists.')
+
+      return instance as never
+    },
     developmentRuntimeEndpoint: () => ({
       url: 'ws://127.0.0.1:1/acp',
       authKey: 'key',
@@ -315,6 +326,8 @@ describe('reclaimSessionHomes', () => {
     memory = portabilityDb()
     state = 'dormant'
     onProbe = () => {}
+    instances = []
+    endpoints = []
   })
 
   test('marks an archive that has nothing to reclaim', async () => {
@@ -364,6 +377,76 @@ describe('reclaimSessionHomes', () => {
   test('ignores conversations that are not archived', async () => {
     conversation({ archivedAt: undefined, lastActiveAt: new Date('2026-10-12T00:00:00Z') })
     expect(await reclaimSessionHomes(now)).toBe(0)
+  })
+
+  describe('a move between team runtimes', () => {
+    const { acquire, runtimeJobs } = controlRegistry
+    let jobs: string[] = []
+    const moved = (sessionId: string, from: string) =>
+      conversation({
+        sessionId,
+        archivedAt: undefined,
+        runtimeId: 'new',
+        runtimeMigration: {
+          fromRuntimeId: from,
+          toRuntimeId: 'new',
+          movedAt: archivedAt,
+          movedBy: 'owner',
+        },
+      })
+
+    beforeEach(() => {
+      jobs = []
+      instances = ['old', 'offline', 'new'].map((id) => ({ id, provider: 'claude-code' }))
+      controlRegistry.runtimeJobs = () => ['panel']
+      controlRegistry.acquire = (async (_teamId: string, endpoint: { runtimeId: string }) => ({
+        runJob: async () => {
+          jobs.push(endpoint.runtimeId)
+
+          return { exitCode: 0, stdout: '{"result":"removed"}' }
+        },
+      })) as never
+    })
+    afterEach(() => {
+      controlRegistry.acquire = acquire
+      controlRegistry.runtimeJobs = runtimeJobs
+    })
+
+    test('reclaims on the runtime it left when that one is reached at another address', async () => {
+      endpoints = [
+        { runtimeId: 'old', url: 'wss://old.example/acp' },
+        { runtimeId: 'new', url: 'wss://new.example/acp' },
+      ]
+      const row = moved('conversation', 'old')
+
+      expect(await reclaimSessionHomes(now)).toBe(1)
+      expect(row.sessionHomeReclaimedAt).toEqual(now)
+      expect(jobs).toEqual(['old'])
+    })
+
+    test('reclaims nothing when both are reached at one address: they share the home', async () => {
+      endpoints = [
+        { runtimeId: 'old', url: 'wss://shared.example/acp' },
+        { runtimeId: 'new', url: 'wss://shared.example/acp' },
+      ]
+      const row = moved('conversation', 'old')
+
+      expect(await reclaimSessionHomes(now)).toBe(1)
+      expect(row.sessionHomeReclaimedAt).toEqual(now)
+      expect(jobs).toEqual([])
+    })
+
+    test('deletes nothing when either runtime cannot be resolved', async () => {
+      // Only 'old' has an endpoint: 'gone' is not in the catalog, 'offline' has no
+      // endpoint, and 'new', where all three moved, has none either.
+      endpoints = [{ runtimeId: 'old', url: 'wss://old.example/acp' }]
+      moved('from-gone', 'gone')
+      moved('from-unreachable', 'offline')
+      moved('to-unreachable', 'old')
+
+      expect(await reclaimSessionHomes(now)).toBe(3)
+      expect(jobs).toEqual([])
+    })
   })
 
   describe('on a Box', () => {
