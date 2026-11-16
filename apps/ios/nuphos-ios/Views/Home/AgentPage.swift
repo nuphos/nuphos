@@ -299,7 +299,7 @@ struct AgentPage: View {
                 let conversation = item.conversation
                 // A Bot's chat acts for the Bot, as on Desktop; a group chat has no actions here.
                 let acted = conversation.isProject ? nil : conversation.isChannel ? store.bot(of: conversation) : conversation
-                Group {
+                let row = Group {
                     if conversation.isProject {
                         // A project folds its Tasks; it opens nothing.
                         Button { store.toggleFolded(conversation.sessionId) } label: {
@@ -329,14 +329,22 @@ struct AgentPage: View {
                 .listSectionSeparator(.hidden, edges: .top)
                 // A separator would cut through the lines of an open tree.
                 .listRowSeparator(item.depth > 0 || (item.hasChildren && !store.isFolded(conversation.sessionId, onBots: page == .chats)) ? .hidden : .automatic)
-                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    pinAction(conversation)
-                    if let acted { rowActions(acted) }
-                }
-                // The same actions for a long press or a secondary click.
-                .contextMenu {
-                    pinAction(conversation)
-                    if let acted { rowActions(acted) }
+                if page == .chats {
+                    row.contextMenu {
+                        pinAction(conversation)
+                        if let acted { rowActions(acted, tinted: false) }
+                    } preview: {
+                        BotConversationPreview(conversation: conversation, title: store.title(of: conversation))
+                    }
+                } else {
+                    row.swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        pinAction(conversation)
+                        if let acted { rowActions(acted) }
+                    }
+                    .contextMenu {
+                        pinAction(conversation)
+                        if let acted { rowActions(acted) }
+                    }
                 }
     }
 
@@ -409,7 +417,6 @@ struct AgentPage: View {
             } label: {
                 Label(pinned ? "Unpin\(noun)" : "Pin\(noun)", systemImage: pinned ? "pin.slash" : "pin")
             }
-            .tint(.yellow)
         }
     }
 
@@ -422,14 +429,14 @@ struct AgentPage: View {
     }
 
     @ViewBuilder
-    private func rowActions(_ conversation: AgentConversation) -> some View {
+    private func rowActions(_ conversation: AgentConversation, tinted: Bool = true) -> some View {
         if conversation.canManage { Button {
             if conversation.isBot { archivingBot = conversation; return }
             Task { await store.archive(sessionId: conversation.sessionId, teamId: conversation.teamId) }
         } label: {
             Label("Archive", systemImage: "archivebox")
         }
-        .tint(.orange) }
+        .tint(tinted ? .orange : nil) }
         if conversation.ownsChat, !conversation.isChannel {
             Button {
                 Task {
@@ -440,7 +447,7 @@ struct AgentPage: View {
             } label: {
                 Label(conversation.isBot ? "Turn into a Task" : "Make this a Bot", systemImage: conversation.isBot ? "person.crop.circle.badge.minus" : "person.crop.circle.badge.plus")
             }
-            .tint(.indigo)
+            .tint(tinted ? .indigo : nil)
         }
         if let watching = conversation.watching {
             Button {
@@ -448,7 +455,7 @@ struct AgentPage: View {
             } label: {
                 Label(watching ? "Unwatch" : "Watch", systemImage: watching ? "bell.slash" : "bell")
             }
-            .tint(.teal)
+            .tint(tinted ? .teal : nil)
             .disabled(store.watchChanges.contains(conversation.sessionId))
         }
         if conversation.ownsChat {
@@ -458,7 +465,7 @@ struct AgentPage: View {
             } label: {
                 Label("Rename", systemImage: "pencil")
             }
-            .tint(.blue)
+            .tint(tinted ? .blue : nil)
         }
         if conversation.ownsChat, conversation.parentSessionId != nil {
             Button {
@@ -466,7 +473,7 @@ struct AgentPage: View {
             } label: {
                 Label("Unlink", systemImage: "link.badge.minus")
             }
-            .tint(.gray)
+            .tint(tinted ? .gray : nil)
         }
     }
 
@@ -489,17 +496,6 @@ struct AgentPage: View {
     private var list: some View {
         List(selection: selection) {
             if page == .chats {
-                if !store.pins.isEmpty {
-                    Section {
-                        PinShelf(pins: store.pins) { row in
-                            if row.isChannel { openChat = OpenChat(channel: store.channel(for: row)) }
-                            else { Task { await openBotChat(row.sessionId) } }
-                        }
-                        .listRowBackground(Color.clear)
-                        .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
-                        .listRowSeparator(.hidden)
-                    }
-                }
                 Section {
                     ForEach(store.botRows(open: openChat?.id)) { item in agentRow(item) }
                 } header: {
@@ -550,6 +546,17 @@ struct AgentPage: View {
             }
         }
         .listStyle(.plain)
+        // Independent of the List cell so each avatar owns its context menu.
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if page == .chats, !store.pins.isEmpty, !isSearching {
+                PinShelf(pins: store.pins) { row in
+                    if row.isChannel { openChat = OpenChat(channel: store.channel(for: row)) }
+                    else { Task { await openBotChat(row.sessionId) } }
+                }
+                .padding(.vertical, 12)
+                .background(Theme.canvas)
+            }
+        }
         .onScrollGeometryChange(for: Bool.self) { geometry in
             geometry.contentOffset.y + geometry.contentInsets.top > PageTitleHeader.collapseThreshold
         } action: { _, collapsed in

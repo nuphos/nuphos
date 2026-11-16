@@ -9,17 +9,26 @@ struct PinShelf: View {
     @Environment(AgentStore.self) private var store
 
     var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 76), spacing: 4)], spacing: 12) {
-            ForEach(pins) { row in
-                Button { open(row) } label: { tile(row) }
-                    .buttonStyle(.plain)
-                    .contextMenu {
-                        Button { Task { await store.setPinned(false, row) } } label: {
-                            Label(row.isBot || row.botId != nil ? "Unpin Bot" : "Unpin", systemImage: "pin.slash")
+        ScrollView(.horizontal) {
+            HStack(alignment: .top, spacing: 16) {
+                ForEach(pins) { row in
+                    Button { open(row) } label: { tile(row) }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("PinnedBot-\(row.sessionId)")
+                        .contextMenu {
+                            Button { Task { await store.setPinned(false, row) } } label: {
+                                Label(row.isBot || row.botId != nil ? "Unpin Bot" : "Unpin", systemImage: "pin.slash")
+                            }
+                        } preview: {
+                            BotConversationPreview(conversation: row, title: store.title(of: row))
                         }
-                    }
+                }
             }
+            .padding(.horizontal, 16)
         }
+        .defaultScrollAnchor(.center, for: .alignment)
+        .scrollIndicators(.hidden)
+        .accessibilityIdentifier("PinnedBotsShelf")
     }
 
     private func tile(_ row: AgentConversation) -> some View {
@@ -27,9 +36,9 @@ struct PinShelf: View {
         return VStack(spacing: 6) {
             Group {
                 if row.isChannel {
-                    ChatIcon(faces: row.faces ?? [], title: title, size: 52)
+                    ChatIcon(faces: row.faces ?? [], title: title, size: 64)
                 } else {
-                    AgentAvatar(agentId: row.sessionId, runtime: row.agentRuntime, size: 52)
+                    AgentAvatar(agentId: row.sessionId, runtime: row.agentRuntime, size: 64)
                 }
             }
             .overlay(alignment: .topTrailing) {
@@ -44,7 +53,8 @@ struct PinShelf: View {
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
         }
-        .frame(maxWidth: .infinity, minHeight: 44)
+        .frame(width: 76, alignment: .top)
+        .frame(minHeight: 100, alignment: .top)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
     }
@@ -59,6 +69,7 @@ struct PinShelf: View {
         return store.unread.contains(team: team, session: row.sessionId) ? Theme.unread : nil
     }
 }
+
 
 /// A project on Tasks: the folder its Tasks work in, or No project.
 struct ProjectRow: View {
