@@ -138,4 +138,36 @@ export const runtimeScenarios: Scenario[] = [
       if (ran().length !== 1) throw new Error(`The turn ran ${ran().length} times on the new agent`)
     },
   },
+  {
+    // #3055: an answer its agent cannot run waits, says so, and reaches the agent the Task moves to.
+    name: 'an answer its agent is out of usage for waits, then reaches the agent the Task moves to, once',
+    run: async (page, stack) => {
+      const answered = () =>
+        agentLog(stack).filter(
+          (entry) =>
+            entry.agent === 'second' &&
+            entry.marker === 'E2E_DELIVERY:answered' &&
+            entry.event === 'finish',
+        ).length
+      const before = answered()
+
+      await newTask(page)
+      await pickAgent(page, 'E2E fixture agent')
+      await send(page, 'Ask me late E2E_ASK E2E_ASK_LATE E2E_DELIVERY:asking-late')
+      await page
+        .getByRole('heading', { name: 'Which marker should the fixture use?' })
+        .last()
+        .waitFor()
+      await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).click()
+      await page.getByText('You’ve hit your usage limit').first().waitFor()
+      await page.reload()
+      await page.getByText(/^Answered · waiting for E2E fixture agent \(out of usage/).waitFor()
+      await pickAgent(page, 'E2E second agent')
+      await until('the answer to reach the second agent', async () => answered() > before)
+      // Long enough for a second delivery to have started, had there been one.
+      await new Promise((resolve) => setTimeout(resolve, 3000))
+      if (answered() !== before + 1)
+        throw new Error(`The answer reached the second agent ${answered() - before} times`)
+    },
+  },
 ]
