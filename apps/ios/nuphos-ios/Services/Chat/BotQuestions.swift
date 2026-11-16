@@ -20,6 +20,17 @@ struct BotQuestion: Identifiable, Equatable, Sendable {
         !["credential", "integration"].contains(request.category) && request.planId == nil
     }
 
+    /// A secret request as its tool call carries it in the transcript, so the secure input card
+    /// draws from the listing too; nil unless the question names a secret.
+    var secretPart: ChatPart.ToolPart? {
+        guard let name = request.secretName else { return nil }
+        let part = ChatPart.ToolPart(
+            toolCallId: request.id, toolName: "request_user_decision", isDynamic: true, state: .inputAvailable,
+            input: .object(["category": .string(request.category ?? ""), "question": .string(request.question),
+                            "secretName": .string(name)]))
+        return part.secretRequest == nil ? nil : part
+    }
+
     /// The member's own credentials an integration question names, answered only by adding them to
     /// `personalCredentialIds`; nil unless every named credential is personal and no providers are mixed in.
     var personalCredentials: [String]? {
