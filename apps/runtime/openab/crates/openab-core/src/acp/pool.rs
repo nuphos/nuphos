@@ -1573,8 +1573,9 @@ impl SessionPool {
                         ));
                     }
                     // The agent lost the session: restore it as a prompt does, then send
-                    // the setting once more.
+                    // the setting once more. The old process exits before the new starts.
                     drop(conn);
+                    drop(handle);
                     self.suspend_session(thread_id).await;
                     self.restore_for_config(thread_id, &[], None)
                         .await
