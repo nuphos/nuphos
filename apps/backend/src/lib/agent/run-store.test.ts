@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { RUNTIME_HANDOFFS_KEY } from '@/lib/claude-code-preview/runtime-handoff-store'
 import { useRedis } from '@/lib/test/doubles/redis'
 
-import { sweepAbandonedAgentRuns } from './run-store/ownership'
+import { sweepAbandonedAgentRuns } from './run-store/run-index'
 
 import type { real as realRedis } from '@/lib/test/doubles/redis'
 
@@ -31,10 +31,12 @@ type Entry =
 
 class FakeRedis {
   private store = new Map<string, Entry>()
+  private sets = new Map<string, Set<string>>()
   private now = 0
 
   reset() {
     this.store.clear()
+    this.sets.clear()
     this.now = 0
   }
 
@@ -166,10 +168,32 @@ class FakeRedis {
 
   // Only the run-store Lua scripts reach here; branch on their shape rather
   // than interpreting Lua. They compare ownership before refreshing/deleting.
+  sadd(key: string, ...members: string[]): Promise<number> {
+    const set = this.sets.get(key) ?? this.sets.set(key, new Set()).get(key)!
+
+    members.forEach((member) => set.add(member))
+
+    return Promise.resolve(members.length)
+  }
+
+  srem(key: string, ...members: string[]): Promise<number> {
+    return Promise.resolve(members.filter((member) => this.sets.get(key)?.delete(member)).length)
+  }
+
+  sscan(key: string): Promise<[string, string[]]> {
+    return Promise.resolve(['0', [...(this.sets.get(key) ?? [])]])
+  }
+
   eval(script: string, numKeys: number, ...args: string[]): Promise<number> {
     const keys = args.slice(0, numKeys)
     const argv = args.slice(numKeys)
     const key = keys[0]!
+    // A guard deleted by a script leaves the index in the same script.
+    const unindex = () => void this.srem(keys.at(-1)!, argv.at(-1)!)
+
+    if (script.startsWith("if redis.call('EXISTS'")) {
+      return this.live(key) ? Promise.resolve(0) : this.srem(keys[1]!, argv[0]!)
+    }
 
     if (script.includes('HSETNX')) {
       const e = this.live(key)
@@ -202,6 +226,7 @@ class FakeRedis {
         )
       }
       this.store.delete(key)
+      unindex()
 
       return Promise.resolve(1)
     }
@@ -210,6 +235,7 @@ class FakeRedis {
 
       if (e && e.type === 'hash' && e.value.get(argv[0]!) === argv[1]) {
         this.store.delete(key)
+        unindex()
 
         return Promise.resolve(1)
       }
@@ -232,20 +258,11 @@ class FakeRedis {
     return Promise.resolve(0)
   }
 
-  scan(): Promise<[string, string[]]> {
-    return Promise.resolve([
-      '0',
-      [...this.store.keys()].filter(
-        (key) => key.startsWith('atlas:agentrun-active:') && this.live(key)?.type === 'hash',
-      ),
-    ])
-  }
-
   pipeline() {
     const ops: [string, unknown[]][] = []
     const rec: Record<string, (...a: unknown[]) => unknown> = {}
 
-    for (const method of ['set', 'hset', 'hsetnx', 'expire', 'del', 'xadd', 'exists']) {
+    for (const method of ['set', 'hset', 'hsetnx', 'expire', 'del', 'xadd', 'exists', 'sadd']) {
       rec[method] = (...a: unknown[]) => {
         ops.push([method, a])
 
@@ -261,6 +278,10 @@ class FakeRedis {
     }
 
     return rec
+  }
+
+  multi() {
+    return this.pipeline()
   }
 }
 
