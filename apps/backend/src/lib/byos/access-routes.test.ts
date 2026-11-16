@@ -155,4 +155,15 @@ describe('registerBindingAccessRoutes', () => {
     ownerUserId = 'admin'
     expect((await put('ADMINISTRATOR', ['*'])).status).toBe(200)
   })
+
+  test('lets an admin repair a list emptied before owners were kept, and makes them its owner', async () => {
+    memberAllowList = []
+    ownerUserId = undefined
+    expect((await app('ADMINISTRATOR').request('/access')).status).toBe(200)
+    expect((await put('ADMINISTRATOR', ['admin'])).status).toBe(200)
+    expect(updates[0]?.update.$set).toMatchObject({
+      'linodeAccounts.$.access': { memberAllowList: ['admin'], ownerUserId: 'admin' },
+    })
+    expect((await put('EDITOR', ['*'], 'u2')).status).toBe(403)
+  })
 })
