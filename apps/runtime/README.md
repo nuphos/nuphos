@@ -376,10 +376,11 @@ it only to teams that may share them.
 Nuphos conversations have separate CLI homes under
 `~/.nuphos/session-homes/<sha256-conversation-id>`. Both adapters give shell tools
 that conversation's `HOME`, XDG directories, and explicit config paths for gcloud,
-gh, AWS, Kubernetes, Azure, Docker, Git, npm and GPG. Exactly six caches stay in
+gh, AWS, Kubernetes, Azure, Docker, Git, npm and GPG. Exactly seven caches stay in
 the runtime home and are shared by every conversation: `GOCACHE`, `GOMODCACHE`,
-`BUN_INSTALL_CACHE_DIR`, `PLAYWRIGHT_BROWSERS_PATH`, `PIP_CACHE_DIR` and
-`UV_CACHE_DIR`. `XDG_CACHE_HOME` remains
+`BUN_INSTALL_CACHE_DIR`, `PLAYWRIGHT_BROWSERS_PATH`, `PIP_CACHE_DIR`,
+`UV_CACHE_DIR` and the pnpm store (`<runtime home>/.local/share/pnpm/store`, set
+through `pnpm_config_store_dir` and the conversation's `pnpm/rc`). `XDG_CACHE_HOME` remains
 per conversation because some tools keep login state there. On the OpenCode
 runtime, `$XDG_DATA_HOME/opencode` (OpenCode's login and sessions) links to the
 runtime home; the rest of `XDG_DATA_HOME` stays per conversation. On the DeepSeek

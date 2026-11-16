@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
-import { artifacts, freePorts, logPath, spawn, stop, until } from './processes.ts'
+import { artifacts, freePorts, logPath, signalGroup, spawn, stop, until } from './processes.ts'
 
 const ROOT = resolve(import.meta.dirname, '../..')
 const BACKEND_DIR = join(ROOT, 'apps/backend')
@@ -26,6 +26,8 @@ export type Stack = {
   holdSessionOpening: () => () => void
   /** Stops OpenAB and its agents, runs `whileDown`, then starts it again on the same address, as a runtime restart does. */
   restartAgentHost: (whileDown?: () => Promise<void>) => Promise<void>
+  /** Freezes OpenAB and its agents, so its sockets stay open and nothing answers, runs `whileFrozen`, then lets them go on. */
+  freezeAgentHost: (whileFrozen: () => Promise<void>) => Promise<void>
   /** The `state` of the newest Cloudflare authorization the app started. */
   cloudflareState: () => string
 }
@@ -190,6 +192,10 @@ export async function startStack(): Promise<Stack> {
       fetch(`http://127.0.0.1:${String(runtimePort)}/`),
     )
   }
+  const freezeAgentHost = async (whileFrozen: () => Promise<void>) => {
+    signalGroup(agentHosts.at(-1)!, 'SIGSTOP')
+    await whileFrozen().finally(() => signalGroup(agentHosts.at(-1)!, 'SIGCONT'))
+  }
 
   spawn('backend', ['bun', 'run', 'src/index.ts'], {
     cwd: BACKEND_DIR,
@@ -265,6 +271,7 @@ export async function startStack(): Promise<Stack> {
     signInCode,
     holdSessionOpening,
     restartAgentHost,
+    freezeAgentHost,
     cloudflareState: () => cloudflareState(mongoUri),
   }
 }

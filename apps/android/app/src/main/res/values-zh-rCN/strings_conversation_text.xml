@@ -20,6 +20,7 @@
     <string name="convtext_stopped_by_user">已由用户停止。</string>
     <string name="convtext_empty_reply">Agent 返回了空回复。</string>
     <string name="convtext_steering_rejected">引导被拒绝。请在运行环境允许时重试。</string>
+    <string name="convtext_stop_runtime_unreachable">运行环境没有响应，已在这里停止这一回合。</string>
     <string name="convtext_steering_unconfirmed">无法确认引导是否送达。重试前请先查看任务。</string>
     <string name="convtext_delivery_unconfirmed">无法确认消息是否送达。请恢复原来的连接。</string>
     <string name="convtext_task_reloaded">此任务已在其他地方更改并重新加载。请重试发送你的消息。</string>

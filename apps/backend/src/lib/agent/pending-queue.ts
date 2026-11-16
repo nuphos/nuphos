@@ -5,12 +5,7 @@ import { config } from '@/config'
 import { withRedis } from '@/lib/redis'
 
 import { TRANSCRIPT_SOURCES } from './pending-message-types'
-import {
-  indexQueuedSession,
-  localQueues,
-  pendingKey,
-  QUEUED_SESSIONS_KEY,
-} from './pending-messages'
+import { localQueues, pendingKey, QUEUED_SESSIONS_KEY, queuedSession } from './pending-messages'
 
 import type { PendingUserMessage } from './pending-message-types'
 import type { Redis } from 'ioredis'
@@ -171,8 +166,13 @@ export async function requeuePendingAtHead(
   }
   const raws = [...messages].reverse().map((message) => JSON.stringify(message))
 
-  await tryRedis((c) => c.lpush(key, ...raws))
-  await indexQueuedSession(userId, sessionId)
+  await tryRedis((c) =>
+    c
+      .multi()
+      .lpush(key, ...raws)
+      .sadd(QUEUED_SESSIONS_KEY, queuedSession(userId, sessionId))
+      .exec(),
+  )
 }
 
 /**
@@ -200,29 +200,62 @@ export async function takeTurnQueue(
 
 const PENDING_PREFIX = 'atlas:agentrun-pending:'
 
-/** One batch of sessions that have a queue, and the cursor for the next batch. */
+/**
+ * One batch of sessions whose queue has a message a turn would start, and the
+ * cursor for the next batch. `shared` reads the index all replicas share; without
+ * it only this process's in-memory queues are looked at.
+ */
 export async function scanQueuedSessions(
   cursor: string,
+  shared = true,
 ): Promise<{ cursor: string; sessions: { userId: string; sessionId: string }[] }> {
-  const local = [...localQueues.keys()].map((key) => key.slice(PENDING_PREFIX.length))
-  const page = await tryRedis((c) => c.sscan(QUEUED_SESSIONS_KEY, cursor, 'COUNT', 200))
+  const local =
+    cursor === '0' ? [...localQueues.keys()].map((key) => key.slice(PENDING_PREFIX.length)) : []
+  const page = shared
+    ? await tryRedis((c) => c.sscan(QUEUED_SESSIONS_KEY, cursor, 'COUNT', 200))
+    : null
+  const members = [...new Set([...local, ...(page?.[1] ?? [])])]
+  // Every queue of the page in one round trip.
+  const stored =
+    page && members.length
+      ? await tryRedis((c) =>
+          members
+            .reduce((write, member) => write.lrange(PENDING_PREFIX + member, 0, -1), c.pipeline())
+            .exec(),
+        )
+      : null
   const sessions: { userId: string; sessionId: string }[] = []
 
-  for (const member of [...(cursor === '0' ? local : []), ...(page?.[1] ?? [])]) {
+  for (const [i, member] of members.entries()) {
     const [userId, ...rest] = member.split(':')
     const sessionId = rest.join(':')
 
     if (!userId || !sessionId) continue
     const key = pendingKey(userId, sessionId)
+    const [error, raw] = stored?.[i] ?? [null, null]
+    const read = Array.isArray(raw) && !error
 
-    if (!localQueues.has(key) && (await tryRedis((c) => c.exists(key))) === 0) {
-      await tryRedis((c) => c.srem(QUEUED_SESSIONS_KEY, member))
-      // A queue stored between the two reads keeps its place.
-      if ((await tryRedis((c) => c.exists(key))) === 1) await indexQueuedSession(userId, sessionId)
+    if (read && raw.length === 0 && !localQueues.has(key)) {
+      // Gone: leave the index, unless a queue was stored since the read.
+      await tryRedis((c) =>
+        c.eval(
+          `if redis.call('EXISTS', KEYS[1]) == 0 then return redis.call('SREM', KEYS[2], ARGV[1]) end return 0`,
+          2,
+          key,
+          QUEUED_SESSIONS_KEY,
+          member,
+        ),
+      )
       continue
     }
-    sessions.push({ userId, sessionId })
+    const queue = [
+      ...(localQueues.get(key) ?? []),
+      ...(read ? raw : []).map(parse).filter((m) => m !== null),
+    ]
+
+    // A queue that could not be read is tried; start() reads it again.
+    if ((!read && page) || queueHead(queue, userId).length > 0) sessions.push({ userId, sessionId })
   }
 
-  return { cursor: page?.[0] ?? '0', sessions }
+  return { cursor: page ? page[0] : cursor, sessions }
 }

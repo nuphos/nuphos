@@ -7,6 +7,7 @@ import { claimAgentRunForSession } from '@/lib/agent/run-admission'
 import { deliverWaitingAnswers } from '@/lib/agent/deliver-waiting-answers'
 import { AppError } from '@/lib/errors'
 
+import { sessionsByConversation } from './agent-chat-registry'
 import { lastFailedPrompt, resendFailedPrompt } from './failed-turn-retry'
 import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { developmentRuntimeEndpoint, requireRuntimeInstance } from './runtime-catalog'
@@ -193,6 +194,7 @@ export async function moveConversationRuntime(
         'runtime_move_conflict',
         'The conversation changed before the move completed. Refresh and retry.',
       )
+    closeMovedSession(teamId, conversation.sessionId)
   } finally {
     release?.()
     await agentConversations().updateOne(
@@ -204,4 +206,19 @@ export async function moveConversationRuntime(
   void deliverWaitingAnswers(conversation.sessionId)
 
   return { runtimeId: target.id, runtimeLabel: target.label, agentRuntime: target.provider }
+}
+
+/**
+ * The old runtime keeps an idle session for hours so it can be resumed, and a
+ * moved one never is: end it there. Best effort, since the move is already done;
+ * the runtime's idle sweep still frees whatever this misses.
+ */
+function closeMovedSession(teamId: string, conversationId: string) {
+  const key = `${teamId}:${conversationId}`
+  const session = sessionsByConversation.get(key)
+
+  if (!session) return
+  session.stopObserving?.()
+  sessionsByConversation.delete(key)
+  session.client.closeSession(session.openabSessionId).catch(() => {})
 }

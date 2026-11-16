@@ -1,5 +1,5 @@
-// The Inbox and channel mentions match a handful of a team's conversations. Against a
-// real MongoDB, each must read about that many documents, not the team's whole history.
+// The Inbox, channel mentions and the unread badge match a handful of conversations. Against
+// a real MongoDB, each must read about that many documents, not the whole history.
 // Runs when TEST_MONGODB_URI is set, with MONGODB_URI pointing at the same server.
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { ObjectId } from 'mongodb'
@@ -9,6 +9,7 @@ import { closeDb, connectDb, db } from '@/lib/db'
 import { listChannelMentions } from './channels'
 import { getConversations } from './conversations-list'
 import { setupAgentIndexes } from './events'
+import { countUnreadConversations } from './read-state'
 import { agentConversations } from './shared'
 
 const TEAM = new ObjectId().toHexString()
@@ -40,6 +41,10 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('sparse conversation lists', () =
         createdAt: new Date(Date.now() - i * 60_000),
         // Two of the team's chats wait on a question; the rest answered theirs.
         inputRequests: [{ id: 'q', status: i % 150 === 0 ? 'open' : 'resolved' }],
+        // All unread. The viewer watches three, one of them archived; agents opened the rest.
+        activitySeq: 1,
+        watcherIds: i % 100 === 0 ? [VIEWER] : [],
+        ...(i === 100 ? { archivedAt: new Date() } : {}),
       })) as never,
     )
   })
@@ -63,6 +68,16 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('sparse conversation lists', () =
     })
 
     expect(found).toBe(2)
+    expect(read).toBeLessThan(10)
+  })
+
+  test('the unread badge reads the chats the viewer watches, not all they own', async () => {
+    let count = -1
+    const read = await documentsRead(async () => {
+      count = await countUnreadConversations(VIEWER)
+    })
+
+    expect(count).toBe(2)
     expect(read).toBeLessThan(10)
   })
 

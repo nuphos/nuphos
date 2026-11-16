@@ -38,6 +38,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 class RuntimeControlFixtureDeviceTest {
     @Volatile private var failCancel = false
     @Volatile private var chatRefused = false
+    @Volatile private var runtimeUnreachable = false
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private val originals = mutableMapOf<String, OkHttpClient>()
     private data class Recorded(val method: String, val path: String, val body: JsonValue)
@@ -71,7 +72,7 @@ class RuntimeControlFixtureDeviceTest {
                     "{\"type\":\"atlas-turn-complete\"}",
                     "{\"type\":\"atlas-stream-done\"}"
                 ).joinToString("") { "data: $it\n\n" }
-                cancel -> "{\"ok\":true,\"status\":\"requested\"}"
+                cancel -> "{\"ok\":true,\"status\":\"${if (runtimeUnreachable) "runtime_unreachable" else "requested"}\"}"
                 else -> "{\"error\":{\"message\":\"Fixture polling unavailable\"}}"
             }
             // Failed synthetic reads keep the explicitly seeded status from being refreshed by polling.
@@ -286,6 +287,16 @@ class RuntimeControlFixtureDeviceTest {
         Assert.assertFalse(session.stoppedByUser)
         Assert.assertEquals(1, requests.count { it.path.endsWith("/cancel-runtime") })
         Assert.assertTrue(chats.isEmpty())
+    }
+    @Test fun stopTheRuntimeNeverHeardSaysTheTurnWasStoppedHere() {
+        runtimeUnreachable = true
+        render(snapshot(cancel = true))
+        compose.onNodeWithContentDescription("Stop").performClick()
+        val notice = "The runtime didn't respond; the turn was stopped here."
+        compose.waitUntil(10_000) { compose.onAllNodesWithText(notice).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText(notice).assertIsDisplayed()
+        compose.onNodeWithText("Cancellation requested").assertDoesNotExist()
+        Assert.assertFalse(session.cancelRequested)
     }
     @Test fun steeringComposerQueuesInOrderAndRemovesOnlyUnsentTail() {
         val first = CompletableDeferred<String>()

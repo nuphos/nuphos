@@ -77,7 +77,7 @@ export function spawn(name: string, command: string[], options: SpawnOptions = {
   return child
 }
 
-function signalGroup(child: ChildProcess, signal: NodeJS.Signals | 0): boolean {
+export function signalGroup(child: ChildProcess, signal: NodeJS.Signals | 0): boolean {
   try {
     return process.kill(-child.pid!, signal)
   } catch {

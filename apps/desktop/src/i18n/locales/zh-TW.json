@@ -4626,6 +4626,7 @@
   "The runtime did not accept the move. Check your connection and try again.": "執行環境未接受此移動。請檢查連線後再試一次。",
   "The runtime did not accept the update.": "執行環境未接受此更新。",
   "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "執行環境沒有接收這組金鑰。請更新執行它的電腦上的 Nuphos，然後再試一次。",
+  "The runtime didn't respond; the turn was stopped here.": "執行環境沒有回應，已在這裡停止這一輪。",
   "The runtime is reconnecting. This may take a moment.": "執行環境正在重新連線，請稍候。",
   "The runtime isn't ready yet": "執行環境尚未就緒",
   "The runtime keeps the sign-in; Nuphos does not store it.": "登入資訊由執行環境保存，Nuphos 不會儲存。",

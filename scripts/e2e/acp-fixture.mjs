@@ -7,6 +7,7 @@ import { createInterface } from 'node:readline'
 import { nuphosApplyRuntimeDefaults } from '../../apps/runtime/image/runtime-defaults.mjs'
 
 import { answerChannel } from './fixture-channel.mjs'
+import { listCommands } from './fixture-commands.mjs'
 import { hop } from './fixture-hop.mjs'
 import { applySetting } from './fixture-settings.mjs'
 
@@ -194,6 +195,7 @@ async function prompt({ sessionId, prompt: parts }) {
     })
   }
   if (text.includes('E2E_PERMISSION')) await permission(sessionId, marker)
+  if (text.includes('E2E_COMMANDS')) listCommands({ send, sessionId })
   if (text.includes('E2E_HOLD')) {
     await new Promise((resolve) => held.set(sessionId, resolve))
     log({ sessionId, marker, event: 'cancelled' })

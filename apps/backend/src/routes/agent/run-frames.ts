@@ -35,9 +35,11 @@ export function appendAgentRunFrame(run: AgentRun, frame: string) {
   // Even a repeat shows the producer is alive, which the stall sweeper reads.
   run.lastAccessAt = Date.now()
   run.lastFrameAt = run.lastAccessAt
-  if (frameType === 'runtime-state' && unchangedRuntimeState(run, frame)) return
-  run.frames.push(frame)
-  mirrorAgentRunFrame(run.userId, run.streamId, frame)
+  const kept = frameType === 'runtime-state' ? changedRuntimeState(run, frame) : frame
+
+  if (kept === undefined) return
+  run.frames.push(kept)
+  mirrorAgentRunFrame(run.userId, run.streamId, kept)
 
   if (
     frameType === 'error' ||
@@ -67,20 +69,26 @@ export function appendAgentRunFrame(run: AgentRun, frame: string) {
   for (const subscriber of run.subscribers) subscriber.poke()
 }
 
-/**
- * A runtime re-sends its whole snapshot several times a second, mostly unchanged.
- * A repeat tells no reader anything, yet every one was kept and mirrored: about
- * 9 KB each, most of a long run's Redis stream.
- */
-function unchangedRuntimeState(run: AgentRun, frame: string): boolean {
-  const snapshot = JSON.stringify(
-    (JSON.parse(frame.slice('data: '.length)) as { snapshot?: unknown }).snapshot,
-  )
+/** Drop a repeat, and unchanged commands: clients keep the last list (an empty one is `[]`). */
+function changedRuntimeState(run: AgentRun, frame: string): string | undefined {
+  const payload = JSON.parse(frame.slice('data: '.length)) as {
+    snapshot?: { commands?: unknown }
+  }
+  const snapshot = JSON.stringify(payload.snapshot)
 
-  if (snapshot === run.lastRuntimeSnapshot) return true
+  if (snapshot === run.lastRuntimeSnapshot) return undefined
   run.lastRuntimeSnapshot = snapshot
+  if (payload.snapshot?.commands === undefined) return frame
+  const commands = JSON.stringify(payload.snapshot.commands)
 
-  return false
+  if (commands !== run.lastRuntimeCommands) {
+    run.lastRuntimeCommands = commands
+
+    return frame
+  }
+  const { commands: _unchanged, ...rest } = payload.snapshot
+
+  return `data: ${JSON.stringify({ ...payload, snapshot: rest })}\n\n`
 }
 
 function recordConversationActivity(run: AgentRun) {

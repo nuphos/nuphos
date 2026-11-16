@@ -354,7 +354,8 @@ class ContentInputFixtureDeviceTest {
         assertEquals("second draft", sent?.text)
         assertTrue(sent!!.attachments.isEmpty())
         assertEquals("first draft", first.text)
-        assertEquals("", second.text)
+        // The composer clears the draft after the send callback returns and the sent state is saved.
+        compose.waitUntil(10_000) { second.text.isEmpty() }
         assertTrue(java.io.File(context.filesDir, "chat-attachments").listFiles().orEmpty().isEmpty())
     }
 
