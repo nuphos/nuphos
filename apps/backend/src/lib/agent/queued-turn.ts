@@ -226,8 +226,8 @@ async function launchChat(
       await reportUndelivered(
         { userId: target.userId, teamId: target.teamId, targetSessionId: target.sessionId },
         [item],
-        // Only an AppError's message is written for people; any other stays in the log above.
-        `was not sent: ${error instanceof AppError ? error.message : 'the server could not start it. Send it again.'}`,
+        // Only a 4xx AppError's message is written for people; any other stays in the log above.
+        `was not sent: ${error instanceof AppError && error.status < 500 ? error.message : 'the server could not start it. Send it again.'}`,
       )
 
     return false

@@ -411,6 +411,24 @@ test('a send that keeps failing to start is retried for the grace, then kept wit
   expect(notice).not.toContain('runtime lookup failed')
 })
 
+test('a server error past the grace is reported in plain words, not its own text', async () => {
+  installTurnRunner({
+    hasActiveAgentRunForSession: async () => false,
+    claimAgentRunForSession: async () => () => {},
+    launchQueuedChatTurn: async () => {
+      throw new AppError(503, 'runtime_unavailable', 'Unavailable')
+    },
+  })
+  await queue({ ...human('broken'), offlineSince: new Date(Date.now() - 61_000).toISOString() })
+  await startQueuedTurn(OWNER, SESSION)
+
+  const notice = JSON.stringify(kept[0]?.messages[1]?.parts)
+
+  expect(await waiting()).toEqual([])
+  expect(notice).toContain('the server could not start it. Send it again.')
+  expect(notice).not.toContain('Unavailable')
+})
+
 test('a busy runtime or a pending approval is waited for past the grace', async () => {
   for (const failure of [
     new AppError(409, 'runtime_not_accepting_message', 'Busy'),
