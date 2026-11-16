@@ -67,14 +67,21 @@ useConversationChatRoute({
   },
 })
 useBoxWake({ wakeOfflineBox: async () => boxResuming })
-// The questions put back on a conversation's open list.
+// The questions put back on a conversation's open list, and the answers kept waiting.
 const reopened: { id: string; body: string }[] = []
+const waiting: { requestId: string; cause: string }[] = []
 
 useDb({
   db: (() => ({
     collection: () => ({
-      updateOne: async (_filter: unknown, update: { $push: { inputRequests: { $each: [] } } }) => {
-        reopened.push(...update.$push.inputRequests.$each)
+      updateOne: async (
+        _filter: unknown,
+        update: { $push?: { inputRequests?: { $each: [] }; waitingAnswers?: never } },
+      ) => {
+        reopened.push(...(update.$push?.inputRequests?.$each ?? []))
+        if (update.$push?.waitingAnswers) waiting.push(update.$push.waitingAnswers)
+
+        return { matchedCount: 1, modifiedCount: 1 }
       },
     }),
   })) as unknown as typeof dbActual.db,
@@ -126,6 +133,7 @@ beforeEach(() => {
   claims = 0
   runs.length = 0
   reopened.length = 0
+  waiting.length = 0
   installTurnRunner({
     claimAgentRunOrEnqueue: async () => {
       claims++
@@ -363,7 +371,7 @@ test('a notice that does not run is not reported back', async () => {
   expect(runs.map((entry) => entry.sessionId)).toEqual(['target'])
 })
 
-test('an answer its agent never gets reopens the question, saying why', async () => {
+test('an answer its offline agent never gets waits for it, and the question stays answered', async () => {
   offlineUntil(() => false)
   await enqueuePendingUserMessage('owner', 'target', {
     ...buildPendingUserMessage({
@@ -377,36 +385,28 @@ test('an answer its agent never gets reopens the question, saying why', async ()
       id: 'q1',
       category: 'preference',
       question: 'Which regions?',
-      // A second failed answer replaces the first one's line.
-      body: '> Your earlier answer did not run: Sign in first.\n\nPick one.',
       status: 'open',
       askedAt: new Date(),
     },
   })
 
   await expect(startQueuedTurn('owner', 'target')).rejects.toThrow('offline')
-  expect(reopened).toHaveLength(1)
-  expect(reopened[0]).toMatchObject({ id: 'q1', question: 'Which regions?', status: 'open' })
-  expect(reopened[0]?.body).toBe(
-    '> Your earlier answer did not run: The computer running this agent is offline.\n\nPick one.',
-  )
+  expect(reopened).toHaveLength(0)
+  expect(waiting).toMatchObject([{ requestId: 'q1', cause: 'offline' }])
   // Nuphos's own notice has no sender to tell.
   await settle()
   expect(notices()).toHaveLength(0)
 })
 
-test('an answer whose turn starts on a disabled agent reopens the question, saying why', async () => {
-  const retired = 'Nuphos-hosted agents have been retired. Move this conversation to continue.'
-
+test('an answer that can never run reopens the question with one plain line', async () => {
   installTurnRunner({
     claimAgentRunOrEnqueue: async () => ({ mode: 'run', carried: [], release: () => {} }),
     runAgentForTrigger: async () => {
-      throw new AppError(409, 'runtime_disabled', retired)
+      throw new Error('Internal error: something broke\nwhile reading the answer')
     },
   })
 
-  // The answer's turn starts at once, then finds its agent disabled.
-  const { status, run } = await startConversationTurn(
+  const { run } = await startConversationTurn(
     {
       ...data,
       messageId: 'answer',
@@ -414,6 +414,8 @@ test('an answer whose turn starts on a disabled agent reopens the question, sayi
         id: 'q2',
         category: 'preference',
         question: 'Which regions?',
+        // A second failed answer replaces the first one's line.
+        body: '> Your earlier answer did not run: Sign in first.\n\nPick one.',
         status: 'open',
         askedAt: new Date(),
       },
@@ -424,9 +426,10 @@ test('an answer whose turn starts on a disabled agent reopens the question, sayi
     systemSender('nuphos:decision', 'Nuphos'),
   )
 
-  expect(status).toBe('started')
-  await expect(run).rejects.toThrow(retired)
+  await expect(run).rejects.toThrow('something broke')
+  expect(waiting).toHaveLength(0)
   expect(reopened).toHaveLength(1)
-  expect(reopened[0]).toMatchObject({ id: 'q2', status: 'open' })
-  expect(reopened[0]?.body).toBe(`> Your earlier answer did not run: ${retired}\n\n`)
+  expect(reopened[0]?.body).toBe(
+    '> Your earlier answer did not run: Internal error: something broke while reading the answer\n\nPick one.',
+  )
 })

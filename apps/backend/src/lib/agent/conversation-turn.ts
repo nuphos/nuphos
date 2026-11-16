@@ -15,6 +15,7 @@ import { recordDroppedFires, recordFiresRan } from './trigger-missed-runs'
 import { reconnecting } from './turn-offline'
 import { turnRunner } from './turn-runner'
 import { keepUndeliveredSend, reopenUndeliveredAnswer } from './undelivered-send'
+import { failureLine, keepAnswersThatWait } from './waiting-answers'
 
 import type { AgentConversation } from './db'
 import type { ConversationTriggerRun } from './conversation-trigger-run'
@@ -194,11 +195,13 @@ export async function runTurn(
 
     return outcome.finishReason
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error)
-
     // Not run, or failed: a later notice shows the same posts again.
     await unmarkRead?.()
-    await reportUndelivered(data, taken, `did not run: ${reason}`)
+    await reportUndelivered(
+      data,
+      await keepAnswersThatWait(target, taken, error),
+      `did not run: ${failureLine(error)}`,
+    )
     await recordDroppedFires(error, taken)
     throw error
   }

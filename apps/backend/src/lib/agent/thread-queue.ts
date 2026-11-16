@@ -24,6 +24,23 @@ export async function closeThreadQueue(): Promise<void> {
   await closing?.close()
 }
 
+/** One delivery of a session's waiting answers when its agent's usage is back. */
+export async function enqueueAnswerDelivery(sessionId: string, requestId: string, at: string) {
+  if (!redisEnabled()) return
+  queue ??= new Queue(AGENT_TRIGGER_QUEUE, { connection: buildBullMQConnection() })
+  await queue.add(
+    'answer-delivery',
+    { sessionId },
+    {
+      jobId: `answer-${sessionId}-${requestId}`,
+      // A couple of minutes past the reset, so the reading has moved on.
+      delay: Math.max(0, Date.parse(at) - Date.now()) + 2 * 60_000,
+      removeOnComplete: true,
+      removeOnFail: true,
+    },
+  )
+}
+
 export async function enqueueResourceTurn(data: ResourceTurn): Promise<void> {
   if (!redisEnabled()) throw new Error('Resource event queue requires Redis.')
   queue ??= new Queue(AGENT_TRIGGER_QUEUE, { connection: buildBullMQConnection() })

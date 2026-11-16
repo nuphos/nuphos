@@ -97,6 +97,9 @@ internal fun AnsweredLine(row: ChatRow.Answered, onLink: (String) -> Unit) {
                 layout(constraints.maxWidth, placeable.height) { placeable.place(0, 0) }
             }
         }
+        question.waiting?.let {
+            Text(it, style = MaterialTheme.typography.labelSmall, color = colors.tertiary, modifier = Modifier.padding(horizontal = 6.dp))
+        }
         if (!expanded) return@Column
         Surface(shape = RoundedCornerShape(14.dp), color = colors.surfaceContainerHigh, modifier = Modifier.fillMaxWidth().testTag("answered-card")) {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {

@@ -61,6 +61,13 @@ export async function initTriggerScheduler(): Promise<boolean> {
 
         return
       }
+      if (job.name === 'answer-delivery') {
+        const { deliverWaitingAnswers } = await import('./deliver-waiting-answers')
+
+        await deliverWaitingAnswers((job.data as { sessionId: string }).sessionId)
+
+        return
+      }
       if (job.name === EXPIRY_SWEEP_JOB) {
         const expired = await expireTriggers()
 
