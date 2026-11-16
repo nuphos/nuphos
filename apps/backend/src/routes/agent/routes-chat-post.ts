@@ -125,6 +125,7 @@ agent.post('/chat', async (c) => {
 
   if (!readOnlyResume) {
     // A runtime that does not answer cannot say what it waits for: a new message queues for it.
+    // The queue holds on the same state (queued-turn.ts `ready`); keep the two in step.
     const previewWait =
       runtimeSnapshot?.state === 'disconnected' && !body.resumeReason
         ? null
