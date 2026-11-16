@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 
 import { CodexTurnFailedError } from './codex-turn-failure'
-import { CONTEXT_TOO_LONG_MESSAGE } from './context-too-long'
+import { CONTEXT_TOO_LONG_MESSAGE } from './plain-failure'
 import { OpenAbRpcError } from './openab-acp-errors'
 import { classifyPreviewInterruption } from './preview-transcript'
 
