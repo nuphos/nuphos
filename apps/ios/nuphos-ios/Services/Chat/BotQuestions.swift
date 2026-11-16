@@ -12,12 +12,26 @@ struct BotQuestion: Identifiable, Equatable, Sendable {
     let request: AgentConversation.InputRequest
     /// The asking conversation's runtime: its mark when it is a Task, its badge when a Bot.
     var runtime: String? = nil
+    /// The Bot a Task works under, at any depth: the Inbox lists the question in the Bot's group,
+    /// as Tasks lists no such Task (#2774).
+    var bot: AgentConversation? = nil
 
     var id: String { "\(sessionId):\(request.id)" }
 
     /// Answered in words, "Other…": never a plan, approved or rejected, nor a credential or connection.
     var typed: Bool {
         !["credential", "integration"].contains(request.category) && request.planId == nil
+    }
+
+    /// A secret request as its tool call carries it in the transcript, so the secure input card
+    /// draws from the listing too; nil unless the question names a secret.
+    var secretPart: ChatPart.ToolPart? {
+        guard let name = request.secretName else { return nil }
+        let part = ChatPart.ToolPart(
+            toolCallId: request.id, toolName: "request_user_decision", isDynamic: true, state: .inputAvailable,
+            input: .object(["category": .string(request.category ?? ""), "question": .string(request.question),
+                            "secretName": .string(name)]))
+        return part.secretRequest == nil ? nil : part
     }
 
     /// The member's own credentials an integration question names, answered only by adding them to
@@ -83,8 +97,8 @@ struct BotQuestion: Identifiable, Equatable, Sendable {
         return words.isEmpty ? picked.joined(separator: ", ") : words
     }
 
-    /// The question quoted above a composer whose next message answers it.
-    var quote: ChannelReply { ChannelReply(id: nil, authorName: title, text: request.question) }
+    /// The Inbox group it is in: its Bot's, else the conversation that asked.
+    var sourceId: String { bot?.sessionId ?? sessionId }
 }
 
 /// The open questions in the pending listing, whose rows come with every
@@ -107,11 +121,11 @@ enum BotQuestions {
         return open(rows: rows.filter { isUnder($0.sessionId) })
     }
 
-    /// The Inbox's list by the conversation that asked: the group with the newest question first,
+    /// The Inbox's list by its Bot, else the conversation that asked: the group with the newest question first,
     /// each group's questions oldest first, as `open` lists them.
     static func grouped(_ list: [BotQuestion]) -> [[BotQuestion]] {
-        Dictionary(grouping: list, by: \.sessionId).values
-            .sorted { ($0.last?.request.askedAt ?? "", $0[0].sessionId) > ($1.last?.request.askedAt ?? "", $1[0].sessionId) }
+        Dictionary(grouping: list, by: \.sourceId).values
+            .sorted { ($0.last?.request.askedAt ?? "", $0[0].sourceId) > ($1.last?.request.askedAt ?? "", $1[0].sourceId) }
     }
 
     /// The question to open after `id`: the one listed after it, else the first other one.
@@ -124,10 +138,13 @@ enum BotQuestions {
     /// The viewer's own open questions in `rows`, oldest first: the Inbox's list.
     static func open(rows: [AgentConversation]) -> [BotQuestion] {
         var listed = Set<String>()
+        let owners = ConversationNesting.botOwners(rows)
+        let byId = Dictionary(rows.map { ($0.sessionId, $0) }, uniquingKeysWith: { first, _ in first })
         return rows
             .filter { $0.isOwner == true && listed.insert($0.sessionId).inserted }
             .flatMap { row in
-                (row.inputRequests ?? []).map { BotQuestion(sessionId: row.sessionId, title: row.displayTitle, request: $0, runtime: row.agentRuntime) }
+                (row.inputRequests ?? []).map { BotQuestion(sessionId: row.sessionId, title: row.displayTitle, request: $0, runtime: row.agentRuntime,
+                                                     bot: owners[row.sessionId].flatMap { byId[$0] }) }
             }
             .sorted { ($0.request.askedAt ?? "", $0.id) < ($1.request.askedAt ?? "", $1.id) }
     }

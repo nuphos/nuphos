@@ -152,7 +152,7 @@ export class RuntimeTunnelClient {
       this.drop('closed', event.code)
       // Taken over: redial with reclaim, which the backend refuses while the other app holds it.
       if (event.code === CLOSE_SUPERSEDED) this.superseded = true
-      this.deps.onChange?.(false, this.superseded)
+      this.deps.onChange?.(false, this.superseded, event.code === CLOSE_REVOKED)
       if (event.code === CLOSE_REVOKED) {
         this.running = false
         this.deps.onRevoked?.()

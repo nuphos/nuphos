@@ -108,6 +108,29 @@ final class InboxUITests: XCTestCase {
 
     /// "Other…" opens a text box with its send button; the words are the answer. A question with
     /// no options has the box already. A plan keeps only Approve and Reject.
+    /// A question from a Task a Bot dispatched is in the Bot's group, naming the Task, as on Desktop
+    /// (#2774): Tasks does not list that Task, so a group of its own would point at nothing there.
+    func testABotsTaskQuestionIsInTheBotsGroup() throws {
+        var changelog = InboxUITests.row(
+            "agent-changelog", "Write the changelog",
+            ["id": "q-guide", "category": "preference", "question": "Link the migration guide?",
+             "options": ["Yes", "No"], "askedAt": "2026-11-03T09:45:00Z", "status": "open"])
+        changelog["parentSessionId"] = "bot-release"
+        try listQuestions([deploy, notes, staging, changelog])
+        app = launch(page: "inbox")
+
+        let row = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == %@ AND label BEGINSWITH %@", "inbox.row", "Link the migration guide?")).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10), "The Task's question is not listed")
+        shot("bot-task-group")
+        XCTAssertEqual(row.label, "Link the migration guide? · Write the changelog", "The row does not name the Task that asked")
+        XCTAssertFalse(app.staticTexts["Write the changelog"].exists, "The Bot's Task has a group of its own")
+        let lead = app.staticTexts["Release Lead"].firstMatch
+        XCTAssertTrue(lead.exists, "No group for the Bot")
+        XCTAssertGreaterThan(row.frame.minY, lead.frame.minY, "The Task's question is not under its Bot")
+        XCTAssertLessThan(row.frame.minY, app.staticTexts["Release ops"].firstMatch.frame.minY, "The Bot's group lost its order")
+    }
+
     func testAnswersInWordsWithOther() throws {
         try listQuestions([deploy, staging, plan])
         app = launch(page: "agent")
@@ -203,8 +226,69 @@ final class InboxUITests: XCTestCase {
         XCTAssertTrue(heading.waitForNonExistence(timeout: 5), "Skip left the question in the chat")
     }
 
+    /// A secret a Task under the Bot asks for is given in the Bot's chat, with the task's masked
+    /// card: saved on the asking conversation, never sent to the task to be answered there.
+    func testABotChatAsksForASecretWithTheSecureInputCard() throws {
+        responses["POST /agent/conversations/agent-ops/secrets"] = ["status": 200, "body": ["path": "/tmp/nuphos-secret-a1/0/DEPLOY_TOKEN"]]
+        responses["POST /agent/conversations/agent-ops/decisions/q-token/resolve"] = ["status": 200, "body": ["ok": true]]
+        var task = InboxUITests.row("agent-ops", "Release ops", [
+            "id": "q-token", "category": "credential", "question": "The rollout needs a deploy token.",
+            "secretName": "DEPLOY_TOKEN", "askedAt": "2026-11-03T09:40:00Z", "status": "open"])
+        task["parentSessionId"] = "bot-release"
+        try openBotChat(listing: [task], asking: "The rollout needs a deploy token.")
+
+        let field = app.secureTextFields["Paste the value"]
+        let masked = field.waitForExistence(timeout: 10)
+        shot("15-bot-chat-secret")
+        XCTAssertTrue(masked, "No masked input for the secret in the Bot's chat")
+        XCTAssertFalse(app.buttons["Answer in the task"].exists, "The secret is still sent to the task to be answered")
+        XCTAssertEqual(app.buttons["botQuestion.source"].label, "Release ops", "The source line does not name who asked")
+        XCTAssertTrue(app.buttons["Skip"].exists)
+
+        field.tap()
+        field.typeText("fixture-value")
+        XCTAssertEqual(field.value as? String, String(repeating: "•", count: 13), "The value is not masked")
+        shot("16-bot-chat-secret-typed")
+        app.buttons["Send securely"].tap()
+        XCTAssertTrue(app.staticTexts["DEPLOY_TOKEN saved on the task's runtime."].waitForExistence(timeout: 10),
+                      "The secret was not saved on the conversation that asked")
+        XCTAssertFalse(app.buttons["Skip"].exists, "A saved secret can still be skipped")
+        XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "fixture-value")).firstMatch.exists,
+                       "The value shows in the chat")
+        shot("17-bot-chat-secret-saved")
+    }
+
+    /// The Inbox asks for a secret with the same masked card, saved on the conversation that asked.
+    func testTheInboxAsksForASecretWithTheSecureInputCard() throws {
+        responses["POST /agent/conversations/agent-ops/secrets"] = ["status": 200, "body": ["path": "/tmp/nuphos-secret-a1/0/DEPLOY_TOKEN"]]
+        responses["POST /agent/conversations/agent-ops/decisions/q-token/resolve"] = ["status": 200, "body": ["ok": true]]
+        try listQuestions([InboxUITests.row("agent-ops", "Release ops", [
+            "id": "q-token", "category": "credential", "question": "The rollout needs a deploy token.",
+            "secretName": "DEPLOY_TOKEN", "askedAt": "2026-11-03T09:40:00Z", "status": "open"])])
+        app = launch(page: "agent")
+        app.buttons["Switch page"].firstMatch.tap()
+        app.buttons["Inbox"].firstMatch.tap()
+        openQuestion("The rollout needs a deploy token.")
+
+        XCTAssertTrue(app.buttons["inbox.source"].waitForExistence(timeout: 10), "The question did not open")
+        let field = app.secureTextFields["Paste the value"]
+        let masked = field.waitForExistence(timeout: 10)
+        shot("18-inbox-secret")
+        XCTAssertTrue(masked, "No masked input for the secret in the Inbox")
+        XCTAssertFalse(app.staticTexts["Answer it in Release ops."].exists, "The secret is still sent to the task to be answered")
+
+        field.tap()
+        field.typeText("fixture-value")
+        app.buttons["Send securely"].tap()
+        XCTAssertTrue(app.staticTexts["DEPLOY_TOKEN saved on the task's runtime."].waitForExistence(timeout: 10),
+                      "The secret was not saved on the conversation that asked")
+        XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "fixture-value")).firstMatch.exists,
+                       "The value shows in the Inbox")
+        shot("19-inbox-secret-saved")
+    }
+
     /// Opens the release chat as a Bot's 1:1, where the Bot's questions and those under it show.
-    private func openBotChat(listing: [[String: Any]]) throws {
+    private func openBotChat(listing: [[String: Any]], asking question: String = "Roll out 1.4 to production?") throws {
         var detail = try XCTUnwrap(responses["GET /agent/conversations/chat-release"] as? [String: Any])
         var body = try XCTUnwrap(detail["body"] as? [String: Any])
         body["faces"] = [["id": "bot-release", "name": "Release Lead", "agent": ["avatar": "05"]]]
@@ -213,8 +297,7 @@ final class InboxUITests: XCTestCase {
         try listQuestions(listing)
         app = launch()
         app.staticTexts["release-planning"].firstMatch.tap()
-        XCTAssertTrue(app.staticTexts["Roll out 1.4 to production?"].waitForExistence(timeout: 15),
-                      "The question is not in the Bot's chat")
+        XCTAssertTrue(app.staticTexts[question].waitForExistence(timeout: 15), "The question is not in the Bot's chat")
     }
 
     /// An integration question is answered in the Inbox: its conversation's credential picker

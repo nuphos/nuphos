@@ -2,6 +2,7 @@ import crypto from 'node:crypto'
 
 import { Hono } from 'hono'
 
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import {
   buildAuthorizeUrl,
   getAccessTokenWithExpiry,
@@ -112,6 +113,7 @@ sentryAccountsRoutes.delete('/start-oauth/:state', requireTeamRole('ADMINISTRATO
 const bindingScoped = new Hono<{ Variables: SentryAccountVariables }>()
 
 bindingScoped.use('*', requireSentryAccount())
+registerBindingAccessRoutes(bindingScoped, 'sentryAccounts', (c) => c.get('sentryBinding'))
 
 bindingScoped.get('/', (c) => {
   return c.json(publicView(c.get('sentryBinding')))

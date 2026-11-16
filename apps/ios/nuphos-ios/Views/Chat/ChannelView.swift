@@ -127,6 +127,7 @@ struct ChannelView: View {
                     typing = inTurn
                 }
             }
+            .onChange(of: channel.loaded ? channel.posts.count : -1, initial: true) { showPendingPost() }
             .onChange(of: draft) { _, text in ComposerDrafts.set(text, team: channel.teamId, session: channel.channelId, identity: store.token) }
             .alert("Couldn't send the message", isPresented: Binding(
                 get: { channel.sendError != nil }, set: { if !$0 { channel.sendError = nil } })) {
@@ -194,7 +195,18 @@ struct ChannelView: View {
 
     /// Scrolls to a quoted post, if it is loaded, and flashes it.
     private func show(_ reply: ChannelReply) {
-        guard let id = reply.id, channel.posts.contains(where: { $0.id == id }) else { return }
+        if let id = reply.id { show(post: id) }
+    }
+
+    /// Opened from a wake-up's line: once the chat has loaded, it goes to the post that
+    /// line named. A post no longer loaded leaves it at its latest post.
+    private func showPendingPost() {
+        guard channel.loaded, let id = ChannelPostJump.pending.removeValue(forKey: channel.channelId) else { return }
+        show(post: id)
+    }
+
+    private func show(post id: String) {
+        guard channel.posts.contains(where: { $0.id == id }) else { return }
         jump = TranscriptJump(rowID: "post.\(id)")
         flashed = id
         Task {
@@ -269,6 +281,7 @@ struct ChannelView: View {
                     // The Bot's own questions are this chat's; only an agent under it is named.
                     showsFrom: question.sessionId != channel.botId,
                     onOpen: { open(link: question.link(team: channel.teamId)) },
+                    teamId: channel.teamId,
                     onAnswer: { channel.answer(question, with: $0) },
                     onSkip: { channel.skip(question) },
                     onLink: open(link:),
@@ -284,6 +297,12 @@ struct ChannelView: View {
 }
 
 /// A row to bring to the middle of the transcript, once per request.
+/// The post a channel opens at, by channel: set just before a wake-up's line opens it.
+@MainActor
+enum ChannelPostJump {
+    static var pending: [String: String] = [:]
+}
+
 struct TranscriptJump: Equatable {
     let rowID: String
     var nonce = UUID()

@@ -48,16 +48,5 @@ export const agentChannelChannels = {
     upload?: string,
     mentions?: string[],
     replyTo?: string,
-    decisionReplyTo?: string,
-  ) =>
-    agent.postChannelMessage(
-      channelId,
-      teamId,
-      text,
-      id,
-      upload,
-      mentions,
-      replyTo,
-      decisionReplyTo,
-    ),
+  ) => agent.postChannelMessage(channelId, teamId, text, id, upload, mentions, replyTo),
 }

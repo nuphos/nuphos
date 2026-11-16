@@ -88,7 +88,6 @@ class AgentsLoadingFixtureDeviceTest {
     private val favoritesRelease = CountDownLatch(1)
     private val network = object : ExternalResource() {
         override fun before() {
-            assumeTrue("Runs only in its isolated fixture package", InstrumentationRegistry.getInstrumentation().targetContext.packageName.endsWith(".agentsaudit1382"))
             app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as NuphosApplication
             savedLastTeam = app.getSharedPreferences("nuphos.prefs", Context.MODE_PRIVATE).getString("nuphos.workspace.lastTeamId", null)
             InstrumentationRegistry.getInstrumentation().runOnMainSync {
@@ -114,8 +113,9 @@ class AgentsLoadingFixtureDeviceTest {
                             readSeq = JsonValue.Number(listRead.toDouble()), unread = JsonValue.Bool(owner && listActivity > listRead),
                             runtimeState = if (backgroundPhase) JsonValue.parse("""{"schemaVersion":2,"state":"active","phase":"background_tools","epoch":"a","revision":2}""") else row().runtimeState)
                         val fail = failList
-                        // Chats are listed from the same path at the same time; only the history request is held.
-                        if (holdNextList && req.url.queryParameter("kind") != "channel") { holdNextList = false; listHeld.countDown(); check(listRelease.await(10, TimeUnit.SECONDS)) }
+                        // Chats, Bots and open questions are read from the same path at the same time; only the history request is held.
+                        val history = req.url.queryParameterNames.none { it in setOf("kind", "bots", "pendingDecision") }
+                        if (holdNextList && history) { holdNextList = false; listHeld.countDown(); check(listRelease.await(10, TimeUnit.SECONDS)) }
                         if (req.url.queryParameter("cursor") == "following-page") { followingHeld.countDown(); check(followingRelease.await(10, TimeUnit.SECONDS)) }
                         if (crossTeamPins) {
                             val isPage = req.url.queryParameter("cursor") != null

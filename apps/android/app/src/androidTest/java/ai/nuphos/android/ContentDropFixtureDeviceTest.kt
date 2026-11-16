@@ -38,7 +38,6 @@ class ContentDropFixtureDeviceTest {
     @get:Rule val compose = createComposeRule()
     @Test fun nativeDragDropsSyntheticDocumentIntoComposer() {
         val instrument = InstrumentationRegistry.getInstrumentation()
-        assumeTrue(instrument.targetContext.packageName == "ai.nuphos.android.contentinput1337")
         lateinit var source: TextView
         var submitted: ComposerSubmission? = null
         var dragStarted = false

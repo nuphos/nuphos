@@ -1,18 +1,12 @@
 import { Hono } from 'hono'
 
-import {
-  accessView,
-  bindingAccessUpdateSchema,
-  canUseAllowList,
-  normalizeAccessInput,
-} from '@/lib/byos/access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { tencentHandleFor } from '@/lib/byos/handles'
 import { listTkeClusters, generateTkeKubeconfig, tencentBootstrapRegion } from '@/lib/byos/tencent'
 import { listCvmInstances } from '@/lib/byos/tencent-cvm'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
-import { zv } from '@/lib/validate'
-import { requireTeamRole } from '@/middleware/auth'
+import { canRequestUseBinding, requireTeamRole } from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
@@ -54,36 +48,7 @@ export const tencentAccountScoped = new Hono<{ Variables: TencentAccountVariable
 
 tencentAccountScoped.use('*', requireTencentAccount())
 
-tencentAccountScoped.get('/access', requireTeamRole('ADMINISTRATOR'), (c) =>
-  c.json(accessView(c.get('tencentBinding').access)),
-)
-
-tencentAccountScoped.put(
-  '/access',
-  requireTeamRole('ADMINISTRATOR'),
-  zv('json', bindingAccessUpdateSchema),
-  async (c) => {
-    const teamId = parseObjectId(c.get('teamId'), 'teamId')
-    const accountId = c.get('tencentBinding').id
-    const access = normalizeAccessInput(c.req.valid('json'), c.get('userId'))
-    const res = await teamByosBindings().updateOne(
-      { _id: teamId, 'tencentAccounts.id': accountId },
-      { $set: { 'tencentAccounts.$.access': access, updatedAt: access.updatedAt } },
-    )
-
-    // Guard the concurrent-delete race: if the binding was removed between the
-    // middleware fetch and this write, don't report success for a no-op.
-    if (res.matchedCount === 0) {
-      throw new AppError(
-        404,
-        'tencent_account_not_found',
-        'Tencent Cloud account binding not found',
-      )
-    }
-
-    return c.json(accessView(access))
-  },
-)
+registerBindingAccessRoutes(tencentAccountScoped, 'tencentAccounts', (c) => c.get('tencentBinding'))
 
 tencentAccountScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
   const teamId = parseObjectId(c.get('teamId'), 'teamId')
@@ -99,10 +64,7 @@ tencentAccountScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => 
 
 // Below: any team member with allow-list access to this binding.
 tencentAccountScoped.use('*', async (c, next) => {
-  if (
-    c.get('teamRole') !== 'ADMINISTRATOR' &&
-    !canUseAllowList(c.get('tencentBinding').access?.memberAllowList, c.get('userId'))
-  ) {
+  if (!canRequestUseBinding(c, c.get('tencentBinding').access)) {
     throw new AppError(403, 'forbidden', 'You do not have access to this Tencent binding')
   }
   await next()

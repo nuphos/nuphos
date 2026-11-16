@@ -67,7 +67,6 @@ class VoiceInputFixtureDeviceTest {
     @Suppress("UNCHECKED_CAST") private fun state(target: Any, name: String, value: Any) {
         (target.javaClass.getDeclaredField(name + "$" + "delegate").also { it.isAccessible = true }.get(target) as MutableState<Any>).value = value
     }
-    @get:Rule(order = Int.MIN_VALUE) val isolated = isolatedPackage { it.endsWith(".agentsaudit1382") }
 
     @Before fun isolate() {
         savedAccess = accessState().value

@@ -32,16 +32,5 @@ export const channelsApi = {
     upload?: string,
     mentions?: string[],
     replyTo?: string,
-    decisionReplyTo?: string,
-  ) =>
-    window.api.agentPostChannelMessage(
-      channelId,
-      teamId,
-      text,
-      id,
-      upload,
-      mentions,
-      replyTo,
-      decisionReplyTo,
-    ),
+  ) => window.api.agentPostChannelMessage(channelId, teamId, text, id, upload, mentions, replyTo),
 }

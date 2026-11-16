@@ -66,7 +66,6 @@ class PullRefreshFixtureDeviceTest {
 
     private val network = object : ExternalResource() {
         override fun before() {
-            assumeTrue("Runs only in its isolated fixture package", InstrumentationRegistry.getInstrumentation().targetContext.packageName.let { it.endsWith(".refreshfixture") || it.endsWith(".listrefresh1319") })
             // A fresh install otherwise prompts for notifications on top of the first test.
             InstrumentationRegistry.getInstrumentation().uiAutomation.grantRuntimePermission(
                 InstrumentationRegistry.getInstrumentation().targetContext.packageName, android.Manifest.permission.POST_NOTIFICATIONS)
@@ -217,7 +216,10 @@ class PullRefreshFixtureDeviceTest {
         }
     }
 
-    private fun historyReads() = requests.count { it.url.encodedPath == "/agent/conversations" }
+    // The history list only: chats, Bots and open questions are read from the same path.
+    private fun isHistory(request: okhttp3.Request) = request.url.encodedPath == "/agent/conversations" &&
+        request.url.queryParameterNames.none { it in setOf("kind", "bots", "pendingDecision") }
+    private fun historyReads() = requests.count(::isHistory)
     private fun pinReads() = requests.count { it.url.encodedPath == "/teams/aaaaaaaaaaaaaaaaaaaaaaaa/favorites" }
     private fun pull() {
         compose.onNodeWithTag("chat-history-refresh").performTouchInput {
@@ -284,7 +286,7 @@ class PullRefreshFixtureDeviceTest {
         compose.runOnIdle { navController.popBackStack() }
         waitText("Remote search result"); settled()
         assertEquals(reads + 1, historyReads())
-        val last = requests.last { it.url.encodedPath == "/agent/conversations" }
+        val last = requests.last(::isHistory)
         assertEquals("activity", last.url.queryParameter("sort"))
         assertEquals("needle", last.url.queryParameter("search"))
         assertEquals("mine", last.url.queryParameter("scope"))
@@ -326,7 +328,7 @@ class PullRefreshFixtureDeviceTest {
         compose.waitUntil(5_000) { historyReads() > reads }; settled()
         shot("search-light")
         assertEquals("needle", store.search)
-        val last = requests.last { it.url.encodedPath == "/agent/conversations" }
+        val last = requests.last(::isHistory)
         assertEquals("needle", last.url.queryParameter("search"))
         assertEquals("mine", last.url.queryParameter("scope"))
         assertEquals("exclude", last.url.queryParameter("archived"))
@@ -427,13 +429,13 @@ class PullRefreshFixtureDeviceTest {
         compose.runOnIdle { store.refresh() }
         waitText("Older chat, recent activity"); settled()
         assertEquals(listOf("recent", "created"), store.conversations.map { it.sessionId })
-        val reads = requests.filter { it.url.encodedPath == "/agent/conversations" }
+        val reads = requests.filter(::isHistory)
         assertTrue(reads.isNotEmpty())
         assertTrue(reads.all { it.url.queryParameter("sort") == "activity" && it.url.queryParameter("scope") == "mine" && it.url.queryParameter("archived") == "exclude" })
         shot("activity-order-light")
         compose.runOnIdle { state(store, "hasMore").value = true }
         runBlocking(Dispatchers.Main) { store.loadMore() }
-        val page = requests.last { it.url.encodedPath == "/agent/conversations" }
+        val page = requests.last(::isHistory)
         assertEquals("activity-cursor", page.url.queryParameter("cursor"))
         assertEquals("activity", page.url.queryParameter("sort"))
         assertEquals(listOf("recent", "created"), store.conversations.map { it.sessionId })

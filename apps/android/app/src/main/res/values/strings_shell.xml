@@ -60,9 +60,9 @@
     <string name="shell_request_code_in">You can request another code in %1$ds.</string>
     <string name="shell_use_email_code">Use an email code instead</string>
     <string name="shell_use_password">Use a password</string>
-    <string name="shell_terms_agreement">By continuing, you agree to our %1$s and %2$s.</string>
-    <string name="shell_terms_of_service">Terms of Service</string>
-    <string name="shell_privacy_policy">Privacy Policy</string>
+    <string name="shell_terms_agreement" translatable="false">By continuing, you agree to our %1$s and %2$s.</string>
+    <string name="shell_terms_of_service" translatable="false">Terms of Service</string>
+    <string name="shell_privacy_policy" translatable="false">Privacy Policy</string>
     <string name="shell_email_code_field">6-digit email code</string>
 
     <!-- Sign-in errors (AuthSession) -->
@@ -172,7 +172,7 @@
     <string name="shell_voice_prompt_save_failed">Could not save the prompt.</string>
     <string name="shell_voice_prompt">Transcription prompt</string>
     <string name="shell_voice_reset_prompt">Reset prompt</string>
-    <string name="shell_voice_prompt_help">The prompt guides spelling and writing style. Recordings are transcribed by OpenAI through Nuphos.</string>
+    <string name="shell_voice_prompt_help" translatable="false">The prompt guides spelling and writing style. Recordings are transcribed by OpenAI through Nuphos.</string>
 
     <!-- Remote desktop -->
     <string name="shell_desktop">Desktop</string>

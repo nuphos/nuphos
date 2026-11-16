@@ -180,7 +180,6 @@ export function SessionInputReply({
           teamId={teamId}
           sessionId={request.sessionId}
           sessionReadOnly={(request.readOnly ?? false) || !stillPending || dismissed}
-          decisionReplyTo={request.inputRequest.id}
           openQuestions={conversationQuestions(request)}
           composerDraftId={`input:${inputRequestKey(request)}`}
           focusComposerOnOpen={false}

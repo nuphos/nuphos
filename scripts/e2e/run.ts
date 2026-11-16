@@ -30,6 +30,22 @@ const scenarios: Scenario[] = [
     },
   },
   {
+    // The flow #3012 was reported in: the sidebar is on Bots, the page a new team opens on.
+    // The connector's CLI (`aws`) has to be on the PATH for the dialog to offer the agent.
+    name: 'set up a cloud connector with the agent from the Bots page, and the setup turn runs',
+    run: async (page, stack) => {
+      await page.getByRole('button', { name: 'Connectors', exact: true }).click()
+      await page.getByRole('button', { name: 'Add AWS' }).click()
+      await page.getByRole('button', { name: /Set up with agent/ }).click()
+      await page.getByText('ACK E2E_DELIVERY:missing').waitFor()
+      await until('the setup prompt to reach the agent', async () =>
+        agentEvents(stack).includes('finish E2E_DELIVERY:missing'),
+      )
+      // Back where a new team starts, for the scenarios that follow.
+      await page.getByRole('tab', { name: 'Bots' }).click()
+    },
+  },
+  {
     // The flow #2412 was reported in: a Bot's credential question with choices, answered in its chat.
     name: 'create a Bot, talk to it in its chat, and answer its question there',
     run: async (page, stack) => {
@@ -114,6 +130,11 @@ const scenarios: Scenario[] = [
         .getByRole('heading', { name: 'Which marker should the fixture use?' })
         .last()
         .waitFor()
+      await page.screenshot({ path: `${artifacts}/question-pending.png` })
+      // #2972: a question is answered on its card; nothing above the composer answers it.
+      if (await page.getByRole('group', { name: 'Reply target' }).count()) {
+        throw new Error('A "Replying to" chip is above the composer')
+      }
       await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).click()
       await page.getByText('ACK E2E_DELIVERY:answered').waitFor()
     },
@@ -124,6 +145,9 @@ const scenarios: Scenario[] = [
     run: async (page, stack) => {
       await send(page, 'Ask again E2E_ASK E2E_DELIVERY:again')
       await page.getByText('ACK E2E_DELIVERY:again').waitFor()
+      // #2972: what the composer sends meanwhile is an ordinary message; the question stays open.
+      await send(page, 'A note while it waits E2E_DELIVERY:note')
+      await page.getByText('ACK E2E_DELIVERY:note').waitFor()
       await page.getByRole('tab', { name: 'Inbox' }).click()
       await page.getByRole('link', { name: /\/health\/ready$/ }).click()
       // The link opens in the dock; give a wrong navigation the time to happen.
@@ -159,6 +183,23 @@ const scenarios: Scenario[] = [
       await page.getByRole('button', { name: 'E2E_DELIVERY:other' }).click()
       await page.getByRole('heading', { name: /^Answered/ }).waitFor()
       await until('the Inbox answer to reach the agent', async () => finished() === before + 1)
+    },
+  },
+  {
+    // #2998: Skip withdrew the question silently; the agent that asked was never told.
+    name: 'skipping a question on its card tells the agent that asked',
+    run: async (page, stack) => {
+      await newTask(page)
+      await send(page, 'Ask me E2E_ASK E2E_DELIVERY:skip')
+      await page.getByText('ACK E2E_DELIVERY:skip').waitFor()
+      await page.getByRole('button', { name: 'Skip', exact: true }).last().click()
+      // The card leaves with its question; the agent's wake notice stays in the chat.
+      await page.getByText(/was skipped: no answer is coming/).waitFor()
+      await until('the agent to be told its question was skipped', async () =>
+        agentEvents(stack).includes('skipped E2E_DELIVERY:missing'),
+      )
+      await page.getByText('ACK E2E_DELIVERY:missing').waitFor()
+      await page.screenshot({ path: `${artifacts}/question-skipped.png` })
     },
   },
   ...runtimeScenarios,

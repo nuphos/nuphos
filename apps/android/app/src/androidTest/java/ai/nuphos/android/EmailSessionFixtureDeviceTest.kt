@@ -21,7 +21,6 @@ import org.junit.Assume.assumeTrue
 class EmailSessionFixtureDeviceTest {
     private val inst = InstrumentationRegistry.getInstrumentation()
     private fun scenario(cancel: Boolean) {
-        assumeTrue("Runs only in its isolated fixture package", inst.targetContext.packageName == "ai.nuphos.android.emailfixture1335")
         val app = inst.targetContext.applicationContext as NuphosApplication
         check(app.tokenStore.read() == null)
         val context = object : ContextWrapper(app) {

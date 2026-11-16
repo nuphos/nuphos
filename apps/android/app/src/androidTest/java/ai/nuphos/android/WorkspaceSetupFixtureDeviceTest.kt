@@ -32,7 +32,6 @@ import java.io.IOException
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
-import org.junit.Ignore
 
 /** All responses are synthetic. Unknown requests fail; this client never opens a socket. */
 @RunWith(AndroidJUnit4::class)
@@ -150,7 +149,8 @@ class WorkspaceSetupFixtureDeviceTest {
         compose.runOnIdle {
             val expected = sourceGeneration
             setup = WorkspaceSetupStore(WorkspaceApi(token), scope, { sourceGeneration == expected },
-                { _, team -> if (team != null) selected = team; true }, { expired++ })
+                { _, team -> if (team != null) selected = team; true }, { expired++ },
+                strings = compose.activity.resources)
             compose.activity.setContent {
                 var visible by remember { mutableStateOf(true) }
                 NuphosTheme { if (visible) WorkspaceSetupSheet(setup) { visible = false } }
@@ -167,7 +167,7 @@ class WorkspaceSetupFixtureDeviceTest {
         compose.onNodeWithText("Workspace name").performScrollTo().performTextInput(" Fixture Alpha ")
         compose.onNodeWithText("Create workspace").performScrollTo().performClick()
     }
-    @Ignore("Fails on a clean emulator in CI, not yet triaged: #1620") @Test fun actualSheetCreatesOnceAndSelectsSavedRole() {
+    @Test fun actualSheetCreatesOnceAndSelectsSavedRole() {
         release = CountDownLatch(1); renderSheet(); create()
         compose.onNodeWithText("Create workspace").assertIsNotEnabled()
         compose.waitUntil(5_000) { posts() == 1 }
@@ -176,18 +176,18 @@ class WorkspaceSetupFixtureDeviceTest {
         assertEquals(a, selected); assertEquals(1, posts())
         assertTrue(requests.last { it.url.encodedPath == "/teams" }.method == "GET")
     }
-    @Ignore("Fails on a clean emulator in CI, not yet triaged: #1620") @Test fun actualJoinAndAlreadyMemberBothReadSavedMembership() {
+    @Test fun actualJoinAndAlreadyMemberBothReadSavedMembership() {
         writeStatus = 409; renderSheet()
         compose.onNodeWithText("Join Fixture Beta").performScrollTo().performClick()
         waitText("Workspace selected: Fixture Beta")
         assertEquals(b, selected); assertEquals(1, posts())
         assertEquals(false, selected!!.isOwner); assertEquals("EDITOR", selected!!.role)
     }
-    @Ignore("Fails on a clean emulator in CI, not yet triaged: #1620") @Test fun actualJoin201SelectsOnlySavedTarget() {
+    @Test fun actualJoin201SelectsOnlySavedTarget() {
         renderSheet(); compose.onNodeWithText("Join Fixture Beta").performScrollTo().performClick()
         waitText("Workspace selected: Fixture Beta"); assertEquals(b, selected); assertEquals(1, posts())
     }
-    @Ignore("Fails on a clean emulator in CI, not yet triaged: #1620") @Test fun unknownCreateReconcilesAndNeedsExplicitSavedReview() {
+    @Test fun unknownCreateReconcilesAndNeedsExplicitSavedReview() {
         unknownWrite = true; renderSheet(); create()
         waitText("We could not identify the saved result", true)
         compose.onNodeWithText("Create workspace").assertIsNotEnabled()
@@ -195,7 +195,7 @@ class WorkspaceSetupFixtureDeviceTest {
         assertEquals(a, selected); assertEquals(1, posts())
         compose.onNodeWithText("Create workspace").assertIsNotEnabled()
     }
-    @Ignore("Fails on a clean emulator in CI, not yet triaged: #1620") @Test fun forbiddenDoesNotSignOutAndEmptyDiscoveryIsValid() {
+    @Test fun forbiddenDoesNotSignOutAndEmptyDiscoveryIsValid() {
         writeStatus = 403; renderSheet()
         compose.onNodeWithText("Join Fixture Beta").performScrollTo().performClick()
         waitText("You are not allowed to join this workspace."); assertEquals(0, expired); assertNull(selected)
@@ -203,10 +203,11 @@ class WorkspaceSetupFixtureDeviceTest {
         compose.onNodeWithText("Refresh workspaces").performScrollTo().performClick()
         waitText("No workspaces are available to join for this account.")
     }
-    @Ignore("Fails on a clean emulator in CI, not yet triaged: #1620") @Test fun discoveryForbiddenDoesNotInventJoinOrExpire() {
+    @Test fun discoveryForbiddenDoesNotInventJoinOrExpire() {
         discovered = emptyList(); discoveryStatus = 403
         compose.runOnIdle {
-            setup = WorkspaceSetupStore(WorkspaceApi(token), scope, { true }, { _, _ -> true }, { expired++ })
+            setup = WorkspaceSetupStore(WorkspaceApi(token), scope, { true }, { _, _ -> true }, { expired++ },
+                strings = compose.activity.resources)
             compose.activity.setContent { NuphosTheme { WorkspaceSetupSheet(setup) {} } }
         }
         waitText("We could not load workspaces to join", true)

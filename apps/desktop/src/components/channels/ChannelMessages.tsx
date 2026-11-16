@@ -12,6 +12,7 @@ import { ChannelReplyFailed } from './ChannelReplyFailed'
 import { ChannelMessage } from './ChannelPost'
 import { sentSinceOpening, startsTimeGap, timeGapLabel } from './chatTime'
 import { Typing } from './ChannelTyping'
+import { useOpenAtPost } from './postJump'
 
 import type {
   AgentMessageReply,
@@ -84,6 +85,8 @@ export function ChannelMessages({
   fixes?: ChannelFixes
 }) {
   const renderAgentLink = useAgentLinks(teamId, onOpenNuphosLink)
+
+  useOpenAtPost(channelId)
   // One function across renders: a new one makes every post rebuild its text,
   // which drops a selection the reader is dragging.
   const renderLink = useCallback(

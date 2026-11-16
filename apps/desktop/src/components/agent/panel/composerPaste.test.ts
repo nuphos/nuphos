@@ -22,13 +22,15 @@ test('Nuphos links become chips and the text around them stays as typed', () => 
 })
 
 test('a long paste is one insert, not one per word', () => {
-  // Each insert fires an input event that re-reads the editor; one per word
-  // froze the window for minutes on a 1 MB paste.
+  // The composer dispatches one insert per piece, and each fires an input event
+  // that re-reads the editor; one per word froze the window for minutes on a
+  // 1 MB paste. Counting the pieces counts the inserts, whatever the machine.
   const huge = 'const value = computeSomething(alpha, beta); // log line 12345\n'.repeat(16_000)
   const withLinks = `${huge}https://nuphos.ai/teams/t/plans/1\n${huge}`
-  const start = performance.now()
+  const linked = pastePieces(withLinks, isUrl)
 
-  assert.deepEqual(pastePieces(huge, isUrl), [{ text: huge }])
-  assert.equal(pastePieces(withLinks, isUrl).length, 3)
-  assert.ok(performance.now() - start < 1000, `took ${String(performance.now() - start)}ms`)
+  assert.equal(pastePieces(huge, isUrl).length, 1)
+  // The text before the link, the link, and the text after it.
+  assert.equal(linked.length, 3)
+  assert.equal(joined(linked), withLinks)
 })

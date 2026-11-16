@@ -33,7 +33,6 @@ class ConsentRootDeviceTest {
 
     @Before fun setUp() {
         app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as NuphosApplication
-        Assume.assumeTrue("Disposable navigation fixture only", app.packageName == "ai.nuphos.android.navigation1371")
         access = state(AiAccess, "state", false).value
         oldRevoked = AiAccess.onRevoked
         AiAccess.onRevoked = {}
