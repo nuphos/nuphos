@@ -257,5 +257,6 @@ export async function scanQueuedSessions(
     if ((!read && page) || queueHead(queue, userId).length > 0) sessions.push({ userId, sessionId })
   }
 
-  return { cursor: page ? page[0] : cursor, sessions }
+  // Without the index read, start over: the next tick looks at this process's queues again.
+  return { cursor: page ? page[0] : '0', sessions }
 }
