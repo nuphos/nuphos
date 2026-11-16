@@ -6,7 +6,6 @@ import { UiIcon } from '../../components/ui/ui-icon'
 import { t } from '../../i18n'
 
 import { CLOUDFLARE_SCOPE_CATEGORIES } from './cloudflare-scopes'
-import { cloudflareScopesFor } from './constants'
 
 import type { BindState } from './use-bind-state'
 
@@ -15,7 +14,7 @@ export function CloudflareConnect({
   onConnect,
 }: {
   st: BindState
-  onConnect: (scopes: string[]) => void
+  onConnect: (access: Record<string, 'read' | 'write'>) => void
 }) {
   const { cfScopeAccess, setCfScopeAccess, cloudflareConnecting, submitting } = st
 
@@ -41,7 +40,7 @@ export function CloudflareConnect({
         {t('No API token to create, scope, or paste.')}
       </p>
 
-      {/* Access selector — picked scopes are sent to the authorize request */}
+      {/* Access selector — the backend expands each category into registered scopes */}
       <div className="mt-4 max-h-[340px] space-y-1.5 overflow-y-auto scrollbar-thin">
         {CLOUDFLARE_SCOPE_CATEGORIES.map((r) => (
           <div
@@ -77,7 +76,15 @@ export function CloudflareConnect({
       {/* Primary CTA */}
       <button
         type="button"
-        onClick={() => onConnect(cloudflareScopesFor(cfScopeAccess))}
+        onClick={() =>
+          onConnect(
+            Object.fromEntries(
+              Object.entries(cfScopeAccess).filter(
+                (e): e is [string, 'read' | 'write'] => e[1] !== 'off',
+              ),
+            ),
+          )
+        }
         disabled={cloudflareConnecting || submitting}
         className={clsx(
           'group relative mt-5 flex h-11 w-full items-center justify-center gap-2.5 overflow-hidden rounded-xl text-[13px] font-semibold text-white transition-all',

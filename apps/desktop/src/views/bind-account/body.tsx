@@ -20,7 +20,7 @@ export function BindDialogBody({
 }: {
   st: BindState
   teamId: string
-  onConnectCloudflare: (scopes: string[]) => void
+  onConnectCloudflare: (access: Record<string, 'read' | 'write'>) => void
 }) {
   const { provider, purpose } = st
 

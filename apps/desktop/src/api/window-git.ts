@@ -82,7 +82,7 @@ export type WindowGitApi = {
   atlasCancelGitlabOAuth(teamId: string): Promise<void>
   atlasStartCloudflareConnect(
     teamId: string,
-    scopes?: string[],
+    access?: Record<string, 'read' | 'write'>,
   ): Promise<{
     bindingId: string
     teamId: string

@@ -5,6 +5,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
+import { fakeCloudflareApi } from './fake-cloudflare.ts'
 import { artifacts, freePorts, logPath, spawn, stop, until } from './processes.ts'
 
 const ROOT = resolve(import.meta.dirname, '../..')
@@ -205,6 +206,8 @@ export async function startStack(): Promise<Stack> {
       NUPHOS_DEV_EMAIL_OTP_LOG: 'true',
       NUPHOS_LOCAL_STACK: 'true',
       // Cloudflare is never reached: a scenario answers for it on this redirect.
+      CLOUDFLARE_API_URL: await fakeCloudflareApi(),
+      CLOUDFLARE_OAUTH_ADMIN_TOKEN: 'e2e-cloudflare-token-not-a-production-credential',
       CLOUDFLARE_OAUTH_CLIENT_ID: 'e2e-cloudflare-client',
       CLOUDFLARE_OAUTH_CLIENT_SECRET: 'e2e-cloudflare-secret-not-a-production-credential',
       CLOUDFLARE_OAUTH_SETUP_REDIRECT: `${apiUrl}/cloudflare-app/setup`,

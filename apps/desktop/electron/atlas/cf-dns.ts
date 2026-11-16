@@ -117,14 +117,16 @@ export type CloudflareOAuthStart = {
   expiresAt: string
 }
 
+// `access` picks Cloudflare scope categories; the backend expands each into the
+// scopes the Nuphos OAuth client is registered with.
 export async function startCloudflareOAuth(
   teamId: string,
-  scopes?: string[],
+  access?: Record<string, 'read' | 'write'>,
 ): Promise<CloudflareOAuthStart> {
   return call<CloudflareOAuthStart>(
     'POST',
     `/teams/${teamId}/cloudflare-accounts/start-oauth`,
-    scopes && scopes.length > 0 ? { scopes } : {},
+    access ? { access } : {},
     { retry: false },
   )
 }

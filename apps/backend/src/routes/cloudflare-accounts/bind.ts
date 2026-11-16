@@ -9,9 +9,9 @@ import {
   isCloudflareOAuthConfigured,
   getCloudflareOAuthClient,
   getCloudflareOAuthSetupRedirect,
-  resolveCloudflareScopeParam,
   buildCloudflareAuthorizeUrl,
 } from '@/lib/byos/cloudflare-oauth'
+import { resolveCloudflareScopeParam } from '@/lib/byos/cloudflare-oauth-scopes'
 import { appendEnvironmentBinding } from '@/lib/byos/environment-bindings'
 import { bindingShareSchema, newBindingAccess } from '@/lib/byos/initial-access'
 import { encryptCloudflareApiKey } from '@/lib/byos/secrets'
@@ -53,8 +53,17 @@ const OAUTH_PENDING_TTL_MS = 10 * 60 * 1000
 
 const startOAuthSchema = z
   .object({
-    // Scope strings selected by the user in the connect dialog. Falls back to
-    // the server default when omitted; offline_access is always added.
+    // Access per Cloudflare scope category, picked in the connect dialog.
+    access: z
+      .record(
+        z
+          .string()
+          .regex(/^[a-z_]+$/)
+          .max(64),
+        z.enum(['read', 'write']),
+      )
+      .optional(),
+    // Explicit scope strings, sent by older desktops.
     scopes: z
       .array(
         z
@@ -170,7 +179,16 @@ export function registerCloudflareBindRoutes(routes: Hono<{ Variables: TeamAuthV
       const redirectUri = getCloudflareOAuthSetupRedirect()!
       const teamId = parseObjectId(c.get('teamId'), 'teamId')
       const requesterUserId = c.get('userId')
-      const { scopes } = c.req.valid('json')
+      const { access, scopes } = c.req.valid('json')
+      const scope = await resolveCloudflareScopeParam(client.clientId, { access, scopes }).catch(
+        (error: unknown) => {
+          throw new AppError(
+            503,
+            'cloudflare_oauth_scopes_unavailable',
+            `Could not read the Cloudflare OAuth client's registered scopes (${error instanceof Error ? error.message : String(error)})`,
+          )
+        },
+      )
 
       // The OAuth bind lands in the cloudflare-app callback, where a 402
       // would render as a browser error page. Refuse here instead, before the
@@ -187,7 +205,7 @@ export function registerCloudflareBindRoutes(routes: Hono<{ Variables: TeamAuthV
         clientId: client.clientId,
         redirectUri,
         state,
-        scope: resolveCloudflareScopeParam(scopes),
+        scope,
       })
 
       return c.json({ authorizeUrl, state, expiresAt: expiresAt.toISOString() })

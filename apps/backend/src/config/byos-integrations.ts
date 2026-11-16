@@ -59,6 +59,12 @@ export function byosIntegrationsConfig() {
         clientId: optional('CLOUDFLARE_OAUTH_CLIENT_ID'),
         clientSecret: optional('CLOUDFLARE_OAUTH_CLIENT_SECRET'),
         setupRedirect: optional('CLOUDFLARE_OAUTH_SETUP_REDIRECT'),
+        // Account-owned API token with only "OAuth Client Read", from the account
+        // that owns the client. Connect requests only the scopes the client is
+        // registered with, so Cloudflare never rejects one as unregistered.
+        adminToken: optional('CLOUDFLARE_OAUTH_ADMIN_TOKEN'),
+        // Overridable so the end-to-end run can answer for Cloudflare's API.
+        apiUrl: optional('CLOUDFLARE_API_URL') ?? 'https://api.cloudflare.com/client/v4',
         // Scopes requested at authorize time (subset of what the client is
         // registered with). Cloudflare uses dot+hyphen scope strings, not
         // wrangler's underscore/colon form. Overridable so the exact strings

@@ -25,7 +25,7 @@ test('a rejection reported only through the poll fails the connect with its reas
     error: 'invalid_scope',
     errorDescription: "The OAuth 2.0 Client is not allowed to request scope 'dns-firewall.read'.",
   }
-  const install = startInstall('team', ['dns-firewall.read'])
+  const install = startInstall('team', { dns_and_zones: 'write' })
   const outcome = install.then(
     () => 'resolved',
     (e: unknown) => (e instanceof Error ? e.message : String(e)),

@@ -49,8 +49,8 @@ export const gitApi = {
     scopes?: string[],
   ) => window.api.atlasStartGitlabOAuth(teamId, hostUrl, clientId, clientSecret, scopes),
   atlasCancelGitlabOAuth: (teamId: string) => window.api.atlasCancelGitlabOAuth(teamId),
-  atlasStartCloudflareConnect: (teamId: string, scopes?: string[]) =>
-    window.api.atlasStartCloudflareConnect(teamId, scopes),
+  atlasStartCloudflareConnect: (teamId: string, access?: Record<string, 'read' | 'write'>) =>
+    window.api.atlasStartCloudflareConnect(teamId, access),
   atlasCancelCloudflareConnect: (teamId: string) => window.api.atlasCancelCloudflareConnect(teamId),
   atlasUnbindGitlab: (teamId: string, bindingId: string) =>
     window.api.atlasUnbindGitlab(teamId, bindingId),

@@ -14,15 +14,6 @@ const TOKEN_URL = 'https://dash.cloudflare.com/oauth2/token'
 // upstream can't stall the callback handler indefinitely (matches identity.ts).
 const OAUTH_FETCH_TIMEOUT_MS = 10_000
 
-// Scopes requested at authorize time (see config.byos.cloudflare.oauth.scopes).
-// The desktop normally sends an explicit subset; this is the fallback.
-const DEFAULT_SCOPES = config.byos.cloudflare.oauth.scopes
-
-// Cloudflare's scope catalog lists `<product>.metadata_read` scopes it does not
-// offer OAuth clients; requesting one fails the whole authorize request with
-// invalid_scope. Desktop 0.86/0.87 still send them, so drop them here.
-const UNOFFERED_SCOPE = /^(?!workers-scripts\.).+\.metadata_read$/
-
 export class CloudflareOAuthError extends Error {
   constructor(message: string) {
     super(message)
@@ -44,23 +35,6 @@ export function getCloudflareOAuthSetupRedirect(): string | null {
 
 export function isCloudflareOAuthConfigured(): boolean {
   return !!getCloudflareOAuthClient() && !!getCloudflareOAuthSetupRedirect()
-}
-
-export function getCloudflareOAuthScopes(): string {
-  return DEFAULT_SCOPES
-}
-
-/**
- * Build the `scope` query value from a caller-selected list, falling back to the
- * server default. `offline_access` is always included so we get a refresh token.
- */
-export function resolveCloudflareScopeParam(selected?: string[]): string {
-  const base = selected && selected.length > 0 ? selected : DEFAULT_SCOPES.split(/\s+/)
-  const set = new Set(base.map((s) => s.trim()).filter((s) => s && !UNOFFERED_SCOPE.test(s)))
-
-  set.add('offline_access')
-
-  return Array.from(set).join(' ')
 }
 
 export function buildCloudflareAuthorizeUrl({

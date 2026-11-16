@@ -36,31 +36,6 @@ export const CLOUDFLARE_DEFAULT_SCOPE_ACCESS = Object.fromEntries(
   ]),
 ) as Record<CloudflareScopeKey, CloudflareScopeAccess>
 
-const READ_ONLY_SCOPE = /\.(read|metadata_read)$/
-
-// Always-requested baseline: account/user/memberships for account discovery,
-// zone.read so the DNS view can list zones, plus offline_access (added
-// server-side) for refresh tokens.
-const CLOUDFLARE_BASELINE_SCOPES = [
-  'account-settings.read',
-  'user-details.read',
-  'memberships.read',
-  'zone.read',
-]
-
-export function cloudflareScopesFor(
-  access: Record<CloudflareScopeKey, CloudflareScopeAccess>,
-): string[] {
-  const selected = CLOUDFLARE_SCOPE_CATEGORIES.flatMap((c): readonly string[] => {
-    if (access[c.key] === 'write') return c.scopes
-    if (access[c.key] === 'read') return c.scopes.filter((s) => READ_ONLY_SCOPE.test(s))
-
-    return []
-  })
-
-  return [...new Set([...selected, ...CLOUDFLARE_BASELINE_SCOPES])]
-}
-
 // Volcengine role TRN, e.g. trn:iam::2100000000:role/NuphosConnector.
 export const TRN_PATTERN = /^trn:iam::\d+:role\/.+$/
 // Huawei Cloud account (IAM domain) id, the IAM identity provider name, and

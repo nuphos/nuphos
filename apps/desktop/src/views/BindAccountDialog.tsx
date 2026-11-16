@@ -61,14 +61,14 @@ export function BindAccountDialog({
     onClose()
   }
 
-  async function connectCloudflareOAuth(scopes?: string[]) {
+  async function connectCloudflareOAuth(access: Record<string, 'read' | 'write'>) {
     const attempt = ++cloudflareAttempt.current
 
     st.setCloudflareConnecting(true)
     try {
       // Resolves when Cloudflare redirects back through the backend and the
       // desktop receives the nuphos://cloudflare-callback deep link.
-      await api.atlasStartCloudflareConnect(teamId, scopes)
+      await api.atlasStartCloudflareConnect(teamId, access)
       if (attempt !== cloudflareAttempt.current) return
       reset()
       onBound()
@@ -122,7 +122,7 @@ export function BindAccountDialog({
           <BindDialogBody
             st={st}
             teamId={teamId}
-            onConnectCloudflare={(scopes) => void connectCloudflareOAuth(scopes)}
+            onConnectCloudflare={(access) => void connectCloudflareOAuth(access)}
           />
         )}
 

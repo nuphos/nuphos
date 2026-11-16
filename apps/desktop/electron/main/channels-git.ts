@@ -103,8 +103,11 @@ export const gitChannels = {
     scopes?: string[],
   ) => gitlabInstall.startInstall(teamId, hostUrl, clientId, clientSecret, scopes),
   'atlas:cancelGitlabOAuth': (_e: unknown, teamId: string) => gitlabInstall.cancelPending(teamId),
-  'atlas:startCloudflareConnect': (_e: unknown, teamId: string, scopes?: string[]) =>
-    cloudflareInstall.startInstall(teamId, scopes),
+  'atlas:startCloudflareConnect': (
+    _e: unknown,
+    teamId: string,
+    access?: Record<string, 'read' | 'write'>,
+  ) => cloudflareInstall.startInstall(teamId, access),
   'atlas:cancelCloudflareConnect': (_e: unknown, teamId: string) =>
     cloudflareInstall.cancelPending(teamId),
   'atlas:unbindGitlab': (_e: unknown, teamId: string, bindingId: string) =>

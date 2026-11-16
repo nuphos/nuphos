@@ -170,8 +170,8 @@ export const cloudOpsApi = {
   ) =>
     ipcRenderer.invoke('atlas:startGitlabOAuth', teamId, hostUrl, clientId, clientSecret, scopes),
   atlasCancelGitlabOAuth: (teamId: string) => ipcRenderer.invoke('atlas:cancelGitlabOAuth', teamId),
-  atlasStartCloudflareConnect: (teamId: string, scopes?: string[]) =>
-    ipcRenderer.invoke('atlas:startCloudflareConnect', teamId, scopes),
+  atlasStartCloudflareConnect: (teamId: string, access?: Record<string, 'read' | 'write'>) =>
+    ipcRenderer.invoke('atlas:startCloudflareConnect', teamId, access),
   atlasCancelCloudflareConnect: (teamId: string) =>
     ipcRenderer.invoke('atlas:cancelCloudflareConnect', teamId),
   atlasUnbindGitlab: (teamId: string, bindingId: string) =>
