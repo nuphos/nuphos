@@ -40,6 +40,10 @@ export async function setupAgentIndexes(): Promise<void> {
     // Channel mentions are keyed by person (`mentions.<userId>`).
     await c.createIndex({ 'mentions.$**': 1 }, { background: true })
     await c.createIndex({ sessionId: 1 }, { unique: true, background: true })
+    await c.createIndex({ teamId: 1, userId: 1, parentSessionId: 1, lastActiveAt: -1 })
+    await db()
+      .collection('agent_task_reports')
+      .createIndex({ deliveredAt: 1, droppedAt: 1, createdAt: 1 })
     // The channels an agent is in, for clearing it out when its session is deleted.
     await c.createIndex(
       { agentSessionIds: 1 },

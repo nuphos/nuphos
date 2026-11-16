@@ -1,11 +1,10 @@
 import { clsx } from 'clsx'
-import { Monitor } from 'lucide-react'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 import { api } from '../../api'
-import { openSessionDesktop } from '../../app/workspace/openSessionDesktop'
 import { t } from '../../i18n'
 import { runtimeStateOf, subscribeRuntimeStates } from '../../lib/agentRuntimeStates'
+import { runtimeTurnActive } from '../../lib/runtimeExecution'
 import { forgetSessionDesktops, publishSessionDesktops } from '../../lib/sessionDesktops'
 import { makeAttachmentTurn } from '../agent/panel/attachments'
 import { ChatColumn } from '../agent/panel/ChatColumn'
@@ -16,14 +15,15 @@ import { sessionDesktopsOf } from '../agent/panel/shells'
 import { useConversationRead } from '../agent/panel/useConversationRead'
 import { SessionParticipants } from '../agent/SessionParticipants'
 import { HeaderEdge } from '../ui/header-edge'
-import { IconButton } from '../ui/icon-button'
 import { toast } from '../ui/toast'
 
 import { botOfChannel, ownsBot } from './botChannel'
 import { BotStatusPill } from './BotStatusPill'
+import { BotDesktopButton } from './BotDesktopButton'
 import { BotTaskButton } from './BotTaskButton'
+import { ChannelEmptyState } from './ChannelEmptyState'
 import { ChannelMessages } from './ChannelMessages'
-import { ChannelIntro, ChatHeaderIcon, ReplyingBanner } from './channelParts'
+import { ChatHeaderIcon, ReplyingBanner } from './channelParts'
 import { ChannelTitle } from './ChannelTitle'
 import { sendingPost, stillSending } from './sendingPosts'
 import { useBotChatQuestions } from './useBotChatQuestions'
@@ -80,16 +80,12 @@ export function ChannelPane({
   const title = chat ? chat.title || t('New Group Chat') : ''
   const bot = botOfChannel(chat)
   const botState = useSyncExternalStore(subscribeRuntimeStates, () => runtimeStateOf(bot))
+  const preparingFirstReply = runtimeTurnActive(botState)
+  const firstReplyFailed =
+    detail?.timelineEvents?.some((event) => event.kind === 'agent_reply_failed') ?? false
   const botOwned = ownsBot(teamId, bot, user.id, detail && agents)
-  const runtimeControl = useBotRuntimeControl(
-    teamId,
-    bot,
-    botOwned,
-    user,
-    botState,
-    refresh,
-    fixes?.onOpenAgentSettings,
-  )
+  const manage = fixes?.onOpenAgentSettings
+  const control = useBotRuntimeControl(teamId, bot, botOwned, user, botState, refresh, manage)
   const canOpenTask = useBotTaskAccess(teamId, bot, botOwned)
   const canOpenBotDesktop =
     bot !== undefined &&
@@ -109,7 +105,6 @@ export function ChannelPane({
 
   if (pending !== sending) setSending(pending)
   const messages = [...stored, ...pending]
-
   const stickToBottom = useStickToBottom(scrollRef)
   const questions = useBotChatQuestions(teamId, bot, botOwned, onOpenSession)
   const send: ComposerSend = (text, filePaths, mentions, options) => {
@@ -198,17 +193,7 @@ export function ChannelPane({
             onClick={() => (onOpenTask ?? onOpenSession)(bot)}
           />
         )}
-        {bot && canOpenBotDesktop && (
-          <IconButton
-            label={t('Desktop')}
-            icon={<Monitor />}
-            onClick={() => {
-              openSessionDesktop(teamId, bot, api.openSessionDesktop).catch((error: unknown) =>
-                toast.apiError(t('Could not open the desktop'), error),
-              )
-            }}
-          />
-        )}
+        {bot && canOpenBotDesktop && <BotDesktopButton teamId={teamId} botId={bot} />}
         {/* A Bot's 1:1 chat stays the two of you; a group chat starts from "+" on Bots. */}
         {!bot && (
           <SessionParticipants
@@ -239,9 +224,18 @@ export function ChannelPane({
         {/* The column: one box, so its height says when anything below grows, and
             the one width every row takes, the composer's own. */}
         <ChatColumn>
-          {detail && messages.length === 0 && <ChannelIntro faces={detail.faces} title={title} />}
+          {detail && messages.length === 0 && (
+            <ChannelEmptyState
+              faces={detail.faces}
+              title={title}
+              bot={Boolean(bot)}
+              preparingFirstReply={preparingFirstReply}
+              firstReplyFailed={firstReplyFailed}
+            />
+          )}
           {detail && (
             <ChannelMessages
+              initialBotId={messages.length === 0 ? bot : undefined}
               messages={messages}
               events={detail?.timelineEvents ?? []}
               agents={agents}
@@ -290,7 +284,7 @@ export function ChannelPane({
             }}
             placeholder={t('Message {name}', { name: title })}
             credentialSelector={questions.credentials}
-            runtimeControl={runtimeControl}
+            runtimeControl={control}
           />
         </div>
       </ChatColumn>

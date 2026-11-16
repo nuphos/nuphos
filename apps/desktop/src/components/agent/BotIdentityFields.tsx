@@ -8,6 +8,7 @@ import { AgentAvatarGrid } from './AgentAvatarGrid'
 import { BotAvatarImage } from './BotAvatarImage'
 
 import type { BotAvatarFile } from '../../lib/botAvatars'
+import type { ReactNode } from 'react'
 
 /** Shared name and face controls for creating and editing a Bot. */
 export function BotIdentityFields({
@@ -19,6 +20,8 @@ export function BotIdentityFields({
   busy,
   disabled = false,
   submitLabel,
+  identityLocked = false,
+  children,
 }: {
   name: string
   onNameChange: (name: string) => void
@@ -28,6 +31,9 @@ export function BotIdentityFields({
   busy: boolean
   disabled?: boolean
   submitLabel: string
+  /** A partially created Bot keeps its identity while setup is retried. */
+  identityLocked?: boolean
+  children?: ReactNode
 }) {
   const [preview, setPreview] = useState<BotAvatarFile | null>(null)
   const shown = preview ?? avatar
@@ -46,7 +52,7 @@ export function BotIdentityFields({
           autoFocus
           maxLength={120}
           value={name}
-          disabled={busy}
+          disabled={busy || identityLocked}
           onChange={(event) => onNameChange(event.target.value)}
           onKeyDown={(event) => {
             if (event.key !== 'Escape') event.stopPropagation()
@@ -64,7 +70,8 @@ export function BotIdentityFields({
           {submitLabel}
         </Button>
       </div>
-      <fieldset disabled={busy} className="m-0 min-w-0 border-0 p-0">
+      {children}
+      <fieldset disabled={busy || identityLocked} className="m-0 min-w-0 border-0 p-0">
         <AgentAvatarGrid value={avatar} onChange={onAvatarChange} onPreview={setPreview} />
       </fieldset>
     </>
