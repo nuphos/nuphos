@@ -1,0 +1,24 @@
+111 |             // A failed read stays out, so the next refresh, or the card itself, tries again.
+46 |         // The transcript already says why the last turn failed; the runtime
+191 |         if video.status == .failed {
+191 |         if video.status == .failed {
+46 |         // The transcript already says why the last turn failed; the runtime
+111 |             // A failed read stays out, so the next refresh, or the card itself, tries again.
+191 |         if video.status == .failed {
+191 |         if video.status == .failed {
+Ignoring --strip-bitcode because --sign was not passed
+Ignoring --strip-bitcode because --sign was not passed
+Test Case '-[nuphos_iosUITests.BotsAndTasksListUITests testBotsKeepWhatWasOpenedByHand]' started.
+2026-11-16 10:05:58.733 xcodebuild[37033:101477] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+/Users/runner/work/nuphos/nuphos/before/apps/ios/UITests/BotsAndTasksListUITests.swift:100: error: -[nuphos_iosUITests.BotsAndTasksListUITests testBotsKeepWhatWasOpenedByHand] : XCTAssertTrue failed - The opened Bot folded again when Bots was left
+Test Case '-[nuphos_iosUITests.BotsAndTasksListUITests testBotsKeepWhatWasOpenedByHand]' failed (57.752 seconds).
+Test Case '-[nuphos_iosUITests.BotsAndTasksListUITests testBotsListWhatTheirBotsDispatched]' started.
+2026-11-16 10:07:06.070 xcodebuild[37033:101477] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+Test Case '-[nuphos_iosUITests.BotsAndTasksListUITests testBotsListWhatTheirBotsDispatched]' passed (36.503 seconds).
+Test Case '-[nuphos_iosUITests.BotsAndTasksListUITests testTasksLeaveOutBotsAndWhatTheyDispatched]' started.
+2026-11-16 10:07:32.155 xcodebuild[37033:101477] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+Test Case '-[nuphos_iosUITests.BotsAndTasksListUITests testTasksLeaveOutBotsAndWhatTheyDispatched]' passed (14.965 seconds).
+Test Suite 'BotsAndTasksListUITests' failed at 2026-11-16 10:07:45.966.
+Test Suite 'nuphos-iosUITests.xctest' failed at 2026-11-16 10:07:45.967.
+Test Suite 'Selected tests' failed at 2026-11-16 10:07:45.967.
+** TEST FAILED **

@@ -1,0 +1,24 @@
+46 |         // The transcript already says why the last turn failed; the runtime
+191 |         if video.status == .failed {
+191 |         if video.status == .failed {
+111 |             // A failed read stays out, so the next refresh, or the card itself, tries again.
+191 |         if video.status == .failed {
+191 |         if video.status == .failed {
+46 |         // The transcript already says why the last turn failed; the runtime
+111 |             // A failed read stays out, so the next refresh, or the card itself, tries again.
+Ignoring --strip-bitcode because --sign was not passed
+Ignoring --strip-bitcode because --sign was not passed
+Test Case '-[nuphos_iosUITests.BotsAndTasksListUITests testBotsKeepWhatWasOpenedByHand]' started.
+2026-11-16 09:53:39.240 xcodebuild[2385:11809] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+2026-11-16 09:54:40.434 xcodebuild[2385:11809] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+Test Case '-[nuphos_iosUITests.BotsAndTasksListUITests testBotsKeepWhatWasOpenedByHand]' passed (82.374 seconds).
+Test Case '-[nuphos_iosUITests.BotsAndTasksListUITests testBotsListWhatTheirBotsDispatched]' started.
+2026-11-16 09:54:57.844 xcodebuild[2385:11809] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+Test Case '-[nuphos_iosUITests.BotsAndTasksListUITests testBotsListWhatTheirBotsDispatched]' passed (45.804 seconds).
+Test Case '-[nuphos_iosUITests.BotsAndTasksListUITests testTasksLeaveOutBotsAndWhatTheyDispatched]' started.
+2026-11-16 09:55:43.503 xcodebuild[2385:11809] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+Test Case '-[nuphos_iosUITests.BotsAndTasksListUITests testTasksLeaveOutBotsAndWhatTheyDispatched]' passed (29.858 seconds).
+Test Suite 'BotsAndTasksListUITests' passed at 2026-11-16 09:56:12.239.
+Test Suite 'nuphos-iosUITests.xctest' passed at 2026-11-16 09:56:12.243.
+Test Suite 'Selected tests' passed at 2026-11-16 09:56:12.246.
+** TEST SUCCEEDED **
