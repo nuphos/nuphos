@@ -54,7 +54,7 @@ export function EditableConversationTitle({
         triggerClassName="min-w-0"
         content={
           <ShortcutLabel
-            label={bot ? t('Rename Bot') : t('Rename task')}
+            label={bot ? t('Edit Bot') : t('Rename task')}
             combo={sessionShortcutCombo('rename-chat')}
           />
         }
@@ -62,7 +62,7 @@ export function EditableConversationTitle({
         <button
           type="button"
           aria-label={
-            bot ? t('Rename Bot: {title}', { title }) : t('Rename task: {title}', { title })
+            bot ? t('Edit Bot: {title}', { title }) : t('Rename task: {title}', { title })
           }
           onClick={() => setEditing(true)}
           className="titlebar-no-drag group flex min-w-0 items-center gap-1.5 rounded px-1 py-1 text-left hover:bg-state-hover"
@@ -138,7 +138,7 @@ export function RenameConversationDialog({
   return (
     <Modal
       open
-      title={bot ? t('Rename Bot') : t('Rename task')}
+      title={bot ? t('Edit Bot') : t('Rename task')}
       appearance="prompt"
       width={bot ? 440 : 420}
       onClose={onClose}
