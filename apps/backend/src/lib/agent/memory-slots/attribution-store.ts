@@ -4,6 +4,7 @@
 import { ObjectId } from 'mongodb'
 
 import { logError, logEvent } from '@/lib/observability'
+import { claimRun } from '@/lib/redis'
 
 import {
   agentMemories,
@@ -104,13 +105,17 @@ export async function rollupRetentionScores(now = new Date()): Promise<number> {
 let rollupWarmupTimer: ReturnType<typeof setTimeout> | undefined
 let rollupTimer: ReturnType<typeof setInterval> | undefined
 
-/** Plain hourly interval on EVERY replica — the recompute is an
- * idempotent full upsert, so concurrent runs waste work but never corrupt
- * data. Move to a BullMQ repeatable (seal-scheduler pattern) if replica
- * count × window size starts to matter. */
+/** The hourly recompute, on one replica: every replica ticks, the first to
+ * claim the hour runs it. The claim lasts a little under the interval, so the
+ * next hour can be claimed again. */
+export async function rollupOnOneReplica(): Promise<void> {
+  if (await claimRun('memory:retention-rollup', ROLLUP_INTERVAL_MS - 5 * 60 * 1000))
+    await rollupRetentionScores()
+}
+
 export function initMemoryRetentionRollup(): void {
   const run = () =>
-    void rollupRetentionScores().catch((err: unknown) => {
+    void rollupOnOneReplica().catch((err: unknown) => {
       logError('memory.retention_rollup_failed', err)
     })
 
