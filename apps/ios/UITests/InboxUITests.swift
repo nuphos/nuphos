@@ -214,12 +214,14 @@ final class InboxUITests: XCTestCase {
         task["parentSessionId"] = "bot-release"
         try openBotChat(listing: [task])
 
+        XCTAssertTrue(app.buttons["botQuestion.source"].waitForExistence(timeout: 10), "The question is not in the chat")
         let field = app.secureTextFields["Paste the value"]
-        XCTAssertTrue(field.waitForExistence(timeout: 10), "No masked input for the secret in the Bot's chat")
+        let masked = field.waitForExistence(timeout: 10)
+        shot("15-bot-chat-secret")
+        XCTAssertTrue(masked, "No masked input for the secret in the Bot's chat")
         XCTAssertFalse(app.buttons["Answer in the task"].exists, "The secret is still sent to the task to be answered")
         XCTAssertEqual(app.buttons["botQuestion.source"].label, "Release ops", "The source line does not name who asked")
         XCTAssertTrue(app.buttons["Skip"].exists)
-        shot("15-bot-chat-secret")
 
         field.tap()
         field.typeText("fixture-value")
