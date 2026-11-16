@@ -5,7 +5,7 @@
 import { randomUUID } from 'node:crypto'
 import { setTimeout as sleep } from 'node:timers/promises'
 
-import { InstaboxError, Sandbox } from '@insforge/instabox-sdk'
+import { Sandbox } from '@insforge/instabox-sdk'
 
 import { AppError } from '@/lib/errors'
 import { logError, logEvent } from '@/lib/observability'
@@ -41,17 +41,12 @@ const JOIN_TIMEOUT_MS = 3 * 60_000
 /** The longest a create waits for instabox to accept or refuse the order; well under every client's and proxy's timeout. */
 const ANSWER_WAIT_MS = 10_000
 
-/** Told to whoever made a Box on a plan that keeps instabox's idle pause. */
-const PAUSES_WHEN_IDLE =
-  'This instabox plan pauses a Box after 30 idle minutes. It keeps its disk and programs, and wakes again when a turn or a command needs it.'
-
 type Registration = { deviceId: string; label: string; box: AgentDeviceBox }
 
 /**
  * Registers the device row and orders the machine. instabox answers an order at once:
- * refused (the account's limit, a key it no longer takes, a setting its plan does not
- * allow), which fails this call with the reason, or accepted. Only that answer is
- * awaited, and at most ANSWER_WAIT_MS, so every
+ * refused (the account's limit, a key it no longer takes), which fails this call with the
+ * reason, or accepted. Only that answer is awaited, and at most ANSWER_WAIT_MS, so every
  * client and proxy gets a reply before its timeout and never retries into a second Box.
  * Booting, installing and joining run in the background; the row shows `creating` until
  * the host joins. If any step fails, the machine, the row and its token are removed again.
@@ -66,7 +61,7 @@ export async function createBox(
     shared,
     accountId,
   }: { vcpus?: number; shared?: { everyone: boolean; userIds: string[] }; accountId?: string } = {},
-): Promise<AgentDevice & { notice?: string }> {
+): Promise<AgentDevice> {
   const url = requireBackendUrl()
 
   if (accountId && !(await findInstaboxAccount(teamId, accountId)))
@@ -97,7 +92,7 @@ export async function createBox(
     accept = resolve
   })
   const orderedAt = Date.now()
-  const order = {
+  const ordering = Sandbox.create(BOX_TEMPLATE, {
     ...connection,
     // The order's only POST: a 2xx means instabox accepted it.
     fetch: Object.assign(
@@ -114,18 +109,7 @@ export async function createBox(
     metadata: { teamId, deviceId, createdBy: userId },
     vault: false,
     ...size,
-  }
-  let pausesWhenIdle = false
-  // Stays on until paused (instabox's default pauses after 30 idle minutes). A plan that
-  // keeps that pause, as the free one does, refuses this: the order goes again without it.
-  const ordering = Sandbox.create(BOX_TEMPLATE, { ...order, autoSuspendMs: 0 }).catch(
-    (error: unknown) => {
-      if (!(error instanceof InstaboxError && error.code === 'spec_not_allowed')) throw error
-      pausesWhenIdle = true
-
-      return Sandbox.create(BOX_TEMPLATE, order)
-    },
-  )
+  })
   const settingUp = setUp(userId, url, registration, ordering, orderedAt)
   const refused = await Promise.race([
     accepted,
@@ -141,7 +125,7 @@ export async function createBox(
     throw orderRefused(refused.error, Boolean(accountId))
   }
 
-  return pausesWhenIdle ? { ...created, notice: PAUSES_WHEN_IDLE } : created
+  return created
 }
 
 async function setUp(
@@ -165,6 +149,7 @@ async function setUp(
     // Deleted while it was being ordered: the machine must not outlive the row.
     if (!(await setAgentDeviceBoxSandbox(userId, deviceId, sandbox.sandboxId)))
       throw new AppError(409, 'box_gone', 'The Box was deleted while it was being created')
+    await keepOn(userId, deviceId, sandbox)
     const { token } = await issueDeviceJoinToken(userId, {
       label,
       deviceId,
@@ -195,6 +180,17 @@ async function setUp(
     if (issued) await deleteDeviceJoinTokens(deviceId).catch(() => {})
     await discard(userId, registration, sandbox?.sandboxId, error)
   }
+}
+
+/**
+ * Turns off instabox's idle pause (30 minutes by default), so the Box stays on until it is
+ * paused. A plan that keeps the pause, as the free one does, refuses: the Box keeps it, and
+ * a turn or a command wakes it again. Not part of making the Box, so a refusal only logs.
+ */
+async function keepOn(userId: string, deviceId: string, sandbox: Sandbox): Promise<void> {
+  await sandbox.setAutoSuspend(0).catch((error: unknown) => {
+    logError('agent.box.idle_pause_kept', error, { user_id: userId, device_id: deviceId })
+  })
 }
 
 /** Nothing half-made stays: no machine to bill and no row to confuse. */

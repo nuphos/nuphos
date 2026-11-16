@@ -91,11 +91,7 @@ export function useNewBox({
 
     setCreating(true)
     try {
-      const made = await api.boxCreate(...request)
-
-      onCreated(made.deviceId)
-      // What to know about this Box, such as an idle pause its instabox plan keeps.
-      if (made.notice) toast.info(made.notice)
+      onCreated((await api.boxCreate(...request)).deviceId)
 
       return 'created'
     } catch (error) {

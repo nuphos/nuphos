@@ -181,7 +181,7 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
       { vcpus, shared, accountId: c.req.valid('json').instaboxAccountId },
     )
 
-    return c.json({ ...(await viewOrGone(device)), notice: device.notice }, 201)
+    return c.json(await viewOrGone(device), 201)
   })
 
   // The Box's desktop, to watch and take over what its agents do.

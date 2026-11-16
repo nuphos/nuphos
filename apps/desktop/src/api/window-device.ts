@@ -65,7 +65,7 @@ export type WindowDeviceApi = {
     vcpus?: number,
     access?: BoxAccess,
     instaboxAccountId?: string,
-  ): Promise<AgentDevice & { notice?: string }>
+  ): Promise<AgentDevice>
   instaboxAccounts(teamId: string): Promise<InstaboxAccount[]>
   bindInstaboxAccount(teamId: string, label: string, apiKey: string): Promise<InstaboxAccount>
   unbindInstaboxAccount(teamId: string, accountId: string): Promise<void>

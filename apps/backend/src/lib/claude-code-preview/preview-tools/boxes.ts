@@ -170,8 +170,6 @@ export function boxToolModule(
             ...(await view((await getAgentDevice(device.userId, device.deviceId)) ?? device)),
             joined,
             ...(joined ? {} : { note: 'Not joined yet; check list_boxes again shortly.' }),
-            // Tell the person: their plan pauses this Box when idle.
-            ...(device.notice && { notice: device.notice }),
           }
         },
       }),
