@@ -31,7 +31,6 @@ import java.time.Instant
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
-import org.junit.Ignore
 
 /** All HTTP requests are intercepted; no credentials or server are used. */
 @RunWith(AndroidJUnit4::class)
@@ -299,7 +298,7 @@ class HistoryStatusFixtureDeviceTest {
         }
         assertKnownRequests()
     }
-    @Ignore("Fails on a clean emulator in CI, not yet triaged: #1620") @Test fun teamRoundTripRejectsLateListAndResetsReadProgress() {
+    @Test fun teamRoundTripRejectsLateListAndResetsReadProgress() {
         render()
         compose.onNodeWithText("History fixture").performClick(); waitText("Displayed owner transcript")
         compose.waitUntil(5_000) { HistoryStatus.sequence(store.conversations.single().readSeq) == 4L }
@@ -307,11 +306,13 @@ class HistoryStatusFixtureDeviceTest {
         holdNextList = true
         val job = refresh()
         compose.waitUntil(5_000) { listHeld.count == 0L }
-        compose.runOnIdle { store.select(Team("B", "Fixture B")); assertTrue(store.conversations.isEmpty()); assertNull(store.phaseError) }
+        // The fixture answers so fast that withContext(IO) can return without suspending, so the new
+        // team's list may already be shown when select() returns. Only the previous team's rows must be gone.
+        compose.runOnIdle { store.select(Team("B", "Fixture B")); assertTrue(store.conversations.all { it.teamId == "B" }); assertNull(store.phaseError) }
         waitText("Team B history")
         compose.onNodeWithText("History fixture").assertDoesNotExist()
         listTitle = "Returned A history"
-        compose.runOnIdle { store.select(Team("A", "Fixture A")); assertTrue(store.conversations.isEmpty()) }
+        compose.runOnIdle { store.select(Team("A", "Fixture A")); assertTrue(store.conversations.all { it.teamId == "A" && it.title == "Returned A history" }) }
         waitText("Returned A history")
         listRelease.countDown()
         compose.waitUntil(5_000) { job.isCompleted }
