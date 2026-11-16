@@ -1,9 +1,13 @@
+import { randomUUID } from 'node:crypto'
+
 import { Hono } from 'hono'
 
-import { getReadableConversation } from '@/lib/agent/db'
+import { appendConversationMessages, getReadableConversation } from '@/lib/agent/db'
 import { generalAccessOf, generalAccessValues } from '@/lib/agent/db/access'
+import { isBotChat, setConversationArchived } from '@/lib/agent/db/archive'
 import {
   conversationParticipantIds,
+  handOverChannel,
   removeConversationParticipant,
   setGeneralAccess,
 } from '@/lib/agent/db/participants'
@@ -13,6 +17,7 @@ import {
 } from '@/lib/agent/devices/conversation-computer'
 import { addTeamUse } from '@/lib/agent/devices/device-grants'
 import { inviteToConversation } from '@/lib/agent/mentions'
+import { systemSender } from '@/lib/agent/message-metadata'
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 
@@ -183,7 +188,9 @@ conversationParticipantsRoutes.post('/conversations/:sessionId/participants', as
 
 // The invite's mirror image: removing revokes the person's own grant. They keep
 // whatever general access still gives the team. The owner cannot be removed.
-// Anyone may remove themselves: that is leaving, and needs no owner.
+// Anyone may remove themselves: that is leaving, and needs no owner. A group
+// chat's owner may leave too: it passes to whoever joined first, or is archived
+// when nobody else is in it.
 conversationParticipantsRoutes.delete(
   '/conversations/:sessionId/participants/:userId',
   async (c) => {
@@ -199,15 +206,61 @@ conversationParticipantsRoutes.delete(
         : await requireOwnedConversation(sessionId, userId, teamId)
 
     if (!conversation) throw new AppError(404, 'not_found', 'Conversation not found')
-    if (targetId === conversation.userId)
+    const owner = targetId === conversation.userId
+
+    // A Task, a Bot or a Bot's own chat goes with its owner; only a group chat outlives them.
+    if (owner && (conversation.kind !== 'channel' || isBotChat(conversation)))
       throw new AppError(400, 'invalid_request', 'The conversation owner cannot be removed')
-    const updated = await removeConversationParticipant(sessionId, userId, targetId)
+    const updated = owner
+      ? await leaveChannelAsOwner(conversation, teamId)
+      : await removeConversationParticipant(sessionId, userId, targetId)
 
     if (!updated) throw new AppError(404, 'not_found', 'Conversation not found')
 
     return c.json(await serializeAccess(updated, teamId))
   },
 )
+
+/**
+ * A group chat's owner leaves it to whoever joined first, and the chat says so;
+ * alone in it, they archive it.
+ */
+async function leaveChannelAsOwner(
+  channel: AgentConversation,
+  teamId: string,
+): Promise<AgentConversation> {
+  const owner = channel.userId
+  const handed = await handOverChannel(channel)
+
+  if (!handed) {
+    await setConversationArchived(channel.sessionId, true)
+
+    return channel
+  }
+  const names = await buildConversationOwnerMap(teamId, [owner, handed.userId])
+  const name = (id: string) => names.get(id)?.name ?? 'Someone'
+
+  await appendConversationMessages({
+    sessionId: handed.sessionId,
+    userId: handed.userId,
+    teamId,
+    messages: [
+      {
+        id: randomUUID(),
+        role: 'user',
+        parts: [
+          {
+            type: 'text',
+            text: `${name(owner)} left. ${name(handed.userId)} now owns this chat.`,
+          },
+        ],
+        metadata: systemSender('nuphos:chat', 'Nuphos'),
+      },
+    ],
+  })
+
+  return handed
+}
 
 conversationParticipantsRoutes.patch('/conversations/:sessionId/access', async (c) => {
   const sessionId = c.req.param('sessionId')

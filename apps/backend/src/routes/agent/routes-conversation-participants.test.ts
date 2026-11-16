@@ -6,6 +6,7 @@ import { errorHandler } from '@/lib/errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
+import { useTokenRevocation } from '@/lib/test/doubles/token-revocation'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import type { AgentConversation } from '@/lib/agent/db'
@@ -23,14 +24,26 @@ const MEMBERS = [OWNER, TEAMMATE, INVITEE]
 let viewer = OWNER
 let conversation: AgentConversation | null
 let memory = portabilityDb()
+// What the server posted into the chat itself, and as whose chat.
+let notices: { userId: string; text: string }[] = []
 
-useDb({ db: (() => memory) as unknown as typeof dbActual.db })
+useDb({
+  db: (() => memory) as unknown as typeof dbActual.db,
+  // One write at a time here, so a transaction is just its body.
+  withTransaction: async (body) => body({} as never),
+})
+useTokenRevocation({ revokeSessionTokens: async () => {} })
 useAgentDb({
   // The route reads the doc through the viewer-scoped helper, so a viewer who
   // may not see the conversation gets null here rather than a filtered doc.
   getReadableConversation: async (_sessionId, viewerUserId, teamId) =>
     teamId && MEMBERS.includes(viewerUserId) ? conversation : null,
   getConversationBySessionId: async () => conversation,
+  appendConversationMessages: async ({ userId, messages }) => {
+    notices.push({ userId, text: (messages[0]?.parts[0] as { text: string }).text })
+
+    return true
+  },
 })
 useIdentity({
   getTeamMembership: async (userId, teamId) =>
@@ -97,6 +110,7 @@ async function patch(path: string, body: Record<string, unknown>) {
 
 beforeEach(() => {
   viewer = OWNER
+  notices = []
   memory = portabilityDb()
   conversation = {
     sessionId: 'shared',
@@ -221,6 +235,37 @@ describe('conversation participants API', () => {
     expect((await remove(TEAMMATE)).status).toBe(403)
     expect((await remove(OUTSIDER)).status).toBe(403)
     expect(participantIds()).toEqual([TEAMMATE, INVITEE])
+  })
+
+  test("a group chat's owner leaves it to whoever joined first, with its posts", async () => {
+    Object.assign(conversation!, { kind: 'channel', group: true })
+    await invite([INVITEE])
+    memory.rows('agent_messages').push({ sessionId: 'shared', userId: OWNER, index: 0 })
+
+    expect((await remove(OWNER)).status).toBe(200)
+    expect(conversation?.userId).toBe(TEAMMATE)
+    expect(participantIds()).toEqual([INVITEE])
+    expect(memory.rows('agent_messages').map((post) => post.userId)).toEqual([TEAMMATE])
+    expect(conversation?.timelineEvents?.at(-1)).toMatchObject({
+      kind: 'participant_removed',
+      actorId: OWNER,
+      targetId: OWNER,
+    })
+    expect(conversation?.archivedAt).toBeUndefined()
+    // Everyone left in it reads who owns it now.
+    expect(notices).toEqual([
+      { userId: TEAMMATE, text: 'owner-user name left. teammate-user name now owns this chat.' },
+    ])
+  })
+
+  test("a group chat's owner alone in it archives it by leaving; a Bot's chat keeps its owner", async () => {
+    Object.assign(conversation!, { kind: 'channel', participantIds: [], agentSessionIds: ['bot'] })
+    expect((await remove(OWNER)).status).toBe(400)
+    Object.assign(conversation!, { group: true })
+    expect((await remove(OWNER)).status).toBe(200)
+    expect(conversation?.userId).toBe(OWNER)
+    expect(conversation?.archivedAt).toBeInstanceOf(Date)
+    expect(notices).toEqual([])
   })
 
   test('a participant leaves on their own, and the timeline says they left', async () => {

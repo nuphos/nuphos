@@ -15,12 +15,7 @@ test('an agent shared with the viewer is read only, and archivable only when man
   })
 })
 
-test('a group chat is left by a member and kept whole for its owner', () => {
-  assert.deepEqual(chatRowAccess({ kind: 'channel', isOwner: false }), { joinedChat: true })
-  assert.deepEqual(chatRowAccess({ kind: 'channel', isOwner: true }), {})
-})
-
-test('a row without ownership data is left as it was', () => {
+test('a channel and a row without ownership data are left as they were', () => {
+  assert.deepEqual(chatRowAccess({ kind: 'channel', isOwner: false }), {})
   assert.deepEqual(chatRowAccess({}), {})
-  assert.deepEqual(chatRowAccess({ kind: 'channel' }), {})
 })
