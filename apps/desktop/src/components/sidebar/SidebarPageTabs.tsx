@@ -42,9 +42,19 @@ export function SidebarPageTabs({
       onPage(next)
     }
 
+    const unsubscribe = window.api?.onAppShortcut?.((action) => {
+      const match = /^select-sidebar-tab-([1-3])$/.exec(action)
+
+      if (!match || document.querySelector('[aria-modal="true"]')) return
+      onPage(order[Number(match[1]) - 1])
+    })
+
     window.addEventListener('keydown', onKeyDown)
 
-    return () => window.removeEventListener('keydown', onKeyDown)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      unsubscribe?.()
+    }
   }, [order, onPage])
   const bounds = useRef<HTMLDivElement>(null)
   const hintId = useId()
