@@ -1,7 +1,7 @@
 // The instabox connection shared by the Box provider: the deployment's key,
 // bounded timeouts, and the commands a fresh machine runs.
 
-import { InstaboxError } from '@insforge/instabox-sdk'
+import { InstaboxAuthError, InstaboxError, InstaboxQuotaError } from '@insforge/instabox-sdk'
 
 import { config } from '@/config'
 import { AppError } from '@/lib/errors'
@@ -151,6 +151,33 @@ export function unavailable(what: string, error: unknown): AppError {
   logError('agent.box.instabox_failed', error, { what })
 
   return new AppError(503, 'box_unavailable', `${what}. Try again in a few minutes.`)
+}
+
+/**
+ * Why instabox did not make a Box, in words for whoever asked. Its own text can name the
+ * account and its owner, so it stays in the server log. The deployment's account is
+ * Nuphos's to fix, so only a team's own account gets the 4xx that asks the team to act.
+ */
+export function orderRefused(error: unknown, ownAccount: boolean): AppError {
+  if (error instanceof AppError) return error
+  if (ownAccount && error instanceof InstaboxQuotaError)
+    return new AppError(
+      409,
+      'instabox_quota_exceeded',
+      'Your instabox account has reached its limit of Boxes. Delete a Box there or upgrade its plan, then try again.',
+    )
+  if (ownAccount && error instanceof InstaboxAuthError)
+    return new AppError(
+      409,
+      'instabox_key_rejected',
+      'Your instabox account no longer accepts its API key. A team administrator can bind the account again with a new key under Settings → Integrations.',
+    )
+
+  return new AppError(
+    503,
+    'box_unavailable',
+    'instabox could not make the Box. Try again in a few minutes.',
+  )
 }
 
 /**
