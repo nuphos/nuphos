@@ -1,12 +1,14 @@
-import Foundation
+import SwiftUI
 
 enum ComposerReturnTests {
     static func run() {
-        expect(.on(modified: false, composing: false), .send, "Return")
-        expect(.on(modified: true, composing: false), .textView, "Shift-Return")
+        expect(.on([], composing: false), .send, "Return")
+        expect(.on(.shift, composing: false), .textView, "Shift-Return")
         // An input method's candidate is committed, never sent or dropped.
-        expect(.on(modified: false, composing: true), .textView, "Return while composing")
-        expect(.on(modified: true, composing: true), .textView, "Shift-Return while composing")
+        expect(.on([], composing: true), .textView, "Return while composing")
+        expect(.on(.shift, composing: true), .textView, "Shift-Return while composing")
+        expect(.on(.capsLock, composing: false), .send, "Return with Caps Lock on")
+        expect(.on(.numericPad, composing: false), .send, "Enter on the numeric keypad")
         print("Composer Return passed")
     }
 

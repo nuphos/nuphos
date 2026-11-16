@@ -1,4 +1,4 @@
-import Foundation
+import SwiftUI
 
 /// What Return on a hardware keyboard does in the composer, as in Messages on
 /// iPad (#2154). The on-screen keyboard's Return never arrives as a key press:
@@ -11,7 +11,9 @@ enum ComposerReturn: Equatable {
     /// typed is lost.
     case textView
 
-    static func on(modified: Bool, composing: Bool) -> ComposerReturn {
-        modified || composing ? .textView : .send
+    /// Caps Lock and the numeric keypad's Enter are not held modifiers, so
+    /// they still send.
+    static func on(_ modifiers: EventModifiers, composing: Bool) -> ComposerReturn {
+        composing || !modifiers.isDisjoint(with: [.shift, .control, .option, .command]) ? .textView : .send
     }
 }

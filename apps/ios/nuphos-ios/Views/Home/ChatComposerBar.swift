@@ -255,10 +255,12 @@ struct ChatComposerBar<Controls: View>: View {
     /// A text view, not a vertical text field: a text field ends editing on
     /// a hardware keyboard's Return, which also threw away what an input
     /// method had not committed yet (#2154). A text view leaves Return to the
-    /// input method. The hidden text sizes it, from one line to eight.
+    /// input method. The hidden text sizes it, from one line to eight; the
+    /// trailing space keeps an empty draft one line tall and counts a final
+    /// line break as a line.
     private var field: some View {
         ZStack(alignment: .topLeading) {
-            Text(text.isEmpty ? " " : text)
+            Text(text + " ")
                 .lineLimit(1...8)
                 .padding(Self.textInset)
                 .hidden()
@@ -275,7 +277,7 @@ struct ChatComposerBar<Controls: View>: View {
                 .focused($focused)
                 .accessibilityLabel(Text(prompt))
                 .onKeyPress(.return, phases: .down) { press in
-                    guard ComposerReturn.on(modified: !press.modifiers.isEmpty, composing: composing) == .send
+                    guard ComposerReturn.on(press.modifiers, composing: composing) == .send
                     else { return .ignored }
                     send(keepingFocus: true)
                     return .handled
