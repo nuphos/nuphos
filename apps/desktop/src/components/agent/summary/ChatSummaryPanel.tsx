@@ -268,7 +268,7 @@ function SummaryBody({
               <p className="text-main">{t('Nothing here yet')}</p>
               <p className="text-tertiary">
                 {t(
-                  'Pull requests, sub-agents and files from this agent appear here after its first reply.',
+                  'Pull requests, sub-agents and files from this task appear here after its first reply.',
                 )}
               </p>
             </div>

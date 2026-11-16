@@ -42,7 +42,7 @@ export function modelHint(
     return t('This runtime is offline. Model settings return when it reconnects.')
   if (busy) return t('Changes apply after this reply.')
   if (status === 'dormant' && !hasModel && !hasSettings)
-    return t('Send a message to start this agent before changing model settings.')
+    return t('Send a message to start this task before changing model settings.')
 }
 
 /** The composer around a chip: the nearest ancestor holding its message box. */
