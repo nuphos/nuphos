@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import {
   applyTranscriptTail,
+  openReplyExplainsFailure,
   startUserTurn,
   updateCurrentAssistantParts,
 } from './turnBoundaries.ts'
@@ -252,4 +253,19 @@ test('a transcript tail that does not meet the loaded history is ignored', () =>
   assert.equal(applyTranscriptTail(current, 'run-2', [approval], 13), current)
   assert.equal(applyTranscriptTail(current, 'other-run', [approval], 12), current)
   assert.equal(applyTranscriptTail(current, 'run-2', [approval], 12).messages.length, 3)
+})
+
+test('only an open reply that carries its failure notice explains a failed turn', () => {
+  const notice = { type: 'turn-interrupted', reason: 'error', message: 'Usage limit' } as Part
+  const user = { id: 'u', role: 'user', parts: [{ type: 'text', text: 'hi' }] } as Message
+  const reply = (parts: Part[]) => ({ id: 'a', role: 'assistant', parts }) as Message
+
+  assert.equal(openReplyExplainsFailure([user, reply([notice])]), true)
+  assert.equal(
+    openReplyExplainsFailure([user, reply([{ type: 'text', text: 'partial' } as Part])]),
+    false,
+  )
+  // A failure before any reply part: the notice of an earlier turn does not explain it.
+  assert.equal(openReplyExplainsFailure([reply([notice]), user]), false)
+  assert.equal(openReplyExplainsFailure([]), false)
 })
