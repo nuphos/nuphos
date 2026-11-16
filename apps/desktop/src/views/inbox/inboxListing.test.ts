@@ -59,3 +59,28 @@ test('a question asked while a listing is loading is read once that listing land
   stop()
   client.clear()
 })
+
+test("a listing still loading for the team left behind does not hold back the shown team's", async () => {
+  const client = createQueryClient()
+  const stuck = Promise.withResolvers<Page>()
+
+  pages.push(stuck.promise)
+  const left = new QueryObserver(client, inboxListingQuery('left'))
+  const stopLeft = left.subscribe(() => {})
+
+  reloadListings(client)
+  pages.push(Promise.resolve(page('first')))
+  const shown = new QueryObserver(client, inboxListingQuery('shown'))
+  const stop = shown.subscribe(() => {})
+
+  await new Promise((resolve) => setImmediate(resolve))
+  pages.push(Promise.resolve(page('asked')))
+  reloadListings(client)
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.equal(shown.getCurrentResult().data?.[0]?.sessionId, 'asked')
+  stopLeft()
+  stop()
+  stuck.resolve(page('left'))
+  await new Promise((resolve) => setImmediate(resolve))
+  client.clear()
+})
