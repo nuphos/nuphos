@@ -41,6 +41,8 @@ const scenarios: Scenario[] = [
       await until('the setup prompt to reach the agent', async () =>
         agentEvents(stack).includes('finish E2E_DELIVERY:missing'),
       )
+      // Back where a new team starts, for the scenarios that follow.
+      await page.getByRole('tab', { name: 'Bots' }).click()
     },
   },
   {
