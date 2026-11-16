@@ -27,6 +27,8 @@ struct BotQuestionCard: View {
     @State private var typing = false
     @State private var words = ""
     @State private var session: ChatSession?
+    /// The secret was sent: nothing is left to skip while the listing catches up.
+    @State private var saved = false
     @FocusState private var focused: Bool
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.openURL) private var openURL
@@ -64,8 +66,8 @@ struct BotQuestionCard: View {
             }
             // Whether the viewer may send it is known once the conversation loads.
             if let session, session.loaded {
-                SecretCard(part: part, reply: nil, session: session)
-                HStack(spacing: 8) { Color.clear.frame(maxWidth: .infinity); skip }
+                SecretCard(part: part, reply: nil, session: session) { saved = true }
+                if !saved { HStack(spacing: 8) { Color.clear.frame(maxWidth: .infinity); skip } }
             }
         }
         .frame(maxWidth: wide ? 640 : nil, alignment: .leading)

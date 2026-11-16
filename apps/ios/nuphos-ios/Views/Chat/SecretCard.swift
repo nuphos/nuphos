@@ -8,6 +8,8 @@ struct SecretCard: View {
     /// The first reply after the question, once there is one.
     var reply: String?
     let session: ChatSession
+    /// The value reached the runtime from this card.
+    var onSaved: (() -> Void)?
 
     private enum Phase { case idle, saving, sent, failed(String) }
 
@@ -103,6 +105,7 @@ struct SecretCard: View {
                 try await session.provideSecret(secret, for: part)
                 value = ""
                 phase = .sent
+                onSaved?()
             } catch {
                 phase = .failed(String(localized: "Could not save it on the task's runtime: \(error.localizedDescription)"))
             }

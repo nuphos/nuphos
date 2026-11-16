@@ -229,6 +229,7 @@ final class InboxUITests: XCTestCase {
         app.buttons["Send securely"].tap()
         XCTAssertTrue(app.staticTexts["DEPLOY_TOKEN saved on the task's runtime."].waitForExistence(timeout: 10),
                       "The secret was not saved on the conversation that asked")
+        XCTAssertFalse(app.buttons["Skip"].exists, "A saved secret can still be skipped")
         XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "fixture-value")).firstMatch.exists,
                        "The value shows in the chat")
         shot("17-bot-chat-secret-saved")
