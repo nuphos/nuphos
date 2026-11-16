@@ -6,6 +6,7 @@ import { createInterface } from 'node:readline'
 
 import { nuphosApplyRuntimeDefaults } from '../../apps/runtime/image/runtime-defaults.mjs'
 
+import { answerChannel } from './fixture-channel.mjs'
 import { applySetting } from './fixture-settings.mjs'
 
 const send = (message) =>
@@ -163,9 +164,7 @@ async function prompt({ sessionId, prompt: parts }) {
   // A Bot is woken by its chat's posts and answers there, as only channel_post can.
   const channelId = /\(channelId ([^)]+)\)/.exec(text)?.[1]
 
-  if (channelId) {
-    await call(sessionId, 'channel_post', { label: 'Answer', channelId, text: `POSTED ${marker}` })
-  }
+  if (channelId) await answerChannel({ call, log, sessionId, channelId, text })
   // The thread's own prompt can carry its parent's words; only the parent starts one.
   if (text.includes('E2E_THREAD') && !text.includes('E2E_PERMISSION')) {
     await startThread(sessionId, marker)

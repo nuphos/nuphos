@@ -6,7 +6,7 @@ import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
 
-import { reconnecting, reportUndelivered, runTurn } from './conversation-turn'
+import { reportUndelivered, runTurn } from './conversation-turn'
 import { getConversationBySessionId } from './db'
 import { canReplyIn } from './devices/conversation-computer'
 import { listPendingUserMessages, queueHead, takePendingUserMessages } from './pending-queue'
@@ -17,6 +17,7 @@ import {
   sessionReleased,
 } from './session-released'
 import { openSignInRequest, releaseWhenAskLapses } from './sign-in-request'
+import { reconnecting } from './turn-offline'
 import { turnRunner } from './turn-runner'
 
 import type { AgentConversation } from './db'
