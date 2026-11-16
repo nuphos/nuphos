@@ -850,7 +850,6 @@ struct EventLine: View {
                         .background(Theme.heading.opacity(0.06), in: Capsule())
                         .fixedSize()
                 }
-                Spacer(minLength: 0)
                 Image(systemName: "arrow.up.right")
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(Theme.muted)
