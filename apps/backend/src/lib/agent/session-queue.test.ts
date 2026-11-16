@@ -595,7 +595,8 @@ test('with Redis, the backstop finds a waiting queue without scanning the keyspa
       return 1
     },
     lrange: async (key: string) => lists.get(key) ?? [],
-    pipeline: () => {
+    // Synchronous, like ioredis: commands queue on it until exec().
+    pipeline: (() => {
       const reads: string[] = []
       const write = {
         lrange: (key: string) => (reads.push(key), write),
@@ -603,7 +604,7 @@ test('with Redis, the backstop finds a waiting queue without scanning the keyspa
       }
 
       return write
-    },
+    }) as never,
     exists: async (key: string) => (lists.has(key) ? 1 : 0),
     del: async (key: string) => Number(lists.delete(key)),
     sadd: async (key: string, ...values: string[]) => values.map((v) => members(key).add(v)),
