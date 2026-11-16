@@ -416,6 +416,35 @@ describe('reclaimSessionHomes', () => {
       expect(row.sessionHomeReclaimedAt).toBeUndefined()
     })
 
+    // A move to an agent on another computer leaves the old home on the Box.
+    const moved = (to: string) =>
+      conversation({
+        archivedAt: undefined,
+        runtimeId: to,
+        runtimeMigration: {
+          fromRuntimeId: LOCAL,
+          toRuntimeId: to,
+          movedAt: archivedAt,
+          movedBy: 'owner',
+        },
+      })
+
+    test('reclaims the home a moved conversation left on its old Box', async () => {
+      const row = moved('local_owner_laptop')
+
+      expect(await reclaimSessionHomes(now)).toBe(1)
+      expect(row.sessionHomeReclaimedAt).toEqual(now)
+      expect(runs.map((run) => run.sandboxId)).toEqual(['m_box'])
+    })
+
+    test('a move between agents on one Box reclaims nothing: the new agent uses that home', async () => {
+      const row = moved(`${LOCAL}_codex`)
+
+      expect(await reclaimSessionHomes(now)).toBe(1)
+      expect(row.sessionHomeReclaimedAt).toEqual(now)
+      expect(runs).toEqual([])
+    })
+
     test('retries while the Box is not running', async () => {
       report = undefined
       const row = conversation({})
