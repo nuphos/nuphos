@@ -128,7 +128,7 @@ export function InstructionsSection({
       <ConfirmDialog
         open={deleting !== null}
         title={t('Delete instruction')}
-        description={t('Delete “{title}”? New tasks will stop receiving it.', {
+        description={t('Delete “{title}”? New agents will stop receiving it.', {
           title: deleting?.title ?? '',
         })}
         confirmLabel={t('Delete')}
