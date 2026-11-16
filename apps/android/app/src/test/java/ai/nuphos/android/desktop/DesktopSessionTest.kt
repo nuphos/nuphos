@@ -51,14 +51,16 @@ class DesktopSessionTest {
         val scope=CoroutineScope(SupervisorJob()+Dispatchers.Default)
         try {
             val seen=errorWhenFailed(DesktopSession("synthetic","team","chat",scope,{true},OkHttpClient(),"http://127.0.0.1:${server.address.port}"))
-            assertEquals(1,seen.size);assertNotNull("Failed was shown before its error",seen.single())
+            assertEquals("Failed was never observed",1,seen.size)
+            assertNotNull("Failed was shown before its error",seen.single())
         } finally {scope.cancel();server.stop(0)}
     }
     @Test fun anUnreachableDesktopIsNeverFailedWithoutItsError() {
         val scope=CoroutineScope(SupervisorJob()+Dispatchers.Default)
         try {
             val seen=errorWhenFailed(DesktopSession("synthetic","team","chat",scope,{true},OkHttpClient(),"http://127.0.0.1:1",DesktopTiming(maxFailures=1)))
-            assertEquals(1,seen.size);assertNotNull("Failed was shown before its error",seen.single())
+            assertEquals("Failed was never observed",1,seen.size)
+            assertNotNull("Failed was shown before its error",seen.single())
         } finally {scope.cancel()}
     }
     @Test fun backendRefusalIsVisibleAndDoesNotRetryOrControl()=runBlocking {
