@@ -5,7 +5,12 @@ import { config } from '@/config'
 import { withRedis } from '@/lib/redis'
 
 import { TRANSCRIPT_SOURCES } from './pending-message-types'
-import { localQueues, pendingKey } from './pending-messages'
+import {
+  indexQueuedSession,
+  localQueues,
+  pendingKey,
+  QUEUED_SESSIONS_KEY,
+} from './pending-messages'
 
 import type { PendingUserMessage } from './pending-message-types'
 import type { Redis } from 'ioredis'
@@ -167,6 +172,7 @@ export async function requeuePendingAtHead(
   const raws = [...messages].reverse().map((message) => JSON.stringify(message))
 
   await tryRedis((c) => c.lpush(key, ...raws))
+  await indexQueuedSession(userId, sessionId)
 }
 
 /**
@@ -198,14 +204,25 @@ const PENDING_PREFIX = 'atlas:agentrun-pending:'
 export async function scanQueuedSessions(
   cursor: string,
 ): Promise<{ cursor: string; sessions: { userId: string; sessionId: string }[] }> {
-  const local = [...localQueues.keys()]
-  const page = await tryRedis((c) => c.scan(cursor, 'MATCH', `${PENDING_PREFIX}*`, 'COUNT', 200))
-  const keys = [...(cursor === '0' ? local : []), ...(page?.[1] ?? [])]
-  const sessions = keys.flatMap((key) => {
-    const [userId, ...rest] = key.slice(PENDING_PREFIX.length).split(':')
+  const local = [...localQueues.keys()].map((key) => key.slice(PENDING_PREFIX.length))
+  const page = await tryRedis((c) => c.sscan(QUEUED_SESSIONS_KEY, cursor, 'COUNT', 200))
+  const sessions: { userId: string; sessionId: string }[] = []
 
-    return userId && rest.length > 0 ? [{ userId, sessionId: rest.join(':') }] : []
-  })
+  for (const member of [...(cursor === '0' ? local : []), ...(page?.[1] ?? [])]) {
+    const [userId, ...rest] = member.split(':')
+    const sessionId = rest.join(':')
+
+    if (!userId || !sessionId) continue
+    const key = pendingKey(userId, sessionId)
+
+    if (!localQueues.has(key) && (await tryRedis((c) => c.exists(key))) === 0) {
+      await tryRedis((c) => c.srem(QUEUED_SESSIONS_KEY, member))
+      // A queue stored between the two reads keeps its place.
+      if ((await tryRedis((c) => c.exists(key))) === 1) await indexQueuedSession(userId, sessionId)
+      continue
+    }
+    sessions.push({ userId, sessionId })
+  }
 
   return { cursor: page?.[0] ?? '0', sessions }
 }
