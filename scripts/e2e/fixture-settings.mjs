@@ -7,7 +7,7 @@ const first = process.env.E2E_AGENT === 'first'
 const models = first ? [...shared, 'fixture-large'] : shared
 // The first agent also offers Claude Code's "Default", which names the model it stands for
 // and is a session's model until someone picks one.
-const standIn = { value: 'default', name: 'Default (recommended)', description: 'fixture-small' }
+const standIn = { value: 'default', name: 'Default (recommended)', description: 'fixture' }
 const newSettings = () => [
   {
     id: 'model',
