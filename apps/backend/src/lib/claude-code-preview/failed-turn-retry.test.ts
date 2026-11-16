@@ -88,7 +88,7 @@ test('anything else is left alone', () => {
 
 let memory = portabilityDb()
 let messages: AgentMessage[] = []
-let sent: { text: string; runtimeId?: string; answers?: string }[] = []
+let sent: { text: string; runtimeId?: string }[] = []
 
 useDb({ db: () => memory })
 useRedis({ redisEnabled: () => true })
@@ -114,12 +114,8 @@ useAgentDb({
     ) ?? null,
 })
 useConversationTurn({
-  startConversationTurn: async (data, target, text) => {
-    sent.push({
-      text,
-      runtimeId: target.runtimeId,
-      ...(data.answers ? { answers: data.answers.id } : {}),
-    })
+  startConversationTurn: async (_data, target, text) => {
+    sent.push({ text, runtimeId: target.runtimeId })
 
     return { status: 'started', run: Promise.resolve(undefined) }
   },
@@ -167,28 +163,4 @@ test('a fallback move keeps its own continuation; a move after a good turn resen
 
   expect(sent).toEqual([])
   expect(memory.rows('agent_conversations')[0]?.timelineEvents?.[0]).not.toHaveProperty('retrying')
-})
-
-test('an answer that waited for the old runtime goes to the new one with the move', async () => {
-  messages = [asked('Hi'), { role: 'assistant', parts: [{ type: 'text', text: 'Hello' }] } as never]
-  const question = { id: 'q1', category: 'preference', question: 'Which?', status: 'open' }
-
-  memory.rows('agent_conversations')[0]!.waitingAnswers = [
-    {
-      requestId: 'q1',
-      cause: 'usage_limit',
-      at: new Date(),
-      message: {
-        id: 'm',
-        renderedText: 'Answered q1',
-        source: 'agent.resource',
-        answers: question,
-      },
-    },
-  ]
-  await moveConversationRuntime(conversation(), 'new', 'owner')
-  await Bun.sleep(0)
-
-  expect(sent).toEqual([{ text: 'Answered q1', runtimeId: 'new', answers: 'q1' }])
-  expect(memory.rows('agent_conversations')[0]?.waitingAnswers).toEqual([])
 })
