@@ -67,6 +67,7 @@ export class RuntimeTunnelClient {
       status: {
         ...this.deps.status(),
         agentInstances: Boolean(this.deps.instances),
+        agentReset: Boolean(this.deps.instances),
         localMetrics: Boolean(this.deps.sampleMetrics),
         localExec: Boolean(this.deps.connectExec),
         localUpload: Boolean(this.deps.connectUpload),
