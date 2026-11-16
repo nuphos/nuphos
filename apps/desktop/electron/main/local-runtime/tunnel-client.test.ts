@@ -275,6 +275,7 @@ test('a takeover by another app on this computer asks back until that app is gon
 test('a revoked computer stops redialing and says so once', (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] })
   let revoked = 0
+  const changes: [boolean, boolean, boolean | undefined][] = []
   const backends: FakeSocket[] = []
   const client = new RuntimeTunnelClient({
     connectBackend: () => {
@@ -287,6 +288,8 @@ test('a revoked computer stops redialing and says so once', (t) => {
     connectRuntime: () => null,
     status: () => ({ agents: {} }),
     onRevoked: () => revoked++,
+    onChange: (connected, superseded, wasRevoked) =>
+      changes.push([connected, superseded, wasRevoked]),
   })
 
   client.start()
@@ -296,6 +299,8 @@ test('a revoked computer stops redialing and says so once', (t) => {
 
   assert.equal(revoked, 1)
   assert.equal(backends.length, 1)
+  // The app shows why it stays down, not that it is reconnecting.
+  assert.deepEqual(changes.at(-1), [false, false, true])
 })
 
 test('stopping drops every stream and the socket', () => {
