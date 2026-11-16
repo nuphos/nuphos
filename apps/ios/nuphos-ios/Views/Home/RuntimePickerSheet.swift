@@ -283,7 +283,7 @@ struct ModelSettingsSheet: View {
             Group {
                 if let config, !config.options.isEmpty {
                     List {
-                        if let hint = session?.pendingModelSettings.isEmpty == false ? "Changes apply after this reply." : config.hint {
+                        if let hint = session?.pendingModelSettings.isEmpty == false ? String(localized: "Changes apply after this reply.") : config.hint {
                             Text(hint).font(.system(size: 13)).foregroundStyle(Theme.muted).listRowBackground(Color.clear)
                         }
                         if let error {
@@ -357,7 +357,7 @@ private struct QuotaLine: View {
         if let window = quota.tightest {
             HStack(spacing: 6) {
                 QuotaGauge(window: window).frame(width: 44)
-                Text([window.leftPercent == 0 ? "Limit reached" : "\(window.leftPercent)% left", reset(window.resetsAt)].compactMap(\.self).joined(separator: " · "))
+                Text([window.leftPercent == 0 ? String(localized: "Limit reached") : String(localized: "\(window.leftPercent)% left"), reset(window.resetsAt)].compactMap(\.self).joined(separator: " · "))
                     .font(.system(size: 12))
                     .monospacedDigit()
                     .foregroundStyle(window.labelTint ?? Theme.muted)
@@ -374,9 +374,9 @@ private struct QuotaLine: View {
         guard let date, date > .now else { return nil }
         let minutes = Int(date.timeIntervalSinceNow / 60)
         if minutes < 24 * 60 {
-            return minutes < 60 ? "resets in \(max(1, minutes))m" : "resets in \(minutes / 60)h \(minutes % 60)m"
+            return minutes < 60 ? String(localized: "resets in \(max(1, minutes))m") : String(localized: "resets in \(minutes / 60)h \(minutes % 60)m")
         }
-        return "resets " + date.formatted(.dateTime.weekday(.abbreviated).hour().minute())
+        return String(localized: "resets \(date.formatted(.dateTime.weekday(.abbreviated).hour().minute()))")
     }
 }
 

@@ -135,17 +135,17 @@ private struct AgentSignInInstructions: View {
     }
 
     private var title: String {
-        guard let local = runtime.local else { return "Ask an administrator to sign in" }
-        return teammate ? "Ask its owner to sign in" : "Sign in on \(local.deviceLabel)"
+        guard let local = runtime.local else { return String(localized: "Ask an administrator to sign in") }
+        return teammate ? String(localized: "Ask its owner to sign in") : String(localized: "Sign in on \(local.deviceLabel)")
     }
 
     /// The Runtimes page is in Nuphos on a computer, not in this app.
     private var steps: String {
         guard let local = runtime.local else {
-            return "A workspace administrator can sign it in from the Runtimes page in Nuphos on their computer."
+            return String(localized: "A workspace administrator can sign it in from the Runtimes page in Nuphos on their computer.")
         }
         return teammate
-            ? "\(local.deviceLabel) belongs to a teammate, so only they can sign it in. Ask them to open Nuphos on it and choose Sign in on the Runtimes page."
-            : "On \(local.deviceLabel), open Nuphos, go to the Runtimes page and choose Sign in for this runtime."
+            ? String(localized: "\(local.deviceLabel) belongs to a teammate, so only they can sign it in. Ask them to open Nuphos on it and choose Sign in on the Runtimes page.")
+            : String(localized: "On \(local.deviceLabel), open Nuphos, go to the Runtimes page and choose Sign in for this runtime.")
     }
 }

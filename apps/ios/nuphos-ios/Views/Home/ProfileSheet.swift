@@ -187,7 +187,7 @@ struct ProfileSheet: View {
 }
 
 private struct InfoRow: View {
-    let label: String
+    let label: LocalizedStringKey
     let value: String
     var monospaced = false
 
@@ -255,7 +255,7 @@ private struct EditProfileSheet: View {
                     Task {
                         guard let data = try? await item.loadTransferable(type: Data.self),
                               let image = ImageAttachment.avatar(from: data) else {
-                            error = "This image could not be read."
+                            error = String(localized: "This image could not be read.")
                             return
                         }
                         setAvatar(image)

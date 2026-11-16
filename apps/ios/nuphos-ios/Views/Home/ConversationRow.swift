@@ -66,7 +66,7 @@ struct ConversationRow: View {
             } else if observation?.paused == true {
                 Image(systemName: "exclamationmark.circle")
                     .foregroundStyle(Theme.muted)
-                    .accessibilityLabel(observation?.status ?? "Automatic continuation paused")
+                    .accessibilityLabel(observation?.status ?? String(localized: "Automatic continuation paused"))
             }
         }
         .padding(.vertical, 6)
@@ -75,7 +75,7 @@ struct ConversationRow: View {
 
     private var meta: String {
         let status = [.turn, .background].contains(indicator) || observation?.paused == true
-        var parts = [status ? (observation?.status ?? "Working…") : HistoryTime.format(conversation.lastActiveAt)]
+        var parts = [status ? (observation?.status ?? String(localized: "Working…")) : HistoryTime.format(conversation.lastActiveAt)]
         if let origin = conversation.activitySource?.origin, origin != "nuphos", origin != "unknown" {
             parts.append(origin.capitalized)
         }

@@ -7,7 +7,7 @@ struct CredentialPickerSheet: View {
     @Binding var selection: CredentialSelection
     var scope: CredentialScope = .credentials
 
-    private var title: String { scope == .devices ? "Computers" : "Credentials" }
+    private var title: String { scope == .devices ? String(localized: "Computers") : String(localized: "Credentials") }
     private var symbol: String { scope == .devices ? "laptopcomputer" : "key" }
     private var catalog: CredentialCatalog? { store.credentialCatalog?.scoped(to: scope) }
 
@@ -16,7 +16,7 @@ struct CredentialPickerSheet: View {
             Group {
                 if let catalog {
                     if catalog.isEmpty {
-                        ContentUnavailableView(scope == .devices ? "No computers connected" : "No \(title) connected", systemImage: symbol, description: Text(scope == .devices ? "Connect a computer to your team in Nuphos to use it here." : "Connect cloud accounts and integrations in Nuphos to use them here."))
+                        ContentUnavailableView(scope == .devices ? "No computers connected" : "No credentials connected", systemImage: symbol, description: Text(scope == .devices ? "Connect a computer to your team in Nuphos to use it here." : "Connect cloud accounts and integrations in Nuphos to use them here."))
                     } else {
                         List {
                             ForEach(catalog.sections, id: \.provider.id) { section in
@@ -207,8 +207,8 @@ struct ComposerControls: View {
 
     private var runtimeTitle: String {
         guard let runtime = store.newConversationRuntime else {
-            if store.selectedRuntimeUnavailable { return "Choose runtime" }
-            return store.runtimesLoaded ? "Runtime" : "Runtime…"
+            if store.selectedRuntimeUnavailable { return String(localized: "Choose runtime") }
+            return store.runtimesLoaded ? String(localized: "Runtime") : String(localized: "Runtime…")
         }
         return SelectorBox.agentName(runtime)
     }
@@ -220,7 +220,7 @@ struct ComposerControls: View {
             return SelectorBox.agentName(runtime)
         }
         // Gone from the list: the chip still opens the picker, which is how the conversation moves.
-        return session.runtimeDisplayName ?? "Choose runtime"
+        return session.runtimeDisplayName ?? String(localized: "Choose runtime")
     }
 
     private func modelTitle(_ session: ChatSession) -> String {
@@ -229,12 +229,12 @@ struct ComposerControls: View {
 
     private var deviceTitle: String {
         let n = selection.count(in: .devices)
-        return n == 0 ? "Computers" : "Computers · \(n)"
+        return n == 0 ? String(localized: "Computers") : String(localized: "Computers · \(n)")
     }
 
     private var credentialsTitle: String {
         let n = selection.count(in: .credentials)
-        return n == 0 ? "Credentials" : "Credentials · \(n)"
+        return n == 0 ? String(localized: "Credentials") : String(localized: "Credentials · \(n)")
     }
 }
 
