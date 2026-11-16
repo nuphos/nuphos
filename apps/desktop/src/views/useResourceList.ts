@@ -1,15 +1,23 @@
-import { useEffect, useRef, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 
-import { toast } from '../components/ui/toast'
-import { useReportLoading } from '../components/useReportLoading'
+import { toast } from '../components/ui/toast.ts'
+import { useSilentTick } from '../hooks/useSilentRefresh.ts'
 import { t } from '../i18n/index.ts'
-import { reportFrontendError } from '../lib/frontendErrorReporter'
-import { readCachedResourceList } from '../lib/resourceListCache'
+import { reportFrontendError } from '../lib/frontendErrorReporter.ts'
+import { queryKeys } from '../lib/query/keys.ts'
+import { useRefreshKey } from '../lib/query/tabQuery.ts'
+import { readCachedResourceList } from '../lib/resourceListCache.ts'
 
-import { useResetOnKey } from './useResetOnKey'
+import type { ResourceListLoader } from '../lib/resourceListCache.ts'
+import type { SetStateAction } from 'react'
 
-import type { ResourceListLoader } from '../lib/resourceListCache'
+const NO_ITEMS: never[] = []
 
+/**
+ * A provider's resource list for one workspace tab. Lists with a `cacheKey` are shared by every
+ * view showing them and seeded from the copy kept on disk. `pollTick` asks for the tab's polling.
+ */
 export function useResourceList<T>(
   loader: ResourceListLoader<T>,
   refreshKey: number,
@@ -18,154 +26,91 @@ export function useResourceList<T>(
 ) {
   const cacheKey = loader.cacheKey
   const enabled = options.enabled ?? true
-  const pollTick = options.pollTick
-  const [initialCache] = useState(() => readCachedResourceList<T>(cacheKey))
-  const [items, setItems] = useState<T[]>(() => initialCache?.items ?? [])
-  // A cached *empty* list must not suppress the skeleton: keep `loading` true so
-  // we show a skeleton (not "No items") until the in-flight fetch confirms the
-  // list is really empty. Only a cache with real rows renders instantly.
-  const [loading, setLoading] = useState(
-    () => enabled && !(initialCache && initialCache.items.length > 0),
-  )
-  // `revalidating` is the stale-while-revalidate signal: a background fetch is
-  // in flight while we keep showing cached data (so `loading` stays false and
-  // the table doesn't flash a skeleton). We surface it to the toolbar so the
-  // top-right refresh button spins during the revalidation.
-  const [revalidating, setRevalidating] = useState(enabled)
-  const [error, setError] = useState<string | null>(null)
-  const itemsRef = useRef(items)
+  const ownKey = useId()
+  const listKey = cacheKey ?? `unsaved:${ownKey}`
+  const queryKey = queryKeys.resourceList(listKey)
+  const client = useQueryClient()
   const loaderRef = useRef(loader)
-  const activeCacheKeyRef = useRef(cacheKey)
-  const lastPollTickRef = useRef(options.pollTick ?? 0)
-  const pollInFlightRef = useRef(false)
 
-  // Keep the "latest" refs fresh from an effect rather than during render. This
-  // effect is declared first, so it commits before the loader effects below read
-  // the refs, and both refs are only ever read after the commit anyway.
   useEffect(() => {
-    itemsRef.current = items
     loaderRef.current = loader
   })
 
-  // Spin the toolbar refresh button for both a cold load and a background
-  // revalidation, but only the cold `loading` drives the table skeleton.
-  useReportLoading(loading || revalidating, onLoading)
+  const query = useQuery({
+    queryKey,
+    queryFn: () => loaderRef.current(),
+    enabled,
+    // Rows kept on disk show at once and refresh behind them. An empty copy waits for the read,
+    // so "No items" never flashes before the list is known to be empty.
+    initialData: () => {
+      const cached = readCachedResourceList<T>(cacheKey)
 
-  // Applied during render rather than from the fetch effect below, which runs
-  // on exactly these three values: the effect version committed a frame of the
-  // previous key's rows before swapping them out.
-  useResetOnKey(`${String(cacheKey)}|${String(enabled)}|${String(refreshKey)}`, () => {
-    if (!enabled) {
-      setLoading(false)
-      setRevalidating(false)
-
-      return
-    }
-    const cached = readCachedResourceList<T>(cacheKey)
-
-    if (cached && cached.items.length > 0) {
-      setItems(cached.items)
-      setLoading(false)
-      setError(null)
-    } else {
-      // No cache, or a cached *empty* list — show the skeleton while the fetch
-      // is in flight instead of flashing "No items" during the revalidate.
-      setItems(cached?.items ?? [])
-      setLoading(true)
-      setError(null)
-    }
-    // A fetch is now in flight. For a cold load `loading` already covers the
-    // spinner; for a cache hit this is the stale-while-revalidate refresh.
-    setRevalidating(true)
+      return cached?.items.length ? cached.items : undefined
+    },
+    initialDataUpdatedAt: () => readCachedResourceList(cacheKey)?.updatedAt,
+    refetchOnMount: (entry) => (entry.state.data?.length ? true : 'always'),
   })
+  const items: T[] = query.data ?? NO_ITEMS
+  // The read the view found cached when it started showing this list. An empty list from then is
+  // not known to still be empty, so it loads until a newer read lands, as a cold load does.
+  const [shownFrom, setShownFrom] = useState({ listKey, readAt: query.dataUpdatedAt })
+
+  if (shownFrom.listKey !== listKey) setShownFrom({ listKey, readAt: query.dataUpdatedAt })
+  const loading =
+    enabled &&
+    (query.isPending ||
+      (items.length === 0 && query.isFetching && query.dataUpdatedAt <= shownFrom.readAt))
+  const failure = query.error
+  // A message set by the view holds until the next read lands.
+  const stamp = query.dataUpdatedAt + query.errorUpdatedAt
+  const stampRef = useRef(stamp)
+  const [override, setOverride] = useState<{ stamp: number; error: string | null }>()
+  // Rows already shown stay on screen when a read fails; only an empty list shows the error.
+  const shownError = failure && items.length === 0 ? failure.message : null
+  // Stable like the state setters they replace, since views list them in their hooks' deps.
+  const setItems = useCallback(
+    (next: SetStateAction<T[]>) =>
+      client.setQueryData<T[]>(queryKeys.resourceList(listKey), (previous) =>
+        typeof next === 'function' ? next(previous ?? []) : next,
+      ),
+    [client, listKey],
+  )
+  const setError = useCallback(
+    (error: string | null) => setOverride({ stamp: stampRef.current, error }),
+    [],
+  )
 
   useEffect(() => {
+    stampRef.current = stamp
+  })
+  // A poll that fails stays quiet; only the tab's refresh says it could not refresh.
+  const refresh = async () => {
     if (!enabled) return
-    let cancelled = false
-    const cached = readCachedResourceList<T>(cacheKey)
-    const sameCacheKey = activeCacheKeyRef.current === cacheKey
+    const result = await query.refetch()
 
-    activeCacheKeyRef.current = cacheKey
+    if (result.isError && result.data?.length)
+      toast.apiError(t('Could not refresh — showing cached data'), result.error)
+  }
 
-    loaderRef
-      .current()
-      .then((res) => {
-        if (cancelled) return
-        setItems(res)
-        setError(null)
-        setLoading(false)
-      })
-      .catch((e: unknown) => {
-        if (cancelled) return
-        const message = String(e instanceof Error ? e.message : e)
-
-        reportFrontendError({ source: 'resource_list', phase: 'initial_load_failed', message }, e)
-        // A cached *empty* list is no longer "usable" (we now keep loading until
-        // a fetch confirms it), so on failure only fall back to cached rows when
-        // there actually are some — otherwise surface the error.
-        const hasUsableItems =
-          (cached !== null && cached.items.length > 0) ||
-          (sameCacheKey && itemsRef.current.length > 0)
-
-        if (hasUsableItems) {
-          // Keep showing the cached snapshot (persisted rows stay visible).
-          // Real, non-transient failures (revoked/deleted role, …) come back
-          // as structured backend errors and still toast through apiError;
-          // transport blips while offline stay quiet by design — the cached
-          // rows plus a later refresh cover that case.
-          toast.apiError(t('Could not refresh — showing cached data'), e)
-          setLoading(false)
-        } else {
-          setError(message)
-          setLoading(false)
-        }
-      })
-      .finally(() => {
-        if (cancelled) return
-        setRevalidating(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [cacheKey, enabled, refreshKey])
-
+  useRefreshKey({ isPending: loading, refetch: refresh }, refreshKey, onLoading)
+  // Polls at the caller's cadence: a view of a rate-limited API passes a slower tick. A poll joins
+  // a read still in flight instead of cancelling it, so a list slower than its tick still lands.
+  useSilentTick(() => {
+    if (enabled) void query.refetch({ cancelRefetch: false })
+  }, options.pollTick ?? 0)
   useEffect(() => {
-    if (!enabled || pollTick === undefined) return
-    if (lastPollTickRef.current === pollTick) return
-    if (pollInFlightRef.current) return
-    lastPollTickRef.current = pollTick
-    let cancelled = false
+    if (!failure) return
+    const { message } = failure
 
-    pollInFlightRef.current = true
-    loaderRef
-      .current()
-      .then((res) => {
-        if (cancelled) return
-        setItems(res)
-        setError(null)
-      })
-      .catch((e: unknown) => {
-        if (cancelled) return
-        const message = String(e instanceof Error ? e.message : e)
+    reportFrontendError({ source: 'resource_list', phase: 'load_failed', message }, failure)
+  }, [failure, query.errorUpdatedAt])
 
-        reportFrontendError({ source: 'resource_list', phase: 'poll_failed', message }, e)
-
-        if (itemsRef.current.length > 0) {
-          // Polling is opportunistic; keep the stale rows visible and avoid
-          // noisy global toasts for transient backend failures.
-        } else {
-          setError(message)
-        }
-      })
-      .finally(() => {
-        pollInFlightRef.current = false
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [enabled, pollTick])
-
-  return { items, setItems, loading, revalidating, error, setError }
+  return {
+    items,
+    setItems,
+    loading,
+    revalidating: enabled && query.isFetching && !query.isPending,
+    error: override?.stamp === stamp ? override.error : shownError,
+    setError,
+  }
 }
