@@ -171,3 +171,18 @@ test('a parent whose open done group holds every child can fold it', () => {
     [['parent', true, 2, 0]],
   )
 })
+
+test('a row says whether any child is still running, apart from its done group', () => {
+  const rows = nestItems([
+    { key: 'mixed' },
+    { key: 'live', parentKey: 'mixed' },
+    { key: 'over', parentKey: 'mixed', finished: true },
+    { key: 'settled' },
+    { key: 'finished', parentKey: 'settled', finished: true },
+  ])
+  const running = Object.fromEntries(rows.map(({ item, running }) => [item.key, running]))
+
+  assert.equal(running.mixed, true)
+  assert.equal(running.settled, false)
+  assert.equal(running.live, false)
+})

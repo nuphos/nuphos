@@ -1,8 +1,7 @@
-import { ChevronDown, ChevronRight, CircleCheck } from 'lucide-react'
+import { CircleCheck } from 'lucide-react'
 import { Fragment } from 'react'
 
 import { t } from '../../i18n'
-import { Fenced } from '../SidebarRowParts'
 
 import type { ReactNode } from 'react'
 
@@ -82,37 +81,18 @@ function finishedThreadsLabel(n: number): string {
 
 /**
  * Sub-agents that finished with nothing left running, as one quiet count on
- * their parent row, like the merged badge. It opens and closes their done
- * group: the finished rows listed under the parent, after the running ones.
+ * their parent row, beside the merged badge. Only a count: the row's edge
+ * chevron is what lists them.
  */
-export function FinishedThreadsBadge({
-  count,
-  open,
-  onToggle,
-}: {
-  count: number
-  open: boolean
-  onToggle: () => void
-}) {
-  const Chevron = open ? ChevronDown : ChevronRight
-
+export function FinishedThreadsBadge({ count }: { count: number }) {
   return (
-    <Fenced>
-      <span
-        // No aria-expanded: the row reads that as its menu being open and pins its hover actions.
-        role="button"
-        title={finishedThreadsLabel(count)}
-        onClick={(event) => {
-          event.stopPropagation()
-          onToggle()
-        }}
-        className="-mx-1 inline-flex items-center gap-1 rounded px-1 text-[11px] text-tertiary hover:bg-[var(--sidebar-overlay-hover)] hover:text-main"
-      >
-        <CircleCheck aria-hidden className="size-3 shrink-0" />
-        <span aria-hidden>{count === 1 ? t('1 done') : t('{n} done', { n: count })}</span>
-        <Chevron aria-hidden className="size-3 shrink-0" strokeWidth={1.8} />
-        <span className="sr-only">{finishedThreadsLabel(count)}</span>
-      </span>
-    </Fenced>
+    <span
+      title={finishedThreadsLabel(count)}
+      className="inline-flex shrink-0 items-center gap-1 text-[11px] text-tertiary"
+    >
+      <CircleCheck aria-hidden className="size-3 shrink-0" />
+      <span aria-hidden>{count === 1 ? t('1 done') : t('{n} done', { n: count })}</span>
+      <span className="sr-only">{finishedThreadsLabel(count)}</span>
+    </span>
   )
 }

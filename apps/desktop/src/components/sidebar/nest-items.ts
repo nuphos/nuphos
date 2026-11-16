@@ -10,6 +10,10 @@ export type NestedItem<T> = {
   /** Finished children, which this row counts and folds into its done group.
    *  A folded row hides the count along with its children. */
   done: T[]
+  /** Some child is still unfinished, so the row has more than its done group to fold. */
+  running: boolean
+  /** Some child is finished, whether or not the row is folded. */
+  hasDone: boolean
 }
 
 /**
@@ -63,6 +67,8 @@ export function nestItems<T extends { key: string; parentKey?: string; finished?
       hasChildren: kids.length > 0,
       hidden: folded ? below(item.key) : [],
       done: folded ? [] : doneOf(item.key),
+      running: (children.get(item.key) ?? []).some((kid) => !settled(kid)),
+      hasDone: doneOf(item.key).length > 0,
     })
     if (folded) return
     kids.forEach((kid, index) => visit(kid, [...trail, index < kids.length - 1]))
