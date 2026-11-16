@@ -33,15 +33,11 @@ export const connectorScenarios: Scenario[] = [
         .getByText(/not allowed to request scope 'dns-firewall\.read'/)
         .waitFor()
       await page.screenshot({ path: `${artifacts}/cloudflare-rejected.png` })
-      // Escape closes only the topmost modal, and a closing one stays topmost
-      // until its transition ends, so wait for each to go.
       await page.keyboard.press('Escape')
       await page.getByRole('dialog', { name: 'Connect Cloudflare' }).waitFor({ state: 'detached' })
-      await page.keyboard.press('Escape')
-      await page
-        .locator('[role="dialog"][aria-modal="true"]')
-        .first()
-        .waitFor({ state: 'detached' })
+      // Leave Connectors closed for the next scenario.
+      await page.getByRole('button', { name: 'Close modal' }).click()
+      await page.locator('[role="dialog"][aria-modal="true"]').waitFor({ state: 'detached' })
     },
   },
 ]
