@@ -17,7 +17,7 @@ mock.module('../../api.ts', {
 })
 
 const { createQueryClient } = await import('../../lib/query/client.ts')
-const { inboxListingQuery, reloadListings } = await import('./useInbox.ts')
+const { inboxListingQuery, reloadListings } = await import('./inboxListing.ts')
 
 const page = (sessionId: string) =>
   ({ conversations: [{ sessionId } as AgentConversation], nextCursor: null }) as Page
