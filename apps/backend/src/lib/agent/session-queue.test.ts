@@ -407,7 +407,7 @@ test('a send that keeps failing to start is retried for the grace, then kept wit
   const notice = JSON.stringify(kept[0]?.messages[1]?.parts)
 
   expect(await waiting()).toEqual(['next'])
-  expect(notice).toContain('could not be started')
+  expect(notice).toContain('the server could not start it. Send it again.')
   expect(notice).not.toContain('runtime lookup failed')
 })
 

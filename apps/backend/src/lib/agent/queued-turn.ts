@@ -227,7 +227,7 @@ async function launchChat(
         { userId: target.userId, teamId: target.teamId, targetSessionId: target.sessionId },
         [item],
         // Only an AppError's message is written for people; any other stays in the log above.
-        `was not sent: ${error instanceof AppError ? error.message : 'its agent could not be started.'}`,
+        `was not sent: ${error instanceof AppError ? error.message : 'the server could not start it. Send it again.'}`,
       )
 
     return false
