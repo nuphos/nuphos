@@ -76,7 +76,8 @@ export function createBox(
       ...(access ? { access } : {}),
       ...(instaboxAccountId ? { instaboxAccountId } : {}),
     },
-    { retry: false },
+    // The backend answers once instabox has made the machine, which may take up to 100 s.
+    { retry: false, timeoutMs: 110_000 },
   )
 }
 

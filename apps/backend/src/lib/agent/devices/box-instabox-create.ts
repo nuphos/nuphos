@@ -1,4 +1,4 @@
-// Creating a Box: the row first, then the machine, its install and its join, in
+// Creating a Box: the row first, then the machine, then its install and its join in
 // the background. The machine lives on the deployment's instabox account, or on
 // one the team bound (`accountId`), which instabox bills instead.
 
@@ -20,6 +20,7 @@ import {
   QUICK_TIMEOUT_MS,
   downloadEnv,
   killBoxMachine,
+  orderRefused,
   requireBackendUrl,
 } from './box-instabox-client'
 import { boxSize } from './box-instabox-limit'
@@ -29,7 +30,7 @@ import { deleteDeviceJoinTokens, issueDeviceJoinToken } from './join-tokens'
 import { waitForPresence } from './presence'
 import { deleteAgentDevice, insertBoxAgentDevice, setAgentDeviceBoxSandbox } from './store'
 
-import type { BoxAccountRef, BoxSize } from './box-instabox-account'
+import type { BoxAccountRef } from './box-instabox-account'
 import type { AgentDevice, AgentDeviceBox } from './store'
 
 /** The machine joins within this; a token left unused expires with it. */
@@ -40,9 +41,10 @@ const JOIN_TIMEOUT_MS = 3 * 60_000
 type Registration = { deviceId: string; label: string; box: AgentDeviceBox }
 
 /**
- * Registers the device row at once and returns; ordering, installing and
- * joining run in the background. The row shows `creating` until the host joins.
- * If any step fails, the machine, the row and its token are removed again.
+ * Registers the device row and orders the machine before answering, so a refusal (the
+ * account's limit, a key it no longer takes) reaches whoever asked; installing and joining
+ * run in the background. The row shows `creating` until the host joins. If any step fails,
+ * the machine, the row and its token are removed again.
  * `shared` is whom it is shared with besides its creator, already limited to the team's members.
  */
 export async function createBox(
@@ -79,32 +81,39 @@ export async function createBox(
   const created = await startBox(account, { vcpus: size.vcpus }, () =>
     insertBoxAgentDevice(userId, registration, shared),
   )
-
-  void order(userId, url, registration, size)
-
-  return created
-}
-
-async function order(
-  userId: string,
-  url: string,
-  { deviceId, label, box }: Registration,
-  size: BoxSize,
-): Promise<void> {
   let sandbox: Sandbox | undefined
 
   try {
     sandbox = await Sandbox.create(BOX_TEMPLATE, {
-      ...(await boxConnection(box, CREATE_TIMEOUT_MS)),
+      ...(await boxConnection(account, CREATE_TIMEOUT_MS)),
       name: `nuphos-${deviceId.slice(0, 8)}`,
-      metadata: { teamId: box.teamId, deviceId, createdBy: userId },
+      metadata: { teamId, deviceId, createdBy: userId },
       vault: false,
       autoSuspendMs: 0, // stays on until paused; instabox's default pauses after 30 idle minutes
       ...size,
     })
     // Deleted while it was being ordered: the machine must not outlive the row.
     if (!(await setAgentDeviceBoxSandbox(userId, deviceId, sandbox.sandboxId)))
-      throw new Error('The Box was deleted while it was being created')
+      throw new AppError(409, 'box_gone', 'The Box was deleted while it was being created')
+  } catch (error) {
+    await discard(userId, registration, sandbox?.sandboxId, error)
+    throw orderRefused(error, Boolean(accountId))
+  }
+
+  void setUp(userId, url, registration, sandbox)
+
+  return created
+}
+
+async function setUp(
+  userId: string,
+  url: string,
+  registration: Registration,
+  sandbox: Sandbox,
+): Promise<void> {
+  const { deviceId, label, box } = registration
+
+  try {
     const { token } = await issueDeviceJoinToken(userId, {
       label,
       deviceId,
@@ -131,15 +140,24 @@ async function order(
       throw new Error('The machine did not join within the time allowed')
     logEvent('info', 'agent.box.provisioned', { user_id: userId, device_id: deviceId })
   } catch (error) {
-    logError('agent.box.provision_failed', error, { user_id: userId, device_id: deviceId })
-    // Nothing half-made stays: no machine to bill, no row to confuse, no token to find.
-    // A create that timed out on our side may still have produced a machine: it is
-    // found by the device id in its metadata.
-    await boxConnection(box, QUICK_TIMEOUT_MS)
-      .then((conn) => killBoxMachine(conn, sandbox?.sandboxId, deviceId))
-      .catch(() => {})
     await deleteDeviceJoinTokens(deviceId).catch(() => {})
-    await deleteAgentDevice(userId, deviceId).catch(() => {})
-    noteBoxUsage(box.teamId)
+    await discard(userId, registration, sandbox.sandboxId, error)
   }
+}
+
+/** Nothing half-made stays: no machine to bill and no row to confuse. */
+async function discard(
+  userId: string,
+  { deviceId, box }: Registration,
+  sandboxId: string | undefined,
+  error: unknown,
+): Promise<void> {
+  logError('agent.box.provision_failed', error, { user_id: userId, device_id: deviceId })
+  // A create that timed out on our side may still have produced a machine: it is
+  // found by the device id in its metadata.
+  await boxConnection(box, QUICK_TIMEOUT_MS)
+    .then((conn) => killBoxMachine(conn, sandboxId, deviceId))
+    .catch(() => {})
+  await deleteAgentDevice(userId, deviceId).catch(() => {})
+  noteBoxUsage(box.teamId)
 }

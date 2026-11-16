@@ -1,7 +1,7 @@
 // The instabox connection shared by the Box provider: the deployment's key,
 // bounded timeouts, and the commands a fresh machine runs.
 
-import { InstaboxError } from '@insforge/instabox-sdk'
+import { InstaboxAuthError, InstaboxError, InstaboxQuotaError } from '@insforge/instabox-sdk'
 
 import { config } from '@/config'
 import { AppError } from '@/lib/errors'
@@ -12,8 +12,8 @@ import { killMachine, listMachines } from './instabox-machines'
 export const BOX_TEMPLATE = 'agent-browser'
 /** Installing the CLI and the agents on a fresh machine. */
 export const INSTALL_TIMEOUT_MS = 9 * 60_000
-/** Ordering a machine, in the background. */
-export const CREATE_TIMEOUT_MS = 3 * 60_000
+/** Ordering a machine. The create request waits for it, so it stays under the server's 120 s idle timeout. */
+export const CREATE_TIMEOUT_MS = 100_000
 /** Anything on a turn's path: an instabox outage must not stall a conversation for long. */
 export const QUICK_TIMEOUT_MS = 30_000
 /** The most one HTTP request to instabox may take; long operations poll within their own budget. */
@@ -144,6 +144,33 @@ export function boxesAvailable(): boolean {
 export const reason = (error: unknown) => (error instanceof Error ? error.message : String(error))
 export const unavailable = (what: string, error: unknown) =>
   new AppError(503, 'box_unavailable', `${what}: ${reason(error)}`)
+
+/**
+ * Why instabox did not make a Box, in words for whoever asked. Its own text can name the
+ * account and its owner, so it stays in the server log. The deployment's account is
+ * Nuphos's to fix, so only a team's own account gets the 4xx that asks the team to act.
+ */
+export function orderRefused(error: unknown, ownAccount: boolean): AppError {
+  if (error instanceof AppError) return error
+  if (ownAccount && error instanceof InstaboxQuotaError)
+    return new AppError(
+      409,
+      'instabox_quota_exceeded',
+      'Your instabox account has reached its limit of Boxes. Delete a Box there or upgrade its plan, then try again.',
+    )
+  if (ownAccount && error instanceof InstaboxAuthError)
+    return new AppError(
+      409,
+      'instabox_key_rejected',
+      'Your instabox account no longer accepts its API key. A team administrator can bind the account again with a new key under Settings → Integrations.',
+    )
+
+  return new AppError(
+    503,
+    'box_unavailable',
+    'instabox could not make the Box. Try again in a few minutes.',
+  )
+}
 
 /**
  * Deletes the machine a Box owns. A row that never got its machine id (the backend
