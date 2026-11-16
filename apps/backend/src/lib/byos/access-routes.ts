@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import {
   accessView,
   bindingAccessUpdateSchema,
+  bindingOwner,
   canEditAccess,
   canViewAccess,
   normalizeAccessInput,
@@ -74,7 +75,8 @@ export function registerBindingAccessRoutes<V extends TeamAuthVariables>(
       c.req.valid('json'),
       userId,
       new Date(),
-      current?.ownerUserId,
+      // An older private list's one member stays its owner once it is shared.
+      current?.ownerUserId ?? bindingOwner(current),
     )
     const result = await teamByosBindings().updateOne(
       {
