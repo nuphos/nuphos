@@ -177,11 +177,13 @@ const scenarios: Scenario[] = [
       await send(page, 'Ask me E2E_ASK E2E_DELIVERY:skip')
       await page.getByText('ACK E2E_DELIVERY:skip').waitFor()
       await page.getByRole('button', { name: 'Skip', exact: true }).last().click()
-      await page.getByText('Skipped. The agent carries on without an answer.').waitFor()
-      await page.screenshot({ path: `${artifacts}/question-skipped.png` })
+      // The card leaves with its question; the agent's wake notice stays in the chat.
+      await page.getByText(/was skipped: no answer is coming/).waitFor()
       await until('the agent to be told its question was skipped', async () =>
         agentEvents(stack).includes('skipped E2E_DELIVERY:missing'),
       )
+      await page.getByText('ACK E2E_DELIVERY:missing').waitFor()
+      await page.screenshot({ path: `${artifacts}/question-skipped.png` })
     },
   },
   ...runtimeScenarios,
