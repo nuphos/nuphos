@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import { AppSelect } from '../../components/ui/select'
-import { useReportLoading } from '../../components/useReportLoading'
 import { t } from '../../i18n'
+import { queryKeys } from '../../lib/query/keys'
+import { useRefreshKey } from '../../lib/query/tabQuery'
 import { useResetOnKey } from '../useResetOnKey'
 
 import {
@@ -25,7 +27,6 @@ import type { MetricStat } from './metrics-explorer-shared'
 import type { CommonProps } from './shared'
 import type { DataFrame } from '../../grafana/types'
 import type {
-  AwsCloudWatchMetric,
   AwsCloudWatchMetricData,
   AwsCloudWatchMetricListing,
   AwsCloudWatchMetricQuery,
@@ -34,6 +35,7 @@ import type {
 // Lightweight CloudWatch metrics explorer: region → namespace → metric, then
 // every dimension combination (capped) is charted as its own series.
 export function CloudWatchMetricsExplorerView({
+  scope: sharedScope,
   metricsLoader,
   dataLoader,
   filter,
@@ -41,31 +43,18 @@ export function CloudWatchMetricsExplorerView({
   onCount,
   onLoading,
 }: CommonProps & {
+  /** Names the team, account and role the metrics are read through; unset until the role resolves. */
+  scope: string | undefined
   metricsLoader: (region: string, namespace?: string) => Promise<AwsCloudWatchMetricListing>
   dataLoader: (region: string, query: AwsCloudWatchMetricQuery) => Promise<AwsCloudWatchMetricData>
 }) {
   const [region, setRegion] = useState('us-east-1')
-  const [metrics, setMetrics] = useState<AwsCloudWatchMetric[] | null>(null)
-  const [metricsTruncated, setMetricsTruncated] = useState(false)
-  const [nsMetrics, setNsMetrics] = useState<AwsCloudWatchMetric[] | null>(null)
-  // The mount sweep is already in flight; the render-time reset below only
-  // covers later region/refresh changes.
-  const [metricsLoading, setMetricsLoading] = useState(true)
-  const [metricsError, setMetricsError] = useState<string | null>(null)
+  const ownScope = useId()
+  const scope = sharedScope ?? ownScope
   const [namespace, setNamespace] = useState('')
   const [metricName, setMetricName] = useState('')
   const [stat, setStat] = useState<MetricStat>('Average')
   const [rangeMinutes, setRangeMinutes] = useState(180)
-  const [seriesData, setSeriesData] = useState<
-    | {
-        label: string
-        data: AwsCloudWatchMetricData
-      }[]
-    | null
-  >(null)
-  const [seriesLoading, setSeriesLoading] = useState(false)
-  const [seriesError, setSeriesError] = useState<string | null>(null)
-  const [truncatedSeries, setTruncatedSeries] = useState(0)
   const metricsLoaderRef = useRef(metricsLoader)
   const dataLoaderRef = useRef(dataLoader)
 
@@ -73,63 +62,29 @@ export function CloudWatchMetricsExplorerView({
     metricsLoaderRef.current = metricsLoader
     dataLoaderRef.current = dataLoader
   })
-  const requestGenRef = useRef(0)
-
-  useReportLoading(metricsLoading || seriesLoading, onLoading)
 
   // One ListMetrics sweep per region; namespaces/metrics derive from it.
-  useResetOnKey(`${region}|${String(refreshKey)}`, () => {
-    setMetricsLoading(true)
-    setMetricsError(null)
-    setMetrics(null)
-    setMetricsTruncated(false)
+  useResetOnKey(region, () => {
     setNamespace('')
     setMetricName('')
-    setSeriesData(null)
   })
-  useEffect(() => {
-    let cancelled = false
-
-    metricsLoaderRef
-      .current(region)
-      .then((r) => {
-        if (cancelled) return
-        setMetrics(r.metrics)
-        setMetricsTruncated(r.truncated)
-        setMetricsLoading(false)
-      })
-      .catch((e: unknown) => {
-        if (cancelled) return
-        setMetricsError(String(e instanceof Error ? e.message : e))
-        setMetricsLoading(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [region, refreshKey])
-
-  // The region-wide sweep can truncate in metric-heavy regions; re-query
-  // scoped to the chosen namespace so its metric names and dimension
-  // combinations are complete regardless.
-  useResetOnKey(`${region}|${namespace}|${String(refreshKey)}`, () => setNsMetrics(null))
-  useEffect(() => {
-    if (!namespace) return
-    let cancelled = false
-
-    metricsLoaderRef
-      .current(region, namespace)
-      .then((r) => {
-        if (!cancelled) setNsMetrics(r.metrics)
-      })
-      .catch(() => {
-        // Fall back to the (possibly truncated) region-wide sweep.
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [region, namespace, refreshKey])
+  const sweep = useQuery({
+    queryKey: queryKeys.cloudWatchMetrics(scope, region),
+    queryFn: () => metricsLoaderRef.current(region),
+  })
+  // The region-wide sweep can truncate in metric-heavy regions; re-query scoped to the chosen
+  // namespace so its metric names and dimension combinations are complete. A failure falls back
+  // to the sweep.
+  const nsSweep = useQuery({
+    queryKey: queryKeys.cloudWatchMetrics(scope, region, namespace),
+    queryFn: () => metricsLoaderRef.current(region, namespace),
+    enabled: Boolean(namespace),
+  })
+  const metrics = sweep.data?.metrics ?? null
+  const metricsTruncated = sweep.data?.truncated ?? false
+  const nsMetrics = namespace ? (nsSweep.data?.metrics ?? null) : null
+  const metricsLoading = sweep.isPending
+  const metricsError = sweep.error?.message ?? null
 
   const namespaces = useMemo(() => cloudWatchNamespaces(metrics), [metrics])
 
@@ -145,50 +100,53 @@ export function CloudWatchMetricsExplorerView({
     return source.filter((m) => m.namespace === namespace && m.name === metricName)
   }, [metrics, nsMetrics, namespace, metricName])
 
-  // Keyed on the combo *count* rather than the memo identity: a background
-  // metrics refresh that yields the same combos keeps the chart on screen.
-  useResetOnKey(
-    `${region}|${namespace}|${metricName}|${stat}|${String(rangeMinutes)}|${String(refreshKey)}|${String(dimensionCombos.length)}`,
-    () => {
-      if (!namespace || !metricName || dimensionCombos.length === 0) {
-        setSeriesData(null)
-
-        return
-      }
-      setTruncatedSeries(Math.max(0, dimensionCombos.length - EXPLORER_MAX_SERIES))
-      setSeriesLoading(true)
-      setSeriesError(null)
-    },
-  )
-  useEffect(() => {
-    if (!namespace || !metricName || dimensionCombos.length === 0) return
-    const gen = ++requestGenRef.current
-    const combos = dimensionCombos.slice(0, EXPLORER_MAX_SERIES)
-
-    Promise.all(
-      combos.map((combo) =>
-        dataLoaderRef
-          .current(region, {
-            namespace,
-            metricName,
-            dimensions: combo.dimensions,
-            stat,
-            rangeMinutes,
-          })
-          .then((data) => ({ label: dimensionsLabel(combo.dimensions), data })),
+  const combos = dimensionCombos.slice(0, EXPLORER_MAX_SERIES)
+  const truncatedSeries = Math.max(0, dimensionCombos.length - EXPLORER_MAX_SERIES)
+  const seriesQuery = useQuery({
+    queryKey: queryKeys.cloudWatchMetrics(
+      scope,
+      region,
+      namespace,
+      metricName,
+      stat,
+      rangeMinutes,
+      ...combos.map((combo) => dimensionsLabel(combo.dimensions)),
+    ),
+    queryFn: () =>
+      Promise.all(
+        combos.map((combo) =>
+          dataLoaderRef
+            .current(region, {
+              namespace,
+              metricName,
+              dimensions: combo.dimensions,
+              stat,
+              rangeMinutes,
+            })
+            .then((data) => ({ label: dimensionsLabel(combo.dimensions), data })),
+        ),
       ),
-    )
-      .then((results) => {
-        if (requestGenRef.current !== gen) return
-        setSeriesData(results)
-        setSeriesLoading(false)
-      })
-      .catch((e: unknown) => {
-        if (requestGenRef.current !== gen) return
-        setSeriesError(String(e instanceof Error ? e.message : e))
-        setSeriesLoading(false)
-      })
-  }, [region, namespace, metricName, stat, rangeMinutes, dimensionCombos, refreshKey])
+    enabled: Boolean(namespace && metricName && combos.length > 0),
+    // A background refresh that yields the same combos keeps the chart on screen.
+    placeholderData: keepPreviousData,
+  })
+  const seriesData = namespace && metricName ? (seriesQuery.data ?? null) : null
+  const seriesLoading = seriesQuery.isFetching
+  const seriesError = seriesQuery.error?.message ?? null
+
+  useRefreshKey(
+    {
+      isPending: metricsLoading || seriesLoading,
+      refetch: () =>
+        Promise.all([
+          sweep.refetch(),
+          namespace && nsSweep.refetch(),
+          combos.length > 0 && seriesQuery.refetch(),
+        ]),
+    },
+    refreshKey,
+    onLoading,
+  )
 
   const frames = useMemo<DataFrame[]>(() => cloudWatchSeriesFrames(seriesData), [seriesData])
 

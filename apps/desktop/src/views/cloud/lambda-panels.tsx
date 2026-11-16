@@ -1,11 +1,12 @@
+import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
-import { useReportLoading } from '../../components/useReportLoading'
 import { useReportVisibleError } from '../../components/VisibleErrorReporter'
 import { t } from '../../i18n'
-import { useResetOnKey } from '../useResetOnKey'
+import { queryKeys } from '../../lib/query/keys'
+import { useRefreshKey } from '../../lib/query/tabQuery'
 
 import { ErrorBlock } from './ErrorBlock'
 
@@ -149,52 +150,35 @@ export function LambdaTestPanel({
 }
 
 export function LambdaTriggersPanel({
+  scope,
   fn,
   loader,
   onCount,
   onLoading,
   refreshKey,
 }: {
+  scope: string
   fn: AwsLambdaFunction
   loader: (fn: AwsLambdaFunction) => Promise<AwsLambdaTriggers>
   onCount: (n: number) => void
   onLoading?: (loading: boolean) => void
   refreshKey: number
 }) {
-  const [triggers, setTriggers] = useState<AwsLambdaTriggers | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const loaderRef = useRef(loader)
 
   useEffect(() => {
     loaderRef.current = loader
   })
-  useReportLoading(loading, onLoading)
 
-  useResetOnKey(`${fn.name}|${fn.region}|${String(refreshKey)}`, () => {
-    setLoading(true)
-    setErrorMessage(null)
+  const query = useQuery({
+    queryKey: queryKeys.lambda(scope, fn.region, fn.name, 'triggers'),
+    queryFn: () => loaderRef.current(fn),
   })
-  useEffect(() => {
-    let cancelled = false
+  const triggers = query.data ?? null
+  const loading = query.isPending
+  const errorMessage = query.error?.message ?? null
 
-    loaderRef
-      .current(fn)
-      .then((res) => {
-        if (cancelled) return
-        setTriggers(res)
-        setLoading(false)
-      })
-      .catch((e: unknown) => {
-        if (cancelled) return
-        setErrorMessage(String(e instanceof Error ? e.message : e))
-        setLoading(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [fn, refreshKey])
+  useRefreshKey(query, refreshKey, onLoading)
 
   const total = (triggers?.eventSourceMappings.length ?? 0) + (triggers?.policyTriggers.length ?? 0)
 

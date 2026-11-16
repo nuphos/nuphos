@@ -1,5 +1,5 @@
 import { Copy, Globe } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 
 import { api } from '../../api'
 import { Age } from '../../components/Age'
@@ -57,6 +57,9 @@ export function CloudWatchAlarmsView({
   // detail is open — it both resolves the selection and keeps the alarm's
   // state fresh. The detail view keys its fetches off alarm.arn, so the new
   // item identities from background refreshes are harmless.
+  const ownScope = useId()
+  // A list without a cache key (its role is unresolved) keeps its alarms' reads to itself.
+  const scope = loader.cacheKey ?? ownScope
   const { items, loading, error } = useResourceList(loader, refreshKey, onLoading, { pollTick })
   const resolvedAlarm = detailSel
     ? (items.find((a) => a.name === detailSel.name && a.region === detailSel.region) ?? null)
@@ -118,6 +121,7 @@ export function CloudWatchAlarmsView({
 
     return (
       <CloudWatchAlarmDetailView
+        scope={scope}
         alarm={resolvedAlarm}
         metricDataLoader={metricDataLoader}
         historyLoader={historyLoader}

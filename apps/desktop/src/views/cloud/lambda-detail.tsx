@@ -1,10 +1,11 @@
+import { useQuery } from '@tanstack/react-query'
 import { Copy, Globe, Pencil } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../../api'
-import { useReportLoading } from '../../components/useReportLoading'
 import { t } from '../../i18n'
-import { useResetOnKey } from '../useResetOnKey'
+import { queryKeys } from '../../lib/query/keys'
+import { useRefreshKey } from '../../lib/query/tabQuery'
 
 import { ErrorBlock } from './ErrorBlock'
 import { LambdaConfigEditModal } from './lambda-config-edit'
@@ -40,6 +41,7 @@ const TAB_LABELS: Record<LambdaTab, string> = {
 }
 
 export function LambdaFunctionDetailView({
+  scope,
   fn,
   detailLoader,
   metricsLoader,
@@ -54,6 +56,8 @@ export function LambdaFunctionDetailView({
   onCount,
   onLoading,
 }: {
+  /** Names the team, account and role the function is read through. */
+  scope: string
   fn: AwsLambdaFunction
   detailLoader: (fn: AwsLambdaFunction) => Promise<AwsLambdaFunctionDetail>
   metricsLoader?: (fn: AwsLambdaFunction, rangeMinutes: number) => Promise<AwsLambdaMetricsResponse>
@@ -72,44 +76,26 @@ export function LambdaFunctionDetailView({
   onLoading?: (loading: boolean) => void
 }) {
   const [tab, setTab] = useState<LambdaTab>('Overview')
-  const [detail, setDetail] = useState<AwsLambdaFunctionDetail | null>(null)
-  const [detailLoading, setDetailLoading] = useState(true)
-  const [detailError, setDetailError] = useState<string | null>(null)
-  const [reloadTick, setReloadTick] = useState(0)
   const [editOpen, setEditOpen] = useState(false)
   const detailLoaderRef = useRef(detailLoader)
-  const fnRef = useRef(fn)
 
   useEffect(() => {
     detailLoaderRef.current = detailLoader
-    fnRef.current = fn
   })
-  useReportLoading(tab === 'Overview' && detailLoading, onLoading)
 
-  useResetOnKey(`${fn.name}|${fn.region}|${String(reloadTick)}|${String(refreshKey)}`, () => {
-    setDetailLoading(true)
-    setDetailError(null)
+  const detailQuery = useQuery({
+    queryKey: queryKeys.lambda(scope, fn.region, fn.name, 'detail'),
+    queryFn: () => detailLoaderRef.current(fn),
   })
-  useEffect(() => {
-    let cancelled = false
+  const detail = detailQuery.data ?? null
+  const detailLoading = detailQuery.isPending
+  const detailError = detailQuery.error?.message ?? null
 
-    detailLoaderRef
-      .current(fnRef.current)
-      .then((d) => {
-        if (cancelled) return
-        setDetail(d)
-        setDetailLoading(false)
-      })
-      .catch((e: unknown) => {
-        if (cancelled) return
-        setDetailError(String(e instanceof Error ? e.message : e))
-        setDetailLoading(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [fn.name, fn.region, reloadTick, refreshKey])
+  useRefreshKey(
+    { isPending: tab === 'Overview' && detailLoading, refetch: detailQuery.refetch },
+    refreshKey,
+    onLoading,
+  )
 
   useEffect(() => {
     if (tab === 'Overview') onCount(detail ? 1 : 0)
@@ -224,6 +210,7 @@ export function LambdaFunctionDetailView({
 
       {tab === 'Metrics' && metricsLoader && (
         <LambdaMetricsPanel
+          scope={scope}
           fn={fn}
           loader={metricsLoader}
           onCount={onCount}
@@ -235,6 +222,7 @@ export function LambdaFunctionDetailView({
 
       {tab === 'Triggers' && triggersLoader && (
         <LambdaTriggersPanel
+          scope={scope}
           fn={fn}
           loader={triggersLoader}
           onCount={onCount}
@@ -251,7 +239,7 @@ export function LambdaFunctionDetailView({
           onClose={() => setEditOpen(false)}
           onSaved={() => {
             setEditOpen(false)
-            setReloadTick((n) => n + 1)
+            void detailQuery.refetch()
           }}
         />
       )}
