@@ -51,6 +51,7 @@ const conversation = {
   participantIds: ['teammate'],
 } as AgentConversation
 let runtimeSend = true
+let runtimeDetached = false
 let released = 0
 const runs: Parameters<TurnRunner['runAgentForTrigger']>[0][] = []
 const launched: PendingUserMessage[] = []
@@ -98,11 +99,14 @@ useBoxWake({
   },
 })
 useSessionExecutionState({
-  conversationExecutionState: async () => ({
-    schemaVersion: 2,
-    state: runtimeSend ? 'idle' : 'active',
-    actions: { send: runtimeSend, cancel: !runtimeSend, steer: !runtimeSend },
-  }),
+  conversationExecutionState: async () =>
+    runtimeDetached
+      ? { state: 'disconnected' }
+      : {
+          schemaVersion: 2,
+          state: runtimeSend ? 'idle' : 'active',
+          actions: { send: runtimeSend, cancel: !runtimeSend, steer: !runtimeSend },
+        },
 })
 
 function chatTurn(text: string): QueuedChatTurn {
@@ -138,6 +142,7 @@ beforeEach(() => {
   boxOffline = false
   wakes.length = 0
   runtimeSend = true
+  runtimeDetached = false
   released = 0
   runs.length = 0
   launched.length = 0
@@ -402,6 +407,40 @@ test('a queued send waits out a reconnecting computer, then is kept with the rea
 
   expect(await waiting()).toEqual(['next'])
   expect(JSON.stringify(kept[0]?.messages[1]?.parts)).toContain('is offline')
+})
+
+test('a queue whose runtime does not answer waits for it to reattach, then runs', async () => {
+  runtimeDetached = true
+  await queue(human('during the blip'), agent('behind'))
+  await startQueuedTurn(OWNER, SESSION)
+
+  const [head] = await listPendingUserMessages(OWNER, SESSION)
+
+  // Nothing started and failed: both still wait, the head counted against the grace.
+  expect(launched).toHaveLength(0)
+  expect(runs).toHaveLength(0)
+  expect(kept).toEqual([])
+  expect(await waiting()).toEqual(['during the blip', 'behind'])
+  expect(head?.offlineSince).toBeString()
+
+  runtimeDetached = false
+  await startQueuedTurn(OWNER, SESSION)
+
+  expect(launched.map((item) => item.renderedText)).toEqual(['during the blip'])
+  expect(await waiting()).toEqual(['behind'])
+})
+
+test('a runtime that has not reattached after the grace: the sender is told', async () => {
+  runtimeDetached = true
+  await queue(
+    { ...human('gone'), offlineSince: new Date(Date.now() - 61_000).toISOString() },
+    human('next'),
+  )
+  await startQueuedTurn(OWNER, SESSION)
+
+  expect(launched).toHaveLength(0)
+  expect(await waiting()).toEqual(['next'])
+  expect(JSON.stringify(kept[0]?.messages[1]?.parts)).toContain('did not reconnect')
 })
 
 test('two releases racing for one session start its head once', async () => {

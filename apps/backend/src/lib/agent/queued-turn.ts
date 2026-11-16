@@ -17,7 +17,7 @@ import {
   sessionReleased,
 } from './session-released'
 import { openSignInRequest, releaseWhenAskLapses } from './sign-in-request'
-import { reconnecting } from './turn-offline'
+import { reconnecting, withinOfflineGrace } from './turn-offline'
 import { turnRunner } from './turn-runner'
 
 import type { AgentConversation } from './db'
@@ -27,18 +27,48 @@ import type { SessionExecutionState } from '@/lib/claude-code-preview/runtime-ex
 const runtimeAccepts = (state: SessionExecutionState) =>
   state.schemaVersion !== 2 || state.actions?.send === true
 
-/** Whether this conversation may run its queue now; schedules a retry when it should wait. */
+/**
+ * Whether this conversation may run its queue now; schedules a retry when it should wait.
+ * `detached` when its runtime did not answer the status read.
+ */
 async function ready(userId: string, sessionId: string, target: AgentConversation | null) {
   // The holder runs this again when it lets go.
   if (await turnRunner.hasActiveAgentRunForSession(userId, sessionId)) return false
+  if (!target?.claudeCodePreview) return { detached: false }
+  const state = await conversationExecutionState(target)
+
   // Runtime-owned work (an automatic continuation) holds no backend claim.
-  if (target?.claudeCodePreview && !runtimeAccepts(await conversationExecutionState(target))) {
+  if (!runtimeAccepts(state)) {
     retryQueuedTurn(userId, sessionId)
 
     return false
   }
 
-  return true
+  return { detached: state.state === 'disconnected' }
+}
+
+/**
+ * The runtime did not answer, so a turn started now would fail. Its head waits for the
+ * runtime to reattach, as it does for an offline computer; after the same grace its
+ * senders are told.
+ */
+async function holdForReattach(target: AgentConversation, head: PendingUserMessage[]) {
+  const [first, ...rest] = head
+
+  if (!first) return
+  if (withinOfflineGrace(first)) {
+    await requeueTurnQueue(target.userId, target.sessionId, rest, {
+      ...first,
+      offlineSince: first.offlineSince ?? new Date().toISOString(),
+    })
+
+    return
+  }
+  await reportUndelivered(
+    { userId: target.userId, teamId: target.teamId, targetSessionId: target.sessionId },
+    head,
+    'was not sent: the computer running this agent did not reconnect.',
+  )
 }
 
 /**
@@ -50,7 +80,9 @@ async function ready(userId: string, sessionId: string, target: AgentConversatio
 export async function startQueuedTurn(userId: string, sessionId: string): Promise<void> {
   const target = await getConversationBySessionId(sessionId)
 
-  if (!(await ready(userId, sessionId, target))) return
+  const runtime = await ready(userId, sessionId, target)
+
+  if (!runtime) return
   const release = await turnRunner.claimAgentRunForSession(userId, sessionId)
 
   if (!release) return
@@ -96,6 +128,11 @@ export async function startQueuedTurn(userId: string, sessionId: string): Promis
         head,
         'did not run: the thread no longer exists.',
       )
+
+      return
+    }
+    if (runtime.detached) {
+      await holdForReattach(target, head)
 
       return
     }

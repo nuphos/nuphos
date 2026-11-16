@@ -124,13 +124,17 @@ agent.post('/chat', async (c) => {
   const runtimeOwnsAdmission = runtimeSnapshot?.schemaVersion === 2
 
   if (!readOnlyResume) {
-    const previewWait = await resolvePreviewWaitFromChat({
-      userId,
-      sessionId: id,
-      streamId,
-      body,
-      snapshot: runtimeSnapshot,
-    })
+    // A runtime that does not answer cannot say what it waits for: a new message queues for it.
+    const previewWait =
+      runtimeSnapshot?.state === 'disconnected' && !body.resumeReason
+        ? null
+        : await resolvePreviewWaitFromChat({
+            userId,
+            sessionId: id,
+            streamId,
+            body,
+            snapshot: runtimeSnapshot,
+          })
 
     if (previewWait) {
       const adopted = await awaitAdoptedPreviewRun(runOwnerUserId, streamId)
