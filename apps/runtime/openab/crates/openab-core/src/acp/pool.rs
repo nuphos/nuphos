@@ -314,6 +314,17 @@ async fn setup_facade_session(
 /// clone of the connection, so the agent process may be alive and mid-turn. If the session id
 /// stayed in `suspended`/`persisted`, the next message would `session/load` the same session while
 /// the old process still owns an in-flight turn.
+/// Forgets a thread's live connection state but keeps its session id, persisted and
+/// suspended, so the next `get_or_restore` loads that session instead of starting fresh.
+fn suspend_entry(state: &mut PoolState, thread_id: &str, sid: &str) {
+    state.cancel_handles.remove(thread_id);
+    state.steering_handles.remove(thread_id);
+    state.activity.remove(thread_id);
+    state.pgids.remove(thread_id);
+    state.persisted.insert(thread_id.to_string(), sid.to_string());
+    state.suspended.insert(thread_id.to_string(), sid.to_string());
+}
+
 fn purge_session_entries(state: &mut PoolState, key: &str) {
     state.admission_permits.remove(key);
     state.cancel_handles.remove(key);
@@ -335,7 +346,7 @@ fn purge_session_entries(state: &mut PoolState, key: &str) {
 
 /// ACP's "resource not found" (`-32002`): what claude-agent-acp answers a
 /// `session/load` with for a conversation it never persisted.
-const ACP_RESOURCE_NOT_FOUND: i64 = -32002;
+pub(crate) const ACP_RESOURCE_NOT_FOUND: i64 = -32002;
 
 /// JSON-RPC "invalid params" (`-32602`), which codex-acp also uses for `Unknown session: <id>`.
 const INVALID_PARAMS: i64 = -32602;
@@ -892,14 +903,28 @@ impl SessionPool {
         }
         remove_if_same_handle(&mut state.active, thread_id, handle)?;
         info!(thread_id = %crate::redact::redact_session_ids(thread_id), "MCP servers changed, respawning idle session");
-        state.cancel_handles.remove(thread_id);
-        state.steering_handles.remove(thread_id);
-        state.activity.remove(thread_id);
-        state.pgids.remove(thread_id);
-        state.persisted.insert(thread_id.to_string(), sid.clone());
-        state.suspended.insert(thread_id.to_string(), sid.clone());
+        suspend_entry(&mut state, thread_id, &sid);
         self.save_mapping(&state.persisted);
         Some(sid)
+    }
+
+    /// Drops a thread's connection but keeps its session id, so the next `get_or_create`
+    /// restores the session with `session/load`, or starts a new one where that is gone too.
+    /// For an agent that no longer holds the session its process still runs.
+    pub async fn suspend_session(&self, thread_id: &str) {
+        let mut state = self.state.write().await;
+        let Some(handle) = state.active.remove(thread_id) else {
+            return;
+        };
+        let sid = handle
+            .try_lock()
+            .ok()
+            .and_then(|conn| conn.acp_session_id.clone());
+        if let Some(sid) = sid {
+            info!(thread_id = %crate::redact::redact_session_ids(thread_id), "agent lost its session, restoring it");
+            suspend_entry(&mut state, thread_id, &sid);
+            self.save_mapping(&state.persisted);
+        }
     }
 
     /// Restore only a known native session, without a prompt or output attachment.

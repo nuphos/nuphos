@@ -983,3 +983,68 @@ async fn acp_agent_receives_cancelled_for_a_released_permission_request() {
         }],
     );
 }
+
+/// Loses its session once: the first process answers the prompt with ACP "resource not
+/// found", as claude-agent-acp does for a session it no longer holds. Every later process
+/// restores the session with `session/load` and answers whether it was loaded.
+const SESSION_GONE_ONCE_AGENT: &str = r##"#!/bin/sh
+marker="$(dirname "$0")/session_gone_once"
+loaded=fresh
+while IFS= read -r line; do
+  id=$(printf '%s' "$line" | sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p')
+  case "$line" in
+    *'"initialize"'*)
+      printf '{"jsonrpc":"2.0","id":%s,"result":{"agentInfo":{"name":"fake","version":"0"},"agentCapabilities":{"loadSession":true}}}\n' "$id"
+      ;;
+    *'"session/new"'*)
+      printf '{"jsonrpc":"2.0","id":%s,"result":{"sessionId":"sess_fake"}}\n' "$id"
+      ;;
+    *'"session/load"'*)
+      loaded=loaded
+      printf '{"jsonrpc":"2.0","id":%s,"result":{}}\n' "$id"
+      ;;
+    *'"session/prompt"'*)
+      if [ ! -e "$marker" ]; then
+        : > "$marker"
+        printf '{"jsonrpc":"2.0","id":%s,"error":{"code":-32002,"message":"Resource not found: sess_fake","data":{"uri":"sess_fake"}}}\n' "$id"
+      else
+        printf '{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"sess_fake","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"%s"}}}}\n' "$loaded"
+        printf '{"jsonrpc":"2.0","id":%s,"result":{"stopReason":"end_turn"}}\n' "$id"
+      fi
+      ;;
+  esac
+done
+"##;
+
+// An agent that no longer holds the session answers the prompt with -32002 before any
+// output. The turn restores the saved session (session/load) and runs once more instead
+// of failing.
+#[tokio::test(flavor = "multi_thread")]
+async fn acp_prompt_for_a_lost_session_restores_it_and_runs_once_more() {
+    let _guard = env_lock();
+    let fx = setup_with_agent_and_streaming(
+        "acp",
+        "acp:session-gone-once",
+        SESSION_GONE_ONCE_AGENT,
+        false,
+    )
+    .await;
+    let recorder = Arc::new(RecordingAdapter::new(false));
+    let adapter: Arc<dyn ChatAdapter> = recorder.clone();
+
+    run_turn(&fx, &adapter, "acp:session-gone-once").await;
+
+    let calls = recorder.calls();
+    assert!(
+        !calls
+            .iter()
+            .any(|call| matches!(call, Call::Failure { .. })),
+        "the lost session failed the turn: {calls:?}"
+    );
+    assert!(
+        calls
+            .iter()
+            .any(|call| matches!(call, Call::Terminal { content, .. } if content == "loaded")),
+        "the turn did not run on the restored session: {calls:?}"
+    );
+}
