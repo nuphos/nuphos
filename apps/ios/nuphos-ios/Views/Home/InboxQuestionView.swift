@@ -75,7 +75,7 @@ struct InboxQuestionView: View {
             if wide { Theme.separator.frame(width: 0.5).ignoresSafeArea() }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            if !wide, options != nil {
+            if !wide, question.options != nil {
                 answers
                     .padding(.horizontal, 20)
                     .padding(.top, 12)
