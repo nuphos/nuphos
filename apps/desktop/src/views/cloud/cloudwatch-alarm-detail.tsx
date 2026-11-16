@@ -1,10 +1,12 @@
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Copy, Globe } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { api } from '../../api'
-import { useReportLoading } from '../../components/useReportLoading'
 import { TimeSeriesPanel } from '../../grafana/components/TimeSeriesPanel'
 import { t } from '../../i18n'
+import { queryKeys } from '../../lib/query/keys'
+import { useRefreshKey } from '../../lib/query/tabQuery'
 
 import { alarmConditionLabel, alarmStateClass, cloudWatchAlarmUrl } from './cloudwatch-alarm-format'
 import { formatLogTimestamp } from './metrics-explorer-shared'
@@ -18,6 +20,7 @@ import type {
 } from '../../types'
 
 export function CloudWatchAlarmDetailView({
+  scope,
   alarm,
   metricDataLoader,
   historyLoader,
@@ -25,6 +28,8 @@ export function CloudWatchAlarmDetailView({
   onLoading,
   refreshKey,
 }: {
+  /** Names the team, account and role the alarm is read through. */
+  scope: string
   alarm: AwsCloudWatchAlarm
   metricDataLoader?: (
     alarm: AwsCloudWatchAlarm,
@@ -36,11 +41,6 @@ export function CloudWatchAlarmDetailView({
   refreshKey: number
 }) {
   const [rangeMinutes, setRangeMinutes] = useState(180)
-  const [metricData, setMetricData] = useState<AwsCloudWatchMetricData | null>(null)
-  const [metricLoading, setMetricLoading] = useState(false)
-  const [metricError, setMetricError] = useState<string | null>(null)
-  const [history, setHistory] = useState<AwsCloudWatchAlarmHistoryItem[] | null>(null)
-  const [historyError, setHistoryError] = useState<string | null>(null)
   const metricLoaderRef = useRef(metricDataLoader)
   const historyLoaderRef = useRef(historyLoader)
 
@@ -49,57 +49,36 @@ export function CloudWatchAlarmDetailView({
     historyLoaderRef.current = historyLoader
   })
   const canChart = alarm.kind === 'metric' && !!alarm.metricName && !!metricDataLoader
+  const metric = useQuery({
+    queryKey: queryKeys.cloudWatchAlarm(scope, alarm.arn, 'metric', rangeMinutes),
+    queryFn: () => metricLoaderRef.current?.(alarm, rangeMinutes) ?? null,
+    enabled: canChart,
+    // A new range keeps the last chart on screen while it loads.
+    placeholderData: keepPreviousData,
+  })
+  const historyQuery = useQuery({
+    queryKey: queryKeys.cloudWatchAlarm(scope, alarm.arn, 'history'),
+    queryFn: () => historyLoaderRef.current?.(alarm) ?? [],
+    enabled: Boolean(historyLoader),
+  })
+  const metricData = metric.data ?? null
+  const metricLoading = metric.isFetching
+  const metricError = metric.error?.message ?? null
+  const history = historyQuery.data ?? null
+  const historyError = historyQuery.error?.message ?? null
 
-  useReportLoading(metricLoading, onLoading)
+  useRefreshKey(
+    {
+      isPending: metricLoading,
+      refetch: () => Promise.all([canChart && metric.refetch(), historyQuery.refetch()]),
+    },
+    refreshKey,
+    onLoading,
+  )
 
   useEffect(() => {
     onCount(1)
   }, [onCount])
-
-  useEffect(() => {
-    const load = metricLoaderRef.current
-
-    if (!canChart || !load) return
-    let cancelled = false
-
-    setMetricLoading(true)
-    setMetricError(null)
-    load(alarm, rangeMinutes)
-      .then((d) => {
-        if (cancelled) return
-        setMetricData(d)
-        setMetricLoading(false)
-      })
-      .catch((e: unknown) => {
-        if (cancelled) return
-        setMetricError(String(e instanceof Error ? e.message : e))
-        setMetricLoading(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [alarm.arn, rangeMinutes, refreshKey, canChart])
-
-  useEffect(() => {
-    const load = historyLoaderRef.current
-
-    if (!load) return
-    let cancelled = false
-
-    setHistoryError(null)
-    load(alarm)
-      .then((items) => {
-        if (!cancelled) setHistory(items)
-      })
-      .catch((e: unknown) => {
-        if (!cancelled) setHistoryError(String(e instanceof Error ? e.message : e))
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [alarm.arn, refreshKey])
 
   const metricFrame = useMemo<DataFrame | null>(() => {
     if (!metricData) return null

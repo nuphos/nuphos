@@ -1,11 +1,13 @@
 import { faCheck, faCopy, faRotateRight } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { useQuery } from '@tanstack/react-query'
 import { Copy, Download, ExternalLink, File as FileIcon, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { DetailSidebarTransition } from '../../components/DetailSidebarTransition'
 import { t } from '../../i18n'
+import { queryKeys } from '../../lib/query/keys'
 
 import { isImageObject, isTextObject, s3ConsoleObjectUrl, s3Uri } from './s3-helpers'
 import { basename, formatBytes } from './shared'
@@ -13,6 +15,7 @@ import { basename, formatBytes } from './shared'
 import type { AwsS3Bucket, AwsS3Object, AwsS3ObjectPreview } from '../../types'
 
 export function S3ObjectPreviewPanel({
+  scope,
   bucket,
   object,
   onClose,
@@ -20,6 +23,7 @@ export function S3ObjectPreviewPanel({
   getDownloadUrl,
   getPreview,
 }: {
+  scope: string
   bucket: AwsS3Bucket
   object: AwsS3Object
   onClose: () => void
@@ -27,11 +31,6 @@ export function S3ObjectPreviewPanel({
   getDownloadUrl?: (key: string) => Promise<string>
   getPreview?: (key: string) => Promise<AwsS3ObjectPreview>
 }) {
-  const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
-  const [preview, setPreview] = useState<AwsS3ObjectPreview | null>(null)
-  const [previewLoading, setPreviewLoading] = useState(false)
-  const [previewError, setPreviewError] = useState<string | null>(null)
-  const [reloadTick, setReloadTick] = useState(0)
   const [copiedContent, setCopiedContent] = useState(false)
   const copyResetRef = useRef<number | undefined>(undefined)
 
@@ -52,52 +51,26 @@ export function S3ObjectPreviewPanel({
 
   useEffect(() => () => window.clearTimeout(copyResetRef.current), [])
 
-  useEffect(() => {
-    const load = getDownloadUrlRef.current
-
-    if (!load) return
-    let cancelled = false
-
-    load(object.key)
-      .then((url) => {
-        if (!cancelled) setDownloadUrl(url)
-      })
-      .catch((e: unknown) => {
-        if (!cancelled) {
-          setPreviewError(String(e instanceof Error ? e.message : e))
-        }
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [object.key, reloadTick])
-
-  useEffect(() => {
-    const load = getPreviewRef.current
-
-    if (!looksText || !load) return
-    let cancelled = false
-
-    setPreviewLoading(true)
-    setPreviewError(null)
-    setPreview(null)
-    load(object.key)
-      .then((p) => {
-        if (cancelled) return
-        setPreview(p)
-        setPreviewLoading(false)
-      })
-      .catch((e: unknown) => {
-        if (cancelled) return
-        setPreviewError(String(e instanceof Error ? e.message : e))
-        setPreviewLoading(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [object.key, looksText, reloadTick])
+  // A signed download link expires, so it is read again whenever the panel opens.
+  const link = useQuery({
+    queryKey: queryKeys.s3Object(scope, bucket.name, object.key, 'download-url'),
+    queryFn: () => getDownloadUrlRef.current?.(object.key) ?? '',
+    enabled: Boolean(getDownloadUrl),
+    staleTime: 0,
+  })
+  const text = useQuery({
+    queryKey: queryKeys.s3Object(scope, bucket.name, object.key, 'preview'),
+    queryFn: () => getPreviewRef.current?.(object.key) ?? null,
+    enabled: looksText && Boolean(getPreview),
+  })
+  const downloadUrl = link.data ?? null
+  const preview: AwsS3ObjectPreview | null = text.data ?? null
+  const previewLoading = text.isFetching
+  const previewError = (text.error ?? link.error)?.message ?? null
+  const reload = () => {
+    void link.refetch()
+    if (looksText) void text.refetch()
+  }
 
   const copyContent = () => {
     if (!preview) return
@@ -121,7 +94,7 @@ export function S3ObjectPreviewPanel({
             </span>
             <button
               type="button"
-              onClick={() => setReloadTick((n) => n + 1)}
+              onClick={reload}
               className="ml-auto text-tertiary hover:text-main shrink-0"
               title={t('Reload preview')}
             >
