@@ -28,13 +28,9 @@ useRedis({
 })
 
 const { flushGuardWrites, startAgentRunOwnership } = await import('../run-store')
-const { sweepAbandonedAgentRuns } = await import('./ownership')
+const { backfillRunIndexes, sweepAbandonedAgentRuns } = await import('./run-index')
 const { ABANDONED_GUARD_GRACE_MS, ACTIVE_RUN_TTL_SEC } = await import('./shared')
 const { RUNTIME_HANDOFFS_KEY } = await import('@/lib/claude-code-preview/runtime-handoff-store')
-const handoff = (await import('@/lib/claude-code-preview/runtime-handoff')) as Record<
-  string,
-  unknown
->
 
 const USER = 'index-user'
 const INDEX = 'atlas:agentrun-active-sessions'
@@ -102,10 +98,7 @@ describe.skipIf(!client)('run and queue indexes', () => {
     await redis.rpush(queue, JSON.stringify({ id: 'old', renderedText: 'left', source: 'app' }))
     await redis.hset(run, 'streamId', 'old-stream')
     try {
-      const backfill = handoff.backfillRunIndexes
-
-      expect(typeof backfill).toBe('function')
-      await (backfill as () => Promise<void>)()
+      await backfillRunIndexes()
       expect(
         await redis.sismember('atlas:agentrun-pending-sessions', `${USER}:index-old-queue`),
       ).toBe(1)
