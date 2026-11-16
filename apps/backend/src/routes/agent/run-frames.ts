@@ -32,10 +32,11 @@ export function appendAgentRunFrame(run: AgentRun, frame: string) {
   }
   const frameType = agentRunFrameType(frame)
 
-  if (frameType === 'runtime-state' && unchangedRuntimeState(run, frame)) return
-  run.frames.push(frame)
+  // Even a repeat shows the producer is alive, which the stall sweeper reads.
   run.lastAccessAt = Date.now()
   run.lastFrameAt = run.lastAccessAt
+  if (frameType === 'runtime-state' && unchangedRuntimeState(run, frame)) return
+  run.frames.push(frame)
   mirrorAgentRunFrame(run.userId, run.streamId, frame)
 
   if (
