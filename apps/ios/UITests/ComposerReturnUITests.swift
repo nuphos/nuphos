@@ -1,23 +1,19 @@
 import UIKit
 import XCTest
 
-/// Return on a hardware keyboard in a Bot's chat composer (#2154). Only an
-/// iPad simulator takes hardware key presses. Offline fixture, with a reply
-/// for the post so a sent draft is not handed back.
+/// Return on a hardware keyboard in a Bot's chat composer (#2154). Shift-Return
+/// is covered by ComposerReturnTests. Offline fixture, with a reply for the
+/// post so a sent draft is not handed back.
 final class ComposerReturnUITests: XCTestCase {
-    private var live: URL?
+    private var live: [URL] = []
 
     override func tearDownWithError() throws {
-        if let live { try? FileManager.default.removeItem(at: live) }
+        for file in live { try? FileManager.default.removeItem(at: file) }
     }
 
-    func testReturnSendsAndShiftReturnStartsALine() throws {
+    func testReturnSendsAndKeepsFocus() throws {
         let composer = try openComposer()
-        composer.typeText("one")
-        composer.typeKey(.return, modifierFlags: .shift)
         composer.typeText("two")
-        XCTAssertEqual(composer.value as? String, "one\ntwo", "Shift-Return did not start a new line")
-
         composer.typeKey(.return, modifierFlags: [])
         expectation(for: NSPredicate(format: "NOT (value CONTAINS %@)", "two"), evaluatedWith: composer)
         waitForExpectations(timeout: 5)
@@ -67,34 +63,70 @@ final class ComposerReturnUITests: XCTestCase {
     /// final line break counted as a line, growing to eight lines and then
     /// scrolling, and an image paste. Screenshots go to NUPHOS_SHOTS when set.
     func testFieldGrowsScrollsAndPastes() throws {
-        let composer = try openComposer()
+        let composer = try openComposer(hardwareKeys: false)
         shot("1-placeholder")
-        composer.typeText("one")
-        composer.typeKey(.return, modifierFlags: .shift)
+        let oneLine = composer.frame.height
+        composer.typeText("one\n")
         shot("2-line-break-at-end")
+        XCTAssertGreaterThan(composer.frame.height, oneLine, "A final line break was not counted as a line")
+        var eightLines: CGFloat = 0
         for line in 2...10 {
             composer.typeText("line \(line)")
-            if line < 10 { composer.typeKey(.return, modifierFlags: .shift) }
-            if line == 8 { shot("3-eight-lines") }
+            if line < 10 { composer.typeText("\n") }
+            if line == 8 {
+                shot("3-eight-lines")
+                eightLines = composer.frame.height
+            }
         }
         shot("4-ten-lines-scrolls")
-        composer.typeKey("a", modifierFlags: .command)
-        composer.typeKey(XCUIKeyboardKey.delete.rawValue, modifierFlags: [])
+        XCTAssertGreaterThan(eightLines, oneLine * 4, "The field did not grow with its lines")
+        XCTAssertEqual(composer.frame.height, eightLines, accuracy: 1, "The field kept growing past eight lines")
+
+        let empty = try openComposer(hardwareKeys: false)
 
         UIPasteboard.general.image = UIGraphicsImageRenderer(size: CGSize(width: 120, height: 80)).image { context in
             UIColor.systemTeal.setFill()
             context.fill(CGRect(x: 0, y: 0, width: 120, height: 80))
         }
-        composer.typeKey("v", modifierFlags: .command)
+        let paste = XCUIApplication().menuItems["Paste"]
+        empty.tap()
+        if !paste.waitForExistence(timeout: 2) { empty.press(forDuration: 1) }
+        XCTAssertTrue(paste.waitForExistence(timeout: 3), "No Paste in the edit menu")
+        paste.tap()
         let allow = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Allow Paste"]
         if allow.waitForExistence(timeout: 3) { allow.tap() }
         sleep(2)
         shot("5-image-pasted")
     }
 
+    /// A last line that exactly fills the width stays one line tall, one more
+    /// character wraps, and the placeholder is back once the draft is deleted.
+    func testLastLineFillingTheWidth() throws {
+        let composer = try openComposer(hardwareKeys: false)
+        let oneLine = composer.frame.height
+        var count = 0
+        while composer.frame.height <= oneLine + 1, count < 200 {
+            composer.typeText("WWWWW")
+            count += 5
+        }
+        while composer.frame.height > oneLine + 1, count > 0 {
+            composer.typeText(XCUIKeyboardKey.delete.rawValue)
+            count -= 1
+        }
+        shot("7-last-line-full")
+        composer.typeText("W")
+        shot("8-one-more-character")
+        XCTAssertGreaterThan(composer.frame.height, oneLine + 1, "One more character did not wrap")
+
+        composer.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: count + 1))
+        shot("9-placeholder-after-editing")
+        XCTAssertEqual(composer.value as? String ?? "", composer.placeholderValue ?? "", "The draft was not deleted")
+        XCTAssertEqual(composer.frame.height, oneLine, accuracy: 1, "The empty field is not one line tall")
+    }
+
     /// The on-screen keyboard's Return types a line break and never sends.
     func testOnScreenReturnTypesALine() throws {
-        let composer = try openComposer()
+        let composer = try openComposer(hardwareKeys: false)
         let keyboard = XCUIApplication().keyboards.firstMatch
         XCTAssertTrue(keyboard.waitForExistence(timeout: 5), "No on-screen keyboard")
         composer.typeText("one")
@@ -109,12 +141,16 @@ final class ComposerReturnUITests: XCTestCase {
         try? XCUIScreen.main.screenshot().pngRepresentation.write(to: URL(filePath: dir).appending(path: "\(name).png"))
     }
 
-    private func openComposer(markedText: Bool = false) throws -> XCUIElement {
-        try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "Hardware key presses need an iPad")
+    /// Hardware key presses only reach the app on an iPad simulator; the
+    /// on-screen keyboard and pasteboard tests run anywhere.
+    private func openComposer(markedText: Bool = false, hardwareKeys: Bool = true) throws -> XCUIElement {
+        if hardwareKeys {
+            try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "Hardware key presses need an iPad")
+        }
         let fixture = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
             .appending(path: "tests/fixtures/bot-desktop-responses.json")
         let file = fixture.deletingLastPathComponent().appending(path: "return-live-\(UUID().uuidString).json")
-        live = file
+        live.append(file)
         var responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: fixture)) as? [String: Any])
         responses["POST /agent/conversations/chat-bot-plain/channel-messages"] = ["status": 200, "body": [String: Any]()]
         try JSONSerialization.data(withJSONObject: responses).write(to: file, options: .atomic)

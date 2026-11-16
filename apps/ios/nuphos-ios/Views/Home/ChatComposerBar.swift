@@ -255,35 +255,35 @@ struct ChatComposerBar<Controls: View>: View {
     /// A text view, not a vertical text field: a text field ends editing on
     /// a hardware keyboard's Return, which also threw away what an input
     /// method had not committed yet (#2154). A text view leaves Return to the
-    /// input method. The hidden text sizes it, from one line to eight; the
-    /// trailing space keeps an empty draft one line tall and counts a final
-    /// line break as a line.
+    /// input method. Only the hidden text sizes it, from one line to eight,
+    /// since the text view would grow with its draft; the trailing space keeps
+    /// an empty draft one line tall and counts a final line break as a line.
     private var field: some View {
-        ZStack(alignment: .topLeading) {
-            Text(text + " ")
-                .lineLimit(1...8)
-                .padding(Self.textInset)
-                .hidden()
-            if text.isEmpty {
-                Text(prompt)
-                    .lineLimit(1)
-                    .foregroundStyle(.tertiary)
-                    .padding(Self.textInset)
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(true)
-            }
-            TextEditor(text: $text)
-                .scrollContentBackground(.hidden)
-                .focused($focused)
-                .accessibilityLabel(Text(prompt))
-                // The numeric keypad's Enter may arrive as its own key.
-                .onKeyPress(keys: [.return, KeyEquivalent("\u{3}")], phases: .down) { press in
-                    guard ComposerReturn.on(press.modifiers, composing: composing) == .send
-                    else { return .ignored }
-                    send(keepingFocus: true)
-                    return .handled
+        Text(text + " ")
+            .lineLimit(1...8)
+            .padding(Self.textInset)
+            .hidden()
+            .overlay(alignment: .topLeading) {
+                if text.isEmpty {
+                    Text(prompt)
+                        .lineLimit(1)
+                        .foregroundStyle(.tertiary)
+                        .padding(Self.textInset)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
                 }
-        }
+                TextEditor(text: $text)
+                    .scrollContentBackground(.hidden)
+                    .focused($focused)
+                    .accessibilityLabel(Text(prompt))
+                    // The numeric keypad's Enter may arrive as its own key.
+                    .onKeyPress(keys: [.return, KeyEquivalent("\u{3}")], phases: .down) { press in
+                        guard ComposerReturn.on(press.modifiers, composing: composing) == .send
+                        else { return .ignored }
+                        send(keepingFocus: true)
+                        return .handled
+                    }
+            }
         // The text view's own inset, taken back so the text sits where the field's did.
         .padding(.horizontal, -Self.textInset.leading)
         .padding(.vertical, -Self.textInset.top)
