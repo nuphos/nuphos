@@ -39,3 +39,17 @@ test('a runtime snapshot identical to the last one is dropped, live and mirrored
   expect(types(run.frames)).toEqual(['working', 'tool', 'working'])
   expect(types(mirrored)).toEqual(['working', 'tool', 'working'])
 })
+
+test('tool events between unchanged snapshots leave one snapshot frame', () => {
+  const run = createAgentRun('user-b', 'session-b', 'stream-b')
+  const tool = (i: number) =>
+    `data: ${JSON.stringify({ type: 'tool-input-available', toolCallId: `call-${String(i)}` })}\n\n`
+
+  for (let i = 0; i < 5; i++) {
+    appendAgentRunFrame(run, tool(i))
+    appendAgentRunFrame(run, runtimeState('working', i))
+  }
+
+  expect(run.frames.filter((frame) => frame.includes('"runtime-state"'))).toHaveLength(1)
+  expect(run.frames).toHaveLength(6)
+})
