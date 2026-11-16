@@ -5082,7 +5082,7 @@
   "Watch with Agent": "エージェントで監視",
   "Watching the agent’s desktop.": "エージェントのデスクトップを表示中です。",
   "We couldn't run an authoritative check (e.g. AWS iam:SimulatePrincipalPolicy was denied) and fell back to inferring from the policy documents.": "確実なチェックを実行できなかったため（例：AWS iam:SimulatePrincipalPolicy が拒否された）、ポリシードキュメントからの推定にフォールバックしました。",
-  "We found the {name} CLI on this computer. The agent can walk through setup with you, right in a new agent.": "このコンピューターで {name} CLI が見つかりました。新しいエージェントで、エージェントがセットアップを一緒に進めます。",
+  "We found the {name} CLI on this computer. The agent can walk through setup with you, right in a new task.": "このコンピューターで {name} CLI が見つかりました。新しいタスクで、エージェントがセットアップを一緒に進めます。",
   "Web sign-in (nuphos.ai)": "Web サインイン（nuphos.ai）",
   "Webhook": "Webhook",
   "Webhook & events": "Webhook とイベント",

@@ -69,7 +69,7 @@ export function CloudCliSetupChoice({
           {check.checking
             ? t('Looking for the {name} command-line tool on this computer.', { name: label })
             : t(
-                'We found the {name} CLI on this computer. The agent can walk through setup with you, right in a new agent.',
+                'We found the {name} CLI on this computer. The agent can walk through setup with you, right in a new task.',
                 { name: label },
               )}
         </p>

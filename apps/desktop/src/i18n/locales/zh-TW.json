@@ -5082,7 +5082,7 @@
   "Watch with Agent": "用 Agent 監看",
   "Watching the agent’s desktop.": "正在觀看 Agent 的桌面。",
   "We couldn't run an authoritative check (e.g. AWS iam:SimulatePrincipalPolicy was denied) and fell back to inferring from the policy documents.": "我們無法執行權威檢查（例如 AWS iam:SimulatePrincipalPolicy 遭拒），因此改為從原則文件推斷。",
-  "We found the {name} CLI on this computer. The agent can walk through setup with you, right in a new agent.": "我們在這台電腦上找到了 {name} CLI。Agent 可以直接在新的 Agent 中陪你完成設定。",
+  "We found the {name} CLI on this computer. The agent can walk through setup with you, right in a new task.": "我們在這台電腦上找到了 {name} CLI。Agent 可以直接在新的任務中陪你完成設定。",
   "Web sign-in (nuphos.ai)": "網頁登入（nuphos.ai）",
   "Webhook": "Webhook",
   "Webhook & events": "Webhook 與事件",

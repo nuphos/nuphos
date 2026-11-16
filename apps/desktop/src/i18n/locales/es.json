@@ -5082,7 +5082,7 @@
   "Watch with Agent": "Vigilar con el agente",
   "Watching the agent’s desktop.": "Observando el escritorio del agente.",
   "We couldn't run an authoritative check (e.g. AWS iam:SimulatePrincipalPolicy was denied) and fell back to inferring from the policy documents.": "No pudimos ejecutar una comprobación definitiva (p. ej., se denegó AWS iam:SimulatePrincipalPolicy) y se infirió a partir de los documentos de política.",
-  "We found the {name} CLI on this computer. The agent can walk through setup with you, right in a new agent.": "Encontramos la CLI de {name} en esta computadora. El agente puede guiarte en la configuración, directamente en un nuevo agente.",
+  "We found the {name} CLI on this computer. The agent can walk through setup with you, right in a new task.": "Encontramos la CLI de {name} en esta computadora. El agente puede guiarte en la configuración, directamente en una tarea nueva.",
   "Web sign-in (nuphos.ai)": "Inicio de sesión web (nuphos.ai)",
   "Webhook": "Webhook",
   "Webhook & events": "Webhook y eventos",
