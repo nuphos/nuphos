@@ -48,3 +48,13 @@ test("an admin cannot read another member's private Uptime Kuma credentials", as
 test('its owner can', async () => {
   expect((await app('owner').request(`/${instanceId}/credentials`)).status).toBe(200)
 })
+
+test("an admin cannot point another member's private instance at a new URL", async () => {
+  const response = await app('admin').request(`/${instanceId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ baseUrl: 'https://elsewhere.example.com' }),
+  })
+
+  expect(response.status).toBe(403)
+})
