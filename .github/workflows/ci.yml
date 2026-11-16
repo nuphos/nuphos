@@ -291,6 +291,9 @@ jobs:
         run: rustup toolchain install 1.99.0 --profile minimal --component clippy
       - name: Clippy
         run: cargo +1.99.0 clippy --locked --workspace --features unified -- -D warnings
+      # A gateway adapter without the ACP server: acp-only code must stay behind its cfg.
+      - name: Check without ACP
+        run: cargo +1.99.0 check --locked --features telegram
       # The ACP gateway and MCP tunnel tests are behind features the shipped
       # binary enables, so default features would compile them away.
       - name: Test
