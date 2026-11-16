@@ -27,7 +27,7 @@ final class CodeBlockWidthUITests: XCTestCase {
         app.launchArguments = ["-preview-home", "-preview-no-push", "-open-links", "https://nuphos.ai/teams/64b5f1c2e4b0a1d2c3e4f5a6/agent/dock-a"]
         app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path]
         app.launch()
-        let allow = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Allow"]
+        let allow = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Allow"].firstMatch
         if allow.waitForExistence(timeout: 3) { allow.tap() }
         let transcript = app.collectionViews["chat.transcript"]
         XCTAssertTrue(transcript.cells.firstMatch.waitForExistence(timeout: 10), "The chat did not load")
