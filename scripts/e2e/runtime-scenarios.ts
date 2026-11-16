@@ -23,6 +23,18 @@ export const runtimeScenarios: Scenario[] = [
         await until('the app to read the conversation’s settings', async () =>
           backendLog(from).some((line) => line.includes('/model-config"')),
         )
+        // #2922: asked once its last reading has expired, the agent's usage reads as offline.
+        await until('the agent’s usage to read as offline', async () => {
+          const response = await fetch(
+            `${stack.apiUrl}/teams/${stack.teamId}/agent-runtimes/quota`,
+            {
+              headers: { authorization: `Bearer ${stack.token}` },
+            },
+          )
+          const { quotas } = (await response.json()) as { quotas: { offline?: true }[] }
+
+          return quotas.some((quota) => quota.offline)
+        })
       })
       await send(page, 'After the restart E2E_DELIVERY:after')
       await page.getByText('ACK E2E_DELIVERY:after').waitFor()
