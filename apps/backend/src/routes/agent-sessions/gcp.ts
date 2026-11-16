@@ -23,12 +23,29 @@ projectScoped.use('*', requireSelectedGcpAgentCredential())
 
 projectScoped.route('/firebase', firebaseRoutes)
 
+/**
+ * The connector's service account no longer exists: a 503 would tell an agent to try
+ * again, which never helps. Only the team reconnecting the connector does.
+ */
+function connectorGone(error: unknown, serviceAccountEmail: string): AppError | undefined {
+  if (!(error instanceof Error) || !error.message.startsWith('NOT_FOUND: unable to impersonate'))
+    return undefined
+
+  return new AppError(
+    409,
+    'gcp_connector_missing',
+    `This team's GCP connector can't be used: its service account ${serviceAccountEmail} no longer exists. Retrying won't help. A team admin needs to reconnect the GCP connector for this project.`,
+  )
+}
+
 projectScoped.get('/credentials', async (c) => {
   const agent = c.get('agent')
   const projectId = c.get('projectId')
   const serviceAccountEmail = c.get('serviceAccountEmail')
   const impersonated = await impersonateSa(serviceAccountEmail, c.get('teamId'))
-  const tokenResp = await impersonated.getAccessToken()
+  const tokenResp = await impersonated.getAccessToken().catch((error: unknown) => {
+    throw connectorGone(error, serviceAccountEmail) ?? error
+  })
 
   if (!tokenResp.token) {
     throw new AppError(502, 'token_unavailable', 'Failed to mint impersonated access token')

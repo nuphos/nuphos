@@ -78,6 +78,13 @@ the binding's Access allow list in Settings -> Integrations, or choose another
 service account already enabled for this session. Retry the setup command after
 the allow list changes.
 
+### Connector service account missing (`gcp_connector_missing`)
+
+If `setup-credentials.sh` fails with HTTP 409 `gcp_connector_missing`, the bound
+connector service account no longer exists. Do not retry the setup command or the
+GCP operation: it fails the same way until the connector is fixed. Tell the user
+that a team admin must reconnect the GCP connector for this project, then stop.
+
 ### Impersonation / getAccessToken denied
 
 If `setup-credentials.sh` returns `cloud_api_error` with
