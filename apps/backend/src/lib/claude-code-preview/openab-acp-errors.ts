@@ -84,9 +84,8 @@ export function acpErrorCode(error: OpenAbRpcError): number | undefined {
 }
 
 /**
- * The provider answered the agent with HTTP 402: the account has no usage left
- * (Grok Build reports `usage balance exhausted`). Only credits or a reset fix it,
- * so it is a product state, not a transport failure.
+ * The provider answered HTTP 402: no usage left (Grok Build: `usage balance exhausted`). Only
+ * credits or a reset fix it, so it is a product state, not a transport failure.
  */
 const PROVIDER_PAYMENT_REQUIRED = /\(status 402 Payment Required\): ?([^\n]*)/u
 
@@ -96,8 +95,9 @@ const DETAIL_NOTICE = /(?:^|\n)Internal error\n> ([^\n]*)/u
 /** The SDK's `USAGE_LIMIT_ERROR_PREFIXES` that name a limit, and Codex's (curly apostrophe). */
 const CLAUDE_USAGE_LIMIT =
   /^(?:You['’]ve hit your|You['’]ve reached your|You['’]re out of usage credits|Your org is out of usage)/u
-/** A credential the CLI holds but can no longer use, e.g. `Failed to authenticate: OAuth session expired …`. */
-const CLAUDE_AUTH_FAILED = /^(?:Failed to authenticate\b|Invalid API key\b|.*Please run \/login\b)/u
+/** A credential the CLI can no longer use: Claude's `Failed to authenticate: …`, Codex's ChatGPT refusals. */
+const CLAUDE_AUTH_FAILED =
+  /^(?:Failed to authenticate\b|Invalid API key\b|.*Please run \/login\b|workspace routing discovery unauthorized\b|Your access token could not be refreshed\b)/u
 const isProductStateNotice = (n: string) => CLAUDE_USAGE_LIMIT.test(n) || CLAUDE_AUTH_FAILED.test(n)
 
 /** The agent's own reason: after `Internal error: `, or a usage/sign-in notice on a `> ` line. */
