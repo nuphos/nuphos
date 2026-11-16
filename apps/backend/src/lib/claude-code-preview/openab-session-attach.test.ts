@@ -50,6 +50,7 @@ function client(overrides: Partial<TeamPreviewClient> = {}): TeamPreviewClient {
   return {
     initialize: () => Promise.resolve({}),
     getSessionExecutionState: () => Promise.resolve({ state: 'dormant' }),
+    closeSession: async () => ({}),
     sessionRequests: async () => ({}),
     getRuntimeExecutionState: async () => ({ sessions: [] }),
     runtimeLogin: async () => ({ exitCode: 0 }),
