@@ -44,5 +44,10 @@ export function agentConfig() {
     ragApiKey: optional('RAG_API_KEY'),
     tavilyApiKey: optional('TAVILY_API_KEY'),
     firecrawlApiKey: optional('FIRECRAWL_API_KEY'),
+    // Opt-in only. The supported value today is "keenable"; unset leaves the
+    // Nuphos web_search / web_fetch tools unregistered.
+    webSearchProvider: optional('WEB_SEARCH_PROVIDER'),
+    webFetchProvider: optional('WEB_FETCH_PROVIDER'),
+    keenableApiKey: optional('KEENABLE_API_KEY'),
   }
 }

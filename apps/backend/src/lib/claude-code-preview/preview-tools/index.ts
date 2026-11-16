@@ -28,6 +28,7 @@ import { localExecToolModule } from './local-exec'
 import { slackPreviewToolModule } from './slack'
 import { sessionResourceToolModule } from './session-resources'
 import { threadToolModule } from './threads'
+import { webToolModule } from './web-tools'
 
 import type { PreviewToolContext, PreviewToolModule } from '../preview-tool-context'
 import type { MemoryTool } from '@/lib/agent/memory-slots/types'
@@ -182,6 +183,7 @@ const EXTRA_MODULES: ModuleFactory[] = [
   localExecToolModule,
   () => Promise.resolve(localCuaToolModule),
   () => Promise.resolve(localBrowserToolModule),
+  () => Promise.resolve(webToolModule()),
 ]
 
 export async function previewToolModules(ctx: PreviewToolContext): Promise<PreviewToolModule[]> {
