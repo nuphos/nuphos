@@ -7,6 +7,9 @@
     " " : {
 
     },
+    "#%@" : {
+
+    },
     "%@ %@" : {
       "comment" : "Chat timestamp, other year: time month/day/year",
       "localizations" : {
@@ -6256,6 +6259,9 @@
 
     },
     "Opens the channel" : {
+
+    },
+    "Opens the channel at this post" : {
 
     },
     "Or type your own answer" : {
