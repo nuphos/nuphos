@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
-import { newBindingAccess } from '@/lib/byos/initial-access'
+import { bindingShareSchema, newBindingAccess } from '@/lib/byos/initial-access'
 import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { encryptSonarqubeSecret } from '@/lib/byos/secrets'
 import { blockedSonarqubeBaseUrlReason, verifySonarqubeCredentials } from '@/lib/byos/sonarqube'
@@ -32,6 +32,7 @@ const bindSchema = z
         if (reason) ctx.addIssue({ code: z.ZodIssueCode.custom, message: reason })
       }),
     token: z.string().trim().min(1).max(512),
+    share: bindingShareSchema.optional(),
   })
   .strict()
 

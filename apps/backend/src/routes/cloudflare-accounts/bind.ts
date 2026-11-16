@@ -13,7 +13,7 @@ import {
   buildCloudflareAuthorizeUrl,
 } from '@/lib/byos/cloudflare-oauth'
 import { appendEnvironmentBinding } from '@/lib/byos/environment-bindings'
-import { newBindingAccess } from '@/lib/byos/initial-access'
+import { bindingShareSchema, newBindingAccess } from '@/lib/byos/initial-access'
 import { encryptCloudflareApiKey } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
@@ -35,6 +35,7 @@ const bindSchema = z
   .object({
     accountId: accountIdSchema,
     apiKey: z.string().trim().min(1),
+    share: bindingShareSchema.optional(),
   })
   .strict()
 
@@ -65,6 +66,7 @@ const startOAuthSchema = z
       // Room for every scope Cloudflare offers (~400 today).
       .max(1000)
       .optional(),
+    share: bindingShareSchema.optional(),
   })
   .strict()
 

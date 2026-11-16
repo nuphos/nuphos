@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
-import { newBindingAccess } from '@/lib/byos/initial-access'
+import { bindingShareSchema, newBindingAccess } from '@/lib/byos/initial-access'
 import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { encryptTailscaleClientSecret } from '@/lib/byos/secrets'
 import {
@@ -34,6 +34,7 @@ const bindSchema = z
     clientSecret: z.string().trim().min(1).optional(),
     federated: z.boolean().optional(),
     audience: z.string().trim().min(1).max(512).optional(),
+    share: bindingShareSchema.optional(),
   })
   .strict()
   .refine((value) => Boolean(value.clientSecret) !== Boolean(value.federated), {
