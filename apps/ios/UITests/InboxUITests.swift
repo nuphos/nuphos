@@ -402,7 +402,9 @@ final class InboxUITests: XCTestCase {
         field.typeText("Check the review status by hand and tell me")
         shot("6-no-provider-typed")
         app.buttons["Send answer"].firstMatch.tap()
-        XCTAssertTrue(app.buttons["Undo"].waitForExistence(timeout: 5), "No toast for the answer")
+        // The last open question: the Inbox is empty, so no toast.
+        XCTAssertTrue(listed("How should I handle Android releases stuck in Play review?").waitForNonExistence(timeout: 10),
+                      "The answered question is still listed")
         shot("7-no-provider-answered")
     }
 
