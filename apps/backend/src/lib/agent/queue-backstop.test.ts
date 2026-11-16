@@ -128,11 +128,11 @@ describe.skipIf(!client)('queue backstop cost per tick', () => {
   test('a replica mid-scan that keeps losing the tick still starts its in-memory queue', async () => {
     // Redis down: the claim fails every tick, and the queue only exists in memory.
     await client!.set(CLAIM, 'other-replica', 'PX', 10_000)
-    localQueues.set(pendingKey(OWNER, 'backstop-local'), [waiting('kept in memory')])
+    localQueues.set(pendingKey(OWNER, 'backstop-outage'), [waiting('kept in memory')])
     const next = await sweepQueuedSessions('17')
 
     await sweepQueuedSessions(next)
     await flush()
-    expect(started).toEqual(['backstop-local'])
+    expect(started).toEqual(['backstop-outage'])
   })
 })
