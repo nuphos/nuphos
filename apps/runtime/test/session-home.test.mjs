@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir, userInfo } from 'node:os'
 import { join, dirname, relative } from 'node:path'
 import test from 'node:test'
@@ -206,6 +214,22 @@ test('two sessions install into one pnpm store, and a session keeps a store it c
     execFileSync('pnpm', ['store', 'path'], { cwd: env.HOME, env, encoding: 'utf8' }).trim()
   assert.equal(path(a), path(b))
   assert.equal(dirname(path(a)), store)
+})
+
+test('a session still starts when its pnpm rc cannot be written', (t) => {
+  if (process.getuid?.() === 0) return t.skip('root writes through the read-only directory')
+  const host = runtime(t)
+  const first = nuphosSessionHomeEnv({ NUPHOS_SESSION_ID: 'a' }, host)
+  const dir = join(first.XDG_CONFIG_HOME, 'pnpm')
+  rmSync(join(dir, 'rc'))
+  chmodSync(dir, 0o500)
+  const warn = t.mock.method(process.stderr, 'write', () => true)
+  const env = nuphosSessionHomeEnv({ NUPHOS_SESSION_ID: 'a' }, host)
+  warn.mock.restore()
+  chmodSync(dir, 0o700)
+  assert.equal(env.HOME, first.HOME)
+  assert.equal(env.pnpm_config_store_dir, first.pnpm_config_store_dir)
+  assert.match(String(warn.mock.calls[0]?.arguments[0]), /could not share the pnpm store/)
 })
 
 test('real gcloud active configuration and gh token reads remain session scoped', (t) => {

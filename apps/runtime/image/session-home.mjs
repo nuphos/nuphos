@@ -56,14 +56,16 @@ export function nuphosSessionHomeEnv(sessionEnv = {}, runtimeEnv = process.env) 
   // pnpm 9 and 10 read the store from this rc, pnpm 11 from pnpm_config_store_dir.
   // npm_config_store_dir would reach 9 and 10 too, but npm 11 warns about it on every command.
   const pnpmStore = nuphosJoin(runtimeHome, '.local', 'share', 'pnpm', 'store')
-  nuphosMkdir(nuphosJoin(config, 'pnpm'), { recursive: true, mode: 0o700 })
   try {
+    nuphosMkdir(nuphosJoin(config, 'pnpm'), { recursive: true, mode: 0o700 })
     nuphosWriteFile(nuphosJoin(config, 'pnpm', 'rc'), `store-dir=${pnpmStore}\n`, {
       flag: 'wx',
       mode: 0o600,
     })
   } catch (error) {
-    if (error.code !== 'EEXIST') throw error // A session's own rc wins.
+    // A session's own rc wins, and a cache setting never stops a session from starting.
+    if (error.code !== 'EEXIST')
+      process.stderr.write(`nuphos: could not share the pnpm store: ${error.message}\n`)
   }
   return {
     HOME: home,
