@@ -44,6 +44,15 @@ const create = z
     ...common,
     title: z.string().trim().min(1).max(160),
     runtimeId,
+    requestId: z
+      .string()
+      .trim()
+      .min(1)
+      .max(128)
+      .optional()
+      .describe(
+        'Stable key for this delegation. Reuse the same key and prompt when retrying; use a new key for unrelated work.',
+      ),
     ...modelPick,
     modelReason: z
       .string()
@@ -117,7 +126,7 @@ export function threadToolModule(
           'list_agent_runtimes shows for its agent: a lighter, cheaper model for simple or mechanical ' +
           'work, a stronger one for hard reasoning or risky changes. Say why in modelReason. ' +
           'The current chat stays available. Specify a completion condition and ask the worker to use ' +
-          'send_message_to_thread to report back. Returns a Nuphos threadId (not a Codex internal ID). ' +
+          'report_task to report results or blockers. Supply requestId and reuse it with the same prompt on retries to avoid duplicate Tasks. Returns a Nuphos threadId (not a Codex internal ID). ' +
           'Only available for conversations owned by the current actor.',
         inputSchema: toolInputJsonSchema(create),
       },

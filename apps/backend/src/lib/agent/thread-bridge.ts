@@ -13,13 +13,15 @@ import {
   recordAgentEvent,
   setConversationArchived,
   setConversationParent,
-  upsertConversationShell,
 } from './db'
 import { isChannel } from './db/channels'
+import { prepareThread } from './thread-delegation'
 import { relatedQuestionsNote } from './db/pending-decision'
 
-import type { ThreadModelPick } from './thread-runtime'
 import type { AgentConversation } from './db'
+import type { ThreadModelPick } from './thread-runtime'
+
+export { delegationThreadId } from './thread-delegation'
 
 export type ThreadActor = { userId: string; teamId: string; sessionId: string; locale: string }
 export type ThreadTurn = ThreadActor & {
@@ -80,38 +82,10 @@ export async function createAgentThread(
   actor: ThreadActor,
   prompt: string,
   title: string,
-  pick: ThreadModelPick & { runtimeId?: string } = {},
+  pick: ThreadModelPick & { runtimeId?: string; requestId?: string } = {},
 ) {
   const source = await authorizeThreadActor(actor)
-  const { assertThreadRuntime, setThreadModel } = await import('./thread-runtime')
-  // The agent asked for, or its parent's.
-  const runtime = await assertThreadRuntime(actor, pick.runtimeId)
-  const threadId = randomUUID()
-  const messageId = randomUUID()
-
-  await upsertConversationShell({
-    sessionId: threadId,
-    userId: actor.userId,
-    teamId: actor.teamId,
-    title,
-    firstMessage: prompt,
-    locale: actor.locale,
-    source: 'agent.thread',
-    agentRuntime: runtime?.provider ?? source.agentRuntime,
-    runtimeId: runtime?.id ?? source.runtimeId,
-    runtimeLabel: runtime?.label ?? source.runtimeLabel,
-    parentSessionId: actor.sessionId,
-    parentGrants: source,
-    workspace: source.workspace,
-  })
-
-  try {
-    await setThreadModel(threadId, actor.userId, pick)
-  } catch (error) {
-    // Nothing ran yet; a refused pick hides the unused conversation.
-    await setConversationArchived(threadId, true)
-    throw error
-  }
+  const { threadId, messageId } = await prepareThread(actor, source, prompt, title, pick)
   const { status } = await startThreadTurn({
     ...actor,
     targetSessionId: threadId,

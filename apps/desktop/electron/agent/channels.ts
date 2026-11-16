@@ -18,6 +18,9 @@ export async function createChannel(
 
 /** Where a new Bot runs: the runtime a new chat would start on. */
 export type NewBot = {
+  onboarding?: boolean
+  starter?: 'coordinate'
+  locale?: string
   title?: string
   avatar?: string
   runtimeId?: string
@@ -120,4 +123,14 @@ export async function resolveChannelAttachment(
 /** The Inbox's channel entries: posts that @mention the viewer. */
 export async function listChannelMentions(teamId: string): Promise<{ mentions: ChannelMention[] }> {
   return callJsonForRenderer('GET', `/agent/channels/mentions${teamQuery(teamId)}`)
+}
+
+export function startBotOnboarding(
+  sessionId: string,
+  teamId: string,
+  channelId: string,
+): Promise<{ started: boolean }> {
+  return callJsonForRenderer('POST', `${at(sessionId)}/bot-onboarding${teamQuery(teamId)}`, {
+    channelId,
+  })
 }
