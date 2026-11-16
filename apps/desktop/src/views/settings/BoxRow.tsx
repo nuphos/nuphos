@@ -22,13 +22,13 @@ import { AccessHint, LiveDot, MachineLine, OwnerLine } from './BoxParts'
 import { copyUid } from './boxCopyUid'
 import { openBoxPaywall } from './boxPaywallStore'
 import { BOX_BADGE, boxActions, boxState, removal } from './boxPresentation'
-import { boxRestartLabel, boxRestartOf, boxUpdateLabel } from './boxRestartPresentation'
+import { boxRestartLabel, boxRestartOf } from './boxRestartPresentation'
 import { boxRestarts, useBoxRestart } from './boxRestartStore'
 import { openDesktop } from './computerDesktop'
 import { LocalAgentShareDialog } from './LocalAgentShareDialog'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
-import { useBoxHostUpdate } from './useBoxHostUpdate'
 import { useComputerOwner } from './useComputerOwner'
+import { useComputerUpdate } from './useComputerUpdate'
 
 import type { AgentDevice } from '../../api'
 import type { LocalAgentProvider } from '../../api/device-types'
@@ -118,12 +118,13 @@ export function BoxRow({
   const metricsStatus = settingUp ? state : device.metricsStatus
   const away = !restart && (state === 'paused' || state === 'hostOffline')
   const hostAgent = cloud && manage && state === 'running' && !restart ? agents[0]?.id : undefined
-  const updateVersion = useBoxHostUpdate(teamId, hostAgent)
+  const running = state === 'running' && !restart
+  const hostUpdate = useComputerUpdate(teamId, device, { cloud, thisComputer, running, hostAgent })
+  const updateVersion = hostUpdate.version
   const [confirmUpdate, setConfirmUpdate] = useState(false)
   const update = () =>
     act(t('Could not update computer'), async (deviceId, team) => {
-      if (!hostAgent) return
-      await api.atlasRequestRuntimeUpdate(team, hostAgent)
+      await hostUpdate.request(team)
       boxRestarts.start(deviceId, team, 'update')
     })
 
@@ -187,9 +188,12 @@ export function BoxRow({
                   {t('Open desktop')}
                 </MenuItem>
               )}
-              {updateVersion !== undefined && (
-                <MenuItem onClick={() => setConfirmUpdate(true)}>
-                  {boxUpdateLabel(updateVersion)}
+              {hostUpdate.label && (
+                <MenuItem
+                  disabled={updateVersion === undefined}
+                  onClick={() => setConfirmUpdate(true)}
+                >
+                  {hostUpdate.label}
                 </MenuItem>
               )}
               <MenuItem onClick={() => setRenaming(true)}>{t('Rename')}</MenuItem>
@@ -230,7 +234,7 @@ export function BoxRow({
         <AccessHint device={device} />
         {updateVersion !== undefined && (
           <BoxHostUpdate
-            boxLabel={device.label}
+            confirm={hostUpdate.confirm(updateVersion)}
             version={updateVersion}
             busy={busy}
             confirming={confirmUpdate}

@@ -195,6 +195,16 @@ export function deleteBox(deviceId: string, teamId: string): Promise<{ ok: true 
 }
 
 /** Forgets an offline computer; the backend refuses Boxes and computers that are online. */
+/** Restarts the caller's other computer into the Nuphos Desktop update it downloaded. */
+export function updateDeviceApp(deviceId: string, teamId: string): Promise<{ version: string }> {
+  return call(
+    'POST',
+    `/teams/${encodeURIComponent(teamId)}/computers/${encodeURIComponent(deviceId)}/app-update`,
+    undefined,
+    { retry: false },
+  )
+}
+
 export function removeDevice(deviceId: string, teamId: string): Promise<{ ok: true }> {
   return call('DELETE', deviceRoute(deviceId, teamId), undefined, { retry: false })
 }
