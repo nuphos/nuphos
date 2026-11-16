@@ -49,7 +49,8 @@ fetch() {
 # arrives, so wait for it with short requests instead of one long one.
 wait_seconds="${NUPHOS_TRANSFER_WAIT_SECONDS:-90}"
 resp="$(fetch)"
-while [[ "$resp" == *'"status":"pending"'* ]] && [ "$SECONDS" -lt "$wait_seconds" ]; do
+pending='"status"[[:space:]]*:[[:space:]]*"pending"'
+while [[ "$resp" =~ $pending ]] && [ "$SECONDS" -lt "$wait_seconds" ]; do
   sleep 3
   resp="$(fetch)"
 done

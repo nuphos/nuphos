@@ -95,12 +95,11 @@ export async function dispatchLocalUpload(
       if (!groupId) resolve(result ?? { error: 'upload_failed' })
       else if (!confirmed) void transfers.finalize(scope, groupId).catch(() => undefined)
     }
-    const timer = setTimeout(
-      () => {
-        finish({ error: 'upload_timeout' })
-      },
-      options.timeoutMs ?? config.fileTransfer.presignExpirySeconds * 1000,
-    )
+    // The caller waits only until the transfer exists; the bytes then get as
+    // long as the signed URL they travel on.
+    let timer = setTimeout(() => {
+      finish({ error: 'upload_timeout' })
+    }, options.timeoutMs ?? 120_000)
 
     socket.addEventListener('open', () => {
       socket.send(JSON.stringify({ path }))
@@ -138,9 +137,16 @@ export async function dispatchLocalUpload(
             const { files } = intent.parse(message.body)
             const created = await transfers.create(scope, 'upload', files)
 
-            if (settled) return
+            if (settled) {
+              // The caller was already answered with an error; do not leave it pending.
+              void transfers.finalize(scope, created.groupId).catch(() => undefined)
+
+              return
+            }
             groupId = created.groupId
             result = created
+            clearTimeout(timer)
+            timer = setTimeout(finish, config.fileTransfer.presignExpirySeconds * 1000)
             resolve({ groupId, fileName: files[0]!.fileName, size: files[0]!.size })
           } else if (groupId && message.suffix === `/${groupId}/finalize` && !confirmed) {
             result = await transfers.finalize(scope, groupId)

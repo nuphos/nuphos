@@ -271,7 +271,7 @@ test('the answer does not wait for the bytes, and the pull waits for them instea
       if (!new URL(request.url).pathname.endsWith('/download')) return new Response('fixture')
       const view = ready(groupId, 7)
 
-      return Response.json({
+      const body = {
         ...view,
         status: state,
         files: [
@@ -281,7 +281,10 @@ test('the answer does not wait for the bytes, and the pull waits for them instea
             ...(state === 'ready' ? { downloadUrl: `${server.url}object` } : {}),
           },
         ],
-      })
+      }
+
+      // Indented, as a backend other than ours might answer.
+      return new Response(JSON.stringify(body, null, 2))
     },
   })
 
@@ -292,6 +295,8 @@ test('the answer does not wait for the bytes, and the pull waits for them instea
       dispatchLocalUpload('conversation-owner', 'd1', join(dir, 'fixture.bin'), scope, {
         access,
         deps,
+        // Bounds the wait for the transfer to exist, not the transfer itself.
+        timeoutMs: 100,
         transfers: {
           create: async () => created(groupId, `${server.url}object`),
           finalize: async () => {
