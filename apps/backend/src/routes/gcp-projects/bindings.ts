@@ -114,7 +114,8 @@ export function registerGcpBindingRoutes(
       assertMayBindIdentity(
         c,
         (sameAccount?.gcpServiceAccounts ?? []).filter(
-          (binding) => binding.serviceAccountEmail === serviceAccountEmail,
+          (binding) =>
+            binding.serviceAccountEmail.toLowerCase() === serviceAccountEmail.toLowerCase(),
         ),
         `GCP service account ${serviceAccountEmail}`,
       )

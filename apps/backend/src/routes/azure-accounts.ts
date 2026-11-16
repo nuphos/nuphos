@@ -82,7 +82,10 @@ azureAccountsRoutes.post(
     assertMayBindIdentity(
       c,
       (sameApp?.azureAccounts ?? []).filter(
-        (binding) => binding.tenantId === tenantId && binding.clientId === clientId,
+        // Entra GUIDs are case-insensitive, so a different spelling is the same app.
+        (binding) =>
+          binding.tenantId.toLowerCase() === tenantId.toLowerCase() &&
+          binding.clientId.toLowerCase() === clientId.toLowerCase(),
       ),
       `Azure app ${clientId}`,
     )

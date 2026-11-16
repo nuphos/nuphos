@@ -17,8 +17,8 @@ const access = {
   updatedAt: new Date(),
   updatedBy: 'owner',
 }
-const tenantId = '11111111-1111-1111-1111-111111111111'
-const clientId = '22222222-2222-2222-2222-222222222222'
+const tenantId = 'aaaaaaaa-1111-1111-1111-111111111111'
+const clientId = 'bbbbbbbb-2222-2222-2222-222222222222'
 
 useByosAccount({ listGcpBindingsForProject: async () => [] })
 useModels({
@@ -72,6 +72,17 @@ test("an admin cannot bind another member's private Azure app under another subs
     label: 'mine',
     tenantId,
     clientId,
+    subscriptionId: '33333333-3333-3333-3333-333333333333',
+  })
+
+  expect(response.status).toBe(403)
+})
+
+test('a different spelling of the same Azure app is the same app', async () => {
+  const response = await post(azureAccountsRoutes, {
+    label: 'mine',
+    tenantId: tenantId.toUpperCase(),
+    clientId: clientId.toUpperCase(),
     subscriptionId: '33333333-3333-3333-3333-333333333333',
   })
 
