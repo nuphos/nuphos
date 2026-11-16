@@ -32,6 +32,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import org.junit.Assume.assumeTrue
+import org.junit.Ignore
 
 /** All HTTP requests are intercepted; no credentials or server are used. */
 @RunWith(AndroidJUnit4::class)
@@ -206,6 +207,7 @@ class AgentsLoadingFixtureDeviceTest {
     }
     private fun waitText(text: String) { compose.waitUntil(5_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() } }
     private fun readCount() = requests.count { it.url.encodedPath.endsWith("/read") }
+    @Ignore("Fails on main since #3000 and #3008 run more tests before it, likely state they leave behind: #1620")
     @Test fun coldHistoryHasLoadingButNoFakeRowsOrEmptyMessage() {
         holdNextList = true; render()
         compose.waitUntil(5_000) { listHeld.count == 0L }
