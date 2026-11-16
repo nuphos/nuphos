@@ -102,7 +102,8 @@ test('an answer wakes the asking agent with the card and the answer, and sends n
 
   expect(turns).toHaveLength(1)
   expect(turns[0]).toMatchObject({ session: 'bot', sender: 'nuphos:decision' })
-  expect(turns[0]!.text).toContain('Your question (requestId q1) was answered')
+  // Answered on its card in the chat or in the Inbox alike, so the notice names neither.
+  expect(turns[0]!.text).toContain('Your question (requestId q1) was answered.')
   expect(turns[0]!.text).toContain('Answered by: "Yuanlin", this conversation\'s owner')
   expect(turns[0]!.text).toContain('Continue the task with this answer.')
   expect(turns[0]!.text).toContain('- Which regions? → us-east, eu-west')

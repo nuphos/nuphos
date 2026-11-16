@@ -81,8 +81,8 @@ export function answerNotice(
 
   return [
     asker
-      ? `A question about this conversation (requestId ${request.id}), asked by conversation ${askedBy}, was answered from the Inbox.`
-      : `Your question (requestId ${request.id}) was answered from the Inbox.`,
+      ? `A question about this conversation (requestId ${request.id}), asked by conversation ${askedBy}, was answered.`
+      : `Your question (requestId ${request.id}) was answered.`,
     `Answered by: ${JSON.stringify(who.displayName)}, ${
       who.owner
         ? "this conversation's owner: it is their own answer."
