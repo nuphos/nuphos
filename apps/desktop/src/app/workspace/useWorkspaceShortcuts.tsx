@@ -93,11 +93,6 @@ export function useWorkspaceShortcuts(a: Args) {
 
         return
       }
-      if (action === 'open-computers') {
-        openSettingsSection('workspace.computers')
-
-        return
-      }
       if (action === 'open-updates') {
         openSettingsSection('device.updates')
 

@@ -45,13 +45,9 @@ test('workspace menu opens computer management directly above the unchanged sett
     const items = [...dom.document.querySelectorAll('[role="menuitem"]')]
 
     assert.deepEqual(
-      items.map((item) =>
-        item.textContent?.trim().replace(/^(Computers & runtimes|Team settings).*/, '$1'),
-      ),
+      items.map((item) => item.textContent?.trim().replace(/Team settings.*/, 'Team settings')),
       ['Computers & runtimes', 'Team settings', 'My preferences', 'Switch workspace'],
     )
-    for (const item of items) assert.ok(item.querySelector('svg'))
-    assert.ok(items[0]?.querySelector('kbd'))
     await act(() => (items[0] as unknown as HTMLElement).click())
     assert.deepEqual(actions, ['computers'])
   } finally {

@@ -23,7 +23,6 @@ export type AppShortcutAction =
   | 'next-tab'
   | 'open-settings'
   | 'open-team-settings'
-  | 'open-computers'
   | 'open-updates'
   | 'toggle-sidebar'
   | 'toggle-dock'
