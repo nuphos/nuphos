@@ -3,7 +3,6 @@ import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n/index.ts'
 
 import { errorMessage } from './constants'
-import { shareNewBinding } from './share'
 
 import type { SubmitEnv } from './submit-env'
 import type { BindState } from './use-bind-state'
@@ -25,9 +24,7 @@ export async function submitLinode(st: BindState, env: SubmitEnv) {
   }
   setSubmitting(true)
   try {
-    const bound = await api.atlasBindLinodeAccount(env.teamId, label, token)
-
-    await shareNewBinding(env, 'linode', bound.id)
+    await api.atlasBindLinodeAccount(env.teamId, label, token, env.share)
     reset()
     env.onBound()
     env.onClose()
@@ -54,9 +51,7 @@ export async function submitHetzner(st: BindState, env: SubmitEnv) {
   }
   setSubmitting(true)
   try {
-    const bound = await api.atlasBindHetznerAccount(env.teamId, label, token)
-
-    await shareNewBinding(env, 'hetzner', bound.id)
+    await api.atlasBindHetznerAccount(env.teamId, label, token, env.share)
     reset()
     env.onBound()
     env.onClose()
@@ -86,14 +81,13 @@ export async function submitBetterStack(st: BindState, env: SubmitEnv) {
   }
   setSubmitting(true)
   try {
-    const bound = await api.atlasBindBetterStackIntegration(
+    await api.atlasBindBetterStackIntegration(
       env.teamId,
       label,
       uptimeApiToken || null,
       telemetryApiToken || null,
+      env.share,
     )
-
-    await shareNewBinding(env, 'betterstack', bound.id)
     reset()
     env.onBound()
     env.onClose()
@@ -128,13 +122,15 @@ export async function submitUptimeKuma(st: BindState, env: SubmitEnv) {
   }
   setSubmitting(true)
   try {
-    const bound = await api.atlasBindUptimeKumaInstance(env.teamId, {
-      label,
-      baseUrl,
-      ...(authToken ? { authToken } : { username, password }),
-    })
-
-    await shareNewBinding(env, 'uptime-kuma', bound.id)
+    await api.atlasBindUptimeKumaInstance(
+      env.teamId,
+      {
+        label,
+        baseUrl,
+        ...(authToken ? { authToken } : { username, password }),
+      },
+      env.share,
+    )
     reset()
     env.onBound()
     env.onClose()
@@ -169,15 +165,14 @@ export async function submitTailscale(st: BindState, env: SubmitEnv) {
   }
   setSubmitting(true)
   try {
-    const bound = await api.atlasBindTailscaleClient(
+    await api.atlasBindTailscaleClient(
       env.teamId,
       label,
       clientId,
       tailscaleFederated ? null : clientSecret,
       tailscaleFederated,
+      env.share,
     )
-
-    await shareNewBinding(env, 'tailscale', bound.id)
     reset()
     env.onBound()
     env.onClose()

@@ -58,3 +58,11 @@ export async function setTeamBindingShareDefault(
 ): Promise<Team> {
   return call<Team>('PUT', `/teams/${teamId}/binding-share-default`, { share }, { retry: false })
 }
+
+/** Who the member connecting a binding shares it with. */
+export type BindingShare = { mode: 'private' | 'team' | 'members'; memberIds: string[] }
+
+/** A bind request's body with the member's share choice, when they made one. */
+export function withShare<T extends object>(body: T, share?: BindingShare): T {
+  return share ? { ...body, share } : body
+}

@@ -3,7 +3,6 @@ import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n/index.ts'
 
 import { errorMessage } from './constants'
-import { shareNewBinding } from './share'
 
 import type { SubmitEnv } from './submit-env'
 import type { BindState } from './use-bind-state'
@@ -26,9 +25,7 @@ export async function submitVanta(st: BindState, env: SubmitEnv) {
   }
   setSubmitting(true)
   try {
-    const bound = await api.atlasBindVantaIntegration(env.teamId, label, clientId, clientSecret)
-
-    await shareNewBinding(env, 'vanta', bound.id)
+    await api.atlasBindVantaIntegration(env.teamId, label, clientId, clientSecret, env.share)
     reset()
     env.onBound()
     env.onClose()
@@ -56,15 +53,14 @@ export async function submitSecureframe(st: BindState, env: SubmitEnv) {
   }
   setSubmitting(true)
   try {
-    const bound = await api.atlasBindSecureframeIntegration(
+    await api.atlasBindSecureframeIntegration(
       env.teamId,
       label,
       secureframeRegion,
       apiKey,
       apiSecret,
+      env.share,
     )
-
-    await shareNewBinding(env, 'secureframe', bound.id)
     reset()
     env.onBound()
     env.onClose()
@@ -91,9 +87,7 @@ export async function submitNotion(st: BindState, env: SubmitEnv) {
   }
   setSubmitting(true)
   try {
-    const bound = await api.atlasBindNotionIntegration(env.teamId, label, token)
-
-    await shareNewBinding(env, 'notion', bound.id)
+    await api.atlasBindNotionIntegration(env.teamId, label, token, env.share)
     reset()
     env.onBound()
     env.onClose()
@@ -126,9 +120,7 @@ export async function submitUpstash(st: BindState, env: SubmitEnv) {
   }
   setSubmitting(true)
   try {
-    const bound = await api.atlasBindUpstashAccount(env.teamId, label, email, apiKey)
-
-    await shareNewBinding(env, 'upstash', bound.id)
+    await api.atlasBindUpstashAccount(env.teamId, label, email, apiKey, env.share)
     reset()
     env.onBound()
     env.onClose()
@@ -155,9 +147,7 @@ export async function submitResend(st: BindState, env: SubmitEnv) {
   }
   setSubmitting(true)
   try {
-    const bound = await api.atlasBindResendIntegration(env.teamId, label, apiKey)
-
-    await shareNewBinding(env, 'resend', bound.id)
+    await api.atlasBindResendIntegration(env.teamId, label, apiKey, env.share)
     reset()
     env.onBound()
     env.onClose()

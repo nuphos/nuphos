@@ -27,7 +27,8 @@ export const databasesApi = {
       password?: string | null
       authToken?: string | null
     },
-  ) => ipcRenderer.invoke('atlas:bindUptimeKumaInstance', teamId, input),
+    share?: unknown,
+  ) => ipcRenderer.invoke('atlas:bindUptimeKumaInstance', teamId, input, share),
   atlasUpdateUptimeKumaInstance: (
     teamId: string,
     instanceId: string,
