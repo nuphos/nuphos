@@ -84,8 +84,7 @@ export function SlackSettingsView({
   }
 
   const installed = Boolean(installation) || status?.installed === true
-  // A stored binding whose token Slack no longer honours: only a reinstall
-  // can repair it, so say so instead of leaving the page looking healthy.
+  // Revoked Slack tokens require reinstalling the stored binding.
   const tokenRevoked = Boolean(installation) && status?.installed === false
 
   async function disconnect() {
