@@ -65,5 +65,8 @@ export async function deliverWaitingAnswersOn(filter: Record<string, unknown>): 
 }
 
 /** A computer reconnected: every agent on it (`local_<owner>_<device>…`) can run again. */
-export const deliverWaitingAnswersOnDevice = (userId: string, deviceId: string) =>
-  deliverWaitingAnswersOn({ runtimeId: { $regex: `^local_${userId}_${deviceId}(_|$)` } })
+export function deliverWaitingAnswersOnDevice(userId: string, deviceId: string) {
+  const prefix = `local_${userId}_${deviceId}`.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+  return deliverWaitingAnswersOn({ runtimeId: { $regex: `^${prefix}(_|$)` } })
+}
