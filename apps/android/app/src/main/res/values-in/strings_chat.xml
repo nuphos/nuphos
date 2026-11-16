@@ -5,6 +5,8 @@
     <string name="chat_event_expand">Luaskan peristiwa</string>
     <string name="chat_channel_new_messages">Pesan baru di #%1$s</string>
     <string name="chat_open_channel">Buka saluran</string>
+    <string name="chat_channel_sent_file">Mengirim file</string>
+    <string name="chat_channel_more_posts">+%1$d lagi</string>
     <string name="chat_answered_by">%1$s menjawab</string>
     <string name="chat_question_collapse">Ciutkan pertanyaan</string>
     <string name="chat_question_expand">Luaskan pertanyaan</string>

@@ -7,6 +7,7 @@ import { logError } from '@/lib/observability'
 
 import { getConversationBySessionId } from './db'
 import { markChannelRead, unmarkChannelRead } from './db/channel-cursor'
+import { newestPost } from './channel-newest-post'
 import { CHANNEL_SENDER_PREFIX, readChannelMessages } from './db/channels'
 import { pushTimelineEvent } from './db/participants'
 import { agentConversations } from './db/shared'
@@ -67,7 +68,7 @@ export async function steerRunningTurn(
   try {
     await steerConversationRuntime(
       agent,
-      { text: messages[0].renderedText, userId: agent.userId, metadata },
+      { text: messages[0].renderedText, userId: agent.userId, metadata: messages[0].metadata },
       randomUUID(),
     )
   } catch {
@@ -171,8 +172,15 @@ export async function withChannelPosts<
     if (page.messages.length === 0) continue
     if (page.upTo !== undefined)
       read.push([channelId, channel.agentReadIndex?.[agentSessionId], page.upTo])
-    // From the bare notice, so a requeued one does not carry its posts twice.
-    kept.push({ ...message, renderedText: `${channelNotice(channelId)}\n\n${channelPage(page)}` })
+    const channelPost = message.metadata && (await newestPost(channel, page))
+
+    kept.push({
+      ...message,
+      // What people see of it: the newest post, as the agent got it.
+      ...(channelPost ? { metadata: { ...message.metadata!, channelPost } } : {}),
+      // From the bare notice, so a requeued one does not carry its posts twice.
+      renderedText: `${channelNotice(channelId)}\n\n${channelPage(page)}`,
+    })
   }
 
   return {

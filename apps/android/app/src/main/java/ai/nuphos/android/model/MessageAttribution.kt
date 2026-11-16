@@ -10,6 +10,8 @@ data class MessageAttribution(
     val source: String,
     val viaName: String? = null,
     val avatarURL: String? = null,
+    /** A channel's wake-up: the newest post it brought, for the line people see; null keeps today's line. */
+    val channelPost: ChannelPostPreview? = null,
 ) {
     val label: String get() = viaName?.let { "$name · via $it" } ?: name
     val isEvent: Boolean get() = source == "agent.thread" || source == "agent.resource"
@@ -38,7 +40,39 @@ data class MessageAttribution(
             }
             if (sender["type"]?.stringValue != expected) return null
             val viaName = via?.get("displayName")?.stringValue?.takeIf { it.isNotEmpty() }
-            return MessageAttribution(id, name, expected, source, viaName, SenderAvatar.trusted(sender["avatarURL"]?.stringValue))
+            val post = if (source == "agent.resource" && id.startsWith(CHANNEL_PREFIX)) ChannelPostPreview.parse(metadata["channelPost"]) else null
+            return MessageAttribution(id, name, expected, source, viaName, SenderAvatar.trusted(sender["avatarURL"]?.stringValue), post)
         }
     }
+}
+
+/** The newest post a channel's wake-up brought (`channel-newest-post.ts`): who, its first line or file name, how many more. */
+data class ChannelPostPreview(
+    val id: String,
+    val name: String,
+    val avatarURL: String?,
+    /** Set for an agent's post: its avatar is the agent's face. */
+    val agentId: String?,
+    val runtime: String?,
+    val text: String,
+    val more: Int,
+) {
+    companion object {
+        fun parse(value: JsonValue?): ChannelPostPreview? {
+            val id = value?.get("id")?.stringValue?.takeIf { it.isNotEmpty() } ?: return null
+            val text = value["text"]?.stringValue ?: return null
+            val more = value["more"]?.numberValue ?: return null
+            val sender = value["sender"] ?: return null
+            val senderId = sender["id"]?.stringValue?.takeIf { it.isNotEmpty() } ?: return null
+            val name = sender["displayName"]?.stringValue ?: return null
+            val agent = sender["type"]?.stringValue == "agent"
+            return ChannelPostPreview(id, name, SenderAvatar.trusted(sender["avatarURL"]?.stringValue),
+                senderId.takeIf { agent }, sender["agentRuntime"]?.stringValue?.takeIf { agent }, text, maxOf(0, more.toInt()))
+        }
+    }
+}
+
+/** The post a channel opens at, by channel: set just before a wake-up's line opens it. */
+object ChannelPostJump {
+    val pending = mutableMapOf<String, String>()
 }

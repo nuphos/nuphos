@@ -99,6 +99,35 @@ struct ChatMessage: Identifiable, Equatable, Sendable {
         /// Set when this is a channel's wake-up notice (`channel-wake.ts`): its body is
         /// the agent's input, so only the channel is shown, as on the desktop.
         var channelId: String? = nil
+        /// The newest post a channel's wake-up brought (`channel-newest-post.ts`); nil
+        /// for a notice from before posts were carried, which keeps today's line.
+        var post: Post? = nil
+
+        struct Post: Equatable, Sendable {
+            let id: String
+            let sender: Sender
+            /// Set for an agent's post: its avatar is the agent's face.
+            let agentId: String?
+            let runtime: String?
+            /// Its first line, or its file's name; empty for an agent's files.
+            let text: String
+            /// How many other posts came with it.
+            let more: Int
+
+            init?(_ value: JSONValue?) {
+                guard let id = value?["id"]?.stringValue, !id.isEmpty, let text = value?["text"]?.stringValue,
+                      let more = value?["more"]?.numberValue,
+                      let name = value?["sender"]?["displayName"]?.stringValue,
+                      let senderId = value?["sender"]?["id"]?.stringValue else { return nil }
+                self.id = id
+                sender = Sender(name: name, avatarURL: value?["sender"]?["avatarURL"]?.stringValue ?? "")
+                let agent = value?["sender"]?["type"]?.stringValue == "agent"
+                agentId = agent ? senderId : nil
+                runtime = agent ? value?["sender"]?["agentRuntime"]?.stringValue : nil
+                self.text = text
+                self.more = max(0, Int(more))
+            }
+        }
     }
 
     /// The sender id prefix of a channel's wake-up notice (`CHANNEL_SENDER_PREFIX`).
@@ -119,7 +148,8 @@ struct ChatMessage: Identifiable, Equatable, Sendable {
         return Event(name: name, logo: logo, text: text.trimmingCharacters(in: .whitespacesAndNewlines),
                      agentId: source == "agent.thread" ? (metadata?["sourceSessionId"]?.stringValue ?? metadata?["sender"]?["id"]?.stringValue) : nil,
                      runtime: runtime?.rawValue,
-                     channelId: channelId.isEmpty ? nil : channelId)
+                     channelId: channelId.isEmpty ? nil : channelId,
+                     post: channelId.isEmpty ? nil : Event.Post(metadata?["channelPost"]))
     }
 
     var text: String {

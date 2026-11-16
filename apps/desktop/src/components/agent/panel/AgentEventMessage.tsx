@@ -1,4 +1,4 @@
-import { ChevronRight } from 'lucide-react'
+import { ArrowUpRight, ChevronRight } from 'lucide-react'
 import { useId, useState } from 'react'
 
 import { t } from '../../../i18n'
@@ -6,6 +6,7 @@ import { toAbsoluteAtlasUrl } from '../../../lib/webBaseUrl'
 import { Avatar } from '../../Avatar'
 import { CloudLogo } from '../../CloudLogo'
 import { ChatIcon } from '../../channels/channelParts'
+import { openChannelAtPost } from '../../channels/postJump'
 import { AgentAvatar } from '../AgentAvatar'
 import { MessageResponse } from '../MessageResponse'
 
@@ -43,28 +44,66 @@ export function AgentEventMessage({
       ? toAbsoluteAtlasUrl(`/teams/${teamId}/agent/${metadata.sourceSessionId}`)
       : null
 
-  // A channel's wake-up says only "something new there": show the channel, not the raw notice.
+  // A channel's wake-up: the channel and its newest post, never the raw notice.
   const channelId = metadata.sender.id.startsWith('channel:')
     ? metadata.sender.id.slice('channel:'.length)
     : null
 
   if (channelId) {
     const channelUrl = teamId ? toAbsoluteAtlasUrl(`/teams/${teamId}/agent/${channelId}`) : null
+    const post = metadata.channelPost
+    const line = (
+      <>
+        <ChatIcon title={displayName} size={14} />
+        {!post && <span>{t('New messages in')}</span>}
+        <span className={`font-medium text-secondary ${post ? 'shrink-0' : 'min-w-0 truncate'}`}>
+          #{displayName}
+        </span>
+        {post && (
+          <>
+            <span aria-hidden className="opacity-60">
+              ·
+            </span>
+            {post.sender.type === 'agent' ? (
+              <AgentAvatar agentId={post.sender.id} provider={post.sender.agentRuntime} size={16} />
+            ) : (
+              <Avatar
+                src={post.sender.avatarURL}
+                name={post.sender.displayName}
+                size={16}
+                className="shrink-0 rounded-full"
+              />
+            )}
+            <span className="shrink-0 font-medium text-primary">{post.sender.displayName}</span>
+            <span className="min-w-0 flex-1 truncate text-secondary group-hover/wake:underline">
+              {post.text || t('Sent a file')}
+            </span>
+            {post.more > 0 && (
+              <span className="flex h-[18px] shrink-0 items-center rounded-[9px] bg-state-hover px-1.5 text-[11px] text-secondary">
+                {t('+{count} more', { count: post.more })}
+              </span>
+            )}
+          </>
+        )}
+      </>
+    )
 
     return (
       <Rule title={new Date(metadata.sentAt).toLocaleString()}>
-        <ChatIcon title={displayName} size={14} />
-        <span>{t('New messages in')}</span>
         {channelUrl && onOpenNuphosLink ? (
           <button
             type="button"
-            onClick={() => onOpenNuphosLink(channelUrl)}
-            className="min-w-0 truncate font-medium text-secondary hover:underline"
+            onClick={() => {
+              if (post) openChannelAtPost(channelId, post.id)
+              onOpenNuphosLink(channelUrl)
+            }}
+            className={`group/wake flex min-w-0 items-center text-left ${post ? 'flex-1 gap-1.5 text-[12px] leading-[18px]' : 'gap-1 hover:text-secondary'}`}
           >
-            #{displayName}
+            {line}
+            {post && <ArrowUpRight className="size-3 shrink-0" />}
           </button>
         ) : (
-          <span className="min-w-0 truncate font-medium text-secondary">#{displayName}</span>
+          line
         )}
       </Rule>
     )
