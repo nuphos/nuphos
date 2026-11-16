@@ -328,6 +328,15 @@ mod tests {
         assert_eq!(running["actions"]["send"], false);
     }
     #[test]
+    fn a_failed_request_is_labelled_without_the_agent_error() {
+        let provider = json!({"state":"idle","gateway":{"lastOutcome":{"error":{
+            "code":-32603,"message":"Internal error: You've hit your usage limit"}}}});
+        let snapshot = SessionSnapshots::default().project("s", provider, false);
+        assert_eq!(snapshot["phase"], "failed");
+        assert_eq!(snapshot["label"], "Request failed");
+    }
+
+    #[test]
     fn gateway_wait_is_visible_even_after_provider_idle() {
         let states = SessionSnapshots::default();
         let pending = states.project("a", json!({"state":"idle"}), true);
