@@ -25,6 +25,7 @@ const asked = new Map()
 let nextRequest = 1_000_000
 // The thread E2E_THREAD started last, for E2E_POKE to message.
 let thread
+
 /** One JSON-RPC call to a streamable-HTTP MCP server; the reply is JSON or a one-event stream. */
 async function mcp(server, sessionHeader, method, params) {
   const response = await fetch(server.url, {
