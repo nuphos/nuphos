@@ -242,7 +242,7 @@ export function useComposerState({
 
   useEffect(() => {
     const next = readOnly
-      ? (readOnlyPlaceholder ?? t('This agent is read-only'))
+      ? (readOnlyPlaceholder ?? t('This task is read-only'))
       : streaming
         ? t('Agent is replying...')
         : idlePlaceholder

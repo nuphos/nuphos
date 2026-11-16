@@ -193,7 +193,7 @@ export function CloudCliSetupChoice({
             {!starting && <ArrowRight className="ml-1 h-3.5 w-3.5" aria-hidden="true" />}
           </Button>
           <p className="mt-2 text-center text-[10.5px] text-tertiary">
-            {t('Opens a new agent on this computer')}
+            {t('Opens a new task on this computer')}
           </p>
         </div>
       )}
