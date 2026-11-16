@@ -25,6 +25,11 @@ extension ChatRow {
                 }
                 if let answered = AnsweredQuestion.all(message, in: messages) {
                     rows.append(contentsOf: answered.enumerated().map { .answered(id: "answered.\(message.id).\($0)", question: $1) })
+                    // Its answer has not reached the agent yet: the backend says what it waits for.
+                    if let id = AnsweredQuestion.Notice(message.text.trimmingCharacters(in: .whitespacesAndNewlines))?.requestId,
+                       let note = session.waitingAnswers[id] {
+                        rows.append(.hint(id: "waiting.\(message.id)", text: note, isError: false))
+                    }
                     continue
                 }
                 let me = session.sentHere.contains(message.id) ? session.me : nil

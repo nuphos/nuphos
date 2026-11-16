@@ -806,10 +806,6 @@ private fun ToolCallRow(
         }
         if (authorizationNote != null) Text(authorizationNote, style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, top = 6.dp))
-        session.waitingAnswers[part.decisionRequestId]?.let {
-            Text(it, style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.tertiary, modifier = Modifier.padding(start = 4.dp, top = 6.dp))
-        }
         if (part.state == ChatPart.Tool.State.ApprovalRequested) {
             val reason = part.authorization?.get("reason")?.stringValue
             Text(reason?.let { stringResource(R.string.chat_authorization_required_reason, it) } ?: stringResource(R.string.chat_authorization_required), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))

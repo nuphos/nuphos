@@ -44,6 +44,7 @@ sealed class ChatRow {
             stoppedByUser = session.stoppedByUser,
             downloads = if (session.canReadDownloads) session.downloads else emptyList(),
             timeline = session.timelineEvents,
+            waiting = session.waitingAnswers,
             hasEarlier = session.baseIndex > 0,
             localSender = session::localSender,
         )
@@ -59,6 +60,8 @@ sealed class ChatRow {
             stoppedByUser: Boolean = false,
             downloads: List<ai.nuphos.android.data.TransferDownloadGroup> = emptyList(),
             timeline: List<AgentConversationDetail.TimelineEvent> = emptyList(),
+            /** What each answered question's answer still waits for, by request id. */
+            waiting: Map<String, String> = emptyMap(),
             hasEarlier: Boolean = false,
             localSender: (String) -> MessageAttribution? = { null },
         ): List<ChatRow> {
@@ -93,6 +96,10 @@ sealed class ChatRow {
                         val answered = if (sender?.id == AnsweredQuestion.SENDER && sender.isEvent) AnsweredQuestion.all(message, text, messages) else null
                         if (answered != null) {
                             rows += answered.mapIndexed { at, question -> Answered("answered.${message.id}.$at", question) }
+                            // Its answer has not reached the agent yet: the backend says what it waits for.
+                            AnsweredQuestion.Notice.parse(text.trim())?.requestId?.let(waiting::get)?.let {
+                                rows += Hint("waiting.${message.id}", it, false)
+                            }
                         } else if (text.isNotEmpty() || images.isNotEmpty() || display.uploads.isNotEmpty()) {
                             val user = User("user.${message.id}", message.id, text, images, display.uploads, sender)
                             rows += if (sender?.isEvent == true) Event("event.${message.id}", user) else user
