@@ -53,6 +53,18 @@ export function nuphosSessionHomeEnv(sessionEnv = {}, runtimeEnv = process.env) 
     }
   }
   const config = nuphosJoin(home, '.config')
+  // pnpm 9 and 10 read the store from this rc, pnpm 11 from pnpm_config_store_dir.
+  // npm_config_store_dir would reach 9 and 10 too, but npm 11 warns about it on every command.
+  const pnpmStore = nuphosJoin(runtimeHome, '.local', 'share', 'pnpm', 'store')
+  nuphosMkdir(nuphosJoin(config, 'pnpm'), { recursive: true, mode: 0o700 })
+  try {
+    nuphosWriteFile(nuphosJoin(config, 'pnpm', 'rc'), `store-dir=${pnpmStore}\n`, {
+      flag: 'wx',
+      mode: 0o600,
+    })
+  } catch (error) {
+    if (error.code !== 'EEXIST') throw error // A session's own rc wins.
+  }
   return {
     HOME: home,
     USERPROFILE: home,
@@ -69,6 +81,7 @@ export function nuphosSessionHomeEnv(sessionEnv = {}, runtimeEnv = process.env) 
     PLAYWRIGHT_BROWSERS_PATH: nuphosJoin(runtimeHome, '.cache', 'ms-playwright', 'browsers'),
     PIP_CACHE_DIR: nuphosJoin(runtimeHome, '.cache', 'pip'),
     UV_CACHE_DIR: nuphosJoin(runtimeHome, '.cache', 'uv'),
+    pnpm_config_store_dir: pnpmStore,
     XDG_DATA_HOME: nuphosJoin(home, '.local', 'share'),
     XDG_STATE_HOME: nuphosJoin(home, '.local', 'state'),
     CLOUDSDK_CONFIG: nuphosJoin(config, 'gcloud'),

@@ -48,6 +48,7 @@ test('concurrent sessions keep HOME state separate, resume it, and never copy th
     'PLAYWRIGHT_BROWSERS_PATH',
     'PIP_CACHE_DIR',
     'UV_CACHE_DIR',
+    'pnpm_config_store_dir',
   ]) {
     assert.equal(a[key], b[key])
     assert.equal(relative(host.HOME, a[key]).startsWith('.nuphos'), false)
@@ -182,6 +183,29 @@ test('real git global config changes stay in the calling session', (t) => {
   assert.equal(git(b, 'user.name'), 'Session B')
   assert.equal(git(a, 'user.name'), 'Session A')
   assert.throws(() => readFileSync(join(host.HOME, '.gitconfig')), { code: 'ENOENT' })
+})
+
+test('two sessions install into one pnpm store, and a session keeps a store it chose', (t) => {
+  const host = runtime(t)
+  const a = nuphosSessionHomeEnv({ NUPHOS_SESSION_ID: 'a' }, host)
+  const b = nuphosSessionHomeEnv({ NUPHOS_SESSION_ID: 'b' }, host)
+  const store = join(host.HOME, '.local', 'share', 'pnpm', 'store')
+  const rc = (env) => join(env.XDG_CONFIG_HOME, 'pnpm', 'rc')
+  for (const env of [a, b]) {
+    assert.equal(env.pnpm_config_store_dir, store)
+    assert.equal(readFileSync(rc(env), 'utf8'), `store-dir=${store}\n`)
+  }
+  writeFileSync(rc(b), 'store-dir=/elsewhere\n')
+  nuphosSessionHomeEnv({ NUPHOS_SESSION_ID: 'b' }, host)
+  assert.equal(readFileSync(rc(b), 'utf8'), 'store-dir=/elsewhere\n')
+  writeFileSync(rc(b), `store-dir=${store}\n`)
+  if (spawnSync('pnpm', ['--version'], { stdio: 'ignore' }).status !== 0)
+    return t.skip('Optional real CLI check requires pnpm; no registry requests are made')
+  // pnpm appends its store layout version (v3, v10, ...) to the configured directory.
+  const path = (env) =>
+    execFileSync('pnpm', ['store', 'path'], { cwd: env.HOME, env, encoding: 'utf8' }).trim()
+  assert.equal(path(a), path(b))
+  assert.equal(dirname(path(a)), store)
 })
 
 test('real gcloud active configuration and gh token reads remain session scoped', (t) => {
