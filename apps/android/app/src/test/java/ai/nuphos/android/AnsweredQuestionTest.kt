@@ -58,10 +58,9 @@ class AnsweredQuestionTest {
 
     @Test fun anAnswerStillWaitingForItsAgentSaysWhyUnderItsLine() {
         val note = "Answered · waiting for Claude Code (out of usage until 11:20 UTC)"
-        val rows = ChatRow.rows(listOf(notice(*lines)), waiting = mapOf("q1" to note))
-        val at = rows.indexOfFirst { it is ChatRow.Answered }
-        assertEquals(ChatRow.Hint("waiting.notice", note, false), rows[at + 1])
+        val waiting = ChatRow.rows(listOf(notice(*lines)), waiting = mapOf("q1" to note))
+        assertEquals(note, waiting.filterIsInstance<ChatRow.Answered>().single().question.waiting)
         // Delivered: nothing waits, no line.
-        assertTrue(ChatRow.rows(listOf(notice(*lines))).none { it is ChatRow.Hint })
+        assertNull(ChatRow.rows(listOf(notice(*lines))).filterIsInstance<ChatRow.Answered>().single().question.waiting)
     }
 }

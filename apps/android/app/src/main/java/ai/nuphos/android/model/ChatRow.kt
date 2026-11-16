@@ -95,10 +95,10 @@ sealed class ChatRow {
                         }
                         val answered = if (sender?.id == AnsweredQuestion.SENDER && sender.isEvent) AnsweredQuestion.all(message, text, messages) else null
                         if (answered != null) {
-                            rows += answered.mapIndexed { at, question -> Answered("answered.${message.id}.$at", question) }
-                            // Its answer has not reached the agent yet: the backend says what it waits for.
-                            AnsweredQuestion.Notice.parse(text.trim())?.requestId?.let(waiting::get)?.let {
-                                rows += Hint("waiting.${message.id}", it, false)
+                            // Its answer has not reached the agent yet: the last line says what it waits for.
+                            val note = AnsweredQuestion.Notice.parse(text.trim())?.requestId?.let(waiting::get)
+                            rows += answered.mapIndexed { at, question ->
+                                Answered("answered.${message.id}.$at", if (at == answered.lastIndex) question.copy(waiting = note) else question)
                             }
                         } else if (text.isNotEmpty() || images.isNotEmpty() || display.uploads.isNotEmpty()) {
                             val user = User("user.${message.id}", message.id, text, images, display.uploads, sender)
