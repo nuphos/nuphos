@@ -8,7 +8,7 @@ import { nuphosApplyRuntimeDefaults } from '../../apps/runtime/image/runtime-def
 
 import { answerChannel } from './fixture-channel.mjs'
 import { listCommands } from './fixture-commands.mjs'
-import { hop } from './fixture-hop.mjs'
+import { hop, inherit } from './fixture-hop.mjs'
 import { applySetting } from './fixture-settings.mjs'
 
 const send = (message) =>
@@ -174,8 +174,9 @@ async function prompt({ sessionId, prompt: parts }) {
   if (text.includes('E2E_DELEGATE') && !text.includes(CHILD)) {
     await delegate(sessionId, text.includes('E2E_DELEGATE_FAST'))
   }
-  if (text.includes('E2E_HOP') && !text.includes(CHILD))
-    await hop({ call, send, log, sessionId, child: CHILD })
+  // A thread started here, then moved (E2E_HOP), or left on this session's model (E2E_INHERIT).
+  if (/E2E_(HOP|INHERIT)/.test(text) && !text.includes(CHILD))
+    await (text.includes('E2E_HOP') ? hop : inherit)({ call, send, log, sessionId, child: CHILD })
   if (text.includes('E2E_ASK')) {
     await ask(sessionId, text.includes('E2E_ASK_CREDENTIAL') ? 'credential' : 'preference')
   }

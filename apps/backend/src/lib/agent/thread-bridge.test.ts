@@ -443,6 +443,42 @@ describe('conversation-scoped thread tools', () => {
     expect(result.model).toEqual({ model: 'default', effort: 'high' })
   })
 
+  test("with nothing picked, a thread starts on its parent's model and effort", async () => {
+    source.initialSessionConfig = { model: 'claude-fable-5-1', effort: 'high' }
+    const { threadId } = await createAgentThread(actor, 'Work', 'Task')
+
+    expect(picks).toEqual([
+      { sessionId: threadId, configId: 'model', value: 'claude-fable-5-1' },
+      { sessionId: threadId, configId: 'effort', value: 'high' },
+    ])
+    // A parent that has run reads its settings from its session, as its model picker does.
+    picks.length = 0
+    source.claudeCodePreview = {
+      openabSessionId: 'live',
+      runtimeUrl: 'http://runtime',
+      runtimeDefaults: { model: 'claude-fable-5-1' },
+    } as never
+    await createAgentThread(actor, 'Work', 'Task')
+    expect(picks.map((pick) => pick.value)).toEqual(['claude-fable-5-1'])
+  })
+
+  test("a pick, or another agent, wins over the parent's model", async () => {
+    source.initialSessionConfig = { model: 'claude-fable-5-1' }
+    await createAgentThread(actor, 'Work', 'Task', { effort: 'low' })
+    await createAgentThread(actor, 'Work', 'Task', { runtimeId: 'box-1' })
+
+    expect(picks.map(({ configId, value }) => [configId, value])).toEqual([['effort', 'low']])
+  })
+
+  test("a parent's model the agent no longer offers leaves the thread on its defaults", async () => {
+    source.initialSessionConfig = { model: 'gpt-1' }
+    await createAgentThread(actor, 'Work', 'Task')
+
+    expect(picks).toEqual([])
+    expect(archives).toEqual([])
+    expect(claims).toHaveLength(1)
+  })
+
   test('starts a thread on the agent it names, with no first turn on its parent', async () => {
     await createAgentThread(actor, 'Work', 'Task', { runtimeId: 'box-1' })
 
