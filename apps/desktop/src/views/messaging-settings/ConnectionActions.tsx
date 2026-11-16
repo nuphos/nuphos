@@ -1,7 +1,7 @@
-import { faArrowUpRightFromSquare, faTrash } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
+import { ExternalLink as ExternalLinkIcon, Trash2 as Trash2Icon } from 'lucide-react'
 
+import { UiIcon } from '../../components/ui/ui-icon'
 import { t } from '../../i18n'
 
 const buttonClasses =
@@ -32,7 +32,7 @@ export function ConnectionActions({
         title={primaryTitle}
         className={clsx(buttonClasses, 'hover:border-line-control hover:text-main')}
       >
-        <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="h-3 w-3" />
+        <UiIcon size={16} icon={ExternalLinkIcon} className="h-4 w-4" />
         {primaryLabel}
       </button>
       <button
@@ -40,7 +40,7 @@ export function ConnectionActions({
         onClick={onDisconnect}
         className={clsx(buttonClasses, 'hover:border-error/50 hover:text-error')}
       >
-        <FontAwesomeIcon icon={faTrash} className="h-3 w-3" />
+        <UiIcon size={16} icon={Trash2Icon} className="h-4 w-4" />
         {t('Disconnect')}
       </button>
     </div>

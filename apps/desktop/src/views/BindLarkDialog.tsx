@@ -1,5 +1,4 @@
-import { faSpinner } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { LoaderCircle as LoaderCircleIcon } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../api'
@@ -7,6 +6,7 @@ import { WizardExampleImage, WizardStep, WizardStepBar } from '../components/Con
 import { Modal } from '../components/Modal'
 import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
+import { UiIcon } from '../components/ui/ui-icon'
 import { t } from '../i18n'
 
 import {
@@ -235,7 +235,9 @@ export function BindLarkDialog({ open, teamId, onClose, onBound, mode = 'install
           )}
           {!webhookUrl && step === 4 && (
             <Button size="sm" type="button" disabled={!canSubmit} onClick={() => void submit()}>
-              {saving && <FontAwesomeIcon icon={faSpinner} className="h-3 w-3 animate-spin" />}
+              {saving && (
+                <UiIcon size={16} icon={LoaderCircleIcon} className="h-4 w-4 animate-spin" />
+              )}
               {reinstall ? t('Reconnect') : t('Connect')}
             </Button>
           )}
