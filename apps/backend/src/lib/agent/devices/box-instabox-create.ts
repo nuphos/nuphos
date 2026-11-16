@@ -108,7 +108,6 @@ export async function createBox(
     name: `nuphos-${deviceId.slice(0, 8)}`,
     metadata: { teamId, deviceId, createdBy: userId },
     vault: false,
-    autoSuspendMs: 0, // stays on until paused; instabox's default pauses after 30 idle minutes
     ...size,
   })
   const settingUp = setUp(userId, url, registration, ordering, orderedAt)
@@ -150,6 +149,7 @@ async function setUp(
     // Deleted while it was being ordered: the machine must not outlive the row.
     if (!(await setAgentDeviceBoxSandbox(userId, deviceId, sandbox.sandboxId)))
       throw new AppError(409, 'box_gone', 'The Box was deleted while it was being created')
+    await keepOn(userId, deviceId, sandbox)
     const { token } = await issueDeviceJoinToken(userId, {
       label,
       deviceId,
@@ -180,6 +180,17 @@ async function setUp(
     if (issued) await deleteDeviceJoinTokens(deviceId).catch(() => {})
     await discard(userId, registration, sandbox?.sandboxId, error)
   }
+}
+
+/**
+ * Turns off instabox's idle pause (30 minutes by default), so the Box stays on until it is
+ * paused. A plan that keeps the pause, as the free one does, refuses: the Box keeps it, and
+ * a turn or a command wakes it again. Not part of making the Box, so a refusal only logs.
+ */
+async function keepOn(userId: string, deviceId: string, sandbox: Sandbox): Promise<void> {
+  await sandbox.setAutoSuspend(0).catch((error: unknown) => {
+    logError('agent.box.idle_pause_kept', error, { user_id: userId, device_id: deviceId })
+  })
 }
 
 /** Nothing half-made stays: no machine to bill and no row to confuse. */
