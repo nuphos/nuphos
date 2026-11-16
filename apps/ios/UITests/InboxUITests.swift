@@ -258,6 +258,35 @@ final class InboxUITests: XCTestCase {
         shot("17-bot-chat-secret-saved")
     }
 
+    /// The Inbox asks for a secret with the same masked card, saved on the conversation that asked.
+    func testTheInboxAsksForASecretWithTheSecureInputCard() throws {
+        responses["POST /agent/conversations/agent-ops/secrets"] = ["status": 200, "body": ["path": "/tmp/nuphos-secret-a1/0/DEPLOY_TOKEN"]]
+        responses["POST /agent/conversations/agent-ops/decisions/q-token/resolve"] = ["status": 200, "body": ["ok": true]]
+        try listQuestions([InboxUITests.row("agent-ops", "Release ops", [
+            "id": "q-token", "category": "credential", "question": "The rollout needs a deploy token.",
+            "secretName": "DEPLOY_TOKEN", "askedAt": "2026-11-03T09:40:00Z", "status": "open"])])
+        app = launch(page: "agent")
+        app.buttons["Switch page"].firstMatch.tap()
+        app.buttons["Inbox"].firstMatch.tap()
+        openQuestion("The rollout needs a deploy token.")
+
+        XCTAssertTrue(app.buttons["inbox.source"].waitForExistence(timeout: 10), "The question did not open")
+        let field = app.secureTextFields["Paste the value"]
+        let masked = field.waitForExistence(timeout: 10)
+        shot("18-inbox-secret")
+        XCTAssertTrue(masked, "No masked input for the secret in the Inbox")
+        XCTAssertFalse(app.staticTexts["Answer it in Release ops."].exists, "The secret is still sent to the task to be answered")
+
+        field.tap()
+        field.typeText("fixture-value")
+        app.buttons["Send securely"].tap()
+        XCTAssertTrue(app.staticTexts["DEPLOY_TOKEN saved on the task's runtime."].waitForExistence(timeout: 10),
+                      "The secret was not saved on the conversation that asked")
+        XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "fixture-value")).firstMatch.exists,
+                       "The value shows in the Inbox")
+        shot("19-inbox-secret-saved")
+    }
+
     /// Opens the release chat as a Bot's 1:1, where the Bot's questions and those under it show.
     private func openBotChat(listing: [[String: Any]], asking question: String = "Roll out 1.4 to production?") throws {
         var detail = try XCTUnwrap(responses["GET /agent/conversations/chat-release"] as? [String: Any])

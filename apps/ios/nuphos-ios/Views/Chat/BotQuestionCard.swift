@@ -13,8 +13,8 @@ struct BotQuestionCard: View {
     let question: BotQuestion
     var showsFrom = true
     let onOpen: () -> Void
-    /// The conversation that asked, where a secret is saved and its reply sent.
-    var asker: (() -> ChatSession)?
+    /// The chat's team: a secret is saved in the conversation that asked. Absent, the button opens it.
+    var teamId: String?
     let onAnswer: (DecisionAnswer) -> Void
     let onSkip: () -> Void
     /// A tapped link in the body. Absent, the system opens it.
@@ -26,7 +26,6 @@ struct BotQuestionCard: View {
     /// "Other…" was tapped: the card asks for the answer in words.
     @State private var typing = false
     @State private var words = ""
-    @State private var session: ChatSession?
     /// The secret was sent: nothing is left to skip while the listing catches up.
     @State private var saved = false
     @FocusState private var focused: Bool
@@ -45,7 +44,7 @@ struct BotQuestionCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            if let part = question.secretPart, let asker { secret(part, asker) } else { card }
+            if let part = question.secretPart, let teamId { secret(part, teamId) } else { card }
             if let failure {
                 Label("Couldn't send the message · \(failure)", systemImage: "exclamationmark.circle")
                     .font(Theme.Text.caption)
@@ -59,19 +58,15 @@ struct BotQuestionCard: View {
     }
 
     /// A secret: who asked, then the task's own card, sending in the conversation that asked.
-    private func secret(_ part: ChatPart.ToolPart, _ asker: @escaping () -> ChatSession) -> some View {
+    private func secret(_ part: ChatPart.ToolPart, _ teamId: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             if showsFrom {
                 QuestionSource(question: question, prominent: true, identifier: "botQuestion.source", open: onOpen)
             }
-            // Whether the viewer may send it is known once the conversation loads.
-            if let session, session.loaded {
-                SecretCard(part: part, reply: nil, session: session) { saved = true }
-                if !saved { HStack(spacing: 8) { Color.clear.frame(maxWidth: .infinity); skip } }
-            }
+            AskedSecretCard(question: question, part: part, teamId: teamId) { saved = true }
+            if !saved { HStack(spacing: 8) { Color.clear.frame(maxWidth: .infinity); skip } }
         }
         .frame(maxWidth: wide ? 640 : nil, alignment: .leading)
-        .task { if session == nil { session = asker() } }
     }
 
     private var card: some View {
