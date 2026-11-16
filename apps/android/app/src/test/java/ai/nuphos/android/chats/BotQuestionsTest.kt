@@ -315,7 +315,7 @@ class BotQuestionsTest {
         // The server has not answered it yet: the card stays, says why, and the chat still lists only the Bot's.
         chat.select(requireNotNull(chat.storedSelection(ask)), ask)
         assertEquals(listOf("docs"), saved)
-        assertEquals(listOf("q-gcp"), chat.list.map { it.id })
+        assertEquals(listOf("q-gcp"), chat.list.map { it.request.id })
         assertNotNull(chat.failures[ask.id])
     }
 

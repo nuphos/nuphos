@@ -42,7 +42,7 @@ final class OpenQuestions {
     func next(after id: String) -> String? { BotQuestions.next(after: id, in: groups) }
 
     /// Which of the listing's questions this list shows: all of them, or a Bot's; kept for refreshes after a save.
-    private var pick: @MainActor ([AgentConversation]) -> [BotQuestion] = BotQuestions.open
+    @ObservationIgnored private var pick: @MainActor ([AgentConversation]) -> [BotQuestion] = BotQuestions.open
 
     func refresh(pick: (@MainActor ([AgentConversation]) -> [BotQuestion])? = nil) async {
         if let pick { self.pick = pick }
