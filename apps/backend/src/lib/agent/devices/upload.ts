@@ -37,6 +37,9 @@ const transferErrors = new Set([
   'transfer_too_large',
   'transfer_expired',
   'file_transfer_unconfigured',
+  // The team's hourly transfer budget (file-transfer/admission.ts). Without it the
+  // agent saw a reasonless upload_failed and kept retrying until the hour turned.
+  'file_transfer_rate_limited',
 ])
 
 /** Only intent metadata and completion reach the caller; signed capabilities

@@ -286,33 +286,39 @@ test('a computer cannot finalize an unrelated group or return arbitrary errors',
   }
 })
 
-test('size-limit failures return only a known code', async () => {
-  const deps = await setup({
-    onData: (_data, send) =>
-      send({
-        t: 'post',
-        suffix: '',
-        body: {
-          direction: 'upload',
-          files: [{ fileName: 'fixture', relPath: 'fixture', size: 1, contentType: null }],
+test('size and rate limits return only their known code', async () => {
+  for (const [status, code] of [
+    [413, 'file_too_large'],
+    [429, 'file_transfer_rate_limited'],
+  ] as const) {
+    const deps = await setup({
+      onData: (_data, send) =>
+        send({
+          t: 'post',
+          suffix: '',
+          body: {
+            direction: 'upload',
+            files: [{ fileName: 'fixture', relPath: 'fixture', size: 1, contentType: null }],
+          },
+        }),
+    })
+
+    expect(
+      await dispatchLocalUpload('conversation-owner', 'd1', '/fixture', scope, {
+        access,
+        deps,
+        transfers: {
+          create: async () => {
+            throw new AppError(status, code, 'signed=never-return')
+          },
+          finalize: async () => {
+            throw new Error('must not finalize')
+          },
         },
       }),
-  })
-
-  expect(
-    await dispatchLocalUpload('conversation-owner', 'd1', '/fixture', scope, {
-      access,
-      deps,
-      transfers: {
-        create: async () => {
-          throw new AppError(413, 'file_too_large', 'signed=never-return')
-        },
-        finalize: async () => {
-          throw new Error('must not finalize')
-        },
-      },
-    }),
-  ).toEqual({ error: 'file_too_large' })
+    ).toEqual({ error: code })
+    deps.tunnel.closed()
+  }
 })
 
 test('a stalled upload times out without replay', async () => {
