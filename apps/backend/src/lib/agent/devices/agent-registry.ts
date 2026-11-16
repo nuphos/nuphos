@@ -35,6 +35,19 @@ export type PendingRemoval = {
   at: Date
 }
 
+/**
+ * A sign-in reset its computer could not run when it was asked for: offline, or a host too
+ * old to reset. The computer runs it, and this entry goes, once it reports in able to.
+ */
+export type PendingReset = {
+  id: string
+  agent: RemovableAgent
+  /** Who asked for it, and in which team, as for a removal. */
+  actorId: string
+  teamId: string
+  at: Date
+}
+
 /** What a computer's record keeps about its agents. */
 export type DeviceAgentRecords = {
   /** Agents this computer has ever had signed in. */
@@ -43,6 +56,8 @@ export type DeviceAgentRecords = {
   addedAgents?: AgentAddition[]
   /** Agents removed while it was offline, until it deletes them. */
   removedAgents?: PendingRemoval[]
+  /** Agents to sign out once it can; unlike a removal, the agent stays listed meanwhile. */
+  pendingResets?: PendingReset[]
 }
 
 /** Whether a report's agent is one that was removed while its computer was offline. */

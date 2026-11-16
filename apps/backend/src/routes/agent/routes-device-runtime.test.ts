@@ -10,6 +10,7 @@ import { openLocalRuntimeSocket } from '@/lib/agent/devices/local-runtime/socket
 import { errorHandler } from '@/lib/errors'
 import {
   createDeviceRuntimeRoutes,
+  recordStatusReport,
   runtimeTunnelEvents,
 } from '@/routes/agent/routes-device-runtime'
 
@@ -408,4 +409,25 @@ describe('device runtime tunnel route', () => {
 
     expect(intruder.status).toBe(404)
   })
+})
+
+test('a status report, once recorded, replays pending removals and resets', async () => {
+  const calls: string[] = []
+  const status = { agents: {}, agentInstances: true, agentReset: true }
+
+  await recordStatusReport('owner', 'd1', status, undefined, {
+    record: async () => {
+      calls.push('record')
+    },
+    settleRemovals: async (...args) => {
+      calls.push('removals')
+      expect(args).toEqual(['owner', 'd1', status])
+    },
+    settleResets: async (...args) => {
+      calls.push('resets')
+      expect(args).toEqual(['owner', 'd1', status])
+    },
+  })
+
+  expect(calls).toEqual(['record', 'removals', 'resets'])
 })
