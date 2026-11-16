@@ -31,7 +31,6 @@ import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -120,13 +119,13 @@ class SecretQuestionFixtureDeviceTest {
         compose.waitUntil(10_000) { compose.onAllNodesWithText("API_KEY saved on the task's runtime.").fetchSemanticsNodes().isNotEmpty() }
         capture("secret-card-saved")
 
-        val saved = requests.single { it.first.url.encodedPath.endsWith("/secrets") }
+        // The value is in exactly one request, the one that writes it to the runtime's file.
+        val saved = requests.single { it.second.contains(value) || it.first.url.toString().contains(value) }
+        assertEquals("/agent/conversations/agent-ops/secrets", saved.first.url.encodedPath)
         assertEquals(value, JsonValue.parse(saved.second)?.get("value")?.stringValue)
         assert(requests.any { it.first.url.encodedPath.endsWith("/decisions/q-key/resolve") })
-        // The value goes only to the runtime's file; the conversation hears its path.
-        val chat = requests.single { it.first.url.encodedPath == "/agent/chat" }.second
-        assert(chat.contains("API_KEY saved to /home/agent/.secrets/API_KEY"))
-        assertFalse(chat.contains(value))
+        // The conversation hears its path.
+        assert(requests.single { it.first.url.encodedPath == "/agent/chat" }.second.contains("API_KEY saved to /home/agent/.secrets/API_KEY"))
     }
 
     /** Saved under the app's files, `review-3059/`, for the PR's screenshots. */
