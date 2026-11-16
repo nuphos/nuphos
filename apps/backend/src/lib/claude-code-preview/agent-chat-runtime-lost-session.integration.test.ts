@@ -27,8 +27,9 @@ const gateway = Bun.serve({
   websocket: {
     message(ws, raw) {
       const frame = JSON.parse(String(raw)) as Frame
-      const reply = (body: Record<string, unknown>) =>
+      const reply = (body: Record<string, unknown>) => {
         ws.send(JSON.stringify({ jsonrpc: '2.0', id: frame.id, ...body }))
+      }
       const sessionId = typeof frame.params?.sessionId === 'string' ? frame.params.sessionId : ''
 
       if (typeof frame.id !== 'number') return
