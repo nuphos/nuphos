@@ -1,5 +1,5 @@
 import { InstaboxAuthError, InstaboxQuotaError, Sandbox } from '@insforge/instabox-sdk'
-import { afterEach, beforeEach, expect, mock, spyOn, test } from 'bun:test'
+import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test'
 
 import { config } from '@/config'
 import { useAgentDeviceStore } from '@/lib/test/doubles/agent-devices-store'
@@ -17,6 +17,8 @@ const accountId = '65f0000000000000000000a1'
 const raw = 'sandbox limit reached (5 on the free plan) for owner@example.test; run `instabox ls`'
 const deleted: string[] = []
 const killed: string[] = []
+// Spies are restored one by one: mock.restore() would also clear other files' doubles.
+const spies: { mockRestore: () => void }[] = []
 
 useBoxInstaboxAccount({
   findInstaboxAccount: () => Promise.resolve({} as never),
@@ -52,12 +54,14 @@ beforeEach(() => {
 
 afterEach(() => {
   config.agent.publicBackendUrl = saved
-  mock.restore()
+  for (const spy of spies.splice(0)) spy.mockRestore()
 })
 
 test('an account at its limit fails the create with a plain 4xx, and leaves no Box behind', async () => {
-  spyOn(Sandbox, 'create').mockRejectedValue(
-    new InstaboxQuotaError(raw, { status: 429, code: 'quota_exceeded', retryable: false }),
+  spies.push(
+    spyOn(Sandbox, 'create').mockRejectedValue(
+      new InstaboxQuotaError(raw, { status: 429, code: 'quota_exceeded', retryable: false }),
+    ),
   )
 
   const error = await createBox('u1', teamId, 'Box', { accountId }).then(
@@ -75,8 +79,10 @@ test('an account at its limit fails the create with a plain 4xx, and leaves no B
 })
 
 test('a key the account no longer accepts fails the create with a 4xx too', async () => {
-  spyOn(Sandbox, 'create').mockRejectedValue(
-    new InstaboxAuthError('key revoked by owner@example.test', { status: 401 }),
+  spies.push(
+    spyOn(Sandbox, 'create').mockRejectedValue(
+      new InstaboxAuthError('key revoked by owner@example.test', { status: 401 }),
+    ),
   )
 
   await expect(createBox('u1', teamId, 'Box', { accountId })).rejects.toMatchObject({
@@ -88,15 +94,17 @@ test('a key the account no longer accepts fails the create with a 4xx too', asyn
 
 test('an accepted order answers at once, while the machine still boots in the background', async () => {
   // instabox accepts the POST; the machine itself never becomes ready within this test.
-  spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}', { status: 202 }))
-  spyOn(Sandbox, 'create').mockImplementation(((
-    _template: string,
-    options?: { fetch?: typeof fetch },
-  ) => {
-    void options?.fetch?.('https://instabox.test/v1/machines', { method: 'POST' })
+  spies.push(spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}', { status: 202 })))
+  spies.push(
+    spyOn(Sandbox, 'create').mockImplementation(((
+      _template: string,
+      options?: { fetch?: typeof fetch },
+    ) => {
+      void options?.fetch?.('https://instabox.test/v1/machines', { method: 'POST' })
 
-    return new Promise<Sandbox>(() => {})
-  }) as typeof Sandbox.create)
+      return new Promise<Sandbox>(() => {})
+    }) as typeof Sandbox.create),
+  )
 
   const created = await createBox('u1', teamId, 'Box', { accountId })
 
