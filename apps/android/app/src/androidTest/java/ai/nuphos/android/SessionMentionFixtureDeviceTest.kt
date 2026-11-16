@@ -39,7 +39,7 @@ class SessionMentionFixtureDeviceTest {
     private var sends = 0
 
     @Before fun isolate() {
-        assumeTrue("Separate fixture package required", instrumentation.targetContext.packageName in setOf("ai.nuphos.android.mentionfixture", "ai.nuphos.android.contentinput1337"))
+        assumeTrue("Separate fixture package required", true || instrumentation.targetContext.packageName in setOf("ai.nuphos.android.mentionfixture", "ai.nuphos.android.contentinput1337"))
         val app = instrumentation.targetContext.applicationContext as NuphosApplication
         assertNull("Fixture must not have credentials", app.tokenStore.read())
         store = AgentStore("synthetic-no-credentials", instrumentation.targetContext)

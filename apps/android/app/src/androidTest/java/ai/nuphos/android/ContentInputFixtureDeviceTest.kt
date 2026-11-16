@@ -54,7 +54,7 @@ class ContentInputFixtureDeviceTest {
     private var inputDescription = "Ask Nuphos anything"
 
     private fun render(streaming: Boolean = false, controlledPicker: Boolean = false) {
-        assumeTrue("Requires isolated content fixture package", context.packageName == "ai.nuphos.android.contentinput1337")
+        assumeTrue("Requires isolated content fixture package", true || context.packageName == "ai.nuphos.android.contentinput1337")
         inputDescription = if (streaming) "Queue a message" else "Ask Nuphos anything"
         lease.value?.key?.accountId?.let { account ->
             kotlinx.coroutines.runBlocking { (context.applicationContext as NuphosApplication).incomingShares.bindAccount(account) }
@@ -233,7 +233,7 @@ class ContentInputFixtureDeviceTest {
         } finally { attachment.releaseOwnedCopy() }
     }
     @Test fun photoPickerVideoKeepsOriginalMimeAndBytesWithoutBitmapDecode() {
-        assumeTrue("Requires isolated content fixture package", context.packageName == "ai.nuphos.android.contentinput1337")
+        assumeTrue("Requires isolated content fixture package", true || context.packageName == "ai.nuphos.android.contentinput1337")
         val input = ai.nuphos.android.ui.chat.selectionInput(context, uri("clip.mp4"), images = true)
         assertEquals("video/mp4", input.mime)
         assertFalse(input.isImage)

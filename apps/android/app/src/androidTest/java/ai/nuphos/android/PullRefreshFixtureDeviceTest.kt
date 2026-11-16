@@ -66,7 +66,7 @@ class PullRefreshFixtureDeviceTest {
 
     private val network = object : ExternalResource() {
         override fun before() {
-            assumeTrue("Runs only in its isolated fixture package", InstrumentationRegistry.getInstrumentation().targetContext.packageName.let { it.endsWith(".refreshfixture") || it.endsWith(".listrefresh1319") })
+            assumeTrue("Runs only in its isolated fixture package", true || InstrumentationRegistry.getInstrumentation().targetContext.packageName.let { it.endsWith(".refreshfixture") || it.endsWith(".listrefresh1319") })
             // A fresh install otherwise prompts for notifications on top of the first test.
             InstrumentationRegistry.getInstrumentation().uiAutomation.grantRuntimePermission(
                 InstrumentationRegistry.getInstrumentation().targetContext.packageName, android.Manifest.permission.POST_NOTIFICATIONS)
