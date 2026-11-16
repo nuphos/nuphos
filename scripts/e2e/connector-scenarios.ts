@@ -15,8 +15,7 @@ export const connectorScenarios: Scenario[] = [
     name: 'Cloudflare rejecting the authorization shows its reason in the app',
     run: async (page, stack) => {
       await page.getByRole('button', { name: 'Connectors' }).click()
-      await page.getByPlaceholder('Search connectors').fill('Cloudflare')
-      await page.getByText('Cloudflare', { exact: true }).click()
+      await page.getByLabel('Add Cloudflare').click()
       await page.getByRole('button', { name: 'Connect with Cloudflare' }).click()
       await page.getByText('Waiting for browser authorization…').waitFor()
       await page.screenshot({ path: `${artifacts}/cloudflare-waiting.png` })
