@@ -13,6 +13,7 @@ import {
   buildCloudflareAuthorizeUrl,
 } from '@/lib/byos/cloudflare-oauth'
 import { appendEnvironmentBinding } from '@/lib/byos/environment-bindings'
+import { newBindingAccess } from '@/lib/byos/initial-access'
 import { encryptCloudflareApiKey } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
@@ -125,6 +126,7 @@ export function registerCloudflareBindRoutes(routes: Hono<{ Variables: TeamAuthV
       authType: 'api_token',
       encryptedApiKey: encryptCloudflareApiKey(apiKey),
       createdAt: new Date(),
+      access: await newBindingAccess(c, { highPrivilege: true }),
     }
 
     const inserted = await appendEnvironmentBinding(

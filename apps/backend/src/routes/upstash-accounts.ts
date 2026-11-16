@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
-import { createBinderOnlyAccess } from '@/lib/byos/access'
+import { newBindingAccess } from '@/lib/byos/initial-access'
 import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { encryptUpstashSecret } from '@/lib/byos/secrets'
 import {
@@ -92,7 +92,7 @@ upstashAccountsRoutes.post(
       // Upstash Management key has no scopes and reaches every database's data,
       // so a new binding must not silently expose the whole account to the team.
       // Team admins are granted at the gate, not stored here.
-      access: createBinderOnlyAccess(c.get('userId'), now),
+      access: await newBindingAccess(c, { now: now, highPrivilege: true }),
     }
 
     // Dedup atomically rather than read-then-write: `email` is excluded in the

@@ -13,6 +13,7 @@ import {
   removeUserFromTeam,
   setTeamAgentRuntime,
   setTeamAllowedEmailDomains,
+  setTeamBindingShareDefault,
   transferTeamOwnership,
   updateTeam,
   updateTeamMemberRole,
@@ -107,6 +108,19 @@ export function registerTeamManagementRoutes(teamScoped: Hono<{ Variables: TeamA
     async (c) => {
       const { runtime } = c.req.valid('json')
       const team = await setTeamAgentRuntime(c.get('teamId'), runtime)
+
+      return teamJson(c, team)
+    },
+  )
+
+  teamScoped.put(
+    '/binding-share-default',
+    requireTeamRole('ADMINISTRATOR'),
+    zv('json', z.object({ share: z.enum(['private', 'team']) })),
+    async (c) => {
+      const team = await setTeamBindingShareDefault(c.get('teamId'), c.req.valid('json').share)
+
+      if (!team) throw new AppError(404, 'team_not_found', 'Team not found')
 
       return teamJson(c, team)
     },

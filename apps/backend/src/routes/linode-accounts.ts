@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
-import { createDefaultAccess } from '@/lib/byos/access'
+import { newBindingAccess } from '@/lib/byos/initial-access'
 import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { appendEnvironmentBinding } from '@/lib/byos/environment-bindings'
 import {
@@ -82,7 +82,7 @@ linodeAccountsRoutes.post(
       label,
       encryptedToken,
       createdAt: now,
-      access: createDefaultAccess(c.get('userId'), now),
+      access: await newBindingAccess(c, { now: now, highPrivilege: true }),
     }
 
     await appendEnvironmentBinding(
