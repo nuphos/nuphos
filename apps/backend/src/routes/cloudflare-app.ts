@@ -15,7 +15,7 @@ import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
 import { AppError } from '@/lib/errors'
 import { cloudflarePendingOAuth, cloudflareOAuthResult, teamByosBindings } from '@/models'
 
-import type { CloudflareAccountBinding } from '@/models'
+import type { BindingAccess, CloudflareAccountBinding } from '@/models'
 import type { Context } from 'hono'
 
 export const cloudflareAppRoutes = new Hono()
@@ -127,6 +127,8 @@ cloudflareAppRoutes.get('/setup', async (c) => {
       state,
       teamId: pending.teamId,
       requesterUserId: pending.requesterUserId,
+      share: pending.share,
+      highPrivilege: true,
       draft,
       persist: persistCloudflareBinding,
     }),
@@ -146,6 +148,7 @@ type CloudflareBindingDraft = Pick<CloudflareAccountBinding, 'accountId' | 'acco
 export async function persistCloudflareBinding(
   teamId: ObjectId,
   draft: CloudflareBindingDraft,
+  access: BindingAccess,
 ): Promise<Record<string, string>> {
   const now = new Date()
   const { state, accountId, accountName, oauth: oauthEnvelope } = draft
@@ -189,6 +192,7 @@ export async function persistCloudflareBinding(
       authType: 'oauth',
       oauth: oauthEnvelope,
       createdAt: now,
+      access,
     }
     const inserted = await appendEnvironmentBinding(
       teamId,

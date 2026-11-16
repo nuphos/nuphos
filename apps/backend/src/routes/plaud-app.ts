@@ -1,7 +1,6 @@
 import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
-import { createDefaultAccess } from '@/lib/byos/access'
 import {
   exchangePlaudCode,
   fetchPlaudUser,
@@ -14,7 +13,7 @@ import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
 import { AppError } from '@/lib/errors'
 import { emptyTeamByosBindings, plaudPendingOAuth, teamByosBindings } from '@/models'
 
-import type { PlaudAccountBinding } from '@/models'
+import type { BindingAccess, PlaudAccountBinding } from '@/models'
 import type { Context } from 'hono'
 
 export const plaudAppRoutes = new Hono()
@@ -85,6 +84,7 @@ plaudAppRoutes.get('/callback', async (c) => {
       state,
       teamId: pending.teamId,
       requesterUserId: pending.requesterUserId,
+      share: pending.share,
       draft,
       persist: persistPlaudBinding,
     }),
@@ -99,7 +99,8 @@ type PlaudBindingDraft = Omit<PlaudAccountBinding, 'id' | 'label' | 'createdAt' 
 // its id, label and access list.
 export async function persistPlaudBinding(
   teamId: ObjectId,
-  { requesterUserId, ...draft }: PlaudBindingDraft,
+  { requesterUserId: _requesterUserId, ...draft }: PlaudBindingDraft,
+  access: BindingAccess,
 ): Promise<Record<string, string>> {
   const doc = await teamByosBindings().findOne(
     { _id: teamId },
@@ -112,7 +113,7 @@ export async function persistPlaudBinding(
     id: existing?.id ?? new ObjectId(),
     label: existing?.label ?? label,
     createdAt: existing?.createdAt ?? new Date(),
-    access: existing?.access ?? createDefaultAccess(requesterUserId),
+    access: existing?.access ?? access,
   }
 
   if (existing) {

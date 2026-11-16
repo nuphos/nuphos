@@ -4,6 +4,7 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
+import { requestedBindingShare } from '@/lib/byos/initial-access'
 import { findPosthogIntegration } from '@/lib/byos/account'
 import {
   buildPosthogAuthorizeUrl,
@@ -136,6 +137,7 @@ posthogIntegrationsRoutes.post(
     const expiresAt = new Date(Date.now() + OAUTH_PENDING_TTL_MS)
 
     await posthogPendingOAuth().insertOne({
+      ...(await requestedBindingShare(c)),
       _id: state,
       teamId,
       requesterUserId: c.get('userId'),
