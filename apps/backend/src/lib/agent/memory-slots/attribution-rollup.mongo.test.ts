@@ -13,7 +13,12 @@ import {
 } from './attribution-db'
 import { computeRetentionScores, resolveLineages, rollupRetentionScores } from './attribution-store'
 
-import type { AttributionTier, MemoryAttributionEvent } from './attribution-types'
+import type {
+  AttributionSignalEntry,
+  AttributionTier,
+  MemoryAttributionEvent,
+  MemoryRetentionScore,
+} from './attribution-types'
 
 const now = new Date('2026-11-16T03:00:00Z')
 const day = 24 * 60 * 60 * 1000
@@ -24,7 +29,8 @@ const older = new ObjectId()
 const newer = new ObjectId()
 const plain = `m-${new ObjectId().toHexString()}`
 // The team memories collection, named here: memory-native is off limits to this module.
-const teamMemories = () => db().collection('agent_team_memories')
+const teamMemories = () =>
+  db().collection<{ _id: ObjectId; lineageId: string }>('agent_team_memories')
 
 function row(
   i: number,
@@ -33,6 +39,7 @@ function row(
   extra: Partial<MemoryAttributionEvent> = {},
 ): MemoryAttributionEvent {
   return {
+    v: 1,
     key: `k-${team}-${String(i)}`,
     provider: 'native',
     teamId: team,
@@ -50,7 +57,11 @@ function row(
   }
 }
 
-const judged = (at: Date) => ({ signal: 'attribution_judge' as const, verdict: 'applied', at })
+const judged = (at: Date): AttributionSignalEntry => ({
+  signal: 'attribution_judge',
+  verdict: 'applied',
+  at,
+})
 const rows: MemoryAttributionEvent[] = [
   row(1, older.toHexString(), 'applied', { signals: [judged(new Date(now.getTime() - 5 * day))] }),
   row(2, newer.toHexString(), 'applied', { signals: [judged(new Date(now.getTime() - 2 * day))] }),
@@ -78,7 +89,7 @@ const ignored = [
 describe.skipIf(!process.env.TEST_MONGODB_URI)('rollupRetentionScores on a real database', () => {
   beforeAll(async () => {
     await connectDb()
-    // $merge joins on the scores' unique index, which startup creates.
+    // The indexes startup creates, as the score upserts expect.
     await setupMemoryAttributionIndexes()
     await attributionEvents().deleteMany({ teamId: { $in: [team, null] } })
     await attributionScores().deleteMany({ provider: 'native' })
@@ -86,7 +97,7 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('rollupRetentionScores on a real 
     await teamMemories().insertMany([
       { _id: older, lineageId: lineage.toHexString() },
       { _id: newer, lineageId: lineage.toHexString() },
-    ] as never)
+    ])
   })
   afterAll(async () => {
     await attributionEvents().deleteMany({ teamId: { $in: [team, null] } })
@@ -99,9 +110,10 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('rollupRetentionScores on a real 
     const expected = computeRetentionScores(rows, (id) => lineages.get(id) ?? id, now)
 
     expect(await rollupRetentionScores(now)).toBe(expected.length)
-    const stored = await attributionScores()
+    // The projection drops `_id`, which the collection's type always carries.
+    const stored = (await attributionScores()
       .find({ provider: 'native' }, { projection: { _id: 0 } })
-      .toArray()
+      .toArray()) as MemoryRetentionScore[]
     const byKey = (s: { teamId: string | null; lineage: string }) =>
       `${s.teamId ?? ''}|${s.lineage}`
 
