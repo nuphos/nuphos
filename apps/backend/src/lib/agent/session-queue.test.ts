@@ -441,7 +441,19 @@ test('with Redis, a take removes exactly its own messages and a requeue sets no 
 
       return 1
     },
-    lpush: async (_key: string, ...values: string[]) => list.unshift(...values),
+    multi: () => {
+      const write = {
+        lpush: (_key: string, ...values: string[]) => {
+          list.unshift(...values)
+
+          return write
+        },
+        sadd: () => write,
+        exec: async () => [],
+      }
+
+      return write
+    },
     ttl: async () => ttl,
     expire: async (_key: string, seconds: number) => expiries.push(seconds),
   }
@@ -562,7 +574,17 @@ test('with Redis, the backstop finds a waiting queue without scanning the keyspa
   const commands: string[] = []
   const members = (key: string) => sets.get(key) ?? sets.set(key, new Set()).get(key)!
   const store: Record<string, (...args: never[]) => Promise<unknown>> = {
-    eval: async (_script: string, _keys: number, key: string, raw: string) => {
+    // The enqueue script: KEYS = queue, index; ARGV = message, wake-up key, index entry.
+    eval: async (
+      _script: string,
+      _keys: number,
+      key: string,
+      index: string,
+      raw: string,
+      _wakeUp: string,
+      member: string,
+    ) => {
+      members(index).add(member)
       lists.set(key, [...(lists.get(key) ?? []), raw])
 
       return 1
