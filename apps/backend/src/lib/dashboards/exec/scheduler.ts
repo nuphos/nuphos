@@ -37,7 +37,7 @@ export function queueSnapshot(snapshotId: ObjectId): void {
  *  run scripts here; the message says why and who can take it over. */
 function authorUnavailable(stillMember: boolean): PanelExecError {
   const why = stillMember
-    ? 'is now a Viewer in this team, and a panel’s author must be an Administrator or Editor'
+    ? 'is now a Viewer in this team (a panel’s author must be an Administrator or Editor)'
     : 'is no longer a member of this team'
 
   return new PanelExecError(
