@@ -4,7 +4,9 @@ import { readFileSync } from 'node:fs'
 import { logPath } from './processes.ts'
 
 // The sign-in page asks which social providers exist; this stack configures none.
-const EXPECTED_FAILURE = /"path":"\/auth\/social\/login"|Social sign-in is not configured/
+// The fixture agent refuses one prompt as out of usage on purpose (#3051).
+const EXPECTED_FAILURE =
+  /"path":"\/auth\/social\/login"|Social sign-in is not configured|Internal error: You’ve hit your usage limit/
 
 /** The lines the backend logged since `from` lines in. */
 export function backendLog(from = 0): string[] {

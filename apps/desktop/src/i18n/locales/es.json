@@ -3849,6 +3849,7 @@
   "Retry incomplete items": "Reintentar elementos pendientes",
   "Retry the failed items.": "Vuelve a intentar los elementos con error.",
   "Retry update": "Reintentar actualización",
+  "Retrying on {to}": "Reintentando en {to}",
   "Retrying…": "Reintentando…",
   "Rev": "Rev.",
   "Reveal encoded Secret values before applying YAML.": "Muestra los valores codificados del Secret antes de aplicar el YAML.",

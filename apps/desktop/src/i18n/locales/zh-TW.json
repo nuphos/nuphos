@@ -3849,6 +3849,7 @@
   "Retry incomplete items": "重試未完成項目",
   "Retry the failed items.": "重試失敗的項目。",
   "Retry update": "重試更新",
+  "Retrying on {to}": "正在 {to} 上重試",
   "Retrying…": "正在重試…",
   "Rev": "修訂",
   "Reveal encoded Secret values before applying YAML.": "套用 YAML 前，請先顯示已編碼的 Secret 值。",

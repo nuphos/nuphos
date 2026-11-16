@@ -3849,6 +3849,7 @@
   "Retry incomplete items": "ลองใหม่เฉพาะรายการที่ยังไม่เสร็จ",
   "Retry the failed items.": "ลองรายการที่ล้มเหลวอีกครั้ง",
   "Retry update": "ลองอัปเดตอีกครั้ง",
+  "Retrying on {to}": "กำลังลองอีกครั้งบน {to}",
   "Retrying…": "กำลังลองใหม่…",
   "Rev": "Rev",
   "Reveal encoded Secret values before applying YAML.": "แสดงค่า Secret ที่เข้ารหัสไว้ก่อนนำ YAML ไปใช้",

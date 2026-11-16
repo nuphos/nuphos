@@ -3849,6 +3849,7 @@
   "Retry incomplete items": "Coba lagi item yang belum selesai",
   "Retry the failed items.": "Coba lagi item yang gagal.",
   "Retry update": "Coba perbarui lagi",
+  "Retrying on {to}": "Mencoba lagi di {to}",
   "Retrying…": "Mencoba lagi…",
   "Rev": "Rev",
   "Reveal encoded Secret values before applying YAML.": "Tampilkan nilai Secret yang dienkode sebelum menerapkan YAML.",

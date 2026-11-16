@@ -6,6 +6,7 @@ import { agentConversations } from '@/lib/agent/db/shared'
 import { claimAgentRunForSession } from '@/lib/agent/run-admission'
 import { AppError } from '@/lib/errors'
 
+import { lastFailedPrompt, resendFailedPrompt } from './failed-turn-retry'
 import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { developmentRuntimeEndpoint, requireRuntimeInstance } from './runtime-catalog'
 import { placementNamespace } from './runtime-controllers'
@@ -16,6 +17,7 @@ import { findHostedRuntime, resolveTeamRuntimeEndpoints } from './runtime-regist
 import { offeredSessionConfig } from './session-config-catalog'
 import { storedPick } from './session-config-options'
 
+import type { FailedPrompt } from './failed-turn-retry'
 import type { AgentConversation } from '@/lib/agent/db/shared'
 import type { RuntimeFallbackReason } from '@/lib/agent/db/timeline-events'
 
@@ -89,6 +91,7 @@ export async function moveConversationRuntime(
       'This conversation changed or is already being moved. Refresh and try again.',
     )
   let release: (() => void) | null = null
+  let retry: FailedPrompt | null | undefined
 
   try {
     release = options.claimed
@@ -115,6 +118,9 @@ export async function moveConversationRuntime(
       userId: ownerId,
       'runtimeOperation.token': token,
     })
+
+    // A person's move, likely off a runtime that just failed a turn: it runs again there.
+    retry = options.reason ? null : await lastFailedPrompt(conversation.sessionId, ownerId)
     const saved = latest?.claudeCodePreview
       ? storedPick(latest.claudeCodePreview)
       : latest?.initialSessionConfig
@@ -160,6 +166,7 @@ export async function moveConversationRuntime(
           toLabel: target.label,
           toProvider: target.provider,
           ...(options.reason ? { reason: options.reason } : {}),
+          ...(retry ? { retrying: true as const } : {}),
         }),
         ...(sourceUrl ? { $addToSet: { previousRuntimeUrls: sourceUrl } } : {}),
         // A move leaves the conversation exactly where a brand-new one starts:
@@ -185,8 +192,6 @@ export async function moveConversationRuntime(
         'runtime_move_conflict',
         'The conversation changed before the move completed. Refresh and retry.',
       )
-
-    return { runtimeId: target.id, runtimeLabel: target.label, agentRuntime: target.provider }
   } finally {
     release?.()
     await agentConversations().updateOne(
@@ -194,4 +199,7 @@ export async function moveConversationRuntime(
       { $unset: { runtimeOperation: '' } },
     )
   }
+  if (retry) resendFailedPrompt(conversation.sessionId, retry)
+
+  return { runtimeId: target.id, runtimeLabel: target.label, agentRuntime: target.provider }
 }
