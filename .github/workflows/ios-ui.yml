@@ -1,0 +1,85 @@
+# The iOS UI tests on a simulator: every night on main, and on a pull request
+# labelled `ios-ui`. They run serially, one suite after another on one
+# simulator, and a failed test fails the job. A failed nightly run opens or
+# updates an issue that lists the failed tests.
+name: iOS UI tests
+
+on:
+  schedule:
+    - cron: '0 18 * * *'
+  workflow_dispatch:
+  pull_request:
+    types: [labeled, synchronize]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-ui-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ui:
+    name: iOS UI tests (simulator)
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ios-ui')
+    # Same Xcode as the iOS build in ci.yml.
+    runs-on: xcode-27
+    timeout-minutes: 150
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run the UI tests
+        working-directory: apps/ios
+        run: |
+          set -uo pipefail
+          type=$(xcrun simctl list devicetypes | sed -n 's/^iPhone 17 Pro (\(.*\))$/\1/p' | head -1)
+          udid=$(xcrun simctl create iphone "$type")
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b > /dev/null
+          xcrun simctl ui "$udid" appearance light
+          xcodebuild test -project nuphos-ios.xcodeproj -scheme nuphos-ios -destination "id=$udid" \
+            -parallel-testing-enabled NO -only-testing:nuphos-iosUITests \
+            -resultBundlePath "$RUNNER_TEMP/ui.xcresult" > "$RUNNER_TEMP/xcodebuild.log" 2>&1
+          status=$?
+          xcrun xcresulttool get test-results tests --path "$RUNNER_TEMP/ui.xcresult" > "$RUNNER_TEMP/tests.json"
+          grep -E "^Test Case .*(passed|failed)|TEST (FAILED|SUCCEEDED)" "$RUNNER_TEMP/xcodebuild.log"
+          exit "$status"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: ${{ !cancelled() }}
+        with:
+          name: ios-ui-results
+          path: ${{ runner.temp }}/tests.json
+          retention-days: 7
+      # The full result bundle, with screen recordings, only when something failed.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: failure()
+        with:
+          name: ios-ui-xcresult
+          path: ${{ runner.temp }}/ui.xcresult
+          retention-days: 7
+
+  report:
+    name: Report a failed nightly run
+    needs: ui
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: ios-ui-results
+      - name: Open or update the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title='Nightly iOS UI tests failed on main'
+          failed=$(jq -r '[.. | objects | select(.nodeType == "Test Case" and .result == "Failed") | "- `\(.nodeIdentifier // .name)`"] | join("\n")' tests.json 2>/dev/null)
+          body=$(printf 'The nightly iOS UI test run failed on `main`: %s\n\nFailed tests:\n%s\n' "$RUN" "${failed:-(none listed; see the run)}")
+          number=$(gh issue list --state open --search "\"$title\" in:title" --json number,title --jq ".[] | select(.title == \"$title\") | .number" | head -1)
+          if [ -n "$number" ]; then gh issue comment "$number" --body "$body"; else gh issue create --title "$title" --label bug --body "$body"; fi
