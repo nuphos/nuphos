@@ -83,7 +83,9 @@ export const runtimeScenarios: Scenario[] = [
       await page.keyboard.press('Escape')
       await page.getByRole('button', { name: /^Model settings: fixture-large/ }).waitFor()
       await page.getByRole('button', { name: /^Agent runtime/ }).click()
+      // The computer's row opens a submenu of its runtimes.
       await page.getByRole('menu').getByText('E2E second agent').click()
+      await page.getByRole('menu').last().getByText('E2E second agent').last().click()
       await page.getByRole('button', { name: 'Move', exact: true }).click()
       await send(page, 'After the move E2E_DELIVERY:after-move')
       await until('the moved Task to finish on the second agent', async () =>
