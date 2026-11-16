@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test'
+import Redis from 'ioredis'
 
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useBoxWake } from '@/lib/test/doubles/box-wake'
@@ -16,6 +17,7 @@ import {
   buildPendingUserMessage,
   clearPendingUserMessages,
   enqueuePendingUserMessage,
+  QUEUED_SESSIONS_KEY,
 } from './pending-messages'
 import {
   hasQueuedTranscriptMessage,
@@ -603,6 +605,49 @@ test('with Redis, the backstop finds a waiting queue without scanning the keyspa
     config.redis.enabled = enabled
   }
 })
+
+// Lua and MULTI need a real Redis; CI sets TEST_REDIS_URL.
+const realRedis = process.env.TEST_REDIS_URL ? new Redis(process.env.TEST_REDIS_URL) : null
+
+test.skipIf(!realRedis)(
+  'a queue and its index entry are stored in one write, so nothing between them can hide the queue',
+  async () => {
+    const client = realRedis!
+    const sessions = ['atomic-enqueue', 'atomic-requeue']
+    const started: string[] = []
+    const enabled = config.redis.enabled
+
+    // A separate index write fails, as if the replica died right after the queue write.
+    fakeRedis = new Proxy(client, {
+      get: (target, name) => {
+        if (name === 'sadd') throw new Error('replica died after the queue write')
+        const value: unknown = Reflect.get(target, name)
+
+        return typeof value === 'function' ? value.bind(target) : value
+      },
+    })
+    config.redis.enabled = true
+    installQueuedTurnStarter(async (_userId, sessionId) => {
+      started.push(sessionId)
+    })
+    try {
+      await enqueuePendingUserMessage(OWNER, 'atomic-enqueue', human('left waiting'))
+      await requeuePendingAtHead(OWNER, 'atomic-requeue', [human('put back')])
+      await sweepQueuedSessions('0')
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      expect(sessions.filter((id) => !started.includes(id))).toEqual([])
+    } finally {
+      installQueuedTurnStarter(startQueuedTurn)
+      fakeRedis = null
+      config.redis.enabled = enabled
+      for (const sessionId of sessions) {
+        await client.del(`atlas:agentrun-pending:${OWNER}:${sessionId}`)
+        await client.srem(QUEUED_SESSIONS_KEY, `${OWNER}:${sessionId}`)
+      }
+      client.disconnect()
+    }
+  },
+)
 
 const REFUSED = 'refused-session'
 const delivery = (messageId: string) =>
