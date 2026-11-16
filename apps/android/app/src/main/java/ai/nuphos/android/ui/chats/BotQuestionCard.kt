@@ -1,5 +1,6 @@
 package ai.nuphos.android.ui.chats
 
+import ai.nuphos.android.ui.chat.AskedSecretCard
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -86,7 +87,9 @@ internal fun BotQuestionCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 question.ownBody?.let { QuestionBody(question.id, it, onLink) }
                 val form = question.form
+                val secret = question.secretPart
                 if (form != null) DecisionForm(question.id, form, onForm)
+                else if (secret != null) AskedSecretCard(question, secret)
                 else if (replies == null && onConnect != null && question.connectable) {
                     val own = question.personalCredentials?.map { if (it == "github") "GitHub" else if (it == "linear") "Linear" else it }
                         ?.foldIndexed("") { index, all, name -> if (index == 0) name else stringResource(R.string.chats_question_credentials_and, all, name) }
@@ -94,6 +97,7 @@ internal fun BotQuestionCard(
                         Text(own?.let { stringResource(R.string.chats_question_use_own, it) } ?: stringResource(R.string.chats_question_choose_credentials))
                     }
                 } else if (replies == null) {
+                    // A connection where no picker is offered, as in a Bot's chat: chosen in the conversation that asked.
                     OutlinedButton(onClick = onOpen) { Text(stringResource(R.string.chats_question_answer_in_task)) }
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {

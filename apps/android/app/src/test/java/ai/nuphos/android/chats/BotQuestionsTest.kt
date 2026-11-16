@@ -219,6 +219,14 @@ class BotQuestionsTest {
         assertEquals("The selection adds no credential this question asks for.", inbox.failures[gcp.id])
     }
 
+    @Test fun aSecretQuestionCarriesItsSecureInputCardsPart() {
+        val key = BotQuestion("agent-ops", "Release ops", InputRequest("q-key", "credential", "Paste the key", secretName = "API_KEY"))
+        assertEquals("API_KEY", key.secretPart?.secretRequest?.name)
+        assertEquals("q-key", key.secretPart?.decisionRequestId)
+        // A sign-in status card names no secret: answered with its options instead.
+        assertNull(BotQuestion("s", "t", InputRequest("q", "credential", "Signed in?", listOf("Signed in"))).secretPart)
+    }
+
     @Test fun everyOpenQuestionIsAnsweredOnItsCard() {
         fun ask(json: String) = BotQuestion("agent-ops", "Release ops", Http.json.decodeFromString<InputRequest>(json))
         // A sign-in status card: a credential with options and no secret is answered with them.
