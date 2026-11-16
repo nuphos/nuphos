@@ -454,6 +454,16 @@ describe('conversation-scoped thread tools', () => {
     expect(result.messageId).toBe(claims[0]!.message.id)
   })
 
+  test('send says which runtime the message runs on, for its card', async () => {
+    // The thread was moved after it started: the message runs where it is now.
+    Object.assign(target, { agentRuntime: 'claude-code', runtimeLabel: "Yuanlin's Box" })
+
+    expect(await sendAgentThreadMessage(actor, 'target', 'Go')).toMatchObject({
+      agentRuntime: 'claude-code',
+      runtimeLabel: "Yuanlin's Box",
+    })
+  })
+
   test.each([
     ['another owner', { userId: 'teammate' }],
     ['another team', { teamId: 'other-team' }],

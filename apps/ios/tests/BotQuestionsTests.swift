@@ -11,6 +11,7 @@ enum BotQuestionsTests {
         aQuestionNamingTheMembersOwnCredentialIsConnectable()
         aMultiSelectOrSeveralQuestionsAreAForm()
         theInboxGroupsBySourceAndOpensTheNextQuestion()
+        aBotsTaskQuestionIsInTheBotsGroup()
         print("Bot questions passed")
     }
 
@@ -31,6 +32,28 @@ enum BotQuestionsTests {
         precondition(BotQuestions.next(after: "bot:b", in: groups) == "ops:a")
         precondition(BotQuestions.next(after: "ops:a", in: [[list[0]]]) == nil)
         precondition(list[0].askedDate != nil)
+    }
+
+    /// Tasks lists nothing a Bot dispatched (#2708), so the Inbox files its questions under the Bot,
+    /// as Desktop's #2774 does: never a group that reads as a Task the Tasks page does not have.
+    private static func aBotsTaskQuestionIsInTheBotsGroup() {
+        var bot = row("bot", asks: [("q-bot", "2026-11-09T03:01:00Z")])
+        bot.avatar = "07-ada"
+        // The pending listing: the rows that ask, then the parents above them up to the Bot.
+        let rows = [
+            row("canary", parent: "rollout", asks: [("q-canary", "2026-11-09T03:03:00Z")]),
+            row("docs", parent: "bot", asks: [("q-docs", "2026-11-09T03:02:00Z")]),
+            row("solo", asks: [("q-solo", "2026-11-09T03:04:00Z")]),
+            bot,
+            row("rollout", parent: "bot"),
+        ]
+        let groups = BotQuestions.grouped(BotQuestions.open(rows: rows))
+        precondition(groups.map { $0.map(\.request.id) } == [["q-solo"], ["q-bot", "q-docs", "q-canary"]])
+        precondition(groups[1].map(\.sourceId) == ["bot", "bot", "bot"])
+        // Each row still answers, and opens, the Task that asked.
+        precondition(groups[1].map(\.sessionId) == ["bot", "docs", "canary"])
+        precondition(groups[1][0].bot == nil && groups[1][2].bot?.sessionId == "bot")
+        precondition(groups[0][0].bot == nil && groups[0][0].sourceId == "solo")
     }
 
     private static func aMultiSelectOrSeveralQuestionsAreAForm() {

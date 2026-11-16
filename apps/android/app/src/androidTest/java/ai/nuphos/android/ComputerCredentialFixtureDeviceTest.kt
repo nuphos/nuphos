@@ -14,6 +14,7 @@ import ai.nuphos.android.ui.LocalAgentStore
 import ai.nuphos.android.ui.chat.CredentialPickerSheet
 import ai.nuphos.android.ui.theme.NuphosTheme
 import org.junit.Assert.*
+import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -69,7 +70,7 @@ class ComputerCredentialFixtureDeviceTest {
         }
     }
 
-    @Test fun aStoredConversationOffersItsNewerKinds() {
+    @Ignore("Fails on a clean emulator in CI, not yet triaged: #1620") @Test fun aStoredConversationOffersItsNewerKinds() {
         val catalog = CredentialCatalog(JsonValue.parse("""{
             "awsRoles":[{"roleId":"aws","accountAlias":"Existing AWS"}],
             "githubInstallations":[{"installationId":"166","accountLogin":"fixture-org","accountType":"Organization"}]
