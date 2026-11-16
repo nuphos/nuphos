@@ -232,6 +232,9 @@ pub struct AppState {
     pub acp_pool_liveness: Option<AcpPoolLivenessTx>,
     #[cfg(feature = "acp")]
     pub acp_pool_config: Option<tokio::sync::mpsc::Sender<AcpPoolConfigRequest>>,
+    /// Ends a session for good (`session/close`): the pool resets the thread key it is sent.
+    #[cfg(feature = "acp")]
+    pub acp_pool_close: Option<tokio::sync::mpsc::Sender<String>>,
     /// Reads what a new session of the agent offers: `(model, reply)`.
     #[cfg(feature = "acp")]
     pub acp_fresh_config: Option<AcpFreshConfigTx>,
@@ -311,6 +314,7 @@ impl AppState {
             acp_pool_liveness: None,
             #[cfg(feature = "acp")]
             acp_pool_config: None,
+            acp_pool_close: None,
             #[cfg(feature = "acp")]
             acp_fresh_config: None,
             #[cfg(feature = "lineworks")]
@@ -467,6 +471,7 @@ impl AppState {
             acp_pool_liveness: None,
             #[cfg(feature = "acp")]
             acp_pool_config: None,
+            acp_pool_close: None,
             #[cfg(feature = "acp")]
             acp_fresh_config: None,
             #[cfg(feature = "lineworks")]
@@ -1128,6 +1133,7 @@ pub async fn serve(config: ServeConfig) -> anyhow::Result<()> {
         acp_pool_liveness: None,
         #[cfg(feature = "acp")]
         acp_pool_config: None,
+        acp_pool_close: None,
         #[cfg(feature = "acp")]
         acp_fresh_config: None,
         #[cfg(feature = "lineworks")]

@@ -2362,6 +2362,7 @@ async fn handle_acp_connection(
                     | "session/resume"
                     | "session/prompt"
                     | "session/set_config_option"
+                    | "session/close"
                     | "_openab/session/config_options"
                     | "_openab/agent/config_options"
                     | "_openab/session/steer"
@@ -3306,6 +3307,25 @@ async fn handle_acp_connection(
                     let _ = out_tx.send(serde_json::to_string(&resp).unwrap());
                 }));
             }
+            // Ends a session this connection may cancel: the agent stops and its process exits.
+            "session/close" => {
+                let session_id = req.params.as_ref().and_then(|p| p["sessionId"].as_str());
+                let resp = if !initialized {
+                    JsonRpcResponse::error(id, -32002, "Not initialized")
+                } else if !scope.owns_session(session_id) {
+                    JsonRpcResponse::error(id, -32003, FOREIGN_SESSION)
+                } else if !runtime_control
+                    && !sessions
+                        .lock()
+                        .await
+                        .contains_key(session_id.unwrap_or_default())
+                {
+                    JsonRpcResponse::error(id, -32003, "Session is not attached to this connection")
+                } else {
+                    handle_session_close(&state, id, session_id)
+                };
+                let _ = out_tx.send(serde_json::to_string(&resp).unwrap());
+            }
             "session/cancel" => {
                 if !scope.owns_session(req.params.as_ref().and_then(|p| p["sessionId"].as_str())) {
                     if !is_notification {
@@ -3708,6 +3728,28 @@ async fn handle_session_resume(
         JsonRpcResponse::success(id, serde_json::to_value(&resp).unwrap()),
         Some(channel_id),
     )
+}
+
+/// Hands a session's thread to the pool to be reset; the reply does not wait for it.
+fn handle_session_close(
+    state: &crate::AppState,
+    id: Value,
+    session_id: Option<&str>,
+) -> JsonRpcResponse {
+    let Some(channel) = session_id.and_then(derive_channel_id) else {
+        return JsonRpcResponse::error(id, -32602, "Invalid sessionId");
+    };
+    let Some(tx) = &state.acp_pool_close else {
+        return JsonRpcResponse::error(
+            id,
+            -32601,
+            "Closing a session requires the unified runtime",
+        );
+    };
+    if tx.try_send(format!("acp:{channel}")).is_err() {
+        return JsonRpcResponse::error(id, ACP_OVERLOADED, "Close queue is full");
+    }
+    JsonRpcResponse::success(id, json!({}))
 }
 
 /// Handle `session/cancel`. Per ACP it is a one-way notification. The notification

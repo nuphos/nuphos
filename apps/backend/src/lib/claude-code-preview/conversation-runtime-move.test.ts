@@ -120,8 +120,14 @@ test('a move ends the old session on the runtime it leaves', async () => {
 
   sessionsByConversation.set(key, {
     openabSessionId: 'native-old',
-    client: { closeSession: async (id: string) => void closed.push(id) },
-    stopObserving: () => (observing = false),
+    client: {
+      closeSession: async (id: string) => {
+        closed.push(id)
+      },
+    },
+    stopObserving: () => {
+      observing = false
+    },
   } as unknown as TeamSession)
   await moveConversationRuntime({ ...conversation }, 'new', 'owner')
   expect(closed).toEqual(['native-old'])
