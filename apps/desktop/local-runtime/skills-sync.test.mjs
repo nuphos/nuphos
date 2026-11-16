@@ -193,7 +193,6 @@ test('personal skills follow the turn’s credential and never land in the works
       return { configOptions: [] }
     },
   }
-  const rebuild = ['teardown', 'resume s1']
   const prompt = async (token) => {
     calls.length = 0
     if (token === undefined) rmSync(credential, { force: true })
@@ -211,32 +210,37 @@ test('personal skills follow the turn’s credential and never land in the works
   assert.equal(readdirSync(join(personal, '.claude')).includes('settings.json'), false)
   assert.deepEqual(opened._meta.claudeCode.options.additionalDirectories, [personal])
 
-  // Same member under a new credential: nothing changed, nothing rebuilt.
+  // A prompt only syncs: the session is never torn down or resumed, whatever changed
+  // on disk (a new conversation's first turn has nothing saved to resume).
+  // Same member under a new credential: what is installed stays.
   assert.deepEqual(await prompt('p.owner.2.sig'), [])
-  // A guest's turn names nobody: the owner's skills go and the session is rebuilt.
-  assert.deepEqual(await prompt('p.none.3.sig'), rebuild)
+  assert.deepEqual(readdirSync(skills).sort(), ['_runtime', 'owner'])
+  // A guest's turn names nobody: the owner's skills go.
+  assert.deepEqual(await prompt('p.none.3.sig'), [])
   assert.deepEqual(readdirSync(skills), [])
-  assert.deepEqual(await prompt('p.owner.4.sig'), rebuild)
+  assert.deepEqual(await prompt('p.owner.4.sig'), [])
+  assert.deepEqual(readdirSync(skills).sort(), ['_runtime', 'owner'])
 
   // The owner's sync fails: what is installed stays. Someone else's fails: it goes.
   failing = true
   assert.deepEqual(await prompt('p.owner.5.sig'), [])
   assert.deepEqual(readdirSync(skills).sort(), ['_runtime', 'owner'])
-  assert.deepEqual(await prompt('p.other.6.sig'), rebuild)
+  assert.deepEqual(await prompt('p.other.6.sig'), [])
   assert.deepEqual(readdirSync(skills), [])
   failing = false
 
   // A prompt without its own credential never falls back to the session's.
-  assert.deepEqual(await prompt('p.owner.7.sig'), rebuild)
-  assert.deepEqual(await prompt(undefined), rebuild)
+  assert.deepEqual(await prompt('p.owner.7.sig'), [])
+  assert.deepEqual(readdirSync(skills).sort(), ['_runtime', 'owner'])
+  assert.deepEqual(await prompt(undefined), [])
   assert.deepEqual(readdirSync(skills), [])
-  // With no personal skills on either side, switching senders rebuilds nothing.
+  // With no personal skills on either side, switching senders changes nothing.
   assert.deepEqual(await prompt('p.none.8.sig'), [])
 
   // The adapter process is replaced and a guest's turn reopens the session while the
   // owner's skills are still in the home. The guest's sync fails: nothing here has
   // synced yet, so the tree cannot be trusted and is emptied.
-  assert.deepEqual(await prompt('p.owner.9.sig'), rebuild)
+  assert.deepEqual(await prompt('p.owner.9.sig'), [])
   assert.deepEqual(readdirSync(skills).sort(), ['_runtime', 'owner'])
   failing = true
   writeFileSync(credential, 'p.none.10.sig\n')
