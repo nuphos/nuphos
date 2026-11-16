@@ -1,15 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 
 import { api } from '../../api'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
+import { useTeamGoogleClientQuery } from '../../lib/query/account'
+import { queryKeys } from '../../lib/query/keys'
 
 import { LoadFailed } from './shared'
 import { inputClasses } from './styles'
 import { useAdminName } from './useAdminName'
 
-import type { AtlasTeam } from '../../types'
+import type { AtlasTeam, TeamGoogleClient } from '../../types'
 
 export const GOOGLE_CLIENT_GUIDE_URL = 'https://docs.nuphos.ai/connectors/google-workspace'
 
@@ -19,55 +22,41 @@ export const GOOGLE_CLIENT_GUIDE_URL = 'https://docs.nuphos.ai/connectors/google
 // so the client is optional until the team saves it.
 export function GoogleOAuthClientCard({ team }: { team: AtlasTeam }) {
   const isAdmin = team.role === 'ADMINISTRATOR'
-  const [savedClientId, setSavedClientId] = useState<string | null | undefined>(undefined)
-  const [composio, setComposio] = useState(false)
-  const [clientId, setClientId] = useState('')
+  const queryClient = useQueryClient()
+  const loaded = useTeamGoogleClientQuery(team.id)
+  const savedClientId = loaded.data?.clientId
+  const composio = loaded.data?.composio ?? false
+  // What the admin typed; until then the field shows the saved client.
+  const [draftId, setDraftId] = useState<string>()
+  const clientId = draftId ?? savedClientId ?? ''
   const [clientSecret, setClientSecret] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [failed, setFailed] = useState(false)
-  const [attempt, setAttempt] = useState(0)
+  // Not "not configured" on a failed read: an admin would otherwise overwrite a client they cannot see.
+  const failed = loaded.isError
   const admin = useAdminName(team.id, !isAdmin)
-
-  useEffect(() => {
-    void api
-      .atlasGetTeamGoogleClient(team.id)
-      .then(({ clientId: id, composio: viaComposio }) => {
-        setSavedClientId(id)
-        setComposio(viaComposio)
-        setClientId(id ?? '')
-        setFailed(false)
-      })
-      // Not "not configured": an admin would otherwise overwrite a client they cannot see.
-      .catch(() => setFailed(true))
-  }, [team.id, attempt])
-
-  async function save() {
-    setSaving(true)
-    try {
-      await api.atlasSetTeamGoogleClient(team.id, clientId.trim(), clientSecret)
-      setSavedClientId(clientId.trim())
-      setClientSecret('')
+  const saved = (id: string | null) => {
+    queryClient.setQueryData<TeamGoogleClient>(queryKeys.teamGoogleClient(team.id), (previous) =>
+      previous ? { ...previous, clientId: id } : previous,
+    )
+    setDraftId(undefined)
+    setClientSecret('')
+  }
+  const save = useMutation({
+    mutationFn: (id: string) => api.atlasSetTeamGoogleClient(team.id, id, clientSecret),
+    onSuccess: (_result, id) => {
+      saved(id)
       toast.success(t('Google OAuth client saved'))
-    } catch (err) {
-      toast.apiError(t('Could not save the Google OAuth client'), err)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  async function remove() {
-    setSaving(true)
-    try {
-      await api.atlasDeleteTeamGoogleClient(team.id)
-      setSavedClientId(null)
-      setClientId('')
+    },
+    onError: (err) => toast.apiError(t('Could not save the Google OAuth client'), err),
+  })
+  const remove = useMutation({
+    mutationFn: () => api.atlasDeleteTeamGoogleClient(team.id),
+    onSuccess: () => {
+      saved(null)
       toast.success(t('Google OAuth client removed'))
-    } catch (err) {
-      toast.apiError(t('Could not remove the Google OAuth client'), err)
-    } finally {
-      setSaving(false)
-    }
-  }
+    },
+    onError: (err) => toast.apiError(t('Could not remove the Google OAuth client'), err),
+  })
+  const saving = save.isPending || remove.isPending
 
   const optional = composio && savedClientId === null
 
@@ -101,21 +90,21 @@ export function GoogleOAuthClientCard({ team }: { team: AtlasTeam }) {
       {failed ? (
         <LoadFailed
           message={t('Couldn’t load the Google OAuth client.')}
-          onRetry={() => setAttempt((value) => value + 1)}
+          onRetry={() => void loaded.refetch()}
         />
       ) : isAdmin ? (
         <form
           className="space-y-3 rounded-lg border border-line-control/70 bg-surface px-4 py-3.5"
           onSubmit={(e) => {
             e.preventDefault()
-            void save()
+            save.mutate(clientId.trim())
           }}
         >
           <input
             type="text"
             required
             value={clientId}
-            onChange={(e) => setClientId(e.target.value)}
+            onChange={(e) => setDraftId(e.target.value)}
             placeholder={t('Client ID (…apps.googleusercontent.com)')}
             aria-label={t('Client ID')}
             className={inputClasses}
@@ -141,7 +130,7 @@ export function GoogleOAuthClientCard({ team }: { team: AtlasTeam }) {
                 size="sm"
                 variant="secondary"
                 disabled={saving}
-                onClick={() => void remove()}
+                onClick={() => remove.mutate()}
               >
                 {t('Remove')}
               </Button>
