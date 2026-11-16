@@ -2,14 +2,15 @@ import { AppError } from '@/lib/errors'
 
 import { OpenAbRpcError } from './openab-acp-errors'
 
-/** openab's code when its own check finds the turn no longer takes steering. */
+/** openab's code when it will not steer: the turn no longer takes it, or the session never does. */
 const STEER_UNAVAILABLE_CODE = -32004
 
 const refusal = (details: Record<string, unknown>) =>
   new AppError(
     409,
     'runtime_steering_unavailable',
-    'The turn already ended. Your message was not sent; send it as a new turn.',
+    // Neutral on purpose: the turn may have ended, or the agent may not take steering at all.
+    "The agent can't take a steer right now. Your message was not sent; send it as a new message.",
     details,
   )
 
@@ -24,8 +25,8 @@ export function steerNotInjected(result: Record<string, unknown>): AppError | un
 }
 
 /**
- * The same refusal when the runtime turns the steer away before the adapter sees it:
- * the turn can end between our check and the runtime's. Any other error is returned as is.
+ * The same refusal when the runtime turns the steer away before the adapter sees it,
+ * with the runtime's reason as details. Any other error is returned as is.
  */
 export function steerRejected(error: unknown): unknown {
   return error instanceof OpenAbRpcError && error.code === STEER_UNAVAILABLE_CODE
