@@ -21,9 +21,9 @@ export function createLocalUploadTool(devices: LocalExecDevice[], turn: LocalExe
         'Upload one user-requested file from a conversation-selected computer into the agent file-transfer store. ' +
         'Use this when the person names a file on their computer; do not ask them to attach it again. ' +
         'Pass an absolute path (or ~/path) and optionally a device ID, as for local_exec. No shell expansion is performed. ' +
-        'Returns {groupId, fileName, size}. Immediately run bash skills/file-transfer/scripts/transfer-pull.sh <TEAM> <groupId> <dest-dir> in your workspace to finish importing it. ' +
+        'Returns {groupId, fileName, size} as soon as the upload starts, not when it ends. Immediately run bash skills/file-transfer/scripts/transfer-pull.sh <TEAM> <groupId> <dest-dir> in your workspace: it waits for the upload and reports whether it arrived. ' +
         'Signed URLs and credentials stay internal. Do not use local_exec with signed URLs or third-party staging for this transfer. ' +
-        'Requires an online computer with local exec allowed and an updated Desktop or CLI host. Transfers are bounded to two minutes and the existing file-transfer limits.',
+        'Requires an online computer with local exec allowed and an updated Desktop or CLI host. The existing file-transfer limits apply.',
       execute: async ({ path, device }: { path: string; device?: string }) => {
         const deviceId = pickDevice(devices, device)
 
