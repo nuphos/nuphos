@@ -269,6 +269,8 @@ async function answer(request) {
     case 'session/set_config_option': {
       const { sessionId, configId, value } = request.params
 
+      log({ sessionId, event: 'setting', detail: `${configId}=${value}` })
+
       return { configOptions: applySetting(sessionId, configId, value) }
     }
     default:

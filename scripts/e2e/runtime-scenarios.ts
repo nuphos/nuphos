@@ -4,8 +4,23 @@ import { backendLines, backendLog } from './backend-log.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
 
+import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
+
+/** The first agent applied `model` to the session that ran the turn marked `marker`. */
+function firstAgentHolds(stack: Stack, marker: string, model: string) {
+  const log = agentLog(stack)
+  const session = log.find((entry) => entry.marker === marker)?.sessionId
+
+  return log.some(
+    (entry) =>
+      entry.agent === 'first' &&
+      entry.sessionId === session &&
+      entry.event === 'setting' &&
+      entry.detail === `model=${model}`,
+  )
+}
 
 async function pickAgent(page: Page, label: string) {
   await page.getByRole('button', { name: /^Agent runtime/ }).click()
@@ -132,6 +147,11 @@ export const runtimeScenarios: Scenario[] = [
       await page.getByRole('menuitemcheckbox', { name: /fixture-large/ }).click()
       await page.keyboard.press('Escape')
       await page.getByRole('button', { name: /^Model settings: fixture-large/ }).waitFor()
+      // The chip shows a pick at once, but one made while the reply finishes is sent later.
+      // Move only once the first agent holds it, so the move is what this scenario tests.
+      await until('the first agent to hold the picked model', async () =>
+        firstAgentHolds(stack, 'E2E_DELIVERY:before-move', 'fixture-large'),
+      )
       await pickAgent(page, 'E2E second agent')
       await page.getByText('moved this task from E2E fixture agent to E2E second agent').waitFor()
       // #2123: the second agent's default model was never applied to this Task, so its
@@ -170,6 +190,9 @@ export const runtimeScenarios: Scenario[] = [
       await page.getByRole('menuitemcheckbox', { name: /fixture-small/ }).click()
       await page.keyboard.press('Escape')
       await page.getByRole('button', { name: /^Model settings: fixture-small/ }).waitFor()
+      await until('the first agent to hold the picked model', async () =>
+        firstAgentHolds(stack, 'E2E_DELIVERY:before-kept', 'fixture-small'),
+      )
       await pickAgent(page, 'E2E second agent')
       await page.getByText('moved this task from E2E fixture agent to E2E second agent').waitFor()
       await send(page, 'After the move E2E_DELIVERY:after-kept')
