@@ -1,13 +1,10 @@
 // An answer its agent could not run (out of usage, signed out, offline) is kept,
 // not dropped: the question stays answered, and the answer reaches the agent
-// once it can run, or the agent the conversation moves to. Every trigger calls
-// deliverWaitingAnswers; whoever takes an answer off the list delivers it, once.
-import { randomUUID } from 'node:crypto'
-
+// once it can run, or the agent the conversation moves to. Delivery is in
+// deliver-waiting-answers.ts.
 import { claudeNotice, turnFailureCause } from '@/lib/claude-code-preview/openab-acp-errors'
 import { logError } from '@/lib/observability'
 
-import { getConversationBySessionId } from './db'
 import { agentConversations } from './db/shared'
 
 import type { AgentConversation } from './db'
@@ -90,66 +87,6 @@ export const failureLine = (error: unknown) =>
     /\s+/g,
     ' ',
   )
-
-/** Sends each waiting answer to the conversation's agent, now. Never throws. */
-export async function deliverWaitingAnswers(sessionId: string): Promise<void> {
-  try {
-    const conversation = await getConversationBySessionId(sessionId)
-
-    if (!conversation?.teamId || !conversation.waitingAnswers?.length) return
-    const { startConversationTurn } = await import('./conversation-turn')
-
-    for (const { requestId, message, cause, resetsAt } of conversation.waitingAnswers) {
-      const taken = await agentConversations().updateOne(
-        { sessionId, 'waitingAnswers.requestId': requestId },
-        { $pull: { waitingAnswers: { requestId } } },
-      )
-
-      if (!taken.modifiedCount) continue
-      // A turn that fails again for its agent keeps the answer waiting once more.
-      await startConversationTurn(
-        {
-          userId: conversation.userId,
-          teamId: conversation.teamId,
-          targetSessionId: sessionId,
-          messageId: randomUUID(),
-          locale: conversation.metadata?.locale ?? 'en-US',
-          answers: message.answers,
-        },
-        conversation,
-        message.renderedText,
-        'agent.resource',
-        message.metadata!,
-      ).then(
-        ({ run }) => {
-          run.catch(() => {})
-        },
-        // Not taken by a turn at all: back on the list for the next trigger.
-        () => keepWaitingAnswer(sessionId, message, cause, resetsAt),
-      )
-    }
-  } catch (error) {
-    logError('agent.waiting_answer.deliver_failed', error, { session_id: sessionId })
-  }
-}
-
-/** The waiting answers of every conversation on these agents, now one of them is back. */
-export async function deliverWaitingAnswersOn(filter: Record<string, unknown>): Promise<void> {
-  try {
-    const waiting = await agentConversations()
-      .find({ ...filter, 'waitingAnswers.0': { $exists: true } }, { projection: { sessionId: 1 } })
-      .limit(500)
-      .toArray()
-
-    for (const { sessionId } of waiting) await deliverWaitingAnswers(sessionId)
-  } catch (error) {
-    logError('agent.waiting_answer.deliver_failed', error, {})
-  }
-}
-
-/** A computer reconnected: every agent on it (`local_<owner>_<device>…`) can run again. */
-export const deliverWaitingAnswersOnDevice = (userId: string, deviceId: string) =>
-  deliverWaitingAnswersOn({ runtimeId: { $regex: `^local_${userId}_${deviceId}(_|$)` } })
 
 /** The line a client shows under the question: answered, and what it waits for. */
 export function waitingNote(waiting: Pick<WaitingAnswer, 'cause' | 'resetsAt'>, agent: string) {

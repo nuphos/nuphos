@@ -5,7 +5,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { appendTranscriptMessages, getConversationMessagesHead } from '@/lib/agent/db'
-import { deliverWaitingAnswers } from '@/lib/agent/waiting-answers'
+import { deliverWaitingAnswers } from '@/lib/agent/deliver-waiting-answers'
 import { mergePreviewMemoryActivity } from '@/lib/agent/memory-slots/preview-activity-store'
 import { askPlanDecisions } from '@/lib/agent/plan-decision'
 import { listPlansCreatedForConversation } from '@/lib/agent/plans'

@@ -3,7 +3,7 @@ import { agentConversations } from '@/lib/agent/db/shared'
 import { logError, logEvent } from '@/lib/observability'
 
 import { sessionReleased } from './session-released'
-import { deliverWaitingAnswersOn } from './waiting-answers'
+import { deliverWaitingAnswersOn } from './deliver-waiting-answers'
 
 export type SettleDeps = {
   /** The conversations asking for a sign-in to this runtime. */

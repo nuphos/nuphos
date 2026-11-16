@@ -48,7 +48,7 @@ export async function initTriggerScheduler(): Promise<boolean> {
         return
       }
       if (job.name === 'answer-delivery') {
-        const { deliverWaitingAnswers } = await import('./waiting-answers')
+        const { deliverWaitingAnswers } = await import('./deliver-waiting-answers')
 
         await deliverWaitingAnswers((job.data as { sessionId: string }).sessionId)
 
