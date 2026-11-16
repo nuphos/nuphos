@@ -3,7 +3,9 @@ import { contextBridge } from 'electron'
 import { agentApi } from './preload-parts/api-agent'
 import { appConfigApi } from './preload-parts/api-app-config'
 import { awsApi } from './preload-parts/api-aws'
+import { bindingAccessApi } from './preload-parts/api-binding-access'
 import { browserExtensionsApi } from './preload-parts/api-browser-extensions'
+import { channelsApi } from './preload-parts/api-channels'
 import { cloudAccountsApi } from './preload-parts/api-cloud-accounts'
 import { cloudOpsApi } from './preload-parts/api-cloud-ops'
 import { cloudflareApi } from './preload-parts/api-cloudflare'
@@ -17,12 +19,11 @@ import { k8sAppApi } from './preload-parts/api-k8s-app'
 import { localTerminalApi } from './preload-parts/api-local-terminal'
 import { plaudApi } from './preload-parts/api-plaud'
 import { posthogApi } from './preload-parts/api-posthog'
-import { channelsApi } from './preload-parts/api-channels'
 import { sessionAccessApi } from './preload-parts/api-session-access'
+import { sidebarGesturesApi } from './preload-parts/api-sidebar-gestures'
 import { signInSessionsApi } from './preload-parts/api-sign-in-sessions'
 import { teamApi } from './preload-parts/api-team'
 import { voiceApi } from './preload-parts/api-voice'
-import { sidebarGesturesApi } from './preload-parts/api-sidebar-gestures'
 import { windowSessionApi } from './preload-parts/api-window-session'
 
 const api = {
@@ -42,6 +43,7 @@ const api = {
   ...integrationsApi,
   ...posthogApi,
   ...plaudApi,
+  ...bindingAccessApi,
   ...sessionAccessApi,
   ...channelsApi,
   ...signInSessionsApi,

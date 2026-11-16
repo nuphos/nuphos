@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { t } from '../i18n'
 import { memberDisplayName, normalizeAllowList } from '../lib/bindingAccess'
+import { bindingShareStatus } from '../lib/bindingShare'
 
 import { AllowListSelect } from './binding-access-allow-list'
 import { PROVIDERS } from './binding-access-providers'
@@ -15,6 +16,12 @@ import type { BindingAccess, TeamMember } from '../types'
 
 export { AllowListSelect } from './binding-access-allow-list'
 export type { BindingAccessProvider } from './binding-access-providers'
+
+const SHARE_LABELS = {
+  private: () => t('Private'),
+  team: () => t('Everyone in the team'),
+  members: () => t('Specific people'),
+}
 
 function memberLabelById(userId: string, members: TeamMember[]): string {
   const member = members.find((item) => item.id === userId)
@@ -121,15 +128,23 @@ export function BindingAccessSection({
         {principal && <span className="ml-auto text-[11.5px] text-tertiary">{principal}</span>}
       </div>
       <p className="mb-3 text-[12px] text-tertiary">
-        {config.adminBypass
-          ? t(
-              'Control which team members can use this {resource}, including from their agents. Team admins always have access, whether or not they are listed.',
-              { resource: config.resourceLabel },
-            )
-          : t('Control which team members can use this {resource}, including from their agents.', {
-              resource: config.resourceLabel,
-            })}
+        {t(
+          "Control which team members can use this {resource}, including from their agents. Admins can also use it once it is shared, but never a member's private one.",
+          { resource: config.resourceLabel },
+        )}
       </p>
+      {loadedAccess && (
+        <p className="mb-3 flex gap-3 text-[12px] text-secondary">
+          {loadedAccess.ownerUserId && (
+            <span>
+              {t('Owner')}: {memberLabelById(loadedAccess.ownerUserId, members)}
+            </span>
+          )}
+          <span>
+            {SHARE_LABELS[bindingShareStatus(memberAllowList, loadedAccess.ownerUserId)]()}
+          </span>
+        </p>
+      )}
       {loading ? (
         <div className="rounded-md border border-line-control bg-surface-canvas px-3 py-6 text-center text-[12.5px] text-tertiary">
           {t('Loading access...')}
