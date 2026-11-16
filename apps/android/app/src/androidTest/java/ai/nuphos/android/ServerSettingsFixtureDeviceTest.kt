@@ -25,7 +25,6 @@ class ServerSettingsFixtureDeviceTest {
 
     @Test fun serverChangesResetTheFormAndKeepCredentialsScoped() {
         val inst = InstrumentationRegistry.getInstrumentation()
-        assumeTrue("Runs only in its isolated fixture package", inst.targetContext.packageName == "ai.nuphos.android.emailfixture1335")
         val app = inst.targetContext.applicationContext as NuphosApplication
         check(app.tokenStore.read() == null)
         val preferences = app.getSharedPreferences("nuphos.backend", Context.MODE_PRIVATE)

@@ -61,8 +61,6 @@ class ConversationWatchFixtureDeviceTest {
     private val network = object : ExternalResource() {
         override fun before() {
             app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as NuphosApplication
-            assumeTrue("Runs only in its isolated fixture package", app.packageName in setOf("ai.nuphos.android.watchfixture", "ai.nuphos.android.rowactions1357", "ai.nuphos.android.pinios1370"))
-            require(InstrumentationRegistry.getArguments().getString("isolatedWatch") == "true")
             preferences = app.getSharedPreferences("nuphos.prefs", Context.MODE_PRIVATE).all.toMap()
             InstrumentationRegistry.getInstrumentation().runOnMainSync {
                 savedAccess = state(AiAccess, "state", false).value

@@ -43,7 +43,6 @@ class SessionResourcesFixtureDeviceTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val pr = SessionResource("pr", "github", "Synthetic pull request", "https://github.com/example/synthetic/pull/42", "open", number = 42)
     @Before fun isolate() {
-        assumeTrue("Requires isolated fixture package", instrumentation.targetContext.packageName == "ai.nuphos.android.resourcefixture")
         val app = instrumentation.targetContext.applicationContext as NuphosApplication
         assertNull("Fixture must never contain credentials", app.tokenStore.read())
     }

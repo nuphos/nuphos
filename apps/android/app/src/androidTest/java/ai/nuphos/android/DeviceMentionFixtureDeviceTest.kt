@@ -41,7 +41,6 @@ class DeviceMentionFixtureDeviceTest {
     private val initial = CredentialSelection(mapOf("deviceIds" to setOf("synthetic-pc", "synthetic-off"), "awsRoleIds" to setOf("synthetic-cloud")))
     private fun field() = compose.onNodeWithContentDescription("Ask Nuphos anything")
     @Before fun isolate() {
-        assumeTrue("Separate fixture package required", instrumentation.targetContext.packageName in setOf("ai.nuphos.android.mentionfixture", "ai.nuphos.android.contentinput1337"))
         assertNull((instrumentation.targetContext.applicationContext as NuphosApplication).tokenStore.read())
         store = AgentStore("synthetic-no-credentials", instrumentation.targetContext)
     }

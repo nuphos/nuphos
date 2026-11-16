@@ -34,9 +34,6 @@ class EmailLoginFixtureDeviceTest {
     private var dismissals = 0
     private var transport: suspend () -> Unit = {}
 
-    @Before fun isolatedPackageOnly() {
-        assumeTrue("Runs only in its isolated fixture package", InstrumentationRegistry.getInstrumentation().targetContext.packageName == "ai.nuphos.android.emailfixture1335")
-    }
     @androidx.compose.runtime.Composable
     private fun content() {
         Surface {

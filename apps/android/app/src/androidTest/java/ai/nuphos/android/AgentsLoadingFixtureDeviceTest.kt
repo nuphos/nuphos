@@ -88,7 +88,6 @@ class AgentsLoadingFixtureDeviceTest {
     private val favoritesRelease = CountDownLatch(1)
     private val network = object : ExternalResource() {
         override fun before() {
-            assumeTrue("Runs only in its isolated fixture package", InstrumentationRegistry.getInstrumentation().targetContext.packageName.endsWith(".agentsaudit1382"))
             app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as NuphosApplication
             savedLastTeam = app.getSharedPreferences("nuphos.prefs", Context.MODE_PRIVATE).getString("nuphos.workspace.lastTeamId", null)
             InstrumentationRegistry.getInstrumentation().runOnMainSync {

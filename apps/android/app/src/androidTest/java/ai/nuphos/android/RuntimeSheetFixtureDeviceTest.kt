@@ -48,7 +48,6 @@ class RuntimeSheetFixtureDeviceTest {
     private var gate = java.util.concurrent.CountDownLatch(1)
     @Volatile private var catalogStatus = 200
     @Volatile private var catalogBody = """{"runtimes":[{"id":"cloud","provider":"codex","label":"Synthetic Cloud","status":"active","kind":"managed"},{"id":"local","provider":"codex","label":"Synthetic Computer","status":"active","kind":"local","local":{"online":true}}]}"""
-    @get:Rule(order = Int.MIN_VALUE) val isolated = isolatedPackage { it == "ai.nuphos.android.runtimesheet1375" }
 
     @Before fun blockNetwork() {
         compose.runOnIdle {

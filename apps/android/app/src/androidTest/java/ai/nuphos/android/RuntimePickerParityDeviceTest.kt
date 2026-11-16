@@ -42,7 +42,6 @@ class RuntimePickerParityDeviceTest {
     @Suppress("UNCHECKED_CAST") private fun set(name: String, value: Any?) {
         (ChatSession::class.java.getDeclaredField(name + "\$delegate").also { it.isAccessible=true }.get(session) as MutableState<Any?>).value=value
     }
-    @get:Rule(order = Int.MIN_VALUE) val isolated = isolatedPackage { it == "ai.nuphos.android.agentsaudit1382" }
 
     @Before fun setup() {
         originalConfiguration = android.content.res.Configuration(compose.activity.resources.configuration)

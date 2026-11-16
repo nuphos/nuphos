@@ -28,7 +28,6 @@ class LoginProvidersFixtureDeviceTest {
     private lateinit var store: TokenStore
     private var loads = 0
 
-    @get:Rule(order = Int.MIN_VALUE) val isolated = isolatedPackage { it == "ai.nuphos.android.emailfixture1335" }
 
     @Before fun isolated() {
         val app = inst.targetContext.applicationContext as NuphosApplication

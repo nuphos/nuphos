@@ -44,7 +44,6 @@ class RuntimesFixtureDeviceTest {
     private val local = AgentRuntime("local", "claude-code", "Synthetic Desktop", "active", "local", local = RuntimeHost("host", "Synthetic Box", true))
     private val offline = local.copy(id = "offline", label = "Synthetic Offline", local = RuntimeHost("mac", "Synthetic Mac", false))
     private fun render(rtl: Boolean = false, waitLoaded: Boolean = true) {
-        assumeTrue("Runs only in its isolated fixture package", InstrumentationRegistry.getInstrumentation().targetContext.packageName in setOf("ai.nuphos.android.runtimes1373","ai.nuphos.android.agentsaudit1382"))
         compose.setContent {
             val scope = rememberCoroutineScope()
             store = remember { RuntimesStore(scope, { true }, { held?.await(); if (failure) throw IOException() else if (empty) emptyList() else listOf(cloud, cloud.copy(id="grok",provider="grok",label="Synthetic Grok"), cloud.copy(id="antigravity",provider="antigravity",label="Synthetic Antigravity"), cloud.copy(id="opencode",provider="opencode",label="Synthetic OpenCode"), local, offline) },
