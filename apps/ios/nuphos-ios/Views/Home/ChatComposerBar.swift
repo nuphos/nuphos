@@ -255,13 +255,15 @@ struct ChatComposerBar<Controls: View>: View {
     /// A text view, not a vertical text field: a text field ends editing on
     /// a hardware keyboard's Return, which also threw away what an input
     /// method had not committed yet (#2154). A text view leaves Return to the
-    /// input method. Only the hidden text sizes it, from one line to eight,
-    /// since the text view would grow with its draft; the trailing space keeps
-    /// an empty draft one line tall and counts a final line break as a line.
+    /// input method. Only the hidden text sizes it, a full line wide and one to
+    /// eight lines tall, since the text view would grow with its draft; the
+    /// trailing space keeps an empty draft one line tall and counts a final
+    /// line break as a line.
     private var field: some View {
         Text(text + " ")
             .lineLimit(1...8)
             .padding(Self.textInset)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .hidden()
             .overlay(alignment: .topLeading) {
                 if text.isEmpty {

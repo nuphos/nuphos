@@ -103,6 +103,9 @@ final class ComposerReturnUITests: XCTestCase {
     /// character wraps, and the placeholder is back once the draft is deleted.
     func testLastLineFillingTheWidth() throws {
         let composer = try openComposer(hardwareKeys: false)
+        let app = XCUIApplication()
+        let fullWidth = app.windows.firstMatch.frame.width * 0.7
+        XCTAssertGreaterThan(composer.frame.width, fullWidth, "The empty field is not a full line wide")
         let oneLine = composer.frame.height
         var count = 0
         while composer.frame.height <= oneLine + 1, count < 200 {
@@ -122,6 +125,9 @@ final class ComposerReturnUITests: XCTestCase {
         shot("9-placeholder-after-editing")
         XCTAssertEqual(composer.value as? String ?? "", composer.placeholderValue ?? "", "The draft was not deleted")
         XCTAssertEqual(composer.frame.height, oneLine, accuracy: 1, "The empty field is not one line tall")
+        XCTAssertGreaterThan(composer.frame.width, fullWidth, "The emptied field is not a full line wide")
+        expectation(for: NSPredicate(format: "isEnabled == false"), evaluatedWith: app.buttons["Send"])
+        waitForExpectations(timeout: 3)
     }
 
     /// The on-screen keyboard's Return types a line break and never sends.
