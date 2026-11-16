@@ -7,7 +7,11 @@ import { invalidatePosthogAccessToken } from '@/lib/byos/posthog-tokens'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
-import { requirePosthogIntegration, requireTeamRole } from '@/middleware/auth'
+import {
+  requirePosthogIntegration,
+  requirePosthogMemberAccess,
+  requireTeamRole,
+} from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 import {
   discoverWithBinding,
@@ -49,16 +53,22 @@ registerBindingAccessRoutes(posthogIntegrationScoped, 'posthogIntegrations', (c)
   c.get('posthogBinding'),
 )
 
-posthogIntegrationScoped.get('/available-projects', requireTeamRole('ADMINISTRATOR'), async (c) => {
-  const teamId = parseObjectId(c.get('teamId'), 'teamId')
-  const discovery = await discoverWithBinding(teamId, c.get('posthogBinding'))
+posthogIntegrationScoped.get(
+  '/available-projects',
+  requireTeamRole('ADMINISTRATOR'),
+  requirePosthogMemberAccess(),
+  async (c) => {
+    const teamId = parseObjectId(c.get('teamId'), 'teamId')
+    const discovery = await discoverWithBinding(teamId, c.get('posthogBinding'))
 
-  return c.json({ projects: discovery.projects })
-})
+    return c.json({ projects: discovery.projects })
+  },
+)
 
 posthogIntegrationScoped.put(
   '/projects',
   requireTeamRole('ADMINISTRATOR'),
+  requirePosthogMemberAccess(),
   zv('json', z.object({ projectIds: projectIdsSchema }).strict()),
   async (c) => {
     const teamId = parseObjectId(c.get('teamId'), 'teamId')

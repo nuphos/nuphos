@@ -96,6 +96,7 @@ export function registerTailscaleClientScopedRoutes(
   clientScoped.put(
     '/sandbox-access',
     requireTeamRole('ADMINISTRATOR'),
+    requireTailscaleMemberAccess(),
     zv('json', sandboxAccessSchema),
     async (c) => {
       const teamId = parseObjectId(c.get('teamId'), 'teamId')
