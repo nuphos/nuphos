@@ -33,7 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material.icons.outlined.ArrowOutward
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import ai.nuphos.android.model.ChatRow
@@ -135,24 +135,28 @@ private fun ChannelPostRow(channel: String, post: ChannelPostPreview, onOpen: ((
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
+        // The preview takes what is left, so it gives way first; a long channel name only past its cap.
         Text("#$channel", style = style, fontWeight = FontWeight.Medium, color = muted, maxLines = 1,
-            overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+            overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 160.dp))
         Text("·", style = style, color = muted.copy(alpha = 0.6f))
         if (post.agentId != null) AgentAvatar(post.agentId, post.runtime, size = 16.dp, showBadge = false)
         else androidx.compose.foundation.layout.Box(
             Modifier.size(16.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center,
         ) {
-            Text(post.name.take(1).uppercase(), fontSize = 9.sp, color = muted)
+            Text(post.name.take(1).uppercase(), style = style.copy(fontSize = 9.sp, lineHeight = 9.sp), color = muted)
             post.avatarURL?.let { coil3.compose.AsyncImage(model = it, contentDescription = null, modifier = Modifier.size(16.dp),
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop) }
         }
         Text(post.name, style = style, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, softWrap = false)
         Text(post.text.ifEmpty { stringResource(R.string.chat_channel_sent_file) }, style = style, color = muted, maxLines = 1,
-            overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(3f, fill = false))
-        if (post.more > 0) Text(stringResource(R.string.chat_channel_more_posts, post.more), fontSize = 11.sp, color = muted, maxLines = 1, softWrap = false,
-            modifier = Modifier.height(18.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f), RoundedCornerShape(9.dp))
-                .padding(horizontal = 6.dp).wrapContentHeight())
-        androidx.compose.foundation.layout.Spacer(Modifier.weight(0.001f))
+            overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+        if (post.more > 0) androidx.compose.foundation.layout.Box(
+            Modifier.height(18.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f), RoundedCornerShape(9.dp))
+                .padding(horizontal = 6.dp), contentAlignment = Alignment.Center,
+        ) {
+            Text(stringResource(R.string.chat_channel_more_posts, post.more), style = style.copy(fontSize = 11.sp, lineHeight = 11.sp),
+                color = muted, maxLines = 1, softWrap = false)
+        }
         Icon(Icons.Outlined.ArrowOutward, contentDescription = null, tint = muted, modifier = Modifier.size(12.dp))
     }
 }
