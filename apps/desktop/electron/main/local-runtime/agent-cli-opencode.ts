@@ -26,3 +26,37 @@ export function parseOpenCodeAuthList(output: string): {
     return { loggedIn: false, credentialsUnread: true }
   }
 }
+
+/**
+ * The credentials `auth list` names, as OpenCode 2.x's `auth logout` takes them: each
+ * integration's connections of the credential kind. Anything it cannot read names none.
+ */
+export function openCodeCredentials(output: string): { integration: string; credential: string }[] {
+  try {
+    const integrations: unknown = JSON.parse(output)
+
+    if (!Array.isArray(integrations)) return []
+
+    return (integrations as { id?: unknown; connections?: unknown }[]).flatMap(
+      ({ id, connections }) =>
+        typeof id === 'string' && Array.isArray(connections)
+          ? (connections as { type?: unknown; id?: unknown }[]).flatMap((connection) =>
+              connection.type === 'credential' && typeof connection.id === 'string'
+                ? [{ integration: id, credential: connection.id }]
+                : [],
+            )
+          : [],
+    )
+  } catch {
+    return []
+  }
+}
+
+/** Removes one credential through a private server; off a terminal it must be named. */
+export const openCodeLogout = (integration: string, credential: string) => [
+  'auth',
+  'logout',
+  integration,
+  credential,
+  '--standalone',
+]

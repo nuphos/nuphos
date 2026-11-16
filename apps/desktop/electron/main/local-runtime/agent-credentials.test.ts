@@ -143,6 +143,7 @@ test('a reset of OpenCode passes only on a list it read empty, or a 1.x CLI with
 
         return cli
       },
+      logout: async () => {},
     }) as unknown as Pick<LocalRuntimeControllerDeps, 'probeCli' | 'userEnv'>
   const left = async (cli: object | Error, provider: 'opencode' | 'codex' = 'opencode') =>
     String(await credentialsLeft(provider, '/home/oc', answering(cli)))
@@ -170,4 +171,49 @@ test('a reset of OpenCode passes only on a list it read empty, or a 1.x CLI with
   asked.length = 0
   assert.equal(await left({ installed: true, loggedIn: true }, 'codex'), 'undefined')
   assert.deepEqual(asked, [])
+})
+
+test('a reset of OpenCode logs out each credential before it checks the list', async () => {
+  const steps: string[] = []
+  const deps = (logout: () => Promise<void>) =>
+    ({
+      userEnv: async () => ({ PATH: '/bin' }),
+      probeCli: async () => {
+        steps.push('check')
+
+        return { installed: true, version: '2.3.0', loggedIn: false }
+      },
+      logout: async (env: NodeJS.ProcessEnv, home: string) => {
+        steps.push(`logout ${String(env.PATH)} ${home}`)
+        await logout()
+      },
+    }) as unknown as Parameters<typeof credentialsLeft>[2]
+
+  assert.equal(
+    await credentialsLeft(
+      'opencode',
+      '/home/oc',
+      deps(async () => {}),
+    ),
+    undefined,
+  )
+  assert.deepEqual(steps, ['logout /bin /home/oc', 'check'])
+  // A logout that fails is left to the check, which still decides.
+  steps.length = 0
+  assert.equal(
+    await credentialsLeft(
+      'opencode',
+      '/home/oc',
+      deps(() => Promise.reject(new Error('no server'))),
+    ),
+    undefined,
+  )
+  assert.deepEqual(steps, ['logout /bin /home/oc', 'check'])
+  steps.length = 0
+  await credentialsLeft(
+    'codex',
+    '/home/cx',
+    deps(async () => {}),
+  )
+  assert.deepEqual(steps, [])
 })

@@ -1,6 +1,7 @@
 import { readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
+import { logoutOpenCode } from './agent-cli.ts'
 import { codexOwnerHome } from './agent-home.ts'
 import { LOGIN_FILE } from './providers.ts'
 
@@ -80,18 +81,23 @@ const OPENCODE_UNREAD =
   'Nuphos could not read which providers OpenCode is signed in to, so it did not sign it out. Try again'
 
 /**
- * OpenCode 2.x keeps its providers' credentials in its own database, not in a file: asks it
- * whether any is left, so a reset fails rather than reports a sign-out it could not make. Only
- * a list it read and found empty will do; a 1.x CLI has no list, its login being the files.
- * The error to fail with, or undefined.
+ * OpenCode 2.x keeps its providers' credentials in its own database, not in a file: logs each
+ * out, then asks it whether any is left, so a reset fails rather than reports a sign-out it could
+ * not make. Only a list it read and found empty will do; a 1.x CLI has no list, its login being
+ * the files. The error to fail with, or undefined.
  */
 export async function credentialsLeft(
   provider: LocalAgentProvider,
   home: string,
-  deps: Pick<LocalRuntimeControllerDeps, 'probeCli' | 'userEnv'>,
+  deps: Pick<LocalRuntimeControllerDeps, 'probeCli' | 'userEnv'> & {
+    logout?: typeof logoutOpenCode
+  },
 ): Promise<Error | undefined> {
   if (provider !== 'opencode') return undefined
-  const cli = await deps.probeCli(provider, await deps.userEnv(), home).catch(() => {})
+  const env = await deps.userEnv()
+
+  await (deps.logout ?? logoutOpenCode)(env, home).catch(() => {})
+  const cli = await deps.probeCli(provider, env, home).catch(() => {})
 
   if (!cli) return new Error(OPENCODE_UNREAD)
   if (!cli.installed) return undefined

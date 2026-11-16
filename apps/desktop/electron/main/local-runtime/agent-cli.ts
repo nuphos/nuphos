@@ -8,7 +8,12 @@ import { antigravityStatus } from '../../../../runtime/image/antigravity-status.
 
 import { appManagedCli, homeOf } from './agent-cli-apps.ts'
 import { locateAgentCli } from './agent-cli-find.ts'
-import { OPENCODE_AUTH_LIST, parseOpenCodeAuthList } from './agent-cli-opencode.ts'
+import {
+  OPENCODE_AUTH_LIST,
+  openCodeCredentials,
+  openCodeLogout,
+  parseOpenCodeAuthList,
+} from './agent-cli-opencode.ts'
 import { claudeKeychainService } from './claude-keychain.ts'
 import { agentCliEnv } from './config.ts'
 import { homeLogin } from './providers.ts'
@@ -219,4 +224,20 @@ export async function probeAgentCli(
     ...auth,
     ...(bundled ? { bundled } : {}),
   }
+}
+
+/**
+ * Logs OpenCode 2.x out of every provider credential its database holds in this home, one at a
+ * time; its sessions stay. A 1.x CLI lists none. A logout that fails is left for the caller's
+ * check of the list after it: OpenCode exits 1 for a credential that is already gone.
+ */
+export async function logoutOpenCode(env: NodeJS.ProcessEnv, agentHome: string): Promise<void> {
+  const file = await locateAgentCli('opencode', env)
+
+  if (!file) return
+  const runtimeEnv = agentCliEnv({ provider: 'opencode', env, agentHome, cliPath: file })
+  const listed = await run(file, OPENCODE_AUTH_LIST, runtimeEnv).catch(() => '')
+
+  for (const { integration, credential } of openCodeCredentials(listed))
+    await run(file, openCodeLogout(integration, credential), runtimeEnv).catch(() => '')
 }

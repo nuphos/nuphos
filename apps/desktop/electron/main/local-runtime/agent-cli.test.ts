@@ -6,7 +6,8 @@ import path from 'node:path'
 import { test } from 'node:test'
 
 import { updateAgentCli } from './agent-cli-update.ts'
-import { parseCodexLoginStatus, probeAgentCli } from './agent-cli.ts'
+import { openCodeCredentials } from './agent-cli-opencode.ts'
+import { logoutOpenCode, parseCodexLoginStatus, probeAgentCli } from './agent-cli.ts'
 
 // Real child processes make sure the status command sees the runtime environment,
 // rather than merely checking the object we intended to pass to execFile.
@@ -272,5 +273,81 @@ test(
     const unknown = await probeAgentCli('antigravity', { HOME: dir, PATH: dir }, undefined)
 
     assert.equal(unknown.installed && unknown.loggedIn, null)
+  },
+)
+
+test('OpenCode 2.x names the credentials of each integration that auth logout takes', () => {
+  assert.deepEqual(
+    openCodeCredentials(
+      JSON.stringify([
+        { id: 'openai', connections: [{ type: 'credential', id: 'cred_a' }] },
+        {
+          id: 'openrouter',
+          connections: [
+            { type: 'credential', id: 'cred_b' },
+            { type: 'env', id: 'OPENROUTER_API_KEY' },
+          ],
+        },
+        { id: 'anthropic', connections: [] },
+      ]),
+    ),
+    [
+      { integration: 'openai', credential: 'cred_a' },
+      { integration: 'openrouter', credential: 'cred_b' },
+    ],
+  )
+  // A 1.x CLI rejects the flags; nothing it prints names a credential.
+  assert.deepEqual(openCodeCredentials('error: unknown option --standalone'), [])
+  assert.deepEqual(openCodeCredentials('{}'), [])
+})
+
+test(
+  'OpenCode 2.x is logged out of each credential, one at a time, in its own home',
+  { skip: process.platform === 'win32' },
+  async (t) => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'nuphos-opencode-logout-'))
+    const home = path.join(dir, 'home')
+    const state = path.join(dir, 'state')
+    const log = path.join(dir, 'log')
+
+    t.after(() => rmSync(dir, { recursive: true, force: true }))
+    mkdirSync(home)
+    writeFileSync(state, 'cred_a\ncred_b\n')
+    // As OpenCode 2.3: list as JSON, log out a named credential (exit 1 once it is gone).
+    writeFileSync(
+      path.join(dir, 'opencode'),
+      `#!/bin/sh
+echo "$HOME $*" >> '${log}'
+if [ "$1 $2" = "auth list" ]; then
+  printf '[{"id":"openai","connections":['
+  sep=''
+  for c in $(cat '${state}'); do printf '%s{"type":"credential","id":"%s"}' "$sep" "$c"; sep=','; done
+  printf ']}]'
+  exit 0
+fi
+if [ "$1 $2" = "auth logout" ] && grep -qx "$4" '${state}'; then
+  grep -vx "$4" '${state}' > '${state}.next'; mv '${state}.next' '${state}'; exit 0
+fi
+exit 1
+`,
+      { mode: 0o700 },
+    )
+
+    // The stub uses the system's sh tools; OpenCode itself is the one in `dir`.
+    await logoutOpenCode({ PATH: `${dir}:/usr/bin:/bin`, HOME: dir }, home)
+
+    assert.equal(readFileSync(state, 'utf8'), '')
+    const calls = readFileSync(log, 'utf8').trim().split('\n')
+
+    assert.deepEqual(
+      calls.map((line) => line.split(' ').slice(1).join(' ')),
+      [
+        'auth list --standalone --format json',
+        'auth logout openai cred_a --standalone',
+        'auth logout openai cred_b --standalone',
+      ],
+    )
+    // In the agent's own home, never the owner's.
+    assert.ok(calls.every((line) => line.startsWith(`${home} `)))
   },
 )
