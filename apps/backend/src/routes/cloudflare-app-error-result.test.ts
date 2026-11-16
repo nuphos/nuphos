@@ -35,7 +35,11 @@ const { cloudflareAppRoutes } = await import('./cloudflare-app')
 
 test('an authorize error is served to the polling desktop with its reason', async () => {
   const description = "The OAuth 2.0 Client is not allowed to request scope 'dns-firewall.read'."
-  const query = new URLSearchParams({ state: 's1', error: 'invalid_scope', error_description: description })
+  const query = new URLSearchParams({
+    state: 's1',
+    error: 'invalid_scope',
+    error_description: description,
+  })
 
   await cloudflareAppRoutes.request(`/setup?${query.toString()}`)
   const res = await cloudflareAppRoutes.request('/result/s1')
