@@ -1,10 +1,10 @@
-import { faDatabase } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { Database as DatabaseIcon } from 'lucide-react'
 import { useState } from 'react'
 
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { t } from '../../i18n'
 
 export function R2CredentialsGate({
@@ -18,7 +18,7 @@ export function R2CredentialsGate({
     <div className="flex-1 flex flex-col min-h-0">
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="max-w-md text-center space-y-3">
-          <FontAwesomeIcon icon={faDatabase} className="w-8 h-8 mx-auto text-tertiary" />
+          <UiIcon size={14} icon={DatabaseIcon} className="w-8 h-8 mx-auto text-tertiary" />
           <div className="text-[13px] text-main font-medium">
             {t('Bind R2 S3 credentials to browse objects')}
           </div>

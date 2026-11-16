@@ -1,10 +1,10 @@
-import { faPlay } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { Play as PlayIcon } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
 import { api } from '../../api'
 import { Table } from '../../components/Table'
 import { Button } from '../../components/ui/button'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { useReportLoading } from '../../components/useReportLoading'
 import { t } from '../../i18n'
 
@@ -104,7 +104,7 @@ export function CloudflareD1DatabaseDetailView({
             />
             <div className="flex items-center gap-2 mt-2">
               <Button size="sm" onClick={() => void runQuery()} disabled={running}>
-                <FontAwesomeIcon icon={faPlay} className="w-3.5 h-3.5" />{' '}
+                <UiIcon size={16} icon={PlayIcon} className="w-4 h-4" />{' '}
                 {running ? t('Running…') : t('Run')}
               </Button>
               <span className="text-[11px] text-tertiary">⌘/Ctrl + Enter</span>
