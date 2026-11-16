@@ -5,12 +5,7 @@ import { config } from '@/config'
 import { withRedis } from '@/lib/redis'
 
 import { TRANSCRIPT_SOURCES } from './pending-message-types'
-import {
-  indexQueuedSession,
-  localQueues,
-  pendingKey,
-  QUEUED_SESSIONS_KEY,
-} from './pending-messages'
+import { localQueues, pendingKey, QUEUED_SESSIONS_KEY, queuedSession } from './pending-messages'
 
 import type { PendingUserMessage } from './pending-message-types'
 import type { Redis } from 'ioredis'
@@ -171,8 +166,13 @@ export async function requeuePendingAtHead(
   }
   const raws = [...messages].reverse().map((message) => JSON.stringify(message))
 
-  await tryRedis((c) => c.lpush(key, ...raws))
-  await indexQueuedSession(userId, sessionId)
+  await tryRedis((c) =>
+    c
+      .multi()
+      .lpush(key, ...raws)
+      .sadd(QUEUED_SESSIONS_KEY, queuedSession(userId, sessionId))
+      .exec(),
+  )
 }
 
 /**
@@ -218,7 +218,8 @@ export async function scanQueuedSessions(
     if (!localQueues.has(key) && (await tryRedis((c) => c.exists(key))) === 0) {
       await tryRedis((c) => c.srem(QUEUED_SESSIONS_KEY, member))
       // A queue stored between the two reads keeps its place.
-      if ((await tryRedis((c) => c.exists(key))) === 1) await indexQueuedSession(userId, sessionId)
+      if ((await tryRedis((c) => c.exists(key))) === 1)
+        await tryRedis((c) => c.sadd(QUEUED_SESSIONS_KEY, member))
       continue
     }
     sessions.push({ userId, sessionId })
