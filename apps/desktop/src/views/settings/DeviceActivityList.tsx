@@ -1,12 +1,12 @@
 import { Collapsible } from '@base-ui/react/collapsible'
-import { faChevronRight, faRotateRight } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
+import { RotateCw as RotateCwIcon, ChevronRight as ChevronRightIcon } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
 import { api } from '../../api'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { t } from '../../i18n'
 
 import {
@@ -75,8 +75,9 @@ function ActivityRow({
       {preview.truncated ? (
         <Collapsible.Root className="mt-1">
           <Collapsible.Trigger className="group flex w-full min-w-0 items-center gap-1.5 text-left font-mono text-[12px] text-main">
-            <FontAwesomeIcon
-              icon={faChevronRight}
+            <UiIcon
+              size={14}
+              icon={ChevronRightIcon}
               className="h-2 w-2 flex-shrink-0 text-tertiary transition-transform group-data-[panel-open]:rotate-90"
             />
             <span className="truncate group-data-[panel-open]:hidden">{preview.text}</span>
@@ -195,9 +196,10 @@ export function DeviceActivityList({
           disabled={loading}
           onClick={() => void load()}
         >
-          <FontAwesomeIcon
-            icon={faRotateRight}
-            className={clsx('h-3 w-3', loading && 'animate-spin')}
+          <UiIcon
+            size={16}
+            icon={RotateCwIcon}
+            className={clsx('h-4 w-4', loading && 'animate-spin')}
           />
         </Button>
       </div>

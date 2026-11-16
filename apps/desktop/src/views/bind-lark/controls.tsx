@@ -1,9 +1,9 @@
-import { faCheck, faCopy } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
+import { Check as CheckIcon, Copy as CopyIcon } from 'lucide-react'
 import { useState } from 'react'
 
 import { toast } from '../../components/ui/toast'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { t } from '../../i18n'
 
 import type { LarkDomain } from '../../types'
@@ -76,7 +76,7 @@ export function WebhookRow({ url }: { url: string }) {
         onClick={() => void copy()}
         className="inline-flex h-9 items-center gap-1.5 rounded-md border border-line-control px-3 text-[12px] font-medium text-secondary transition-colors hover:border-line-control hover:text-main"
       >
-        <FontAwesomeIcon icon={copied ? faCheck : faCopy} className="h-3 w-3" />
+        <UiIcon size={16} icon={copied ? CheckIcon : CopyIcon} className="h-4 w-4" />
         {copied ? t('Copied') : t('Copy')}
       </button>
     </div>
