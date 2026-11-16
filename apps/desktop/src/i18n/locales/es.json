@@ -4626,6 +4626,7 @@
   "The runtime did not accept the move. Check your connection and try again.": "El entorno de ejecución no aceptó el traslado. Revisa tu conexión y vuelve a intentarlo.",
   "The runtime did not accept the update.": "El entorno no aceptó la actualización.",
   "The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.": "El entorno de ejecución no aceptó la clave. Actualiza Nuphos en el equipo donde se ejecuta y vuelve a intentarlo.",
+  "The runtime didn't respond; the turn was stopped here.": "El entorno de ejecución no respondió; el turno se detuvo aquí.",
   "The runtime is reconnecting. This may take a moment.": "El entorno de ejecución se está reconectando. Esto puede tardar un momento.",
   "The runtime isn't ready yet": "El entorno de ejecución aún no está listo",
   "The runtime keeps the sign-in; Nuphos does not store it.": "El entorno de ejecución conserva el inicio de sesión; Nuphos no lo almacena.",
