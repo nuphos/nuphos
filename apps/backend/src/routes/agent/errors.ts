@@ -1,4 +1,5 @@
 import { CodexTurnFailedError } from '@/lib/claude-code-preview/codex-turn-failure'
+import { contextTooLongMessage } from '@/lib/claude-code-preview/context-too-long'
 import {
   acpErrorCode,
   claudeNotice,
@@ -92,7 +93,7 @@ export function formatAgentStreamError(error: unknown): string {
   // A signed-out or out-of-usage runtime is a product state with its own UI,
   // not a transport failure. Every client — including those that do not read
   // errorCode yet — gets the sentence instead of the gateway's wrapper.
-  const productState = runtimeProductStateMessage(error)
+  const productState = contextTooLongMessage(error) ?? runtimeProductStateMessage(error)
 
   if (productState) return productState
   // A known runtime fault names the next step; the raw error stays in the frame's details.

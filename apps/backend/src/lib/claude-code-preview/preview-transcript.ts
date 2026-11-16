@@ -5,6 +5,7 @@
 import { getCompactionSummary } from '@/lib/agent/db'
 
 import { CodexTurnFailedError } from './codex-turn-failure'
+import { contextTooLongMessage } from './context-too-long'
 import {
   OpenAbConnectionLostError,
   claudeNotice,
@@ -64,15 +65,17 @@ export function classifyPreviewInterruption(
 }
 
 function interruptionOf(error: unknown, aborted: boolean): PreviewTurnInterruption {
+  // A product state names the action, whichever agent hit it, as the stream error does.
+  const productState = aborted
+    ? undefined
+    : (contextTooLongMessage(error) ?? runtimeProductStateMessage(error))
+
+  if (productState) return { reason: 'error', message: productState }
   if (
     !aborted &&
     (error instanceof CodexTurnFailedError || error instanceof OpenAbConnectionLostError)
   )
     return { reason: 'error', message: error.userMessage }
-  // A signed-out or out-of-usage runtime is a product state: the transcript names the action.
-  const productState = aborted ? undefined : runtimeProductStateMessage(error)
-
-  if (productState) return { reason: 'error', message: productState }
   const failure = aborted ? undefined : runtimeFailure(error)
 
   if (failure) return { reason: 'error', message: failure.message }
