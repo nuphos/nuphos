@@ -21,15 +21,14 @@ struct InboxQuestionView: View {
 
     /// The integration question whose conversation's credentials are being chosen, while the picker shows.
     @State private var connecting = false
-    /// That conversation's selection, as stored and as edited in the picker.
-    @State private var stored = CredentialSelection()
+    /// That conversation's selection, as edited in the picker.
     @State private var selection = CredentialSelection()
 
     private var wide: Bool { sizeClass == .regular }
 
     /// The one-tap answers; nil when this question is not answered with them.
     private var options: [String]? {
-        guard question.form == nil, !["credential", "integration"].contains(question.request.category) else { return nil }
+        guard question.form == nil, question.request.category != "credential", !question.connectable else { return nil }
         let options = (question.request.options ?? []).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
         return options.isEmpty && !question.typed ? nil : options
     }
@@ -116,7 +115,7 @@ struct InboxQuestionView: View {
             }
         }
         .sheet(isPresented: $connecting, onDismiss: save) {
-            CredentialPickerSheet(selection: $selection).presentationDetents([.medium, .large])
+            CredentialPickerSheet(selection: $selection, providers: question.request.providers).presentationDetents([.medium, .large])
         }
     }
 
@@ -246,14 +245,12 @@ struct InboxQuestionView: View {
             return
         }
         guard let current = await inbox.storedSelection(for: question) else { return }
-        stored = current
         selection = current
         connecting = true
     }
 
-    /// Saves the picker's selection when it changed; the server answers the question it covers.
+    /// Saves the picker's selection; the server answers the question it covers, and the card says why if not.
     private func save() {
-        guard selection != stored else { return }
         let chosen = selection
         let question = question
         Task { await inbox.select(chosen, for: question) }

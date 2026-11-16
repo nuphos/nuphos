@@ -17,6 +17,7 @@ import ai.nuphos.android.session.BotQuestion
 import ai.nuphos.android.session.BotQuestions
 import ai.nuphos.android.session.ChannelSession
 import ai.nuphos.android.session.OpenQuestions
+import ai.nuphos.android.ui.chats.cardReplies
 import ai.nuphos.android.ui.chats.isLongBody
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
@@ -190,6 +191,34 @@ class BotQuestionsTest {
         assertNull(inbox.failures[own.id])
     }
 
+    @Test fun anIntegrationNamingNoProviderTakesWordsAndItsPickerOffersOnlyWhatAnswersIt() = runTest {
+        fun ask(json: String) = BotQuestion("agent-ops", "Release ops", Http.json.decodeFromString<InputRequest>(json))
+        // Naming no provider, it is answered in words, never by a picker no selection can answer it from.
+        val unnamed = ask("""{"id":"q","category":"integration","question":"Play Console?"}""")
+        assertFalse(unnamed.connectable)
+        assertTrue(unnamed.typed)
+        assertEquals(emptyList<Pair<String, String>>(), cardReplies(unnamed))
+        assertFalse(ask("""{"id":"q","category":"integration","question":"?","providers":[]}""").connectable)
+        val gcp = ask("""{"id":"q-gcp","category":"integration","question":"GCP?","providers":["gcp"]}""")
+        assertFalse(gcp.typed)
+        // The picker: the providers' kinds and the member's own of that name, nothing else.
+        val team = CredentialCatalog(JsonValue.parse(
+            """{"awsRoles":[{"roleId":"aws","accountId":"1"}],"gcpServiceAccounts":[{"serviceAccountId":"sa","projectId":"p"}],""" +
+                """"githubInstallations":[{"installationId":"166","accountLogin":"o"}],"personalCredentials":[{"provider":"github","login":"octocat"}]}""")!!,
+            CredentialCatalog.NEW_CONVERSATION_PROVIDERS)
+        assertEquals(listOf("sa"), team.answering(listOf("gcp")).allItems.map { it.id })
+        assertEquals(setOf("166", "github"), team.answering(listOf("github")).allItems.map { it.id }.toSet())
+        assertTrue(team.answering(listOf("play-console")).isEmpty)
+        assertEquals(4, team.answering(null).allItems.size)
+        // A save the server does not answer it with says so on the card.
+        val inbox = OpenQuestions(object : OpenQuestions.Source {
+            override suspend fun pending() = listOf(AgentConversation(sessionId = "agent-ops", title = "Release ops",
+                isOwner = true, inputRequests = listOf(gcp.request)))
+        })
+        inbox.select(CredentialSelection(), gcp)
+        assertEquals("No credential this question asks for was newly selected, so it is still open.", inbox.failures[gcp.id])
+    }
+
     @Test fun anInboxSaveSendsOnlyTheKindsTheConversationHad() = runTest {
         val own = BotQuestion("agent-ops", "Release ops", Http.json.decodeFromString<InputRequest>(
             """{"id":"q-own","category":"integration","question":"?","credentials":[{"provider":"personal","id":"github"}]}"""))
@@ -217,7 +246,8 @@ class BotQuestionsTest {
         assertTrue(ask("preference").typed)
         assertFalse(ask("approval", planId = "p1").typed)
         assertFalse(ask("credential").typed)
-        assertFalse(ask("integration").typed)
+        // An integration question naming nothing to select, e.g. a service with no connector, takes words.
+        assertTrue(ask("integration").typed)
         assertEquals("p1", Http.json.decodeFromString<InputRequest>("""{"id":"r","question":"Approve?","planId":"p1"}""").planId)
     }
 

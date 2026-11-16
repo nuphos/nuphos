@@ -131,7 +131,7 @@ internal fun isLongBody(text: String): Boolean = text.trim().lines().size > 3 ||
 /** One (label, reply) per option, possibly none; null when only the conversation can answer it. */
 internal fun cardReplies(question: BotQuestion): List<Pair<String, String>>? {
     val request = question.request
-    if (request.category == "credential" || request.category == "integration") return null
+    if (request.category == "credential" || question.connectable) return null
     val options = request.options.orEmpty().filter { it.isNotBlank() }
     // Neither an option nor words answer it here.
     if (options.isEmpty() && !question.typed) return null

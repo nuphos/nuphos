@@ -189,7 +189,8 @@ enum BotQuestionsTests {
         precondition(ask("preference").typed)
         precondition(!ask("approval", planId: "p1").typed)
         precondition(!ask("credential").typed)
-        precondition(!ask("integration").typed)
+        // An integration question naming nothing to select, e.g. a service with no connector, takes words.
+        precondition(ask("integration").typed)
         let plan = try! JSONDecoder().decode(
             AgentConversation.InputRequest.self, from: Data(#"{"id":"r","question":"Approve?","planId":"p1"}"#.utf8))
         precondition(plan.planId == "p1")
@@ -206,5 +207,10 @@ enum BotQuestionsTests {
         // A mix of providers and credentials, or a team credential named, gets no card in the Inbox.
         precondition(!ask(#"{"id":"q","category":"integration","question":"?","providers":["github"],"credentials":[{"provider":"personal","id":"github"}]}"#).connectable)
         precondition(!ask(#"{"id":"q","category":"integration","question":"?","credentials":[{"provider":"github","id":"166"}]}"#).connectable)
+        // Naming no provider, it is answered in words, never by a picker no selection can answer it from.
+        let unnamed = ask(#"{"id":"q","category":"integration","question":"Play Console?"}"#)
+        precondition(!unnamed.connectable && unnamed.typed)
+        precondition(!ask(#"{"id":"q","category":"integration","question":"?","providers":[]}"#).connectable)
+        precondition(!ask(#"{"id":"q","category":"integration","question":"?","providers":["github"]}"#).typed)
     }
 }

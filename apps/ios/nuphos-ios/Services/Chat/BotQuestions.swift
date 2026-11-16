@@ -19,8 +19,9 @@ struct BotQuestion: Identifiable, Equatable, Sendable {
     var id: String { "\(sessionId):\(request.id)" }
 
     /// Answered in words, "Other…": never a plan, approved or rejected, nor a credential or connection.
+    /// An integration question naming nothing to select, e.g. a service Nuphos cannot connect, takes words.
     var typed: Bool {
-        !["credential", "integration"].contains(request.category) && request.planId == nil
+        request.category != "credential" && !connectable && request.planId == nil
     }
 
     /// A secret request as its tool call carries it in the transcript, so the secure input card
@@ -44,7 +45,7 @@ struct BotQuestion: Identifiable, Equatable, Sendable {
 
     /// An integration question the Inbox answers in place: by its providers, or by the member's own credentials.
     var connectable: Bool {
-        request.category == "integration" && (request.credentials == nil || personalCredentials != nil)
+        request.category == "integration" && (!(request.providers ?? []).isEmpty || personalCredentials != nil)
     }
 
     /// The desktop's `formQuestions`: the questions a multi-select or several-question card answers

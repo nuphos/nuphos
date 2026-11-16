@@ -36,7 +36,7 @@ struct BotQuestionCard: View {
 
     /// The one-tap answers, possibly none; nil when only the conversation can answer it.
     private var options: [String]? {
-        if ["credential", "integration"].contains(question.request.category) { return nil }
+        if question.request.category == "credential" || question.connectable { return nil }
         let options = (question.request.options ?? []).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
         // Neither an option nor words answer it here.
         return options.isEmpty && !question.typed ? nil : options

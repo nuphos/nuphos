@@ -118,7 +118,7 @@ class OpenQuestions(private val source: Source) {
 
     /**
      * Saves the asking conversation's selection, as its credential picker would. The server answers
-     * the question once it covers a provider asked for; the card leaves with the listing.
+     * the question once it adds a provider asked for; the card leaves with the listing, or says why it is still open.
      */
     suspend fun select(selection: CredentialSelection, question: BotQuestion) {
         failures = failures - question.id
@@ -128,8 +128,12 @@ class OpenQuestions(private val source: Source) {
             throw e
         } catch (e: Exception) {
             failures = failures + (question.id to ChannelSession.postFailureMessage(e))
+            return
         }
         refresh()
+        if (listed.any { it.id == question.id }) {
+            failures = failures + (question.id to "No credential this question asks for was newly selected, so it is still open.")
+        }
     }
 
     /**

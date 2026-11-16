@@ -339,6 +339,73 @@ final class InboxUITests: XCTestCase {
                       "The own-GitHub question does not offer the member's credential")
     }
 
+    /// An integration question's picker lists only the providers it asks for. Done says why when the
+    /// question is still open, and leaves once a credential it asks for is selected. One that names no
+    /// provider, such as a service with no connector, is answered in words.
+    func testAnIntegrationQuestionOffersItsProvidersAndOneNamingNoneTakesWords() throws {
+        responses["GET /agent/credential-options"] = ["status": 200, "body": [
+            "awsRoles": [["roleId": "role-prod", "accountId": "111122223333", "accountAlias": "prod-account"]],
+            "gcpServiceAccounts": [["serviceAccountId": "sa-release", "projectId": "release-builds",
+                                    "serviceAccountEmail": "release@release-builds.iam.gserviceaccount.com"]]]]
+        responses["PATCH /agent/conversations/agent-ops/credentials"] = ["status": 200, "body": [
+            "credentialAccess": ["gcpServiceAccountIds": ["sa-release"]], "options": [:]]]
+        responses["POST /agent/conversations/agent-ops/decisions/q-play/answer"] = ["status": 200, "body": ["ok": true]]
+        let gcp: [String: Any] = ["id": "q-gcp", "category": "integration",
+                                  "question": "Select a Google Cloud account so I can read the release bucket.",
+                                  "providers": ["gcp"], "askedAt": "2026-11-03T09:40:00Z", "status": "open"]
+        let play: [String: Any] = ["id": "q-play", "category": "integration",
+                                   "question": "How should I handle Android releases stuck in Play review?",
+                                   "body": "I have no read access to the Play Console, so I can't see the review status.",
+                                   "askedAt": "2026-11-03T09:41:00Z", "status": "open"]
+        var ops = deploy
+        ops["inputRequests"] = [gcp, play]
+        try listQuestions([ops])
+        app = launch(page: "agent")
+        app.buttons["Switch page"].firstMatch.tap()
+        app.buttons["Inbox"].firstMatch.tap()
+        openQuestion("Select a Google Cloud account so I can read the release bucket.")
+        let choose = app.buttons["Choose credentials"]
+        XCTAssertTrue(choose.waitForExistence(timeout: 10), "The integration card does not offer its credentials")
+        shot("1-integration-card")
+
+        // Only Google Cloud: the AWS role answers nothing here.
+        choose.tap()
+        let account = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "release-builds")).firstMatch
+        XCTAssertTrue(account.waitForExistence(timeout: 10), "The picker does not list the Google Cloud account")
+        XCTAssertFalse(app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "prod-account")).firstMatch.exists,
+                       "The picker lists a provider the question did not ask for")
+        shot("2-picker-scoped")
+        // Done with nothing new selected: the card says why it is still open.
+        app.buttons["Done"].firstMatch.tap()
+        let failure = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "newly selected")).firstMatch
+        XCTAssertTrue(failure.waitForExistence(timeout: 10), "A save that leaves the question open says nothing")
+        shot("3-still-open-says-why")
+
+        // Selecting the account answers it: the server closes the question, and it leaves the Inbox.
+        choose.tap()
+        XCTAssertTrue(account.waitForExistence(timeout: 10))
+        account.tap()
+        ops["inputRequests"] = [play]
+        try listQuestions([ops])
+        app.buttons["Done"].firstMatch.tap()
+        XCTAssertTrue(listed("Select a Google Cloud account so I can read the release bucket.").waitForNonExistence(timeout: 10),
+                      "The answered question is still listed")
+        shot("4-answered-leaves")
+
+        // No connector names Play Console: the question takes words instead of a picker.
+        openQuestion("How should I handle Android releases stuck in Play review?")
+        XCTAssertFalse(app.buttons["Choose credentials"].exists, "A question naming no provider offers a picker that can't answer it")
+        let field = app.textFields["Your answer"].firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5), "A question naming no provider can't be answered in words")
+        shot("5-no-provider-takes-words")
+        field.tap()
+        field.typeText("Check the review status by hand and tell me")
+        shot("6-no-provider-typed")
+        app.buttons["Send answer"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["Undo"].waitForExistence(timeout: 5), "No toast for the answer")
+        shot("7-no-provider-answered")
+    }
+
     /// A card asking several questions, one of them multi-select, is a form answered in the Inbox
     /// with one reply: options toggled, or the answer typed in their place.
     func testAnswersSeveralQuestionsInOneCard() throws {
