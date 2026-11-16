@@ -2,7 +2,8 @@
 // agent offers a model the second does not, as two versions of one agent can.
 const settings = new Map()
 const choice = (value) => ({ value, name: value })
-const models = process.env.E2E_AGENT === 'first' ? ['fixture', 'fixture-large'] : ['fixture']
+const shared = ['fixture', 'fixture-small']
+const models = process.env.E2E_AGENT === 'first' ? [...shared, 'fixture-large'] : shared
 const newSettings = () => [
   {
     id: 'model',

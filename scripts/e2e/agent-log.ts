@@ -10,7 +10,7 @@ type AgentEntry = {
   event: string
   marker?: string
   /** The model settings a new session was created with. */
-  defaults?: { fast?: string }
+  defaults?: { model?: string; fast?: string }
   isError?: boolean
   detail?: string
 }
