@@ -69,12 +69,6 @@ struct HomeView: View {
             // Wide, the list always stays: there is nothing to put it away with.
             .toolbar(removing: .sidebarToggle)
             .toolbar {
-                if page == .chats {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("New Bot", systemImage: "plus") { showNewBot = true }
-                            .disabled(store == nil || store?.creatingBot == true || store?.runtimesLoaded != true)
-                    }
-                }
                 // Each control gets its own glass group
                 // (ToolbarSpacer(.fixed) splits groups, per the toolbar docs).
                 if page.isHomeList, store != nil {
@@ -83,6 +77,12 @@ struct HomeView: View {
                             searchPresentation(for: page).wrappedValue.toggle()
                         } label: {
                             Label("Search tasks", systemImage: "magnifyingglass")
+                        }
+                    }
+                    if page == .chats {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("New Bot", systemImage: "plus") { showNewBot = true }
+                                .disabled(store == nil || store?.creatingBot == true || store?.runtimesLoaded != true)
                         }
                     }
                     GlassGroupSpacer()
