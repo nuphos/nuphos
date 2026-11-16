@@ -4,6 +4,7 @@ import { mock, test } from 'bun:test'
 import { Window } from 'happy-dom'
 import { act, createElement } from 'react'
 import { createRoot } from 'react-dom/client'
+import { renderToStaticMarkup } from 'react-dom/server'
 
 mock.module('./AgentAvatarGrid', () => ({ AgentAvatarGrid: () => null }))
 mock.module('./BotAvatarImage', () => ({ BotAvatarImage: () => null }))
@@ -66,5 +67,32 @@ test('Escape from the focused name reaches the modal while other shortcuts stay 
       if (descriptor) Object.defineProperty(globalThis, key, descriptor)
       else Reflect.deleteProperty(globalThis, key)
     }
+  }
+})
+
+test('setup retry locks the existing identity while leaving the retry action available', async () => {
+  const dom = new Window()
+
+  try {
+    dom.document.body.innerHTML = renderToStaticMarkup(
+      createElement(BotIdentityFields, {
+        name: 'Existing Bot',
+        onNameChange: ignore,
+        avatar: '07-ada.svg',
+        onAvatarChange: ignore,
+        busy: false,
+        identityLocked: true,
+        submitLabel: 'Retry setup',
+      }),
+    )
+    assert.equal(dom.document.querySelector('input')?.disabled, true)
+    assert.equal(dom.document.querySelector('fieldset')?.disabled, true)
+    assert.equal(
+      dom.document.querySelector('button[type="submit"]')?.hasAttribute('disabled'),
+      false,
+    )
+    assert.equal(dom.document.querySelector('button[type="submit"]')?.textContent, 'Retry setup')
+  } finally {
+    await dom.happyDOM.close()
   }
 })

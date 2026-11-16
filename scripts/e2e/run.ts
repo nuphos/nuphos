@@ -53,6 +53,13 @@ const scenarios: Scenario[] = [
       await page.getByRole('button', { name: 'New Bot', exact: true }).click()
       await page.getByRole('textbox', { name: 'Agent name' }).fill('E2E Bot')
       await page.getByRole('button', { name: 'Create', exact: true }).click()
+      // No user prompt precedes this reply: creating/opening the Bot starts its introduction.
+      // The fixture's missing marker proves the turn did not originate from a delivery prompt.
+      await page.getByText('POSTED E2E_DELIVERY:missing', { exact: true }).waitFor()
+      await until('the unprompted Bot introduction to finish', async () =>
+        agentEvents(stack).includes('finish E2E_DELIVERY:missing'),
+      )
+      await page.screenshot({ path: `${artifacts}/bot-first-reply.png` })
       await send(page, 'Ask me E2E_ASK_CREDENTIAL E2E_DELIVERY:bot')
       await page.getByText('POSTED E2E_DELIVERY:bot', { exact: true }).waitFor()
       await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).click()
