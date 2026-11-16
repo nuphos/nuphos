@@ -37,8 +37,6 @@ type Props = {
   onOpenSession: (sessionId: string) => void
   /** Opens the conversation in the main pane at the message asking this question. */
   onOpenRequest: (sessionId: string, target?: JournalChatTarget) => void
-  /** Points the main composer's reply at one of this conversation's own questions. */
-  onChooseReply?: (requestId: string) => void
   requests: SessionInputRequest[]
   requestsLoaded: boolean
   requestsFailed: boolean
@@ -181,7 +179,6 @@ function SummaryBody({
   onOpenLink,
   onOpenSession,
   onOpenRequest,
-  onChooseReply,
   requests,
   requestsLoaded,
   requestsFailed,
@@ -199,7 +196,6 @@ function SummaryBody({
       const { id, question, options } = request.inputRequest
 
       setSelected(null)
-      onChooseReply?.(id)
       onOpenRequest(sessionId, { toolCallId: id, question, options })
     } else {
       setSelected(request)

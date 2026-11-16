@@ -114,6 +114,11 @@ const scenarios: Scenario[] = [
         .getByRole('heading', { name: 'Which marker should the fixture use?' })
         .last()
         .waitFor()
+      await page.screenshot({ path: `${artifacts}/question-pending.png` })
+      // #2972: a question is answered on its card; nothing above the composer answers it.
+      if (await page.getByRole('group', { name: 'Reply target' }).count()) {
+        throw new Error('A "Replying to" chip is above the composer')
+      }
       await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).click()
       await page.getByText('ACK E2E_DELIVERY:answered').waitFor()
     },
@@ -124,6 +129,9 @@ const scenarios: Scenario[] = [
     run: async (page, stack) => {
       await send(page, 'Ask again E2E_ASK E2E_DELIVERY:again')
       await page.getByText('ACK E2E_DELIVERY:again').waitFor()
+      // #2972: what the composer sends meanwhile is an ordinary message; the question stays open.
+      await send(page, 'A note while it waits E2E_DELIVERY:note')
+      await page.getByText('ACK E2E_DELIVERY:note').waitFor()
       await page.getByRole('tab', { name: 'Inbox' }).click()
       await page.getByRole('link', { name: /\/health\/ready$/ }).click()
       // The link opens in the dock; give a wrong navigation the time to happen.

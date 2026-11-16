@@ -88,9 +88,6 @@ struct BotQuestion: Identifiable, Equatable, Sendable {
 
     /// The Inbox group it is in: its Bot's, else the conversation that asked.
     var sourceId: String { bot?.sessionId ?? sessionId }
-
-    /// The question quoted above a composer whose next message answers it.
-    var quote: ChannelReply { ChannelReply(id: nil, authorName: title, text: request.question) }
 }
 
 /// The open questions in the pending listing, whose rows come with every
