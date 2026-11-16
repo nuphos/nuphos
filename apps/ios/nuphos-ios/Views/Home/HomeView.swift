@@ -13,6 +13,7 @@ struct HomeView: View {
     /// The next page change is the default tab, not the viewer's pick.
     @State private var autoPage = false
     @State private var showProfile = false
+    @State private var showNewBot = false
     @State private var searching: Set<HomePage> = []
     @State private var searches: [HomePage: String] = [:]
     @State private var workspacePage: HomePage? = Self.initialWorkspacePage
@@ -68,15 +69,11 @@ struct HomeView: View {
             // Wide, the list always stays: there is nothing to put it away with.
             .toolbar(removing: .sidebarToggle)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button("Computers", systemImage: "desktopcomputer") { workspacePage = .runtimes }
-                        Button("Connectors", systemImage: "app.connected.to.app.below.fill") { workspacePage = .connectors }
-                    } label: {
-                        Label("Workspace", systemImage: "ellipsis.circle")
+                if page == .chats {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("New Bot", systemImage: "plus") { showNewBot = true }
+                            .disabled(store == nil || store?.creatingBot == true || store?.runtimesLoaded != true)
                     }
-                    .accessibilityLabel("Workspace")
-                    .disabled(store == nil || connectors == nil)
                 }
                 // Each control gets its own glass group
                 // (ToolbarSpacer(.fixed) splits groups, per the toolbar docs).
@@ -311,7 +308,7 @@ struct HomeView: View {
 
     private func homeList(_ tab: HomePage) -> some View {
         AgentPage(page: .constant(tab), isSearching: searchPresentation(for: tab),
-                  titleCollapsed: $titleCollapsed, openChat: $openChat, showsComposer: sizeClass != .regular)
+                  titleCollapsed: $titleCollapsed, openChat: $openChat, showNewBot: tab == .chats ? $showNewBot : .constant(false), showsComposer: sizeClass != .regular)
     }
 
     private func searchPresentation(for tab: HomePage) -> Binding<Bool> {
