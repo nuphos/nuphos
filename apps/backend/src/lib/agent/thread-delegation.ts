@@ -1,5 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 
+import { logError } from '@/lib/observability'
+
 import { getSessionBypass, initializeSessionBypass } from './auto-mode/store'
 import {
   agentConversations,
@@ -96,8 +98,10 @@ export async function prepareThread(
   try {
     await setThreadModel(threadId, actor.userId, inherits ? currentPick(source) : pick)
   } catch (error) {
-    // A parent's model the agent no longer offers leaves the thread on the agent's defaults.
-    if (!inherits) {
+    // A parent's model the thread cannot take leaves it on the agent's defaults.
+    if (inherits) {
+      logError('agent.thread.parent_model_failed', error, { session_id: threadId })
+    } else {
       // Nothing ran yet; a refused pick hides the unused conversation.
       await setConversationArchived(threadId, true)
       throw error

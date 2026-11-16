@@ -108,6 +108,22 @@ async function delegate(sessionId, fast) {
   if (fast) log({ sessionId, event: 'refused', detail: detail(await start(CHILD, 'warp')) })
 }
 
+/** Starts a sub-agent on this agent with no model picked, so it starts on this session's. */
+async function inherit(sessionId) {
+  const message = await call(sessionId, 'create_thread', {
+    label: 'Delegate on this agent',
+    title: 'E2E inherit',
+    prompt: `${CHILD} E2E_DELIVERY:inherit-child`,
+  })
+
+  log({
+    sessionId,
+    event: 'delegated',
+    isError: refused(message),
+    detail: message.error?.message ?? message.result?.content?.[0]?.text,
+  })
+}
+
 /** Starts a thread that asks for a permission, then tries to move it to Auto Mode on its own. */
 async function startThread(sessionId, marker) {
   const started = await call(sessionId, 'create_thread', {
@@ -174,6 +190,7 @@ async function prompt({ sessionId, prompt: parts }) {
   if (text.includes('E2E_DELEGATE') && !text.includes(CHILD)) {
     await delegate(sessionId, text.includes('E2E_DELEGATE_FAST'))
   }
+  if (text.includes('E2E_INHERIT') && !text.includes(CHILD)) await inherit(sessionId)
   if (text.includes('E2E_HOP') && !text.includes(CHILD))
     await hop({ call, send, log, sessionId, child: CHILD })
   if (text.includes('E2E_ASK')) {

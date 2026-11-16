@@ -1,4 +1,4 @@
-// Scenarios about the cards a Task shows for the threads it starts and messages.
+// Scenarios about the threads a Task starts: the cards it shows for them and the model they start on.
 import { agentLog, delegatedTurn } from './agent-log.ts'
 import { until } from './processes.ts'
 import { newTask, send } from './ui.ts'
@@ -47,6 +47,34 @@ export const threadScenarios: Scenario[] = [
       if (!started.includes(before) || !messaged.includes(after)) {
         throw new Error(
           `Expected ${before}, then ${after}: "${started}", "${messaged}" (${hopped ?? ''})`,
+        )
+      }
+    },
+  },
+  {
+    // #2577: a thread started with no model picked begins on its parent's. The parent here
+    // is a top-level Task; a Bot takes the same create_thread path.
+    name: "a thread started with no model picked starts on its parent's model",
+    run: async (page, stack) => {
+      await newTask(page)
+      await send(page, 'Before the pick E2E_DELIVERY:inherit-parent')
+      await page.getByText('ACK E2E_DELIVERY:inherit-parent').waitFor()
+      await page.getByRole('button', { name: /^Model settings/ }).click()
+      await page.getByRole('menuitemcheckbox', { name: /fixture-small/ }).click()
+      await page.keyboard.press('Escape')
+      await page.getByRole('button', { name: /^Model settings: fixture-small/ }).waitFor()
+      await send(page, 'Start a thread E2E_INHERIT E2E_DELIVERY:inherit')
+      await until('the thread with no pick to finish', async () =>
+        delegatedTurn(stack, 'E2E_DELIVERY:inherit-child'),
+      )
+      const turn = delegatedTurn(stack, 'E2E_DELIVERY:inherit-child')
+      const session = agentLog(stack).find(
+        (entry) => entry.event === 'session' && entry.sessionId === turn?.sessionId,
+      )
+
+      if (session?.defaults?.model !== 'fixture-small') {
+        throw new Error(
+          `The thread's session was not created on its parent's model: ${JSON.stringify(session)}`,
         )
       }
     },
