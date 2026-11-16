@@ -137,7 +137,7 @@ struct LoginView: View {
                         }
                         loginOptions
                     }.disabled(signingIn)
-                    Text("By continuing, you agree to our [Terms of Service](https://nuphos.ai/terms) and [Privacy Policy](https://nuphos.ai/privacy).")
+                    Text("By continuing, you agree to our [Terms of Service](https://nuphos.ai/terms) and [Privacy Policy](https://nuphos.ai/privacy).", comment: "Legal text")
                         .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
                 }
                 .padding(24)
