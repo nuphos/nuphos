@@ -5,13 +5,8 @@
 import { getCompactionSummary } from '@/lib/agent/db'
 
 import { CodexTurnFailedError } from './codex-turn-failure'
-import { contextTooLongMessage } from './context-too-long'
-import {
-  OpenAbConnectionLostError,
-  claudeNotice,
-  runtimeProductStateMessage,
-  turnFailureCause,
-} from './openab-acp-errors'
+import { OpenAbConnectionLostError, claudeNotice, turnFailureCause } from './openab-acp-errors'
+import { plainTurnFailure } from './plain-failure'
 import { runtimeFailure } from './runtime-failure'
 import { RuntimeStateProbeError } from './turn-diagnostics'
 
@@ -66,9 +61,7 @@ export function classifyPreviewInterruption(
 
 function interruptionOf(error: unknown, aborted: boolean): PreviewTurnInterruption {
   // A product state names the action, whichever agent hit it, as the stream error does.
-  const productState = aborted
-    ? undefined
-    : (contextTooLongMessage(error) ?? runtimeProductStateMessage(error))
+  const productState = aborted ? undefined : plainTurnFailure(error)
 
   if (productState) return { reason: 'error', message: productState }
   if (

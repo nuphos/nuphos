@@ -3,6 +3,7 @@
 // once it can run, or the agent the conversation moves to. Delivery is in
 // deliver-waiting-answers.ts.
 import { claudeNotice, turnFailureCause } from '@/lib/claude-code-preview/openab-acp-errors'
+import { plainTurnFailure } from '@/lib/claude-code-preview/plain-failure'
 import { logError } from '@/lib/observability'
 
 import { agentConversations } from './db/shared'
@@ -81,12 +82,13 @@ export async function keepAnswersThatWait(
   return messages.filter((message) => !answers.includes(message))
 }
 
-/** Why a turn failed, on one line, in the agent's own words where it gave them. */
+/** Why a turn failed, on one line: a plain sentence when the user can act on it, else the agent's words. */
 export const failureLine = (error: unknown) =>
-  (claudeNotice(error) ?? (error instanceof Error ? error.message : String(error))).replace(
-    /\s+/g,
-    ' ',
-  )
+  (
+    plainTurnFailure(error) ??
+    claudeNotice(error) ??
+    (error instanceof Error ? error.message : String(error))
+  ).replace(/\s+/g, ' ')
 
 /** The line a client shows under the question: answered, and what it waits for. */
 export function waitingNote(waiting: Pick<WaitingAnswer, 'cause' | 'resetsAt'>, agent: string) {
