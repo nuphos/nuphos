@@ -16,11 +16,12 @@ import org.junit.Test
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import org.junit.Assume.assumeTrue
 
 class EmailSessionFixtureDeviceTest {
     private val inst = InstrumentationRegistry.getInstrumentation()
     private fun scenario(cancel: Boolean) {
-        check(inst.targetContext.packageName == "ai.nuphos.android.emailfixture1335")
+        assumeTrue("Runs only in its isolated fixture package", inst.targetContext.packageName == "ai.nuphos.android.emailfixture1335")
         val app = inst.targetContext.applicationContext as NuphosApplication
         check(app.tokenStore.read() == null)
         val context = object : ContextWrapper(app) {

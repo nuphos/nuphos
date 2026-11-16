@@ -18,6 +18,7 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import java.io.IOException
+import org.junit.Assume.assumeTrue
 
 /** Synthetic provider discovery only; never opens a browser or a provider sign-in. */
 class LoginProvidersFixtureDeviceTest {
@@ -27,8 +28,9 @@ class LoginProvidersFixtureDeviceTest {
     private lateinit var store: TokenStore
     private var loads = 0
 
+    @get:Rule(order = Int.MIN_VALUE) val isolated = isolatedPackage { it == "ai.nuphos.android.emailfixture1335" }
+
     @Before fun isolated() {
-        check(inst.targetContext.packageName == "ai.nuphos.android.emailfixture1335")
         val app = inst.targetContext.applicationContext as NuphosApplication
         val context = object : ContextWrapper(app) {
             override fun getApplicationContext(): Context = this

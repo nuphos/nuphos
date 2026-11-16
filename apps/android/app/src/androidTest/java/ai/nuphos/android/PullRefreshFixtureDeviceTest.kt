@@ -32,6 +32,7 @@ import org.junit.runner.RunWith
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import org.junit.Assume.assumeTrue
 
 /** Synthetic local transport only. The outer rule blocks the real Activity's reads. */
 @RunWith(AndroidJUnit4::class)
@@ -65,7 +66,7 @@ class PullRefreshFixtureDeviceTest {
 
     private val network = object : ExternalResource() {
         override fun before() {
-            check(InstrumentationRegistry.getInstrumentation().targetContext.packageName.let { it.endsWith(".refreshfixture") || it.endsWith(".listrefresh1319") }) { "Run only in the isolated refresh fixture package" }
+            assumeTrue("Runs only in its isolated fixture package", InstrumentationRegistry.getInstrumentation().targetContext.packageName.let { it.endsWith(".refreshfixture") || it.endsWith(".listrefresh1319") })
             // A fresh install otherwise prompts for notifications on top of the first test.
             InstrumentationRegistry.getInstrumentation().uiAutomation.grantRuntimePermission(
                 InstrumentationRegistry.getInstrumentation().targetContext.packageName, android.Manifest.permission.POST_NOTIFICATIONS)
