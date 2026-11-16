@@ -42,11 +42,7 @@ class RuntimePickerParityDeviceTest {
     @Suppress("UNCHECKED_CAST") private fun set(name: String, value: Any?) {
         (ChatSession::class.java.getDeclaredField(name + "\$delegate").also { it.isAccessible=true }.get(session) as MutableState<Any?>).value=value
     }
-    companion object {
-        // Skips the whole class, so its @Before and @After never run outside its package.
-        @BeforeClass @JvmStatic fun isolatedPackageOnly() =
-            assumeTrue("Runs only in its isolated fixture package", InstrumentationRegistry.getInstrumentation().targetContext.packageName == "ai.nuphos.android.agentsaudit1382")
-    }
+    @get:Rule(order = Int.MIN_VALUE) val isolated = isolatedPackage { it == "ai.nuphos.android.agentsaudit1382" }
 
     @Before fun setup() {
         originalConfiguration = android.content.res.Configuration(compose.activity.resources.configuration)

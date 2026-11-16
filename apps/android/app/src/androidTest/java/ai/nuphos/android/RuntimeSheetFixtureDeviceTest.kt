@@ -48,11 +48,7 @@ class RuntimeSheetFixtureDeviceTest {
     private var gate = java.util.concurrent.CountDownLatch(1)
     @Volatile private var catalogStatus = 200
     @Volatile private var catalogBody = """{"runtimes":[{"id":"cloud","provider":"codex","label":"Synthetic Cloud","status":"active","kind":"managed"},{"id":"local","provider":"codex","label":"Synthetic Computer","status":"active","kind":"local","local":{"online":true}}]}"""
-    companion object {
-        // Skips the whole class, so its @Before and @After never run outside its package.
-        @BeforeClass @JvmStatic fun isolatedPackageOnly() =
-            assumeTrue("Runs only in its isolated fixture package", InstrumentationRegistry.getInstrumentation().targetContext.packageName == "ai.nuphos.android.runtimesheet1375")
-    }
+    @get:Rule(order = Int.MIN_VALUE) val isolated = isolatedPackage { it == "ai.nuphos.android.runtimesheet1375" }
 
     @Before fun blockNetwork() {
         compose.runOnIdle {

@@ -19,7 +19,6 @@ import org.junit.Rule
 import org.junit.Test
 import java.io.IOException
 import org.junit.Assume.assumeTrue
-import org.junit.BeforeClass
 
 /** Synthetic provider discovery only; never opens a browser or a provider sign-in. */
 class LoginProvidersFixtureDeviceTest {
@@ -29,11 +28,7 @@ class LoginProvidersFixtureDeviceTest {
     private lateinit var store: TokenStore
     private var loads = 0
 
-    companion object {
-        // Skips the whole class, so its @Before and @After never run outside its package.
-        @BeforeClass @JvmStatic fun isolatedPackageOnly() =
-            assumeTrue("Runs only in its isolated fixture package", InstrumentationRegistry.getInstrumentation().targetContext.packageName == "ai.nuphos.android.emailfixture1335")
-    }
+    @get:Rule(order = Int.MIN_VALUE) val isolated = isolatedPackage { it == "ai.nuphos.android.emailfixture1335" }
 
     @Before fun isolated() {
         val app = inst.targetContext.applicationContext as NuphosApplication

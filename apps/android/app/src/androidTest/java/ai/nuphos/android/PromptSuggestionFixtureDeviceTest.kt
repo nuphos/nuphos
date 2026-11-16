@@ -42,11 +42,7 @@ class PromptSuggestionFixtureDeviceTest {
     @Suppress("UNCHECKED_CAST") private fun state(target: Any, name: String, value: Any) {
         (target.javaClass.getDeclaredField(name + "\$delegate").also { it.isAccessible = true }.get(target) as MutableState<Any>).value = value
     }
-    companion object {
-        // Skips the whole class, so its @Before and @After never run outside its package.
-        @BeforeClass @JvmStatic fun isolatedPackageOnly() =
-            assumeTrue("Runs only in its isolated fixture package", InstrumentationRegistry.getInstrumentation().targetContext.packageName.endsWith(".prompt1327"))
-    }
+    @get:Rule(order = Int.MIN_VALUE) val isolated = isolatedPackage { it.endsWith(".prompt1327") }
 
     @Before fun setup() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
