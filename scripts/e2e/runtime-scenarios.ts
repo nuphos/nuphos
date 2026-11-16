@@ -1,5 +1,5 @@
 // Scenarios about the agent hosts a Task runs on: a restart, delegation, a move.
-import { agentEvents, agentLog, delegatedTurn } from './agent-log.ts'
+import { agentEvents, agentLog, delegatedTurn, firstAgentHolds } from './agent-log.ts'
 import { backendLines, backendLog } from './backend-log.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
@@ -132,6 +132,10 @@ export const runtimeScenarios: Scenario[] = [
       await page.getByRole('menuitemcheckbox', { name: /fixture-large/ }).click()
       await page.keyboard.press('Escape')
       await page.getByRole('button', { name: /^Model settings: fixture-large/ }).waitFor()
+      // A pick made as the reply finishes is sent later, so move only once the agent holds it.
+      await until('the first agent to hold the picked model', async () =>
+        firstAgentHolds(stack, 'E2E_DELIVERY:before-move', 'fixture-large'),
+      )
       await pickAgent(page, 'E2E second agent')
       await page.getByText('moved this task from E2E fixture agent to E2E second agent').waitFor()
       // #2123: the second agent's default model was never applied to this Task, so its
@@ -170,6 +174,9 @@ export const runtimeScenarios: Scenario[] = [
       await page.getByRole('menuitemcheckbox', { name: /fixture-small/ }).click()
       await page.keyboard.press('Escape')
       await page.getByRole('button', { name: /^Model settings: fixture-small/ }).waitFor()
+      await until('the first agent to hold the picked model', async () =>
+        firstAgentHolds(stack, 'E2E_DELIVERY:before-kept', 'fixture-small'),
+      )
       await pickAgent(page, 'E2E second agent')
       await page.getByText('moved this task from E2E fixture agent to E2E second agent').waitFor()
       await send(page, 'After the move E2E_DELIVERY:after-kept')

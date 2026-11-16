@@ -32,8 +32,9 @@ const newSettings = () => {
   ]
 }
 
-/** A session's settings, after setting `id` to `value` when that is on offer. */
-export function applySetting(sessionId, id, value) {
+/** A session's settings, after setting `id` to `value` when that is on offer; `log` records the request. */
+export function applySetting(sessionId, id, value, log) {
+  log?.({ sessionId, event: 'setting', detail: `${id}=${value}` })
   const list = settings.get(sessionId) ?? newSettings()
   const option = list.find((candidate) => candidate.id === id)
 
