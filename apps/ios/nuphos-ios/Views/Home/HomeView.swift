@@ -91,7 +91,7 @@ struct HomeView: View {
                     Button {
                         workspacePage = .connectors
                     } label: {
-                        Image(systemName: HomePage.connectors.systemImage)
+                        Image(systemName: "puzzlepiece.extension")
                             .frame(width: 30, height: 30)
                             .padding(7)
                             .glass(interactive: true, in: Circle())
