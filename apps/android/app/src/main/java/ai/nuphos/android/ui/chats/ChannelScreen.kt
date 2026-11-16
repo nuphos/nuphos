@@ -276,6 +276,7 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
                             flashed = flashed == item.post.id, onQuote = jump)
                         is ChannelItem.Time -> TimeDivider(item.at)
                         is ChannelItem.Paused -> PausedLine(item.text)
+                        is ChannelItem.Record -> RecordLine(item.text)
                         is ChannelItem.ReplyFailed -> {
                             val agentId = item.event.agentId
                             // Only an agent's owner can move it, and only when the agent itself was the cause.
@@ -426,6 +427,13 @@ private fun PausedLine(text: String) {
         Icon(Icons.Outlined.Pause, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.tertiary)
         Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+}
+
+/** A record Nuphos left in the chat, muted, as Desktop and iOS show it. */
+@Composable
+private fun RecordLine(text: String) {
+    Text(text, Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).testTag("channel-record"),
+        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 private val AGENT_CAUSES = setOf("usage_limit", "auth", "offline")
