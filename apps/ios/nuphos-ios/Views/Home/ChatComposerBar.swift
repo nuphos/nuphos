@@ -274,11 +274,9 @@ struct ChatComposerBar<Controls: View>: View {
                 .scrollContentBackground(.hidden)
                 .focused($focused)
                 .accessibilityLabel(Text(prompt))
-                // On a hardware keyboard Return sends and Shift-Return starts
-                // a new line, as in Messages. While an input method is still
-                // composing, Return is left to it to commit the candidate.
                 .onKeyPress(.return, phases: .down) { press in
-                    guard press.modifiers.isEmpty, !composing else { return .ignored }
+                    guard ComposerReturn.on(modified: !press.modifiers.isEmpty, composing: composing) == .send
+                    else { return .ignored }
                     send(keepingFocus: true)
                     return .handled
                 }
