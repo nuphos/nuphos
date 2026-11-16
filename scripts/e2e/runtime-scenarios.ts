@@ -108,4 +108,29 @@ export const runtimeScenarios: Scenario[] = [
       await page.getByText('ACK E2E_DELIVERY:after-move').waitFor()
     },
   },
+  {
+    // #3051: the person moves it off an agent out of usage, and the refused turn runs there once.
+    name: 'a turn refused for usage runs again, once, after the Task moves to another agent',
+    run: async (page, stack) => {
+      const marker = 'E2E_DELIVERY:usage-limit'
+      const ran = () =>
+        agentLog(stack).filter(
+          (entry) =>
+            entry.agent === 'second' && entry.marker === marker && entry.event === 'finish',
+        )
+
+      await newTask(page)
+      await send(page, `Out of usage E2E_USAGE_LIMIT ${marker}`)
+      await page.getByText('You’ve hit your usage limit').first().waitFor()
+      await page.getByRole('button', { name: /^Agent runtime/ }).click()
+      await page.getByRole('menu').getByText('E2E second agent').click()
+      await page.getByRole('menuitem', { name: /^E2E second agent.*Claude Code/ }).click()
+      await page.getByText('Retrying on E2E second agent').waitFor()
+      await until('the refused turn to finish on the second agent', async () => ran().length > 0)
+      await page.getByText(`ACK ${marker}`).waitFor()
+      // Long enough for a second resend to have started, had there been one.
+      await new Promise((resolve) => setTimeout(resolve, 3000))
+      if (ran().length !== 1) throw new Error(`The turn ran ${ran().length} times on the new agent`)
+    },
+  },
 ]
