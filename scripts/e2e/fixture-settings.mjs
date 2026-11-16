@@ -3,15 +3,19 @@
 const settings = new Map()
 const choice = (value) => ({ value, name: value })
 const shared = ['fixture', 'fixture-small']
-const models = process.env.E2E_AGENT === 'first' ? [...shared, 'fixture-large'] : shared
+const first = process.env.E2E_AGENT === 'first'
+const models = first ? [...shared, 'fixture-large'] : shared
+// The first agent also offers Claude Code's "Default", which names the model it stands for
+// and is a session's model until someone picks one.
+const standIn = { value: 'default', name: 'Default (recommended)', description: 'fixture-small' }
 const newSettings = () => [
   {
     id: 'model',
     name: 'Model',
     category: 'model',
     type: 'select',
-    currentValue: 'fixture',
-    options: models.map(choice),
+    currentValue: first ? 'default' : 'fixture',
+    options: [...(first ? [standIn] : []), ...models.map(choice)],
   },
   {
     id: 'fast',
