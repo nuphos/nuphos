@@ -23,10 +23,10 @@ import { toast } from '../ui/toast'
 import { botOfChannel, ownsBot } from './botChannel'
 import { BotStatusPill } from './BotStatusPill'
 import { BotTaskButton } from './BotTaskButton'
-import { ChannelMessages } from './ChannelMessages'
-import { ChannelTitle } from './ChannelTitle'
-import { ChatHeaderIcon, ReplyingBanner } from './channelParts'
 import { ChannelEmptyState } from './ChannelEmptyState'
+import { ChannelMessages } from './ChannelMessages'
+import { ChatHeaderIcon, ReplyingBanner } from './channelParts'
+import { ChannelTitle } from './ChannelTitle'
 import { sendingPost, stillSending } from './sendingPosts'
 import { useBotChatQuestions } from './useBotChatQuestions'
 import { useBotRuntimeControl } from './useBotRuntimeControl'
@@ -69,6 +69,7 @@ export function ChannelPane({
   fixes?: ChannelFixes
 }) {
   const { detail, chat, agents, refresh } = useChannel(teamId, channelId)
+
   useConversationRead(channelId, visible)
   const [restore, setRestore] = useState<AgentPromptSeed | null>(null)
   const unsent = useRef<{ key: string; id: string } | null>(null)
@@ -84,37 +85,35 @@ export function ChannelPane({
   const firstReplyFailed =
     detail?.timelineEvents?.some((event) => event.kind === 'agent_reply_failed') ?? false
   const botOwned = ownsBot(teamId, bot, user.id, detail && agents)
-  const runtimeControl = useBotRuntimeControl(
-    teamId,
-    bot,
-    botOwned,
-    user,
-    botState,
-    refresh,
-    fixes?.onOpenAgentSettings,
-  )
+  const manage = fixes?.onOpenAgentSettings
+  const control = useBotRuntimeControl(teamId, bot, botOwned, user, botState, refresh, manage)
   const canOpenTask = useBotTaskAccess(teamId, bot, botOwned)
   const canOpenBotDesktop =
     bot !== undefined &&
     sessionDesktopsOf(teamId, { runtimeState: botState, foreign: !botOwned }).canOpen
+
   useEffect(() => {
     if (!bot) return
     publishSessionDesktops(bot, {
       ...sessionDesktopsOf(teamId, { runtimeState: botState, foreign: !botOwned }),
       dock: channelId,
     })
+
     return () => forgetSessionDesktops(bot, channelId)
   }, [bot, teamId, botState, botOwned, channelId])
   const stored = detail?.messages ?? []
   const pending = stillSending(stored, sending)
+
   if (pending !== sending) setSending(pending)
   const messages = [...stored, ...pending]
   const stickToBottom = useStickToBottom(scrollRef)
   const questions = useBotChatQuestions(teamId, bot, botOwned, onOpenSession)
   const send: ComposerSend = (text, filePaths, mentions, options) => {
     void postDraft(text, filePaths, mentions, options)
+
     return true
   }
+
   function focusComposer() {
     requestAnimationFrame(() =>
       composerRef.current?.querySelector<HTMLElement>('[contenteditable="true"]')?.focus(),
@@ -291,7 +290,7 @@ export function ChannelPane({
             }}
             placeholder={t('Message {name}', { name: title })}
             credentialSelector={questions.credentials}
-            runtimeControl={runtimeControl}
+            runtimeControl={control}
           />
         </div>
       </ChatColumn>
