@@ -4,6 +4,7 @@ import { rmSync } from 'node:fs'
 
 import { agentEvents } from './agent-log.ts'
 import { backendFailures, backendLines } from './backend-log.ts'
+import { channelScenarios } from './channel-scenarios.ts'
 import { startDesktop } from './desktop.ts'
 import { artifacts, stopAll, until } from './processes.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
@@ -42,6 +43,7 @@ const scenarios: Scenario[] = [
       )
     },
   },
+  ...channelScenarios,
   {
     name: 'start a Task, send a message and read the reply',
     run: async (page) => {

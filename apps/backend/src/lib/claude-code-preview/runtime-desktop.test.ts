@@ -92,19 +92,20 @@ test('only the owner reaches a display the Box reports as this conversation’s'
   )
 })
 
-test('opening by hand asks the Box once, and only for a session holding no desktop', async () => {
+test('opening by hand always asks the Box, which answers the display it holds or claims one', async () => {
   const opened: unknown[] = []
   const open = async (target: unknown, sessionId: string) => {
     opened.push([target, sessionId])
 
-    return 3
+    return opened.length === 1 ? 2 : 3
   }
+  const asked = [{ userId: 'owner', actorId: 'owner', deviceId: 'box', teamId: 'team' }, 'chat']
 
-  // Already holds :2 — answered from presence, no claim.
+  // #2954: it reports :2 held, but the desktop behind it may have exited; asking brings it back.
   expect(await openRuntimeDesktop('team', 'owner', 'chat', { presence, open })).toEqual({
     display: 2,
   })
-  expect(opened).toEqual([])
+  expect(opened).toEqual([asked])
   await presence.put('owner', 'box', {
     conn: 'conn',
     status: { ...status, desktops: [] },
@@ -113,9 +114,7 @@ test('opening by hand asks the Box once, and only for a session holding no deskt
   expect(await openRuntimeDesktop('team', 'owner', 'chat', { presence, open })).toEqual({
     display: 3,
   })
-  expect(opened).toEqual([
-    [{ userId: 'owner', actorId: 'owner', deviceId: 'box', teamId: 'team' }, 'chat'],
-  ])
+  expect(opened).toEqual([asked, asked])
   // A Box on an older bundle has a pool but cannot open one on request.
   await presence.put('owner', 'box', {
     conn: 'conn',
@@ -137,7 +136,7 @@ test('opening by hand asks the Box once, and only for a session holding no deskt
   await expect(openRuntimeDesktop('team', 'owner', 'chat', { presence, open })).rejects.toThrow(
     'not found',
   )
-  expect(opened).toHaveLength(1)
+  expect(opened).toHaveLength(2)
 })
 
 test('a computer’s own desktop opens from its runtime, for its owner alone', async () => {
@@ -168,7 +167,7 @@ test('a computer’s own desktop opens from its runtime, for its owner alone', a
     status: { ...status, desktops: [...(status.desktops ?? []), { display: 3, sessionId: lock }] },
     seenAt: Date.now(),
   })
-  // Every agent on the computer shares its one desktop.
+  // Every agent on the computer shares its one desktop: the computer is asked again under its lock.
   expect(await openRuntimeDesktop('team', 'owner', codex, { presence, open })).toEqual({
     display: 3,
   })
@@ -192,7 +191,10 @@ test('a computer’s own desktop opens from its runtime, for its owner alone', a
   await expect(
     runtimeDesktopTarget('team', 'owner', { runtimeId: 'managed-1' }, '3', presence),
   ).rejects.toThrow('not found')
-  expect(opened).toHaveLength(1)
+  expect(opened).toEqual([
+    [{ userId: 'owner', actorId: 'owner', deviceId: 'box', teamId: 'team' }, lock],
+    [{ userId: 'owner', actorId: 'owner', deviceId: 'box', teamId: 'team' }, lock],
+  ])
 })
 
 test('a computer with no agent still opens its own desktop, for its owner in its team', async () => {

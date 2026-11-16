@@ -60,20 +60,20 @@ function menuFor(row: Partial<AgentConversation>): MenuItem[] {
 }
 const labels = (row: Partial<AgentConversation>) => menuFor(row).map((item) => item.label)
 
-test('a member of a group chat leaves it rather than archiving it', () => {
-  const items = menuFor({ kind: 'channel', isOwner: false })
+test('a group chat is left from its menu, by a member and by its owner', () => {
+  for (const isOwner of [false, true]) {
+    const items = menuFor({ kind: 'channel', isOwner })
 
-  assert.ok(items.some((item) => item.label === 'Leave chat'))
-  assert.ok(!items.some((item) => item.label === 'Archive chat'))
-  calls.length = 0
-  items.find((item) => item.key === 'leave')?.onSelect()
-  assert.deepEqual(calls, ['leave chat-a team-a me'])
+    assert.ok(items.some((item) => item.label === 'Leave chat'))
+    assert.ok(!items.some((item) => item.label.startsWith('Archive')))
+    calls.length = 0
+    items.find((item) => item.key === 'leave')?.onSelect()
+    assert.deepEqual(calls, ['leave chat-a team-a me'])
+  }
 })
 
-test("a group chat's owner, a Task and a Bot keep Archive", () => {
-  assert.ok(labels({ kind: 'channel', isOwner: true }).includes('Archive chat'))
+test('a Task and a Bot keep Archive', () => {
   assert.ok(labels({ isOwner: true }).includes('Archive Task'))
   assert.ok(labels({ avatar: '05-rembrandt', isOwner: true }).includes('Archive Bot'))
-  assert.ok(!labels({ kind: 'channel', isOwner: true }).includes('Leave chat'))
   assert.ok(!labels({ isOwner: true }).includes('Leave chat'))
 })
