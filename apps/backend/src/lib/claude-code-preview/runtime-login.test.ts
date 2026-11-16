@@ -1,11 +1,13 @@
-import { beforeEach, expect, test } from 'bun:test'
+import { beforeEach, expect, setSystemTime, test } from 'bun:test'
 
+import { AppError } from '@/lib/errors'
 import { useDb } from '@/lib/test/doubles/db'
 
 import { cancelRuntimeLogin, performRuntimeLogin } from './runtime-login'
 
 import type { RuntimeLoginDeps } from './runtime-login'
 import { loginFrameReader } from './runtime-login-exec'
+import { resetBeforeSignIn } from './runtime-login-signer'
 import {
   claimRuntimeLogin,
   publicLogin,
@@ -15,9 +17,16 @@ import {
 } from './runtime-login-store'
 
 import type { RuntimeLoginDoc } from './runtime-login-store'
+import type { RemovableAgent } from '@/lib/agent/devices/local-runtime/protocol'
+import type { AgentResetResult } from '@/lib/agent/devices/pending-resets'
 
 type Query = Record<string, unknown>
 let docs: RuntimeLoginDoc[] = []
+// Pipeline updates go to a computer's record: who signed its agent in; array-filtered ones end it.
+const computers: { query: Query; update: unknown }[] = []
+const ended: unknown[] = []
+// A newer sign-in is on record, so the fenced write of an older one matches nothing.
+let newer = false
 
 function matches(doc: RuntimeLoginDoc, query: Query): boolean {
   return Object.entries(query).every(([field, value]) => {
@@ -56,7 +65,24 @@ useDb({
 
         return Promise.resolve({ matchedCount: 1 })
       },
-      updateOne: (query: Query, update: { $set?: Partial<RuntimeLoginDoc>; $unset?: Query }) => {
+      updateOne: (
+        query: Query,
+        update: { $set?: Partial<RuntimeLoginDoc>; $unset?: Query },
+        options?: { arrayFilters?: unknown[] },
+      ) => {
+        // Ending one sign-in on a computer: matched on that record while it is current.
+        const signIn = (query.signIns as { $elemMatch?: unknown } | undefined)?.$elemMatch
+
+        if (options?.arrayFilters || signIn) {
+          ended.push(signIn ?? options?.arrayFilters?.[0])
+
+          return Promise.resolve({ matchedCount: 1 })
+        }
+        if (Array.isArray(update)) {
+          computers.push({ query, update })
+
+          return Promise.resolve({ matchedCount: newer ? 0 : 1 })
+        }
         const doc = docs.find((entry) => matches(entry, query))
 
         if (doc) {
@@ -72,6 +98,9 @@ useDb({
 })
 beforeEach(() => {
   docs = []
+  computers.length = 0
+  ended.length = 0
+  newer = false
 })
 
 const device = {
@@ -363,6 +392,197 @@ test('an added agent is kept before its sign-in reads connected, and a failed ke
   deps.commit = () => Promise.reject(new Error('The agent is not signed in yet'))
   await performRuntimeLogin(retry, deps)
   expect(docs[0]?.state).toBe('failed')
+})
+
+test('a computer keeps who signed its agent in; a sign-out leaves that record', async () => {
+  const runtimeId = 'local_host_box_codex'
+  const { deps } = dependencies()
+
+  deps.commit = () => Promise.resolve()
+  deps.manages = () => Promise.resolve(true)
+  await performRuntimeLogin(await claimRuntimeLogin('team', runtimeId, 'lead'), deps)
+  expect(ended).toEqual([])
+  deps.exec = (_target, emit) => {
+    emit({ type: 'signedOut' })
+
+    return Promise.resolve()
+  }
+  await performRuntimeLogin(await claimRuntimeLogin('team', runtimeId, 'lead'), deps)
+
+  // Removing an API key can leave the account it signed in, so the sign-out records nothing.
+  expect(computers.map(({ query }) => query)).toMatchObject([{ userId: 'host', deviceId: 'box' }])
+  expect(JSON.stringify(computers[0]?.update)).toContain(
+    '"agent":"codex","userId":"lead","teamId":"team"',
+  )
+  // A team's own agent has no computer to note it on.
+  computers.length = 0
+  await performRuntimeLogin(
+    await claimRuntimeLogin('team', 'runtime', 'admin'),
+    dependencies().deps,
+  )
+  expect(computers).toEqual([])
+})
+
+test('an account installed before a failed keep is still recorded, so it can be ended', async () => {
+  const { deps } = dependencies()
+
+  deps.manages = () => Promise.resolve(true)
+  deps.commit = () => Promise.reject(new Error('The host did not answer'))
+  await performRuntimeLogin(await claimRuntimeLogin('team', 'local_host_box_codex', 'lead'), deps)
+
+  expect(docs[0]?.state).toBe('failed')
+  expect(JSON.stringify(computers[0]?.update)).toContain('"userId":"lead"')
+})
+
+/** A host that answers each reset with `result`, or refuses it. */
+function resetter(result: AgentResetResult | Error = { state: 'done' }) {
+  const asked: { device: unknown; agent: RemovableAgent; by: unknown }[] = []
+  const reset = async (
+    { userId, deviceId }: { userId: string; deviceId: string },
+    agent: RemovableAgent,
+    by: { actorId: string; teamId: string },
+  ) => {
+    asked.push({ device: { userId, deviceId }, agent, by })
+    if (result instanceof Error) throw result
+
+    return result
+  }
+
+  return { asked, reset }
+}
+
+test('a sign-in completed by someone who stopped managing the computer meanwhile ends at once', async () => {
+  const { deps } = dependencies()
+  const { asked, reset } = resetter()
+  const at = new Date('2026-11-13T00:00:00Z')
+
+  deps.commit = () => Promise.resolve()
+  deps.manages = () => Promise.resolve(false)
+  deps.reset = reset
+  const doc = await claimRuntimeLogin('team', 'local_host_box_codex', 'lead')
+
+  // The computer's record, as the sign-in left it.
+  docs.push({
+    userId: 'host',
+    deviceId: 'box',
+    signIns: [{ agent: 'codex', userId: 'lead', teamId: 'team', at }],
+  } as unknown as RuntimeLoginDoc)
+  await performRuntimeLogin(doc, deps)
+
+  expect(computers).toHaveLength(1)
+  expect(ended).toEqual([{ agent: 'codex', at, endedAt: { $exists: false } }])
+  // Its agent is reset too, as the computer's owner.
+  expect(asked).toEqual([
+    {
+      device: { userId: 'host', deviceId: 'box' },
+      agent: { provider: 'codex' },
+      by: { actorId: 'host', teamId: 'team' },
+    },
+  ])
+})
+
+test('a sign-in is kept as of when the runtime reported it, and a newer one is not overwritten', async () => {
+  const { deps } = dependencies()
+  const { asked, reset } = resetter()
+  const reported = new Date('2026-11-13T00:00:00Z')
+
+  deps.commit = () => Promise.resolve()
+  deps.manages = () => Promise.resolve(false)
+  deps.reset = reset
+  deps.exec = async (_target, emit) => {
+    setSystemTime(reported)
+    emit({ type: 'authenticated' })
+    setSystemTime()
+  }
+  newer = true
+  await performRuntimeLogin(await claimRuntimeLogin('team', 'local_host_box_codex', 'lead'), deps)
+
+  expect(computers[0]?.query).toEqual({
+    userId: 'host',
+    deviceId: 'box',
+    signIns: { $not: { $elemMatch: { agent: 'codex', at: { $gt: reported } } } },
+  })
+  // The newer sign-in has its own signer checked, so this one ends nothing of it.
+  expect(ended).toEqual([])
+  expect(asked).toEqual([])
+  expect(docs[0]?.state).toBe('connected')
+})
+
+test("a computer's agent is reset before it signs in; an older host signs in as before", async () => {
+  const start = (reset: ReturnType<typeof resetter>['reset'], runtimeId = 'local_host_box_codex') =>
+    resetBeforeSignIn('team', runtimeId, 'lead', reset, async () => true)
+  const done = resetter()
+  const id = '3f8b2a8e-6a55-4b8e-9f0e-0c6f3a1d2b4c'
+
+  await start(done.reset)
+  await start(done.reset, `local_host_box_opencode_${id}`)
+  expect(done.asked).toEqual([
+    {
+      device: { userId: 'host', deviceId: 'box' },
+      agent: { provider: 'codex' },
+      by: { actorId: 'lead', teamId: 'team' },
+    },
+    {
+      device: { userId: 'host', deviceId: 'box' },
+      agent: { instanceId: id },
+      by: { actorId: 'lead', teamId: 'team' },
+    },
+  ])
+  // Queued for a host too old to reset now: it signs in over what it holds.
+  await start(resetter({ state: 'queued', why: 'unsupported' }).reset)
+  // A team's own agent has no computer to reset.
+  await start(done.reset, 'runtime')
+  expect(done.asked).toHaveLength(2)
+})
+
+test("a person's own computer's default agent signs in without a reset; its added agents reset", async () => {
+  const done = resetter()
+  const id = '3f8b2a8e-6a55-4b8e-9f0e-0c6f3a1d2b4c'
+  const notABox = async () => false
+
+  // Its host never resets the person's own CLI login, and would refuse, failing the sign-in.
+  await resetBeforeSignIn('team', 'local_host_mac_opencode', 'lead', done.reset, notABox)
+  await resetBeforeSignIn('team', 'local_host_mac_grok', 'lead', done.reset, notABox)
+  // Nor a Box's Antigravity, whose sign-in is the OS keyring.
+  await resetBeforeSignIn(
+    'team',
+    'local_host_box_antigravity',
+    'lead',
+    done.reset,
+    async () => true,
+  )
+  expect(done.asked).toEqual([])
+  await resetBeforeSignIn('team', `local_host_mac_opencode_${id}`, 'lead', done.reset, notABox)
+  expect(done.asked).toEqual([
+    {
+      device: { userId: 'host', deviceId: 'mac' },
+      agent: { instanceId: id },
+      by: { actorId: 'lead', teamId: 'team' },
+    },
+  ])
+})
+
+test('a sign-in does not start while its computer cannot reset the agent', async () => {
+  await expect(
+    resetBeforeSignIn(
+      'team',
+      'local_host_box_codex',
+      'lead',
+      resetter({ state: 'queued', why: 'offline' }).reset,
+      async () => true,
+    ),
+  ).rejects.toMatchObject({ status: 409, code: 'runtime_offline' })
+  const refusal = new AppError(409, 'agent_instance_failed', 'The agent could not be stopped')
+
+  await expect(
+    resetBeforeSignIn(
+      'team',
+      'local_host_box_codex',
+      'lead',
+      resetter(refusal).reset,
+      async () => true,
+    ),
+  ).rejects.toBe(refusal)
 })
 
 test('an API key replaces the device sign-in, sealed until the runtime takes it', async () => {

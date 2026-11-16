@@ -265,7 +265,7 @@ export function createDeviceAgentRoutes(
       // A person's own computer's default agent is their CLI login: Nuphos only forgets it,
       // online or not, and it is listed again while that CLI is signed in.
       if (!device.box) {
-        await deps.forgetAgent(device.userId, deviceId, agent)
+        await deps.forgetAgent(device.userId, deviceId, agent, { forgetOnly: true })
 
         return c.body(null, 204)
       }

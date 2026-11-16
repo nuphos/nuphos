@@ -7,7 +7,7 @@ import {
 } from './agent-registry'
 import { agentDevices } from './store'
 
-import type { AgentAddition, PendingRemoval } from './agent-registry'
+import type { AgentAddition, PendingRemoval, PendingReset } from './agent-registry'
 import type { LocalRuntimeStatus, RemovableAgent } from './local-runtime/protocol'
 import type { RequestOrigin } from '@/lib/request-origin'
 
@@ -89,22 +89,34 @@ export async function forgetAgentAddition(
 /**
  * Drops one agent from a computer's registry, the only way a signed-in agent leaves it.
  * A default agent is its provider's entry without an instance id (null also matches absent).
+ * Its host removing it deletes its accounts, so its sign-in goes too; a person's own default
+ * agent is only forgotten (`forgetOnly`) while its CLI keeps the login, so its record stays.
  */
 export async function removeDeviceAgent(
   userId: string,
   deviceId: string,
   agent: RemovableAgent,
+  { forgetOnly = false }: { forgetOnly?: boolean } = {},
 ): Promise<void> {
+  const key = 'instanceId' in agent ? agent.instanceId : agent.provider
+
   await agentDevices().updateOne(
     { userId, deviceId },
     {
       $pull: {
         agents: { instanceId: null, ...agent },
         ...('instanceId' in agent ? { addedAgents: { instanceId: agent.instanceId } } : {}),
+        ...(forgetOnly ? {} : { signIns: { agent: key } }),
       },
     },
   )
 }
+
+/** Matches a pending entry for this agent; a default agent's has no instance id. */
+const sameAgent = (agent: RemovableAgent) =>
+  'instanceId' in agent
+    ? { 'agent.instanceId': agent.instanceId }
+    : { 'agent.provider': agent.provider, 'agent.instanceId': { $exists: false } }
 
 /** Notes an agent removed while its computer was offline, for the computer to delete later.
  *  A repeat removal of the same agent (a double click, a retry) adds nothing. */
@@ -113,13 +125,8 @@ export async function recordAgentRemoval(
   deviceId: string,
   removal: PendingRemoval,
 ): Promise<void> {
-  const same =
-    'instanceId' in removal.agent
-      ? { 'agent.instanceId': removal.agent.instanceId }
-      : { 'agent.provider': removal.agent.provider, 'agent.instanceId': { $exists: false } }
-
   await agentDevices().updateOne(
-    { userId, deviceId, removedAgents: { $not: { $elemMatch: same } } },
+    { userId, deviceId, removedAgents: { $not: { $elemMatch: sameAgent(removal.agent) } } },
     { $push: { removedAgents: removal } },
   )
 }
@@ -131,4 +138,39 @@ export async function forgetAgentRemoval(
   id: string,
 ): Promise<void> {
   await agentDevices().updateOne({ userId, deviceId }, { $pull: { removedAgents: { id } } })
+}
+
+/** Notes a reset for the computer to run later. One already pending for the agent stands:
+ *  a second would only sign it out again. */
+export async function recordAgentReset(
+  userId: string,
+  deviceId: string,
+  reset: PendingReset,
+): Promise<void> {
+  await agentDevices().updateOne(
+    { userId, deviceId, pendingResets: { $not: { $elemMatch: sameAgent(reset.agent) } } },
+    { $push: { pendingResets: reset } },
+  )
+}
+
+/** Forgets a pending reset the computer has run, or never will. */
+export async function forgetAgentReset(
+  userId: string,
+  deviceId: string,
+  id: string,
+): Promise<void> {
+  await agentDevices().updateOne({ userId, deviceId }, { $pull: { pendingResets: { id } } })
+}
+
+/** Forgets the agent's resets asked for before `before`: one run since leaves them nothing to do. */
+export async function retireAgentResets(
+  userId: string,
+  deviceId: string,
+  agent: RemovableAgent,
+  before: Date,
+): Promise<void> {
+  await agentDevices().updateOne(
+    { userId, deviceId },
+    { $pull: { pendingResets: { ...sameAgent(agent), at: { $lt: before } } } },
+  )
 }
