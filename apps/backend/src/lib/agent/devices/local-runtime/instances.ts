@@ -26,7 +26,7 @@ type Answer = { instance?: AgentInstance; display?: number }
 /** One request over the device's own tunnel; the host answers once and closes. */
 function requestInstances(
   target: Target,
-  body: { method: 'create' | 'commit' | 'remove' | 'desktop' } & Record<string, unknown>,
+  body: { method: 'create' | 'commit' | 'remove' | 'desktop' | 'update' } & Record<string, unknown>,
   options: Options,
 ): Promise<Answer> {
   const socket = new DeviceRuntimeSocket(
@@ -151,4 +151,9 @@ export async function openLocalDesktop(
     )
 
   return display
+}
+
+/** Has the computer's Nuphos Desktop restart into the update it staged; it refuses while busy. */
+export async function updateLocalApp(target: Target, options: Options = {}): Promise<void> {
+  await requestInstances(target, { method: 'update' }, options)
 }

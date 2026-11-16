@@ -18,6 +18,21 @@
   gap: 2px;
   padding: 6px 0;
 }
+.sidebar-page-tabs {
+  display: flex;
+  gap: 2px;
+}
+.sidebar-page-tab {
+  position: relative;
+  border-radius: 8px;
+  touch-action: none;
+}
+/* The picked-up tab is a solid chip above its neighbours. */
+.sidebar-page-tab.is-lifted .sidebar-page-indicator {
+  background: rgb(var(--color-surface-raised));
+  color: rgb(var(--color-text-primary));
+  cursor: grabbing;
+}
 .sidebar-page-indicator {
   position: relative;
   display: flex;

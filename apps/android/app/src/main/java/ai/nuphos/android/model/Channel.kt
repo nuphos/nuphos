@@ -39,6 +39,8 @@ data class ChannelPost(
     /** The post this one replies to. */
     val replyTo: ChannelReply? = null,
     val runtime: String? = null,
+    /** A record Nuphos left in the chat (an answer to a question, a new owner): a muted line, not a post. */
+    val isRecord: Boolean = false,
 ) {
     fun isMine(viewerId: String?): Boolean = !isAgent && viewerId != null && senderId == viewerId
 
@@ -47,12 +49,16 @@ data class ChannelPost(
     val groups: List<String> get() = uploads.map { it.groupId } + downloads
 
     companion object {
-        /** Null for a message without a sender, or with nothing to show. */
+        /** The senders of the records Nuphos leaves in a chat, as on Desktop and iOS. */
+        private val RECORDS = setOf("nuphos:decision", "nuphos:chat")
+
+        /** Null for a message without a sender, with nothing to show, or a system notice that is not a record. */
         fun from(message: ChatMessage): ChannelPost? {
             val metadata = message.metadata ?: return null
             val sender = metadata["sender"] ?: return null
             val type = sender["type"]?.stringValue ?: return null
-            if (type != "user" && type != "agent") return null
+            val record = type == "system" && sender["id"]?.stringValue in RECORDS
+            if (type != "user" && type != "agent" && !record) return null
             val senderId = (metadata["sourceSessionId"]?.stringValue ?: sender["id"]?.stringValue)
                 ?.takeIf { it.isNotEmpty() } ?: return null
             val name = sender["displayName"]?.stringValue?.takeIf { it.isNotBlank() } ?: return null
@@ -69,7 +75,8 @@ data class ChannelPost(
                 reply["text"]?.stringValue?.takeIf { it.isNotEmpty() }?.let { ChannelReply(reply["id"]?.stringValue, author, it) }
             }
             return ChannelPost(message.id, senderId, type == "agent", name,
-                SenderAvatar.trusted(sender["avatarURL"]?.stringValue), text, display.uploads, downloads, sentAt, replyTo = replyTo, runtime = sender["agentRuntime"]?.stringValue)
+                SenderAvatar.trusted(sender["avatarURL"]?.stringValue), text, display.uploads, downloads, sentAt, replyTo = replyTo, runtime = sender["agentRuntime"]?.stringValue,
+                isRecord = record)
         }
 
         /** The posts still on their way: the chat has not returned them yet. */
@@ -92,6 +99,10 @@ data class ChannelPost(
                 val timed = ChatTime.showsTimestamp(post.sentAt, previous)
                 if (timed) post.sentAt?.let { rows += Timed(at, rows.size, ChannelItem.Time("time.${post.id}", it)) }
                 previous = post.sentAt ?: previous
+                if (post.isRecord) {
+                    rows += Timed(at, rows.size, ChannelItem.Record("record.${post.id}", post.text))
+                    return@forEachIndexed
+                }
                 val first = timed || index == 0 || posts[index - 1].senderId != post.senderId
                 rows += Timed(at, rows.size, ChannelItem.Post(post, first))
             }
@@ -123,6 +134,8 @@ sealed class ChannelItem {
     data class Time(override val key: String, val at: Instant) : ChannelItem()
     /** A line from the chat itself: its loop guard paused agents. */
     data class Paused(override val key: String, val text: String) : ChannelItem()
+    /** A record Nuphos left in the chat: an answer to a question, or a new owner. */
+    data class Record(override val key: String, val text: String) : ChannelItem()
     /** An agent could not reply: why, and, on the newest line, the fix. */
     data class ReplyFailed(override val key: String, val event: AgentConversationDetail.TimelineEvent, val actionable: Boolean) : ChannelItem()
     /** Agents in a turn right now. */

@@ -10,7 +10,7 @@ import { ReplyQuote } from '../agent/panel/ReplyQuote'
 import { Avatar } from '../Avatar'
 
 import { ChannelFiles } from './ChannelFiles'
-import { speaksInChannel } from './channelSpeakers'
+import { isChannelRecord, speaksInChannel } from './channelSpeakers'
 import { textOf } from './channelReply'
 import { exactTime } from './chatTime'
 import { channelFiles } from './postFiles'
@@ -18,9 +18,6 @@ import { ReplyButton } from './ReplyButton'
 
 import type { AgentPersistedMessage } from '../../api'
 import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react'
-
-/** The sender of the record an answer to a question leaves in the channel it was asked in. */
-const DECISION_RECORD = 'nuphos:decision'
 
 export type Links = {
   renderLink: (href: string, children: ReactNode) => ReactNode
@@ -68,8 +65,8 @@ export function ChannelMessage({
   const text = textOf(message)
   const posted = channelFiles(message)
 
-  // An answer to an agent's question, recorded by Nuphos: a muted line, never a person's post.
-  if (metadata?.sender.id === DECISION_RECORD && text) return <DecisionRecord text={text} />
+  // What Nuphos records in the chat (an answer, a new owner): a muted line, never a person's post.
+  if (metadata && isChannelRecord(metadata.sender) && text) return <DecisionRecord text={text} />
   // A channel shows people and agents only; any other sender is not a post.
   if (!metadata || !speaksInChannel(metadata.sender) || (!text && !posted.any)) return null
   const { sender } = metadata

@@ -1,18 +1,16 @@
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { t } from '../../i18n'
 
-import { boxUpdateConfirm } from './boxRestartPresentation'
-
 /** The card's "Update available" mark and the confirmation it and the menu's Update open. */
 export function BoxHostUpdate({
-  boxLabel,
+  confirm,
   version,
   busy,
   confirming,
   onConfirmingChange,
   onUpdate,
 }: {
-  boxLabel: string
+  confirm: { title: string; confirmLabel: string; description: string }
   version: string
   busy: boolean
   confirming: boolean
@@ -33,7 +31,7 @@ export function BoxHostUpdate({
       </button>
       <ConfirmDialog
         open={confirming}
-        {...boxUpdateConfirm(boxLabel, version || undefined)}
+        {...confirm}
         onConfirm={onUpdate}
         onClose={() => onConfirmingChange(false)}
       />

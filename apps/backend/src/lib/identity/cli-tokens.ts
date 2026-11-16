@@ -261,6 +261,8 @@ const AGENT_DENIED: [RegExp, RegExp][] = [
   [/^(PUT|PATCH|DELETE)$/, /^\/auth\/(me|ai-consent)(\/|$)/],
   [/./, /^\/push\//],
   [/./, /^\/agent\/devices(\/|$)/],
+  // Restarting a computer's Nuphos Desktop ends every agent on it: its person only.
+  [/./, /^\/teams\/[^/]+\/computers(\/|$)/],
   [/./, /^\/invitations(\/|$)/],
   [/./, /^\/personal-credentials(\/|$)/],
   [/^POST$/, /^\/teams\/?$/],
