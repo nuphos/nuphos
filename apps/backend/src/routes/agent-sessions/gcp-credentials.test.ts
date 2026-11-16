@@ -70,10 +70,24 @@ test('a connector service account that is gone is a lasting 409, not a 503 to re
   expect(body.error.message).toContain('reconnect')
 })
 
-test('any other impersonation failure keeps its answer', async () => {
-  tokenError = Object.assign(new Error('PERMISSION_DENIED: unable to impersonate: denied'), {
-    status: 403,
-  })
+test('a missing Token Creator grant is a lasting 409 that says what to grant', async () => {
+  tokenError = Object.assign(
+    new Error(
+      "PERMISSION_DENIED: unable to impersonate: Permission 'iam.serviceAccounts.getAccessToken' denied",
+    ),
+    { status: 403 },
+  )
+  const response = await app.request(`/project-a/credentials?serviceAccountId=${binding}`)
+  const body = (await response.json()) as { error: { code: string; message: string } }
+
+  expect(response.status).toBe(409)
+  expect(body.error.code).toBe('gcp_connector_permission_missing')
+  expect(body.error.message).toContain('roles/iam.serviceAccountTokenCreator')
+  expect(body.error.message).toContain('gone@project-a.iam.gserviceaccount.com')
+})
+
+test('any other token failure keeps its answer', async () => {
+  tokenError = Object.assign(new Error('UNAVAILABLE: try again'), { status: 429 })
 
   expect((await app.request(`/project-a/credentials?serviceAccountId=${binding}`)).status).toBe(503)
 })

@@ -24,18 +24,26 @@ projectScoped.use('*', requireSelectedGcpAgentCredential())
 projectScoped.route('/firebase', firebaseRoutes)
 
 /**
- * The connector's service account no longer exists: a 503 would tell an agent to try
- * again, which never helps. Only the team reconnecting the connector does.
+ * The connector can't be used until the team fixes it: its service account is gone,
+ * or Nuphos may not mint its tokens. A 503 would tell an agent to retry, which never helps.
  */
-function connectorGone(error: unknown, serviceAccountEmail: string): AppError | undefined {
-  if (!(error instanceof Error) || !error.message.startsWith('NOT_FOUND: unable to impersonate'))
-    return undefined
+function connectorUnusable(error: unknown, serviceAccountEmail: string): AppError | undefined {
+  const message = error instanceof Error ? error.message : ''
 
-  return new AppError(
-    409,
-    'gcp_connector_missing',
-    `This team's GCP connector can't be used: its service account ${serviceAccountEmail} no longer exists. Retrying won't help. A team admin needs to reconnect the GCP connector for this project.`,
-  )
+  if (message.startsWith('NOT_FOUND: unable to impersonate'))
+    return new AppError(
+      409,
+      'gcp_connector_missing',
+      `This team's GCP connector can't be used: its service account ${serviceAccountEmail} no longer exists. Retrying won't help. A team admin needs to reconnect the GCP connector for this project.`,
+    )
+  if (message.startsWith('PERMISSION_DENIED: unable to impersonate'))
+    return new AppError(
+      409,
+      'gcp_connector_permission_missing',
+      `Nuphos can't mint tokens for ${serviceAccountEmail}: the team's workload identity principal lacks roles/iam.serviceAccountTokenCreator on it. Retrying won't help. Someone with IAM access to the project needs to grant that role to the principal shown in the GCP binding wizard, then retry.`,
+    )
+
+  return undefined
 }
 
 projectScoped.get('/credentials', async (c) => {
@@ -44,7 +52,7 @@ projectScoped.get('/credentials', async (c) => {
   const serviceAccountEmail = c.get('serviceAccountEmail')
   const impersonated = await impersonateSa(serviceAccountEmail, c.get('teamId'))
   const tokenResp = await impersonated.getAccessToken().catch((error: unknown) => {
-    throw connectorGone(error, serviceAccountEmail) ?? error
+    throw connectorUnusable(error, serviceAccountEmail) ?? error
   })
 
   if (!tokenResp.token) {
