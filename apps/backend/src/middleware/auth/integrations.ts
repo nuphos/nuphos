@@ -1,6 +1,5 @@
 import { ObjectId } from 'mongodb'
 
-import { canUseAllowList } from '@/lib/byos/access'
 import {
   findBetterStackIntegration,
   findUptimeKumaInstance,
@@ -10,6 +9,7 @@ import {
 } from '@/lib/byos/account'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
+import { canRequestUseBinding } from '@/middleware/auth/binding-access'
 
 import type {
   BetterStackIntegrationVariables,
@@ -55,7 +55,7 @@ export function requireResendMemberAccess(): MiddlewareHandler<{
   Variables: ResendIntegrationVariables
 }> {
   return async (c, next) => {
-    if (!canUseAllowList(c.get('resendAccess')?.memberAllowList, c.get('userId'))) {
+    if (!canRequestUseBinding(c, c.get('resendAccess'))) {
       throw new AppError(
         403,
         'resend_integration_access_denied',
@@ -101,7 +101,7 @@ export function requireNotionMemberAccess(): MiddlewareHandler<{
   Variables: NotionIntegrationVariables
 }> {
   return async (c, next) => {
-    if (!canUseAllowList(c.get('notionAccess')?.memberAllowList, c.get('userId'))) {
+    if (!canRequestUseBinding(c, c.get('notionAccess'))) {
       throw new AppError(
         403,
         'notion_integration_access_denied',
@@ -143,13 +143,7 @@ export function requireUpstashMemberAccess(): MiddlewareHandler<{
   Variables: UpstashAccountVariables
 }> {
   return async (c, next) => {
-    // Admins bypass the allow-list (same rule as the Tencent/Aliyun/Volcengine
-    // bindings). Upstash defaults to binder-only rather than every member, so
-    // without this an admin couldn't administer a binding they didn't create.
-    if (
-      c.get('teamRole') !== 'ADMINISTRATOR' &&
-      !canUseAllowList(c.get('upstashAccess')?.memberAllowList, c.get('userId'))
-    ) {
+    if (!canRequestUseBinding(c, c.get('upstashAccess'))) {
       throw new AppError(
         403,
         'upstash_account_access_denied',
@@ -197,7 +191,7 @@ export function requireBetterStackMemberAccess(): MiddlewareHandler<{
   Variables: BetterStackIntegrationVariables
 }> {
   return async (c, next) => {
-    if (!canUseAllowList(c.get('betterStackAccess')?.memberAllowList, c.get('userId'))) {
+    if (!canRequestUseBinding(c, c.get('betterStackAccess'))) {
       throw new AppError(
         403,
         'betterstack_integration_access_denied',
@@ -243,7 +237,7 @@ export function requireUptimeKumaMemberAccess(): MiddlewareHandler<{
   Variables: UptimeKumaInstanceVariables
 }> {
   return async (c, next) => {
-    if (!canUseAllowList(c.get('uptimeKumaAccess')?.memberAllowList, c.get('userId'))) {
+    if (!canRequestUseBinding(c, c.get('uptimeKumaAccess'))) {
       throw new AppError(
         403,
         'uptime_kuma_instance_access_denied',
