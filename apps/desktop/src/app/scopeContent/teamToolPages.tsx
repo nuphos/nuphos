@@ -90,7 +90,14 @@ export function renderTeamToolPages(ctx: ScopeRenderContext): React.ReactNode | 
   }
 
   if (active === 'team.files') {
-    return <RuntimeFilesView key={filter} teamId={scope.teamId} filePath={filter} />
+    return (
+      <RuntimeFilesView
+        key={filter}
+        teamId={scope.teamId}
+        filePath={filter}
+        onOpenConversation={onOpenConversation}
+      />
+    )
   }
 
   if (active === 'team.artifact') {
