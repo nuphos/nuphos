@@ -56,6 +56,7 @@ function reclaimReason(conversation: ReclaimCandidate) {
   if (conversation.archivedAt) return { field: 'archivedAt', at: conversation.archivedAt }
   if (move?.fromRuntimeId)
     return { field: 'runtimeMigration.movedAt', at: move.movedAt, leftOn: move.fromRuntimeId }
+
   // An idle trigger run, the only other match.
   return conversation.lastActiveAt ? { field: 'lastActiveAt', at: conversation.lastActiveAt } : null
 }
