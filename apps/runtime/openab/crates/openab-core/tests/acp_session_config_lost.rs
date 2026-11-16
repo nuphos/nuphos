@@ -21,6 +21,9 @@ while IFS= read -r line; do
       gone=$(cat "$GONE" 2>/dev/null || echo 0)
       if [ "$gone" -gt 0 ]; then
         echo $((gone - 1)) > "$GONE"
+        if [ -e "$INTERNAL" ]; then
+          printf '{"jsonrpc":"2.0","id":%s,"error":{"code":-32603,"message":"Internal error","data":{"details":"Session not found"}}}\n' "$id"; continue
+        fi
         printf '{"jsonrpc":"2.0","id":%s,"error":{"code":-32002,"message":"Resource not found"}}\n' "$id"; continue
       fi
       case "$line" in *'"value":"reject"'*) printf '{"jsonrpc":"2.0","id":%s,"error":{"code":-32602,"message":"rejected"}}\n' "$id"; continue;; esac
@@ -39,6 +42,7 @@ async fn a_setting_restores_a_lost_session_once() {
     let script = tmp.path().join("agent.sh");
     let record = tmp.path().join("calls");
     let gone = tmp.path().join("gone");
+    let internal = tmp.path().join("internal");
     std::fs::write(&script, AGENT).unwrap();
     use std::os::unix::fs::PermissionsExt;
     std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
@@ -49,6 +53,7 @@ async fn a_setting_restores_a_lost_session_once() {
         env: HashMap::from([
             ("RECORD".into(), record.to_string_lossy().into()),
             ("GONE".into(), gone.to_string_lossy().into()),
+            ("INTERNAL".into(), internal.to_string_lossy().into()),
         ]),
         inherit_env: vec![],
         command_explicit: true,
@@ -78,6 +83,17 @@ async fn a_setting_restores_a_lost_session_once() {
         .unwrap_err();
     assert_eq!(err.0, -32603);
     assert_eq!(calls(), ["set", "load", "set"]);
+
+    // claude-agent-acp's plain "Session not found", relayed as -32603, is the same loss.
+    std::fs::write(&internal, "").unwrap();
+    std::fs::write(&gone, "1").unwrap();
+    let value = pool
+        .session_config_options("t", Some(("model", "b")))
+        .await
+        .unwrap();
+    assert_eq!(value["configOptions"][0]["currentValue"], "b");
+    assert_eq!(calls(), ["set", "load", "set"]);
+    std::fs::remove_file(&internal).unwrap();
 
     // Any other rejection is the agent's answer, not a lost session.
     std::fs::write(&gone, "0").unwrap();
