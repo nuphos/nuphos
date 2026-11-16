@@ -152,21 +152,26 @@ export function registerUptimeKumaInstanceRoutes(
     return c.body(null, 204)
   })
 
-  instanceScoped.get('/credentials', requireTeamRole('ADMINISTRATOR'), (c) => {
-    const binding = c.get('uptimeKumaBinding')
+  instanceScoped.get(
+    '/credentials',
+    requireTeamRole('ADMINISTRATOR'),
+    requireUptimeKumaMemberAccess(),
+    (c) => {
+      const binding = c.get('uptimeKumaBinding')
 
-    return c.json({
-      id: c.get('uptimeKumaInstanceId'),
-      instanceId: c.get('uptimeKumaInstanceId'),
-      label: binding.label,
-      baseUrl: binding.baseUrl,
-      username: binding.username ?? null,
-      password: binding.encryptedPassword
-        ? decryptUptimeKumaSecret(binding.encryptedPassword)
-        : null,
-      authToken: binding.encryptedAuthToken
-        ? decryptUptimeKumaSecret(binding.encryptedAuthToken)
-        : null,
-    })
-  })
+      return c.json({
+        id: c.get('uptimeKumaInstanceId'),
+        instanceId: c.get('uptimeKumaInstanceId'),
+        label: binding.label,
+        baseUrl: binding.baseUrl,
+        username: binding.username ?? null,
+        password: binding.encryptedPassword
+          ? decryptUptimeKumaSecret(binding.encryptedPassword)
+          : null,
+        authToken: binding.encryptedAuthToken
+          ? decryptUptimeKumaSecret(binding.encryptedAuthToken)
+          : null,
+      })
+    },
+  )
 }
