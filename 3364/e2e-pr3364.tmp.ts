@@ -11,7 +11,7 @@ const shape = (v: unknown): unknown => Array.isArray(v) ? [v.length ? shape(v[0]
 if (mode === 'link') {
   const id = await composioAuthConfigId('googlecalendar', [googleScopes('google-calendar')])
   const cfg = await composioRequest<Record<string, unknown>>('GET', `/auth_configs/${id}`)
-  console.log('auth config', id, JSON.stringify({ credentials: cfg.credentials, scopes: cfg.scopes, is_composio_managed: cfg.is_composio_managed }))
+  console.log('auth config', id, JSON.stringify({ scopes: (cfg.credentials as { scopes?: unknown } | undefined)?.scopes ?? cfg.scopes, is_composio_managed: cfg.is_composio_managed }))
   const link = await createComposioLink({ provider: 'google-calendar', composioUserId: user, callbackUrl: 'https://nuphos.ai/' })
   console.log('connected account', link.connectedAccountId)
   console.log('connect link', link.redirectUrl)
