@@ -228,6 +228,14 @@ struct ConversationView: View {
         .sheet(item: $planLink) { target in
             PlanLinkSheet(target: target, approve: { plan in try await session.approvePlan(plan.id) }) { planLink = nil }
         }
+        // A computer comes and goes while the conversation stays open: keep its presence current.
+        .task(id: conversationRuntime?.local?.deviceId) {
+            guard conversationRuntime?.local != nil else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(15))
+                await store.loadRuntimes(force: true)
+            }
+        }
         .task {
             if session.isNew, let initialPrompt, !didSendInitial {
                 didSendInitial = true
@@ -241,21 +249,9 @@ struct ConversationView: View {
             }
             #endif
         }
-        // A computer comes and goes while the conversation stays open: keep its presence current.
-        .task(id: conversationRuntime?.local?.deviceId) {
-            guard conversationRuntime?.local != nil else { return }
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(15))
-                await store.loadRuntimes(force: true)
-            }
-        }
-        // A teammate's computer that asks its owner first: say so until they answer.
-        .task(id: "\(ShareApprovalWait.asksOwner(conversationRuntime)).\(session.queuedSends)") {
+        // A queued send may wait on its computer: read the runtimes again so its state shows.
+        .task(id: session.queuedSends) {
             await store.loadRuntimes()
-            guard ShareApprovalWait.asksOwner(conversationRuntime) else { return }
-            while !Task.isCancelled, await session.refreshShareApproval() {
-                try? await Task.sleep(for: .seconds(5))
-            }
         }
     }
 
@@ -335,13 +331,6 @@ struct ConversationView: View {
             if let suggestion = session.promptSuggestion, draft.isEmpty, !session.isStreaming,
                session.canSubmit, session.failedSubmission == nil {
                 SuggestionChip(text: suggestion) { draft = suggestion }
-            }
-            if let wait = session.shareApproval, ShareApprovalWait.asksOwner(conversationRuntime) {
-                ShareApprovalStrip(
-                    wait: wait,
-                    computer: conversationRuntime?.local?.deviceLabel ?? "this computer",
-                    onSwitchRuntime: session.canManage ? { showRuntimes = true } : nil
-                )
             }
             if !session.queued.isEmpty || !session.serverQueued.isEmpty {
                 QueuedStrip(
@@ -1152,36 +1141,6 @@ struct QueuedStrip: View {
         .padding(.trailing, 4)
         .padding(.vertical, 4)
         .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-    }
-}
-
-/// A teammate's computer that asks its owner first: the message waits for them, or they declined.
-struct ShareApprovalStrip: View {
-    let wait: ShareApprovalWait
-    let computer: String
-    /// Declined, the conversation moves on to another runtime; set when the viewer may move it.
-    var onSwitchRuntime: (() -> Void)? = nil
-
-    var body: some View {
-        HStack(alignment: .center, spacing: 8) {
-            Image(systemName: wait == .pending ? "hourglass" : "nosign")
-                .font(Theme.Text.label)
-                .foregroundStyle(wait == .pending ? Theme.warning : Color.red)
-            Text(wait.message(computer: computer))
-                .font(Theme.Text.label)
-                .foregroundStyle(Theme.body)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
-            if wait == .denied, let onSwitchRuntime {
-                SwitchRuntimeButton(action: onSwitchRuntime)
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 12))
-        .padding(.horizontal, 16)
-        .padding(.bottom, 6)
-        .accessibilityElement(children: onSwitchRuntime == nil ? .combine : .contain)
     }
 }
 
