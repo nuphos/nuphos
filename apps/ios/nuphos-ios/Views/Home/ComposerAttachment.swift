@@ -116,7 +116,7 @@ struct AttachmentPreview: View {
 
     private var filePlaceholder: some View {
         VStack(spacing: 4) {
-            Image(systemName: "doc").font(.system(size: 18, weight: .medium)).foregroundStyle(Theme.body)
+            LucideIcon("file").font(.system(size: 18, weight: .medium)).foregroundStyle(Theme.body)
             Text(attachment.fileExtension.isEmpty ? "FILE" : attachment.fileExtension)
                 .font(.system(size: 9, weight: .semibold)).foregroundStyle(Theme.muted)
         }
@@ -138,7 +138,7 @@ struct AttachmentTile: View {
             .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Theme.hairline, lineWidth: 1))
 
             Button(action: onRemove) {
-                Image(systemName: "xmark")
+                LucideIcon("x")
                     .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(Theme.canvas)
                     .frame(width: 18, height: 18)
