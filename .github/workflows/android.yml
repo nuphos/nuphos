@@ -32,3 +32,45 @@ jobs:
         run: |
           python3 -m unittest discover -s scripts -p 'test_*.py'
           ./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest
+
+  device-tests:
+    name: Android (device tests on an emulator)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      # The emulator needs hardware acceleration, which the runner allows once its user can open /dev/kvm.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Accept SDK licenses and install platform
+        run: |
+          (yes || true) | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "platform-tools"
+      # The fixture tests only. The live smoke test skips itself without its opt-in arguments.
+      - uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          working-directory: apps/android
+          script: ./gradlew --no-daemon :app:connectedDebugAndroidTest
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        # Green runs keep the per-test report too, so a pull request can show that a test ran and passed.
+        if: ${{ !cancelled() }}
+        with:
+          name: android-device-tests
+          # The report, and the screenshots tests write to the build's additional test output.
+          path: |
+            apps/android/app/build/reports/androidTests
+            apps/android/app/build/outputs/connected_android_test_additional_output
+          retention-days: 7

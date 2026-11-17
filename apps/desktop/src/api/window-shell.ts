@@ -23,6 +23,7 @@ export type AppShortcutAction =
   | 'next-tab'
   | 'open-settings'
   | 'open-team-settings'
+  | 'open-computers'
   | 'open-updates'
   | 'toggle-sidebar'
   | 'toggle-dock'
@@ -30,6 +31,7 @@ export type AppShortcutAction =
   | 'shortcuts-help'
   | 'reopen-closed-tab'
   | `select-tab-${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9}`
+  | `select-sidebar-tab-${1 | 2 | 3}`
   | SessionShortcutAction
   | RegionShortcutAction
 

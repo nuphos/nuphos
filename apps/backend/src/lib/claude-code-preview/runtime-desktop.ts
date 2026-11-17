@@ -141,18 +141,18 @@ export async function openRuntimeDesktop(
   owner: DesktopOwner,
   deps: { presence?: ReturnType<typeof runtimePresenceStore>; open?: typeof openLocalDesktop } = {},
 ): Promise<{ display: number }> {
-  const {
-    ref,
-    sessionId,
-    desktops = [],
-    canOpen,
-  } = await ownedDesktopHost(teamId, userId, owner, deps.presence ?? runtimePresenceStore())
+  const { ref, sessionId, canOpen } = await ownedDesktopHost(
+    teamId,
+    userId,
+    owner,
+    deps.presence ?? runtimePresenceStore(),
+  )
 
   // Only a host whose bundle opens desktops on request says so.
   if (!canOpen) throw notFound()
-  const held = desktops.find((desktop) => desktop.sessionId === sessionId)
-
-  if (held) return { display: held.display }
+  // Always the host, even for a display it reports held: its desktop may have
+  // exited since (a Mac's screen host leaves a minute after its last viewer,
+  // while the lock stays for three), and opening brings it back.
   const target = { userId: ref.userId, actorId: userId, deviceId: ref.deviceId, teamId }
 
   return { display: await (deps.open ?? openLocalDesktop)(target, sessionId) }

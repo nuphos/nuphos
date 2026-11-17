@@ -61,13 +61,14 @@ const requestFollowUps = {
     const open = await listOpenInputRequests(ctx.sessionId, owner, answering)
 
     return toolResult({
-      requests: open.map(({ id, category, question, options, about, askedAt }) => ({
+      requests: open.map(({ id, category, question, options, about, askedAt, snoozedUntil }) => ({
         requestId: id,
         category,
         question,
         ...(options ? { options } : {}),
         ...(about ? { about } : {}),
         askedAt,
+        ...(snoozedUntil ? { snoozedUntil } : {}),
       })),
     })
   },

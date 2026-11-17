@@ -1,7 +1,9 @@
 import { z } from 'zod'
 
+import { config } from '@/config'
 import { AppError } from '@/lib/errors'
-import { createTransfer, finalizeTransfer } from '@/lib/file-transfer/service'
+import { createTransfer, finalizeTransfer, releaseTransfer } from '@/lib/file-transfer/service'
+import { logEvent } from '@/lib/observability'
 
 import { deviceAccessDeps } from './box-access'
 import { tunnelBus } from './local-runtime/bus'
@@ -11,7 +13,7 @@ import { requireShellAccess } from './manage-access'
 
 import type { DeviceAccessDeps } from './box-access'
 import type { DeviceRuntimeSocketDeps } from './local-runtime/socket'
-import type { TransferGroupView, TransferScope } from '@/lib/file-transfer/service'
+import type { TransferScope } from '@/lib/file-transfer/service'
 
 const intent = z.object({
   direction: z.literal('upload'),
@@ -37,10 +39,21 @@ const transferErrors = new Set([
   'transfer_too_large',
   'transfer_expired',
   'file_transfer_unconfigured',
+  // The team's hourly transfer budget (file-transfer/admission.ts). Without it the
+  // agent saw a reasonless upload_failed and kept retrying until the hour turned.
+  'file_transfer_rate_limited',
 ])
 
-/** Only intent metadata and completion reach the caller; signed capabilities
- * are exchanged directly with the computer on its private device stream. */
+/**
+ * Answers as soon as the transfer exists; the bytes then travel from the
+ * computer straight to storage while this stream stays open only to confirm
+ * them. No request waits on the transfer, so its length is bounded by the
+ * signed URL rather than by whichever proxy the caller came through. Whoever
+ * pulls the group sees it pending, then ready or failed.
+ *
+ * Only intent metadata reaches the caller; signed capabilities are exchanged
+ * directly with the computer on its private device stream.
+ */
 export async function dispatchLocalUpload(
   actorId: string,
   deviceId: string,
@@ -49,7 +62,11 @@ export async function dispatchLocalUpload(
   options: {
     deps?: DeviceRuntimeSocketDeps
     access?: DeviceAccessDeps
-    transfers?: { create: typeof createTransfer; finalize: typeof finalizeTransfer }
+    transfers?: {
+      create: typeof createTransfer
+      finalize: typeof finalizeTransfer
+      release?: typeof releaseTransfer
+    }
     timeoutMs?: number
   } = {},
 ): Promise<{ groupId: string; fileName: string; size: number } | { error: string }> {
@@ -65,23 +82,57 @@ export async function dispatchLocalUpload(
     { userId: device.userId, actorId, deviceId, teamId, purpose: 'upload' },
     options.deps ?? { bus: tunnelBus(), presence: runtimePresenceStore() },
   )
-  const transfers = options.transfers ?? { create: createTransfer, finalize: finalizeTransfer }
+  const transfers = options.transfers ?? {
+    create: createTransfer,
+    finalize: finalizeTransfer,
+    release: releaseTransfer,
+  }
 
   return new Promise((resolve) => {
     let settled = false
     let groupId: string | undefined
-    let ready: TransferGroupView | undefined
+    let confirmed = false
+    let delivered = false
     let busy = false
-    const finish = (
-      result: { groupId: string; fileName: string; size: number } | { error: string },
-    ) => {
+    // A transfer whose file never arrived gives its hourly slot back, so a
+    // failing upload the agent retries does not use up the team's limit. The
+    // upload URLs only ever went to this computer's private stream.
+    const release = async (id: string) => {
+      if (!transfers.release) return
+      try {
+        await transfers.release(scope, id)
+      } catch (error) {
+        logEvent('warn', 'agent.local_upload.release_failed', {
+          team_id: teamId,
+          group_id: id,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+    }
+    // A transfer nobody confirmed is checked against storage, which marks an
+    // object that never arrived as failed for whoever pulls it; only then, and
+    // only if it did not arrive, is its slot given back. A check that fails
+    // proves nothing, so it keeps the slot.
+    const check = async (id: string) => {
+      const view = await transfers.finalize(scope, id).catch(() => undefined)
+
+      if (view && view.status !== 'ready') await release(id)
+    }
+    // Ends the stream. Before the transfer exists this is the caller's answer;
+    // after it, the caller already has its answer and this runs in the background.
+    const finish = (result?: { error: string }) => {
       if (settled) return
       settled = true
       clearTimeout(timer)
       socket.close()
-      resolve(result)
+      if (!groupId) resolve(result ?? { error: 'upload_failed' })
+      else if (!confirmed) void check(groupId)
+      // The computer confirmed, but storage did not have the file.
+      else if (!delivered) void release(groupId)
     }
-    const timer = setTimeout(() => {
+    // The caller waits only until the transfer exists; the bytes then get as
+    // long as the signed URL they travel on.
+    let timer = setTimeout(() => {
       finish({ error: 'upload_timeout' })
     }, options.timeoutMs ?? 120_000)
 
@@ -105,20 +156,7 @@ export async function dispatchLocalUpload(
             return
           }
           if (message.t === 'done') {
-            const file = ready?.files[0]
-
-            if (
-              !ready ||
-              ready.status !== 'ready' ||
-              !file ||
-              file.status !== 'ready' ||
-              file.size === null
-            ) {
-              finish({ error: 'upload_not_ready' })
-
-              return
-            }
-            finish({ groupId: ready.groupId, fileName: file.fileName, size: file.size })
+            finish({ error: 'upload_not_ready' })
 
             return
           }
@@ -131,14 +169,27 @@ export async function dispatchLocalUpload(
           let result: unknown
 
           if (message.suffix === '' && !groupId) {
-            const body = intent.parse(message.body)
-            const created = await transfers.create(scope, 'upload', body.files)
+            const { files } = intent.parse(message.body)
+            const created = await transfers.create(scope, 'upload', files)
 
+            if (settled) {
+              // The caller was already answered with an error; do not leave it
+              // pending, and give back the slot of a transfer nobody can use.
+              void check(created.groupId)
+
+              return
+            }
             groupId = created.groupId
             result = created
-          } else if (groupId && message.suffix === `/${groupId}/finalize` && !ready) {
-            ready = await transfers.finalize(scope, groupId)
-            result = ready
+            clearTimeout(timer)
+            timer = setTimeout(finish, config.fileTransfer.presignExpirySeconds * 1000)
+            resolve({ groupId, fileName: files[0]!.fileName, size: files[0]!.size })
+          } else if (groupId && message.suffix === `/${groupId}/finalize` && !confirmed) {
+            const view = await transfers.finalize(scope, groupId)
+
+            result = view
+            confirmed = true
+            delivered = view.status === 'ready'
           } else {
             finish({ error: 'invalid_upload_request' })
 

@@ -40,6 +40,22 @@ describe('session timeline events', () => {
     })
   })
 
+  test('a move that resends the failed turn says so', () => {
+    const moved: ConversationTimelineEvent = {
+      kind: 'runtime_moved',
+      at,
+      actorId: 'alice',
+      fromLabel: 'Claude Code',
+      toLabel: 'Codex',
+      retrying: true,
+    }
+
+    expect(serializeTimelineEvents([moved], people)[0]).toMatchObject({
+      text: 'Alice moved this session from Claude Code to Codex. Retrying on Codex',
+      retrying: true,
+    })
+  })
+
   test('an agent that could not reply reads as the chat’s own line', () => {
     const failed: ConversationTimelineEvent[] = [
       { kind: 'agent_reply_failed', at, actorId: 'system', agentName: 'Ops', reason: 'No agent.' },

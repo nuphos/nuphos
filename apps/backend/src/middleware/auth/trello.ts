@@ -1,9 +1,9 @@
 import { ObjectId } from 'mongodb'
 
-import { canUseAllowList } from '@/lib/byos/access'
 import { findTrelloIntegration } from '@/lib/byos/account'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
+import { canRequestUseBinding } from '@/middleware/auth/binding-access'
 
 import type { TrelloIntegrationVariables } from '@/middleware/auth/types'
 import type { MiddlewareHandler } from 'hono'
@@ -43,7 +43,11 @@ export function requireTrelloMemberAccess(): MiddlewareHandler<{
   Variables: TrelloIntegrationVariables
 }> {
   return async (c, next) => {
-    if (!canUseAllowList(c.get('trelloAccess')?.memberAllowList ?? [], c.get('userId'))) {
+    const access = c.get('trelloAccess')
+    // Unlike other bindings, a Trello binding without a list is closed.
+    const closed = { updatedAt: new Date(0), updatedBy: '', ...access }
+
+    if (!canRequestUseBinding(c, { ...closed, memberAllowList: access?.memberAllowList ?? [] })) {
       throw new AppError(
         403,
         'trello_integration_access_denied',

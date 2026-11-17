@@ -127,7 +127,7 @@ private struct MarkdownImage: View {
                         .overlay(shape.strokeBorder(Theme.bubble))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(alt.isEmpty ? "Image" : alt)
+                .accessibilityLabel(alt.isEmpty ? String(localized: "Image") : alt)
                 .frame(maxHeight: Self.side, alignment: .leading)
             case .failure:
                 Button(url.absoluteString) { onLink?(url) }

@@ -57,9 +57,6 @@
     <string name="shell_request_code_in">Anda dapat meminta kode lain dalam %1$d dtk.</string>
     <string name="shell_use_email_code">Gunakan kode email</string>
     <string name="shell_use_password">Gunakan kata sandi</string>
-    <string name="shell_terms_agreement">Dengan melanjutkan, Anda menyetujui %1$s dan %2$s kami.</string>
-    <string name="shell_terms_of_service">Ketentuan Layanan</string>
-    <string name="shell_privacy_policy">Kebijakan Privasi</string>
     <string name="shell_email_code_field">Kode email 6 digit</string>
     <string name="shell_auth_cleanup_failed">Pembersihan draf tersimpan gagal. Periksa penyimpanan, lalu coba lagi.</string>
     <string name="shell_auth_signed_out_cleanup_failed">Sudah keluar, tetapi pembersihan draf tersimpan gagal. Periksa penyimpanan sebelum menutup aplikasi.</string>
@@ -141,6 +138,7 @@
     <string name="shell_notification_open_history">Buka riwayat tugas</string>
     <string name="shell_notification_open_update">Buka Nuphos untuk melihat pembaruan</string>
     <string name="shell_notification_reply">Balas</string>
+    <string name="shell_notification_you">Anda</string>
     <string name="shell_notification_message">Pesan</string>
     <string name="shell_notification_reply_not_sent">Balasan tidak terkirim</string>
     <string name="shell_voice_input">Input suara</string>
@@ -153,7 +151,6 @@
     <string name="shell_voice_prompt_save_failed">Tidak dapat menyimpan prompt.</string>
     <string name="shell_voice_prompt">Prompt transkripsi</string>
     <string name="shell_voice_reset_prompt">Setel ulang prompt</string>
-    <string name="shell_voice_prompt_help">Prompt memandu ejaan dan gaya penulisan. Rekaman ditranskripsikan oleh OpenAI melalui Nuphos.</string>
     <string name="shell_desktop">Desktop</string>
     <string name="shell_desktop_decode_failed">Tidak dapat mendekode desktop ini. Coba lagi untuk memulai koneksi baru.</string>
     <string name="shell_desktop_connecting">Menghubungkan…</string>

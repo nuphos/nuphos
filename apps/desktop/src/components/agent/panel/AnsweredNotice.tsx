@@ -6,7 +6,7 @@ import { t } from '../../../i18n'
 import { MessageResponse } from '../MessageResponse'
 
 import { parseChoiceRequest } from './connectCardModel'
-import { AskedCardsContext } from './decisionAnswers'
+import { AskedCardsContext, WaitingAnswersContext } from './decisionAnswers'
 import { ownBody } from './decisionFormModel'
 import { pickedOptions } from './decisionNotice'
 import { formatMessageTimestamp } from './streamText'
@@ -20,6 +20,7 @@ import type { DecisionNotice } from './decisionNotice'
  */
 export function AnsweredNotice({ notice, sentAt }: { notice: DecisionNotice; sentAt: string }) {
   const asked = useContext(AskedCardsContext).get(notice.requestId)
+  const waiting = useContext(WaitingAnswersContext).get(notice.requestId)
   // The card as it was asked, when this conversation asked it: the notice only excerpts it.
   const card = asked ? parseChoiceRequest(asked.input) : null
   const times = {
@@ -40,6 +41,7 @@ export function AnsweredNotice({ notice, sentAt }: { notice: DecisionNotice; sen
           times={times}
         />
       ))}
+      {waiting ? <div className="-mt-2 text-[12.5px] text-status-warning">{waiting}</div> : null}
     </div>
   )
 }

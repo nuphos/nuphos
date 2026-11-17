@@ -44,6 +44,18 @@ struct ProfileSheet: View {
                     .listRowBackground(Theme.surface)
                 }
 
+                if store != nil {
+                    Section("Workspace") {
+                        NavigationLink {
+                            RuntimesPage().navigationTitle("Computers")
+                        } label: {
+                            Label("Computers", systemImage: "desktopcomputer")
+                        }
+
+                    }
+                    .listRowBackground(Theme.surface)
+                }
+
                 Section("Signed-in accounts") { SavedAccountsView(allowAdding: true) }
                     .listRowBackground(Theme.surface)
 
@@ -80,7 +92,7 @@ struct ProfileSheet: View {
                 } header: {
                     Text("Voice input")
                 } footer: {
-                    Text("The prompt sets the writing style and spells names Whisper doesn't know, such as products and services. Voice input is included with a Nuphos subscription; recordings are transcribed by OpenAI Whisper.")
+                    Text("The prompt sets the writing style and spells names Whisper doesn't know, such as products and services. Voice input is included with a Nuphos subscription; recordings are transcribed by OpenAI Whisper.", comment: "Legal text")
                 }
                 .listRowBackground(Theme.surface)
                 #endif
@@ -187,7 +199,7 @@ struct ProfileSheet: View {
 }
 
 private struct InfoRow: View {
-    let label: String
+    let label: LocalizedStringKey
     let value: String
     var monospaced = false
 
@@ -255,7 +267,7 @@ private struct EditProfileSheet: View {
                     Task {
                         guard let data = try? await item.loadTransferable(type: Data.self),
                               let image = ImageAttachment.avatar(from: data) else {
-                            error = "This image could not be read."
+                            error = String(localized: "This image could not be read.")
                             return
                         }
                         setAvatar(image)

@@ -30,6 +30,8 @@ export function NewBoxFields({
   const { teamId, usage, choices, quota, vcpus, creating, account } = box
   // A team account's sizes are its own; failing to read them reads like the plan's.
   const sizesRead = account.accountId ? account.sizes !== null : Boolean(usage)
+  // A plan with no computers has no size to pick: the meter says so and offers the plans.
+  const noPlan = !account.accountId && usage?.limitVcpus === 0
 
   return (
     <form
@@ -79,13 +81,32 @@ export function NewBoxFields({
       )}
       <div className="space-y-2">
         <span className="block text-[12.5px] font-medium text-secondary">{t('Size')}</span>
-        {!account.accountId && <BoxQuotaMeter usage={usage} adding={vcpus} />}
-        {choices.length === 0 && sizesRead && (
+        {!account.accountId && (
+          <BoxQuotaMeter
+            usage={usage}
+            adding={vcpus}
+            onChoosePlan={() =>
+              openBoxPlans(
+                teamId,
+                t(
+                  "Your team's plan doesn't include cloud computers. Choose a computer plan to start one.",
+                ),
+                onPlanChanged,
+                {
+                  afterPaid: t(
+                    'Once you have paid, the sizes your plan allows appear in New computer.',
+                  ),
+                },
+              )
+            }
+          />
+        )}
+        {choices.length === 0 && sizesRead && !noPlan && (
           <p className="text-[12.5px] text-tertiary">
             {t('The sizes could not be loaded, so the new computer will be the smallest size.')}
           </p>
         )}
-        {choices.length > 0 && (
+        {choices.length > 0 && !noPlan && (
           <BoxSizePicker
             choices={choices}
             value={vcpus}

@@ -45,10 +45,10 @@ nonisolated final class RFBClient {
 
         var errorDescription: String? {
             switch self {
-            case .notVNC: "The computer did not answer as a VNC server."
+            case .notVNC: String(localized: "The computer did not answer as a VNC server.")
             case .refused(let reason): reason
-            case .needsSignIn: "This computer asks for an account to show its screen. Update Nuphos on it to open its desktop without one."
-            case .unexpected(let what): "The desktop stream broke off (\(what))."
+            case .needsSignIn: String(localized: "This computer asks for an account to show its screen. Update Nuphos on it to open its desktop without one.")
+            case .unexpected(let what): String(localized: "The desktop stream broke off (\(what)).")
             }
         }
     }

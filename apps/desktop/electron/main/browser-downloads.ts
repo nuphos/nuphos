@@ -13,12 +13,15 @@ export function isRepeatTabDownload(
   asked: Set<string>,
   item: Pick<DownloadItem, 'getURL' | 'getURLChain'>,
   contents: Pick<WebContents, 'getURL'> | undefined,
+  navigationUrl?: string,
 ): boolean {
   const chain = item.getURLChain()
   const url = chain[0] ?? item.getURL()
   const page = contents?.getURL() ?? ''
 
-  if (page !== '' && page !== 'about:blank' && !chain.includes(page)) return false
+  const tabNavigation = navigationUrl !== undefined && chain.includes(navigationUrl)
+
+  if (!tabNavigation && page !== '' && page !== 'about:blank' && !chain.includes(page)) return false
   if (asked.has(url)) return true
   asked.add(url)
 
@@ -28,8 +31,21 @@ export function isRepeatTabDownload(
 /** Cancels the browser session's repeated tab downloads before Electron shows a save dialog. */
 export function guardBrowserDownloads(browserSession: Pick<Session, 'on'>) {
   const asked = new Set<string>()
+  const navigating = new WeakMap<WebContents, string>()
 
   browserSession.on('will-download', (event, item, contents) => {
-    if (isRepeatTabDownload(asked, item, contents)) event.preventDefault()
+    const url = navigating.get(contents)
+
+    navigating.delete(contents)
+    if (isRepeatTabDownload(asked, item, contents, url)) event.preventDefault()
   })
+
+  return (contents: WebContents) => {
+    contents.on('did-start-navigation', (details) => {
+      if (details.isMainFrame && !details.isSameDocument) navigating.set(contents, details.url)
+    })
+    // Renderer navigation includes clicked links; keep those downloads available.
+    contents.on('will-navigate', () => navigating.delete(contents))
+    contents.on('did-navigate', () => navigating.delete(contents))
+  }
 }

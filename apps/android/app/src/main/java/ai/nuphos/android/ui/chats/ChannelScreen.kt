@@ -73,6 +73,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
+import ai.nuphos.android.model.ChannelPostJump
 import ai.nuphos.android.model.ChannelAgent
 import ai.nuphos.android.model.ChannelItem
 import ai.nuphos.android.model.ChannelPost
@@ -225,6 +226,7 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
                                 downloads: TransferDownloads = remember { TransferDownloads() }, onSwitchAgent: ((String) -> Unit)? = null) {
     val state = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    val connect = rememberQuestionConnect(session.open, allowed)
     val typing = (items.lastOrNull() as? ChannelItem.Typing)?.agents.orEmpty()
     val reversed = items.filterNot { it is ChannelItem.Typing }.asReversed()
     val atLatest by remember { derivedStateOf { state.firstVisibleItemIndex == 0 && state.firstVisibleItemScrollOffset < 48 } }
@@ -258,6 +260,12 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
             if (flashed == reply.id) flashed = null
         }
     }
+    // Opened from a wake-up's line: once loaded, go to the post it named. A post no longer
+    // loaded leaves the transcript at its newest post.
+    LaunchedEffect(session.loaded, reversed.size) {
+        if (!session.loaded) return@LaunchedEffect
+        ChannelPostJump.pending.remove(session.channelId)?.let { id -> jump(ChannelReply(id, "", "")) }
+    }
     // Your own send returns the transcript to the end.
     LaunchedEffect(session.lastSubmittedKey) { if (session.lastSubmittedKey != null && reversed.isNotEmpty()) state.scrollToItem(0) }
     val scrollToLatest = stringResource(R.string.chats_scroll_to_latest)
@@ -276,6 +284,7 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
                             flashed = flashed == item.post.id, onQuote = jump)
                         is ChannelItem.Time -> TimeDivider(item.at)
                         is ChannelItem.Paused -> PausedLine(item.text)
+                        is ChannelItem.Record -> RecordLine(item.text)
                         is ChannelItem.ReplyFailed -> {
                             val agentId = item.event.agentId
                             // Only an agent's owner can move it, and only when the agent itself was the cause.
@@ -293,7 +302,7 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
                                 onForm = { body -> if (allowed()) session.answer(question, body, scope) },
                                 // The Bot's own questions are this chat's; only an agent under it is named.
                                 showsFrom = question.sessionId != session.botId, onLink = onLink,
-                                failure = session.answerFailure(question))
+                                failure = session.answerFailure(question), onConnect = { connect(question) })
                         }
                     }
                 }
@@ -426,6 +435,13 @@ private fun PausedLine(text: String) {
         Icon(Icons.Outlined.Pause, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.tertiary)
         Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+}
+
+/** A record Nuphos left in the chat, muted, as Desktop and iOS show it. */
+@Composable
+private fun RecordLine(text: String) {
+    Text(text, Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).testTag("channel-record"),
+        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 private val AGENT_CAUSES = setOf("usage_limit", "auth", "offline")

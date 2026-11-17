@@ -22,7 +22,7 @@ import androidx.test.espresso.Espresso
 import androidx.compose.ui.input.key.Key
 import android.graphics.Bitmap
 import java.io.File
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.navigation.compose.rememberNavController
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -50,6 +50,7 @@ import java.io.IOException
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import org.junit.Assume.assumeTrue
 
 /** All responses are synthetic. Unknown requests fail; this client never opens a socket. */
 @RunWith(AndroidJUnit4::class)
@@ -82,7 +83,6 @@ class HomeNavigationFixtureDeviceTest {
         target.javaClass.getDeclaredField(name + if (delegated) "\$delegate" else "").also { it.isAccessible = true }.get(target) as MutableState<Any?>
     private val network = object : ExternalResource() {
         override fun before() {
-            require(InstrumentationRegistry.getInstrumentation().targetContext.packageName in setOf("ai.nuphos.android.navigation1371", "ai.nuphos.android.runtimes1373", "ai.nuphos.android.agentsaudit1382"))
             app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as NuphosApplication
             savedConfiguration = Configuration(app.resources.configuration)
             savedMetrics = DisplayMetrics().also { it.setTo(app.resources.displayMetrics) }

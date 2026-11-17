@@ -92,7 +92,7 @@ export function ChoiceCard({
       data-tool-call-id={toolCallId}
       data-decision-question={question}
       data-decision-options={JSON.stringify(options)}
-      className="flex flex-col rounded-[14px] bg-surface-raised px-4 pb-3 pt-3.5 shadow-[0_0_0_1px_rgb(var(--color-line-control)),0_1px_2px_rgba(0,0,0,0.04)]"
+      className="flex flex-col rounded-[14px] border border-line-control bg-surface-raised px-4 pb-3 pt-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
     >
       {ctx?.source && <div className="pb-1.5">{ctx.source}</div>}
       <h3 className="selectable whitespace-pre-wrap text-[16px] font-semibold leading-[23px] tracking-[-0.01em] text-main">
@@ -103,7 +103,7 @@ export function ChoiceCard({
         full={ctx?.fullBody}
         onLinkClick={ctx?.onLinkClick}
       />
-      <AnswerStatus recorded={recorded} failed={failed} />
+      <AnswerStatus recorded={recorded} failed={failed} skipped={skipped === 'yes'} />
       {!chosen &&
         (form ? (
           <DecisionForm
@@ -192,12 +192,27 @@ function useSubmit(
   return { chosen: sent || recorded !== undefined, failed, submit }
 }
 
-/** What answered the card, or that its answer was not taken. */
-function AnswerStatus({ recorded, failed }: { recorded: string | undefined; failed: boolean }) {
+/** What answered the card, that it was skipped, or that its answer was not taken. */
+function AnswerStatus({
+  recorded,
+  failed,
+  skipped,
+}: {
+  recorded: string | undefined
+  failed: boolean
+  skipped: boolean
+}) {
   if (recorded)
     return (
       <div className="mt-2 text-[12.5px] text-secondary">
         {t('Answered: {answer}', { answer: recorded })}
+      </div>
+    )
+
+  if (skipped)
+    return (
+      <div className="mt-2 text-[12.5px] text-secondary">
+        {t('Skipped. The agent carries on without an answer.')}
       </div>
     )
 

@@ -159,8 +159,16 @@ function shareFromRuntimeHome(path, sessionHome, runtimeHome) {
   mkdirSync(dirname(link), { recursive: true, mode: 0o700 })
   try {
     lstatSync(link)
-  } catch {
-    symlinkSync(join(runtimeHome, path), link)
+    return
+  } catch {}
+  try {
+    // A junction on Windows, where a symlink needs Developer Mode or an administrator.
+    symlinkSync(join(runtimeHome, path), link, 'junction')
+  } catch (error) {
+    // Unshared, the agent starts without the runtime's login there; the turn still runs.
+    process.stderr.write(
+      `nuphos: could not share ${path} with the runtime home: ${error.message}\n`,
+    )
   }
 }
 

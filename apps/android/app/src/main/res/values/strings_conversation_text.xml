@@ -22,6 +22,7 @@
     <string name="convtext_stopped_by_user">Stopped by user.</string>
     <string name="convtext_empty_reply">The agent returned an empty reply.</string>
     <string name="convtext_steering_rejected">Steering was rejected. Retry when the runtime permits it.</string>
+    <string name="convtext_stop_runtime_unreachable">The runtime didn\'t respond; the turn was stopped here.</string>
     <string name="convtext_steering_unconfirmed">Steering delivery is unconfirmed. Check the task before retrying.</string>
     <string name="convtext_delivery_unconfirmed">Message delivery is unconfirmed. Resume the original connection.</string>
     <string name="convtext_task_reloaded">This task changed elsewhere and was reloaded. Retry to send your message.</string>

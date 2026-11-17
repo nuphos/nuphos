@@ -15,7 +15,7 @@ import type { CredentialSelectorControl } from '../agent/panel/credentialSection
  * so answering here answers there. An answer wakes the agent that asked, which
  * replies where it asked; no message is sent. The card leaves at once, and comes
  * back with the error if the answer was refused. Skipping withdraws it
- * unanswered and wakes no one.
+ * unanswered, and the agent that asked is told.
  * The Bot's own Connect cards select through the Bot's credential picker, which
  * its owner also gets in the chat's composer.
  */

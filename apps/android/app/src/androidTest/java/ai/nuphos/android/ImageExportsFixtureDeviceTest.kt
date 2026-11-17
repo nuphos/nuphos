@@ -17,7 +17,6 @@ import java.security.MessageDigest
 /** Independent synthetic package only. Does not launch a receiver or read account state. */
 class ImageExportsFixtureDeviceTest {
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
-    private fun isolated() = assumeTrue(context.packageName.endsWith(".imageexport1336"))
     private fun bytes(): ByteArray {
         val bitmap = Bitmap.createBitmap(32, 24, Bitmap.Config.ARGB_8888)
         bitmap.eraseColor(android.graphics.Color.CYAN)
@@ -29,7 +28,6 @@ class ImageExportsFixtureDeviceTest {
     private fun hash(bytes: ByteArray) = MessageDigest.getInstance("SHA-256").digest(bytes).toList()
 
     @Test fun savesOriginalBytesAndMimeAndSharesOnlyReadOnlyContentUri() = runBlocking {
-        isolated()
         val original = bytes()
         // Deliberately wrong data MIME: exported MIME must come from actual bytes.
         val image = ImageExports.prepare(context, "data:image/jpeg;base64," + Base64.encodeToString(original, Base64.NO_WRAP), ImageExports::writeInline)
@@ -68,7 +66,6 @@ class ImageExportsFixtureDeviceTest {
     }
 
     @Test fun rejectsUrlsMalformedBytesAndFailedDownloadsWithoutPublishing() = runBlocking {
-        isolated()
         for (source in listOf("https://example.invalid/private.png?secret=synthetic", "data:image/png;base64,%%%%", "data:image/png;base64,YWJj")) {
             var failed = false
             try { ImageExports.prepare(context, source, ImageExports::writeInline) }
@@ -84,7 +81,6 @@ class ImageExportsFixtureDeviceTest {
         assertTrue(java.io.File(context.cacheDir, "image-exports").listFiles().orEmpty().none { it.extension == "tmp" })
     }
     @Test fun failedMediaStoreWriteRemovesPendingEntryAndCancellationRemovesTemp() = runBlocking {
-        isolated()
         val token = "synthetic-${java.util.UUID.randomUUID()}"
         val image = ImageExports.prepare(context, token) { _, file -> file.writeBytes(bytes()); token }
         fun entries(): Int = context.contentResolver.query(
@@ -108,7 +104,6 @@ class ImageExportsFixtureDeviceTest {
     }
 
     @Test fun partialWriteCancellationAndIoFailureLeaveNoMediaStoreRows() = runBlocking {
-        isolated()
         val token = "synthetic-${java.util.UUID.randomUUID()}"
         val image = ImageExports.prepare(context, token) { _, file -> file.writeBytes(bytes()); token }
         fun entries(): Int = context.contentResolver.query(
@@ -134,7 +129,6 @@ class ImageExportsFixtureDeviceTest {
     }
 
     @Test fun duplicateNamesPreserveBothImagesAndDoNotTrustWriterFilename() = runBlocking {
-        isolated()
         val original = bytes()
         val name = "synthetic-${java.util.UUID.randomUUID()}"
         val image = ImageExports.prepare(context, name) { _, file ->
@@ -176,7 +170,6 @@ class ImageExportsFixtureDeviceTest {
     }
 
     @Test fun cancellationAfterIoRenameBeforeCallerDeliveryDeletesOwnedExport() = runBlocking {
-        isolated()
         val queue = java.util.concurrent.LinkedBlockingQueue<Runnable>()
         val caller = object : kotlinx.coroutines.CoroutineDispatcher() {
             override fun dispatch(context: kotlin.coroutines.CoroutineContext, block: Runnable) { queue.add(block) }

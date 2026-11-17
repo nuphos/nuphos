@@ -9,10 +9,9 @@ final class ConversationTriggersUITests: XCTestCase {
         app.launchArguments = ["-preview-home", "-preview-no-push", "-AppleInterfaceStyle", "Light"]
         app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": fixture.path]
         app.launch()
-        let menu = app.buttons["Switch page"].firstMatch
-        XCTAssertTrue(menu.waitForExistence(timeout: 15))
-        menu.tap()
-        app.buttons["Tasks"].firstMatch.tap()
+        let tasks = app.tabBars.buttons["Tasks"].firstMatch
+        XCTAssertTrue(tasks.waitForExistence(timeout: 15))
+        tasks.tap()
         let conversation = app.staticTexts["Preview push-a"].firstMatch
         XCTAssertTrue(conversation.waitForExistence(timeout: 15))
         conversation.tap()

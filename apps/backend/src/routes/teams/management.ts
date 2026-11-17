@@ -1,7 +1,6 @@
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
-import { revokeTeamBoxStreams } from '@/lib/agent/devices/box-access'
 import { revokeTeamMemberAccess } from '@/lib/agent/devices/local-share-revoke'
 import { OPENAB_PROVIDERS } from '@/lib/claude-code-preview/runtime-provider'
 import { extractEmailDomain, isPublicEmailDomain } from '@/lib/email-domains'
@@ -60,7 +59,7 @@ const updateAgentRuntimeSchema = z
   .strict()
 
 /** The team as its routes return it, or a 404 when the update found no team. */
-function teamJson(c: Context<{ Variables: TeamAuthVariables }>, team: NuphosTeam | null) {
+export function teamJson(c: Context<{ Variables: TeamAuthVariables }>, team: NuphosTeam | null) {
   if (!team) throw new AppError(404, 'team_not_found', 'Team not found')
 
   return c.json({ ...team, isOwner: team.ownerID === c.get('userId'), role: c.get('teamRole') })
@@ -176,12 +175,9 @@ export function registerTeamManagementRoutes(teamScoped: Hono<{ Variables: TeamA
       const { role } = c.req.valid('json')
       const result = await updateTeamMemberRole(c.get('teamId'), memberId, role, c.get('userId'))
 
-      if (result.kind === 'updated') {
-        // A demoted administrator keeps only what the Boxes' access lists give them.
-        if (role !== 'ADMINISTRATOR') await revokeTeamBoxStreams(c.get('teamId'), memberId)
-
-        return c.json({ member: result.member })
-      }
+      // A team role confers nothing on a computer (#1391): only its access list does, so a role
+      // change leaves what the person has open on the team's computers alone.
+      if (result.kind === 'updated') return c.json({ member: result.member })
       if (result.kind === 'team_not_found' || result.kind === 'member_not_found') {
         throw new AppError(404, 'member_not_found', 'Member not found')
       }

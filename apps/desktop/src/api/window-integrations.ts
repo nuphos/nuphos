@@ -1,3 +1,4 @@
+import type { BindingShare } from '../lib/bindingShare.ts'
 import type {
   AliyunEcsInstance,
   AliyunSwasInstance,
@@ -47,10 +48,20 @@ import type {
 
 export type WindowIntegrationsApi = {
   atlasListLinodeAccounts(teamId: string): Promise<LinodeAccount[]>
-  atlasBindLinodeAccount(teamId: string, label: string, token: string): Promise<LinodeAccount>
+  atlasBindLinodeAccount(
+    teamId: string,
+    label: string,
+    token: string,
+    share?: BindingShare,
+  ): Promise<LinodeAccount>
   atlasUnbindLinodeAccount(teamId: string, accountId: string): Promise<void>
   atlasListHetznerAccounts(teamId: string): Promise<HetznerAccount[]>
-  atlasBindHetznerAccount(teamId: string, label: string, token: string): Promise<HetznerAccount>
+  atlasBindHetznerAccount(
+    teamId: string,
+    label: string,
+    token: string,
+    share?: BindingShare,
+  ): Promise<HetznerAccount>
   atlasUnbindHetznerAccount(teamId: string, accountId: string): Promise<void>
   atlasListHetznerServers(teamId: string, accountId: string): Promise<HetznerServer[]>
   atlasListVantaIntegrations(teamId: string): Promise<VantaIntegration[]>
@@ -59,6 +70,7 @@ export type WindowIntegrationsApi = {
     label: string,
     clientId: string,
     clientSecret: string,
+    share?: BindingShare,
   ): Promise<VantaIntegration>
   atlasUnbindVantaIntegration(teamId: string, integrationId: string): Promise<void>
   atlasListSecureframeIntegrations(teamId: string): Promise<SecureframeIntegration[]>
@@ -68,6 +80,7 @@ export type WindowIntegrationsApi = {
     region: 'us' | 'uk',
     apiKey: string,
     apiSecret: string,
+    share?: BindingShare,
   ): Promise<SecureframeIntegration>
   atlasUnbindSecureframeIntegration(teamId: string, integrationId: string): Promise<void>
   atlasListSonarqubeIntegrations(teamId: string): Promise<SonarqubeIntegration[]>
@@ -94,6 +107,7 @@ export type WindowIntegrationsApi = {
     teamId: string,
     label: string,
     token: string,
+    share?: BindingShare,
   ): Promise<NotionIntegration>
   atlasUnbindNotionIntegration(teamId: string, integrationId: string): Promise<void>
   atlasListUpstashAccounts(teamId: string): Promise<UpstashAccount[]>
@@ -102,6 +116,7 @@ export type WindowIntegrationsApi = {
     label: string,
     email: string,
     apiKey: string,
+    share?: BindingShare,
   ): Promise<UpstashAccount>
   atlasUnbindUpstashAccount(teamId: string, accountId: string): Promise<void>
   atlasGetUpstashAccountAccess(teamId: string, accountId: string): Promise<BindingAccess>
@@ -155,6 +170,7 @@ export type WindowIntegrationsApi = {
     teamId: string,
     label: string,
     apiKey: string,
+    share?: BindingShare,
   ): Promise<ResendIntegration>
   atlasUnbindResendIntegration(teamId: string, integrationId: string): Promise<void>
   atlasUnbindTrelloIntegration(teamId: string, integrationId: string): Promise<void>
@@ -171,6 +187,7 @@ export type WindowIntegrationsApi = {
     site: TencentSite,
     roleArn: string,
     providerId: string,
+    share?: BindingShare,
   ): Promise<TencentAccount>
   atlasUnbindTencentAccount(teamId: string, accountId: string): Promise<void>
   atlasListTencentClusters(teamId: string, accountId: string): Promise<AtlasCluster[]>
@@ -202,6 +219,7 @@ export type WindowIntegrationsApi = {
     site: AliyunSite,
     roleArn: string,
     oidcProviderArn: string,
+    share?: BindingShare,
   ): Promise<AliyunAccount>
   atlasUnbindAliyunAccount(teamId: string, accountId: string): Promise<void>
   atlasListAliyunClusters(teamId: string, accountId: string): Promise<AtlasCluster[]>
@@ -213,6 +231,7 @@ export type WindowIntegrationsApi = {
     teamId: string,
     label: string,
     roleTrn: string,
+    share?: BindingShare,
   ): Promise<VolcengineAccount>
   atlasUnbindVolcengineAccount(teamId: string, accountId: string): Promise<void>
   atlasListHuaweiAccounts(teamId: string): Promise<HuaweiAccount[]>
@@ -223,6 +242,7 @@ export type WindowIntegrationsApi = {
     domainId: string,
     idpId: string,
     agencyName: string,
+    share?: BindingShare,
   ): Promise<HuaweiAccount>
   atlasUnbindHuaweiAccount(teamId: string, accountId: string): Promise<void>
   atlasListVolcengineClusters(teamId: string, accountId: string): Promise<AtlasCluster[]>
@@ -237,6 +257,7 @@ export type WindowIntegrationsApi = {
     clientId: string,
     clientSecret: string | null,
     federated?: boolean,
+    share?: BindingShare,
   ): Promise<TailscaleOAuthClient>
   atlasUnbindTailscaleClient(teamId: string, clientId: string): Promise<void>
   atlasListTailscaleDevices(teamId: string, clientId: string): Promise<TailscaleDevice[]>

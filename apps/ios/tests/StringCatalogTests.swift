@@ -1,6 +1,6 @@
 import Foundation
 
-// The languages Desktop ships; the catalog must translate a string into all of them or none.
+// The languages Desktop ships; every string needs all of them unless it is marked not to be translated.
 let languages: Set = ["zh-Hant", "zh-Hans", "ja", "ko", "th", "id", "es"]
 let file = URL(filePath: CommandLine.arguments[1])
 let catalog = try JSONSerialization.jsonObject(with: Data(contentsOf: file)) as! [String: Any]
@@ -8,10 +8,16 @@ let strings = catalog["strings"] as! [String: [String: Any]]
 var translated = 0
 
 for (key, entry) in strings {
+    // Legal and consent text ships in English until a native speaker reviews its translations.
+    let comment = entry["comment"] as? String ?? ""
+    if comment.contains("Legal text"), !comment.contains("Reviewed translations") {
+        let unreviewed = Set((entry["localizations"] as? [String: Any] ?? [:]).keys).subtracting(["en"])
+        precondition(unreviewed.isEmpty, "\"\(key)\" is legal text with unreviewed translations \(unreviewed.sorted())")
+    }
     let present = languages.intersection((entry["localizations"] as? [String: Any] ?? [:]).keys)
-    if present.isEmpty { continue }
+    if entry["shouldTranslate"] as? Bool == false { continue }
     precondition(present == languages, "\"\(key)\" is missing \(languages.subtracting(present).sorted())")
     translated += 1
 }
-precondition(translated > 0, "No translated strings in \(file.path)")
+precondition(!strings.isEmpty, "No strings in \(file.path)")
 print("String catalog passed: \(translated) of \(strings.count) strings translated")

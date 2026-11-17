@@ -7,6 +7,7 @@ use tracing::{error, warn};
 use crate::acp::connection::{
     build_permission_response, PermissionResponder, SessionActivity, ACP_NOTIFICATION_CAPACITY,
 };
+use crate::acp::pool::session_lost;
 use crate::acp::protocol::JsonRpcMessage;
 use crate::acp::{
     classify_notification, parse_turn_result, AcpEvent, ContentBlock, SessionPool, TurnResult,
@@ -899,6 +900,51 @@ impl AdapterRouter {
         other_bot_present: bool,
         recipient: Option<(String, String)>,
     ) -> Result<()> {
+        let result = self
+            .run_prompt(
+                adapter,
+                thread_key,
+                content_blocks.clone(),
+                thread_channel,
+                reactions.clone(),
+                other_bot_present,
+                recipient.clone(),
+                true,
+            )
+            .await;
+        if !result.as_ref().is_err_and(|e| e.is::<SessionGone>()) {
+            return result;
+        }
+        // The agent lost the session before showing anything. Restore it the way a dead
+        // connection is restored (session/load, or a new session where that is gone too)
+        // and run the prompt once more; a second loss fails the turn as usual.
+        self.pool.suspend_session(thread_key).await;
+        self.pool.get_or_create(thread_key, None, &[], None).await?;
+        self.run_prompt(
+            adapter,
+            thread_key,
+            content_blocks,
+            thread_channel,
+            reactions,
+            other_bot_present,
+            recipient,
+            false,
+        )
+        .await
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn run_prompt(
+        &self,
+        adapter: &Arc<dyn ChatAdapter>,
+        thread_key: &str,
+        content_blocks: Vec<ContentBlock>,
+        thread_channel: &ChannelRef,
+        reactions: Arc<StatusReactionController>,
+        other_bot_present: bool,
+        recipient: Option<(String, String)>,
+        retry_lost_session: bool,
+    ) -> Result<()> {
         let adapter = adapter.clone();
         let thread_channel = thread_channel.clone();
         let message_limit = reply_message_limit(&thread_channel.platform, adapter.message_limit());
@@ -1101,6 +1147,8 @@ impl AdapterRouter {
                     // The adapter's original `{code, message}`, kept alongside the
                     // display text so the ACP gateway can relay it as `error.data`.
                     let mut response_error_data: Option<serde_json::Value> = None;
+                    // ACP "resource not found": the agent no longer holds this session.
+                    let mut session_gone = false;
                     let mut turn_result = TurnResult::default();
                     // The provider's own usage object, forwarded verbatim at turn end.
                     let mut turn_usage: Option<serde_json::Value> = None;
@@ -1280,6 +1328,7 @@ impl AdapterRouter {
                             let notification =
                                 crate::acp::connection::with_recent_stderr(notification, &prompt_activity);
                             if let Some(ref err) = notification.error {
+                                session_gone = session_lost(err);
                                 response_error = Some(format_coded_error(err.code, &err.message, err.data_message().as_deref()));
                                 response_error_data = Some(err.relay_data());
                             }
@@ -1465,6 +1514,19 @@ impl AdapterRouter {
                                 _ => {}
                             }
                         }
+                    }
+
+                    // Nothing was shown yet, so the turn can run again on the restored session
+                    // instead of failing (see `stream_prompt_blocks`).
+                    if session_gone
+                        && retry_lost_session
+                        && text_buf.is_empty()
+                        && tool_lines.is_empty()
+                        && placeholder_msg.is_none()
+                        && native_msg.is_none()
+                    {
+                        conn.prompt_done(None).await;
+                        return Err(SessionGone.into());
                     }
 
                     // Lock-free marker for the relay below. The pool's eviction
@@ -1948,6 +2010,19 @@ impl AdapterRouter {
 /// or a role mention (`<@&123>`).
 /// Used to detect cross-bot mentions so the streaming path can switch from
 /// edit (MESSAGE_UPDATE, no mention notification) to delete+send (MESSAGE_CREATE).
+/// The agent answered a prompt with ACP "resource not found" before any output: it no
+/// longer holds the session, so the turn may run again once the session is restored.
+#[derive(Debug)]
+struct SessionGone;
+
+impl std::fmt::Display for SessionGone {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("the agent no longer holds this session")
+    }
+}
+
+impl std::error::Error for SessionGone {}
+
 fn contains_bot_mention(content: &str) -> bool {
     let mut i = 0;
     let bytes = content.as_bytes();

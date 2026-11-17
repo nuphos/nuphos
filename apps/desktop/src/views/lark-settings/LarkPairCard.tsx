@@ -1,7 +1,7 @@
-import { faCheck, faCopy, faKey } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { Check as CheckIcon, Copy as CopyIcon, KeyRound as KeyRoundIcon } from 'lucide-react'
 
 import { Button } from '../../components/ui/button'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { t } from '../../i18n'
 
 import type { LarkPairCode } from '../../types'
@@ -54,7 +54,7 @@ export function LarkPairCard({
                 className="inline-flex h-9 items-center gap-1.5 rounded-md border border-line-control px-3 text-[12.5px] font-medium text-secondary transition-colors hover:border-line-control hover:text-main"
                 title={t('Copy code')}
               >
-                <FontAwesomeIcon icon={pairCopied ? faCheck : faCopy} className="h-3 w-3" />
+                <UiIcon size={16} icon={pairCopied ? CheckIcon : CopyIcon} className="h-4 w-4" />
                 {pairCopied ? t('Copied') : t('Copy')}
               </button>
             </div>
@@ -79,7 +79,7 @@ export function LarkPairCard({
             onClick={() => void onGenerate()}
             disabled={pairGenerating}
           >
-            <FontAwesomeIcon icon={faKey} className="h-3 w-3" />
+            <UiIcon size={16} icon={KeyRoundIcon} className="h-4 w-4" />
             {pairGenerating ? t('Generating…') : t('Generate pairing code')}
           </Button>
         )}

@@ -99,6 +99,35 @@ struct ChatMessage: Identifiable, Equatable, Sendable {
         /// Set when this is a channel's wake-up notice (`channel-wake.ts`): its body is
         /// the agent's input, so only the channel is shown, as on the desktop.
         var channelId: String? = nil
+        /// The newest post a channel's wake-up brought (`channel-newest-post.ts`); nil
+        /// for a notice from before posts were carried, which keeps today's line.
+        var post: Post? = nil
+
+        struct Post: Equatable, Sendable {
+            let id: String
+            let sender: Sender
+            /// Set for an agent's post: its avatar is the agent's face.
+            let agentId: String?
+            let runtime: String?
+            /// Its first line, or its file's name; empty for an agent's files.
+            let text: String
+            /// How many other posts came with it.
+            let more: Int
+
+            init?(_ value: JSONValue?) {
+                guard let id = value?["id"]?.stringValue, !id.isEmpty, let text = value?["text"]?.stringValue,
+                      let more = value?["more"]?.numberValue,
+                      let name = value?["sender"]?["displayName"]?.stringValue,
+                      let senderId = value?["sender"]?["id"]?.stringValue else { return nil }
+                self.id = id
+                sender = Sender(name: name, avatarURL: value?["sender"]?["avatarURL"]?.stringValue ?? "")
+                let agent = value?["sender"]?["type"]?.stringValue == "agent"
+                agentId = agent ? senderId : nil
+                runtime = agent ? value?["sender"]?["agentRuntime"]?.stringValue : nil
+                self.text = text
+                self.more = max(0, Int(more))
+            }
+        }
     }
 
     /// The sender id prefix of a channel's wake-up notice (`CHANNEL_SENDER_PREFIX`).
@@ -119,7 +148,8 @@ struct ChatMessage: Identifiable, Equatable, Sendable {
         return Event(name: name, logo: logo, text: text.trimmingCharacters(in: .whitespacesAndNewlines),
                      agentId: source == "agent.thread" ? (metadata?["sourceSessionId"]?.stringValue ?? metadata?["sender"]?["id"]?.stringValue) : nil,
                      runtime: runtime?.rawValue,
-                     channelId: channelId.isEmpty ? nil : channelId)
+                     channelId: channelId.isEmpty ? nil : channelId,
+                     post: channelId.isEmpty ? nil : Event.Post(metadata?["channelPost"]))
     }
 
     var text: String {
@@ -167,7 +197,7 @@ struct ChatMessage: Identifiable, Equatable, Sendable {
     /// `approvalResponded` counts as mid-flight too: the user let the call
     /// through but its result never arrived, so the row would otherwise spin
     /// — and never show a time — for the rest of the conversation.
-    mutating func finalizeIncompleteTools(errorText: String = "Interrupted before the tool finished.") {
+    mutating func finalizeIncompleteTools(errorText: String = String(localized: "Interrupted before the tool finished.")) {
         for i in parts.indices {
             if case .tool(var t) = parts[i],
                t.state == .inputStreaming || t.state == .inputAvailable || t.state == .approvalResponded {
@@ -357,6 +387,11 @@ enum ChatPart: Equatable, Sendable {
                 && input?["credentials"] == nil
         }
 
+        /// The providers an integration question asks for.
+        var integrationProviders: [String]? {
+            input?["providers"]?.arrayValue?.compactMap(\.stringValue)
+        }
+
         /// The request id the decision's result names; the call id otherwise.
         var decisionRequestId: String {
             output?["requestId"]?.stringValue ?? toolCallId
@@ -388,20 +423,20 @@ enum ChatPart: Equatable, Sendable {
 
         var kindLabel: String {
             switch kind {
-            case .terminal: "Terminal"
-            case .read: "Read file"
-            case .write: "Write file"
-            case .edit: "Edit file"
-            case .search: "Search"
-            case .fetch: "Fetch"
-            case .todos: "To-dos"
-            case .question: "Question"
-            case .task: "Subtask"
-            case .plan: "Plan"
-            case .skill: "Skill"
-            case .memory: "Memory"
-            case .chart: "Chart"
-            case .generic: toolName.count > 40 ? "Tool" : toolName
+            case .terminal: String(localized: "Terminal")
+            case .read: String(localized: "Read file")
+            case .write: String(localized: "Write file")
+            case .edit: String(localized: "Edit file")
+            case .search: String(localized: "Search")
+            case .fetch: String(localized: "Fetch")
+            case .todos: String(localized: "To-dos")
+            case .question: String(localized: "Question")
+            case .task: String(localized: "Subtask")
+            case .plan: String(localized: "Plan")
+            case .skill: String(localized: "Skill")
+            case .memory: String(localized: "Memory")
+            case .chart: String(localized: "Chart")
+            case .generic: toolName.count > 40 ? String(localized: "Tool") : toolName
             }
         }
 

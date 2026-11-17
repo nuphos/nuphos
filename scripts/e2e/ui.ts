@@ -1,5 +1,8 @@
 // What a person does in the app that most scenarios repeat.
+import type { Stack } from './stack.ts'
 import type { Page } from 'playwright-core'
+
+export type Scenario = { name: string; run: (page: Page, stack: Stack) => Promise<void> }
 
 /** Types into the conversation composer and sends. */
 export async function send(page: Page, text: string) {

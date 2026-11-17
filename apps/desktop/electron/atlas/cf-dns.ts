@@ -139,7 +139,8 @@ export async function cancelCloudflareOAuth(teamId: string, state: string): Prom
 }
 
 export type CloudflareOAuthResult =
-  | { ready: false }
+  // `error` is set once Cloudflare rejected the attempt (e.g. invalid_scope).
+  | { ready: false; error?: string; errorDescription?: string }
   | {
       ready: true
       bindingId: string

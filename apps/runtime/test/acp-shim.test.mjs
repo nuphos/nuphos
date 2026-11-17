@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
+import fs from 'node:fs'
 import { mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PassThrough } from 'node:stream'
+import { syncBuiltinESMExports } from 'node:module'
 import { createInterface } from 'node:readline'
-import { test } from 'node:test'
+import { mock, test } from 'node:test'
 
 import { SESSION_META, runShim } from '../image/acp-shim.mjs'
 
@@ -168,6 +170,33 @@ test('opencode shares only its own data directory with the runtime home', async 
     assert.equal(seen.env.OPENCODE_DISABLE_AUTOUPDATE, '1')
     assert.equal(seen.params._meta.rules, undefined)
   })
+})
+
+test('a link the OS refuses never fails the turn, and Windows gets a junction', async () => {
+  // Windows refuses a symlink to a user without Developer Mode or an administrator.
+  const links = []
+  const refused = mock.method(fs, 'symlinkSync', (...args) => {
+    links.push(args)
+    throw Object.assign(new Error('EPERM: operation not permitted, symlink'), { code: 'EPERM' })
+  })
+  syncBuiltinESMExports()
+  try {
+    await withShim('opencode', async ({ call }) => {
+      await call('initialize', { protocolVersion: 1 })
+      const reply = await Promise.race([
+        call('session/new', session('Be Nuphos.')),
+        new Promise((resolve) => setTimeout(() => resolve({ timedOut: true }), 5000)),
+      ])
+
+      assert.match(reply.result?.seen?.env.HOME ?? '', /\.nuphos\/session-homes\/[0-9a-f]{64}$/)
+      assert.equal(links.length, 2)
+      // Node makes a junction from this on Windows and ignores it elsewhere.
+      for (const args of links) assert.equal(args[2], 'junction')
+    })
+  } finally {
+    refused.mock.restore()
+    syncBuiltinESMExports()
+  }
 })
 
 // Like DeepSeek Harness: resumes sessions, but has no session/load.

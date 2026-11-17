@@ -15,7 +15,7 @@ import type { RuntimeQuota } from './runtime-quota'
 import type { TeamRuntimeEndpoint } from './team-openab-runtime'
 
 export const MANAGED_RUNTIME_RETIRED =
-  'Nuphos-hosted agents have been retired. Move this conversation to a Nuphos Box or your own computer to continue.'
+  'Nuphos-hosted agents have been retired. Move this conversation to a Nuphos cloud computer or your own computer to continue.'
 
 export function developmentRuntimeEndpoint(
   provider: OpenAbProvider,

@@ -32,8 +32,34 @@ test('a started thread takes its id from the receipt in any shape', () => {
       model: null,
       effort: null,
       modelReason: null,
+      agentRuntime: null,
+      runtimeLabel: null,
     })
   }
+})
+
+test('a messaged thread shows where that message ran, not where the thread is now', () => {
+  const output = JSON.stringify({
+    status: 'started',
+    threadId: ID,
+    agentRuntime: 'claude-code',
+    runtimeLabel: "Yuanlin (6.25x) in Yuanlin's Box",
+  })
+  const info = threadBadgeInfo(
+    part('send_message_to_thread', {
+      input: { threadId: ID },
+      output: [{ type: 'text', text: output }],
+    }),
+  )
+
+  assert.equal(info?.agentRuntime, 'claude-code')
+  assert.equal(info?.runtimeLabel, "Yuanlin (6.25x) in Yuanlin's Box")
+  // An unknown agent is not shown as one.
+  const odd = threadBadgeInfo(
+    part('send_message_to_thread', { input: { threadId: ID }, output: { agentRuntime: 'nope' } }),
+  )
+
+  assert.equal(odd?.agentRuntime, null)
 })
 
 test('a started thread shows the model the agent chose for it, and why', () => {

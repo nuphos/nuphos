@@ -3,7 +3,6 @@
     <string name="chats_question_credentials_and">%1$s 和 %2$s</string>
     <string name="chats_question_use_own">使用你自己的 %1$s</string>
     <string name="chats_question_choose_credentials">選擇憑證</string>
-    <string name="chats_question_answer_in_task">在任務中回答</string>
     <string name="chats_question_other">其他…</string>
     <string name="chats_question_reply">回覆…</string>
     <string name="chats_question_send_failed">無法傳送訊息 · %1$s</string>

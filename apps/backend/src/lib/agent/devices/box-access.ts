@@ -195,7 +195,7 @@ export async function requireDeviceAccess(
 
   // A Box lives in a team: asking for your own without saying which is a client bug.
   if (!teamId && own?.box)
-    throw new AppError(400, 'team_required', 'Pass the teamId of the Box’s team')
+    throw new AppError(400, 'team_required', 'Pass the teamId of the computer’s team')
   const member = teamId ? (await deps.role(actorId, teamId)) !== null : false
   // Query the requested team, never a global deviceId lookup or the owner's other teams.
   const candidates =

@@ -127,6 +127,7 @@ struct ChannelView: View {
                     typing = inTurn
                 }
             }
+            .onChange(of: channel.loaded ? channel.posts.count : -1, initial: true) { showPendingPost() }
             .onChange(of: draft) { _, text in ComposerDrafts.set(text, team: channel.teamId, session: channel.channelId, identity: store.token) }
             .alert("Couldn't send the message", isPresented: Binding(
                 get: { channel.sendError != nil }, set: { if !$0 { channel.sendError = nil } })) {
@@ -194,7 +195,18 @@ struct ChannelView: View {
 
     /// Scrolls to a quoted post, if it is loaded, and flashes it.
     private func show(_ reply: ChannelReply) {
-        guard let id = reply.id, channel.posts.contains(where: { $0.id == id }) else { return }
+        if let id = reply.id { show(post: id) }
+    }
+
+    /// Opened from a wake-up's line: once the chat has loaded, it goes to the post that
+    /// line named. A post no longer loaded leaves it at its latest post.
+    private func showPendingPost() {
+        guard channel.loaded, let id = ChannelPostJump.pending.removeValue(forKey: channel.channelId) else { return }
+        show(post: id)
+    }
+
+    private func show(post id: String) {
+        guard channel.posts.contains(where: { $0.id == id }) else { return }
         jump = TranscriptJump(rowID: "post.\(id)")
         flashed = id
         Task {
@@ -240,8 +252,8 @@ struct ChannelView: View {
                 TimestampLabel(date: date)
             case .post(let post, let first):
                 ChannelPostRow(post: post, first: first, mine: post.isMine(viewerId: channel.viewerId),
-                               attachments: channel.sendingAttachments[post.id] ?? [], files: channel.files,
-                               resolve: channel.transferGroup, onLink: open(link:),
+                               attachments: channel.sendingAttachments[post.id] ?? [], channel: channel,
+                               onLink: open(link:),
                                flashed: flashed == post.id,
                                onReply: channel.readOnly || post.sending ? nil : { reply(to: post) },
                                onQuote: show)
@@ -269,10 +281,11 @@ struct ChannelView: View {
                     // The Bot's own questions are this chat's; only an agent under it is named.
                     showsFrom: question.sessionId != channel.botId,
                     onOpen: { open(link: question.link(team: channel.teamId)) },
+                    teamId: channel.teamId,
+                    questions: channel.questions,
                     onAnswer: { channel.answer(question, with: $0) },
                     onSkip: { channel.skip(question) },
-                    onLink: open(link:),
-                    failure: channel.questions.failures[question.id])
+                    onLink: open(link:))
             }
         }
     }
@@ -284,6 +297,12 @@ struct ChannelView: View {
 }
 
 /// A row to bring to the middle of the transcript, once per request.
+/// The post a channel opens at, by channel: set just before a wake-up's line opens it.
+@MainActor
+enum ChannelPostJump {
+    static var pending: [String: String] = [:]
+}
+
 struct TranscriptJump: Equatable {
     let rowID: String
     var nonce = UUID()
@@ -362,9 +381,9 @@ private struct ChannelPostRow: View {
     let first: Bool
     let mine: Bool
     let attachments: [ComposerAttachment]
-    /// The chat's file groups, already read.
-    let files: [String: [TransferDownloadGroup.File]]
-    let resolve: (String) async throws -> TransferDownloadGroup
+    /// The chat: its file groups read so far, and fresh links for them. Read
+    /// here, not passed in, so a group read after the row was drawn shows.
+    let channel: ChannelSession
     let onLink: (URL) -> Void
     /// Briefly highlighted: a quote of it was tapped.
     var flashed = false
@@ -378,7 +397,7 @@ private struct ChannelPostRow: View {
 
     /// The groups' files when the chat has read them all; else the card reads them.
     private func read(_ groupIds: [String]) -> [TransferDownloadGroup.File]? {
-        let groups = groupIds.compactMap { files[$0] }
+        let groups = groupIds.compactMap { channel.files[$0] }
         return groups.count == groupIds.count ? groups.flatMap { $0 } : nil
     }
 
@@ -391,12 +410,12 @@ private struct ChannelPostRow: View {
                 if !post.uploads.isEmpty {
                     TransferCard(groupIds: post.uploads.map(\.groupId), fromUser: mine,
                                  names: post.uploads.flatMap { $0.files.map(\.fileName) },
-                                 files: read(post.uploads.map(\.groupId)), resolve: resolve)
+                                 files: read(post.uploads.map(\.groupId)), resolve: channel.transferGroup)
                 }
                 if !attachments.isEmpty { localAttachments }
                 if !post.text.isEmpty { bubble }
                 if !post.downloads.isEmpty {
-                    TransferCard(groupIds: post.downloads, fromUser: false, files: read(post.downloads), resolve: resolve)
+                    TransferCard(groupIds: post.downloads, fromUser: false, files: read(post.downloads), resolve: channel.transferGroup)
                 }
             }
             .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 18, style: .continuous))

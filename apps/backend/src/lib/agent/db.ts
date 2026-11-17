@@ -27,6 +27,7 @@ export {
   clearConversationPreviewTurn,
   consumeConversationRetracted,
   consumeConversationWorkLost,
+  forgetConversationPreviewSession,
   getConversationPreviewAttachment,
   markConversationWorkLost,
   openConversationPromptSuggestion,
