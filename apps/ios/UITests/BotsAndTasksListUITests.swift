@@ -136,7 +136,8 @@ final class BotsAndTasksListUITests: XCTestCase {
 
         for (question, list) in [("Ship 2.4 today?", "Bots"), ("Retry the flaky iOS job?", "Bots"), ("Scale the staging pool?", "Tasks")] {
             launch(page: "inbox")
-            let menu = app.buttons["Switch page"].firstMatch
+            // The home tabs show over a list and leave the screen when a chat is open on top of it.
+            let menu = app.buttons.matching(NSPredicate(format: "label == 'Tasks' AND identifier != 'BackButton'")).firstMatch
             let row = app.descendants(matching: .any)
                 .matching(NSPredicate(format: "identifier == %@ AND label BEGINSWITH %@", "inbox.row", question)).firstMatch
             XCTAssertTrue(row.waitForExistence(timeout: 10), "\(question) is not in the Inbox")
@@ -144,14 +145,15 @@ final class BotsAndTasksListUITests: XCTestCase {
             let source = app.buttons["inbox.source"].firstMatch
             XCTAssertTrue(source.waitForExistence(timeout: 5), "\(question) has no source to open")
             source.tap()
-            // Opened over the list: the page menu leaves the bar.
+            // Opened over the list: the tabs leave the screen.
             expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: menu)
             waitForExpectations(timeout: 10)
             sleep(1)
             app.navigationBars.buttons.firstMatch.tap()
             XCTAssertTrue(menu.waitForExistence(timeout: 5), "No list after going back from \(question)")
             shot("back-from-\(list)-\(question.prefix(5))")
-            XCTAssertTrue((menu.value as? String ?? "").hasPrefix(list), "\(question) went back to \(menu.value ?? "nothing"), not \(list)")
+            let tab = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != 'BackButton'", list)).firstMatch
+            XCTAssertTrue(tab.isSelected, "\(question) did not go back to \(list)")
             app.terminate()
         }
     }
@@ -165,8 +167,8 @@ final class BotsAndTasksListUITests: XCTestCase {
         app.launch()
     }
 
+    /// The home tabs, since #3004.
     private func switchPage(to title: String) {
-        app.buttons["Switch page"].firstMatch.tap()
         app.buttons[title].firstMatch.tap()
     }
 

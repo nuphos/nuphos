@@ -8,8 +8,8 @@ final class ChatComposerLayoutUITests: XCTestCase {
     func testNothingShowsBehindTheComposer() throws {
         let app = try launch()
         let transcript = app.collectionViews["chat.transcript"]
-        let composer = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "placeholderValue == 'Message release-planning'")).firstMatch
+        // The field is labelled with its placeholder; a plain text with the same label is not the field.
+        let composer = app.textViews["Message release-planning"].firstMatch
         XCTAssertTrue(composer.waitForExistence(timeout: 10), "No composer")
         XCTAssertTrue(app.buttons["Open sheet.jpg"].waitForExistence(timeout: 10), "The transcript never loaded")
         sleep(2)
