@@ -1,7 +1,9 @@
+import { setClaudeResets, spendClaudeReset } from './agent-cli-reset.ts'
 import { LOCAL_AGENT_PROVIDERS } from './agent-cli.ts'
 import { agentCliEnv } from './config.ts'
 import { USAGE_SAMPLE_MS, USAGE_SIGN_IN_FLOOR_MS } from './controller-types.ts'
 
+import type { ClaudeResetsAction, ClaudeResetsAnswer } from './agent-cli-reset.ts'
 import type { LocalAgentProvider } from './agent-cli.ts'
 import type { Agent } from './controller-types.ts'
 
@@ -22,19 +24,42 @@ export function createUsageSampler(
   deps: {
     userEnv: () => Promise<NodeJS.ProcessEnv>
     agentHome?: (provider: LocalAgentProvider, env: NodeJS.ProcessEnv) => string | undefined
-    readUsage: (provider: LocalAgentProvider, env: NodeJS.ProcessEnv) => Promise<unknown>
+    readUsage: (
+      provider: LocalAgentProvider,
+      env: NodeJS.ProcessEnv,
+      version?: string,
+    ) => Promise<unknown>
   },
   onReading: () => void,
   now: () => number = Date.now,
 ): {
-  sample: (provider: LocalAgentProvider) => Promise<void>
+  sample: (provider: LocalAgentProvider, force?: boolean) => Promise<void>
+  claudeResets: (action: ClaudeResetsAction) => Promise<ClaudeResetsAnswer>
   stop: () => void
 } {
   let timer: ReturnType<typeof setInterval> | undefined
   const attempts = new Map<LocalAgentProvider, Attempt>()
   // Seen signed out since the last read: the sign-in that follows earns the short floor.
   const signedOut = new Set<LocalAgentProvider>()
-  const sample = async (provider: LocalAgentProvider): Promise<void> => {
+  const version = (provider: LocalAgentProvider) => {
+    const cli = agents[provider].cli
+
+    return cli?.installed ? cli.version : undefined
+  }
+  /** The agent's own environment, so a read uses the sign-in that agent runs with. */
+  const agentEnv = async (provider: LocalAgentProvider) => {
+    const env = await deps.userEnv()
+    const agentHome = deps.agentHome?.(provider, env)
+
+    if (deps.agentHome && !agentHome) return
+    const cli = agents[provider].cli
+
+    return agentHome
+      ? agentCliEnv({ provider, env, agentHome, cliPath: cli?.installed ? cli.path : '' })
+      : env
+  }
+  // `force` follows a spent reset: the reading it replaces is no longer true.
+  const sample = async (provider: LocalAgentProvider, force = false): Promise<void> => {
     const agent = agents[provider]
     const attempt = attempts.get(provider) ?? { at: 0, inFlight: false }
 
@@ -51,7 +76,7 @@ export function createUsageSampler(
     }
     const floor = signedOut.has(provider) ? USAGE_SIGN_IN_FLOOR_MS : USAGE_SAMPLE_MS
 
-    if (attempt.inFlight || now() - attempt.at < floor) return
+    if (attempt.inFlight || (!force && now() - attempt.at < floor)) return
     signedOut.delete(provider)
     // The agent this answer belongs to. `stopAgent` bumps it, so a restart or a
     // signed-out user makes a late reply land on a generation that has moved on
@@ -64,25 +89,8 @@ export function createUsageSampler(
     const startedAt = now()
 
     attempts.set(provider, { at: startedAt, inFlight: true })
-    const usage = await deps
-      .userEnv()
-      .then((env) => {
-        const agentHome = deps.agentHome?.(provider, env)
-
-        if (deps.agentHome && !agentHome) return undefined
-
-        return deps.readUsage(
-          provider,
-          agentHome
-            ? agentCliEnv({
-                provider,
-                env,
-                agentHome,
-                cliPath: agent.cli && agent.cli.installed ? agent.cli.path : '',
-              })
-            : env,
-        )
-      })
+    const usage = await agentEnv(provider)
+      .then((env) => env && deps.readUsage(provider, env, version(provider)))
       .catch(() => {})
       .finally(() => attempts.set(provider, { at: startedAt, inFlight: false }))
 
@@ -92,8 +100,41 @@ export function createUsageSampler(
     onReading()
   }
 
+  let spending: Promise<ClaudeResetsAnswer> | undefined
+  const spend = async (): Promise<ClaudeResetsAnswer> => {
+    const env = await agentEnv('claude-code').catch(() => undefined)
+    const outcome = env
+      ? await spendClaudeReset(env, version('claude-code'))
+      : ({ result: 'unavailable' } as const)
+
+    // The reading it replaces is no longer true, whatever the answer was.
+    await sample('claude-code', true)
+
+    return outcome
+  }
+
   return {
     sample,
+    claudeResets: (action) => {
+      // One spend at a time: a second click while one is out joins it, never sends another.
+      if (action === 'spend') {
+        spending ??= spend().finally(() => {
+          spending = undefined
+        })
+
+        return spending
+      }
+
+      return agentEnv('claude-code')
+        .then(async (env) => {
+          if (!env) return { result: 'unavailable' as const }
+          await setClaudeResets(env, action === 'on')
+          await sample('claude-code', true)
+
+          return { result: 'saved' as const }
+        })
+        .catch(() => ({ result: 'unavailable' as const }))
+    },
     stop: () => {
       if (timer) clearInterval(timer)
       timer = undefined

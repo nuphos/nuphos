@@ -1,3 +1,4 @@
+import { access } from 'node:fs/promises'
 import path from 'node:path'
 
 import { homeOf } from './agent-cli-apps.ts'
@@ -29,22 +30,55 @@ async function codexUsageRequest(
   }
 }
 
-async function claudeUsageRequest(
-  home: string,
+/** The agent's own opt-in to limit resets, kept beside its Claude sign-in. Off by
+ *  default: reading them means asking an unofficial Anthropic API as Claude Code. */
+export function claudeResetsMarker(env: NodeJS.ProcessEnv): string {
+  return path.join(
+    env.CLAUDE_CONFIG_DIR ?? path.join(homeOf(env), '.claude'),
+    '.nuphos-limit-resets',
+  )
+}
+
+export const claudeResetsOn = (env: NodeJS.ProcessEnv) =>
+  access(claudeResetsMarker(env)).then(
+    () => true,
+    () => false,
+  )
+
+/** Claude Code's sign-in, and the headers Anthropic expects with it. Anthropic lists
+ *  limit resets (`cedar_ember`) only to Claude Code itself, so an opted-in request says
+ *  it is one, with the version installed here. Null when nothing is signed in. */
+export async function claudeRequestHeaders(
   env: NodeJS.ProcessEnv,
-): Promise<UsageRequest | null> {
-  const credential = await readClaudeCredential(home, env)
+  version: string | undefined,
+  asClaudeCode: boolean,
+): Promise<Record<string, string> | null> {
+  const credential = await readClaudeCredential(homeOf(env), env)
   const oauth = credential?.claudeAiOauth as { accessToken?: unknown } | undefined
 
   if (typeof oauth?.accessToken !== 'string' || !oauth.accessToken) return null
 
   return {
-    url: 'https://api.anthropic.com/api/oauth/usage',
-    headers: {
-      authorization: `Bearer ${oauth.accessToken}`,
-      'anthropic-beta': 'oauth-2025-04-20',
-    },
+    authorization: `Bearer ${oauth.accessToken}`,
+    'anthropic-beta': 'oauth-2025-04-20',
+    ...(asClaudeCode
+      ? { 'user-agent': `claude-cli/${version ?? '2.1.322'} (external, cli)`, 'x-app': 'cli' }
+      : {}),
   }
+}
+
+const CLAUDE_USAGE_URL = 'https://api.anthropic.com/api/oauth/usage'
+
+export const CLAUDE_RESETS_URL = `${CLAUDE_USAGE_URL}?cedar_ember=1`
+
+async function claudeUsageRequest(
+  env: NodeJS.ProcessEnv,
+  version: string | undefined,
+): Promise<UsageRequest | null> {
+  const resets = await claudeResetsOn(env)
+  const headers = await claudeRequestHeaders(env, version, resets)
+
+  return headers && { url: resets ? CLAUDE_RESETS_URL : CLAUDE_USAGE_URL, headers }
 }
 
 /** Where this computer keeps the credential, and what the provider wants to see
@@ -52,11 +86,10 @@ async function claudeUsageRequest(
 function usageRequest(
   provider: LocalAgentProvider,
   env: NodeJS.ProcessEnv,
+  version: string | undefined,
 ): Promise<UsageRequest | null> {
-  const home = homeOf(env)
-
-  if (provider === 'codex') return codexUsageRequest(home, env)
-  if (provider === 'claude-code') return claudeUsageRequest(home, env)
+  if (provider === 'codex') return codexUsageRequest(homeOf(env), env)
+  if (provider === 'claude-code') return claudeUsageRequest(env, version)
 
   return Promise.resolve(null)
 }
@@ -69,10 +102,22 @@ function usageRequest(
 export async function readAgentUsage(
   provider: LocalAgentProvider,
   env: NodeJS.ProcessEnv,
+  version?: string,
 ): Promise<unknown> {
-  const request = await usageRequest(provider, env)
+  const request = await usageRequest(provider, env, version)
 
   if (!request) return
+  const usage = await ask(request)
+
+  // An opted-in read Anthropic refuses falls back to the plain one: the usage bars
+  // must not depend on the unofficial reset block.
+  if (usage !== undefined || request.url !== CLAUDE_RESETS_URL) return usage
+  const { 'user-agent': _agent, 'x-app': _app, ...headers } = request.headers
+
+  return ask({ url: CLAUDE_USAGE_URL, headers })
+}
+
+async function ask(request: UsageRequest): Promise<unknown> {
   try {
     const response = await fetch(request.url, {
       headers: request.headers,

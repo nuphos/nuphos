@@ -82,7 +82,8 @@ function broadcastState(): void {
 const macScreen = macScreenApp(dataDir(), bundleRoot, () => tunnel?.sendStatus())
 let tunnel: RuntimeTunnelClient | undefined
 
-const controller: LocalRuntimeController = new LocalRuntimeController({
+/** Exported for the IPC that reaches its agents' Claude limit resets. */
+export const controller: LocalRuntimeController = new LocalRuntimeController({
   bundle: findBundle,
   dataDir,
   nodeExecPath: process.execPath,

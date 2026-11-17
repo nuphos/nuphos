@@ -5,6 +5,7 @@ import {
   formatResetsAt,
   quotaDetailLines,
   quotaNote,
+  quotaResetsLine,
   quotaSignedOut,
   quotaSummary,
   quotaTone,
@@ -115,4 +116,26 @@ test('only the probe finding no sign-in reads as signed out', () => {
   assert.equal(quotaSignedOut({ ...signedOut, reason: 'Usage lookup failed' }), false)
   assert.equal(quotaSignedOut({ ...signedOut, available: true }), false)
   assert.equal(quotaSignedOut(undefined), false)
+})
+
+function held(resets: RuntimeQuota['resets']): RuntimeQuota {
+  return {
+    ...quota([{ id: 'seven_day', label: 'Weekly', usedPercent: 45, resetsAt: null }]),
+    ...(resets ? { resets } : {}),
+  }
+}
+
+test('resets read as a count and the date the first one must be used by', () => {
+  assert.match(
+    quotaResetsLine(
+      held({ left: 1, expiresAt: '2026-12-10T22:00:00+00:00', usableNow: true, kind: 'weekly' }),
+    ) ?? '',
+    /^1 reset · use by \S/u,
+  )
+  assert.match(
+    quotaResetsLine(held({ left: 3, expiresAt: 'garbage', usableNow: true, kind: 'weekly' })) ?? '',
+    /^3 resets$/u,
+  )
+  assert.equal(quotaResetsLine(held(undefined)), null)
+  assert.equal(quotaResetsLine(undefined), null)
 })

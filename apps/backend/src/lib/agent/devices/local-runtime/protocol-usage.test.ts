@@ -97,3 +97,61 @@ test('Antigravity presence survives tunnel validation with its sign-in status', 
     localRuntimeStatusSchema.parse({ agents: { antigravity: agent } }).agents.antigravity,
   ).toEqual(agent)
 })
+
+test('a reset grant reaches the team as a count and a date, never its id', () => {
+  const parsed = localRuntimeStatusSchema.parse({
+    agents: {
+      'claude-code': {
+        cli: { installed: true, loggedIn: true },
+        usage: {
+          ...usage,
+          cedar_ember: {
+            eligible: true,
+            next_grant_id: 'grant_secret',
+            event_props: { tenure_bucket: '90-364', billing_path: 'stripe' },
+            grants: [
+              {
+                id: 'grant_secret',
+                label: 'One full limit reset',
+                resets_left: 1,
+                ends_at: '2026-12-10T22:00:00+00:00',
+                usable_now: true,
+                paused: false,
+                type: 'weekly',
+                clears: ['seven_day'],
+              },
+            ],
+          },
+        },
+      },
+    },
+  })
+
+  expect(parsed.agents['claude-code']?.usage).toEqual({
+    ...usage,
+    cedar_ember: {
+      grants: [
+        {
+          resets_left: 1,
+          type: 'weekly',
+          ends_at: '2026-12-10T22:00:00+00:00',
+          usable_now: true,
+          paused: false,
+        },
+      ],
+    },
+  })
+})
+
+test('a reset block that does not fit costs the resets, never the usage', () => {
+  const parsed = localRuntimeStatusSchema.parse({
+    agents: {
+      'claude-code': {
+        cli: { installed: true, loggedIn: true },
+        usage: { ...usage, cedar_ember: { grants: 'many' } },
+      },
+    },
+  })
+
+  expect(parsed.agents['claude-code']?.usage).toEqual(usage)
+})

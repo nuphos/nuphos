@@ -94,6 +94,48 @@ export function quotaDetailLines(
   now: Date = new Date(),
 ): string[] {
   if (!quota?.available) return []
+  const resets = quotaResetsLine(quota)
 
-  return quota.windows.map((window) => quotaWindowLine(window, now))
+  return [
+    ...quota.windows.map((window) => quotaWindowLine(window, now)),
+    ...(resets ? [resets] : []),
+  ]
+}
+
+/** "2 resets · use by Dec 10": the Claude limit resets the account holds, if any. */
+export function quotaResetsLine(quota: RuntimeQuota | undefined): string | null {
+  const resets = quota?.available ? quota.resets : undefined
+
+  if (!resets || resets.left <= 0) return null
+  const count = resets.left === 1 ? t('1 reset') : t('{count} resets', { count: resets.left })
+  const by = resets.expiresAt ? new Date(resets.expiresAt) : null
+
+  if (!by || Number.isNaN(by.getTime())) return count
+
+  return `${count} · ${t('use by {date}', { date: by.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) })}`
+}
+
+const RESET_KINDS: Record<string, () => string> = {
+  weekly: () => t('Weekly reset'),
+  session: () => t('5-hour reset'),
+  fable: () => t('Fable reset'),
+  full: () => t('Full reset'),
+}
+
+/** The kind of reset spent next, as Anthropic names it; an unknown name is shown as is. */
+export function resetKindLabel(kind: string | null): string {
+  return (kind && RESET_KINDS[kind]?.()) ?? kind ?? t('Limit reset')
+}
+
+/** Why a reset action did not go through, for the owner; null when it did. Nothing is
+ *  retried on its own: a spend that may have reached Anthropic must not run twice. */
+export function resetOutcomeError(result: string): string | null {
+  if (result === 'reset' || result === 'saved') return null
+  if (result === 'none') return t('No reset can be used right now. Nothing was spent.')
+  if (['already_used', 'not_limited', 'cooldown', 'ineligible'].includes(result))
+    return t('Anthropic declined it: {reason}', { reason: result })
+
+  return t(
+    'Anthropic did not answer as expected, and nothing is retried. Check claude.ai/settings/usage before trying again.',
+  )
 }

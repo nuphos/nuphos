@@ -25,6 +25,7 @@ import { PreviewTag } from './PreviewTag'
 import { RuntimeOverview, RuntimeUsageSection } from './RuntimeOverview'
 import { STATUS_DOT, runtimeRemovalDescription, runtimeStatusView } from './runtimePresentation'
 import { removeRuntime } from './runtimeRemoval'
+import { RuntimeResets } from './RuntimeResets'
 import { RuntimeSignIn } from './RuntimeSignIn'
 import { RuntimeUpdateNotice } from './RuntimeUpdateNotice'
 import { runtimeUpdatePresentation } from './runtimeUpdatePresentation'
@@ -179,6 +180,7 @@ export function RuntimeInstanceCard({
           onRemove={() => setConfirmRemoval(true)}
         />
       </div>
+      <RuntimeResets teamId={teamId} instance={instance} quota={quota} />
       <RuntimeUpdateNotice
         update={runtimeUpdate}
         managed={updatable}

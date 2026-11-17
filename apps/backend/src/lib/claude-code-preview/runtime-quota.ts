@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { logError } from '@/lib/observability'
 
 import { runtimeLabel } from './runtime-provider'
+import { normalizeClaudeUsage } from './runtime-quota-claude'
 import { normalizeGrokUsage } from './runtime-quota-grok'
 import { recordRuntimeQuotaSample } from './runtime-quota-history'
 import { probeRuntimeQuota } from './runtime-quota-probe'
@@ -14,6 +15,7 @@ import type { RuntimeQuotaReading } from './runtime-quota-probe'
 import type { RuntimeQuota, RuntimeQuotaWindow } from './runtime-quota-shape'
 
 export type { RuntimeQuota, RuntimeQuotaWindow } from './runtime-quota-shape'
+export { normalizeClaudeUsage } from './runtime-quota-claude'
 
 // Usage windows are five hours and a week wide, and the providers rate-limit
 // the endpoints that report them: Anthropic's answers 429 to a minute-paced
@@ -25,23 +27,6 @@ const PROVIDER_HOLD_MS = 600_000
 // without the job, a lost connection. Asking again costs one local job, so an
 // agent that comes back shows its usage in seconds rather than minutes.
 const RETRY_HOLD_MS = 30_000
-
-const claudeWindow = z
-  .object({
-    utilization: z.number().optional(),
-    resets_at: z.string().nullable().optional(),
-  })
-  .nullable()
-  .optional()
-
-const claudeUsageSchema = z
-  .object({
-    five_hour: claudeWindow,
-    seven_day: claudeWindow,
-    seven_day_opus: claudeWindow,
-    seven_day_sonnet: claudeWindow,
-  })
-  .passthrough()
 
 const codexWindow = z
   .object({
@@ -61,46 +46,6 @@ const codexUsageSchema = z
       .optional(),
   })
   .passthrough()
-
-type ClaudeWindowKey = 'five_hour' | 'seven_day' | 'seven_day_opus' | 'seven_day_sonnet'
-const CLAUDE_WINDOWS: [ClaudeWindowKey, string][] = [
-  ['five_hour', '5-hour'],
-  ['seven_day', 'Weekly'],
-  ['seven_day_opus', 'Weekly · Opus'],
-  ['seven_day_sonnet', 'Weekly · Sonnet'],
-]
-
-export function normalizeClaudeUsage(
-  instance: RuntimeInstance,
-  body: unknown,
-  fetchedAt: string,
-): RuntimeQuota {
-  const parsed = claudeUsageSchema.safeParse(body)
-
-  if (!parsed.success) return unavailable(instance, fetchedAt, 'Unrecognized usage response')
-  const windows: RuntimeQuotaWindow[] = []
-
-  for (const [key, label] of CLAUDE_WINDOWS) {
-    const window = parsed.data[key]
-
-    if (!window || typeof window.utilization !== 'number') continue
-    windows.push({
-      id: key,
-      label,
-      usedPercent: clampPercent(window.utilization),
-      resetsAt: window.resets_at ?? null,
-    })
-  }
-
-  return {
-    runtimeId: instance.id,
-    provider: instance.provider,
-    fetchedAt,
-    available: windows.length > 0,
-    ...(windows.length ? {} : { reason: 'No usage windows reported' }),
-    windows,
-  }
-}
 
 function codexWindowLabel(seconds: number | undefined, fallback: string): string {
   if (!seconds) return fallback

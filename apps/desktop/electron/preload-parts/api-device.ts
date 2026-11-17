@@ -35,6 +35,8 @@ export const deviceApi = {
   localRuntimeSetSleepPreferences: (value: unknown) =>
     ipcRenderer.invoke('localRuntime:setSleepPreferences', value),
   localRuntimeGetState: () => ipcRenderer.invoke('localRuntime:getState'),
+  localRuntimeClaudeResets: (action: 'spend' | 'on' | 'off', instanceId?: string) =>
+    ipcRenderer.invoke('localRuntime:claudeResets', action, instanceId),
   onLocalRuntimeState: (cb: (state: unknown) => void) => {
     const handler = (_e: unknown, state: unknown) => cb(state)
 
