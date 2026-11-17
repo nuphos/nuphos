@@ -54,7 +54,7 @@ class LocalNotifications(
     }
 
     fun post(target: LocalNotificationTarget, title: String = "Nuphos", body: String? = null, badge: Int? = null,
-             sender: NotificationSender? = null): Boolean {
+             sender: NotificationFace? = null): Boolean {
         if (LocalNotificationTarget.from(target.accountId, target.teamId, target.sessionId) != target ||
             account() != target.accountId || !aiAllowed() ||
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED ||
@@ -84,11 +84,10 @@ class LocalNotifications(
             .setNumber(badge ?: 0).setContentIntent(tap).setAutoCancel(true).addAction(reply)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
         // A Bot speaks with its own face, as on iOS; without one it stays a plain Nuphos notification.
-        val face = sender?.let { NotificationAvatars.bitmap(context, it.avatarFile) }
-        if (sender != null && face != null) {
-            val bot = Person.Builder().setName(sender.name).setIcon(IconCompat.createWithBitmap(face)).setKey(target.sessionId).build()
+        if (sender != null) {
+            val bot = Person.Builder().setName(sender.name).setIcon(IconCompat.createWithBitmap(sender.bitmap)).setKey(target.sessionId).build()
             val you = Person.Builder().setName(context.getString(R.string.shell_notification_you)).build()
-            builder.setLargeIcon(face).setStyle(NotificationCompat.MessagingStyle(you).addMessage(text, System.currentTimeMillis(), bot))
+            builder.setLargeIcon(sender.bitmap).setStyle(NotificationCompat.MessagingStyle(you).addMessage(text, System.currentTimeMillis(), bot))
         }
         manager.notify(TAG, target.hashCode(), builder.build())
         return true

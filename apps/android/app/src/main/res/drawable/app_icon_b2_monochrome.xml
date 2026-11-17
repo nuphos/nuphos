@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Napoleon single-color mark from https://nuphos.ai/brand (nuphos-icon-mono-white.svg), traced to paths. Themed-icon layer for app icon B2. -->
+<!-- Traced with Potrace from the PNG inside nuphos-icon-mono-white.svg (nuphos.ai/brand); not the master vector. See ASSETS.md. Themed-icon layer for app icon B2. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"

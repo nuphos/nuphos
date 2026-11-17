@@ -1,5 +1,6 @@
 package ai.nuphos.android.notifications
 
+import android.graphics.Bitmap
 import ai.nuphos.android.model.BotAvatars
 
 /** The Bot a notification speaks for: its name and a face this build ships, as iOS shows it. */
@@ -13,3 +14,6 @@ data class NotificationSender(val name: String, val avatarFile: String) {
         }
     }
 }
+
+/** A sender whose face is already rendered, ready to post. */
+class NotificationFace(val name: String, val bitmap: Bitmap)
