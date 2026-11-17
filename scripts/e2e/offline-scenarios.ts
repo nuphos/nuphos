@@ -125,7 +125,9 @@ export const offlineScenarios: Scenario[] = [
         await page.getByText(`moved this task from E2E fixture agent to`).waitFor()
         const banner = page
           .getByRole('status')
-          .filter({ hasText: `${LAPTOP}’s disk is almost full (93%). Bots and tasks on it may fail.` })
+          .filter({
+            hasText: `${LAPTOP}’s disk is almost full (93%). Bots and tasks on it may fail.`,
+          })
 
         await banner.waitFor()
         await page.screenshot({ path: join(artifacts, 'disk-banner.png') })
