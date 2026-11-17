@@ -25,3 +25,14 @@ test('a Box its provider paused for host memory says so, and that it wakes on us
   assert.equal(providerPause(box('paused', 'paused')), undefined)
   assert.equal(providerPause({ ...evicted, box: { ...evicted.box!, state: 'running' } }), undefined)
 })
+
+test('a Box its provider paused for another reason it wakes from says so, without blaming memory', () => {
+  for (const reason of ['idle', 'drain', 'max_run', 'admin'])
+    assert.equal(
+      providerPause(box(reason, 'paused', reason)),
+      'Paused by the provider. It resumes when you use it.',
+    )
+  // An abuse lock or a billing pause does not wake on use: promising it would be wrong.
+  for (const reason of ['abuse_cpu', 'credit', 'spend_cap'])
+    assert.equal(providerPause(box(reason, 'paused', reason)), undefined)
+})

@@ -34,10 +34,18 @@ export const BOX_BADGE: Record<MachineState, RuntimeStatusView> = {
   error: { label: t("Didn't start"), tone: 'error' },
 }
 
-/** Why a paused Box is paused when its provider did it, not a person: its host ran out of memory. */
+// instabox's own pauses that the next use wakes from; its abuse and billing pauses do not.
+const WAKES_ON_USE = new Set(['idle', 'drain', 'max_run', 'admin'])
+
+/** Why a paused Box is paused when its provider did it, not a person, and that using it wakes it. */
 export function providerPause(device: AgentDevice): string | undefined {
-  return device.box?.state === 'paused' && device.box.pausedBy === 'memory_pressure'
-    ? t('Paused by the provider (host out of memory). It resumes when you use it.')
+  const reason = device.box?.state === 'paused' ? device.box.pausedBy : undefined
+
+  if (reason === 'memory_pressure')
+    return t('Paused by the provider (host out of memory). It resumes when you use it.')
+
+  return reason && WAKES_ON_USE.has(reason)
+    ? t('Paused by the provider. It resumes when you use it.')
     : undefined
 }
 

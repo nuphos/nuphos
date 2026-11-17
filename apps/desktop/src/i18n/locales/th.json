@@ -3344,6 +3344,7 @@
   "Pause trigger": "หยุดทริกเกอร์ชั่วคราว",
   "Paused": "หยุดชั่วคราว",
   "Paused by the provider (host out of memory). It resumes when you use it.": "ผู้ให้บริการหยุดชั่วคราว (หน่วยความจำของโฮสต์ไม่พอ) จะกลับมาทำงานเมื่อคุณใช้งาน",
+  "Paused by the provider. It resumes when you use it.": "ผู้ให้บริการหยุดชั่วคราว จะกลับมาทำงานเมื่อคุณใช้งาน",
   "Paused computers are free and wake up as you left them.": "คอมพิวเตอร์ที่หยุดชั่วคราวไม่มีค่าใช้จ่าย และกลับมาทำงานต่อในสภาพเดิม",
   "Paused computers use no vCPU. {free} vCPU free.": "คอมพิวเตอร์ที่หยุดชั่วคราวไม่ใช้ vCPU ว่างอยู่ {free} vCPU",
   "Paused while running on battery": "หยุดชั่วคราวขณะใช้แบตเตอรี่",
