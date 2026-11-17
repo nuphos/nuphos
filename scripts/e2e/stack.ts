@@ -16,6 +16,8 @@ const MONGO_IMAGE = 'mongo:8.0.32'
 
 export type Stack = {
   apiUrl: string
+  /** For what only the database can set up, such as a row that is gone. */
+  mongoUri: string
   email: string
   token: string
   teamId: string
@@ -278,6 +280,7 @@ export async function startStack(): Promise<Stack> {
 
   return {
     apiUrl,
+    mongoUri,
     email,
     token,
     teamId,
