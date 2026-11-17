@@ -4218,6 +4218,7 @@
   "Shared with everyone in this workspace. Injected first.": "與此工作區中的所有人共用。最先注入。",
   "Shared with {n}": "已與 {n} 人共用",
   "Shared · view-only": "共用 · 僅供檢視",
+  "Shares quota with {name}": "與 {name} 共用額度",
   "Shortcut: just @mention {name} in a group the bot is already in — it auto-links on the first mention.": "捷徑：只要在 Bot 已加入的群組中 @提及 {name}，第一次提及時就會自動連結。",
   "Show": "顯示",
   "Show All": "顯示全部",

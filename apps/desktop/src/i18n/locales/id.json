@@ -4218,6 +4218,7 @@
   "Shared with everyone in this workspace. Injected first.": "Dibagikan dengan semua orang di workspace ini. Disisipkan pertama.",
   "Shared with {n}": "Dibagikan dengan {n}",
   "Shared · view-only": "Dibagikan · hanya lihat",
+  "Shares quota with {name}": "Berbagi kuota dengan {name}",
   "Shortcut: just @mention {name} in a group the bot is already in — it auto-links on the first mention.": "Pintasan: cukup @mention {name} di grup yang sudah berisi bot — tertaut otomatis pada mention pertama.",
   "Show": "Tampilkan",
   "Show All": "Tampilkan Semua",

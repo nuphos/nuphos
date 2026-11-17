@@ -49,6 +49,7 @@ export function instanceStatus(
         installed: cli?.installed ?? false,
         loggedIn: cli?.installed ? cli.loggedIn : false,
         ...(cli?.installed && cli.apiKey ? { apiKey: true as const } : {}),
+        ...(cli?.installed && cli.accountKey ? { accountKey: cli.accountKey } : {}),
       },
     }
   })

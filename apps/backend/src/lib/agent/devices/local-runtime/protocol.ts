@@ -114,6 +114,8 @@ const localAgentStatusSchema = z.object({
     loggedIn: z.boolean().nullable(),
     /** Signed in with an API key rather than an account; never the key itself. */
     apiKey: z.boolean().optional().catch(undefined),
+    /** The account whose quota it spends, as a hash only that computer can make. */
+    accountKey: z.optional(z.string().regex(/^[0-9a-f]{16}$/u)).catch(undefined),
   }),
   version: z.string().max(200).optional(),
   // Never fatal, like usage: a catalog over its bounds costs the model picker,

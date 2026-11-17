@@ -171,6 +171,7 @@ export function tunnelStatusOf(
         installed: true,
         loggedIn: agent.cli.loggedIn,
         ...(agent.cli.apiKey ? { apiKey: true } : {}),
+        ...(agent.cli.accountKey ? { accountKey: agent.cli.accountKey } : {}),
       },
       // An account's usage says nothing about a custom provider: unknown, not a stale figure.
       ...(agent.usage !== undefined && agent.usageAt && !agent.cli.customProvider
