@@ -77,6 +77,37 @@ test('a Codex usage limit is not reported', () => {
   expect(captured).toHaveLength(0)
 })
 
+test('a busy runtime is not reported: the message waits and runs after the turn ahead', () => {
+  // The runtime names what it is busy with; the refusal carries that label.
+  for (const label of ['Running tools…', 'Responding…', 'Reading or updating session settings…'])
+    recordTriggerRunFailure(
+      new AppError(409, 'runtime_not_accepting_message', label),
+      trace,
+      'agent.resource',
+    )
+
+  expect(captured).toHaveLength(0)
+})
+
+test("the user's own setup is not reported: a conversation too long, or a model the endpoint lacks", () => {
+  recordTriggerRunFailure(
+    notice(
+      '{"message":"OpenCode Go: Upstream request failed: [400003] Input tokens exceed the model context limit.","type":"api_error","code":"context_length_exceeded"}',
+    ),
+    trace,
+    'agent.resource',
+  )
+  recordTriggerRunFailure(
+    notice(
+      "API Error: 400 400: {'error': 'anthropic_messages: Invalid model name passed in model=claude-opus-5-5. Call `/v1/models` to view available models for your key.'}",
+    ),
+    trace,
+    'agent.thread',
+  )
+
+  expect(captured).toHaveLength(0)
+})
+
 test('a probe that times out, and any other failure, are still reported', async () => {
   const timeout = await RuntimeStateProbeError.from(new Error('OpenAB ACP initialize timed out'))
 
