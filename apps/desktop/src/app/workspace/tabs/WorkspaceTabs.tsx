@@ -190,7 +190,7 @@ export function WorkspaceTabs({
     // sidebar header puts its own controls. A `pt-1` here pushed the tabs —
     // and the sidebar toggle that reappears beside them once the sidebar is
     // collapsed — 2px below all three.
-    <div className="workspace-dock-toggle-pad sheet-titlebar-row bg-main flex-shrink-0 flex items-center gap-0.5 titlebar-caption-pad titlebar-drag">
+    <div className="pr-[var(--dock-toggle-pad)] sheet-titlebar-row bg-main flex-shrink-0 flex items-center gap-0.5 titlebar-caption-pad titlebar-drag">
       {sidebarCollapsed && onToggleSidebarCollapse && (
         // Mirror the sidebar's titlebar button once the sidebar is hidden. On
         // macOS the leading margin clears the traffic lights it now sits beside;

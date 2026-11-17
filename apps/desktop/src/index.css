@@ -1032,24 +1032,25 @@
   }
 
   /* The workspace-dock toggle is viewport-anchored so opening the dock never
-     pushes it left. The tab strip stops 4px short of it, so the dock's own
-     trailing controls sit beside it. */
+     pushes it left. Whatever runs under it, the dock's tab strip or a header
+     while the dock is closed, pads its right end by --dock-toggle-pad and so
+     stops 4px short of it. */
+  :root {
+    --dock-toggle-pad: calc(2.5rem + 4px);
+  }
+  html.platform-windows,
+  html.platform-linux {
+    --dock-toggle-pad: calc(var(--caption-reserve) + 2.5rem + 4px);
+  }
   .workspace-dock-toggle {
     position: fixed;
     z-index: 40;
     top: calc(8px + var(--sheet-inset));
     right: calc(0.75rem + var(--sheet-inset));
   }
-  .workspace-dock-toggle-pad {
-    padding-right: calc(2.5rem + 4px);
-  }
   html.platform-windows .workspace-dock-toggle,
   html.platform-linux .workspace-dock-toggle {
     right: calc(var(--caption-reserve) + 0.75rem + var(--sheet-inset));
-  }
-  html.platform-windows .workspace-dock-toggle-pad,
-  html.platform-linux .workspace-dock-toggle-pad {
-    padding-right: calc(var(--caption-reserve) + 2.5rem + 4px);
   }
 
   [data-base-ui-inert] {

@@ -1,5 +1,6 @@
 // Scenarios about the sidebar itself.
 import { must } from './binding-access-scenarios.ts'
+import { checkDockToggleClear } from './chat-presentation.ts'
 import { artifacts } from './processes.ts'
 import { newTask, send } from './ui.ts'
 
@@ -13,6 +14,7 @@ export const sidebarScenarios: Scenario[] = [
       await newTask(page)
       await send(page, 'Hello E2E_DELIVERY:sidebar')
       await page.getByText('ACK E2E_DELIVERY:sidebar').waitFor()
+      await checkDockToggleClear(page, 'Task chat')
       for (const tab of ['Tasks', 'Inbox', 'Bots']) {
         await page.getByRole('tab', { name: tab }).click()
         await page.waitForTimeout(500)
