@@ -19,13 +19,23 @@ const said = (error: unknown, pattern: RegExp) => {
   return false
 }
 
+/** A failure the user's own setup caused: a conversation too long for the model, or a model the endpoint does not serve. */
+export function userSetupFailure(error: unknown) {
+  if (said(error, CONTEXT_TOO_LONG)) return 'context_too_long' as const
+  if (said(error, MODEL_UNAVAILABLE)) return 'model_unavailable' as const
+
+  return undefined
+}
+
 /**
  * The sentence for a failure only the user can resolve, whichever agent hit it, or undefined.
  * The provider's own text stays in the logs.
  */
 export function plainTurnFailure(error: unknown): string | undefined {
-  if (said(error, CONTEXT_TOO_LONG)) return CONTEXT_TOO_LONG_MESSAGE
-  if (said(error, MODEL_UNAVAILABLE)) return MODEL_UNAVAILABLE_MESSAGE
+  const setup = userSetupFailure(error)
+
+  if (setup === 'context_too_long') return CONTEXT_TOO_LONG_MESSAGE
+  if (setup === 'model_unavailable') return MODEL_UNAVAILABLE_MESSAGE
 
   return runtimeProductStateMessage(error)
 }
