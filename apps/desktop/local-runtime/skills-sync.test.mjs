@@ -76,6 +76,43 @@ test('installs the team bundle into the workspace and skips an unchanged revisio
   assert.equal(requests[0].authorization, 'Bearer token')
 })
 
+test('a prompt re-syncs the team skills, so a live session gets a skill added after it opened', async (t) => {
+  const codexParams = { _meta: { 'ai.nuphos/codex': { env: params._meta.claudeCode.options.env } } }
+
+  for (const [shape, opened] of [
+    ['codex', codexParams],
+    ['claude', structuredClone(params)],
+  ]) {
+    const workspace = mkdtempSync(join(tmpdir(), 'skills-'))
+    const sessionHome = mkdtempSync(join(tmpdir(), 'home-'))
+    let revision = 'r1'
+
+    t.mock.method(globalThis, 'fetch', (url) =>
+      Promise.resolve(
+        String(url).includes('scope=personal')
+          ? new Response(null, { status: 404 })
+          : revision === 'r1'
+            ? bundle('r1', [file('deploy/SKILL.md', '# Deploy')])
+            : bundle('r2', [
+                file('deploy/SKILL.md', '# Deploy'),
+                file('report/SKILL.md', '# Report'),
+              ]),
+      ),
+    )
+    assert.equal(await sync(opened, { workspace, sessionHome }), true, shape)
+    // Someone adds a team skill while the session stays open.
+    revision = 'r2'
+    await globalThis.nuphosRefreshSkills(undefined, { sessionId: 's1' })
+    assert.equal(
+      readFileSync(join(workspace, '.claude', 'skills', 'report', 'SKILL.md'), 'utf8'),
+      '# Report',
+      shape,
+    )
+    delete globalThis.nuphosRefreshSkills
+    t.mock.restoreAll()
+  }
+})
+
 test('the first session in a workspace starts with the team skills on disk', async (t) => {
   const workspace = mkdtempSync(join(tmpdir(), 'skills-'))
   const sessionHome = mkdtempSync(join(tmpdir(), 'home-'))
@@ -94,7 +131,7 @@ test('the first session in a workspace starts with the team skills on disk', asy
     readFileSync(join(workspace, '.claude', 'skills', 'deploy', 'SKILL.md'), 'utf8'),
     '# Deploy',
   )
-  delete globalThis.nuphosRefreshPersonalSkills
+  delete globalThis.nuphosRefreshSkills
 })
 
 test('a first session still opens when the team bundle cannot be fetched', async (t) => {
@@ -124,7 +161,7 @@ test('a session on an older team bundle starts with the newer one', async (t) =>
   // Not `.synced`: this is the moment the agent starts and reads its skills, once.
   await nuphosLocalSyncSkills(structuredClone(params), { workspace, sessionHome })
   assert.equal(readFileSync(join(workspace, '.claude', 'skills', 'r2', 'SKILL.md'), 'utf8'), '# r2')
-  delete globalThis.nuphosRefreshPersonalSkills
+  delete globalThis.nuphosRefreshSkills
 })
 
 test('a session opens once a fetch that never answers times out', async (t) => {
@@ -153,7 +190,7 @@ test('a session opens once a fetch that never answers times out', async (t) => {
   assert.deepEqual(opened._meta.claudeCode.options.additionalDirectories, [
     join(sessionHome, 'personal-skills'),
   ])
-  delete globalThis.nuphosRefreshPersonalSkills
+  delete globalThis.nuphosRefreshSkills
 })
 
 test('each session offers the team skills, and only those, as a plugin of its own', async (t) => {
@@ -209,7 +246,7 @@ test('each session offers the team skills, and only those, as a plugin of its ow
   }
   // The next session gets wrappers of its own.
   assert.notEqual((await plugins())[0].path, first[0].path)
-  delete globalThis.nuphosRefreshPersonalSkills
+  delete globalThis.nuphosRefreshSkills
 })
 
 test('a skill added after the sync is fetched over, and never offered', async (t) => {
@@ -240,7 +277,7 @@ test('a skill added after the sync is fetched over, and never offered', async (t
     const opened = structuredClone(params)
 
     await nuphosLocalSyncSkills(opened, { workspace, sessionHome })
-    delete globalThis.nuphosRefreshPersonalSkills
+    delete globalThis.nuphosRefreshSkills
 
     return opened._meta.claudeCode.options.plugins.map((plugin) =>
       plugin.path.split(/[\\/]/u).at(-1),
@@ -295,7 +332,7 @@ test('a wrapper goes with its session’s process, or with the next session afte
 
   t.mock.method(globalThis, 'fetch', () => Promise.reject(new Error('offline')))
   await nuphosLocalSyncSkills(structuredClone(params), { workspace, sessionHome })
-  delete globalThis.nuphosRefreshPersonalSkills
+  delete globalThis.nuphosRefreshSkills
   assert.equal(lstatSync(stale, { throwIfNoEntry: false }), undefined)
   assert.ok(lstatSync(live))
   rmSync(live, { recursive: true })
@@ -421,7 +458,7 @@ test('personal skills follow the turn’s credential and never land in the works
     calls.length = 0
     if (token === undefined) rmSync(credential, { force: true })
     else writeFileSync(credential, `${token}\n`)
-    await globalThis.nuphosRefreshPersonalSkills(agent, { sessionId: 's1' })
+    await globalThis.nuphosRefreshSkills(agent, { sessionId: 's1' })
 
     return [...calls]
   }
@@ -473,7 +510,7 @@ test('personal skills follow the turn’s credential and never land in the works
   reopened._meta.claudeCode.options.env.NUPHOS_RUNTIME_SKILLS_TOKEN = 'p.none.10.sig'
   await sync(reopened, { workspace, sessionHome, credentialsDir })
   assert.deepEqual(readdirSync(skills), [])
-  delete globalThis.nuphosRefreshPersonalSkills
+  delete globalThis.nuphosRefreshSkills
 })
 
 test('a reopened session never starts on another member’s personal skills', async (t) => {
@@ -492,7 +529,7 @@ test('a reopened session never starts on another member’s personal skills', as
     reopened._meta.claudeCode.options.env.NUPHOS_RUNTIME_SKILLS_TOKEN = `p.${who}.1.sig`
     writeFileSync(join(credentialsDir, 'NUPHOS_RUNTIME_SKILLS_TOKEN'), `p.${who}.1.sig\n`)
     await nuphosLocalSyncSkills(reopened, { workspace, sessionHome, credentialsDir })
-    delete globalThis.nuphosRefreshPersonalSkills
+    delete globalThis.nuphosRefreshSkills
   }
 
   // No fetch succeeds: whatever the session starts on is what was left on disk.
