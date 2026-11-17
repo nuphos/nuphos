@@ -28,7 +28,7 @@ struct ToolCallRow: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 8) {
                         statusIcon
-                        Image(systemName: part.systemImage)
+                        LucideIcon(systemName: part.systemImage)
                             .font(Theme.Text.caption.weight(.semibold))
                             .foregroundStyle(Theme.muted)
                         Text(label)
@@ -93,13 +93,13 @@ struct ToolCallRow: View {
         case .inputStreaming, .inputAvailable, .approvalResponded:
             ProgressView().controlSize(.small).tint(tint)
         case .approvalRequested:
-            Image(systemName: "hand.raised.fill").foregroundStyle(tint)
+            LucideIcon("hand").foregroundStyle(tint)
         case .outputAvailable:
-            Image(systemName: "checkmark.circle.fill").foregroundStyle(tint)
+            LucideIcon("circle-check").foregroundStyle(tint)
         case .outputError:
-            Image(systemName: "xmark.circle.fill").foregroundStyle(tint)
+            LucideIcon("circle-x").foregroundStyle(tint)
         case .outputDenied:
-            Image(systemName: "nosign").foregroundStyle(tint)
+            LucideIcon("ban").foregroundStyle(tint)
         }
     }
 
@@ -136,7 +136,7 @@ struct ApprovalActions: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 6) {
-                Image(systemName: "lock.shield").font(Theme.Text.caption)
+                LucideIcon("shield").font(Theme.Text.caption)
                 Text(reason.map { String(localized: "Authorization required — \($0)") } ?? String(localized: "Authorization required"))
                     .font(Theme.Text.label)
             }
@@ -198,7 +198,7 @@ struct ToolRunView: View {
                         if tools.count > 1 {
                             Text("· \(tools.count) calls").foregroundStyle(Theme.muted)
                         }
-                        Image(systemName: "chevron.right")
+                        LucideIcon("chevron-right")
                             .font(Theme.Text.micro.weight(.bold))
                             .foregroundStyle(Theme.muted)
                             .rotationEffect(.degrees(open ? 90 : 0))
@@ -329,7 +329,7 @@ struct WorkGroup: View {
             } label: {
                 HStack(spacing: 6) {
                     Text(title)
-                    Image(systemName: "chevron.right")
+                    LucideIcon("chevron-right")
                         .font(Theme.Text.micro.weight(.bold))
                         .rotationEffect(.degrees(expanded ? 90 : 0))
                         .opacity(expanded ? 0.6 : 0.35)
