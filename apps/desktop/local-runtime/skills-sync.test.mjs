@@ -372,6 +372,8 @@ test('a newer revision replaces the old tree', async (t) => {
   await sync(params, { workspace })
 
   assert.deepEqual(readdirSync(join(workspace, '.claude', 'skills')), ['s2.md'])
+  // Swap first, then delete the old tree. A live Codex session notices a new bundle only
+  // when the tree it watches is deleted, not when the symlink moves (#3365).
   assert.equal(
     readdirSync(join(workspace, '.claude')).filter((name) => name.startsWith('skills.')).length,
     1,
