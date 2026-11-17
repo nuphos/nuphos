@@ -1,3 +1,4 @@
+import type { BoxStatus } from './box-types.ts'
 import type { LocalAgentProvider } from './local-agent-providers.ts'
 
 export type { LocalAgentProvider }
@@ -182,19 +183,7 @@ export type LocalShareApproval = {
   requestedAt: string
 }
 
-/** Who may use a Box besides its owner and managers, who always may. */
-export type BoxAccess = { everyone: boolean; userIds: string[] }
-
-export type BoxStatus = {
-  provider: 'instabox'
-  /** Only for those who manage the Box. */
-  access?: BoxAccess
-  /** Set once the machine exists. */
-  sandboxId?: string
-  state: BoxState
-  /** While an update restarts its host: when it began. Absent from older backends. */
-  updateStartedAt?: string
-}
+export type { BoxAccess, BoxStatus } from './box-types.ts'
 
 export type DeviceMetrics = {
   sampledAt: string

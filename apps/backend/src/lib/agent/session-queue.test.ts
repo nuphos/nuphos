@@ -889,6 +889,74 @@ test('a queued turn the runtime refuses after its check goes back to the front, 
   }
 })
 
+test('a queued turn refused again and again waits minutes, on every replica, before rereading its history', async () => {
+  installQueuedTurnStarter(startQueuedTurn)
+  installTurnRunner({
+    hasActiveAgentRunForSession: async () => false,
+    claimAgentRunForSession: async () => () => {
+      released++
+    },
+    runAgentForTrigger: async (args) => {
+      runs.push(args)
+      throw refusal('Running tools…')
+    },
+  })
+  try {
+    // Two quick refusals already; this try is the third.
+    await enqueuePendingUserMessage(OWNER, REFUSED, { ...agent('stuck'), attempts: 2 })
+    await startQueuedTurn(OWNER, REFUSED)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    const [head] = await listPendingUserMessages(OWNER, REFUSED)
+
+    expect(head?.attempts).toBe(3)
+    expect(Date.parse(head?.retryAfter ?? '') - Date.now()).toBeGreaterThan(4 * 60_000)
+
+    // Another replica's backstop or a release starts the queue: no turn runs.
+    await startQueuedTurn(OWNER, REFUSED)
+    expect(runs).toHaveLength(1)
+    expect(await refusedWaiting()).toHaveLength(1)
+  } finally {
+    await clearPendingUserMessages(OWNER, REFUSED)
+  }
+})
+
+test('a release starts a queue waiting out refusals at once, since the runtime is free', async () => {
+  const session = 'released-session'
+
+  installQueuedTurnStarter(startQueuedTurn)
+  installTurnRunner({
+    hasActiveAgentRunForSession: async () => false,
+    claimAgentRunForSession: async () => () => {
+      released++
+      sessionReleased(OWNER, session)
+    },
+    runAgentForTrigger: async (args) => {
+      runs.push(args)
+      if (runs.length === 1) throw refusal('Running tools…')
+
+      return { status: 'completed' }
+    },
+  })
+  try {
+    await enqueuePendingUserMessage(OWNER, session, { ...agent('stuck'), attempts: 2 })
+    await startQueuedTurn(OWNER, session)
+    // The refusal's own releases and the backstop all wait it out.
+    sessionReleased(OWNER, session)
+    await startQueuedTurn(OWNER, session)
+    await new Promise((resolve) => setTimeout(resolve, 5_100))
+    expect(runs).toHaveLength(1)
+    expect((await listPendingUserMessages(OWNER, session))[0]?.retryAfter).toBeDefined()
+
+    // The session's next run ends: its release starts the head straight away.
+    sessionReleased(OWNER, session)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(runs).toHaveLength(2)
+    expect(await listPendingUserMessages(OWNER, session)).toEqual([])
+  } finally {
+    await clearPendingUserMessages(OWNER, session)
+  }
+}, 10_000)
+
 test('a send held for a sign-in waits while the ask is open, and runs as its sender once settled', async () => {
   signInRequest = {
     runtimeId: 'managed-1',

@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { test } from 'node:test'
+import { fileURLToPath } from 'node:url'
 
 import { agentEnv } from '../image/acp-shim.mjs'
-import { runHermesLogin, signInPage } from '../image/hermes-login.mjs'
+import { runHermes, runHermesLogin, signInPage } from '../image/hermes-login.mjs'
 import { hermesProfile, modelBlock } from '../image/hermes-session.mjs'
 
 const ROOT_CONFIG =
@@ -205,4 +207,115 @@ test('on Windows, only sign-ins that never use the hidden prompt are offered', a
   assert.equal(frames[1].type, 'browser')
   assert.ok(hermes.calls.every((call) => !call.args.includes('api-key')))
   assert.deepEqual(frames.at(-1), { type: 'authenticated' })
+})
+
+/**
+ * Signs in to DeepSeek by running the wrapper as a computer does: openab hands it the
+ * CLI and a fresh home (shimEnv), and the CLI here is a stub. Like a Hermes from the
+ * official installer, it refuses `auth add` until it may prepare the new home's
+ * dependencies; `broken` never can, as when the package index is unreachable.
+ */
+function signInOnComputer({ env = {}, broken = false } = {}) {
+  const root = mkdtempSync(join(tmpdir(), 'hermes-computer-'))
+  const home = join(root, 'hermes-home')
+  mkdirSync(home)
+  const cli = join(root, 'hermes')
+  writeFileSync(
+    cli,
+    [
+      '#!/bin/sh',
+      'case "$1" in',
+      '  auth)',
+      `    if ${broken ? 'true' : '[ -n "$HERMES_DISABLE_LAZY_INSTALLS" ]'}; then`,
+      '      echo "error: no dependency environment is committed for this install; run hermes pm repair" >&2',
+      '      exit 1',
+      '    fi',
+      '    read -r key',
+      '    mkdir -p "$HERMES_HOME" && printf \'{"%s":"%s"}\' "$3" "$key" > "$HERMES_HOME/auth.json" ;;',
+      '  config) printf \'%s: %s\\n\' "$4" "$5" >> "$HERMES_HOME/config.yaml" ;;',
+      'esac',
+      '',
+    ].join('\n'),
+    { mode: 0o755 },
+  )
+  const result = spawnSync(
+    process.execPath,
+    [fileURLToPath(new URL('../image/hermes-login.mjs', import.meta.url))],
+    {
+      input: 'deepseek\nsk-test\n',
+      encoding: 'utf8',
+      env: {
+        PATH: process.env.PATH,
+        HOME: home,
+        NUPHOS_AGENT_EXECUTABLE: cli,
+        NUPHOS_AGENT_HOME: home,
+        ...env,
+      },
+    },
+  )
+  const frames = result.stdout
+    .trim()
+    .split('\n')
+    .map((line) => JSON.parse(line))
+  const read = (file) => {
+    try {
+      return readFileSync(join(home, '.hermes', file), 'utf8')
+    } catch {
+      return undefined
+    }
+  }
+  const signedIn = { frames, auth: read('auth.json'), config: read('config.yaml') }
+  rmSync(root, { recursive: true, force: true })
+  return signedIn
+}
+
+test("a computer's Hermes prepares a fresh home and signs in", () => {
+  const { frames, auth, config } = signInOnComputer()
+  assert.deepEqual(frames.at(-1), { type: 'authenticated' })
+  assert.equal(auth, '{"deepseek":"sk-test"}')
+  assert.equal(config, 'model.provider: deepseek\nmodel.default: deepseek-flash\n')
+})
+
+test('the image still refuses on-demand installs when its environment says so', () => {
+  const { frames, auth } = signInOnComputer({ env: { HERMES_DISABLE_LAZY_INSTALLS: '1' } })
+  assert.equal(frames.at(-1).type, 'error')
+  assert.equal(auth, undefined)
+})
+
+test('a home Hermes cannot prepare is reported as that, not as a wrong answer', () => {
+  const { frames } = signInOnComputer({ broken: true })
+  assert.deepEqual(frames.at(-1), { type: 'error', reason: 'environment' })
+})
+
+test('a Hermes that stops reading before the key is reported, not lost in the pipe', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'hermes-computer-'))
+  try {
+    const cli = join(root, 'hermes')
+    // Refuses, closes its stdin, and lives on a moment, so the key meets a closed pipe.
+    writeFileSync(
+      cli,
+      [
+        '#!/bin/sh',
+        'exec 0<&-',
+        'echo "error: no dependency environment is committed for this install"',
+        'sleep 0.3',
+        'exit 1',
+        '',
+      ].join('\n'),
+      { mode: 0o755 },
+    )
+    let refused
+    const said = new Promise((resolve) => {
+      refused = resolve
+    })
+    const add = runHermes(cli, ['auth', 'add', 'deepseek', '--type', 'api-key'], {
+      onOutput: refused,
+    })
+    await said
+    add.write('sk-test\n')
+    add.end()
+    await assert.rejects(add.done, { reason: 'environment' })
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
 })

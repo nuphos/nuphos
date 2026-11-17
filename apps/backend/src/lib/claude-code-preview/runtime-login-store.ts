@@ -24,6 +24,8 @@ export type RuntimeLoginStatus = {
   /** What a stepped sign-in asks of the user now. */
   step?: RuntimeLoginStep
   codeSubmitted?: boolean
+  /** The computer is installing the agent's CLI first. */
+  installing?: true
   error?: string
   expiresAt: string
 }
@@ -100,6 +102,7 @@ export function publicLogin(doc: RuntimeLoginDoc): RuntimeLoginStatus {
       ? { error: 'Sign-in expired. Start again.' }
       : {
           ...(doc.error ? { error: doc.error } : {}),
+          ...(doc.state === 'starting' && doc.installing ? { installing: true as const } : {}),
           ...(doc.state === 'awaiting_authorization'
             ? doc.step
               ? { step: doc.step, ...(doc.codeSubmitted ? { codeSubmitted: true } : {}) }

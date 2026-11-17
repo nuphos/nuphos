@@ -1,4 +1,6 @@
 // Scenarios about what becomes of an agent's question, through the real routes.
+import { mkdirSync, writeFileSync } from 'node:fs'
+
 import { agentEvents, agentLog } from './agent-log.ts'
 import { backendLines, backendLog } from './backend-log.ts'
 import { client, must } from './binding-access-scenarios.ts'
@@ -19,7 +21,119 @@ const light = (page: Page) =>
     document.documentElement.classList.add('light')
   })
 
+const openInInbox = (page: Page) =>
+  page.locator('[data-inbox-question][aria-current="true"]').getAttribute('data-inbox-question')
+const listedInInbox = (page: Page) =>
+  page
+    .locator('[data-inbox-question]')
+    .evaluateAll((rows) => rows.map((row) => row.getAttribute('data-inbox-question') ?? ''))
+
+/** Records, for each Inbox row added from now on, how many animations it starts with. */
+const watchInboxRows = (page: Page) =>
+  page.evaluate(() => {
+    const entered: Record<string, number> = {}
+
+    Object.assign(window, { inboxEntered: entered })
+    new MutationObserver((records) => {
+      for (const node of records.flatMap((record) => [...record.addedNodes])) {
+        if (!(node instanceof HTMLElement)) continue
+        for (const row of node.querySelectorAll<HTMLElement>('[data-inbox-question]')) {
+          const id = row.dataset.inboxQuestion ?? ''
+
+          // The row's own wrapper, not its page's: a page switching in animates too.
+          entered[id] = Math.max(entered[id] ?? 0, row.parentElement?.getAnimations().length ?? 0)
+        }
+      }
+    }).observe(document.body, { childList: true, subtree: true })
+  })
+
+/** Saves the window's frames to `<artifacts>/<name>/` until the returned stop is called. */
+async function screencast(page: Page, name: string) {
+  const dir = `${artifacts}/${name}`
+  const cdp = await page.context().newCDPSession(page)
+  let frame = 0
+
+  mkdirSync(dir, { recursive: true })
+  cdp.on('Page.screencastFrame', ({ data, sessionId }) => {
+    frame += 1
+    writeFileSync(`${dir}/${String(frame).padStart(4, '0')}.jpg`, Buffer.from(data, 'base64'))
+    void cdp.send('Page.screencastFrameAck', { sessionId })
+  })
+  await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 80, everyNthFrame: 1 })
+
+  // A reload may have ended the screencast already.
+  return () => cdp.send('Page.stopScreencast').catch(() => undefined)
+}
+
 export const questionScenarios: Scenario[] = [
+  {
+    // #3292: the question being read in the Inbox was replaced when a newer one was listed.
+    name: 'a newer question slides into the Inbox list and the one being read stays open',
+    run: async (page) => {
+      const entered = () =>
+        page.evaluate(
+          () => (window as { inboxEntered?: Record<string, number> }).inboxEntered ?? {},
+        )
+
+      // The sidebar keeps the Inbox list mounted, so its rows are added as they are asked.
+      await watchInboxRows(page)
+      for (const marker of ['stay-a', 'stay-b', 'stay-c']) {
+        await newTask(page)
+        await send(page, `Ask me E2E_ASK E2E_DELIVERY:${marker}`)
+        await page.getByText(`ACK E2E_DELIVERY:${marker}`).waitFor()
+      }
+      await until('the three questions to be listed', async () => {
+        const rows = Object.values(await entered())
+
+        return rows.length >= 3 && rows.every((animations) => animations > 0)
+      })
+      await page.getByRole('tab', { name: 'Inbox' }).click()
+      await light(page)
+      await page.locator('[data-inbox-question]').first().click()
+      // Answered, the question leaves and the one that takes its place opens.
+      await page.getByRole('button', { name: 'E2E_DELIVERY:other' }).click()
+      await page.getByRole('heading', { name: /^Answered/ }).waitFor()
+      const reading = await openInInbox(page)
+      const before = await listedInInbox(page)
+
+      must(Boolean(reading), 'a question to be open after answering one')
+      await page.screenshot({ path: `${artifacts}/inbox-reading-light.png` })
+      // A newer question is asked meanwhile; it is listed first.
+      await newTask(page)
+      await send(page, 'Ask me E2E_ASK E2E_DELIVERY:stay-new')
+      await page.getByRole('tab', { name: 'Inbox' }).click()
+      await light(page)
+      const stop = await screencast(page, 'inbox-arrival')
+      let added: string | undefined
+
+      await until('the newer question to be listed', async () => {
+        added = (await listedInInbox(page)).find((id) => !before.includes(id))
+
+        return added
+      })
+      await page.waitForTimeout(1_000)
+      await stop()
+      await page.screenshot({ path: `${artifacts}/inbox-after-arrival-light.png` })
+      const open = await openInInbox(page)
+      const animations = (await entered())[added!] ?? 0
+
+      must(open === reading, `the question being read to stay open, ${reading} became ${open}`)
+      must(animations > 0, 'the newer question to enter its list with a transition')
+      // The whole list entering at once, as it does when the app starts on the Inbox.
+      await page.emulateMedia({ colorScheme: 'light' })
+      const reload = await screencast(page, 'inbox-first-render')
+
+      await page.reload()
+      await light(page)
+      const inbox = page.getByRole('tab', { name: 'Inbox' })
+
+      if ((await inbox.getAttribute('aria-selected')) !== 'true') await inbox.click()
+      await page.locator('[data-inbox-question]').first().waitFor()
+      await page.waitForTimeout(1_500)
+      await reload()
+      await page.emulateMedia({ colorScheme: null })
+    },
+  },
   {
     // #3231: Snooze sets a question aside without telling the agent; Dismiss tells it why.
     name: 'a snoozed question stays open and the agent is not told; a dismissal tells it why',
@@ -50,7 +164,10 @@ export const questionScenarios: Scenario[] = [
 
       must(Boolean(request), 'the question to be listed')
       const until1h = new Date(Date.now() + 3_600_000).toISOString()
-      const turns = agentEvents(stack).length
+      // A wake starts a turn. The question's own turn may still be logging its finish, and
+      // other sessions open while runtimes are probed, so neither counts.
+      const turns = () => agentEvents(stack).filter((event) => event.startsWith('start')).length
+      const before = turns()
       const snoozed = await decide(sessionId, request!.id, 'snooze', { until: until1h })
 
       must(
@@ -59,7 +176,7 @@ export const questionScenarios: Scenario[] = [
       )
       must((await asked()).request?.snoozedUntil === until1h, 'the listing to carry snoozedUntil')
       await new Promise((resolve) => setTimeout(resolve, 2_000))
-      must(agentEvents(stack).length === turns, 'a snooze to wake no agent')
+      must(turns() === before, 'a snooze to wake no agent')
 
       const dismissed = await decide(sessionId, request!.id, 'resolve', {
         resolution: 'dismissed',
