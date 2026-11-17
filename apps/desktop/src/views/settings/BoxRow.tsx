@@ -17,7 +17,6 @@ import { BoxAgentSetup } from './BoxAgentSetup'
 import { agentSlots, askToAdd, canAddAgent } from './boxAgentSlots'
 import { DeskArt } from './BoxDesk'
 import { DeskAgents, DeskReadings } from './BoxDeskInfo'
-import { BoxDiskWarning } from './BoxDiskWarning'
 import { deskModel } from './boxDeskModel'
 import { BoxHostUpdate } from './BoxHostUpdate'
 import { AccessHint, LiveDot, MachineLine, OwnerLine } from './BoxParts'
@@ -27,6 +26,7 @@ import { BOX_BADGE, boxActions, boxState, removal } from './boxPresentation'
 import { boxRestartLabel, boxRestartOf } from './boxRestartPresentation'
 import { boxRestarts, useBoxRestart } from './boxRestartStore'
 import { openDesktop } from './computerDesktop'
+import { ComputerNotices } from './ComputerNotices'
 import { LocalAgentShareDialog } from './LocalAgentShareDialog'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 import { useComputerOwner } from './useComputerOwner'
@@ -244,7 +244,7 @@ export function BoxRow({
         )}
       </div>
       <OwnerLine device={device} owner={owner} />
-      <BoxDiskWarning teamId={teamId} device={device} clearable={cloud && manage && running} />
+      <ComputerNotices teamId={teamId} device={device} here={thisComputer} running={running} />
       {manage && away && (
         <div className="mt-2">
           <Button size="sm" variant="secondary" disabled={busy} onClick={() => void resume()}>

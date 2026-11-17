@@ -7,15 +7,52 @@ import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 
+import { canManage } from './agentPresentation'
 import { diskWarning } from './boxMetricsPresentation'
+import { outdatedNotice } from './computerOutdated'
 
 import type { AgentDevice } from '../../api'
 
+/** Under a computer: what will fail its agents, most certain first, and what to do about each. */
+export function ComputerNotices({
+  teamId,
+  device,
+  here,
+  running,
+}: {
+  teamId: string
+  device: AgentDevice
+  /** The computer this app runs on. */
+  here: boolean
+  running: boolean
+}) {
+  const outdated = outdatedNotice(device, here)
+
+  return (
+    <>
+      {outdated && (
+        <div role="status" className="mt-2 text-[11.5px] leading-4">
+          <p className="flex items-center gap-1 text-warning">
+            <TriangleAlert aria-hidden className="h-3 w-3 shrink-0" />
+            {outdated.text}
+          </p>
+          <p className="mt-0.5 text-tertiary">{outdated.hint}</p>
+        </div>
+      )}
+      <DiskWarning
+        teamId={teamId}
+        device={device}
+        clearable={Boolean(device.box) && canManage(device) && running}
+      />
+    </>
+  )
+}
+
 /**
- * Under a computer whose disk is almost full: how little is left and what fills it, and for
- * whoever manages a running Box, the one fix that loses nothing.
+ * A disk that is almost full: how little is left and what fills it, and for whoever manages a
+ * running Box, the one fix that loses nothing.
  */
-export function BoxDiskWarning({
+function DiskWarning({
   teamId,
   device,
   clearable,
