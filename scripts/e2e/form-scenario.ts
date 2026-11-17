@@ -3,6 +3,7 @@
 // input receives, so the scenario sees what really reached which page.
 import { readFileSync } from 'node:fs'
 import { createServer } from 'node:http'
+import { resolve } from 'node:path'
 
 import { agentLog } from './agent-log.ts'
 import { freePorts, logPath, until } from './processes.ts'
@@ -10,6 +11,8 @@ import { freePorts, logPath, until } from './processes.ts'
 import type { Stack } from './stack.ts'
 import type { Page } from 'playwright-core'
 
+// The runtime image's `panel` job: how the backend puts a file on a runtime and reads one back.
+const PANEL_JOB = resolve(import.meta.dirname, '../../apps/runtime/image/panel-job.mjs')
 const ID = 'E2E-ID-48213-form'
 const BIRTH = '1990-04-12-form'
 
@@ -63,7 +66,7 @@ export const formScenario = {
     try {
       // Saving a value and reading it back go through the runtime's `panel` job. The agent host
       // offers it from here on only: with it, the backend also reads a runtime's models another way.
-      await stack.restartAgentHost(undefined, true)
+      await stack.restartAgentHost(undefined, `panel=${process.execPath} ${PANEL_JOB}`)
       await page.getByRole('tab', { name: 'Tasks' }).click()
       await page.getByRole('button', { name: 'New task', exact: true }).click()
       // An earlier scenario may have left the other agent as the one a new Task starts on.
