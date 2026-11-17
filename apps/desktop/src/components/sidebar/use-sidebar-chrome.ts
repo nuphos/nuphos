@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 
-import { isBotTreeFold } from './chat-sections'
 import {
   DEFAULT_COLLAPSED_GROUPS,
   MAX_SIDEBAR_WIDTH,
@@ -8,6 +7,7 @@ import {
   SIDEBAR_WIDTH_KEY,
   loadGroupState,
   readGroupStateRaw,
+  storedFoldCollapsed,
   storedSidebarWidth,
   subscribeGroupState,
   writeGroupFold,
@@ -16,18 +16,10 @@ import {
 import type { Section } from './types'
 import type { UIEvent } from 'react'
 
-/** Integration groups and Bot trees open only by hand, and only until the sidebar moves on. */
-const foldedAtRest = (title: string) => DEFAULT_COLLAPSED_GROUPS.has(title) || isBotTreeFold(title)
+/** Integration groups open only by hand, and only until the team changes. */
+const foldedAtRest = (title: string) => DEFAULT_COLLAPSED_GROUPS.has(title)
 
-export function useSidebarChrome({
-  teamId,
-  collapsed,
-  page,
-}: {
-  teamId: string
-  collapsed: boolean
-  page: number
-}) {
+export function useSidebarChrome({ teamId, collapsed }: { teamId: string; collapsed: boolean }) {
   const [width, setWidth] = useState(storedSidebarWidth)
   const [dragging, setDragging] = useState(false)
   // When collapsed, hovering the window's left edge slides the sidebar out as a
@@ -44,22 +36,16 @@ export function useSidebarChrome({
   // a fold is the user's own toggle, in this window or another.
   const groupStateRaw = useSyncExternalStore(subscribeGroupState, readGroupStateRaw, () => null)
   const groupState = useMemo(() => loadGroupState(teamId, groupStateRaw), [teamId, groupStateRaw])
-  // Ephemeral expansion of the always-folded integration groups and Bot trees:
-  // lives only in memory and resets on team switch, so those groups are folded
-  // at rest. Bot trees also fold again once the Bots page is left.
+  // Ephemeral expansion of the always-folded integration groups: lives only in
+  // memory and resets on team switch, so those groups are folded at rest.
   const [openedAtRest, setOpenedAtRest] = useState<Set<string>>(() => new Set())
   // Reset during render — the documented "storing information from previous
   // renders" pattern (cf. SidebarNavStack).
   const [seededTeamId, setSeededTeamId] = useState(teamId)
-  const [seededPage, setSeededPage] = useState(page)
 
   if (seededTeamId !== teamId) {
     setSeededTeamId(teamId)
     setOpenedAtRest(new Set())
-  }
-  if (seededPage !== page) {
-    setSeededPage(page)
-    setOpenedAtRest((prev) => new Set([...prev].filter((title) => !isBotTreeFold(title))))
   }
   const isGroupCollapsed = useCallback(
     (section: Pick<Section, 'title' | 'defaultCollapsed'>) => {
@@ -70,7 +56,7 @@ export function useSidebarChrome({
 
       return foldedAtRest(title)
         ? !openedAtRest.has(title)
-        : (groupState[title] ?? (section.defaultCollapsed ? 'closed' : 'open')) === 'closed'
+        : storedFoldCollapsed(groupState, { ...section, title })
     },
     [groupState, openedAtRest],
   )
