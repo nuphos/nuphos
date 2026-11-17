@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import { chmod, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { tmpdir } from 'node:os'
@@ -432,6 +433,51 @@ test('a skill added after the sync is fetched over, and never offered', async ()
   } finally {
     await rm(workspace, { recursive: true, force: true })
   }
+})
+
+test('a wrapper goes with its session’s process, or with the next session after a crash', async () => {
+  // A process that has ended, and one that is still running (this one's parent).
+  const ended = spawnSync(process.execPath, ['-e', '']).pid
+  const stale = await mkdtemp(join(tmpdir(), `nuphos-skill-plugins-${String(ended)}-`))
+  const live = await mkdtemp(join(tmpdir(), `nuphos-skill-plugins-${String(process.ppid)}-`))
+  const gone = (target) =>
+    readdir(target).then(
+      () => false,
+      () => true,
+    )
+
+  await withInstalledBundle(async (workspace) => {
+    await withFakeScript('exit 1', async ({ script, directory }) => {
+      await nuphosSyncRuntimeSkills(structuredClone(bundleSession), {
+        script,
+        sessionHome: directory,
+        env: { NUPHOS_RUNTIME_WORKSPACE: workspace },
+      })
+      delete globalThis.nuphosRefreshPersonalSkills
+      assert.ok(await gone(stale))
+      assert.ok(!(await gone(live)))
+      await rm(live, { recursive: true })
+
+      // A session in a process of its own: its wrapper is gone once the process exits.
+      const child = spawnSync(
+        process.execPath,
+        [
+          '--input-type=module',
+          '-e',
+          `const { nuphosSyncRuntimeSkills } = await import(${JSON.stringify(new URL('../image/runtime-defaults.mjs', import.meta.url).href)})
+          const opened = ${JSON.stringify(bundleSession)}
+          await nuphosSyncRuntimeSkills(opened, { script: ${JSON.stringify(script)}, sessionHome: ${JSON.stringify(directory)}, env: { NUPHOS_RUNTIME_WORKSPACE: ${JSON.stringify(workspace)} } })
+          console.log(opened._meta.claudeCode.options.plugins[0].path)
+          process.exit(0)`,
+        ],
+        { encoding: 'utf8' },
+      )
+      const wrapper = dirname(child.stdout.trim())
+
+      assert.match(wrapper, /nuphos-skill-plugins-/u)
+      assert.ok(await gone(wrapper))
+    })
+  })
 })
 
 test('the first session in a workspace starts with the team skills on disk', async () => {

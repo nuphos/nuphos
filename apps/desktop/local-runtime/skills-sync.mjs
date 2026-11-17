@@ -302,7 +302,26 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
   // gets new ones outside the workspace and the conversation's home. Claude Code reads
   // plugin skills once, when the session starts, so a tree checked or fetched just now
   // is what the session gets, and one that is neither is left out.
-  const plugins = await fs.mkdtemp(path.join(os.tmpdir(), 'nuphos-skill-plugins-'))
+  // OpenAB runs one agent process per session, so a wrapper goes when its process
+  // exits, and one whose process is gone without that (killed, crashed) is swept by
+  // the next session to start.
+  const prefix = 'nuphos-skill-plugins-'
+
+  for (const entry of await fs.readdir(os.tmpdir()).catch(() => [])) {
+    const owner = Number(/^nuphos-skill-plugins-(\d+)-/u.exec(entry)?.[1])
+
+    if (!owner || owner === process.pid) continue
+    try {
+      process.kill(owner, 0)
+    } catch (error) {
+      if (error?.code === 'ESRCH')
+        await fs.rm(path.join(os.tmpdir(), entry), { recursive: true, force: true }).catch(() => {})
+    }
+  }
+  const plugins = await fs.mkdtemp(path.join(os.tmpdir(), `${prefix}${process.pid}-`))
+  const { rmSync } = await import('node:fs')
+
+  process.once('exit', () => rmSync(plugins, { recursive: true, force: true }))
   const offered = [
     ['team', path.join(teamClaude, 'skills')],
     ['personal', personalSkills],
@@ -318,8 +337,7 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
   }
   claudeOptions.plugins = [
     ...(claudeOptions.plugins ?? []).filter(
-      (plugin) =>
-        !path.basename(path.dirname(plugin?.path ?? '')).startsWith('nuphos-skill-plugins-'),
+      (plugin) => !path.basename(path.dirname(plugin?.path ?? '')).startsWith(prefix),
     ),
     ...offered.map(([name]) => ({ type: 'local', path: path.join(plugins, name) })),
   ]

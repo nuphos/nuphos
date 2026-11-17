@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import {
   lstatSync,
   mkdirSync,
@@ -279,6 +280,43 @@ test('a skill added after the sync is fetched over, and never offered', async (t
     rmSync(target)
     writeFileSync(join(workspace, '.claude', '.skills-revision'), revision)
   }
+})
+
+test('a wrapper goes with its session’s process, or with the next session after a crash', async (t) => {
+  const workspace = mkdtempSync(join(tmpdir(), 'skills-'))
+  const sessionHome = mkdtempSync(join(tmpdir(), 'home-'))
+  // A process that has ended, and one that is still running (this one's parent).
+  const ended = spawnSync(process.execPath, ['-e', '']).pid
+  const stale = mkdtempSync(join(tmpdir(), `nuphos-skill-plugins-${String(ended)}-`))
+  const live = mkdtempSync(join(tmpdir(), `nuphos-skill-plugins-${String(process.ppid)}-`))
+
+  t.mock.method(globalThis, 'fetch', () => Promise.reject(new Error('offline')))
+  await nuphosLocalSyncSkills(structuredClone(params), { workspace, sessionHome })
+  delete globalThis.nuphosRefreshPersonalSkills
+  assert.equal(lstatSync(stale, { throwIfNoEntry: false }), undefined)
+  assert.ok(lstatSync(live))
+  rmSync(live, { recursive: true })
+
+  // A session in a process of its own: its wrapper is gone once the process exits.
+  const child = spawnSync(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      `globalThis.fetch = () => Promise.reject(new Error('offline'))
+      const { nuphosLocalSyncSkills } = await import(${JSON.stringify(new URL('./skills-sync.mjs', import.meta.url).href)})
+      const opened = ${JSON.stringify(params)}
+      await nuphosLocalSyncSkills(opened, { workspace: ${JSON.stringify(workspace)}, sessionHome: ${JSON.stringify(sessionHome)} })
+      const wrapper = opened._meta.claudeCode.options.plugins[0].path
+      console.log(wrapper)
+      process.exit(0)`,
+    ],
+    { encoding: 'utf8' },
+  )
+  const wrapper = dirname(child.stdout.trim())
+
+  assert.match(wrapper, /nuphos-skill-plugins-/u)
+  assert.equal(lstatSync(wrapper, { throwIfNoEntry: false }), undefined)
 })
 
 test('a newer revision replaces the old tree', async (t) => {
