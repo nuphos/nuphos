@@ -9,6 +9,7 @@ import { channelScenarios } from './channel-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
 import { startDesktop } from './desktop.ts'
+import { offlineScenarios } from './offline-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
 import { startStack } from './stack.ts'
@@ -217,6 +218,7 @@ const scenarios: Scenario[] = [
   ...runtimeScenarios,
   ...commandScenarios,
   ...threadScenarios,
+  ...offlineScenarios,
   {
     // #2577: a Task under another has no permission mode of its own. The parent here is a
     // plain Task in Full Access, not a Bot. Last, because its thread is left waiting for a person.

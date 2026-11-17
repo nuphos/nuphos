@@ -46,6 +46,17 @@ export function runtimeGone(control: RuntimeControl | undefined): control is Run
   return Boolean(control?.unavailable && control.value?.id)
 }
 
+/**
+ * The conversation should leave its agent, not wait for it: the agent is gone, or its
+ * computer is offline and this person may move the conversation.
+ */
+export function shouldSwitchAgent(control: RuntimeControl | undefined): boolean {
+  return (
+    runtimeGone(control) ||
+    Boolean(control?.onSelect && selectedAgentReachability(control) === 'offline')
+  )
+}
+
 /** What the banner and the send button say about a gone agent. */
 export function runtimeGoneText(control: Pick<RuntimeControl, 'value'>): string {
   return t('{name} is no longer available.', { name: control.value?.label ?? t('The runtime') })
