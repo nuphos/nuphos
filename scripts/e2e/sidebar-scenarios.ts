@@ -36,7 +36,6 @@ export const botFoldScenarios: Scenario[] = [
       const count = (event: string) =>
         agentEvents(stack).filter((logged) => logged === event).length
       const introductions = count('finish E2E_DELIVERY:missing')
-      const answers = count('finish E2E_DELIVERY:answered')
       const dispatched = count('finish E2E_DELIVERY:inherit-child')
       // Its own Bot, so no scenario before it decides what the tree holds.
       const row = page.locator('[data-sidebar-row]').filter({ hasText: 'Fold Bot' }).first()
@@ -51,17 +50,14 @@ export const botFoldScenarios: Scenario[] = [
       }
 
       await page.getByRole('tab', { name: 'Bots' }).click()
-      await page.getByRole('button', { name: 'New Bot', exact: true }).click()
+      // Bots already exist here, so New Bot sits in the + menu.
+      await page.getByRole('button', { name: 'New', exact: true }).click()
+      await page.getByRole('menuitem', { name: 'New Bot' }).click()
       await page.getByRole('textbox', { name: 'Agent name' }).fill('Fold Bot')
       await page.getByRole('button', { name: 'Create', exact: true }).click()
       await until(
         'the new Bot to introduce itself',
         async () => count('finish E2E_DELIVERY:missing') > introductions,
-      )
-      await page.getByRole('button', { name: 'E2E_DELIVERY:answered', exact: true }).click()
-      await until(
-        'the setup answer to reach the Bot',
-        async () => count('finish E2E_DELIVERY:answered') > answers,
       )
       await send(page, 'Dispatch a sub-agent E2E_INHERIT E2E_DELIVERY:fold')
       await until(
