@@ -16,6 +16,7 @@ import { dashboardScenarios } from './dashboard-scenarios.ts'
 import { installScenarios } from './install-scenarios.ts'
 import { longTranscriptScenarios } from './long-transcript-scenarios.ts'
 import { startDesktop } from './desktop.ts'
+import { fallbackScenarios } from './fallback-scenarios.ts'
 import { formScenario } from './form-scenario.ts'
 import { memberStreamScenarios } from './member-stream-scenarios.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
@@ -242,6 +243,7 @@ const scenarios: Scenario[] = [
   ...threadScenarios,
   ...offlineScenarios,
   threadModeScenario,
+  ...fallbackScenarios,
   ...memberStreamScenarios,
   // It removes a member from the team.
   ...dashboardScenarios,
