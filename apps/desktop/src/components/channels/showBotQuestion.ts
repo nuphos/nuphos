@@ -18,6 +18,6 @@ export function showBotQuestion(
 
     return
   }
-  selectInboxQuestion(teamId, { id, index: 0 })
+  selectInboxQuestion(teamId, id)
   openLink?.(`/teams/${teamId}/inbox`)
 }

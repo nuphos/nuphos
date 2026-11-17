@@ -1,3 +1,4 @@
+import { chatName } from './db/archive'
 import { listChannelAgents } from './db/channels'
 import { conversationParticipantIds } from './db/participants'
 import { agentMessages } from './db/shared'
@@ -72,11 +73,8 @@ export async function channelMembers(
  * named after the Bot, so renaming the Bot renames it. Other conversations carry neither.
  */
 export async function channelFacesField(
-  conversation: Parameters<typeof channelMembers>[0] & {
-    kind?: string
-    title?: string
-    group?: true
-  },
+  conversation: Parameters<typeof channelMembers>[0] &
+    Pick<AgentConversation, 'kind' | 'group'> & { title?: string },
   viewerId: string,
   people: Map<string, Person>,
 ): Promise<{ faces?: ChannelFace[]; title?: string }> {
@@ -88,11 +86,9 @@ export async function channelFacesField(
   const faces =
     agents.length === 1 ? [...agents, ...members.filter((member) => !member.agent)] : members
 
-  const botChat = !conversation.group && members.length === 1 && Boolean(members[0]?.agent)
-
   return {
     faces: faces.slice(0, FACES),
-    ...(conversation.title && !botChat
+    ...(chatName(conversation)
       ? {}
       : {
           // Alone in it, the viewer sees their own name rather than none.

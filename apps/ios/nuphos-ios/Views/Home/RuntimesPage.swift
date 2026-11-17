@@ -7,6 +7,8 @@ struct RuntimesPage: View {
     @Environment(AgentStore.self) private var store
     @Environment(\.scenePhase) private var scenePhase
     /// A computer's own desktop, opened from its box.
+    @State private var showSetup = false
+    @State private var showWorkspaceSetup = false
     @State private var desktop: DesktopSession?
 
     /// Like Desktop's Computers page, every computer is listed, one with no runtimes too.
@@ -20,19 +22,25 @@ struct RuntimesPage: View {
         // Pushed views do not inherit the store here, so they are handed this one.
         let store = store
         return Group {
-            if !store.runtimesLoaded, let error = store.runtimesError {
+            if store.phase == .loaded, store.selectedTeam == nil {
+                SetupEmptyState(title: "No workspace yet", message: "Create or join a workspace before connecting a computer.", actionTitle: "Set up workspace") { showWorkspaceSetup = true }
+            } else if !store.runtimesLoaded, let error = store.runtimesError {
                 ContentUnavailableView {
-                    Label("Couldn't load runtimes", systemImage: "wifi.exclamationmark")
+                    Label("Couldn't load runtimes", image: "lucide-wifi-off")
                 } description: { Text(error) } actions: {
                     Button("Try again") { Task { await store.loadRuntimes(force: true) } }.buttonStyle(.bordered)
                 }
             } else if !store.runtimesLoaded {
                 ProgressView().tint(Theme.muted)
+            } else if boxes.isEmpty {
+                SetupEmptyState(title: "Connect your first runtime", message: "Connect a computer so your Bots and tasks have a place to work.", actionTitle: "Set up a computer") { showSetup = true }
             } else { list }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.canvas)
         // Full screen even where wide: beside this list, the list itself would be put away.
+        .sheet(isPresented: $showSetup) { RuntimeSetupGuide() }
+        .sheet(isPresented: $showWorkspaceSetup) { WorkspaceSetupSheet() }
         .desktop($desktop)
         .environment(\.desktopBeside, nil)
         .task(id: store.selectedTeam?.id) {
@@ -56,7 +64,7 @@ struct RuntimesPage: View {
     private var list: some View {
         List {
             if boxes.isEmpty {
-                ContentUnavailableView("No runtimes", systemImage: "cpu", description: Text("Open Nuphos on your computer to connect it and add a runtime."))
+                ContentUnavailableView("No runtimes", image: "lucide-cpu", description: Text("Open Nuphos on your computer to connect it and add a runtime."))
                     .listRowBackground(Color.clear)
             }
             ForEach(boxes) { box in
@@ -68,10 +76,11 @@ struct RuntimesPage: View {
                         Button {
                             desktop = .computer(teamId: team.id, runtimeId: runtimeId, token: store.token)
                         } label: {
-                            Label("Desktop", systemImage: "display").font(.system(size: 15)).foregroundStyle(Theme.brandText)
+                            Label { Text("Open computer desktop") } icon: { LucideIcon("monitor") }
+                                .font(.system(size: 15)).foregroundStyle(Theme.heading)
                         }
                         .accessibilityIdentifier("desktop-\(box.id)")
-                        .listRowInsets(EdgeInsets(top: 12, leading: 20, bottom: 12, trailing: 20))
+                        .listRowInsets(EdgeInsets(top: 12, leading: 44, bottom: 12, trailing: 20))
                     }
                     ForEach(box.agents) { runtime in
                         NavigationLink {
@@ -79,20 +88,21 @@ struct RuntimesPage: View {
                         } label: {
                             SelectorAgentRow(runtime: runtime, quota: store.quotas[runtime.id], selected: false)
                         }
-                        .listRowInsets(EdgeInsets(top: 12, leading: 20, bottom: 12, trailing: 20))
+                        .listRowInsets(EdgeInsets(top: 12, leading: 44, bottom: 12, trailing: 20))
                     }
                     if box.agents.isEmpty, let device = box.device, device.box == nil {
                         Text(device.access == "use"
                             ? "No runtime yet. Ask its owner to add one."
                             : "No runtime yet. Install Claude Code or Codex on \(device.label) and sign in.")
                             .font(.system(size: 13)).foregroundStyle(Theme.muted)
-                            .listRowInsets(EdgeInsets(top: 12, leading: 20, bottom: 12, trailing: 20))
+                            .listRowInsets(EdgeInsets(top: 12, leading: 44, bottom: 12, trailing: 20))
                     }
                 }
                 .listRowBackground(Theme.surface)
             }
         }
         .listSectionSpacing(20)
+        .listRowSeparator(.hidden)
         .scrollContentBackground(.hidden)
     }
 }
@@ -131,7 +141,8 @@ private struct AgentSignInInstructions: View {
                 Text(steps)
                     .font(.subheadline).foregroundStyle(Theme.body).multilineTextAlignment(.center)
             }.frame(maxWidth: .infinity).padding(.vertical, 16).listRowBackground(Color.clear)
-        }.scrollContentBackground(.hidden).background(Theme.canvas).navigationTitle("Sign in").navigationBarTitleDisplayMode(.inline)
+        }.listRowSeparator(.hidden)
+        .scrollContentBackground(.hidden).background(Theme.canvas).navigationTitle("Sign in").navigationBarTitleDisplayMode(.inline)
     }
 
     private var title: String {

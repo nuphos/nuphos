@@ -34,6 +34,22 @@ export const BOX_BADGE: Record<MachineState, RuntimeStatusView> = {
   error: { label: t("Didn't start"), tone: 'error' },
 }
 
+// instabox's own pauses that the next use wakes from. Not its abuse and billing pauses, nor
+// max_run, which refuses every wake for minutes afterwards.
+const WAKES_ON_USE = new Set(['idle', 'drain', 'admin'])
+
+/** Why a paused Box is paused when its provider did it, not a person, and that using it wakes it. */
+export function providerPause(device: AgentDevice): string | undefined {
+  const reason = device.box?.state === 'paused' ? device.box.pausedBy : undefined
+
+  if (reason === 'memory_pressure')
+    return t('Paused by the provider (host out of memory). It resumes when you use it.')
+
+  return reason && WAKES_ON_USE.has(reason)
+    ? t('Paused by the provider. It resumes when you use it.')
+    : undefined
+}
+
 /** Shown when the backend gives no reason, e.g. an older backend without the route. */
 const REMOVE_FALLBACK = t('Could not remove it. Update Nuphos and try again.')
 

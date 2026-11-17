@@ -19,6 +19,7 @@ import {
   replyQuote,
   wakeAfterTurn,
 } from './channel-chat'
+import { wakeMissedPosts } from './channel-missed-posts'
 import { runTurn, startConversationTurn } from './conversation-turn'
 import { inviteToConversation, resolveMentions } from './mentions'
 import { firstLine } from './channel-newest-post'
@@ -1121,5 +1122,92 @@ describe('an agent speaks in a channel only with channel_post', () => {
         metadata: { sender: { type: 'agent', id: 'agent-a' } },
       },
     ])
+  })
+})
+
+describe('an agent whose computer is offline', () => {
+  const offline = () => new AppError(409, 'runtime_offline', 'The computer is offline.')
+  const failures = async () =>
+    (await channel()).timelineEvents?.filter((event) => event.kind === 'agent_reply_failed') ?? []
+
+  beforeEach(async () => {
+    await agentConversations().updateOne(
+      { sessionId: 'channel' },
+      { $set: { agentSessionIds: ['agent-a'], 'agentReadIndex.agent-a': -1 } },
+    )
+    await agentConversations().updateOne(
+      { sessionId: 'agent-a' },
+      { $set: { runtimeId: 'local_agent-a-owner_mac' } },
+    )
+  })
+
+  test('says so in the channel once its wake waited out the grace, and keeps the post unread', async () => {
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async (args) => {
+        await enqueuePendingUserMessage(args.userId, args.sessionId, args.message)
+
+        return { mode: 'queued' }
+      },
+      runAgentForTrigger: async () => {
+        throw offline()
+      },
+    })
+    await say('anyone there?')
+    const [notice] = await listPendingUserMessages('agent-a-owner', 'agent-a')
+
+    await clearPendingUserMessages('agent-a-owner', 'agent-a')
+    // Offline for longer than a reconnecting computer gets.
+    await runTurn(
+      { userId: 'agent-a-owner', teamId: TEAM, targetSessionId: 'agent-a' },
+      (await agentConversations().findOne({ sessionId: 'agent-a' }))!,
+      'agent.resource',
+      [{ ...notice!, offlineSince: new Date(Date.now() - 120_000).toISOString() }],
+    ).catch(() => {})
+
+    expect(await failures()).toEqual([
+      expect.objectContaining({
+        agentId: 'agent-a',
+        cause: 'offline',
+        reason: 'its runtime could not be reached.',
+      }),
+    ])
+    expect((await channel()).agentReadIndex?.['agent-a']).toBe(-1)
+  })
+
+  test('is woken for the posts it missed when its computer is back, and only for those', async () => {
+    await say('anyone there?')
+    // Its notice was lost while it was away.
+    await clearPendingUserMessages('agent-a-owner', 'agent-a')
+    wakes = []
+    await wakeMissedPosts({ runtimeId: 'local_agent-a-owner_mac' })
+    expect(wokenSessions()).toEqual(['agent-a'])
+
+    // Caught up: coming back again wakes nothing.
+    await catchUp()
+    await agentConversations().updateOne(
+      { sessionId: 'channel' },
+      { $set: { 'agentReadIndex.agent-a': 0 } },
+    )
+    wakes = []
+    await wakeMissedPosts({ runtimeId: 'local_agent-a-owner_mac' })
+    expect(wakes).toEqual([])
+  })
+
+  test('is not woken for agents’ posts alone, nor in a channel it was never woken in', async () => {
+    await say('from b', agentSpeaker('agent-b'))
+    await catchUp()
+    wakes = []
+    await wakeMissedPosts({ runtimeId: 'local_agent-a-owner_mac' })
+    expect(wakes).toEqual([])
+
+    await agentConversations().updateOne(
+      { sessionId: 'channel' },
+      { $unset: { 'agentReadIndex.agent-a': '' } },
+    )
+    await say('hello')
+    await catchUp()
+    wakes = []
+    await wakeMissedPosts({ runtimeId: 'local_agent-a-owner_mac' })
+    expect(wakes).toEqual([])
   })
 })

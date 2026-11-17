@@ -47,15 +47,11 @@ pub type IngressTrustProbe = Arc<dyn Fn(&str, &str, &str) -> bool + Send + Sync>
 fn l1_unenforceable(active: bool, l1_configured: bool) -> bool {
     active && !l1_configured
 }
-
-#[cfg(feature = "acp")]
 pub type AcpSessionSnapshot = Arc<
     dyn Fn(String) -> std::pin::Pin<Box<dyn std::future::Future<Output = serde_json::Value> + Send>>
         + Send
         + Sync,
 >;
-
-#[cfg(feature = "acp")]
 pub type AcpSessionSteer = Arc<
     dyn Fn(
             String,
@@ -69,7 +65,6 @@ pub type AcpSessionSteer = Arc<
 /// Replaces a live session's short-lived credentials (`dev.openab/credentials`)
 /// while a turn runs, so a turn can outlast any one token. Arguments: channel,
 /// the credentials the caller expects the session to hold, the replacement.
-#[cfg(feature = "acp")]
 pub type AcpSessionCredentials = Arc<
     dyn Fn(
             String,
@@ -80,8 +75,6 @@ pub type AcpSessionCredentials = Arc<
         + Send
         + Sync,
 >;
-
-#[cfg(feature = "acp")]
 pub type AcpSessionCancel = Arc<
     dyn Fn(
             String,
@@ -90,8 +83,6 @@ pub type AcpSessionCancel = Arc<
         + Send
         + Sync,
 >;
-
-#[cfg(feature = "acp")]
 pub type AcpSessionInventory = Arc<
     dyn Fn() -> std::pin::Pin<Box<dyn std::future::Future<Output = Vec<String>> + Send>>
         + Send
@@ -108,14 +99,11 @@ pub type AcpRuntimeSuspend = Arc<dyn Fn() + Send + Sync>;
 /// Coalesced pool-cancel queue: inserts are deduplicated by thread key,
 /// so every distinct session's cancel is retained even if one client
 /// sends many cancels. Memory is bounded by the number of live sessions.
-#[cfg(feature = "acp")]
 #[derive(Clone)]
 pub struct AcpPoolCancel {
     pending: Arc<std::sync::Mutex<std::collections::HashSet<String>>>,
     notify: Arc<tokio::sync::Notify>,
 }
-
-#[cfg(feature = "acp")]
 impl AcpPoolCancel {
     pub fn new() -> (Self, Self) {
         let inner = Self {
@@ -143,7 +131,6 @@ impl AcpPoolCancel {
 /// Config control bridge; requests carry only a capability session key and
 /// typed selection. Optional restore context can load a saved native session;
 /// it never claims output, starts a prompt, or creates a fresh conversation.
-#[cfg(feature = "acp")]
 pub struct AcpPoolConfigRequest {
     pub thread_key: String,
     pub selection: Option<(String, String)>,
@@ -178,31 +165,18 @@ pub struct AppState {
     pub googlechat_webhook_path: String,
     #[cfg(feature = "wecom")]
     pub wecom: Option<adapters::wecom::WecomAdapter>,
-    #[cfg(feature = "acp")]
     pub acp: Option<adapters::acp_server::AcpConfig>,
-    #[cfg(feature = "acp")]
     pub acp_session_snapshot: Option<AcpSessionSnapshot>,
-    #[cfg(feature = "acp")]
     pub acp_session_cancel: Option<AcpSessionCancel>,
-    #[cfg(feature = "acp")]
     pub acp_session_steer: Option<AcpSessionSteer>,
-    #[cfg(feature = "acp")]
     pub acp_session_credentials: Option<AcpSessionCredentials>,
-    #[cfg(feature = "acp")]
     pub acp_session_inventory: Option<AcpSessionInventory>,
-    #[cfg(feature = "acp")]
     pub acp_runtime_suspend: Option<AcpRuntimeSuspend>,
-    #[cfg(feature = "acp")]
     pub acp_session_automation: adapters::acp_server::SessionAutomation,
-    #[cfg(feature = "acp")]
     pub acp_session_operations: Arc<adapters::session_operations::SessionOperations>,
-    #[cfg(feature = "acp")]
     pub acp_session_states: adapters::session_snapshot::SessionSnapshots,
-    #[cfg(feature = "acp")]
     pub acp_session_requests: adapters::session_requests::SessionRequests,
-    #[cfg(feature = "acp")]
     pub acp_reply_registry: Option<adapters::acp_server::AcpReplyRegistry>,
-    #[cfg(feature = "acp")]
     pub acp_tunnel_registry: Option<adapters::acp_server::AcpTunnelRegistry>,
     #[cfg(feature = "lineworks")]
     pub lineworks: Option<Arc<adapters::lineworks::LineWorksAdapter>>,
@@ -222,32 +196,24 @@ pub struct AppState {
     /// a receiver task drains the set and calls `pool.cancel_session()`.
     /// Coalesced per session: duplicates are absorbed, so every distinct
     /// session's cancel is retained even under load.
-    #[cfg(feature = "acp")]
     pub acp_pool_cancel: Option<AcpPoolCancel>,
     /// Pool-side session liveness query. `session/resume` sends a thread key
     /// plus a oneshot; a receiver task answers `pool.has_active_session()`,
     /// letting the resume response report whether the inner agent session
     /// actually survived (`_meta["dev.openab/sessionAlive"]`).
-    #[cfg(feature = "acp")]
     pub acp_pool_liveness: Option<AcpPoolLivenessTx>,
-    #[cfg(feature = "acp")]
     pub acp_pool_config: Option<tokio::sync::mpsc::Sender<AcpPoolConfigRequest>>,
     /// Ends a session for good (`session/close`): the pool resets the thread key it is sent.
-    #[cfg(feature = "acp")]
     pub acp_pool_close: Option<tokio::sync::mpsc::Sender<String>>,
     /// Reads what a new session of the agent offers: `(model, reply)`.
-    #[cfg(feature = "acp")]
     pub acp_fresh_config: Option<AcpFreshConfigTx>,
 }
-
-#[cfg(feature = "acp")]
 pub type AcpFreshConfigTx = tokio::sync::mpsc::Sender<(
     Option<String>,
     tokio::sync::oneshot::Sender<Result<serde_json::Value, (i32, String)>>,
 )>;
 
 /// Sender half of the pool-liveness query bridge: `(thread_key, reply)`.
-#[cfg(feature = "acp")]
 pub type AcpPoolLivenessTx =
     tokio::sync::mpsc::Sender<(String, tokio::sync::oneshot::Sender<bool>)>;
 
@@ -282,41 +248,23 @@ impl AppState {
             googlechat_webhook_path: "/webhook/googlechat".into(),
             #[cfg(feature = "wecom")]
             wecom: None,
-            #[cfg(feature = "acp")]
             acp: None,
-            #[cfg(feature = "acp")]
             acp_session_snapshot: None,
-            #[cfg(feature = "acp")]
             acp_session_cancel: None,
-            #[cfg(feature = "acp")]
             acp_session_steer: None,
-            #[cfg(feature = "acp")]
             acp_session_credentials: None,
-            #[cfg(feature = "acp")]
             acp_session_inventory: None,
-            #[cfg(feature = "acp")]
             acp_runtime_suspend: None,
-            #[cfg(feature = "acp")]
             acp_session_automation: Default::default(),
-            #[cfg(feature = "acp")]
             acp_session_operations: Default::default(),
-            #[cfg(feature = "acp")]
             acp_session_states: Default::default(),
-            #[cfg(feature = "acp")]
             acp_session_requests: Default::default(),
-            #[cfg(feature = "acp")]
             acp_reply_registry: None,
-            #[cfg(feature = "acp")]
             acp_tunnel_registry: None,
-            #[cfg(feature = "acp")]
             acp_pool_cancel: None,
-            #[cfg(feature = "acp")]
             acp_pool_liveness: None,
-            #[cfg(feature = "acp")]
             acp_pool_config: None,
-            #[cfg(feature = "acp")]
             acp_pool_close: None,
-            #[cfg(feature = "acp")]
             acp_fresh_config: None,
             #[cfg(feature = "lineworks")]
             lineworks: None,
@@ -398,13 +346,10 @@ impl AppState {
             adapters::wecom::WecomConfig::from_env().map(adapters::wecom::WecomAdapter::new);
 
         // ACP Server
-        #[cfg(feature = "acp")]
         let acp = adapters::acp_server::AcpConfig::from_env();
-        #[cfg(feature = "acp")]
         let acp_reply_registry = acp
             .as_ref()
             .map(|_| adapters::acp_server::new_reply_registry());
-        #[cfg(feature = "acp")]
         let acp_tunnel_registry = acp
             .as_ref()
             .map(|_| adapters::acp_server::new_tunnel_registry());
@@ -440,41 +385,23 @@ impl AppState {
             googlechat_webhook_path,
             #[cfg(feature = "wecom")]
             wecom,
-            #[cfg(feature = "acp")]
             acp,
-            #[cfg(feature = "acp")]
             acp_session_snapshot: None,
-            #[cfg(feature = "acp")]
             acp_session_cancel: None,
-            #[cfg(feature = "acp")]
             acp_session_steer: None,
-            #[cfg(feature = "acp")]
             acp_session_credentials: None,
-            #[cfg(feature = "acp")]
             acp_session_inventory: None,
-            #[cfg(feature = "acp")]
             acp_runtime_suspend: None,
-            #[cfg(feature = "acp")]
             acp_session_automation: Default::default(),
-            #[cfg(feature = "acp")]
             acp_session_operations: Default::default(),
-            #[cfg(feature = "acp")]
             acp_session_states: Default::default(),
-            #[cfg(feature = "acp")]
             acp_session_requests: Default::default(),
-            #[cfg(feature = "acp")]
             acp_reply_registry,
-            #[cfg(feature = "acp")]
             acp_tunnel_registry,
-            #[cfg(feature = "acp")]
             acp_pool_cancel: None,
-            #[cfg(feature = "acp")]
             acp_pool_liveness: None,
-            #[cfg(feature = "acp")]
             acp_pool_config: None,
-            #[cfg(feature = "acp")]
             acp_pool_close: None,
-            #[cfg(feature = "acp")]
             acp_fresh_config: None,
             #[cfg(feature = "lineworks")]
             lineworks,
@@ -848,9 +775,7 @@ pub async fn serve(config: ServeConfig) -> anyhow::Result<()> {
 
     // ACP Server adapter. Fail-open (no transport key) is only allowed on a loopback
     // bind; a non-loopback bind without OPENAB_ACP_AUTH_KEY refuses to mount /acp.
-    #[cfg(feature = "acp")]
     let mut acp_mounted = false;
-    #[cfg(feature = "acp")]
     if std::env::var("OPENAB_ACP_ENABLED")
         .map(|v| v == "true" || v == "1")
         .unwrap_or(false)
@@ -875,16 +800,11 @@ pub async fn serve(config: ServeConfig) -> anyhow::Result<()> {
             Err(e) => tracing::error!("ACP endpoint NOT mounted: {e}"),
         }
     }
-    #[cfg(not(feature = "acp"))]
-    let acp_mounted = false;
 
     // Unauthenticated status page. Safe to expose with zero auth: it reports
     // liveness and non-secret build facts only, never a key or credential. With the
     // runtime console on, the console page (which carries the same rows) replaces it.
-    #[cfg(feature = "acp")]
     let console_page = acp_mounted && adapters::runtime_credentials::console_enabled();
-    #[cfg(not(feature = "acp"))]
-    let console_page = false;
     app = if console_page {
         app.route("/", get(move || console_index(acp_mounted)))
     } else {
@@ -1053,13 +973,10 @@ pub async fn serve(config: ServeConfig) -> anyhow::Result<()> {
 
     // ACP server — extract once so the config and its reply registry share a
     // single from_env() result (a registry is only created when ACP is enabled).
-    #[cfg(feature = "acp")]
     let acp = adapters::acp_server::AcpConfig::from_env();
-    #[cfg(feature = "acp")]
     let acp_reply_registry = acp
         .as_ref()
         .map(|_| adapters::acp_server::new_reply_registry());
-    #[cfg(feature = "acp")]
     let acp_tunnel_registry = acp
         .as_ref()
         .map(|_| adapters::acp_server::new_tunnel_registry());
@@ -1103,41 +1020,23 @@ pub async fn serve(config: ServeConfig) -> anyhow::Result<()> {
         googlechat_webhook_path,
         #[cfg(feature = "wecom")]
         wecom,
-        #[cfg(feature = "acp")]
         acp,
-        #[cfg(feature = "acp")]
         acp_session_snapshot: None,
-        #[cfg(feature = "acp")]
         acp_session_cancel: None,
-        #[cfg(feature = "acp")]
         acp_session_steer: None,
-        #[cfg(feature = "acp")]
         acp_session_credentials: None,
-        #[cfg(feature = "acp")]
         acp_session_inventory: None,
-        #[cfg(feature = "acp")]
         acp_runtime_suspend: None,
-        #[cfg(feature = "acp")]
         acp_session_automation: Default::default(),
-        #[cfg(feature = "acp")]
         acp_session_operations: Default::default(),
-        #[cfg(feature = "acp")]
         acp_session_states: Default::default(),
-        #[cfg(feature = "acp")]
         acp_session_requests: Default::default(),
-        #[cfg(feature = "acp")]
         acp_reply_registry,
-        #[cfg(feature = "acp")]
         acp_tunnel_registry,
-        #[cfg(feature = "acp")]
         acp_pool_cancel: None,
-        #[cfg(feature = "acp")]
         acp_pool_liveness: None,
-        #[cfg(feature = "acp")]
         acp_pool_config: None,
-        #[cfg(feature = "acp")]
         acp_pool_close: None,
-        #[cfg(feature = "acp")]
         acp_fresh_config: None,
         #[cfg(feature = "lineworks")]
         lineworks,
@@ -1373,7 +1272,6 @@ async fn handle_oab_connection(state: Arc<AppState>, socket: axum::extract::ws::
                                     warn!("reply for wecom but adapter not configured");
                                 }
                             }
-                            #[cfg(feature = "acp")]
                             "acp" => {
                                 if let Some(ref registry) = state_for_recv.acp_reply_registry {
                                     adapters::acp_server::publish_runtime_snapshot(
@@ -1435,15 +1333,8 @@ async fn health() -> &'static str {
 /// credential, so it is safe for anyone who has the base URL to load in a browser.
 ///
 /// Also mounted directly by the unified `openab run` router in `src/main.rs`.
-#[cfg(feature = "acp")]
 pub async fn console_index(acp_enabled: bool) -> axum::response::Response {
     adapters::runtime_console_ui::index(acp_enabled).await
-}
-
-#[cfg(not(feature = "acp"))]
-pub async fn console_index(acp_enabled: bool) -> axum::response::Response {
-    use axum::response::IntoResponse;
-    status_page(acp_enabled).await.into_response()
 }
 
 pub fn status_rows(acp_enabled: bool) -> String {
@@ -1792,7 +1683,6 @@ mod redact_channel_tests {
 
     /// Two redactors in ONE crate disagreeing is what produced the split in the first place, so this
     /// compares them directly instead of trusting that both literals were updated together.
-    #[cfg(feature = "acp")]
     #[test]
     fn the_channel_tag_matches_this_crates_other_redactor() {
         for id in [CHANNEL, SESSION] {

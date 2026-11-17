@@ -18,6 +18,10 @@ const LOGIN_ERRORS = new Map<unknown, string>([
     'This agent cannot receive the sign-in code. Update its image, or run `claude auth login` inside the container.',
   ],
   ['failed', 'Sign-in did not complete. Start again and paste the whole code Claude shows you.'],
+  [
+    'environment',
+    'Hermes could not prepare its environment on this computer. Check that the computer is online, then start again.',
+  ],
 ])
 
 /** The device pages a runtime may send a user to: ChatGPT for Codex, xAI for Grok Build. */
