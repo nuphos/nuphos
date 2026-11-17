@@ -119,7 +119,7 @@ test('a listing settles answers it no longer has open, and those past their dead
 test('onboarding preferences stay in the Bot chat without entering the Inbox', () => {
   const bot = {
     ...waiting('new-bot', 'setup'),
-    botOnboarding: 'started' as const,
+    botOnboarding: 'active' as const,
     inputRequests: waiting('new-bot', 'setup').inputRequests!.map((r) => ({
       ...r,
       category: 'preference',
@@ -140,4 +140,9 @@ test('onboarding preferences stay in the Bot chat without entering the Inbox', (
     ),
     1,
   )
+})
+
+test('legacy introduced Bots keep their normal Inbox questions', () => {
+  const bot = { ...waiting('legacy', 'work'), botOnboarding: 'started' as const }
+  assert.equal(inboxCount([bot], new Map()), 1)
 })
