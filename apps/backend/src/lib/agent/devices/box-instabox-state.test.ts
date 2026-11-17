@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 
 import { useInstaboxMachines } from '@/lib/test/doubles/instabox-machines'
+import { useObservability } from '@/lib/test/doubles/observability'
 
 import type { AgentDevice } from './store'
 
@@ -10,6 +11,14 @@ useInstaboxMachines({
   machineState: () => Promise.resolve('running'),
   lastPausedBy: (_conn, sandboxId) =>
     Promise.resolve(sandboxId === 'evicted' ? 'memory_pressure' : undefined),
+})
+
+const logged: unknown[] = []
+
+useObservability({
+  logEvent: (...entry) => {
+    logged.push(entry)
+  },
 })
 
 const { boxPausedBy, boxState, noteBoxEviction } = await import('./box-instabox-state')
@@ -65,16 +74,8 @@ describe('a Box instabox paused on its own', () => {
   })
 
   test('is logged as evicted when its tunnel closes', async () => {
-    const logged: unknown[] = []
-
-    await noteBoxEviction(
-      'u',
-      'evicted',
-      () => Promise.resolve(box('evicted')),
-      (...entry) => {
-        logged.push(entry)
-      },
-    )
+    logged.length = 0
+    await noteBoxEviction('u', 'evicted', () => Promise.resolve(box('evicted')))
     expect(logged).toEqual([
       [
         'warn',
@@ -85,24 +86,9 @@ describe('a Box instabox paused on its own', () => {
   })
 
   test('a tunnel that closes for any other reason logs nothing', async () => {
-    const logged: unknown[] = []
-
-    await noteBoxEviction(
-      'u',
-      'x',
-      () => Promise.resolve(box('paused-by-owner')),
-      (...entry) => {
-        logged.push(entry)
-      },
-    )
-    await noteBoxEviction(
-      'u',
-      'x',
-      () => Promise.resolve(null),
-      (...entry) => {
-        logged.push(entry)
-      },
-    )
+    logged.length = 0
+    await noteBoxEviction('u', 'x', () => Promise.resolve(box('paused-by-owner')))
+    await noteBoxEviction('u', 'x', () => Promise.resolve(null))
     expect(logged).toEqual([])
   })
 })

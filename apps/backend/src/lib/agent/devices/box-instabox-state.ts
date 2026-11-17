@@ -86,14 +86,13 @@ export async function noteBoxEviction(
   userId: string,
   deviceId: string,
   getDevice: (userId: string, deviceId: string) => Promise<AgentDevice | null>,
-  log: typeof logEvent = logEvent,
 ): Promise<void> {
   const device = await getDevice(userId, deviceId).catch(() => null)
   const sandboxId = device?.box?.sandboxId
   const trigger = device && (await boxPausedBy(device))
 
   if (!sandboxId || !trigger) return
-  log('warn', 'agent.box.evicted', {
+  logEvent('warn', 'agent.box.evicted', {
     trigger,
     machine_id: sandboxId,
     ...(device.box?.teamId ? { team_id: device.box.teamId } : {}),
