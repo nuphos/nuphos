@@ -92,7 +92,7 @@ export function RuntimeOverview({
         <PanelStat label={t('Uptime')}>
           {runtime.uptimeSeconds === undefined ? '—' : formatUptime(runtime.uptimeSeconds)}
         </PanelStat>
-        <PanelStat label={t('Agents')}>
+        <PanelStat label={t('Bots and tasks')}>
           {runtime.attachedConversations === null
             ? t('Unavailable')
             : String(runtime.attachedConversations)}
