@@ -152,7 +152,8 @@ final class BotsAndTasksListUITests: XCTestCase {
             app.navigationBars.buttons.firstMatch.tap()
             XCTAssertTrue(menu.waitForExistence(timeout: 5), "No list after going back from \(question)")
             shot("back-from-\(list)-\(question.prefix(5))")
-            XCTAssertTrue((menu.value as? String ?? "").hasPrefix(list), "\(question) went back to \(menu.value ?? "nothing"), not \(list)")
+            let tab = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != 'BackButton'", list)).firstMatch
+            XCTAssertTrue(tab.isSelected, "\(question) did not go back to \(list)")
             app.terminate()
         }
     }
