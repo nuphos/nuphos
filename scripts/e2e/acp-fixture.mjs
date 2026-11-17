@@ -12,6 +12,7 @@ import { hop, inherit } from './fixture-hop.mjs'
 import { call, callNamed, setToolsServer, toolsServer } from './fixture-mcp.mjs'
 import { applySetting } from './fixture-settings.mjs'
 import { refuse } from './fixture-turn-refusals.mjs'
+import { CLAUDE_TURN_QUOTA, CLAUDE_TURN_USAGE } from './fixture-usage.mjs'
 
 const send = (message) =>
   process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', ...message })}\n`)
@@ -21,43 +22,6 @@ const log = (entry) =>
     process.env.E2E_ACP_LOG,
     `${JSON.stringify({ agent: process.env.E2E_AGENT, ...entry })}\n`,
   )
-
-// PromptResponse.usage in claude-agent-acp 0.74.0's shape: `inputTokens` is the uncached part.
-const CLAUDE_TURN_USAGE = {
-  inputTokens: 12,
-  outputTokens: 900,
-  cachedReadTokens: 250_000,
-  cachedWriteTokens: 8000,
-  totalTokens: 258_912,
-}
-// Its `_meta.quota`: the model rows also count a Task sub-agent the main-loop usage leaves out.
-const CLAUDE_TURN_QUOTA = {
-  token_count: { ...CLAUDE_TURN_USAGE, cachedInputTokens: 250_000, reasoningOutputTokens: 0 },
-  model_usage: [
-    {
-      model: 'claude-opus-5-5',
-      token_count: {
-        totalTokens: 258_912,
-        inputTokens: 12,
-        cachedInputTokens: 250_000,
-        cachedWriteTokens: 8000,
-        outputTokens: 900,
-        reasoningOutputTokens: 0,
-      },
-    },
-    {
-      model: 'claude-haiku-5-5',
-      token_count: {
-        totalTokens: 31_400,
-        inputTokens: 400,
-        cachedInputTokens: 30_000,
-        cachedWriteTokens: 600,
-        outputTokens: 400,
-        reasoningOutputTokens: 0,
-      },
-    },
-  ],
-}
 
 // A prompt containing E2E_HOLD stays in its turn until the client cancels it.
 const held = new Map()
