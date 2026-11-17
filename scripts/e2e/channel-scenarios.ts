@@ -68,33 +68,6 @@ export const channelScenarios: Scenario[] = [
     },
   },
   {
-    // #3260: a post while the Bot's agent host was down was lost without a word, and stayed
-    // lost once the host was back, until someone posted again.
-    name: 'a post while the Bot’s agent host is down says it could not reply, and it answers once back',
-    run: async (page, stack) => {
-      const post = poster(stack)
-      const failed = page.getByText(/couldn’t reply/)
-      const before = await failed.count()
-      let line = false
-
-      await light(page)
-      await stack.restartAgentHost(async () => {
-        await post('While it is away E2E_DELIVERY:away')
-        // A reconnecting runtime gets a minute before the post counts as undelivered.
-        line = await shown(page, failed.nth(before), 150_000, 'bot-away-line-light.png')
-      })
-      const answered = await shown(
-        page,
-        page.getByText('POSTED E2E_DELIVERY:away', { exact: true }),
-        150_000,
-        'bot-away-answered-light.png',
-      )
-
-      if (!line) throw new Error('Nothing in the chat said the Bot could not reply')
-      if (!answered) throw new Error('The Bot did not answer the post once its host was back')
-    },
-  },
-  {
     // #3246: every Bot post was headed by the Bot's name and an "Agent" tag.
     name: "a Bot's posts are headed by its name, with no Agent tag",
     run: async (page) => {
@@ -131,6 +104,34 @@ export const channelScenarios: Scenario[] = [
       await row.getByText('POSTED E2E_DELIVERY:two').waitFor()
       await page.screenshot({ path: `${artifacts}/bot-row-idle-light.png` })
       await ownWords('After the turn')
+    },
+  },
+  {
+    // Last here: run after this one's host restart, #3171's scenario did not see the row's dots.
+    // #3260: a post while the Bot's agent host was down was lost without a word, and stayed
+    // lost once the host was back, until someone posted again.
+    name: 'a post while the Bot’s agent host is down says it could not reply, and it answers once back',
+    run: async (page, stack) => {
+      const post = poster(stack)
+      const failed = page.getByText(/couldn’t reply/)
+      const before = await failed.count()
+      let line = false
+
+      await light(page)
+      await stack.restartAgentHost(async () => {
+        await post('While it is away E2E_DELIVERY:away')
+        // A reconnecting runtime gets a minute before the post counts as undelivered.
+        line = await shown(page, failed.nth(before), 150_000, 'bot-away-line-light.png')
+      })
+      const answered = await shown(
+        page,
+        page.getByText('POSTED E2E_DELIVERY:away', { exact: true }),
+        150_000,
+        'bot-away-answered-light.png',
+      )
+
+      if (!line) throw new Error('Nothing in the chat said the Bot could not reply')
+      if (!answered) throw new Error('The Bot did not answer the post once its host was back')
     },
   },
 ]
