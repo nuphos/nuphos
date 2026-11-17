@@ -3344,6 +3344,8 @@
   "Pause this trigger": "이 트리거 일시 중지",
   "Pause trigger": "트리거 일시 중지",
   "Paused": "일시 중지됨",
+  "Paused by the provider (host out of memory). It resumes when you use it.": "제공업체가 일시 중지했습니다(호스트 메모리 부족). 사용하면 다시 시작됩니다.",
+  "Paused by the provider. It resumes when you use it.": "제공업체가 일시 중지했습니다. 사용하면 다시 시작됩니다.",
   "Paused computers are free and wake up as you left them.": "일시 중지된 컴퓨터는 무료이며, 재개하면 그대로의 상태로 돌아옵니다.",
   "Paused computers use no vCPU. {free} vCPU free.": "일시 중지된 컴퓨터는 vCPU를 사용하지 않습니다. 남은 vCPU: {free}",
   "Paused while running on battery": "배터리 사용 중에는 일시 중지됨",
