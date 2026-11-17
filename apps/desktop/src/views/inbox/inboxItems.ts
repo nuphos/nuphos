@@ -102,17 +102,10 @@ export function answeredIn(
   return [...answered].filter(([id, until]) => !open.has(id) || until < now).map(([id]) => id)
 }
 
-/**
- * The row the Inbox opens: the selected one while it is listed. Once answered,
- * the row that took its place opens, the way a mail reader moves on.
- */
+/** The row the Inbox opens: the selected one while it is listed, else the first. */
 export function openQuestion(
   rows: readonly InboxQuestion[],
-  selected: { id: string; index: number } | null,
+  selected: string | null,
 ): InboxQuestion | undefined {
-  const kept = selected && rows.find((row) => row.request.id === selected.id)
-
-  if (kept) return kept
-
-  return rows[Math.max(0, Math.min(selected?.index ?? 0, rows.length - 1))]
+  return rows.find((row) => row.request.id === selected) ?? rows[0]
 }

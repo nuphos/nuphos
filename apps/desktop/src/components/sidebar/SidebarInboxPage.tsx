@@ -41,7 +41,7 @@ export function SidebarInboxPage({
             rows={rows ?? []}
             openId={open?.request.id}
             onSelect={(row) => {
-              selectInboxQuestion(teamId, { id: row.request.id, index: rows!.indexOf(row) })
+              selectInboxQuestion(teamId, row.request.id)
               onOpenInbox()
             }}
           />
