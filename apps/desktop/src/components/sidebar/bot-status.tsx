@@ -19,6 +19,7 @@ function rowDot(unread: boolean): 'unread' | null {
  * its face plays its idle loop, the name shimmers and the preview line shows
  * work dots without unrelated Task transcript text. Under the chat come
  * its actual sub-agents, without repeating the Bot's own execution as a row.
+ * They carry no unread: the Bot's one dot is its own messages.
  */
 export function botChatRows({
   chat,
@@ -28,7 +29,6 @@ export function botChatRows({
   teamId,
   unread,
   openId,
-  unreadIds = new Set<string>(),
 }: {
   chat: Item
   faces: ChannelFace[] | undefined
@@ -38,7 +38,6 @@ export function botChatRows({
   unread: boolean
   /** The chat open in the pane, if any. */
   openId: string | undefined
-  unreadIds?: ReadonlySet<string>
 }): Item[] {
   const copy = (run: Run, parentKey: string): Item => ({
     ...chatSidebarItem({
@@ -46,7 +45,7 @@ export function botChatRows({
       teamId,
       active: openId === run.conversation.sessionId,
       runtimeState: run.runtimeState,
-      unread: unreadIds.has(run.conversation.sessionId),
+      unread: false,
     }),
     parentKey,
     bot: false,
