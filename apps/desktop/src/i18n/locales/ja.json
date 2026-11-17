@@ -3337,6 +3337,8 @@
   "Pause this trigger": "このトリガーを一時停止",
   "Pause trigger": "トリガーを一時停止",
   "Paused": "一時停止中",
+  "Paused by the provider (host out of memory). It resumes when you use it.": "プロバイダーにより一時停止されました（ホストのメモリ不足）。使うと再開します。",
+  "Paused by the provider. It resumes when you use it.": "プロバイダーにより一時停止されました。使うと再開します。",
   "Paused computers are free and wake up as you left them.": "一時停止中のコンピュータは無料で、再開すると停止前の状態から使えます。",
   "Paused computers use no vCPU. {free} vCPU free.": "一時停止中のコンピュータは vCPU を使用しません。空き {free} vCPU。",
   "Paused while running on battery": "バッテリー駆動中は一時停止",

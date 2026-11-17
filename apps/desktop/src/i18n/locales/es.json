@@ -3337,6 +3337,8 @@
   "Pause this trigger": "Pausar este disparador",
   "Pause trigger": "Pausar disparador",
   "Paused": "En pausa",
+  "Paused by the provider (host out of memory). It resumes when you use it.": "Pausado por el proveedor (el servidor se quedó sin memoria). Se reanuda cuando lo uses.",
+  "Paused by the provider. It resumes when you use it.": "Pausado por el proveedor. Se reanuda cuando lo uses.",
   "Paused computers are free and wake up as you left them.": "Las computadoras en pausa son gratis y se reanudan tal como las dejaste.",
   "Paused computers use no vCPU. {free} vCPU free.": "Las computadoras en pausa no usan vCPU. {free} vCPU libres.",
   "Paused while running on battery": "En pausa mientras usa la batería",

@@ -9,6 +9,7 @@ import { t } from '../../i18n'
 
 import { canManage } from './agentPresentation'
 import { diskWarning } from './boxMetricsPresentation'
+import { providerPause } from './boxPresentation'
 import { outdatedNotice } from './computerOutdated'
 
 import type { AgentDevice } from '../../api'
@@ -27,9 +28,15 @@ export function ComputerNotices({
   running: boolean
 }) {
   const outdated = outdatedNotice(device, here)
+  const paused = providerPause(device)
 
   return (
     <>
+      {paused && (
+        <p role="status" className="mt-2 text-[11.5px] leading-4 text-tertiary">
+          {paused}
+        </p>
+      )}
       {outdated && (
         <div role="status" className="mt-2 text-[11.5px] leading-4">
           <p className="flex items-center gap-1 text-warning">
