@@ -2,8 +2,12 @@ import { createServer } from 'node:http'
 
 import type { AddressInfo } from 'node:net'
 
-// Cloudflare's API as the backend's "OAuth Client Read" token sees it.
-export async function fakeCloudflareApi(): Promise<string> {
+/** Set to answer as Cloudflare does for a revoked token. */
+export const fakeCloudflare = { rejectToken: false }
+
+// Cloudflare's API as the backend's "OAuth Client Read" token sees it, and the
+// backend environment that points at it.
+export async function fakeCloudflareEnv(): Promise<Record<string, string>> {
   const scopes = [
     { id: 'account-settings.read', category: 'account_and_billing' },
     { id: 'user-details.read', category: 'account_and_billing' },
@@ -18,14 +22,20 @@ export async function fakeCloudflareApi(): Promise<string> {
     '/oauth/scopes?per_page=1000': scopes,
   }
   const server = createServer((request, response) => {
-    const result = answers[request.url ?? '']
+    const result = fakeCloudflare.rejectToken ? undefined : answers[request.url ?? '']
+    const errors = fakeCloudflare.rejectToken
+      ? [{ code: 10000, message: 'Authentication error' }]
+      : []
 
-    response.writeHead(result ? 200 : 404, { 'content-type': 'application/json' })
-    response.end(JSON.stringify(result ? { success: true, result } : { success: false }))
+    response.writeHead(result ? 200 : 403, { 'content-type': 'application/json' })
+    response.end(JSON.stringify(result ? { success: true, result } : { success: false, errors }))
   })
 
   await new Promise<void>((done) => server.listen(0, '127.0.0.1', done))
   server.unref()
 
-  return `http://127.0.0.1:${String((server.address() as AddressInfo).port)}`
+  return {
+    CLOUDFLARE_API_URL: `http://127.0.0.1:${String((server.address() as AddressInfo).port)}`,
+    CLOUDFLARE_OAUTH_ADMIN_TOKEN: 'e2e-cloudflare-token-not-a-production-credential',
+  }
 }
