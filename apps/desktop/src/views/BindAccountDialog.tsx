@@ -46,7 +46,8 @@ export function BindAccountDialog({
   useResetOnKey(`${String(open)}|${initialProvider}`, () => {
     if (open) st.setProvider(initialProvider)
   })
-  useResetOnKey(`${String(open)}|${st.provider}`, () => setShareList(null))
+  // A choice made for one team never carries over to another.
+  useResetOnKey(`${String(open)}|${st.provider}|${teamId}`, () => setShareList(null))
   useBindDialogEffects(st, open, teamId)
 
   const { provider, submitting, cloudflareConnecting, reset, error } = st
@@ -142,6 +143,7 @@ export function BindAccountDialog({
         )}
         {showFooter && SHAREABLE_PROVIDERS.has(provider) && (
           <BindShareField
+            key={teamId}
             teamId={teamId}
             provider={provider}
             value={shareList}
