@@ -3,8 +3,10 @@
 //
 // Pi signs in to a model provider with `pi auth login`, which only runs in a terminal. An
 // API key needs none: it is the entry Pi documents for its auth.json, so this writes that
-// entry, asks Pi whether the provider is ready, and makes one of the models Pi then lists
-// the one every conversation starts on (pi-session.mjs). Signing in with an account in
+// entry, asks Pi whether the provider is ready, and starts every conversation on Pi's
+// default model for that provider (pi-session.mjs), as Pi's own login does: a conversation's
+// model menu changes it. Without it, Pi starts on the first provider in its own order that has
+// any credential on the computer, not the one just signed in to. Signing in with an account in
 // the browser waits for a Pi that can do it without a terminal.
 //
 // The same wrapper signs in Pi on a computer, which names its own CLI and home.
@@ -18,30 +20,31 @@ import { MODEL_SETTINGS, readJson, writeJson } from './pi-session.mjs'
 
 const PI = process.env.NUPHOS_AGENT_EXECUTABLE || 'pi'
 const HOME = process.env.NUPHOS_AGENT_HOME || process.env.HOME || '/home/node'
-// More models than a list can offer: the model is typed instead.
-const MAX_LISTED = 40
 
-/** The providers Pi takes an API key for, by the id `pi auth` knows them by. */
-export const PROVIDERS = [
-  { value: 'anthropic', label: 'Anthropic' },
-  { value: 'openai', label: 'OpenAI' },
-  { value: 'google', label: 'Google Gemini' },
-  { value: 'openrouter', label: 'OpenRouter' },
-  { value: 'deepseek', label: 'DeepSeek' },
-  { value: 'xai', label: 'xAI' },
-  { value: 'mistral', label: 'Mistral' },
-  { value: 'groq', label: 'Groq' },
-  { value: 'cerebras', label: 'Cerebras' },
-  { value: 'fireworks', label: 'Fireworks' },
-  { value: 'together', label: 'Together AI' },
-  { value: 'moonshotai', label: 'Moonshot AI' },
-  { value: 'minimax', label: 'MiniMax' },
-  { value: 'zai', label: 'ZAI Coding Plan' },
-  { value: 'kimi-coding', label: 'Kimi For Coding' },
-  { value: 'vercel-ai-gateway', label: 'Vercel AI Gateway' },
-  { value: 'opencode', label: 'OpenCode Zen' },
-  { value: 'huggingface', label: 'Hugging Face' },
-  { value: 'nvidia', label: 'NVIDIA NIM' },
+/**
+ * The providers Pi takes an API key for, by the id `pi auth` knows them by, with the model
+ * Pi starts each on (its defaultModelPerProvider, which it does not export).
+ */
+const PROVIDERS = [
+  { value: 'anthropic', label: 'Anthropic', model: 'claude-opus-5-5' },
+  { value: 'openai', label: 'OpenAI', model: 'gpt-6.1-sol' },
+  { value: 'google', label: 'Google Gemini', model: 'gemini-4-argon' },
+  { value: 'openrouter', label: 'OpenRouter', model: 'moonshotai/kimi-k2.7-code' },
+  { value: 'deepseek', label: 'DeepSeek', model: 'deepseek-v4-pro' },
+  { value: 'xai', label: 'xAI', model: 'grok-4.7' },
+  { value: 'mistral', label: 'Mistral', model: 'devstral-medium-latest' },
+  { value: 'groq', label: 'Groq', model: 'openai/gpt-oss-120b' },
+  { value: 'cerebras', label: 'Cerebras', model: 'gpt-oss-120b' },
+  { value: 'fireworks', label: 'Fireworks', model: 'accounts/fireworks/models/kimi-k3' },
+  { value: 'together', label: 'Together AI', model: 'moonshotai/Kimi-K3' },
+  { value: 'moonshotai', label: 'Moonshot AI', model: 'kimi-k2.7-code' },
+  { value: 'minimax', label: 'MiniMax', model: 'MiniMax-M3' },
+  { value: 'zai', label: 'ZAI Coding Plan', model: 'glm-5.3' },
+  { value: 'kimi-coding', label: 'Kimi For Coding', model: 'kimi-for-coding' },
+  { value: 'vercel-ai-gateway', label: 'Vercel AI Gateway', model: 'zai/glm-5.3' },
+  { value: 'opencode', label: 'OpenCode Zen', model: 'kimi-k2.7-code' },
+  { value: 'huggingface', label: 'Hugging Face', model: 'moonshotai/Kimi-K2.7-Code' },
+  { value: 'nvidia', label: 'NVIDIA NIM', model: 'nvidia/nemotron-3.5-super-vl-120b-a12b' },
 ]
 
 class LoginError extends Error {}
@@ -106,8 +109,11 @@ export async function runPiLogin({
     return value
   }
 
-  const provider = await choose('Choose a model provider', PROVIDERS)
-  const { label } = PROVIDERS.find((entry) => entry.value === provider)
+  const provider = await choose(
+    'Choose a model provider',
+    PROVIDERS.map(({ value, label }) => ({ value, label })),
+  )
+  const { label, model: preferred } = PROVIDERS.find((entry) => entry.value === provider)
   const key = await input({ message: `${label} API key`, secret: true })
   const agentDir = join(home, '.pi', 'agent')
   const authFile = join(agentDir, 'auth.json')
@@ -122,16 +128,8 @@ export async function runPiLogin({
     if (check.status !== 'ready') throw new LoginError('Not ready')
     const models = listedModels(await run(['--list-models'], agentDir), provider)
     if (!models.length) throw new LoginError('No models')
-    const model =
-      models.length > MAX_LISTED
-        ? await input({ message: `${label} model ID` })
-        : models.length === 1
-          ? models[0]
-          : await choose(
-              'Choose the model conversations start on',
-              models.map((value) => ({ value, label: value })),
-            )
-    if (!models.includes(model)) throw new LoginError('Unknown model')
+    // A Pi whose default has since changed starts where its list does.
+    const model = models.includes(preferred) ? preferred : models[0]
     const [defaultProvider, defaultModel] = MODEL_SETTINGS
     writeJson(join(agentDir, 'settings.json'), {
       ...readJson(join(agentDir, 'settings.json')),
