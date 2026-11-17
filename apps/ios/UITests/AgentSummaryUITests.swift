@@ -6,7 +6,6 @@ final class AgentSummaryUITests: XCTestCase {
         let app = launch()
         let button = app.buttons["agent-summary-button"]
         XCTAssertTrue(button.waitForExistence(timeout: 10))
-        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "1 merged")).count, 0)
         button.tap()
         XCTAssertTrue(app.staticTexts["Task summary"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertFalse(app.textFields["dock-search"].exists)
@@ -20,6 +19,8 @@ final class AgentSummaryUITests: XCTestCase {
             if app.staticTexts["Improve mobile navigation"].isHittable { break }
             app.scrollViews["agent-summary-list"].swipeUp()
         }
+        XCTAssertTrue(app.staticTexts["Changes"].exists)
+        XCTAssertTrue(app.staticTexts["#42 · open"].exists)
         XCTAssertTrue(app.staticTexts["Improve mobile navigation"].exists)
         XCTAssertTrue(app.staticTexts["Review accessibility"].exists)
         shot("agent-summary-work")

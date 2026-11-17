@@ -5,6 +5,7 @@ import SwiftUI
 struct AgentSummaryPanel: View {
     @Bindable var session: ChatSession
     let close: () -> Void
+    let archive: () -> Void
     let openSession: (AgentConversation) -> Void
     @Environment(AgentStore.self) private var store
     @Environment(\.horizontalSizeClass) private var sizeClass
@@ -49,15 +50,14 @@ struct AgentSummaryPanel: View {
                         }
                     }
                 }
-                SummaryCard("Task actions") {
-                    Button {
-                        close()
-                        Task { await store.archive(sessionId: session.sessionId, teamId: session.teamId) }
-                    } label: {
+                if !session.isBot {
+                  SummaryCard("Task actions") {
+                    Button(action: archive) {
                         Label { Text("Archive") } icon: { LucideIcon("archive") }
                     }
                     .buttonStyle(.bordered)
                     .disabled(session.isArchived || !session.canManage)
+                  }
                 }
                 if !background.isEmpty {
                     SummaryCard("Background work") {

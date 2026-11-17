@@ -71,7 +71,7 @@ final class AccountNavigationUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Close account"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.navigationBars["Account"].exists)
         XCTAssertFalse(app.buttons["Done"].exists)
-        XCTAssertFalse(app.buttons["account.edit-profile"].exists)
+        XCTAssertFalse(app.buttons["Edit profile"].exists)
         XCTAssertTrue(app.staticTexts["Signed-in accounts"].exists)
         XCTAssertTrue(app.staticTexts["Integrations"].exists)
         XCTAssertLessThan(app.buttons["Add account"].frame.minY, app.buttons["Connectors"].frame.minY)

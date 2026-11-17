@@ -4,8 +4,6 @@ import SwiftUI
 struct AgentPage: View {
     @Environment(AgentStore.self) private var store
     @Binding var page: HomePage
-    /// Driven by the search button in the toolbar.
-    @Binding var isSearching: Bool
     /// True once the large header has scrolled under the bar.
     @Binding var titleCollapsed: Bool
     /// The chat shown beside (or, when compact, on top of) the list.
@@ -99,16 +97,6 @@ struct AgentPage: View {
                 }
             }
             #endif
-            .safeAreaInset(edge: .top, spacing: 0) {
-                if isSearching {
-                    SearchBar(text: $store.search, placeholder: page == .chats ? "Search Bots" : "Search tasks") {
-                        store.search = ""
-                        isSearching = false
-                    }
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                }
-            }
-            .animation(.snappy(duration: 0.25), value: isSearching)
             // A chat's keyboard is not this page's to make room for: a back
             // swipe would show this composer gliding down from it.
             .ignoresSafeArea(ownsKeyboard ? [] : .keyboard, edges: .bottom)
@@ -378,11 +366,14 @@ struct AgentPage: View {
     private func pinAction(_ row: AgentConversation) -> some View {
         if row.isChannel || row.isBot {
             let pinned = store.isPinned(row)
-            let noun = row.isBot || row.botId != nil ? " Bot" : ""
+            let bot = row.isBot || row.botId != nil
+            let title = pinned
+                ? (bot ? String(localized: "Unpin Bot") : String(localized: "Unpin"))
+                : (bot ? String(localized: "Pin Bot") : String(localized: "Pin"))
             Button {
                 Task { await store.setPinned(!pinned, row) }
             } label: {
-                Label(pinned ? "Unpin\(noun)" : "Pin\(noun)", image: pinned ? "lucide-pin-off" : "lucide-pin")
+                Label(title, image: pinned ? "lucide-pin-off" : "lucide-pin")
             }
         }
     }
@@ -462,7 +453,7 @@ struct AgentPage: View {
 
     private var list: some View {
         List(selection: selection) {
-            if page == .chats, !store.pins.isEmpty, !isSearching, store.search.isEmpty {
+            if page == .chats, !store.pins.isEmpty, store.search.isEmpty {
                 Section {
                 } header: {
                     PinShelf(pins: store.pins) { row in
@@ -566,59 +557,12 @@ struct ChannelRow: View {
     }
 }
 
-/// The expandable search field under the navigation bar. The owning store
-/// decides how the query is applied.
-struct SearchBar: View {
-    @Binding var text: String
-    var placeholder: LocalizedStringKey = "Search tasks"
-    var accessory: AnyView? = nil
-    var onCancel: () -> Void
-    @FocusState private var focused: Bool
-
-    var body: some View {
-        HStack(spacing: 10) {
-            HStack(spacing: 6) {
-                LucideIcon("search", size: 16)
-                    .foregroundStyle(Theme.muted)
-                TextField(placeholder, text: $text)
-                    .focused($focused)
-                    .textFieldStyle(.plain)
-                    .submitLabel(.search)
-                    .autocorrectionDisabled()
-                if let accessory { accessory }
-                if !text.isEmpty {
-                    Button {
-                        text = ""
-                    } label: {
-                        LucideIcon("x", size: 16).foregroundStyle(Theme.muted)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Clear search")
-                }
-            }
-            .padding(.horizontal, 12)
-            .frame(height: 38)
-            .contentShape(Capsule())
-            .onTapGesture { focused = true }
-            .glass(in: Capsule())
-
-            Button("Cancel", action: onCancel)
-                .font(.body)
-                .keyboardShortcut(.cancelAction)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 6)
-        .onAppear { focused = true }
-    }
-}
-
 #Preview {
-    @Previewable @State var searching = false
     @Previewable @State var newBot = false
     @Previewable @State var page = HomePage.agent
     @Previewable @State var collapsed = false
     NavigationStack {
-        AgentPage(page: $page, isSearching: $searching, titleCollapsed: $collapsed, openChat: .constant(nil), showNewBot: $newBot)
+        AgentPage(page: $page, titleCollapsed: $collapsed, openChat: .constant(nil), showNewBot: $newBot)
     }
     .environment(AgentStore(token: ""))
 }

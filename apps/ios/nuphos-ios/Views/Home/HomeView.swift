@@ -13,16 +13,10 @@ struct HomeView: View {
     /// The next page change is the default tab, not the viewer's pick.
     @State private var autoPage = false
     @State private var showTeamPicker = false
-    @State private var searchReturnPage: HomePage = .chats
-    @State private var showSearch = false
-    @State private var showCreate = false
-    @State private var homeSearch = ""
     @State private var showProfile = false
     @State private var showNewBot = false
     @State private var showNewTask = false
     @State private var submittedTask: AgentPage.OpenChat?
-    @State private var searching: Set<HomePage> = []
-    @State private var searches: [HomePage: String] = [:]
     @State private var workspacePage: HomePage? = Self.initialWorkspacePage
     @State private var titleCollapsed = false
     @State private var store: AgentStore?
@@ -79,7 +73,7 @@ struct HomeView: View {
             // Wide, the list always stays: there is nothing to put it away with.
             .toolbar(removing: .sidebarToggle)
             .toolbar {
-                if page != .search, let store, !store.teams.isEmpty {
+                if let store, !store.teams.isEmpty {
                     ToolbarItem(placement: .topBarLeading) {
                         Button { showTeamPicker = true } label: {
                             HStack(spacing: 6) {
@@ -88,7 +82,7 @@ struct HomeView: View {
                                     .font(.subheadline.weight(.semibold))
                                     .lineLimit(1)
                                     .truncationMode(.tail)
-                                    .frame(maxWidth: sizeClass == .regular ? nil : 180, alignment: .leading)
+                                    .frame(maxWidth: sizeClass == .regular ? (openChat == nil ? nil : 90) : 180, alignment: .leading)
                                 LucideIcon("chevron-down", size: 14)
                             }
                         }
@@ -101,19 +95,16 @@ struct HomeView: View {
                         .accessibilityLabel("Switch team")
                     }
                 }
-                if page != .search {
-                    if sizeClass != .regular {
-                        if #available(iOS 27, *) {
+                if sizeClass != .regular || openChat != nil {
+                    if #available(iOS 27, *) {
                             ToolbarItemGroup(placement: .topBarTrailing) { homeActions }
                         } else {
                             ToolbarItem(placement: .topBarTrailing) {
                                 HStack(spacing: 0) { homeActions }.buttonStyle(.plain)
                             }
-                        }
                     }
                 }
             }
-            .toolbar(page == .search ? .hidden : .visible, for: .navigationBar)
             #if DEBUG
             .onAppear { if ProcessInfo.processInfo.arguments.contains("-show-app-icons") { showProfile = true } }
             #endif
@@ -187,7 +178,7 @@ struct HomeView: View {
                         .id(channel.channelId)
                         .toolbar { newAgentItem }
                 } else if let openChat, let chatSession = openChat.session {
-                    ConversationView(session: chatSession, initialPrompt: openChat.prompt)
+                    ConversationView(session: chatSession, initialPrompt: openChat.prompt, onArchived: { self.openChat = nil })
                         .id(openChat.id)
                         // A link to a chat opens as a session until its kind is known.
                         .onChange(of: chatSession.isChannel) { _, isChannel in
@@ -211,7 +202,7 @@ struct HomeView: View {
             }
             .navigationDestination(isPresented: $showBotTask) {
                 if let botTask {
-                    ConversationView(session: botTask)
+                    ConversationView(session: botTask, onArchived: { showBotTask = false; self.botTask = nil; openChat = nil })
                         .onAppear { store?.follow(botTask) }
                         .onDisappear { store?.follow(nil) }
                 }
@@ -279,13 +270,14 @@ struct HomeView: View {
             // After the page change below has cleared it.
             Task { openChat = chat }
         }
+        .onChange(of: openChat?.id) { _, _ in
+            showBotTask = false
+            botTask = nil
+        }
         .onChange(of: page) { oldPage, newPage in
+            showBotTask = false
+            botTask = nil
             if autoPage { autoPage = false } else { pageChosen = true }
-            if newPage == .search {
-                searchReturnPage = oldPage
-            }
-            searches[oldPage] = store?.search ?? ""
-            store?.search = searches[newPage] ?? ""
             openChat = nil
             inbox?.selected = nil
             // An answer held for Undo goes once the Inbox is left.
@@ -401,15 +393,9 @@ struct HomeView: View {
     }
 
     private func homeList(_ tab: HomePage) -> some View {
-        AgentPage(page: .constant(tab), isSearching: searchPresentation(for: tab),
+        AgentPage(page: .constant(tab),
                   titleCollapsed: $titleCollapsed, openChat: $openChat, showNewBot: tab == .chats ? $showNewBot : .constant(false))
 
-    }
-
-    private func searchPresentation(for tab: HomePage) -> Binding<Bool> {
-        Binding(get: { searching.contains(tab) }, set: { shown in
-            if shown { searching.insert(tab) } else { searching.remove(tab) }
-        })
     }
 
     @ViewBuilder

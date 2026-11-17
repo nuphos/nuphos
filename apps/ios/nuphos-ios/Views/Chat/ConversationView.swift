@@ -6,6 +6,7 @@ struct ConversationView: View {
     @Bindable var session: ChatSession
     /// First message for a brand-new chat, sent once the view appears.
     var initialPrompt: ComposerSubmission?
+    var onArchived: (() -> Void)?
     var temporaryDirectory: URL = FileManager.default.temporaryDirectory
     /// Top-level page that presented this chat, used by navigation diagnostics.
     var sourcePage = HomePage.agent.rawValue
@@ -19,6 +20,7 @@ struct ConversationView: View {
     @State private var didSendInitial = false
     @Environment(AgentStore.self) private var store
     @State private var archiveError: String?
+    @State private var confirmBotArchive = false
     @State private var updating = false
     @State private var showTriggers = false
     @State private var showRename = false
@@ -51,6 +53,70 @@ struct ConversationView: View {
     /// The dock shows the owner's own computer, so only the owner gets it.
     private var hasDock: Bool { !session.isNew && session.ownsChat }
     @State private var referencedAgents = ReferencedAgents()
+
+    private var taskOptions: some View {
+        Menu {
+            if hasDock {
+                Button { dismissComposerKeyboard(); dockOpen = true } label: {
+                    Label("Work tools", image: "lucide-monitor")
+                }
+            }
+            if session.loaded && !session.isBot {
+                Button { showShare = true } label: { Label("Share", image: "lucide-user-plus") }
+            }
+            if let watching = session.isWatching {
+                Button {
+                    Task {
+                        updating = true
+                        defer { updating = false }
+                        do { try await session.setWatching(!watching) }
+                        catch { archiveError = error.localizedDescription }
+                    }
+                } label: {
+                    Label(watching ? String(localized: "Unwatch") : String(localized: "Watch"), image: watching ? "lucide-bell-off" : "lucide-bell")
+                }
+            }
+            if session.ownsChat {
+                Button { renamedTitle = session.title; showRename = true } label: { Label("Rename", image: "lucide-pencil") }
+            }
+            if session.canManage {
+                Button { showRuntimes = true } label: { Label("Switch runtime", image: "lucide-arrow-left-right") }
+                    .disabled(session.isStreaming)
+                Button {
+                    // An archived chat leaves the list, so go
+                    // back to it at once and archive from there,
+                    // as a swipe does; a restored one rejoins it.
+                    if !session.isArchived {
+                        if session.isBot { confirmBotArchive = true } else { archiveTask() }
+                        return
+                    }
+                    Task {
+                        updating = true
+                        defer { updating = false }
+                        do {
+                            try await session.setArchived(false)
+                            await store.reload()
+                        } catch { archiveError = error.localizedDescription }
+                    }
+                } label: {
+                    Label(session.isArchived ? String(localized: "Restore from archive") : String(localized: "Archive"), image: session.isArchived ? "lucide-archive-restore" : "lucide-archive")
+                }
+            }
+        } label: {
+            // A Label, not a bare Image: the bar takes it as a
+            // native item, so the whole glass answers, not just
+            // the glyph.
+            Label("Task options", image: "lucide-ellipsis")
+        }
+        .disabled(updating)
+        .accessibilityLabel("Task options")
+    }
+
+    private func archiveTask() {
+        summaryOpen = false
+        if let onArchived { onArchived() } else { dismiss() }
+        Task { await store.archive(sessionId: session.sessionId, teamId: session.teamId) }
+    }
 
     private func toggleSummary() {
         guard !summaryOpening else { return }
@@ -97,7 +163,7 @@ struct ConversationView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .agentSummary(isPresented: $summaryOpen) {
-            AgentSummaryPanel(session: session, close: { summaryOpen = false }) { row in
+            AgentSummaryPanel(session: session, close: { summaryOpen = false }, archive: archiveTask) { row in
                 summaryOpen = false
                 summaryTarget = row
             }
@@ -187,64 +253,15 @@ struct ConversationView: View {
             }
             if !session.isNew {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        if hasDock {
-                            Button { dismissComposerKeyboard(); dockOpen = true } label: {
-                                Label { Text("Work tools") } icon: { LucideIcon("monitor") }
-                            }
-                        }
-                        if session.loaded && !session.isBot {
-                            DesignButton("Share", image: "lucide-user-plus") { showShare = true }
-                        }
-                        if let watching = session.isWatching {
-                            Button {
-                                Task {
-                                    updating = true
-                                    defer { updating = false }
-                                    do { try await session.setWatching(!watching) }
-                                    catch { archiveError = error.localizedDescription }
-                                }
-                            } label: {
-                                DesignLabel(watching ? "Unwatch" : "Watch", systemImage: watching ? "bell.slash" : "bell")
-                            }
-                        }
-                        if session.ownsChat {
-                            DesignButton("Rename", image: "lucide-pencil") { renamedTitle = session.title; showRename = true }
-                        }
-                        if session.canManage {
-                            DesignButton("Switch runtime", image: "lucide-arrow-left-right") { showRuntimes = true }
-                                .disabled(session.isStreaming)
-                            Button {
-                                // An archived chat leaves the list, so go
-                                // back to it at once and archive from there,
-                                // as a swipe does; a restored one rejoins it.
-                                if !session.isArchived {
-                                    dismiss()
-                                    Task { await store.archive(sessionId: session.sessionId, teamId: session.teamId) }
-                                    return
-                                }
-                                Task {
-                                    updating = true
-                                    defer { updating = false }
-                                    do {
-                                        try await session.setArchived(false)
-                                        await store.reload()
-                                    } catch { archiveError = error.localizedDescription }
-                                }
-                            } label: {
-                                DesignLabel(session.isArchived ? "Restore from archive" : "Archive", systemImage: session.isArchived ? "tray.and.arrow.up" : "archivebox")
-                            }
-                        }
-                    } label: {
-                        // A Label, not a bare Image: the bar takes it as a
-                        // native item, so the whole glass answers, not just
-                        // the glyph.
-                        Label("Task options", image: "lucide-ellipsis")
-                    }
-                    .disabled(updating)
-                    .accessibilityLabel("Task options")
+                    taskOptions
                 }
             }
+        }
+        .alert("This is a Bot. Archive the Bot?", isPresented: $confirmBotArchive) {
+            Button("Cancel", role: .cancel) {}
+            Button("Archive Bot", role: .destructive, action: archiveTask)
+        } message: {
+            Text("Its chat is archived with it. Unarchive either one to bring both back.")
         }
         .alert("Couldn't update task", isPresented: Binding(get: { archiveError != nil }, set: { if !$0 { archiveError = nil } })) {
             Button("OK") { archiveError = nil }

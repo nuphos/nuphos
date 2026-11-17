@@ -15,7 +15,8 @@ struct PinShelf: View {
                     PinContextTile(content: AnyView(tile(row)),
                         preview: AnyView(BotConversationPreview(conversation: row, title: store.title(of: row))),
                         identifier: "PinnedBot-\(row.sessionId)",
-                        unpinTitle: row.isBot || row.botId != nil ? "Unpin Bot" : "Unpin",
+                        accessibilityLabel: store.title(of: row), accessibilityValue: statusLabel(row),
+                        unpinTitle: row.isBot || row.botId != nil ? String(localized: "Unpin Bot") : String(localized: "Unpin"),
                         open: { open(row) }, unpin: { Task { await store.setPinned(false, row) } })
                         .frame(width: 76, height: 100)
 
@@ -56,6 +57,15 @@ struct PinShelf: View {
         .accessibilityElement(children: .combine)
     }
 
+    private func statusLabel(_ row: AgentConversation) -> String {
+        let bot = row.isBot ? row : store.bot(of: row)
+        let runs = bot.map { [$0] + store.threads(of: $0) } ?? []
+        if runs.contains(where: \.isWaiting) { return String(localized: "Needs your input") }
+        if runs.contains(where: store.inTurn) { return String(localized: "Running") }
+        let team = row.teamId ?? store.selectedTeam?.id ?? ""
+        return store.unread.contains(team: team, session: row.sessionId) ? String(localized: "Unread posts") : ""
+    }
+
     /// A question from the Bot or what it dispatched, then a turn, then an unread reply.
     private func status(_ row: AgentConversation) -> Color? {
         let bot = row.isBot ? row : store.bot(of: row)
@@ -73,6 +83,8 @@ private struct PinContextTile: UIViewRepresentable {
     let content: AnyView
     let preview: AnyView
     let identifier: String
+    let accessibilityLabel: String
+    let accessibilityValue: String
     let unpinTitle: String
     let open: () -> Void
     let unpin: () -> Void
@@ -85,6 +97,8 @@ private struct PinContextTile: UIViewRepresentable {
         view.backgroundColor = .clear
         view.isAccessibilityElement = true
         view.accessibilityIdentifier = identifier
+        view.accessibilityLabel = accessibilityLabel
+        view.accessibilityValue = accessibilityValue
         view.accessibilityTraits = .button
         view.addGestureRecognizer(UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.tap)))
         view.addInteraction(UIContextMenuInteraction(delegate: context.coordinator))
@@ -94,6 +108,8 @@ private struct PinContextTile: UIViewRepresentable {
         context.coordinator.parent = self
         context.coordinator.host?.rootView = content
         view.accessibilityIdentifier = identifier
+        view.accessibilityLabel = accessibilityLabel
+        view.accessibilityValue = accessibilityValue
     }
     final class Coordinator: NSObject, UIContextMenuInteractionDelegate {
         var parent: PinContextTile

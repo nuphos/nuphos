@@ -364,7 +364,7 @@ private struct QuotaLine: View {
             }
             .accessibilityElement(children: .combine)
         } else if quota.needsSignIn {
-            Text("\(LucideIcon("circle-alert")) Sign in required")
+            Text("\(Image("lucide-circle-alert")) Sign in required")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(Theme.warning)
         }

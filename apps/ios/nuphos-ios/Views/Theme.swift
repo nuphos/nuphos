@@ -187,12 +187,13 @@ extension View {
 
 /// Shared filled action: ink, 10pt corners and a stable native touch target.
 struct DesignPrimaryButtonStyle: ButtonStyle {
+    var minimumHeight: CGFloat = 48
     @Environment(\.isEnabled) private var enabled
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.callout.weight(.medium))
             .padding(.horizontal, 16)
-            .frame(minHeight: 48)
+            .frame(minHeight: minimumHeight)
             .foregroundStyle(enabled ? Theme.surface : Theme.muted)
             .background(enabled ? Theme.heading : Theme.sunken, in: RoundedRectangle(cornerRadius: 10))
             .scaleEffect(configuration.isPressed && enabled ? 0.97 : 1)

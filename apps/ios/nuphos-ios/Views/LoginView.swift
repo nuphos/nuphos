@@ -159,16 +159,14 @@ struct LoginView: View {
     private var loginOptions: some View {
         VStack(spacing: 12) {
             if providers.contains(.apple) {
-                Button {
+                #if os(iOS)
+                NativeAppleSignInButton(dark: colorScheme == .dark) {
                     clearFeedback()
                     Task { await session.signIn(provider: .apple) }
-                } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: "apple.logo").frame(width: 20, height: 20)
-                        Text("Continue with Apple")
-                    }.frame(maxWidth: .infinity, minHeight: 20)
                 }
-                .buttonStyle(DesignPrimaryButtonStyle()).accessibilityIdentifier("login.apple")
+                .frame(height: 44)
+                .id(colorScheme)
+                #endif
             }
             if providers.contains(.google) {
                 Button {
@@ -181,7 +179,7 @@ struct LoginView: View {
                     }.frame(maxWidth: .infinity, minHeight: 20)
                         .foregroundStyle(loginButtonLabel)
                 }
-                .buttonStyle(DesignPrimaryButtonStyle()).accessibilityIdentifier("login.google")
+                .buttonStyle(DesignPrimaryButtonStyle(minimumHeight: 44)).accessibilityIdentifier("login.google")
             }
             if providers.contains(.oidc) {
                 Button {
@@ -479,7 +477,7 @@ private struct NativeAppleSignInButton: UIViewRepresentable {
 
     func makeUIView(context: Context) -> ASAuthorizationAppleIDButton {
         let button = ASAuthorizationAppleIDButton(type: .continue, style: dark ? .white : .black)
-        button.cornerRadius = 26
+        button.cornerRadius = Theme.Radius.button
         button.accessibilityIdentifier = "login.apple"
         button.addAction(UIAction { _ in action() }, for: .touchUpInside)
         return button

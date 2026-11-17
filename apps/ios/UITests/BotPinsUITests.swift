@@ -29,6 +29,7 @@ final class BotPinsUITests: XCTestCase {
         XCTAssertTrue(shelf.waitForExistence(timeout: 15))
         let pin = shelf.buttons.firstMatch
         XCTAssertTrue(pin.exists)
+        XCTAssertFalse(pin.label.isEmpty, "VoiceOver needs the pinned conversation title")
         pin.press(forDuration: 1)
         let unpin = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Unpin'")).firstMatch
         XCTAssertTrue(unpin.waitForExistence(timeout: 5))
@@ -41,6 +42,8 @@ final class BotPinsUITests: XCTestCase {
         let row = app.staticTexts["design-review"].firstMatch
         XCTAssertTrue(row.exists)
         row.press(forDuration: 1)
+        // This fixture row is an ordinary channel, with no botId.
+        XCTAssertNil(rows[1]["botId"])
         let pinAction = app.buttons["Pin"].firstMatch
         XCTAssertTrue(pinAction.waitForExistence(timeout: 5))
         shot("bot-row-preview")
@@ -93,7 +96,7 @@ final class BotPinsUITests: XCTestCase {
         let listing = responses["GET /agent/conversations"] as! [String: Any]
         let bot = ((listing["body"] as! [String: Any])["conversations"] as! [[String: Any]])[1]
         var task = bot
-        task["messages"] = []; task["messagesFirstIndex"] = 0; task["readOnly"] = false
+        task["messages"] = body["messages"]; task["messagesFirstIndex"] = 0; task["readOnly"] = false
         responses["GET /agent/conversations/bot-plain"] = ["status": 200, "body": task]
         let live = URL.temporaryDirectory.appending(path: "bot-task-\(UUID()).json")
         try JSONSerialization.data(withJSONObject: responses).write(to: live)
@@ -107,11 +110,42 @@ final class BotPinsUITests: XCTestCase {
         let entry = app.buttons["bot-task-entry"]
         XCTAssertTrue(entry.waitForExistence(timeout: 10)); shot("bot-chat-task-entry"); entry.tap()
         XCTAssertTrue(app.buttons["conversation-trigger-entry"].waitForExistence(timeout: 10))
-        XCTAssertFalse(app.buttons["Share"].exists)
+        XCTAssertTrue(app.buttons["Task options"].waitForExistence(timeout: 10))
+        app.buttons["Task options"].tap()
+        shot("bot-task-options")
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "Work tools").firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "Share").firstMatch.exists)
+        app.descendants(matching: .any).matching(identifier: "Rename").firstMatch.tap()
+        XCTAssertTrue(app.alerts["Rename task"].waitForExistence(timeout: 5))
+        app.alerts["Rename task"].buttons["Cancel"].tap()
+        app.buttons["agent-summary-button"].tap()
+        XCTAssertTrue(app.buttons["Close summary"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Archive"].exists, "Bot summary must not bypass archive confirmation")
         shot("bot-own-task")
+        app.buttons["Close summary"].tap()
+        app.buttons["Task options"].tap()
+        app.descendants(matching: .any).matching(identifier: "Archive").firstMatch.tap()
+        XCTAssertTrue(app.alerts["This is a Bot. Archive the Bot?"].waitForExistence(timeout: 5))
+        app.alerts.buttons["Cancel"].tap()
         app.buttons["BackButton"].firstMatch.tap()
         XCTAssertTrue(entry.waitForExistence(timeout: 5), "Back must return to the Bot chat, not its list")
         shot("bot-task-returned-to-chat")
+        if app.windows.firstMatch.horizontalSizeClass == .regular {
+            XCTAssertTrue(app.buttons["Account"].isHittable)
+            XCTAssertTrue(app.buttons["Computers & runtimes"].isHittable)
+            XCTAssertTrue(app.buttons["Create"].isHittable)
+            app.buttons["Account"].tap()
+            XCTAssertTrue(app.buttons["Close account"].waitForExistence(timeout: 5))
+            app.buttons["Close account"].tap()
+            entry.tap()
+            XCTAssertTrue(app.buttons["agent-summary-button"].waitForExistence(timeout: 5))
+            app.staticTexts["Sign-in helper"].firstMatch.tap()
+            let header = app.buttons["bot-trigger-entry"]
+            let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", "Sign-in helper"), object: header)
+            XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 5), .completed)
+            XCTAssertTrue(app.buttons["agent-summary-button"].waitForNonExistence(timeout: 5), "Selecting another chat must pop the previous Bot Task")
+            shot("bot-task-selection-reset")
+        }
     }
 
     private func shot(_ name: String) {
