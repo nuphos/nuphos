@@ -1,7 +1,7 @@
 import { faSlack } from '@fortawesome/free-brands-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
-import { Ban, ExternalLink, Hourglass, KeyRound, Loader2, WifiOff } from 'lucide-react'
+import { Ban, ExternalLink, HardDrive, Hourglass, KeyRound, Loader2, WifiOff } from 'lucide-react'
 import { useCallback, useState } from 'react'
 
 import { api } from '../../../api'
@@ -10,12 +10,13 @@ import { conversationReadOnlyLabel } from '../../../lib/conversationActivityBadg
 import { Button } from '../../ui/button'
 import { toast } from '../../ui/toast'
 
-import { reachabilityCopy } from './agentBannerCopy'
+import { diskFullCopy, reachabilityCopy } from './agentBannerCopy'
 import { agentProblem } from './agentRowFix'
 import { ConversationActivityBadges } from './historyRows'
 import { sharedComputerLabel, shareApprovalText } from './queuedShareApproval'
 import { runtimeGone, runtimeGoneText, selectedAgentReachability } from './runtimeControlSignOut'
 import { useAskedName } from './signInAsks'
+import { useComputerDiskWarning } from './useComputerDiskWarning'
 import { slackThreadFallbackUrl } from './slackThreadUrl'
 import { usePickerFixes } from './usePickerFixes'
 import { useShareApprovalWait } from './useShareApprovalWait'
@@ -122,12 +123,18 @@ const BANNER = {
   },
   declined: { Icon: Ban, icon: 'text-error', border: 'border-error/35', tint: 'bg-error/10' },
   gone: { Icon: Ban, icon: 'text-error', border: 'border-error/35', tint: 'bg-error/10' },
+  disk: {
+    Icon: HardDrive,
+    icon: 'text-warning',
+    border: 'border-warning/35',
+    tint: 'bg-warning/10',
+  },
 } as const
 
 type BannerKind = keyof typeof BANNER
 
 function bannerCopy(
-  reachability: BannerKind,
+  reachability: Exclude<BannerKind, 'disk'>,
   control: RuntimeControl,
   fix: AgentFix | undefined,
   fixes: BannerFixes,
@@ -175,12 +182,16 @@ export function AgentStatusBanner({
   const unreachable = reachability === 'signIn' || reachability === 'offline' ? reachability : null
   // Reachability comes first: an offline computer cannot run it even once approved.
   // Its agent is gone: nothing else about it matters until the conversation moves.
-  const blocked: BannerKind | null =
+  const blocked: Exclude<BannerKind, 'disk'> | null =
     (runtimeGone(control) ? 'gone' : null) ??
     unreachable ??
     (shareApproval === 'pending' ? 'waiting' : shareApproval === 'denied' ? 'declined' : null)
+  // An agent that can take the message, on a disk about to stop it: said, without blocking.
+  const disk = useComputerDiskWarning(control)
+  const [fullDisk, setFullDisk] = useState(disk)
+  const active: BannerKind | null = blocked ?? (disk ? 'disk' : null)
   // The words stay while the banner leaves, so it closes on what it said.
-  const [shown, setShown] = useState(blocked)
+  const [shown, setShown] = useState(active)
   const selected = control.options?.find((instance) => instance.id === control.value?.id)
   // The same fix the picker offers for this agent, so the two never disagree.
   const { fixes, dialogs } = usePickerFixes({
@@ -194,23 +205,34 @@ export function AgentStatusBanner({
   const fix =
     unreachable && selected ? agentProblem(selected, undefined, fixes.viewer)?.fix : undefined
 
-  if (blocked && blocked !== shown) setShown(blocked)
+  if (active && active !== shown) setShown(active)
+  if (disk && (disk.label !== fullDisk?.label || disk.percent !== fullDisk.percent))
+    setFullDisk(disk)
   const variant = shown ? BANNER[shown] : null
-  const { text, action } = shown
-    ? bannerCopy(shown, control, fix, { ...fixes, ...(askedName && { askedName }) }, onSwitchAgent)
-    : { text: '', action: null }
+  let copy: BannerCopy = { text: '', action: null }
+
+  if (shown === 'disk' && fullDisk) copy = diskFullCopy(fullDisk, control.onSettings)
+  else if (shown && shown !== 'disk')
+    copy = bannerCopy(
+      shown,
+      control,
+      fix,
+      { ...fixes, ...(askedName && { askedName }) },
+      onSwitchAgent,
+    )
+  const { text, action } = copy
 
   return (
     <>
       <div
         role="status"
-        aria-hidden={!blocked}
+        aria-hidden={!active}
         // Leaving, it keeps its words for the exit animation but takes no focus or clicks.
-        inert={!blocked}
+        inert={!active}
         className={clsx(
           't-toast absolute bottom-full',
           hero ? 'inset-x-6' : 'inset-x-4',
-          blocked ? 'is-open' : 'pointer-events-none',
+          active ? 'is-open' : 'pointer-events-none',
         )}
       >
         {variant && (

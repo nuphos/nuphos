@@ -206,6 +206,16 @@ export function updateDeviceApp(deviceId: string, teamId: string): Promise<{ ver
   )
 }
 
+/** Frees a Box's disk of the caches its tools rebuild; whoever manages it may ask. */
+export function clearBoxCaches(deviceId: string, teamId: string): Promise<{ ok: true }> {
+  return call(
+    'POST',
+    `/teams/${encodeURIComponent(teamId)}/computers/${encodeURIComponent(deviceId)}/clear-caches`,
+    undefined,
+    { retry: false },
+  )
+}
+
 /** Forgets an offline computer; the backend refuses Boxes and computers that are online. */
 export function removeDevice(deviceId: string, teamId: string): Promise<{ ok: true }> {
   return call('DELETE', deviceRoute(deviceId, teamId), undefined, { retry: false })
