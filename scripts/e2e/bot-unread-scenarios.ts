@@ -69,26 +69,17 @@ export const botUnreadScenarios: Scenario[] = [
         agentEvents(stack).includes('finish E2E_DELIVERY:bot-kid'),
       )
       await newTask(page)
-      // Its own row on Tasks has no dot either.
-      await page.waitForTimeout(5_000)
-      const tasks = page.getByRole('tabpanel', { name: 'Tasks' })
-      const kidRow = tasks.locator('[data-sidebar-row]').filter({ hasText: 'E2E bot kid' })
-
-      await kidRow.first().waitFor()
-      await shot('bot-unread-tasks-light')
-      if ((await kidRow.locator('[aria-label="Unread reply"]').count()) > 0)
-        throw new Error("The Bot's sub-Task has an unread dot on Tasks")
       await page.getByRole('tab', { name: 'Bots' }).click()
       // Long enough for the list to bring the sub-Task's reply.
       await page.waitForTimeout(5_000)
       await shot('bot-unread-subtask-light')
       if ((await dots.count()) !== 0)
         throw new Error(`A sub-Task's reply put ${String(await dots.count())} dots on Bots`)
-      // The Tasks list and the app badge read the same server state.
+      // A Bot's sub-Task is listed only under the Bot; its unread flag and the badge are the server's.
       const kid = (await kids()).find((row) => !known.has(row.sessionId))
 
       if (!kid) throw new Error(`No new Task under the Bot ${botId ?? ''}`)
-      if (kid.unread) throw new Error("The Bot's sub-Task is unread in the Tasks list")
+      if (kid.unread) throw new Error("The Bot's sub-Task is unread")
       const raised = (await badge()) - badgeBefore - ((await others(kid.sessionId)) - othersBefore)
 
       if (raised !== 0) throw new Error(`The sub-Task's reply moved the badge by ${String(raised)}`)
