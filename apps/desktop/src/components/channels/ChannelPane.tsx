@@ -235,7 +235,7 @@ export function ChannelPane({
           )}
           {detail && (
             <ChannelMessages
-              initialBotId={messages.length === 0 ? bot : undefined}
+              botId={bot}
               messages={messages}
               events={detail?.timelineEvents ?? []}
               agents={agents}

@@ -380,15 +380,23 @@
   }
 
   /* A link is the same white as the text around it; the underline marks it. */
-  .user-message-bubble a:not(.atlas-mention) {
+  .user-message-bubble a:not(.atlas-mention, .chat-resource-chip) {
     color: inherit;
     text-decoration-line: underline;
     text-decoration-color: rgba(255, 255, 255, 0.45);
     text-underline-offset: 2px;
   }
 
-  .user-message-bubble a:not(.atlas-mention):hover {
+  .user-message-bubble a:not(.atlas-mention, .chat-resource-chip):hover {
     text-decoration-color: currentColor;
+  }
+
+  /* Resource chips are controls, not underlined prose links. Their border and
+     fill need contrast against the dark outgoing bubble in either theme. */
+  .user-message-bubble .chat-resource-chip {
+    --color-line-control: 44, 44, 44;
+    --color-state-selected: rgba(255, 255, 255, 0.08);
+    --color-state-hover: rgba(255, 255, 255, 0.16);
   }
 
   html.light .user-message-bubble {

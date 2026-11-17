@@ -4,6 +4,7 @@ import type { BindingAccess } from '@/models'
 
 export type BindingAccessView = {
   memberAllowList: string[]
+  ownerUserId: string | null
   updatedAt: Date | null
   updatedBy: string | null
 }
@@ -57,6 +58,7 @@ export function createBinderOnlyAccess(userId: string, now = new Date()): Bindin
 export function accessView(access: BindingAccess | undefined): BindingAccessView {
   return {
     memberAllowList: normalizeAllowList(access?.memberAllowList),
+    ownerUserId: access?.ownerUserId ?? null,
     updatedAt: access?.updatedAt ?? null,
     updatedBy: access?.updatedBy ?? null,
   }

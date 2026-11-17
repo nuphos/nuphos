@@ -5,6 +5,7 @@ import { rmSync } from 'node:fs'
 import { agentEvents } from './agent-log.ts'
 import { backendFailures, backendLines } from './backend-log.ts'
 import { bindingAccessScenarios } from './binding-access-scenarios.ts'
+import { checkDecisionOutline, checkOutgoingChip } from './chat-presentation.ts'
 import { channelScenarios } from './channel-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
@@ -64,8 +65,14 @@ const scenarios: Scenario[] = [
         agentEvents(stack).includes('finish E2E_DELIVERY:missing'),
       )
       await page.screenshot({ path: `${artifacts}/bot-first-reply.png` })
-      await send(page, 'Ask me E2E_ASK_CREDENTIAL E2E_DELIVERY:bot')
+      await send(
+        page,
+        'Review https://github.com/nuphos/nuphos/issues/1 E2E_ASK_CREDENTIAL E2E_DELIVERY:bot',
+      )
       await page.getByText('POSTED E2E_DELIVERY:bot', { exact: true }).waitFor()
+      await checkDecisionOutline(page)
+      await checkOutgoingChip(page)
+      await page.screenshot({ path: `${artifacts}/bot-question-outline.png` })
       await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).click()
       await until('the answer in the Bot chat to reach the Bot', async () =>
         agentEvents(stack).includes('finish E2E_DELIVERY:answered'),
@@ -142,6 +149,7 @@ const scenarios: Scenario[] = [
         .getByRole('heading', { name: 'Which marker should the fixture use?' })
         .last()
         .waitFor()
+      await checkDecisionOutline(page)
       await page.screenshot({ path: `${artifacts}/question-pending.png` })
       // #2972: a question is answered on its card; nothing above the composer answers it.
       if (await page.getByRole('group', { name: 'Reply target' }).count()) {
@@ -217,9 +225,9 @@ const scenarios: Scenario[] = [
   ...connectorScenarios,
   ...bindingAccessScenarios,
   ...runtimeScenarios,
+  ...computerScenarios,
   ...commandScenarios,
   ...threadScenarios,
-  ...computerScenarios,
   ...offlineScenarios,
   {
     // #2577: a Task under another has no permission mode of its own. The parent here is a

@@ -45,7 +45,11 @@ const boundaries: Record<string, Record<string, unknown>> = {
   '../../client-version.ts': { CLIENT_VERSION_HEADER: 'x-test', CLIENT_VERSION_VALUE: 'test' },
   '../../shell-env.ts': { resolveShellEnv: noop },
   '../app-paths.ts': { leftAloneDir: null },
-  '../device-controller.ts': { syncDeviceRegistration: noop },
+  '../device-controller.ts': {
+    // The socket a test installs as the global one.
+    dialDeviceTunnel: (url: string) => new WebSocket(url),
+    syncDeviceRegistration: noop,
+  },
   '../device-identity.ts': { readDeviceIdentity: () => ({ deviceId: 'test-device' }) },
   '../device-metrics.ts': {
     readDeviceMetrics: async () => {
