@@ -5,7 +5,12 @@ import { randomUUID } from 'node:crypto'
 const tools = new Map()
 
 export const toolsServer = (sessionId) => tools.get(sessionId)
-export const setToolsServer = (sessionId, server) => tools.set(sessionId, server)
+/** Keeps the `nuphos-tools` server a session was opened or reloaded with, when it was given one. */
+export function setToolsServer(sessionId, mcpServers) {
+  const server = mcpServers?.find(({ name }) => name === 'nuphos-tools')
+
+  if (server) tools.set(sessionId, server)
+}
 
 /** One JSON-RPC call to a streamable-HTTP MCP server; the reply is JSON or a one-event stream. */
 async function mcp(server, sessionHeader, method, params) {
