@@ -7,7 +7,7 @@ import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { verifyUptimeKumaCredentials } from '@/lib/byos/uptime-kuma'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
-import { requireTeamRole, requireUptimeKumaInstance } from '@/middleware/auth'
+import { canRequestUseBinding, requireTeamRole, requireUptimeKumaInstance } from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 import { registerUptimeKumaInstanceRoutes } from '@/routes/uptime-kuma-instances/instance-scoped'
 import { registerUptimeKumaMonitorRoutes } from '@/routes/uptime-kuma-instances/monitors'
@@ -48,7 +48,9 @@ uptimeKumaInstancesRoutes.get('/', async (c) => {
   )
 
   return c.json({
-    instances: uptimeKumaInstancesView(doc?.uptimeKumaInstances, c.get('userId')),
+    instances: uptimeKumaInstancesView(doc?.uptimeKumaInstances, (access) =>
+      canRequestUseBinding(c, access),
+    ),
   })
 })
 

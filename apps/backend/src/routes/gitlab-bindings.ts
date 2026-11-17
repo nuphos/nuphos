@@ -4,7 +4,6 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 
 import { requestedBindingShare } from '@/lib/byos/initial-access'
-import { canPrincipalsUseAllowList } from '@/lib/byos/access'
 import {
   buildAuthorizeUrl,
   getSetupRedirect,
@@ -18,7 +17,7 @@ import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
 import {
-  bindingAccessPrincipals,
+  canRequestUseBinding,
   requireGitlabMemberAccess,
   requireGitlabBinding,
   requireTeamRole,
@@ -210,10 +209,8 @@ gitlabBindingsRoutes.get('/namespaces', async (c) => {
     { _id: teamId },
     { projection: { gitlabAccounts: 1 } },
   )
-  const principals = bindingAccessPrincipals(c)
-  const bindings = (doc?.gitlabAccounts ?? []).filter((b) =>
-    canPrincipalsUseAllowList(b.access?.memberAllowList, principals),
-  )
+  // The same rule as each binding's own routes, admin exception included.
+  const bindings = (doc?.gitlabAccounts ?? []).filter((b) => canRequestUseBinding(c, b.access))
   const results = await Promise.all(
     bindings.map(async (b) => {
       const base = { bindingId: b.id.toHexString(), hostUrl: b.hostUrl, username: b.username }

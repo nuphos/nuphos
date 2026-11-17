@@ -1,6 +1,5 @@
 import { ObjectId } from 'mongodb'
 
-import { canUseAllowList } from '@/lib/byos/access'
 import { listAwsBindingsForAccount, listGcpBindingsForProject } from '@/lib/byos/account'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
@@ -155,16 +154,14 @@ function selectAwsBindingForAccess(
   c: Parameters<MiddlewareHandler<{ Variables: AwsAccountVariables }>>[0],
 ): AwsRoleBinding {
   const selected = c.get('awsBinding')
-  const userId = c.get('userId')
 
   if (c.get('awsBindingExplicit')) {
     return selected
   }
+  // The first binding this request may use, by the rule its member gate applies below.
   const accessible = c
     .get('awsBindings')
-    .find(
-      (b) => b.purpose !== 'permission-admin' && canUseAllowList(b.access?.memberAllowList, userId),
-    )
+    .find((b) => b.purpose !== 'permission-admin' && canRequestUseBinding(c, b.access))
 
   if (!accessible) return selected
   c.set('awsRoleArn', accessible.roleArn)
@@ -192,16 +189,14 @@ function selectGcpBindingForAccess(
   c: Parameters<MiddlewareHandler<{ Variables: GcpProjectVariables }>>[0],
 ): GcpServiceAccountBinding {
   const selected = c.get('gcpBinding')
-  const userId = c.get('userId')
 
   if (c.get('gcpBindingExplicit')) {
     return selected
   }
+  // The first binding this request may use, by the rule its member gate applies below.
   const accessible = c
     .get('gcpBindings')
-    .find(
-      (b) => b.purpose !== 'permission-admin' && canUseAllowList(b.access?.memberAllowList, userId),
-    )
+    .find((b) => b.purpose !== 'permission-admin' && canRequestUseBinding(c, b.access))
 
   if (!accessible) return selected
   c.set('serviceAccountEmail', accessible.serviceAccountEmail)

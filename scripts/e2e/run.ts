@@ -12,6 +12,7 @@ import { computerScenarios } from './computer-scenarios.ts'
 import { connectShareScenarios } from './connect-share-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
 import { startDesktop } from './desktop.ts'
+import { listingScenarios } from './listing-scenarios.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
@@ -226,6 +227,7 @@ const scenarios: Scenario[] = [
   ...connectorScenarios,
   ...bindingAccessScenarios,
   ...connectShareScenarios,
+  ...listingScenarios,
   ...runtimeScenarios,
   ...computerScenarios,
   ...commandScenarios,
