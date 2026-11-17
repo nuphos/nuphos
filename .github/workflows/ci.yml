@@ -38,7 +38,6 @@ jobs:
   # it reports success there instead of blocking the queue.
   dco:
     name: DCO
-    if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-slim
     steps:
       - name: Skip in the merge queue
