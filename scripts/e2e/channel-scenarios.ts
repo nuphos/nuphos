@@ -94,4 +94,27 @@ export const channelScenarios: Scenario[] = [
       await ownWords('After the turn')
     },
   },
+  {
+    // #3309: Switch runtime in a Bot's own failed turn also opened its chat's list, underneath.
+    name: "Switch runtime on a Bot's failed turn opens one runtime list",
+    run: async (page) => {
+      await send(page, 'Out of usage E2E_USAGE_LIMIT E2E_DELIVERY:bot-usage')
+      await page.getByRole('button', { name: 'Open session' }).click()
+      const task = page.locator('.t-bot-task-mode')
+
+      await task.getByText('You’ve hit your usage limit').last().waitFor()
+      await task.getByRole('button', { name: 'Switch runtime' }).click()
+      const lists = page.getByRole('menu')
+
+      await lists.first().waitFor()
+      // Long enough for a second list to have opened, had there been one.
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      await page.screenshot({ path: `${artifacts}/bot-turn-switch-runtime-light.png` })
+      const open = await lists.count()
+
+      await page.keyboard.press('Escape')
+      await task.getByRole('button', { name: 'Back to conversation' }).click()
+      if (open !== 1) throw new Error(`Switch runtime opened ${String(open)} runtime lists`)
+    },
+  },
 ]
