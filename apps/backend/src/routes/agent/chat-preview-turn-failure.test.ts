@@ -209,6 +209,20 @@ test('an app message refused by the runtime records nothing, so the app sends it
   expect(run.frames.join('')).not.toContain('turn-interrupted')
 })
 
+test('an answer whose computer is offline records nothing, so it waits and is not asked again', async () => {
+  const { AppError } = await import('@/lib/errors')
+
+  cause = new AppError(409, 'runtime_offline', 'The computer running this agent is offline.')
+  const before = persisted.length
+  const run = createAgentRun('user-failure', 'session-failure', 'run-offline')
+
+  await expect(
+    runClaudeCodePreviewChatTurn({ ...turnArgs(run), clientResendsRefusal: true }),
+  ).rejects.toMatchObject({ code: 'runtime_offline' })
+  expect(persisted).toHaveLength(before)
+  expect(run.frames.join('')).not.toContain('turn-interrupted')
+})
+
 test('a refused turn is still recorded when nobody resends it', async () => {
   const { AppError } = await import('@/lib/errors')
 
