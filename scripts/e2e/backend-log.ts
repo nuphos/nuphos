@@ -3,11 +3,11 @@ import { readFileSync } from 'node:fs'
 
 import { logPath } from './processes.ts'
 
-// The sign-in page asks which social providers exist; this stack configures none.
-// The fixture agent refuses one prompt as out of usage on purpose (#3051).
-// Refused on purpose: another member's private binding, a computer taken over or unregistered, a typo.
+// Refused on purpose: no social sign-in here, the fixture agent's usage-limit prompt (#3051),
+// another member's private binding, a computer taken over or unregistered, a typo, someone
+// else's personal dashboard, and a dashboard panel this stack's agents cannot run.
 const EXPECTED_FAILURE =
-  /"path":"\/auth\/social\/login"|Social sign-in is not configured|Internal error: You’ve hit your usage limit|"error_code":"(gitlab_binding_access_denied|binding_private|sonarqube_integration_access_denied|device_held|device_not_found|invalid_email)"/
+  /"path":"\/auth\/social\/login"|Social sign-in is not configured|Internal error: You’ve hit your usage limit|"error_code":"(gitlab_binding_access_denied|binding_private|sonarqube_integration_access_denied|device_held|device_not_found|invalid_email|dashboard_not_found)"|"event":"dashboard\.panel\.exec_failed".*"kind":"runtime_outdated"/
 
 // The fixture agent refuses prompts as too long on purpose too (#3160).
 const TOO_LONG = /Internal error: Prompt is too long/
