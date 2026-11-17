@@ -12,6 +12,7 @@ import { getTeamUsageSeries } from './usage-summary'
 const TEAM = new ObjectId().toHexString()
 const ADMIN = new ObjectId().toHexString()
 const MEMBER = new ObjectId().toHexString()
+const byText = (a: string, b: string) => a.localeCompare(b)
 
 /** One turn of `totalTokens` in `userId`'s own conversation. */
 function turnRow(userId: string, sessionId: string, totalTokens: number) {
@@ -54,14 +55,14 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('team usage visibility', () => {
     const series = await getTeamUsageSeries(TEAM, { userId, teamRole })
 
     return {
-      members: series.days.flatMap((day) => day.members.map((m) => m.userId)).sort(),
-      titles: series.sessionsByRange['7d'].map((s) => s.title).sort(),
+      members: series.days.flatMap((day) => day.members.map((m) => m.userId)).sort(byText),
+      titles: series.sessionsByRange['7d'].map((s) => s.title).sort(byText),
     }
   }
 
   test("an admin sees every member's usage and conversations", async () => {
     expect(await seen(ADMIN, 'ADMINISTRATOR')).toEqual({
-      members: [ADMIN, MEMBER].sort(),
+      members: [ADMIN, MEMBER].sort(byText),
       titles: ["The admin's chat", "The member's chat"],
     })
   })
