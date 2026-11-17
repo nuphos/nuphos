@@ -2,41 +2,29 @@
 // deterministic agent in place of a model. Each scenario is a flow a person takes.
 import { rmSync } from 'node:fs'
 
+import { accessScenarios } from './access-scenarios.ts'
 import { agentEvents } from './agent-log.ts'
 import { backendFailures, backendLines } from './backend-log.ts'
-import { bindingAccessScenarios } from './binding-access-scenarios.ts'
 import { checkDecisionOutline, checkOutgoingChip } from './chat-presentation.ts'
 import { channelScenarios } from './channel-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
-import { connectShareScenarios } from './connect-share-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
-import { dashboardScenarios } from './dashboard-scenarios.ts'
 import { startDesktop } from './desktop.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
+import { signInScenarios } from './sign-in-scenarios.ts'
 import { startStack } from './stack.ts'
 import { threadScenarios } from './thread-scenarios.ts'
+import { triggerScenarios } from './trigger-scenarios.ts'
 import { newTask, send } from './ui.ts'
 
 import type { Desktop } from './desktop.ts'
 import type { Scenario } from './ui.ts'
 
 const scenarios: Scenario[] = [
-  {
-    name: 'sign in with an email code and land in the team',
-    run: async (page, stack) => {
-      await page.evaluate(() => localStorage.setItem('nuphos.locale', 'en'))
-      await page.reload()
-      await page.locator('input[type=email]').fill(stack.email)
-      await page.getByRole('button', { name: 'Continue with email' }).click()
-      await page.getByText('Enter the 6-digit code').waitFor()
-      // Entering the sixth digit submits the form.
-      await page.locator('input[placeholder="000000"]').fill(stack.signInCode(stack.email) ?? '')
-      await page.getByText('Start with your first Bot').waitFor()
-    },
-  },
+  ...signInScenarios,
   {
     // The flow #3012 was reported in: the sidebar is on Bots, the page a new team opens on.
     // The connector's CLI (`aws`) has to be on the PATH for the dialog to offer the agent.
@@ -224,9 +212,9 @@ const scenarios: Scenario[] = [
       await page.screenshot({ path: `${artifacts}/question-skipped.png` })
     },
   },
+  ...triggerScenarios,
   ...connectorScenarios,
-  ...bindingAccessScenarios,
-  ...connectShareScenarios,
+  ...accessScenarios,
   ...runtimeScenarios,
   ...computerScenarios,
   ...commandScenarios,
@@ -263,8 +251,6 @@ const scenarios: Scenario[] = [
       }
     },
   },
-  // Last: it removes a member from the team.
-  ...dashboardScenarios,
 ]
 
 let desktop: Desktop | undefined
