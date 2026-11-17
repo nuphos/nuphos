@@ -69,5 +69,8 @@ jobs:
         if: ${{ !cancelled() }}
         with:
           name: android-device-tests
-          path: apps/android/app/build/reports/androidTests
+          # The report, and the screenshots tests write to the build's additional test output.
+          path: |
+            apps/android/app/build/reports/androidTests
+            apps/android/app/build/outputs/connected_android_test_additional_output
           retention-days: 7

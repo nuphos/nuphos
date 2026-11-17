@@ -170,4 +170,14 @@ class ChatRowTest {
         assertEquals("Cancellation requested", hint.text)
         assertTrue(rows.indexOf(hint) > rows.indexOfFirst { it is ChatRow.Activity })
     }
+    @Test fun anOfflineComputerIsSaidBeforeSending() {
+        val hint = ChatRow.rows(listOf(message()), runtimeOffline = true).filterIsInstance<ChatRow.Hint>().single()
+        assertEquals("runtime-offline", hint.id)
+        assertEquals("The computer running this runtime is offline. Open Nuphos on it, or switch to another runtime.", hint.text)
+        assertTrue(hint.isError)
+        // A turn still running, or an error that already says why, is not talked over.
+        assertTrue(ChatRow.rows(listOf(message()), isStreaming = true, runtimeOffline = true).none { it is ChatRow.Hint })
+        assertEquals(listOf("error"), ChatRow.rows(listOf(message()), error = "Refused", runtimeOffline = true).filterIsInstance<ChatRow.Hint>().map { it.id })
+        assertTrue(ChatRow.rows(listOf(message())).none { it is ChatRow.Hint })
+    }
 }

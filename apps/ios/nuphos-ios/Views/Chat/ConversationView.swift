@@ -49,7 +49,7 @@ struct ConversationView: View {
     private var hasDock: Bool { !session.isNew && session.ownsChat }
     @State private var referencedAgents = ReferencedAgents()
 
-    private var rows: [ChatRow] { ChatRow.rows(for: session) }
+    private var rows: [ChatRow] { ChatRow.rows(for: session, runtimeOffline: conversationRuntime?.local?.online == false) }
 
     /// Shown instead of the transcript while it loads or after it failed.
     @ViewBuilder
@@ -240,6 +240,14 @@ struct ConversationView: View {
                 _ = try? await session.approvePlan(args[i + 1])
             }
             #endif
+        }
+        // A computer comes and goes while the conversation stays open: keep its presence current.
+        .task(id: conversationRuntime?.local?.deviceId) {
+            guard conversationRuntime?.local != nil else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(15))
+                await store.loadRuntimes(force: true)
+            }
         }
         // A teammate's computer that asks its owner first: say so until they answer.
         .task(id: "\(ShareApprovalWait.asksOwner(conversationRuntime)).\(session.queuedSends)") {

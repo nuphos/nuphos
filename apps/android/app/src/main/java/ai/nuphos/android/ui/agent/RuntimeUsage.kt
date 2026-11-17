@@ -68,6 +68,29 @@ internal fun rememberRuntimeDevices(token: String?, teamId: String?): List<ai.nu
     }
 }
 
+/** Whether the computer this runtime lives on is offline right now. A runtime with no computer is never asked again. */
+@Composable
+internal fun rememberRuntimeOffline(token: String?, teamId: String?, runtimeId: String?): Boolean {
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val revision = AiAccess.revision
+    return key(token, teamId, runtimeId, revision, lifecycle) {
+        val offline by produceState(false) {
+            if (token == null || teamId == null || runtimeId == null) return@produceState
+            val allowed = AiAccess.bind(token)
+            lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                while (isActive && allowed()) {
+                    val host = try { AgentRuntimeApi(token, teamId).catalog().firstOrNull { it.id == runtimeId }?.local }
+                    catch (error: Exception) { if (error is CancellationException) throw error; delay(15_000); continue }
+                    if (allowed()) value = host?.online == false
+                    if (host == null) return@repeatOnLifecycle
+                    delay(15_000)
+                }
+            }
+        }
+        offline
+    }
+}
+
 @Composable
 fun RuntimeUsage(quota: RuntimeQuota?, compact: Boolean = false) {
     val locale = java.util.Locale.forLanguageTag(Locale.current.toLanguageTag())
