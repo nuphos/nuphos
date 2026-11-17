@@ -56,7 +56,8 @@ export function useBotRuntimeControl(
   }, [teamId, botId, owned])
 
   const current = owned && detail?.sessionId === botId ? detail : null
-  const control = useSessionRuntimeControl({
+
+  return useSessionRuntimeControl({
     teamId,
     currentUser: user,
     isTeamAdmin: false,
@@ -89,6 +90,4 @@ export function useBotRuntimeControl(
       await client.invalidateQueries({ queryKey: queryKeys.agentSessions(teamId) })
     },
   })
-
-  return control ? { ...control, quiet: true } : undefined
 }
