@@ -1,11 +1,18 @@
 // Scenarios about a Bot reading its chat. They run in the Bot chat the scenario before opened.
 import { agentEvents, agentLog } from './agent-log.ts'
+import { checkDockToggleClear } from './chat-presentation.ts'
 import { artifacts, until } from './processes.ts'
 import { send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 
 export const channelScenarios: Scenario[] = [
+  {
+    name: "the Bot chat's header ends left of the workspace panel toggle",
+    run: async (page) => {
+      await checkDockToggleClear(page, 'Bot chat')
+    },
+  },
   {
     // #2949: channel_read in a woken turn returned the page the notice had shown, not the rest.
     name: 'a Bot woken by more than a page of posts reads on to the newest one',

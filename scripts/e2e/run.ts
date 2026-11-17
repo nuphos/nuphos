@@ -6,11 +6,7 @@ import { accessScenarios } from './access-scenarios.ts'
 import { agentEvents } from './agent-log.ts'
 import { agentWordScenarios } from './agent-word-scenarios.ts'
 import { backendFailures, backendLines } from './backend-log.ts'
-import {
-  checkDecisionOutline,
-  checkDockToggleClear,
-  checkOutgoingChip,
-} from './chat-presentation.ts'
+import { checkDecisionOutline, checkOutgoingChip } from './chat-presentation.ts'
 import { channelScenarios } from './channel-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
@@ -66,7 +62,6 @@ const scenarios: Scenario[] = [
         agentEvents(stack).includes('finish E2E_DELIVERY:missing'),
       )
       await page.screenshot({ path: `${artifacts}/bot-first-reply.png` })
-      await checkDockToggleClear(page, 'Bot chat')
       await send(
         page,
         'Review https://github.com/nuphos/nuphos/issues/1 E2E_ASK_CREDENTIAL E2E_DELIVERY:bot',
