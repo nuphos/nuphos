@@ -7,6 +7,7 @@ import { useAgentSessions } from '../../components/sidebar/agentSessions'
 import { useSidebarMode } from '../../components/sidebar/useSidebarMode'
 
 import { CORNER_TITLEBAR_CLASS, CornerSidebarToggle } from './CornerSidebarToggle'
+import { SplitPaneCloseButton } from './PaneCloseButton'
 import { PaneGrip } from './PaneGrip'
 import { retainSessionViews } from './retainedSessionViews'
 import { WorkspaceAgentPane } from './WorkspaceAgentPane'
@@ -92,7 +93,13 @@ export function WorkspaceSessionPane({
             visible={channelVisible && !ws.mainPageOpen && !workspaceExpanded}
             user={user}
             dockOpen={ws.dockOpen}
-            grip={<PaneGrip />}
+            grip={
+              // A Bot's chat in a split closes like a task's: the pane's close, then its grip.
+              <>
+                <SplitPaneCloseButton />
+                <PaneGrip />
+              </>
+            }
             titlebarLeading={<CornerSidebarToggle />}
             titlebarClassName={cornerPane ? CORNER_TITLEBAR_CLASS : undefined}
             onOpenTask={onOpenTask}

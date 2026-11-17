@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, test } from 'bun:test'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-route'
 import { useIdentity } from '@/lib/test/doubles/identity'
+import { useObservability } from '@/lib/test/doubles/observability'
 
 import { executeConversationTurn } from './conversation-turn'
 import { startQueuedTurn } from './queued-turn'
@@ -44,9 +45,15 @@ let alreadyAccepted = false
 let released = 0
 const runs: Parameters<TurnRunner['runAgentForTrigger']>[0][] = []
 const claims: Parameters<TurnRunner['claimAgentRunOrEnqueue']>[0][] = []
+const logged: { event: string; properties?: Record<string, unknown> }[] = []
 
 useConversationChatRoute({
   resolveConversationChatRuntime: async () => ({ runtime: 'claude-code' }),
+})
+useObservability({
+  logEvent: (_level, event, properties) => {
+    logged.push({ event, properties })
+  },
 })
 useIdentity({
   getTeamMembership: async () => ({ role: 'MEMBER' }),
@@ -76,6 +83,7 @@ beforeEach(() => {
   released = 0
   runs.length = 0
   claims.length = 0
+  logged.length = 0
   installTurnRunner({
     claimAgentRunOrEnqueue: async (args) => {
       claims.push(args)
@@ -125,6 +133,19 @@ test('idle target wakes through the normal runner and keeps transcript, actor an
   expect(runs[0]?.messages[1]?.metadata).toEqual(claims[0]?.message.metadata)
   expect(claims[0]?.message.id).toBe('delivery')
   expect(released).toBe(1)
+})
+
+test('a turn logs how much history it read, so a retry that rereads it shows', async () => {
+  await (
+    await startThreadTurn(data)
+  ).run
+  expect(
+    logged.find((entry) => entry.event === 'agent.turn.history_loaded')?.properties,
+  ).toMatchObject({
+    session_id: 'target',
+    message_count: 1,
+    attempts: 0,
+  })
 })
 
 test('busy target queues without blocking the sending thread or starting a second run', async () => {

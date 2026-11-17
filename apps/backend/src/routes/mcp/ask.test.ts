@@ -57,15 +57,20 @@ useTriggerRunExecute({
 })
 useAgentDb({
   getConversationBySessionId: async () => stored,
-  getReadableConversation: async () => (participant ? stored : null),
+  // Its owner reads it too, as the real lookup lets them.
+  getReadableConversation: async (_session, viewer) =>
+    participant || stored?.userId === viewer ? stored : null,
   recordAgentEvent: ({ event, data }) => {
     events.push({ event, data })
   },
   getConversationWithMessages: async () =>
     stored && {
       conversation: stored,
-      messages: [{ role: 'assistant', parts: [{ type: 'text', text: 'Done.' }] }] as never,
+      messages: [{ role: 'assistant', parts: [{ type: 'text', text: 'Old.' }] }] as never,
     },
+  // The answer is the newest assistant message alone, not a scan of the transcript.
+  getLatestAssistantMessage: async () =>
+    ({ role: 'assistant', parts: [{ type: 'text', text: 'Done.' }] }) as never,
 })
 
 const { nuphosAsk } = await import('./ask')
