@@ -236,7 +236,7 @@ const COPY_ID = {
 }
 const RENAME = {
   task: () => t('Rename task'),
-  bot: () => t('Rename Bot'),
+  bot: () => t('Edit Bot'),
   chat: () => t('Rename chat'),
 }
 const ARCHIVE = {

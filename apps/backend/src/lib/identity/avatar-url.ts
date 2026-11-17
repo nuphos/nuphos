@@ -25,6 +25,7 @@ export function trustedAvatarURL(value: unknown): string | undefined {
 
 /** The user id in an avatar URL this backend serves, or undefined for any other URL. */
 export function hostedAvatarOwner(value: string): string | undefined {
+  if (!URL.canParse(value)) return undefined
   const url = new URL(value)
 
   return isHostedAvatar(url) ? url.pathname.split('/')[2] : undefined

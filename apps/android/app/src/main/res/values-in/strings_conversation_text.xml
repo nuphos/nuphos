@@ -20,6 +20,7 @@
     <string name="convtext_stopped_by_user">Dihentikan oleh pengguna.</string>
     <string name="convtext_empty_reply">Agen mengembalikan balasan kosong.</string>
     <string name="convtext_steering_rejected">Pengarahan ditolak. Coba lagi saat runtime mengizinkan.</string>
+    <string name="convtext_stop_runtime_unreachable">Runtime tidak merespons; giliran ini dihentikan di sini.</string>
     <string name="convtext_steering_unconfirmed">Pengiriman pengarahan belum terkonfirmasi. Periksa tugas sebelum mencoba lagi.</string>
     <string name="convtext_delivery_unconfirmed">Pengiriman pesan belum terkonfirmasi. Lanjutkan koneksi semula.</string>
     <string name="convtext_task_reloaded">Tugas ini diubah di tempat lain dan dimuat ulang. Coba kirim pesan Anda lagi.</string>

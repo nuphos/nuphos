@@ -35,17 +35,22 @@ export const cloudflarePendingOAuth = (): Collection<CloudflarePendingOAuth> =>
 
 /**
  * Result of a completed Cloudflare OAuth callback, keyed by the same `state`
- * token the desktop holds. The desktop polls this so the bind completes even
- * when the `nuphos://` deep link is captured by another app instance. Holds
- * only non-sensitive metadata (never tokens); a Mongo TTL index reaps it.
+ * token the desktop holds. The desktop polls this so the bind completes, or
+ * fails with Cloudflare's reason, even when the `nuphos://` deep link is
+ * captured by another app instance. Holds only non-sensitive metadata (never
+ * tokens); a Mongo TTL index reaps it.
  */
 export type CloudflareOAuthResult = {
   _id: string
   teamId: ObjectId
-  bindingId: ObjectId
-  accountId: string
-  accountName: string | null
   expiresAt: Date
+  // Set on a bind.
+  bindingId?: ObjectId
+  accountId?: string
+  accountName?: string | null
+  // Set when Cloudflare rejected the attempt instead.
+  error?: string
+  errorDescription?: string
 }
 
 export const cloudflareOAuthResult = (): Collection<CloudflareOAuthResult> =>

@@ -8,7 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -96,7 +96,7 @@ class PullRefreshFixtureDeviceTest {
                     path == "/agent/conversations" -> {
                         val title = historyTitle
                         val order = req.url.queryParameter("sort")
-                        if ((holdHistory && req.url.queryParameter("cursor") == null) || (holdPage && req.url.queryParameter("cursor") != null)) {
+                        if (isHistory(req) && ((holdHistory && req.url.queryParameter("cursor") == null) || (holdPage && req.url.queryParameter("cursor") != null))) {
                             holdHistory = false; holdPage = false; historyHeld.countDown()
                             check(historyRelease.await(15, TimeUnit.SECONDS))
                         }

@@ -22,12 +22,37 @@ projectScoped.use('*', requireSelectedGcpAgentCredential())
 
 projectScoped.route('/firebase', firebaseRoutes)
 
+/**
+ * The connector can't be used until the team fixes it: its service account is gone,
+ * or Nuphos may not mint its tokens. A 503 would tell an agent to retry, which never helps.
+ */
+function connectorUnusable(error: unknown, serviceAccountEmail: string): AppError | undefined {
+  const message = error instanceof Error ? error.message : ''
+
+  if (message.startsWith('NOT_FOUND: unable to impersonate'))
+    return new AppError(
+      409,
+      'gcp_connector_missing',
+      `This team's GCP connector can't be used: its service account ${serviceAccountEmail} no longer exists. Retrying won't help. A team admin needs to reconnect the GCP connector for this project.`,
+    )
+  if (message.startsWith('PERMISSION_DENIED: unable to impersonate'))
+    return new AppError(
+      409,
+      'gcp_connector_permission_missing',
+      `Nuphos can't mint tokens for ${serviceAccountEmail}: the team's workload identity principal lacks roles/iam.serviceAccountTokenCreator on it. Someone with IAM access to the project needs to grant that role to the principal shown in the GCP binding wizard; retrying won't help until it's granted. If you just granted it, wait a couple of minutes and try once more.`,
+    )
+
+  return undefined
+}
+
 projectScoped.get('/credentials', async (c) => {
   const agent = c.get('agent')
   const projectId = c.get('projectId')
   const serviceAccountEmail = c.get('serviceAccountEmail')
   const impersonated = await impersonateSa(serviceAccountEmail, c.get('teamId'))
-  const tokenResp = await impersonated.getAccessToken()
+  const tokenResp = await impersonated.getAccessToken().catch((error: unknown) => {
+    throw connectorUnusable(error, serviceAccountEmail) ?? error
+  })
 
   if (!tokenResp.token) {
     throw new AppError(502, 'token_unavailable', 'Failed to mint impersonated access token')

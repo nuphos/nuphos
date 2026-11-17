@@ -1,8 +1,8 @@
-import { faTrashCan } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { Trash2 as Trash2Icon } from 'lucide-react'
 
 import { fieldClass } from '../../components/ui/input-group'
 import { AppSelect } from '../../components/ui/select'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { t } from '../../i18n'
 
 import { COLOR_SWATCHES, KIND_OPTIONS, PRIMARY, kindFromUrl } from './helpers'
@@ -57,7 +57,7 @@ export function Inspector({
       <div title={kindFromUrl(node.url) ? t('Determined by the link (concrete node)') : undefined}>
         <AppSelect
           value={kindFromUrl(node.url) ?? node.kind ?? 'abstract'}
-          disabled={!!kindFromUrl(node.url)}
+          disabled={Boolean(kindFromUrl(node.url))}
           onOpenChange={(open) => {
             if (open) inspectorDirtyRef.current = false
           }}
@@ -115,7 +115,7 @@ export function Inspector({
           justifyContent: 'center',
         }}
       >
-        <FontAwesomeIcon icon={faTrashCan} className="w-4 h-4" /> {t('Delete node')}
+        <UiIcon size={16} icon={Trash2Icon} className="w-4 h-4" /> {t('Delete node')}
       </button>
     </div>
   )

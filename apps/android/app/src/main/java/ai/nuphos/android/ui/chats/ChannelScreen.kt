@@ -226,6 +226,7 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
                                 downloads: TransferDownloads = remember { TransferDownloads() }, onSwitchAgent: ((String) -> Unit)? = null) {
     val state = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    val connect = rememberQuestionConnect(session.open, allowed)
     val typing = (items.lastOrNull() as? ChannelItem.Typing)?.agents.orEmpty()
     val reversed = items.filterNot { it is ChannelItem.Typing }.asReversed()
     val atLatest by remember { derivedStateOf { state.firstVisibleItemIndex == 0 && state.firstVisibleItemScrollOffset < 48 } }
@@ -301,7 +302,7 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
                                 onForm = { body -> if (allowed()) session.answer(question, body, scope) },
                                 // The Bot's own questions are this chat's; only an agent under it is named.
                                 showsFrom = question.sessionId != session.botId, onLink = onLink,
-                                failure = session.answerFailure(question))
+                                failure = session.answerFailure(question), onConnect = { connect(question) })
                         }
                     }
                 }

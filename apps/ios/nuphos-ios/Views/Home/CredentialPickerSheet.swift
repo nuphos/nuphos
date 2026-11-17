@@ -6,10 +6,12 @@ struct CredentialPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var selection: CredentialSelection
     var scope: CredentialScope = .credentials
+    /// An integration question's providers: only the credentials that answer it are offered.
+    var providers: [String]? = nil
 
     private var title: String { scope == .devices ? String(localized: "Computers") : String(localized: "Credentials") }
     private var symbol: String { scope == .devices ? "laptopcomputer" : "key" }
-    private var catalog: CredentialCatalog? { store.credentialCatalog?.scoped(to: scope) }
+    private var catalog: CredentialCatalog? { store.credentialCatalog?.scoped(to: scope).answering(providers) }
 
     var body: some View {
         NavigationStack {

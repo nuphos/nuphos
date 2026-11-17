@@ -1,12 +1,13 @@
 import { faSlack } from '@fortawesome/free-brands-svg-icons'
-import { faArrowUpRightFromSquare, faSpinner } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { LoaderCircle as LoaderCircleIcon, ExternalLink as ExternalLinkIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../api'
 import { Modal } from '../components/Modal'
 import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
+import { UiIcon } from '../components/ui/ui-icon'
 import { t } from '../i18n'
 
 import { useResetOnKey } from './useResetOnKey'
@@ -100,7 +101,11 @@ export function BindSlackDialog({ open, teamId, onClose, onBound, mode = 'instal
         )}
         {phase === 'waiting' && (
           <div className="flex flex-col items-center gap-3 py-2">
-            <FontAwesomeIcon icon={faSpinner} className="h-5 w-5 animate-spin text-secondary" />
+            <UiIcon
+              size={20}
+              icon={LoaderCircleIcon}
+              className="h-5 w-5 animate-spin text-secondary"
+            />
             <div className="text-center text-[12.5px] text-secondary">
               {t('Waiting for Slack approval…')}
             </div>
@@ -117,7 +122,7 @@ export function BindSlackDialog({ open, teamId, onClose, onBound, mode = 'instal
         </button>
         {phase === 'idle' && (
           <Button size="sm" type="button" onClick={() => void startInstall()}>
-            <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="h-3 w-3" />
+            <UiIcon size={16} icon={ExternalLinkIcon} className="h-4 w-4" />
             {reinstall ? t('Reinstall Slack App') : t('Install Slack App')}
           </Button>
         )}

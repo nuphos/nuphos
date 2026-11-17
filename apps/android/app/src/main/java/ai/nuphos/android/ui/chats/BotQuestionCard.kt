@@ -1,5 +1,6 @@
 package ai.nuphos.android.ui.chats
 
+import ai.nuphos.android.ui.chat.AskedSecretCard
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -50,8 +51,9 @@ import androidx.compose.ui.res.stringResource
  * the question and what the agent wrote to decide it from, each option an answer, and "Other…" to
  * type the answer in the card (in the Inbox, [answersInPlace], the text box is always there). A card
  * with several questions or any number of picks is a form, sent once as [onForm]. An answer
- * wakes the agent that asked; no message is sent. A connect or secure-input question is answered in the
- * conversation that asked, which the link opens. [showsFrom] is off for the Bot's own questions in its own chat.
+ * wakes the agent that asked; no message is sent. A connect question opens the asking conversation's
+ * credential picker ([onConnect]); a secret one, its secure input. [showsFrom] is off for the Bot's own
+ * questions in its own chat.
  */
 @Composable
 internal fun BotQuestionCard(
@@ -63,7 +65,7 @@ internal fun BotQuestionCard(
     /** Why the last answer could not be sent; the question is still open. */
     failure: String? = null,
     /** Chooses the asking conversation's credentials here, for an integration question; absent where it cannot. */
-    onConnect: (() -> Unit)? = null,
+    onConnect: () -> Unit,
     /** The text box is always on the card, rather than behind "Other…", as the Inbox shows it. */
     answersInPlace: Boolean = false,
     /** A several-question or multi-select card's answer, as its form builds it. */
@@ -86,15 +88,15 @@ internal fun BotQuestionCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 question.ownBody?.let { QuestionBody(question.id, it, onLink) }
                 val form = question.form
+                val secret = question.secretPart
                 if (form != null) DecisionForm(question.id, form, onForm)
-                else if (replies == null && onConnect != null && question.connectable) {
+                else if (secret != null) AskedSecretCard(question, secret)
+                else if (replies == null) {
                     val own = question.personalCredentials?.map { if (it == "github") "GitHub" else if (it == "linear") "Linear" else it }
                         ?.foldIndexed("") { index, all, name -> if (index == 0) name else stringResource(R.string.chats_question_credentials_and, all, name) }
                     OutlinedButton(onClick = onConnect, modifier = Modifier.testTag("bot-question-connect")) {
                         Text(own?.let { stringResource(R.string.chats_question_use_own, it) } ?: stringResource(R.string.chats_question_choose_credentials))
                     }
-                } else if (replies == null) {
-                    OutlinedButton(onClick = onOpen) { Text(stringResource(R.string.chats_question_answer_in_task)) }
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         replies.forEach { (label, reply) ->
@@ -128,14 +130,11 @@ private fun QuestionBody(id: String, text: String, onLink: ((String) -> Unit)?) 
 /** More than about three lines of text: shown collapsed until asked for. */
 internal fun isLongBody(text: String): Boolean = text.trim().lines().size > 3 || text.length > 240
 
-/** One (label, reply) per option, possibly none; null when only the conversation can answer it. */
+/** One (label, reply) per option, possibly none; null for a secret or a connection, answered in their own way. */
 internal fun cardReplies(question: BotQuestion): List<Pair<String, String>>? {
     val request = question.request
-    if (request.category == "credential" || request.category == "integration") return null
-    val options = request.options.orEmpty().filter { it.isNotBlank() }
-    // Neither an option nor words answer it here.
-    if (options.isEmpty() && !question.typed) return null
-    return options.map { it to it }
+    if (request.secretName != null || question.connectable) return null
+    return request.options.orEmpty().filter { it.isNotBlank() }.map { it to it }
 }
 
 /**

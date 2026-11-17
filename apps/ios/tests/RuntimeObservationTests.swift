@@ -227,6 +227,7 @@ struct RuntimeObservationTests {
         MarkdownImagesTests.run()
         BareURLTests.run()
         ComposerActionTests.run()
+        ComposerReturnTests.run()
         SessionLinkTests.run()
         AppLinkTests.run()
         SessionMentionTests.run()

@@ -40,27 +40,20 @@ export function initialBindingAccess(input: {
   }
 }
 
-/** The `share` a bind or start-oauth request names in its JSON body, as a field to store. */
-export async function requestedBindingShare(
-  c: Context<{ Variables: TeamAuthVariables }>,
-): Promise<{ share?: BindingShare }> {
-  const body: unknown = await c.req.json().catch(() => ({}))
-  const parsed = z.object({ share: bindingShareSchema.optional() }).safeParse(body)
-
-  if (!parsed.success) throw new AppError(400, 'invalid_share', 'share is not a valid choice')
-
-  return parsed.data.share ? { share: parsed.data.share } : {}
-}
-
 /** The access for a binding this request connects, from the body's optional `share`. */
 export async function newBindingAccess(
   c: Context<{ Variables: TeamAuthVariables }>,
   options: { highPrivilege?: boolean; now?: Date } = {},
 ): Promise<BindingAccess> {
+  const body: unknown = await c.req.json().catch(() => ({}))
+  const parsed = z.object({ share: bindingShareSchema.optional() }).safeParse(body)
+
+  if (!parsed.success) throw new AppError(400, 'invalid_share', 'share is not a valid choice')
+
   return initialBindingAccess({
     userId: c.get('userId'),
     team: c.get('team'),
-    ...(await requestedBindingShare(c)),
+    share: parsed.data.share,
     ...options,
   })
 }

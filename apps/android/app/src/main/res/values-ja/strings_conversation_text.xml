@@ -20,6 +20,7 @@
     <string name="convtext_stopped_by_user">ユーザーが停止しました。</string>
     <string name="convtext_empty_reply">エージェントの応答が空でした。</string>
     <string name="convtext_steering_rejected">割り込みが拒否されました。ランタイムが許可したら再試行してください。</string>
+    <string name="convtext_stop_runtime_unreachable">ランタイムが応答しなかったため、このターンはここで停止しました。</string>
     <string name="convtext_steering_unconfirmed">割り込みが届いたか確認できません。再試行する前にタスクを確認してください。</string>
     <string name="convtext_delivery_unconfirmed">メッセージが届いたか確認できません。元の接続を再開してください。</string>
     <string name="convtext_task_reloaded">このタスクは別の場所で変更され、再読み込みされました。メッセージを再送信してください。</string>

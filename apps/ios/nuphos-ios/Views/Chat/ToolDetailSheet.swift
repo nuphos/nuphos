@@ -51,7 +51,7 @@ struct ToolDetailSheet: View {
         .sheet(isPresented: $choosingCredentials) {
             CredentialPickerSheet(selection: Binding(
                 get: { session.credentialAccess ?? CredentialSelection() },
-                set: { session.setCredentials($0) }))
+                set: { session.setCredentials($0) }), providers: part.integrationProviders)
         }
         .sheet(isPresented: $showingConnectors) {
             NavigationStack {

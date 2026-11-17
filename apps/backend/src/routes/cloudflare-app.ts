@@ -27,6 +27,26 @@ const DESKTOP_CALLBACK = 'nuphos://cloudflare-callback'
 const desktopCallback = (c: Context, params: Record<string, string>) =>
   desktopCallbackResponse(c, DESKTOP_CALLBACK, params)
 
+// Record Cloudflare's rejection for the desktop's poll too, so a deep link
+// captured by another app can't leave the dialog waiting. The pending request
+// stays: a replayed error must not cancel it, and a later approval replaces
+// this result.
+async function recordAuthorizeError(state: string, error: string, errorDescription: string) {
+  const pending = await cloudflarePendingOAuth().findOne({ _id: state })
+
+  if (!pending) return
+  await cloudflareOAuthResult().replaceOne(
+    { _id: state },
+    {
+      teamId: pending.teamId,
+      error,
+      errorDescription,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+    },
+    { upsert: true },
+  )
+}
+
 cloudflareAppRoutes.get('/setup', async (c) => {
   const state = c.req.query('state') ?? ''
   const code = c.req.query('code') ?? ''
@@ -37,11 +57,11 @@ cloudflareAppRoutes.get('/setup', async (c) => {
   }
 
   if (errorParam) {
-    return desktopCallback(c, {
-      state,
-      error: errorParam,
-      error_description: c.req.query('error_description') ?? '',
-    })
+    const errorDescription = c.req.query('error_description') ?? ''
+
+    await recordAuthorizeError(state, errorParam, errorDescription)
+
+    return desktopCallback(c, { state, error: errorParam, error_description: errorDescription })
   }
 
   if (!code) {
@@ -229,16 +249,14 @@ export async function persistCloudflareBinding(
 
   // Record the result keyed by `state` so the desktop can finish the bind by
   // polling even if the nuphos:// deep link below is captured by another app.
-  await cloudflareOAuthResult().updateOne(
+  await cloudflareOAuthResult().replaceOne(
     { _id: state },
     {
-      $set: {
-        teamId,
-        bindingId,
-        accountId,
-        accountName,
-        expiresAt: new Date(now.getTime() + 10 * 60 * 1000),
-      },
+      teamId,
+      bindingId,
+      accountId,
+      accountName,
+      expiresAt: new Date(now.getTime() + 10 * 60 * 1000),
     },
     { upsert: true },
   )
@@ -266,6 +284,11 @@ cloudflareAppRoutes.get('/result/:state', async (c) => {
 
   if (!result) {
     return c.json({ ready: false })
+  }
+  // A rejection stays `ready: false`: desktops before the error field resolved
+  // any ready result as a successful bind.
+  if (!result.bindingId) {
+    return c.json({ ready: false, error: result.error, errorDescription: result.errorDescription })
   }
 
   return c.json({

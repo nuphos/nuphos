@@ -2822,98 +2822,6 @@
         }
       }
     },
-    "Answer in the task" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Responder en la tarea"
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Jawab di tugas"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "タスクで回答"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "태스크에서 답변"
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ตอบในงาน"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在任务中回答"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在任務中回答"
-          }
-        }
-      }
-    },
-    "Answer it in %@." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Respóndela en %@."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Jawab di %@."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ で回答してください。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@에서 답변하세요."
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ตอบใน %@"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "请在 %@ 中回答。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "請在 %@ 中回答。"
-          }
-        }
-      }
-    },
     "Answered %@ from the Inbox" : {
       "comment" : "Answered question: when it was answered",
       "localizations" : {
@@ -25363,6 +25271,52 @@
         }
       }
     },
+    "The runtime didn't respond; the turn was stopped here." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El entorno de ejecución no respondió; el turno se detuvo aquí."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Runtime tidak merespons; giliran ini dihentikan di sini."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ランタイムが応答しなかったため、このターンはここで停止しました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "런타임이 응답하지 않아 이 턴을 여기서 중지했습니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "รันไทม์ไม่ตอบสนอง จึงหยุดเทิร์นนี้ไว้ที่นี่แล้ว"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "运行环境没有响应，已在这里停止这一回合。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "執行環境沒有回應，已在這裡停止這一輪。"
+          }
+        }
+      }
+    },
     "The runtime is not ready for a new message yet. Try again in a moment." : {
       "localizations" : {
         "es" : {
@@ -25451,6 +25405,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "執行環境沒有回應，回覆已結束。"
+          }
+        }
+      }
+    },
+    "The selection adds no credential this question asks for." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La selección no añade ninguna credencial de las que pide esta pregunta."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pilihan ini tidak menambahkan kredensial yang diminta pertanyaan ini."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この選択では、この質問が求める認証情報が追加されません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 선택에는 이 질문이 요청한 자격 증명이 추가되지 않습니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การเลือกนี้ไม่ได้เพิ่มข้อมูลรับรองที่คำถามนี้ขอ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "所选内容没有新增此问题所需的凭据。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "所選內容沒有新增此問題所需的憑證。"
           }
         }
       }

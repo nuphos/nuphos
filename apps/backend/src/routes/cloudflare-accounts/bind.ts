@@ -13,11 +13,7 @@ import {
   buildCloudflareAuthorizeUrl,
 } from '@/lib/byos/cloudflare-oauth'
 import { appendEnvironmentBinding } from '@/lib/byos/environment-bindings'
-import {
-  bindingShareSchema,
-  newBindingAccess,
-  requestedBindingShare,
-} from '@/lib/byos/initial-access'
+import { bindingShareSchema, newBindingAccess } from '@/lib/byos/initial-access'
 import { encryptCloudflareApiKey } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
@@ -185,13 +181,7 @@ export function registerCloudflareBindRoutes(routes: Hono<{ Variables: TeamAuthV
       const state = crypto.randomBytes(24).toString('hex')
       const expiresAt = new Date(Date.now() + OAUTH_PENDING_TTL_MS)
 
-      await cloudflarePendingOAuth().insertOne({
-        _id: state,
-        teamId,
-        requesterUserId,
-        ...(await requestedBindingShare(c)),
-        expiresAt,
-      })
+      await cloudflarePendingOAuth().insertOne({ _id: state, teamId, requesterUserId, expiresAt })
 
       const authorizeUrl = buildCloudflareAuthorizeUrl({
         clientId: client.clientId,

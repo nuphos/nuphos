@@ -20,7 +20,7 @@ final class VoiceInputUITests: XCTestCase {
         app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path]
         app.resetAuthorizationStatus(for: .microphone)
         addUIInterruptionMonitor(withDescription: "Microphone") { alert in
-            let allow = alert.buttons["Allow"]
+            let allow = alert.buttons["Allow"].firstMatch
             guard allow.exists else { return false }
             allow.tap()
             return true
