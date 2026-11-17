@@ -578,27 +578,35 @@ test('instance RPC shares the tunnel and returns one result then closes', async 
   client.stop()
 })
 
-test('upload is independently advertised and routed on the device tunnel', () => {
-  const backend = new FakeSocket()
-  const upload = new FakeSocket()
-  const client = new RuntimeTunnelClient({
-    connectBackend: () => backend,
-    connectRuntime: () => null,
-    connectUpload: () => upload,
-    status: () => ({ agents: {} }),
-  })
+for (const [purpose, capability] of [
+  ['upload', 'localUpload'],
+  ['download', 'localDownload'],
+] as const) {
+  test(`${purpose} is independently advertised and routed on the device tunnel`, () => {
+    const backend = new FakeSocket()
+    const stream = new FakeSocket()
+    const client = new RuntimeTunnelClient({
+      connectBackend: () => backend,
+      connectRuntime: () => null,
+      ...(purpose === 'upload'
+        ? { connectUpload: () => stream }
+        : { connectDownload: () => stream }),
+      status: () => ({ agents: {} }),
+    })
 
-  client.start()
-  backend.emit('open')
-  const status = JSON.parse(backend.sent[0]!)
+    client.start()
+    backend.emit('open')
+    const status = JSON.parse(backend.sent[0]!)
 
-  assert.equal(status.status.localUpload, true)
-  backend.emit('message', { data: JSON.stringify({ t: 'open', s: 'upload', purpose: 'upload' }) })
-  upload.emit('open')
-  backend.emit('message', {
-    data: JSON.stringify({ t: 'data', s: 'upload', d: 'fixture-request' }),
+    assert.equal(status.status[capability], true)
+    assert.equal(status.status[purpose === 'upload' ? 'localDownload' : 'localUpload'], false)
+    backend.emit('message', { data: JSON.stringify({ t: 'open', s: purpose, purpose }) })
+    stream.emit('open')
+    backend.emit('message', {
+      data: JSON.stringify({ t: 'data', s: purpose, d: 'fixture-request' }),
+    })
+    assert.deepEqual(stream.sent, ['fixture-request'])
+    client.stop()
+    assert.equal(stream.closed, true)
   })
-  assert.deepEqual(upload.sent, ['fixture-request'])
-  client.stop()
-  assert.equal(upload.closed, true)
-})
+}
