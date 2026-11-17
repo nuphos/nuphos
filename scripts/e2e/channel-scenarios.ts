@@ -215,6 +215,12 @@ export const channelScenarios: Scenario[] = [
         await rename('E2E Bot')
       }
       await page.getByText('Message E2E Bot', { exact: true }).waitFor()
+      // Renamed from outside the app, the Bot's sidebar row follows on its own, with no reload.
+      await page
+        .locator('[data-sidebar-row]')
+        .filter({ hasText: 'E2E Bot' })
+        .first()
+        .waitFor({ timeout: 10_000 })
     },
   },
   {
