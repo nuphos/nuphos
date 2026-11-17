@@ -1,8 +1,10 @@
 import { t } from '../../../i18n/index.ts'
 
 import { parseDecisionQuestions } from './decisionFormModel.ts'
+import { parseSecretFields, SECRET_NAME } from './secretCardModel.ts'
 
 import type { DecisionQuestion } from './decisionFormModel.ts'
+import type { SecretField } from './secretCardModel.ts'
 import type { AgentCredentialSelection } from '../../../api'
 import type { AddIntegrationKey } from '../../../views/addIntegrationCatalog'
 
@@ -96,24 +98,50 @@ export function parseConnectRequest(
   return known.length > 0 ? { providers: known, reason, personal: false } : null
 }
 
-/** A credential `request_user_decision` that names a `secretName`: its secure input card. */
-export function parseSecretRequest(value: unknown): { name: string; reason: string } | null {
+/**
+ * A credential `request_user_decision` that names a `secretName`: its secure
+ * input card. With `fields` and a `site` it asks for a website form's details
+ * together; fields it cannot read leave the one masked input for `secretName`.
+ */
+export function parseSecretRequest(
+  value: unknown,
+): { name: string; reason: string; fields?: SecretField[]; site?: string } | null {
   if (!value || typeof value !== 'object') return null
-  const { category, secretName, question } = value as {
+  const { category, secretName, question, fields, site } = value as {
     category?: unknown
     secretName?: unknown
     question?: unknown
+    fields?: unknown
+    site?: unknown
   }
 
   if (category !== 'credential' || typeof secretName !== 'string') return null
-  if (!/^[A-Za-z]\w{0,63}$/.test(secretName)) return null
+  if (!SECRET_NAME.test(secretName)) return null
 
-  return { name: secretName, reason: typeof question === 'string' ? question : '' }
+  return {
+    name: secretName,
+    reason: typeof question === 'string' ? question : '',
+    ...parseSecretFields(fields, site),
+  }
 }
 
 /** The reply a secret card sends once its value is saved, before the file's path. */
 export function secretSavedReply(name: string): string {
   return `🔒 ${name} saved to `
+}
+
+/**
+ * The reply a card with several fields sends: it opens as a single secret's
+ * does, so every client reads it as saved, then names one file per field.
+ */
+export function secretFieldsSavedReply(
+  name: string,
+  saved: readonly { name: string; path: string }[],
+): string {
+  return [
+    `${secretSavedReply(name)}these files, one per field:`,
+    ...saved.map((field) => `${field.name}: ${field.path}`),
+  ].join('\n')
 }
 
 /** Any other `request_user_decision`: its question card, with the options as replies. */
