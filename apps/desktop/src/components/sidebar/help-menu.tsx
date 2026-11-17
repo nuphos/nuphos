@@ -1,4 +1,3 @@
-import clsx from 'clsx'
 import { ArrowDown, ArrowUpRight, CircleHelp, Keyboard, Palette } from 'lucide-react'
 import { useState } from 'react'
 
@@ -6,6 +5,7 @@ import { api } from '../../api'
 import { DevPalette } from '../../devtools/palette'
 import { t } from '../../i18n'
 import { CHANGELOG_INDEX_URL } from '../../lib/whatsNew'
+import { ConfirmDialog } from '../ConfirmDialog'
 import { Kbd } from '../ui/kbd'
 import {
   Menu,
@@ -16,12 +16,15 @@ import {
   MenuSeparator,
   MenuTrigger,
 } from '../ui/menu'
+import { StatusDot } from '../ui/status-dot'
 import { useChangelog } from '../useChangelog'
 import { useReadyUpdate } from '../useReadyUpdate'
 import { WhatsNewReader } from '../WhatsNewReader'
 
+import { UpdatePill } from './update-pill'
+
 import type { ChangelogEntry } from '../../types/team'
-import { StatusDot } from '../ui/status-dot'
+import type { ReadyUpdate } from '../readyUpdate'
 
 function shortDate(date: string): string {
   const parsed = new Date(`${date}T00:00:00`)
@@ -76,16 +79,26 @@ function WhatsNewGroup({
   )
 }
 
-/** The update a restart installs, and the installer when the last restart came
- * back without it. */
-function UpdateItems({ update }: { update: NonNullable<ReturnType<typeof useReadyUpdate>> }) {
+/** The update a restart installs, its download while a newer one replaces it, and
+ * the installer when the last restart came back without it. */
+function UpdateItems({ update, onUpdate }: { update: ReadyUpdate; onUpdate: () => void }) {
   const { installerUrl } = update
 
   return (
     <>
-      <MenuItem icon={<ArrowDown className="h-3.5 w-3.5" />} onClick={update.install}>
-        {t('Restart to update to {version}', { version: update.version })}
-      </MenuItem>
+      {update.percent === null ? (
+        <MenuItem icon={<ArrowDown className="h-3.5 w-3.5" />} onClick={onUpdate}>
+          {t('Restart to update to {version}', { version: update.version })}
+        </MenuItem>
+      ) : (
+        <MenuItem
+          icon={<ArrowDown className="h-3.5 w-3.5" />}
+          hint={<span className="tabular-nums">{update.percent}%</span>}
+          disabled
+        >
+          {t('Downloading Nuphos {version}…', { version: update.version })}
+        </MenuItem>
+      )}
       {installerUrl && (
         <MenuItem
           icon={<ArrowUpRight className="h-3.5 w-3.5" />}
@@ -102,41 +115,34 @@ export function SidebarHelpMenu({ onOpenShortcutsHelp }: { onOpenShortcutsHelp?:
   const changelog = useChangelog()
   const update = useReadyUpdate()
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [asking, setAsking] = useState(false)
+  const askToUpdate = () => setAsking(true)
+
+  // A newer release that starts downloading takes the offer back until it is ready.
+  if (asking && update?.percent !== null) setAsking(false)
 
   return (
     <>
+      {update && <UpdatePill update={update} onUpdate={askToUpdate} />}
       <Menu
         onOpenChange={(open) => {
           if (open) changelog.markSeen()
         }}
       >
         <MenuTrigger
-          className={clsx(
-            'titlebar-no-drag relative flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full outline-none transition-colors',
-            update
-              ? 'update-notif-enter bg-action-primary text-inverse shadow-sm shadow-black/25 hover:bg-action-primary/90'
-              : 'text-tertiary hover:bg-[var(--sidebar-overlay-hover)] hover:text-secondary data-[popup-open]:bg-[var(--sidebar-overlay-active)]',
-          )}
-          aria-label={
-            update ? t('Update ready — version {version}', { version: update.version }) : t('Help')
-          }
-          title={
-            update ? t('Update ready — version {version}', { version: update.version }) : t('Help')
-          }
+          className="titlebar-no-drag relative flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-tertiary outline-none transition-colors hover:bg-[var(--sidebar-overlay-hover)] hover:text-secondary data-[popup-open]:bg-[var(--sidebar-overlay-active)]"
+          aria-label={t('Help')}
+          title={t('Help')}
         >
-          {update ? (
-            <ArrowDown className="h-3.5 w-3.5" strokeWidth={2.4} />
-          ) : (
-            <CircleHelp className="h-4 w-4" strokeWidth={1.8} />
-          )}
-          {!update && changelog.unread && (
+          <CircleHelp className="h-4 w-4" strokeWidth={1.8} />
+          {changelog.unread && (
             <StatusDot tone="unread" label={t("What's new")} className="absolute right-0 top-0" />
           )}
         </MenuTrigger>
         <MenuContent side="top" align="end" sideOffset={8} className="w-[300px]">
           {update && (
             <>
-              <UpdateItems update={update} />
+              <UpdateItems update={update} onUpdate={askToUpdate} />
               <MenuSeparator />
             </>
           )}
@@ -165,6 +171,20 @@ export function SidebarHelpMenu({ onOpenShortcutsHelp }: { onOpenShortcutsHelp?:
           )}
         </MenuContent>
       </Menu>
+      {update && (
+        <ConfirmDialog
+          open={asking}
+          title={t('Update ready')}
+          description={t(
+            'Restart to finish installing Nuphos {version}. Bots and tasks on this computer stop, so replies still running there are cut off.',
+            { version: update.version },
+          )}
+          confirmLabel={t('Update')}
+          cancelLabel={t('Not now')}
+          onConfirm={update.install}
+          onClose={() => setAsking(false)}
+        />
+      )}
       {changelog.readerEntry && (
         <WhatsNewReader entry={changelog.readerEntry} onClose={changelog.closeReader} />
       )}
