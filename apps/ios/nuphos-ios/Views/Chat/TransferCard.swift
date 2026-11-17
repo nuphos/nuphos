@@ -141,7 +141,7 @@ struct TransferCard: View {
                 if opening == file.id {
                     ProgressView()
                 } else if file.isVideo {
-                    Image(systemName: "play.fill")
+                    LucideIcon("play")
                         .font(.system(size: 12))
                         .foregroundStyle(.white)
                         .frame(width: 28, height: 28)
@@ -158,7 +158,7 @@ struct TransferCard: View {
             if busy {
                 ProgressView().controlSize(.small)
             } else {
-                Image(systemName: icon)
+                LucideIcon(systemName: icon)
             }
             Text(name).lineLimit(1).truncationMode(.middle)
         }

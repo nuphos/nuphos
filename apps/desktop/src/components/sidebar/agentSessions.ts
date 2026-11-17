@@ -30,7 +30,6 @@ export const agentSessionsQuery = (teamId: string) =>
 export function useAgentSessions(teamId: string) {
   return useQuery({
     ...agentSessionsQuery(teamId),
-    enabled: Boolean(teamId),
     refetchInterval: AGENT_SESSIONS_POLL_MS,
   })
 }

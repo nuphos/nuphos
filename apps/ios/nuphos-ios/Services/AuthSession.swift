@@ -39,7 +39,14 @@ final class AuthSession {
     /// backend it came from. The sign-in screen asks for the code.
     private(set) var mfaChallenge: (token: String, origin: String)?
 
-    let savedAccounts = SavedAccounts()
+    let savedAccounts: SavedAccounts = {
+        #if DEBUG && targetEnvironment(simulator)
+        if CommandLine.arguments.contains("-preview-saved-account") {
+            return SavedAccounts(read: { nil }, write: { _ in })
+        }
+        #endif
+        return SavedAccounts()
+    }()
     private(set) var generation = 0
     private(set) var accountError: String?
     private(set) var addingAccount = false
@@ -83,7 +90,9 @@ final class AuthSession {
         // `-preview-home` launch argument: render the home screen with a
         // sample user, for UI work without a real sign-in.
         #if targetEnvironment(simulator)
-        if let fixture = ProcessInfo.processInfo.environment["NUPHOS_PREVIEW_RESPONSES"] {
+        if CommandLine.arguments.contains("-clear-preview") {
+            UserDefaults.standard.removeObject(forKey: "previewResponses")
+        } else if let fixture = ProcessInfo.processInfo.environment["NUPHOS_PREVIEW_RESPONSES"] {
             UserDefaults.standard.set(fixture, forKey: "previewResponses")
         }
         let previewFixture = UserDefaults.standard.string(forKey: "previewResponses")
@@ -105,6 +114,9 @@ final class AuthSession {
             aiConsentAccepted = !CommandLine.arguments.contains("-preview-consent")
             aiConsentVersion = AccountAPI.aiConsentVersion
             state = .signedIn(.preview)
+            if CommandLine.arguments.contains("-preview-saved-account") {
+                try? savedAccounts.save(user: .preview, token: "preview-only", origin: NuphosAPI.baseURL.absoluteString)
+            }
             return
         }
         #endif

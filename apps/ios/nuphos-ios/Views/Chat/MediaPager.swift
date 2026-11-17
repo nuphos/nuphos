@@ -32,13 +32,13 @@ struct MediaPager: View {
         // takes a 44 pt square, not just its glyph, so a finger finds it.
         VStack(spacing: 0) {
             HStack {
-                Button(action: close) { Label("Done", systemImage: "xmark").frame(width: 44, height: 44).contentShape(.rect) }
+                Button(action: close) { Label("Done", image: "lucide-x").frame(width: 44, height: 44).contentShape(.rect) }
                 Spacer()
                 if urls.count > 1, let index = urls.firstIndex(of: current) {
                     Text(verbatim: "\(index + 1) / \(urls.count)").monospacedDigit()
                 }
                 Spacer()
-                ShareLink(item: current) { Image(systemName: "square.and.arrow.up").frame(width: 44, height: 44).contentShape(.rect) }
+                ShareLink(item: current) { LucideIcon("share").frame(width: 44, height: 44).contentShape(.rect) }
             }
             .labelStyle(.iconOnly)
             .font(.body.weight(.medium))
@@ -296,7 +296,7 @@ private extension UIViewController {
     func offerRetry(_ message: String, retry: @escaping @MainActor () -> Void) {
         var config = UIButton.Configuration.plain()
         config.title = message
-        config.image = UIImage(systemName: "arrow.clockwise")
+        config.image = UIImage(named: "lucide-rotate-cw")
         config.imagePlacement = .top
         config.imagePadding = 8
         config.baseForegroundColor = .white
