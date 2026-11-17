@@ -156,7 +156,7 @@ enum BotQuestions {
         return rows
             .filter { $0.isOwner == true && listed.insert($0.sessionId).inserted }
             .flatMap { row in
-                (row.inputRequests ?? []).filter { includeOnboarding || !["pending", "started"].contains(row.botOnboarding ?? "") || $0.category != "preference" }.map { BotQuestion(sessionId: row.sessionId, title: row.displayTitle, request: $0, runtime: row.agentRuntime,
+                (row.inputRequests ?? []).filter { includeOnboarding || !["pending", "active"].contains(row.botOnboarding ?? "") || $0.category != "preference" }.map { BotQuestion(sessionId: row.sessionId, title: row.displayTitle, request: $0, runtime: row.agentRuntime,
                                                      bot: owners[row.sessionId].flatMap { byId[$0] }) }
             }
             .sorted { ($0.request.askedAt ?? "", $0.id) < ($1.request.askedAt ?? "", $1.id) }
