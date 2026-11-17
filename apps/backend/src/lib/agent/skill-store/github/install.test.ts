@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 
+import { nativeSkillFiles } from '@/lib/claude-code-preview/native-skills'
 import { useDb } from '@/lib/test/doubles/db'
 import { useSkillStoreService } from '@/lib/test/doubles/skill-store-service'
 import { repoTarball } from '@/lib/test/repo-tarball'
 
 import { CLAIM_TTL_MS } from './claims'
-import { installGithubSkills, previewGithubSkills } from './install'
+import { GITHUB_SKILL_LIMITS, installGithubSkills, previewGithubSkills } from './install'
 import { readRepoTarball } from './tarball'
 
 import type { SkillObjectWrite } from '@/lib/agent/skill-store/service'
@@ -149,7 +150,7 @@ describe('GitHub skill install', () => {
         content: 'x',
       })),
     ]
-    const large = repoTarball([...files('large', 408), ...files('huge', 2001)], { commitSha: sha })
+    const large = repoTarball([...files('large', 408), ...files('huge', 1001)], { commitSha: sha })
     const read = async () =>
       readRepoTarball(large) as ReturnType<typeof readRepoTarball> & { commitSha: string }
     const preview = await previewGithubSkills(scope, 'acme/skills', read)
@@ -158,7 +159,7 @@ describe('GitHub skill install', () => {
       large: null,
       huge: {
         code: 'too_many_files',
-        message: 'Has 2,001 files; a skill can have at most 2,000',
+        message: 'Has 1,001 files; a skill can have at most 1,000',
       },
     })
     await installGithubSkills(
@@ -168,6 +169,16 @@ describe('GitHub skill install', () => {
       read,
     )
     expect(writes[0]).toHaveLength(408)
+  })
+
+  test('a skill at the file limit leaves the runtime bundle room for as many files again', () => {
+    // The bundle refuses the whole team's skills once it is over its own limit.
+    const files = Array.from({ length: GITHUB_SKILL_LIMITS.files * 2 }, (_, index) => ({
+      relPath: `skill/${String(index)}.txt`,
+      content: Buffer.from('x'),
+    }))
+
+    expect(nativeSkillFiles(files)).toHaveLength(files.length)
   })
 
   test('install writes the skill at the previewed commit and records its origin', async () => {

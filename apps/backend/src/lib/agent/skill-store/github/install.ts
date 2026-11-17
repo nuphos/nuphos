@@ -24,9 +24,10 @@ import type { GithubSkillSource } from './source'
 import type { RepoArchive } from './tarball'
 import type { SkillMutationContext } from '@/lib/agent/skill-store/service'
 
-// `files` is what one runtime bundle can carry (MAX_RUNTIME_SKILL_FILES): a skill
-// with more could never reach a runtime, and nothing else bounds the count.
-export const GITHUB_SKILL_LIMITS = { files: 2_000, bytes: 25_000_000, listed: 100 }
+// `files` is half of what one runtime bundle carries (MAX_RUNTIME_SKILL_FILES, 2,000
+// for the built-in skills and all of a team's together). Past the bundle's limit the
+// sync fails for the whole team, so one skill may not fill it on its own.
+export const GITHUB_SKILL_LIMITS = { files: 1_000, bytes: 25_000_000, listed: 100 }
 
 export type GithubSkillCandidate = {
   name: string
