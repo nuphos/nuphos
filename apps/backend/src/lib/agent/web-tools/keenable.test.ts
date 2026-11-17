@@ -1,14 +1,17 @@
 import { describe, expect, test } from 'bun:test'
 
-import {
-  clampMaxChars,
-  clampMaxResults,
-  keenableFetch,
-  keenableSearch,
-  type KeenableRequestOptions,
-} from './keenable'
+import { clampMaxChars, clampMaxResults, keenableFetch, keenableSearch } from './keenable'
+
+import type { KeenableRequestOptions } from './keenable'
 
 type MockRequest = { url: string; init: RequestInit }
+
+function requestUrl(input: string | URL | { url: string }): string {
+  if (typeof input === 'string') return input
+  if (input instanceof URL) return input.href
+
+  return input.url
+}
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -20,10 +23,11 @@ function jsonResponse(body: unknown, status = 200): Response {
 function mockFetch(handler: (request: MockRequest) => Response | Promise<Response>) {
   const calls: MockRequest[] = []
   const fetchImpl: typeof fetch = (async (input, init) => {
-    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+    const url = requestUrl(input)
     const request = { url, init: init ?? {} }
 
     calls.push(request)
+
     return handler(request)
   }) as typeof fetch
 
@@ -72,7 +76,7 @@ describe('keenableSearch', () => {
     )
     const request = calls[0]!
     const headers = new Headers(request.init.headers)
-    const body = JSON.parse(String(request.init.body)) as Record<string, unknown>
+    const body = JSON.parse(request.init.body as string) as Record<string, unknown>
 
     expect(request.url).toBe('https://api.keenable.ai/v1/search/public')
     expect(request.init.method).toBe('POST')
@@ -102,6 +106,7 @@ describe('keenableSearch', () => {
 
   test('keyed calls use /v1/search with X-API-Key and omit the title header', async () => {
     const { fetchImpl, calls } = mockFetch(() => jsonResponse({ results: [] }))
+
     await keenableSearch({ query: 'nuphos' }, { apiKey: 'k_test', fetchImpl, title: 'ignored' })
     const headers = new Headers(calls[0]!.init.headers)
 
@@ -110,33 +115,46 @@ describe('keenableSearch', () => {
     expect(headers.get('X-Keenable-Title')).toBeNull()
   })
 
-  test('rejects an empty query and surfaces API errors', async () => {
+  test('rejects an empty query and surfaces API errors without provider text', async () => {
     await expect(keenableSearch({ query: '  ' })).rejects.toThrow('query is required')
     const { fetchImpl } = mockFetch(() =>
       jsonResponse({ error: 'missing_app_title', message: 'X-Keenable-Title is required' }, 400),
     )
 
     await expect(keenableSearch({ query: 'nuphos' }, { fetchImpl })).rejects.toThrow(
-      'Keenable 400: missing_app_title: X-Keenable-Title is required',
+      'The web search provider rejected the request (400)',
     )
   })
 
-  test('surfaces a Keenable rejection of an invalid published_after value', async () => {
+  test('returns a derived message when Keenable rejects published_after', async () => {
     const { fetchImpl, calls } = mockFetch(() =>
       jsonResponse(
-        { error: 'invalid_parameter', message: 'published_after must be a date, timestamp, or relative offset' },
+        {
+          error: 'invalid_parameter',
+          message: 'published_after must be a date, timestamp, or relative offset',
+        },
         400,
       ),
     )
 
     await expect(
       keenableSearch({ query: 'nuphos', published_after: 'not-a-date' }, { fetchImpl }),
-    ).rejects.toThrow(
-      'Keenable 400: invalid_parameter: published_after must be a date, timestamp, or relative offset',
-    )
-    const body = JSON.parse(String(calls[0]!.init.body)) as Record<string, unknown>
+    ).rejects.toThrow('published_after must be a date, timestamp, or relative offset (e.g. 7d)')
+    const body = JSON.parse(calls[0]!.init.body as string) as Record<string, unknown>
 
     expect(body.published_after).toBe('not-a-date')
+  })
+
+  test('caps long snippets in search hits', async () => {
+    const longSnippet = 's'.repeat(5_000)
+    const { fetchImpl } = mockFetch(() =>
+      jsonResponse({
+        results: [{ title: 'T', url: 'https://example.com', snippet: longSnippet }],
+      }),
+    )
+    const result = await keenableSearch({ query: 'nuphos' }, { fetchImpl })
+
+    expect(result.results[0]?.snippet).toHaveLength(2_000)
   })
 })
 
@@ -176,6 +194,7 @@ describe('keenableFetch', () => {
     const { fetchImpl, calls } = mockFetch(() =>
       jsonResponse({ url: 'https://example.com', content: 'ok' }),
     )
+
     await keenableFetch({ url: 'https://example.com' }, { apiKey: 'k_test', fetchImpl })
     const headers = new Headers(calls[0]!.init.headers)
 
@@ -188,10 +207,7 @@ describe('keenableFetch', () => {
     const { fetchImpl, calls } = mockFetch(() =>
       jsonResponse({ url: 'https://example.com', content: 'abcdefghij', truncated: false }),
     )
-    const result = await keenableFetch(
-      { url: 'https://example.com', max_chars: 4 },
-      { fetchImpl },
-    )
+    const result = await keenableFetch({ url: 'https://example.com', max_chars: 4 }, { fetchImpl })
     const target = new URL(calls[0]!.url)
 
     expect(target.searchParams.get('max_chars')).toBe('4')
@@ -213,15 +229,13 @@ describe('keenableFetch', () => {
     expect(result.truncated).toBe(true)
   })
 
-  test('rejects a missing url and maps a 404', async () => {
+  test('rejects a missing url and maps a 404 without provider text', async () => {
     await expect(keenableFetch({ url: '' })).rejects.toThrow('url is required')
     const { fetchImpl } = mockFetch(() => jsonResponse({ message: 'Not Found' }, 404))
 
     await expect(
       keenableFetch({ url: 'https://example.com/missing' }, { fetchImpl }),
-    ).rejects.toThrow(
-      'Keenable 404: Not Found',
-    )
+    ).rejects.toThrow('The web fetch provider rejected the request (404)')
   })
 })
 

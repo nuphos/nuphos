@@ -4,6 +4,13 @@ import { webToolModule } from './web-tools'
 
 const ctx = { userId: 'user-1', teamId: 'team-1', sessionId: 'conv-1', locale: 'en' }
 
+function requestUrl(input: string | URL | { url: string }): string {
+  if (typeof input === 'string') return input
+  if (input instanceof URL) return input.href
+
+  return input.url
+}
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -44,8 +51,8 @@ describe('webToolModule', () => {
     const calls: { url: string; init: RequestInit }[] = []
 
     globalThis.fetch = (async (input, init) => {
-      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-      calls.push({ url, init: init ?? {} })
+      calls.push({ url: requestUrl(input), init: init ?? {} })
+
       return jsonResponse({
         query: 'nuphos',
         results: [
@@ -83,8 +90,8 @@ describe('webToolModule', () => {
     const calls: { url: string; init: RequestInit }[] = []
 
     globalThis.fetch = (async (input, init) => {
-      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-      calls.push({ url, init: init ?? {} })
+      calls.push({ url: requestUrl(input), init: init ?? {} })
+
       return jsonResponse({ url: 'https://keenable.ai/', title: 'Keenable', content: 'ok' })
     }) as typeof fetch
     const handlers = webToolModule({
@@ -110,7 +117,8 @@ describe('webToolModule', () => {
     const calls: { url: string; init: RequestInit }[] = []
 
     globalThis.fetch = (async (input, init) => {
-      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+      const url = requestUrl(input)
+
       calls.push({ url, init: init ?? {} })
       if (url.includes('/v1/search')) {
         return jsonResponse({
@@ -124,6 +132,7 @@ describe('webToolModule', () => {
           ],
         })
       }
+
       return jsonResponse({
         url: 'https://github.com/nuphos/nuphos',
         title: 'nuphos/nuphos',
@@ -161,7 +170,10 @@ describe('webToolModule', () => {
 
     globalThis.fetch = (async () =>
       jsonResponse(
-        { error: 'invalid_parameter', message: 'published_after must be a date, timestamp, or relative offset' },
+        {
+          error: 'invalid_parameter',
+          message: 'published_after must be a date, timestamp, or relative offset',
+        },
         400,
       )) as typeof fetch
     const handlers = webToolModule({ webSearchProvider: 'keenable' }).handlers(ctx)
@@ -170,10 +182,19 @@ describe('webToolModule', () => {
       const result = await handlers.web_search!({ query: 'nuphos', published_after: 'bogus' })
 
       expect(result.isError).toBe(true)
-      expect(JSON.stringify(result)).toContain('published_after')
+      expect(JSON.stringify(result)).toContain('published_after must be a date')
+      expect(JSON.stringify(result)).not.toContain('invalid_parameter')
     } finally {
       globalThis.fetch = previous
     }
+  })
+
+  test('web_fetch rejects non-http(s) URLs before calling the provider', async () => {
+    const handlers = webToolModule({ webFetchProvider: 'keenable' }).handlers(ctx)
+    const result = await handlers.web_fetch!({ url: 'ftp://example.com/readme' })
+
+    expect(result.isError).toBe(true)
+    expect(JSON.stringify(result)).toContain('http or https')
   })
 })
 
@@ -191,13 +212,16 @@ describe.skipIf(!live)('web tools live through the MCP handlers', () => {
       })
 
       expect(search.isError).toBeUndefined()
-      const hits = (search.structuredContent as { results: { url: string; title: string }[] }).results
+      const hits = (search.structuredContent as { results: { url: string; title: string }[] })
+        .results
+
       expect(hits.length).toBeGreaterThan(0)
       expect(hits[0]?.url).toMatch(/^https?:\/\//)
       const page = await handlers.web_fetch!({ url: hits[0]!.url, max_chars: 2000 })
 
       expect(page.isError).toBeUndefined()
       const content = (page.structuredContent as { content: string; truncated?: boolean }).content
+
       expect(content.length).toBeGreaterThan(0)
     },
     { timeout: 30_000 },

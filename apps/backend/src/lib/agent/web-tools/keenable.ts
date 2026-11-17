@@ -1,8 +1,11 @@
+import { readKeenablePayload } from './keenable-http'
+
 const DEFAULT_BASE_URL = 'https://api.keenable.ai'
 const DEFAULT_TITLE = 'nuphos'
 const DEFAULT_MAX_RESULTS = 10
 const MAX_RESULTS_CAP = 50
 const MAX_FETCH_CHARS = 50_000
+const MAX_SNIPPET_CHARS = 2_000
 const REQUEST_TIMEOUT_MS = 30_000
 
 export type KeenableRequestOptions = {
@@ -45,18 +48,26 @@ export type KeenableFetchArgs = {
   max_chars?: number
 }
 
+export { KeenableApiError } from './keenable-http'
+
 export function clampMaxResults(value: number | undefined): number {
   if (value == null || !Number.isFinite(value)) return DEFAULT_MAX_RESULTS
+
   return Math.min(MAX_RESULTS_CAP, Math.max(1, Math.trunc(value)))
 }
 
 export function clampMaxChars(value: number | undefined): number {
   if (value == null || !Number.isFinite(value)) return MAX_FETCH_CHARS
+
   return Math.min(MAX_FETCH_CHARS, Math.max(1, Math.trunc(value)))
 }
 
 function rootUrl(baseUrl?: string): string {
-  return (baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, '')
+  let url = baseUrl ?? DEFAULT_BASE_URL
+
+  while (url.endsWith('/')) url = url.slice(0, -1)
+
+  return url
 }
 
 function headers(options: KeenableRequestOptions, jsonBody: boolean): Record<string, string> {
@@ -65,35 +76,17 @@ function headers(options: KeenableRequestOptions, jsonBody: boolean): Record<str
   if (jsonBody) out['Content-Type'] = 'application/json'
   if (options.apiKey) {
     out['X-API-Key'] = options.apiKey
+
     return out
   }
+
   out['X-Keenable-Title'] = options.title ?? DEFAULT_TITLE
+
   return out
 }
 
-async function errorMessage(response: Response): Promise<string> {
-  const text = await response.text()
-
-  try {
-    const body = JSON.parse(text) as { error?: unknown; message?: unknown; code?: unknown }
-    const parts = [body.error, body.message, body.code].filter(
-      (part): part is string => typeof part === 'string' && part.length > 0,
-    )
-
-    if (parts.length > 0) return `Keenable ${String(response.status)}: ${parts.join(': ')}`
-  } catch {
-    // Body was not JSON; fall through to the raw text.
-  }
-
-  const trimmed = text.trim().slice(0, 200)
-
-  return `Keenable ${String(response.status)}: ${trimmed || response.statusText}`
-}
-
-async function readJson(response: Response): Promise<unknown> {
-  if (!response.ok) throw new Error(await errorMessage(response))
-
-  return response.json() as Promise<unknown>
+function capSnippet(snippet: string): string {
+  return snippet.length > MAX_SNIPPET_CHARS ? snippet.slice(0, MAX_SNIPPET_CHARS) : snippet
 }
 
 function hitFrom(raw: unknown): KeenableSearchHit | null {
@@ -103,14 +96,31 @@ function hitFrom(raw: unknown): KeenableSearchHit | null {
 
   if (!url) return null
   const title = typeof row.title === 'string' && row.title ? row.title : url
-  const snippet =
+  const snippetRaw =
     (typeof row.snippet === 'string' && row.snippet) ||
     (typeof row.description === 'string' && row.description) ||
     ''
-  const hit: KeenableSearchHit = { title, url, snippet }
+  const hit: KeenableSearchHit = { title, url, snippet: capSnippet(snippetRaw) }
 
   if (typeof row.published_at === 'string' && row.published_at) hit.published_at = row.published_at
+
   return hit
+}
+
+function fetchBodyFrom(payload: Record<string, unknown>, page: string, maxChars: number) {
+  const content =
+    (typeof payload.content === 'string' && payload.content) ||
+    (typeof payload.markdown === 'string' && payload.markdown) ||
+    ''
+  let truncated = typeof payload.truncated === 'boolean' ? payload.truncated : undefined
+  let body = content
+
+  if (body.length > maxChars) {
+    body = body.slice(0, maxChars)
+    truncated = true
+  }
+
+  return { body, truncated, pageUrl: typeof payload.url === 'string' ? payload.url : page }
 }
 
 export async function keenableSearch(
@@ -120,6 +130,7 @@ export async function keenableSearch(
   const query = args.query.trim()
 
   if (!query) throw new Error('query is required')
+  const hadPublishedAfter = Boolean(args.published_after)
   const url = options.apiKey
     ? `${rootUrl(options.baseUrl)}/v1/search`
     : `${rootUrl(options.baseUrl)}/v1/search/public`
@@ -136,7 +147,10 @@ export async function keenableSearch(
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   })
-  const payload = (await readJson(response)) as { query?: unknown; results?: unknown }
+  const payload = (await readKeenablePayload(response, 'search', { hadPublishedAfter })) as {
+    query?: unknown
+    results?: unknown
+  }
   const results = Array.isArray(payload.results)
     ? payload.results.map(hitFrom).filter((hit): hit is KeenableSearchHit => hit !== null)
     : []
@@ -170,24 +184,15 @@ export async function keenableFetch(
     headers: headers(options, false),
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   })
-  const payload = (await readJson(response)) as Record<string, unknown>
-  const content =
-    (typeof payload.content === 'string' && payload.content) ||
-    (typeof payload.markdown === 'string' && payload.markdown) ||
-    ''
-  let truncated = typeof payload.truncated === 'boolean' ? payload.truncated : undefined
-  let body = content
-
-  if (body.length > maxChars) {
-    body = body.slice(0, maxChars)
-    truncated = true
-  }
+  const payload = (await readKeenablePayload(response, 'fetch')) as Record<string, unknown>
+  const { body, truncated, pageUrl } = fetchBodyFrom(payload, page, maxChars)
   const result: KeenableFetchResult = {
-    url: typeof payload.url === 'string' ? payload.url : page,
+    url: pageUrl,
     content: body,
   }
 
   if (typeof payload.title === 'string' && payload.title) result.title = payload.title
   if (typeof truncated === 'boolean') result.truncated = truncated
+
   return result
 }

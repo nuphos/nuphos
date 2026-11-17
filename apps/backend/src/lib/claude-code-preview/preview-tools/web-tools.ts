@@ -1,7 +1,12 @@
 import { z } from 'zod'
 
 import { config } from '@/config'
-import { clampMaxChars, keenableFetch, keenableSearch } from '@/lib/agent/web-tools/keenable'
+import {
+  clampMaxChars,
+  KeenableApiError,
+  keenableFetch,
+  keenableSearch,
+} from '@/lib/agent/web-tools/keenable'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 
 import { toolInputJsonSchema } from './ai-sdk-adapter'
@@ -14,6 +19,20 @@ export type WebToolConfig = {
   keenableApiKey?: string
 }
 
+const httpHttpsUrl = z
+  .string()
+  .trim()
+  .url()
+  .refine((value) => {
+    try {
+      const protocol = new URL(value).protocol
+
+      return protocol === 'http:' || protocol === 'https:'
+    } catch {
+      return false
+    }
+  }, 'url must use http or https')
+
 const searchInput = z
   .object({
     query: z.string().trim().min(1).max(2000),
@@ -25,7 +44,7 @@ const searchInput = z
 
 const fetchInput = z
   .object({
-    url: z.string().trim().url(),
+    url: httpHttpsUrl,
     live: z.boolean().optional(),
     prompt: z.string().trim().min(1).max(2000).optional(),
     max_chars: z.number().int().min(1).max(50_000).optional(),
@@ -40,6 +59,18 @@ function keenableOptions(agent: WebToolConfig) {
     ...(agent.keenableApiKey ? { apiKey: agent.keenableApiKey } : {}),
     title: 'nuphos',
   }
+}
+
+function searchToolError(error: unknown): string {
+  if (error instanceof KeenableApiError) return error.message
+
+  return 'The web search request failed.'
+}
+
+function fetchToolError(error: unknown): string {
+  if (error instanceof KeenableApiError) return error.message
+
+  return 'The web fetch request failed.'
 }
 
 export function webToolModule(agent: WebToolConfig = config.agent): PreviewToolModule {
@@ -72,7 +103,7 @@ export function webToolModule(agent: WebToolConfig = config.agent): PreviewToolM
 
   return {
     definitions,
-    handlers: (ctx) => ({
+    handlers: (_ctx) => ({
       ...(searchEnabled
         ? {
             web_search: async (args) => {
@@ -80,11 +111,9 @@ export function webToolModule(agent: WebToolConfig = config.agent): PreviewToolM
 
               if (!parsed.success) return toolError(parsed.error.message)
               try {
-                return toolResult(
-                  await keenableSearch(parsed.data, keenableOptions(agent)),
-                )
+                return toolResult(await keenableSearch(parsed.data, keenableOptions(agent)))
               } catch (error) {
-                return toolError(error instanceof Error ? error.message : 'Keenable search failed')
+                return toolError(searchToolError(error))
               }
             },
           }
@@ -96,10 +125,14 @@ export function webToolModule(agent: WebToolConfig = config.agent): PreviewToolM
 
               if (!parsed.success) return toolError(parsed.error.message)
               try {
-                const args = { ...parsed.data, max_chars: clampMaxChars(parsed.data.max_chars) }
-                return toolResult(await keenableFetch(args, keenableOptions(agent)))
+                const fetchArgs = {
+                  ...parsed.data,
+                  max_chars: clampMaxChars(parsed.data.max_chars),
+                }
+
+                return toolResult(await keenableFetch(fetchArgs, keenableOptions(agent)))
               } catch (error) {
-                return toolError(error instanceof Error ? error.message : 'Keenable fetch failed')
+                return toolError(fetchToolError(error))
               }
             },
           }
