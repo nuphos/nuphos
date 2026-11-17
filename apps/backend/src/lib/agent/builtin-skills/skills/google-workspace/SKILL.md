@@ -16,6 +16,9 @@ teammate sends the message in someone else's session, the handout answers 403
 contents anywhere the member did not ask for. Sending mail, deleting, trashing,
 sharing and inviting people to events are irreversible or outward-facing: do them only when the member
 asked for that specific action, and never add recipients they did not name.
+Gmail filters silently reroute, label, archive or delete future mail: before
+creating, changing or deleting one, show the member its exact criteria and
+actions and wait for them to confirm, even when they asked for a filter.
 
 ## Setup
 
