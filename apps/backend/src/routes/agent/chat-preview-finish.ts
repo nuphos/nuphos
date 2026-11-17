@@ -119,7 +119,7 @@ export async function finishPreviewTurn(args: {
   const transcriptMessages = uiMessagesToTranscript([...args.messages, ...tail])
 
   try {
-    const { count } = await appendTranscriptMessages({
+    const stored = await appendTranscriptMessages({
       sessionId,
       userId,
       teamId,
@@ -131,7 +131,7 @@ export async function finishPreviewTurn(args: {
       preserveTitle: true,
     })
 
-    args.emit(await storedTranscriptTail(sessionId, userId, teamId, count, tail.length))
+    args.emit(await storedTranscriptTail(sessionId, userId, teamId, stored, tail.length))
   } catch (err) {
     traceAgentChatError('agent.chat.preview_transcript_persist.error', err, run.trace, {
       message_count: transcriptMessages.length,
@@ -219,7 +219,7 @@ export async function persistInterruptedPreviewTurn(args: {
   ])
 
   try {
-    const { count } = await appendTranscriptMessages({
+    const stored = await appendTranscriptMessages({
       sessionId,
       userId,
       teamId,
@@ -231,7 +231,9 @@ export async function persistInterruptedPreviewTurn(args: {
       preserveTitle: true,
     })
 
-    args.emit(await storedTranscriptTail(sessionId, userId, teamId, count, args.steered.length + 1))
+    args.emit(
+      await storedTranscriptTail(sessionId, userId, teamId, stored, args.steered.length + 1),
+    )
   } catch (err) {
     traceAgentChatError('agent.chat.preview_interrupted_persist.error', err, run.trace, {
       message_count: transcriptMessages.length,

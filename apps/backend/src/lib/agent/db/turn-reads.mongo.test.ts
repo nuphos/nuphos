@@ -179,7 +179,7 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('a turn on a long session', () =>
     const count = await agentMessages().countDocuments({ sessionId: SESSION })
     let frame: Record<string, unknown> = {}
     const read = await documentsRead(async () => {
-      frame = await storedTranscriptTail(SESSION, OWNER, TEAM, count, 1)
+      frame = await storedTranscriptTail(SESSION, OWNER, TEAM, { count, lastIndex: count - 1 }, 1)
     })
 
     console.log(`documents read for a ${String(count)}-message transcript tail: ${String(read)}`)
@@ -187,5 +187,20 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('a turn on a long session', () =>
     // The turn's own message is the newest, the reply. Its input is the user's 'next',
     // stored before the runtime's report.
     expect(frame).toMatchObject({ type: 'atlas-transcript-tail', messagesFirstIndex: count - 3 })
+
+    // A message another member sends before the frame is read does not move it.
+    await agentMessages().insertOne({
+      sessionId: SESSION,
+      userId: OWNER,
+      messageId: 'racing',
+      index: count,
+      role: 'user',
+      parts: text('racing'),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as never)
+    expect(
+      await storedTranscriptTail(SESSION, OWNER, TEAM, { count, lastIndex: count - 1 }, 1),
+    ).toEqual(frame)
   })
 })

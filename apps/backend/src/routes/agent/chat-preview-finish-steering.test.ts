@@ -20,7 +20,11 @@ useAgentDb({
   appendTranscriptMessages: (args) => {
     persisted.push({ messages: args.messages })
 
-    return Promise.resolve({ isNew: false, count: args.messages.length })
+    return Promise.resolve({
+      isNew: false,
+      count: args.messages.length,
+      lastIndex: args.messages.length - 1,
+    })
   },
   // The finished turn reads back only its recent window.
   getConversationMessages: async (_session, _user, options) =>
