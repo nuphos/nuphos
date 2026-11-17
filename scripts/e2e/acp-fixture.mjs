@@ -183,6 +183,11 @@ async function prompt({ sessionId, prompt: parts }) {
   if (text.includes('E2E_PERMISSION')) await permission(sessionId, marker)
   if (text.includes('E2E_COMMANDS')) listCommands({ send, sessionId })
   if (text.includes('E2E_CALL')) await callNamed({ log, sessionId, text })
+  // Answers only once the scenario writes E2E_RELEASE, so a turn can span what it does meanwhile.
+  if (text.includes('E2E_WAIT_RELEASE')) {
+    while (!existsSync(process.env.E2E_RELEASE))
+      await new Promise((resolve) => setTimeout(resolve, 100))
+  }
   if (text.includes('E2E_HOLD')) {
     await new Promise((resolve) => held.set(sessionId, resolve))
     log({ sessionId, marker, event: 'cancelled' })

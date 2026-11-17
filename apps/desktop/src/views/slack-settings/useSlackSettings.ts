@@ -23,7 +23,7 @@ function isSlackId(value: string): boolean {
   return /^[A-Z0-9]+$/.test(value)
 }
 
-export function useSlackSettings(teamId: string | undefined, currentUserId: string) {
+export function useSlackSettings(teamId: string, currentUserId: string) {
   const [installation, setInstallation] = useState<SlackInstallation | null>(null)
   const [channelMappings, setChannelMappings] = useState<SlackChannelMapping[]>([])
   const [userMappings, setUserMappings] = useState<SlackUserMapping[]>([])
@@ -75,8 +75,6 @@ export function useSlackSettings(teamId: string | undefined, currentUserId: stri
   // sequence: this is what the mount effect kicks off, and nothing it does may
   // land in the same tick as that effect.
   function refresh(): Promise<void> {
-    if (!teamId) return Promise.resolve()
-
     return api
       .atlasListTeamMembers(teamId)
       .then(async (teamMembers) => {
@@ -129,14 +127,11 @@ export function useSlackSettings(teamId: string | undefined, currentUserId: stri
   // Raising the spinner is what callers of `load` want up front; the team-switch
   // path raises it from the render that switches instead.
   async function load() {
-    if (!teamId) return
     setLoading(true)
     await refresh()
   }
 
-  useResetOnKey(teamId ?? '', () => {
-    if (teamId) setLoading(true)
-  })
+  useResetOnKey(teamId, () => setLoading(true))
   useEffect(() => {
     void refresh()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -144,7 +139,7 @@ export function useSlackSettings(teamId: string | undefined, currentUserId: stri
 
   // Clear carried-over inputs when switching teams so a stale workspace id
   // from the previous team is never submitted.
-  useResetOnKey(teamId ?? '', () => {
+  useResetOnKey(teamId, () => {
     setNewChannelWorkspaceId('')
     setNewChannelId('')
     setLinkChannelOpen(false)
@@ -158,7 +153,7 @@ export function useSlackSettings(teamId: string | undefined, currentUserId: stri
 
   async function submitLinkChannel(e: FormEvent) {
     e.preventDefault()
-    if (!teamId || linkChannelSubmitting) return
+    if (linkChannelSubmitting) return
     const workspace = normalizeSlackId(newChannelWorkspaceId)
     const channel = normalizeSlackId(newChannelId)
 
@@ -188,7 +183,6 @@ export function useSlackSettings(teamId: string | undefined, currentUserId: stri
   }
 
   async function deleteChannel(mapping: SlackChannelMapping) {
-    if (!teamId) return
     const key = `channel:${mapping.id}`
 
     setBusyKey(key)

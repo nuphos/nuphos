@@ -16,8 +16,10 @@ import { computerScenarios } from './computer-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
 import { dashboardScenarios } from './dashboard-scenarios.ts'
 import { installScenarios } from './install-scenarios.ts'
+import { longTranscriptScenarios } from './long-transcript-scenarios.ts'
 import { startDesktop } from './desktop.ts'
 import { formScenario } from './form-scenario.ts'
+import { memberStreamScenarios } from './member-stream-scenarios.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
 import { questionScenarios } from './question-scenarios.ts'
@@ -29,6 +31,7 @@ import { startStack } from './stack.ts'
 import { teammateBotScenarios } from './teammate-bot-scenarios.ts'
 import { threadModeScenario, threadScenarios } from './thread-scenarios.ts'
 import { triggerScenarios } from './trigger-scenarios.ts'
+import { tunnelScenarios } from './tunnel-scenarios.ts'
 import { newTask, send } from './ui.ts'
 import { usageScenarios } from './usage-scenarios.ts'
 
@@ -112,6 +115,8 @@ const scenarios: Scenario[] = [
       assert.ok(tasks.length > 0 && tasks.every((row) => row.presence === undefined))
     },
   },
+  // Before the Stop scenarios: a Stop while its turn was being saved was lost (#3403).
+  ...longTranscriptScenarios,
   ...agentWordScenarios,
   {
     // The flow #2812 was reported in. Its race (a Stop during the queued turn's startup) is not reproduced.
@@ -258,10 +263,13 @@ const scenarios: Scenario[] = [
   ...threadScenarios,
   ...offlineScenarios,
   threadModeScenario,
+  ...memberStreamScenarios,
   // It removes a member from the team.
   ...dashboardScenarios,
   // It leaves the window split, then closes a pane.
   ...splitPaneScenarios,
+  // A second computer of its own, which it stops again.
+  ...tunnelScenarios,
   // Last: this computer has Claude Code from then on.
   ...installScenarios,
 ]

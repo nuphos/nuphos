@@ -1,12 +1,37 @@
 import { logEvent } from '@/lib/observability'
 
-import { getConversationWithMessages } from './db'
+import { agentMessages, getConversationWithMessages } from './db'
 
 import type { PendingUserMessage } from './pending-messages'
 
+// Enough for the turn's prompt and its trailing input; a long session holds tens of thousands.
+export const TURN_HISTORY_TAIL = 200
+
 /**
- * A turn's full history. It is read on every try, a refused queued turn retried
- * included, so each read logs what it cost.
+ * The pending messages a stored reply already answered: stored at or before the
+ * newest assistant message. Read by id, never by walking the transcript.
+ */
+async function answeredIds(sessionId: string, userId: string, ids: string[]): Promise<Set<string>> {
+  if (ids.length === 0) return new Set()
+  const latest = await agentMessages().findOne(
+    { userId, sessionId, role: 'assistant' },
+    { sort: { index: -1 }, projection: { index: 1 } },
+  )
+
+  if (!latest) return new Set()
+  const stored = await agentMessages()
+    .find(
+      { userId, sessionId, messageId: { $in: ids }, index: { $lte: latest.index } },
+      { projection: { messageId: 1 } },
+    )
+    .toArray()
+
+  return new Set(stored.map((message) => message.messageId))
+}
+
+/**
+ * A turn's recent history and the pending messages already answered. Reads a
+ * bounded tail: storing the turn appends, so the older messages are not needed.
  */
 export async function readTurnHistory(
   {
@@ -19,18 +44,26 @@ export async function readTurnHistory(
 ) {
   const heapBefore = process.memoryUsage().heapUsed
   const startedAt = performance.now()
-  const history = await getConversationWithMessages(sessionId, userId, teamId)
+  const history = await getConversationWithMessages(sessionId, userId, teamId, {
+    tail: TURN_HISTORY_TAIL,
+  })
 
-  if (history)
-    logEvent('info', 'agent.turn.history_loaded', {
-      session_id: sessionId,
-      message_count: history.messages.length,
-      load_ms: Math.round(performance.now() - startedAt),
-      heap_delta_bytes: process.memoryUsage().heapUsed - heapBefore,
-      attempts: pending[0]?.attempts ?? 0,
-      offline_since: pending[0]?.offlineSince,
-      source,
-    })
+  if (!history) return null
+  const answered = await answeredIds(
+    sessionId,
+    history.conversation.userId,
+    pending.map((message) => message.id),
+  )
 
-  return history
+  logEvent('info', 'agent.turn.history_loaded', {
+    session_id: sessionId,
+    message_count: history.messages.length,
+    load_ms: Math.round(performance.now() - startedAt),
+    heap_delta_bytes: process.memoryUsage().heapUsed - heapBefore,
+    attempts: pending[0]?.attempts ?? 0,
+    offline_since: pending[0]?.offlineSince,
+    source,
+  })
+
+  return { ...history, answered }
 }
