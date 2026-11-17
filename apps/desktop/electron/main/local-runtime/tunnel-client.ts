@@ -109,9 +109,18 @@ export class RuntimeTunnelClient {
     this.idleTimer = setTimeout(() => {
       if (this.socket !== socket) return
       this.drop('idle')
-      this.deps.onChange?.(false, this.superseded)
-      this.scheduleReconnect()
+      this.lost()
     }, TUNNEL_IDLE_TIMEOUT_MS)
+  }
+
+  /** The redial is armed before the listener runs, so a listener that throws cannot strand the tunnel. */
+  private lost(revoked = false): void {
+    this.scheduleReconnect()
+    try {
+      this.deps.onChange?.(false, this.superseded, revoked)
+    } catch (error) {
+      console.warn('[local-runtime] tunnel state listener threw', error)
+    }
   }
 
   private connect(): void {
@@ -152,17 +161,16 @@ export class RuntimeTunnelClient {
       this.drop('closed', event.code)
       // Taken over: redial with reclaim, which the backend refuses while the other app holds it.
       if (event.code === CLOSE_SUPERSEDED) this.superseded = true
-      this.deps.onChange?.(false, this.superseded, event.code === CLOSE_REVOKED)
-      if (event.code === CLOSE_REVOKED) {
-        this.running = false
-        this.deps.onRevoked?.()
-      } else this.scheduleReconnect()
+      const revoked = event.code === CLOSE_REVOKED
+
+      if (revoked) this.running = false
+      this.lost(revoked)
+      if (revoked) this.deps.onRevoked?.()
     })
     socket.addEventListener('error', () => {
       if (this.socket !== socket) return
       this.drop('error')
-      this.deps.onChange?.(false, this.superseded)
-      this.scheduleReconnect()
+      this.lost()
     })
   }
 

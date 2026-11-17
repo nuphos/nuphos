@@ -172,6 +172,43 @@ test('a backend restart or dropped network reconnects with backoff', (t) => {
   client.stop()
 })
 
+test('a state listener that throws on disconnect does not stop the redial', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const warn = t.mock.method(console, 'warn', () => {})
+  const backends: FakeSocket[] = []
+  let broken = true
+  const client = new RuntimeTunnelClient({
+    connectBackend: () => {
+      const socket = new FakeSocket()
+
+      backends.push(socket)
+
+      return socket
+    },
+    connectRuntime: () => null,
+    status: () => ({ agents: {} }),
+    onChange: (connected) => {
+      if (!connected && broken) throw new Error('Object has been destroyed')
+    },
+  })
+
+  client.start()
+  // Each way a tunnel is lost: closed, errored, silent.
+  backends.at(-1)?.emit('open')
+  backends.at(-1)?.emit('close', { code: 1006 })
+  t.mock.timers.tick(10_000)
+  assert.equal(backends.length, 2)
+  backends.at(-1)?.emit('error')
+  t.mock.timers.tick(10_000)
+  assert.equal(backends.length, 3)
+  t.mock.timers.tick(TUNNEL_IDLE_TIMEOUT_MS)
+  t.mock.timers.tick(10_000)
+  assert.equal(backends.length, 4)
+  assert.equal(warn.mock.callCount(), 3)
+  broken = false
+  client.stop()
+})
+
 test('a silent socket is treated as dead and redialed', (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] })
   const { backend, backends, client } = setup()
