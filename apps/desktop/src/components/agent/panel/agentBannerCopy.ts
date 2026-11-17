@@ -85,3 +85,17 @@ function fixAction(fix: AgentFix, runFix: (fix: AgentFix) => void) {
 
   return label ? { label, run: () => runFix(fix) } : null
 }
+
+/** A computer whose disk is almost full still takes the message; the banner says what is coming. */
+export function diskFullCopy(
+  computer: { label: string; percent: number },
+  onSettings?: () => void,
+): BannerCopy {
+  return {
+    text: t('{box}’s disk is almost full ({percent}%). Agents on it may fail.', {
+      box: computer.label,
+      percent: String(computer.percent),
+    }),
+    action: onSettings ? { label: t('Free space'), run: onSettings } : null,
+  }
+}

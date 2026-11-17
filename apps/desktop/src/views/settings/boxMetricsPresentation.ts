@@ -94,3 +94,21 @@ export function deskReadings(metrics: unknown, status?: MetricsStatus): DeskRead
     ],
   }
 }
+
+/** From here a disk is close enough to full that agents on it are about to fail. */
+const DISK_WARNING_PERCENT = 90
+
+/** What to say about a disk that is almost full. Only a live reading says anything. */
+export function diskWarning(
+  device: { metricsStatus?: DeviceMetricsStatus; metrics?: unknown } | undefined,
+): { percent: number; text: string } | null {
+  const disk =
+    device?.metricsStatus === 'live' && validMetrics(device.metrics) ? device.metrics.disk : null
+
+  if (!disk || share(disk) < DISK_WARNING_PERCENT) return null
+
+  return {
+    percent: Math.round(share(disk)),
+    text: t('Disk almost full: {free} GB free', { free: gib(Math.max(0, disk.total - disk.used)) }),
+  }
+}
