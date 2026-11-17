@@ -145,6 +145,23 @@ export async function resumeBox(userId: string, deviceId: string, command = AGEN
   return device
 }
 
+/** Runs a command on a Box that is running. A paused machine stays paused: the command fails. */
+export async function runOnBox(userId: string, deviceId: string, command: string): Promise<void> {
+  const device = requireBox(await getAgentDevice(userId, deviceId), deviceId)
+  const sandboxId = requireMachine(device)
+
+  try {
+    const sandbox = await Sandbox.connect(sandboxId, {
+      ...(await boxConnection(device.box, QUICK_TIMEOUT_MS)),
+      resume: false,
+    })
+
+    await sandbox.commands.run(command, { background: true })
+  } catch (error) {
+    throw unavailable('Could not run the command on the Box', error)
+  }
+}
+
 /**
  * Deletes the machine and its disks; the caller removes the device row. A row that
  * never got its machine id (the backend went away mid-create) may still own a

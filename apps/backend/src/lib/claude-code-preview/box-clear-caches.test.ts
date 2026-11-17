@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
@@ -44,6 +44,7 @@ function deps(overrides: Partial<BoxCacheClearDeps> = {}) {
 }
 
 const code = (error: unknown) => (error instanceof AppError ? error.code : String(error))
+const byName = (a = '', b = '') => a.localeCompare(b)
 const refusal = (run: Promise<unknown>) => run.then(() => 'cleared', code)
 
 describe('Box cache clear', () => {
@@ -126,22 +127,20 @@ describe('Box cache clear', () => {
     writeFileSync(path.join(bin, 'sudo'), '#!/bin/sh\necho "$@" >> "$HOME/sudo.log"\n', {
       mode: 0o755,
     })
-    execFileSync('sh', ['-c', BOX_CLEAR_CACHES_COMMAND], {
+    execFileSync('/bin/sh', ['-c', BOX_CLEAR_CACHES_COMMAND], {
       env: { HOME: home, PATH: `${bin}:/usr/bin:/bin` },
     })
 
     expect(caches.filter(existsSync)).toEqual([])
     expect(kept.filter(existsSync)).toEqual(kept)
-    expect(execFileSync('cat', [path.join(home, 'sudo.log')], { encoding: 'utf8' })).toBe(
-      'docker builder prune -f\n',
-    )
+    expect(readFileSync(path.join(home, 'sudo.log'), 'utf8')).toBe('docker builder prune -f\n')
   })
 
   test('the command removes rebuildable caches only', () => {
     // Every path it deletes is one the runtime shares as a cache (session-home.mjs).
     const removed = [...BOX_CLEAR_CACHES_COMMAND.matchAll(/"\$HOME\/([^"]+)"/gu)].map((m) => m[1])
 
-    expect(removed.toSorted()).toEqual(
+    expect(removed.toSorted(byName)).toEqual(
       [
         '.bun/install/cache',
         '.cache/go-build',
@@ -150,7 +149,7 @@ describe('Box cache clear', () => {
         '.local/share/pnpm/store',
         'go/pkg/mod',
         'go/pkg/mod',
-      ].toSorted(),
+      ].toSorted(byName),
     )
     // Docker gives up its build cache, never an image, a container or a volume.
     expect(BOX_CLEAR_CACHES_COMMAND).toContain('docker builder prune -f')

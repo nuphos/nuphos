@@ -1,11 +1,11 @@
 // A Box whose disk is almost full gives back what its tools rebuild on their own
-// (BOX_CLEAR_CACHES_COMMAND). Whoever manages the Box asks; a Box that is away is not
-// started for it, and one whose agent is mid-turn keeps its caches until the turn ends,
-// since a build running in that turn reads them. Nothing is stored: the disk reading the
-// host reports is the result.
+// (BOX_CLEAR_CACHES_COMMAND). Whoever manages the Box asks. A Box that is away is never
+// started for it: runOnBox does not resume a paused machine. One whose agent is mid-turn
+// keeps its caches until the turn ends, since a build running in that turn reads them.
+// Nothing is stored: the disk reading the host reports is the result.
 
 import { requireDeviceAccess } from '@/lib/agent/devices/box-access'
-import { resumeBox } from '@/lib/agent/devices/box-instabox'
+import { runOnBox } from '@/lib/agent/devices/box-instabox'
 import { BOX_CLEAR_CACHES_COMMAND } from '@/lib/agent/devices/box-instabox-client'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { AppError } from '@/lib/errors'
@@ -36,7 +36,7 @@ const defaultDeps: BoxCacheClearDeps = {
   status: async ({ userId, deviceId }) =>
     (await runtimePresenceStore().get(userId, deviceId))?.status,
   busy: boxAgentBusy,
-  clear: ({ userId, deviceId }) => resumeBox(userId, deviceId, BOX_CLEAR_CACHES_COMMAND),
+  clear: ({ userId, deviceId }) => runOnBox(userId, deviceId, BOX_CLEAR_CACHES_COMMAND),
 }
 
 export async function requestBoxCacheClear(
