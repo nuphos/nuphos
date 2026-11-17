@@ -2,7 +2,9 @@
 // middleware: what each role's own token reaches. The database is a recorder,
 // so each case checks whose rows the route asked for.
 import { beforeEach, describe, expect, test } from 'bun:test'
+import { Hono } from 'hono'
 
+import { errorHandler } from '@/lib/errors'
 import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
 
@@ -11,6 +13,8 @@ import type { NuphosTeamRole } from '@/lib/identity/types'
 const TEAM = '64b5f1c2e4b0a1d2c3e4f5a6'
 const ADMIN = '62e6289482f5f9d9408f1a79'
 const MEMBER = '62e6289482f5f9d9408f1a7a'
+// Stats reads are cached per member for a while, so each role is its own member.
+const MEMBER_BY_ROLE = { EDITOR: MEMBER, VIEWER: '62e6289482f5f9d9408f1a7b' }
 
 let role: NuphosTeamRole = 'VIEWER'
 let caller = MEMBER
@@ -39,13 +43,16 @@ useIdentity({
     Promise.resolve([
       { id: ADMIN, name: 'Admin', avatarURL: '' },
       { id: MEMBER, name: 'Member', avatarURL: '' },
+      { id: MEMBER_BY_ROLE.VIEWER, name: 'Viewer', avatarURL: '' },
     ] as never),
 })
 
 const { teamsRoutes } = await import('@/routes/teams')
+// Mounted as the app mounts it, so a thrown AppError answers with its status.
+const app = new Hono().onError(errorHandler).route('/teams', teamsRoutes)
 
 const get = (path: string) =>
-  teamsRoutes.request(`/${TEAM}${path}`, { headers: { Authorization: 'Bearer session' } })
+  app.request(`/teams/${TEAM}${path}`, { headers: { Authorization: 'Bearer session' } })
 
 beforeEach(() => {
   asked.length = 0
@@ -57,7 +64,9 @@ const as = (who: string, teamRole: NuphosTeamRole) => {
 }
 
 describe.each(['EDITOR', 'VIEWER'] as const)('a member with %s', (teamRole) => {
-  beforeEach(() => as(MEMBER, teamRole))
+  const self = MEMBER_BY_ROLE[teamRole]
+
+  beforeEach(() => as(self, teamRole))
 
   test('reads only their own usage', async () => {
     expect((await get('/usage')).status).toBe(200)
@@ -67,7 +76,7 @@ describe.each(['EDITOR', 'VIEWER'] as const)('a member with %s', (teamRole) => {
     for (const { query } of usage)
       expect((query as { $match?: object }[])[0]?.$match).toMatchObject({
         teamId: TEAM,
-        userId: MEMBER,
+        userId: self,
       })
   })
 
@@ -76,13 +85,13 @@ describe.each(['EDITOR', 'VIEWER'] as const)('a member with %s', (teamRole) => {
     const body = (await response.json()) as { members: { id: string }[] }
 
     expect(response.status).toBe(200)
-    expect(body.members.map((m) => m.id)).toEqual([MEMBER])
+    expect(body.members.map((m) => m.id)).toEqual([self])
   })
 
   test('reads their own stats, and is refused the team’s', async () => {
     expect((await get('/agent-stats?scope=me')).status).toBe(200)
     expect(asked.find((a) => a.collection === 'agent_conversations')?.query).toMatchObject({
-      userId: MEMBER,
+      userId: self,
     })
     expect((await get('/agent-stats?scope=team')).status).toBe(403)
   })
@@ -104,7 +113,7 @@ describe('an administrator', () => {
     }
 
     expect(activity.members.map((m) => m.id).sort((a, b) => a.localeCompare(b))).toEqual(
-      [ADMIN, MEMBER].sort((a, b) => a.localeCompare(b)),
+      [ADMIN, MEMBER, MEMBER_BY_ROLE.VIEWER].sort((a, b) => a.localeCompare(b)),
     )
     expect((await get('/agent-stats?scope=team')).status).toBe(200)
   })
