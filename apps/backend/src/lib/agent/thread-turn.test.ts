@@ -42,6 +42,7 @@ const source = {
 } as AgentConversation
 const acceptedIds = new Set<string>()
 let alreadyAccepted = false
+const historyReads: (number | undefined)[] = []
 let released = 0
 const runs: Parameters<TurnRunner['runAgentForTrigger']>[0][] = []
 const claims: Parameters<TurnRunner['claimAgentRunOrEnqueue']>[0][] = []
@@ -65,21 +66,27 @@ useAgentDb({
       alreadyAccepted || acceptedIds.has(messageId) ? { _id: 'accepted' } : null,
   }),
   getConversationBySessionId: async (id) => ({ ...source, sessionId: id }),
-  getConversationWithMessages: async () => ({
-    conversation: { ...source, sessionId: 'target' },
-    messages: [
-      {
-        messageId: alreadyAccepted ? 'delivery' : 'prior',
-        role: 'assistant',
-        parts: [{ type: 'text', text: 'Earlier result' }],
-      },
-    ],
-  }),
+  getConversationWithMessages: async (_session, _viewer, _team, options) => {
+    historyReads.push(options?.tail)
+
+    return historyDouble()
+  },
+})
+const historyDouble = () => ({
+  conversation: { ...source, sessionId: 'target' },
+  messages: [
+    {
+      messageId: alreadyAccepted ? 'delivery' : 'prior',
+      role: 'assistant',
+      parts: [{ type: 'text', text: 'Earlier result' }],
+    },
+  ],
 })
 
 beforeEach(() => {
   alreadyAccepted = false
   acceptedIds.clear()
+  historyReads.length = 0
   released = 0
   runs.length = 0
   claims.length = 0
@@ -146,6 +153,16 @@ test('a turn logs how much history it read, so a retry that rereads it shows', a
     message_count: 1,
     attempts: 0,
   })
+})
+
+test('a turn reads a bounded tail of its history, never the whole transcript', async () => {
+  await (
+    await startThreadTurn(data)
+  ).run
+  expect(runs).toHaveLength(1)
+  expect(historyReads).toHaveLength(1)
+  // A long session holds tens of thousands of messages.
+  expect(historyReads[0]).toBeWithin(1, 501)
 })
 
 test('busy target queues without blocking the sending thread or starting a second run', async () => {
