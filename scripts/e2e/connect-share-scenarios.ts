@@ -25,13 +25,13 @@ async function startFixtureSonarqube(): Promise<{ url: string; close: () => void
   return { url: `http://127.0.0.1:${String(port)}`, close: () => server.close() }
 }
 
-// The share choice made when connecting a token connector is the list the new binding is stored with.
+// The share choice made when connecting a token connector decides who can use the new binding.
 export async function connectShareFlow(stack: Flow, log: (line: string) => void = () => {}) {
   const owner = client(stack.apiUrl, stack.token)
   const sonarqube = await startFixtureSonarqube()
 
   try {
-    const { memberId } = await joinAsAdmin(stack, owner)
+    const { member, memberId } = await joinAsAdmin(stack, owner)
     const me = (await owner('GET', '/auth/me')).body as { user?: { id: string }; id?: string }
     const ownerId = me.user?.id ?? me.id ?? ''
     const connect = async (label: string, share?: unknown) => {
@@ -52,21 +52,35 @@ export async function connectShareFlow(stack: Flow, log: (line: string) => void 
         await owner('GET', `/teams/${stack.teamId}/sonarqube-integrations/${bindingId}/access`)
       ).body as { memberAllowList: string[] }
 
-      log(`${label}: ${JSON.stringify(access.memberAllowList)}`)
+      // Whether the other admin can use it: offered to their sessions, and its route answers.
+      const offered = JSON.stringify(
+        (await member('GET', `/agent/credential-options?teamId=${stack.teamId}`)).body,
+      ).includes(bindingId)
+      const opened = await member(
+        'GET',
+        `/teams/${stack.teamId}/sonarqube-integrations/${bindingId}`,
+      )
+      const usable = offered && opened.status === 200
 
-      return [...access.memberAllowList].sort()
+      must(usable || (!offered && opened.status === 403), `${label}: offered and access to agree`)
+      log(
+        `${label}: ${JSON.stringify(access.memberAllowList)}, other admin can use it: ${String(usable)}`,
+      )
+
+      return { list: [...access.memberAllowList].sort(), usable }
     }
-    const same = (a: string[], b: string[]) => JSON.stringify(a) === JSON.stringify([...b].sort())
+    const same = (got: { list: string[] }, b: string[]) =>
+      JSON.stringify(got.list) === JSON.stringify([...b].sort())
 
-    must(same(await connect('only me', { mode: 'private' }), [ownerId]), 'only me to be private')
-    must(same(await connect('the team', { mode: 'team' }), ['*']), 'the team to be everyone')
-    must(
-      same(await connect('chosen members', { mode: 'members', memberIds: [memberId] }), [
-        ownerId,
-        memberId,
-      ]),
-      'chosen members to be them and the owner',
-    )
+    const onlyMe = await connect('only me', { mode: 'private' })
+
+    must(same(onlyMe, [ownerId]) && !onlyMe.usable, 'only me to stay private to the owner')
+    const team = await connect('the team', { mode: 'team' })
+
+    must(same(team, ['*']) && team.usable, 'the team to let every member use it')
+    const chosen = await connect('chosen members', { mode: 'members', memberIds: [memberId] })
+
+    must(same(chosen, [ownerId, memberId]) && chosen.usable, 'chosen members to be able to use it')
     must(
       same(await connect('no choice, private default'), [ownerId]),
       'no choice to follow a private default',
@@ -88,7 +102,7 @@ export async function connectShareFlow(stack: Flow, log: (line: string) => void 
 
 export const connectShareScenarios: Scenario[] = [
   {
-    name: "the share choice made when connecting is the new binding's list",
+    name: 'the share choice made when connecting decides who can use the new binding',
     run: async (_page, stack) => connectShareFlow(stack),
   },
 ]
