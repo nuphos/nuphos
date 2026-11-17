@@ -7,7 +7,7 @@ import { newTask, send } from './ui.ts'
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
 
-export async function pickAgent(page: Page, label: string) {
+async function pickAgent(page: Page, label: string) {
   await page.getByRole('button', { name: /^Agent runtime/ }).click()
   // The computer's row opens a submenu of its runtimes.
   await page.getByRole('menu').getByText(label).click()

@@ -8,7 +8,6 @@ import { pathToFileURL } from 'node:url'
 import { agentEvents } from './agent-log.ts'
 import { backendLines, backendLog } from './backend-log.ts'
 import { artifacts, until } from './processes.ts'
-import { pickAgent } from './runtime-scenarios.ts'
 import { DESKTOP_DIR, startSecondComputer } from './second-computer.ts'
 import { proxyTo } from './tcp-proxy.ts'
 import { newTask, openComputers, send } from './ui.ts'
@@ -93,7 +92,10 @@ export const tunnelScenarios: Scenario[] = [
         await page.getByText('Back to app', { exact: true }).click()
 
         await newTask(page)
-        await pickAgent(page, LABEL)
+        // The computer's row opens its runtimes, named by agent alone.
+        await page.getByRole('button', { name: /^Agent runtime/ }).click()
+        await page.getByRole('menu').getByText(LABEL).click()
+        await page.getByRole('menuitem', { name: /^Claude Code/ }).click()
         await send(page, 'Over its tunnel E2E_DELIVERY:tunnel-before')
         await page.getByText('ACK E2E_DELIVERY:tunnel-before').waitFor({ timeout: 60_000 })
 
