@@ -146,6 +146,16 @@ async function prompt({ sessionId, prompt: parts }) {
   if (text.includes('E2E_DELEGATE') && !text.includes(CHILD)) {
     await delegate(sessionId, text.includes('E2E_DELEGATE_FAST'))
   }
+  // #3329: a Task on this same agent, as a Bot hands off work; the chat escapes E2E_CALL's JSON.
+  if (text.includes('E2E_SUBTASK')) {
+    const message = await call(sessionId, 'create_thread', {
+      label: 'Hand off',
+      title: 'E2E bot kid',
+      prompt: 'Reply E2E_DELIVERY:bot-kid',
+    })
+
+    log({ sessionId, marker, event: 'subtask', isError: refused(message) })
+  }
   // A thread started here, then moved (E2E_HOP), or left on this session's model (E2E_INHERIT).
   if (/E2E_(HOP|INHERIT)/.test(text) && !text.includes(CHILD))
     await (text.includes('E2E_HOP') ? hop : inherit)({ call, send, log, sessionId, child: CHILD })

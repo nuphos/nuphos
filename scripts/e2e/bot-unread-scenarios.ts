@@ -17,12 +17,6 @@ export const botUnreadScenarios: Scenario[] = [
         .locator('[data-sidebar-row]')
         .filter({ hasText: /E2E Bot|E2E bot kid/ })
         .locator('[aria-label="Unread reply"]')
-      // The same agent, not the second one: the runtime scenarios expect that one unused.
-      const thread = JSON.stringify({
-        label: 'Hand off',
-        title: 'E2E bot kid',
-        prompt: 'Reply E2E_DELIVERY:bot-kid',
-      })
       const get = async <T>(path: string): Promise<T> => {
         const response = await fetch(`${stack.apiUrl}${path}`, {
           headers: { authorization: `Bearer ${stack.token}` },
@@ -68,7 +62,8 @@ export const botUnreadScenarios: Scenario[] = [
       const othersBefore = await others()
 
       // Read in place: the Bot's own post here is read, its sub-Task's reply is not.
-      await send(page, `Hand this off E2E_CALL create_thread ${thread} E2E_DELIVERY:bot-handoff`)
+      // On the same agent: the runtime scenarios expect the second one unused.
+      await send(page, 'Hand this off E2E_SUBTASK E2E_DELIVERY:bot-handoff')
       await page.getByText('POSTED E2E_DELIVERY:bot-handoff', { exact: true }).waitFor()
       await until('the sub-Task to reply', async () =>
         agentEvents(stack).includes('finish E2E_DELIVERY:bot-kid'),
