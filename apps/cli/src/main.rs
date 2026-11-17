@@ -78,13 +78,17 @@ enum Command {
         create: bool,
     },
     /// List runtimes (what tasks run on, such as Claude Code; find tasks with
-    /// `nuphos conversations`), pick one for new tasks (or move --session to it),
-    /// or sign an existing runtime in with --login.
+    /// `nuphos conversations`), move --session to one, pick one for new tasks
+    /// with --default, or sign an existing runtime in with --login.
     #[command(name = "agents", alias = "runtime")]
     Runtime {
         name: Option<String>,
+        /// Move this task to the runtime NAME.
         #[arg(long)]
         session: Option<String>,
+        /// Make NAME the runtime every new task in the team starts on.
+        #[arg(long = "default", requires = "name", conflicts_with_all = ["session", "login"])]
+        make_default: bool,
         /// Sign the Cloud runtime NAME in to its provider account.
         #[arg(long, requires = "name", conflicts_with = "session")]
         login: bool,
@@ -202,7 +206,18 @@ async fn main() {
     }
 }
 
+/// `agents NAME` alone used to change the default runtime for every new task,
+/// which is what a forgotten `--session` did silently.
+fn check_runtime_pick(command: &Option<Command>) -> Result<()> {
+    if let Some(Command::Runtime { name: Some(name), session: None, make_default: false, login: false }) = command {
+        let name = render::clean(name);
+        bail!("pass `--session ID` to move a task to {name}, or `--default` to start every new task on it");
+    }
+    Ok(())
+}
+
 async fn run(args: Args) -> Result<i32> {
+    check_runtime_pick(&args.command)?;
     let interactive = matches!(args.command, None | Some(Command::Resume { .. }));
     if interactive && !(std::io::stdin().is_terminal() && std::io::stdout().is_terminal()) {
         bail!("the TUI needs a terminal; use `nuphos exec` to send a message from a script");
@@ -303,7 +318,9 @@ async fn run(args: Args) -> Result<i32> {
         Some(Command::Runtime { name: Some(name), login: true, .. }) => {
             cli::login_runtime(&ctx, &name).await.map(|_| 0)
         }
-        Some(Command::Runtime { name, session, .. }) => cli::runtime(&mut ctx, name, session).await.map(|_| 0),
+        Some(Command::Runtime { name, session, make_default, .. }) => {
+            cli::runtime(&mut ctx, name, session, make_default).await.map(|_| 0)
+        }
         Some(Command::Bots { name, create, avatar, runtime }) => {
             bots::bots(&ctx, name, create, avatar, runtime).await.map(|_| 0)
         }
@@ -618,7 +635,11 @@ mod account_args {
 mod runtime_args {
     use clap::Parser;
 
-    use super::{Args, Command};
+    use super::{check_runtime_pick, Args, Command};
+
+    fn check(argv: &[&str]) -> anyhow::Result<()> {
+        check_runtime_pick(&Args::try_parse_from(argv)?.command)
+    }
 
     #[test]
     fn managed_creation_is_no_longer_a_command() {
@@ -628,6 +649,31 @@ mod runtime_args {
             assert!(matches!(args.command, Some(Command::Runtime { login: true, .. })));
         }
         assert!(Args::try_parse_from(["nuphos", "team", "Acme", "--create"]).is_ok());
+    }
+
+    #[test]
+    fn a_runtime_name_without_session_or_default_changes_nothing() {
+        let error = check(&["nuphos", "agents", "Codex"]).unwrap_err().to_string();
+        assert!(error.contains("--session") && error.contains("--default"), "{error}");
+    }
+
+    #[test]
+    fn listing_moving_defaulting_and_signing_in_still_parse() {
+        for argv in [
+            &["nuphos", "agents"][..],
+            &["nuphos", "agents", "Codex", "--session", "abc"],
+            &["nuphos", "agents", "Codex", "--default"],
+            &["nuphos", "agents", "Codex", "--login"],
+            &["nuphos", "runtime", "Codex", "--default"],
+        ] {
+            check(argv).unwrap_or_else(|e| panic!("{argv:?}: {e}"));
+        }
+    }
+
+    #[test]
+    fn default_does_not_combine_with_a_session() {
+        assert!(Args::try_parse_from(["nuphos", "agents", "Codex", "--default", "--session", "abc"]).is_err());
+        assert!(Args::try_parse_from(["nuphos", "agents", "--default"]).is_err());
     }
 }
 
