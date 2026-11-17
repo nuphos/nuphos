@@ -211,18 +211,24 @@ export const computerScenarios: Scenario[] = [
       })
       host.send(JSON.stringify({ t: 'status', status: { agentInstances: true, agents: {} } }))
       try {
-        await page.getByRole('button', { name: /^Search/ }).first().click()
+        await page
+          .getByRole('button', { name: /^Search/ })
+          .first()
+          .click()
         await page.keyboard.type('Computers')
         await page.getByRole('option', { name: 'Computers' }).first().click()
         await page.getByRole('button', { name: `New runtime on ${label}` }).click()
         const codex = page.getByRole('menuitem', { name: 'Codex', exact: true })
 
         await codex.waitFor()
+        // The menu fades in.
+        await page.waitForTimeout(500)
         await page.screenshot({ path: join(artifacts, 'add-runtime-no-agents.png') })
         if (await codex.isDisabled()) throw new Error('Adding Codex is disabled')
         if (await page.getByText('Update the computer host').count())
           throw new Error('The menu blames the computer host')
         await page.keyboard.press('Escape')
+        await page.getByText('Back to app', { exact: true }).click()
       } finally {
         host.close()
         forgetComputer(stack.mongoUri, deviceId)
