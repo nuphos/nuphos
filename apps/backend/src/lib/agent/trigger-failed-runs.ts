@@ -12,7 +12,7 @@ import { logError, logEvent } from '@/lib/observability'
 import { pauseTrigger } from './trigger-executor-authorization'
 import { recordDroppedFire, runDeps, triggerIdOf } from './trigger-missed-runs'
 
-import type { Delivered } from './trigger-missed-runs'
+import type { Delivered, TriggerRunDeps } from './trigger-missed-runs'
 
 /** Fires in a row that fail for a lasting reason before their Trigger pauses. */
 export const PAUSE_AFTER_FAILED_RUNS = 3
@@ -78,7 +78,8 @@ async function recordFailedFire(
 export async function recordFailedFires(
   error: unknown,
   messages: readonly Delivered[],
-  deps = runDeps(),
+  // Left to each record, so a turn with nothing to record never opens the database.
+  deps?: TriggerRunDeps,
 ): Promise<void> {
   const offline = error instanceof AppError && error.code === 'runtime_offline'
   const reason = offline ? undefined : lastingFailure(error)
