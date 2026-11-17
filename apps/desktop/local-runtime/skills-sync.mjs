@@ -1,9 +1,11 @@
 // Serialized into the adapter with `.toString()`, so it must stay self-contained:
 // no top-level imports and no references outside its own body.
 //
-// Never holds a session open on the network. It returns once the session's own
-// directories are set up; the fetch runs on as `synced` and lands for the next
-// session. A first session on a fresh machine therefore starts without skills.
+// A workspace that already has team skills never holds a session open on the network.
+// It returns once the session's own directories are set up; the fetch runs on as
+// `synced` and lands for the next session. A workspace with none waits for the team
+// bundle: the agent reads `.claude/skills` once, when it starts, so skills that land a
+// moment later would be missing from the whole conversation.
 export async function nuphosLocalSyncSkills(params, options = {}) {
   const env =
     params?._meta?.claudeCode?.options?.env ??
@@ -176,7 +178,18 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
     }
   }
 
-  if (!personal) return { synced: install(path.join(workspace, '.claude'), url, true) }
+  const teamClaude = path.join(workspace, '.claude')
+  const fresh = await fs.lstat(path.join(teamClaude, 'skills')).then(
+    () => false,
+    () => true,
+  )
+  const team = install(teamClaude, url, true)
+
+  if (!personal) {
+    if (fresh) await team
+
+    return { synced: team }
+  }
   const personalClaude = path.join(personal, '.claude')
   const personalSkills = path.join(personalClaude, 'skills')
   // Whose personal skills, if anyone's, can change between the turns of a live session.
@@ -237,10 +250,9 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
   const opener = holder(await credentialFor(false))
 
   if (!opener || opener !== (await owner())) await empty()
-  const synced = Promise.all([
-    install(path.join(workspace, '.claude'), url, true),
-    syncPersonal().catch(() => false),
-  ]).then(([team]) => team)
+  const synced = Promise.all([team, syncPersonal().catch(() => false)]).then(([ok]) => ok)
+
+  if (fresh) await team
 
   // Present even when empty, so a skill synced for a later turn is picked up.
   await fs.mkdir(personalSkills, { recursive: true })

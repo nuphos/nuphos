@@ -36,6 +36,15 @@ function bundle(revision, files) {
   return new Response(JSON.stringify({ revision, files }), { status: 200 })
 }
 
+/** A workspace an earlier session already synced the team bundle into. */
+function withTeamSkills() {
+  const workspace = mkdtempSync(join(tmpdir(), 'skills-'))
+
+  mkdirSync(join(workspace, '.claude', 'skills'), { recursive: true })
+
+  return workspace
+}
+
 function file(path, text) {
   return { path, contentBase64: Buffer.from(text).toString('base64') }
 }
@@ -65,8 +74,38 @@ test('installs the team bundle into the workspace and skips an unchanged revisio
   assert.equal(requests[0].authorization, 'Bearer token')
 })
 
-test('a session never waits for the fetch', async (t) => {
+test('the first session in a workspace starts with the team skills on disk', async (t) => {
   const workspace = mkdtempSync(join(tmpdir(), 'skills-'))
+  const sessionHome = mkdtempSync(join(tmpdir(), 'home-'))
+  const slow = (response) => new Promise((resolve) => setTimeout(() => resolve(response), 50))
+
+  t.mock.method(globalThis, 'fetch', (url) =>
+    slow(
+      String(url).includes('scope=personal')
+        ? new Response(null, { status: 404 })
+        : bundle('r1', [file('deploy/SKILL.md', '# Deploy')]),
+    ),
+  )
+  // Not `.synced`: this is the moment the agent starts and reads its skills, once.
+  await nuphosLocalSyncSkills(structuredClone(params), { workspace, sessionHome })
+  assert.equal(
+    readFileSync(join(workspace, '.claude', 'skills', 'deploy', 'SKILL.md'), 'utf8'),
+    '# Deploy',
+  )
+  delete globalThis.nuphosRefreshPersonalSkills
+})
+
+test('a first session still opens when the team bundle cannot be fetched', async (t) => {
+  const workspace = mkdtempSync(join(tmpdir(), 'skills-'))
+
+  t.mock.method(globalThis, 'fetch', () => Promise.reject(new Error('offline')))
+  const { synced } = await nuphosLocalSyncSkills(params, { workspace })
+
+  assert.equal(await synced, false)
+})
+
+test('a session whose workspace has team skills never waits for the fetch', async (t) => {
+  const workspace = withTeamSkills()
   const sessionHome = mkdtempSync(join(tmpdir(), 'home-'))
   const opened = structuredClone(params)
 
@@ -253,7 +292,7 @@ test('personal skills follow the turn’s credential and never land in the works
 })
 
 test('a reopened session never starts on another member’s personal skills', async (t) => {
-  const workspace = mkdtempSync(join(tmpdir(), 'skills-'))
+  const workspace = withTeamSkills()
   const sessionHome = mkdtempSync(join(tmpdir(), 'skills-home-'))
   const credentialsDir = mkdtempSync(join(tmpdir(), 'skills-credentials-'))
   const claude = join(sessionHome, 'personal-skills', '.claude')

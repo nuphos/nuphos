@@ -333,6 +333,31 @@ test('a session never waits for the fetch, which still installs for the next one
   })
 })
 
+test('the first session in a workspace starts with the team skills on disk', async () => {
+  const workspace = await mkdtemp(join(tmpdir(), 'nuphos-workspace-'))
+  const body = [
+    'sleep 0.3',
+    'mkdir -p "$NUPHOS_RUNTIME_WORKSPACE/.claude/skills/deploy"',
+    'printf %s "# Deploy" > "$NUPHOS_RUNTIME_WORKSPACE/.claude/skills/deploy/SKILL.md"',
+  ].join('\n')
+
+  try {
+    await withFakeScript(body, async ({ script }) => {
+      // Not `.synced`: this is the moment the agent starts and reads its skills, once.
+      await nuphosSyncRuntimeSkills(bundleSession, {
+        script,
+        env: { NUPHOS_RUNTIME_WORKSPACE: workspace },
+      })
+      assert.equal(
+        await readFile(join(workspace, '.claude/skills/deploy/SKILL.md'), 'utf8'),
+        '# Deploy',
+      )
+    })
+  } finally {
+    await rm(workspace, { recursive: true, force: true })
+  }
+})
+
 test('a failed fetch nobody waits for is still logged', async (t) => {
   await withFakeScript('exit 7', async ({ script }) => {
     const written = t.mock.method(process.stderr, 'write', () => true)
