@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useState } from 'react'
 
 import { api } from '../../../api'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
@@ -78,6 +78,8 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
   const readOnlyNotice = useViewOnlyNotice(c)
   const questions = c.openQuestions
   const composerRef = useRef<HTMLDivElement>(null)
+  const agentMenu = useState(false)
+  const turnSwitch = turnSwitchAgent(activeTab, () => agentMenu[1](true))
   // A card answers while its conversation has an open question, whatever the composer replies to.
   const canReply = activeTab !== null && !activeTab.readOnly && Boolean(questions?.length)
   // The fork needs the chat stored on the server; each message is then gated on its author.
@@ -183,7 +185,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   onLinkClick: onOpenNuphosLink,
                 }}
               >
-                <TurnSwitchAgentContext.Provider value={turnSwitchAgent(activeTab)}>
+                <TurnSwitchAgentContext.Provider value={turnSwitch}>
                   <TurnRetryContext.Provider value={turnRetry}>
                     <Conversation
                       tab={shownTab ?? activeTab}
@@ -237,6 +239,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                       slackThread={activeTab.slackThread}
                       credentialSelector={visibleConversationCredentialSelector}
                       runtimeControl={runtimeControl}
+                      agentMenu={agentMenu}
                       modelSession={modelSession}
                       bypassControl={bypassControl}
                       pendingSeed={pendingPromptReady}
@@ -269,6 +272,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                       slackThread={activeTab.slackThread}
                       credentialSelector={visibleConversationCredentialSelector}
                       runtimeControl={runtimeControl}
+                      agentMenu={agentMenu}
                       modelSession={modelSession}
                       bypassControl={bypassControl}
                       pendingSeed={pendingPromptReady}

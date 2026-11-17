@@ -59,6 +59,7 @@ export function Composer({
   placeholder,
   promptSuggestion,
   recall,
+  agentMenu,
 }: {
   variant?: 'compact' | 'hero'
   newChat?: boolean // a new chat fixes an unusable agent by picking another
@@ -102,6 +103,8 @@ export function Composer({
   placeholder?: string
   promptSuggestion?: string | null
   recall?: ComposerRecall
+  /** The runtime list's open state, when its panel opens it too (a failed turn's Switch runtime). */
+  agentMenu?: [boolean, (open: boolean) => void]
 }) {
   // A transport never authorizes execution or a client-owned follow-up queue.
   const streaming = false
@@ -114,7 +117,8 @@ export function Composer({
   )
   const hero = variant === 'hero'
   const agentSendBlock = runtimeControlSendBlock(runtimeControl)
-  const [agentMenuOpen, setAgentMenuOpen] = useState(false) // the banner can open it
+  const ownAgentMenu = useState(false) // the banner can open it
+  const [agentMenuOpen, setAgentMenuOpen] = agentMenu ?? ownAgentMenu
   const agentMenuRequested = useAgentMenuRequested(runtimeControl?.sessionId)
   const switchAgent =
     newChat || shouldSwitchAgent(runtimeControl) ? () => setAgentMenuOpen(true) : undefined
