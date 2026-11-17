@@ -58,7 +58,8 @@ final class HomeTabsUITests: XCTestCase {
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 10))
         try XCTSkipUnless(app.windows.firstMatch.horizontalSizeClass == .compact,
                           "The compact home composer is covered here; the iPad detail composer is separate.")
-        let composer = app.textFields.firstMatch
+        // iOS 27 exposes the vertical-axis composer as a text view.
+        let composer = app.textViews.firstMatch
         XCTAssertTrue(composer.waitForExistence(timeout: 5))
         composer.tap()
         composer.typeText("Keep this unsent task")
@@ -103,7 +104,8 @@ final class HomeTabsUITests: XCTestCase {
         shot("review-connectors")
         app.buttons["Done"].tap()
         tabs.buttons["Tasks"].tap()
-        let composer = app.textFields.firstMatch
+        // iOS 27 exposes the vertical-axis composer as a text view.
+        let composer = app.textViews.firstMatch
         XCTAssertTrue(composer.waitForExistence(timeout: 5))
         let wide = app.windows.firstMatch.horizontalSizeClass == .regular
         if wide {
