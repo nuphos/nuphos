@@ -111,6 +111,8 @@ export const deviceApi = {
   ) => ipcRenderer.invoke('box:setAccess', deviceId, teamId, access),
   localShareGet: (deviceId: string, teamId: string) =>
     ipcRenderer.invoke('localShare:get', deviceId, teamId),
+  deviceAccessHistory: (deviceId: string, teamId: string, before?: string) =>
+    ipcRenderer.invoke('box:accessHistory', deviceId, teamId, before),
   localShareSet: (deviceId: string, teamId: string, input: unknown) =>
     ipcRenderer.invoke('localShare:set', deviceId, teamId, input),
   localShareApprovals: (teamId: string) => ipcRenderer.invoke('localShare:approvals', teamId),
@@ -123,6 +125,8 @@ export const deviceApi = {
     ipcRenderer.invoke('localShare:untrust', deviceId, teamId, actorId),
   localShareNotify: (approvalId: string, teamId: string, title: string, body: string) =>
     ipcRenderer.invoke('localShare:notify', approvalId, teamId, title, body),
+  computerNotifyShared: (key: string, teamId: string, title: string, body: string) =>
+    ipcRenderer.invoke('computers:notifyShared', key, teamId, title, body),
   runtimeSignInAsk: (teamId: string, runtimeId: string, sessionId: string) =>
     ipcRenderer.invoke('signIn:ask', teamId, runtimeId, sessionId),
   runtimeSignInSettle: (teamId: string, runtimeId: string) =>

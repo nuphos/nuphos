@@ -10,6 +10,7 @@ import type { AuthVariables } from '@/middleware/auth'
 
 let devices: AgentDevice[]
 let queries: unknown[]
+let owner: DeviceAccessAuditEntry['owner']
 
 function buildApp() {
   const app = new Hono<{ Variables: AuthVariables }>()
@@ -41,6 +42,7 @@ function buildApp() {
           previous: null,
           next: { everyone: true, userIds: [], managerIds: [] },
           changedAt: new Date('2026-11-01T00:00:00Z'),
+          ...(owner ? { owner } : {}),
         }
 
         return Promise.resolve({ entries: [entry], nextCursor: null })
@@ -79,6 +81,7 @@ function teamBox(grant: Partial<DeviceGrant>): AgentDevice {
 beforeEach(() => {
   devices = []
   queries = []
+  owner = undefined
 })
 
 describe('GET /agent/devices/:deviceId/access-audit', () => {
@@ -112,11 +115,20 @@ describe('GET /agent/devices/:deviceId/access-audit', () => {
           via: 'share',
           previous: null,
           next: { everyone: true, userIds: [], managerIds: [] },
+          owner: null,
           changedAt: '2026-11-01T00:00:00.000Z',
         },
       ],
       nextCursor: null,
     })
+  })
+
+  test('a computer passed to a new owner says from whom to whom', async () => {
+    devices = [computer('user-1', 'd1')]
+    owner = { from: 'gone', to: 'boss' }
+    const body = (await (await read('d1')).json()) as { entries: { owner: unknown }[] }
+
+    expect(body.entries[0]?.owner).toEqual({ from: 'gone', to: 'boss' })
   })
 
   test('a manager reads a team computer they do not own, scoped to its stored owner', async () => {

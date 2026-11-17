@@ -1,3 +1,4 @@
+import clsx from 'clsx'
 import { Mail, UserPlus } from 'lucide-react'
 
 import { Modal } from '../../components/Modal'
@@ -5,6 +6,9 @@ import { Button } from '../../components/ui/button'
 import { InputGroup, InputGroupInput } from '../../components/ui/input-group'
 import { t } from '../../i18n'
 
+import { INVITE_ROLES, roleDetail, roleLabel } from './memberRows'
+
+import type { TeamRole } from '../../types'
 import type { FormEvent } from 'react'
 
 export function InviteMemberModal({
@@ -12,6 +16,8 @@ export function InviteMemberModal({
   submitting,
   email,
   onEmailChange,
+  role,
+  onRoleChange,
   onClose,
   onSubmit,
 }: {
@@ -19,6 +25,8 @@ export function InviteMemberModal({
   submitting: boolean
   email: string
   onEmailChange: (value: string) => void
+  role: TeamRole
+  onRoleChange: (role: TeamRole) => void
   onClose: () => void
   onSubmit: (e: FormEvent) => void
 }) {
@@ -49,6 +57,37 @@ export function InviteMemberModal({
             />
           </InputGroup>
         </label>
+        <fieldset className="space-y-1.5">
+          <legend className="mb-1.5 block text-[12px] text-tertiary">{t('Joins as')}</legend>
+          {INVITE_ROLES.map((option) => (
+            <label
+              key={option}
+              className={clsx(
+                'flex cursor-pointer items-start gap-2.5 rounded-md border px-3 py-2 transition-colors',
+                option === role
+                  ? 'border-action-primary/45 bg-state-selected'
+                  : 'border-line-control hover:bg-state-hover',
+              )}
+            >
+              <input
+                type="radio"
+                name="invite-role"
+                value={option}
+                checked={option === role}
+                disabled={submitting}
+                onChange={() => onRoleChange(option)}
+                className="mt-0.5"
+              />
+              <span className="min-w-0">
+                <span className="block text-[13px] font-medium text-main">{roleLabel(option)}</span>
+                <span className="block text-[12px] leading-snug text-tertiary">
+                  {roleDetail(option)}
+                </span>
+              </span>
+            </label>
+          ))}
+          <p className="text-[11.5px] text-tertiary">{t('You can change it after they join.')}</p>
+        </fieldset>
         <div className="flex items-center justify-end gap-2 pt-1">
           <button
             type="button"

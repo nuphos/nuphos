@@ -54,6 +54,12 @@ export const agentReadChannels = {
     teamId: string,
     userId: string,
   ) => agent.removeConversationParticipant(sessionId, teamId, userId),
+  'agent:stopConversationComputerUse': (
+    _e: unknown,
+    sessionId: string,
+    teamId: string,
+    userId: string,
+  ) => agent.stopConversationComputerUse(sessionId, teamId, userId),
   'agent:setConversationAvatar': (
     _e: unknown,
     sessionId: string,

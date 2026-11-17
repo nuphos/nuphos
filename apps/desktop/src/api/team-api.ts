@@ -120,8 +120,10 @@ export const teamApi = {
   atlasUpdateTeamMemberRole: (teamId: string, memberId: string, role: TeamRole) =>
     window.api.atlasUpdateTeamMemberRole(teamId, memberId, role),
   atlasListMyInvitations: () => window.api.atlasListMyInvitations(),
-  atlasInviteTeamMember: (teamId: string, inviteeEmail: string) =>
-    window.api.atlasInviteTeamMember(teamId, inviteeEmail),
+  atlasInviteTeamMember: (teamId: string, inviteeEmail: string, role?: TeamRole) =>
+    window.api.atlasInviteTeamMember(teamId, inviteeEmail, role),
+  atlasResendTeamInvitation: (teamId: string, invitationId: string) =>
+    window.api.atlasResendTeamInvitation(teamId, invitationId),
   atlasAcceptInvitation: (invitationId: string) => window.api.atlasAcceptInvitation(invitationId),
   atlasRejectInvitation: (invitationId: string) => window.api.atlasRejectInvitation(invitationId),
   atlasListSlackChannelMappings: (teamId: string) =>
