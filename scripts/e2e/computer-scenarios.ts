@@ -183,5 +183,51 @@ export const computerScenarios: Scenario[] = [
       if (readFileSync(path, 'utf8') !== second) throw new Error('overwrite did not replace it')
     },
   },
+  {
+    // An updated host whose agents have not started yet lists none; it still takes a new one.
+    name: 'a connected computer that lists no agents yet offers to add one',
+    run: async (page, stack) => {
+      const deviceId = randomUUID()
+      const label = `E2E idle computer ${deviceId.slice(0, 8)}`
+      const auth = { authorization: `Bearer ${stack.token}` }
+      const registered = await fetch(`${stack.apiUrl}/agent/devices`, {
+        method: 'PUT',
+        headers: { ...auth, 'content-type': 'application/json' },
+        body: JSON.stringify({ deviceId, label, platform: 'darwin', allowLocalExec: true }),
+      })
+
+      if (!registered.ok) throw new Error(`Registering answered ${String(registered.status)}`)
+      const host = new WebSocket(
+        `${stack.apiUrl.replace(/^http/, 'ws')}/agent/devices/${deviceId}/runtime-tunnel`,
+        { headers: auth } as unknown as string[],
+      )
+
+      host.addEventListener('message', (event) => {
+        if (String(event.data).includes('"ping"')) host.send(JSON.stringify({ t: 'pong' }))
+      })
+      await new Promise((opened, failed) => {
+        host.addEventListener('open', opened)
+        host.addEventListener('error', failed)
+      })
+      host.send(JSON.stringify({ t: 'status', status: { agentInstances: true, agents: {} } }))
+      try {
+        await page.getByRole('button', { name: /^Search/ }).first().click()
+        await page.keyboard.type('Computers')
+        await page.getByRole('option', { name: 'Computers' }).first().click()
+        await page.getByRole('button', { name: `New runtime on ${label}` }).click()
+        const codex = page.getByRole('menuitem', { name: 'Codex', exact: true })
+
+        await codex.waitFor()
+        await page.screenshot({ path: join(artifacts, 'add-runtime-no-agents.png') })
+        if (await codex.isDisabled()) throw new Error('Adding Codex is disabled')
+        if (await page.getByText('Update the computer host').count())
+          throw new Error('The menu blames the computer host')
+        await page.keyboard.press('Escape')
+      } finally {
+        host.close()
+        forgetComputer(stack.mongoUri, deviceId)
+      }
+    },
+  },
   ...transferRefundScenarios,
 ]

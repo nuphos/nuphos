@@ -4922,7 +4922,6 @@
   "Update queued": "アップデート待機中",
   "Update ready — version {version}": "アップデートの準備完了 — バージョン {version}",
   "Update scopes": "スコープを更新",
-  "Update the computer host to add more runtimes": "ランタイムを追加するにはコンピュータホストをアップデートしてください",
   "Update the runtime on its host to get the latest models and fixes.": "最新のモデルと修正を利用するには、ホストでランタイムをアップデートしてください。",
   "Update this runtime on the computer that runs it.": "このランタイムを実行しているコンピュータで更新してください。",
   "Update to the latest version": "最新バージョンにアップデート",

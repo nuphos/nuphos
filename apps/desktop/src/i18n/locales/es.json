@@ -4922,7 +4922,6 @@
   "Update queued": "Actualización en cola",
   "Update ready — version {version}": "Actualización lista: versión {version}",
   "Update scopes": "Actualizar ámbitos",
-  "Update the computer host to add more runtimes": "Actualiza el host de la computadora para añadir más entornos de ejecución",
   "Update the runtime on its host to get the latest models and fixes.": "Actualiza el entorno de ejecución en su host para obtener los modelos y correcciones más recientes.",
   "Update this runtime on the computer that runs it.": "Actualiza este entorno de ejecución en la computadora donde se ejecuta.",
   "Update to the latest version": "Actualizar a la versión más reciente",

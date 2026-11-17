@@ -103,7 +103,7 @@ export function MachineLine({
   )
 }
 
-/** Add an agent to a machine; an older host can only sign in the agents it already has. */
+/** Add an agent to a machine, or sign in one it already has. */
 export function NewAgentMenu({
   device,
   agents,
@@ -115,9 +115,6 @@ export function NewAgentMenu({
   busy: boolean
   onAdd: (provider: LocalAgentProvider) => void
 }) {
-  // An older host cannot add agents; the backend still refuses with 409 if this is stale.
-  const canAddAgents = agents.some((agent) => agent.local?.agentInstances === true)
-
   return (
     <Menu>
       <MenuTrigger
@@ -148,9 +145,6 @@ export function NewAgentMenu({
             </MenuItem>
           )
         })}
-        {!canAddAgents && (
-          <MenuItem disabled>{t('Update the computer host to add more runtimes')}</MenuItem>
-        )}
       </MenuContent>
     </Menu>
   )
