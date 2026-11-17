@@ -1,0 +1,386 @@
+{
+  "GET /teams": {
+    "status": 200,
+    "body": {
+      "teams": [
+        {
+          "id": "64b5f1c2e4b0a1d2c3e4f5a6",
+          "name": "Preview workspace",
+          "isOwner": true,
+          "role": "ADMINISTRATOR"
+        }
+      ]
+    }
+  },
+  "GET /teams/discoverable": {
+    "status": 200,
+    "body": {
+      "teams": []
+    }
+  },
+  "GET /teams/64b5f1c2e4b0a1d2c3e4f5a6/favorites": {
+    "status": 200,
+    "body": {
+      "entries": [
+        {
+          "label": "Sign in \u00b7 Example Finance",
+          "href": "/teams/64b5f1c2e4b0a1d2c3e4f5a6/browser?url=https%3A%2F%2Fexample.com%2Flogin"
+        }
+      ],
+      "revision": 1
+    }
+  },
+  "GET /agent/credential-options": {
+    "status": 200,
+    "body": {}
+  },
+  "POST /push/devices": {
+    "status": 200,
+    "body": {
+      "ok": true
+    }
+  },
+  "GET /teams/64b5f1c2e4b0a1d2c3e4f5a6/agent-runtimes": {
+    "status": 200,
+    "body": {
+      "runtimes": [
+        {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "provider": "claude-code",
+          "label": "Claude Code on Preview Mac",
+          "status": "active",
+          "kind": "local",
+          "local": {
+            "ownerUserId": "preview",
+            "deviceId": "preview-mac",
+            "deviceLabel": "Preview Mac",
+            "online": true,
+            "signedIn": true
+          }
+        }
+      ]
+    }
+  },
+  "GET /agent/conversations": {
+    "status": 200,
+    "body": {
+      "conversations": [
+        {
+          "sessionId": "dock-a",
+          "teamId": "64b5f1c2e4b0a1d2c3e4f5a6",
+          "title": "Review the mobile release",
+          "firstMessage": "Open the docs site for me",
+          "messageCount": 2,
+          "createdAt": "2026-09-28T12:00:00Z",
+          "lastActiveAt": "2026-09-28T12:00:00Z",
+          "isOwner": true,
+          "readOnly": false,
+          "agentRuntime": "claude-code",
+          "runtimeId": "11111111-1111-4111-8111-111111111111",
+          "runtimeLabel": "Claude Code on Preview Mac",
+          "runtimeState": {
+            "schemaVersion": 2,
+            "epoch": "test",
+            "revision": 1,
+            "state": "idle",
+            "phase": "idle",
+            "actions": {
+              "send": true,
+              "cancel": false,
+              "reply": false,
+              "steer": false
+            },
+            "canOpenDesktop": true,
+            "tools": [
+              {
+                "id": "build-check",
+                "terminal": {
+                  "terminalId": "build-check",
+                  "status": "running",
+                  "command": "Checking the release build",
+                  "output": "Build checks are running\u2026"
+                }
+              }
+            ]
+          },
+          "inputRequests": [
+            {
+              "id": "summary-question",
+              "question": "Ship the release after checks pass?",
+              "options": [
+                "Ship it",
+                "Keep testing"
+              ],
+              "category": "general",
+              "askedAt": "2026-11-17T06:00:00Z"
+            }
+          ]
+        },
+        {
+          "sessionId": "summary-child",
+          "teamId": "64b5f1c2e4b0a1d2c3e4f5a6",
+          "title": "Review accessibility",
+          "firstMessage": "Open the docs site for me",
+          "messageCount": 2,
+          "createdAt": "2026-09-28T12:00:00Z",
+          "lastActiveAt": "2026-09-28T12:00:00Z",
+          "isOwner": true,
+          "readOnly": false,
+          "agentRuntime": "claude-code",
+          "runtimeId": "11111111-1111-4111-8111-111111111111",
+          "runtimeLabel": "Claude Code on Preview Mac",
+          "runtimeState": {
+            "schemaVersion": 2,
+            "epoch": "test",
+            "revision": 1,
+            "state": "idle",
+            "phase": "idle",
+            "actions": {
+              "send": true,
+              "cancel": false,
+              "reply": false,
+              "steer": false
+            },
+            "canOpenDesktop": true,
+            "tools": [
+              {
+                "id": "build-check",
+                "terminal": {
+                  "terminalId": "build-check",
+                  "status": "running",
+                  "command": "Checking the release build",
+                  "output": "Build checks are running\u2026"
+                }
+              }
+            ]
+          },
+          "inputRequests": [],
+          "parentSessionId": "dock-a"
+        }
+      ],
+      "hasMore": false,
+      "nextCursor": null
+    }
+  },
+  "GET /agent/conversations/dock-a": {
+    "status": 200,
+    "body": {
+      "sessionId": "dock-a",
+      "teamId": "64b5f1c2e4b0a1d2c3e4f5a6",
+      "title": "Review the mobile release",
+      "firstMessage": "Open the docs site for me",
+      "messageCount": 2,
+      "createdAt": "2026-09-28T12:00:00Z",
+      "lastActiveAt": "2026-09-28T12:00:00Z",
+      "isOwner": true,
+      "readOnly": false,
+      "agentRuntime": "claude-code",
+      "runtimeId": "11111111-1111-4111-8111-111111111111",
+      "runtimeLabel": "Claude Code on Preview Mac",
+      "runtimeState": {
+        "schemaVersion": 2,
+        "epoch": "test",
+        "revision": 1,
+        "state": "idle",
+        "phase": "idle",
+        "actions": {
+          "send": true,
+          "cancel": false,
+          "reply": false,
+          "steer": false
+        },
+        "canOpenDesktop": true,
+        "tools": [
+          {
+            "id": "build-check",
+            "terminal": {
+              "terminalId": "build-check",
+              "status": "running",
+              "command": "Checking the release build",
+              "output": "Build checks are running\u2026"
+            }
+          }
+        ]
+      },
+      "messages": [
+        {
+          "id": "user-dock-a",
+          "role": "user",
+          "parts": [
+            {
+              "type": "text",
+              "text": "Open the docs site for me so I can sign up."
+            }
+          ],
+          "metadata": {
+            "version": 1,
+            "sender": {
+              "type": "user",
+              "id": "preview",
+              "displayName": "Test sender"
+            }
+          }
+        },
+        {
+          "id": "assistant-dock-a",
+          "role": "assistant",
+          "parts": [
+            {
+              "type": "text",
+              "text": "I opened the sign-up page in the Nuphos browser on your Mac. Type your email and password there."
+            }
+          ]
+        }
+      ],
+      "messagesFirstIndex": 0
+    }
+  },
+  "GET /agent/conversations?kind=channel": {
+    "status": 200,
+    "body": {
+      "conversations": [],
+      "hasMore": false,
+      "nextCursor": null
+    }
+  },
+  "GET /teams/64b5f1c2e4b0a1d2c3e4f5a6/connectors": {
+    "status": 200,
+    "body": {
+      "github": [
+        {
+          "id": "gh-1",
+          "installationId": 101,
+          "accountLogin": "example-org",
+          "accountType": "Organization"
+        }
+      ]
+    }
+  },
+  "GET /agent/conversations?pendingDecision=true": {
+    "status": 200,
+    "body": {
+      "conversations": [
+        {
+          "sessionId": "dock-a",
+          "teamId": "64b5f1c2e4b0a1d2c3e4f5a6",
+          "title": "Review the mobile release",
+          "firstMessage": "Open the docs site for me",
+          "messageCount": 2,
+          "createdAt": "2026-09-28T12:00:00Z",
+          "lastActiveAt": "2026-09-28T12:00:00Z",
+          "isOwner": true,
+          "readOnly": false,
+          "agentRuntime": "claude-code",
+          "runtimeId": "11111111-1111-4111-8111-111111111111",
+          "runtimeLabel": "Claude Code on Preview Mac",
+          "runtimeState": {
+            "schemaVersion": 2,
+            "epoch": "test",
+            "revision": 1,
+            "state": "idle",
+            "phase": "idle",
+            "actions": {
+              "send": true,
+              "cancel": false,
+              "reply": false,
+              "steer": false
+            },
+            "canOpenDesktop": true,
+            "tools": [
+              {
+                "id": "build-check",
+                "terminal": {
+                  "terminalId": "build-check",
+                  "status": "running",
+                  "command": "Checking the release build",
+                  "output": "Build checks are running\u2026"
+                }
+              }
+            ]
+          },
+          "inputRequests": [
+            {
+              "id": "summary-question",
+              "question": "Ship the release after checks pass?",
+              "options": [
+                "Ship it",
+                "Keep testing"
+              ],
+              "category": "general",
+              "askedAt": "2026-11-17T06:00:00Z"
+            }
+          ]
+        }
+      ],
+      "hasMore": false,
+      "nextCursor": null
+    }
+  },
+  "GET /agent/conversations/dock-a/resources": {
+    "status": 200,
+    "body": {
+      "resources": [
+        {
+          "id": "preview-pr",
+          "provider": "github",
+          "title": "Improve mobile navigation",
+          "url": "https://github.com/example/app/pull/42",
+          "state": "open",
+          "repository": "example/app",
+          "number": 42
+        }
+      ]
+    }
+  },
+  "GET /agent/triggers": {
+    "status": 200,
+    "body": [
+      {
+        "id": "preview-schedule",
+        "name": "Daily release check",
+        "enabled": true,
+        "triggerType": "cron",
+        "scheduleDescription": "Every weekday at 09:00",
+        "canManage": true
+      }
+    ]
+  },
+  "GET /teams/64b5f1c2e4b0a1d2c3e4f5a6/file-transfers/summary-files/download": {
+    "status": 200,
+    "body": {
+      "groupId": "summary-files",
+      "createdAt": "2026-11-17T06:00:00.000Z",
+      "expiresAt": "2099-11-17T06:00:00.000Z",
+      "files": [
+        {
+          "id": "release-notes",
+          "fileName": "release-notes.md",
+          "status": "ready",
+          "contentType": "text/markdown",
+          "downloadUrl": "https://example.invalid/release-notes.md"
+        }
+      ]
+    }
+  },
+  "GET /agent-sessions/dock-a/teams/64b5f1c2e4b0a1d2c3e4f5a6/file-transfers/downloads": {
+    "status": 200,
+    "body": {
+      "groups": [
+        {
+          "groupId": "summary-files",
+          "createdAt": "2026-11-17T06:00:00.000Z",
+          "expiresAt": "2099-11-17T06:00:00.000Z",
+          "files": [
+            {
+              "id": "release-notes",
+              "fileName": "release-notes.md",
+              "status": "ready",
+              "contentType": "text/markdown",
+              "downloadUrl": "https://example.invalid/release-notes.md"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -73,7 +73,7 @@ struct ShareSessionSheet: View {
             List {
                 if let link = SessionLink.url(teamId: session.teamId, sessionId: session.sessionId) {
                     Section {
-                        ShareLink(item: link) { Label("Share link", systemImage: "link") }
+                        ShareLink(item: link) { Label("Share link", image: "lucide-link") }
                     }
                     .listRowBackground(Theme.surface)
                 }
@@ -165,17 +165,17 @@ struct ShareSessionSheet: View {
                     Menu {
                         if !participant.canReply {
                             // Inviting them again offers them use of the computer.
-                            Button("Let them reply", systemImage: "bubble.left") {
+                            DesignButton("Let them reply", image: "lucide-message-circle") {
                                 invite(participant.id, name: participant.user.displayName)
                             }
                         }
-                        Button("Remove", systemImage: "person.badge.minus", role: .destructive) {
+                        DesignButton("Remove", image: "lucide-user-minus", role: .destructive) {
                             change(participant.id) { try await session.access("DELETE", "participants/\(participant.id)") }
                         }
                     } label: {
                         HStack(spacing: 2) {
                             Text(label)
-                            Image(systemName: "chevron.up.chevron.down").imageScale(.small)
+                            LucideIcon("chevrons-up-down").imageScale(.small)
                         }
                         .foregroundStyle(Theme.body)
                     }
@@ -213,7 +213,7 @@ struct ShareSessionSheet: View {
                                 Text(member.email).font(.caption).foregroundStyle(Theme.muted).lineLimit(1)
                             }
                             Spacer(minLength: 8)
-                            if pending == member.id { ProgressView() } else { Image(systemName: "plus.circle").foregroundStyle(Theme.brandText) }
+                            if pending == member.id { ProgressView() } else { LucideIcon("circle-plus").foregroundStyle(Theme.brandText) }
                         }
                     }
                     .disabled(pending != nil)

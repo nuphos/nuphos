@@ -1,7 +1,6 @@
 import SwiftUI
 
-/// The Agent page: the conversation history for the selected team, with
-/// the composer capsule pinned to the bottom when there is no column beside it.
+/// Conversation history for the selected team. Task creation lives in a sheet.
 struct AgentPage: View {
     @Environment(AgentStore.self) private var store
     @Binding var page: HomePage
@@ -12,11 +11,10 @@ struct AgentPage: View {
     /// The chat shown beside (or, when compact, on top of) the list.
     @Binding var openChat: OpenChat?
     @Binding var showNewBot: Bool
-    /// False when the detail column hosts the new-chat composer instead.
-    var showsComposer = true
 
     /// Whether the keyboard on screen is this page's composer's.
     @State private var ownsKeyboard = false
+    @State private var showRuntimeSetup = false
     @State private var showWorkspaceSetup = false
     @State private var renaming: AgentConversation?
     @State private var archivingBot: AgentConversation?
@@ -58,6 +56,7 @@ struct AgentPage: View {
                 }
                 if store.selectedTeam == nil { await store.loadTeams() } else { await store.reload() }
             }
+            .sheet(isPresented: $showRuntimeSetup) { RuntimeSetupGuide() }
             .sheet(isPresented: $showWorkspaceSetup) { WorkspaceSetupSheet() }
             .sheet(isPresented: $showNewBot) {
                 NewBotSheet { title, avatar in
@@ -102,7 +101,7 @@ struct AgentPage: View {
             #endif
             .safeAreaInset(edge: .top, spacing: 0) {
                 if isSearching {
-                    SearchBar(text: $store.search) {
+                    SearchBar(text: $store.search, placeholder: page == .chats ? "Search Bots" : "Search tasks") {
                         store.search = ""
                         isSearching = false
                     }
@@ -110,9 +109,6 @@ struct AgentPage: View {
                 }
             }
             .animation(.snappy(duration: 0.25), value: isSearching)
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                if showsComposer, page == .agent { NewChatComposer(openChat: $openChat) }
-            }
             // A chat's keyboard is not this page's to make room for: a back
             // swipe would show this composer gliding down from it.
             .ignoresSafeArea(ownsKeyboard ? [] : .keyboard, edges: .bottom)
@@ -249,26 +245,16 @@ struct AgentPage: View {
     private var status: some View {
         switch store.phase {
         case .loaded where store.selectedTeam == nil:
-            ContentUnavailableView {
-                Label("Welcome to Nuphos", systemImage: "person.2")
-            } description: {
-                Text("Create or join a workspace to start chatting with an agent.")
-            } actions: {
-                Button("Set up workspace") { showWorkspaceSetup = true }.prominentButton()
-            }
+            SetupEmptyState(title: "Welcome to Nuphos", message: "Create or join a workspace to start working with your team.", actionTitle: "Set up workspace") { showWorkspaceSetup = true }
         case .loaded where store.runtimesLoaded && store.runtimes.isEmpty:
-            ContentUnavailableView {
-                Label("Connect your first runtime", systemImage: "cpu")
-            } description: {
-                Text("Open Nuphos on your computer to add a Box or connect your own computer, or ask a workspace administrator to connect one.")
-            }
+            SetupEmptyState(title: "Connect your first runtime", message: "Connect a computer so your Bots and tasks have a place to work.", actionTitle: "Set up a computer") { showRuntimeSetup = true }
         case .idle, .loading:
             ProgressView("Loading tasks…")
                 .tint(Theme.muted)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .failed(let message):
             ContentUnavailableView {
-                Label("Couldn't load tasks", systemImage: "wifi.exclamationmark")
+                Label("Couldn't load tasks", image: "lucide-wifi-off")
             } description: {
                 Text(message)
             } actions: {
@@ -281,7 +267,7 @@ struct AgentPage: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .loaded where store.listedConversations.isEmpty:
             ContentUnavailableView {
-                Label(store.search.isEmpty ? "No tasks yet" : "No matches", systemImage: "message")
+                Label(store.search.isEmpty ? "No tasks yet" : "No matches", image: "lucide-message-circle")
             } description: {
                 Text(store.search.isEmpty ? "Start a task from the bar below." : "No tasks match your search.")
             }
@@ -297,7 +283,7 @@ struct AgentPage: View {
                 let conversation = item.conversation
                 // A Bot's chat acts for the Bot, as on Desktop; a group chat has no actions here.
                 let acted = conversation.isChannel ? store.bot(of: conversation) : conversation
-                Group {
+                let row = Group {
                     if conversation.isChannel {
                         NavigationLink(value: conversation.sessionId) { treeRow(item) { ChannelRow(channel: conversation) } }
                     } else if conversation.isBot {
@@ -320,10 +306,36 @@ struct AgentPage: View {
                 .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 16))
                 .listSectionSeparator(.hidden, edges: .top)
                 // A separator would cut through the lines of an open tree.
-                .listRowSeparator(item.depth > 0 || (item.hasChildren && !store.isFolded(conversation.sessionId, onBots: page == .chats)) ? .hidden : .automatic)
-                .swipeActions(edge: .trailing, allowsFullSwipe: false) { if let acted { rowActions(acted) } }
-                // The same actions for a long press or a secondary click.
-                .contextMenu { if let acted { rowActions(acted) } }
+                .listRowSeparator(.hidden)
+                if page == .chats {
+                    row.swipeActions(edge: .leading, allowsFullSwipe: false) {
+                        pinAction(conversation)
+                    }
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        if let acted, acted.canManage {
+                            Button {
+                                if acted.isBot { archivingBot = acted }
+                                else { Task { await store.archive(sessionId: acted.sessionId, teamId: acted.teamId) } }
+                            } label: { Label("Archive", image: "lucide-archive") }
+                        }
+                    }
+                    .contextMenu {
+                        pinAction(conversation)
+                        if let acted { rowActions(acted, tinted: false) }
+                    } preview: {
+                        BotConversationPreview(conversation: conversation, title: store.title(of: conversation))
+                    }
+                } else {
+                    row.swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        if let acted, acted.canManage {
+                            Button {
+                                if acted.isBot { archivingBot = acted }
+                                else { Task { await store.archive(sessionId: acted.sessionId, teamId: acted.teamId) } }
+                            } label: { Label("Archive", image: "lucide-archive") }
+                        }
+                    }
+                    .contextMenu { if let acted { rowActions(acted, tinted: false) } }
+                }
     }
 
     /// A row's content with its thread count, indented on the tree's lines.
@@ -336,7 +348,7 @@ struct AgentPage: View {
                 Button { store.toggleFolded(item.id, onBots: page == .chats) } label: {
                     HStack(spacing: 3) {
                         Text("\(item.threads)")
-                        Image(systemName: folded ? "chevron.down" : "chevron.up")
+                        LucideIcon(systemName: folded ? "chevron.down" : "chevron.up")
                             .font(Theme.Text.caption.weight(.semibold))
                     }
                     .font(Theme.Text.label.weight(.medium))
@@ -354,9 +366,24 @@ struct AgentPage: View {
         }
         // Insets live here, not on the row, so the tree lines span the whole row.
         .padding(.leading, CGFloat(item.depth) * ThreadTree.indent)
-        .padding(.vertical, 12)
+        .padding(.vertical, page == .chats ? 12 : 8)
+        .frame(minHeight: 44)
         .background(alignment: .leading) {
             ThreadTree(trail: item.trail, expanded: item.hasChildren && !folded)
+        }
+    }
+
+    /// Pin or unpin a Bot or chat, kept in the favorites Desktop shares.
+    @ViewBuilder
+    private func pinAction(_ row: AgentConversation) -> some View {
+        if row.isChannel || row.isBot {
+            let pinned = store.isPinned(row)
+            let noun = row.isBot || row.botId != nil ? " Bot" : ""
+            Button {
+                Task { await store.setPinned(!pinned, row) }
+            } label: {
+                Label(pinned ? "Unpin\(noun)" : "Pin\(noun)", image: pinned ? "lucide-pin-off" : "lucide-pin")
+            }
         }
     }
 
@@ -369,14 +396,14 @@ struct AgentPage: View {
     }
 
     @ViewBuilder
-    private func rowActions(_ conversation: AgentConversation) -> some View {
+    private func rowActions(_ conversation: AgentConversation, tinted: Bool = true) -> some View {
         if conversation.canManage { Button {
             if conversation.isBot { archivingBot = conversation; return }
             Task { await store.archive(sessionId: conversation.sessionId, teamId: conversation.teamId) }
         } label: {
-            Label("Archive", systemImage: "archivebox")
+            Label("Archive", image: "lucide-archive")
         }
-        .tint(.orange) }
+        .tint(tinted ? .orange : nil) }
         if conversation.ownsChat, !conversation.isChannel {
             Button {
                 Task {
@@ -385,17 +412,17 @@ struct AgentPage: View {
                     }
                 }
             } label: {
-                Label(conversation.isBot ? "Turn into a Task" : "Make this a Bot", systemImage: conversation.isBot ? "person.crop.circle.badge.minus" : "person.crop.circle.badge.plus")
+                Label(conversation.isBot ? "Turn into a Task" : "Make this a Bot", image: conversation.isBot ? "lucide-user-round-minus" : "lucide-user-plus")
             }
-            .tint(.indigo)
+            .tint(tinted ? .indigo : nil)
         }
         if let watching = conversation.watching {
             Button {
                 Task { await store.setWatching(!watching, conversation: conversation) }
             } label: {
-                Label(watching ? "Unwatch" : "Watch", systemImage: watching ? "bell.slash" : "bell")
+                Label(watching ? "Unwatch" : "Watch", image: watching ? "lucide-bell-off" : "lucide-bell")
             }
-            .tint(.teal)
+            .tint(tinted ? .teal : nil)
             .disabled(store.watchChanges.contains(conversation.sessionId))
         }
         if conversation.ownsChat {
@@ -403,17 +430,17 @@ struct AgentPage: View {
                 renamedTitle = conversation.displayTitle
                 renaming = conversation
             } label: {
-                Label("Rename", systemImage: "pencil")
+                Label("Rename", image: "lucide-pencil")
             }
-            .tint(.blue)
+            .tint(tinted ? .blue : nil)
         }
         if conversation.ownsChat, conversation.parentSessionId != nil {
             Button {
                 Task { await store.unlinkParent(conversation) }
             } label: {
-                Label("Unlink", systemImage: "link.badge.minus")
+                Label("Unlink", image: "lucide-unlink")
             }
-            .tint(.gray)
+            .tint(tinted ? .gray : nil)
         }
     }
 
@@ -435,6 +462,18 @@ struct AgentPage: View {
 
     private var list: some View {
         List(selection: selection) {
+            if page == .chats, !store.pins.isEmpty, !isSearching, store.search.isEmpty {
+                Section {
+                } header: {
+                    PinShelf(pins: store.pins) { row in
+                        if row.isChannel { openChat = OpenChat(channel: store.channel(for: row)) }
+                        else { Task { await openBotChat(row.sessionId) } }
+                    }
+                    .textCase(nil)
+                    .padding(.vertical, 12)
+                }
+                .listRowInsets(EdgeInsets())
+            }
             if page == .chats {
                 Section {
                     ForEach(store.nestedBots) { item in agentRow(item) }
@@ -461,6 +500,7 @@ struct AgentPage: View {
         } action: { _, collapsed in
             titleCollapsed = collapsed
         }
+        .listRowSeparator(.hidden)
         .scrollContentBackground(.hidden)
         .background(Theme.canvas)
         .scrollDismissesKeyboard(.interactively)
@@ -531,24 +571,26 @@ struct ChannelRow: View {
 struct SearchBar: View {
     @Binding var text: String
     var placeholder: LocalizedStringKey = "Search tasks"
+    var accessory: AnyView? = nil
     var onCancel: () -> Void
     @FocusState private var focused: Bool
 
     var body: some View {
         HStack(spacing: 10) {
             HStack(spacing: 6) {
-                Image(systemName: "magnifyingglass")
+                LucideIcon("search", size: 16)
                     .foregroundStyle(Theme.muted)
                 TextField(placeholder, text: $text)
                     .focused($focused)
                     .textFieldStyle(.plain)
                     .submitLabel(.search)
                     .autocorrectionDisabled()
+                if let accessory { accessory }
                 if !text.isEmpty {
                     Button {
                         text = ""
                     } label: {
-                        Image(systemName: "xmark.circle.fill").foregroundStyle(Theme.muted)
+                        LucideIcon("x", size: 16).foregroundStyle(Theme.muted)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Clear search")
@@ -581,9 +623,9 @@ struct SearchBar: View {
     .environment(AgentStore(token: ""))
 }
 
-/// The composer that starts a new chat for the selected team: under the list
-/// when compact, in the empty detail column when wide.
+/// The reusable composer that starts a new chat for the selected team.
 struct NewChatComposer: View {
+    var autoFocus = false
     @Environment(AgentStore.self) private var store
     @Binding var openChat: AgentPage.OpenChat?
     var initialContent: ComposerSubmission? = nil
@@ -593,6 +635,7 @@ struct NewChatComposer: View {
     @State private var admissionError: String?
     @State private var failedSubmission: ComposerSubmission?
     @State private var importedContent = false
+    @State private var focusRequest = 0
 
     private var draftTeam: String { store.selectedTeam?.id ?? "" }
 
@@ -608,7 +651,7 @@ struct NewChatComposer: View {
                 await store.loadCredentialOptions()
                 return await store.mentionableSessions(teamId: draftTeam, excluding: nil, matching: query)
             }
-        ), voiceTeamId: draftTeam.isEmpty ? nil : draftTeam, initialAttachments: initialContent?.attachments ?? [], temporaryDirectory: temporaryDirectory, onSend: { submission in
+        ), voiceTeamId: draftTeam.isEmpty ? nil : draftTeam, initialAttachments: initialContent?.attachments ?? [], temporaryDirectory: temporaryDirectory, focusRequest: focusRequest, onSend: { submission in
             do {
                 try admissionCheck?()
                 guard let session = store.newSession() else { throw SharedShareSession.Failure.workspace }
@@ -621,6 +664,11 @@ struct NewChatComposer: View {
             }
         }) {
             ComposerControls(selection: $store.credentialSelection, mode: $store.permissionMode, session: nil)
+        }
+        .task {
+            guard autoFocus else { return }
+            do { try await Task.sleep(for: .milliseconds(350)) } catch { return }
+            focusRequest += 1
         }
         .onAppear {
             if let initialContent, !importedContent {

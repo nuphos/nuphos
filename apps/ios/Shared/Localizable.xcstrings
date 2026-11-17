@@ -1576,6 +1576,9 @@
         }
       }
     },
+    "1. Open Nuphos on your computer." : {
+
+    },
     "2 days ago %@" : {
       "comment" : "Chat timestamp, two days back",
       "localizations" : {
@@ -1669,8 +1672,11 @@
         }
       }
     },
-    "@%@" : {
-      "shouldTranslate" : false
+    "2. Sign in and choose this workspace." : {
+
+    },
+    "3. Connect your computer and add a runtime." : {
+
     },
     "A browser on %@" : {
       "localizations" : {
@@ -2683,6 +2689,9 @@
           }
         }
       }
+    },
+    "Agent summary" : {
+
     },
     "Agree and continue" : {
       "localizations" : {
@@ -3697,6 +3706,9 @@
         }
       }
     },
+    "Ask the agent to schedule recurring work in this task." : {
+
+    },
     "Asked %@ · Answered %@ from the Inbox" : {
       "comment" : "Answered question: when it was asked and answered",
       "localizations" : {
@@ -4159,6 +4171,7 @@
       }
     },
     "Avatar URL" : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -4250,6 +4263,9 @@
         }
       }
     },
+    "Back to results" : {
+
+    },
     "Background task running" : {
       "localizations" : {
         "es" : {
@@ -4297,6 +4313,7 @@
       }
     },
     "Before you use AI agents" : {
+      "comment" : "Legal text",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -4623,6 +4640,7 @@
       }
     },
     "Cancel adding account" : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -5496,6 +5514,9 @@
         }
       }
     },
+    "Clear person filter" : {
+
+    },
     "Clear search" : {
       "localizations" : {
         "es" : {
@@ -5589,6 +5610,7 @@
       }
     },
     "Close %@" : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -5633,6 +5655,9 @@
           }
         }
       }
+    },
+    "Close account" : {
+
     },
     "Close desktop" : {
       "localizations" : {
@@ -5680,7 +5705,14 @@
         }
       }
     },
+    "Close question" : {
+
+    },
+    "Close summary" : {
+
+    },
     "Close tab" : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -5771,6 +5803,9 @@
           }
         }
       }
+    },
+    "Close workspace" : {
+
     },
     "Cloud" : {
       "localizations" : {
@@ -6186,6 +6221,9 @@
         }
       }
     },
+    "Computers & runtimes" : {
+
+    },
     "Computers going offline" : {
       "localizations" : {
         "es" : {
@@ -6553,6 +6591,12 @@
           }
         }
       }
+    },
+    "Connect a computer" : {
+
+    },
+    "Connect a computer so your Bots and tasks have a place to work." : {
+
     },
     "Connect a computer to your team in Nuphos to use it here." : {
       "localizations" : {
@@ -7106,6 +7150,9 @@
         }
       }
     },
+    "Continue with Apple" : {
+
+    },
     "Continue with Google" : {
       "localizations" : {
         "es" : {
@@ -7199,6 +7246,7 @@
       }
     },
     "Copied" : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -7245,6 +7293,7 @@
       }
     },
     "Copy" : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -7934,6 +7983,9 @@
         }
       }
     },
+    "Couldn't load questions. Retry" : {
+
+    },
     "Couldn't load runtimes" : {
       "localizations" : {
         "es" : {
@@ -7979,6 +8031,9 @@
           }
         }
       }
+    },
+    "Couldn't load schedules. Retry" : {
+
     },
     "Couldn't load tasks" : {
       "localizations" : {
@@ -9038,7 +9093,11 @@
         }
       }
     },
+    "Create or join a workspace before connecting a computer." : {
+
+    },
     "Create or join a workspace to start chatting with an agent." : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -9083,6 +9142,12 @@
           }
         }
       }
+    },
+    "Create or join a workspace to start working with your team." : {
+
+    },
+    "Create team" : {
+
     },
     "Create workspace" : {
       "localizations" : {
@@ -9313,6 +9378,9 @@
           }
         }
       }
+    },
+    "Danger zone" : {
+
     },
     "Decisions" : {
       "localizations" : {
@@ -9595,6 +9663,7 @@
       }
     },
     "Dismiss" : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -9963,6 +10032,7 @@
       }
     },
     "Email" : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -11067,6 +11137,7 @@
       }
     },
     "Forward" : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -11435,6 +11506,7 @@
       }
     },
     "Hand back" : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -11481,6 +11553,7 @@
       }
     },
     "Hide" : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -11894,6 +11967,9 @@
         }
       }
     },
+    "Integrations" : {
+
+    },
     "Interrupted before the tool finished." : {
       "localizations" : {
         "es" : {
@@ -11986,7 +12062,11 @@
         }
       }
     },
+    "Join" : {
+
+    },
     "Join %@" : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -12218,6 +12298,7 @@
       }
     },
     "Let them reply" : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -12354,6 +12435,9 @@
           }
         }
       }
+    },
+    "Load more" : {
+
     },
     "Loaded from your Mac. Live reload doesn't update here; reload to see changes." : {
       "localizations" : {
@@ -12632,6 +12716,7 @@
       }
     },
     "Make this a Bot" : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -14065,6 +14150,7 @@
       }
     },
     "New tab" : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -14386,6 +14472,12 @@
         }
       }
     },
+    "No messages yet" : {
+
+    },
+    "No questions waiting for you." : {
+
+    },
     "No runtime yet. Ask its owner to add one." : {
       "localizations" : {
         "es" : {
@@ -14662,6 +14754,9 @@
         }
       }
     },
+    "No workspace yet" : {
+
+    },
     "Not in your Mac's dock" : {
       "localizations" : {
         "es" : {
@@ -14800,6 +14895,9 @@
         }
       }
     },
+    "Nothing here yet" : {
+
+    },
     "Notifications" : {
       "localizations" : {
         "es" : {
@@ -14894,6 +14992,9 @@
           }
         }
       }
+    },
+    "Nuphos logo" : {
+
     },
     "Nuphos returned an unexpected response (%lld)." : {
       "localizations" : {
@@ -15774,6 +15875,7 @@
       }
     },
     "Open Nuphos on your computer to add a Box or connect your own computer, or ask a workspace administrator to connect one." : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -16002,6 +16104,9 @@
           }
         }
       }
+    },
+    "Open computer desktop" : {
+
     },
     "Open in authenticator app" : {
       "localizations" : {
@@ -16646,6 +16751,9 @@
           }
         }
       }
+    },
+    "People" : {
+
     },
     "Permission mode" : {
       "localizations" : {
@@ -17566,6 +17674,9 @@
           }
         }
       }
+    },
+    "Questions, changes, sub-agents and files from this task appear here as work progresses." : {
+
     },
     "Queue a message…" : {
       "localizations" : {
@@ -19420,6 +19531,7 @@
       }
     },
     "Restore from archive" : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -19832,6 +19944,9 @@
           }
         }
       }
+    },
+    "Runtime setup" : {
+
     },
     "Runtime status unavailable" : {
       "localizations" : {
@@ -20339,6 +20454,9 @@
         }
       }
     },
+    "Search Bots" : {
+
+    },
     "Search connectors" : {
       "localizations" : {
         "es" : {
@@ -20522,6 +20640,9 @@
           }
         }
       }
+    },
+    "Search people" : {
+
     },
     "Search tasks" : {
       "localizations" : {
@@ -21396,6 +21517,9 @@
           }
         }
       }
+    },
+    "Set up a computer" : {
+
     },
     "Set up workspace" : {
       "localizations" : {
@@ -22824,6 +22948,7 @@
       }
     },
     "Sign out of Nuphos?" : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -23973,6 +24098,9 @@
         }
       }
     },
+    "Switch team" : {
+
+    },
     "Take back" : {
       "localizations" : {
         "es" : {
@@ -24020,6 +24148,7 @@
       }
     },
     "Take over" : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -24157,6 +24286,9 @@
         }
       }
     },
+    "Task" : {
+
+    },
     "Task options" : {
       "localizations" : {
         "es" : {
@@ -24202,6 +24334,9 @@
           }
         }
       }
+    },
+    "Task summary" : {
+
     },
     "Tasks" : {
       "localizations" : {
@@ -24484,6 +24619,9 @@
           }
         }
       }
+    },
+    "Team name" : {
+
     },
     "Terminal" : {
       "localizations" : {
@@ -27254,6 +27392,7 @@
       }
     },
     "Turn into a Task" : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -28220,6 +28359,7 @@
       }
     },
     "Unwatch" : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -28818,6 +28958,7 @@
       }
     },
     "User ID" : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -29096,6 +29237,9 @@
           }
         }
       }
+    },
+    "Visit Nuphos" : {
+
     },
     "Voice input" : {
       "localizations" : {
@@ -29512,6 +29656,7 @@
       }
     },
     "Watch" : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -30021,6 +30166,12 @@
         }
       }
     },
+    "What's up next, %@?" : {
+
+    },
+    "What's up next?" : {
+
+    },
     "When a webhook arrives" : {
       "localizations" : {
         "es" : {
@@ -30160,6 +30311,7 @@
       }
     },
     "Who receives this data" : {
+      "comment" : "Legal text",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -30296,6 +30448,9 @@
           }
         }
       }
+    },
+    "Work tools" : {
+
     },
     "Worked for %@ · %lld steps" : {
       "localizations" : {
@@ -30856,6 +31011,12 @@
         }
       }
     },
+    "Your Bots and tasks need a runtime to work. Connect your computer with Nuphos Desktop, or ask a workspace administrator to share a runtime." : {
+
+    },
+    "Your Inbox will show requests from your team once you join a workspace." : {
+
+    },
     "Your account or workspace changed. Cancel this share and share again. Nothing else will be sent." : {
       "localizations" : {
         "es" : {
@@ -30995,6 +31156,7 @@
       }
     },
     "Your choice" : {
+      "comment" : "Legal text",
       "localizations" : {
         "es" : {
           "stringUnit" : {

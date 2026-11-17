@@ -26,8 +26,8 @@ struct LoginView: View {
     private var signingIn: Bool { busy || session.state == .signingIn }
     private var cleanEmail: String { email.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var validEmail: Bool { cleanEmail.contains("@") && !cleanEmail.contains(" ") }
-    private var loginButtonFill: Color { colorScheme == .dark ? .white : .black }
-    private var loginButtonLabel: Color { colorScheme == .dark ? .black : .white }
+    private var loginButtonFill: Color { Theme.heading }
+    private var loginButtonLabel: Color { Theme.surface }
     private var validCode: Bool { credential.count == 6 && credential.allSatisfy(\.isNumber) }
     private var canContinue: Bool { validEmail && (!usePassword || !credential.isEmpty) }
 
@@ -41,8 +41,14 @@ struct LoginView: View {
                     }
                 }
                 .toolbar {
+                    if session.addingAccount, path.isEmpty {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button { Task { await session.cancelAddAccount() } } label: { LucideIcon("chevron-left") }
+                                .accessibilityLabel("Back").disabled(signingIn)
+                        }
+                    }
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button("Server settings", systemImage: "gearshape") { showingServer = true }
+                        DesignButton("Server settings", image: "lucide-settings") { showingServer = true }
                             .labelStyle(.iconOnly).disabled(signingIn)
                     }
                 }
@@ -79,7 +85,7 @@ struct LoginView: View {
                             Text("Welcome to Nuphos").font(.title.bold())
                                 .multilineTextAlignment(.center)
                             Text("Sign in or create an account.")
-                                .font(.subheadline).foregroundStyle(.secondary)
+                                .font(.subheadline).foregroundStyle(Theme.body)
                                 .multilineTextAlignment(.center)
                         }
                     }.padding(.top, 24)
@@ -116,7 +122,7 @@ struct LoginView: View {
                             .frame(maxWidth: .infinity, minHeight: 20)
                             .foregroundStyle(canContinue && !signingIn ? loginButtonLabel : Theme.body)
                         }
-                        .buttonStyle(LoginPrimaryButtonStyle())
+                        .buttonStyle(DesignPrimaryButtonStyle())
                         .disabled(!canContinue).accessibilityIdentifier("login.submit")
                         if let message = displayedError {
                             Text(message).font(.footnote).foregroundStyle(.red)
@@ -131,14 +137,14 @@ struct LoginView: View {
                         if !providers.isEmpty {
                             HStack(spacing: 16) {
                                 Rectangle().fill(.quaternary).frame(height: 1)
-                                Text("or").font(.footnote).foregroundStyle(.secondary).fixedSize()
+                                Text("or").font(.footnote).foregroundStyle(Theme.body).fixedSize()
                                 Rectangle().fill(.quaternary).frame(height: 1)
                             }.frame(height: 20).padding(.vertical, 4)
                         }
                         loginOptions
                     }.disabled(signingIn)
                     Text("By continuing, you agree to our [Terms of Service](https://nuphos.ai/terms) and [Privacy Policy](https://nuphos.ai/privacy).", comment: "Legal text")
-                        .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                        .font(.footnote).foregroundStyle(Theme.body).multilineTextAlignment(.center)
                 }
                 .padding(24)
                 .frame(maxWidth: 440)
@@ -153,16 +159,16 @@ struct LoginView: View {
     private var loginOptions: some View {
         VStack(spacing: 12) {
             if providers.contains(.apple) {
-                #if os(iOS)
-                NativeAppleSignInButton(dark: colorScheme == .dark) {
+                Button {
                     clearFeedback()
                     Task { await session.signIn(provider: .apple) }
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "apple.logo").frame(width: 20, height: 20)
+                        Text("Continue with Apple")
+                    }.frame(maxWidth: .infinity, minHeight: 20)
                 }
-                .id(colorScheme).frame(height: 52)
-                #else
-                Button("Continue with Apple") { Task { await session.signIn(provider: .apple) } }
-                    .buttonStyle(.borderedProminent)
-                #endif
+                .buttonStyle(DesignPrimaryButtonStyle()).accessibilityIdentifier("login.apple")
             }
             if providers.contains(.google) {
                 Button {
@@ -170,12 +176,12 @@ struct LoginView: View {
                     Task { await session.signIn(provider: .google) }
                 } label: {
                     HStack(spacing: 12) {
-                        Image("GoogleSignIn").resizable().renderingMode(.original).scaledToFit().frame(width: 20, height: 20)
+                        Image("GoogleSignIn").resizable().renderingMode(.template).scaledToFit().frame(width: 20, height: 20)
                         Text("Continue with Google")
                     }.frame(maxWidth: .infinity, minHeight: 20)
                         .foregroundStyle(loginButtonLabel)
                 }
-                .buttonStyle(.borderedProminent).accessibilityIdentifier("login.google")
+                .buttonStyle(DesignPrimaryButtonStyle()).accessibilityIdentifier("login.google")
             }
             if providers.contains(.oidc) {
                 Button {
@@ -183,12 +189,12 @@ struct LoginView: View {
                     Task { await session.signIn(provider: .oidc) }
                 } label: {
                     HStack(spacing: 12) {
-                        Image(systemName: "key.fill").frame(width: 20, height: 20)
+                        LucideIcon("key-round").frame(width: 20, height: 20)
                         Text("Continue with \(oidcName)")
                     }.frame(maxWidth: .infinity, minHeight: 20)
                         .foregroundStyle(loginButtonLabel)
                 }
-                .buttonStyle(.borderedProminent).accessibilityIdentifier("login.oidc")
+                .buttonStyle(DesignPrimaryButtonStyle()).accessibilityIdentifier("login.oidc")
             }
             if loadingProviders { ProgressView().frame(minHeight: 44) }
             if providerError {
@@ -196,7 +202,7 @@ struct LoginView: View {
                     .font(.footnote).frame(minHeight: 44)
             }
         }
-        .controlSize(.large).buttonBorderShape(.capsule).tint(loginButtonFill).disabled(signingIn)
+        .font(.callout.weight(.medium)).tint(Theme.heading).disabled(signingIn)
     }
 
     private var codeScreen: some View {
@@ -340,7 +346,7 @@ struct LoginView: View {
             }.frame(maxWidth: .infinity, minHeight: 20)
                 .foregroundStyle(disabled || signingIn ? Theme.body : loginButtonLabel)
         }
-        .buttonStyle(LoginPrimaryButtonStyle())
+        .buttonStyle(DesignPrimaryButtonStyle())
         .disabled(disabled || signingIn).accessibilityIdentifier("login.submit")
         .padding(.horizontal, 24).padding(.vertical, 12).background(Theme.canvas)
     }
@@ -394,21 +400,6 @@ struct LoginView: View {
     }
 }
 
-private struct LoginPrimaryButtonStyle: ButtonStyle {
-    @Environment(\.isEnabled) private var isEnabled
-    @Environment(\.colorScheme) private var colorScheme
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .padding(.horizontal, 16).padding(.vertical, 16)
-            .foregroundStyle(isEnabled ? (colorScheme == .dark ? Color.black : .white) : Theme.body)
-            .background(
-                isEnabled ? (colorScheme == .dark ? Color.white : .black) : Color(uiColor: .systemGray5),
-                in: Capsule()
-            )
-            .opacity(configuration.isPressed && isEnabled ? 0.8 : 1)
-    }
-}
 
 #if os(iOS)
 private struct VerificationCodeInput: UIViewRepresentable {

@@ -48,14 +48,14 @@ private struct RuntimePicker: View {
             Group {
                 if !store.runtimesLoaded, let error = store.runtimesError {
                     ContentUnavailableView {
-                        Label("Couldn't load runtimes", systemImage: "wifi.exclamationmark")
+                        Label("Couldn't load runtimes", image: "lucide-wifi-off")
                     } description: { Text(error) } actions: {
                         Button("Try again") { Task { await store.loadRuntimes(force: true) } }.buttonStyle(.bordered)
                     }
                 } else if !store.runtimesLoaded {
                     ProgressView("Loading runtimes…").tint(Theme.muted)
                 } else if choices.isEmpty {
-                    ContentUnavailableView("No runtimes", systemImage: "cpu", description: Text("Open Nuphos on your computer to add a Box or connect your own computer."))
+                    ContentUnavailableView("No runtimes", image: "lucide-cpu", description: Text("Open Nuphos on your computer to add a Box or connect your own computer."))
                 } else { boxList }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -64,7 +64,7 @@ private struct RuntimePicker: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close", systemImage: "xmark") { dismiss() }.labelStyle(.iconOnly).foregroundStyle(Theme.muted)
+                    DesignButton("Close", image: "lucide-x") { dismiss() }.labelStyle(.iconOnly).foregroundStyle(Theme.muted)
                 }
             }
             .navigationDestination(isPresented: $managing) { RuntimesPage().navigationTitle("Runtimes") }
@@ -120,7 +120,7 @@ private struct RuntimePicker: View {
                 }
                 Section {
                     Button { managing = true } label: {
-                        Label("Manage computers and runtimes", systemImage: "slider.horizontal.3").font(.system(size: 14)).foregroundStyle(Theme.body)
+                        Label("Manage computers and runtimes", image: "lucide-sliders-horizontal").font(.system(size: 14)).foregroundStyle(Theme.body)
                     }
                 }.listRowBackground(Theme.surface)
             }
@@ -161,7 +161,7 @@ struct SelectorBoxHeader: View {
     private var metrics: AgentDevice.Metrics? { metricsUnavailable ? nil : box.device?.liveMetrics }
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            Image(systemName: box.isComputer ? "laptopcomputer" : box.id == "cloud" ? "cloud" : "shippingbox")
+            LucideIcon(systemName: box.isComputer ? "laptopcomputer" : box.id == "cloud" ? "cloud" : "shippingbox")
                 .font(.system(size: 20)).frame(width: 28).foregroundStyle(Theme.body)
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
@@ -185,7 +185,7 @@ struct SelectorBoxHeader: View {
             }
             Spacer(minLength: 6)
             if showsChevron {
-                Image(systemName: expanded ? "chevron.down" : "chevron.right")
+                LucideIcon(systemName: expanded ? "chevron.down" : "chevron.right")
                     .font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.muted).padding(.top, 4)
             }
         }
@@ -204,7 +204,7 @@ struct SelectorBoxHeader: View {
 private struct SelectorMeter: View {
     let title: String
     let value: Double
-    private var tint: Color { value >= 95 ? Color(hex: 0xC22929) : value >= 80 ? Theme.warning : Color(hex: 0x745DF3) }
+    private var tint: Color { value >= 95 ? Theme.attention : value >= 80 ? Theme.warning : Theme.link }
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 3) {
@@ -241,7 +241,7 @@ struct SelectorAgentRow: View {
                 }
             }
             Spacer(minLength: 4)
-            if selected { Image(systemName: "checkmark").font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.heading) }
+            if selected { LucideIcon("check").font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.heading) }
         }.frame(minHeight: 48).contentShape(Rectangle())
             .accessibilityElement(children: .combine)
     }
@@ -305,7 +305,7 @@ struct ModelSettingsSheet: View {
                                             }
                                             Spacer()
                                             if choice.value == (session?.pendingModelSettings[option.id] ?? option.currentValue) {
-                                                Image(systemName: "checkmark").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.heading)
+                                                LucideIcon("check").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.heading)
                                             }
                                         }
                                         .contentShape(Rectangle())
@@ -320,14 +320,14 @@ struct ModelSettingsSheet: View {
                     .scrollContentBackground(.hidden)
                 } else if let error {
                     ContentUnavailableView {
-                        Label("Couldn't load model settings", systemImage: "wifi.exclamationmark")
+                        Label("Couldn't load model settings", image: "lucide-wifi-off")
                     } description: {
                         Text(error)
                     } actions: {
                         Button("Try again") { Task { await refresh() } }.buttonStyle(.bordered)
                     }
                 } else if let config {
-                    ContentUnavailableView(config.modelTitle, systemImage: "slider.horizontal.3", description: Text(config.hint ?? ""))
+                    ContentUnavailableView(config.modelTitle, image: "lucide-sliders-horizontal", description: Text(config.hint ?? ""))
                 } else {
                     ProgressView("Getting model settings…").tint(Theme.muted)
                 }
@@ -364,7 +364,7 @@ private struct QuotaLine: View {
             }
             .accessibilityElement(children: .combine)
         } else if quota.needsSignIn {
-            Text("\(Image(systemName: "exclamationmark.circle.fill")) Sign in required")
+            Text("\(LucideIcon("circle-alert")) Sign in required")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(Theme.warning)
         }
