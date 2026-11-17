@@ -218,13 +218,14 @@ export const computerScenarios: Scenario[] = [
         await page.keyboard.type('Computers')
         await page.getByRole('option', { name: 'Computers' }).first().click()
         await page.getByRole('button', { name: `New runtime on ${label}` }).click()
-        const codex = page.getByRole('menuitem', { name: 'Codex', exact: true })
-
-        await codex.waitFor()
+        await page.getByRole('menu').waitFor()
         // The menu fades in.
         await page.waitForTimeout(500)
         await page.screenshot({ path: join(artifacts, 'add-runtime-no-agents.png') })
-        if (await codex.isDisabled()) throw new Error('Adding Codex is disabled')
+        const codex = page.getByRole('menuitem', { name: 'Codex', exact: true })
+
+        if (!(await codex.count()) || (await codex.isDisabled()))
+          throw new Error('Adding Codex is not offered')
         if (await page.getByText('Update the computer host').count())
           throw new Error('The menu blames the computer host')
         await page.keyboard.press('Escape')
