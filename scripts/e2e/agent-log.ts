@@ -11,6 +11,8 @@ type AgentEntry = {
   marker?: string
   /** The model settings a new session was created with. */
   defaults?: { model?: string; fast?: string }
+  /** `start`: the model the turn received. */
+  model?: string
   isError?: boolean
   detail?: string
   /** E2E_CALL: the tool it called and that tool's answer. */

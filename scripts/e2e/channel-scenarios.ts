@@ -2,6 +2,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { agentEvents, agentLog } from './agent-log.ts'
+import { botModelScenarios } from './bot-model-scenarios.ts'
 import { forgetComputer } from './computer-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
@@ -172,6 +173,7 @@ export const channelScenarios: Scenario[] = [
       await ownWords('After the turn')
     },
   },
+  ...botModelScenarios,
   {
     // #3252: the Bot composer's runtime line hid the usage bar the Task composer shows.
     name: 'the Bot composer and the Task composer both show the runtime usage bar',

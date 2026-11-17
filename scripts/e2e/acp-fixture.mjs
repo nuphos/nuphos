@@ -10,7 +10,7 @@ import { answerChannel } from './fixture-channel.mjs'
 import { listCommands } from './fixture-commands.mjs'
 import { hop, inherit } from './fixture-hop.mjs'
 import { call, callNamed, setToolsServer, toolsServer } from './fixture-mcp.mjs'
-import { applySetting } from './fixture-settings.mjs'
+import { applySetting, currentModel } from './fixture-settings.mjs'
 import { refuse } from './fixture-turn-refusals.mjs'
 import { CLAUDE_TURN_QUOTA, CLAUDE_TURN_USAGE } from './fixture-usage.mjs'
 
@@ -125,7 +125,7 @@ async function prompt({ sessionId, prompt: parts }) {
     .join('\n')
   const marker = (text.match(/E2E_DELIVERY:[a-z0-9-]+/g) ?? []).at(-1) ?? 'E2E_DELIVERY:missing'
 
-  log({ sessionId, marker, event: 'start' })
+  log({ sessionId, marker, event: 'start', model: currentModel(sessionId) })
   // #3051: the first agent refuses this prompt as out of usage, as Claude Code words it.
   // #3055: and the answer to a question asked with E2E_ASK_LATE.
   if (text.includes('E2E_ASK_LATE')) late.add(sessionId)
@@ -143,6 +143,14 @@ async function prompt({ sessionId, prompt: parts }) {
     await (text.includes('E2E_HOP') ? hop : inherit)({ call, send, log, sessionId, child: CHILD })
   if (text.includes('E2E_ASK')) {
     await ask(sessionId, text.includes('E2E_ASK_CREDENTIAL') ? 'credential' : 'preference')
+  }
+  // E2E_SELF_MODEL:<model>: a Bot picks its own model with update_self, during this turn.
+  const pick = /E2E_SELF_MODEL:([a-z0-9-]+)/.exec(text)?.[1]
+
+  if (pick) {
+    const message = await call(sessionId, 'update_self', { label: 'Pick a model', model: pick })
+
+    log({ sessionId, marker, event: 'self-model', result: message.result ?? message.error })
   }
   // A Bot is woken by its chat's posts and answers there, as only channel_post can.
   const channelId = /\(channelId ([^)]+)\)/.exec(text)?.[1]
