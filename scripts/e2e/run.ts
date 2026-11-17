@@ -16,6 +16,7 @@ import { dashboardScenarios } from './dashboard-scenarios.ts'
 import { installScenarios } from './install-scenarios.ts'
 import { startDesktop } from './desktop.ts'
 import { formScenario } from './form-scenario.ts'
+import { memberStreamScenarios } from './member-stream-scenarios.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
 import { questionScenarios } from './question-scenarios.ts'
@@ -238,6 +239,7 @@ const scenarios: Scenario[] = [
   ...threadScenarios,
   ...offlineScenarios,
   threadModeScenario,
+  ...memberStreamScenarios,
   // It removes a member from the team.
   ...dashboardScenarios,
   // It leaves the window split, then closes a pane.
