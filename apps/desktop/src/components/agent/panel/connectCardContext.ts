@@ -17,6 +17,8 @@ export type ConnectCardContextValue = {
   answer?: (answer: DecisionAnswer, card: DecisionCardRef) => boolean | void | Promise<boolean>
   /** Withdraws a card's question unanswered, waking no one; false when it could not be. */
   dismiss?: (card: DecisionCardRef) => Promise<boolean>
+  /** Sets a card's question aside until a time; given only to its owner, whose Inbox it is. */
+  snooze?: (card: DecisionCardRef, until: Date) => void
   /** Who asked, drawn first on a question card shown outside the conversation that asked. */
   source?: ReactNode
   // Writes a secret to a file on the agent's runtime and returns its path; absent when read-only.

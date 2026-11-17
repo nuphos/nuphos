@@ -1,6 +1,6 @@
 import { api } from '../../api'
 import { AnswerFailure } from '../../views/inbox/AnswerFailure'
-import { dismissQuestion } from '../../views/inbox/dismissQuestion'
+import { dismissQuestion, snoozeQuestion } from '../../views/inbox/dismissQuestion'
 import { DismissQuestionButton } from '../../views/inbox/DismissQuestionButton'
 import { QuestionSource } from '../../views/inbox/QuestionRail'
 import { answerQuestion, useAnswerFailure } from '../../views/inbox/useInbox'
@@ -60,6 +60,10 @@ export function BotChatQuestion({
   const dismiss = dismissible
     ? () => dismissQuestion(teamId, request.sessionId, request.inputRequest.id)
     : undefined
+  const snooze = dismissible
+    ? (_card: unknown, until: Date) =>
+        void snoozeQuestion(teamId, request.sessionId, request.inputRequest.id, until)
+    : undefined
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -71,6 +75,7 @@ export function BotChatQuestion({
           send: (text, card) => void answerQuestion(teamId, request.sessionId, replyTo(card), text),
           answer: (answer, card) => onAnswer(answer, replyTo(card)),
           dismiss,
+          snooze,
           source,
           // Written on the asking agent's runtime, as its own secure card writes it.
           saveSecret: async (name, value) =>

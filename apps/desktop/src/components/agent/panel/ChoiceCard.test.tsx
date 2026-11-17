@@ -15,7 +15,7 @@ mock.module('../MessageResponse', () => ({
 const { ChoiceCard } = await import('./ChoiceCard')
 const { ConnectCardContext } = await import('./connectCardContext')
 
-test('the card leads with its question, answers with its buttons, and is dismissed inside itself', async () => {
+test('the card leads with its question, answers with its buttons, and is snoozed or dismissed with them', async () => {
   const dom = new Window()
   const values = {
     window: dom,
@@ -55,6 +55,8 @@ test('the card leads with its question, answers with its buttons, and is dismiss
 
       return Promise.resolve(withdrawn)
     },
+    // Only its owner snoozes a question, so a card is given this only for them.
+    snooze: () => {},
     source: createElement('span', null, 'Release notes · 5:52 PM'),
   }
   const render = (value: ConnectCardContextValue | null, canAct = true) =>
@@ -85,16 +87,26 @@ test('the card leads with its question, answers with its buttons, and is dismiss
     assert.equal(container.querySelector('h3')?.textContent, 'Merge the release branch?')
     assert.match(container.textContent ?? '', /^Release notes · 5:52 PMMerge the release branch\?/)
     assert.doesNotMatch(container.textContent ?? '', /Approval needed|Agent:/)
-    // The first option is the one filled button.
+    // The first option is the one filled button; Snooze and Dismiss follow in the same row.
     assert.deepEqual(
       buttons().map((item) => [item.textContent, item.className.includes('bg-action-primary')]),
       [
         ['Merge', true],
         ['Wait', false],
         ['Other…', false],
+        ['Snooze', false],
         ['Dismiss', false],
       ],
     )
+    // They are option buttons like Wait, not small text beside the row.
+    assert.equal(button('Snooze')?.className, button('Wait')?.className)
+    assert.equal(button('Dismiss')?.className, button('Wait')?.className)
+    assert.equal(button('Snooze')?.parentElement, button('Wait')?.parentElement)
+    // A viewer who is not its owner is offered no Snooze.
+    await render({ ...ctx, snooze: undefined })
+    assert.equal(button('Snooze'), undefined)
+    assert.notEqual(button('Dismiss'), undefined)
+    await render(ctx)
 
     await click('Wait')
     assert.deepEqual(answers, [{ choices: ['Wait'] }])
@@ -142,6 +154,7 @@ test('the card leads with its question, answers with its buttons, and is dismiss
     // A card that cannot be answered here offers neither, and one from this chat names no source.
     await render({ ...ctx, source: undefined }, false)
     assert.equal(button('Dismiss'), undefined)
+    assert.equal(button('Snooze'), undefined)
     assert.match(container.textContent ?? '', /^Merge the release branch\?/)
   } finally {
     await act(() => root.unmount())

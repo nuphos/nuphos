@@ -1,7 +1,12 @@
 import { api } from '../../api'
+import { cardReplyId } from '../../components/agent/panel/replyTarget'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 import { refreshInputRequests } from '../../lib/inputRequestRefresh'
+
+import { returnTime } from './snooze'
+
+import type { DecisionCardRef, ReplyQuestion } from '../../components/agent/panel/replyTarget'
 
 /**
  * Dismisses an open question from its card: no message is sent, and the agent
@@ -39,6 +44,7 @@ export async function snoozeQuestion(
 ): Promise<boolean> {
   try {
     await api.agentSnoozeDecision(sessionId, requestId, teamId, until?.toISOString() ?? null)
+    if (until) toast.success(t('Snoozed until {time}', { time: returnTime(until.toISOString()) }))
 
     return true
   } catch (error) {
@@ -47,5 +53,25 @@ export async function snoozeQuestion(
     return false
   } finally {
     refreshInputRequests()
+  }
+}
+
+/**
+ * A conversation's cards dismissed or snoozed through the server, each naming the
+ * open request it shows. Only the owner snoozes: it is their Inbox it leaves.
+ */
+export function cardAsides(
+  teamId: string | undefined,
+  sessionId: string,
+  questions: readonly ReplyQuestion[] | undefined,
+  owner: boolean,
+) {
+  return {
+    dismiss: (card: DecisionCardRef) =>
+      dismissQuestion(teamId, sessionId, cardReplyId(card, questions)),
+    snooze: owner
+      ? (card: DecisionCardRef, until: Date) =>
+          void snoozeQuestion(teamId, sessionId, cardReplyId(card, questions), until)
+      : undefined,
   }
 }

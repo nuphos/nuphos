@@ -12,7 +12,6 @@ import { openQuestion } from './inbox/inboxItems'
 import { selectInboxQuestion, useInboxSelection } from './inbox/inboxSelection'
 import { useChannelMentions } from './inbox/useChannelMentions'
 import { snoozeQuestion } from './inbox/dismissQuestion'
-import { returnTime } from './inbox/snooze'
 import { ANSWER_UNDO_MS, holdAnswer, sendHeldAnswer } from './inbox/useInbox'
 import { useInboxQuestions } from './inbox/useInboxQuestions'
 
@@ -160,14 +159,7 @@ export function InboxView({
           onAnswer={(reply) => answer(open, reply)}
           onSnooze={(until) => {
             selectInboxQuestion(teamId, { id: open.request.id, index: at })
-            void snoozeQuestion(teamId, open.conversation.sessionId, open.request.id, until).then(
-              (ok) => {
-                if (ok)
-                  toast.success(
-                    t('Snoozed until {time}', { time: returnTime(until.toISOString()) }),
-                  )
-              },
-            )
+            void snoozeQuestion(teamId, open.conversation.sessionId, open.request.id, until)
           }}
           onDismiss={(reason) => answer(open, { dismissed: true, reason: reason || undefined })}
           onOpenConversation={() => onOpenConversation(open.conversation.sessionId)}

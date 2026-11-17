@@ -4,6 +4,7 @@ import { useContext, useLayoutEffect, useRef, useState } from 'react'
 
 import { t } from '../../../i18n'
 import { comboText } from '../../../lib/platform'
+import { SnoozeMenu } from '../../../views/inbox/SnoozeMenu'
 import { Button } from '../../ui/button'
 import { MessageResponse } from '../MessageResponse'
 
@@ -19,10 +20,14 @@ import type { DecisionQuestion } from './decisionFormModel'
 import type { DecisionCardRef } from './replyTarget'
 import type { DecisionAnswer } from '../../../api/agent-chat-types'
 
+// An option button's look, which Snooze and Dismiss share.
+const OPTION = 'h-auto min-h-8 whitespace-normal rounded-[9px] px-[13px] py-1.5 text-left'
+
 /**
  * A user decision other than a Connect card: the question as its heading, under
  * who asked it when that is another conversation, with each option an answer,
- * "Other…" to type one in the card instead, and "Dismiss" to withdraw it unanswered.
+ * "Other…" to type one in the card instead, then "Snooze" to set it aside until a time
+ * and "Dismiss" to withdraw it unanswered, both in the options' row.
  * A multi-select or several questions are a form sent as one answer. The answer
  * wakes the agent that asked; no message is sent. Once answered, the options go.
  */
@@ -71,18 +76,26 @@ export function ChoiceCard({
 
     return choose(option)
   })
-  const dismiss = interactive && ctx?.dismiss && (
-    <button
-      type="button"
-      disabled={dismissed === 'sending'}
-      className="ml-auto px-1 text-[12.5px] text-tertiary hover:text-main"
-      onClick={() => {
-        setDismissed('sending')
-        void ctx.dismiss?.(card).then((ok) => setDismissed(ok ? 'yes' : 'no'))
-      }}
-    >
-      {t('Dismiss')}
-    </button>
+  const asides = interactive && (
+    <>
+      {ctx?.snooze && (
+        <SnoozeMenu className={OPTION} onSnooze={(until) => ctx.snooze?.(card, until)} />
+      )}
+      {ctx?.dismiss && (
+        <Button
+          variant="secondary"
+          size="sm"
+          className={OPTION}
+          disabled={dismissed === 'sending'}
+          onClick={() => {
+            setDismissed('sending')
+            void ctx.dismiss?.(card).then((ok) => setDismissed(ok ? 'yes' : 'no'))
+          }}
+        >
+          {t('Dismiss')}
+        </Button>
+      )}
+    </>
   )
 
   return (
@@ -111,7 +124,7 @@ export function ChoiceCard({
             disabled={!interactive}
             onSubmit={(answer) => act(() => submit(answer))}
           >
-            {dismiss}
+            {asides}
           </DecisionForm>
         ) : (
           <>
@@ -121,7 +134,7 @@ export function ChoiceCard({
                   key={option}
                   variant={index === 0 ? 'primary' : 'secondary'}
                   size="sm"
-                  className="h-auto min-h-8 whitespace-normal rounded-[9px] px-[13px] py-1.5 text-left"
+                  className={OPTION}
                   disabled={!interactive}
                   title={index < 9 ? comboText(`mod+alt+${String(index + 1)}`) : undefined}
                   onClick={() => act(() => choose(option))}
@@ -145,7 +158,7 @@ export function ChoiceCard({
                   <span className="text-[12px] text-tertiary">{t('Reply below to answer.')}</span>
                 )
               )}
-              {dismiss}
+              {asides}
             </div>
             {typing && typeable && (
               <div className="pt-2.5" data-card-answer-field>

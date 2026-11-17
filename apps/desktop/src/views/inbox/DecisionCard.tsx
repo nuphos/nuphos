@@ -11,17 +11,19 @@ import { botChatQuestion } from '../../components/channels/botChatQuestion'
 import { BotChatQuestion } from '../../components/channels/BotChatQuestions'
 import { useBotCredentials } from '../../components/channels/useBotCredentials'
 import { Button } from '../../components/ui/button'
-import { Menu, MenuContent, MenuItem, MenuTrigger } from '../../components/ui/menu'
 import { t } from '../../i18n'
 
 import { AnswerFailure } from './AnswerFailure'
 import { QuestionSource } from './QuestionRail'
-import { snoozeTimes } from './snooze'
+import { SnoozeMenu } from './SnoozeMenu'
 import { useAnswerFailure } from './useInbox'
 
 import type { DecisionAnswer } from '../../api/agent-chat-types'
 import type { AgentConversation, AgentInputRequest } from '../../api/agent-types'
 import type { ReactNode } from 'react'
+
+// An option button's look, which Snooze and Dismiss share.
+const OPTION = 'h-auto min-h-8 whitespace-normal py-1.5 text-left'
 
 /**
  * The Inbox's open question, read as a page: who asked and when, the question
@@ -71,6 +73,25 @@ export function DecisionCard({
   const [other, setOther] = useState(false)
   const [dismissing, setDismissing] = useState(false)
   const [reason, setReason] = useState('')
+  // Snooze and Dismiss, as two more of the options' buttons.
+  const asides = (
+    <>
+      <SnoozeMenu className={OPTION} onSnooze={onSnooze} />
+      {!dismissing && (
+        <Button
+          variant="secondary"
+          size="sm"
+          className={OPTION}
+          onClick={() => {
+            setOther(false)
+            setDismissing(true)
+          }}
+        >
+          {t('Dismiss')}
+        </Button>
+      )}
+    </>
+  )
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
@@ -105,7 +126,9 @@ export function DecisionCard({
                 if (open) setDismissing(false)
               }}
               onAnswer={onAnswer}
-            />
+            >
+              {asides}
+            </ChoiceRow>
           </>
         ) : (
           <div className="mt-3 flex flex-col gap-3">
@@ -130,6 +153,7 @@ export function DecisionCard({
                 {t('Only the owner of this conversation can connect this.')}
               </span>
             )}
+            <div className="flex flex-wrap items-center gap-2">{asides}</div>
           </div>
         )}
         {dismissing && (
@@ -162,34 +186,6 @@ export function DecisionCard({
               )}
             </>
           )}
-          <Menu>
-            <MenuTrigger
-              render={
-                <button type="button" className="ml-auto hover:text-main">
-                  {t('Snooze')}
-                </button>
-              }
-            />
-            <MenuContent align="end">
-              {snoozeTimes(new Date()).map(({ label, until }) => (
-                <MenuItem key={label} onClick={() => onSnooze(until)}>
-                  {label}
-                </MenuItem>
-              ))}
-            </MenuContent>
-          </Menu>
-          {!dismissing && (
-            <button
-              type="button"
-              onClick={() => {
-                setOther(false)
-                setDismissing(true)
-              }}
-              className="hover:text-main"
-            >
-              {t('Dismiss')}
-            </button>
-          )}
         </footer>
       </article>
     </div>
@@ -208,6 +204,7 @@ function ChoiceRow({
   other,
   onOther,
   onAnswer,
+  children,
 }: {
   requestId: string
   options: string[]
@@ -217,6 +214,8 @@ function ChoiceRow({
   other: boolean
   onOther: (open: boolean) => void
   onAnswer: (answer: DecisionAnswer) => void
+  /** Snooze and Dismiss, after the options and "Other…". */
+  children: ReactNode
 }) {
   const failure = useAnswerFailure(requestId)
   const [draft, setDraft] = useState('')
@@ -249,7 +248,7 @@ function ChoiceRow({
             key={option}
             variant={index === 0 ? 'primary' : 'secondary'}
             size="sm"
-            className="h-auto min-h-8 whitespace-normal py-1.5 text-left"
+            className={OPTION}
             onClick={() => onAnswer({ choices: [option] })}
           >
             {option}
@@ -265,6 +264,7 @@ function ChoiceRow({
             {options.length > 0 ? t('Other…') : t('Reply…')}
           </Button>
         )}
+        {children}
       </div>
       {other && (
         <AnswerField
