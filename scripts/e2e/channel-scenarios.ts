@@ -2,7 +2,6 @@
 import { randomUUID } from 'node:crypto'
 
 import { agentEvents, agentLog } from './agent-log.ts'
-import { botSettingsScenario } from './bot-settings-scenario.ts'
 import { forgetComputer } from './computer-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
@@ -218,7 +217,6 @@ export const channelScenarios: Scenario[] = [
       await page.getByText('Message E2E Bot', { exact: true }).waitFor()
     },
   },
-  botSettingsScenario,
   {
     // #3252: the Bot composer's runtime line hid the usage bar the Task composer shows.
     name: 'the Bot composer and the Task composer both show the runtime usage bar',
