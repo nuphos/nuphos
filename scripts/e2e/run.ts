@@ -1,16 +1,15 @@
 // `bun run e2e`: the Desktop app against a real backend, database and OpenAB, with a
 // deterministic agent in place of a model. Each scenario is a flow a person takes.
-import assert from 'node:assert/strict'
 import { rmSync } from 'node:fs'
 
 import { accessScenarios } from './access-scenarios.ts'
 import { agentEvents } from './agent-log.ts'
 import { agentWordScenarios } from './agent-word-scenarios.ts'
 import { backendFailures, backendLines } from './backend-log.ts'
-import { client } from './binding-access-scenarios.ts'
 import { checkDecisionOutline, checkOutgoingChip } from './chat-presentation.ts'
 import { channelScenarios } from './channel-scenarios.ts'
 import { channelAwayScenarios } from './channel-away-scenarios.ts'
+import { botPresenceScenarios } from './bot-presence-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
@@ -86,33 +85,15 @@ const scenarios: Scenario[] = [
     },
   },
   ...channelScenarios,
+  ...botPresenceScenarios,
   ...channelAwayScenarios,
   ...teammateBotScenarios,
   {
     name: 'start a Task, send a message and read the reply',
-    run: async (page, stack) => {
+    run: async (page) => {
       await newTask(page)
       await send(page, 'Say hello E2E_DELIVERY:first')
       await page.getByText('ACK E2E_DELIVERY:first').waitFor()
-      // #3308: a Bot's row says whether it can reply now, a Task's says nothing of it.
-      const { conversations } = (
-        await client(stack.apiUrl, stack.token)(
-          'GET',
-          `/agent/conversations?teamId=${stack.teamId}`,
-        )
-      ).body as {
-        conversations: { title?: string; avatar?: unknown; kind?: string; presence?: unknown }[]
-      }
-      const tasks = conversations.filter((row) => !row.avatar && row.kind !== 'channel')
-
-      assert.deepEqual(
-        conversations.find((row) => row.title === 'E2E Bot' && row.avatar && row.kind !== 'channel')
-          ?.presence,
-        {
-          state: 'online',
-        },
-      )
-      assert.ok(tasks.length > 0 && tasks.every((row) => row.presence === undefined))
     },
   },
   // Before the Stop scenarios: a Stop while its turn was being saved was lost (#3403).

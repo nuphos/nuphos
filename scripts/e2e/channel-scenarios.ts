@@ -1,5 +1,4 @@
 // Scenarios about a Bot reading its chat. They run in the Bot chat the scenario before opened.
-import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 
 import { agentEvents, agentLog } from './agent-log.ts'
@@ -13,7 +12,7 @@ import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
 
 /** A computer whose Claude Code reports usage with its status, as Desktop's host does. */
-async function computerWithUsage(stack: Stack, label: string, deviceId: string = randomUUID()) {
+export async function computerWithUsage(stack: Stack, label: string, deviceId = randomUUID()) {
   const auth = { authorization: `Bearer ${stack.token}` }
   const registered = await fetch(`${stack.apiUrl}/agent/devices`, {
     method: 'PUT',
@@ -55,29 +54,15 @@ async function computerWithUsage(stack: Stack, label: string, deviceId: string =
     }),
   )
 
-  /** Disconnects it; `forget` also removes it, else it can connect again. */
+  // `forget` false leaves it registered, to connect again.
   return (forget = true) => {
     host.close()
     if (forget) forgetComputer(stack.mongoUri, deviceId)
   }
 }
 
-/** The E2E Bot's presence as the conversation list reports it. */
-async function botPresence(stack: Stack) {
-  const response = await fetch(`${stack.apiUrl}/agent/conversations?teamId=${stack.teamId}`, {
-    headers: { authorization: `Bearer ${stack.token}` },
-  })
-  const { conversations } = (await response.json()) as {
-    conversations: { title?: string; avatar?: unknown; kind?: string; presence?: unknown }[]
-  }
-
-  return conversations.find(
-    (row) => row.title === 'E2E Bot' && row.avatar && row.kind !== 'channel',
-  )?.presence
-}
-
 /** Puts the composer on a runtime: `row` opens its submenu and `item` names the runtime in it. */
-async function pickRuntime(page: Page, row: string, item: RegExp) {
+export async function pickRuntime(page: Page, row: string, item: RegExp) {
   await page.getByRole('button', { name: /^Agent runtime/ }).click()
   await page.getByRole('menu').getByText(row).first().click({ timeout: 60_000 })
   await page.getByRole('menuitem', { name: item }).last().click()
@@ -287,35 +272,6 @@ export const channelScenarios: Scenario[] = [
         if (!bot || !task) throw new Error(`Usage bar: Bot ${String(bot)}, Task ${String(task)}`)
       } finally {
         forget()
-      }
-    },
-  },
-  {
-    // #3308: a Bot's presence says its computer is offline, and online once it is back.
-    name: 'a Bot on a computer that goes offline reads offline with why, then online once back',
-    run: async (page, stack) => {
-      const computer = 'E2E presence computer'
-      const deviceId = randomUUID()
-      const is = (label: string, want: unknown) =>
-        until(`the Bot's presence to be ${label}`, async () => {
-          assert.deepEqual(await botPresence(stack), want)
-
-          return true
-        })
-      let disconnect = await computerWithUsage(stack, computer, deviceId)
-
-      try {
-        await page.getByRole('tab', { name: 'Bots' }).click()
-        await page.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first().click()
-        await pickRuntime(page, computer, /^Claude Code/)
-        await is('online', { state: 'online' })
-        disconnect(false)
-        await is('offline', { state: 'offline', reason: 'computer_offline' })
-        disconnect = await computerWithUsage(stack, computer, deviceId)
-        await is('online again', { state: 'online' })
-        await pickRuntime(page, 'E2E fixture agent', /^E2E fixture agent.*Claude Code/)
-      } finally {
-        disconnect()
       }
     },
   },
