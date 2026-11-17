@@ -34,6 +34,13 @@ export const BOX_BADGE: Record<MachineState, RuntimeStatusView> = {
   error: { label: t("Didn't start"), tone: 'error' },
 }
 
+/** Why a paused Box is paused when its provider did it, not a person: its host ran out of memory. */
+export function providerPause(device: AgentDevice): string | undefined {
+  return device.box?.state === 'paused' && device.box.pausedBy === 'memory_pressure'
+    ? t('Paused by the provider (host out of memory). It resumes when you use it.')
+    : undefined
+}
+
 /** Shown when the backend gives no reason, e.g. an older backend without the route. */
 const REMOVE_FALLBACK = t('Could not remove it. Update Nuphos and try again.')
 

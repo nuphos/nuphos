@@ -5,9 +5,14 @@ import { useInstaboxMachines } from '@/lib/test/doubles/instabox-machines'
 import type { AgentDevice } from './store'
 
 // instabox reports every machine running; nothing here talks to a network.
-useInstaboxMachines({ machineState: () => Promise.resolve('running') })
+// The machine `evicted` was last paused by instabox for its host's memory, the others by a client.
+useInstaboxMachines({
+  machineState: () => Promise.resolve('running'),
+  lastPausedBy: (_conn, sandboxId) =>
+    Promise.resolve(sandboxId === 'evicted' ? 'memory_pressure' : undefined),
+})
 
-const { boxState } = await import('./box-instabox-state')
+const { boxPausedBy, boxState, noteBoxEviction } = await import('./box-instabox-state')
 const { config } = await import('@/config')
 const saved = config.box.instabox
 
@@ -47,5 +52,57 @@ describe('a running Box whose host is away', () => {
 
   test('is running while its host is connected', async () => {
     expect(await boxState(box('live'), true)).toBe('running')
+  })
+})
+
+describe('a Box instabox paused on its own', () => {
+  test('says why, while it stays paused', async () => {
+    expect(await boxPausedBy(box('evicted', new Date()))).toBe('memory_pressure')
+  })
+
+  test('says nothing when a person paused it', async () => {
+    expect(await boxPausedBy(box('paused-by-owner', new Date()))).toBeUndefined()
+  })
+
+  test('is logged as evicted when its tunnel closes', async () => {
+    const logged: unknown[] = []
+
+    await noteBoxEviction(
+      'u',
+      'evicted',
+      () => Promise.resolve(box('evicted')),
+      (...entry) => {
+        logged.push(entry)
+      },
+    )
+    expect(logged).toEqual([
+      [
+        'warn',
+        'agent.box.evicted',
+        { trigger: 'memory_pressure', machine_id: 'evicted', user_id: 'u', device_id: 'evicted' },
+      ],
+    ])
+  })
+
+  test('a tunnel that closes for any other reason logs nothing', async () => {
+    const logged: unknown[] = []
+
+    await noteBoxEviction(
+      'u',
+      'x',
+      () => Promise.resolve(box('paused-by-owner')),
+      (...entry) => {
+        logged.push(entry)
+      },
+    )
+    await noteBoxEviction(
+      'u',
+      'x',
+      () => Promise.resolve(null),
+      (...entry) => {
+        logged.push(entry)
+      },
+    )
+    expect(logged).toEqual([])
   })
 })

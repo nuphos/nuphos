@@ -3343,6 +3343,7 @@
   "Pause this trigger": "Jeda pemicu ini",
   "Pause trigger": "Jeda pemicu",
   "Paused": "Dijeda",
+  "Paused by the provider (host out of memory). It resumes when you use it.": "Dijeda oleh penyedia (memori server habis). Berlanjut saat Anda menggunakannya.",
   "Paused computers are free and wake up as you left them.": "Komputer yang dijeda gratis dan aktif kembali seperti saat Anda meninggalkannya.",
   "Paused computers use no vCPU. {free} vCPU free.": "Komputer yang dijeda tidak memakai vCPU. {free} vCPU tersedia.",
   "Paused while running on battery": "Dijeda saat memakai baterai",
