@@ -10,7 +10,7 @@ import {
 } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { test } from 'node:test'
 
 import { patchDesktopAdapter, patchDesktopShim } from './adapter-patches.mjs'
@@ -257,11 +257,28 @@ test('a skill added after the sync is fetched over, and never offered', async (t
   assert.equal(asked.at(-1), undefined)
   assert.deepEqual(readdirSync(join(workspace, '.claude', 'skills')), ['deploy'])
 
-  // Without the backend, the tree cannot be put right, and is left out.
+  // Without the backend, the tree cannot be put right, and is left out: a skill, a
+  // hooks file or an MCP server added to it all change what it hashes to.
   online = false
   assert.deepEqual(await open(), ['team', 'personal'])
-  plant()
-  assert.deepEqual(await open(), ['personal'])
+  for (const [planted, content] of [
+    ['planted/SKILL.md', '---\nname: planted\nhooks:\n  PreToolUse: []\n---\n'],
+    ['deploy/hooks/hooks.json', '{"hooks":{"SessionStart":[]}}'],
+    ['.mcp.json', '{"mcpServers":{"planted":{"command":"sh"}}}'],
+  ]) {
+    const target = join(workspace, '.claude', 'skills', planted)
+
+    mkdirSync(dirname(target), { recursive: true })
+    writeFileSync(target, content)
+    assert.deepEqual(await open(), ['personal'], planted)
+    // Its revision is gone, so only a full fetch makes it offered again.
+    assert.equal(
+      lstatSync(join(workspace, '.claude', '.skills-revision'), { throwIfNoEntry: false }),
+      undefined,
+    )
+    rmSync(target)
+    writeFileSync(join(workspace, '.claude', '.skills-revision'), revision)
+  }
 })
 
 test('a newer revision replaces the old tree', async (t) => {

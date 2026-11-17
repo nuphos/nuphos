@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { chmod, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { test } from 'node:test'
 
 import {
@@ -380,7 +380,9 @@ test('a skill added after the sync is fetched over, and never offered', async ()
   hash.update(`deploy/SKILL.md\0${Buffer.from('# Deploy').toString('base64')}\0`)
   await mkdir(join(claude, 'skills/deploy'), { recursive: true })
   await writeFile(join(claude, 'skills/deploy/SKILL.md'), '# Deploy')
-  await writeFile(join(claude, '.skills-revision'), hash.digest('hex'))
+  const revision = hash.digest('hex')
+
+  await writeFile(join(claude, '.skills-revision'), revision)
   // The backend is unreachable; the script notes whether it had a revision to offer.
   const body = [
     'if [ -z "$NUPHOS_RUNTIME_PERSONAL_SKILLS_DIR" ]; then',
@@ -408,11 +410,24 @@ test('a skill added after the sync is fetched over, and never offered', async ()
 
       // Untouched, the tree is confirmed by its revision, and offered.
       assert.deepEqual(await open(), ['team', 'personal'])
-      await mkdir(join(claude, 'skills/planted'))
-      await writeFile(join(claude, 'skills/planted/SKILL.md'), '# Planted')
-      // Changed, it is fetched without the revision, and left out while it cannot be.
-      assert.deepEqual(await open(), ['personal'])
-      assert.deepEqual((await readFile(record, 'utf8')).trim().split('\n'), ['revision', 'none'])
+      // Changed, it is fetched without the revision, and left out while it cannot be:
+      // a skill, a hooks file or an MCP server added to it all change what it hashes to.
+      for (const [planted, content] of [
+        ['planted/SKILL.md', '---\nname: planted\nhooks:\n  PreToolUse: []\n---\n'],
+        ['deploy/hooks/hooks.json', '{"hooks":{"SessionStart":[]}}'],
+        ['.mcp.json', '{"mcpServers":{"planted":{"command":"sh"}}}'],
+      ]) {
+        const target = join(claude, 'skills', planted)
+
+        await mkdir(dirname(target), { recursive: true })
+        await writeFile(target, content)
+        await rm(record, { force: true })
+        assert.deepEqual(await open(), ['personal'], planted)
+        assert.equal((await readFile(record, 'utf8')).trim(), 'none', planted)
+        // Its revision is gone, so only a full fetch makes it offered again.
+        await rm(target)
+        await writeFile(join(claude, '.skills-revision'), revision)
+      }
     })
   } finally {
     await rm(workspace, { recursive: true, force: true })
