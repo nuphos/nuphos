@@ -10,6 +10,7 @@ import { startStorage } from './storage.ts'
 
 const ROOT = resolve(import.meta.dirname, '../..')
 const BACKEND_DIR = join(ROOT, 'apps/backend')
+const PANEL_JOB = resolve(import.meta.dirname, '../../apps/runtime/image/panel-job.mjs')
 const FIXTURE = join(import.meta.dirname, 'acp-fixture.mjs')
 const AUTH_KEY = 'local-e2e-openab-transport-key-123456789'
 const CONTROL_KEY = 'local-e2e-openab-control-key-123456789'
@@ -29,8 +30,8 @@ export type Stack = {
   holdSessionOpening: () => () => void
   /** The first agent offers Claude Code's "Default" stand-in until the returned function is called. */
   offerDefaultStandIn: () => () => void
-  /** Stops OpenAB and its agents, runs `whileDown`, then starts it again on the same address, as a runtime restart does. */
-  restartAgentHost: (whileDown?: () => Promise<void>) => Promise<void>
+  /** Stops OpenAB and its agents, runs `whileDown`, then starts it again on the same address, as a runtime restart does. With `panelJob` it comes back offering the runtime image's `panel` job. */
+  restartAgentHost: (whileDown?: () => Promise<void>, panelJob?: boolean) => Promise<void>
   /** Freezes OpenAB and its agents, so its sockets stay open and nothing answers, runs `whileFrozen`, then lets them go on. */
   freezeAgentHost: (whileFrozen: () => Promise<void>) => Promise<void>
   /** The `state` of the newest Cloudflare authorization the app started. */
@@ -160,7 +161,7 @@ export async function startStack(): Promise<Stack> {
   writeFileSync(acpLog, '')
   // One OpenAB per runtime. The fixture logs `agent` with every entry, and each
   // OpenAB keeps its session files in a home of its own.
-  const startAgentHost = (agent = 'first', port = runtimePort) => {
+  const startAgentHost = (agent = 'first', port = runtimePort, panelJob = false) => {
     const config = join(artifacts, `openab-${agent}.toml`)
     const home = join(artifacts, `home-${agent}`)
 
@@ -193,14 +194,16 @@ export async function startStack(): Promise<Stack> {
         OPENAB_ACP_CONTROL_KEY: CONTROL_KEY,
         OPENAB_ACP_MCP_SERVERS: 'true',
         GATEWAY_LISTEN: `127.0.0.1:${String(port)}`,
+        // The runtime image's `panel` job: how the backend puts a file on a runtime and reads one back.
+        ...(panelJob ? { OPENAB_RUNTIME_JOBS: `panel=${process.execPath} ${PANEL_JOB}` } : {}),
       },
     })
   }
   const agentHosts = [startAgentHost()]
-  const restartAgentHost = async (whileDown?: () => Promise<void>) => {
+  const restartAgentHost = async (whileDown?: () => Promise<void>, panelJob = false) => {
     await stop(agentHosts.at(-1)!)
     await whileDown?.()
-    agentHosts.push(startAgentHost())
+    agentHosts.push(startAgentHost('first', runtimePort, panelJob))
     await until('OpenAB to listen again', async () =>
       fetch(`http://127.0.0.1:${String(runtimePort)}/`),
     )

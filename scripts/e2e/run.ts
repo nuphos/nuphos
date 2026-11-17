@@ -13,6 +13,7 @@ import { computerScenarios } from './computer-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
 import { dashboardScenarios } from './dashboard-scenarios.ts'
 import { startDesktop } from './desktop.ts'
+import { formScenario } from './form-scenario.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
 import { questionScenarios } from './question-scenarios.ts'
@@ -260,6 +261,8 @@ const scenarios: Scenario[] = [
   ...dashboardScenarios,
 ]
 
+scenarios.push(formScenario)
+
 let desktop: Desktop | undefined
 let failed = false
 
@@ -273,7 +276,7 @@ try {
     const from = backendLines()
 
     await scenario.run(desktop.page, stack)
-    const failures = backendFailures(from)
+    const failures = backendFailures(from, scenario.expected)
 
     await desktop.page.screenshot({ path: `${artifacts}/${String(index + 1)}.png` })
     if (failures.length > 0)
