@@ -32,22 +32,27 @@ test('asks Anthropic with the credential this computer holds', async () => {
   const home = homeWith('.claude/.credentials.json', {
     claudeAiOauth: { accessToken: 'sk-ant-oat-local' },
   })
-  const seen: { url?: string; auth?: string; beta?: string } = {}
+  const seen: { url?: string; auth?: string; beta?: string; agent?: string; app?: string } = {}
 
   stubFetch((url, headers) => {
     seen.url = url
     seen.auth = headers.authorization
     seen.beta = headers['anthropic-beta']
+    seen.agent = headers['user-agent']
+    seen.app = headers['x-app']
 
     return Response.json({ seven_day: { utilization: 12, resets_at: null } })
   })
   try {
-    assert.deepEqual(await readAgentUsage('claude-code', { HOME: home }), {
+    assert.deepEqual(await readAgentUsage('claude-code', { HOME: home }, '2.1.322'), {
       seven_day: { utilization: 12, resets_at: null },
     })
-    assert.equal(seen.url, 'https://api.anthropic.com/api/oauth/usage')
+    // Anthropic lists limit resets only to Claude Code itself, so the read says it is one.
+    assert.equal(seen.url, 'https://api.anthropic.com/api/oauth/usage?cedar_ember=1')
     assert.equal(seen.auth, 'Bearer sk-ant-oat-local')
     assert.equal(seen.beta, 'oauth-2025-04-20')
+    assert.equal(seen.agent, 'claude-cli/2.1.322 (external, cli)')
+    assert.equal(seen.app, 'cli')
   } finally {
     rmSync(home, { recursive: true, force: true })
   }
