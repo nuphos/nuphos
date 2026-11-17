@@ -84,7 +84,10 @@ export const memberStreamScenarios: Scenario[] = [
             role: to,
           })
 
-          must(changed.status === 200, `the teammate to become ${to}, got ${String(changed.status)}`)
+          must(
+            changed.status === 200,
+            `the teammate to become ${to}, got ${String(changed.status)}`,
+          )
         }
         // Started, then still running for `seconds`: the stream stays open that long.
         const hold = async (seconds: number) => {
