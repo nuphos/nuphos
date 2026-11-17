@@ -1,0 +1,27 @@
+[
+  {
+    "name": "Fallback-options",
+    "mean_absolute_RGB_error": 2.509,
+    "pixels_with_any_channel_diff_gt_16_percent": 3.25
+  },
+  {
+    "name": "Fallback-desktop-setup",
+    "mean_absolute_RGB_error": 1.342,
+    "pixels_with_any_channel_diff_gt_16_percent": 1.65
+  },
+  {
+    "name": "Fallback-mobile",
+    "mean_absolute_RGB_error": 1.663,
+    "pixels_with_any_channel_diff_gt_16_percent": 2.35
+  },
+  {
+    "name": "Bot-Tasks-compact",
+    "mean_absolute_RGB_error": 2.627,
+    "pixels_with_any_channel_diff_gt_16_percent": 2.99
+  },
+  {
+    "name": "Bot-Tasks-Duo-expanded",
+    "mean_absolute_RGB_error": 1.254,
+    "pixels_with_any_channel_diff_gt_16_percent": 1.61
+  }
+]
