@@ -1,7 +1,16 @@
 import { faSlack } from '@fortawesome/free-brands-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
-import { Ban, ExternalLink, HardDrive, Hourglass, KeyRound, Loader2, WifiOff } from 'lucide-react'
+import {
+  Ban,
+  ExternalLink,
+  HardDrive,
+  Hourglass,
+  KeyRound,
+  Loader2,
+  RefreshCw,
+  WifiOff,
+} from 'lucide-react'
 import { useCallback, useState } from 'react'
 
 import { api } from '../../../api'
@@ -10,13 +19,13 @@ import { conversationReadOnlyLabel } from '../../../lib/conversationActivityBadg
 import { Button } from '../../ui/button'
 import { toast } from '../../ui/toast'
 
-import { diskFullCopy, reachabilityCopy } from './agentBannerCopy'
+import { diskFullCopy, outdatedCopy, reachabilityCopy } from './agentBannerCopy'
 import { agentProblem } from './agentRowFix'
 import { ConversationActivityBadges } from './historyRows'
 import { sharedComputerLabel, shareApprovalText } from './queuedShareApproval'
 import { runtimeGone, runtimeGoneText, selectedAgentReachability } from './runtimeControlSignOut'
 import { useAskedName } from './signInAsks'
-import { useComputerDiskWarning } from './useComputerDiskWarning'
+import { useComputerNotice } from './useComputerNotice'
 import { slackThreadFallbackUrl } from './slackThreadUrl'
 import { usePickerFixes } from './usePickerFixes'
 import { useShareApprovalWait } from './useShareApprovalWait'
@@ -24,6 +33,7 @@ import { useShareApprovalWait } from './useShareApprovalWait'
 import type { BannerCopy, BannerFixes } from './agentBannerCopy'
 import type { AgentFix } from './agentRowFix'
 import type { RuntimeControl } from './RuntimeSelector'
+import type { ComputerNotice } from './useComputerNotice'
 import type { ViewOnlyNotice } from './viewOnlyNotice'
 import type { AgentConversation, AgentSlackThread } from '../../../api'
 
@@ -129,12 +139,20 @@ const BANNER = {
     border: 'border-warning/35',
     tint: 'bg-warning/10',
   },
+  outdated: {
+    Icon: RefreshCw,
+    icon: 'text-warning',
+    border: 'border-warning/35',
+    tint: 'bg-warning/10',
+  },
 } as const
 
 type BannerKind = keyof typeof BANNER
+/** The agent cannot take a message; the other kinds only warn about its computer. */
+type BlockedKind = Exclude<BannerKind, ComputerNotice['kind']>
 
 function bannerCopy(
-  reachability: Exclude<BannerKind, 'disk'>,
+  reachability: BlockedKind,
   control: RuntimeControl,
   fix: AgentFix | undefined,
   fixes: BannerFixes,
@@ -160,6 +178,14 @@ function bannerCopy(
     : { text: shareApprovalText('denied', computer), action: switchAgent ?? null }
 }
 
+function noticeCopy(notice: ComputerNotice | null, onSettings?: () => void): BannerCopy {
+  if (!notice) return { text: '', action: null }
+
+  return notice.kind === 'disk'
+    ? diskFullCopy(notice, onSettings)
+    : outdatedCopy(notice.label, onSettings)
+}
+
 /**
  * Said before the message goes, not after it fails. A slim tab on the composer's
  * top edge: positioned out of flow, so showing or hiding it never moves the input.
@@ -182,14 +208,14 @@ export function AgentStatusBanner({
   const unreachable = reachability === 'signIn' || reachability === 'offline' ? reachability : null
   // Reachability comes first: an offline computer cannot run it even once approved.
   // Its agent is gone: nothing else about it matters until the conversation moves.
-  const blocked: Exclude<BannerKind, 'disk'> | null =
+  const blocked: BlockedKind | null =
     (runtimeGone(control) ? 'gone' : null) ??
     unreachable ??
     (shareApproval === 'pending' ? 'waiting' : shareApproval === 'denied' ? 'declined' : null)
-  // An agent that can take the message, on a disk about to stop it: said, without blocking.
-  const disk = useComputerDiskWarning(control)
-  const [fullDisk, setFullDisk] = useState(disk)
-  const active: BannerKind | null = blocked ?? (disk ? 'disk' : null)
+  // An agent that can take the message, on a computer about to fail it: said, without blocking.
+  const notice = useComputerNotice(control)
+  const [noticed, setNoticed] = useState(notice)
+  const active: BannerKind | null = blocked ?? notice?.kind ?? null
   // The words stay while the banner leaves, so it closes on what it said.
   const [shown, setShown] = useState(active)
   const selected = control.options?.find((instance) => instance.id === control.value?.id)
@@ -206,13 +232,12 @@ export function AgentStatusBanner({
     unreachable && selected ? agentProblem(selected, undefined, fixes.viewer)?.fix : undefined
 
   if (active && active !== shown) setShown(active)
-  if (disk && (disk.label !== fullDisk?.label || disk.percent !== fullDisk.percent))
-    setFullDisk(disk)
+  if (notice && JSON.stringify(notice) !== JSON.stringify(noticed)) setNoticed(notice)
   const variant = shown ? BANNER[shown] : null
   let copy: BannerCopy = { text: '', action: null }
 
-  if (shown === 'disk' && fullDisk) copy = diskFullCopy(fullDisk, control.onSettings)
-  else if (shown && shown !== 'disk')
+  if (shown === 'disk' || shown === 'outdated') copy = noticeCopy(noticed, control.onSettings)
+  else if (shown)
     copy = bannerCopy(
       shown,
       control,

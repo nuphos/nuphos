@@ -99,3 +99,11 @@ export function diskFullCopy(
     action: onSettings ? { label: t('Free space'), run: onSettings } : null,
   }
 }
+
+/** A computer whose Nuphos is older than supported: said before the message goes, not after it fails. */
+export function outdatedCopy(box: string, onSettings?: () => void): BannerCopy {
+  return {
+    text: t('Nuphos on {box} is out of date. Its agents may fail.', { box }),
+    action: onSettings ? { label: t('Update'), run: onSettings } : null,
+  }
+}
