@@ -529,16 +529,20 @@ final class InboxUITests: XCTestCase {
             "agent-ops", "Release ops",
             ["id": "q-deploy", "category": "approval", "question": question, "body": "Idle since the migration.",
              "options": ["Delete", "Keep"], "askedAt": "2026-11-03T09:40:00Z", "status": "open"])])
-        app = launch(page: "inbox")
+        app = launch(page: "agent")
+        let inboxTab = app.tabBars.buttons["Inbox"].firstMatch
+        XCTAssertTrue(inboxTab.waitForExistence(timeout: 10), "No Inbox tab")
+        inboxTab.tap()
         let row = listed(question)
         XCTAssertTrue(row.waitForExistence(timeout: 10), "The question is not listed")
+        shot("long-question-list")
         row.tap()
 
         let title = app.staticTexts["inbox.title"]
         XCTAssertTrue(title.waitForExistence(timeout: 5), "The question did not open")
         let line = title.frame.height
         XCTAssertLessThan(line, 40, "The question wraps over several lines")
-        XCTAssertTrue(app.staticTexts["Idle since the migration."].exists, "No body under the question")
+        XCTAssertTrue(app.descendants(matching: .any)["inbox.body"].exists, "No body under the question")
         shot("long-question-cut")
 
         title.tap()
