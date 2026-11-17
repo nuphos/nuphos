@@ -23,7 +23,10 @@ function nuphosTokenDelta(to, from) {
 }
 function nuphosTurnTokenUsage(sessionState) {
   const start = sessionState.nuphosTurnStartUsage;
-  return sessionState.totalTokenUsage && start ? nuphosTokenDelta(sessionState.totalTokenUsage, start) : sessionState.lastTokenUsage;
+  if (!sessionState.totalTokenUsage || !start) return sessionState.lastTokenUsage;
+  const turn = nuphosTokenDelta(sessionState.totalTokenUsage, start);
+  // A turn that made no model request reports no usage, not zeros.
+  return turn.totalTokens > 0 ? turn : null;
 }
 `
 

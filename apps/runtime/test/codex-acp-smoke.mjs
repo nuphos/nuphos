@@ -192,6 +192,13 @@ try {
     outputTokens: 50,
     thoughtTokens: 0,
   })
+  // A turn that never calls the model reports no usage rather than zeros.
+  const idle = await rpc('session/prompt', {
+    sessionId: created.sessionId,
+    prompt: [{ type: 'text', text: 'Fixture usage 0' }],
+  })
+
+  assert.equal(idle.usage ?? null, null)
   const calls = readFileSync(`${base}/requests.jsonl`, 'utf8').trim().split('\n').map(JSON.parse)
   const start = calls.find((c) => c.method === 'thread/start')
   const resume = calls.find((c) => c.method === 'thread/resume')
