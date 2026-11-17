@@ -70,6 +70,27 @@ describe('composioAuthConfigId', () => {
     })
   })
 
+  test('a config it creates asks for the scopes it is given', async () => {
+    respond(
+      { body: { items: [] } },
+      { status: 201, body: { auth_config: { id: 'ac_cal' } } },
+      { body: { items: [{ id: 'ac_cal', created_at: '2026-10-01T00:00:00Z' }] } },
+    )
+
+    expect(
+      await composioAuthConfigId('googlecalendar', [
+        'https://www.googleapis.com/auth/calendar.events',
+      ]),
+    ).toBe('ac_cal')
+    expect(calls[1]?.body).toEqual({
+      toolkit: { slug: 'googlecalendar' },
+      auth_config: {
+        type: 'use_composio_managed_auth',
+        credentials: { scopes: 'https://www.googleapis.com/auth/calendar.events' },
+      },
+    })
+  })
+
   test('does not remember a failure', async () => {
     respond({ status: 503, body: {} })
     await expect(composioAuthConfigId('googledrive')).rejects.toThrow('HTTP 503')

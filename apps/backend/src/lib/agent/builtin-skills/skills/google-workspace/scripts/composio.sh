@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs one Gmail or Google Drive tool through the session owner's Composio
+# Runs one Gmail, Google Drive or Google Calendar tool through the session owner's Composio
 # connection and prints Composio's JSON answer ({successful, data, error}).
 set -euo pipefail
 if [[ -n "${OPENAB_CREDENTIALS_DIR:-}" ]]; then
@@ -8,7 +8,7 @@ if [[ -n "${OPENAB_CREDENTIALS_DIR:-}" ]]; then
 fi
 
 if [ "$#" -lt 2 ] || [ "$#" -gt 3 ]; then
-  echo "Usage: composio.sh <teamId> <GMAIL_…|GOOGLEDRIVE_… tool> ['<arguments JSON>']" >&2
+  echo "Usage: composio.sh <teamId> <GMAIL_…|GOOGLEDRIVE_…|GOOGLECALENDAR_… tool> ['<arguments JSON>']" >&2
   exit 2
 fi
 if [ -z "${NUPHOS_TOKEN:-}" ]; then

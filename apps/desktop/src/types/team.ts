@@ -51,7 +51,8 @@ export type MfaStatus = {
 /** A new authenticator secret, to scan or type in before confirming. */
 export type MfaSetup = { secret: string; otpauthUrl: string }
 
-export type PersonalCredentialProvider = 'github' | 'linear' | 'gmail' | 'google-drive'
+type GoogleCredentialProvider = 'gmail' | 'google-drive' | 'google-calendar'
+export type PersonalCredentialProvider = 'github' | 'linear' | GoogleCredentialProvider
 
 export type PersonalCredential = {
   provider: PersonalCredentialProvider

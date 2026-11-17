@@ -1,17 +1,25 @@
-// Gmail and Google Drive through Composio-managed auth, for teams that have
-// not added their own Google OAuth client. Composio holds the Google grant;
+// Gmail, Google Drive and Google Calendar through Composio-managed auth, for
+// teams that have not added their own Google OAuth client. Composio holds the Google grant;
 // Nuphos keeps only the connected account id and runs tools through it with
 // its own server-side API key. https://docs.composio.dev/docs/authenticating-users
 import { composioAuthConfigId, composioRequest as call } from '@/lib/composio'
 import { AppError } from '@/lib/errors'
 import { personalCredentialPendingOAuth } from '@/models'
 
+import { SCOPES } from './google'
+
 import type { GoogleProvider } from './google'
 import type { PersonalCredentialPendingOAuth } from '@/models'
 
 const PROFILE: Record<
   GoogleProvider,
-  { toolkit: string; tool: string; email: (data: unknown) => unknown }
+  {
+    toolkit: string
+    tool: string
+    email: (data: unknown) => unknown
+    /** Asked for when Nuphos creates the toolkit's auth config. */
+    scopes?: string[]
+  }
 > = {
   gmail: {
     toolkit: 'gmail',
@@ -22,6 +30,13 @@ const PROFILE: Record<
     toolkit: 'googledrive',
     tool: 'GOOGLEDRIVE_GET_ABOUT',
     email: (d) => (d as { user?: { emailAddress?: unknown } }).user?.emailAddress,
+  },
+  // Its config is created by Nuphos, so it gets the same narrow scope as a team-client grant.
+  'google-calendar': {
+    toolkit: 'googlecalendar',
+    tool: 'GOOGLECALENDAR_GET_CURRENT_USER',
+    email: (d) => (d as { email?: unknown }).email,
+    scopes: [SCOPES['google-calendar']],
   },
 }
 
@@ -39,6 +54,7 @@ export function composioToolProvider(tool: string): GoogleProvider | null {
   if (BLOCKED.has(tool)) return null
   if (/^GMAIL_[A-Z0-9_]+$/u.test(tool)) return 'gmail'
   if (/^GOOGLEDRIVE_[A-Z0-9_]+$/u.test(tool)) return 'google-drive'
+  if (/^GOOGLECALENDAR_[A-Z0-9_]+$/u.test(tool)) return 'google-calendar'
 
   return null
 }
@@ -56,7 +72,10 @@ export async function createComposioLink(args: {
     'POST',
     '/connected_accounts/link',
     {
-      auth_config_id: await composioAuthConfigId(PROFILE[args.provider].toolkit),
+      auth_config_id: await composioAuthConfigId(
+        PROFILE[args.provider].toolkit,
+        PROFILE[args.provider].scopes,
+      ),
       user_id: args.composioUserId,
       callback_url: args.callbackUrl,
     },

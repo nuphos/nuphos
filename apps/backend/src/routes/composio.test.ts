@@ -152,6 +152,11 @@ fetchSpy.mockImplementation(((input: string | URL | Request, init?: RequestInit)
   }
   if (method === 'GET') return Promise.resolve(Response.json({ status: accountStatus }))
   if (method === 'DELETE') return Promise.resolve(Response.json({ success: true }))
+  if (path === '/tools/execute/GOOGLECALENDAR_GET_CURRENT_USER') {
+    return Promise.resolve(
+      Response.json({ successful: true, data: { email: 'alice@gmail.test' }, error: null }),
+    )
+  }
   if (path === '/tools/execute/GMAIL_GET_PROFILE') {
     return Promise.resolve(
       Response.json({ successful: true, data: { emailAddress: 'alice@gmail.test' }, error: null }),
@@ -282,6 +287,33 @@ describe('connecting through Composio', () => {
     expect(saved[0]).not.toHaveProperty('encryptedAccessToken')
   })
 
+  test('Google Calendar connects through its own toolkit and records the account email', async () => {
+    const { state } = (await (await start('google-calendar')).json()) as { state: string }
+
+    expect(requests[0]?.body).toMatchObject({ auth_config_id: 'ac_googlecalendar' })
+    expect(authConfigSpy).toHaveBeenLastCalledWith('googlecalendar', [
+      'https://www.googleapis.com/auth/calendar.events',
+    ])
+    const code =
+      (await callback('google-calendar', `state=${state}&status=success`)).searchParams.get(
+        'code',
+      ) ?? ''
+    const res = await app.request('/personal-credentials/google-calendar/complete', {
+      method: 'POST',
+      headers: as('alice'),
+      body: JSON.stringify({ state, code }),
+    })
+
+    expect(res.status).toBe(200)
+    expect(saved).toEqual([
+      expect.objectContaining({
+        provider: 'google-calendar',
+        login: 'alice@gmail.test',
+        composioAccountId: 'ca_new',
+      }),
+    ])
+  })
+
   test('a declined or unfinished connection stages nothing', async () => {
     let { state } = (await (await start('gmail')).json()) as { state: string }
 
@@ -384,6 +416,17 @@ describe('agents running tools through Composio', () => {
         },
       },
     ])
+  })
+
+  test('runs a Google Calendar tool through the Calendar connection', async () => {
+    saved.push(connection('owner', 'google-calendar', 'ca_cal'))
+    const res = await execute(await turn('owner', true), { tool: 'GOOGLECALENDAR_EVENTS_LIST' })
+
+    expect(res.status).toBe(200)
+    expect(requests[0]).toMatchObject({
+      path: '/tools/execute/GOOGLECALENDAR_EVENTS_LIST',
+      body: { connected_account_id: 'ca_cal' },
+    })
   })
 
   test('refuses other toolkits and permanent mail deletion', async () => {
