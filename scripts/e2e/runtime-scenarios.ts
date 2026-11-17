@@ -1,6 +1,7 @@
 // Scenarios about the agent hosts a Task runs on: a restart, delegation, a move.
 import { agentEvents, agentLog, delegatedTurn, firstAgentHolds } from './agent-log.ts'
 import { backendLines, backendLog } from './backend-log.ts'
+import { fallbackScenarios } from './fallback-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
 
@@ -289,4 +290,5 @@ export const runtimeScenarios: Scenario[] = [
         throw new Error(`The answer reached the second agent ${answered() - before} times`)
     },
   },
+  ...fallbackScenarios,
 ]
