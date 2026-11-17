@@ -74,11 +74,13 @@ useAgentDb({
     }
   },
   getConversationBySessionId: async () => stored,
-  getConversationWithMessages: async () =>
-    stored && {
-      conversation: stored,
-      messages: [{ index: 1, role: 'assistant', parts: lastParts }] as never,
-    },
+  // A long session's whole transcript runs to hundreds of MB; a status check reads one message.
+  getConversationWithMessages: async () => {
+    throw new Error('nuphos_check read the whole transcript')
+  },
+  getReadableConversation: async () => stored,
+  getLatestAssistantMessage: async () =>
+    ({ index: 1, role: 'assistant', parts: lastParts }) as never,
   getConversationTranscriptForAgent: async () =>
     ({ lines: ['#0 user: hi', '#1 assistant: Done so far.'], nextIndex: null }) as never,
   liveTurnTranscriptLine: () => '#4 assistant (in progress): [tool: bash]',
