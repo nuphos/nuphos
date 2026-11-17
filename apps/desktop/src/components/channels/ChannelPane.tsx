@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 import { api } from '../../api'
 import { t } from '../../i18n'
+import { botIsOnboarding } from '../../lib/agentInputRequests'
 import { runtimeStateOf, subscribeRuntimeStates } from '../../lib/agentRuntimeStates'
 import { runtimeTurnActive } from '../../lib/runtimeExecution'
 import { forgetSessionDesktops, publishSessionDesktops } from '../../lib/sessionDesktops'
@@ -14,13 +15,14 @@ import { FileDropZone } from '../agent/panel/FileDropZone'
 import { sessionDesktopsOf } from '../agent/panel/shells'
 import { useConversationRead } from '../agent/panel/useConversationRead'
 import { SessionParticipants } from '../agent/SessionParticipants'
+import { useAgentSessions } from '../sidebar/agentSessions'
 import { HeaderEdge } from '../ui/header-edge'
 import { toast } from '../ui/toast'
 
 import { botOfChannel, ownsBot } from './botChannel'
-import { BotStatusPill } from './BotStatusPill'
 import { BotDesktopButton } from './BotDesktopButton'
 import { BotModelControl } from './BotModelControl'
+import { BotStatusPill } from './BotStatusPill'
 import { BotTaskButton } from './BotTaskButton'
 import { BotTriggers } from './BotTriggers'
 import { ChannelEmptyState } from './ChannelEmptyState'
@@ -89,7 +91,10 @@ export function ChannelPane({
   const botProvider = agents.find((agent) => agent.sessionId === bot)?.provider
   const manage = fixes?.onOpenAgentSettings
   const control = useBotRuntimeControl(teamId, bot, botOwned, user, botState, refresh, manage)
-  const canOpenTask = useBotTaskAccess(teamId, bot, botOwned)
+  const sessions = useAgentSessions(teamId).data
+  const settingUp = sessions?.some((row) => row.sessionId === bot && botIsOnboarding(row))
+  const taskAccess = useBotTaskAccess(teamId, bot, botOwned)
+  const canOpenTask = taskAccess && !settingUp
   const canOpenBotDesktop =
     bot !== undefined &&
     sessionDesktopsOf(teamId, { runtimeState: botState, foreign: !botOwned }).canOpen
