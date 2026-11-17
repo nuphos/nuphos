@@ -83,6 +83,8 @@ export function runHermes(command, args, { env = hermesEnv(), onOutput } = {}) {
     } catch {}
   }
   process.once('exit', kill)
+  // A Hermes that refuses can exit before it reads the key; `done` says why, not the pipe.
+  child.stdin.on('error', () => {})
   let output = ''
   child.stdout.on('data', (chunk) => {
     output += chunk.toString()
