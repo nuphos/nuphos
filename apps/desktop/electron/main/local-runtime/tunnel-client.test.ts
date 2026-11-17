@@ -10,6 +10,7 @@ class FakeSocket {
   readyState = 0
   sent: string[] = []
   closed = false
+  closeReason: string | undefined
   private listeners = new Map<string, Listener[]>()
 
   addEventListener(type: string, listener: Listener) {
@@ -26,9 +27,10 @@ class FakeSocket {
     this.sent.push(data)
   }
 
-  close(code?: number) {
+  close(code?: number, reason?: string) {
     if (this.closed) return
     this.closed = true
+    this.closeReason = reason
     this.emit('close', { code: code ?? 1000 })
   }
 }
@@ -349,6 +351,18 @@ test('stopping drops every stream and the socket', () => {
 
   assert.equal(runtimes[0]?.socket.closed, true)
   assert.equal(backend().closed, true)
+})
+
+test('a stop says it stopped, so the backend can tell it from a reconnect', () => {
+  const { backends, client } = setup()
+
+  backends[0]?.emit('open')
+  client.reconnectNow()
+  backends[1]?.emit('open')
+  client.stop()
+
+  assert.equal(backends[0]?.closeReason, 'reconnecting')
+  assert.equal(backends[1]?.closeReason, 'stopped')
 })
 
 test('local exec uses the same tunnel when no local agent is installed', () => {
