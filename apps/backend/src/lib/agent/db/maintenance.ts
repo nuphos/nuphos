@@ -123,7 +123,7 @@ export async function updateBotSelf(
         avatar: { $exists: true },
         ...(update.botOnboarding
           ? {
-              botOnboarding: 'started',
+              botOnboarding: 'active',
               inputRequests: { $not: { $elemMatch: { status: 'open', category: 'preference' } } },
             }
           : {}),

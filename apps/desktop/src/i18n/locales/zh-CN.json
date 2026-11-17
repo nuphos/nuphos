@@ -2224,6 +2224,7 @@
   "Installation {id}": "安装 {id}",
   "Installed": "已安装",
   "Installed from": "安装来源",
+  "Installing {name} on {computer}…": "正在 {computer} 上安装 {name}…",
   "Installing…": "正在安装…",
   "Instance ID": "实例 ID",
   "Instances": "实例",

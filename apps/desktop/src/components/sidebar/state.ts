@@ -1,5 +1,7 @@
 import { CONNECTOR_CATEGORIES } from '../../lib/connectorCategories.ts'
 
+import { isBotTreeFold } from './chat-sections.ts'
+
 export const MIN_SIDEBAR_WIDTH = 220
 export const MAX_SIDEBAR_WIDTH = 380
 export const DEFAULT_SIDEBAR_WIDTH = 248
@@ -110,6 +112,37 @@ export function writeGroupFold(teamId: string, title: string, value: 'open' | 'c
     )
   } catch {
     // Without storage there is nowhere to keep a fold; the toggle is a no-op.
+  }
+  for (const listener of groupStateListeners) listener()
+}
+
+/** A stored fold as left by hand; a Bot tree is folded until it is first opened. */
+export function storedFoldCollapsed(
+  state: GroupState,
+  fold: { title: string; defaultCollapsed?: boolean },
+): boolean {
+  const folded = fold.defaultCollapsed === true || isBotTreeFold(fold.title)
+
+  return (state[fold.title] ?? (folded ? 'closed' : 'open')) === 'closed'
+}
+
+/** Drops stored folds, as when the row they belong to is archived or deleted. */
+export function forgetGroupFolds(teamId: string, titles: string[]): void {
+  const raw = readGroupStateRaw()
+  const forTeam = loadGroupState(teamId, raw)
+
+  if (!titles.some((title) => title in forTeam)) return
+  const kept = Object.fromEntries(
+    Object.entries(forTeam).filter(([title]) => !titles.includes(title)),
+  )
+
+  try {
+    localStorage.setItem(
+      SIDEBAR_GROUP_STATE_KEY,
+      JSON.stringify({ ...parseGroupStateFile(raw), [teamId]: kept }),
+    )
+  } catch {
+    return
   }
   for (const listener of groupStateListeners) listener()
 }
