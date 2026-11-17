@@ -116,6 +116,8 @@ export const triggerScenarios: Scenario[] = [
       if (await summary.isVisible()) await toggle.click()
       await toggle.click()
       await summary.getByText(notice).waitFor()
+      // The panel slides in; shoot it once it has settled.
+      await page.waitForTimeout(1_000)
       await page.screenshot({ path: join(artifacts, 'trigger-paused.png') })
       await toggle.click()
     },
