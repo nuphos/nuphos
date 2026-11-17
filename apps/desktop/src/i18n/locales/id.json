@@ -1,5 +1,4 @@
 {
-  "Getting started": "Penyiapan awal",
   "\"{domain}\" will stop serving this Pages project.": "\"{domain}\" akan berhenti melayani proyek Pages ini.",
   "\"{key}\" will be permanently deleted.": "\"{key}\" akan dihapus secara permanen.",
   "\"{name}\" and all of its panels, snapshots, and alerts will be permanently deleted.": "\"{name}\" beserta semua panel, snapshot, dan peringatannya akan dihapus secara permanen.",
@@ -2009,6 +2008,7 @@
   "Generation": "Generasi",
   "Get started": "Mulai",
   "Getting model settings…": "Mengambil pengaturan model…",
+  "Getting started": "Penyiapan awal",
   "GitHub details unavailable": "Detail GitHub tidak tersedia",
   "GitHub installation": "Instalasi GitHub",
   "GitHub is still working it out. Refresh in a moment.": "GitHub masih memprosesnya. Segarkan sebentar lagi.",

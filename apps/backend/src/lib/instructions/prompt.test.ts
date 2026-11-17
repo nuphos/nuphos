@@ -182,6 +182,7 @@ test('setup context survives saved instructions and disappears after explicit co
     instructions: 'Review releases.',
     botOnboarding: 'started' as const,
   }
+
   expect(renderInstructionsBlock([], [], bot)).toContain('onboardingComplete: true')
   expect(renderInstructionsBlock([], [], bot)).toContain('Review releases.')
   expect(renderInstructionsBlock([], [], { ...bot, botOnboarding: 'completed' })).not.toContain(

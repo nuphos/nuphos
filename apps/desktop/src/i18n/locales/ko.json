@@ -1,5 +1,4 @@
 {
-  "Getting started": "초기 설정 중",
   "\"{domain}\" will stop serving this Pages project.": "“{domain}”에서 더 이상 이 Pages 프로젝트를 제공하지 않습니다.",
   "\"{key}\" will be permanently deleted.": "“{key}”이(가) 영구적으로 삭제됩니다.",
   "\"{name}\" and all of its panels, snapshots, and alerts will be permanently deleted.": "“{name}”과(와) 모든 패널, 스냅샷, 알림이 영구적으로 삭제됩니다.",
@@ -2009,6 +2008,7 @@
   "Generation": "세대",
   "Get started": "시작하기",
   "Getting model settings…": "모델 설정을 가져오는 중…",
+  "Getting started": "초기 설정 중",
   "GitHub details unavailable": "GitHub 세부 정보를 가져올 수 없음",
   "GitHub installation": "GitHub 설치",
   "GitHub is still working it out. Refresh in a moment.": "GitHub에서 아직 처리 중입니다. 잠시 후 새로고침하세요.",

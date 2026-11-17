@@ -73,6 +73,7 @@ test('an onboarding question is setup, while a real approval still needs attenti
     botOnboarding: 'started',
     inputRequests: asking.inputRequests.map((q) => ({ ...q, category: 'preference' })),
   }
+
   assert.equal(activityOf(run('bot', idle, fields), []).kind, 'onboarding')
   assert.equal(
     activityOf(run('bot', idle, { ...fields, inputRequests: asking.inputRequests }), []).kind,

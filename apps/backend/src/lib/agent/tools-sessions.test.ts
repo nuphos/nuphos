@@ -408,6 +408,7 @@ test('update_self explicitly completes onboarding with confirmed responsibilitie
     },
     { toolCallId: 'finish-setup', messages: [] },
   )
+
   expect(result).not.toHaveProperty('error')
   expect(selfUpdates.at(-1)).toMatchObject({
     instructions: 'Review releases for this project.',
@@ -420,5 +421,6 @@ test('onboarding cannot complete without saving responsibilities', async () => {
     { label: 'Finish setup', onboardingComplete: true },
     { toolCallId: 'finish-setup', messages: [] },
   )
+
   expect(result).toHaveProperty('error')
 })

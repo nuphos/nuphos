@@ -125,6 +125,7 @@ test('onboarding preferences stay in the Bot chat without entering the Inbox', (
       category: 'preference',
     })),
   }
+
   assert.equal(inboxCount([bot], new Map()), 0)
   assert.equal(inboxCount([{ ...bot, botOnboarding: 'completed' }], new Map()), 1)
   assert.equal(

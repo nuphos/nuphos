@@ -1,5 +1,4 @@
 {
-  "Getting started": "Configuración inicial",
   "\"{domain}\" will stop serving this Pages project.": "\"{domain}\" dejará de servir este proyecto de Pages.",
   "\"{key}\" will be permanently deleted.": "\"{key}\" se eliminará de forma permanente.",
   "\"{name}\" and all of its panels, snapshots, and alerts will be permanently deleted.": "\"{name}\" y todos sus gráficos, instantáneas y alertas se eliminarán de forma permanente.",
@@ -2009,6 +2008,7 @@
   "Generation": "Generación",
   "Get started": "Primeros pasos",
   "Getting model settings…": "Obteniendo configuración del modelo…",
+  "Getting started": "Configuración inicial",
   "GitHub details unavailable": "Detalles de GitHub no disponibles",
   "GitHub installation": "Instalación de GitHub",
   "GitHub is still working it out. Refresh in a moment.": "GitHub aún lo está procesando. Actualiza en un momento.",

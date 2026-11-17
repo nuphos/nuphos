@@ -207,6 +207,7 @@ export function openInputRequests(
 export function attentionInputRequests(conversation: ConversationInputRequests): InputRequest[] {
   const settingUp =
     conversation.botOnboarding === 'pending' || conversation.botOnboarding === 'started'
+
   return openInputRequests(conversation).filter(
     (request) => !settingUp || request.category !== 'preference',
   )

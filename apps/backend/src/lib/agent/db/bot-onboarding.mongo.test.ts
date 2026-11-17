@@ -49,12 +49,17 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('persisted Bot onboarding', () =>
     await seed('established', { inputRequests: [question('ordinary')] })
     const options = { teamId, pendingDecision: true }
     const inbox = (await getConversations(userId, options)).conversations
-    expect(inbox.map((row) => row.sessionId).sort()).toEqual(['established', 'mixed'])
+
+    expect(inbox.map((row) => row.sessionId).sort((a, b) => a.localeCompare(b))).toEqual([
+      'established',
+      'mixed',
+    ])
     expect(inbox.find((row) => row.sessionId === 'mixed')?.inputRequests?.map((r) => r.id)).toEqual(
       ['ship'],
     )
     const chat = (await getConversations(userId, { ...options, includeOnboarding: true }))
       .conversations
+
     expect(chat.find((row) => row.sessionId === 'setup-only')?.inputRequests?.[0]?.id).toBe(
       'purpose',
     )
@@ -64,6 +69,7 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('persisted Bot onboarding', () =>
   test('completion atomically saves responsibilities only after setup questions close', async () => {
     await seed('complete', { botOnboarding: 'started', inputRequests: [question('confirm')] })
     const update = { instructions: 'Review release notes.', botOnboarding: 'completed' as const }
+
     expect(await updateBotSelf('complete', userId, teamId, update)).toBe(false)
     expect(await resolveInputRequest('complete', userId, 'confirm')).toBe(true)
     expect(await updateBotSelf('complete', 'someone-else', teamId, update)).toBe(false)
@@ -80,6 +86,7 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('persisted Bot onboarding', () =>
       { $push: { inputRequests: question('next-work') } },
     )
     const inbox = (await getConversations(userId, { teamId, pendingDecision: true })).conversations
+
     expect(inbox.find((row) => row.sessionId === 'complete')?.inputRequests?.[0]?.id).toBe(
       'next-work',
     )
