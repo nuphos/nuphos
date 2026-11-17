@@ -14,6 +14,7 @@ import { startDesktop } from './desktop.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
+import { signInScenarios } from './sign-in-scenarios.ts'
 import { startStack } from './stack.ts'
 import { threadScenarios } from './thread-scenarios.ts'
 import { triggerScenarios } from './trigger-scenarios.ts'
@@ -23,19 +24,7 @@ import type { Desktop } from './desktop.ts'
 import type { Scenario } from './ui.ts'
 
 const scenarios: Scenario[] = [
-  {
-    name: 'sign in with an email code and land in the team',
-    run: async (page, stack) => {
-      await page.evaluate(() => localStorage.setItem('nuphos.locale', 'en'))
-      await page.reload()
-      await page.locator('input[type=email]').fill(stack.email)
-      await page.getByRole('button', { name: 'Continue with email' }).click()
-      await page.getByText('Enter the 6-digit code').waitFor()
-      // Entering the sixth digit submits the form.
-      await page.locator('input[placeholder="000000"]').fill(stack.signInCode(stack.email) ?? '')
-      await page.getByText('Start with your first Bot').waitFor()
-    },
-  },
+  ...signInScenarios,
   {
     // The flow #3012 was reported in: the sidebar is on Bots, the page a new team opens on.
     // The connector's CLI (`aws`) has to be on the PATH for the dialog to offer the agent.
