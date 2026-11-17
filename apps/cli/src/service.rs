@@ -16,8 +16,10 @@ pub const UNIT: &str = "nuphos-agent.service";
 /// The LaunchAgent's label; launchd hands it to the job as XPC_SERVICE_NAME.
 const LABEL: &str = "ai.nuphos.agent";
 
-/// What the service needs from the shell that installed it. PATH finds node, claude and codex.
-const FORWARD: [&str; 4] = ["PATH", "NUPHOS_API_URL", "NUPHOS_DOWNLOAD_URL", "NUPHOS_AGENT_HOME"];
+/// What the service needs from the shell that installed it. HOME keeps the agent's data
+/// where that shell keeps it: launchd and systemd would start the service in the
+/// account's own home. PATH finds node, claude and codex.
+const FORWARD: [&str; 5] = ["HOME", "PATH", "NUPHOS_API_URL", "NUPHOS_DOWNLOAD_URL", "NUPHOS_AGENT_HOME"];
 
 /// The service's environment: the installing shell's values of FORWARD.
 fn service_env(var: impl Fn(&str) -> Option<String>) -> Vec<(&'static str, String)> {
