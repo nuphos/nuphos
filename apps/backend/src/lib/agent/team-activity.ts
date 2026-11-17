@@ -125,3 +125,18 @@ async function scanTeamActivity(
     members,
   }
 }
+
+/** One member's own row of the team's activity, listing only the sessions it refers to. */
+export function ownActivity(activity: TeamActivity, userId: string): TeamActivity {
+  const members = activity.members.filter((member) => member.id === userId)
+  const used = [...new Set(members.flatMap((member) => member.slots.flat()))].sort((a, b) => a - b)
+
+  return {
+    ...activity,
+    sessions: used.flatMap((index) => activity.sessions[index] ?? []),
+    members: members.map((member) => ({
+      ...member,
+      slots: member.slots.map((slot) => slot.map((index) => used.indexOf(index))),
+    })),
+  }
+}
