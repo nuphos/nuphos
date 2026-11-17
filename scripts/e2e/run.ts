@@ -20,6 +20,7 @@ import { questionScenarios } from './question-scenarios.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
 import { sidebarScenarios } from './sidebar-scenarios.ts'
 import { signInScenarios } from './sign-in-scenarios.ts'
+import { splitPaneScenarios } from './split-pane-scenarios.ts'
 import { startStack } from './stack.ts'
 import { teammateBotScenarios } from './teammate-bot-scenarios.ts'
 import { threadModeScenario, threadScenarios } from './thread-scenarios.ts'
@@ -235,6 +236,8 @@ const scenarios: Scenario[] = [
   threadModeScenario,
   // It removes a member from the team.
   ...dashboardScenarios,
+  // It leaves the window split, then closes a pane.
+  ...splitPaneScenarios,
   // Last: this computer has Claude Code from then on.
   ...installScenarios,
 ]
