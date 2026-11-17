@@ -138,6 +138,7 @@
     <string name="shell_notification_open_history">タスクの履歴を開く</string>
     <string name="shell_notification_open_update">Nuphos を開いて更新を確認</string>
     <string name="shell_notification_reply">返信</string>
+    <string name="shell_notification_you">あなた</string>
     <string name="shell_notification_message">メッセージ</string>
     <string name="shell_notification_reply_not_sent">返信を送信できませんでした</string>
     <string name="shell_voice_input">音声入力</string>

@@ -138,6 +138,7 @@
     <string name="shell_notification_open_history">Abrir el historial de la tarea</string>
     <string name="shell_notification_open_update">Abre Nuphos para ver la novedad</string>
     <string name="shell_notification_reply">Responder</string>
+    <string name="shell_notification_you">Tú</string>
     <string name="shell_notification_message">Mensaje</string>
     <string name="shell_notification_reply_not_sent">No se envió la respuesta</string>
     <string name="shell_voice_input">Entrada de voz</string>
