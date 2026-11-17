@@ -14,7 +14,13 @@ export const sidebarScenarios: Scenario[] = [
       await newTask(page)
       await send(page, 'Hello E2E_DELIVERY:sidebar')
       await page.getByText('ACK E2E_DELIVERY:sidebar').waitFor()
-      await checkDockToggleClear(page, 'Task chat')
+      await checkDockToggleClear(page, 'Task chat header')
+      // Open, the dock's tab strip is what runs under the toggle.
+      await page.getByRole('button', { name: 'Open workspace panel' }).click()
+      await page.getByRole('button', { name: 'Close workspace panel' }).waitFor()
+      await page.waitForTimeout(500)
+      await checkDockToggleClear(page, 'dock tab strip', '[class*="--dock-toggle-pad"]')
+      await page.getByRole('button', { name: 'Close workspace panel' }).click()
       for (const tab of ['Tasks', 'Inbox', 'Bots']) {
         await page.getByRole('tab', { name: tab }).click()
         await page.waitForTimeout(500)

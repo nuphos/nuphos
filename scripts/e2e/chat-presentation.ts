@@ -41,33 +41,34 @@ export async function checkOutgoingChip(page: Page): Promise<void> {
   })
 }
 
-/** The workspace panel toggle floats over the chat header's right end; the header's content must end left of it (#3312). */
-export async function checkDockToggleClear(page: Page, where: string): Promise<void> {
-  const room = await page.evaluate(() => {
+/** The workspace panel toggle floats over a chat header, or over the dock's tab strip once the dock is open; either must end left of it (#3312). */
+export async function checkDockToggleClear(
+  page: Page,
+  where: string,
+  selector = '.workspace-agent-titlebar',
+): Promise<void> {
+  const room = await page.evaluate((under) => {
     // Panes left open stay mounted, hidden: only the one on screen counts.
-    const shown = (selector: string) =>
-      [...document.querySelectorAll(selector)].find(
-        (node) => node.getBoundingClientRect().width > 0,
-      )
+    const shown = (query: string) =>
+      [...document.querySelectorAll(query)].find((node) => node.getBoundingClientRect().width > 0)
     const toggle = shown('.workspace-dock-toggle')?.getBoundingClientRect()
-    const header = shown('.workspace-agent-titlebar')
+    const row = shown(under)
 
-    if (!toggle || !header) return null
+    if (!toggle || !row) return null
 
     const contentRight =
-      header.getBoundingClientRect().right -
-      Number.parseFloat(getComputedStyle(header).paddingRight)
+      row.getBoundingClientRect().right - Number.parseFloat(getComputedStyle(row).paddingRight)
 
     return { contentRight, toggleLeft: toggle.left }
-  })
+  }, selector)
 
-  if (!room) throw new Error(`The ${where} has no chat header or workspace panel toggle`)
+  if (!room) throw new Error(`The ${where} or the workspace panel toggle is not on screen`)
   console.log(
-    `${where}: header content ends at ${String(Math.round(room.contentRight))} px, toggle starts at ${String(Math.round(room.toggleLeft))} px`,
+    `${where}: content ends at ${String(Math.round(room.contentRight))} px, toggle starts at ${String(Math.round(room.toggleLeft))} px`,
   )
   await page.screenshot({ path: `${artifacts}/dock-toggle-${where.replaceAll(' ', '-')}.png` })
   if (room.contentRight > room.toggleLeft)
     throw new Error(
-      `The ${where}'s header runs ${String(Math.round(room.contentRight - room.toggleLeft))} px under the workspace panel toggle`,
+      `The ${where} runs ${String(Math.round(room.contentRight - room.toggleLeft))} px under the workspace panel toggle`,
     )
 }

@@ -88,7 +88,7 @@ export const channelScenarios: Scenario[] = [
   {
     name: "the Bot chat's header ends left of the workspace panel toggle",
     run: async (page) => {
-      await checkDockToggleClear(page, 'Bot chat')
+      await checkDockToggleClear(page, 'Bot chat header')
     },
   },
   {
