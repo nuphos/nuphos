@@ -9,8 +9,8 @@ import { nuphosApplyRuntimeDefaults } from '../../apps/runtime/image/runtime-def
 import { answerChannel } from './fixture-channel.mjs'
 import { listCommands } from './fixture-commands.mjs'
 import { hop, inherit } from './fixture-hop.mjs'
-import { refuse } from './fixture-refusals.mjs'
 import { applySetting } from './fixture-settings.mjs'
+import { refuse } from './fixture-turn-refusals.mjs'
 
 const send = (message) =>
   process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', ...message })}\n`)
