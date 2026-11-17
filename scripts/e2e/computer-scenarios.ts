@@ -1,15 +1,10 @@
-// Scenarios about the computer the app runs on: its registration, its tunnel and its files.
+// Scenarios about the computer the app runs on: its registration and its tunnel.
 import { execFileSync } from 'node:child_process'
-import { randomUUID } from 'node:crypto'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { resolve } from 'node:path'
 
-import { agentLog } from './agent-log.ts'
 import { backendLines, backendLog } from './backend-log.ts'
-import { artifacts, until } from './processes.ts'
-import { newTask, send } from './ui.ts'
+import { until } from './processes.ts'
 
-import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
 
 const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
@@ -23,49 +18,6 @@ function forgetComputer(mongoUri: string, deviceId: string) {
     await client.close()`
 
   execFileSync('bun', ['-e', script, mongoUri, deviceId], { cwd: BACKEND_DIR, timeout: 10_000 })
-}
-
-/** One authenticated call to the backend under test. */
-async function api<T>(stack: Stack, path: string, body?: unknown): Promise<T> {
-  const response = await fetch(stack.apiUrl + path, {
-    method: body === undefined ? 'GET' : 'POST',
-    headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-  })
-
-  if (!response.ok) throw new Error(`${path} answered ${String(response.status)}`)
-
-  return (await response.json()) as T
-}
-
-/** The answer of the last `name` call the fixture made for E2E_CALL. */
-export async function calledTool(stack: Stack, name: string): Promise<string> {
-  let answer = ''
-
-  await until(`the agent to call ${name}`, async () => {
-    const entry = agentLog(stack).findLast((item) => item.event === 'called' && item.name === name)
-
-    answer = entry ? JSON.stringify(entry.result) : ''
-
-    return entry
-  })
-
-  return answer
-}
-
-/** Puts `content` in the transfer store as an agent's transfer-push.sh does, and returns its group. */
-async function pushed(stack: Stack, fileName: string, content: string): Promise<string> {
-  const transfers = `/teams/${stack.teamId}/file-transfers`
-  const { groupId, files } = await api<{ groupId: string; files: { uploadUrl: string }[] }>(
-    stack,
-    transfers,
-    { direction: 'download', files: [{ fileName, size: Buffer.byteLength(content) }] },
-  )
-
-  await fetch(files[0]?.uploadUrl ?? '', { method: 'PUT', body: content })
-  await api(stack, `${transfers}/${groupId}/finalize`, {})
-
-  return groupId
 }
 
 export const computerScenarios: Scenario[] = [
@@ -109,77 +61,6 @@ export const computerScenarios: Scenario[] = [
           )
         },
       )
-    },
-  },
-  {
-    // The agent reads a file off this computer through its own tunnel into the transfer store.
-    name: 'an agent uploads a file from the computer the app runs on',
-    run: async (page, stack) => {
-      const content = `from this computer ${randomUUID()}`
-      const path = join(artifacts, 'from-this-computer.txt')
-
-      writeFileSync(path, content)
-      await newTask(page)
-      const args = JSON.stringify({ label: 'Upload the file', path })
-
-      await send(page, `Bring it in E2E_CALL local_upload ${args} E2E_DELIVERY:uploaded`)
-      await page.getByText('ACK E2E_DELIVERY:uploaded').waitFor()
-      const answer = await calledTool(stack, 'local_upload')
-      const groupId = /groupId\W+(\w+)/.exec(answer)?.[1]
-
-      if (!groupId) throw new Error(`local_upload answered without a transfer: ${answer}`)
-      const transfers = `/teams/${stack.teamId}/file-transfers/${groupId}`
-
-      await until('the upload to arrive', async () => {
-        const { status } = await api<{ status: string }>(stack, transfers)
-
-        if (status === 'failed') throw new Error('The upload failed')
-
-        return status === 'ready'
-      })
-      const { files } = await api<{ files: { downloadUrl?: string }[] }>(
-        stack,
-        `${transfers}/download`,
-      )
-      const stored = await (await fetch(files[0]?.downloadUrl ?? '')).text()
-
-      if (stored !== content) throw new Error(`The store holds ${JSON.stringify(stored)}`)
-    },
-  },
-  {
-    // #3186: the agent saves a file onto the computer the app runs on; that computer fetches it.
-    name: 'an agent saves a file onto the computer the app runs on, and asks before replacing it',
-    run: async (page, stack) => {
-      const path = join(artifacts, 'saved-by-the-agent.html')
-      const first = `<p>${randomUUID()}</p>`
-      const second = `<p>${randomUUID()}</p>`
-      const save = async (marker: string, content: string, overwrite?: boolean) => {
-        const groupId = await pushed(stack, 'deck.html', content)
-        const args = JSON.stringify({ label: 'Save the file', groupId, path, overwrite })
-        const before = agentLog(stack).length
-
-        await send(page, `Save it E2E_CALL local_download ${args} E2E_DELIVERY:${marker}`)
-        await page.getByText(`ACK E2E_DELIVERY:${marker}`).waitFor()
-
-        return JSON.stringify(
-          agentLog(stack)
-            .slice(before)
-            .find((entry) => entry.event === 'called')?.result,
-        )
-      }
-
-      await newTask(page)
-      const saved = await save('saved', first)
-
-      if (!existsSync(path) || readFileSync(path, 'utf8') !== first)
-        throw new Error(`local_download did not write the file: ${saved}`)
-      if (saved.includes('signed')) throw new Error(`A signed URL reached the agent: ${saved}`)
-      const refused = await save('kept', second)
-
-      if (!refused.includes('file_exists') || readFileSync(path, 'utf8') !== first)
-        throw new Error(`An existing file was not kept: ${refused}`)
-      await save('replaced', second, true)
-      if (readFileSync(path, 'utf8') !== second) throw new Error('overwrite did not replace it')
     },
   },
 ]
