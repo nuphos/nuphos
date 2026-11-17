@@ -1,4 +1,4 @@
-// Scenarios about a Bot row's unread dot. They run in the Bot chat the scenarios before opened.
+// Scenarios about a Bot row's unread dot. They run in the Bot chat the channel scenarios opened.
 import { agentEvents, agentLog } from './agent-log.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
@@ -26,6 +26,7 @@ export const botUnreadScenarios: Scenario[] = [
 
         return (await response.json()) as T
       }
+
       type Row = {
         sessionId: string
         parentSessionId?: string
