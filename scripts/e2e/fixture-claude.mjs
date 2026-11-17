@@ -1,7 +1,6 @@
 #!/usr/bin/env node
-// The `claude` fixture-install.sh installs, as far as a sign-in needs it. Either way it signs
-// in, it shows Claude's authorize page and takes the code pasted back: `setup-token` then
-// prints a one-year token, `auth login` saves a credential where the real CLI keeps it.
+// The `claude` fixture-install.sh installs. Both sign-ins show Claude's authorize page and take
+// the code pasted back: `setup-token` prints a token, `auth login` saves a credential.
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'

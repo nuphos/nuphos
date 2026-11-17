@@ -75,6 +75,7 @@ export const installScenarios: Scenario[] = [
       await page.getByRole('button', { name: 'Submit code' }).click()
       await page.getByText('Signed in to Claude Code.').waitFor({ timeout: 60_000 })
       await shot(page, 'local-3-signed-in')
+      await page.getByRole('button', { name: 'Done' }).click()
       await page.getByText('Back to app', { exact: true }).click()
     },
   },
