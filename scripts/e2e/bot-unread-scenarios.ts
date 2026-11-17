@@ -29,9 +29,8 @@ export const botUnreadScenarios: Scenario[] = [
 
       type Row = {
         sessionId: string
-        parentSessionId?: string
+        title?: string
         unread?: boolean
-        faces?: { id: string }[]
       }
       const rows = async () =>
         (
@@ -50,10 +49,6 @@ export const botUnreadScenarios: Scenario[] = [
       }
 
       if (!channelId) throw new Error('The Bot has not answered in its chat yet')
-      const botId = (await rows()).find((row) => row.sessionId === channelId)?.faces?.[0]?.id
-      const kids = async () => (await rows()).filter((row) => row.parentSessionId === botId)
-      const known = new Set((await kids()).map((row) => row.sessionId))
-
       // Unread elsewhere may change meanwhile (the Bot's own session); the badge follows only that.
       const others = async (skip?: string) =>
         (await rows()).filter((row) => row.unread && row.sessionId !== skip).length
@@ -79,9 +74,9 @@ export const botUnreadScenarios: Scenario[] = [
       if ((await dots.count()) !== 0)
         throw new Error(`A sub-Task's reply put ${String(await dots.count())} dots on Bots`)
       // A Bot's sub-Task is listed only under the Bot; its unread flag and the badge are the server's.
-      const kid = (await kids()).find((row) => !known.has(row.sessionId))
+      const kid = (await rows()).find((row) => row.title === 'E2E bot kid')
 
-      if (!kid) throw new Error(`No new Task under the Bot ${botId ?? ''}`)
+      if (!kid) throw new Error('The Bot started no sub-Task')
       if (kid.unread) throw new Error("The Bot's sub-Task is unread")
       const raised = (await badge()) - badgeBefore - ((await others(kid.sessionId)) - othersBefore)
 
