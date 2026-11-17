@@ -1,6 +1,6 @@
 name: End-to-end
 
-# The Desktop app driven against a real backend, MongoDB and OpenAB, with a
+# The Desktop app driven against a real backend, MongoDB, file store and OpenAB, with a
 # deterministic agent in place of a model: `bun run e2e`, the same command a
 # contributor runs. Not a required check yet; see #2855.
 on:
@@ -58,9 +58,11 @@ jobs:
           (cd apps/backend && bun install --frozen-lockfile)
           (cd apps/desktop && pnpm install --frozen-lockfile)
       # The scenarios' 60 s wait for MongoDB must not include a cold image pull (#3102).
-      # Keep the tag in step with MONGO_IMAGE in scripts/e2e/stack.ts.
-      - name: Pull the MongoDB image
-        run: docker pull mongo:8.0.32
+      # Keep the tags in step with MONGO_IMAGE in scripts/e2e/stack.ts and STORAGE_IMAGE in storage.ts.
+      - name: Pull the MongoDB and file store images
+        run: |
+          docker pull mongo:8.0.32
+          docker pull rustfs/rustfs:1.0.0
       - name: Run the end-to-end scenarios
         env:
           E2E_ARTIFACTS: ${{ runner.temp }}/e2e

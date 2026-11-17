@@ -7,6 +7,7 @@ import { backendFailures, backendLines } from './backend-log.ts'
 import { bindingAccessScenarios } from './binding-access-scenarios.ts'
 import { channelScenarios } from './channel-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
+import { computerScenarios } from './computer-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
 import { startDesktop } from './desktop.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
@@ -218,6 +219,7 @@ const scenarios: Scenario[] = [
   ...runtimeScenarios,
   ...commandScenarios,
   ...threadScenarios,
+  ...computerScenarios,
   ...offlineScenarios,
   {
     // #2577: a Task under another has no permission mode of its own. The parent here is a
