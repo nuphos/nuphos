@@ -7,6 +7,7 @@ import { join, resolve } from 'node:path'
 import { agentLog } from './agent-log.ts'
 import { backendLines, backendLog } from './backend-log.ts'
 import { boxScenarios } from './box-scenarios.ts'
+import { browserDownloadScenarios } from './browser-download-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { transferRefundScenarios } from './transfer-refund-scenarios.ts'
 import { newTask, openComputers, send } from './ui.ts'
@@ -95,6 +96,15 @@ export const computerScenarios: Scenario[] = [
         other.addEventListener('open', opened)
         other.addEventListener('error', failed)
       })
+      // It takes the computer once it speaks, as an app does on connecting (#3366).
+      const speaking = backendLines()
+
+      other.send(JSON.stringify({ t: 'status', status: { agents: {} } }))
+      await until('the other connection to take the computer', async () =>
+        backendLog(speaking).some(
+          (line) => line.includes(deviceId!) && line.includes('"code":4000'),
+        ),
+      )
       const from = backendLines()
 
       forgetComputer(stack.mongoUri, deviceId!)
@@ -235,4 +245,5 @@ export const computerScenarios: Scenario[] = [
   },
   ...transferRefundScenarios,
   ...boxScenarios,
+  ...browserDownloadScenarios,
 ]

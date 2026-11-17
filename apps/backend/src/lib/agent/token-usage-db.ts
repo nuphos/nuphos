@@ -60,6 +60,13 @@ export type AgentTokenUsageRecord = {
   triggerId?: string
   triggerKind?: ConversationTriggerRunKind
   triggerFireId?: string
+  /** Who sent an agent-runtime turn: the human sender, or the owner when automated. */
+  actorUserId?: string
+  /** Where an agent-runtime turn came from: `app`, `slack.agent`, `agent.thread`, … */
+  turnSource?: string
+  /** The team runtime that ran the turn, and the member's computer when it was local. */
+  runtimeId?: string
+  deviceId?: string
   // Absent on rows written before pool accounting shipped.
   billing?: UsageBillingClass
   // Frozen when the call is recorded so exact cycle-boundary accounting does
