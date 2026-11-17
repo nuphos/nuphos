@@ -95,7 +95,13 @@ useDb({
               ? {}
               : null,
         ),
-      find: () => ({ sort: () => ({ toArray: () => Promise.resolve(history) }) }),
+      // The turn reads its recent window: sorted newest first and limited.
+      find: () => ({
+        sort: () => ({
+          toArray: () => Promise.resolve(history),
+          limit: () => ({ toArray: () => Promise.resolve([...history].reverse()) }),
+        }),
+      }),
     }),
   }),
 })
