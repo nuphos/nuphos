@@ -77,8 +77,9 @@ export const longTranscriptScenarios: Scenario[] = [
       storeHistory(stack.mongoUri, session.sessionId, session.userId)
       // Away and back, as a person returns to it: it catches up on what the server now holds.
       await newTask(page)
+      // On the new Task, its title shows only in the sidebar row.
       await page
-        .locator('span.truncate', { hasText: 'Open the long history E2E_DELIVERY:long-0' })
+        .getByText('Open the long history E2E_DELIVERY:long-0', { exact: true })
         .first()
         .click()
       await page.getByText(filler(EARLIER - 1), { exact: true }).waitFor()
