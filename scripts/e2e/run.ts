@@ -27,6 +27,7 @@ import { startStack } from './stack.ts'
 import { teammateBotScenarios } from './teammate-bot-scenarios.ts'
 import { threadModeScenario, threadScenarios } from './thread-scenarios.ts'
 import { triggerScenarios } from './trigger-scenarios.ts'
+import { tunnelScenarios } from './tunnel-scenarios.ts'
 import { newTask, send } from './ui.ts'
 import { usageScenarios } from './usage-scenarios.ts'
 
@@ -241,6 +242,8 @@ const scenarios: Scenario[] = [
   ...dashboardScenarios,
   // It leaves the window split, then closes a pane.
   ...splitPaneScenarios,
+  // A second computer of its own, which it stops again.
+  ...tunnelScenarios,
   // Last: this computer has Claude Code from then on.
   ...installScenarios,
 ]
