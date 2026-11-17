@@ -286,3 +286,12 @@ test('a turn without model rows falls back to its usage and the picked model', a
 
   expect(inserted.find((row) => row.kind === 'step_total')?.modelId).toBe('claude-opus-5')
 })
+
+test('a quota whose models report nothing countable falls back to its usage', async () => {
+  await writeRuntimeTurnUsage({
+    ...turn,
+    quota: { token_count: {}, model_usage: [{ model: 'claude-haiku-5', token_count: {} }] },
+  })
+
+  expect(inserted.find((row) => row.kind === 'step_total')?.modelId).toBe('claude-opus-5')
+})

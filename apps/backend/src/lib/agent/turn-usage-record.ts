@@ -114,21 +114,18 @@ function quotaModelTokens(quota: unknown): { modelId: string; tokens: AgentToken
 
       if (typeof entry?.model !== 'string' || !entry.model || !count) return []
 
-      return [
-        {
-          modelId: entry.model,
-          tokens: acpUsageTokens({
-            inputTokens: count.inputTokens,
-            cachedReadTokens: count.cachedInputTokens,
-            cachedWriteTokens: count.cachedWriteTokens,
-            outputTokens: count.outputTokens,
-            // Claude always sends 0 here: its thinking is billed inside the output.
-            thoughtTokens:
-              count.reasoningOutputTokens === 0 ? undefined : count.reasoningOutputTokens,
-            totalTokens: count.totalTokens,
-          }),
-        },
-      ]
+      const tokens = acpUsageTokens({
+        inputTokens: count.inputTokens,
+        cachedReadTokens: count.cachedInputTokens,
+        cachedWriteTokens: count.cachedWriteTokens,
+        outputTokens: count.outputTokens,
+        // Claude always sends 0 here: its thinking is billed inside the output.
+        thoughtTokens: count.reasoningOutputTokens === 0 ? undefined : count.reasoningOutputTokens,
+        totalTokens: count.totalTokens,
+      })
+
+      // A model with nothing countable is left out, so a quota with none falls back to `usage`.
+      return Object.keys(tokens).length ? [{ modelId: entry.model, tokens }] : []
     },
   )
 }
