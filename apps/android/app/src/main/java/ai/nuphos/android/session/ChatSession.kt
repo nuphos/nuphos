@@ -279,7 +279,7 @@ class ChatSession(
 
     suspend fun moveAgent(target: ai.nuphos.android.data.AgentRuntime) {
         check(canMoveAgent) { Words(R.string.convtext_move_wait) }
-        require(target.selectable && (isOwner || target.kind == "managed")) { Words(R.string.convtext_move_choose_runtime) }
+        require(target.selectable && isOwner) { Words(R.string.convtext_move_choose_runtime) }
         if (target.id == runtimeId) return
         movingAgent = true
         transportGeneration++
