@@ -1,6 +1,5 @@
-// Scenarios about a Bot row's unread dot, in the chat of the Bot an earlier scenario created.
-// After the runtime scenarios: delegating runs the second agent, which they expect unused.
-import { agentLog } from './agent-log.ts'
+// Scenarios about a Bot row's unread dot. They run in the Bot chat the scenarios before opened.
+import { agentEvents, agentLog } from './agent-log.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
 
@@ -16,12 +15,14 @@ export const botUnreadScenarios: Scenario[] = [
       // The Bot's chat row and its sub-Task rows; a teammate's group chat may be unread too.
       const dots = bots
         .locator('[data-sidebar-row]')
-        .filter({ hasText: /E2E Bot|E2E child/ })
+        .filter({ hasText: /E2E Bot|E2E bot kid/ })
         .locator('[aria-label="Unread reply"]')
-      const replies = () =>
-        agentLog(stack).filter(
-          (entry) => entry.event === 'finish' && entry.marker === 'E2E_DELIVERY:child',
-        ).length
+      // The same agent, not the second one: the runtime scenarios expect that one unused.
+      const thread = JSON.stringify({
+        label: 'Hand off',
+        title: 'E2E bot kid',
+        prompt: 'Reply E2E_DELIVERY:bot-kid',
+      })
       const get = async <T>(path: string): Promise<T> => {
         const response = await fetch(`${stack.apiUrl}${path}`, {
           headers: { authorization: `Bearer ${stack.token}` },
@@ -54,9 +55,6 @@ export const botUnreadScenarios: Scenario[] = [
       }
 
       if (!channelId) throw new Error('The Bot has not answered in its chat yet')
-      await page.getByRole('tab', { name: 'Bots' }).click()
-      await bots.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first().click()
-      const before = replies()
       const botId = (await rows()).find((row) => row.sessionId === channelId)?.faces?.[0]?.id
       const kids = async () => (await rows()).filter((row) => row.parentSessionId === botId)
       const known = new Set((await kids()).map((row) => row.sessionId))
@@ -70,10 +68,21 @@ export const botUnreadScenarios: Scenario[] = [
       const othersBefore = await others()
 
       // Read in place: the Bot's own post here is read, its sub-Task's reply is not.
-      await send(page, 'Hand this off E2E_DELEGATE E2E_DELIVERY:bot-handoff')
+      await send(page, `Hand this off E2E_CALL create_thread ${thread} E2E_DELIVERY:bot-handoff`)
       await page.getByText('POSTED E2E_DELIVERY:bot-handoff', { exact: true }).waitFor()
-      await until('the sub-Task to reply', async () => replies() > before)
+      await until('the sub-Task to reply', async () =>
+        agentEvents(stack).includes('finish E2E_DELIVERY:bot-kid'),
+      )
       await newTask(page)
+      // Its own row on Tasks has no dot either.
+      await page.waitForTimeout(5_000)
+      const tasks = page.getByRole('tabpanel', { name: 'Tasks' })
+      const kidRow = tasks.locator('[data-sidebar-row]').filter({ hasText: 'E2E bot kid' })
+
+      await kidRow.first().waitFor()
+      await shot('bot-unread-tasks-light')
+      if ((await kidRow.locator('[aria-label="Unread reply"]').count()) > 0)
+        throw new Error("The Bot's sub-Task has an unread dot on Tasks")
       await page.getByRole('tab', { name: 'Bots' }).click()
       // Long enough for the list to bring the sub-Task's reply.
       await page.waitForTimeout(5_000)

@@ -78,6 +78,7 @@ const scenarios: Scenario[] = [
     },
   },
   ...channelScenarios,
+  ...botUnreadScenarios,
   ...teammateBotScenarios,
   {
     name: 'start a Task, send a message and read the reply',
@@ -228,7 +229,6 @@ const scenarios: Scenario[] = [
   ...connectorScenarios,
   ...accessScenarios,
   ...runtimeScenarios,
-  ...botUnreadScenarios,
   ...computerScenarios,
   ...commandScenarios,
   ...threadScenarios,
