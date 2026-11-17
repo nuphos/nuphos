@@ -160,7 +160,7 @@ export function JournalSidePanel({
           <div className="py-8 text-center text-xs text-tertiary">{t('Loading journal…')}</div>
         ) : !data || data.events.length === 0 ? (
           <div className="py-8 text-center text-xs text-tertiary">
-            {t('No journal events yet — they appear as the agent works.')}
+            {t('No journal events yet — they appear as the task works.')}
           </div>
         ) : (
           <JournalTimeline

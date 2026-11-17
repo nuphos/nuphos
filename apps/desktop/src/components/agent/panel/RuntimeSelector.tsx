@@ -187,7 +187,7 @@ export function RuntimeSelector({
       <Menu open={open} onOpenChange={setOpen}>
         <MenuTrigger
           data-keep=""
-          aria-label={t('Agent runtime: {label}', { label })}
+          aria-label={t('Runtime: {label}', { label })}
           title={`${label} · ${providerName}`}
           className={`${classes} transition-colors hover:bg-state-hover hover:text-main`}
         >

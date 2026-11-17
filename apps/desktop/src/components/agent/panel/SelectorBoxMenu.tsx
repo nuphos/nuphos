@@ -246,7 +246,7 @@ export function SelectorBoxMenu({
             <MenuSubmenuTrigger chevron={<ChevronRight className="h-3 w-3" />}>
               <span className="flex items-center gap-2 text-secondary">
                 <LogIn className="h-3.5 w-3.5" />
-                {t('Sign in to another agent…')}
+                {t('Sign in to another runtime…')}
               </span>
             </MenuSubmenuTrigger>
             <MenuContent className="w-72">

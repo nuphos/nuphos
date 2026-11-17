@@ -8,7 +8,7 @@ import { TeammatePicker } from './TeammatePicker'
 import type { Pickable } from './PersonFace'
 
 function addLabel(count: number, chat: boolean) {
-  if (count === 0) return chat ? t('Add to chat') : t('Add to agent')
+  if (count === 0) return chat ? t('Add to chat') : t('Add to task')
 
   return count === 1 ? t('Add 1 person') : t('Add {n} people', { n: String(count) })
 }
@@ -52,7 +52,7 @@ export function InviteSection({
       {chat && (
         <div className="px-1 text-[12px] leading-snug text-tertiary">
           {t(
-            'Adding your agent lets everyone here talk to it. Anything that needs approval still waits for you in its session.',
+            'Adding your Bot lets everyone here talk to it. Anything that needs approval still waits for you in its own chat.',
           )}
         </div>
       )}

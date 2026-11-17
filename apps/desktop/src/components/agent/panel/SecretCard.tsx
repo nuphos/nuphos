@@ -78,7 +78,7 @@ export function SecretCard({
         {phase === 'outdated' && (
           <div className="mt-1.5 text-[12px] text-status-warning">
             {t(
-              'The computer running this agent needs a newer Nuphos Desktop to save a secret. Update Nuphos Desktop there, then ask the agent again.',
+              'The computer running this task needs a newer Nuphos Desktop to save a secret. Update Nuphos Desktop there, then ask again.',
             )}
           </div>
         )}
@@ -108,14 +108,14 @@ export function SecretCard({
         )}
         {phase === 'error' && (
           <div className="mt-1.5 text-[12px] text-status-danger">
-            {t("Could not save it on the agent's runtime. Try again.")}
+            {t('Could not save it on the runtime. Try again.')}
           </div>
         )}
         {!outdated && <SecretBlocked state={ctx?.saveSecret ? state : 'notOwner'} />}
         {!outdated && (
           <div className="mt-1.5 text-[11.5px] text-tertiary">
             {t(
-              "The value is written to a file on the agent's runtime and never appears in this conversation.",
+              'The value is written to a file on the runtime and never appears in this conversation.',
             )}
           </div>
         )}
@@ -139,8 +139,8 @@ function SecretDone({
       <Lock className="mr-1.5 inline size-3.5 align-[-2px]" aria-hidden />
       <span className="mr-1.5 font-mono">{name}</span>
       {saved
-        ? t("Saved on the agent's runtime.")
-        : t('This request is closed. Ask the agent to request the secret again.')}
+        ? t('Saved on the runtime.')
+        : t('This request is closed. Ask again in the chat for the secret.')}
     </div>
   )
 }
@@ -151,9 +151,9 @@ function SecretBlocked({ state }: { state: CardAnswerState | 'notOwner' }) {
     open: null,
     notOwner: t('Only the owner of this conversation can provide this secret.'),
     offline: t(
-      "The agent's runtime isn't reachable. Wake or reconnect the computer it runs on to send this.",
+      "The runtime isn't reachable. Wake or reconnect the computer it runs on to send this.",
     ),
-    busy: t('The agent is working. You can send this when its turn ends.'),
+    busy: t('Still working. You can send this when the turn ends.'),
     // A closed request shows as one line instead.
     closed: null,
   }[state]
