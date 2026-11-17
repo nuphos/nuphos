@@ -21,7 +21,6 @@ import { toast } from '../ui/toast'
 
 import { botOfChannel, ownsBot } from './botChannel'
 import { BotDesktopButton } from './BotDesktopButton'
-import { BotModelControl } from './BotModelControl'
 import { BotStatusPill } from './BotStatusPill'
 import { BotTaskButton } from './BotTaskButton'
 import { BotTriggers } from './BotTriggers'
@@ -88,7 +87,6 @@ export function ChannelPane({
   const firstReplyFailed =
     detail?.timelineEvents?.some((event) => event.kind === 'agent_reply_failed') ?? false
   const botOwned = ownsBot(teamId, bot, user.id, detail && agents)
-  const botProvider = agents.find((agent) => agent.sessionId === bot)?.provider
   const manage = fixes?.onOpenAgentSettings
   const control = useBotRuntimeControl(teamId, bot, botOwned, user, botState, refresh, manage)
   const sessions = useAgentSessions(teamId).data
@@ -171,7 +169,7 @@ export function ChannelPane({
     <FileDropZone target={dropRef} className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div
         className={clsx(
-          'workspace-agent-titlebar sheet-titlebar-row @container/titlebar relative flex flex-shrink-0 items-center gap-2 pl-3',
+          'workspace-agent-titlebar sheet-titlebar-row relative flex flex-shrink-0 items-center gap-2 pl-3',
           titlebarClassName,
           dockOpen ? 'pr-3' : 'pr-12',
         )}
@@ -197,13 +195,10 @@ export function ChannelPane({
         </div>
         {bot && <BotTriggers key={bot} teamId={teamId} botId={bot} />}
         {bot && canOpenTask && (
-          <>
-            <BotModelControl teamId={teamId} botId={bot} provider={botProvider} owned={botOwned} />
-            <BotTaskButton
-              provider={botProvider}
-              onClick={() => (onOpenTask ?? onOpenSession)(bot)}
-            />
-          </>
+          <BotTaskButton
+            provider={agents.find((agent) => agent.sessionId === bot)?.provider}
+            onClick={() => (onOpenTask ?? onOpenSession)(bot)}
+          />
         )}
         {bot && canOpenBotDesktop && <BotDesktopButton teamId={teamId} botId={bot} />}
         {/* A Bot's 1:1 chat stays the two of you; a group chat starts from "+" on Bots. */}
