@@ -6,7 +6,7 @@ import { composioAuthConfigId, composioRequest as call } from '@/lib/composio'
 import { AppError } from '@/lib/errors'
 import { personalCredentialPendingOAuth } from '@/models'
 
-import { SCOPES } from './google'
+import { googleScopes } from './google'
 
 import type { GoogleProvider } from './google'
 import type { PersonalCredentialPendingOAuth } from '@/models'
@@ -36,7 +36,7 @@ const PROFILE: Record<
     toolkit: 'googlecalendar',
     tool: 'GOOGLECALENDAR_GET_CURRENT_USER',
     email: (d) => (d as { email?: unknown }).email,
-    scopes: [SCOPES['google-calendar']],
+    scopes: [googleScopes('google-calendar')],
   },
 }
 

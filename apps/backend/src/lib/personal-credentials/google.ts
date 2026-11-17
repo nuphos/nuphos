@@ -1,6 +1,6 @@
-// Google OAuth for the Gmail, Google Drive and Google Calendar Personal
-// Credentials. Each team brings its own OAuth client (Team settings); each
-// provider is its own grant with one scope, issued by the team's client.
+// Google OAuth for the Gmail and Google Drive Personal Credentials. Each team
+// brings its own OAuth client (Team settings); each provider is its own grant
+// with its own scopes, issued by the team's client.
 import { config } from '@/config'
 import { decryptLinearSecret } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
@@ -19,12 +19,21 @@ export const GOOGLE_PROVIDERS: readonly GoogleProvider[] = [
   'google-calendar',
 ]
 
-export const SCOPES: Record<GoogleProvider, string> = {
-  gmail: 'https://www.googleapis.com/auth/gmail.modify',
+const SCOPES: Record<GoogleProvider, string> = {
+  // settings.basic covers filters, which gmail.modify does not; contacts.readonly
+  // lets the agent look up who to write to.
+  gmail: [
+    'https://www.googleapis.com/auth/gmail.modify',
+    'https://www.googleapis.com/auth/gmail.settings.basic',
+    'https://www.googleapis.com/auth/contacts.readonly',
+  ].join(' '),
   'google-drive': 'https://www.googleapis.com/auth/drive',
   // Events only: no calendar sharing, ACLs or calendar management.
   'google-calendar': 'https://www.googleapis.com/auth/calendar.events',
 }
+
+/** The scopes a provider's grant asks Google for, space-separated. */
+export const googleScopes = (provider: GoogleProvider) => SCOPES[provider]
 
 const AUTHORIZE_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 const TOKEN_URL = 'https://oauth2.googleapis.com/token'
