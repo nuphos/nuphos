@@ -173,28 +173,48 @@ export const channelScenarios: Scenario[] = [
     },
   },
   {
-    // #3309: Switch runtime in a Bot's own failed turn also opened its chat's list, underneath.
-    name: "Switch runtime on a Bot's failed turn opens one runtime list",
-    run: async (page) => {
-      await send(page, 'Out of usage E2E_USAGE_LIMIT E2E_DELIVERY:bot-usage')
-      await page.getByRole('button', { name: 'Task', exact: true }).click()
-      const task = page.locator('.t-bot-task-mode')
+    // #3319: a Bot's chat kept a name of its own, so a renamed Bot still showed its old one.
+    name: "renaming a Bot's chat renames the Bot, and every place it shows follows",
+    run: async (page, stack) => {
+      const channelId = agentLog(stack).find((entry) => entry.event === 'channel')?.detail
+      const rename = async (title: string) => {
+        const response = await fetch(
+          `${stack.apiUrl}/agent/conversations/${channelId ?? ''}/title`,
+          {
+            method: 'PATCH',
+            headers: {
+              authorization: `Bearer ${stack.token}`,
+              'content-type': 'application/json',
+            },
+            body: JSON.stringify({ teamId: stack.teamId, title }),
+          },
+        )
 
-      await task.getByText('You’ve hit your usage limit').last().waitFor()
-      await task.getByRole('button', { name: 'Switch runtime' }).click()
-      const lists = page.getByRole('menu')
+        if (!response.ok) throw new Error(`Renaming failed: ${String(response.status)}`)
+      }
 
-      await lists.first().waitFor()
-      // Long enough for a second list to have opened, had there been one.
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      await page.screenshot({ path: `${artifacts}/bot-turn-switch-runtime-light.png` })
-      const open = await lists.count()
+      if (!channelId) throw new Error('The Bot has not answered in its chat yet')
+      await rename('E2E Scout')
+      try {
+        const rows = page.locator('[data-sidebar-row]')
 
-      await page.keyboard.press('Escape')
-      await task.getByRole('button', { name: 'Back to conversation' }).click()
-      // The next scenario starts in the Bot chat, with its composer the only one.
-      await task.waitFor({ state: 'detached' })
-      if (open !== 1) throw new Error(`Switch runtime opened ${String(open)} runtime lists`)
+        await rows.filter({ hasText: 'E2E Scout' }).first().waitFor()
+        await page.locator('.workspace-agent-titlebar').getByText('E2E Scout').first().waitFor()
+        await page.getByText('Message E2E Scout', { exact: true }).waitFor()
+        await page.locator('[data-post-id]').filter({ hasText: 'E2E Scout' }).first().waitFor()
+        await page.evaluate(() => {
+          document.documentElement.classList.remove('dark')
+          document.documentElement.classList.add('light')
+        })
+        await page.screenshot({ path: `${artifacts}/bot-renamed-light.png` })
+        const stale = await rows.filter({ hasText: 'E2E Bot' }).count()
+
+        if (stale > 0) throw new Error(`${String(stale)} sidebar rows still show the old name`)
+      } finally {
+        // Later scenarios find the Bot by its name.
+        await rename('E2E Bot')
+      }
+      await page.getByText('Message E2E Bot', { exact: true }).waitFor()
     },
   },
   {
