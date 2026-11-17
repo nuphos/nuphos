@@ -44,7 +44,7 @@ struct PlanCard: View {
 
     private func header(_ plan: Plan) -> some View {
         HStack(alignment: .top, spacing: 8) {
-            Image(systemName: "list.clipboard").font(Theme.Text.secondary.weight(.semibold)).foregroundStyle(Theme.body)
+            LucideIcon("clipboard-list").font(Theme.Text.secondary.weight(.semibold)).foregroundStyle(Theme.body)
             VStack(alignment: .leading, spacing: 2) {
                 Text(plan.number.map { String(localized: "Plan #\($0)") } ?? String(localized: "Plan #\(plan.id)")).font(Theme.Text.micro.weight(.semibold)).foregroundStyle(Theme.muted)
                 Text(plan.title).font(Theme.Text.body.weight(.semibold)).foregroundStyle(Theme.heading)
@@ -91,9 +91,9 @@ struct PlanCard: View {
     private func commandStatus(_ status: String?) -> some View {
         switch status {
         case "running": ProgressView().controlSize(.mini)
-        case "done": Image(systemName: "checkmark.circle.fill").font(Theme.Text.caption).foregroundStyle(.green)
-        case "failed": Image(systemName: "xmark.circle.fill").font(Theme.Text.caption).foregroundStyle(.red)
-        default: Image(systemName: "circle").font(Theme.Text.caption).foregroundStyle(Theme.muted)
+        case "done": LucideIcon("circle-check").font(Theme.Text.caption).foregroundStyle(Theme.success)
+        case "failed": LucideIcon("circle-x").font(Theme.Text.caption).foregroundStyle(.red)
+        default: LucideIcon("circle").font(Theme.Text.caption).foregroundStyle(Theme.muted)
         }
     }
 
@@ -167,7 +167,7 @@ struct PlanStepDisclosureStyle: DisclosureGroupStyle {
                 HStack {
                     configuration.label
                     Spacer(minLength: 8)
-                    Image(systemName: configuration.isExpanded ? "chevron.down" : "chevron.right")
+                    LucideIcon(systemName: configuration.isExpanded ? "chevron.down" : "chevron.right")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(Theme.muted)
                 }

@@ -54,7 +54,7 @@ struct AgentSetupView: View {
         Form {
             signIn(runtime)
             if let error {
-                Section { Label(error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red).font(.footnote) }
+                Section { Label(error, image: "lucide-triangle-alert").foregroundStyle(.red).font(.footnote) }
             }
         }
         .navigationTitle(runtime.label)
@@ -94,7 +94,7 @@ struct AgentSetupView: View {
                 ZStack(alignment: .bottomTrailing) {
                     ProviderIcon(provider: runtime.provider, size: 64)
                     if connected {
-                        Image(systemName: "checkmark.circle.fill")
+                        LucideIcon("circle-check")
                             .font(.system(size: 22))
                             .foregroundStyle(.white, .green)
                             .background(Circle().fill(Theme.canvas).padding(-2))
@@ -106,7 +106,7 @@ struct AgentSetupView: View {
                     .font(.title3.weight(.semibold))
                 Text(headline(runtime))
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.body)
                     .multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity)
@@ -129,7 +129,7 @@ struct AgentSetupView: View {
                         HStack {
                             Text(userCode).font(.title2.monospaced().weight(.semibold)).textSelection(.enabled)
                             Spacer()
-                            Button(copied ? "Copied" : "Copy", systemImage: copied ? "checkmark" : "doc.on.doc") {
+                            DesignButton(copied ? "Copied" : "Copy", image: copied ? "lucide-check" : "lucide-copy") {
                                 UIPasteboard.general.string = userCode
                                 copied = true
                             }
@@ -217,7 +217,7 @@ struct AgentSetupView: View {
                         HStack {
                             Text(option.label).foregroundStyle(Theme.heading)
                             Spacer()
-                            if let hint = option.hint { Text(hint).font(.footnote).foregroundStyle(.secondary) }
+                            if let hint = option.hint { Text(hint).font(.footnote).foregroundStyle(Theme.body) }
                         }
                         .contentShape(Rectangle())
                     }
