@@ -8,18 +8,21 @@ import { agentWordScenarios } from './agent-word-scenarios.ts'
 import { backendFailures, backendLines } from './backend-log.ts'
 import { checkDecisionOutline, checkOutgoingChip } from './chat-presentation.ts'
 import { channelScenarios } from './channel-scenarios.ts'
+import { channelAwayScenarios } from './channel-away-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
 import { dashboardScenarios } from './dashboard-scenarios.ts'
 import { installScenarios } from './install-scenarios.ts'
 import { startDesktop } from './desktop.ts'
+import { formScenario } from './form-scenario.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
 import { questionScenarios } from './question-scenarios.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
 import { sidebarScenarios } from './sidebar-scenarios.ts'
 import { signInScenarios } from './sign-in-scenarios.ts'
+import { splitPaneScenarios } from './split-pane-scenarios.ts'
 import { startStack } from './stack.ts'
 import { teammateBotScenarios } from './teammate-bot-scenarios.ts'
 import { threadModeScenario, threadScenarios } from './thread-scenarios.ts'
@@ -78,6 +81,7 @@ const scenarios: Scenario[] = [
     },
   },
   ...channelScenarios,
+  ...channelAwayScenarios,
   ...teammateBotScenarios,
   {
     name: 'start a Task, send a message and read the reply',
@@ -235,6 +239,8 @@ const scenarios: Scenario[] = [
   threadModeScenario,
   // It removes a member from the team.
   ...dashboardScenarios,
+  // It leaves the window split, then closes a pane.
+  ...splitPaneScenarios,
   // Last: this computer has Claude Code from then on.
   ...installScenarios,
 ]
@@ -248,11 +254,11 @@ try {
 
   desktop = await startDesktop(stack.apiUrl)
   desktop.page.setDefaultTimeout(30_000)
-  for (const [index, scenario] of scenarios.entries()) {
+  for (const [index, scenario] of [...scenarios, formScenario].entries()) {
     const from = backendLines()
 
     await scenario.run(desktop.page, stack)
-    const failures = backendFailures(from)
+    const failures = backendFailures(from, scenario.expected)
 
     await desktop.page.screenshot({ path: `${artifacts}/${String(index + 1)}.png` })
     if (failures.length > 0)

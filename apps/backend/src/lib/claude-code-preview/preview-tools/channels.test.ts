@@ -143,6 +143,21 @@ test('an agent opens a channel as its owner and invites teammates', async () => 
   })
 })
 
+// A named chat with the Bot alone would be its 1:1 chat, which is called by the Bot.
+test('a chat an agent opens and names is a group, even with no one else in it', async () => {
+  const result = await tools('agent-a').channel_create?.({
+    label: 'x',
+    name: 'Launch',
+    people: ['owner'],
+  })
+  const { channelId } = (result as { structuredContent: { channelId: string } }).structuredContent
+
+  expect(await agentConversations().findOne({ sessionId: channelId })).toMatchObject({
+    title: 'Launch',
+    group: true,
+  })
+})
+
 test('only teammates and the owner’s own agents can be brought in', async () => {
   const before = (await channels()).length
   const outsider = await tools('agent-a').channel_create?.({

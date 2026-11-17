@@ -509,8 +509,24 @@ describe('agent device routes', () => {
       available: () => true,
       state: async (device, online) =>
         !device.box?.sandboxId ? 'creating' : online ? 'running' : machineState,
+      // instabox paused `evicted` on its own, its host out of memory.
+      pausedBy: async (device) => (device.deviceId === 'evicted' ? 'memory_pressure' : undefined),
     }
   }
+
+  test('a Box instabox paused on its own says why; one its owner paused does not', async () => {
+    machineState = 'paused'
+    devices[key('user-1', 'evicted')] = boxDevice('user-1', 'evicted')
+    devices[key('user-1', 'b1')] = boxDevice('user-1', 'b1')
+    const body = (await (
+      await buildApp(fakeBox([])).request('/agent/devices?teamId=team-1')
+    ).json()) as { devices: { deviceId: string; box?: Record<string, unknown> }[] }
+    const boxOf = (id: string) => body.devices.find((device) => device.deviceId === id)?.box
+
+    expect(boxOf('evicted')).toMatchObject({ state: 'paused', pausedBy: 'memory_pressure' })
+    expect(boxOf('b1')).toMatchObject({ state: 'paused' })
+    expect(boxOf('b1')).not.toHaveProperty('pausedBy')
+  })
 
   test('PUT /agent/devices never rewrites a Box row, even for its creator', async () => {
     devices[key('user-1', 'b1')] = boxDevice('user-1', 'b1')

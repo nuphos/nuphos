@@ -49,7 +49,7 @@ struct InboxQuestionView: View {
                 }
                 if wide || question.options == nil { answers.padding(.top, 24) }
                 if let failure = inbox.failures[question.id] {
-                    Label("Couldn't send the answer · \(failure)", systemImage: "exclamationmark.circle")
+                    Label("Couldn't send the answer · \(failure)", image: "lucide-circle-alert")
                         .font(Theme.Text.caption)
                         .foregroundStyle(.red)
                         .padding(.top, 12)
@@ -97,7 +97,7 @@ struct InboxQuestionView: View {
         .toolbar {
             if !wide {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Open \(question.title)", systemImage: "arrow.up.right") { open(link: question.link(team: inbox.teamId)) }
+                    DesignButton("Open \(question.title)", image: "lucide-arrow-up-right") { open(link: question.link(team: inbox.teamId)) }
                 }
             }
         }
@@ -273,7 +273,7 @@ struct QuestionSource: View {
                         .fontWeight(prominent ? .medium : .regular)
                         .foregroundStyle(prominent ? Theme.heading : Theme.muted)
                     if prominent {
-                        Image(systemName: "arrow.up.right").font(.system(size: 11, weight: .semibold))
+                        LucideIcon("arrow-up-right").font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(Theme.heading)
                     }
                 }
@@ -309,7 +309,7 @@ struct AnswerField: View {
                 .background(Theme.chatCanvas, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Theme.faint, lineWidth: 1))
             Button(action: send) {
-                Image(systemName: "arrow.up")
+                LucideIcon("arrow-up")
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(Theme.chatCanvas)
                     .frame(width: 44, height: 44)
