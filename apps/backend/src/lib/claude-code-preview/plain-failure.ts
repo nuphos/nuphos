@@ -15,9 +15,9 @@ const MODEL_UNAVAILABLE =
   /Invalid model name passed in model=|not_found_error[^}]*"model: |model_not_found|The model `[^`]+` does not exist/iu
 /**
  * Node's refusal to start the agent's CLI: missing, not executable, not a program (npm's
- * placeholder claude.exe before its postinstall ran), or a Windows .cmd spawned without a shell.
+ * placeholder claude.exe before its postinstall ran, which Windows reports as UNKNOWN), or a Windows .cmd spawned without a shell.
  */
-const AGENT_CLI_UNSTARTABLE = /\bspawn (?:EINVAL|ENOENT|EACCES|EFTYPE)\b/u
+const AGENT_CLI_UNSTARTABLE = /\bspawn (?:EINVAL|ENOENT|EACCES|UNKNOWN)\b/u
 
 /** The sentence for each failure the user's own setup caused. */
 export const USER_SETUP_MESSAGE = {

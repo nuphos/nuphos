@@ -47,7 +47,7 @@ const ok =
   expected === 'einval'
     ? cli.toLowerCase().endsWith('.cmd') && result.error === 'EINVAL'
     : expected === 'unstartable'
-      ? ['EINVAL', 'ENOENT', 'EACCES', 'EFTYPE'].includes(result.error ?? '')
+      ? ['EINVAL', 'ENOENT', 'EACCES', 'UNKNOWN'].includes(result.error ?? '')
       : cli.toLowerCase().endsWith('claude.exe') &&
         result.code === 0 &&
         /Claude Code/u.test(result.stdout)

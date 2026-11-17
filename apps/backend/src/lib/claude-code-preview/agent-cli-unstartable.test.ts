@@ -24,7 +24,7 @@ test('Node’s spawn error code never reaches the user', () => {
 
 test("npm's placeholder claude.exe, before its postinstall ran, gets the same sentence", () => {
   const placeholder = new OpenAbRpcError(
-    '**Internal Error** (code: -32603)\nInternal error\n> spawn EFTYPE',
+    '**Internal Error** (code: -32603)\nInternal error\n> spawn UNKNOWN',
     -32603,
     { code: -32603, message: 'Internal error' },
   )
