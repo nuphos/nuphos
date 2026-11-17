@@ -266,6 +266,9 @@ const scenarios: Scenario[] = [
   ...dashboardScenarios,
 ]
 
+// Evidence only (#3299): sign in, then the computer scenarios.
+scenarios.splice(0, scenarios.length, ...signInScenarios, ...computerScenarios)
+
 let desktop: Desktop | undefined
 let failed = false
 
