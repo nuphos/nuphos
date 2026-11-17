@@ -150,10 +150,14 @@ export async function syncConversationTranscriptUnlocked(
  * parts it cannot represent (an attachment-only message, a steering receipt),
  * so it never rewrites or deletes a stored message. Returns the stored count.
  */
+// The added messages' tool calls are the turn's own, so their runtime results are recent.
+const TOOL_RESULT_WINDOW = 500
+
 /** Stored parts of the tool calls `messages` carry, whose runtime results they must keep. */
 async function storedToolParts(
   scope: { userId: string; sessionId: string },
   messages: ConversationTranscriptSync['messages'],
+  nextIndex: number,
 ): Promise<unknown[]> {
   const ids = messages.flatMap((message) =>
     message.parts.flatMap((part) => {
@@ -165,7 +169,15 @@ async function storedToolParts(
 
   if (ids.length === 0) return []
   const stored = await agentMessages()
-    .find({ ...scope, 'parts.toolCallId': { $in: ids } }, { projection: { parts: 1 } })
+    .find(
+      // Bounded by index: toolCallId is not indexed, and a long session holds tens of thousands.
+      {
+        ...scope,
+        index: { $gte: nextIndex - TOOL_RESULT_WINDOW },
+        'parts.toolCallId': { $in: ids },
+      },
+      { projection: { parts: 1 } },
+    )
     .toArray()
 
   return stored.flatMap((message) => message.parts ?? [])
@@ -190,13 +202,14 @@ export async function appendTranscriptMessages(
       agentMessages().countDocuments(scope),
     ])
     const storedIds = new Set(stored.map((message) => message.messageId))
+    const offset = (last?.index ?? -1) + 1
     const added = { ...data, messages: data.messages.filter((m) => !storedIds.has(m.id)) }
     const writes = await messageWrites(added, {
       attribution: new Map(),
-      runtimeToolParts: await storedToolParts(scope, added.messages),
+      runtimeToolParts: await storedToolParts(scope, added.messages, offset),
       storedAt: new Map(),
       now,
-      offset: (last?.index ?? -1) + 1,
+      offset,
     })
 
     if (writes.length > 0) await agentMessages().bulkWrite(writes, { ordered: false })

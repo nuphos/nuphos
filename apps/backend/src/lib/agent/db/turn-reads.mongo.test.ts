@@ -122,4 +122,54 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('a turn on a long session', () =>
       messageCount: HISTORY + 1,
     })
   })
+
+  test("a turn's reply with tool calls keeps their runtime results, read from the recent messages", async () => {
+    // The runtime reported this turn's tool call as failed while the turn ran.
+    await agentMessages().insertOne({
+      sessionId: SESSION,
+      userId: OWNER,
+      messageId: 'runtime-report',
+      index: HISTORY + 1,
+      role: 'assistant',
+      parts: [
+        {
+          type: 'tool-bash',
+          toolCallId: 'call-1',
+          runtimeResult: true,
+          state: 'output-error',
+          errorText: 'killed',
+        },
+      ],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as never)
+    const read = await documentsRead(() =>
+      appendTranscriptMessages({
+        sessionId: SESSION,
+        userId: OWNER,
+        teamId: TEAM,
+        title: '',
+        firstMessage: 'next',
+        messages: [
+          {
+            id: 'reply',
+            role: 'assistant',
+            parts: [{ type: 'tool-bash', toolCallId: 'call-1', state: 'output-available' }],
+          },
+        ],
+        preserveTitle: true,
+      }),
+    )
+
+    console.log(
+      `documents read for a ${String(HISTORY)}-message append with a tool call: ${String(read)}`,
+    )
+    expect(read).toBeLessThanOrEqual(BOUND)
+    expect(await agentMessages().findOne({ sessionId: SESSION, messageId: 'reply' })).toMatchObject(
+      {
+        index: HISTORY + 2,
+        parts: [expect.objectContaining({ toolCallId: 'call-1', state: 'output-error' })],
+      },
+    )
+  })
 })
