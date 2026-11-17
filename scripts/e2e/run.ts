@@ -17,6 +17,7 @@ import { offlineScenarios } from './offline-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
 import { questionScenarios } from './question-scenarios.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
+import { sidebarScenarios } from './sidebar-scenarios.ts'
 import { signInScenarios } from './sign-in-scenarios.ts'
 import { startStack } from './stack.ts'
 import { teammateBotScenarios } from './teammate-bot-scenarios.ts'
@@ -29,6 +30,7 @@ import type { Scenario } from './ui.ts'
 
 const scenarios: Scenario[] = [
   ...signInScenarios,
+  ...sidebarScenarios,
   {
     // The flow #3012 was reported in: the sidebar is on Bots, the page a new team opens on.
     // The connector's CLI (`aws`) has to be on the PATH for the dialog to offer the agent.
