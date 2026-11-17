@@ -8,7 +8,7 @@ import { agentLog } from './agent-log.ts'
 import { backendLines, backendLog } from './backend-log.ts'
 import { artifacts, until } from './processes.ts'
 import { transferRefundScenarios } from './transfer-refund-scenarios.ts'
-import { newTask, send } from './ui.ts'
+import { newTask, openComputers, send } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
@@ -211,12 +211,7 @@ export const computerScenarios: Scenario[] = [
       })
       host.send(JSON.stringify({ t: 'status', status: { agentInstances: true, agents: {} } }))
       try {
-        await page
-          .getByRole('button', { name: /^Search/ })
-          .first()
-          .click()
-        await page.keyboard.type('Computers')
-        await page.getByRole('option', { name: 'Computers' }).first().click()
+        await openComputers(page)
         await page.getByRole('button', { name: `New runtime on ${label}` }).click()
         await page.getByRole('menu').waitFor()
         // The menu fades in.

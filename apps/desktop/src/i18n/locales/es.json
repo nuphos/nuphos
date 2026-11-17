@@ -2224,6 +2224,7 @@
   "Installation {id}": "Instalación {id}",
   "Installed": "Instalado",
   "Installed from": "Instalada desde",
+  "Installing {name} on {computer}…": "Instalando {name} en {computer}…",
   "Installing…": "Instalando…",
   "Instance ID": "ID de instancia",
   "Instances": "Instancias",
