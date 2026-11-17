@@ -29,8 +29,8 @@ final class RuntimeOfflineUITests: XCTestCase {
     func testAnOfflineComputerOffersAnotherRuntimeBeforeSending() throws {
         try launch(online: false)
 
-        let hint = app.staticTexts[offline]
-        XCTAssertTrue(hint.waitForExistence(timeout: 15), "An offline computer is not said before sending")
+        XCTAssertTrue(app.collectionViews["chat.transcript"].cells.firstMatch.waitForExistence(timeout: 15), "The conversation did not load")
+        XCTAssertTrue(hint.waitForExistence(timeout: 10), "An offline computer is not said before sending")
         let switchRuntime = app.buttons["Switch runtime"].firstMatch
         XCTAssertTrue(switchRuntime.isHittable, "The offline hint does not offer another runtime")
         let capture = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
@@ -46,10 +46,15 @@ final class RuntimeOfflineUITests: XCTestCase {
         try launch(online: true)
 
         XCTAssertTrue(app.collectionViews["chat.transcript"].cells.firstMatch.waitForExistence(timeout: 15), "The conversation did not load")
-        XCTAssertFalse(app.staticTexts[offline].waitForExistence(timeout: 3), "An online computer is called offline")
+        XCTAssertFalse(hint.waitForExistence(timeout: 3), "An online computer is called offline")
     }
 
     // MARK: - Helpers
+
+    /// The hint row, wherever its text sits in the row's label.
+    private var hint: XCUIElement {
+        app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", offline)).firstMatch
+    }
 
     private func launch(online: Bool) throws {
         var responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: live)) as? [String: Any])
@@ -88,6 +93,15 @@ final class RuntimeOfflineUITests: XCTestCase {
             "agentRuntime": "claude-code",
             "runtimeId": runtimeId,
             "runtimeLabel": "Claude Code in Preview Mac",
+            "runtimeState": [
+                "schemaVersion": 2,
+                "epoch": "test",
+                "revision": 3,
+                "state": "idle",
+                "phase": "idle",
+                "label": "Ready",
+                "actions": ["send": true, "cancel": false, "reply": false, "steer": false],
+            ],
         ]
     }
 }
