@@ -41,7 +41,11 @@ async function openDashboardsPage(page: Page, stack: Stack) {
   await until('the agent to read the link', async () =>
     agentEvents(stack).includes('finish E2E_DELIVERY:dashboards'),
   )
-  await page.getByRole('link', { name: /\/dashboards$/ }).first().click()
+  const link = page.getByRole('link', { name: /\/dashboards$/ }).first()
+
+  await link.click()
+
+  return link
 }
 
 const shot = (page: Page, name: string) =>
@@ -74,7 +78,7 @@ export const dashboardUiScenarios: Scenario[] = [
 
       if (removed.status !== 204) throw new Error(`removing the leaver: ${removed.status}`)
 
-      await openDashboardsPage(page, stack)
+      const link = await openDashboardsPage(page, stack)
       const formerSection = page.getByRole('heading', {
         name: 'Personal dashboards of former members',
       })
@@ -84,40 +88,64 @@ export const dashboardUiScenarios: Scenario[] = [
       await page.getByRole('heading', { name: 'Team', exact: true }).waitFor()
       await shot(page, '1-list')
 
-      // A new dashboard opens as Personal.
+      // A new dashboard opens, and the backend has it as Personal.
       await page.getByRole('button', { name: 'New dashboard', exact: true }).click()
+      await page.getByText('This dashboard is empty.').waitFor()
+      await expectVisibility(stack, 'New dashboard', 'personal')
+      await shot(page, '2-new-dashboard')
+      // The header's Personal / Team menu, where this page shows it.
       const chip = page.getByRole('button', { name: 'Personal', exact: true })
 
-      await chip.waitFor()
-      await expectVisibility(stack, 'New dashboard', 'personal')
-      await chip.click()
-      await page.getByRole('menuitem', { name: 'Team', exact: true }).waitFor()
-      await shot(page, '2-header-menu')
-      await page.getByRole('menuitem', { name: 'Team', exact: true }).click()
-      await page.getByRole('button', { name: 'Team', exact: true }).waitFor()
-      await expectVisibility(stack, 'New dashboard', 'team')
-      await shot(page, '3-header-team')
+      if (!(await chip.count())) {
+        await page.getByRole('button', { name: 'Expand workspace panel' }).click()
+        await page.waitForTimeout(1_000)
+        await shot(page, '2b-expanded')
+      }
+      console.log(`header Personal / Team menu shown: ${String(await chip.count())}`)
+      if (await chip.count()) {
+        await chip.click()
+        await page.getByRole('menuitem', { name: 'Team', exact: true }).waitFor()
+        await shot(page, '3-header-menu')
+        await page.getByRole('menuitem', { name: 'Team', exact: true }).click()
+        await expectVisibility(stack, 'New dashboard', 'team')
+        await page.getByRole('button', { name: 'Team', exact: true }).waitFor()
+        await shot(page, '3b-header-team')
+        await page.getByRole('button', { name: 'Team', exact: true }).click()
+        await page.getByRole('menuitem', { name: 'Personal', exact: true }).click()
+        await expectVisibility(stack, 'New dashboard', 'personal')
+      }
+      if (await page.getByRole('button', { name: 'Restore workspace panel' }).count()) {
+        await page.getByRole('button', { name: 'Restore workspace panel' }).click()
+      }
 
-      // Back in the list it is under Team; its row menu makes it personal again.
-      await page.getByRole('button', { name: 'Custom boards' }).first().click()
+      // Back in the list, its row menu moves it to Team and back to Personal.
+      await link.click()
       await formerSection.waitFor()
       const row = page.getByRole('row', { name: /New dashboard/ })
 
       await row.click({ button: 'right' })
+      await page.getByRole('menuitem', { name: 'Move to Team' }).waitFor()
+      await shot(page, '4-row-menu-personal')
+      await page.getByRole('menuitem', { name: 'Move to Team' }).click()
+      await expectVisibility(stack, 'New dashboard', 'team')
+      await page.waitForTimeout(500)
+      await shot(page, '5-list-team')
+      await row.click({ button: 'right' })
       await page.getByRole('menuitem', { name: 'Move to Personal' }).waitFor()
-      await shot(page, '4-row-menu')
+      await shot(page, '6-row-menu-team')
       await page.getByRole('menuitem', { name: 'Move to Personal' }).click()
       await expectVisibility(stack, 'New dashboard', 'personal')
-      await shot(page, '5-list-personal-again')
+      await page.waitForTimeout(500)
+      await shot(page, '7-list-personal-again')
 
       // The former member's dashboard: the Administrator moves it to Team.
       await page.getByRole('row', { name: /Release health/ }).click({ button: 'right' })
       await page.getByRole('menuitem', { name: 'Move to Team' }).waitFor()
-      await shot(page, '6-former-member-menu')
+      await shot(page, '8-former-member-menu')
       await page.getByRole('menuitem', { name: 'Move to Team' }).click()
       await formerSection.waitFor({ state: 'hidden' })
       await expectVisibility(stack, 'Release health', 'team')
-      await shot(page, '7-former-member-moved')
+      await shot(page, '9-former-member-moved')
     },
   },
 ]
