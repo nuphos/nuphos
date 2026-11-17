@@ -223,6 +223,11 @@ export async function startStack(): Promise<Stack> {
       CLOUDFLARE_OAUTH_CLIENT_ID: 'e2e-cloudflare-client',
       CLOUDFLARE_OAUTH_CLIENT_SECRET: 'e2e-cloudflare-secret-not-a-production-credential',
       CLOUDFLARE_OAUTH_SETUP_REDIRECT: `${apiUrl}/cloudflare-app/setup`,
+      // GitLab: a scenario serves the instance on this computer and answers its redirect.
+      GITLAB_OAUTH_SETUP_REDIRECT: `${apiUrl}/gitlab-app/setup`,
+      GITLAB_TOKEN_ENCRYPTION_KEY:
+        '6c6f63616c2d6532652d6769746c61622d6b65792d6e6f742d70726f64756374',
+      OUTBOUND_ALLOW_PRIVATE_HOSTS: 'true',
       // Where the agent reaches the backend's tools, as a runtime on this computer would.
       NUPHOS_BACKEND_URL: apiUrl,
     },

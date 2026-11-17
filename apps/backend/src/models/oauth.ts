@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 
-import type { EncryptedEnvelope } from '@/models/common'
+import type { BindingAccess, BindingShareChoice, EncryptedEnvelope } from '@/models/common'
 import type { Collection, ObjectId } from 'mongodb'
 
 export type GitlabPendingOAuth = {
@@ -8,6 +8,7 @@ export type GitlabPendingOAuth = {
   _id: string
   teamId: ObjectId
   requesterUserId: string
+  share?: BindingShareChoice
   hostUrl: string
   clientId: string
   // null when the binding will use the server-default gitlab.com OAuth app.
@@ -24,6 +25,7 @@ export type CloudflarePendingOAuth = {
   _id: string
   teamId: ObjectId
   requesterUserId: string
+  share?: BindingShareChoice
   // Mongo TTL index removes expired pending records once expiresAt passes.
   expiresAt: Date
 }
@@ -58,6 +60,7 @@ export type LinearPendingOAuth = {
   _id: string
   teamId: ObjectId
   requesterUserId: string
+  share?: BindingShareChoice
   // Mongo TTL index removes expired pending records 10 min after expiresAt.
   expiresAt: Date
 }
@@ -70,6 +73,7 @@ export type JiraPendingOAuth = {
   _id: string
   teamId: ObjectId
   requesterUserId: string
+  share?: BindingShareChoice
   // Mongo TTL index removes expired pending records 10 min after expiresAt.
   expiresAt: Date
 }
@@ -82,6 +86,7 @@ export type AsanaPendingOAuth = {
   _id: string
   teamId: ObjectId
   requesterUserId: string
+  share?: BindingShareChoice
   // Mongo TTL index removes expired pending records 10 min after expiresAt.
   expiresAt: Date
 }
@@ -94,6 +99,7 @@ export type SentryPendingOAuth = {
   _id: string
   teamId: ObjectId
   requesterUserId: string
+  share?: BindingShareChoice
   // Mongo TTL index removes expired pending records 10 min after expiresAt.
   expiresAt: Date
 }
@@ -120,6 +126,7 @@ export type PosthogPendingOAuth = {
   _id: string
   teamId: ObjectId
   requesterUserId: string
+  share?: BindingShareChoice
   label: string
   region: 'us' | 'eu'
   clientId: string
@@ -138,6 +145,7 @@ export type PlaudPendingOAuth = {
   _id: string
   teamId: ObjectId
   requesterUserId: string
+  share?: BindingShareChoice
   clientId: string
   redirectUri: string
   encryptedCodeVerifier: EncryptedEnvelope
@@ -156,6 +164,7 @@ export type TrelloPendingOAuth = {
   _id: string
   teamId: ObjectId
   requesterUserId: string
+  share?: BindingShareChoice
   composioAccountId: string
   expiresAt: Date
 }
@@ -170,6 +179,8 @@ export type ConnectorOAuthReady = {
   teamId: ObjectId
   requesterUserId: string
   binding: Record<string, unknown>
+  /** The new binding's member list, decided when the provider called back. */
+  access?: BindingAccess
   expiresAt: Date
 }
 

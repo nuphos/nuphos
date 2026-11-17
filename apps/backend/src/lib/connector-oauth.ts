@@ -1,17 +1,59 @@
 import { createHash, randomBytes } from 'node:crypto'
 
 import { config } from '@/config'
+import { canUseAllowList, isPrivateAccess } from '@/lib/byos/access'
+import { initialBindingAccess } from '@/lib/byos/initial-access'
 import { AppError } from '@/lib/errors'
+import { getTeamMembership } from '@/lib/identity'
 import { connectorOAuthReady } from '@/models'
 
-import type { ConnectorOAuthReady } from '@/models'
+import type { BindingAccess, BindingShareChoice, ConnectorOAuthReady } from '@/models'
 import type { ObjectId } from 'mongodb'
 
-/** Writes a staged binding draft into the team and returns the deep-link params. */
+/**
+ * Writes a staged binding draft into the team and returns the deep-link params.
+ * `access` is the member list a new binding starts with; a rebind keeps its own.
+ */
 export type ConnectorBindPersist<B> = (
   teamId: ObjectId,
   draft: B,
+  access: BindingAccess,
 ) => Promise<Record<string, string>>
+
+/**
+ * A rebind replaces the binding's grant, so another member's private binding
+ * may only be re-authorized by someone on its list: otherwise its owner would
+ * be handed the requester's account, and the requester locked out of it.
+ * `access` is the decided list, whose owner is the member re-authorizing.
+ */
+export function assertMayRebind(existing: { access?: BindingAccess }, access: BindingAccess): void {
+  const requester = access.ownerUserId
+
+  if (
+    isPrivateAccess(existing.access) &&
+    !(requester && canUseAllowList(existing.access?.memberAllowList, requester))
+  ) {
+    throw new AppError(
+      403,
+      'binding_private',
+      "Only someone it is shared with can re-authorize another member's private connection",
+    )
+  }
+}
+
+/**
+ * The list a rebound binding is written with: a rebind keeps what the binding
+ * had, including no list at all, and only a new binding takes the decided one.
+ */
+export function reboundAccess(
+  existing: { access?: BindingAccess } | null | undefined,
+  access: BindingAccess,
+): { access?: BindingAccess } {
+  if (!existing) return { access }
+  assertMayRebind(existing, access)
+
+  return existing.access ? { access: existing.access } : {}
+}
 
 const READY_TTL_MS = 10 * 60_000
 
@@ -28,11 +70,22 @@ export async function finishConnectorOAuth<B extends object>(input: {
   state: string
   teamId: ObjectId
   requesterUserId: string
+  /** What the requester chose when starting the flow. */
+  share?: BindingShareChoice
+  highPrivilege?: boolean
   draft: B
   persist: ConnectorBindPersist<B>
 }): Promise<Record<string, string>> {
+  const membership = await getTeamMembership(input.requesterUserId, input.teamId.toHexString())
+  const access = initialBindingAccess({
+    userId: input.requesterUserId,
+    team: membership?.team,
+    share: input.share,
+    highPrivilege: input.highPrivilege,
+  })
+
   if (!(input.defer ?? config.byos.connectorOAuthDeferredBind)) {
-    return { state: input.state, ...(await input.persist(input.teamId, input.draft)) }
+    return { state: input.state, ...(await input.persist(input.teamId, input.draft, access)) }
   }
   const code = randomBytes(24).toString('base64url')
 
@@ -43,6 +96,7 @@ export async function finishConnectorOAuth<B extends object>(input: {
     teamId: input.teamId,
     requesterUserId: input.requesterUserId,
     binding: input.draft as Record<string, unknown>,
+    access,
     expiresAt: new Date(Date.now() + READY_TTL_MS),
   })
 

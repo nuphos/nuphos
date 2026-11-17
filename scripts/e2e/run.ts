@@ -4,6 +4,7 @@ import { rmSync } from 'node:fs'
 
 import { agentEvents } from './agent-log.ts'
 import { backendFailures, backendLines } from './backend-log.ts'
+import { bindingAccessScenarios } from './binding-access-scenarios.ts'
 import { channelScenarios } from './channel-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
@@ -212,6 +213,7 @@ const scenarios: Scenario[] = [
     },
   },
   ...connectorScenarios,
+  ...bindingAccessScenarios,
   ...runtimeScenarios,
   ...commandScenarios,
   ...threadScenarios,
