@@ -160,6 +160,8 @@ data class InputRequest(
     val multiSelect: Boolean? = null,
     /** Related questions answered together; [question] is their headline. */
     val questions: List<DecisionQuestion>? = null,
+    /** ISO time its owner snoozed it until: out of their Inbox till then, still open where it was asked. */
+    val snoozedUntil: String? = null,
 )
 
 /** One of the questions a several-question card answers together. */

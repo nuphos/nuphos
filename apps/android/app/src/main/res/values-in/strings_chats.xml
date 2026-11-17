@@ -52,4 +52,10 @@
     <string name="chats_message_placeholder">Kirim pesan ke %1$s</string>
     <string name="chats_replying_to">Membalas %1$s</string>
     <string name="chats_cancel_reply">Batalkan balasan</string>
+    <string name="chats_question_snooze">Tunda</string>
+    <string name="chats_question_dismiss">Tutup</string>
+    <string name="chats_question_snooze_hour">1 jam</string>
+    <string name="chats_question_snooze_tomorrow">Besok, 9:00</string>
+    <string name="chats_question_snooze_monday">Senin depan, 9:00</string>
+    <string name="chats_question_dismiss_reason">Alasan untuk agen (opsional)</string>
 </resources>

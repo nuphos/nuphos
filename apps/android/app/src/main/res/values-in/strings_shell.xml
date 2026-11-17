@@ -169,4 +169,8 @@
     <string name="shell_desktop_type_on">Ketik di desktop</string>
     <string name="shell_desktop_typing">Mengetik…</string>
     <string name="shell_desktop_type">Ketik</string>
+    <string name="shell_inbox_snoozed">Ditunda</string>
+    <string name="shell_inbox_unsnooze">Batalkan tunda</string>
+    <string name="shell_inbox_undo">Urungkan</string>
+    <string name="shell_inbox_dismissed">Ditutup. Agen melanjutkan tanpa jawaban.</string>
 </resources>

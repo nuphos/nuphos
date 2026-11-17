@@ -169,4 +169,8 @@
     <string name="shell_desktop_type_on">在桌面上輸入</string>
     <string name="shell_desktop_typing">輸入中…</string>
     <string name="shell_desktop_type">輸入</string>
+    <string name="shell_inbox_snoozed">已延後</string>
+    <string name="shell_inbox_unsnooze">取消延後</string>
+    <string name="shell_inbox_undo">復原</string>
+    <string name="shell_inbox_dismissed">已關閉，Agent 會在沒有回答的情況下繼續。</string>
 </resources>

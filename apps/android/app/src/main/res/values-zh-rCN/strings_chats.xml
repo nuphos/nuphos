@@ -52,4 +52,10 @@
     <string name="chats_message_placeholder">发消息到 %1$s</string>
     <string name="chats_replying_to">回复 %1$s</string>
     <string name="chats_cancel_reply">取消回复</string>
+    <string name="chats_question_snooze">稍后提醒</string>
+    <string name="chats_question_dismiss">关闭</string>
+    <string name="chats_question_snooze_hour">1 小时</string>
+    <string name="chats_question_snooze_tomorrow">明天 9:00</string>
+    <string name="chats_question_snooze_monday">下周一 9:00</string>
+    <string name="chats_question_dismiss_reason">给 Agent 的原因（可选）</string>
 </resources>

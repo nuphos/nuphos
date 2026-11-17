@@ -169,4 +169,8 @@
     <string name="shell_desktop_type_on">Escribir en el escritorio</string>
     <string name="shell_desktop_typing">Escribiendo…</string>
     <string name="shell_desktop_type">Escribir</string>
+    <string name="shell_inbox_snoozed">Pospuestas</string>
+    <string name="shell_inbox_unsnooze">Dejar de posponer</string>
+    <string name="shell_inbox_undo">Deshacer</string>
+    <string name="shell_inbox_dismissed">Descartada. El agente continúa sin una respuesta.</string>
 </resources>
