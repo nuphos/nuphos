@@ -14,7 +14,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: ios-ui-${{ github.ref }}
+  # A run dispatched by hand on main does not cancel the nightly one.
+  group: ios-ui-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
