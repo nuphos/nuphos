@@ -125,6 +125,8 @@ export const offlineScenarios: Scenario[] = [
         await page.screenshot({ path: join(artifacts, 'disk-banner.png') })
         await banner.getByRole('button', { name: 'Free space' }).click()
         await page.getByText('Disk almost full: 7 GB free').waitFor()
+        // The cards fade in; the picture is taken once they have.
+        await page.waitForTimeout(1_500)
         await page.screenshot({ path: join(artifacts, 'disk-computer.png') })
       } finally {
         goOffline()
