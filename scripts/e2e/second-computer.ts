@@ -59,5 +59,5 @@ export async function startSecondComputer(stack: Stack, label: string) {
     ),
   )
 
-  return { deviceId, stop: () => stop(child) }
+  return { deviceId, home, stop: () => stop(child) }
 }

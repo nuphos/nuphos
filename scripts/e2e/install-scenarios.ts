@@ -1,8 +1,10 @@
 // Adding Claude Code to a computer that does not have it installs it, then signs it in (#3244).
 // The installer is fixture-install.sh, so no vendor's CLI is downloaded.
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { artifacts } from './processes.ts'
+import { client, joinAsAdmin, must } from './binding-access-scenarios.ts'
+import { artifacts, until } from './processes.ts'
 import { startSecondComputer } from './second-computer.ts'
 import { openComputers } from './ui.ts'
 
@@ -45,6 +47,41 @@ export const installScenarios: Scenario[] = [
         await page.getByText(/is now signed in/).waitFor({ timeout: 60_000 })
         await shot(page, 'remote-4-added')
         await page.getByText('Back to app', { exact: true }).click()
+      } finally {
+        await computer.stop()
+      }
+    },
+  },
+  {
+    // Whoever manages a computer may add an agent to it, and adding is what installs.
+    name: "a manager who is not the owner adds Claude Code to the owner's computer and it is installed there; a teammate who only uses it is refused",
+    run: async (_page, stack) => {
+      const computer = await startSecondComputer(stack, 'E2E shared mini')
+
+      try {
+        const { member, memberId } = await joinAsAdmin(stack, client(stack.apiUrl, stack.token))
+        const share = (managerIds: string[]) =>
+          client(stack.apiUrl, stack.token)(
+            'PUT',
+            `/agent/devices/${computer.deviceId}/share?teamId=${stack.teamId}`,
+            { level: 'full', everyone: false, userIds: [memberId], managerIds },
+          )
+        const add = () =>
+          member('POST', `/agent/devices/${computer.deviceId}/agents`, {
+            teamId: stack.teamId,
+            provider: 'claude-code',
+          })
+        const installed = () => existsSync(join(computer.home, '.local', 'bin', 'claude'))
+
+        must((await share([])).status === 200, 'the computer to be shared for use')
+        const refused = await add()
+
+        must(refused.status === 404, `use alone to be refused, got ${String(refused.status)}`)
+        must((await share([memberId])).status === 200, 'the teammate to be made a manager')
+        const added = await add()
+
+        must(added.status === 201, `a manager to add it, got ${String(added.status)} ${added.text}`)
+        await until('the computer to install Claude Code', async () => installed())
       } finally {
         await computer.stop()
       }
