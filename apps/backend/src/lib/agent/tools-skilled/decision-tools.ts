@@ -2,6 +2,16 @@ import { tool } from 'ai'
 import { z } from 'zod'
 
 import { aboutField } from './decision-about'
+import {
+  QUESTION_MAX_CHARS,
+  bodyField,
+  bodyRequired,
+  multiSelectField,
+  optionsField,
+  questionField,
+  questionsField,
+  requestIdField,
+} from './decision-fields'
 import { secretFieldsProblem, secretInstruction, secretSchema } from './decision-secrets'
 import { labelField, withLabel } from './labeling'
 
@@ -67,48 +77,6 @@ const PROVIDER_NAMES = Object.keys(CONNECTABLE_PROVIDERS) as [
 export function isConnectableProvider(name: unknown): name is ConnectableProvider {
   return typeof name === 'string' && Object.hasOwn(CONNECTABLE_PROVIDERS, name)
 }
-
-const questionField = z
-  .string()
-  .trim()
-  .min(1)
-  .max(1_000)
-  .describe('The single concise question to show the user, in their language.')
-const bodyField = z
-  .string()
-  .trim()
-  .min(1)
-  .max(8_000)
-  .describe(
-    'Markdown the user decides from: the relevant findings, what each choice does, and its risk.',
-  )
-const optionsField = z
-  .array(z.string().trim().min(1).max(300))
-  .min(2)
-  .max(5)
-  .describe('Two to five concrete choices when the decision has a finite menu.')
-const multiSelectField = z
-  .boolean()
-  .describe('The user may pick any number of the options, not just one.')
-const subQuestionField = z
-  .object({
-    question: questionField,
-    options: optionsField.optional(),
-    multiSelect: multiSelectField.optional(),
-  })
-  .strict()
-const questionsField = z
-  .array(subQuestionField)
-  .min(2)
-  .max(4)
-  .describe(
-    'Two to four related questions answered together in one card, each with its own options. `question` is then the headline over them.',
-  )
-const requestIdField = z
-  .string()
-  .min(1)
-  .max(200)
-  .describe('The requestId request_user_decision returned.')
 
 /**
  * Why an integration request names its target wrongly: `credentials` takes only
@@ -199,36 +167,47 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
         "When you are filling in a form on a website and it needs the user's own details (an ID number, a date of birth, a booking reference), ask for all of them in one such card: add `fields`, one per detail, and `site`, the host they will be entered on. Decide the page's other options yourself, then enter the saved values with local_browser `fill`. " +
         'Put choices in `options`, never in the question text; set `multiSelect` when several may apply. The user can always answer in their own words instead. ' +
         'Ask related questions together in one call through `questions` rather than one card after another; `question` is then the headline. ' +
-        'The question is listed in the Inbox until answered: put what the user needs to decide in `body`, so they can answer there without reading the chat. ' +
+        `\`question\` is the card's one-line title (at most ${String(QUESTION_MAX_CHARS)} characters): one short question, never the explanation. ` +
+        'Put what the user needs to decide in `body`: the findings, what each choice does and its risk. It is listed in the Inbox until answered, so they answer there without reading the chat. `body` is required, except for `credential` and `integration` questions, whose own card explains them. ' +
         'When it is about a PR or issue linked with bind_session_resource, or another of your conversations (a sub-agent thread, or the session that will act on the answer), name them in `about`: their changes then remind you of the question, to withdraw or update it, and the conversations named are told the answer too, so they need not ask again. ' +
         'The result carries a `requestId`; while the question is open, update_user_decision corrects it and withdraw_user_decision removes it once it no longer applies. ' +
         'After it returns, never make the choice yourself or do the work that depends on it. You may continue with work that does not depend on the answer, or end your turn: the answer arrives as a new message either way.',
       // Strict: a misnamed field, e.g. `choices` for `options`, is refused rather than dropped.
-      inputSchema: z.strictObject({
-        label: labelField,
-        category: z.enum(['preference', 'approval', 'credential', 'integration', 'risk_tradeoff']),
-        question: questionField,
-        body: bodyField.optional(),
-        options: optionsField.optional(),
-        multiSelect: multiSelectField.optional(),
-        questions: questionsField.optional(),
-        providers: z
-          .array(z.enum(PROVIDER_NAMES))
-          .min(1)
-          .max(6)
-          .optional()
-          .describe('With category `integration`: the integrations or cloud accounts to connect.'),
-        credentials: z
-          .array(PERSONAL_CREDENTIAL_REF)
-          .min(1)
-          .max(2)
-          .optional()
-          .describe(
-            "With category `integration`: the member's own credential, as the (provider, id) pair list_credentials shows, e.g. {provider: 'personal', id: 'github'}.",
-          ),
-        ...secretSchema,
-        about: aboutField.optional(),
-      }),
+      inputSchema: z
+        .strictObject({
+          label: labelField,
+          category: z.enum([
+            'preference',
+            'approval',
+            'credential',
+            'integration',
+            'risk_tradeoff',
+          ]),
+          question: questionField,
+          body: bodyField.optional(),
+          options: optionsField.optional(),
+          multiSelect: multiSelectField.optional(),
+          questions: questionsField.optional(),
+          providers: z
+            .array(z.enum(PROVIDER_NAMES))
+            .min(1)
+            .max(6)
+            .optional()
+            .describe(
+              'With category `integration`: the integrations or cloud accounts to connect.',
+            ),
+          credentials: z
+            .array(PERSONAL_CREDENTIAL_REF)
+            .min(1)
+            .max(2)
+            .optional()
+            .describe(
+              "With category `integration`: the member's own credential, as the (provider, id) pair list_credentials shows, e.g. {provider: 'personal', id: 'github'}.",
+            ),
+          ...secretSchema,
+          about: aboutField.optional(),
+        })
+        .superRefine(bodyRequired),
       execute: async (input) => {
         const problem = cardProblem(input)
 
