@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { createWriteStream } from 'node:fs'
-import { link, rename, stat, unlink } from 'node:fs/promises'
+import { constants, createWriteStream } from 'node:fs'
+import { copyFile, link, rename, stat, unlink } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, isAbsolute, join } from 'node:path'
 import { Readable, Transform } from 'node:stream'
@@ -42,6 +42,9 @@ const capped = (size: number) => {
   })
 }
 
+// Where hard links are missing, such as exFAT drives and some network shares.
+const NO_LINKS = new Set(['EPERM', 'ENOTSUP', 'EXDEV'])
+
 const reason = (error: unknown) => {
   const code = (error as NodeJS.ErrnoException)?.code
 
@@ -59,7 +62,10 @@ export class LocalDownloadStream implements SocketLike {
   private readonly abort = new AbortController()
   private readonly listeners = new Map<string, Set<(event: SocketEvent) => void>>()
 
-  constructor() {
+  private readonly link: typeof link
+
+  constructor(linkFile = link) {
+    this.link = linkFile
     queueMicrotask(() => {
       if (this.readyState !== 0) return
       this.readyState = 1
@@ -108,13 +114,30 @@ export class LocalDownloadStream implements SocketLike {
         { signal: this.abort.signal },
       )
       if ((await stat(temporary)).size !== size) throw new Error('too_short')
-      // link refuses a file that appeared meanwhile; rename replaces it when asked to.
-      await (overwrite ? rename : link)(temporary, path)
+      // rename replaces the file when asked to; otherwise one that appeared meanwhile is kept.
+      await (overwrite ? rename(temporary, path) : this.place(temporary, path))
       this.answer({ t: 'done', path })
     } catch (error) {
       this.answer({ t: 'error', error: reason(error) })
     } finally {
       await unlink(temporary).catch(() => undefined)
+    }
+  }
+
+  /** link refuses an existing file; without hard links, an exclusive copy does the same. */
+  private async place(temporary: string, path: string): Promise<void> {
+    try {
+      await this.link(temporary, path)
+    } catch (error) {
+      if (!NO_LINKS.has((error as NodeJS.ErrnoException)?.code ?? '')) throw error
+      try {
+        await copyFile(temporary, path, constants.COPYFILE_EXCL)
+      } catch (copyError) {
+        // Only a copy this call created is removed; an existing file fails with EEXIST first.
+        if ((copyError as NodeJS.ErrnoException)?.code !== 'EEXIST')
+          await unlink(path).catch(() => undefined)
+        throw copyError
+      }
     }
   }
 
