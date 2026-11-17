@@ -52,7 +52,7 @@ final class OpenQuestions {
             // Bounded like the desktop's: a cursor never repeats a page.
             for _ in 0..<10 {
                 let page = try await NuphosAPI.conversations(
-                    token: token, teamId: teamId, cursor: cursor, limit: 100, pendingDecision: true)
+                    token: token, teamId: teamId, cursor: cursor, limit: 100, pendingDecision: true, includeOnboarding: true)
                 rows += page.rows
                 guard page.hasMore, let next = page.nextCursor, next != cursor else { break }
                 cursor = next

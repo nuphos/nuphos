@@ -207,9 +207,9 @@ export function useAnswerFailure(requestId: string): string | undefined {
  * The team's waiting conversations: the one listing the badge counts and the Inbox lists,
  * polled also in the background. A new `reloadKey` reloads it at once.
  */
-export function useInboxListing(teamId: string, reloadKey?: unknown) {
+export function useInboxListing(teamId: string, reloadKey?: unknown, includeOnboarding = false) {
   const listing = useQuery({
-    ...inboxListingQuery(teamId),
+    ...inboxListingQuery(teamId, includeOnboarding),
     enabled: Boolean(teamId),
     refetchInterval: INBOX_POLL_MS,
     // A retry would pause until the window is focused; the next poll is the retry.
@@ -230,7 +230,7 @@ export function useInboxListing(teamId: string, reloadKey?: unknown) {
 
 /** How many questions wait on the viewer in this team, settling this device's answers. */
 export function useInboxCount(teamId: string): number {
-  const { data: listing, dataUpdatedAt } = useInboxListing(teamId)
+  const { data: listing, dataUpdatedAt } = useInboxListing(teamId, undefined, true)
   const onDevice = useAnsweredOnDevice()
 
   // On every read, not only a changed one: an answer's hold can expire under the same listing.

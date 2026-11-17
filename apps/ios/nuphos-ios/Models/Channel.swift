@@ -6,6 +6,8 @@ struct ChannelAgent: Decodable, Equatable, Identifiable, Sendable {
     let title: String
     let ownerId: String
     var provider: String? = nil
+    /// Its face, which every member of the chat reads, whoever owns the Bot.
+    var avatar: String? = nil
     var id: String { sessionId }
 }
 
