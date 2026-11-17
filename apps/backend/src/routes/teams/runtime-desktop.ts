@@ -1,5 +1,6 @@
 import { upgradeWebSocket } from 'hono/bun'
 
+import { requestBoxCacheClear } from '@/lib/claude-code-preview/box-clear-caches'
 import { requestComputerAppUpdate } from '@/lib/claude-code-preview/computer-app-update'
 import {
   openRuntimeDesktop,
@@ -44,6 +45,14 @@ export function registerRuntimeDesktopRoutes(teamScoped: Hono<{ Variables: TeamA
   teamScoped.post('/computers/:deviceId/app-update', async (c) =>
     c.json(
       await requestComputerAppUpdate(c.get('teamId'), c.get('userId'), c.req.param('deviceId')),
+    ),
+  )
+
+  // Whoever manages a Box frees its disk of the caches its tools rebuild.
+  teamScoped.post('/computers/:deviceId/clear-caches', async (c) =>
+    c.json(
+      await requestBoxCacheClear(c.get('teamId'), c.req.param('deviceId'), c.get('userId')),
+      202,
     ),
   )
 

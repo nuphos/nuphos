@@ -1,4 +1,4 @@
-// Scenarios about a conversation whose computer is offline.
+// Scenarios about a conversation whose computer is offline, or about to fill its disk.
 import { join } from 'node:path'
 
 import { artifacts, until } from './processes.ts'
@@ -9,8 +9,11 @@ import type { Scenario } from './ui.ts'
 
 const LAPTOP = 'E2E laptop'
 
-/** A computer of this person's with a signed-in Claude Code, online until the returned function is called. */
-async function laptopOnline(stack: Stack): Promise<() => void> {
+const GIB = 1024 ** 3
+
+// A computer of this person's with a signed-in Claude Code, online until the returned function
+// is called. With `diskPercent` it also reports its readings, as full as that.
+async function laptopOnline(stack: Stack, diskPercent?: number): Promise<() => void> {
   const authorization = `Bearer ${stack.token}`
   const registered = await fetch(`${stack.apiUrl}/agent/devices`, {
     method: 'PUT',
@@ -37,11 +40,34 @@ async function laptopOnline(stack: Stack): Promise<() => void> {
   tunnel.send(
     JSON.stringify({
       t: 'status',
-      status: { agents: { 'claude-code': { cli: { installed: true, loggedIn: true } } } },
+      status: {
+        localMetrics: diskPercent !== undefined,
+        agents: { 'claude-code': { cli: { installed: true, loggedIn: true } } },
+      },
     }),
   )
+  if (diskPercent === undefined) return () => tunnel.close()
+  const report = () =>
+    tunnel.send(
+      JSON.stringify({
+        t: 'metrics',
+        metrics: {
+          sampledAt: new Date().toISOString(),
+          cpuPercent: 12,
+          memory: { used: 6 * GIB, total: 16 * GIB },
+          disk: { used: diskPercent * GIB, total: 100 * GIB },
+        },
+      }),
+    )
+  // A reading counts as live for 12 seconds.
+  const reporting = setInterval(report, 4_000)
 
-  return () => tunnel.close()
+  report()
+
+  return () => {
+    clearInterval(reporting)
+    tunnel.close()
+  }
 }
 
 export const offlineScenarios: Scenario[] = [
@@ -72,6 +98,39 @@ export const offlineScenarios: Scenario[] = [
       await until('the banner to leave', async () => (await banner.count()) === 0)
       await send(page, 'After the laptop E2E_DELIVERY:after-offline')
       await page.getByText('ACK E2E_DELIVERY:after-offline').waitFor()
+    },
+  },
+  {
+    // #3181: a disk about to fill was only a gauge, until a turn failed on it.
+    name: 'a conversation on a computer whose disk is almost full says so, and leads to the computer',
+    run: async (page, stack) => {
+      const goOffline = await laptopOnline(stack, 93)
+
+      try {
+        await newTask(page)
+        await send(page, 'On the fixture E2E_DELIVERY:before-disk')
+        await page.getByText('ACK E2E_DELIVERY:before-disk').waitFor()
+        await page.getByRole('button', { name: /^Agent runtime/ }).click()
+        await page.getByRole('menu').getByText(LAPTOP).first().click()
+        await page
+          .getByRole('menuitem', { name: /Claude Code/ })
+          .last()
+          .click()
+        await page.getByText(`moved this task from E2E fixture agent to`).waitFor()
+        const banner = page
+          .getByRole('status')
+          .filter({ hasText: `${LAPTOP}’s disk is almost full (93%). Agents on it may fail.` })
+
+        await banner.waitFor()
+        await page.screenshot({ path: join(artifacts, 'disk-banner.png') })
+        await banner.getByRole('button', { name: 'Free space' }).click()
+        await page.getByText('Disk almost full: 7 GB free').waitFor()
+        // The cards fade in; the picture is taken once they have.
+        await page.waitForTimeout(1_500)
+        await page.screenshot({ path: join(artifacts, 'disk-computer.png') })
+      } finally {
+        goOffline()
+      }
     },
   },
 ]

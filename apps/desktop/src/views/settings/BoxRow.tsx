@@ -17,6 +17,7 @@ import { BoxAgentSetup } from './BoxAgentSetup'
 import { agentSlots, askToAdd, canAddAgent } from './boxAgentSlots'
 import { DeskArt } from './BoxDesk'
 import { DeskAgents, DeskReadings } from './BoxDeskInfo'
+import { BoxDiskWarning } from './BoxDiskWarning'
 import { deskModel } from './boxDeskModel'
 import { BoxHostUpdate } from './BoxHostUpdate'
 import { AccessHint, LiveDot, MachineLine, OwnerLine } from './BoxParts'
@@ -129,11 +130,9 @@ export function BoxRow({
       boxRestarts.start(deviceId, team, 'update')
     })
 
-  const model = deskModel(device)
-
   return (
     <li className="flex w-[300px] shrink-0 flex-col">
-      <DeskArt model={model} on={!away && !dim}>
+      <DeskArt model={deskModel(device)} on={!away && !dim}>
         <DeskReadings device={device} metricsStatus={restart ? 'connecting' : metricsStatus} />
         <DeskAgents
           device={device}
@@ -245,6 +244,7 @@ export function BoxRow({
         )}
       </div>
       <OwnerLine device={device} owner={owner} />
+      <BoxDiskWarning teamId={teamId} device={device} clearable={cloud && manage && running} />
       {manage && away && (
         <div className="mt-2">
           <Button size="sm" variant="secondary" disabled={busy} onClick={() => void resume()}>

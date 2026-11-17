@@ -11,7 +11,8 @@ import { channelIdOf, withChannelPosts } from './channel-wake'
 import { systemSender } from './message-metadata'
 import { buildPendingUserMessage, hasPendingUserMessage } from './pending-messages'
 import { requeueTurnQueue } from './session-released'
-import { recordDroppedFires, recordFiresRan } from './trigger-missed-runs'
+import { recordFailedFires } from './trigger-failed-runs'
+import { recordFiresRan } from './trigger-missed-runs'
 import { reconnecting } from './turn-offline'
 import { turnRunner } from './turn-runner'
 import { keepUndeliveredSend, reopenUndeliveredAnswer } from './undelivered-send'
@@ -202,7 +203,7 @@ export async function runTurn(
       await keepAnswersThatWait(target, taken, error),
       `did not run: ${failureLine(error)}`,
     )
-    await recordDroppedFires(error, taken)
+    await recordFailedFires(error, taken)
     throw error
   }
 }

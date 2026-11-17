@@ -33,6 +33,7 @@ const target = {
   runtimeId: 'runtime',
 } as AgentConversation
 let online = false
+let failure: Error | undefined
 // Every write to the Trigger, in order.
 const writes: { op: string; filter: Record<string, unknown>; update: Record<string, unknown> }[] =
   []
@@ -75,11 +76,13 @@ function fire(offlineSince?: string) {
 
 beforeEach(() => {
   online = false
+  failure = undefined
   writes.length = 0
   installTurnRunner({
     claimAgentRunForSession: async () => () => {},
     hasActiveAgentRunForSession: async () => false,
     runAgentForTrigger: async () => {
+      if (failure) throw failure
       if (!online)
         throw new AppError(409, 'runtime_offline', 'The computer running this agent is offline.')
 
@@ -123,6 +126,26 @@ test('a fire that runs once the computer is back records the run and ends the ou
   expect(String(writes[0]?.filter._id)).toBe(TRIGGER_ID)
   expect(writes[0]?.update).toEqual({
     $set: { lastRunAt: expect.any(Date) },
-    $unset: { missedRunAt: '' },
+    $unset: { missedRunAt: '', failedRunCount: '' },
   })
+})
+
+test('a fire whose turn fails for a lasting reason counts toward pausing its Trigger', async () => {
+  failure = new Error('prompt is too long: 240000 tokens > 200000 maximum')
+  await enqueuePendingUserMessage('owner', 'target', fire())
+
+  await expect(startQueuedTurn('owner', 'target')).rejects.toThrow('too long')
+  expect(writes).toHaveLength(1)
+  expect(writes[0]?.op).toBe('findOneAndUpdate')
+  expect(writes[0]?.filter).toEqual({ _id: expect.anything(), enabled: true })
+  expect(String(writes[0]?.filter._id)).toBe(TRIGGER_ID)
+  expect(writes[0]?.update).toEqual({ $inc: { failedRunCount: 1 } })
+})
+
+test('a fire whose turn fails for a passing reason writes nothing to its Trigger', async () => {
+  failure = new Error('Gateway (status 402 Payment Required): out of credits')
+  await enqueuePendingUserMessage('owner', 'target', fire())
+
+  await expect(startQueuedTurn('owner', 'target')).rejects.toThrow('402')
+  expect(writes).toEqual([])
 })
