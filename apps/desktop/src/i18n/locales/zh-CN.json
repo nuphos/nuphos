@@ -4737,7 +4737,7 @@
   "This removes the package and build caches that tools on {boxLabel} download or rebuild when they next need them: Go, Bun, pnpm, pip, uv and Docker’s build cache. Workspaces, sign-ins, Docker images and volumes are kept. The next installs and builds take longer, and a build running in a terminal right now may fail. It does not start while an agent on it is replying.": "这会移除 {boxLabel} 上各工具下次需要时会自行下载或重建的软件包与构建缓存：Go、Bun、pnpm、pip、uv，以及 Docker 的构建缓存。工作区、登录状态、Docker 镜像与卷都会保留。之后的安装与构建会更久，而此刻在终端中运行的构建可能会失败。只要上面有代理正在回复，就不会开始清除。",
   "This removes the provider binding reference and Nuphos resource metadata. It never drops or modifies the underlying database.": "这会移除提供方绑定引用和 Nuphos 资源元数据，绝不会删除或修改底层数据库。",
   "This removes {name} from Nuphos. Its CLI sign-in on {device} is yours and stays; while it is signed in there, {name} is listed again.": "此操作会将 {name} 从 Nuphos 移除。它在 {device} 上的 CLI 登录属于你，会保留不变；只要那里仍处于登录状态，{name} 就会再次出现在列表中。",
-  "This request is closed. Ask again in the chat for the secret.": "此请求已关闭。请在对话中重新请求这个密钥。",
+  "This request is closed. Ask for the secret again in the chat.": "此请求已关闭。请在对话中重新请求这个密钥。",
   "This request is no longer pending.": "这个问题已不再等待回复。",
   "This restarts Nuphos on {label} to install v{version}. Its agents are unavailable until it reconnects. The update does not start while an agent on it is working.": "这会重新启动 {label} 上的 Nuphos 来安装 v{version}。重新连接前，它的 agent 都无法使用。只要它上面有 agent 正在工作，就不会开始更新。",
   "This restarts the runtime host on {boxLabel} to install the latest version available now (expected v{version}).": "此操作将重启 {boxLabel} 上的运行环境主机，以安装当前可用的最新版本（预计为 v{version}）。",

@@ -140,7 +140,7 @@ function SecretDone({
       <span className="mr-1.5 font-mono">{name}</span>
       {saved
         ? t('Saved on the runtime.')
-        : t('This request is closed. Ask again in the chat for the secret.')}
+        : t('This request is closed. Ask for the secret again in the chat.')}
     </div>
   )
 }

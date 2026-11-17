@@ -1,7 +1,6 @@
 // #3250: people meet Bots and Tasks, so no label on screen says "Agent".
 // Runs in the Task the scenario before opened and answered.
 import { artifacts } from './processes.ts'
-import { newTask } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
@@ -29,22 +28,25 @@ export const agentWordScenarios: Scenario[] = [
     },
   },
   {
-    // Batch 2 of #3250: a new Task's summary says sub-tasks, not sub-agents.
-    name: "a new Task's summary names sub-tasks, not sub-agents",
+    // Batch 2 of #3250: the cards to add to the home page describe Bots and tasks.
+    name: 'the home cards on offer never say agent',
     run: async (page) => {
-      const toggle = page.getByRole('button', { name: /task summary$/ }).first()
-      const empty = page.getByText(/^Pull requests, sub-/)
+      const stats = page.getByRole('button', { name: 'Stats', exact: true })
+      const gallery = page.getByRole('dialog')
 
-      await newTask(page)
-      await toggle.click()
-      await empty.waitFor()
-      // The panel slides in; shoot it once it has settled.
+      await stats.click()
+      await page.getByRole('button', { name: 'Add card', exact: true }).click()
+      await gallery.getByText('Add cards', { exact: true }).waitFor()
+      // The dialog fades in; shoot it once it has settled.
       await page.waitForTimeout(1_000)
-      await page.screenshot({ path: `${artifacts}/agent-words-summary.png` })
-      const text = (await empty.textContent()) ?? ''
+      await page.screenshot({ path: `${artifacts}/agent-words-cards.png` })
+      const said = (await gallery.innerText())
+        .split('\n')
+        .filter((line) => /\bagents?\b/i.test(line))
 
-      if (/\bagents?\b/i.test(text)) throw new Error(`The summary says: ${text}`)
-      await toggle.click()
+      if (said.length > 0) throw new Error(`The home cards say agent: ${said.join(' | ')}`)
+      await page.keyboard.press('Escape')
+      await stats.click()
     },
   },
 ]
