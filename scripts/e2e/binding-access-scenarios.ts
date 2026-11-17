@@ -8,7 +8,7 @@ import type { Scenario } from './ui.ts'
 
 type Reply = { status: number; body: unknown; text: string }
 
-function client(apiUrl: string, token: string) {
+export function client(apiUrl: string, token: string) {
   return async (method: string, path: string, body?: unknown): Promise<Reply> => {
     const response = await fetch(apiUrl + path, {
       method,
@@ -33,7 +33,7 @@ function parse(text: string): unknown {
   }
 }
 
-function must(condition: boolean, what: string): void {
+export function must(condition: boolean, what: string): void {
   if (!condition) throw new Error(`Expected ${what}`)
 }
 
@@ -77,12 +77,12 @@ async function startFixtureGitlab(accountId: number): Promise<{ url: string; clo
   return { url: `http://127.0.0.1:${String(port)}`, close: () => server.close() }
 }
 
-type Flow = Pick<Stack, 'apiUrl' | 'token' | 'teamId' | 'signInCode'>
+export type Flow = Pick<Stack, 'apiUrl' | 'token' | 'teamId' | 'signInCode'>
 
-type Client = ReturnType<typeof client>
+export type Client = ReturnType<typeof client>
 
 /** Signs a second member in and makes them an admin: admins may use shared bindings, never a private one. */
-async function joinAsAdmin(
+export async function joinAsAdmin(
   stack: Flow,
   owner: Client,
 ): Promise<{ member: Client; memberId: string }> {
