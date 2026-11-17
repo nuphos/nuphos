@@ -60,8 +60,9 @@ async function turnModelId(sessionId: string, teamId: string): Promise<string> {
   return storedPick(attachment ?? undefined).model ?? 'unknown'
 }
 
-// ACP's `inputTokens` is the uncached remainder (both claude-agent-acp and codex-acp send
-// it so); ours is the whole prompt, so the cache classes are added back in.
+// claude-agent-acp and codex-acp send the uncached remainder as ACP `inputTokens`;
+// gemini-cli sends the whole prompt. Ours is the whole prompt, so the cache classes
+// are added back in unless the reported total shows they are already inside it.
 function acpUsageTokens(usage: unknown): AgentTokenUsageTokens {
   if (!usage || typeof usage !== 'object') return {}
   const acp = usage as Record<string, unknown>
@@ -70,15 +71,20 @@ function acpUsageTokens(usage: unknown): AgentTokenUsageTokens {
   const uncached = count(acp.inputTokens)
   const cachedInputTokens = count(acp.cachedReadTokens)
   const cacheWriteTokens = count(acp.cachedWriteTokens)
+  const outputTokens = count(acp.outputTokens)
+  const totalTokens = count(acp.totalTokens)
   const prompt = [uncached, cachedInputTokens, cacheWriteTokens].filter((n) => n !== undefined)
+  const split = prompt.length ? prompt.reduce((sum, n) => sum + n, 0) : undefined
+  const whole =
+    totalTokens !== undefined && split !== undefined && totalTokens < split + (outputTokens ?? 0)
 
   return cleanRecord({
-    inputTokens: prompt.length ? prompt.reduce((sum, n) => sum + n, 0) : undefined,
+    inputTokens: whole ? uncached : split,
     cachedInputTokens,
     cacheWriteTokens,
-    outputTokens: count(acp.outputTokens),
+    outputTokens,
     reasoningTokens: count(acp.thoughtTokens),
-    totalTokens: count(acp.totalTokens),
+    totalTokens,
   })
 }
 

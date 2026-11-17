@@ -194,3 +194,25 @@ test('a Codex turn keeps its cache reads and reasoning tokens', async () => {
   })
   expect(byKind.get('thinking')?.tokens).toEqual({ reasoningTokens: 200 })
 })
+
+// gemini-cli's ACP usage (acpSession.ts): `inputTokens` is the whole prompt, cache reads
+// included, and the total is input plus output.
+test('a Gemini turn does not count its cache reads twice', async () => {
+  await writeRuntimeTurnUsage({
+    ...turn,
+    provider: 'gemini',
+    usage: {
+      inputTokens: 100_000,
+      cachedReadTokens: 80_000,
+      outputTokens: 2000,
+      totalTokens: 102_000,
+    },
+  })
+
+  expect(inserted.find((row) => row.kind === 'step_total')?.tokens).toEqual({
+    inputTokens: 100_000,
+    cachedInputTokens: 80_000,
+    outputTokens: 2000,
+    totalTokens: 102_000,
+  })
+})
