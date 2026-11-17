@@ -11,7 +11,7 @@ import {
   steerQueuedNotice,
   steerRunningTurn,
 } from './channel-wake'
-import { isChannel, postText } from './db/channels'
+import { chatName, isChannel, postText } from './db/channels'
 import { bumpConversationActivity } from './db/read-state'
 import { pushTimelineEvent } from './db/participants'
 import { agentConversations } from './db/shared'
@@ -243,7 +243,7 @@ async function notifyAgent(
   const metadata = channelNoticeSender(
     channel.teamId,
     channel.sessionId,
-    channel.title || 'Nuphos channel',
+    chatName(channel) || 'Nuphos channel',
   )
 
   // An agent's posts still wait for the turn to end: one wake per turn (#1458).

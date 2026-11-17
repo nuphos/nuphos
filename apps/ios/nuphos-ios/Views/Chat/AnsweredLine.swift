@@ -46,7 +46,7 @@ struct AnsweredLine: View {
     }
 
     @ViewBuilder private var who: some View {
-        Image(systemName: "checkmark")
+        LucideIcon("check")
             .font(.system(size: 12, weight: .bold))
             .foregroundStyle(Theme.body)
         Text("\(question.name) answered")
@@ -72,7 +72,7 @@ struct AnsweredLine: View {
     }
 
     private var chevron: some View {
-        Image(systemName: expanded ? "chevron.up" : "chevron.down")
+        LucideIcon(systemName: expanded ? "chevron.up" : "chevron.down")
             .font(.system(size: 12, weight: .semibold))
             .foregroundStyle(Theme.body)
     }
@@ -89,7 +89,7 @@ struct AnsweredLine: View {
             ForEach(question.options, id: \.self) { option in
                 let chosen = picked.contains(option)
                 HStack(spacing: 6) {
-                    if chosen { Image(systemName: "checkmark").font(.system(size: 13, weight: .bold)) }
+                    if chosen { LucideIcon("check").font(.system(size: 13, weight: .bold)) }
                     Text(option).fontWeight(.medium)
                 }
                 .font(Theme.Text.secondary)
