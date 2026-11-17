@@ -105,6 +105,7 @@ export const boxScenarios: Scenario[] = [
         // The cards fade in; the picture is taken once they have.
         await page.waitForTimeout(1_500)
         await page.screenshot({ path: join(artifacts, 'box-evicted-notice.png') })
+        await page.getByText('Back to app', { exact: true }).click()
       } finally {
         boxRow(stack.mongoUri, { remove: deviceId })
         instaboxMachines.delete(sandboxId)
