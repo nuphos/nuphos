@@ -5,7 +5,7 @@ import { t } from '../../../i18n/index.ts'
 import { readDefaultPermissionMode, writeDefaultPermissionMode } from '../../../lib/permissionMode'
 import { toast } from '../../ui/toast'
 
-import { saveBypass } from './sessionBypass'
+import { remembersDefaultMode, saveBypass } from './sessionBypass'
 import { onSettingsChanged } from './sessionSettingsChanged'
 
 import type { PanelCtx } from './ctx'
@@ -95,14 +95,20 @@ export function usePanelPermissions(acc: Acc) {
     },
     [applyDefaultPermissionMode],
   )
-  const applyBypass = useCallback((sessionId: string, next: boolean) => {
-    // Optimistic: the button flips immediately; revert on failure.
-    setBypassBySession((prev) => ({ ...prev, [sessionId]: next }))
-    saveBypass(sessionId, next, {
-      saved: () => setDefaultPermissionMode(next ? 'bypass' : 'auto'),
-      failed: () => setBypassBySession((prev) => ({ ...prev, [sessionId]: !next })),
-    })
-  }, [])
+  const applyBypass = useCallback(
+    (sessionId: string, next: boolean) => {
+      // Optimistic: the button flips immediately; revert on failure.
+      setBypassBySession((prev) => ({ ...prev, [sessionId]: next }))
+      saveBypass(sessionId, next, {
+        // A Task's pick is the mode new chats start in; a Bot's own page changes only that Bot.
+        saved: remembersDefaultMode(teamId, sessionId)
+          ? () => applyDefaultPermissionMode(next ? 'bypass' : 'auto')
+          : undefined,
+        failed: () => setBypassBySession((prev) => ({ ...prev, [sessionId]: !next })),
+      })
+    },
+    [applyDefaultPermissionMode, teamId],
+  )
   const selectBypassMode = useCallback(
     (bypass: boolean) => {
       const tab = tabsRef.current.find((t) => t.id === activeId)

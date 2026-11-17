@@ -3,14 +3,15 @@ import { useEffect, useState } from 'react'
 import { api } from '../../../api'
 import { t } from '../../../i18n/index.ts'
 import { track } from '../../../lib/analytics'
-import { writeDefaultPermissionMode } from '../../../lib/permissionMode'
+import { isBotRow } from '../../../lib/agentAvatarChoices'
+import { listedConversation } from '../../channels/channelShared'
 import { toast } from '../../ui/toast'
 
 import { announceSettingsChanged, onSettingsChanged } from './sessionSettingsChanged'
 
 /**
  * Saves a conversation's permission mode: the one write a Task's composer and a Bot's chat
- * share. The remembered mode for new conversations only follows a pick the server accepted.
+ * share. `saved` runs only once the server accepted it, e.g. to remember the mode for new chats.
  */
 export function saveBypass(
   sessionId: string,
@@ -19,7 +20,6 @@ export function saveBypass(
 ) {
   api.agentSetAutoModeBypass(sessionId, next).then(
     () => {
-      writeDefaultPermissionMode(localStorage, next ? 'bypass' : 'auto')
       saved?.()
       announceSettingsChanged(sessionId)
       // Only after the server accepted it: a reverted toggle is not a decision.
@@ -35,6 +35,12 @@ export function saveBypass(
       })
     },
   )
+}
+
+/** Whether a pick in this conversation becomes the mode new chats start in: a Bot's own
+ *  mode is that Bot's alone. */
+export function remembersDefaultMode(teamId: string | undefined, sessionId: string) {
+  return !isBotRow(listedConversation(teamId ?? '', sessionId) ?? {})
 }
 
 /** The permission mode control for one conversation, as the composer takes it. */
