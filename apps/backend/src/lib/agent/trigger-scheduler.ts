@@ -1,7 +1,7 @@
 import { Queue, Worker } from 'bullmq'
 import { ObjectId } from 'mongodb'
 
-import { CRON_TIME_ZONE } from '@/lib/cron'
+import { CRON_TIME_ZONE, spreadWithinMinute } from '@/lib/cron'
 import { logError, logEvent } from '@/lib/observability'
 import { redisEnabled } from '@/lib/redis'
 
@@ -176,7 +176,8 @@ async function _upsertJobScheduler(
 ): Promise<void> {
   await _queue!.upsertJobScheduler(
     `trigger:${triggerId}`,
-    { pattern: cronExpression, tz: timeZone },
+    // Within the scheduled minute: hourly Triggers otherwise all start at :00:00 together.
+    { pattern: spreadWithinMinute(triggerId, cronExpression), tz: timeZone },
     {
       name: 'run-trigger',
       data: { triggerId },
