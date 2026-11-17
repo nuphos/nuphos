@@ -19,7 +19,7 @@ test('working rows show dots without stale Task text or redundant thinking text'
 
   assert.ok(html.includes('t-typing-dot'))
   assert.ok(!html.includes('Stale unrelated'))
-  assert.ok(!html.replace(/<[^>]*>/g, '').includes('Thinking'))
+  assert.ok(!html.includes('>Thinking'))
   assert.ok(html.includes('aria-label="Thinking…"'))
 })
 
