@@ -82,7 +82,9 @@ export const botUnreadScenarios: Scenario[] = [
 
       if (raised !== 0) throw new Error(`The sub-Task's reply moved the badge by ${String(raised)}`)
 
-      // Now the Bot's own message, unread, with the sub-Task's reply still under it.
+      // Now the Bot's own message, unread, with the sub-Task's reply still under it. The Bots
+      // tab reopened the Bot's chat, which would read it at once; another page leaves it unread.
+      await page.getByRole('button', { name: 'Connectors', exact: true }).click()
       const response = await fetch(
         `${stack.apiUrl}/agent/conversations/${channelId}/channel-messages`,
         {
