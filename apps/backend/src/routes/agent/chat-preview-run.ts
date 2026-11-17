@@ -124,13 +124,11 @@ export function createPreviewRunState(args: {
   let unbind = bindCurrent()
   const turnAbort = new AbortController()
   const follow = (run: AgentRun) => {
-    run.abortController.signal.addEventListener(
-      'abort',
-      () => {
-        turnAbort.abort(run.abortController.signal.reason)
-      },
-      { once: true },
-    )
+    const { signal } = run.abortController
+
+    // A Stop that came while the turn was being saved has already fired its event.
+    if (signal.aborted) turnAbort.abort(signal.reason)
+    else signal.addEventListener('abort', () => turnAbort.abort(signal.reason), { once: true })
   }
 
   follow(current)
