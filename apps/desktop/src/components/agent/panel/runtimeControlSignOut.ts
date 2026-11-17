@@ -51,10 +51,9 @@ export function runtimeGone(control: RuntimeControl | undefined): control is Run
  * computer is offline and this person may move the conversation.
  */
 export function shouldSwitchAgent(control: RuntimeControl | undefined): boolean {
-  return (
-    runtimeGone(control) ||
-    Boolean(control?.onSelect && selectedAgentReachability(control) === 'offline')
-  )
+  const offline = selectedAgentReachability(control) === 'offline'
+
+  return (offline && Boolean(control?.onSelect)) || runtimeGone(control)
 }
 
 /** What the banner and the send button say about a gone agent. */
