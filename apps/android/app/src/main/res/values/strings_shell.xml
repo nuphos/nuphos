@@ -158,6 +158,7 @@
     <string name="shell_notification_open_history">Open task history</string>
     <string name="shell_notification_open_update">Open Nuphos to view the update</string>
     <string name="shell_notification_reply">Reply</string>
+    <string name="shell_notification_you">You</string>
     <string name="shell_notification_message">Message</string>
     <string name="shell_notification_reply_not_sent">Reply not sent</string>
 
