@@ -54,7 +54,6 @@ export async function attachRuntimeTunnel(
   let lastEchoAt = lastFrameAt
   let presenceAt = 0
   let ended = false
-  let counted = false
   let heartbeat: ReturnType<typeof setInterval> | undefined
   let unsubscribe = () => {}
 
@@ -100,7 +99,7 @@ export async function attachRuntimeTunnel(
   const end = () => {
     if (ended) return
     ended = true
-    if (counted) openTunnels--
+    openTunnels--
     clearInterval(heartbeat)
     heartbeat = undefined
     unsubscribe()
@@ -218,10 +217,7 @@ export async function attachRuntimeTunnel(
   }, heartbeatMs)
 
   logEvent('info', 'agent.local_runtime.tunnel_opened', { user_id: userId, device_id: deviceId })
-  if (!ended) {
-    openTunnels++
-    counted = true
-  }
+  openTunnels++
 
   return {
     receive(raw) {
