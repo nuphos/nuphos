@@ -143,19 +143,25 @@ final class InboxUITests: XCTestCase {
         let toast = app.staticTexts["Dismissed"]
         XCTAssertTrue(toast.waitForExistence(timeout: 5), "No toast saying it was dismissed")
         XCTAssertTrue(app.buttons["Undo"].exists, "No Undo on the toast")
-        try listQuestions([snoozed, staging])
+        var blog = notes
+        blog["inputRequests"] = (notes["inputRequests"] as? [[String: Any]])?.filter { $0["id"] as? String == "q-blog" }
+        try listQuestions([snoozed, blog, staging])
         XCTAssertTrue(toast.waitForNonExistence(timeout: 10), "The dismissal was never sent")
 
-        let back = app.navigationBars.buttons.firstMatch
-        if !wide, back.exists { back.tap() }
+        // On iPhone the next question is open over the list: back to it.
+        if !wide {
+            XCTAssertTrue(app.staticTexts["Post the 1.4 release notes to the blog too?"].waitForExistence(timeout: 5),
+                          "The next question did not open")
+            app.navigationBars.buttons.firstMatch.tap()
+        }
         let row = app.descendants(matching: .any).matching(identifier: "inbox.snoozed").firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 10), "No Snoozed section")
+        XCTAssertTrue(row.waitForExistence(timeout: 10) && row.isHittable, "No Snoozed section")
         XCTAssertTrue(app.staticTexts["Snoozed"].exists, "The Snoozed section has no heading")
         XCTAssertTrue(row.staticTexts["Roll out 1.4 to production?"].exists, "The snoozed row does not name its question")
         XCTAssertFalse(listed("Roll out 1.4 to production?").exists, "The snoozed question is still in the list")
         shot("snooze-4-snoozed-section")
 
-        try listQuestions([deploy, staging])
+        try listQuestions([deploy, blog, staging])
         app.buttons["Unsnooze"].firstMatch.tap()
         XCTAssertTrue(listed("Roll out 1.4 to production?").waitForExistence(timeout: 10), "Unsnooze did not bring it back")
         XCTAssertFalse(row.exists, "The question is still snoozed")
