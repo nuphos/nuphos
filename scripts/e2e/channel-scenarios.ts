@@ -247,6 +247,45 @@ export const channelScenarios: Scenario[] = [
     },
   },
   {
+    // #3298: the Bot composer edits the Bot's own permission mode and model, as its page does.
+    name: "the Bot composer and the Bot's own page change the same permission mode and model",
+    run: async (page) => {
+      const chat = () => composer(page)
+
+      await page.evaluate(() => {
+        document.documentElement.classList.remove('dark')
+        document.documentElement.classList.add('light')
+      })
+      await page.getByRole('textbox', { name: 'Message' }).waitFor()
+      await page.waitForTimeout(1_000)
+      await chat().screenshot({ path: `${artifacts}/bot-controls-composer-light.png` })
+      // From the chat: the Bot's page shows what was picked there.
+      await setComposerSettings(page, true, 'fixture-large')
+      // Its setup finished in the scenario before, so the Bot's page opens from the chat.
+      await page.getByRole('button', { name: 'Task', exact: true }).click()
+      await page.getByText('Back to conversation').waitFor()
+      await composer(page)
+        .getByRole('button', { name: /^Model settings: fixture-large/ })
+        .waitFor()
+      const onPage = await composerSettings(page)
+
+      if (!onPage.full) throw new Error(`The Bot's page shows ${JSON.stringify(onPage)}`)
+      // From the Bot's page: the chat shows what was picked there.
+      await setComposerSettings(page, false, 'fixture-small')
+      await page.getByText('Back to conversation').click()
+      await page.getByText('Back to conversation').waitFor({ state: 'hidden' })
+      await composer(page)
+        .getByRole('button', { name: /^Model settings: fixture-small/ })
+        .waitFor()
+      const inChat = await composerSettings(page)
+
+      await chat().screenshot({ path: `${artifacts}/bot-controls-composer-after-light.png` })
+      if (inChat.full) throw new Error(`The Bot chat shows ${JSON.stringify(inChat)}`)
+      // The Bot stays in Auto Mode: the Task scenario that runs last starts in Full Access,
+      // so a Bot's mode leaking into the default for new chats fails there.
+    },
+  },
+  {
     // #3252: the Bot composer's runtime line hid the usage bar the Task composer shows.
     name: 'the Bot composer and the Task composer both show the runtime usage bar',
     run: async (page, stack) => {
