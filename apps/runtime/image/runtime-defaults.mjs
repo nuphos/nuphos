@@ -8,11 +8,12 @@ import { nuphosReplyImages, nuphosUploadReplyImages } from './reply-images.mjs'
 // a container Nuphos never created. The backend instead delivers a one-conversation URL
 // and token in the session's own environment, so the runtime fetches its own bundle.
 //
-// Never holds a session open on the network: it returns once the session's own
-// directories are set up, and the fetch runs on as `synced` and lands for the next
-// session. Never fatal either — skills are an enrichment, not a precondition. The
-// script allows itself two minutes, so the timeout here is the real budget and the
-// kill is what enforces it.
+// A workspace that already has team skills never holds a session open on the network:
+// it returns once the session's own directories are set up, and the fetch runs on as
+// `synced` and lands for the next session. A workspace with none waits for the team
+// bundle, because the agent reads `.claude/skills` once, when it starts. Never fatal
+// either — skills are an enrichment, not a precondition. The script allows itself two
+// minutes, so the timeout here is the real budget and the kill is what enforces it.
 export async function nuphosSyncRuntimeSkills(params, run) {
   const env =
     params?._meta?.claudeCode?.options?.env ??
@@ -73,7 +74,14 @@ export async function nuphosSyncRuntimeSkills(params, run) {
       })
     })
 
-  // Nobody waits for this, so a failure would otherwise vanish with the promise.
+  // The script's own default workspace; see the note on the child's environment above.
+  const fresh = await fs
+    .lstat(path.join(run?.env?.NUPHOS_RUNTIME_WORKSPACE ?? '/workspace', '.claude', 'skills'))
+    .then(
+      () => false,
+      () => true,
+    )
+  // Mostly nobody waits for this, so a failure would otherwise vanish with the promise.
   const teamSync = sync().then((ok) => {
     if (!ok) process.stderr.write('runtime skills sync failed\n')
 
@@ -89,7 +97,11 @@ export async function nuphosSyncRuntimeSkills(params, run) {
     : (run?.sessionHome ??
       (typeof nuphosSessionHomeEnv === 'function' ? nuphosSessionHomeEnv(env).HOME : undefined))
 
-  if (!home) return { synced: teamSync }
+  if (!home) {
+    if (fresh) await teamSync
+
+    return { synced: teamSync }
+  }
   const personal = path.join(home, 'personal-skills')
   const skills = path.join(personal, '.claude', 'skills')
   // Whose personal skills, if anyone's, can change between the turns of a live session.
@@ -154,6 +166,8 @@ export async function nuphosSyncRuntimeSkills(params, run) {
 
   if (!opener || opener !== (await owner())) await empty()
   const synced = Promise.all([teamSync, syncPersonal().catch(() => false)]).then(([team]) => team)
+
+  if (fresh) await teamSync
 
   // Present even when empty, so a skill synced for a later turn is picked up.
   await fs.mkdir(skills, { recursive: true })
