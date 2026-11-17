@@ -33,7 +33,7 @@ export const botOnboardingScenarios: Scenario[] = [
       await page.getByText('Which marker should the fixture use?', { exact: true }).waitFor()
       const bot = (await list()).conversations[0]!
 
-      assert.equal(bot.botOnboarding, 'started')
+      assert.equal(bot.botOnboarding, 'active')
       assert.equal(bot.inputRequests?.length, 1)
       assert.equal((await list(true)).conversations.length, 0)
       await page.getByText('Getting started', { exact: true }).first().waitFor()
@@ -82,6 +82,7 @@ export const botOnboardingScenarios: Scenario[] = [
           (await list()).conversations.find((row) => row.sessionId === bot.sessionId)
             ?.botOnboarding === 'completed',
       )
+      await page.getByText('Getting started', { exact: true }).first().waitFor({ state: 'hidden' })
       await page.screenshot({ path: `${artifacts}/onboarding-completed.png` })
       await send(page, 'Ask a normal work question E2E_ASK E2E_DELIVERY:normal')
       await until('the normal question to reach the Inbox', async () =>

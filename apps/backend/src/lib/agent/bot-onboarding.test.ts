@@ -49,6 +49,7 @@ test('concurrent requests introduce the Bot once, in its own chat', async () => 
 
   expect(results.filter((r) => r.started)).toHaveLength(1)
   expect(calls).toHaveLength(1)
+  expect(bot.botOnboarding).toBe('active')
   expect(calls[0]).toContain('channelId chat')
   expect(calls[0]).toContain('channel_post')
   expect(calls[0]).toContain('one focused question')
@@ -83,4 +84,10 @@ test('a rejected runtime handoff can be retried on the same Bot', async () => {
   reject = false
   expect(await startBotOnboarding('u', 't', 'bot', 'chat')).toEqual({ started: true })
   expect(calls).toHaveLength(1)
+})
+
+test('legacy introductions are not restarted as new setup', async () => {
+  bot.botOnboarding = 'started'
+  expect(await startBotOnboarding('u', 't', 'bot', 'chat')).toEqual({ started: false })
+  expect(calls).toHaveLength(0)
 })

@@ -70,7 +70,7 @@ test('a failed run shows as an error', () => {
 
 test('an onboarding question is setup, while a real approval still needs attention', () => {
   const fields = {
-    botOnboarding: 'started',
+    botOnboarding: 'active',
     inputRequests: asking.inputRequests.map((q) => ({ ...q, category: 'preference' })),
   }
 

@@ -41,17 +41,19 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('persisted Bot onboarding', () =>
   })
 
   test('setup stays answerable in chat and mixed approvals still enter the Inbox', async () => {
-    await seed('setup-only', { botOnboarding: 'started', inputRequests: [question('purpose')] })
+    await seed('setup-only', { botOnboarding: 'active', inputRequests: [question('purpose')] })
     await seed('mixed', {
-      botOnboarding: 'started',
+      botOnboarding: 'active',
       inputRequests: [question('scope'), question('ship', 'approval')],
     })
+    await seed('legacy', { botOnboarding: 'started', inputRequests: [question('old-work')] })
     await seed('established', { inputRequests: [question('ordinary')] })
     const options = { teamId, pendingDecision: true }
     const inbox = (await getConversations(userId, options)).conversations
 
     expect(inbox.map((row) => row.sessionId).sort((a, b) => a.localeCompare(b))).toEqual([
       'established',
+      'legacy',
       'mixed',
     ])
     expect(inbox.find((row) => row.sessionId === 'mixed')?.inputRequests?.map((r) => r.id)).toEqual(
@@ -67,7 +69,7 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('persisted Bot onboarding', () =>
   })
 
   test('completion atomically saves responsibilities only after setup questions close', async () => {
-    await seed('complete', { botOnboarding: 'started', inputRequests: [question('confirm')] })
+    await seed('complete', { botOnboarding: 'active', inputRequests: [question('confirm')] })
     const update = { instructions: 'Review release notes.', botOnboarding: 'completed' as const }
 
     expect(await updateBotSelf('complete', userId, teamId, update)).toBe(false)

@@ -179,7 +179,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     }
 
     /// An open question waits on the viewer.
-    var attentionInputRequests: [InputRequest] { (inputRequests ?? []).filter { !["pending", "started"].contains(botOnboarding ?? "") || $0.category != "preference" } }
+    var attentionInputRequests: [InputRequest] { (inputRequests ?? []).filter { !["pending", "active"].contains(botOnboarding ?? "") || $0.category != "preference" } }
     var isWaiting: Bool { !attentionInputRequests.isEmpty }
 
     var ownsChat: Bool { isOwner == true && readOnly != true }

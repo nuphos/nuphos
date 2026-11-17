@@ -39,7 +39,7 @@ export async function startBotOnboarding(
   }
   const claimed = await agentConversations().updateOne(
     { sessionId: botId, userId, teamId, botOnboarding: 'pending', archivedAt: { $exists: false } },
-    { $set: { botOnboarding: 'started' } },
+    { $set: { botOnboarding: 'active' } },
   )
 
   if (!claimed.modifiedCount) return { started: false }
@@ -82,7 +82,7 @@ export async function startBotOnboarding(
   } catch (error) {
     // A rejected hand-off can be retried without creating another Bot or intro.
     await agentConversations().updateOne(
-      { sessionId: botId, userId, teamId, botOnboarding: 'started' },
+      { sessionId: botId, userId, teamId, botOnboarding: 'active' },
       { $set: { botOnboarding: 'pending' } },
     )
     throw error
