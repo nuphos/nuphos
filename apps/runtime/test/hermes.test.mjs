@@ -79,7 +79,7 @@ function fakeHermes(output = {}) {
     const done = new Promise((resolve) => {
       finish = resolve
     })
-    if (args[0] === 'config') finish('')
+    if (args[0] === 'config' || args[1] === 'list') finish('')
     else if (args[3] === 'api-key') {
       /* finishes once the key arrives */
     } else
@@ -100,7 +100,7 @@ function fakeHermes(output = {}) {
   return { calls, run }
 }
 
-async function signIn(answers, hermes, windows = false) {
+async function signIn(answers, hermes, windows = false, prepare = true) {
   const frames = []
   const lines = (async function* () {
     for (const answer of answers) yield answer
@@ -112,14 +112,61 @@ async function signIn(answers, hermes, windows = false) {
     settleMs: 0,
     providers: PROVIDERS,
     windows,
+    prepare,
   })
   return frames
 }
 
+test("a computer's Hermes prepares its home while the user answers, and signs in after", async () => {
+  const hermes = fakeHermes()
+  const run = hermes.run
+  let prepared
+  // `hermes auth list` prepares a new home's dependencies first: here, until released.
+  hermes.run = (command, args, options) => {
+    if (args[1] !== 'list') return run(command, args, options)
+    hermes.calls.push({ command, args })
+    return { write() {}, end() {}, done: new Promise((resolve) => (prepared = resolve)) }
+  }
+  const frames = []
+  const answers = ['openrouter', 'api-key', 'sk-secret']
+  const login = runHermesLogin({
+    lines: (async function* () {
+      yield* answers
+    })(),
+    emit: (frame) => frames.push(frame),
+    run: hermes.run,
+    settleMs: 0,
+    providers: PROVIDERS,
+  })
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  // Started before the first question, which says so; the key waits for it to finish.
+  assert.deepEqual(hermes.calls[0].args, ['auth', 'list'])
+  assert.equal(
+    frames[0].message,
+    'Choose a model provider. Hermes gets ready meanwhile, which can take a minute the first time',
+  )
+  assert.equal(frames.at(-1).type, 'input')
+  assert.equal(
+    hermes.calls.find((call) => call.args[1] === 'add'),
+    undefined,
+  )
+  prepared('')
+  await login
+  assert.deepEqual(frames.at(-1), { type: 'authenticated' })
+  assert.equal(hermes.calls.find((call) => call.args[1] === 'add').stdin, 'sk-secret\n')
+})
+
+test('the image, whose Hermes is prepared already, asks at once and prepares nothing', async () => {
+  const hermes = fakeHermes()
+  const frames = await signIn(['openrouter', 'api-key', 'sk-secret'], hermes, false, false)
+  assert.equal(frames[0].message, 'Choose a model provider')
+  assert.ok(hermes.calls.every((call) => call.args[1] !== 'list'))
+})
+
 test('an API key reaches Hermes on stdin, never on its command line', async () => {
   const hermes = fakeHermes()
   const frames = await signIn(['lmstudio', 'sk-secret', 'qwen3-coder'], hermes)
-  const add = hermes.calls.find((call) => call.args[0] === 'auth')
+  const add = hermes.calls.find((call) => call.args[1] === 'add')
   assert.deepEqual(add.args, ['auth', 'add', 'lmstudio', '--type', 'api-key'])
   assert.equal(add.stdin, 'sk-secret\n')
   assert.ok(hermes.calls.every((call) => !call.args.includes('sk-secret')))
@@ -151,7 +198,7 @@ test('a Claude subscription says what it needs, and its code is pasted back', as
     url: 'https://claude.ai/oauth/authorize?x=1',
     paste: 'code',
   })
-  const add = hermes.calls.find((call) => call.args[0] === 'auth')
+  const add = hermes.calls.find((call) => call.args[1] === 'add')
   assert.deepEqual(add.args, ['auth', 'add', 'anthropic', '--type', 'oauth', '--no-browser'])
   assert.equal(add.stdin, 'pasted-code\n')
   assert.deepEqual(frames.at(-1), { type: 'authenticated' })
