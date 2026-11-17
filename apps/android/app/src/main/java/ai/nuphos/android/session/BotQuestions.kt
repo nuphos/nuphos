@@ -127,7 +127,7 @@ object BotQuestions {
     private fun open(rows: List<AgentConversation>, includeOnboarding: Boolean): List<BotQuestion> {
         return rows.distinctBy { it.sessionId }
             .filter { it.isOwner == true }
-            .flatMap { row -> row.inputRequests.orEmpty().filter { includeOnboarding || row.botOnboarding !in setOf("pending", "started") || it.category != "preference" }.map { BotQuestion(row.sessionId, row.displayTitle, it) } }
+            .flatMap { row -> row.inputRequests.orEmpty().filter { includeOnboarding || row.botOnboarding !in setOf("pending", "active") || it.category != "preference" }.map { BotQuestion(row.sessionId, row.displayTitle, it) } }
             .sortedWith(compareBy({ it.request.askedAt.orEmpty() }, { it.id }))
     }
 }

@@ -25,7 +25,7 @@ import org.junit.Test
 
 class BotQuestionsTest {
     @Test fun setupPreferencesStayInChat() {
-        val bot = AgentConversation(sessionId = "setup", title = "Setup", isOwner = true, botOnboarding = "started",
+        val bot = AgentConversation(sessionId = "setup", title = "Setup", isOwner = true, botOnboarding = "active",
             inputRequests = listOf(InputRequest("purpose", "preference", "What should I own?", null, null)))
         assertTrue(BotQuestions.open(listOf(bot)).isEmpty())
         assertEquals(1, BotQuestions.under("setup", listOf(bot)).size)

@@ -191,7 +191,7 @@ function inboxFilter(
       ? {}
       : {
           $or: [
-            { botOnboarding: { $nin: ['pending', 'started'] } },
+            { botOnboarding: { $nin: ['pending', 'active'] } },
             { inputRequests: { $elemMatch: { status: 'open', category: { $ne: 'preference' } } } },
           ],
         }),

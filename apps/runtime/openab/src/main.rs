@@ -534,8 +534,6 @@ async fn main() -> anyhow::Result<()> {
     // here rather than by inferring it from tools that never appear. This is NOT the
     // `OPENAB_BROWSER_MODE` migration notice — that was removed (see `acp_mcp`), and nothing
     // reports the variable now.
-    // Gated on `acp` (the root feature that pulls in core's `acp-mcp`), not on `acp-mcp` itself —
-    // that is a core feature and naming it here is an unknown-cfg error.
     #[cfg(feature = "acp")]
     openab_core::acp_mcp::report_facade_status(cfg.mcp.is_some(), &cfg.agent.working_dir);
     if let Some(mcp_cfg) = cfg.mcp.clone() {

@@ -173,7 +173,7 @@ export async function askInChannel(
 
     if (
       category === 'preference' &&
-      (bot?.botOnboarding === 'pending' || bot?.botOnboarding === 'started')
+      (bot?.botOnboarding === 'pending' || bot?.botOnboarding === 'active')
     )
       return asked
     notifyNudge([requestOwner(ctx)], {

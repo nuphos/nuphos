@@ -12,6 +12,7 @@ import { hop, inherit } from './fixture-hop.mjs'
 import { call, callNamed, setToolsServer, toolsServer } from './fixture-mcp.mjs'
 import { applySetting } from './fixture-settings.mjs'
 import { refuse } from './fixture-turn-refusals.mjs'
+import { CLAUDE_TURN_QUOTA, CLAUDE_TURN_USAGE } from './fixture-usage.mjs'
 
 const send = (message) =>
   process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', ...message })}\n`)
@@ -21,15 +22,6 @@ const log = (entry) =>
     process.env.E2E_ACP_LOG,
     `${JSON.stringify({ agent: process.env.E2E_AGENT, ...entry })}\n`,
   )
-
-// PromptResponse.usage in claude-agent-acp 0.74.0's shape: `inputTokens` is the uncached part.
-const CLAUDE_TURN_USAGE = {
-  inputTokens: 12,
-  outputTokens: 900,
-  cachedReadTokens: 250_000,
-  cachedWriteTokens: 8000,
-  totalTokens: 258_912,
-}
 
 // A prompt containing E2E_HOLD stays in its turn until the client cancels it.
 const held = new Map()
@@ -207,7 +199,7 @@ async function prompt({ sessionId, prompt: parts }) {
   log({ sessionId, marker, event: 'finish' })
 
   return text.includes('E2E_TURN_USAGE')
-    ? { stopReason: 'end_turn', usage: CLAUDE_TURN_USAGE }
+    ? { stopReason: 'end_turn', usage: CLAUDE_TURN_USAGE, _meta: { quota: CLAUDE_TURN_QUOTA } }
     : { stopReason: 'end_turn' }
 }
 
