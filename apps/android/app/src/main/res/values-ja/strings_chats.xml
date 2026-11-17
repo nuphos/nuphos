@@ -52,4 +52,10 @@
     <string name="chats_message_placeholder">%1$s にメッセージ</string>
     <string name="chats_replying_to">%1$s に返信</string>
     <string name="chats_cancel_reply">返信をキャンセル</string>
+    <string name="chats_question_snooze">スヌーズ</string>
+    <string name="chats_question_dismiss">閉じる</string>
+    <string name="chats_question_snooze_hour">1 時間</string>
+    <string name="chats_question_snooze_tomorrow">明日 9:00</string>
+    <string name="chats_question_snooze_monday">来週月曜 9:00</string>
+    <string name="chats_question_dismiss_reason">エージェントへの理由（任意）</string>
 </resources>

@@ -52,4 +52,10 @@
     <string name="chats_message_placeholder">%1$s에 메시지 보내기</string>
     <string name="chats_replying_to">%1$s에게 답장</string>
     <string name="chats_cancel_reply">답장 취소</string>
+    <string name="chats_question_snooze">다시 알림</string>
+    <string name="chats_question_dismiss">닫기</string>
+    <string name="chats_question_snooze_hour">1시간</string>
+    <string name="chats_question_snooze_tomorrow">내일 9:00</string>
+    <string name="chats_question_snooze_monday">다음 주 월요일 9:00</string>
+    <string name="chats_question_dismiss_reason">에이전트에게 전할 이유(선택)</string>
 </resources>
