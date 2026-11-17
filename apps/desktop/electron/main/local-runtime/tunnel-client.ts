@@ -157,6 +157,7 @@ export class RuntimeTunnelClient {
 
       if (frame) this.handle(frame)
     })
+    // A failed connection fires `error` and then `close`; only `close` says why, in its code.
     socket.addEventListener('close', (event) => {
       if (this.socket !== socket) return
       this.drop('closed', event.code)
@@ -167,11 +168,6 @@ export class RuntimeTunnelClient {
       if (revoked) this.running = false
       this.lost(revoked)
       if (revoked) this.deps.onRevoked?.()
-    })
-    socket.addEventListener('error', () => {
-      if (this.socket !== socket) return
-      this.drop('error')
-      this.lost()
     })
   }
 
