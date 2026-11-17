@@ -20,6 +20,7 @@ import type { AgentChatBody, AgentRun } from './types'
 import type { AgentSessionOrigin } from '@/lib/agent/message-origin'
 import type { PendingUserMessage } from '@/lib/agent/pending-messages'
 import type { PreviewDecision, PreviewWait } from '@/lib/claude-code-preview/decision-waiter'
+import type { TurnUsageReport } from '@/lib/claude-code-preview/preview-agent-update'
 import type { PreviewFrameConsumer } from '@/lib/claude-code-preview/run-frame-bridge'
 import type { TeamRuntimeEndpoint } from '@/lib/claude-code-preview/team-openab-runtime'
 import type { UIMessage } from 'ai'
@@ -61,7 +62,7 @@ export type PreviewChatTurnArgs = {
   direct?: boolean
   onRunHandoff?: (next: AgentRun) => void
   /** The usage the runtime reported for this turn, for per-turn accounting. */
-  onTurnUsage?: (usage: unknown) => void
+  onTurnUsage?: (report: TurnUsageReport) => void
 }
 
 /**
