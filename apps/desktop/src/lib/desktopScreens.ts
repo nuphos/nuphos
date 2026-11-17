@@ -37,7 +37,7 @@ export function desktopScreens(
     { value: deviceId, label: `${device?.label ?? t('Computer')} · :1` },
     ...(device?.desktops ?? []).map((desktop) => ({
       value: desktopFilter(deviceId, desktop),
-      label: `:${String(desktop.display)} · ${desktop.title || t('Agent')}`,
+      label: `:${String(desktop.display)} · ${desktop.title || t('Task')}`,
     })),
   ]
 }
