@@ -55,11 +55,13 @@ export function dialBackend(
   socket.addEventListener('open', () => {
     opened = true
     lastFailure = ''
+    refusals.delete(dialed)
   })
   socket.addEventListener('error', () => {
     if (opened) return
     const status = refusals.get(dialed)
 
+    refusals.delete(dialed)
     if (status) onRefused?.(status)
     const failure: DialFailure = {
       host: target.host,
