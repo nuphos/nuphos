@@ -31,7 +31,8 @@ describe('LarkAgentRunSink', () => {
       }),
     )
     await sink.settle()
-    const shown = JSON.stringify(cards.at(-1))
+    // Every card Lark was sent: the running one shows the step, the finished one drops it.
+    const shown = JSON.stringify(cards)
 
     expect(shown).toContain('Ask for the lookup details')
     expect(shown).not.toMatch(/CLINIC_LOOKUP|NATIONAL_ID|clinic\.example/)
