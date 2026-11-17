@@ -221,9 +221,27 @@ describe('local runtime tunnel', () => {
     expect(lines).toContainEqual(
       expect.objectContaining({
         event: 'agent.local_runtime.stream_failed',
+        team_id: 't1',
         stage: 'connect',
         cause: 'no_presence',
       }),
+    )
+  })
+
+  test('a dropped tunnel logs the teams whose streams it was carrying', async () => {
+    const bus = createLocalTunnelBus()
+    const presence = createMemoryPresenceStore()
+    const desktop = await connectDesktop(bus, presence, new Set(['t1', 't2']), { echo: true })
+
+    for (const teamId of ['t1', 't2', 't1']) {
+      const { events } = openStream(bus, presence, teamId)
+
+      await eventually(() => events.some((event) => event.type === 'open'))
+    }
+    const lines = await logged('log', async () => desktop.tunnel.closed(1006, ''))
+
+    expect(lines).toContainEqual(
+      expect.objectContaining({ event: 'agent.local_runtime.tunnel_closed', team_ids: 't1,t2' }),
     )
   })
 
@@ -300,6 +318,10 @@ describe('local runtime tunnel', () => {
         reason: 'No frames from the computer',
       }),
     )
+    // It carried no stream, so no team was affected.
+    expect(
+      lines.find((line) => line.event === 'agent.local_runtime.tunnel_closed'),
+    ).not.toHaveProperty('team_ids')
   })
 
   test('the computer reports why it gave up its last tunnel', async () => {

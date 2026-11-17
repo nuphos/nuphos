@@ -6,6 +6,7 @@ import { createInterface } from 'node:readline'
 
 import { nuphosApplyRuntimeDefaults } from '../../apps/runtime/image/runtime-defaults.mjs'
 
+import { formSteps } from './acp-fixture-form.mjs'
 import { answerChannel } from './fixture-channel.mjs'
 import { listCommands } from './fixture-commands.mjs'
 import { hop, inherit } from './fixture-hop.mjs'
@@ -46,6 +47,8 @@ async function ask(sessionId, category) {
 
   log({ sessionId, event: 'asked', isError: refused(message) })
 }
+
+const form = formSteps({ call, log, refused })
 
 // A delegated turn names its sender by title, which carries the sender's own
 // markers, so the fixture tells such a turn by its prompt and does not delegate again.
@@ -138,6 +141,7 @@ async function prompt({ sessionId, prompt: parts }) {
   if (text.includes('E2E_DELEGATE') && !text.includes(CHILD)) {
     await delegate(sessionId, text.includes('E2E_DELEGATE_FAST'))
   }
+  await form(sessionId, text)
   // A thread started here, then moved (E2E_HOP), or left on this session's model (E2E_INHERIT).
   if (/E2E_(HOP|INHERIT)/.test(text) && !text.includes(CHILD))
     await (text.includes('E2E_HOP') ? hop : inherit)({ call, send, log, sessionId, child: CHILD })
@@ -245,6 +249,11 @@ async function answer(request) {
     case 'session/prompt':
       return prompt(request.params)
     case 'session/load':
+      // A restarted host loads the session with its tools again, as it opened it.
+      setToolsServer(
+        request.params.sessionId,
+        request.params.mcpServers?.find(({ name }) => name === 'nuphos-tools'),
+      )
       log({ sessionId: request.params.sessionId, event: 'loaded' })
 
       return {}
