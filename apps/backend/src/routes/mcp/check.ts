@@ -1,6 +1,7 @@
 import {
   getConversationTranscriptForAgent,
-  getConversationWithMessages,
+  getLatestAssistantMessage,
+  getReadableConversation,
   liveTurnTranscriptLine,
 } from '@/lib/agent/db'
 import { openInputRequests } from '@/lib/agent/db/pending-decision'
@@ -40,10 +41,9 @@ export async function nuphosCheck(
 
   if (!sessionId) return toolError('`session_id` is required and must be a non-empty string.')
 
-  const result = await getConversationWithMessages(sessionId, ctx.userId)
+  const conversation = await getReadableConversation(sessionId, ctx.userId)
 
-  if (!result) return toolError(`Session not found: ${sessionId}`)
-  const { conversation } = result
+  if (!conversation) return toolError(`Session not found: ${sessionId}`)
   const includeToolDetails = args.include_tool_details === true
   // Active-run lookup keys on the conversation owner (the creator).
   const running = await hasActiveAgentRunForSession(conversation.userId, sessionId)
@@ -58,7 +58,7 @@ export async function nuphosCheck(
           includeToolDetails,
         })
       : null
-  const assistant = [...result.messages].reverse().find((m) => m.role === 'assistant')
+  const assistant = await getLatestAssistantMessage(sessionId, conversation.userId)
   const answer = assistant ? partsToText(assistant.parts) : undefined
   // The last turn ended on an error, a timeout or a stop rather than an answer.
   const [interrupted] = assistant ? await transcriptTurnDiagnostics(assistant) : []
