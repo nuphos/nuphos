@@ -1,9 +1,87 @@
 // Scenarios about a Bot reading its chat. They run in the Bot chat the scenario before opened.
-import { agentEvents, agentLog } from './agent-log.ts'
-import { artifacts, until } from './processes.ts'
-import { send } from './ui.ts'
+import { randomUUID } from 'node:crypto'
 
+import { agentEvents, agentLog } from './agent-log.ts'
+import { forgetComputer } from './computer-scenarios.ts'
+import { artifacts, until } from './processes.ts'
+import { newTask, send } from './ui.ts'
+
+import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
+import type { Page } from 'playwright-core'
+
+/** A computer whose Claude Code reports usage with its status, as Desktop's host does. */
+async function computerWithUsage(stack: Stack, label: string) {
+  const deviceId = randomUUID()
+  const auth = { authorization: `Bearer ${stack.token}` }
+  const registered = await fetch(`${stack.apiUrl}/agent/devices`, {
+    method: 'PUT',
+    headers: { ...auth, 'content-type': 'application/json' },
+    body: JSON.stringify({ deviceId, label, platform: 'darwin', allowLocalExec: true }),
+  })
+
+  if (!registered.ok) throw new Error(`Registering answered ${String(registered.status)}`)
+  const host = new WebSocket(
+    `${stack.apiUrl.replace(/^http/, 'ws')}/agent/devices/${deviceId}/runtime-tunnel`,
+    { headers: auth } as unknown as string[],
+  )
+
+  host.addEventListener('message', (event) => {
+    if (String(event.data).includes('"ping"')) host.send(JSON.stringify({ t: 'pong' }))
+  })
+  await new Promise((opened, failed) => {
+    host.addEventListener('open', opened)
+    host.addEventListener('error', failed)
+  })
+  const resetsAt = new Date(Date.now() + 3 * 3_600_000).toISOString()
+  const usage = {
+    five_hour: { utilization: 35, resets_at: resetsAt },
+    seven_day: { utilization: 20, resets_at: resetsAt },
+  }
+
+  host.send(
+    JSON.stringify({
+      t: 'status',
+      status: {
+        agents: {
+          'claude-code': {
+            cli: { installed: true, loggedIn: true },
+            usage,
+            usageAt: new Date().toISOString(),
+          },
+        },
+      },
+    }),
+  )
+
+  return () => {
+    host.close()
+    forgetComputer(stack.mongoUri, deviceId)
+  }
+}
+
+/** Puts the composer on a runtime: `row` opens its submenu and `item` names the runtime in it. */
+async function pickRuntime(page: Page, row: string, item: RegExp) {
+  await page.getByRole('button', { name: /^Agent runtime/ }).click()
+  await page.getByRole('menu').getByText(row).first().click({ timeout: 60_000 })
+  await page.getByRole('menuitem', { name: item }).last().click()
+}
+
+/** Shoots the composer in light; whether its runtime line shows the usage bar. */
+async function shootRuntimeLine(page: Page, name: string) {
+  const bar = page.getByRole('progressbar', { name: 'Usage remaining' })
+  const path = `${artifacts}/${name}-composer-light.png`
+
+  await page.evaluate(() => {
+    document.documentElement.classList.remove('dark')
+    document.documentElement.classList.add('light')
+  })
+  await bar.waitFor({ timeout: 30_000 }).catch(() => undefined)
+  await page.waitForTimeout(500)
+  await page.locator('.composer-surface:visible').last().screenshot({ path })
+
+  return (await bar.count()) > 0
+}
 
 export const channelScenarios: Scenario[] = [
   {
@@ -83,6 +161,31 @@ export const channelScenarios: Scenario[] = [
       await row.getByText('POSTED E2E_DELIVERY:two').waitFor()
       await page.screenshot({ path: `${artifacts}/bot-row-idle-light.png` })
       await ownWords('After the turn')
+    },
+  },
+  {
+    // #3252: the Bot composer's runtime line hid the usage bar the Task composer shows.
+    name: 'the Bot composer and the Task composer both show the runtime usage bar',
+    run: async (page, stack) => {
+      const computer = 'E2E usage computer'
+      const fixture = 'E2E fixture agent'
+      const forget = await computerWithUsage(stack, computer)
+
+      try {
+        // Still in the Bot chat the scenarios before opened.
+        await pickRuntime(page, computer, /^Claude Code/)
+        const bot = await shootRuntimeLine(page, 'bot')
+
+        await pickRuntime(page, fixture, /^E2E fixture agent.*Claude Code/)
+        await newTask(page)
+        await pickRuntime(page, computer, /^Claude Code/)
+        const task = await shootRuntimeLine(page, 'task')
+
+        await pickRuntime(page, fixture, /^E2E fixture agent.*Claude Code/)
+        if (!bot || !task) throw new Error(`Usage bar: Bot ${String(bot)}, Task ${String(task)}`)
+      } finally {
+        forget()
+      }
     },
   },
 ]

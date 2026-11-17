@@ -16,7 +16,7 @@ import type { Scenario } from './ui.ts'
 const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
 const OPENED = /"agent\.local_runtime\.tunnel_opened".*"device_id":"([^"]+)"/
 
-function forgetComputer(mongoUri: string, deviceId: string) {
+export function forgetComputer(mongoUri: string, deviceId: string) {
   const script = `
     import { MongoClient } from 'mongodb'
     const client = await new MongoClient(process.argv[1]).connect()
@@ -76,10 +76,11 @@ export const computerScenarios: Scenario[] = [
     run: async (_page, stack) => {
       let deviceId: string | undefined
 
+      // The app's tunnel opens first; computers other scenarios fake open theirs later.
       await until('the app to open its tunnel', async () => {
         deviceId = backendLog()
           .map((line) => OPENED.exec(line)?.[1])
-          .findLast(Boolean)
+          .find(Boolean)
 
         return deviceId
       })
