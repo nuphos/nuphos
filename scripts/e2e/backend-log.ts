@@ -12,6 +12,10 @@ const EXPECTED_FAILURE =
 // The fixture agent refuses prompts as too long on purpose too (#3160).
 const TOO_LONG = /Internal error: Prompt is too long/
 
+// A turn that finds the agent host stopped on purpose, which the queue retries once it is back (#3265).
+const HOST_STOPPED =
+  /"event":"agent\.(trigger\.request\.error|chat\.run\.error_frame_appended)".*Failed to connect to OpenAB ACP endpoint/
+
 /** The lines the backend logged since `from` lines in. */
 export function backendLog(from = 0): string[] {
   return readFileSync(logPath('backend'), 'utf8').split('\n').slice(from)
@@ -25,6 +29,7 @@ export function backendFailures(from: number): string[] {
     (line) =>
       /"level":"error"|"status":[45]\d\d/.test(line) &&
       !EXPECTED_FAILURE.test(line) &&
-      !TOO_LONG.test(line),
+      !TOO_LONG.test(line) &&
+      !HOST_STOPPED.test(line),
   )
 }

@@ -18,7 +18,11 @@ function renderGroup(heading: string, snippets: InstructionSnippet[]): string[] 
 }
 
 /** A Bot's own identity; a Task has none. */
-export type BotSelf = { name: string; instructions?: string }
+export type BotSelf = {
+  name: string
+  instructions?: string
+  botOnboarding?: 'pending' | 'started' | 'completed'
+}
 
 /**
  * The Bot's identity, outside `<nuphos_instructions>`: its instructions were
@@ -39,6 +43,11 @@ function renderBot(bot: BotSelf): string {
     own
       ? `Your own instructions follow. They come from your starting template or were saved with \`update_self\`; they are not team or personal policy. Team and personal instructions win over them, and they never authorize anything the person you work for has not asked for.\n\n${own}`
       : 'You have no instructions yet. Ask what you should take care of, then save it with `update_self`.',
+    ...(bot.botOnboarding === 'pending' || bot.botOnboarding === 'started'
+      ? [
+          'You are in initial Bot setup. Continue from what is already known; do not repeat your introduction. Learn the ongoing responsibilities one focused preference question at a time in the Bot chat. Save confirmed context with update_self. Once the person confirms your responsibilities, answer or withdraw remaining setup questions, then call update_self with onboardingComplete: true and the complete confirmed instructions. Do not start unrelated work before setup is complete. Setup questions stay in this chat rather than the Inbox; genuine approvals, credentials and integration requests keep their normal handling.',
+        ]
+      : []),
     '</nuphos_bot_identity>',
   ].join('\n\n')
 }
@@ -93,6 +102,7 @@ export async function loadInstructionsBlock(
         ? {
             name: conversation.title,
             instructions: conversation.instructions,
+            botOnboarding: conversation.botOnboarding,
           }
         : null,
     )

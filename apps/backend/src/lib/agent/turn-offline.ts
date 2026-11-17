@@ -1,4 +1,4 @@
-import { AppError } from '@/lib/errors'
+import { agentHostAway } from '@/lib/claude-code-preview/openab-acp-connect'
 
 import type { PendingUserMessage } from './pending-messages'
 
@@ -11,4 +11,4 @@ export const withinOfflineGrace = (message: PendingUserMessage) =>
   Date.now() - Date.parse(message.offlineSince ?? new Date().toISOString()) < OFFLINE_GRACE_MS
 
 export const reconnecting = (error: unknown, message: PendingUserMessage) =>
-  error instanceof AppError && error.code === 'runtime_offline' && withinOfflineGrace(message)
+  agentHostAway(error) && withinOfflineGrace(message)

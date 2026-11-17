@@ -1,5 +1,5 @@
 import { readableByFilter } from './access'
-import { OPEN_INPUT_REQUEST_FILTER } from './pending-decision'
+import { attentionInputRequests, OPEN_INPUT_REQUEST_FILTER } from './pending-decision'
 import { agentConversations, escapeRegExp } from './shared'
 
 import type { AgentConversation } from './shared'
@@ -57,6 +57,8 @@ export async function getConversations(
     parentSessionId?: string // Only threads nested under this conversation: its sub-agents.
     /** The Inbox: only conversations waiting on a decision, trigger runs included. */
     pendingDecision?: boolean
+    /** Chat question cards include initial setup; the Inbox excludes it. */
+    includeOnboarding?: boolean
     /** Also return the rows' parents that another page would list. */
     withParents?: boolean
     /** Channels instead of agent conversations. Lists never mix the two. */
@@ -132,7 +134,12 @@ export async function getConversations(
   const filters = { ...query, $and: [...(query.$and as unknown[])] }
 
   if (options.pendingDecision)
-    inboxFilter(query, viewerUserId, scope === 'team' ? options.ownerId : undefined)
+    inboxFilter(
+      query,
+      viewerUserId,
+      scope === 'team' ? options.ownerId : undefined,
+      options.includeOnboarding,
+    )
 
   if (options.cursor) {
     query[sortField] = {
@@ -157,15 +164,38 @@ export async function getConversations(
     ? await listedParents(viewerUserId, scope, filters, conversations)
     : []
 
-  return { conversations, parents, nextCursor, hasMore }
+  return {
+    conversations:
+      options.pendingDecision && !options.includeOnboarding
+        ? conversations.map((row) => ({ ...row, inputRequests: attentionInputRequests(row) }))
+        : conversations,
+    parents,
+    nextCursor,
+    hasMore,
+  }
 }
 
 /**
  * The Inbox: the viewer's conversations with an open request, and any readable
  * one whose requester asked the viewer to sign its agent in.
  */
-function inboxFilter(query: Record<string, unknown>, viewerUserId: string, ownerId?: string) {
-  const decision: Record<string, unknown> = { ...OPEN_INPUT_REQUEST_FILTER }
+function inboxFilter(
+  query: Record<string, unknown>,
+  viewerUserId: string,
+  ownerId?: string,
+  includeOnboarding = false,
+) {
+  const decision: Record<string, unknown> = {
+    ...OPEN_INPUT_REQUEST_FILTER,
+    ...(includeOnboarding
+      ? {}
+      : {
+          $or: [
+            { botOnboarding: { $nin: ['pending', 'started'] } },
+            { inputRequests: { $elemMatch: { status: 'open', category: { $ne: 'preference' } } } },
+          ],
+        }),
+  }
 
   if (query.userId !== undefined) {
     decision.userId = query.userId
