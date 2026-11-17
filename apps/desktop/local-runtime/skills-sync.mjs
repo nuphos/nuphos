@@ -1,11 +1,10 @@
 // Serialized into the adapter with `.toString()`, so it must stay self-contained:
 // no top-level imports and no references outside its own body.
 //
-// A workspace that already has team skills never holds a session open on the network.
-// It returns once the session's own directories are set up; the fetch runs on as
-// `synced` and lands for the next session. A workspace with none waits for the team
-// bundle: the agent reads `.claude/skills` once, when it starts, so skills that land a
-// moment later would be missing from the whole conversation.
+// A session waits for both fetches, bounded by their timeout: the agent reads its
+// skills once, when it starts, so skills that land a moment later would be missing
+// from the whole conversation. A runtime that already holds the current bundle is
+// answered 304 without a file being read (#1923), so the wait is one round trip.
 export async function nuphosLocalSyncSkills(params, options = {}) {
   const env =
     params?._meta?.claudeCode?.options?.env ??
@@ -24,6 +23,7 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
   const fs = await import('node:fs/promises')
   const path = await import('node:path')
   const { randomUUID } = await import('node:crypto')
+  const os = await import('node:os')
   // The owner's personal skills go to this conversation's own home and are offered to
   // Claude Code as an additional directory, so no other conversation loads them.
   const claudeOptions = params?._meta?.claudeCode?.options
@@ -179,17 +179,9 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
   }
 
   const teamClaude = path.join(workspace, '.claude')
-  const fresh = await fs.lstat(path.join(teamClaude, 'skills')).then(
-    () => false,
-    () => true,
-  )
   const team = install(teamClaude, url, true)
 
-  if (!personal) {
-    if (fresh) await team
-
-    return { synced: team }
-  }
+  if (!personal) return { synced: Promise.resolve(await team) }
   const personalClaude = path.join(personal, '.claude')
   const personalSkills = path.join(personalClaude, 'skills')
   // Whose personal skills, if anyone's, can change between the turns of a live session.
@@ -250,9 +242,7 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
   const opener = holder(await credentialFor(false))
 
   if (!opener || opener !== (await owner())) await empty()
-  const synced = Promise.all([team, syncPersonal().catch(() => false)]).then(([ok]) => ok)
-
-  if (fresh) await team
+  const [synced] = await Promise.all([team, syncPersonal().catch(() => false)])
 
   // Present even when empty, so a skill synced for a later turn is picked up.
   await fs.mkdir(personalSkills, { recursive: true })
@@ -260,6 +250,33 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
     ...(claudeOptions.additionalDirectories ?? []).filter((dir) => dir !== personal),
     personal,
   ]
+  // Claude Code runs on user settings only, and then registers no skill from the
+  // working directory or from an additional one. A plugin loads whatever the setting
+  // sources are, so each tree is offered as one, which names its skills `team:<skill>`
+  // and `personal:<skill>`. A plugin can also carry hooks and MCP servers, so the
+  // wrappers hold nothing but a manifest and a link to the skills, and each session
+  // gets new ones outside the workspace and the conversation's home.
+  const plugins = await fs.mkdtemp(path.join(os.tmpdir(), 'nuphos-skill-plugins-'))
 
-  return { synced }
+  for (const [name, skills] of [
+    ['team', path.join(teamClaude, 'skills')],
+    ['personal', personalSkills],
+  ]) {
+    await fs.mkdir(path.join(plugins, name, '.claude-plugin'), { recursive: true })
+    await fs.writeFile(
+      path.join(plugins, name, '.claude-plugin', 'plugin.json'),
+      JSON.stringify({ name }),
+    )
+    await fs.symlink(skills, path.join(plugins, name, 'skills'), 'junction')
+  }
+  claudeOptions.plugins = [
+    ...(claudeOptions.plugins ?? []).filter(
+      (plugin) =>
+        !path.basename(path.dirname(plugin?.path ?? '')).startsWith('nuphos-skill-plugins-'),
+    ),
+    { type: 'local', path: path.join(plugins, 'team') },
+    { type: 'local', path: path.join(plugins, 'personal') },
+  ]
+
+  return { synced: Promise.resolve(synced) }
 }

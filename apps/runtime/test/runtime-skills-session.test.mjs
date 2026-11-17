@@ -307,28 +307,65 @@ test('a failing or hanging sync never stops the conversation', async () => {
   assert.equal(await synced(carrying, { script: '/nonexistent/nuphos-sync-skills' }), false)
 })
 
-test('a session never waits for the fetch, which still installs for the next one', async () => {
+test('a session on an older team bundle starts with the newer one', async () => {
   await withInstalledBundle(async (workspace) => {
     const body = [
-      'sleep 1',
+      'sleep 0.3',
       'printf %s rev-2 > "$NUPHOS_RUNTIME_WORKSPACE/.claude/.skills-revision"',
       'printf %s "# Two" > "$NUPHOS_RUNTIME_WORKSPACE/.claude/skills/kept/SKILL.md"',
     ].join('\n')
 
     await withFakeScript(body, async ({ script }) => {
-      const started = Date.now()
-      const { synced: fetch } = await nuphosSyncRuntimeSkills(bundleSession, {
+      // Not `.synced`: this is the moment the agent starts and reads its skills, once.
+      await nuphosSyncRuntimeSkills(bundleSession, {
         script,
         env: { NUPHOS_RUNTIME_WORKSPACE: workspace },
       })
-
-      // Handed back before the fetch answers, on the tree that is already there ...
-      assert.ok(Date.now() - started < 500, 'the session waited for the fetch')
-      assert.equal(await readFile(join(workspace, '.claude/.skills-revision'), 'utf8'), 'rev-1')
-      // ... and the fetch still finishes and installs.
-      assert.equal(await fetch, true)
       assert.equal(await readFile(join(workspace, '.claude/.skills-revision'), 'utf8'), 'rev-2')
       assert.equal(await readFile(join(workspace, '.claude/skills/kept/SKILL.md'), 'utf8'), '# Two')
+    })
+  })
+})
+
+test('each session offers the team and personal skills as plugins of its own', async () => {
+  await withInstalledBundle(async (workspace) => {
+    await withFakeScript('exit 0', async ({ script, directory }) => {
+      const plugins = async () => {
+        const params = structuredClone(bundleSession)
+
+        await nuphosSyncRuntimeSkills(params, {
+          script,
+          sessionHome: directory,
+          env: { NUPHOS_RUNTIME_WORKSPACE: workspace },
+        })
+        delete globalThis.nuphosRefreshPersonalSkills
+
+        return params._meta.claudeCode.options.plugins
+      }
+      const first = await plugins()
+
+      assert.deepEqual(
+        first.map((plugin) => [plugin.type, plugin.path.split('/').at(-1)]),
+        [
+          ['local', 'team'],
+          ['local', 'personal'],
+        ],
+      )
+      for (const plugin of first) {
+        const name = plugin.path.split('/').at(-1)
+
+        assert.deepEqual(
+          JSON.parse(await readFile(join(plugin.path, '.claude-plugin/plugin.json'), 'utf8')),
+          { name },
+        )
+        // Nothing but the manifest and the skills: no hooks or MCP servers can ride along.
+        assert.deepEqual((await readdir(plugin.path)).sort(), ['.claude-plugin', 'skills'])
+        // Outside what the conversation writes to.
+        assert.ok(!plugin.path.startsWith(workspace) && !plugin.path.startsWith(directory))
+      }
+      assert.equal(await readFile(join(first[0].path, 'skills/kept/SKILL.md'), 'utf8'), '# One')
+      // The next session gets wrappers of its own.
+      assert.notEqual((await plugins())[0].path, first[0].path)
     })
   })
 })
