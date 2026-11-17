@@ -234,7 +234,7 @@ fun ConversationScreen(
         }
         onDispose { session.bindLocalSender(null) { null } }
     }
-    val rows = ChatRow.rows(session)
+    val rows = ChatRow.rows(session, ai.nuphos.android.ui.agent.rememberRuntimeOffline(auth.token, session.teamId, session.runtimeId))
     val uriHandler = LocalUriHandler.current
 
     var showTriggers by remember(sessionId) { mutableStateOf(false) }
@@ -647,7 +647,7 @@ private fun ChatRowView(
                 LocalAgentStore.current.teams.firstOrNull { it.id == session.teamId }?.isAdministrator == true) else null
             val ask = session.signInAsk?.takeIf { askLabel != null && it.runtimeId == runtimeId }
             if (ask != null) Text(ask.status, color = MaterialTheme.colorScheme.outline, style = MaterialTheme.typography.bodySmall)
-            val switch = onSwitchRuntime?.takeIf { block != null }
+            val switch = onSwitchRuntime?.takeIf { block != null || row.id == "runtime-offline" }
             if ((askLabel != null && ask?.asked != true) || switch != null) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (askLabel != null && runtimeId != null && ask?.asked != true) {
                     val scope = rememberCoroutineScope()

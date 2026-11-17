@@ -49,7 +49,7 @@ struct ConversationView: View {
     private var hasDock: Bool { !session.isNew && session.ownsChat }
     @State private var referencedAgents = ReferencedAgents()
 
-    private var rows: [ChatRow] { ChatRow.rows(for: session) }
+    private var rows: [ChatRow] { ChatRow.rows(for: session, runtimeOffline: conversationRuntime?.local?.online == false) }
 
     /// Shown instead of the transcript while it loads or after it failed.
     @ViewBuilder
@@ -227,6 +227,14 @@ struct ConversationView: View {
         }
         .sheet(item: $planLink) { target in
             PlanLinkSheet(target: target, approve: { plan in try await session.approvePlan(plan.id) }) { planLink = nil }
+        }
+        // A computer comes and goes while the conversation stays open: keep its presence current.
+        .task(id: conversationRuntime?.local?.deviceId) {
+            guard conversationRuntime?.local != nil else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(15))
+                await store.loadRuntimes(force: true)
+            }
         }
         .task {
             if session.isNew, let initialPrompt, !didSendInitial {

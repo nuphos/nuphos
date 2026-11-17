@@ -166,7 +166,8 @@ export function localSignIn(
 
 /**
  * What New Agent does for a provider: sign in the machine's signed-out one first, so a lapsed
- * sign-in never turns into a second agent; else add an agent when the host can.
+ * sign-in never turns into a second agent; else add an agent. An older host is the backend's to
+ * refuse: the agents a computer lists say nothing about what its host can do.
  */
 export function newAgentAction(
   agents: RuntimeInstance[],
@@ -175,8 +176,7 @@ export function newAgentAction(
   const idle = agents.find((agent) => agent.provider === provider && agent.local?.signedIn !== true)
 
   if (idle) return { signIn: idle.id }
-  // Native keyring sign-in is shared; another home does not create another account.
-  if (provider === 'antigravity') return null
 
-  return agents.some((agent) => agent.local?.agentInstances === true) ? { create: true } : null
+  // Native keyring sign-in is shared; another home does not create another account.
+  return provider === 'antigravity' ? null : { create: true }
 }

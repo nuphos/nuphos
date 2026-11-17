@@ -7,8 +7,8 @@ extension ChatRow {
         return calls == 0 ? String(localized: "Stopped by you") : calls == 1 ? String(localized: "Stopped by you · 1 call") : String(localized: "Stopped by you · \(calls) calls")
     }
 
-    /// Builds rows for the whole transcript.
-    static func rows(for session: ChatSession) -> [ChatRow] {
+    /// Builds rows for the whole transcript. `runtimeOffline`: its computer is offline right now.
+    static func rows(for session: ChatSession, runtimeOffline: Bool = false) -> [ChatRow] {
         var rows: [ChatRow] = []
         let messages = session.messages
         let lastApprovalCallId = session.canReply ? lastPendingApproval(in: messages) : nil
@@ -66,6 +66,10 @@ extension ChatRow {
         }
         if let error = session.error, !session.stoppedByUser, error != failure {
             rows.append(.hint(id: "error", text: error, isError: true))
+        } else if runtimeOffline, session.error == nil, session.sending == nil, !session.isStreaming,
+                  let offline = AgentChatAPI.Conflict.runtimeOffline.errorDescription {
+            // Said before the message goes, with the way on: another runtime.
+            rows.append(.hint(id: "runtime-offline", text: offline, isError: true))
         }
         return rows
     }

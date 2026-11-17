@@ -1,5 +1,6 @@
 import clsx from 'clsx'
 
+import { Button } from '../../components/ui/button'
 import { t } from '../../i18n'
 
 import { boxQuota, quotaCells } from './boxCreatePresentation'
@@ -30,10 +31,13 @@ function Legend({ cell, label }: { cell: QuotaCell; label: string }) {
 export function BoxQuotaMeter({
   usage,
   adding,
+  onChoosePlan,
 }: {
   usage: BoxUsage | null
   /** The vCPU of the size picked; undefined while sizes are unknown. */
   adding: number | undefined
+  /** Opens the plans, for a team whose plan has no computers. */
+  onChoosePlan: () => void
 }) {
   if (!usage) return <p className="text-[12.5px] text-tertiary">{t('Loading your plan…')}</p>
   const quota = boxQuota(usage)
@@ -43,6 +47,17 @@ export function BoxQuotaMeter({
       <p className="text-[12.5px] text-tertiary">
         {t('Your team has no vCPU limit for computers.')}
       </p>
+    )
+  if (quota.limit === 0)
+    return (
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-line-control px-4 py-3">
+        <p className="text-[13px] text-secondary">
+          {t("Your team's plan doesn't include cloud computers.")}
+        </p>
+        <Button size="sm" type="button" onClick={onChoosePlan}>
+          {t('Choose a plan')}
+        </Button>
+      </div>
     )
   if (quota.used === null || quota.left === null)
     return (
