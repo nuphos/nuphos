@@ -20,12 +20,6 @@ const light = (page: Page) =>
     document.documentElement.classList.add('light')
   })
 
-/** How many lines of text an element draws. */
-const lines = (element: Locator) =>
-  element.evaluate((el) =>
-    Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)),
-  )
-
 export const questionScenarios: Scenario[] = [
   {
     // #3231: Snooze sets a question aside without telling the agent; Dismiss tells it why.
@@ -158,6 +152,13 @@ export const questionScenarios: Scenario[] = [
     // #3273: a question is its card's one-line title; what to decide from goes in its body.
     name: 'a question longer than one line is refused, and its card and the Inbox draw one line',
     run: async (page, stack) => {
+      // How many lines of text an element draws.
+      const lines = (element: Locator) =>
+        element.evaluate((el) =>
+          Math.round(
+            el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight),
+          ),
+        )
       const ask = (question: string, marker: string) => {
         const args = {
           label: 'Ask',
