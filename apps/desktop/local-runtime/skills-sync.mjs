@@ -260,9 +260,6 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
     // A failed sync must not leave another member's skills in place. For the same
     // member it changes nothing: what is installed stays.
     else if (holder(credential) !== (await owner())) await empty()
-    else return false
-
-    return true
   }
 
   // A prompt only syncs the skills on disk. The running session picks a change up
@@ -277,13 +274,11 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
   const opener = holder(await credentialFor(false))
 
   if (!opener || opener !== (await owner())) await empty()
-  const trees = [teamClaude, personalClaude]
-  const checked = await Promise.all(trees.map(intact))
+  const checked = await intact(teamClaude)
 
   // A tree that fails the check is fetched in full, not confirmed by its revision.
-  for (const [index, claudeDir] of trees.entries())
-    if (!checked[index]) await fs.rm(path.join(claudeDir, '.skills-revision'), { force: true })
-  const fetched = await Promise.all([
+  if (!checked) await fs.rm(path.join(teamClaude, '.skills-revision'), { force: true })
+  const [synced] = await Promise.all([
     install(teamClaude, url, true),
     syncPersonal().catch(() => false),
   ])
@@ -296,12 +291,18 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
   ]
   // Claude Code runs on user settings only, and then registers no skill from the
   // working directory or from an additional one. A plugin loads whatever the setting
-  // sources are, so each tree is offered as one, which names its skills `team:<skill>`
-  // and `personal:<skill>`. A plugin can also carry hooks and MCP servers, so the
-  // wrappers hold nothing but a manifest and a link to the skills, and each session
-  // gets new ones outside the workspace and the conversation's home. Claude Code reads
-  // plugin skills once, when the session starts, so a tree checked or fetched just now
-  // is what the session gets, and one that is neither is left out.
+  // sources are, so the team's tree is offered as one, which names its skills
+  // `team:<skill>`. A plugin can also carry hooks and MCP servers, so the wrapper holds
+  // nothing but a manifest and a link to the skills, and each session gets a new one
+  // outside the workspace and the conversation's home. Claude Code reads plugin skills
+  // once, when the session starts, so a tree checked or fetched just now is what the
+  // session gets, and one that is neither is left out.
+  //
+  // Personal skills are not offered this way. Claude Code keeps a plugin skill's
+  // content from the start of the session, so in a shared conversation a teammate's
+  // turn could still invoke the opener's personal skills after the refresh above
+  // removed them from disk. They stay files in the additional directory, which the
+  // refresh does keep to the turn's own member.
   // OpenAB runs one agent process per session, so a wrapper goes when its process
   // exits, and one whose process is gone without that (killed, crashed) is swept by
   // the next session to start.
@@ -322,10 +323,7 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
   const { rmSync } = await import('node:fs')
 
   process.once('exit', () => rmSync(plugins, { recursive: true, force: true }))
-  const offered = [
-    ['team', path.join(teamClaude, 'skills')],
-    ['personal', personalSkills],
-  ].filter((_, index) => checked[index] || fetched[index])
+  const offered = checked || synced ? [['team', path.join(teamClaude, 'skills')]] : []
 
   for (const [name, skills] of offered) {
     await fs.mkdir(path.join(plugins, name, '.claude-plugin'), { recursive: true })
@@ -342,5 +340,5 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
     ...offered.map(([name]) => ({ type: 'local', path: path.join(plugins, name) })),
   ]
 
-  return { synced: Promise.resolve(fetched[0]) }
+  return { synced: Promise.resolve(synced) }
 }

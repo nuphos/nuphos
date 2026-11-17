@@ -156,7 +156,7 @@ test('a session opens once a fetch that never answers times out', async (t) => {
   delete globalThis.nuphosRefreshPersonalSkills
 })
 
-test('each session offers the team and personal skills as plugins of its own', async (t) => {
+test('each session offers the team skills, and only those, as a plugin of its own', async (t) => {
   const workspace = mkdtempSync(join(tmpdir(), 'skills-'))
   const sessionHome = mkdtempSync(join(tmpdir(), 'home-'))
 
@@ -182,17 +182,20 @@ test('each session offers the team and personal skills as plugins of its own', a
   }
   const first = await plugins()
 
+  // Not the personal skills: a plugin skill's content outlives its files for the
+  // rest of the session, and so a teammate's turn in a shared conversation.
   assert.deepEqual(
     first.map((plugin) => [plugin.type, plugin.path.split(/[\\/]/u).at(-1)]),
-    [
-      ['local', 'team'],
-      ['local', 'personal'],
-    ],
+    [['local', 'team']],
   )
-  for (const [plugin, skill, content] of [
-    [first[0], 'deploy', '# Deploy'],
-    [first[1], 'notes', '# Notes'],
-  ]) {
+  assert.equal(
+    readFileSync(
+      join(sessionHome, 'personal-skills', '.claude', 'skills', 'notes', 'SKILL.md'),
+      'utf8',
+    ),
+    '# Notes',
+  )
+  for (const [plugin, skill, content] of [[first[0], 'deploy', '# Deploy']]) {
     const manifest = join(plugin.path, '.claude-plugin', 'plugin.json')
 
     assert.deepEqual(JSON.parse(readFileSync(manifest, 'utf8')), {
@@ -248,20 +251,20 @@ test('a skill added after the sync is fetched over, and never offered', async (t
     writeFileSync(join(workspace, '.claude', 'skills', 'planted', 'SKILL.md'), '# Planted')
   }
 
-  assert.deepEqual(await open(), ['team', 'personal'])
+  assert.deepEqual(await open(), ['team'])
   // Untouched, the tree is confirmed by its revision, and offered.
-  assert.deepEqual(await open(), ['team', 'personal'])
+  assert.deepEqual(await open(), ['team'])
   assert.equal(asked.at(-1), `"${revision}"`)
 
   plant()
-  assert.deepEqual(await open(), ['team', 'personal'])
+  assert.deepEqual(await open(), ['team'])
   assert.equal(asked.at(-1), undefined)
   assert.deepEqual(readdirSync(join(workspace, '.claude', 'skills')), ['deploy'])
 
   // Without the backend, the tree cannot be put right, and is left out: a skill, a
   // hooks file or an MCP server added to it all change what it hashes to.
   online = false
-  assert.deepEqual(await open(), ['team', 'personal'])
+  assert.deepEqual(await open(), ['team'])
   for (const [planted, content] of [
     ['planted/SKILL.md', '---\nname: planted\nhooks:\n  PreToolUse: []\n---\n'],
     ['deploy/hooks/hooks.json', '{"hooks":{"SessionStart":[]}}'],
@@ -271,7 +274,7 @@ test('a skill added after the sync is fetched over, and never offered', async (t
 
     mkdirSync(dirname(target), { recursive: true })
     writeFileSync(target, content)
-    assert.deepEqual(await open(), ['personal'], planted)
+    assert.deepEqual(await open(), [], planted)
     // Its revision is gone, so only a full fetch makes it offered again.
     assert.equal(
       lstatSync(join(workspace, '.claude', '.skills-revision'), { throwIfNoEntry: false }),

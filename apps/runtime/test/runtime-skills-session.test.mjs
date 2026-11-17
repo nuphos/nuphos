@@ -329,7 +329,7 @@ test('a session on an older team bundle starts with the newer one', async () => 
   })
 })
 
-test('each session offers the team and personal skills as plugins of its own', async () => {
+test('each session offers the team skills, and only those, as a plugin of its own', async () => {
   await withInstalledBundle(async (workspace) => {
     await withFakeScript('exit 0', async ({ script, directory }) => {
       const plugins = async () => {
@@ -346,12 +346,11 @@ test('each session offers the team and personal skills as plugins of its own', a
       }
       const first = await plugins()
 
+      // Not the personal skills: a plugin skill's content outlives its files for the
+      // rest of the session, and so a teammate's turn in a shared conversation.
       assert.deepEqual(
         first.map((plugin) => [plugin.type, plugin.path.split('/').at(-1)]),
-        [
-          ['local', 'team'],
-          ['local', 'personal'],
-        ],
+        [['local', 'team']],
       )
       for (const plugin of first) {
         const name = plugin.path.split('/').at(-1)
@@ -410,7 +409,7 @@ test('a skill added after the sync is fetched over, and never offered', async ()
       }
 
       // Untouched, the tree is confirmed by its revision, and offered.
-      assert.deepEqual(await open(), ['team', 'personal'])
+      assert.deepEqual(await open(), ['team'])
       // Changed, it is fetched without the revision, and left out while it cannot be:
       // a skill, a hooks file or an MCP server added to it all change what it hashes to.
       for (const [planted, content] of [
@@ -423,7 +422,7 @@ test('a skill added after the sync is fetched over, and never offered', async ()
         await mkdir(dirname(target), { recursive: true })
         await writeFile(target, content)
         await rm(record, { force: true })
-        assert.deepEqual(await open(), ['personal'], planted)
+        assert.deepEqual(await open(), [], planted)
         assert.equal((await readFile(record, 'utf8')).trim(), 'none', planted)
         // Its revision is gone, so only a full fetch makes it offered again.
         await rm(target)
@@ -447,7 +446,7 @@ test('a wrapper goes with its session’s process, or with the next session afte
     )
 
   await withInstalledBundle(async (workspace) => {
-    await withFakeScript('exit 1', async ({ script, directory }) => {
+    await withFakeScript('exit 0', async ({ script, directory }) => {
       await nuphosSyncRuntimeSkills(structuredClone(bundleSession), {
         script,
         sessionHome: directory,
