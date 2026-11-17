@@ -45,8 +45,13 @@ export function BotModelControl({
           provider && (
             <span className="flex shrink-0 items-center gap-1.5 text-tertiary">
               <AgentProviderIcon provider={provider} className="size-3.5 shrink-0" />
-              <span className="whitespace-nowrap">{AGENT_PROVIDER[provider].label}</span>
-              <span aria-hidden>·</span>
+              {/* A narrow titlebar keeps the runtime's mark and gives the Bot's name the room. */}
+              <span className="hidden whitespace-nowrap @[40rem]/titlebar:inline">
+                {AGENT_PROVIDER[provider].label}
+              </span>
+              <span aria-hidden className="hidden @[40rem]/titlebar:inline">
+                ·
+              </span>
             </span>
           )
         }

@@ -166,7 +166,7 @@ export function ChannelPane({
     <FileDropZone target={dropRef} className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div
         className={clsx(
-          'workspace-agent-titlebar sheet-titlebar-row relative flex flex-shrink-0 items-center gap-2 pl-3',
+          'workspace-agent-titlebar sheet-titlebar-row @container/titlebar relative flex flex-shrink-0 items-center gap-2 pl-3',
           titlebarClassName,
           dockOpen ? 'pr-3' : 'pr-12',
         )}

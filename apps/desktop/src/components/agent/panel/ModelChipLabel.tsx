@@ -22,7 +22,7 @@ export function ModelChipLabel({
   choosingEffort: boolean
   /** The fast option's value: 'on' (Fast), 'ultrafast', or off. */
   fast?: string
-  /** Always shows the model and effort, outside a composer's container queries. */
+  /** In a titlebar: the model and effort show when the titlebar is wide, as a composer's do. */
   inline?: boolean
 }) {
   // Fast mode shows in the chip, as Codex shows its mode icon.
@@ -40,7 +40,10 @@ export function ModelChipLabel({
   return loading ? (
     <span
       aria-label={t('Loading model')}
-      className="h-3 w-24 animate-pulse rounded bg-state-selected motion-reduce:animate-none"
+      className={clsx(
+        'h-3 w-24 animate-pulse rounded bg-state-selected motion-reduce:animate-none',
+        inline && 'hidden @[40rem]/titlebar:block',
+      )}
     />
   ) : (
     // The label, "Select effort" and an invisible copy of the label at
@@ -50,7 +53,12 @@ export function ModelChipLabel({
       {!inline && (
         <Sparkles aria-hidden size={14} strokeWidth={1.8} className="shrink-0 @[320px]:hidden" />
       )}
-      <span className={clsx('min-w-0', inline ? 'grid' : 'hidden @[320px]:grid')}>
+      <span
+        className={clsx(
+          'min-w-0',
+          inline ? 'hidden @[40rem]/titlebar:grid' : 'hidden @[320px]:grid',
+        )}
+      >
         {levels.map((choice) => (
           <span
             key={choice}
@@ -59,7 +67,12 @@ export function ModelChipLabel({
           >
             {fastIcon}
             <span className="min-w-0 truncate">{name}</span>
-            <span className={clsx('shrink-0', inline ? 'inline' : 'hidden @[440px]:inline')}>
+            <span
+              className={clsx(
+                'shrink-0',
+                inline ? 'hidden @[40rem]/titlebar:inline' : 'hidden @[440px]:inline',
+              )}
+            >
               {choice}
             </span>
           </span>
@@ -77,7 +90,7 @@ export function ModelChipLabel({
             <span
               className={clsx(
                 'shrink-0 whitespace-nowrap text-tertiary',
-                inline ? 'inline' : 'hidden @[440px]:inline',
+                inline ? 'hidden @[40rem]/titlebar:inline' : 'hidden @[440px]:inline',
               )}
             >
               {level}

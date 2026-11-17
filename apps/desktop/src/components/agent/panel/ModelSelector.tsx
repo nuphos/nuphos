@@ -54,7 +54,7 @@ export function ModelSelector({
   hero?: boolean
   /** Where the picker opens: above a composer, below a titlebar. */
   side?: 'top' | 'bottom'
-  /** Always shows the model and effort, outside a composer's container queries. */
+  /** In a titlebar: the model and effort show when the titlebar is wide, as a composer's do. */
   inline?: boolean
   /** Shown before the model, e.g. the runtime's provider. */
   leading?: ReactNode
@@ -215,7 +215,10 @@ export function ModelSelector({
             <ChevronDown
               size={14}
               strokeWidth={1.8}
-              className={clsx('shrink-0 text-tertiary', inline ? 'block' : 'hidden @[320px]:block')}
+              className={clsx(
+                'shrink-0 text-tertiary',
+                inline ? 'hidden @[40rem]/titlebar:block' : 'hidden @[320px]:block',
+              )}
             />
           </Popover.Trigger>
         </Tooltip>
