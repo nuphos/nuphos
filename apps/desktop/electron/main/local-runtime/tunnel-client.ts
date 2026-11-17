@@ -95,7 +95,7 @@ export class RuntimeTunnelClient {
 
     this.socket = undefined
     if (socket?.terminate) socket.terminate()
-    else socket?.close(1000, 'reconnecting')
+    else socket?.close(1000, this.running ? 'reconnecting' : 'stopped')
   }
 
   private send(frame: object): void {
