@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
 
 import { client } from './binding-access-scenarios.ts'
-import { artifacts } from './processes.ts'
+import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
 
 import type { Stack } from './stack.ts'
@@ -85,17 +85,16 @@ export const longTranscriptScenarios: Scenario[] = [
       await send(page, 'After the long history E2E_DELIVERY:long-1')
       await page.getByText('ACK E2E_DELIVERY:long-1').waitFor()
       await page.screenshot({ path: `${artifacts}/long-transcript-after-turn.png` })
-      for (let attempt = 0; attempt < 20; attempt++) {
-        const more = page.getByRole('button', { name: 'Load earlier messages' })
+      // Page back until the conversation's start is shown: the pager leaves only then.
+      const pager = page.locator('[data-earlier-messages]')
+      const more = page.getByRole('button', { name: 'Load earlier messages' })
 
-        if ((await more.count()) === 0) {
-          if ((await page.getByText('Loading earlier messages…').count()) === 0) break
-          await page.waitForTimeout(200)
-          continue
-        }
-        await more.click()
-        await page.getByText('Loading earlier messages…').waitFor({ state: 'detached' })
-      }
+      await until('every earlier page to load', async () => {
+        if ((await pager.count()) === 0) return true
+        if (await more.isVisible()) await more.click()
+
+        return false
+      })
       const text = await transcript(page)
       const fillers = [...text.matchAll(/Filler (\d{3})/g)].map((match) => Number(match[1]))
       const order = [
