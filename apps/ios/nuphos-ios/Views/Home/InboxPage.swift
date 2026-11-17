@@ -5,29 +5,43 @@ import SwiftUI
 /// Picking one opens it in `InboxQuestionView`: beside the list when wide,
 /// pushed over it on iPhone.
 struct InboxPage: View {
+    @Environment(AgentStore.self) private var store
     let inbox: OpenQuestions?
     /// The question opens beside the list. The window's size class, not this column's: a split
     /// view's sidebar reports compact.
     let wide: Bool
+    @State private var showWorkspaceSetup = false
 
     /// Between a group and the screen's edge.
     fileprivate static let margin: CGFloat = 16
 
     var body: some View {
         content
+            .padding(.top, 16)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Theme.canvas)
             .refreshable { await inbox?.refresh() }
+            .sheet(isPresented: $showWorkspaceSetup) { WorkspaceSetupSheet() }
     }
 
     @ViewBuilder
     private var content: some View {
-        if let inbox, inbox.loaded {
+        if store.phase == .loaded, store.selectedTeam == nil {
+            SetupEmptyState(title: "No workspace yet", message: "Your Inbox will show requests from your team once you join a workspace.", actionTitle: "Set up workspace") { showWorkspaceSetup = true }
+        } else if let inbox, inbox.loaded {
             if inbox.list.isEmpty {
-                ContentUnavailableView(
-                    "You're all caught up",
-                    systemImage: "tray",
-                    description: Text("When an agent needs you to decide something, it shows up here. Answer it and it leaves the Inbox."))
+                VStack(spacing: 16) {
+                    LucideIcon("inbox", size: 32)
+                        .foregroundStyle(Theme.muted)
+                        .accessibilityHidden(true)
+                    Text("You're all caught up")
+                        .font(.title3.weight(.semibold)).foregroundStyle(Theme.heading)
+                    Text("When an agent needs you to decide something, it shows up here. Answer it and it leaves the Inbox.")
+                        .font(.callout).foregroundStyle(Theme.body).multilineTextAlignment(.center)
+                }
+                .padding(24).frame(maxWidth: 400)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
             } else {
                 // On iPhone the list's selection pushes the question. Wide, a tap opens it beside the
                 // list, and its fill marks it: the system's selection would ring it on iPad.
@@ -45,7 +59,7 @@ struct InboxPage: View {
                                     // On iPhone a row pushes its question.
                                     if !wide {
                                         Spacer(minLength: 0)
-                                        Image(systemName: "chevron.right")
+                                        LucideIcon("chevron-right")
                                             .font(.system(size: 12, weight: .semibold))
                                             .foregroundStyle(Theme.faint)
                                     }
@@ -140,14 +154,14 @@ struct InboxToast: View {
                     .font(.system(size: 14, weight: .semibold))
                     .padding(.horizontal, 12)
                     .frame(height: 32)
-                    .background(.white.opacity(0.16), in: Capsule())
+                    .background(Theme.surface.opacity(0.16), in: Capsule())
                     .buttonStyle(.plain)
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(Theme.surface)
             .padding(.leading, 18)
             .padding(.trailing, 6)
             .frame(height: 44)
-            .background(Color(hex: 0x18181B), in: Capsule())
+            .background(Theme.heading, in: Capsule())
             .shadow(color: .black.opacity(0.25), radius: 12, y: 8)
             .padding(.horizontal, 20)
             .accessibilityElement(children: .contain)

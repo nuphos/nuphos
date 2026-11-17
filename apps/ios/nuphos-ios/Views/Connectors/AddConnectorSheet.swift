@@ -70,7 +70,7 @@ struct AddConnectorSheet: View {
                 if connectors.connecting == connector.key {
                     ProgressView().controlSize(.small).tint(Theme.muted)
                 } else {
-                    Image(systemName: chevron(connector))
+                    LucideIcon(systemName: chevron(connector))
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Theme.muted)
                 }

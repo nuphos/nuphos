@@ -531,7 +531,6 @@ pub struct AcpConnection {
     ///
     /// It used to cancel a per-session MCP proxy server; that server is gone and the guard now
     /// carries the minted token instead.
-    #[cfg(feature = "acp-mcp")]
     #[allow(dead_code)]
     facade_token_guard: Option<tokio_util::sync::DropGuard>,
 }
@@ -1031,13 +1030,11 @@ impl AcpConnection {
             _reader_handle: reader_handle,
             _stderr_handle: stderr_handle,
             retired: false,
-            #[cfg(feature = "acp-mcp")]
             facade_token_guard: None,
         })
     }
 
     /// Attach the guard that revokes this session's facade token when the connection drops.
-    #[cfg(feature = "acp-mcp")]
     pub fn set_facade_token_guard(&mut self, guard: Option<tokio_util::sync::DropGuard>) {
         self.facade_token_guard = guard;
     }

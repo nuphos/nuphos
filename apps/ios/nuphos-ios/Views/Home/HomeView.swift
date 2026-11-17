@@ -12,10 +12,11 @@ struct HomeView: View {
     @State private var pageChosen = CommandLine.arguments.contains("-page")
     /// The next page change is the default tab, not the viewer's pick.
     @State private var autoPage = false
+    @State private var showTeamPicker = false
     @State private var showProfile = false
     @State private var showNewBot = false
-    @State private var searching: Set<HomePage> = []
-    @State private var searches: [HomePage: String] = [:]
+    @State private var showNewTask = false
+    @State private var submittedTask: AgentPage.OpenChat?
     @State private var workspacePage: HomePage? = Self.initialWorkspacePage
     @State private var titleCollapsed = false
     @State private var store: AgentStore?
@@ -24,6 +25,8 @@ struct HomeView: View {
     /// The selected team's open questions: the Inbox page and its badge.
     @State private var inbox: OpenQuestions?
     @State private var openChat: AgentPage.OpenChat?
+    @State private var botTask: ChatSession?
+    @State private var showBotTask = false
     /// A desktop shows beside the open conversation, with the list put away meanwhile.
     @State private var desktopOpen = false
     private var columns: Binding<NavigationSplitViewVisibility> { NavigationSplitViewVisibility.home(desktopOpen: desktopOpen) }
@@ -61,77 +64,94 @@ struct HomeView: View {
                     Theme.canvas
                 }
             }
+            .navigationSplitViewColumnWidth(min: 380, ideal: 400, max: 500)
             // The title and workspace actions stay above the native home tabs.
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
-            .navigationTitle(page.title)
+            .navigationTitle("")
             // Wide, the list always stays: there is nothing to put it away with.
             .toolbar(removing: .sidebarToggle)
             .toolbar {
-                // Each control gets its own glass group
-                // (ToolbarSpacer(.fixed) splits groups, per the toolbar docs).
-                if page.isHomeList, store != nil {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            searchPresentation(for: page).wrappedValue.toggle()
-                        } label: {
-                            Label("Search tasks", systemImage: "magnifyingglass")
+                if let store, !store.teams.isEmpty {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button { showTeamPicker = true } label: {
+                            HStack(spacing: 6) {
+                                if let team = store.selectedTeam { TeamAvatar(team: team) }
+                                Text(store.selectedTeam?.name ?? String(localized: "Choose team"))
+                                    .font(.subheadline.weight(.semibold))
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                                    .frame(maxWidth: sizeClass == .regular ? (openChat == nil ? nil : 90) : 180, alignment: .leading)
+                                LucideIcon("chevron-down", size: 14)
+                            }
                         }
-                    }
-                    if page == .chats {
-                        ToolbarItem(placement: .topBarTrailing) {
-                            Button("New Bot", systemImage: "plus") { showNewBot = true }
-                                .disabled(store == nil || store?.creatingBot == true || store?.runtimesLoaded != true)
+                        .sheet(isPresented: $showTeamPicker) {
+                            TeamSwitcherPopover(store: store)
+                                .presentationDetents([.medium, .large])
+                                .presentationDragIndicator(.visible)
+                                .presentationBackground(.ultraThinMaterial)
                         }
+                        .accessibilityLabel("Switch team")
                     }
-                    GlassGroupSpacer()
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        workspacePage = .connectors
-                    } label: {
-                        Image("connector-grid-add")
-                            .frame(width: 30, height: 30)
-                            .padding(7)
-                            .glass(interactive: true, in: Circle())
+                if sizeClass != .regular || openChat != nil {
+                    if #available(iOS 27, *) {
+                            ToolbarItemGroup(placement: .topBarTrailing) { homeActions }
+                        } else {
+                            ToolbarItem(placement: .topBarTrailing) {
+                                HStack(spacing: 0) { homeActions }.buttonStyle(.plain)
+                            }
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Connectors")
-                    .disabled(connectors == nil)
                 }
-                .sharedBackgroundHidden()
-                // The avatar draws its own circular glass: the system glass
-                // for a non-icon label is a capsule, not a circle.
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showProfile = true
-                    } label: {
-                        AvatarView(user: user, size: 30)
-                            .padding(7)
-                            .glass(interactive: true, in: Circle())
-                    }
-                    .buttonStyle(.plain)
-                    #if os(iOS)
-                    .hoverEffect()
-                    #endif
-                    .accessibilityLabel("Account")
-                }
-                .sharedBackgroundHidden()
             }
             #if DEBUG
             .onAppear { if ProcessInfo.processInfo.arguments.contains("-show-app-icons") { showProfile = true } }
             #endif
+            .sheet(isPresented: $showNewTask, onDismiss: {
+                if let submittedTask {
+                    openChat = submittedTask
+                    self.submittedTask = nil
+                }
+            }) {
+                NavigationStack {
+                    VStack(spacing: 0) {
+                        ScrollView {
+                            NewTaskWelcome(name: user.name)
+                        }
+                        .defaultScrollAnchor(.center, for: .alignment)
+                        .frame(maxHeight: .infinity)
+                        NewChatComposer(autoFocus: true, openChat: Binding(get: { nil }, set: { chat in
+                            guard let chat else { return }
+                            submittedTask = chat
+                            showNewTask = false
+                        }))
+                        .readableWidth()
+                    }
+                    .background(Theme.chatCanvas)
+                    .navigationTitle("New Task")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") { showNewTask = false }
+                        }
+                    }
+                }
+                .environment(store)
+                .presentationDetents([.large])
+            }
             .sheet(isPresented: $showProfile) {
                 ProfileSheet(user: user)
             }
             .sheet(item: $workspacePage) { destination in
                 NavigationStack {
                     workspaceContent(destination)
-                        .navigationTitle(destination == .runtimes ? Text("Computers") : Text("Connectors"))
+                        .navigationTitle(destination == .runtimes ? Text("Computers & runtimes") : Text("Connectors"))
+                        .navigationBarTitleDisplayMode(.inline)
                         .toolbar {
-                            ToolbarItem(placement: .confirmationAction) {
-                                Button("Done") { workspacePage = nil }
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button { workspacePage = nil } label: { LucideIcon("x") }
+                                    .accessibilityLabel("Close workspace")
                             }
                         }
                 }
@@ -147,13 +167,18 @@ struct HomeView: View {
             // One stable root. Collapsed, swapping the column's root between
             // these views made a reopened chat appear and vanish at once: its
             // tasks were cancelled while it stayed on screen, never loading.
+            NavigationStack {
             ZStack {
                 if let channel = openChat?.channel {
-                    ChannelView(channel: channel)
+                    ChannelView(channel: channel) { bot in
+                        guard let store else { return }
+                        botTask = store.session(sessionId: bot, title: channel.title, teamId: channel.teamId)
+                        showBotTask = true
+                    }
                         .id(channel.channelId)
                         .toolbar { newAgentItem }
                 } else if let openChat, let chatSession = openChat.session {
-                    ConversationView(session: chatSession, initialPrompt: openChat.prompt)
+                    ConversationView(session: chatSession, initialPrompt: openChat.prompt, onArchived: { self.openChat = nil })
                         .id(openChat.id)
                         // A link to a chat opens as a session until its kind is known.
                         .onChange(of: chatSession.isChannel) { _, isChannel in
@@ -161,20 +186,27 @@ struct HomeView: View {
                             self.openChat = AgentPage.OpenChat(channel: store.channel(
                                 sessionId: chatSession.sessionId, title: chatSession.title, teamId: chatSession.teamId))
                         }
-                        // Compact pops back to the list's composer; wide has
-                        // no back, so this returns the column to it.
+                        // Wide layouts expose the same task-creation sheet.
                         .toolbar { newAgentItem }
                 } else if page == .inbox, let inbox, let question = inbox.list.first(where: { $0.id == inbox.selected }) {
                     InboxQuestionView(inbox: inbox, question: question)
                         .id(question.id)
-                } else if page == .agent, store != nil, sizeClass == .regular {
-                    Theme.chatCanvas.ignoresSafeArea()
-                        .safeAreaInset(edge: .bottom, spacing: 0) {
-                            NewChatComposer(openChat: $openChat).readableWidth()
-                        }
                 } else {
                     Theme.canvas.ignoresSafeArea()
                 }
+            }
+            .toolbar {
+                if sizeClass == .regular, openChat == nil {
+                    ToolbarItemGroup(placement: .topBarTrailing) { homeActions }
+                }
+            }
+            .navigationDestination(isPresented: $showBotTask) {
+                if let botTask {
+                    ConversationView(session: botTask, onArchived: { showBotTask = false; self.botTask = nil; openChat = nil })
+                        .onAppear { store?.follow(botTask) }
+                        .onDisappear { store?.follow(nil) }
+                }
+            }
             }
         }
         // Wide, the list stays beside the detail. The automatic style overlays
@@ -228,7 +260,7 @@ struct HomeView: View {
         }
         .focusedSceneValue(\.newChat) {
             page = .agent
-            openChat = nil
+            showNewTask = true
         }
         // Tasks lists no chat (#2708), and compact opens one by selecting its row, so a chat
         // opened from Tasks, as "Make this a Bot" opens one, opens on Bots instead.
@@ -238,10 +270,14 @@ struct HomeView: View {
             // After the page change below has cleared it.
             Task { openChat = chat }
         }
+        .onChange(of: openChat?.id) { _, _ in
+            showBotTask = false
+            botTask = nil
+        }
         .onChange(of: page) { oldPage, newPage in
+            showBotTask = false
+            botTask = nil
             if autoPage { autoPage = false } else { pageChosen = true }
-            searches[oldPage] = store?.search ?? ""
-            store?.search = searches[newPage] ?? ""
             openChat = nil
             inbox?.selected = nil
             // An answer held for Undo goes once the Inbox is left.
@@ -291,13 +327,12 @@ struct HomeView: View {
         }
     }
 
-    /// Compact pops back to the list's composer; wide has no back, so this
-    /// returns the column to it.
+    /// Create another task without replacing the current conversation first.
     @ToolbarContentBuilder
     private var newAgentItem: some ToolbarContent {
         if sizeClass == .regular {
             ToolbarItem(placement: .topBarLeading) {
-                Button("New task", systemImage: "square.and.pencil") { openChat = nil }
+                DesignButton("New task", image: "lucide-square-pen") { showNewTask = true }
             }
         }
     }
@@ -314,32 +349,53 @@ struct HomeView: View {
         return HomePage.hasChats ? .chats : .agent
     }
 
+    @ViewBuilder
+    private var homeActions: some View {
+            Menu {
+                Button { showNewBot = true } label: {
+                    Label("New Bot", image: "home-tab-bots")
+                }
+                .disabled(store?.creatingBot == true || store?.runtimesLoaded != true)
+                Button { showNewTask = true } label: {
+                    Label("New Task", image: "home-tab-tasks")
+                }
+            } label: {
+                LucideIcon("plus", size: 16).frame(width: 36, height: 44)
+            }
+            .accessibilityLabel("Create")
+            .disabled(store?.selectedRuntimeUnavailable != false)
+            Button { workspacePage = .runtimes } label: {
+                LucideIcon("monitor", size: 16).frame(width: 36, height: 44)
+            }
+            .accessibilityLabel("Computers & runtimes")
+            .disabled(store == nil)
+            Button { showProfile = true } label: {
+                AvatarView(user: user, size: 24).frame(width: 36, height: 44)
+            }
+            .accessibilityLabel("Account")
+    }
+
     private var pageContent: some View {
         TabView(selection: $page) {
-            homeList(.chats)
-                .tabItem { Label("Bots", image: "home-tab-bots") }
-                .tag(HomePage.chats)
-                .badge(store?.pageCounts[.chats] ?? 0)
-            homeList(.agent)
-                .tabItem { Label("Tasks", image: "home-tab-tasks") }
-                .tag(HomePage.agent)
-                .badge(store?.pageCounts[.agent] ?? 0)
-            InboxPage(inbox: inbox, wide: sizeClass == .regular)
-                .tabItem { Label("Inbox", image: "home-tab-inbox") }
-                .tag(HomePage.inbox)
-                .badge(inbox?.list.count ?? 0)
+            Tab("Bots", image: "home-tab-bots", value: HomePage.chats) {
+                homeList(.chats)
+            }
+            .badge(store?.pageCounts[.chats] ?? 0)
+            Tab("Tasks", image: "home-tab-tasks", value: HomePage.agent) {
+                homeList(.agent)
+            }
+            .badge(store?.pageCounts[.agent] ?? 0)
+            Tab("Inbox", image: "home-tab-inbox", value: HomePage.inbox) {
+                InboxPage(inbox: inbox, wide: sizeClass == .regular)
+            }
+            .badge(inbox?.list.count ?? 0)
         }
     }
 
     private func homeList(_ tab: HomePage) -> some View {
-        AgentPage(page: .constant(tab), isSearching: searchPresentation(for: tab),
-                  titleCollapsed: $titleCollapsed, openChat: $openChat, showNewBot: tab == .chats ? $showNewBot : .constant(false), showsComposer: sizeClass != .regular)
-    }
+        AgentPage(page: .constant(tab),
+                  titleCollapsed: $titleCollapsed, openChat: $openChat, showNewBot: tab == .chats ? $showNewBot : .constant(false))
 
-    private func searchPresentation(for tab: HomePage) -> Binding<Bool> {
-        Binding(get: { searching.contains(tab) }, set: { shown in
-            if shown { searching.insert(tab) } else { searching.remove(tab) }
-        })
     }
 
     @ViewBuilder

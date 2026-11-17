@@ -202,6 +202,51 @@ export const channelScenarios: Scenario[] = [
     },
   },
   {
+    // #3319: a Bot's chat kept a name of its own, so a renamed Bot still showed its old one.
+    name: "renaming a Bot's chat renames the Bot, and every place it shows follows",
+    run: async (page, stack) => {
+      const channelId = agentLog(stack).find((entry) => entry.event === 'channel')?.detail
+      const rename = async (title: string) => {
+        const response = await fetch(
+          `${stack.apiUrl}/agent/conversations/${channelId ?? ''}/title`,
+          {
+            method: 'PATCH',
+            headers: {
+              authorization: `Bearer ${stack.token}`,
+              'content-type': 'application/json',
+            },
+            body: JSON.stringify({ teamId: stack.teamId, title }),
+          },
+        )
+
+        if (!response.ok) throw new Error(`Renaming failed: ${String(response.status)}`)
+      }
+
+      if (!channelId) throw new Error('The Bot has not answered in its chat yet')
+      await rename('E2E Scout')
+      try {
+        const rows = page.locator('[data-sidebar-row]')
+
+        await rows.filter({ hasText: 'E2E Scout' }).first().waitFor()
+        await page.locator('.workspace-agent-titlebar').getByText('E2E Scout').first().waitFor()
+        await page.getByText('Message E2E Scout', { exact: true }).waitFor()
+        await page.locator('[data-post-id]').filter({ hasText: 'E2E Scout' }).first().waitFor()
+        await page.evaluate(() => {
+          document.documentElement.classList.remove('dark')
+          document.documentElement.classList.add('light')
+        })
+        await page.screenshot({ path: `${artifacts}/bot-renamed-light.png` })
+        const stale = await rows.filter({ hasText: 'E2E Bot' }).count()
+
+        if (stale > 0) throw new Error(`${String(stale)} sidebar rows still show the old name`)
+      } finally {
+        // Later scenarios find the Bot by its name.
+        await rename('E2E Bot')
+      }
+      await page.getByText('Message E2E Bot', { exact: true }).waitFor()
+    },
+  },
+  {
     // #3252: the Bot composer's runtime line hid the usage bar the Task composer shows.
     name: 'the Bot composer and the Task composer both show the runtime usage bar',
     run: async (page, stack) => {

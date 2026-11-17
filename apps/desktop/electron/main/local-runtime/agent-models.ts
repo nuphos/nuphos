@@ -8,6 +8,12 @@ export const MODEL_REFRESH_MS = 30 * 60_000
 export const MODEL_SIGNED_OUT_MS = 60_000
 /** An opened model picker reads again at most this often. */
 export const MODEL_ON_DEMAND_MS = 60_000
+/**
+ * How long an agent waits before its first read, when it is not at once. A Hermes read starts
+ * a gateway daemon of its own, and a conversation's daemon does not start until it is ready:
+ * read at once, it holds back the conversation started just after the agent was added.
+ */
+export const MODEL_FIRST_READ_MS: Partial<Record<string, number>> = { hermes: 60_000 }
 
 type Reader = { live: () => boolean; read: () => Promise<boolean | undefined> }
 
@@ -99,7 +105,13 @@ export function discoverModels(
       inFlight ??
       (signedOut() || Date.now() - readAt < MODEL_ON_DEMAND_MS ? Promise.resolve(false) : read()),
   })
-  cycle(0)
+  const first = MODEL_FIRST_READ_MS[run.provider]
+
+  if (first)
+    setTimeout(() => {
+      if (live()) cycle(0)
+    }, first).unref()
+  else cycle(0)
 }
 
 /**
