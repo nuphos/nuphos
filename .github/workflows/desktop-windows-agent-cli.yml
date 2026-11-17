@@ -36,12 +36,13 @@ jobs:
         with:
           node-version: 24
       # A user's npm installs globals into %APPDATA%\npm, which findAgentCli
-      # searches even off PATH; the runner's own prefix is elsewhere.
+      # searches even off PATH; the runner's own prefix is elsewhere. npm 11
+      # skips install scripts unless allowed, and this one places claude.exe.
       - name: Install Claude Code with npm into %APPDATA%\npm
+        shell: pwsh
         run: |
-          npm config set prefix "$APPDATA\\npm"
-          npm install -g @anthropic-ai/claude-code
-          ls "$APPDATA/npm"
+          npm install -g --prefix "$env:APPDATA\npm" --allow-scripts=@anthropic-ai/claude-code @anthropic-ai/claude-code
+          Get-ChildItem "$env:APPDATA\npm"
       - name: Before (main) picks claude.cmd, which fails with EINVAL
         working-directory: apps/desktop/electron/main/local-runtime
         run: |
