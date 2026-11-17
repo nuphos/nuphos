@@ -7,6 +7,7 @@ import { useTeamMemberList } from '../../../hooks/useTeamMemberList'
 import { useThisComputer } from '../../../hooks/useThisComputer'
 import { t } from '../../../i18n'
 import { agentTier } from '../../../lib/agentName'
+import { managesDevice } from '../../../views/settings/agentPresentation'
 import { openBoxPaywall } from '../../../views/settings/boxPaywallStore'
 import { boxRestarts } from '../../../views/settings/boxRestartStore'
 import { boxWakes, useBoxWakes } from '../../../views/settings/boxWakes'
@@ -18,6 +19,7 @@ import { resumeComputer } from './agentRowFix'
 import { rememberSignInAsk } from './signInAsks'
 
 import type { AgentFix, AgentRowViewer } from './agentRowFix'
+import type { AgentDevice } from '../../../api'
 
 export type PickerFixes = {
   viewer: AgentRowViewer
@@ -43,6 +45,7 @@ export function usePickerFixes({
   closeMenu,
   onSettings,
   sessionId,
+  devices,
 }: {
   teamId?: string
   isTeamAdmin: boolean
@@ -52,6 +55,8 @@ export function usePickerFixes({
   onSettings?: () => void
   /** The open conversation, which an ask to sign its agent in belongs to. */
   sessionId?: string
+  /** The viewer's computers, for who besides an owner may sign their agents in. */
+  devices?: AgentDevice[]
 }): { fixes: PickerFixes; dialogs: React.ReactNode } {
   const viewerId = useCurrentUser()?.id
   const thisComputer = useThisComputer()
@@ -146,6 +151,8 @@ export function usePickerFixes({
         isTeamAdmin,
         onThisComputer: (instance) => agentTier(instance, thisComputer) === 'local',
         members,
+        manages: (instance) =>
+          instance.local !== undefined && managesDevice(devices, instance.local.deviceId) === true,
       },
       run,
       busy: (fix) => {

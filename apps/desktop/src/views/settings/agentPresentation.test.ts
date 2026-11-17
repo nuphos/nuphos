@@ -11,6 +11,7 @@ import {
   managesRuntime,
   newAgentAction,
   ownSignedInCli,
+  signedInAs,
   visibleAgent,
 } from './agentPresentation.ts'
 import { boxAgents } from './boxPresentation.ts'
