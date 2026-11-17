@@ -9,8 +9,7 @@ import { artifacts, freePorts, logPath, signalGroup, spawn, stop, until } from '
 import { startInstaboxStub } from './instabox-stub.ts'
 import { startStorage } from './storage.ts'
 
-const ROOT = resolve(import.meta.dirname, '../..')
-const BACKEND_DIR = join(ROOT, 'apps/backend')
+const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
 const FIXTURE = join(import.meta.dirname, 'acp-fixture.mjs')
 const AUTH_KEY = 'local-e2e-openab-transport-key-123456789'
 const CONTROL_KEY = 'local-e2e-openab-control-key-123456789'
@@ -30,8 +29,8 @@ export type Stack = {
   holdSessionOpening: () => () => void
   /** The first agent offers Claude Code's "Default" stand-in until the returned function is called. */
   offerDefaultStandIn: () => () => void
-  /** Stops OpenAB and its agents, runs `whileDown`, then starts it again on the same address, as a runtime restart does. */
-  restartAgentHost: (whileDown?: () => Promise<void>) => Promise<void>
+  /** Stops OpenAB and its agents, runs `whileDown`, then starts it again on the same address, as a runtime restart does, offering the runtime `jobs` given. */
+  restartAgentHost: (whileDown?: () => Promise<void>, jobs?: string) => Promise<void>
   /** Freezes OpenAB and its agents, so its sockets stay open and nothing answers, runs `whileFrozen`, then lets them go on. */
   freezeAgentHost: (whileFrozen: () => Promise<void>) => Promise<void>
   /** The `state` of the newest Cloudflare authorization the app started. */
@@ -159,7 +158,7 @@ export async function startStack(options: { botOnboarding?: boolean } = {}): Pro
 
   writeFileSync(acpLog, '')
   // One OpenAB and isolated home per runtime; each fixture entry logs its agent.
-  const startAgentHost = (agent = 'first', port = runtimePort) => {
+  const startAgentHost = (agent = 'first', port = runtimePort, jobs = '') => {
     const config = join(artifacts, `openab-${agent}.toml`)
     const home = join(artifacts, `home-${agent}`)
 
@@ -193,14 +192,15 @@ export async function startStack(options: { botOnboarding?: boolean } = {}): Pro
         OPENAB_ACP_CONTROL_KEY: CONTROL_KEY,
         OPENAB_ACP_MCP_SERVERS: 'true',
         GATEWAY_LISTEN: `127.0.0.1:${String(port)}`,
+        ...(jobs ? { OPENAB_RUNTIME_JOBS: jobs } : {}),
       },
     })
   }
   const agentHosts = [startAgentHost()]
-  const restartAgentHost = async (whileDown?: () => Promise<void>) => {
+  const restartAgentHost = async (whileDown?: () => Promise<void>, jobs = '') => {
     await stop(agentHosts.at(-1)!)
     await whileDown?.()
-    agentHosts.push(startAgentHost())
+    agentHosts.push(startAgentHost('first', runtimePort, jobs))
     await until('OpenAB to listen again', async () =>
       fetch(`http://127.0.0.1:${String(runtimePort)}/`),
     )

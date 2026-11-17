@@ -295,3 +295,25 @@ test('a quota whose models report nothing countable falls back to its usage', as
 
   expect(inserted.find((row) => row.kind === 'step_total')?.modelId).toBe('claude-opus-5')
 })
+
+test('every row of a turn names who sent it, from where, on which runtime and computer', async () => {
+  await writeRuntimeTurnUsage({
+    ...turn,
+    stopReason: 'cancelled',
+    actorUserId: 'teammate-2',
+    turnSource: 'slack.agent',
+    runtimeId: 'runtime-7',
+    deviceId: 'mac-1',
+  })
+
+  expect(inserted.length).toBeGreaterThan(1)
+  for (const row of inserted)
+    expect(row).toMatchObject({
+      userId: 'user-1',
+      actorUserId: 'teammate-2',
+      turnSource: 'slack.agent',
+      runtimeId: 'runtime-7',
+      deviceId: 'mac-1',
+      finishReason: 'cancelled',
+    })
+})

@@ -11,7 +11,7 @@ import {
   steerQueuedNotice,
   steerRunningTurn,
 } from './channel-wake'
-import { isChannel, postText } from './db/channels'
+import { chatName, isChannel, postText } from './db/channels'
 import { bumpConversationActivity } from './db/read-state'
 import { pushTimelineEvent } from './db/participants'
 import { agentConversations } from './db/shared'
@@ -227,7 +227,7 @@ async function notePause(channelId: string) {
  * agent then reads all of it, so a second notice is dropped here and costs
  * nothing.
  */
-async function notifyAgent(
+export async function notifyAgent(
   channel: AgentConversation & { teamId: string },
   sessionId: string,
   fromAgent: boolean,
@@ -243,7 +243,7 @@ async function notifyAgent(
   const metadata = channelNoticeSender(
     channel.teamId,
     channel.sessionId,
-    channel.title || 'Nuphos channel',
+    chatName(channel) || 'Nuphos channel',
   )
 
   // An agent's posts still wait for the turn to end: one wake per turn (#1458).
@@ -287,13 +287,12 @@ async function startNotice(
     metadata,
   )
 
+  // The channel already has its line: runTurn reports a notice it could not run.
   run.catch((error: unknown) => {
     logError('agent.channel.turn_failed', error, {
       channel_id: channel.sessionId,
       session_id: agent.sessionId,
     })
-
-    return noteReplyFailed(channel.sessionId, agent.sessionId, error)
   })
 
   return status === 'queued' ? messageId : undefined
