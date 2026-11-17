@@ -1,6 +1,6 @@
 // Google OAuth for the Gmail and Google Drive Personal Credentials. Each team
 // brings its own OAuth client (Team settings); each provider is its own grant
-// with one scope, issued by the team's client.
+// with its own scopes, issued by the team's client.
 import { config } from '@/config'
 import { decryptLinearSecret } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
@@ -16,7 +16,9 @@ export type GoogleProvider = 'gmail' | 'google-drive'
 export const GOOGLE_PROVIDERS: readonly GoogleProvider[] = ['gmail', 'google-drive']
 
 const SCOPES: Record<GoogleProvider, string> = {
-  gmail: 'https://www.googleapis.com/auth/gmail.modify',
+  // settings.basic covers filters, which gmail.modify does not.
+  gmail:
+    'https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.settings.basic',
   'google-drive': 'https://www.googleapis.com/auth/drive',
 }
 

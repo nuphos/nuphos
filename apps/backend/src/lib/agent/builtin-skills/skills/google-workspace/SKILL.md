@@ -65,8 +65,9 @@ instead). The same rules apply: prefer a draft (`GMAIL_CREATE_EMAIL_DRAFT`) over
 
 ## Gmail
 
-Scope: `gmail.modify` — read, label, archive, trash, draft and send. Permanent
-delete is not allowed.
+Scopes: `gmail.modify` — read, label, archive, trash, draft and send — and
+`gmail.settings.basic` — create, list and delete filters. Permanent delete is
+not allowed.
 
 ```bash
 source ~/.google/gmail.env

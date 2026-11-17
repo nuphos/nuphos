@@ -302,9 +302,12 @@ describe.each(['github', 'linear', 'gmail', 'google-drive'])(
 )
 
 describe('Google Personal Credentials', () => {
-  test('each provider asks Google for its own scope with offline access', async () => {
+  test('each provider asks Google for its own scopes with offline access', async () => {
     for (const [provider, scope] of [
-      ['gmail', 'https://www.googleapis.com/auth/gmail.modify'],
+      [
+        'gmail',
+        'https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.settings.basic',
+      ],
       ['google-drive', 'https://www.googleapis.com/auth/drive'],
     ] as const) {
       const res = await requestStart(provider, 'alice')
