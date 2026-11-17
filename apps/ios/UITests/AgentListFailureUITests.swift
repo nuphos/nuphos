@@ -108,20 +108,20 @@ final class AgentListFailureUITests: XCTestCase {
         launch()
         let original = try originalList()
         try respond(list, status: 500, body: ["error": ["message": "Synthetic read failure"]])
+        // A spinner left showing pushes the rows down.
+        let top = row("Release ops").frame
         let window = app.windows.firstMatch
         window.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.3))
             .press(forDuration: 0.05, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.9)))
         let alert = app.alerts["Couldn't refresh tasks"]
         XCTAssertTrue(alert.waitForExistence(timeout: 8), "The failed refresh was not reported")
         XCTAssertFalse(app.staticTexts["Couldn't load tasks"].exists, "The list was replaced")
+        XCTAssertEqual(row("Release ops").frame, top, "The pull's spinner is still showing behind the alert")
         responses[list] = original
         try write()
-        // A spinner that never stops holds the tap until the app counts as idle, a full minute.
-        let tapped = Date()
         alert.buttons["Try again"].tap()
-        XCTAssertLessThan(Date().timeIntervalSince(tapped), 30, "The pull's spinner did not stop")
         XCTAssertFalse(alert.waitForExistence(timeout: 2), "The retry failed")
-        XCTAssertTrue(row("Release ops").exists)
+        XCTAssertEqual(row("Release ops").frame, top, "The pull's spinner is still showing")
     }
 
     // MARK: - Helpers
