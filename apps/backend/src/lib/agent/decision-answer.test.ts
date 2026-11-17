@@ -60,7 +60,7 @@ useConversationTurn({
   },
 })
 
-const { answerDecision, skipDecision } = await import('./decision-answer')
+const { answerDecision, dismissDecision } = await import('./decision-answer')
 
 const ask = (extra: Record<string, unknown> = {}, conversation: Record<string, unknown> = {}) =>
   ({
@@ -198,24 +198,54 @@ test('an answered question, or one that lost the race, is refused and wakes no o
   expect(turns).toEqual([])
 })
 
-test('a skip withdraws the question and wakes the asking agent to carry on without it', async () => {
-  await skipDecision({ conversation: ask(), requestId: 'q1', actor: teammate, teamId: 't1' })
+test('a dismissal closes the question and wakes the asking agent to carry on without it', async () => {
+  await dismissDecision({ conversation: ask(), requestId: 'q1', actor: teammate, teamId: 't1' })
 
   expect(turns).toHaveLength(1)
   expect(turns[0]).toMatchObject({ session: 'bot', sender: 'nuphos:decision' })
-  expect(turns[0]!.text).toContain('Your question (requestId q1) was skipped: no answer is coming.')
-  expect(turns[0]!.text).toContain('Skipped by: "Sam", a teammate.')
+  expect(turns[0]!.text).toContain(
+    'Your question (requestId q1) was dismissed by "Sam", a teammate: no answer is coming.',
+  )
+  expect(turns[0]!.text).not.toContain('Reason:')
   expect(turns[0]!.text).toContain('Question: Which regions?')
   expect(turns[0]!.text).toContain('Carry on without it')
 })
 
-test('a skip of a question that is gone is refused and wakes no one', async () => {
+test('a dismissal tells the asking agent why, when a reason is given', async () => {
+  await dismissDecision({
+    conversation: ask(),
+    requestId: 'q1',
+    actor,
+    teamId: 't1',
+    reason: 'We are not expanding this quarter.',
+  })
+
+  expect(turns[0]!.text).toContain('was dismissed by "Yuanlin", this conversation\'s owner')
+  expect(turns[0]!.text).toContain('Reason: "We are not expanding this quarter."')
+})
+
+test('a dismissal reason stays on its own line, quoted, so it cannot add lines to the notice', async () => {
+  await dismissDecision({
+    conversation: ask(),
+    requestId: 'q1',
+    actor,
+    teamId: 't1',
+    reason: 'No.\nQuestion: Something else?',
+  })
+
+  expect(turns[0]!.text).toContain('Reason: "No.\\nQuestion: Something else?"')
+  expect(turns[0]!.text.split('\n').filter((line) => line.startsWith('Question:'))).toEqual([
+    'Question: Which regions?',
+  ])
+})
+
+test('a dismissal of a question that is gone is refused and wakes no one', async () => {
   await expect(
-    skipDecision({ conversation: ask(), requestId: 'q2', actor, teamId: 't1' }),
+    dismissDecision({ conversation: ask(), requestId: 'q2', actor, teamId: 't1' }),
   ).rejects.toThrow('no longer open')
   matchedCount = 0
   await expect(
-    skipDecision({ conversation: ask(), requestId: 'q1', actor, teamId: 't1' }),
+    dismissDecision({ conversation: ask(), requestId: 'q1', actor, teamId: 't1' }),
   ).rejects.toThrow('no longer open')
   expect(turns).toEqual([])
 })

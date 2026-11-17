@@ -674,6 +674,7 @@
   "POST /agent/conversations/:sessionId/cancel-runtime": "user",
   "POST /agent/conversations/:sessionId/channel-messages": "user",
   "POST /agent/conversations/:sessionId/decisions/:requestId/answer": "user",
+  "POST /agent/conversations/:sessionId/decisions/:requestId/snooze": "user",
   "POST /agent/conversations/:sessionId/decisions/:toolCallId/resolve": "user",
   "POST /agent/conversations/:sessionId/edit-forks": "user",
   "POST /agent/conversations/:sessionId/forks": "user",

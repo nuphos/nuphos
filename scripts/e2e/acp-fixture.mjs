@@ -131,8 +131,8 @@ async function prompt({ sessionId, prompt: parts }) {
     text.includes('E2E_USAGE_LIMIT') || (late.has(sessionId) && !text.includes('E2E_ASK'))
 
   refuse(text, outOfUsage && process.env.E2E_AGENT !== 'second')
-  // Nuphos tells the agent when a person skips its question.
-  if (text.includes('was skipped')) log({ sessionId, marker, event: 'skipped' })
+  // Nuphos tells the agent when a person dismisses its question.
+  if (text.includes('was dismissed by')) log({ sessionId, marker, event: 'dismissed' })
   if (text.includes('E2E_DELEGATE') && !text.includes(CHILD)) {
     await delegate(sessionId, text.includes('E2E_DELEGATE_FAST'))
   }

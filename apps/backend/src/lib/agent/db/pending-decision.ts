@@ -27,6 +27,8 @@ export type InputRequest = ExplicitUserDecision & {
   /** The linked resources and sub-agent threads it is about: their changes remind the agent of it. */
   about?: string[]
   askedAt: Date
+  /** Set aside by the owner: out of their Inbox until then, still answerable where it was asked. */
+  snoozedUntil?: Date
   /** Always 'open': clients still filter on it. */
   status: 'open'
 }
@@ -144,6 +146,25 @@ export async function resolveInputRequest(
   const result = await agentConversations().updateOne(
     { sessionId, userId, 'inputRequests.id': id },
     { $pull: { inputRequests: { id } } },
+  )
+
+  return result.matchedCount > 0
+}
+
+/**
+ * The owner sets an open request aside until `until`, or brings it back with
+ * null. The agent is not told. False when it is not open.
+ */
+export async function snoozeInputRequest(
+  sessionId: string,
+  userId: string,
+  id: string,
+  until: Date | null,
+): Promise<boolean> {
+  const field = 'inputRequests.$.snoozedUntil'
+  const result = await agentConversations().updateOne(
+    { sessionId, userId, inputRequests: { $elemMatch: { id, status: 'open' } } },
+    until ? { $set: { [field]: until } } : { $unset: { [field]: '' } },
   )
 
   return result.matchedCount > 0

@@ -14,6 +14,7 @@ import { dashboardScenarios } from './dashboard-scenarios.ts'
 import { startDesktop } from './desktop.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
+import { questionScenarios } from './question-scenarios.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
 import { signInScenarios } from './sign-in-scenarios.ts'
 import { startStack } from './stack.ts'
@@ -205,14 +206,15 @@ const scenarios: Scenario[] = [
       await page.getByText('ACK E2E_DELIVERY:skip').waitFor()
       await page.getByRole('button', { name: 'Skip', exact: true }).last().click()
       // The card leaves with its question; the agent's wake notice stays in the chat.
-      await page.getByText(/was skipped: no answer is coming/).waitFor()
-      await until('the agent to be told its question was skipped', async () =>
-        agentEvents(stack).includes('skipped E2E_DELIVERY:missing'),
+      await page.getByText(/was dismissed by .*: no answer is coming/).waitFor()
+      await until('the agent to be told its question was dismissed', async () =>
+        agentEvents(stack).includes('dismissed E2E_DELIVERY:missing'),
       )
       await page.getByText('ACK E2E_DELIVERY:missing').waitFor()
       await page.screenshot({ path: `${artifacts}/question-skipped.png` })
     },
   },
+  ...questionScenarios,
   ...triggerScenarios,
   ...connectorScenarios,
   ...accessScenarios,
