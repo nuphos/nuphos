@@ -99,7 +99,7 @@ export const channelScenarios: Scenario[] = [
     name: "Switch runtime on a Bot's failed turn opens one runtime list",
     run: async (page) => {
       await send(page, 'Out of usage E2E_USAGE_LIMIT E2E_DELIVERY:bot-usage')
-      await page.getByRole('button', { name: 'Open session' }).click()
+      await page.getByTitle('Open session').click()
       const task = page.locator('.t-bot-task-mode')
 
       await task.getByText('You’ve hit your usage limit').last().waitFor()
