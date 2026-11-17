@@ -1,7 +1,7 @@
 // Scenarios about a Bot row's unread dot, in the chat of the Bot an earlier scenario created.
 import { agentEvents, agentLog } from './agent-log.ts'
 import { artifacts, until } from './processes.ts'
-import { newTask, openComputers, send } from './ui.ts'
+import { newTask, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 
@@ -83,8 +83,15 @@ export const botUnreadScenarios: Scenario[] = [
       if (raised !== 0) throw new Error(`The sub-Task's reply moved the badge by ${String(raised)}`)
 
       // Now the Bot's own message, unread, with the sub-Task's reply still under it. The Bots
-      // tab reopened the Bot's chat, which would read it at once; another page leaves it unread.
-      await openComputers(page)
+      // tab reopened the Bot's chat, which would read it at once; another chat leaves it unread.
+      const side = await fetch(`${stack.apiUrl}/agent/channels`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ teamId: stack.teamId, title: 'E2E side chat', group: true }),
+      })
+
+      if (!side.ok) throw new Error(`Creating a chat failed: ${String(side.status)}`)
+      await bots.getByText('E2E side chat').first().click()
       const response = await fetch(
         `${stack.apiUrl}/agent/conversations/${channelId}/channel-messages`,
         {
