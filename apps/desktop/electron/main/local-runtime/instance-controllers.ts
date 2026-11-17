@@ -8,6 +8,7 @@ import { userDir } from './controller-types.ts'
 import { instanceControllerDeps, secureStorageEnv } from './instance-deps.ts'
 import { instanceStates, instanceStatus, publicMetadata } from './instance-entries.ts'
 
+import type { ClaudeResetOutcome } from './agent-cli-reset.ts'
 import type { LocalAgentProvider } from './agent-cli.ts'
 import type { AgentInstanceRecord } from './agent-instances.ts'
 import type { LocalRuntimeControllerDeps } from './controller-types.ts'
@@ -101,6 +102,14 @@ export class InstanceControllers {
     return entry?.metadata.provider === provider
       ? entry.controller.runtimeForStream(provider)
       : null
+  }
+
+  spendClaudeReset(instanceId: string): Promise<ClaudeResetOutcome> | undefined {
+    const entry = this.entries.get(instanceId)
+
+    return entry?.metadata.provider === 'claude-code'
+      ? entry.controller.spendClaudeReset()
+      : undefined
   }
 
   states(online: boolean) {

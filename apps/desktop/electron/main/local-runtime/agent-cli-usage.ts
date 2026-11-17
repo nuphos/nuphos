@@ -29,22 +29,35 @@ async function codexUsageRequest(
   }
 }
 
-async function claudeUsageRequest(
-  home: string,
+/** Claude Code's sign-in, and the headers Anthropic expects with it. The server lists
+ *  limit resets (`cedar_ember`) only to Claude Code itself, so the request says it is
+ *  one, with the version installed here. Null when nothing is signed in. */
+export async function claudeRequestHeaders(
   env: NodeJS.ProcessEnv,
-): Promise<UsageRequest | null> {
-  const credential = await readClaudeCredential(home, env)
+  version = '2.1.322',
+): Promise<Record<string, string> | null> {
+  const credential = await readClaudeCredential(homeOf(env), env)
   const oauth = credential?.claudeAiOauth as { accessToken?: unknown } | undefined
 
   if (typeof oauth?.accessToken !== 'string' || !oauth.accessToken) return null
 
   return {
-    url: 'https://api.anthropic.com/api/oauth/usage',
-    headers: {
-      authorization: `Bearer ${oauth.accessToken}`,
-      'anthropic-beta': 'oauth-2025-04-20',
-    },
+    authorization: `Bearer ${oauth.accessToken}`,
+    'anthropic-beta': 'oauth-2025-04-20',
+    'user-agent': `claude-cli/${version} (external, cli)`,
+    'x-app': 'cli',
   }
+}
+
+export const CLAUDE_USAGE_URL = 'https://api.anthropic.com/api/oauth/usage?cedar_ember=1'
+
+async function claudeUsageRequest(
+  env: NodeJS.ProcessEnv,
+  version: string | undefined,
+): Promise<UsageRequest | null> {
+  const headers = await claudeRequestHeaders(env, version)
+
+  return headers && { url: CLAUDE_USAGE_URL, headers }
 }
 
 /** Where this computer keeps the credential, and what the provider wants to see
@@ -52,11 +65,10 @@ async function claudeUsageRequest(
 function usageRequest(
   provider: LocalAgentProvider,
   env: NodeJS.ProcessEnv,
+  version: string | undefined,
 ): Promise<UsageRequest | null> {
-  const home = homeOf(env)
-
-  if (provider === 'codex') return codexUsageRequest(home, env)
-  if (provider === 'claude-code') return claudeUsageRequest(home, env)
+  if (provider === 'codex') return codexUsageRequest(homeOf(env), env)
+  if (provider === 'claude-code') return claudeUsageRequest(env, version)
 
   return Promise.resolve(null)
 }
@@ -69,8 +81,9 @@ function usageRequest(
 export async function readAgentUsage(
   provider: LocalAgentProvider,
   env: NodeJS.ProcessEnv,
+  version?: string,
 ): Promise<unknown> {
-  const request = await usageRequest(provider, env)
+  const request = await usageRequest(provider, env, version)
 
   if (!request) return
   try {

@@ -180,6 +180,7 @@ export const startLocalClaudeLogin = () => logins.start('claude-code')
 export const startLocalCodexLogin = () => logins.start('codex')
 export const cancelLocalClaudeLogin = () => logins.cancel('claude-code')
 export const cancelLocalCodexLogin = () => logins.cancel('codex')
+export const spendLocalClaudeReset = (id?: string) => controller.spendClaudeReset(id)
 
 /** The runtime follows the signed-in account: any change of session stops it first. */
 export function initLocalRuntime(): void {

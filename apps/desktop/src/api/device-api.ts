@@ -30,6 +30,8 @@ export const deviceApi = {
   localRuntimeSetSleepPreferences: (value: SleepPreferences) =>
     window.api.localRuntimeSetSleepPreferences(value),
   localRuntimeGetState: () => window.api.localRuntimeGetState(),
+  localRuntimeSpendClaudeReset: (instanceId?: string) =>
+    window.api.localRuntimeSpendClaudeReset(instanceId),
   onLocalRuntimeState: (cb: (state: LocalRuntimeState) => void) =>
     window.api.onLocalRuntimeState(cb),
   localRuntimeRefresh: () => window.api.localRuntimeRefresh(),

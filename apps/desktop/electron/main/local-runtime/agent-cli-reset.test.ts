@@ -80,10 +80,7 @@ test('spends the usable grant that expires first, as Claude Code does', async ()
 
     assert.equal(read?.url, 'https://api.anthropic.com/api/oauth/usage?cedar_ember=1')
     assert.equal(claim?.method, 'POST')
-    assert.equal(
-      claim?.url,
-      'https://api.anthropic.com/api/organizations/org-1/reset_rate_limits',
-    )
+    assert.equal(claim?.url, 'https://api.anthropic.com/api/organizations/org-1/reset_rate_limits')
     assert.equal(claim?.headers.authorization, 'Bearer sk-ant-oat-local')
     assert.equal(claim?.headers['user-agent'], 'claude-cli/2.1.322 (external, cli)')
     const body = claim?.body as { program: string; grant_id: string; request_id: string }

@@ -139,6 +139,8 @@ export type RuntimeQuota = {
   offline?: true
   plan?: string
   windows: RuntimeQuotaWindow[]
+  /** Claude limit resets the account holds; absent when it holds none or the provider did not say. */
+  resets?: { left: number; expiresAt: string | null; usableNow: boolean }
 }
 
 export type RuntimeMetricSample = {

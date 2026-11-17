@@ -49,6 +49,10 @@ export type WindowDeviceApi = {
   localRuntimeCancelClaudeLogin(): Promise<void>
   localRuntimeSetSleepPreferences(value: SleepPreferences): Promise<SleepState>
   localRuntimeGetState(): Promise<LocalRuntimeState>
+  /** Spends one of this computer's Claude limit resets; `instanceId` names an added agent. */
+  localRuntimeSpendClaudeReset(
+    instanceId?: string,
+  ): Promise<{ result: string; resetsLeft?: number | null }>
   onLocalRuntimeState(cb: (state: LocalRuntimeState) => void): () => void
   localRuntimeRefresh(): Promise<LocalRuntimeState>
   /** Reads this computer's running agents' models again; true when a list changed. */

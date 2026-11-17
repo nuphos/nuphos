@@ -1,3 +1,4 @@
+import type { ClaudeResetOutcome } from './agent-cli-reset.ts'
 import type { LocalAgentProvider } from './agent-cli.ts'
 import type { AgentInstanceRecord } from './agent-instances.ts'
 import type { LocalRuntimeState } from './controller-types.ts'
@@ -13,6 +14,7 @@ export type Controller = {
   /** `runtime`, for a stream that asks for the agent. */
   runtimeForStream(provider: LocalAgentProvider): RunningRuntime | null
   status(): LocalRuntimeTunnelStatus
+  spendClaudeReset(): Promise<ClaudeResetOutcome> | undefined
 }
 
 export type Entry = {

@@ -94,6 +94,23 @@ export function quotaDetailLines(
   now: Date = new Date(),
 ): string[] {
   if (!quota?.available) return []
+  const resets = quotaResetsLine(quota)
 
-  return quota.windows.map((window) => quotaWindowLine(window, now))
+  return [
+    ...quota.windows.map((window) => quotaWindowLine(window, now)),
+    ...(resets ? [resets] : []),
+  ]
+}
+
+/** "2 resets · use by Dec 10": the Claude limit resets the account holds, if any. */
+export function quotaResetsLine(quota: RuntimeQuota | undefined): string | null {
+  const resets = quota?.available ? quota.resets : undefined
+
+  if (!resets || resets.left <= 0) return null
+  const count = resets.left === 1 ? t('1 reset') : t('{count} resets', { count: resets.left })
+  const by = resets.expiresAt ? new Date(resets.expiresAt) : null
+
+  if (!by || Number.isNaN(by.getTime())) return count
+
+  return `${count} · ${t('use by {date}', { date: by.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) })}`
 }

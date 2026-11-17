@@ -207,6 +207,10 @@ export class LocalRuntimeController {
   status() {
     return tunnelStatusOf(this.agents, this.deps.backendUrl)
   }
+  /** Spends a Claude limit reset of this agent, or of the added agent `instanceId` names. */
+  spendClaudeReset(instanceId?: string) {
+    return instanceId ? this.instances?.spendClaudeReset(instanceId) : this.usage.spendReset()
+  }
   instanceRequest(request: unknown): Promise<unknown> {
     if (!this.instances) return Promise.reject(new Error('Instance management unavailable'))
 

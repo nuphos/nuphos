@@ -9,6 +9,10 @@ export type RuntimeQuotaWindow = {
   resetsAt: string | null
 }
 
+/** Limit resets the account holds: how many, when the first must be used by, and
+ *  whether one can be spent now rather than only at a limit. */
+export type RuntimeQuotaResets = { left: number; expiresAt: string | null; usableNow: boolean }
+
 export type RuntimeQuota = {
   runtimeId: string
   provider: OpenAbProvider
@@ -19,6 +23,7 @@ export type RuntimeQuota = {
   offline?: true
   plan?: string
   windows: RuntimeQuotaWindow[]
+  resets?: RuntimeQuotaResets
 }
 
 export function clampPercent(value: number): number {

@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { claudeResetsSchema } from '@/lib/claude-code-preview/runtime-quota-claude'
+
 import { boxMetricsSchema } from '../metrics-schema'
 
 export type TunnelPurpose =
@@ -97,6 +99,7 @@ const localUsageSchema = z.object({
   seven_day: usageWindowSchema.optional(),
   seven_day_opus: usageWindowSchema.optional(),
   seven_day_sonnet: usageWindowSchema.optional(),
+  cedar_ember: claudeResetsSchema,
   plan_type: z.string().max(60).optional(),
   rate_limit: z
     .object({

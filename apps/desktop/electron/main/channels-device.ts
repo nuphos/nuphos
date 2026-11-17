@@ -26,6 +26,7 @@ import {
   submitLocalClaudeLoginCode,
   applyLocalApiKey,
   setLocalCustomProvider,
+  spendLocalClaudeReset,
   userEnv,
 } from './local-runtime/index.ts'
 import { setSleepPreferences } from './local-runtime/sleep-prevention-electron.ts'
@@ -57,6 +58,11 @@ export const deviceChannels = {
     setLocalCustomProvider(provider, value),
   'localRuntime:setSleepPreferences': (_e: unknown, value: unknown) => setSleepPreferences(value),
   'localRuntime:getState': () => getLocalRuntimeState(),
+  // Spends one of this computer's Claude limit resets; the card has already asked.
+  'localRuntime:spendClaudeReset': async (_e: unknown, instanceId?: unknown) =>
+    (await spendLocalClaudeReset(typeof instanceId === 'string' ? instanceId : undefined)) ?? {
+      result: 'unavailable' as const,
+    },
   'atlas:readLinkedFile': async (_e: unknown, ...args: [string, string, string, string]) => {
     const local = await readThisComputerFile(args[3], getLocalRuntimeState().workspace)
 

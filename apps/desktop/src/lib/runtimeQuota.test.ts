@@ -118,12 +118,14 @@ test('only the probe finding no sign-in reads as signed out', () => {
   assert.equal(quotaSignedOut(undefined), false)
 })
 
-test('resets read as a count and the date the first one must be used by', () => {
-  const held = (resets: RuntimeQuota['resets']) => ({
+function held(resets: RuntimeQuota['resets']): RuntimeQuota {
+  return {
     ...quota([{ id: 'seven_day', label: 'Weekly', usedPercent: 45, resetsAt: null }]),
     ...(resets ? { resets } : {}),
-  })
+  }
+}
 
+test('resets read as a count and the date the first one must be used by', () => {
   assert.match(
     quotaResetsLine(held({ left: 1, expiresAt: '2026-12-10T22:00:00+00:00', usableNow: true })) ??
       '',
