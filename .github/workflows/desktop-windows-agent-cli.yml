@@ -1,0 +1,52 @@
+name: Desktop Windows agent CLI
+
+# Installs Claude Code with npm on real Windows, as a user without the native
+# installer would, and spawns the CLI findAgentCli picks the way the Agent SDK
+# does: without a shell. main's lookup is run too, to show the .cmd it picked
+# fails with EINVAL (#3290).
+on:
+  pull_request:
+    paths:
+      - apps/desktop/electron/main/local-runtime/agent-cli-find.ts
+      - apps/desktop/electron/main/local-runtime/agent-cli-apps.ts
+      - apps/desktop/scripts/windows-npm-claude-spawn.ts
+      - .github/workflows/desktop-windows-agent-cli.yml
+  workflow_dispatch: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  npm-claude:
+    name: npm Claude Code spawns on Windows
+    runs-on: windows-2025
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      # A user's npm installs globals into %APPDATA%\npm, which findAgentCli
+      # searches even off PATH; the runner's own prefix is elsewhere.
+      - name: Install Claude Code with npm into %APPDATA%\npm
+        run: |
+          npm config set prefix "$APPDATA\\npm"
+          npm install -g @anthropic-ai/claude-code
+          ls "$APPDATA/npm"
+      - name: Before (main) picks claude.cmd, which fails with EINVAL
+        working-directory: apps/desktop/electron/main/local-runtime
+        run: |
+          git show origin/main:apps/desktop/electron/main/local-runtime/agent-cli-find.ts > agent-cli-find.main.ts
+          node ../../../scripts/windows-npm-claude-spawn.ts agent-cli-find.main.ts einval
+      - name: After (this branch) picks claude.exe, which runs
+        working-directory: apps/desktop/electron/main/local-runtime
+        run: node ../../../scripts/windows-npm-claude-spawn.ts agent-cli-find.ts exe
