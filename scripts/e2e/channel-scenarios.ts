@@ -214,8 +214,6 @@ export const channelScenarios: Scenario[] = [
       await page.getByRole('textbox', { name: 'Message' }).waitFor()
       await page.waitForTimeout(1_000)
       await chat().screenshot({ path: `${artifacts}/bot-controls-composer-light.png` })
-      const start = await composerSettings(page)
-
       // From the chat: the Bot's page shows what was picked there.
       await setComposerSettings(page, true, 'fixture-large')
       // Its setup finished in the scenario before, so the Bot's page opens from the chat.
@@ -238,13 +236,8 @@ export const channelScenarios: Scenario[] = [
 
       await chat().screenshot({ path: `${artifacts}/bot-controls-composer-after-light.png` })
       if (inChat.full) throw new Error(`The Bot chat shows ${JSON.stringify(inChat)}`)
-      // A saved mode is also the default for new chats: leave it as the scenarios after expect.
-      if (start.full !== inChat.full) {
-        const mode = start.full ? /^Full Access/ : /^Auto Mode/
-
-        await composer(page).getByRole('button', { name: 'Authorization mode' }).click()
-        await page.getByRole('menuitem', { name: mode }).click()
-      }
+      // The Bot stays in Auto Mode: the Task scenario that runs last starts in Full Access,
+      // so a Bot's mode leaking into the default for new chats fails there.
     },
   },
   {
