@@ -1,7 +1,7 @@
 import { useReducedMotion } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
 
-import { cssDurationMs } from '../lib/motion'
+import { cssDurationMs } from '../lib/motion.ts'
 
 /** transitions.dev "Text states swap" for a `.t-text-swap` element: returns its ref and the text to render. */
 export function useTextSwap<T extends HTMLElement>(text: string) {
@@ -14,9 +14,17 @@ export function useTextSwap<T extends HTMLElement>(text: string) {
   useEffect(() => {
     const el = ref.current
 
-    if (!el || displayTextRef.current === text) return
+    if (!el) return
 
+    // A swap still fading out is superseded, even by the text already shown:
+    // "Sending…" undone within the fade must not land after it.
     if (timeoutRef.current !== null) window.clearTimeout(timeoutRef.current)
+    timeoutRef.current = null
+    if (displayTextRef.current === text) {
+      el.classList.remove('is-exit')
+
+      return
+    }
 
     // Nothing to cross-fade: the caller renders `text` straight through, and
     // leaving the ref behind means turning motion back on picks the swap up.

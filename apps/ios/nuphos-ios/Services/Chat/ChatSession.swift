@@ -58,9 +58,7 @@ final class ChatSession {
     private(set) var agentRuntime: String?
     private(set) var runtimeId: String?
     private(set) var runtimeLabel: String?
-    /// On a teammate's computer that asks its owner first: this conversation waits, or was declined.
-    private(set) var shareApproval: ShareApprovalWait?
-    /// Counts sends the server queued, so a waiting conversation is asked about at once.
+    /// Counts sends the server queued.
     private(set) var queuedSends = 0
     /// Pull requests and issues the agent linked to this conversation.
     private(set) var resources: [SessionResource] = []
@@ -241,15 +239,6 @@ final class ChatSession {
     /// resolves both what the agent sent and what the user uploaded.
     func transferGroup(_ groupId: String) async throws -> TransferDownloadGroup {
         try await WorkspaceAPI.request("teams/\(teamId)/file-transfers/\(groupId)/download", token: token)
-    }
-
-    /// Reads where this conversation stands with the owner of the teammate's computer it
-    /// runs on; false once it is no longer pending, when there is nothing more to watch.
-    func refreshShareApproval() async -> Bool {
-        guard let answer = try? await NuphosAPI.ownShareApproval(token: token, sessionId: sessionId) else { return true }
-        shareApproval = ShareApprovalWait(status: answer.status)
-
-        return ShareApprovalWait.keepsWatching(status: answer.status)
     }
 
     private var transferPath: String { "agent-sessions/\(sessionId)/teams/\(teamId)/file-transfers" }

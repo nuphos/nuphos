@@ -62,6 +62,18 @@ export const BOX_MOUNTS_COMMAND = [
 ].join('\n')
 
 /**
+ * Frees a full /data without losing anything: only the caches the runtime shares between
+ * conversations (session-home.mjs), which their tools refill on the next install or build, and
+ * Docker's build cache. Never a workspace, a sign-in, an image or a volume.
+ */
+export const BOX_CLEAR_CACHES_COMMAND = [
+  'rm -rf "$HOME/.cache/go-build" "$HOME/.bun/install/cache" "$HOME/.cache/pip" "$HOME/.cache/uv" "$HOME/.local/share/pnpm/store"',
+  // Go writes its module cache read-only.
+  'chmod -R u+w "$HOME/go/pkg/mod" 2>/dev/null; rm -rf "$HOME/go/pkg/mod"',
+  'sudo docker builder prune -f >/dev/null 2>&1 || true',
+].join('\n')
+
+/**
  * Starts the host, which keeps the Box's own credential, as the systemd user service
  * `nuphos agent` installs on its first run, so it also starts again after a reboot.
  * A CLI from before the service runs the host itself, detached. Run with `background: true`.

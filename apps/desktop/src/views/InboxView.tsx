@@ -10,11 +10,9 @@ import { ChannelMentions } from './inbox/ChannelMentions'
 import { DecisionCard } from './inbox/DecisionCard'
 import { openQuestion } from './inbox/inboxItems'
 import { selectInboxQuestion, useInboxSelection } from './inbox/inboxSelection'
-import { ShareApprovalRequests } from './inbox/ShareApprovalRequests'
 import { useChannelMentions } from './inbox/useChannelMentions'
 import { ANSWER_UNDO_MS, holdAnswer, sendHeldAnswer } from './inbox/useInbox'
 import { useInboxQuestions } from './inbox/useInboxQuestions'
-import { useShareApprovals } from './inbox/useShareApprovals'
 
 import type { InboxQuestion } from './inbox/inboxItems'
 import type { DecisionAnswer } from '../api/agent-chat-types'
@@ -48,7 +46,6 @@ export function InboxView({
   const { isActive } = useWorkspaceTab()
   const all = useInboxQuestions(teamId, refreshKey)
   const selected = useInboxSelection(teamId)
-  const shareApprovals = useShareApprovals(teamId)
   // An invite is only announced, never listed.
   const mentions = useChannelMentions(teamId)?.filter((mention) => !mention.invited) ?? []
   const needle = query.trim().toLowerCase()
@@ -130,12 +127,10 @@ export function InboxView({
     )
   }
 
-  const caughtUp =
-    all?.length === 0 && shareApprovals.approvals.length === 0 && mentions.length === 0
+  const caughtUp = all?.length === 0 && mentions.length === 0
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <ShareApprovalRequests teamId={teamId} {...shareApprovals} />
       <ChannelMentions mentions={mentions} onOpen={onOpenConversation} />
       {caughtUp && (
         <EmptyState

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { deskReadings } from './boxMetricsPresentation.ts'
+import { deskReadings, diskWarning } from './boxMetricsPresentation.ts'
 
 const GIB = 1024 ** 3
 const sample = {
@@ -50,4 +50,28 @@ test('live without a usable reading waits rather than claiming to be live', () =
   assert.equal(deskReadings(null, 'live').status, 'Waiting for metrics')
   assert.equal(deskReadings({ ...sample, cpuPercent: 140 }, 'live').tone, 'idle')
   assert.equal(deskReadings(undefined).status, 'Waiting for metrics')
+})
+
+const full = (used: number, status: 'live' | 'stale' | 'offline' = 'live') => ({
+  label: 'Build Box',
+  metricsStatus: status,
+  metrics: { ...sample, disk: { used: used * GIB, total: 100 * GIB } },
+})
+
+test('a disk warns from 90% full, with what is left', () => {
+  assert.equal(diskWarning(full(89.9)), null)
+  assert.deepEqual(diskWarning(full(90)), { percent: 90, text: 'Disk almost full: 10 GB free' })
+  assert.deepEqual(diskWarning(full(92.6)), { percent: 93, text: 'Disk almost full: 7.4 GB free' })
+})
+
+test('only a live reading warns: an old number says nothing about the disk now', () => {
+  assert.equal(diskWarning(full(95, 'stale')), null)
+  assert.equal(diskWarning(full(95, 'offline')), null)
+  assert.equal(diskWarning({ metricsStatus: 'live', metrics: null }), null)
+  assert.equal(diskWarning(undefined), null)
+  // A reading that is not a reading (HMR, an older route) never warns.
+  assert.equal(
+    diskWarning({ metricsStatus: 'live', metrics: { ...sample, disk: { used: 95, total: 0 } } }),
+    null,
+  )
 })

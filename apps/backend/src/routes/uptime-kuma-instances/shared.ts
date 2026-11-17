@@ -1,6 +1,5 @@
 import { z } from 'zod'
 
-import { canUseAllowList } from '@/lib/byos/access'
 import { decryptUptimeKumaSecret, encryptUptimeKumaSecret } from '@/lib/byos/secrets'
 import {
   UptimeKumaApiError,
@@ -10,7 +9,7 @@ import {
 import { AppError } from '@/lib/errors'
 
 import type { UptimeKumaAuthHandle } from '@/lib/byos/uptime-kuma'
-import type { UptimeKumaInstanceBinding } from '@/models'
+import type { BindingAccess, UptimeKumaInstanceBinding } from '@/models'
 
 export const baseUrlSchema = z
   .string()
@@ -35,14 +34,12 @@ export function publicView(binding: UptimeKumaInstanceBinding) {
 }
 
 // Shared by the list GET and the aggregated /connectors endpoint — unlike most
-// connector lists, Uptime Kuma applies the member allow-list.
+// connector lists, Uptime Kuma lists only the instances the request may use.
 export function uptimeKumaInstancesView(
   bindings: UptimeKumaInstanceBinding[] | undefined,
-  userId: string,
+  canUse: (access: BindingAccess | undefined) => boolean,
 ) {
-  return (bindings ?? [])
-    .filter((binding) => canUseAllowList(binding.access?.memberAllowList, userId))
-    .map(publicView)
+  return (bindings ?? []).filter((binding) => canUse(binding.access)).map(publicView)
 }
 
 export function uptimeKumaError(err: unknown, fallback: string): AppError {

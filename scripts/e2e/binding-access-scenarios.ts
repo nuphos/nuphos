@@ -38,7 +38,9 @@ export function must(condition: boolean, what: string): void {
 }
 
 /** A GitLab instance answering only the code exchange and who the token belongs to; always one account. */
-async function startFixtureGitlab(accountId: number): Promise<{ url: string; close: () => void }> {
+export async function startFixtureGitlab(
+  accountId: number,
+): Promise<{ url: string; close: () => void }> {
   const [port] = await freePorts(1)
   const server = createServer((request, response) => {
     response.setHeader('content-type', 'application/json')
@@ -115,7 +117,7 @@ export async function joinAsAdmin(
 }
 
 /** Connects the fixture GitLab account through OAuth, without a share choice. */
-async function connectGitlab(stack: Flow, as: Client, hostUrl: string, code: string) {
+export async function connectGitlab(stack: Flow, as: Client, hostUrl: string, code: string) {
   const started = await as('POST', `/teams/${stack.teamId}/gitlab-bindings/start-oauth`, {
     hostUrl,
     clientId: 'e2e-gitlab-client',
@@ -132,7 +134,11 @@ async function connectGitlab(stack: Flow, as: Client, hostUrl: string, code: str
 }
 
 /** The id of the team's GitLab binding for `hostUrl`. */
-async function gitlabBindingId(stack: Flow, owner: Client, hostUrl: string): Promise<string> {
+export async function gitlabBindingId(
+  stack: Flow,
+  owner: Client,
+  hostUrl: string,
+): Promise<string> {
   const listed = (await owner('GET', `/teams/${stack.teamId}/gitlab-bindings`)).body as {
     bindings?: { id: string; hostUrl?: string }[]
     accounts?: { id: string; hostUrl?: string }[]
