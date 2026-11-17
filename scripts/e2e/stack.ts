@@ -5,7 +5,6 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
-import { fakeCloudflareApi } from './fake-cloudflare.ts'
 import { artifacts, freePorts, logPath, spawn, stop, until } from './processes.ts'
 
 const ROOT = resolve(import.meta.dirname, '../..')
