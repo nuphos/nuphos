@@ -71,6 +71,7 @@ data class AgentConversation(
     val lastMessage: JsonValue? = null,
     /** Open `request_user_decision` questions, oldest first; list rows carry only the open ones. */
     val inputRequests: List<InputRequest>? = null,
+    val botOnboarding: String? = null,
 ) {
     @Transient
     val id: String get() = sessionId

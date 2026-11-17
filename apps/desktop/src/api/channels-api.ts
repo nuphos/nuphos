@@ -1,3 +1,5 @@
+import { receiveAgentAvatars } from '../lib/agentAvatarChoices.ts'
+
 export const channelsApi = {
   agentGetBotImportStatus: (...args: Parameters<typeof window.api.agentGetBotImportStatus>) =>
     window.api.agentGetBotImportStatus(...args),
@@ -16,8 +18,15 @@ export const channelsApi = {
   agentListChannelMentions: (teamId: string) => window.api.agentListChannelMentions(teamId),
   agentNotifyMention: (args: Parameters<typeof window.api.agentNotifyMention>[0]) =>
     window.api.agentNotifyMention(args),
-  agentListChannelAgents: (channelId: string, teamId: string) =>
-    window.api.agentListChannelAgents(channelId, teamId),
+  // A chat's agents carry their faces for every member, so a teammate's Bot posts with its own.
+  agentListChannelAgents: async (channelId: string, teamId: string) => {
+    const requestedAt = Date.now()
+    const listed = await window.api.agentListChannelAgents(channelId, teamId)
+
+    receiveAgentAvatars(listed.agents, requestedAt)
+
+    return listed
+  },
   agentAddChannelAgent: (channelId: string, teamId: string, agentSessionId: string) =>
     window.api.agentAddChannelAgent(channelId, teamId, agentSessionId),
   agentRemoveChannelAgent: (channelId: string, teamId: string, agentSessionId: string) =>

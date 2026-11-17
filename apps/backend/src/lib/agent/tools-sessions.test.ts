@@ -474,3 +474,66 @@ test('create_bot says so when the instructions were not saved', async () => {
     instructionsSaved = true
   }
 })
+
+test('update_self explicitly completes onboarding with confirmed responsibilities', async () => {
+  const result = await createSessionTools('u', 'c', 'team').update_self!.execute!(
+    {
+      label: 'Finish setup',
+      instructions: 'Review releases for this project.',
+      onboardingComplete: true,
+    },
+    { toolCallId: 'finish-setup', messages: [] },
+  )
+
+  expect(result).not.toHaveProperty('error')
+  expect(selfUpdates.at(-1)).toMatchObject({
+    instructions: 'Review releases for this project.',
+    botOnboarding: 'completed',
+  })
+})
+
+test('onboarding cannot complete without saving responsibilities', async () => {
+  const result = await createSessionTools('u', 'c', 'team').update_self!.execute!(
+    { label: 'Finish setup', onboardingComplete: true },
+    { toolCallId: 'finish-setup', messages: [] },
+  )
+
+  expect(result).toHaveProperty('error')
+})
+
+test('update_self can finish onboarding and queue model settings in the same update', async () => {
+  const result = await createSessionTools('u', 'c', 'team').update_self!.execute!(
+    {
+      label: 'Finish setup with a model',
+      instructions: 'Review releases for this project.',
+      onboardingComplete: true,
+      model: 'luna',
+      effort: 'medium',
+    },
+    { toolCallId: 'finish-setup-model', messages: [] },
+  )
+
+  expect(result).toMatchObject({ applies: 'next_turn', model: { model: 'luna', effort: 'medium' } })
+  expect(selfUpdates.at(-1)).toEqual({
+    instructions: 'Review releases for this project.',
+    botOnboarding: 'completed',
+    pendingSessionConfig: { model: 'luna', effort: 'medium' },
+  })
+})
+
+test('an invalid model pick does not save onboarding responsibilities or finish setup', async () => {
+  const count = selfUpdates.length
+  const result = await createSessionTools('u', 'c', 'team').update_self!.execute!(
+    {
+      label: 'Finish setup with unavailable effort',
+      instructions: 'Review releases for this project.',
+      onboardingComplete: true,
+      model: 'luna',
+      effort: 'extreme',
+    },
+    { toolCallId: 'invalid-setup-model', messages: [] },
+  )
+
+  expect(result).toHaveProperty('error')
+  expect(selfUpdates).toHaveLength(count)
+})

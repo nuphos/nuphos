@@ -16,6 +16,12 @@ const NOT_OWN_BOT =
   'This conversation is not a Bot owned by the person you are working for, so it cannot change itself.'
 
 const updateSelfShape = {
+  onboardingComplete: z
+    .literal(true)
+    .optional()
+    .describe(
+      'Finish initial setup only after the person confirms your ongoing responsibilities. Include complete standing instructions. Answer or withdraw remaining setup questions first.',
+    ),
   name: z.string().trim().min(1).max(120).optional().describe('Your new name, 1–120 characters.'),
   avatar: z.enum(BOT_AVATARS).optional().describe('Your new face, by name.'),
   instructions: z
@@ -45,11 +51,16 @@ export function updateSelfTool(userId: string, conversationId: string, teamId: s
     tool({
       description: UPDATE_SELF_DESCRIPTION,
       inputSchema: z.object(updateSelfShape),
-      execute: async ({ name, avatar, instructions, model, effort }) => {
+      execute: async ({ name, avatar, instructions, model, effort, onboardingComplete }) => {
+        if (onboardingComplete && !instructions?.trim())
+          return {
+            error: 'Include the confirmed responsibilities in instructions to finish onboarding.',
+          }
         const update = {
           ...(name === undefined ? {} : { title: name }),
           ...(avatar === undefined ? {} : { avatar }),
           ...(instructions === undefined ? {} : { instructions }),
+          ...(onboardingComplete ? { botOnboarding: 'completed' as const } : {}),
         }
         const modelPick = {
           ...(model === undefined ? {} : { model }),
@@ -84,7 +95,11 @@ export function updateSelfTool(userId: string, conversationId: string, teamId: s
             ...sessionConfigUpdate,
           }))
         ) {
-          return { error: NOT_OWN_BOT }
+          return {
+            error: onboardingComplete
+              ? 'The Bot could not be updated. It must belong to this person and team; finishing onboarding also requires active setup with no unanswered preference questions.'
+              : NOT_OWN_BOT,
+          }
         }
 
         return {

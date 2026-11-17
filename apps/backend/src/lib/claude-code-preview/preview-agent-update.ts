@@ -39,8 +39,8 @@ export type PreviewAgentUpdate =
       terminalId?: string
     }
   // The provider's reported usage for a finished turn. The runtime relays it as
-  // a non-schema `turn_usage` session update, so the payload stays `unknown`:
-  // each agent reports its own shape and normalizeTokenUsage knows each one.
+  // a non-schema `turn_usage` session update carrying ACP `PromptResponse.usage`;
+  // the recorder reads it, so the payload stays `unknown` here.
   | { kind: 'turn-usage'; usage: unknown }
 
 // ACP ToolCallContent: [{ type: 'content', content: { type: 'text', text } }, …]

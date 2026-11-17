@@ -135,7 +135,7 @@ export type AgentConversation = ConversationTaskState & {
   // `claudeCodePreview` so a re-attachment write cannot drop it, and durable
   // so the notice survives a backend replica roll. The next prompt consumes it.
   claudeCodePreviewWorkLost?: { at: Date; reason: BackgroundWorkLoss }
-  botOnboarding?: 'pending' | 'started'
+  botOnboarding?: 'pending' | 'started' | 'completed'
   metadata?: {
     locale?: string
     provider?: string

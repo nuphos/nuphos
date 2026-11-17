@@ -94,6 +94,7 @@ export type BotSelfUpdate = {
   instructions?: string
   initialSessionConfig?: RuntimeDefaults
   pendingSessionConfig?: RuntimeDefaults
+  botOnboarding?: 'completed'
 }
 
 // A Bot (a conversation with an avatar) edits its own profile and model picks.
@@ -112,8 +113,23 @@ export async function updateBotSelf(
       value,
     ]),
   )
+
+  if (update.botOnboarding && !update.instructions?.trim()) return false
   const bot = await agentConversations().findOneAndUpdate(
-    withTeamScope({ sessionId, userId, avatar: { $exists: true } }, teamId),
+    withTeamScope(
+      {
+        sessionId,
+        userId,
+        avatar: { $exists: true },
+        ...(update.botOnboarding
+          ? {
+              botOnboarding: 'started',
+              inputRequests: { $not: { $elemMatch: { status: 'open', category: 'preference' } } },
+            }
+          : {}),
+      },
+      teamId,
+    ),
     {
       $set: {
         ...profile,

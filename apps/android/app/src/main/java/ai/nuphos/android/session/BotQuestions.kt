@@ -118,14 +118,16 @@ object BotQuestions {
             }
             return false
         }
-        return open(rows.filter { isUnder(it.sessionId) })
+        return open(rows.filter { isUnder(it.sessionId) }, includeOnboarding = true)
     }
 
     /** The viewer's own open questions in [rows], oldest first: the Inbox's list. */
-    fun open(rows: List<AgentConversation>): List<BotQuestion> {
+    fun open(rows: List<AgentConversation>): List<BotQuestion> = open(rows, includeOnboarding = false)
+
+    private fun open(rows: List<AgentConversation>, includeOnboarding: Boolean): List<BotQuestion> {
         return rows.distinctBy { it.sessionId }
             .filter { it.isOwner == true }
-            .flatMap { row -> row.inputRequests.orEmpty().map { BotQuestion(row.sessionId, row.displayTitle, it) } }
+            .flatMap { row -> row.inputRequests.orEmpty().filter { includeOnboarding || row.botOnboarding !in setOf("pending", "started") || it.category != "preference" }.map { BotQuestion(row.sessionId, row.displayTitle, it) } }
             .sortedWith(compareBy({ it.request.askedAt.orEmpty() }, { it.id }))
     }
 }
