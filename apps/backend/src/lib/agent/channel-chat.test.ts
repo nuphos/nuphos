@@ -249,6 +249,43 @@ describe('waking a channel’s agents', () => {
     expect(runs.map((run) => run.channelIds)).toEqual([['channel'], ['channel']])
   })
 
+  test('an answer to a question asked in the channel is a turn for that channel', async () => {
+    const runs: Parameters<TurnRunner['runAgentForTrigger']>[0][] = []
+
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async (args) => {
+        runs.push(args)
+
+        return { status: 'completed' }
+      },
+    })
+    const agent = (await agentConversations().findOne({ sessionId: 'agent-a' }))!
+    const { run } = await startConversationTurn(
+      {
+        userId: agent.userId,
+        teamId: TEAM,
+        targetSessionId: 'agent-a',
+        messageId: 'answer',
+        locale: 'en-US',
+        answers: { id: 'q', question: 'Which marker?', status: 'resolved', channelId: 'channel' },
+      } as never,
+      agent,
+      'Your question (requestId q) was answered.',
+      'agent.resource',
+      {
+        version: 1,
+        sender: { type: 'system', id: 'nuphos:decision', displayName: 'Nuphos' },
+        source: 'agent.resource',
+        sentAt: new Date().toISOString(),
+      },
+    )
+
+    await run
+    // The person answered in the channel, so the channel shows the agent working on it.
+    expect(runs.map((started) => started.channelIds)).toEqual([['channel']])
+  })
+
   test('an agent that cannot start a reply says so in the channel', async () => {
     installTurnRunner({
       claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),

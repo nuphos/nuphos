@@ -32,31 +32,7 @@ export function publishRuntimeStates(states: Iterable<readonly [string, RuntimeE
   let changed = false
 
   for (const [sessionId, reading] of states) {
-    // TEMPORARY #3339 diagnostics, removed before review: which reader published what.
-    const trace = (globalThis as { __e2eRuntimeLog?: unknown[] }).__e2eRuntimeLog
-
-    const held = next.get(sessionId)
-    const retired = fromRetiredEpoch(sessionId, reading)
-
-    trace?.push({
-      at: Date.now(),
-      sessionId,
-      state: reading.state,
-      phase: reading.phase,
-      epoch: reading.epoch,
-      revision: reading.revision,
-      channelIds: reading.channelIds,
-      retired,
-      held: held && {
-        state: held.state,
-        phase: held.phase,
-        epoch: held.epoch,
-        revision: held.revision,
-        channelIds: held.channelIds,
-      },
-      from: new Error().stack?.split('\n').slice(2, 5).join(' | '),
-    })
-    if (retired) continue
+    if (fromRetiredEpoch(sessionId, reading)) continue
     const current = next.get(sessionId)
     // A run's frames leave the slash commands out until they change.
     const state =

@@ -12,7 +12,6 @@ type Row = {
   botOnboarding?: string
   instructions?: string
   inputRequests?: { id: string; category: string }[]
-  runtimeState?: { channelIds?: string[] }
 }
 
 export const botOnboardingScenarios: Scenario[] = [
@@ -57,81 +56,29 @@ export const botOnboardingScenarios: Scenario[] = [
         1,
       )
       await page.screenshot({ path: `${artifacts}/onboarding-resumed.png` })
+      // #3339: an answer given in this chat and a post in it are both this chat's work,
+      // so the title-bar pill never says the Bot works elsewhere while it does them.
+      const neverElsewhere = async () => {
+        for (let i = 0; i < 16; i++) {
+          if ((await page.getByText('Working outside this chat').count()) > 0)
+            throw new Error("The Bot's chat pill says it works outside the chat it answers")
+          await page.waitForTimeout(250)
+        }
+      }
+
       await page.getByRole('button', { name: 'E2E_DELIVERY:answered', exact: true }).click()
+      await neverElsewhere()
       await until('the setup answer to reach the Bot', async () =>
         agentEvents(stack).includes('finish E2E_DELIVERY:answered'),
       )
       // A Bot still in setup that is working shows its work dots, and its setup again at rest.
       const row = page.locator('[data-sidebar-row]').filter({ hasText: 'Release Helper' }).first()
 
-      await page.evaluate(() => {
-        ;(globalThis as { __e2eRuntimeLog?: unknown[] }).__e2eRuntimeLog = []
-      })
       await send(page, 'Still setting up E2E_SLOW E2E_DELIVERY:setup-busy')
       await row.locator('.t-typing-dot').first().waitFor()
       assert.equal(await row.getByText('Getting started', { exact: true }).count(), 0)
       await page.screenshot({ path: `${artifacts}/onboarding-working-light.png` })
-      // #3339: this chat's post woke the turn, so its pill never says the Bot works elsewhere.
-      const channels = async (path: string) =>
-        JSON.stringify(
-          ((await api('GET', path)).body as { runtimeState?: { channelIds?: string[] } })
-            ?.runtimeState?.channelIds,
-        )
-      const listed = (await list()).conversations.find((r) => r.sessionId === bot.sessionId)
-
-      console.log('E2E #3339 list channelIds', JSON.stringify(listed?.runtimeState?.channelIds))
-      console.log(
-        'E2E #3339 detail channelIds',
-        await channels(`/agent/conversations/${bot.sessionId}?teamId=${stack.teamId}&tail=1`),
-      )
-      // What the app itself is handed for the Bot, through its own API bridge.
-      const inApp = await page.evaluate(
-        async ([teamId, botId]) => {
-          type Bridge = { api: Record<string, (...args: unknown[]) => unknown> }
-          const api = (window as unknown as Bridge).api
-          const page = (await api.agentListConversations(teamId, {
-            limit: 100,
-            scope: 'mine',
-            archived: 'exclude',
-            sort: 'activity',
-          })) as { conversations: { sessionId: string; runtimeState?: unknown }[] }
-
-          return page.conversations.find((row) => row.sessionId === botId)?.runtimeState
-        },
-        [stack.teamId, bot.sessionId] as const,
-      )
-
-      console.log('E2E #3339 in-app list runtimeState', JSON.stringify(inApp))
-      console.log('E2E #3339 page url', page.url())
-      const chats = (
-        await api('GET', `/agent/conversations?teamId=${stack.teamId}&kind=channel&scope=mine`)
-      ).body as { conversations: { sessionId: string; faces?: { id: string }[] }[] }
-
-      console.log(
-        'E2E #3339 Bot chats',
-        JSON.stringify(
-          chats.conversations
-            .filter((c) => c.faces?.some((f) => f.id === bot.sessionId))
-            .map((c) => c.sessionId),
-        ),
-      )
-      // The turn runs about five seconds: the pill is read through all of it.
-      let elsewhere = 0
-
-      for (let i = 0; i < 16; i++) {
-        elsewhere += await page.getByText('Working outside this chat').count()
-        await page.waitForTimeout(250)
-      }
-      const published = await page.evaluate(
-        (botId) =>
-          ((globalThis as { __e2eRuntimeLog?: { sessionId: string }[] }).__e2eRuntimeLog ?? [])
-            .filter((entry) => entry.sessionId === botId),
-        bot.sessionId,
-      )
-
-      console.log('E2E #3339 published', JSON.stringify(published))
-      if (elsewhere > 0)
-        throw new Error("The Bot's chat pill says it works outside the chat it answers")
+      await neverElsewhere()
       await until('the setup-time turn to finish', async () =>
         agentEvents(stack).includes('finish E2E_DELIVERY:setup-busy'),
       )
