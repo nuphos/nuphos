@@ -6,7 +6,7 @@ import { signNuphosToken } from '@/lib/identity'
 import { logError } from '@/lib/observability'
 import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
 
-import { agentMessages, getConversationBySessionId, getConversationWithMessages } from './db'
+import { agentMessages, getConversationBySessionId } from './db'
 import { channelIdOf, withChannelPosts } from './channel-wake'
 import { systemSender } from './message-metadata'
 import { buildPendingUserMessage, hasPendingUserMessage } from './pending-messages'
@@ -14,6 +14,7 @@ import { requeueTurnQueue } from './session-released'
 import { recordFailedFires } from './trigger-failed-runs'
 import { recordFiresRan } from './trigger-missed-runs'
 import { reconnecting } from './turn-offline'
+import { readTurnHistory } from './turn-history'
 import { turnRunner } from './turn-runner'
 import { keepUndelivered, LOST_TURN } from './undelivered-send'
 import { failureLine, keepAnswersThatWait } from './waiting-answers'
@@ -115,11 +116,7 @@ export async function runTurn(
 
   try {
     // Read after taking the claim so a just-finished turn cannot be overwritten.
-    const history = await getConversationWithMessages(
-      data.targetSessionId,
-      data.userId,
-      data.teamId,
-    )
+    const history = await readTurnHistory(data, pending, source)
 
     if (!history) throw new Error('Target conversation no longer exists.')
     // BullMQ can redeliver a stalled job. An answered message must not run twice;

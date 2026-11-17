@@ -50,6 +50,8 @@ export type RuntimeLoginFrame =
   | { type: 'device'; verificationUri: string; userCode: string }
   | { type: 'authorize'; url: string }
   | { type: 'step'; step: RuntimeLoginStep }
+  /** The computer is installing the agent's CLI before its sign-in can start. */
+  | { type: 'installing' }
   | { type: 'authenticated' }
   /** The runtime removed the API key it was signed in with. */
   | { type: 'signedOut' }

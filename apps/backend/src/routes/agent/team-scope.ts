@@ -1,4 +1,4 @@
-import { getConversationBySessionId, getConversationWithMessages } from '@/lib/agent/db'
+import { getConversationBySessionId, getReadableConversation } from '@/lib/agent/db'
 import { canReplyIn } from '@/lib/agent/devices/conversation-computer'
 import { parseUrlContext } from '@/lib/agent/url-context'
 import { AppError } from '@/lib/errors'
@@ -123,13 +123,13 @@ export async function resolveReadableConversationForResume(
   userId: string,
   teamId: string | undefined,
 ): Promise<AgentConversation> {
-  const result = await getConversationWithMessages(sessionId, userId, teamId)
+  const conversation = await getReadableConversation(sessionId, userId, teamId)
 
-  if (!result) {
+  if (!conversation) {
     throw new AppError(404, 'not_found', 'Conversation not found')
   }
 
-  return result.conversation
+  return conversation
 }
 
 export function readTeamIdCandidate(c: Context, bodyTeamId?: unknown): string | undefined {
