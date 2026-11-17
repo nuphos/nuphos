@@ -4,6 +4,8 @@ import { Kbd } from '../../components/ui/kbd'
 import { Tooltip } from '../../components/ui/tooltip'
 import { t } from '../../i18n'
 
+import { useWorkspacePane } from './WorkspacePaneContext'
+
 /**
  * The split pane's own close button, at the end of its header where a tab's
  * close would be. Closing a pane only changes the layout (its chats' docks move
@@ -31,4 +33,11 @@ export function PaneCloseButton({ onClosePane }: { onClosePane: () => void }) {
       </button>
     </Tooltip>
   )
+}
+
+/** The pane's close button while the window is split, for a header that has no pane menu of its own. */
+export function SplitPaneCloseButton() {
+  const pane = useWorkspacePane()
+
+  return pane?.split ? <PaneCloseButton onClosePane={pane.closePane} /> : null
 }
