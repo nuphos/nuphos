@@ -3,10 +3,11 @@ import SwiftUI
 
 /// One Inbox question: who asked (the name opens that Bot or Task), when, the
 /// question and its markdown body, then its answers. On iPhone the options are
-/// full-width buttons pinned to the bottom with "Other…" and "Skip" as outlined halves
-/// below; wide, a row of capsules with an outlined "Skip" at its end. A form, an integration question
-/// and a plan keep their own controls. A secret is asked for with the task's own `SecretCard`,
-/// which says the question itself.
+/// full-width buttons pinned to the bottom with "Other…", "Snooze" and "Dismiss" outlined
+/// below; wide, a row of capsules with an outlined "Snooze" and "Dismiss" at its end. A form, an
+/// integration question and a plan keep their own controls, with Snooze and Dismiss under them. A
+/// secret is asked for with the task's own `SecretCard`, which says the question itself. Snooze sets
+/// it aside until one of its times; Dismiss asks for an optional reason for the agent.
 struct InboxQuestionView: View {
     let inbox: OpenQuestions
     let question: BotQuestion
@@ -16,6 +17,9 @@ struct InboxQuestionView: View {
     /// "Other…" was tapped: the text box and its send button show.
     @State private var typing = false
     @State private var words = ""
+    /// "Dismiss" was tapped: the reason box and its Dismiss show.
+    @State private var dismissing = false
+    @State private var reason = ""
     @FocusState private var focused: Bool
 
     private var wide: Bool { sizeClass == .regular }
@@ -91,6 +95,7 @@ struct InboxQuestionView: View {
         }
         .animation(.snappy, value: inbox.toast)
         .animation(.snappy, value: typing)
+        .animation(.snappy, value: dismissing)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
@@ -128,7 +133,8 @@ struct InboxQuestionView: View {
     @ViewBuilder private var answers: some View {
         if let form = question.form {
             DecisionForm(questions: form) { answer($0) }
-            HStack { Spacer(); skip }.padding(.top, 12)
+            HStack(spacing: 10) { Spacer(); setAside }.padding(.top, 12)
+            if dismissing { reasonField }
         } else if let options = question.options {
             VStack(alignment: .leading, spacing: 10) {
                 if wide {
@@ -144,7 +150,7 @@ struct InboxQuestionView: View {
                             }
                         }
                         .scrollClipDisabled()
-                        skip
+                        setAside
                     }
                 } else {
                     ForEach(Array(options.enumerated()), id: \.element) { index, option in
@@ -152,25 +158,36 @@ struct InboxQuestionView: View {
                             answer(DecisionAnswer(choices: [option]))
                         }
                     }
-                    // Two halves; Skip keeps the right one when there is no Other….
+                    // Thirds, or halves when there is no Other….
                     HStack(spacing: 10) {
-                        if question.typed, !options.isEmpty { otherButton } else { Color.clear.frame(maxWidth: .infinity, maxHeight: 0) }
-                        skip
+                        if question.typed, !options.isEmpty { otherButton }
+                        setAside
                     }
                 }
-                if typing || (options.isEmpty && question.typed) { field }
+                if dismissing { reasonField } else if typing || (options.isEmpty && question.typed) { field }
             }
-        } else if let part = question.secretPart {
-            // Saved in the conversation that asked; the listing then drops the question.
-            AskedSecretCard(question: question, part: part, teamId: inbox.teamId) { Task { await inbox.refresh() } }
-        } else if question.connectable {
-            QuestionConnect(questions: inbox, question: question, height: wide ? 40 : 50, size: wide ? 15 : 16, fill: !wide)
+        } else {
+            VStack(alignment: .leading, spacing: 0) {
+                if let part = question.secretPart {
+                    // Saved in the conversation that asked; the listing then drops the question.
+                    AskedSecretCard(question: question, part: part, teamId: inbox.teamId) { Task { await inbox.refresh() } }
+                } else if question.connectable {
+                    QuestionConnect(questions: inbox, question: question, height: wide ? 40 : 50, size: wide ? 15 : 16, fill: !wide)
+                }
+                HStack(spacing: 10) {
+                    if wide { Spacer() }
+                    setAside
+                }
+                .padding(.top, 12)
+                if dismissing { reasonField.padding(.top, 10) }
+            }
         }
     }
 
     /// "Other…": the text box and its send button, or put away again.
     private func other() {
         typing.toggle()
+        dismissing = false
         focused = typing
     }
 
@@ -183,9 +200,31 @@ struct InboxQuestionView: View {
         InboxOutlineButton(title: String(localized: "Other…"), fill: !wide, toggled: typing, action: other)
     }
 
-    private var skip: some View {
-        InboxOutlineButton(title: String(localized: "Skip"), fill: !wide) { inbox.selected = inbox.next(after: question.id) }
-            .disabled(inbox.list.count < 2 && wide)
+    /// Snooze, a menu of its times, and Dismiss, which asks for the reason first.
+    @ViewBuilder private var setAside: some View {
+        Menu {
+            ForEach(Snooze.times(from: .now), id: \.self) { time in
+                Button(time.label) { Task { await inbox.snooze(question, until: time.until) } }
+            }
+        } label: {
+            InboxOutline(title: String(localized: "Snooze"), fill: !wide)
+        }
+        .buttonStyle(.plain)
+        InboxOutlineButton(title: String(localized: "Dismiss"), fill: !wide, toggled: dismissing) {
+            dismissing.toggle()
+            typing = false
+            focused = dismissing
+        }
+    }
+
+    private var reasonField: some View {
+        AnswerField(words: $reason, focused: $focused, prompt: "Reason for the agent (optional)",
+                    sendLabel: "Dismiss question", optional: true) {
+            let text = reason.trimmingCharacters(in: .whitespacesAndNewlines)
+            focused = false
+            Task { await inbox.hold(question, with: .dismiss(reason: text.isEmpty ? nil : text)) }
+        }
+        .padding(.horizontal, wide ? 0 : -4)
     }
 
     private func sendWords() {
@@ -196,7 +235,7 @@ struct InboxQuestionView: View {
 
     private func answer(_ answer: DecisionAnswer) {
         focused = false
-        Task { await inbox.hold(question, with: answer) }
+        Task { await inbox.hold(question, with: .answer(answer)) }
     }
 
     /// Nuphos pages open in the app, as a conversation's links do; anything else leaves.
@@ -229,30 +268,39 @@ struct InboxOption: View {
     }
 }
 
-/// Other… and Skip: an outlined capsule, filled light instead while toggled. Half the row on
-/// iPhone at 44pt; wide, as wide as its title at 40pt.
+/// Other…, Snooze and Dismiss: an outlined capsule, filled light instead while toggled. A share of
+/// the row on iPhone at 44pt; wide, as wide as its title at 40pt.
 struct InboxOutlineButton: View {
     let title: String
     let fill: Bool
     var toggled = false
     let action: () -> Void
+
+    var body: some View {
+        Button(action: action) { InboxOutline(title: title, fill: fill, toggled: toggled) }
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(toggled ? .isSelected : [])
+    }
+}
+
+/// The outlined capsule itself, for a button or a menu's label.
+struct InboxOutline: View {
+    let title: String
+    let fill: Bool
+    var toggled = false
     @Environment(\.isEnabled) private var enabled
 
     var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: 15, weight: .semibold))
-                .lineLimit(1)
-                .foregroundStyle(Theme.heading)
-                .padding(.horizontal, 14)
-                .frame(maxWidth: fill ? .infinity : nil, minHeight: fill ? 44 : 40)
-                .background(toggled ? Theme.control : .clear, in: Capsule())
-                .overlay { if !toggled { Capsule().strokeBorder(Theme.outline, lineWidth: 1) } }
-                .contentShape(Capsule())
-                .opacity(enabled ? 1 : 0.4)
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(toggled ? .isSelected : [])
+        Text(title)
+            .font(.system(size: 15, weight: .semibold))
+            .lineLimit(1)
+            .foregroundStyle(Theme.heading)
+            .padding(.horizontal, 14)
+            .frame(maxWidth: fill ? .infinity : nil, minHeight: fill ? 44 : 40)
+            .background(toggled ? Theme.control : .clear, in: Capsule())
+            .overlay { if !toggled { Capsule().strokeBorder(Theme.outline, lineWidth: 1) } }
+            .contentShape(Capsule())
+            .opacity(enabled ? 1 : 0.4)
     }
 }
 
@@ -290,15 +338,19 @@ struct QuestionSource: View {
     }
 }
 
-/// The answer in words, with its send button.
+/// The answer in words, with its send button; or, `optional`, words that may be left out, such as
+/// a dismissal's reason.
 struct AnswerField: View {
     @Binding var words: String
     var focused: FocusState<Bool>.Binding
+    var prompt: LocalizedStringKey = "Your answer"
+    var sendLabel: LocalizedStringKey = "Send answer"
+    var optional = false
     let send: () -> Void
 
     var body: some View {
         HStack(spacing: 8) {
-            TextField("Your answer", text: $words, axis: .vertical)
+            TextField(prompt, text: $words, axis: .vertical)
                 .font(.system(size: 16))
                 .lineLimit(1...5)
                 .focused(focused)
@@ -316,8 +368,8 @@ struct AnswerField: View {
                     .background(Theme.heading, in: Circle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Send answer")
-            .disabled(words.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .accessibilityLabel(sendLabel)
+            .disabled(!optional && words.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
     }
 }
