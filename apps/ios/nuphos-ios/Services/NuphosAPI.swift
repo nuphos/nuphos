@@ -141,15 +141,6 @@ extension NuphosAPI {
         return d
     }()
 
-    /// Whether the caller's conversation on a teammate's shared computer waits for its owner.
-    static func ownShareApproval(token: String, sessionId: String) async throws -> ShareApprovalStatus {
-        try await get(
-            "agent/devices/share-approvals/mine",
-            query: [URLQueryItem(name: "sessionId", value: sessionId)],
-            token: token,
-            timeout: 15
-        )
-    }
 
     private static func get<T: Decodable>(
         _ path: String, query: [URLQueryItem] = [], token: String, timeout: TimeInterval
