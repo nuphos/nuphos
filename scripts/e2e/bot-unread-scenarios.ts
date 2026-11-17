@@ -22,6 +22,29 @@ export const botUnreadScenarios: Scenario[] = [
         agentLog(stack).filter(
           (entry) => entry.event === 'finish' && entry.marker === 'E2E_DELIVERY:child',
         ).length
+      const get = async <T>(path: string): Promise<T> => {
+        const response = await fetch(`${stack.apiUrl}${path}`, {
+          headers: { authorization: `Bearer ${stack.token}` },
+        })
+
+        if (!response.ok) throw new Error(`${path} answered ${String(response.status)}`)
+
+        return (await response.json()) as T
+      }
+      type Row = {
+        sessionId: string
+        parentSessionId?: string
+        unread?: boolean
+        faces?: { id: string }[]
+      }
+      const rows = async () =>
+        (
+          await get<{ conversations: Row[] }>(
+            `/agent/conversations?teamId=${stack.teamId}&limit=200`,
+          )
+        ).conversations
+      const badge = async () =>
+        (await get<{ count: number }>(`/agent/unread-count?teamId=${stack.teamId}`)).count
       const shot = async (name: string) => {
         await page.evaluate(() => {
           document.documentElement.classList.remove('dark')
@@ -34,6 +57,17 @@ export const botUnreadScenarios: Scenario[] = [
       await page.getByRole('tab', { name: 'Bots' }).click()
       await bots.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first().click()
       const before = replies()
+      const botId = (await rows()).find((row) => row.sessionId === channelId)?.faces?.[0]?.id
+      const kids = async () => (await rows()).filter((row) => row.parentSessionId === botId)
+      const known = new Set((await kids()).map((row) => row.sessionId))
+
+      // Unread elsewhere may change meanwhile (the Bot's own session); the badge follows only that.
+      const others = async (skip?: string) =>
+        (await rows()).filter((row) => row.unread && row.sessionId !== skip).length
+
+      await page.waitForTimeout(2_000)
+      const badgeBefore = await badge()
+      const othersBefore = await others()
 
       // Read in place: the Bot's own post here is read, its sub-Task's reply is not.
       await send(page, 'Hand this off E2E_DELEGATE E2E_DELIVERY:bot-handoff')
@@ -46,8 +80,16 @@ export const botUnreadScenarios: Scenario[] = [
       await shot('bot-unread-subtask-light')
       if ((await dots.count()) !== 0)
         throw new Error(`A sub-Task's reply put ${String(await dots.count())} dots on Bots`)
+      // The Tasks list and the app badge read the same server state.
+      const kid = (await kids()).find((row) => !known.has(row.sessionId))
 
-      // Now the Bot's own message, unread, with the sub-Task's reply still unread under it.
+      if (!kid) throw new Error(`No new Task under the Bot ${botId ?? ''}`)
+      if (kid.unread) throw new Error("The Bot's sub-Task is unread in the Tasks list")
+      const raised = (await badge()) - badgeBefore - ((await others(kid.sessionId)) - othersBefore)
+
+      if (raised !== 0) throw new Error(`The sub-Task's reply moved the badge by ${String(raised)}`)
+
+      // Now the Bot's own message, unread, with the sub-Task's reply still under it.
       const response = await fetch(
         `${stack.apiUrl}/agent/conversations/${channelId}/channel-messages`,
         {
