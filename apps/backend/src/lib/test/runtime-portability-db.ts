@@ -63,9 +63,14 @@ function update(doc: Doc, query: Doc, mutation: Doc) {
     parent[parts[0]!] = value
   }
   for (const key of Object.keys(mutation.$unset ?? {})) {
-    const [head = key, tail] = key.split('.')
+    const [head = key, tail, field] = key.split('.')
 
-    if (tail === undefined) delete doc[key]
+    if (tail === '$' && field) {
+      const element = query[head]?.$elemMatch
+      const entry = doc[head]?.find((candidate: Doc) => matches(candidate, element))
+
+      if (entry) delete entry[field]
+    } else if (tail === undefined) delete doc[key]
     else if (doc[head]) delete doc[head][tail]
   }
   for (const [key, value] of Object.entries<number>(mutation.$max ?? {})) {
