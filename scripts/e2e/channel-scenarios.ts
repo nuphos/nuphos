@@ -92,6 +92,15 @@ export const channelScenarios: Scenario[] = [
           throw new Error(`${when}, the Bot's row shows the Bot's own transcript`)
       }
 
+      // Setup has its own status line. Finish it before checking an established Bot's dots.
+      await send(
+        page,
+        'Confirmed: review releases. E2E_ONBOARDING_COMPLETE E2E_DELIVERY:busy-bot-setup',
+      )
+      await until('the Bot setup turn to finish', async () =>
+        agentEvents(stack).includes('finish E2E_DELIVERY:busy-bot-setup'),
+      )
+      await row.getByText('Getting started', { exact: true }).waitFor({ state: 'hidden' })
       await send(page, 'Post twice E2E_TWO_POSTS E2E_DELIVERY:two')
       await page.getByText('POSTED E2E_DELIVERY:two', { exact: true }).waitFor()
       // Still in its turn: the row has the work dots.
