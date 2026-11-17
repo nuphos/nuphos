@@ -71,3 +71,35 @@ export async function checkDockToggleClear(page: Page, where: string): Promise<v
       `The ${where}'s header runs ${String(Math.round(room.contentRight - room.toggleLeft))} px under the workspace panel toggle`,
     )
 }
+
+/** Scratch evidence: the dock's tab strip while the dock is open. */
+export async function captureTabStrip(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Open workspace panel' }).click()
+  await page.waitForTimeout(1_500)
+  const strip = await page.evaluate(() => {
+    const node = [...document.querySelectorAll('.sheet-titlebar-row.bg-main.titlebar-drag')].find(
+      (candidate) => candidate.getBoundingClientRect().width > 0,
+    )
+    const toggle = document.querySelector('.workspace-dock-toggle')?.getBoundingClientRect()
+
+    if (!node || !toggle) return null
+    const box = node.getBoundingClientRect()
+
+    return {
+      classes: node.className,
+      paddingRight: getComputedStyle(node).paddingRight,
+      left: box.left,
+      right: box.right,
+      height: box.height,
+      toggleLeft: toggle.left,
+      captionReserve: getComputedStyle(document.documentElement).getPropertyValue(
+        '--caption-reserve',
+      ),
+    }
+  })
+
+  console.log(`TABSTRIP ${JSON.stringify(strip)}`)
+  await page.screenshot({ path: `${artifacts}/tab-strip-dock-open.png` })
+  await page.getByRole('button', { name: 'Close workspace panel' }).click()
+  await page.waitForTimeout(500)
+}
