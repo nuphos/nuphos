@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, X } from 'lucide-react'
 import { useContext, useLayoutEffect, useRef, useState } from 'react'
 
 import { t } from '../../../i18n'
@@ -92,6 +92,7 @@ export function ChoiceCard({
             void ctx.dismiss?.(card).then((ok) => setDismissed(ok ? 'yes' : 'no'))
           }}
         >
+          <X aria-hidden className="size-3.5 text-tertiary" />
           {t('Dismiss')}
         </Button>
       )}

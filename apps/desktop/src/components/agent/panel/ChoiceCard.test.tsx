@@ -100,6 +100,10 @@ test('the card leads with its question, answers with its buttons, and is snoozed
     )
     // They are option buttons like Wait, not small text beside the row.
     assert.equal(button('Snooze')?.className, button('Wait')?.className)
+    // Snooze and Dismiss each lead with an icon, which tells them from the answers.
+    assert.notEqual(button('Snooze')?.querySelector('svg'), null)
+    assert.notEqual(button('Dismiss')?.querySelector('svg'), null)
+    assert.equal(button('Wait')?.querySelector('svg'), null)
     // So is "Other…": every way to deal with the question is a button of the same kind.
     assert.equal(button('Other…')?.className, button('Wait')?.className)
     assert.equal(button('Dismiss')?.className, button('Wait')?.className)

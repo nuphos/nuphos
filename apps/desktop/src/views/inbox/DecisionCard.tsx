@@ -1,3 +1,4 @@
+import { X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { MessageResponse } from '../../components/agent/MessageResponse'
@@ -87,6 +88,7 @@ export function DecisionCard({
             setDismissing(true)
           }}
         >
+          <X aria-hidden className="size-3.5 text-tertiary" />
           {t('Dismiss')}
         </Button>
       )}

@@ -1,3 +1,5 @@
+import { AlarmClock } from 'lucide-react'
+
 import { Button } from '../../components/ui/button'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../../components/ui/menu'
 import { t } from '../../i18n'
@@ -21,6 +23,7 @@ export function SnoozeMenu({
       <MenuTrigger
         render={
           <Button variant="secondary" size="sm" className={className}>
+            <AlarmClock aria-hidden className="size-3.5 text-tertiary" />
             {t('Snooze')}
           </Button>
         }
