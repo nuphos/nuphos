@@ -67,6 +67,26 @@ async function screencast(page: Page, name: string) {
 
 export const questionScenarios: Scenario[] = [
   {
+    // #3397: an answer being typed in a question's card stays when the asking turn ends.
+    name: "an answer typed while the agent's turn runs is still there when the turn ends",
+    run: async (page) => {
+      await newTask(page)
+      await send(page, 'Ask me E2E_ASK E2E_DELIVERY:typed')
+      await page.getByRole('heading', { name: 'Which marker should the fixture use?' }).waitFor()
+      await page.getByRole('button', { name: 'Other…' }).last().click()
+      await page.getByLabel('Your answer').last().fill('E2E_DELIVERY:typed-answer')
+      await page.getByText('ACK E2E_DELIVERY:typed').waitFor()
+      // The app takes the stored transcript within a second of the turn's end.
+      await new Promise((resolve) => setTimeout(resolve, 2000))
+      const kept = await page.getByLabel('Your answer').last().inputValue()
+
+      if (kept !== 'E2E_DELIVERY:typed-answer')
+        throw new Error(`The card lost the answer being typed when the turn ended: "${kept}"`)
+      await page.keyboard.press('Enter')
+      await page.getByText('ACK E2E_DELIVERY:typed-answer').waitFor()
+    },
+  },
+  {
     // #3292: the question being read in the Inbox was replaced when a newer one was listed.
     name: 'a newer question slides into the Inbox list and the one being read stays open',
     run: async (page) => {

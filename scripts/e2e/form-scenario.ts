@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { resolve } from 'node:path'
 
-import { agentLog } from './agent-log.ts'
+import { agentEvents, agentLog } from './agent-log.ts'
 import { freePorts, logPath, until } from './processes.ts'
 
 import type { Stack } from './stack.ts'
@@ -78,6 +78,12 @@ export const formScenario = {
       await page.keyboard.press('Enter')
 
       await page.getByText(`Details needed for ${site}`).waitFor()
+      // #3397: the person types while the agent's turn still runs, and the turn ends under them.
+      await page.getByLabel('ID number').fill(ID)
+      await page.getByLabel('Date of birth').fill(BIRTH)
+      await until('the asking turn to end', async () =>
+        agentEvents(stack).includes('finish E2E_DELIVERY:form'),
+      )
       // The Nuphos browser runs on this computer, so the person lets the Task use it.
       // An earlier scenario's Task keeps its own composer, inert, behind this one.
       await page.locator('button[title^="Computers"]:not([inert])').last().click()
@@ -87,8 +93,14 @@ export const formScenario = {
       // Already selected when the person has used this computer in another Task.
       if (await selectAll.isEnabled()) await selectAll.click()
       await page.keyboard.press('Escape')
-      await page.getByLabel('ID number').fill(ID)
-      await page.getByLabel('Date of birth').fill(BIRTH)
+      // The app takes the stored transcript within a second of the turn's end, and nothing on
+      // the page says when. After it, the card is still the card that was typed in.
+      await new Promise((resolve) => setTimeout(resolve, 2000))
+      const kept =
+        (await page.getByLabel('ID number').inputValue()) === ID &&
+        (await page.getByLabel('Date of birth').inputValue()) === BIRTH
+
+      if (!kept) throw new Error('The card lost what was typed when the turn ended')
       await page.getByRole('button', { name: 'Send securely' }).click()
       // Submitting the card is all the person does: the agent carries on from the saved files.
       await until('the agent to fill the form', async () => events().length === 2)
