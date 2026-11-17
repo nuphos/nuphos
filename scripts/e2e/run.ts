@@ -2,14 +2,13 @@
 // deterministic agent in place of a model. Each scenario is a flow a person takes.
 import { rmSync } from 'node:fs'
 
+import { accessScenarios } from './access-scenarios.ts'
 import { agentEvents } from './agent-log.ts'
 import { backendFailures, backendLines } from './backend-log.ts'
-import { bindingAccessScenarios } from './binding-access-scenarios.ts'
 import { checkDecisionOutline, checkOutgoingChip } from './chat-presentation.ts'
 import { channelScenarios } from './channel-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
-import { connectShareScenarios } from './connect-share-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
 import { startDesktop } from './desktop.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
@@ -226,8 +225,7 @@ const scenarios: Scenario[] = [
   },
   ...triggerScenarios,
   ...connectorScenarios,
-  ...bindingAccessScenarios,
-  ...connectShareScenarios,
+  ...accessScenarios,
   ...runtimeScenarios,
   ...computerScenarios,
   ...commandScenarios,

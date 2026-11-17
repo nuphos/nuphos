@@ -15,7 +15,7 @@ import {
   githubUnattachedSuiteCommit,
   refreshLinkedPullHealth,
 } from './resource-webhook-health'
-import { resourceCredentialAllowed } from './session-resource-lookup'
+import { allowedResourceRecipients, resourceCredentialAllowed } from './session-resource-lookup'
 import { enqueueResourceTurn } from './thread-queue'
 
 import type { SessionResource } from './session-resources'
@@ -227,7 +227,7 @@ export async function routeResourceWebhook(event: string, payload: unknown, deli
 
   if (pullState) {
     await agentConversations().updateMany(
-      { 'linkedResources.key': pullState.key },
+      { _id: { $in: await allowedResourceRecipients(pullState.key) } },
       {
         // Merged or closed is the whole story; reopening or readying re-reads the health below.
         $set: pullStateSet(pullState),
