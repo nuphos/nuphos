@@ -2,6 +2,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { agentEvents, agentLog } from './agent-log.ts'
+import { botAccessScenarios } from './bot-access-scenarios.ts'
 import { forgetComputer } from './computer-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
@@ -217,6 +218,7 @@ export const channelScenarios: Scenario[] = [
       await page.getByText('Message E2E Bot', { exact: true }).waitFor()
     },
   },
+  ...botAccessScenarios,
   {
     // #3310: the Bot's name above its Inbox question opened the Bot's session as a Task,
     // with the sidebar left on the Inbox.
