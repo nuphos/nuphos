@@ -24,6 +24,7 @@ let refusals: Record<string, string>
 let moves: { to: string; reason?: string; claimed?: boolean }[]
 let updates: Record<string, unknown>[]
 let instances: RuntimeInstance[]
+let listedFor: (string | undefined)[]
 let continued: { actor?: string; sender?: string; source: string }[]
 
 const instance = (id: string, extra: Partial<RuntimeInstance> = {}): RuntimeInstance => ({
@@ -70,7 +71,11 @@ useAgentDb({
   }),
 })
 useRuntimeCatalog({
-  listRuntimeInstances: async () => instances,
+  listRuntimeInstances: async (_teamId: string, userId?: string) => {
+    listedFor.push(userId)
+
+    return instances
+  },
   listRuntimeQuotas: async (_teamId: string, instances: RuntimeInstance[]) =>
     instances.map((entry) => quota(entry.id, usedPercent[entry.id] ?? 0)),
 })
@@ -107,6 +112,7 @@ beforeEach(() => {
   offlineCode = 'runtime_offline'
   instances = ['a', 'b', 'c'].map((id) => instance(id))
   refusals = {}
+  listedFor = []
   moves = []
   updates = []
   continued = []
@@ -259,13 +265,28 @@ test('a failure that is not the agent’s does not move the conversation', async
   expect(updates).toEqual([])
 })
 
-test('a teammate’s turn only falls back to hosted agents, never the owner’s computer', async () => {
-  offline = true
-  instances = [instance('a'), computer('b'), instance('c', { kind: 'external' }), instance('d')]
+test('a teammate’s turn falls back to a Box or team agent they may use, never a computer', async () => {
+  usedPercent = { a: 95 }
+  instances = [
+    instance('a', { kind: 'external' }),
+    computer('b'),
+    computer('c', { shared: { level: 'full' } }),
+    computer('d', { box: { provider: 'instabox' } as never }),
+  ]
   list = ['b', 'c', 'd']
 
   expect((await fallBackBeforeTurn(conversation, 'teammate'))?.runtimeId).toBe('d')
   expect(moves.map((move) => move.to)).toEqual(['d'])
+  // The agents the teammate may use, not the owner's.
+  expect(listedFor).toContain('teammate')
+})
+
+test('a teammate’s turn falls back to a team runtime when theirs is out of usage', async () => {
+  usedPercent = { a: 95 }
+  instances = [instance('a', { kind: 'external' }), instance('b', { kind: 'external' })]
+  list = ['b']
+
+  expect((await fallBackBeforeTurn(conversation, 'teammate'))?.runtimeId).toBe('b')
 })
 
 test('the owner falls back to their own computer, but not to a teammate’s shared one', async () => {
