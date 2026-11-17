@@ -54,7 +54,8 @@ export const reporting = (send) => async (sessionId, name, args) => {
 
   update({
     sessionUpdate: 'tool_call',
-    title: name,
+    // Claude Code's name for a tool of the `nuphos-tools` server.
+    title: `mcp__nuphos-tools__${name}`,
     kind: 'other',
     status: 'in_progress',
     rawInput: args,
