@@ -189,7 +189,7 @@ describe('input requests', () => {
         {
           'inputRequests.status': 'open',
           $or: [
-            { botOnboarding: { $nin: ['pending', 'started'] } },
+            { botOnboarding: { $nin: ['pending', 'active'] } },
             { inputRequests: { $elemMatch: { status: 'open', category: { $ne: 'preference' } } } },
           ],
           userId: '642802f4c38340345aa2384d',
@@ -218,7 +218,7 @@ describe('input requests', () => {
         {
           'inputRequests.status': 'open',
           $or: [
-            { botOnboarding: { $nin: ['pending', 'started'] } },
+            { botOnboarding: { $nin: ['pending', 'active'] } },
             { inputRequests: { $elemMatch: { status: 'open', category: { $ne: 'preference' } } } },
           ],
         },
@@ -245,7 +245,7 @@ describe('input requests', () => {
         {
           'inputRequests.status': 'open',
           $or: [
-            { botOnboarding: { $nin: ['pending', 'started'] } },
+            { botOnboarding: { $nin: ['pending', 'active'] } },
             { inputRequests: { $elemMatch: { status: 'open', category: { $ne: 'preference' } } } },
           ],
           userId: 'member-1',
