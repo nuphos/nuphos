@@ -34,7 +34,15 @@ const SUBSCRIPTION = {
 // What `hermes auth add` signs in to, written by hermes-providers.py from the pinned Hermes.
 const CATALOG = new URL('./hermes-providers.json', import.meta.url)
 
-class LoginError extends Error {}
+class LoginError extends Error {
+  constructor(message, reason = 'failed') {
+    super(message)
+    this.reason = reason
+  }
+}
+
+// What Hermes says when it cannot prepare its dependencies for this home.
+const UNPREPARED = 'no dependency environment is committed'
 
 // Not the gateway's environment: no transport keys or session tokens.
 const hermesEnv = (extra = {}) => ({
@@ -46,7 +54,11 @@ const hermesEnv = (extra = {}) => ({
   ...Object.fromEntries(
     WINDOWS_ENV.filter((key) => process.env[key]).map((key) => [key, process.env[key]]),
   ),
-  HERMES_DISABLE_LAZY_INSTALLS: '1',
+  // The image bakes in Hermes' dependencies and refuses more; a computer's Hermes
+  // prepares them for each new home, so only the image's own environment refuses.
+  ...(process.env.HERMES_DISABLE_LAZY_INSTALLS
+    ? { HERMES_DISABLE_LAZY_INSTALLS: process.env.HERMES_DISABLE_LAZY_INSTALLS }
+    : {}),
   NO_COLOR: '1',
   TERM: 'dumb',
   ...extra,
@@ -76,13 +88,22 @@ export function runHermes(command, args, { env = hermesEnv(), onOutput } = {}) {
     output += chunk.toString()
     onOutput?.(output)
   })
-  child.stderr.resume()
+  let errors = ''
+  child.stderr.on('data', (chunk) => {
+    errors += chunk.toString()
+  })
   const done = new Promise((resolve, reject) => {
     child.once('error', reject)
     child.once('close', (code) => {
       process.off('exit', kill)
       if (code === 0) resolve(output)
-      else reject(new LoginError(`${command} ${args[0]} failed`))
+      else
+        reject(
+          new LoginError(
+            `${command} ${args[0]} failed`,
+            `${output}${errors}`.includes(UNPREPARED) ? 'environment' : 'failed',
+          ),
+        )
     })
   })
   return { write: (text) => child.stdin.write(text), end: () => child.stdin.end(), done }
@@ -198,19 +219,19 @@ export async function runHermesLogin({
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   // Provider output can contain sensitive values; report only a fixed reason.
-  const fail = () => {
-    process.stdout.write(`${JSON.stringify({ type: 'error', reason: 'failed' })}\n`)
+  const fail = (reason = 'failed') => {
+    process.stdout.write(`${JSON.stringify({ type: 'error', reason })}\n`)
     process.exit(1)
   }
-  for (const event of ['SIGTERM', 'SIGINT']) process.once(event, fail)
-  process.stdout.on('error', fail)
+  for (const event of ['SIGTERM', 'SIGINT']) process.once(event, () => fail())
+  process.stdout.on('error', () => fail())
   setTimeout(fail, 15 * 60_000).unref()
   try {
     await runHermesLogin({
       lines: createInterface({ input: process.stdin })[Symbol.asyncIterator](),
     })
     process.exit(0)
-  } catch {
-    fail()
+  } catch (error) {
+    fail(error instanceof LoginError ? error.reason : undefined)
   }
 }
