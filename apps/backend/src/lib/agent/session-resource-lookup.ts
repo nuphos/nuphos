@@ -10,7 +10,7 @@ import { withLinearAccessToken } from '@/lib/byos/linear-tokens'
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 
-import { credentialSource } from './db'
+import { agentConversations, credentialSource } from './db'
 import { fetchPullHealth } from './github-pull-health'
 import { mergedAtOf } from './merged-at'
 
@@ -42,6 +42,24 @@ export async function resourceCredentialAllowed(
     binding &&
     canPrincipalsUseAllowList(binding.access?.memberAllowList, [actorId, conversation.userId]),
   )
+}
+
+/**
+ * The conversations linking `key` that may still read it. A webhook writes
+ * fresh state only to these, so a member taken off the integration's list
+ * stops receiving it.
+ */
+export async function allowedResourceRecipients(key: string): Promise<ObjectId[]> {
+  const ids: ObjectId[] = []
+
+  for await (const conversation of agentConversations().find({ 'linkedResources.key': key })) {
+    const resource = conversation.linkedResources?.find((entry) => entry.key === key)
+
+    if (conversation._id && resource && (await resourceCredentialAllowed(conversation, resource)))
+      ids.push(conversation._id)
+  }
+
+  return ids
 }
 
 function findResourceBinding(

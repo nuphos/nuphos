@@ -70,6 +70,7 @@ export class RuntimeTunnelClient {
         localMetrics: Boolean(this.deps.sampleMetrics),
         localExec: Boolean(this.deps.connectExec),
         localUpload: Boolean(this.deps.connectUpload),
+        localDownload: Boolean(this.deps.connectDownload),
         localTerminal: Boolean(this.deps.connectTerminal),
         localCua: Boolean(this.deps.connectCua),
         localBrowser: Boolean(this.deps.connectBrowser),
@@ -95,7 +96,7 @@ export class RuntimeTunnelClient {
 
     this.socket = undefined
     if (socket?.terminate) socket.terminate()
-    else socket?.close(1000, 'reconnecting')
+    else socket?.close(1000, this.running ? 'reconnecting' : 'stopped')
   }
 
   private send(frame: object): void {

@@ -108,12 +108,18 @@ export function assertDatabaseNetworkConfiguration(
   }
 }
 
+/**
+ * For a saved connection: its network was checked against the member who
+ * saved it, and the connection's own sharing decides who may use it now.
+ */
+export const savedNetwork = (): boolean => true
+
 export async function resolveDatabaseNetwork(
   teamId: ObjectId,
   networkMode: DatabaseNetworkMode,
   tailscale: DatabaseTailscaleNetwork | undefined,
-  /** Whether the member choosing this network may use the Tailscale binding. */
-  canUseBinding: (access: BindingAccess | undefined) => boolean = () => true,
+  /** Whether the member choosing this network may use the Tailscale binding; `savedNetwork` for a saved connection. */
+  canUseBinding: (access: BindingAccess | undefined) => boolean,
 ): Promise<ResolvedDatabaseNetwork> {
   assertDatabaseNetworkConfiguration(networkMode, tailscale)
   if (networkMode === 'public') {

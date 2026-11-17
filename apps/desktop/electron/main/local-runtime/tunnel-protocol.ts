@@ -8,6 +8,7 @@ export type StreamPurpose =
   | TunnelPurpose
   | 'exec'
   | 'upload'
+  | 'download'
   | 'file'
   | 'attachments'
   | 'terminal'

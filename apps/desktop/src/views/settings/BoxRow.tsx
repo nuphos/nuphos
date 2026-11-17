@@ -26,6 +26,7 @@ import { BOX_BADGE, boxActions, boxState, removal } from './boxPresentation'
 import { boxRestartLabel, boxRestartOf } from './boxRestartPresentation'
 import { boxRestarts, useBoxRestart } from './boxRestartStore'
 import { openDesktop } from './computerDesktop'
+import { ComputerNotices } from './ComputerNotices'
 import { LocalAgentShareDialog } from './LocalAgentShareDialog'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 import { useComputerOwner } from './useComputerOwner'
@@ -129,11 +130,9 @@ export function BoxRow({
       boxRestarts.start(deviceId, team, 'update')
     })
 
-  const model = deskModel(device)
-
   return (
     <li className="flex w-[300px] shrink-0 flex-col">
-      <DeskArt model={model} on={!away && !dim}>
+      <DeskArt model={deskModel(device)} on={!away && !dim}>
         <DeskReadings device={device} metricsStatus={restart ? 'connecting' : metricsStatus} />
         <DeskAgents
           device={device}
@@ -245,6 +244,7 @@ export function BoxRow({
         )}
       </div>
       <OwnerLine device={device} owner={owner} />
+      <ComputerNotices teamId={teamId} device={device} here={thisComputer} running={running} />
       {manage && away && (
         <div className="mt-2">
           <Button size="sm" variant="secondary" disabled={busy} onClick={() => void resume()}>

@@ -25,6 +25,7 @@ export type TunnelClientDeps = {
   connectTerminal?: () => SocketLike
   connectExec?: () => SocketLike
   connectUpload?: () => SocketLike
+  connectDownload?: () => SocketLike
   /** Computer Use, only where the Codex App can provide it. */
   connectCua?: () => SocketLike
   connectBrowser?: () => SocketLike
@@ -60,6 +61,7 @@ export function connectLocalStream(
     attachments: deps.connectAttachments,
     exec: deps.connectExec,
     upload: deps.connectUpload,
+    download: deps.connectDownload,
     cua: deps.connectCua,
     browser: deps.connectBrowser,
     browserView: deps.connectBrowserView,

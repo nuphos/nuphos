@@ -45,3 +45,22 @@ test('a server that answers without upgrading reports a rejected handshake', asy
 
   assert.deepEqual(failures, [{ host: `127.0.0.1:${String(port)}`, code: 'handshake_rejected' }])
 })
+
+test('a refused dial tells its caller the status the server answered with', async () => {
+  const server = createServer((_req, res) => res.writeHead(404).end()).listen(0, '127.0.0.1')
+
+  await new Promise((resolve) => server.once('listening', resolve))
+  const { port } = server.address() as AddressInfo
+  const statuses: number[] = []
+
+  await new Promise<void>((resolve) => {
+    dialBackend(
+      `http://127.0.0.1:${String(port)}/agent/devices/d/runtime-tunnel?reclaim=1`,
+      { authorization: 'Bearer t' },
+      (status) => statuses.push(status),
+    ).addEventListener('error', () => resolve())
+  })
+  server.close()
+
+  assert.deepEqual(statuses, [404])
+})

@@ -10,6 +10,7 @@ class FakeSocket {
   readyState = 0
   sent: string[] = []
   closed = false
+  closeReason: string | undefined
   private listeners = new Map<string, Listener[]>()
 
   addEventListener(type: string, listener: Listener) {
@@ -26,9 +27,10 @@ class FakeSocket {
     this.sent.push(data)
   }
 
-  close(code?: number) {
+  close(code?: number, reason?: string) {
     if (this.closed) return
     this.closed = true
+    this.closeReason = reason
     this.emit('close', { code: code ?? 1000 })
   }
 }
@@ -351,6 +353,18 @@ test('stopping drops every stream and the socket', () => {
   assert.equal(backend().closed, true)
 })
 
+test('a stop says it stopped, so the backend can tell it from a reconnect', () => {
+  const { backends, client } = setup()
+
+  backends[0]?.emit('open')
+  client.reconnectNow()
+  backends[1]?.emit('open')
+  client.stop()
+
+  assert.equal(backends[0]?.closeReason, 'reconnecting')
+  assert.equal(backends[1]?.closeReason, 'stopped')
+})
+
 test('local exec uses the same tunnel when no local agent is installed', () => {
   const backend = new FakeSocket()
   const exec = new FakeSocket()
@@ -564,27 +578,35 @@ test('instance RPC shares the tunnel and returns one result then closes', async 
   client.stop()
 })
 
-test('upload is independently advertised and routed on the device tunnel', () => {
-  const backend = new FakeSocket()
-  const upload = new FakeSocket()
-  const client = new RuntimeTunnelClient({
-    connectBackend: () => backend,
-    connectRuntime: () => null,
-    connectUpload: () => upload,
-    status: () => ({ agents: {} }),
-  })
+for (const [purpose, capability] of [
+  ['upload', 'localUpload'],
+  ['download', 'localDownload'],
+] as const) {
+  test(`${purpose} is independently advertised and routed on the device tunnel`, () => {
+    const backend = new FakeSocket()
+    const stream = new FakeSocket()
+    const client = new RuntimeTunnelClient({
+      connectBackend: () => backend,
+      connectRuntime: () => null,
+      ...(purpose === 'upload'
+        ? { connectUpload: () => stream }
+        : { connectDownload: () => stream }),
+      status: () => ({ agents: {} }),
+    })
 
-  client.start()
-  backend.emit('open')
-  const status = JSON.parse(backend.sent[0]!)
+    client.start()
+    backend.emit('open')
+    const status = JSON.parse(backend.sent[0]!)
 
-  assert.equal(status.status.localUpload, true)
-  backend.emit('message', { data: JSON.stringify({ t: 'open', s: 'upload', purpose: 'upload' }) })
-  upload.emit('open')
-  backend.emit('message', {
-    data: JSON.stringify({ t: 'data', s: 'upload', d: 'fixture-request' }),
+    assert.equal(status.status[capability], true)
+    assert.equal(status.status[purpose === 'upload' ? 'localDownload' : 'localUpload'], false)
+    backend.emit('message', { data: JSON.stringify({ t: 'open', s: purpose, purpose }) })
+    stream.emit('open')
+    backend.emit('message', {
+      data: JSON.stringify({ t: 'data', s: purpose, d: 'fixture-request' }),
+    })
+    assert.deepEqual(stream.sent, ['fixture-request'])
+    client.stop()
+    assert.equal(stream.closed, true)
   })
-  assert.deepEqual(upload.sent, ['fixture-request'])
-  client.stop()
-  assert.equal(upload.closed, true)
-})
+}

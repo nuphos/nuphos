@@ -5,7 +5,6 @@
 // Per-provider failures degrade to an entry in `providerErrors` so one
 // unreachable provider doesn't blank the page.
 
-import { canUseAllowList } from '@/lib/byos/access'
 import { grafanaBindingToken } from '@/lib/byos/secrets'
 import { teamByosBindings } from '@/models'
 
@@ -18,6 +17,7 @@ import type {
   MonitoringOverviewRow,
   MonitoringProviderError,
 } from './overview-types'
+import type { BindingAccess } from '@/models'
 import type { ObjectId } from 'mongodb'
 
 export type {
@@ -28,7 +28,8 @@ export type {
 
 export async function aggregateMonitoringOverview(
   teamId: ObjectId,
-  userId: string,
+  /** Whether the request may use a binding, by the same rule as the binding's own routes. */
+  canUse: (access: BindingAccess | undefined) => boolean,
 ): Promise<MonitoringOverview> {
   const bindings = await teamByosBindings().findOne({ _id: teamId })
   const rows: MonitoringOverviewRow[] = []
@@ -40,7 +41,7 @@ export async function aggregateMonitoringOverview(
     // Respect per-binding member allow-lists — the aggregation must not
     // become a side channel around the access control the dedicated
     // routes enforce.
-    if (!canUseAllowList(integration.access?.memberAllowList, userId)) continue
+    if (!canUse(integration.access)) continue
     if (!integration.encryptedUptimeApiToken) continue
     const integrationId = integration.id.toHexString()
     const integrationLabel = integration.label
@@ -67,7 +68,7 @@ export async function aggregateMonitoringOverview(
   }
 
   for (const instance of bindings?.grafanaInstances ?? []) {
-    if (!canUseAllowList(instance.access?.memberAllowList, userId)) continue
+    if (!canUse(instance.access)) continue
     const integrationId = instance.id.toHexString()
 
     tasks.push(
@@ -98,7 +99,7 @@ export async function aggregateMonitoringOverview(
     // Purpose-scoped bindings (permission-admin) exist for grant flows, not
     // resource browsing — querying them just produces a guaranteed 403 row.
     if (binding.purpose) continue
-    if (!canUseAllowList(binding.access?.memberAllowList, userId)) continue
+    if (!canUse(binding.access)) continue
     const integrationId = binding.id.toHexString()
     const integrationLabel = binding.projectId
 

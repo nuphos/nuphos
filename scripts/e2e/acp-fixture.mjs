@@ -9,7 +9,9 @@ import { nuphosApplyRuntimeDefaults } from '../../apps/runtime/image/runtime-def
 import { answerChannel } from './fixture-channel.mjs'
 import { listCommands } from './fixture-commands.mjs'
 import { hop, inherit } from './fixture-hop.mjs'
+import { call, callNamed, setToolsServer, toolsServer } from './fixture-mcp.mjs'
 import { applySetting } from './fixture-settings.mjs'
+import { refuse } from './fixture-turn-refusals.mjs'
 
 const send = (message) =>
   process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', ...message })}\n`)
@@ -21,49 +23,11 @@ const log = (entry) =>
   )
 // A prompt containing E2E_HOLD stays in its turn until the client cancels it.
 const held = new Map()
-// The Nuphos tools server each session was given, when the backend offers one.
-const tools = new Map()
 // Requests this agent made of its client, waiting for their answers. OpenAB reads ids as numbers.
 const asked = new Map()
 let nextRequest = 1_000_000
 // The thread E2E_THREAD started last, for E2E_POKE to message.
 let thread
-
-/** One JSON-RPC call to a streamable-HTTP MCP server; the reply is JSON or a one-event stream. */
-async function mcp(server, sessionHeader, method, params) {
-  const response = await fetch(server.url, {
-    method: 'POST',
-    headers: {
-      ...Object.fromEntries(server.headers.map(({ name, value }) => [name, value])),
-      ...sessionHeader,
-      'content-type': 'application/json',
-      accept: 'application/json, text/event-stream',
-    },
-    body: JSON.stringify({ jsonrpc: '2.0', id: randomUUID(), method, params }),
-  })
-  const text = await response.text()
-  const data = text.startsWith('{') ? text : (/^data: (.+)$/m.exec(text)?.[1] ?? '{}')
-
-  return { message: JSON.parse(data), session: response.headers.get('mcp-session-id') }
-}
-
-/** Calls one Nuphos tool the way a real agent does. */
-async function call(sessionId, name, args) {
-  const server = tools.get(sessionId)
-  const opened = await mcp(server, {}, 'initialize', {
-    protocolVersion: '2025-06-18',
-    capabilities: {},
-    clientInfo: { name: 'e2e-fixture', version: '1' },
-  })
-  const { message } = await mcp(
-    server,
-    opened.session ? { 'mcp-session-id': opened.session } : {},
-    'tools/call',
-    { name, arguments: args },
-  )
-
-  return message
-}
 
 const refused = (message) => Boolean(message.error ?? message.result?.isError)
 
@@ -74,7 +38,7 @@ async function ask(sessionId, category) {
     category,
     question: 'Which marker should the fixture use?',
     // A link the app can open without leaving this computer.
-    body: `Background is at ${new URL(tools.get(sessionId).url).origin}/health/ready`,
+    body: `Background is at ${new URL(toolsServer(sessionId).url).origin}/health/ready`,
     options: ['E2E_DELIVERY:answered', 'E2E_DELIVERY:other'],
   })
 
@@ -166,9 +130,7 @@ async function prompt({ sessionId, prompt: parts }) {
   const outOfUsage =
     text.includes('E2E_USAGE_LIMIT') || (late.has(sessionId) && !text.includes('E2E_ASK'))
 
-  if (outOfUsage && process.env.E2E_AGENT !== 'second') {
-    throw Object.assign(new Error('Internal error: You’ve hit your usage limit'), { code: -32603 })
-  }
+  refuse(text, outOfUsage && process.env.E2E_AGENT !== 'second')
   // Nuphos tells the agent when a person skips its question.
   if (text.includes('was skipped')) log({ sessionId, marker, event: 'skipped' })
   if (text.includes('E2E_DELEGATE') && !text.includes(CHILD)) {
@@ -197,6 +159,7 @@ async function prompt({ sessionId, prompt: parts }) {
   }
   if (text.includes('E2E_PERMISSION')) await permission(sessionId, marker)
   if (text.includes('E2E_COMMANDS')) listCommands({ send, sessionId })
+  if (text.includes('E2E_CALL')) await callNamed({ log, sessionId, text })
   if (text.includes('E2E_HOLD')) {
     await new Promise((resolve) => held.set(sessionId, resolve))
     log({ sessionId, marker, event: 'cancelled' })
@@ -237,7 +200,7 @@ async function answer(request) {
         await new Promise((resolve) => setTimeout(resolve, 50))
       }
 
-      tools.set(
+      setToolsServer(
         sessionId,
         request.params.mcpServers?.find(({ name }) => name === 'nuphos-tools'),
       )

@@ -61,6 +61,7 @@ export const deviceApi = {
   deviceRemove: (deviceId: string, teamId: string) => window.api.deviceRemove(deviceId, teamId),
   deviceAppUpdate: (deviceId: string, teamId: string) =>
     window.api.deviceAppUpdate(deviceId, teamId),
+  boxClearCaches: (deviceId: string, teamId: string) => window.api.boxClearCaches(deviceId, teamId),
   boxDesktop: (deviceId: string, teamId: string) => window.api.boxDesktop(deviceId, teamId),
   boxJoinToken: () => window.api.boxJoinToken(),
   sshHosts: () => window.api.sshHosts(),

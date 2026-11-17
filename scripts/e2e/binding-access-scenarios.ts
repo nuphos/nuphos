@@ -8,7 +8,7 @@ import type { Scenario } from './ui.ts'
 
 type Reply = { status: number; body: unknown; text: string }
 
-function client(apiUrl: string, token: string) {
+export function client(apiUrl: string, token: string) {
   return async (method: string, path: string, body?: unknown): Promise<Reply> => {
     const response = await fetch(apiUrl + path, {
       method,
@@ -33,12 +33,14 @@ function parse(text: string): unknown {
   }
 }
 
-function must(condition: boolean, what: string): void {
+export function must(condition: boolean, what: string): void {
   if (!condition) throw new Error(`Expected ${what}`)
 }
 
 /** A GitLab instance answering only the code exchange and who the token belongs to; always one account. */
-async function startFixtureGitlab(): Promise<{ url: string; close: () => void }> {
+export async function startFixtureGitlab(
+  accountId: number,
+): Promise<{ url: string; close: () => void }> {
   const [port] = await freePorts(1)
   const server = createServer((request, response) => {
     response.setHeader('content-type', 'application/json')
@@ -58,7 +60,12 @@ async function startFixtureGitlab(): Promise<{ url: string; close: () => void }>
     }
     if (request.url?.startsWith('/api/v4/user')) {
       response.end(
-        JSON.stringify({ id: 4242, username: 'fixture-owner', name: 'Fixture Owner', email: null }),
+        JSON.stringify({
+          id: accountId,
+          username: 'fixture-owner',
+          name: 'Fixture Owner',
+          email: null,
+        }),
       )
 
       return
@@ -72,69 +79,93 @@ async function startFixtureGitlab(): Promise<{ url: string; close: () => void }>
   return { url: `http://127.0.0.1:${String(port)}`, close: () => server.close() }
 }
 
-type Flow = Pick<Stack, 'apiUrl' | 'token' | 'teamId' | 'signInCode'>
+export type Flow = Pick<Stack, 'apiUrl' | 'token' | 'teamId' | 'signInCode'>
+
+export type Client = ReturnType<typeof client>
+
+/** Signs a second member in and makes them an admin: admins may use shared bindings, never a private one. */
+export async function joinAsAdmin(
+  stack: Flow,
+  owner: Client,
+): Promise<{ member: Client; memberId: string }> {
+  const email = `e2e-member-${String(Date.now())}@example.com`
+  const anonymous = client(stack.apiUrl, '')
+
+  await anonymous('POST', '/auth/email/request-code', { email })
+  await until('the member sign-in code to be logged', async () => stack.signInCode(email))
+  const verified = await anonymous('POST', '/auth/email/verify-code', {
+    email,
+    code: stack.signInCode(email),
+  })
+  const member = client(stack.apiUrl, (verified.body as { token: string }).token)
+  const invited = await owner('POST', `/teams/${stack.teamId}/invitations`, { inviteeEmail: email })
+  const invitationId = (invited.body as { invitation: { id: string } }).invitation.id
+
+  must(
+    (await member('POST', `/invitations/${invitationId}/accept`)).status === 200,
+    'the invitation to be accepted',
+  )
+  const me = (await member('GET', '/auth/me')).body as { user?: { id: string }; id?: string }
+  const memberId = me.user?.id ?? me.id ?? ''
+  const promoted = await owner('PATCH', `/teams/${stack.teamId}/members/${memberId}`, {
+    role: 'ADMINISTRATOR',
+  })
+
+  must(promoted.status === 200, `the member to become an admin, got ${String(promoted.status)}`)
+
+  return { member, memberId }
+}
+
+/** Connects the fixture GitLab account through OAuth, without a share choice. */
+export async function connectGitlab(stack: Flow, as: Client, hostUrl: string, code: string) {
+  const started = await as('POST', `/teams/${stack.teamId}/gitlab-bindings/start-oauth`, {
+    hostUrl,
+    clientId: 'e2e-gitlab-client',
+    clientSecret: 'e2e-gitlab-secret-not-a-production-credential',
+  })
+
+  must(started.status === 200, `start-oauth to answer 200, got ${String(started.status)}`)
+  const { state } = started.body as { state: string }
+  const response = await fetch(`${stack.apiUrl}/gitlab-app/setup?state=${state}&code=${code}`, {
+    redirect: 'manual',
+  })
+
+  return { status: response.status, text: await response.text() }
+}
+
+/** The id of the team's GitLab binding for `hostUrl`. */
+export async function gitlabBindingId(
+  stack: Flow,
+  owner: Client,
+  hostUrl: string,
+): Promise<string> {
+  const listed = (await owner('GET', `/teams/${stack.teamId}/gitlab-bindings`)).body as {
+    bindings?: { id: string; hostUrl?: string }[]
+    accounts?: { id: string; hostUrl?: string }[]
+  }
+  const binding = (listed.bindings ?? listed.accounts ?? []).find((b) => b.hostUrl === hostUrl)
+
+  must(Boolean(binding), 'the owner to see the new binding')
+
+  return binding!.id
+}
 
 // An OAuth-connected GitLab binding starts private to the member who connects it. Another admin
 // can't select it, fetch its token or re-authorize it; the member who connected it can.
 export async function privateOAuthBindingFlow(stack: Flow, log: (line: string) => void = () => {}) {
   const owner = client(stack.apiUrl, stack.token)
-  const gitlab = await startFixtureGitlab()
+  const gitlab = await startFixtureGitlab(4242)
 
   try {
-    // A second member, made an admin: admins may use shared bindings, never a private one.
-    const email = `e2e-member-${String(Date.now())}@example.com`
-    const anonymous = client(stack.apiUrl, '')
+    const { member, memberId } = await joinAsAdmin(stack, owner)
+    const connect = async (as: Client, code: string) => connectGitlab(stack, as, gitlab.url, code)
 
-    await anonymous('POST', '/auth/email/request-code', { email })
-    await until('the member sign-in code to be logged', async () => stack.signInCode(email))
-    const verified = await anonymous('POST', '/auth/email/verify-code', {
-      email,
-      code: stack.signInCode(email),
-    })
-    const member = client(stack.apiUrl, (verified.body as { token: string }).token)
-    const invited = await owner('POST', `/teams/${stack.teamId}/invitations`, {
-      inviteeEmail: email,
-    })
-    const invitationId = (invited.body as { invitation: { id: string } }).invitation.id
-
-    must(
-      (await member('POST', `/invitations/${invitationId}/accept`)).status === 200,
-      'the invitation to be accepted',
-    )
-    const me = (await member('GET', '/auth/me')).body as { user?: { id: string }; id?: string }
-    const memberId = me.user?.id ?? me.id ?? ''
-    const promoted = await owner('PATCH', `/teams/${stack.teamId}/members/${memberId}`, {
-      role: 'ADMINISTRATOR',
-    })
-
-    must(promoted.status === 200, `the member to become an admin, got ${String(promoted.status)}`)
     log(`member ${memberId} joined as an admin`)
-
-    // The owner connects GitLab through OAuth, without a share choice.
-    const connect = async (as: ReturnType<typeof client>, code: string) => {
-      const started = await as('POST', `/teams/${stack.teamId}/gitlab-bindings/start-oauth`, {
-        hostUrl: gitlab.url,
-        clientId: 'e2e-gitlab-client',
-        clientSecret: 'e2e-gitlab-secret-not-a-production-credential',
-      })
-
-      must(started.status === 200, `start-oauth to answer 200, got ${String(started.status)}`)
-      const { state } = started.body as { state: string }
-
-      return fetch(`${stack.apiUrl}/gitlab-app/setup?state=${state}&code=${code}`, {
-        redirect: 'manual',
-      }).then(async (r) => ({ status: r.status, text: await r.text() }))
-    }
     const first = await connect(owner, 'owner-code')
 
     must(first.status === 200, `the owner's callback to succeed, got ${String(first.status)}`)
     log(`owner connects GitLab: callback ${String(first.status)}`)
-    const listed = await owner('GET', `/teams/${stack.teamId}/gitlab-bindings`)
-    const bindings = listed.body as { bindings?: { id: string }[]; accounts?: { id: string }[] }
-    const binding = (bindings.bindings ?? bindings.accounts ?? [])[0]
-
-    must(Boolean(binding), 'the owner to see the new binding')
-    const bindingId = binding!.id
+    const bindingId = await gitlabBindingId(stack, owner, gitlab.url)
     const access = async () =>
       (await owner('GET', `/teams/${stack.teamId}/gitlab-bindings/${bindingId}/access`)).body
     const before = JSON.stringify(await access())
@@ -146,7 +177,7 @@ export async function privateOAuthBindingFlow(stack: Flow, log: (line: string) =
     )
 
     // Offered to a session: credential options list it for the owner only.
-    const offered = async (as: ReturnType<typeof client>) =>
+    const offered = async (as: Client) =>
       JSON.stringify(
         (await as('GET', `/agent/credential-options?teamId=${stack.teamId}`)).body,
       ).includes(bindingId)
@@ -209,9 +240,57 @@ export async function privateOAuthBindingFlow(stack: Flow, log: (line: string) =
   }
 }
 
+// Its owner shares a private binding and takes it back; another admin can't change its list.
+export async function bindingListFlow(stack: Flow, log: (line: string) => void = () => {}) {
+  const owner = client(stack.apiUrl, stack.token)
+  const gitlab = await startFixtureGitlab(4343)
+
+  try {
+    const { member, memberId } = await joinAsAdmin(stack, owner)
+
+    must(
+      (await connectGitlab(stack, owner, gitlab.url, 'list-code')).status === 200,
+      'GitLab to connect',
+    )
+    const bindingId = await gitlabBindingId(stack, owner, gitlab.url)
+    const path = `/teams/${stack.teamId}/gitlab-bindings/${bindingId}`
+    const save = async (as: Client, memberAllowList: string[]) =>
+      (await as('PUT', `${path}/access`, { memberAllowList })).status
+    const token = async (as: Client) => (await as('GET', `${path}/token`)).status
+    const ownerId = ((await owner('GET', `${path}/access`)).body as { memberAllowList: string[] })
+      .memberAllowList[0]!
+
+    const refused = await save(member, ['*'])
+
+    log(`other admin shares the private binding: ${String(refused)}`)
+    must(refused === 403, 'another admin to be refused changing a private list')
+
+    must((await save(owner, [ownerId, memberId])) === 200, 'the owner to share it')
+    log(`owner shares it with the other admin: their token ${String(await token(member))}`)
+    must((await token(member)) === 200, 'the other admin to use it once shared')
+
+    must((await save(owner, [ownerId])) === 200, 'the owner to take it back')
+    log(`owner takes it back: their token ${String(await token(member))}`)
+    must((await token(member)) === 403, 'the other admin to be refused once it is private again')
+
+    // The Desktop refuses to save an empty list; the backend keeps the owner able to reopen one.
+    must((await save(owner, [])) === 200, 'the owner to empty it')
+    must((await token(owner)) === 403, 'nobody to use an empty list')
+    must((await save(owner, [ownerId])) === 200, 'the owner to reopen it')
+    must((await token(owner)) === 200, 'the owner to use it again')
+    log('owner empties the list and reopens it')
+  } finally {
+    gitlab.close()
+  }
+}
+
 export const bindingAccessScenarios: Scenario[] = [
   {
     name: 'a private OAuth binding is usable and re-authorizable only by its owner',
     run: async (_page, stack) => privateOAuthBindingFlow(stack),
+  },
+  {
+    name: "a private binding's list is changed only by its owner",
+    run: async (_page, stack) => bindingListFlow(stack),
   },
 ]

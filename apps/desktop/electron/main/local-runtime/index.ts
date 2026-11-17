@@ -9,11 +9,10 @@ import { logLocalTool } from '../../agent/local-exec.ts'
 import { apiUrl, deviceRegistrationAllowed } from '../../api-endpoint.ts'
 import { authSession } from '../../auth-session.ts'
 import { keychainFor } from '../../auth/token-store.ts'
-import { dialBackend } from '../../backend-socket.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../../client-version.ts'
 import { resolveShellEnv } from '../../shell-env.ts'
 import { leftAloneDir } from '../app-paths.ts'
-import { syncDeviceRegistration } from '../device-controller.ts'
+import { dialDeviceTunnel, syncDeviceRegistration } from '../device-controller.ts'
 import { readDeviceIdentity } from '../device-identity.ts'
 import { readDeviceMetrics } from '../device-metrics.ts'
 import { isDev } from '../env.ts'
@@ -123,7 +122,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
 
         if (!token) throw new Error('Not signed in')
 
-        return dialBackend(tunnelUrlFor(api, readDeviceIdentity().deviceId, reclaim), {
+        return dialDeviceTunnel(tunnelUrlFor(api, readDeviceIdentity().deviceId, reclaim), {
           authorization: `Bearer ${token}`,
           [CLIENT_VERSION_HEADER]: CLIENT_VERSION_VALUE,
         })

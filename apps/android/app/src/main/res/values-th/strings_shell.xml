@@ -138,6 +138,7 @@
     <string name="shell_notification_open_history">เปิดประวัติงาน</string>
     <string name="shell_notification_open_update">เปิด Nuphos เพื่อดูการอัปเดต</string>
     <string name="shell_notification_reply">ตอบกลับ</string>
+    <string name="shell_notification_you">คุณ</string>
     <string name="shell_notification_message">ข้อความ</string>
     <string name="shell_notification_reply_not_sent">ส่งการตอบกลับไม่สำเร็จ</string>
     <string name="shell_voice_input">การป้อนด้วยเสียง</string>

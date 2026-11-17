@@ -8,6 +8,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -34,6 +35,15 @@ const sync = async (...args) => (await nuphosLocalSyncSkills(...args)).synced
 
 function bundle(revision, files) {
   return new Response(JSON.stringify({ revision, files }), { status: 200 })
+}
+
+/** A workspace an earlier session already synced the team bundle into. */
+function withTeamSkills() {
+  const workspace = mkdtempSync(join(tmpdir(), 'skills-'))
+
+  mkdirSync(join(workspace, '.claude', 'skills'), { recursive: true })
+
+  return workspace
 }
 
 function file(path, text) {
@@ -65,37 +75,193 @@ test('installs the team bundle into the workspace and skips an unchanged revisio
   assert.equal(requests[0].authorization, 'Bearer token')
 })
 
-test('a session never waits for the fetch', async (t) => {
+test('the first session in a workspace starts with the team skills on disk', async (t) => {
   const workspace = mkdtempSync(join(tmpdir(), 'skills-'))
+  const sessionHome = mkdtempSync(join(tmpdir(), 'home-'))
+  const slow = (response) => new Promise((resolve) => setTimeout(() => resolve(response), 50))
+
+  t.mock.method(globalThis, 'fetch', (url) =>
+    slow(
+      String(url).includes('scope=personal')
+        ? new Response(null, { status: 404 })
+        : bundle('r1', [file('deploy/SKILL.md', '# Deploy')]),
+    ),
+  )
+  // Not `.synced`: this is the moment the agent starts and reads its skills, once.
+  await nuphosLocalSyncSkills(structuredClone(params), { workspace, sessionHome })
+  assert.equal(
+    readFileSync(join(workspace, '.claude', 'skills', 'deploy', 'SKILL.md'), 'utf8'),
+    '# Deploy',
+  )
+  delete globalThis.nuphosRefreshPersonalSkills
+})
+
+test('a first session still opens when the team bundle cannot be fetched', async (t) => {
+  const workspace = mkdtempSync(join(tmpdir(), 'skills-'))
+
+  t.mock.method(globalThis, 'fetch', () => Promise.reject(new Error('offline')))
+  const { synced } = await nuphosLocalSyncSkills(params, { workspace })
+
+  assert.equal(await synced, false)
+})
+
+test('a session on an older team bundle starts with the newer one', async (t) => {
+  const workspace = mkdtempSync(join(tmpdir(), 'skills-'))
+  const sessionHome = mkdtempSync(join(tmpdir(), 'home-'))
+  const slow = (response) => new Promise((resolve) => setTimeout(() => resolve(response), 50))
+  let revision = 'r1'
+
+  t.mock.method(globalThis, 'fetch', (url) =>
+    slow(
+      String(url).includes('scope=personal')
+        ? new Response(null, { status: 404 })
+        : bundle(revision, [file(`${revision}/SKILL.md`, `# ${revision}`)]),
+    ),
+  )
+  await nuphosLocalSyncSkills(structuredClone(params), { workspace, sessionHome })
+  revision = 'r2'
+  // Not `.synced`: this is the moment the agent starts and reads its skills, once.
+  await nuphosLocalSyncSkills(structuredClone(params), { workspace, sessionHome })
+  assert.equal(readFileSync(join(workspace, '.claude', 'skills', 'r2', 'SKILL.md'), 'utf8'), '# r2')
+  delete globalThis.nuphosRefreshPersonalSkills
+})
+
+test('a session opens once a fetch that never answers times out', async (t) => {
+  const workspace = withTeamSkills()
   const sessionHome = mkdtempSync(join(tmpdir(), 'home-'))
   const opened = structuredClone(params)
 
-  let asked = 0
-  let bothAsked
-  const both = new Promise((resolve) => {
-    bothAsked = resolve
-  })
-
   // Neither the team nor the personal fetch ever answers.
-  t.mock.method(globalThis, 'fetch', () => {
-    asked += 1
-    if (asked === 2) bothAsked()
+  t.mock.method(
+    globalThis,
+    'fetch',
+    (_, init) =>
+      new Promise((_resolve, reject) => {
+        init.signal.addEventListener('abort', () => reject(init.signal.reason))
+      }),
+  )
+  // The fetch timeout does not hold the process open; the adapter's own handles do.
+  const alive = setInterval(() => {}, 1_000)
+  const { synced } = await nuphosLocalSyncSkills(opened, {
+    workspace,
+    sessionHome,
+    timeoutMs: 50,
+  }).finally(() => clearInterval(alive))
 
-    return new Promise(() => {})
-  })
-  const { synced } = await nuphosLocalSyncSkills(opened, { workspace, sessionHome })
-  let settled = false
-
-  void synced.then(() => {
-    settled = true
-  })
-  await both
-  assert.equal(settled, false)
-  // The session's own directory is offered before any fetch answers.
+  assert.equal(await synced, false)
   assert.deepEqual(opened._meta.claudeCode.options.additionalDirectories, [
     join(sessionHome, 'personal-skills'),
   ])
   delete globalThis.nuphosRefreshPersonalSkills
+})
+
+test('each session offers the team and personal skills as plugins of its own', async (t) => {
+  const workspace = mkdtempSync(join(tmpdir(), 'skills-'))
+  const sessionHome = mkdtempSync(join(tmpdir(), 'home-'))
+
+  t.mock.method(globalThis, 'fetch', (url) =>
+    Promise.resolve(
+      String(url).includes('scope=personal')
+        ? new Response(
+            JSON.stringify({
+              scope: 'personal',
+              revision: 'p1',
+              files: [file('notes/SKILL.md', '# Notes')],
+            }),
+          )
+        : bundle('r1', [file('deploy/SKILL.md', '# Deploy')]),
+    ),
+  )
+  const plugins = async () => {
+    const opened = structuredClone(params)
+
+    await nuphosLocalSyncSkills(opened, { workspace, sessionHome })
+
+    return opened._meta.claudeCode.options.plugins
+  }
+  const first = await plugins()
+
+  assert.deepEqual(
+    first.map((plugin) => [plugin.type, plugin.path.split(/[\\/]/u).at(-1)]),
+    [
+      ['local', 'team'],
+      ['local', 'personal'],
+    ],
+  )
+  for (const [plugin, skill, content] of [
+    [first[0], 'deploy', '# Deploy'],
+    [first[1], 'notes', '# Notes'],
+  ]) {
+    const manifest = join(plugin.path, '.claude-plugin', 'plugin.json')
+
+    assert.deepEqual(JSON.parse(readFileSync(manifest, 'utf8')), {
+      name: plugin.path.split(/[\\/]/u).at(-1),
+    })
+    // Nothing but the manifest and the skills: no hooks or MCP servers can ride along.
+    assert.deepEqual(readdirSync(plugin.path).sort(), ['.claude-plugin', 'skills'])
+    assert.equal(readFileSync(join(plugin.path, 'skills', skill, 'SKILL.md'), 'utf8'), content)
+    // Outside what the conversation writes to.
+    assert.ok(!plugin.path.startsWith(workspace) && !plugin.path.startsWith(sessionHome))
+  }
+  // The next session gets wrappers of its own.
+  assert.notEqual((await plugins())[0].path, first[0].path)
+  delete globalThis.nuphosRefreshPersonalSkills
+})
+
+test('a skill added after the sync is fetched over, and never offered', async (t) => {
+  const workspace = mkdtempSync(join(tmpdir(), 'skills-'))
+  const sessionHome = mkdtempSync(join(tmpdir(), 'home-'))
+  const files = [file('deploy/SKILL.md', '# Deploy')]
+  // The backend's revision: a hash of the bundle's files.
+  const hash = createHash('sha256')
+
+  for (const { path, contentBase64 } of files) hash.update(`${path}\0${contentBase64}\0`)
+  const revision = hash.digest('hex')
+  const asked = []
+  let online = true
+
+  t.mock.method(globalThis, 'fetch', (url, init) => {
+    if (!online) return Promise.reject(new Error('offline'))
+    if (String(url).includes('scope=personal'))
+      return Promise.resolve(new Response(null, { status: 404 }))
+    asked.push(init.headers['if-none-match'])
+
+    return Promise.resolve(
+      init.headers['if-none-match'] === `"${revision}"`
+        ? new Response(null, { status: 304 })
+        : bundle(revision, files),
+    )
+  })
+  const open = async () => {
+    const opened = structuredClone(params)
+
+    await nuphosLocalSyncSkills(opened, { workspace, sessionHome })
+    delete globalThis.nuphosRefreshPersonalSkills
+
+    return opened._meta.claudeCode.options.plugins.map((plugin) =>
+      plugin.path.split(/[\\/]/u).at(-1),
+    )
+  }
+  const plant = () => {
+    mkdirSync(join(workspace, '.claude', 'skills', 'planted'), { recursive: true })
+    writeFileSync(join(workspace, '.claude', 'skills', 'planted', 'SKILL.md'), '# Planted')
+  }
+
+  assert.deepEqual(await open(), ['team', 'personal'])
+  // Untouched, the tree is confirmed by its revision, and offered.
+  assert.deepEqual(await open(), ['team', 'personal'])
+  assert.equal(asked.at(-1), `"${revision}"`)
+
+  plant()
+  assert.deepEqual(await open(), ['team', 'personal'])
+  assert.equal(asked.at(-1), undefined)
+  assert.deepEqual(readdirSync(join(workspace, '.claude', 'skills')), ['deploy'])
+
+  // Without the backend, the tree cannot be put right, and is left out.
+  online = false
+  assert.deepEqual(await open(), ['team', 'personal'])
+  plant()
+  assert.deepEqual(await open(), ['personal'])
 })
 
 test('a newer revision replaces the old tree', async (t) => {
@@ -253,7 +419,7 @@ test('personal skills follow the turn’s credential and never land in the works
 })
 
 test('a reopened session never starts on another member’s personal skills', async (t) => {
-  const workspace = mkdtempSync(join(tmpdir(), 'skills-'))
+  const workspace = withTeamSkills()
   const sessionHome = mkdtempSync(join(tmpdir(), 'skills-home-'))
   const credentialsDir = mkdtempSync(join(tmpdir(), 'skills-credentials-'))
   const claude = join(sessionHome, 'personal-skills', '.claude')
@@ -271,8 +437,8 @@ test('a reopened session never starts on another member’s personal skills', as
     delete globalThis.nuphosRefreshPersonalSkills
   }
 
-  // No fetch ever answers: whatever the session starts on is what was left on disk.
-  t.mock.method(globalThis, 'fetch', () => new Promise(() => {}))
+  // No fetch succeeds: whatever the session starts on is what was left on disk.
+  t.mock.method(globalThis, 'fetch', () => Promise.reject(new Error('offline')))
 
   leave('owner')
   await open('guest')

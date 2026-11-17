@@ -92,7 +92,7 @@ export function ChoiceCard({
       data-tool-call-id={toolCallId}
       data-decision-question={question}
       data-decision-options={JSON.stringify(options)}
-      className="flex flex-col rounded-[14px] bg-surface-raised px-4 pb-3 pt-3.5 shadow-[0_0_0_1px_rgb(var(--color-line-control)),0_1px_2px_rgba(0,0,0,0.04)]"
+      className="flex flex-col rounded-[14px] border border-line-control bg-surface-raised px-4 pb-3 pt-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
     >
       {ctx?.source && <div className="pb-1.5">{ctx.source}</div>}
       <h3 className="selectable whitespace-pre-wrap text-[16px] font-semibold leading-[23px] tracking-[-0.01em] text-main">

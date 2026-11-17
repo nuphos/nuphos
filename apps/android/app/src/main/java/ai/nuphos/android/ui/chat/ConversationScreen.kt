@@ -65,7 +65,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import ai.nuphos.android.data.AgentChatApi
-import ai.nuphos.android.session.ShareApprovalWait
 import ai.nuphos.android.session.ConversationReads
 import ai.nuphos.android.session.AiAccess
 import androidx.compose.runtime.key
@@ -197,8 +196,6 @@ fun ConversationScreen(
     LaunchedEffect(session, lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) { session.pollWhileIdle() }
     }
-    // A teammate's computer that asks its owner first: say so until they answer.
-    LaunchedEffect(session, session.runtimeId, session.queuedSends) { session.watchShareApproval() }
 
     // Initial entry, foreground and manual refresh work even during an active turn.
     // Turn completion is a separate event, never a resource polling loop.
@@ -354,24 +351,6 @@ fun ConversationScreen(
                     }
                     .onSizeChanged { bottomInset = with(density) { (it.height.toDp() - COMPOSER_TOP_MARGIN).coerceAtLeast(0.dp) } }) {
                     Column(Modifier.fillMaxWidth().background(chatCanvas)) {
-                        session.shareApproval?.let { wait ->
-                            Surface(
-                                Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth(),
-                                shape = MaterialTheme.shapes.medium,
-                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            ) {
-                                Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        wait.message(session.runtimeDeviceLabel ?: "this computer"),
-                                        Modifier.weight(1f),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = if (wait == ShareApprovalWait.Denied) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                                    )
-                                    // Declined: the conversation moves on to another runtime.
-                                    if (wait == ShareApprovalWait.Denied && session.canManage) SwitchRuntimeButton { showAgent = true }
-                                }
-                            }
-                        }
                         if (session.runtimeRecoveryRequired) {
                             Text(stringResource(R.string.chat_delivery_check_needed), modifier = Modifier.padding(horizontal = 16.dp))
                             TextButton(enabled = session.loaded && !session.readOnly, onClick = session::recoverRuntime) { Text(stringResource(R.string.chat_check_delivery)) }

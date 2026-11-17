@@ -138,6 +138,7 @@
     <string name="shell_notification_open_history">開啟任務紀錄</string>
     <string name="shell_notification_open_update">開啟 Nuphos 查看更新</string>
     <string name="shell_notification_reply">回覆</string>
+    <string name="shell_notification_you">你</string>
     <string name="shell_notification_message">訊息</string>
     <string name="shell_notification_reply_not_sent">回覆未送出</string>
     <string name="shell_voice_input">語音輸入</string>

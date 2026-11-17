@@ -138,6 +138,7 @@
     <string name="shell_notification_open_history">Buka riwayat tugas</string>
     <string name="shell_notification_open_update">Buka Nuphos untuk melihat pembaruan</string>
     <string name="shell_notification_reply">Balas</string>
+    <string name="shell_notification_you">Anda</string>
     <string name="shell_notification_message">Pesan</string>
     <string name="shell_notification_reply_not_sent">Balasan tidak terkirim</string>
     <string name="shell_voice_input">Input suara</string>
