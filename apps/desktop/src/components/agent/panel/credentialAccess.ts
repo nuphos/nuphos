@@ -238,7 +238,7 @@ export function reconcileStoredCredentialAccess(
   if (!credentialOptionsLoaded(options)) {
     return normalizeCredentialAccess(stored ?? EMPTY_CREDENTIAL_ACCESS)
   }
-  // No stored selection at all means "whatever this team has", not "nothing" —
+  // For a dashboard panel, no stored selection means "whatever this team has", not "nothing" —
   // but via `defaultCredentialAccess`, so Resend stays opt-in rather than being
   // switched on for every conversation that never made a choice.
   const normalized = normalizeCredentialAccess(stored ?? defaultCredentialAccess(options))

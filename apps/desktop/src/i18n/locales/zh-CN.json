@@ -4684,6 +4684,7 @@
   "They can view and reply": "对方可以查看和回复",
   "Thinking": "思考",
   "Thinking…": "正在思考…",
+  "This Bot can't use any computers or credentials yet. Choose what it may use.": "这个 Bot 还不能使用任何电脑或凭据。请选择它可以使用的项目。",
   "This Bot is not ready to move.": "此 Bot 尚不能移动。",
   "This ConfigMap has no data keys.": "此 ConfigMap 没有数据键。",
   "This Loki datasource has no log streams — nothing has pushed logs to it yet.": "此 Loki 数据源没有日志流，目前还没有任何来源推送日志。",
