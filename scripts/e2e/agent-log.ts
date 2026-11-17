@@ -13,6 +13,9 @@ type AgentEntry = {
   defaults?: { model?: string; fast?: string }
   isError?: boolean
   detail?: string
+  /** E2E_CALL: the tool it called and that tool's answer. */
+  name?: string
+  result?: unknown
 }
 
 export function agentLog(stack: Stack): AgentEntry[] {
