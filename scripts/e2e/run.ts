@@ -267,8 +267,6 @@ const scenarios: Scenario[] = [
   ...dashboardScenarios,
 ]
 
-scenarios.push(formScenario)
-
 let desktop: Desktop | undefined
 let failed = false
 
@@ -278,7 +276,7 @@ try {
 
   desktop = await startDesktop(stack.apiUrl)
   desktop.page.setDefaultTimeout(30_000)
-  for (const [index, scenario] of scenarios.entries()) {
+  for (const [index, scenario] of [...scenarios, formScenario].entries()) {
     const from = backendLines()
 
     await scenario.run(desktop.page, stack)
