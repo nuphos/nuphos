@@ -7,6 +7,7 @@ import { pathToFileURL } from 'node:url'
 
 import { agentEvents } from './agent-log.ts'
 import { backendLines, backendLog } from './backend-log.ts'
+import { forgetComputer } from './computer-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { DESKTOP_DIR, startSecondComputer } from './second-computer.ts'
 import { proxyTo } from './tcp-proxy.ts'
@@ -136,6 +137,8 @@ export const tunnelScenarios: Scenario[] = [
       } finally {
         await computer.stop()
         proxy.close()
+        // Gone again, so a later Task's "Select all" finds only the computers it did before.
+        forgetComputer(stack.mongoUri, computer.deviceId)
       }
     },
   },
