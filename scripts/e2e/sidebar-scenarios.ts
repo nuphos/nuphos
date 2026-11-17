@@ -1,6 +1,7 @@
 // Scenarios about the sidebar itself.
+import { agentEvents } from './agent-log.ts'
 import { must } from './binding-access-scenarios.ts'
-import { artifacts } from './processes.ts'
+import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
@@ -23,6 +24,61 @@ export const sidebarScenarios: Scenario[] = [
 
         must(sideways === 0, `the ${tab} page not to be scrolled sideways, got ${String(sideways)}`)
       }
+    },
+  },
+]
+
+export const botFoldScenarios: Scenario[] = [
+  {
+    // #2898: a Bot's tree opened by hand folded again whenever Bots was left.
+    name: 'a Bot tree opened by hand stays open after Tasks and back, and after a reload',
+    run: async (page, stack) => {
+      const count = (event: string) =>
+        agentEvents(stack).filter((logged) => logged === event).length
+      const introductions = count('finish E2E_DELIVERY:missing')
+      const answers = count('finish E2E_DELIVERY:answered')
+      const dispatched = count('finish E2E_DELIVERY:inherit-child')
+      // Its own Bot, so no scenario before it decides what the tree holds.
+      const row = page.locator('[data-sidebar-row]').filter({ hasText: 'Fold Bot' }).first()
+      const show = row.locator('[aria-label="Show sub-agents"]')
+      const hide = row.locator('[aria-label="Hide sub-agents"]')
+      const mustBeOpen = async (when: string) => {
+        await until(
+          `the Bot tree to show ${when}`,
+          async () => (await show.count()) + (await hide.count()) === 1,
+        )
+        must((await hide.count()) === 1, `the opened Bot tree to stay open ${when}`)
+      }
+
+      await page.getByRole('tab', { name: 'Bots' }).click()
+      await page.getByRole('button', { name: 'New Bot', exact: true }).click()
+      await page.getByRole('textbox', { name: 'Agent name' }).fill('Fold Bot')
+      await page.getByRole('button', { name: 'Create', exact: true }).click()
+      await until(
+        'the new Bot to introduce itself',
+        async () => count('finish E2E_DELIVERY:missing') > introductions,
+      )
+      await page.getByRole('button', { name: 'E2E_DELIVERY:answered', exact: true }).click()
+      await until(
+        'the setup answer to reach the Bot',
+        async () => count('finish E2E_DELIVERY:answered') > answers,
+      )
+      await send(page, 'Dispatch a sub-agent E2E_INHERIT E2E_DELIVERY:fold')
+      await until(
+        'the Bot to dispatch a sub-agent',
+        async () => count('finish E2E_DELIVERY:inherit-child') > dispatched,
+      )
+      // Folded until someone opens it.
+      await show.click()
+      await mustBeOpen('once opened')
+      await page.getByRole('tab', { name: 'Tasks' }).click()
+      await page.getByRole('button', { name: 'New task', exact: true }).waitFor()
+      await page.getByRole('tab', { name: 'Bots' }).click()
+      await mustBeOpen('after Tasks and back')
+      await page.reload()
+      await page.getByRole('tab', { name: 'Bots' }).click()
+      await mustBeOpen('after a reload')
+      await page.screenshot({ path: `${artifacts}/bot-tree-open-after-reload.png` })
     },
   },
 ]
