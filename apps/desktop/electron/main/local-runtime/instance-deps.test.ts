@@ -69,7 +69,7 @@ test('an install that fails once is tried again', async () => {
   assert.equal(calls, 2)
 })
 
-test('an agent added by someone who may not install only probes', async () => {
+test('an agent this computer already had only probes', async () => {
   let calls = 0
   const deps = instanceControllerDeps(
     {

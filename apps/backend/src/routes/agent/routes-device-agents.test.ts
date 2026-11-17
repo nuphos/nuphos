@@ -1,10 +1,9 @@
 import { expect, test } from 'bun:test'
 import { Hono } from 'hono'
 
-import { createDeviceAgentRoutes, mayInstallCli } from './routes-device-agents'
+import { createDeviceAgentRoutes } from './routes-device-agents'
 
 import type { DeviceAgentRouteDeps } from './routes-device-agents'
-import type { AgentDevice } from '@/lib/agent/devices/store'
 import type { AuthVariables } from '@/middleware/auth'
 
 const id = '11111111-1111-4111-8111-111111111111'
@@ -30,10 +29,8 @@ function app(overrides: Partial<DeviceAgentRouteDeps> = {}) {
     }),
     createInstance: async (target, instance) => {
       calls.push({ target, instance })
-      // The host answers the agent it made, not the request.
-      const { installCli: _, ...made } = instance
 
-      return made
+      return instance
     },
     removeInstance: async (target, agent) => {
       calls.push({ target, removed: agent })
@@ -107,18 +104,27 @@ test('create dispatches exact retry id and provider and returns a usable runtime
         deviceId: 'box',
         teamId: '69e989027ab63e8d6a0ffcb6',
       },
-      instance: { instanceId: id, provider: 'claude-code', label: 'Work', installCli: true },
+      instance: { instanceId: id, provider: 'claude-code', label: 'Work' },
     },
   ])
 })
 
-test("only the computer's owner has its missing CLI installed", () => {
-  const mine = { userId: 'owner' } as AgentDevice
-  const box = { userId: 'host', box: { createdBy: 'owner' } } as AgentDevice
+// Adding is what has the computer install a missing CLI, so whoever may add may install.
+test("a manager adds an agent to someone else's computer; without manage nothing reaches it", async () => {
+  const theirs = { ...device, userId: 'someone-else' }
+  const managed = app({ requireAccess: async () => theirs })
 
-  expect(mayInstallCli(mine, 'owner')).toBe(true)
-  expect(mayInstallCli(box, 'owner')).toBe(true)
-  expect(mayInstallCli(mine, 'manager')).toBe(false)
+  expect((await managed.create({ provider: 'claude-code' })).status).toBe(201)
+  expect(managed.calls).toMatchObject([{ target: { actorId: 'owner', userId: 'someone-else' } }])
+
+  const refused = app({
+    requireAccess: async (_actorId, _teamId, _deviceId, level) => {
+      throw Object.assign(new Error(`No ${level} access`), { status: 403 })
+    },
+  })
+
+  expect((await refused.create({ provider: 'claude-code' })).status).toBe(403)
+  expect(refused.calls).toEqual([])
 })
 
 test('unknown devices and hosts without instance support never receive create', async () => {

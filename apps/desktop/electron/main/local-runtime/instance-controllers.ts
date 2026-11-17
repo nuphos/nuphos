@@ -112,7 +112,7 @@ export class InstanceControllers {
     return instanceStatus(this.entries.values())
   }
 
-  /** `install`: set when whoever added it may have this computer install its CLI. */
+  /** `install`: set for an agent being added, whose missing CLI this computer installs. */
   private add(metadata: AgentInstanceRecord, userId: string, install?: CliInstall): Entry {
     const dir = this.instanceDir(metadata.instanceId)
     const controller = this.create(
@@ -202,12 +202,7 @@ export class InstanceControllers {
   async request(request: unknown, userId: string | null): Promise<unknown> {
     if (!userId) throw new Error('Sign in to Nuphos first')
     if (!request || typeof request !== 'object') throw new Error('Invalid instance request')
-    const body = request as {
-      method?: string
-      instanceId?: unknown
-      provider?: unknown
-      installCli?: unknown
-    }
+    const body = request as { method?: string; instanceId?: unknown; provider?: unknown }
 
     // The computer's own agent is named by its provider, an added one by its instance id.
     if (body.instanceId === undefined && (body.method === 'remove' || body.method === 'commit'))
@@ -260,7 +255,7 @@ export class InstanceControllers {
       userDir(this.deps.dataDir(), userId),
       [...this.entries.values()].map((entry) => entry.metadata).concat(record),
     )
-    const entry = this.add(record, userId, body.installCli === true ? {} : undefined)
+    const entry = this.add(record, userId, {})
 
     entry.starting = entry.controller.setUser(userId).then(this.changed)
     entry.starting.catch(() => {

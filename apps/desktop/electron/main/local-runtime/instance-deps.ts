@@ -22,7 +22,7 @@ export function instanceControllerDeps(
   dir: string,
   userId: string,
   changed: () => void,
-  /** Present when the agent may install its missing CLI. */
+  /** Present while the agent is being added: its missing CLI is installed. */
   install?: CliInstall,
 ): LocalRuntimeControllerDeps {
   const installCli = deps.installCli ?? installAgentCli
