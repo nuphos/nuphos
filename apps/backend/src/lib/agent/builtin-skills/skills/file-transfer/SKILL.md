@@ -1,6 +1,6 @@
 ---
 name: file-transfer
-description: Move files between the user and the sandbox/cluster through Nuphos's short-lived transfer store. Use when the user uploaded files for you to work on, or when you produced/fetched a file the user should download. Pull user uploads into the sandbox; push files out so the user can download them (single files or a zip).
+description: Move files between the user and the sandbox/cluster through Nuphos's short-lived transfer store. Use when the user uploaded files for you to work on, or when you produced/fetched a file the user should download. Pull user uploads into the sandbox; push files out so the user can download them (single files or a zip), or save them straight onto a selected computer with local_download.
 ---
 
 # File transfer
@@ -144,6 +144,19 @@ Signed URLs stay inside the trusted implementation. Never put them in
 command does not hide its capability. Do not stage files through GitHub releases
 or another external service. Do not ask the person to drag the same file into
 chat when `local_upload` can import it.
+
+When the person asks for a file **on** their computer ("save it to my laptop"),
+push it first, then use **local_download** with the `groupId` the push printed,
+an absolute target path (or `~/path`) and the selected device ID:
+
+```bash
+bash skills/file-transfer/scripts/transfer-push.sh <TEAM> ./out/deck.html
+```
+
+The computer fetches the file itself and answers `{path, size}` once it is
+written. If it answers `file_exists`, ask the person before calling again with
+`overwrite: true`. If it answers `update_required`, tell them to update Nuphos
+on that computer. Pass `fileName` when the group holds several files.
 
 ## Failure handling
 

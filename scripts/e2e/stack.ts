@@ -1,4 +1,4 @@
-// The stack under test: a real MongoDB, backend and OpenAB, with a deterministic
+// The stack under test: a real MongoDB, file store, backend and OpenAB, with a deterministic
 // ACP agent in place of a model. Nothing here talks to the internet.
 import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
@@ -6,6 +6,7 @@ import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
 import { artifacts, freePorts, logPath, signalGroup, spawn, stop, until } from './processes.ts'
+import { startStorage } from './storage.ts'
 
 const ROOT = resolve(import.meta.dirname, '../..')
 const BACKEND_DIR = join(ROOT, 'apps/backend')
@@ -16,6 +17,8 @@ const MONGO_IMAGE = 'mongo:8.0.32'
 
 export type Stack = {
   apiUrl: string
+  /** For what only the database can set up, such as a row that is gone. */
+  mongoUri: string
   email: string
   token: string
   teamId: string
@@ -134,8 +137,9 @@ function signInCode(address: string): string | undefined {
 }
 
 export async function startStack(): Promise<Stack> {
-  const [mongoPort, backendPort, runtimePort, secondRuntimePort] = await freePorts(4)
+  const [mongoPort, backendPort, runtimePort, secondRuntimePort, storagePort] = await freePorts(5)
   const mongoUri = startMongo(mongoPort)
+  const storage = await startStorage(storagePort)
 
   await until('MongoDB to become primary', async () => initiateReplicaSet(mongoUri))
   const apiUrl = `http://127.0.0.1:${String(backendPort)}`
@@ -223,8 +227,16 @@ export async function startStack(): Promise<Stack> {
       CLOUDFLARE_OAUTH_CLIENT_ID: 'e2e-cloudflare-client',
       CLOUDFLARE_OAUTH_CLIENT_SECRET: 'e2e-cloudflare-secret-not-a-production-credential',
       CLOUDFLARE_OAUTH_SETUP_REDIRECT: `${apiUrl}/cloudflare-app/setup`,
+      // GitLab: a scenario serves the instance on this computer and answers its redirect.
+      GITLAB_OAUTH_SETUP_REDIRECT: `${apiUrl}/gitlab-app/setup`,
+      GITLAB_TOKEN_ENCRYPTION_KEY:
+        '6c6f63616c2d6532652d6769746c61622d6b65792d6e6f742d70726f64756374',
+      OUTBOUND_ALLOW_PRIVATE_HOSTS: 'true',
+      SONARQUBE_BYOK_ENCRYPTION_KEY:
+        '6c6f63616c2d6532652d736f6e6172717562652d6b65792d6e6f742d70726f64',
       // Where the agent reaches the backend's tools, as a runtime on this computer would.
       NUPHOS_BACKEND_URL: apiUrl,
+      ...storage,
     },
   })
   await until('the backend to be ready', async () => (await fetch(`${apiUrl}/health/ready`)).ok)
@@ -273,6 +285,7 @@ export async function startStack(): Promise<Stack> {
 
   return {
     apiUrl,
+    mongoUri,
     email,
     token,
     teamId,

@@ -10,12 +10,12 @@ import {
 } from '@/lib/byos/cloudflare-oauth'
 import { appendEnvironmentBinding } from '@/lib/byos/environment-bindings'
 import { encryptCloudflareApiKey } from '@/lib/byos/secrets'
-import { finishConnectorOAuth } from '@/lib/connector-oauth'
+import { assertMayRebind, finishConnectorOAuth } from '@/lib/connector-oauth'
 import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
 import { AppError } from '@/lib/errors'
 import { cloudflarePendingOAuth, cloudflareOAuthResult, teamByosBindings } from '@/models'
 
-import type { CloudflareAccountBinding } from '@/models'
+import type { BindingAccess, CloudflareAccountBinding } from '@/models'
 import type { Context } from 'hono'
 
 export const cloudflareAppRoutes = new Hono()
@@ -147,6 +147,8 @@ cloudflareAppRoutes.get('/setup', async (c) => {
       state,
       teamId: pending.teamId,
       requesterUserId: pending.requesterUserId,
+      share: pending.share,
+      highPrivilege: true,
       draft,
       persist: persistCloudflareBinding,
     }),
@@ -166,6 +168,7 @@ type CloudflareBindingDraft = Pick<CloudflareAccountBinding, 'accountId' | 'acco
 export async function persistCloudflareBinding(
   teamId: ObjectId,
   draft: CloudflareBindingDraft,
+  access: BindingAccess,
 ): Promise<Record<string, string>> {
   const now = new Date()
   const { state, accountId, accountName, oauth: oauthEnvelope } = draft
@@ -187,16 +190,20 @@ export async function persistCloudflareBinding(
         $unset: { 'cloudflareAccounts.$.encryptedApiKey': '' },
       },
     )
-  const idForAccount = async (): Promise<ObjectId> => {
-    const doc = await teamByosBindings().findOne(
-      { _id: teamId, 'cloudflareAccounts.accountId': accountId },
-      { projection: { 'cloudflareAccounts.$': 1 } },
-    )
-
-    return doc?.cloudflareAccounts?.[0]?.id ?? new ObjectId()
-  }
+  const entryForAccount = async () =>
+    (
+      await teamByosBindings().findOne(
+        { _id: teamId, 'cloudflareAccounts.accountId': accountId },
+        { projection: { 'cloudflareAccounts.$': 1 } },
+      )
+    )?.cloudflareAccounts?.[0]
+  const idForAccount = async (): Promise<ObjectId> =>
+    (await entryForAccount())?.id ?? new ObjectId()
 
   let bindingId: ObjectId
+  const existing = await entryForAccount()
+
+  if (existing) assertMayRebind(existing, access)
 
   if ((await rebindInPlace()).matchedCount > 0) {
     bindingId = await idForAccount()
@@ -209,6 +216,7 @@ export async function persistCloudflareBinding(
       authType: 'oauth',
       oauth: oauthEnvelope,
       createdAt: now,
+      access,
     }
     const inserted = await appendEnvironmentBinding(
       teamId,

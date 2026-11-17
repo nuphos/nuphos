@@ -17,7 +17,7 @@ function rowDot(unread: boolean): 'unread' | null {
 /**
  * The rows for one Bot's chat. While the Bot or any of its sub-agents works,
  * its face plays its idle loop, the name shimmers and the preview line shows
- * the typing dots with the working run's latest message. Under the chat come
+ * work dots without unrelated Task transcript text. Under the chat come
  * its actual sub-agents, without repeating the Bot's own execution as a row.
  */
 export function botChatRows({

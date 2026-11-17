@@ -259,7 +259,6 @@ final class InboxUITests: XCTestCase {
             "id": "q-token", "category": "credential", "question": "The rollout needs a deploy token.",
             "secretName": "DEPLOY_TOKEN", "askedAt": "2026-11-03T09:40:00Z", "status": "open"])])
         app = launch(page: "agent")
-        app.buttons["Switch page"].firstMatch.tap()
         app.buttons["Inbox"].firstMatch.tap()
         openQuestion("The rollout needs a deploy token.")
 
@@ -402,7 +401,6 @@ final class InboxUITests: XCTestCase {
         ops["inputRequests"] = [gcp, play, signIn, repo]
         try listQuestions([ops])
         app = launch(page: "agent")
-        app.buttons["Switch page"].firstMatch.tap()
         app.buttons["Inbox"].firstMatch.tap()
         openQuestion("Select a Google Cloud account so I can read the release bucket.")
         let choose = app.buttons["Choose credentials"]
