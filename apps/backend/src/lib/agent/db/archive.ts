@@ -36,11 +36,17 @@ const ARCHIVABLE = {
 } as const
 
 /** A Bot's 1:1 chat: a channel whose only other member is one agent, not a group chat. */
-export const isBotChat = (channel: Archivable) =>
+export const isBotChat = (
+  channel: Pick<Archivable, 'kind' | 'group' | 'agentSessionIds' | 'participantIds' | 'userId'>,
+) =>
   channel.kind === 'channel' &&
   !channel.group &&
   channel.agentSessionIds?.length === 1 &&
   conversationParticipantIds(channel).length === 1
+
+/** A chat's own name. A Bot's 1:1 chat has none: it is called by its Bot. */
+export const chatName = (chat: Parameters<typeof isBotChat>[0] & { title?: string }) =>
+  isBotChat(chat) ? '' : (chat.title ?? '')
 
 /** What one archive or restore moved: the conversation, or a Bot with its chats. */
 export type ArchiveUnit = { sessionIds: string[]; botSessionId?: string }
