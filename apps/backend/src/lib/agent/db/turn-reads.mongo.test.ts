@@ -7,6 +7,8 @@ import { ObjectId } from 'mongodb'
 
 import { closeDb, connectDb, db } from '@/lib/db'
 
+import { storedTranscriptTail } from '@/routes/agent/transcript-tail'
+
 import { readTurnHistory } from '../turn-history'
 import { setupAgentIndexes } from './events'
 import { agentConversations, agentMessages } from './shared'
@@ -171,5 +173,19 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('a turn on a long session', () =>
         parts: [expect.objectContaining({ toolCallId: 'call-1', state: 'output-error' })],
       },
     )
+  })
+
+  test("builds the finished turn's transcript tail from the recent window", async () => {
+    const count = await agentMessages().countDocuments({ sessionId: SESSION })
+    let frame: Record<string, unknown> = {}
+    const read = await documentsRead(async () => {
+      frame = await storedTranscriptTail(SESSION, OWNER, TEAM, count, 1)
+    })
+
+    console.log(`documents read for a ${String(count)}-message transcript tail: ${String(read)}`)
+    expect(read).toBeLessThanOrEqual(BOUND)
+    // The turn's own message is the newest, the reply. Its input is the user's 'next',
+    // stored before the runtime's report.
+    expect(frame).toMatchObject({ type: 'atlas-transcript-tail', messagesFirstIndex: count - 3 })
   })
 })
