@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { api } from '../api'
 import { ContextMenu } from '../components/ContextMenu'
 import { useRequiredKubeContext } from '../hooks/useKubeContext'
+import { t } from '../i18n'
 
 import { useRowLinkActions } from './workspaceRowLink'
 
@@ -36,6 +37,7 @@ export function useK8sDeleteActions<T>(
           label: `Delete ${target.kind}`,
           icon: Trash2,
           destructive: true,
+          confirmLabel: t('Delete'),
           confirm: `Delete ${target.kind} "${resourceLabel(target)}"? This is irreversible.`,
           onSelect: async () => {
             await api.deleteResource(

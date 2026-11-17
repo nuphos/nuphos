@@ -97,6 +97,11 @@ export type WindowDeviceApi = {
   boxRename(deviceId: string, teamId: string, label: string): Promise<{ ok: true }>
   boxSetAccess(deviceId: string, teamId: string, access: BoxAccess): Promise<unknown>
   localShareGet(deviceId: string, teamId: string): Promise<LocalAgentShareState>
+  deviceAccessHistory(
+    deviceId: string,
+    teamId: string,
+    before?: string,
+  ): Promise<import('./device-access-types').AccessHistoryPage>
   localShareSet(
     deviceId: string,
     teamId: string,
@@ -113,6 +118,13 @@ export type WindowDeviceApi = {
   localShareUntrust(deviceId: string, teamId: string, actorId: string): Promise<void>
   /** Tells the owner about a new request in a system notification, once per request. */
   localShareNotify(approvalId: string, teamId: string, title: string, body: string): Promise<void>
+  /** 'in-app' when the calling window is focused: it says it in a toast instead. */
+  computerNotifyShared(
+    key: string,
+    teamId: string,
+    title: string,
+    body: string,
+  ): Promise<'notification' | 'in-app' | 'duplicate'>
   runtimeSignInAsk(teamId: string, runtimeId: string, sessionId: string): Promise<SignInAsk>
   runtimeSignInSettle(teamId: string, runtimeId: string): Promise<void>
   boxDesktop(deviceId: string, teamId: string): Promise<{ url: string; label: string }>

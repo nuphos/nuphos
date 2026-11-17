@@ -9,8 +9,6 @@ import { toast } from '../ui/toast'
 
 import { TIMELINE_CHANGED_EVENT, announceTimelineChange } from './panel/timelineEvents'
 import { addableAgents, agentPeople, leaveSession, removePeople } from './channelPeople'
-import { ComputerUseConfirm } from './ComputerUseConfirm'
-import { needsComputerUse } from './computerUse'
 import { InviteSection } from './InviteSection'
 import { agentSessionUrl } from './sessionUrl'
 import { GeneralAccessRow } from './ShareAccess'
@@ -21,8 +19,8 @@ import {
   ShareLink,
   TitlebarDragSuspender,
 } from './ShareCard'
+import { useComputerSharing } from './useComputerSharing'
 
-import type { ComputerUseRequest } from './computerUse'
 import type { Pickable } from './PersonFace'
 import type {
   AgentConversationParticipant,
@@ -59,8 +57,7 @@ export function SessionParticipants({
 }) {
   const [participants, setParticipants] = useState<AgentConversationParticipant[]>([])
   const [generalAccess, setGeneralAccess] = useState<GeneralAccess>('none')
-  // An invite waiting to also give its people use of the session's computer.
-  const [computerUse, setComputerUse] = useState<ComputerUseRequest | null>(null)
+  const sharing = useComputerSharing(sessionId, teamId)
   const [members, setMembers] = useState<TeamMember[] | null>(null)
   const [picked, setPicked] = useState<Pickable[]>([])
   // Set once an invite lands: the card shows its receipt instead of the picker.
@@ -137,18 +134,14 @@ export function SessionParticipants({
   }
 
   // Someone who cannot use the computer yet is invited only once the owner confirms giving it.
-  const confirmComputerUse = (people: Pickable[], then: () => void) => (err: unknown) => {
-    if (!needsComputerUse(err)) return toast.apiError(t('Failed to add teammates'), err)
-    setComputerUse({
-      count: people.length,
-      confirm: () => invitePeople(people, true).then(then),
-    })
-  }
+  const confirmComputerUse = (people: Pickable[], then: () => void) =>
+    sharing.confirmGrant(people.length, () => invitePeople(people, true), then)
 
   const invite = () => {
     const people = picked.filter((member) => !member.agent)
 
     setPending('invite')
+    sharing.startInvite()
     Promise.all([
       invitePeople(people),
       ...picked
@@ -168,14 +161,18 @@ export function SessionParticipants({
       .finally(() => setPending(null))
   }
 
-  const removeAll = (people: { id: string; agent?: unknown }[]) =>
-    removePeople(people, { sessionId, teamId, apply, onAgentsChange: channel?.onAgentsChange })
+  const where = { sessionId, teamId, onAgentsChange: channel?.onAgentsChange }
+  const removeAll = (people: { id: string; agent?: unknown }[], onState = apply) =>
+    removePeople(people, { ...where, apply: onState })
 
   const remove = (person: AgentConversationParticipant) => {
     const { id, name } = person
 
     setPending(id)
-    ;(id === currentUserId ? leaveSession(sessionId, teamId, id) : removeAll([person]))
+    ;(id === currentUserId
+      ? leaveSession(sessionId, teamId, id)
+      : removeAll([person], sharing.thenOffer(apply, person))
+    )
       .catch((err: unknown) => toast.apiError(t('Failed to remove {name}', { name }), err))
       .finally(() => setPending(null))
   }
@@ -192,12 +189,14 @@ export function SessionParticipants({
   const undo = () => {
     if (!added) return
     setPending('undo')
-    removeAll(added)
-      .then(() => {
+    // Whoever is not undone yet stays on the receipt, so Undo again finishes it.
+    void sharing
+      .undoInvite(added, (person) => removeAll([person]))
+      .then((left) => {
+        if (left.length) return setAdded(left)
         setPicked(added)
         setAdded(null)
       })
-      .catch((err: unknown) => toast.apiError(t('Failed to undo'), err))
       .finally(() => setPending(null))
   }
 
@@ -294,7 +293,7 @@ export function SessionParticipants({
           </Popover.Popup>
         </Popover.Positioner>
       </Popover.Portal>
-      <ComputerUseConfirm request={computerUse} onClose={() => setComputerUse(null)} />
+      {sharing.dialogs}
     </Popover.Root>
   )
 }

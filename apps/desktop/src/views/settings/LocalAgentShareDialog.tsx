@@ -21,6 +21,7 @@ import {
   shareRequest,
   shownRole,
 } from './computerAccess'
+import { AccessHistory } from './AccessHistory'
 import { SharedComputerNotice } from './SharedComputerNotice'
 
 import type { AccessRole } from './computerAccess'
@@ -218,6 +219,7 @@ function ShareForm({
             {t('Only the owner can choose who manages it.')}
           </p>
         )}
+        <AccessHistory deviceId={deviceId} teamId={teamId} />
       </div>
     </Modal>
   )

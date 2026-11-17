@@ -4,7 +4,7 @@ import { api } from '../../../api'
 import { t } from '../../../i18n'
 import { agentAvatarPick } from '../../../lib/agentAvatarChoices'
 import { AppAlertDialog } from '../../ui/alert-dialog'
-import { needsComputerUse } from '../computerUse'
+import { computerUseNeeded, needsComputerUse } from '../computerUse'
 import { ComputerUseConfirm } from '../ComputerUseConfirm'
 
 import { matchDevices, matchMembers, mentionQuery } from './composerMention'
@@ -260,7 +260,11 @@ export function useComposerMentions(
 
           await invite().catch((err: unknown) => {
             if (!needsComputerUse(err)) throw err
-            setComputerUse({ count: ids.length, confirm: () => invite(true) })
+            setComputerUse({
+              count: ids.length,
+              ...computerUseNeeded(err),
+              confirm: () => invite(true),
+            })
           })
         }}
         onClose={() => setUninvited([])}
