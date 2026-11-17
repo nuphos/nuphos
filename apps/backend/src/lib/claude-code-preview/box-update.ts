@@ -114,7 +114,7 @@ export async function requestBoxUpdate(
   if (!(await deps.canManage(actorId, teamId, found.ref)))
     throw new AppError(404, 'device_not_found', 'Device is not available')
   if (!found.status)
-    throw new AppError(409, 'runtime_offline', 'The Box is offline. Open it, then update.')
+    throw new AppError(409, 'runtime_offline', 'The computer is offline. Open it, then update.')
   const release = await deps.latestVersion()
 
   if (!release)

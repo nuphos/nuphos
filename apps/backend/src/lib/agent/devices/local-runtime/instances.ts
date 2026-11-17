@@ -45,14 +45,14 @@ function requestInstances(
       else resolve(result)
     }
     const timer = setTimeout(() => {
-      finish(new AppError(504, 'agent_instance_timeout', 'The Box did not answer in time.'))
+      finish(new AppError(504, 'agent_instance_timeout', 'The computer did not answer in time.'))
     }, options.timeoutMs ?? 10_000)
 
     socket.addEventListener('open', () => {
       socket.send(JSON.stringify(body))
     })
     socket.addEventListener('close', () => {
-      finish(new AppError(409, 'runtime_offline', 'The Box disconnected before answering.'))
+      finish(new AppError(409, 'runtime_offline', 'The computer disconnected before answering.'))
     })
     socket.addEventListener('message', (event) => {
       try {
@@ -68,14 +68,14 @@ function requestInstances(
           (response.instance.instanceId !== body.instanceId ||
             (body.provider && response.instance.provider !== body.provider))
         )
-          throw new Error('The Box returned a different agent instance')
+          throw new Error('The computer returned a different agent instance')
         finish(undefined, response)
       } catch {
         finish(
           new AppError(
             502,
             'agent_instance_invalid_response',
-            'The Box returned an invalid answer.',
+            'The computer returned an invalid answer.',
           ),
         )
       }
@@ -101,7 +101,7 @@ export async function createLocalAgentInstance(
     throw new AppError(
       502,
       'agent_instance_invalid_response',
-      'The Box returned an invalid answer.',
+      'The computer returned an invalid answer.',
     )
 
   return created
@@ -147,7 +147,7 @@ export async function openLocalDesktop(
     throw new AppError(
       502,
       'agent_instance_invalid_response',
-      'The Box returned an invalid answer.',
+      'The computer returned an invalid answer.',
     )
 
   return display

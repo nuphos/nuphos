@@ -294,43 +294,38 @@ test("a computer's owner and managers rename, remove and sign in its agents; its
   assert.equal(managesRuntime(teamAgent('external'), undefined, false), false)
 })
 
-const hostAgent = (
-  id: string,
-  provider: RuntimeInstance['provider'],
-  signedIn: boolean | null,
-  agentInstances?: boolean,
-) =>
+const hostAgent = (id: string, provider: RuntimeInstance['provider'], signedIn: boolean | null) =>
   ({
     id,
     provider,
     kind: 'local',
-    local: { deviceId: 'a', signedIn, agentInstances },
+    local: { deviceId: 'a', signedIn },
   }) as RuntimeInstance
 
 test('New Agent signs in a signed-out agent of that provider before it adds another', () => {
-  const old = [hostAgent('claude', 'claude-code', true), hostAgent('codex', 'codex', null)]
-  const capable = [
-    hostAgent('claude', 'claude-code', true, true),
-    hostAgent('codex', 'codex', null, true),
-  ]
+  const agents = [hostAgent('claude', 'claude-code', true), hostAgent('codex', 'codex', null)]
   const lapsed = [
-    hostAgent('claude', 'claude-code', false, true),
-    hostAgent('claude-2', 'claude-code', true, true),
+    hostAgent('claude', 'claude-code', false),
+    hostAgent('claude-2', 'claude-code', true),
   ]
 
   // A lapsed sign-in is signed in again, never turned into "Claude Code 2".
   // A new computer whose first sign-in was cancelled: its agent is hidden (never signed in), so
   // New runtime is the way back to it.
-  const fresh = hostAgent('claude', 'claude-code', false, true)
+  const fresh = hostAgent('claude', 'claude-code', false)
 
   assert.equal(visibleAgent(fresh), false)
   assert.deepEqual(newAgentAction([fresh], 'claude-code'), { signIn: 'claude' })
   assert.deepEqual(newAgentAction(lapsed, 'claude-code'), { signIn: 'claude' })
-  assert.deepEqual(newAgentAction(capable, 'codex'), { signIn: 'codex' })
-  // Every agent of the provider signed in: a capable host adds one, an older host has none to add.
-  assert.deepEqual(newAgentAction(capable, 'claude-code'), { create: true })
-  assert.deepEqual(newAgentAction(old, 'codex'), { signIn: 'codex' })
-  assert.equal(newAgentAction(old, 'claude-code'), null)
+  assert.deepEqual(newAgentAction(agents, 'codex'), { signIn: 'codex' })
+  // Every agent of the provider signed in: add one.
+  assert.deepEqual(newAgentAction(agents, 'claude-code'), { create: true })
+})
+
+test('New Agent adds one to a computer that lists no agents yet', () => {
+  // Its agents are not running yet, or no agent CLI is installed: nothing says the host is old.
+  assert.deepEqual(newAgentAction([], 'codex'), { create: true })
+  assert.deepEqual(newAgentAction([], 'claude-code'), { create: true })
 })
 
 test('AGY only offers its existing shared sign-in, never a second account', () => {
@@ -338,7 +333,7 @@ test('AGY only offers its existing shared sign-in, never a second account', () =
   const signedIn = {
     id: 'agy',
     provider: 'antigravity',
-    local: { signedIn: true, agentInstances: true },
+    local: { signedIn: true },
   } as RuntimeInstance
 
   assert.equal(newAgentAction([signedIn], 'antigravity'), null)

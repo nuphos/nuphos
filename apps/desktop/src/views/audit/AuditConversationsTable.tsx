@@ -68,7 +68,7 @@ export function AuditConversationsTable({
         columns={[
           {
             key: 'title',
-            header: t('Agent'),
+            header: t('Task'),
             width: 320,
             sortAccessor: (r) => r.title,
             render: (r) => (

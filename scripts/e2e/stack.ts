@@ -136,7 +136,7 @@ function signInCode(address: string): string | undefined {
     .findLast(Boolean)
 }
 
-export async function startStack(): Promise<Stack> {
+export async function startStack(options: { botOnboarding?: boolean } = {}): Promise<Stack> {
   const [mongoPort, backendPort, runtimePort, secondRuntimePort, storagePort] = await freePorts(5)
   const mongoUri = startMongo(mongoPort)
   const storage = await startStorage(storagePort)
@@ -158,8 +158,7 @@ export async function startStack(): Promise<Stack> {
   }
 
   writeFileSync(acpLog, '')
-  // One OpenAB per runtime. The fixture logs `agent` with every entry, and each
-  // OpenAB keeps its session files in a home of its own.
+  // One OpenAB and isolated home per runtime; each fixture entry logs its agent.
   const startAgentHost = (agent = 'first', port = runtimePort) => {
     const config = join(artifacts, `openab-${agent}.toml`)
     const home = join(artifacts, `home-${agent}`)
@@ -173,6 +172,7 @@ export async function startStack(): Promise<Stack> {
         `args = [${JSON.stringify(FIXTURE)}]`,
         `working_dir = ${JSON.stringify(artifacts)}`,
         '[agent.env]',
+        ...(options.botOnboarding ? ['E2E_BOT_ONBOARDING = "true"'] : []),
         `E2E_ACP_LOG = ${JSON.stringify(acpLog)}`,
         `E2E_AGENT = ${JSON.stringify(agent)}`,
         `E2E_HOLD_OPENING = ${JSON.stringify(holdOpening)}`,

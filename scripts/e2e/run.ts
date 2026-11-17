@@ -4,6 +4,7 @@ import { rmSync } from 'node:fs'
 
 import { accessScenarios } from './access-scenarios.ts'
 import { agentEvents } from './agent-log.ts'
+import { agentWordScenarios } from './agent-word-scenarios.ts'
 import { backendFailures, backendLines } from './backend-log.ts'
 import { checkDecisionOutline, checkOutgoingChip } from './chat-presentation.ts'
 import { channelScenarios } from './channel-scenarios.ts'
@@ -16,17 +17,21 @@ import { offlineScenarios } from './offline-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
 import { questionScenarios } from './question-scenarios.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
+import { sidebarScenarios } from './sidebar-scenarios.ts'
 import { signInScenarios } from './sign-in-scenarios.ts'
 import { startStack } from './stack.ts'
+import { teammateBotScenarios } from './teammate-bot-scenarios.ts'
 import { threadScenarios } from './thread-scenarios.ts'
 import { triggerScenarios } from './trigger-scenarios.ts'
 import { newTask, send } from './ui.ts'
+import { usageScenarios } from './usage-scenarios.ts'
 
 import type { Desktop } from './desktop.ts'
 import type { Scenario } from './ui.ts'
 
 const scenarios: Scenario[] = [
   ...signInScenarios,
+  ...sidebarScenarios,
   {
     // The flow #3012 was reported in: the sidebar is on Bots, the page a new team opens on.
     // The connector's CLI (`aws`) has to be on the PATH for the dialog to offer the agent.
@@ -72,6 +77,7 @@ const scenarios: Scenario[] = [
     },
   },
   ...channelScenarios,
+  ...teammateBotScenarios,
   {
     name: 'start a Task, send a message and read the reply',
     run: async (page) => {
@@ -80,6 +86,7 @@ const scenarios: Scenario[] = [
       await page.getByText('ACK E2E_DELIVERY:first').waitFor()
     },
   },
+  ...agentWordScenarios,
   {
     // The flow #2812 was reported in. Its race (a Stop during the queued turn's startup) is not reproduced.
     name: 'queue a message during a turn, press Stop, and the queued message still runs',
@@ -216,6 +223,7 @@ const scenarios: Scenario[] = [
   },
   ...questionScenarios,
   ...triggerScenarios,
+  ...usageScenarios,
   ...connectorScenarios,
   ...accessScenarios,
   ...runtimeScenarios,

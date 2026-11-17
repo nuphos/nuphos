@@ -42,7 +42,7 @@ async function teamMachines(teamId: string) {
       vcpus: machine.spec.vcpus,
     }))
   } catch (error) {
-    throw unavailable("Could not read the team's Boxes", error)
+    throw unavailable("Could not read the team's computers", error)
   }
 }
 
@@ -54,7 +54,7 @@ export async function boxSizes(box?: BoxAccountRef): Promise<BoxSize[]> {
     )
   } catch (error) {
     if (error instanceof AppError) throw error
-    throw unavailable('Could not read the Box sizes', error)
+    throw unavailable('Could not read the computer sizes', error)
   }
 }
 
@@ -67,7 +67,7 @@ export async function boxSize(vcpus?: number, box?: BoxAccountRef): Promise<BoxS
     throw new AppError(
       400,
       'box_size',
-      `A Box comes with ${sizes.map((s) => String(s.vcpus)).join(' or ')} vCPU`,
+      `A cloud computer comes with ${sizes.map((s) => String(s.vcpus)).join(' or ')} vCPU`,
     )
 
   return size
@@ -141,7 +141,11 @@ export async function startWithinLimit<T>(
   const token = await acquireStartLease(teamId)
 
   if (!token)
-    throw new AppError(409, 'box_starting', 'Another Box in this team is starting; try again')
+    throw new AppError(
+      409,
+      'box_starting',
+      'Another computer in this team is starting. Try again in a moment.',
+    )
   try {
     await checkWithinLimit(teamId, limit, starting)
 

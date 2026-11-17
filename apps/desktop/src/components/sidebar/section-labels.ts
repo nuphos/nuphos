@@ -4,7 +4,6 @@ import { t } from '../../i18n'
 // keys, so they are translated only where they are shown.
 export const SECTION_LABELS: Record<string, string> = {
   Channels: t('Bots'),
-  Agents: t('Agents'),
   Tasks: t('Tasks'),
   Favorites: t('Favorites'),
 }

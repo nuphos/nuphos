@@ -3,6 +3,8 @@ import { providerCostUsd } from '@/lib/agent/model-pricing'
 import { agentTokenUsage } from '@/lib/agent/token-usage'
 import { KIND_TOKEN_SUMS } from '@/lib/agent/usage-aggregation'
 
+import type { NuphosTeamRole } from '@/lib/identity/types'
+
 // One member's spend on a single day.
 export type MemberDayUsage = {
   userId: string
@@ -103,7 +105,12 @@ function topSessions(rows: UsageGroupRow[]): Omit<SessionUsage, 'title'>[] {
     .slice(0, TOP_SESSIONS)
 }
 
-export async function getTeamUsageSeries(teamId: string): Promise<TeamUsageSeries> {
+/** An admin sees the whole team's usage; anyone else only their own. */
+export async function getTeamUsageSeries(
+  teamId: string,
+  viewer: { userId: string; teamRole: NuphosTeamRole },
+): Promise<TeamUsageSeries> {
+  const scope = viewer.teamRole === 'ADMINISTRATOR' ? { teamId } : { teamId, userId: viewer.userId }
   const ranges = {
     '7d': utcDayStart(6),
     '14d': utcDayStart(13),
@@ -118,7 +125,7 @@ export async function getTeamUsageSeries(teamId: string): Promise<TeamUsageSerie
   // Daily per-member series (chart) — one aggregation.
   const dailyRows = await agentTokenUsage()
     .aggregate<UsageGroupRow>([
-      { $match: { teamId, createdAt: { $gte: since } } },
+      { $match: { ...scope, createdAt: { $gte: since } } },
       {
         $group: {
           _id: {
@@ -202,7 +209,7 @@ export async function getTeamUsageSeries(teamId: string): Promise<TeamUsageSerie
   ]
   const [facet] = await agentTokenUsage()
     .aggregate<Record<keyof SessionsByRange, UsageGroupRow[]>>([
-      { $match: { teamId, createdAt: { $gte: since } } },
+      { $match: { ...scope, createdAt: { $gte: since } } },
       {
         $facet: {
           '7d': sessionPipeline(ranges['7d']),

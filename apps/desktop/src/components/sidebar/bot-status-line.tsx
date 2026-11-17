@@ -27,6 +27,8 @@ function Dots() {
  * says so instead.
  */
 export function BotStatusLine({ activity }: { activity: Activity }) {
+  if (activity.kind === 'onboarding')
+    return <span className="truncate text-tertiary">{t('Getting started')}</span>
   if (activity.kind === 'asking')
     return (
       <span className="truncate text-secondary">

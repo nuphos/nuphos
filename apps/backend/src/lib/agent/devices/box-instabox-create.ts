@@ -148,7 +148,7 @@ async function setUp(
     })
     // Deleted while it was being ordered: the machine must not outlive the row.
     if (!(await setAgentDeviceBoxSandbox(userId, deviceId, sandbox.sandboxId)))
-      throw new AppError(409, 'box_gone', 'The Box was deleted while it was being created')
+      throw new AppError(409, 'box_gone', 'The computer was deleted while it was being created')
     await keepOn(userId, deviceId, sandbox)
     const { token } = await issueDeviceJoinToken(userId, {
       label,

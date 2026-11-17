@@ -69,7 +69,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     ],
   },
   {
-    title: t('Agent'),
+    title: t('Chat'),
     entries: [
       { label: t('Send message'), combos: ['enter'] },
       { label: t('New line'), combos: ['shift+enter'] },
