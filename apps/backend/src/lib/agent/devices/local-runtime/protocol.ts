@@ -117,8 +117,6 @@ const localAgentStatusSchema = z.object({
     /** An added agent's CLI being installed by the computer, or why that failed. */
     installing: z.boolean().optional().catch(undefined),
     installError: z.string().max(500).optional().catch(undefined),
-    /** The account whose quota it spends, as a hash only that computer can make. */
-    accountKey: z.optional(z.string().regex(/^[0-9a-f]{16}$/u)).catch(undefined),
   }),
   version: z.string().max(200).optional(),
   // Never fatal, like usage: a catalog over its bounds costs the model picker,
@@ -134,6 +132,8 @@ const localAgentStatusSchema = z.object({
   /** When that computer read it. Codex reports its windows as offsets from the
    *  moment it was asked, so normalizing against anything else drifts. */
   usageAt: z.string().max(40).optional().catch(undefined),
+  /** The account whose quota it spends, as a hash only that computer can make. */
+  accountKey: z.optional(z.string().regex(/^[0-9a-f]{16}$/u)).catch(undefined),
 })
 
 export type LocalAgentStatus = z.infer<typeof localAgentStatusSchema>

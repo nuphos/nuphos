@@ -225,7 +225,7 @@ export async function reportedQuota(
   return {
     usage: agent.usage,
     ...(agent.usageAt ? { readAt: agent.usageAt } : {}),
-    ...(agent.cli.accountKey ? { accountKey: agent.cli.accountKey } : {}),
+    ...(agent.accountKey ? { accountKey: agent.accountKey } : {}),
   }
 }
 

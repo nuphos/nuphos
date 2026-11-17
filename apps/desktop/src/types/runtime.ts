@@ -46,8 +46,6 @@ export type LocalRuntimeSummary = {
   instanceId?: string
   /** The team member who added this agent, and when; absent for older and default agents. */
   addedBy?: { userId: string; at: string }
-  /** The host can run more than one agent per provider; any agent on the device reports it. */
-  agentInstances?: boolean
   /** Whether its computer is connected now. Away, the agent stays listed with its last state. */
   online?: boolean
   /** Its computer opens its own screen on request (runtime-desktop). */
@@ -182,6 +180,8 @@ export type RuntimeLoginStatus = {
   authorizationUrl?: string
   step?: RuntimeLoginStep
   codeSubmitted?: boolean
+  /** The computer is installing the agent's CLI before the sign-in starts. */
+  installing?: true
   error?: string
   expiresAt: string
 }

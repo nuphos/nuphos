@@ -48,7 +48,6 @@ export type LocalRuntimeSummary = {
   instanceId?: string
   /** The team member who added this agent through Nuphos; absent for older and default agents. */
   addedBy?: { userId: string; at: string }
-  agentInstances?: boolean
   /** Whether the computer reports this agent right now. */
   online: boolean
   /** Whether the owner's own CLI is signed in; null when the computer cannot tell. */
@@ -157,7 +156,6 @@ export async function listOwnLocalRuntimes(
               deviceId: device.deviceId,
               deviceLabel: device.label,
               ...(label ? { agentLabel: label } : {}),
-              agentInstances: presence?.status?.agentInstances === true,
               ...(presence?.status?.desktopOpen === true ? { desktopOpen: true as const } : {}),
               ...(device.box ? { box: { provider: device.box.provider } } : {}),
               ...(shared ? { shared: { level: 'full' as const } } : {}),
@@ -167,7 +165,7 @@ export async function listOwnLocalRuntimes(
               online: reported !== undefined,
               signedIn: reported ? reported.cli.loggedIn : agent.signedIn,
               ...(registered.has(registryKey(agent)) ? { everSignedIn: true as const } : {}),
-              ...(reported?.cli.accountKey ? { accountKey: reported.cli.accountKey } : {}),
+              ...(reported?.accountKey ? { accountKey: reported.accountKey } : {}),
               ...(reported?.usage !== undefined
                 ? {
                     usage: reported.usage,

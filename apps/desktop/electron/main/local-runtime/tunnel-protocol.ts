@@ -62,11 +62,11 @@ export type LocalRuntimeTunnelStatus = {
           /** An added agent's CLI being installed, or why that failed. */
           installing?: true
           installError?: string
-          /** Which account's quota it spends, hashed on that computer. */
-          accountKey?: string
         }
         usage?: unknown
         usageAt?: string
+        /** Which account's quota it spends, hashed on that computer. */
+        accountKey?: string
         version?: string
         models?: LocalModelCatalog
       }
