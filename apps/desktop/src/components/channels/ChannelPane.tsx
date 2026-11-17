@@ -21,9 +21,8 @@ import { toast } from '../ui/toast'
 
 import { botOfChannel, ownsBot } from './botChannel'
 import { BotDesktopButton } from './BotDesktopButton'
-import { BotModelControl } from './BotModelControl'
 import { BotStatusPill } from './BotStatusPill'
-import { BotTaskButton } from './BotTaskButton'
+import { BotModelControl, BotTaskButton } from './BotTaskButton'
 import { BotTriggers } from './BotTriggers'
 import { ChannelEmptyState } from './ChannelEmptyState'
 import { ChannelMessages } from './ChannelMessages'
@@ -88,13 +87,12 @@ export function ChannelPane({
   const firstReplyFailed =
     detail?.timelineEvents?.some((event) => event.kind === 'agent_reply_failed') ?? false
   const botOwned = ownsBot(teamId, bot, user.id, detail && agents)
-  const botProvider = agents.find((agent) => agent.sessionId === bot)?.provider
+  const provider = agents.find((agent) => agent.sessionId === bot)?.provider
   const manage = fixes?.onOpenAgentSettings
   const control = useBotRuntimeControl(teamId, bot, botOwned, user, botState, refresh, manage)
   const sessions = useAgentSessions(teamId).data
   const settingUp = sessions?.some((row) => row.sessionId === bot && botIsOnboarding(row))
-  const taskAccess = useBotTaskAccess(teamId, bot, botOwned)
-  const canOpenTask = taskAccess && !settingUp
+  const canOpenTask = useBotTaskAccess(teamId, bot, botOwned) && !settingUp
   const canOpenBotDesktop =
     bot !== undefined &&
     sessionDesktopsOf(teamId, { runtimeState: botState, foreign: !botOwned }).canOpen
@@ -198,11 +196,8 @@ export function ChannelPane({
         {bot && <BotTriggers key={bot} teamId={teamId} botId={bot} />}
         {bot && canOpenTask && (
           <>
-            <BotModelControl teamId={teamId} botId={bot} provider={botProvider} owned={botOwned} />
-            <BotTaskButton
-              provider={botProvider}
-              onClick={() => (onOpenTask ?? onOpenSession)(bot)}
-            />
+            <BotModelControl teamId={teamId} botId={bot} provider={provider} owned={botOwned} />
+            <BotTaskButton provider={provider} onClick={() => (onOpenTask ?? onOpenSession)(bot)} />
           </>
         )}
         {bot && canOpenBotDesktop && <BotDesktopButton teamId={teamId} botId={bot} />}

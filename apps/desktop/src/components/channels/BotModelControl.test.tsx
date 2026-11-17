@@ -81,7 +81,7 @@ mock.module('../agent/panel/ModelMenu', () => ({
     ),
 }))
 
-const { BotModelControl } = await import('./BotModelControl')
+const { BotModelControl } = await import('./BotTaskButton')
 
 const offering: SessionConfigState = {
   status: 'ready',
