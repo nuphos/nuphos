@@ -81,6 +81,24 @@ export const botOnboardingScenarios: Scenario[] = [
         'E2E #3339 detail channelIds',
         await channels(`/agent/conversations/${bot.sessionId}?teamId=${stack.teamId}&tail=1`),
       )
+      // What the app itself is handed for the Bot, through its own API bridge.
+      const inApp = await page.evaluate(
+        async ([teamId, botId]) => {
+          type Bridge = { api: Record<string, (...args: unknown[]) => unknown> }
+          const api = (window as unknown as Bridge).api
+          const page = (await api.agentListConversations(teamId, {
+            limit: 100,
+            scope: 'mine',
+            archived: 'exclude',
+            sort: 'activity',
+          })) as { conversations: { sessionId: string; runtimeState?: unknown }[] }
+
+          return page.conversations.find((row) => row.sessionId === botId)?.runtimeState
+        },
+        [stack.teamId, bot.sessionId] as const,
+      )
+
+      console.log('E2E #3339 in-app list runtimeState', JSON.stringify(inApp))
       await page.waitForTimeout(1_500)
       if ((await page.getByText('Working outside this chat').count()) > 0)
         throw new Error("The Bot's chat pill says it works outside the chat it answers")
