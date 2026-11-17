@@ -302,13 +302,33 @@ test('eval settles when its script navigates the tab to a new document', async (
   })
 
   await tick()
+  page.emit('did-navigate', {}, 'https://example.com/edit')
+  // The stream turns a rejected call into an error result for the agent.
+  await assert.rejects(result, /navigated to https:\/\/example\.com\/edit/)
+})
+
+test('eval still answers when its click starts a download instead of a new page (#3299)', async () => {
+  const { page } = await opened()
+  let answer = (_value: unknown) => {}
+
+  page.script = new Promise((resolve) => (answer = resolve))
+  const result = runBrowserCall({
+    action: 'eval',
+    team: 't1',
+    session: 's1',
+    tab: page.id,
+    script: 'clickDownloadLink()',
+  })
+
+  await tick()
+  // Chromium starts a navigation for the link, then turns it into a download: no commit.
   page.emit('did-start-navigation', {
-    url: 'https://example.com/edit',
+    url: 'https://example.com/file',
     isMainFrame: true,
     isSameDocument: false,
   })
-  // The stream turns a rejected call into an error result for the agent.
-  await assert.rejects(result, /navigated to https:\/\/example\.com\/edit/)
+  answer('clicked')
+  assert.equal(textOf(await result), 'clicked')
 })
 
 test('eval keeps waiting through a client-side route change', async () => {

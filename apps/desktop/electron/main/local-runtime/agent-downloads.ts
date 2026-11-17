@@ -33,8 +33,11 @@ export function savePath(dir: string, suggested: string, isTaken = taken): strin
 
 type Download = Pick<
   DownloadItem,
-  'getFilename' | 'getTotalBytes' | 'getReceivedBytes' | 'setSavePath' | 'cancel' | 'on' | 'once'
->
+  'getFilename' | 'getTotalBytes' | 'getReceivedBytes' | 'setSavePath' | 'cancel'
+> & {
+  on(event: 'updated', listener: () => void): unknown
+  once(event: 'done', listener: (event: unknown, state: string) => void): unknown
+}
 
 /** Saves `download` in `dir` and reports how it ended. The file is never opened. */
 export function saveDownload(download: Download, dir: string, report: (line: string) => void) {

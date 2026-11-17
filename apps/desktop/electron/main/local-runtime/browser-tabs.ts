@@ -203,16 +203,12 @@ function onPage<T>(
       stop()
       reject(new Error(message))
     }
-    const onNavigation = (details: {
-      url: string
-      isMainFrame: boolean
-      isSameDocument: boolean
-    }) => {
-      if (details.isMainFrame && !details.isSameDocument)
-        fail(
-          `The tab navigated to ${details.url} before the script finished, so its result is lost. Run eval again on the new page.`,
-        )
-    }
+    // On commit, not start: a link to a file starts a navigation that becomes a download and
+    // never replaces the page, so the script still finishes.
+    const onNavigation = (_event: unknown, url: string) =>
+      fail(
+        `The tab navigated to ${url} before the script finished, so its result is lost. Run eval again on the new page.`,
+      )
     const onGone = () => fail('The tab closed or crashed during the call.')
     const timer = setTimeout(
       () => fail(`The call did not finish within ${String(ms / 1000)}s.`),
@@ -220,12 +216,12 @@ function onPage<T>(
     )
     const stop = () => {
       clearTimeout(timer)
-      contents.off('did-start-navigation', onNavigation)
+      contents.off('did-navigate', onNavigation)
       contents.off('destroyed', onGone)
       contents.off('render-process-gone', onGone)
     }
 
-    if (untilNavigation) contents.on('did-start-navigation', onNavigation)
+    if (untilNavigation) contents.on('did-navigate', onNavigation)
     contents.on('destroyed', onGone)
     contents.on('render-process-gone', onGone)
     work.finally(stop).then(resolve, reject)
