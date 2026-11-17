@@ -24,6 +24,7 @@ import { teammateBotScenarios } from './teammate-bot-scenarios.ts'
 import { threadScenarios } from './thread-scenarios.ts'
 import { triggerScenarios } from './trigger-scenarios.ts'
 import { newTask, send } from './ui.ts'
+import { usageScenarios } from './usage-scenarios.ts'
 
 import type { Desktop } from './desktop.ts'
 import type { Scenario } from './ui.ts'
@@ -222,6 +223,7 @@ const scenarios: Scenario[] = [
   },
   ...questionScenarios,
   ...triggerScenarios,
+  ...usageScenarios,
   ...connectorScenarios,
   ...accessScenarios,
   ...runtimeScenarios,
