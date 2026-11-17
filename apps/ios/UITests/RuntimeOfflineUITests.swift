@@ -39,7 +39,7 @@ final class RuntimeOfflineUITests: XCTestCase {
         add(capture)
 
         switchRuntime.tap()
-        XCTAssertTrue(app.staticTexts["Preview Codex"].waitForExistence(timeout: 5), "Switch runtime did not open the runtimes")
+        XCTAssertTrue(app.navigationBars["Choose runtime"].waitForExistence(timeout: 5), "Switch runtime did not open the runtimes")
     }
 
     func testAnOnlineComputerSaysNothing() throws {
