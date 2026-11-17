@@ -19,13 +19,22 @@ if (!cli) throw new Error('no Claude Code found')
 const result = await new Promise<{ code: number | null; error?: string; stdout: string }>(
   (resolve) => {
     let stdout = ''
-    const child = spawn(cli, ['--version'], {
-      stdio: ['pipe', 'pipe', 'pipe'],
-      env: process.env,
-      windowsHide: true,
-    })
+    let child: ReturnType<typeof spawn>
 
-    child.stdout.on('data', (chunk) => (stdout += chunk))
+    // Node throws EINVAL from spawn itself, rather than emitting it.
+    try {
+      child = spawn(cli, ['--version'], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        env: process.env,
+        windowsHide: true,
+      })
+    } catch (error) {
+      resolve({ code: null, error: (error as NodeJS.ErrnoException).code, stdout })
+
+      return
+    }
+
+    child.stdout?.on('data', (chunk) => (stdout += chunk))
     child.once('error', (error: NodeJS.ErrnoException) =>
       resolve({ code: null, error: error.code, stdout }),
     )
