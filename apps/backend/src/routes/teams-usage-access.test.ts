@@ -1,10 +1,8 @@
-// Team usage, activity and stats through the real /teams router and its auth
+// Team usage, activity and stats through the real app, /teams router and its auth
 // middleware: what each role's own token reaches. The database is a recorder,
 // so each case checks whose rows the route asked for.
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { Hono } from 'hono'
 
-import { errorHandler } from '@/lib/errors'
 import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
 
@@ -47,9 +45,9 @@ useIdentity({
     ] as never),
 })
 
-const { teamsRoutes } = await import('@/routes/teams')
-// Mounted as the app mounts it, so a thrown AppError answers with its status.
-const app = new Hono().onError(errorHandler).route('/teams', teamsRoutes)
+// The whole app, so the route answers as it does in production; loading it
+// also gives this suite its own process in CI.
+const { app } = await import('@/index-app')
 
 const get = (path: string) =>
   app.request(`/teams/${TEAM}${path}`, { headers: { Authorization: 'Bearer session' } })
