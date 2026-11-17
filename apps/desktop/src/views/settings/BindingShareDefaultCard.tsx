@@ -1,10 +1,10 @@
-import { faShareNodes } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { Share2 as ShareIcon } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../api'
 import { Switch } from '../../components/ui/Switch'
 import { toast } from '../../components/ui/toast'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { t } from '../../i18n'
 
 import { AdminOnlyHint } from './shared'
@@ -48,7 +48,7 @@ export function BindingShareDefaultCard({
       </div>
 
       <div className="flex items-center gap-4 rounded-lg border border-line-control/70 bg-surface px-4 py-3.5">
-        <FontAwesomeIcon icon={faShareNodes} className="w-3.5 h-3.5 flex-shrink-0 text-tertiary" />
+        <UiIcon size={14} icon={ShareIcon} className="w-3.5 h-3.5 flex-shrink-0 text-tertiary" />
         <div className="min-w-0 flex-1 text-[12.5px] text-main">
           {t('Share new connections with everyone in the team')}
         </div>
