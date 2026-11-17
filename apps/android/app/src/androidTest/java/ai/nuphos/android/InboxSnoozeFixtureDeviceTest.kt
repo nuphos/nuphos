@@ -131,6 +131,8 @@ class InboxSnoozeFixtureDeviceTest {
     /** Saved under the app's files, `review-3231/`, by window width, for the PR's screenshots. */
     private fun capture(name: String) {
         compose.waitForIdle()
+        // Idle is not yet drawn: a slow emulator can still show the previous frame.
+        Thread.sleep(1_500)
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val width = context.resources.configuration.screenWidthDp
         val directory = File(context.getExternalFilesDir(null), "review-3231").apply { mkdirs() }
