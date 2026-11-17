@@ -90,13 +90,18 @@ class InboxSnoozeFixtureDeviceTest {
         compose.waitUntil(5_000) { source.snoozed.size == 2 }
         assertEquals(null, source.snoozed.last().second)
         compose.onNodeWithTag("inbox-snoozed").assertDoesNotExist()
+        // The reason typed before Cancel is still there.
         compose.onAllNodesWithTag("bot-question-dismiss")[1].performClick()
-        compose.onNodeWithTag("bot-question-dismiss-reason").performTextInput("We deploy the docs from CI now.")
+        compose.onNodeWithTag("bot-question-dismiss-reason").assertTextContains("We deploy the docs from CI now.")
+        // The test clock would otherwise skip the Undo window while waiting for idle.
+        compose.mainClock.autoAdvance = false
         compose.onNodeWithTag("bot-question-dismiss-send").performClick()
+        compose.mainClock.advanceTimeBy(500)
         compose.onNodeWithTag("inbox-undo").assertIsDisplayed()
         capture("5-dismiss-undo")
         assertTrue(source.dismissed.isEmpty())
-        compose.mainClock.advanceTimeBy(OpenQuestions.UNDO_MS + 100)
+        compose.mainClock.advanceTimeBy(OpenQuestions.UNDO_MS)
+        compose.mainClock.autoAdvance = true
         compose.waitUntil(5_000) { source.dismissed.isNotEmpty() }
         assertEquals("q-region" to "We deploy the docs from CI now.", source.dismissed.single())
     }
