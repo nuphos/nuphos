@@ -8,6 +8,19 @@ const send = (message) => process.stdout.write(`${JSON.stringify(message)}\n`)
 const HOLD = 'Fixture held turn'
 const DIE = 'Fixture dies'
 let held = false
+// Model requests a 'Fixture usage <n>' turn makes, <n> at a time, and the running total.
+const REQUESTS = [
+  { inputTokens: 1000, cachedInputTokens: 800, outputTokens: 100, reasoningOutputTokens: 40 },
+  { inputTokens: 2000, cachedInputTokens: 1900, outputTokens: 300, reasoningOutputTokens: 100 },
+  { inputTokens: 450, cachedInputTokens: 400, outputTokens: 50, reasoningOutputTokens: 0 },
+].map((request) => ({ ...request, totalTokens: request.inputTokens + request.outputTokens }))
+const total = {
+  totalTokens: 0,
+  inputTokens: 0,
+  cachedInputTokens: 0,
+  outputTokens: 0,
+  reasoningOutputTokens: 0,
+}
 
 for await (const line of createInterface({ input: process.stdin })) {
   const msg = JSON.parse(line)
@@ -124,6 +137,20 @@ for await (const line of createInterface({ input: process.stdin })) {
       'Fixture warning',
     ])
       send({ method: 'warning', params: { threadId: null, message } })
+  const usage =
+    msg.method === 'turn/start' && /^Fixture usage (\d)$/.exec(msg.params.input[0]?.text)
+
+  for (const last of usage ? REQUESTS.splice(0, Number(usage[1])) : []) {
+    for (const key of Object.keys(total)) total[key] += last[key]
+    send({
+      method: 'thread/tokenUsage/updated',
+      params: {
+        threadId: 'smoke-thread',
+        turnId: 'smoke-turn',
+        tokenUsage: { total: { ...total }, last, modelContextWindow: 200_000 },
+      },
+    })
+  }
   if (msg.method === 'turn/start' || msg.method === 'turn/steer')
     setTimeout(() => {
       held = false
