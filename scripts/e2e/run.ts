@@ -53,8 +53,8 @@ const scenarios: Scenario[] = [
       await send(page, 'Say hello E2E_DELIVERY:first')
       await page.getByText('ACK E2E_DELIVERY:first').waitFor()
     },
-  ...voiceAnswerScenarios,
   },
+  ...voiceAnswerScenarios,
   {
     // The flow #2812 was reported in. Its race (a Stop during the queued turn's startup) is not reproduced.
     name: 'queue a message during a turn, press Stop, and the queued message still runs',
