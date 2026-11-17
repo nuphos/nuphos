@@ -6,6 +6,7 @@ import { accessScenarios } from './access-scenarios.ts'
 import { agentEvents } from './agent-log.ts'
 import { agentWordScenarios } from './agent-word-scenarios.ts'
 import { backendFailures, backendLines } from './backend-log.ts'
+import { botUnreadScenarios } from './bot-unread-scenarios.ts'
 import { checkDecisionOutline, checkOutgoingChip } from './chat-presentation.ts'
 import { channelScenarios } from './channel-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
@@ -77,6 +78,7 @@ const scenarios: Scenario[] = [
     },
   },
   ...channelScenarios,
+  ...botUnreadScenarios,
   ...teammateBotScenarios,
   {
     name: 'start a Task, send a message and read the reply',

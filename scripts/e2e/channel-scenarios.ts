@@ -1,6 +1,5 @@
 // Scenarios about a Bot reading its chat. They run in the Bot chat the scenario before opened.
 import { agentEvents, agentLog } from './agent-log.ts'
-import { botUnreadScenarios } from './bot-unread-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { send } from './ui.ts'
 
@@ -95,5 +94,4 @@ export const channelScenarios: Scenario[] = [
       await ownWords('After the turn')
     },
   },
-  ...botUnreadScenarios,
 ]

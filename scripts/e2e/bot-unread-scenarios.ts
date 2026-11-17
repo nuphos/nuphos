@@ -1,4 +1,4 @@
-// Scenarios about a Bot row's unread dot. They run in the Bot chat the channel scenarios opened.
+// Scenarios about a Bot row's unread dot, in the chat of the Bot an earlier scenario created.
 import { agentEvents, agentLog } from './agent-log.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
@@ -62,6 +62,8 @@ export const botUnreadScenarios: Scenario[] = [
       const badgeBefore = await badge()
       const othersBefore = await others()
 
+      await page.getByRole('tab', { name: 'Bots' }).click()
+      await bots.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first().click()
       // Read in place: the Bot's own post here is read, its sub-Task's reply is not.
       // On the same agent: the runtime scenarios expect the second one unused.
       await send(page, 'Hand this off E2E_SUBTASK E2E_DELIVERY:bot-handoff')
