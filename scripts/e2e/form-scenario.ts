@@ -70,7 +70,7 @@ export const formScenario = {
       await page.getByRole('tab', { name: 'Tasks' }).click()
       await page.getByRole('button', { name: 'New task', exact: true }).click()
       // An earlier scenario may have left the other agent as the one a new Task starts on.
-      await page.getByRole('button', { name: /^Agent runtime/ }).click()
+      await page.getByRole('button', { name: /^Runtime:/ }).click()
       await page.getByRole('menu').getByText('E2E fixture agent').click()
       await page.getByRole('menuitem', { name: /^E2E fixture agent.*Claude Code/ }).click()
       await page.getByRole('textbox', { name: 'Message' }).click()
