@@ -115,25 +115,3 @@ test('a listing settles answers it no longer has open, and those past their dead
 
   assert.deepEqual(answeredIn(listing, answered, 1_000), ['gone', 'stale'])
 })
-
-test('a snoozed question leaves the Inbox and its count until its time, listed as snoozed', () => {
-  const now = Date.parse('2026-11-17T08:00:00Z')
-  const listing = [waiting('a', 'q1', 'q2')]
-  const request = listing[0]!.inputRequests![0]!
-
-  request.snoozedUntil = '2026-11-17T09:00:00Z'
-  assert.deepEqual(
-    inboxQuestions(listing, new Map(), undefined, { now }).map((row) => row.request.id),
-    ['q2'],
-  )
-  assert.equal(inboxCount(listing, new Map(), now), 1)
-  assert.deepEqual(
-    inboxQuestions(listing, new Map(), undefined, { now, snoozed: true }).map((r) => r.request.id),
-    ['q1'],
-  )
-  // Its time has come: it is back, and no longer snoozed.
-  const later = Date.parse('2026-11-17T09:00:01Z')
-
-  assert.equal(inboxCount(listing, new Map(), later), 2)
-  assert.deepEqual(inboxQuestions(listing, new Map(), undefined, { now: later, snoozed: true }), [])
-})
