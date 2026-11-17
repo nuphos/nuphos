@@ -12,6 +12,7 @@ type Row = {
   botOnboarding?: string
   instructions?: string
   inputRequests?: { id: string; category: string }[]
+  runtimeState?: { channelIds?: string[] }
 }
 
 export const botOnboardingScenarios: Scenario[] = [
@@ -67,6 +68,22 @@ export const botOnboardingScenarios: Scenario[] = [
       await row.locator('.t-typing-dot').first().waitFor()
       assert.equal(await row.getByText('Getting started', { exact: true }).count(), 0)
       await page.screenshot({ path: `${artifacts}/onboarding-working-light.png` })
+      // #3339: this chat's post woke the turn, so its pill never says the Bot works elsewhere.
+      const channels = async (path: string) =>
+        JSON.stringify(
+          ((await api('GET', path)).body as { runtimeState?: { channelIds?: string[] } })
+            ?.runtimeState?.channelIds,
+        )
+      const listed = (await list()).conversations.find((r) => r.sessionId === bot.sessionId)
+
+      console.log('E2E #3339 list channelIds', JSON.stringify(listed?.runtimeState?.channelIds))
+      console.log(
+        'E2E #3339 detail channelIds',
+        await channels(`/agent/conversations/${bot.sessionId}?teamId=${stack.teamId}&tail=1`),
+      )
+      await page.waitForTimeout(1_500)
+      if ((await page.getByText('Working outside this chat').count()) > 0)
+        throw new Error("The Bot's chat pill says it works outside the chat it answers")
       await until('the setup-time turn to finish', async () =>
         agentEvents(stack).includes('finish E2E_DELIVERY:setup-busy'),
       )
