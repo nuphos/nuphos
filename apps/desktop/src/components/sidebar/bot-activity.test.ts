@@ -67,3 +67,20 @@ test('a failed run shows as an error', () => {
 
   assert.deepEqual(activity, { kind: 'error', label: 'tests failed' })
 })
+
+test('an onboarding question is setup, while a real approval still needs attention', () => {
+  const fields = {
+    botOnboarding: 'active',
+    inputRequests: asking.inputRequests.map((q) => ({ ...q, category: 'preference' })),
+  }
+
+  assert.equal(activityOf(run('bot', idle, fields), []).kind, 'onboarding')
+  assert.equal(
+    activityOf(run('bot', idle, { ...fields, inputRequests: asking.inputRequests }), []).kind,
+    'asking',
+  )
+  assert.equal(
+    activityOf(run('bot', idle, { ...fields, botOnboarding: 'completed' }), []).kind,
+    'asking',
+  )
+})

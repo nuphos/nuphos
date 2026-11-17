@@ -86,7 +86,12 @@ export async function claimBotAvatar(
   return result.modifiedCount > 0
 }
 
-export type BotSelfUpdate = { title?: string; avatar?: string; instructions?: string }
+export type BotSelfUpdate = {
+  title?: string
+  avatar?: string
+  instructions?: string
+  botOnboarding?: 'completed'
+}
 
 // A Bot (a conversation with an avatar) edits its own name, face and
 // instructions. A Task has no avatar, so this never turns a Task into a Bot.
@@ -97,8 +102,22 @@ export async function updateBotSelf(
   update: BotSelfUpdate,
   via: 'update_self' | 'bot_import' = 'update_self',
 ): Promise<boolean> {
+  if (update.botOnboarding && !update.instructions?.trim()) return false
   const bot = await agentConversations().findOneAndUpdate(
-    withTeamScope({ sessionId, userId, avatar: { $exists: true } }, teamId),
+    withTeamScope(
+      {
+        sessionId,
+        userId,
+        avatar: { $exists: true },
+        ...(update.botOnboarding
+          ? {
+              botOnboarding: 'active',
+              inputRequests: { $not: { $elemMatch: { status: 'open', category: 'preference' } } },
+            }
+          : {}),
+      },
+      teamId,
+    ),
     {
       $set: {
         ...update,

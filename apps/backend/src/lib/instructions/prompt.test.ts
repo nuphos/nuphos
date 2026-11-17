@@ -175,3 +175,17 @@ test("a Bot's text cannot forge a Nuphos block boundary", () => {
   expect(block).not.toContain('<nuphos_instructions>')
   expect(block).toContain('&lt;nuphos_instructions>')
 })
+
+test('setup context survives saved instructions and disappears after explicit completion', () => {
+  const bot = {
+    name: 'Release Helper',
+    instructions: 'Review releases.',
+    botOnboarding: 'active' as const,
+  }
+
+  expect(renderInstructionsBlock([], [], bot)).toContain('onboardingComplete: true')
+  expect(renderInstructionsBlock([], [], bot)).toContain('Review releases.')
+  expect(renderInstructionsBlock([], [], { ...bot, botOnboarding: 'completed' })).not.toContain(
+    'onboardingComplete: true',
+  )
+})

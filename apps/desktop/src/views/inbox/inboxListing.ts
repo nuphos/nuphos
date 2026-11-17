@@ -11,7 +11,10 @@ import type { AgentConversation } from '../../api/agent-types'
 const MAX_PAGES = 10
 
 /** Every page of the team's readable conversations with an open question. */
-async function listPending(teamId: string): Promise<AgentConversation[]> {
+async function listPending(
+  teamId: string,
+  includeOnboarding: boolean,
+): Promise<AgentConversation[]> {
   const conversations: AgentConversation[] = []
   let cursor: string | undefined
 
@@ -19,6 +22,7 @@ async function listPending(teamId: string): Promise<AgentConversation[]> {
     const listed = await api.agentListConversations(teamId, {
       scope: 'team',
       pendingDecision: true,
+      includeOnboarding,
       archived: 'exclude',
       limit: 100,
       cursor,
@@ -34,10 +38,12 @@ async function listPending(teamId: string): Promise<AgentConversation[]> {
   return conversations
 }
 
-export const inboxListingQuery = (teamId: string) =>
+export const inboxListingQuery = (teamId: string, includeOnboarding = false) =>
   queryOptions({
-    queryKey: queryKeys.inbox(teamId),
-    queryFn: () => listPending(teamId),
+    queryKey: includeOnboarding
+      ? [...queryKeys.inbox(teamId), 'onboarding']
+      : queryKeys.inbox(teamId),
+    queryFn: () => listPending(teamId, includeOnboarding),
     staleTime: 0,
   })
 

@@ -1,6 +1,7 @@
 // Scenarios about a Bot reading its chat. They run in the Bot chat the scenario before opened.
-import { agentLog } from './agent-log.ts'
-import { artifacts } from './processes.ts'
+import { agentEvents, agentLog } from './agent-log.ts'
+import { artifacts, until } from './processes.ts'
+import { send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 
@@ -57,6 +58,40 @@ export const channelScenarios: Scenario[] = [
       const tags = await posts.getByText('Agent', { exact: true }).count()
 
       if (tags > 0) throw new Error(`${String(tags)} Bot posts carry an Agent tag`)
+    },
+  },
+  {
+    // #3171: a busy Bot's row showed what the Bot last told its owner, never posted in its chat.
+    name: 'a Bot that posts twice and works on shows dots in its row, then its newest post',
+    run: async (page, stack) => {
+      const row = page.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first()
+      const ownWords = async (when: string) => {
+        // The fixture's own turn text, which only the Bot's transcript holds.
+        if ((await row.getByText(/ACK E2E_DELIVERY/).count()) > 0)
+          throw new Error(`${when}, the Bot's row shows the Bot's own transcript`)
+      }
+
+      // Setup has its own status line. Finish it before checking an established Bot's dots.
+      await send(
+        page,
+        'Confirmed: review releases. E2E_ONBOARDING_COMPLETE E2E_DELIVERY:busy-bot-setup',
+      )
+      await until('the Bot setup turn to finish', async () =>
+        agentEvents(stack).includes('finish E2E_DELIVERY:busy-bot-setup'),
+      )
+      await row.getByText('Getting started', { exact: true }).waitFor({ state: 'hidden' })
+      await send(page, 'Post twice E2E_TWO_POSTS E2E_DELIVERY:two')
+      await page.getByText('POSTED E2E_DELIVERY:two', { exact: true }).waitFor()
+      // Still in its turn: the row has the work dots.
+      await row.locator('.t-typing-dot').first().waitFor()
+      await page.screenshot({ path: `${artifacts}/bot-row-busy-light.png` })
+      await ownWords('While the Bot works')
+      await until('the two-post turn to finish', async () =>
+        agentEvents(stack).includes('finish E2E_DELIVERY:two'),
+      )
+      await row.getByText('POSTED E2E_DELIVERY:two').waitFor()
+      await page.screenshot({ path: `${artifacts}/bot-row-idle-light.png` })
+      await ownWords('After the turn')
     },
   },
 ]

@@ -112,6 +112,7 @@ export type AgentConversation = {
   readSeq?: number
   /** Every open question, oldest first; Desktop resolves each by id after a reply or dismissal. */
   inputRequests?: AgentInputRequest[]
+  botOnboarding?: 'pending' | 'active' | 'completed' | 'started'
   /** Someone asked who can sign this conversation's agent in; their message waits for it. */
   signInRequest?: AgentSignInRequest
   /** The newest message, for the row's preview: raw markdown cut short, empty for files only.

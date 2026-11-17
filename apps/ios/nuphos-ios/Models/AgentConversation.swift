@@ -141,6 +141,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     var lastMessage: LastMessage?
     /// Open questions, oldest first; absent when there are none.
     var inputRequests: [InputRequest]?
+    var botOnboarding: String?
 
     var id: String { sessionId }
 
@@ -178,7 +179,8 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     }
 
     /// An open question waits on the viewer.
-    var isWaiting: Bool { inputRequests?.isEmpty == false }
+    var attentionInputRequests: [InputRequest] { (inputRequests ?? []).filter { !["pending", "active"].contains(botOnboarding ?? "") || $0.category != "preference" } }
+    var isWaiting: Bool { !attentionInputRequests.isEmpty }
 
     var ownsChat: Bool { isOwner == true && readOnly != true }
 
@@ -213,6 +215,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         avatar = try? c.decodeIfPresent(String.self, forKey: .avatar)
         lastMessage = try? c.decodeIfPresent(LastMessage.self, forKey: .lastMessage)
         inputRequests = try? c.decodeIfPresent([InputRequest].self, forKey: .inputRequests)
+        botOnboarding = try? c.decodeIfPresent(String.self, forKey: .botOnboarding)
     }
 
     init(

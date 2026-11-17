@@ -123,6 +123,7 @@ agent.get('/conversations', async (c) => {
     sort,
     ...(triggerIds ? { triggerIds } : {}),
     ...(c.req.query('pendingDecision') === 'true' ? { pendingDecision: true } : {}),
+    ...(c.req.query('includeOnboarding') === 'true' ? { includeOnboarding: true } : {}),
     ...(c.req.query('kind') === 'channel' ? { channels: true } : {}),
     // The Bots page lists every Bot, not only those on a loaded history page (#1741).
     ...(c.req.query('bots') === 'true' ? { bots: true } : {}),

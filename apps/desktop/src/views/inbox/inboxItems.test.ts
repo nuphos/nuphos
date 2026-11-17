@@ -115,3 +115,35 @@ test('a listing settles answers it no longer has open, and those past their dead
 
   assert.deepEqual(answeredIn(listing, answered, 1_000), ['gone', 'stale'])
 })
+
+test('onboarding preferences stay in the Bot chat without entering the Inbox', () => {
+  const bot = {
+    ...waiting('new-bot', 'setup'),
+    botOnboarding: 'active' as const,
+    inputRequests: waiting('new-bot', 'setup').inputRequests!.map((r) => ({
+      ...r,
+      category: 'preference',
+    })),
+  }
+
+  assert.equal(inboxCount([bot], new Map()), 0)
+  assert.equal(inboxCount([{ ...bot, botOnboarding: 'completed' }], new Map()), 1)
+  assert.equal(
+    inboxCount(
+      [
+        {
+          ...bot,
+          inputRequests: [...bot.inputRequests, ...waiting('new-bot', 'approval').inputRequests!],
+        },
+      ],
+      new Map(),
+    ),
+    1,
+  )
+})
+
+test('legacy introduced Bots keep their normal Inbox questions', () => {
+  const bot = { ...waiting('legacy', 'work'), botOnboarding: 'started' as const }
+
+  assert.equal(inboxCount([bot], new Map()), 1)
+})

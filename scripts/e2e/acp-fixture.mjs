@@ -21,6 +21,16 @@ const log = (entry) =>
     process.env.E2E_ACP_LOG,
     `${JSON.stringify({ agent: process.env.E2E_AGENT, ...entry })}\n`,
   )
+
+// PromptResponse.usage in claude-agent-acp 0.74.0's shape: `inputTokens` is the uncached part.
+const CLAUDE_TURN_USAGE = {
+  inputTokens: 12,
+  outputTokens: 900,
+  cachedReadTokens: 250_000,
+  cachedWriteTokens: 8000,
+  totalTokens: 258_912,
+}
+
 // A prompt containing E2E_HOLD stays in its turn until the client cancels it.
 const held = new Map()
 // Requests this agent made of its client, waiting for their answers. OpenAB reads ids as numbers.
@@ -146,6 +156,23 @@ async function prompt({ sessionId, prompt: parts }) {
   const channelId = /\(channelId ([^)]+)\)/.exec(text)?.[1]
 
   if (channelId) await answerChannel({ call, log, sessionId, channelId, text })
+  if (process.env.E2E_BOT_ONBOARDING && text.includes('The person just created you'))
+    await ask(sessionId, 'preference')
+  if (text.includes('E2E_ONBOARDING_COMPLETE')) {
+    const result = await call(sessionId, 'update_self', {
+      label: 'Save confirmed responsibilities',
+      instructions:
+        'Review release notes for the project and prepare a weekly summary. Ask before publishing.',
+      onboardingComplete: true,
+    })
+
+    log({
+      sessionId,
+      event: 'onboarding-complete',
+      isError: refused(result),
+      detail: JSON.stringify(result.result),
+    })
+  }
   // The thread's own prompt can carry its parent's words; only the parent starts one.
   if (text.includes('E2E_THREAD') && !text.includes('E2E_PERMISSION')) {
     await startThread(sessionId, marker)
@@ -179,7 +206,9 @@ async function prompt({ sessionId, prompt: parts }) {
   })
   log({ sessionId, marker, event: 'finish' })
 
-  return { stopReason: 'end_turn' }
+  return text.includes('E2E_TURN_USAGE')
+    ? { stopReason: 'end_turn', usage: CLAUDE_TURN_USAGE }
+    : { stopReason: 'end_turn' }
 }
 
 async function answer(request) {

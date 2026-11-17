@@ -33,6 +33,11 @@ const DEFAULT_RETIRE_GRACE_MS = 30_000
 /** The agent host did not take the connection: it is down, restarting or out of reach. */
 export class OpenAbConnectError extends Error {}
 
+/** The agent host is away: its computer offline, or the host did not take the connection. */
+export const agentHostAway = (error: unknown) =>
+  error instanceof OpenAbConnectError ||
+  (error instanceof AppError && error.code === 'runtime_offline')
+
 /**
  * A computer's tunnel ends a stream with 1006 when the computer is offline or
  * drops: an expected state the person can fix, not a server fault. Its cause is
