@@ -96,7 +96,9 @@ export async function attachRuntimeTunnel(
     void deps.presence.clear(userId, deviceId, conn).catch(() => {})
     deps.connectionChanged?.(userId, deviceId, false)
   }
-  // Every close is logged once with its reason, whichever side ended the tunnel.
+  // Every close is logged once with its reason, whichever side ended the tunnel, and the teams
+  // whose streams it cut: a computer is in no team. Joined, since LogQL `| json` skips arrays.
+  const cut = () => [...new Set([...streams.values()].map((s) => s.teamId))].join(',') || undefined
   const logClosed = (code: number | undefined, reason: string, extra?: Record<string, unknown>) =>
     logEvent('info', 'agent.local_runtime.tunnel_closed', {
       user_id: userId,
@@ -107,8 +109,8 @@ export async function attachRuntimeTunnel(
     })
   const shut = (code: number, reason: string) => {
     if (ended) return
+    logClosed(code, reason, { team_ids: cut() })
     end()
-    logClosed(code, reason)
     connection.close(code, reason)
   }
 
@@ -291,7 +293,7 @@ export async function attachRuntimeTunnel(
       sawFrame()
     },
     closed(code, reason) {
-      if (!ended) logClosed(code, reason || 'The connection closed')
+      if (!ended) logClosed(code, reason || 'The connection closed', { team_ids: cut() })
       end()
     },
   }

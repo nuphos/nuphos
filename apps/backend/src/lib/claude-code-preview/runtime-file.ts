@@ -76,6 +76,7 @@ async function runtimeFileOperation(
   path: string,
   request:
     | { action: 'read' | 'list' | 'stat' }
+    | { action: 'read'; secret: true }
     | { action: 'upload'; url: string; size: number }
     | { action: 'import'; url?: string; size: number; sha256: string },
   timeoutMs = 10_000,
@@ -187,6 +188,32 @@ export async function readRuntimeFile(
   return parseRuntimeFile(
     await runtimeFileOperation(teamId, userId, runtimeId, sessionId, path, { action: 'read' }),
   )
+}
+
+/** A file the secure input card saved on the conversation's runtime (`putConversationSecret`). */
+export const SAVED_SECRET_PATH = /[\\/]nuphos-secret-[^\\/]+[\\/]\d+[\\/][^\\/]+$/
+
+/**
+ * The value in one of those files, for `local_browser` `fill`. It is returned
+ * to the caller only: never log it or put it in a tool result.
+ */
+export async function readSavedSecret(
+  teamId: string,
+  userId: string,
+  runtimeId: string,
+  sessionId: string,
+  path: string,
+): Promise<string> {
+  if (!SAVED_SECRET_PATH.test(path))
+    throw new AppError(400, 'invalid_path', 'Not a file the secure input card saved.')
+  const file = parseRuntimeFile(
+    await runtimeFileOperation(teamId, userId, runtimeId, sessionId, path, {
+      action: 'read',
+      secret: true,
+    }),
+  )
+
+  return Buffer.from(file.data, 'base64').toString('utf8')
 }
 
 export async function listRuntimeFiles(
