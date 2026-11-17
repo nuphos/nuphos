@@ -64,6 +64,9 @@ export const botOnboardingScenarios: Scenario[] = [
       // A Bot still in setup that is working shows its work dots, and its setup again at rest.
       const row = page.locator('[data-sidebar-row]').filter({ hasText: 'Release Helper' }).first()
 
+      await page.evaluate(() => {
+        ;(globalThis as { __e2eRuntimeLog?: unknown[] }).__e2eRuntimeLog = []
+      })
       await send(page, 'Still setting up E2E_SLOW E2E_DELIVERY:setup-busy')
       await row.locator('.t-typing-dot').first().waitFor()
       assert.equal(await row.getByText('Getting started', { exact: true }).count(), 0)
@@ -112,8 +115,22 @@ export const botOnboardingScenarios: Scenario[] = [
             .map((c) => c.sessionId),
         ),
       )
-      await page.waitForTimeout(1_500)
-      if ((await page.getByText('Working outside this chat').count()) > 0)
+      // The turn runs about five seconds: the pill is read through all of it.
+      let elsewhere = 0
+
+      for (let i = 0; i < 16; i++) {
+        elsewhere += await page.getByText('Working outside this chat').count()
+        await page.waitForTimeout(250)
+      }
+      const published = await page.evaluate(
+        (botId) =>
+          ((globalThis as { __e2eRuntimeLog?: { sessionId: string }[] }).__e2eRuntimeLog ?? [])
+            .filter((entry) => entry.sessionId === botId),
+        bot.sessionId,
+      )
+
+      console.log('E2E #3339 published', JSON.stringify(published))
+      if (elsewhere > 0)
         throw new Error("The Bot's chat pill says it works outside the chat it answers")
       await until('the setup-time turn to finish', async () =>
         agentEvents(stack).includes('finish E2E_DELIVERY:setup-busy'),
