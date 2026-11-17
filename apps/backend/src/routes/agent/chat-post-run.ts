@@ -222,6 +222,10 @@ export function launchAcceptedChatTurn(args: {
             teamId,
             provider: chatRuntime.endpoint.provider ?? 'claude-code',
             ...report,
+            actorUserId: chatCtx.userId,
+            turnSource: 'app',
+            runtimeId: chatRuntime.endpoint.runtimeId,
+            deviceId: chatRuntime.endpoint.local?.deviceId,
           })
         },
         localToolsEnabled: chatCtx.localToolsEnabled,

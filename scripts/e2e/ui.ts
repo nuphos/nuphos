@@ -2,7 +2,12 @@
 import type { Stack } from './stack.ts'
 import type { Page } from 'playwright-core'
 
-export type Scenario = { name: string; run: (page: Page, stack: Stack) => Promise<void> }
+export type Scenario = {
+  name: string
+  run: (page: Page, stack: Stack) => Promise<void>
+  /** A backend failure this scenario alone is known to cause. */
+  expected?: RegExp
+}
 
 /** Types into the conversation composer and sends. */
 export async function send(page: Page, text: string) {

@@ -23,6 +23,12 @@ export type RuntimeTurnUsage = {
   usage: unknown
   /** The agent's `_meta.quota`, whose `model_usage` splits the turn by model. */
   quota?: unknown
+  /** How the turn ended (ACP `stopReason`): `end_turn`, `cancelled`, … */
+  stopReason?: string
+  actorUserId?: string
+  turnSource?: string
+  runtimeId?: string
+  deviceId?: string
   /** The fire that produced this turn, when it was a Trigger that did. */
   trigger?: ConversationTriggerRun
 }
@@ -154,6 +160,13 @@ function turnUsageRows(
     tokens: part,
     createdAt,
     ...trigger,
+    ...cleanRecord({
+      finishReason: turn.stopReason,
+      actorUserId: turn.actorUserId,
+      turnSource: turn.turnSource,
+      runtimeId: turn.runtimeId,
+      deviceId: turn.deviceId,
+    }),
   })
   const prompt = pickTokens(tokens, ['inputTokens', 'cachedInputTokens', 'cacheWriteTokens'])
   const output = pickTokens(tokens, ['outputTokens'])

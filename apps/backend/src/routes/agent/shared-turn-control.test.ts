@@ -10,6 +10,7 @@ import {
   drainPendingUserMessages,
   enqueuePendingUserMessage,
 } from '@/lib/agent/pending-messages'
+import * as pendingDecision from '@/lib/agent/db/pending-decision'
 import { listPendingUserMessages } from '@/lib/agent/pending-queue'
 import { startQueuedTurn } from '@/lib/agent/queued-turn'
 import { installQueuedTurnStarter } from '@/lib/agent/session-released'
@@ -231,6 +232,57 @@ test('only the conversation owner can provide a secret, not a teammate who can r
     expect(secretsSaved).toBe(1)
   } finally {
     conversation.userId = 'owner'
+  }
+})
+
+// `local_browser` `fill` enters a saved file only on the site this record names.
+test("a value saved for a form's field is kept with the site its open request named", async () => {
+  const recorded: unknown[] = []
+  const record = spyOn(pendingDecision, 'recordSecretSite').mockImplementation(
+    (...args: unknown[]) => {
+      recorded.push(args)
+
+      return Promise.resolve()
+    },
+  )
+  const asking = conversation as typeof conversation & { inputRequests?: unknown[] }
+  const save = (name: string) =>
+    app.request(`/agent/conversations/shared-control/secrets?teamId=${teamId}`, {
+      method: 'POST',
+      headers: { authorization: 'Bearer test-token', 'content-type': 'application/json' },
+      body: JSON.stringify({ name, value: 'a synthetic value' }),
+    })
+
+  conversation.userId = me
+  asking.inputRequests = [
+    {
+      id: 'req-1',
+      category: 'credential',
+      question: 'Needed for the lookup.',
+      secretName: 'CLINIC_LOOKUP',
+      fields: [{ name: 'NATIONAL_ID', label: 'National ID number' }],
+      site: 'www.clinic.example',
+      askedAt: new Date(),
+      status: 'open',
+    },
+  ]
+  try {
+    expect((await save('NATIONAL_ID')).status).toBe(200)
+    // A name no open request lists as a field has no site, so `fill` will refuse its file.
+    expect((await save('CLINIC_LOOKUP')).status).toBe(200)
+    expect((await save('OPENAI_API_KEY')).status).toBe(200)
+    expect(recorded).toEqual([
+      [
+        'shared-control',
+        me,
+        { path: '/runtime/nuphos-secret-x/0/KEY', site: 'www.clinic.example' },
+      ],
+    ])
+    expect(JSON.stringify(recorded)).not.toContain('a synthetic value')
+  } finally {
+    conversation.userId = 'owner'
+    delete asking.inputRequests
+    record.mockRestore()
   }
 })
 

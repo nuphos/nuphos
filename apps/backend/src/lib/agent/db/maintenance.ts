@@ -1,5 +1,6 @@
 import { pruneAvatars } from '@/lib/identity/avatar-upload'
 
+import { isBotChat } from './archive'
 import { pushTimelineEvent } from './participants'
 import { agentConversations, withTeamScope } from './shared'
 
@@ -48,8 +49,11 @@ export async function renameConversation(
   const next = title.trim()
 
   if (!next || next.length > 120) return false
+  const chat = await agentConversations().findOne(withTeamScope({ sessionId, userId }, teamId))
+  // A Bot's chat is called by its Bot, so renaming the chat renames the Bot.
+  const target = (chat && isBotChat(chat) && chat.agentSessionIds?.[0]) || sessionId
   const result = await agentConversations().updateOne(
-    withTeamScope({ sessionId, userId }, teamId),
+    withTeamScope({ sessionId: target, userId }, teamId),
     { $set: { title: next, titleManuallySet: true } },
   )
 
