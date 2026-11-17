@@ -11,6 +11,7 @@ import { listCommands } from './fixture-commands.mjs'
 import { hop, inherit } from './fixture-hop.mjs'
 import { call, callNamed, setToolsServer, toolsServer } from './fixture-mcp.mjs'
 import { applySetting } from './fixture-settings.mjs'
+import { refuse } from './fixture-turn-refusals.mjs'
 
 const send = (message) =>
   process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', ...message })}\n`)
@@ -129,9 +130,7 @@ async function prompt({ sessionId, prompt: parts }) {
   const outOfUsage =
     text.includes('E2E_USAGE_LIMIT') || (late.has(sessionId) && !text.includes('E2E_ASK'))
 
-  if (outOfUsage && process.env.E2E_AGENT !== 'second') {
-    throw Object.assign(new Error('Internal error: You’ve hit your usage limit'), { code: -32603 })
-  }
+  refuse(text, outOfUsage && process.env.E2E_AGENT !== 'second')
   // Nuphos tells the agent when a person skips its question.
   if (text.includes('was skipped')) log({ sessionId, marker, event: 'skipped' })
   if (text.includes('E2E_DELEGATE') && !text.includes(CHILD)) {
