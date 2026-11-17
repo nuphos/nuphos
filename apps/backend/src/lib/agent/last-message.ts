@@ -32,6 +32,7 @@ export async function lastMessage(
       // A system wake-up (a channel's new messages) is not something anyone said.
       'metadata.sender.type': { $ne: 'system' },
     })
+    .sort({ index: -1 })
     .limit(1)
     // Only short text and file markers leave the database: a turn's tool output can be large.
     .project<{ parts?: Part[]; metadata?: unknown }>({
