@@ -85,7 +85,7 @@ function waitFor<T>(register: (resolve: (value: T) => void) => void): Promise<T>
 }
 
 describe('device runtime tunnel route', () => {
-  test('a failed presence claim handles queued message and close callbacks without rejecting', async () => {
+  test('a presence claim that fails on the first frame shuts the tunnel without rejecting', async () => {
     let failClaim!: (error: Error) => void
     const closed: unknown[][] = []
     const events = runtimeTunnelEvents('owner', 'd1', {
@@ -105,14 +105,14 @@ describe('device runtime tunnel route', () => {
         closed.push(args)
       },
     } as unknown as WSContext)
+    // The computer takes the device with its first frame (#3366), so that is where a claim fails.
     events.onMessage(new MessageEvent('message', { data: JSON.stringify({ t: 'pong' }) }))
-    events.onClose(new CloseEvent('close'))
     await Bun.sleep(0)
     failClaim(new Error('Device presence unavailable'))
-    // Bun fails this test on an unhandled child rejection, even when onOpen
-    // catches the original rejected initialization promise.
+    // Bun fails this test on an unhandled child rejection.
     await Bun.sleep(10)
-    expect(closed).toEqual([[1011, 'Could not open the runtime tunnel']])
+    expect(closed).toEqual([[4001, 'Device presence unavailable']])
+    events.onClose(new CloseEvent('close'))
   })
 
   test('the owner computer holds a tunnel that carries a stream end to end', async () => {

@@ -531,7 +531,6 @@ pub struct AcpConnection {
     ///
     /// It used to cancel a per-session MCP proxy server; that server is gone and the guard now
     /// carries the minted token instead.
-    #[cfg(feature = "acp-mcp")]
     #[allow(dead_code)]
     facade_token_guard: Option<tokio_util::sync::DropGuard>,
 }
@@ -908,9 +907,18 @@ pub(crate) fn kill_process_group(pgid: i32) {
             }
         });
     }
-    #[cfg(not(unix))]
+    // No process groups to signal: end the whole tree, since codex-acp runs Codex under cmd.exe
+    // and a Codex left running keeps the session's thread, so restoring it fails (#3371).
+    #[cfg(windows)]
     {
-        let _ = pgid; // suppress unused warning on Windows
+        use std::os::windows::process::CommandExt;
+        let _ = std::process::Command::new("taskkill")
+            .args(["/T", "/F", "/PID", &pgid.to_string()])
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .creation_flags(0x0800_0000) // CREATE_NO_WINDOW
+            .status();
     }
 }
 
@@ -1031,13 +1039,11 @@ impl AcpConnection {
             _reader_handle: reader_handle,
             _stderr_handle: stderr_handle,
             retired: false,
-            #[cfg(feature = "acp-mcp")]
             facade_token_guard: None,
         })
     }
 
     /// Attach the guard that revokes this session's facade token when the connection drops.
-    #[cfg(feature = "acp-mcp")]
     pub fn set_facade_token_guard(&mut self, guard: Option<tokio_util::sync::DropGuard>) {
         self.facade_token_guard = guard;
     }
@@ -1518,8 +1524,9 @@ impl AcpConnection {
     /// End the agent process now. Its stdout closes, so the connection stops
     /// reporting alive and the pool rebuilds it on the next message.
     pub(crate) fn kill_agent(&mut self) {
-        let _ = self._proc.start_kill();
+        // The tree first: on Windows it is found through the agent, which must still be running.
         self.kill_process_group();
+        let _ = self._proc.start_kill();
     }
 
     /// Kill the entire process group: SIGTERM → SIGKILL.

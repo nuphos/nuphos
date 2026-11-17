@@ -23,6 +23,7 @@ nonisolated enum PreviewIsolation {
 
     static func isPreview(arguments: [String], fixture: String?) -> Bool {
         if arguments.contains("-share-verification") { return false }
+        if arguments.contains("-clear-preview"), !arguments.contains(where: { $0.hasPrefix("-preview") }) { return false }
         return fixture != nil || arguments.contains { $0.hasPrefix("-preview") }
     }
 
@@ -50,6 +51,11 @@ nonisolated enum PreviewIsolation {
         arguments: [String] = CommandLine.arguments,
         fixture: String? = launchFixture()
     ) {
+        #if targetEnvironment(simulator) || os(macOS)
+        if arguments.contains("-clear-preview") {
+            UserDefaults.standard.removeObject(forKey: "previewResponses")
+        }
+        #endif
         guard !isActive, isPreview(arguments: arguments, fixture: fixture) else { return }
         isActive = true
         if route(NuphosAPI.baseURL) != .local { NuphosAPI.sharedSessionBaseURL = apiBase }

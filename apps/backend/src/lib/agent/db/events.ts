@@ -52,6 +52,11 @@ export async function setupAgentIndexes(): Promise<void> {
       { agentSessionIds: 1 },
       { background: true, partialFilterExpression: { agentSessionIds: { $exists: true } } },
     )
+    // The agents on a computer, read each time it reconnects (`onDevice`).
+    await c.createIndex(
+      { runtimeId: 1 },
+      { background: true, partialFilterExpression: { runtimeId: { $exists: true } } },
+    )
     await c.createIndex({ teamId: 1, 'claudeCodePreview.runtimeUrl': 1 }, { background: true })
     await c.createIndex({ teamId: 1, previousRuntimeUrls: 1 }, { background: true })
     await db().collection('agent_runtime_deletions').createIndex({ provider: 1, completedAt: 1 })

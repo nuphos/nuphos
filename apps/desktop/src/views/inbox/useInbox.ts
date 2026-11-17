@@ -210,7 +210,6 @@ export function useAnswerFailure(requestId: string): string | undefined {
 export function useInboxListing(teamId: string, reloadKey?: unknown, includeOnboarding = false) {
   const listing = useQuery({
     ...inboxListingQuery(teamId, includeOnboarding),
-    enabled: Boolean(teamId),
     refetchInterval: INBOX_POLL_MS,
     // A retry would pause until the window is focused; the next poll is the retry.
     retry: false,
@@ -222,8 +221,8 @@ export function useInboxListing(teamId: string, reloadKey?: unknown, includeOnbo
   useEffect(() => {
     if (Object.is(shownKey.current, reloadKey)) return
     shownKey.current = reloadKey
-    if (teamId) void refetch()
-  }, [reloadKey, teamId, refetch])
+    void refetch()
+  }, [reloadKey, refetch])
 
   return listing
 }

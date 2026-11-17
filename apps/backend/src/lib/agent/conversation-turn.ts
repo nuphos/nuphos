@@ -16,7 +16,7 @@ import { recordFiresRan } from './trigger-missed-runs'
 import { reconnecting } from './turn-offline'
 import { readTurnHistory } from './turn-history'
 import { turnRunner } from './turn-runner'
-import { keepUndeliveredSend, reopenUndeliveredAnswer } from './undelivered-send'
+import { keepUndelivered, LOST_TURN } from './undelivered-send'
 import { failureLine, keepAnswersThatWait } from './waiting-answers'
 
 import type { AgentConversation } from './db'
@@ -121,12 +121,10 @@ export async function runTurn(
     if (!history) throw new Error('Target conversation no longer exists.')
     // BullMQ can redeliver a stalled job. An answered message must not run twice;
     // one after the last reply was accepted by a refused turn and runs again.
-    const answered = history.messages.findLastIndex((message) => message.role === 'assistant')
-    const ran = new Set(history.messages.slice(0, answered + 1).map((message) => message.messageId))
     const { messages: fresh, markRead } = await withChannelPosts(
       data.targetSessionId,
       data.userId,
-      pending.filter((message) => !ran.has(message.id)),
+      pending.filter((message) => !history.answered.has(message.id)),
     )
     const [head, ...rest] = fresh
 
@@ -199,14 +197,12 @@ export async function runTurn(
       data,
       await keepAnswersThatWait(target, taken, error),
       `did not run: ${failureLine(error)}`,
+      error,
     )
     await recordFailedFires(error, taken)
     throw error
   }
 }
-
-const LOST_TURN =
-  'was cut off: the runtime restarted during that turn, which may have stopped partway or finished just before.'
 
 /**
  * A turn whose runtime connection dropped is left to the runtime, which keeps
@@ -238,19 +234,20 @@ async function reportIfRestarted(
 /**
  * The one rule for an accepted message: it runs as a turn of its target, or its
  * sender is told, once, that it did not. A thread message is answered in its
- * sender's thread; a person's send stays in the conversation, with the reason.
+ * sender's thread; a person's send stays in the conversation, with the reason;
+ * a channel's wake notice is a line in that channel.
  */
 export async function reportUndelivered(
   // No team when the target conversation is gone: the sender's own is the one it sent from.
   data: Omit<DeliveredTo, 'teamId'> & { teamId?: string },
   messages: readonly PendingUserMessage[],
   reason: string,
+  error?: unknown,
 ): Promise<void> {
   for (const message of messages) {
     const senderId = message.metadata?.sourceSessionId
 
-    if (message.chat) await keepUndeliveredSend(data, message, `This message ${reason}`)
-    if (message.answers) await reopenUndeliveredAnswer(data, message.answers, reason)
+    await keepUndelivered(data, message, reason, error)
     // Only an agent's message is answered. The answer is Nuphos's own notice,
     // never an agent's, so it is never reported back: threads cannot ping-pong.
     if (message.source !== 'agent.thread' || !senderId) continue

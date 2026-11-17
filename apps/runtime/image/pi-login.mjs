@@ -45,9 +45,19 @@ const PROVIDERS = [
   { value: 'opencode', label: 'OpenCode Zen', model: 'kimi-k2.7-code' },
   { value: 'huggingface', label: 'Hugging Face', model: 'moonshotai/Kimi-K2.7-Code' },
   { value: 'nvidia', label: 'NVIDIA NIM', model: 'nvidia/nemotron-3.5-super-vl-120b-a12b' },
+  // An endpoint of the user's own (a gateway, a proxy, a local model server): a provider
+  // Pi's models.json adds, with its key in auth.json like every other provider's. Its id is
+  // one a user is unlikely to have written there themselves, so their own `custom` stays.
+  { value: 'nuphos-custom', label: 'Custom (OpenAI-compatible)' },
 ]
 
+// The computer itself: a key sent there over plain http never crosses the network.
+const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]'])
+
 class LoginError extends Error {}
+
+const restore = (file, before) =>
+  Object.keys(before).length ? writeJson(file, before) : rmSync(file, { force: true })
 
 /** Runs a Pi command in the agent's home and resolves with what it printed. */
 export function runPi(args, agentDir) {
@@ -113,14 +123,42 @@ export async function runPiLogin({
     'Choose a model provider',
     PROVIDERS.map(({ value, label }) => ({ value, label })),
   )
-  const { label, model: preferred } = PROVIDERS.find((entry) => entry.value === provider)
-  const key = await input({ message: `${label} API key`, secret: true })
+  const { label, model } = PROVIDERS.find((entry) => entry.value === provider)
+  const endpoint = provider === 'nuphos-custom' && {
+    baseUrl: await input({ message: 'Base URL', placeholder: 'http://localhost:11434/v1' }),
+  }
+  if (endpoint && !/^https?:\/\/./u.test(endpoint.baseUrl)) throw new LoginError('Not a URL')
+  const preferred = endpoint ? await input({ message: 'Model ID' }) : model
+  const key = await input({
+    message: !endpoint
+      ? `${label} API key`
+      : endpoint.baseUrl.startsWith('http:') && !LOOPBACK.has(new URL(endpoint.baseUrl).hostname)
+        ? 'API key (sent unencrypted over http)'
+        : 'API key',
+    ...(endpoint ? { placeholder: 'Any text if the endpoint takes none' } : {}),
+    secret: true,
+  })
   const agentDir = join(home, '.pi', 'agent')
   const authFile = join(agentDir, 'auth.json')
+  const modelsFile = join(agentDir, 'models.json')
   const before = readJson(authFile)
+  const beforeModels = readJson(modelsFile)
   mkdirSync(agentDir, { recursive: true, mode: 0o700 })
   // In the file, never on a command line, where every process on the computer could read it.
   writeJson(authFile, { ...before, [provider]: { type: 'api_key', key } })
+  if (endpoint)
+    writeJson(modelsFile, {
+      ...beforeModels,
+      providers: {
+        ...beforeModels.providers,
+        [provider]: {
+          name: 'Custom',
+          ...endpoint,
+          api: 'openai-completions',
+          models: [{ id: preferred }],
+        },
+      },
+    })
   try {
     const check = JSON.parse(
       await run(['auth', 'check', '--provider', provider, '--json'], agentDir),
@@ -129,17 +167,17 @@ export async function runPiLogin({
     const models = listedModels(await run(['--list-models'], agentDir), provider)
     if (!models.length) throw new LoginError('No models')
     // A Pi whose default has since changed starts where its list does.
-    const model = models.includes(preferred) ? preferred : models[0]
+    const chosen = models.includes(preferred) ? preferred : models[0]
     const [defaultProvider, defaultModel] = MODEL_SETTINGS
     writeJson(join(agentDir, 'settings.json'), {
       ...readJson(join(agentDir, 'settings.json')),
       [defaultProvider]: provider,
-      [defaultModel]: model,
+      [defaultModel]: chosen,
     })
   } catch (error) {
     // A sign-in that did not finish leaves the login as it was: none, when there was none.
-    if (Object.keys(before).length) writeJson(authFile, before)
-    else rmSync(authFile, { force: true })
+    restore(authFile, before)
+    if (endpoint) restore(modelsFile, beforeModels)
     throw error
   }
   emit({ type: 'authenticated' })

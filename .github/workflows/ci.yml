@@ -35,7 +35,7 @@ jobs:
   # it reports success there instead of blocking the queue.
   dco:
     name: DCO
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-24.04-arm
     steps:
       - name: Skip in the merge queue
         if: github.event_name == 'merge_group'
@@ -291,10 +291,11 @@ jobs:
         run: rustup toolchain install 1.99.0 --profile minimal --component clippy
       - name: Clippy
         run: cargo +1.99.0 clippy --locked --workspace --features unified -- -D warnings
-      # The ACP gateway and MCP tunnel tests are behind features the shipped
-      # binary enables, so default features would compile them away.
       - name: Test
-        run: cargo +1.99.0 test --locked --workspace --features openab-gateway/acp,openab-core/acp-mcp
+        run: cargo +1.99.0 test --locked --workspace
+      # A gateway adapter without the root acp feature must still build (#3049).
+      - name: Check without acp
+        run: cargo +1.99.0 check --locked --features telegram
 
   backend:
     name: Backend (typecheck + test + docker build)

@@ -54,23 +54,36 @@ export async function attachRuntimeTunnel(
   let lastEchoAt = lastFrameAt
   let presenceAt = 0
   let ended = false
-  let counted = false
   let heartbeat: ReturnType<typeof setInterval> | undefined
   let unsubscribe = () => {}
 
   const { toStream, toComputer } = streamRelay(deps.bus, streams, connection)
+  const current = () => ({
+    conn,
+    // Fixed for the life of this tunnel: what opened it, not what it reports.
+    ...(client ? { client } : {}),
+    ...(status ? { status } : {}),
+    ...(metrics ? { metrics, metricsReceivedAt } : {}),
+    seenAt: Date.now(),
+  })
+  // The computer moves here on this tunnel's first frame; until then the old one serves (#3366).
+  let claimed: Promise<unknown> | undefined
+  const claim = () => {
+    claimed = deps.presence.claim(userId, deviceId, conn, current()).then(async (previous) => {
+      if (previous)
+        await deps.bus.publish(
+          channel,
+          JSON.stringify({ t: 'supersede', conn, previous } satisfies HolderMessage),
+        )
+      if (!ended) deps.connectionChanged?.(userId, deviceId, true)
+    })
+
+    return claimed
+  }
   const refreshPresence = () =>
-    deps.presence
-      .put(userId, deviceId, {
-        conn,
-        // Fixed for the life of this tunnel: what opened it, not what it reports.
-        ...(client ? { client } : {}),
-        ...(status ? { status } : {}),
-        ...(metrics ? { metrics, metricsReceivedAt } : {}),
-        seenAt: Date.now(),
-      })
+    (claimed ? deps.presence.put(userId, deviceId, current()) : claim())
       .then((updated) => {
-        if (!updated) shut(TUNNEL_CLOSE_IDLE, 'Device presence expired')
+        if (updated === false) shut(TUNNEL_CLOSE_IDLE, 'Device presence expired')
       })
       .catch(() => shut(TUNNEL_CLOSE_IDLE, 'Device presence unavailable'))
 
@@ -86,17 +99,20 @@ export async function attachRuntimeTunnel(
   const end = () => {
     if (ended) return
     ended = true
-    if (counted) openTunnels--
+    openTunnels--
     clearInterval(heartbeat)
     heartbeat = undefined
     unsubscribe()
     for (const s of streams.keys())
       void toStream(s, { t: 'close', reason: 'The computer running this agent disconnected' })
     streams.clear()
+    if (!claimed) return
     void deps.presence.clear(userId, deviceId, conn).catch(() => {})
     deps.connectionChanged?.(userId, deviceId, false)
   }
-  // Every close is logged once with its reason, whichever side ended the tunnel.
+  // Every close is logged once with its reason, whichever side ended the tunnel, and the teams
+  // whose streams it cut: a computer is in no team. Joined, since LogQL `| json` skips arrays.
+  const cut = () => [...new Set([...streams.values()].map((s) => s.teamId))].join(',') || undefined
   const logClosed = (code: number | undefined, reason: string, extra?: Record<string, unknown>) =>
     logEvent('info', 'agent.local_runtime.tunnel_closed', {
       user_id: userId,
@@ -107,8 +123,8 @@ export async function attachRuntimeTunnel(
     })
   const shut = (code: number, reason: string) => {
     if (ended) return
+    logClosed(code, reason, { team_ids: cut() })
     end()
-    logClosed(code, reason)
     connection.close(code, reason)
   }
 
@@ -202,24 +218,8 @@ export async function attachRuntimeTunnel(
       .catch(() => {})
   }, heartbeatMs)
 
-  try {
-    const previous = await deps.presence.claim(userId, deviceId, conn)
-
-    if (previous)
-      await deps.bus.publish(
-        channel,
-        JSON.stringify({ t: 'supersede', conn, previous } satisfies HolderMessage),
-      )
-  } catch (error) {
-    end()
-    throw error
-  }
   logEvent('info', 'agent.local_runtime.tunnel_opened', { user_id: userId, device_id: deviceId })
-  if (!ended) {
-    openTunnels++
-    counted = true
-    deps.connectionChanged?.(userId, deviceId, true)
-  }
+  openTunnels++
 
   return {
     receive(raw) {
@@ -291,7 +291,7 @@ export async function attachRuntimeTunnel(
       sawFrame()
     },
     closed(code, reason) {
-      if (!ended) logClosed(code, reason || 'The connection closed')
+      if (!ended) logClosed(code, reason || 'The connection closed', { team_ids: cut() })
       end()
     },
   }
