@@ -12,6 +12,7 @@ import type { LocalAgentProvider } from './agent-cli.ts'
 import type { AgentInstanceRecord } from './agent-instances.ts'
 import type { LocalRuntimeControllerDeps } from './controller-types.ts'
 import type { RefreshDefault } from './default-agent.ts'
+import type { CliInstall } from './instance-deps.ts'
 import type { Controller, Entry } from './instance-entries.ts'
 import type { RunningRuntime } from './openab-process.ts'
 
@@ -111,13 +112,14 @@ export class InstanceControllers {
     return instanceStatus(this.entries.values())
   }
 
-  private add(metadata: AgentInstanceRecord, userId: string): Entry {
+  /** `install`: set when whoever added it may have this computer install its CLI. */
+  private add(metadata: AgentInstanceRecord, userId: string, install?: CliInstall): Entry {
     const dir = this.instanceDir(metadata.instanceId)
     const controller = this.create(
-      instanceControllerDeps(this.deps, dir, userId, this.changed),
+      instanceControllerDeps(this.deps, dir, userId, this.changed, install),
       metadata.provider,
     )
-    const entry: Entry = { metadata, controller }
+    const entry: Entry = { metadata, controller, install }
 
     this.entries.set(metadata.instanceId, entry)
     this.expireLater(entry)
@@ -200,7 +202,12 @@ export class InstanceControllers {
   async request(request: unknown, userId: string | null): Promise<unknown> {
     if (!userId) throw new Error('Sign in to Nuphos first')
     if (!request || typeof request !== 'object') throw new Error('Invalid instance request')
-    const body = request as { method?: string; instanceId?: unknown; provider?: unknown }
+    const body = request as {
+      method?: string
+      instanceId?: unknown
+      provider?: unknown
+      installCli?: unknown
+    }
 
     // The computer's own agent is named by its provider, an added one by its instance id.
     if (body.instanceId === undefined && (body.method === 'remove' || body.method === 'commit'))
@@ -253,7 +260,7 @@ export class InstanceControllers {
       userDir(this.deps.dataDir(), userId),
       [...this.entries.values()].map((entry) => entry.metadata).concat(record),
     )
-    const entry = this.add(record, userId)
+    const entry = this.add(record, userId, body.installCli === true ? {} : undefined)
 
     entry.starting = entry.controller.setUser(userId).then(this.changed)
     entry.starting.catch(() => {

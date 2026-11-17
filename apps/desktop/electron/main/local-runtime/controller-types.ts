@@ -108,6 +108,8 @@ export type LocalRuntimeControllerDeps = {
     instances?: (request: unknown) => Promise<unknown>,
   ) => RuntimeTunnel
   log?: (message: string, data?: Record<string, unknown>) => void
+  /** The vendor's installer an added agent missing its CLI runs once; `installAgentCli` unless replaced. */
+  installCli?: (provider: LocalAgentProvider, env: NodeJS.ProcessEnv) => Promise<void>
   /** A Box: Nuphos owns the whole computer, so its default agents' logins are Nuphos's
    *  to delete. A person's computer never removes them; their CLIs keep their logins. */
   ownsMachine?: boolean

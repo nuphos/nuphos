@@ -48,8 +48,8 @@ jobs:
       # Attested openab from openab-cache.yml on main; otherwise the next step compiles it.
       - id: openab
         uses: ./.github/actions/openab-binaries
-      - name: Build openab
-        if: steps.openab.outputs.hit != 'true'
+      # Always staged: the app runs its own local agents from it. A cache hit reuses that openab.
+      - name: Stage the local runtime
         working-directory: apps/desktop
         run: node local-runtime/prepare.mjs --targets linux-x64 --require
       - name: Install dependencies

@@ -180,6 +180,8 @@ export type RuntimeLoginStatus = {
   authorizationUrl?: string
   step?: RuntimeLoginStep
   codeSubmitted?: boolean
+  /** The computer is installing the agent's CLI before the sign-in starts. */
+  installing?: true
   error?: string
   expiresAt: string
 }

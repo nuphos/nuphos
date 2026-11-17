@@ -3467,6 +3467,7 @@
   "Preparing command…": "コマンドを準備中…",
   "Preparing model request…": "モデルへのリクエストを準備中…",
   "Preparing plan execution": "プランの実行を準備中",
+  "Installing {name} on {computer}…": "{computer} に {name} をインストールしています…",
   "Preparing secure sign-in…": "安全なサインインを準備中…",
   "Preparing tools and sandbox…": "ツールとサンドボックスを準備中…",
   "Preparing tool…": "ツールを準備中…",

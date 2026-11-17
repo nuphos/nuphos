@@ -3467,6 +3467,7 @@
   "Preparing command…": "正在準備指令…",
   "Preparing model request…": "正在準備模型請求…",
   "Preparing plan execution": "正在準備執行計畫",
+  "Installing {name} on {computer}…": "正在 {computer} 上安裝 {name}…",
   "Preparing secure sign-in…": "正在準備安全登入…",
   "Preparing tools and sandbox…": "正在準備工具與沙箱…",
   "Preparing tool…": "正在準備工具…",

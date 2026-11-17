@@ -3467,6 +3467,7 @@
   "Preparing command…": "Menyiapkan perintah…",
   "Preparing model request…": "Menyiapkan permintaan model…",
   "Preparing plan execution": "Menyiapkan eksekusi rencana",
+  "Installing {name} on {computer}…": "Menginstal {name} di {computer}…",
   "Preparing secure sign-in…": "Menyiapkan proses masuk yang aman…",
   "Preparing tools and sandbox…": "Menyiapkan tool dan sandbox…",
   "Preparing tool…": "Menyiapkan tool…",

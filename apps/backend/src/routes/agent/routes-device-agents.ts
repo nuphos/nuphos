@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { Hono } from 'hono'
 import { z } from 'zod'
 
-import { requireDeviceAccess } from '@/lib/agent/devices/box-access'
+import { deviceOwner, requireDeviceAccess } from '@/lib/agent/devices/box-access'
 import { localRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import {
   createLocalAgentInstance,
@@ -95,6 +95,12 @@ function ownPendingAgent({ device, presence, target }: HostDevice, instanceId: s
 const isNotFound = (error: unknown) =>
   error instanceof Error && 'status' in error && error.status === 404
 
+/** Whether adding an agent may also have its computer install the agent's missing CLI:
+ *  installing software is the computer owner's call, not every manager's. */
+export function mayInstallCli(device: AgentDevice, actorId: string): boolean {
+  return deviceOwner(device) === actorId
+}
+
 export function createDeviceAgentRoutes(
   deps: DeviceAgentRouteDeps = {
     requireAccess: requireDeviceAccess,
@@ -179,6 +185,7 @@ export function createDeviceAgentRoutes(
         instanceId,
         provider: body.provider,
         label: body.label ?? runtimeLabel(body.provider),
+        installCli: mayInstallCli(device, target.actorId),
       })
     } catch (error) {
       if (added) await deps.forgetAddition(device.userId, deviceId, instanceId)

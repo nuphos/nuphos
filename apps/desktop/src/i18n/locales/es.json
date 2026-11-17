@@ -3467,6 +3467,7 @@
   "Preparing command…": "Preparando comando…",
   "Preparing model request…": "Preparando solicitud al modelo…",
   "Preparing plan execution": "Preparando la ejecución del plan",
+  "Installing {name} on {computer}…": "Instalando {name} en {computer}…",
   "Preparing secure sign-in…": "Preparando inicio de sesión seguro…",
   "Preparing tools and sandbox…": "Preparando herramientas y sandbox…",
   "Preparing tool…": "Preparando herramienta…",

@@ -3467,6 +3467,7 @@
   "Preparing command…": "명령 준비 중…",
   "Preparing model request…": "모델 요청 준비 중…",
   "Preparing plan execution": "플랜 실행 준비 중",
+  "Installing {name} on {computer}…": "{computer}에 {name} 설치 중…",
   "Preparing secure sign-in…": "보안 로그인 준비 중…",
   "Preparing tools and sandbox…": "도구 및 샌드박스 준비 중…",
   "Preparing tool…": "도구 준비 중…",

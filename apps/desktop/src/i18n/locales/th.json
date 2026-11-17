@@ -3467,6 +3467,7 @@
   "Preparing command…": "กำลังเตรียมคำสั่ง…",
   "Preparing model request…": "กำลังเตรียมคำขอโมเดล…",
   "Preparing plan execution": "กำลังเตรียมดำเนินการตามแผน",
+  "Installing {name} on {computer}…": "กำลังติดตั้ง {name} บน {computer}…",
   "Preparing secure sign-in…": "กำลังเตรียมการลงชื่อเข้าใช้อย่างปลอดภัย…",
   "Preparing tools and sandbox…": "กำลังเตรียมเครื่องมือและแซนด์บ็อกซ์…",
   "Preparing tool…": "กำลังเตรียมเครื่องมือ…",

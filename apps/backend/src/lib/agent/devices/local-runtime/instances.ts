@@ -88,12 +88,13 @@ function requestInstances(
  * instance id is idempotent on the host; no second tunnel or cloud credential is used. */
 export async function createLocalAgentInstance(
   target: Target,
-  instance: AgentInstance,
+  { installCli, ...instance }: AgentInstance & { installCli?: boolean },
   options: Options = {},
 ): Promise<AgentInstance> {
   const { instance: created } = await requestInstances(
     target,
-    { method: 'create', ...instance },
+    // `installCli`: the host installs the agent's CLI if it is missing.
+    { method: 'create', ...instance, ...(installCli ? { installCli: true } : {}) },
     options,
   )
 

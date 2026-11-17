@@ -1,9 +1,10 @@
 import { expect, test } from 'bun:test'
 import { Hono } from 'hono'
 
-import { createDeviceAgentRoutes } from './routes-device-agents'
+import { createDeviceAgentRoutes, mayInstallCli } from './routes-device-agents'
 
 import type { DeviceAgentRouteDeps } from './routes-device-agents'
+import type { AgentDevice } from '@/lib/agent/devices/store'
 import type { AuthVariables } from '@/middleware/auth'
 
 const id = '11111111-1111-4111-8111-111111111111'
@@ -29,8 +30,10 @@ function app(overrides: Partial<DeviceAgentRouteDeps> = {}) {
     }),
     createInstance: async (target, instance) => {
       calls.push({ target, instance })
+      // The host answers the agent it made, not the request.
+      const { installCli: _, ...made } = instance
 
-      return instance
+      return made
     },
     removeInstance: async (target, agent) => {
       calls.push({ target, removed: agent })
@@ -104,9 +107,18 @@ test('create dispatches exact retry id and provider and returns a usable runtime
         deviceId: 'box',
         teamId: '69e989027ab63e8d6a0ffcb6',
       },
-      instance: { instanceId: id, provider: 'claude-code', label: 'Work' },
+      instance: { instanceId: id, provider: 'claude-code', label: 'Work', installCli: true },
     },
   ])
+})
+
+test("only the computer's owner has its missing CLI installed", () => {
+  const mine = { userId: 'owner' } as AgentDevice
+  const box = { userId: 'host', box: { createdBy: 'owner' } } as AgentDevice
+
+  expect(mayInstallCli(mine, 'owner')).toBe(true)
+  expect(mayInstallCli(box, 'owner')).toBe(true)
+  expect(mayInstallCli(mine, 'manager')).toBe(false)
 })
 
 test('unknown devices and hosts without instance support never receive create', async () => {
