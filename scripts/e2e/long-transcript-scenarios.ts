@@ -73,7 +73,7 @@ export const longTranscriptScenarios: Scenario[] = [
     name: 'a long conversation shows every message once after a turn and when scrolled back to its start',
     run: async (page, stack) => {
       await newTask(page)
-      await send(page, 'Scroll back E2E_DELIVERY:long-0')
+      await send(page, 'Open the long history E2E_DELIVERY:long-0')
       await page.getByText('ACK E2E_DELIVERY:long-0').waitFor()
       const session = await sessionFor(stack, 'E2E_DELIVERY:long-0')
 
@@ -99,7 +99,7 @@ export const longTranscriptScenarios: Scenario[] = [
       const text = await transcript(page)
       const fillers = [...text.matchAll(/Filler (\d{3})/g)].map((match) => Number(match[1]))
       const order = [
-        'Scroll back E2E_DELIVERY:long-0',
+        'Open the long history E2E_DELIVERY:long-0',
         'ACK E2E_DELIVERY:long-0',
         filler(0),
         filler(EARLIER - 1),
