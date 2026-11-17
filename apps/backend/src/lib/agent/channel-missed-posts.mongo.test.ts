@@ -56,7 +56,10 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('a computer reconnecting', () => 
   test('finds the agents on that computer and no others', async () => {
     const found = await agentConversations().find(onDevice(OWNER, 'mac')).toArray()
 
-    expect(found.map(({ sessionId }) => sessionId).sort()).toEqual([`${TEAM}-0`, `${TEAM}-1`])
+    expect(found.map(({ sessionId }) => sessionId).sort((a, b) => a.localeCompare(b))).toEqual([
+      `${TEAM}-0`,
+      `${TEAM}-1`,
+    ])
   })
 
   test('reads the agents on that computer, not every conversation', async () => {
