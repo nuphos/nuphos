@@ -20,14 +20,22 @@ useAgentDb({
   appendTranscriptMessages: (args) => {
     persisted.push({ messages: args.messages })
 
-    return Promise.resolve({ isNew: false, count: args.messages.length })
+    return Promise.resolve({
+      isNew: false,
+      count: args.messages.length,
+      lastIndex: args.messages.length - 1,
+    })
   },
-  getConversationMessagesHead: async () =>
-    persisted.at(-1)!.messages.map((message) => ({
-      ...message,
-      messageId: message.id,
-      createdAt: message.id === 'old-answer' ? new Date('2026-10-08T04:00:00.000Z') : storedAt,
-    })),
+  // The finished turn reads back only its recent window.
+  getConversationMessages: async (_session, _user, options) =>
+    persisted
+      .at(-1)!
+      .messages.slice(-(options?.tail ?? Infinity))
+      .map((message) => ({
+        ...message,
+        messageId: message.id,
+        createdAt: message.id === 'old-answer' ? new Date('2026-10-08T04:00:00.000Z') : storedAt,
+      })),
 })
 useAgentPlans({
   listPlansCreatedForConversation: async () => createdPlans,
