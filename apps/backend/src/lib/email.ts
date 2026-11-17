@@ -50,6 +50,8 @@ export async function sendEmail(input: SendEmailInput): Promise<void> {
     const detail = body ? ` — ${body.slice(0, 200)}` : ''
 
     // Resend answers 422 "Invalid `to` field" for an address it won't accept.
+    // Matched on that wording: if it changes, the send fails as a retryable 503
+    // instead, as before.
     if (res.status === 422 && body.includes('`to`')) {
       throw new InvalidRecipientError(`Resend refused the recipient${detail}`)
     }

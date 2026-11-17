@@ -58,6 +58,7 @@ export async function requestEmailOtp(
     if (await otps().findOne({ email: normalized, expiresAt: { $gt: new Date() } })) return
     throw new AppError(503, 'email_not_configured', 'Email sign-in is not available on this server')
   }
+  if (!SENDABLE_EMAIL.test(normalized)) throw invalidEmail()
 
   const code = newCode()
   const codeHash = hashCode(normalized, code)
@@ -211,18 +212,19 @@ function newCode(): string {
   return randomInt(0, 1_000_000).toString().padStart(6, '0')
 }
 
-// Dot-separated atoms before the '@' and hostname labels after it (RFC 5321
-// without its quoted forms), so a typo is answered here instead of failing
-// the send.
+const ADDRESS = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/
+// What a code is mailed to: dot atoms, '@', hostname labels (RFC 5321 without
+// quoted forms), so a typo is answered instead of failing the send. An address
+// outside it still signs in with a code an operator issued.
 const ATOM = "[a-z0-9!#$%&'*+/=?^_`{|}~-]+"
 const LABEL = '[a-z0-9](?:[a-z0-9-]*[a-z0-9])?'
 const TLD = '[a-z][a-z0-9-]*[a-z0-9]'
-const EMAIL_RE = new RegExp(`^${ATOM}(?:\\.${ATOM})*@(?:${LABEL}\\.)+${TLD}$`)
+const SENDABLE_EMAIL = new RegExp(`^${ATOM}(?:\\.${ATOM})*@(?:${LABEL}\\.)+${TLD}$`)
 
 function normalizeEmail(email: string): string {
   const normalized = email.trim().toLowerCase()
 
-  if (normalized.length > 254 || !EMAIL_RE.test(normalized)) throw invalidEmail()
+  if (normalized.length > 254 || !ADDRESS.test(normalized)) throw invalidEmail()
 
   return normalized
 }
