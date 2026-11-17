@@ -1,6 +1,5 @@
 import { getConversationPreviewAttachment } from '@/lib/agent/db'
 import { sameRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
-import { AppError } from '@/lib/errors'
 import { RunHandoff } from '@/lib/lifecycle'
 
 import { registry } from './agent-chat-registry'
@@ -10,6 +9,7 @@ import {
 } from './autonomous-session-observer'
 import { backgroundWorkPrompt, markBackgroundWorkLost } from './background-work'
 import { openConversationSession } from './open-conversation-session'
+import { turnFailureCause } from './openab-acp-errors'
 import { redactedPromptUpdates } from './redacted-prompt-updates'
 import { retractedPrompt } from './retracted-notice'
 import { promptFailure } from './prompt-failure'
@@ -140,10 +140,7 @@ export async function runClaudeCodePreviewPrompt(args: {
         openabSessionId: session.openabSessionId,
       },
     }).catch(async (cause: unknown) => {
-      // An offline computer is a reason the queue already knows, not a probe failure.
-      throw cause instanceof AppError && cause.code === 'runtime_offline'
-        ? cause
-        : await RuntimeStateProbeError.from(cause)
+      throw turnFailureCause(cause) === 'offline' ? cause : await RuntimeStateProbeError.from(cause)
     })
   const observed = await observe()
 

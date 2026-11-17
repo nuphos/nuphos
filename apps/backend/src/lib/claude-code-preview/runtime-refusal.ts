@@ -1,5 +1,7 @@
 import { AppError } from '@/lib/errors'
 
+import { turnFailureCause } from './openab-acp-errors'
+
 /**
  * The runtime will not take this message now: admission saw it busy, or another
  * turn (a delegated thread, a background-task continuation) took it after
@@ -9,6 +11,17 @@ export const refusal = (label: string) => new AppError(409, 'runtime_not_accepti
 
 export const isRuntimeRefusal = (error: unknown) =>
   error instanceof AppError && error.code === 'runtime_not_accepting_message'
+
+/**
+ * Whether the queue sends this turn again, so it is not recorded: a refusal for a
+ * client that resends, or an offline computer the conversation queue waits for.
+ */
+export const resentAfter = (
+  error: unknown,
+  turn: { clientResendsRefusal?: boolean; queued?: unknown },
+) =>
+  ((turn.clientResendsRefusal || Boolean(turn.queued)) && isRuntimeRefusal(error)) ||
+  (Boolean(turn.clientResendsRefusal) && turnFailureCause(error) === 'offline')
 
 /**
  * What the client hears about a refused turn that came from, or went back to,
