@@ -7,7 +7,7 @@ import { newTask, send } from './ui.ts'
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
 
-async function pickAgent(page: Page, label: string) {
+export async function pickAgent(page: Page, label: string) {
   await page.getByRole('button', { name: /^Agent runtime/ }).click()
   // The computer's row opens a submenu of its runtimes.
   await page.getByRole('menu').getByText(label).click()
@@ -254,25 +254,6 @@ export const runtimeScenarios: Scenario[] = [
       // Long enough for a second resend to have started, had there been one.
       await new Promise((resolve) => setTimeout(resolve, 3000))
       if (ran().length !== 1) throw new Error(`The turn ran ${ran().length} times on the new agent`)
-    },
-  },
-  {
-    // #3401: a computer whose agent cannot reach its model API is told what to check, not EPROTO.
-    name: 'a turn that cannot reach the model API says to check the network, without the raw error',
-    run: async (page) => {
-      await newTask(page)
-      await pickAgent(page, 'E2E fixture agent')
-      await send(page, 'Cannot reach the API E2E_API_UNREACHABLE E2E_DELIVERY:api-unreachable')
-      await page
-        .getByText(
-          "This computer couldn't reach the model provider's API. Check its network, proxy or VPN, then resend your message.",
-        )
-        .first()
-        .waitFor()
-      await page.screenshot({ path: `${artifacts}/api-unreachable.png` })
-      const raw = await page.getByText(/Unable to connect to API|EPROTO/).count()
-
-      if (raw > 0) throw new Error(`The chat shows the raw error ${raw} times`)
     },
   },
   {

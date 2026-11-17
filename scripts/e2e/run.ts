@@ -18,6 +18,7 @@ import { startDesktop } from './desktop.ts'
 import { formScenario } from './form-scenario.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
+import { providerUnreachableScenarios } from './provider-unreachable-scenarios.ts'
 import { questionScenarios } from './question-scenarios.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
 import { sidebarScenarios } from './sidebar-scenarios.ts'
@@ -232,6 +233,7 @@ const scenarios: Scenario[] = [
   ...connectorScenarios,
   ...accessScenarios,
   ...runtimeScenarios,
+  ...providerUnreachableScenarios,
   ...computerScenarios,
   ...commandScenarios,
   ...threadScenarios,
