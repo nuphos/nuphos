@@ -19,7 +19,7 @@ class ConversationAgentMoveTest {
     @Test fun onlyTheOwnerMovesAndFailurePreservesIdentityAndHistory() = runTest {
         // The server moves a conversation only for its owner, whoever else manages it.
         val managed = ChatSession("fixture", "team", readBypass = { _, _ -> false }, aiAllowed = { true },
-            readDetail = { _, _, _ -> detail(owner = false, manage = true) }, moveRuntime = { _, _, _, _ -> fail("Not the owner") })
+            readDetail = { _, _, _ -> detail(owner = false, manage = true) }, moveRuntime = { _, _, _, _ -> throw AssertionError("Not the owner") })
         managed.load()
         for (kind in listOf("local", "external")) {
             try { managed.moveAgent(target.copy(kind = kind)); fail("Teammate denied") } catch (_: IllegalArgumentException) {}
