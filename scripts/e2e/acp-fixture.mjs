@@ -249,6 +249,11 @@ async function answer(request) {
     case 'session/prompt':
       return prompt(request.params)
     case 'session/load':
+      // A restarted host loads the session with its tools again, as it opened it.
+      setToolsServer(
+        request.params.sessionId,
+        request.params.mcpServers?.find(({ name }) => name === 'nuphos-tools'),
+      )
       log({ sessionId: request.params.sessionId, event: 'loaded' })
 
       return {}
