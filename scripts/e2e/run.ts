@@ -16,6 +16,7 @@ import { artifacts, stopAll, until } from './processes.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
 import { startStack } from './stack.ts'
 import { threadScenarios } from './thread-scenarios.ts'
+import { triggerScenarios } from './trigger-scenarios.ts'
 import { newTask, send } from './ui.ts'
 
 import type { Desktop } from './desktop.ts'
@@ -222,6 +223,7 @@ const scenarios: Scenario[] = [
       await page.screenshot({ path: `${artifacts}/question-skipped.png` })
     },
   },
+  ...triggerScenarios,
   ...connectorScenarios,
   ...bindingAccessScenarios,
   ...runtimeScenarios,
