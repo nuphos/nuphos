@@ -30,6 +30,7 @@ export function TurnInterruptedPartView({ part }: { part: TurnInterruptedPart })
     return (
       <FailureRow
         onSwitchAgent={turnSwitch?.partId === part.id ? turnSwitch.switchAgent : undefined}
+        onSetUpFallback={turnSwitch?.partId === part.id ? turnSwitch.setUpFallback : undefined}
         onRetry={retry}
         copyText={copyText}
       >

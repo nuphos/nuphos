@@ -30,7 +30,8 @@ import { useQueuedShareApproval } from './queuedShareApproval'
 import { QueuedStrip } from './QueuedStrip'
 import { cardReplyId } from './replyTarget'
 import { serverHasConversation } from './sessionActions'
-import { TurnSwitchAgentContext, turnSwitchAgent } from './turnFailureActions'
+import { useTurnFallbackSetup } from './TurnFallbackSetup'
+import { TurnSwitchAgentContext } from './turnFailureActions'
 import { TurnRetryContext, useFailedTurnRetry } from './turnRetryContext'
 import { useViewOnlyNotice } from './useViewOnlyNotice'
 
@@ -75,6 +76,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
   } = c
   const { runtimeControl: conversationControl } = useConversationRuntimeControl(c)
   const { runtimeControl, queuedApproval } = useQueuedShareApproval(conversationControl, activeTab)
+  const fallbackSetup = useTurnFallbackSetup(c, runtimeControl)
   const readOnlyNotice = useViewOnlyNotice(c)
   const questions = c.openQuestions
   const composerRef = useRef<HTMLDivElement>(null)
@@ -183,7 +185,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   onLinkClick: onOpenNuphosLink,
                 }}
               >
-                <TurnSwitchAgentContext.Provider value={turnSwitchAgent(activeTab)}>
+                <TurnSwitchAgentContext.Provider value={fallbackSetup.turnSwitch}>
                   <TurnRetryContext.Provider value={turnRetry}>
                     <Conversation
                       tab={shownTab ?? activeTab}
@@ -208,6 +210,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                     />
                   </TurnRetryContext.Provider>
                 </TurnSwitchAgentContext.Provider>
+                {fallbackSetup.dialog}
               </ConnectCardContext.Provider>
             </div>
             <div ref={composerRef} className="col-start-1 row-start-2 z-10">
