@@ -306,7 +306,7 @@ describe('Google Personal Credentials', () => {
     for (const [provider, scope] of [
       [
         'gmail',
-        'https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.settings.basic',
+        'https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.settings.basic https://www.googleapis.com/auth/contacts.readonly',
       ],
       ['google-drive', 'https://www.googleapis.com/auth/drive'],
     ] as const) {

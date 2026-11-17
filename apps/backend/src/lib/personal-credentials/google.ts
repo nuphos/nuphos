@@ -16,9 +16,13 @@ export type GoogleProvider = 'gmail' | 'google-drive'
 export const GOOGLE_PROVIDERS: readonly GoogleProvider[] = ['gmail', 'google-drive']
 
 const SCOPES: Record<GoogleProvider, string> = {
-  // settings.basic covers filters, which gmail.modify does not.
-  gmail:
-    'https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.settings.basic',
+  // settings.basic covers filters, which gmail.modify does not; contacts.readonly
+  // lets the agent look up who to write to.
+  gmail: [
+    'https://www.googleapis.com/auth/gmail.modify',
+    'https://www.googleapis.com/auth/gmail.settings.basic',
+    'https://www.googleapis.com/auth/contacts.readonly',
+  ].join(' '),
   'google-drive': 'https://www.googleapis.com/auth/drive',
 }
 
