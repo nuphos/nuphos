@@ -8,7 +8,7 @@ import { test } from 'node:test'
 
 import {
   nuphosSyncRuntimeSkills,
-  patchPersonalSkillsRefresh,
+  patchSkillsRefresh,
   patchRuntimeDefaults,
 } from '../image/runtime-defaults.mjs'
 
@@ -164,7 +164,7 @@ test('personal skills follow the turn’s credential, and a prompt never rebuild
       calls.length = 0
       if (token === undefined) await rm(credential, { force: true })
       else await writeFile(credential, `${token}\n`)
-      await globalThis.nuphosRefreshPersonalSkills(agent, { sessionId: 's1' })
+      await globalThis.nuphosRefreshSkills(agent, { sessionId: 's1' })
 
       return [...calls]
     }
@@ -221,7 +221,7 @@ test('personal skills follow the turn’s credential, and a prompt never rebuild
     await synced(reopened, run)
     assert.deepEqual(await readdir(skills), [])
   })
-  delete globalThis.nuphosRefreshPersonalSkills
+  delete globalThis.nuphosRefreshSkills
 })
 
 test('a reopened session never starts on another member’s personal skills', async () => {
@@ -248,7 +248,7 @@ test('a reopened session never starts on another member’s personal skills', as
       const onDisk = await readdir(join(claude, 'skills'))
 
       await fetch
-      delete globalThis.nuphosRefreshPersonalSkills
+      delete globalThis.nuphosRefreshSkills
 
       return onDisk
     }
@@ -262,14 +262,44 @@ test('a reopened session never starts on another member’s personal skills', as
   })
 })
 
-test('only the Claude adapter re-syncs personal skills before a prompt', () => {
-  const patched = patchPersonalSkillsRefresh('class A {\n    async prompt(params) {\n    }\n}')
+test('both adapters re-sync skills before a prompt', () => {
+  for (const signature of ['params', 'params, signal']) {
+    const patched = patchSkillsRefresh(`class A {\n    async prompt(${signature}) {\n    }\n}`)
 
-  assert.match(
-    patched,
-    /async prompt\(params\) \{\n\s+await globalThis\.nuphosRefreshPersonalSkills\?\.\(this, params\);/u,
-  )
-  assert.throws(() => patchPersonalSkillsRefresh('class A {}'), /exactly one/u)
+    assert.match(
+      patched,
+      /async prompt\(params(, signal)?\) \{\n\s+await globalThis\.nuphosRefreshSkills\?\.\(this, params\);/u,
+    )
+  }
+  assert.throws(() => patchSkillsRefresh('class A {}'), /exactly one/u)
+})
+
+test('a prompt re-syncs the team skills, so a live session gets a skill added after it opened', async () => {
+  // Each run records whether it was the team sync or a personal one.
+  const body =
+    '[ -n "$NUPHOS_RUNTIME_PERSONAL_SKILLS_DIR" ] && k=personal || k=team; echo $k >> "$NUPHOS_TEST_RECORD"'
+
+  for (const provider of ['codex', 'claudeCode'])
+    await withFakeScript(body, async ({ record, script, directory }) => {
+      const params = meta(
+        {
+          NUPHOS_RUNTIME_SKILLS_URL: 'https://bundle',
+          NUPHOS_RUNTIME_SKILLS_TOKEN: 'p.owner.1.sig',
+        },
+        provider,
+      )
+      const run = { script, env: { NUPHOS_TEST_RECORD: record } }
+
+      if (provider === 'claudeCode') run.sessionHome = directory
+      await synced(params, run)
+      const opened = (await readFile(record, 'utf8')).split('\n').filter((k) => k === 'team').length
+
+      await globalThis.nuphosRefreshSkills(undefined, { sessionId: 's1' })
+      const after = (await readFile(record, 'utf8')).split('\n').filter((k) => k === 'team').length
+
+      assert.equal(after, opened + 1, `${provider}: one team sync per prompt`)
+      delete globalThis.nuphosRefreshSkills
+    })
 })
 
 test('the Codex session shape is read too', async () => {
@@ -340,7 +370,7 @@ test('each session offers the team skills, and only those, as a plugin of its ow
           sessionHome: directory,
           env: { NUPHOS_RUNTIME_WORKSPACE: workspace },
         })
-        delete globalThis.nuphosRefreshPersonalSkills
+        delete globalThis.nuphosRefreshSkills
 
         return params._meta.claudeCode.options.plugins
       }
@@ -401,7 +431,7 @@ test('a skill added after the sync is fetched over, and never offered', async ()
           sessionHome: directory,
           env: { NUPHOS_RUNTIME_WORKSPACE: workspace, NUPHOS_TEST_RECORD: record },
         })
-        delete globalThis.nuphosRefreshPersonalSkills
+        delete globalThis.nuphosRefreshSkills
 
         return params._meta.claudeCode.options.plugins.map((plugin) =>
           plugin.path.split('/').at(-1),
@@ -452,7 +482,7 @@ test('a wrapper goes with its session’s process, or with the next session afte
         sessionHome: directory,
         env: { NUPHOS_RUNTIME_WORKSPACE: workspace },
       })
-      delete globalThis.nuphosRefreshPersonalSkills
+      delete globalThis.nuphosRefreshSkills
       assert.ok(await gone(stale))
       assert.ok(!(await gone(live)))
       await rm(live, { recursive: true })
