@@ -86,7 +86,10 @@ internal fun rememberComputerPresence(token: String?, teamId: String?, runtimeId
                         val api = AgentRuntimeApi(token, teamId)
                         val host = api.catalog().firstOrNull { it.id == runtimeId }?.local
                         // Only an offline Box can be paused; a computer known not to be a Box is not asked again.
-                        if (host?.online == false && devices.none { it.id == host.deviceId && it.box == null }) devices = api.devices(metrics = false)
+                        if (host?.online == false && devices.none { it.id == host.deviceId && it.box == null }) {
+                            // A failed devices read keeps the last list; the catalog alone still says offline.
+                            try { devices = api.devices(metrics = false) } catch (error: Exception) { if (error is CancellationException) throw error }
+                        }
                         if (allowed()) value = ComputerPresence.of(host, devices)
                         if (host == null) return@repeatOnLifecycle
                     } catch (error: Exception) { if (error is CancellationException) throw error }
