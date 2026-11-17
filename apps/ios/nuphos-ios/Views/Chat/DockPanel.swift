@@ -34,7 +34,7 @@ struct DockPanel: View {
             HStack {
                 Text("Dock").font(.headline).foregroundStyle(Theme.heading)
                 Spacer()
-                Button("Close", systemImage: "xmark", action: close)
+                DesignButton("Close", image: "lucide-x", action: close)
                     .labelStyle(.iconOnly)
                     .foregroundStyle(Theme.body)
                     .accessibilityIdentifier("dock-close")
@@ -46,9 +46,9 @@ struct DockPanel: View {
             // Below the list, not in it: a scrolled list would hide what the tap just did.
             if let notice {
                 HStack(spacing: 8) {
-                    Label(notice, systemImage: "macbook").font(Theme.Text.secondary).foregroundStyle(Theme.body)
+                    Label(notice, image: "lucide-laptop").font(Theme.Text.secondary).foregroundStyle(Theme.body)
                     Spacer(minLength: 4)
-                    Button("Dismiss", systemImage: "xmark") { self.notice = nil }.labelStyle(.iconOnly).foregroundStyle(Theme.muted)
+                    DesignButton("Dismiss", image: "lucide-x") { self.notice = nil }.labelStyle(.iconOnly).foregroundStyle(Theme.muted)
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)
@@ -71,7 +71,7 @@ struct DockPanel: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
                 ForEach(dock?.tabs ?? []) { tab in chip(tab) }
-                Button("New tab", systemImage: "plus") { searching = true }
+                DesignButton("New tab", image: "lucide-plus") { searching = true }
                     .labelStyle(.iconOnly)
                     .frame(width: 32, height: 32)
                     .background(Circle().fill(Theme.chatCanvas))
@@ -96,7 +96,7 @@ struct DockPanel: View {
                 }
             }
             .accessibilityIdentifier("dock-tab-\(tab.id)")
-            Button("Close \(tab.title)", systemImage: "xmark") { Task { await closeTab(tab) } }
+            DesignButton("Close \(tab.title)", image: "lucide-x") { Task { await closeTab(tab) } }
                 .labelStyle(.iconOnly)
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(Theme.muted)
@@ -122,7 +122,7 @@ struct DockPanel: View {
                     .accessibilityIdentifier("dock-search")
             }
             if let loadError, dock == nil {
-                Section { Label(loadError, systemImage: "exclamationmark.triangle").font(Theme.Text.secondary).foregroundStyle(Theme.muted) }
+                Section { Label(loadError, image: "lucide-triangle-alert").font(Theme.Text.secondary).foregroundStyle(Theme.muted) }
             }
             if query.trimmingCharacters(in: .whitespaces).isEmpty { groups } else { results }
         }
@@ -182,13 +182,13 @@ struct DockPanel: View {
     private func row(_ title: String, detail: String?, destination: DockDestination, id: String, systemImage: String? = nil) -> some View {
         Button { open(destination, tab: nil, title: title) } label: {
             HStack(spacing: 12) {
-                if let systemImage { Image(systemName: systemImage).foregroundStyle(Theme.muted).frame(width: 20) } else { icon(destination, kind: nil) }
+                if let systemImage { LucideIcon(systemName: systemImage).foregroundStyle(Theme.muted).frame(width: 20) } else { icon(destination, kind: nil) }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).foregroundStyle(Theme.heading).lineLimit(1)
                     if let detail { Text(detail).font(Theme.Text.label).foregroundStyle(Theme.muted).lineLimit(1) }
                 }
                 Spacer(minLength: 0)
-                if case .onMac = destination { Image(systemName: "macbook").font(.caption).foregroundStyle(Theme.muted) }
+                if case .onMac = destination { LucideIcon("laptop").font(.caption).foregroundStyle(Theme.muted) }
             }
             .contentShape(Rectangle())
         }
@@ -200,11 +200,11 @@ struct DockPanel: View {
         switch destination {
         case .web(let url):
             AsyncImage(url: Self.favicon(url)) { image in image.resizable().scaledToFit() } placeholder: {
-                Image(systemName: "globe").foregroundStyle(Theme.muted)
+                LucideIcon("globe").foregroundStyle(Theme.muted)
             }
             .frame(width: 18, height: 18)
         default:
-            Image(systemName: Self.symbol(destination, kind: kind)).foregroundStyle(Theme.muted).frame(width: 18)
+            LucideIcon(systemName: Self.symbol(destination, kind: kind)).foregroundStyle(Theme.muted).frame(width: 18)
         }
     }
 

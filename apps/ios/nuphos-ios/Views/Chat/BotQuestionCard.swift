@@ -179,7 +179,7 @@ struct BotQuestionCard: View {
                 Button { expanded.toggle() } label: {
                     HStack(spacing: 6) {
                         Text(expanded ? "Show less" : "Show more").font(.system(size: 15, weight: .semibold))
-                        Image(systemName: expanded ? "chevron.up" : "chevron.down").font(.system(size: 16, weight: .semibold))
+                        LucideIcon(systemName: expanded ? "chevron.up" : "chevron.down").font(.system(size: 16, weight: .semibold))
                     }
                     .foregroundStyle(Theme.heading)
                     .frame(maxWidth: .infinity, minHeight: 44)
@@ -232,7 +232,7 @@ struct DecisionForm: View {
                     ForEach(questions[index].options ?? [], id: \.self) { option in
                         let on = picked[index].contains(option)
                         Button { toggle(option, at: index) } label: {
-                            Label(option, systemImage: on ? "checkmark.circle.fill" : "circle")
+                            DesignLabel(option, systemImage: on ? "checkmark.circle.fill" : "circle")
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
