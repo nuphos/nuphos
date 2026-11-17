@@ -1,6 +1,8 @@
 // #3250: people meet Bots and Tasks, so no label on screen says "Agent".
 // Runs in the Task the scenario before opened and answered.
-import { artifacts } from './processes.ts'
+import { agentEvents } from './agent-log.ts'
+import { artifacts, until } from './processes.ts'
+import { newTask, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
@@ -25,6 +27,21 @@ export const agentWordScenarios: Scenario[] = [
       await page.getByText('Send message', { exact: true }).waitFor()
       await noAgentLabel(page, 'agent-words-shortcuts')
       await page.keyboard.press('Escape')
+    },
+  },
+  {
+    // Batch 2 of #3250: the composer says Replying..., not "Agent is replying...".
+    name: 'a Task at work says it is replying, not that an agent is',
+    run: async (page, stack) => {
+      await newTask(page)
+      await send(page, 'Work until stopped E2E_HOLD E2E_DELIVERY:words')
+      await until('the held turn to start', async () =>
+        agentEvents(stack).includes('start E2E_DELIVERY:words'),
+      )
+      await page.getByText('Replying...', { exact: true }).waitFor()
+      await page.screenshot({ path: `${artifacts}/agent-words-replying.png` })
+      await page.locator('button[title="Stop"]').click()
+      await page.getByText('Turn stopped').waitFor()
     },
   },
 ]
