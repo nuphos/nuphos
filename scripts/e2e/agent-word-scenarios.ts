@@ -1,8 +1,7 @@
 // #3250: people meet Bots and Tasks, so no label on screen says "Agent".
 // Runs in the Task the scenario before opened and answered.
-import { agentEvents } from './agent-log.ts'
-import { artifacts, until } from './processes.ts'
-import { newTask, send } from './ui.ts'
+import { artifacts } from './processes.ts'
+import { newTask } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
@@ -30,18 +29,22 @@ export const agentWordScenarios: Scenario[] = [
     },
   },
   {
-    // Batch 2 of #3250: the composer says Replying..., not "Agent is replying...".
-    name: 'a Task at work says it is replying, not that an agent is',
-    run: async (page, stack) => {
+    // Batch 2 of #3250: a new Task's summary says sub-tasks, not sub-agents.
+    name: "a new Task's summary names sub-tasks, not sub-agents",
+    run: async (page) => {
+      const toggle = page.getByRole('button', { name: /task summary$/ }).first()
+      const empty = page.getByText(/^Pull requests, sub-/)
+
       await newTask(page)
-      await send(page, 'Work until stopped E2E_HOLD E2E_DELIVERY:words')
-      await until('the held turn to start', async () =>
-        agentEvents(stack).includes('start E2E_DELIVERY:words'),
-      )
-      await page.getByText('Replying...', { exact: true }).waitFor()
-      await page.screenshot({ path: `${artifacts}/agent-words-replying.png` })
-      await page.locator('button[title="Stop"]').click()
-      await page.getByText('Turn stopped').waitFor()
+      await toggle.click()
+      await empty.waitFor()
+      // The panel slides in; shoot it once it has settled.
+      await page.waitForTimeout(1_000)
+      await page.screenshot({ path: `${artifacts}/agent-words-summary.png` })
+      const text = (await empty.textContent()) ?? ''
+
+      if (/\bagents?\b/i.test(text)) throw new Error(`The summary says: ${text}`)
+      await toggle.click()
     },
   },
 ]
