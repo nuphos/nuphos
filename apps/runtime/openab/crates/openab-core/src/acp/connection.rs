@@ -1103,7 +1103,12 @@ impl AcpConnection {
 
         self.send_raw(&data).await?;
 
-        let timeout_secs = if method == "session/new" { 120 } else { 30 };
+        // Restoring a session does everything opening one does (auth, skills, MCP servers, the
+        // model list) plus reading its transcript, so it gets at least the same budget.
+        let timeout_secs = match method {
+            "session/new" | "session/load" | "session/resume" => 120,
+            _ => 30,
+        };
         let closed = || AcpRequestError::ConnectionClosed {
             method: method.to_string(),
         };
@@ -1297,7 +1302,7 @@ impl AcpConnection {
                 if let Some(error) = response.error {
                     // An explicit rejection leaves the last acknowledged state
                     // usable, so a subsequent valid selection can be retried.
-                    return Err(anyhow!("{error}"));
+                    return Err(error.into());
                 }
                 let options = response
                     .result

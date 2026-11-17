@@ -57,7 +57,7 @@ struct PlanDetailView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.canvas)
-        .navigationTitle(plan?.displayNumber ?? "Plan")
+        .navigationTitle(plan?.displayNumber ?? String(localized: "Plan"))
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
@@ -133,7 +133,7 @@ struct PlanDetailView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Theme.body)
                     .padding(.top, 2)
-                Text(plan.title.isEmpty ? "Untitled plan" : plan.title)
+                Text(plan.title.isEmpty ? String(localized: "Untitled plan") : plan.title)
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(Theme.heading)
                     .textSelection(.enabled)
@@ -151,7 +151,7 @@ struct PlanDetailView: View {
                 }
                 if let createdAt = plan.createdAt {
                     if plans.member(plan.createdBy) != nil { Text("·") }
-                    Text(HistoryTime.format(createdAt) == "now" ? "just now" : "\(HistoryTime.format(createdAt)) ago")
+                    Text(HistoryTime.format(createdAt) == "now" ? String(localized: "just now") : String(localized: "\(HistoryTime.format(createdAt)) ago"))
                 }
             }
             .font(.system(size: 12))
@@ -160,8 +160,13 @@ struct PlanDetailView: View {
     }
 
     private func counts(_ plan: Plan) -> String {
-        var parts = ["\(plan.steps.count) step\(plan.steps.count == 1 ? "" : "s")", "\(plan.totalJobs) job\(plan.totalJobs == 1 ? "" : "s")"]
-        if plan.totalCommands > 0 { parts.append("\(plan.totalCommands) command\(plan.totalCommands == 1 ? "" : "s")") }
+        var parts = [
+            plan.steps.count == 1 ? String(localized: "1 step") : String(localized: "\(plan.steps.count) steps"),
+            plan.totalJobs == 1 ? String(localized: "1 job") : String(localized: "\(plan.totalJobs) jobs"),
+        ]
+        if plan.totalCommands > 0 {
+            parts.append(plan.totalCommands == 1 ? String(localized: "1 command") : String(localized: "\(plan.totalCommands) commands"))
+        }
         return parts.joined(separator: " · ")
     }
 
@@ -232,18 +237,20 @@ struct PlanDetailView: View {
             sectionTitle("Approval", systemImage: "checkmark.shield")
             if let p = plan.approvalProgress {
                 HStack(spacing: 10) {
-                    approvalChip("Requester", done: p.requesterApproved, required: p.requesterApprovalRequired)
-                    approvalChip("Team \(p.otherApprovals)/\(p.minimumOtherApprovals)", done: p.otherApprovals >= p.minimumOtherApprovals, required: p.minimumOtherApprovals > 0)
+                    approvalChip(String(localized: "Requester"), done: p.requesterApproved, required: p.requesterApprovalRequired)
+                    approvalChip(String(localized: "Team \(p.otherApprovals)/\(p.minimumOtherApprovals)"), done: p.otherApprovals >= p.minimumOtherApprovals, required: p.minimumOtherApprovals > 0)
                 }
                 if plan.status == "proposed" {
                     Text(p.remaining == 0
                          ? "Approval gate met."
-                         : "Waiting for \(p.remaining) more required approval\(p.remaining == 1 ? "" : "s").")
+                         : p.remaining == 1
+                         ? "Waiting for 1 more required approval."
+                         : "Waiting for \(p.remaining) more required approvals.")
                         .font(.system(size: 12))
                         .foregroundStyle(Theme.muted)
                 }
             } else {
-                Text("\(plan.approvalCount) approval\(plan.approvalCount == 1 ? "" : "s") recorded.")
+                Text(plan.approvalCount == 1 ? "1 approval recorded." : "\(plan.approvalCount) approvals recorded.")
                     .font(.system(size: 12))
                     .foregroundStyle(Theme.muted)
             }
@@ -312,7 +319,7 @@ struct PlanDetailView: View {
                 updated = try await plans.approve(plan)
             }
             if updated.status != "approved", updated.approvalCount == plan.approvalCount {
-                notice = "Your approval is already recorded on this plan."
+                notice = String(localized: "Your approval is already recorded on this plan.")
             }
         } catch {
             notice = error.localizedDescription

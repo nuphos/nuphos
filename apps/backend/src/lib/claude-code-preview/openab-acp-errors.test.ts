@@ -65,6 +65,26 @@ describe('turnFailureCause', () => {
     )
     expect(turnFailureCause(new AppError(409, 'runtime_disabled', 'Retired'))).toBe('offline')
     expect(turnFailureCause(new AppError(409, 'conversation_busy', 'Busy'))).toBe('other')
+  })
+
+  test('a Codex usage limit, on a > detail line, is the agent out of usage', () => {
+    // Runtime v0.1.50+ relays the adapter's bare message; the notice is only in the display text.
+    const relayed = new OpenAbRpcError(
+      '**Internal Error** (code: -32603)\nInternal error\n> You’ve hit your usage limit. Visit https://chatgpt.com/settings/usage to purchase more credits or try again at 5:12 PM.',
+      -32603,
+      {
+        code: -32603,
+        message: 'Internal error',
+      },
+    )
+    // Older runtimes send the display wrapper alone.
+    const wrappedOnly = new OpenAbRpcError(
+      '**Internal Error** (code: -32603)\nInternal error\n> You’ve hit your usage limit. Visit https://chatgpt.com/settings/usage to purchase more credits or try again at 5:12 PM.',
+      -32603,
+    )
+
+    expect(turnFailureCause(relayed)).toBe('usage_limit')
+    expect(turnFailureCause(wrappedOnly)).toBe('usage_limit')
     expect(turnFailureCause(new Error('internal detail'))).toBe('other')
   })
 })

@@ -8,11 +8,12 @@ import { nuphosReplyImages, nuphosUploadReplyImages } from './reply-images.mjs'
 // a container Nuphos never created. The backend instead delivers a one-conversation URL
 // and token in the session's own environment, so the runtime fetches its own bundle.
 //
-// Never holds a session open on the network: it returns once the session's own
-// directories are set up, and the fetch runs on as `synced` and lands for the next
-// session. Never fatal either — skills are an enrichment, not a precondition. The
-// script allows itself two minutes, so the timeout here is the real budget and the
-// kill is what enforces it.
+// A session waits for both fetches, because the agent reads its skills once, when it
+// starts: skills that land a moment later would be missing from the whole conversation.
+// A runtime that already holds the current bundle is answered 304 without a file being
+// read (#1923), so the wait is one round trip. Never fatal either — skills are an
+// enrichment, not a precondition. The script allows itself two minutes, so the timeout
+// here is the real budget and the kill is what enforces it.
 export async function nuphosSyncRuntimeSkills(params, run) {
   const env =
     params?._meta?.claudeCode?.options?.env ??
@@ -28,6 +29,8 @@ export async function nuphosSyncRuntimeSkills(params, run) {
   const { spawn } = await import('node:child_process')
   const path = await import('node:path')
   const fs = await import('node:fs/promises')
+  const os = await import('node:os')
+  const { createHash } = await import('node:crypto')
   const sync = (extra, timeoutMs = run?.timeoutMs ?? 20_000) =>
     new Promise((resolve) => {
       const child = spawn(run?.script ?? '/usr/local/bin/nuphos-sync-skills', {
@@ -73,12 +76,19 @@ export async function nuphosSyncRuntimeSkills(params, run) {
       })
     })
 
-  // Nobody waits for this, so a failure would otherwise vanish with the promise.
-  const teamSync = sync().then((ok) => {
-    if (!ok) process.stderr.write('runtime skills sync failed\n')
+  // The script's own default workspace; see the note on the child's environment above.
+  const teamSkills = path.join(
+    run?.env?.NUPHOS_RUNTIME_WORKSPACE ?? '/workspace',
+    '.claude',
+    'skills',
+  )
+  // Nothing reads the result past the wait, so a failure would otherwise vanish with it.
+  const syncTeam = () =>
+    sync().then((ok) => {
+      if (!ok) process.stderr.write('runtime skills sync failed\n')
 
-    return ok
-  })
+      return ok
+    })
   // The owner's personal skills go to this conversation's own home and are offered to
   // Claude Code as an additional directory, so no other conversation on the runtime
   // loads them. The home is derived from the conversation id, never taken from the
@@ -89,7 +99,40 @@ export async function nuphosSyncRuntimeSkills(params, run) {
     : (run?.sessionHome ??
       (typeof nuphosSessionHomeEnv === 'function' ? nuphosSessionHomeEnv(env).HOME : undefined))
 
-  if (!home) return { synced: teamSync }
+  if (!home) return { synced: Promise.resolve(await syncTeam()) }
+  // Whether a tree holds exactly the files of the revision recorded beside it. The
+  // revision is the backend's hash of the bundle's files (`revisionOf`), so a skill
+  // anyone added or changed after the sync, in a directory the agent can write to,
+  // fails it. A skill can carry hooks and allowed tools, so only such a tree is offered.
+  const intact = async (claudeDir) => {
+    const skillsDir = path.join(claudeDir, 'skills')
+    const files = []
+    const walk = async (dir, prefix) => {
+      for (const entry of await fs.readdir(dir, { withFileTypes: true })) {
+        const relative = prefix + entry.name
+
+        if (entry.isDirectory()) await walk(path.join(dir, entry.name), `${relative}/`)
+        else if (entry.isFile()) files.push(relative)
+        else throw new Error(`Not a file: ${relative}`)
+      }
+    }
+
+    try {
+      await walk(skillsDir, '')
+      if (!files.length) return true
+      const revision = await fs.readFile(path.join(claudeDir, '.skills-revision'), 'utf8')
+      const hash = createHash('sha256')
+
+      for (const relative of files.sort()) {
+        hash.update(`${relative}\0`)
+        hash.update(`${(await fs.readFile(path.join(skillsDir, relative))).toString('base64')}\0`)
+      }
+
+      return hash.digest('hex') === revision.trim()
+    } catch (error) {
+      return error?.code === 'ENOENT' && !files.length
+    }
+  }
   const personal = path.join(home, 'personal-skills')
   const skills = path.join(personal, '.claude', 'skills')
   // Whose personal skills, if anyone's, can change between the turns of a live session.
@@ -153,7 +196,12 @@ export async function nuphosSyncRuntimeSkills(params, run) {
   const opener = holder(await credentialFor(false))
 
   if (!opener || opener !== (await owner())) await empty()
-  const synced = Promise.all([teamSync, syncPersonal().catch(() => false)]).then(([team]) => team)
+  const checked = await intact(path.dirname(teamSkills))
+
+  // A tree that fails the check is fetched in full, not confirmed by its revision.
+  if (!checked)
+    await fs.rm(path.join(path.dirname(teamSkills), '.skills-revision'), { force: true })
+  const [synced] = await Promise.all([syncTeam(), syncPersonal().catch(() => false)])
 
   // Present even when empty, so a skill synced for a later turn is picked up.
   await fs.mkdir(skills, { recursive: true })
@@ -161,8 +209,58 @@ export async function nuphosSyncRuntimeSkills(params, run) {
     ...(options.additionalDirectories ?? []).filter((dir) => dir !== personal),
     personal,
   ]
+  // Claude Code runs on user settings only, and then registers no skill from the
+  // working directory or from an additional one. A plugin loads whatever the setting
+  // sources are, so the team's tree is offered as one, which names its skills
+  // `team:<skill>`. A plugin can also carry hooks and MCP servers, so the wrapper holds
+  // nothing but a manifest and a link to the skills, and each session gets a new one
+  // outside the workspace and the conversation's home. Claude Code reads plugin skills
+  // once, when the session starts, so a tree checked or fetched just now is what the
+  // session gets, and one that is neither is left out.
+  //
+  // Personal skills are not offered this way. Claude Code keeps a plugin skill's
+  // content from the start of the session, so in a shared conversation a teammate's
+  // turn could still invoke the opener's personal skills after the refresh above
+  // removed them from disk. They stay files in the additional directory, which the
+  // refresh does keep to the turn's own member.
+  // OpenAB runs one agent process per session, so a wrapper goes when its process
+  // exits, and one whose process is gone without that (killed, crashed) is swept by
+  // the next session to start.
+  const prefix = 'nuphos-skill-plugins-'
 
-  return { synced }
+  for (const entry of await fs.readdir(os.tmpdir()).catch(() => [])) {
+    const owner = Number(/^nuphos-skill-plugins-(\d+)-/u.exec(entry)?.[1])
+
+    if (!owner || owner === process.pid) continue
+    try {
+      process.kill(owner, 0)
+    } catch (error) {
+      if (error?.code === 'ESRCH')
+        await fs.rm(path.join(os.tmpdir(), entry), { recursive: true, force: true }).catch(() => {})
+    }
+  }
+  const plugins = await fs.mkdtemp(path.join(os.tmpdir(), `${prefix}${process.pid}-`))
+  const { rmSync } = await import('node:fs')
+
+  process.once('exit', () => rmSync(plugins, { recursive: true, force: true }))
+  const offered = checked || synced ? [['team', teamSkills]] : []
+
+  for (const [name, tree] of offered) {
+    await fs.mkdir(path.join(plugins, name, '.claude-plugin'), { recursive: true })
+    await fs.writeFile(
+      path.join(plugins, name, '.claude-plugin', 'plugin.json'),
+      JSON.stringify({ name }),
+    )
+    await fs.symlink(tree, path.join(plugins, name, 'skills'), 'junction')
+  }
+  options.plugins = [
+    ...(options.plugins ?? []).filter(
+      (plugin) => !path.basename(path.dirname(plugin?.path ?? '')).startsWith(prefix),
+    ),
+    ...offered.map(([name]) => ({ type: 'local', path: path.join(plugins, name) })),
+  ]
+
+  return { synced: Promise.resolve(synced) }
 }
 
 // Run inside the native adapter once a session has discovered its controls,

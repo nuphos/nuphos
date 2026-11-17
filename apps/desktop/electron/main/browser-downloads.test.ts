@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
+import { EventEmitter } from 'node:events'
 import { test } from 'node:test'
 
-import { isRepeatTabDownload } from './browser-downloads.ts'
+import { guardBrowserDownloads, isRepeatTabDownload } from './browser-downloads.ts'
+
+import type { Session, WebContents } from 'electron'
 
 const FILE = 'https://example.com/plan.docx'
 
@@ -51,4 +54,49 @@ test('a download without a tab is treated as the tab load', () => {
 
   assert.equal(isRepeatTabDownload(asked, item([FILE]), undefined), false)
   assert.equal(isRepeatTabDownload(asked, item([FILE]), undefined), true)
+})
+
+test('programmatic file navigation from an existing page asks once', () => {
+  const asked = new Set<string>()
+  const page = tab('https://example.com/docs')
+
+  assert.equal(isRepeatTabDownload(asked, item([FILE]), page, FILE), false)
+  assert.equal(isRepeatTabDownload(asked, item([FILE]), page, FILE), true)
+  // A later download clicked on the page has no pending programmatic navigation.
+  assert.equal(isRepeatTabDownload(asked, item([FILE]), page), false)
+})
+
+test('navigation tracking cancels automatic repeats but preserves page-initiated downloads', () => {
+  const session = new EventEmitter()
+  const contents = Object.assign(new EventEmitter(), tab('https://example.com/docs'))
+  const track = guardBrowserDownloads(session as unknown as Session)
+
+  track(contents as unknown as WebContents)
+  const download = () => {
+    let cancelled = false
+
+    session.emit(
+      'will-download',
+      {
+        preventDefault: () => {
+          cancelled = true
+        },
+      },
+      item([FILE]),
+      contents,
+    )
+
+    return cancelled
+  }
+  const navigate = () =>
+    contents.emit('did-start-navigation', { url: FILE, isMainFrame: true, isSameDocument: false })
+
+  navigate()
+  assert.equal(download(), false)
+  navigate()
+  assert.equal(download(), true)
+  navigate()
+  contents.emit('will-navigate', { url: FILE })
+  assert.equal(download(), false)
+  assert.equal(download(), false)
 })

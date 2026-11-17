@@ -13,13 +13,15 @@ import {
   recordAgentEvent,
   setConversationArchived,
   setConversationParent,
-  upsertConversationShell,
 } from './db'
 import { isChannel } from './db/channels'
+import { prepareThread } from './thread-delegation'
 import { relatedQuestionsNote } from './db/pending-decision'
 
-import type { ThreadModelPick } from './thread-runtime'
 import type { AgentConversation } from './db'
+import type { ThreadModelPick } from './thread-runtime'
+
+export { delegationThreadId } from './thread-delegation'
 
 export type ThreadActor = { userId: string; teamId: string; sessionId: string; locale: string }
 export type ThreadTurn = ThreadActor & {
@@ -64,15 +66,17 @@ export async function authorizeThreadDelivery(
 
 function receipt(
   actor: ThreadActor,
-  threadId: string,
   messageId: string,
-  status: 'started' | 'queued',
+  { status, target }: Awaited<ReturnType<typeof startThreadTurn>>,
 ) {
   return {
     status,
-    threadId,
+    threadId: target.sessionId,
     messageId,
-    _links: { web: `/teams/${actor.teamId}/agent/${threadId}` },
+    // Where this message runs, which the chat shows on its card.
+    ...(target.agentRuntime ? { agentRuntime: target.agentRuntime } : {}),
+    ...(target.runtimeLabel ? { runtimeLabel: target.runtimeLabel } : {}),
+    _links: { web: `/teams/${actor.teamId}/agent/${target.sessionId}` },
   }
 }
 
@@ -80,52 +84,19 @@ export async function createAgentThread(
   actor: ThreadActor,
   prompt: string,
   title: string,
-  pick: ThreadModelPick & { runtimeId?: string } = {},
+  pick: ThreadModelPick & { runtimeId?: string; requestId?: string } = {},
 ) {
   const source = await authorizeThreadActor(actor)
-  const { assertThreadRuntime, setThreadModel } = await import('./thread-runtime')
-  // The agent asked for, or its parent's.
-  const runtime = await assertThreadRuntime(actor, pick.runtimeId)
-  const threadId = randomUUID()
-  const messageId = randomUUID()
+  const { threadId, messageId } = await prepareThread(actor, source, prompt, title, pick)
+  const started = await startThreadTurn({ ...actor, targetSessionId: threadId, messageId, prompt })
 
-  await upsertConversationShell({
-    sessionId: threadId,
-    userId: actor.userId,
-    teamId: actor.teamId,
-    title,
-    firstMessage: prompt,
-    locale: actor.locale,
-    source: 'agent.thread',
-    agentRuntime: runtime?.provider ?? source.agentRuntime,
-    runtimeId: runtime?.id ?? source.runtimeId,
-    runtimeLabel: runtime?.label ?? source.runtimeLabel,
-    parentSessionId: actor.sessionId,
-    parentGrants: source,
-    workspace: source.workspace,
-  })
-
-  try {
-    await setThreadModel(threadId, actor.userId, pick)
-  } catch (error) {
-    // Nothing ran yet; a refused pick hides the unused conversation.
-    await setConversationArchived(threadId, true)
-    throw error
-  }
-  const { status } = await startThreadTurn({
-    ...actor,
-    targetSessionId: threadId,
-    messageId,
-    prompt,
-  })
-
-  return { ...receipt(actor, threadId, messageId, status), sourceThreadId: actor.sessionId }
+  return { ...receipt(actor, messageId, started), sourceThreadId: actor.sessionId }
 }
 
 export async function sendAgentThreadMessage(actor: ThreadActor, threadId: string, prompt: string) {
   const data = { ...actor, targetSessionId: threadId, messageId: randomUUID(), prompt }
 
-  return receipt(actor, threadId, data.messageId, (await startThreadTurn(data)).status)
+  return receipt(actor, data.messageId, await startThreadTurn(data))
 }
 
 /** The agents the owner can run a thread on, each with its readiness and usage. */
@@ -242,7 +213,7 @@ export async function startThreadTurn(data: ThreadTurn) {
     })
   })
 
-  return { status, run }
+  return { status, run, target }
 }
 
 export async function setAgentThreadParent(

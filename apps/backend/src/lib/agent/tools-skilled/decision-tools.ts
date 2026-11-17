@@ -290,7 +290,8 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
     userDecisionTools.list_user_decisions = tool({
       description:
         'List the questions you asked with request_user_decision that are still waiting for the user, oldest first, each with its `requestId`. ' +
-        'Check it before asking again, and to find the requestId for update_user_decision or withdraw_user_decision.',
+        'Check it before asking again, and to find the requestId for update_user_decision or withdraw_user_decision. ' +
+        'A request with `snoozedUntil` was set aside by the user until then: it is still open, so do not ask it again or remind them before that time.',
       inputSchema: z.object({ label: labelField }),
     })
   }

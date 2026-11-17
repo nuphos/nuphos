@@ -10,6 +10,7 @@ import {
 import { grafanaBindingToken } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
+import { requireBindingMemberAccess } from '@/middleware/auth/binding-access'
 
 import type {
   CloudflareAccountVariables,
@@ -43,6 +44,7 @@ export function requireGrafanaInstance(): MiddlewareHandler<{
     c.set('grafanaUrl', binding.grafanaUrl)
     c.set('grafanaSaToken', grafanaBindingToken(binding))
     c.set('grafanaName', binding.name)
+    c.set('grafanaAccess', binding.access)
     await next()
   }
 }
@@ -74,6 +76,7 @@ export function requireGithubInstallation(): MiddlewareHandler<{
     c.set('githubInstallationId', installationId)
     c.set('githubAccountLogin', binding.accountLogin)
     c.set('githubAccountType', binding.accountType)
+    c.set('githubBinding', binding)
     await next()
   }
 }
@@ -163,3 +166,31 @@ export function requireCloudflareAccount(): MiddlewareHandler<{
     await next()
   }
 }
+
+export const requireGithubMemberAccess = () =>
+  requireBindingMemberAccess<{ Variables: GithubInstallationVariables }>(
+    (c) => c.get('githubBinding').access,
+    'github_installation_access_denied',
+    'You are not allowed to use this GitHub installation',
+  )
+
+export const requireGitlabMemberAccess = () =>
+  requireBindingMemberAccess<{ Variables: GitlabBindingVariables }>(
+    (c) => c.get('gitlabBinding').access,
+    'gitlab_binding_access_denied',
+    'You are not allowed to use this GitLab binding',
+  )
+
+export const requireCloudflareMemberAccess = () =>
+  requireBindingMemberAccess<{ Variables: CloudflareAccountVariables }>(
+    (c) => c.get('cloudflareBinding').access,
+    'cloudflare_account_access_denied',
+    'You are not allowed to use this Cloudflare account binding',
+  )
+
+export const requireGrafanaMemberAccess = () =>
+  requireBindingMemberAccess<{ Variables: GrafanaInstanceVariables }>(
+    (c) => c.get('grafanaAccess'),
+    'grafana_instance_access_denied',
+    'You are not allowed to use this Grafana instance',
+  )

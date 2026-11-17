@@ -41,6 +41,8 @@ export type AgentChatBody = {
   decisionReplyTo?: string
   clientCapabilities?: {
     localTools?: boolean
+    /** The client draws the secure input card for a secret the agent asks for, as the phone apps do. */
+    secretCard?: boolean
     /** The client reads a 202 for a queued message. Without it, a queued send gets an SSE that ends at once. */
     serverQueue?: boolean
   }
@@ -61,6 +63,7 @@ export type InternalChatCtx = {
   locale: string
   currentUrl: string | null
   localToolsEnabled: boolean
+  secretCardEnabled?: boolean
   // Kubeconfig context the desktop's current workspace tab is bound to (sent
   // via X-Atlas-Kube-Context). Plumbed into the system prompt so the agent
   // knows which `context` to pass to typed K8s tools like port_forward_start
@@ -101,6 +104,10 @@ export type AgentRun = {
   /** Every message the turn started with was a channel's wake-up notice. */
   channelWoken?: boolean
   frames: string[]
+  /** The last runtime snapshot this run carried, to drop an unchanged repeat. */
+  lastRuntimeSnapshot?: string
+  /** The slash commands a snapshot last carried; later ones leave unchanged ones out. */
+  lastRuntimeCommands?: string
   done: boolean
   // Latest finishReason observed from streamText's onFinish. Stays undefined
   // when the run aborts/errors before onFinish fires, which is exactly the

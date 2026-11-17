@@ -4,6 +4,7 @@ import { agentConversations } from './shared'
 
 import type { PersonalCredentialRef } from '@/lib/agent/tools-skilled/decision-tools'
 import type { ExplicitUserDecision } from '@/lib/agent/tools-skilled/types'
+import type { WaitingAnswer } from '@/lib/agent/waiting-answers'
 
 /**
  * A request_user_decision card the owner has to answer, kept on the conversation
@@ -26,6 +27,8 @@ export type InputRequest = ExplicitUserDecision & {
   /** The linked resources and sub-agent threads it is about: their changes remind the agent of it. */
   about?: string[]
   askedAt: Date
+  /** Set aside by the owner: out of their Inbox until then, still answerable where it was asked. */
+  snoozedUntil?: Date
   /** Always 'open': clients still filter on it. */
   status: 'open'
 }
@@ -34,6 +37,8 @@ export type InputRequest = ExplicitUserDecision & {
 export type ConversationInputRequests = {
   /** The open questions asked through request_user_decision. */
   inputRequests?: InputRequest[]
+  /** Answered questions whose agent could not run the answer yet. */
+  waitingAnswers?: WaitingAnswer[]
 }
 
 /** A new question joins the open ones; it never replaces another open request. */
@@ -141,6 +146,25 @@ export async function resolveInputRequest(
   const result = await agentConversations().updateOne(
     { sessionId, userId, 'inputRequests.id': id },
     { $pull: { inputRequests: { id } } },
+  )
+
+  return result.matchedCount > 0
+}
+
+/**
+ * The owner sets an open request aside until `until`, or brings it back with
+ * null. The agent is not told. False when it is not open.
+ */
+export async function snoozeInputRequest(
+  sessionId: string,
+  userId: string,
+  id: string,
+  until: Date | null,
+): Promise<boolean> {
+  const field = 'inputRequests.$.snoozedUntil'
+  const result = await agentConversations().updateOne(
+    { sessionId, userId, inputRequests: { $elemMatch: { id, status: 'open' } } },
+    until ? { $set: { [field]: until } } : { $unset: { [field]: '' } },
   )
 
   return result.matchedCount > 0

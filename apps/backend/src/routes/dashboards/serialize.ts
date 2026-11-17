@@ -65,6 +65,7 @@ export function serializeDashboard(doc: NuphosDashboard) {
     cadence: doc.cadence ?? null,
     nextRefreshAt: doc.nextRefreshAt?.toISOString() ?? null,
     lastScheduledRefreshAt: doc.lastScheduledRefreshAt?.toISOString() ?? null,
+    visibility: doc.visibility ?? 'team',
     createdBy: doc.createdBy,
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt.toISOString(),

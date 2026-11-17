@@ -14,7 +14,7 @@ import type { TeamMember } from '../../types'
 // The IPC layer carries a backend error's code under this sentinel (api/errors.ts).
 const refusal = (code: string) =>
   new Error(
-    `__ATLAS_API_ERROR__${JSON.stringify({ code, message: 'Your team has no Box plan; upgrade to start a Box' })}`,
+    `__ATLAS_API_ERROR__${JSON.stringify({ code, message: "Your team's plan doesn't include cloud computers. Choose a computer plan to start one." })}`,
   )
 
 afterEach(() => boxPaywall.close())
@@ -35,7 +35,7 @@ test('only the plan refusal opens the paywall; anything else is left to the call
     true,
   )
   assert.equal(boxPaywall.current()?.teamId, 't1')
-  assert.match(boxPaywall.current()?.message ?? '', /no Box plan/)
+  assert.match(boxPaywall.current()?.message ?? '', /doesn't include cloud computers/)
 })
 
 test('after a plan is bought, the paywall closes and the refused start runs once', () => {

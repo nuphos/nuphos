@@ -27,11 +27,19 @@ export type BoxUpdateDeps = {
   canManage: (actorId: string, teamId: string, ref: LocalRuntimeRef) => Promise<boolean>
   status: (ref: LocalRuntimeRef) => Promise<LocalRuntimeStatus | undefined>
   latestVersion: () => Promise<{ version: string; url: string } | null>
-  /** Whether that agent is mid-turn, asked as `actorId`; an agent that cannot be reached counts as idle. */
-  busy: (teamId: string, runtimeId: string, actorId: string) => Promise<boolean>
+  busy: typeof boxAgentBusy
   update: (ref: LocalRuntimeRef) => Promise<unknown>
   /** Notes the restart on the Box, so every viewer sees it updating rather than offline. */
   markUpdating: (ref: LocalRuntimeRef) => Promise<unknown>
+}
+
+/** Whether that agent is mid-turn, asked as `actorId`; an agent that cannot be reached counts as idle. */
+export async function boxAgentBusy(teamId: string, runtimeId: string, actorId: string) {
+  const endpoint = await resolveLocalRuntimeEndpoint(teamId, runtimeId, actorId, 'control').catch(
+    () => null,
+  )
+
+  return endpoint ? endpointHasActiveTurn(endpoint) : false
 }
 
 const defaultDeps: BoxUpdateDeps = {
@@ -44,13 +52,7 @@ const defaultDeps: BoxUpdateDeps = {
   status: async ({ userId, deviceId }) =>
     (await runtimePresenceStore().get(userId, deviceId))?.status,
   latestVersion: latestCliRelease,
-  busy: async (teamId, runtimeId, actorId) => {
-    const endpoint = await resolveLocalRuntimeEndpoint(teamId, runtimeId, actorId, 'control').catch(
-      () => null,
-    )
-
-    return endpoint ? endpointHasActiveTurn(endpoint) : false
-  },
+  busy: boxAgentBusy,
   update: ({ userId, deviceId }) => resumeBox(userId, deviceId, BOX_UPDATE_COMMAND),
   markUpdating: ({ userId, deviceId }) => markBoxUpdateStarted(userId, deviceId),
 }
@@ -82,7 +84,7 @@ export async function boxUpdateStatus(runtimeId: string, deps = defaultDeps) {
 }
 
 /** Every agent the host runs; one restart ends them all. */
-function hostAgents({ userId, deviceId }: LocalRuntimeRef, status: LocalRuntimeStatus) {
+export function hostAgents({ userId, deviceId }: LocalRuntimeRef, status: LocalRuntimeStatus) {
   const agents: LocalAgentRef[] = [
     ...(Object.keys(status.agents) as LocalAgentRef['provider'][]).map((provider) => ({
       userId,
@@ -112,7 +114,7 @@ export async function requestBoxUpdate(
   if (!(await deps.canManage(actorId, teamId, found.ref)))
     throw new AppError(404, 'device_not_found', 'Device is not available')
   if (!found.status)
-    throw new AppError(409, 'runtime_offline', 'The Box is offline. Open it, then update.')
+    throw new AppError(409, 'runtime_offline', 'The computer is offline. Open it, then update.')
   const release = await deps.latestVersion()
 
   if (!release)

@@ -38,6 +38,7 @@ import { connectDb, closeDb } from '@/lib/db'
 import { watchDevLauncher } from '@/lib/dev-launcher-watchdog'
 import { devTlsOptions } from '@/lib/dev-tls'
 import { initDiscordGateway, shutdownDiscordGateway } from '@/lib/discord/gateway'
+import { startEventLoopStallLog } from '@/lib/event-loop-stall'
 import { backfillPersonalTokenExpiry } from '@/lib/identity/cli-tokens'
 import { initInternalTokens } from '@/lib/internal-token'
 import { initJournalSealer, shutdownJournalSealer } from '@/lib/journal/seal-scheduler'
@@ -142,6 +143,7 @@ const stopRuntimeHandoffAdoption = startRuntimeHandoffAdoption()
 
 if (await initDiscordGateway()) logEvent('info', 'backend.discord_gateway.ready')
 startHealthTelemetry()
+startEventLoopStallLog()
 
 // Bun only prints these; log them so the next one names its request and time.
 process.on('unhandledRejection', (error) => {

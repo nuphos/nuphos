@@ -113,6 +113,8 @@ export async function updateTrigger(
 
   // A missed-run marker belongs to the schedule it was raised for.
   if (cronChanged || timeZoneChanged || enabledChanged) $unset.missedRunAt = true
+  // The reason it was paused for, which its owner has now acted on.
+  if (enabledChanged && nextEnabled) $unset.executionAuthorizationError = true
   if (Object.keys($unset).length > 0) {
     update.$unset = $unset
   }

@@ -29,6 +29,7 @@ export type PanelSnapshotErrorKind =
   | 'invalid_output'
   | 'runtime_unavailable'
   | 'runtime_outdated'
+  | 'author_unavailable'
   // Only on snapshots from the retired sandbox executor.
   | 'sandbox_expired'
   | 'internal'

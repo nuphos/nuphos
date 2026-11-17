@@ -66,20 +66,32 @@ export async function nuphosToolsMcp(
 }
 
 /**
- * A short hash of the conversation's tool names, declared in the `nuphos-tools`
- * URL. Agents read the tool list only when they start, so the runtime respawns
- * an idle agent, resuming its conversation, when this changes.
+ * A short hash of the tools' names and input schemas: a new parameter on an
+ * existing tool counts too. Descriptions are left out, as they embed per-turn
+ * data (the date, the selected credentials) that would respawn every turn.
+ */
+export function toolsHash(definitions: readonly unknown[]): string {
+  const tools = definitions.map((definition) => {
+    const { name, inputSchema } = definition as { name: string; inputSchema?: unknown }
+
+    return JSON.stringify([name, inputSchema ?? null])
+  })
+
+  return createHash('sha256').update(tools.join('\n')).digest('hex').slice(0, 12)
+}
+
+/**
+ * The conversation's `toolsHash`, declared in the `nuphos-tools` URL. Agents
+ * read the tool list only when they start, so the runtime respawns an idle
+ * agent, resuming its conversation, when this changes.
  */
 export async function nuphosToolsVersion(
   args: Parameters<typeof resolvePreviewToolContext>[0],
 ): Promise<string | undefined> {
   try {
     const modules = await previewToolModules(await resolvePreviewToolContext(args))
-    const names = nuphosToolsSurface(modules).toolDefinitions.map(
-      (definition) => (definition as { name: string }).name,
-    )
 
-    return createHash('sha256').update(names.join('\n')).digest('hex').slice(0, 12)
+    return toolsHash(nuphosToolsSurface(modules).toolDefinitions)
   } catch {
     return undefined
   }

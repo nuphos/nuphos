@@ -93,6 +93,8 @@ final class ChannelSession {
         sendingAttachments = sendingAttachments.filter { id, _ in sending.contains { $0.id == id } }
         events = detail.timelineEvents
         agents = listed
+        // A teammate's Bot is in none of this viewer's lists: its face comes from the chat.
+        for agent in listed { BotFaces.shared.learn(agent.sessionId, avatar: agent.avatar) }
         readOnly = detail.readOnly ?? false
         if let title = detail.title, !title.isEmpty { self.title = title }
         faces = detail.faces
@@ -140,7 +142,7 @@ final class ChannelSession {
         Task { await questions.answer(question, with: answer) }
     }
 
-    /// Withdraws a question unanswered, as the desktop's dismissal does: it wakes no one.
+    /// Withdraws a question unanswered, as the desktop's Skip does: the agent that asked is told.
     func skip(_ question: BotQuestion) {
         Task { await questions.dismiss(question) }
     }

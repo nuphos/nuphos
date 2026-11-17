@@ -5,6 +5,8 @@
     <string name="chat_event_expand">Expandir evento</string>
     <string name="chat_channel_new_messages">Mensajes nuevos en #%1$s</string>
     <string name="chat_open_channel">Abrir canal</string>
+    <string name="chat_channel_sent_file">Envió un archivo</string>
+    <string name="chat_channel_more_posts">+%1$d más</string>
     <string name="chat_answered_by">%1$s respondió</string>
     <string name="chat_question_collapse">Contraer pregunta</string>
     <string name="chat_question_expand">Expandir pregunta</string>
@@ -68,8 +70,8 @@
     <string name="chat_image_close">Cerrar</string>
     <string name="chat_image_reset_zoom">Restablecer zoom</string>
     <string name="chat_video_save">Guardar video</string>
-    <string name="chat_image_previous">Imagen anterior</string>
-    <string name="chat_image_next">Imagen siguiente</string>
+    <string name="chat_image_previous">Anterior</string>
+    <string name="chat_image_next">Siguiente</string>
     <string name="chat_image_zoom_in">Acercar</string>
     <string name="chat_image_zoom_percent">Zoom al %1$d %%</string>
     <string name="chat_video_position">Video %1$d de %2$d</string>

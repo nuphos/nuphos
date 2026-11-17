@@ -30,11 +30,16 @@ export function appendAgentRunFrame(run: AgentRun, frame: string) {
 
     return
   }
-  run.frames.push(frame)
+  const frameType = agentRunFrameType(frame)
+
+  // Even a repeat shows the producer is alive, which the stall sweeper reads.
   run.lastAccessAt = Date.now()
   run.lastFrameAt = run.lastAccessAt
-  mirrorAgentRunFrame(run.userId, run.streamId, frame)
-  const frameType = agentRunFrameType(frame)
+  const kept = frameType === 'runtime-state' ? changedRuntimeState(run, frame) : frame
+
+  if (kept === undefined) return
+  run.frames.push(kept)
+  mirrorAgentRunFrame(run.userId, run.streamId, kept)
 
   if (
     frameType === 'error' ||
@@ -62,6 +67,28 @@ export function appendAgentRunFrame(run: AgentRun, frame: string) {
     notifyApprovalRequested(run)
   }
   for (const subscriber of run.subscribers) subscriber.poke()
+}
+
+/** Drop a repeat, and unchanged commands: clients keep the last list (an empty one is `[]`). */
+function changedRuntimeState(run: AgentRun, frame: string): string | undefined {
+  const payload = JSON.parse(frame.slice('data: '.length)) as {
+    snapshot?: { commands?: unknown }
+  }
+  const snapshot = JSON.stringify(payload.snapshot)
+
+  if (snapshot === run.lastRuntimeSnapshot) return undefined
+  run.lastRuntimeSnapshot = snapshot
+  if (payload.snapshot?.commands === undefined) return frame
+  const commands = JSON.stringify(payload.snapshot.commands)
+
+  if (commands !== run.lastRuntimeCommands) {
+    run.lastRuntimeCommands = commands
+
+    return frame
+  }
+  const { commands: _unchanged, ...rest } = payload.snapshot
+
+  return `data: ${JSON.stringify({ ...payload, snapshot: rest })}\n\n`
 }
 
 function recordConversationActivity(run: AgentRun) {

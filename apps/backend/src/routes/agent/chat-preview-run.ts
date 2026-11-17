@@ -42,6 +42,8 @@ export type PreviewChatTurnArgs = {
   kubeContext?: string
   /** The client driving this turn can run port forwards and other client-side local tools. */
   localToolsEnabled?: boolean
+  /** The client driving this turn draws the secure input card. */
+  secretCardEnabled?: boolean
   /** Set when the client is resuming a turn rather than sending a new message. */
   resume?: { reason?: NonNullable<AgentChatBody['resumeReason']> }
   diagramId?: string

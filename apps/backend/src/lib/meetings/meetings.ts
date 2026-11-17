@@ -24,6 +24,7 @@ export type RecallEvent = {
       words?: { text: string }[]
       participant?: Participant
       data?: { text?: string }
+      code?: string
       sub_code?: string | null
     }
     bot: { id: string }
@@ -122,7 +123,12 @@ async function meetingOf(actor: ThreadActor, threadId = actor.sessionId) {
   const caller = await authorizeThreadActor(actor)
   const task = await getConversationBySessionId(threadId)
 
-  if (!task?.meeting || task.userId !== caller.userId || task.teamId !== caller.teamId)
+  if (
+    !task?.meeting ||
+    task.meeting.endedAt ||
+    task.userId !== caller.userId ||
+    task.teamId !== caller.teamId
+  )
     throw new Error('That conversation is not in a meeting.')
 
   return task.meeting
@@ -151,10 +157,21 @@ export function joinWords(words: readonly { text: string }[]): string {
     }, '')
 }
 
+// Recall's status events for a bot that is out of its call, from the dashboard webhook.
+const CALL_ENDED = new Set(['bot.call_ended', 'bot.fatal'])
+
+function callEndedText({ code, sub_code }: RecallEvent['data']['data']): string | undefined {
+  // The Task asked for this one (meeting_leave or Stop), so there is nothing to tell it.
+  if (sub_code === 'bot_received_leave_call') return
+
+  return `You are no longer in the call (${sub_code ?? code ?? 'no reason given'}): nothing more will arrive from it, and meeting_chat and meeting_leave no longer work.`
+}
+
 /** What a Recall event says, or nothing for the bot's own chat and empty speech. */
 export function eventText(event: RecallEvent, botName: string): string | undefined {
   const { words, participant, data } = event.data.data
 
+  if (CALL_ENDED.has(event.event)) return callEndedText(event.data.data)
   if (event.event === 'transcript.data') return joinWords(words ?? []) || undefined
   if (event.event === 'transcript.failed')
     return `Speech recognition failed in this meeting (${event.data.data.sub_code ?? 'no reason given'}), so speech can't be heard. The chat still works.`
@@ -166,11 +183,20 @@ export function eventText(event: RecallEvent, botName: string): string | undefin
 
 /** One Recall delivery becomes one message to the meeting's Task; a redelivery is stored once. */
 export async function handleRecallEvent(deliveryId: string, event: RecallEvent): Promise<void> {
-  const task = await agentConversations().findOne({ 'meeting.botId': event.data.bot.id })
+  const live = { 'meeting.botId': event.data.bot.id, 'meeting.endedAt': { $exists: false } }
+  const ended = CALL_ENDED.has(event.event)
+  // The first of a bot's end events ends its meeting, so the Task hears of it once.
+  const task = ended
+    ? await agentConversations().findOneAndUpdate(
+        live,
+        { $set: { 'meeting.endedAt': new Date() } },
+        { returnDocument: 'before' },
+      )
+    : await agentConversations().findOne(live)
 
   if (!task?.meeting || !task.teamId) return
   // An archived Task stays archived, and nobody is left to hear the call.
-  if (task.archivedAt) return leaveMeeting(task.meeting.botId)
+  if (task.archivedAt) return ended ? undefined : leaveMeeting(task.meeting.botId)
   const text = eventText(event, task.meeting.botName)
 
   // A Task runs as its owner, so it goes quiet once its owner leaves the team.

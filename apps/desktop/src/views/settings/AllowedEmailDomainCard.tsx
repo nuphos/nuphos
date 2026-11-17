@@ -1,10 +1,10 @@
-import { faAt } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { AtSign as AtSignIcon } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../api'
 import { Switch } from '../../components/ui/Switch'
 import { toast } from '../../components/ui/toast'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { t } from '../../i18n'
 
 import { AdminOnlyHint } from './shared'
@@ -62,7 +62,7 @@ export function AllowedEmailDomainCard({
       </div>
 
       <div className="flex items-center gap-4 rounded-lg border border-line-control/70 bg-surface px-4 py-3.5">
-        <FontAwesomeIcon icon={faAt} className="w-3.5 h-3.5 flex-shrink-0 text-tertiary" />
+        <UiIcon size={14} icon={AtSignIcon} className="w-3.5 h-3.5 flex-shrink-0 text-tertiary" />
         <div className="min-w-0 flex-1">
           <div className="font-mono text-[12.5px] text-main truncate">
             {displayDomains.map((domain) => `@${domain}`).join(', ') || '—'}

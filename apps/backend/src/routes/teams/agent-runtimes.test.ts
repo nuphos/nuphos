@@ -120,7 +120,7 @@ test.each(['claude-code', 'codex', 'grok', 'antigravity', 'opencode'])(
       expect(await response.json()).toEqual({
         code: 'managed_runtime_retired',
         message:
-          'Managed runtimes are being retired. Add a Nuphos Box or connect your own computer instead.',
+          'Managed runtimes are being retired. Add a Nuphos cloud computer or connect your own computer instead.',
       })
     }
   },

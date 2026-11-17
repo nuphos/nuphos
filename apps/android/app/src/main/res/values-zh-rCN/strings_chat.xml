@@ -5,6 +5,8 @@
     <string name="chat_event_expand">展开事件</string>
     <string name="chat_channel_new_messages">#%1$s 有新消息</string>
     <string name="chat_open_channel">打开频道</string>
+    <string name="chat_channel_sent_file">发送了文件</string>
+    <string name="chat_channel_more_posts">还有 %1$d 条</string>
     <string name="chat_answered_by">%1$s 已回答</string>
     <string name="chat_question_collapse">折叠问题</string>
     <string name="chat_question_expand">展开问题</string>
@@ -68,8 +70,8 @@
     <string name="chat_image_close">关闭</string>
     <string name="chat_image_reset_zoom">重置缩放</string>
     <string name="chat_video_save">保存视频</string>
-    <string name="chat_image_previous">上一张图片</string>
-    <string name="chat_image_next">下一张图片</string>
+    <string name="chat_image_previous">上一个</string>
+    <string name="chat_image_next">下一个</string>
     <string name="chat_image_zoom_in">放大</string>
     <string name="chat_image_zoom_percent">缩放 %1$d%%</string>
     <string name="chat_video_position">第 %1$d 个视频，共 %2$d 个</string>
