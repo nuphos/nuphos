@@ -57,6 +57,11 @@ export const channelAwayScenarios: Scenario[] = [
       })
       const before = await failed.count()
 
+      // The scenario before moved the chat's runtime and back. A turn opens the Bot's session on
+      // its host again, so the host going away cuts a live session (no session: #3284).
+      await post('Before it goes E2E_DELIVERY:awake')
+      await page.getByText('POSTED E2E_DELIVERY:awake', { exact: true }).first().waitFor()
+
       await stack.restartAgentHost(async () => {
         await post('While it is away E2E_DELIVERY:away')
         // A reconnecting runtime gets a minute before the post counts as undelivered.
