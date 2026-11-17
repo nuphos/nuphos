@@ -14,6 +14,7 @@ import { connectorScenarios } from './connector-scenarios.ts'
 import { dashboardScenarios } from './dashboard-scenarios.ts'
 import { installScenarios } from './install-scenarios.ts'
 import { startDesktop } from './desktop.ts'
+import { fallbackScenarios } from './fallback-scenarios.ts'
 import { formScenario } from './form-scenario.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
@@ -235,6 +236,7 @@ const scenarios: Scenario[] = [
   ...threadScenarios,
   ...offlineScenarios,
   threadModeScenario,
+  ...fallbackScenarios,
   // It removes a member from the team.
   ...dashboardScenarios,
   // It leaves the window split, then closes a pane.
