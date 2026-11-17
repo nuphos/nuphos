@@ -7,6 +7,9 @@ import ko from './locales/ko.json' with { type: 'json' }
 import th from './locales/th.json' with { type: 'json' }
 import zhCN from './locales/zh-CN.json' with { type: 'json' }
 import zhTW from './locales/zh-TW.json' with { type: 'json' }
+import { englishText, fillText, LOCALES, matchLocale } from './languages.ts'
+
+import type { Locale } from './languages.ts'
 
 /**
  * UI text is written in English and the English string is the key. A locale
@@ -15,18 +18,8 @@ import zhTW from './locales/zh-TW.json' with { type: 'json' }
  */
 export type Messages = Record<string, string>
 
-export const LOCALES = [
-  { code: 'en', name: 'English' },
-  { code: 'zh-TW', name: '繁體中文' },
-  { code: 'zh-CN', name: '简体中文' },
-  { code: 'ja', name: '日本語' },
-  { code: 'ko', name: '한국어' },
-  { code: 'th', name: 'ไทย' },
-  { code: 'id', name: 'Bahasa Indonesia' },
-  { code: 'es', name: 'Español' },
-] as const
-
-export type Locale = (typeof LOCALES)[number]['code']
+export { LOCALES, matchLocale } from './languages.ts'
+export type { Locale } from './languages.ts'
 
 export const MESSAGES: Record<Exclude<Locale, 'en'>, Messages> = {
   'zh-TW': zhTW,
@@ -39,17 +32,6 @@ export const MESSAGES: Record<Exclude<Locale, 'en'>, Messages> = {
 }
 
 const KEY = 'nuphos.locale'
-
-/** Maps a BCP 47 tag (e.g. from navigator.languages) to a supported locale. */
-export function matchLocale(tag: string): Locale | undefined {
-  const lower = tag.toLowerCase()
-
-  if (lower.startsWith('zh')) {
-    return /-(tw|hk|mo|hant)\b/.test(lower) ? 'zh-TW' : 'zh-CN'
-  }
-
-  return LOCALES.find((l) => l.code === lower.split('-')[0])?.code
-}
 
 function detectLocale(): Locale {
   const saved = readLocalStorage(KEY)
@@ -85,9 +67,8 @@ export function sourceText(shown: string): string {
  * button "Open" vs. a pull request's "Open|state") and is never shown.
  */
 export function t(text: string, vars?: Record<string, string | number>): string {
-  const english = text.replace(/\|\w+$/, '')
-  const fill = (s: string, map = (v: string) => v) =>
-    vars ? s.replace(/\{(\w+)\}/g, (m, k: string) => map(String(vars[k] ?? m))) : s
+  const english = englishText(text)
+  const fill = (s: string, map?: (v: string) => string) => fillText(s, vars, map)
 
   if (locale === 'en') return fill(english)
   const out = fill(MESSAGES[locale][text] ?? english)

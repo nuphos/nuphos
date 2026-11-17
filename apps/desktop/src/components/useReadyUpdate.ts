@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../api'
-import { updateProgress } from '../views/settings/updateProgress'
 
 import type { UpdaterState } from '../types'
 
@@ -31,35 +30,20 @@ export function useUpdaterState(): UpdaterState {
   return state
 }
 
-/** The update a restart installs, or null. After the click, the restart checks for
- * a newer release and downloads it first; `percent` is set while it does. */
+/** The update a restart installs, or null. */
 export function useReadyUpdate(): {
   version: string
-  percent: number | null
   /** The installer download, when the last restart came back without this version. */
   installerUrl: string | null
   install: () => void
 } | null {
   const state = useUpdaterState()
-  const [clicked, setClicked] = useState<string | null>(null)
-  // Main ignores a click unless an update is ready.
-  const install = () => {
-    if (state.kind === 'ready') setClicked(state.version)
-    void api.updaterInstall()
-  }
 
-  if (state.kind === 'ready') {
-    return { version: state.version, percent: null, installerUrl: state.installerUrl, install }
-  }
-  if (!clicked) return null
-  if (state.kind === 'checking') {
-    return { version: clicked, percent: 0, installerUrl: null, install }
-  }
-  if (state.kind === 'downloading') {
-    const percent = updateProgress(state)?.percent ?? 0
+  if (state.kind !== 'ready') return null
 
-    return { version: state.version, percent, installerUrl: null, install }
+  return {
+    version: state.version,
+    installerUrl: state.installerUrl,
+    install: () => void api.updaterInstall(),
   }
-
-  return null
 }

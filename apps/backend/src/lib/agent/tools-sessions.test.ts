@@ -15,8 +15,10 @@ test('exposes the past-conversation tools in a team', () => {
   expect(Object.keys(createSessionTools('u', 'c', 'team')).sort(byCodeUnit)).toEqual([
     'create_bot',
     'list_recent_conversations',
+    'list_tasks',
     'read_conversation',
     'rename_conversation',
+    'report_task',
     'update_self',
   ])
 })
@@ -27,6 +29,8 @@ test('offers nothing outside a team scope', () => {
 
 let runningLastAssistantAt: Date | null = null
 const diagnostics = [{ message_index: 7, outcome: 'interrupted', reason: 'timeout' }]
+// Longer than any clipped tool input, so only the stored value can carry it whole.
+const botInstructions = 'You watch the deploys. '.repeat(400)
 
 let listOptions: unknown
 const selfUpdates: unknown[] = []
@@ -155,6 +159,7 @@ useAgentDb({
         title: 'Long turn',
         createdAt: new Date(0),
         messageCount: 9,
+        instructions: botInstructions,
       },
       lines: ['#7 assistant: … [truncated]'],
       turnDiagnostics: diagnostics,
@@ -201,6 +206,14 @@ test("list_recent_conversations children:true lists this conversation's own sub-
   })
 })
 
+test('list_recent_conversations bots:true lists only Bots in the caller scope', async () => {
+  const tool = createSessionTools('u', 'c', 'team').list_recent_conversations!
+
+  await tool.execute!({ label: 'List Bots', bots: true }, { toolCallId: 'bots', messages: [] })
+
+  expect(listOptions).toMatchObject({ teamId: 'team', scope: 'mine', bots: true })
+})
+
 test('read_conversation returns termination records outside the clipped transcript', async () => {
   const tool = createSessionTools('u', 'c', 'team').read_conversation!
   const result = await tool.execute!(
@@ -209,6 +222,16 @@ test('read_conversation returns termination records outside the clipped transcri
   )
 
   expect(result).toMatchObject({ turn_diagnostics: diagnostics, next_index: 8 })
+})
+
+test("read_conversation returns a Bot's full instructions, not the clipped update_self call", async () => {
+  const tool = createSessionTools('u', 'c', 'team').read_conversation!
+  const result = await tool.execute!(
+    { label: 'Read Bot', session_id: 'other', from_index: 7, limit: 1 },
+    { toolCallId: 'read', messages: [] },
+  )
+
+  expect(result).toMatchObject({ instructions: botInstructions })
 })
 
 function frame(event: Record<string, unknown>) {
@@ -386,7 +409,18 @@ test('create_bot makes a Bot owned by the person the agent works for, as "+ New 
     teamId: 'team',
     title: 'Release Helper',
     firstMessage: '',
-    avatar: '07-ada',
+    bot: {
+      avatar: '07-ada',
+      // The record says which conversation's agent made it.
+      change: {
+        kind: 'bot_changed',
+        at: expect.any(Date),
+        actorId: 'u',
+        via: 'create_bot',
+        sessionId: 'c',
+        avatar: '07-ada',
+      },
+    },
   })
   expect(result).toEqual({
     session_id: result.session_id,

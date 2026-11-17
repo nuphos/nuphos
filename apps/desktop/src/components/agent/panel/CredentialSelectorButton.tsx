@@ -49,7 +49,7 @@ function SelectionButton({
   const rows = personalIdentity && !devices ? personalRows(options, value) : []
   const selectedCount = devices
     ? value.deviceIds.length
-    : countSelectedCredentials(value) + rows.filter((row) => row.checked).length
+    : countSelectedCredentials(value, options) + rows.filter((row) => row.checked).length
   const totalCount = devices ? listedDevices.length : countTotalCredentials(options) + rows.length
   const sections = useCredentialSections(options)
   const hasNew =

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import {
   createCloudflareDnsRecord,
   deleteCloudflareDnsRecord,
@@ -15,7 +16,7 @@ import { invalidateCloudflareAccessToken } from '@/lib/byos/cloudflare-oauth'
 import { decryptCloudflareApiKey } from '@/lib/byos/secrets'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
-import { requireTeamRole } from '@/middleware/auth'
+import { requireCanDisconnect, requireTeamRole } from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 import { accountHandleFor, parseCloudflareIdParam } from '@/routes/cloudflare-accounts/shared'
 
@@ -64,6 +65,37 @@ const dnsRecordSchema = z
     ttl: v.ttl ?? 1,
   }))
 
+/** Disconnecting and the member list are the admin's, so they skip the member gate. */
+export function registerCloudflareAdminRoutes(
+  accountScoped: Hono<{ Variables: CloudflareAccountVariables }>,
+): void {
+  accountScoped.delete(
+    '/',
+    requireTeamRole('ADMINISTRATOR'),
+    requireCanDisconnect('cloudflareBinding'),
+    async (c) => {
+      const teamId = parseObjectId(c.get('teamId'), 'teamId')
+      const accountId = c.get('cloudflareAccountId')
+      const binding = c.get('cloudflareBinding')
+
+      await teamByosBindings().updateOne(
+        { _id: teamId },
+        {
+          $pull: { cloudflareAccounts: { accountId } },
+          $set: { updatedAt: new Date() },
+        },
+      )
+      invalidateCloudflareAccessToken(teamId, binding.id)
+
+      return c.body(null, 204)
+    },
+  )
+
+  registerBindingAccessRoutes(accountScoped, 'cloudflareAccounts', (c) =>
+    c.get('cloudflareBinding'),
+  )
+}
+
 export function registerCloudflareAccountRoutes(
   accountScoped: Hono<{ Variables: CloudflareAccountVariables }>,
 ): void {
@@ -72,23 +104,6 @@ export function registerCloudflareAccountRoutes(
       accountId: c.get('cloudflareAccountId'),
       accountName: c.get('cloudflareAccountName'),
     })
-  })
-
-  accountScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
-    const teamId = parseObjectId(c.get('teamId'), 'teamId')
-    const accountId = c.get('cloudflareAccountId')
-    const binding = c.get('cloudflareBinding')
-
-    await teamByosBindings().updateOne(
-      { _id: teamId },
-      {
-        $pull: { cloudflareAccounts: { accountId } },
-        $set: { updatedAt: new Date() },
-      },
-    )
-    invalidateCloudflareAccessToken(teamId, binding.id)
-
-    return c.body(null, 204)
   })
 
   accountScoped.use('/credentials', requireTeamRole('ADMINISTRATOR', 'EDITOR'))
@@ -150,7 +165,7 @@ export function registerCloudflareAccountRoutes(
             clientId: binding.oauth.clientId,
             scope: binding.oauth.scope,
             accessTokenExpiresAt: binding.oauth.accessTokenExpiresAt,
-            hasRefreshToken: !!binding.oauth.encryptedRefreshToken,
+            hasRefreshToken: Boolean(binding.oauth.encryptedRefreshToken),
           },
           warnings,
         ),

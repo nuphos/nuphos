@@ -7,19 +7,33 @@ import { Switch } from '../../components/ui/Switch'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 
+import { LocalSetupFolders } from './LocalSetupFolders'
 import { LocalSetupLinkedSkills } from './LocalSetupLinkedSkills'
+import { homeOf, shortPath } from './localSetupPaths'
 import { LoadFailed, SectionHeader } from './shared'
 
 import type { LocalSetupResult, LocalSetupStatus } from '../../api'
 import type { AtlasTeam } from '../../types'
 
-const SKIP_REASON: Record<LocalSetupResult['skipped'][number]['reason'], string> = {
+type Skipped = LocalSetupResult['skipped'][number]
+
+const SKIP_REASON: Record<Exclude<Skipped['reason'], 'name_clash'>, string> = {
   too_large: t('larger than 4 MB'),
   too_many_files: t('too many files or links to read in full'),
   name_taken: t('a personal skill with this name already exists'),
   over_budget: t('over the runtime’s skill budget'),
   unreadable: t('some of its files could not be read'),
   needs_review: t('it links outside its folder and waits for your review'),
+}
+
+/** Why a skill stayed here; a name in two folders says which copy is in Nuphos. */
+function skipReason(skill: Skipped, home: string): string {
+  if (skill.reason !== 'name_clash') return SKIP_REASON[skill.reason]
+
+  return t('the copy in {folder} is not synced: {first} comes first and has one too', {
+    folder: shortPath(skill.folder ?? '', home),
+    first: shortPath(skill.syncedFrom ?? '', home),
+  })
 }
 
 function skillCount(count: number): string {
@@ -55,9 +69,11 @@ function instructionLine(last: LocalSetupResult, chars: number | null): string {
 function LastSync({
   last,
   claudeMdChars,
+  home,
 }: {
   last: LocalSetupResult
   claudeMdChars: number | null
+  home: string
 }) {
   return (
     <div className="space-y-2 text-[13px] text-secondary" role="status">
@@ -90,9 +106,9 @@ function LastSync({
           </summary>
           <ul className="mt-2 max-h-60 space-y-0.5 overflow-auto text-[12px] text-tertiary">
             {last.skipped.map((skill) => (
-              <li key={skill.name}>
+              <li key={`${skill.name}\0${skill.folder ?? ''}`}>
                 <span className="font-mono text-secondary">{skill.name}</span> —{' '}
-                {SKIP_REASON[skill.reason]}
+                {skipReason(skill, home)}
               </li>
             ))}
           </ul>
@@ -178,7 +194,7 @@ export function LocalSetupSection({ team }: { team: AtlasTeam | undefined }) {
       <SectionHeader
         title={t('Sync my setup')}
         description={t(
-          'Bring this computer’s Claude Code skills and ~/.claude/CLAUDE.md into {team} as your personal skills and instructions, so every agent you run here starts with the same context as your own CLI. Only your agents get them.',
+          'Bring this computer’s skill folders and ~/.claude/CLAUDE.md into {team} as your personal skills and instructions, so every agent you run here starts with the same context as your own CLI. Only your agents get them.',
           { team: team?.name ?? t('this team') },
         )}
       />
@@ -195,19 +211,17 @@ export function LocalSetupSection({ team }: { team: AtlasTeam | undefined }) {
       {status && (
         <div className="space-y-5">
           <div className="rounded-lg border border-line-control px-4 py-3 text-[13px] text-secondary">
-            <p className="text-main">
+            <LocalSetupFolders teamId={teamId} status={status} onChanged={() => void refresh()} />
+            <p className="mt-3 text-main">
               {status.claudeMdChars === null
-                ? t('Found {skills} in ~/.claude/skills and no CLAUDE.md.', {
-                    skills: skillCount(status.localSkills),
-                  })
-                : t('Found {skills} in ~/.claude/skills and a CLAUDE.md of {n} characters.', {
-                    skills: skillCount(status.localSkills),
+                ? t('No CLAUDE.md on this computer.')
+                : t('A CLAUDE.md of {n} characters.', {
                     n: status.claudeMdChars.toLocaleString(),
                   })}
             </p>
             <p className="mt-1 text-[12px] text-tertiary">
               {t(
-                'A runtime loads at most {files} files and {mb} MB of personal skills, so the smallest skills go first and the rest stay on this computer. Edits to synced skills belong here: the next sync overwrites changes made in Nuphos.',
+                'A runtime loads at most {files} files and {mb} MB of personal skills, so the smallest skills go first and the rest stay on this computer. Edit synced skills in their folder: the next sync overwrites changes made in Nuphos.',
                 {
                   files: status.budget.files.toLocaleString(),
                   mb: Math.round(status.budget.bytes / 1024 / 1024),
@@ -240,7 +254,13 @@ export function LocalSetupSection({ team }: { team: AtlasTeam | undefined }) {
             />
           )}
 
-          {last && <LastSync last={last} claudeMdChars={status.claudeMdChars} />}
+          {last && (
+            <LastSync
+              last={last}
+              claudeMdChars={status.claudeMdChars}
+              home={homeOf(status.folders)}
+            />
+          )}
         </div>
       )}
     </div>

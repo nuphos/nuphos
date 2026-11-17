@@ -1,19 +1,23 @@
 package ai.nuphos.android.model
 
+import ai.nuphos.android.R
 import ai.nuphos.android.data.JsonValue
+import androidx.annotation.StringRes
 import java.net.URI
 
 enum class ConnectorFieldKind { Text, Secret, Url, Email, Guid, Arn, Region }
 data class ConnectorField(
     val key: String,
-    val title: String,
+    @StringRes val title: Int,
     val kind: ConnectorFieldKind = ConnectorFieldKind.Text,
     val required: Boolean = true,
     val max: Int = Int.MAX_VALUE,
     val trim: Boolean = true,
 )
 // Values are ephemeral. Do not put form input in saved state, logs, or disk storage.
-class ConnectorValidation(val body: Map<String, String>, val errors: Map<String, String>) {
+/** Why a field is not accepted; the form words it with the field's title. */
+enum class ConnectorError { Required, TooLong, Invalid, NeedApiToken, NeedTokenOrLogin }
+class ConnectorValidation(val body: Map<String, String>, val errors: Map<String, ConnectorError>) {
     val valid get() = errors.isEmpty()
     override fun toString() = "ConnectorValidation(valid=$valid)"
 }
@@ -23,7 +27,7 @@ data class ConnectorProvider(
     val path: String? = null,
     val fields: List<ConnectorField> = emptyList(),
     val oauth: Boolean = false,
-    val note: String? = null,
+    @StringRes val note: Int? = null,
 ) {
     val category: String get() = when (key) {
         "aws", "gcp", "azure", "cloudflare", "linode", "hetzner", "tencent", "aliyun", "volcengine", "huawei", "zeabur", "onprem" -> "Infrastructure"
@@ -76,16 +80,16 @@ data class ConnectorProvider(
 
     fun validate(values: Map<String, String>): ConnectorValidation {
         val body = mutableMapOf<String, String>()
-        val errors = mutableMapOf<String, String>()
+        val errors = mutableMapOf<String, ConnectorError>()
         fields.forEach { field ->
             val raw = values[field.key].orEmpty()
             val value = if (field.trim) raw.trim() else raw
             if (value.isEmpty()) {
-                if (field.required) errors[field.key] = "${field.title} is required."
+                if (field.required) errors[field.key] = ConnectorError.Required
                 return@forEach
             }
             body[field.key] = value
-            if (value.length > field.max) errors[field.key] = "Use at most ${field.max} characters."
+            if (value.length > field.max) errors[field.key] = ConnectorError.TooLong
             val valid = when (field.kind) {
                 ConnectorFieldKind.Url -> validHttpUrl(value)
                 ConnectorFieldKind.Email -> Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$").matches(value)
@@ -94,13 +98,13 @@ data class ConnectorProvider(
                 ConnectorFieldKind.Region -> value == "us" || value == "uk"
                 else -> true
             }
-            if (!valid) errors[field.key] = "Enter a valid ${field.title.lowercase()}."
+            if (!valid) errors[field.key] = ConnectorError.Invalid
         }
         if (key == "betterstack" && body["uptimeApiToken"] == null && body["telemetryApiToken"] == null) {
-            errors["uptimeApiToken"] = "Provide at least one API token."
+            errors["uptimeApiToken"] = ConnectorError.NeedApiToken
         }
         if (key == "uptimeKuma" && body["authToken"] == null && (body["username"] == null || body["password"] == null)) {
-            errors["authToken"] = "Provide a token or both username and password."
+            errors["authToken"] = ConnectorError.NeedTokenOrLogin
         }
         return ConnectorValidation(body, errors)
     }
@@ -114,34 +118,34 @@ fun validHttpUrl(value: String): Boolean = runCatching {
 object ConnectorCatalog {
     val categoryOrder = listOf("Infrastructure", "Observability", "Databases", "Networking", "Compliance", "Source control", "Project management", "Document", "Email", "Messaging", "Other")
     val arrayKeys = listOf("aws", "gcp", "cloudflare", "linode", "hetzner", "tencent", "aliyun", "volcengine", "azure", "huawei", "vanta", "secureframe", "sonarqube", "notion", "onprem", "upstash", "resend", "posthog", "betterstack", "uptimeKuma", "tailscale", "zeabur", "github", "gitlab", "grafana", "linear", "jira", "asana", "trello", "sentry", "plaud")
-    private fun label() = ConnectorField("label", "Label", max = 100)
-    private fun secret(key: String, title: String, max: Int = Int.MAX_VALUE, required: Boolean = true, trim: Boolean = true) = ConnectorField(key, title, ConnectorFieldKind.Secret, required, max, trim)
-    private fun form(key: String, title: String, path: String, vararg fields: ConnectorField, note: String? = null) = ConnectorProvider(key, title, path, fields.toList(), note = note)
+    private fun label() = ConnectorField("label", R.string.connectors_field_label, max = 100)
+    private fun secret(key: String, @StringRes title: Int, max: Int = Int.MAX_VALUE, required: Boolean = true, trim: Boolean = true) = ConnectorField(key, title, ConnectorFieldKind.Secret, required, max, trim)
+    private fun form(key: String, title: String, path: String, vararg fields: ConnectorField, @StringRes note: Int? = null) = ConnectorProvider(key, title, path, fields.toList(), note = note)
     val all = listOf(
-        form("aws", "AWS", "aws-accounts", ConnectorField("roleArn", "Role ARN", ConnectorFieldKind.Arn, trim = false), note = "The role must already trust Nuphos. The server checks access before saving."),
+        form("aws", "AWS", "aws-accounts", ConnectorField("roleArn", R.string.connectors_field_role_arn, ConnectorFieldKind.Arn, trim = false), note = R.string.connectors_note_aws),
         ConnectorProvider("gcp", "Google Cloud / Firebase"),
-        form("azure", "Azure", "azure-accounts", label(), ConnectorField("tenantId", "Tenant ID", ConnectorFieldKind.Guid), ConnectorField("clientId", "Client ID", ConnectorFieldKind.Guid), ConnectorField("subscriptionId", "Subscription ID", ConnectorFieldKind.Guid), note = "Set up the app's federated credential and role assignment first."),
+        form("azure", "Azure", "azure-accounts", label(), ConnectorField("tenantId", R.string.connectors_field_tenant_id, ConnectorFieldKind.Guid), ConnectorField("clientId", R.string.connectors_field_client_id, ConnectorFieldKind.Guid), ConnectorField("subscriptionId", R.string.connectors_field_subscription_id, ConnectorFieldKind.Guid), note = R.string.connectors_note_azure),
         ConnectorProvider("cloudflare", "Cloudflare"),
-        form("linode", "Linode", "linode-accounts", label(), secret("token", "API token")),
-        form("hetzner", "Hetzner Cloud", "hetzner-accounts", label(), secret("token", "API token")),
+        form("linode", "Linode", "linode-accounts", label(), secret("token", R.string.connectors_field_api_token)),
+        form("hetzner", "Hetzner Cloud", "hetzner-accounts", label(), secret("token", R.string.connectors_field_api_token)),
         ConnectorProvider("tencent", "Tencent Cloud"), ConnectorProvider("aliyun", "Alibaba Cloud"), ConnectorProvider("volcengine", "Volcengine"),
-        form("zeabur", "Zeabur", "zeabur-providers", secret("token", "API token")),
+        form("zeabur", "Zeabur", "zeabur-providers", secret("token", R.string.connectors_field_api_token)),
         ConnectorProvider("onprem", "Clusters"),
-        form("betterstack", "Better Stack", "betterstack-integrations", label(), secret("uptimeApiToken", "Uptime API token", required = false), secret("telemetryApiToken", "Telemetry API token", required = false)),
-        form("uptimeKuma", "Uptime Kuma", "uptime-kuma-instances", label(), ConnectorField("baseUrl", "Base URL", ConnectorFieldKind.Url), secret("authToken", "Auth token", required = false), ConnectorField("username", "Username", required = false, max = 255), secret("password", "Password", required = false, trim = false)),
-        form("grafana", "Grafana", "grafana-instances", ConnectorField("name", "Name", max = 64, trim = false), ConnectorField("grafanaUrl", "Grafana URL", ConnectorFieldKind.Url, trim = false), secret("saToken", "Service account token", trim = false)),
+        form("betterstack", "Better Stack", "betterstack-integrations", label(), secret("uptimeApiToken", R.string.connectors_field_uptime_api_token, required = false), secret("telemetryApiToken", R.string.connectors_field_telemetry_api_token, required = false)),
+        form("uptimeKuma", "Uptime Kuma", "uptime-kuma-instances", label(), ConnectorField("baseUrl", R.string.connectors_field_base_url, ConnectorFieldKind.Url), secret("authToken", R.string.connectors_field_auth_token, required = false), ConnectorField("username", R.string.connectors_field_username, required = false, max = 255), secret("password", R.string.connectors_field_password, required = false, trim = false)),
+        form("grafana", "Grafana", "grafana-instances", ConnectorField("name", R.string.connectors_field_name, max = 64, trim = false), ConnectorField("grafanaUrl", R.string.connectors_field_grafana_url, ConnectorFieldKind.Url, trim = false), secret("saToken", R.string.connectors_field_service_account_token, trim = false)),
         ConnectorProvider("sentry", "Sentry", "sentry-accounts", oauth = true),
-        form("tailscale", "Tailscale", "tailscale-clients", label(), ConnectorField("clientId", "Client ID", max = 256), secret("clientSecret", "Client secret")),
-        form("vanta", "Vanta", "vanta-integrations", label(), ConnectorField("clientId", "Client ID", max = 200), secret("clientSecret", "Client secret", 400)),
-        form("secureframe", "Secureframe", "secureframe-integrations", label(), secret("apiKey", "API key", 200), secret("apiSecret", "API secret", 400), ConnectorField("region", "Region", ConnectorFieldKind.Region, required = false)),
-        form("sonarqube", "SonarQube", "sonarqube-integrations", label(), ConnectorField("baseUrl", "Base URL", ConnectorFieldKind.Url), secret("token", "Token", 512)),
+        form("tailscale", "Tailscale", "tailscale-clients", label(), ConnectorField("clientId", R.string.connectors_field_client_id, max = 256), secret("clientSecret", R.string.connectors_field_client_secret)),
+        form("vanta", "Vanta", "vanta-integrations", label(), ConnectorField("clientId", R.string.connectors_field_client_id, max = 200), secret("clientSecret", R.string.connectors_field_client_secret, 400)),
+        form("secureframe", "Secureframe", "secureframe-integrations", label(), secret("apiKey", R.string.connectors_field_api_key, 200), secret("apiSecret", R.string.connectors_field_api_secret, 400), ConnectorField("region", R.string.connectors_field_region, ConnectorFieldKind.Region, required = false)),
+        form("sonarqube", "SonarQube", "sonarqube-integrations", label(), ConnectorField("baseUrl", R.string.connectors_field_base_url, ConnectorFieldKind.Url), secret("token", R.string.connectors_field_token, 512)),
         ConnectorProvider("github", "GitHub", "github-installations"), ConnectorProvider("gitlab", "GitLab"),
         ConnectorProvider("linear", "Linear", "linear-workspaces", oauth = true), ConnectorProvider("jira", "Jira", "jira-sites", oauth = true), ConnectorProvider("asana", "Asana", "asana-accounts", oauth = true),
         ConnectorProvider("trello", "Trello", "trello-integrations", oauth = true),
         ConnectorProvider("plaud", "Plaud", "plaud-accounts", oauth = true),
-        form("notion", "Notion", "notion-integrations", label(), secret("token", "Integration token", 300)),
-        form("upstash", "Upstash", "upstash-accounts", label(), ConnectorField("email", "Account email", ConnectorFieldKind.Email, max = 200), secret("apiKey", "Management API key", 400)),
-        form("resend", "Resend", "resend-integrations", label(), secret("apiKey", "API key", 300)),
+        form("notion", "Notion", "notion-integrations", label(), secret("token", R.string.connectors_field_integration_token, 300)),
+        form("upstash", "Upstash", "upstash-accounts", label(), ConnectorField("email", R.string.connectors_field_account_email, ConnectorFieldKind.Email, max = 200), secret("apiKey", R.string.connectors_field_management_api_key, 400)),
+        form("resend", "Resend", "resend-integrations", label(), secret("apiKey", R.string.connectors_field_api_key, 300)),
         ConnectorProvider("huawei", "Huawei Cloud"), ConnectorProvider("posthog", "PostHog"), ConnectorProvider("slack", "Slack"), ConnectorProvider("lark", "Lark"), ConnectorProvider("discord", "Discord"),
     )
     fun named(key: String) = all.firstOrNull { it.key == key }
@@ -174,11 +178,11 @@ data class ConnectorInventory(val rows: List<ConnectorBinding> = emptyList()) {
             }
             val linked = json["slack"]?.get("linkedChannels")
             val linkedCount = linked?.get("count")?.numberValue?.toInt() ?: linked?.arrayValue?.size ?: 0
-            if (linkedCount > 0) rows.add(ConnectorBinding("slack", "linked-channels", "slack:linked-channels", "Linked Slack channels", "$linkedCount linked channels"))
+            if (linkedCount > 0) rows.add(ConnectorBinding("slack", "linked-channels", "slack:linked-channels", Words(R.string.storetext_connectors_linked_slack), Words.plural(R.plurals.storetext_connectors_linked_channels, linkedCount, linkedCount)))
             val discord = json["discord"]
             val guild = discord?.get("installation")
             val guildId = guild?.get("guildId")?.stringValue
-            if (!guildId.isNullOrBlank()) rows.add(ConnectorBinding("discord", guildId, "discord:$guildId", guild["guildName"]?.stringValue ?: "Discord", "${discord["channels"]?.arrayValue?.size ?: 0} linked channels"))
+            if (!guildId.isNullOrBlank()) rows.add(ConnectorBinding("discord", guildId, "discord:$guildId", guild["guildName"]?.stringValue ?: "Discord", (discord["channels"]?.arrayValue?.size ?: 0).let { Words.plural(R.plurals.storetext_connectors_linked_channels, it, it) }))
             return ConnectorInventory(rows.distinctBy { it.key })
         }
         fun createdIds(json: JsonValue): Set<String> = buildSet {

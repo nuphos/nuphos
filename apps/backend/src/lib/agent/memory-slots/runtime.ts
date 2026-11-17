@@ -8,7 +8,6 @@ import { logError } from '@/lib/observability'
 
 import { getMemoryProvider, providerAvailability } from './index'
 
-import type { AgentSessionOrigin } from '../tools-triggers'
 import type { AttributionTier as RuntimeAttributionTier } from './attribution-types'
 import type {
   AttributionTier as SpiAttributionTier,
@@ -18,6 +17,7 @@ import type {
   MemoryRef,
   MemorySessionOrigin,
 } from './types'
+import type { AgentSessionOrigin } from '@/lib/agent/message-origin'
 
 // ── Compile-time parity locks ────────────────────────────────────────────────
 // The SPI deliberately duplicates two runtime unions (types.ts imports nothing

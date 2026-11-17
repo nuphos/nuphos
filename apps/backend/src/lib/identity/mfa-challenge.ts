@@ -16,6 +16,8 @@ type MfaChallengeDoc = {
   expiresAt: Date
   /** Set when the app asks to answer with a passkey. */
   passkeyChallenge?: string
+  /** Started by nuphos.ai's server, so the session is recorded as `startSession` would. */
+  viaWebsite?: boolean
 }
 
 const mfaChallenges = () => db().collection<MfaChallengeDoc>('mfa_challenges')
@@ -27,13 +29,14 @@ export async function setupMfaChallengeIndexes(): Promise<void> {
   )
 }
 
-export async function createMfaChallenge(userId: string): Promise<string> {
+export async function createMfaChallenge(userId: string, viaWebsite = false): Promise<string> {
   const token = generateOpaqueToken()
 
   await mfaChallenges().insertOne({
     _id: hashToken(token),
     userId,
     expiresAt: new Date(Date.now() + CHALLENGE_TTL_MS),
+    ...(viaWebsite ? { viaWebsite } : {}),
   })
 
   return token
@@ -69,8 +72,11 @@ export async function mfaChallengePasskeyOptions(mfaToken: unknown) {
   return options
 }
 
-/** The user a challenge belongs to, once `code` passes; the challenge is then spent. */
-export async function verifyMfaChallenge(mfaToken: unknown, code: unknown): Promise<string> {
+/** Whose sign-in a challenge was, once `code` passes; the challenge is then spent. */
+export async function verifyMfaChallenge(
+  mfaToken: unknown,
+  code: unknown,
+): Promise<{ userId: string; viaWebsite: boolean }> {
   const challenge = await liveChallenge(mfaToken)
 
   await verifySecondFactor(challenge.userId, code, challenge.passkeyChallenge ?? null)
@@ -80,5 +86,5 @@ export async function verifyMfaChallenge(mfaToken: unknown, code: unknown): Prom
     throw new AppError(401, 'mfa_challenge_expired', 'This sign-in has expired. Sign in again.')
   }
 
-  return challenge.userId
+  return { userId: challenge.userId, viaWebsite: challenge.viaWebsite === true }
 }

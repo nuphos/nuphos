@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto'
 
 import { getReadableConversation } from '@/lib/agent/db'
+import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
+import { requireShellAccess } from '@/lib/agent/devices/manage-access'
 import { AppError } from '@/lib/errors'
 
 import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
@@ -24,6 +26,10 @@ export async function runtimeTerminalTarget(teamId: string, userId: string, sess
   )
     throw new AppError(404, 'not_found', 'Conversation runtime not found')
   const runtime = await requireRuntimeInstance(teamId, conversation.runtimeId, userId)
+  const local = runtime.kind === 'local' ? parseLocalRuntimeId(runtime.id) : undefined
+
+  // A terminal on a computer is a shell there, not just a way to use its agent.
+  if (local) await requireShellAccess(userId, teamId, local.deviceId, 'terminal')
   const endpoint =
     runtime.kind === 'local'
       ? await resolveLocalRuntimeEndpoint(teamId, runtime.id, userId, 'control')

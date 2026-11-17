@@ -6,7 +6,16 @@ import { act, createElement } from 'react'
 
 import { addedProjects } from '../../lib/taskProjects'
 
+import type { Item, ItemMenuRequest } from './types'
+
 let picked = 0
+let botPins:
+  | {
+      bots: Item[]
+      pinned: (item: Item) => boolean
+      onItemMenu: (menu: ItemMenuRequest) => void
+    }
+  | undefined
 
 mock.module('../../api', () => ({
   api: {
@@ -18,8 +27,13 @@ mock.module('../../api', () => ({
   },
 }))
 mock.module('../ui/toast', () => ({ toast: { apiError: () => {} } }))
-mock.module('./SidebarArchiveSection', () => ({ SidebarArchiveSection: () => null }))
-mock.module('./SidebarBotPins', () => ({ SidebarBotPins: () => null }))
+mock.module('./SidebarBotPins', () => ({
+  SidebarBotPins: (props: NonNullable<typeof botPins>) => {
+    botPins = props
+
+    return null
+  },
+}))
 mock.module('./sections-list', () => ({ SidebarSectionList: () => null }))
 
 test('an empty Tasks page can pick a project folder and still start a plain task', async () => {
@@ -106,4 +120,65 @@ test('an empty Tasks page can pick a project folder and still start a plain task
       else Reflect.deleteProperty(globalThis, key)
     }
   }
+})
+
+const row = (key: string, extra: Partial<Item>): Item => ({
+  key,
+  label: key,
+  enabled: true,
+  ...extra,
+})
+
+test('a stored Task pin under a Bot stays out of the Bot pin shelf', async () => {
+  const { SidebarPageList } = await import('./SidebarPageList')
+  const { renderToStaticMarkup } = await import('react-dom/server')
+
+  const requests: ItemMenuRequest[] = []
+
+  renderToStaticMarkup(
+    createElement(SidebarPageList, {
+      page: 0,
+      sections: [
+        {
+          title: 'Channels',
+          items: [
+            row('agent-session:bot', { bot: true }),
+            row('agent-session:chat', { channel: true }),
+            row('agent-session:task', {
+              botNested: true,
+              task: true,
+              parentKey: 'agent-session:chat',
+            }),
+          ],
+        },
+      ],
+      onScroll: () => {},
+      listProps: {
+        scope: { kind: 'team', teamId: 'pin-shelf' },
+        active: 'team.agent',
+        teamView: true,
+        newChatActive: false,
+        archivingIds: new Set<string>(),
+        isGroupCollapsed: () => false,
+        toggleGroup: () => {},
+        // Every row has a stored pin, as an older Task pin does.
+        favoriteMatch: (item) => ({ label: item.label, key: item.key }),
+        canFavorite: () => true,
+        toggleFavorite: () => {},
+        onItemMenu: (menu) => requests.push(menu),
+        onSelect: () => {},
+      },
+    }),
+  )
+  assert.ok(botPins)
+  assert.deepEqual(
+    botPins.bots.filter(botPins.pinned).map((item) => item.key),
+    ['agent-session:bot', 'agent-session:chat'],
+  )
+  const bot = botPins.bots[0]
+
+  assert.ok(bot)
+
+  botPins.onItemMenu({ item: bot, x: 25, y: 40 })
+  assert.deepEqual(requests, [{ item: bot, x: 25, y: 40 }])
 })

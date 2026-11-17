@@ -10,7 +10,7 @@ export type UserInfo = {
   createdAt?: string
 }
 
-export type SocialProvider = 'google' | 'apple'
+export type SocialProvider = 'google' | 'apple' | 'oidc'
 
 /** An account signed in on this computer (electron/auth/accounts.ts); never its token. */
 export type AccountSummary = {
@@ -109,8 +109,6 @@ export type AtlasTeam = {
   contactEmails?: string[]
   allowedEmailDomains?: string[]
   agentRuntime?: AgentProvider
-  /** The most a member may grant when sharing their own computer; absent from older backends. */
-  localAgentSharing?: 'off' | 'approve' | 'full'
   createdAt?: string
   isOwner?: boolean
   role?: TeamRole
@@ -225,8 +223,8 @@ export type HomeGridItem = { i: string; x: number; y: number; w: number; h: numb
 /** The caller's own layout and the team default; either is null when unset. */
 export type HomeLayouts = { personal: HomeLayout | null; team: HomeLayout | null }
 
-/** The agents the caller's conversations move to, in order, when theirs runs out or breaks. */
-export type RuntimeFallback = { runtimeIds: string[] }
+/** Each runtime's fallback, by runtime id: where its conversations move when it runs out or breaks. */
+export type RuntimeFallback = { fallbacks: Record<string, string> }
 
 export type TeamActivityRange = '1d' | '7d' | '30d'
 

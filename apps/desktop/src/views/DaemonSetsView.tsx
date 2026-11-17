@@ -1,11 +1,11 @@
-import { ReplicaCount } from '../components/K8sHealth'
-import { faRotateLeft } from '@fortawesome/free-solid-svg-icons'
+import { RotateCcw as RotateCcwIcon } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { api } from '../api'
 import { Age } from '../components/Age'
 import { BulkActionBar } from '../components/BulkActionBar'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { ReplicaCount } from '../components/K8sHealth'
 import { Table } from '../components/Table'
 import { UsageBar } from '../components/UsageBar'
 import { useReportLoading } from '../components/useReportLoading'
@@ -84,7 +84,7 @@ export function DaemonSetsView({
       {
         key: 'restart',
         label: t('Restart rollout'),
-        icon: faRotateLeft,
+        icon: RotateCcwIcon,
         disabled: r.update_strategy === 'OnDelete',
         hint:
           r.update_strategy === 'OnDelete'
@@ -163,7 +163,7 @@ export function DaemonSetsView({
           {
             key: 'restart',
             label: t('Restart rollout'),
-            icon: faRotateLeft,
+            icon: RotateCcwIcon,
             disabled: restartBlocked,
             onClick: () => setConfirmRestart(true),
           },

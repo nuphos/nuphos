@@ -7,9 +7,9 @@ import SwiftUI
 /// grows once it loads; a video shows its first frame under a play glyph.
 /// A lone image shows whole, fitted within a 260pt square, so a portrait
 /// screenshot is not cropped and a wide one is not boxed in empty space.
-/// Images open in the pager, which swipes through all of them. Videos and
-/// other files (chips) open in Quick Look from a freshly signed link, with
-/// Save and Share.
+/// Images and videos open in the pager, which swipes through all of them in
+/// grid order. Other files (chips) open in Quick Look from a freshly signed
+/// link, with Save and Share.
 struct TransferCard: View {
     /// One message's groups, drawn as one grid so its images sit in one row.
     let groupIds: [String]
@@ -25,29 +25,30 @@ struct TransferCard: View {
     }
 
     /// `files`, when already read, are drawn from the first frame, so the card
-    /// never grows under the reader; nil reads them when it appears.
+    /// never grows under the reader; nil reads them when it appears. Files
+    /// the caller reads later, after a failed first read, still show.
     init(groupIds: [String], fromUser: Bool, names: [String] = [], files: [TransferDownloadGroup.File]? = nil,
          resolve: @escaping (String) async throws -> TransferDownloadGroup) {
         self.groupIds = groupIds
         self.fromUser = fromUser
         self.names = names
         self.resolve = resolve
-        preloaded = files != nil
-        _files = State(initialValue: files ?? [])
-        _unavailable = State(initialValue: files?.isEmpty == true)
+        given = files
     }
 
-    private let preloaded: Bool
+    private let given: [TransferDownloadGroup.File]?
+    @State private var fetched: [TransferDownloadGroup.File] = []
+    @State private var fetchFailed = false
+    private var files: [TransferDownloadGroup.File] { given ?? fetched }
+    private var unavailable: Bool { given.map(\.isEmpty) ?? fetchFailed }
 
-    @State private var files: [TransferDownloadGroup.File] = []
     @State private var opening: String?
     @State private var preview: URL?
-    /// What the preview can swipe through: the group's images, or the one file.
+    /// What the preview can swipe through: the message's media, or the one file.
     @State private var previewItems: [URL] = []
-    /// The image the full-screen pager opens on.
+    /// The image or video the full-screen pager opens on.
     @State private var pagerStart: URL?
     @State private var failed = false
-    @State private var unavailable = false
 
     var body: some View {
         VStack(alignment: fromUser ? .trailing : .leading, spacing: 8) {
@@ -69,22 +70,26 @@ struct TransferCard: View {
             }
         }
         .task {
-            guard !preloaded else { return }
+            guard given == nil else { return }
             guard let groups = try? await fetch() else {
-                unavailable = true
+                fetchFailed = true
                 return
             }
-            files = groups.flatMap(\.readyFiles)
+            fetched = groups.flatMap(\.readyFiles)
         }
         .quickLookPreview($preview, in: previewItems)
         #if os(iOS)
         .fullScreenCover(isPresented: Binding(get: { pagerStart != nil }, set: { if !$0 { pagerStart = nil } })) {
-            if let pagerStart { ImagePager(urls: previewItems, current: pagerStart) }
+            if let pagerStart {
+                MediaPager(urls: previewItems, current: pagerStart) { url in
+                    guard let video = media.first(where: { TransferFiles.path($0) == url }) else { return }
+                    _ = try await TransferFiles.localCopies(of: [video], tapped: video) { try await fetch().flatMap(\.files) }
+                }
+            }
         }
         #endif
     }
 
-    private var images: [TransferDownloadGroup.File] { files.filter(\.isImage) }
     private var media: [TransferDownloadGroup.File] { files.filter { $0.isImage || $0.isVideo } }
     private var others: [TransferDownloadGroup.File] { files.filter { !$0.isImage && !$0.isVideo } }
 
@@ -127,6 +132,9 @@ struct TransferCard: View {
             }
             .frame(width: 84, height: 84)
             .clipShape(shape)
+            // A wide image fills past its square; clipping hides the rest but
+            // still takes taps there, which would open it instead of its neighbour.
+            .contentShape(shape)
             // Screenshots are mostly white; the outline keeps them off the page.
             .overlay(shape.strokeBorder(Theme.bubble))
             .overlay {
@@ -167,22 +175,24 @@ struct TransferCard: View {
         defer { opening = nil }
         do {
             // A file already on disk opens at once; only missing ones are
-            // re-signed (presigned links expire) and fetched. The group's
-            // other images come along so the pager can swipe between them.
-            let locals = try await TransferFiles.localCopies(of: file.isImage ? images : [file], tapped: file) {
+            // re-signed (presigned links expire) and fetched. The message's
+            // other images come along so the pager can swipe between them;
+            // its other videos are fetched once their page shows.
+            let shown = media.contains(file) ? media : [file]
+            let locals = try await TransferFiles.localCopies(of: shown.filter { !$0.isVideo || $0 == file }, tapped: file) {
                 try await fetch().flatMap(\.files)
             }
-            previewItems = (file.isImage ? images : [file]).compactMap { locals[$0.id] }
+            previewItems = shown.compactMap { $0.isVideo ? TransferFiles.path($0) : locals[$0.id] }
             #if os(iOS)
-            // The pager shows what UIImage decodes; anything else (an SVG,
-            // say) stays with Quick Look.
-            let decodable = previewItems.filter { UIImage(contentsOfFile: $0.path) != nil }
-            if file.isImage, let start = locals[file.id], decodable.contains(start) {
-                previewItems = decodable
+            // Anything the pager can't show (an SVG, say) stays with Quick Look.
+            let pageable = previewItems.filter(MediaPager.shows)
+            if let start = locals[file.id], pageable.contains(start) {
+                previewItems = pageable
                 pagerStart = start
                 return
             }
             #endif
+            previewItems = previewItems.filter { FileManager.default.fileExists(atPath: $0.path) }
             preview = locals[file.id]
         } catch {
             failed = true

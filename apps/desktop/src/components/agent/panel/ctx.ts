@@ -11,7 +11,7 @@ import type { ComposerRecall } from './composerRecall'
 import type { CredentialSelectorControl } from './credentialSections'
 import type { AgentPromptSeed, Message, MessageRating, Tab } from './model'
 import type { AuthorizationDecisionAction, ToolPart, TransferUploadPart } from './parts'
-import type { ComposerReplyTarget, ReplyQuestion } from './replyTarget'
+import type { ReplyQuestion } from './replyTarget'
 import type { StallDetail } from './stall'
 import type { TextStreamBuffer } from './streamBuffer'
 import type { PermissionMode } from '../../../lib/permissionMode'
@@ -67,9 +67,7 @@ export type PanelCtx = {
   focusComposerOnOpen: boolean
   composerDraftId?: string
   newChatDraftId: string
-  decisionReplyTo?: string
   hideTranscript: boolean
-  replyTarget?: ComposerReplyTarget
   openQuestions?: ReplyQuestion[]
   kubeContext?: string | null
   runtimeKubeContextRef?: Ref<string | null | undefined>
@@ -203,7 +201,7 @@ export type PanelCtx = {
     initialMessage?: Message,
     deferredUpload?: {
       messageId: string
-      run: (sessionId: string | undefined) => Promise<TransferUploadPart>
+      run: () => Promise<TransferUploadPart>
     },
   ) => boolean
   dispatchTurn: (

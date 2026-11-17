@@ -6,11 +6,17 @@ import {
   resolveLastSuccessfulPanelSnapshots,
   resolvePanelSnapshots,
 } from '@/lib/dashboards/exec-service'
+import { currentMemberIds } from '@/lib/dashboards/members'
 import { dashboardCadenceUpdate } from '@/lib/dashboards/refresh-cadence'
+import {
+  canCreateDashboard,
+  canEditDashboard,
+  canReadDashboard,
+  readableFilter,
+} from '@/lib/dashboards/visibility'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
-import { requireTeamRole } from '@/middleware/auth'
 import {
   nuphosDashboards,
   dashboardPanelAlerts,
@@ -18,6 +24,7 @@ import {
   dashboardPanelSnapshots,
 } from '@/models'
 
+import { loadDashboard, viewerOf, visibilityUpdate, WRITE_ROLES } from './access'
 import { serializeDashboard, serializePanel } from './serialize'
 import { dashboardForView, dashboardViewSchema } from './view-range'
 
@@ -57,24 +64,15 @@ function resolveTimeRange(
   return { ...base, ...(input.granularity ? { granularity: input.granularity } : {}) }
 }
 
+const visibilitySchema = z.enum(['personal', 'team'])
+
 const createDashboardSchema = z.object({
   name: z.string().trim().min(1).max(200),
   timeRange: paramsSchema,
   rangePreset: rangePresetSchema.optional(),
+  // Absent means team, so an older client keeps creating shared dashboards.
+  visibility: visibilitySchema.optional(),
 })
-
-export async function loadDashboard(
-  teamIdRaw: string,
-  dashboardIdRaw: string,
-): Promise<{ teamId: ObjectId; dashboard: NuphosDashboard }> {
-  const teamId = parseObjectId(teamIdRaw, 'teamId')
-  const dashboardId = parseObjectId(dashboardIdRaw, 'dashboardId')
-  const dashboard = await nuphosDashboards().findOne({ _id: dashboardId, teamId })
-
-  if (!dashboard) throw new AppError(404, 'dashboard_not_found', 'Dashboard not found')
-
-  return { teamId, dashboard }
-}
 
 const updateDashboardSchema = z.object({
   name: z.string().trim().min(1).max(200).optional(),
@@ -83,6 +81,8 @@ const updateDashboardSchema = z.object({
   // the fixed custom range in `timeRange`.
   rangePreset: rangePresetSchema.nullable().optional(),
   cadence: cadenceSchema.nullable().optional(),
+  // Only the creator changes it; sharing also takes the team write roles.
+  visibility: visibilitySchema.optional(),
   layout: z
     .array(
       z.object({
@@ -102,39 +102,62 @@ export function registerDashboardRoutes(
 ): void {
   nuphosDashboardsRoutes.get('/', async (c) => {
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
-    const docs = await nuphosDashboards().find({ teamId }).sort({ updatedAt: -1 }).toArray()
+    const viewer = viewerOf(c)
+    const admin = viewer.role === 'ADMINISTRATOR'
+    const docs = await nuphosDashboards()
+      .find(admin ? { teamId } : { teamId, ...readableFilter(viewer) })
+      .sort({ updatedAt: -1 })
+      .toArray()
+    // An Administrator also gets the personal dashboards of those no longer in the team,
+    // which they can take over. A current member's personal dashboard stays out.
+    const members = admin ? await currentMemberIds(teamId) : null
 
-    return c.json({ dashboards: docs.map(serializeDashboard) })
+    return c.json({
+      dashboards: docs.filter((doc) => canReadDashboard(doc, viewer)).map(serializeDashboard),
+      ...(members
+        ? {
+            formerMembers: docs
+              .filter((doc) => !canReadDashboard(doc, viewer) && !members.has(doc.createdBy))
+              .map(serializeDashboard),
+          }
+        : {}),
+    })
   })
 
-  nuphosDashboardsRoutes.post(
-    '/',
-    requireTeamRole('ADMINISTRATOR', 'EDITOR'),
-    zv('json', createDashboardSchema),
-    async (c) => {
-      const teamId = parseObjectId(c.get('teamId'), 'teamId')
-      const input = c.req.valid('json')
-      const now = new Date()
-      const doc: NuphosDashboard = {
-        _id: new ObjectId(),
-        teamId,
-        name: input.name,
-        layout: [],
-        timeRange: resolveTimeRange(input.timeRange, input.rangePreset),
-        ...(input.rangePreset ? { rangePreset: input.rangePreset } : {}),
-        createdBy: c.get('userId'),
-        createdAt: now,
-        updatedAt: now,
-      }
+  nuphosDashboardsRoutes.post('/', zv('json', createDashboardSchema), async (c) => {
+    const teamId = parseObjectId(c.get('teamId'), 'teamId')
+    const input = c.req.valid('json')
+    const visibility = input.visibility ?? 'team'
 
-      await nuphosDashboards().insertOne(doc)
+    if (!canCreateDashboard(viewerOf(c), visibility)) {
+      throw new AppError(403, 'forbidden', WRITE_ROLES)
+    }
+    const now = new Date()
+    const doc: NuphosDashboard = {
+      _id: new ObjectId(),
+      teamId,
+      name: input.name,
+      layout: [],
+      timeRange: resolveTimeRange(input.timeRange, input.rangePreset),
+      ...(input.rangePreset ? { rangePreset: input.rangePreset } : {}),
+      visibility,
+      createdBy: c.get('userId'),
+      createdAt: now,
+      updatedAt: now,
+    }
 
-      return c.json(serializeDashboard(doc), 201)
-    },
-  )
+    await nuphosDashboards().insertOne(doc)
+
+    return c.json(serializeDashboard(doc), 201)
+  })
 
   nuphosDashboardsRoutes.get('/:dashboardId', zv('query', dashboardViewSchema), async (c) => {
-    const { teamId, dashboard } = await loadDashboard(c.get('teamId'), c.req.param('dashboardId'))
+    const viewer = viewerOf(c)
+    const { teamId, dashboard, inTeam } = await loadDashboard(
+      c.get('teamId'),
+      c.req.param('dashboardId'),
+      viewer,
+    )
     const query = c.req.valid('query')
     const view = dashboardForView(dashboard, query)
     const preset = query.preset ?? (query.periodStart ? undefined : dashboard.rangePreset)
@@ -147,7 +170,7 @@ export function registerDashboardRoutes(
     return c.json({
       dashboard: serializeDashboard(dashboard),
       viewTimeRange: serializeDashboard(view).timeRange,
-      canEdit: ['ADMINISTRATOR', 'EDITOR'].includes(c.get('teamRole')),
+      canEdit: canEditDashboard(dashboard, viewer, inTeam),
       panels: panels.map((p) =>
         serializePanel(
           p,
@@ -159,83 +182,88 @@ export function registerDashboardRoutes(
     })
   })
 
-  nuphosDashboardsRoutes.put(
-    '/:dashboardId',
-    requireTeamRole('ADMINISTRATOR', 'EDITOR'),
-    zv('json', updateDashboardSchema),
-    async (c) => {
-      const { teamId, dashboard } = await loadDashboard(c.get('teamId'), c.req.param('dashboardId'))
-      const input = c.req.valid('json')
-      const set: Partial<NuphosDashboard> = { updatedAt: new Date() }
-      const unset: Record<string, ''> = {}
+  nuphosDashboardsRoutes.put('/:dashboardId', zv('json', updateDashboardSchema), async (c) => {
+    const viewer = viewerOf(c)
+    const { teamId, dashboard, inTeam } = await loadDashboard(
+      c.get('teamId'),
+      c.req.param('dashboardId'),
+      viewer,
+      'edit',
+    )
+    const input = c.req.valid('json')
+    const set: Partial<NuphosDashboard> = { updatedAt: new Date() }
+    const unset: Record<string, ''> = {}
 
-      if (input.name !== undefined) set.name = input.name
-      // Time range + rolling preset. A preset (re)computes the window and marks it
-      // rolling; a custom timeRange (or explicit `rangePreset: null`) clears it so
-      // the range stops advancing. Layout-only updates touch neither.
-      if (input.rangePreset) {
-        set.rangePreset = input.rangePreset
-        const granularity = input.timeRange?.granularity ?? dashboard.timeRange.granularity
+    const visibility = visibilityUpdate(dashboard, viewer, input.visibility, inTeam)
 
-        set.timeRange = {
-          ...presetWindow(input.rangePreset),
-          ...(granularity ? { granularity } : {}),
-        }
-      } else if (input.timeRange) {
-        set.timeRange = resolveTimeRange(input.timeRange)
-        unset.rangePreset = ''
-      } else if (input.rangePreset === null) {
-        unset.rangePreset = ''
+    if (visibility) set.visibility = visibility
+    if (input.name !== undefined) set.name = input.name
+    // Time range + rolling preset. A preset (re)computes the window and marks it
+    // rolling; a custom timeRange (or explicit `rangePreset: null`) clears it so
+    // the range stops advancing. Layout-only updates touch neither.
+    if (input.rangePreset) {
+      set.rangePreset = input.rangePreset
+      const granularity = input.timeRange?.granularity ?? dashboard.timeRange.granularity
+
+      set.timeRange = {
+        ...presetWindow(input.rangePreset),
+        ...(granularity ? { granularity } : {}),
       }
-      if (input.cadence !== undefined) {
-        const cadence = dashboardCadenceUpdate(dashboard, input.cadence)
+    } else if (input.timeRange) {
+      set.timeRange = resolveTimeRange(input.timeRange)
+      unset.rangePreset = ''
+    } else if (input.rangePreset === null) {
+      unset.rangePreset = ''
+    }
+    if (input.cadence !== undefined) {
+      const cadence = dashboardCadenceUpdate(dashboard, input.cadence)
 
-        Object.assign(set, cadence.set)
-        Object.assign(unset, cadence.unset)
-      }
-      if (input.layout) {
-        set.layout = input.layout.map((l) => ({
-          panelId: parseObjectId(l.panelId, 'panelId'),
-          x: l.x,
-          y: l.y,
-          w: l.w,
-          h: l.h,
-        }))
-      }
+      Object.assign(set, cadence.set)
+      Object.assign(unset, cadence.unset)
+    }
+    if (input.layout) {
+      set.layout = input.layout.map((l) => ({
+        panelId: parseObjectId(l.panelId, 'panelId'),
+        x: l.x,
+        y: l.y,
+        w: l.w,
+        h: l.h,
+      }))
+    }
 
-      const updated = await nuphosDashboards().findOneAndUpdate(
-        { _id: dashboard._id, teamId },
-        Object.keys(unset).length ? { $set: set, $unset: unset } : { $set: set },
-        { returnDocument: 'after' },
-      )
+    const updated = await nuphosDashboards().findOneAndUpdate(
+      { _id: dashboard._id, teamId },
+      Object.keys(unset).length ? { $set: set, $unset: unset } : { $set: set },
+      { returnDocument: 'after' },
+    )
 
-      if (!updated) throw new AppError(404, 'dashboard_not_found', 'Dashboard not found')
+    if (!updated) throw new AppError(404, 'dashboard_not_found', 'Dashboard not found')
 
-      return c.json(serializeDashboard(updated))
-    },
-  )
+    return c.json(serializeDashboard(updated))
+  })
 
-  nuphosDashboardsRoutes.delete(
-    '/:dashboardId',
-    requireTeamRole('ADMINISTRATOR', 'EDITOR'),
-    async (c) => {
-      const { teamId, dashboard } = await loadDashboard(c.get('teamId'), c.req.param('dashboardId'))
-      const panels = await dashboardPanels()
-        .find({ teamId, dashboardId: dashboard._id }, { projection: { _id: 1 } })
-        .toArray()
-      const panelIds = panels.map((p) => p._id)
+  nuphosDashboardsRoutes.delete('/:dashboardId', async (c) => {
+    const { teamId, dashboard } = await loadDashboard(
+      c.get('teamId'),
+      c.req.param('dashboardId'),
+      viewerOf(c),
+      'delete',
+    )
+    const panels = await dashboardPanels()
+      .find({ teamId, dashboardId: dashboard._id }, { projection: { _id: 1 } })
+      .toArray()
+    const panelIds = panels.map((p) => p._id)
 
-      // Cascade: panels, their snapshots, alerts.
-      if (panelIds.length) {
-        await Promise.all([
-          dashboardPanelSnapshots().deleteMany({ teamId, panelId: { $in: panelIds } }),
-          dashboardPanelAlerts().deleteMany({ teamId, panelId: { $in: panelIds } }),
-        ])
-      }
-      await dashboardPanels().deleteMany({ teamId, dashboardId: dashboard._id })
-      await nuphosDashboards().deleteOne({ _id: dashboard._id, teamId })
+    // Cascade: panels, their snapshots, alerts.
+    if (panelIds.length) {
+      await Promise.all([
+        dashboardPanelSnapshots().deleteMany({ teamId, panelId: { $in: panelIds } }),
+        dashboardPanelAlerts().deleteMany({ teamId, panelId: { $in: panelIds } }),
+      ])
+    }
+    await dashboardPanels().deleteMany({ teamId, dashboardId: dashboard._id })
+    await nuphosDashboards().deleteOne({ _id: dashboard._id, teamId })
 
-      return c.body(null, 204)
-    },
-  )
+    return c.body(null, 204)
+  })
 }

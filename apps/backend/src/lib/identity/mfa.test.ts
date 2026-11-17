@@ -44,15 +44,18 @@ useIdentity({
       ? { user: USER, cacheHit: false, provider: 'nuphos' as const, sessionId: SESSION_ID }
       : null) as unknown as typeof identityActual.authenticateToken,
   getNuphosUserById: async (id: string) => (id === USER_ID ? USER : null),
+  signInWithGoogleCode: (async () => USER) as unknown as typeof identityActual.signInWithGoogleCode,
 })
 const revoked: string[] = []
+const sources: unknown[] = []
 
 useIdentitySessions({
   revokeAllUserSessions: async (userId: string) => {
     revoked.push(userId)
   },
-  createUserSession: async (userId: string) => {
+  createUserSession: async (userId: string, source?: unknown) => {
     sessionsStarted.push(userId)
+    sources.push(source)
 
     return `session-for-${userId}`
   },
@@ -100,6 +103,7 @@ beforeEach(() => {
   collections.clear()
   sessionsStarted.length = 0
   revoked.length = 0
+  sources.length = 0
   users().docs.push({ _id: new ObjectId(USER_ID), email: USER.email })
 })
 
@@ -282,6 +286,34 @@ describe('sign-in', () => {
 
     expect(again.status).toBe(401)
     expect(sessionsStarted).toEqual([USER_ID])
+  })
+
+  test('nuphos.ai gets the challenge, and the session is recorded as the website’s', async () => {
+    const { secret } = await enroll()
+    const res = await post('/auth/google/sign-in', {
+      code: 'google-code',
+      redirectUri: 'https://nuphos.ai/api/google/callback',
+    })
+    const [error] = (
+      (await res.json()) as {
+        errors: { extensions: { code: string; details: { mfaToken: string } } }[]
+      }
+    ).errors
+
+    expect(error!.extensions.code).toBe('mfa_required')
+    const verify = await app().request('/auth/mfa/verify', {
+      method: 'POST',
+      // The website's own server answers, so its address is not the visitor's.
+      headers: { 'content-type': 'application/json', 'CF-Connecting-IP': '203.0.113.9' },
+      body: JSON.stringify({
+        mfaToken: error!.extensions.details.mfaToken,
+        code: codeAt(secret, step(1)),
+      }),
+    })
+
+    expect(verify.status).toBe(200)
+    expect(sessionsStarted).toEqual([USER_ID])
+    expect(sources[0]).not.toHaveProperty('ip')
   })
 
   test('a wrong code or an unknown challenge starts nothing', async () => {

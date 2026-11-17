@@ -1,14 +1,13 @@
 // Google OAuth for the Gmail and Google Drive Personal Credentials. Each team
 // brings its own OAuth client (Team settings); each provider is its own grant
 // with one scope, issued by the team's client.
+import { config } from '@/config'
 import { decryptLinearSecret } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 import { getGoogleProfile } from '@/lib/identity/google'
 import { parseObjectId } from '@/lib/objectid'
 import { teamByosBindings } from '@/models'
-
-import { composioAuthConfig } from './composio'
 
 import type { ProviderTokens } from './github'
 
@@ -48,15 +47,11 @@ export async function teamGoogleClient(teamId: string): Promise<GoogleClient | n
  * Gmail / Google Drive connect through a team the member belongs to, with that
  * team's client or, when it has none, Composio.
  */
-export async function googleTeamFor(
-  userId: string,
-  provider: GoogleProvider,
-  teamId: string | undefined,
-): Promise<string> {
+export async function googleTeamFor(userId: string, teamId: string | undefined): Promise<string> {
   if (!teamId || !(await getTeamMembership(userId, teamId))) {
     throw new AppError(403, 'forbidden', 'Connect Gmail or Google Drive from a team you belong to')
   }
-  if (!composioAuthConfig(provider) && !(await teamGoogleClient(teamId))) {
+  if (!config.byos.composio.apiKey && !(await teamGoogleClient(teamId))) {
     throw new AppError(
       409,
       'google_oauth_client_not_configured',

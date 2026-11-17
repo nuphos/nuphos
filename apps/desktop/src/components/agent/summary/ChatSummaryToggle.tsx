@@ -41,7 +41,7 @@ function tooltipLabel(pendingCount: number, background: string | null, open: boo
   if (pendingCount === 1) return t('1 question needs your input')
   if (pendingCount) return t('{count} questions need your input', { count: pendingCount })
 
-  return background ?? (open ? t('Hide agent summary') : t('Toggle agent summary'))
+  return background ?? (open ? t('Hide task summary') : t('Toggle task summary'))
 }
 
 /**
@@ -97,7 +97,7 @@ export function ChatSummaryToggle({
     >
       <button
         type="button"
-        aria-label={t('Toggle agent summary')}
+        aria-label={t('Toggle task summary')}
         aria-pressed={open}
         onClick={() => toggleChatSummary(paneId)}
         className="titlebar-no-drag relative ml-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-secondary transition-colors hover:bg-state-hover hover:text-main aria-pressed:bg-state-selected aria-pressed:text-main motion-reduce:transition-none"

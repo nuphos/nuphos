@@ -2,20 +2,24 @@
 // not added their own Google OAuth client. Composio holds the Google grant;
 // Nuphos keeps only the connected account id and runs tools through it with
 // its own server-side API key. https://docs.composio.dev/docs/authenticating-users
-import { config } from '@/config'
-import { composioRequest as call } from '@/lib/composio'
+import { composioAuthConfigId, composioRequest as call } from '@/lib/composio'
 import { AppError } from '@/lib/errors'
 import { personalCredentialPendingOAuth } from '@/models'
 
 import type { GoogleProvider } from './google'
 import type { PersonalCredentialPendingOAuth } from '@/models'
 
-const PROFILE: Record<GoogleProvider, { tool: string; email: (data: unknown) => unknown }> = {
+const PROFILE: Record<
+  GoogleProvider,
+  { toolkit: string; tool: string; email: (data: unknown) => unknown }
+> = {
   gmail: {
+    toolkit: 'gmail',
     tool: 'GMAIL_GET_PROFILE',
     email: (d) => (d as { emailAddress?: unknown }).emailAddress,
   },
   'google-drive': {
+    toolkit: 'googledrive',
     tool: 'GOOGLEDRIVE_GET_ABOUT',
     email: (d) => (d as { user?: { emailAddress?: unknown } }).user?.emailAddress,
   },
@@ -39,14 +43,6 @@ export function composioToolProvider(tool: string): GoogleProvider | null {
   return null
 }
 
-/** The auth config members connect this provider through, when Composio is configured. */
-export function composioAuthConfig(provider: GoogleProvider): string | null {
-  const { apiKey, gmailAuthConfigId, googleDriveAuthConfigId } = config.byos.composio
-  const id = provider === 'gmail' ? gmailAuthConfigId : googleDriveAuthConfigId
-
-  return apiKey && id ? id : null
-}
-
 /** Connected accounts are per Nuphos team and member, like the team-client grants. */
 export const composioUserId = (teamId: string, userId: string) => `${teamId}:${userId}`
 
@@ -60,7 +56,7 @@ export async function createComposioLink(args: {
     'POST',
     '/connected_accounts/link',
     {
-      auth_config_id: composioAuthConfig(args.provider),
+      auth_config_id: await composioAuthConfigId(PROFILE[args.provider].toolkit),
       user_id: args.composioUserId,
       callback_url: args.callbackUrl,
     },

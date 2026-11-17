@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict'
-import { test } from 'node:test'
+import { mock, test } from 'node:test'
 
-import { effectiveFirstByteTimeout } from './chat-shared.ts'
+mock.module('../client-version.ts', {
+  namedExports: { CLIENT_VERSION_HEADER: 'x-test', CLIENT_VERSION_VALUE: 'test' },
+})
+
+const { effectiveFirstByteTimeout } = await import('./chat-shared.ts')
 
 test('first attempt uses the base 5s deadline', () => {
   assert.equal(effectiveFirstByteTimeout(0), 5_000)

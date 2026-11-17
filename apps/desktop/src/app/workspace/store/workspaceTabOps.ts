@@ -1,7 +1,7 @@
 import { pushNavigation, replaceNavigation } from '../../../lib/navHistory.ts'
 import { isFreshTeamTab, navigationSnapshot } from '../../workspaceTabFactory.ts'
 
-import { MAIN_PAGE_BUCKET_KEY } from './workspaceState.ts'
+import { MAIN_PAGE_BUCKET_KEY, MAIN_PAGE_DOCK_KEY } from './workspaceState.ts'
 
 import type { OpenTabOptions, TabHistoryMode, TabUpdater } from './workspaceActions'
 import type { TabBucket } from './workspaceState'
@@ -156,7 +156,8 @@ export function adoptBucketsIn(
   let next: Record<string, TabBucket> | null = null
 
   for (const [key, bucket] of Object.entries(incoming)) {
-    if (key === MAIN_PAGE_BUCKET_KEY || bucket.tabs.length === 0) continue
+    if (key === MAIN_PAGE_BUCKET_KEY || key === MAIN_PAGE_DOCK_KEY) continue
+    if (bucket.tabs.length === 0) continue
     const existing = buckets[key] as TabBucket | undefined
     const ids = new Set(existing?.tabs.map((tab) => tab.id))
     const added = bucket.tabs.filter((tab) => !ids.has(tab.id))

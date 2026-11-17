@@ -46,11 +46,11 @@ const CREDENTIAL_ARRAY_KEYS = [
 
 export type TriggerCredentialMode = 'all' | 'selected'
 
-/** The credential binding a Trigger or Watch Group row carries. */
+/** The credential binding a Trigger row carries. */
 export type TriggerCredentialBinding = {
   credentialMode?: TriggerCredentialMode
   executionCredentialAccess?: AgentCredentialAccess
-  /** Present on Trigger rows; an Agent session is where a scope could be narrowed. */
+  /** The originating Agent session, which is where a scope could be narrowed. */
   sourceContext?: { sessionId?: string }
 }
 
@@ -73,17 +73,6 @@ export function resolveTriggerCredentialMode(
   if (!binding.executionCredentialAccess) return 'all'
 
   return binding.sourceContext?.sessionId ? 'selected' : 'all'
-}
-
-/**
- * The same question for a Watch Group, which records no originating session
- * and is only ever created from an Agent session, so a legacy scope on one is
- * treated as a choice.
- */
-export function resolveTriggerGroupCredentialMode(
-  binding: TriggerCredentialBinding,
-): TriggerCredentialMode {
-  return binding.credentialMode ?? (binding.executionCredentialAccess ? 'selected' : 'all')
 }
 
 /** Does `scope` already cover every credential `current` offers? */

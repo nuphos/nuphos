@@ -4,7 +4,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.navigation.compose.rememberNavController
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import ai.nuphos.android.data.*
@@ -18,6 +18,7 @@ import ai.nuphos.android.ui.LocalAuthSession
 import ai.nuphos.android.ui.LocalAgentStore
 import ai.nuphos.android.ui.chat.ConversationScreen
 import ai.nuphos.android.ui.theme.NuphosTheme
+import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.cancel
@@ -27,6 +28,7 @@ import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.*
 import org.junit.runner.RunWith
 import java.util.concurrent.CopyOnWriteArrayList
+import org.junit.Assume.assumeTrue
 
 /** Actual Compose controls with synthetic sessions, blocked HTTP, and deferred acknowledgements. */
 @RunWith(AndroidJUnit4::class)
@@ -46,8 +48,8 @@ class RuntimeSheetFixtureDeviceTest {
     private var gate = java.util.concurrent.CountDownLatch(1)
     @Volatile private var catalogStatus = 200
     @Volatile private var catalogBody = """{"runtimes":[{"id":"cloud","provider":"codex","label":"Synthetic Cloud","status":"active","kind":"managed"},{"id":"local","provider":"codex","label":"Synthetic Computer","status":"active","kind":"local","local":{"online":true}}]}"""
+
     @Before fun blockNetwork() {
-        require(compose.activity.packageName == "ai.nuphos.android.runtimesheet1375")
         compose.runOnIdle {
             savedAccess = accessState().value
             AiAccess.activate(fixtureToken)
@@ -150,7 +152,7 @@ class RuntimeSheetFixtureDeviceTest {
     }
     /** The runtime picker is opened from the agent menu. */
     private fun openMenuItem() {
-        compose.onNodeWithContentDescription("Agent actions").performClick()
+        compose.onNodeWithContentDescription("Task actions").performClick()
         compose.onNodeWithText("Switch runtime").performClick()
     }
     private fun open() {
@@ -204,7 +206,7 @@ class RuntimeSheetFixtureDeviceTest {
     }
     @Test fun everyOpeningFrameAndLateCatalogHaveOneSettledAnchor() {
         render(snapshot(phase="completed",send=true), native=false, owner=true)
-        compose.onNodeWithContentDescription("Agent actions").performClick()
+        compose.onNodeWithContentDescription("Task actions").performClick()
         compose.waitForIdle()
         compose.mainClock.autoAdvance=false
         compose.onNodeWithText("Switch runtime").performClick()
@@ -237,10 +239,27 @@ class RuntimeSheetFixtureDeviceTest {
         val rebound = openingTops.indices.maxOf { i -> openingTops.drop(i).maxOrNull()!! - openingTops[i] }
         Assert.assertTrue("Opening made a second large downward transition: $rebound", rebound < before.height * 0.05f)
     }
+    /** #3167: said before the message goes, with the way on. Its screenshot goes where the build collects test output. */
+    @Test fun anOfflineComputerOffersAnotherRuntimeBeforeSending() {
+        catalogBody = catalogBody.replace("\"online\":true", "\"online\":false")
+        gate.countDown()
+        render(snapshot(phase="completed",send=true), native=false, owner=true)
+        val offline = "The computer running this runtime is offline. Open Nuphos on it, or switch to another runtime."
+        compose.waitUntil(10_000) { compose.onAllNodesWithText(offline).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Switch runtime").assertIsDisplayed()
+        compose.waitForIdle()
+        InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")?.let { dir ->
+            java.io.File(dir, "runtime-offline-3167-android.png").outputStream().use {
+                InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+            }
+        }
+        compose.onNodeWithText("Switch runtime").performClick()
+        compose.onNodeWithText("Choose runtime", useUnmergedTree = true).assertExists()
+    }
     @Test fun readOnlyDoesNotExposeMoves() {
         render(snapshot(phase="completed",send=true), native=false, owner=false, readOnly=true)
         // Without manage rights the menu doesn't offer the move, so the sheet can't open.
-        compose.onNodeWithContentDescription("Agent actions").performClick()
+        compose.onNodeWithContentDescription("Task actions").performClick()
         compose.onNodeWithText("Switch runtime").assertDoesNotExist()
         gate.countDown()
         Assert.assertTrue(requests.none { it.method != "GET" })

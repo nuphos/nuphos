@@ -43,13 +43,39 @@ const VIEWPORT = { width: 1440, height: 900 }
  * is shown it (`show`). The page is the window's own: a hidden window paints it
  * for a capture, where a view inside one has nothing to capture.
  */
-const tabs = new Map<WebContents, { conversation: string; window: BrowserWindow }>()
+const tabs = new Map<
+  WebContents,
+  { conversation: string; window: BrowserWindow; opener?: WebContents }
+>()
 
 /** The browser tabs this conversation opened. */
 function browserTabs(conversation: string): WebContents[] {
   return [...tabs].flatMap(([contents, tab]) =>
     tab.conversation === conversation ? [contents] : [],
   )
+}
+
+/**
+ * Makes `window` one of `conversation`'s tabs. A popup its page opens is one too,
+ * hidden with it (webview-guard.ts), so the agent drives it like any tab and it
+ * comes on screen with its opener.
+ */
+function track(window: BrowserWindow, conversation: string, opener?: WebContents): void {
+  const contents = window.webContents
+
+  tabs.set(contents, { conversation, window, opener })
+  // Shown once, unseen, the page paints and can be captured; hidden again, it sleeps
+  // like a background tab, so an idle tab costs no battery.
+  window.once('ready-to-show', () => {
+    if (!window.isVisible()) {
+      window.showInactive()
+      window.hide()
+    }
+    window.setOpacity(1)
+  })
+  extensionHost()?.extensions.addTab(contents, window)
+  window.on('closed', () => tabs.delete(contents))
+  contents.on('did-create-window', (popup) => track(popup, conversation, contents))
 }
 
 /** A hidden window on the user's browser session, so its pages keep the user's sign-ins. */
@@ -70,17 +96,7 @@ function openTab(url: string, conversation: string): WebContents {
   })
   const contents = window.webContents
 
-  tabs.set(contents, { conversation, window })
-  // Shown once, unseen, the page paints and can be captured; hidden again, it sleeps
-  // like a background tab, so an idle tab costs no battery.
-  window.once('ready-to-show', () => {
-    if (!window.isVisible()) {
-      window.showInactive()
-      window.hide()
-    }
-    window.setOpacity(1)
-  })
-  extensionHost()?.extensions.addTab(contents, window)
+  track(window, conversation)
   // Closing a shown tab hides it again, as the conversation still drives it.
   // A quit closes it for real, or the app never exits and an update never installs.
   window.on('close', (event) => {
@@ -88,12 +104,17 @@ function openTab(url: string, conversation: string): WebContents {
     event.preventDefault()
     window.hide()
   })
-  window.on('closed', () => tabs.delete(contents))
   contents.loadURL(url).catch(() => {
     // A failed load leaves the tab on its error page, which `describe` reports.
   })
 
   return contents
+}
+
+/** Puts a tab on screen, with the sign-in popups its page opened, and theirs, above it. */
+function show(contents: WebContents): void {
+  raiseWindow(tabs.get(contents)?.window)
+  for (const [popup, tab] of tabs) if (tab.opener === contents) show(popup)
 }
 
 /** Ends every agent tab, for when the app's last window closes where that quits it. */
@@ -235,7 +256,7 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
   const window = tabs.get(contents)?.window
 
   if (call.action === 'show') {
-    raiseWindow(window)
+    show(contents)
 
     return text(`Tab ${String(contents.id)} is on screen; closing its window hides it again.`)
   }

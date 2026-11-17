@@ -93,6 +93,19 @@ spec:
                   name: {{ $secret }}
                   key: GOOGLE_OAUTH_CLIENT_SECRET
                   optional: true
+            # Optional: without issuer, client id and secret, sign-in offers no OIDC button.
+            - name: OIDC_ISSUER
+              value: {{ .Values.oidc.issuer | quote }}
+            - name: OIDC_CLIENT_ID
+              value: {{ .Values.oidc.clientId | quote }}
+            - name: OIDC_DISPLAY_NAME
+              value: {{ .Values.oidc.name | quote }}
+            - name: OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret }}
+                  key: OIDC_CLIENT_SECRET
+                  optional: true
             - name: ATLAS_REDIS_ENABLED
               value: 'false'
             - name: CLAUDE_CODE_RUNTIME_KUBECTL

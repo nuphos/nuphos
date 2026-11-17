@@ -1,12 +1,9 @@
 import type { AgentCredentialAccess } from './agent-credential-types.ts'
-import type { AgentMessageMention } from './mention-types.ts'
+import type { AgentChannelPost, AgentMessageMention, AgentMessageReply } from './mention-types.ts'
 import type { SessionResource } from './session-resource-types'
 import type { AgentProvider } from '../types/runtime.ts'
 
-export type { AgentMessageMention, ChannelMention } from './mention-types.ts'
-
-/** The message a message replies to, e.g. a Discord reply; `id` is a channel post's. */
-export type AgentMessageReply = { id?: string; authorName: string; text: string }
+export type { AgentMessageMention, AgentMessageReply, ChannelMention } from './mention-types.ts'
 
 /** Someone on a conversation: its owner, or a teammate who joined it. */
 export type AgentConversationPerson = {
@@ -59,8 +56,12 @@ export type ChannelFace = {
 }
 
 export type AgentConversation = {
+  /** Answered questions whose agent has not run the answer yet, with the line their card shows. */
+  waitingAnswers?: { requestId: string; note: string }[]
   /** A channel: a place where people and agents talk. It runs no agent of its own. */
   kind?: 'channel'
+  /** Started as a group chat: never a Bot's 1:1 chat, even with one Bot in it. */
+  group?: true
   faces?: ChannelFace[]
   /** A channel's agents, as their session ids. */
   agentSessionIds?: string[]
@@ -71,6 +72,8 @@ export type AgentConversation = {
   title: string
   /** Picked bot avatar, e.g. `05-rembrandt`. Absent: the one its sessionId selects. */
   avatar?: string
+  /** A Bot's current standing instructions, in full. */
+  instructions?: string
   firstMessage: string
   messageCount: number
   tokenUsage?: AgentTokenUsageSummary
@@ -85,6 +88,8 @@ export type AgentConversation = {
   canManage?: boolean
   owner?: AgentConversationPerson
   credentialAccess?: AgentCredentialAccess
+  /** A Task under a Bot: the conversation whose credentials and computers it uses. */
+  credentialSource?: { sessionId: string }
   transcriptUpdatedAt?: string
   createdAt: string
   lastActiveAt: string
@@ -156,8 +161,6 @@ export type AgentTriggerRunKind = 'scheduled' | 'webhook' | 'manual'
 export type AgentConversationTriggerRun = {
   id: string
   kind?: AgentTriggerRunKind
-  /** Watch group runs only: the monitored item that fired behind the shared partition ingress. */
-  memberKey?: string
 }
 
 export type AgentTokenUsageSummary = {
@@ -231,6 +234,8 @@ export type AgentMessageMetadata = {
   unattested?: true
   /** Teammates it @mentions, as the server resolved them. */
   mentions?: AgentMessageMention[]
+  /** A channel's wake notice: the newest post it brought. */
+  channelPost?: AgentChannelPost
 }
 
 export type AgentPersistedMessage = {
@@ -248,27 +253,11 @@ export type AgentPersistedMessage = {
   feedback?: 'up' | 'down'
 }
 
-export type AgentTimelinePerson = { id: string; name: string; avatarURL: string }
-export type AgentTimelineRuntime = { label: string; provider?: AgentProvider }
-
-/** Who joined, left or moved the session; `text` is the whole line, plain. */
-export type AgentTimelineEvent = {
-  kind: string
-  at: string
-  text: string
-  /** agents_paused: the turn budget the channel's agents used up. */
-  turns?: number
-  actor?: AgentTimelinePerson
-  target?: AgentTimelinePerson
-  from?: AgentTimelineRuntime
-  to?: AgentTimelineRuntime
-  /** Set when a fallback moved the session: its agent was low on usage, unreachable, or failed a turn. */
-  reason?: 'quota' | 'offline' | 'failure'
-  /** A fallback that found no agent: each one passed over, and why. */
-  skipped?: { label: string; reason: string }[]
-  /** message_edited: the session the edited message ran in. */
-  forkSessionId?: string
-}
+export type {
+  AgentTimelineEvent,
+  AgentTimelinePerson,
+  AgentTimelineRuntime,
+} from './agent-timeline-types'
 
 export type AgentConversationDetail = AgentConversation & {
   messages: AgentPersistedMessage[]
@@ -279,7 +268,7 @@ export type AgentConversationDetail = AgentConversation & {
   transcriptUpdatedAt?: string | null
   activeRun?: AgentActiveRun | null
   slackThread?: AgentSlackThread | null
-  timelineEvents?: AgentTimelineEvent[]
+  timelineEvents?: import('./agent-timeline-types').AgentTimelineEvent[]
   /** The runtime's guess at the next prompt, offered in the composer. */
   promptSuggestion?: string | null
 }

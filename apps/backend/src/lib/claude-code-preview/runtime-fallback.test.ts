@@ -48,8 +48,17 @@ const quota = (runtimeId: string, used: number, resetsAt: string | null = null):
   windows: [{ id: 'five_hour', label: '5-hour', usedPercent: used, resetsAt }],
 })
 
+// Each listed agent is the fallback of the one before it, starting from the conversation's.
 useModels({
-  userTeamRuntimeFallbacks: () => ({ findOne: async () => ({ runtimeIds: list }) }),
+  teamRuntimeFallbacks: () => ({
+    find: () => ({
+      toArray: async () =>
+        list.map((fallbackRuntimeId, index) => ({
+          runtimeId: index ? list[index - 1] : 'a',
+          fallbackRuntimeId,
+        })),
+    }),
+  }),
 })
 useAgentDb({
   getConversationBySessionId: async () => conversation,
@@ -87,7 +96,9 @@ useConversationRuntimeMove({
   },
 })
 
-const { fallBackAfterFailure, fallBackBeforeTurn, lowOnUsage } = await import('./runtime-fallback')
+const { fallBackAfterFailure, fallBackBeforeTurn, lowOnUsage, runtimeFailed } =
+  await import('./runtime-fallback')
+const { OpenAbRpcError } = await import('./openab-acp-errors')
 
 beforeEach(() => {
   list = ['b', 'c']
@@ -279,4 +290,27 @@ test('an agent that is still starting is waited for, not moved away from', async
 
   expect(await fallBackBeforeTurn(conversation, 'owner')).toBe(conversation)
   expect(moves).toEqual([])
+})
+
+test('two agents that are each other’s fallback hand the conversation back and forth', async () => {
+  offline = true
+  list = ['b', 'a']
+
+  const moved = await fallBackBeforeTurn(conversation, 'owner')
+
+  expect(moved?.runtimeId).toBe('b')
+  expect((await fallBackBeforeTurn(moved, 'owner'))?.runtimeId).toBe('a')
+  expect(moves.map((move) => move.to)).toEqual(['b', 'a'])
+})
+
+test('a Codex usage limit counts as the agent failing, so the turn can fall back', () => {
+  expect(
+    runtimeFailed(
+      new OpenAbRpcError(
+        '**Internal Error** (code: -32603)\nInternal error\n> You’ve hit your usage limit. Visit https://chatgpt.com/settings/usage to purchase more credits or try again at 5:12 PM.',
+        -32603,
+        { code: -32603, message: 'Internal error' },
+      ),
+    ),
+  ).toBe(true)
 })

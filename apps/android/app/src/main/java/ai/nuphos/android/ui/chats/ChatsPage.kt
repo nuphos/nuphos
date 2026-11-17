@@ -34,6 +34,8 @@ import ai.nuphos.android.ui.LocalAgentStore
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import ai.nuphos.android.R
+import androidx.compose.ui.res.stringResource
 
 /** Whether a chat row has posts the viewer has not read, from the same read state as agents. */
 internal object Unread {
@@ -73,8 +75,6 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
     var botArchiveTarget by remember(team, store.workspaceRevision) { mutableStateOf<String?>(null) }
     botArchiveTarget?.let { ai.nuphos.android.ui.agent.ArchiveBotDialog(store, it) { botArchiveTarget = null } }
     ai.nuphos.android.ui.agent.BotArchiveIssueDialog(store)
-    var settingUpRuntime by rememberSaveable(team) { mutableStateOf(false) }
-    if (settingUpRuntime) ai.nuphos.android.ui.agent.FirstRuntimeSetup { settingUpRuntime = false }
     // A Bot's chat is made on the first tap. The list stays up meanwhile, so a failure has a place to show.
     fun openBot(botId: String) {
         scope.launch(kotlinx.coroutines.Dispatchers.Main.immediate) {
@@ -86,23 +86,22 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
         AlertDialog(
             onDismissRequest = { store.clearBotChatError() },
             text = { Text(message) },
-            dismissButton = { TextButton(onClick = { store.clearBotChatError() }) { Text("OK") } },
+            dismissButton = { TextButton(onClick = { store.clearBotChatError() }) { Text(stringResource(R.string.chats_ok)) } },
             confirmButton = { TextButton(onClick = {
                 val botId = store.botChatFailedId
                 store.clearBotChatError()
                 botId?.let(::openBot)
-            }) { Text("Try again") } },
+            }) { Text(stringResource(R.string.try_again)) } },
         )
     }
     Column(Modifier.fillMaxSize()) {
     if (searching) ai.nuphos.android.ui.components.SearchField(
         value = store.search,
         onValueChange = store::updateSearch,
-        placeholder = "Search bots",
+        placeholder = stringResource(R.string.chats_search_bots),
         onCancel = { store.updateSearch(""); onSearchingChange(false) },
     )
-    if (store.hasRuntimes == false) ai.nuphos.android.ui.agent.FirstRuntimePrompt(
-        if (store.selectedTeam?.isAdministrator == true) ({ settingUpRuntime = true }) else null)
+    if (store.hasRuntimes == false) ai.nuphos.android.ui.agent.FirstRuntimePrompt()
     // Like iOS, no "+" either: a Bot would have nothing to run on.
     else if (!store.channelsLoaded && rows.isEmpty()) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         CircularProgressIndicator()
@@ -110,10 +109,10 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
     } else LazyColumn(Modifier.fillMaxSize().testTag("chats-list")) {
         item(key = "bots-header") {
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Bots", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall,
+                Text(stringResource(R.string.chats_bots), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 IconButton(onClick = { showNewBot = true }, enabled = !store.creatingBot) {
-                    Icon(Icons.Outlined.Add, "New Bot")
+                    Icon(Icons.Outlined.Add, stringResource(R.string.chats_new_bot))
                 }
             }
         }
@@ -152,16 +151,19 @@ private fun ChatRow(chat: AgentConversation, typing: Boolean, selected: Boolean,
     val title = if (chat.isChannel) chat.displayTitleForChat else chat.displayTitle
     val preview = chat.previewLine
     var menu by remember { mutableStateOf(false) }
+    val typingLabel = stringResource(R.string.chats_is_typing, title)
+    val unreadLabel = stringResource(R.string.chats_unread_posts)
+    val openingLabel = stringResource(R.string.chats_opening)
     // A long press offers Archive Bot, as Desktop's sidebar does for a Bot and its chat.
     Box { DropdownMenu(expanded = menu && onArchiveBot != null, onDismissRequest = { menu = false }) {
-        DropdownMenuItem(text = { Text("Archive Bot") }, leadingIcon = { Icon(Icons.Outlined.Archive, null) },
+        DropdownMenuItem(text = { Text(stringResource(R.string.chats_archive_bot)) }, leadingIcon = { Icon(Icons.Outlined.Archive, null) },
             onClick = { menu = false; onArchiveBot?.invoke() })
     }
     ListItem(
         modifier = Modifier.combinedClickable(enabled = !opening, onClick = onOpen,
-            onLongClick = onArchiveBot?.let { { menu = true } }, onLongClickLabel = onArchiveBot?.let { "More actions" })
+            onLongClick = onArchiveBot?.let { { menu = true } }, onLongClickLabel = onArchiveBot?.let { stringResource(R.string.chats_more_actions) })
             .testTag("chat-row:${chat.sessionId}").semantics {
-            contentDescription = listOfNotNull(title, if (typing) "$title is typing" else preview, "unread posts".takeIf { unread }, "opening".takeIf { opening }).joinToString(", ")
+            contentDescription = listOfNotNull(title, if (typing) typingLabel else preview, unreadLabel.takeIf { unread }, openingLabel.takeIf { opening }).joinToString(", ")
         },
         colors = ListItemDefaults.colors(containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.background),
         leadingContent = {
@@ -187,7 +189,7 @@ private fun ChatRow(chat: AgentConversation, typing: Boolean, selected: Boolean,
 
 /** An unnamed chat is called by its one other member, which is how a Bot's 1:1 chat gets its name. */
 internal val AgentConversation.displayTitleForChat: String
-    get() = title.ifBlank { faces?.singleOrNull()?.name?.takeIf { it.isNotBlank() } ?: "Untitled chat" }
+    @Composable get() = title.ifBlank { faces?.singleOrNull()?.name?.takeIf { it.isNotBlank() } ?: stringResource(R.string.chats_untitled_chat) }
 
 /**
  * A chat's icon, as iMessage draws one: the one other member's face, or two overlapping, whoever spoke

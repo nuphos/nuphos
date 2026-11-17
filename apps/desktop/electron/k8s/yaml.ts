@@ -1,8 +1,10 @@
-import * as k8s from '@kubernetes/client-node'
 import yaml from 'js-yaml'
 
 import { getClients, withAuthRetry } from './client'
 import { is404 } from './errors'
+import { k8sLib } from './lib'
+
+import type * as k8s from '@kubernetes/client-node'
 
 export function getResourceYaml(
   context: string,
@@ -195,7 +197,7 @@ export function applyResourceYaml(
       doc.metadata.namespace = expected.namespace
     }
     const { kc } = getClients(context)
-    const objectApi = k8s.KubernetesObjectApi.makeApiClient(kc)
+    const objectApi = k8sLib.KubernetesObjectApi.makeApiClient(kc)
 
     await objectApi.patch(
       doc,
@@ -203,7 +205,7 @@ export function applyResourceYaml(
       undefined,
       'atlas',
       false,
-      k8s.PatchStrategy.ServerSideApply,
+      k8sLib.PatchStrategy.ServerSideApply,
     )
   })
 }

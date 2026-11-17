@@ -71,10 +71,8 @@ export function BoxAgentSetup({
     instance,
     () => {
       if (!created || !instance) return
-      toast.success(
-        t('{account} connected', { account }),
-        t('{name} is now signed in.', { name: instance.label }),
-      )
+      // An API key is not checked until a turn runs, so this names no sign-in method.
+      toast.success(t('{name} is now signed in.', { name: instance.label }))
       onDone(created.runtimeId)
     },
     true,

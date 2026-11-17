@@ -16,7 +16,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import ai.nuphos.android.data.*
 import ai.nuphos.android.model.TransferUpload
 import ai.nuphos.android.ui.chat.TransferCard
@@ -93,7 +93,7 @@ class SentAttachmentsFixtureDeviceTest {
             compose.waitUntil(10000) { compose.onAllNodesWithText("Loading image").fetchSemanticsNodes().isEmpty() }
             compose.onNodeWithText("1 / 2").assertIsDisplayed()
             screenshot("sent-attachment-pager")
-            compose.onNodeWithText("Next image").performClick()
+            compose.onNodeWithText("Next").performClick()
             compose.onNodeWithText("2 / 2").assertIsDisplayed()
             compose.onNodeWithText("Close").performClick()
             compose.onNodeWithText("2 / 2").assertDoesNotExist()

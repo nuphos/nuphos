@@ -8,7 +8,7 @@ import { finalizeIncompleteTools, latchTabError } from './clientTools'
 import { dispatchedDraft, showTurnQueued } from './queuedAutoSend'
 import { normalizeAgentError, uid } from './stall'
 import { stampAssistantTurnEnd } from './messagePlacement'
-import { updateCurrentAssistantParts } from './turnBoundaries'
+import { openReplyExplainsFailure, updateCurrentAssistantParts } from './turnBoundaries'
 
 import type { PanelCtx } from './ctx'
 
@@ -175,7 +175,7 @@ export function applyStreamEvent(
           phase: null,
           autoResumeAttempts: 0,
           agentSetupRequired: null,
-          ...latchTabError(t, err),
+          ...(openReplyExplainsFailure(t.messages) ? {} : latchTabError(t, err)),
         }
 
         queueTranscriptSync(nextTab, 250)
@@ -226,9 +226,17 @@ export function applyStreamEvent(
         // progress — refill the consecutive no-progress transport budget
         // so a later stall is judged on its own, not as a repeat of a
         // failure that already recovered. The identical-error streak
-        // resets on the same evidence.
+        // resets on the same evidence, and so does a sign-in prompt: an
+        // agent that is answering is signed in (it may have recovered on
+        // its own, and resending would run the message twice).
         ...(partsChanged
-          ? { messages: msgs, autoResumeAttempts: 0, lastErrorKey: null, errorStreak: 0 }
+          ? {
+              messages: msgs,
+              autoResumeAttempts: 0,
+              lastErrorKey: null,
+              errorStreak: 0,
+              agentSetupRequired: null,
+            }
           : {}),
       }
 

@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 
 import { t } from '../../../i18n'
 import { nextOccurrencesAfter } from '../../../views/triggers/calendar/occurrences'
-import { CronBuilder } from '../../../views/triggers/CronBuilder'
 
 import { untilRun } from './triggerCards'
 
@@ -53,22 +52,6 @@ export function NextRuns({ trigger }: { trigger: AgentTrigger }) {
           </li>
         ))}
       </ul>
-    </div>
-  )
-}
-
-export function ScheduleEditor({
-  value,
-  onChange,
-  timeZone,
-}: {
-  value: string
-  onChange: (expression: string) => void
-  timeZone?: string
-}) {
-  return (
-    <div className="text-[13px] [&_input]:text-[13px] [&_select]:text-[13px]">
-      <CronBuilder value={value} onChange={onChange} scheduleTimeZone={timeZone} />
     </div>
   )
 }

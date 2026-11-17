@@ -1,10 +1,12 @@
 import { agentConversations, liveAttachment } from '@/lib/agent/db/shared'
+import { sameRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { AppError } from '@/lib/errors'
-import { logError } from '@/lib/observability'
+import { logError, logEvent } from '@/lib/observability'
 
 import { resolveConversationChatRuntime } from './conversation-chat-route'
 import { reachableRuntimeEndpoint } from './dev-runtime-forward'
 import { OpenAbAcpClient } from './openab-acp-client'
+import { OpenAbConnectError } from './openab-acp-connect'
 import { OpenAbRpcError } from './openab-acp-errors'
 import { runtimeModelCatalog } from './runtime-models'
 import { offeredSessionConfig } from './session-config-catalog'
@@ -271,7 +273,10 @@ function prewarmSession(
     .catch((error: unknown) => {
       // An unavailable runtime is not a failure here: the next prompt reports it.
       if (error instanceof AppError) return
-      logError('agent.session.prewarm_failed', error, { session_id: conversation.sessionId })
+      // Nor is a host that did not answer, as while it restarts: a warning, if it never does.
+      if (error instanceof OpenAbConnectError)
+        logEvent('warn', 'agent.session.prewarm_offline', { session_id: conversation.sessionId })
+      else logError('agent.session.prewarm_failed', error, { session_id: conversation.sessionId })
     })
     .finally(() => prewarming.delete(id))
 }
@@ -390,7 +395,8 @@ async function withSessionClient<T>(
 ): Promise<T> {
   const { endpoint } = await resolveConversationChatRuntime(conversation.teamId, conversation)
 
-  if (endpoint.url !== attachment.runtimeUrl)
+  // The stored address drops `actor`, which a teammate's computer adds to the live one.
+  if (!sameRuntimeUrl(endpoint.url, attachment.runtimeUrl))
     throw new AppError(409, 'runtime_unavailable', 'The conversation’s agent is unavailable.')
   // Do not session/resume here: it would claim the live output sink from
   // another backend replica. This connection only writes configuration.

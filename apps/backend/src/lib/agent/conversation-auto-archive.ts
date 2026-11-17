@@ -2,6 +2,7 @@ import { config } from '@/config'
 import { agentConversations } from '@/lib/agent/db/shared'
 import { reclaimSessionHomes } from '@/lib/claude-code-preview/runtime-session-home'
 import { logError, logEvent } from '@/lib/observability'
+import { claimRun } from '@/lib/redis'
 
 import type { AgentConversation } from '@/lib/agent/db/shared'
 import type { Filter } from 'mongodb'
@@ -49,27 +50,29 @@ let sweepTimer: ReturnType<typeof setInterval> | undefined
 
 let sweeping = false
 
+/** The hourly sweep, on one replica: every replica ticks, the first to claim
+ *  the hour archives and reclaims. Manual archives are reclaimed even when idle
+ *  archiving is off. */
+export async function sweepOnOneReplica(): Promise<void> {
+  if (!(await claimRun('agent:conversation-auto-archive', SWEEP_INTERVAL_MS - 5 * 60 * 1000)))
+    return
+  await archiveIdleConversations().catch((err: unknown) => {
+    logError('agent.conversation_auto_archive.failed', err)
+  })
+  await reclaimSessionHomes().catch((err: unknown) => {
+    logError('agent.session_home_reclaim.failed', err)
+  })
+}
+
 function runSweep() {
   // A slow reclaim must not overlap the next interval.
   if (sweeping) return
   sweeping = true
-  void archiveIdleConversations()
-    .catch((err: unknown) => {
-      logError('agent.conversation_auto_archive.failed', err)
-    })
-    .then(() => reclaimSessionHomes())
-    .catch((err: unknown) => {
-      logError('agent.session_home_reclaim.failed', err)
-    })
-    .finally(() => {
-      sweeping = false
-    })
+  void sweepOnOneReplica().finally(() => {
+    sweeping = false
+  })
 }
 
-/** Plain hourly interval on every replica: archiving is one idempotent
- *  updateMany, and reclaiming a home twice only finds it absent, so concurrent
- *  runs only repeat a no-op. Manual archives are reclaimed even when idle
- *  archiving is off. */
 export const conversationAutoArchive = {
   init(): void {
     warmupTimer = setTimeout(runSweep, WARMUP_DELAY_MS)

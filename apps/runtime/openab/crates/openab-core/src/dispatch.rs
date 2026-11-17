@@ -17,10 +17,11 @@ use anyhow::Result;
 use async_trait::async_trait;
 use tracing::{debug, error, info, info_span, warn};
 
+use crate::acp::connection::AcpRequestError;
+use crate::acp::pool::SessionStartError;
 use crate::acp::ContentBlock;
 use crate::adapter::{AdapterRouter, ChannelRef, ChatAdapter, MessageRef};
 use crate::config::ReactionsConfig;
-use crate::acp::protocol::JsonRpcError;
 use crate::error_display::{format_coded_error, format_user_error};
 use crate::reactions::StatusReactionController;
 
@@ -150,10 +151,13 @@ pub trait DispatchTarget: Send + Sync + 'static {
         working_dir: Option<&str>,
         mcp_servers: &[serde_json::Value],
         session_meta: Option<&serde_json::Value>,
-    ) -> Result<bool>;
+    ) -> Result<bool, SessionStartError>;
 
     /// Destroy the session for `session_key` (used to rollback on directive failure).
     async fn reset_session(&self, session_key: &str);
+
+    /// Whether Stop was asked for `session_key` at or after `since`.
+    async fn stopped_since(&self, session_key: &str, since: Instant) -> bool;
 
     /// Drive one ACP turn with the pre-packed `content_blocks`.
     #[allow(clippy::too_many_arguments)]
@@ -189,7 +193,7 @@ impl DispatchTarget for AdapterRouter {
         working_dir: Option<&str>,
         mcp_servers: &[serde_json::Value],
         session_meta: Option<&serde_json::Value>,
-    ) -> Result<bool> {
+    ) -> Result<bool, SessionStartError> {
         self.pool()
             .get_or_create(session_key, working_dir, mcp_servers, session_meta)
             .await
@@ -197,6 +201,10 @@ impl DispatchTarget for AdapterRouter {
 
     async fn reset_session(&self, session_key: &str) {
         let _ = self.pool().reset_session(session_key).await;
+    }
+
+    async fn stopped_since(&self, session_key: &str, since: Instant) -> bool {
+        self.pool().stopped_since(session_key, since).await
     }
 
     async fn stream_prompt_blocks(
@@ -462,10 +470,7 @@ impl Dispatcher {
                 let _ = adapter
                     .send_message(
                         &thread_channel,
-                        &format!(
-                            "⚠️ {}",
-                            format_user_error("dispatch consumer exited unexpectedly")
-                        ),
+                        "⚠️ **Error**\ndispatch consumer exited unexpectedly",
                     )
                     .await;
                 return Err(DispatchError::ConsumerDead);
@@ -642,18 +647,18 @@ async fn consumer_loop(
 /// A session that could not start fails the turn. An ACP host gets a turn error
 /// carrying the adapter's code and `data`, so it can tell a sign-out from a crash;
 /// chat platforms keep the readable notice.
-async fn report_session_failure(adapter: &Arc<dyn ChatAdapter>, channel: &ChannelRef, e: &anyhow::Error) {
+async fn report_session_failure(adapter: &Arc<dyn ChatAdapter>, channel: &ChannelRef, e: &SessionStartError) {
     if channel.platform != "acp" {
-        let user_msg = format_user_error(&e.to_string());
+        let user_msg = format_user_error(e);
         let _ = adapter.send_message(channel, &format!("⚠️ {user_msg}")).await;
         return;
     }
-    let (error, data) = match e.downcast_ref::<JsonRpcError>() {
-        Some(err) => (
+    let (error, data) = match e {
+        SessionStartError::Request(AcpRequestError::Agent(err)) => (
             format_coded_error(err.code, &err.message, err.data_message().as_deref()),
             Some(err.relay_data()),
         ),
-        None => (format_user_error(&e.to_string()), None),
+        _ => (format_user_error(e), None),
     };
     if let Err(send_err) = adapter.fail_agent_turn(channel, "", &error, data).await {
         warn!(error = %send_err, "failed to report session start failure");
@@ -829,6 +834,16 @@ async fn dispatch_batch(
     ));
     // 👀 already applied above; skip set_queued() to avoid double-reaction.
 
+    // The one place a turn goes to the agent. A Stop asked while the turn waited
+    // here, for its session to open, ends it before the agent reads it.
+    if target.stopped_since(&session_key, dispatch_start).await {
+        info!("turn stopped before it reached the agent");
+        let _ = adapter
+            .send_terminal_message(&dispatch_channel, "", Some("cancelled"))
+            .await;
+        return;
+    }
+
     let result = target
         .stream_prompt_blocks(
             adapter,
@@ -920,6 +935,7 @@ pub fn estimate_tokens(prompt: &str, extra_blocks: &[ContentBlock]) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::acp::protocol::JsonRpcError;
 
     #[test]
     fn estimate_tokens_empty() {
@@ -1445,11 +1461,11 @@ mod tests {
         reactions: ReactionsConfig,
         calls: Mutex<Vec<RecordedDispatch>>,
         /// If set, `ensure_session` returns this error once.
-        ensure_err: Mutex<Option<String>>,
-        /// If set, `ensure_session` returns this adapter error once.
-        ensure_rpc_err: Mutex<Option<JsonRpcError>>,
+        ensure_err: Mutex<Option<SessionStartError>>,
         /// If set, `stream_prompt_blocks` returns this error once.
         stream_err: Mutex<Option<String>>,
+        /// Stop was asked while the batch waited to be dispatched.
+        stopped: std::sync::atomic::AtomicBool,
     }
 
     impl MockDispatchTarget {
@@ -1458,8 +1474,8 @@ mod tests {
                 reactions: ReactionsConfig::default(),
                 calls: Mutex::new(Vec::new()),
                 ensure_err: Mutex::new(None),
-                ensure_rpc_err: Mutex::new(None),
                 stream_err: Mutex::new(None),
+                stopped: std::sync::atomic::AtomicBool::new(false),
             }
         }
 
@@ -1488,17 +1504,18 @@ mod tests {
             _working_dir: Option<&str>,
             _mcp_servers: &[serde_json::Value],
             _session_meta: Option<&serde_json::Value>,
-        ) -> Result<bool> {
-            if let Some(msg) = self.ensure_err.lock().unwrap().take() {
-                return Err(anyhow::anyhow!(msg));
-            }
-            if let Some(err) = self.ensure_rpc_err.lock().unwrap().take() {
-                return Err(anyhow::Error::new(err));
+        ) -> Result<bool, SessionStartError> {
+            if let Some(err) = self.ensure_err.lock().unwrap().take() {
+                return Err(err);
             }
             Ok(true)
         }
 
         async fn reset_session(&self, _session_key: &str) {}
+
+        async fn stopped_since(&self, _session_key: &str, _since: Instant) -> bool {
+            self.stopped.load(Ordering::SeqCst)
+        }
 
         async fn stream_prompt_blocks(
             &self,
@@ -1568,6 +1585,8 @@ mod tests {
     struct RecordingAdapter {
         sent: Mutex<Vec<String>>,
         failed: Mutex<Vec<(String, Option<serde_json::Value>)>>,
+        /// Each turn ended without an error, as its text and stop reason.
+        ended: Mutex<Vec<(String, Option<String>)>>,
     }
 
     #[async_trait]
@@ -1583,6 +1602,21 @@ mod tests {
             Ok(MessageRef {
                 channel: channel.clone(),
                 message_id: "rec-msg".into(),
+            })
+        }
+        async fn send_terminal_message(
+            &self,
+            channel: &ChannelRef,
+            content: &str,
+            stop_reason: Option<&str>,
+        ) -> Result<MessageRef> {
+            self.ended
+                .lock()
+                .unwrap()
+                .push((content.into(), stop_reason.map(Into::into)));
+            Ok(MessageRef {
+                channel: channel.clone(),
+                message_id: "rec-end".into(),
             })
         }
         async fn fail_agent_turn(
@@ -1614,8 +1648,8 @@ mod tests {
         }
     }
 
-    /// Runs one message through a consumer whose session fails to start.
-    async fn run_failed_session_start(
+    /// Runs one message through a consumer and returns what the adapter was told.
+    async fn run_one_message(
         platform: &str,
         mock: Arc<MockDispatchTarget>,
     ) -> Arc<RecordingAdapter> {
@@ -1646,13 +1680,16 @@ mod tests {
     #[tokio::test]
     async fn acp_session_start_failure_fails_the_turn_with_the_adapter_code() {
         let mock = Arc::new(MockDispatchTarget::new());
-        *mock.ensure_rpc_err.lock().unwrap() = Some(JsonRpcError {
-            code: -32000,
-            message: "Authentication required".into(),
-            data: None,
-        });
+        *mock.ensure_err.lock().unwrap() = Some(
+            AcpRequestError::from(JsonRpcError {
+                code: -32000,
+                message: "Authentication required".into(),
+                data: None,
+            })
+            .into(),
+        );
 
-        let recorder = run_failed_session_start("acp", mock.clone()).await;
+        let recorder = run_one_message("acp", mock.clone()).await;
 
         let failed = recorder.failed.lock().unwrap();
         assert_eq!(failed.len(), 1);
@@ -1665,12 +1702,35 @@ mod tests {
         assert!(mock.calls().is_empty(), "the prompt never runs");
     }
 
+    /// #2872: Stop was pressed while the agent's session was still opening.
+    #[tokio::test]
+    async fn a_turn_stopped_before_dispatch_never_reaches_the_agent() {
+        let mock = Arc::new(MockDispatchTarget::new());
+        mock.stopped.store(true, Ordering::SeqCst);
+
+        let recorder = run_one_message("acp", mock.clone()).await;
+
+        assert!(mock.calls().is_empty(), "the prompt never runs");
+        assert_eq!(
+            *recorder.ended.lock().unwrap(),
+            vec![(String::new(), Some("cancelled".to_string()))],
+            "the turn ends as cancelled"
+        );
+        assert!(recorder.failed.lock().unwrap().is_empty());
+        assert!(recorder.sent.lock().unwrap().is_empty());
+    }
+
     #[tokio::test]
     async fn acp_session_start_failure_without_a_code_still_fails_the_turn() {
         let mock = Arc::new(MockDispatchTarget::new());
-        *mock.ensure_err.lock().unwrap() = Some("timeout waiting for session/new response".into());
+        *mock.ensure_err.lock().unwrap() = Some(
+            AcpRequestError::Timeout {
+                method: "session/new".into(),
+            }
+            .into(),
+        );
 
-        let recorder = run_failed_session_start("acp", mock).await;
+        let recorder = run_one_message("acp", mock).await;
 
         let failed = recorder.failed.lock().unwrap();
         assert_eq!(failed.len(), 1);
@@ -1681,13 +1741,16 @@ mod tests {
     #[tokio::test]
     async fn chat_platform_session_start_failure_keeps_the_text_notice() {
         let mock = Arc::new(MockDispatchTarget::new());
-        *mock.ensure_rpc_err.lock().unwrap() = Some(JsonRpcError {
-            code: -32603,
-            message: "Internal error".into(),
-            data: None,
-        });
+        *mock.ensure_err.lock().unwrap() = Some(
+            AcpRequestError::from(JsonRpcError {
+                code: -32603,
+                message: "Internal error".into(),
+                data: None,
+            })
+            .into(),
+        );
 
-        let recorder = run_failed_session_start("discord", mock).await;
+        let recorder = run_one_message("discord", mock).await;
 
         assert!(recorder.failed.lock().unwrap().is_empty());
         let sent = recorder.sent.lock().unwrap();

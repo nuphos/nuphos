@@ -1,6 +1,9 @@
 import { tool } from 'ai'
 import { z } from 'zod'
 
+import { getSessionBypass } from './auto-mode/store'
+import { BOT_AVATARS } from './bot-avatars'
+import { createBot } from './bots'
 import {
   getConversation,
   getConversations,
@@ -8,23 +11,24 @@ import {
   liveTurnTranscriptLine,
   updateBotSelf,
 } from './db'
-import { getSessionBypass } from './auto-mode/store'
-import { BOT_AVATARS } from './bot-avatars'
-import { createBot } from './bots'
 import { getLiveTurn } from './live-turn'
 import { renameConversationTool } from './tools-rename'
+import { createCoordinationTools } from './tools-coordination'
+import { conversationSummary } from './tools-session-summary'
 import { withLabel } from './tools-skilled/labeling'
 
 const LIST_DESCRIPTION =
   'List the most recent conversations in this workspace (newest first), optionally filtered by a substring of their title or first message. ' +
   'Pages with cursor — pass the returned next_cursor to continue. ' +
-  'Use it when the user refers to an earlier conversation — "what did we decide last time", "the chat from this morning about billing", "that cluster we set up" — to find it by title, topic or recency before asking them to repeat themselves, then read_conversation to read it.'
+  'Use it when the user refers to an earlier conversation — "what did we decide last time", "the chat from this morning about billing", "that cluster we set up" — to find it by title, topic or recency before asking them to repeat themselves, then read_conversation to read it. ' +
+  'Set bots to list only Bots, however long ago they were active: the way to find another Bot to message with send_message_to_thread.'
 
 const READ_DESCRIPTION =
   "Read one conversation's transcript in compact form: one line per message (`#index role: text`), tool calls summarized as `[tool: name]`. " +
   'A Nuphos session link (`/teams/<team>/agent/<session_id>`) in a message names a conversation; pass its last segment as session_id. ' +
   'Pages by message index — pass the returned next_index to continue. Read only the window you need. ' +
   'A turn still running is the last line of the last page, marked in progress with its start and last update times, and returned in in_progress; once it ends it is replaced by the stored message. ' +
+  "A Bot's current standing instructions are returned in full in instructions, whatever its transcript shows. " +
   'Turn termination records are returned separately in turn_diagnostics, even when transcript text is truncated; timestamps describe backend observations and missing fields were not recorded. ' +
   'Tool inputs/outputs are omitted by default to keep the transcript small; set include_tool_details only when the exact command or result matters.'
 
@@ -41,38 +45,11 @@ const CREATE_BOT_DESCRIPTION =
   'The Bot belongs to that person and is their 1:1 chat with it; it starts idle on their default agent, in your own permission mode. ' +
   'Pass instructions in the second person, drafted from what they asked for. Returns its session_id.'
 
-function conversationSummary(
-  c: {
-    sessionId: string
-    title: string
-    createdAt: Date
-    lastActiveAt: Date
-    messageCount: number
-    archivedAt?: Date
-    userId: string
-    parentSessionId?: string
-  },
-  viewerUserId: string,
-  currentSessionId: string,
-) {
-  return {
-    session_id: c.sessionId,
-    title: c.title,
-    created_at: c.createdAt.toISOString(),
-    last_active_at: c.lastActiveAt.toISOString(),
-    message_count: c.messageCount,
-    ...(c.parentSessionId ? { parent_session_id: c.parentSessionId } : {}),
-    ...(c.archivedAt ? { archived: true } : {}),
-    ...(c.userId === viewerUserId ? {} : { owner: 'teammate' }),
-    ...(c.sessionId === currentSessionId ? { is_current_conversation: true } : {}),
-  }
-}
-
 export function createSessionTools(
   userId: string,
   conversationId: string,
   teamId: string | null | undefined,
-) {
+): Record<string, ReturnType<typeof withLabel>> {
   if (!teamId) return {}
 
   const listShape = {
@@ -94,12 +71,13 @@ export function createSessionTools(
       .boolean()
       .optional()
       .describe("true lists only this conversation's sub-agents (threads nested under it)."),
+    bots: z.boolean().optional().describe('true lists only Bots (conversations with a face).'),
   }
   const list_recent_conversations = withLabel(
     tool({
       description: LIST_DESCRIPTION,
       inputSchema: z.object(listShape),
-      execute: async ({ limit, search, scope, cursor, children }) => {
+      execute: async ({ limit, search, scope, cursor, children, bots }) => {
         const { conversations, nextCursor } = await getConversations(userId, {
           teamId,
           limit: limit ?? 15,
@@ -107,6 +85,7 @@ export function createSessionTools(
           // Sub-agents are the user's own threads, so children stays owner-scoped.
           scope: children ? 'mine' : (scope ?? 'mine'),
           cursor,
+          bots,
           ...(children ? { parentSessionId: conversationId } : {}),
         })
 
@@ -174,6 +153,9 @@ export function createSessionTools(
           created_at: page.conversation.createdAt.toISOString(),
           message_count: page.conversation.messageCount,
           ...(session_id === conversationId ? { is_current_conversation: true } : {}),
+          ...(page.conversation.instructions
+            ? { instructions: page.conversation.instructions }
+            : {}),
           turn_diagnostics: page.turnDiagnostics,
           ...(live
             ? {
@@ -296,7 +278,11 @@ export function createSessionTools(
       execute: async ({ name, avatar, instructions }) => {
         // Never more access than the caller has, as create_thread does.
         const bypass = await getSessionBypass(conversationId, userId)
-        const bot = await createBot(userId, teamId, bypass, { title: name, avatar })
+        const bot = await createBot(userId, teamId, bypass, {
+          source: { via: 'create_bot', sessionId: conversationId },
+          title: name,
+          avatar,
+        })
         const saved =
           !instructions || (await updateBotSelf(bot.sessionId, userId, teamId, { instructions }))
 
@@ -314,6 +300,7 @@ export function createSessionTools(
   )
 
   return {
+    ...createCoordinationTools(userId, conversationId, teamId),
     list_recent_conversations,
     read_conversation,
     rename_conversation: renameConversationTool(userId, conversationId, teamId),

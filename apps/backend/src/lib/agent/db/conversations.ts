@@ -11,16 +11,15 @@ import { recordAgentEvent } from './events'
 import { agentConversations, agentMessages, withTeamScope } from './shared'
 import { initialWatcherIds } from './watch'
 
-import type { ConversationTriggerRun } from '../conversation-trigger-run'
-import type { ReadGrants } from './access'
+import type { ConversationShellInput } from './conversation-shell-input'
 import type {
-  AgentClientMeta,
   AgentConversation,
   AgentCredentialAccess,
   ConversationPreviewAttachment,
   ConversationPreviewContext,
   AgentMessage,
 } from './shared'
+import type { ConversationTimelineEvent } from './timeline-events'
 
 // Sticky content-filter model-fallback helpers live in a sibling file (this
 // one is at the max-lines limit); re-exported so existing import paths hold.
@@ -31,36 +30,9 @@ export {
   pickModelFallbackModelId,
 } from './conversations-model-fallback'
 
-export async function upsertConversationShell(data: {
-  sessionId: string
-  userId: string
-  teamId?: string
-  title: string
-  firstMessage: string
-  locale?: string
-  provider?: string
-  source?: string
-  /**
-   * The trigger that fired this conversation, when one did. Write-once by
-   * construction — it lives in `metadata`, which only $setOnInsert touches —
-   * because every later turn (the agent's own, or a teammate continuing the
-   * run from the Trigger page) arrives without trigger context and would
-   * otherwise erase the only link back to the Trigger.
-   */
-  trigger?: ConversationTriggerRun
-  client?: AgentClientMeta
-  credentialAccess?: AgentCredentialAccess
-  agentRuntime?: NonNullable<AgentConversation['agentRuntime']>
-  runtimeId?: string
-  runtimeLabel?: string
-  parentSessionId?: string
-  /** A thread's parent, whose readers it copies in place of what its source starts with. */
-  parentGrants?: ReadGrants
-  kind?: 'channel'
-  /** Created as a Bot: its face, and a name the title generator leaves alone. */
-  avatar?: string
-  workspace?: NonNullable<AgentConversation['workspace']>
-}): Promise<{ isNew: boolean }> {
+export async function upsertConversationShell(
+  data: ConversationShellInput,
+): Promise<{ isNew: boolean }> {
   const now = new Date()
   // MongoDB rejects the same field appearing in both $setOnInsert and $set
   // ("Updating the path 'title' would create a conflict at 'title'", error
@@ -81,8 +53,14 @@ export async function upsertConversationShell(data: {
     ...(data.agentRuntime ? { agentRuntime: data.agentRuntime } : {}),
     ...(data.runtimeId ? { runtimeId: data.runtimeId, runtimeLabel: data.runtimeLabel } : {}),
     ...(data.parentSessionId ? { parentSessionId: data.parentSessionId } : {}),
+    ...(data.delegation ? { delegation: data.delegation } : {}),
+    ...(data.originChannelIds?.length ? { originChannelIds: data.originChannelIds } : {}),
     ...(data.kind ? { kind: data.kind } : {}),
-    ...(data.avatar ? { avatar: data.avatar, titleManuallySet: true } : {}),
+    ...(data.bot
+      ? { avatar: data.bot.avatar, titleManuallySet: true, timelineEvents: [data.bot.change] }
+      : {}),
+    ...(data.instructions ? { instructions: data.instructions } : {}),
+    ...(data.botOnboarding ? { botOnboarding: data.botOnboarding } : {}),
     ...(data.workspace ? { workspace: data.workspace } : {}),
     metadata: {
       locale: data.locale,
@@ -98,15 +76,25 @@ export async function upsertConversationShell(data: {
   }
   const result = await agentConversations().updateOne(
     withTeamScope({ sessionId: data.sessionId, userId: data.userId }, data.teamId),
-    {
-      $setOnInsert: setOnInsert,
-      $set: {
-        lastActiveAt: now,
-        ...(data.teamId ? { teamId: data.teamId } : {}),
-        ...(data.title ? { title: data.title } : {}),
-        ...(data.credentialAccess ? { credentialAccess: data.credentialAccess } : {}),
-      },
-    },
+    data.delegation
+      ? {
+          $setOnInsert: {
+            ...setOnInsert,
+            lastActiveAt: now,
+            ...(data.teamId ? { teamId: data.teamId } : {}),
+            ...(data.title ? { title: data.title } : {}),
+            ...(data.credentialAccess ? { credentialAccess: data.credentialAccess } : {}),
+          },
+        }
+      : {
+          $setOnInsert: setOnInsert,
+          $set: {
+            lastActiveAt: now,
+            ...(data.teamId ? { teamId: data.teamId } : {}),
+            ...(data.title ? { title: data.title } : {}),
+            ...(data.credentialAccess ? { credentialAccess: data.credentialAccess } : {}),
+          },
+        },
     { upsert: true },
   )
 

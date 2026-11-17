@@ -4,6 +4,7 @@
 // on a new streamId once it has decided).
 import { randomUUID } from 'node:crypto'
 
+import { requeueTurnQueue } from '@/lib/agent/session-released'
 import { bindPreviewRunFrameBridge } from '@/lib/claude-code-preview/run-frame-bridge'
 
 import {
@@ -16,8 +17,8 @@ import {
 import { createAgentRun, registerAgentRun } from './run-registry'
 
 import type { AgentChatBody, AgentRun } from './types'
+import type { AgentSessionOrigin } from '@/lib/agent/message-origin'
 import type { PendingUserMessage } from '@/lib/agent/pending-messages'
-import type { AgentSessionOrigin } from '@/lib/agent/tools-triggers-shared'
 import type { PreviewDecision, PreviewWait } from '@/lib/claude-code-preview/decision-waiter'
 import type { PreviewFrameConsumer } from '@/lib/claude-code-preview/run-frame-bridge'
 import type { TeamRuntimeEndpoint } from '@/lib/claude-code-preview/team-openab-runtime'
@@ -41,6 +42,8 @@ export type PreviewChatTurnArgs = {
   kubeContext?: string
   /** The client driving this turn can run port forwards and other client-side local tools. */
   localToolsEnabled?: boolean
+  /** The client driving this turn draws the secure input card. */
+  secretCardEnabled?: boolean
   /** Set when the client is resuming a turn rather than sending a new message. */
   resume?: { reason?: NonNullable<AgentChatBody['resumeReason']> }
   diagramId?: string
@@ -52,11 +55,37 @@ export type PreviewChatTurnArgs = {
   turnContext?: string
   /** A headless caller that puts its own messages back on the queue when the runtime refuses. */
   clientResendsRefusal?: boolean
-  /** Started from the session queue: a refusal puts this message back at its head. */
+  /** The message this turn runs: a refusal puts it at the head of the session queue. */
   queued?: PendingUserMessage
+  /** `queued` was sent just now and never waited there, so a Stop is aimed at it. */
+  direct?: boolean
   onRunHandoff?: (next: AgentRun) => void
   /** The usage the runtime reported for this turn, for per-turn accounting. */
   onTurnUsage?: (usage: unknown) => void
+}
+
+/**
+ * The agent never received this turn's messages: the runtime refused them, or
+ * the turn was stopped before its prompt went out. What the turn took from the
+ * queue waits there again instead of being recorded as read. True when the
+ * message that started the turn went back too, leaving nothing to record.
+ *
+ * A stopped direct send does not go back: it would run once the queue retried.
+ * A message that waited in the queue does, as the Stop may have been pressed
+ * for the turn ahead of it.
+ */
+export async function requeueUnsent(
+  turn: Pick<PreviewChatTurnArgs, 'userId' | 'sessionId' | 'queued' | 'direct'>,
+  carried: PendingUserMessage[],
+  steered: UIMessage[],
+  stopped = false,
+): Promise<boolean> {
+  const queued = stopped && turn.direct ? undefined : turn.queued
+
+  await requeueTurnQueue(turn.userId, turn.sessionId, carried, queued)
+  steered.length = 0
+
+  return Boolean(queued)
 }
 
 /** Set when the runtime connection dropped mid-turn and the turn was left to it. */

@@ -4,6 +4,16 @@ export const MIN_SIDEBAR_WIDTH = 220
 export const MAX_SIDEBAR_WIDTH = 380
 export const DEFAULT_SIDEBAR_WIDTH = 248
 export const SIDEBAR_WIDTH_KEY = 'nuphos.sidebarWidth'
+
+/** The width the person last dragged the sidebar to, within bounds. */
+export function storedSidebarWidth(): number {
+  if (typeof window === 'undefined') return DEFAULT_SIDEBAR_WIDTH
+  const v = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY))
+
+  if (!v || Number.isNaN(v)) return DEFAULT_SIDEBAR_WIDTH
+
+  return Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, v))
+}
 // Storage: { [teamId]: { [title]: 'open' | 'closed' } } explicit user
 // overrides, PER TEAM — but only for groups outside DEFAULT_COLLAPSED_GROUPS;
 // the integration groups below are ALWAYS folded at rest and their expansion

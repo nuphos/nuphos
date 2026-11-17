@@ -8,7 +8,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -42,7 +42,6 @@ class RuntimeDetailFixtureDeviceTest {
             saved = listOf(result); return result
         }
         override suspend fun remove(runtimeId: String): Boolean { removals++; return true }
-        override suspend fun create(provider: String, label: String?): AgentRuntime = error("unused")
         override suspend fun start(runtimeId: String): RuntimeLogin { signIns++; return RuntimeLogin("00000000-0000-4000-8000-000000000001", "connected", Long.MAX_VALUE) }
         override suspend fun login(runtimeId: String): RuntimeLogin = error("unused")
         override suspend fun code(runtimeId: String, attemptId: String, code: String): RuntimeLogin = error("unused")

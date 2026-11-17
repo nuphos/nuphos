@@ -83,11 +83,12 @@ authMfa.post('/reauth', requireAuth, async (c) => {
 // the sign-in it completes: the challenge token is the credential.
 authMfa.post('/verify', async (c) => {
   const sent = await body(c)
-  const user = await getNuphosUserById(await verifyMfaChallenge(sent.mfaToken, answer(sent)))
+  const { userId, viaWebsite } = await verifyMfaChallenge(sent.mfaToken, answer(sent))
+  const user = await getNuphosUserById(userId)
 
   if (!user) throw new AppError(401, 'unauthorized', 'Account is no longer available')
 
-  return c.json(await issueSession(c, user))
+  return c.json(await issueSession(c, user, viaWebsite))
 })
 
 // To finish a sign-in with a passkey: options bound to its challenge. Public, like /verify.

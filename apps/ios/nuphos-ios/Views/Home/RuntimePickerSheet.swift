@@ -25,7 +25,6 @@ private struct RuntimePicker: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var expanded: String?
     @State private var initialized = false
-    @State private var showSetup = false
     @State private var managing = false
     @State private var pendingLocal: RuntimeInstance?
 
@@ -42,8 +41,7 @@ private struct RuntimePicker: View {
         return listed.filter { $0.kind == "managed" }
     }
     private var boxes: [SelectorBox] { SelectorBox.grouped(choices, devices: store.agentDevices) }
-    private var administrator: Bool { store.selectedTeam?.isAdministrator == true }
-    private var browsing: Bool { !showSetup && !managing && scenePhase == .active }
+    private var browsing: Bool { !managing && scenePhase == .active }
 
     var body: some View {
         NavigationStack {
@@ -57,7 +55,7 @@ private struct RuntimePicker: View {
                 } else if !store.runtimesLoaded {
                     ProgressView("Loading runtimes…").tint(Theme.muted)
                 } else if choices.isEmpty {
-                    ContentUnavailableView("No runtimes", systemImage: "cpu", description: Text("Set up a cloud runtime here, or open Nuphos on your computer to connect a runtime."))
+                    ContentUnavailableView("No runtimes", systemImage: "cpu", description: Text("Open Nuphos on your computer to add a Box or connect your own computer."))
                 } else { boxList }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -68,17 +66,13 @@ private struct RuntimePicker: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close", systemImage: "xmark") { dismiss() }.labelStyle(.iconOnly).foregroundStyle(Theme.muted)
                 }
-                if administrator {
-                    ToolbarItem(placement: .primaryAction) { Button("Add runtime", systemImage: "plus") { showSetup = true } }
-                }
             }
-            .navigationDestination(isPresented: $showSetup) { if let team = store.selectedTeam { AgentSetupView(team: team) } }
             .navigationDestination(isPresented: $managing) { RuntimesPage().navigationTitle("Runtimes") }
             .alert("Move to \(pendingLocal?.label ?? "")?", isPresented: Binding(get: { pendingLocal != nil }, set: { if !$0 { pendingLocal = nil } }), presenting: pendingLocal) { runtime in
                 Button("Move") { onMove(runtime); dismiss() }
                 Button("Cancel", role: .cancel) {}
             } message: { _ in
-                Text("This runtime runs on your computer. After the move, people in this conversation can reply only if they can use this computer; the others can still read it.")
+                Text("This runtime runs on your computer. After the move, people in this task can reply only if they can use this computer; the others can still read it.")
             }
             .task(id: store.selectedTeam?.id) {
                 initialized = false
@@ -93,7 +87,7 @@ private struct RuntimePicker: View {
             .onChange(of: store.runtimes) { _, _ in openCurrentBox() }
         }
         .tint(Theme.heading)
-        .onChange(of: showSetup || managing) { _, open in if open { detent = .large } }
+        .onChange(of: managing) { _, open in if open { detent = .large } }
     }
 
     private var boxList: some View {
@@ -289,7 +283,7 @@ struct ModelSettingsSheet: View {
             Group {
                 if let config, !config.options.isEmpty {
                     List {
-                        if let hint = session?.pendingModelSettings.isEmpty == false ? "Changes apply after this reply." : config.hint {
+                        if let hint = session?.pendingModelSettings.isEmpty == false ? String(localized: "Changes apply after this reply.") : config.hint {
                             Text(hint).font(.system(size: 13)).foregroundStyle(Theme.muted).listRowBackground(Color.clear)
                         }
                         if let error {
@@ -363,7 +357,7 @@ private struct QuotaLine: View {
         if let window = quota.tightest {
             HStack(spacing: 6) {
                 QuotaGauge(window: window).frame(width: 44)
-                Text([window.leftPercent == 0 ? "Limit reached" : "\(window.leftPercent)% left", reset(window.resetsAt)].compactMap(\.self).joined(separator: " · "))
+                Text([window.leftPercent == 0 ? String(localized: "Limit reached") : String(localized: "\(window.leftPercent)% left"), reset(window.resetsAt)].compactMap(\.self).joined(separator: " · "))
                     .font(.system(size: 12))
                     .monospacedDigit()
                     .foregroundStyle(window.labelTint ?? Theme.muted)
@@ -380,9 +374,10 @@ private struct QuotaLine: View {
         guard let date, date > .now else { return nil }
         let minutes = Int(date.timeIntervalSinceNow / 60)
         if minutes < 24 * 60 {
-            return minutes < 60 ? "resets in \(max(1, minutes))m" : "resets in \(minutes / 60)h \(minutes % 60)m"
+            return minutes < 60 ? String(localized: "resets in \(max(1, minutes))m") : String(localized: "resets in \(minutes / 60)h \(minutes % 60)m")
         }
-        return "resets " + date.formatted(.dateTime.weekday(.abbreviated).hour().minute())
+        let locale = Locale(identifier: Bundle.main.preferredLocalizations.first ?? "en")
+        return String(localized: "resets \(date.formatted(.dateTime.weekday(.abbreviated).hour().minute().locale(locale)))")
     }
 }
 

@@ -1,5 +1,6 @@
 package ai.nuphos.android
 
+import ai.nuphos.android.R
 import ai.nuphos.android.data.*
 import ai.nuphos.android.model.TeamMember
 import ai.nuphos.android.session.SharingState
@@ -27,7 +28,7 @@ class SessionSharingTest {
         override suspend fun invite(userId: String, grantComputerUse: Boolean): SessionAccess {
             grants += grantComputerUse
             // The real parser, so the state matches what the transport throws.
-            if (userId !in withComputer && !grantComputerUse) throw AgentChatApi.conflict(409, """{"error":{"code":"computer_use_required","message":"Adding this person to the conversation also gives them use of Mac. Continue?"}}""")
+            if (userId !in withComputer && !grantComputerUse) throw AgentChatApi.conflict(409, """{"error":{"code":"computer_use_required","message":"Adding this person to the task also gives them use of Mac. Continue?"}}""")
             withComputer += userId
             val joined = state.participants.filterNot { it.id == userId } + SessionAccess.Participant(userId, "New", "", false, "reply")
             return write(state.copy(participants = joined))
@@ -36,7 +37,7 @@ class SessionSharingTest {
     }
     @Test fun aParticipantRepliesOnlyWithTheComputer() {
         assertFalse(viewer.canReply)
-        assertEquals("Can view", viewer.roleTitle)
+        assertEquals(R.string.chat_share_can_view, viewer.roleTitle)
         assertTrue(viewer.copy(role = "reply").canReply)
     }
     @Test fun ownerGateAndFailurePreserveAuthoritativeState() = runTest {

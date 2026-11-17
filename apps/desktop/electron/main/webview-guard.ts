@@ -28,6 +28,17 @@ function isPopup(url: string, disposition: string) {
   )
 }
 
+/**
+ * A popup sits above the window that opened it. A hidden agent tab's popup stays
+ * hidden instead, as a tab of its own (browser-tabs.ts), until it or its tab is shown;
+ * transparent until its first paint, like that tab.
+ */
+function popupPlacement(opener: BrowserWindow | null) {
+  return opener?.isVisible() === false
+    ? { show: false, opacity: 0 }
+    : { parent: opener ?? undefined }
+}
+
 function openExternally(url: string) {
   openExternal(url).catch((e: unknown) => {
     console.error('[open-external]', url, e)
@@ -48,7 +59,8 @@ export function initWebviewGuard() {
   browserSession.setPermissionCheckHandler(() => false)
   browserSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false))
   browserSession.setDevicePermissionHandler(() => false)
-  guardBrowserDownloads(browserSession)
+  const trackDownloads = guardBrowserDownloads(browserSession)
+
   // Sites that remember a trusted browser (Apple ID) bind it to the user agent, so drop the
   // app and Electron tokens that change with every release and present plain Chrome.
   browserSession.setUserAgent(
@@ -89,6 +101,8 @@ export function initWebviewGuard() {
 
     // Session identity remains stable during redirects and failed navigation.
     const browser = contents.session === browserSession
+
+    if (browser) trackDownloads(contents)
     // Extension popups and pages are windows of their own in the user's session; Dock tabs never
     // show extension pages.
     const extensionHost = contents.session === browserSession && contents.getType() !== 'webview'
@@ -113,8 +127,7 @@ export function initWebviewGuard() {
         return {
           action: 'allow',
           overrideBrowserWindowOptions: {
-            parent:
-              BrowserWindow.fromWebContents(contents.hostWebContents ?? contents) ?? undefined,
+            ...popupPlacement(BrowserWindow.fromWebContents(contents.hostWebContents ?? contents)),
             autoHideMenuBar: true,
             webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
           },

@@ -6,7 +6,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import ai.nuphos.android.data.SessionConfigState
@@ -24,10 +24,6 @@ import java.io.File
 @RunWith(AndroidJUnit4::class)
 class ModelSettingsFixtureDeviceTest {
     @get:Rule val compose = createComposeRule()
-    @org.junit.Before fun requireIsolatedPackage() {
-        org.junit.Assume.assumeTrue("Requires the isolated model fixture package",
-            InstrumentationRegistry.getInstrumentation().targetContext.packageName == "ai.nuphos.android.modelfixture")
-    }
     private lateinit var store: ModelSettingsStore
     private var busy = false
     private var failWrite = false

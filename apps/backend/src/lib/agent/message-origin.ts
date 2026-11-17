@@ -14,6 +14,13 @@
 // the turn, so they are deliberately absent rather than half-filled.
 import { stripPromptControlChars } from '@/lib/agent/prompt-text'
 
+/**
+ * Where the current agent turn originated: 'user' for an interactive
+ * conversation (desktop/web, Slack, Discord, MCP), 'trigger' for a turn a
+ * Trigger fired. Tools that must not act unattended gate on it.
+ */
+export type AgentSessionOrigin = 'user' | 'trigger'
+
 export type AgentMessageOrigin = {
   surface: 'slack'
   /** Slack team/workspace the message was posted in. */

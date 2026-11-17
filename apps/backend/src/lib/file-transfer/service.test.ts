@@ -11,6 +11,7 @@ let actualSize = 10
 let deleted = false
 let readyWrites = 0
 let deleteFails = false
+let releasedAt: Date | undefined
 
 useModels({
   fileTransferGroups: () => ({
@@ -20,11 +21,19 @@ useModels({
       userId: 'user',
       direction: 'upload',
       status: 'pending',
+      ...(releasedAt ? { admission: { key: 'team:0', bytes: 10, releasedAt } } : {}),
       createdAt: new Date(),
       expiresAt: new Date(Date.now() + 60000),
     }),
-    updateOne: async () => ({ modifiedCount: 1 }),
+    // As MongoDB reports it: matched when the filter holds, whether or not the
+    // status changed.
+    updateOne: async (filter: Record<string, unknown>) =>
+      filter['admission.releasedAt'] && releasedAt
+        ? { matchedCount: 0, modifiedCount: 0 }
+        : { matchedCount: 1, modifiedCount: 1 },
+    insertOne: async () => ({}),
   }),
+  fileTransferAdmissions: () => ({ updateOne: async () => ({ modifiedCount: 1 }) }),
   fileTransferItems: () => ({
     find: () => ({
       toArray: async () => [
@@ -46,10 +55,15 @@ useModels({
 
       return { modifiedCount: 1 }
     },
+    insertMany: async () => ({}),
   }),
 })
 useStorage({
   getStorageProvider: () => ({
+    id: 'test',
+    bucket: 'test',
+    region: 'test',
+    presignUpload: async () => ({ url: 'https://upload.test', expiresAt: new Date() }),
     headObject: async () => ({ size: actualSize, contentType: null }),
     deleteObject: async () => {
       if (deleteFails) throw new Error('delete unavailable')
@@ -63,6 +77,7 @@ beforeEach(() => {
   deleted = false
   readyWrites = 0
   deleteFails = false
+  releasedAt = undefined
 })
 
 test('finalization accepts the declared size', async () => {
@@ -83,6 +98,15 @@ test('finalization deletes and rejects a mismatched object', async () => {
   expect(deleted).toBe(true)
 })
 
+test('a group whose slot was given back stays undelivered when its file lands later', async () => {
+  releasedAt = new Date()
+  const result = await real.finalizeTransfer({ teamId, userId: 'user' }, groupId.toHexString())
+
+  expect(result.status).not.toBe('ready')
+  expect(result.files[0]?.status).not.toBe('ready')
+  expect(readyWrites).toBe(0)
+})
+
 test('failed deletion never marks a mismatched object ready', async () => {
   actualSize = 11
   deleteFails = true
@@ -90,4 +114,21 @@ test('failed deletion never marks a mismatched object ready', async () => {
     real.finalizeTransfer({ teamId, userId: 'user' }, groupId.toHexString()),
   ).rejects.toThrow('delete unavailable')
   expect(readyWrites).toBe(0)
+})
+
+test('group ids carry no timestamp or per-process prefix a neighbour could reveal', async () => {
+  const create = async () =>
+    new ObjectId(
+      (
+        await real.createTransfer({ teamId, userId: 'user' }, 'download', [
+          { fileName: 'a.txt', size: 1 },
+        ])
+      ).groupId,
+    )
+  const [a, b] = [await create(), await create()]
+  const hex = (id: ObjectId) => id.toHexString()
+
+  // A default ObjectId shares its first 18 hex chars (timestamp + process value)
+  // with every id minted in the same second by the same process.
+  expect(hex(a).slice(0, 18)).not.toBe(hex(b).slice(0, 18))
 })

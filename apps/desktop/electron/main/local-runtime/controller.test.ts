@@ -25,8 +25,11 @@ function harness(
   let changes = 0
   const seenCli: (AgentCliStatus | null)[] = []
   const exits: ((code: number | null) => void)[] = []
-  let tunnelChange: ((connected: boolean, superseded: boolean) => void) | undefined
+  let tunnelChange:
+    ((connected: boolean, superseded: boolean, revoked?: boolean) => void) | undefined
   let tunnelStatus: (() => LocalRuntimeTunnelStatus) | undefined
+  let tunnelRuntime: ((provider: LocalAgentProvider) => unknown) | undefined
+  const envReads: boolean[] = []
   let usage: unknown
   let usageReads = 0
   const usageEnvs: { provider: LocalAgentProvider; env: NodeJS.ProcessEnv }[] = []
@@ -42,7 +45,11 @@ function harness(
     dataDir: () => '/data',
     nodeExecPath: '/electron',
     backendUrl: 'https://api.example.com',
-    userEnv: () => Promise.resolve({ PATH: '/bin' }),
+    userEnv: (fresh = false) => {
+      envReads.push(fresh)
+
+      return Promise.resolve({ PATH: '/bin' })
+    },
     probeCli: (provider, _env, agentHome) => {
       probeHomes.push(agentHome)
 
@@ -89,7 +96,8 @@ function harness(
         return () => {}
       },
     }),
-    createTunnel: (_runtime, status, onChange) => {
+    createTunnel: (runtime, status, onChange) => {
+      tunnelRuntime = runtime
       tunnelChange = onChange
       tunnelStatus = status
 
@@ -112,10 +120,13 @@ function harness(
     controller,
     events,
     exits,
-    connect: (connected: boolean, superseded = false) => {
-      tunnelChange?.(connected, superseded)
+    connect: (connected: boolean, superseded = false, revoked = false) => {
+      tunnelChange?.(connected, superseded, revoked)
     },
     status: () => tunnelStatus?.(),
+    /** What a stream from Nuphos gets when it asks for this agent. */
+    stream: (provider: LocalAgentProvider) => tunnelRuntime?.(provider) ?? null,
+    envReads,
     reportUsage: (value: unknown) => {
       usage = value
     },
@@ -164,6 +175,16 @@ test('the last known sign-in shows at once after a restart, then the fresh probe
   assert.deepEqual(cliCache.alice?.['claude-code'], signedOut)
 })
 
+test('a signed-out CLI still runs, so its team can sign it in through it', async () => {
+  const { controller, status, stream } = harness({
+    codex: { installed: true, path: '/bin/codex', loggedIn: false },
+  })
+
+  await controller.setUser('alice')
+  assert.ok(stream('codex'))
+  assert.equal(status()?.agents.codex?.cli.loggedIn, false)
+})
+
 test('the tunnel stays up with no agent installed, so the owner’s other computers can see it', async () => {
   const { controller, events, status } = harness({
     'claude-code': { installed: false },
@@ -188,6 +209,22 @@ test('online is exactly whether the tunnel is connected and that agent runs', as
   assert.equal(controller.state().agents['claude-code'].online, false)
 })
 
+test("this computer's connection says why it is not online, or that it is on its way back", async () => {
+  const { controller, connect } = harness()
+
+  assert.equal(controller.state().connection, undefined)
+  await controller.setUser('alice')
+  assert.equal(controller.state().connection, 'reconnecting')
+  connect(true)
+  assert.equal(controller.state().connection, 'online')
+  connect(false)
+  assert.equal(controller.state().connection, 'reconnecting')
+  connect(false, true)
+  assert.equal(controller.state().connection, 'superseded')
+  connect(false, false, true)
+  assert.equal(controller.state().connection, 'revoked')
+})
+
 test('installing a CLI later starts that agent on the next check', async () => {
   const cli: Partial<Record<LocalAgentProvider, AgentCliStatus>> = { codex: { installed: false } }
   const { controller, events } = harness(cli)
@@ -198,6 +235,36 @@ test('installing a CLI later starts that agent on the next check', async () => {
   await controller.refresh()
 
   assert.deepEqual(events, [started('codex')])
+})
+
+test('a stream asking for an agent whose CLI was missing looks for it again', async () => {
+  const cli: Partial<Record<LocalAgentProvider, AgentCliStatus>> = { codex: { installed: false } }
+  const { controller, events, stream, envReads } = harness(cli)
+
+  await controller.setUser('alice')
+  events.length = 0
+  envReads.length = 0
+
+  // Still missing: asked twice at once, it looks once, with the shell's current PATH.
+  assert.equal(stream('codex'), null)
+  assert.equal(stream('codex'), null)
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.deepEqual(envReads, [true])
+  assert.deepEqual(events, [])
+
+  // Reading the state is not asking for the agent.
+  controller.state()
+  controller.runtime('codex')
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.deepEqual(envReads, [true])
+
+  // Installed since: the next ask starts it, and the one after is served by it.
+  delete cli.codex
+  assert.equal(stream('codex'), null)
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.deepEqual(events, [started('codex')])
+  assert.ok(stream('codex'))
+  assert.equal(envReads.filter(Boolean).length, 2)
 })
 
 test('a bundle staged while the app runs starts the agents without a restart', async () => {
@@ -456,6 +523,9 @@ test('a host run by the `nuphos` CLI reports that CLI, which a Box updates by', 
     grok: { runtime: null },
     antigravity: { runtime: null },
     opencode: { runtime: null },
+    dsh: { runtime: null },
+    hermes: { runtime: null },
+    pi: { runtime: null },
   } as unknown as Parameters<typeof tunnelStatusOf>[0]
   const before = process.env.NUPHOS_CLI_VERSION
 

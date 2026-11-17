@@ -1,18 +1,21 @@
 import { config } from '@/config'
 import { isLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
-import { AppError } from '@/lib/errors'
 
 import { listOwnLocalRuntimes, resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { runtimeLogins } from './runtime-login-store'
 import { runtimeDeletions } from './runtime-portability-store'
 import { OPENAB_PROVIDERS, runtimeLabel } from './runtime-provider'
 import { fetchRuntimeQuota } from './runtime-quota'
+import { runtimeGone } from './runtime-refusal'
 import { listTeamRuntimes, resolveTeamRuntimeEndpoints } from './runtime-registry'
 
 import type { RuntimeInstance } from './runtime-instances'
 import type { OpenAbProvider } from './runtime-provider'
 import type { RuntimeQuota } from './runtime-quota'
 import type { TeamRuntimeEndpoint } from './team-openab-runtime'
+
+export const MANAGED_RUNTIME_RETIRED =
+  'Nuphos-hosted agents have been retired. Move this conversation to a Nuphos cloud computer or your own computer to continue.'
 
 export function developmentRuntimeEndpoint(
   provider: OpenAbProvider,
@@ -51,7 +54,8 @@ export async function listRuntimeInstances(
           id: runtime.id,
           provider,
           label: runtime.label ?? `${runtimeLabel(provider)} · ${runtime.id.slice(0, 6)}`,
-          status: runtime.status,
+          // Nuphos-hosted runtimes are retired (#2401) and cannot be enabled again.
+          status: runtime.hostedBy ? ('disabled' as const) : runtime.status,
           ...(runtime.hostedBy
             ? {
                 kind: 'managed' as const,
@@ -144,12 +148,7 @@ export async function requireRuntimeInstance(
 
   if (!instance && userId && isLocalRuntimeId(runtimeId))
     await resolveLocalRuntimeEndpoint(teamId, runtimeId, userId, 'transport')
-  if (!instance)
-    throw new AppError(
-      404,
-      'runtime_not_found',
-      'This agent is no longer available in this workspace. Move this conversation to another agent to continue.',
-    )
+  if (!instance) throw runtimeGone()
 
   return instance
 }

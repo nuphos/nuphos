@@ -10,6 +10,7 @@ class FakeSocket {
   readyState = 0
   sent: string[] = []
   closed = false
+  closeReason: string | undefined
   private listeners = new Map<string, Listener[]>()
 
   addEventListener(type: string, listener: Listener) {
@@ -26,9 +27,10 @@ class FakeSocket {
     this.sent.push(data)
   }
 
-  close(code?: number) {
+  close(code?: number, reason?: string) {
     if (this.closed) return
     this.closed = true
+    this.closeReason = reason
     this.emit('close', { code: code ?? 1000 })
   }
 }
@@ -172,6 +174,43 @@ test('a backend restart or dropped network reconnects with backoff', (t) => {
   client.stop()
 })
 
+test('a state listener that throws on disconnect does not stop the redial', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const warn = t.mock.method(console, 'warn', () => {})
+  const backends: FakeSocket[] = []
+  let broken = true
+  const client = new RuntimeTunnelClient({
+    connectBackend: () => {
+      const socket = new FakeSocket()
+
+      backends.push(socket)
+
+      return socket
+    },
+    connectRuntime: () => null,
+    status: () => ({ agents: {} }),
+    onChange: (connected) => {
+      if (!connected && broken) throw new Error('Object has been destroyed')
+    },
+  })
+
+  client.start()
+  // Each way a tunnel is lost: closed, errored, silent.
+  backends.at(-1)?.emit('open')
+  backends.at(-1)?.emit('close', { code: 1006 })
+  t.mock.timers.tick(10_000)
+  assert.equal(backends.length, 2)
+  backends.at(-1)?.emit('error')
+  t.mock.timers.tick(10_000)
+  assert.equal(backends.length, 3)
+  t.mock.timers.tick(TUNNEL_IDLE_TIMEOUT_MS)
+  t.mock.timers.tick(10_000)
+  assert.equal(backends.length, 4)
+  assert.equal(warn.mock.callCount(), 3)
+  broken = false
+  client.stop()
+})
+
 test('a silent socket is treated as dead and redialed', (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] })
   const { backend, backends, client } = setup()
@@ -275,6 +314,7 @@ test('a takeover by another app on this computer asks back until that app is gon
 test('a revoked computer stops redialing and says so once', (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] })
   let revoked = 0
+  const changes: [boolean, boolean, boolean | undefined][] = []
   const backends: FakeSocket[] = []
   const client = new RuntimeTunnelClient({
     connectBackend: () => {
@@ -287,6 +327,8 @@ test('a revoked computer stops redialing and says so once', (t) => {
     connectRuntime: () => null,
     status: () => ({ agents: {} }),
     onRevoked: () => revoked++,
+    onChange: (connected, superseded, wasRevoked) =>
+      changes.push([connected, superseded, wasRevoked]),
   })
 
   client.start()
@@ -296,6 +338,8 @@ test('a revoked computer stops redialing and says so once', (t) => {
 
   assert.equal(revoked, 1)
   assert.equal(backends.length, 1)
+  // The app shows why it stays down, not that it is reconnecting.
+  assert.deepEqual(changes.at(-1), [false, false, true])
 })
 
 test('stopping drops every stream and the socket', () => {
@@ -307,6 +351,18 @@ test('stopping drops every stream and the socket', () => {
 
   assert.equal(runtimes[0]?.socket.closed, true)
   assert.equal(backend().closed, true)
+})
+
+test('a stop says it stopped, so the backend can tell it from a reconnect', () => {
+  const { backends, client } = setup()
+
+  backends[0]?.emit('open')
+  client.reconnectNow()
+  backends[1]?.emit('open')
+  client.stop()
+
+  assert.equal(backends[0]?.closeReason, 'reconnecting')
+  assert.equal(backends[1]?.closeReason, 'stopped')
 })
 
 test('local exec uses the same tunnel when no local agent is installed', () => {
@@ -521,3 +577,36 @@ test('instance RPC shares the tunnel and returns one result then closes', async 
   assert.equal(JSON.parse(frames().at(-2).d).ok, false)
   client.stop()
 })
+
+for (const [purpose, capability] of [
+  ['upload', 'localUpload'],
+  ['download', 'localDownload'],
+] as const) {
+  test(`${purpose} is independently advertised and routed on the device tunnel`, () => {
+    const backend = new FakeSocket()
+    const stream = new FakeSocket()
+    const client = new RuntimeTunnelClient({
+      connectBackend: () => backend,
+      connectRuntime: () => null,
+      ...(purpose === 'upload'
+        ? { connectUpload: () => stream }
+        : { connectDownload: () => stream }),
+      status: () => ({ agents: {} }),
+    })
+
+    client.start()
+    backend.emit('open')
+    const status = JSON.parse(backend.sent[0]!)
+
+    assert.equal(status.status[capability], true)
+    assert.equal(status.status[purpose === 'upload' ? 'localDownload' : 'localUpload'], false)
+    backend.emit('message', { data: JSON.stringify({ t: 'open', s: purpose, purpose }) })
+    stream.emit('open')
+    backend.emit('message', {
+      data: JSON.stringify({ t: 'data', s: purpose, d: 'fixture-request' }),
+    })
+    assert.deepEqual(stream.sent, ['fixture-request'])
+    client.stop()
+    assert.equal(stream.closed, true)
+  })
+}

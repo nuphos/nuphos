@@ -23,6 +23,11 @@ export const deviceApi = {
   /** The key goes straight to the main process, which hands it only to the CLI's login. */
   localRuntimeApplyApiKey: (provider: 'claude-code' | 'codex', key: string | null) =>
     ipcRenderer.invoke('localRuntime:applyApiKey', provider, key),
+  /** The key goes only to the main process, which keeps it in the OS credential store. */
+  localRuntimeSetCustomProvider: (
+    provider: 'claude-code' | 'codex',
+    value: { baseUrl: string; apiKey?: string; models: string[] } | null,
+  ) => ipcRenderer.invoke('localRuntime:setCustomProvider', provider, value),
   localRuntimeStartClaudeLogin: () => ipcRenderer.invoke('localRuntime:startClaudeLogin'),
   localRuntimeStartCodexLogin: () => ipcRenderer.invoke('localRuntime:startCodexLogin'),
   localRuntimeCancelClaudeLogin: () => ipcRenderer.invoke('localRuntime:cancelClaudeLogin'),
@@ -38,6 +43,7 @@ export const deviceApi = {
     return () => ipcRenderer.off('localRuntime:state', handler)
   },
   localRuntimeRefresh: () => ipcRenderer.invoke('localRuntime:refresh'),
+  localRuntimeRefreshModels: () => ipcRenderer.invoke('localRuntime:refreshModels'),
   localRuntimeUpdateAgent: (provider: string) =>
     ipcRenderer.invoke('localRuntime:updateAgent', provider),
   localRuntimeInstallAgent: (provider: string) =>
@@ -69,6 +75,10 @@ export const deviceApi = {
     ipcRenderer.invoke('box:delete', deviceId, teamId),
   deviceRemove: (deviceId: string, teamId: string) =>
     ipcRenderer.invoke('box:removeDevice', deviceId, teamId),
+  deviceAppUpdate: (deviceId: string, teamId: string) =>
+    ipcRenderer.invoke('box:appUpdate', deviceId, teamId),
+  boxClearCaches: (deviceId: string, teamId: string) =>
+    ipcRenderer.invoke('box:clearCaches', deviceId, teamId),
   boxDesktop: (deviceId: string, teamId: string) =>
     ipcRenderer.invoke('box:desktop', deviceId, teamId),
   boxJoinToken: () => ipcRenderer.invoke('box:join-token'),

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { parseAtlasError } from '../api/errors.ts'
 import { api } from '../api.ts'
+import { PDF_PREVIEW_BYTES_MAX } from '../components/agent/panel/transferDownloads.ts'
 import { toast } from '../components/ui/toast.ts'
 import { t } from '../i18n/index.ts'
 import { runtimeFilePreview } from '../lib/runtimeFileLink.ts'
@@ -11,6 +12,7 @@ type Source = {
   sessionId: string
   runtimeId: string
   label: string
+  conversationTitle?: string
   /** The open file was read from this computer rather than the agent's workspace. */
   local?: boolean
 }
@@ -28,6 +30,8 @@ type Result = {
   tooLarge?: boolean
   /** Over the transfer store's limit as well: nothing to offer. */
   overLimit?: boolean
+  error?: string
+  errorCode?: string
 }
 
 const MEDIA: [MediaKind, RegExp][] = [
@@ -41,19 +45,29 @@ const tooLargeError = (error: unknown) => parseAtlasError(error).code === 'file_
 
 // The inline read caps at 512 KiB, so media goes through the transfer store:
 // the runtime uploads it once, and it plays (with seeking) from a presigned
-// URL. A PDF is fetched whole, since the viewer needs its type.
+// URL. A PDF is read whole by the main process, since the viewer needs its
+// type and the store sends no CORS headers for a renderer fetch.
 async function transferMedia(target: Source, path: string, kind: MediaKind, linkedPath: string) {
   const transfer = await (
     path === linkedPath ? api.atlasTransferLinkedFile : api.atlasTransferRuntimeFile
   )(target.teamId, target.runtimeId, target.sessionId, path)
-  const url =
-    kind === 'pdf'
-      ? URL.createObjectURL(
-          new Blob([await (await fetch(transfer.url)).arrayBuffer()], { type: 'application/pdf' }),
-        )
-      : transfer.url
 
-  return { kind, url, transfer }
+  if (kind !== 'pdf') return { kind, url: transfer.url, transfer }
+  const { groupId, fileId } = transfer
+  const bytes = await api.fileTransferReadOne({
+    teamId: target.teamId,
+    groupId,
+    fileId,
+    maxBytes: PDF_PREVIEW_BYTES_MAX,
+  })
+
+  if (!bytes) throw new Error(t('Preview unavailable'))
+
+  return {
+    kind,
+    url: URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' })),
+    transfer,
+  }
 }
 
 // The file a chat link named may be on this computer or the agent's, and the
@@ -109,7 +123,7 @@ export function useRuntimeFiles(
           if (!conversation.runtimeId) {
             toast.error(
               t('No runtime selected'),
-              t('Select a runtime for this agent, then refresh Files.'),
+              t('Select a runtime for this task, then refresh Files.'),
             )
             setResult({ source: null, directory: null, preview: null, loading: false })
 
@@ -120,6 +134,7 @@ export function useRuntimeFiles(
             sessionId: conversationId,
             runtimeId: conversation.runtimeId,
             label: conversation.runtimeLabel || 'Runtime',
+            conversationTitle: conversation.title,
           }
         }
         const target = source.current
@@ -174,7 +189,8 @@ export function useRuntimeFiles(
       } catch (error) {
         if (cancelled) return
         const tooLarge = tooLargeError(error)
-        const details = parseAtlasError(error).details
+        const failure = parseAtlasError(error)
+        const details = failure.details
         const local =
           details &&
           typeof details === 'object' &&
@@ -183,7 +199,6 @@ export function useRuntimeFiles(
         // Media reached the transfer store, which refused it too.
         const overLimit = tooLarge && Boolean(mediaKind(fileName))
 
-        if (!tooLarge) toast.apiError(t('Could not load runtime files'), error)
         setResult({
           source:
             local && source.current
@@ -194,6 +209,12 @@ export function useRuntimeFiles(
           loading: false,
           tooLarge: tooLarge && !overLimit,
           overLimit,
+          error: tooLarge
+            ? undefined
+            : failure.code
+              ? failure.message
+              : t('This file could not be previewed.'),
+          errorCode: failure.code,
         })
       }
     }

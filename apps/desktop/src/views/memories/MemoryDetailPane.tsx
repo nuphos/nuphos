@@ -193,7 +193,7 @@ export function MemoryDetailPane({
                       : []),
                     ['ID', memory.id],
                     [t('Type'), memory.type],
-                    [t('Agent'), memory.convId ?? '—'],
+                    [t('Task'), memory.convId ?? '—'],
                     [t('User scope'), memory.userId ?? '—'],
                     [t('App scope'), memory.appId ?? '—'],
                     [t('Group IDs'), memory.groupIds.length > 0 ? memory.groupIds.join(', ') : '—'],

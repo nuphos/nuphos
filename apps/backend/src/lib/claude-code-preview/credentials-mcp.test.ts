@@ -139,6 +139,20 @@ describe('credentialsMcpTools', () => {
     expect(await url()).toEndWith('/agent-sessions/conv-1/teams/team-1/mcp-tools')
   })
 
+  // The runtime routes a server through mcp-http-bridge.mjs, which reads the
+  // renewed token on every call, only when its sole header is a bearer token.
+  test('Nuphos MCP servers declare a bearer Authorization as their only header', async () => {
+    const { mcpServers } = await previewSessionAccess('conv-1', 'team-1', 'owner', 'owner', {
+      backendUrl: 'https://backend.example',
+    })
+
+    expect(mcpServers.length).toBeGreaterThan(0)
+    for (const server of mcpServers)
+      expect(server.headers).toEqual([
+        { name: 'Authorization', value: expect.stringMatching(/^Bearer \S+$/u) },
+      ])
+  })
+
   // A live agent keeps the MCP headers it was spawned with for the rest of the
   // session, so their token must outlive a long turn.
   test('the MCP header token still verifies after the turn has run 31 minutes', async () => {

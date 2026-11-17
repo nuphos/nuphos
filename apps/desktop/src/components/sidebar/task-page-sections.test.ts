@@ -21,8 +21,7 @@ test('one chronological list keeps unread, working and read tasks together', () 
   const working = row('working', '2026-11-12T02:00:00Z', { taskState: 'working' })
 
   assert.deepEqual(taskPageSections([old, recent, working]), [
-    { title: 'Tasks', items: [old], compact: true },
-    { items: [recent, working], compact: true, separator: true },
+    { title: 'Tasks', items: [old, { ...recent, taskDivider: true }, working], compact: true },
   ])
 })
 test('a pending child raises its whole tree; newest descendant determines chronological order', () => {
@@ -68,6 +67,35 @@ test('focusing an old read conversation does not move it into the inbox', () => 
   const old = row('old', '2026-11-12T01:00:00Z', { active: true })
   const sections = taskPageSections([old])
 
-  assert.equal(sections[0].items.length, 0)
-  assert.deepEqual(sections[1].items, [old])
+  assert.deepEqual(sections[0].items, [old])
+})
+
+test('crossing the inbox boundary keeps every task in one keyed React list', () => {
+  const a = row('a', '2026-11-12T01:00:00Z', { unread: true })
+  const b = row('b', '2026-11-12T02:00:00Z')
+  const before = taskPageSections([a, b])
+  const after = taskPageSections([
+    { ...a, unread: false },
+    { ...b, unread: true },
+  ])
+
+  assert.equal(before.length, 1)
+  assert.equal(after.length, 1)
+  assert.deepEqual(
+    after[0].items.map((item) => item.key),
+    ['b', 'a'],
+  )
+  assert.equal(after[0].items[1].taskDivider, true)
+})
+
+test('the read divider stays above a family even when its child was listed first', () => {
+  const inbox = row('inbox', '2026-11-12T03:00:00Z', { unread: true })
+  const child = row('child', '2026-11-12T02:00:00Z', { parentKey: 'parent' })
+  const parent = row('parent', '2026-11-12T01:00:00Z')
+  const nested = nestItems(taskPageSections([inbox, child, parent])[0].items)
+
+  assert.deepEqual(
+    nested.filter(({ item }) => item.taskDivider).map(({ item }) => item.key),
+    ['parent'],
+  )
 })

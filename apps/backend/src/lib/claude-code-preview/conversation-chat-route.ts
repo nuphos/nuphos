@@ -1,5 +1,3 @@
-import { ObjectId } from 'mongodb'
-
 import {
   agentConversations,
   stampConversationAgentRuntime,
@@ -7,12 +5,12 @@ import {
 } from '@/lib/agent/db'
 import { AppError } from '@/lib/errors'
 import { getTeamAgentRuntime } from '@/lib/identity'
-import { userTeamRuntimeFallbacks } from '@/models'
 
 import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import {
   developmentRuntimeEndpoint,
   listRuntimeInstances,
+  MANAGED_RUNTIME_RETIRED,
   requireRuntimeInstance,
 } from './runtime-catalog'
 import { runtimeLabel as providerLabel } from './runtime-provider'
@@ -56,9 +54,8 @@ async function ownerDefaultRuntimeId(
   ownerId: string,
   provider: OpenAbProvider | undefined,
 ): Promise<string | undefined> {
-  const [instances, fallbacks, recent] = await Promise.all([
+  const [instances, recent] = await Promise.all([
     listRuntimeInstances(teamId, ownerId),
-    userTeamRuntimeFallbacks().findOne({ teamId: new ObjectId(teamId), userId: ownerId }),
     agentConversations()
       .find(
         { userId: ownerId, teamId, runtimeId: { $exists: true } },
@@ -70,7 +67,6 @@ async function ownerDefaultRuntimeId(
   ])
 
   return defaultConversationRuntimeId(instances, ownerId, {
-    fallbackIds: fallbacks?.runtimeIds ?? [],
     recentIds: recent.flatMap((conversation) => conversation.runtimeId ?? []),
     provider,
   })
@@ -131,7 +127,9 @@ async function resolveChatRuntime(
     throw new AppError(
       409,
       'runtime_disabled',
-      'This conversation’s agent is disabled. Enable it on the Runtimes page, or start a new conversation with another agent.',
+      instance.kind === 'managed'
+        ? MANAGED_RUNTIME_RETIRED
+        : 'This conversation’s agent is disabled. Enable it on the Runtimes page, or start a new conversation with another agent.',
     )
   const needsTeamDefault = !instance && !requestedRuntime && !pinned
   const teamDefault = needsTeamDefault && teamId ? await getTeamAgentRuntime(teamId) : 'claude-code'

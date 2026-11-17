@@ -174,7 +174,7 @@ function InstructionGroup({
           <p className="mt-0.5 text-[12.5px] text-tertiary">
             {group.description}
             {!editable &&
-              ` ${admin ? t('Only {name} can change them.', { name: admin }) : t('Only workspace administrators can change them.')}`}
+              ` ${admin ? t('Ask {name} or an editor to change them.', { name: admin }) : t('Only administrators and editors can change them.')}`}
           </p>
         </div>
         {editable && (

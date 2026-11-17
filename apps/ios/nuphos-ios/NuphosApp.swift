@@ -46,7 +46,7 @@ private struct NewChatCommand: Commands {
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
-            Button("New Agent") { newChat?() }
+            Button("New Task") { newChat?() }
                 .keyboardShortcut("n")
                 .disabled(newChat == nil)
         }
@@ -65,15 +65,15 @@ private struct PreviewDesktop: View {
 
     var body: some View {
         NavigationSplitView(columnVisibility: NavigationSplitViewVisibility.home(desktopOpen: desktopOpen), preferredCompactColumn: .constant(.detail)) {
-            List { Text("Preview agent") }.navigationTitle("Agents").toolbar(removing: .sidebarToggle)
+            List { Text(verbatim: "Preview agent") }.navigationTitle(Text(verbatim: "Agents")).toolbar(removing: .sidebarToggle)
         } detail: {
             VStack(spacing: 12) {
-                Text("The conversation stays here.").foregroundStyle(Theme.muted)
-                if desktop == nil { Button("Open desktop") { desktop = Self.make() } }
+                Text(verbatim: "The conversation stays here.").foregroundStyle(Theme.muted)
+                if desktop == nil { Button { desktop = Self.make() } label: { Text(verbatim: "Open desktop") } }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .desktop($desktop)
-            .navigationTitle("Preview agent")
+            .navigationTitle(Text(verbatim: "Preview agent"))
             .navigationBarTitleDisplayMode(.inline)
         }
         .navigationSplitViewStyle(.balanced)

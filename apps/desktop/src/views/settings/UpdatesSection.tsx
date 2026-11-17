@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
 import { Button } from '../../components/ui/button'
+import { Switch } from '../../components/ui/Switch'
+import { toast } from '../../components/ui/toast'
 import { useUpdaterState } from '../../components/useReadyUpdate'
 import { t } from '../../i18n'
 
@@ -39,8 +41,13 @@ export function UpdatesSection() {
   const [version, setVersion] = useState('')
   const progress = state.kind === 'downloading' ? updateProgress(state) : null
   const installerUrl = state.kind === 'ready' ? state.installerUrl : null
+  const [autoInstall, setAutoInstall] = useState<boolean | null>(null)
 
   useEffect(() => {
+    api
+      .updaterGetAutoInstall()
+      .then(({ enabled }) => setAutoInstall(enabled))
+      .catch(() => null)
     api
       .appGetVersion()
       .then(setVersion)
@@ -105,6 +112,31 @@ export function UpdatesSection() {
           </div>
         )}
       </div>
+      {autoInstall !== null && (
+        <label className="mt-3 flex items-start justify-between gap-3 rounded-lg border border-line-control bg-surface p-4">
+          <div>
+            <div className="text-[13px] font-medium text-main">
+              {t('Install updates automatically')}
+            </div>
+            <p className="mt-1 text-[12px] text-tertiary">
+              {t(
+                'When an update is ready, restart to install it after 10 minutes without keyboard or mouse input, while no agent task is running on this computer.',
+              )}
+            </p>
+          </div>
+          <Switch
+            checked={autoInstall}
+            onChange={(enabled) => {
+              api
+                .updaterSetAutoInstall(enabled)
+                .then((next) => setAutoInstall(next.enabled))
+                .catch((err: unknown) =>
+                  toast.apiError(t('Could not change automatic updates'), err),
+                )
+            }}
+          />
+        </label>
+      )}
     </div>
   )
 }

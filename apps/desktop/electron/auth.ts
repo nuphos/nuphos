@@ -20,18 +20,18 @@ import {
   writeConfig,
 } from './auth/config.ts'
 import { unsavedReason } from './auth/unsaved.ts'
-import { apiError, apiErrorMessage } from './auth/web.ts'
+import { apiError } from './auth/web.ts'
 import { completeNativeLogin } from './auth/native.ts'
 import { runPasskeyCeremony } from './auth/passkey.ts'
 import { planLogin } from './auth/plan.ts'
 import { isValidUserInfo } from './auth-status.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from './client-version.ts'
 
-import type { SocialProvider } from './auth/plan.ts'
+import type { SocialOption, SocialProvider } from './auth/plan.ts'
 import type { AuthStatus, UserInfo } from './auth-status.ts'
 import type { Server } from 'node:http'
 
-export type { AuthStatus, SocialProvider, UserInfo }
+export type { AuthStatus, SocialOption, SocialProvider, UserInfo }
 
 export { status } from './auth/me.ts'
 export { socialProviders } from './auth/plan.ts'
@@ -78,9 +78,7 @@ export async function requestEmailCode(email: string): Promise<void> {
     signal: AbortSignal.timeout(20_000),
   })
 
-  if (!res.ok) {
-    throw new Error(await apiErrorMessage(res))
-  }
+  if (!res.ok) throw await apiError(res)
 }
 
 export async function verifyEmailCode(email: string, code: string): Promise<UserInfo> {

@@ -4,6 +4,7 @@ mod accounts;
 mod agent;
 mod api;
 mod app;
+mod bots;
 mod cli;
 mod config;
 mod login;
@@ -46,19 +47,19 @@ enum Command {
     /// Send a message without the TUI and print the reply (reads stdin if no PROMPT).
     Exec {
         prompt: Option<String>,
-        /// Continue this agent instead of starting one.
+        /// Continue this task instead of starting one.
         #[arg(long)]
         session: Option<String>,
-        /// Runtime for a new agent (id or label).
+        /// Runtime for a new task (id or label).
         #[arg(long = "agent", alias = "runtime")]
         runtime: Option<String>,
         /// Approve commands that need approval (otherwise they are denied).
         #[arg(long)]
         approve: bool,
     },
-    /// Open the TUI on an agent, or pick one.
+    /// Open the TUI on a task, or pick one.
     Resume { session: Option<String> },
-    /// List recent agents, or find them by a word in the title or first message.
+    /// List recent tasks, or find them by a word in the title or first message.
     Conversations { query: Option<String> },
     /// List teams, make TEAM the default, or create it with --create.
     Team {
@@ -67,22 +68,33 @@ enum Command {
         #[arg(long, requires = "name")]
         create: bool,
     },
-    /// List runtimes (what agents run on, such as Claude Code; find agents with
-    /// `nuphos conversations`), pick one for new agents (or move --session to it),
-    /// add a Cloud runtime with --create, or sign one in with --login.
+    /// List runtimes (what tasks run on, such as Claude Code; find tasks with
+    /// `nuphos conversations`), pick one for new tasks (or move --session to it),
+    /// or sign an existing runtime in with --login.
     #[command(name = "agents", alias = "runtime")]
     Runtime {
         name: Option<String>,
         #[arg(long)]
         session: Option<String>,
-        /// Add a Nuphos-managed Cloud runtime for provider NAME (claude-code, codex, grok, antigravity, opencode) and sign it in.
-        #[arg(long, requires = "name", conflicts_with_all = ["session", "login"])]
-        create: bool,
         /// Sign the Cloud runtime NAME in to its provider account.
         #[arg(long, requires = "name", conflicts_with = "session")]
         login: bool,
     },
-    /// Show or set an agent's model and reasoning effort (--session), or list the runtime's models.
+    /// List your Bots in the team, or create one named NAME with --create. A new Bot runs with Full Access.
+    #[command(name = "bots", alias = "bot")]
+    Bots {
+        name: Option<String>,
+        /// Create a Bot named NAME.
+        #[arg(long, requires = "name")]
+        create: bool,
+        /// The new Bot's face, such as 01-vermeer-girl (the desktop's Bot picker shows them).
+        #[arg(long, requires = "create")]
+        avatar: Option<String>,
+        /// Runtime for the new Bot (id or label).
+        #[arg(long = "agent", alias = "runtime", requires = "create")]
+        runtime: Option<String>,
+    },
+    /// Show or set a task's model and reasoning effort (--session), or list the runtime's models.
     Model {
         value: Option<String>,
         #[arg(long)]
@@ -269,13 +281,13 @@ async fn run(args: Args) -> Result<i32> {
         }
         Some(Command::Conversations { query }) => cli::conversations(&ctx, query.as_deref()).await.map(|_| 0),
         Some(Command::Team { name, .. }) => cli::team(&mut ctx, name).await.map(|_| 0),
-        Some(Command::Runtime { name: Some(provider), create: true, .. }) => {
-            cli::create_runtime(&mut ctx, &provider).await.map(|_| 0)
-        }
         Some(Command::Runtime { name: Some(name), login: true, .. }) => {
             cli::login_runtime(&ctx, &name).await.map(|_| 0)
         }
         Some(Command::Runtime { name, session, .. }) => cli::runtime(&mut ctx, name, session).await.map(|_| 0),
+        Some(Command::Bots { name, create, avatar, runtime }) => {
+            bots::bots(&ctx, name, create, avatar, runtime).await.map(|_| 0)
+        }
         Some(Command::Model { value, effort, session }) => {
             cli::model(&mut ctx, value, effort, session).await.map(|_| 0)
         }
@@ -495,7 +507,7 @@ async fn tui(start: app::Start, team: Option<String>) -> Result<i32> {
     if let Some((team_id, session_id)) = app.run(start, team).await? {
         let web = std::env::var("NUPHOS_WEB_URL").unwrap_or_else(|_| "https://nuphos.ai".into());
         let path = render::clean(&format!("/teams/{team_id}/agent/{session_id}"));
-        println!("Agent: {}{path}", web.trim_end_matches('/'));
+        println!("Task: {}{path}", web.trim_end_matches('/'));
         println!("Continue with: nuphos resume {}", render::clean(&session_id));
     }
     Ok(0)
@@ -580,5 +592,22 @@ mod account_args {
         }
         let args = Args::try_parse_from(["nuphos", "--account", "sam@example.com", "team"]).unwrap();
         assert_eq!(args.account.as_deref(), Some("sam@example.com"));
+    }
+}
+
+#[cfg(test)]
+mod runtime_args {
+    use clap::Parser;
+
+    use super::{Args, Command};
+
+    #[test]
+    fn managed_creation_is_no_longer_a_command() {
+        for command in ["agents", "runtime"] {
+            assert!(Args::try_parse_from(["nuphos", command, "codex", "--create"]).is_err());
+            let args = Args::try_parse_from(["nuphos", command, "Codex", "--login"]).unwrap();
+            assert!(matches!(args.command, Some(Command::Runtime { login: true, .. })));
+        }
+        assert!(Args::try_parse_from(["nuphos", "team", "Acme", "--create"]).is_ok());
     }
 }

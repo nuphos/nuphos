@@ -7,8 +7,7 @@
 import { createHash } from 'node:crypto'
 import { PassThrough } from 'node:stream'
 
-import * as k8s from '@kubernetes/client-node'
-
+import { k8sLib } from './k8s/lib'
 import {
   awaitNodeShellCleanup,
   ensureNodeShellPodDeleted,
@@ -36,6 +35,7 @@ import {
 import { NO_SUPPORTED_SHELL_MESSAGE, resolvePodShell } from './pod-exec/shell'
 import { describeError } from './pod-exec/tty'
 
+import type * as k8s from '@kubernetes/client-node'
 import type { WebContents } from 'electron'
 
 export {
@@ -100,7 +100,7 @@ async function probePodShell(
 ): Promise<boolean> {
   const stdout = new PassThrough()
   const stderr = new PassThrough()
-  const exec = new k8s.Exec(kc)
+  const exec = new k8sLib.Exec(kc)
 
   return await new Promise<boolean>((resolve) => {
     let socket: {

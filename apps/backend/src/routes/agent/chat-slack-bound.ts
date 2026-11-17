@@ -10,8 +10,7 @@ import { parseMessageMetadata, senderLabel } from '@/lib/agent/message-metadata'
 // delivery module.
 //
 // The thread lookup lives against lib/slack directly; the delivery setup is a
-// dynamic import because `@/routes/slack` transitively imports routes/agent —
-// same constraint as lib/agent/plan-slack-resume.ts.
+// dynamic import because `@/routes/slack` transitively imports routes/agent.
 import { parseAgentMessageOrigin } from '@/lib/agent/message-origin'
 import { AppError } from '@/lib/errors'
 import { logError, logEvent } from '@/lib/observability'
@@ -106,7 +105,7 @@ export async function beginSlackBoundTurnDelivery(
     /** Subscribes the mirror sink to the run's frames the moment it exists. */
     attach?: (frameSink: SlackBoundTurnDelivery['frameSink']) => void
   },
-  // Injected by tests, same rationale as lib/agent/plan-slack-resume.ts.
+  // Injected by tests, so they need not load the Slack route module.
   begin?: BeginNuphosSlackTurn,
 ): Promise<SlackBoundTurnDelivery | null> {
   try {

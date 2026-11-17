@@ -55,8 +55,7 @@
             "deviceId": "preview-mac",
             "deviceLabel": "Preview Mac",
             "online": true,
-            "signedIn": true,
-            "desktopOpen": true
+            "signedIn": true
           }
         }
       ]

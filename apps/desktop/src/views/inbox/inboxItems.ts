@@ -1,26 +1,74 @@
 import { openInputRequests } from '../../lib/agentInputRequests.ts'
+import { nearestBot } from '../../lib/nearestBot.ts'
 
 import type { AgentConversation, AgentInputRequest } from '../../api/agent-types'
 
-/** One row of the Inbox: an open question and the conversation that asked it. */
-export type InboxQuestion = { conversation: AgentConversation; request: AgentInputRequest }
+/**
+ * One row of the Inbox: an open question and the conversation that asked it,
+ * with the Bot that conversation works under when it is a Bot's task.
+ */
+export type InboxQuestion = {
+  conversation: AgentConversation
+  request: AgentInputRequest
+  bot?: AgentConversation
+}
+
+/** The Bot a task works under, as the sidebar files it; a Bot itself works under none. */
+export function botAbove(
+  conversation: AgentConversation,
+  byId: ReadonlyMap<string, AgentConversation>,
+  isBot: (conversation: AgentConversation) => boolean,
+): AgentConversation | undefined {
+  if (isBot(conversation)) return undefined
+
+  return nearestBot(
+    conversation.parentSessionId,
+    (id) => byId.get(id),
+    isBot,
+    (row) => row.parentSessionId,
+  )
+}
+
+/** Who a row is listed under: its Bot, else the conversation that asked. */
+export const inboxSource = (row: InboxQuestion): AgentConversation => row.bot ?? row.conversation
 
 /**
  * The Inbox's rows: every open question waiting on the viewer as its
- * conversation's owner, newest first, once those answered on this device are
- * set aside. The badge counts these.
+ * conversation's owner, once those answered on this device are set aside,
+ * grouped by the Bot that asked or whose task did, else by the Task that asked.
+ * The newest question leads, and brings the rest of its group with it. The badge counts these.
  */
 export function inboxQuestions(
   conversations: readonly AgentConversation[],
   answered: ReadonlyMap<string, number>,
+  botOf?: (conversation: AgentConversation) => AgentConversation | undefined,
 ): InboxQuestion[] {
-  return conversations
+  const newest = conversations
     .filter((conversation) => conversation.isOwner)
-    .flatMap((conversation) =>
-      openInputRequests(conversation).map((request) => ({ conversation, request })),
-    )
+    .flatMap((conversation) => {
+      const bot = botOf?.(conversation)
+
+      return openInputRequests(conversation).map((request) => ({ conversation, request, bot }))
+    })
     .filter(({ request }) => !answered.has(request.id))
     .sort((a, b) => b.request.askedAt.localeCompare(a.request.askedAt))
+  const order = [...new Set(newest.map((row) => inboxSource(row).sessionId))]
+
+  return order.flatMap((id) => newest.filter((row) => inboxSource(row).sessionId === id))
+}
+
+/** {@link inboxQuestions} as the sidebar lists them: one group per Bot or Task. */
+export function inboxGroups(rows: readonly InboxQuestion[]): InboxQuestion[][] {
+  const groups: InboxQuestion[][] = []
+
+  for (const row of rows) {
+    const last = groups.at(-1)
+
+    if (last && inboxSource(last[0]).sessionId === inboxSource(row).sessionId) last.push(row)
+    else groups.push([row])
+  }
+
+  return groups
 }
 
 /** How many rows {@link inboxQuestions} has. */

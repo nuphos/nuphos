@@ -103,6 +103,8 @@ export const appApi = {
   updaterGetState: () => window.api.updaterGetState(),
   updaterCheck: () => window.api.updaterCheck(),
   updaterInstall: () => window.api.updaterInstall(),
+  updaterGetAutoInstall: () => window.api.updaterGetAutoInstall(),
+  updaterSetAutoInstall: (enabled: boolean) => window.api.updaterSetAutoInstall(enabled),
   onUpdaterStatus: (cb: (state: UpdaterState) => void) => window.api.onUpdaterStatus(cb),
   changelogGetState: () => window.api.changelogGetState(),
   onChangelogStatus: (cb: (state: ChangelogState) => void) => window.api.onChangelogStatus(cb),
@@ -209,6 +211,9 @@ export const appApi = {
   ) => window.api.localSetupApproveLinks(teamId, name, reviewed),
   localSetupSetAutoSync: (teamId: string, enabled: boolean) =>
     window.api.localSetupSetAutoSync(teamId, enabled),
+  localSetupSetFolders: (teamId: string, folders: string[]) =>
+    window.api.localSetupSetFolders(teamId, folders),
+  localSetupSources: (teamId: string) => window.api.localSetupSources(teamId),
   teamSkillsImportLocal: (
     teamId: string,
     scope: SkillScope | undefined,

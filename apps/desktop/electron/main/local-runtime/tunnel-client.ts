@@ -4,58 +4,10 @@ import { parseFrame } from './tunnel-protocol.ts'
 import { connectLocalStream } from './tunnel-streams.ts'
 
 import type { LocalAgentProvider } from './agent-cli.ts'
-import type {
-  BackendFrame,
-  LocalRuntimeTunnelStatus,
-  StreamPurpose,
-  TunnelDrop,
-  TunnelPurpose,
-} from './tunnel-protocol.ts'
-import type { DeviceMetrics } from '../../../src/api/device-types.ts'
+import type { BackendFrame, StreamPurpose, TunnelDrop } from './tunnel-protocol.ts'
+import type { SocketLike, TunnelClientDeps } from './tunnel-streams.ts'
 
-export type SocketEvent = { data?: unknown; code?: number }
-
-export type SocketLike = {
-  readonly readyState: number
-  send(data: string): void
-  close(code?: number, reason?: string): void
-  terminate?(): void
-  addEventListener(type: string, listener: (event: SocketEvent) => void): void
-}
-
-export type TunnelClientDeps = {
-  /** Opens the backend tunnel as the signed-in user; `reclaim` only takes a free computer. */
-  connectBackend: (reclaim: boolean) => SocketLike
-  /** Opens one ACP WebSocket to that agent's loopback openab with the key for `purpose`. */
-  connectRuntime: (
-    purpose: TunnelPurpose,
-    provider: LocalAgentProvider,
-    instanceId?: string,
-  ) => SocketLike | null
-  instances?: (request: unknown) => Promise<unknown>
-  connectFile?: (instanceId?: string) => SocketLike | null
-  connectAttachments?: (instanceId?: string) => SocketLike | null
-  connectTerminal?: () => SocketLike
-  connectExec?: () => SocketLike
-  /** Computer Use, only where the Codex App can provide it. */
-  connectCua?: () => SocketLike
-  connectBrowser?: () => SocketLike
-  /** A phone watching one of a conversation's dock browser tabs (`browser-view.ts`). */
-  connectBrowserView?: () => SocketLike
-  connectVnc?: () => SocketLike
-  activity?: {
-    open(id: string, purpose: string): void
-    data(id: string, raw: string, incoming: boolean): void
-    close(id: string): void
-    clear(): void
-  }
-  sampleMetrics?: () => Promise<DeviceMetrics | null>
-  status: () => LocalRuntimeTunnelStatus
-  /** `connected` is exactly whether Nuphos holds this computer's tunnel right now. */
-  onChange?: (connected: boolean, superseded: boolean) => void
-  /** The backend revoked this computer's credential; the tunnel stays down. */
-  onRevoked?: () => void
-}
+export type { SocketEvent, SocketLike } from './tunnel-streams.ts'
 
 const OPEN = 1
 const RECONNECT_BACKOFF_MS = [500, 1_000, 2_000, 5_000, 10_000]
@@ -117,6 +69,8 @@ export class RuntimeTunnelClient {
         agentInstances: Boolean(this.deps.instances),
         localMetrics: Boolean(this.deps.sampleMetrics),
         localExec: Boolean(this.deps.connectExec),
+        localUpload: Boolean(this.deps.connectUpload),
+        localDownload: Boolean(this.deps.connectDownload),
         localTerminal: Boolean(this.deps.connectTerminal),
         localCua: Boolean(this.deps.connectCua),
         localBrowser: Boolean(this.deps.connectBrowser),
@@ -142,7 +96,7 @@ export class RuntimeTunnelClient {
 
     this.socket = undefined
     if (socket?.terminate) socket.terminate()
-    else socket?.close(1000, 'reconnecting')
+    else socket?.close(1000, this.running ? 'reconnecting' : 'stopped')
   }
 
   private send(frame: object): void {
@@ -156,9 +110,18 @@ export class RuntimeTunnelClient {
     this.idleTimer = setTimeout(() => {
       if (this.socket !== socket) return
       this.drop('idle')
-      this.deps.onChange?.(false, this.superseded)
-      this.scheduleReconnect()
+      this.lost()
     }, TUNNEL_IDLE_TIMEOUT_MS)
+  }
+
+  /** The redial is armed before the listener runs, so a listener that throws cannot strand the tunnel. */
+  private lost(revoked = false): void {
+    this.scheduleReconnect()
+    try {
+      this.deps.onChange?.(false, this.superseded, revoked)
+    } catch (error) {
+      console.warn('[local-runtime] tunnel state listener threw', error)
+    }
   }
 
   private connect(): void {
@@ -199,17 +162,16 @@ export class RuntimeTunnelClient {
       this.drop('closed', event.code)
       // Taken over: redial with reclaim, which the backend refuses while the other app holds it.
       if (event.code === CLOSE_SUPERSEDED) this.superseded = true
-      this.deps.onChange?.(false, this.superseded)
-      if (event.code === CLOSE_REVOKED) {
-        this.running = false
-        this.deps.onRevoked?.()
-      } else this.scheduleReconnect()
+      const revoked = event.code === CLOSE_REVOKED
+
+      if (revoked) this.running = false
+      this.lost(revoked)
+      if (revoked) this.deps.onRevoked?.()
     })
     socket.addEventListener('error', () => {
       if (this.socket !== socket) return
       this.drop('error')
-      this.deps.onChange?.(false, this.superseded)
-      this.scheduleReconnect()
+      this.lost()
     })
   }
 

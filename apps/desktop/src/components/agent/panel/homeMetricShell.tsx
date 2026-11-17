@@ -267,7 +267,7 @@ export function SessionName({
   onOpen?: (sessionId: string, title: string) => void
 }) {
   if (!session) return <span className="text-tertiary">{t('a private session')}</span>
-  const title = session.title || t('Untitled agent')
+  const title = session.title || t('Untitled task')
 
   if (!onOpen) return <span className="text-secondary">{title}</span>
 

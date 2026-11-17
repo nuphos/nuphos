@@ -7,7 +7,7 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -43,6 +43,7 @@ class FixtureDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private val originals = mutableMapOf<String, OkHttpClient>()
     private val requests = CopyOnWriteArrayList<String>()
+    private var triggerFixture: String? = null
     private var status = 200
     private var detail = AgentConversationDetail(title = "Synthetic acceptance fixture")
     private lateinit var store: AgentStore
@@ -57,7 +58,8 @@ class FixtureDeviceTest {
             val request = chain.request()
             requests += request.method + " " + request.url.encodedPath
             val isDetail = request.url.encodedPath.endsWith("/fixture")
-            val body = if (isDetail && status == 200) Http.json.encodeToString(AgentConversationDetail.serializer(), detail)
+            val body = if (request.url.encodedPath == "/agent/triggers" && triggerFixture != null) triggerFixture!!
+                else if (isDetail && status == 200) Http.json.encodeToString(AgentConversationDetail.serializer(), detail)
                 else if (isDetail) "{\"error\":{\"message\":\"Fixture conversation unavailable\"}}" else "{}"
             Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(if (isDetail) status else 200)
                 .message("fixture").body(body.toResponseBody(Http.jsonMedia)).build()
@@ -110,6 +112,8 @@ class FixtureDeviceTest {
     /** Saved under the app's files, `review-2030/`, for the PR's screenshots. */
     private fun capture(name: String) {
         compose.waitForIdle()
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+        Thread.sleep(300) // Wait for the actual window after the Compose idle frame.
         val directory = java.io.File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null), "review-2030").apply { mkdirs() }
         val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot() ?: error("Screenshot unavailable")
         java.io.File(directory, "$name.png").outputStream().use { check(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)) }
@@ -118,6 +122,17 @@ class FixtureDeviceTest {
     private fun tool() = ChatPart.Tool("fixture-tool", "terminal", false, ChatPart.Tool.State.OutputAvailable,
         input = JsonValue.obj("command" to JsonValue.Str("printf FIXTURE_TOOL_INPUT")),
         output = JsonValue.Str("FIXTURE_TOOL_OUTPUT"), title = "Fixture terminal")
+
+    @Test fun conversationTitleOpensTriggers() {
+        triggerFixture = """[{"id": "digest", "name": "Morning PR digest", "enabled": true, "triggerType": "cron", "cronExpression": "0 9 * * 1-5", "scheduleDescription": "Weekdays at 09:00 UTC", "nextRunAt": "2027-01-04T09:00:00.000Z", "canManage": true}, {"id": "watch", "name": "Production alerts", "enabled": true, "triggerType": "webhook", "scheduleDescription": "When a webhook arrives", "canManage": true}, {"id": "weekly", "name": "Weekly dependency review", "enabled": false, "triggerType": "cron", "cronExpression": "0 10 * * 1", "scheduleDescription": "Mondays at 10:00 UTC", "canManage": true}]"""
+        render(emptyList())
+        compose.onNodeWithContentDescription("Show task triggers").performClick()
+        compose.waitUntil(10_000) { compose.onAllNodesWithText("Morning PR digest").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitForIdle() // The rows exist while the sheet is still animating in.
+        compose.onNodeWithText("Production alerts").assertIsDisplayed()
+        compose.onNodeWithText("Weekly dependency review").assertIsDisplayed()
+        capture("triggers-2096-android")
+    }
 
     @Test fun readOnlyComposerPreventsSubmission() {
         render(listOf(ChatPart.Text(text = "Read-only fixture")), readOnly = true)
@@ -168,7 +183,7 @@ class FixtureDeviceTest {
         Assert.assertTrue(session.canSubmit)
         Assert.assertFalse(session.canManage)
         Assert.assertFalse(session.canCancel)
-        compose.onNodeWithContentDescription("Agent actions").performClick()
+        compose.onNodeWithContentDescription("Task actions").performClick()
         compose.onNodeWithText("Share").assertExists()
         compose.onNodeWithText("Rename").assertDoesNotExist()
         compose.onNodeWithText("Archive").assertDoesNotExist()

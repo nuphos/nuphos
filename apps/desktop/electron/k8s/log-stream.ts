@@ -1,14 +1,15 @@
 import { randomUUID } from 'node:crypto'
 import { Writable } from 'node:stream'
 
-import * as k8s from '@kubernetes/client-node'
-
 import { parseTimestampedLine } from '../logParse.ts'
 import { onPageGone } from '../page-owner.ts'
 
 import { getClients, withAuthRetry } from './client.ts'
+import { k8sLib } from './lib.ts'
 import { podLogContainers } from './log-containers.ts'
 import { podMatchesSelector } from './rows-workloads.ts'
+
+import type * as k8s from '@kubernetes/client-node'
 
 // Read just the selector of a workload — the Pods + Logs tabs in the
 // workload detail view need this to client-side filter the live pod
@@ -233,7 +234,7 @@ export function startWorkloadLogStream(
       const podsRes = await coreApi.listNamespacedPod({ namespace })
 
       if (session.cancelled) return
-      const log = new k8s.Log(kc)
+      const log = new k8sLib.Log(kc)
       const matched = podsRes.items.filter((pod) => podMatchesSelector(pod, selector))
 
       for (const pod of matched) {

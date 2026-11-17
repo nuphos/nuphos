@@ -297,6 +297,43 @@ test('a runtime catalog becomes session options; picks it no longer offers fall 
   expect(catalogSessionConfig({ models: [] }, {})).toEqual([])
 })
 
+test('a runtime that lists its effort but no models still offers the effort', () => {
+  // Grok Build reports its reasoning effort, and no model picker. Reporting the
+  // whole catalog empty left the composer's picker with nothing to open.
+  const catalog = {
+    models: [],
+    controls: {
+      modelId: 'grok',
+      effort: [
+        { value: 'high', name: 'High' },
+        { value: 'low', name: 'Low' },
+      ],
+      fast: [],
+      defaultEffort: 'high',
+    },
+  }
+
+  expect(catalogSessionConfig(catalog, {})).toEqual([
+    {
+      id: 'effort',
+      name: 'Effort',
+      kind: 'effort',
+      currentValue: 'high',
+      options: [
+        { value: 'high', name: 'High' },
+        { value: 'low', name: 'Low' },
+      ],
+    },
+  ])
+  // A pick it confirms is the current value; one it stops offering falls back.
+  expect(catalogSessionConfig(catalog, { effort: 'low' })[0]?.currentValue).toBe('low')
+  expect(catalogSessionConfig(catalog, { effort: 'gone' })[0]?.currentValue).toBe('high')
+  // Controls that offer nothing to pick are no picker: same as no catalog at all.
+  expect(
+    catalogSessionConfig({ models: [], controls: { modelId: '', effort: [], fast: [] } }, {}),
+  ).toEqual([])
+})
+
 test('a catalog model keeps its description, so a family name can show its version', () => {
   const [model] = catalogSessionConfig(
     {

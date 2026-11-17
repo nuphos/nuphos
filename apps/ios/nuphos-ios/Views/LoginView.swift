@@ -15,6 +15,7 @@ struct LoginView: View {
     @State private var error: String?
     @State private var resendAt = Date.distantPast
     @State private var providers: [NuphosWeb.Provider] = []
+    @State private var oidcName = "SSO"
     @State private var loadingProviders = true
     @State private var providerError = false
     @FocusState private var focused: Field?
@@ -136,7 +137,7 @@ struct LoginView: View {
                         }
                         loginOptions
                     }.disabled(signingIn)
-                    Text("By continuing, you agree to our [Terms of Service](https://nuphos.ai/terms) and [Privacy Policy](https://nuphos.ai/privacy).")
+                    Text("By continuing, you agree to our [Terms of Service](https://nuphos.ai/terms) and [Privacy Policy](https://nuphos.ai/privacy).", comment: "Legal text")
                         .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
                 }
                 .padding(24)
@@ -175,6 +176,19 @@ struct LoginView: View {
                         .foregroundStyle(loginButtonLabel)
                 }
                 .buttonStyle(.borderedProminent).accessibilityIdentifier("login.google")
+            }
+            if providers.contains(.oidc) {
+                Button {
+                    clearFeedback()
+                    Task { await session.signIn(provider: .oidc) }
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "key.fill").frame(width: 20, height: 20)
+                        Text("Continue with \(oidcName)")
+                    }.frame(maxWidth: .infinity, minHeight: 20)
+                        .foregroundStyle(loginButtonLabel)
+                }
+                .buttonStyle(.borderedProminent).accessibilityIdentifier("login.oidc")
             }
             if loadingProviders { ProgressView().frame(minHeight: 44) }
             if providerError {
@@ -349,7 +363,8 @@ struct LoginView: View {
             let offered = try await NuphosWeb.availableProviders(baseURL: baseURL)
             try Task.checkCancellation()
             guard baseURL == NuphosAPI.baseURL else { return }
-            providers = offered
+            providers = offered.providers
+            oidcName = offered.oidcName
         } catch {
             guard !Task.isCancelled, baseURL == NuphosAPI.baseURL else { return }
             providerError = true
@@ -410,8 +425,8 @@ private struct VerificationCodeInput: UIViewRepresentable {
         field.tintColor = .clear
         field.borderStyle = .none
         field.autocorrectionType = .no
-        field.accessibilityLabel = "Verification code"
-        field.accessibilityHint = "Enter the six-digit code."
+        field.accessibilityLabel = String(localized: "Verification code")
+        field.accessibilityHint = String(localized: "Enter the six-digit code.")
         field.accessibilityIdentifier = "login.code"
         field.delegate = context.coordinator
         field.addTarget(context.coordinator, action: #selector(Coordinator.changed(_:)), for: .editingChanged)
@@ -527,7 +542,7 @@ private struct LoginServerSettings: View {
         guard let url = URL(string: draft.trimmingCharacters(in: .whitespaces)),
               let scheme = url.scheme?.lowercased(), scheme == "https" || scheme == "http",
               let host = url.host(), !host.isEmpty
-        else { error = "Enter a full URL, e.g. https://nuphos.example.com"; return }
+        else { error = String(localized: "Enter a full URL, e.g. https://nuphos.example.com"); return }
         var origin = URLComponents()
         origin.scheme = scheme; origin.host = host; origin.port = url.port
         savedURL = origin.url?.absoluteString ?? ""

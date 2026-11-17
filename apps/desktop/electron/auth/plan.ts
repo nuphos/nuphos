@@ -14,13 +14,19 @@ export type LoginPlan = {
   codeVerifier: string
 }
 
-export type SocialProvider = 'google' | 'apple'
+export type SocialProvider = 'google' | 'apple' | 'oidc'
+export type SocialOption = { provider: SocialProvider; name: string }
+
+const PROVIDER_NAMES: Record<Exclude<SocialProvider, 'oidc'>, string> = {
+  google: 'Google',
+  apple: 'Apple',
+}
 
 /**
  * The providers the backend's social sign-in offers; none on servers without it.
  * Throws when the backend could not be asked, so the sign-in screen can offer a retry.
  */
-export async function socialProviders(api: string = apiUrl()): Promise<SocialProvider[]> {
+export async function socialProviders(api: string = apiUrl()): Promise<SocialOption[]> {
   const response = await nodeFetch(`${api}/auth/social/login`, {
     redirect: 'manual',
     signal: AbortSignal.timeout(8_000),
@@ -32,9 +38,15 @@ export async function socialProviders(api: string = apiUrl()): Promise<SocialPro
   }
   if (!response.ok) return []
 
+  const oidcName = response.headers.get('X-Nuphos-Social-Oidc-Name') || 'SSO'
+
   return (response.headers.get('X-Nuphos-Social-Providers') ?? '')
     .split(',')
-    .filter((p): p is SocialProvider => p === 'google' || p === 'apple')
+    .filter((p): p is SocialProvider => p === 'google' || p === 'apple' || p === 'oidc')
+    .map((provider) => ({
+      provider,
+      name: provider === 'oidc' ? oidcName : PROVIDER_NAMES[provider],
+    }))
 }
 
 // Register, then open the provider's own start page. A provider the backend does not offer
@@ -46,9 +58,11 @@ export async function planLogin(port: number, provider: SocialProvider): Promise
   const clientState = crypto.randomBytes(16).toString('hex')
   const redirectUri = `http://127.0.0.1:${String(port)}/callback`
 
-  if (!(await socialProviders(api)).includes(provider)) {
+  const offered = (await socialProviders(api)).find((option) => option.provider === provider)
+
+  if (!offered) {
     throw new Error(
-      `This server does not offer ${provider === 'apple' ? 'Apple' : 'Google'} sign-in`,
+      `This server does not offer ${provider === 'oidc' ? 'SSO' : PROVIDER_NAMES[provider]} sign-in`,
     )
   }
 

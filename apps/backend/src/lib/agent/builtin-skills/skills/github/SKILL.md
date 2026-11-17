@@ -61,7 +61,7 @@ bash skills/github/scripts/setup-credentials.sh <teamId> <installationId>
 
 Identity: when the turn's member connected a Personal Credential, `gh` acts as their own GitHub account. That member is the sender of a member's message, or the session owner for automated turns (triggers, agent threads, resource events). Otherwise it acts as the team's GitHub App (`nuphos[bot]`). Add `--team` to use the App identity on purpose, for example for bot-owned automation. The JSON response's `actor.kind` (`personal` or `team`) says which one you got.
 
-Permissions: acting as a member and the member's own `personal` / `github` credential use the same token, issued by the Nuphos GitHub App on the member's behalf. It can do only what both the member and the App's granted permissions allow. A 403 or `Resource not accessible by integration` means the App lacks that permission (org Projects, for example, need `organization_projects`). Switching to `personal` or `--team` will not help, and neither will asking the user to select another GitHub credential. Name the missing permission and tell the user that an org owner has to add it to the GitHub App and approve the change for the org.
+Permissions: acting as a member and the member's own `personal` / `github` credential use the same token, issued by the Nuphos GitHub App on the member's behalf. It can do only what both the member and the App installation allow, so a member who owns an org still cannot do through Nuphos what the App was not granted there. The setup script prints each installation's permissions and its settings page. Read them before planning work beyond code, issues and pull requests (org Projects, for example, need `organization_projects`). For a 403 or `Resource not accessible by integration`, follow [Errors](#errors).
 
 Without a team installation: when `list_credentials` lists a selected `personal` / `github` entry, the conversation owner chose their own GitHub account for this conversation. Load it with `bash skills/github/scripts/setup-credentials.sh <teamId> personal`; it reaches what that member can reach.
 
@@ -98,18 +98,7 @@ The token's permissions are whatever the team admin granted when they installed 
 - **Read + write issues / PRs** — comment, label, close, request review.
 - **Actions: write** — dispatch workflows, cancel runs.
 
-Discover what's actually granted by hitting the installation metadata once:
-
-```bash
-# `ac` is the nuphos-api helper defined above; INST is the installationId from
-# the credential section.
-ac /teams/$TEAM/github-installations/$INST | python3 -m json.tool
-# → { "installationId": ..., "accountLogin": "...",
-#     "permissions": { "contents": "read", "pull_requests": "write", ... },
-#     "events": [...], "suspended": false }
-```
-
-If the user asks for an action whose permission isn't there (e.g. "open a PR" but `pull_requests: read` only), tell them — Nuphos backend can't widen the scope, only the org admin can re-install the App with new permissions.
+`setup-credentials.sh` prints what is actually granted (`App permissions on <account>: ...`). A permission that is not in that list is not available under any identity. See [Errors](#errors) for what to tell the user.
 
 ## Common operations (with `gh`)
 
@@ -234,7 +223,10 @@ A few rules:
 
 - `404 github_installation_not_found` from Nuphos backend — the installation was uninstalled or transferred. Re-list installations and tell the user.
 - `401 Bad credentials` from api.github.com (or `gh: HTTP 401`) — token expired (1 h max). Re-run `setup-credentials.sh`.
-- `403 Resource not accessible by integration` — the App lacks that permission for this repo/installation. Don't retry; tell the user the missing permission and suggest the org admin re-install the App with broader scope.
+- `403 Resource not accessible by integration` (GraphQL: `FORBIDDEN` with the same message) — the App installation lacks a permission. The member's own access is not the problem, and GitHub does not say which permission. Don't retry. Switching to `personal` or `--team` will not help, and neither will another GitHub credential, because all of them go through the same App. Do this instead, in the same turn:
+  1. Name the permission. On REST, `gh api -i <path>` returns an `X-Accepted-GitHub-Permissions` header such as `organization_projects=read`. For GraphQL, call the REST endpoint of the same resource, or compare the call with the permissions the setup script printed.
+  2. Find who can grant it. `gh api /apps/<slug> --jq .permissions` lists what the App requests (`<slug>` is `app_slug` in `gh api /user/installations`). If the permission is there but not in the installation, an owner of that account approves it on the `Installation settings` page the setup script printed. If the App does not request it at all, nobody can grant it from that page: only whoever owns the App can add it, which is the Nuphos team on Nuphos Cloud and the instance operator when self-hosted.
+  3. Tell the user the permission, the account, which of the two cases it is, and the settings link. Then offer a way to finish now: give them the github.com page for the blocked step and the exact values to enter, so they can do that one step in the browser as themselves while you carry on with the rest.
 - `404 Not Found` on a repo path — either the repo doesn't exist or it's outside the App's `selected` repository scope. Confirm with the user which repo they meant.
 - `429` / secondary rate limits — slow down (don't retry tightly). Installation tokens get their own rate limit pool, but heavy fan-out can still hit it.
 

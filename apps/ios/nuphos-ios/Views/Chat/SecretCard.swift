@@ -1,5 +1,27 @@
 import SwiftUI
 
+/// The secure input card of a question shown away from its conversation, in a Bot's chat or the
+/// Inbox: the value is saved, and the reply sent, in the conversation that asked. It shows once
+/// that conversation has loaded, since whether the viewer may send to it is known only then.
+struct AskedSecretCard: View {
+    @Environment(AgentStore.self) private var store
+    let question: BotQuestion
+    let part: ChatPart.ToolPart
+    let teamId: String
+    var onSaved: (() -> Void)?
+    @State private var session: ChatSession?
+
+    var body: some View {
+        if let session, session.loaded {
+            SecretCard(part: part, reply: nil, session: session, onSaved: onSaved)
+        } else {
+            // An empty view runs no task, so this stands in until the conversation has loaded.
+            Color.clear.frame(height: 0)
+                .task { if session == nil { session = store.session(sessionId: question.sessionId, title: question.title, teamId: teamId) } }
+        }
+    }
+}
+
 /// A secret the agent asked for, like the desktop's `SecretCard`: a masked
 /// field whose value goes straight to a file on the agent's runtime. Only the
 /// file's path is sent as the reply; the value never enters the transcript.
@@ -8,6 +30,8 @@ struct SecretCard: View {
     /// The first reply after the question, once there is one.
     var reply: String?
     let session: ChatSession
+    /// The value reached the runtime from this card.
+    var onSaved: (() -> Void)?
 
     private enum Phase { case idle, saving, sent, failed(String) }
 
@@ -26,14 +50,14 @@ struct SecretCard: View {
 
     /// Why the value can't be sent right now; nil when it can.
     private var blocked: String? {
-        if !session.ownsChat { return "Only the owner of this conversation can provide this secret." }
-        if session.isStreaming { return "The agent is working. You can send this when its turn ends." }
+        if !session.ownsChat { return String(localized: "Only the owner of this task can provide this secret.") }
+        if session.isStreaming { return String(localized: "The agent is working. You can send this when its turn ends.") }
         return nil
     }
 
     var body: some View {
         if saved {
-            line("lock.fill", "\(name) saved on the agent's runtime.")
+            line("lock.fill", "\(name) saved on the task's runtime.")
         } else if reply != nil {
             line("lock.slash", "\(name) request closed. Ask the agent to request it again.")
         } else {
@@ -42,7 +66,7 @@ struct SecretCard: View {
     }
 
     /// The answered card: one line, no field.
-    private func line(_ symbol: String, _ text: String) -> some View {
+    private func line(_ symbol: String, _ text: LocalizedStringKey) -> some View {
         Label(text, systemImage: symbol)
             .font(Theme.Text.label)
             .foregroundStyle(Theme.muted)
@@ -74,7 +98,7 @@ struct SecretCard: View {
                     .background(Theme.chatCanvas, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Theme.hairline, lineWidth: 1))
                 Button(action: submit) {
-                    Text(saving ? "Saving…" : "Send securely")
+                    saving ? Text("Saving…") : Text("Send securely")
                 }
                 .prominentButton()
                 .controlSize(.small)
@@ -85,7 +109,7 @@ struct SecretCard: View {
             if case .failed(let message) = phase {
                 Text(message).font(Theme.Text.caption).foregroundStyle(.red)
             }
-            Text(blocked ?? "The value is written to a file on the agent's runtime and never appears in this conversation.")
+            Text(blocked ?? String(localized: "The value is written to a file on the task's runtime and never appears in this task."))
                 .font(Theme.Text.caption).foregroundStyle(Theme.muted)
         }
         .padding(14)
@@ -103,8 +127,9 @@ struct SecretCard: View {
                 try await session.provideSecret(secret, for: part)
                 value = ""
                 phase = .sent
+                onSaved?()
             } catch {
-                phase = .failed("Could not save it on the agent's runtime: \(error.localizedDescription)")
+                phase = .failed(String(localized: "Could not save it on the task's runtime: \(error.localizedDescription)"))
             }
         }
     }

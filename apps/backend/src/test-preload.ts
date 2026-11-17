@@ -14,6 +14,11 @@
 // MEMORY_PROVIDER is pinned to its default (deleted, not ??=): a developer's
 // .env must never change what the suite asserts.
 delete process.env.MEMORY_PROVIDER
+// A suite run inside a Nuphos runtime inherits that conversation's credentials.
+// The skill scripts under test prefer them over what a test passes in, so they
+// would call the real API with a real token. Nothing here may see them.
+delete process.env.OPENAB_CREDENTIALS_DIR
+delete process.env.NUPHOS_TOKEN
 process.env.MONGODB_URI ??= 'mongodb://unit-test:27017'
 // config.admin.teamId has no default — unset denies admin access — so the admin
 // route tests need one in place before @/config is imported.

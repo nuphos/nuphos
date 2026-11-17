@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import {
   dictationInsert,
+  dictationText,
   formatElapsed,
   isVoiceShortcut,
   openMicrophone,
@@ -81,4 +82,14 @@ test('a take given up during the permission prompt stops the microphone it gets'
     stream,
   )
   assert.deepEqual(stopped, ['mic'])
+})
+
+test('writes a Chinese transcript in Traditional characters, as the mobile apps do', async () => {
+  const chinese = { text: '我们为什么在这里', language: 'chinese' }
+
+  assert.equal(await dictationText(chinese, 'zh-TW'), '我們為什麼在這裡')
+  assert.equal(await dictationText(chinese, 'en'), '我們為什麼在這裡')
+  assert.equal(await dictationText(chinese, 'zh-CN'), '我们为什么在这里')
+  assert.equal(await dictationText({ text: 'ship it', language: 'english' }, 'zh-TW'), 'ship it')
+  assert.equal(await dictationText({ text: '这里', language: null }, 'zh-TW'), '这里')
 })

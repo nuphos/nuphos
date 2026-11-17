@@ -29,6 +29,7 @@ export type TeamPreviewClient = Pick<
   | 'setSessionConfigOption'
   | 'prompt'
   | 'cancel'
+  | 'closeSession'
   | 'close'
   | 'onClosed'
   | 'onRetired'

@@ -4,6 +4,7 @@ import ai.nuphos.android.data.Http
 import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.model.SessionResource
 import ai.nuphos.android.model.SessionResourcesEnvelope
+import ai.nuphos.android.model.openFirst
 import ai.nuphos.android.session.SessionResourcesStore
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
@@ -21,6 +22,19 @@ class SessionResourcesTest {
         assertEquals("started", decoded.resources.single().stateType)
         assertEquals("#42", pr.chip)
         assertThrows(Exception::class.java) { Http.json.decodeFromString<SessionResourcesEnvelope>("{}") }
+    }
+    @Test fun openLinksComeFirstAndFinishedOnesFoldAfterThem() {
+        fun pr(number: Int, state: String) = SessionResource("pr-$number", "github", "PR $number", "https://github.com/example/repo/pull/$number", state, number = number)
+        fun issue(id: String, stateType: String) = SessionResource(id, "linear", "$id An issue", "https://linear.app/example/issue/$id", "State", stateType)
+        val (open, finished) = listOf(pr(29, "merged"), pr(2172, "open"), pr(2173, "closed"), pr(2417, "open")).openFirst()
+        assertEquals(listOf("#2172", "#2417"), open.map { it.chip })
+        assertEquals(listOf("#29", "#2173"), finished.map { it.chip })
+        assertEquals("1 merged", SessionResource.finishedLabel(finished))
+        assertEquals("1 closed", SessionResource.finishedLabel(listOf(pr(1, "closed"))))
+        val (openIssues, doneIssues) = listOf(issue("NUPS-1", "started"), issue("NUPS-2", "canceled"), issue("NUPS-3", "completed")).openFirst()
+        assertEquals(listOf("NUPS-1"), openIssues.map { it.chip })
+        assertEquals(listOf("NUPS-2", "NUPS-3"), doneIssues.map { it.chip })
+        assertEquals("1 done", SessionResource.finishedLabel(doneIssues))
     }
     @Test fun rejectsUnsafeUrlsWithoutDisablingResourceTitles() {
         for (url in listOf("javascript:alert(1)", "intent://github.com", "file:///etc/passwd", "http://github.com", "https://user:secret@github.com", "https:///missing", "https://github.com\n", "https://evil.example/pull/1", "https://github.com.evil.com/x", "https://github.com:8443/x", "https://github.com:443/x", "https://linear.app/x")) {

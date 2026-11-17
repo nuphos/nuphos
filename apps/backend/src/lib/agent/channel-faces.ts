@@ -1,7 +1,7 @@
-import { parseMessageMetadata } from './message-metadata'
 import { listChannelAgents } from './db/channels'
 import { conversationParticipantIds } from './db/participants'
 import { agentMessages } from './db/shared'
+import { parseMessageMetadata } from './message-metadata'
 
 import type { AgentConversation } from './db/shared'
 
@@ -46,7 +46,7 @@ export async function channelMembers(
     members.set(agent.sessionId, {
       id: agent.sessionId,
       name: agent.title,
-      agent: { ...(agent.avatar ? { avatar: agent.avatar } : {}), provider: agent.provider },
+      agent: { avatar: agent.avatar, provider: agent.provider },
     })
   for (const id of conversationParticipantIds(channel)) {
     const person = people.get(id)
@@ -68,10 +68,15 @@ export async function channelMembers(
 /**
  * What a chat's list row and detail carry for the viewer: the `faces` of its
  * icon and, when no one named it, a `title` of everyone else in it. The name
- * is the viewer's own view, so it is never stored. Other conversations carry neither.
+ * is the viewer's own view, so it is never stored. A Bot's own chat is always
+ * named after the Bot, so renaming the Bot renames it. Other conversations carry neither.
  */
 export async function channelFacesField(
-  conversation: Parameters<typeof channelMembers>[0] & { kind?: string; title?: string },
+  conversation: Parameters<typeof channelMembers>[0] & {
+    kind?: string
+    title?: string
+    group?: true
+  },
   viewerId: string,
   people: Map<string, Person>,
 ): Promise<{ faces?: ChannelFace[]; title?: string }> {
@@ -83,9 +88,11 @@ export async function channelFacesField(
   const faces =
     agents.length === 1 ? [...agents, ...members.filter((member) => !member.agent)] : members
 
+  const botChat = !conversation.group && members.length === 1 && Boolean(members[0]?.agent)
+
   return {
     faces: faces.slice(0, FACES),
-    ...(conversation.title
+    ...(conversation.title && !botChat
       ? {}
       : {
           // Alone in it, the viewer sees their own name rather than none.

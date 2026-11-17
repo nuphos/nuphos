@@ -4,6 +4,8 @@ import os from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
 
+import { machineModel } from '../device-identity-core.ts'
+
 import {
   credentialRevoked,
   deviceCredentialFor,
@@ -30,12 +32,19 @@ test('a join token becomes a credential kept only for this backend', async (t) =
   })
 
   const joined = await deviceCredentialFor(options(dataDir, 'nbj_1'))
+  // A Mac names its model as Desktop does, so a joined Mac mini is not drawn as a MacBook.
+  const model = await machineModel()
 
   assert.deepEqual(joined, { apiUrl: API, userId: 'u1', deviceId: 'd1', credential: 'nbx_1' })
   assert.deepEqual(requests, [
     {
       url: `${API}/auth/devices/join`,
-      body: { token: 'nbj_1', label: 'vm-1', platform: process.platform },
+      body: {
+        token: 'nbj_1',
+        label: 'vm-1',
+        platform: process.platform,
+        ...(model ? { model } : {}),
+      },
     },
   ])
   assert.equal(statSync(path.join(dataDir, 'device-credential.json')).mode & 0o777, 0o600)

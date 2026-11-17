@@ -1,5 +1,6 @@
 package ai.nuphos.android.model
 
+import ai.nuphos.android.R
 import ai.nuphos.android.session.ChatSession
 import java.time.Instant
 
@@ -9,6 +10,8 @@ sealed class ChatRow {
     data class Timestamp(override val id: String, val date: Instant) : ChatRow()
     data class User(override val id: String, val messageId: String, val text: String, val images: List<String>, val uploads: List<TransferUpload> = emptyList(), val sender: MessageAttribution? = null) : ChatRow()
     data class Event(override val id: String, val content: User) : ChatRow()
+    /** A question someone answered, in place of the notice that told the agent. */
+    data class Answered(override val id: String, val question: AnsweredQuestion) : ChatRow()
     data class AssistantText(override val id: String, val messageId: String, val text: String, val streaming: Boolean) : ChatRow()
     data class Reasoning(override val id: String, val part: ChatPart.Reasoning) : ChatRow()
     data class Tool(override val id: String, val messageId: String, val part: ChatPart.Tool, val canDecide: Boolean) : ChatRow()
@@ -30,7 +33,8 @@ sealed class ChatRow {
     companion object {
         private val hiddenTools = setOf("skill")
 
-        fun rows(session: ChatSession): List<ChatRow> = rows(
+        /** `runtimeOffline`: the conversation's computer is offline right now. */
+        fun rows(session: ChatSession, runtimeOffline: Boolean = false): List<ChatRow> = rows(
             messages = session.messages,
             isStreaming = session.isStreaming,
             phaseLabel = session.phaseLabel,
@@ -41,8 +45,10 @@ sealed class ChatRow {
             stoppedByUser = session.stoppedByUser,
             downloads = if (session.canReadDownloads) session.downloads else emptyList(),
             timeline = session.timelineEvents,
+            waiting = session.waitingAnswers,
             hasEarlier = session.baseIndex > 0,
             localSender = session::localSender,
+            runtimeOffline = runtimeOffline,
         )
 
         internal fun rows(
@@ -56,8 +62,11 @@ sealed class ChatRow {
             stoppedByUser: Boolean = false,
             downloads: List<ai.nuphos.android.data.TransferDownloadGroup> = emptyList(),
             timeline: List<AgentConversationDetail.TimelineEvent> = emptyList(),
+            /** What each answered question's answer still waits for, by request id. */
+            waiting: Map<String, String> = emptyMap(),
             hasEarlier: Boolean = false,
             localSender: (String) -> MessageAttribution? = { null },
+            runtimeOffline: Boolean = false,
         ): List<ChatRow> {
             val rows = mutableListOf<ChatRow>()
             val anchoredDownloads = AgentDownloads.anchor(downloads, messages)
@@ -87,7 +96,14 @@ sealed class ChatRow {
                         val images = if (display.uploads.isNotEmpty()) emptyList() else message.parts.mapNotNull { part ->
                             (part as? ChatPart.File)?.takeIf { it.mediaType.startsWith("image/") }?.url
                         }
-                        if (text.isNotEmpty() || images.isNotEmpty() || display.uploads.isNotEmpty()) {
+                        val answered = if (sender?.id == AnsweredQuestion.SENDER && sender.isEvent) AnsweredQuestion.all(message, text, messages) else null
+                        if (answered != null) {
+                            // Its answer has not reached the agent yet: the last line says what it waits for.
+                            val note = AnsweredQuestion.Notice.parse(text.trim())?.requestId?.let(waiting::get)
+                            rows += answered.mapIndexed { at, question ->
+                                Answered("answered.${message.id}.$at", if (at == answered.lastIndex) question.copy(waiting = note) else question)
+                            }
+                        } else if (text.isNotEmpty() || images.isNotEmpty() || display.uploads.isNotEmpty()) {
                             val user = User("user.${message.id}", message.id, text, images, display.uploads, sender)
                             rows += if (sender?.isEvent == true) Event("event.${message.id}", user) else user
                         }
@@ -98,8 +114,8 @@ sealed class ChatRow {
                         rows += anchoredDownloads[message.id].orEmpty().map { Downloads("downloads.${it.groupId}", it) }
                         if (message.stoppedByUser == true && !isLive) {
                             val calls = message.parts.count { it is ChatPart.Tool }
-                            val suffix = when (calls) { 0 -> ""; 1 -> " · 1 call"; else -> " · $calls calls" }
-                            rows += Hint("stopped.${message.id}", "Stopped by you$suffix", false)
+                            val text = if (calls == 0) Words(R.string.convtext_stopped_by_you) else Words.plural(R.plurals.convtext_stopped_by_you_calls, calls, calls)
+                            rows += Hint("stopped.${message.id}", text, false)
                         }
                     }
                     ChatMessage.Role.System -> Unit
@@ -109,8 +125,11 @@ sealed class ChatRow {
             // A native runtime reports its own status; it's the transcript's last row, as on iOS.
             if (!runtimeStatus.isNullOrBlank()) rows += Activity(runtimeStatus, live = isStreaming || runtimeTurnActive)
             else if (isStreaming || !phaseLabel.isNullOrBlank()) rows += Activity(phaseLabel, live = isStreaming)
-            if (cancelRequested) rows += Hint("cancel-requested", "Cancellation requested", false)
-            error?.takeIf { !stoppedByUser }?.let { rows += Hint("error", it, true) }
+            if (cancelRequested) rows += Hint("cancel-requested", Words(R.string.convtext_cancellation_requested), false)
+            val shownError = error?.takeIf { !stoppedByUser }
+            if (shownError != null) rows += Hint("error", shownError, true)
+            // Said before the message goes, with the way on: another runtime.
+            else if (runtimeOffline && !isStreaming && !runtimeTurnActive) rows += Hint("runtime-offline", Words(R.string.convtext_runtime_offline), true)
             rows += Bottom
             return rows
         }

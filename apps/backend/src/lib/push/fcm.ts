@@ -2,6 +2,8 @@ import { GoogleAuth } from 'google-auth-library'
 
 import { config } from '@/config'
 
+import type { notificationIdentity } from './notification-identity'
+
 export type FcmRequest = {
   token: string
   userId: string
@@ -9,13 +11,25 @@ export type FcmRequest = {
   teamId: string
   sessionId: string
   title: string
+  subtitle?: string // Android shows one title line: it follows the title.
   body: string
+  agentIdentity?: ReturnType<typeof notificationIdentity>
 }
 export type FcmResponse = { status: number; deadToken: boolean }
 const auth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/firebase.messaging'] })
 
 export function fcmProjectId(): string | null {
   return config.fcm.projectId ?? null
+}
+
+/** FCM data values are strings: a Bot's face, as the iOS push carries in `agentIdentity`. */
+function botIdentity(identity: FcmRequest['agentIdentity']): Record<string, string> {
+  if (!identity?.isBot || !identity.avatar) return {}
+
+  return {
+    botAvatar: identity.avatar,
+    ...(identity.provider ? { botProvider: identity.provider } : {}),
+  }
 }
 
 export function fcmMessage(request: FcmRequest) {
@@ -26,9 +40,10 @@ export function fcmMessage(request: FcmRequest) {
         accountId: request.userId,
         teamId: request.teamId,
         sessionId: request.sessionId,
-        title: request.title,
+        title: request.subtitle ? `${request.title} · ${request.subtitle}` : request.title,
         body: request.body,
         ...(request.badge !== undefined ? { badge: String(request.badge) } : {}),
+        ...botIdentity(request.agentIdentity),
       },
       android: { priority: 'HIGH', ttl: '3600s', collapse_key: request.sessionId },
     },

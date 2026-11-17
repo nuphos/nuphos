@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
 import { DownloadGroups } from '../agent/panel/DownloadGroups'
-import { UploadedFilesCard } from '../agent/panel/transferCards'
+import { UploadedFilesCard } from '../agent/panel/uploadedFilesCard'
 
 import type { channelFiles } from './postFiles'
 import type { FileTransferGroup } from '../../types'

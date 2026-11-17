@@ -1,8 +1,7 @@
 import SwiftUI
 
-/// The signed-in shell: the page name is the (large) navigation title and
-/// doubles as the page switcher via the title menu; search, filter and the
-/// account avatar sit on the trailing edge. The Agent page brings its own composer.
+/// The signed-in shell shares its stores across three native home tabs.
+/// The split view keeps conversation navigation and its keyboard behavior intact.
 struct HomeView: View {
     @Environment(AuthSession.self) private var session
     let user: NuphosUser
@@ -14,7 +13,10 @@ struct HomeView: View {
     /// The next page change is the default tab, not the viewer's pick.
     @State private var autoPage = false
     @State private var showProfile = false
-    @State private var isSearching = false
+    @State private var showNewBot = false
+    @State private var searching: Set<HomePage> = []
+    @State private var searches: [HomePage: String] = [:]
+    @State private var workspacePage: HomePage? = Self.initialWorkspacePage
     @State private var titleCollapsed = false
     @State private var store: AgentStore?
     @State private var plans: PlansStore?
@@ -59,47 +61,46 @@ struct HomeView: View {
                     Theme.canvas
                 }
             }
-            // The page switcher sits in the bar, on the same row as search,
-            // filter and the account avatar.
+            // The title and workspace actions stay above the native home tabs.
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
+            .navigationTitle(page.title)
             // Wide, the list always stays: there is nothing to put it away with.
             .toolbar(removing: .sidebarToggle)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    PageTitleMenu(selection: $page, style: .bar, inboxCount: inbox?.list.count ?? 0)
-                }
-                .sharedBackgroundHidden()
-
                 // Each control gets its own glass group
                 // (ToolbarSpacer(.fixed) splits groups, per the toolbar docs).
                 if page.isHomeList, store != nil {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button {
-                            isSearching.toggle()
+                            searchPresentation(for: page).wrappedValue.toggle()
                         } label: {
-                            Label("Search agents", systemImage: "magnifyingglass")
+                            Label("Search tasks", systemImage: "magnifyingglass")
+                        }
+                    }
+                    if page == .chats {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("New Bot", systemImage: "plus") { showNewBot = true }
+                                .disabled(store == nil || store?.creatingBot == true || store?.runtimesLoaded != true)
                         }
                     }
                     GlassGroupSpacer()
                 }
-                if page == .plans, let plans {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            isSearching.toggle()
-                        } label: {
-                            Label("Search plans", systemImage: "magnifyingglass")
-                        }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        workspacePage = .connectors
+                    } label: {
+                        Image("connector-grid-add")
+                            .frame(width: 30, height: 30)
+                            .padding(7)
+                            .glass(interactive: true, in: Circle())
                     }
-                    GlassGroupSpacer()
-                    ToolbarItem(placement: .topBarTrailing) {
-                        PlansFilterMenu()
-                            .environment(plans)
-                    }
-                    GlassGroupSpacer()
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Connectors")
+                    .disabled(connectors == nil)
                 }
-
+                .sharedBackgroundHidden()
                 // The avatar draws its own circular glass: the system glass
                 // for a non-icon label is a capsule, not a circle.
                 ToolbarItem(placement: .topBarTrailing) {
@@ -123,6 +124,19 @@ struct HomeView: View {
             #endif
             .sheet(isPresented: $showProfile) {
                 ProfileSheet(user: user)
+            }
+            .sheet(item: $workspacePage) { destination in
+                NavigationStack {
+                    workspaceContent(destination)
+                        .navigationTitle(destination == .runtimes ? Text("Computers") : Text("Connectors"))
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button("Done") { workspacePage = nil }
+                            }
+                        }
+                }
+                .environment(store)
+                .environment(connectors)
             }
             #if DEBUG
             .overlay {
@@ -150,6 +164,9 @@ struct HomeView: View {
                         // Compact pops back to the list's composer; wide has
                         // no back, so this returns the column to it.
                         .toolbar { newAgentItem }
+                } else if page == .inbox, let inbox, let question = inbox.list.first(where: { $0.id == inbox.selected }) {
+                    InboxQuestionView(inbox: inbox, question: question)
+                        .id(question.id)
                 } else if page == .agent, store != nil, sizeClass == .regular {
                     Theme.chatCanvas.ignoresSafeArea()
                         .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -213,10 +230,23 @@ struct HomeView: View {
             page = .agent
             openChat = nil
         }
+        // Tasks lists no chat (#2708), and compact opens one by selecting its row, so a chat
+        // opened from Tasks, as "Make this a Bot" opens one, opens on Bots instead.
+        .onChange(of: openChat?.channel?.channelId) { _, id in
+            guard id != nil, page == .agent, let chat = openChat else { return }
+            page = .chats
+            // After the page change below has cleared it.
+            Task { openChat = chat }
+        }
         .onChange(of: page) { oldPage, newPage in
             if autoPage { autoPage = false } else { pageChosen = true }
-            isSearching = false
+            searches[oldPage] = store?.search ?? ""
+            store?.search = searches[newPage] ?? ""
             openChat = nil
+            inbox?.selected = nil
+            // An answer held for Undo goes once the Inbox is left.
+            let left = inbox
+            Task { await left?.sendHeld() }
             UIEventLog.pageTransition(from: oldPage.rawValue, to: newPage.rawValue)
             Analytics.shared.screen(newPage.rawValue, teamID: store?.selectedTeam?.id)
         }
@@ -224,6 +254,8 @@ struct HomeView: View {
         .task(id: scenePhase == .active ? store?.selectedTeam?.id : nil) {
             guard scenePhase == .active, let store, let team = store.selectedTeam?.id else { return }
             if inbox?.teamId != team {
+                let left = inbox
+                Task { await left?.sendHeld() }
                 inbox = OpenQuestions(token: store.token, teamId: team)
             }
             while !Task.isCancelled {
@@ -231,11 +263,18 @@ struct HomeView: View {
                 try? await Task.sleep(for: .seconds(15))
             }
         }
+        // Nor does a held answer wait for an app that is put away.
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { Task { await inbox?.sendHeld() } }
+        }
         .onChange(of: store?.selectedTeam?.id) { _, teamID in
             Analytics.shared.screen(page.rawValue, teamID: teamID)
         }
+        // Off the lists, a notification or link opens over the list it is on: Tasks lists no Bot,
+        // chat or Bot's Task (#2708), so anything but a listed Task returns to Bots.
         .onChange(of: PushNotifications.shared.pendingTarget, initial: true) { _, target in
-            if target != nil, !page.isHomeList { page = .agent }
+            guard let target, !page.isHomeList else { return }
+            page = store?.listedConversations.contains { $0.sessionId == target.sessionId } == true ? .agent : .chats
         }
         // The default tab, once the chats are known: Chats when there is one.
         // Never after the viewer picked a page, nor under a chat already open.
@@ -258,7 +297,7 @@ struct HomeView: View {
     private var newAgentItem: some ToolbarContent {
         if sizeClass == .regular {
             ToolbarItem(placement: .topBarLeading) {
-                Button("New agent", systemImage: "square.and.pencil") { openChat = nil }
+                Button("New task", systemImage: "square.and.pencil") { openChat = nil }
             }
         }
     }
@@ -267,49 +306,61 @@ struct HomeView: View {
     private static var initialPage: HomePage {
         #if DEBUG
         let args = CommandLine.arguments
-        if let i = args.firstIndex(of: "-page"), i + 1 < args.count, let page = HomePage(rawValue: args[i + 1]) {
+        if let i = args.firstIndex(of: "-page"), i + 1 < args.count, let page = HomePage(rawValue: args[i + 1]),
+           page.isHomeList || page == .inbox {
             return page
         }
         #endif
         return HomePage.hasChats ? .chats : .agent
     }
 
-    @ViewBuilder
     private var pageContent: some View {
-        switch page {
-        case .chats, .agent:
-            AgentPage(page: $page, isSearching: $isSearching, titleCollapsed: $titleCollapsed, openChat: $openChat, showsComposer: sizeClass != .regular)
-        case .inbox:
-            InboxPage(inbox: inbox)
-                .onAppear { titleCollapsed = false }
-        case .plans:
-            PlansPage(page: $page, isSearching: $isSearching, titleCollapsed: $titleCollapsed)
-        case .connectors:
-            ConnectorsPage()
-                .onAppear { titleCollapsed = false }
-        case .runtimes:
-            RuntimesPage()
-                .onAppear { titleCollapsed = false }
+        TabView(selection: $page) {
+            homeList(.chats)
+                .tabItem { Label("Bots", image: "home-tab-bots") }
+                .tag(HomePage.chats)
+                .badge(store?.pageCounts[.chats] ?? 0)
+            homeList(.agent)
+                .tabItem { Label("Tasks", image: "home-tab-tasks") }
+                .tag(HomePage.agent)
+                .badge(store?.pageCounts[.agent] ?? 0)
+            InboxPage(inbox: inbox, wide: sizeClass == .regular)
+                .tabItem { Label("Inbox", image: "home-tab-inbox") }
+                .tag(HomePage.inbox)
+                .badge(inbox?.list.count ?? 0)
         }
     }
-}
 
-/// Whether the Plans list reveals dismissed (rejected / unplanned) plans.
-private struct PlansFilterMenu: View {
-    @Environment(PlansStore.self) private var plans
+    private func homeList(_ tab: HomePage) -> some View {
+        AgentPage(page: .constant(tab), isSearching: searchPresentation(for: tab),
+                  titleCollapsed: $titleCollapsed, openChat: $openChat, showNewBot: tab == .chats ? $showNewBot : .constant(false), showsComposer: sizeClass != .regular)
+    }
 
-    var body: some View {
-        @Bindable var plans = plans
-        Menu {
-            Toggle(isOn: $plans.showDismissed) {
-                Label("Show dismissed", systemImage: "nosign")
-            }
-        } label: {
-            Label("Filter plans", systemImage: plans.showDismissed
-                  ? "line.3.horizontal.decrease.circle.fill"
-                  : "line.3.horizontal.decrease")
+    private func searchPresentation(for tab: HomePage) -> Binding<Bool> {
+        Binding(get: { searching.contains(tab) }, set: { shown in
+            if shown { searching.insert(tab) } else { searching.remove(tab) }
+        })
+    }
+
+    @ViewBuilder
+    private func workspaceContent(_ destination: HomePage) -> some View {
+        switch destination {
+        case .runtimes: RuntimesPage()
+        default: ConnectorsPage()
         }
     }
+
+    private static var initialWorkspacePage: HomePage? {
+        #if DEBUG
+        let args = CommandLine.arguments
+        if let i = args.firstIndex(of: "-page"), i + 1 < args.count,
+           let page = HomePage(rawValue: args[i + 1]), page == .runtimes || page == .connectors {
+            return page
+        }
+        #endif
+        return nil
+    }
+
 }
 
 /// Splits trailing controls into separate glass groups. Before iOS 26
@@ -343,7 +394,7 @@ private extension ToolbarContent {
 /// that Xcode rendered each SVG.
 private struct LogoPreviewGrid: View {
     private var names: [String] {
-        CredentialCatalog.providers.map(\.logo) + ["logo-claude", "logo-openai", "logo-grok", "logo-antigravity", "logo-opencode"]
+        CredentialCatalog.providers.map(\.logo) + ["logo-claude", "logo-openai", "logo-grok", "logo-antigravity", "logo-opencode", "logo-deepseek"]
     }
 
     var body: some View {

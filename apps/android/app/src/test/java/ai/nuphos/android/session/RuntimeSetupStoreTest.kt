@@ -12,12 +12,11 @@ class RuntimeSetupStoreTest {
     private val runtime = AgentRuntime("saved-id", "codex", "Saved", "active", "managed")
     private val attempt = RuntimeLogin("00000000-0000-4000-8000-000000000001", "starting", 100_000)
     private class Fixture(val runtime: AgentRuntime, val attempt: RuntimeLogin) : RuntimeTransport {
-        var creates = 0; var starts = 0; var reads = 0; var codes = 0; var cancels = 0
+        var starts = 0; var reads = 0; var codes = 0; var cancels = 0
         var catalog = listOf(runtime); var login = attempt
         var error: Exception? = null; var codeError: Exception? = null; var readError: Exception? = null
         var held: CompletableDeferred<Unit>? = null
         override suspend fun catalog(): List<AgentRuntime> { reads++; readError?.let { throw it }; return catalog }
-        override suspend fun create(provider: String, label: String?): AgentRuntime { creates++; held?.await(); error?.let { throw it }; return runtime }
         override suspend fun start(runtimeId: String): RuntimeLogin { starts++; held?.await(); error?.let { throw it }; return login }
         override suspend fun login(runtimeId: String): RuntimeLogin { readError?.let { throw it }; return login }
         override suspend fun code(runtimeId: String, attemptId: String, code: String): RuntimeLogin { codes++; codeError?.let { throw it }; return login }
@@ -81,24 +80,6 @@ class RuntimeSetupStoreTest {
         assertTrue(selection.loginReview); assertEquals(other.id, selection.loginRuntimeId)
         assertEquals(runtime.id, selection.selectedId)
     }
-    @Test fun createOnceRequiresExactSavedId() = runTest {
-        val api = fixture(); api.held = CompletableDeferred()
-        val owner = RuntimeSelections(); val store = RuntimeSetupStore(api, this, { true }, { true }, owner.bind("a", "t"), {}, { 0 })
-        store.create("codex", "Saved"); store.create("codex", "Saved"); runCurrent()
-        assertEquals(1, api.creates); assertNull(store.selection.selected)
-        api.held!!.complete(Unit); advanceUntilIdle()
-        assertEquals(runtime, store.selection.selected); assertEquals(1, api.reads)
-    }
-    @Test fun uncertainCreateSurvivesRecreationAndFailedRead() = runTest {
-        val api = fixture(); api.error = IOException()
-        val selection = RuntimeSelections().bind("a", "t")
-        val first = RuntimeSetupStore(api, this, { true }, { true }, selection, {}, { 0 })
-        first.create("codex", "Saved"); advanceUntilIdle()
-        assertNull(selection.selected); first.close(); api.readError = IOException()
-        val next = RuntimeSetupStore(api, this, { true }, { true }, selection, {}, { 0 })
-        next.open(); advanceUntilIdle(); next.confirmCreateReviewed(); next.create("codex", "Saved"); advanceUntilIdle()
-        assertEquals(1, api.creates); assertTrue(selection.createReview); assertFalse(next.state.catalogLoaded)
-    }
     @Test fun selectionRetainsMissingIdAndNeverFallsBack() {
         val owner = RuntimeSelections(); val a = owner.bind("a", "t")
         a.saveCatalog(listOf(runtime)); assertTrue(a.select(runtime.id))
@@ -112,11 +93,6 @@ class RuntimeSetupStoreTest {
         for (item in listOf(runtime.copy(status = "disabled"), runtime.copy(provider = "unknown"), runtime.copy(deleting = true), runtime.copy(kind = "unknown"))) {
             selected.saveCatalog(listOf(item)); assertFalse(selected.select(item.id))
         }
-    }
-    @Test fun roleChangeBeforeScheduledActionMakesNoWrite() = runTest {
-        val api = fixture(); var admin = true
-        val store = RuntimeSetupStore(api, this, { true }, { admin }, RuntimeSelections().bind("a", "t"), {}, { 0 })
-        store.create("codex", null); admin = false; advanceUntilIdle(); assertEquals(0, api.creates)
     }
     @Test fun unknownLoginStartReadsBeforeExplicitRestartAnd404DoesNotConnect() = runTest {
         val api = fixture(); api.error = IOException(); api.readError = RuntimeLoginAbsent()
@@ -162,7 +138,8 @@ class RuntimeSetupStoreTest {
         val api = fixture(); val selection = RuntimeSelections().bind("a", "t")
         val store = RuntimeSetupStore(api, this, { true }, { true }, selection, {}, { 0 })
         store.open(); advanceUntilIdle(); assertTrue(store.state.catalogLoaded)
-        api.held = CompletableDeferred(); store.create("codex", null); runCurrent()
+        selection.select(runtime.id)
+        api.held = CompletableDeferred(); store.startLogin(); runCurrent()
         store.refresh(); assertTrue(store.state.catalogLoaded)
         api.held!!.complete(Unit); advanceUntilIdle()
     }

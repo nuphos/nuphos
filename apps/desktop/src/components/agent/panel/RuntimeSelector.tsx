@@ -23,6 +23,8 @@ import type { AgentDevice } from '../../../api/device-types'
 import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime'
 
 export type RuntimeControl = {
+  /** A quiet runtime line for the simplified Bot composer. */
+  quiet?: boolean
   /** Lets the selector ask each agent whether an update is available. */
   teamId?: string
   /** A team agent's update can be started from the list: the viewer administers the team. */
@@ -91,12 +93,19 @@ export function RuntimeSelector({
   onAddAgent,
   confirm,
   hero = false,
+  quiet = false,
+  emptyLabel,
+  onClear,
 }: RuntimeControl & {
   /** Lets the composer open the list, e.g. from the agent-status banner. */
   menuOpen?: boolean
   onMenuOpenChange?: (open: boolean) => void
   /** Sized like the hero composer's other controls; compact otherwise. */
   hero?: boolean
+  /** Shown when no agent is chosen, in place of "Choose runtime". */
+  emptyLabel?: string
+  /** Offers a first item that clears the choice, labelled with emptyLabel. */
+  onClear?: () => void
 }) {
   const providerName = AGENT_PROVIDER[value?.provider ?? 'claude-code'].label
   const owner = useThisComputer()
@@ -117,7 +126,7 @@ export function RuntimeSelector({
     ? agentName(selected ?? { ...(value.id ? { id: value.id } : {}), label: value.label }, owner)
     : loading
       ? t('Loading runtimes…')
-      : t('Choose runtime')
+      : (emptyLabel ?? t('Choose runtime'))
   const updates = useAgentUpdates(teamId, options, canUpdateTeamAgents)
   const { fixes, dialogs } = usePickerFixes({
     teamId,
@@ -141,8 +150,8 @@ export function RuntimeSelector({
       ) : (
         <span className="min-w-0 max-w-40 truncate">{label}</span>
       )}
-      {value?.id && <RuntimeUsageBar quota={quotas?.get(value.id)} />}
-      {dot && (
+      {!quiet && value?.id && <RuntimeUsageBar quota={quotas?.get(value.id)} />}
+      {!quiet && dot && (
         <span
           role="img"
           aria-label={dot.label}
@@ -155,7 +164,7 @@ export function RuntimeSelector({
   )
   const classes = clsx(
     hero ? 'h-8 px-2.5' : 'h-7 px-2',
-    'hidden min-w-0 max-w-fit grow basis-16 items-center gap-1.5 overflow-hidden rounded-full text-[12px] text-secondary @[230px]:flex',
+    'flex min-w-0 max-w-fit grow basis-16 items-center gap-1.5 overflow-hidden rounded-full text-[12px] text-secondary',
   )
 
   return (
@@ -177,6 +186,7 @@ export function RuntimeSelector({
       )}
       <Menu open={open} onOpenChange={setOpen}>
         <MenuTrigger
+          data-keep=""
           aria-label={t('Agent runtime: {label}', { label })}
           title={`${label} · ${providerName}`}
           className={`${classes} transition-colors hover:bg-state-hover hover:text-main`}
@@ -188,10 +198,15 @@ export function RuntimeSelector({
           {error && <p className="px-2 py-2 text-xs text-error">{error}</p>}
           {!loading && !error && groups.length === 0 && (
             <p className="px-2 py-2 text-xs text-tertiary">
-              {t('Connect a runtime in Settings → Runtimes to get started.')}
+              {t('Connect a runtime in Settings → Computers to get started.')}
             </p>
           )}
           <div className="max-h-96 overflow-auto">
+            {onClear && (
+              <MenuItem disabled={selectDisabled} onClick={onClear}>
+                {emptyLabel ?? t('None')}
+              </MenuItem>
+            )}
             {groups.map((group) => (
               <SelectorBoxMenu
                 key={group.id}

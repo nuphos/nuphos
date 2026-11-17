@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { RefreshButton } from '../components/toolbar-controls'
 import { useToolbarHeaderRightSlot } from '../hooks/useToolbarControls'
+import { useTeamRole } from '../hooks/useTeamRole'
 import { useToolbarPrimaryAction } from '../hooks/useToolbarPrimaryAction'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { t } from '../i18n'
@@ -66,6 +67,9 @@ export function NuphosDashboardsView({
   const dragFrom = useRef<number | null>(null)
   const selectedId = openDashboardId ?? null
   const headerRightSlot = useToolbarHeaderRightSlot(!embedded && isActive && Boolean(selectedId))
+  // Viewers read dashboards; the backend refuses them anything that changes one.
+  const role = useTeamRole(teamId)
+  const canEdit = role !== undefined && role !== 'VIEWER'
 
   const {
     dashboards,
@@ -134,7 +138,7 @@ export function NuphosDashboardsView({
   // Publish "New dashboard" to the shared toolbar CTA slot — nothing while a
   // dashboard is open, or while this is a keep-alive'd background tab.
   useToolbarPrimaryAction(
-    !embedded && isActive && !selectedId ? t('New dashboard') : null,
+    !embedded && isActive && !selectedId && canEdit ? t('New dashboard') : null,
     () => void createDashboard(),
     creating,
   )
@@ -172,6 +176,7 @@ export function NuphosDashboardsView({
     return (
       <DashboardListPage
         embedded={embedded}
+        canEdit={canEdit}
         loading={loading}
         dashboards={dashboards}
         visibleDashboards={visibleDashboards}

@@ -32,6 +32,8 @@ export function RuntimeActionsMenu({
 }) {
   if (!canEdit) return null
   const enabled = instance.status === 'active'
+  // A computer's agent has nothing below the separator when it cannot be removed.
+  const removable = instance.kind !== 'local' || localRemovalId(instance) !== undefined
   // Unknown authentication is not evidence that the agent cannot sign in.
   const canSignIn =
     enabled && (instance.kind === 'managed' || instance.kind === 'external' || localSignIn === true)
@@ -52,7 +54,7 @@ export function RuntimeActionsMenu({
             {authenticated ? t('Sign in again') : t('Sign in')}
           </MenuItem>
         )}
-        <MenuSeparator />
+        {removable && <MenuSeparator />}
         {/* A computer's agents have no disabled state: they are added or removed. */}
         {instance.kind !== 'local' && (
           <MenuItem onClick={onToggleEnabled}>
@@ -61,7 +63,7 @@ export function RuntimeActionsMenu({
         )}
         {/* A Box can remove any of its agents, and an offline computer deletes one when it is
             back; a person's own default agent is only forgotten. */}
-        {(instance.kind !== 'local' || localRemovalId(instance)) && (
+        {removable && (
           <MenuItem
             destructive
             hint={instance.local?.online === false ? t('Offline') : undefined}

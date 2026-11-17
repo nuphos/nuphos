@@ -146,11 +146,11 @@ describe('multiple instances of one provider', () => {
     const wrongProvider = localRuntimeId({ ...ref, provider: 'codex', instanceId: a })
 
     for (const id of [missing, wrongProvider]) {
-      // Chat needs the agent in the computer's report; sign-in goes to that exact agent
-      // (the host refuses an id it does not have) and never to the provider's default.
+      // Chat needs an agent the computer reports or its record keeps; sign-in goes to that exact
+      // agent (the host refuses an id it does not have) and never to the provider's default.
       await expect(
         resolveLocalRuntimeEndpoint('team', id, 'owner', 'transport', deps),
-      ).rejects.toMatchObject({ code: 'runtime_offline' })
+      ).rejects.toMatchObject({ code: 'runtime_not_found' })
       const login = await resolveLocalRuntimeEndpoint('team', id, 'owner', 'login', deps)
 
       expect(parseLocalRuntimeUrl(login.url)).toMatchObject({
@@ -234,9 +234,9 @@ test('Box instance use and login apply actor ACL before reading transport presen
   expect(
     (await resolveLocalRuntimeEndpoint('team', id, 'member', 'transport', boxDeps)).runtimeId,
   ).toBe(id)
-  expect(
-    (await resolveLocalRuntimeEndpoint('team', id, 'member', 'login', boxDeps)).runtimeId,
-  ).toBe(id)
+  await expect(
+    resolveLocalRuntimeEndpoint('team', id, 'member', 'login', boxDeps),
+  ).rejects.toMatchObject({ status: 403 })
   reads = 0
   await expect(
     resolveLocalRuntimeEndpoint('team', id, 'unlisted', 'transport', boxDeps),

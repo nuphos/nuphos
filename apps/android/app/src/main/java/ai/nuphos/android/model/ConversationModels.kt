@@ -1,5 +1,6 @@
 package ai.nuphos.android.model
 
+import ai.nuphos.android.R
 import ai.nuphos.android.data.Instants
 import ai.nuphos.android.data.JsonValue
 import kotlinx.serialization.KSerializer
@@ -60,6 +61,8 @@ data class AgentConversation(
     val runtimeLabel: String? = null,
     /** `channel` for a chat where people and agents talk; null for an agent. */
     val kind: String? = null,
+    /** Started as a group chat: never a Bot's 1:1 chat, even with one Bot in it. */
+    val group: Boolean? = null,
     /** A chat's icon: up to two members other than the viewer, whoever spoke last first. */
     val faces: List<ChatFace>? = null,
     /** A Bot's face, e.g. `05-rembrandt`; null for a Task. */
@@ -73,7 +76,7 @@ data class AgentConversation(
     val id: String get() = sessionId
 
     val displayTitle: String
-        get() = title.ifEmpty { firstMessage.ifEmpty { "Untitled agent" } }
+        get() = title.ifEmpty { firstMessage.ifEmpty { Words(R.string.convtext_untitled_task) } }
 
     val isArchived: Boolean get() = archivedAt != null
 
@@ -83,7 +86,7 @@ data class AgentConversation(
     val isBot: Boolean get() = avatar != null && !isChannel
 
     /** The Bot this chat is the 1:1 of: its one other member is an agent with a face. */
-    val botId: String? get() = faces?.takeIf { isChannel }?.botFace?.id
+    val botId: String? get() = faces?.takeIf { isChannel && group != true }?.botFace?.id
 
     /** The Bot of this 1:1 chat is in a turn that answers it: the chat's dots, which its row shows in place of [previewLine]. */
     fun botTyping(typingIn: (botId: String, chatId: String) -> Boolean): Boolean = botId?.let { typingIn(it, sessionId) } == true
@@ -95,7 +98,7 @@ data class AgentConversation(
      * member names who posted: in a 1:1 the row already is the sender.
      */
     val previewLine: String? get() = lastPost?.let { post ->
-        val text = post.text.ifBlank { "Attachment" }
+        val text = post.text.ifBlank { Words(R.string.convtext_attachment) }
         if (post.from != null && (faces?.size ?: 0) > 1) "${post.from}: $text" else text
     }
 
@@ -110,7 +113,7 @@ data class AgentConversation(
         val deactivated: Boolean? = null,
     ) {
         val displayName: String
-            get() = name?.takeIf { it.isNotEmpty() } ?: email?.takeIf { it.isNotEmpty() } ?: "User"
+            get() = name?.takeIf { it.isNotEmpty() } ?: email?.takeIf { it.isNotEmpty() } ?: Words(R.string.convtext_user)
     }
 
     @Serializable
@@ -151,6 +154,20 @@ data class InputRequest(
     /** An integration question's providers (any access answers it), or the exact credentials it names. */
     val providers: List<String>? = null,
     val credentials: List<CredentialRef>? = null,
+    /** A secret only the user can type, in its masked card in the conversation that asked. */
+    val secretName: String? = null,
+    /** Any number of [options] may be picked. */
+    val multiSelect: Boolean? = null,
+    /** Related questions answered together; [question] is their headline. */
+    val questions: List<DecisionQuestion>? = null,
+)
+
+/** One of the questions a several-question card answers together. */
+@Serializable
+data class DecisionQuestion(
+    val question: String = "",
+    val options: List<String>? = null,
+    val multiSelect: Boolean? = null,
 )
 
 /** A credential an integration question names: `{provider: "personal", id: "github"}` is the member's own. */
@@ -196,15 +213,27 @@ data class AgentConversationDetail(
     @Serializable(with = InstantAsStringSerializerNullable::class)
     val archivedAt: Instant? = null,
     val credentialAccess: JsonValue? = null,
+    /** A Task under a Bot: the conversation whose credentials, computers and permission mode it uses. */
+    val credentialSource: JsonValue? = null,
     val timelineEvents: List<TimelineEvent> = emptyList(),
+    /** Answered questions whose agent has not run the answer yet, with the line their row shows. */
+    val waitingAnswers: List<WaitingAnswer> = emptyList(),
     val promptSuggestion: String? = null,
     /** `channel` for a chat; such a session never runs an agent turn of its own. */
     val kind: String? = null,
     val messageCount: Int? = null,
     /** A chat's icon, as the list row carries it. */
     val faces: List<ChatFace> = emptyList(),
+    /** Started as a group chat: never a Bot's 1:1 chat, even with one Bot in it. */
+    val group: Boolean? = null,
 ) {
     val isChannel: Boolean get() = kind == "channel"
+
+    /** The Bot this chat is the 1:1 of, as the list row's `botId` decides it. */
+    val botId: String? get() = faces.takeIf { group != true }?.botFace?.id
+
+    @Serializable
+    data class WaitingAnswer(val requestId: String, val note: String)
 
     @Serializable
     data class TimelineEvent(
@@ -232,18 +261,18 @@ enum class HistoryTime {
         fun format(instant: Instant, now: Instant = Instant.now()): String {
             val seconds = maxOf(0L, now.epochSecond - instant.epochSecond)
             val minutes = (seconds / 60).toInt()
-            if (minutes < 1) return "now"
-            if (minutes < 60) return "$minutes min"
+            if (minutes < 1) return Words(R.string.convtext_age_now)
+            if (minutes < 60) return Words(R.string.convtext_age_minutes, minutes)
             val hours = minutes / 60
-            if (hours < 24) return plural(hours, "hr")
+            if (hours < 24) return plural(R.plurals.convtext_age_hours, hours)
             val days = hours / 24
-            if (days < 30) return plural(days, "day")
+            if (days < 30) return plural(R.plurals.convtext_age_days, days)
             val months = days / 30
-            if (months < 12) return plural(months, "mo")
-            return plural(months / 12, "yr")
+            if (months < 12) return plural(R.plurals.convtext_age_months, months)
+            return plural(R.plurals.convtext_age_years, months / 12)
         }
 
-        private fun plural(n: Int, unit: String) = "$n $unit${if (n == 1) "" else "s"}"
+        private fun plural(id: Int, n: Int) = Words.plural(id, n, n)
     }
 }
 
@@ -252,11 +281,11 @@ object ChatTime {
 
     fun label(date: Instant, now: Instant = Instant.now()): String {
         val seconds = now.epochSecond - date.epochSecond
-        if (seconds < 60) return "Just now"
+        if (seconds < 60) return Words(R.string.convtext_just_now)
         val minutes = (seconds / 60).toInt()
-        if (minutes < 60) return "$minutes min ago"
+        if (minutes < 60) return Words(R.string.convtext_minutes_ago, minutes)
         val hours = minutes / 60
-        if (hours <= 3) return "$hours hr ago"
+        if (hours <= 3) return Words(R.string.convtext_hours_ago, hours)
         val time = java.time.format.DateTimeFormatter.ofLocalizedTime(java.time.format.FormatStyle.SHORT)
             .withZone(java.time.ZoneId.systemDefault())
             .format(date)
@@ -267,8 +296,8 @@ object ChatTime {
         ).toInt()
         return when (days) {
             0 -> time
-            1 -> "Yesterday $time"
-            2 -> "2 days ago $time"
+            1 -> Words(R.string.convtext_yesterday_at, time)
+            2 -> Words(R.string.convtext_two_days_ago_at, time)
             else -> {
                 val sameYear = date.atZone(zone).year == now.atZone(zone).year
                 val day = if (sameYear) {
@@ -276,7 +305,7 @@ object ChatTime {
                 } else {
                     java.time.format.DateTimeFormatter.ofPattern("MM/dd/yyyy").withZone(zone).format(date)
                 }
-                if (sameYear) "$time, $day" else "$time $day"
+                Words(if (sameYear) R.string.convtext_time_day else R.string.convtext_time_date, time, day)
             }
         }
     }

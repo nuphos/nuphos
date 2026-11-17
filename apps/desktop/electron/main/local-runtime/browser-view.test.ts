@@ -88,6 +88,17 @@ function open(page: ReturnType<typeof fakePage> | null) {
   }
 }
 
+/** The next server bytes; the update is deflated asynchronously, so its time varies. */
+async function arrival(view: ReturnType<typeof open>, timeoutMs = 5000) {
+  const deadline = Date.now() + timeoutMs
+
+  for (let bytes = view.take(); ; bytes = view.take()) {
+    if (bytes.length > 0) return bytes
+    assert.ok(Date.now() < deadline, 'no server bytes arrived')
+    await tick()
+  }
+}
+
 async function handshake(page: ReturnType<typeof fakePage>) {
   const view = open(page)
 
@@ -125,8 +136,7 @@ test('watches the named dock tab at the phone size, and serves it once it paints
 
   // A full update request: one ZRLE rectangle of the whole page.
   view.phone([3, 0, 0, 0, 0, 0, 3, 12, 5, 120])
-  await new Promise((resolve) => setTimeout(resolve, 20))
-  const update = view.take()
+  const update = await arrival(view)
 
   assert.deepEqual([...update.subarray(0, 4)], [0, 0, 0, 1])
   assert.equal(update.readInt32BE(12), 16)

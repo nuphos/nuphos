@@ -21,7 +21,6 @@ class RuntimeSelections {
             private set
         val managementReview = mutableSetOf<String>()
         val removalRequested = mutableSetOf<String>()
-        var createReview by mutableStateOf(false)
         var loginReview by mutableStateOf(false)
         var loginRuntimeId: String? = null
         var loginProvider: String? = null
@@ -38,6 +37,6 @@ class RuntimeSelections {
             if (!valid || catalog.none { it.id == id && it.selectable }) return false
             selectedId = id; return true
         }
-        fun invalidate() { managementReview.clear(); removalRequested.clear(); valid = false; catalog = emptyList(); selectedId = null; loginRuntimeId = null; loginProvider = null; loginAttemptId = null; createReview = false; loginReview = false }
+        fun invalidate() { managementReview.clear(); removalRequested.clear(); valid = false; catalog = emptyList(); selectedId = null; loginRuntimeId = null; loginProvider = null; loginAttemptId = null; loginReview = false }
     }
 }

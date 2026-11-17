@@ -17,24 +17,20 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Assignment
 import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Computer
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.ExpandMore
-import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.MonitorHeart
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.ui.semantics.selected
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.Assignment
 import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Bolt
-import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.MonitorHeart
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
@@ -119,9 +115,11 @@ import ai.nuphos.android.ui.agent.AgentPage
 import ai.nuphos.android.ui.chat.ConversationScreen
 import ai.nuphos.android.ui.components.NuphosAvatar
 import ai.nuphos.android.ui.plans.PlanDetailScreen
-import ai.nuphos.android.ui.plans.PlansPage
 import ai.nuphos.android.ui.profile.ProfileSheet
 import ai.nuphos.android.ui.login.SplashScreen
+import androidx.compose.ui.res.stringResource
+import ai.nuphos.android.R
+import androidx.annotation.StringRes
 
 @OptIn(androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi::class)
 @Composable
@@ -133,6 +131,7 @@ fun HomeRoute(
 ) {
     val shareDrafts = (LocalContext.current.applicationContext as ai.nuphos.android.NuphosApplication).incomingShares
     val membershipAuth = LocalAuthSession.current
+    val strings = androidx.compose.ui.platform.LocalResources.current
     // Keep the controller registered for Activity state restoration while memberships load.
     val nav = rememberNavController()
     val newChatComposer = remember(nav) { movableContentOf { NewChatComposer(nav) } }
@@ -194,7 +193,7 @@ fun HomeRoute(
                     if (!current()) return@withContext
                     if (resolved == null) {
                         links.complete(request)
-                        linkError = "This agent is unavailable or your account does not have access."
+                        linkError = strings.getString(R.string.shell_link_unavailable)
                     } else if (agentStore.acceptMemberships(resolved.first, resolved.second.id)) {
                         nav.navigate("conversation/${android.net.Uri.encode(request.destination.conversationId)}") {
                             popUpTo("home")
@@ -215,11 +214,11 @@ fun HomeRoute(
                         }
                         if (!current()) return@withContext
                         linkError = when (e) {
-                            is NuphosApi.Failure.Unauthorized -> "Sign-in has expired. Sign in again to open this agent."
+                            is NuphosApi.Failure.Unauthorized -> strings.getString(R.string.shell_link_expired)
                             is NuphosApi.Failure.Http -> if (e.code == 403 || e.code == 404)
-                                "This agent is unavailable or your account does not have access."
-                                else "We could not open this agent. Please try the link again."
-                            else -> "We could not open this agent. Check your connection and try the link again."
+                                strings.getString(R.string.shell_link_unavailable)
+                                else strings.getString(R.string.shell_link_retry)
+                            else -> strings.getString(R.string.shell_link_offline)
                         }
                         // Completing this request cancels its LaunchedEffect; do it after the awaited cleanup and error update.
                         links.complete(request)
@@ -228,8 +227,8 @@ fun HomeRoute(
             }
         }
         linkError?.let { message ->
-            AlertDialog(onDismissRequest = { linkError = null }, title = { Text("Could not open agent") },
-                text = { Text(message) }, confirmButton = { TextButton(onClick = { linkError = null }) { Text("OK") } })
+            AlertDialog(onDismissRequest = { linkError = null }, title = { Text(stringResource(R.string.shell_link_error_title)) },
+                text = { Text(message) }, confirmButton = { TextButton(onClick = { linkError = null }) { Text(stringResource(R.string.shell_ok)) } })
         }
         val notifications = (LocalContext.current.applicationContext as ai.nuphos.android.NuphosApplication).localNotifications
         val notificationAuth = LocalAuthSession.current
@@ -263,7 +262,7 @@ fun HomeRoute(
                     composable("home") {
                         if (wide && !membershipsLoading) Column(Modifier.fillMaxSize().safeDrawingPadding().wrapContentWidth(Alignment.CenterHorizontally).widthIn(max = 720.dp)) {
                             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                                Text("Start a new agent", style = MaterialTheme.typography.headlineSmall)
+                                Text(stringResource(R.string.shell_start_new_task), style = MaterialTheme.typography.headlineSmall)
                             }
                             newChatComposer()
                         }
@@ -311,7 +310,6 @@ fun HomeScreen(
     listVisible: Boolean = true,
 ) {
     val store = LocalAgentStore.current
-    val plans = LocalPlansStore.current
     var page by rememberSaveable { mutableStateOf(HomePage.launch(store.rememberedHasChats).route) }
     // Once chats load, the launch page is corrected unless the viewer already picked one or opened something.
     var pagePicked by rememberSaveable { mutableStateOf(false) }
@@ -335,6 +333,7 @@ fun HomeScreen(
     var showSetup by remember { mutableStateOf(false) }
     val auth = LocalAuthSession.current
     val setupScope = rememberCoroutineScope()
+    val setupStrings = androidx.compose.ui.platform.LocalResources.current
     var setupEpoch by remember { mutableStateOf(0L) }
     val setup = remember(store, auth.generation, auth.token, AiAccess.revision, setupEpoch) {
         val accountGeneration = auth.generation
@@ -350,7 +349,7 @@ fun HomeScreen(
                     if (accepted) workspaceRevision = store.workspaceRevision
                     accepted
                 }
-            }, { if (current()) auth.signOut(NuphosApi.Failure.Unauthorized.message) }, auth.workspaceWriteReview)
+            }, { if (current()) auth.signOut(NuphosApi.Failure.Unauthorized.message) }, auth.workspaceWriteReview, setupStrings)
     }
     DisposableEffect(setup) { onDispose { setup.close() } }
     LaunchedEffect(store.workspaceRevision, auth.generation, auth.token, AiAccess.revision) {
@@ -362,9 +361,6 @@ fun HomeScreen(
     }
 
 
-    LaunchedEffect(store.selectedTeam?.id) {
-        plans.use(store.selectedTeam?.id)
-    }
     // The workspace's open questions, polled while in the foreground as Desktop's badge is.
     val inbox = remember(store, store.selectedTeam?.id, store.workspaceRevision, AiAccess.revision) { store.openQuestions() }
     val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
@@ -378,17 +374,17 @@ fun HomeScreen(
         }
     }
 
+    val profileLabel = stringResource(R.string.shell_profile)
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets.safeDrawing,
         topBar = {
             TopAppBar(
                 title = {
-                    if (unavailablePage) Text("Page unavailable") else PageSwitcher(selected = current, inboxCount = inbox?.list?.size ?: 0, onSelect = {
+                    if (unavailablePage) Text(stringResource(R.string.shell_page_unavailable)) else PageSwitcher(selected = current, inboxCount = inbox?.list?.size ?: 0, onSelect = {
                         if (it != current) {
                             pagePicked = true
                             if (current == HomePage.Agent || current == HomePage.Chats) store.updateSearch("")
-                            if (current == HomePage.Plans) plans.search = ""
                             page = it.route; searching = false
                         }
                     })
@@ -396,16 +392,14 @@ fun HomeScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
                 actions = {
-                    if (current == HomePage.Agent || current == HomePage.Plans || current == HomePage.Chats) {
+                    if (current == HomePage.Agent || current == HomePage.Chats) {
                         IconButton(onClick = { searching = !searching }, modifier = Modifier.testTag("home-search")) {
-                            Icon(Icons.Outlined.Search, contentDescription = "Search")
+                            Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.shell_search))
                         }
-                        // Like iOS, Tasks has search only; Plans keeps its filter.
-                        if (current == HomePage.Plans) PlansFilterButton()
                     }
                     FilledIconButton(
                         onClick = { showProfile = true },
-                        modifier = Modifier.semantics { contentDescription = "Profile" },
+                        modifier = Modifier.semantics { contentDescription = profileLabel },
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                         ),
@@ -426,13 +420,13 @@ fun HomeScreen(
             if (store.selectedTeam == null && store.teamsPhase == AgentStore.Phase.Loaded) {
                 Column(Modifier.fillMaxWidth().weight(1f).padding(20.dp), verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Choose or set up a workspace to get started.")
-                    Button(onClick = { showSetup = true }, modifier = Modifier.padding(top = 12.dp)) { Text("Set up a workspace") }
+                    Text(stringResource(R.string.shell_choose_workspace))
+                    Button(onClick = { showSetup = true }, modifier = Modifier.padding(top = 12.dp)) { Text(stringResource(R.string.shell_set_up_workspace)) }
                 }
             } else if (unavailablePage) {
                 Column(Modifier.weight(1f).fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.Center) {
-                    Text("This page is no longer available in the mobile app.", style = MaterialTheme.typography.titleMedium)
-                    Button(onClick = { page = HomePage.Agent.route; searching = false }, modifier = Modifier.padding(top = 16.dp)) { Text("Back to Tasks") }
+                    Text(stringResource(R.string.shell_page_gone), style = MaterialTheme.typography.titleMedium)
+                    Button(onClick = { page = HomePage.Agent.route; searching = false }, modifier = Modifier.padding(top = 16.dp)) { Text(stringResource(R.string.shell_back_to_tasks)) }
                 }
             } else {
             AnimatedContent(current, modifier = Modifier.weight(1f), label = "page") { dest ->
@@ -447,7 +441,6 @@ fun HomeScreen(
                         })
                     }
                     HomePage.Runtimes -> ai.nuphos.android.ui.agent.RuntimesPage()
-                    HomePage.Plans -> PlansPage(searching = searching, onSearchingChange = { searching = it }, nav = nav)
                     HomePage.Connectors -> ConnectorsPage()
 
                 }
@@ -495,26 +488,29 @@ internal fun PageSwitcher(
         }
     }
     fun dismiss() { restoreFocus = true; expanded = false }
+    val expandedLabel = stringResource(R.string.shell_expanded)
+    val collapsedLabel = stringResource(R.string.shell_collapsed)
+    val inboxBadgeLabel = stringResource(R.string.shell_inbox_badge, inboxCount)
     Box(modifier) {
         TextButton(
             onClick = { expanded = true },
             colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
             modifier = Modifier.heightIn(min = 48.dp).focusRequester(anchorFocus).testTag("home-page-switcher")
-                .semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" },
+                .semantics { stateDescription = if (expanded) expandedLabel else collapsedLabel },
         ) {
-            Text(selected.title, style = MaterialTheme.typography.headlineSmall,
+            Text(stringResource(selected.label), style = MaterialTheme.typography.headlineSmall,
                 maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
             Spacer(Modifier.width(4.dp))
             Icon(Icons.Outlined.ExpandMore, contentDescription = null)
             if (inboxCount > 0 && selected != HomePage.Inbox) {
                 Spacer(Modifier.width(4.dp))
-                Badge(Modifier.testTag("inbox-badge").semantics { contentDescription = "$inboxCount in Inbox" }) { Text("$inboxCount") }
+                Badge(Modifier.testTag("inbox-badge").semantics { contentDescription = inboxBadgeLabel }) { Text("$inboxCount") }
             }
         }
         DropdownMenu(expanded, onDismissRequest = ::dismiss, modifier = Modifier.testTag("home-page-menu")) {
             HomePage.entries.forEach { page ->
                 DropdownMenuItem(
-                    text = { Text(page.title) },
+                    text = { Text(stringResource(page.label)) },
                     trailingIcon = if (page == HomePage.Inbox && inboxCount > 0) { { Badge { Text("$inboxCount") } } } else null,
                     modifier = Modifier.testTag("home-page-${page.route}").semantics { this.selected = selected == page },
                     leadingIcon = {
@@ -528,30 +524,22 @@ internal fun PageSwitcher(
     }
 }
 
+/** The page name shown on screen; [HomePage.title] stays the English identifier. */
+@get:StringRes
+internal val HomePage.label: Int get() = when (this) {
+    HomePage.Chats -> R.string.shell_page_bots
+    HomePage.Agent -> R.string.page_agent
+    HomePage.Inbox -> R.string.shell_page_inbox
+    HomePage.Runtimes -> R.string.shell_page_runtimes
+    HomePage.Connectors -> R.string.shell_page_connectors
+}
+
 private fun HomePage.icon(selected: Boolean): ImageVector = when (this) {
     HomePage.Chats -> if (selected) Icons.Rounded.Forum else Icons.Outlined.Forum
     HomePage.Agent -> if (selected) Icons.Rounded.AutoAwesome else Icons.Outlined.AutoAwesome
     HomePage.Inbox -> if (selected) Icons.Rounded.Inbox else Icons.Outlined.Inbox
     HomePage.Runtimes -> Icons.Outlined.Computer
-    HomePage.Plans -> if (selected) Icons.Rounded.Assignment else Icons.Outlined.Assignment
     HomePage.Connectors -> if (selected) Icons.Rounded.Link else Icons.Outlined.Link
-}
-
-@Composable
-internal fun PlansFilterButton() {
-    val plans = LocalPlansStore.current
-    var expanded by remember { mutableStateOf(false) }
-    Box {
-        IconButton(onClick = { expanded = true }, modifier = Modifier.testTag("home-filter").semantics { stateDescription = if (plans.showDismissed) "Filters applied" else "Default filters" }) {
-            Icon(if (plans.showDismissed) Icons.Rounded.FilterList else Icons.Outlined.FilterList, contentDescription = "Filter")
-        }
-        DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(
-                text = { Text("Show dismissed") },
-                onClick = { plans.showDismissed = !plans.showDismissed; expanded = false },
-            )
-        }
-    }
 }
 
 @Composable
@@ -562,9 +550,9 @@ fun PlaceholderPage(page: HomePage) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Icon(page.icon(true), contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
-        Text(page.title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 16.dp))
+        Text(stringResource(page.label), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 16.dp))
         Text(
-            "Coming soon to the Nuphos app.",
+            stringResource(R.string.coming_soon),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 8.dp),

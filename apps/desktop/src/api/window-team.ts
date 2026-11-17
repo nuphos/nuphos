@@ -23,13 +23,13 @@ import type {
   RuntimeQuota,
   RuntimeQuotaHistoryRange,
   RuntimeQuotaHistorySeries,
-  CreateRuntimeInput,
   ExternalRuntimeProviderProbe,
   PairExternalRuntimeInput,
   PairedExternalRuntime,
   RegisterExternalRuntimeInput,
   UpdateRuntimeInput,
 } from '../types/runtime'
+import type { TeamImportPreview } from '../types/team-migration'
 import type {
   TeamGoogleClient,
   AtlasTeam,
@@ -50,6 +50,9 @@ import type {
 } from '../types/team.ts'
 
 export type WindowTeamApi = {
+  atlasExportTeam(teamId: string): Promise<boolean>
+  atlasPreviewTeamImport(): Promise<TeamImportPreview | null>
+  atlasConfirmTeamImport(token: string, sourceMember?: string): Promise<AtlasTeam>
   atlasGetTeamGoogleClient(teamId: string): Promise<TeamGoogleClient>
   atlasSetTeamGoogleClient(teamId: string, clientId: string, clientSecret: string): Promise<void>
   atlasDeleteTeamGoogleClient(teamId: string): Promise<void>
@@ -68,7 +71,6 @@ export type WindowTeamApi = {
     teamId: string,
     range: RuntimeQuotaHistoryRange,
   ): Promise<RuntimeQuotaHistorySeries[]>
-  atlasCreateRuntimeInstance(teamId: string, input: CreateRuntimeInput): Promise<RuntimeInstance>
   atlasProbeExternalRuntimeProvider(
     teamId: string,
     url: string,
@@ -158,7 +160,11 @@ export type WindowTeamApi = {
   ): Promise<SidebarFavoritesCloudSnapshot>
   atlasGetHomeLayout(teamId: string): Promise<HomeLayouts>
   atlasGetRuntimeFallback(teamId: string): Promise<RuntimeFallback>
-  atlasPutRuntimeFallback(teamId: string, runtimeIds: string[]): Promise<RuntimeFallback>
+  atlasPutRuntimeFallback(
+    teamId: string,
+    runtimeId: string,
+    fallbackRuntimeId: string | null,
+  ): Promise<unknown>
   atlasGetTeamActivity(teamId: string, range: TeamActivityRange): Promise<TeamActivity>
   atlasGetAgentStats(teamId: string, query: AgentStatsQuery): Promise<AgentStats>
   atlasPutHomeLayout(

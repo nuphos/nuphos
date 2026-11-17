@@ -1,5 +1,3 @@
-import * as k8s from '@kubernetes/client-node'
-
 import { deploymentEnvContainer } from '../containerEnv'
 
 import { getClients, withAuthRetry } from './client'
@@ -9,7 +7,9 @@ import {
   preserveUnknownEnv,
   preserveUnknownEnvFrom,
 } from './env-normalize'
+import { k8sLib } from './lib'
 
+import type * as k8s from '@kubernetes/client-node'
 import type { DeploymentEnvContainer, DeploymentEnvContainerType } from '../containerEnv'
 import type { DeploymentEnvUpdateInput } from './env-normalize'
 
@@ -46,7 +46,7 @@ async function patchEnvWorkload(
   name: string,
   body: JsonPatchOperation[],
 ) {
-  const options = k8s.setHeaderOptions('Content-Type', k8s.PatchStrategy.JsonPatch)
+  const options = k8sLib.setHeaderOptions('Content-Type', k8sLib.PatchStrategy.JsonPatch)
 
   if (kind === 'Deployment') {
     await appsApi.patchNamespacedDeployment({ name, namespace, body }, options)

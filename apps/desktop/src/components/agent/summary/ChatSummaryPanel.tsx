@@ -13,11 +13,12 @@ import { shellsFromRuntimeState } from '../panel/shells'
 
 import { BackgroundTasksSection } from './ChatSummaryBackgroundTasks'
 import { ChangesSection } from './ChatSummaryChanges'
-import { ChatSummaryEnvironment } from './ChatSummaryEnvironment'
 import { changesOf, splitFileName, subAgentsOf } from './chatSummaryModel'
 import { SummaryRow, SummarySection } from './ChatSummaryRows'
 import { SubAgentsSection } from './ChatSummarySubAgents'
 import { ChatSummaryTaskActions } from './ChatSummaryTaskActions'
+import { summaryTriggerHome } from './chatSummaryTriggerHome'
+import { ChatSummaryTriggers } from './ChatSummaryTriggers'
 import { SessionInputQueue, SessionInputReply } from './SessionInputQueue'
 import { inputRequestKey } from './sessionInputRequests'
 import { PANE, TOGGLE, useDismissOutside, useSummaryPlacement } from './summaryPlacement'
@@ -25,6 +26,7 @@ import { useChatSummary } from './useChatSummary'
 
 import type { OutputFile } from './chatSummaryModel'
 import type { SessionInputRequest } from './sessionInputRequests'
+import type { AgentConversation } from '../../../api/agent-types'
 import type { JournalChatTarget } from '../../../lib/journalEvent'
 import type { KeyboardEvent } from 'react'
 
@@ -35,8 +37,6 @@ type Props = {
   onOpenSession: (sessionId: string) => void
   /** Opens the conversation in the main pane at the message asking this question. */
   onOpenRequest: (sessionId: string, target?: JournalChatTarget) => void
-  /** Points the main composer's reply at one of this conversation's own questions. */
-  onChooseReply?: (requestId: string) => void
   requests: SessionInputRequest[]
   requestsLoaded: boolean
   requestsFailed: boolean
@@ -124,6 +124,19 @@ function OutputsSection({
   )
 }
 
+/** A Bot's standing instructions in full, which its transcript only shows clipped. */
+function BotInstructionsSection({ conversation }: { conversation?: AgentConversation }) {
+  if (!conversation?.avatar) return null
+
+  return (
+    <SummarySection title={t('Bot instructions')}>
+      <p className="max-h-80 overflow-y-auto whitespace-pre-wrap break-words text-[13px] leading-5 text-main">
+        {conversation.instructions || <span className="text-tertiary">{t('None yet')}</span>}
+      </p>
+    </SummarySection>
+  )
+}
+
 /** Esc inside the panel closes this pane's summary and hands focus back to the toggle that opened it. */
 function closeOnEscape(event: KeyboardEvent, root: HTMLElement | null, paneId: string) {
   if (event.key !== 'Escape' || event.defaultPrevented) return
@@ -166,7 +179,6 @@ function SummaryBody({
   onOpenLink,
   onOpenSession,
   onOpenRequest,
-  onChooseReply,
   requests,
   requestsLoaded,
   requestsFailed,
@@ -184,7 +196,6 @@ function SummaryBody({
       const { id, question, options } = request.inputRequest
 
       setSelected(null)
-      onChooseReply?.(id)
       onOpenRequest(sessionId, { toolCallId: id, question, options })
     } else {
       setSelected(request)
@@ -194,6 +205,7 @@ function SummaryBody({
   // The lists that listed these threads published their states to the shared store.
   const runtimeStates = useAgentRuntimeStates()
   const subAgents = subAgentsOf(threads, runtimeStates)
+  const triggerHome = summaryTriggerHome(sessionId, conversation)
   const changes = changesOf(conversation?.linkedResources ?? [])
   const background = shellsFromRuntimeState(runtimeStates.get(sessionId))
   const { floating, style } = useSummaryPlacement(frameRef, selected !== null, docked)
@@ -230,7 +242,13 @@ function SummaryBody({
             onSelect={select}
           />
           {conversation && <ChatSummaryTaskActions conversation={conversation} teamId={teamId} />}
+          <BotInstructionsSection conversation={conversation} />
           {background.length > 0 && <BackgroundTasksSection shells={background} />}
+          <ChatSummaryTriggers
+            key={`${teamId}:${triggerHome}`}
+            teamId={teamId}
+            sessionId={triggerHome}
+          />
           {!loaded && <Skeleton />}
           {changes.length > 0 && (
             <ChangesSection sessionId={sessionId} changes={changes} onOpen={onOpenLink} />
@@ -238,7 +256,6 @@ function SummaryBody({
           {subAgents.length > 0 && (
             <SubAgentsSection subAgents={subAgents} onOpen={onOpenSession} />
           )}
-          {conversation && <ChatSummaryEnvironment conversation={conversation} />}
           {outputs.length > 0 && (
             <OutputsSection files={outputs} teamId={teamId} sessionId={sessionId} />
           )}
@@ -247,7 +264,7 @@ function SummaryBody({
               <p className="text-main">{t('Nothing here yet')}</p>
               <p className="text-tertiary">
                 {t(
-                  'Pull requests, sub-agents and files from this agent appear here after its first reply.',
+                  'Pull requests, sub-agents and files from this task appear here after its first reply.',
                 )}
               </p>
             </div>

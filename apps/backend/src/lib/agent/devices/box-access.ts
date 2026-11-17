@@ -16,7 +16,10 @@ import type { HolderMessage } from './local-runtime/protocol'
 import type { AgentDevice } from './store'
 import type { NuphosTeamRole } from '@/lib/identity/types'
 
-/** What a person may do with a computer: `use` is everything but managing it. */
+/**
+ * What a person may do with a computer: `use` runs its agents through Nuphos; `manage` also opens
+ * a shell on it, signs its agents in and out, and chooses who uses it.
+ */
 export type DeviceAccessLevel = 'use' | 'manage' | 'owner'
 
 const RANK: Record<DeviceAccessLevel, number> = { use: 0, manage: 1, owner: 2 }
@@ -192,7 +195,7 @@ export async function requireDeviceAccess(
 
   // A Box lives in a team: asking for your own without saying which is a client bug.
   if (!teamId && own?.box)
-    throw new AppError(400, 'team_required', 'Pass the teamId of the Box’s team')
+    throw new AppError(400, 'team_required', 'Pass the teamId of the computer’s team')
   const member = teamId ? (await deps.role(actorId, teamId)) !== null : false
   // Query the requested team, never a global deviceId lookup or the owner's other teams.
   const candidates =

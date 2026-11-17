@@ -2,6 +2,7 @@ import { canStepNavigation } from '../../../lib/navHistory.ts'
 import { isTeamManagementKey } from '../../../lib/teamOverviewNav.ts'
 import { NO_SESSION_TAB_BUCKET_KEY } from '../../workspaceTabState.ts'
 
+import type { ConnectorsDialogState } from './connectorsDialog'
 import type { NavigationSnapshot } from '../../../lib/appRoutes'
 import type { Scope } from '../../../types'
 import type { WorkspaceTabState } from '../../workspaceTabState'
@@ -20,7 +21,7 @@ export type TabBucket = {
 export type WorkspaceState = {
   /** The chat session shown in the main pane; its bucket is the visible dock. */
   sessionId: string | null
-  /** A management page replaces the chat surface; its tab lives in the main-page bucket. */
+  /** A management page takes the chat's place; its tab lives in the main-page bucket. */
   mainPageOpen: boolean
   /** Runtime-only signal for repeated explicit New chat navigation. */
   newChatRequest: number
@@ -36,6 +37,8 @@ export type WorkspaceState = {
    *  Runtime-only; a dock tab keeps its own history for moves inside it. */
   surfaceHistory: readonly SurfaceEntry[]
   surfaceHistoryIndex: number
+  /** The Connectors dialog, null while closed. Runtime-only. */
+  connectorsDialog: ConnectorsDialogState | null
 }
 
 /** What the main pane shows. */
@@ -56,6 +59,8 @@ export const EMPTY_BUCKET: TabBucket = {
 }
 
 export const MAIN_PAGE_BUCKET_KEY = '__main-page__'
+/** The dock beside the main page, as a chat has its own. */
+export const MAIN_PAGE_DOCK_KEY = '__main-page-dock__'
 
 /** Management pages only ever live in the main pane, never in a dock tab. */
 export function isManagementTab(tab: WorkspaceTabState): boolean {
@@ -66,9 +71,9 @@ export function sessionKeyOf(sessionId: string | null): string {
   return sessionId ?? NO_SESSION_TAB_BUCKET_KEY
 }
 
-/** The bucket behind whatever the main pane shows: the management page's, or the chat's dock. */
+/** The dock beside whatever the main pane shows: the management page's, or the chat's. */
 export function currentSessionKey(state: WorkspaceState): string {
-  return state.mainPageOpen ? MAIN_PAGE_BUCKET_KEY : sessionKeyOf(state.sessionId)
+  return state.mainPageOpen ? MAIN_PAGE_DOCK_KEY : sessionKeyOf(state.sessionId)
 }
 
 export function selectBucket(state: WorkspaceState, sessionKey: string): TabBucket {
@@ -85,13 +90,21 @@ export function selectActiveTab(state: WorkspaceState): WorkspaceTabState | null
   return bucket.tabs.find((tab) => tab.id === bucket.activeTabId) ?? null
 }
 
+/** The management page the main pane shows in the chat's place. */
+export function selectMainPageTab(state: WorkspaceState): WorkspaceTabState | null {
+  if (!state.mainPageOpen) return null
+  const bucket = selectBucket(state, MAIN_PAGE_BUCKET_KEY)
+
+  return bucket.tabs.find((tab) => tab.id === bucket.activeTabId) ?? null
+}
+
 /** The active dock tab's scope wins (it can be narrower than a team); an empty
  *  dock falls back to the workspace's team rather than to no scope at all. No
  *  scope until the teams are known, so nothing loads for a team the account left. */
 export function selectScope(state: WorkspaceState): Scope | null {
   if (!state.teamsKnown) return null
 
-  return selectActiveTab(state)?.scope ?? state.teamScope
+  return selectActiveTab(state)?.scope ?? selectMainPageTab(state)?.scope ?? state.teamScope
 }
 
 export function selectTabLocation(
@@ -166,13 +179,14 @@ export function createWorkspaceState(
     recentSessionKeys: Object.keys(buckets),
     surfaceHistory: [{ ...surface, at: Date.now() }],
     surfaceHistoryIndex: 0,
+    connectorsDialog: null,
   }
 }
 
 /**
  * What Back/Forward moves: an open dock's tab while it has somewhere to go,
  * and otherwise the one timeline of chats and main-page pages the pane showed.
- * The main page never steps its own tab: its stack can hold pages from an
+ * The main page's own tab is never stepped: its stack can hold pages from an
  * earlier visit, which sent Back from a chat → Agents move to Inbox.
  */
 export function selectHistoryStep(
@@ -180,22 +194,23 @@ export function selectHistoryStep(
   direction: -1 | 1,
 ): 'tab' | 'surface' | null {
   const tab = selectActiveTab(state)
-  const tabVisible = !state.mainPageOpen && selectCurrentBucket(state).dockOpen
 
-  if (tabVisible && tab && canStepNavigation(tab, direction)) return 'tab'
+  if (selectCurrentBucket(state).dockOpen && tab && canStepNavigation(tab, direction)) return 'tab'
   const index = state.surfaceHistoryIndex + direction
 
   return index >= 0 && index < state.surfaceHistory.length ? 'surface' : null
 }
 
-/** The sidebar follows the page it navigates: the main page, or the dock's
- *  page while an expanded dock gives the sidebar that page's navigation. */
-export function sidebarSurface(mainPageOpen: boolean, dockExpanded: boolean, pageActive: string) {
-  const dynamicNavigation = dockExpanded && !mainPageOpen
-
+/** The sidebar follows the page it navigates: the dock's page while an expanded
+ *  dock gives the sidebar that page's navigation, and otherwise the main page. */
+export function sidebarSurface(
+  mainPageActive: string | null,
+  dockExpanded: boolean,
+  pageActive: string,
+) {
   return {
-    dynamicNavigation,
-    active: mainPageOpen || dynamicNavigation ? pageActive : '',
-    chatShown: !mainPageOpen,
+    dynamicNavigation: dockExpanded,
+    active: dockExpanded ? pageActive : (mainPageActive ?? ''),
+    chatShown: mainPageActive === null,
   }
 }

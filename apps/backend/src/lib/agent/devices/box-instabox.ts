@@ -42,13 +42,14 @@ const WAKE_TIMEOUT_MS = 60_000
 type BoxDevice = AgentDevice & { box: AgentDeviceBox }
 
 function requireBox(device: AgentDevice | null, deviceId: string): BoxDevice {
-  if (!device?.box) throw new AppError(404, 'not_found', `No Box ${deviceId}`)
+  if (!device?.box) throw new AppError(404, 'not_found', `No cloud computer ${deviceId}`)
 
   return device as BoxDevice
 }
 
 function requireMachine(device: BoxDevice): string {
-  if (!device.box.sandboxId) throw new AppError(409, 'box_state', 'The Box is still being created')
+  if (!device.box.sandboxId)
+    throw new AppError(409, 'box_state', 'The computer is still being created')
 
   return device.box.sandboxId
 }
@@ -74,7 +75,7 @@ export async function boxDesktopUrl(userId: string, deviceId: string): Promise<s
 
     return url
   } catch (error) {
-    throw unavailable("Could not open the Box's desktop", error)
+    throw unavailable("Could not open the computer's desktop", error)
   }
 }
 
@@ -104,7 +105,7 @@ export async function pauseBox(userId: string, deviceId: string): Promise<AgentD
 
     await sandbox.pause()
   } catch (error) {
-    throw unavailable('Could not pause the Box', error)
+    throw unavailable('Could not pause the computer', error)
   }
   await clearBoxUpdateStarted(userId, deviceId)
 
@@ -121,7 +122,7 @@ export async function resumeBox(userId: string, deviceId: string, command = AGEN
 
   // Starting the host mid-update would run the old CLI while the new one installs.
   if (command === AGENT_COMMAND && boxUpdatingSince(device))
-    throw new AppError(409, 'box_updating', 'The Box is updating and starts again on its own.')
+    throw new AppError(409, 'box_updating', 'The computer is updating and starts again on its own.')
   const url = requireBackendUrl()
 
   try {
@@ -139,10 +140,27 @@ export async function resumeBox(userId: string, deviceId: string, command = AGEN
     })
   } catch (error) {
     if (error instanceof AppError) throw error
-    throw unavailable('Could not resume the Box', error)
+    throw unavailable('Could not resume the computer', error)
   }
 
   return device
+}
+
+/** Runs a command on a Box that is running. A paused machine stays paused: the command fails. */
+export async function runOnBox(userId: string, deviceId: string, command: string): Promise<void> {
+  const device = requireBox(await getAgentDevice(userId, deviceId), deviceId)
+  const sandboxId = requireMachine(device)
+
+  try {
+    const sandbox = await Sandbox.connect(sandboxId, {
+      ...(await boxConnection(device.box, QUICK_TIMEOUT_MS)),
+      resume: false,
+    })
+
+    await sandbox.commands.run(command, { background: true })
+  } catch (error) {
+    throw unavailable('Could not run the command on the computer', error)
+  }
 }
 
 /**
@@ -161,7 +179,7 @@ export async function destroyBox(userId: string, deviceId: string): Promise<void
     await killBoxMachine(conn, device.box.sandboxId, deviceId)
   } catch (error) {
     logError('agent.box.kill_failed', error, { user_id: userId, device_id: deviceId })
-    throw unavailable('Could not delete the Box', error)
+    throw unavailable('Could not delete the computer', error)
   }
   // Its tunnel closed before the kill, while the machine still ran.
   noteBoxUsage(device.box.teamId)

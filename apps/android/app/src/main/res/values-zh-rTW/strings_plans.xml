@@ -1,0 +1,40 @@
+<resources>
+    <string name="plans_title_fallback">計畫</string>
+    <string name="plans_back">上一頁</string>
+    <string name="plans_actions">動作</string>
+    <string name="plans_mark_unplanned">標記為計畫外</string>
+    <string name="plans_plan_number">計畫 %1$s</string>
+    <string name="plans_untitled">未命名計畫</string>
+    <string name="plans_still_building">Agent 仍在擬定這份計畫，步驟、成本與風險會在可以核准前補齊。</string>
+    <string name="plans_decisions">決策</string>
+    <string name="plans_steps">步驟</string>
+    <string name="plans_cost">成本</string>
+    <string name="plans_cost_one_time">"一次性  %1$s"</string>
+    <string name="plans_cost_monthly">"每月  %1$s"</string>
+    <string name="plans_cost_savings">"節省  %1$s"</string>
+    <string name="plans_risk">風險</string>
+    <string name="plans_risk_worst_case">"最壞情況  %1$s"</string>
+    <string name="plans_approval">核准</string>
+    <string name="plans_approval_requester">請求者 %1$s</string>
+    <string name="plans_approval_team">團隊 %1$d/%2$d</string>
+    <string name="plans_loading">正在載入計畫…</string>
+    <string name="plans_unplan_confirm_title">要將計畫 %1$s 標記為計畫外嗎？</string>
+    <string name="plans_unplan_confirm_body">這份計畫會保留供參考，但不會再執行。</string>
+    <string name="plans_error_title">發生錯誤</string>
+    <string name="plans_ok">確定</string>
+    <string name="plans_approval_notice_title">計畫核准</string>
+    <string name="plans_approval_already_recorded">你已核准過這份計畫。</string>
+    <string name="plans_approve_failed">無法核准計畫。</string>
+    <plurals name="plans_step_count">
+        <item quantity="other">%1$d 個步驟</item>
+    </plurals>
+    <plurals name="plans_job_count">
+        <item quantity="other">%1$d 個工作</item>
+    </plurals>
+    <plurals name="plans_command_count">
+        <item quantity="other">%1$d 個指令</item>
+    </plurals>
+    <plurals name="plans_approvals_recorded">
+        <item quantity="other">已記錄 %1$d 個核准。</item>
+    </plurals>
+</resources>

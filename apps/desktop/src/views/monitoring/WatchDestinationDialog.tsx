@@ -1,8 +1,8 @@
 import { Dialog } from '@base-ui/react/dialog'
 import { RadioGroup } from '@base-ui/react/radio-group'
 import { faSlack } from '@fortawesome/free-brands-svg-icons'
-import { faInbox, faUser, faXmark } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { X as XIcon, User as UserIcon, Inbox as InboxIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
@@ -10,6 +10,7 @@ import { parseAtlasError } from '../../api/errors'
 import { Button } from '../../components/ui/button'
 import { AppSelect } from '../../components/ui/select'
 import { toast } from '../../components/ui/toast'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { t } from '../../i18n'
 import { slackDmRecipientCopy } from '../../lib/monitoringWatch'
 
@@ -21,9 +22,8 @@ import type { SlackChannelOption, SlackUserMapping } from '../../types'
 export type WatchDestinationDialogProps = {
   subjectName: string
   teamId: string
-  group?: { memberCount: number; defaultName: string }
   onClose: () => void
-  onContinue: (destination: WatchDestination, groupName?: string) => void
+  onContinue: (destination: WatchDestination) => void
 }
 
 /**
@@ -42,11 +42,9 @@ function isSlackUnconfigured(err: unknown): boolean {
 export function WatchDestinationDialog({
   subjectName,
   teamId,
-  group,
   onClose,
   onContinue,
 }: WatchDestinationDialogProps) {
-  const [groupName, setGroupName] = useState(group?.defaultName ?? '')
   const [destination, setDestination] = useState<WatchDestination['type']>('nuphos')
   const [channels, setChannels] = useState<SlackChannelOption[]>([])
   const [channelId, setChannelId] = useState('')
@@ -128,25 +126,21 @@ export function WatchDestinationDialog({
   const dmAvailable = dmRecipient !== null
   const dmCopy = dmRecipient ? slackDmRecipientCopy(dmRecipient) : null
   const canContinue =
-    (!group || groupName.trim().length > 0) &&
-    (destination === 'nuphos' ||
-      (destination === 'slack_dm' && dmAvailable) ||
-      (destination === 'slack_channel' && selectedChannel !== undefined))
+    destination === 'nuphos' ||
+    (destination === 'slack_dm' && dmAvailable) ||
+    (destination === 'slack_channel' && selectedChannel !== undefined)
 
   const submit = () => {
     if (destination === 'nuphos') {
-      onContinue({ type: 'nuphos' }, groupName.trim() || undefined)
+      onContinue({ type: 'nuphos' })
     } else if (destination === 'slack_dm' && dmAvailable) {
-      onContinue({ type: 'slack_dm' }, groupName.trim() || undefined)
+      onContinue({ type: 'slack_dm' })
     } else if (destination === 'slack_channel' && selectedChannel) {
-      onContinue(
-        {
-          type: 'slack_channel',
-          channelId: selectedChannel.id,
-          channelName: selectedChannel.name,
-        },
-        groupName.trim() || undefined,
-      )
+      onContinue({
+        type: 'slack_channel',
+        channelId: selectedChannel.id,
+        channelName: selectedChannel.name,
+      })
     }
   }
 
@@ -161,39 +155,16 @@ export function WatchDestinationDialog({
                 {t('Where should Nuphos report?')}
               </Dialog.Title>
               <Dialog.Description className="mt-1 truncate text-[12px] text-secondary">
-                {group
-                  ? t('Nuphos will manage {n} Watches together.', { n: group.memberCount })
-                  : t('Nuphos will investigate {name} when it fires.', { name: subjectName })}
+                {t('Nuphos will investigate {name} when it fires.', { name: subjectName })}
               </Dialog.Description>
             </div>
             <Dialog.Close
               className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-tertiary hover:bg-state-hover hover:text-main"
               aria-label={t('Close')}
             >
-              <FontAwesomeIcon icon={faXmark} className="h-3.5 w-3.5" />
+              <UiIcon size={14} icon={XIcon} className="h-3.5 w-3.5" />
             </Dialog.Close>
           </div>
-
-          {group && (
-            <div className="border-b border-line-control px-5 py-3.5">
-              <label className="block text-[11.5px] font-medium text-secondary">
-                {t('Group name')}
-                <input
-                  type="text"
-                  value={groupName}
-                  onChange={(event) => setGroupName(event.target.value)}
-                  maxLength={100}
-                  autoFocus
-                  className="mt-1.5 h-8 w-full rounded-md border border-line-control bg-surface px-2.5 text-[12px] text-main placeholder:text-tertiary focus:border-line-focus focus:outline-none"
-                />
-              </label>
-              <p className="mt-2 text-[11px] text-tertiary">
-                {t(
-                  'Nuphos shares one ingress per provider connection and keeps each member incident separate.',
-                )}
-              </p>
-            </div>
-          )}
 
           <RadioGroup
             value={destination}
@@ -204,7 +175,7 @@ export function WatchDestinationDialog({
             <WatchDestinationCard
               value="nuphos"
               selected={destination === 'nuphos'}
-              icon={<FontAwesomeIcon icon={faInbox} className="h-4 w-4" />}
+              icon={<UiIcon size={14} icon={InboxIcon} className="h-3.5 w-3.5" />}
               title="Nuphos"
               description={t('Investigate and keep the findings in Nuphos.')}
             />
@@ -212,7 +183,7 @@ export function WatchDestinationDialog({
               value="slack_dm"
               selected={destination === 'slack_dm'}
               disabled={!dmAvailable}
-              icon={<FontAwesomeIcon icon={faUser} className="h-4 w-4" />}
+              icon={<UiIcon size={14} icon={UserIcon} className="h-3.5 w-3.5" />}
               title={dmCopy?.title ?? t('Slack DM')}
               description={
                 loadingSlack

@@ -63,6 +63,13 @@ export function coreConfig() {
         clientId: optional('GOOGLE_OAUTH_CLIENT_ID'),
         clientSecret: optional('GOOGLE_OAUTH_CLIENT_SECRET'),
       },
+      // Any OpenID Connect provider (e.g. Logto); endpoints come from its discovery document.
+      oidc: {
+        issuer: optional('OIDC_ISSUER')?.replace(/\/$/, ''),
+        clientId: optional('OIDC_CLIENT_ID'),
+        clientSecret: optional('OIDC_CLIENT_SECRET'),
+        name: optional('OIDC_DISPLAY_NAME') ?? 'SSO',
+      },
     },
     // Passkeys as a second factor (lib/identity/mfa-passkeys.ts). The RP ID is the
     // domain passkeys belong to; the origins are where a ceremony may run: the

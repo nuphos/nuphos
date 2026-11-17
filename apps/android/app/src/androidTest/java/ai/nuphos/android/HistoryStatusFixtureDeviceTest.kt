@@ -5,7 +5,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -163,7 +163,7 @@ class HistoryStatusFixtureDeviceTest {
             }
         }
         compose.runOnIdle { work.launch { store.reload() } }
-        waitText(if (expectHistory) "History fixture" else "Couldn't load agents")
+        waitText(if (expectHistory) "History fixture" else "Couldn't load tasks")
     }
     private fun waitText(text: String) { compose.waitUntil(5_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() } }
     // The row's status is part of its detail line, and an unread reply is a dot with a state description.
@@ -203,9 +203,9 @@ class HistoryStatusFixtureDeviceTest {
         render(); failList = true
         val job = refresh()
         compose.waitUntil(5_000) { job.isCompleted }
-        waitText("Could not refresh agents. Showing last loaded history.")
+        waitText("Could not refresh tasks. Showing last loaded history.")
         compose.onNodeWithText("History fixture").assertIsDisplayed()
-        compose.onNodeWithText("Couldn't load agents").assertDoesNotExist()
+        compose.onNodeWithText("Couldn't load tasks").assertDoesNotExist()
         android.os.SystemClock.sleep(12_100)
         compose.waitUntil(15_000) { compose.onAllNodesWithText("Running", substring = true).fetchSemanticsNodes().isEmpty() }
         unreadDot().assertExists()
@@ -219,7 +219,7 @@ class HistoryStatusFixtureDeviceTest {
     }
     @Test fun initialFailureHasNoRetainedHistoryBanner() {
         failList = true; render(expectHistory = false)
-        compose.onNodeWithText("Couldn't load agents").assertIsDisplayed()
+        compose.onNodeWithText("Couldn't load tasks").assertIsDisplayed()
         compose.onNodeWithText("History fixture").assertDoesNotExist()
         compose.onNodeWithText("Retry history").assertDoesNotExist()
         assertKnownRequests()
@@ -227,7 +227,7 @@ class HistoryStatusFixtureDeviceTest {
     @Test fun queryTransitionsDropUnrelatedRetainedRows() {
         render(); failList = true
         compose.runOnIdle { store.updateSearch("different"); assertTrue(store.conversations.isEmpty()) }
-        waitText("Couldn't load agents")
+        waitText("Couldn't load tasks")
         compose.onNodeWithText("History fixture").assertDoesNotExist()
         compose.onNodeWithText("Retry history").assertDoesNotExist()
         assertKnownRequests()
@@ -306,11 +306,13 @@ class HistoryStatusFixtureDeviceTest {
         holdNextList = true
         val job = refresh()
         compose.waitUntil(5_000) { listHeld.count == 0L }
-        compose.runOnIdle { store.select(Team("B", "Fixture B")); assertTrue(store.conversations.isEmpty()); assertNull(store.phaseError) }
+        // The fixture answers so fast that withContext(IO) can return without suspending, so the new
+        // team's list may already be shown when select() returns. Only the previous team's rows must be gone.
+        compose.runOnIdle { store.select(Team("B", "Fixture B")); assertTrue(store.conversations.all { it.teamId == "B" }); assertNull(store.phaseError) }
         waitText("Team B history")
         compose.onNodeWithText("History fixture").assertDoesNotExist()
         listTitle = "Returned A history"
-        compose.runOnIdle { store.select(Team("A", "Fixture A")); assertTrue(store.conversations.isEmpty()) }
+        compose.runOnIdle { store.select(Team("A", "Fixture A")); assertTrue(store.conversations.all { it.teamId == "A" && it.title == "Returned A history" }) }
         waitText("Returned A history")
         listRelease.countDown()
         compose.waitUntil(5_000) { job.isCompleted }

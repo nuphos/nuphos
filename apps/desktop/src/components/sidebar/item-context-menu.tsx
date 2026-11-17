@@ -5,6 +5,7 @@ import {
   Bot,
   Hash,
   Link2,
+  LogOut,
   Pencil,
   SmilePlus,
   Pin,
@@ -15,9 +16,11 @@ import {
 } from 'lucide-react'
 
 import { api } from '../../api'
+import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { t } from '../../i18n'
 import { openChangeBotAvatar } from '../../lib/changeBotAvatar'
 import { copyLinkWithFeedback } from '../../lib/copyLink'
+import { leaveSession } from '../agent/channelPeople'
 import { agentSessionUrl } from '../agent/sessionUrl'
 import { makeBot } from '../channels/botChannel'
 import { ContextMenu } from '../ContextMenu'
@@ -56,6 +59,7 @@ export function SidebarItemContextMenu({
   // A Bot is a Bot in either section (its chat or itself); otherwise a Task or a group chat.
   const noun = menu.item.bot || menu.item.botChannelOf ? 'bot' : channel ? 'chat' : 'task'
   const sessionId = menu.item.key.slice('agent-session:'.length)
+  const viewerId = useCurrentUser()?.id ?? ''
 
   return (
     <ContextMenu
@@ -167,7 +171,22 @@ export function SidebarItemContextMenu({
               },
             ]
           : []),
-        ...(menu.item.key.startsWith('agent-session:') &&
+        // A group chat is left, by its owner too; it outlives whoever leaves it.
+        ...(noun === 'chat'
+          ? [
+              {
+                key: 'leave',
+                label: t('Leave chat'),
+                icon: LogOut,
+                onSelect: () =>
+                  void leaveSession(sessionId, teamId, viewerId).catch((err: unknown) =>
+                    toast.apiError(t('Could not leave chat'), err),
+                  ),
+              },
+            ]
+          : []),
+        ...(noun !== 'chat' &&
+        menu.item.key.startsWith('agent-session:') &&
         (!menu.item.readOnlyChat || menu.item.managedChat)
           ? [
               {
@@ -195,7 +214,18 @@ function watchChat(item: Item, teamId: string) {
   api
     .agentSetConversationWatched(item.key.slice('agent-session:'.length), watching, teamId)
     .catch((err: unknown) => {
-      toast.apiError(watching ? t('Could not watch agent') : t('Could not unwatch agent'), err)
+      const bot = Boolean(item.bot || item.botChannelOf)
+
+      toast.apiError(
+        bot
+          ? watching
+            ? t('Could not watch Bot')
+            : t('Could not unwatch Bot')
+          : watching
+            ? t('Could not watch task')
+            : t('Could not unwatch task'),
+        err,
+      )
     })
 }
 
@@ -206,13 +236,12 @@ const COPY_ID = {
 }
 const RENAME = {
   task: () => t('Rename task'),
-  bot: () => t('Rename Bot'),
+  bot: () => t('Edit Bot'),
   chat: () => t('Rename chat'),
 }
 const ARCHIVE = {
   task: () => t('Archive Task'),
   bot: () => t('Archive Bot'),
-  chat: () => t('Archive chat'),
 }
 const COPIED = {
   Link: () => t('Link copied'),

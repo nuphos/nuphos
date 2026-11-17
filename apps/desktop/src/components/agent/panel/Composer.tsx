@@ -11,7 +11,7 @@ import { CredentialSelectorButton } from './CredentialSelectorButton'
 import { ModelSelector } from './ModelSelector'
 import { runtimeSendRefusal } from './queuedAutoSend'
 import { AgentStatusBanner, ReadOnlyConversationNotice } from './ReadOnlyNotice'
-import { runtimeControlSendBlock, runtimeGone } from './runtimeControlSignOut'
+import { runtimeControlSendBlock, shouldSwitchAgent } from './runtimeControlSignOut'
 import { RuntimeSelector } from './RuntimeSelector'
 import { useComposerActions } from './useComposerActions'
 import { useComposerDraft } from './useComposerDraft'
@@ -117,7 +117,7 @@ export function Composer({
   const [agentMenuOpen, setAgentMenuOpen] = useState(false) // the banner can open it
   const agentMenuRequested = useAgentMenuRequested(runtimeControl?.sessionId)
   const switchAgent =
-    newChat || runtimeGone(runtimeControl) ? () => setAgentMenuOpen(true) : undefined
+    newChat || shouldSwitchAgent(runtimeControl) ? () => setAgentMenuOpen(true) : undefined
   const sendBlocked = Boolean(runtimeSendBlock ?? agentSendBlock) || modelControl.saving
   const state = useComposerState({
     hero,
@@ -159,21 +159,13 @@ export function Composer({
   return (
     <div
       className={clsx(
-        // The in-conversation composer needs room for its shadow to fall and clearance from the
-        // pane edges; 4px left it wedged into the corner. Docked, it takes the left sidebar's inset
-        // instead, and its bottom gap matches the content card's own (`pb-2` on the main pane) so
-        // the two columns end on the same line.
-        // The hero always keeps room for the agent-status banner above the greeting.
-        hero ? 'pt-5' : sidebar ? 'px-2.5 pb-2' : 'px-3 pb-3',
+        // Its width and side clearance are the ChatColumn's it sits in. Docked, its bottom gap
+        // matches the content card's own (`pb-2` on the main pane) so the two columns end on the
+        // same line. The hero always keeps room for the agent-status banner above the greeting.
+        hero ? 'pt-5' : sidebar ? 'pb-2' : 'pb-3',
       )}
     >
-      <div
-        className={clsx(
-          'relative mx-auto w-full',
-          // No clipping: it would slice the composer's shadow off at both sides.
-          hero ? '' : 'max-w-[760px]',
-        )}
-      >
+      <div className="relative w-full">
         {!readOnly && runtimeControl && (
           <AgentStatusBanner control={runtimeControl} hero={hero} onSwitchAgent={switchAgent} />
         )}

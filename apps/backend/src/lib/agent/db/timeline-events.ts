@@ -1,6 +1,12 @@
 import type { TurnFailureCause } from '@/lib/claude-code-preview/openab-acp-errors'
 import type { OpenAbProvider } from '@/lib/claude-code-preview/runtime-provider'
 
+/** What set, changed or took away a conversation's face. */
+export type BotChangeSource =
+  | { via: 'make_bot' | 'avatar_route' | 'new_bot' | 'update_self' | 'bot_import' }
+  /** `sessionId` is the conversation whose agent called the tool. */
+  | { via: 'create_bot'; sessionId: string }
+
 /** Why a fallback moved a conversation: its agent was low on usage, unreachable, or failed a turn. */
 export type RuntimeFallbackReason = 'quota' | 'offline' | 'failure'
 
@@ -15,6 +21,8 @@ export type ConversationTimelineEvent = { at: Date; actorId: string } & (
       toProvider?: OpenAbProvider
       /** Set when a fallback moved it rather than a person. */
       reason?: RuntimeFallbackReason
+      /** The turn that failed before the move runs again on `toLabel`. */
+      retrying?: true
     }
   | {
       /** A channel's agents used up their turns for this stretch; actorId is 'system'. */
@@ -39,6 +47,17 @@ export type ConversationTimelineEvent = { at: Date; actorId: string } & (
       kind: 'message_edited'
       forkSessionId: string
     }
+  | {
+      kind: 'conversation_forked'
+      forkSessionId: string
+    }
+  | ({
+      /** Its face was set, changed or taken away, and with a face it is a Bot.
+       *  A record of who did that and how; clients are not sent it. */
+      kind: 'bot_changed'
+      /** The face it has now; absent when it was taken away. */
+      avatar?: string
+    } & BotChangeSource)
   | {
       kind: 'runtime_fallback_stopped'
       /** Each agent in the fallback list that was passed over, and why. */

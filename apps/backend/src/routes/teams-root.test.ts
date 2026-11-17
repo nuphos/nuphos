@@ -24,7 +24,6 @@ const CREATED: NuphosTeam = {
   name: 'Ian’s Workspace',
   avatarUrl: '',
   agentRuntime: 'claude-code',
-  localAgentSharing: 'approve',
   ownerID: USER,
   contactEmails: [EMAIL],
   allowedEmailDomains: [],

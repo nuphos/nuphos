@@ -43,7 +43,7 @@ export function createUsageSampler(
     timer ??= setInterval(() => {
       for (const p of LOCAL_AGENT_PROVIDERS) void sample(p)
     }, USAGE_SAMPLE_MS).unref()
-    if (!agent.cli?.installed) return
+    if (!agent.cli?.installed || agent.cli.customProvider) return
     if (agent.cli.loggedIn === false) {
       signedOut.add(provider)
 

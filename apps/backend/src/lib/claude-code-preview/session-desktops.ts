@@ -5,11 +5,16 @@
 // stored: when the desktop goes, so does the entry.
 
 import { agentConversations } from '@/lib/agent/db/shared'
-import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
+import { localRuntimeId, parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { getAgentDevice } from '@/lib/agent/devices/store'
 
+import { hostOutdated } from './host-minimum-version'
+
+import type { OutdatedHost } from './host-minimum-version'
 import type { SessionExecutionState } from './runtime-execution-snapshot'
+import type { LocalRuntimeRef } from '@/lib/agent/devices/local-runtime/address'
+import type { LocalRuntimeStatus } from '@/lib/agent/devices/local-runtime/protocol'
 
 export type DesktopOwner = { sessionId: string; runtimeId?: string | null }
 type DeviceLabel = (userId: string, deviceId: string) => Promise<string | undefined>
@@ -106,6 +111,39 @@ export async function boxDesktops(
     .filter((desktop) => own.has(desktop.sessionId))
     .map((desktop) => ({ ...desktop, title: own.get(desktop.sessionId) ?? '' }))
     .sort((a, b) => a.display - b.display)
+}
+
+/**
+ * What the device list tells the person whose computer it is: the runtime id it opens its
+ * desktop by (runtime-desktop.ts), when its host opens one on request, and the Nuphos Desktop
+ * running it with the update it found (computer-app-update.ts). The runtime id names the
+ * computer, which needs no agent for it: the catalog lists a runtime only per installed agent.
+ * A Box opens through its own link and updates its host instead. Everyone who sees a computer
+ * is told when the Nuphos on it is too old to be supported (host-minimum-version.ts).
+ */
+export async function ownComputer(
+  { userId, deviceId, box }: LocalRuntimeRef & { box?: unknown },
+  viewerId: string,
+  presence = runtimePresenceStore(),
+): Promise<{
+  desktopRuntimeId?: string
+  app?: NonNullable<LocalRuntimeStatus['app']>
+  outdated?: OutdatedHost
+}> {
+  const present = await presence.get(userId, deviceId)
+  const old = hostOutdated(present)
+  const outdated = old ? { outdated: old } : {}
+
+  if (box || userId !== viewerId) return outdated
+  const status = present?.status
+
+  return {
+    ...(status?.desktopOpen === true
+      ? { desktopRuntimeId: localRuntimeId({ userId, deviceId, provider: 'claude-code' }) }
+      : {}),
+    ...(status?.app ? { app: status.app } : {}),
+    ...outdated,
+  }
 }
 
 export async function withSessionDesktops<T extends SessionExecutionState>(

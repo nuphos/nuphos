@@ -24,6 +24,7 @@ class NuphosApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        ai.nuphos.android.model.Words.context = this
         getSharedPreferences("nuphos.backend", MODE_PRIVATE).getString("origin", null)?.let {
             runCatching { ai.nuphos.android.data.BackendOrigin.select(it) }
         }

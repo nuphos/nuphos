@@ -1,0 +1,197 @@
+<resources>
+    <!-- Home -->
+    <string name="shell_ok">OK</string>
+    <string name="shell_close">Close</string>
+    <string name="shell_save">Save</string>
+    <string name="shell_retry">Retry</string>
+    <string name="shell_search">Search</string>
+    <string name="shell_profile">Profile</string>
+    <string name="shell_page_bots">Bots</string>
+    <string name="shell_page_inbox">Inbox</string>
+    <string name="shell_page_runtimes">Runtimes</string>
+    <string name="shell_page_connectors">Connectors</string>
+    <string name="shell_page_unavailable">Page unavailable</string>
+    <string name="shell_page_gone">This page is no longer available in the mobile app.</string>
+    <string name="shell_back_to_tasks">Back to Tasks</string>
+    <string name="shell_expanded">Expanded</string>
+    <string name="shell_collapsed">Collapsed</string>
+    <string name="shell_inbox_badge">%1$d in Inbox</string>
+    <string name="shell_start_new_task">Start a new task</string>
+    <string name="shell_choose_workspace">Choose or set up a workspace to get started.</string>
+    <string name="shell_link_error_title">Could not open task</string>
+    <string name="shell_link_unavailable">This task is unavailable or your account does not have access.</string>
+    <string name="shell_link_expired">Sign-in has expired. Sign in again to open this agent.</string>
+    <string name="shell_link_retry">We could not open this agent. Please try the link again.</string>
+    <string name="shell_link_offline">We could not open this agent. Check your connection and try the link again.</string>
+
+    <!-- Login -->
+    <string name="shell_server_settings">Server settings</string>
+    <string name="shell_server_cloud_settings">Nuphos Cloud · Server settings</string>
+    <string name="shell_server_custom_settings">%1$s · Server settings</string>
+    <string name="shell_server_body">Use Nuphos Cloud, or enter the HTTPS address of your self-hosted backend.</string>
+    <string name="shell_server_address">Server address</string>
+    <string name="shell_use_nuphos_cloud">Use Nuphos Cloud</string>
+    <string name="shell_server_save_failed">Could not save the server. Please try again.</string>
+    <string name="shell_cancel_adding_account">Cancel adding account</string>
+    <string name="shell_retry_sign_in_options">Retry sign-in options</string>
+    <string name="shell_or">or</string>
+    <string name="shell_continue_with">Continue with %1$s</string>
+    <string name="shell_two_factor_title">Two-factor authentication</string>
+    <string name="shell_two_factor_body">Enter the 6-digit code from your authenticator app.</string>
+    <string name="shell_sign_in_expired">This sign-in has expired. Sign in again.</string>
+    <string name="shell_back_to_sign_in">Back to sign-in</string>
+    <string name="shell_email_invalid">Enter a valid email address.</string>
+    <string name="shell_email_too_many_codes">Too many codes requested. Wait and try again later.</string>
+    <string name="shell_email_send_failed">Could not send the code. Check your connection and try again.</string>
+    <string name="shell_email_delivery_unconfirmed">Could not confirm delivery. Wait before trying again.</string>
+    <string name="shell_check_email">Check your email</string>
+    <string name="shell_code_sent_to">Enter the 6-digit code sent to</string>
+    <string name="shell_use_different_email">Use a different email</string>
+    <string name="shell_change">Change</string>
+    <string name="shell_no_code">Didn\'t get a code?</string>
+    <string name="shell_resend_code_in">Resend code in %1$ds</string>
+    <string name="shell_resend_code">Resend code</string>
+    <string name="shell_code_expired">Code expired. Request a new code.</string>
+    <string name="shell_code_expires">The code expires in 10 minutes.</string>
+    <string name="shell_please_wait">Please wait…</string>
+    <string name="shell_continue">Continue</string>
+    <string name="shell_email_address">Email address</string>
+    <string name="shell_password">Password</string>
+    <string name="shell_request_code_in">You can request another code in %1$ds.</string>
+    <string name="shell_use_email_code">Use an email code instead</string>
+    <string name="shell_use_password">Use a password</string>
+    <string name="shell_terms_agreement" translatable="false">By continuing, you agree to our %1$s and %2$s.</string>
+    <string name="shell_terms_of_service" translatable="false">Terms of Service</string>
+    <string name="shell_privacy_policy" translatable="false">Privacy Policy</string>
+    <string name="shell_email_code_field">6-digit email code</string>
+
+    <!-- Sign-in errors (AuthSession) -->
+    <string name="shell_auth_cleanup_failed">Saved draft cleanup failed. Check storage, then try again.</string>
+    <string name="shell_auth_signed_out_cleanup_failed">Signed out, but saved draft cleanup failed. Check storage before closing the app.</string>
+    <string name="shell_auth_ai_access_changed">Your AI access changed. Reload your sharing choice before continuing.</string>
+    <string name="shell_auth_privacy_notice_changed">This privacy notice has changed. Please update Nuphos before using AI.</string>
+    <string name="shell_auth_consent_load_failed">We could not load your AI sharing choice. Retry or manage your account.</string>
+    <string name="shell_auth_consent_unconfirmed">Nuphos could not confirm your AI sharing choice. Please retry.</string>
+    <string name="shell_auth_consent_save_failed">We could not save your choice.</string>
+    <string name="shell_auth_photo_failed">We could not update your photo.</string>
+    <string name="shell_auth_username_taken">That username is already in use. Choose another one.</string>
+    <string name="shell_auth_profile_failed">We could not save your profile.</string>
+    <string name="shell_auth_unreachable">We could not reach Nuphos. Check your connection and try again.</string>
+    <string name="shell_auth_window_failed">We could not open the sign-in window. Please try again.</string>
+    <string name="shell_auth_secure_incomplete">Secure sign-in did not complete. Check your connection and try again.</string>
+    <string name="shell_auth_wrong_password">The email or password is incorrect.</string>
+    <string name="shell_auth_code_expired">Incorrect or expired code. Request a new code if needed.</string>
+    <string name="shell_auth_code_invalid">That code is not valid.</string>
+    <string name="shell_auth_code_rejected">Incorrect or expired code, or invalid details. Check your entries or request a new code.</string>
+    <string name="shell_auth_too_many_attempts">Too many attempts. Wait before requesting a new code.</string>
+    <string name="shell_auth_email_incomplete">Email sign-in did not complete. Try again or request a new code.</string>
+    <string name="shell_auth_incomplete">Sign-in did not complete. Check your details and connection, then try again.</string>
+    <string name="shell_auth_incomplete_connection">Sign-in did not complete. Check your connection, then try again.</string>
+
+    <!-- Workspace setup -->
+    <string name="shell_set_up_workspace">Set up a workspace</string>
+    <string name="shell_workspace_setup_body">Create a workspace, join an available workspace, or refresh after accepting an invitation from its link.</string>
+    <string name="shell_workspace_name">Workspace name</string>
+    <string name="shell_create_workspace">Create workspace</string>
+    <string name="shell_workspaces_to_join">Workspaces you can join</string>
+    <string name="shell_no_workspaces_to_join">No workspaces are available to join for this account.</string>
+    <string name="shell_join_workspace">Join %1$s</string>
+    <string name="shell_refresh_workspaces">Refresh workspaces</string>
+    <string name="shell_workspace_may_have_completed">The request may have completed. Closing this sheet does not undo a saved workspace.</string>
+    <string name="shell_saved_workspaces">Saved workspaces</string>
+    <string name="shell_use_workspace">Use %1$s</string>
+    <string name="shell_reviewed_workspaces">I reviewed saved workspaces</string>
+    <string name="shell_workspace_closed_pending">The request may have saved a workspace. Refresh and review your saved workspaces before continuing.</string>
+    <string name="shell_workspace_discovery_failed">We could not load workspaces to join. %1$s</string>
+    <string name="shell_workspace_name_length">Use a workspace name with 1–80 characters.</string>
+    <string name="shell_workspace_review_pending">The request may have saved a workspace. Review your saved workspaces before continuing.</string>
+    <string name="shell_workspace_selected">Workspace selected: %1$s</string>
+    <string name="shell_workspace_unidentified">We could not identify the saved result. Review your saved workspaces; no request was sent again.</string>
+    <string name="shell_workspace_review_complete">Review complete. A new action can create or join another workspace.</string>
+    <string name="shell_workspace_forbidden">You are not allowed to join this workspace.</string>
+    <string name="shell_workspace_gone">This workspace is no longer available.</string>
+    <string name="shell_workspace_rejected">The workspace request was rejected. Check the name or refresh the list.</string>
+    <string name="shell_workspace_conflict">The workspace request conflicts with saved state. Refresh your workspaces.</string>
+    <string name="shell_workspace_unconfirmed">We could not confirm the result. Refresh your saved workspaces.</string>
+
+    <!-- Agent store -->
+    <string name="shell_bot_no_runtime">This workspace has no runtime yet. Add one on the Runtimes page, then create your Bot.</string>
+    <string name="shell_bot_chat_failed">The Bot was created, but its chat didn\'t open. Try again.</string>
+    <string name="shell_bot_create_failed">Couldn\'t create this Bot. Try again.</string>
+    <string name="shell_chat_fallback_title">Chat</string>
+    <string name="shell_rename_failed">Could not rename this agent. Try again.</string>
+    <string name="shell_action_failed">Action failed. Refresh the list and try again.</string>
+    <string name="shell_bot_now_chat_failed">This is a Bot now, but its chat couldn\'t be opened. Open it from Bots to try again.</string>
+    <string name="shell_watch_refresh_failed">Could not refresh watch status. Try again.</string>
+    <string name="shell_watch_saved_refresh_failed">Watch change saved, but status could not refresh. Refresh and try again.</string>
+    <string name="shell_watch_update_failed">Could not update watch status. Refresh and try again.</string>
+    <string name="shell_session_expired">Your session has expired. Please sign in again.</string>
+    <string name="shell_unlink_forbidden">This task is unavailable or you no longer have permission to unlink it.</string>
+    <string name="shell_unlink_failed">Could not unlink agent. Try again.</string>
+    <string name="shell_task_list_interrupted">Task list refresh was interrupted. Try again.</string>
+
+    <!-- Inbox -->
+    <string name="shell_inbox_empty_title">You\'re all caught up</string>
+    <string name="shell_inbox_empty_body">When an agent needs you to decide something, it shows up here. Answer it and it leaves the Inbox.</string>
+
+    <!-- Components -->
+    <string name="shell_clear">Clear</string>
+    <string name="shell_technical_details">Technical details</string>
+    <string name="shell_hide_technical_details">Hide technical details</string>
+    <string name="shell_table_swipe_hint">Swipe horizontally to see more columns</string>
+    <string name="shell_status_proposed">Proposed</string>
+    <string name="shell_status_approved">Approved</string>
+    <string name="shell_status_executing">Executing</string>
+    <string name="shell_status_completed">Completed</string>
+    <string name="shell_status_failed">Failed</string>
+    <string name="shell_status_rejected">Rejected</string>
+    <string name="shell_status_unplanned">Unplanned</string>
+
+    <!-- Share intake (MainActivity) -->
+    <string name="shell_share_unavailable">Shared drafts are unavailable. Check storage and try again.</string>
+    <string name="shell_share_busy">Finish or cancel the current share before sharing another item.</string>
+    <string name="shell_share_storage_check_failed">Could not check saved attachment storage. Try again.</string>
+    <string name="shell_share_read_failed">Could not read this share. Check its size and permissions, then share it again.</string>
+
+    <!-- Notifications -->
+    <string name="shell_notification_channel">Task updates</string>
+    <string name="shell_notification_open_history">Open task history</string>
+    <string name="shell_notification_open_update">Open Nuphos to view the update</string>
+    <string name="shell_notification_reply">Reply</string>
+    <string name="shell_notification_you">You</string>
+    <string name="shell_notification_message">Message</string>
+    <string name="shell_notification_reply_not_sent">Reply not sent</string>
+
+    <!-- Voice -->
+    <string name="shell_voice_input">Voice input</string>
+    <string name="shell_voice_cancel">Cancel voice input</string>
+    <string name="shell_voice_transcribing">Transcribing…</string>
+    <string name="shell_voice_waiting_permission">Waiting for microphone permission…</string>
+    <string name="shell_voice_transcribe_edit">Transcribe and edit</string>
+    <string name="shell_voice_transcribe_send">Transcribe and send</string>
+    <string name="shell_voice_subscription">Voice input is included with a Nuphos subscription.</string>
+    <string name="shell_voice_prompt_save_failed">Could not save the prompt.</string>
+    <string name="shell_voice_prompt">Transcription prompt</string>
+    <string name="shell_voice_reset_prompt">Reset prompt</string>
+    <string name="shell_voice_prompt_help" translatable="false">The prompt guides spelling and writing style. Recordings are transcribed by OpenAI through Nuphos.</string>
+
+    <!-- Remote desktop -->
+    <string name="shell_desktop">Desktop</string>
+    <string name="shell_desktop_decode_failed">Could not decode this desktop. Retry to start a fresh connection.</string>
+    <string name="shell_desktop_connecting">Connecting…</string>
+    <string name="shell_desktop_mac_shared">You have the Mac’s screen; the agent can still use it too.</string>
+    <string name="shell_desktop_in_control">You have control. Hand back to let the agent use this desktop.</string>
+    <string name="shell_desktop_watching">Watching. Take over to use the pointer and keyboard.</string>
+    <string name="shell_desktop_failed">Desktop connection failed.</string>
+    <string name="shell_desktop_closed">Desktop closed.</string>
+    <string name="shell_desktop_hand_back">Hand back</string>
+    <string name="shell_desktop_take_over">Take over</string>
+    <string name="shell_desktop_picture">Remote desktop picture</string>
+    <string name="shell_desktop_frame">Remote desktop frame</string>
+    <string name="shell_desktop_keyboard_help">Tap to click, hold to right-click, or drag the picture. Compose text below, then tap Type to send it to this desktop.</string>
+    <string name="shell_desktop_scroll_up">Scroll up</string>
+    <string name="shell_desktop_scroll_down">Scroll down</string>
+    <string name="shell_desktop_type_on">Type on desktop</string>
+    <string name="shell_desktop_typing">Typing…</string>
+    <string name="shell_desktop_type">Type</string>
+</resources>

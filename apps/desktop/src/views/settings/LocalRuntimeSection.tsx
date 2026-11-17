@@ -119,7 +119,9 @@ export function LocalRuntimeSection({
                 provider={provider}
                 agent={state.agents[provider]}
                 devBundle={state.devBundle}
+                customProvider={state.customProviders?.[provider]}
                 onCheck={() => void refresh()}
+                onState={setState}
               />
             ))}
 

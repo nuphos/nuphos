@@ -16,6 +16,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.dp
 import ai.nuphos.android.model.NuphosUser
 import ai.nuphos.android.ui.LocalAuthSession
@@ -25,12 +26,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ai.nuphos.android.model.profileValidationError
+import androidx.compose.ui.res.stringResource
+import ai.nuphos.android.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditProfileSheet(user: NuphosUser, onDismiss: () -> Unit) {
     val auth = LocalAuthSession.current
     val context = LocalContext.current
+    val resources = LocalResources.current
     val scope = rememberCoroutineScope()
     val current = auth.user?.takeIf { it.id == user.id } ?: user
     var busy by remember(user.id) { mutableStateOf(false) }
@@ -44,8 +48,8 @@ fun EditProfileSheet(user: NuphosUser, onDismiss: () -> Unit) {
         scope.launch {
             val image = uri?.let { withContext(Dispatchers.IO) { avatarJpeg(context, it) } }
             error = when {
-                uri != null && image == null -> "This image could not be read."
-                !auth.setAvatar(image) -> auth.profileError ?: "We could not update your photo. Please try again."
+                uri != null && image == null -> resources.getString(R.string.profile_edit_image_unreadable)
+                !auth.setAvatar(image) -> auth.profileError ?: resources.getString(R.string.profile_edit_photo_failed)
                 else -> null
             }
             busy = false
@@ -69,7 +73,7 @@ fun EditProfileSheet(user: NuphosUser, onDismiss: () -> Unit) {
                         val saved = auth.updateProfile(newName.trim(), newUsername.trim(), current.avatarURL)
                         if (auth.token != token || auth.generation != generation || auth.user?.id != user.id) return@launch
                         busy = false
-                        if (saved) onDismiss() else error = auth.profileError ?: "We could not save your profile. Please try again."
+                        if (saved) onDismiss() else error = auth.profileError ?: resources.getString(R.string.profile_edit_save_failed)
                     }
                 }
             })
@@ -83,23 +87,23 @@ internal fun EditProfileForm(user: NuphosUser, busy: Boolean, error: String?,
     var username by rememberSaveable(user.id) { mutableStateOf(user.username) }
     Column(Modifier.fillMaxWidth().imePadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onDismiss, enabled = !busy) { Text("Cancel") }
-            Text("Edit profile", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).padding(horizontal = 8.dp))
+            TextButton(onClick = onDismiss, enabled = !busy) { Text(stringResource(R.string.cancel)) }
+            Text(stringResource(R.string.profile_edit_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).padding(horizontal = 8.dp))
             TextButton(onClick = { if (!busy) onSave(name, username, user.avatarURL) },
-                enabled = !busy && profileValidationError(name, username) == null) { Text(if (busy) "Saving…" else "Save") }
+                enabled = !busy && profileValidationError(name, username) == null) { Text(if (busy) stringResource(R.string.profile_edit_saving) else stringResource(R.string.profile_edit_save)) }
         }
         Column(Modifier.fillMaxWidth().weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Profile", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.profile_edit_section), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 NuphosAvatar(user, size = 56.dp)
                 TextButton(onClick = onChoosePhoto, enabled = !busy) {
-                    Text(if (user.avatar == null) "Choose photo" else "Change photo")
+                    Text(if (user.avatar == null) stringResource(R.string.profile_edit_choose_photo) else stringResource(R.string.profile_edit_change_photo))
                 }
-                if (user.avatar != null) TextButton(onClick = onRemovePhoto, enabled = !busy) { Text("Remove photo") }
+                if (user.avatar != null) TextButton(onClick = onRemovePhoto, enabled = !busy) { Text(stringResource(R.string.profile_edit_remove_photo)) }
             }
-            OutlinedTextField(name, { name = it }, label = { Text("Name") }, enabled = !busy, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(username, { username = it }, label = { Text("Username") }, enabled = !busy, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.profile_name)) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(username, { username = it }, label = { Text(stringResource(R.string.profile_username)) }, enabled = !busy, modifier = Modifier.fillMaxWidth())
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
     }

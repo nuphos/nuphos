@@ -1,12 +1,9 @@
 import { config } from '@/config'
 import { AppError } from '@/lib/errors'
 
-import { getConversationBySessionId } from '../db'
+import { credentialSource, getConversationBySessionId } from '../db'
 import { credentialScopeCoversAll } from '../trigger-credential-access'
 import { agentTriggers } from '../trigger-db'
-import { agentTriggerGroups } from '../trigger-group-db'
-
-import { standaloneTriggerFilter } from './shared'
 
 import type { TriggerActorContext } from '../trigger-access'
 import type { TriggerCredentialSelection } from '../trigger-credential-access'
@@ -43,7 +40,7 @@ export async function resolveTriggerCredentialSelection(
   if (!conversation || (conversation.teamId ?? undefined) !== context.teamId) {
     throw new AppError(403, 'forbidden', 'The Trigger source conversation is not in this scope')
   }
-  const approved = conversation.credentialAccess
+  const approved = (await credentialSource(conversation)).credentialAccess
 
   if (!approved) return { credentialMode: 'all' }
   const { resolveTriggerCredentialAccess } = await import('@/routes/agent')
@@ -54,14 +51,13 @@ export async function resolveTriggerCredentialSelection(
     : { credentialMode: 'selected', executionCredentialAccess: approved }
 }
 
-/** One standalone Trigger or one Watch Group consumes one quota slot. */
+/** Every enabled Trigger consumes one quota slot. */
 export async function assertTriggerCreationQuota(context: TriggerActorContext): Promise<void> {
   if (!context.teamId) {
     const personalCount = await agentTriggers().countDocuments({
       userId: context.userId,
       teamId: { $exists: false },
       enabled: true,
-      ...standaloneTriggerFilter(),
     })
 
     if (personalCount >= config.agent.triggers.maxPerOwner) {
@@ -75,50 +71,27 @@ export async function assertTriggerCreationQuota(context: TriggerActorContext): 
     return
   }
 
-  const actorOwnership = {
-    $or: [
-      { createdByUserId: context.userId },
-      {
-        createdByUserId: { $exists: false },
-        userId: context.userId,
-      },
-    ],
-  }
-  const [actorTriggers, actorGroups, teamTriggers, teamGroups] = await Promise.all([
+  const [actorTriggers, teamTriggers] = await Promise.all([
     agentTriggers().countDocuments({
       teamId: context.teamId,
       enabled: true,
-      ...standaloneTriggerFilter(),
-      ...actorOwnership,
+      userId: context.userId,
     }),
-    agentTriggerGroups().countDocuments({
-      teamId: context.teamId,
-      enabled: true,
-      ...actorOwnership,
-    }),
-    agentTriggers().countDocuments({
-      teamId: context.teamId,
-      enabled: true,
-      ...standaloneTriggerFilter(),
-    }),
-    agentTriggerGroups().countDocuments({
-      teamId: context.teamId,
-      enabled: true,
-    }),
+    agentTriggers().countDocuments({ teamId: context.teamId, enabled: true }),
   ])
 
-  if (actorTriggers + actorGroups >= config.agent.triggers.maxPerOwner) {
+  if (actorTriggers >= config.agent.triggers.maxPerOwner) {
     throw new AppError(
       429,
       'trigger_quota_exceeded',
-      `Each team member may own up to ${String(config.agent.triggers.maxPerOwner)} enabled Triggers or Watch Groups.`,
+      `Each team member may own up to ${String(config.agent.triggers.maxPerOwner)} enabled Triggers.`,
     )
   }
-  if (teamTriggers + teamGroups >= config.agent.triggers.maxPerTeam) {
+  if (teamTriggers >= config.agent.triggers.maxPerTeam) {
     throw new AppError(
       429,
       'team_trigger_quota_exceeded',
-      `This team may have up to ${String(config.agent.triggers.maxPerTeam)} enabled Triggers or Watch Groups.`,
+      `This team may have up to ${String(config.agent.triggers.maxPerTeam)} enabled Triggers.`,
     )
   }
 }

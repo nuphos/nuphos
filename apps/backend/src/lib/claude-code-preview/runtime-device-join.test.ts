@@ -88,7 +88,7 @@ beforeEach(async () => {
 })
 
 describe('a hosted runtime that joins as a device', () => {
-  test('its pod starts as the CLI host and its endpoint is the device tunnel', async () => {
+  test('its pod starts as the CLI host', async () => {
     const agent = await createManagedRuntimeInstance({
       teamId: 'team-a',
       userId: 'admin',
@@ -111,9 +111,6 @@ describe('a hosted runtime that joins as a device', () => {
     // The host serves nothing on openab's port, so nothing probes it.
     expect(container.readinessProbe).toBeUndefined()
     expect(container.livenessProbe).toBeUndefined()
-    expect((await resolveTeamRuntimeEndpoints('team-a'))[0]?.tunnelUrl).toBe(
-      `nuphos-device://runtime/admin/${device.deviceId}?team=team-a`,
-    )
     // Joining twice is the same device.
     expect(await joinHostedRuntimeAsDevice('team-a', agent.id)).toEqual(device)
     expect(devices()).toHaveLength(1)

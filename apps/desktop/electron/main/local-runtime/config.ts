@@ -4,6 +4,7 @@ import path from 'node:path'
 
 import { envValue } from './agent-cli-apps.ts'
 import { LOCAL_AGENT_PROVIDERS, shimEnv } from './providers.ts'
+import { shellGuardEnv } from './shell-guard.ts'
 
 import type { LocalAgentProvider } from './providers.ts'
 
@@ -40,6 +41,8 @@ export type LocalRuntimeLaunch = {
   env: NodeJS.ProcessEnv
   /** A machine Nuphos made (a Box, a managed runtime's pod), never a person's computer. */
   ownsMachine?: boolean
+  /** A custom provider's key: in openab's environment, passed on by name, never in its config. */
+  secretEnv?: Record<string, string>
 }
 
 const AGENT_ENV_PASSTHROUGH = [
@@ -128,6 +131,7 @@ export function agentEnv(launch: LocalRuntimeLaunch): Record<string, string> {
     NUPHOS_MCP_BRIDGE: launch.adapter.bridge,
     NUPHOS_CUA_PERMISSION_CLIENT: path.join(launch.bundle.root, 'cua-permission'),
     NUPHOS_RUNTIME_WORKSPACE: launch.workspace,
+    ...shellGuardEnv(launch),
   }
 }
 
@@ -137,6 +141,7 @@ export function openabConfigToml(launch: LocalRuntimeLaunch): string {
     `command = ${tomlString(launch.nodeExecPath)}`,
     `args = [${tomlString(launch.adapter.entry)}]`,
     `working_dir = ${tomlString(launch.workspace)}`,
+    `inherit_env = ${JSON.stringify(Object.keys(launch.secretEnv ?? {}))}`,
     '',
     '[agent.env]',
     ...Object.entries(agentEnv(launch)).map(([key, value]) => `${key} = ${tomlString(value)}`),
@@ -180,13 +185,6 @@ export function agentLoginEnv(launch: LocalRuntimeLaunch): Record<string, string
   }
 }
 
-/** The agent's own sign-in command: Claude's browser flow, Codex's device flow. */
-export function agentSignInArgs(provider: 'claude-code' | 'codex'): string[] {
-  return provider === 'codex'
-    ? ['-c', 'cli_auth_credentials_store="file"', 'login', '--device-auth']
-    : ['auth', 'login', '--claudeai']
-}
-
 /** openab listens on loopback only; the backend reaches it through the desktop's tunnel. */
 export function openabEnv(launch: LocalRuntimeLaunch): Record<string, string> {
   return {
@@ -212,6 +210,7 @@ export function openabEnv(launch: LocalRuntimeLaunch): Record<string, string> {
     OPENAB_RUNTIME_LABEL: 'Nuphos Desktop',
     ...(launch.bundle.openabCommit ? { OPENAB_BUILD_SHA: launch.bundle.openabCommit } : {}),
     ...runtimeJobs(launch),
+    ...launch.secretEnv,
   }
 }
 

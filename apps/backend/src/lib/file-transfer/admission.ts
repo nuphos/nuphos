@@ -10,7 +10,14 @@ export const TRANSFER_GROUPS_PER_HOUR = 60
 export const TRANSFER_BYTES_PER_HOUR = 5 * 1024 * 1024 * 1024
 const HOUR_MS = 60 * 60 * 1000
 
-export async function admitFileTransfer(teamId: string, bytes: number, now = Date.now()) {
+/** What one admitted transfer took, so a transfer that fails can give it back. */
+export type AdmittedTransfer = { key: string; bytes: number }
+
+export async function admitFileTransfer(
+  teamId: string,
+  bytes: number,
+  now = Date.now(),
+): Promise<AdmittedTransfer> {
   const hour = Math.floor(now / HOUR_MS)
   const key = `${teamId}:${String(hour)}`
   const counters = fileTransferAdmissions()
@@ -41,4 +48,19 @@ export async function admitFileTransfer(teamId: string, bytes: number, now = Dat
       'File transfers are temporarily limited for this team. Try again next hour.',
     )
   }
+
+  return { key, bytes }
+}
+
+/**
+ * Gives back what a transfer that never delivered its file took. The filter
+ * keeps the counters from going below zero; the caller makes sure one transfer
+ * is refunded at most once. The key, not the current hour, picks the counter, so
+ * an upload that crosses an hour boundary refunds the hour that admitted it.
+ */
+export async function refundFileTransfer({ key, bytes }: AdmittedTransfer): Promise<void> {
+  await fileTransferAdmissions().updateOne(
+    { _id: key, count: { $gte: 1 }, bytes: { $gte: bytes } },
+    { $inc: { count: -1, bytes: -bytes } },
+  )
 }

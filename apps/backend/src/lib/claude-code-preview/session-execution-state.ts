@@ -14,7 +14,7 @@ import { materializeRuntimeAttachments, runtimeAttachments } from './runtime-att
 import { parseSessionExecutionState } from './runtime-execution-snapshot'
 import { rememberRuntimeState } from './runtime-state-store'
 import { withSessionDesktops } from './session-desktops'
-import { steerNotInjected } from './steer-refusal'
+import { steerNotInjected, steerRejected } from './steer-refusal'
 import { steeringText } from './steering-receipt'
 
 import type { RuntimeAttachment } from './runtime-attachments'
@@ -244,11 +244,11 @@ export async function steerConversationRuntime(
     throw new Error('Conversation runtime changed')
   // Same delivery as a normal turn: files land on the runtime as local paths.
   const files = steer.groupId
-    ? await runtimeAttachments(
-        [{ type: 'transfer-upload', groupId: steer.groupId }],
-        { teamId: conversation.teamId, userId: steer.userId, sessionId: conversation.sessionId },
-        [],
-      )
+    ? await runtimeAttachments([{ type: 'transfer-upload', groupId: steer.groupId }], {
+        teamId: conversation.teamId,
+        userId: steer.userId,
+        sessionId: conversation.sessionId,
+      })
     : []
   const attachments = await materializeRuntimeAttachments(
     conversation.teamId,
@@ -291,7 +291,7 @@ export async function steerConversationRuntime(
   } catch (error) {
     // A refused steer has no receipt to read its sender back.
     await takeSteerSender(conversation.sessionId, messageId)
-    throw error
+    throw steerRejected(error)
   } finally {
     client.close()
   }

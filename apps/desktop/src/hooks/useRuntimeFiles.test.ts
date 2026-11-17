@@ -7,6 +7,7 @@ let dependencies: unknown[] | undefined
 let cleanup: (() => void) | undefined
 let effect: (() => (() => void) | undefined) | undefined
 let calls: string[] = []
+let errorToasts = 0
 let resolveConversation = async () => ({ runtimeId: 'runtime', runtimeLabel: 'Local' })
 let list = async () => ({ entries: [], truncated: false })
 let read = async () => ({ name: 'report.txt', data: 'aGk=', size: 2 })
@@ -57,6 +58,11 @@ mock.module('../api.ts', {
 
         return transfer()
       },
+      fileTransferReadOne: async () => {
+        calls.push('read-one')
+
+        return new TextEncoder().encode('%PDF')
+      },
       fileTransferDownloadOne: async () => {
         calls.push('download')
 
@@ -65,7 +71,16 @@ mock.module('../api.ts', {
     },
   },
 })
-mock.module('../components/ui/toast.ts', { namedExports: { toast: { error() {}, apiError() {} } } })
+mock.module('../components/ui/toast.ts', {
+  namedExports: {
+    toast: {
+      error() {},
+      apiError() {
+        errorToasts++
+      },
+    },
+  },
+})
 mock.module('react', {
   namedExports: {
     useRef: (initial: unknown) => {
@@ -120,6 +135,7 @@ function reset() {
   dependencies = undefined
   slots.length = 0
   calls = []
+  errorToasts = 0
   resolveConversation = async () => ({ runtimeId: 'runtime', runtimeLabel: 'Local' })
   list = async () => ({ entries: [], truncated: false })
   read = async () => ({ name: 'report.txt', data: 'aGk=', size: 2 })
@@ -147,7 +163,6 @@ for (const name of [
     read = async () => {
       throw tooLarge()
     }
-    const fetched = mock.method(globalThis, 'fetch', async () => new Response('%PDF'))
     const path = `/outside-workspace/space and 中文/${name}`
 
     try {
@@ -172,7 +187,6 @@ for (const name of [
       assert.equal(render(true, 0, path).source?.local, undefined)
     } finally {
       cleanup?.()
-      fetched.mock.restore()
     }
   })
 }
@@ -359,7 +373,6 @@ test('a PDF that finishes after its preview was left releases its blob URL', asy
   reset()
   const revoked: string[] = []
   const revoke = mock.method(URL, 'revokeObjectURL', (url: string) => revoked.push(url))
-  const fetched = mock.method(globalThis, 'fetch', async () => new Response('%PDF'))
   let finish!: (value: Awaited<ReturnType<typeof transfer>>) => void
 
   transfer = () =>
@@ -382,5 +395,66 @@ test('a PDF that finishes after its preview was left releases its blob URL', asy
   assert.equal(render().media, undefined)
   assert.deepEqual(render().preview, { text: 'hi' })
   revoke.mock.restore()
-  fetched.mock.restore()
+})
+
+test('a PDF is read by the main process, never fetched by the renderer', async () => {
+  reset()
+  const fetched = mock.method(globalThis, 'fetch', async () => {
+    throw new TypeError('Failed to fetch')
+  })
+
+  transfer = async () => ({
+    groupId: 'g',
+    fileId: 'f',
+    fileName: 'slides.pdf',
+    size: 1,
+    url: 'https://store/pdf',
+  })
+  try {
+    render()
+    await settle()
+    render().openFile('slides.pdf')
+    render()
+    await settle()
+    await settle()
+    const result = render()
+
+    assert.equal(result.media?.kind, 'pdf')
+    assert.ok(result.media?.url.startsWith('blob:'))
+    assert.ok(calls.includes('read-one'))
+    assert.equal(fetched.mock.callCount(), 0)
+  } finally {
+    cleanup?.()
+    fetched.mock.restore()
+  }
+})
+
+test('a rejected preview stays in the file pane instead of toasting on each activation', async () => {
+  reset()
+  const message =
+    'Only files inside the source runtime workspace or this conversation’s home can be previewed.'
+
+  read = async () => {
+    throw new Error(`__ATLAS_API_ERROR__${JSON.stringify({ code: 'forbidden_path', message })}`)
+  }
+  const path = '/outside-workspace/report.txt'
+
+  render(true, 0, path)
+  await settle()
+  assert.equal(render(true, 0, path).error, message)
+  render(false, 0, path)
+  render(true, 0, path)
+  await settle()
+  assert.equal(render(true, 0, path).error, message)
+  assert.equal(errorToasts, 0)
+})
+
+test('unexpected read failures show a safe retry message instead of raw IPC details', async () => {
+  reset()
+  read = async () => {
+    throw new Error('Internal transport stack trace')
+  }
+  render(true, 0, '/workspace/report.txt')
+  await settle()
+  assert.equal(render(true, 0, '/workspace/report.txt').error, 'This file could not be previewed.')
 })

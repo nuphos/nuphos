@@ -25,14 +25,7 @@ export function acceptDockTerminal(owner: WebContents, id: string): boolean {
   if (!entry) return false
   pending.delete(id)
   try {
-    localTerminals.start(
-      owner,
-      id,
-      80,
-      24,
-      entry.cwd,
-      JSON.stringify([entry.request.teamId, entry.request.sessionId]),
-    )
+    localTerminals.start(owner, id, 80, 24, entry.cwd, entry.request.sessionId)
     entry.resolve({ terminalId: id })
 
     return true
@@ -65,7 +58,6 @@ export async function runDockTerminal(raw: string, options: { sessionId?: string
     }
 
     if (!request.teamId || !request.sessionId) throw new Error('Missing terminal conversation.')
-    const scope = JSON.stringify([request.teamId, request.sessionId])
     let result: unknown
 
     if (request.action === 'open') {
@@ -102,6 +94,8 @@ export async function runDockTerminal(raw: string, options: { sessionId?: string
           })
         }
       })
+    } else if (request.action === 'list') {
+      result = { terminals: localTerminals.agentList(request.sessionId) }
     } else {
       if (!request.terminalId) throw new Error('Missing terminalId.')
       if (!['read', 'write', 'interrupt'].includes(request.action))
@@ -110,7 +104,7 @@ export async function runDockTerminal(raw: string, options: { sessionId?: string
         throw new Error('Missing terminal input.')
       result = localTerminals.agentRequest(
         request.terminalId,
-        scope,
+        request.sessionId,
         request.action === 'interrupt'
           ? '\x03'
           : request.action === 'write'

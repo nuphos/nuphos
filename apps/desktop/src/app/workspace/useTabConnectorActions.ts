@@ -9,7 +9,7 @@ export function useTabConnectorActions({
   enterScopeInTab,
 }: {
   tabId: string
-  tab: WorkspaceTabState
+  tab: Pick<WorkspaceTabState, 'scope'>
   enterScopeInTab: (tabId: string, next: Scope, defaultActive?: string) => void
 }) {
   const onPickAwsRole = useCallback(

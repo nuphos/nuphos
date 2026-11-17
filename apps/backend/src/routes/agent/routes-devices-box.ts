@@ -88,6 +88,7 @@ async function deviceView(
             ...(level !== 'use' ? { access: teamUse(device, device.box.teamId) } : {}),
             ...(device.box.sandboxId ? { sandboxId: device.box.sandboxId } : {}),
             ...(device.box.accountId ? { instaboxAccountId: device.box.accountId } : {}),
+            ...(device.box.useTerminal ? { useTerminal: true } : {}),
             state,
             // Its host restarting for an update: offline on purpose, and back on its own.
             ...(updating ? { updateStartedAt: updating.toISOString() } : {}),
@@ -102,13 +103,13 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
   const viewOrGone = async (device: AgentDevice, online?: boolean) => {
     const view = await deviceView(deps, device, 'manage', online)
 
-    if (!view) throw new AppError(404, 'not_found', 'This Box no longer exists')
+    if (!view) throw new AppError(404, 'not_found', 'This computer no longer exists')
 
     return view
   }
   const requireBoxes = () => {
     if (!deps.box)
-      throw new AppError(503, 'box_unavailable', 'Boxes are not enabled on this deployment')
+      throw new AppError(503, 'box_unavailable', 'Cloud computers are off on this deployment')
 
     return deps.box
   }
@@ -141,6 +142,7 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
                   ...(view.online
                     ? await deps.readMetrics(device.userId, device.deviceId, demand)
                     : { metrics: null, metricsStatus: 'offline', metricsReceivedAt: null }),
+                  ...(await deps.ownComputer(device, userId)),
                   // A Box's displays besides its own :1, for the desktop's screen switcher.
                   ...(view.box && view.online
                     ? {
@@ -167,9 +169,9 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
     const { label, teamId: requestedTeamId, vcpus, access: requested } = c.req.valid('json')
     const teamId = readTeamIdCandidate(c, requestedTeamId)
 
-    if (!teamId) throw new AppError(400, 'team_required', 'A Box is made inside one of your teams')
+    if (!teamId) throw new AppError(400, 'team_required', 'A cloud computer is made in a team')
     if ((await deps.access.role(c.get('userId'), teamId)) !== 'ADMINISTRATOR')
-      throw new AppError(403, 'forbidden', 'Only an active team administrator can create a Box')
+      throw new AppError(403, 'forbidden', 'Only team administrators can create a cloud computer')
     // Stored with the Box itself, so a Box is never made without the access asked for.
     const shared = requested && memberAccess(await deps.teamMembers(teamId), requested)
     const device = await box.create(
@@ -264,8 +266,9 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
       const boxTeam = device.box?.teamId ?? ''
       const members = await deps.teamMembers(boxTeam)
       const access = memberAccess(members, c.req.valid('json'))
+      const by = { actorUserId: c.get('userId'), via: 'box_access' as const }
 
-      if (!(await deps.setTeamUse(device.userId, device.deviceId, boxTeam, access)))
+      if (!(await deps.setTeamUse(device.userId, device.deviceId, boxTeam, access, by)))
         throw new AppError(404, 'device_not_found', 'Device is not available')
       const memberIds = members.map((member) => member.id)
 

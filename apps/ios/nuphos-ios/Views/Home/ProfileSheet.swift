@@ -12,6 +12,7 @@ struct ProfileSheet: View {
     private var currentUser: NuphosUser { session.user ?? user }
     @State private var editing = false
     @AppStorage(BotAvatars.enabledKey, store: BotAvatars.defaults) private var botAvatars = true
+    @AppStorage(PushNotifications.computerAlertsKey) private var computerAlerts = true
 
     @State private var confirmSignOut = false
     @State private var showAppIcons = false
@@ -39,6 +40,18 @@ struct ProfileSheet: View {
                                     .frame(minHeight: 44)
                             }
                         }
+                    }
+                    .listRowBackground(Theme.surface)
+                }
+
+                if store != nil {
+                    Section("Workspace") {
+                        NavigationLink {
+                            RuntimesPage().navigationTitle("Computers")
+                        } label: {
+                            Label("Computers", systemImage: "desktopcomputer")
+                        }
+
                     }
                     .listRowBackground(Theme.surface)
                 }
@@ -79,10 +92,20 @@ struct ProfileSheet: View {
                 } header: {
                     Text("Voice input")
                 } footer: {
-                    Text("The prompt sets the writing style and spells names Whisper doesn't know, such as products and services. Voice input is included with a Nuphos subscription; recordings are transcribed by OpenAI Whisper.")
+                    Text("The prompt sets the writing style and spells names Whisper doesn't know, such as products and services. Voice input is included with a Nuphos subscription; recordings are transcribed by OpenAI Whisper.", comment: "Legal text")
                 }
                 .listRowBackground(Theme.surface)
                 #endif
+
+                Section {
+                    Toggle("Computers going offline", isOn: $computerAlerts)
+                        .onChange(of: computerAlerts) { PushNotifications.shared.computerAlertsChanged() }
+                } header: {
+                    Text("Notifications")
+                } footer: {
+                    Text("Get notified when a computer you own or use has been offline for 2 minutes, and when it's back.")
+                }
+                .listRowBackground(Theme.surface)
 
                 Section {
                     Toggle("Bot avatars", isOn: $botAvatars)
@@ -176,7 +199,7 @@ struct ProfileSheet: View {
 }
 
 private struct InfoRow: View {
-    let label: String
+    let label: LocalizedStringKey
     let value: String
     var monospaced = false
 
@@ -244,7 +267,7 @@ private struct EditProfileSheet: View {
                     Task {
                         guard let data = try? await item.loadTransferable(type: Data.self),
                               let image = ImageAttachment.avatar(from: data) else {
-                            error = "This image could not be read."
+                            error = String(localized: "This image could not be read.")
                             return
                         }
                         setAvatar(image)

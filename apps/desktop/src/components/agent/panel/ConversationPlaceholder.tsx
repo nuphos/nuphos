@@ -24,7 +24,7 @@ export function ConversationPlaceholder({ unavailable, onNewChat }: Props) {
         description={t(
           'It may be private, or it may have been deleted. If someone shared it with you, ask them to invite you.',
         )}
-        primaryAction={{ label: t('New agent'), icon: SquarePen, onClick: onNewChat }}
+        primaryAction={{ label: t('New task'), icon: SquarePen, onClick: onNewChat }}
       />
     )
   }
@@ -36,7 +36,7 @@ export function ConversationPlaceholder({ unavailable, onNewChat }: Props) {
         strokeWidth={1.7}
         aria-hidden="true"
       />
-      <span className="sr-only">{t('Opening agent')}</span>
+      <span className="sr-only">{t('Opening task')}</span>
     </div>
   )
 }

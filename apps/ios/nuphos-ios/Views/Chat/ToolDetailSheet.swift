@@ -21,19 +21,19 @@ struct ToolDetailSheet: View {
                     if part.isProviderIntegrationRequest { integrationActions }
 
                     if isCommand, let command = part.input?["command"]?.stringValue {
-                        section("Command") { code(command) }
+                        section(String(localized: "Command")) { code(command) }
                         if let out = part.output {
                             let stdout = out["stdout"]?.stringValue ?? ""
                             let stderr = out["stderr"]?.stringValue ?? ""
                             let exit = out["exitCode"]?.numberValue.map { Int($0) }
-                            if !stdout.isEmpty { section("Output") { code(stdout) } }
-                            if !stderr.isEmpty { section("Errors") { code(stderr, tint: .red) } }
-                            if let exit { section("Exit code") { Text("\(exit)").font(Theme.Text.mono(.footnote)) } }
-                            if stdout.isEmpty, stderr.isEmpty, exit == nil { section("Result") { code(out.prettyPrinted) } }
+                            if !stdout.isEmpty { section(String(localized: "Output")) { code(stdout) } }
+                            if !stderr.isEmpty { section(String(localized: "Errors")) { code(stderr, tint: .red) } }
+                            if let exit { section(String(localized: "Exit code")) { Text("\(exit)").font(Theme.Text.mono(.footnote)) } }
+                            if stdout.isEmpty, stderr.isEmpty, exit == nil { section(String(localized: "Result")) { code(out.prettyPrinted) } }
                         }
                     } else {
-                        if let input = part.input { section("Parameters") { code(input.prettyPrinted) } }
-                        if let output = part.output { section("Result") { code(output.prettyPrinted) } }
+                        if let input = part.input { section(String(localized: "Parameters")) { code(input.prettyPrinted) } }
+                        if let output = part.output { section(String(localized: "Result")) { code(output.prettyPrinted) } }
                     }
                     if let error = part.errorText { section("Error") { code(error, tint: .red) } }
                 }
@@ -51,7 +51,7 @@ struct ToolDetailSheet: View {
         .sheet(isPresented: $choosingCredentials) {
             CredentialPickerSheet(selection: Binding(
                 get: { session.credentialAccess ?? CredentialSelection() },
-                set: { session.setCredentials($0) }))
+                set: { session.setCredentials($0) }), providers: part.integrationProviders)
         }
         .sheet(isPresented: $showingConnectors) {
             NavigationStack {
@@ -74,11 +74,11 @@ struct ToolDetailSheet: View {
                 Button("Choose credentials") { choosingCredentials = true }
                     .buttonStyle(.bordered)
                     .accessibilityIdentifier("integration.chooseCredentials")
-                Text("Choose a connected account to let this conversation use it.")
+                Text("Choose a connected account to let this task use it.")
                     .font(Theme.Text.caption)
                     .foregroundStyle(Theme.muted)
             } else {
-                Text("The conversation owner can choose credentials for this conversation.")
+                Text("The task owner can choose credentials for this task.")
                     .font(Theme.Text.caption)
                     .foregroundStyle(Theme.muted)
             }

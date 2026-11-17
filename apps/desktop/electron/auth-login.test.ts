@@ -23,6 +23,7 @@ const USER: UserInfo = {
 }
 
 const TOKEN = 'nus_test-session'
+const BAD_EMAIL = "That email address doesn't look right. Check it and try again."
 const HANDLE = 'h'.repeat(43)
 /** What the backend puts on the loopback redirect after a real sign-in. */
 const DELIVERY_CODE = 'd'.repeat(43)
@@ -157,6 +158,8 @@ before(async () => {
 
     if (url.endsWith('/auth/email/request-code')) {
       codeRequestClients.push(new Headers(init?.headers).get('x-atlas-client'))
+      if (String(init?.body).includes('..'))
+        return json({ error: { code: 'invalid_email', message: BAD_EMAIL } }, 400)
 
       return json({ ok: true })
     }
@@ -279,7 +282,20 @@ test('native: Apple opens its own start page with the same handle', async () => 
 })
 
 test('socialProviders reports what the backend offers, and nothing from older servers', async () => {
-  assert.deepEqual(await auth.socialProviders(), ['google', 'apple'])
+  assert.deepEqual(await auth.socialProviders(), [
+    { provider: 'google', name: 'Google' },
+    { provider: 'apple', name: 'Apple' },
+  ])
+
+  chooserProbe = () =>
+    new Response('provider chooser', {
+      headers: {
+        'X-Nuphos-Social-Login': '1',
+        'X-Nuphos-Social-Providers': 'oidc,unknown',
+        'X-Nuphos-Social-Oidc-Name': 'Logto',
+      },
+    })
+  assert.deepEqual(await auth.socialProviders(), [{ provider: 'oidc', name: 'Logto' }])
 
   chooserProbe = () =>
     new Response('provider chooser', { headers: { 'X-Nuphos-Social-Login': '1' } })
@@ -715,5 +731,17 @@ test('asking for a sign-in code names the app, so the email can say so', async (
   codeRequestClients.length = 0
   await auth.requestEmailCode('dev@example.com')
 
-  assert.deepEqual(codeRequestClients, ['nuphos-desktop/0.0.0-test'])
+  const { CLIENT_VERSION_VALUE } = await import('./client-version.ts')
+
+  assert.deepEqual(codeRequestClients, [CLIENT_VERSION_VALUE])
+})
+
+test('a refused address keeps the backend code, so the sign-in shows its sentence', async () => {
+  const { atlasErrorInfo } = await import('./atlas/error.ts')
+
+  await assert.rejects(auth.requestEmailCode('dev..typo@example.com'), (err: unknown) => {
+    assert.deepEqual(atlasErrorInfo(err), { message: BAD_EMAIL, code: 'invalid_email' })
+
+    return true
+  })
 })

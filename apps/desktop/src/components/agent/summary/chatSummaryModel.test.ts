@@ -2,7 +2,6 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import { isChatSummaryShortcut } from '../../../lib/chatSummaryShortcut.ts'
-import { EMPTY_CREDENTIAL_ACCESS } from '../panel/constants.ts'
 
 import {
   changeCounts,
@@ -11,12 +10,9 @@ import {
   changeTitle,
   changesFilterOptions,
   changesOf,
-  connectorCount,
-  deviceCount,
   filterChanges,
   filterSubAgents,
   findConversation,
-  machineName,
   outputFilesOf,
   shownChangesFilter,
   shownSubAgentsFilter,
@@ -165,28 +161,6 @@ test('outputs list ready files from live download groups, newest group first', (
   assert.equal(files[0]?.image, true)
 })
 
-test('connectors count leaves devices out', () => {
-  const conversation = chat('a', {
-    credentialAccess: { ...EMPTY_CREDENTIAL_ACCESS, awsRoleIds: ['r'], deviceIds: ['m', 'gone'] },
-  })
-
-  assert.equal(connectorCount(conversation), 1)
-  assert.equal(connectorCount(undefined), 0)
-})
-
-test('a stored selection with null for an unset kind counts it as none', () => {
-  // The database stores an unset optional list as null, and the summary used to read its length.
-  const credentialAccess = {
-    awsRoleIds: ['r'],
-    instaboxAccountIds: null,
-    deviceIds: null,
-  } as unknown as AgentConversation['credentialAccess']
-  const conversation = chat('a', { credentialAccess })
-
-  assert.equal(connectorCount(conversation), 1)
-  assert.equal(deviceCount(conversation), 0)
-})
-
 test('⌘I toggles on macOS and Ctrl+I elsewhere, nothing with extra modifiers', () => {
   const key = {
     metaKey: false,
@@ -228,31 +202,10 @@ test('⌘I is left alone while focus is in a dialog or menu', () => {
   )
 })
 
-test('the machine is named without the agent, with a fallback per runtime kind', () => {
-  assert.equal(machineName('MacBook-Pro.local · Claude Code', true), 'MacBook-Pro.local')
-  assert.equal(machineName(undefined, true), 'This computer')
-  assert.equal(machineName('', false), 'Cloud runtime')
-})
-
 test('a long file name can be cut while its extension stays readable', () => {
   assert.deepEqual(splitFileName('chat-summary-light.png'), ['chat-summary-light', '.png'])
   assert.deepEqual(splitFileName('README'), ['README', ''])
   assert.deepEqual(splitFileName('.env'), ['.env', ''])
-})
-
-test('a stored selection missing newer credential kinds counts without throwing', () => {
-  const { cloudflareAccountIds: _dropped, ...older } = {
-    ...EMPTY_CREDENTIAL_ACCESS,
-    awsRoleIds: ['r1'],
-    deviceIds: ['d1', 'd2'],
-  }
-  const conversation = chat('a', {
-    credentialAccess: older as AgentConversation['credentialAccess'],
-  })
-
-  assert.equal(connectorCount(conversation), 1)
-  assert.equal(deviceCount(conversation), 2)
-  assert.equal(deviceCount(undefined), 0)
 })
 
 const openPr = resource({ id: 'open-pr', state: 'open' })

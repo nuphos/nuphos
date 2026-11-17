@@ -6,6 +6,7 @@ import {
   setClaudeCodeAutonomousUpdateHandler,
   setClaudeCodeBackgroundToolHandler,
 } from './autonomous-session-observer'
+import { endAutonomousTranscriptAfterLoss } from './session-reattach'
 
 import type { OpenAbSessionUpdate } from './openab-acp-client'
 import type { OpenAbPermissionHandler } from './openab-acp-session'
@@ -532,7 +533,8 @@ test('each closed autonomous segment logs the frame that closed it', async () =>
       update: { kind: 'runtime-state', snapshot: { state: 'active', providerState: 'active' } },
     })
     harness.emit({ kind: 'text', text: 'Still checking.' })
-    harness.emit({ kind: 'interrupted', reason: 'runtime_connection_lost' })
+    // Giving up on reattaching closes it; a dropped transport alone does not.
+    endAutonomousTranscriptAfterLoss(harness.session)
     await Bun.sleep(0)
 
     expect(

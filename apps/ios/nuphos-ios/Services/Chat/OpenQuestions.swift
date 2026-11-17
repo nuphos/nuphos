@@ -21,10 +21,31 @@ final class OpenQuestions {
         self.teamId = teamId
     }
 
-    /// What the cards show: the listing, less what was answered here.
+    /// What the Inbox lists: the listing, less what was answered here.
     var list: [BotQuestion] { listed.filter { !answered.contains($0.id) } }
 
-    func refresh(pick: @MainActor ([AgentConversation]) -> [BotQuestion] = BotQuestions.open) async {
+    /// The question open beside the list, or pushed over it on iPhone.
+    var selected: String?
+    /// The Inbox's last answer, not sent yet so it can be undone.
+    private var held: (token: UUID, question: BotQuestion, answer: DecisionAnswer)?
+    /// What that answer says, for the "Answered …" toast while it can be undone: the options
+    /// chosen or the words, else (a form) the question.
+    var toast: String? {
+        guard let held else { return nil }
+        return held.answer.choices?.joined(separator: ", ") ?? held.answer.text ?? held.question.request.question
+    }
+
+    /// The list by the conversation that asked.
+    var groups: [[BotQuestion]] { BotQuestions.grouped(list) }
+
+    /// The question to open after `id`.
+    func next(after id: String) -> String? { BotQuestions.next(after: id, in: groups) }
+
+    /// Which of the listing's questions this list shows: all of them, or a Bot's; kept for refreshes after a save.
+    @ObservationIgnored private var pick: @MainActor ([AgentConversation]) -> [BotQuestion] = BotQuestions.open
+
+    func refresh(pick: (@MainActor ([AgentConversation]) -> [BotQuestion])? = nil) async {
+        if let pick { self.pick = pick }
         do {
             var rows: [AgentConversation] = []
             var cursor: String?
@@ -36,8 +57,12 @@ final class OpenQuestions {
                 guard page.hasMore, let next = page.nextCursor, next != cursor else { break }
                 cursor = next
             }
-            listed = pick(rows)
+            // A Bot's group wears its face, even before the Bot list loads.
+            await MainActor.run { BotFaces.shared.learn(rows) }
+            listed = self.pick(rows)
             answered.formIntersection(listed.map(\.id))
+            // Answered elsewhere: nothing stays open on it.
+            if let selected, !list.contains(where: { $0.id == selected }) { self.selected = nil }
             loaded = true
         } catch {
             // Kept as they were; the next poll tries again.
@@ -76,29 +101,81 @@ final class OpenQuestions {
     }
 
     /// Saves the asking conversation's selection, as its credential picker would. The server
-    /// answers the question once it covers a provider asked for; the card leaves with the listing.
+    /// answers the question once it adds a provider asked for; the card leaves with the listing,
+    /// or says why it is still open.
     func select(_ selection: CredentialSelection, for question: BotQuestion) async {
         failures[question.id] = nil
         do {
             try await AgentChatAPI.updateCredentials(token: token, teamId: teamId, sessionId: question.sessionId, selection: selection)
         } catch {
             failures[question.id] = error.localizedDescription
+            return
         }
         await refresh()
+        if listed.contains(where: { $0.id == question.id }) {
+            failures[question.id] = String(localized: "The selection adds no credential this question asks for.")
+        }
     }
 
     /// Answers a question: the server wakes the agent that asked with the answer, and no
-    /// message is sent. Hidden at once; if the answer is refused, the card comes back with why.
+    /// message is sent. Hidden at once; if the answer is refused, the question comes back with why.
     func answer(_ question: BotQuestion, with answer: DecisionAnswer) async {
+        await close(question) {
+            _ = try await AgentChatAPI.send(
+                "POST", "agent/conversations/\(question.sessionId)/decisions/\(question.request.id)/answer",
+                query: [URLQueryItem(name: "teamId", value: self.teamId)], token: self.token, body: answer.json)
+        }
+    }
+
+    /// Withdraws a question unanswered: the agent that asked is told it was skipped. Hidden at once, and back with why if refused.
+    func dismiss(_ question: BotQuestion) async {
+        await close(question) {
+            try await AgentChatAPI.resolveDecision(
+                token: self.token, teamId: self.teamId, sessionId: question.sessionId,
+                requestId: question.request.id, resolution: "dismissed")
+        }
+    }
+
+    private func close(_ question: BotQuestion, _ request: () async throws -> Void) async {
         answered.insert(question.id)
         failures[question.id] = nil
         do {
-            _ = try await AgentChatAPI.send(
-                "POST", "agent/conversations/\(question.sessionId)/decisions/\(question.request.id)/answer",
-                query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: answer.json)
+            try await request()
         } catch {
             answered.remove(question.id)
             failures[question.id] = error.localizedDescription
+            // Back to it, with why, unless another question is open by now.
+            if selected == nil { selected = question.id }
         }
+    }
+
+    /// The Inbox's answer: the question leaves and the next one opens at once, but the answer is
+    /// sent only after five seconds, so Undo can take it back. The one held before goes now.
+    func hold(_ question: BotQuestion, with answer: DecisionAnswer) async {
+        await sendHeld()
+        if selected == question.id { selected = next(after: question.id) }
+        answered.insert(question.id)
+        failures[question.id] = nil
+        let token = UUID()
+        held = (token, question, answer)
+        Task {
+            try? await Task.sleep(for: .seconds(5))
+            if held?.token == token { await sendHeld() }
+        }
+    }
+
+    /// Takes the held answer back: nothing is sent, and its question is open again.
+    func undo() {
+        guard let held else { return }
+        self.held = nil
+        answered.remove(held.question.id)
+        selected = held.question.id
+    }
+
+    /// Sends the held answer now: when the five seconds are up, or the Inbox is left.
+    func sendHeld() async {
+        guard let held else { return }
+        self.held = nil
+        await answer(held.question, with: held.answer)
     }
 }

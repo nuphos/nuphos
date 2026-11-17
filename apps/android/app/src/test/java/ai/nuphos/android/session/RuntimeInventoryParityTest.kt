@@ -18,35 +18,26 @@ class RuntimeInventoryParityTest {
         assertEquals(InventoryDestination.CloudDetails,inventoryDestination(cloud.copy(deleting=true),true,emptyList()))
     }
     private class Fake(var rows: List<AgentRuntime>) : RuntimeTransport {
-        var starts=0; var codes=0; var creates=0
+        var starts=0; var codes=0
         var held: CompletableDeferred<Unit>?=null
         var attempt=RuntimeLogin("00000000-0000-4000-8000-000000000001","awaiting_authorization",100000,
             step=RuntimeLoginStep("choose",options=listOf(RuntimeLoginOption("a","Option A"))))
         override suspend fun catalog()=rows
-        override suspend fun create(provider:String,label:String?):AgentRuntime { creates++; return rows.last() }
         override suspend fun start(runtimeId:String):RuntimeLogin { starts++; held?.await(); return attempt }
         override suspend fun login(runtimeId:String)=attempt
         override suspend fun code(runtimeId:String,attemptId:String,code:String):RuntimeLogin { codes++; return attempt.copy(codeSubmitted=true) }
         override suspend fun cancel(runtimeId:String,attemptId:String) {}
     }
-    @Test fun boxLoginCannotCreateOrChangeSelectionAndLateRevocationHidesAttempt()=runTest {
+    @Test fun boxLoginPreservesSelectionAndLateRevocationHidesAttempt()=runTest {
         val api=Fake(listOf(cloud,local)); val selection=RuntimeSelections().bind("a","t")
         selection.saveCatalog(api.rows);selection.select(cloud.id)
         var allowed=true
         val store=RuntimeSetupStore(api,this,{true},{false},selection,{},now={0},loginAllowed={allowed && it.id==local.id})
         store.open();runCurrent();assertTrue(store.focusSignIn(local.id))
-        store.create("codex",null);runCurrent();assertEquals(0,api.creates)
         api.held=CompletableDeferred();store.startLogin();runCurrent();allowed=false
         api.held!!.complete(Unit);runCurrent()
         assertNull(store.state.attempt);assertFalse(store.canSignIn);assertEquals(cloud.id,selection.selectedId)
         store.submitCode("a");runCurrent();assertEquals(0,api.codes);store.close()
-    }
-    @Test fun inventoryCreationKeepsCurrentSelection()=runTest {
-        val added=cloud.copy(id="added",provider="opencode");val api=Fake(listOf(cloud,added))
-        val selection=RuntimeSelections().bind("a","t");selection.saveCatalog(listOf(cloud));selection.select(cloud.id)
-        val store=RuntimeSetupStore(api,this,{true},{true},selection,{},now={0},selectCreatedRuntime=false)
-        store.create("opencode",null);runCurrent()
-        assertEquals(1,api.creates);assertEquals(cloud.id,selection.selectedId);assertEquals(added.id,store.signInRuntime?.id);store.close()
     }
     @Test fun deniedRefreshRemovesCachedCatalogWithoutSigningOut()=runTest {
         var denied=false;var expired=0;var usageReads=0

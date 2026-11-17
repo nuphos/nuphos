@@ -120,20 +120,33 @@ export class SkillsS3Client {
     return out
   }
 
-  async getObjectBody(key: string): Promise<Buffer> {
+  async getObjectBody(
+    key: string,
+    options?: { ifMatch: string; maxBytes: number },
+  ): Promise<Buffer> {
     const out = await this.client.send(
       new GetObjectCommand({
         Bucket: this.bucket,
         Key: key,
+        IfMatch: options ? `"${options.ifMatch}"` : undefined,
       }),
     )
 
     if (!out.Body) {
       throw new AppError(404, 'skill_object_not_found', `S3 object not found: ${key}`)
     }
-    const bytes = await out.Body.transformToByteArray()
+    if (!options) return Buffer.from(await out.Body.transformToByteArray())
+    const chunks: Uint8Array[] = []
+    let size = 0
 
-    return Buffer.from(bytes)
+    for await (const chunk of out.Body as AsyncIterable<Uint8Array>) {
+      size += chunk.byteLength
+      if (size > options.maxBytes)
+        throw new AppError(413, 'migration_limit', 'Skill exceeds migration limit')
+      chunks.push(chunk)
+    }
+
+    return Buffer.concat(chunks)
   }
 
   async headObject(key: string): Promise<{

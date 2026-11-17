@@ -28,10 +28,14 @@ export function assertWithinLimit(
     box_vcpus: vcpus,
   })
   if (limit === 0)
-    throw new AppError(402, 'box_vcpu_limit', 'Your team has no Box plan; upgrade to start a Box')
+    throw new AppError(
+      402,
+      'box_vcpu_limit',
+      "Your team's plan doesn't include cloud computers. Choose a computer plan to start one.",
+    )
   throw new AppError(
     402,
     'box_vcpu_limit',
-    `This Box needs ${String(vcpus)} vCPU, and your team's running Boxes already use ${String(usedVcpus)} of its ${String(limit)}. Pause a Box or upgrade.`,
+    `This computer needs ${String(vcpus)} vCPU, and your team's running computers already use ${String(usedVcpus)} of the ${String(limit)} in its plan. Pause a computer or choose a bigger plan.`,
   )
 }

@@ -1,6 +1,6 @@
 import { ObjectId } from 'mongodb'
 
-import { canUseAllowList } from '@/lib/byos/access'
+import { canPrincipalsUseAllowList } from '@/lib/byos/access'
 import { findGithubInstallation, findGitlabBinding, findLinearWorkspace } from '@/lib/byos/account'
 import { getInstallationToken } from '@/lib/byos/github'
 import { GITHUB_API, githubFetch } from '@/lib/byos/github-http'
@@ -10,8 +10,8 @@ import { withLinearAccessToken } from '@/lib/byos/linear-tokens'
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 
+import { agentConversations, credentialSource } from './db'
 import { fetchPullHealth } from './github-pull-health'
-import { githubReviewScope } from './github-review-scope'
 import { mergedAtOf } from './merged-at'
 
 import type { AgentConversation } from './db'
@@ -28,7 +28,7 @@ export async function resourceCredentialAllowed(
 ) {
   if (!conversation.teamId || !(await getTeamMembership(conversation.userId, conversation.teamId)))
     return false
-  const access = conversation.credentialAccess
+  const { credentialAccess: access } = await credentialSource(conversation)
   const selected = {
     github: access?.githubInstallationIds,
     gitlab: access?.gitlabBindingIds,
@@ -36,22 +36,40 @@ export async function resourceCredentialAllowed(
   }[resource.provider]
 
   if (!selected?.includes(resource.integrationId)) return false
-  const team = new ObjectId(conversation.teamId)
-
-  if (resource.provider === 'github')
-    return Boolean(await findGithubInstallation(team, Number(resource.integrationId)))
-  const id = new ObjectId(resource.integrationId)
-  const binding =
-    resource.provider === 'gitlab'
-      ? await findGitlabBinding(team, id)
-      : await findLinearWorkspace(team, id)
-  const allowList = binding?.access?.memberAllowList
+  const binding = await findResourceBinding(new ObjectId(conversation.teamId), resource)
 
   return Boolean(
     binding &&
-    canUseAllowList(allowList, actorId) &&
-    canUseAllowList(allowList, conversation.userId),
+    canPrincipalsUseAllowList(binding.access?.memberAllowList, [actorId, conversation.userId]),
   )
+}
+
+/**
+ * The conversations linking `key` that may still read it. A webhook writes
+ * fresh state only to these, so a member taken off the integration's list
+ * stops receiving it.
+ */
+export async function allowedResourceRecipients(key: string): Promise<ObjectId[]> {
+  const ids: ObjectId[] = []
+
+  for await (const conversation of agentConversations().find({ 'linkedResources.key': key })) {
+    const resource = conversation.linkedResources?.find((entry) => entry.key === key)
+
+    if (conversation._id && resource && (await resourceCredentialAllowed(conversation, resource)))
+      ids.push(conversation._id)
+  }
+
+  return ids
+}
+
+function findResourceBinding(
+  team: ObjectId,
+  { provider, integrationId }: Pick<SessionResource, 'provider' | 'integrationId'>,
+) {
+  if (provider === 'github') return findGithubInstallation(team, Number(integrationId))
+  const id = new ObjectId(integrationId)
+
+  return provider === 'gitlab' ? findGitlabBinding(team, id) : findLinearWorkspace(team, id)
 }
 
 function inputIntegrationId(input: z.infer<typeof sessionResourceInput>) {
@@ -81,12 +99,7 @@ export async function resolveResource(
     )
   }
   if (input.provider === 'github') {
-    const scope = await githubReviewScope(conversation.sessionId, conversation.teamId!)
-
-    if (scope && scope.installationId !== input.installationId) {
-      throw new AppError(403, 'github_review_scope', 'Resource is outside the review repository')
-    }
-    const { token } = await getInstallationToken(input.installationId, scope?.repositoryId)
+    const { token } = await getInstallationToken(input.installationId)
     const response = await githubFetch(
       `${GITHUB_API}/repos/${input.repository}/pulls/${input.number}`,
       {
@@ -110,8 +123,6 @@ export async function resolveResource(
 
     const mergedAt = mergedAtOf(pr.merged_at)
 
-    if (scope && scope.repositoryId !== pr.base.repo.id)
-      throw new AppError(403, 'github_review_scope', 'Resource is outside the review repository')
     const repository = pr.base.repo.full_name
     const health = await fetchPullHealth(input.installationId, repository, pr.number, pr).catch(
       () => null,

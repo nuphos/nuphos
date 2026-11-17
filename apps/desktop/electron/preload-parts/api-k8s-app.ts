@@ -240,6 +240,7 @@ export const k8sAppApi = {
   apiUrlSync: (): string => ipcRenderer.sendSync('app:apiUrlSync') as string,
   appGetPlatform: () => ipcRenderer.invoke('app:getPlatform'),
   appSelectAsciiInputSource: () => ipcRenderer.invoke('app:selectAsciiInputSource'),
+  appSetLocale: (locale: string) => ipcRenderer.invoke('app:setLocale', locale),
   appSetNativeTheme: (source: 'system' | 'light' | 'dark') =>
     ipcRenderer.invoke('app:setNativeTheme', source),
   onNativeThemeUpdated: (cb: (payload: { shouldUseDarkColors: boolean }) => void) => {

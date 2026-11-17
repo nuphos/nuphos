@@ -20,25 +20,20 @@ struct ConversationView: View {
     @Environment(AgentStore.self) private var store
     @State private var archiveError: String?
     @State private var updating = false
-    @State private var width: CGFloat = 0
-    #if os(iOS)
-    @Environment(\.barButtonsInSideRail) private var barButtonsInSideRail
-    #else
-    private let barButtonsInSideRail = false
-    #endif
+    @State private var showTriggers = false
     @State private var showRename = false
     @State private var renamedTitle = ""
     @State private var showRuntimes = false
     /// The last sign-in ask from this screen, for the runtime it was about.
     @State private var signInAsk: (runtimeId: String, status: String, asked: Bool)?
     @State private var showShare = false
-    /// The desktop open from this conversation: beside it where the window is wide, else full screen.
-    @State private var desktop: DesktopSession?
+    /// The desktop or terminal open from this conversation: beside it where the window is wide, else full screen.
+    @State private var pane: (any BesidePane)?
     /// The dock panel: this conversation's dock, mirrored from the Mac.
     @State private var dockOpen = false
     /// A dock page open in the phone's own browser.
     @State private var web: DockWeb?
-    /// An iPhone screen opened from the dock: Plans, Runtimes or Connectors.
+    /// An iPhone screen opened from the dock: Runtimes or Connectors.
     @State private var dockScreen: DockDestination?
     /// A watched tab is laid out on the Mac at this screen's size, so its page fits the phone.
     private static var screenSize: CGSize {
@@ -54,7 +49,7 @@ struct ConversationView: View {
     private var hasDock: Bool { !session.isNew && session.ownsChat }
     @State private var referencedAgents = ReferencedAgents()
 
-    private var rows: [ChatRow] { ChatRow.rows(for: session) }
+    private var rows: [ChatRow] { ChatRow.rows(for: session, runtimeOffline: conversationRuntime?.local?.online == false) }
 
     /// Shown instead of the transcript while it loads or after it failed.
     @ViewBuilder
@@ -62,7 +57,7 @@ struct ConversationView: View {
         if !session.loaded || session.awaitingReplay {
             ProgressView().tint(Theme.muted)
         } else if let loadError = session.loadError {
-            ContentUnavailableView("Couldn't load this agent", systemImage: "exclamationmark.bubble", description: Text(loadError))
+            ContentUnavailableView("Couldn't load this task", systemImage: "exclamationmark.bubble", description: Text(loadError))
         }
     }
 
@@ -82,7 +77,10 @@ struct ConversationView: View {
         .dock(isOpen: Binding(get: { dockOpen }, set: { dockOpen = $0 && hasDock })) {
             DockPanel(session: session) {
                 dockOpen = false
-                desktop = session.makeDesktop()
+                pane = session.makeDesktop()
+            } openTerminal: {
+                dockOpen = false
+                pane = session.makeTerminal()
             } openWeb: { url, tab in
                 dockOpen = false
                 web = DockWeb(url: url, tabId: tab)
@@ -96,7 +94,7 @@ struct ConversationView: View {
             NativeBrowser(session: session, url: page.url, tabId: page.tabId) { tab in
                 web = nil
                 // The Mac's own page, live: only when asked for, from the browser's menu.
-                desktop = session.makeLiveView(tab: tab, size: Self.screenSize)
+                pane = session.makeLiveView(tab: tab, size: Self.screenSize)
             } close: {
                 web = nil
             }
@@ -104,8 +102,7 @@ struct ConversationView: View {
         .sheet(item: $dockScreen) { screen in
             NavigationStack { DockScreen(destination: screen) }
         }
-        .desktop($desktop)
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+        .pane($pane)
         .background(Theme.chatCanvas)
         .safeAreaInset(edge: .top, spacing: 0) {
             if !session.resources.isEmpty { ResourceStrip(resources: session.resources) }
@@ -124,7 +121,7 @@ struct ConversationView: View {
         .onDisappear {
             UIEventLog.pageTransition(from: "chat", to: sourcePage)
         }
-        .alert("Rename agent", isPresented: $showRename) {
+        .alert("Rename task", isPresented: $showRename) {
             TextField("Title", text: $renamedTitle)
             Button("Cancel", role: .cancel) {}
             Button("Save") {
@@ -194,14 +191,14 @@ struct ConversationView: View {
                         // A Label, not a bare Image: the bar takes it as a
                         // native item, so the whole glass answers, not just
                         // the glyph.
-                        Label("Agent options", systemImage: "ellipsis")
+                        Label("Task options", systemImage: "ellipsis")
                     }
                     .disabled(updating)
-                    .accessibilityLabel("Agent options")
+                    .accessibilityLabel("Task options")
                 }
             }
         }
-        .alert("Couldn't update agent", isPresented: Binding(get: { archiveError != nil }, set: { if !$0 { archiveError = nil } })) {
+        .alert("Couldn't update task", isPresented: Binding(get: { archiveError != nil }, set: { if !$0 { archiveError = nil } })) {
             Button("OK") { archiveError = nil }
         } message: {
             Text(archiveError ?? "")
@@ -212,7 +209,11 @@ struct ConversationView: View {
         } message: {
             Text(session.stopRefusal ?? "")
         }
+        .alert(session.stopNotice ?? "", isPresented: Binding(get: { session.stopNotice != nil }, set: { if !$0 { session.stopNotice = nil } })) {
+            Button("OK") { session.stopNotice = nil }
+        }
         .sheet(item: $toolDetail) { ToolDetailSheet(part: $0, session: session) }
+        .sheet(isPresented: $showTriggers) { ConversationTriggers(teamId: session.teamId, sessionId: session.sessionId, token: store.token).presentationDetents([.large]) }
         .sheet(isPresented: $showShare) { ShareSessionSheet(session: session).presentationDetents([.medium, .large]) }
         .sheet(isPresented: $showRuntimes) {
             RuntimePickerSheet(session: session) { runtime in
@@ -227,6 +228,14 @@ struct ConversationView: View {
         .sheet(item: $planLink) { target in
             PlanLinkSheet(target: target, approve: { plan in try await session.approvePlan(plan.id) }) { planLink = nil }
         }
+        // A computer comes and goes while the conversation stays open: keep its presence current.
+        .task(id: conversationRuntime?.local?.deviceId) {
+            guard conversationRuntime?.local != nil else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(15))
+                await store.loadRuntimes(force: true)
+            }
+        }
         .task {
             if session.isNew, let initialPrompt, !didSendInitial {
                 didSendInitial = true
@@ -240,48 +249,45 @@ struct ConversationView: View {
             }
             #endif
         }
-        // A teammate's computer that asks its owner first: say so until they answer.
-        .task(id: "\(ShareApprovalWait.asksOwner(conversationRuntime)).\(session.queuedSends)") {
+        // A queued send may wait on its computer: read the runtimes again so its state shows.
+        .task(id: session.queuedSends) {
             await store.loadRuntimes()
-            guard ShareApprovalWait.asksOwner(conversationRuntime) else { return }
-            while !Task.isCancelled, await session.refreshShareApproval() {
-                try? await Task.sleep(for: .seconds(5))
-            }
         }
     }
 
     /// The conversation's title, with the agent that answers in it on a
     /// second, quieter line — where the composer's runtime chip used to be.
     private var titleBar: some View {
-        HStack(spacing: 8) {
-            AgentAvatar(agentId: session.sessionId, runtime: session.agentRuntime)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(session.title)
-                    .font(Theme.Text.label.weight(.semibold))
-                    .foregroundStyle(Theme.heading)
-                    .lineLimit(1)
-                if session.loaded || session.runtimeDisplayName != nil {
-                    let name = session.runtimeDisplayName
-                    HStack(spacing: 4) {
-                        if botAvatars { RuntimeMark(runtime: session.agentRuntime) }
-                        Text(RuntimeInstance.Provider.detail(session.agentRuntime, instance: name))
-                            .font(Theme.Text.micro)
-                            .foregroundStyle(Theme.muted)
-                            .lineLimit(1)
+        Button { showTriggers = true } label: {
+            HStack(spacing: 8) {
+                AgentAvatar(agentId: session.sessionId, runtime: session.agentRuntime)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(session.title)
+                        .font(Theme.Text.label.weight(.semibold))
+                        .foregroundStyle(Theme.heading)
+                        .lineLimit(1)
+                    if session.loaded || session.runtimeDisplayName != nil {
+                        let name = session.runtimeDisplayName
+                        HStack(spacing: 4) {
+                            if botAvatars { RuntimeMark(runtime: session.agentRuntime) }
+                            Text(RuntimeInstance.Provider.detail(session.agentRuntime, instance: name))
+                                .font(Theme.Text.micro)
+                                .foregroundStyle(Theme.muted)
+                                .lineLimit(1)
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("Runtime: \(RuntimeInstance.Provider.detail(session.agentRuntime, instance: name))")
+                    } else if !session.loaded {
+                        Text(" ").font(Theme.Text.micro).accessibilityHidden(true)
                     }
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel("Runtime: \(RuntimeInstance.Provider.detail(session.agentRuntime, instance: name))")
-                } else if !session.loaded {
-                    Text(" ").font(Theme.Text.micro).accessibilityHidden(true)
                 }
             }
         }
-        // The principal item is only as wide as its content and centred, so
-        // it is given all the room between the back and options buttons
-        // (each 44 + 16 margin + 8 gap) to start the title on the left. On
-        // iPhone Duo those buttons sit in the side rail, so the title gets
-        // the whole bar.
-        .frame(width: max(width - (barButtonsInSideRail ? 0 : 136), 0), alignment: .leading)
+        .buttonStyle(.plain)
+        .disabled(session.isNew)
+        .contentShape(Rectangle())
+        .accessibilityHint("Show task triggers")
+        .accessibilityIdentifier("conversation-trigger-entry")
     }
 
     /// Plan links open the plan here, approved through this chat; other app
@@ -326,16 +332,6 @@ struct ConversationView: View {
                session.canSubmit, session.failedSubmission == nil {
                 SuggestionChip(text: suggestion) { draft = suggestion }
             }
-            if let wait = session.shareApproval, ShareApprovalWait.asksOwner(conversationRuntime) {
-                ShareApprovalStrip(
-                    wait: wait,
-                    computer: conversationRuntime?.local?.deviceLabel ?? "this computer",
-                    onSwitchRuntime: session.canManage ? { showRuntimes = true } : nil
-                )
-            }
-            if let question = session.answering {
-                ReplyChip(reply: question.quote) { session.answering = nil }
-            }
             if !session.queued.isEmpty || !session.serverQueued.isEmpty {
                 QueuedStrip(
                     items: session.queued.enumerated().map { .init(id: "local.\($0.offset)", text: $0.element, steering: false) }
@@ -363,8 +359,9 @@ struct ConversationView: View {
                 editRequest: $session.editingSubmission,
                 mentions: MentionSource(
                     teamId: session.teamId,
-                    // Only someone who may change the session's devices can bring one in.
-                    devices: session.canManage ? store.credentialCatalog?.scoped(to: .devices).allItems ?? [] : [],
+                    // Only someone who may change the session's devices can bring one in,
+                    // and a Task under a Bot has none of its own to change.
+                    devices: session.canManage && !session.followsBot ? store.credentialCatalog?.scoped(to: .devices).allItems ?? [] : [],
                     pickDevice: { device in
                         var selection = session.credentialAccess ?? CredentialSelection()
                         if !selection.contains(device) { selection.toggle(device); session.setCredentials(selection) }
@@ -448,6 +445,7 @@ struct ConversationView: View {
         case .timestamp: 14
         case .reasoning, .tool, .toolRun, .work, .memory, .memoryRecall, .downloads: 14
         case .activity, .hint, .event: 18
+        case .answered: 6
         case .channel: 0
         }
     }
@@ -500,15 +498,19 @@ struct ConversationView: View {
             if let submission = session.failedSubmission {
                 FailedBubble(submission: submission, onRetry: session.retryFailed, onEdit: session.editFailed)
             }
-        case .hint(_, let text, let isError):
+        case .hint(let id, let text, let isError):
             // A runtime that can't take the turn: moving the conversation is the way on.
             HintRow(
                 text: text, isError: isError,
                 onSwitchRuntime: session.canManage && AgentChatAPI.switchRuntimeErrors.contains(text) ? { showRuntimes = true } : nil,
-                ask: text == AgentChatAPI.Conflict.runtimeLoginRequired.errorDescription ? signInAskRow : nil
+                ask: text == AgentChatAPI.Conflict.runtimeLoginRequired.errorDescription ? signInAskRow : nil,
+                onRetry: session.failedTurn?.rowId == id ? { session.retryFailedTurn() } : nil,
+                copyText: isError ? ChatRow.failureReport(rowId: id, in: session.messages) : nil
             )
         case .event(_, let event):
             EventLine(event: event, onLink: open(link:), teamId: session.teamId)
+        case .answered(_, let question):
+            AnsweredLine(question: question, onLink: open(link:))
         case .channel:
             EmptyView()
         }
@@ -713,6 +715,12 @@ struct HintRow: View {
     var onSwitchRuntime: (() -> Void)? = nil
     /// Set when someone else can sign this agent in for the viewer.
     var ask: Ask? = nil
+    /// Set on the latest failed turn's line when its prompt can be resent.
+    var onRetry: (() -> Void)? = nil
+    /// Set on a failed turn's line: the report Copy puts on the clipboard.
+    var copyText: String? = nil
+
+    @State private var copied = false
 
     /// Asks them through their Inbox and a push; once asked, says so instead.
     struct Ask {
@@ -734,7 +742,7 @@ struct HintRow: View {
             if let status = ask?.status {
                 Text(status).font(Theme.Text.label).foregroundStyle(Theme.muted)
             }
-            if ask?.asked == false || onSwitchRuntime != nil {
+            if ask?.asked == false || onSwitchRuntime != nil || onRetry != nil || copyText != nil {
                 HStack(spacing: 8) {
                     if let ask, !ask.asked {
                         Button(ask.label, systemImage: "hand.wave", action: ask.action)
@@ -745,7 +753,20 @@ struct HintRow: View {
                     if let onSwitchRuntime {
                         SwitchRuntimeButton(action: onSwitchRuntime)
                     }
+                    if let onRetry {
+                        Button("Retry", systemImage: "arrow.clockwise", action: onRetry)
+                    }
+                    if let copyText {
+                        Button(copied ? "Copied" : "Copy", systemImage: copied ? "checkmark" : "doc.on.doc") {
+                            UIPasteboard.general.string = copyText
+                            copied = true
+                        }
+                        .contentTransition(.symbolEffect(.replace))
+                    }
                 }
+                .font(Theme.Text.label.weight(.medium))
+                .buttonStyle(.bordered)
+                .controlSize(.small)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -766,8 +787,8 @@ struct SwitchRuntimeButton: View {
 
 /// A message another session, a linked resource or a trigger delivered: one
 /// muted line — who sent it and its first line — that expands to the full text.
-/// A channel's wake-up notice is only "New messages in #channel": its body is
-/// the agent's input and never expands.
+/// A channel's wake-up notice shows its newest post (or only "New messages in
+/// #channel"): its body is the agent's input and never expands.
 struct EventLine: View {
     let event: ChatMessage.Event
     var onLink: ((URL) -> Void)?
@@ -787,17 +808,59 @@ struct EventLine: View {
 
     @ViewBuilder
     private func channelNotice(_ channelId: String) -> some View {
-        let label = Text("New messages in #\(event.name)")
+        if let onLink, let teamId, let link = SessionLink.url(teamId: teamId, sessionId: channelId) {
+            Button {
+                if let post = event.post { ChannelPostJump.pending[channelId] = post.id }
+                onLink(link)
+            } label: { channelLine.frame(minHeight: event.post == nil ? nil : 44).contentShape(Rectangle()) }
+                .buttonStyle(.plain)
+                .accessibilityHint(event.post == nil ? "Opens the channel" : "Opens the channel at this post")
+        } else {
+            channelLine
+        }
+    }
+
+    /// "#channel · avatar name first line +N more ↗": the preview gives way first, then
+    /// the channel; the poster and the count stay.
+    @ViewBuilder
+    private var channelLine: some View {
+        if let post = event.post {
+            HStack(spacing: 6) {
+                Text("#\(event.name)").fontWeight(.medium).foregroundStyle(Theme.body).layoutPriority(1)
+                Text("·").foregroundStyle(Theme.faint)
+                Group {
+                    if let agentId = post.agentId {
+                        AgentAvatar(agentId: agentId, runtime: post.runtime, size: 16, showBadge: false)
+                    } else {
+                        AvatarView(user: NuphosUser(id: "", email: "", name: post.sender.name, username: "",
+                                                    avatarURL: post.sender.avatar?.absoluteString ?? ""), size: 16)
+                    }
+                }
+                Text(post.sender.name).fontWeight(.medium).foregroundStyle(Theme.heading).fixedSize()
+                Text(post.text.isEmpty ? "Sent a file" : post.text).foregroundStyle(Theme.body)
+                if post.more > 0 {
+                    Text("+\(post.more) more")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.body)
+                        .padding(.horizontal, 6)
+                        .frame(height: 18)
+                        .background(Theme.heading.opacity(0.06), in: Capsule())
+                        .fixedSize()
+                }
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Theme.muted)
+            }
             .font(Theme.Text.caption)
             .foregroundStyle(Theme.muted)
             .lineLimit(1)
             .frame(maxWidth: .infinity, alignment: .leading)
-        if let onLink, let teamId, let link = SessionLink.url(teamId: teamId, sessionId: channelId) {
-            Button { onLink(link) } label: { label.contentShape(Rectangle()) }
-                .buttonStyle(.plain)
-                .accessibilityHint("Opens the channel")
         } else {
-            label
+            Text("New messages in #\(event.name)")
+                .font(Theme.Text.caption)
+                .foregroundStyle(Theme.muted)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -917,30 +980,50 @@ struct MemoryRecallPill: View {
 struct ResourceStrip: View {
     let resources: [SessionResource]
     @Environment(\.openURL) private var openURL
+    /// Merged and closed links no longer need attention, so they fold into one
+    /// chip after the open ones, as on Desktop.
+    @State private var showFinished = false
 
     var body: some View {
+        let groups = resources.openFirst
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(resources) { resource in
-                    Button { openURL(resource.url) } label: {
-                        HStack(spacing: 5) {
-                            BrandLogo(name: "logo-\(resource.provider)", size: 12)
-                            Text(resource.chip).fontWeight(.medium).foregroundStyle(Theme.heading)
-                            Text(resource.state.capitalized).foregroundStyle(tone(resource))
-                        }
-                        .font(Theme.Text.caption)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Theme.chatSurface, in: Capsule())
+                ForEach(groups.open) { chip($0) }
+                if !groups.finished.isEmpty {
+                    let label = SessionResource.finishedLabel(groups.finished)
+                    Button { showFinished.toggle() } label: {
+                        Text(label)
+                            .foregroundStyle(Theme.muted)
+                            .font(Theme.Text.caption)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Theme.chatSurface, in: Capsule())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("\(resource.title), \(resource.state)")
+                    .accessibilityLabel("\(label), \(showFinished ? "hide" : "show") finished links")
                 }
+                if showFinished { ForEach(groups.finished) { chip($0) } }
             }
             .padding(.horizontal, 16)
         }
         .padding(.vertical, 6)
         .background(Theme.chatCanvas)
+    }
+
+    private func chip(_ resource: SessionResource) -> some View {
+        Button { openURL(resource.url) } label: {
+            HStack(spacing: 5) {
+                BrandLogo(name: "logo-\(resource.provider)", size: 12)
+                Text(resource.chip).fontWeight(.medium).foregroundStyle(Theme.heading)
+                Text(resource.state.capitalized).foregroundStyle(tone(resource))
+            }
+            .font(Theme.Text.caption)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Theme.chatSurface, in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(resource.title), \(resource.state)")
     }
 
     private func tone(_ resource: SessionResource) -> Color {
@@ -1061,54 +1144,7 @@ struct QueuedStrip: View {
     }
 }
 
-/// A teammate's computer that asks its owner first: the message waits for them, or they declined.
-struct ShareApprovalStrip: View {
-    let wait: ShareApprovalWait
-    let computer: String
-    /// Declined, the conversation moves on to another runtime; set when the viewer may move it.
-    var onSwitchRuntime: (() -> Void)? = nil
-
-    var body: some View {
-        HStack(alignment: .center, spacing: 8) {
-            Image(systemName: wait == .pending ? "hourglass" : "nosign")
-                .font(Theme.Text.label)
-                .foregroundStyle(wait == .pending ? Theme.warning : Color.red)
-            Text(wait.message(computer: computer))
-                .font(Theme.Text.label)
-                .foregroundStyle(Theme.body)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
-            if wait == .denied, let onSwitchRuntime {
-                SwitchRuntimeButton(action: onSwitchRuntime)
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 12))
-        .padding(.horizontal, 16)
-        .padding(.bottom, 6)
-        .accessibilityElement(children: onSwitchRuntime == nil ? .combine : .contain)
-    }
-}
-
 #if os(iOS)
-/// Whether the system shows the navigation bar's buttons in a side rail (the
-/// vertical bar on iPhone Duo) instead of in the bar itself.
-private struct BarButtonsInSideRailKey: EnvironmentKey, UITraitBridgedEnvironmentKey {
-    static let defaultValue = false
-
-    static func read(from traits: UITraitCollection) -> Bool {
-        if #available(iOS 27.1, *) { return traits.verticalBarEdge != .unspecified }
-        return false
-    }
-
-    static func write(to traits: inout UIMutableTraits, value: Bool) {}
-}
-
-extension EnvironmentValues {
-    fileprivate var barButtonsInSideRail: Bool { self[BarButtonsInSideRailKey.self] }
-}
-
 extension View {
     /// The bar stays put while the transcript scrolls. Where the system
     /// minimizes it (iPhone Duo), each step resized the transcript and moved

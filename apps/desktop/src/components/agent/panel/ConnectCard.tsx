@@ -1,12 +1,14 @@
 import { useContext, useRef, useState } from 'react'
 
 import { api } from '../../../api'
+import { useTeamRole } from '../../../hooks/useTeamRole'
 import { TeamHomeBindFlow } from '../../../views/cloud/team-home-bind-flow'
 
 import { ChoiceCard } from './ChoiceCard'
 import { ConnectCardContext } from './connectCardContext'
 import {
   CONNECT_SELECTION_KEY,
+  connectBlock,
   connectRowStatus,
   decisionRequestId,
   newConnectIds,
@@ -95,6 +97,11 @@ export function ConnectCard({
 }) {
   const ctx = useContext(ConnectCardContext)
   const credentials = ctx?.credentials
+  // Binding a team's connector takes an administrator. Read here rather than
+  // threaded from every surface that draws a card: a surface that forgot it
+  // told administrators to ask an administrator. Unknown while they load.
+  const role = useTeamRole(teamId)
+  const canBindTeam = role === undefined ? undefined : role === 'ADMINISTRATOR'
   const [phases, setPhases] = useState<Partial<Record<ConnectProvider, ConnectPhase>>>({})
   // Options fetched right after a bind, used until the panel's own copy refreshes.
   const [fresh, setFresh] = useState<Fresh | null>(null)
@@ -181,6 +188,11 @@ export function ConnectCard({
             status={statusOf(provider)}
             // Connecting your own credential lives in Settings, not a team bind.
             interactive={interactive && !(personal && statusOf(provider) === 'idle')}
+            blocked={
+              personal || canBindTeam === undefined
+                ? undefined
+                : connectBlock(provider, canBindTeam)
+            }
             onConnect={() => connect(provider)}
             onUse={() => use(provider)}
           />

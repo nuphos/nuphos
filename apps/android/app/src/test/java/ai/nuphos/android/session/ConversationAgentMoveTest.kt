@@ -9,7 +9,6 @@ import org.junit.Assert.*
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class ConversationAgentMoveTest {
-    // Keep permission lookups synchronous: real IO can resume after resetMain between tests.
     @Before fun setup() { Dispatchers.setMain(UnconfinedTestDispatcher()) }
     @After fun cleanup() { Dispatchers.resetMain() }
     private val target = AgentRuntime("new", "codex", "New", "active", "managed")

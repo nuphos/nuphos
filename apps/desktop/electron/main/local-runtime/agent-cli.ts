@@ -30,14 +30,14 @@ export type AgentCliStatus =
       account?: string
       /** Signed in with an API key rather than an account. The key itself never leaves the CLI. */
       apiKey?: true
+      /** The host of the user's own model provider, which stands in for a sign-in. */
+      customProvider?: string
       plan?: string
       /** Kept by a desktop app (Claude, ChatGPT), which updates it, even when reached through a symlink. */
       bundled?: true
     }
 
 const PROBE_TIMEOUT_MS = 15_000
-const USAGE_TIMEOUT_MS = 10_000
-const MAX_USAGE_CHARS = 200_000
 
 export { findAgentCli, locateAgentCli } from './agent-cli-find.ts'
 
@@ -57,7 +57,10 @@ function run(file: string, args: string[], env: NodeJS.ProcessEnv): Promise<stri
   })
 }
 
-/** `codex login status` prints "Logged in using ChatGPT" (or "… an API key") or "Not logged in". */
+/**
+ * `codex login status` prints "Logged in using ChatGPT", "Not logged in", and for a key
+ * "API key configured" (older CLIs: "Logged in using an API key").
+ */
 export function parseCodexLoginStatus(
   output: string,
 ): Pick<Extract<AgentCliStatus, { installed: true }>, 'loggedIn' | 'account' | 'apiKey'> {
@@ -65,7 +68,8 @@ export function parseCodexLoginStatus(
   const loggedIn = /^Logged in using (.+)$/imu.exec(text)
 
   // It goes on to print part of the key, which is not shown anywhere.
-  if (/^Logged in using an API key/imu.test(text)) return { loggedIn: true, apiKey: true }
+  if (/^(Logged in using an API key|API key configured)/imu.test(text))
+    return { loggedIn: true, apiKey: true }
   if (loggedIn?.[1]) return { loggedIn: true, account: loggedIn[1].trim() }
   if (/not logged in/iu.test(text)) return { loggedIn: false }
 
@@ -132,9 +136,7 @@ function versionOf(output: string): string | undefined {
     ?.replace(/^v/u, '')
 }
 
-type UsageRequest = { url: string; headers: Record<string, string> }
-
-async function readJson(file: string): Promise<Record<string, unknown> | null> {
+export async function readJson(file: string): Promise<Record<string, unknown> | null> {
   try {
     return JSON.parse(await readFile(file, 'utf8')) as Record<string, unknown>
   } catch {
@@ -142,26 +144,8 @@ async function readJson(file: string): Promise<Record<string, unknown> | null> {
   }
 }
 
-async function codexUsageRequest(
-  home: string,
-  env: NodeJS.ProcessEnv,
-): Promise<UsageRequest | null> {
-  const auth = await readJson(path.join(env.CODEX_HOME ?? path.join(home, '.codex'), 'auth.json'))
-  const tokens = auth?.tokens as { access_token?: unknown; account_id?: unknown } | undefined
-
-  if (typeof tokens?.access_token !== 'string' || !tokens.access_token) return null
-  const account = typeof tokens.account_id === 'string' ? tokens.account_id : ''
-
-  return {
-    url: 'https://chatgpt.com/backend-api/wham/usage',
-    headers: {
-      authorization: `Bearer ${tokens.access_token}`,
-      ...(account ? { 'chatgpt-account-id': account } : {}),
-    },
-  }
-}
-
-async function readClaudeCredential(
+/** The Claude credential its sign-in and its usage both read, where Claude Code keeps it. */
+export async function readClaudeCredential(
   home: string,
   env: NodeJS.ProcessEnv,
 ): Promise<Record<string, unknown> | null> {
@@ -192,67 +176,6 @@ async function readClaudeCredential(
   }
 
   return credential
-}
-
-async function claudeUsageRequest(
-  home: string,
-  env: NodeJS.ProcessEnv,
-): Promise<UsageRequest | null> {
-  const credential = await readClaudeCredential(home, env)
-  const oauth = credential?.claudeAiOauth as { accessToken?: unknown } | undefined
-
-  if (typeof oauth?.accessToken !== 'string' || !oauth.accessToken) return null
-
-  return {
-    url: 'https://api.anthropic.com/api/oauth/usage',
-    headers: {
-      authorization: `Bearer ${oauth.accessToken}`,
-      'anthropic-beta': 'oauth-2025-04-20',
-    },
-  }
-}
-
-/** Where this computer keeps the credential, and what the provider wants to see
- *  with it. Null when nothing is signed in. */
-function usageRequest(
-  provider: LocalAgentProvider,
-  env: NodeJS.ProcessEnv,
-): Promise<UsageRequest | null> {
-  const home = homeOf(env)
-
-  if (provider === 'codex') return codexUsageRequest(home, env)
-  if (provider === 'claude-code') return claudeUsageRequest(home, env)
-
-  return Promise.resolve(null)
-}
-
-/** Asks the provider what is left of this computer's own account. It runs here,
- *  not in Nuphos, because the credential is here — and because the rate limit it
- *  spends is this person's, not a shared one. Every failure reports nothing:
- *  usage is decoration, never a reason to call the agent broken, and the token
- *  must never reach a log. */
-export async function readAgentUsage(
-  provider: LocalAgentProvider,
-  env: NodeJS.ProcessEnv,
-): Promise<unknown> {
-  const request = await usageRequest(provider, env)
-
-  if (!request) return
-  try {
-    const response = await fetch(request.url, {
-      headers: request.headers,
-      signal: AbortSignal.timeout(USAGE_TIMEOUT_MS),
-    })
-
-    if (!response.ok) return
-    const body = await response.text()
-
-    if (body.length > MAX_USAGE_CHARS) return
-
-    return JSON.parse(body) as unknown
-  } catch {
-    return
-  }
 }
 
 /** A Store app's command alias is a reparse point that realpath cannot always follow. */

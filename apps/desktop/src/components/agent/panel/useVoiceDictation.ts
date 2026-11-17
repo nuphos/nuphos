@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { api } from '../../../api'
-import { t } from '../../../i18n'
+import { locale, t } from '../../../i18n'
 import { toast } from '../../ui/toast'
 
 import {
   MAX_RECORDING_MS,
   VOICE_PROMPT,
+  dictationText,
   openMicrophone,
   recordingFilename,
   recordingMimeType,
@@ -106,7 +107,8 @@ export function useVoiceDictation({
             VOICE_PROMPT,
           ),
         )
-        .then(({ text }) => {
+        .then((reply) => dictationText(reply, locale))
+        .then((text) => {
           if (!discard.current && text.trim()) onTextRef.current(text)
         })
         .catch((err: unknown) => {

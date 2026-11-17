@@ -11,6 +11,7 @@ export const queryKeys = {
   inbox: (teamId: string) => [...queryKeys.team(teamId), 'inbox'] as const,
   shareApprovals: (teamId: string) => [...queryKeys.team(teamId), 'share-approvals'] as const,
   channelMentions: (teamId: string) => [...queryKeys.team(teamId), 'channel-mentions'] as const,
+  credentialOptions: (teamId: string) => [...queryKeys.team(teamId), 'credential-options'] as const,
   channel: (teamId: string, channelId: string) =>
     [...queryKeys.team(teamId), 'channel', channelId] as const,
   runtimeInstances: (teamId: string) => [...queryKeys.team(teamId), 'runtime-instances'] as const,
@@ -27,10 +28,16 @@ export const queryKeys = {
     [...queryKeys.team(teamId), 'iam', provider, id, principal] as const,
   audit: (teamId: string, ...filters: (string | boolean)[]) =>
     [...queryKeys.team(teamId), 'audit', ...filters] as const,
+  memoryScope: (teamId: string, scope: string) =>
+    [...queryKeys.team(teamId), 'memories', scope] as const,
+  /** Under `memoryScope`, so a change marks both the live and the removed list. */
   memories: (teamId: string, scope: string, state = 'live') =>
-    [...queryKeys.team(teamId), 'memories', scope, state] as const,
+    [...queryKeys.memoryScope(teamId, scope), state] as const,
   grafanaInstances: (teamId: string) => [...queryKeys.team(teamId), 'grafana'] as const,
   /** Under `grafanaInstances`, so refreshing the bindings refreshes what was read through them. */
   grafana: (teamId: string, instanceId: string, ...rest: string[]) =>
     [...queryKeys.grafanaInstances(teamId), instanceId, ...rest] as const,
+  /** A Cloudflare account's resources, e.g. `cloudflare(teamId, accountId, 'pages', name)`. */
+  cloudflare: (teamId: string, accountId: string, ...resource: string[]) =>
+    [...queryKeys.team(teamId), 'cloudflare', accountId, ...resource] as const,
 }

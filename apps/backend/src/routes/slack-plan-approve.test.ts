@@ -58,11 +58,6 @@ const responseUrlBodies: Record<string, unknown>[] = []
 const ephemerals: { channel: string; user: string; text: string; threadTs?: string }[] = []
 const loggedEvents: { event: string; data?: Record<string, unknown> }[] = []
 const agentRuns: { sessionId: string; teamId: string }[] = []
-// What the resume actually told the model — the approval sentence must not
-// render a mention for an approver who has no Slack identity.
-const turnTexts: string[] = []
-// Who the resume turn is attributed to: the approver, never an anonymous bubble.
-const turnSenders: unknown[] = []
 
 function makeThread(overrides?: Partial<SlackAgentThread>): SlackAgentThread {
   return {
@@ -212,18 +207,12 @@ useTurnRunner({
   hasActiveAgentRunForSession: async () => state.turnAlreadyRunning,
   runAgentForTrigger: async (params) => {
     agentRuns.push({ sessionId: params.sessionId, teamId: params.teamId ?? '' })
-    turnSenders.push(params.messages.at(-1)?.metadata)
-    turnTexts.push(
-      params.messages
-        .flatMap((message) => message.parts.map((part) => ('text' in part ? part.text : '')))
-        .join('\n'),
-    )
 
     return { status: 'completed' }
   },
 })
 
-const { handlePlanApproveInteraction, resumeApprovedPlanTurnFromNuphos } = await import('./slack')
+const { handlePlanApproveInteraction } = await import('./slack')
 
 const buttonValue = JSON.stringify({
   planId: PLAN_ID,
@@ -259,8 +248,6 @@ beforeEach(() => {
   state.raceLost = false
   state.approverHasSlackMapping = true
   state.turnAlreadyRunning = false
-  turnTexts.length = 0
-  turnSenders.length = 0
   userMappingLookups.length = 0
   recordPlanApprovalCalls.length = 0
   journaled.length = 0
@@ -347,59 +334,5 @@ describe('handlePlanApproveInteraction', () => {
     const rejection = loggedEvents.find((e) => e.event === 'slack.plan.approve_rejected')
 
     expect(rejection?.data?.reason).toBe('thread_unresolved')
-  })
-})
-
-// Approving the same plan from the Nuphos app instead of the card. The thread
-// is the ONLY place a Slack-bound plan can execute — the app serves those
-// conversations read-only — so before this the plan sat at `approved` forever
-// and the thread that asked for the approval was never told.
-describe('resumeApprovedPlanTurnFromNuphos', () => {
-  async function approveInNuphos() {
-    await resumeApprovedPlanTurnFromNuphos({
-      thread: state.thread!,
-      planId: PLAN_ID,
-      planTitle: 'Daily RustFS backup',
-      approverNuphosUserId: NUPHOS_USER,
-    })
-  }
-
-  test('starts the execution turn in the bound thread', async () => {
-    await approveInNuphos()
-
-    expect(agentRuns).toEqual([{ sessionId: SESSION_ID, teamId: THREAD_TEAM }])
-    const resumed = loggedEvents.find((e) => e.event === 'slack.plan.resume_from_nuphos')
-
-    expect(resumed?.data?.plan_id).toBe(PLAN_ID)
-    expect(resumed?.data?.approver_slack_user_id).toBe(SLACK_USER)
-    expect(turnSenders[0]).toMatchObject({
-      source: 'slack',
-      sender: { type: 'user', id: NUPHOS_USER, displayName: 'Ada Approver' },
-    })
-  })
-
-  test('an approver with no Slack identity still executes, and is not half-mentioned', async () => {
-    state.approverHasSlackMapping = false
-
-    await approveInNuphos()
-
-    expect(agentRuns).toEqual([{ sessionId: SESSION_ID, teamId: THREAD_TEAM }])
-    expect(turnTexts[0]).toContain('was approved in Nuphos')
-    // The failure this pins: `<@undefined>` reaching the thread and the model.
-    expect(turnTexts[0]).not.toContain('undefined')
-    expect(turnTexts[0]).not.toContain('<@')
-  })
-
-  test('a turn already running owns the plan — no second execution, no announcement', async () => {
-    // Reachable when the agent PATCHes the plan it is working on: the approval
-    // came from inside the running turn, so kicking would run the plan twice.
-    state.turnAlreadyRunning = true
-
-    await approveInNuphos()
-
-    expect(agentRuns).toEqual([])
-    const skipped = loggedEvents.find((e) => e.event === 'slack.plan.resume_from_nuphos_skipped')
-
-    expect(skipped?.data?.reason).toBe('turn_already_running')
   })
 })

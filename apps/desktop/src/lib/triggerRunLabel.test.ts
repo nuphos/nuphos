@@ -33,25 +33,11 @@ test('a legacy alert run from an older backend carries no badge', () => {
   assert.equal(triggerRunLabel(legacy), null)
 })
 
-test('a Watch group run names the item behind the shared ingress', () => {
-  assert.deepEqual(triggerRunLabel({ id: 't1', kind: 'webhook', memberKey: 'api-latency' }), {
-    label: 'Webhook',
-    description: 'Fired by an external webhook',
-    memberKey: 'api-latency',
-  })
-})
-
 test('a run of unknown kind carries no badge rather than a made-up one', () => {
   // The stamp is written by the executor, so a kind-less run means an older
   // document. Guessing "Scheduled" there would be a lie in the one list built
   // to tell scheduled runs apart.
   assert.equal(triggerRunLabel({ id: 't1' }), null)
-})
-
-test('a run of unknown kind still names its group member', () => {
-  assert.deepEqual(triggerRunLabel({ id: 't1', memberKey: 'api-latency' }), {
-    memberKey: 'api-latency',
-  })
 })
 
 test('a conversation that is not a run has nothing to label', () => {

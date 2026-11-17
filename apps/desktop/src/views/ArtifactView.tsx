@@ -1,4 +1,4 @@
-import { AppWindow, FileCode2, FileText, Image, Shapes } from 'lucide-react'
+import { AppWindow, ChartColumn, FileCode2, FileText, Image, Shapes } from 'lucide-react'
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 
 import { PageMeta } from '../app/pageMeta'
@@ -14,8 +14,10 @@ import {
   useArtifactLine,
   usePickedArtifactVersion,
 } from '../components/agent/artifacts/useSessionArtifacts'
+import { tryParseChartPayload } from '../components/agent/chartPayload'
 import { MessageResponse } from '../components/agent/MessageResponse'
 import { agentArtifactUrl } from '../components/agent/sessionUrl'
+import { ChartPlot } from '../components/ChartPlot'
 import { EmptyState } from '../components/EmptyState'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { t } from '../i18n'
@@ -31,6 +33,7 @@ const KIND_ICONS: Record<ArtifactKind, LucideIcon> = {
   markdown: FileText,
   svg: Image,
   code: FileCode2,
+  chart: ChartColumn,
 }
 
 const MAX_ERRORS = 5
@@ -184,6 +187,18 @@ function ArtifactBody({
           onError={onError}
         />
       </div>
+    )
+  }
+  if (version.kind === 'chart') {
+    const chart = tryParseChartPayload(JSON.parse(version.content))
+
+    return (
+      chart && (
+        <div className="flex min-h-0 flex-1 flex-col gap-3 bg-main p-4 @[480px]:p-8">
+          {chart.description && <p className="text-[13px] text-secondary">{chart.description}</p>}
+          <ChartPlot payload={chart} fill className="min-h-0 flex-1" />
+        </div>
+      )
     )
   }
   if (version.kind === 'svg') {

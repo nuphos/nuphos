@@ -5,7 +5,7 @@ import { launcherMatchRank } from '../../lib/launcherMatch.ts'
 import { SHORTCUT_GROUPS } from '../../lib/shortcutsCatalog.ts'
 import {
   ARCHIVED_CHATS_NAV_ITEM,
-  TEAM_MANAGEMENT_NAV_ITEMS,
+  CONNECTORS_NAV_ITEM,
   TEAM_SETTINGS_PAGE_NAV_ITEMS,
   TEAM_WORKSPACE_NAV_ITEMS,
 } from '../../lib/teamOverviewNav.ts'
@@ -33,7 +33,7 @@ export type PaletteCommand = {
 }
 
 const ACTIONS: { id: PaletteAction; label: string; icon: LucideIcon }[] = [
-  { id: 'new-chat', label: t('New agent'), icon: SquarePen },
+  { id: 'new-chat', label: `${t('New Bot')} / ${t('New task')}`, icon: SquarePen },
   { id: 'new-tab', label: t('New tab'), icon: Plus },
   { id: 'toggle-sidebar', label: t('Toggle sidebar'), icon: PanelLeft },
   { id: 'open-settings', label: t('User settings'), icon: Settings },
@@ -47,7 +47,7 @@ const comboFor = (label: string) =>
 
 export const PALETTE_COMMANDS: PaletteCommand[] = [
   ...[
-    ...TEAM_MANAGEMENT_NAV_ITEMS,
+    CONNECTORS_NAV_ITEM,
     ...TEAM_WORKSPACE_NAV_ITEMS,
     ...TEAM_SETTINGS_PAGE_NAV_ITEMS,
     ARCHIVED_CHATS_NAV_ITEM,

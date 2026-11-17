@@ -10,21 +10,24 @@ import { callJson, setTokenSource } from '../../agent/http.ts'
 import { apiUrl } from '../../api-endpoint.ts'
 import { dialBackend } from '../../backend-socket.ts'
 import { CLI_CONFIG_PATH } from '../../cli-config-path.ts'
+import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../../client-version.ts'
 import {
   defaultDeviceLabel,
+  machineModel,
   parseDeviceIdentity,
   readMachineKey,
   stableDeviceId,
 } from '../device-identity-core.ts'
 import { readDeviceMetrics } from '../device-metrics.ts'
 
-import { LOCAL_AGENT_PROVIDERS, probeAgentCli, readAgentUsage } from './agent-cli.ts'
+import { LOCAL_AGENT_PROVIDERS, probeAgentCli } from './agent-cli.ts'
+import { readAgentUsage } from './agent-cli-usage.ts'
 import { podOwnerAgentHome } from './agent-home.ts'
 import { localFileConnectors } from './attachment-stream.ts'
 import { readCliCache, writeCliCache } from './cli-cache.ts'
 import { cliSessionToken, hostOwner } from './cli-host-session.ts'
 import { signInClaude } from './cli-sign-in.ts'
-import { agentEnv, readBundle } from './config.ts'
+import { readBundle } from './config.ts'
 import { LocalRuntimeController } from './controller.ts'
 import {
   enableDesktopPool,
@@ -35,7 +38,8 @@ import {
 } from './desktop-pool.ts'
 import { deviceCredentialFor, exitRevoked, ownsMachine, tunnelUrlFor } from './device-credential.ts'
 import { LocalExecStream } from './exec-stream.ts'
-import { probeLocalModels } from './model-probe.ts'
+import { enableMacScreen, macScreenDeps } from './mac-screen.ts'
+import { bundledModelProbe } from './model-probe.ts'
 import { OpenabProcess } from './openab-process.ts'
 import { LOCAL_AGENT_NAMES as NAMES } from './providers.ts'
 import { RuntimeTunnelClient } from './tunnel-client.ts'
@@ -43,6 +47,9 @@ import { VncStream } from './vnc-stream.ts'
 
 import type { DeviceIdentity } from '../device-identity-core.ts'
 import type { CliConfig } from './cli-host-session.ts'
+import type { LocalRuntimeTunnelStatus } from './tunnel-protocol.ts'
+
+type Instances = (request: unknown) => Promise<unknown>
 
 const bundleRoot = process.env.NUPHOS_LOCAL_RUNTIME_DIR ?? path.dirname(process.argv[1] ?? '.')
 const dataDir = process.env.NUPHOS_AGENT_HOME ?? ''
@@ -51,7 +58,6 @@ if (!dataDir) {
   console.error('NUPHOS_AGENT_HOME is not set; run this through `nuphos agent`.')
   process.exit(1)
 }
-const clientVersion = `nuphos-cli/${process.env.NUPHOS_CLI_VERSION ?? 'dev'}`
 
 function deviceIdentity(): DeviceIdentity {
   const file = path.join(dataDir, 'device-identity.json')
@@ -83,6 +89,7 @@ const log = (message: string, data?: Record<string, unknown>) => {
 }
 let lastSummary = ''
 let stopping = false
+let tunnel: RuntimeTunnelClient | undefined
 
 // From `nuphos agent` (the keychain trusts the CLI, not node); kept from the agents.
 const launchToken = process.env.NUPHOS_SESSION_TOKEN || null
@@ -113,7 +120,7 @@ const deviceCredential = await deviceCredentialFor({
   apiUrl: apiUrl(),
   label: device.label,
   joinToken: process.env.NUPHOS_JOIN_TOKEN?.trim() || undefined,
-  headers: { 'x-atlas-client': clientVersion },
+  headers: { [CLIENT_VERSION_HEADER]: CLIENT_VERSION_VALUE },
 })
 const deviceId = deviceCredential?.deviceId ?? device.deviceId
 // Signed out or signed in again since (the token changed): the agents stop.
@@ -155,50 +162,25 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       deviceId: device.deviceId,
       label: device.label,
       platform: process.platform,
+      model: await machineModel(),
       allowLocalExec: true,
     })
   },
   createProcess: () => new OpenabProcess({ ownsMachine: ownsMachine(deviceCredential) }),
-  probeModels: ({ provider, workspace, env, cliPath, agentHome }) => {
-    const staged = bundle()
-    const adapter = staged?.adapters[provider]
-
-    if (!staged || !adapter) return Promise.reject(new Error('The local runtime is not bundled'))
-
-    return probeLocalModels({
-      nodeExecPath: process.execPath,
-      adapter: adapter.entry,
-      cwd: workspace,
-      env: agentEnv({
-        provider,
-        bundle: staged,
-        adapter,
-        nodeExecPath: process.execPath,
-        cliPath,
-        agentHome,
-        workspace,
-        openabHome: workspace,
-        port: 0,
-        authKey: '',
-        env,
-      }),
-    })
-  },
+  probeModels: bundledModelProbe(bundle),
   createTunnel: (runtime, status, onChange, instances) => {
     tunnel = new RuntimeTunnelClient({
-      instances: desktopPool
-        ? withDesktopRequests(
-            (sessionId) => openDesktop(desktopWrapper, desktopPool, sessionId),
-            instances,
-          )
-        : instances,
+      instances,
       sampleMetrics: readDeviceMetrics,
       connectBackend: (reclaim) => {
         const fresh = deviceCredential?.credential ?? currentToken()
 
         if (!fresh || (!deviceCredential && fresh !== signedIn)) throw new Error('Signed out')
 
-        const headers = { authorization: `Bearer ${fresh}`, 'x-atlas-client': clientVersion }
+        const headers = {
+          authorization: `Bearer ${fresh}`,
+          [CLIENT_VERSION_HEADER]: CLIENT_VERSION_VALUE,
+        }
 
         return dialBackend(tunnelUrlFor(apiUrl(), deviceId, reclaim), headers)
       },
@@ -207,7 +189,6 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       },
       ...localFileConnectors(() => controller.state(), bundleRoot),
       connectExec: () => new LocalExecStream(),
-      connectVnc: desktopPool ? () => new VncStream(desktopPool) : undefined,
       connectRuntime: (purpose, provider, instanceId) => {
         const running = runtime(provider, instanceId)
 
@@ -219,15 +200,12 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
           'acp.v1',
         ])
       },
-      // Which sessions hold a desktop here rides along with the agents' status.
-      status: () => ({
-        ...status(),
-        ...(desktopPool ? desktopStatus(desktopWrapper, desktopPool) : {}),
-      }),
-      onChange: (connected, superseded) => {
-        onChange(connected, superseded)
+      status,
+      onChange: (connected, superseded, revoked) => {
+        onChange(connected, superseded, revoked)
         if (superseded) stop('Another Nuphos app on this computer took over the local runtime.')
       },
+      ...desktops(status, instances),
     })
 
     return tunnel
@@ -235,10 +213,32 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
   log,
 })
 
-let tunnel: RuntimeTunnelClient | undefined
-
 // A desktop appearing or going changes the status; the pool directory says when.
 if (desktopPool) watchDesktops(desktopPool, () => tunnel?.sendStatus())
+// A Mac shows its own screen (mac-screen.ts); its host, not node, holds the screen permissions.
+const macScreen = enableMacScreen(dataDir, () => tunnel?.sendStatus())
+const macScreenHost = {
+  binary: () => path.join(bundleRoot, 'mac-screen-host'),
+  handOver: (human: boolean) =>
+    console.log(human ? 'A viewer took the screen.' : 'The viewer let go.'),
+  owner: () => owner,
+  ownPermissions: true,
+}
+
+/** The tunnel's desktops, whose holders ride along with the agents' status. */
+function desktops(status: () => LocalRuntimeTunnelStatus, instances?: Instances) {
+  if (macScreen) return macScreenDeps(macScreen, status, macScreenHost, instances)
+  if (!desktopPool) return {}
+
+  return {
+    instances: withDesktopRequests(
+      (sessionId) => openDesktop(desktopWrapper, desktopPool, sessionId),
+      instances,
+    ),
+    connectVnc: () => new VncStream(desktopPool),
+    status: () => ({ ...status(), ...desktopStatus(desktopWrapper, desktopPool) }),
+  }
+}
 
 /** One line per agent whenever what the user would see changes. */
 function report(): void {

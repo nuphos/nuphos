@@ -48,6 +48,8 @@ export type BreadcrumbContext = {
   accounts: AccountSet | undefined
   clusterLabel: string | null
   enterScope: (next: Scope, defaultActive?: string) => void
+  /** Opens the Connectors dialog over the page, on one connector when given. */
+  openConnectors: (detail?: ConnectorDetailRef | null) => void
   switchTeam: (nextTeamId: string) => void
   enterCluster: (params: KubernetesClusterSelection & { tabId?: string }) => void
   clustersByParent: Record<string, AtlasCluster[] | undefined>

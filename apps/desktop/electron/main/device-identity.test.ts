@@ -5,6 +5,7 @@ import {
   desktopDeviceId,
   parseDeviceIdentity,
   parseIoregPlatformUuid,
+  parseModelName,
   parseRegMachineGuid,
   readMachineKey,
   stableDeviceId,
@@ -60,6 +61,15 @@ HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography
   assert.equal(parseIoregPlatformUuid('no uuid here'), null)
   assert.equal(parseRegMachineGuid('ERROR: The system was unable to find the value'), null)
   assert.ok(['string', 'object'].includes(typeof readMachineKey()))
+})
+
+test('the model name is read from system_profiler, Mac mini or MacBook alike', () => {
+  const hardware = (model: string) =>
+    `Hardware:\n\n    Hardware Overview:\n\n      Model Name: ${model}\n      Model Identifier: Mac16,10\n`
+
+  assert.equal(parseModelName(hardware('Mac mini')), 'Mac mini')
+  assert.equal(parseModelName(hardware('MacBook Pro')), 'MacBook Pro')
+  assert.equal(parseModelName('no hardware overview'), undefined)
 })
 
 test("a dev build never runs as the installed app's machine id", () => {

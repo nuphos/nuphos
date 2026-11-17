@@ -17,6 +17,8 @@ export const agentReadChannels = {
     teamId: string,
     resourceId: string,
   ) => agent.unlinkSessionResource(sessionId, teamId, resourceId),
+  'agent:recordFork': (_e: unknown, ...args: Parameters<typeof agent.recordFork>) =>
+    agent.recordFork(...args),
   'agent:recordEditFork': (
     _e: unknown,
     sessionId: string,
@@ -58,4 +60,10 @@ export const agentReadChannels = {
     avatar: string | null,
     teamId?: string,
   ) => agent.setConversationAvatar(sessionId, avatar, teamId),
+  'agent:uploadConversationAvatar': (
+    _e: unknown,
+    sessionId: string,
+    image: Uint8Array,
+    teamId?: string,
+  ) => agent.uploadConversationAvatar(sessionId, image, teamId),
 }

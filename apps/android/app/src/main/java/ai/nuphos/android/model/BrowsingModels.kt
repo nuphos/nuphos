@@ -1,5 +1,6 @@
 package ai.nuphos.android.model
 
+import ai.nuphos.android.R
 import ai.nuphos.android.data.JsonValue
 import java.net.URI
 
@@ -29,12 +30,12 @@ data class MonitoringOverview(val rows: List<MonitoringRow> = emptyList(), val p
                 val identity = listOf(provider, integration, kind, resource).joinToString(":") { "${it.length}:$it" }
                 MonitoringRow(identity, provider, integration, row.text("integrationLabel") ?: integration,
                     resource, kind, row.text("name") ?: resource, row.text("status") ?: "unknown",
-                    row.text("statusLabel") ?: "unknown", row.text("target"), row.text("lastIncidentAt"), providerHttpsUrl(row.text("providerUrl")))
+                    row.text("statusLabel") ?: Words(R.string.storetext_monitoring_status_unknown), row.text("target"), row.text("lastIncidentAt"), providerHttpsUrl(row.text("providerUrl")))
             }.distinctBy { it.id }
             val errors = value["providerErrors"]?.arrayValue.orEmpty().mapNotNull { row ->
                 val provider = row.text("provider") ?: return@mapNotNull null
                 val integration = row.text("integrationId") ?: return@mapNotNull null
-                MonitoringProviderError(provider, integration, row.text("integrationLabel") ?: integration, "Could not load this provider. Refresh to try again.")
+                MonitoringProviderError(provider, integration, row.text("integrationLabel") ?: integration, Words(R.string.storetext_monitoring_provider_failed))
             }
             return MonitoringOverview(rows, errors)
         }

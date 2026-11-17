@@ -1,7 +1,13 @@
 package ai.nuphos.android.ui.chat
 
+import ai.nuphos.android.R
+import androidx.compose.ui.res.stringResource
 import ai.nuphos.android.model.ChatPart
+import ai.nuphos.android.session.BotQuestion
 import ai.nuphos.android.session.ChatSession
+import ai.nuphos.android.ui.LocalAgentStore
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -40,6 +46,23 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
 /**
+ * The secure input card for a question listed outside its conversation, in the Inbox or a Bot's chat,
+ * as on iOS: saved and replied to in the conversation that asked, once it has loaded.
+ */
+@Composable
+internal fun AskedSecretCard(question: BotQuestion, part: ChatPart.Tool) {
+    val store = LocalAgentStore.current
+    val session = remember(question.sessionId) { store.session(question.sessionId, question.title) }
+    LaunchedEffect(session) { if (!session.loaded) session.load() }
+    val error = session.loadError
+    when {
+        error != null -> Text(error, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+        !session.loaded -> CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+        else -> SecretCard(part, reply = null, session = session)
+    }
+}
+
+/**
  * A secret the agent asked for, like the desktop's and iOS's `SecretCard`: a
  * masked field whose value goes straight to a file on the agent's runtime.
  * Only the file's path is sent as the reply. The value is held in plain
@@ -53,15 +76,16 @@ internal fun SecretCard(part: ChatPart.Tool, reply: String?, session: ChatSessio
     var sent by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val resources = androidx.compose.ui.platform.LocalResources.current
 
     // The value reached the runtime: sent from here, or the reply says so (Desktop and iOS send the same text).
     val saved = sent || reply?.startsWith(ChatPart.Tool.SecretRequest.savedReply(request.name)) == true
-    if (saved) return SecretLine(Icons.Outlined.Lock, "${request.name} saved on the agent's runtime.")
-    if (reply != null) return SecretLine(Icons.Outlined.LockOpen, "${request.name} request closed. Ask the agent to request it again.")
+    if (saved) return SecretLine(Icons.Outlined.Lock, stringResource(R.string.composer_secret_saved, request.name))
+    if (reply != null) return SecretLine(Icons.Outlined.LockOpen, stringResource(R.string.composer_secret_closed, request.name))
 
     val blocked = when {
-        !session.isOwner -> "Only the owner of this conversation can provide this secret."
-        session.isStreaming -> "The agent is working. You can send this when its turn ends."
+        !session.isOwner -> stringResource(R.string.composer_secret_owner_only)
+        session.isStreaming -> stringResource(R.string.composer_secret_busy)
         else -> null
     }
     fun submit() {
@@ -75,7 +99,7 @@ internal fun SecretCard(part: ChatPart.Tool, reply: String?, session: ChatSessio
                 value = ""
                 sent = true
             } catch (e: Exception) {
-                failure = "Could not save it on the agent's runtime: ${e.message ?: "unknown error"}"
+                failure = resources.getString(R.string.composer_secret_save_failed, e.message ?: resources.getString(R.string.composer_unknown_error))
             } finally {
                 saving = false
             }
@@ -91,7 +115,7 @@ internal fun SecretCard(part: ChatPart.Tool, reply: String?, session: ChatSessio
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Icon(Icons.Outlined.Lock, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Secret needed:", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                Text(stringResource(R.string.composer_secret_needed), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                 Text(request.name, style = MaterialTheme.typography.bodyMedium, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium)
             }
             if (request.reason.isNotEmpty()) Text(request.reason, style = MaterialTheme.typography.bodySmall)
@@ -100,7 +124,7 @@ internal fun SecretCard(part: ChatPart.Tool, reply: String?, session: ChatSessio
                 onValueChange = { value = it },
                 enabled = blocked == null && !saving,
                 singleLine = true,
-                placeholder = { Text("Paste the value") },
+                placeholder = { Text(stringResource(R.string.composer_paste_value)) },
                 textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(
@@ -113,10 +137,10 @@ internal fun SecretCard(part: ChatPart.Tool, reply: String?, session: ChatSessio
                 modifier = Modifier.fillMaxWidth().testTag("secret-value:${part.toolCallId}"),
             )
             Button(onClick = ::submit, enabled = value.isNotEmpty() && !saving && blocked == null) {
-                Text(if (saving) "Saving…" else "Send securely")
+                Text(if (saving) stringResource(R.string.composer_saving) else stringResource(R.string.composer_send_securely))
             }
             failure?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error) }
-            Text(blocked ?: "The value is written to a file on the agent's runtime and never appears in this conversation.",
+            Text(blocked ?: stringResource(R.string.composer_secret_footer),
                 style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }

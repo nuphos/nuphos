@@ -13,7 +13,7 @@ struct ThreadReference: Equatable {
         self.id = id
         let title = part.input?["title"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines)
         self.title = title?.isEmpty == false ? title : nil
-        verb = part.toolName == "create_thread" ? "Started" : "Messaged"
+        verb = part.toolName == "create_thread" ? String(localized: "Started") : String(localized: "Messaged")
     }
 
     private static func validID(_ value: JSONValue?) -> String? {

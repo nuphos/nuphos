@@ -1,6 +1,8 @@
 package ai.nuphos.android.session
 
 import androidx.compose.runtime.getValue
+import ai.nuphos.android.model.Words
+import ai.nuphos.android.R
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import ai.nuphos.android.data.*
@@ -46,7 +48,7 @@ class RuntimeDetailStore(
                 if (current(ticket)) {
                     if (e is NuphosApi.Failure.Unauthorized) expired()
                     else error = when {
-                        e is RuntimeHttpFailure && e.status == 403 -> "Administrator permission is required. Your account stays signed in."
+                        e is RuntimeHttpFailure && e.status == 403 -> Words(R.string.storetext_runtime_admin_required)
                         else -> "Could not confirm the result. Refresh this runtime before continuing."
                     }
                 }
@@ -83,6 +85,6 @@ class RuntimeDetailStore(
         selection.saveCatalog(if (deleting) selection.catalog.map { if (it.id == runtimeId) it.copy(deleting = true) else it }
             else selection.catalog.filterNot { it.id == runtimeId })
         removed = !deleting; selection.managementReview.remove(runtimeId); reconciled = true
-        message = if (deleting) "Removal requested. The runtime is being deleted; agent history stays in Nuphos." else "Runtime disconnected. Agent history stays in Nuphos."
+        message = if (deleting) "Removal requested. The runtime is being deleted; task history stays in Nuphos." else "Runtime disconnected. Task history stays in Nuphos."
     }
 }

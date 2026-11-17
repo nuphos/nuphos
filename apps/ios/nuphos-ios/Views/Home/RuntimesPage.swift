@@ -6,12 +6,15 @@ import SwiftUI
 struct RuntimesPage: View {
     @Environment(AgentStore.self) private var store
     @Environment(\.scenePhase) private var scenePhase
-    @State private var showSetup = false
     /// A computer's own desktop, opened from its box.
     @State private var desktop: DesktopSession?
 
-    private var boxes: [SelectorBox] { SelectorBox.grouped(store.runtimes, devices: store.agentDevices) }
-    private var administrator: Bool { store.selectedTeam?.isAdministrator == true }
+    /// Like Desktop's Computers page, every computer is listed, one with no runtimes too.
+    private var boxes: [SelectorBox] {
+        let grouped = SelectorBox.grouped(store.runtimes, devices: store.agentDevices)
+        let empty = store.agentDevices.filter { device in !grouped.contains { $0.id == "device:\(device.deviceId)" } }
+        return grouped + empty.map { SelectorBox(id: "device:\($0.deviceId)", label: $0.label, device: $0, agents: []) }
+    }
 
     var body: some View {
         // Pushed views do not inherit the store here, so they are handed this one.
@@ -32,7 +35,6 @@ struct RuntimesPage: View {
         // Full screen even where wide: beside this list, the list itself would be put away.
         .desktop($desktop)
         .environment(\.desktopBeside, nil)
-        .navigationDestination(isPresented: $showSetup) { if let team = store.selectedTeam { AgentSetupView(team: team, selectOnCompletion: false).environment(store) } }
         .task(id: store.selectedTeam?.id) {
             if store.teams.isEmpty { await store.loadTeams() }
             async let agents: Void = store.loadRuntimes(force: true)
@@ -51,30 +53,24 @@ struct RuntimesPage: View {
         }
     }
 
-    /// The box's runtime that opens its computer's desktop: the viewer's own computer, whose host can.
-    private func desktopRuntime(in box: SelectorBox) -> RuntimeInstance? {
-        guard let userId = store.userId else { return nil }
-        return box.agents.first { $0.local?.ownerUserId == userId && $0.local?.desktopOpen == true }
-    }
-
     private var list: some View {
         List {
             if boxes.isEmpty {
-                ContentUnavailableView("No runtimes", systemImage: "cpu", description: Text(administrator
-                    ? "Add a cloud runtime here, or open Nuphos on your computer to connect a runtime."
-                    : "Ask a workspace administrator to add a runtime."))
+                ContentUnavailableView("No runtimes", systemImage: "cpu", description: Text("Open Nuphos on your computer to connect it and add a runtime."))
                     .listRowBackground(Color.clear)
             }
             ForEach(boxes) { box in
                 Section {
                     SelectorBoxHeader(box: box, current: false, expanded: true, metricsUnavailable: store.agentDevicesError, showsChevron: false)
                         .listRowInsets(EdgeInsets(top: 16, leading: 20, bottom: 16, trailing: 20))
-                    if let runtime = desktopRuntime(in: box), let team = store.selectedTeam {
+                    // The backend names it only for a computer the viewer may open; it needs no runtime.
+                    if let runtimeId = box.device?.desktopRuntimeId, let team = store.selectedTeam {
                         Button {
-                            desktop = .computer(teamId: team.id, runtimeId: runtime.id, token: store.token)
+                            desktop = .computer(teamId: team.id, runtimeId: runtimeId, token: store.token)
                         } label: {
                             Label("Desktop", systemImage: "display").font(.system(size: 15)).foregroundStyle(Theme.brandText)
                         }
+                        .accessibilityIdentifier("desktop-\(box.id)")
                         .listRowInsets(EdgeInsets(top: 12, leading: 20, bottom: 12, trailing: 20))
                     }
                     ForEach(box.agents) { runtime in
@@ -85,13 +81,12 @@ struct RuntimesPage: View {
                         }
                         .listRowInsets(EdgeInsets(top: 12, leading: 20, bottom: 12, trailing: 20))
                     }
-                }
-                .listRowBackground(Theme.surface)
-            }
-            if administrator {
-                Section {
-                    Button { showSetup = true } label: {
-                        Label("Add runtime", systemImage: "plus").font(.system(size: 15)).foregroundStyle(Theme.brandText)
+                    if box.agents.isEmpty, let device = box.device, device.box == nil {
+                        Text(device.access == "use"
+                            ? "No runtime yet. Ask its owner to add one."
+                            : "No runtime yet. Install Claude Code or Codex on \(device.label) and sign in.")
+                            .font(.system(size: 13)).foregroundStyle(Theme.muted)
+                            .listRowInsets(EdgeInsets(top: 12, leading: 20, bottom: 12, trailing: 20))
                     }
                 }
                 .listRowBackground(Theme.surface)
@@ -140,17 +135,17 @@ private struct AgentSignInInstructions: View {
     }
 
     private var title: String {
-        guard let local = runtime.local else { return "Ask an administrator to sign in" }
-        return teammate ? "Ask its owner to sign in" : "Sign in on \(local.deviceLabel)"
+        guard let local = runtime.local else { return String(localized: "Ask an administrator to sign in") }
+        return teammate ? String(localized: "Ask its owner to sign in") : String(localized: "Sign in on \(local.deviceLabel)")
     }
 
     /// The Runtimes page is in Nuphos on a computer, not in this app.
     private var steps: String {
         guard let local = runtime.local else {
-            return "A workspace administrator can sign it in from the Runtimes page in Nuphos on their computer."
+            return String(localized: "A workspace administrator can sign it in from the Runtimes page in Nuphos on their computer.")
         }
         return teammate
-            ? "\(local.deviceLabel) belongs to a teammate, so only they can sign it in. Ask them to open Nuphos on it and choose Sign in on the Runtimes page."
-            : "On \(local.deviceLabel), open Nuphos, go to the Runtimes page and choose Sign in for this runtime."
+            ? String(localized: "\(local.deviceLabel) belongs to a teammate, so only they can sign it in. Ask them to open Nuphos on it and choose Sign in on the Runtimes page.")
+            : String(localized: "On \(local.deviceLabel), open Nuphos, go to the Runtimes page and choose Sign in for this runtime.")
     }
 }

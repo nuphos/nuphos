@@ -28,7 +28,7 @@ const failed = (extra: Partial<Tab> = {}) =>
     ...extra,
   }) as unknown as Tab
 
-test('the latest failure line offers Switch agent', () => {
+test('the latest failure line offers Switch runtime', () => {
   assert.equal(turnSwitchAgent(failed())?.partId, 'r1:interrupted')
 })
 

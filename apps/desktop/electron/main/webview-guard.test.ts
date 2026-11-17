@@ -23,12 +23,14 @@ const browserSession = {
   on: mock.fn<(event: string, listener: (...args: unknown[]) => void) => void>(),
 }
 const externalUrls: string[] = []
+/** The window a popup's opener lives in. */
+let opener: { isVisible: () => boolean } | null = null
 
 before(async () => {
   mock.module('electron', {
     namedExports: {
       app,
-      BrowserWindow: { fromWebContents: () => null },
+      BrowserWindow: { fromWebContents: () => opener },
       session: { fromPartition: () => browserSession },
       shell: {
         openExternal: async (url: string) => {
@@ -53,7 +55,12 @@ function host() {
 type OpenDetails = { url: string; disposition: string }
 type OpenResult = {
   action: string
-  overrideBrowserWindowOptions?: { webPreferences?: Record<string, boolean> }
+  overrideBrowserWindowOptions?: {
+    parent?: unknown
+    show?: boolean
+    opacity?: number
+    webPreferences?: Record<string, boolean>
+  }
 }
 
 function guest(browser: boolean, type = 'webview') {
@@ -226,6 +233,24 @@ test('a browser popup window gets the same guard, and closes with the tab that o
   assert.equal(close.mock.callCount(), 0)
   contents.emit('destroyed')
   assert.equal(close.mock.callCount(), 1)
+})
+
+test("a hidden agent tab's popup stays hidden and unparented; a shown page's popup is on screen", () => {
+  const { open } = guest(true, 'window')
+  const options = () =>
+    open('https://accounts.google.com/o/oauth2/v2/auth', 'new-window').overrideBrowserWindowOptions
+
+  try {
+    opener = { isVisible: () => false }
+    assert.deepEqual(
+      [options()?.show, options()?.opacity, options()?.parent],
+      [false, 0, undefined],
+    )
+    opener = { isVisible: () => true }
+    assert.deepEqual([options()?.show, options()?.parent], [undefined, opener])
+  } finally {
+    opener = null
+  }
 })
 
 test('changelog popups still open externally, with or without window features', () => {

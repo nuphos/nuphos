@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { useAgentAvatarPicks } from '../../lib/agentAvatarChoices'
+import { isBotRow, useAgentAvatarPicks } from '../../lib/agentAvatarChoices'
 import { useAgentRuntimeStates } from '../../lib/agentRuntimeStates'
-import { useAgentUnreadSessions } from '../../lib/agentUnreadSessions'
+import { useAgentActivityTimes, useAgentUnreadSessions } from '../../lib/agentUnreadSessions'
 import { runtimeTurnActive, runtimeBackgroundRunning } from '../../lib/runtimeExecution'
 import { botOfChannel } from '../channels/botChannel'
 
@@ -31,6 +31,7 @@ export function useChatItems({
 }): Item[] {
   const runtimeStates = useAgentRuntimeStates()
   const unreadSessions = useAgentUnreadSessions()
+  const activityTimes = useAgentActivityTimes()
   const avatarPicks = useAgentAvatarPicks()
   const openId = chatShown ? (agentSessionId ?? undefined) : undefined
   const previousUnread = useRef(unreadSessions)
@@ -66,8 +67,12 @@ export function useChatItems({
   const byId = new Map(agentSessions.map((conversation) => [conversation.sessionId, conversation]))
   const kidsOf = new Map<string, AgentConversation[]>()
 
+  // A Bot is never listed as a sub-agent under another Bot's chat; it has a row of its own.
   for (const conversation of agentSessions)
-    if (conversation.parentSessionId)
+    if (
+      conversation.parentSessionId &&
+      !isBotRow(conversation, avatarPicks.get(conversation.sessionId))
+    )
       kidsOf.set(conversation.parentSessionId, [
         ...(kidsOf.get(conversation.parentSessionId) ?? []),
         conversation,
@@ -80,7 +85,10 @@ export function useChatItems({
   return agentSessions.flatMap((conversation) => {
     const unread = unreadSessions.has(conversation.sessionId)
     const item = chatSidebarItem({
-      conversation,
+      conversation: {
+        ...conversation,
+        lastActiveAt: activityTimes.get(conversation.sessionId) ?? conversation.lastActiveAt,
+      },
       teamId,
       active: chatShown && agentSessionId === conversation.sessionId,
       runtimeState: runtimeStates.get(conversation.sessionId),
@@ -96,7 +104,7 @@ export function useChatItems({
       }),
       actions: <RowMenuButton title={item.label} />,
     }
-    const botId = conversation.kind === 'channel' ? botOfChannel(conversation.faces) : undefined
+    const botId = conversation.kind === 'channel' ? botOfChannel(conversation) : undefined
 
     if (!botId) return [row]
     const bot = byId.get(botId)

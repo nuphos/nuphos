@@ -38,7 +38,8 @@ export function AvatarPicker({
   /** A profile photo is round; a team icon is a rounded square. */
   kind?: 'photo' | 'icon'
   onUpload: (image: Uint8Array) => Promise<void>
-  onRemove: () => Promise<void>
+  /** Absent when there is nothing to go back to by removing, as for a Bot's face. */
+  onRemove?: () => Promise<void>
 }) {
   const [photo, setPhoto] = useState<File | null>(null)
   const [photoBusy, setPhotoBusy] = useState(false)
@@ -67,7 +68,7 @@ export function AvatarPicker({
     setPhotoBusy(true)
     setPhotoError(null)
     try {
-      await onRemove()
+      await onRemove?.()
     } catch (err) {
       setPhotoError(
         err instanceof Error
@@ -126,7 +127,7 @@ export function AvatarPicker({
             >
               {icon ? t('Upload icon') : t('Upload photo')}
             </Button>
-            {src && (
+            {src && onRemove && (
               <Button
                 type="button"
                 size="sm"

@@ -165,7 +165,7 @@ export function ParticipantList({
   currentUserId,
   canManage,
   pending,
-  label = t('In this agent'),
+  label = t('People'),
   onAllowReply,
   onRemove,
 }: {
@@ -205,20 +205,15 @@ export function ParticipantList({
             {participant.isOwner && (
               <span className="px-1.5 text-[12px] text-tertiary">{t('Owner')}</span>
             )}
-            {participant.agent && (
-              <>
-                <span className="px-1.5 text-[12px] text-tertiary">{t('Agent')}</span>
-                {participant.agent.removable && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={pending !== null}
-                    onClick={() => onRemove(participant)}
-                  >
-                    {t('Remove')}
-                  </Button>
-                )}
-              </>
+            {participant.agent?.removable && (
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={pending !== null}
+                onClick={() => onRemove(participant)}
+              >
+                {t('Remove')}
+              </Button>
             )}
             {person && canManage && !self && (
               <ParticipantMenu

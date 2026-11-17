@@ -1,5 +1,7 @@
 package ai.nuphos.android.ui.agent
 
+import ai.nuphos.android.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.MaterialTheme
@@ -66,20 +68,44 @@ internal fun rememberRuntimeDevices(token: String?, teamId: String?): List<ai.nu
     }
 }
 
+/** Whether the computer this runtime lives on is offline right now. A runtime with no computer is never asked again. */
+@Composable
+internal fun rememberRuntimeOffline(token: String?, teamId: String?, runtimeId: String?): Boolean {
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val revision = AiAccess.revision
+    return key(token, teamId, runtimeId, revision, lifecycle) {
+        val offline by produceState(false) {
+            if (token == null || teamId == null || runtimeId == null) return@produceState
+            val allowed = AiAccess.bind(token)
+            lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                while (isActive && allowed()) {
+                    val host = try { AgentRuntimeApi(token, teamId).catalog().firstOrNull { it.id == runtimeId }?.local }
+                    catch (error: Exception) { if (error is CancellationException) throw error; delay(15_000); continue }
+                    if (allowed()) value = host?.online == false
+                    if (host == null) return@repeatOnLifecycle
+                    delay(15_000)
+                }
+            }
+        }
+        offline
+    }
+}
+
 @Composable
 fun RuntimeUsage(quota: RuntimeQuota?, compact: Boolean = false) {
     val locale = java.util.Locale.forLanguageTag(Locale.current.toLanguageTag())
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         if (quota?.available != true || quota.windows.isEmpty()) {
-            Text("Usage unavailable", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.agent_usage_unavailable), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else (if (compact) listOf(quota.windows.maxBy { it.usedPercent }) else quota.windows).forEach { window ->
             val reset = window.resetsAt?.let { raw -> runCatching {
                 DateTimeFormatter.ofPattern("MMM d, HH:mm", locale).withZone(ZoneId.systemDefault()).format(Instant.parse(raw))
             }.getOrNull() }
             val left = (100.0 - window.usedPercent).coerceIn(0.0, 100.0)
             ContinuousUsageBar(progress = (left / 100.0).toFloat())
-            Text((if (compact) "" else "${window.label}: ") + "${String.format(locale, "%.0f", left)}% left" +
-                (reset?.let { " · resets $it" } ?: ""), style = MaterialTheme.typography.bodySmall,
+            val percent = String.format(locale, "%.0f", left)
+            Text((if (compact) stringResource(R.string.agent_percent_left, percent) else stringResource(R.string.agent_window_percent_left, window.label, percent)) +
+                (reset?.let { " · " + stringResource(R.string.agent_resets_at, it) } ?: ""), style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }

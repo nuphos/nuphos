@@ -202,7 +202,7 @@ async function createHarness() {
     OpenAbAcpClient.connect({ ...endpoint, socketFactory: gateway.socketFactory })
   const replicaA = await connect()
   const replicaB = await connect()
-  const sessionId = await replicaA.createSession('/workspace', [])
+  const { sessionId } = await replicaA.createSession('/workspace', [])
   const replies: string[] = []
   const run = (client: OpenAbAcpClient, message: string) =>
     client.prompt(sessionId, message, (text) => replies.push(text))

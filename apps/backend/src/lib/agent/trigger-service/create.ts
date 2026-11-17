@@ -1,11 +1,8 @@
-import { ObjectId } from 'mongodb'
-
 import { isValidCronExpression } from '@/lib/cron'
 import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 
-import { legacyMonitoringWatchDedupeKey, monitoringWatchDedupeKey } from '../monitoring-workflow'
-import { assertTeamTriggerRole } from '../trigger-access'
+import { assertCanCreateTrigger } from '../trigger-access'
 import { agentTriggers, generateWebhookSecret } from '../trigger-db'
 import { scheduleCronTrigger } from '../trigger-scheduler'
 
@@ -17,15 +14,10 @@ import {
   isDuplicateKeyError,
   validateMinInterval,
 } from './shared'
-import {
-  assertDedupeCompatible,
-  backfillMonitoringIdentity,
-  bindLegacyWatch,
-  findExistingWatch,
-} from './watch-dedupe'
 
 import type { AgentTrigger } from '../trigger-db'
 import type { CreateTriggerInput, SerializedTrigger, TriggerCallerContext } from './shared'
+import type { ObjectId } from 'mongodb'
 
 /**
  * Create a trigger and (for cron) register it with the scheduler. Returns the
@@ -39,7 +31,7 @@ export async function createTrigger(
 ): Promise<SerializedTrigger> {
   // Keep the role check at the service boundary so HTTP, Agent tools, and
   // automation cannot disagree about who may create a team Trigger.
-  await assertTeamTriggerRole(ctx, 'manage')
+  await assertCanCreateTrigger(ctx)
 
   const name = input.name.trim().slice(0, 100)
 
@@ -77,43 +69,17 @@ export async function createTrigger(
   if (input.minIntervalSeconds !== undefined)
     validateMinInterval(input.triggerType, input.minIntervalSeconds)
 
-  const dedupeKey = input.monitoringIdentity
-    ? monitoringWatchDedupeKey(ctx.userId, ctx.teamId, input.monitoringIdentity)
-    : input.dedupeKey
-  const legacyDedupeKey = input.monitoringIdentity
-    ? legacyMonitoringWatchDedupeKey(ctx.userId, ctx.teamId, input.monitoringIdentity)
-    : null
-  const acceptedDedupeKeys = [dedupeKey, legacyDedupeKey].filter((key): key is string =>
-    Boolean(key),
-  )
+  const { dedupeKey } = input
 
   // Idempotency: a dedupeKey that already exists returns the existing trigger
-  // instead of erroring, so automation retries (re-fired incidents) are no-ops.
+  // instead of erroring, so automation retries are no-ops.
   if (dedupeKey) {
-    const existing = await findExistingWatch({
-      dedupeKey,
-      legacyDedupeKey,
-      teamId: ctx.teamId,
-      monitoringIdentity: input.monitoringIdentity,
-    })
+    const existing = await findDedupedTrigger(dedupeKey, input, ctx)
 
-    if (existing) {
-      assertDedupeCompatible(existing, input, ctx, acceptedDedupeKeys)
-
-      return serializeTrigger(
-        await bindLegacyWatch(
-          await backfillMonitoringIdentity(existing, input.monitoringIdentity),
-          input.targetSessionId,
-          ctx,
-        ),
-        true,
-      )
-    }
+    if (existing) return serializeTrigger(existing, true)
   }
 
-  // Group partitions are implementation details; the Group service charges
-  // exactly one quota slot before it creates any of them.
-  if (!input.watchGroup && input.enabled !== false) await assertTriggerCreationQuota(ctx)
+  if (input.enabled !== false) await assertTriggerCreationQuota(ctx)
 
   const now = new Date()
   const webhookSecret = input.triggerType === 'webhook' ? generateWebhookSecret() : undefined
@@ -123,8 +89,6 @@ export async function createTrigger(
     // Keep userId for backwards compatibility while making ownership and
     // execution identity explicit for all newly-created rows.
     userId: ctx.userId,
-    createdByUserId: ctx.userId,
-    executionPrincipalUserId: ctx.userId,
     ...credentials,
     executionAuthorizationStatus: 'unchecked',
     ...(ctx.teamId ? { teamId: ctx.teamId } : {}),
@@ -140,17 +104,6 @@ export async function createTrigger(
     ...(ctx.sourceContext ? { sourceContext: ctx.sourceContext } : {}),
     ...(input.expiresAt ? { expiresAt: input.expiresAt } : {}),
     ...(dedupeKey ? { dedupeKey } : {}),
-    ...(input.monitoringIdentity ? { monitoringIdentity: input.monitoringIdentity } : {}),
-    ...(input.watchGroup
-      ? {
-          watchGroupId: new ObjectId(input.watchGroup.groupId),
-          watchGroupPartitionKey: input.watchGroup.partitionKey,
-          watchGroupMemberKeys: input.watchGroup.memberKeys,
-        }
-      : {}),
-    // New rows are never legacy migration candidates. Only pre-existing rows
-    // without this marker need startup inference from their original prompt.
-    legacyProviderChecked: true,
     ...(input.minIntervalSeconds !== undefined
       ? { minIntervalSeconds: input.minIntervalSeconds }
       : {}),
@@ -168,25 +121,9 @@ export async function createTrigger(
   } catch (err) {
     // Lost the dedupe race to a concurrent creator — return theirs.
     if (dedupeKey && isDuplicateKeyError(err)) {
-      const existing = await findExistingWatch({
-        dedupeKey,
-        legacyDedupeKey,
-        teamId: ctx.teamId,
-        monitoringIdentity: input.monitoringIdentity,
-      })
+      const existing = await findDedupedTrigger(dedupeKey, input, ctx)
 
-      if (existing) {
-        assertDedupeCompatible(existing, input, ctx, acceptedDedupeKeys)
-
-        return serializeTrigger(
-          await bindLegacyWatch(
-            await backfillMonitoringIdentity(existing, input.monitoringIdentity),
-            input.targetSessionId,
-            ctx,
-          ),
-          true,
-        )
-      }
+      if (existing) return serializeTrigger(existing, true)
     }
     throw err
   }
@@ -208,4 +145,36 @@ export async function createTrigger(
   }
 
   return serializeTrigger({ ...doc, _id: insertedId }, true)
+}
+
+/**
+ * The trigger an earlier create with the same dedupeKey produced, or null. A
+ * key reused for a different owner, type or conversation is a caller bug, not
+ * a retry, so it conflicts instead of returning someone else's trigger.
+ */
+async function findDedupedTrigger(
+  dedupeKey: string,
+  input: CreateTriggerInput,
+  ctx: TriggerCallerContext,
+): Promise<AgentTrigger | null> {
+  const existing = await agentTriggers().findOne({ dedupeKey })
+
+  if (!existing) return null
+  const sameOwner = ctx.teamId
+    ? existing.teamId === ctx.teamId
+    : existing.userId === ctx.userId && existing.teamId === undefined
+
+  if (
+    !sameOwner ||
+    existing.triggerType !== input.triggerType ||
+    existing.targetSessionId !== input.targetSessionId
+  ) {
+    throw new AppError(
+      409,
+      'trigger_dedupe_conflict',
+      'That trigger idempotency key is already attached to a different trigger',
+    )
+  }
+
+  return existing
 }

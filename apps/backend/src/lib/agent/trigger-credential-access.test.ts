@@ -4,7 +4,6 @@ import {
   credentialScopeCoversAll,
   intersectTriggerCredentialAccess,
   resolveTriggerCredentialMode,
-  resolveTriggerGroupCredentialMode,
   triggerRunCredentialAccess,
 } from './trigger-credential-access'
 
@@ -163,13 +162,6 @@ describe('triggerRunCredentialAccess', () => {
 
     expect(resolveTriggerCredentialMode(legacy)).toBe('selected')
     expect(triggerRunCredentialAccess(legacy, current).cloudflareAccountIds).toBeUndefined()
-  })
-
-  test('a legacy Watch Group scope is treated as a choice', () => {
-    expect(resolveTriggerGroupCredentialMode({ executionCredentialAccess: access() })).toBe(
-      'selected',
-    )
-    expect(resolveTriggerGroupCredentialMode({})).toBe('all')
   })
 })
 

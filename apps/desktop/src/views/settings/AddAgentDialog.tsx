@@ -42,10 +42,10 @@ export function AddAgentDialog({
   const devices = useAgentDevices(() => 0, teamId, { teamId }).list
   const deploymentBoxes = devices?.boxAvailable === true
   const instaboxAccounts = useInstaboxAccounts(teamId)
-  // A team's own instabox account offers computers even where Nuphos has none, to those who
-  // may create one there: its administrators.
+  // Only administrators create one, on the deployment's or the team's own instabox account;
+  // everyone else adds their own computer.
   const boxAvailable =
-    deploymentBoxes || (instaboxAccounts.length > 0 && devices?.canCreateBox === true)
+    devices?.canCreateBox === true && (deploymentBoxes || instaboxAccounts.length > 0)
   const [signingIn, setSigningIn] = useState<RuntimeInstance | null>(null)
   const [join, setJoin] = useState<BoxJoin | null>(null)
   // Slide direction of the step that just entered: deeper from the right, back

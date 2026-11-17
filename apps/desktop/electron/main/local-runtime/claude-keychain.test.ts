@@ -20,7 +20,7 @@ mock.module('node:child_process', {
     },
   },
 })
-const { readAgentUsage } = await import('./agent-cli.ts')
+const { readAgentUsage } = await import('./agent-cli-usage.ts')
 
 test(
   'usage reads the same default or custom Keychain entry, for this account, as Claude',

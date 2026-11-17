@@ -8,7 +8,7 @@ import { SidebarInvitations } from './parts'
 
 import type { SidebarProps } from './types'
 
-type Props = { active: string; onSelect: (key: string) => void } & Pick<
+type Props = { connectorsOpen: boolean; onSelect: (key: string) => void } & Pick<
   SidebarProps,
   | 'user'
   | 'onOpenUserSettings'
@@ -20,7 +20,7 @@ type Props = { active: string; onSelect: (key: string) => void } & Pick<
 >
 
 export function SidebarFooter({
-  active,
+  connectorsOpen,
   onSelect,
   user,
   onOpenUserSettings,
@@ -52,7 +52,7 @@ export function SidebarFooter({
       <Button
         variant="secondary"
         size="sm"
-        aria-pressed={active === 'team.integrations'}
+        aria-pressed={connectorsOpen}
         onClick={() => onSelect('team.integrations')}
         className="min-w-0 flex-1 !rounded-full gap-1.5 aria-pressed:bg-state-selected"
       >

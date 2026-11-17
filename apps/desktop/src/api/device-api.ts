@@ -1,6 +1,7 @@
 import type {
   AgentDeviceListOptions,
   BoxAccess,
+  CliLoginProvider,
   LocalAgentProvider,
   LocalRuntimeState,
   LocalShareInput,
@@ -16,6 +17,10 @@ export const deviceApi = {
   deviceListAudit: (before?: string) => window.api.deviceListAudit(before),
   localRuntimeApplyApiKey: (provider: 'claude-code' | 'codex', key: string | null) =>
     window.api.localRuntimeApplyApiKey(provider, key),
+  localRuntimeSetCustomProvider: (
+    provider: CliLoginProvider,
+    value: { baseUrl: string; apiKey?: string; models: string[] } | null,
+  ) => window.api.localRuntimeSetCustomProvider(provider, value),
   localRuntimeSubmitClaudeLoginCode: (code: string) =>
     window.api.localRuntimeSubmitClaudeLoginCode(code),
   localRuntimeStartClaudeLogin: () => window.api.localRuntimeStartClaudeLogin(),
@@ -28,6 +33,7 @@ export const deviceApi = {
   onLocalRuntimeState: (cb: (state: LocalRuntimeState) => void) =>
     window.api.onLocalRuntimeState(cb),
   localRuntimeRefresh: () => window.api.localRuntimeRefresh(),
+  localRuntimeRefreshModels: () => window.api.localRuntimeRefreshModels(),
   localRuntimeUpdateAgent: (provider: LocalAgentProvider) =>
     window.api.localRuntimeUpdateAgent(provider),
   localRuntimeInstallAgent: (provider: LocalAgentProvider) =>
@@ -53,6 +59,9 @@ export const deviceApi = {
   boxResume: (deviceId: string, teamId: string) => window.api.boxResume(deviceId, teamId),
   boxDelete: (deviceId: string, teamId: string) => window.api.boxDelete(deviceId, teamId),
   deviceRemove: (deviceId: string, teamId: string) => window.api.deviceRemove(deviceId, teamId),
+  deviceAppUpdate: (deviceId: string, teamId: string) =>
+    window.api.deviceAppUpdate(deviceId, teamId),
+  boxClearCaches: (deviceId: string, teamId: string) => window.api.boxClearCaches(deviceId, teamId),
   boxDesktop: (deviceId: string, teamId: string) => window.api.boxDesktop(deviceId, teamId),
   boxJoinToken: () => window.api.boxJoinToken(),
   sshHosts: () => window.api.sshHosts(),

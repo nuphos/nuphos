@@ -215,7 +215,7 @@ export function BypassControlMenu({
           hero ? 'h-8 px-1.5 @[400px]:px-3' : 'h-7 px-1.5 @[400px]:px-2.5',
           'text-secondary hover:text-main hover:bg-state-hover',
         )}
-        title={t('Choose how commands in this agent are authorized')}
+        title={t('Choose how commands in this task are authorized')}
       >
         <span className="text-[12.5px] font-medium flex items-center">
           {bypassControl.active ? (

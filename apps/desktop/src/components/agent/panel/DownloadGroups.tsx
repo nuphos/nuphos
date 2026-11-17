@@ -9,8 +9,8 @@ import { TransferPreviews } from './transferPreviews'
 import type { FileTransferGroup } from '../../../types'
 
 /**
- * The files one message produced, however many pushes they took: their images
- * and videos as one row of thumbnails with one pager, then each group's other
+ * The files one message produced, however many pushes they took: their images,
+ * videos and audio as one row of squares with one pager, then each group's other
  * files as its own card, which also says when it expired. A single group is
  * just its card.
  */

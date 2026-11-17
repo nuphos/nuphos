@@ -3,7 +3,7 @@ import { Fragment, useCallback, useState } from 'react'
 
 import { t } from '../../i18n'
 import { useAgentLinks } from '../agent/panel/useAgentLinks'
-import { renderMemberMentionLink } from '../agent/panel/messageInlineLinks'
+import { renderAtlasMentionLink, renderMemberMentionLink } from '../agent/panel/messageInlineLinks'
 import { parseMessageMetadata } from '../agent/panel/messageMetadata'
 import { ContextMenu } from '../ContextMenu'
 
@@ -12,6 +12,7 @@ import { ChannelReplyFailed } from './ChannelReplyFailed'
 import { ChannelMessage } from './ChannelPost'
 import { sentSinceOpening, startsTimeGap, timeGapLabel } from './chatTime'
 import { Typing } from './ChannelTyping'
+import { useOpenAtPost } from './postJump'
 
 import type {
   AgentMessageReply,
@@ -19,6 +20,7 @@ import type {
   AgentTimelineEvent,
   ChannelAgent,
 } from '../../api'
+import type { ChannelFixes } from './ChannelReplyFix'
 import type { ReactNode } from 'react'
 
 /** Who posted: the sender's id, so consecutive posts from one sender form a run. */
@@ -53,6 +55,7 @@ const postedAt = (message: AgentPersistedMessage) =>
   stamp(parseMessageMetadata(message.metadata)?.sentAt ?? message.createdAt)
 
 export function ChannelMessages({
+  botId,
   messages,
   events,
   agents,
@@ -63,7 +66,9 @@ export function ChannelMessages({
   channelId,
   onReply,
   extraRows = [],
+  fixes,
 }: {
+  botId?: string
   messages: AgentPersistedMessage[]
   events: AgentTimelineEvent[]
   agents: ChannelAgent[]
@@ -76,14 +81,20 @@ export function ChannelMessages({
   onReply?: (reply: AgentMessageReply) => void
   /** Other lines in the timeline, such as the questions a Bot's chat waits on. */
   extraRows?: TimelineRow[]
+  /** What the workspace lends to repair an agent that could not reply. */
+  fixes?: ChannelFixes
 }) {
   const renderAgentLink = useAgentLinks(teamId, onOpenNuphosLink)
+
+  useOpenAtPost(channelId)
   // One function across renders: a new one makes every post rebuild its text,
   // which drops a selection the reader is dragging.
   const renderLink = useCallback(
     (href: string, children: ReactNode) =>
-      renderMemberMentionLink(href, children, teamId) ?? renderAgentLink(href, children),
-    [teamId, renderAgentLink],
+      renderMemberMentionLink(href, children, teamId) ??
+      renderAtlasMentionLink(href, children, onOpenNuphosLink) ??
+      renderAgentLink(href, children),
+    [teamId, renderAgentLink, onOpenNuphosLink],
   )
   const links = { channelId, renderLink, onLinkClick: onOpenNuphosLink }
   // What was here on opening stays put; only posts that arrive later spring in.
@@ -129,6 +140,14 @@ export function ChannelMessages({
                   if (reply) setMenu({ reply, x: event.clientX, y: event.clientY })
                 })
               }
+              onReply={
+                onReply &&
+                (() => {
+                  const reply = replyTo(message)
+
+                  if (reply) onReply(reply)
+                })
+              }
             />
           </>
         ),
@@ -151,6 +170,7 @@ export function ChannelMessages({
               actionable={event === lastEvent && stamp(event.at) >= lastPostAt}
               ownedAgents={owned}
               onOpenSession={onOpenSession}
+              fixes={fixes}
             />
           ),
       })),
@@ -162,7 +182,7 @@ export function ChannelMessages({
       {rows.map((row) => (
         <Fragment key={row.key}>{row.node}</Fragment>
       ))}
-      <Typing agents={agents} channelId={channelId} />
+      <Typing agents={agents} channelId={channelId} botId={botId} />
       {menu && onReply && (
         <ContextMenu
           x={menu.x}

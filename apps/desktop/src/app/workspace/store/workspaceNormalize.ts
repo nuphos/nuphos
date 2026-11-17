@@ -6,6 +6,7 @@ import {
   isManagementTab,
   selectActiveTab,
   selectBucket,
+  selectMainPageTab,
   teamScopeOf,
 } from './workspaceState.ts'
 
@@ -187,7 +188,7 @@ export function finalizeWorkspaceState(
     buckets,
     recentSessionKeys: recentCandidates.filter((key) => !victims.has(key)),
   }
-  const activeTeamId = selectActiveTab(settled)?.scope.teamId
+  const activeTeamId = (selectActiveTab(settled) ?? selectMainPageTab(settled))?.scope.teamId
 
   if (activeTeamId && activeTeamId !== settled.teamScope?.teamId) {
     return { ...settled, teamScope: teamScopeOf(activeTeamId) }

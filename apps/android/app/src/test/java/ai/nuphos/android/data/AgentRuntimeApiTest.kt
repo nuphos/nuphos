@@ -68,13 +68,10 @@ class AgentRuntimeApiTest {
         response = "{}"
         try { api.quotas(); fail() } catch (_: NuphosApi.Failure.InvalidResponse) { }
     }
-    @Test fun catalogAndRawCreateUseExactPayloadAndIgnoreDefaults() = runTest {
+    @Test fun catalogReadsExistingRuntimesWithoutCreatingAny() = runTest {
         assertTrue(api.catalog().single().selectable)
-        status = 201; response = runtime
-        assertEquals("saved-id", api.create("codex", " Saved ").id)
-        assertEquals("""{"provider":"codex","label":"Saved"}""", payload())
-        api.create("claude-code", null); assertEquals("""{"provider":"claude-code"}""", payload())
-        assertEquals("/teams/507f1f77bcf86cd799439011/agent-runtimes", requests.last().url.encodedPath)
+        assertEquals("GET", requests.single().method)
+        assertEquals("/teams/507f1f77bcf86cd799439011/agent-runtimes", requests.single().url.encodedPath)
     }
     @Test fun exactLoginCodeAndCancelBodiesAndStates() = runTest {
         status = 202; response = login(); val attempt = api.start("saved-id")
@@ -99,15 +96,10 @@ class AgentRuntimeApiTest {
     }
     @Test fun malformedResponsesAndUnexpectedSuccessStatusAreRejected() = runTest {
         response = "{}"; try { api.catalog(); fail() } catch (_: NuphosApi.Failure.InvalidResponse) { }
-        status = 200; response = runtime; try { api.create("codex", null); fail() } catch (_: NuphosApi.Failure.InvalidResponse) { }
         response = login("invented"); try { api.login("saved-id"); fail() } catch (_: NuphosApi.Failure.InvalidResponse) { }
         response = login().replace(attemptId, "bad"); try { api.login("saved-id"); fail() } catch (_: NuphosApi.Failure.InvalidResponse) { }
     }
-    @Test fun allProvidersAndTypedStepsUseTheExistingActorBoundContract() = runTest {
-        status = 201; response = runtime
-        for (provider in listOf("grok", "antigravity", "opencode")) {
-            api.create(provider, null); assertEquals("{\"provider\":\"$provider\"}", payload())
-        }
+    @Test fun typedStepsUseTheExistingActorBoundContract() = runTest {
         status = 200
         response = """{"attemptId":"$attemptId","state":"awaiting_authorization","expiresAt":"2030-01-01T00:00:00Z","step":{"kind":"choose","message":"Choose provider","options":[{"value":"option","label":"Synthetic option"}]}}"""
         val choice = api.login("saved-id")
@@ -124,8 +116,6 @@ class AgentRuntimeApiTest {
             try { api.code("saved-id", attemptId, code); fail() } catch (_: IllegalArgumentException) { }
         }
         try { api.start("../other"); fail() } catch (_: IllegalArgumentException) { }
-        try { api.create("unknown", null); fail() } catch (_: IllegalArgumentException) { }
-        try { api.create("codex", " "); fail() } catch (_: IllegalArgumentException) { }
         assertTrue(requests.isEmpty())
         for (url in listOf("http://example.test", "https://user:pass@example.test", "javascript:alert(1)", "https:///bad")) assertFalse(runtimeHttpsUrl(url))
         assertTrue(runtimeHttpsUrl("https://example.test/auth?state=synthetic"))

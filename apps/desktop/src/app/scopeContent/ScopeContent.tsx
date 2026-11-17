@@ -20,7 +20,6 @@ import { renderGcpPages } from './gcpPages'
 import { renderIntegrationPages } from './integrationPages'
 import { renderProviderAccountPages } from './providerAccountPages'
 import { renderSshTerminalPage } from './sshTerminalPage'
-import { renderTeamHomePages } from './teamHomePages'
 import { renderTeamPages } from './teamPages'
 import { renderTeamToolPages } from './teamToolPages'
 
@@ -30,7 +29,6 @@ const SECTION_RENDERERS: ScopeSectionRenderer[] = [
   renderSshTerminalPage,
   renderTeamPages,
   renderTeamToolPages,
-  renderTeamHomePages,
   renderAwsComputePages,
   renderAwsObservabilityPages,
   renderAwsIamStoragePages,

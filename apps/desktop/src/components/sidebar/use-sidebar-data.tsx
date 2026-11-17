@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { t } from '../../i18n'
+import { agentAvatarPick } from '../../lib/agentAvatarChoices'
 import { archiveChat as archiveChatRequest } from '../../lib/archiveChat'
 import { announceChatArchived } from '../../lib/chatArchiveEvents'
 import { onChatTitleChanged } from '../../lib/chatTitleEvents'
@@ -17,6 +18,7 @@ import { removeChat, retitleChat, useAgentSessions } from './agentSessions'
 import { crdCacheKey } from './state'
 import { useChatItems } from './use-chat-items'
 import { useSidebarArchiveEvents } from './use-sidebar-archive-events'
+import { useBotArchiveFocus } from './useBotArchiveFocus'
 
 import type { Item, Section } from './types'
 import type { AgentConversation } from '../../api'
@@ -115,12 +117,14 @@ export function useSidebarChats({
   agentSessionId,
   chatShown,
   onArchived,
+  onBotArchiveSelect,
 }: {
   teamId: string
   agentSessionId: string | null
   chatShown: boolean
   /** A chat left the list for the archive — the caller closes any tab showing it. */
   onArchived?: (sessionId: string) => void
+  onBotArchiveSelect?: (key: string) => void
 }) {
   const client = useQueryClient()
   const agentSessions = useAgentSessions(teamId).data ?? NONE
@@ -138,7 +142,21 @@ export function useSidebarChats({
 
   const [archivingIds, setArchivingIds] = useState<ReadonlySet<string>>(() => new Set())
   const archiving = useRef(new Set<string>())
-  const { offerUndo } = useSidebarArchiveEvents({ teamId, sessions: agentSessions, onArchived })
+  const chatItems = useChatItems({ agentSessions, teamId, chatShown, agentSessionId })
+  const handleArchived = useBotArchiveFocus(() => ({
+    teamId,
+    selectedId: agentSessionId,
+    enabled: Boolean(onBotArchiveSelect),
+    onArchived,
+    onSelect: (key) => onBotArchiveSelect?.(key),
+    items: chatItems,
+    archiving: archivingIds,
+  }))
+  const { offerUndo } = useSidebarArchiveEvents({
+    teamId,
+    sessions: agentSessions,
+    onArchived: handleArchived,
+  })
   const archiveChat = useCallback(
     async (sessionId: string) => {
       // Re-entrancy guard: a second click while the first archive is in
@@ -175,7 +193,9 @@ export function useSidebarChats({
         announceChatArchived({ sessionId, teamId })
         offerUndo(sessionId, botSessionId)
       } else {
-        toast.error(t('Could not archive agent'))
+        toast.error(
+          agentAvatarPick(sessionId) ? t('Could not archive Bot') : t('Could not archive task'),
+        )
       }
     },
     [client, teamId, offerUndo],
@@ -202,7 +222,6 @@ export function useSidebarChats({
     [client, teamId],
   )
 
-  const chatItems = useChatItems({ agentSessions, teamId, chatShown, agentSessionId })
   const newChatActive = chatShown && !agentSessionId
 
   return { agentSessions, chatItems, newChatActive, archiveChat, unlinkChat, archivingIds }

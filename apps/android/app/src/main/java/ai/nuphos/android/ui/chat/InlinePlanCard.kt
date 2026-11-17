@@ -16,6 +16,9 @@ import ai.nuphos.android.ui.components.StatusBadge
 import ai.nuphos.android.ui.plans.PlanSteps
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import ai.nuphos.android.R
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 
 /** The plan id a plan-proposing tool returned, matching iOS ToolCallRow.planId. */
 internal val ChatPart.Tool.planId: String?
@@ -63,13 +66,13 @@ internal fun InlinePlanCard(planId: String, session: ChatSession) {
                 if (error != null) Text(error.orEmpty(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                 else Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                    Text("Loading plan…", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.chat_plan_loading), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 return@Column
             }
             Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(p.number?.let { "Plan #$it" } ?: "Plan #${p.id}", style = MaterialTheme.typography.labelSmall,
+                    Text(stringResource(R.string.chat_plan_number, p.number?.toString() ?: p.id), style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(p.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
                 }
@@ -78,12 +81,12 @@ internal fun InlinePlanCard(planId: String, session: ChatSession) {
             if (p.overview.isNotEmpty()) SelectionContainer { Text(p.overview, style = MaterialTheme.typography.bodyMedium) }
             if (p.steps.isNotEmpty()) PlanSteps(p.steps)
             val facts = buildList {
-                p.costSummary?.takeIf { it.isNotEmpty() }?.let { add("Cost" to it) }
-                p.riskWorstCase?.takeIf { it.isNotEmpty() }?.let { add("Worst case" to it) }
-                if (p.riskMitigations.isNotEmpty()) add("Mitigations" to p.riskMitigations.joinToString(" · "))
+                p.costSummary?.takeIf { it.isNotEmpty() }?.let { add(stringResource(R.string.chat_plan_cost) to it) }
+                p.riskWorstCase?.takeIf { it.isNotEmpty() }?.let { add(stringResource(R.string.chat_plan_worst_case) to it) }
+                if (p.riskMitigations.isNotEmpty()) add(stringResource(R.string.chat_plan_mitigations) to p.riskMitigations.joinToString(" · "))
                 p.approvalProgress?.let { ap ->
                     val remaining = maxOf(0, ap.minimumOtherApprovals - ap.otherApprovals)
-                    if (!ap.satisfied && p.status == "proposed" && remaining > 0) add("Approvals" to "waiting for $remaining more")
+                    if (!ap.satisfied && p.status == "proposed" && remaining > 0) add(stringResource(R.string.chat_plan_approvals) to pluralStringResource(R.plurals.chat_plan_approvals_waiting, remaining, remaining))
                 }
             }
             facts.forEach { (label, value) ->
@@ -95,21 +98,21 @@ internal fun InlinePlanCard(planId: String, session: ChatSession) {
             if (p.status == "proposed" && !session.readOnly) {
                 val enabled = !busy && !session.isStreaming
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(enabled = enabled && p.isReadyForApproval, onClick = { decide(approve = true) }) { Text("Approve") }
-                    OutlinedButton(enabled = enabled, onClick = { revise = true }) { Text("Request changes") }
+                    Button(enabled = enabled && p.isReadyForApproval, onClick = { decide(approve = true) }) { Text(stringResource(R.string.approve)) }
+                    OutlinedButton(enabled = enabled, onClick = { revise = true }) { Text(stringResource(R.string.chat_plan_request_changes)) }
                     OutlinedButton(enabled = enabled, onClick = { decide(approve = false) },
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("Reject") }
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text(stringResource(R.string.chat_plan_reject)) }
                 }
             }
             if (p.status == "proposed" && !p.isReadyForApproval) {
-                Text("The agent is still drafting this plan. Approval is available once the steps, cost and risks are complete.",
+                Text(stringResource(R.string.chat_plan_still_drafting),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (error != null) Text(error.orEmpty(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
         }
     }
-    if (revise) AlertDialog(onDismissRequest = { revise = false }, title = { Text("Request changes") },
-        text = { OutlinedTextField(reason, { reason = it }, label = { Text("What should change?") }) },
-        confirmButton = { TextButton(enabled = reason.isNotBlank(), onClick = { session.requestPlanChanges(reason); reason = ""; revise = false }) { Text("Send") } },
-        dismissButton = { TextButton(onClick = { revise = false }) { Text("Cancel") } })
+    if (revise) AlertDialog(onDismissRequest = { revise = false }, title = { Text(stringResource(R.string.chat_plan_request_changes)) },
+        text = { OutlinedTextField(reason, { reason = it }, label = { Text(stringResource(R.string.chat_plan_change_prompt)) }) },
+        confirmButton = { TextButton(enabled = reason.isNotBlank(), onClick = { session.requestPlanChanges(reason); reason = ""; revise = false }) { Text(stringResource(R.string.send)) } },
+        dismissButton = { TextButton(onClick = { revise = false }) { Text(stringResource(R.string.cancel)) } })
 }

@@ -10,6 +10,7 @@ import {
   SkillFilesSection,
   SkillHistorySection,
   SkillOriginRow,
+  SkillSyncedFromRow,
   SkillUploadSection,
 } from './SkillDetailSections'
 
@@ -24,6 +25,7 @@ import type { TeamMember } from '../../types'
 import type { RefObject } from 'react'
 
 export function SkillDetailPane({
+  teamId,
   skill,
   scope,
   files,
@@ -42,6 +44,7 @@ export function SkillDetailPane({
   onDeleteSkill,
   onClose,
 }: {
+  teamId: string
   skill: TeamSkillSummary
   /** The store the skill is shown from, so the header names it. */
   scope: SkillScope
@@ -160,6 +163,7 @@ export function SkillDetailPane({
                   <span className="text-tertiary">{t('Source')}</span>
                   <span className="font-mono text-secondary">{metadata.createdSource}</span>
                   {history?.origin && <SkillOriginRow origin={history.origin} />}
+                  <SkillSyncedFromRow teamId={teamId} scope={scope} name={skill.name} />
                   <span className="text-tertiary">{t('Revision')}</span>
                   <span className="font-mono text-secondary">{metadata.revision}</span>
                   <span className="text-tertiary">{t('Last changed by')}</span>

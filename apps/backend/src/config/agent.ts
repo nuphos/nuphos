@@ -30,8 +30,7 @@ export function agentConfig() {
     publicBackendUrl: optional('NUPHOS_PUBLIC_BACKEND_URL'),
     triggers: {
       // A team member keeps the historical personal ceiling while the team
-      // also has a larger shared ceiling. Watch Group partitions do not count
-      // individually; the Group itself consumes one slot.
+      // also has a larger shared ceiling.
       maxPerOwner: 50,
       maxPerTeam: 500,
       // Default cooldown between webhook-triggered runs of the SAME trigger.

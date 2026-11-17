@@ -154,6 +154,7 @@ export async function runOpenConversation(
       autoResumeAttempts: 0,
       historyBaseIndex,
       credentialAccess,
+      ...(detail.credentialSource ? { credentialSource: detail.credentialSource } : {}),
       readOnly: detail.readOnly === true || opts?.forceReadOnly === true,
       auditForcedReadOnly:
         opts?.forceReadOnly === true && detail.readOnly !== true ? true : undefined,
@@ -170,6 +171,7 @@ export async function runOpenConversation(
       signInRequest: detail.signInRequest,
       timelineEvents: detail.timelineEvents,
       promptSuggestion: detail.promptSuggestion,
+      waitingAnswers: detail.waitingAnswers,
       openedAt: Date.now(),
     }
 
@@ -243,7 +245,7 @@ export async function runOpenConversation(
     }
     const settled = openingAfterFailure(sessionId, err)
 
-    if (!settled) toast.apiError(t('Failed to open agent'), err)
+    if (!settled) toast.apiError(t('Failed to open task'), err)
     clearPendingOpen(sessionId)
     setOpeningConversation(settled)
   }

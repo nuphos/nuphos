@@ -5,7 +5,6 @@ import type {
   SlackOutboundDependencies,
 } from '@/lib/slack/agent-outbound/types'
 import type { SlackOutboundDestination } from '@/lib/slack/destinations'
-import type { SlackIncidentReservation } from '@/lib/slack/incident-notifications'
 
 // Server-written, so "you can mention me here" reads the same under every report.
 // Left to the model it would be phrased differently each time — and a reader
@@ -51,7 +50,6 @@ export async function finalizeSlackPostDelivery(input: {
   userId: string
   teamId: string
   conversationId: string
-  triggerId?: string
   destinationType: SlackOutboundDestination['type']
   label: string
   text: string
@@ -60,73 +58,14 @@ export async function finalizeSlackPostDelivery(input: {
   channelId: string
   responseChannel: string
   messageTs: string
-  threadTs: string | undefined
   selfMapping: { slackUserId: string } | null
   bindCurrentConversation: boolean
   forkThread: { text: string } | undefined
-  incidentReservation: SlackIncidentReservation | undefined
 }): Promise<Awaited<ReturnType<SlackOutboundContext['post']>>> {
   const { dependencies, teamId, userId, text, sendWorkspaceId, sendToken, channelId } = input
-  const { messageTs, responseChannel, threadTs, selfMapping, bindCurrentConversation } = input
+  const { messageTs, responseChannel, selfMapping, bindCurrentConversation } = input
 
-  if (input.incidentReservation) {
-    try {
-      await dependencies.recordIncidentDelivery(input.incidentReservation, {
-        rootThreadTs: threadTs ?? messageTs,
-        agentUserId: userId,
-        createdBySlackUserId: selfMapping?.slackUserId,
-      })
-    } catch (err) {
-      // Continue into binding/completion: either operation can still
-      // leave durable evidence for lease recovery. Never abort a
-      // reservation after Slack has accepted the message.
-      logEvent('warn', 'slack.incident_notification.delivery_record_failed', {
-        team_id: teamId,
-        trigger_id: input.triggerId!,
-        error: err instanceof Error ? err.message : String(err),
-      })
-    }
-  }
-
-  // A threadTs here means this delivery went into an existing bound thread
-  // (a root created now is seeded by bindThread's rootText instead).
-  if (threadTs) {
-    await appendToBoundThreadTranscript({
-      dependencies,
-      teamId,
-      slackWorkspaceId: sendWorkspaceId,
-      slackChannelId: responseChannel,
-      slackThreadTs: threadTs,
-      ts: messageTs,
-      text,
-    })
-  }
-
-  // Replies must reach the run that is working the alert right now, so a
-  // thread the model chose to continue is handed over to this run the
-  // same way a fresh root is bound to it. Never throw after Slack
-  // accepted the message: a failed handover leaves replies on the
-  // previous run, which is recoverable.
-  if (bindCurrentConversation && threadTs) {
-    try {
-      await dependencies.rebindThreadSession({
-        slackWorkspaceId: sendWorkspaceId,
-        slackChannelId: responseChannel,
-        slackThreadTs: threadTs,
-        sessionId: input.conversationId,
-        teamId,
-        agentUserId: userId,
-      })
-    } catch (err) {
-      logEvent('warn', 'slack.incident_notification.thread_handover_failed', {
-        team_id: teamId,
-        slack_thread_ts: threadTs,
-        error: err instanceof Error ? err.message : String(err),
-      })
-    }
-  }
-
-  if (bindCurrentConversation && !threadTs) {
+  if (bindCurrentConversation) {
     await dependencies.bindThread({
       slackWorkspaceId: sendWorkspaceId,
       slackChannelId: responseChannel,
@@ -146,7 +85,7 @@ export async function finalizeSlackPostDelivery(input: {
   // uniquely indexed, and this run may already own a thread elsewhere.
   let forkResult: { opened: boolean; sessionId?: string; error?: string } | undefined
 
-  if (input.forkThread && !threadTs) {
+  if (input.forkThread) {
     const forkSessionId = dependencies.newSessionId()
 
     try {
@@ -202,29 +141,12 @@ export async function finalizeSlackPostDelivery(input: {
     }
   }
 
-  if (input.incidentReservation) {
-    const delivery = threadTs ? 'thread_update' : 'root'
-
-    await dependencies.completeIncident(input.incidentReservation, {
-      threadTs: threadTs ?? messageTs,
-      text,
-      startedNewThread: !threadTs,
-    })
-    logEvent('info', 'slack.incident_notification.delivered', {
-      team_id: teamId,
-      trigger_id: input.triggerId!,
-      slack_workspace_id: sendWorkspaceId,
-      slack_channel_id: responseChannel,
-      delivery,
-    })
-  }
-
   return {
     ok: true,
     destination: { type: input.destinationType, channelId: responseChannel, label: input.label },
-    delivery: threadTs ? 'thread_update' : 'root',
+    delivery: 'root',
     messageTs,
-    rootThreadTs: threadTs ?? messageTs,
+    rootThreadTs: messageTs,
     threadBound: bindCurrentConversation || forkResult?.opened === true,
     ...(forkResult ? { replyThread: forkResult } : {}),
   }

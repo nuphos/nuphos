@@ -9,7 +9,7 @@ import { label, playbookInput, requireEditorAccess } from './tools-shared'
 import type { MemoryListItem } from './records-api'
 import type { MemorySavedItemObserver, MemorySupersededObserver } from './tools-shared'
 import type { AgentTeamMemory, EmbeddedCase } from './types'
-import type { AgentSessionOrigin } from '../tools-triggers'
+import type { AgentSessionOrigin } from '@/lib/agent/message-origin'
 
 // Resolve a team supersede target pool-scoped to a supersedable status.
 // getTeamMemory only returns visible active/needs_review records;

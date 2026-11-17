@@ -7,6 +7,7 @@ import {
   CONNECTOR_SETTINGS_PAGES,
   connectorParentRef,
   connectorParentScope,
+  isConnectorsPage,
   isIntegrationNavigation,
   isSettingsNavigation,
   isTeamIntegrationsActive,
@@ -136,4 +137,11 @@ test('team integrations keys drive the connectors trail', () => {
   assert.ok(
     !isSettingsNavigation({ kind: 'aws-account', teamId: T, accountId: 'a' }, 'aws.clusters'),
   )
+})
+
+test('only a team-scope Connectors key is the Connectors dialog', () => {
+  assert.ok(isConnectorsPage({ kind: 'team', teamId: T }, 'team.integrations'))
+  assert.ok(isConnectorsPage({ kind: 'team', teamId: T }, 'team.accounts'))
+  assert.ok(!isConnectorsPage({ kind: 'team', teamId: T }, 'team.agent'))
+  assert.ok(!isConnectorsPage({ kind: 'aws-account', teamId: T, accountId: 'a' }, 'aws.roles'))
 })

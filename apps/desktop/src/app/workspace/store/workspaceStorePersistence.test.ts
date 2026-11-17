@@ -75,6 +75,34 @@ test('upgrades a restored legacy Connectors launcher tab to a New Tab', () => {
   assert.equal(state.buckets.s.tabs[0].active, 'team.new-tab')
 })
 
+test('restores a tab saved on Connectors on the agent home, its history included', () => {
+  const tab = createWorkspaceTab(TEAM)
+  const connectors = emptyNavigation({ kind: 'team', teamId: TEAM }, 'team.integrations', {
+    connectorDetail: { provider: 'aws', connectorId: 'c-1', name: 'AWS' },
+  })
+  const state = hydrateWorkspaceState({
+    s: {
+      tabs: [
+        {
+          navHistory: [{ ...tab.navHistory[0], active: 'team.architecture' }, connectors],
+          navHistoryIndex: 1,
+        },
+        { navHistory: [{ ...tab.navHistory[0], active: 'team.accounts' }], navHistoryIndex: 0 },
+      ],
+      activeIndex: 0,
+    },
+  })
+  const [detail, legacy] = state.buckets.s.tabs
+
+  assert.equal(detail.active, 'team.agent')
+  assert.equal(detail.connectorDetail, null)
+  assert.deepEqual(
+    detail.navHistory.map((page) => page.active),
+    ['team.architecture', 'team.agent'],
+  )
+  assert.equal(legacy.active, 'team.agent')
+})
+
 test('restores a Cost Management tab as Dashboards with its open dashboard', () => {
   const tab = createWorkspaceTab(TEAM)
   const legacySnapshot = {

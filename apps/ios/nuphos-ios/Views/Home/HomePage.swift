@@ -4,7 +4,7 @@ import SwiftUI
 /// switcher's order. The app opens on `.chats` when the viewer has a chat,
 /// else on `.agent`; the two are tabs of one list (`AgentPage`).
 enum HomePage: String, CaseIterable, Identifiable {
-    case chats, agent, inbox, plans, runtimes, connectors
+    case chats, agent, inbox, runtimes, connectors
 
     var id: String { rawValue }
 
@@ -13,7 +13,6 @@ enum HomePage: String, CaseIterable, Identifiable {
         case .chats: "Bots"
         case .agent: "Tasks"
         case .inbox: "Inbox"
-        case .plans: "Plans"
         case .runtimes: "Runtimes"
         case .connectors: "Connectors"
         }
@@ -24,7 +23,6 @@ enum HomePage: String, CaseIterable, Identifiable {
         case .chats: "bubble.left.and.bubble.right"
         case .agent: "sparkles"
         case .inbox: "tray"
-        case .plans: "list.bullet.clipboard"
         case .runtimes: "cpu"
         case .connectors: "app.connected.to.app.below.fill"
         }

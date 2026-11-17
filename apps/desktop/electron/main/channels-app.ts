@@ -13,11 +13,12 @@ import * as atlas from '../atlas'
 import * as auth from '../auth'
 import { removeAvatar, updateProfile, uploadAvatar } from '../auth/profile'
 import * as fileTransfer from '../fileTransfer'
-import { readImageAttachment, registerAttachment } from '../imageAttachment'
+import { readImageAttachment } from '../imageAttachment'
 import { raiseWindow } from '../window-raise'
 
 import { getChangelogState } from './changelog'
 import { pickPaths, savePastedAttachments } from './dialogs'
+import { setMainLocale } from './i18n-electron.ts'
 import { importLocalSession } from '../agent/local-session-import'
 
 import { listLocalAgentSessions, validateLocalSessionSource } from './local-sessions'
@@ -26,7 +27,7 @@ import { readAppIcon, setAppIcon } from './app-icon'
 import { readLoginItem, writeLoginItem } from './login-item'
 import { writePersistedThemeSource } from './theme'
 import { fileTransferReadChannels } from './channels-file-transfer'
-import { checkForUpdates, getUpdaterState, installUpdate } from './updater'
+import { updaterChannels } from './channels-updater'
 import { mostRecentlyFocusedVisibleAppWindow } from './windows'
 
 import type { PastedAttachmentPayload } from './dialogs'
@@ -105,6 +106,7 @@ export const appChannels = {
   },
   'app:getAppIcon': () => readAppIcon(),
   'app:setAppIcon': (_e: unknown, icon: string) => setAppIcon(icon),
+  'app:setLocale': (_e: unknown, locale: unknown) => setMainLocale(locale),
   'app:getLoginItem': () => readLoginItem(app, process.platform),
   'app:setLoginItem': (_e: unknown, openAtLogin: unknown) =>
     writeLoginItem(app, process.platform, openAtLogin),
@@ -213,15 +215,8 @@ export const appChannels = {
     args: { teamId: string; sessionId?: string },
   ) => atlas.listFileTransferDownloads(args.teamId, args.sessionId),
   ...fileTransferReadChannels,
-  // Read an attached image into a vision data URL — no upload. Also
-  // registers the path so a later upload_attachment tool call can transfer it.
-  'attachment:readImage': async (_e: IpcMainInvokeEvent, path: string) => {
-    const img = await readImageAttachment(path)
-
-    if (!img) return null
-
-    return { ...img, attachmentId: await registerAttachment(path) }
-  },
+  // Read an attached image into a data URL for the composer's thumbnail — no upload.
+  'attachment:readImage': (_e: IpcMainInvokeEvent, path: string) => readImageAttachment(path),
   // Which of these paths are directories — drop gives paths but not
   // their kind, so the composer asks here to label folder chips correctly.
   'attachment:directoryPaths': async (_e: IpcMainInvokeEvent, paths: string[]) => {
@@ -238,9 +233,7 @@ export const appChannels = {
     return dirs
   },
   'changelog:getState': () => getChangelogState(),
-  'updater:getState': () => getUpdaterState(),
-  'updater:check': () => checkForUpdates(),
-  'updater:install': () => installUpdate(),
+  ...updaterChannels,
 } as const
 
 // Avatar trust runs during render, so the renderer reads the endpoint synchronously.

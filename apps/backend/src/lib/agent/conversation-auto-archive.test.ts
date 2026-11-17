@@ -1,6 +1,39 @@
 import { describe, expect, test } from 'bun:test'
 
-import { idleConversationFilter } from './conversation-auto-archive'
+import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useRedis } from '@/lib/test/doubles/redis'
+
+import { idleConversationFilter, sweepOnOneReplica } from './conversation-auto-archive'
+
+let archives = 0
+
+useAgentDb({
+  agentConversations: (() => ({
+    updateMany: async () => {
+      archives += 1
+
+      return { modifiedCount: 0 }
+    },
+    find: () => ({ toArray: async () => [] }),
+  })) as never,
+})
+
+// Redis SET NX PX, shared by every replica in the test.
+const claims = new Map<string, string>()
+
+useRedis({
+  redisEnabled: () => true,
+  withRedis: (op) =>
+    op({
+      set: async (key: string, value: string) => {
+        await Promise.resolve()
+        if (claims.has(key)) return null
+        claims.set(key, value)
+
+        return 'OK'
+      },
+    } as never) as never,
+})
 
 describe('idleConversationFilter', () => {
   const now = new Date('2026-09-11T12:00:00.000Z')
@@ -18,5 +51,18 @@ describe('idleConversationFilter', () => {
         },
       ],
     })
+  })
+})
+
+describe('sweepOnOneReplica', () => {
+  test('two replicas ticking together sweep once', async () => {
+    archives = 0
+    claims.clear()
+    await Promise.all([sweepOnOneReplica(), sweepOnOneReplica()])
+    expect(archives).toBe(1)
+    // The next hour, once the claim has expired, sweeps again.
+    claims.clear()
+    await sweepOnOneReplica()
+    expect(archives).toBe(2)
   })
 })

@@ -14,13 +14,7 @@ import type { AgentDecisionApi, AgentStartArgs } from './agent-chat-types.ts'
 import type { ConversationMoveCheck } from './agent-types.ts'
 import type {
   AgentTrigger,
-  AgentTriggerGroup,
-  CreateAgentTriggerInput,
   DeleteAgentTriggerResult,
-  TestAgentTriggerGroupResult,
-  TestAgentTriggerResult,
-  TriggerSchedulerStatus,
-  UpdateAgentTriggerGroupInput,
   UpdateAgentTriggerInput,
 } from './agent-trigger-types.ts'
 import type {
@@ -128,6 +122,11 @@ export type WindowAgentApi = AgentDecisionApi & {
     teamId?: string,
   ): Promise<{ ok: boolean; watching: boolean }>
   agentUnlinkConversationParent(sessionId: string, teamId?: string): Promise<{ ok: boolean }>
+  agentRecordFork(
+    sessionId: string,
+    forkSessionId: string,
+    teamId?: string,
+  ): Promise<{ ok: boolean }>
   agentRecordEditFork(
     sessionId: string,
     forkSessionId: string,
@@ -252,40 +251,12 @@ export type WindowAgentApi = AgentDecisionApi & {
     teamId: string,
     minimumOtherApprovals: number,
   ): Promise<PlanApprovalRequirement>
-  agentListTriggers(teamId?: string): Promise<AgentTrigger[]>
-  agentListTriggerGroups(teamId?: string): Promise<AgentTriggerGroup[]>
-  agentUpdateTriggerGroup(
-    groupId: string,
-    patch: UpdateAgentTriggerGroupInput,
-    teamId: string,
-  ): Promise<AgentTriggerGroup>
-  agentTestFireTriggerGroup(groupId: string, teamId: string): Promise<TestAgentTriggerGroupResult>
+  agentListTriggers(teamId?: string, targetSessionId?: string): Promise<AgentTrigger[]>
   agentGetTrigger(triggerId: string, teamId?: string): Promise<AgentTrigger>
-  agentCreateTrigger(input: CreateAgentTriggerInput): Promise<AgentTrigger>
   agentUpdateTrigger(
     triggerId: string,
     patch: UpdateAgentTriggerInput,
     teamId?: string,
   ): Promise<AgentTrigger>
-  agentDeleteTrigger(
-    triggerId: string,
-    teamId?: string,
-    withoutProviderCleanup?: boolean,
-  ): Promise<DeleteAgentTriggerResult>
-  agentTestFireTrigger(
-    triggerId: string,
-    payload?: Record<string, unknown>,
-    teamId?: string,
-  ): Promise<TestAgentTriggerResult>
-  agentTransferTriggerExecutionPrincipal(
-    triggerId: string,
-    userId: string,
-    teamId?: string,
-  ): Promise<AgentTrigger>
-  agentTransferTriggerGroupExecutionPrincipal(
-    groupId: string,
-    userId: string,
-    teamId?: string,
-  ): Promise<AgentTriggerGroup>
-  agentGetTriggerSchedulerStatus(): Promise<TriggerSchedulerStatus>
+  agentDeleteTrigger(triggerId: string, teamId?: string): Promise<DeleteAgentTriggerResult>
 }

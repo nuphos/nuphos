@@ -21,7 +21,18 @@ export function catalogSessionConfig(
     options: choices.map(({ value, name, description }) => ({ value, name, description })),
   })
 
-  if (!catalog.models.length) return []
+  const settings = [
+    ...(controls?.effort.length
+      ? [option('effort', 'Effort', controls.effort, controls.defaultEffort ?? 'default')]
+      : []),
+    ...(controls?.fast.length
+      ? [option('fast', 'Fast', controls.fast, controls.defaultFast ?? 'off')]
+      : []),
+  ]
+
+  // Grok Build lists its reasoning effort but no models: its effort is still a
+  // setting this conversation picks, and the pick applies when the session starts.
+  if (!catalog.models.length) return settings
 
   return [
     option(
@@ -30,12 +41,7 @@ export function catalogSessionConfig(
       catalog.models.map(({ id, name, description }) => ({ value: id, name, description })),
       controls?.modelId ?? 'default',
     ),
-    ...(controls?.effort.length
-      ? [option('effort', 'Effort', controls.effort, controls.defaultEffort ?? 'default')]
-      : []),
-    ...(controls?.fast.length
-      ? [option('fast', 'Fast', controls.fast, controls.defaultFast ?? 'off')]
-      : []),
+    ...settings,
   ]
 }
 

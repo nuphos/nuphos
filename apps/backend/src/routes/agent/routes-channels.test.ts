@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
-import { derivedAvatar } from '@/lib/agent/bot-avatars'
 import { errorHandler } from '@/lib/errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useDb } from '@/lib/test/doubles/db'
@@ -84,6 +83,8 @@ async function seedAgent(sessionId: string, userId: string, extra: Record<string
     messageCount: 0,
     createdAt: new Date(),
     lastActiveAt: new Date(),
+    // A Bot: only a Bot joins a chat.
+    avatar: '07-ada',
     ...extra,
   })
 }
@@ -124,6 +125,18 @@ describe('creating a channel', () => {
     expect(await agentConversations().findOne({ sessionId })).toMatchObject({ title: '' })
   })
 
+  test("a group chat is marked as one; a Bot's 1:1 chat is not", async () => {
+    const group = (await (await send('POST', '/channels', { group: true })).json()) as {
+      sessionId: string
+    }
+    const chat = (await (await send('POST', '/channels', {})).json()) as { sessionId: string }
+
+    expect((await agentConversations().findOne({ sessionId: group.sessionId }))?.group).toBe(true)
+    expect(
+      (await agentConversations().findOne({ sessionId: chat.sessionId }))?.group,
+    ).toBeUndefined()
+  })
+
   test('needs a short title, if any, and a team the caller belongs to', async () => {
     expect((await send('POST', '/channels', { title: 'x'.repeat(201) })).status).toBe(400)
     viewer = 'outsider'
@@ -149,11 +162,24 @@ describe('agents in a channel', () => {
           title: 'agent-a title',
           ownerId: OWNER,
           provider: 'claude-code',
-          // Being in a channel makes it a Bot, with the face its id derives.
-          avatar: derivedAvatar('agent-a'),
+          avatar: '07-ada',
         },
       ],
     })
+  })
+
+  test('a Task is not added, and stays a Task', async () => {
+    const channelId = await createChannel()
+
+    await seedAgent('task-a', OWNER)
+    await agentConversations().updateOne({ sessionId: 'task-a' }, { $unset: { avatar: '' } })
+    const response = await send('POST', `/conversations/${channelId}/agents`, {
+      sessionId: 'task-a',
+    })
+
+    expect(response.status).toBe(409)
+    expect((await agentIds(channelId)).ids).toEqual([])
+    expect((await agentConversations().findOne({ sessionId: 'task-a' }))?.avatar).toBeUndefined()
   })
 
   test('only its owner can add an agent, not a manager of it', async () => {
@@ -317,64 +343,6 @@ describe('retrying an agent that could not reply', () => {
     expect((await send('POST', `/conversations/${channelId}/agents/agent-b/wake`)).status).toBe(404)
     viewer = TEAMMATE
     expect((await send('POST', `/conversations/${channelId}/agents/agent-a/wake`)).status).toBe(403)
-  })
-})
-
-describe('answering in a chat', () => {
-  const ask = (status: string) => ({
-    inputRequests: [
-      {
-        id: 'q1',
-        category: 'approval',
-        question: 'Ship?',
-        options: ['Yes'],
-        status,
-        askedAt: new Date(),
-      },
-    ],
-    // Archived, so the post records and answers without waking a turn here.
-    archivedAt: new Date(),
-  })
-
-  test("a post naming the Bot's open question is its answer", async () => {
-    const channelId = await createChannel()
-
-    await seedAgent('bot', OWNER, ask('open'))
-    await agentConversations().updateOne(
-      { sessionId: channelId },
-      { $set: { agentSessionIds: ['bot'] } },
-    )
-    const response = await send('POST', `/conversations/${channelId}/channel-messages`, {
-      id: 'm1',
-      text: 'Yes',
-      decisionReplyTo: 'q1',
-    })
-
-    expect(response.status).toBe(201)
-    expect(appended[0]?.messages[0]).toMatchObject({ parts: [{ type: 'text', text: 'Yes' }] })
-    expect(
-      (await agentConversations().findOne({ sessionId: 'bot' }))?.inputRequests?.[0]?.status,
-    ).toBe('answered')
-  })
-
-  test('refuses a question already answered, or one no agent in the chat asked', async () => {
-    const channelId = await createChannel()
-
-    await seedAgent('bot', OWNER, ask('answered'))
-    await seedAgent('elsewhere', OWNER, {
-      ...ask('open'),
-      inputRequests: [{ ...ask('open').inputRequests[0], id: 'q2' }],
-    })
-    await agentConversations().updateOne(
-      { sessionId: channelId },
-      { $set: { agentSessionIds: ['bot'] } },
-    )
-    const post = (decisionReplyTo: string) =>
-      send('POST', `/conversations/${channelId}/channel-messages`, { text: 'Yes', decisionReplyTo })
-
-    expect((await post('q1')).status).toBe(409)
-    expect((await post('q2')).status).toBe(404)
-    expect(appended).toHaveLength(0)
   })
 })
 

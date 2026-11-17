@@ -17,6 +17,7 @@ import type { Dispatch, SetStateAction } from 'react'
 
 type Props = {
   embedded?: boolean
+  canEdit: boolean
   loading: boolean
   dashboards: NuphosDashboard[]
   visibleDashboards: NuphosDashboard[]
@@ -30,6 +31,7 @@ type Props = {
 
 export function DashboardListPage({
   embedded = false,
+  canEdit,
   loading,
   dashboards,
   visibleDashboards,
@@ -51,16 +53,20 @@ export function DashboardListPage({
         description={t(
           'Dashboards chart what matters to your team — cloud spend, AI usage, delivery, and system health — with panels that pull live data from Nuphos and your connected accounts. Create one and add panels, or have the agent build it.',
         )}
-        primaryAction={{
-          label: embedded ? t('New custom board') : t('Create dashboard'),
-          icon: Plus,
-          onClick: () => void createDashboard(),
-        }}
-        agentAction={{
-          label: t('Build it for me'),
-          prompt:
-            'Build me a Nuphos dashboard from my connected accounts — add a useful set of panels automatically.',
-        }}
+        {...(canEdit
+          ? {
+              primaryAction: {
+                label: embedded ? t('New custom board') : t('Create dashboard'),
+                icon: Plus,
+                onClick: () => void createDashboard(),
+              },
+              agentAction: {
+                label: t('Build it for me'),
+                prompt:
+                  'Build me a Nuphos dashboard from my connected accounts — add a useful set of panels automatically.',
+              },
+            }
+          : {})}
         onOpenAgentChat={onOpenAgentChat}
       />
     )
@@ -125,7 +131,7 @@ export function DashboardListPage({
           ]}
         />
       )}
-      {embedded && (
+      {embedded && canEdit && (
         <div className="mb-3 flex justify-end">
           <Button variant="ghost" size="sm" onClick={() => void createDashboard()}>
             <Plus className="size-3.5" />
@@ -140,7 +146,7 @@ export function DashboardListPage({
           onOpen={(dashboard) =>
             onDashboardOpened?.({ dashboardId: dashboard.id, dashboardName: dashboard.name })
           }
-          onMenu={(row, position) => setMenu({ row, ...position })}
+          {...(canEdit ? { onMenu: (row, position) => setMenu({ row, ...position }) } : {})}
         />
       ) : (
         <Table<NuphosDashboard>
@@ -148,7 +154,9 @@ export function DashboardListPage({
           rows={visibleDashboards}
           rowKey={(d) => d.id}
           onPrimaryAction={(d) => onDashboardOpened?.({ dashboardId: d.id, dashboardName: d.name })}
-          onRowContextMenu={(row, e) => setMenu({ row, x: e.clientX, y: e.clientY })}
+          {...(canEdit
+            ? { onRowContextMenu: (row, e) => setMenu({ row, x: e.clientX, y: e.clientY }) }
+            : {})}
           storageKey="cost-dashboards"
           defaultSort={{ key: 'updated', dir: 'desc' }}
           loading={loading}

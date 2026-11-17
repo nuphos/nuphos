@@ -36,6 +36,8 @@ import ai.nuphos.android.model.*
 import ai.nuphos.android.session.ConnectorsStore
 import ai.nuphos.android.ui.LocalConnectorsStore
 import kotlinx.coroutines.launch
+import ai.nuphos.android.R
+import androidx.compose.ui.res.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,6 +45,7 @@ fun ConnectorsPage() {
     val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
     val store = LocalConnectorsStore.current
     val context = LocalContext.current
+    val browserFailed = stringResource(R.string.connectors_browser_failed)
     val logoLoader = rememberConnectorImageLoader()
     val scope = rememberCoroutineScope()
     var catalog by remember { mutableStateOf(false) }
@@ -58,7 +61,7 @@ fun ConnectorsPage() {
             val url = store.start(provider)
             if (url != null) {
                 try { CustomTabsIntent.Builder().setShareState(CustomTabsIntent.SHARE_STATE_OFF).build().launchUrl(context, Uri.parse(url)) }
-                catch (_: Exception) { store.cancel("The browser could not open. Refresh connectors before trying again.") }
+                catch (_: Exception) { store.cancel(browserFailed) }
             }
         }
     }
@@ -68,22 +71,22 @@ fun ConnectorsPage() {
         LazyColumn(modifier = Modifier.fillMaxSize().testTag("connector-inventory-list"),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)) {
             item {
-                if (store.team == null) Text("Select a team to see connectors.")
+                if (store.team == null) Text(stringResource(R.string.connectors_select_team))
                 store.notice?.let { Text(it, Modifier.padding(vertical = 8.dp)) }
                 store.actionError?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(vertical = 8.dp)) }
                 store.pending?.let { pending ->
                     Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surface) {
                         Column(Modifier.padding(16.dp)) {
-                            Text("Waiting for ${ConnectorCatalog.named(pending.provider)?.title ?: pending.provider} authorization.")
-                            Text("Returning from the browser does not confirm a connection.", style = MaterialTheme.typography.bodySmall)
-                            TextButton(onClick = { scope.launch { store.cancel() } }, enabled = !store.busy) { Text("Cancel authorization") }
+                            Text(stringResource(R.string.connectors_waiting_authorization, ConnectorCatalog.named(pending.provider)?.title ?: pending.provider))
+                            Text(stringResource(R.string.connectors_browser_return_note), style = MaterialTheme.typography.bodySmall)
+                            TextButton(onClick = { scope.launch { store.cancel() } }, enabled = !store.busy) { Text(stringResource(R.string.connectors_cancel_authorization)) }
                         }
                     }
                 }
                 if (store.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                 if (store.phase == ConnectorsStore.Phase.Failed) {
-                    Text(store.loadError ?: "Could not load connectors.", color = MaterialTheme.colorScheme.error)
-                    TextButton(onClick = { scope.launch { store.refresh() } }) { Text("Retry") }
+                    Text(store.loadError ?: stringResource(R.string.connectors_load_failed), color = MaterialTheme.colorScheme.error)
+                    TextButton(onClick = { scope.launch { store.refresh() } }) { Text(stringResource(R.string.connectors_retry)) }
                 }
             }
             if (store.phase == ConnectorsStore.Phase.Loading && store.inventory.rows.isEmpty()) item {
@@ -93,11 +96,11 @@ fun ConnectorsPage() {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 72.dp),
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Icon(Icons.Outlined.Link, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("No connectors yet", style = MaterialTheme.typography.titleLarge)
-                    Text(if (store.team?.isAdministrator == true) "Connect a cloud account or an integration to let the agent work in it."
-                        else "A team administrator can connect cloud accounts and integrations.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.connectors_empty_title), style = MaterialTheme.typography.titleLarge)
+                    Text(stringResource(if (store.team?.isAdministrator == true) R.string.connectors_empty_body_admin
+                        else R.string.connectors_empty_body_member), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (store.team?.isAdministrator == true) Button(onClick = ::openCatalog, enabled = store.canAdd, modifier = Modifier.testTag("connector-catalog")) {
-                        Icon(Icons.Default.Add, null); Spacer(Modifier.width(8.dp)); Text("Add connector")
+                        Icon(Icons.Default.Add, null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.connectors_add))
                     }
                 }
             }
@@ -109,9 +112,10 @@ fun ConnectorsPage() {
                 if (rows.isNotEmpty()) {
                     item(key = "category:$category") { ConnectorCategoryTitle(category) }
                     itemsIndexed(rows, key = { _, row -> row.key }) { index, row ->
+                        val copyId = stringResource(R.string.connectors_copy_id)
                         Surface(color = MaterialTheme.colorScheme.surface, shape = connectorRowShape(index, rows.size),
                             modifier = Modifier.fillMaxWidth().pointerInput(row.key) { detectTapGestures(onLongPress = { clipboard.setText(androidx.compose.ui.text.AnnotatedString(row.bindingId)) }) }
-                                .semantics { customActions = listOf(CustomAccessibilityAction("Copy connector ID") { clipboard.setText(androidx.compose.ui.text.AnnotatedString(row.bindingId)); true }) }) {
+                                .semantics { customActions = listOf(CustomAccessibilityAction(copyId) { clipboard.setText(androidx.compose.ui.text.AnnotatedString(row.bindingId)); true }) }) {
                             Column {
                                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp).heightIn(min = 36.dp),
                                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -135,7 +139,7 @@ fun ConnectorsPage() {
                     shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth().testTag("connector-catalog")) {
                     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                        Text("Add connector", fontSize = 15.sp, color = MaterialTheme.colorScheme.primary)
+                        Text(stringResource(R.string.connectors_add), fontSize = 15.sp, color = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
@@ -147,17 +151,17 @@ fun ConnectorsPage() {
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
             Column(Modifier.fillMaxWidth().heightIn(max = 720.dp).fillMaxHeight().testTag("connector-catalog-panel")) {
                 Box(Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
-                    Text("Add connector", Modifier.align(Alignment.Center).padding(horizontal = 72.dp), style = MaterialTheme.typography.titleMedium)
-                    TextButton(onClick = { catalog = false }, modifier = Modifier.align(Alignment.CenterEnd)) { Text("Done") }
+                    Text(stringResource(R.string.connectors_add), Modifier.align(Alignment.Center).padding(horizontal = 72.dp), style = MaterialTheme.typography.titleMedium)
+                    TextButton(onClick = { catalog = false }, modifier = Modifier.align(Alignment.CenterEnd)) { Text(stringResource(R.string.done)) }
                 }
                 OutlinedTextField(query, { query = it }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).testTag("connector-search"),
-                    placeholder = { Text("Search connectors") }, singleLine = true,
+                    placeholder = { Text(stringResource(R.string.connectors_search)) }, singleLine = true,
                     leadingIcon = { Icon(Icons.Outlined.Search, null) },
-                    trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Outlined.Close, "Clear connector search") } })
+                    trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Outlined.Close, stringResource(R.string.connectors_clear_search)) } })
                 val needle = query.trim()
                 val providers = ConnectorCatalog.all.filter { it.canAdd && (needle.isEmpty() || it.title.contains(needle, ignoreCase = true) || it.key.contains(needle, ignoreCase = true)) }
                 LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("connector-catalog-list"), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
-                    if (providers.isEmpty()) item { Text("No connectors found", Modifier.fillMaxWidth().padding(24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    if (providers.isEmpty()) item { Text(stringResource(R.string.connectors_none_found), Modifier.fillMaxWidth().padding(24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     ConnectorCatalog.categoryOrder.forEach { category ->
                         val entries = providers.filter { it.category == category }
                         if (entries.isNotEmpty()) {
@@ -171,7 +175,7 @@ fun ConnectorsPage() {
                                             ConnectorLogo(provider.key, logoLoader)
                                             Text(provider.title, Modifier.weight(1f), fontSize = 15.sp)
                                             Icon(if (provider.oauth || provider.key == "github") Icons.Outlined.NorthEast else Icons.Outlined.ChevronRight,
-                                                if (provider.oauth || provider.key == "github") "Opens browser authorization" else "Open connection form",
+                                                stringResource(if (provider.oauth || provider.key == "github") R.string.connectors_opens_browser else R.string.connectors_opens_form),
                                                 modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
                                         if (index < entries.lastIndex) HorizontalDivider(Modifier.padding(start = 48.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
@@ -194,8 +198,29 @@ private fun connectorRowShape(index: Int, size: Int) = RoundedCornerShape(
     bottomStart = if (index == size - 1) 20.dp else 0.dp, bottomEnd = if (index == size - 1) 20.dp else 0.dp)
 
 @Composable
-private fun ConnectorCategoryTitle(title: String) {
-    Text(title, Modifier.padding(start = 12.dp, top = 20.dp, bottom = 8.dp), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun errorText(error: ConnectorError, field: ConnectorField) = when (error) {
+    ConnectorError.Required -> stringResource(R.string.connectors_error_required, stringResource(field.title))
+    ConnectorError.TooLong -> stringResource(R.string.connectors_error_too_long, field.max)
+    ConnectorError.Invalid -> stringResource(R.string.connectors_error_invalid, stringResource(field.title))
+    ConnectorError.NeedApiToken -> stringResource(R.string.connectors_error_need_api_token)
+    ConnectorError.NeedTokenOrLogin -> stringResource(R.string.connectors_error_need_token_or_login)
+}
+
+@Composable
+private fun ConnectorCategoryTitle(category: String) {
+    Text(stringResource(when (category) {
+        "Infrastructure" -> R.string.connectors_category_infrastructure
+        "Observability" -> R.string.connectors_category_observability
+        "Databases" -> R.string.connectors_category_databases
+        "Networking" -> R.string.connectors_category_networking
+        "Compliance" -> R.string.connectors_category_compliance
+        "Source control" -> R.string.connectors_category_source_control
+        "Project management" -> R.string.connectors_category_project_management
+        "Document" -> R.string.connectors_category_document
+        "Email" -> R.string.connectors_category_email
+        "Messaging" -> R.string.connectors_category_messaging
+        else -> R.string.connectors_category_other
+    }), Modifier.padding(start = 12.dp, top = 20.dp, bottom = 8.dp), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -211,10 +236,10 @@ private fun ConnectorFormSheet(provider: ConnectorProvider, store: ConnectorsSto
         Column(Modifier.fillMaxWidth().heightIn(max = 720.dp).fillMaxHeight().testTag("connector-form-panel")) {
             Box(Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
                 IconButton(onClick = onBack, enabled = !store.busy, modifier = Modifier.align(Alignment.CenterStart)) {
-                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back to Add connector")
+                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.connectors_back_to_add))
                 }
                 Text(provider.title, Modifier.align(Alignment.Center).padding(horizontal = 88.dp), style = MaterialTheme.typography.titleMedium)
-                TextButton(onClick = onDismiss, enabled = !store.busy, modifier = Modifier.align(Alignment.CenterEnd)) { Text("Cancel") }
+                TextButton(onClick = onDismiss, enabled = !store.busy, modifier = Modifier.align(Alignment.CenterEnd)) { Text(stringResource(R.string.cancel)) }
             }
             HorizontalDivider()
             LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth().testTag("connector-form-list"),
@@ -230,23 +255,23 @@ private fun ConnectorFormSheet(provider: ConnectorProvider, store: ConnectorsSto
                         }
                     } else OutlinedTextField(
                         value = values[field.key].orEmpty(), onValueChange = { values = values + (field.key to it) },
-                        label = { Text(field.title + if (field.required) "" else " (optional)") }, singleLine = true,
+                        label = { Text(if (field.required) stringResource(field.title) else stringResource(R.string.connectors_field_optional, stringResource(field.title))) }, singleLine = true,
                         visualTransformation = if (field.kind == ConnectorFieldKind.Secret) PasswordVisualTransformation() else VisualTransformation.None,
                         keyboardOptions = KeyboardOptions(keyboardType = when (field.kind) {
                             ConnectorFieldKind.Secret -> KeyboardType.Password
                             ConnectorFieldKind.Url -> KeyboardType.Uri
                             ConnectorFieldKind.Email -> KeyboardType.Email
                             else -> KeyboardType.Text
-                        }), enabled = !store.busy, isError = error != null, supportingText = error?.let { { Text(it) } },
+                        }), enabled = !store.busy, isError = error != null, supportingText = error?.let { { Text(errorText(it, field)) } },
                         modifier = Modifier.fillMaxWidth().testTag("connector-field-${field.key}"))
                 }
-                provider.note?.let { note -> item { Text(note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
+                provider.note?.let { note -> item { Text(stringResource(note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
                 store.actionError?.let { error -> item { Text(error, color = MaterialTheme.colorScheme.error) } }
                 item {
                     Button(modifier = Modifier.fillMaxWidth().testTag("connector-save"), onClick = {
                         submitted = true
                         if (validation.valid) scope.launch { if (store.bind(provider, values)) { values = emptyMap(); onDismiss() } }
-                    }, enabled = store.canAdd) { Text(if (store.busy) "Connecting…" else "Connect") }
+                    }, enabled = store.canAdd) { Text(stringResource(if (store.busy) R.string.connectors_connecting else R.string.connectors_connect)) }
                 }
                 item { Spacer(Modifier.height(24.dp)) }
             }

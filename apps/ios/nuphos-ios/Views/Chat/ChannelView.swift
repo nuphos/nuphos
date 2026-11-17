@@ -9,6 +9,7 @@ struct ChannelView: View {
     @Environment(AgentStore.self) private var store
     @Environment(\.openURL) private var openURL
     @State private var draft = ""
+    @State private var showTriggers = false
     /// The agents typing: those in a turn, as of the last read of this chat. See `inTurn`.
     @State private var typing: [ChannelAgent] = []
     /// Raises the keyboard when a reply is chosen.
@@ -29,7 +30,7 @@ struct ChannelView: View {
 
     /// The Bot this is the 1:1 chat of, when its owner can open its desktop now.
     private var desktopBot: String? {
-        guard let bot = channel.faces.botId,
+        guard let bot = channel.botId,
               store.conversations.first(where: { $0.sessionId == bot })?.ownsChat == true,
               store.observations.value(team: channel.teamId, session: bot)?.canOpenDesktop == true else { return nil }
         return bot
@@ -60,6 +61,11 @@ struct ChannelView: View {
         transcript
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Theme.chatCanvas)
+            .sheet(isPresented: $showTriggers) {
+                if let bot = channel.botId {
+                    ConversationTriggers(teamId: channel.teamId, sessionId: bot, token: store.token).presentationDetents([.large])
+                }
+            }
             .navigationTitle(channel.title)
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -67,13 +73,18 @@ struct ChannelView: View {
             #endif
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    HStack(spacing: 8) {
-                        ChatIcon(faces: channel.faces, title: channel.title, size: 24)
-                        Text(channel.title)
-                            .font(Theme.Text.label.weight(.semibold))
-                            .foregroundStyle(Theme.heading)
-                            .lineLimit(1)
+                    Button { showTriggers = true } label: {
+                        HStack(spacing: 8) {
+                            ChatIcon(faces: channel.faces, title: channel.title, size: 24)
+                            Text(channel.title)
+                                .font(Theme.Text.label.weight(.semibold))
+                                .foregroundStyle(Theme.heading)
+                                .lineLimit(1)
+                        }
                     }
+                    .buttonStyle(.plain)
+                    .disabled(channel.botId == nil)
+                    .accessibilityIdentifier("bot-trigger-entry")
                 }
                 if let bot = desktopBot {
                     ToolbarItem(placement: .primaryAction) {
@@ -97,7 +108,7 @@ struct ChannelView: View {
                     }
                 }
             }
-            .alert("Couldn't switch agent", isPresented: Binding(
+            .alert("Couldn't switch runtime", isPresented: Binding(
                 get: { switchError != nil }, set: { if !$0 { switchError = nil } })) {
                 Button("OK") { switchError = nil }
             } message: {
@@ -116,6 +127,7 @@ struct ChannelView: View {
                     typing = inTurn
                 }
             }
+            .onChange(of: channel.loaded ? channel.posts.count : -1, initial: true) { showPendingPost() }
             .onChange(of: draft) { _, text in ComposerDrafts.set(text, team: channel.teamId, session: channel.channelId, identity: store.token) }
             .alert("Couldn't send the message", isPresented: Binding(
                 get: { channel.sendError != nil }, set: { if !$0 { channel.sendError = nil } })) {
@@ -163,6 +175,10 @@ struct ChannelView: View {
                 text: $draft,
                 canSend: channel.loaded && !channel.readOnly,
                 editRequest: $channel.unsent,
+                // As in a Task: `@` offers the viewer's other Bots and tasks, as their links.
+                mentions: MentionSource(teamId: channel.teamId, search: { query in
+                    await store.mentionableSessions(teamId: channel.teamId, excluding: channel.botId, matching: query)
+                }),
                 voiceTeamId: channel.teamId,
                 recipient: channel.title,
                 focusRequest: replyFocus,
@@ -179,7 +195,18 @@ struct ChannelView: View {
 
     /// Scrolls to a quoted post, if it is loaded, and flashes it.
     private func show(_ reply: ChannelReply) {
-        guard let id = reply.id, channel.posts.contains(where: { $0.id == id }) else { return }
+        if let id = reply.id { show(post: id) }
+    }
+
+    /// Opened from a wake-up's line: once the chat has loaded, it goes to the post that
+    /// line named. A post no longer loaded leaves it at its latest post.
+    private func showPendingPost() {
+        guard channel.loaded, let id = ChannelPostJump.pending.removeValue(forKey: channel.channelId) else { return }
+        show(post: id)
+    }
+
+    private func show(post id: String) {
+        guard channel.posts.contains(where: { $0.id == id }) else { return }
         jump = TranscriptJump(rowID: "post.\(id)")
         flashed = id
         Task {
@@ -225,8 +252,8 @@ struct ChannelView: View {
                 TimestampLabel(date: date)
             case .post(let post, let first):
                 ChannelPostRow(post: post, first: first, mine: post.isMine(viewerId: channel.viewerId),
-                               attachments: channel.sendingAttachments[post.id] ?? [], files: channel.files,
-                               resolve: channel.transferGroup, onLink: open(link:),
+                               attachments: channel.sendingAttachments[post.id] ?? [], channel: channel,
+                               onLink: open(link:),
                                flashed: flashed == post.id,
                                onReply: channel.readOnly || post.sending ? nil : { reply(to: post) },
                                onQuote: show)
@@ -252,11 +279,13 @@ struct ChannelView: View {
                 BotQuestionCard(
                     question: question,
                     // The Bot's own questions are this chat's; only an agent under it is named.
-                    showsFrom: question.sessionId != channel.faces.botId,
+                    showsFrom: question.sessionId != channel.botId,
                     onOpen: { open(link: question.link(team: channel.teamId)) },
+                    teamId: channel.teamId,
+                    questions: channel.questions,
                     onAnswer: { channel.answer(question, with: $0) },
-                    onLink: open(link:),
-                    failure: channel.questions.failures[question.id])
+                    onSkip: { channel.skip(question) },
+                    onLink: open(link:))
             }
         }
     }
@@ -268,6 +297,12 @@ struct ChannelView: View {
 }
 
 /// A row to bring to the middle of the transcript, once per request.
+/// The post a channel opens at, by channel: set just before a wake-up's line opens it.
+@MainActor
+enum ChannelPostJump {
+    static var pending: [String: String] = [:]
+}
+
 struct TranscriptJump: Equatable {
     let rowID: String
     var nonce = UUID()
@@ -341,13 +376,14 @@ struct ChatIcon: View {
 /// avatar and name, shown once per run. A person's files show above their
 /// words and an agent's below, as in a conversation.
 private struct ChannelPostRow: View {
+    @Environment(AgentStore.self) private var store
     let post: ChannelPost
     let first: Bool
     let mine: Bool
     let attachments: [ComposerAttachment]
-    /// The chat's file groups, already read.
-    let files: [String: [TransferDownloadGroup.File]]
-    let resolve: (String) async throws -> TransferDownloadGroup
+    /// The chat: its file groups read so far, and fresh links for them. Read
+    /// here, not passed in, so a group read after the row was drawn shows.
+    let channel: ChannelSession
     let onLink: (URL) -> Void
     /// Briefly highlighted: a quote of it was tapped.
     var flashed = false
@@ -361,7 +397,7 @@ private struct ChannelPostRow: View {
 
     /// The groups' files when the chat has read them all; else the card reads them.
     private func read(_ groupIds: [String]) -> [TransferDownloadGroup.File]? {
-        let groups = groupIds.compactMap { files[$0] }
+        let groups = groupIds.compactMap { channel.files[$0] }
         return groups.count == groupIds.count ? groups.flatMap { $0 } : nil
     }
 
@@ -374,12 +410,12 @@ private struct ChannelPostRow: View {
                 if !post.uploads.isEmpty {
                     TransferCard(groupIds: post.uploads.map(\.groupId), fromUser: mine,
                                  names: post.uploads.flatMap { $0.files.map(\.fileName) },
-                                 files: read(post.uploads.map(\.groupId)), resolve: resolve)
+                                 files: read(post.uploads.map(\.groupId)), resolve: channel.transferGroup)
                 }
                 if !attachments.isEmpty { localAttachments }
                 if !post.text.isEmpty { bubble }
                 if !post.downloads.isEmpty {
-                    TransferCard(groupIds: post.downloads, fromUser: false, files: read(post.downloads), resolve: resolve)
+                    TransferCard(groupIds: post.downloads, fromUser: false, files: read(post.downloads), resolve: channel.transferGroup)
                 }
             }
             .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -430,7 +466,7 @@ private struct ChannelPostRow: View {
             }
             Text(post.name).font(Theme.Text.caption.weight(.medium)).foregroundStyle(Theme.body).lineLimit(1)
             if post.isAgent {
-                Text("Agent")
+                Text("Bot")
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(Theme.muted)
                     .padding(.horizontal, 5)
@@ -442,7 +478,7 @@ private struct ChannelPostRow: View {
     }
 
     private var bubble: some View {
-        AssistantMarkdown(text: post.text, theme: AssistantMarkdown.bubbleTheme, keepsLineBreaks: true, selectionRequest: selectionRequest, onLink: onLink)
+        AssistantMarkdown(text: SessionMention.named(post.text) { store.title(ofSession: $0) }, theme: AssistantMarkdown.bubbleTheme, keepsLineBreaks: true, selectionRequest: selectionRequest, onLink: onLink)
             .padding(.horizontal, 14)
             .padding(.vertical, 9)
             .background(flashed ? Theme.brand.opacity(0.3) : mine ? Theme.brand.opacity(0.14) : Theme.chatSurface,
@@ -500,7 +536,7 @@ private struct ReplyFailedLine: View {
             if onSwitch != nil || onRetry != nil {
                 HStack(spacing: 8) {
                     if let onSwitch {
-                        Button("Switch agent", action: onSwitch).buttonStyle(.bordered).accessibilityIdentifier("chat.switchAgent")
+                        Button("Switch runtime", action: onSwitch).buttonStyle(.bordered).accessibilityIdentifier("chat.switchAgent")
                     }
                     if let onRetry {
                         Button("Retry", action: onRetry).buttonStyle(.borderless).accessibilityIdentifier("chat.retryReply")

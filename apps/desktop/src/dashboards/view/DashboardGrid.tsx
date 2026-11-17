@@ -15,7 +15,8 @@ export function DashboardGrid({
   dashboards: NuphosDashboard[]
   loading: boolean
   onOpen: (dashboard: NuphosDashboard) => void
-  onMenu: (dashboard: NuphosDashboard, position: { x: number; y: number }) => void
+  /** Absent for a viewer, whom the backend lets change nothing. */
+  onMenu?: (dashboard: NuphosDashboard, position: { x: number; y: number }) => void
 }) {
   if (loading) return <div className="h-24 animate-pulse rounded-xl bg-state-selected" />
 
@@ -26,6 +27,7 @@ export function DashboardGrid({
           key={dashboard.id}
           className="group relative min-w-0 rounded-xl border border-line-control hover:bg-state-hover"
           onContextMenu={(event) => {
+            if (!onMenu) return
             event.preventDefault()
             onMenu(dashboard, { x: event.clientX, y: event.clientY })
           }}
@@ -49,14 +51,16 @@ export function DashboardGrid({
               {t('Updated')} · {new Date(dashboard.updatedAt).toLocaleDateString()}
             </span>
           </button>
-          <button
-            type="button"
-            aria-label={t('More actions')}
-            className="absolute right-2 top-3 flex size-7 items-center justify-center rounded-md text-tertiary hover:bg-state-selected"
-            onClick={(event) => onMenu(dashboard, { x: event.clientX, y: event.clientY })}
-          >
-            <MoreHorizontal className="size-4" />
-          </button>
+          {onMenu && (
+            <button
+              type="button"
+              aria-label={t('More actions')}
+              className="absolute right-2 top-3 flex size-7 items-center justify-center rounded-md text-tertiary hover:bg-state-selected"
+              onClick={(event) => onMenu(dashboard, { x: event.clientX, y: event.clientY })}
+            >
+              <MoreHorizontal className="size-4" />
+            </button>
+          )}
         </div>
       ))}
     </div>

@@ -11,6 +11,8 @@ import androidx.compose.ui.unit.dp
 import ai.nuphos.android.data.AccountApi
 import ai.nuphos.android.model.NuphosUser
 import ai.nuphos.android.ui.LocalAuthSession
+import androidx.compose.ui.res.stringResource
+import ai.nuphos.android.R
 
 @Composable
 fun ConsentScreen(user: NuphosUser) {
@@ -19,19 +21,19 @@ fun ConsentScreen(user: NuphosUser) {
     var account by remember(auth.generation) { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)) {
-        Text("Before you use AI agents", style = MaterialTheme.typography.headlineMedium)
-        Text("Using an agent sends your prompts, conversation history, uploaded images and files, and relevant results from connected tools to the providers needed to carry out your request.")
-        Text("Who receives this data", style = MaterialTheme.typography.titleMedium)
-        Text("Depending on your runtime and model, this includes Anthropic (Claude), OpenAI (Codex), Google, or Amazon Web Services. Nuphos also uses Braintrust to store AI execution traces, which can include conversation and tool content, for diagnostics and service improvement.")
-        Text("Your choice", style = MaterialTheme.typography.titleMedium)
-        Text("Only share information you are authorized to share. You can decline and still manage your account or request its deletion. You can withdraw permission in Account → AI data sharing. Withdrawal stops new AI use from this app; it does not undo completed transfers or stop work already running, including work started on other devices or by scheduled agents.")
-        TextButton(onClick = { uri.openUri("https://nuphos.ai/privacy") }) { Text("Read the privacy policy") }
+        Text(stringResource(R.string.profile_consent_title), style = MaterialTheme.typography.headlineMedium)
+        Text(stringResource(R.string.profile_consent_intro))
+        Text(stringResource(R.string.profile_consent_recipients_title), style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.profile_consent_recipients_body))
+        Text(stringResource(R.string.profile_consent_choice_title), style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.profile_consent_choice_body))
+        TextButton(onClick = { uri.openUri("https://nuphos.ai/privacy") }) { Text(stringResource(R.string.profile_consent_read_privacy_policy)) }
         auth.consentError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         if (auth.consentBusy) CircularProgressIndicator()
         Button(onClick = { auth.setAIConsent(true) }, enabled = !auth.consentBusy && auth.consentVersion == AccountApi.AI_CONSENT_VERSION,
-            modifier = Modifier.fillMaxWidth()) { Text("Agree and continue") }
-        TextButton(onClick = { account = true }, modifier = Modifier.fillMaxWidth()) { Text("Not now — manage my account") }
-        TextButton(onClick = { auth.loadAIConsent() }, enabled = !auth.consentBusy, modifier = Modifier.fillMaxWidth()) { Text("Retry loading consent") }
+            modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.profile_consent_agree)) }
+        TextButton(onClick = { account = true }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.profile_consent_not_now)) }
+        TextButton(onClick = { auth.loadAIConsent() }, enabled = !auth.consentBusy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.profile_consent_retry)) }
     }
     if (account) ProfileSheet(user) { account = false }
 }
@@ -43,13 +45,13 @@ fun ConsentRecoveryScreen(user: NuphosUser) {
     var account by remember(auth.generation) { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)) {
-        Text("Couldn’t verify your AI sharing choice", style = MaterialTheme.typography.headlineMedium)
-        Text("AI features are paused until we can confirm your choice. Retry to continue. No new sharing choice is recorded here.")
+        Text(stringResource(R.string.profile_consent_recovery_title), style = MaterialTheme.typography.headlineMedium)
+        Text(stringResource(R.string.profile_consent_recovery_body))
         auth.consentError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         if (auth.consentBusy) CircularProgressIndicator()
         Button(onClick = { auth.loadAIConsent() }, enabled = !auth.consentBusy,
-            modifier = Modifier.fillMaxWidth()) { Text("Retry loading consent") }
-        TextButton(onClick = { account = true }, modifier = Modifier.fillMaxWidth()) { Text("Manage my account") }
+            modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.profile_consent_retry)) }
+        TextButton(onClick = { account = true }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.profile_consent_manage_account)) }
     }
     if (account) ProfileSheet(user) { account = false }
 }

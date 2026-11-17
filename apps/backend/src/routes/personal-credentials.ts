@@ -1,7 +1,8 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 
-import { getConversationBySessionId } from '@/lib/agent/db'
+import { config } from '@/config'
+import { credentialSource, getConversationBySessionId } from '@/lib/agent/db'
 import { verifyPreviewMcpToken } from '@/lib/claude-code-preview/mcp-token'
 import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
 import { AppError } from '@/lib/errors'
@@ -19,7 +20,6 @@ import {
   startPersonalCredentialOAuth,
 } from '@/lib/personal-credentials'
 import {
-  composioAuthConfig,
   composioToolProvider,
   composioUserId,
   executeComposioTool,
@@ -176,7 +176,9 @@ personalCredentialTokenRoutes.get('/:provider/token', async (c) => {
 
     if (
       conversation?.userId !== claims.own ||
-      !conversation.credentialAccess?.personalCredentialIds?.includes(provider)
+      !(await credentialSource(conversation)).credentialAccess?.personalCredentialIds?.includes(
+        provider,
+      )
     ) {
       throw new AppError(
         403,
@@ -206,7 +208,7 @@ personalCredentialTokenRoutes.get('/:provider/token', async (c) => {
   // The conversation token is only valid under its own /teams/:teamId.
   const teamId = claims.tid
 
-  if (!composioAuthConfig(provider) && !(await teamGoogleClient(teamId))) {
+  if (!config.byos.composio.apiKey && !(await teamGoogleClient(teamId))) {
     throw new AppError(
       409,
       'google_oauth_client_not_configured',

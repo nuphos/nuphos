@@ -237,17 +237,19 @@ function file(
   }
 }
 
-test('previews ready images and videos by content type, or by name when it is missing', () => {
+test('previews ready images, videos and audio by content type, or by name when it is missing', () => {
   assert.equal(previewKind(file({ contentType: 'image/png', fileName: 'shot' })), 'image')
   assert.equal(previewKind(file({ fileName: 'Shot.PNG' })), 'image')
   assert.equal(previewKind(file({ contentType: 'video/quicktime', fileName: 'rec' })), 'video')
   assert.equal(previewKind(file({ fileName: 'm1-screen-recording.mov' })), 'video')
+  assert.equal(previewKind(file({ fileName: 'voice.mp3' })), 'audio')
+  assert.equal(previewKind(file({ contentType: 'audio/mpeg', fileName: 'take' })), 'audio')
   assert.equal(previewKind(file({ contentType: 'text/plain', fileName: 'x.png' })), null)
   assert.equal(previewKind(file({ fileName: 'run.log' })), null)
   assert.equal(previewKind(file({ fileName: 'shot.png', status: 'pending' })), null)
 })
 
-test('an inline preview adds audio and PDFs the chat squares hold back as rows', () => {
+test('an inline preview adds PDFs, which the chat squares hold back as rows', () => {
   assert.equal(viewerKind('shot.png'), 'image')
   assert.equal(viewerKind('Clip.MP4'), 'video')
   assert.equal(viewerKind('voice.m4a'), 'audio')
@@ -259,27 +261,26 @@ test('an inline preview adds audio and PDFs the chat squares hold back as rows',
   assert.equal(viewerKind('x.png', 'text/plain'), null)
   assert.equal(viewerKind('x.pdf', 'text/plain'), null)
   assert.equal(viewerKind('x.log', 'image/png'), 'image')
-  assert.equal(previewKind(file({ fileName: 'voice.m4a' })), null)
   assert.equal(previewKind(file({ fileName: 'report.pdf' })), null)
 })
 
-test('rows beside previews hold back only images that became thumbnails', () => {
+test('rows beside previews hold back only the files that became squares', () => {
   const files = [
     { fileName: 'a.png', status: 'ready' },
     { fileName: 'b.png', status: 'failed' },
     { fileName: 'c.png', status: 'ready' },
     { fileName: 'clip.mp4', status: 'ready' },
+    { fileName: 'take.mp3', status: 'ready' },
     { fileName: 'notes.pdf', status: 'ready' },
   ]
   const names = (rows: typeof files) => rows.map((f) => f.fileName)
 
-  // Resolving: ready images are expected to preview; everything else is listed.
-  assert.deepEqual(names(filesBesidePreviews(files, null)), ['b.png', 'clip.mp4', 'notes.pdf'])
+  // Resolving: ready media are expected to preview; everything else is listed.
+  assert.deepEqual(names(filesBesidePreviews(files, null)), ['b.png', 'notes.pdf'])
   // Resolved without c.png (no link): it comes back as a row instead of vanishing.
-  assert.deepEqual(names(filesBesidePreviews(files, new Set(['a.png']))), [
+  assert.deepEqual(names(filesBesidePreviews(files, new Set(['a.png', 'clip.mp4', 'take.mp3']))), [
     'b.png',
     'c.png',
-    'clip.mp4',
     'notes.pdf',
   ])
   // Nothing resolved (expired, someone else's files): every file is a row.

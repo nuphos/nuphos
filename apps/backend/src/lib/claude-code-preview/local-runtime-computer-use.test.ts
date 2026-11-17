@@ -162,7 +162,11 @@ describe('a local agent serves whoever may use its computer', () => {
     )) as AppError
 
     expect([error.status, error.code]).toEqual([409, 'runtime_offline'])
-    expect(error.details).toEqual({ runtimeId: localId, runtimeLabel: 'Claude Code in MacBook' })
+    expect(error.details).toEqual({
+      runtimeId: localId,
+      deviceId: 'mac-1',
+      runtimeLabel: 'Claude Code in MacBook',
+    })
   })
 
   test('control calls on the owner’s conversation act as its owner', async () => {

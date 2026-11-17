@@ -22,7 +22,7 @@ import androidx.test.espresso.Espresso
 import androidx.compose.ui.input.key.Key
 import android.graphics.Bitmap
 import java.io.File
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.navigation.compose.rememberNavController
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -50,6 +50,7 @@ import java.io.IOException
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import org.junit.Assume.assumeTrue
 
 /** All responses are synthetic. Unknown requests fail; this client never opens a socket. */
 @RunWith(AndroidJUnit4::class)
@@ -82,7 +83,6 @@ class HomeNavigationFixtureDeviceTest {
         target.javaClass.getDeclaredField(name + if (delegated) "\$delegate" else "").also { it.isAccessible = true }.get(target) as MutableState<Any?>
     private val network = object : ExternalResource() {
         override fun before() {
-            require(InstrumentationRegistry.getInstrumentation().targetContext.packageName in setOf("ai.nuphos.android.navigation1371", "ai.nuphos.android.runtimes1373", "ai.nuphos.android.agentsaudit1382"))
             app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as NuphosApplication
             savedConfiguration = Configuration(app.resources.configuration)
             savedMetrics = DisplayMetrics().also { it.setTo(app.resources.displayMetrics) }
@@ -143,7 +143,7 @@ class HomeNavigationFixtureDeviceTest {
                         if (historyFailure) { code = 403; "{}" } else if (archived || request.url.queryParameter("archived") != "exclude") "{\"conversations\":[],\"nextCursor\":null}" else
                             """{"conversations":[{"sessionId":"fixture-chat","teamId":"${request.url.queryParameter("teamId")}","title":"Synthetic active conversation","archivedAt":null,"canManage":true,"isOwner":true,"createdAt":"2026-01-01T00:00:00Z"}],"nextCursor":null}"""
                     }
-                    browsing -> if (path.endsWith("agent-triggers")) "{\"triggers\":[]}" else "{}"
+                    browsing -> "{}"
                     plans -> """{"plans":[],"hasMore":false}"""
                     members -> """{"members":[]}"""
                     policy -> """{"requesterApprovalRequired":true,"minimumOtherApprovals":0}"""
@@ -212,7 +212,6 @@ class HomeNavigationFixtureDeviceTest {
     }
     private fun menu() { compose.onNodeWithTag("home-page-switcher").performClick() }
     private fun select(route: String) { menu(); compose.onNodeWithTag("home-page-$route").performScrollTo().performClick(); compose.waitForIdle() }
-    private fun filter() { compose.onNodeWithTag("home-filter").performClick() }
     private fun assertFixedListSelectors() = assertTrue(requests.filter { it.url.encodedPath == "/agent/conversations" }.all {
         it.url.queryParameter("scope") == "mine" && it.url.queryParameter("sort") == "activity" && it.url.queryParameter("archived") == "exclude"
     })
@@ -235,7 +234,7 @@ class HomeNavigationFixtureDeviceTest {
         Espresso.pressBack(); compose.waitForIdle()
         compose.onNodeWithTag("home-page-menu").assertDoesNotExist()
         compose.onNodeWithTag("home-page-switcher").assertIsFocused()
-        for (route in listOf("plans", "runtimes", "connectors", "agent")) {
+        for (route in listOf("runtimes", "connectors", "agent")) {
             select(route); menu()
             compose.onNodeWithTag("home-page-$route").assertIsSelected()
             Espresso.pressBack()
@@ -277,16 +276,12 @@ class HomeNavigationFixtureDeviceTest {
         assertNull(auth.runtimeSelections.bind(NuphosUser.preview.id, a.id).selectedId)
         select("agent"); waitText("Synthetic active conversation"); noWrites()
     }
-    @Test fun agentsHasSearchButNoFilterWhilePlansKeepsItsFilter() {
+    @Test fun agentsHasSearchButNoFilter() {
         render(); waitText("Synthetic active conversation")
         compose.onNodeWithTag("home-search").assertIsDisplayed()
         compose.onNodeWithTag("home-filter").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Filter agents").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Filter tasks").assertDoesNotExist()
         shot("agents-toolbar")
-        select("plans"); filter()
-        compose.onNodeWithText("Show dismissed").assertIsDisplayed(); shot("plans-filter"); Espresso.pressBack()
-        select("agent"); waitText("Synthetic active conversation")
-        compose.onNodeWithTag("home-filter").assertDoesNotExist()
         assertFixedListSelectors(); noWrites()
     }
 
@@ -295,7 +290,7 @@ class HomeNavigationFixtureDeviceTest {
         compose.onNodeWithTag("home-search").performClick()
         compose.onNodeWithText("Search tasks").performTextInput("needle")
         compose.waitUntil(5_000) { requests.any { it.url.encodedPath == "/agent/conversations" && it.url.queryParameter("search") == "needle" } }
-        select("plans"); compose.runOnIdle { assertEquals("", agent.search) }
+        select("runtimes"); compose.runOnIdle { assertEquals("", agent.search) }
         select("agent"); compose.runOnIdle { agent.select(b) }
         compose.waitUntil(8_000) { requests.any { it.url.encodedPath == "/agent/conversations" && it.url.queryParameter("teamId") == b.id } }
         assertFixedListSelectors(); noWrites()
@@ -303,9 +298,9 @@ class HomeNavigationFixtureDeviceTest {
 
     @Test fun selectedPageSurvivesSavedStateAndOutsideDismisses() {
         val restoration = StateRestorationTester(compose)
-        render(restoration = restoration); select("plans")
+        render(restoration = restoration); select("runtimes")
         restoration.emulateSavedInstanceStateRestore(); menu()
-        compose.onNodeWithTag("home-page-plans").assertIsSelected()
+        compose.onNodeWithTag("home-page-runtimes").assertIsSelected()
         val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
         val bounds = compose.onAllNodes(isRoot()).onFirst().fetchSemanticsNode().boundsInRoot
         val now = android.os.SystemClock.uptimeMillis()
@@ -316,19 +311,17 @@ class HomeNavigationFixtureDeviceTest {
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("home-page-menu").fetchSemanticsNodes().isEmpty() }
         noWrites()
     }
-    @Test fun compactRtlLargeFontAllEntriesAndPlansFilterRemainReachable() {
+    @Test fun compactRtlLargeFontAllEntriesRemainReachable() {
         render(compact = true); menu(); shot("rtl-large-menu")
-        for (route in listOf("agent", "plans", "runtimes", "connectors"))
+        for (route in listOf("agent", "runtimes", "connectors"))
             compose.onNodeWithTag("home-page-$route").performScrollTo().assertIsDisplayed()
         Espresso.pressBack(); compose.onNodeWithTag("home-filter").assertDoesNotExist()
-        select("plans"); filter()
-        compose.onNodeWithText("Show dismissed").performScrollTo().assertIsDisplayed()
-        shot("rtl-large-plans-filter"); noWrites()
+        noWrites()
     }
 
     @Test fun deniedHistoryDoesNotBlockNavigationOrAlterWorkspace() {
         historyFailure = true; render()
-        select("plans"); select("agent")
+        select("runtimes"); select("agent")
         compose.runOnIdle { assertNotNull(agent.phaseError); assertEquals(a.id, agent.selectedTeam?.id) }
         menu(); compose.onNodeWithTag("home-page-connectors").performClick(); noWrites()
     }
@@ -348,10 +341,10 @@ class HomeNavigationFixtureDeviceTest {
     @Test fun archiveRequiresConfirmationAndRemovesTheRowFromTheList() {
         render(); waitText("Synthetic active conversation")
         compose.onNodeWithText("Synthetic active conversation").performTouchInput { longClick() }
-        compose.onNodeWithText("Archive").performClick(); waitText("Archive agent?")
+        compose.onNodeWithText("Archive").performClick(); waitText("Archive task?")
         compose.onNodeWithText("Cancel").performClick(); assertFalse(archived); noWrites()
         compose.onNodeWithText("Synthetic active conversation").performTouchInput { longClick() }
-        compose.onNodeWithText("Archive").performClick(); waitText("Archive agent?")
+        compose.onNodeWithText("Archive").performClick(); waitText("Archive task?")
         compose.onAllNodesWithText("Archive").onLast().performClick()
         compose.waitUntil(8_000) { archived && agent.conversations.isEmpty() && agent.rowActionSessionId == null }
         compose.onNodeWithText("Synthetic active conversation").assertDoesNotExist()
@@ -363,7 +356,7 @@ class HomeNavigationFixtureDeviceTest {
     @Test fun archiveFailureKeepsTheRowAndOffersExplicitRetry() {
         archiveFailure = true; render(); waitText("Synthetic active conversation")
         compose.onNodeWithText("Synthetic active conversation").performTouchInput { longClick() }
-        compose.onNodeWithText("Archive").performClick(); waitText("Archive agent?")
+        compose.onNodeWithText("Archive").performClick(); waitText("Archive task?")
         compose.onAllNodesWithText("Archive").onLast().performClick()
         waitText("Action failed. Refresh the list and try again.")
         assertFalse(archived); compose.onNodeWithText("Synthetic active conversation").assertExists()

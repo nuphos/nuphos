@@ -74,7 +74,7 @@ export function ModelSelector({
   ].filter(Boolean)
   const blocked =
     disabled || saving || (status !== 'ready' && status !== 'dormant' && status !== 'busy')
-  const hint = modelHint(status, Boolean(model), busy)
+  const hint = modelHint(status, Boolean(model), busy, Boolean(effort || fast))
 
   const setOpen = control.setOpen
   const open = control.open
@@ -209,17 +209,19 @@ export function ModelSelector({
               }
               style={{ transformOrigin: 'bottom center' }}
             >
-              {!showModels && effort && model && (
+              {!showModels && effort && (
                 <ModelEffortPanel
                   effort={effort}
                   fast={fast}
-                  modelName={name}
+                  // A runtime with no model list (Grok Build) names none; the chip's own
+                  // "Model settings" would be unhelpful inside the panel.
+                  modelName={model ? name : t('Reasoning')}
                   resetValue={effortResetValue(effort.options)}
                   blocked={blocked && !saving}
                   saving={saving}
                   sliderRef={sliderRef}
                   onSelect={select}
-                  onOpenModels={() => setView('models')}
+                  onOpenModels={model ? () => setView('models') : undefined}
                 />
               )}
               <ModelFooter {...footer} divided={Boolean(model)} />

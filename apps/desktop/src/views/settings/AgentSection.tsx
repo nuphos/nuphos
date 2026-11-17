@@ -83,7 +83,8 @@ export function AgentSection({
   const { isActive } = useWorkspaceTab()
   const panelShown = isActive && aside !== null && selected !== undefined
 
-  useToolbarPrimaryAction(isActive && isAdmin ? t('Add computer') : null, () => setAdding(true))
+  // Any member may add their own computer; the dialog offers a Box only to administrators.
+  useToolbarPrimaryAction(isActive ? t('Add computer') : null, () => setAdding(true))
   useEffect(() => {
     onCount(instances.length)
   }, [instances.length, onCount])
@@ -148,7 +149,6 @@ export function AgentSection({
                   onSelect={select}
                   loading={catalog.loading}
                   filtered={filter.trim() !== ''}
-                  isAdmin={isAdmin}
                 />
               ),
             }}

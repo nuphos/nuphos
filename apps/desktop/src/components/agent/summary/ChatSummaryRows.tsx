@@ -205,7 +205,7 @@ export function ThreadRow({
           size={16}
         />
       }
-      label={conversation.title || conversation.firstMessage || t('Untitled agent')}
+      label={conversation.title || conversation.firstMessage || t('Untitled task')}
       note={note}
       onClick={() => onOpen(conversation.sessionId)}
     />

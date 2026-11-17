@@ -15,7 +15,6 @@ import type {
   LocalSkillInfo,
   PastedAttachmentPayload,
 } from './app-types.ts'
-import type { LoginItemState } from './device-types.ts'
 import type {
   GithubSkillCandidate,
   GithubSkillPreview,
@@ -45,6 +44,10 @@ import type {
   UpdaterState,
   UserInfo,
 } from '../types/team.ts'
+import type { SocialOption } from '../types/app-misc.ts'
+
+/** Whether the OS opens Nuphos at login (macOS and Windows releases only). */
+export type LoginItemState = { supported: boolean; openAtLogin: boolean }
 
 export type WindowAppApi = {
   claimFirstLaunchIntro?(): Promise<boolean>
@@ -76,7 +79,7 @@ export type WindowAppApi = {
   apiUrlSync(): string
   authRemoveAvatar(): Promise<UserInfo>
   authStatus(): Promise<AuthStatus>
-  authSocialProviders(): Promise<SocialProvider[]>
+  authSocialProviders(): Promise<SocialOption[]>
   authLogin(provider: SocialProvider): Promise<UserInfo>
   authLogout(): Promise<void>
   authCancel(): Promise<void>
@@ -90,11 +93,14 @@ export type WindowAppApi = {
   analyticsSetTeam(teamId: string | null): Promise<void>
   sendDiagnostics(): boolean
   setSendDiagnostics(send: boolean): Promise<boolean>
-  onSendDiagnosticsChanged(listener: (send: boolean) => void): () => void
+  sendUsageData(): boolean
+  onSendUsageDataChanged(listener: (send: boolean) => void): () => void
   appGetVersion(): Promise<string>
   appSetApiEndpoint(url: string | null): Promise<string>
   appGetPlatform(): Promise<string>
   appSelectAsciiInputSource(): Promise<void>
+  /** The menu bar and notifications follow the language the windows show. */
+  appSetLocale(locale: string): Promise<void>
   appSetNativeTheme(source: 'system' | 'light' | 'dark'): Promise<void>
   appGetAppIcon(): Promise<string>
   appSetAppIcon(icon: string): Promise<void>
@@ -130,6 +136,8 @@ export type WindowAppApi = {
   updaterGetState(): Promise<UpdaterState>
   updaterCheck(): Promise<void>
   updaterInstall(): Promise<void>
+  updaterGetAutoInstall(): Promise<{ enabled: boolean }>
+  updaterSetAutoInstall(enabled: boolean): Promise<{ enabled: boolean }>
   onUpdaterStatus(cb: (state: UpdaterState) => void): () => void
   changelogGetState(): Promise<ChangelogState>
   onChangelogStatus(cb: (state: ChangelogState) => void): () => void
@@ -243,6 +251,8 @@ export type WindowAppApi = {
     reviewed: { relPath: string; realPath: string }[],
   ): Promise<LocalSetupResult>
   localSetupSetAutoSync(teamId: string, enabled: boolean): Promise<void>
+  localSetupSetFolders(teamId: string, folders: string[]): Promise<LocalSetupResult>
+  localSetupSources(teamId: string): Promise<Record<string, string>>
   teamSkillsImportLocal(
     teamId: string,
     scope: SkillScope | undefined,

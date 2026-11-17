@@ -1,20 +1,27 @@
 // Keeping "Sync my setup" current: re-run it for every team with "Keep in sync"
-// on whenever ~/.claude/skills or ~/.claude/CLAUDE.md changes.
+// on whenever one of its skill folders or ~/.claude/CLAUDE.md changes.
 import fsSync from 'node:fs'
 import path from 'node:path'
 
 import { removeRetiredAgentChatSkills } from '../agent-chat-skill.ts'
 import { readConfig } from '../auth/config.ts'
 
-import { claudeDir, readTeam, stateKey, teamKeys, updateTeam } from './local-setup-state.ts'
-import { syncLocalSetup } from './local-setup-sync.ts'
+import {
+  claudeDir,
+  readTeam,
+  stateKey,
+  syncFolders,
+  teamKeys,
+  updateTeam,
+} from './local-setup-state.ts'
+import { syncLocalSetup, syncLocalSetupAfter } from './local-setup-sync.ts'
 
 export async function setLocalSetupAutoSync(teamId: string, enabled: boolean) {
   updateTeam(await stateKey(teamId), (team) => {
     team.autoSync = enabled
   })
   if (enabled) {
-    startLocalSetupWatcher()
+    rewatch()
     void syncLocalSetup(teamId).catch((e: unknown) => {
       console.warn('local-setup: sync failed', e)
     })
@@ -69,15 +76,23 @@ function watch(dir: string, options: fsSync.WatchOptions, accept: (file: string)
 }
 
 /**
- * Re-sync every team with "Keep in sync" on whenever ~/.claude/skills or
- * ~/.claude/CLAUDE.md changes, plus every half hour and once at start-up for
+ * Re-sync every team with "Keep in sync" on whenever one of its skill folders
+ * or ~/.claude/CLAUDE.md changes, plus every half hour and once at start-up for
  * anything missed while Nuphos was closed. Idempotent.
  */
 export function startLocalSetupWatcher() {
   if (periodic) return
   const root = claudeDir()
+  const folders = new Set(
+    teamKeys()
+      .map(readTeam)
+      .filter((team) => team.autoSync)
+      .flatMap(syncFolders),
+  )
 
-  watch(path.join(root, 'skills'), { recursive: true }, () => true)
+  for (const folder of folders.add(path.join(root, 'skills'))) {
+    watch(folder, { recursive: true }, () => true)
+  }
   watch(root, {}, (file) => file === 'CLAUDE.md')
   periodic = setInterval(syncAutoTeams, PERIODIC_MS)
   schedule()
@@ -97,4 +112,30 @@ export function stopLocalSetupWatcher() {
   if (periodic) clearInterval(periodic)
   timer = null
   periodic = null
+}
+
+/**
+ * The folders a team syncs after ~/.claude/skills, in the order given: one that
+ * comes first wins a skill name both have. Each must be an absolute path, and
+ * is kept once. The change applies at once, removing what a dropped folder had
+ * synced and adding what a new one has.
+ */
+export async function setLocalSetupFolders(teamId: string, folders: readonly string[]) {
+  const claudeSkills = path.join(claudeDir(), 'skills')
+  const kept = [
+    ...new Set(folders.filter((folder) => path.isAbsolute(folder)).map((f) => path.resolve(f))),
+  ].filter((folder) => folder !== claudeSkills)
+
+  updateTeam(await stateKey(teamId), (team) => {
+    team.folders = kept
+  })
+  if (periodic) rewatch()
+
+  return syncLocalSetupAfter(teamId)
+}
+
+/** Watch the folders of every team that keeps in sync, as they are now. */
+function rewatch() {
+  stopLocalSetupWatcher()
+  startLocalSetupWatcher()
 }

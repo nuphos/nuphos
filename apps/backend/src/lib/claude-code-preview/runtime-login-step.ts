@@ -1,3 +1,5 @@
+import type { RuntimeLoginDoc } from './runtime-login-store'
+
 /** Claude's own authorize page, and nothing a runtime could substitute for it. */
 export function isClaudeAuthorizeUrl(value: unknown): value is string {
   if (typeof value !== 'string' || value.length > 4096) return false
@@ -34,9 +36,9 @@ export function isGoogleAuthorizeUrl(value: unknown): value is string {
 }
 
 /**
- * One step of a sign-in that asks before it authorizes (OpenCode): pick a provider,
- * method or option; type a field or an API key; or approve on a page, which may hand
- * back a code or end on a loopback address the user pastes.
+ * One step of a sign-in that asks before it authorizes (OpenCode, DeepSeek Harness): pick
+ * a provider, method or option; type a field or an API key; or approve on a page, which
+ * may hand back a code or end on a loopback address the user pastes.
  */
 export type RuntimeLoginStep =
   | { kind: 'choose'; message: string; options: { value: string; label: string; hint?: string }[] }
@@ -122,4 +124,25 @@ export function parseLoginStep(frame: Record<string, unknown>): RuntimeLoginStep
     }
 
   return undefined
+}
+
+/**
+ * The `code#state` Claude's callback page shows, or the loopback address Google's
+ * sign-in leaves the browser on for Antigravity. The runtime checks the port itself.
+ */
+export const AUTHORIZATION_CODE =
+  /^(?:[\w.~-]{1,2048}#[\w.~-]{1,512}|http:\/\/(?:127\.0\.0\.1|localhost):\d{1,5}\/\?[\w.~%&=/+:-]{1,4096})$/u
+/** In place of the account sign-in: an API key for the runtime's CLI, or removing it. */
+export const API_KEY_ANSWER = /^(?:sk-[\w-]{20,400}|sign-out)$/u
+const LOOPBACK_ADDRESS = /^http:\/\/(?:127\.0\.0\.1|localhost):\d{1,5}\/\S*$/u
+
+/** Whether `answer` is what the sign-in is waiting for; the runtime checks it again. */
+export function acceptsAnswer(doc: RuntimeLoginDoc, answer: string): boolean {
+  const { step } = doc
+
+  if (!step) return AUTHORIZATION_CODE.test(answer) || API_KEY_ANSWER.test(answer)
+  if (step.kind === 'choose') return step.options.some((option) => option.value === answer)
+  if (step.kind === 'browser' && step.paste === 'address') return LOOPBACK_ADDRESS.test(answer)
+
+  return answer.length > 0
 }

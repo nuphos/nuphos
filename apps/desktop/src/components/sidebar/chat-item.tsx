@@ -1,4 +1,5 @@
 import { t } from '../../i18n'
+import { isBotRow } from '../../lib/agentAvatarChoices'
 import { openInputRequests } from '../../lib/agentInputRequests'
 import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
 import { runtimeTurnActive, runtimeBackgroundRunning } from '../../lib/runtimeExecution'
@@ -19,6 +20,11 @@ import type { Item } from './types'
 import type { AgentConversation } from '../../api'
 import type { RuntimeExecution } from '../../lib/runtimeExecution'
 
+/** Whether the row belongs on the Bots page (chats and Bots) rather than Tasks. */
+export function onBotsPage(conversation: Pick<AgentConversation, 'avatar' | 'kind'>): boolean {
+  return conversation.kind === 'channel' || isBotRow(conversation)
+}
+
 /** One chat row in the sidebar; the caller adds its row actions. */
 export function chatSidebarItem({
   conversation,
@@ -36,16 +42,18 @@ export function chatSidebarItem({
   /** A face picked in this app since the list loaded (null: taken away), which wins. */
   picked?: string | null
 }): Item {
-  const isBot = Boolean(
-    (picked === undefined ? conversation.avatar : picked) && conversation.kind !== 'channel',
-  )
+  const isBot = isBotRow(conversation, picked)
   const waiting = openInputRequests(conversation).length > 0 || Boolean(conversation.signInRequest)
   const dot = waiting ? 'waiting' : unread ? 'unread' : rowDot(conversation, runtimeState, unread)
   const status = <ChatRowStatus runtimeState={runtimeState} dot={dot} />
 
   return {
     key: `agent-session:${conversation.sessionId}`,
-    label: conversation.title || conversation.firstMessage || t('Untitled agent'),
+    label:
+      conversation.title ||
+      conversation.firstMessage ||
+      // An unnamed chat is called by its other members; until anyone joins, this.
+      (conversation.kind === 'channel' ? t('New Group Chat') : t('Untitled task')),
     ...chatRowIcon(conversation),
     preview: chatPreview(conversation.lastMessage, conversation.faces),
     lastActiveAt: conversation.lastActiveAt,
@@ -64,7 +72,7 @@ export function chatSidebarItem({
     ...(conversation.kind === 'channel'
       ? {
           channel: true,
-          botChannelOf: botOfChannel(conversation.faces),
+          botChannelOf: botOfChannel(conversation),
           channelAgentIds: conversation.agentSessionIds,
         }
       : {}),
@@ -88,7 +96,8 @@ export function chatSidebarItem({
       : {}),
     ...chatRowAccess(conversation),
     ...(conversation.watching !== undefined ? { watching: conversation.watching } : {}),
-    ...(conversation.parentSessionId
+    // A Bot stands on its own: even one an agent nested is a top-level Bot, never a sub-task.
+    ...(conversation.parentSessionId && !isBot
       ? { parentKey: `agent-session:${conversation.parentSessionId}` }
       : {}),
     href: pageLocationForNavigation(

@@ -2,9 +2,9 @@ export type { AwsSnsEnvelope, AwsSnsMessageType } from './sns-webhook/envelope'
 export {
   AwsSnsValidationError,
   buildAwsSnsStringToSign,
+  isAwsSnsRequest,
   isAwsSnsValidationError,
   parseAwsSnsEnvelope,
-  shouldHandleAwsSnsRequest,
   validateAwsSnsCertificateUrl,
   validateAwsSnsConfirmationUrl,
 } from './sns-webhook/envelope'

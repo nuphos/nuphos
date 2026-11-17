@@ -15,7 +15,11 @@ import {
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
-import { requireSonarqubeMemberAccess, requireTeamRole } from '@/middleware/auth'
+import {
+  requireCanDisconnect,
+  requireSonarqubeMemberAccess,
+  requireTeamRole,
+} from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 import { mapSonarqubeError, sonarqubePublicView } from '@/routes/sonarqube-integrations/shared'
 
@@ -49,21 +53,30 @@ export function registerSonarqubeScopedRoutes(
     c.json(sonarqubePublicView(c.get('sonarqubeBinding'))),
   )
 
-  scoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
-    const result = await teamByosBindings().updateOne(
-      { _id: parseObjectId(c.get('teamId'), 'teamId') },
-      {
-        $pull: { sonarqubeIntegrations: { id: new ObjectId(c.get('sonarqubeIntegrationId')) } },
-        $set: { updatedAt: new Date() },
-      },
-    )
+  scoped.delete(
+    '/',
+    requireTeamRole('ADMINISTRATOR'),
+    requireCanDisconnect('sonarqubeAccess'),
+    async (c) => {
+      const result = await teamByosBindings().updateOne(
+        { _id: parseObjectId(c.get('teamId'), 'teamId') },
+        {
+          $pull: { sonarqubeIntegrations: { id: new ObjectId(c.get('sonarqubeIntegrationId')) } },
+          $set: { updatedAt: new Date() },
+        },
+      )
 
-    if (result.modifiedCount === 0) {
-      throw new AppError(404, 'sonarqube_integration_not_bound', 'SonarQube integration not found')
-    }
+      if (result.modifiedCount === 0) {
+        throw new AppError(
+          404,
+          'sonarqube_integration_not_bound',
+          'SonarQube integration not found',
+        )
+      }
 
-    return c.body(null, 204)
-  })
+      return c.body(null, 204)
+    },
+  )
 
   scoped.get(
     '/projects',

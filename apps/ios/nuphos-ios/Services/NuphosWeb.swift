@@ -13,9 +13,13 @@ enum NuphosWeb {
     }
 
     enum Provider: String, CaseIterable {
-        case apple, google
+        case apple, google, oidc
+    }
 
-        var name: String { self == .apple ? "Apple" : "Google" }
+    /// What the server offers, and the label its OpenID Connect provider (e.g. Logto) goes by.
+    struct SocialOptions: Equatable {
+        var providers: [Provider]
+        var oidcName = "SSO"
     }
 
     static func providers(header: String?) -> [Provider] {
@@ -24,15 +28,22 @@ enum NuphosWeb {
         return Provider.allCases.filter { configured.contains($0.rawValue) }
     }
 
-    static func availableProviders(baseURL: URL) async throws -> [Provider] {
+    static func availableProviders(baseURL: URL) async throws -> SocialOptions {
         var request = URLRequest(url: baseURL.appending(path: "auth/social/login"))
         request.timeoutInterval = 10
         request.cachePolicy = .reloadIgnoringLocalCacheData
         let (_, response) = try await URLSession.shared.data(for: request)
         guard let response = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
-        if response.statusCode == 503 { return [] }
+        if response.statusCode == 503 { return SocialOptions(providers: []) }
         guard (200..<300).contains(response.statusCode) else { throw URLError(.badServerResponse) }
-        return providers(header: response.value(forHTTPHeaderField: "X-Nuphos-Social-Providers"))
+        return options(
+            providers: response.value(forHTTPHeaderField: "X-Nuphos-Social-Providers"),
+            oidcName: response.value(forHTTPHeaderField: "X-Nuphos-Social-Oidc-Name"))
+    }
+
+    static func options(providers header: String?, oidcName: String?) -> SocialOptions {
+        let name = oidcName?.trimmingCharacters(in: .whitespaces) ?? ""
+        return SocialOptions(providers: providers(header: header), oidcName: name.isEmpty ? "SSO" : name)
     }
 
     static func loginURL(baseURL: URL, handle: String, provider: Provider) -> URL {

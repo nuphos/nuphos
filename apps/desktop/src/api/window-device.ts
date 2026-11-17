@@ -8,6 +8,7 @@ import type {
   BoxStatus,
   BoxUsage,
   BoxUsageHistory,
+  CliLoginProvider,
   DeviceAgentInstance,
   InstaboxAccount,
   SleepPreferences,
@@ -39,6 +40,10 @@ export type WindowDeviceApi = {
   localRuntimeCancelCodexLogin(): Promise<void>
   /** Signs this computer's agent in with an API key; null removes the key. */
   localRuntimeApplyApiKey(provider: 'claude-code' | 'codex', key: string | null): Promise<void>
+  localRuntimeSetCustomProvider(
+    provider: CliLoginProvider,
+    value: { baseUrl: string; apiKey?: string; models: string[] } | null,
+  ): Promise<LocalRuntimeState>
   localRuntimeSubmitClaudeLoginCode(code: string): Promise<void>
   localRuntimeStartClaudeLogin(): Promise<LocalAgentLoginState>
   localRuntimeCancelClaudeLogin(): Promise<void>
@@ -46,6 +51,8 @@ export type WindowDeviceApi = {
   localRuntimeGetState(): Promise<LocalRuntimeState>
   onLocalRuntimeState(cb: (state: LocalRuntimeState) => void): () => void
   localRuntimeRefresh(): Promise<LocalRuntimeState>
+  /** Reads this computer's running agents' models again; true when a list changed. */
+  localRuntimeRefreshModels(): Promise<boolean>
   localRuntimeUpdateAgent(provider: LocalAgentProvider): Promise<LocalRuntimeState>
   localRuntimeInstallAgent(provider: LocalAgentProvider): Promise<LocalRuntimeState>
   localRuntimeLatestAgentVersions(): Promise<Partial<Record<LocalAgentProvider, string>>>
@@ -67,6 +74,8 @@ export type WindowDeviceApi = {
   boxResume(deviceId: string, teamId: string): Promise<{ box: BoxStatus }>
   boxDelete(deviceId: string, teamId: string): Promise<{ ok: true }>
   deviceRemove(deviceId: string, teamId: string): Promise<{ ok: true }>
+  deviceAppUpdate(deviceId: string, teamId: string): Promise<{ version: string }>
+  boxClearCaches(deviceId: string, teamId: string): Promise<{ ok: true }>
   boxCreateAgent(
     deviceId: string,
     teamId: string,

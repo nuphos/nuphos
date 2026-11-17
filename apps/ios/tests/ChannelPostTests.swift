@@ -12,6 +12,7 @@ enum ChannelPostTests {
         placesQuestionsWhereTheyWereAsked()
         decodesChatsFromTheList()
         renamingTheBotChangesTheRevision()
+        aGroupChatWithOneBotIsNotItsChat()
         readsAndQuotesReplies()
         print("Chat posts, runs, sending and timeline passed")
     }
@@ -90,6 +91,11 @@ enum ChannelPostTests {
         precondition(record?.isRecord == true)
         let rows = ChannelPost.items(posts: [record!], events: [], typing: [])
         precondition(rows.map(\.item) == [.time(record!.sentAt!), .record("Yuanlin answered: Ship? → Ship it")])
+        // And the record a change of owner leaves when the owner leaves the chat.
+        let owner: [String: JSONValue] = ["type": .string("system"), "id": .string("nuphos:chat"),
+                                          "displayName": .string("Nuphos")]
+        let handed = ChannelPost(message("o", sender: owner, parts: [text("Ann left. Bruce now owns this chat.")]))
+        precondition(handed?.isRecord == true)
     }
 
     private static func post(_ id: String, _ sender: String, at seconds: TimeInterval, sending: Bool = false) -> ChannelPost {
@@ -176,5 +182,14 @@ enum ChannelPostTests {
         precondition(probe(title: "Scout").channelRevision != helper.channelRevision, "renaming the Bot changes it without a post")
         precondition(probe(title: "Helper", avatar: "07").channelRevision != helper.channelRevision, "a new face changes it")
         precondition(probe(title: "Helper", count: 4).channelRevision != helper.channelRevision, "a new post still changes it")
+    }
+
+    private static func aGroupChatWithOneBotIsNotItsChat() {
+        func detail(_ group: String) -> AgentConversationDetail {
+            let json = #"{"kind":"channel",\#(group)"faces":[{"id":"bot-1","name":"Helper","agent":{"avatar":"05"}}]}"#
+            return try! JSONDecoder().decode(AgentConversationDetail.self, from: Data(json.utf8))
+        }
+        precondition(detail("").botId == "bot-1", "a chat with only a Bot is its 1:1 chat")
+        precondition(detail(#""group":true,"#).botId == nil, "a group chat with one Bot is not")
     }
 }
