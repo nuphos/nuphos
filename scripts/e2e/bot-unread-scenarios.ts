@@ -1,7 +1,7 @@
 // Scenarios about a Bot row's unread dot, in the chat of the Bot an earlier scenario created.
 import { agentEvents, agentLog } from './agent-log.ts'
 import { artifacts, until } from './processes.ts'
-import { newTask, send } from './ui.ts'
+import { newTask, openComputers, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 
@@ -84,7 +84,7 @@ export const botUnreadScenarios: Scenario[] = [
 
       // Now the Bot's own message, unread, with the sub-Task's reply still under it. The Bots
       // tab reopened the Bot's chat, which would read it at once; another page leaves it unread.
-      await page.getByRole('button', { name: 'Connectors', exact: true }).click()
+      await openComputers(page)
       const response = await fetch(
         `${stack.apiUrl}/agent/conversations/${channelId}/channel-messages`,
         {
