@@ -21,6 +21,7 @@ import { botOfChannel, ownsBot } from './botChannel'
 import { BotStatusPill } from './BotStatusPill'
 import { BotDesktopButton } from './BotDesktopButton'
 import { BotTaskButton } from './BotTaskButton'
+import { BotTriggers } from './BotTriggers'
 import { ChannelEmptyState } from './ChannelEmptyState'
 import { ChannelMessages } from './ChannelMessages'
 import { ChatHeaderIcon, ReplyingBanner } from './channelParts'
@@ -187,6 +188,7 @@ export function ChannelPane({
             onOpenLink={onOpenNuphosLink}
           />
         </div>
+        {bot && <BotTriggers key={bot} teamId={teamId} botId={bot} />}
         {bot && canOpenTask && (
           <BotTaskButton
             provider={agents.find((agent) => agent.sessionId === bot)?.provider}
