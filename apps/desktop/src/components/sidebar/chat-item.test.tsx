@@ -129,3 +129,35 @@ test('reading a Bot question clears its dot but keeps the action-needed preview'
     assert.ok(row?.previewNode)
   }
 })
+
+test('finishing Bot work restores the latest chat post, never its older Task preview', () => {
+  const chat = {
+    ...item(),
+    key: 'chat',
+    channel: true,
+    preview: 'The newest reply posted in this chat',
+  }
+  const bot = {
+    conversation: {
+      ...conversation,
+      lastMessage: { text: 'An old Task response from yesterday', role: 'assistant' as const },
+    },
+    runtimeState: { state: 'active' as const, phase: 'running' },
+  }
+  const make = (state: 'active' | 'idle') =>
+    botChatRows({
+      chat,
+      bot: { ...bot, runtimeState: { ...bot.runtimeState, state } },
+      kids: [],
+      teamId: 'team-a',
+      unread: false,
+      openId: 'chat',
+    })[0]
+
+  assert.ok(make('active')?.previewNode, 'the indicator takes the preview line while busy')
+  const finished = make('idle')
+
+  assert.equal(finished?.previewNode, undefined, 'no work indicator remains after the turn')
+  assert.equal(finished?.preview, 'The newest reply posted in this chat')
+  assert.notEqual(finished?.preview, bot.conversation.lastMessage.text)
+})

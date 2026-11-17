@@ -21,6 +21,8 @@ export type ConversationTimelineEvent = { at: Date; actorId: string } & (
       toProvider?: OpenAbProvider
       /** Set when a fallback moved it rather than a person. */
       reason?: RuntimeFallbackReason
+      /** The turn that failed before the move runs again on `toLabel`. */
+      retrying?: true
     }
   | {
       /** A channel's agents used up their turns for this stretch; actorId is 'system'. */

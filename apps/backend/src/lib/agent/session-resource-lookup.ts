@@ -1,6 +1,6 @@
 import { ObjectId } from 'mongodb'
 
-import { canUseAllowList } from '@/lib/byos/access'
+import { canPrincipalsUseAllowList } from '@/lib/byos/access'
 import { findGithubInstallation, findGitlabBinding, findLinearWorkspace } from '@/lib/byos/account'
 import { getInstallationToken } from '@/lib/byos/github'
 import { GITHUB_API, githubFetch } from '@/lib/byos/github-http'
@@ -10,7 +10,7 @@ import { withLinearAccessToken } from '@/lib/byos/linear-tokens'
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 
-import { credentialSource } from './db'
+import { agentConversations, credentialSource } from './db'
 import { fetchPullHealth } from './github-pull-health'
 import { mergedAtOf } from './merged-at'
 
@@ -36,22 +36,40 @@ export async function resourceCredentialAllowed(
   }[resource.provider]
 
   if (!selected?.includes(resource.integrationId)) return false
-  const team = new ObjectId(conversation.teamId)
-
-  if (resource.provider === 'github')
-    return Boolean(await findGithubInstallation(team, Number(resource.integrationId)))
-  const id = new ObjectId(resource.integrationId)
-  const binding =
-    resource.provider === 'gitlab'
-      ? await findGitlabBinding(team, id)
-      : await findLinearWorkspace(team, id)
-  const allowList = binding?.access?.memberAllowList
+  const binding = await findResourceBinding(new ObjectId(conversation.teamId), resource)
 
   return Boolean(
     binding &&
-    canUseAllowList(allowList, actorId) &&
-    canUseAllowList(allowList, conversation.userId),
+    canPrincipalsUseAllowList(binding.access?.memberAllowList, [actorId, conversation.userId]),
   )
+}
+
+/**
+ * The conversations linking `key` that may still read it. A webhook writes
+ * fresh state only to these, so a member taken off the integration's list
+ * stops receiving it.
+ */
+export async function allowedResourceRecipients(key: string): Promise<ObjectId[]> {
+  const ids: ObjectId[] = []
+
+  for await (const conversation of agentConversations().find({ 'linkedResources.key': key })) {
+    const resource = conversation.linkedResources?.find((entry) => entry.key === key)
+
+    if (conversation._id && resource && (await resourceCredentialAllowed(conversation, resource)))
+      ids.push(conversation._id)
+  }
+
+  return ids
+}
+
+function findResourceBinding(
+  team: ObjectId,
+  { provider, integrationId }: Pick<SessionResource, 'provider' | 'integrationId'>,
+) {
+  if (provider === 'github') return findGithubInstallation(team, Number(integrationId))
+  const id = new ObjectId(integrationId)
+
+  return provider === 'gitlab' ? findGitlabBinding(team, id) : findLinearWorkspace(team, id)
 }
 
 function inputIntegrationId(input: z.infer<typeof sessionResourceInput>) {

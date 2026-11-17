@@ -145,11 +145,12 @@ final class AgentListFailureUITests: XCTestCase {
 
     private func switchWorkspace(among names: [String]) {
         app.buttons["Account"].firstMatch.tap()
-        let picker = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Workspace")).firstMatch
-        XCTAssertTrue(picker.waitForExistence(timeout: 5), "No workspace picker")
-        let shown = picker.label + ((picker.value as? String) ?? "")
+        // The Account sheet's Team section links to the team picker, labelled with the current team.
+        let picker = app.buttons.matching(NSPredicate(format: "label IN %@", names)).firstMatch
+        XCTAssertTrue(picker.waitForExistence(timeout: 5), "No team picker")
+        let shown = picker.label
         picker.tap()
-        let next = app.buttons[names.first { !shown.contains($0) } ?? names[0]].firstMatch
+        let next = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", names.first { $0 != shown } ?? names[0])).firstMatch
         XCTAssertTrue(next.waitForExistence(timeout: 5), "No other workspace")
         next.tap()
         sleep(1)

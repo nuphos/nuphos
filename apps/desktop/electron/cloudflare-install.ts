@@ -1,7 +1,7 @@
 import { shell } from 'electron'
 
-import * as atlas from './atlas'
-import { connectorCallbackError, connectorCallbackParams } from './connector-oauth-callback'
+import * as atlas from './atlas.ts'
+import { connectorCallbackError, connectorCallbackParams } from './connector-oauth-callback.ts'
 
 // Shared nuphos:// scheme with github/gitlab — distinct hostname so the
 // dispatcher in main.ts routes by it without colliding.
@@ -59,16 +59,22 @@ export async function startInstall(
       void atlas
         .pollCloudflareOAuthResult(state)
         .then((res) => {
-          if (res.ready && pending.delete(state)) {
-            clearTimeout(timeout)
-            clearInterval(poll)
-            resolve({
-              bindingId: res.bindingId,
-              teamId,
-              accountId: res.accountId,
-              accountName: res.accountName ?? '',
-            })
+          if (!(res.ready || res.error) || !pending.delete(state)) return
+          clearTimeout(timeout)
+          clearInterval(poll)
+          if (!res.ready) {
+            const params = { error: res.error ?? '', error_description: res.errorDescription ?? '' }
+
+            reject(connectorCallbackError('Cloudflare', new URLSearchParams(params)))
+
+            return
           }
+          resolve({
+            bindingId: res.bindingId,
+            teamId,
+            accountId: res.accountId,
+            accountName: res.accountName ?? '',
+          })
         })
         .catch(() => {})
     }, POLL_INTERVAL_MS)

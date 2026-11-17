@@ -88,7 +88,7 @@ function failedTurnExplainedInline(
   lastMsg: Message | undefined,
 ): boolean {
   return (
-    snapshot?.phase === 'interrupted' &&
+    ['interrupted', 'failed'].includes(snapshot?.phase ?? '') &&
     runtimeAllows(snapshot, 'send') &&
     lastMsg?.role === 'assistant' &&
     lastMsg.parts.some((part) => part.type === 'turn-interrupted')

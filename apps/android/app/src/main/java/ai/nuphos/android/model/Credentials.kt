@@ -31,6 +31,21 @@ data class CredentialCatalog(
     val isEmpty: Boolean get() = sections.isEmpty()
     val allItems: List<Item> get() = sections.flatMap { it.items }
 
+    /**
+     * Only what answers a question asking for [providers], as the server decides: a credential of that
+     * kind, or the member's own one of that name. Null keeps everything.
+     */
+    fun answering(providers: List<String>?): CredentialCatalog {
+        if (providers == null) return this
+        val keys = providers.mapNotNull { CONNECT_KEYS[it] }.toSet()
+        return CredentialCatalog(sections.mapNotNull { section ->
+            val items = section.items.filter {
+                it.provider.selectionKey in keys || (it.provider.selectionKey == "personalCredentialIds" && it.id in providers)
+            }
+            if (items.isEmpty()) null else Section(section.provider, items)
+        })
+    }
+
     constructor(json: JsonValue, providers: List<Provider> = PROVIDERS) : this(
         providers.mapNotNull { provider ->
             val rows = json[provider.optionsKey]?.arrayValue ?: emptyList()
@@ -48,6 +63,21 @@ data class CredentialCatalog(
     )
 
     companion object {
+        /** The backend's `CONNECTABLE_PROVIDERS`: the selection key an integration question's provider is answered by. */
+        val CONNECT_KEYS = mapOf(
+            "github" to "githubInstallationIds", "gitlab" to "gitlabBindingIds", "linear" to "linearWorkspaceIds",
+            "jira" to "jiraSiteIds", "asana" to "asanaAccountIds", "sentry" to "sentryAccountIds",
+            "posthog" to "posthogIntegrationIds", "plaud" to "plaudAccountIds", "grafana" to "grafanaInstanceIds",
+            "sonarqube" to "sonarqubeIntegrationIds", "notion" to "notionIntegrationIds", "upstash" to "upstashAccountIds",
+            "resend" to "resendIntegrationIds", "trello" to "trelloIntegrationIds", "cloudflare" to "cloudflareAccountIds",
+            "betterstack" to "betterStackIntegrationIds", "uptime-kuma" to "uptimeKumaInstanceIds",
+            "tailscale" to "tailscaleClientIds", "zeabur" to "zeaburIds", "vanta" to "vantaIntegrationIds",
+            "secureframe" to "secureframeIntegrationIds", "aws" to "awsRoleIds", "gcp" to "gcpServiceAccountIds",
+            "azure" to "azureAccountIds", "linode" to "linodeAccountIds", "hetzner" to "hetznerAccountIds",
+            "tencent" to "tencentAccountIds", "aliyun" to "aliyunAccountIds", "volcengine" to "volcengineAccountIds",
+            "huawei" to "huaweiAccountIds", "onprem-k8s" to "onpremClusterIds",
+        )
+
         private fun computerDetail(platform: String?, unavailable: Boolean): String? {
             val name = platform?.let(::platformName)
             return if (unavailable) listOfNotNull(name, Words(R.string.storetext_credentials_unavailable)).joinToString(" · ") else name

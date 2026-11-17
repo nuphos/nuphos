@@ -201,8 +201,8 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
         ])
       },
       status,
-      onChange: (connected, superseded) => {
-        onChange(connected, superseded)
+      onChange: (connected, superseded, revoked) => {
+        onChange(connected, superseded, revoked)
         if (superseded) stop('Another Nuphos app on this computer took over the local runtime.')
       },
       ...desktops(status, instances),

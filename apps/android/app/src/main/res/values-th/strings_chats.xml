@@ -3,7 +3,6 @@
     <string name="chats_question_credentials_and">%1$s และ %2$s</string>
     <string name="chats_question_use_own">ใช้ %1$s ของคุณเอง</string>
     <string name="chats_question_choose_credentials">เลือกข้อมูลรับรอง</string>
-    <string name="chats_question_answer_in_task">ตอบในงาน</string>
     <string name="chats_question_other">อื่นๆ…</string>
     <string name="chats_question_reply">ตอบกลับ…</string>
     <string name="chats_question_send_failed">ส่งข้อความไม่สำเร็จ · %1$s</string>

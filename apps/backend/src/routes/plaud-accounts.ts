@@ -3,12 +3,8 @@ import { createHash, randomBytes } from 'node:crypto'
 import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
-import {
-  accessView,
-  bindingAccessUpdateSchema,
-  canUseAllowList,
-  normalizeAccessInput,
-} from '@/lib/byos/access'
+import { requestedBindingShare } from '@/lib/byos/initial-access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import {
   buildPlaudAuthorizeUrl,
   invalidatePlaudAccessToken,
@@ -19,8 +15,7 @@ import {
 import { encryptPlaudSecret } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
-import { zv } from '@/lib/validate'
-import { requireTeamRole } from '@/middleware/auth'
+import { canRequestUseBinding, requireCanDisconnect, requireTeamRole } from '@/middleware/auth'
 import { plaudPendingOAuth, teamByosBindings } from '@/models'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
@@ -81,7 +76,7 @@ export function requirePlaudMemberAccess(): MiddlewareHandler<{
   Variables: PlaudAccountVariables
 }> {
   return async (c, next) => {
-    if (!canUseAllowList(c.get('plaudBinding').access?.memberAllowList, c.get('userId'))) {
+    if (!canRequestUseBinding(c, c.get('plaudBinding').access)) {
       throw new AppError(
         403,
         'plaud_account_access_denied',
@@ -118,6 +113,7 @@ plaudAccountsRoutes.post('/start-oauth', requireTeamRole('ADMINISTRATOR'), async
   const expiresAt = new Date(Date.now() + OAUTH_PENDING_TTL_MS)
 
   await plaudPendingOAuth().insertOne({
+    ...(await requestedBindingShare(c)),
     _id: state,
     teamId: parseObjectId(c.get('teamId'), 'teamId'),
     requesterUserId: c.get('userId'),
@@ -159,40 +155,26 @@ bindingScoped.use('*', requirePlaudAccount())
 
 bindingScoped.get('/', (c) => c.json(publicView(c.get('plaudBinding'))))
 
-bindingScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
-  const teamId = parseObjectId(c.get('teamId'), 'teamId')
-  const binding = c.get('plaudBinding')
-
-  await teamByosBindings().updateOne(
-    { _id: teamId },
-    { $pull: { plaudAccounts: { id: binding.id } }, $set: { updatedAt: new Date() } },
-  )
-  // Revoke after the local delete so a Plaud outage never keeps the binding.
-  await revokePlaudGrant(teamId, binding)
-  invalidatePlaudAccessToken(teamId, binding.id)
-
-  return c.body(null, 204)
-})
-
-bindingScoped.get('/access', requireTeamRole('ADMINISTRATOR'), (c) =>
-  c.json(accessView(c.get('plaudBinding').access)),
-)
-
-bindingScoped.put(
-  '/access',
+bindingScoped.delete(
+  '/',
   requireTeamRole('ADMINISTRATOR'),
-  zv('json', bindingAccessUpdateSchema),
+  requireCanDisconnect('plaudBinding'),
   async (c) => {
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
-    const access = normalizeAccessInput(c.req.valid('json'), c.get('userId'))
+    const binding = c.get('plaudBinding')
 
     await teamByosBindings().updateOne(
-      { _id: teamId, 'plaudAccounts.id': c.get('plaudBinding').id },
-      { $set: { 'plaudAccounts.$.access': access, updatedAt: new Date() } },
+      { _id: teamId },
+      { $pull: { plaudAccounts: { id: binding.id } }, $set: { updatedAt: new Date() } },
     )
+    // Revoke after the local delete so a Plaud outage never keeps the binding.
+    await revokePlaudGrant(teamId, binding)
+    invalidatePlaudAccessToken(teamId, binding.id)
 
-    return c.json(accessView(access))
+    return c.body(null, 204)
   },
 )
+
+registerBindingAccessRoutes(bindingScoped, 'plaudAccounts', (c) => c.get('plaudBinding'))
 
 plaudAccountsRoutes.route('/:bindingId', bindingScoped)

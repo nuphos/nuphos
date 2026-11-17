@@ -5,6 +5,8 @@
     <string name="chat_event_expand">Expand event</string>
     <string name="chat_channel_new_messages">New messages in #%1$s</string>
     <string name="chat_open_channel">Open channel</string>
+    <string name="chat_channel_sent_file">Sent a file</string>
+    <string name="chat_channel_more_posts">+%1$d more</string>
     <string name="chat_answered_by">%1$s answered</string>
     <string name="chat_question_collapse">Collapse question</string>
     <string name="chat_question_expand">Expand question</string>

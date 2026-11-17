@@ -100,9 +100,6 @@ export type SleepState = SleepPreferences & {
   reason: 'unsupported' | 'off' | 'battery' | 'signed-out' | 'idle' | 'active'
 }
 
-/** Whether the OS opens Nuphos at login (macOS and Windows releases only). */
-export type LoginItemState = { supported: boolean; openAtLogin: boolean }
-
 export type LocalRuntimeState = {
   detectionDisabled?: boolean
   sleepPrevention?: SleepState
@@ -113,6 +110,8 @@ export type LocalRuntimeState = {
   instances?: LocalAgentInstance[]
   workspace: string | null
   userId: string | null
+  /** This computer's own connection to Nuphos, while someone is signed in. */
+  connection?: 'online' | 'reconnecting' | 'superseded' | 'revoked'
   customProviders?: Partial<Record<CliLoginProvider, { baseUrl: string; models: string[] }>>
   deviceId?: string
   devBundle?: DevBundleHint
@@ -138,7 +137,6 @@ export type LocalRuntimeActivityPage = {
 /** `connecting`: the machine runs but its host has not joined yet. */
 export type BoxState = 'creating' | 'connecting' | 'running' | 'paused' | 'error'
 
-/** A Box: a device Nuphos runs in a sandbox for its owner. */
 /** How far an owner lets teammates use their own computer's Local Agent. */
 export type LocalShareLevel = 'off' | 'approve' | 'full'
 
@@ -232,6 +230,8 @@ export type AgentDevice = {
   /** A Box's displays of the viewer's own conversations, besides its own :1. */
   desktops?: { display: number; sessionId: string; title: string }[]
   desktopRuntimeId?: string // The viewer's own computer: the runtime id that opens its screen.
+  app?: { version: string; update?: { version: string; ready: boolean } } // The viewer's other computer's Nuphos Desktop.
+  outdated?: 'desktop' | 'cli' // Which Nuphos on it is older than the backend supports.
 }
 
 export type AgentDeviceList = {

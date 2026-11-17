@@ -39,7 +39,11 @@ export async function boxConnection(box: BoxAccountRef, timeoutMs: number): Prom
   const account = await findInstaboxAccount(box.teamId, box.accountId)
 
   if (!account)
-    throw new AppError(409, 'box_unavailable', "The Box's instabox account is no longer bound")
+    throw new AppError(
+      409,
+      'box_unavailable',
+      "This computer's instabox account is no longer connected to the team",
+    )
 
   return {
     apiKey: decryptInstaboxSecret(account.encryptedApiKey),

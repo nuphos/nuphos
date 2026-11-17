@@ -6,7 +6,7 @@ import {
   MONGO_MONITOR_MIN_SAMPLE_INTERVAL_MS,
   MONGO_MONITOR_RETENTION_MS,
 } from '@/lib/database-monitoring'
-import { resolveDatabaseNetwork } from '@/lib/database-network'
+import { resolveDatabaseNetwork, savedNetwork } from '@/lib/database-network'
 import { AppError } from '@/lib/errors'
 import { databaseMetricSamples } from '@/models'
 
@@ -60,6 +60,7 @@ export async function sampleMongoMonitoringConnection(
     connection.teamId,
     connection.networkMode,
     connection.tailscale,
+    savedNetwork,
   )
   const snapshot = await collectMongoMonitoringSnapshot(
     decryptDatabaseCredential(connection.encryptedCredential),

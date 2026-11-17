@@ -33,7 +33,8 @@ sealed class ChatRow {
     companion object {
         private val hiddenTools = setOf("skill")
 
-        fun rows(session: ChatSession): List<ChatRow> = rows(
+        /** `runtimeOffline`: the conversation's computer is offline right now. */
+        fun rows(session: ChatSession, runtimeOffline: Boolean = false): List<ChatRow> = rows(
             messages = session.messages,
             isStreaming = session.isStreaming,
             phaseLabel = session.phaseLabel,
@@ -44,8 +45,10 @@ sealed class ChatRow {
             stoppedByUser = session.stoppedByUser,
             downloads = if (session.canReadDownloads) session.downloads else emptyList(),
             timeline = session.timelineEvents,
+            waiting = session.waitingAnswers,
             hasEarlier = session.baseIndex > 0,
             localSender = session::localSender,
+            runtimeOffline = runtimeOffline,
         )
 
         internal fun rows(
@@ -59,8 +62,11 @@ sealed class ChatRow {
             stoppedByUser: Boolean = false,
             downloads: List<ai.nuphos.android.data.TransferDownloadGroup> = emptyList(),
             timeline: List<AgentConversationDetail.TimelineEvent> = emptyList(),
+            /** What each answered question's answer still waits for, by request id. */
+            waiting: Map<String, String> = emptyMap(),
             hasEarlier: Boolean = false,
             localSender: (String) -> MessageAttribution? = { null },
+            runtimeOffline: Boolean = false,
         ): List<ChatRow> {
             val rows = mutableListOf<ChatRow>()
             val anchoredDownloads = AgentDownloads.anchor(downloads, messages)
@@ -92,7 +98,11 @@ sealed class ChatRow {
                         }
                         val answered = if (sender?.id == AnsweredQuestion.SENDER && sender.isEvent) AnsweredQuestion.all(message, text, messages) else null
                         if (answered != null) {
-                            rows += answered.mapIndexed { at, question -> Answered("answered.${message.id}.$at", question) }
+                            // Its answer has not reached the agent yet: the last line says what it waits for.
+                            val note = AnsweredQuestion.Notice.parse(text.trim())?.requestId?.let(waiting::get)
+                            rows += answered.mapIndexed { at, question ->
+                                Answered("answered.${message.id}.$at", if (at == answered.lastIndex) question.copy(waiting = note) else question)
+                            }
                         } else if (text.isNotEmpty() || images.isNotEmpty() || display.uploads.isNotEmpty()) {
                             val user = User("user.${message.id}", message.id, text, images, display.uploads, sender)
                             rows += if (sender?.isEvent == true) Event("event.${message.id}", user) else user
@@ -116,7 +126,10 @@ sealed class ChatRow {
             if (!runtimeStatus.isNullOrBlank()) rows += Activity(runtimeStatus, live = isStreaming || runtimeTurnActive)
             else if (isStreaming || !phaseLabel.isNullOrBlank()) rows += Activity(phaseLabel, live = isStreaming)
             if (cancelRequested) rows += Hint("cancel-requested", Words(R.string.convtext_cancellation_requested), false)
-            error?.takeIf { !stoppedByUser }?.let { rows += Hint("error", it, true) }
+            val shownError = error?.takeIf { !stoppedByUser }
+            if (shownError != null) rows += Hint("error", shownError, true)
+            // Said before the message goes, with the way on: another runtime.
+            else if (runtimeOffline && !isStreaming && !runtimeTurnActive) rows += Hint("runtime-offline", Words(R.string.convtext_runtime_offline), true)
             rows += Bottom
             return rows
         }

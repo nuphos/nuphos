@@ -1,10 +1,11 @@
 // The instabox connection shared by the Box provider: the deployment's key,
 // bounded timeouts, and the commands a fresh machine runs.
 
-import { InstaboxError } from '@insforge/instabox-sdk'
+import { InstaboxAuthError, InstaboxError, InstaboxQuotaError } from '@insforge/instabox-sdk'
 
 import { config } from '@/config'
 import { AppError } from '@/lib/errors'
+import { logError } from '@/lib/observability'
 
 import { killMachine, listMachines } from './instabox-machines'
 
@@ -61,6 +62,18 @@ export const BOX_MOUNTS_COMMAND = [
 ].join('\n')
 
 /**
+ * Frees a full /data without losing anything: only the caches the runtime shares between
+ * conversations (session-home.mjs), which their tools refill on the next install or build, and
+ * Docker's build cache. Never a workspace, a sign-in, an image or a volume.
+ */
+export const BOX_CLEAR_CACHES_COMMAND = [
+  'rm -rf "$HOME/.cache/go-build" "$HOME/.bun/install/cache" "$HOME/.cache/pip" "$HOME/.cache/uv" "$HOME/.local/share/pnpm/store"',
+  // Go writes its module cache read-only.
+  'chmod -R u+w "$HOME/go/pkg/mod" 2>/dev/null; rm -rf "$HOME/go/pkg/mod"',
+  'sudo docker builder prune -f >/dev/null 2>&1 || true',
+].join('\n')
+
+/**
  * Starts the host, which keeps the Box's own credential, as the systemd user service
  * `nuphos agent` installs on its first run, so it also starts again after a reboot.
  * A CLI from before the service runs the host itself, detached. Run with `background: true`.
@@ -102,7 +115,7 @@ export const BOX_UPDATE_COMMAND = [
 export function connection(timeoutMs: number) {
   const box = config.box.instabox
 
-  if (!box) throw new AppError(503, 'box_unavailable', 'Boxes are not enabled on this deployment')
+  if (!box) throw new AppError(503, 'box_unavailable', 'Cloud computers are off on this deployment')
 
   // One stalled poll must not hold a whole operation: each request gets its own short budget.
   return {
@@ -131,7 +144,7 @@ export function requireBackendUrl(): string {
     throw new AppError(
       503,
       'box_unavailable',
-      'This deployment has no public URL for a Box to reach',
+      'This deployment has no public URL for a cloud computer to reach',
     )
 
   return url
@@ -141,9 +154,50 @@ export function boxesAvailable(): boolean {
   return config.box.instabox !== null && boxBackendUrl() !== undefined
 }
 
-export const reason = (error: unknown) => (error instanceof Error ? error.message : String(error))
-export const unavailable = (what: string, error: unknown) =>
-  new AppError(503, 'box_unavailable', `${what}: ${reason(error)}`)
+/**
+ * A failed instabox call, in words for whoever asked: what failed, never instabox's own
+ * text, which can name the account and its owner. That text goes to the server log.
+ */
+export function unavailable(what: string, error: unknown): AppError {
+  if (error instanceof AppError) return error
+  logError('agent.box.instabox_failed', error, { what })
+
+  return new AppError(503, 'box_unavailable', `${what}. Try again in a few minutes.`)
+}
+
+/**
+ * Why instabox did not make a Box, in words for whoever asked. Its own text can name the
+ * account and its owner, so it stays in the server log. The deployment's account is
+ * Nuphos's to fix, so only a team's own account gets the 4xx that asks the team to act.
+ */
+export function orderRefused(error: unknown, ownAccount: boolean): AppError {
+  if (error instanceof AppError) return error
+  if (ownAccount && error instanceof InstaboxQuotaError)
+    return new AppError(
+      409,
+      'instabox_quota_exceeded',
+      'Your instabox account has reached its limit of computers. Delete one there or upgrade its plan, then try again.',
+    )
+  // instabox answers a setting the plan does not allow with a 403 too: not a key problem.
+  if (ownAccount && error instanceof InstaboxError && error.code === 'spec_not_allowed')
+    return new AppError(
+      409,
+      'instabox_plan_not_allowed',
+      'Your instabox plan does not allow this computer. Upgrade the plan there, then try again.',
+    )
+  if (ownAccount && error instanceof InstaboxAuthError)
+    return new AppError(
+      409,
+      'instabox_key_rejected',
+      'Your instabox account no longer accepts its API key. A team administrator can bind the account again with a new key under Settings → Integrations.',
+    )
+
+  return new AppError(
+    503,
+    'box_unavailable',
+    'instabox could not make the computer. Try again in a few minutes.',
+  )
+}
 
 /**
  * Deletes the machine a Box owns. A row that never got its machine id (the backend

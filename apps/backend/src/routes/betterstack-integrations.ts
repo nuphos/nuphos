@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
-import { createDefaultAccess } from '@/lib/byos/access'
+import { newBindingAccess } from '@/lib/byos/initial-access'
 import {
   verifyBetterStackTelemetryToken,
   verifyBetterStackUptimeToken,
@@ -71,7 +71,7 @@ betterStackIntegrationsRoutes.post(
         ? { encryptedTelemetryApiToken: encryptBetterStackTokenOrUnavailable(telemetryApiToken) }
         : {}),
       createdAt: now,
-      access: createDefaultAccess(c.get('userId'), now),
+      access: await newBindingAccess(c, { now: now }),
     }
 
     await teamByosBindings().updateOne(

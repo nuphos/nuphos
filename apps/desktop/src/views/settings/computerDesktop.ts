@@ -15,5 +15,10 @@ export function openDesktop(deviceId: string, teamId: string, runtimeId?: string
   api
     .openSessionDesktop(teamId, sessionId)
     .then(({ display }) => openComputerScreen(deviceId, teamId, sessionId, display))
-    .catch((error: unknown) => toast.apiError(t('Could not open the desktop'), error))
+    // The computer's own reason when it gave one, such as a Mac without Accessibility; never nothing.
+    .catch((error: unknown) =>
+      toast.apiError(t('Could not open the desktop'), error, {
+        fallback: t('Check your connection and try again.'),
+      }),
+    )
 }

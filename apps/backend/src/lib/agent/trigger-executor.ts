@@ -1,5 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 
+import { withRedisLogContext } from '@/lib/redis-op-log'
+
 import { postChannelMessage } from './channel-chat'
 import { buildTriggerRunStamp } from './conversation-trigger-run'
 import { executeConversationTurn } from './conversation-turn'
@@ -94,20 +96,23 @@ async function deliverToTargetSession(
     await recordTriggerRan(triggerId)
   } else
     // The turn records the run once it has run (runTurn), which may be later, from the queue.
-    await executeConversationTurn(
-      {
-        userId: target.userId,
-        // resolveExecutionAuthorization paused the Trigger unless this is its team.
-        teamId: target.teamId!,
-        targetSessionId: sessionId,
-        messageId,
-        locale: target.metadata?.locale ?? 'en-US',
-        trigger: delivery.trigger,
-      },
-      target,
-      text,
-      'agent.resource',
-      triggerMetadata(trigger),
+    // A Redis op that fails during it names this session and route.
+    await withRedisLogContext({ session_id: sessionId, route: 'agent.resource' }, () =>
+      executeConversationTurn(
+        {
+          userId: target.userId,
+          // resolveExecutionAuthorization paused the Trigger unless this is its team.
+          teamId: target.teamId!,
+          targetSessionId: sessionId,
+          messageId,
+          locale: target.metadata?.locale ?? 'en-US',
+          trigger: delivery.trigger,
+        },
+        target,
+        text,
+        'agent.resource',
+        triggerMetadata(trigger),
+      ),
     )
 }
 

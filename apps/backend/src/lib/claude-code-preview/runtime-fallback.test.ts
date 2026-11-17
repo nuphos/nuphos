@@ -96,7 +96,9 @@ useConversationRuntimeMove({
   },
 })
 
-const { fallBackAfterFailure, fallBackBeforeTurn, lowOnUsage } = await import('./runtime-fallback')
+const { fallBackAfterFailure, fallBackBeforeTurn, lowOnUsage, runtimeFailed } =
+  await import('./runtime-fallback')
+const { OpenAbRpcError } = await import('./openab-acp-errors')
 
 beforeEach(() => {
   list = ['b', 'c']
@@ -299,4 +301,16 @@ test('two agents that are each other’s fallback hand the conversation back and
   expect(moved?.runtimeId).toBe('b')
   expect((await fallBackBeforeTurn(moved, 'owner'))?.runtimeId).toBe('a')
   expect(moves.map((move) => move.to)).toEqual(['b', 'a'])
+})
+
+test('a Codex usage limit counts as the agent failing, so the turn can fall back', () => {
+  expect(
+    runtimeFailed(
+      new OpenAbRpcError(
+        '**Internal Error** (code: -32603)\nInternal error\n> You’ve hit your usage limit. Visit https://chatgpt.com/settings/usage to purchase more credits or try again at 5:12 PM.',
+        -32603,
+        { code: -32603, message: 'Internal error' },
+      ),
+    ),
+  ).toBe(true)
 })

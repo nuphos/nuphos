@@ -7,6 +7,7 @@ import {
   runtimeGone,
   selectedAgentName,
   selectedAgentReachability,
+  shouldSwitchAgent,
 } from './runtimeControlSignOut.ts'
 
 import type { RuntimeControl } from './RuntimeSelector'
@@ -139,5 +140,25 @@ test("a conversation whose agent is gone can't send, and says why", () => {
   assert.equal(
     runtimeGone({ ...gone, value: { provider: 'claude-code', label: 'Claude Code' } }),
     false,
+  )
+})
+
+test('a conversation on an offline computer offers another runtime to whoever may move it', () => {
+  const offline = control({ online: false })
+
+  assert.equal(shouldSwitchAgent(offline), true)
+  // Someone who cannot move the conversation has nothing to switch to.
+  assert.equal(shouldSwitchAgent({ ...offline, onSelect: undefined }), false)
+  // Online, or only signed out: its own fix stays.
+  assert.equal(shouldSwitchAgent(control({ online: true })), false)
+  assert.equal(shouldSwitchAgent(control({ online: true, signedIn: false })), false)
+  // A gone agent already offered it.
+  assert.equal(
+    shouldSwitchAgent({
+      value: { id: 'rt-removed', provider: 'claude-code', label: 'Build agent' },
+      options: [],
+      unavailable: true,
+    }),
+    true,
   )
 })

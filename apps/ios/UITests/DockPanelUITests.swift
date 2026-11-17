@@ -13,7 +13,7 @@ final class DockPanelUITests: XCTestCase {
         app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": fixture.path]
         app.launch()
         // A fresh simulator asks once about notifications.
-        let allow = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Allow"]
+        let allow = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Allow"].firstMatch
         if allow.waitForExistence(timeout: 3) { allow.tap() }
         XCTAssertTrue(app.collectionViews["chat.transcript"].cells.firstMatch.waitForExistence(timeout: 10), "The chat did not load")
         return app

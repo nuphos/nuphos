@@ -49,7 +49,7 @@ struct ConversationView: View {
     private var hasDock: Bool { !session.isNew && session.ownsChat }
     @State private var referencedAgents = ReferencedAgents()
 
-    private var rows: [ChatRow] { ChatRow.rows(for: session) }
+    private var rows: [ChatRow] { ChatRow.rows(for: session, runtimeOffline: conversationRuntime?.local?.online == false) }
 
     /// Shown instead of the transcript while it loads or after it failed.
     @ViewBuilder
@@ -209,6 +209,9 @@ struct ConversationView: View {
         } message: {
             Text(session.stopRefusal ?? "")
         }
+        .alert(session.stopNotice ?? "", isPresented: Binding(get: { session.stopNotice != nil }, set: { if !$0 { session.stopNotice = nil } })) {
+            Button("OK") { session.stopNotice = nil }
+        }
         .sheet(item: $toolDetail) { ToolDetailSheet(part: $0, session: session) }
         .sheet(isPresented: $showTriggers) { ConversationTriggers(teamId: session.teamId, sessionId: session.sessionId, token: store.token).presentationDetents([.large]) }
         .sheet(isPresented: $showShare) { ShareSessionSheet(session: session).presentationDetents([.medium, .large]) }
@@ -225,6 +228,14 @@ struct ConversationView: View {
         .sheet(item: $planLink) { target in
             PlanLinkSheet(target: target, approve: { plan in try await session.approvePlan(plan.id) }) { planLink = nil }
         }
+        // A computer comes and goes while the conversation stays open: keep its presence current.
+        .task(id: conversationRuntime?.local?.deviceId) {
+            guard conversationRuntime?.local != nil else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(15))
+                await store.loadRuntimes(force: true)
+            }
+        }
         .task {
             if session.isNew, let initialPrompt, !didSendInitial {
                 didSendInitial = true
@@ -238,13 +249,9 @@ struct ConversationView: View {
             }
             #endif
         }
-        // A teammate's computer that asks its owner first: say so until they answer.
-        .task(id: "\(ShareApprovalWait.asksOwner(conversationRuntime)).\(session.queuedSends)") {
+        // A queued send may wait on its computer: read the runtimes again so its state shows.
+        .task(id: session.queuedSends) {
             await store.loadRuntimes()
-            guard ShareApprovalWait.asksOwner(conversationRuntime) else { return }
-            while !Task.isCancelled, await session.refreshShareApproval() {
-                try? await Task.sleep(for: .seconds(5))
-            }
         }
     }
 
@@ -324,16 +331,6 @@ struct ConversationView: View {
             if let suggestion = session.promptSuggestion, draft.isEmpty, !session.isStreaming,
                session.canSubmit, session.failedSubmission == nil {
                 SuggestionChip(text: suggestion) { draft = suggestion }
-            }
-            if let wait = session.shareApproval, ShareApprovalWait.asksOwner(conversationRuntime) {
-                ShareApprovalStrip(
-                    wait: wait,
-                    computer: conversationRuntime?.local?.deviceLabel ?? "this computer",
-                    onSwitchRuntime: session.canManage ? { showRuntimes = true } : nil
-                )
-            }
-            if let question = session.answering {
-                ReplyChip(reply: question.quote) { session.answering = nil }
             }
             if !session.queued.isEmpty || !session.serverQueued.isEmpty {
                 QueuedStrip(
@@ -790,8 +787,8 @@ struct SwitchRuntimeButton: View {
 
 /// A message another session, a linked resource or a trigger delivered: one
 /// muted line — who sent it and its first line — that expands to the full text.
-/// A channel's wake-up notice is only "New messages in #channel": its body is
-/// the agent's input and never expands.
+/// A channel's wake-up notice shows its newest post (or only "New messages in
+/// #channel"): its body is the agent's input and never expands.
 struct EventLine: View {
     let event: ChatMessage.Event
     var onLink: ((URL) -> Void)?
@@ -811,17 +808,59 @@ struct EventLine: View {
 
     @ViewBuilder
     private func channelNotice(_ channelId: String) -> some View {
-        let label = Text("New messages in #\(event.name)")
+        if let onLink, let teamId, let link = SessionLink.url(teamId: teamId, sessionId: channelId) {
+            Button {
+                if let post = event.post { ChannelPostJump.pending[channelId] = post.id }
+                onLink(link)
+            } label: { channelLine.frame(minHeight: event.post == nil ? nil : 44).contentShape(Rectangle()) }
+                .buttonStyle(.plain)
+                .accessibilityHint(event.post == nil ? "Opens the channel" : "Opens the channel at this post")
+        } else {
+            channelLine
+        }
+    }
+
+    /// "#channel · avatar name first line +N more ↗": the preview gives way first, then
+    /// the channel; the poster and the count stay.
+    @ViewBuilder
+    private var channelLine: some View {
+        if let post = event.post {
+            HStack(spacing: 6) {
+                Text("#\(event.name)").fontWeight(.medium).foregroundStyle(Theme.body).layoutPriority(1)
+                Text("·").foregroundStyle(Theme.faint)
+                Group {
+                    if let agentId = post.agentId {
+                        AgentAvatar(agentId: agentId, runtime: post.runtime, size: 16, showBadge: false)
+                    } else {
+                        AvatarView(user: NuphosUser(id: "", email: "", name: post.sender.name, username: "",
+                                                    avatarURL: post.sender.avatar?.absoluteString ?? ""), size: 16)
+                    }
+                }
+                Text(post.sender.name).fontWeight(.medium).foregroundStyle(Theme.heading).fixedSize()
+                Text(post.text.isEmpty ? "Sent a file" : post.text).foregroundStyle(Theme.body)
+                if post.more > 0 {
+                    Text("+\(post.more) more")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.body)
+                        .padding(.horizontal, 6)
+                        .frame(height: 18)
+                        .background(Theme.heading.opacity(0.06), in: Capsule())
+                        .fixedSize()
+                }
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Theme.muted)
+            }
             .font(Theme.Text.caption)
             .foregroundStyle(Theme.muted)
             .lineLimit(1)
             .frame(maxWidth: .infinity, alignment: .leading)
-        if let onLink, let teamId, let link = SessionLink.url(teamId: teamId, sessionId: channelId) {
-            Button { onLink(link) } label: { label.contentShape(Rectangle()) }
-                .buttonStyle(.plain)
-                .accessibilityHint("Opens the channel")
         } else {
-            label
+            Text("New messages in #\(event.name)")
+                .font(Theme.Text.caption)
+                .foregroundStyle(Theme.muted)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -1102,36 +1141,6 @@ struct QueuedStrip: View {
         .padding(.trailing, 4)
         .padding(.vertical, 4)
         .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-    }
-}
-
-/// A teammate's computer that asks its owner first: the message waits for them, or they declined.
-struct ShareApprovalStrip: View {
-    let wait: ShareApprovalWait
-    let computer: String
-    /// Declined, the conversation moves on to another runtime; set when the viewer may move it.
-    var onSwitchRuntime: (() -> Void)? = nil
-
-    var body: some View {
-        HStack(alignment: .center, spacing: 8) {
-            Image(systemName: wait == .pending ? "hourglass" : "nosign")
-                .font(Theme.Text.label)
-                .foregroundStyle(wait == .pending ? Theme.warning : Color.red)
-            Text(wait.message(computer: computer))
-                .font(Theme.Text.label)
-                .foregroundStyle(Theme.body)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
-            if wait == .denied, let onSwitchRuntime {
-                SwitchRuntimeButton(action: onSwitchRuntime)
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 12))
-        .padding(.horizontal, 16)
-        .padding(.bottom, 6)
-        .accessibilityElement(children: onSwitchRuntime == nil ? .combine : .contain)
     }
 }
 

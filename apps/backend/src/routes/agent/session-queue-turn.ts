@@ -106,9 +106,12 @@ export async function admitQueueableChat(
   const message = args.clientView.at(-1)
 
   if (!freshSend(args) || !message) return null
-  // Without an authoritative runtime status the runtime admission answers 503.
-  if (conversation?.claudeCodePreview && args.snapshot?.schemaVersion !== 2 && !args.runtimeOffline)
-    return null
+  // A runtime that did not answer its status read is waited for, like an offline one.
+  const waits =
+    args.runtimeOffline === true ||
+    (Boolean(conversation?.claudeCodePreview) && args.snapshot?.state === 'disconnected')
+
+  if (conversation?.claudeCodePreview && args.snapshot?.schemaVersion !== 2 && !waits) return null
   if (!QUEUED_ID.test(message.id))
     throw new AppError(400, 'invalid_request', 'A message id may use letters, digits, - and _')
   if (JSON.stringify(message).length > MAX_QUEUED_MESSAGE_CHARS)
@@ -122,9 +125,7 @@ export async function admitQueueableChat(
     ? null
     : await claimAgentRunForSession(owner, sessionId)
   // Runtime-owned work (an automatic continuation) holds no backend claim.
-  const runtimeBusy =
-    args.runtimeOffline === true ||
-    (args.snapshot?.schemaVersion === 2 && !args.snapshot.actions?.send)
+  const runtimeBusy = waits || (args.snapshot?.schemaVersion === 2 && !args.snapshot.actions?.send)
 
   const item: PendingUserMessage = {
     ...buildPendingUserMessage({

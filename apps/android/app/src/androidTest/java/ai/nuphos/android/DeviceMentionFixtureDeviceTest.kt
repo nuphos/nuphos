@@ -6,7 +6,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -41,7 +41,6 @@ class DeviceMentionFixtureDeviceTest {
     private val initial = CredentialSelection(mapOf("deviceIds" to setOf("synthetic-pc", "synthetic-off"), "awsRoleIds" to setOf("synthetic-cloud")))
     private fun field() = compose.onNodeWithContentDescription("Ask Nuphos anything")
     @Before fun isolate() {
-        assumeTrue("Separate fixture package required", instrumentation.targetContext.packageName in setOf("ai.nuphos.android.mentionfixture", "ai.nuphos.android.contentinput1337"))
         assertNull((instrumentation.targetContext.applicationContext as NuphosApplication).tokenStore.read())
         store = AgentStore("synthetic-no-credentials", instrumentation.targetContext)
     }
@@ -108,7 +107,7 @@ class DeviceMentionFixtureDeviceTest {
         field().performTextReplacement("@fixture")
         compose.waitUntil(5000) { compose.onAllNodesWithText("Fixture chat").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Fixture chat").performScrollTo().performClick()
-        field().assertTextEquals("https://nuphos.ai/teams/$team/agent/synthetic-chat ")
+        field().assertTextEquals("@Fixture chat ")
         val before = loads.get()
         field().performTextReplacement("mail@example.com")
         Thread.sleep(250)

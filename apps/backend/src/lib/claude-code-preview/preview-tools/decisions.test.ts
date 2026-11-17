@@ -876,7 +876,7 @@ describe('decision tool module', () => {
     expect(await listPendingPreviewWaits(ctx.userId, ctx.sessionId)).toEqual([])
   })
 
-  test('list_user_decisions returns only the open questions, oldest first', async () => {
+  test('list_user_decisions returns only the open questions, oldest first, with any snooze', async () => {
     const at = (iso: string) => new Date(iso)
 
     storedConversation = {
@@ -901,6 +901,7 @@ describe('decision tool module', () => {
           question: 'Region?',
           options: ['a', 'b'],
           askedAt: at('2026-01-01'),
+          snoozedUntil: at('2026-01-03'),
           status: 'open',
         },
       ],
@@ -916,6 +917,7 @@ describe('decision tool module', () => {
           question: 'Region?',
           options: ['a', 'b'],
           askedAt: at('2026-01-01'),
+          snoozedUntil: at('2026-01-03'),
         },
         { requestId: 'r2', category: 'approval', question: 'Ship?', askedAt: at('2026-01-02') },
       ],

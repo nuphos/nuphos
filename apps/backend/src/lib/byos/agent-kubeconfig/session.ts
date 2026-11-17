@@ -79,7 +79,7 @@ export async function agentSessionClusterContexts(
     selectAgentK8sBindings({
       bindings: bindingsDoc,
       selected: opts.credentialAccess ?? (await credentialSource(conversation)).credentialAccess,
-      userId,
+      principals: [userId, conversationOwnerUserId],
     }),
     opts.scope ?? 'all',
   )

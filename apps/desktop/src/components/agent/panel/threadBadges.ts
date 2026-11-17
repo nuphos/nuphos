@@ -16,6 +16,9 @@ export type ThreadBadgeInfo = {
   model: string | null
   effort: string | null
   modelReason: string | null
+  /** Where this call's message ran, from its receipt; older transcripts have none. */
+  agentRuntime: AgentProvider | null
+  runtimeLabel: string | null
 }
 
 function nonEmpty(value: unknown): string | null {
@@ -53,7 +56,9 @@ export function threadBadgeInfo(part: ToolPart): ThreadBadgeInfo | null {
   if (!THREAD_TOOLS.has(part.toolName) || part.state === 'output-error') return null
   const input = record(part.input)
   const pending = part.state !== 'output-available'
-  const threadId = threadIdOf(input?.threadId) ?? threadIdOf(receipt(part.output)?.threadId)
+  const answer = receipt(part.output)
+  const threadId = threadIdOf(input?.threadId) ?? threadIdOf(answer?.threadId)
+  const provider = nonEmpty(answer?.agentRuntime)
   const title = nonEmpty(input?.title)
   const started = part.toolName === 'create_thread'
   // A message to a thread changes no model, so only a started thread has one.
@@ -71,6 +76,8 @@ export function threadBadgeInfo(part: ToolPart): ThreadBadgeInfo | null {
     model: chosen('model'),
     effort: chosen('effort'),
     modelReason: chosen('modelReason'),
+    agentRuntime: provider && provider in AGENT_PROVIDER ? (provider as AgentProvider) : null,
+    runtimeLabel: nonEmpty(answer?.runtimeLabel),
   }
 }
 

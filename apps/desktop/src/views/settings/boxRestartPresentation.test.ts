@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import { BOX_METRICS_POLL_MS, BOX_OFFLINE_POLL_MS, boxPollMs } from './boxPresentation.ts'
 import {
+  appUpdateLabel,
   BOX_RESTART_MISSED_MS,
   BOX_RESTART_TIMEOUT_MS,
   boxRestartEnded,
@@ -132,4 +133,21 @@ test("another team's list neither ends nor moves a restart", () => {
 test('a Box updating for any viewer is polled like a live one, not left for 30 s', () => {
   assert.equal(boxPollMs([device(false, '2026-10-21T08:00:00.000Z')], false), BOX_METRICS_POLL_MS)
   assert.equal(boxPollMs([device(false)], false), BOX_OFFLINE_POLL_MS)
+})
+
+test("another computer's menu says whether its Desktop is current, downloading or ready", () => {
+  assert.equal(appUpdateLabel({ version: '0.120.0' }), 'Up to date')
+  assert.equal(
+    appUpdateLabel({ version: '0.120.0', update: { version: '0.121.0', ready: false } }),
+    'Downloading v0.121.0',
+  )
+  assert.equal(
+    appUpdateLabel({ version: '0.120.0', update: { version: '0.121.0', ready: true } }),
+    'Update to v0.121.0',
+  )
+})
+
+test('a computer whose Desktop did not come back is opened there, not resumed', () => {
+  assert.match(boxRestartEnded('update', 'timeout', 'Mac', true)?.description ?? '', /Open Nuphos/)
+  assert.match(boxRestartEnded('update', 'timeout', 'Box')?.description ?? '', /Resume/)
 })

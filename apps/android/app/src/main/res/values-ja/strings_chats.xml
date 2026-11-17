@@ -3,7 +3,6 @@
     <string name="chats_question_credentials_and">%1$s と %2$s</string>
     <string name="chats_question_use_own">自分の %1$s を使用</string>
     <string name="chats_question_choose_credentials">認証情報を選択</string>
-    <string name="chats_question_answer_in_task">タスクで回答</string>
     <string name="chats_question_other">その他…</string>
     <string name="chats_question_reply">返信…</string>
     <string name="chats_question_send_failed">メッセージを送信できませんでした · %1$s</string>

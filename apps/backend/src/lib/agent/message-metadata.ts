@@ -33,6 +33,23 @@ export type MessageMetadata = {
   cliTokenId?: string
   /** Team members it @mentions, resolved by the server from the composer's chips. */
   mentions?: MessageMention[]
+  /** A channel's wake notice: the newest post it brings, for the line people see. */
+  channelPost?: ChannelPostPreview
+}
+
+/**
+ * The newest post a channel's wake notice brings: who posted it, its first line
+ * (or its file's name), and how many others came with it. Members' words, so the
+ * model gets them fenced in the notice's body, never as metadata.
+ */
+export type ChannelPostPreview = {
+  id: string
+  sender: Pick<
+    MessageMetadata['sender'],
+    'type' | 'id' | 'displayName' | 'avatarURL' | 'agentRuntime'
+  >
+  text: string
+  more: number
 }
 
 export type MessageMention = { id: string; displayName: string }
@@ -67,6 +84,30 @@ function parseMentions(value: unknown): MessageMention[] | undefined {
   )
 
   return mentions.length > 0 ? mentions : undefined
+}
+
+const SENDER_TYPES = ['user', 'agent', 'system'] as const
+
+function parseChannelPost(value: unknown): ChannelPostPreview | undefined {
+  const p = (value ?? {}) as Partial<ChannelPostPreview>
+  const s = p.sender
+
+  if (!nonEmpty(p.id) || typeof p.text !== 'string' || !Number.isInteger(p.more)) return undefined
+  if (!s || !SENDER_TYPES.includes(s.type) || !nonEmpty(s.id) || typeof s.displayName !== 'string')
+    return undefined
+
+  return {
+    id: p.id,
+    sender: {
+      type: s.type,
+      id: s.id,
+      displayName: s.displayName,
+      ...(trustedAvatarURL(s.avatarURL) ? { avatarURL: s.avatarURL } : {}),
+      ...(nonEmpty(s.agentRuntime) ? { agentRuntime: s.agentRuntime } : {}),
+    },
+    text: p.text,
+    more: Math.max(0, p.more!),
+  }
 }
 
 function parseDevice(value: unknown): MessageDevice | undefined {
@@ -105,6 +146,10 @@ export function parseMessageMetadata(value: unknown): MessageMetadata | undefine
 
   const device = parseDevice(m.device)
   const mentions = m.source === 'nuphos' ? parseMentions(m.mentions) : undefined
+  const channelPost =
+    m.source === 'agent.resource' && m.sender.id.startsWith('channel:')
+      ? parseChannelPost(m.channelPost)
+      : undefined
   const replyTo =
     m.replyTo && nonEmpty(m.replyTo.authorName) && nonEmpty(m.replyTo.text)
       ? {
@@ -138,6 +183,7 @@ export function parseMessageMetadata(value: unknown): MessageMetadata | undefine
     ...(m.source === 'discord' && m.unattested === true ? { unattested: true as const } : {}),
     ...(nonEmpty(m.cliTokenId) ? { cliTokenId: m.cliTokenId } : {}),
     ...(mentions ? { mentions } : {}),
+    ...(channelPost ? { channelPost } : {}),
   }
 }
 
@@ -164,7 +210,8 @@ export function attributionHeader(id: string, metadata: unknown): string {
 
   // An unattested author gets no trusted block: the fenced body names them.
   if (!attribution || attribution.unattested) return ''
-  const { replyTo, ...trusted } = attribution
+  // The newest post is members' words: the notice's body carries it, fenced.
+  const { replyTo, channelPost: _channelPost, ...trusted } = attribution
   const { avatarURL: _avatarURL, ...sender } = attribution.sender
   const json = JSON.stringify({
     ...trusted,

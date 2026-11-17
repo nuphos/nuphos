@@ -15,6 +15,7 @@ import { threadReadGrants } from './db/access'
 import {
   authorizeThreadDelivery,
   createAgentThread,
+  delegationThreadId,
   listThreadRuntimes,
   sendAgentThreadMessage,
   updateThread,
@@ -200,7 +201,7 @@ useSessionConfig({
     }
   },
 })
-useAgentDb({
+const installAgentDb = useAgentDb({
   setConversationArchived: async (...args) => {
     archives.push(args)
 
@@ -231,6 +232,48 @@ useAgentDb({
     conversation: { ...source, sessionId },
     messages: [],
   }),
+})
+
+test('a delegation key is stable and scoped to its parent, owner and team', () => {
+  const id = delegationThreadId(actor, 'request-1')
+
+  expect(id).toMatch(/^[\da-f]{8}-[\da-f]{4}-5[\da-f]{3}-a[\da-f]{3}-[\da-f]{12}$/)
+  expect(delegationThreadId(actor, 'request-1')).toBe(id)
+  for (const changed of [{ sessionId: 'elsewhere' }, { userId: 'other' }, { teamId: 'other' }])
+    expect(delegationThreadId({ ...actor, ...changed }, 'request-1')).not.toBe(id)
+})
+
+test('retrying a delegation preserves its task and delivery id; changed prompts are refused', async () => {
+  let stored: AgentConversation | undefined
+
+  installAgentDb({
+    upsertConversationShell: async (data) => {
+      if (stored) return { isNew: false }
+      stored = { ...source, ...data }
+
+      return { isNew: true }
+    },
+    getConversationBySessionId: async (id) =>
+      id === 'source' ? source : stored?.sessionId === id ? stored : null,
+    agentConversations: () => ({
+      findOne: async ({ sessionId }: { sessionId: string }) =>
+        sessionId === actor.sessionId ? source : stored,
+      updateOne: async () => {
+        stored!.delegation!.ready = true
+
+        return { matchedCount: 1 }
+      },
+    }),
+  })
+  const first = await createAgentThread(actor, 'Work', 'Task', { requestId: 'request-1' })
+  const retry = await createAgentThread(actor, 'Work', 'Task', { requestId: 'request-1' })
+
+  expect(retry.threadId).toBe(first.threadId)
+  expect(retry.messageId).toBe(first.messageId)
+  await expect(
+    createAgentThread(actor, 'Different work', 'Task', { requestId: 'request-1' }),
+  ).rejects.toThrow('different or archived work')
+  expect(stored?.firstMessage).toBe('Work')
 })
 
 describe('conversation-scoped thread tools', () => {
@@ -400,6 +443,42 @@ describe('conversation-scoped thread tools', () => {
     expect(result.model).toEqual({ model: 'default', effort: 'high' })
   })
 
+  test("with nothing picked, a thread starts on its parent's model and effort", async () => {
+    source.initialSessionConfig = { model: 'claude-fable-5-1', effort: 'high' }
+    const { threadId } = await createAgentThread(actor, 'Work', 'Task')
+
+    expect(picks).toEqual([
+      { sessionId: threadId, configId: 'model', value: 'claude-fable-5-1' },
+      { sessionId: threadId, configId: 'effort', value: 'high' },
+    ])
+    // A parent that has run reads its settings from its session, as its model picker does.
+    picks.length = 0
+    source.claudeCodePreview = {
+      openabSessionId: 'live',
+      runtimeUrl: 'http://runtime',
+      runtimeDefaults: { model: 'claude-fable-5-1' },
+    } as never
+    await createAgentThread(actor, 'Work', 'Task')
+    expect(picks.map((pick) => pick.value)).toEqual(['claude-fable-5-1'])
+  })
+
+  test("a pick, or another agent, wins over the parent's model", async () => {
+    source.initialSessionConfig = { model: 'claude-fable-5-1' }
+    await createAgentThread(actor, 'Work', 'Task', { effort: 'low' })
+    await createAgentThread(actor, 'Work', 'Task', { runtimeId: 'box-1' })
+
+    expect(picks.map(({ configId, value }) => [configId, value])).toEqual([['effort', 'low']])
+  })
+
+  test("a parent's model the agent no longer offers leaves the thread on its defaults", async () => {
+    source.initialSessionConfig = { model: 'gpt-1' }
+    await createAgentThread(actor, 'Work', 'Task')
+
+    expect(picks).toEqual([])
+    expect(archives).toEqual([])
+    expect(claims).toHaveLength(1)
+  })
+
   test('starts a thread on the agent it names, with no first turn on its parent', async () => {
     await createAgentThread(actor, 'Work', 'Task', { runtimeId: 'box-1' })
 
@@ -452,6 +531,16 @@ describe('conversation-scoped thread tools', () => {
 
     expect(claims).toHaveLength(1)
     expect(result.messageId).toBe(claims[0]!.message.id)
+  })
+
+  test('send says which runtime the message runs on, for its card', async () => {
+    // The thread was moved after it started: the message runs where it is now.
+    Object.assign(target, { agentRuntime: 'claude-code', runtimeLabel: "Yuanlin's Box" })
+
+    expect(await sendAgentThreadMessage(actor, 'target', 'Go')).toMatchObject({
+      agentRuntime: 'claude-code',
+      runtimeLabel: "Yuanlin's Box",
+    })
   })
 
   test.each([

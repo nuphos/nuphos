@@ -3,7 +3,6 @@
     <string name="chats_question_credentials_and">%1$s and %2$s</string>
     <string name="chats_question_use_own">Use your own %1$s</string>
     <string name="chats_question_choose_credentials">Choose credentials</string>
-    <string name="chats_question_answer_in_task">Answer in the task</string>
     <string name="chats_question_other">Other…</string>
     <string name="chats_question_reply">Reply…</string>
     <string name="chats_question_send_failed">Couldn\'t send the message · %1$s</string>

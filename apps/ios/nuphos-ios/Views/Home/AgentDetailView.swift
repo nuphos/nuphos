@@ -47,7 +47,7 @@ struct AgentDetailView: View {
                         }
                     }
                 } else {
-                    Text(quota?.reason ?? "Unavailable").foregroundStyle(.secondary)
+                    Text(quota?.reason ?? String(localized: "Unavailable")).foregroundStyle(.secondary)
                 }
             }
             Section {
