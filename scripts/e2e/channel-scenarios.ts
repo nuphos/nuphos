@@ -74,7 +74,7 @@ export const channelScenarios: Scenario[] = [
       await send(page, 'Post twice E2E_TWO_POSTS E2E_DELIVERY:two')
       await page.getByText('POSTED E2E_DELIVERY:two', { exact: true }).waitFor()
       // Still in its turn: the row has the work dots.
-      await row.getByRole('status', { name: 'Thinking…' }).waitFor()
+      await row.locator('.t-typing-dot').first().waitFor()
       await page.screenshot({ path: `${artifacts}/bot-row-busy-light.png` })
       await ownWords('While the Bot works')
       await until('the two-post turn to finish', async () =>
