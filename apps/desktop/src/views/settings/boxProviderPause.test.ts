@@ -27,12 +27,12 @@ test('a Box its provider paused for host memory says so, and that it wakes on us
 })
 
 test('a Box its provider paused for another reason it wakes from says so, without blaming memory', () => {
-  for (const reason of ['idle', 'drain', 'max_run', 'admin'])
+  for (const reason of ['idle', 'drain', 'admin'])
     assert.equal(
       providerPause(box(reason, 'paused', reason)),
       'Paused by the provider. It resumes when you use it.',
     )
-  // An abuse lock or a billing pause does not wake on use: promising it would be wrong.
-  for (const reason of ['abuse_cpu', 'credit', 'spend_cap'])
+  // An abuse lock, a billing pause or max_run's cooldown refuses the next use: promising it would be wrong.
+  for (const reason of ['abuse_cpu', 'credit', 'spend_cap', 'max_run'])
     assert.equal(providerPause(box(reason, 'paused', reason)), undefined)
 })

@@ -34,8 +34,9 @@ export const BOX_BADGE: Record<MachineState, RuntimeStatusView> = {
   error: { label: t("Didn't start"), tone: 'error' },
 }
 
-// instabox's own pauses that the next use wakes from; its abuse and billing pauses do not.
-const WAKES_ON_USE = new Set(['idle', 'drain', 'max_run', 'admin'])
+// instabox's own pauses that the next use wakes from. Not its abuse and billing pauses, nor
+// max_run, which refuses every wake for minutes afterwards.
+const WAKES_ON_USE = new Set(['idle', 'drain', 'admin'])
 
 /** Why a paused Box is paused when its provider did it, not a person, and that using it wakes it. */
 export function providerPause(device: AgentDevice): string | undefined {
