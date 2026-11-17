@@ -109,6 +109,7 @@ export function SidebarPageList({
             onPlace={listProps.botPins?.place}
             pinned={pinned}
             toggle={listProps.toggleFavorite}
+            onItemMenu={listProps.onItemMenu}
             onSelect={listProps.onSelect}
             teamId={listProps.scope.teamId}
           >

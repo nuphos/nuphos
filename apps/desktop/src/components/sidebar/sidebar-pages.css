@@ -18,6 +18,21 @@
   gap: 2px;
   padding: 6px 0;
 }
+.sidebar-page-tabs {
+  display: flex;
+  gap: 2px;
+}
+.sidebar-page-tab {
+  position: relative;
+  border-radius: 8px;
+  touch-action: none;
+}
+/* The picked-up tab is a solid chip above its neighbours. */
+.sidebar-page-tab.is-lifted .sidebar-page-indicator {
+  background: rgb(var(--color-surface-raised));
+  color: rgb(var(--color-text-primary));
+  cursor: grabbing;
+}
 .sidebar-page-indicator {
   position: relative;
   display: flex;
@@ -87,5 +102,42 @@
 @media (prefers-reduced-motion: reduce) {
   .sidebar-archive-overlay {
     transition: none;
+  }
+}
+
+/* Only visible after holding Control (Alt off macOS), never at rest. */
+.sidebar-page-shortcut {
+  position: absolute;
+  right: -3px;
+  bottom: -4px;
+  display: grid;
+  place-items: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: 5px;
+  background: rgb(var(--color-surface-raised));
+  color: rgb(var(--color-text-primary));
+  box-shadow: 0 0 0 1px rgb(var(--color-line-control));
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1;
+  pointer-events: none;
+  animation: sidebar-shortcut-appear 160ms ease-out both;
+}
+@keyframes sidebar-shortcut-appear {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-page-shortcut {
+    animation: none;
   }
 }

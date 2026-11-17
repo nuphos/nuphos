@@ -69,7 +69,7 @@ function ArchivePopover({ listProps, row, archive }: ArchiveProps) {
     <div
       ref={anchor}
       data-archive-expanded={open || panelVisible ? 'true' : undefined}
-      className="flex"
+      className="flex items-center"
     >
       <Popover.Root
         open={open}
@@ -125,6 +125,8 @@ function ArchivePopover({ listProps, row, archive }: ArchiveProps) {
           </Popover.Positioner>
         </Popover.Portal>
       </Popover.Root>
+      {/* Archived is not a page: it stays first, and the tabs drag only past this line. */}
+      <span aria-hidden className="mx-1.5 h-4 w-px bg-state-selected" />
     </div>
   )
 }
