@@ -55,7 +55,16 @@ export type LocalRuntimeTunnelStatus = {
     Record<
       LocalAgentProvider,
       {
-        cli: { installed: boolean; loggedIn: boolean | null; apiKey?: true; accountKey?: string }
+        cli: {
+          installed: boolean
+          loggedIn: boolean | null
+          apiKey?: true
+          /** An added agent's CLI being installed, or why that failed. */
+          installing?: true
+          installError?: string
+          /** Which account's quota it spends, hashed on that computer. */
+          accountKey?: string
+        }
         usage?: unknown
         usageAt?: string
         version?: string

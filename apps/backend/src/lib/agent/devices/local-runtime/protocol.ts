@@ -114,6 +114,9 @@ const localAgentStatusSchema = z.object({
     loggedIn: z.boolean().nullable(),
     /** Signed in with an API key rather than an account; never the key itself. */
     apiKey: z.boolean().optional().catch(undefined),
+    /** An added agent's CLI being installed by the computer, or why that failed. */
+    installing: z.boolean().optional().catch(undefined),
+    installError: z.string().max(500).optional().catch(undefined),
     /** The account whose quota it spends, as a hash only that computer can make. */
     accountKey: z.optional(z.string().regex(/^[0-9a-f]{16}$/u)).catch(undefined),
   }),
