@@ -18,14 +18,16 @@ export const dashboardUiScenarios: Scenario[] = [
       await until('the agent to read the link', async () =>
         agentEvents(stack).includes('finish E2E_DELIVERY:dashboards'),
       )
-      await page.getByRole('link', { name: /\/dashboards$/ }).first().click()
+      const link = page.getByRole('link', { name: /\/dashboards$/ }).first()
+
+      await link.click()
       await page.getByRole('button', { name: 'New dashboard', exact: true }).waitFor()
       await page.waitForTimeout(1_500)
       await shot(page, 'before-1-list')
       await page.getByRole('button', { name: 'New dashboard', exact: true }).click()
       await page.waitForTimeout(3_000)
       await shot(page, 'before-2-header')
-      await page.getByRole('button', { name: 'Custom boards' }).first().click()
+      await link.click()
       await page.waitForTimeout(1_500)
       const row = page.getByRole('row', { name: /New dashboard/ }).first()
 
