@@ -12,6 +12,7 @@ import type { Scenario } from './ui.ts'
 /** One scenario per file in ./channel, its default export, in file-name order. */
 async function scenarioFiles(): Promise<Scenario[]> {
   const dir = join(import.meta.dirname, 'channel')
+
   if (!existsSync(dir)) return []
   const files = readdirSync(dir)
     .filter((file) => file.endsWith('.ts'))
