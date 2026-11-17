@@ -34,7 +34,7 @@ class OpenQuestions(private val source: Source) {
             var cursor: String? = null
             // Bounded like Desktop's: a cursor never repeats a page.
             repeat(10) {
-                val page = NuphosApi.conversations(token, teamId, cursor = cursor, limit = 100, pendingDecision = true)
+                val page = NuphosApi.conversations(token, teamId, cursor = cursor, limit = 100, pendingDecision = true, includeOnboarding = true)
                 rows += page.rows
                 val next = page.nextCursor
                 if (!page.hasMore || next == null || next == cursor) return rows

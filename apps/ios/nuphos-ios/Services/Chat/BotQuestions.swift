@@ -127,7 +127,7 @@ enum BotQuestions {
             }
             return false
         }
-        return open(rows: rows.filter { isUnder($0.sessionId) })
+        return open(rows: rows.filter { isUnder($0.sessionId) }, includeOnboarding: true)
     }
 
     /// The Inbox's list by its Bot, else the conversation that asked: the group with the newest question first,
@@ -146,13 +146,17 @@ enum BotQuestions {
 
     /// The viewer's own open questions in `rows`, oldest first: the Inbox's list.
     static func open(rows: [AgentConversation]) -> [BotQuestion] {
+        open(rows: rows, includeOnboarding: false)
+    }
+
+    private static func open(rows: [AgentConversation], includeOnboarding: Bool) -> [BotQuestion] {
         var listed = Set<String>()
         let owners = ConversationNesting.botOwners(rows)
         let byId = Dictionary(rows.map { ($0.sessionId, $0) }, uniquingKeysWith: { first, _ in first })
         return rows
             .filter { $0.isOwner == true && listed.insert($0.sessionId).inserted }
             .flatMap { row in
-                (row.inputRequests ?? []).map { BotQuestion(sessionId: row.sessionId, title: row.displayTitle, request: $0, runtime: row.agentRuntime,
+                (row.inputRequests ?? []).filter { includeOnboarding || !["pending", "started"].contains(row.botOnboarding ?? "") || $0.category != "preference" }.map { BotQuestion(sessionId: row.sessionId, title: row.displayTitle, request: $0, runtime: row.agentRuntime,
                                                      bot: owners[row.sessionId].flatMap { byId[$0] }) }
             }
             .sorted { ($0.request.askedAt ?? "", $0.id) < ($1.request.askedAt ?? "", $1.id) }
