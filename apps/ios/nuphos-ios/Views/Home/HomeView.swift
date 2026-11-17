@@ -483,4 +483,3 @@ private struct LogoPreviewGrid: View {
     }
 }
 #endif
-
