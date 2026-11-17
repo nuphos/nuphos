@@ -253,7 +253,10 @@ function signInOnComputer({ env = {}, broken = false } = {}) {
       },
     },
   )
-  const frames = result.stdout.trim().split('\n').map((line) => JSON.parse(line))
+  const frames = result.stdout
+    .trim()
+    .split('\n')
+    .map((line) => JSON.parse(line))
   const read = (file) => {
     try {
       return readFileSync(join(home, '.hermes', file), 'utf8')
