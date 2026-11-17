@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'bun:test'
+import { afterEach, describe, expect, spyOn, test } from 'bun:test'
 import { Hono } from 'hono'
 import { websocket } from 'hono/bun'
 
@@ -113,6 +113,33 @@ describe('device runtime tunnel route', () => {
     // catches the original rejected initialization promise.
     await Bun.sleep(10)
     expect(closed).toEqual([[1011, 'Could not open the runtime tunnel']])
+  })
+
+  test('a closed tunnel logs the most it ever had waiting to go out', async () => {
+    const buffered = [0, 600_000, 2_000]
+    const events = runtimeTunnelEvents('owner', 'd1', { ...deps().holder, heartbeatMs: 10 })
+
+    events.onOpen(new Event('open'), {
+      raw: { getBufferedAmount: () => buffered.shift() ?? 0 },
+      send: () => {},
+      close: () => {},
+    } as unknown as WSContext)
+    // Each ping is sent behind whatever is still waiting.
+    while (buffered.length > 0) await Bun.sleep(10)
+    const log = spyOn(console, 'log').mockImplementation(() => {})
+
+    events.onClose(new CloseEvent('close', { code: 1006 }))
+    await Bun.sleep(0)
+    const lines = log.mock.calls.map(([line]) => JSON.parse(String(line)) as object)
+
+    log.mockRestore()
+    expect(lines).toContainEqual(
+      expect.objectContaining({
+        event: 'agent.local_runtime.tunnel_closed',
+        code: 1006,
+        max_buffered_bytes: 600_000,
+      }),
+    )
   })
 
   test('the owner computer holds a tunnel that carries a stream end to end', async () => {
