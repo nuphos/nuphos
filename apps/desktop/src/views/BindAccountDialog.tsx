@@ -1,14 +1,17 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 
 import { api } from '../api'
 import { Modal } from '../components/Modal'
 import { toast } from '../components/ui/toast'
 import { t } from '../i18n'
+import { shareFromAllowList } from '../lib/bindingShare'
 import { isCloudCliProvider } from '../lib/cloudCli'
 
 import { BindDialogBody } from './bind-account/body'
 import { CloudCliSetupChoice } from './bind-account/cli-setup'
 import { BindDialogFooter } from './bind-account/footer'
+import { SHAREABLE_PROVIDERS } from './bind-account/share'
+import { BindShareField } from './bind-account/share-field'
 import { submitBind } from './bind-account/submit'
 import { useBindAccountState, useBindDialogEffects } from './bind-account/use-bind-state'
 import { useCloudCliCheck } from './bind-account/use-cloud-cli-check'
@@ -37,10 +40,14 @@ export function BindAccountDialog({
   onOpenAgentChat,
 }: Props) {
   const st = useBindAccountState(initialProvider)
+  const [shareList, setShareList] = useState<string[] | null>(null)
+  const [defaultShareList, setDefaultShareList] = useState<string[]>([])
 
   useResetOnKey(`${String(open)}|${initialProvider}`, () => {
     if (open) st.setProvider(initialProvider)
   })
+  // A choice made for one team never carries over to another.
+  useResetOnKey(`${String(open)}|${st.provider}|${teamId}`, () => setShareList(null))
   useBindDialogEffects(st, open, teamId)
 
   const { provider, submitting, cloudflareConnecting, reset, error } = st
@@ -91,7 +98,16 @@ export function BindAccountDialog({
     <BindDialogFooter
       st={st}
       valid={valid}
-      onSubmit={() => void submitBind(st, { teamId, onBound, onClose })}
+      onSubmit={() =>
+        void submitBind(st, {
+          teamId,
+          onBound,
+          onClose,
+          ...(SHAREABLE_PROVIDERS.has(provider)
+            ? { share: shareFromAllowList(shareList ?? defaultShareList) }
+            : {}),
+        })
+      }
       onCloseRequest={close}
     />
   ) : undefined
@@ -123,6 +139,16 @@ export function BindAccountDialog({
             st={st}
             teamId={teamId}
             onConnectCloudflare={(access) => void connectCloudflareOAuth(access)}
+          />
+        )}
+        {showFooter && SHAREABLE_PROVIDERS.has(provider) && (
+          <BindShareField
+            key={teamId}
+            teamId={teamId}
+            provider={provider}
+            value={shareList}
+            onChange={setShareList}
+            onDefaultChange={setDefaultShareList}
           />
         )}
 

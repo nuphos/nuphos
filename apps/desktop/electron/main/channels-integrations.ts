@@ -2,22 +2,12 @@ import * as atlas from '../atlas'
 
 import { bindingAccessChannels } from './channels-binding-access'
 import { plaudChannels } from './channels-plaud'
+import { vpsChannels } from './channels-vps'
 
 export const integrationsChannels = {
   ...plaudChannels,
   ...bindingAccessChannels,
-  'atlas:listLinodeAccounts': (_e: unknown, teamId: string) => atlas.listLinodeAccounts(teamId),
-  'atlas:bindLinodeAccount': (_e: unknown, teamId: string, label: string, token: string) =>
-    atlas.bindLinodeAccount(teamId, label, token),
-  'atlas:unbindLinodeAccount': (_e: unknown, teamId: string, accountId: string) =>
-    atlas.unbindLinodeAccount(teamId, accountId),
-  'atlas:listHetznerAccounts': (_e: unknown, teamId: string) => atlas.listHetznerAccounts(teamId),
-  'atlas:bindHetznerAccount': (_e: unknown, teamId: string, label: string, token: string) =>
-    atlas.bindHetznerAccount(teamId, label, token),
-  'atlas:unbindHetznerAccount': (_e: unknown, teamId: string, accountId: string) =>
-    atlas.unbindHetznerAccount(teamId, accountId),
-  'atlas:listHetznerServers': (_e: unknown, teamId: string, accountId: string) =>
-    atlas.listHetznerServers(teamId, accountId),
+  ...vpsChannels,
   'atlas:listVantaIntegrations': (_e: unknown, teamId: string) =>
     atlas.listVantaIntegrations(teamId),
   'atlas:bindVantaIntegration': (
@@ -26,7 +16,8 @@ export const integrationsChannels = {
     label: string,
     clientId: string,
     clientSecret: string,
-  ) => atlas.bindVantaIntegration(teamId, label, clientId, clientSecret),
+    share?: atlas.BindingShare,
+  ) => atlas.bindVantaIntegration(teamId, label, clientId, clientSecret, share),
   'atlas:unbindVantaIntegration': (_e: unknown, teamId: string, integrationId: string) =>
     atlas.unbindVantaIntegration(teamId, integrationId),
   'atlas:listSecureframeIntegrations': (_e: unknown, teamId: string) =>
@@ -38,7 +29,8 @@ export const integrationsChannels = {
     region: 'us' | 'uk',
     apiKey: string,
     apiSecret: string,
-  ) => atlas.bindSecureframeIntegration(teamId, label, region, apiKey, apiSecret),
+    share?: atlas.BindingShare,
+  ) => atlas.bindSecureframeIntegration(teamId, label, region, apiKey, apiSecret, share),
   'atlas:unbindSecureframeIntegration': (_e: unknown, teamId: string, integrationId: string) =>
     atlas.unbindSecureframeIntegration(teamId, integrationId),
   'atlas:listSonarqubeIntegrations': (_e: unknown, teamId: string) =>
@@ -67,8 +59,13 @@ export const integrationsChannels = {
   ) => atlas.listSecureframeTests(teamId, integrationId, failingOnly),
   'atlas:listNotionIntegrations': (_e: unknown, teamId: string) =>
     atlas.listNotionIntegrations(teamId),
-  'atlas:bindNotionIntegration': (_e: unknown, teamId: string, label: string, token: string) =>
-    atlas.bindNotionIntegration(teamId, label, token),
+  'atlas:bindNotionIntegration': (
+    _e: unknown,
+    teamId: string,
+    label: string,
+    token: string,
+    share?: atlas.BindingShare,
+  ) => atlas.bindNotionIntegration(teamId, label, token, share),
   'atlas:unbindNotionIntegration': (_e: unknown, teamId: string, integrationId: string) =>
     atlas.unbindNotionIntegration(teamId, integrationId),
   'atlas:listUpstashAccounts': (_e: unknown, teamId: string) => atlas.listUpstashAccounts(teamId),
@@ -78,7 +75,8 @@ export const integrationsChannels = {
     label: string,
     email: string,
     apiKey: string,
-  ) => atlas.bindUpstashAccount(teamId, label, email, apiKey),
+    share?: atlas.BindingShare,
+  ) => atlas.bindUpstashAccount(teamId, label, email, apiKey, share),
   'atlas:unbindUpstashAccount': (_e: unknown, teamId: string, accountId: string) =>
     atlas.unbindUpstashAccount(teamId, accountId),
   'atlas:getUpstashAccountAccess': (_e: unknown, teamId: string, accountId: string) =>
@@ -141,8 +139,13 @@ export const integrationsChannels = {
     atlas.listResendIntegrations(teamId),
   'atlas:listTrelloIntegrations': (_e: unknown, teamId: string) =>
     atlas.listTrelloIntegrations(teamId),
-  'atlas:bindResendIntegration': (_e: unknown, teamId: string, label: string, apiKey: string) =>
-    atlas.bindResendIntegration(teamId, label, apiKey),
+  'atlas:bindResendIntegration': (
+    _e: unknown,
+    teamId: string,
+    label: string,
+    apiKey: string,
+    share?: atlas.BindingShare,
+  ) => atlas.bindResendIntegration(teamId, label, apiKey, share),
   'atlas:unbindResendIntegration': (_e: unknown, teamId: string, integrationId: string) =>
     atlas.unbindResendIntegration(teamId, integrationId),
   'atlas:unbindTrelloIntegration': (_e: unknown, teamId: string, integrationId: string) =>
@@ -162,7 +165,8 @@ export const integrationsChannels = {
     site: atlas.TencentSite,
     roleArn: string,
     providerId: string,
-  ) => atlas.bindTencentAccount(teamId, label, site, roleArn, providerId),
+    share?: atlas.BindingShare,
+  ) => atlas.bindTencentAccount(teamId, label, site, roleArn, providerId, share),
   'atlas:unbindTencentAccount': (_e: unknown, teamId: string, accountId: string) =>
     atlas.unbindTencentAccount(teamId, accountId),
   'atlas:listTencentClusters': (_e: unknown, teamId: string, accountId: string) =>
@@ -203,7 +207,8 @@ export const integrationsChannels = {
     site: atlas.AliyunSite,
     roleArn: string,
     oidcProviderArn: string,
-  ) => atlas.bindAliyunAccount(teamId, label, site, roleArn, oidcProviderArn),
+    share?: atlas.BindingShare,
+  ) => atlas.bindAliyunAccount(teamId, label, site, roleArn, oidcProviderArn, share),
   'atlas:unbindAliyunAccount': (_e: unknown, teamId: string, accountId: string) =>
     atlas.unbindAliyunAccount(teamId, accountId),
   'atlas:listAliyunClusters': (_e: unknown, teamId: string, accountId: string) =>
@@ -216,8 +221,13 @@ export const integrationsChannels = {
     atlas.listVolcengineAccounts(teamId),
   'atlas:getVolcengineOidcInfo': (_e: unknown, teamId: string) =>
     atlas.getVolcengineOidcInfo(teamId),
-  'atlas:bindVolcengineAccount': (_e: unknown, teamId: string, label: string, roleTrn: string) =>
-    atlas.bindVolcengineAccount(teamId, label, roleTrn),
+  'atlas:bindVolcengineAccount': (
+    _e: unknown,
+    teamId: string,
+    label: string,
+    roleTrn: string,
+    share?: atlas.BindingShare,
+  ) => atlas.bindVolcengineAccount(teamId, label, roleTrn, share),
   'atlas:unbindVolcengineAccount': (_e: unknown, teamId: string, accountId: string) =>
     atlas.unbindVolcengineAccount(teamId, accountId),
   'atlas:listHuaweiAccounts': (_e: unknown, teamId: string) => atlas.listHuaweiAccounts(teamId),
@@ -229,7 +239,8 @@ export const integrationsChannels = {
     domainId: string,
     idpId: string,
     agencyName: string,
-  ) => atlas.bindHuaweiAccount(teamId, label, domainId, idpId, agencyName),
+    share?: atlas.BindingShare,
+  ) => atlas.bindHuaweiAccount(teamId, label, domainId, idpId, agencyName, share),
   'atlas:unbindHuaweiAccount': (_e: unknown, teamId: string, accountId: string) =>
     atlas.unbindHuaweiAccount(teamId, accountId),
   'atlas:listVolcengineClusters': (_e: unknown, teamId: string, accountId: string) =>
@@ -244,7 +255,8 @@ export const integrationsChannels = {
     clientId: string,
     clientSecret: string | null,
     federated?: boolean,
-  ) => atlas.bindTailscaleClient(teamId, label, clientId, clientSecret, federated),
+    share?: atlas.BindingShare,
+  ) => atlas.bindTailscaleClient(teamId, label, clientId, clientSecret, federated, share),
   'atlas:unbindTailscaleClient': (_e: unknown, teamId: string, clientId: string) =>
     atlas.unbindTailscaleClient(teamId, clientId),
   'atlas:listTailscaleDevices': (_e: unknown, teamId: string, clientId: string) =>

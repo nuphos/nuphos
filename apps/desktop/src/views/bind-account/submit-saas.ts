@@ -25,7 +25,7 @@ export async function submitVanta(st: BindState, env: SubmitEnv) {
   }
   setSubmitting(true)
   try {
-    await api.atlasBindVantaIntegration(env.teamId, label, clientId, clientSecret)
+    await api.atlasBindVantaIntegration(env.teamId, label, clientId, clientSecret, env.share)
     reset()
     env.onBound()
     env.onClose()
@@ -59,6 +59,7 @@ export async function submitSecureframe(st: BindState, env: SubmitEnv) {
       secureframeRegion,
       apiKey,
       apiSecret,
+      env.share,
     )
     reset()
     env.onBound()
@@ -86,7 +87,7 @@ export async function submitNotion(st: BindState, env: SubmitEnv) {
   }
   setSubmitting(true)
   try {
-    await api.atlasBindNotionIntegration(env.teamId, label, token)
+    await api.atlasBindNotionIntegration(env.teamId, label, token, env.share)
     reset()
     env.onBound()
     env.onClose()
@@ -119,7 +120,7 @@ export async function submitUpstash(st: BindState, env: SubmitEnv) {
   }
   setSubmitting(true)
   try {
-    await api.atlasBindUpstashAccount(env.teamId, label, email, apiKey)
+    await api.atlasBindUpstashAccount(env.teamId, label, email, apiKey, env.share)
     reset()
     env.onBound()
     env.onClose()
@@ -146,7 +147,7 @@ export async function submitResend(st: BindState, env: SubmitEnv) {
   }
   setSubmitting(true)
   try {
-    await api.atlasBindResendIntegration(env.teamId, label, apiKey)
+    await api.atlasBindResendIntegration(env.teamId, label, apiKey, env.share)
     reset()
     env.onBound()
     env.onClose()
