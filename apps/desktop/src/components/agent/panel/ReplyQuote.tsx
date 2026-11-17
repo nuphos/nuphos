@@ -1,19 +1,8 @@
 import { CornerUpLeft } from 'lucide-react'
 
+import { jumpTo } from './jumpTo'
+
 import type { AgentMessageReply } from '../../../api'
-
-/** Scrolls to a chat post or conversation message and flashes it, if it is on screen. */
-function jumpTo(id: string) {
-  const key = CSS.escape(id)
-  const target = document.querySelector<HTMLElement>(
-    `[data-post-id="${key}"], [data-message-id="${key}"]`,
-  )
-
-  if (!target) return
-  target.scrollIntoView({ block: 'center', behavior: 'smooth' })
-  target.classList.remove('cell-flash')
-  requestAnimationFrame(() => target.classList.add('cell-flash'))
-}
 
 /** The message a reply answers, one muted line just above the reply: clicking it goes there. */
 export function ReplyQuote({ reply }: { reply: AgentMessageReply }) {

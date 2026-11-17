@@ -178,11 +178,11 @@ data class ConnectorInventory(val rows: List<ConnectorBinding> = emptyList()) {
             }
             val linked = json["slack"]?.get("linkedChannels")
             val linkedCount = linked?.get("count")?.numberValue?.toInt() ?: linked?.arrayValue?.size ?: 0
-            if (linkedCount > 0) rows.add(ConnectorBinding("slack", "linked-channels", "slack:linked-channels", "Linked Slack channels", "$linkedCount linked channels"))
+            if (linkedCount > 0) rows.add(ConnectorBinding("slack", "linked-channels", "slack:linked-channels", Words(R.string.storetext_connectors_linked_slack), Words.plural(R.plurals.storetext_connectors_linked_channels, linkedCount, linkedCount)))
             val discord = json["discord"]
             val guild = discord?.get("installation")
             val guildId = guild?.get("guildId")?.stringValue
-            if (!guildId.isNullOrBlank()) rows.add(ConnectorBinding("discord", guildId, "discord:$guildId", guild["guildName"]?.stringValue ?: "Discord", "${discord["channels"]?.arrayValue?.size ?: 0} linked channels"))
+            if (!guildId.isNullOrBlank()) rows.add(ConnectorBinding("discord", guildId, "discord:$guildId", guild["guildName"]?.stringValue ?: "Discord", (discord["channels"]?.arrayValue?.size ?: 0).let { Words.plural(R.plurals.storetext_connectors_linked_channels, it, it) }))
             return ConnectorInventory(rows.distinctBy { it.key })
         }
         fun createdIds(json: JsonValue): Set<String> = buildSet {

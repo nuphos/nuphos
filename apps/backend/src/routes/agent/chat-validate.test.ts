@@ -73,7 +73,7 @@ test('rejects invalid runtime preferences before accepting a chat', () => {
         agentRuntime: agentRuntime as 'codex',
       }),
     ).toThrow(
-      'agentRuntime must be one of claude-code, codex, grok, antigravity, opencode, hermes, dsh',
+      'agentRuntime must be one of claude-code, codex, grok, antigravity, opencode, hermes, dsh, pi',
     )
   }
 })
@@ -134,10 +134,10 @@ describe('acceptClientTail', () => {
     expect(state.headReads).toBe(0)
   })
 
-  test('still answers 409 with the stored count when the client is ahead of the store', async () => {
+  test('still answers 409 with the stored count when a send is ahead of the store', async () => {
     state.stored = [stored('m1')]
     const error = await acceptClientTail(
-      { id: 'sess', messages: tail, baseIndex: 2, resume: true },
+      { id: 'sess', messages: tail, baseIndex: 2 },
       'sess',
       'owner',
       conversation,
@@ -148,6 +148,20 @@ describe('acceptClientTail', () => {
 
     expect(error?.status).toBe(409)
     expect(error?.details).toEqual({ storedMessageCount: 1 })
+  })
+
+  // #2984: a card answer starts a server turn before the answer is stored, and
+  // the client attaching to it sends a window that already shows the answer.
+  test('lets a resume attach even when its window is ahead of the store', async () => {
+    state.stored = [stored('m1')]
+    const view = await acceptClientTail(
+      { id: 'sess', messages: tail, baseIndex: 2, resume: true },
+      'sess',
+      'owner',
+      conversation,
+    )
+
+    expect(view.map((message) => message.id)).toEqual(['m3'])
   })
 })
 

@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 
 import { LIVE_RECORD_FILTER, memoryRecordAccessFilter } from '@/lib/agent/memory-native/store'
 import { useDb } from '@/lib/test/doubles/db'
+import { useRedis } from '@/lib/test/doubles/redis'
 
 import {
   computeRetentionScores,
@@ -12,6 +13,7 @@ import {
   filterOwnedMemoryIds,
   purgeConversationAttribution,
   recordAttributionSignal,
+  rollupOnOneReplica,
 } from './attribution-store'
 
 import type { MemoryAttributionEvent, AttributionSignalEntry } from './attribution-types'
@@ -78,6 +80,14 @@ class Fake {
       sort: () => ({ toArray: async () => rows }),
     }
   }
+  aggregateCalls = 0
+  aggregate() {
+    this.aggregateCalls += 1
+
+    return {
+      async *[Symbol.asyncIterator]() {},
+    }
+  }
 }
 const byName = new Map<string, Fake>()
 const coll = (name: string) => {
@@ -92,6 +102,23 @@ const coll = (name: string) => {
 }
 
 useDb({ db: (() => ({ collection: coll })) as unknown as typeof dbActual.db })
+
+// Redis SET NX PX, shared by every replica in the test.
+const claims = new Map<string, string>()
+
+useRedis({
+  redisEnabled: () => true,
+  withRedis: (op) =>
+    op({
+      set: async (key: string, value: string) => {
+        await Promise.resolve()
+        if (claims.has(key)) return null
+        claims.set(key, value)
+
+        return 'OK'
+      },
+    } as never) as never,
+})
 
 // Read through the fake map, not the store's typed Collection handles — the
 // Mongo Collection type (rightly) has no `.docs`.
@@ -406,5 +433,20 @@ describe('filterOwnedMemoryIds', () => {
   test('empty input short-circuits to an empty result', async () => {
     await expect(filterOwnedMemoryIds('u1', 't1', [])).resolves.toEqual([])
     expect(coll('agent_memories').lastFindFilter).toBeNull()
+  })
+})
+
+describe('rollupOnOneReplica', () => {
+  test('two replicas ticking together run the hourly recompute once', async () => {
+    claims.clear()
+    const events = coll('memory_runtime_attributions')
+
+    events.aggregateCalls = 0
+    await Promise.all([rollupOnOneReplica(), rollupOnOneReplica()])
+    expect(events.aggregateCalls).toBe(1)
+    // The next hour, once the claim has expired, runs again.
+    claims.clear()
+    await rollupOnOneReplica()
+    expect(events.aggregateCalls).toBe(2)
   })
 })

@@ -9,6 +9,7 @@ export const AGENT_PROVIDERS = [
   'opencode',
   'hermes',
   'dsh',
+  'pi',
 ] as const
 
 export type AgentProvider = (typeof AGENT_PROVIDERS)[number]
@@ -25,6 +26,7 @@ export const AGENT_PROVIDER: Record<
   opencode: { label: 'OpenCode', account: 'a model provider' },
   hermes: { label: 'Hermes Agent', account: 'a model provider' },
   dsh: { label: 'DeepSeek Harness', account: 'DeepSeek', preview: true },
+  pi: { label: 'Pi', account: 'a model provider', preview: true },
 }
 
 export type LocalRuntimeSummary = {

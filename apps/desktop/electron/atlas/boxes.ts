@@ -76,7 +76,9 @@ export function createBox(
       ...(access ? { access } : {}),
       ...(instaboxAccountId ? { instaboxAccountId } : {}),
     },
-    { retry: false },
+    // As long as the proxy in front of the backend waits: the create reads instabox, then waits
+    // up to 10 s for it to accept or refuse the order. Giving up sooner could hide a Box it made.
+    { retry: false, timeoutMs: 60_000 },
   )
 }
 
@@ -192,6 +194,16 @@ export function boxJoinToken(): Promise<{
 }
 export function deleteBox(deviceId: string, teamId: string): Promise<{ ok: true }> {
   return call('DELETE', box(deviceId, '', teamId), undefined, { retry: false })
+}
+
+/** Restarts the caller's other computer into the Nuphos Desktop update it downloaded. */
+export function updateDeviceApp(deviceId: string, teamId: string): Promise<{ version: string }> {
+  return call(
+    'POST',
+    `/teams/${encodeURIComponent(teamId)}/computers/${encodeURIComponent(deviceId)}/app-update`,
+    undefined,
+    { retry: false },
+  )
 }
 
 /** Forgets an offline computer; the backend refuses Boxes and computers that are online. */

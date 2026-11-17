@@ -1,5 +1,7 @@
 package ai.nuphos.android.model
 
+import androidx.annotation.StringRes
+import ai.nuphos.android.R
 import ai.nuphos.android.data.JsonValue
 import kotlinx.serialization.Serializable
 
@@ -29,6 +31,21 @@ data class CredentialCatalog(
     val isEmpty: Boolean get() = sections.isEmpty()
     val allItems: List<Item> get() = sections.flatMap { it.items }
 
+    /**
+     * Only what answers a question asking for [providers], as the server decides: a credential of that
+     * kind, or the member's own one of that name. Null keeps everything.
+     */
+    fun answering(providers: List<String>?): CredentialCatalog {
+        if (providers == null) return this
+        val keys = providers.mapNotNull { CONNECT_KEYS[it] }.toSet()
+        return CredentialCatalog(sections.mapNotNull { section ->
+            val items = section.items.filter {
+                it.provider.selectionKey in keys || (it.provider.selectionKey == "personalCredentialIds" && it.id in providers)
+            }
+            if (items.isEmpty()) null else Section(section.provider, items)
+        })
+    }
+
     constructor(json: JsonValue, providers: List<Provider> = PROVIDERS) : this(
         providers.mapNotNull { provider ->
             val rows = json[provider.optionsKey]?.arrayValue ?: emptyList()
@@ -46,9 +63,24 @@ data class CredentialCatalog(
     )
 
     companion object {
+        /** The backend's `CONNECTABLE_PROVIDERS`: the selection key an integration question's provider is answered by. */
+        val CONNECT_KEYS = mapOf(
+            "github" to "githubInstallationIds", "gitlab" to "gitlabBindingIds", "linear" to "linearWorkspaceIds",
+            "jira" to "jiraSiteIds", "asana" to "asanaAccountIds", "sentry" to "sentryAccountIds",
+            "posthog" to "posthogIntegrationIds", "plaud" to "plaudAccountIds", "grafana" to "grafanaInstanceIds",
+            "sonarqube" to "sonarqubeIntegrationIds", "notion" to "notionIntegrationIds", "upstash" to "upstashAccountIds",
+            "resend" to "resendIntegrationIds", "trello" to "trelloIntegrationIds", "cloudflare" to "cloudflareAccountIds",
+            "betterstack" to "betterStackIntegrationIds", "uptime-kuma" to "uptimeKumaInstanceIds",
+            "tailscale" to "tailscaleClientIds", "zeabur" to "zeaburIds", "vanta" to "vantaIntegrationIds",
+            "secureframe" to "secureframeIntegrationIds", "aws" to "awsRoleIds", "gcp" to "gcpServiceAccountIds",
+            "azure" to "azureAccountIds", "linode" to "linodeAccountIds", "hetzner" to "hetznerAccountIds",
+            "tencent" to "tencentAccountIds", "aliyun" to "aliyunAccountIds", "volcengine" to "volcengineAccountIds",
+            "huawei" to "huaweiAccountIds", "onprem-k8s" to "onpremClusterIds",
+        )
+
         private fun computerDetail(platform: String?, unavailable: Boolean): String? {
             val name = platform?.let(::platformName)
-            return if (unavailable) listOfNotNull(name, "Unavailable").joinToString(" · ") else name
+            return if (unavailable) listOfNotNull(name, Words(R.string.storetext_credentials_unavailable)).joinToString(" · ") else name
         }
 
         private fun platformName(platform: String) = when (platform) {
@@ -179,9 +211,12 @@ data class CredentialSelection(
     }
 }
 
-enum class PermissionMode(val raw: String, val title: String, val subtitle: String) {
-    Auto("auto", "Auto Mode", "Risky commands ask for your approval"),
-    Bypass("bypass", "Bypass Permissions", "Run every command without asking");
+enum class PermissionMode(val raw: String, @StringRes private val titleId: Int, @StringRes private val subtitleId: Int) {
+    Auto("auto", R.string.auto_mode, R.string.storetext_permission_auto_subtitle),
+    Bypass("bypass", R.string.bypass_permissions, R.string.storetext_permission_bypass_subtitle);
+
+    val title: String get() = Words(titleId)
+    val subtitle: String get() = Words(subtitleId)
 
     companion object {
         fun from(raw: String?) = entries.firstOrNull { it.raw == raw } ?: Auto

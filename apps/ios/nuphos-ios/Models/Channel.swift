@@ -59,11 +59,11 @@ struct ChannelPost: Equatable, Identifiable, Sendable {
 
     /// Nil for a message without a sender, with nothing to show, or not posted
     /// by a person or an agent: a chat shows only their posts, and the records
-    /// answers to questions leave.
+    /// Nuphos leaves (answers to questions, a new owner).
     init?(_ message: ChatMessage) {
         let metadata = message.metadata
         guard let sender = metadata?["sender"], let type = sender["type"]?.stringValue,
-              type == "user" || type == "agent" || sender["id"]?.stringValue == Self.decisionRecord,
+              type == "user" || type == "agent" || sender["id"]?.stringValue.map(Self.records.contains) == true,
               let senderId = metadata?["sourceSessionId"]?.stringValue ?? sender["id"]?.stringValue else { return nil }
         let attributed = message.sender
         guard attributed != nil || type == "system" else { return nil }
@@ -88,8 +88,9 @@ struct ChannelPost: Equatable, Identifiable, Sendable {
         isRecord = type == "system"
     }
 
-    /// The sender of the record an answer to a question leaves in the chat it was asked in.
-    static let decisionRecord = "nuphos:decision"
+    /// The senders of the records Nuphos leaves in a chat: an answer to a
+    /// question, and a change of owner when the owner leaves.
+    static let records: Set<String> = ["nuphos:decision", "nuphos:chat"]
 
     /// What a reply to this post quotes until the chat stores its own snapshot.
     var asReply: ChannelReply {

@@ -144,7 +144,7 @@ function MessageList({
 
   return (
     // The composer's inner padding, so messages stay inside its edges.
-    <div className="space-y-4 px-3">
+    <div className="flex flex-col gap-4 px-3">
       {hasEarlier && (
         <div
           // Read by SessionFindBar: part of the conversation is not in the DOM.
@@ -194,7 +194,7 @@ function MessageList({
               <div
                 key={m.id}
                 data-message-id={m.id}
-                className="transition-shadow"
+                className="mt-4 transition-shadow first:mt-0" // A new turn: the room goes above it.
                 style={wrapperStyle}
               >
                 <UserMessage
@@ -291,7 +291,7 @@ function MessageList({
 /** The transcript; each choice card reads its answer from the replies after it. */
 export function ConversationMessageList(props: Parameters<typeof MessageList>[0]) {
   return (
-    <DecisionCardsProvider messages={props.tab.messages}>
+    <DecisionCardsProvider messages={props.tab.messages} waiting={props.tab.waitingAnswers}>
       <MessageList {...props} />
     </DecisionCardsProvider>
   )

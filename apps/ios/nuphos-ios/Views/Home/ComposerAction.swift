@@ -24,10 +24,10 @@ enum ComposerAction: Equatable {
 
     var accessibilityLabel: String {
         switch self {
-        case .send: "Send"
-        case .stop: "Stop"
-        case .steer: "Send to the current reply"
-        case .queue: "Queue message"
+        case .send: String(localized: "Send")
+        case .stop: String(localized: "Stop")
+        case .steer: String(localized: "Send to the current reply")
+        case .queue: String(localized: "Queue message")
         }
     }
 

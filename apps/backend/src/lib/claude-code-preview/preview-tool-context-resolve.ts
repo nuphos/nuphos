@@ -28,6 +28,7 @@ export async function resolvePreviewToolContext(args: {
     ...(context?.activeTurnKey ? { turnKey: context.activeTurnKey } : {}),
     ...(context?.activeTurnOrigin ? { turnOrigin: context.activeTurnOrigin } : {}),
     ...(context?.localTools === true ? { localTools: true } : {}),
+    ...(context?.secretCard === true ? { secretCard: true } : {}),
     locale: conversation?.metadata?.locale ?? 'en',
     ...(context?.diagramId ? { diagramId: context.diagramId } : {}),
     ...(thread

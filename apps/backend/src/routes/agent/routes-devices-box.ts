@@ -142,6 +142,7 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
                   ...(view.online
                     ? await deps.readMetrics(device.userId, device.deviceId, demand)
                     : { metrics: null, metricsStatus: 'offline', metricsReceivedAt: null }),
+                  ...(await deps.ownComputer(device, userId)),
                   // A Box's displays besides its own :1, for the desktop's screen switcher.
                   ...(view.box && view.online
                     ? {

@@ -63,21 +63,19 @@ type PartLike = {
 /**
  * Every artifact the messages hold, oldest version first. A call that failed
  * never showed anything, so it takes no version number. A chart is an artifact
- * of its own, named by its place among the chat's charts.
+ * of its own, named after its content, so every window and link names it alike.
  */
 export function collectArtifacts(
   messages: readonly { parts: readonly PartLike[] }[],
 ): Map<string, ArtifactVersion[]> {
   const lines = new Map<string, ArtifactVersion[]>()
-  let charts = 0
 
   for (const message of messages) {
     for (const part of message.parts) {
       if (part.type !== 'tool' || !part.toolCallId || part.state === 'output-error') continue
-      const payload = callPayload(part, charts + 1)
+      const payload = callPayload(part)
 
       if (!payload) continue
-      if (payload.kind === 'chart') charts += 1
       const line = lines.get(payload.artifactId) ?? []
       const createdAt = part.completedAt ?? part.startedAt
 
@@ -94,20 +92,30 @@ export function collectArtifacts(
   return lines
 }
 
-/** What one call shows; `chart` is the call's place among the chat's charts, if it is one. */
-function callPayload(part: PartLike, chart: number): ArtifactPayload | null {
+/** What one call shows. */
+function callPayload(part: PartLike): ArtifactPayload | null {
   if (part.toolName === ARTIFACT_TOOL) return parseArtifactPayload(part.input)
   if (part.toolName !== CHART_TOOL) return null
   const payload = tryParseChartPayload(part.output) ?? tryParseChartPayload(part.input)
 
-  return payload
-    ? {
-        artifactId: `chart-${String(chart)}`,
-        title: payload.title.trim() || t('Chart'),
-        kind: 'chart',
-        content: JSON.stringify(payload),
-      }
-    : null
+  if (!payload) return null
+  const content = JSON.stringify(payload)
+
+  return {
+    artifactId: `chart-${contentHash(content)}`,
+    title: payload.title.trim() || t('Chart'),
+    kind: 'chart',
+    content,
+  }
+}
+
+/** FNV-1a: a short id that depends only on the text, not on which messages are loaded. */
+function contentHash(text: string): string {
+  let hash = 0x811c9dc5
+
+  for (let i = 0; i < text.length; i += 1) hash = Math.imul(hash ^ text.charCodeAt(i), 0x01000193)
+
+  return (hash >>> 0).toString(36)
 }
 
 const CODE_EXTENSIONS: Partial<Record<string, string>> = {

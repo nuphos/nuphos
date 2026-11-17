@@ -5,6 +5,7 @@ import { Hono } from 'hono'
 
 import { errorHandler } from '@/lib/errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useConversationTurn } from '@/lib/test/doubles/conversation-turn'
 import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
@@ -32,10 +33,22 @@ useAgentDb({
     id === 'session' && team === TEAM ? conversation : null,
 })
 
+// What each woken agent was told.
+const told: string[] = []
+
+useConversationTurn({
+  startConversationTurn: async (_data, _target, text) => {
+    told.push(text)
+
+    return { status: 'started' as const, run: Promise.resolve(undefined) }
+  },
+})
+
 const app = new Hono().route('/agent', agent)
 
 app.onError(errorHandler)
 beforeEach(() => {
+  told.length = 0
   viewer = OWNER
   member = true
   memory = portabilityDb()
@@ -95,11 +108,25 @@ test('a newer question never hides an older open one', async () => {
   expect(statusOf('question-1')).toBe('open')
 })
 
-test('a participant can dismiss the owner’s question', async () => {
+test('a participant can skip the owner’s question, and the agent that asked is told', async () => {
   viewer = TEAMMATE
 
   expect((await resolve('question-1', 'dismissed')).status).toBe(200)
   expect(statusOf('question-1')).toBeUndefined()
+  expect(statusOf('question-2')).toBe('open')
+  expect(told).toHaveLength(1)
+  expect(told[0]).toContain('Your question (requestId question-1) was skipped')
+})
+
+test('skipping a question that is gone says so instead of succeeding silently', async () => {
+  expect((await resolve('question-1', 'dismissed')).status).toBe(200)
+  const again = await resolve('question-1', 'dismissed')
+
+  expect(again.status).toBe(409)
+  expect(await again.json()).toMatchObject({
+    error: { message: 'This question is no longer open' },
+  })
+  expect(told).toHaveLength(1)
 })
 
 test('viewers and former team members cannot resolve a question', async () => {

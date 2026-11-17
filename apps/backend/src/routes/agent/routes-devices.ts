@@ -41,7 +41,7 @@ import {
   revokeAgentDeviceCredential,
   upsertAgentDevice,
 } from '@/lib/agent/devices/store'
-import { boxDesktops } from '@/lib/claude-code-preview/session-desktops'
+import { boxDesktops, ownComputer } from '@/lib/claude-code-preview/session-desktops'
 import { AppError } from '@/lib/errors'
 import { getTeamMembers } from '@/lib/identity'
 import { zv } from '@/lib/validate'
@@ -96,6 +96,7 @@ export type AgentDeviceRouteDependencies = {
   listDeviceExecAudit: typeof listDeviceExecAudit
   conversationTitlesFor: (sessionIds: string[]) => Promise<Map<string, string>>
   boxDesktops: typeof boxDesktops
+  ownComputer: typeof ownComputer
   issueJoinToken: typeof issueDeviceJoinToken
   revokeCredential: (userId: string, deviceId: string) => Promise<boolean>
   disconnect: (userId: string, deviceId: string) => Promise<void>
@@ -142,6 +143,7 @@ const defaultDependencies: AgentDeviceRouteDependencies = {
   listDeviceExecAudit,
   conversationTitlesFor,
   boxDesktops,
+  ownComputer,
   listDevices: listAgentDevicesForUser,
   isOnline: isDevicePresent,
   deleteDevice: deleteAgentDevice,

@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
+import fs from 'node:fs'
 import { mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PassThrough } from 'node:stream'
+import { syncBuiltinESMExports } from 'node:module'
 import { createInterface } from 'node:readline'
-import { test } from 'node:test'
+import { mock, test } from 'node:test'
 
 import { SESSION_META, runShim } from '../image/acp-shim.mjs'
 
@@ -168,6 +170,33 @@ test('opencode shares only its own data directory with the runtime home', async 
     assert.equal(seen.env.OPENCODE_DISABLE_AUTOUPDATE, '1')
     assert.equal(seen.params._meta.rules, undefined)
   })
+})
+
+test('a link the OS refuses never fails the turn, and Windows gets a junction', async () => {
+  // Windows refuses a symlink to a user without Developer Mode or an administrator.
+  const links = []
+  const refused = mock.method(fs, 'symlinkSync', (...args) => {
+    links.push(args)
+    throw Object.assign(new Error('EPERM: operation not permitted, symlink'), { code: 'EPERM' })
+  })
+  syncBuiltinESMExports()
+  try {
+    await withShim('opencode', async ({ call }) => {
+      await call('initialize', { protocolVersion: 1 })
+      const reply = await Promise.race([
+        call('session/new', session('Be Nuphos.')),
+        new Promise((resolve) => setTimeout(() => resolve({ timedOut: true }), 5000)),
+      ])
+
+      assert.match(reply.result?.seen?.env.HOME ?? '', /\.nuphos\/session-homes\/[0-9a-f]{64}$/)
+      assert.equal(links.length, 2)
+      // Node makes a junction from this on Windows and ignores it elsewhere.
+      for (const args of links) assert.equal(args[2], 'junction')
+    })
+  } finally {
+    refused.mock.restore()
+    syncBuiltinESMExports()
+  }
 })
 
 // Like DeepSeek Harness: resumes sessions, but has no session/load.
@@ -530,4 +559,53 @@ test('Antigravity forwards advertised capabilities, errors and process exit', as
   process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: m.id, ...response }) + '\\n')
  })`,
   )
+})
+
+test('pi runs through the pi-acp adapter and gets the session MCP servers as its mcp.json', async () => {
+  await withShim('pi', async ({ call, children, home }) => {
+    await call('initialize', { protocolVersion: 1 })
+    const servers = [{ name: 'nuphos', command: 'node', args: ['bridge.mjs'], env: [] }]
+    await call('session/new', { ...session('Be Nuphos.'), mcpServers: servers })
+    const [executable, adapter] = children.at(-1).command
+    assert.equal(executable, process.execPath)
+    assert.match(adapter, /node_modules[\\/]pi-acp[\\/]dist[\\/]index\.js$/u)
+    const { readdir, readFile } = await import('node:fs/promises')
+    const sessions = join(home, '.nuphos', 'session-homes')
+    const [sessionHome] = await readdir(sessions)
+    const mcp = JSON.parse(
+      await readFile(join(sessions, sessionHome, '.pi', 'agent', 'mcp.json'), 'utf8'),
+    )
+    assert.deepEqual(Object.keys(mcp.mcpServers), ['nuphos'])
+  })
+})
+
+test('a pi turn the provider refused shows why, which pi-acp drops', async () => {
+  await withShim('pi', async ({ call, home, notifications }) => {
+    await call('initialize', { protocolVersion: 1 })
+    await call('session/new', session('Be Nuphos.'))
+    const { mkdir, readdir, writeFile } = await import('node:fs/promises')
+    const sessions = join(home, '.nuphos', 'session-homes')
+    const [sessionHome] = await readdir(sessions)
+    const folder = join(sessions, sessionHome, '.pi', 'agent', 'sessions', '--workspace--')
+    await mkdir(folder, { recursive: true })
+    const failed = {
+      type: 'message',
+      message: {
+        role: 'assistant',
+        content: [],
+        stopReason: 'error',
+        errorMessage: '401 invalid x-api-key',
+      },
+    }
+    await writeFile(
+      join(folder, '2026-11-15T00-00-00-000Z_s1.jsonl'),
+      `{"type":"session"}\n${JSON.stringify(failed)}\n`,
+    )
+    await call('session/prompt', { sessionId: 's1', prompt: [{ type: 'text', text: 'hi' }] })
+    const shown = notifications.filter(
+      (n) => n.params?.update?.sessionUpdate === 'agent_message_chunk',
+    )
+    assert.equal(shown.length, 1)
+    assert.match(shown[0].params.update.content.text, /401 invalid x-api-key/u)
+  })
 })

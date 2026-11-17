@@ -1,7 +1,7 @@
-import { ArrowUpRight } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { MessageResponse } from '../../components/agent/MessageResponse'
+import { AnswerField } from '../../components/agent/panel/AnswerField'
 import {
   parseChoiceRequest,
   parseConnectRequest,
@@ -10,12 +10,11 @@ import { CredentialSelectorButton } from '../../components/agent/panel/Credentia
 import { botChatQuestion } from '../../components/channels/botChatQuestion'
 import { BotChatQuestion } from '../../components/channels/BotChatQuestions'
 import { useBotCredentials } from '../../components/channels/useBotCredentials'
-import { chatTime } from '../../components/sidebar/chat-preview'
 import { Button } from '../../components/ui/button'
 import { t } from '../../i18n'
 
 import { AnswerFailure } from './AnswerFailure'
-import { QuestionSourceIcon } from './QuestionRail'
+import { QuestionSource } from './QuestionRail'
 import { useAnswerFailure } from './useInbox'
 
 import type { DecisionAnswer } from '../../api/agent-chat-types'
@@ -69,21 +68,11 @@ export function DecisionCard({
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
       <article className="mx-auto flex w-full max-w-[640px] flex-col px-6 pb-10 pt-12">
-        <header className="flex min-w-0 items-center gap-1.5 text-[12.5px] text-tertiary">
-          <QuestionSourceIcon conversation={conversation} />
-          <button
-            type="button"
-            onClick={onOpenConversation}
-            className="flex min-w-0 items-center gap-1 font-medium text-secondary hover:text-main"
-          >
-            <span className="truncate">{conversation.title || t('Untitled task')}</span>
-            <ArrowUpRight aria-hidden className="size-3.5 shrink-0" />
-          </button>
-          <span aria-hidden>·</span>
-          <time dateTime={request.askedAt} className="shrink-0">
-            {chatTime(request.askedAt)}
-          </time>
-        </header>
+        <QuestionSource
+          conversation={conversation}
+          askedAt={request.askedAt}
+          onOpen={onOpenConversation}
+        />
         {plain ? (
           <>
             <h1 className="selectable mt-3 text-[20px] font-semibold leading-7 text-main">
@@ -183,16 +172,8 @@ function ChoiceRow({
   onOther: (open: boolean) => void
   onAnswer: (answer: DecisionAnswer) => void
 }) {
-  const [text, setText] = useState('')
-  const field = useRef<HTMLInputElement>(null)
   const failure = useAnswerFailure(requestId)
-  const send = () => {
-    if (text.trim()) onAnswer({ text: text.trim() })
-  }
-
-  useEffect(() => {
-    if (other) field.current?.focus()
-  }, [other])
+  const [draft, setDraft] = useState('')
 
   useEffect(() => {
     if (!keys || other) return
@@ -240,32 +221,12 @@ function ChoiceRow({
         )}
       </div>
       {other && (
-        <form
-          className="flex items-center gap-2"
-          onSubmit={(event) => {
-            event.preventDefault()
-            send()
-          }}
-        >
-          <input
-            ref={field}
-            type="text"
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key !== 'Escape') return
-              event.preventDefault()
-              event.stopPropagation()
-              onOther(false)
-            }}
-            aria-label={t('Your answer')}
-            className="h-9 min-w-0 flex-1 rounded-lg bg-surface-raised px-3 text-[13px] text-main shadow-[0_0_0_1px_rgb(var(--color-line-control))] outline-none placeholder:text-tertiary focus:shadow-[0_0_0_1px_rgb(var(--color-line-focus))]"
-          />
-          <Button type="submit" size="md" disabled={!text.trim()}>
-            {t('Send')}
-            <kbd className="rounded bg-white/15 px-1 text-[11px] font-normal">↵</kbd>
-          </Button>
-        </form>
+        <AnswerField
+          text={draft}
+          onText={setDraft}
+          onSend={(text) => onAnswer({ text })}
+          onClose={() => onOther(false)}
+        />
       )}
       {failure && <AnswerFailure message={failure} />}
     </div>

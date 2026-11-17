@@ -1,6 +1,6 @@
 import { logEvent } from '@/lib/observability'
 
-import { OPENAB_PROVIDERS } from './runtime-provider'
+import { IMAGE_PROVIDERS } from './runtime-provider'
 
 import type { OpenAbProvider } from './runtime-provider'
 
@@ -83,12 +83,12 @@ async function fetchReleases(): Promise<Map<OpenAbProvider, RuntimeRelease>> {
   const found = new Map<OpenAbProvider, RuntimeRelease>()
   const take = (release: RuntimeRelease | null) => {
     if (!release) return
-    for (const provider of OPENAB_PROVIDERS)
+    for (const provider of IMAGE_PROVIDERS)
       if (!found.has(provider) && advertises(release, provider)) found.set(provider, release)
   }
 
   for (let page = 1; ; page++) {
-    if (found.size === OPENAB_PROVIDERS.length) break
+    if (found.size === IMAGE_PROVIDERS.length) break
     const response = await fetch(
       `https://api.github.com/repos/nuphos/nuphos/releases?per_page=100&page=${String(page)}`,
       { headers, signal },
@@ -127,7 +127,7 @@ export async function latestRuntimeRelease(
         .then((releases) => {
           // Emit once per metadata refresh, not once per agent poll.
           if (releases.size)
-            for (const provider of OPENAB_PROVIDERS)
+            for (const provider of IMAGE_PROVIDERS)
               if (!releases.has(provider))
                 logEvent('warn', 'runtime.release_provider_image_missing', { provider })
 

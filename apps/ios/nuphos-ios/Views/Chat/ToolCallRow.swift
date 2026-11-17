@@ -72,7 +72,7 @@ struct ToolCallRow: View {
 
     private var label: String {
         if part.state == .inputStreaming {
-            return command == nil ? "Preparing tool…" : "Preparing command…"
+            return command == nil ? String(localized: "Preparing tool…") : String(localized: "Preparing command…")
         }
         return part.displayLabel
     }
@@ -105,18 +105,18 @@ struct ToolCallRow: View {
 
     private var authorizationNote: String? {
         if part.state == .approvalResponded || (part.approval?.approved == true && part.isFinished) {
-            return "You approved this command."
+            return String(localized: "You approved this command.")
         }
         if part.state == .outputDenied || part.approval?.approved == false {
-            return "You denied this command."
+            return String(localized: "You denied this command.")
         }
         if let trigger = part.authorization?["triggeredBy"], part.authorization?["decision"]?.stringValue == "allow" {
             switch trigger["kind"]?.stringValue {
             case "read_only": return "Auto-authorized: read-only command."
             case "bypass": return "Auto-authorized: bypass mode."
             case "prior_grant": return "Auto-authorized: previously approved."
-            case "rule": return "Auto-authorized by rule: \(trigger["description"]?.stringValue ?? "")"
-            case "judge": return "Auto-authorized: \(trigger["reason"]?.stringValue ?? "judged safe")"
+            case "rule": return String(localized: "Auto-authorized by rule: \(trigger["description"]?.stringValue ?? "")")
+            case "judge": return String(localized: "Auto-authorized: \(trigger["reason"]?.stringValue ?? String(localized: "judged safe"))")
             default: return nil
             }
         }
@@ -137,7 +137,7 @@ struct ApprovalActions: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 6) {
                 Image(systemName: "lock.shield").font(Theme.Text.caption)
-                Text(reason.map { "Authorization required — \($0)" } ?? "Authorization required")
+                Text(reason.map { String(localized: "Authorization required — \($0)") } ?? String(localized: "Authorization required"))
                     .font(Theme.Text.label)
             }
             .foregroundStyle(Theme.body)
@@ -273,15 +273,15 @@ struct ToolLineRow: View {
 
     static func label(for part: ChatPart.ToolPart) -> String {
         if part.state == .inputStreaming {
-            return part.command == nil ? "Preparing tool…" : "Preparing command…"
+            return part.command == nil ? String(localized: "Preparing tool…") : String(localized: "Preparing command…")
         }
         let raw = part.displayLabel.split(whereSeparator: \.isWhitespace).joined(separator: " ")
         return raw.count > 95 ? String(raw.prefix(95)) + "…" : raw
     }
 
     static func decisionNote(for part: ChatPart.ToolPart) -> String? {
-        if part.state == .outputDenied || part.approval?.approved == false { return "You declined this command." }
-        if part.approval?.approved == true { return "You approved this command." }
+        if part.state == .outputDenied || part.approval?.approved == false { return String(localized: "You declined this command.") }
+        if part.approval?.approved == true { return String(localized: "You approved this command.") }
         return nil
     }
 }
@@ -354,8 +354,8 @@ struct WorkGroup: View {
 
     private var title: String {
         let steps = rows.reduce(0) { $0 + ChatRow.workSteps($1) }
-        if let duration, duration >= 1 { return "Worked for \(Self.formatWorkDuration(duration)) · \(steps) steps" }
-        return "Worked through \(steps) steps"
+        if let duration, duration >= 1 { return String(localized: "Worked for \(Self.formatWorkDuration(duration)) · \(steps) steps") }
+        return String(localized: "Worked through \(steps) steps")
     }
 
     /// `12s`, `3m 5s`, `1h 20m` — the desktop's `formatWorkDuration`.

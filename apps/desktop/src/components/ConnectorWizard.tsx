@@ -1,16 +1,16 @@
-import {
-  faArrowUpRightFromSquare,
-  faCheck,
-  faCopy,
-  faDownload,
-} from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
+import {
+  ExternalLink as ExternalLinkIcon,
+  Check as CheckIcon,
+  Copy as CopyIcon,
+  Download as DownloadIcon,
+} from 'lucide-react'
 import { useState } from 'react'
 
 import { t } from '../i18n'
 
 import { toast } from './ui/toast'
+import { UiIcon } from './ui/ui-icon'
 
 // Reusable primitives for step-by-step connector onboarding wizards (Lark today;
 // any provider that needs a "create an app → paste credentials → configure"
@@ -99,7 +99,7 @@ export function WizardConsoleLink({ href, children }: { href: string; children: 
       rel="noreferrer"
       className="inline-flex h-7 items-center gap-1.5 rounded-md bg-surface-sunken px-2.5 text-[12px] font-medium text-main no-underline transition-colors hover:bg-state-hover"
     >
-      <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="h-3.5 w-3.5" />
+      <UiIcon size={14} icon={ExternalLinkIcon} className="h-3.5 w-3.5" />
       {children}
     </a>
   )
@@ -121,7 +121,7 @@ export function WizardDownloadLink({
       download={download}
       className="inline-flex h-7 items-center gap-1.5 rounded-md border border-line-control px-2.5 text-[12px] font-medium text-secondary no-underline transition-colors hover:border-line-control hover:text-main"
     >
-      <FontAwesomeIcon icon={faDownload} className="h-3.5 w-3.5" />
+      <UiIcon size={14} icon={DownloadIcon} className="h-3.5 w-3.5" />
       {children}
     </a>
   )
@@ -150,9 +150,10 @@ export function WizardCopyableValue({ value }: { value: string }) {
       className="inline-flex max-w-full items-center gap-1.5 rounded border border-line-control bg-surface-sunken px-1.5 py-0.5 align-middle font-mono text-[11.5px] text-main transition-colors hover:border-line-control"
     >
       <span className="truncate">{value}</span>
-      <FontAwesomeIcon
-        icon={copied ? faCheck : faCopy}
-        className={clsx('h-3 w-3 flex-shrink-0', copied ? 'text-primary' : 'text-tertiary')}
+      <UiIcon
+        size={16}
+        icon={copied ? CheckIcon : CopyIcon}
+        className={clsx('h-4 w-4 flex-shrink-0', copied ? 'text-primary' : 'text-tertiary')}
       />
     </button>
   )
@@ -180,7 +181,7 @@ export function WizardCopyableBlock({ value }: { value: string }) {
         onClick={() => void copy()}
         className="absolute right-2 top-2 inline-flex h-6 items-center gap-1 rounded border border-line-control bg-surface-sunken px-1.5 text-[11px] font-medium text-secondary transition-colors hover:border-line-control hover:text-main"
       >
-        <FontAwesomeIcon icon={copied ? faCheck : faCopy} className="h-3 w-3" />
+        <UiIcon size={16} icon={copied ? CheckIcon : CopyIcon} className="h-4 w-4" />
         {copied ? t('Copied') : t('Copy')}
       </button>
       <pre className="overflow-x-auto whitespace-pre p-3 pr-16 font-mono text-[11px] leading-relaxed text-main">

@@ -10,7 +10,7 @@ struct ConversationTrigger: Decodable, Identifiable {
     let nextRunAt: String?
     let canManage: Bool?
 
-    var schedule: String { scheduleDescription ?? (triggerType == "cron" ? "Schedule: \(cronExpression ?? "") (UTC)" : "When a webhook arrives") }
+    var schedule: String { scheduleDescription ?? (triggerType == "cron" ? String(localized: "Schedule: \(cronExpression ?? "") (UTC)") : String(localized: "When a webhook arrives")) }
     var nextRun: Date? {
         guard let nextRunAt else { return nil }
         let format = ISO8601DateFormatter()

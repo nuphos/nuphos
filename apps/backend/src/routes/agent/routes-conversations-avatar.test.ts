@@ -107,6 +107,7 @@ useDb({
       },
       updateMany: () => Promise.resolve(),
       // An uploaded face: nothing else is stored for this Bot, and nothing to prune.
+      // A new Bot also has no parent to take its permission mode from.
       findOne: () => Promise.resolve(null),
       deleteMany: (filter: { userId: unknown }) => {
         pruned.push(String(filter.userId))
@@ -330,4 +331,32 @@ test('"Make this a Bot" clicked twice at once starts one turn', async () => {
   expect(await (await makeBot()).json()).toEqual({ avatar: '07-ada' })
   expect(saved).toEqual([])
   expect(turns).toEqual([])
+})
+
+test('coordination starter saves durable instructions without a primary role', async () => {
+  const response = await createBot({
+    title: 'Coordinator',
+    starter: 'coordinate',
+    onboarding: true,
+  })
+
+  expect(response.status).toBe(201)
+  expect(shells[0]?.instructions).toContain('list_tasks')
+  expect(shells[0]?.instructions).toContain('never grants human approval')
+  expect(shells[0]?.botOnboarding).toBe('pending')
+  expect(shells[0]).not.toHaveProperty('primary')
+  expect(turns).toHaveLength(0)
+})
+
+test('ordinary onboarding learns purpose and persists it', async () => {
+  const response = await createBot({ title: 'Research Expert', onboarding: true })
+
+  expect(response.status).toBe(201)
+  expect(shells[0]?.instructions).toContain('one focused question')
+  expect(shells[0]?.instructions).toContain('update_self')
+})
+
+test('unknown starters and invalid onboarding values are rejected', async () => {
+  expect((await createBot({ starter: 'admin' })).status).toBe(400)
+  expect((await createBot({ onboarding: 'yes' })).status).toBe(400)
 })

@@ -1,6 +1,8 @@
 package ai.nuphos.android.data
 
+import ai.nuphos.android.R
 import ai.nuphos.android.model.ComposerAttachment
+import ai.nuphos.android.model.Words
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
@@ -59,14 +61,14 @@ class AttachmentTransfers(
                         while (written < source.size) {
                             try { check() } catch (cancelled: CancellationException) { throw IOException("Attachment upload cancelled", cancelled) }
                             val count = input.read(buffer, 0, minOf(buffer.size.toLong(), source.size - written).toInt())
-                            if (count < 0) throw IOException("The retained attachment size changed.")
+                            if (count < 0) throw IOException(Words(R.string.convtext_attachment_size_changed))
                             if (count == 0) continue
                             sink.write(buffer, 0, count)
                             written += count
                             try { progress(written) } catch (cancelled: CancellationException) { throw IOException("Attachment upload cancelled", cancelled) }
                         }
                         try { check() } catch (cancelled: CancellationException) { throw IOException("Attachment upload cancelled", cancelled) }
-                        if (input.read() != -1) throw IOException("The retained attachment size changed.")
+                        if (input.read() != -1) throw IOException(Words(R.string.convtext_attachment_size_changed))
                     }
                 }
             }
@@ -106,11 +108,11 @@ class AttachmentTransfers(
     }
 
     fun retain(attachments: List<ComposerAttachment>): Pending {
-        require(attachments.size in 1..MAX_FILES) { "Select 1 to $MAX_FILES attachments." }
+        require(attachments.size in 1..MAX_FILES) { Words(R.string.convtext_attachments_count, MAX_FILES) }
         require(attachments.map { it.id }.toSet().size == attachments.size) { "Attachment identities must be unique." }
         val payloads = attachments.mapIndexed { index, attachment ->
             val name = attachment.name.trim()
-            require(name.length in 1..512) { "Attachment filename must have 1 to 512 characters." }
+            require(name.length in 1..512) { Words(R.string.convtext_attachment_name_length) }
             val bytes = when (val kind = attachment.kind) {
                 is ComposerAttachment.Kind.Image -> kind.jpeg
                 is ComposerAttachment.Kind.File -> kind.bytes
@@ -122,14 +124,14 @@ class AttachmentTransfers(
                 is ComposerAttachment.Kind.File -> kind.mime
                 is ComposerAttachment.Kind.RetainedFile -> kind.mime
             }.trim().ifEmpty { "application/octet-stream" }
-            require(attachment.sizeBytes in 1..MAX_FILE_BYTES) { "$name must contain 1 to $MAX_FILE_BYTES bytes." }
-            require(mime.length in 1..255 && '\r' !in mime && '\n' !in mime) { "Invalid attachment MIME type." }
+            require(attachment.sizeBytes in 1..MAX_FILE_BYTES) { Words(R.string.convtext_attachment_size, name, MAX_FILE_BYTES) }
+            require(mime.length in 1..255 && '\r' !in mime && '\n' !in mime) { Words(R.string.convtext_attachment_mime_invalid) }
             val safeName = name.map { if (it.isLetterOrDigit() && it.code < 128 || it in "._-") it else '_' }.joinToString("")
                 .trim('.').ifEmpty { "attachment" }
             val path = "${index + 1}-" + if (attachment.isImage) safeName.substringBeforeLast('.', safeName) + ".jpg" else safeName
             Payload(attachment.id, name, path, mime, bytes, source)
         }
-        require(payloads.sumOf { it.size } <= MAX_TOTAL_BYTES) { "Attachment batch exceeds 500 MiB." }
+        require(payloads.sumOf { it.size } <= MAX_TOTAL_BYTES) { Words(R.string.convtext_attachments_too_large) }
         return Pending(payloads)
     }
 
@@ -200,7 +202,7 @@ class AttachmentTransfers(
             val completed = view(transport.api("POST", "$base/${intent.groupId}/finalize", token))
             pending.check()
             val completedIds = validateView(completed, intent, pending)
-            if (completed.status != "ready" || completedIds.size != pending.payloads.size) throw Failure("Some attachments are not ready. Retry the retained batch.")
+            if (completed.status != "ready" || completedIds.size != pending.payloads.size) throw Failure(Words(R.string.convtext_attachments_not_ready))
             return ready(intent, pending, onProgress)
         } finally {
             pending.call = null
@@ -210,7 +212,7 @@ class AttachmentTransfers(
 
     private fun ready(intent: Intent, pending: Pending, progress: (Progress) -> Unit): Ready {
         pending.check()
-        if (expiry(intent.expiresAt) <= now()) throw Failure("Attachment transfer expired. Retry the retained batch.")
+        if (expiry(intent.expiresAt) <= now()) throw Failure(Words(R.string.convtext_transfer_expired))
         progress(Progress(Stage.Ready))
         pending.check()
         val names = pending.payloads.joinToString(", ") { it.name.replace('\n', ' ').replace('\r', ' ') }
@@ -231,29 +233,29 @@ class AttachmentTransfers(
     }
 
     private fun validateIntent(intent: Intent, pending: Pending) {
-        if (!intent.groupId.matches(Regex("[a-fA-F0-9]{24}")) || intent.direction != "upload" || intent.status != "pending" || expiry(intent.expiresAt) <= now()) throw Failure("Invalid upload intent.")
-        if (intent.files.size != pending.payloads.size || intent.files.map { it.id }.toSet().size != intent.files.size || intent.files.map { it.relPath }.toSet() != pending.payloads.map { it.path }.toSet()) throw Failure("Upload intent does not match selected attachments.")
+        if (!intent.groupId.matches(Regex("[a-fA-F0-9]{24}")) || intent.direction != "upload" || intent.status != "pending" || expiry(intent.expiresAt) <= now()) throw Failure(Words(R.string.convtext_upload_intent_invalid))
+        if (intent.files.size != pending.payloads.size || intent.files.map { it.id }.toSet().size != intent.files.size || intent.files.map { it.relPath }.toSet() != pending.payloads.map { it.path }.toSet()) throw Failure(Words(R.string.convtext_upload_intent_mismatch))
         intent.files.forEach { file ->
             val payload = pending.payloads.single { it.path == file.relPath }
-            if (file.id.isBlank() || file.fileName != payload.name || !file.uploadUrl.startsWith("https://") || expiry(file.expiresAt) <= now()) throw Failure("Invalid attachment upload identity or URL.")
+            if (file.id.isBlank() || file.fileName != payload.name || !file.uploadUrl.startsWith("https://") || expiry(file.expiresAt) <= now()) throw Failure(Words(R.string.convtext_upload_identity_invalid))
         }
     }
 
     private fun validateView(view: View, intent: Intent, pending: Pending): Set<String> {
-        if (view.groupId != intent.groupId || view.direction != "upload" || view.status !in setOf("pending", "ready", "partial", "failed") || expiry(view.expiresAt) <= now() || view.files.size != intent.files.size || view.files.map { it.id }.toSet() != intent.files.map { it.id }.toSet() || view.files.map { it.id }.distinct().size != view.files.size) throw Failure("Transfer readback does not match the selected batch.")
+        if (view.groupId != intent.groupId || view.direction != "upload" || view.status !in setOf("pending", "ready", "partial", "failed") || expiry(view.expiresAt) <= now() || view.files.size != intent.files.size || view.files.map { it.id }.toSet() != intent.files.map { it.id }.toSet() || view.files.map { it.id }.distinct().size != view.files.size) throw Failure(Words(R.string.convtext_transfer_readback_mismatch))
         return view.files.mapNotNull { file ->
             val expected = intent.files.single { it.id == file.id }
             val payload = pending.payloads.single { it.path == expected.relPath }
-            if (file.status !in setOf("pending", "ready", "failed") || file.relPath != expected.relPath || file.fileName != payload.name) throw Failure("Transfer file identity changed.")
+            if (file.status !in setOf("pending", "ready", "failed") || file.relPath != expected.relPath || file.fileName != payload.name) throw Failure(Words(R.string.convtext_transfer_identity_changed))
             if (file.status == "ready") {
-                if (file.size != payload.size) throw Failure("Transfer size does not match selected bytes.")
+                if (file.size != payload.size) throw Failure(Words(R.string.convtext_transfer_size_mismatch))
                 file.id
             } else null
         }.toSet()
     }
 
     private fun view(text: String) = Http.json.decodeFromString<View>(text)
-    private fun expiry(value: String): Long = try { Instant.parse(value).toEpochMilli() } catch (_: Exception) { throw Failure("Invalid transfer expiry.") }
+    private fun expiry(value: String): Long = try { Instant.parse(value).toEpochMilli() } catch (_: Exception) { throw Failure(Words(R.string.convtext_transfer_expiry_invalid)) }
 
     @Serializable internal data class Intent(val groupId: String, val direction: String, val status: String, val expiresAt: String, val files: List<IntentFile>)
     @Serializable internal data class IntentFile(val id: String, val fileName: String, val relPath: String, val uploadUrl: String, val expiresAt: String)
@@ -292,7 +294,7 @@ class AttachmentTransfers(
                             response.use {
                                 if (continuation.isActive) {
                                     if (it.isSuccessful) continuation.resume(Unit)
-                                    else continuation.resumeWithException(Failure("Storage upload failed (${it.code}). Retry the retained batch."))
+                                    else continuation.resumeWithException(Failure(Words(R.string.convtext_storage_upload_failed, it.code)))
                                 }
                             }
                         }

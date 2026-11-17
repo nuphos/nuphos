@@ -35,6 +35,8 @@ enum Theme {
     static let muted = adaptive(light: 0x84848C, dark: 0x71717A)
     /// Desktop `--color-warning`, darkened in light mode for contrast.
     static let warning = adaptive(light: 0xA04606, dark: 0xF5A623)
+    /// Desktop `status.attention`: a row waiting on the viewer's answer.
+    static let attention = adaptive(light: 0xB83A0A, dark: 0xF47A3F)
     static let hairline = adaptive(light: 0x18181B, dark: 0xFFFFFF, lightAlpha: 0.08, darkAlpha: 0.10)
     /// The selected row of a list that keeps its selection beside it, as the Inbox's.
     static let selected = adaptive(light: 0xE2E2E6, dark: 0x2E2E33)

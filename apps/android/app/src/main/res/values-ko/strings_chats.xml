@@ -3,7 +3,6 @@
     <string name="chats_question_credentials_and">%1$s, %2$s</string>
     <string name="chats_question_use_own">내 %1$s 사용</string>
     <string name="chats_question_choose_credentials">자격 증명 선택</string>
-    <string name="chats_question_answer_in_task">작업에서 답변</string>
     <string name="chats_question_other">기타…</string>
     <string name="chats_question_reply">답장…</string>
     <string name="chats_question_send_failed">메시지를 보내지 못했습니다 · %1$s</string>

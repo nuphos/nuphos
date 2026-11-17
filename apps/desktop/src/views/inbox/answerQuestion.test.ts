@@ -113,7 +113,7 @@ test('a held Inbox answer leaves at once, comes back on Undo, and is sent when t
   answerFails = false
   publish([waiting('h1'), waiting('h2')])
   const before = answers.length
-  const undo = inbox.holdAnswer('team', 'agent', 'h1', { choices: ['Yes'] })
+  const undo = inbox.holdAnswer('team', 'agent', 'h1', { choices: ['Yes'] }, () => {})
 
   assert.equal(count(), 1)
   assert.equal(undo(), true)
@@ -121,8 +121,8 @@ test('a held Inbox answer leaves at once, comes back on Undo, and is sent when t
   assert.equal(undo(), false, 'undoing twice does nothing')
   assert.equal(answers.length, before, 'an undone answer is never sent')
 
-  inbox.holdAnswer('team', 'agent', 'h1', { choices: ['Yes'] })
-  inbox.holdAnswer('team', 'agent', 'h2', { choices: ['No'] })
+  inbox.holdAnswer('team', 'agent', 'h1', { choices: ['Yes'] }, () => {})
+  inbox.holdAnswer('team', 'agent', 'h2', { choices: ['No'] }, () => {})
   await settle()
   assert.deepEqual(
     answers.slice(before).map((args) => args[1]),
@@ -136,4 +136,19 @@ test('a held Inbox answer leaves at once, comes back on Undo, and is sent when t
     ['h1', 'h2'],
   )
   assert.equal(count(), 0)
+})
+
+test('a held Inbox answer refused once sent says why, though its question is already gone', async () => {
+  answerFails = true
+  publish([waiting('h3')])
+  const reasons: (string | undefined)[] = []
+
+  inbox.holdAnswer('team', 'agent', 'h3', { choices: ['Yes'] }, (reason) => reasons.push(reason))
+  // Closed meanwhile (skipped on its card in the chat), so it is no longer listed.
+  publish([])
+  inbox.sendHeldAnswer()
+  await settle()
+  await settle()
+  assert.deepEqual(reasons, ['This question is no longer open'])
+  answerFails = false
 })

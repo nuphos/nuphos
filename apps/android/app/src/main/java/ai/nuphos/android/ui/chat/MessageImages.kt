@@ -217,17 +217,15 @@ internal fun MessageImagePager(images: List<String>, initialIndex: Int, onPage: 
                 beyondViewportPageCount = 0) { page ->
                 // Adjacent pages keep only placeholders, preventing multiple full-size decodes.
                 if (page == pager.currentPage) key(page, images[page]) {
-                    if (images[page] in videos && videoLoader != null) VideoPage(images[page], page, images.size, videoLoader)
+                    if (images[page] in videos && videoLoader != null)
+                        VideoPage(images[page], page, images.size, videoLoader, onSaveVideo?.let { save -> { save(images[page]) } })
                     else ZoomImage(images[page], page, images.size, zoomed, loader) { zoomed = it }
                 }
             }
+            // A video's page offers its own Save, only while the video can load.
             key(images[pager.currentPage]) {
                 val current = images[pager.currentPage]
-                if (current in videos) onSaveVideo?.let { save ->
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                        TextButton(onClick = { save(current) }) { Text(stringResource(R.string.chat_video_save), color = Color.White) }
-                    }
-                } else ImageExportActions(current, originalWriter)
+                if (current !in videos) ImageExportActions(current, originalWriter)
             }
             if (images.size > 1) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 TextButton(onClick = { zoomed = false; scope.launch { pager.scrollToPage((pager.currentPage - 1 + images.size) % images.size) } }) {
@@ -302,7 +300,7 @@ private sealed interface VideoLoad {
  * than playing on its own, and stopped when the page goes. One that can't load says so and retries.
  */
 @Composable
-private fun VideoPage(source: String, index: Int, count: Int, loader: MessageVideoLoader) {
+private fun VideoPage(source: String, index: Int, count: Int, loader: MessageVideoLoader, onSave: (() -> Unit)?) {
     var attempt by remember(source) { mutableIntStateOf(0) }
     var broken by remember(source, attempt) { mutableStateOf(false) }
     var prepared by remember(source, attempt) { mutableStateOf(false) }
@@ -313,34 +311,40 @@ private fun VideoPage(source: String, index: Int, count: Int, loader: MessageVid
     }
     val position = stringResource(R.string.chat_video_position, index + 1, count)
     val readyToPlay = stringResource(R.string.chat_video_ready)
-    Box(Modifier.fillMaxSize().semantics {
-        contentDescription = position
-        if (prepared && !broken) stateDescription = readyToPlay
-    }, contentAlignment = Alignment.Center) {
-        val ready = (load as? VideoLoad.Ready)?.takeIf { it.attempt == attempt }
-        when {
-            load == VideoLoad.Loading || (load is VideoLoad.Ready && ready == null) -> Text(stringResource(R.string.chat_video_loading), color = Color.White)
-            load == VideoLoad.Failed || broken -> TextButton(onClick = { attempt++ }, modifier = androidx.compose.ui.Modifier.semantics { this.testTag = "video-retry" }) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(androidx.compose.material.icons.Icons.Outlined.Refresh, null, tint = Color.White)
-                    Text(stringResource(R.string.chat_video_load_failed), color = Color.White)
-                }
-            }
-            ready != null -> key(ready.file.absolutePath) { androidx.compose.ui.viewinterop.AndroidView(
-                factory = { context ->
-                    android.widget.VideoView(context).apply {
-                        val controls = android.widget.MediaController(context)
-                        controls.setAnchorView(this)
-                        setMediaController(controls)
-                        // The first frame, still, until it's played.
-                        setOnPreparedListener { seekTo(1); controls.show(0); prepared = true }
-                        setOnErrorListener { _, _, _ -> broken = true; true }
-                        setVideoPath(ready.file.absolutePath)
+    val failed = load == VideoLoad.Failed || broken
+    Column(Modifier.fillMaxSize()) {
+        Box(Modifier.weight(1f).fillMaxWidth().semantics {
+            contentDescription = position
+            if (prepared && !broken) stateDescription = readyToPlay
+        }, contentAlignment = Alignment.Center) {
+            val ready = (load as? VideoLoad.Ready)?.takeIf { it.attempt == attempt }
+            when {
+                load == VideoLoad.Loading || (load is VideoLoad.Ready && ready == null) -> Text(stringResource(R.string.chat_video_loading), color = Color.White)
+                failed -> TextButton(onClick = { attempt++ }, modifier = androidx.compose.ui.Modifier.semantics { this.testTag = "video-retry" }) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(androidx.compose.material.icons.Icons.Outlined.Refresh, null, tint = Color.White)
+                        Text(stringResource(R.string.chat_video_load_failed), color = Color.White)
                     }
-                },
-                onRelease = { it.stopPlayback() },
-                modifier = Modifier.fillMaxSize().semantics { this.testTag = "video-player" },
-            ) }
+                }
+                ready != null -> key(ready.file.absolutePath) { androidx.compose.ui.viewinterop.AndroidView(
+                    factory = { context ->
+                        android.widget.VideoView(context).apply {
+                            val controls = android.widget.MediaController(context)
+                            controls.setAnchorView(this)
+                            setMediaController(controls)
+                            // The first frame, still, until it's played.
+                            setOnPreparedListener { seekTo(1); controls.show(0); prepared = true }
+                            setOnErrorListener { _, _, _ -> broken = true; true }
+                            setVideoPath(ready.file.absolutePath)
+                        }
+                    },
+                    onRelease = { it.stopPlayback() },
+                    modifier = Modifier.fillMaxSize().semantics { this.testTag = "video-player" },
+                ) }
+            }
+        }
+        if (onSave != null && !failed) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+            TextButton(onClick = onSave) { Text(stringResource(R.string.chat_video_save), color = Color.White) }
         }
     }
 }

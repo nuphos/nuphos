@@ -27,6 +27,14 @@ export function updateCurrentAssistantParts(
   return [...messages, { id: newId(), role: 'assistant', parts: nextParts }]
 }
 
+/** The open reply already says why its turn failed, with the backend's classified
+ * cause and actions, so the failure needs no second, raw error line. */
+export function openReplyExplainsFailure(messages: Message[]): boolean {
+  const last = messages.at(-1)
+
+  return last?.role === 'assistant' && last.parts.some((part) => part.type === 'turn-interrupted')
+}
+
 /**
  * Applies a run's turn-start frame: the user input that opened the run. The
  * device that sent it already holds it and keeps its own copy. Any other

@@ -23,12 +23,12 @@ enum SharedShareSession {
         case keychain(OSStatus)
         var errorDescription: String? {
             switch self {
-            case .unavailable: "Shared sign-in is unavailable. Open Nuphos and sign in; both targets require matching shared Keychain provisioning."
-            case .signedOut: "Open Nuphos and sign in before sharing."
-            case .changed: "Your account or workspace changed. Cancel this share and share again. Nothing else will be sent."
-            case .workspace: "Open Nuphos and select the workspace for this share."
-            case .keychain(let status): "Shared Keychain access failed (\(status)). Both App IDs and profiles need the same shared Keychain group."
-            case .identity: "The shared sign-in no longer matches this account. Sign in again in Nuphos."
+            case .unavailable: String(localized: "Shared sign-in is unavailable. Open Nuphos and sign in; both targets require matching shared Keychain provisioning.")
+            case .signedOut: String(localized: "Open Nuphos and sign in before sharing.")
+            case .changed: String(localized: "Your account or workspace changed. Cancel this share and share again. Nothing else will be sent.")
+            case .workspace: String(localized: "Open Nuphos and select the workspace for this share.")
+            case .keychain(let status): String(localized: "Shared Keychain access failed (\(status)). Both App IDs and profiles need the same shared Keychain group.")
+            case .identity: String(localized: "The shared sign-in no longer matches this account. Sign in again in Nuphos.")
             }
         }
     }

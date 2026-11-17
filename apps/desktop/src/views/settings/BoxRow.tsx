@@ -8,6 +8,7 @@ import { InlineRename } from '../../components/ui/inline-rename'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../../components/ui/menu'
 import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
+import { useThisComputerBadge } from '../../hooks/useThisComputer'
 import { t } from '../../i18n'
 
 import { canManage, newAgentAction } from './agentPresentation'
@@ -22,13 +23,13 @@ import { AccessHint, LiveDot, MachineLine, OwnerLine } from './BoxParts'
 import { copyUid } from './boxCopyUid'
 import { openBoxPaywall } from './boxPaywallStore'
 import { BOX_BADGE, boxActions, boxState, removal } from './boxPresentation'
-import { boxRestartLabel, boxRestartOf, boxUpdateLabel } from './boxRestartPresentation'
+import { boxRestartLabel, boxRestartOf } from './boxRestartPresentation'
 import { boxRestarts, useBoxRestart } from './boxRestartStore'
 import { openDesktop } from './computerDesktop'
 import { LocalAgentShareDialog } from './LocalAgentShareDialog'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
-import { useBoxHostUpdate } from './useBoxHostUpdate'
 import { useComputerOwner } from './useComputerOwner'
+import { useComputerUpdate } from './useComputerUpdate'
 
 import type { AgentDevice } from '../../api'
 import type { LocalAgentProvider } from '../../api/device-types'
@@ -69,10 +70,9 @@ export function BoxRow({
   const manage = canManage(device)
   const owner = useComputerOwner(teamId, device)
   // Besides a Box, another of the viewer's own computers whose host opens its screen.
-  const screen =
-    cloud || owner || thisComputer ? undefined : agents.find((agent) => agent.local?.desktopOpen)
+  const screen = thisComputer ? undefined : device.desktopRuntimeId
   const remove = removal(device)
-  const badge = BOX_BADGE[state]
+  const badge = useThisComputerBadge(thisComputer) ?? BOX_BADGE[state]
   const actions = cloud && !restart ? boxActions(state) : { pause: false, resume: false }
   // Every Box action names the Box and the page's team.
   const act = (
@@ -119,12 +119,13 @@ export function BoxRow({
   const metricsStatus = settingUp ? state : device.metricsStatus
   const away = !restart && (state === 'paused' || state === 'hostOffline')
   const hostAgent = cloud && manage && state === 'running' && !restart ? agents[0]?.id : undefined
-  const updateVersion = useBoxHostUpdate(teamId, hostAgent)
+  const running = state === 'running' && !restart
+  const hostUpdate = useComputerUpdate(teamId, device, { cloud, thisComputer, running, hostAgent })
+  const updateVersion = hostUpdate.version
   const [confirmUpdate, setConfirmUpdate] = useState(false)
   const update = () =>
     act(t('Could not update computer'), async (deviceId, team) => {
-      if (!hostAgent) return
-      await api.atlasRequestRuntimeUpdate(team, hostAgent)
+      await hostUpdate.request(team)
       boxRestarts.start(deviceId, team, 'update')
     })
 
@@ -184,13 +185,16 @@ export function BoxRow({
             </MenuTrigger>
             <MenuContent align="end">
               {(cloud ? state === 'running' : screen) && (
-                <MenuItem onClick={() => openDesktop(device.deviceId, teamId, screen?.id)}>
+                <MenuItem onClick={() => openDesktop(device.deviceId, teamId, screen)}>
                   {t('Open desktop')}
                 </MenuItem>
               )}
-              {updateVersion !== undefined && (
-                <MenuItem onClick={() => setConfirmUpdate(true)}>
-                  {boxUpdateLabel(updateVersion)}
+              {hostUpdate.label && (
+                <MenuItem
+                  disabled={updateVersion === undefined}
+                  onClick={() => setConfirmUpdate(true)}
+                >
+                  {hostUpdate.label}
                 </MenuItem>
               )}
               <MenuItem onClick={() => setRenaming(true)}>{t('Rename')}</MenuItem>
@@ -227,11 +231,11 @@ export function BoxRow({
           )}
           {restart ? boxRestartLabel(restart.kind) : badge.label}
         </span>
-        <MachineLine device={device} dim={dim} />
+        <MachineLine device={device} dim={dim} live={badge !== BOX_BADGE[state]} />
         <AccessHint device={device} />
         {updateVersion !== undefined && (
           <BoxHostUpdate
-            boxLabel={device.label}
+            confirm={hostUpdate.confirm(updateVersion)}
             version={updateVersion}
             busy={busy}
             confirming={confirmUpdate}

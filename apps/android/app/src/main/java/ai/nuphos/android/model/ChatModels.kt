@@ -1,5 +1,6 @@
 package ai.nuphos.android.model
 
+import ai.nuphos.android.R
 import ai.nuphos.android.data.Instants
 import ai.nuphos.android.data.JsonValue
 import android.util.Log
@@ -62,7 +63,7 @@ data class ChatMessage(
             }
         }
 
-    fun finalizeIncompleteTools(errorText: String = "Interrupted before the tool finished."): ChatMessage {
+    fun finalizeIncompleteTools(errorText: String = Words(R.string.convtext_tool_interrupted)): ChatMessage {
         val now = Instant.now().toEpochMilli().toDouble()
         return copy(
             parts = parts.map { part ->

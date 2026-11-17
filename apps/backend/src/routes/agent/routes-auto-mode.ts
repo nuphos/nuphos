@@ -11,7 +11,8 @@ agent.get('/auto-mode/policy/rules', (c) => c.json({ enabled: true, rules: [] })
 
 // Full Access: a per-conversation switch that allows the runtime's permission
 // requests without asking, for every participant's turn in the conversation.
-// Only the owner sets it.
+// Only the owner sets it. A Task under a Bot reads the Bot's switch and is
+// refused a change of its own (see auto-mode/store).
 async function assertCanSetMode(sessionId: string, userId: string) {
   const conversation = await getConversationBySessionId(sessionId)
 

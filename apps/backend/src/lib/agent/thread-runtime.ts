@@ -5,10 +5,13 @@ import {
 } from '@/lib/claude-code-preview/runtime-catalog'
 import { runtimeModelCatalog } from '@/lib/claude-code-preview/runtime-models'
 import { conversationSessionConfig } from '@/lib/claude-code-preview/session-config'
-import { pickOf } from '@/lib/claude-code-preview/session-config-options'
+import { pickOf, storedPick } from '@/lib/claude-code-preview/session-config-options'
 import { AppError } from '@/lib/errors'
 
 import { getConversationBySessionId } from './db'
+import { liveAttachment } from './db/shared'
+
+import type { AgentConversation } from './db'
 
 // What a thread runs on: its agent, and the model and effort it uses there.
 
@@ -80,28 +83,39 @@ export async function threadRuntimes(
   }
 }
 
+/** The agent a thread was asked to run on, refused unless a thread may run there. */
 export async function assertThreadRuntime(
   actor: { teamId: string; userId: string },
   runtimeId: string | undefined,
 ) {
-  if (runtimeId && !(await threadRuntimeInstances(actor)).some(({ id }) => id === runtimeId))
-    throw new Error(
-      "A thread can only move to one of the team's agents or Boxes, not to a computer.",
-    )
+  if (!runtimeId) return
+  const runtime = (await threadRuntimeInstances(actor)).find(({ id }) => id === runtimeId)
+
+  if (!runtime)
+    throw new Error("A thread can only run on one of the team's agents or Boxes, not a computer.")
+
+  return runtime
 }
 
-export type ThreadModelPick = { model?: string; effort?: string }
+export type ThreadModelPick = { model?: string; effort?: string; fast?: string }
+
+/** The model, effort and fast mode a conversation runs with: what a thread it starts begins on. */
+export function currentPick(conversation: AgentConversation): ThreadModelPick {
+  const attachment = liveAttachment(conversation)
+
+  return attachment ? storedPick(attachment) : (conversation.initialSessionConfig ?? {})
+}
 
 /**
- * Sets a thread's model and effort as the conversation's model picker does, so
- * the runtime's own catalog decides what is valid. The model goes first: the
- * efforts on offer depend on it. Nothing to set returns nothing.
+ * Sets a thread's model, effort and fast mode as the conversation's model picker
+ * does, so the runtime's own catalog decides what is valid. The model goes first:
+ * the efforts and speeds on offer depend on it. Nothing to set returns nothing.
  */
 export async function setThreadModel(threadId: string, userId: string, pick: ThreadModelPick) {
-  if (!pick.model && !pick.effort) return
+  if (!pick.model && !pick.effort && !pick.fast) return
   let options: Awaited<ReturnType<typeof conversationSessionConfig>>['options'] = []
 
-  for (const configId of ['model', 'effort'] as const) {
+  for (const configId of ['model', 'effort', 'fast'] as const) {
     const value = pick[configId]
 
     if (!value) continue

@@ -65,7 +65,17 @@ export function boxRestartEnded(
   kind: BoxRestartKind,
   outcome: BoxRestartOutcome,
   label: string,
+  /** A person's computer restarting its Nuphos Desktop, which nobody can Resume from here. */
+  desktop = false,
 ): { tone: 'success' | 'error'; title: string; description: string } | null {
+  if (outcome === 'timeout' && desktop)
+    return {
+      tone: 'error',
+      title: t('{label} did not come back', { label }),
+      description: t(
+        'Nuphos on it has not reconnected 5 minutes after the update started. Open Nuphos on that computer.',
+      ),
+    }
   if (outcome === 'timeout')
     return {
       tone: 'error',
@@ -110,5 +120,28 @@ export function boxUpdateConfirm(boxLabel: string, version: string | undefined) 
     description: `${install} ${t(
       'The computer itself keeps running, but all of its runtimes are unavailable until the host reconnects. The host starts again even if the install fails. The update does not start while any agent on it is replying.',
     )}`,
+  }
+}
+
+/** The ⋯ menu's item for the viewer's other computer: its Nuphos Desktop's update, when there is one to start. */
+export function appUpdateLabel(app: NonNullable<AgentDevice['app']>): string {
+  const update = app.update
+
+  if (!update) return t('Up to date')
+
+  return update.ready
+    ? t('Update to v{version}', { version: update.version })
+    : t('Downloading v{version}', { version: update.version })
+}
+
+/** The confirmation before restarting another computer's Nuphos Desktop into its update. */
+export function appUpdateConfirm(label: string, version: string) {
+  return {
+    title: t('Update {boxLabel}?', { boxLabel: label }),
+    confirmLabel: t('Update and restart'),
+    description: t(
+      'This restarts Nuphos on {label} to install v{version}. Its agents are unavailable until it reconnects. The update does not start while an agent on it is working.',
+      { label, version },
+    ),
   }
 }

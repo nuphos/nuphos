@@ -1,10 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
-import {
-  getSessionBypass,
-  initializeSessionBypass,
-  setSessionBypass,
-} from '@/lib/agent/auto-mode/store'
+import { getSessionBypass, setSessionBypass } from '@/lib/agent/auto-mode/store'
 import { wakeOfflineBox } from '@/lib/agent/devices/box-wake'
 import { resolveConversationChatRuntime } from '@/lib/claude-code-preview/conversation-chat-route'
 import { fallBackBeforeTurn } from '@/lib/claude-code-preview/runtime-fallback'
@@ -17,13 +13,15 @@ import {
   recordAgentEvent,
   setConversationArchived,
   setConversationParent,
-  upsertConversationShell,
 } from './db'
 import { isChannel } from './db/channels'
+import { prepareThread } from './thread-delegation'
 import { relatedQuestionsNote } from './db/pending-decision'
 
-import type { ThreadModelPick } from './thread-runtime'
 import type { AgentConversation } from './db'
+import type { ThreadModelPick } from './thread-runtime'
+
+export { delegationThreadId } from './thread-delegation'
 
 export type ThreadActor = { userId: string; teamId: string; sessionId: string; locale: string }
 export type ThreadTurn = ThreadActor & {
@@ -68,15 +66,17 @@ export async function authorizeThreadDelivery(
 
 function receipt(
   actor: ThreadActor,
-  threadId: string,
   messageId: string,
-  status: 'started' | 'queued',
+  { status, target }: Awaited<ReturnType<typeof startThreadTurn>>,
 ) {
   return {
     status,
-    threadId,
+    threadId: target.sessionId,
     messageId,
-    _links: { web: `/teams/${actor.teamId}/agent/${threadId}` },
+    // Where this message runs, which the chat shows on its card.
+    ...(target.agentRuntime ? { agentRuntime: target.agentRuntime } : {}),
+    ...(target.runtimeLabel ? { runtimeLabel: target.runtimeLabel } : {}),
+    _links: { web: `/teams/${actor.teamId}/agent/${target.sessionId}` },
   }
 }
 
@@ -84,56 +84,19 @@ export async function createAgentThread(
   actor: ThreadActor,
   prompt: string,
   title: string,
-  pick: ThreadModelPick & { fullAccess?: boolean } = {},
+  pick: ThreadModelPick & { runtimeId?: string; requestId?: string } = {},
 ) {
   const source = await authorizeThreadActor(actor)
-  const threadId = randomUUID()
-  const messageId = randomUUID()
+  const { threadId, messageId } = await prepareThread(actor, source, prompt, title, pick)
+  const started = await startThreadTurn({ ...actor, targetSessionId: threadId, messageId, prompt })
 
-  await upsertConversationShell({
-    sessionId: threadId,
-    userId: actor.userId,
-    teamId: actor.teamId,
-    title,
-    firstMessage: prompt,
-    locale: actor.locale,
-    source: 'agent.thread',
-    agentRuntime: source.agentRuntime,
-    runtimeId: source.runtimeId,
-    runtimeLabel: source.runtimeLabel,
-    parentSessionId: actor.sessionId,
-    parentGrants: source,
-    workspace: source.workspace,
-  })
-  // A thread runs in its parent's permission mode, or in Auto Mode when `fullAccess` is false.
-  await initializeSessionBypass(
-    threadId,
-    actor.userId,
-    pick.fullAccess !== false && (await getSessionBypass(actor.sessionId, actor.userId)),
-  )
-  const { setThreadModel } = await import('./thread-runtime')
-
-  try {
-    await setThreadModel(threadId, actor.userId, pick)
-  } catch (error) {
-    // Nothing ran yet; a refused pick hides the unused conversation.
-    await setConversationArchived(threadId, true)
-    throw error
-  }
-  const { status } = await startThreadTurn({
-    ...actor,
-    targetSessionId: threadId,
-    messageId,
-    prompt,
-  })
-
-  return { ...receipt(actor, threadId, messageId, status), sourceThreadId: actor.sessionId }
+  return { ...receipt(actor, messageId, started), sourceThreadId: actor.sessionId }
 }
 
 export async function sendAgentThreadMessage(actor: ThreadActor, threadId: string, prompt: string) {
   const data = { ...actor, targetSessionId: threadId, messageId: randomUUID(), prompt }
 
-  return receipt(actor, threadId, data.messageId, (await startThreadTurn(data)).status)
+  return receipt(actor, data.messageId, await startThreadTurn(data))
 }
 
 /** The agents the owner can run a thread on, each with its readiness and usage. */
@@ -146,8 +109,9 @@ export async function listThreadRuntimes(actor: ThreadActor) {
 
 /**
  * Controls for another conversation the actor owns: its permission mode, never
- * more than this conversation has, and the agent it runs on. Its credentials are
- * its topmost parent's (credentialSource), so there is nothing to grant here.
+ * more than this conversation has, and the agent it runs on. A Task under a Bot
+ * takes its credentials and its permission mode from its topmost parent
+ * (credentialSource), so neither can be changed on the Task.
  */
 export async function updateThread(
   actor: ThreadActor,
@@ -162,6 +126,16 @@ export async function updateThread(
   if (change.fullAccess && !(await getSessionBypass(actor.sessionId, actor.userId))) {
     throw new Error('Only a conversation in Full Access can give a thread Full Access.')
   }
+  // First, so a Task under a Bot is refused before anything else changes.
+  if (change.fullAccess !== undefined) {
+    await setSessionBypass(threadId, actor.userId, change.fullAccess)
+    recordAgentEvent({
+      conversationId: threadId,
+      userId: actor.userId,
+      event: change.fullAccess ? 'auth.bypass_enabled' : 'auth.bypass_disabled',
+      data: { sourceSessionId: actor.sessionId },
+    })
+  }
   const { assertThreadRuntime, setThreadModel } = await import('./thread-runtime')
 
   await assertThreadRuntime(actor, change.runtimeId)
@@ -172,16 +146,6 @@ export async function updateThread(
     : undefined
   // Apply any explicit choice after the move has preserved compatible settings.
   const model = await setThreadModel(threadId, actor.userId, change)
-
-  if (change.fullAccess !== undefined) {
-    await setSessionBypass(threadId, actor.userId, change.fullAccess)
-    recordAgentEvent({
-      conversationId: threadId,
-      userId: actor.userId,
-      event: change.fullAccess ? 'auth.bypass_enabled' : 'auth.bypass_disabled',
-      data: { sourceSessionId: actor.sessionId },
-    })
-  }
 
   return {
     threadId,
@@ -249,7 +213,7 @@ export async function startThreadTurn(data: ThreadTurn) {
     })
   })
 
-  return { status, run }
+  return { status, run, target }
 }
 
 export async function setAgentThreadParent(

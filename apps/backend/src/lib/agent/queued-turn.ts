@@ -6,7 +6,7 @@ import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
 
-import { reconnecting, reportUndelivered, runTurn } from './conversation-turn'
+import { reportUndelivered, runTurn } from './conversation-turn'
 import { getConversationBySessionId } from './db'
 import { canReplyIn } from './devices/conversation-computer'
 import { listPendingUserMessages, queueHead, takePendingUserMessages } from './pending-queue'
@@ -17,6 +17,7 @@ import {
   sessionReleased,
 } from './session-released'
 import { openSignInRequest, releaseWhenAskLapses } from './sign-in-request'
+import { withinOfflineGrace } from './turn-offline'
 import { turnRunner } from './turn-runner'
 
 import type { AgentConversation } from './db'
@@ -26,18 +27,50 @@ import type { SessionExecutionState } from '@/lib/claude-code-preview/runtime-ex
 const runtimeAccepts = (state: SessionExecutionState) =>
   state.schemaVersion !== 2 || state.actions?.send === true
 
-/** Whether this conversation may run its queue now; schedules a retry when it should wait. */
+/**
+ * Whether this conversation may run its queue now; schedules a retry when it should wait.
+ * `detached` when its runtime did not answer the status read: the same `disconnected`
+ * state the chat route queues a new message on (routes-chat-post.ts, admitQueueableChat).
+ * Keep the two in step.
+ */
 async function ready(userId: string, sessionId: string, target: AgentConversation | null) {
   // The holder runs this again when it lets go.
   if (await turnRunner.hasActiveAgentRunForSession(userId, sessionId)) return false
+  if (!target?.claudeCodePreview) return { detached: false }
+  const state = await conversationExecutionState(target)
+
   // Runtime-owned work (an automatic continuation) holds no backend claim.
-  if (target?.claudeCodePreview && !runtimeAccepts(await conversationExecutionState(target))) {
+  if (!runtimeAccepts(state)) {
     retryQueuedTurn(userId, sessionId)
 
     return false
   }
 
-  return true
+  return { detached: state.state === 'disconnected' }
+}
+
+/**
+ * The runtime did not answer, so a turn started now would fail. Its head waits for the
+ * runtime to reattach, as it does for an offline computer; after the same grace its
+ * senders are told.
+ */
+async function holdForReattach(target: AgentConversation, head: PendingUserMessage[]) {
+  const [first, ...rest] = head
+
+  if (!first) return
+  if (withinOfflineGrace(first)) {
+    await requeueTurnQueue(target.userId, target.sessionId, rest, {
+      ...first,
+      offlineSince: first.offlineSince ?? new Date().toISOString(),
+    })
+
+    return
+  }
+  await reportUndelivered(
+    { userId: target.userId, teamId: target.teamId, targetSessionId: target.sessionId },
+    head,
+    'was not sent: the computer running this agent did not reconnect.',
+  )
 }
 
 /**
@@ -49,7 +82,9 @@ async function ready(userId: string, sessionId: string, target: AgentConversatio
 export async function startQueuedTurn(userId: string, sessionId: string): Promise<void> {
   const target = await getConversationBySessionId(sessionId)
 
-  if (!(await ready(userId, sessionId, target))) return
+  const runtime = await ready(userId, sessionId, target)
+
+  if (!runtime) return
   const release = await turnRunner.claimAgentRunForSession(userId, sessionId)
 
   if (!release) return
@@ -98,6 +133,11 @@ export async function startQueuedTurn(userId: string, sessionId: string): Promis
 
       return
     }
+    if (runtime.detached) {
+      await holdForReattach(target, head)
+
+      return
+    }
     if (first.chat) {
       handedOff = await launchChat(target, { ...first, chat: first.chat }, release)
 
@@ -120,21 +160,25 @@ export async function startQueuedTurn(userId: string, sessionId: string): Promis
   }
 }
 
-// Busy, timed out, too early, rate limited: each passes with time.
+// Busy, timed out, too early, rate limited: each passes with time, however long it takes.
 const RETRYABLE_STATUS = new Set([408, 409, 425, 429])
 
 /**
  * A send that failed to start waits for another try when the failure can pass:
- * a busy or rate-limited runtime, an approval still to come, or a server error. Anything else
+ * a busy or rate-limited runtime, or an approval still to come. Anything else
  * (an agent that is gone or signed out, a declined computer) never will, so
- * its sender is told instead of the queue being held behind it. An offline computer
- * is waited for only while it may be reconnecting, as `runTurn` does.
+ * its sender is told instead of the queue being held behind it.
  */
 const mayStartLater = (error: unknown) =>
-  !(error instanceof AppError) ||
-  error.status >= 500 ||
-  RETRYABLE_STATUS.has(error.status) ||
-  error.code === 'local_share_approval_required'
+  error instanceof AppError &&
+  (RETRYABLE_STATUS.has(error.status) || error.code === 'local_share_approval_required')
+
+/**
+ * A server error or an offline computer usually passes within moments. It is retried
+ * only for the grace a reconnecting computer gets, as `runTurn` does; then the sender is told.
+ */
+const passesSoon = (error: unknown) =>
+  !(error instanceof AppError) || error.status >= 500 || error.code === 'runtime_offline'
 
 /** True once the turn holds the claim; a failure before that puts the message back. */
 async function launchChat(
@@ -170,19 +214,20 @@ async function launchChat(
       ...fields,
       error: error instanceof Error ? error.message : String(error),
     })
-    const offline = error instanceof AppError && error.code === 'runtime_offline'
+    const failing = passesSoon(error)
 
-    if (offline ? reconnecting(error, item) : mayStartLater(error))
+    if (failing ? withinOfflineGrace(item) : mayStartLater(error))
       await requeueTurnQueue(target.userId, target.sessionId, [], {
         ...item,
-        // Only an unbroken run of offline tries counts toward the grace.
-        offlineSince: offline ? (item.offlineSince ?? new Date().toISOString()) : undefined,
+        // Only an unbroken run of such tries counts toward the grace.
+        offlineSince: failing ? (item.offlineSince ?? new Date().toISOString()) : undefined,
       })
     else
       await reportUndelivered(
         { userId: target.userId, teamId: target.teamId, targetSessionId: target.sessionId },
         [item],
-        `was not sent: ${error instanceof Error ? error.message : 'its agent cannot run it.'}`,
+        // Only a 4xx AppError's message is written for people; any other stays in the log above.
+        `was not sent: ${error instanceof AppError && error.status < 500 ? error.message : 'the server could not start it. Send it again.'}`,
       )
 
     return false

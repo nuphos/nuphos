@@ -1,5 +1,4 @@
 import { clearComposerDrafts } from '../components/agent/panel/composerDrafts'
-import { clearClearedReplies } from '../components/agent/panel/composerReplyCleared'
 import { activeTeam, identifyUser, resetAnalytics, setActiveTeam, track } from '../lib/analytics'
 
 import { readLocalStorage, writeLocalStorage } from './localStorage'
@@ -21,7 +20,6 @@ export function signOutLocally(): (user: UserInfo) => void {
   const team = activeTeam()
 
   clearComposerDrafts()
-  clearClearedReplies()
   track('logout')
   resetAnalytics()
 

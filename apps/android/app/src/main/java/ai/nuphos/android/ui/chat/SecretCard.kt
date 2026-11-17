@@ -3,7 +3,11 @@ package ai.nuphos.android.ui.chat
 import ai.nuphos.android.R
 import androidx.compose.ui.res.stringResource
 import ai.nuphos.android.model.ChatPart
+import ai.nuphos.android.session.BotQuestion
 import ai.nuphos.android.session.ChatSession
+import ai.nuphos.android.ui.LocalAgentStore
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -40,6 +44,23 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+
+/**
+ * The secure input card for a question listed outside its conversation, in the Inbox or a Bot's chat,
+ * as on iOS: saved and replied to in the conversation that asked, once it has loaded.
+ */
+@Composable
+internal fun AskedSecretCard(question: BotQuestion, part: ChatPart.Tool) {
+    val store = LocalAgentStore.current
+    val session = remember(question.sessionId) { store.session(question.sessionId, question.title) }
+    LaunchedEffect(session) { if (!session.loaded) session.load() }
+    val error = session.loadError
+    when {
+        error != null -> Text(error, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+        !session.loaded -> CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+        else -> SecretCard(part, reply = null, session = session)
+    }
+}
 
 /**
  * A secret the agent asked for, like the desktop's and iOS's `SecretCard`: a

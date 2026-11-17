@@ -68,6 +68,14 @@ export function DeepSeekIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+export function PiIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" {...props}>
+      <path d="M2 3h12v2.5h-2V13H9.5V5.5h-3V13H4V5.5H2V3Z" />
+    </svg>
+  )
+}
+
 const PROVIDER_ICON: Record<AgentProvider, (props: SVGProps<SVGSVGElement>) => ReactElement> = {
   'claude-code': ClaudeIcon,
   codex: CodexIcon,
@@ -76,6 +84,7 @@ const PROVIDER_ICON: Record<AgentProvider, (props: SVGProps<SVGSVGElement>) => R
   opencode: OpenCodeIcon,
   hermes: HermesIcon,
   dsh: DeepSeekIcon,
+  pi: PiIcon,
 }
 
 /** The agent's mark; Claude Code's when the provider is unknown, as for legacy records. */

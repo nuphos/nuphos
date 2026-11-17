@@ -1,7 +1,7 @@
 import { Queue, Worker } from 'bullmq'
 import { ObjectId } from 'mongodb'
 
-import { CRON_TIME_ZONE } from '@/lib/cron'
+import { CRON_TIME_ZONE, spreadWithinMinute } from '@/lib/cron'
 import { logError, logEvent } from '@/lib/observability'
 import { redisEnabled } from '@/lib/redis'
 
@@ -40,10 +40,31 @@ export async function initTriggerScheduler(): Promise<boolean> {
   _worker = new Worker(
     AGENT_TRIGGER_QUEUE,
     async (job) => {
+      if (job.name === 'task-report') {
+        const { deliverTaskReport } = await import('./task-report-delivery')
+
+        await deliverTaskReport(job.data.reportId)
+
+        return
+      }
+      if (job.name === 'recover-task-reports') {
+        const { recoverTaskReports } = await import('./task-reports')
+
+        await recoverTaskReports()
+
+        return
+      }
       if (job.name === 'resource-session-turn') {
         const { executeResourceTurn } = await import('./resource-turn')
 
         await executeResourceTurn(job.data)
+
+        return
+      }
+      if (job.name === 'answer-delivery') {
+        const { deliverWaitingAnswers } = await import('./deliver-waiting-answers')
+
+        await deliverWaitingAnswers((job.data as { sessionId: string }).sessionId)
 
         return
       }
@@ -75,7 +96,33 @@ export async function initTriggerScheduler(): Promise<boolean> {
 
   _worker.on('failed', (job, err) => {
     logError('agent.trigger_scheduler.job_failed', err, { job_id: job?.id })
+    if (job?.name === 'task-report') {
+      void import('./task-reports')
+        .then(({ taskReports }) =>
+          taskReports().updateOne(
+            { _id: job.data.reportId },
+            {
+              $set: {
+                deliveryError:
+                  'Report notification failed; inspect the parent conversation and queue before retrying.',
+              },
+            },
+          ),
+        )
+        .catch((error: unknown) => {
+          logError('agent.task_report.failure_record_failed', error)
+        })
+    }
   })
+
+  await _queue.upsertJobScheduler(
+    'task-report-recovery',
+    { every: 60_000 },
+    {
+      name: 'recover-task-reports',
+      opts: { removeOnComplete: 1, removeOnFail: 10 },
+    },
+  )
 
   const cronTriggers = await agentTriggers()
     .find({ ...liveTriggerShapeFilter, triggerType: 'cron', enabled: true })
@@ -129,7 +176,8 @@ async function _upsertJobScheduler(
 ): Promise<void> {
   await _queue!.upsertJobScheduler(
     `trigger:${triggerId}`,
-    { pattern: cronExpression, tz: timeZone },
+    // Within the scheduled minute: hourly Triggers otherwise all start at :00:00 together.
+    { pattern: spreadWithinMinute(triggerId, cronExpression), tz: timeZone },
     {
       name: 'run-trigger',
       data: { triggerId },

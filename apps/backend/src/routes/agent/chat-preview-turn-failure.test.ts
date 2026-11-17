@@ -274,6 +274,7 @@ test('Stop before the agent receives a queued message puts it back instead of re
   ])
 })
 
+// #2872: a direct send carries its message too, for a refusal to queue, and Stop used to queue it.
 test('Stop before the agent receives a direct send records the stop and keeps what waited behind it', async () => {
   const { drainPendingUserMessages } = await import('@/lib/agent/pending-messages')
 
@@ -282,7 +283,11 @@ test('Stop before the agent receives a direct send records the stop and keeps wh
 
   stopBeforeSend = run
   try {
-    await runClaudeCodePreviewChatTurn(turnArgs(run))
+    await runClaudeCodePreviewChatTurn({
+      ...turnArgs(run),
+      queued: waiting('user-message', 'fix it'),
+      direct: true,
+    })
   } finally {
     stopBeforeSend = null
     carried = []

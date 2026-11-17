@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // The Nuphos layer for agents that ship their own ACP server (Grok Build, Google
-// Antigravity, OpenCode, Hermes Agent, DeepSeek Harness). Claude Code and Codex get this layer by patching their Node adapters;
+// Antigravity, OpenCode, Hermes Agent, DeepSeek Harness), and for Pi behind the pi-acp
+// adapter. Claude Code and Codex get this layer by patching their Node adapters;
 // a native binary cannot be patched, so this process sits in front of it instead and
 // passes every frame through, except where a Nuphos session needs something:
 //
@@ -15,10 +16,11 @@ import { lstatSync, mkdirSync, symlinkSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { hermesProfile } from './hermes-session.mjs'
 import { nuphosBridgeMcpServers } from './mcp-bridge-config.mjs'
+import { piAgentDir, piTurnError, writePiMcpServers } from './pi-session.mjs'
 import { nuphosApplyRuntimeDefaults, nuphosSyncRuntimeSkills } from './runtime-defaults.mjs'
 import { nuphosSessionHomeEnv } from './session-home.mjs'
 
@@ -104,6 +106,25 @@ export const PROVIDERS = {
     // loads, so a load is sent as a resume.
     loadAsResume: true,
   },
+  pi: {
+    // Pi speaks its own RPC, not ACP: pi-acp, installed beside this file, runs the CLI.
+    adapter: true,
+    command: [
+      process.execPath,
+      fileURLToPath(new URL('./node_modules/pi-acp/dist/index.js', import.meta.url)),
+    ],
+    // An agent directory of the session home's own: see pi-session.mjs.
+    home: (runtimeHome, sessionHome, runtimeEnv) => ({
+      PI_CODING_AGENT_DIR: piAgentDir(runtimeHome, sessionHome ?? runtimeHome),
+      PI_ACP_PI_COMMAND: runtimeEnv.NUPHOS_AGENT_EXECUTABLE || 'pi',
+    }),
+    // pi-acp passes a session's MCP servers nowhere; Pi reads them from its agent directory.
+    mcpServers: (env, servers) => writePiMcpServers(env.PI_CODING_AGENT_DIR, servers),
+    // pi-acp ends a failed turn as if Pi had replied; Pi's session file says why it failed.
+    turnError: (env, sessionId) => piTurnError(env.PI_CODING_AGENT_DIR, sessionId),
+    instruct: null,
+    serialPrompts: true,
+  },
 }
 
 export function sessionContext(params) {
@@ -127,7 +148,7 @@ export function agentEnv(provider, context, runtimeEnv = process.env) {
     ...runtimeEnv,
     ...env,
     ...sessionHome,
-    ...PROVIDERS[provider].home(runtimeHome, sessionHome.NUPHOS_SESSION_HOME),
+    ...PROVIDERS[provider].home(runtimeHome, sessionHome.NUPHOS_SESSION_HOME, runtimeEnv),
   }
 }
 
@@ -138,8 +159,16 @@ function shareFromRuntimeHome(path, sessionHome, runtimeHome) {
   mkdirSync(dirname(link), { recursive: true, mode: 0o700 })
   try {
     lstatSync(link)
-  } catch {
-    symlinkSync(join(runtimeHome, path), link)
+    return
+  } catch {}
+  try {
+    // A junction on Windows, where a symlink needs Developer Mode or an administrator.
+    symlinkSync(join(runtimeHome, path), link, 'junction')
+  } catch (error) {
+    // Unshared, the agent starts without the runtime's login there; the turn still runs.
+    process.stderr.write(
+      `nuphos: could not share ${path} with the runtime home: ${error.message}\n`,
+    )
   }
 }
 
@@ -219,6 +248,7 @@ export function runShim({
   const transforms = new Map()
   let initialize
   let agent
+  let agentEnvironment
   // The session home the agent was last started in; null until a session binds it.
   let boundHome = null
   let nextId = 0
@@ -227,8 +257,11 @@ export function runShim({
     agent?.kill('SIGTERM')
     // A computer running the agent locally names its own CLI, which may be off PATH.
     const [command, ...args] = typeof spec.command === 'function' ? spec.command(env) : spec.command
-    const child = spawnAgent([env.NUPHOS_AGENT_EXECUTABLE || command, ...args], env)
+    // An adapter runs the CLI itself, named to it in its home's environment.
+    const executable = spec.adapter ? command : env.NUPHOS_AGENT_EXECUTABLE || command
+    const child = spawnAgent([executable, ...args], env)
     agent = child
+    agentEnvironment = env
     // The agent is the session: when it ends, so does this process.
     child.on('exit', (code) => {
       if (agent === child) onExit(code ?? 1)
@@ -272,6 +305,19 @@ export function runShim({
     if (message.method === undefined && prompts.has(message.id)) {
       const promptSession = prompts.get(message.id)
       prompts.delete(message.id)
+      const failure = message.result && spec.turnError?.(agentEnvironment, promptSession)
+      if (failure)
+        write({
+          jsonrpc: '2.0',
+          method: 'session/update',
+          params: {
+            sessionId: promptSession,
+            update: {
+              sessionUpdate: 'agent_message_chunk',
+              content: { type: 'text', text: `The model provider refused the request: ${failure}` },
+            },
+          },
+        })
       forward(message)
       const next = queued.get(promptSession)?.shift()
       if (next) sendPrompt(next)
@@ -367,6 +413,7 @@ export function runShim({
       _meta: meta,
       mcpServers: nuphosBridgeMcpServers(message.params?.mcpServers ?? [], runtimeEnv),
     }
+    spec.mcpServers?.(agentEnvironment, params.mcpServers)
     if (params.sessionId) opening.add(params.sessionId)
     transforms.set(message.id, async (reply) => {
       opening.delete(params.sessionId)

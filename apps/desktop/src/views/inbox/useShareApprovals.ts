@@ -21,6 +21,8 @@ export function useShareApprovals(teamId: string) {
     queryFn: () => api.localShareApprovals(teamId),
     enabled: Boolean(teamId),
     refetchInterval: SHARE_APPROVAL_POLL_MS,
+    // A retry would pause until the window is focused; the next poll is the retry.
+    retry: false,
     // A new one is notified, so it is read in the background too.
     refetchIntervalInBackground: true,
   })

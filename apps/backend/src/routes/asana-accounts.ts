@@ -2,6 +2,8 @@ import crypto from 'node:crypto'
 
 import { Hono } from 'hono'
 
+import { requestedBindingShare } from '@/lib/byos/initial-access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import {
   buildAuthorizeUrl,
   getAccessTokenWithExpiry,
@@ -14,7 +16,12 @@ import {
 } from '@/lib/byos/asana'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
-import { requireTeamRole, requireAsanaAccount, requireAsanaMemberAccess } from '@/middleware/auth'
+import {
+  requireAsanaAccount,
+  requireAsanaMemberAccess,
+  requireCanDisconnect,
+  requireTeamRole,
+} from '@/middleware/auth'
 import { asanaPendingOAuth, teamByosBindings } from '@/models'
 
 import type { TeamAuthVariables, AsanaAccountVariables } from '@/middleware/auth'
@@ -75,6 +82,7 @@ asanaAccountsRoutes.post('/start-oauth', requireTeamRole('ADMINISTRATOR'), async
   const expiresAt = new Date(Date.now() + OAUTH_PENDING_TTL_MS)
 
   await asanaPendingOAuth().insertOne({
+    ...(await requestedBindingShare(c)),
     _id: state,
     teamId,
     requesterUserId,
@@ -113,32 +121,38 @@ asanaAccountsRoutes.delete('/start-oauth/:state', requireTeamRole('ADMINISTRATOR
 const bindingScoped = new Hono<{ Variables: AsanaAccountVariables }>()
 
 bindingScoped.use('*', requireAsanaAccount())
+registerBindingAccessRoutes(bindingScoped, 'asanaAccounts', (c) => c.get('asanaBinding'))
 
 bindingScoped.get('/', (c) => {
   return c.json(publicView(c.get('asanaBinding')))
 })
 
-bindingScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
-  const teamId = parseObjectId(c.get('teamId'), 'teamId')
-  const binding = c.get('asanaBinding')
+bindingScoped.delete(
+  '/',
+  requireTeamRole('ADMINISTRATOR'),
+  requireCanDisconnect('asanaAccess'),
+  async (c) => {
+    const teamId = parseObjectId(c.get('teamId'), 'teamId')
+    const binding = c.get('asanaBinding')
 
-  await teamByosBindings().updateOne(
-    { _id: teamId },
-    {
-      $pull: { asanaAccounts: { id: binding.id } },
-      $set: { updatedAt: new Date() },
-    },
-  )
-  invalidateAsanaAccessToken(teamId, binding.id)
-  // Best-effort: revoke the grant at Asana so the long-lived refresh token (and
-  // any access token already handed to a sandbox) stops working. Runs AFTER the
-  // DB write so a revoke failure/crash never leaves a persisted binding whose
-  // tokens are already dead at Asana. Don't block the unbind on it — the local
-  // binding is already gone even if Asana is unreachable.
-  await revokeGrant(binding)
+    await teamByosBindings().updateOne(
+      { _id: teamId },
+      {
+        $pull: { asanaAccounts: { id: binding.id } },
+        $set: { updatedAt: new Date() },
+      },
+    )
+    invalidateAsanaAccessToken(teamId, binding.id)
+    // Best-effort: revoke the grant at Asana so the long-lived refresh token (and
+    // any access token already handed to a sandbox) stops working. Runs AFTER the
+    // DB write so a revoke failure/crash never leaves a persisted binding whose
+    // tokens are already dead at Asana. Don't block the unbind on it — the local
+    // binding is already gone even if Asana is unreachable.
+    await revokeGrant(binding)
 
-  return c.body(null, 204)
-})
+    return c.body(null, 204)
+  },
+)
 
 // Agent credential handout, mirroring jira-sites /credentials: the sandbox
 // exchanges its NUPHOS_TOKEN for a fresh (auto-refreshed) Asana access token and

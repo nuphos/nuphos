@@ -9,6 +9,7 @@ import { fenceUntrusted } from '../untrusted-content'
 import { canReply, readableConversationScope } from './access'
 import { assertBot } from './bot-membership'
 import { readNote } from './channel-notes'
+import { markChannelRead } from './channel-cursor'
 import { agentConversations, agentMessages } from './shared'
 
 import type { AgentConversation } from './shared'
@@ -33,8 +34,11 @@ export type ChannelFields = {
   channelWakes?: string[]
   /** People @mentioned here, or invited `by` someone, who have not posted since: their entry. */
   mentions?: Record<string, { messageId: string; at: Date; by?: { id: string; name: string } }>
-  /** On a Task: the live call it is in, whose speech and chat arrive as its messages. */
-  meeting?: { botId: string; botName: string; url: string }
+  /**
+   * On a Task: the live call it is in, whose speech and chat arrive as its messages. Kept once
+   * the call ends, with `endedAt`, so it still counts toward the team's meeting budget.
+   */
+  meeting?: { botId: string; botName: string; url: string; endedAt?: Date }
 }
 
 /** The sender id a channel notice carries, which also picks its instructions. */
@@ -142,15 +146,6 @@ function channelUploadIds(parts: readonly unknown[] | undefined): string[] {
 // A turn's worth of reading. An agent new to the channel starts at its latest page.
 const READ_PAGE = 50
 
-/** Moves the agent's place in a channel forward to `index`. */
-export async function markChannelRead(channelId: string, agentSessionId: string, index: number) {
-  await agentConversations().updateOne(
-    { sessionId: channelId },
-    // Two reads at once must not move the place back.
-    { $max: { [`agentReadIndex.${agentSessionId}`]: index } },
-  )
-}
-
 /**
  * Whether the reading agent's owner posted this, as themselves in the app. Only
  * the server-authored sender id counts: never a display name or quoted text.
@@ -188,7 +183,13 @@ export async function readChannelMessages(
 ) {
   const after = channel.agentReadIndex?.[agentSessionId] ?? channel.messageCount - READ_PAGE - 1
   const docs = await agentMessages()
-    .find({ sessionId: channel.sessionId, userId: channel.userId, index: { $gt: after } })
+    .find({
+      sessionId: channel.sessionId,
+      userId: channel.userId,
+      index: { $gt: after },
+      // Its own posts are not news to it, and must not push others' off the page.
+      'metadata.sender.id': { $ne: agentSessionId },
+    })
     .sort({ index: 1 })
     .limit(READ_PAGE + 1)
     .toArray()

@@ -4,7 +4,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.navigation.compose.rememberNavController
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import ai.nuphos.android.data.*
@@ -18,6 +18,7 @@ import ai.nuphos.android.ui.LocalAuthSession
 import ai.nuphos.android.ui.LocalAgentStore
 import ai.nuphos.android.ui.chat.ConversationScreen
 import ai.nuphos.android.ui.theme.NuphosTheme
+import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.cancel
@@ -27,6 +28,7 @@ import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.*
 import org.junit.runner.RunWith
 import java.util.concurrent.CopyOnWriteArrayList
+import org.junit.Assume.assumeTrue
 
 /** Actual Compose controls with synthetic sessions, blocked HTTP, and deferred acknowledgements. */
 @RunWith(AndroidJUnit4::class)
@@ -46,8 +48,8 @@ class RuntimeSheetFixtureDeviceTest {
     private var gate = java.util.concurrent.CountDownLatch(1)
     @Volatile private var catalogStatus = 200
     @Volatile private var catalogBody = """{"runtimes":[{"id":"cloud","provider":"codex","label":"Synthetic Cloud","status":"active","kind":"managed"},{"id":"local","provider":"codex","label":"Synthetic Computer","status":"active","kind":"local","local":{"online":true}}]}"""
+
     @Before fun blockNetwork() {
-        require(compose.activity.packageName == "ai.nuphos.android.runtimesheet1375")
         compose.runOnIdle {
             savedAccess = accessState().value
             AiAccess.activate(fixtureToken)

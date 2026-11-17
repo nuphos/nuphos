@@ -5,6 +5,8 @@
     <string name="chat_event_expand">イベントを展開</string>
     <string name="chat_channel_new_messages">#%1$s に新しいメッセージ</string>
     <string name="chat_open_channel">チャンネルを開く</string>
+    <string name="chat_channel_sent_file">ファイルを送信しました</string>
+    <string name="chat_channel_more_posts">他 %1$d 件</string>
     <string name="chat_answered_by">%1$s が回答</string>
     <string name="chat_question_collapse">質問を折りたたむ</string>
     <string name="chat_question_expand">質問を展開</string>
@@ -68,8 +70,8 @@
     <string name="chat_image_close">閉じる</string>
     <string name="chat_image_reset_zoom">ズームをリセット</string>
     <string name="chat_video_save">動画を保存</string>
-    <string name="chat_image_previous">前の画像</string>
-    <string name="chat_image_next">次の画像</string>
+    <string name="chat_image_previous">前へ</string>
+    <string name="chat_image_next">次へ</string>
     <string name="chat_image_zoom_in">拡大</string>
     <string name="chat_image_zoom_percent">ズーム %1$d%%</string>
     <string name="chat_video_position">動画 %1$d / %2$d</string>

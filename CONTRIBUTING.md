@@ -53,6 +53,36 @@ Pull requests get an automated review in addition to a human one. It will
 sometimes be wrong; say so and explain why rather than changing code you believe
 is correct.
 
+## Verification before merge
+
+A change is merged when it has been shown to work in the product, not when its
+unit tests pass. Most regressions here sit between two components (the Desktop
+app and the backend, the backend and a runtime), where each side's tests run
+against a stand-in for the other and stay green.
+
+Every pull request fills in **How this was verified** in its description:
+
+- **The flow you exercised**, as the steps a person takes, on the real app or
+  service the change runs in. A component harness or fixture counts only for
+  what it renders; say so, and name what it does not cover.
+- **The build and environment**: local stack, packaged app, simulator or
+  device, and the operating system when it matters.
+- **The result you observed**, with a screenshot or recording when the change
+  is visible.
+- **What you did not verify.** An honest gap is fine. A gap nobody mentioned is
+  how a fix ships that does not fix the report.
+
+Two rules on tests:
+
+- **A bug fix comes with a test that fails without the fix.** If no test can
+  express it, say why in the description, and describe the manual check instead.
+- **A flow that broke after merge gets an automated end-to-end scenario** in the
+  pull request that repairs it, in the cheapest harness that can express it.
+
+A reviewer will ask for the missing piece rather than approve without it.
+Changes with no behaviour to exercise (documentation, comments, renames,
+dependency bumps covered by CI) can write "not applicable" and one line of why.
+
 ## Developer Certificate of Origin
 
 This project uses the [Developer Certificate of Origin 1.1](DCO). Sign off

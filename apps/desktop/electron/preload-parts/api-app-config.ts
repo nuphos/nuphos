@@ -11,9 +11,11 @@ export const appConfigApi = {
   claimFirstLaunchIntro: (): Promise<boolean> => ipcRenderer.invoke('app:claimFirstLaunchIntro'),
   // "Send crash reports and usage data" (main process owns the setting).
   sendDiagnostics: (): boolean => ipcRenderer.sendSync('diagnostics:enabled') === true,
+  // Whether usage data is sent: the setting is on and the backend is Nuphos Cloud.
+  sendUsageData: (): boolean => ipcRenderer.sendSync('diagnostics:usage') === true,
   setSendDiagnostics: (send: boolean): Promise<boolean> =>
     ipcRenderer.invoke('diagnostics:set', send),
-  onSendDiagnosticsChanged: (listener: (send: boolean) => void): (() => void) => {
+  onSendUsageDataChanged: (listener: (send: boolean) => void): (() => void) => {
     const handler = (_event: unknown, send: boolean) => listener(send)
 
     ipcRenderer.on('diagnostics:changed', handler)

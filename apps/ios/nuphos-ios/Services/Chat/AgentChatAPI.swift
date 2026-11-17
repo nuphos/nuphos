@@ -21,8 +21,6 @@ enum AgentChatAPI {
         var runtimeId: String?
         var initialSessionConfig: [String: String]?
         var clientCapabilities: [String: Bool]?
-        /// The open question this message answers: the server resolves that request.
-        var decisionReplyTo: String?
     }
 
     /// The `POST /agent/chat` request. `accept-encoding: identity` is
@@ -51,12 +49,10 @@ enum AgentChatAPI {
     /// Sends one message from outside the chat screen: a notification reply.
     /// The server reads the history itself, queues behind a running turn, and
     /// keeps the turn going after this returns, so only the headers are awaited.
-    /// `decisionReplyTo` names the question it answers, as a decision card's reply does.
-    static func reply(token: String, teamId: String, sessionId: String, text: String, decisionReplyTo: String? = nil) async throws {
+    static func reply(token: String, teamId: String, sessionId: String, text: String) async throws {
         let message = ChatMessage(role: .user, parts: [.text(.init(text: text, state: .done))])
         let request = try chatRequest(token: token, body: .init(
-            id: sessionId, teamId: teamId, messages: [message], streamId: UUID().uuidString.lowercased(),
-            decisionReplyTo: decisionReplyTo))
+            id: sessionId, teamId: teamId, messages: [message], streamId: UUID().uuidString.lowercased()))
         let (bytes, response) = try await URLSession.shared.bytes(for: request)
         bytes.task.cancel()
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
@@ -248,8 +244,7 @@ enum AgentChatAPI {
         return try JSONDecoder().decode(Saved.self, from: data).path
     }
 
-    /// `POST /agent/conversations/:id/decisions/:requestId/resolve` — marks a question answered.
-    /// `PATCH /agent/conversations/:id/credentials` — the conversation's whole credential
+        /// `PATCH /agent/conversations/:id/credentials` — the conversation's whole credential
     /// selection, as its owner sets it. The server answers an open integration question
     /// the selection now covers, and tells the agent.
     static func updateCredentials(token: String, teamId: String, sessionId: String, selection: CredentialSelection) async throws {
@@ -258,9 +253,13 @@ enum AgentChatAPI {
             body: JSONValue.object(["teamId": .string(teamId), "credentialAccess": selection.json]))
     }
 
-    static func resolveDecision(token: String, teamId: String, sessionId: String, requestId: String) async throws {
+    /// `POST /agent/conversations/:id/decisions/:requestId/resolve` — marks a question answered,
+    /// or `dismissed`: withdrawn unanswered.
+    static func resolveDecision(
+        token: String, teamId: String, sessionId: String, requestId: String, resolution: String = "answered"
+    ) async throws {
         _ = try await send("POST", "agent/conversations/\(sessionId)/decisions/\(requestId)/resolve",
-            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: ["resolution": "answered"])
+            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: ["resolution": resolution])
     }
 
     /// `POST /agent/conversations/:id/steer` — hands a message to the turn
@@ -297,9 +296,13 @@ enum AgentChatAPI {
             query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: Optional<Int>.none)
     }
 
-    static func cancelRuntime(token: String, teamId: String, sessionId: String) async throws {
-        _ = try await send("POST", "agent/conversations/\(sessionId)/cancel-runtime",
+    /// The server's word on the Stop: "runtime_unreachable" when the runtime
+    /// never heard it and the turn was stopped on the server instead.
+    static func cancelRuntime(token: String, teamId: String, sessionId: String) async throws -> String? {
+        struct Stop: Decodable { let status: String? }
+        let data = try await send("POST", "agent/conversations/\(sessionId)/cancel-runtime",
             query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: Optional<Int>.none)
+        return (try? JSONDecoder().decode(Stop.self, from: data))?.status
     }
 
     struct RuntimeMove: Decodable { let runtimeId: String; let runtimeLabel: String; let agentRuntime: String }
@@ -417,19 +420,19 @@ enum AgentChatAPI {
 
         var errorDescription: String? {
             switch self {
-            case .transcriptOutOfSync: "The task changed elsewhere; resyncing."
-            case .streamNotResumable: "The previous reply can no longer be resumed."
-            case .streamConflict: "That stream belongs to another task."
-            case .conversationBusy: "This agent is busy with another reply."
-            case .runtimeNotReady: "The runtime is not ready for a new message yet. Try again in a moment."
-            case .runtimeLoginRequired: "This runtime is signed out. Sign it in from Nuphos on the computer it runs on, or switch to another runtime."
-            case .runtimeDisabled: "This task's runtime is disabled. Switch to another runtime to continue."
-            case .runtimeNotFound: "This runtime is no longer available in this workspace. Switch to another runtime to continue."
-            case .runtimeOffline: "The computer running this runtime is offline. Open Nuphos on it, or switch to another runtime."
+            case .transcriptOutOfSync: String(localized: "The task changed elsewhere; resyncing.")
+            case .streamNotResumable: String(localized: "The previous reply can no longer be resumed.")
+            case .streamConflict: String(localized: "That stream belongs to another task.")
+            case .conversationBusy: String(localized: "This agent is busy with another reply.")
+            case .runtimeNotReady: String(localized: "The runtime is not ready for a new message yet. Try again in a moment.")
+            case .runtimeLoginRequired: String(localized: "This runtime is signed out. Sign it in from Nuphos on the computer it runs on, or switch to another runtime.")
+            case .runtimeDisabled: String(localized: "This task's runtime is disabled. Switch to another runtime to continue.")
+            case .runtimeNotFound: String(localized: "This runtime is no longer available in this workspace. Switch to another runtime to continue.")
+            case .runtimeOffline: String(localized: "The computer running this runtime is offline. Open Nuphos on it, or switch to another runtime.")
             case .runtimeUnavailable(let message): message
-            case .runtimeBusy: "Wait for the current reply to finish before changing model settings."
-            case .conversationNotRunning: "This task is no longer running."
-            case .conversationInUseByTeammate: "A teammate is using this task right now. Try again after their turn finishes."
+            case .runtimeBusy: String(localized: "Wait for the current reply to finish before changing model settings.")
+            case .conversationNotRunning: String(localized: "This task is no longer running.")
+            case .conversationInUseByTeammate: String(localized: "A teammate is using this task right now. Try again after their turn finishes.")
             case .other(_, let message, _): message
             }
         }
@@ -444,7 +447,7 @@ enum AgentChatAPI {
     static func conflict(status: Int, body: String?) -> Conflict {
         if status == 413 { return .other(code: "payload_too_large", message: ChatPayload.tooLargeMessage, status: status) }
         var code: String?
-        var message = body ?? "Nuphos returned status \(status)."
+        var message = body ?? String(localized: "Nuphos returned status \(status).")
         var stored: Int?
         if let body, let data = body.data(using: .utf8),
            let json = try? JSONDecoder().decode(JSONValue.self, from: data) {
@@ -719,7 +722,9 @@ struct PlanApprovalRequirement: Equatable, Sendable {
     /// The desktop's policy strip copy.
     var summary: String {
         minimumOtherApprovals == 0
-            ? "Requester only"
-            : "Requester + \(minimumOtherApprovals) other member\(minimumOtherApprovals == 1 ? "" : "s")"
+            ? String(localized: "Requester only")
+            : minimumOtherApprovals == 1
+            ? String(localized: "Requester + 1 other member")
+            : String(localized: "Requester + \(minimumOtherApprovals) other members")
     }
 }

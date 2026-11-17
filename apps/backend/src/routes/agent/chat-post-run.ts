@@ -86,8 +86,9 @@ export function launchAcceptedChatTurn(args: {
   releaseClaim: (() => void) | null
   slack: SlackBoundTurn | null
   chatRuntime: ConversationChatRuntime
-  /** Started from the session queue (see PreviewChatTurnArgs.queued). */
+  /** The message this turn runs, and whether it was sent just now (see PreviewChatTurnArgs). */
   queued?: PendingUserMessage
+  direct?: boolean
   /** A new conversation's turn, already stored by the route before the run was accepted. */
   storedTurn?: { isNew: boolean } | null
 }): void {
@@ -224,8 +225,9 @@ export function launchAcceptedChatTurn(args: {
           })
         },
         localToolsEnabled: chatCtx.localToolsEnabled,
+        secretCardEnabled: chatCtx.secretCardEnabled,
         decisionReplyTo: decisionReplyOf(body),
-        ...(args.queued ? { queued: args.queued } : {}),
+        ...(args.queued ? { queued: args.queued, direct: args.direct } : {}),
         ...(body.continueAfterInterruption
           ? { resume: { ...(body.resumeReason ? { reason: body.resumeReason } : {}) } }
           : {}),

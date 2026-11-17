@@ -171,6 +171,7 @@ export async function runOpenConversation(
       signInRequest: detail.signInRequest,
       timelineEvents: detail.timelineEvents,
       promptSuggestion: detail.promptSuggestion,
+      waitingAnswers: detail.waitingAnswers,
       openedAt: Date.now(),
     }
 

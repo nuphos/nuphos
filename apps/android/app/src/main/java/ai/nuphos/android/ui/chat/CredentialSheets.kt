@@ -51,6 +51,8 @@ fun CredentialPickerSheet(
     onSelectionChange: (CredentialSelection) -> Unit,
     onDismiss: () -> Unit,
     computersOnly: Boolean = false,
+    /** An integration question's providers: only the credentials that answer it are offered. */
+    providers: List<String>? = null,
     onConfirm: (() -> Unit)? = null,
 ) {
     val store = LocalAgentStore.current
@@ -63,7 +65,7 @@ fun CredentialPickerSheet(
         else if (selection.newConversation || selection.stored != null) loaded else ai.nuphos.android.model.CredentialCatalog(
             loaded.sections.filter { it.provider in ai.nuphos.android.model.CredentialCatalog.PROVIDERS },
         )
-    }
+    }?.answering(providers)
     val error = store.credentialCatalogError
     val scope = rememberCoroutineScope()
     // Like iOS, always ask the server when the picker opens: a connector unbound
@@ -132,7 +134,12 @@ fun CredentialPickerSheet(
                     item {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                             if (computersOnly) Icon(Icons.Outlined.Computer, null, Modifier.size(18.dp).padding(end = 4.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(section.provider.title, style = MaterialTheme.typography.titleSmall, color = if (computersOnly) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f).padding(vertical = 8.dp))
+                            Text(when (section.provider.optionsKey) {
+                                "devices" -> stringResource(R.string.composer_computers)
+                                "onpremClusters" -> stringResource(R.string.storetext_credentials_clusters)
+                                "personalCredentials" -> stringResource(R.string.storetext_credentials_personal)
+                                else -> section.provider.title
+                            }, style = MaterialTheme.typography.titleSmall, color = if (computersOnly) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f).padding(vertical = 8.dp))
                             if (!computersOnly && section.provider.optionsKey == "devices") {
                                 val allSelected = selection.containsAllComputers(catalog)
                                 TextButton(onClick = {

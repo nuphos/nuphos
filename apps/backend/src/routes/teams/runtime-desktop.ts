@@ -1,5 +1,6 @@
 import { upgradeWebSocket } from 'hono/bun'
 
+import { requestComputerAppUpdate } from '@/lib/claude-code-preview/computer-app-update'
 import {
   openRuntimeDesktop,
   runtimeDesktopEvents,
@@ -37,6 +38,13 @@ export function registerRuntimeDesktopRoutes(teamScoped: Hono<{ Variables: TeamA
   )
   teamScoped.get('/runtime-desktop/runtime/:runtimeId/:display', (c) =>
     streamDesktop(c, { runtimeId: c.req.param('runtimeId') }, c.req.param('display')),
+  )
+
+  // The caller's other computer restarts its Nuphos Desktop into the update it downloaded.
+  teamScoped.post('/computers/:deviceId/app-update', async (c) =>
+    c.json(
+      await requestComputerAppUpdate(c.get('teamId'), c.get('userId'), c.req.param('deviceId')),
+    ),
   )
 
   teamScoped.post('/runtime-desktop/:sessionId', async (c) =>

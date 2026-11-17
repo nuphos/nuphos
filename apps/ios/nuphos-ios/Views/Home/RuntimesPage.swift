@@ -53,12 +53,6 @@ struct RuntimesPage: View {
         }
     }
 
-    /// The box's runtime that opens its computer's desktop: the viewer's own computer, whose host can.
-    private func desktopRuntime(in box: SelectorBox) -> RuntimeInstance? {
-        guard let userId = store.userId else { return nil }
-        return box.agents.first { $0.local?.ownerUserId == userId && $0.local?.desktopOpen == true }
-    }
-
     private var list: some View {
         List {
             if boxes.isEmpty {
@@ -69,12 +63,14 @@ struct RuntimesPage: View {
                 Section {
                     SelectorBoxHeader(box: box, current: false, expanded: true, metricsUnavailable: store.agentDevicesError, showsChevron: false)
                         .listRowInsets(EdgeInsets(top: 16, leading: 20, bottom: 16, trailing: 20))
-                    if let runtime = desktopRuntime(in: box), let team = store.selectedTeam {
+                    // The backend names it only for a computer the viewer may open; it needs no runtime.
+                    if let runtimeId = box.device?.desktopRuntimeId, let team = store.selectedTeam {
                         Button {
-                            desktop = .computer(teamId: team.id, runtimeId: runtime.id, token: store.token)
+                            desktop = .computer(teamId: team.id, runtimeId: runtimeId, token: store.token)
                         } label: {
                             Label("Desktop", systemImage: "display").font(.system(size: 15)).foregroundStyle(Theme.brandText)
                         }
+                        .accessibilityIdentifier("desktop-\(box.id)")
                         .listRowInsets(EdgeInsets(top: 12, leading: 20, bottom: 12, trailing: 20))
                     }
                     ForEach(box.agents) { runtime in
@@ -139,17 +135,17 @@ private struct AgentSignInInstructions: View {
     }
 
     private var title: String {
-        guard let local = runtime.local else { return "Ask an administrator to sign in" }
-        return teammate ? "Ask its owner to sign in" : "Sign in on \(local.deviceLabel)"
+        guard let local = runtime.local else { return String(localized: "Ask an administrator to sign in") }
+        return teammate ? String(localized: "Ask its owner to sign in") : String(localized: "Sign in on \(local.deviceLabel)")
     }
 
     /// The Runtimes page is in Nuphos on a computer, not in this app.
     private var steps: String {
         guard let local = runtime.local else {
-            return "A workspace administrator can sign it in from the Runtimes page in Nuphos on their computer."
+            return String(localized: "A workspace administrator can sign it in from the Runtimes page in Nuphos on their computer.")
         }
         return teammate
-            ? "\(local.deviceLabel) belongs to a teammate, so only they can sign it in. Ask them to open Nuphos on it and choose Sign in on the Runtimes page."
-            : "On \(local.deviceLabel), open Nuphos, go to the Runtimes page and choose Sign in for this runtime."
+            ? String(localized: "\(local.deviceLabel) belongs to a teammate, so only they can sign it in. Ask them to open Nuphos on it and choose Sign in on the Runtimes page.")
+            : String(localized: "On \(local.deviceLabel), open Nuphos, go to the Runtimes page and choose Sign in for this runtime.")
     }
 }

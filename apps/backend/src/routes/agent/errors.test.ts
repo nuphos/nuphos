@@ -46,6 +46,22 @@ test('a Claude usage limit reaches clients as its own notice', () => {
   expect(frame.errorText).toBe("You've hit your session limit · resets 4:20am (UTC)")
 })
 
+test('a Codex usage limit reaches clients as its own notice', () => {
+  const frame = agentStreamErrorFrame(
+    new OpenAbRpcError(
+      '**Internal Error** (code: -32603)\nInternal error\n> You’ve hit your usage limit. Visit https://chatgpt.com/settings/usage to purchase more credits or try again at 5:12 PM.',
+      -32603,
+      { code: -32603, message: 'Internal error' },
+    ),
+    undefined,
+  )
+
+  expect(frame.errorCode).toBe('runtime_usage_exhausted')
+  expect(frame.errorText).toBe(
+    'You’ve hit your usage limit. Visit https://chatgpt.com/settings/usage to purchase more credits or try again at 5:12 PM.',
+  )
+})
+
 test('other ACP refusals keep their diagnostics and stay uncoded', () => {
   const frame = agentStreamErrorFrame(new OpenAbRpcError('Runtime is busy', -32005), undefined)
 

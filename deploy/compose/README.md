@@ -34,7 +34,7 @@ docker compose ps             # wait until rustfs, backend and runtime are healt
 
 Without `init-env.sh`, copy `.env.example` to `.env` and fill each value with the `openssl` command noted on its line.
 
-To change the runtime version, edit `RUNTIME_TAG` in `.env` (for example `0.1.60-claude-code`), then run `docker compose up -d runtime`.
+To change the runtime version, edit `RUNTIME_TAG` in `.env` (for example `0.1.63-claude-code`), then run `docker compose up -d runtime`.
 
 ## First sign-in
 
@@ -219,6 +219,10 @@ Admins can do the same over HTTP with `GET /admin/telemetry` and
 `NUPHOS_TELEMETRY_KEY`; Nuphos can also revoke a key. A report that cannot be
 delivered is retried twice, then dropped with one `backend.telemetry.send_failed`
 log line; it never blocks a request.
+
+The Desktop and iOS apps send usage analytics only while they are connected to
+Nuphos Cloud. Connected to your instance they send none, and Desktop crash
+reports go to your own backend.
 
 ## Test managed agents locally (OrbStack)
 

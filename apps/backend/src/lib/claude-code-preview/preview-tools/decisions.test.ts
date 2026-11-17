@@ -557,6 +557,45 @@ describe('decision tool module', () => {
     })
   })
 
+  // A phone runs no local tools, yet it draws the secure input card from the agent's own
+  // call. The agent has to be told so, or it believes the person was asked in plain text.
+  test('a phone turn asks for a secret with its secure input card', async () => {
+    const frames: Record<string, unknown>[] = []
+    const tools = decisionToolModule({
+      publish: async (_ctx, frame) => {
+        frames.push(frame)
+      },
+    }).handlers({ ...ctx, localTools: false, secretCard: true })
+    const result = await tools.request_user_decision!({
+      label: 'Ask for the OpenAI key',
+      category: 'credential',
+      question: 'Calling the API needs your OpenAI key.',
+      secretName: 'OPENAI_API_KEY',
+    })
+    const output = result.structuredContent as { secretName?: string; instruction: string }
+
+    expect(output.secretName).toBe('OPENAI_API_KEY')
+    expect(output.instruction).toContain('secure input card')
+    expect(frames[0]).toMatchObject({ input: { secretName: 'OPENAI_API_KEY' } })
+  })
+
+  test('a phone turn still asks for a connection in plain text', async () => {
+    const tools = decisionToolModule({ publish: async () => {} }).handlers({
+      ...ctx,
+      localTools: false,
+      secretCard: true,
+    })
+    const result = await tools.request_user_decision!({
+      label: 'Ask to connect Linear',
+      category: 'integration',
+      question: 'Connect Linear for this task.',
+      providers: ['linear'],
+    })
+
+    expect(result.structuredContent).not.toHaveProperty('providers')
+    expect((result.structuredContent as { instruction: string }).instruction).not.toContain('card')
+  })
+
   test('client-side tools publish only the input card and return what the desktop ran', async () => {
     const frames: Record<string, unknown>[] = []
     const tools = decisionToolModule({

@@ -1,6 +1,8 @@
 package ai.nuphos.android.session
 
 import ai.nuphos.android.data.ShareDraftStore
+import ai.nuphos.android.model.Words
+import ai.nuphos.android.R
 import ai.nuphos.android.model.ComposerAttachment
 import ai.nuphos.android.session.IncomingShares.Pending
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -90,7 +92,7 @@ internal class IncomingShareMailbox(private val disk: ShareDraftStore? = null, p
         val retainedBytes = delivered.values.flatten().sumOf { it.sizeBytes }
         if (retainedBytes + attachments.sumOf { it.sizeBytes } > ai.nuphos.android.data.AttachmentTransfers.MAX_TOTAL_BYTES) {
             attachments.forEach { it.releaseOwnedCopy() }
-            failed(id, "Shared attachment drafts exceed 500 MiB. Send or remove an existing draft first.")
+            failed(id, Words(R.string.convtext_share_drafts_too_large))
             return false
         }
         publish(journal.copy(pending = ShareDraftStore.Pending(id, current.accountId, text, disk?.describe(attachments).orEmpty(), now())))

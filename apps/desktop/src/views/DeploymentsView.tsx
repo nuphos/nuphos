@@ -1,4 +1,8 @@
-import { faPen, faRotateLeft, faSliders } from '@fortawesome/free-solid-svg-icons'
+import {
+  Pencil as PencilIcon,
+  RotateCcw as RotateCcwIcon,
+  SlidersHorizontal as SlidersHorizontalIcon,
+} from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { api } from '../api'
@@ -129,19 +133,19 @@ export function DeploymentsView({
       {
         key: 'env',
         label: t('Edit environment'),
-        icon: faPen,
+        icon: PencilIcon,
         onSelect: () => onSelect(deployment, 'Env'),
       },
       {
         key: 'scale',
         label: t('Scale replicas'),
-        icon: faSliders,
+        icon: SlidersHorizontalIcon,
         onSelect: () => setScaleTarget({ deployment, context: actionContext }),
       },
       {
         key: 'restart',
         label: t('Restart rollout'),
-        icon: faRotateLeft,
+        icon: RotateCcwIcon,
         confirm: t('Restart deployment "{name}"? Kubernetes will roll out new pods.', {
           name: deployment.name,
         }),
@@ -225,13 +229,13 @@ export function DeploymentsView({
           {
             key: 'restart',
             label: t('Restart rollout'),
-            icon: faRotateLeft,
+            icon: RotateCcwIcon,
             onClick: () => setConfirmRestart(true),
           },
           {
             key: 'scale',
             label: t('Scale'),
-            icon: faSliders,
+            icon: SlidersHorizontalIcon,
             onClick: () => setBulkScale(true),
           },
         ]}

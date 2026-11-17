@@ -266,6 +266,17 @@ test('a send to an offline Box queues at once, even on a free session without a 
   ])
 })
 
+test('a send whose runtime does not answer its status waits for it, never refused', async () => {
+  const attached = { ...conversation, claudeCodePreview: {} } as AgentConversation
+  const admitted = await admit('blip', {
+    conversation: attached,
+    snapshot: { state: 'disconnected' },
+  })
+
+  expect(admitted?.mode).toBe('queued')
+  expect((await listPendingUserMessages(OWNER, SESSION)).map((item) => item.id)).toEqual(['blip'])
+})
+
 test('a send queues only for the computer its runtime resolution authorized', async () => {
   const offline = (runtimeId?: string) =>
     new AppError(409, 'runtime_offline', 'offline', runtimeId ? { runtimeId } : undefined)
@@ -533,6 +544,23 @@ test('an ordinary duplicate persisted input still releases its claim without lau
   })
   expect(released).toBe(1)
   expect(historyReads).toBe(0)
+})
+
+test('a queued phone message keeps that its sender draws the secure input card', () => {
+  const c = { req: { header: () => {} } } as unknown as Parameters<typeof queuedChatContext>[0]
+  const phone = { clientCapabilities: { localTools: false, secretCard: true } }
+
+  expect(queuedChatContext(c, 'en', phone, undefined)).toMatchObject({
+    localTools: false,
+    secretCard: true,
+  })
+  expect(queuedChatContext(c, 'en', {}, undefined)).not.toHaveProperty('secretCard')
+  const chat = { streamId: 'stream-p', message: message('queued-phone'), locale: 'en' }
+
+  expect(
+    queuedChatBody('conv-1', 'team-1', { ...chat, localTools: false, secretCard: true })
+      .clientCapabilities,
+  ).toEqual({ localTools: false, secretCard: true })
 })
 
 test('a queued answer keeps the question it names and is admitted naming it', () => {
