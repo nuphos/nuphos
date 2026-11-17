@@ -66,136 +66,23 @@ jobs:
     if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-24.04-arm
     outputs:
-      # A version-only diff (a release PR) skips these; see the step below.
-      backend: ${{ steps.filter.outputs.backend == 'true' && steps.bump.outputs.version_only != 'true' }}
-      desktop: ${{ steps.filter.outputs.desktop == 'true' && steps.bump.outputs.version_only != 'true' }}
-      desktop_package: ${{ steps.filter.outputs.desktop_package }}
-      ios: ${{ steps.filter.outputs.ios == 'true' && steps.bump.outputs.version_only != 'true' }}
-      cli: ${{ steps.filter.outputs.cli }}
-      openab: ${{ steps.filter.outputs.openab }}
-      skill_install: ${{ steps.filter.outputs.skill_install }}
-      dev_scripts: ${{ steps.filter.outputs.dev_scripts }}
-      lint_config: ${{ steps.filter.outputs.lint_config == 'true' && steps.bump.outputs.version_only != 'true' }}
-      import_cycles: ${{ steps.filter.outputs.import_cycles }}
-      e2e: ${{ steps.filter.outputs.e2e == 'true' && steps.bump.outputs.version_only != 'true' }}
+      backend: ${{ steps.changed.outputs.backend }}
+      desktop: ${{ steps.changed.outputs.desktop }}
+      desktop_package: ${{ steps.changed.outputs.desktop_package }}
+      ios: ${{ steps.changed.outputs.ios }}
+      cli: ${{ steps.changed.outputs.cli }}
+      openab: ${{ steps.changed.outputs.openab }}
+      skill_install: ${{ steps.changed.outputs.skill_install }}
+      dev_scripts: ${{ steps.changed.outputs.dev_scripts }}
+      lint_config: ${{ steps.changed.outputs.lint_config }}
+      import_cycles: ${{ steps.changed.outputs.import_cycles }}
+      e2e: ${{ steps.changed.outputs.e2e }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
-        id: filter
-        with:
-          filters: |
-            # Backend tests import electron main's local runtime, so its typecheck follows it,
-            # and from there the desktop's shared types and one runtime-image script.
-            backend:
-              - 'apps/backend/**'
-              - 'apps/desktop/electron/**'
-              - 'apps/desktop/src/api/**'
-              - 'apps/desktop/src/types/**'
-              - 'apps/runtime/image/antigravity-status.mjs'
-              - '.bun-version'
-              - '.github/workflows/ci.yml'
-            # electron main imports runtime-file-program.ts from the backend.
-            desktop:
-              - 'apps/desktop/**'
-              - 'apps/backend/src/lib/claude-code-preview/runtime-file-program.ts'
-              # The local runtime bundles most of the runtime image (apps/runtime/README.md).
-              - 'apps/runtime/image/**'
-              - '.github/workflows/ci.yml'
-            # What a PR needs the Mac for: what electron-builder adds beyond the
-            # vite bundle, and the macOS-only native addon. The single `*` takes
-            # the top-level config: package.json (electron-builder's config) and
-            # the lockfile.
-            desktop_package:
-              - 'apps/desktop/*'
-              - 'apps/desktop/native/**'
-              - 'apps/backend/src/lib/claude-code-preview/runtime-file-program.ts'
-              - 'apps/runtime/image/**'
-              - 'apps/desktop/electron/**'
-              - 'apps/desktop/local-runtime/**'
-              - 'apps/desktop/build/**'
-              - 'apps/desktop/scripts/**'
-              - 'apps/desktop/patches/**'
-              - '.github/workflows/ci.yml'
-            ios:
-              - 'apps/ios/**'
-              - '.github/workflows/ci.yml'
-            cli:
-              - 'apps/cli/**'
-              - '.github/workflows/ci.yml'
-            openab:
-              - 'apps/runtime/openab/**'
-              - '.github/workflows/ci.yml'
-            skill_install:
-              - 'apps/backend/src/lib/agent/builtin-skills/skills/*/scripts/install.sh'
-              - 'apps/backend/src/lib/agent/builtin-skills/github-install.test.sh'
-              - '.github/workflows/ci.yml'
-            dev_scripts:
-              - 'scripts/**'
-              - '.github/workflows/release-*.yml'
-              - 'eslint.config.mjs'
-              - 'eslint-rules/**'
-              - '.claude/hooks/**'
-              - '.github/workflows/ci.yml'
-            lint_config:
-              - 'eslint.config.mjs'
-              - 'eslint-rules/**'
-              - 'apps/*/eslint.config.*'
-              - 'scripts/check-lint-config-integrity.mjs'
-              - 'scripts/check-lint-config-integrity.test.mjs'
-              # A plugin bump is how a live rule turns into a deprecated stub.
-              - 'package.json'
-              - 'bun.lock'
-              - 'apps/*/package.json'
-              - 'apps/*/bun.lock'
-              - 'apps/desktop/pnpm-lock.yaml'
-              - '.github/workflows/ci.yml'
-            import_cycles:
-              - 'apps/backend/src/**'
-              - 'apps/desktop/src/**'
-              - 'apps/desktop/electron/**'
-              - 'apps/*/tsconfig*.json'
-              - 'scripts/check-import-cycles.mjs'
-              - 'scripts/check-import-cycles.test.mjs'
-              - 'scripts/import-cycles.baseline.json'
-              - '.github/workflows/ci.yml'
-            # What `bun run e2e` starts: the backend, the Desktop app and OpenAB.
-            e2e:
-              - 'apps/desktop/**'
-              - 'apps/backend/**'
-              - 'apps/runtime/openab/**'
-              - 'scripts/e2e/**'
-              - 'package.json'
-              - 'bun.lock'
-              - '.github/workflows/ci.yml'
-
-      # A release PR changes only `version` fields, the App Store notes and the
-      # runtime's SDK pins. No job here reads a version: Electron and the
-      # release workflows do, at run or tag time. So such a diff skips the
-      # backend, desktop, iOS and lint-config jobs. The CLI job still runs on
-      # its Cargo bump (its build is `--locked`), and Runtime CI builds the
-      # images for the pins. Anything else in the diff runs everything.
-      - name: Detect a version-only diff
-        id: bump
-        env:
-          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
-        run: |
-          git fetch --no-tags --depth=1 origin "$BASE"
-          # A failed diff or jq must fail the step or answer false, never true.
-          git diff --no-renames --name-only "$BASE" HEAD > "$RUNNER_TEMP/changed"
-          only=true
-          while read -r f; do
-            case "$f" in
-              apps/cli/* | apps/runtime/* | apps/ios/whats-new.txt) ;;
-              apps/*/package.json)
-                old=$(git show "$BASE:$f" | jq -S 'del(.version)') &&
-                  new=$(jq -S 'del(.version)' "$f") &&
-                  [ "$old" = "$new" ] || only=false ;;
-              *) only=false ;;
-            esac
-          done < "$RUNNER_TEMP/changed"
-          echo "version_only=$only" | tee -a "$GITHUB_OUTPUT"
+      - id: changed
+        uses: ./.github/actions/changed
 
   ios:
     name: iOS (simulator build)
@@ -325,8 +212,7 @@ jobs:
 
   backend:
     name: Backend (typecheck + test + docker build)
-    needs: changes
-    if: needs.changes.outputs.backend == 'true'
+    if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     # The runtime-state store's compare-and-set is a Lua script; its suite runs
     # only against a real Redis (TEST_REDIS_URL below).
@@ -351,22 +237,29 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - id: changed
+        uses: ./.github/actions/changed
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        if: steps.changed.outputs.backend == 'true'
         with:
           node-version: 24
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        if: steps.changed.outputs.backend == 'true'
         with:
           bun-version-file: .bun-version
       # Tests must run on the Bun the production image ships, or a runtime
       # behavior change (e.g. http.Agent options) can pass CI and fail in prod.
       - name: Bun matches the backend image
+        if: steps.changed.outputs.backend == 'true'
         run: |
           image=$(sed -n 's|^FROM oven/bun:\([0-9.]*\).*|\1|p' apps/backend/Dockerfile | sort -u)
           test "$image" = "$(bun --version)" || { echo "::error::.bun-version Bun $(bun --version) != Dockerfile Bun $image"; exit 1; }
       - name: Install dependencies
+        if: steps.changed.outputs.backend == 'true'
         working-directory: apps/backend
         run: bun install --frozen-lockfile
       - name: Typecheck
+        if: steps.changed.outputs.backend == 'true'
         working-directory: apps/backend
         # tsc needs between 2 and 3 GB on this project; node's default heap on
         # this runner is ~2 GB, so it OOMs (exit 134) with no type error to show.
@@ -375,6 +268,7 @@ jobs:
         run: bun run typecheck
       # Lint runs in its own job (backend-lint) so it overlaps these steps.
       - name: Unit tests
+        if: steps.changed.outputs.backend == 'true'
         working-directory: apps/backend
         # `mock.module` registrations are process-wide, so two suites mocking the
         # same module can answer each other's code: a turn one suite starts is
@@ -407,6 +301,7 @@ jobs:
       # Their own process: MONGODB_URI is read once, when the config module loads,
       # and the unit tests above must keep the unreachable address they are given.
       - name: Tests against a real MongoDB
+        if: steps.changed.outputs.backend == 'true'
         working-directory: apps/backend
         env:
           TEST_MONGODB_URI: mongodb://127.0.0.1:27017
@@ -421,9 +316,11 @@ jobs:
             echo "::error::A *.mongo.test.ts test skipped against the real MongoDB"; exit 1
           fi
       - name: Check API schema is up-to-date
+        if: steps.changed.outputs.backend == 'true'
         working-directory: apps/backend
         run: bun run check:api
       - name: Build backend image (no push)
+        if: steps.changed.outputs.backend == 'true'
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
@@ -509,25 +406,30 @@ jobs:
   # from a Linux runner instead of waiting for a Mac.
   desktop-checks:
     name: Desktop (typecheck, tests, build)
-    needs: changes
-    if: needs.changes.outputs.desktop == 'true'
+    if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - id: changed
+        uses: ./.github/actions/changed
       - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        if: steps.changed.outputs.desktop == 'true'
         with:
           version: 10
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        if: steps.changed.outputs.desktop == 'true'
         with:
           node-version: 24
           cache: pnpm
           cache-dependency-path: apps/desktop/pnpm-lock.yaml
       - name: Install dependencies
+        if: steps.changed.outputs.desktop == 'true'
         working-directory: apps/desktop
         run: pnpm install --frozen-lockfile
       - name: Typecheck
+        if: steps.changed.outputs.desktop == 'true'
         # electron:build goes through vite/esbuild, which strips types without
         # checking them — #616 shipped three type errors to main this way,
         # including two unregistered analytics events that would have silently
@@ -536,23 +438,28 @@ jobs:
         run: pnpm typecheck
       # Lint runs in its own Linux job (desktop-lint) so it overlaps these steps.
       - name: Run tests
+        if: steps.changed.outputs.desktop == 'true'
         timeout-minutes: 3
         working-directory: apps/desktop
         run: pnpm test
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        if: steps.changed.outputs.desktop == 'true'
         with:
           bun-version-file: .bun-version
       - name: Run sidebar UI tests in isolated processes
+        if: steps.changed.outputs.desktop == 'true'
         working-directory: apps/desktop
         run: pnpm test:ui
       # Bundling catches what tsc and eslint cannot (unresolved assets, CSS,
       # Rollup errors) and takes seconds, so it runs on every desktop change.
       - name: Build renderer and main bundles
+        if: steps.changed.outputs.desktop == 'true'
         working-directory: apps/desktop
         run: pnpm exec vite build
       # `nuphos agent` runs this bundle under plain Node. An `electron` import
       # that reaches it only fails when the host loads (#2749), so load it.
       - name: Load the nuphos agent host bundle
+        if: steps.changed.outputs.desktop == 'true'
         working-directory: apps/desktop
         run: |
           bun build electron/main/local-runtime/cli-host.ts --target=node --format=esm --external @napi-rs/keyring --outfile "$RUNNER_TEMP/host.mjs"
@@ -612,24 +519,29 @@ jobs:
   # two, not their sum.
   backend-lint:
     name: Backend lint
-    needs: changes
-    if: needs.changes.outputs.backend == 'true'
+    if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - id: changed
+        uses: ./.github/actions/changed
       # ESLint's plugin set needs `Set.prototype.union` (Node 22+).
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        if: steps.changed.outputs.backend == 'true'
         with:
           node-version: 24
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        if: steps.changed.outputs.backend == 'true'
         with:
           bun-version-file: .bun-version
       - name: Install dependencies
+        if: steps.changed.outputs.backend == 'true'
         working-directory: apps/backend
         run: bun install --frozen-lockfile
       - name: Lint
+        if: steps.changed.outputs.backend == 'true'
         working-directory: apps/backend
         # BLOCKING. Errors are at zero here; warnings do not fail the run.
         # Type-aware linting builds the same program `tsc --noEmit` does, so it
@@ -642,25 +554,30 @@ jobs:
   # runner the desktop package needs.
   desktop-lint:
     name: Desktop lint
-    needs: changes
-    if: needs.changes.outputs.desktop == 'true'
+    if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - id: changed
+        uses: ./.github/actions/changed
       - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        if: steps.changed.outputs.desktop == 'true'
         with:
           version: 10
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        if: steps.changed.outputs.desktop == 'true'
         with:
           node-version: 24
           cache: pnpm
           cache-dependency-path: apps/desktop/pnpm-lock.yaml
       - name: Install dependencies
+        if: steps.changed.outputs.desktop == 'true'
         working-directory: apps/desktop
         run: pnpm install --frozen-lockfile
       - name: Lint
+        if: steps.changed.outputs.desktop == 'true'
         working-directory: apps/desktop
         # BLOCKING. Errors are at zero here; warnings do not fail the run. Runs
         # type-aware rules, so it needs the same heap headroom as the desktop
@@ -745,27 +662,33 @@ jobs:
 
   import-cycles:
     name: Import cycles
-    needs: changes
-    if: needs.changes.outputs.import_cycles == 'true'
+    if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - id: changed
+        uses: ./.github/actions/changed
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        if: steps.changed.outputs.import_cycles == 'true'
         with:
           node-version: 24
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        if: steps.changed.outputs.import_cycles == 'true'
         with:
           bun-version-file: .bun-version
       # madge parses the sources itself, so only the root toolchain is needed —
       # no app install, no type program. The whole job is a few seconds.
       - name: Install dependencies
+        if: steps.changed.outputs.import_cycles == 'true'
         run: bun install --frozen-lockfile
       - name: Test the cycle checker
+        if: steps.changed.outputs.import_cycles == 'true'
         run: node --test scripts/check-import-cycles.test.mjs
       # BLOCKING as a ratchet: the cycles already here are recorded and allowed,
       # a new one fails. Nothing else in this repo detects them — `import-x/no-cycle`
       # never fired on a `.ts` file.
       - name: Check import cycles
+        if: steps.changed.outputs.import_cycles == 'true'
         run: bun run check:cycles
