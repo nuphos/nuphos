@@ -4923,7 +4923,6 @@
   "Update queued": "更新已排队",
   "Update ready — version {version}": "更新已就绪：版本 {version}",
   "Update scopes": "更新作用域",
-  "Update the computer host to add more runtimes": "请更新电脑主机程序以添加更多运行环境",
   "Update the runtime on its host to get the latest models and fixes.": "请在主机上更新运行环境，以获取最新的模型和修复。",
   "Update this runtime on the computer that runs it.": "请在运行它的电脑上更新此运行环境。",
   "Update to the latest version": "更新到最新版本",

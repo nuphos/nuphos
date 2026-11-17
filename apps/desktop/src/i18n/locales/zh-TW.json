@@ -4923,7 +4923,6 @@
   "Update queued": "已排入更新",
   "Update ready — version {version}": "已可更新：版本 {version}",
   "Update scopes": "更新範圍",
-  "Update the computer host to add more runtimes": "請更新電腦主機以新增更多執行環境",
   "Update the runtime on its host to get the latest models and fixes.": "請在主機上更新執行環境，以取得最新的模型與修正。",
   "Update this runtime on the computer that runs it.": "請在執行此執行環境的電腦上進行更新。",
   "Update to the latest version": "更新至最新版本",

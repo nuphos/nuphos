@@ -4923,7 +4923,6 @@
   "Update queued": "อัปเดตอยู่ในคิว",
   "Update ready — version {version}": "อัปเดตพร้อมแล้ว — เวอร์ชัน {version}",
   "Update scopes": "อัปเดตขอบเขต",
-  "Update the computer host to add more runtimes": "อัปเดตโฮสต์ของคอมพิวเตอร์เพื่อเพิ่มรันไทม์",
   "Update the runtime on its host to get the latest models and fixes.": "อัปเดตรันไทม์บนโฮสต์เพื่อรับโมเดลและการแก้ไขล่าสุด",
   "Update this runtime on the computer that runs it.": "อัปเดตรันไทม์นี้บนคอมพิวเตอร์ที่รันอยู่",
   "Update to the latest version": "อัปเดตเป็นเวอร์ชันล่าสุด",
