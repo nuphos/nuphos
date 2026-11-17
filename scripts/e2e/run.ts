@@ -27,6 +27,13 @@ const scenarios: Scenario[] = [
     run: async (page, stack) => {
       await page.evaluate(() => localStorage.setItem('nuphos.locale', 'en'))
       await page.reload()
+      // A typo the form lets through is answered by the backend with a plain sentence.
+      await page.locator('input[type=email]').fill('e2e..typo@example.com')
+      await page.getByRole('button', { name: 'Continue with email' }).click()
+      await page
+        .getByText("That email address doesn't look right. Check it and try again.")
+        .waitFor()
+      await page.screenshot({ path: `${artifacts}/sign-in-invalid-email.png` })
       await page.locator('input[type=email]').fill(stack.email)
       await page.getByRole('button', { name: 'Continue with email' }).click()
       await page.getByText('Enter the 6-digit code').waitFor()
