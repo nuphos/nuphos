@@ -15,3 +15,13 @@ export async function newTask(page: Page) {
   await page.getByRole('tab', { name: 'Tasks' }).click()
   await page.getByRole('button', { name: 'New task', exact: true }).click()
 }
+
+/** The team's Computers page, through ⌘K. */
+export async function openComputers(page: Page) {
+  await page
+    .getByRole('button', { name: /^Search/ })
+    .first()
+    .click()
+  await page.keyboard.type('Computers')
+  await page.getByRole('option', { name: 'Computers' }).first().click()
+}

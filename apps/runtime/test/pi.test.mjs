@@ -1,7 +1,17 @@
 import assert from 'node:assert/strict'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { spawn } from 'node:child_process'
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 
 import { agentEnv } from '../image/acp-shim.mjs'
@@ -99,7 +109,8 @@ test('the models a provider offers are read from pi --list-models', () => {
   assert.deepEqual(listedModels(output, 'anthropic'), [])
 })
 
-const LISTING = 'provider model\ndeepseek deepseek-chat\ndeepseek deepseek-reasoner\n'
+const LISTING =
+  'provider model\ndeepseek deepseek-chat\ndeepseek deepseek-v4-pro\nxai grok-3\nxai grok-code\n'
 
 async function signIn(answers, { ready = true, home } = {}) {
   const frames = []
@@ -115,17 +126,16 @@ async function signIn(answers, { ready = true, home } = {}) {
   return { frames, calls, result }
 }
 
-test('Pi signs in with an API key and the model conversations start on', async () => {
+test("Pi signs in with an API key and starts on Pi's default model for the provider", async () => {
   const home = mkdtempSync(join(tmpdir(), 'pi-login-'))
   try {
-    const { frames, calls, result } = await signIn(['deepseek', 'sk-test', 'deepseek-reasoner'], {
-      home,
-    })
+    const { frames, calls, result } = await signIn(['deepseek', 'sk-test'], { home })
     await result
     const dir = join(home, '.pi', 'agent')
+    // No model to choose: it can be changed in any conversation.
     assert.deepEqual(
       frames.map((frame) => frame.type),
-      ['choose', 'input', 'choose', 'authenticated'],
+      ['choose', 'input', 'authenticated'],
     )
     assert.equal(frames[1].secret, true)
     // Pi is asked with the key in its file, never on its command line.
@@ -137,7 +147,77 @@ test('Pi signs in with an API key and the model conversations start on', async (
     })
     assert.deepEqual(readJson(join(dir, 'settings.json')), {
       defaultProvider: 'deepseek',
-      defaultModel: 'deepseek-reasoner',
+      defaultModel: 'deepseek-v4-pro',
+    })
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
+})
+
+test('a provider whose default Pi no longer lists starts on the first model it lists', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'pi-login-'))
+  try {
+    const { result } = await signIn(['xai', 'xai-test'], { home })
+    await result
+    assert.deepEqual(readJson(join(home, '.pi', 'agent', 'settings.json')), {
+      defaultProvider: 'xai',
+      defaultModel: 'grok-3',
+    })
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
+})
+
+test('the sign-in a computer runs asks for a provider and a key, then is done', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'pi-login-'))
+  try {
+    // A stand-in for the pi CLI: it accepts the key and lists two DeepSeek models.
+    const pi = join(home, 'pi')
+    writeFileSync(
+      pi,
+      [
+        '#!/bin/sh',
+        'case "$1" in',
+        `  auth) echo '{"status":"ready"}' ;;`,
+        `  --list-models) printf 'provider model\\ndeepseek deepseek-chat\\ndeepseek deepseek-v4-pro\\n' ;;`,
+        '  *) exit 1 ;;',
+        'esac',
+        '',
+      ].join('\n'),
+    )
+    chmodSync(pi, 0o755)
+    const child = spawn(
+      process.execPath,
+      [fileURLToPath(new URL('../image/pi-login.mjs', import.meta.url))],
+      {
+        env: { PATH: process.env.PATH, NUPHOS_AGENT_EXECUTABLE: pi, NUPHOS_AGENT_HOME: home },
+        stdio: ['pipe', 'pipe', 'inherit'],
+      },
+    )
+    const answers = { 'Choose a model provider': 'deepseek', 'DeepSeek API key': 'sk-test' }
+    const frames = []
+    let pending = ''
+    child.stdout.setEncoding('utf8')
+    child.stdout.on('data', (chunk) => {
+      pending += chunk
+      for (let newline; (newline = pending.indexOf('\n')) >= 0;) {
+        const frame = JSON.parse(pending.slice(0, newline))
+        pending = pending.slice(newline + 1)
+        frames.push(frame)
+        // Any other question goes unanswered, which ends the sign-in.
+        if (frame.message in answers) child.stdin.write(`${answers[frame.message]}\n`)
+        else child.stdin.end()
+      }
+    })
+    const code = await new Promise((resolve) => child.once('exit', resolve))
+    assert.deepEqual(
+      frames.map(({ type, message }) => (message ? `${type}: ${message}` : type)),
+      ['choose: Choose a model provider', 'input: DeepSeek API key', 'authenticated'],
+    )
+    assert.equal(code, 0)
+    assert.deepEqual(readJson(join(home, '.pi', 'agent', 'settings.json')), {
+      defaultProvider: 'deepseek',
+      defaultModel: 'deepseek-v4-pro',
     })
   } finally {
     rmSync(home, { recursive: true, force: true })

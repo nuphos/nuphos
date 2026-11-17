@@ -37,7 +37,7 @@ export type InputRequest = ExplicitUserDecision & {
 export type ConversationInputRequests = {
   /** The open questions asked through request_user_decision. */
   inputRequests?: InputRequest[]
-  botOnboarding?: 'pending' | 'started' | 'completed'
+  botOnboarding?: 'pending' | 'active' | 'completed' | 'started'
   /** Answered questions whose agent could not run the answer yet. */
   waitingAnswers?: WaitingAnswer[]
 }
@@ -206,7 +206,7 @@ export function openInputRequests(
 /** Setup preferences stay answerable in chat without becoming work attention. */
 export function attentionInputRequests(conversation: ConversationInputRequests): InputRequest[] {
   const settingUp =
-    conversation.botOnboarding === 'pending' || conversation.botOnboarding === 'started'
+    conversation.botOnboarding === 'pending' || conversation.botOnboarding === 'active'
 
   return openInputRequests(conversation).filter(
     (request) => !settingUp || request.category !== 'preference',

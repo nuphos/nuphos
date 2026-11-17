@@ -180,7 +180,7 @@ test('setup context survives saved instructions and disappears after explicit co
   const bot = {
     name: 'Release Helper',
     instructions: 'Review releases.',
-    botOnboarding: 'started' as const,
+    botOnboarding: 'active' as const,
   }
 
   expect(renderInstructionsBlock([], [], bot)).toContain('onboardingComplete: true')

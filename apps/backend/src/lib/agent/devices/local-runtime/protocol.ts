@@ -114,6 +114,9 @@ const localAgentStatusSchema = z.object({
     loggedIn: z.boolean().nullable(),
     /** Signed in with an API key rather than an account; never the key itself. */
     apiKey: z.boolean().optional().catch(undefined),
+    /** An added agent's CLI being installed by the computer, or why that failed. */
+    installing: z.boolean().optional().catch(undefined),
+    installError: z.string().max(500).optional().catch(undefined),
   }),
   version: z.string().max(200).optional(),
   // Never fatal, like usage: a catalog over its bounds costs the model picker,
