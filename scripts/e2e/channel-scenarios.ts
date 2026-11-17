@@ -107,7 +107,6 @@ export const channelScenarios: Scenario[] = [
     },
   },
   {
-    // Last here: run after this one's host restart, #3171's scenario did not see the row's dots.
     // #3260: a post while the Bot's agent host was down was lost without a word, and stayed
     // lost once the host was back, until someone posted again.
     name: 'a post while the Bot’s agent host is down says it could not reply, and it answers once back',
