@@ -435,17 +435,21 @@ final class AgentStore {
 
     private(set) var agentDevices: [AgentDevice] = []
     private(set) var agentDevicesError = false
+    /// The team's devices have loaded at least once.
+    private(set) var agentDevicesLoaded = false
 
-    func loadAgentDevices() async {
+    /// `metrics`: asks every online host to sample, which only a meters view needs.
+    func loadAgentDevices(metrics: Bool = true) async {
         guard let team = selectedTeam else { return }
         struct Envelope: Decodable { let devices: [AgentDevice] }
         do {
-            let query = [URLQueryItem(name: "metrics", value: "true"), URLQueryItem(name: "teamId", value: team.id)]
+            let query = (metrics ? [URLQueryItem(name: "metrics", value: "true")] : []) + [URLQueryItem(name: "teamId", value: team.id)]
             let data = try await AgentChatAPI.send("GET", "agent/devices", query: query, token: token, body: JSONValue?.none)
             let result = try JSONDecoder().decode(Envelope.self, from: data)
             guard !Task.isCancelled, selectedTeam?.id == team.id else { return }
             agentDevices = result.devices
             agentDevicesError = false
+            agentDevicesLoaded = true
         } catch {
             guard !Task.isCancelled, selectedTeam?.id == team.id else { return }
             agentDevicesError = true
@@ -535,6 +539,7 @@ final class AgentStore {
         runtimes = []
         agentDevices = []
         agentDevicesError = false
+        agentDevicesLoaded = false
         runtimesLoaded = false
         quotas = [:]
         selectedRuntimeId = selectedTeam.flatMap { UserDefaults.standard.string(forKey: runtimeKey(for: $0)) }

@@ -59,6 +59,7 @@
     <string name="convtext_runtime_disabled">此任务的运行环境已停用。请切换到其他运行环境以继续。</string>
     <string name="convtext_runtime_not_found">此运行环境在这个工作区中已不可用。请切换到其他运行环境以继续。</string>
     <string name="convtext_runtime_offline">运行此运行环境的电脑已离线。请在该电脑上打开 Nuphos，或切换到其他运行环境。</string>
+    <string name="convtext_runtime_paused">%1$s 已暂停，发送消息后会自动恢复。</string>
     <string name="convtext_ask_owner">请所有者处理</string>
     <string name="convtext_ask_admin">请管理员处理</string>
     <string name="convtext_server_status">Nuphos 返回状态 %1$d。</string>

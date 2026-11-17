@@ -1,6 +1,7 @@
 package ai.nuphos.android.model
 
 import ai.nuphos.android.R
+import ai.nuphos.android.data.ComputerPresence
 import ai.nuphos.android.session.ChatSession
 import java.time.Instant
 
@@ -33,8 +34,8 @@ sealed class ChatRow {
     companion object {
         private val hiddenTools = setOf("skill")
 
-        /** `runtimeOffline`: the conversation's computer is offline right now. */
-        fun rows(session: ChatSession, runtimeOffline: Boolean = false): List<ChatRow> = rows(
+        /** `presence`: how the conversation's computer stands right now. */
+        fun rows(session: ChatSession, presence: ComputerPresence = ComputerPresence.Online): List<ChatRow> = rows(
             messages = session.messages,
             isStreaming = session.isStreaming,
             phaseLabel = session.phaseLabel,
@@ -48,7 +49,8 @@ sealed class ChatRow {
             waiting = session.waitingAnswers,
             hasEarlier = session.baseIndex > 0,
             localSender = session::localSender,
-            runtimeOffline = runtimeOffline,
+            presence = presence,
+            sendQueued = session.serverQueue.items.isNotEmpty(),
         )
 
         internal fun rows(
@@ -66,7 +68,9 @@ sealed class ChatRow {
             waiting: Map<String, String> = emptyMap(),
             hasEarlier: Boolean = false,
             localSender: (String) -> MessageAttribution? = { null },
-            runtimeOffline: Boolean = false,
+            presence: ComputerPresence = ComputerPresence.Online,
+            /** A send waits in the server queue: its computer is already being woken or waited for. */
+            sendQueued: Boolean = false,
         ): List<ChatRow> {
             val rows = mutableListOf<ChatRow>()
             val anchoredDownloads = AgentDownloads.anchor(downloads, messages)
@@ -128,8 +132,13 @@ sealed class ChatRow {
             if (cancelRequested) rows += Hint("cancel-requested", Words(R.string.convtext_cancellation_requested), false)
             val shownError = error?.takeIf { !stoppedByUser }
             if (shownError != null) rows += Hint("error", shownError, true)
-            // Said before the message goes, with the way on: another runtime.
-            else if (runtimeOffline && !isStreaming && !runtimeTurnActive) rows += Hint("runtime-offline", Words(R.string.convtext_runtime_offline), true)
+            else if (!isStreaming && !runtimeTurnActive && !sendQueued) when (presence) {
+                // Said before the message goes, with the way on: another runtime.
+                ComputerPresence.Offline -> rows += Hint("runtime-offline", Words(R.string.convtext_runtime_offline), true)
+                // Sending resumes a paused Box, so nothing points away from it.
+                is ComputerPresence.Paused -> rows += Hint("runtime-paused", Words(R.string.convtext_runtime_paused, presence.label), false)
+                ComputerPresence.Online -> Unit
+            }
             rows += Bottom
             return rows
         }
