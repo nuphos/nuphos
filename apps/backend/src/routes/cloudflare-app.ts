@@ -190,21 +190,18 @@ export async function persistCloudflareBinding(
         $unset: { 'cloudflareAccounts.$.encryptedApiKey': '' },
       },
     )
-  const idForAccount = async (): Promise<ObjectId> => {
-    const doc = await teamByosBindings().findOne(
-      { _id: teamId, 'cloudflareAccounts.accountId': accountId },
-      { projection: { 'cloudflareAccounts.$': 1 } },
-    )
-
-    return doc?.cloudflareAccounts?.[0]?.id ?? new ObjectId()
-  }
+  const entryForAccount = async () =>
+    (
+      await teamByosBindings().findOne(
+        { _id: teamId, 'cloudflareAccounts.accountId': accountId },
+        { projection: { 'cloudflareAccounts.$': 1 } },
+      )
+    )?.cloudflareAccounts?.[0]
+  const idForAccount = async (): Promise<ObjectId> =>
+    (await entryForAccount())?.id ?? new ObjectId()
 
   let bindingId: ObjectId
-  const current = await teamByosBindings().findOne(
-    { _id: teamId, 'cloudflareAccounts.accountId': accountId },
-    { projection: { 'cloudflareAccounts.$': 1 } },
-  )
-  const existing = current?.cloudflareAccounts?.[0]
+  const existing = await entryForAccount()
 
   if (existing) assertMayRebind(existing, access)
 
