@@ -17,7 +17,7 @@ import {
 } from '@/lib/claude-code-preview/preview-transcript'
 import { watchPreviewTurnPauses } from '@/lib/claude-code-preview/preview-turn-pause'
 import { fallBackAfterFailure } from '@/lib/claude-code-preview/runtime-fallback'
-import { isRuntimeRefusal, queuedRefusal } from '@/lib/claude-code-preview/runtime-refusal'
+import { queuedRefusal, resentAfter } from '@/lib/claude-code-preview/runtime-refusal'
 import { steeringReceipt } from '@/lib/claude-code-preview/steering-receipt'
 import { createTurnDiagnostics } from '@/lib/claude-code-preview/turn-diagnostics'
 import { RunHandoff } from '@/lib/lifecycle'
@@ -247,8 +247,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
 
       return 'connection-lost'
     }
-    if ((args.clientResendsRefusal || args.queued) && isRuntimeRefusal(err))
-      await requeueUnsent(args, prepared.carried, steered)
+    if (resentAfter(err, args)) await requeueUnsent(args, prepared.carried, steered)
     else await persistInterrupted(err)
 
     state.unbind()
