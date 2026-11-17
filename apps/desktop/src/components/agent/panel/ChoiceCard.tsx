@@ -92,7 +92,7 @@ export function ChoiceCard({
             void ctx.dismiss?.(card).then((ok) => setDismissed(ok ? 'yes' : 'no'))
           }}
         >
-          <X aria-hidden className="size-3.5 text-tertiary" />
+          <X aria-hidden className="size-3.5" />
           {t('Dismiss')}
         </Button>
       )}

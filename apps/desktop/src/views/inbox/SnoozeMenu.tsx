@@ -23,7 +23,7 @@ export function SnoozeMenu({
       <MenuTrigger
         render={
           <Button variant="secondary" size="sm" className={className}>
-            <AlarmClock aria-hidden className="size-3.5 text-tertiary" />
+            <AlarmClock aria-hidden className="size-3.5" />
             {t('Snooze')}
           </Button>
         }
