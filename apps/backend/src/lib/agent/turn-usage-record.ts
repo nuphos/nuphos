@@ -5,7 +5,6 @@ import { logError } from '@/lib/observability'
 
 import { getConversationPreviewAttachment } from './db'
 import { agentTokenUsage, cleanRecord } from './token-usage-db'
-import { normalizeTokenUsage } from './token-usage-normalize'
 import { refreshConversationTokenUsageSummary } from './token-usage-summary'
 
 import type { ConversationTriggerRun } from './conversation-trigger-run'
@@ -20,7 +19,7 @@ export type RuntimeTurnUsage = {
   userId: string
   teamId: string
   provider: string
-  /** The raw usage object the runtime reported for the turn. */
+  /** The ACP `PromptResponse.usage` the runtime reported for the turn. */
   usage: unknown
   /** The fire that produced this turn, when it was a Trigger that did. */
   trigger?: ConversationTriggerRun
@@ -45,7 +44,7 @@ export function recordRuntimeTurnUsage(turn: RuntimeTurnUsage): void {
 
 /** The write itself, so a test can await what the turn path must not. */
 export async function writeRuntimeTurnUsage(turn: RuntimeTurnUsage): Promise<void> {
-  const tokens = normalizeTokenUsage(turn.usage)
+  const tokens = acpUsageTokens(turn.usage)
 
   // Runtimes that report nothing record nothing; nothing is estimated.
   if (Object.keys(tokens).length === 0) return
@@ -59,6 +58,28 @@ async function turnModelId(sessionId: string, teamId: string): Promise<string> {
   const attachment = await getConversationPreviewAttachment(sessionId, teamId).catch(() => null)
 
   return storedPick(attachment ?? undefined).model ?? 'unknown'
+}
+
+// ACP's `inputTokens` is the uncached remainder (both claude-agent-acp and codex-acp send
+// it so); ours is the whole prompt, so the cache classes are added back in.
+function acpUsageTokens(usage: unknown): AgentTokenUsageTokens {
+  if (!usage || typeof usage !== 'object') return {}
+  const acp = usage as Record<string, unknown>
+  const count = (value: unknown) =>
+    typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : undefined
+  const uncached = count(acp.inputTokens)
+  const cachedInputTokens = count(acp.cachedReadTokens)
+  const cacheWriteTokens = count(acp.cachedWriteTokens)
+  const prompt = [uncached, cachedInputTokens, cacheWriteTokens].filter((n) => n !== undefined)
+
+  return cleanRecord({
+    inputTokens: prompt.length ? prompt.reduce((sum, n) => sum + n, 0) : undefined,
+    cachedInputTokens,
+    cacheWriteTokens,
+    outputTokens: count(acp.outputTokens),
+    reasoningTokens: count(acp.thoughtTokens),
+    totalTokens: count(acp.totalTokens),
+  })
 }
 
 // The same shape the AI SDK path writes: one model call records a step_total
