@@ -7,6 +7,7 @@ import { parseMessageMetadata } from '../message-metadata'
 import { fenceUntrusted } from '../untrusted-content'
 
 import { canReply, readableConversationScope } from './access'
+import { chatName } from './archive'
 import { assertBot } from './bot-membership'
 import { readNote } from './channel-notes'
 import { markChannelRead } from './channel-cursor'
@@ -14,6 +15,8 @@ import { agentConversations, agentMessages } from './shared'
 
 import type { AgentConversation } from './shared'
 import type { MessageMetadata } from '../message-metadata'
+
+export { chatName }
 
 /** A channel holds people and Bot sessions; it runs no agent of its own. */
 export type ChannelFields = {
@@ -274,7 +277,7 @@ export async function listChannelMentions(teamId: string, viewerId: string) {
         {
           channelId: channel.sessionId,
           kind: isChannel(channel) ? 'channel' : 'agent',
-          title: channel.title,
+          title: chatName(channel),
           messageId: mention.messageId,
           at: mention.at.toISOString(),
           invited: Boolean(mention.by),

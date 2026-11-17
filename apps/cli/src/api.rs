@@ -227,6 +227,26 @@ impl Api {
         Ok(v["runtimes"].as_array().cloned().unwrap_or_default())
     }
 
+    /// A Task's Triggers, or with no Task the caller's own (the backend
+    /// returns a bare array of up to 100).
+    pub async fn triggers(&self, team: &str, session: Option<&str>) -> Result<Vec<Value>, ApiError> {
+        let mut query = vec![("teamId", team)];
+        if let Some(session) = session {
+            query.push(("targetSessionId", session));
+        }
+        let v = self.call(Method::GET, "/agent/triggers", &query, None).await?;
+        Ok(v.as_array().cloned().unwrap_or_default())
+    }
+
+    pub async fn trigger(&self, team: &str, id: &str) -> Result<Value, ApiError> {
+        self.call(Method::GET, &format!("/agent/triggers/{id}"), &[("teamId", team)], None).await
+    }
+
+    /// A Trigger's token spend over the last 7 days.
+    pub async fn trigger_usage(&self, team: &str, id: &str) -> Result<Value, ApiError> {
+        self.call(Method::GET, &format!("/agent/triggers/{id}/usage"), &[("teamId", team)], None).await
+    }
+
     /// `{ online, … }` — whether the agent answers yet.
     /// Only sign-in waits on this, so it also resumes a paused Box.
     pub async fn runtime_status(&self, team: &str, runtime: &str) -> Result<Value, ApiError> {

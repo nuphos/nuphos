@@ -4,7 +4,11 @@ import { z } from 'zod'
 
 import { agentFileParts, resolveChannelFiles } from '@/lib/agent/channel-attachments'
 import { postAsAgent } from '@/lib/agent/channel-chat'
-import { getConversationBySessionId, upsertConversationShell } from '@/lib/agent/db'
+import {
+  agentConversations,
+  getConversationBySessionId,
+  upsertConversationShell,
+} from '@/lib/agent/db'
 import { assertBot, speakingBot } from '@/lib/agent/db/bot-membership'
 import {
   addChannelAgent,
@@ -178,6 +182,8 @@ async function createChannel(ctx: PreviewToolContext, input: z.infer<typeof crea
     firstMessage: '',
     kind: 'channel',
   })
+  // Named, it is a group: with only its owner and one Bot it would be the Bot's own chat.
+  await agentConversations().updateOne({ sessionId }, { $set: { group: true } })
   for (const id of [speaker.sessionId, ...agents]) await addChannelAgent(sessionId, id)
   // The owner is already in their own channel.
   const invitees = people.flatMap((member) =>
