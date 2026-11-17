@@ -125,8 +125,10 @@ export const questionScenarios: Scenario[] = [
         'no "did not run" question in the chat',
       )
       must(
-        (await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).count()) === 0,
-        'the question card to show answered, with no choices left',
+        (await page
+          .getByRole('heading', { name: 'Which marker should the fixture use?' })
+          .count()) === 0,
+        'no open question card, only the answered line',
       )
       const listed = await owner(
         'GET',
