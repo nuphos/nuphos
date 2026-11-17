@@ -9,17 +9,16 @@ import { OpenAbAcpClient } from './openab-acp-client'
 import { OpenAbConnectError } from './openab-acp-connect'
 import { OpenAbRpcError } from './openab-acp-errors'
 import { runtimeModelCatalog } from './runtime-models'
-import { offeredSessionConfig } from './session-config-catalog'
+import { catalogState } from './session-config-catalog'
 import { parseSessionConfigOptions, storedPick } from './session-config-options'
-import { storeSessionConfig } from './session-config-record'
+import { clearReplacedPick, storeSessionConfig } from './session-config-record'
 import { sessionConfigRestoreContext } from './session-config-restore'
 
 import type { RuntimeDefaults } from './openab-acp-session'
-import type { RuntimeModelCatalog } from './runtime-models'
+import type { CatalogFor } from './session-config-catalog'
 import type { SessionConfigSelection, SessionConfigState } from './session-config-options'
 import type { TeamRuntimeEndpoint } from './team-openab-runtime'
 import type { AgentConversation } from '@/lib/agent/db'
-import type { ConversationPreviewAttachment } from '@/lib/agent/db/shared'
 
 export async function controlSessionConfig(
   client: Pick<OpenAbAcpClient, 'getSessionConfigOptions' | 'setSessionConfigOption'>,
@@ -128,54 +127,12 @@ export async function conversationSessionConfig(
   return await sessionConfigView(picked, catalogFor)
 }
 
-type CatalogFor = ((model?: string) => Promise<RuntimeModelCatalog>) | undefined
-
-function runtimeCatalog(conversation: AgentConversation, viewerUserId?: string): CatalogFor {
+export function runtimeCatalog(conversation: AgentConversation, viewerUserId?: string): CatalogFor {
   const { teamId, runtimeId } = conversation
 
   return teamId && runtimeId
     ? (model) => runtimeModelCatalog(teamId, runtimeId, model, viewerUserId)
     : undefined
-}
-
-/** Validate a Bot's picks without writing its busy session; updateBotSelf saves the result. */
-export async function botSessionConfigUpdate(
-  conversation: AgentConversation,
-  pick: Pick<RuntimeDefaults, 'model' | 'effort'>,
-  viewerUserId?: string,
-): Promise<{
-  initialSessionConfig?: RuntimeDefaults
-  pendingSessionConfig?: RuntimeDefaults
-}> {
-  if (!pick.model && !pick.effort) return {}
-  const attachment = liveAttachment(conversation)
-  const stored = attachment ? storedPick(attachment) : (conversation.initialSessionConfig ?? {})
-  const { status, options, kept } = await catalogState(
-    { ...stored, ...pick },
-    runtimeCatalog(conversation, viewerUserId),
-    !attachment && Boolean(conversation.runtimeMigration),
-  )
-
-  if (status === 'offline')
-    throw new AppError(409, 'runtime_unavailable', 'The conversation’s agent is unavailable.')
-
-  for (const configId of ['model', 'effort'] as const) {
-    const value = pick[configId]
-
-    if (value === undefined) continue
-    const option = options.find((entry) => entry.id === configId)
-
-    if (option?.currentValue === value) continue
-    const choices = option?.options ?? []
-
-    throw new Error(
-      `${configId} "${value}" is not offered by the Bot's agent. Choose one of: ${
-        choices.map((choice) => choice.value).join(', ') || 'none'
-      }.`,
-    )
-  }
-
-  return attachment ? { pendingSessionConfig: pick } : { initialSessionConfig: kept }
 }
 
 /**
@@ -190,19 +147,6 @@ export async function sessionConfigView(
   const { status, options } = await catalogState(picked, catalogFor, true)
 
   return { status: status === 'dormant' ? 'ready' : status, options }
-}
-
-async function catalogState(
-  picked: RuntimeDefaults,
-  catalogFor: CatalogFor,
-  confirmedOnly = false,
-): Promise<SessionConfigState & { kept: RuntimeDefaults }> {
-  if (!catalogFor) return { status: 'dormant', options: [], kept: {} }
-  try {
-    return { status: 'dormant', ...(await offeredSessionConfig(catalogFor, picked, confirmedOnly)) }
-  } catch {
-    return { status: 'offline', options: [], kept: {} }
-  }
 }
 
 // Before attachment, choices come from the catalog and explicit picks are saved.
@@ -309,83 +253,15 @@ async function applySessionConfig(
     attachment.openabSessionId,
     options,
   )
-  const selected = options.find(
-    (entry) => entry.id === selection.configId || entry.kind === selection.configId,
+  const current = await clearReplacedPick(
+    conversation.sessionId,
+    conversation.teamId,
+    attachment,
+    options,
+    selection.configId,
   )
-  const current = selected
-    ? await clearPendingSessionConfig(
-        conversation.sessionId,
-        conversation.teamId,
-        attachment,
-        selected.kind,
-      )
-    : attachment
 
   return storedPick({ ...current, sessionConfig: options })
-}
-
-async function clearPendingSessionConfig(
-  conversationId: string,
-  teamId: string | undefined,
-  attachment: ConversationPreviewAttachment,
-  configId: keyof RuntimeDefaults,
-): Promise<ConversationPreviewAttachment> {
-  if (attachment.pendingSessionConfig?.[configId] === undefined) return attachment
-  const pendingSessionConfig = { ...attachment.pendingSessionConfig }
-
-  delete pendingSessionConfig[configId]
-  // Replace only the object consumed here; a newer pick stays queued for another turn.
-  await agentConversations().updateOne(
-    {
-      sessionId: conversationId,
-      teamId,
-      'claudeCodePreview.openabSessionId': attachment.openabSessionId,
-      'claudeCodePreview.pendingSessionConfig': attachment.pendingSessionConfig,
-    },
-    { $set: { 'claudeCodePreview.pendingSessionConfig': pendingSessionConfig } },
-  )
-
-  return { ...attachment, pendingSessionConfig }
-}
-
-/** Confirm queued settings before a prompt: model first, then that model's effort. */
-export async function applyPendingSessionConfig(
-  client: Pick<OpenAbAcpClient, 'getSessionConfigOptions' | 'setSessionConfigOption'>,
-  conversationId: string,
-  teamId: string | undefined,
-  attachment: ConversationPreviewAttachment,
-): Promise<ConversationPreviewAttachment> {
-  let current = attachment
-
-  for (const configId of ['model', 'effort'] as const) {
-    const value = current.pendingSessionConfig?.[configId]
-
-    if (value === undefined) continue
-    let options: SessionConfigState['options']
-
-    try {
-      ;({ options } = await controlSessionConfig(client, current.openabSessionId, {
-        configId,
-        value,
-      }))
-    } catch (error) {
-      if (!(error instanceof AppError) || error.code !== 'invalid_runtime_config') throw error
-      // The agent no longer offers this pick. Drop it so later prompts run on the
-      // last confirmed settings instead of failing every turn. Logged, not retried.
-      logError('agent.session.pending_config_rejected', error, {
-        session_id: conversationId,
-        config_id: configId,
-      })
-      current = await clearPendingSessionConfig(conversationId, teamId, current, configId)
-      continue
-    }
-
-    await storeSessionConfig(conversationId, teamId, current.openabSessionId, options)
-    current = await clearPendingSessionConfig(conversationId, teamId, current, configId)
-    current = { ...current, sessionConfig: options }
-  }
-
-  return current
 }
 
 async function withSessionClient<T>(

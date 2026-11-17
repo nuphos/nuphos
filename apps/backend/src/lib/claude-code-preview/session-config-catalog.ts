@@ -1,6 +1,6 @@
 import type { RuntimeDefaults } from './openab-acp-session'
 import type { RuntimeModelCatalog } from './runtime-models'
-import type { SessionConfigOption } from './session-config-options'
+import type { SessionConfigOption, SessionConfigState } from './session-config-options'
 
 /** The runtime's own choices as session options; a pick it still offers is the current value. */
 export function catalogSessionConfig(
@@ -80,4 +80,19 @@ export async function offeredSessionConfig(
   ) as RuntimeDefaults
 
   return { options, kept }
+}
+
+export type CatalogFor = ((model?: string) => Promise<RuntimeModelCatalog>) | undefined
+
+export async function catalogState(
+  picked: RuntimeDefaults,
+  catalogFor: CatalogFor,
+  confirmedOnly = false,
+): Promise<SessionConfigState & { kept: RuntimeDefaults }> {
+  if (!catalogFor) return { status: 'dormant', options: [], kept: {} }
+  try {
+    return { status: 'dormant', ...(await offeredSessionConfig(catalogFor, picked, confirmedOnly)) }
+  } catch {
+    return { status: 'offline', options: [], kept: {} }
+  }
 }

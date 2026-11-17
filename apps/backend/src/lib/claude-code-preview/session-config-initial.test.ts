@@ -3,7 +3,8 @@ import { beforeEach, expect, test } from 'bun:test'
 import { useDb } from '@/lib/test/doubles/db'
 import { useRuntimeModels } from '@/lib/test/doubles/runtime-models'
 
-import { botSessionConfigUpdate, conversationSessionConfig } from './session-config'
+import { botSessionConfigUpdate } from './bot-session-config'
+import { conversationSessionConfig } from './session-config'
 
 import type { AgentConversation } from '@/lib/agent/db'
 

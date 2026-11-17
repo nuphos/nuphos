@@ -7,13 +7,10 @@ import { useDb } from '@/lib/test/doubles/db'
 import { useRuntimeModels } from '@/lib/test/doubles/runtime-models'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
+import { applyPendingSessionConfig } from './bot-session-config'
 import { OpenAbAcpClient } from './openab-acp-client'
 import { OpenAbRpcError } from './openab-acp-errors'
-import {
-  applyPendingSessionConfig,
-  conversationSessionConfig,
-  sessionConfigView,
-} from './session-config'
+import { conversationSessionConfig, sessionConfigView } from './session-config'
 import { recordSessionConfig, settledTurn } from './session-config-record'
 import { storedPick } from './session-config-options'
 
