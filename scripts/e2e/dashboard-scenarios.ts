@@ -31,7 +31,7 @@ function api(stack: Stack, token: string) {
 }
 
 /** Signs a new person in with an email code and has the team's owner invite them in. */
-async function joinTeam(stack: Stack, name: string): Promise<Member> {
+export async function joinTeam(stack: Stack, name: string): Promise<Member> {
   const email = `e2e-${name}-${String(Date.now())}@example.com`
   const anonymous = api(stack, '')
 
