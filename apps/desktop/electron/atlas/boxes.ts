@@ -76,7 +76,9 @@ export function createBox(
       ...(access ? { access } : {}),
       ...(instaboxAccountId ? { instaboxAccountId } : {}),
     },
-    { retry: false },
+    // As long as the proxy in front of the backend waits: the create reads instabox, then waits
+    // up to 10 s for it to accept or refuse the order. Giving up sooner could hide a Box it made.
+    { retry: false, timeoutMs: 60_000 },
   )
 }
 

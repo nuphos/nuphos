@@ -7,6 +7,7 @@ import { claimAgentRunForSession } from '@/lib/agent/run-admission'
 import { deliverWaitingAnswers } from '@/lib/agent/deliver-waiting-answers'
 import { AppError } from '@/lib/errors'
 
+import { sessionsByConversation } from './agent-chat-registry'
 import { lastFailedPrompt, resendFailedPrompt } from './failed-turn-retry'
 import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { developmentRuntimeEndpoint, requireRuntimeInstance } from './runtime-catalog'
@@ -15,6 +16,7 @@ import { assertRuntimeNotDeleting } from './runtime-portability-store'
 import { runtimeProvider } from './runtime-provider'
 import { runtimeModelCatalog } from './runtime-models'
 import { findHostedRuntime, resolveTeamRuntimeEndpoints } from './runtime-registry'
+import { reclaimSessionHome } from './runtime-session-home'
 import { offeredSessionConfig } from './session-config-catalog'
 import { storedPick } from './session-config-options'
 
@@ -193,6 +195,7 @@ export async function moveConversationRuntime(
         'runtime_move_conflict',
         'The conversation changed before the move completed. Refresh and retry.',
       )
+    closeMovedSession(teamId, conversation.sessionId)
   } finally {
     release?.()
     await agentConversations().updateOne(
@@ -204,4 +207,22 @@ export async function moveConversationRuntime(
   void deliverWaitingAnswers(conversation.sessionId)
 
   return { runtimeId: target.id, runtimeLabel: target.label, agentRuntime: target.provider }
+}
+
+/**
+ * The old runtime keeps an idle session for hours so it can be resumed, and a
+ * moved one never is: end it there, then remove the home it leaves on another
+ * computer. Best effort, since the move is already done; the hourly reclaim
+ * sweep retries a home still in use, and the runtime's idle sweep frees the rest.
+ */
+function closeMovedSession(teamId: string, conversationId: string) {
+  const key = `${teamId}:${conversationId}`
+  const session = sessionsByConversation.get(key)
+
+  session?.stopObserving?.()
+  sessionsByConversation.delete(key)
+  void (session?.client.closeSession(session.openabSessionId) ?? Promise.resolve())
+    .catch(() => {})
+    .then(() => reclaimSessionHome(conversationId))
+    .catch(() => {})
 }

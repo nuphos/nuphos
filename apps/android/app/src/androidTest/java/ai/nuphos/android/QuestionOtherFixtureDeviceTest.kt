@@ -14,7 +14,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -53,7 +53,7 @@ class QuestionOtherFixtureDeviceTest {
         screen {
             Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
                 for (question in listOf(deploy, plan)) {
-                    BotQuestionCard(question, onOpen = {}, onAnswer = { answers += it }, showsFrom = false)
+                    BotQuestionCard(question, onOpen = {}, onConnect = {}, onAnswer = { answers += it }, showsFrom = false)
                 }
             }
         }
@@ -73,7 +73,7 @@ class QuestionOtherFixtureDeviceTest {
         screen {
             Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
                 for (question in listOf(deploy, staging, plan)) {
-                    BotQuestionCard(question, onOpen = {}, onAnswer = { answers += it }, answersInPlace = true)
+                    BotQuestionCard(question, onOpen = {}, onConnect = {}, onAnswer = { answers += it }, answersInPlace = true)
                 }
             }
         }

@@ -16,7 +16,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import ai.nuphos.android.data.*
 import ai.nuphos.android.model.TransferUpload
 import ai.nuphos.android.ui.chat.TransferCard

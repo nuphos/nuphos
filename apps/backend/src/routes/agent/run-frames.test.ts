@@ -53,3 +53,24 @@ test('tool events between unchanged snapshots leave one snapshot frame', () => {
   expect(run.frames.filter((frame) => frame.includes('"runtime-state"'))).toHaveLength(1)
   expect(run.frames).toHaveLength(6)
 })
+
+// The slash commands rarely change during a run, yet every snapshot carried them.
+// A client keeps the last list it saw (the desktop remembers it per runtime).
+test('a snapshot carries the commands only when they change', () => {
+  const run = createAgentRun('user-c', 'session-c', 'stream-c')
+  const snapshot = (phase: string, commands: string[]) =>
+    `data: ${JSON.stringify({ type: 'runtime-state', snapshot: { phase, commands } })}\n\n`
+  const sent = () =>
+    run.frames.map(
+      (frame) =>
+        (JSON.parse(frame.slice('data: '.length)) as { snapshot: { commands?: string[] } }).snapshot
+          .commands,
+    )
+
+  appendAgentRunFrame(run, snapshot('working', ['/help']))
+  appendAgentRunFrame(run, snapshot('tool', ['/help']))
+  appendAgentRunFrame(run, snapshot('working', ['/help', '/review']))
+  appendAgentRunFrame(run, snapshot('done', ['/help', '/review']))
+
+  expect(sent()).toEqual([['/help'], undefined, ['/help', '/review'], undefined])
+})

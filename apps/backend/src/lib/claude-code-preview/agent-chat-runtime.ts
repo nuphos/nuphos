@@ -9,9 +9,9 @@ import {
 } from './autonomous-session-observer'
 import { backgroundWorkPrompt, markBackgroundWorkLost } from './background-work'
 import { openConversationSession } from './open-conversation-session'
-import { OpenAbRpcError } from './openab-acp-errors'
 import { redactedPromptUpdates } from './redacted-prompt-updates'
 import { retractedPrompt } from './retracted-notice'
+import { promptFailure } from './prompt-failure'
 import { materializeRuntimeAttachments } from './runtime-attachments'
 import {
   assertConversationRuntimeAvailable,
@@ -279,11 +279,8 @@ export async function runClaudeCodePreviewPrompt(args: {
         attachments,
         lead,
       )
-      .catch((error: unknown) => {
-        // The runtime's own busy rejection: another turn won the race since the check above.
-        throw error instanceof OpenAbRpcError && error.code === -32001
-          ? refusal(error.message)
-          : error
+      .catch(async (error: unknown) => {
+        throw await promptFailure(error, session, nextContext.runtime.defaults)
       })
       .finally(() => {
         text.flush()

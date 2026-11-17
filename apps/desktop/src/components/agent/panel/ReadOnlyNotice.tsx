@@ -166,7 +166,7 @@ export function AgentStatusBanner({
   control: RuntimeControl
   /** The new-chat card: wider corners to clear. */
   hero?: boolean
-  /** Set for a new chat, or a conversation whose agent is gone: the fix is picking another. */
+  /** Set for a new chat, a gone agent, or an offline computer the conversation may leave: the fix is picking another. */
   onSwitchAgent?: () => void
 }) {
   const reachability = selectedAgentReachability(control)

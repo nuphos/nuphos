@@ -6,18 +6,18 @@ import { AgentAvatar } from '../agent/AgentAvatar'
 import type { ChannelAgent } from '../../api'
 
 /**
- * iMessage-style dots for an agent in a turn this channel started or steered.
+ * iMessage-style work dots for the private Bot, or a group agent replying here.
  * Each agent's bubble opens and closes in place, after a beat, so an agent
  * that reads the post and has nothing to say never flashes them.
  */
 export function Typing({
   agents,
   channelId,
-  initialBotId,
+  botId,
 }: {
   agents: ChannelAgent[]
   channelId: string
-  initialBotId?: string
+  botId?: string
 }) {
   const states = useAgentRuntimeStates()
 
@@ -28,7 +28,7 @@ export function Typing({
         const snapshot = states.get(agent.sessionId)
         const open = String(
           runtimeTypingIn(snapshot, channelId) ||
-            (agent.sessionId === initialBotId && runtimeTurnActive(snapshot)),
+            (agent.sessionId === botId && runtimeTurnActive(snapshot)),
         )
         const transitionDelay = open === 'true' ? '800ms' : '0ms'
 

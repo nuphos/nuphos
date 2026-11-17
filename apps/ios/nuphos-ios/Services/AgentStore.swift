@@ -184,6 +184,8 @@ final class AgentStore {
             try await AgentChatAPI.setArchived(token: token, teamId: teamId, sessionId: sessionId, archived: true)
             guard scope == workspaceScope else { return }
             removeFromList(sessionId)
+            // An archived Bot comes back folded, as on Desktop.
+            updateFolds { _ = $0.remove("bots:\(sessionId)") }
             // A Bot goes with its chat on the server, so the chats list drops it too.
             await loadChannels()
         } catch {
@@ -234,7 +236,9 @@ final class AgentStore {
     // MARK: - Threads
 
     private static let foldedThreadsKey = "nuphos.agent.foldedThreads"
-    /// Thread parents folded on the Agent page, per team.
+    /// Rows whose fold was flipped by hand, per team. A Tasks row is open
+    /// until folded. A Bots row, keyed `bots:<id>` as on Desktop, is folded
+    /// until opened, and then stays open.
     private var foldedThreads: [String: Set<String>] =
         (UserDefaults.standard.dictionary(forKey: AgentStore.foldedThreadsKey) as? [String: [String]] ?? [:])
             .mapValues(Set.init)
@@ -244,31 +248,25 @@ final class AgentStore {
         ConversationNesting.nest(listedConversations, folded: foldedThreads[selectedTeam?.id ?? ""] ?? [], byFamily: true)
     }
 
-    /// Rows opened by hand on Bots. Everything there is folded at rest: it
-    /// folds again when Bots is left, the team changes or the app starts.
-    private var openedBotRows: Set<String> = []
-
-    /// The Bots rows: each chat or Bot, with what a Bot dispatched under it, folded.
+    /// The Bots rows: each chat or Bot, with what a Bot dispatched under it.
     var nestedBots: [NestedConversation] {
         let rows = ConversationNesting.botRows(botsList, threads: conversations, owners: botOwners)
-        return ConversationNesting.nest(rows, folded: Set(rows.map(\.sessionId)).subtracting(openedBotRows))
+        return ConversationNesting.nest(rows, folded: Set(rows.map(\.sessionId).filter { isFolded($0, onBots: true) }))
     }
 
-    func foldBots() { openedBotRows = [] }
-
     func isFolded(_ sessionId: String, onBots: Bool = false) -> Bool {
-        onBots ? !openedBotRows.contains(sessionId) : foldedThreads[selectedTeam?.id ?? ""]?.contains(sessionId) == true
+        let flipped = foldedThreads[selectedTeam?.id ?? ""]?.contains(onBots ? "bots:\(sessionId)" : sessionId) == true
+        return flipped != onBots
     }
 
     func toggleFolded(_ sessionId: String, onBots: Bool = false) {
-        if onBots {
-            if openedBotRows.remove(sessionId) == nil { openedBotRows.insert(sessionId) }
-            return
-        }
+        let key = onBots ? "bots:\(sessionId)" : sessionId
+        updateFolds { if $0.remove(key) == nil { $0.insert(key) } }
+    }
+
+    private func updateFolds(_ change: (inout Set<String>) -> Void) {
         guard let team = selectedTeam?.id else { return }
-        var folded = foldedThreads[team] ?? []
-        if folded.remove(sessionId) == nil { folded.insert(sessionId) }
-        foldedThreads[team] = folded
+        change(&foldedThreads[team, default: []])
         UserDefaults.standard.set(foldedThreads.mapValues(Array.init), forKey: Self.foldedThreadsKey)
     }
 
@@ -485,7 +483,6 @@ final class AgentStore {
         credentials.reset()
         channels = []
         bots = []
-        openedBotRows = []
         runtimes = []
         agentDevices = []
         agentDevicesError = false

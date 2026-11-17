@@ -78,7 +78,7 @@ function ActivityRow({
             <UiIcon
               size={14}
               icon={ChevronRightIcon}
-              className="h-2 w-2 flex-shrink-0 text-tertiary transition-transform group-data-[panel-open]:rotate-90"
+              className="h-3.5 w-3.5 flex-shrink-0 text-tertiary transition-transform group-data-[panel-open]:rotate-90"
             />
             <span className="truncate group-data-[panel-open]:hidden">{preview.text}</span>
             <span className="hidden text-tertiary group-data-[panel-open]:inline">

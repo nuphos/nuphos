@@ -1,11 +1,12 @@
-// The stack under test: a real MongoDB, backend and OpenAB, with a deterministic
+// The stack under test: a real MongoDB, file store, backend and OpenAB, with a deterministic
 // ACP agent in place of a model. Nothing here talks to the internet.
 import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
-import { artifacts, freePorts, logPath, spawn, stop, until } from './processes.ts'
+import { artifacts, freePorts, logPath, signalGroup, spawn, stop, until } from './processes.ts'
+import { startStorage } from './storage.ts'
 
 const ROOT = resolve(import.meta.dirname, '../..')
 const BACKEND_DIR = join(ROOT, 'apps/backend')
@@ -16,6 +17,8 @@ const MONGO_IMAGE = 'mongo:8.0.32'
 
 export type Stack = {
   apiUrl: string
+  /** For what only the database can set up, such as a row that is gone. */
+  mongoUri: string
   email: string
   token: string
   teamId: string
@@ -24,8 +27,12 @@ export type Stack = {
   signInCode: typeof signInCode
   /** Keeps the agent from opening new sessions, as a slow start does, until the returned function is called. */
   holdSessionOpening: () => () => void
+  /** The first agent offers Claude Code's "Default" stand-in until the returned function is called. */
+  offerDefaultStandIn: () => () => void
   /** Stops OpenAB and its agents, runs `whileDown`, then starts it again on the same address, as a runtime restart does. */
   restartAgentHost: (whileDown?: () => Promise<void>) => Promise<void>
+  /** Freezes OpenAB and its agents, so its sockets stay open and nothing answers, runs `whileFrozen`, then lets them go on. */
+  freezeAgentHost: (whileFrozen: () => Promise<void>) => Promise<void>
   /** The `state` of the newest Cloudflare authorization the app started. */
   cloudflareState: () => string
 }
@@ -130,13 +137,20 @@ function signInCode(address: string): string | undefined {
 }
 
 export async function startStack(): Promise<Stack> {
-  const [mongoPort, backendPort, runtimePort, secondRuntimePort] = await freePorts(4)
+  const [mongoPort, backendPort, runtimePort, secondRuntimePort, storagePort] = await freePorts(5)
   const mongoUri = startMongo(mongoPort)
+  const storage = await startStorage(storagePort)
 
   await until('MongoDB to become primary', async () => initiateReplicaSet(mongoUri))
   const apiUrl = `http://127.0.0.1:${String(backendPort)}`
   const acpLog = join(artifacts, 'acp.jsonl')
   const holdOpening = join(artifacts, 'hold-opening')
+  const standIn = join(artifacts, 'stand-in')
+  const offerDefaultStandIn = () => {
+    writeFileSync(standIn, '')
+
+    return () => rmSync(standIn)
+  }
   const holdSessionOpening = () => {
     writeFileSync(holdOpening, '')
 
@@ -162,6 +176,7 @@ export async function startStack(): Promise<Stack> {
         `E2E_ACP_LOG = ${JSON.stringify(acpLog)}`,
         `E2E_AGENT = ${JSON.stringify(agent)}`,
         `E2E_HOLD_OPENING = ${JSON.stringify(holdOpening)}`,
+        `E2E_STAND_IN = ${JSON.stringify(standIn)}`,
         '[pool]',
         'max_sessions = 4',
         'session_ttl_hours = 1',
@@ -190,6 +205,10 @@ export async function startStack(): Promise<Stack> {
       fetch(`http://127.0.0.1:${String(runtimePort)}/`),
     )
   }
+  const freezeAgentHost = async (whileFrozen: () => Promise<void>) => {
+    signalGroup(agentHosts.at(-1)!, 'SIGSTOP')
+    await whileFrozen().finally(() => signalGroup(agentHosts.at(-1)!, 'SIGCONT'))
+  }
 
   spawn('backend', ['bun', 'run', 'src/index.ts'], {
     cwd: BACKEND_DIR,
@@ -210,8 +229,14 @@ export async function startStack(): Promise<Stack> {
       CLOUDFLARE_OAUTH_CLIENT_ID: 'e2e-cloudflare-client',
       CLOUDFLARE_OAUTH_CLIENT_SECRET: 'e2e-cloudflare-secret-not-a-production-credential',
       CLOUDFLARE_OAUTH_SETUP_REDIRECT: `${apiUrl}/cloudflare-app/setup`,
+      // GitLab: a scenario serves the instance on this computer and answers its redirect.
+      GITLAB_OAUTH_SETUP_REDIRECT: `${apiUrl}/gitlab-app/setup`,
+      GITLAB_TOKEN_ENCRYPTION_KEY:
+        '6c6f63616c2d6532652d6769746c61622d6b65792d6e6f742d70726f64756374',
+      OUTBOUND_ALLOW_PRIVATE_HOSTS: 'true',
       // Where the agent reaches the backend's tools, as a runtime on this computer would.
       NUPHOS_BACKEND_URL: apiUrl,
+      ...storage,
     },
   })
   await until('the backend to be ready', async () => (await fetch(`${apiUrl}/health/ready`)).ok)
@@ -260,13 +285,16 @@ export async function startStack(): Promise<Stack> {
 
   return {
     apiUrl,
+    mongoUri,
     email,
     token,
     teamId,
     acpLog,
     signInCode,
     holdSessionOpening,
+    offerDefaultStandIn,
     restartAgentHost,
+    freezeAgentHost,
     cloudflareState: () => cloudflareState(mongoUri),
   }
 }

@@ -2822,52 +2822,6 @@
         }
       }
     },
-    "Answer in the task" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Responder en la tarea"
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Jawab di tugas"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "タスクで回答"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "태스크에서 답변"
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ตอบในงาน"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在任务中回答"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在任務中回答"
-          }
-        }
-      }
-    },
     "Answered %@ from the Inbox" : {
       "comment" : "Answered question: when it was answered",
       "localizations" : {
@@ -25313,6 +25267,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "服務供應商沒有完成連接。"
+          }
+        }
+      }
+    },
+    "The runtime didn't respond; the turn was stopped here." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El entorno de ejecución no respondió; el turno se detuvo aquí."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Runtime tidak merespons; giliran ini dihentikan di sini."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ランタイムが応答しなかったため、このターンはここで停止しました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "런타임이 응답하지 않아 이 턴을 여기서 중지했습니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "รันไทม์ไม่ตอบสนอง จึงหยุดเทิร์นนี้ไว้ที่นี่แล้ว"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "运行环境没有响应，已在这里停止这一回合。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "執行環境沒有回應，已在這裡停止這一輪。"
           }
         }
       }

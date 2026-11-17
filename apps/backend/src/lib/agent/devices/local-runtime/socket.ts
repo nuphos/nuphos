@@ -52,6 +52,7 @@ const CAPABILITY: Partial<Record<TunnelPurpose, keyof LocalRuntimeStatus>> = {
   attachments: 'localAttachments',
   exec: 'localExec',
   upload: 'localUpload',
+  download: 'localDownload',
   terminal: 'localTerminal',
   cua: 'localCua',
   browser: 'localBrowser',

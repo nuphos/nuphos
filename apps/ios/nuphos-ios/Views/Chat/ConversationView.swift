@@ -209,6 +209,9 @@ struct ConversationView: View {
         } message: {
             Text(session.stopRefusal ?? "")
         }
+        .alert(session.stopNotice ?? "", isPresented: Binding(get: { session.stopNotice != nil }, set: { if !$0 { session.stopNotice = nil } })) {
+            Button("OK") { session.stopNotice = nil }
+        }
         .sheet(item: $toolDetail) { ToolDetailSheet(part: $0, session: session) }
         .sheet(isPresented: $showTriggers) { ConversationTriggers(teamId: session.teamId, sessionId: session.sessionId, token: store.token).presentationDetents([.large]) }
         .sheet(isPresented: $showShare) { ShareSessionSheet(session: session).presentationDetents([.medium, .large]) }

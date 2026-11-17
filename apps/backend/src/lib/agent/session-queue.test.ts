@@ -51,6 +51,7 @@ const conversation = {
   participantIds: ['teammate'],
 } as AgentConversation
 let runtimeSend = true
+let runtimeDetached = false
 let released = 0
 const runs: Parameters<TurnRunner['runAgentForTrigger']>[0][] = []
 const launched: PendingUserMessage[] = []
@@ -69,6 +70,8 @@ let conversationRuntime = 'managed-1'
 useRedis({
   withRedis: (async (op: (client: unknown) => unknown) =>
     fakeRedis ? op(fakeRedis) : null) as never,
+  // One replica per backstop tick is covered in queue-backstop.test.ts.
+  claimRun: async () => true,
 })
 
 useIdentity({
@@ -98,11 +101,14 @@ useBoxWake({
   },
 })
 useSessionExecutionState({
-  conversationExecutionState: async () => ({
-    schemaVersion: 2,
-    state: runtimeSend ? 'idle' : 'active',
-    actions: { send: runtimeSend, cancel: !runtimeSend, steer: !runtimeSend },
-  }),
+  conversationExecutionState: async () =>
+    runtimeDetached
+      ? { state: 'disconnected' }
+      : {
+          schemaVersion: 2,
+          state: runtimeSend ? 'idle' : 'active',
+          actions: { send: runtimeSend, cancel: !runtimeSend, steer: !runtimeSend },
+        },
 })
 
 function chatTurn(text: string): QueuedChatTurn {
@@ -138,6 +144,7 @@ beforeEach(() => {
   boxOffline = false
   wakes.length = 0
   runtimeSend = true
+  runtimeDetached = false
   released = 0
   runs.length = 0
   launched.length = 0
@@ -375,6 +382,76 @@ for (const failure of [
   })
 }
 
+test('a send that keeps failing to start is retried for the grace, then kept with the reason', async () => {
+  installTurnRunner({
+    hasActiveAgentRunForSession: async () => false,
+    claimAgentRunForSession: async () => () => {},
+    launchQueuedChatTurn: async () => {
+      throw new Error('runtime lookup failed')
+    },
+  })
+  await queue(human('broken'), human('next'))
+  await startQueuedTurn(OWNER, SESSION)
+
+  // The first failure starts the grace.
+  expect(await waiting()).toEqual(['broken', 'next'])
+  expect((await listPendingUserMessages(OWNER, SESSION))[0]?.offlineSince).toBeString()
+
+  // Still failing a minute later: its sender is told, and the queue moves on.
+  await clearPendingUserMessages(OWNER, SESSION)
+  await queue(
+    { ...human('broken'), offlineSince: new Date(Date.now() - 61_000).toISOString() },
+    human('next'),
+  )
+  await startQueuedTurn(OWNER, SESSION)
+
+  // The notice says so in its own words: an internal error's text is for the log only.
+  const notice = JSON.stringify(kept[0]?.messages[1]?.parts)
+
+  expect(await waiting()).toEqual(['next'])
+  expect(notice).toContain('the server could not start it. Send it again.')
+  expect(notice).not.toContain('runtime lookup failed')
+})
+
+test('a server error past the grace is reported in plain words, not its own text', async () => {
+  installTurnRunner({
+    hasActiveAgentRunForSession: async () => false,
+    claimAgentRunForSession: async () => () => {},
+    launchQueuedChatTurn: async () => {
+      throw new AppError(503, 'runtime_unavailable', 'Unavailable')
+    },
+  })
+  await queue({ ...human('broken'), offlineSince: new Date(Date.now() - 61_000).toISOString() })
+  await startQueuedTurn(OWNER, SESSION)
+
+  const notice = JSON.stringify(kept[0]?.messages[1]?.parts)
+
+  expect(await waiting()).toEqual([])
+  expect(notice).toContain('the server could not start it. Send it again.')
+  expect(notice).not.toContain('Unavailable')
+})
+
+test('a busy runtime or a pending approval is waited for past the grace', async () => {
+  for (const failure of [
+    new AppError(409, 'runtime_not_accepting_message', 'Busy'),
+    new AppError(403, 'local_share_approval_required', 'Waiting for the owner'),
+  ]) {
+    installTurnRunner({
+      hasActiveAgentRunForSession: async () => false,
+      claimAgentRunForSession: async () => () => {},
+      launchQueuedChatTurn: async () => {
+        throw failure
+      },
+    })
+    await clearPendingUserMessages(OWNER, SESSION)
+    await queue({ ...human('patient'), offlineSince: new Date(Date.now() - 61_000).toISOString() })
+    await startQueuedTurn(OWNER, SESSION)
+
+    expect(await waiting()).toEqual(['patient'])
+    expect(kept).toEqual([])
+  }
+})
+
 test('a queued send waits out a reconnecting computer, then is kept with the reason', async () => {
   installTurnRunner({
     hasActiveAgentRunForSession: async () => false,
@@ -402,6 +479,40 @@ test('a queued send waits out a reconnecting computer, then is kept with the rea
 
   expect(await waiting()).toEqual(['next'])
   expect(JSON.stringify(kept[0]?.messages[1]?.parts)).toContain('is offline')
+})
+
+test('a queue whose runtime does not answer waits for it to reattach, then runs', async () => {
+  runtimeDetached = true
+  await queue(human('during the blip'), agent('behind'))
+  await startQueuedTurn(OWNER, SESSION)
+
+  const [head] = await listPendingUserMessages(OWNER, SESSION)
+
+  // Nothing started and failed: both still wait, the head counted against the grace.
+  expect(launched).toHaveLength(0)
+  expect(runs).toHaveLength(0)
+  expect(kept).toEqual([])
+  expect(await waiting()).toEqual(['during the blip', 'behind'])
+  expect(head?.offlineSince).toBeString()
+
+  runtimeDetached = false
+  await startQueuedTurn(OWNER, SESSION)
+
+  expect(launched.map((item) => item.renderedText)).toEqual(['during the blip'])
+  expect(await waiting()).toEqual(['behind'])
+})
+
+test('a runtime that has not reattached after the grace: the sender is told', async () => {
+  runtimeDetached = true
+  await queue(
+    { ...human('gone'), offlineSince: new Date(Date.now() - 61_000).toISOString() },
+    human('next'),
+  )
+  await startQueuedTurn(OWNER, SESSION)
+
+  expect(launched).toHaveLength(0)
+  expect(await waiting()).toEqual(['next'])
+  expect(JSON.stringify(kept[0]?.messages[1]?.parts)).toContain('did not reconnect')
 })
 
 test('two releases racing for one session start its head once', async () => {
@@ -576,7 +687,7 @@ test('with Redis, the backstop finds a waiting queue without scanning the keyspa
   const store: Record<string, (...args: never[]) => Promise<unknown>> = {
     // The enqueue script: KEYS = queue, index; ARGV = message, wake-up key, index entry.
     eval: async (
-      _script: string,
+      script: string,
       _keys: number,
       key: string,
       index: string,
@@ -584,12 +695,29 @@ test('with Redis, the backstop finds a waiting queue without scanning the keyspa
       _wakeUp: string,
       member: string,
     ) => {
+      // The backstop drops the entry of a queue that is gone: ARGV = index entry.
+      if (script.startsWith("if redis.call('EXISTS'"))
+        return lists.has(key) ? 0 : Number(members(index).delete(raw))
       members(index).add(member)
       lists.set(key, [...(lists.get(key) ?? []), raw])
 
       return 1
     },
     lrange: async (key: string) => lists.get(key) ?? [],
+    // Synchronous, like ioredis: commands queue on it until exec().
+    pipeline: (() => {
+      const reads: string[] = []
+      const write: { lrange: (key: string) => unknown; exec: () => Promise<unknown[]> } = {
+        lrange: (key: string) => {
+          reads.push(key)
+
+          return write
+        },
+        exec: async () => reads.map((key) => [null, lists.get(key) ?? []]),
+      }
+
+      return write
+    }) as never,
     exists: async (key: string) => (lists.has(key) ? 1 : 0),
     del: async (key: string) => Number(lists.delete(key)),
     sadd: async (key: string, ...values: string[]) => values.map((v) => members(key).add(v)),

@@ -84,6 +84,30 @@ final class BotsAndTasksListUITests: XCTestCase {
         shot("2-bots-opened")
     }
 
+    /// A Bot opened by hand stays open when Bots is left and on a restart,
+    /// per team, as on Desktop (#2898). A Bot never opened stays folded.
+    func testBotsKeepWhatWasOpenedByHand() throws {
+        launch(page: "chats")
+        XCTAssertTrue(app.staticTexts["Release Lead"].firstMatch.waitForExistence(timeout: 10), "Bots did not load")
+        app.buttons["Show 2 sub-agents"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["Check the CI flake"].firstMatch.waitForExistence(timeout: 5), "Opening a Bot did not show its threads")
+        XCTAssertFalse(app.staticTexts["Fix broken links"].exists, "Opening one Bot opened another")
+        shot("4-bots-opened-by-hand")
+
+        switchPage(to: "Tasks")
+        XCTAssertTrue(app.staticTexts["Check the staging cluster"].firstMatch.waitForExistence(timeout: 10), "Tasks did not load")
+        switchPage(to: "Bots")
+        XCTAssertTrue(app.staticTexts["Check the CI flake"].firstMatch.waitForExistence(timeout: 10), "The opened Bot folded again when Bots was left")
+        XCTAssertFalse(app.staticTexts["Fix broken links"].exists, "A Bot never opened is open")
+        shot("5-bots-after-tasks")
+
+        app.terminate()
+        launch(page: "chats", keepFolds: true)
+        XCTAssertTrue(app.staticTexts["Check the CI flake"].firstMatch.waitForExistence(timeout: 10), "The opened Bot folded again on restart")
+        XCTAssertFalse(app.staticTexts["Fix broken links"].exists, "A Bot never opened is open after a restart")
+        shot("6-bots-after-restart")
+    }
+
     func testTasksLeaveOutBotsAndWhatTheyDispatched() throws {
         launch(page: "agent")
         let staging = app.staticTexts["Check the staging cluster"].firstMatch
@@ -112,7 +136,8 @@ final class BotsAndTasksListUITests: XCTestCase {
 
         for (question, list) in [("Ship 2.4 today?", "Bots"), ("Retry the flaky iOS job?", "Bots"), ("Scale the staging pool?", "Tasks")] {
             launch(page: "inbox")
-            let menu = app.buttons["Switch page"].firstMatch
+            // The home tabs show over a list and leave the screen when a chat is open on top of it.
+            let menu = app.buttons.matching(NSPredicate(format: "label == 'Tasks' AND identifier != 'BackButton'")).firstMatch
             let row = app.descendants(matching: .any)
                 .matching(NSPredicate(format: "identifier == %@ AND label BEGINSWITH %@", "inbox.row", question)).firstMatch
             XCTAssertTrue(row.waitForExistence(timeout: 10), "\(question) is not in the Inbox")
@@ -120,23 +145,31 @@ final class BotsAndTasksListUITests: XCTestCase {
             let source = app.buttons["inbox.source"].firstMatch
             XCTAssertTrue(source.waitForExistence(timeout: 5), "\(question) has no source to open")
             source.tap()
-            // Opened over the list: the page menu leaves the bar.
+            // Opened over the list: the tabs leave the screen.
             expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: menu)
             waitForExpectations(timeout: 10)
             sleep(1)
             app.navigationBars.buttons.firstMatch.tap()
             XCTAssertTrue(menu.waitForExistence(timeout: 5), "No list after going back from \(question)")
             shot("back-from-\(list)-\(question.prefix(5))")
-            XCTAssertTrue((menu.value as? String ?? "").hasPrefix(list), "\(question) went back to \(menu.value ?? "nothing"), not \(list)")
+            let tab = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != 'BackButton'", list)).firstMatch
+            XCTAssertTrue(tab.isSelected, "\(question) did not go back to \(list)")
             app.terminate()
         }
     }
 
-    private func launch(page: String) {
+    /// Starts from no stored folds unless `keepFolds`, so earlier runs leave nothing behind.
+    private func launch(page: String, keepFolds: Bool = false) {
         app = XCUIApplication()
         app.launchArguments = ["-preview-home", "-preview-no-push", "-page", page]
+        if !keepFolds { app.launchArguments += ["-nuphos.agent.foldedThreads", "{}"] }
         app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path]
         app.launch()
+    }
+
+    /// The home tabs, since #3004.
+    private func switchPage(to title: String) {
+        app.buttons[title].firstMatch.tap()
     }
 
     private static func row(

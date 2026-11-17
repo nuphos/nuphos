@@ -8,7 +8,6 @@ import SwiftUI
 /// and a plan keep their own controls. A secret is asked for with the task's own `SecretCard`,
 /// which says the question itself.
 struct InboxQuestionView: View {
-    @Environment(AgentStore.self) private var store
     let inbox: OpenQuestions
     let question: BotQuestion
     @Environment(\.horizontalSizeClass) private var sizeClass
@@ -18,11 +17,6 @@ struct InboxQuestionView: View {
     @State private var typing = false
     @State private var words = ""
     @FocusState private var focused: Bool
-
-    /// The integration question whose conversation's credentials are being chosen, while the picker shows.
-    @State private var connecting = false
-    /// That conversation's selection, as edited in the picker.
-    @State private var selection = CredentialSelection()
 
     private var wide: Bool { sizeClass == .regular }
 
@@ -107,9 +101,6 @@ struct InboxQuestionView: View {
                 }
             }
         }
-        .sheet(isPresented: $connecting, onDismiss: save) {
-            CredentialPickerSheet(selection: $selection, providers: question.request.providers).presentationDetents([.medium, .large])
-        }
     }
 
     /// The body as the design sets it: 15pt in the body color, 12 between paragraphs and 8 between list items.
@@ -173,9 +164,7 @@ struct InboxQuestionView: View {
             // Saved in the conversation that asked; the listing then drops the question.
             AskedSecretCard(question: question, part: part, teamId: inbox.teamId) { Task { await inbox.refresh() } }
         } else if question.connectable {
-            InboxOption(title: connectLabel, primary: true, height: wide ? 40 : 50, size: wide ? 15 : 16, fill: !wide) {
-                Task { await connect() }
-            }
+            QuestionConnect(questions: inbox, question: question, height: wide ? 40 : 50, size: wide ? 15 : 16, fill: !wide)
         }
     }
 
@@ -213,36 +202,6 @@ struct InboxQuestionView: View {
     /// Nuphos pages open in the app, as a conversation's links do; anything else leaves.
     private func open(link url: URL) {
         if !PushNotifications.shared.open(url) { openURL(url) }
-    }
-
-    /// "Use your own GitHub" for a question naming the member's own credential; otherwise the picker.
-    private var connectLabel: String {
-        guard let own = question.personalCredentials else { return String(localized: "Choose credentials") }
-        let names = own.map { $0 == "github" ? "GitHub" : $0 == "linear" ? "Linear" : $0 }
-        return String(localized: "Use your own \(names.joined(separator: " and "))")
-    }
-
-    /// Opens the picker on the asking conversation's own selection, so saving keeps what it had.
-    private func connect() async {
-        // The member's own credential: added as named, with no picker and no team connection in its place.
-        if let own = question.personalCredentials {
-            await store.loadCredentialOptions()
-            let connected = store.credentialCatalog.map { catalog in
-                Set(catalog.allItems.filter { $0.provider.selectionKey == "personalCredentialIds" }.map(\.id))
-            }
-            await inbox.useOwn(own, for: question, connected: connected)
-            return
-        }
-        guard let current = await inbox.storedSelection(for: question) else { return }
-        selection = current
-        connecting = true
-    }
-
-    /// Saves the picker's selection; the server answers the question it covers, and the card says why if not.
-    private func save() {
-        let chosen = selection
-        let question = question
-        Task { await inbox.select(chosen, for: question) }
     }
 }
 

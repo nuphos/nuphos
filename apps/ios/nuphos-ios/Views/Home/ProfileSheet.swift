@@ -44,6 +44,18 @@ struct ProfileSheet: View {
                     .listRowBackground(Theme.surface)
                 }
 
+                if store != nil {
+                    Section("Workspace") {
+                        NavigationLink {
+                            RuntimesPage().navigationTitle("Computers")
+                        } label: {
+                            Label("Computers", systemImage: "desktopcomputer")
+                        }
+
+                    }
+                    .listRowBackground(Theme.surface)
+                }
+
                 Section("Signed-in accounts") { SavedAccountsView(allowAdding: true) }
                     .listRowBackground(Theme.surface)
 

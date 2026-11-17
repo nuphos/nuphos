@@ -69,7 +69,11 @@ class OpenQuestions(private val source: Source) {
     /** What the cards show: the listing, less what was answered here. */
     val list: List<BotQuestion> get() = listed.filter { it.id !in answered }
 
-    suspend fun refresh(pick: (List<AgentConversation>) -> List<BotQuestion> = BotQuestions::open) {
+    /** Which of the listing's questions this list shows: all of them, or a Bot's; kept for refreshes after a save. */
+    private var pick: (List<AgentConversation>) -> List<BotQuestion> = BotQuestions::open
+
+    suspend fun refresh(pick: (List<AgentConversation>) -> List<BotQuestion> = this.pick) {
+        this.pick = pick
         try {
             listed = pick(source.pending())
             answered = answered intersect listed.map { it.id }.toSet()

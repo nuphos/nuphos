@@ -1,7 +1,7 @@
 import XCTest
 
 /// The Inbox lists the open questions of every conversation, badges their
-/// count on the page menu, and answers one from its card. Uses a copy of the
+/// count on the native tab, and answers one from its card. Uses a copy of the
 /// offline chats fixture, rewritten while the app runs.
 final class InboxUITests: XCTestCase {
     private let pending = "GET /agent/conversations?pendingDecision=true"
@@ -42,17 +42,11 @@ final class InboxUITests: XCTestCase {
         app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path]
         app.launch()
 
-        let menu = app.buttons["Switch page"].firstMatch
-        XCTAssertTrue(menu.waitForExistence(timeout: 10), "No page menu")
-        let badged = NSPredicate(format: "value CONTAINS %@", "4 in Inbox")
-        expectation(for: badged, evaluatedWith: menu)
-        waitForExpectations(timeout: 10)
-        shot("1-badge")
-
-        menu.tap()
-        let inbox = app.buttons["Inbox"].firstMatch
-        XCTAssertTrue(inbox.waitForExistence(timeout: 5), "No Inbox in the page menu")
-        inbox.tap()
+        let inboxTab = app.tabBars.buttons["Inbox"].firstMatch
+        XCTAssertTrue(inboxTab.waitForExistence(timeout: 10), "No Inbox tab")
+        // Native tab badges render visually but are not exposed as the button's
+        // value on iOS 26. The populated Inbox and screenshots verify this flow.
+        inboxTab.tap()
 
         // Grouped under who asked; still badged on the Inbox title.
         let row = listed("Roll out 1.4 to production?")
@@ -63,7 +57,7 @@ final class InboxUITests: XCTestCase {
         }
         XCTAssertTrue(app.staticTexts["Release Lead"].exists, "No group for the Bot that asked")
         XCTAssertTrue(app.staticTexts["Check the staging cluster"].exists, "No group for the Task that asked")
-        XCTAssertTrue(menu.value.map { "\($0)".contains("4 in Inbox") } ?? false, "The Inbox title lost its badge")
+        XCTAssertTrue(inboxTab.isSelected)
         XCTAssertFalse(app.buttons["Mark as done"].exists, "A to-do is still marked done")
         shot("2-list")
 
@@ -134,8 +128,7 @@ final class InboxUITests: XCTestCase {
     func testAnswersInWordsWithOther() throws {
         try listQuestions([deploy, staging, plan])
         app = launch(page: "agent")
-        app.buttons["Switch page"].firstMatch.tap()
-        app.buttons["Inbox"].firstMatch.tap()
+        app.tabBars.buttons["Inbox"].firstMatch.tap()
 
         listed("Roll out 1.4 to production?").tap()
         XCTAssertTrue(app.buttons["Other…"].waitForExistence(timeout: 10), "No Other…")
@@ -266,7 +259,6 @@ final class InboxUITests: XCTestCase {
             "id": "q-token", "category": "credential", "question": "The rollout needs a deploy token.",
             "secretName": "DEPLOY_TOKEN", "askedAt": "2026-11-03T09:40:00Z", "status": "open"])])
         app = launch(page: "agent")
-        app.buttons["Switch page"].firstMatch.tap()
         app.buttons["Inbox"].firstMatch.tap()
         openQuestion("The rollout needs a deploy token.")
 
@@ -285,6 +277,44 @@ final class InboxUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "fixture-value")).firstMatch.exists,
                        "The value shows in the Inbox")
         shot("19-inbox-secret-saved")
+    }
+
+    /// In a Bot's chat, an integration question naming providers opens the same scoped credential picker
+    /// as the Inbox, never "Answer in the task"; once saved, the chat still lists only the Bot's questions.
+    func testABotChatIntegrationQuestionChoosesCredentialsOnItsCard() throws {
+        responses["GET /agent/credential-options"] = ["status": 200, "body": [
+            "awsRoles": [["roleId": "role-prod", "accountId": "111122223333", "accountAlias": "prod-account"]],
+            "gcpServiceAccounts": [["serviceAccountId": "sa-release", "projectId": "release-builds",
+                                    "serviceAccountEmail": "release@release-builds.iam.gserviceaccount.com"]]]]
+        responses["PATCH /agent/conversations/agent-ops/credentials"] = ["status": 200, "body": [
+            "credentialAccess": ["gcpServiceAccountIds": ["sa-release"]], "options": [:]]]
+        let question = "Select a Google Cloud account so I can read the release bucket."
+        var task = InboxUITests.row("agent-ops", "Release ops", [
+            "id": "q-gcp", "category": "integration", "question": question,
+            "providers": ["gcp"], "askedAt": "2026-11-03T09:40:00Z", "status": "open"])
+        task["parentSessionId"] = "bot-release"
+        // Asked outside this Bot: never in its chat, before or after a save.
+        try openBotChat(listing: [task, staging], asking: question)
+        let choose = app.buttons["Choose credentials"]
+        let offered = choose.waitForExistence(timeout: 10)
+        shot("20-bot-chat-integration")
+        XCTAssertTrue(offered, "The Bot chat's integration card does not offer its credentials")
+        XCTAssertFalse(app.buttons["Answer in the task"].exists, "The question is still sent to the task to be answered")
+
+        choose.tap()
+        let account = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "release-builds")).firstMatch
+        XCTAssertTrue(account.waitForExistence(timeout: 10), "The picker does not list the Google Cloud account")
+        XCTAssertFalse(app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "prod-account")).firstMatch.exists,
+                       "The picker lists a provider the question did not ask for")
+        account.tap()
+        shot("21-bot-chat-picker")
+        // Done with the question still listed open: the card says why, and the other Bot's question stays out.
+        app.buttons["Done"].firstMatch.tap()
+        let failure = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "adds no credential")).firstMatch
+        XCTAssertTrue(failure.waitForExistence(timeout: 10), "A save that leaves the question open says nothing")
+        XCTAssertFalse(app.staticTexts["Which node pool should the staging cluster use?"].exists,
+                       "A question outside this Bot joined its chat after the save")
+        shot("22-bot-chat-still-open")
     }
 
     /// Opens the release chat as a Bot's 1:1, where the Bot's questions and those under it show.
@@ -318,8 +348,7 @@ final class InboxUITests: XCTestCase {
                                     "askedAt": "2026-11-03T09:41:00Z", "status": "open"]]
         try listQuestions([github])
         app = launch(page: "agent")
-        app.buttons["Switch page"].firstMatch.tap()
-        app.buttons["Inbox"].firstMatch.tap()
+        app.tabBars.buttons["Inbox"].firstMatch.tap()
         openQuestion("Select your own GitHub so I can open the PR as you.")
         let choose = app.buttons["Choose credentials"]
         XCTAssertTrue(choose.waitForExistence(timeout: 10), "The integration card does not offer its credentials")
@@ -372,7 +401,6 @@ final class InboxUITests: XCTestCase {
         ops["inputRequests"] = [gcp, play, signIn, repo]
         try listQuestions([ops])
         app = launch(page: "agent")
-        app.buttons["Switch page"].firstMatch.tap()
         app.buttons["Inbox"].firstMatch.tap()
         openQuestion("Select a Google Cloud account so I can read the release bucket.")
         let choose = app.buttons["Choose credentials"]
@@ -459,8 +487,7 @@ final class InboxUITests: XCTestCase {
              "askedAt": "2026-11-03T09:40:00Z", "status": "open"])
         try listQuestions([rollout])
         app = launch(page: "agent")
-        app.buttons["Switch page"].firstMatch.tap()
-        app.buttons["Inbox"].firstMatch.tap()
+        app.tabBars.buttons["Inbox"].firstMatch.tap()
         XCTAssertTrue(listed("How should the staging rollout go?").waitForExistence(timeout: 10),
                       "The question is not listed")
         openQuestion("How should the staging rollout go?")

@@ -129,16 +129,28 @@ export class SessionConfigSync {
   }
 
   private applyQueued() {
-    const queued = this.snapshot.queued
-
     if (
-      !queued ||
+      !this.snapshot.queued ||
       this.streaming ||
       this.snapshot.saving ||
       this.snapshot.error ||
       !['ready', 'dormant'].includes(this.snapshot.data?.status ?? '')
     )
       return
+    // A pick made for another agent, e.g. before the Task moved, is only kept if this one offers it.
+    const queued = this.snapshot.queued.filter((selection) =>
+      this.snapshot.data?.options.some(
+        (option) =>
+          option.id === selection.configId &&
+          option.options.some((choice) => choice.value === selection.value),
+      ),
+    )
+
+    if (!queued.length) {
+      this.publish({ queued: undefined })
+
+      return
+    }
     const modelId = this.snapshot.data?.options.find((option) => option.kind === 'model')?.id
     const next = queued.find((selection) => selection.configId === modelId) ?? queued[0]
     const remaining = queued.filter((selection) => selection !== next)

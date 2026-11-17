@@ -7,20 +7,21 @@ import SwiftUI
 /// "Other…" and "Skip" as outlined halves below; wide, one row of capsules with "Skip" at its end.
 /// A multi-select or several questions are a form, sent as one answer. An answer wakes the agent
 /// that asked; no message is sent. A secret is asked for with the task's own `SecretCard`, saved
-/// and replied to in the conversation that asked. A connect question is answered in that
-/// conversation, which the button opens. `showsFrom` is off for the Bot's own questions in its own chat.
+/// and replied to in the conversation that asked. A connect question opens that conversation's
+/// credential picker, as in the Inbox. `showsFrom` is off for the Bot's own questions in its own chat.
 struct BotQuestionCard: View {
     let question: BotQuestion
     var showsFrom = true
     let onOpen: () -> Void
-    /// The chat's team: a secret is saved in the conversation that asked. Absent, the button opens it.
-    var teamId: String?
+    /// The chat's team: a secret is saved in the conversation that asked.
+    let teamId: String
+    /// The chat's open questions: a connect question's picker saves through them, and they say why
+    /// the last answer or save failed while the question is still open.
+    let questions: OpenQuestions
     let onAnswer: (DecisionAnswer) -> Void
     let onSkip: () -> Void
     /// A tapped link in the body. Absent, the system opens it.
     var onLink: ((URL) -> Void)?
-    /// Why the last answer could not be sent; the question is still open.
-    var failure: String?
 
     @State private var expanded = false
     /// "Other…" was tapped: the card asks for the answer in words.
@@ -36,8 +37,9 @@ struct BotQuestionCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            if let part = question.secretPart, let teamId { secret(part, teamId) } else { card }
-            if let failure {
+            if let part = question.secretPart { secret(part, teamId) } else { card }
+            // Read here, not passed in: the transcript redraws a row only when the row itself changes.
+            if let failure = questions.failures[question.id] {
                 Label("Couldn't send the message · \(failure)", systemImage: "exclamationmark.circle")
                     .font(Theme.Text.caption)
                     .foregroundStyle(.red)
@@ -115,13 +117,12 @@ struct BotQuestionCard: View {
                 }
             }
         } else {
-            let open = InboxOption(title: String(localized: "Answer in the task"), primary: true,
-                                   height: wide ? 40 : 44, size: 15, fill: !wide, action: onOpen)
+            let connect = QuestionConnect(questions: questions, question: question, height: wide ? 40 : 44, size: 15, fill: !wide)
             if wide {
-                HStack(spacing: 10) { open; Spacer(); skip }
+                HStack(spacing: 10) { connect; Spacer(); skip }
             } else {
                 VStack(spacing: 8) {
-                    open
+                    connect
                     HStack(spacing: 8) { Color.clear.frame(maxWidth: .infinity); skip }
                 }
             }

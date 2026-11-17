@@ -1,6 +1,7 @@
 import { AppError } from '@/lib/errors'
 import { isShuttingDown } from '@/lib/lifecycle'
 import { logError, logEvent } from '@/lib/observability'
+import { claimRun } from '@/lib/redis'
 
 import { enqueuePendingUserMessage } from './pending-messages'
 import {
@@ -102,9 +103,13 @@ export async function requeueTurnQueue(
 const BACKSTOP_MS = 10_000
 const lastBackstop = new Map<string, number>()
 
+// Under the 2 s handoff tick, so each tick one replica reads the shared index.
+const SWEEP_CLAIM_MS = 1_500
+
 /** Called on a periodic tick: start one batch of the queues left waiting. */
 export async function sweepQueuedSessions(cursor: string): Promise<string> {
-  const page = await scanQueuedSessions(cursor)
+  const shared = await claimRun('atlas:agentrun-pending-sweep', SWEEP_CLAIM_MS)
+  const page = await scanQueuedSessions(cursor, shared)
   const now = Date.now()
 
   if (lastBackstop.size > 10_000) lastBackstop.clear()

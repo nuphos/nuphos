@@ -77,9 +77,15 @@ async function activeRunsFor(conversations: ListedConversation[]) {
   let next = 0
 
   return Promise.all(
-    conversations.map((conversation, i) =>
-      withChannels(conversation, local[i] ?? shared[next++] ?? null),
-    ),
+    conversations.map(async (conversation, i) => {
+      if (local[i]) return withChannels(conversation, local[i])
+      const run = shared[next++]
+
+      // The shared store's runs come with their channels, read for the whole page.
+      return run
+        ? { streamId: run.streamId, startedAt: run.startedAt, channelIds: run.channelIds }
+        : null
+    }),
   )
 }
 
