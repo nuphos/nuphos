@@ -70,6 +70,7 @@ async function holdForReattach(target: AgentConversation, head: PendingUserMessa
     { userId: target.userId, teamId: target.teamId, targetSessionId: target.sessionId },
     head,
     'was not sent: the computer running this agent did not reconnect.',
+    new AppError(409, 'runtime_offline', 'The computer running this agent did not reconnect.'),
   )
 }
 

@@ -3,11 +3,11 @@ import { randomUUID } from 'node:crypto'
 import { sessionsByConversation } from '@/lib/claude-code-preview/agent-chat-registry'
 import { isRuntimeRefusal } from '@/lib/claude-code-preview/runtime-refusal'
 import { signNuphosToken } from '@/lib/identity'
-import { logError } from '@/lib/observability'
+import { logError, logEvent } from '@/lib/observability'
 import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
 
 import { agentMessages, getConversationBySessionId, getConversationWithMessages } from './db'
-import { channelIdOf, withChannelPosts } from './channel-wake'
+import { channelIdOf, noteReplyFailed, withChannelPosts } from './channel-wake'
 import { systemSender } from './message-metadata'
 import { buildPendingUserMessage, hasPendingUserMessage } from './pending-messages'
 import { requeueTurnQueue } from './session-released'
@@ -202,6 +202,7 @@ export async function runTurn(
       data,
       await keepAnswersThatWait(target, taken, error),
       `did not run: ${failureLine(error)}`,
+      error,
     )
     await recordFailedFires(error, taken)
     throw error
@@ -241,17 +242,32 @@ async function reportIfRestarted(
 /**
  * The one rule for an accepted message: it runs as a turn of its target, or its
  * sender is told, once, that it did not. A thread message is answered in its
- * sender's thread; a person's send stays in the conversation, with the reason.
+ * sender's thread; a person's send stays in the conversation, with the reason;
+ * a channel's wake notice is a line in that channel.
  */
 export async function reportUndelivered(
   // No team when the target conversation is gone: the sender's own is the one it sent from.
   data: Omit<DeliveredTo, 'teamId'> & { teamId?: string },
   messages: readonly PendingUserMessage[],
   reason: string,
+  /** Why, for a channel's line; none says only that the agent could not reply. */
+  error?: unknown,
 ): Promise<void> {
   for (const message of messages) {
     const senderId = message.metadata?.sourceSessionId
+    const channelId = channelIdOf(message)
 
+    // A channel's wake notice is told to the channel: its people see the agent could not reply.
+    if (channelId) {
+      logEvent('warn', 'agent.channel.wake_undelivered', {
+        channel_id: channelId,
+        session_id: data.targetSessionId,
+        message_id: message.id,
+        reason,
+      })
+      await noteReplyFailed(channelId, data.targetSessionId, error ?? new Error(reason))
+      continue
+    }
     if (message.chat) await keepUndeliveredSend(data, message, `This message ${reason}`)
     if (message.answers) await reopenUndeliveredAnswer(data, message.answers, reason)
     // Only an agent's message is answered. The answer is Nuphos's own notice,

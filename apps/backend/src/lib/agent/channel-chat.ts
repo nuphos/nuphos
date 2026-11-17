@@ -11,7 +11,7 @@ import {
   steerQueuedNotice,
   steerRunningTurn,
 } from './channel-wake'
-import { isChannel, postText } from './db/channels'
+import { isChannel, postText, readChannelMessages } from './db/channels'
 import { bumpConversationActivity } from './db/read-state'
 import { pushTimelineEvent } from './db/participants'
 import { agentConversations } from './db/shared'
@@ -146,6 +146,38 @@ export async function wakeChannelAgents(
       }),
     ),
   )
+}
+
+/**
+ * The agents `filter` picks can run again (their computer is back): each one a
+ * person's post in a channel never reached is woken for it, as the post would
+ * have. Its place in the channel already records what it missed. Never throws.
+ */
+export async function wakeMissedPosts(filter: Record<string, unknown>): Promise<void> {
+  try {
+    const agents = await agentConversations()
+      .find({ ...filter, archivedAt: { $exists: false } }, { projection: { sessionId: 1 } })
+      .limit(500)
+      .toArray()
+
+    for (const { sessionId } of agents) {
+      const channels = await agentConversations()
+        .find({ kind: 'channel', agentSessionIds: sessionId, archivedAt: { $exists: false } })
+        .toArray()
+
+      for (const channel of channels) {
+        // Never woken here yet, so nothing it was sent went missing.
+        if (!channel.teamId || channel.agentReadIndex?.[sessionId] === undefined) continue
+        const { messages } = await readChannelMessages(channel, sessionId, channel.userId, true)
+
+        // Agents' posts past the turn budget wait for a person, as they do online.
+        if (messages.some((message) => message.sender?.type === 'user'))
+          await notifyAgent({ ...channel, teamId: channel.teamId }, sessionId, false)
+      }
+    }
+  } catch (error) {
+    logError('agent.channel.missed_wake_failed', error)
+  }
 }
 
 /**
@@ -287,13 +319,12 @@ async function startNotice(
     metadata,
   )
 
+  // The channel already has its line: runTurn reports a notice it could not run.
   run.catch((error: unknown) => {
     logError('agent.channel.turn_failed', error, {
       channel_id: channel.sessionId,
       session_id: agent.sessionId,
     })
-
-    return noteReplyFailed(channel.sessionId, agent.sessionId, error)
   })
 
   return status === 'queued' ? messageId : undefined

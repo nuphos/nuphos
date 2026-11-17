@@ -15,7 +15,8 @@ import { DEVICE_CREDENTIAL_PREFIX } from '@/lib/agent/devices/join-tokens'
 import { recordDeviceAgents } from '@/lib/agent/devices/agent-registry-store'
 import { settlePendingRemovals } from '@/lib/agent/devices/pending-removals'
 import { presenceChanged } from '@/lib/agent/devices/presence-alerts'
-import { deliverWaitingAnswersOnDevice } from '@/lib/agent/deliver-waiting-answers'
+import { wakeMissedPosts } from '@/lib/agent/channel-chat'
+import { deliverWaitingAnswersOn, onDevice } from '@/lib/agent/deliver-waiting-answers'
 import { getAgentDevice, isActiveTeamMember } from '@/lib/agent/devices/store'
 import { recordDeviceMetricSample } from '@/lib/claude-code-preview/runtime-metrics-store'
 import { AppError } from '@/lib/errors'
@@ -61,7 +62,11 @@ function defaultDependencies(): DeviceRuntimeRouteDependencies {
       connectionChanged: (userId, deviceId, online) => {
         void noteBoxPresence(userId, deviceId, getAgentDevice)
         void presenceChanged(userId, deviceId, online).catch(() => undefined)
-        if (online) void deliverWaitingAnswersOnDevice(userId, deviceId)
+        // A computer reconnected: every agent on it can run again.
+        if (online) {
+          void deliverWaitingAnswersOn(onDevice(userId, deviceId))
+          void wakeMissedPosts(onDevice(userId, deviceId))
+        }
       },
       recordMetrics: recordDeviceMetricSample,
     },
