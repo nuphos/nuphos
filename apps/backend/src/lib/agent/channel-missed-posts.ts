@@ -17,12 +17,17 @@ export async function wakeMissedPosts(filter: Record<string, unknown>): Promise<
       .limit(500)
       .toArray()
 
-    for (const { sessionId } of agents) {
-      const channels = await agentConversations()
-        .find({ kind: 'channel', agentSessionIds: sessionId, archivedAt: { $exists: false } })
-        .toArray()
+    const channels = await agentConversations()
+      .find({
+        kind: 'channel',
+        agentSessionIds: { $in: agents.map(({ sessionId }) => sessionId) },
+        archivedAt: { $exists: false },
+      })
+      .toArray()
 
+    for (const { sessionId } of agents) {
       for (const channel of channels) {
+        if (!channel.agentSessionIds?.includes(sessionId)) continue
         // Never woken here yet, so nothing it was sent went missing.
         if (!channel.teamId || channel.agentReadIndex?.[sessionId] === undefined) continue
         const { messages } = await readChannelMessages(channel, sessionId, channel.userId, true)
