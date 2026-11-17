@@ -367,8 +367,9 @@ jobs:
           CONTENDED='@/routes/agent|@/lib/identity|@/lib/agent/db|@/models|@/lib/slack/api|@/lib/slack/agent-bot|@/middleware/auth'
           # A suite that loads the whole app binds every route module's
           # middleware at once, so it is isolated too.
-          isolated=$(grep -rlE "mock\.module\('($CONTENDED)'|import\('@/index-app'\)" src --include='*.test.ts' | sort)
-          shared=$(find src -name '*.test.ts' | sort | comm -23 - <(echo "$isolated"))
+          # The *.mongo.test.ts suites run in the next step, against the database.
+          isolated=$(grep -rlE "mock\.module\('($CONTENDED)'|import\('@/index-app'\)" src --include='*.test.ts' --exclude='*.mongo.test.ts' | sort)
+          shared=$(find src -name '*.test.ts' ! -name '*.mongo.test.ts' | sort | comm -23 - <(echo "$isolated"))
           echo "isolated suites:"; echo "$isolated" | sed 's/^/  /'
           bun test $shared
           for suite in $isolated; do
@@ -384,7 +385,12 @@ jobs:
           TEST_MONGODB_URI: mongodb://127.0.0.1:27017
           MONGODB_URI: mongodb://127.0.0.1:27017
           MONGODB_DB: nuphos_test
-        run: bun test $(find src -name '*.mongo.test.ts' | sort)
+        # A suite that skips here passes without having touched the database.
+        run: |
+          bun test $(find src -name '*.mongo.test.ts' | sort) 2>&1 | tee "$RUNNER_TEMP/mongo-tests.txt"
+          if grep -q '^(skip)' "$RUNNER_TEMP/mongo-tests.txt"; then
+            echo "::error::A *.mongo.test.ts test skipped against the real MongoDB"; exit 1
+          fi
       - name: Check API schema is up-to-date
         working-directory: apps/backend
         run: bun run check:api
