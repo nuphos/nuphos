@@ -1,7 +1,8 @@
 // Scenarios about a Bot reading its chat. They run in the Bot chat the scenario before opened.
 import { agentEvents, agentLog } from './agent-log.ts'
+import { client } from './binding-access-scenarios.ts'
 import { artifacts, until } from './processes.ts'
-import { send } from './ui.ts'
+import { newTask, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 
@@ -92,6 +93,45 @@ export const channelScenarios: Scenario[] = [
       await row.getByText('POSTED E2E_DELIVERY:two').waitFor()
       await page.screenshot({ path: `${artifacts}/bot-row-idle-light.png` })
       await ownWords('After the turn')
+    },
+  },
+  {
+    // #3321: a working Bot with no chat showed a spinner, one with a chat the work dots.
+    name: 'a working Bot with no chat shows the same work dots as a Bot in its chat',
+    run: async (page, stack) => {
+      const api = client(stack.apiUrl, stack.token)
+
+      await newTask(page)
+      await send(page, 'Keep working E2E_HOLD E2E_DELIVERY:solo-bot')
+      await until('the held turn to start', async () =>
+        agentEvents(stack).includes('start E2E_DELIVERY:solo-bot'),
+      )
+      const listed = (await api('GET', `/agent/conversations?teamId=${stack.teamId}`)).body as {
+        conversations: { sessionId: string; firstMessage?: string }[]
+      }
+      const solo = listed.conversations.find((c) => c.firstMessage?.includes('solo-bot'))
+
+      if (!solo) throw new Error('The held Task is not listed')
+      await api('POST', `/agent/conversations/${solo.sessionId}/bot?teamId=${stack.teamId}`, {})
+      await page.getByRole('tab', { name: 'Bots' }).click()
+      const row = page.locator('[data-sidebar-row]').filter({ hasText: 'E2E_DELIVERY:solo-bot' })
+
+      await row.locator('.t-typing-dot').first().waitFor()
+      const spinners = await row.locator('.animate-spin').count()
+
+      await page.evaluate(() => {
+        document.documentElement.classList.remove('dark')
+        document.documentElement.classList.add('light')
+      })
+      await page.screenshot({ path: `${artifacts}/bot-without-chat-working-light.png` })
+      if (spinners > 0) throw new Error('The working Bot without a chat shows a spinner')
+      await api(
+        'POST',
+        `/agent/conversations/${solo.sessionId}/cancel-runtime?teamId=${stack.teamId}`,
+      )
+      await until('the held turn to stop', async () =>
+        agentEvents(stack).includes('cancelled E2E_DELIVERY:solo-bot'),
+      )
     },
   },
 ]
