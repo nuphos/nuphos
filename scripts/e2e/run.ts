@@ -81,10 +81,10 @@ const scenarios: Scenario[] = [
       )
     },
   },
+  ...botUnreadScenarios,
   ...channelScenarios,
   ...channelAwayScenarios,
   ...teammateBotScenarios,
-  ...botUnreadScenarios,
   {
     name: 'start a Task, send a message and read the reply',
     run: async (page) => {

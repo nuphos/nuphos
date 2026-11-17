@@ -107,6 +107,8 @@ export const botUnreadScenarios: Scenario[] = [
       await shot('bot-unread-own-light')
       if ((await dots.count()) !== 1)
         throw new Error(`A Bot with its own unread shows ${String(await dots.count())} dots`)
+      // Back in the Bot's chat, where the channel scenarios carry on.
+      await bots.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first().click()
     },
   },
 ]

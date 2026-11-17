@@ -226,7 +226,10 @@ async function answer(request) {
         await new Promise((resolve) => setTimeout(resolve, 50))
       }
 
-      setToolsServer(sessionId, request.params.mcpServers)
+      setToolsServer(
+        sessionId,
+        request.params.mcpServers?.find(({ name }) => name === 'nuphos-tools'),
+      )
 
       // The settings the conversation was created with, applied by the runtime's own code,
       // which refuses to open a session on a value this agent does not offer.
@@ -253,8 +256,6 @@ async function answer(request) {
         request.params.mcpServers?.find(({ name }) => name === 'nuphos-tools'),
       )
       log({ sessionId: request.params.sessionId, event: 'loaded' })
-      // A reloaded session keeps its tools, as after an agent host restart.
-      setToolsServer(request.params.sessionId, request.params.mcpServers)
 
       return {}
     case 'session/set_mode':
