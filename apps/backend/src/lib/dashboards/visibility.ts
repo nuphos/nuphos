@@ -15,45 +15,65 @@ export function isPersonal(dashboard: Pick<NuphosDashboard, 'visibility'>): bool
   return dashboard.visibility === 'personal'
 }
 
-/** A team dashboard is the team's; a personal one only its creator's. */
-export function canReadDashboard(dashboard: Owned, viewer: DashboardViewer): boolean {
-  return !isPersonal(dashboard) || dashboard.createdBy === viewer.userId
-}
-
-/** A team dashboard is edited by Administrators and Editors; a personal one by its creator, whatever their role. */
-export function canEditDashboard(dashboard: Owned, viewer: DashboardViewer): boolean {
-  return isPersonal(dashboard) ? dashboard.createdBy === viewer.userId : writesTeam(viewer.role)
-}
-
-/** Whoever may edit it, and an Administrator for anyone's personal dashboard, which they cannot read. */
-export function canDeleteDashboard(dashboard: Owned, viewer: DashboardViewer): boolean {
+/**
+ * Who holds a personal dashboard: its creator while they are in the team, and once
+ * they are not, any Administrator, who can then take it over. `creatorInTeam` only
+ * matters for that case; a caller that has not looked it up passes nothing.
+ */
+function holdsPersonal(dashboard: Owned, viewer: DashboardViewer, creatorInTeam: boolean) {
   return (
-    canEditDashboard(dashboard, viewer) ||
-    (isPersonal(dashboard) && viewer.role === 'ADMINISTRATOR')
+    dashboard.createdBy === viewer.userId || (!creatorInTeam && viewer.role === 'ADMINISTRATOR')
   )
 }
 
-export function canDo(dashboard: Owned, viewer: DashboardViewer, need: DashboardNeed): boolean {
-  if (need === 'read') return canReadDashboard(dashboard, viewer)
+/** A team dashboard is the team's; a personal one only its holder's. */
+export function canReadDashboard(
+  dashboard: Owned,
+  viewer: DashboardViewer,
+  creatorInTeam = true,
+): boolean {
+  return !isPersonal(dashboard) || holdsPersonal(dashboard, viewer, creatorInTeam)
+}
 
-  return need === 'edit'
-    ? canEditDashboard(dashboard, viewer)
-    : canDeleteDashboard(dashboard, viewer)
+/** A team dashboard is edited by Administrators and Editors; a personal one by its holder, whatever their role. */
+export function canEditDashboard(
+  dashboard: Owned,
+  viewer: DashboardViewer,
+  creatorInTeam = true,
+): boolean {
+  return isPersonal(dashboard)
+    ? holdsPersonal(dashboard, viewer, creatorInTeam)
+    : writesTeam(viewer.role)
+}
+
+/** Deleting takes what editing takes. */
+export const canDeleteDashboard = canEditDashboard
+
+export function canDo(
+  dashboard: Owned,
+  viewer: DashboardViewer,
+  need: DashboardNeed,
+  creatorInTeam = true,
+): boolean {
+  return need === 'read'
+    ? canReadDashboard(dashboard, viewer, creatorInTeam)
+    : canEditDashboard(dashboard, viewer, creatorInTeam)
 }
 
 /**
- * Only the creator moves a dashboard between personal and team. Sharing makes it
- * a team dashboard, which only Administrators and Editors edit, so it needs one of
- * those roles; making it personal again does not.
+ * Moving a dashboard between personal and team. Sharing a personal one takes its
+ * holder, with a team write role, since a team dashboard is only edited by those.
+ * Making a team dashboard personal again takes its creator.
  */
 export function canSetVisibility(
   dashboard: Owned,
   viewer: DashboardViewer,
   to: DashboardVisibility,
+  creatorInTeam = true,
 ): boolean {
-  if (dashboard.createdBy !== viewer.userId) return false
+  if (to === 'personal') return dashboard.createdBy === viewer.userId
 
-  return to === 'personal' || writesTeam(viewer.role)
+  return holdsPersonal(dashboard, viewer, creatorInTeam) && writesTeam(viewer.role)
 }
 
 /** Creating a team dashboard takes the team write roles; a personal one, any member. */
@@ -62,7 +82,7 @@ export function canCreateDashboard(viewer: DashboardViewer, visibility: Dashboar
 }
 
 /**
- * The dashboards the list returns in full: every team dashboard and the caller's own
+ * The dashboards the list returns for a member: every team dashboard and their own
  * personal ones. A dashboard with no visibility stored is a team dashboard.
  */
 export function readableFilter(viewer: DashboardViewer) {

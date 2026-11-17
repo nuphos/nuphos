@@ -104,10 +104,13 @@ registerDashboardPanelRoutes(app)
 registerDashboardAlertRoutes(app)
 
 type Who = { user: string; role: 'ADMINISTRATOR' | 'EDITOR' | 'VIEWER' }
-const owner: Who = { user: 'owner', role: 'EDITOR' }
-const viewerOwner: Who = { user: 'viewer-owner', role: 'VIEWER' }
-const teammate: Who = { user: 'teammate', role: 'EDITOR' }
-const admin: Who = { user: 'admin', role: 'ADMINISTRATOR' }
+const member = (role: Who['role']): Who => ({ user: new ObjectId().toHexString(), role })
+const owner = member('EDITOR')
+const viewerOwner = member('VIEWER')
+const teammate = member('EDITOR')
+const admin = member('ADMINISTRATOR')
+// No longer in the team: kept in its member list with `deletedAt`.
+const former = member('EDITOR')
 
 function call(who: Who, method: string, path: string, body?: unknown) {
   return app.request(path, {
@@ -138,15 +141,29 @@ const range = { periodStart: '2026-11-01T00:00:00.000Z', periodEnd: '2026-11-17T
 let personal: ReturnType<typeof dashboard>
 let shared: ReturnType<typeof dashboard>
 let legacy: ReturnType<typeof dashboard>
+let left: ReturnType<typeof dashboard>
 let panelId: ObjectId
 
 beforeEach(() => {
   personal = dashboard(owner.user, 'personal')
   shared = dashboard(owner.user, 'team')
   legacy = dashboard(teammate.user)
+  left = dashboard(former.user, 'personal')
   panelId = new ObjectId()
   store = {
-    cost_dashboards: [personal, shared, legacy],
+    teams: [
+      {
+        _id: teamId,
+        members: [
+          ...[owner, viewerOwner, teammate, admin].map((who) => ({
+            userId: new ObjectId(who.user),
+            role: who.role,
+          })),
+          { userId: new ObjectId(former.user), role: former.role, deletedAt: new Date() },
+        ],
+      },
+    ],
+    cost_dashboards: [personal, shared, legacy, left],
     cost_panels: [
       { _id: panelId, teamId, dashboardId: personal._id, title: 'Spend', kind: 'scalar' },
     ],
@@ -159,31 +176,25 @@ describe('the dashboard list', () => {
     const mine = (await (await call(owner, 'GET', '/')).json()) as { dashboards: { id: string }[] }
     const theirs = (await (await call(teammate, 'GET', '/')).json()) as {
       dashboards: { id: string }[]
-      othersPersonal?: unknown
+      formerMembers?: unknown
     }
 
     expect(mine.dashboards.map((d) => d.id)).toContain(personal._id.toHexString())
     expect(theirs.dashboards.map((d) => d.id)).not.toContain(personal._id.toHexString())
     expect(theirs.dashboards.map((d) => d.id)).toContain(legacy._id.toHexString())
-    expect(theirs.othersPersonal).toBeUndefined()
+    expect(theirs.formerMembers).toBeUndefined()
   })
 
-  test('an Administrator sees another member’s personal dashboard only as a stub', async () => {
+  test('an Administrator lists the personal dashboards of those no longer in the team, not a current member’s', async () => {
     const body = (await (await call(admin, 'GET', '/')).json()) as {
       dashboards: { id: string }[]
-      othersPersonal: Row[]
+      formerMembers: { id: string; visibility: string; layout: unknown }[]
     }
+    const ids = [...body.dashboards, ...body.formerMembers].map((d) => d.id)
 
-    expect(body.dashboards.map((d) => d.id)).not.toContain(personal._id.toHexString())
-    expect(body.othersPersonal).toEqual([
-      {
-        id: personal._id.toHexString(),
-        name: personal.name,
-        visibility: 'personal',
-        createdBy: owner.user,
-        createdAt: personal.createdAt.toISOString(),
-      },
-    ])
+    expect(ids).not.toContain(personal._id.toHexString())
+    expect(body.formerMembers.map((d) => d.id)).toEqual([left._id.toHexString()])
+    expect(body.formerMembers[0]?.layout).toEqual([])
   })
 })
 
@@ -204,14 +215,12 @@ describe('another member’s personal dashboard', () => {
       expect((await call(who, 'PUT', base(), { name: 'Taken' })).status).toBe(404)
       expect((await call(who, 'DELETE', panel())).status).toBe(404)
     }
-    expect(personal.name).toBe('owner personal')
+    expect(personal.name).toBe(`${owner.user} personal`)
   })
 
-  test('can be deleted by an Administrator, but not by an Editor', async () => {
-    expect((await call(teammate, 'DELETE', base())).status).toBe(404)
-    expect((await call(admin, 'DELETE', base())).status).toBe(204)
-    expect(rowsOf('cost_dashboards').map((d) => String(d._id))).not.toContain(String(personal._id))
-    expect(rowsOf('cost_panels')).toHaveLength(0)
+  test('cannot be deleted by an Administrator while its creator is in the team', async () => {
+    expect((await call(admin, 'DELETE', base())).status).toBe(404)
+    expect(rowsOf('cost_dashboards').map((d) => String(d._id))).toContain(String(personal._id))
   })
 
   test('its creator reads it with edit rights', async () => {
@@ -223,6 +232,33 @@ describe('another member’s personal dashboard', () => {
     expect(res.status).toBe(200)
     expect(body.canEdit).toBe(true)
     expect(body.dashboard.visibility).toBe('personal')
+  })
+})
+
+describe('a personal dashboard whose creator is no longer in the team', () => {
+  const base = () => `/${left._id.toHexString()}`
+
+  beforeEach(() => {
+    store.cost_panels = []
+  })
+
+  test('an Administrator can open it and edit it; an Editor still cannot see it', async () => {
+    const res = await call(admin, 'GET', base())
+    const body = (await res.json()) as { canEdit: boolean }
+
+    expect(res.status).toBe(200)
+    expect(body.canEdit).toBe(true)
+    expect((await call(teammate, 'GET', base())).status).toBe(404)
+  })
+
+  test('an Administrator can move it to Team', async () => {
+    expect((await call(admin, 'PUT', base(), { visibility: 'team' })).status).toBe(200)
+    expect(left.visibility).toBe('team')
+  })
+
+  test('an Administrator can delete it', async () => {
+    expect((await call(admin, 'DELETE', base())).status).toBe(204)
+    expect(rowsOf('cost_dashboards').map((d) => String(d._id))).not.toContain(String(left._id))
   })
 })
 

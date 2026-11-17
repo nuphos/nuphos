@@ -6,6 +6,7 @@ import {
   resolveLastSuccessfulPanelSnapshots,
   resolvePanelSnapshots,
 } from '@/lib/dashboards/exec-service'
+import { currentMemberIds } from '@/lib/dashboards/members'
 import { dashboardCadenceUpdate } from '@/lib/dashboards/refresh-cadence'
 import {
   canCreateDashboard,
@@ -24,7 +25,7 @@ import {
 } from '@/models'
 
 import { loadDashboard, viewerOf, visibilityUpdate, WRITE_ROLES } from './access'
-import { serializeDashboard, serializeDashboardStub, serializePanel } from './serialize'
+import { serializeDashboard, serializePanel } from './serialize'
 import { dashboardForView, dashboardViewSchema } from './view-range'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
@@ -103,20 +104,21 @@ export function registerDashboardRoutes(
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
     const viewer = viewerOf(c)
     const admin = viewer.role === 'ADMINISTRATOR'
-    // An Administrator also lists other members' personal dashboards, as stubs.
     const docs = await nuphosDashboards()
       .find(admin ? { teamId } : { teamId, ...readableFilter(viewer) })
       .sort({ updatedAt: -1 })
       .toArray()
-    const readable = docs.filter((doc) => canReadDashboard(doc, viewer))
+    // An Administrator also gets the personal dashboards of those no longer in the team,
+    // which they can take over. A current member's personal dashboard stays out.
+    const members = admin ? await currentMemberIds(teamId) : null
 
     return c.json({
-      dashboards: readable.map(serializeDashboard),
-      ...(admin
+      dashboards: docs.filter((doc) => canReadDashboard(doc, viewer)).map(serializeDashboard),
+      ...(members
         ? {
-            othersPersonal: docs
-              .filter((doc) => !canReadDashboard(doc, viewer))
-              .map(serializeDashboardStub),
+            formerMembers: docs
+              .filter((doc) => !canReadDashboard(doc, viewer) && !members.has(doc.createdBy))
+              .map(serializeDashboard),
           }
         : {}),
     })
@@ -151,7 +153,7 @@ export function registerDashboardRoutes(
 
   nuphosDashboardsRoutes.get('/:dashboardId', zv('query', dashboardViewSchema), async (c) => {
     const viewer = viewerOf(c)
-    const { teamId, dashboard } = await loadDashboard(
+    const { teamId, dashboard, inTeam } = await loadDashboard(
       c.get('teamId'),
       c.req.param('dashboardId'),
       viewer,
@@ -168,7 +170,7 @@ export function registerDashboardRoutes(
     return c.json({
       dashboard: serializeDashboard(dashboard),
       viewTimeRange: serializeDashboard(view).timeRange,
-      canEdit: canEditDashboard(dashboard, viewer),
+      canEdit: canEditDashboard(dashboard, viewer, inTeam),
       panels: panels.map((p) =>
         serializePanel(
           p,
@@ -182,7 +184,7 @@ export function registerDashboardRoutes(
 
   nuphosDashboardsRoutes.put('/:dashboardId', zv('json', updateDashboardSchema), async (c) => {
     const viewer = viewerOf(c)
-    const { teamId, dashboard } = await loadDashboard(
+    const { teamId, dashboard, inTeam } = await loadDashboard(
       c.get('teamId'),
       c.req.param('dashboardId'),
       viewer,
@@ -192,7 +194,7 @@ export function registerDashboardRoutes(
     const set: Partial<NuphosDashboard> = { updatedAt: new Date() }
     const unset: Record<string, ''> = {}
 
-    const visibility = visibilityUpdate(dashboard, viewer, input.visibility)
+    const visibility = visibilityUpdate(dashboard, viewer, input.visibility, inTeam)
 
     if (visibility) set.visibility = visibility
     if (input.name !== undefined) set.name = input.name

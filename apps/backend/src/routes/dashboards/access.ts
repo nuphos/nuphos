@@ -1,10 +1,6 @@
+import { currentMemberIds } from '@/lib/dashboards/members'
+import { canDo, canReadDashboard, canSetVisibility, isPersonal } from '@/lib/dashboards/visibility'
 import { AppError } from '@/lib/errors'
-import {
-  canDeleteDashboard,
-  canDo,
-  canReadDashboard,
-  canSetVisibility,
-} from '@/lib/dashboards/visibility'
 import { parseObjectId } from '@/lib/objectid'
 import { dashboardPanels, nuphosDashboards } from '@/models'
 
@@ -24,22 +20,35 @@ export function viewerOf(c: {
 }
 
 /**
- * Throws unless `viewer` may do `need` with `dashboard`. Another member's personal
- * dashboard reads as not found, so its existence is not confirmed to anyone who
- * cannot read it, except an Administrator deleting it.
+ * Whether a personal dashboard's creator is still in the team. Only an Administrator
+ * looking at another member's personal dashboard needs it, since that is the one
+ * case it changes; everyone else gets true without a lookup.
+ */
+async function creatorInTeam(
+  teamId: ObjectId,
+  dashboard: NuphosDashboard | null,
+  viewer: DashboardViewer,
+) {
+  if (!dashboard || !isPersonal(dashboard) || dashboard.createdBy === viewer.userId) return true
+  if (viewer.role !== 'ADMINISTRATOR') return true
+
+  return (await currentMemberIds(teamId)).has(dashboard.createdBy)
+}
+
+/**
+ * Throws unless `viewer` may do `need` with `dashboard`. A personal dashboard that
+ * `viewer` does not hold reads as not found, so its existence is not confirmed.
  */
 export function assertDashboardAccess(
   dashboard: NuphosDashboard | null,
   viewer: DashboardViewer,
   need: DashboardNeed,
+  inTeam = true,
 ): asserts dashboard is NuphosDashboard {
-  const reachable =
-    dashboard !== null &&
-    (canReadDashboard(dashboard, viewer) ||
-      (need === 'delete' && canDeleteDashboard(dashboard, viewer)))
-
-  if (!reachable) throw new AppError(404, 'dashboard_not_found', 'Dashboard not found')
-  if (!canDo(dashboard, viewer, need)) throw new AppError(403, 'forbidden', WRITE_ROLES)
+  if (!dashboard || !canReadDashboard(dashboard, viewer, inTeam)) {
+    throw new AppError(404, 'dashboard_not_found', 'Dashboard not found')
+  }
+  if (!canDo(dashboard, viewer, need, inTeam)) throw new AppError(403, 'forbidden', WRITE_ROLES)
 }
 
 export async function loadDashboard(
@@ -47,14 +56,15 @@ export async function loadDashboard(
   dashboardIdRaw: string,
   viewer: DashboardViewer,
   need: DashboardNeed = 'read',
-): Promise<{ teamId: ObjectId; dashboard: NuphosDashboard }> {
+): Promise<{ teamId: ObjectId; dashboard: NuphosDashboard; inTeam: boolean }> {
   const teamId = parseObjectId(teamIdRaw, 'teamId')
   const dashboardId = parseObjectId(dashboardIdRaw, 'dashboardId')
   const dashboard = await nuphosDashboards().findOne({ _id: dashboardId, teamId })
+  const inTeam = await creatorInTeam(teamId, dashboard, viewer)
 
-  assertDashboardAccess(dashboard, viewer, need)
+  assertDashboardAccess(dashboard, viewer, need, inTeam)
 
-  return { teamId, dashboard }
+  return { teamId, dashboard, inTeam }
 }
 
 export async function loadPanel(
@@ -63,36 +73,46 @@ export async function loadPanel(
   panelIdRaw: string,
   viewer: DashboardViewer,
   need: DashboardNeed = 'read',
-): Promise<{ teamId: ObjectId; dashboard: NuphosDashboard; panel: DashboardPanel }> {
+): Promise<{
+  teamId: ObjectId
+  dashboard: NuphosDashboard
+  panel: DashboardPanel
+  inTeam: boolean
+}> {
   const teamId = parseObjectId(teamIdRaw, 'teamId')
   const dashboardId = parseObjectId(dashboardIdRaw, 'dashboardId')
   const panelId = parseObjectId(panelIdRaw, 'panelId')
   const dashboard = await nuphosDashboards().findOne({ _id: dashboardId, teamId })
+  const inTeam = await creatorInTeam(teamId, dashboard, viewer)
 
   // A panel is as visible, and as editable, as its dashboard.
-  assertDashboardAccess(dashboard, viewer, need)
+  assertDashboardAccess(dashboard, viewer, need, inTeam)
   const panel = await dashboardPanels().findOne({ _id: panelId, teamId, dashboardId })
 
   if (!panel) throw new AppError(404, 'panel_not_found', 'Panel not found')
 
-  return { teamId, dashboard, panel }
+  return { teamId, dashboard, panel, inTeam }
 }
 
 /**
  * The visibility a dashboard update stores, or nothing when it does not change.
- * Only the creator changes it, and sharing it with the team takes a write role.
+ * Sharing takes the dashboard's holder with a team write role; making it personal
+ * again takes its creator.
  */
 export function visibilityUpdate(
   dashboard: NuphosDashboard,
   viewer: DashboardViewer,
   to: DashboardVisibility | undefined,
+  inTeam = true,
 ): DashboardVisibility | undefined {
   if (!to || to === (dashboard.visibility ?? 'team')) return undefined
-  if (!canSetVisibility(dashboard, viewer, to)) {
+  if (!canSetVisibility(dashboard, viewer, to, inTeam)) {
     throw new AppError(
       403,
       'forbidden',
-      "Only the dashboard's creator can change who sees it, and sharing it with the team requires one of: ADMINISTRATOR, EDITOR",
+      to === 'team'
+        ? 'Sharing a personal dashboard with the team takes its holder, with one of: ADMINISTRATOR, EDITOR'
+        : "Only the dashboard's creator can make it personal",
     )
   }
 

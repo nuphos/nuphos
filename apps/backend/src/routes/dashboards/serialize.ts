@@ -72,20 +72,6 @@ export function serializeDashboard(doc: NuphosDashboard) {
   }
 }
 
-/**
- * Another member's personal dashboard as an Administrator sees it in the list:
- * enough to tell which one it is and delete it, none of its panels, ranges or data.
- */
-export function serializeDashboardStub(doc: NuphosDashboard) {
-  return {
-    id: doc._id.toHexString(),
-    name: doc.name,
-    visibility: 'personal' as const,
-    createdBy: doc.createdBy,
-    createdAt: doc.createdAt.toISOString(),
-  }
-}
-
 export function serializeSnapshot(doc: DashboardPanelSnapshot) {
   return {
     id: doc._id.toHexString(),

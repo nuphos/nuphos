@@ -87,7 +87,7 @@ export function registerDashboardAlertRoutes(
 ): void {
   nuphosDashboardsRoutes.get('/:dashboardId/panels/:panelId/alert', async (c) => {
     const viewer = viewerOf(c)
-    const { teamId, dashboard, panel } = await loadPanel(
+    const { teamId, dashboard, panel, inTeam } = await loadPanel(
       c.get('teamId'),
       c.req.param('dashboardId'),
       c.req.param('panelId'),
@@ -96,7 +96,7 @@ export function registerDashboardAlertRoutes(
     )
     const alert = await dashboardPanelAlerts().findOne({ teamId, panelId: panel._id })
     // Whoever may set the alert sees it in full; other readers see it redacted.
-    const redact = !canEditDashboard(dashboard, viewer)
+    const redact = !canEditDashboard(dashboard, viewer, inTeam)
 
     return c.json({ alert: alert ? serializeAlert(alert, redact) : null })
   })

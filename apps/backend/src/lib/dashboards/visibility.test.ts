@@ -28,9 +28,21 @@ describe('dashboard visibility', () => {
     }
   })
 
-  test('an Administrator can delete another member’s personal dashboard without reading it', () => {
-    expect(canDeleteDashboard(personal, as('admin', 'ADMINISTRATOR'))).toBe(true)
-    expect(canDeleteDashboard(personal, as('editor', 'EDITOR'))).toBe(false)
+  test('an Administrator cannot reach a current member’s personal dashboard', () => {
+    const admin = as('admin', 'ADMINISTRATOR')
+
+    expect(canReadDashboard(personal, admin)).toBe(false)
+    expect(canDeleteDashboard(personal, admin)).toBe(false)
+  })
+
+  test('once its creator is no longer in the team, an Administrator takes it over', () => {
+    const admin = as('admin', 'ADMINISTRATOR')
+
+    expect(canReadDashboard(personal, admin, false)).toBe(true)
+    expect(canEditDashboard(personal, admin, false)).toBe(true)
+    expect(canDeleteDashboard(personal, admin, false)).toBe(true)
+    expect(canSetVisibility(personal, admin, 'team', false)).toBe(true)
+    expect(canReadDashboard(personal, as('editor', 'EDITOR'), false)).toBe(false)
   })
 
   test('a team dashboard, or one saved without visibility, is read by everyone and edited by write roles', () => {
