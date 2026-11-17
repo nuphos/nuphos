@@ -149,3 +149,69 @@ test('a proxy lookup that never answers lets the runtime start anyway', async ()
 
   assert.ok(Date.now() - started < 1000)
 })
+
+/** An HTTP CONNECT proxy that records each target it tunnels to. */
+async function connectProxy(): Promise<{ port: number; tunneled: string[]; close: () => void }> {
+  const tunneled: string[] = []
+  const proxy = createServer().on('connect', (req, client) => {
+    tunneled.push(String(req.url))
+    const [host = '', port = ''] = String(req.url).split(':')
+    const upstream = connect(Number(port), host, () => {
+      client.write('HTTP/1.1 200 Connection Established\r\n\r\n')
+      upstream.pipe(client).pipe(upstream)
+    })
+
+    client.on('error', () => upstream.destroy())
+    upstream.on('error', () => client.destroy())
+  })
+
+  await new Promise((resolve) => proxy.listen(0, '127.0.0.1', () => resolve(undefined)))
+
+  return {
+    port: (proxy.address() as AddressInfo).port,
+    tunneled,
+    close: () => {
+      proxy.close()
+      proxy.closeAllConnections()
+    },
+  }
+}
+
+/** Dials once and reports whether the socket opened. */
+function dialOutcome(url: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = dialBackend(url, { authorization: 'Bearer t' })
+
+    socket.addEventListener('open', () => {
+      socket.close()
+      resolve(true)
+    })
+    socket.addEventListener('error', () => resolve(false))
+  })
+}
+
+test('a dial that fails through one proxy tries the next proxy in the list', async () => {
+  const backend = await upgradeServer()
+  const dead = createServer().listen(0, '127.0.0.1')
+
+  await new Promise((resolve) => dead.once('listening', resolve))
+  const deadPort = (dead.address() as AddressInfo).port
+
+  dead.close()
+  const live = await connectProxy()
+  const url = `http://127.0.0.1:${String(backend.port)}/agent/devices/d/runtime-tunnel`
+  const rule = `PROXY 127.0.0.1:${String(deadPort)}; PROXY 127.0.0.1:${String(live.port)}`
+
+  await routeBackendSocketsThroughSystemProxy(systemProxy(rule), url)
+  const outcomes = [await dialOutcome(url), await dialOutcome(url), await dialOutcome(url)]
+
+  await routeBackendSocketsThroughSystemProxy(systemProxy('DIRECT'), url)
+  live.close()
+  backend.close()
+
+  assert.deepEqual(outcomes, [false, true, true])
+  assert.deepEqual(live.tunneled, [
+    `127.0.0.1:${String(backend.port)}`,
+    `127.0.0.1:${String(backend.port)}`,
+  ])
+})
