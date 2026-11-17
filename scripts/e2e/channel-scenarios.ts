@@ -110,6 +110,8 @@ export const channelScenarios: Scenario[] = [
       // The Bot's chat, not its own session: only the chat's composer is headed by its name.
       await page.locator('[aria-placeholder="Message E2E Bot"]').waitFor()
       await page.getByRole('tab', { name: /^Bots/, selected: true }).waitFor({ timeout: 5_000 })
+      // The sidebar slides over to Bots; shoot it once it has.
+      await page.waitForTimeout(1_000)
       await page.screenshot({ path: `${artifacts}/inbox-bot-opened-light.png` })
       await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).last().click()
       await until('the answer in the Bot chat to reach the Bot', async () =>
