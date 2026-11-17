@@ -1,6 +1,6 @@
-// Scratch only (do not merge): proves the MongoDB step fails when a test fails.
+// Scratch only (do not merge): proves the MongoDB step fails when a test skips.
 import { expect, test } from 'bun:test'
 
-test.skipIf(!process.env.TEST_MONGODB_URI)('forced failure against the real MongoDB', () => {
-  expect(1).toBe(2)
+test.skip('forced skip against the real MongoDB', () => {
+  expect(1).toBe(1)
 })
