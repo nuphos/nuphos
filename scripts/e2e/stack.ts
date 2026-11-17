@@ -1,15 +1,15 @@
-// The stack under test: a real MongoDB, backend and OpenAB, with a deterministic
+// The stack under test: a real MongoDB, file store, backend and OpenAB, with a deterministic
 // ACP agent in place of a model. Nothing here talks to the internet.
 import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
-import { artifacts, freePorts, logPath, spawn, stop, until } from './processes.ts'
+import { artifacts, freePorts, logPath, signalGroup, spawn, stop, until } from './processes.ts'
+import { startStorage } from './storage.ts'
 
 const ROOT = resolve(import.meta.dirname, '../..')
 const BACKEND_DIR = join(ROOT, 'apps/backend')
-const PANEL_JOB = resolve(import.meta.dirname, '../../apps/runtime/image/panel-job.mjs')
 const FIXTURE = join(import.meta.dirname, 'acp-fixture.mjs')
 const AUTH_KEY = 'local-e2e-openab-transport-key-123456789'
 const CONTROL_KEY = 'local-e2e-openab-control-key-123456789'
@@ -17,6 +17,8 @@ const MONGO_IMAGE = 'mongo:8.0.32'
 
 export type Stack = {
   apiUrl: string
+  /** For what only the database can set up, such as a row that is gone. */
+  mongoUri: string
   email: string
   token: string
   teamId: string
@@ -25,8 +27,14 @@ export type Stack = {
   signInCode: typeof signInCode
   /** Keeps the agent from opening new sessions, as a slow start does, until the returned function is called. */
   holdSessionOpening: () => () => void
-  /** Stops OpenAB and its agents, runs `whileDown`, then starts it again on the same address, as a runtime restart does. With `panelJob` it comes back offering the runtime image's `panel` job. */
-  restartAgentHost: (whileDown?: () => Promise<void>, panelJob?: boolean) => Promise<void>
+  /** The first agent offers Claude Code's "Default" stand-in until the returned function is called. */
+  offerDefaultStandIn: () => () => void
+  /** Stops OpenAB and its agents, runs `whileDown`, then starts it again on the same address, as a runtime restart does. */
+  restartAgentHost: (whileDown?: () => Promise<void>) => Promise<void>
+  /** Freezes OpenAB and its agents, so its sockets stay open and nothing answers, runs `whileFrozen`, then lets them go on. */
+  freezeAgentHost: (whileFrozen: () => Promise<void>) => Promise<void>
+  /** The `state` of the newest Cloudflare authorization the app started. */
+  cloudflareState: () => string
 }
 
 function findOpenab(): string {
@@ -105,6 +113,20 @@ function initiateReplicaSet(uri: string): boolean {
   }
 }
 
+function cloudflareState(uri: string): string {
+  const script = `
+    import { MongoClient } from 'mongodb'
+    const client = await new MongoClient(process.argv[1]).connect()
+    const [pending] = await client.db('nuphos_e2e').collection('cloudflare_oauth_pending')
+      .find().sort({ expiresAt: -1 }).limit(1).toArray()
+    await client.close()
+    console.log(pending?._id ?? '')`
+
+  return execFileSync('bun', ['-e', script, uri], { cwd: BACKEND_DIR, timeout: 10_000 })
+    .toString()
+    .trim()
+}
+
 /** The newest six-digit sign-in code the backend logged for this address. */
 function signInCode(address: string): string | undefined {
   return readFileSync(logPath('backend'), 'utf8')
@@ -115,13 +137,20 @@ function signInCode(address: string): string | undefined {
 }
 
 export async function startStack(): Promise<Stack> {
-  const [mongoPort, backendPort, runtimePort, secondRuntimePort] = await freePorts(4)
+  const [mongoPort, backendPort, runtimePort, secondRuntimePort, storagePort] = await freePorts(5)
   const mongoUri = startMongo(mongoPort)
+  const storage = await startStorage(storagePort)
 
   await until('MongoDB to become primary', async () => initiateReplicaSet(mongoUri))
   const apiUrl = `http://127.0.0.1:${String(backendPort)}`
   const acpLog = join(artifacts, 'acp.jsonl')
   const holdOpening = join(artifacts, 'hold-opening')
+  const standIn = join(artifacts, 'stand-in')
+  const offerDefaultStandIn = () => {
+    writeFileSync(standIn, '')
+
+    return () => rmSync(standIn)
+  }
   const holdSessionOpening = () => {
     writeFileSync(holdOpening, '')
 
@@ -131,7 +160,7 @@ export async function startStack(): Promise<Stack> {
   writeFileSync(acpLog, '')
   // One OpenAB per runtime. The fixture logs `agent` with every entry, and each
   // OpenAB keeps its session files in a home of its own.
-  const startAgentHost = (agent = 'first', port = runtimePort, panelJob = false) => {
+  const startAgentHost = (agent = 'first', port = runtimePort) => {
     const config = join(artifacts, `openab-${agent}.toml`)
     const home = join(artifacts, `home-${agent}`)
 
@@ -147,6 +176,7 @@ export async function startStack(): Promise<Stack> {
         `E2E_ACP_LOG = ${JSON.stringify(acpLog)}`,
         `E2E_AGENT = ${JSON.stringify(agent)}`,
         `E2E_HOLD_OPENING = ${JSON.stringify(holdOpening)}`,
+        `E2E_STAND_IN = ${JSON.stringify(standIn)}`,
         '[pool]',
         'max_sessions = 4',
         'session_ttl_hours = 1',
@@ -163,19 +193,21 @@ export async function startStack(): Promise<Stack> {
         OPENAB_ACP_CONTROL_KEY: CONTROL_KEY,
         OPENAB_ACP_MCP_SERVERS: 'true',
         GATEWAY_LISTEN: `127.0.0.1:${String(port)}`,
-        // The runtime image's `panel` job: how the backend puts a file on a runtime and reads one back.
-        ...(panelJob ? { OPENAB_RUNTIME_JOBS: `panel=${process.execPath} ${PANEL_JOB}` } : {}),
       },
     })
   }
   const agentHosts = [startAgentHost()]
-  const restartAgentHost = async (whileDown?: () => Promise<void>, panelJob = false) => {
+  const restartAgentHost = async (whileDown?: () => Promise<void>) => {
     await stop(agentHosts.at(-1)!)
     await whileDown?.()
-    agentHosts.push(startAgentHost('first', runtimePort, panelJob))
+    agentHosts.push(startAgentHost())
     await until('OpenAB to listen again', async () =>
       fetch(`http://127.0.0.1:${String(runtimePort)}/`),
     )
+  }
+  const freezeAgentHost = async (whileFrozen: () => Promise<void>) => {
+    signalGroup(agentHosts.at(-1)!, 'SIGSTOP')
+    await whileFrozen().finally(() => signalGroup(agentHosts.at(-1)!, 'SIGCONT'))
   }
 
   spawn('backend', ['bun', 'run', 'src/index.ts'], {
@@ -191,8 +223,20 @@ export async function startStack(): Promise<Stack> {
       CLAUDE_CODE_RUNTIME_PROVISIONER_ENABLED: 'false',
       NUPHOS_DEV_EMAIL_OTP_LOG: 'true',
       NUPHOS_LOCAL_STACK: 'true',
+      // Cloudflare is never reached: a scenario answers for it on this redirect.
+      CLOUDFLARE_OAUTH_CLIENT_ID: 'e2e-cloudflare-client',
+      CLOUDFLARE_OAUTH_CLIENT_SECRET: 'e2e-cloudflare-secret-not-a-production-credential',
+      CLOUDFLARE_OAUTH_SETUP_REDIRECT: `${apiUrl}/cloudflare-app/setup`,
+      // GitLab: a scenario serves the instance on this computer and answers its redirect.
+      GITLAB_OAUTH_SETUP_REDIRECT: `${apiUrl}/gitlab-app/setup`,
+      GITLAB_TOKEN_ENCRYPTION_KEY:
+        '6c6f63616c2d6532652d6769746c61622d6b65792d6e6f742d70726f64756374',
+      OUTBOUND_ALLOW_PRIVATE_HOSTS: 'true',
+      SONARQUBE_BYOK_ENCRYPTION_KEY:
+        '6c6f63616c2d6532652d736f6e6172717562652d6b65792d6e6f742d70726f64',
       // Where the agent reaches the backend's tools, as a runtime on this computer would.
       NUPHOS_BACKEND_URL: apiUrl,
+      ...storage,
     },
   })
   await until('the backend to be ready', async () => (await fetch(`${apiUrl}/health/ready`)).ok)
@@ -239,5 +283,18 @@ export async function startStack(): Promise<Stack> {
     })
   }
 
-  return { apiUrl, email, token, teamId, acpLog, signInCode, holdSessionOpening, restartAgentHost }
+  return {
+    apiUrl,
+    mongoUri,
+    email,
+    token,
+    teamId,
+    acpLog,
+    signInCode,
+    holdSessionOpening,
+    offerDefaultStandIn,
+    restartAgentHost,
+    freezeAgentHost,
+    cloudflareState: () => cloudflareState(mongoUri),
+  }
 }
