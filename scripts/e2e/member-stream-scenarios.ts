@@ -48,7 +48,9 @@ async function runOn(stack: Stack, token: string, deviceId: string, command: str
       credentialAccess: { deviceIds: [deviceId] },
       messages: [{ id: randomUUID(), role: 'user', parts: [{ type: 'text', text }] }],
     }),
-  }).then(async (response) => response.text())
+  })
+    .then(async (response) => response.text())
+    .catch(() => undefined)
 
   return async () => {
     let answer = ''
