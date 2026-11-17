@@ -232,6 +232,8 @@ export async function startStack(): Promise<Stack> {
       GITLAB_TOKEN_ENCRYPTION_KEY:
         '6c6f63616c2d6532652d6769746c61622d6b65792d6e6f742d70726f64756374',
       OUTBOUND_ALLOW_PRIVATE_HOSTS: 'true',
+      SONARQUBE_BYOK_ENCRYPTION_KEY:
+        '6c6f63616c2d6532652d736f6e6172717562652d6b65792d6e6f742d70726f64',
       // Where the agent reaches the backend's tools, as a runtime on this computer would.
       NUPHOS_BACKEND_URL: apiUrl,
       ...storage,

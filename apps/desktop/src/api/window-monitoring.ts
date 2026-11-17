@@ -1,3 +1,4 @@
+import type { BindingShare } from '../lib/bindingShare.ts'
 import type { FileTransferGroup, MonitoringOverview } from '../types/app-misc.ts'
 import type { UptimeKumaInstance, UptimeKumaMonitor } from '../types/infra-integrations.ts'
 
@@ -11,6 +12,7 @@ export type WindowMonitoringApi = {
       password?: string | null
       authToken?: string | null
     },
+    share?: BindingShare,
   ): Promise<UptimeKumaInstance>
   atlasUpdateUptimeKumaInstance(
     teamId: string,

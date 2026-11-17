@@ -9,6 +9,7 @@ import { checkDecisionOutline, checkOutgoingChip } from './chat-presentation.ts'
 import { channelScenarios } from './channel-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
+import { connectShareScenarios } from './connect-share-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
 import { startDesktop } from './desktop.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
@@ -225,6 +226,7 @@ const scenarios: Scenario[] = [
   },
   ...connectorScenarios,
   ...bindingAccessScenarios,
+  ...connectShareScenarios,
   ...runtimeScenarios,
   ...computerScenarios,
   ...commandScenarios,
