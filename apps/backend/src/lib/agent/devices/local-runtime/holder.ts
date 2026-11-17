@@ -59,18 +59,32 @@ export async function attachRuntimeTunnel(
   let unsubscribe = () => {}
 
   const { toStream, toComputer } = streamRelay(deps.bus, streams, connection)
+  const current = () => ({
+    conn,
+    // Fixed for the life of this tunnel: what opened it, not what it reports.
+    ...(client ? { client } : {}),
+    ...(status ? { status } : {}),
+    ...(metrics ? { metrics, metricsReceivedAt } : {}),
+    seenAt: Date.now(),
+  })
+  // The computer moves here on this tunnel's first frame; until then the old one serves (#3366).
+  let claimed: Promise<unknown> | undefined
+  const claim = () => {
+    claimed = deps.presence.claim(userId, deviceId, conn, current()).then(async (previous) => {
+      if (previous)
+        await deps.bus.publish(
+          channel,
+          JSON.stringify({ t: 'supersede', conn, previous } satisfies HolderMessage),
+        )
+      if (!ended) deps.connectionChanged?.(userId, deviceId, true)
+    })
+
+    return claimed
+  }
   const refreshPresence = () =>
-    deps.presence
-      .put(userId, deviceId, {
-        conn,
-        // Fixed for the life of this tunnel: what opened it, not what it reports.
-        ...(client ? { client } : {}),
-        ...(status ? { status } : {}),
-        ...(metrics ? { metrics, metricsReceivedAt } : {}),
-        seenAt: Date.now(),
-      })
+    (claimed ? deps.presence.put(userId, deviceId, current()) : claim())
       .then((updated) => {
-        if (!updated) shut(TUNNEL_CLOSE_IDLE, 'Device presence expired')
+        if (updated === false) shut(TUNNEL_CLOSE_IDLE, 'Device presence expired')
       })
       .catch(() => shut(TUNNEL_CLOSE_IDLE, 'Device presence unavailable'))
 
@@ -93,6 +107,7 @@ export async function attachRuntimeTunnel(
     for (const s of streams.keys())
       void toStream(s, { t: 'close', reason: 'The computer running this agent disconnected' })
     streams.clear()
+    if (!claimed) return
     void deps.presence.clear(userId, deviceId, conn).catch(() => {})
     deps.connectionChanged?.(userId, deviceId, false)
   }
@@ -202,23 +217,10 @@ export async function attachRuntimeTunnel(
       .catch(() => {})
   }, heartbeatMs)
 
-  try {
-    const previous = await deps.presence.claim(userId, deviceId, conn)
-
-    if (previous)
-      await deps.bus.publish(
-        channel,
-        JSON.stringify({ t: 'supersede', conn, previous } satisfies HolderMessage),
-      )
-  } catch (error) {
-    end()
-    throw error
-  }
   logEvent('info', 'agent.local_runtime.tunnel_opened', { user_id: userId, device_id: deviceId })
   if (!ended) {
     openTunnels++
     counted = true
-    deps.connectionChanged?.(userId, deviceId, true)
   }
 
   return {

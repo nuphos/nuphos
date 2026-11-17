@@ -58,6 +58,8 @@ async function connectDesktop(
     members?: Map<string, Set<string>>
     heartbeatMs?: number
     idleTimeoutMs?: number
+    /** Connected but has not sent its first frame yet. */
+    silent?: boolean
   } = {},
 ): Promise<Desktop> {
   const desktop = { frames: [] as BackendFrame[] } as Desktop
@@ -89,6 +91,7 @@ async function connectDesktop(
     desktop.tunnel.receive(JSON.stringify(frame))
   }
   tunnels.push(desktop.tunnel)
+  if (options.silent) return desktop
   desktop.send({
     t: 'status',
     status: { agents: { 'claude-code': { cli: { installed: true, loggedIn: true } } } },
@@ -238,6 +241,37 @@ describe('local runtime tunnel', () => {
     await eventually(() => events.some((event) => event.type === 'close'))
 
     expect(await presence.get(owner.userId, owner.deviceId)).toBeNull()
+  })
+
+  test('a computer redialing keeps its old tunnel serving until the new one speaks', async () => {
+    const bus = createLocalTunnelBus()
+    const presence = createMemoryPresenceStore()
+    const first = await connectDesktop(bus, presence, new Set(['t1']), { echo: true })
+    const second = await connectDesktop(bus, presence, new Set(['t1']), {
+      echo: true,
+      silent: true,
+    })
+
+    // The new tunnel has said nothing yet, so a stream opened now still runs on the old one.
+    expect(first.closed).toBeUndefined()
+    const during = openStream(bus, presence, 't1')
+
+    await eventually(() => during.events.some((event) => event.type === 'open'))
+    during.socket.send('hi')
+    await eventually(() => during.events.some((event) => event.data === 'echo:hi'))
+    expect(first.frames.some((frame) => frame.t === 'open')).toBe(true)
+    expect(second.frames.some((frame) => frame.t === 'open')).toBe(false)
+
+    // Its first frame hands the computer over, and the next stream finds it right away.
+    second.send({
+      t: 'status',
+      status: { agents: { 'claude-code': { cli: { installed: true, loggedIn: true } } } },
+    })
+    await eventually(() => first.closed?.code === TUNNEL_CLOSE_SUPERSEDED)
+    const after = openStream(bus, presence, 't1')
+
+    await eventually(() => after.events.some((event) => event.type === 'open'))
+    expect(after.events.some((event) => event.type === 'close')).toBe(false)
   })
 
   test('a newer connection from the same computer supersedes the old one', async () => {
