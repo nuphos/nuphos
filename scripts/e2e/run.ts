@@ -18,7 +18,7 @@ import { offlineScenarios } from './offline-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
 import { questionScenarios } from './question-scenarios.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
-import { sidebarScenarios } from './sidebar-scenarios.ts'
+import { botFoldScenarios, sidebarScenarios } from './sidebar-scenarios.ts'
 import { signInScenarios } from './sign-in-scenarios.ts'
 import { startStack } from './stack.ts'
 import { teammateBotScenarios } from './teammate-bot-scenarios.ts'
@@ -232,6 +232,7 @@ const scenarios: Scenario[] = [
   ...commandScenarios,
   ...threadScenarios,
   ...offlineScenarios,
+  ...botFoldScenarios,
   threadModeScenario,
   // It removes a member from the team.
   ...dashboardScenarios,
