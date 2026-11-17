@@ -24,7 +24,9 @@ const browser: Record<string, unknown> = { window: dom, navigator: dom.navigator
 
 for (const key of Object.getOwnPropertyNames(dom))
   if (!(key in globalThis)) browser[key] = Reflect.get(dom, key)
-// Set last, over the window's own: this store records any default written for new chats.
+// Set last, over the runtime's own: a save is announced on the window with the window's events,
+// and this store records any default written for new chats.
+browser.CustomEvent = dom.CustomEvent
 browser.localStorage = { getItem: () => null, setItem: (key: string) => written.push(key) }
 for (const [key, value] of Object.entries(browser))
   Object.defineProperty(globalThis, key, { configurable: true, writable: true, value })
