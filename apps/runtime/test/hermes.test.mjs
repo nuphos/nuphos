@@ -7,7 +7,7 @@ import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 
 import { agentEnv } from '../image/acp-shim.mjs'
-import { runHermesLogin, signInPage } from '../image/hermes-login.mjs'
+import { runHermes, runHermesLogin, signInPage } from '../image/hermes-login.mjs'
 import { hermesProfile, modelBlock } from '../image/hermes-session.mjs'
 
 const ROOT_CONFIG =
@@ -285,4 +285,37 @@ test('the image still refuses on-demand installs when its environment says so', 
 test('a home Hermes cannot prepare is reported as that, not as a wrong answer', () => {
   const { frames } = signInOnComputer({ broken: true })
   assert.deepEqual(frames.at(-1), { type: 'error', reason: 'environment' })
+})
+
+test('a Hermes that stops reading before the key is reported, not lost in the pipe', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'hermes-computer-'))
+  try {
+    const cli = join(root, 'hermes')
+    // Refuses, closes its stdin, and lives on a moment, so the key meets a closed pipe.
+    writeFileSync(
+      cli,
+      [
+        '#!/bin/sh',
+        'exec 0<&-',
+        'echo "error: no dependency environment is committed for this install"',
+        'sleep 0.3',
+        'exit 1',
+        '',
+      ].join('\n'),
+      { mode: 0o755 },
+    )
+    let refused
+    const said = new Promise((resolve) => {
+      refused = resolve
+    })
+    const add = runHermes(cli, ['auth', 'add', 'deepseek', '--type', 'api-key'], {
+      onOutput: refused,
+    })
+    await said
+    add.write('sk-test\n')
+    add.end()
+    await assert.rejects(add.done, { reason: 'environment' })
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
 })
