@@ -264,6 +264,17 @@ export async function getReadableConversation(
   return other && (await canReplyIn(other, viewerUserId)) ? other : null
 }
 
+/** The session's newest assistant message, read alone: a long transcript runs to hundreds of MB. */
+export async function getLatestAssistantMessage(
+  sessionId: string,
+  userId: string,
+): Promise<AgentMessage | null> {
+  return await agentMessages().findOne(
+    { sessionId, userId, role: 'assistant' },
+    { sort: { index: -1 } },
+  )
+}
+
 export async function getConversationWithMessages(
   sessionId: string,
   viewerUserId: string,

@@ -7,7 +7,7 @@ import { resolveConversationChatRuntime } from './conversation-chat-route'
 import { reachableRuntimeEndpoint } from './dev-runtime-forward'
 import { OpenAbAcpClient } from './openab-acp-client'
 import { OpenAbConnectError } from './openab-acp-connect'
-import { OpenAbRpcError } from './openab-acp-errors'
+import { OpenAbConnectionLostError, OpenAbRpcError } from './openab-acp-errors'
 import { runtimeModelCatalog } from './runtime-models'
 import { offeredSessionConfig } from './session-config-catalog'
 import { parseSessionConfigOptions, storedPick } from './session-config-options'
@@ -232,8 +232,9 @@ function prewarmSession(
     .catch((error: unknown) => {
       // An unavailable runtime is not a failure here: the next prompt reports it.
       if (error instanceof AppError) return
-      // Nor is a host that did not answer, as while it restarts: a warning, if it never does.
-      if (error instanceof OpenAbConnectError)
+      // Nor is a host that did not answer, or hung up mid-call, as while it
+      // restarts: a warning, if it never does.
+      if (error instanceof OpenAbConnectError || error instanceof OpenAbConnectionLostError)
         logEvent('warn', 'agent.session.prewarm_offline', { session_id: conversation.sessionId })
       else logError('agent.session.prewarm_failed', error, { session_id: conversation.sessionId })
     })
