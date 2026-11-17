@@ -18,6 +18,7 @@ import { questionScenarios } from './question-scenarios.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
 import { signInScenarios } from './sign-in-scenarios.ts'
 import { startStack } from './stack.ts'
+import { teammateBotScenarios } from './teammate-bot-scenarios.ts'
 import { threadScenarios } from './thread-scenarios.ts'
 import { triggerScenarios } from './trigger-scenarios.ts'
 import { newTask, send } from './ui.ts'
@@ -72,6 +73,7 @@ const scenarios: Scenario[] = [
     },
   },
   ...channelScenarios,
+  ...teammateBotScenarios,
   {
     name: 'start a Task, send a message and read the reply',
     run: async (page) => {
