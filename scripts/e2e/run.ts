@@ -199,19 +199,20 @@ const scenarios: Scenario[] = [
   },
   {
     // #2998: Skip withdrew the question silently; the agent that asked was never told.
-    name: 'skipping a question on its card tells the agent that asked',
+    // #3231: Skip is Dismiss now.
+    name: 'dismissing a question on its card tells the agent that asked',
     run: async (page, stack) => {
       await newTask(page)
-      await send(page, 'Ask me E2E_ASK E2E_DELIVERY:skip')
-      await page.getByText('ACK E2E_DELIVERY:skip').waitFor()
-      await page.getByRole('button', { name: 'Skip', exact: true }).last().click()
+      await send(page, 'Ask me E2E_ASK E2E_DELIVERY:dismiss')
+      await page.getByText('ACK E2E_DELIVERY:dismiss').waitFor()
+      await page.getByRole('button', { name: 'Dismiss', exact: true }).last().click()
       // The card leaves with its question; the agent's wake notice stays in the chat.
       await page.getByText(/was dismissed by .*: no answer is coming/).waitFor()
       await until('the agent to be told its question was dismissed', async () =>
         agentEvents(stack).includes('dismissed E2E_DELIVERY:missing'),
       )
       await page.getByText('ACK E2E_DELIVERY:missing').waitFor()
-      await page.screenshot({ path: `${artifacts}/question-skipped.png` })
+      await page.screenshot({ path: `${artifacts}/question-dismissed.png` })
     },
   },
   ...questionScenarios,

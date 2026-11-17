@@ -24,7 +24,14 @@ export const agentApi = {
     toolCallId: string,
     teamId?: string,
     resolution?: 'answered' | 'dismissed',
-  ) => window.api.agentResolveDecision(sessionId, toolCallId, teamId, resolution),
+    reason?: string,
+  ) => window.api.agentResolveDecision(sessionId, toolCallId, teamId, resolution, reason),
+  agentSnoozeDecision: (
+    sessionId: string,
+    requestId: string,
+    teamId: string | undefined,
+    until: string | null,
+  ) => window.api.agentSnoozeDecision(sessionId, requestId, teamId, until),
   agentAnswerDecision: (
     sessionId: string,
     requestId: string,

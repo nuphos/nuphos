@@ -16,7 +16,7 @@ export type ConnectCardContextValue = {
   /** Answers a card's question: the server wakes the agent that asked it; no message is sent. */
   answer?: (answer: DecisionAnswer, card: DecisionCardRef) => boolean | void | Promise<boolean>
   /** Withdraws a card's question unanswered, waking no one; false when it could not be. */
-  skip?: (card: DecisionCardRef) => Promise<boolean>
+  dismiss?: (card: DecisionCardRef) => Promise<boolean>
   /** Who asked, drawn first on a question card shown outside the conversation that asked. */
   source?: ReactNode
   // Writes a secret to a file on the agent's runtime and returns its path; absent when read-only.

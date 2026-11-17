@@ -11,10 +11,12 @@ import { botChatQuestion } from '../../components/channels/botChatQuestion'
 import { BotChatQuestion } from '../../components/channels/BotChatQuestions'
 import { useBotCredentials } from '../../components/channels/useBotCredentials'
 import { Button } from '../../components/ui/button'
+import { Menu, MenuContent, MenuItem, MenuTrigger } from '../../components/ui/menu'
 import { t } from '../../i18n'
 
 import { AnswerFailure } from './AnswerFailure'
 import { QuestionSource } from './QuestionRail'
+import { snoozeTimes } from './snooze'
 import { useAnswerFailure } from './useInbox'
 
 import type { DecisionAnswer } from '../../api/agent-chat-types'
@@ -28,7 +30,8 @@ import type { ReactNode } from 'react'
  * asked, and no message is sent. Several questions at once, a secret or an
  * integration keep the card the conversation draws: a secret sends only where
  * its value was saved, and an integration is selected in the asking
- * conversation's credentials, by whoever may change them.
+ * conversation's credentials, by whoever may change them. Snooze sets it aside
+ * until a time; Dismiss closes it, with a reason for the agent if one is given.
  */
 export function DecisionCard({
   teamId,
@@ -36,7 +39,8 @@ export function DecisionCard({
   request,
   keys,
   onAnswer,
-  onSkip,
+  onSnooze,
+  onDismiss,
   onOpenConversation,
   onOpenLink,
 }: {
@@ -46,7 +50,8 @@ export function DecisionCard({
   /** Its keys are live: 1–9 choose, Esc closes "Other…". */
   keys: boolean
   onAnswer: (answer: DecisionAnswer) => void
-  onSkip: (() => void) | undefined
+  onSnooze: (until: Date) => void
+  onDismiss: (reason: string) => void
   onOpenConversation: () => void
   /** Opens a link in the question's text, as the conversation does. */
   onOpenLink: (href: string, beside: boolean) => boolean
@@ -64,6 +69,8 @@ export function DecisionCard({
     !choice.questions?.length &&
     (choice.options.length > 0 || typed)
   const [other, setOther] = useState(false)
+  const [dismissing, setDismissing] = useState(false)
+  const [reason, setReason] = useState('')
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
@@ -93,7 +100,10 @@ export function DecisionCard({
               typed={typed}
               keys={keys}
               other={other}
-              onOther={setOther}
+              onOther={(open) => {
+                setOther(open)
+                if (open) setDismissing(false)
+              }}
               onAnswer={onAnswer}
             />
           </>
@@ -122,10 +132,23 @@ export function DecisionCard({
             )}
           </div>
         )}
+        {dismissing && (
+          <div className="mt-4">
+            <AnswerField
+              text={reason}
+              onText={setReason}
+              onSend={onDismiss}
+              onClose={() => setDismissing(false)}
+              label={t('Reason for the agent (optional)')}
+              action={t('Dismiss')}
+              optional
+            />
+          </div>
+        )}
         <footer className="mt-4 flex items-center gap-3 text-[11.5px] text-tertiary">
-          {other ? (
+          {other || dismissing ? (
             <>
-              <KeyHint keys={['↵']} label={t('Send')} />
+              <KeyHint keys={['↵']} label={dismissing ? t('Dismiss') : t('Send')} />
               <KeyHint keys={['esc']} label={t('Close')} />
             </>
           ) : (
@@ -139,9 +162,32 @@ export function DecisionCard({
               )}
             </>
           )}
-          {onSkip && (
-            <button type="button" onClick={onSkip} className="ml-auto hover:text-main">
-              {t('Skip')}
+          <Menu>
+            <MenuTrigger
+              render={
+                <button type="button" className="ml-auto hover:text-main">
+                  {t('Snooze')}
+                </button>
+              }
+            />
+            <MenuContent align="end">
+              {snoozeTimes(new Date()).map(({ label, until }) => (
+                <MenuItem key={label} onClick={() => onSnooze(until)}>
+                  {label}
+                </MenuItem>
+              ))}
+            </MenuContent>
+          </Menu>
+          {!dismissing && (
+            <button
+              type="button"
+              onClick={() => {
+                setOther(false)
+                setDismissing(true)
+              }}
+              className="hover:text-main"
+            >
+              {t('Dismiss')}
             </button>
           )}
         </footer>

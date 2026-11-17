@@ -12,11 +12,20 @@ export function AnswerField({
   onText,
   onSend,
   onClose,
+  label = t('Your answer'),
+  action = t('Send'),
+  optional = false,
 }: {
   text: string
   onText: (text: string) => void
   onSend: (text: string) => void
   onClose: () => void
+  /** The field's name, shown while it is empty. */
+  label?: string
+  /** What the button does. */
+  action?: string
+  /** It may be sent empty. */
+  optional?: boolean
 }) {
   const field = useRef<HTMLInputElement>(null)
 
@@ -27,7 +36,7 @@ export function AnswerField({
       className="flex items-center gap-2"
       onSubmit={(event) => {
         event.preventDefault()
-        if (text.trim()) onSend(text.trim())
+        if (optional || text.trim()) onSend(text.trim())
       }}
     >
       <input
@@ -41,16 +50,17 @@ export function AnswerField({
           event.stopPropagation()
           onClose()
         }}
-        aria-label={t('Your answer')}
+        aria-label={label}
+        placeholder={optional ? label : undefined}
         className="h-[38px] min-w-0 flex-1 rounded-[10px] bg-surface-raised px-3 text-[13.5px] text-main shadow-[0_0_0_1px_rgb(var(--color-line-control))] outline-none placeholder:text-tertiary focus:shadow-[0_0_0_1px_rgb(var(--color-line-focus)),0_0_0_4px_rgba(28,26,23,0.05)]"
       />
       <Button
         type="submit"
         size="md"
         className="h-[38px] px-3.5 text-[13px]"
-        disabled={!text.trim()}
+        disabled={!optional && !text.trim()}
       >
-        {t('Send')}
+        {action}
         <kbd className="rounded bg-white/15 px-1 text-[11px] font-normal">↵</kbd>
       </Button>
     </form>

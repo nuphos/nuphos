@@ -22,7 +22,7 @@ import type { DecisionAnswer } from '../../../api/agent-chat-types'
 /**
  * A user decision other than a Connect card: the question as its heading, under
  * who asked it when that is another conversation, with each option an answer,
- * "Other…" to type one in the card instead, and "Skip" to withdraw it unanswered.
+ * "Other…" to type one in the card instead, and "Dismiss" to withdraw it unanswered.
  * A multi-select or several questions are a form sent as one answer. The answer
  * wakes the agent that asked; no message is sent. Once answered, the options go.
  */
@@ -56,8 +56,8 @@ export function ChoiceCard({
   const [typing, setTyping] = useState(false)
   // Kept while the field is closed, so Esc and "Other…" again lose nothing.
   const [draft, setDraft] = useState('')
-  const [skipped, setSkipped] = useState<'no' | 'sending' | 'yes'>('no')
-  const interactive = Boolean(ctx?.answer) && canAct && !chosen && skipped !== 'yes'
+  const [dismissed, setDismissed] = useState<'no' | 'sending' | 'yes'>('no')
+  const interactive = Boolean(ctx?.answer) && canAct && !chosen && dismissed !== 'yes'
   const typeable = interactive && category !== 'credential'
   const form = formQuestions({ question, options, multiSelect, questions })
   const live = interactive && (form !== null || options.length > 0)
@@ -71,17 +71,17 @@ export function ChoiceCard({
 
     return choose(option)
   })
-  const skip = interactive && ctx?.skip && (
+  const dismiss = interactive && ctx?.dismiss && (
     <button
       type="button"
-      disabled={skipped === 'sending'}
+      disabled={dismissed === 'sending'}
       className="ml-auto px-1 text-[12.5px] text-tertiary hover:text-main"
       onClick={() => {
-        setSkipped('sending')
-        void ctx.skip?.(card).then((ok) => setSkipped(ok ? 'yes' : 'no'))
+        setDismissed('sending')
+        void ctx.dismiss?.(card).then((ok) => setDismissed(ok ? 'yes' : 'no'))
       }}
     >
-      {t('Skip')}
+      {t('Dismiss')}
     </button>
   )
 
@@ -103,7 +103,7 @@ export function ChoiceCard({
         full={ctx?.fullBody}
         onLinkClick={ctx?.onLinkClick}
       />
-      <AnswerStatus recorded={recorded} failed={failed} skipped={skipped === 'yes'} />
+      <AnswerStatus recorded={recorded} failed={failed} dismissed={dismissed === 'yes'} />
       {!chosen &&
         (form ? (
           <DecisionForm
@@ -111,7 +111,7 @@ export function ChoiceCard({
             disabled={!interactive}
             onSubmit={(answer) => act(() => submit(answer))}
           >
-            {skip}
+            {dismiss}
           </DecisionForm>
         ) : (
           <>
@@ -145,7 +145,7 @@ export function ChoiceCard({
                   <span className="text-[12px] text-tertiary">{t('Reply below to answer.')}</span>
                 )
               )}
-              {skip}
+              {dismiss}
             </div>
             {typing && typeable && (
               <div className="pt-2.5" data-card-answer-field>
@@ -192,15 +192,15 @@ function useSubmit(
   return { chosen: sent || recorded !== undefined, failed, submit }
 }
 
-/** What answered the card, that it was skipped, or that its answer was not taken. */
+/** What answered the card, that it was dismissed, or that its answer was not taken. */
 function AnswerStatus({
   recorded,
   failed,
-  skipped,
+  dismissed,
 }: {
   recorded: string | undefined
   failed: boolean
-  skipped: boolean
+  dismissed: boolean
 }) {
   if (recorded)
     return (
@@ -209,10 +209,10 @@ function AnswerStatus({
       </div>
     )
 
-  if (skipped)
+  if (dismissed)
     return (
       <div className="mt-2 text-[12.5px] text-secondary">
-        {t('Skipped. The agent carries on without an answer.')}
+        {t('Dismissed. The agent carries on without an answer.')}
       </div>
     )
 

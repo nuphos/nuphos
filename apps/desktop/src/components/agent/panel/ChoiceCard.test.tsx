@@ -15,7 +15,7 @@ mock.module('../MessageResponse', () => ({
 const { ChoiceCard } = await import('./ChoiceCard')
 const { ConnectCardContext } = await import('./connectCardContext')
 
-test('the card leads with its question, answers with its buttons, and is skipped inside itself', async () => {
+test('the card leads with its question, answers with its buttons, and is dismissed inside itself', async () => {
   const dom = new Window()
   const values = {
     window: dom,
@@ -39,8 +39,8 @@ test('the card leads with its question, answers with its buttons, and is skipped
   dom.document.body.append(container)
   const root = createRoot(container as unknown as HTMLElement)
   const answers: DecisionAnswer[] = []
-  const skipped: string[] = []
-  // Whether the server withdraws the question the card skips.
+  const dismissed: string[] = []
+  // Whether the server withdraws the question the card dismisses.
   let withdrawn = false
   const ctx: ConnectCardContextValue = {
     send: () => true,
@@ -50,8 +50,8 @@ test('the card leads with its question, answers with its buttons, and is skipped
 
       return false
     },
-    skip: (card) => {
-      skipped.push(card.toolCallId)
+    dismiss: (card) => {
+      dismissed.push(card.toolCallId)
 
       return Promise.resolve(withdrawn)
     },
@@ -76,7 +76,7 @@ test('the card leads with its question, answers with its buttons, and is skipped
     )
   const buttons = () => [...container.querySelectorAll('button')] as unknown as HTMLButtonElement[]
   const button = (label: string) => buttons().find((item) => item.textContent === label)
-  // Async, so what an answer or a skip settles is drawn before the next assertion.
+  // Async, so what an answer or a dismiss settles is drawn before the next assertion.
   const click = (label: string) => act(async () => button(label)?.click())
 
   try {
@@ -92,7 +92,7 @@ test('the card leads with its question, answers with its buttons, and is skipped
         ['Merge', true],
         ['Wait', false],
         ['Other…', false],
-        ['Skip', false],
+        ['Dismiss', false],
       ],
     )
 
@@ -121,24 +121,27 @@ test('the card leads with its question, answers with its buttons, and is skipped
     await click('Other…')
     assert.equal(container.querySelector('input')?.value, 'After the freeze')
 
-    // A skip the server refused leaves the card live, and claims nothing.
-    await click('Skip')
-    assert.deepEqual(skipped, ['q1'])
-    assert.notEqual(button('Skip'), undefined)
-    assert.doesNotMatch(container.textContent ?? '', /Skipped/)
+    // A dismiss the server refused leaves the card live, and claims nothing.
+    await click('Dismiss')
+    assert.deepEqual(dismissed, ['q1'])
+    assert.notEqual(button('Dismiss'), undefined)
+    assert.doesNotMatch(container.textContent ?? '', /Dismissed/)
 
     withdrawn = true
-    await click('Skip')
-    assert.deepEqual(skipped, ['q1', 'q1'])
-    // Withdrawn: it says so, and nothing on it answers or skips any more.
-    assert.match(container.textContent ?? '', /Skipped\. The agent carries on without an answer\./)
-    assert.equal(button('Skip'), undefined)
+    await click('Dismiss')
+    assert.deepEqual(dismissed, ['q1', 'q1'])
+    // Withdrawn: it says so, and nothing on it answers or dismisses any more.
+    assert.match(
+      container.textContent ?? '',
+      /Dismissed\. The agent carries on without an answer\./,
+    )
+    assert.equal(button('Dismiss'), undefined)
     assert.equal(button('Other…'), undefined)
     assert.equal(button('Merge')?.disabled, true)
 
     // A card that cannot be answered here offers neither, and one from this chat names no source.
     await render({ ...ctx, source: undefined }, false)
-    assert.equal(button('Skip'), undefined)
+    assert.equal(button('Dismiss'), undefined)
     assert.match(container.textContent ?? '', /^Merge the release branch\?/)
   } finally {
     await act(() => root.unmount())

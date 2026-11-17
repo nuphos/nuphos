@@ -146,6 +146,8 @@ export type AgentInputRequest = {
   credentials?: { provider: 'personal'; id: 'github' | 'linear' }[]
   planId?: string
   askedAt: string
+  /** Set aside by its owner: out of the Inbox until then (ISO), still answerable in its chat. */
+  snoozedUntil?: string
   status: 'open' | 'answered' | 'dismissed'
 }
 
