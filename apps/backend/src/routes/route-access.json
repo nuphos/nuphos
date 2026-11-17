@@ -610,7 +610,7 @@
   "GET /teams/:teamId/volcengine-accounts/:accountId/ecs-instances": "member",
   "GET /teams/:teamId/volcengine-accounts/oidc-info": "member",
   "GET /teams/:teamId/zeabur-providers": "member",
-  "GET /teams/:teamId/zeabur-providers/:zeaburId/credentials": "admin",
+  "GET /teams/:teamId/zeabur-providers/:zeaburId/credentials": "editor",
   "GET /teams/:teamId/zeabur-providers/:zeaburId/projects": "member",
   "GET /teams/:teamId/zeabur-providers/:zeaburId/servers": "member",
   "GET /teams/discoverable": "user",
