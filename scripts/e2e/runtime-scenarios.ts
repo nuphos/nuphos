@@ -257,6 +257,25 @@ export const runtimeScenarios: Scenario[] = [
     },
   },
   {
+    // #3401: a computer whose agent cannot reach its model API is told what to check, not EPROTO.
+    name: 'a turn that cannot reach the model API says to check the network, without the raw error',
+    run: async (page) => {
+      await newTask(page)
+      await pickAgent(page, 'E2E fixture agent')
+      await send(page, 'Cannot reach the API E2E_API_UNREACHABLE E2E_DELIVERY:api-unreachable')
+      await page
+        .getByText(
+          "This computer couldn't reach the model provider's API. Check its network, proxy or VPN, then resend your message.",
+        )
+        .first()
+        .waitFor()
+      await page.screenshot({ path: `${artifacts}/api-unreachable.png` })
+      const raw = await page.getByText(/Unable to connect to API|EPROTO/).count()
+
+      if (raw > 0) throw new Error(`The chat shows the raw error ${raw} times`)
+    },
+  },
+  {
     // #3055: an answer its agent cannot run waits, says so, and reaches the agent the Task moves to.
     name: 'an answer its agent is out of usage for waits, then reaches the agent the Task moves to, once',
     run: async (page, stack) => {
