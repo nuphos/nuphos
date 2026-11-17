@@ -26,6 +26,9 @@ export type DashboardRangePreset = 'last7' | 'last14' | 'last30' | 'thisMonth' |
 
 export type DashboardRefreshCadence = 'daily' | 'weekly' | 'monthly'
 
+/** Who sees a dashboard: only its creator, or the whole team. Absent means team. */
+export type DashboardVisibility = 'personal' | 'team'
+
 export type NuphosDashboard = {
   _id: ObjectId
   teamId: ObjectId
@@ -45,6 +48,9 @@ export type NuphosDashboard = {
   /** Set exactly when `cadence` is; the sweeper claims the dashboard once it is due. */
   nextRefreshAt?: Date
   lastScheduledRefreshAt?: Date
+  /** `personal`: only `createdBy` can read or change it. Absent: shared with the team,
+   *  as every dashboard was before visibility existed. */
+  visibility?: DashboardVisibility
   createdBy: string
   createdAt: Date
   updatedAt: Date

@@ -1,12 +1,12 @@
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
+import { canEditDashboard } from '@/lib/dashboards/visibility'
 import { AppError } from '@/lib/errors'
 import { zv } from '@/lib/validate'
-import { requireTeamRole } from '@/middleware/auth'
 import { dashboardPanelAlerts } from '@/models'
 
-import { loadPanel } from './panels'
+import { loadPanel, viewerOf } from './access'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
 import type { DashboardPanelAlert } from '@/models'
@@ -86,27 +86,31 @@ export function registerDashboardAlertRoutes(
   nuphosDashboardsRoutes: Hono<{ Variables: TeamAuthVariables }>,
 ): void {
   nuphosDashboardsRoutes.get('/:dashboardId/panels/:panelId/alert', async (c) => {
-    const { teamId, panel } = await loadPanel(
+    const viewer = viewerOf(c)
+    const { teamId, dashboard, panel, inTeam } = await loadPanel(
       c.get('teamId'),
       c.req.param('dashboardId'),
       c.req.param('panelId'),
+      viewer,
+      'read',
     )
     const alert = await dashboardPanelAlerts().findOne({ teamId, panelId: panel._id })
-    const role = c.get('teamRole')
-    const redact = role !== 'ADMINISTRATOR' && role !== 'EDITOR'
+    // Whoever may set the alert sees it in full; other readers see it redacted.
+    const redact = !canEditDashboard(dashboard, viewer, inTeam)
 
     return c.json({ alert: alert ? serializeAlert(alert, redact) : null })
   })
 
   nuphosDashboardsRoutes.put(
     '/:dashboardId/panels/:panelId/alert',
-    requireTeamRole('ADMINISTRATOR', 'EDITOR'),
     zv('json', alertSchema),
     async (c) => {
       const { teamId, panel } = await loadPanel(
         c.get('teamId'),
         c.req.param('dashboardId'),
         c.req.param('panelId'),
+        viewerOf(c),
+        'edit',
       )
       const input = c.req.valid('json')
       const now = new Date()
@@ -131,19 +135,17 @@ export function registerDashboardAlertRoutes(
     },
   )
 
-  nuphosDashboardsRoutes.delete(
-    '/:dashboardId/panels/:panelId/alert',
-    requireTeamRole('ADMINISTRATOR', 'EDITOR'),
-    async (c) => {
-      const { teamId, panel } = await loadPanel(
-        c.get('teamId'),
-        c.req.param('dashboardId'),
-        c.req.param('panelId'),
-      )
+  nuphosDashboardsRoutes.delete('/:dashboardId/panels/:panelId/alert', async (c) => {
+    const { teamId, panel } = await loadPanel(
+      c.get('teamId'),
+      c.req.param('dashboardId'),
+      c.req.param('panelId'),
+      viewerOf(c),
+      'edit',
+    )
 
-      await dashboardPanelAlerts().deleteOne({ teamId, panelId: panel._id })
+    await dashboardPanelAlerts().deleteOne({ teamId, panelId: panel._id })
 
-      return c.json({ ok: true })
-    },
-  )
+    return c.json({ ok: true })
+  })
 }
