@@ -41,7 +41,7 @@ export type PreviewAgentUpdate =
   // The provider's reported usage for a finished turn. The runtime relays it as
   // a non-schema `turn_usage` session update carrying ACP `PromptResponse.usage`
   // and the agent's `_meta.quota`; the recorder reads them, so both stay `unknown` here.
-  | { kind: 'turn-usage'; usage: unknown; quota?: unknown }
+  | { kind: 'turn-usage'; usage: unknown; quota?: unknown; stopReason?: string }
 
 // ACP ToolCallContent: [{ type: 'content', content: { type: 'text', text } }, …]
 export function extractToolContentText(content: unknown): string {
@@ -196,6 +196,7 @@ export function parseTurnUsageUpdate(
           kind: 'turn-usage',
           usage: payload.usage,
           ...(payload.quota !== undefined ? { quota: payload.quota } : {}),
+          ...(typeof payload.stopReason === 'string' ? { stopReason: payload.stopReason } : {}),
         },
       }
     : null
