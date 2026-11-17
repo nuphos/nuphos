@@ -8,7 +8,7 @@ import { finalizeIncompleteTools, latchTabError } from './clientTools'
 import { dispatchedDraft, showTurnQueued } from './queuedAutoSend'
 import { normalizeAgentError, uid } from './stall'
 import { stampAssistantTurnEnd } from './messagePlacement'
-import { openReplyExplainsFailure, updateCurrentAssistantParts } from './turnBoundaries'
+import { openReplyExplainsFailure, replyId, updateCurrentAssistantParts } from './turnBoundaries'
 
 import type { PanelCtx } from './ctx'
 
@@ -215,7 +215,11 @@ export function applyStreamEvent(
 
         return nextTab
       }
-      const msgs = updateCurrentAssistantParts(t.messages, uid, (parts) => applyEvent(parts, sse))
+      const msgs = updateCurrentAssistantParts(
+        t.messages,
+        () => replyId(t, uid),
+        (parts) => applyEvent(parts, sse),
+      )
       const partsChanged = msgs !== t.messages
 
       const nextTab = {

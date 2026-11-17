@@ -4,6 +4,7 @@ import test from 'node:test'
 import {
   applyTranscriptTail,
   openReplyExplainsFailure,
+  replyId,
   startUserTurn,
   updateCurrentAssistantParts,
 } from './turnBoundaries.ts'
@@ -268,4 +269,28 @@ test('only an open reply that carries its failure notice explains a failed turn'
   // A failure before any reply part: the notice of an earlier turn does not explain it.
   assert.equal(openReplyExplainsFailure([reply([notice]), user]), false)
   assert.equal(openReplyExplainsFailure([]), false)
+})
+
+test("a stream's reply takes the stream's id, the one the backend stores it under", () => {
+  const question: Message = { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hi' }] }
+  const streaming = { ...tab([question]), streamId: 'stream-1' }
+
+  assert.equal(
+    replyId(streaming, () => 'new'),
+    'stream-1',
+  )
+  // A second reply of the same stream, and a tab with no stream, get an id of their own.
+  const replied = {
+    ...streaming,
+    messages: [...streaming.messages, { id: 'stream-1', role: 'assistant' as const, parts: [] }],
+  }
+
+  assert.equal(
+    replyId(replied, () => 'new'),
+    'new',
+  )
+  assert.equal(
+    replyId({ ...streaming, streamId: null }, () => 'new'),
+    'new',
+  )
 })

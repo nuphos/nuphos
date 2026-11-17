@@ -49,6 +49,7 @@ const {
 useIdentity({ getTeamMembership: async () => ({ role: 'member' }) as never })
 
 const { decisionToolModule: createDecisionToolModule } = await import('./decisions')
+const { TOOL_PRESENTATION } = await import('../preview-tool-presentation')
 
 const decisionToolModule = (options: Parameters<typeof createDecisionToolModule>[0]) =>
   createDecisionToolModule({ runStreamId: async () => undefined, ...options })
@@ -120,8 +121,15 @@ describe('decision tool module', () => {
       'tool-input-available',
       'tool-output-available',
     ])
-    expect(frames[0]).toMatchObject({ toolName: 'request_user_decision' })
-    // Kept on the conversation for the Inbox, under the card's own call id.
+    // The card is the agent's own call, the step the transcript stores: these frames only
+    // hand it the call's input and result, so no second card is drawn beside it.
+    expect(frames[0]).toMatchObject({
+      toolName: 'request_user_decision',
+      [TOOL_PRESENTATION]: 'runtime',
+    })
+    expect(result._meta).toEqual({ [TOOL_PRESENTATION]: 'runtime' })
+    // Kept on the conversation for the Inbox, under the request id the call's result names.
+    expect(result.structuredContent).toMatchObject({ requestId: frames[0]!.toolCallId })
     expect(conversationUpdates.at(-1)).toEqual([
       { sessionId: 'conv-1', userId: 'u1' },
       {
