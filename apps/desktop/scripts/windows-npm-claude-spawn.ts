@@ -7,7 +7,10 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 const [modulePath, expected] = process.argv.slice(2)
-const { findAgentCli } = (await import(pathToFileURL(path.resolve(modulePath!)).href)) as {
+
+if (!modulePath)
+  throw new Error('usage: windows-npm-claude-spawn.ts <module> <exe|einval|unstartable>')
+const { findAgentCli } = (await import(pathToFileURL(path.resolve(modulePath)).href)) as {
   findAgentCli: (provider: 'claude-code', env: NodeJS.ProcessEnv) => string | null
 }
 const cli = findAgentCli('claude-code', process.env)
