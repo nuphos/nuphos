@@ -9,6 +9,17 @@ xcodebuild -project nuphos-ios.xcodeproj -scheme nuphos-ios -configuration Debug
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
 ```
 
+## UI tests in CI
+
+The UI tests (`nuphos-iosUITests`) take about an hour serially, so they do not run on every pull request.
+`.github/workflows/ios-ui.yml` runs all of them every night on `main`, and on any branch you dispatch it on.
+A failed test fails the job, and a failed nightly run opens or updates an issue listing the failed tests.
+When a change affects iOS screens or the UI tests themselves, run it on the pull request's branch and link the run:
+
+```bash
+gh workflow run ios-ui.yml --ref <branch>
+```
+
 ## Before and after evidence for a UI test
 
 To show that a new UI test fails without a fix and passes with it, check out both
