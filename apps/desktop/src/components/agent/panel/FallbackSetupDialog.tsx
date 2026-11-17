@@ -2,22 +2,10 @@ import { Dialog } from '@base-ui/react/dialog'
 import { useState } from 'react'
 
 import { t } from '../../../i18n'
-import { managesRuntime } from '../../../views/settings/agentPresentation'
-import {
-  editsRuntime,
-  fallbackCandidates,
-  offersFallbackSetup,
-  saveFallbackThenMove,
-} from '../../../views/settings/runtimeFallback'
-import { useRuntimeFallback } from '../../../views/settings/RuntimeFallbackPicker'
-import { useAgentDevices } from '../../../views/settings/useAgentDevices'
 import { Button } from '../../ui/button'
-import { toast } from '../../ui/toast'
 
 import { RuntimeSelector } from './RuntimeSelector'
-import { latestFailure, turnSwitchAgent } from './turnFailureActions'
 
-import type { PanelViewCtx } from './ctx'
 import type { RuntimeControl } from './RuntimeSelector'
 import type { RuntimeInstance } from '../../../types/runtime'
 
@@ -25,57 +13,8 @@ import type { RuntimeInstance } from '../../../types/runtime'
 const POPUP =
   'fixed left-1/2 top-1/2 z-[999] flex w-[480px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-xl border border-line-control bg-surface-sheet p-6 text-main shadow-2xl shadow-black/30 outline-none'
 
-/**
- * The Task's latest turn failed because its runtime could not run it, and that runtime has no
- * fallback: offers to set one for the team (the setting runtime details shows) and move there.
- */
-export function useTurnFallbackSetup(c: PanelViewCtx, control: RuntimeControl | undefined) {
-  const teamId = c.teamId ?? ''
-  const failure = latestFailure(c.activeTab)
-  const failed = Boolean(teamId && failure?.cause)
-  const runtime = c.runtimeInstances.find((instance) => instance.id === c.activeTab?.runtimeId)
-  const device = useAgentDevices(() => 0, teamId, {
-    teamId,
-    enabled: failed && Boolean(runtime?.local),
-  }).list?.devices.find((entry) => entry.deviceId === runtime?.local?.deviceId)
-  const { fallbacks, save } = useRuntimeFallback(teamId, runtime?.id, failed)
-  const [open, setOpen] = useState(false)
-  const move = control?.onSelect
-  const offered = offersFallbackSetup({
-    cause: failure?.cause,
-    runtime,
-    edits: runtime ? editsRuntime(runtime, managesRuntime(runtime, device, c.isTeamAdmin)) : false,
-    canMove: Boolean(move),
-    fallbacks,
-  })
-
-  return {
-    // The failure line's actions: Switch runtime, and this setup while it is offered.
-    turnSwitch: turnSwitchAgent(c.activeTab, offered ? () => setOpen(true) : undefined),
-    dialog: control && runtime && move && (
-      <FallbackSetupDialog
-        open={open && offered}
-        runtime={runtime}
-        candidates={fallbackCandidates(control.options ?? [], runtime.id)}
-        control={control}
-        onClose={() => setOpen(false)}
-        onManage={c.onOpenAgentSettings}
-        onSave={(next) =>
-          saveFallbackThenMove(
-            () => save(next),
-            () => {
-              setOpen(false)
-              toast.success(t('Fallback saved for {name}', { name: runtime.label }))
-              move(next)
-            },
-          )
-        }
-      />
-    ),
-  }
-}
-
-function FallbackSetupDialog({
+/** Sets the failed runtime's team fallback, then moves the Task there (useTurnFallbackSetup). */
+export function FallbackSetupDialog({
   open,
   runtime,
   candidates,

@@ -80,6 +80,11 @@ export const fallbackScenarios: Scenario[] = [
       await setUp.click()
       await dialog.getByText(`For ${FIXTURE} · shared with your team`).waitFor()
       await choose(page, dialog.getByRole('button', { name: /^Agent runtime/ }), SECOND)
+      // Shot once the runtime list has closed, not while it fades.
+      await until(
+        'the runtime list to close',
+        async () => (await page.getByRole('menu').count()) === 0,
+      )
       await page.screenshot({ path: `${artifacts}/fallback-dialog.png` })
       await dialog.getByRole('button', { name: 'Save & switch this Task' }).click()
 

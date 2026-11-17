@@ -1,35 +1,13 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect } from 'react'
-
-import { api } from '../../api'
 import { RuntimeSelector } from '../../components/agent/panel/RuntimeSelector'
-import { toast } from '../../components/ui/toast'
 import { useRuntimeInstances } from '../../hooks/useRuntimeInstances'
 import { t } from '../../i18n'
-import { runtimeFallbackQuery, useRuntimeQuotasQuery } from '../../lib/query/runtime'
+import { useRuntimeQuotasQuery } from '../../lib/query/runtime'
 
 import { fallbackCandidates } from './runtimeFallback'
 import { PanelHeading } from './RuntimePanel'
+import { useRuntimeFallback } from './useRuntimeFallback'
 
 import type { RuntimeInstance } from '../../types/runtime'
-
-/** The team's fallback per runtime, and the save both this panel and a failed turn use. */
-export function useRuntimeFallback(teamId: string, runtimeId: string | undefined, enabled = true) {
-  const queryClient = useQueryClient()
-  const { queryKey } = runtimeFallbackQuery(teamId)
-  const { data: fallbacks, error } = useQuery({ ...runtimeFallbackQuery(teamId), enabled })
-  const { mutateAsync, isPending } = useMutation({
-    mutationFn: (next: string | null) => api.atlasPutRuntimeFallback(teamId, runtimeId!, next),
-    onSettled: () => queryClient.invalidateQueries({ queryKey }),
-    onError: (err) => toast.apiError(t('Could not save the fallback agent'), err),
-  })
-
-  useEffect(() => {
-    if (error) toast.apiError(t('Could not load the fallback agent'), error)
-  }, [error])
-
-  return { fallbacks, save: mutateAsync, isPending }
-}
 
 /** The agent this one's conversations move to when it runs out or breaks; set for the whole team. */
 export function RuntimeFallbackPicker({
