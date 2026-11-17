@@ -20,6 +20,17 @@ export function trackInFlight(method: string, path: string): () => void {
   return () => inFlight.delete(request)
 }
 
+/** Runs `work` as in flight under `kind name`: a background job, which no request names. */
+export async function serving<T>(kind: string, name: string, work: () => Promise<T>): Promise<T> {
+  const done = trackInFlight(kind, name)
+
+  try {
+    return await work()
+  } finally {
+    done()
+  }
+}
+
 /**
  * A timer that fires late by more than STALL_MS means the loop was blocked: logs
  * `backend.event_loop.stalled` with how long, and the requests in flight across

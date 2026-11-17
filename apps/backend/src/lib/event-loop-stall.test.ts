@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from 'bun:test'
 
-import { startEventLoopStallLog, trackInFlight } from './event-loop-stall'
+import { serving, startEventLoopStallLog, trackInFlight } from './event-loop-stall'
 
 type Line = { event: string; properties: Record<string, unknown> }
 
@@ -66,4 +66,19 @@ test('a finished request is no longer in flight', async () => {
   await tick(150)
 
   expect(lines[0]?.properties.in_flight_count).toBe(0)
+})
+
+test('a stall during a background job names the job', async () => {
+  const lines: Line[] = []
+
+  stop = startEventLoopStallLog((_level, event, properties) => {
+    lines.push({ event, properties: properties ?? {} })
+  })
+  await serving('job', 'run-trigger', async () => {
+    await tick(150)
+    block(700)
+    await tick(150)
+  })
+
+  expect(String(lines[0]?.properties.in_flight)).toContain('job run-trigger')
 })
