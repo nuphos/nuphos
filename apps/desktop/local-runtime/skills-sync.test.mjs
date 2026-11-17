@@ -8,6 +8,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -205,6 +206,62 @@ test('each session offers the team and personal skills as plugins of its own', a
   // The next session gets wrappers of its own.
   assert.notEqual((await plugins())[0].path, first[0].path)
   delete globalThis.nuphosRefreshPersonalSkills
+})
+
+test('a skill added after the sync is fetched over, and never offered', async (t) => {
+  const workspace = mkdtempSync(join(tmpdir(), 'skills-'))
+  const sessionHome = mkdtempSync(join(tmpdir(), 'home-'))
+  const files = [file('deploy/SKILL.md', '# Deploy')]
+  // The backend's revision: a hash of the bundle's files.
+  const hash = createHash('sha256')
+
+  for (const { path, contentBase64 } of files) hash.update(`${path}\0${contentBase64}\0`)
+  const revision = hash.digest('hex')
+  const asked = []
+  let online = true
+
+  t.mock.method(globalThis, 'fetch', (url, init) => {
+    if (!online) return Promise.reject(new Error('offline'))
+    if (String(url).includes('scope=personal'))
+      return Promise.resolve(new Response(null, { status: 404 }))
+    asked.push(init.headers['if-none-match'])
+
+    return Promise.resolve(
+      init.headers['if-none-match'] === `"${revision}"`
+        ? new Response(null, { status: 304 })
+        : bundle(revision, files),
+    )
+  })
+  const open = async () => {
+    const opened = structuredClone(params)
+
+    await nuphosLocalSyncSkills(opened, { workspace, sessionHome })
+    delete globalThis.nuphosRefreshPersonalSkills
+
+    return opened._meta.claudeCode.options.plugins.map((plugin) =>
+      plugin.path.split(/[\\/]/u).at(-1),
+    )
+  }
+  const plant = () => {
+    mkdirSync(join(workspace, '.claude', 'skills', 'planted'), { recursive: true })
+    writeFileSync(join(workspace, '.claude', 'skills', 'planted', 'SKILL.md'), '# Planted')
+  }
+
+  assert.deepEqual(await open(), ['team', 'personal'])
+  // Untouched, the tree is confirmed by its revision, and offered.
+  assert.deepEqual(await open(), ['team', 'personal'])
+  assert.equal(asked.at(-1), `"${revision}"`)
+
+  plant()
+  assert.deepEqual(await open(), ['team', 'personal'])
+  assert.equal(asked.at(-1), undefined)
+  assert.deepEqual(readdirSync(join(workspace, '.claude', 'skills')), ['deploy'])
+
+  // Without the backend, the tree cannot be put right, and is left out.
+  online = false
+  assert.deepEqual(await open(), ['team', 'personal'])
+  plant()
+  assert.deepEqual(await open(), ['personal'])
 })
 
 test('a newer revision replaces the old tree', async (t) => {

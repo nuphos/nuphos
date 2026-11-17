@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { chmod, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -368,6 +369,54 @@ test('each session offers the team and personal skills as plugins of its own', a
       assert.notEqual((await plugins())[0].path, first[0].path)
     })
   })
+})
+
+test('a skill added after the sync is fetched over, and never offered', async () => {
+  const workspace = await mkdtemp(join(tmpdir(), 'nuphos-workspace-'))
+  const claude = join(workspace, '.claude')
+  // The backend's revision: a hash of the bundle's files.
+  const hash = createHash('sha256')
+
+  hash.update(`deploy/SKILL.md\0${Buffer.from('# Deploy').toString('base64')}\0`)
+  await mkdir(join(claude, 'skills/deploy'), { recursive: true })
+  await writeFile(join(claude, 'skills/deploy/SKILL.md'), '# Deploy')
+  await writeFile(join(claude, '.skills-revision'), hash.digest('hex'))
+  // The backend is unreachable; the script notes whether it had a revision to offer.
+  const body = [
+    'if [ -z "$NUPHOS_RUNTIME_PERSONAL_SKILLS_DIR" ]; then',
+    '  [ -e "$NUPHOS_RUNTIME_WORKSPACE/.claude/.skills-revision" ] && echo revision >> "$NUPHOS_TEST_RECORD" || echo none >> "$NUPHOS_TEST_RECORD"',
+    'fi',
+    'exit 1',
+  ].join('\n')
+
+  try {
+    await withFakeScript(body, async ({ script, directory, record }) => {
+      const open = async () => {
+        const params = structuredClone(bundleSession)
+
+        await nuphosSyncRuntimeSkills(params, {
+          script,
+          sessionHome: directory,
+          env: { NUPHOS_RUNTIME_WORKSPACE: workspace, NUPHOS_TEST_RECORD: record },
+        })
+        delete globalThis.nuphosRefreshPersonalSkills
+
+        return params._meta.claudeCode.options.plugins.map((plugin) =>
+          plugin.path.split('/').at(-1),
+        )
+      }
+
+      // Untouched, the tree is confirmed by its revision, and offered.
+      assert.deepEqual(await open(), ['team', 'personal'])
+      await mkdir(join(claude, 'skills/planted'))
+      await writeFile(join(claude, 'skills/planted/SKILL.md'), '# Planted')
+      // Changed, it is fetched without the revision, and left out while it cannot be.
+      assert.deepEqual(await open(), ['personal'])
+      assert.deepEqual((await readFile(record, 'utf8')).trim().split('\n'), ['revision', 'none'])
+    })
+  } finally {
+    await rm(workspace, { recursive: true, force: true })
+  }
 })
 
 test('the first session in a workspace starts with the team skills on disk', async () => {

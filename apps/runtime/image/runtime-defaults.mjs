@@ -30,6 +30,7 @@ export async function nuphosSyncRuntimeSkills(params, run) {
   const path = await import('node:path')
   const fs = await import('node:fs/promises')
   const os = await import('node:os')
+  const { createHash } = await import('node:crypto')
   const sync = (extra, timeoutMs = run?.timeoutMs ?? 20_000) =>
     new Promise((resolve) => {
       const child = spawn(run?.script ?? '/usr/local/bin/nuphos-sync-skills', {
@@ -82,11 +83,12 @@ export async function nuphosSyncRuntimeSkills(params, run) {
     'skills',
   )
   // Nothing reads the result past the wait, so a failure would otherwise vanish with it.
-  const teamSync = sync().then((ok) => {
-    if (!ok) process.stderr.write('runtime skills sync failed\n')
+  const syncTeam = () =>
+    sync().then((ok) => {
+      if (!ok) process.stderr.write('runtime skills sync failed\n')
 
-    return ok
-  })
+      return ok
+    })
   // The owner's personal skills go to this conversation's own home and are offered to
   // Claude Code as an additional directory, so no other conversation on the runtime
   // loads them. The home is derived from the conversation id, never taken from the
@@ -97,7 +99,40 @@ export async function nuphosSyncRuntimeSkills(params, run) {
     : (run?.sessionHome ??
       (typeof nuphosSessionHomeEnv === 'function' ? nuphosSessionHomeEnv(env).HOME : undefined))
 
-  if (!home) return { synced: Promise.resolve(await teamSync) }
+  if (!home) return { synced: Promise.resolve(await syncTeam()) }
+  // Whether a tree holds exactly the files of the revision recorded beside it. The
+  // revision is the backend's hash of the bundle's files (`revisionOf`), so a skill
+  // anyone added or changed after the sync, in a directory the agent can write to,
+  // fails it. A skill can carry hooks and allowed tools, so only such a tree is offered.
+  const intact = async (claudeDir) => {
+    const skillsDir = path.join(claudeDir, 'skills')
+    const files = []
+    const walk = async (dir, prefix) => {
+      for (const entry of await fs.readdir(dir, { withFileTypes: true })) {
+        const relative = prefix + entry.name
+
+        if (entry.isDirectory()) await walk(path.join(dir, entry.name), `${relative}/`)
+        else if (entry.isFile()) files.push(relative)
+        else throw new Error(`Not a file: ${relative}`)
+      }
+    }
+
+    try {
+      await walk(skillsDir, '')
+      if (!files.length) return true
+      const revision = await fs.readFile(path.join(claudeDir, '.skills-revision'), 'utf8')
+      const hash = createHash('sha256')
+
+      for (const relative of files.sort()) {
+        hash.update(`${relative}\0`)
+        hash.update(`${(await fs.readFile(path.join(skillsDir, relative))).toString('base64')}\0`)
+      }
+
+      return hash.digest('hex') === revision.trim()
+    } catch (error) {
+      return error?.code === 'ENOENT' && !files.length
+    }
+  }
   const personal = path.join(home, 'personal-skills')
   const skills = path.join(personal, '.claude', 'skills')
   // Whose personal skills, if anyone's, can change between the turns of a live session.
@@ -149,6 +184,9 @@ export async function nuphosSyncRuntimeSkills(params, run) {
     // A failed sync must not leave another member's skills in place. For the same
     // member it changes nothing: what is installed stays.
     else if (holder(credential) !== (await owner())) await empty()
+    else return false
+
+    return true
   }
 
   // A prompt only syncs the skills on disk. The running session picks a change up
@@ -161,7 +199,13 @@ export async function nuphosSyncRuntimeSkills(params, run) {
   const opener = holder(await credentialFor(false))
 
   if (!opener || opener !== (await owner())) await empty()
-  const [synced] = await Promise.all([teamSync, syncPersonal().catch(() => false)])
+  const trees = [path.dirname(teamSkills), path.join(personal, '.claude')]
+  const checked = await Promise.all(trees.map(intact))
+
+  // A tree that fails the check is fetched in full, not confirmed by its revision.
+  for (const [index, claudeDir] of trees.entries())
+    if (!checked[index]) await fs.rm(path.join(claudeDir, '.skills-revision'), { force: true })
+  const fetched = await Promise.all([syncTeam(), syncPersonal().catch(() => false)])
 
   // Present even when empty, so a skill synced for a later turn is picked up.
   await fs.mkdir(skills, { recursive: true })
@@ -174,13 +218,16 @@ export async function nuphosSyncRuntimeSkills(params, run) {
   // sources are, so each tree is offered as one, which names its skills `team:<skill>`
   // and `personal:<skill>`. A plugin can also carry hooks and MCP servers, so the
   // wrappers hold nothing but a manifest and a link to the skills, and each session
-  // gets new ones outside the workspace and the conversation's home.
+  // gets new ones outside the workspace and the conversation's home. Claude Code reads
+  // plugin skills once, when the session starts, so a tree checked or fetched just now
+  // is what the session gets, and one that is neither is left out.
   const plugins = await fs.mkdtemp(path.join(os.tmpdir(), 'nuphos-skill-plugins-'))
-
-  for (const [name, tree] of [
+  const offered = [
     ['team', teamSkills],
     ['personal', skills],
-  ]) {
+  ].filter((_, index) => checked[index] || fetched[index])
+
+  for (const [name, tree] of offered) {
     await fs.mkdir(path.join(plugins, name, '.claude-plugin'), { recursive: true })
     await fs.writeFile(
       path.join(plugins, name, '.claude-plugin', 'plugin.json'),
@@ -193,11 +240,10 @@ export async function nuphosSyncRuntimeSkills(params, run) {
       (plugin) =>
         !path.basename(path.dirname(plugin?.path ?? '')).startsWith('nuphos-skill-plugins-'),
     ),
-    { type: 'local', path: path.join(plugins, 'team') },
-    { type: 'local', path: path.join(plugins, 'personal') },
+    ...offered.map(([name]) => ({ type: 'local', path: path.join(plugins, name) })),
   ]
 
-  return { synced: Promise.resolve(synced) }
+  return { synced: Promise.resolve(fetched[0]) }
 }
 
 // Run inside the native adapter once a session has discovered its controls,
