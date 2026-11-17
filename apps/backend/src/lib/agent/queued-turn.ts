@@ -80,7 +80,15 @@ async function holdForReattach(target: AgentConversation, head: PendingUserMessa
  * next, and a message accepted for a turn that ended without reading it does
  * not wait for one that may never come.
  */
-export async function startQueuedTurn(userId: string, sessionId: string): Promise<void> {
+export async function startQueuedTurn(
+  userId: string,
+  sessionId: string,
+  released = false,
+): Promise<void> {
+  // Before the claim, whose release would start the queue again.
+  const waiting = queueHead(await listPendingUserMessages(userId, sessionId), userId)[0]
+
+  if (waitingOutRefusal(waiting, released)) return
   const target = await getConversationBySessionId(sessionId)
 
   const runtime = await ready(userId, sessionId, target)
@@ -94,12 +102,6 @@ export async function startQueuedTurn(userId: string, sessionId: string): Promis
   try {
     const queue = await listPendingUserMessages(userId, sessionId)
     const next = queueHead(queue, userId)[0]
-
-    if (waitingOutRefusal(next)) {
-      retryQueuedTurn(userId, sessionId)
-
-      return
-    }
 
     // Someone was asked to sign its agent in: their sign-in starts it (sign-in-settle).
     const ask = next?.chat ? openSignInRequest(target) : null
