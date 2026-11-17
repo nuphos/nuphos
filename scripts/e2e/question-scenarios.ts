@@ -1,5 +1,5 @@
 // Scenarios about what becomes of an agent's question, through the real routes.
-import { agentEvents } from './agent-log.ts'
+import { agentEvents, agentLog } from './agent-log.ts'
 import { client, must } from './binding-access-scenarios.ts'
 import { until } from './processes.ts'
 import { newTask, send } from './ui.ts'
@@ -38,11 +38,18 @@ export const questionScenarios: Scenario[] = [
       await newTask(page)
       await send(page, 'Ask me E2E_ASK E2E_DELIVERY:snooze')
       await page.getByText('ACK E2E_DELIVERY:snooze').waitFor()
+      // Counted once the asking turn is over, so only a wake could add to it.
+      await until('the asking turn to finish', async () =>
+        agentEvents(stack).includes('finish E2E_DELIVERY:snooze'),
+      )
       const { sessionId, request } = await asked()
 
       must(Boolean(request), 'the question to be listed')
       const until1h = new Date(Date.now() + 3_600_000).toISOString()
-      const turns = agentEvents(stack).length
+      // Only this conversation's agent session: other scenarios' sessions may still open.
+      const asker = agentLog(stack).find((entry) => entry.marker === 'E2E_DELIVERY:snooze')
+      const turns = () => agentLog(stack).filter((entry) => entry.sessionId === asker?.sessionId)
+      const before = turns().length
       const snoozed = await decide(sessionId, request!.id, 'snooze', { until: until1h })
 
       must(
@@ -51,7 +58,7 @@ export const questionScenarios: Scenario[] = [
       )
       must((await asked()).request?.snoozedUntil === until1h, 'the listing to carry snoozedUntil')
       await new Promise((resolve) => setTimeout(resolve, 2_000))
-      must(agentEvents(stack).length === turns, 'a snooze to wake no agent')
+      must(turns().length === before, 'a snooze to wake no agent')
 
       const dismissed = await decide(sessionId, request!.id, 'resolve', {
         resolution: 'dismissed',
