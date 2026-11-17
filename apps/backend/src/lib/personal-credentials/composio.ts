@@ -40,9 +40,11 @@ const PROFILE: Record<
   },
 }
 
-// The same reach as a team-client grant. Its gmail.modify scope cannot permanently delete
-// mail, so those tools are refused. Its Drive scope is full `drive`, which can delete files
-// and empty the trash, so Drive keeps those tools.
+// The managed Gmail config uses Composio's default scopes, which include full
+// https://mail.google.com/ and so could permanently delete mail. A team-client
+// grant (gmail.modify) cannot, so these tools are refused here to keep the same
+// reach: trash instead. Drive is full `drive` on both paths, which can delete
+// files and empty the trash, so Drive keeps those tools.
 const BLOCKED = new Set([
   'GMAIL_DELETE_MESSAGE',
   'GMAIL_DELETE_THREAD',
