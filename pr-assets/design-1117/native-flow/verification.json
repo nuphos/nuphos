@@ -1,0 +1,113 @@
+[
+  {
+    "artboard": "Duo compact — Child Task and return",
+    "paper": "duo-0-returns-paper.png",
+    "size": [
+      2474,
+      958
+    ],
+    "chromeMeanAbsoluteRGBDifference": 1.3259,
+    "nativeFrameMeanAbsoluteRGBDifferences": [
+      0.1143,
+      0.1239,
+      0.1814,
+      0.1814,
+      0.0663
+    ]
+  },
+  {
+    "artboard": "Duo compact — Before and own Task",
+    "paper": "duo-0-routes-paper.png",
+    "size": [
+      2474,
+      1736
+    ],
+    "chromeMeanAbsoluteRGBDifference": 0.9048,
+    "nativeFrameMeanAbsoluteRGBDifferences": [
+      0.0654,
+      0.174,
+      0.1099,
+      0.1239,
+      0.1099,
+      0.0659,
+      0.1813,
+      0.1143,
+      0.1185,
+      0.1814
+    ]
+  },
+  {
+    "artboard": "iPhone — Child Task and return",
+    "paper": "iphone-0-returns-paper.png",
+    "size": [
+      2154,
+      1154
+    ],
+    "chromeMeanAbsoluteRGBDifference": 1.2106,
+    "nativeFrameMeanAbsoluteRGBDifferences": [
+      0.092,
+      0.1068,
+      0.1536,
+      0.1536,
+      0.0635
+    ]
+  },
+  {
+    "artboard": "iPhone — Before and own Task",
+    "paper": "iphone-0-routes-paper.png",
+    "size": [
+      2154,
+      2128
+    ],
+    "chromeMeanAbsoluteRGBDifference": 0.8162,
+    "nativeFrameMeanAbsoluteRGBDifferences": [
+      0.0635,
+      0.1475,
+      0.103,
+      0.1068,
+      0.103,
+      0.0635,
+      0.1536,
+      0.092,
+      0.1007,
+      0.1536
+    ]
+  },
+  {
+    "artboard": "Wide control (iPad) — Child Task and return",
+    "paper": "wide-0-returns-paper.png",
+    "size": [
+      3864,
+      1413
+    ],
+    "chromeMeanAbsoluteRGBDifference": 0.566,
+    "nativeFrameMeanAbsoluteRGBDifferences": [
+      0.0024,
+      0.0004,
+      0.0008,
+      0.0008,
+      0.0008
+    ]
+  },
+  {
+    "artboard": "Wide control (iPad) — Before and own Task",
+    "paper": "wide-0-routes-paper.png",
+    "size": [
+      3864,
+      2646
+    ],
+    "chromeMeanAbsoluteRGBDifference": 0.3544,
+    "nativeFrameMeanAbsoluteRGBDifferences": [
+      0.0003,
+      0.0008,
+      0.0009,
+      0.0005,
+      0.0009,
+      0.0003,
+      0.0008,
+      0.0024,
+      0.0005,
+      0.0008
+    ]
+  }
+]

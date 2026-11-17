@@ -1,0 +1,595 @@
+{
+  "GET /teams": {
+    "status": 200,
+    "body": {
+      "teams": [
+        {
+          "id": "64b5f1c2e4b0a1d2c3e4f5a6",
+          "name": "Acme Inc.",
+          "isOwner": true,
+          "role": "ADMINISTRATOR"
+        }
+      ]
+    }
+  },
+  "GET /teams/discoverable": {
+    "status": 200,
+    "body": {
+      "teams": []
+    }
+  },
+  "GET /teams/64b5f1c2e4b0a1d2c3e4f5a6/agent-runtimes": {
+    "status": 200,
+    "body": {
+      "runtimes": [
+        {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "provider": "codex",
+          "label": "Preview Codex",
+          "status": "active",
+          "kind": "managed"
+        }
+      ]
+    }
+  },
+  "GET /teams/64b5f1c2e4b0a1d2c3e4f5a6/favorites": {
+    "status": 200,
+    "body": {
+      "entries": [],
+      "revision": 0
+    }
+  },
+  "GET /agent/credential-options": {
+    "status": 200,
+    "body": {}
+  },
+  "POST /push/devices": {
+    "status": 200,
+    "body": {
+      "ok": true
+    }
+  },
+  "GET /agent/conversations": {
+    "status": 200,
+    "body": {
+      "conversations": [
+        {
+          "sessionId": "bot-plain",
+          "teamId": "64b5f1c2e4b0a1d2c3e4f5a6",
+          "title": "Release Bot",
+          "firstMessage": "Coordinate the release",
+          "messageCount": 2,
+          "createdAt": "2026-11-08T08:00:00Z",
+          "lastActiveAt": "2026-11-08T09:30:00Z",
+          "isOwner": true,
+          "readOnly": false,
+          "agentRuntime": "claude-code",
+          "runtimeId": "11111111-1111-4111-8111-111111111111",
+          "runtimeLabel": "Studio Claude",
+          "avatar": "02-leonardo",
+          "runtimeState": {
+            "schemaVersion": 2,
+            "epoch": "test",
+            "revision": 1,
+            "state": "idle",
+            "phase": "idle",
+            "actions": {
+              "send": true
+            }
+          },
+          "activitySeq": 2,
+          "readSeq": 2
+        },
+        {
+          "sessionId": "task-notes",
+          "teamId": "64b5f1c2e4b0a1d2c3e4f5a6",
+          "title": "Draft release notes",
+          "firstMessage": "Prepare the release notes",
+          "messageCount": 2,
+          "createdAt": "2026-11-08T08:00:00Z",
+          "lastActiveAt": "2026-11-08T09:30:00Z",
+          "isOwner": true,
+          "readOnly": false,
+          "agentRuntime": "claude-code",
+          "runtimeId": "11111111-1111-4111-8111-111111111111",
+          "runtimeLabel": "Studio Claude",
+          "runtimeState": {
+            "schemaVersion": 2,
+            "epoch": "test",
+            "revision": 1,
+            "state": "idle",
+            "phase": "idle",
+            "actions": {
+              "send": true
+            }
+          },
+          "activitySeq": 2,
+          "readSeq": 2,
+          "parentSessionId": "bot-plain"
+        },
+        {
+          "sessionId": "task-links",
+          "teamId": "64b5f1c2e4b0a1d2c3e4f5a6",
+          "title": "Check release links",
+          "firstMessage": "Check release links",
+          "messageCount": 2,
+          "createdAt": "2026-11-08T08:00:00Z",
+          "lastActiveAt": "2026-11-08T09:30:00Z",
+          "isOwner": true,
+          "readOnly": false,
+          "agentRuntime": "claude-code",
+          "runtimeId": "11111111-1111-4111-8111-111111111111",
+          "runtimeLabel": "Studio Claude",
+          "runtimeState": {
+            "schemaVersion": 2,
+            "epoch": "test",
+            "revision": 1,
+            "state": "idle",
+            "phase": "idle",
+            "actions": {
+              "send": true
+            }
+          },
+          "activitySeq": 2,
+          "readSeq": 2,
+          "parentSessionId": "bot-plain"
+        }
+      ],
+      "nextCursor": null,
+      "hasMore": false
+    }
+  },
+  "GET /agent/conversations?kind=channel": {
+    "status": 200,
+    "body": {
+      "conversations": [
+        {
+          "sessionId": "chat-bot-plain",
+          "teamId": "64b5f1c2e4b0a1d2c3e4f5a6",
+          "kind": "channel",
+          "title": "Release Bot",
+          "firstMessage": "",
+          "messageCount": 2,
+          "createdAt": "2026-11-08T08:00:00Z",
+          "lastActiveAt": "2026-11-08T09:32:00Z",
+          "isOwner": true,
+          "readOnly": false,
+          "activitySeq": 2,
+          "readSeq": 2,
+          "faces": [
+            {
+              "id": "bot-plain",
+              "name": "Release Bot",
+              "agent": {
+                "avatar": "02-leonardo",
+                "provider": "claude-code"
+              }
+            }
+          ],
+          "agentSessionIds": [
+            "bot-plain"
+          ]
+        }
+      ],
+      "nextCursor": null,
+      "hasMore": false
+    }
+  },
+  "GET /agent/conversations/chat-bot-box": {
+    "status": 200,
+    "body": {
+      "sessionId": "chat-bot-box",
+      "kind": "channel",
+      "title": "Sign-in helper",
+      "messages": [
+        {
+          "id": "u1",
+          "role": "user",
+          "parts": [
+            {
+              "type": "text",
+              "text": "Sign in to the staging dashboard for me."
+            }
+          ],
+          "metadata": {
+            "version": 1,
+            "sender": {
+              "type": "user",
+              "id": "507f1f77bcf86cd799439011",
+              "displayName": "Preview User",
+              "avatarURL": ""
+            },
+            "sentAt": "2026-11-08T09:38:00.000Z"
+          },
+          "createdAt": "2026-11-08T09:38:00.000Z"
+        },
+        {
+          "id": "a1",
+          "role": "user",
+          "parts": [
+            {
+              "type": "text",
+              "text": "I opened the sign-in page in a browser on my Box. Open my desktop to type your password."
+            }
+          ],
+          "metadata": {
+            "version": 1,
+            "sender": {
+              "type": "agent",
+              "id": "bot-box",
+              "displayName": "Sign-in helper"
+            },
+            "sentAt": "2026-11-08T09:39:00.000Z"
+          },
+          "createdAt": "2026-11-08T09:39:00.000Z"
+        }
+      ],
+      "messagesFirstIndex": 0,
+      "messageCount": 2,
+      "transcriptUpdatedAt": "2026-11-08T09:39:00.000Z",
+      "isOwner": true,
+      "canManage": true,
+      "readOnly": false,
+      "activitySeq": 2,
+      "readSeq": 2,
+      "timelineEvents": [],
+      "faces": [
+        {
+          "id": "bot-box",
+          "name": "Sign-in helper",
+          "agent": {
+            "avatar": "05-rembrandt",
+            "provider": "claude-code"
+          }
+        }
+      ]
+    }
+  },
+  "GET /agent/conversations/chat-bot-box/agents": {
+    "status": 200,
+    "body": {
+      "agents": [
+        {
+          "sessionId": "bot-box",
+          "title": "Sign-in helper",
+          "ownerId": "507f1f77bcf86cd799439011"
+        }
+      ]
+    }
+  },
+  "POST /agent/conversations/chat-bot-box/read": {
+    "status": 200,
+    "body": {
+      "activitySeq": 2,
+      "readSeq": 2
+    }
+  },
+  "GET /agent/conversations/chat-bot-plain": {
+    "status": 200,
+    "body": {
+      "sessionId": "chat-bot-plain",
+      "kind": "channel",
+      "title": "Release Bot",
+      "messages": [
+        {
+          "id": "u1",
+          "role": "user",
+          "parts": [
+            {
+              "type": "text",
+              "text": "Prepare the release notes and check the links. Wait for my review before publishing."
+            }
+          ],
+          "metadata": {
+            "version": 1,
+            "sender": {
+              "type": "user",
+              "id": "507f1f77bcf86cd799439011",
+              "displayName": "Preview User",
+              "avatarURL": ""
+            },
+            "sentAt": "2026-11-08T09:38:00.000Z"
+          },
+          "createdAt": "2026-11-08T09:38:00.000Z"
+        },
+        {
+          "id": "a1",
+          "role": "user",
+          "parts": [
+            {
+              "type": "text",
+              "text": "I started the release notes and link checks. I will wait for your review before publishing."
+            }
+          ],
+          "metadata": {
+            "version": 1,
+            "sender": {
+              "type": "agent",
+              "id": "bot-plain",
+              "displayName": "Release Bot"
+            },
+            "sentAt": "2026-11-08T09:39:00.000Z"
+          },
+          "createdAt": "2026-11-08T09:39:00.000Z"
+        }
+      ],
+      "messagesFirstIndex": 0,
+      "messageCount": 2,
+      "transcriptUpdatedAt": "2026-11-08T09:39:00.000Z",
+      "isOwner": true,
+      "canManage": true,
+      "readOnly": false,
+      "activitySeq": 2,
+      "readSeq": 2,
+      "timelineEvents": [],
+      "faces": [
+        {
+          "id": "bot-plain",
+          "name": "Release Bot",
+          "agent": {
+            "avatar": "02-leonardo",
+            "provider": "claude-code"
+          }
+        }
+      ]
+    }
+  },
+  "GET /agent/conversations/chat-bot-plain/agents": {
+    "status": 200,
+    "body": {
+      "agents": [
+        {
+          "sessionId": "bot-plain",
+          "title": "Release Bot",
+          "ownerId": "507f1f77bcf86cd799439011"
+        }
+      ]
+    }
+  },
+  "POST /agent/conversations/chat-bot-plain/read": {
+    "status": 200,
+    "body": {
+      "activitySeq": 2,
+      "readSeq": 2
+    }
+  },
+  "GET /agent/conversations?bots=true": {
+    "status": 200,
+    "body": {
+      "conversations": [
+        {
+          "sessionId": "bot-plain",
+          "teamId": "64b5f1c2e4b0a1d2c3e4f5a6",
+          "title": "Release Bot",
+          "firstMessage": "Coordinate the release",
+          "messageCount": 2,
+          "createdAt": "2026-11-08T08:00:00Z",
+          "lastActiveAt": "2026-11-08T09:30:00Z",
+          "isOwner": true,
+          "readOnly": false,
+          "agentRuntime": "claude-code",
+          "runtimeId": "11111111-1111-4111-8111-111111111111",
+          "runtimeLabel": "Studio Claude",
+          "avatar": "02-leonardo",
+          "runtimeState": {
+            "schemaVersion": 2,
+            "epoch": "test",
+            "revision": 1,
+            "state": "idle",
+            "phase": "idle",
+            "actions": {
+              "send": true
+            }
+          },
+          "activitySeq": 2,
+          "readSeq": 2
+        }
+      ],
+      "hasMore": false,
+      "nextCursor": null
+    }
+  },
+  "GET /agent/conversations?pendingDecision=true": {
+    "status": 200,
+    "body": {
+      "conversations": [],
+      "hasMore": false,
+      "nextCursor": null
+    }
+  },
+  "GET /agent/conversations/bot-plain": {
+    "status": 200,
+    "body": {
+      "sessionId": "bot-plain",
+      "teamId": "64b5f1c2e4b0a1d2c3e4f5a6",
+      "title": "Release Bot",
+      "firstMessage": "Coordinate the release",
+      "messageCount": 2,
+      "createdAt": "2026-11-08T08:00:00Z",
+      "lastActiveAt": "2026-11-08T09:30:00Z",
+      "isOwner": true,
+      "readOnly": false,
+      "agentRuntime": "claude-code",
+      "runtimeId": "11111111-1111-4111-8111-111111111111",
+      "runtimeLabel": "Studio Claude",
+      "avatar": "02-leonardo",
+      "runtimeState": {
+        "schemaVersion": 2,
+        "epoch": "test",
+        "revision": 1,
+        "state": "idle",
+        "phase": "idle",
+        "actions": {
+          "send": true
+        }
+      },
+      "activitySeq": 2,
+      "readSeq": 2,
+      "messagesFirstIndex": 0,
+      "messages": [
+        {
+          "id": "u-bot-plain",
+          "role": "user",
+          "parts": [
+            {
+              "type": "text",
+              "text": "Coordinate the release"
+            }
+          ],
+          "metadata": {
+            "version": 1,
+            "sender": {
+              "type": "user",
+              "id": "preview",
+              "displayName": "Maya Chen"
+            }
+          }
+        },
+        {
+          "id": "a-bot-plain",
+          "role": "assistant",
+          "parts": [
+            {
+              "type": "text",
+              "text": "The draft is ready for review. I have not published anything."
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "POST /agent/conversations/bot-plain/read": {
+    "status": 200,
+    "body": {}
+  },
+  "GET /agent/conversations/task-notes": {
+    "status": 200,
+    "body": {
+      "sessionId": "task-notes",
+      "teamId": "64b5f1c2e4b0a1d2c3e4f5a6",
+      "title": "Draft release notes",
+      "firstMessage": "Prepare the release notes",
+      "messageCount": 2,
+      "createdAt": "2026-11-08T08:00:00Z",
+      "lastActiveAt": "2026-11-08T09:30:00Z",
+      "isOwner": true,
+      "readOnly": false,
+      "agentRuntime": "claude-code",
+      "runtimeId": "11111111-1111-4111-8111-111111111111",
+      "runtimeLabel": "Studio Claude",
+      "runtimeState": {
+        "schemaVersion": 2,
+        "epoch": "test",
+        "revision": 1,
+        "state": "idle",
+        "phase": "idle",
+        "actions": {
+          "send": true
+        }
+      },
+      "activitySeq": 2,
+      "readSeq": 2,
+      "parentSessionId": "bot-plain",
+      "messagesFirstIndex": 0,
+      "messages": [
+        {
+          "id": "u-task-notes",
+          "role": "user",
+          "parts": [
+            {
+              "type": "text",
+              "text": "Prepare the release notes"
+            }
+          ],
+          "metadata": {
+            "version": 1,
+            "sender": {
+              "type": "user",
+              "id": "preview",
+              "displayName": "Maya Chen"
+            }
+          }
+        },
+        {
+          "id": "a-task-notes",
+          "role": "assistant",
+          "parts": [
+            {
+              "type": "text",
+              "text": "The draft is ready for review. I have not published anything."
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "POST /agent/conversations/task-notes/read": {
+    "status": 200,
+    "body": {}
+  },
+  "GET /agent/conversations/task-links": {
+    "status": 200,
+    "body": {
+      "sessionId": "task-links",
+      "teamId": "64b5f1c2e4b0a1d2c3e4f5a6",
+      "title": "Check release links",
+      "firstMessage": "Check release links",
+      "messageCount": 2,
+      "createdAt": "2026-11-08T08:00:00Z",
+      "lastActiveAt": "2026-11-08T09:30:00Z",
+      "isOwner": true,
+      "readOnly": false,
+      "agentRuntime": "claude-code",
+      "runtimeId": "11111111-1111-4111-8111-111111111111",
+      "runtimeLabel": "Studio Claude",
+      "runtimeState": {
+        "schemaVersion": 2,
+        "epoch": "test",
+        "revision": 1,
+        "state": "idle",
+        "phase": "idle",
+        "actions": {
+          "send": true
+        }
+      },
+      "activitySeq": 2,
+      "readSeq": 2,
+      "parentSessionId": "bot-plain",
+      "messagesFirstIndex": 0,
+      "messages": [
+        {
+          "id": "u-task-links",
+          "role": "user",
+          "parts": [
+            {
+              "type": "text",
+              "text": "Check release links"
+            }
+          ],
+          "metadata": {
+            "version": 1,
+            "sender": {
+              "type": "user",
+              "id": "preview",
+              "displayName": "Maya Chen"
+            }
+          }
+        },
+        {
+          "id": "a-task-links",
+          "role": "assistant",
+          "parts": [
+            {
+              "type": "text",
+              "text": "The draft is ready for review. I have not published anything."
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "POST /agent/conversations/task-links/read": {
+    "status": 200,
+    "body": {}
+  }
+}

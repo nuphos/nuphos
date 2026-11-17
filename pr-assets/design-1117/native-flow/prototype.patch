@@ -1,0 +1,174 @@
+diff --git a/apps/ios/nuphos-ios/Views/Chat/ChannelView.swift b/apps/ios/nuphos-ios/Views/Chat/ChannelView.swift
+index 9cd9da6..21ff91b 100644
+--- a/apps/ios/nuphos-ios/Views/Chat/ChannelView.swift
++++ b/apps/ios/nuphos-ios/Views/Chat/ChannelView.swift
+@@ -8,6 +8,10 @@ struct ChannelView: View {
+ 
+     @Environment(AgentStore.self) private var store
+     @Environment(\.openURL) private var openURL
++    @State private var designTasks = false
++    @State private var designPending: AgentConversation?
++    @State private var designSelected: AgentConversation?
++    @State private var designTaskOpen = false
+     @State private var draft = ""
+     @State private var showTriggers = false
+     /// The agents typing: those in a turn, as of the last read of this chat. See `inTurn`.
+@@ -36,6 +40,17 @@ struct ChannelView: View {
+         return bot
+     }
+ 
++    private func designRow(_ row: AgentConversation) -> some View {
++        Button {
++            designPending = row
++            designTasks = false
++        } label: {
++            ConversationRow(conversation: row)
++        }
++        .buttonStyle(.plain)
++        .accessibilityIdentifier("design.row." + row.sessionId)
++    }
++
+     private var rows: [ChatRow] {
+         ChannelPost.items(posts: channel.posts, events: channel.events, typing: typing,
+                           questions: channel.questions.list)
+@@ -86,6 +101,38 @@ struct ChannelView: View {
+                     .disabled(channel.botId == nil)
+                     .accessibilityIdentifier("bot-trigger-entry")
+                 }
++                if CommandLine.arguments.contains("-design-bot-tasks"), channel.botId != nil {
++                    ToolbarItem(placement: .primaryAction) {
++                        Button("Tasks") { designTasks = true }
++                            .accessibilityIdentifier("design.tasks")
++                            .popover(isPresented: $designTasks) {
++                                NavigationStack {
++                                    List {
++                                        if let own = store.conversations.first(where: { $0.sessionId == channel.botId }) {
++                                            Section("Bot’s Task") { designRow(own) }
++                                        }
++                                        Section("Dispatched Tasks") {
++                                            let owners = ConversationNesting.botOwners(store.conversations)
++                                            let children = store.conversations.filter { owners[$0.sessionId] == channel.botId }
++                                            ForEach(ConversationNesting.nest(children)) { item in
++                                                designRow(item.conversation)
++                                                    .padding(.leading, CGFloat(item.depth) * ThreadTree.indent)
++                                            }
++                                            if children.isEmpty { Text("No dispatched Tasks").foregroundStyle(Theme.muted) }
++                                        }
++                                    }
++                                    .listStyle(.plain)
++                                    .navigationTitle("Tasks")
++                                    .navigationBarTitleDisplayMode(.inline)
++                                    .toolbar { ToolbarItem(placement: .confirmationAction) {
++                                        Button("Done") { designTasks = false }.accessibilityIdentifier("design.close")
++                                    } }
++                                }
++                                .frame(minWidth: 340, minHeight: 440)
++                                .presentationCompactAdaptation(.sheet)
++                            }
++                    }
++                }
+                 if let bot = desktopBot {
+                     ToolbarItem(placement: .primaryAction) {
+                         Button {
+@@ -98,6 +145,18 @@ struct ChannelView: View {
+                     }
+                 }
+             }
++            .navigationDestination(isPresented: $designTaskOpen) {
++                if let row = designSelected {
++                    ConversationView(session: store.session(for: row), sourcePage: HomePage.chats.rawValue)
++                }
++            }
++            .onChange(of: designTasks) { _, shown in
++                if !shown, let row = designPending {
++                    designSelected = row
++                    designPending = nil
++                    designTaskOpen = true
++                }
++            }
+             .desktop($desktop)
+             .sheet(isPresented: Binding(get: { switchingBot != nil }, set: { if !$0 { switchingBot = nil } })) {
+                 RuntimePickerSheet(session: switchingBot) { runtime in
+diff --git a/apps/ios/nuphos-ios/Views/Home/HomeView.swift b/apps/ios/nuphos-ios/Views/Home/HomeView.swift
+index 7116a60..1620ca8 100644
+--- a/apps/ios/nuphos-ios/Views/Home/HomeView.swift
++++ b/apps/ios/nuphos-ios/Views/Home/HomeView.swift
+@@ -39,6 +39,39 @@ struct HomeView: View {
+     @State private var chatReader = UUID()
+     @State private var conversationReader = UUID()
+ 
++    /// Design prototype: the same detail root with an explicit push history.
++    private var designDetail: some View {
++            ZStack {
++                if let channel = openChat?.channel {
++                    ChannelView(channel: channel)
++                        .id(channel.channelId)
++                        .toolbar { newAgentItem }
++                } else if let openChat, let chatSession = openChat.session {
++                    ConversationView(session: chatSession, initialPrompt: openChat.prompt)
++                        .id(openChat.id)
++                        // A link to a chat opens as a session until its kind is known.
++                        .onChange(of: chatSession.isChannel) { _, isChannel in
++                            guard isChannel, let store else { return }
++                            self.openChat = AgentPage.OpenChat(channel: store.channel(
++                                sessionId: chatSession.sessionId, title: chatSession.title, teamId: chatSession.teamId))
++                        }
++                        // Compact pops back to the list's composer; wide has
++                        // no back, so this returns the column to it.
++                        .toolbar { newAgentItem }
++                } else if page == .inbox, let inbox, let question = inbox.list.first(where: { $0.id == inbox.selected }) {
++                    InboxQuestionView(inbox: inbox, question: question)
++                        .id(question.id)
++                } else if page == .agent, store != nil, sizeClass == .regular {
++                    Theme.chatCanvas.ignoresSafeArea()
++                        .safeAreaInset(edge: .bottom, spacing: 0) {
++                            NewChatComposer(openChat: $openChat).readableWidth()
++                        }
++                } else {
++                    Theme.canvas.ignoresSafeArea()
++                }
++            }
++    }
++
+     var body: some View {
+         // Collapses to a single stack when compact; side by side when wide,
+         // such as iPhone Duo's inner display and iPad.
+@@ -147,34 +180,10 @@ struct HomeView: View {
+             // One stable root. Collapsed, swapping the column's root between
+             // these views made a reopened chat appear and vanish at once: its
+             // tasks were cancelled while it stayed on screen, never loading.
+-            ZStack {
+-                if let channel = openChat?.channel {
+-                    ChannelView(channel: channel)
+-                        .id(channel.channelId)
+-                        .toolbar { newAgentItem }
+-                } else if let openChat, let chatSession = openChat.session {
+-                    ConversationView(session: chatSession, initialPrompt: openChat.prompt)
+-                        .id(openChat.id)
+-                        // A link to a chat opens as a session until its kind is known.
+-                        .onChange(of: chatSession.isChannel) { _, isChannel in
+-                            guard isChannel, let store else { return }
+-                            self.openChat = AgentPage.OpenChat(channel: store.channel(
+-                                sessionId: chatSession.sessionId, title: chatSession.title, teamId: chatSession.teamId))
+-                        }
+-                        // Compact pops back to the list's composer; wide has
+-                        // no back, so this returns the column to it.
+-                        .toolbar { newAgentItem }
+-                } else if page == .inbox, let inbox, let question = inbox.list.first(where: { $0.id == inbox.selected }) {
+-                    InboxQuestionView(inbox: inbox, question: question)
+-                        .id(question.id)
+-                } else if page == .agent, store != nil, sizeClass == .regular {
+-                    Theme.chatCanvas.ignoresSafeArea()
+-                        .safeAreaInset(edge: .bottom, spacing: 0) {
+-                            NewChatComposer(openChat: $openChat).readableWidth()
+-                        }
+-                } else {
+-                    Theme.canvas.ignoresSafeArea()
+-                }
++            if CommandLine.arguments.contains("-design-bot-tasks") {
++                NavigationStack { designDetail }
++            } else {
++                designDetail
+             }
+         }
+         // Wide, the list stays beside the detail. The automatic style overlays
