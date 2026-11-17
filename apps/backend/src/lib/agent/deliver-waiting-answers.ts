@@ -64,9 +64,11 @@ export async function deliverWaitingAnswersOn(filter: Record<string, unknown>): 
   }
 }
 
-/** A computer reconnected: every agent on it (`local_<owner>_<device>…`) can run again. */
-export function deliverWaitingAnswersOnDevice(userId: string, deviceId: string) {
-  const prefix = `local_${userId}_${deviceId}`.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+/** The agents on a computer (`local_<owner>_<device>…`). */
+export function onDevice(userId: string, deviceId: string) {
+  const runtimeId = `local_${userId}_${deviceId}`
+  // A plain prefix, so the `runtimeId` index bounds the read to this computer.
+  const prefix = runtimeId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-  return deliverWaitingAnswersOn({ runtimeId: { $regex: `^${prefix}(_|$)` } })
+  return { $or: [{ runtimeId }, { runtimeId: { $regex: `^${prefix}_` } }] }
 }
