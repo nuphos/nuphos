@@ -7,6 +7,7 @@ export type TunnelPurpose =
   | 'control'
   | 'exec'
   | 'upload'
+  | 'download'
   | 'file'
   | 'attachments'
   | 'terminal'
@@ -158,6 +159,7 @@ export const localRuntimeStatusSchema = z.object({
   fileImport: z.boolean().optional(),
   localExec: z.boolean().optional(),
   localUpload: z.boolean().optional(),
+  localDownload: z.boolean().optional(),
   localMetrics: z.boolean().optional(),
   localTerminal: z.boolean().optional(),
   localCua: z.boolean().optional(),
