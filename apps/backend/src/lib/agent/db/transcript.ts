@@ -151,7 +151,7 @@ export async function syncConversationTranscriptUnlocked(
  * so it never rewrites or deletes a stored message. Returns the stored count.
  */
 // The added messages' tool calls are the turn's own, so their runtime results are recent.
-const TOOL_RESULT_WINDOW = 500
+const TOOL_RESULT_WINDOW = 200
 
 /** Stored parts of the tool calls `messages` carry, whose runtime results they must keep. */
 async function storedToolParts(
