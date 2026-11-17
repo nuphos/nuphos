@@ -115,8 +115,7 @@ export const BOX_UPDATE_COMMAND = [
 export function connection(timeoutMs: number) {
   const box = config.box.instabox
 
-  if (!box)
-    throw new AppError(503, 'box_unavailable', 'Cloud computers are not enabled on this deployment')
+  if (!box) throw new AppError(503, 'box_unavailable', 'Cloud computers are off on this deployment')
 
   // One stalled poll must not hold a whole operation: each request gets its own short budget.
   return {
