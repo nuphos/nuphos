@@ -20,26 +20,24 @@ function client(apiUrl: string, token: string) {
       ...(body !== undefined && { body: JSON.stringify(body) }),
     })
     const text = await response.text()
-    let parsed: unknown = null
 
-    try {
-      parsed = JSON.parse(text)
-    } catch {
-      parsed = null
-    }
-
-    return { status: response.status, body: parsed, text }
+    return { status: response.status, body: parse(text), text }
   }
 }
 
-function expect(condition: boolean, what: string): void {
+function parse(text: string): unknown {
+  try {
+    return JSON.parse(text)
+  } catch {
+    return null
+  }
+}
+
+function must(condition: boolean, what: string): void {
   if (!condition) throw new Error(`Expected ${what}`)
 }
 
-/**
- * A GitLab instance that answers only what connecting an account asks: the
- * code exchange and who the token belongs to. Every grant is the same account.
- */
+/** A GitLab instance answering only the code exchange and who the token belongs to; always one account. */
 async function startFixtureGitlab(): Promise<{ url: string; close: () => void }> {
   const [port] = await freePorts(1)
   const server = createServer((request, response) => {
@@ -76,11 +74,8 @@ async function startFixtureGitlab(): Promise<{ url: string; close: () => void }>
 
 type Flow = Pick<Stack, 'apiUrl' | 'token' | 'teamId' | 'signInCode'>
 
-/**
- * An OAuth-connected GitLab binding starts private to the member who connects
- * it. Another admin can't select it, fetch its token or re-authorize it, and
- * its list is unchanged; the member who connected it can do all three.
- */
+// An OAuth-connected GitLab binding starts private to the member who connects it. Another admin
+// can't select it, fetch its token or re-authorize it; the member who connected it can.
 export async function privateOAuthBindingFlow(stack: Flow, log: (line: string) => void = () => {}) {
   const owner = client(stack.apiUrl, stack.token)
   const gitlab = await startFixtureGitlab()
@@ -102,7 +97,7 @@ export async function privateOAuthBindingFlow(stack: Flow, log: (line: string) =
     })
     const invitationId = (invited.body as { invitation: { id: string } }).invitation.id
 
-    expect(
+    must(
       (await member('POST', `/invitations/${invitationId}/accept`)).status === 200,
       'the invitation to be accepted',
     )
@@ -112,7 +107,7 @@ export async function privateOAuthBindingFlow(stack: Flow, log: (line: string) =
       role: 'ADMINISTRATOR',
     })
 
-    expect(promoted.status === 200, `the member to become an admin, got ${String(promoted.status)}`)
+    must(promoted.status === 200, `the member to become an admin, got ${String(promoted.status)}`)
     log(`member ${memberId} joined as an admin`)
 
     // The owner connects GitLab through OAuth, without a share choice.
@@ -123,7 +118,7 @@ export async function privateOAuthBindingFlow(stack: Flow, log: (line: string) =
         clientSecret: 'e2e-gitlab-secret-not-a-production-credential',
       })
 
-      expect(started.status === 200, `start-oauth to answer 200, got ${String(started.status)}`)
+      must(started.status === 200, `start-oauth to answer 200, got ${String(started.status)}`)
       const { state } = started.body as { state: string }
 
       return fetch(`${stack.apiUrl}/gitlab-app/setup?state=${state}&code=${code}`, {
@@ -132,20 +127,20 @@ export async function privateOAuthBindingFlow(stack: Flow, log: (line: string) =
     }
     const first = await connect(owner, 'owner-code')
 
-    expect(first.status === 200, `the owner's callback to succeed, got ${String(first.status)}`)
+    must(first.status === 200, `the owner's callback to succeed, got ${String(first.status)}`)
     log(`owner connects GitLab: callback ${String(first.status)}`)
     const listed = await owner('GET', `/teams/${stack.teamId}/gitlab-bindings`)
     const bindings = listed.body as { bindings?: { id: string }[]; accounts?: { id: string }[] }
     const binding = (bindings.bindings ?? bindings.accounts ?? [])[0]
 
-    expect(Boolean(binding), 'the owner to see the new binding')
+    must(Boolean(binding), 'the owner to see the new binding')
     const bindingId = binding!.id
     const access = async () =>
       (await owner('GET', `/teams/${stack.teamId}/gitlab-bindings/${bindingId}/access`)).body
     const before = JSON.stringify(await access())
 
     log(`binding ${bindingId} access: ${before}`)
-    expect(
+    must(
       before.includes('"memberAllowList":["') && !before.includes('"*"'),
       'the binding to start private',
     )
@@ -156,8 +151,8 @@ export async function privateOAuthBindingFlow(stack: Flow, log: (line: string) =
         (await as('GET', `/agent/credential-options?teamId=${stack.teamId}`)).body,
       ).includes(bindingId)
 
-    expect(await offered(owner), 'the owner to be offered the binding')
-    expect(!(await offered(member)), 'the other admin not to be offered it')
+    must(await offered(owner), 'the owner to be offered the binding')
+    must(!(await offered(member)), 'the other admin not to be offered it')
     log('credential options: offered to the owner, not to the other admin')
 
     // Fetching its token.
@@ -173,8 +168,8 @@ export async function privateOAuthBindingFlow(stack: Flow, log: (line: string) =
     log(
       `token: owner ${String(ownerToken.status)}, other admin ${String(memberToken.status)} ${memberToken.text.slice(0, 160)}`,
     )
-    expect(ownerToken.status === 200, 'the owner to get its token')
-    expect(memberToken.status === 403, 'the other admin to be refused its token')
+    must(ownerToken.status === 200, 'the owner to get its token')
+    must(memberToken.status === 403, 'the other admin to be refused its token')
 
     // Re-authorizing the same GitLab account.
     const rebindByMember = await connect(member, 'member-code')
@@ -182,28 +177,28 @@ export async function privateOAuthBindingFlow(stack: Flow, log: (line: string) =
     log(
       `other admin re-authorizes: ${String(rebindByMember.status)} ${rebindByMember.text.slice(0, 200)}`,
     )
-    expect(rebindByMember.status === 403, 'the other admin to be refused re-authorizing it')
-    expect(
+    must(rebindByMember.status === 403, 'the other admin to be refused re-authorizing it')
+    must(
       JSON.stringify(await access()) === before,
       'the list to be unchanged after the refused re-authorization',
     )
-    expect(
+    must(
       (await member('GET', `/teams/${stack.teamId}/gitlab-bindings/${bindingId}/token`)).status ===
         403,
       'the other admin still to be refused after re-authorizing',
     )
     const rebindByOwner = await connect(owner, 'owner-code-2')
 
-    expect(
+    must(
       rebindByOwner.status === 200,
       `the owner to re-authorize it, got ${String(rebindByOwner.status)}`,
     )
     log(`owner re-authorizes: callback ${String(rebindByOwner.status)}`)
-    expect(
+    must(
       JSON.stringify(await access()) === before,
       'the list to be unchanged after the owner re-authorizes',
     )
-    expect(
+    must(
       (await owner('GET', `/teams/${stack.teamId}/gitlab-bindings/${bindingId}/token`)).status ===
         200,
       'the owner still to get its token',
