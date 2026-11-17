@@ -1,3 +1,4 @@
+import { access } from 'node:fs/promises'
 import path from 'node:path'
 
 import { homeOf } from './agent-cli-apps.ts'
@@ -29,12 +30,28 @@ async function codexUsageRequest(
   }
 }
 
-/** Claude Code's sign-in, and the headers Anthropic expects with it. The server lists
- *  limit resets (`cedar_ember`) only to Claude Code itself, so the request says it is
- *  one, with the version installed here. Null when nothing is signed in. */
+/** The agent's own opt-in to limit resets, kept beside its Claude sign-in. Off by
+ *  default: reading them means asking an unofficial Anthropic API as Claude Code. */
+export function claudeResetsMarker(env: NodeJS.ProcessEnv): string {
+  return path.join(
+    env.CLAUDE_CONFIG_DIR ?? path.join(homeOf(env), '.claude'),
+    '.nuphos-limit-resets',
+  )
+}
+
+export const claudeResetsOn = (env: NodeJS.ProcessEnv) =>
+  access(claudeResetsMarker(env)).then(
+    () => true,
+    () => false,
+  )
+
+/** Claude Code's sign-in, and the headers Anthropic expects with it. Anthropic lists
+ *  limit resets (`cedar_ember`) only to Claude Code itself, so an opted-in request says
+ *  it is one, with the version installed here. Null when nothing is signed in. */
 export async function claudeRequestHeaders(
   env: NodeJS.ProcessEnv,
-  version = '2.1.322',
+  version: string | undefined,
+  asClaudeCode: boolean,
 ): Promise<Record<string, string> | null> {
   const credential = await readClaudeCredential(homeOf(env), env)
   const oauth = credential?.claudeAiOauth as { accessToken?: unknown } | undefined
@@ -44,20 +61,24 @@ export async function claudeRequestHeaders(
   return {
     authorization: `Bearer ${oauth.accessToken}`,
     'anthropic-beta': 'oauth-2025-04-20',
-    'user-agent': `claude-cli/${version} (external, cli)`,
-    'x-app': 'cli',
+    ...(asClaudeCode
+      ? { 'user-agent': `claude-cli/${version ?? '2.1.322'} (external, cli)`, 'x-app': 'cli' }
+      : {}),
   }
 }
 
-export const CLAUDE_USAGE_URL = 'https://api.anthropic.com/api/oauth/usage?cedar_ember=1'
+const CLAUDE_USAGE_URL = 'https://api.anthropic.com/api/oauth/usage'
+
+export const CLAUDE_RESETS_URL = `${CLAUDE_USAGE_URL}?cedar_ember=1`
 
 async function claudeUsageRequest(
   env: NodeJS.ProcessEnv,
   version: string | undefined,
 ): Promise<UsageRequest | null> {
-  const headers = await claudeRequestHeaders(env, version)
+  const resets = await claudeResetsOn(env)
+  const headers = await claudeRequestHeaders(env, version, resets)
 
-  return headers && { url: CLAUDE_USAGE_URL, headers }
+  return headers && { url: resets ? CLAUDE_RESETS_URL : CLAUDE_USAGE_URL, headers }
 }
 
 /** Where this computer keeps the credential, and what the provider wants to see

@@ -16,6 +16,7 @@ import { startOpenab } from './openab-start.ts'
 import { AGENT_HOME_UNAVAILABLE, INSTALL_HINT } from './providers.ts'
 import { createUsageSampler } from './usage-sampler.ts'
 
+import type { ClaudeResetsAction } from './agent-cli-reset.ts'
 import type { LocalAgentProvider } from './agent-cli.ts'
 import type {
   Agent,
@@ -207,9 +208,9 @@ export class LocalRuntimeController {
   status() {
     return tunnelStatusOf(this.agents, this.deps.backendUrl)
   }
-  /** Spends a Claude limit reset of this agent, or of the added agent `instanceId` names. */
-  spendClaudeReset(instanceId?: string) {
-    return instanceId ? this.instances?.spendClaudeReset(instanceId) : this.usage.spendReset()
+  /** Claude limit resets of this agent, or of the added agent `instanceId` names. */
+  claudeResets(action: ClaudeResetsAction, id?: string) {
+    return id ? this.instances?.claudeResets(action, id) : this.usage.claudeResets(action)
   }
   instanceRequest(request: unknown): Promise<unknown> {
     if (!this.instances) return Promise.reject(new Error('Instance management unavailable'))

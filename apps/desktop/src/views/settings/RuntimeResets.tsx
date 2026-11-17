@@ -9,13 +9,13 @@ import { useThisComputer } from '../../hooks/useThisComputer'
 import { t } from '../../i18n'
 import { agentTier } from '../../lib/agentName'
 import { queryKeys } from '../../lib/query/keys'
-import { quotaResetsLine } from '../../lib/runtimeQuota'
+import { quotaResetsLine, resetKindLabel, resetOutcomeError } from '../../lib/runtimeQuota'
 
 import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
 
-/** The Claude limit resets an agent's account holds. Only that agent's own computer,
- *  signed in as its owner, can spend one: the sign-in lives there, and a reset
- *  cannot be undone, so it is asked for first. */
+/** The Claude limit resets an agent's account holds. Others see the count; the agent's
+ *  own computer, signed in as its owner, opts in (they are read from an unofficial
+ *  Anthropic API) and can spend one, which cannot be undone, so it asks first. */
 export function RuntimeResets({
   teamId,
   instance,
@@ -27,36 +27,74 @@ export function RuntimeResets({
 }) {
   const thisComputer = useThisComputer()
   const queryClient = useQueryClient()
-  const [confirming, setConfirming] = useState(false)
+  const [asking, setAsking] = useState<'on' | 'spend' | null>(null)
+  const [busy, setBusy] = useState(false)
   const line = quotaResetsLine(quota)
+  const resets = quota?.available ? quota.resets : undefined
+  const mine = instance.provider === 'claude-code' && agentTier(instance, thisComputer) === 'local'
 
-  if (!line) return null
-  const spendable =
-    instance.provider === 'claude-code' &&
-    quota?.resets?.usableNow === true &&
-    agentTier(instance, thisComputer) === 'local'
+  if (!mine) return line ? <p className="text-xs text-secondary">{line}</p> : null
+  const run = async (action: 'on' | 'off' | 'spend') => {
+    setBusy(true)
+    try {
+      const outcome = await api.localRuntimeClaudeResets(action, instance.local?.instanceId)
+      const error = resetOutcomeError(outcome.result)
+
+      if (outcome.result === 'reset') toast.success(t('Limits refilled'))
+      else if (error)
+        toast.error(
+          action === 'spend' ? t('Could not use a reset') : t('Could not change limit resets'),
+          error,
+        )
+      await queryClient.invalidateQueries({ queryKey: queryKeys.runtimeQuotas(teamId) })
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
     <div className="flex items-center justify-between gap-3 text-xs text-secondary">
-      <span>{line}</span>
-      {spendable && (
-        <Button variant="secondary" size="sm" onClick={() => setConfirming(true)}>
-          {t('Use a reset')}
+      <span>{resets ? (line ?? t('No limit resets')) : t('Limit resets are off')}</span>
+      <span className="flex items-center gap-2">
+        {resets?.usableNow && (
+          <Button variant="secondary" size="sm" disabled={busy} onClick={() => setAsking('spend')}>
+            {t('Use a reset')}
+          </Button>
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={busy}
+          onClick={() => (resets ? void run('off') : setAsking('on'))}
+        >
+          {resets ? t('Turn off') : t('Show limit resets')}
         </Button>
-      )}
+      </span>
       <ConfirmDialog
-        open={confirming}
+        open={asking === 'on'}
+        title={t('Show Claude limit resets?')}
+        description={t(
+          'Nuphos reads them, and spends one when you ask, through an unofficial Anthropic API, sending its requests as Claude Code. Anthropic may change it at any time, and using it may affect your Claude account.',
+        )}
+        confirmLabel={t('Show limit resets')}
+        onConfirm={() => run('on')}
+        onClose={() => setAsking(null)}
+      />
+      <ConfirmDialog
+        open={asking === 'spend'}
         title={t('Use a Claude limit reset?')}
-        description={t('This refills your Claude usage limits now. It cannot be undone.')}
+        description={
+          <>
+            {resetKindLabel(resets?.kind ?? null)} ·{' '}
+            {t('{count} left', { count: resets?.left ?? 0 })}
+            <br />
+            {t('This refills your Claude usage limits now. It cannot be undone.')}
+          </>
+        }
+        destructive
         confirmLabel={t('Use a reset')}
-        onConfirm={async () => {
-          const outcome = await api.localRuntimeSpendClaudeReset(instance.local?.instanceId)
-
-          if (outcome.result === 'reset') toast.success(t('Limits refilled'))
-          else toast.error(t('Could not use a reset'))
-          await queryClient.invalidateQueries({ queryKey: queryKeys.runtimeQuotas(teamId) })
-        }}
-        onClose={() => setConfirming(false)}
+        onConfirm={() => run('spend')}
+        onClose={() => setAsking(null)}
       />
     </div>
   )

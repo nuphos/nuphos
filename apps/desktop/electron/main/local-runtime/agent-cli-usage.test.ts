@@ -32,6 +32,8 @@ test('asks Anthropic with the credential this computer holds', async () => {
   const home = homeWith('.claude/.credentials.json', {
     claudeAiOauth: { accessToken: 'sk-ant-oat-local' },
   })
+
+  writeFileSync(path.join(home, '.claude', '.nuphos-limit-resets'), '')
   const seen: { url?: string; auth?: string; beta?: string; agent?: string; app?: string } = {}
 
   stubFetch((url, headers) => {
@@ -47,7 +49,7 @@ test('asks Anthropic with the credential this computer holds', async () => {
     assert.deepEqual(await readAgentUsage('claude-code', { HOME: home }, '2.1.322'), {
       seven_day: { utilization: 12, resets_at: null },
     })
-    // Anthropic lists limit resets only to Claude Code itself, so the read says it is one.
+    // Opted in: Anthropic lists limit resets only to Claude Code, so the read says it is one.
     assert.equal(seen.url, 'https://api.anthropic.com/api/oauth/usage?cedar_ember=1')
     assert.equal(seen.auth, 'Bearer sk-ant-oat-local')
     assert.equal(seen.beta, 'oauth-2025-04-20')
@@ -122,5 +124,25 @@ test('an explicit config directory wins over the home default', async () => {
   } finally {
     rmSync(home, { recursive: true, force: true })
     rmSync(elsewhere, { recursive: true, force: true })
+  }
+})
+
+test('without the opt-in, the read neither asks for resets nor says it is Claude Code', async () => {
+  const home = homeWith('.claude/.credentials.json', { claudeAiOauth: { accessToken: 'x' } })
+  const seen: { url?: string; headers?: Record<string, string> } = {}
+
+  stubFetch((url, headers) => {
+    seen.url = url
+    seen.headers = headers
+
+    return Response.json({})
+  })
+  try {
+    await readAgentUsage('claude-code', { HOME: home }, '2.1.322')
+    assert.equal(seen.url, 'https://api.anthropic.com/api/oauth/usage')
+    assert.equal(seen.headers?.['user-agent'], undefined)
+    assert.equal(seen.headers?.['x-app'], undefined)
+  } finally {
+    rmSync(home, { recursive: true, force: true })
   }
 })

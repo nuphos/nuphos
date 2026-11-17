@@ -139,8 +139,9 @@ export type RuntimeQuota = {
   offline?: true
   plan?: string
   windows: RuntimeQuotaWindow[]
-  /** Claude limit resets the account holds; absent when it holds none or the provider did not say. */
-  resets?: { left: number; expiresAt: string | null; usableNow: boolean }
+  /** Claude limit resets the account holds, and the kind spent next. Absent unless the
+   *  agent's owner opted in on its computer and Anthropic answered about them. */
+  resets?: { left: number; expiresAt: string | null; usableNow: boolean; kind: string | null }
 }
 
 export type RuntimeMetricSample = {

@@ -23,8 +23,9 @@ const claudeUsageSchema = z
   .passthrough()
 
 /** Anthropic's limit resets (`cedar_ember`), narrowed to what the team may see: how
- *  many each grant holds and until when, never its id. The block is private and
- *  unannounced, so one that does not fit is dropped and the usage beside it stays. */
+ *  many each grant holds, of what kind and until when, never its id. The block is
+ *  private and unannounced, so one that does not fit is dropped and the usage beside
+ *  it stays. It is asked for only when the agent's owner opted in on its computer. */
 export const claudeResetsSchema = z
   .object({
     grants: z
@@ -32,6 +33,7 @@ export const claudeResetsSchema = z
         z
           .object({
             resets_left: z.number().int().min(0),
+            type: z.string().max(30).optional().catch(undefined),
             ends_at: z.string().max(60).nullable().optional(),
             usable_now: z.boolean().optional(),
             paused: z.boolean().optional(),
@@ -44,22 +46,24 @@ export const claudeResetsSchema = z
   .optional()
   .catch(undefined)
 
+const endsAt = (end: string | null | undefined) => (end && Date.parse(end)) || Infinity
+
+/** Present whenever the account answered about resets, even with none: that is how
+ *  the owner's card knows they opted in. */
 function claudeResets(body: unknown): RuntimeQuotaResets | undefined {
   const block = claudeResetsSchema.parse((body as { cedar_ember?: unknown }).cedar_ember)
-  const grants = (block?.grants ?? []).flatMap((grant) =>
-    grant && grant.resets_left > 0 && grant.paused !== true ? [grant] : [],
-  )
 
-  if (grants.length === 0) return
-  const ends = grants
-    .map((grant) => grant.ends_at ?? null)
-    .filter((end): end is string => end !== null && !Number.isNaN(Date.parse(end)))
-    .sort((a, b) => Date.parse(a) - Date.parse(b))
+  if (!block) return
+  const grants = block.grants
+    .flatMap((grant) => (grant && grant.resets_left > 0 && grant.paused !== true ? [grant] : []))
+    .sort((a, b) => endsAt(a.ends_at) - endsAt(b.ends_at))
+  const next = grants.find((grant) => grant.usable_now === true)
 
   return {
     left: grants.reduce((sum, grant) => sum + grant.resets_left, 0),
-    expiresAt: ends[0] ?? null,
-    usableNow: grants.some((grant) => grant.usable_now === true),
+    expiresAt: grants.find((grant) => endsAt(grant.ends_at) !== Infinity)?.ends_at ?? null,
+    usableNow: next !== undefined,
+    kind: next?.type ?? null,
   }
 }
 

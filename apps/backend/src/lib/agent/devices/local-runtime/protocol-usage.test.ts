@@ -117,6 +117,7 @@ test('a reset grant reaches the team as a count and a date, never its id', () =>
                 ends_at: '2026-12-10T22:00:00+00:00',
                 usable_now: true,
                 paused: false,
+                type: 'weekly',
                 clears: ['seven_day'],
               },
             ],
@@ -130,7 +131,13 @@ test('a reset grant reaches the team as a count and a date, never its id', () =>
     ...usage,
     cedar_ember: {
       grants: [
-        { resets_left: 1, ends_at: '2026-12-10T22:00:00+00:00', usable_now: true, paused: false },
+        {
+          resets_left: 1,
+          type: 'weekly',
+          ends_at: '2026-12-10T22:00:00+00:00',
+          usable_now: true,
+          paused: false,
+        },
       ],
     },
   })

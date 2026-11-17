@@ -127,12 +127,13 @@ function held(resets: RuntimeQuota['resets']): RuntimeQuota {
 
 test('resets read as a count and the date the first one must be used by', () => {
   assert.match(
-    quotaResetsLine(held({ left: 1, expiresAt: '2026-12-10T22:00:00+00:00', usableNow: true })) ??
-      '',
+    quotaResetsLine(
+      held({ left: 1, expiresAt: '2026-12-10T22:00:00+00:00', usableNow: true, kind: 'weekly' }),
+    ) ?? '',
     /^1 reset · use by \S/u,
   )
   assert.match(
-    quotaResetsLine(held({ left: 3, expiresAt: 'garbage', usableNow: true })) ?? '',
+    quotaResetsLine(held({ left: 3, expiresAt: 'garbage', usableNow: true, kind: 'weekly' })) ?? '',
     /^3 resets$/u,
   )
   assert.equal(quotaResetsLine(held(undefined)), null)

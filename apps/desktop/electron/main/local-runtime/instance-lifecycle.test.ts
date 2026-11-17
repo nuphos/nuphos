@@ -69,7 +69,7 @@ function setup(t: { after: (fn: () => void) => void }, options: { slowStart?: bo
           }) as never,
         runtime: () => null,
         runtimeForStream: () => null,
-        spendClaudeReset: () => undefined,
+        claudeResets: () => undefined,
         status: () => ({ agents: {} }),
       }
     },

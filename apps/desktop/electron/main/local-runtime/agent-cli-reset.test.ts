@@ -4,7 +4,12 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, test } from 'node:test'
 
-import { spendClaudeReset } from './agent-cli-reset.ts'
+import { setClaudeResets, spendClaudeReset } from './agent-cli-reset.ts'
+import { freshAgent } from './controller-types.ts'
+import { createUsageSampler } from './usage-sampler.ts'
+
+import type { LocalAgentProvider } from './agent-cli.ts'
+import type { Agent } from './controller-types.ts'
 
 const realFetch = globalThis.fetch
 
@@ -21,8 +26,8 @@ const grant = (id: string, extra: Record<string, unknown> = {}) => ({
   ...extra,
 })
 
-/** A home signed in to Claude Code, as `claude` itself leaves it. */
-function signedIn(): string {
+/** A home signed in to Claude Code, as `claude` itself leaves it, opted in to resets. */
+function signedIn(optIn = true): string {
   const home = mkdtempSync(path.join(os.tmpdir(), 'reset-'))
 
   mkdirSync(path.join(home, '.claude'))
@@ -34,6 +39,7 @@ function signedIn(): string {
     path.join(home, '.claude.json'),
     JSON.stringify({ oauthAccount: { organizationUuid: 'org-1' } }),
   )
+  if (optIn) writeFileSync(path.join(home, '.claude', '.nuphos-limit-resets'), '')
 
   return home
 }
@@ -98,9 +104,7 @@ test('nothing is spent when no grant can be used now', async () => {
   const calls = stubFetch([grant('wall-only', { usable_now: false })])
 
   try {
-    assert.deepEqual(await spendClaudeReset({ HOME: home }, '2.1.322'), {
-      result: 'unavailable',
-    })
+    assert.deepEqual(await spendClaudeReset({ HOME: home }, '2.1.322'), { result: 'none' })
     assert.equal(calls.length, 1)
   } finally {
     rmSync(home, { recursive: true, force: true })
@@ -128,5 +132,65 @@ test('an answer that does not fit, a refusal or no sign-in never throws', async 
     assert.deepEqual(await spendClaudeReset({ HOME: empty }, '2.1.322'), { result: 'unavailable' })
   } finally {
     rmSync(empty, { recursive: true, force: true })
+  }
+})
+
+test('an agent its owner did not opt in never asks Anthropic, and the opt-in toggles', async () => {
+  const home = signedIn(false)
+  const calls = stubFetch([grant('g')])
+
+  try {
+    assert.deepEqual(await spendClaudeReset({ HOME: home }, '2.1.322'), { result: 'unavailable' })
+    assert.equal(calls.length, 0)
+    await setClaudeResets({ HOME: home }, true)
+    assert.deepEqual(await spendClaudeReset({ HOME: home }, '2.1.322'), {
+      result: 'reset',
+      resetsLeft: 0,
+    })
+    await setClaudeResets({ HOME: home }, false)
+    assert.deepEqual(await spendClaudeReset({ HOME: home }, '2.1.322'), { result: 'unavailable' })
+    assert.equal(calls.length, 2)
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
+})
+
+test('a double click spends one reset, with one request id, and reads usage again', async () => {
+  const home = signedIn()
+  const calls = stubFetch([grant('g')])
+  const agents = {} as Record<LocalAgentProvider, Agent>
+  let readings = 0
+
+  agents['claude-code'] = freshAgent()
+  agents['claude-code'].cli = { installed: true, path: '/bin/claude', loggedIn: true }
+  const usage = createUsageSampler(
+    agents,
+    { userEnv: () => Promise.resolve({ HOME: home }), readUsage: () => Promise.resolve({}) },
+    () => {
+      readings += 1
+    },
+  )
+
+  try {
+    const [first, second] = await Promise.all([
+      usage.claudeResets('spend'),
+      usage.claudeResets('spend'),
+    ])
+
+    assert.deepEqual(first, { result: 'reset', resetsLeft: 0 })
+    assert.equal(second, first)
+    assert.equal(calls.filter((call) => call.method === 'POST').length, 1)
+    assert.equal(readings, 1)
+    // A later click is a new request with its own id.
+    await usage.claudeResets('spend')
+    const ids = calls.flatMap((call) =>
+      call.method === 'POST' ? [(call.body as { request_id: string }).request_id] : [],
+    )
+
+    assert.equal(ids.length, 2)
+    assert.notEqual(ids[0], ids[1])
+  } finally {
+    usage.stop()
+    rmSync(home, { recursive: true, force: true })
   }
 })

@@ -1,8 +1,9 @@
-import { spendClaudeReset } from './agent-cli-reset.ts'
+import { setClaudeResets, spendClaudeReset } from './agent-cli-reset.ts'
 import { LOCAL_AGENT_PROVIDERS } from './agent-cli.ts'
 import { agentCliEnv } from './config.ts'
 import { USAGE_SAMPLE_MS, USAGE_SIGN_IN_FLOOR_MS } from './controller-types.ts'
 
+import type { ClaudeResetsAction, ClaudeResetsAnswer } from './agent-cli-reset.ts'
 import type { LocalAgentProvider } from './agent-cli.ts'
 import type { Agent } from './controller-types.ts'
 
@@ -33,7 +34,7 @@ export function createUsageSampler(
   now: () => number = Date.now,
 ): {
   sample: (provider: LocalAgentProvider, force?: boolean) => Promise<void>
-  spendReset: () => ReturnType<typeof spendClaudeReset>
+  claudeResets: (action: ClaudeResetsAction) => Promise<ClaudeResetsAnswer>
   stop: () => void
 } {
   let timer: ReturnType<typeof setInterval> | undefined
@@ -99,17 +100,40 @@ export function createUsageSampler(
     onReading()
   }
 
+  let spending: Promise<ClaudeResetsAnswer> | undefined
+  const spend = async (): Promise<ClaudeResetsAnswer> => {
+    const env = await agentEnv('claude-code').catch(() => undefined)
+    const outcome = env
+      ? await spendClaudeReset(env, version('claude-code'))
+      : ({ result: 'unavailable' } as const)
+
+    // The reading it replaces is no longer true, whatever the answer was.
+    await sample('claude-code', true)
+
+    return outcome
+  }
+
   return {
     sample,
-    spendReset: async () => {
-      const env = await agentEnv('claude-code').catch(() => undefined)
-      const outcome = env
-        ? await spendClaudeReset(env, version('claude-code'))
-        : ({ result: 'unavailable' } as const)
+    claudeResets: (action) => {
+      // One spend at a time: a second click while one is out joins it, never sends another.
+      if (action === 'spend') {
+        spending ??= spend().finally(() => {
+          spending = undefined
+        })
 
-      if (outcome.result === 'reset') await sample('claude-code', true)
+        return spending
+      }
 
-      return outcome
+      return agentEnv('claude-code')
+        .then(async (env) => {
+          if (!env) return { result: 'unavailable' as const }
+          await setClaudeResets(env, action === 'on')
+          await sample('claude-code', true)
+
+          return { result: 'saved' as const }
+        })
+        .catch(() => ({ result: 'unavailable' as const }))
     },
     stop: () => {
       if (timer) clearInterval(timer)
