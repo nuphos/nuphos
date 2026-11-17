@@ -10,6 +10,4 @@ export const bindingAccessChannels = {
     bindingId: string,
     access: Pick<atlas.BindingAccess, 'memberAllowList'>,
   ) => atlas.updateBindingAccess(teamId, collection, bindingId, access),
-  'atlas:setTeamBindingShareDefault': (_e: unknown, teamId: string, share: 'private' | 'team') =>
-    atlas.setTeamBindingShareDefault(teamId, share),
 } as const

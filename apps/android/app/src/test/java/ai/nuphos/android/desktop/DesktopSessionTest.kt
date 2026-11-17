@@ -35,6 +35,34 @@ class DesktopSessionTest {
             assertEquals(0,attaches.get());assertFalse(session.controlling);assertEquals(DesktopSession.Phase.Closed,session.phase)
         } finally {reply.countDown();session.stop();scope.cancel();server.stop(0)}
     }
+    /** The error at the instant phase becomes Failed, read by a write observer on the thread that writes it. */
+    private fun errorWhenFailed(session: DesktopSession): List<String?> {
+        val seen=java.util.concurrent.CopyOnWriteArrayList<String?>()
+        val observer=androidx.compose.runtime.snapshots.Snapshot.registerGlobalWriteObserver {
+            if(seen.isEmpty() && session.phase==DesktopSession.Phase.Failed) seen.add(session.error)
+        }
+        try { session.start(); runBlocking { withTimeout(5000){while(session.phase!=DesktopSession.Phase.Failed)delay(10)} } }
+        finally { observer.dispose(); session.stop() }
+        return seen
+    }
+    @Test fun aRefusedDesktopIsNeverFailedWithoutItsError() {
+        val server=HttpServer.create(InetSocketAddress("127.0.0.1",0),0)
+        server.createContext("/") { exchange ->exchange.sendResponseHeaders(403,-1);exchange.close() };server.start()
+        val scope=CoroutineScope(SupervisorJob()+Dispatchers.Default)
+        try {
+            val seen=errorWhenFailed(DesktopSession("synthetic","team","chat",scope,{true},OkHttpClient(),"http://127.0.0.1:${server.address.port}"))
+            assertEquals("Failed was never observed",1,seen.size)
+            assertNotNull("Failed was shown before its error",seen.single())
+        } finally {scope.cancel();server.stop(0)}
+    }
+    @Test fun anUnreachableDesktopIsNeverFailedWithoutItsError() {
+        val scope=CoroutineScope(SupervisorJob()+Dispatchers.Default)
+        try {
+            val seen=errorWhenFailed(DesktopSession("synthetic","team","chat",scope,{true},OkHttpClient(),"http://127.0.0.1:1",DesktopTiming(maxFailures=1)))
+            assertEquals("Failed was never observed",1,seen.size)
+            assertNotNull("Failed was shown before its error",seen.single())
+        } finally {scope.cancel()}
+    }
     @Test fun backendRefusalIsVisibleAndDoesNotRetryOrControl()=runBlocking {
         val hits=AtomicInteger();val server=HttpServer.create(InetSocketAddress("127.0.0.1",0),0)
         server.createContext("/") { exchange ->hits.incrementAndGet();exchange.sendResponseHeaders(403,-1);exchange.close() };server.start()

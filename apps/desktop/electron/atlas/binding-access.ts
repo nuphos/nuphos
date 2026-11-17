@@ -1,6 +1,6 @@
 import { call } from './client'
 
-import type { BindingAccess, Team } from './teams'
+import type { BindingAccess } from './teams'
 
 /** The binding collections whose member list is edited through the generic routes. */
 const COLLECTIONS = new Set([
@@ -49,20 +49,4 @@ export async function updateBindingAccess(
   access: Pick<BindingAccess, 'memberAllowList'>,
 ): Promise<BindingAccess> {
   return call<BindingAccess>('PUT', accessPath(teamId, collection, bindingId), access)
-}
-
-/** Whether bindings connected from now on start shared with the whole team. */
-export async function setTeamBindingShareDefault(
-  teamId: string,
-  share: 'private' | 'team',
-): Promise<Team> {
-  return call<Team>('PUT', `/teams/${teamId}/binding-share-default`, { share }, { retry: false })
-}
-
-/** Who the member connecting a binding shares it with. */
-export type BindingShare = { mode: 'private' | 'team' | 'members'; memberIds: string[] }
-
-/** A bind request's body with the member's share choice, when they made one. */
-export function withShare<T extends object>(body: T, share?: BindingShare): T {
-  return share ? { ...body, share } : body
 }

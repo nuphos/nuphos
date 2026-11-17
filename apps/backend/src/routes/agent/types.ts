@@ -104,6 +104,10 @@ export type AgentRun = {
   /** Every message the turn started with was a channel's wake-up notice. */
   channelWoken?: boolean
   frames: string[]
+  /** The last runtime snapshot this run carried, to drop an unchanged repeat. */
+  lastRuntimeSnapshot?: string
+  /** The slash commands a snapshot last carried; later ones leave unchanged ones out. */
+  lastRuntimeCommands?: string
   done: boolean
   // Latest finishReason observed from streamText's onFinish. Stays undefined
   // when the run aborts/errors before onFinish fires, which is exactly the

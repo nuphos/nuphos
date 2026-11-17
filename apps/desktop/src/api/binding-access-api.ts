@@ -9,6 +9,4 @@ export const bindingAccessApi = {
     bindingId: string,
     access: Pick<BindingAccess, 'memberAllowList'>,
   ) => window.api.atlasUpdateBindingAccess(teamId, collection, bindingId, access),
-  atlasSetTeamBindingShareDefault: (teamId: string, share: 'private' | 'team') =>
-    window.api.atlasSetTeamBindingShareDefault(teamId, share),
 }

@@ -1161,3 +1161,66 @@ async fn acp_cancelled_turn_is_not_retried() {
         }],
     );
 }
+
+// claude-agent-acp answers a prompt for a session it does not hold with a plain "Session not
+// found", which the ACP SDK relays as -32603 with the text in `data.details`.
+#[tokio::test(flavor = "multi_thread")]
+async fn acp_prompt_answered_session_not_found_restores_it_and_runs_once_more() {
+    let _guard = env_lock();
+    let agent = SESSION_GONE_ONCE_AGENT.replace(
+        r#"{"code":-32002,"message":"Resource not found: sess_fake","data":{"uri":"sess_fake"}}"#,
+        r#"{"code":-32603,"message":"Internal error","data":{"details":"Session not found"}}"#,
+    );
+    assert_ne!(agent, SESSION_GONE_ONCE_AGENT);
+    let fx =
+        setup_with_agent_and_streaming("acp", "acp:session-not-found-once", &agent, false).await;
+    let recorder = Arc::new(RecordingAdapter::new(false));
+    let adapter: Arc<dyn ChatAdapter> = recorder.clone();
+
+    run_turn(&fx, &adapter, "acp:session-not-found-once").await;
+
+    let calls = recorder.calls();
+    assert!(
+        !calls
+            .iter()
+            .any(|call| matches!(call, Call::Failure { .. })),
+        "the lost session failed the turn: {calls:?}"
+    );
+    assert!(
+        calls
+            .iter()
+            .any(|call| matches!(call, Call::Terminal { content, .. } if content == "loaded")),
+        "the turn did not run on the restored session: {calls:?}"
+    );
+}
+
+// codex-acp answers a prompt for a session it does not hold with invalid params that name the
+// session. That is the same loss, so the turn restores the session and runs once more too.
+#[tokio::test(flavor = "multi_thread")]
+async fn acp_prompt_answered_unknown_session_restores_it_and_runs_once_more() {
+    let _guard = env_lock();
+    let agent = SESSION_GONE_ONCE_AGENT.replace(
+        r#"{"code":-32002,"message":"Resource not found: sess_fake","data":{"uri":"sess_fake"}}"#,
+        r#"{"code":-32602,"message":"Invalid params: Unknown session: sess_fake"}"#,
+    );
+    assert_ne!(agent, SESSION_GONE_ONCE_AGENT);
+    let fx = setup_with_agent_and_streaming("acp", "acp:unknown-session-once", &agent, false).await;
+    let recorder = Arc::new(RecordingAdapter::new(false));
+    let adapter: Arc<dyn ChatAdapter> = recorder.clone();
+
+    run_turn(&fx, &adapter, "acp:unknown-session-once").await;
+
+    let calls = recorder.calls();
+    assert!(
+        !calls
+            .iter()
+            .any(|call| matches!(call, Call::Failure { .. })),
+        "the lost session failed the turn: {calls:?}"
+    );
+    assert!(
+        calls
+            .iter()
+            .any(|call| matches!(call, Call::Terminal { content, .. } if content == "loaded")),
+        "the turn did not run on the restored session: {calls:?}"
+    );
+}

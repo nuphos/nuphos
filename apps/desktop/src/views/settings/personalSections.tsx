@@ -1,11 +1,11 @@
-import { faDisplay, faMoon, faSun } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
+import { Sun as SunIcon, Moon as MoonIcon, Monitor as MonitorIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
 import { AppSelect } from '../../components/ui/select'
 import { toast } from '../../components/ui/toast'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { useTheme } from '../../hooks/useTheme'
 import { LOCALES, locale, setLocale, t } from '../../i18n'
 import { isMac } from '../../lib/platform'
@@ -16,7 +16,7 @@ import { Field, SectionHeader } from './shared'
 
 import type { ThemePreference } from '../../hooks/useTheme'
 import type { JournalChatTarget } from '../../lib/journalEvent'
-import type { IconDefinition } from '@fortawesome/free-solid-svg-icons'
+import type { LucideIcon } from 'lucide-react'
 
 export function MembersSection({
   teamId,
@@ -66,10 +66,10 @@ export function AuditSection({
   )
 }
 
-const THEME_OPTIONS: { value: ThemePreference; label: string; icon: IconDefinition }[] = [
-  { value: 'system', label: t('System'), icon: faDisplay },
-  { value: 'light', label: t('Light'), icon: faSun },
-  { value: 'dark', label: t('Dark'), icon: faMoon },
+const THEME_OPTIONS: { value: ThemePreference; label: string; icon: LucideIcon }[] = [
+  { value: 'system', label: t('System'), icon: MonitorIcon },
+  { value: 'light', label: t('Light'), icon: SunIcon },
+  { value: 'dark', label: t('Dark'), icon: MoonIcon },
 ]
 
 // Rendered by scripts/render-app-icons.mjs; B2 is the bundled icon, A the original mark.
@@ -161,9 +161,10 @@ export function AppearanceSection() {
                     : 'border-line-control bg-surface text-secondary hover:border-line-control hover:text-main',
                 )}
               >
-                <FontAwesomeIcon
+                <UiIcon
+                  size={16}
                   icon={option.icon}
-                  className={clsx('w-5 h-5', active ? 'text-primary' : 'text-tertiary')}
+                  className={clsx('w-4 h-4', active ? 'text-primary' : 'text-tertiary')}
                 />
                 {option.label}
               </button>

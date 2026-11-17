@@ -1,6 +1,7 @@
 import { agentConversations, liveAttachment } from './shared'
 
 import type { AgentConversation, BackgroundWorkLoss, ConversationPreviewAttachment } from './shared'
+import type { RuntimeDefaults } from '@/lib/claude-code-preview/openab-acp-session'
 
 /**
  * Write-once runtime stamp for legacy conversations and accepted-turn races.
@@ -143,6 +144,25 @@ export async function setConversationPreviewAttachment(
   await agentConversations().updateOne(
     { sessionId, teamId },
     { $set: { claudeCodePreview: attachment } },
+  )
+}
+
+/**
+ * Forgets a session its agent lost, so the next prompt opens a new one, as a brand-new
+ * conversation does, starting from the settings the lost one ran with. An empty pick leaves the
+ * stored one alone. Only that session: one opened since is kept.
+ */
+export async function forgetConversationPreviewSession(
+  sessionId: string,
+  teamId: string,
+  openabSessionId: string,
+  initialSessionConfig?: RuntimeDefaults,
+): Promise<void> {
+  const pick = initialSessionConfig && Object.keys(initialSessionConfig).length > 0
+
+  await agentConversations().updateOne(
+    { sessionId, teamId, 'claudeCodePreview.openabSessionId': openabSessionId },
+    { $unset: { claudeCodePreview: '' }, ...(pick ? { $set: { initialSessionConfig } } : {}) },
   )
 }
 
