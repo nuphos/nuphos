@@ -173,6 +173,31 @@ export const channelScenarios: Scenario[] = [
     },
   },
   {
+    // #3310: the Bot's name above its Inbox question opened the Bot's session as a Task,
+    // with the sidebar left on the Inbox.
+    name: "a Bot's name above its Inbox question opens the Bot's chat, with Bots in the sidebar",
+    run: async (page, stack) => {
+      await send(page, 'Ask me E2E_ASK E2E_DELIVERY:inbox-bot')
+      await page.getByText('POSTED E2E_DELIVERY:inbox-bot', { exact: true }).waitFor()
+      await page.getByRole('tab', { name: /^Inbox/ }).click()
+      const source = page.locator('article header').getByRole('button', { name: 'E2E Bot' })
+
+      await source.waitFor()
+      await page.screenshot({ path: `${artifacts}/inbox-bot-source-light.png` })
+      await source.click()
+      // The Bot's chat, not its own session: only the chat's composer is headed by its name.
+      await page.locator('[aria-placeholder="Message E2E Bot"]').waitFor()
+      await page.getByRole('tab', { name: /^Bots/, selected: true }).waitFor({ timeout: 5_000 })
+      // The sidebar slides over to Bots; shoot it once it has.
+      await page.waitForTimeout(1_000)
+      await page.screenshot({ path: `${artifacts}/inbox-bot-opened-light.png` })
+      await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).last().click()
+      await until('the answer in the Bot chat to reach the Bot', async () =>
+        agentEvents(stack).includes('finish E2E_DELIVERY:answered'),
+      )
+    },
+  },
+  {
     // #3252: the Bot composer's runtime line hid the usage bar the Task composer shows.
     name: 'the Bot composer and the Task composer both show the runtime usage bar',
     run: async (page, stack) => {
