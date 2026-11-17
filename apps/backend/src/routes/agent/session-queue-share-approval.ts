@@ -1,5 +1,5 @@
 // A send to a teammate's shared computer waits in the session queue for its owner's answer.
-import { reportUndelivered } from '@/lib/agent/undelivered-send'
+import { reportUndelivered } from '@/lib/agent/conversation-turn'
 import {
   getConversationBySessionId,
   stampConversationRuntimeInstance,
