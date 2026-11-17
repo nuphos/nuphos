@@ -394,8 +394,8 @@
   /* Resource chips are controls, not underlined prose links. Their border and
      fill need contrast against the dark outgoing bubble in either theme. */
   .user-message-bubble .chat-resource-chip {
-    --color-line-control: 100, 100, 100;
-    --color-state-selected: rgba(255, 255, 255, 0.1);
+    --color-line-control: 44, 44, 44;
+    --color-state-selected: rgba(255, 255, 255, 0.08);
     --color-state-hover: rgba(255, 255, 255, 0.16);
   }
 
