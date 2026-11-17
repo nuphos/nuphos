@@ -224,11 +224,7 @@ export async function startStack(): Promise<Stack> {
       CLAUDE_CODE_RUNTIME_PROVISIONER_ENABLED: 'false',
       NUPHOS_DEV_EMAIL_OTP_LOG: 'true',
       NUPHOS_LOCAL_STACK: 'true',
-      // Cloudflare is never reached: a scenario answers for it on this redirect.
-      ...(await fakeCloudflareEnv()),
-      CLOUDFLARE_OAUTH_CLIENT_ID: 'e2e-cloudflare-client',
-      CLOUDFLARE_OAUTH_CLIENT_SECRET: 'e2e-cloudflare-secret-not-a-production-credential',
-      CLOUDFLARE_OAUTH_SETUP_REDIRECT: `${apiUrl}/cloudflare-app/setup`,
+      ...(await fakeCloudflareEnv(apiUrl)),
       // GitLab: a scenario serves the instance on this computer and answers its redirect.
       GITLAB_OAUTH_SETUP_REDIRECT: `${apiUrl}/gitlab-app/setup`,
       GITLAB_TOKEN_ENCRYPTION_KEY:

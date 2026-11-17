@@ -6,8 +6,9 @@ import type { AddressInfo } from 'node:net'
 export const fakeCloudflare = { rejectToken: false }
 
 // Cloudflare's API as the backend's "OAuth Client Read" token sees it, and the
-// backend environment that points at it.
-export async function fakeCloudflareEnv(): Promise<Record<string, string>> {
+// backend environment that points at it. Cloudflare itself is never reached: a
+// scenario answers for it on the setup redirect.
+export async function fakeCloudflareEnv(apiUrl: string): Promise<Record<string, string>> {
   const scopes = [
     { id: 'account-settings.read', category: 'account_and_billing' },
     { id: 'user-details.read', category: 'account_and_billing' },
@@ -37,5 +38,8 @@ export async function fakeCloudflareEnv(): Promise<Record<string, string>> {
   return {
     CLOUDFLARE_API_URL: `http://127.0.0.1:${String((server.address() as AddressInfo).port)}`,
     CLOUDFLARE_OAUTH_ADMIN_TOKEN: 'e2e-cloudflare-token-not-a-production-credential',
+    CLOUDFLARE_OAUTH_CLIENT_ID: 'e2e-cloudflare-client',
+    CLOUDFLARE_OAUTH_CLIENT_SECRET: 'e2e-cloudflare-secret-not-a-production-credential',
+    CLOUDFLARE_OAUTH_SETUP_REDIRECT: `${apiUrl}/cloudflare-app/setup`,
   }
 }
