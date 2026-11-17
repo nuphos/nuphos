@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import { createElement, isValidElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 
 import { ChatIcon } from '../channels/channelParts'
 
@@ -160,4 +161,45 @@ test('finishing Bot work restores the latest chat post, never its older Task pre
   assert.equal(finished?.previewNode, undefined, 'no work indicator remains after the turn')
   assert.equal(finished?.preview, 'The newest reply posted in this chat')
   assert.notEqual(finished?.preview, bot.conversation.lastMessage.text)
+})
+
+test("a busy Bot's chat row never previews the Bot's own transcript, only the chat's posts", () => {
+  // The Bot posted twice this turn and is still working. Its own transcript
+  // ends with what it last told its owner, which was never posted in the chat.
+  const { avatar: _avatar, ...plain } = conversation
+  const chat = chatSidebarItem({
+    conversation: {
+      ...plain,
+      sessionId: 'chat',
+      kind: 'channel',
+      faces: [{ id: 'bot-a', name: 'Bot', agent: {} }],
+      lastMessage: { text: 'Second post of the turn' },
+    },
+    teamId: 'team-a',
+    active: false,
+    runtimeState: undefined,
+    unread: false,
+  })
+  const bot = {
+    conversation: { ...conversation, lastMessage: { text: 'Narration for the owner only' } },
+    runtimeState: { state: 'active' as const, phase: 'running' },
+  }
+  const row = (state: 'active' | 'idle') =>
+    botChatRows({
+      chat,
+      bot: { ...bot, runtimeState: { ...bot.runtimeState, state } },
+      kids: [],
+      faces: [],
+      teamId: 'team-a',
+      unread: false,
+      openId: undefined,
+    })[0]
+  const busy = row('active')
+
+  assert.ok(isValidElement(busy?.previewNode))
+  const shown = renderToStaticMarkup(busy.previewNode)
+
+  assert.ok(shown.includes('t-typing-dot'), 'a busy row shows the work dots')
+  assert.ok(!shown.includes('Narration for the owner only'))
+  assert.equal(row('idle')?.preview, 'Second post of the turn')
 })

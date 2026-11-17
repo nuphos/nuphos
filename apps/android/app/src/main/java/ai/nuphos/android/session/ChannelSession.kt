@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.data.TransferDownloadGroup
 import ai.nuphos.android.model.AgentConversationDetail
+import ai.nuphos.android.model.BotFaces
 import ai.nuphos.android.model.ChannelAgent
 import ai.nuphos.android.model.ChatFace
 import ai.nuphos.android.model.ChannelPost
@@ -294,6 +295,8 @@ class ChannelSession(
         sendingAttachments = sendingAttachments.filterKeys { id -> sending.any { it.id == id } }
         events = detail.timelineEvents
         agents = listed
+        // A teammate's Bot is in none of this viewer's lists: its face comes from the chat.
+        listed.forEach { BotFaces.learn(it.sessionId, it.avatar) }
         readOnly = detail.readOnly == true
         detail.title?.takeIf { it.isNotBlank() }?.let { title = it }
         faces = detail.faces

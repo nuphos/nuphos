@@ -1,5 +1,5 @@
 .sidebar-swipe-viewport {
-  overflow: hidden;
+  overflow: clip;
   overscroll-behavior-x: contain;
   touch-action: pan-y;
 }

@@ -1,4 +1,4 @@
-import { openInputRequests } from './agentInputRequests.ts'
+import { attentionInputRequests } from './agentInputRequests.ts'
 import { chatRowIndicator } from './runtimeExecution.ts'
 
 import type { ChatRowIndicator, RuntimeExecution } from './runtimeExecution.ts'
@@ -12,10 +12,10 @@ export type SubAgentState = 'waiting' | 'running' | 'done'
  * doing neither is done, a stopped or disconnected runtime included.
  */
 export function subAgentState(
-  conversation: Pick<AgentConversation, 'inputRequests'>,
+  conversation: Pick<AgentConversation, 'inputRequests' | 'botOnboarding'>,
   runtimeState: RuntimeExecution | undefined,
 ): SubAgentState {
-  if (openInputRequests(conversation).length > 0) return 'waiting'
+  if (attentionInputRequests(conversation).length > 0) return 'waiting'
   const indicator = chatRowIndicator(runtimeState, false)
 
   return indicator === 'turn' || indicator === 'background' ? 'running' : 'done'
@@ -23,7 +23,7 @@ export function subAgentState(
 
 /** Waiting or running: what a list of sub-agents keeps in view. */
 export function isSubAgentActive(
-  conversation: Pick<AgentConversation, 'inputRequests'>,
+  conversation: Pick<AgentConversation, 'inputRequests' | 'botOnboarding'>,
   runtimeState: RuntimeExecution | undefined,
 ): boolean {
   return subAgentState(conversation, runtimeState) !== 'done'
@@ -43,7 +43,7 @@ export type RowDot = 'unread' | 'waiting' | null
  * parent cannot resolve on its own, gives it a dot.
  */
 export function rowDot(
-  conversation: Pick<AgentConversation, 'parentSessionId' | 'inputRequests'>,
+  conversation: Pick<AgentConversation, 'parentSessionId' | 'inputRequests' | 'botOnboarding'>,
   runtimeState: RuntimeExecution | undefined,
   unread: boolean,
 ): RowDot {
