@@ -1,10 +1,13 @@
-import { BrowserWindow } from 'electron'
+import path from 'node:path'
+
+import { app, BrowserWindow } from 'electron'
 
 import { extensionHost } from '../browser-extensions/host.ts'
 import { browserSession } from '../browser-extensions/manage.ts'
 import { isAppQuitting } from '../window-session.ts'
 import { raiseWindow } from '../../window-raise.ts'
 
+import { saveDownload } from './agent-downloads.ts'
 import { startRecording, stopRecording } from './browser-recording.ts'
 import { failed } from './cua-host.ts'
 import { closeDockTab, dockMirrorOf, focusDockTab, openDockTab } from './dock-mirror.ts'
@@ -12,7 +15,7 @@ import { proxyFetch } from './dock-proxy.ts'
 
 import type { BrowserCall } from './browser-stream.ts'
 import type { CuaToolResult } from './cua-host.ts'
-import type { WebContents } from 'electron'
+import type { DownloadItem, WebContents } from 'electron'
 
 /** How long a page may take to load before a call returns it as it is. */
 const LOAD_TIMEOUT_MS = 20_000
@@ -47,6 +50,34 @@ const tabs = new Map<
   WebContents,
   { conversation: string; window: BrowserWindow; opener?: WebContents }
 >()
+
+/** What became of each conversation's downloads since its last `tabs` or `eval`. */
+const downloads = new Map<string, string[]>()
+
+/**
+ * Saves a download from a conversation's tab into Downloads/Nuphos with no save dialog,
+ * which the agent could not answer. A download from any other page is not taken.
+ */
+export function saveAgentDownload(item: DownloadItem, contents: WebContents | undefined): boolean {
+  const conversation = contents && tabs.get(contents)?.conversation
+
+  if (!conversation) return false
+  saveDownload(item, path.join(app.getPath('downloads'), 'Nuphos'), (line) =>
+    downloads.set(conversation, [...(downloads.get(conversation) ?? []), line]),
+  )
+
+  return true
+}
+
+/** `result` with the conversation's download news since it last heard, which it now has. */
+function withDownloads(conversation: string, result: CuaToolResult): CuaToolResult {
+  const lines = downloads.get(conversation)
+
+  if (!lines) return result
+  downloads.delete(conversation)
+
+  return { ...result, content: [...result.content, { type: 'text', text: lines.join('\n') }] }
+}
 
 /** The browser tabs this conversation opened. */
 function browserTabs(conversation: string): WebContents[] {
@@ -205,7 +236,8 @@ function onPage<T>(
 export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> {
   // Without a conversation, tabs nobody opened (the app's own renderer included) would match.
   if (!call.session) return failed('session is required.')
-  if (call.action === 'tabs') return text(browserTabs(call.session).map(describe))
+  if (call.action === 'tabs')
+    return withDownloads(call.session, text(browserTabs(call.session).map(describe)))
   if (call.action === 'dock') return dockMirrorOf(call)
   if (call.action === 'focus') return focusDockTab(call)
   // The iPhone closes a dock tab by its workspace id; an agent closes its own tab.
@@ -251,7 +283,7 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
       return result
     })
 
-    return text(value === undefined ? 'undefined' : value)
+    return withDownloads(call.session, text(value === undefined ? 'undefined' : value))
   }
   const window = tabs.get(contents)?.window
 
