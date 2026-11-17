@@ -1,0 +1,22 @@
+2026-11-17 21:14:50.271 ShipIt[47790:84119] Detected this as an install request
+ERROR: Unrecognized attribute string flag '?' in attribute string "T@"NSString",?,R,C" for property debugDescription
+ERROR: Unrecognized attribute string flag '?' in attribute string "T@"NSString",?,R,C" for property debugDescription
+2026-11-17 21:16:03.975 ShipIt[47790:84124] Beginning installation
+2026-11-17 21:16:42.529 ShipIt[47790:86962] Moving bundle from file:///Users/runner/work/_temp/run/Nuphos.app/ to file:///var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/ai.nuphos.desktop.ShipIt.PtjhlGTJ/Nuphos.app
+2026-11-17 21:16:42.531 ShipIt[47790:86962] Moving bundles directly as SquirrelMacEnableDirectContentsWrite is disabled for app: ai.nuphos.desktop.ShipIt
+2026-11-17 21:16:42.532 ShipIt[47790:86962] Moved bundle contents from file:///Users/runner/work/_temp/run/Nuphos.app/ to file:///var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/ai.nuphos.desktop.ShipIt.PtjhlGTJ/Nuphos.app
+2026-11-17 21:16:42.532 ShipIt[47790:86962] Moving bundle from file:///var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/ai.nuphos.desktop.ShipIt.koTe4FTj/Nuphos.app to file:///Users/runner/work/_temp/run/Nuphos.app/
+2026-11-17 21:16:42.532 ShipIt[47790:86962] Moving bundles directly as SquirrelMacEnableDirectContentsWrite is disabled for app: ai.nuphos.desktop.ShipIt
+2026-11-17 21:16:42.532 ShipIt[47790:86962] Moved bundle contents from file:///var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/ai.nuphos.desktop.ShipIt.koTe4FTj/Nuphos.app to file:///Users/runner/work/_temp/run/Nuphos.app/
+2026-11-17 21:16:46.525 ShipIt[47790:84124] On main thread and launching: file:///Users/runner/work/_temp/run/Nuphos.app/
+2026-11-17 21:16:46.525 ShipIt[47790:84124] Bundle URL is valid
+2026-11-17 21:16:46.525 ShipIt[47790:84124] Attempting to launch app on 11.0 or higher
+2026-11-17 21:16:46.525 ShipIt[47790:84124] Launching new ShipIt at /Users/runner/work/_temp/run/Nuphos.app/Contents/Frameworks/Squirrel.framework/Resources/ShipIt with instructions to launch file:///Users/runner/work/_temp/run/Nuphos.app/
+2026-11-17 21:16:46.526 ShipIt[47790:86962] Installation completed successfully
+2026-11-17 21:16:46.536 ShipIt[47790:84124] New ShipIt pid: 49784
+2026-11-17 21:16:46.577 ShipIt[49784:88760] Detected this as a launch request
+2026-11-17 21:16:47.136 ShipIt[49784:88760] Successfully launched application at file:///Users/runner/work/_temp/run/Nuphos.app/
+2026-11-17 21:16:47.136 ShipIt[49784:88760] ShipIt quitting
+2026-11-17 21:16:47.138 ShipIt[47790:84124] ShipIt status 0
+2026-11-17 21:16:47.138 ShipIt[47790:84124] New ShipIt exited
+2026-11-17 21:16:47.139 ShipIt[47790:84124] ShipIt quitting

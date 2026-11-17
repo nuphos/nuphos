@@ -1,0 +1,12 @@
+21:13:58 [default] installed 0.200.0 at /Users/runner/work/_temp/run/Nuphos.app
+21:14:06 [default] launched pid 46787, running 0.200.0, system idle 1194s, preference file: none
+21:14:32 [default] update staged by the OS: /Users/runner/Library/Caches/ai.nuphos.desktop.ShipIt/update.sG6DRit/Nuphos.app
+21:16:51 [default] now running 0.200.1, pid 49785 (was 46787), preference file: none
+21:16:51 [default] PASS: 0.200.0 restarted into 0.200.1 by itself, nobody quit it
+21:17:04 [off] installed 0.200.0 at /Users/runner/work/_temp/run/Nuphos.app
+21:17:13 [off] launched pid 50068, running 0.200.0, system idle 1381s, preference file: {"enabled":false}
+21:17:18 [off] update staged by the OS: /Users/runner/Library/Caches/ai.nuphos.desktop.ShipIt/update.Radktdi/Nuphos.app
+21:17:18 [off] waiting 180 s: three checks, each with the computer idle for more than 30 s
+21:20:18 [off] now running 0.200.0, pid 50068 (was 50068), system idle 1566s
+21:20:18 [off] PASS: still 0.200.0, same process
+feed requests: 4
