@@ -40,7 +40,8 @@ const watchInboxRows = (page: Page) =>
         for (const row of node.querySelectorAll<HTMLElement>('[data-inbox-question]')) {
           const id = row.dataset.inboxQuestion ?? ''
 
-          entered[id] = Math.max(entered[id] ?? 0, node.getAnimations({ subtree: true }).length)
+          // The row's own wrapper, not its page's: a page switching in animates too.
+          entered[id] = Math.max(entered[id] ?? 0, row.parentElement?.getAnimations().length ?? 0)
         }
       }
     }).observe(document.body, { childList: true, subtree: true })
