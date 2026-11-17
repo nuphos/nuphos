@@ -3,7 +3,7 @@ import net from 'node:net'
 import { describe, expect, test } from 'bun:test'
 import Redis from 'ioredis'
 
-import { callerFrame, trackRedisOp } from './redis-op-log'
+import { callerFrame, trackRedisOp, withRedisLogContext } from './redis-op-log'
 
 /** A Redis that answers the handshake and never replies to anything else. */
 async function stalledRedis(): Promise<{ port: number; close: () => void }> {
@@ -22,6 +22,17 @@ async function stalledRedis(): Promise<{ port: number; close: () => void }> {
 }
 
 describe('redis op log', () => {
+  test("names the turn's session and route when an op fails inside one", () => {
+    const client = { status: 'ready', commandQueue: { length: 0, peekAt: () => undefined } }
+    const inside = withRedisLogContext({ session_id: 's-1', route: 'agent.resource' }, () =>
+      trackRedisOp(client as never).fields(),
+    )
+    const outside = trackRedisOp(client as never).fields()
+
+    expect(inside).toMatchObject({ session_id: 's-1', route: 'agent.resource' })
+    expect(outside).not.toHaveProperty('session_id')
+  })
+
   test('names the stalled commands without their keys or values', async () => {
     const server = await stalledRedis()
     const client = new Redis(server.port, '127.0.0.1', {
