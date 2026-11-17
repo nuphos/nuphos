@@ -162,6 +162,36 @@ try {
     .map((u) => u.content.text)
     .filter((text) => text.startsWith('Warning:'))
   assert.deepEqual(warnings, ['Warning: Fixture warning\n\n'])
+
+  // A turn that calls the model twice reports both calls, not only the last.
+  // The session had no total before it, so the first count marks its start.
+  const twice = await rpc('session/prompt', {
+    sessionId: created.sessionId,
+    prompt: [{ type: 'text', text: 'Fixture usage 2' }],
+  })
+
+  assert.deepEqual(twice.usage, {
+    totalTokens: 3400,
+    inputTokens: 300,
+    cachedReadTokens: 2700,
+    outputTokens: 400,
+    thoughtTokens: 140,
+  })
+  assert.deepEqual(twice._meta.quota.model_usage[0].token_count, twice._meta.quota.token_count)
+  assert.equal(twice._meta.quota.token_count.totalTokens, 3400)
+  // The next turn counts from where that one ended.
+  const once = await rpc('session/prompt', {
+    sessionId: created.sessionId,
+    prompt: [{ type: 'text', text: 'Fixture usage 1' }],
+  })
+
+  assert.deepEqual(once.usage, {
+    totalTokens: 500,
+    inputTokens: 50,
+    cachedReadTokens: 400,
+    outputTokens: 50,
+    thoughtTokens: 0,
+  })
   const calls = readFileSync(`${base}/requests.jsonl`, 'utf8').trim().split('\n').map(JSON.parse)
   const start = calls.find((c) => c.method === 'thread/start')
   const resume = calls.find((c) => c.method === 'thread/resume')
