@@ -4,7 +4,10 @@ import { rmSync } from 'node:fs'
 
 import { agentEvents } from './agent-log.ts'
 import { backendFailures, backendLines } from './backend-log.ts'
+import { bindingAccessScenarios } from './binding-access-scenarios.ts'
 import { channelScenarios } from './channel-scenarios.ts'
+import { commandScenarios } from './command-scenarios.ts'
+import { connectorScenarios } from './connector-scenarios.ts'
 import { startDesktop } from './desktop.ts'
 import { artifacts, stopAll, until } from './processes.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
@@ -52,6 +55,13 @@ const scenarios: Scenario[] = [
       await page.getByRole('button', { name: 'New Bot', exact: true }).click()
       await page.getByRole('textbox', { name: 'Agent name' }).fill('E2E Bot')
       await page.getByRole('button', { name: 'Create', exact: true }).click()
+      // No user prompt precedes this reply: creating/opening the Bot starts its introduction.
+      // The fixture's missing marker proves the turn did not originate from a delivery prompt.
+      await page.getByText('POSTED E2E_DELIVERY:missing', { exact: true }).waitFor()
+      await until('the unprompted Bot introduction to finish', async () =>
+        agentEvents(stack).includes('finish E2E_DELIVERY:missing'),
+      )
+      await page.screenshot({ path: `${artifacts}/bot-first-reply.png` })
       await send(page, 'Ask me E2E_ASK_CREDENTIAL E2E_DELIVERY:bot')
       await page.getByText('POSTED E2E_DELIVERY:bot', { exact: true }).waitFor()
       await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).click()
@@ -202,7 +212,10 @@ const scenarios: Scenario[] = [
       await page.screenshot({ path: `${artifacts}/question-skipped.png` })
     },
   },
+  ...connectorScenarios,
+  ...bindingAccessScenarios,
   ...runtimeScenarios,
+  ...commandScenarios,
   ...threadScenarios,
   {
     // #2577: a Task under another has no permission mode of its own. The parent here is a

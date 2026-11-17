@@ -124,8 +124,9 @@ need to know how the transfer works.
 
 When the person names a file on their computer, use **local_upload** with its
 absolute path (or `~/path`) and the selected device ID. It uses the computer's
-internal uploader and returns only `groupId`, `fileName` and `size`.
-Immediately pull that group into the agent workspace:
+internal uploader and returns only `groupId`, `fileName` and `size`, as soon
+as the upload starts. Immediately pull that group into the agent workspace; the
+pull waits for the upload to arrive:
 
 ```bash
 bash skills/file-transfer/scripts/transfer-pull.sh <TEAM> <groupId> ./uploads
@@ -134,8 +135,9 @@ bash skills/file-transfer/scripts/transfer-pull.sh <TEAM> <groupId> ./uploads
 This needs an online, selected computer with local exec allowed and an updated
 Desktop or CLI host. It does not need an AWS login or a CLI transfer command.
 Only one regular file is supported; directories are not uploaded by this tool.
-A transfer has a two-minute timeout and the store's existing size/TTL limits.
-Report a missing file, offline/old host, or transfer failure directly.
+The store's existing size/TTL limits apply. If the pull says the file is still
+uploading, run it again; if it says the upload failed, start `local_upload`
+again. Report a missing file, offline/old host, or transfer failure directly.
 
 Signed URLs stay inside the trusted implementation. Never put them in
 `local_exec` arguments, tool results, transcript, logs or replies. Encoding a

@@ -4,8 +4,11 @@ import { config } from '@/config'
 import { pushTimelineEvent } from '@/lib/agent/db/participants'
 import { agentConversations } from '@/lib/agent/db/shared'
 import { claimAgentRunForSession } from '@/lib/agent/run-admission'
+import { deliverWaitingAnswers } from '@/lib/agent/deliver-waiting-answers'
 import { AppError } from '@/lib/errors'
 
+import { sessionsByConversation } from './agent-chat-registry'
+import { lastFailedPrompt, resendFailedPrompt } from './failed-turn-retry'
 import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { developmentRuntimeEndpoint, requireRuntimeInstance } from './runtime-catalog'
 import { placementNamespace } from './runtime-controllers'
@@ -13,9 +16,11 @@ import { assertRuntimeNotDeleting } from './runtime-portability-store'
 import { runtimeProvider } from './runtime-provider'
 import { runtimeModelCatalog } from './runtime-models'
 import { findHostedRuntime, resolveTeamRuntimeEndpoints } from './runtime-registry'
+import { reclaimSessionHome } from './runtime-session-home'
 import { offeredSessionConfig } from './session-config-catalog'
 import { storedPick } from './session-config-options'
 
+import type { FailedPrompt } from './failed-turn-retry'
 import type { AgentConversation } from '@/lib/agent/db/shared'
 import type { RuntimeFallbackReason } from '@/lib/agent/db/timeline-events'
 
@@ -89,6 +94,7 @@ export async function moveConversationRuntime(
       'This conversation changed or is already being moved. Refresh and try again.',
     )
   let release: (() => void) | null = null
+  let retry: FailedPrompt | null | undefined
 
   try {
     release = options.claimed
@@ -115,6 +121,9 @@ export async function moveConversationRuntime(
       userId: ownerId,
       'runtimeOperation.token': token,
     })
+
+    // A person's move, likely off a runtime that just failed a turn: it runs again there.
+    retry = options.reason ? null : await lastFailedPrompt(conversation.sessionId, ownerId)
     const saved = latest?.claudeCodePreview
       ? storedPick(latest.claudeCodePreview)
       : latest?.initialSessionConfig
@@ -160,6 +169,7 @@ export async function moveConversationRuntime(
           toLabel: target.label,
           toProvider: target.provider,
           ...(options.reason ? { reason: options.reason } : {}),
+          ...(retry ? { retrying: true as const } : {}),
         }),
         ...(sourceUrl ? { $addToSet: { previousRuntimeUrls: sourceUrl } } : {}),
         // A move leaves the conversation exactly where a brand-new one starts:
@@ -185,8 +195,7 @@ export async function moveConversationRuntime(
         'runtime_move_conflict',
         'The conversation changed before the move completed. Refresh and retry.',
       )
-
-    return { runtimeId: target.id, runtimeLabel: target.label, agentRuntime: target.provider }
+    closeMovedSession(teamId, conversation.sessionId)
   } finally {
     release?.()
     await agentConversations().updateOne(
@@ -194,4 +203,26 @@ export async function moveConversationRuntime(
       { $unset: { runtimeOperation: '' } },
     )
   }
+  if (retry) resendFailedPrompt(conversation.sessionId, retry)
+  void deliverWaitingAnswers(conversation.sessionId)
+
+  return { runtimeId: target.id, runtimeLabel: target.label, agentRuntime: target.provider }
+}
+
+/**
+ * The old runtime keeps an idle session for hours so it can be resumed, and a
+ * moved one never is: end it there, then remove the home it leaves on another
+ * computer. Best effort, since the move is already done; the hourly reclaim
+ * sweep retries a home still in use, and the runtime's idle sweep frees the rest.
+ */
+function closeMovedSession(teamId: string, conversationId: string) {
+  const key = `${teamId}:${conversationId}`
+  const session = sessionsByConversation.get(key)
+
+  session?.stopObserving?.()
+  sessionsByConversation.delete(key)
+  void (session?.client.closeSession(session.openabSessionId) ?? Promise.resolve())
+    .catch(() => {})
+    .then(() => reclaimSessionHome(conversationId))
+    .catch(() => {})
 }

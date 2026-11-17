@@ -50,7 +50,7 @@ internal class DesktopSession(
                 phase=Phase.Connecting; controlling=false; error=null
                 try { connect(owner) }
                 catch(e: CancellationException) { throw e }
-                catch(e: Exception) { if(!active(owner)) break; if(e is IllegalArgumentException) { phase=Phase.Failed; error=e.message ?: "Unsupported desktop stream."; break }; failures++; if(failures>=timing.maxFailures) { phase=Phase.Failed; error=if(e is DesktopStalled) "The desktop stopped responding. Retry to reconnect." else "Could not connect to this desktop. Check the computer and try again."; break } }
+                catch(e: Exception) { if(!active(owner)) break; if(e is IllegalArgumentException) { error=e.message ?: "Unsupported desktop stream."; phase=Phase.Failed; break }; failures++; if(failures>=timing.maxFailures) { error=if(e is DesktopStalled) "The desktop stopped responding. Retry to reconnect." else "Could not connect to this desktop. Check the computer and try again."; phase=Phase.Failed; break } }
                 if(active(owner)) delay(minOf(15_000L,1000L shl minOf(failures,4)))
             }
         }

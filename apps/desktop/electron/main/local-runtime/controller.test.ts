@@ -175,6 +175,16 @@ test('the last known sign-in shows at once after a restart, then the fresh probe
   assert.deepEqual(cliCache.alice?.['claude-code'], signedOut)
 })
 
+test('a signed-out CLI still runs, so its team can sign it in through it', async () => {
+  const { controller, status, stream } = harness({
+    codex: { installed: true, path: '/bin/codex', loggedIn: false },
+  })
+
+  await controller.setUser('alice')
+  assert.ok(stream('codex'))
+  assert.equal(status()?.agents.codex?.cli.loggedIn, false)
+})
+
 test('the tunnel stays up with no agent installed, so the owner’s other computers can see it', async () => {
   const { controller, events, status } = harness({
     'claude-code': { installed: false },

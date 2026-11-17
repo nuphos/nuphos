@@ -3,7 +3,6 @@
     <string name="chats_question_credentials_and">%1$s dan %2$s</string>
     <string name="chats_question_use_own">Gunakan %1$s milik Anda</string>
     <string name="chats_question_choose_credentials">Pilih kredensial</string>
-    <string name="chats_question_answer_in_task">Jawab di tugas</string>
     <string name="chats_question_other">Lainnya…</string>
     <string name="chats_question_reply">Balas…</string>
     <string name="chats_question_send_failed">Tidak dapat mengirim pesan · %1$s</string>

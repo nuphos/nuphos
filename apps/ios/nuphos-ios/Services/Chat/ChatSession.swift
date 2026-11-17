@@ -41,6 +41,9 @@ final class ChatSession {
     /// Not a transcript row: one at the end is off screen to a reader of
     /// older messages, so the tap looked like it did nothing.
     var stopRefusal: String?
+    /// Set when the runtime never heard the Stop and the server stopped the
+    /// turn on its side, so the tap is answered rather than looking ignored.
+    var stopNotice: String?
     /// New conversation: sent on the first POST. Existing: mirrors the
     /// server's bypass flag — change it with `setPermissionMode`.
     private(set) var permissionMode: PermissionMode = .auto
@@ -63,6 +66,8 @@ final class ChatSession {
     private(set) var resources: [SessionResource] = []
     /// Invites, removals and runtime moves, refreshed with every detail read.
     private(set) var timelineEvents: [AgentConversationDetail.TimelineEvent] = []
+    /// What each answered question still waits for, by request id, already phrased by the backend.
+    private(set) var waitingAnswers: [String: String] = [:]
     /// The session is a chat, found on loading it from a link.
     private(set) var isChannel = false
     /// Files the agent sent the user here, read from the transfer store.
@@ -858,7 +863,9 @@ final class ChatSession {
             Task {
                 defer { isStopping = false }
                 do {
-                    try await AgentChatAPI.cancelRuntime(token: token, teamId: teamId, sessionId: sessionId)
+                    if try await AgentChatAPI.cancelRuntime(token: token, teamId: teamId, sessionId: sessionId) == "runtime_unreachable" {
+                        stopNotice = String(localized: "The runtime didn't respond; the turn was stopped here.")
+                    }
                     // Show the stopped turn now, not at the next idle poll.
                     let observedAt = ProcessInfo.processInfo.systemUptime
                     if let detail = try? await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: sessionId, tail: 1) {
@@ -1114,6 +1121,7 @@ final class ChatSession {
         if let id = detail.runtimeId { runtimeId = id }
         if let l = detail.runtimeLabel { runtimeLabel = l }
         timelineEvents = detail.timelineEvents
+        waitingAnswers = Dictionary(detail.waitingAnswers.map { ($0.requestId, $0.note) }, uniquingKeysWith: { first, _ in first })
         isArchived = detail.archivedAt != nil
         isWatching = detail.watching
     }

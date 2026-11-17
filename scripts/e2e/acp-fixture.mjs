@@ -7,7 +7,8 @@ import { createInterface } from 'node:readline'
 import { nuphosApplyRuntimeDefaults } from '../../apps/runtime/image/runtime-defaults.mjs'
 
 import { answerChannel } from './fixture-channel.mjs'
-import { hop } from './fixture-hop.mjs'
+import { listCommands } from './fixture-commands.mjs'
+import { hop, inherit } from './fixture-hop.mjs'
 import { applySetting } from './fixture-settings.mjs'
 
 const send = (message) =>
@@ -148,6 +149,9 @@ async function permission(sessionId, marker) {
   log({ sessionId, marker, event: `permission-${outcome?.optionId ?? outcome?.outcome ?? 'none'}` })
 }
 
+// Sessions whose answer the first agent refuses as out of usage (#3055).
+const late = new Set()
+
 async function prompt({ sessionId, prompt: parts }) {
   const text = parts
     .filter((part) => part.type === 'text')
@@ -156,13 +160,23 @@ async function prompt({ sessionId, prompt: parts }) {
   const marker = (text.match(/E2E_DELIVERY:[a-z0-9-]+/g) ?? []).at(-1) ?? 'E2E_DELIVERY:missing'
 
   log({ sessionId, marker, event: 'start' })
+  // #3051: the first agent refuses this prompt as out of usage, as Claude Code words it.
+  // #3055: and the answer to a question asked with E2E_ASK_LATE.
+  if (text.includes('E2E_ASK_LATE')) late.add(sessionId)
+  const outOfUsage =
+    text.includes('E2E_USAGE_LIMIT') || (late.has(sessionId) && !text.includes('E2E_ASK'))
+
+  if (outOfUsage && process.env.E2E_AGENT !== 'second') {
+    throw Object.assign(new Error('Internal error: You’ve hit your usage limit'), { code: -32603 })
+  }
   // Nuphos tells the agent when a person skips its question.
   if (text.includes('was skipped')) log({ sessionId, marker, event: 'skipped' })
   if (text.includes('E2E_DELEGATE') && !text.includes(CHILD)) {
     await delegate(sessionId, text.includes('E2E_DELEGATE_FAST'))
   }
-  if (text.includes('E2E_HOP') && !text.includes(CHILD))
-    await hop({ call, send, log, sessionId, child: CHILD })
+  // A thread started here, then moved (E2E_HOP), or left on this session's model (E2E_INHERIT).
+  if (/E2E_(HOP|INHERIT)/.test(text) && !text.includes(CHILD))
+    await (text.includes('E2E_HOP') ? hop : inherit)({ call, send, log, sessionId, child: CHILD })
   if (text.includes('E2E_ASK')) {
     await ask(sessionId, text.includes('E2E_ASK_CREDENTIAL') ? 'credential' : 'preference')
   }
@@ -182,6 +196,7 @@ async function prompt({ sessionId, prompt: parts }) {
     })
   }
   if (text.includes('E2E_PERMISSION')) await permission(sessionId, marker)
+  if (text.includes('E2E_COMMANDS')) listCommands({ send, sessionId })
   if (text.includes('E2E_HOLD')) {
     await new Promise((resolve) => held.set(sessionId, resolve))
     log({ sessionId, marker, event: 'cancelled' })
@@ -254,7 +269,7 @@ async function answer(request) {
     case 'session/set_config_option': {
       const { sessionId, configId, value } = request.params
 
-      return { configOptions: applySetting(sessionId, configId, value) }
+      return { configOptions: applySetting(sessionId, configId, value, log) }
     }
     default:
       throw new Error(`Unsupported fixture method: ${request.method}`)
@@ -279,6 +294,7 @@ for await (const line of createInterface({ input: process.stdin })) {
   if (request.id === undefined) continue
   answer(request).then(
     (result) => send({ id: request.id, result }),
-    (error) => send({ id: request.id, error: { code: -32601, message: error.message } }),
+    (error) =>
+      send({ id: request.id, error: { code: error.code ?? -32601, message: error.message } }),
   )
 }

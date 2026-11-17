@@ -6,9 +6,9 @@ import {
   OpenAbRpcError,
   RUNTIME_AUTH_REQUIRED_CODE,
   RUNTIME_USAGE_EXHAUSTED_CODE,
-  runtimeProductStateMessage,
   runtimeUsageExhaustedMessage,
 } from '@/lib/claude-code-preview/openab-acp-errors'
+import { plainTurnFailure } from '@/lib/claude-code-preview/plain-failure'
 import { runtimeFailure } from '@/lib/claude-code-preview/runtime-failure'
 import { AppError } from '@/lib/errors'
 import { errorTelemetryProperties } from '@/lib/observability'
@@ -92,7 +92,7 @@ export function formatAgentStreamError(error: unknown): string {
   // A signed-out or out-of-usage runtime is a product state with its own UI,
   // not a transport failure. Every client — including those that do not read
   // errorCode yet — gets the sentence instead of the gateway's wrapper.
-  const productState = runtimeProductStateMessage(error)
+  const productState = plainTurnFailure(error)
 
   if (productState) return productState
   // A known runtime fault names the next step; the raw error stays in the frame's details.

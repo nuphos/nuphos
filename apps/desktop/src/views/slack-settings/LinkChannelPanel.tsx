@@ -1,14 +1,14 @@
-import {
-  faArrowUpRightFromSquare,
-  faComments,
-  faHashtag,
-  faLink,
-} from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
+import {
+  ExternalLink as ExternalLinkIcon,
+  MessagesSquare as MessagesSquareIcon,
+  Hash as HashIcon,
+  Link as LinkIcon,
+} from 'lucide-react'
 import { Fragment } from 'react'
 
 import { Button } from '../../components/ui/button'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { t } from '../../i18n'
 
 import type { FormEvent, ReactNode } from 'react'
@@ -34,7 +34,7 @@ function InstallButton({
       disabled={!oauthAvailable}
       title={oauthAvailable ? undefined : t('Slack OAuth is not configured on this server yet.')}
     >
-      <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="h-2.5 w-2.5" />
+      <UiIcon size={16} icon={ExternalLinkIcon} className="h-4 w-4" />
       {installed ? t('Reinstall Slack App') : t('Install Slack App')}
     </Button>
   )
@@ -80,7 +80,7 @@ export function LinkChannelPanel({
     <div className="divide-y divide-line-control/60 border-t border-line-control/60">
       <div className="flex items-start gap-3 px-4 py-3.5">
         <span className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-surface-sunken">
-          <FontAwesomeIcon icon={faHashtag} className="h-3.5 w-3.5 text-secondary" />
+          <UiIcon size={14} icon={HashIcon} className="h-3.5 w-3.5 text-secondary" />
         </span>
         <div className="min-w-0 flex-1">
           <div className="text-[12.5px] font-medium text-main">
@@ -103,7 +103,7 @@ export function LinkChannelPanel({
 
       <div className="flex items-start gap-3 px-4 py-3.5">
         <span className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-surface-sunken">
-          <FontAwesomeIcon icon={faComments} className="h-3.5 w-3.5 text-secondary" />
+          <UiIcon size={14} icon={MessagesSquareIcon} className="h-3.5 w-3.5 text-secondary" />
         </span>
         <div className="min-w-0 flex-1">
           <div className="text-[12.5px] font-medium text-main">{t("Pick from the bot's DM")}</div>
@@ -117,7 +117,7 @@ export function LinkChannelPanel({
             onClick={() => window.open(botDmLink, '_blank')}
             className="mt-1 inline-flex h-7 flex-shrink-0 items-center gap-1.5 rounded-md border border-line-control px-2 text-[11.5px] text-secondary transition-colors hover:border-line-control hover:text-main"
           >
-            <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="h-2.5 w-2.5" />
+            <UiIcon size={16} icon={ExternalLinkIcon} className="h-4 w-4" />
             {t('Open DM')}
           </button>
         )}
@@ -128,7 +128,7 @@ export function LinkChannelPanel({
 
       <div className="flex items-start gap-3 px-4 py-3.5">
         <span className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-surface-sunken">
-          <FontAwesomeIcon icon={faLink} className="h-3.5 w-3.5 text-secondary" />
+          <UiIcon size={14} icon={LinkIcon} className="h-3.5 w-3.5 text-secondary" />
         </span>
         <div className="min-w-0 flex-1">
           <div className="text-[12.5px] font-medium text-main">
@@ -172,7 +172,7 @@ export function LinkChannelPanel({
                   !newChannelWorkspaceId.trim() || !newChannelId.trim() || linkChannelSubmitting
                 }
               >
-                <FontAwesomeIcon icon={faLink} className="h-3 w-3" />
+                <UiIcon size={16} icon={LinkIcon} className="h-4 w-4" />
                 {linkChannelSubmitting ? t('Linking…') : t('Link channel')}
               </Button>
             </form>

@@ -20,6 +20,7 @@
     <string name="convtext_stopped_by_user">Detenido por el usuario.</string>
     <string name="convtext_empty_reply">El agente devolvió una respuesta vacía.</string>
     <string name="convtext_steering_rejected">Se rechazó la redirección. Reintenta cuando el entorno de ejecución lo permita.</string>
+    <string name="convtext_stop_runtime_unreachable">El entorno de ejecución no respondió; el turno se detuvo aquí.</string>
     <string name="convtext_steering_unconfirmed">No se confirmó la entrega de la redirección. Revisa la tarea antes de reintentar.</string>
     <string name="convtext_delivery_unconfirmed">No se confirmó la entrega del mensaje. Reanuda la conexión original.</string>
     <string name="convtext_task_reloaded">Esta tarea cambió en otro lugar y se volvió a cargar. Reintenta enviar tu mensaje.</string>

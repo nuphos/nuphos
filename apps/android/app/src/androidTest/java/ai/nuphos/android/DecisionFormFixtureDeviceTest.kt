@@ -15,7 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -56,7 +56,7 @@ class DecisionFormFixtureDeviceTest {
     @Test fun severalQuestionsAreAnsweredAsOneForm() {
         val sent = mutableListOf<JsonValue>()
         val texts = mutableListOf<String>()
-        screen { BotQuestionCard(release, onOpen = {}, onAnswer = { texts += it }, onForm = { sent += it }, answersInPlace = true) }
+        screen { BotQuestionCard(release, onOpen = {}, onConnect = {}, onAnswer = { texts += it }, onForm = { sent += it }, answersInPlace = true) }
         // The written-out list is not repeated under the form; the agent's own text is.
         compose.onNodeWithText("The canary has been clean for a day.").assertIsDisplayed()
         compose.onNodeWithText("**1. Roll out now?**", substring = true).assertDoesNotExist()
@@ -82,7 +82,7 @@ class DecisionFormFixtureDeviceTest {
 
     @Test fun typedWordsTakeThePlaceOfAQuestionsPicks() {
         val sent = mutableListOf<JsonValue>()
-        screen { BotQuestionCard(release, onOpen = {}, onAnswer = {}, onForm = { sent += it }) }
+        screen { BotQuestionCard(release, onOpen = {}, onConnect = {}, onAnswer = {}, onForm = { sent += it }) }
         compose.onNodeWithText("Ship it").performClick()
         compose.onAllNodesWithTag("bot-question-form-text")[1].performTextInput("Only us-east, then wait a day")
         capture("form-typed")
@@ -94,7 +94,7 @@ class DecisionFormFixtureDeviceTest {
     @Test fun aCardTheAgentCorrectsStartsItsFormOver() {
         val sent = mutableListOf<JsonValue>()
         var card by mutableStateOf(release)
-        screen { BotQuestionCard(card, onOpen = {}, onAnswer = {}, onForm = { sent += it }) }
+        screen { BotQuestionCard(card, onOpen = {}, onConnect = {}, onAnswer = {}, onForm = { sent += it }) }
         compose.onNodeWithText("Ship it").performClick()
         // Same card id, one more question: the form is rebuilt for three, not indexed past two.
         val questions = release.request.questions!! + DecisionQuestion("Who watches the rollout?", listOf("Can", "Yuanlin"))
@@ -116,7 +116,7 @@ class DecisionFormFixtureDeviceTest {
         val answers = mutableListOf<String>()
         val deploy = BotQuestion("bot-release", "Release Lead",
             InputRequest("q-deploy", "approval", "Roll out 1.4 to production?", listOf("Ship it", "Wait for QA")))
-        screen { BotQuestionCard(deploy, onOpen = {}, onAnswer = { answers += it }, showsFrom = false) }
+        screen { BotQuestionCard(deploy, onOpen = {}, onConnect = {}, onAnswer = { answers += it }, showsFrom = false) }
         compose.onAllNodesWithTag("bot-question-form").assertCountEquals(0)
         compose.onNodeWithText("Ship it").performClick()
         assertEquals(listOf("Ship it"), answers)

@@ -348,6 +348,24 @@ fn purge_session_entries(state: &mut PoolState, key: &str) {
 /// `session/load` with for a conversation it never persisted.
 pub(crate) const ACP_RESOURCE_NOT_FOUND: i64 = -32002;
 
+/// The agent does not hold this session, whether a prompt, a setting or a `session/load` asked.
+/// ACP says "resource not found"; claude-agent-acp throws a plain "Session not found", which the
+/// ACP SDK relays as an internal error; codex-acp names the session in its own wording.
+pub(crate) fn session_lost(err: &JsonRpcError) -> bool {
+    if err.code == ACP_RESOURCE_NOT_FOUND
+        || (err.code == -32603 && err.data_message().as_deref() == Some("Session not found"))
+    {
+        return true;
+    }
+    let text = load_error_text(err);
+    // The rollout phrase is unambiguous, whatever code codex-acp relays it under.
+    text.contains(CODEX_MISSING_THREAD_PHRASE)
+        // -32602 is also what an agent says about a genuinely malformed request, so there the
+        // wording itself has to name the session.
+        || (err.code == INVALID_PARAMS
+            && SESSION_GONE_PHRASES.iter().any(|phrase| text.contains(phrase)))
+}
+
 /// JSON-RPC "invalid params" (`-32602`), which codex-acp also uses for `Unknown session: <id>`.
 const INVALID_PARAMS: i64 = -32602;
 
@@ -355,7 +373,7 @@ const INVALID_PARAMS: i64 = -32602;
 /// (transcript) for the thread it was asked to resume.
 const CODEX_MISSING_THREAD_PHRASE: &str = "no rollout found";
 
-/// Wording an agent uses when the session it was asked to load does not exist. Matched
+/// Wording an agent uses when the session it was asked about does not exist. Matched
 /// case-insensitively against the error's message and its `data` detail, because the phrasing is
 /// the agent's own; only the stable part of each known phrase is listed.
 const SESSION_GONE_PHRASES: &[&str] = &[
@@ -384,21 +402,11 @@ const SESSION_GONE_PHRASES: &[&str] = &[
 /// The wording match is necessarily a guess about what an agent prints; the counter is what makes
 /// a wrong guess cost three attempts rather than the wrong outcome.
 fn session_load_falls_back_at_once(err: &AcpRequestError) -> bool {
-    let err = match err {
-        AcpRequestError::Timeout { .. } => return true,
-        AcpRequestError::Agent(err) => err,
-        _ => return false,
-    };
-    if err.code == ACP_RESOURCE_NOT_FOUND {
-        return true;
+    match err {
+        AcpRequestError::Timeout { .. } => true,
+        AcpRequestError::Agent(err) => session_lost(err),
+        _ => false,
     }
-    let text = load_error_text(err);
-    // The rollout phrase is unambiguous, whatever code codex-acp relays it under.
-    text.contains(CODEX_MISSING_THREAD_PHRASE)
-        // -32602 is also what an agent says about a genuinely malformed request, so there the
-        // wording itself has to name the session.
-        || (err.code == INVALID_PARAMS
-            && SESSION_GONE_PHRASES.iter().any(|phrase| text.contains(phrase)))
 }
 
 /// An agent error's own wording, lowercased: the JSON-RPC message plus the detail it carries in
@@ -1522,54 +1530,70 @@ impl SessionPool {
     }
 
     /// Control an existing inner session without attaching an output sink,
-    /// starting a prompt, or changing the session's execution principal.
+    /// starting a prompt, or changing the session's execution principal. A setting the
+    /// agent rejects as a lost session restores the session once and is sent again.
     pub async fn session_config_options(
         &self,
         thread_id: &str,
         selection: Option<(&str, &str)>,
     ) -> std::result::Result<serde_json::Value, (i32, String)> {
-        let handle = self
-            .state
-            .read()
-            .await
-            .active
-            .get(thread_id)
-            .cloned()
-            .ok_or_else(|| {
-                (
-                    -32004,
-                    "Session is not running; send a message to resume it".into(),
-                )
-            })?;
-        let mut conn = handle.try_lock().map_err(|_| {
-            (
-                -32005,
-                "Session is responding; wait for the current turn to finish".into(),
-            )
-        })?;
-        if !conn.alive() {
-            return Err((
-                -32004,
-                "Session is not running; send a message to resume it".into(),
-            ));
-        }
-        if let Some((id, value)) = selection {
-            let valid = conn.config_options.iter().any(|option| {
-                option.id == id && option.options.iter().any(|choice| choice.value == value)
-            });
-            if !valid {
-                return Err((-32602, "Unknown configuration option or value".into()));
-            }
-            conn.set_config_option_strict(id, value)
+        for retry_lost_session in [true, false] {
+            let handle = self
+                .state
+                .read()
                 .await
-                .map_err(|_| {
+                .active
+                .get(thread_id)
+                .cloned()
+                .ok_or_else(|| {
                     (
-                        -32603,
-                        "Agent could not confirm the configuration change".into(),
+                        -32004,
+                        "Session is not running; send a message to resume it".into(),
                     )
                 })?;
+            let mut conn = handle.try_lock().map_err(|_| {
+                (
+                    -32005,
+                    "Session is responding; wait for the current turn to finish".into(),
+                )
+            })?;
+            if !conn.alive() {
+                return Err((
+                    -32004,
+                    "Session is not running; send a message to resume it".into(),
+                ));
+            }
+            if let Some((id, value)) = selection {
+                let valid = conn.config_options.iter().any(|option| {
+                    option.id == id && option.options.iter().any(|choice| choice.value == value)
+                });
+                if !valid {
+                    return Err((-32602, "Unknown configuration option or value".into()));
+                }
+                if let Err(e) = conn.set_config_option_strict(id, value).await {
+                    let session_gone = e
+                        .downcast_ref::<JsonRpcError>()
+                        .is_some_and(session_lost);
+                    if !(session_gone && retry_lost_session) {
+                        return Err((
+                            -32603,
+                            "Agent could not confirm the configuration change".into(),
+                        ));
+                    }
+                    // The agent lost the session: restore it as a prompt does, then send
+                    // the setting once more. The old process exits before the new starts.
+                    drop(conn);
+                    drop(handle);
+                    self.suspend_session(thread_id).await;
+                    self.restore_for_config(thread_id, &[], None)
+                        .await
+                        .map_err(|_| (-32004, "Saved session could not be restored".into()))?;
+                    continue;
+                }
+            }
+            return Ok(serde_json::json!({ "configOptions": conn.config_options }));
         }
-        Ok(serde_json::json!({ "configOptions": conn.config_options }))
+        unreachable!("the second pass never retries")
     }
 
     /// Query account-level usage/billing from the backend agent for a session
@@ -2530,6 +2554,8 @@ mod tests {
         for gone in [
             // claude-agent-acp: ACP's "resource not found", whatever its message says.
             agent_error(-32002, "Resource not found: sess_1", None),
+            // claude-agent-acp: a plain "Session not found", relayed as an internal error.
+            agent_error(-32603, "Internal error", Some("Session not found")),
             // codex-acp: invalid params that names the session.
             agent_error(-32602, "Invalid params: Unknown session: sess_1", None),
             agent_error(-32602, "INVALID PARAMS: UNKNOWN SESSION: sess_1", None),

@@ -14,7 +14,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -53,7 +53,7 @@ class QuestionOtherFixtureDeviceTest {
         screen {
             Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
                 for (question in listOf(deploy, plan)) {
-                    BotQuestionCard(question, onOpen = {}, onAnswer = { answers += it }, showsFrom = false)
+                    BotQuestionCard(question, onOpen = {}, onConnect = {}, onAnswer = { answers += it }, showsFrom = false)
                 }
             }
         }
@@ -73,7 +73,7 @@ class QuestionOtherFixtureDeviceTest {
         screen {
             Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
                 for (question in listOf(deploy, staging, plan)) {
-                    BotQuestionCard(question, onOpen = {}, onAnswer = { answers += it }, answersInPlace = true)
+                    BotQuestionCard(question, onOpen = {}, onConnect = {}, onAnswer = { answers += it }, answersInPlace = true)
                 }
             }
         }
@@ -90,7 +90,7 @@ class QuestionOtherFixtureDeviceTest {
 
     @Test fun anIntegrationQuestionChoosesCredentialsInTheInbox() {
         val github = BotQuestion("agent-ops", "Release ops",
-            InputRequest("q-github", "integration", "Select your own GitHub so I can open the PR as you.", null))
+            InputRequest("q-github", "integration", "Select your own GitHub so I can open the PR as you.", null, providers = listOf("github")))
         // One naming the member's own GitHub: answered by that alone, with no picker.
         val own = BotQuestion("agent-ops", "Release ops", InputRequest("q-own", "integration",
             "Connect your own GitHub so I can push as you.", null, credentials = listOf(CredentialRef("personal", "github"))))
@@ -108,6 +108,26 @@ class QuestionOtherFixtureDeviceTest {
         capture("inbox-integration")
         compose.onNodeWithText("Choose credentials").performClick()
         assertEquals(github, connecting)
+    }
+
+    @Test fun anIntegrationQuestionNamingNoProviderIsAnsweredWithItsOptionsOrWords() {
+        val play = BotQuestion("agent-ops", "Release ops", InputRequest("q-play", "integration",
+            "How should I handle Android releases stuck in Play review?", listOf("I'll check the Publishing overview", "Wait for it to go live")))
+        val answers = mutableListOf<String>()
+        screen {
+            Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
+                BotQuestionCard(play, onOpen = {}, onAnswer = { answers += it }, onConnect = {})
+            }
+        }
+        // No connector names Play Console: no picker that can't answer it, nor "answer it in the task".
+        compose.onAllNodesWithTag("bot-question-connect").assertCountEquals(0)
+        compose.onNodeWithText("Answer in the task").assertDoesNotExist()
+        compose.onAllNodesWithTag("bot-question-option").assertCountEquals(2)
+        compose.onNodeWithText("Other…").performClick()
+        compose.onNodeWithTag("bot-question-answer").performTextInput("Check the review status by hand")
+        compose.onNodeWithTag("bot-question-send").performClick()
+        compose.onNodeWithText("Wait for it to go live").performClick()
+        assertEquals(listOf("Check the review status by hand", "Wait for it to go live"), answers)
     }
 
     private fun screen(content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {

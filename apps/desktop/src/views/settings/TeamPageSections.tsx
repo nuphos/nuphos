@@ -1,11 +1,10 @@
-import { faPlus } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { ArrowLeft } from 'lucide-react'
+import { Plus as PlusIcon, ArrowLeft } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
 import { PageHeader } from '../../components/PageHeader'
 import { SearchBox } from '../../components/Toolbar'
 import { Button } from '../../components/ui/button'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { ToolbarSlotsContext } from '../../hooks/useToolbarControls'
 import { ToolbarPrimaryActionContext } from '../../hooks/useToolbarPrimaryAction'
 import { WorkspaceTabContext } from '../../hooks/useWorkspaceTab'
@@ -96,7 +95,7 @@ export function SettingsPageFrame({
             disabled={primaryAction.disabled}
             onClick={primaryAction.onClick}
           >
-            <FontAwesomeIcon icon={faPlus} className="h-3.5 w-3.5" />
+            <UiIcon size={16} icon={PlusIcon} className="h-4 w-4" />
             {primaryAction.label}
           </Button>
         )}

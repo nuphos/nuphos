@@ -41,7 +41,7 @@ final class NewBotFailureUITests: XCTestCase {
         let alert = app.alerts.firstMatch
         XCTAssertTrue(alert.waitForExistence(timeout: 5), "No alert after the chat failed to be made")
         shot("a-failed")
-        XCTAssertTrue(app.buttons["Switch page"].firstMatch.exists, "The list is no longer on screen")
+        XCTAssertTrue(app.tabBars.firstMatch.exists, "The list is no longer on screen")
 
         try madeChat()
         alert.buttons["Try again"].tap()
