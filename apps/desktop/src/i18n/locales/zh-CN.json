@@ -1,4 +1,5 @@
 {
+  "Getting started": "设置中",
   "\"{domain}\" will stop serving this Pages project.": "“{domain}”将不再为此 Pages 项目提供服务。",
   "\"{key}\" will be permanently deleted.": "“{key}”将被永久删除。",
   "\"{name}\" and all of its panels, snapshots, and alerts will be permanently deleted.": "“{name}”及其所有面板、快照和告警将被永久删除。",

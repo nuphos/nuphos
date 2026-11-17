@@ -1,4 +1,5 @@
 {
+  "Getting started": "Configuración inicial",
   "\"{domain}\" will stop serving this Pages project.": "\"{domain}\" dejará de servir este proyecto de Pages.",
   "\"{key}\" will be permanently deleted.": "\"{key}\" se eliminará de forma permanente.",
   "\"{name}\" and all of its panels, snapshots, and alerts will be permanently deleted.": "\"{name}\" y todos sus gráficos, instantáneas y alertas se eliminarán de forma permanente.",

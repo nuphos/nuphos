@@ -481,7 +481,7 @@ struct ChannelRow: View {
         let title = store.title(of: channel)
         let bot = channel.isChannel ? store.bot(of: channel) : nil
         let runs = bot.map { [$0] + store.threads(of: $0) } ?? []
-        let question = runs.lazy.compactMap { $0.inputRequests?.first?.question }.first
+        let question = runs.lazy.compactMap { $0.attentionInputRequests.first?.question }.first
         HStack(spacing: 12) {
             if channel.isChannel {
                 ChatIcon(faces: channel.faces ?? [], title: title, size: 36)

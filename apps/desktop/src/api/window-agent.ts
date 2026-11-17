@@ -103,6 +103,7 @@ export type WindowAgentApi = AgentDecisionApi & {
       archived?: 'exclude' | 'only'
       sort?: 'activity' | 'created' | 'archived'
       pendingDecision?: boolean
+      includeOnboarding?: boolean
       kind?: 'channel'
     },
   ): Promise<AgentConversationsPage>

@@ -37,6 +37,7 @@ export type InputRequest = ExplicitUserDecision & {
 export type ConversationInputRequests = {
   /** The open questions asked through request_user_decision. */
   inputRequests?: InputRequest[]
+  botOnboarding?: 'pending' | 'started' | 'completed'
   /** Answered questions whose agent could not run the answer yet. */
   waitingAnswers?: WaitingAnswer[]
 }
@@ -200,4 +201,13 @@ export function openInputRequests(
   return (conversation.inputRequests ?? [])
     .filter((request) => request.status === 'open' && !answering.has(request.id))
     .sort((a, b) => new Date(a.askedAt).getTime() - new Date(b.askedAt).getTime())
+}
+
+/** Setup preferences stay answerable in chat without becoming work attention. */
+export function attentionInputRequests(conversation: ConversationInputRequests): InputRequest[] {
+  const settingUp =
+    conversation.botOnboarding === 'pending' || conversation.botOnboarding === 'started'
+  return openInputRequests(conversation).filter(
+    (request) => !settingUp || request.category !== 'preference',
+  )
 }

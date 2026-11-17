@@ -146,6 +146,23 @@ async function prompt({ sessionId, prompt: parts }) {
   const channelId = /\(channelId ([^)]+)\)/.exec(text)?.[1]
 
   if (channelId) await answerChannel({ call, log, sessionId, channelId, text })
+  if (process.env.E2E_BOT_ONBOARDING && text.includes('The person just created you'))
+    await ask(sessionId, 'preference')
+  if (text.includes('E2E_ONBOARDING_COMPLETE')) {
+    const result = await call(sessionId, 'update_self', {
+      label: 'Save confirmed responsibilities',
+      instructions:
+        'Review release notes for the project and prepare a weekly summary. Ask before publishing.',
+      onboardingComplete: true,
+    })
+
+    log({
+      sessionId,
+      event: 'onboarding-complete',
+      isError: refused(result),
+      detail: JSON.stringify(result.result),
+    })
+  }
   // The thread's own prompt can carry its parent's words; only the parent starts one.
   if (text.includes('E2E_THREAD') && !text.includes('E2E_PERMISSION')) {
     await startThread(sessionId, marker)
