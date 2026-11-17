@@ -284,7 +284,7 @@ struct ChannelView: View {
                     teamId: channel.teamId,
                     questions: channel.questions,
                     onAnswer: { channel.answer(question, with: $0) },
-                    onSkip: { channel.skip(question) },
+                    onDismiss: { channel.dismiss(question) },
                     onLink: open(link:))
             }
         }

@@ -43,7 +43,7 @@ struct BotQuestion: Identifiable, Equatable, Sendable {
         return refs.map(\.id)
     }
 
-    /// The one-tap answers, possibly none, beside Skip; nil for a form, a secret or a connection,
+    /// The one-tap answers, possibly none, beside Dismiss; nil for a form, a secret or a connection,
     /// each answered in its own way. Every other open question is answered here, never elsewhere.
     var options: [String]? {
         guard form == nil, secretPart == nil, !connectable else { return nil }
@@ -144,6 +144,12 @@ enum BotQuestions {
         return (ids[(index + 1)...] + ids[..<index]).first
     }
 
+    /// The Inbox's questions at `now`: those not snoozed past it; with `snoozed`, only those, soonest back first.
+    static func inbox(_ list: [BotQuestion], now: Date, snoozed: Bool = false) -> [BotQuestion] {
+        let picked = list.filter { ($0.snoozedDate.map { $0 > now } ?? false) == snoozed }
+        return snoozed ? picked.sorted { $0.snoozedDate! < $1.snoozedDate! } : picked
+    }
+
     /// The viewer's own open questions in `rows`, oldest first: the Inbox's list.
     static func open(rows: [AgentConversation]) -> [BotQuestion] {
         var listed = Set<String>()
@@ -161,8 +167,13 @@ enum BotQuestions {
 
 extension BotQuestion {
     /// When it was asked, if the listing said.
-    var askedDate: Date? {
-        guard let raw = request.askedAt else { return nil }
+    var askedDate: Date? { Self.date(request.askedAt) }
+
+    /// When its owner snoozed it until, if they did.
+    var snoozedDate: Date? { Self.date(request.snoozedUntil) }
+
+    private static func date(_ raw: String?) -> Date? {
+        guard let raw else { return nil }
         let iso = ISO8601DateFormatter()
         iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return iso.date(from: raw) ?? ISO8601DateFormatter().date(from: raw)
@@ -187,5 +198,34 @@ struct DecisionAnswer: Equatable, Sendable {
         if let text { body["text"] = .string(text) }
         if let questions { body["questions"] = .array(questions.map(\.json)) }
         return .object(body)
+    }
+}
+
+/// When an Inbox question can be snoozed until, as on Desktop: an hour from now, tomorrow at 9:00
+/// and next Monday at 9:00, in local time. On a Sunday those last two are one, offered once.
+enum Snooze {
+    struct Time: Hashable {
+        let label: String
+        let until: Date
+    }
+
+    static func times(from now: Date, calendar: Calendar = .current) -> [Time] {
+        let today = calendar.startOfDay(for: now)
+        func at9(_ days: Int) -> Date {
+            calendar.date(bySettingHour: 9, minute: 0, second: 0, of: calendar.date(byAdding: .day, value: days, to: today)!)!
+        }
+        // Weekday 1 is Sunday: Monday is a day ahead of it, and a week ahead of a Monday.
+        let ahead = (9 - calendar.component(.weekday, from: now)) % 7
+        let tomorrow = at9(1), monday = at9(ahead == 0 ? 7 : ahead)
+        return [Time(label: String(localized: "1 hour"), until: now.addingTimeInterval(3_600)),
+                Time(label: String(localized: "Tomorrow, 9:00"), until: tomorrow)]
+            + (monday == tomorrow ? [] : [Time(label: String(localized: "Next Monday, 9:00"), until: monday)])
+    }
+
+    /// When a snoozed question comes back: its time today, else its weekday and time.
+    static func returnTime(_ date: Date, now: Date = .now) -> String {
+        Calendar.current.isDate(date, inSameDayAs: now)
+            ? date.formatted(.dateTime.hour().minute())
+            : date.formatted(.dateTime.weekday(.abbreviated).hour().minute())
     }
 }
