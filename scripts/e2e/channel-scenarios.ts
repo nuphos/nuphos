@@ -10,6 +10,35 @@ import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
 
+/** The composer in front: a Bot chat stays mounted, inert, behind the Bot's own page. */
+const composer = (page: Page) =>
+  page.locator(
+    "xpath=//*[contains(concat(' ', @class, ' '), ' composer-surface ')][not(ancestor::*[@inert])] >> visible=true",
+  )
+
+/** The composer's permission mode and model, as its two chips read. */
+async function composerSettings(page: Page) {
+  const modeChip = composer(page).getByRole('button', { name: 'Authorization mode' })
+  const mode = await modeChip.textContent()
+  const chip = composer(page).getByRole('button', { name: /^Model settings/ })
+  const model = await chip.getAttribute('aria-label')
+
+  return { full: Boolean(mode?.includes('Full')), model: model ?? '' }
+}
+
+/** Sets the composer's permission mode and model. */
+async function setComposerSettings(page: Page, full: boolean, model: string) {
+  await composer(page).getByRole('button', { name: 'Authorization mode' }).click()
+  await page.getByRole('menuitem', { name: full ? /^Full Access/ : /^Auto Mode/ }).click()
+  await composer(page)
+    .getByRole('button', { name: /^Model settings/ })
+    .click()
+  await page.getByRole('menuitemcheckbox', { name: new RegExp(model) }).click()
+  const name = new RegExp(`^Model settings: ${model}`)
+
+  await composer(page).getByRole('button', { name }).waitFor()
+}
+
 /** A computer whose Claude Code reports usage with its status, as Desktop's host does. */
 async function computerWithUsage(stack: Stack, label: string) {
   const deviceId = randomUUID()
@@ -170,6 +199,52 @@ export const channelScenarios: Scenario[] = [
       await row.getByText('POSTED E2E_DELIVERY:two').waitFor()
       await page.screenshot({ path: `${artifacts}/bot-row-idle-light.png` })
       await ownWords('After the turn')
+    },
+  },
+  {
+    // #3298: the Bot composer edits the Bot's own permission mode and model, as its page does.
+    name: "the Bot composer and the Bot's own page change the same permission mode and model",
+    run: async (page) => {
+      const chat = () => composer(page)
+
+      await page.evaluate(() => {
+        document.documentElement.classList.remove('dark')
+        document.documentElement.classList.add('light')
+      })
+      await page.getByRole('textbox', { name: 'Message' }).waitFor()
+      await page.waitForTimeout(1_000)
+      await chat().screenshot({ path: `${artifacts}/bot-controls-composer-light.png` })
+      const start = await composerSettings(page)
+
+      // From the chat: the Bot's page shows what was picked there.
+      await setComposerSettings(page, true, 'fixture-large')
+      // Its setup finished in the scenario before, so the Bot's page opens from the chat.
+      await page.getByRole('button', { name: 'Task', exact: true }).click()
+      await page.getByText('Back to conversation').waitFor()
+      await composer(page)
+        .getByRole('button', { name: /^Model settings: fixture-large/ })
+        .waitFor()
+      const onPage = await composerSettings(page)
+
+      if (!onPage.full) throw new Error(`The Bot's page shows ${JSON.stringify(onPage)}`)
+      // From the Bot's page: the chat shows what was picked there.
+      await setComposerSettings(page, false, 'fixture-small')
+      await page.getByText('Back to conversation').click()
+      await page.getByText('Back to conversation').waitFor({ state: 'hidden' })
+      await composer(page)
+        .getByRole('button', { name: /^Model settings: fixture-small/ })
+        .waitFor()
+      const inChat = await composerSettings(page)
+
+      await chat().screenshot({ path: `${artifacts}/bot-controls-composer-after-light.png` })
+      if (inChat.full) throw new Error(`The Bot chat shows ${JSON.stringify(inChat)}`)
+      // A saved mode is also the default for new chats: leave it as the scenarios after expect.
+      if (start.full !== inChat.full) {
+        const mode = start.full ? /^Full Access/ : /^Auto Mode/
+
+        await composer(page).getByRole('button', { name: 'Authorization mode' }).click()
+        await page.getByRole('menuitem', { name: mode }).click()
+      }
     },
   },
   {

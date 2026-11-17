@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { api } from '../../../api'
 import { t } from '../../../i18n/index.ts'
-import { track } from '../../../lib/analytics'
 import { readDefaultPermissionMode, writeDefaultPermissionMode } from '../../../lib/permissionMode'
 import { toast } from '../../ui/toast'
+
+import { saveBypass } from './sessionBypass'
+import { onSettingsChanged } from './sessionSettingsChanged'
 
 import type { PanelCtx } from './ctx'
 import type { PermissionMode } from '../../../lib/permissionMode'
@@ -61,21 +63,26 @@ export function usePanelPermissions(acc: Acc) {
   useEffect(() => {
     if (!activeSessionId || deferModeFetch) return
     let alive = true
+    const load = () =>
+      void api
+        .agentGetAutoModeBypass(activeSessionId)
+        .then(({ bypass }) => {
+          if (!alive) return
+          setBypassBySession((prev) =>
+            prev[activeSessionId] === bypass ? prev : { ...prev, [activeSessionId]: bypass },
+          )
+        })
+        .catch(() => {
+          // Unreachable or not-yet-created → the toggle simply doesn't render.
+        })
+    // Saved from another composer showing the same conversation, e.g. a Bot's chat.
+    const stop = onSettingsChanged(activeSessionId, load)
 
-    void api
-      .agentGetAutoModeBypass(activeSessionId)
-      .then(({ bypass }) => {
-        if (!alive) return
-        setBypassBySession((prev) =>
-          prev[activeSessionId] === bypass ? prev : { ...prev, [activeSessionId]: bypass },
-        )
-      })
-      .catch(() => {
-        // Unreachable or not-yet-created → the toggle simply doesn't render.
-      })
+    load()
 
     return () => {
       alive = false
+      stop()
     }
   }, [activeSessionId, activeTabHasMessages, activeTabStreaming, deferModeFetch])
   const applyDefaultPermissionMode = useCallback((mode: PermissionMode) => {
@@ -88,33 +95,14 @@ export function usePanelPermissions(acc: Acc) {
     },
     [applyDefaultPermissionMode],
   )
-  const applyBypass = useCallback(
-    (sessionId: string, next: boolean) => {
-      // Optimistic: the button flips immediately; revert on failure. The
-      // remembered mode for new conversations only follows a pick the server
-      // accepted — a failed toggle must not change what future chats start in.
-      setBypassBySession((prev) => ({ ...prev, [sessionId]: next }))
-      api.agentSetAutoModeBypass(sessionId, next).then(
-        () => {
-          applyDefaultPermissionMode(next ? 'bypass' : 'auto')
-          // Only after the server accepted it: a reverted toggle is not a
-          // decision, and recording the optimistic flip would overstate how
-          // often confirmation is actually handed over.
-          track('agent_permission_mode_changed', {
-            mode: next ? 'bypass' : 'auto',
-            session_id: sessionId,
-          })
-        },
-        (err: unknown) => {
-          setBypassBySession((prev) => ({ ...prev, [sessionId]: !next }))
-          toast.apiError(t('Could not update Full Access'), err, {
-            fallback: t('The change was not saved — please try again.'),
-          })
-        },
-      )
-    },
-    [applyDefaultPermissionMode],
-  )
+  const applyBypass = useCallback((sessionId: string, next: boolean) => {
+    // Optimistic: the button flips immediately; revert on failure.
+    setBypassBySession((prev) => ({ ...prev, [sessionId]: next }))
+    saveBypass(sessionId, next, {
+      saved: () => setDefaultPermissionMode(next ? 'bypass' : 'auto'),
+      failed: () => setBypassBySession((prev) => ({ ...prev, [sessionId]: !next })),
+    })
+  }, [])
   const selectBypassMode = useCallback(
     (bypass: boolean) => {
       const tab = tabsRef.current.find((t) => t.id === activeId)

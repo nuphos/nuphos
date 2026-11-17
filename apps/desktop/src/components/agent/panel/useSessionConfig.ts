@@ -5,10 +5,17 @@ import { api } from '../../../api'
 import { newChatChoiceKey, saveNewChatChoice, sentChatChoice } from './newChatChoice'
 import { namesNoModel, refreshLocalModels } from './refreshLocalModels'
 import { SessionConfigSync } from './sessionConfigSync'
+import { announceSettingsChanged, onSettingsChanged } from './sessionSettingsChanged'
 
 import type { SessionConfigSelection } from '../../../api/session-config-types'
 
-export type ModelSession = { sessionId: string; teamId: string; runtimeId?: string }
+export type ModelSession = {
+  sessionId: string
+  teamId: string
+  runtimeId?: string
+  /** Why the viewer may see the model but not change it. */
+  lockedHint?: string
+}
 
 export function useSessionConfig(session: ModelSession | undefined, streaming: boolean) {
   const [open, setOpen] = useState(false)
@@ -19,7 +26,12 @@ export function useSessionConfig(session: ModelSession | undefined, streaming: b
     () =>
       new SessionConfigSync({
         read: () => api.agentGetSessionConfig(sessionId!, teamId!),
-        write: (selection) => api.agentSetSessionConfig(sessionId!, teamId!, selection),
+        write: (selection) =>
+          api.agentSetSessionConfig(sessionId!, teamId!, selection).then((data) => {
+            announceSettingsChanged(sessionId!)
+
+            return data
+          }),
       }),
     [sessionId, teamId],
   )
@@ -32,14 +44,17 @@ export function useSessionConfig(session: ModelSession | undefined, streaming: b
   useEffect(() => {
     const refresh = () => void sync.refresh()
 
+    const stopChanged = sessionId ? onSettingsChanged(sessionId, refresh) : undefined
+
     window.addEventListener('focus', refresh)
     window.addEventListener('nuphos:conversation-runtime-moved', refresh)
 
     return () => {
+      stopChanged?.()
       window.removeEventListener('focus', refresh)
       window.removeEventListener('nuphos:conversation-runtime-moved', refresh)
     }
-  }, [sync])
+  }, [sync, sessionId])
   useEffect(() => {
     sync.setStreaming(streaming)
     if (open) void sync.refresh()

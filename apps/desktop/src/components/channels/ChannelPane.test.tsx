@@ -32,6 +32,7 @@ const neverResponds = () =>
     /* Unrelated API calls stay pending. */
   })
 const triggerQueries: unknown[][] = []
+const bypassQueries: unknown[] = []
 const pending = new Proxy(
   {},
   {
@@ -42,6 +43,11 @@ const pending = new Proxy(
           triggerQueries.push(args)
 
           return Promise.resolve([])
+        }
+        if (key === 'agentGetAutoModeBypass') {
+          bypassQueries.push(args[0])
+
+          return Promise.resolve({ bypass: true })
         }
 
         return neverResponds()
@@ -145,6 +151,10 @@ test('a listed Bot chat opens with its name, runtime and credentials before it l
   assert.ok(frames.at(-1)?.runtimeControl?.onSettings)
   frames.at(-1)?.runtimeControl?.onSettings?.()
   assert.equal(settingsOpened, 1)
+  // #3298: the composer edits the Bot's own permission mode and model, the ones its own page edits.
+  assert.deepEqual(bypassQueries, ['bot'], "reads the Bot's permission mode, not its chat's")
+  assert.equal(frames.at(-1)?.bypassControl?.active, true)
+  assert.equal(frames.at(-1)?.modelSession?.sessionId, 'bot')
 
   // The Bot's runtime line is the Task's: a runtime with quota data shows its usage in both.
   const quota: RuntimeQuota = {
@@ -181,6 +191,47 @@ test('a listed Bot chat opens with its name, runtime and credentials before it l
     assert.ok(line.querySelector('[role="progressbar"]'), `${name} composer shows usage`)
     await act(() => lineRoot.unmount())
   }
+  await act(() => root.unmount())
+  queryClient.clear()
+})
+
+test("a teammate's Bot chat shows its model locked and no permission mode", async () => {
+  queryClient.setQueryData<AgentConversation[]>(queryKeys.agentSessions('team'), [
+    row({
+      sessionId: 'chat',
+      kind: 'channel',
+      title: 'Ada',
+      faces: [{ id: 'bot', name: 'Ada', agent: {} }],
+    }),
+    row({ sessionId: 'bot', title: 'Ada', isOwner: false, runtimeId: 'runtime-1' }),
+  ])
+  frames.length = 0
+  bypassQueries.length = 0
+  const container = dom.document.createElement('div')
+
+  dom.document.body.append(container)
+  const root = createRoot(container as unknown as HTMLElement)
+
+  await act(() =>
+    root.render(
+      createElement(
+        QueryClientProvider,
+        { client: queryClient },
+        createElement(ChannelPane, {
+          teamId: 'team',
+          channelId: 'chat',
+          user: { id: 'me', name: 'Me' } as UserInfo,
+          dockOpen: false,
+          onOpenSession: () => {},
+        }),
+      ),
+    ),
+  )
+  // Only the owner may read or change a Bot's permission mode; everyone sees its model.
+  assert.deepEqual(bypassQueries, [])
+  assert.equal(frames.at(-1)?.bypassControl, undefined)
+  assert.equal(frames.at(-1)?.modelSession?.sessionId, 'bot')
+  assert.equal(frames.at(-1)?.modelSession?.lockedHint, 'Only the owner can change model settings.')
   await act(() => root.unmount())
   queryClient.clear()
 })

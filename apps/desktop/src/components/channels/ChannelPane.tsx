@@ -12,6 +12,7 @@ import { ChatColumn } from '../agent/panel/ChatColumn'
 import { Composer } from '../agent/panel/Composer'
 import { composerDraftKey } from '../agent/panel/composerDrafts'
 import { FileDropZone } from '../agent/panel/FileDropZone'
+import { useBypassControl } from '../agent/panel/sessionBypass'
 import { sessionDesktopsOf } from '../agent/panel/shells'
 import { useConversationRead } from '../agent/panel/useConversationRead'
 import { SessionParticipants } from '../agent/SessionParticipants'
@@ -89,6 +90,8 @@ export function ChannelPane({
   const botOwned = ownsBot(teamId, bot, user.id, detail && agents)
   const manage = fixes?.onOpenAgentSettings
   const control = useBotRuntimeControl(teamId, bot, botOwned, user, botState, refresh, manage)
+  // The Bot's own permission mode, the one its own page edits: never the chat's.
+  const bypassControl = useBypassControl(botOwned ? bot : undefined)
   const sessions = useAgentSessions(teamId).data
   const settingUp = sessions?.some((row) => row.sessionId === bot && botIsOnboarding(row))
   const taskAccess = useBotTaskAccess(teamId, bot, botOwned)
@@ -292,6 +295,7 @@ export function ChannelPane({
             placeholder={t('Message {name}', { name: title })}
             credentialSelector={questions.credentials}
             runtimeControl={control}
+            bypassControl={bypassControl}
           />
         </div>
       </ChatColumn>
