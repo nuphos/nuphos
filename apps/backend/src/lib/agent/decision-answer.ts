@@ -171,7 +171,7 @@ export async function dismissDecision(args: {
     teamId,
     [
       `Your question (requestId ${request.id}) was dismissed by ${by}: no answer is coming.`,
-      ...(reason ? [`Reason: ${reason}`] : []),
+      ...(reason ? [`Reason: ${JSON.stringify(reason)}`] : []),
       `Question: ${request.question}`,
       'Carry on without it as far as you can and say what you assumed. Do not ask it again unless something has changed.',
     ].join('\n'),

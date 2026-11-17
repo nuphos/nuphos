@@ -149,7 +149,7 @@ test('a dismissal passes its reason to the agent that asked', async () => {
   })
 
   expect(response.status).toBe(200)
-  expect(told[0]).toContain('Reason: Not this sprint.')
+  expect(told[0]).toContain('Reason: "Not this sprint."')
 })
 
 test('a dismissal reason that is not short text is refused, and the question stays open', async () => {
