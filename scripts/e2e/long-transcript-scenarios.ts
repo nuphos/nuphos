@@ -75,8 +75,12 @@ export const longTranscriptScenarios: Scenario[] = [
       const session = await sessionFor(stack, 'E2E_DELIVERY:long-0')
 
       storeHistory(stack.mongoUri, session.sessionId, session.userId)
-      // Reopened from the server, it shows its newest page.
-      await page.reload()
+      // Away and back, as a person returns to it: it catches up on what the server now holds.
+      await newTask(page)
+      await page
+        .locator('span.truncate', { hasText: 'Open the long history E2E_DELIVERY:long-0' })
+        .first()
+        .click()
       await page.getByText(filler(EARLIER - 1), { exact: true }).waitFor()
       // The turn ends with the stored tail of a transcript longer than it reads back.
       await send(page, 'After the long history E2E_DELIVERY:long-1')

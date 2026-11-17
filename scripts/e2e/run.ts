@@ -92,6 +92,7 @@ const scenarios: Scenario[] = [
       await page.getByText('ACK E2E_DELIVERY:first').waitFor()
     },
   },
+  ...longTranscriptScenarios,
   ...agentWordScenarios,
   {
     // The flow #2812 was reported in. Its race (a Stop during the queued turn's startup) is not reproduced.
@@ -242,8 +243,6 @@ const scenarios: Scenario[] = [
   ...dashboardScenarios,
   // It leaves the window split, then closes a pane.
   ...splitPaneScenarios,
-  // It reloads the window on a long conversation, which a Stop just after did not survive.
-  ...longTranscriptScenarios,
   // Last: this computer has Claude Code from then on.
   ...installScenarios,
 ]
