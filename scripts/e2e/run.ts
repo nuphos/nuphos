@@ -31,6 +31,7 @@ const scenarios: Scenario[] = [
       await page.locator('input[type=email]').fill('e2e..typo@example.com')
       await page.getByRole('button', { name: 'Continue with email' }).click()
       await page
+        .getByRole('region', { name: 'Notifications' })
         .getByText("That email address doesn't look right. Check it and try again.")
         .waitFor()
       await page.screenshot({ path: `${artifacts}/sign-in-invalid-email.png` })
