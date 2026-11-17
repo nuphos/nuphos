@@ -57,15 +57,12 @@ async function sessionFor(stack: Stack, marker: string) {
   return session
 }
 
-/** The open conversation's text, top to bottom. */
+// textContent: innerText leaves out off-screen messages never painted (content-visibility: auto).
 const transcript = (page: Page) =>
   page.evaluate(
     () =>
-      (
-        document
-          .querySelector('.user-message-bubble')
-          ?.closest('.flex.flex-col.gap-4') as HTMLElement | null
-      )?.innerText ?? '',
+      document.querySelector('.user-message-bubble')?.closest('.flex.flex-col.gap-4')
+        ?.textContent ?? '',
   )
 
 export const longTranscriptScenarios: Scenario[] = [
