@@ -15,6 +15,7 @@ import {
   requeueTurnQueue,
   retryQueuedTurn,
   sessionReleased,
+  waitingOutRefusal,
 } from './session-released'
 import { openSignInRequest, releaseWhenAskLapses } from './sign-in-request'
 import { withinOfflineGrace } from './turn-offline'
@@ -93,6 +94,12 @@ export async function startQueuedTurn(userId: string, sessionId: string): Promis
   try {
     const queue = await listPendingUserMessages(userId, sessionId)
     const next = queueHead(queue, userId)[0]
+
+    if (waitingOutRefusal(next)) {
+      retryQueuedTurn(userId, sessionId)
+
+      return
+    }
 
     // Someone was asked to sign its agent in: their sign-in starts it (sign-in-settle).
     const ask = next?.chat ? openSignInRequest(target) : null

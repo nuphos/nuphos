@@ -23,6 +23,8 @@ export function installQueuedTurnStarter(start: QueuedTurnStarter): void {
 
 const MIN_RETRY_MS = 2_000
 const MAX_RETRY_MS = 30_000
+const QUICK_REFUSALS = 3
+const REFUSED_WAIT_MS = 5 * 60_000
 const backoff = new Map<string, { timer?: ReturnType<typeof setTimeout>; delayMs: number }>()
 const backoffKey = (userId: string, sessionId: string) => `${userId}:${sessionId}`
 
@@ -91,12 +93,21 @@ export async function requeueTurnQueue(
 
     return
   }
+  const attempts = (queued.attempts ?? 0) + 1
+  // Each try reads the whole history. A runtime still refusing after a few quick
+  // ones is busy for minutes, so every replica's backstop and retry wait it out.
+  const retryAfter =
+    !queued.offlineSince && attempts >= QUICK_REFUSALS
+      ? new Date(Date.now() + REFUSED_WAIT_MS).toISOString()
+      : undefined
+
   retryQueuedTurn(userId, sessionId)
-  await requeuePendingAtHead(userId, sessionId, [
-    { ...queued, attempts: (queued.attempts ?? 0) + 1 },
-    ...carried,
-  ])
+  await requeuePendingAtHead(userId, sessionId, [{ ...queued, attempts, retryAfter }, ...carried])
 }
+
+/** Whether the queue's head is waiting out a runtime that kept refusing it. */
+export const waitingOutRefusal = (head: PendingUserMessage | undefined) =>
+  Date.parse(head?.retryAfter ?? '') > Date.now()
 
 // A rollout drops in-process retries. This re-finds queues nothing else will
 // start, at most once per session per interval and never while a retry waits.

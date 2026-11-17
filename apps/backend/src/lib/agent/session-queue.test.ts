@@ -889,6 +889,37 @@ test('a queued turn the runtime refuses after its check goes back to the front, 
   }
 })
 
+test('a queued turn refused again and again waits minutes, on every replica, before rereading its history', async () => {
+  installQueuedTurnStarter(startQueuedTurn)
+  installTurnRunner({
+    hasActiveAgentRunForSession: async () => false,
+    claimAgentRunForSession: async () => () => {
+      released++
+    },
+    runAgentForTrigger: async (args) => {
+      runs.push(args)
+      throw refusal('Running tools…')
+    },
+  })
+  try {
+    // Two quick refusals already; this try is the third.
+    await enqueuePendingUserMessage(OWNER, REFUSED, { ...agent('stuck'), attempts: 2 })
+    await startQueuedTurn(OWNER, REFUSED)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    const [head] = await listPendingUserMessages(OWNER, REFUSED)
+
+    expect(head?.attempts).toBe(3)
+    expect(Date.parse(head?.retryAfter ?? '') - Date.now()).toBeGreaterThan(4 * 60_000)
+
+    // Another replica's backstop or a release starts the queue: no turn runs.
+    await startQueuedTurn(OWNER, REFUSED)
+    expect(runs).toHaveLength(1)
+    expect(await refusedWaiting()).toHaveLength(1)
+  } finally {
+    await clearPendingUserMessages(OWNER, REFUSED)
+  }
+})
+
 test('a send held for a sign-in waits while the ask is open, and runs as its sender once settled', async () => {
   signInRequest = {
     runtimeId: 'managed-1',
