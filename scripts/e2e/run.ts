@@ -7,6 +7,7 @@ import { backendFailures, backendLines } from './backend-log.ts'
 import { channelScenarios } from './channel-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
+import { dashboardScenarios } from './dashboard-scenarios.ts'
 import { startDesktop } from './desktop.ts'
 import { artifacts, stopAll, until } from './processes.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
@@ -246,6 +247,8 @@ const scenarios: Scenario[] = [
       }
     },
   },
+  // Last: it removes a member from the team.
+  ...dashboardScenarios,
 ]
 
 let desktop: Desktop | undefined
