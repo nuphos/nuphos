@@ -99,6 +99,19 @@ export const botOnboardingScenarios: Scenario[] = [
       )
 
       console.log('E2E #3339 in-app list runtimeState', JSON.stringify(inApp))
+      console.log('E2E #3339 page url', page.url())
+      const chats = (
+        await api('GET', `/agent/conversations?teamId=${stack.teamId}&kind=channel&scope=mine`)
+      ).body as { conversations: { sessionId: string; faces?: { id: string }[] }[] }
+
+      console.log(
+        'E2E #3339 Bot chats',
+        JSON.stringify(
+          chats.conversations
+            .filter((c) => c.faces?.some((f) => f.id === bot.sessionId))
+            .map((c) => c.sessionId),
+        ),
+      )
       await page.waitForTimeout(1_500)
       if ((await page.getByText('Working outside this chat').count()) > 0)
         throw new Error("The Bot's chat pill says it works outside the chat it answers")
