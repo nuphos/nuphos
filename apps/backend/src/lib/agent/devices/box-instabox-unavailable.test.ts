@@ -44,5 +44,5 @@ test('a failed instabox call is a 503 that says what failed, without instabox’
 
   connect.mockRestore()
   expect(error).toMatchObject({ status: 503, code: 'box_unavailable' })
-  expect(error?.message).toBe('Could not pause the Box. Try again in a few minutes.')
+  expect(error?.message).toBe('Could not pause the computer. Try again in a few minutes.')
 })

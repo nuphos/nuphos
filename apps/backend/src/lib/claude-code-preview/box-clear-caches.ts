@@ -55,7 +55,7 @@ export async function requestBoxCacheClear(
     throw new AppError(
       409,
       'runtime_offline',
-      'The Box is offline. Open it, then clear its caches.',
+      'The computer is offline. Open it, then clear its caches.',
     )
   for (const id of hostAgents(ref, status))
     if (await deps.busy(teamId, id, actorId))

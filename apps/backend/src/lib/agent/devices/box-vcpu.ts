@@ -36,6 +36,6 @@ export function assertWithinLimit(
   throw new AppError(
     402,
     'box_vcpu_limit',
-    `This Box needs ${String(vcpus)} vCPU, and your team's running Boxes already use ${String(usedVcpus)} of its ${String(limit)}. Pause a Box or upgrade.`,
+    `This computer needs ${String(vcpus)} vCPU, and your team's running computers already use ${String(usedVcpus)} of the ${String(limit)} in its plan. Pause a computer or choose a bigger plan.`,
   )
 }
