@@ -86,7 +86,7 @@ test('an onboarding question is setup, while a real approval still needs attenti
 })
 
 test('a Bot in setup shows its work while a turn runs, and its setup only at rest', () => {
-  const setup = { botOnboarding: 'started' }
+  const setup = { botOnboarding: 'active' }
   const bot = run('bot', turn(), setup)
 
   assert.deepEqual(activityOf(bot, []), { kind: 'working', run: bot })
