@@ -1,7 +1,5 @@
 // Scenarios about a Bot reading its chat. They run in the Bot chat the scenario before opened.
-import { execFileSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { resolve } from 'node:path'
 
 import { agentEvents, agentLog } from './agent-log.ts'
 import { forgetComputer } from './computer-scenarios.ts'
@@ -11,27 +9,6 @@ import { newTask, send } from './ui.ts'
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
-
-const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
-const CHOOSE = "This Bot can't use any computers or credentials yet. Choose what it may use."
-
-/** The E2E Bot's stored credentialAccess. */
-function botAccess(stack: Stack): { sessionId: string; access: unknown } {
-  const script = `
-    import { MongoClient } from 'mongodb'
-    const client = await new MongoClient(process.argv[1]).connect()
-    const bots = client.db('nuphos_e2e').collection('agent_conversations')
-    const bot = await bots.findOne({ title: 'E2E Bot', avatar: { $exists: true } })
-    console.log(JSON.stringify({ sessionId: bot.sessionId, access: bot.credentialAccess ?? null }))
-    await client.close()`
-
-  return JSON.parse(
-    execFileSync('bun', ['-e', script, stack.mongoUri], {
-      cwd: BACKEND_DIR,
-      timeout: 10_000,
-    }).toString(),
-  ) as { sessionId: string; access: unknown }
-}
 
 /** A computer whose Claude Code reports usage with its status, as Desktop's host does. */
 async function computerWithUsage(stack: Stack, label: string) {
@@ -196,38 +173,48 @@ export const channelScenarios: Scenario[] = [
     },
   },
   {
-    // #3259: a Bot made with "+" stored no selection, so its picker showed every computer
-    // selected while the Bot could use none of them. It now shows none, and asks.
-    name: 'a Bot made with "+" can use nothing until its owner chooses, and its chat says so',
+    // #3319: a Bot's chat kept a name of its own, so a renamed Bot still showed its old one.
+    name: "renaming a Bot's chat renames the Bot, and every place it shows follows",
     run: async (page, stack) => {
-      const made = botAccess(stack)
+      const channelId = agentLog(stack).find((entry) => entry.event === 'channel')?.detail
+      const rename = async (title: string) => {
+        const response = await fetch(
+          `${stack.apiUrl}/agent/conversations/${channelId ?? ''}/title`,
+          {
+            method: 'PATCH',
+            headers: {
+              authorization: `Bearer ${stack.token}`,
+              'content-type': 'application/json',
+            },
+            body: JSON.stringify({ teamId: stack.teamId, title }),
+          },
+        )
 
-      if (made.access) throw new Error('"+" stored computers or credentials nobody chose')
-      await page.getByText(CHOOSE).waitFor()
-      await page.screenshot({ path: `${artifacts}/bot-choose-access-light.png` })
-      // Any choice saved, even of nothing, is the Bot's answer: the prompt goes.
-      const response = await fetch(
-        `${stack.apiUrl}/agent/conversations/${made.sessionId}/credentials`,
-        {
-          method: 'PATCH',
-          headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
-          body: JSON.stringify({ teamId: stack.teamId, credentialAccess: { deviceIds: [] } }),
-        },
-      )
+        if (!response.ok) throw new Error(`Renaming failed: ${String(response.status)}`)
+      }
 
-      if (!response.ok) throw new Error(`Saving a choice answered ${String(response.status)}`)
-      await page.reload()
-      await page.getByRole('button', { name: 'Computers' }).last().waitFor()
-      await until(
-        'the prompt to go once a choice is saved',
-        async () => (await page.getByText(CHOOSE).count()) === 0,
-      )
-      await page.screenshot({ path: `${artifacts}/bot-choose-access-chosen-light.png` })
-      // The picker shows what the Bot can use: the team-wide kinds, and nothing it was not given.
-      await page.getByRole('button', { name: 'Agent credentials' }).last().click()
-      await page.waitForTimeout(500)
-      await page.screenshot({ path: `${artifacts}/bot-access-picker-light.png` })
-      await page.keyboard.press('Escape')
+      if (!channelId) throw new Error('The Bot has not answered in its chat yet')
+      await rename('E2E Scout')
+      try {
+        const rows = page.locator('[data-sidebar-row]')
+
+        await rows.filter({ hasText: 'E2E Scout' }).first().waitFor()
+        await page.locator('.workspace-agent-titlebar').getByText('E2E Scout').first().waitFor()
+        await page.getByText('Message E2E Scout', { exact: true }).waitFor()
+        await page.locator('[data-post-id]').filter({ hasText: 'E2E Scout' }).first().waitFor()
+        await page.evaluate(() => {
+          document.documentElement.classList.remove('dark')
+          document.documentElement.classList.add('light')
+        })
+        await page.screenshot({ path: `${artifacts}/bot-renamed-light.png` })
+        const stale = await rows.filter({ hasText: 'E2E Bot' }).count()
+
+        if (stale > 0) throw new Error(`${String(stale)} sidebar rows still show the old name`)
+      } finally {
+        // Later scenarios find the Bot by its name.
+        await rename('E2E Bot')
+      }
+      await page.getByText('Message E2E Bot', { exact: true }).waitFor()
     },
   },
   {
