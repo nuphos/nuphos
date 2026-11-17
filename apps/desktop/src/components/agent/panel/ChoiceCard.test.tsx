@@ -100,6 +100,8 @@ test('the card leads with its question, answers with its buttons, and is snoozed
     )
     // They are option buttons like Wait, not small text beside the row.
     assert.equal(button('Snooze')?.className, button('Wait')?.className)
+    // So is "Other…": every way to deal with the question is a button of the same kind.
+    assert.equal(button('Other…')?.className, button('Wait')?.className)
     assert.equal(button('Dismiss')?.className, button('Wait')?.className)
     assert.equal(button('Snooze')?.parentElement, button('Wait')?.parentElement)
     // A viewer who is not its owner is offered no Snooze.

@@ -256,8 +256,9 @@ function ChoiceRow({
         ))}
         {typed && (
           <Button
-            variant={other ? 'secondary' : 'ghost'}
+            variant="secondary"
             size="sm"
+            className={other ? `${OPTION} !bg-state-hover` : OPTION}
             aria-expanded={other}
             onClick={() => onOther(!other)}
           >

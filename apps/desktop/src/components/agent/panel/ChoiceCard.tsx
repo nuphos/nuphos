@@ -144,9 +144,9 @@ export function ChoiceCard({
               ))}
               {typeable ? (
                 <Button
-                  variant="ghost"
+                  variant="secondary"
                   size="sm"
-                  className={clsx('px-3', typing && '!bg-state-hover !text-main')}
+                  className={clsx(OPTION, typing && '!bg-state-hover')}
                   aria-expanded={typing}
                   onClick={() => setTyping(!typing)}
                 >
