@@ -121,7 +121,14 @@ registerSignInRequestRoutes(teamScoped)
 registerClaudeCodeRuntimeRoutes(teamScoped, 'codex')
 registerClaudeCodeRuntimeRoutes(teamScoped)
 
-teamScoped.get('/usage', async (c) => c.json(await getTeamUsageSeries(c.get('teamId'))))
+teamScoped.get('/usage', async (c) =>
+  c.json(
+    await getTeamUsageSeries(c.get('teamId'), {
+      userId: c.get('userId'),
+      teamRole: c.get('teamRole'),
+    }),
+  ),
+)
 teamScoped.get('/agent-activity', zv('query', activityQuerySchema), async (c) =>
   c.json(await getTeamActivity(c.get('teamId'), c.req.valid('query').range)),
 )
@@ -131,7 +138,14 @@ teamScoped.get('/agent-stats', zv('query', statsQuerySchema), async (c) =>
   ),
 )
 // Read-only compatibility for saved dashboard scripts and older desktop clients.
-teamScoped.get('/billing/usage', async (c) => c.json(await getTeamUsageSeries(c.get('teamId'))))
+teamScoped.get('/billing/usage', async (c) =>
+  c.json(
+    await getTeamUsageSeries(c.get('teamId'), {
+      userId: c.get('userId'),
+      teamRole: c.get('teamRole'),
+    }),
+  ),
+)
 // The team's Box vCPU limit and use, for the Boxes section.
 teamScoped.get('/box-usage', async (c) => c.json(await boxUsageView(c.get('teamId'))))
 teamScoped.get(
