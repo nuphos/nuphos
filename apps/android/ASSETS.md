@@ -44,3 +44,16 @@ Exact source files (relative to `apps/ios/nuphos-ios/Assets.xcassets/Logos/`):
 
 Huawei currently has no matching mark in that iOS catalog and retains the explicit
 initials fallback. It is not represented by another provider’s logo.
+
+# Nuphos mark sources
+
+The single-color Napoleon mark in `app/src/main/res/drawable/ic_notification.xml`
+(notification small icon, 24 dp, 2 dp padding) and
+`app/src/main/res/drawable/app_icon_b2_monochrome.xml` (themed-icon layer of the
+default app icon B2, 108 dp, inside the 66 dp safe zone) was traced, not copied from the
+brand master vector. It was traced with Potrace from the alpha channel of the official
+single-color mark as published on [nuphos.ai/brand](https://nuphos.ai/brand) as a PNG
+(`nuphos-icon-mono-white`, threshold 128, curve tolerance 0.15 source pixels), then scaled and placed for each size. Both files
+keep that placement as a group transform around the traced path. Replace them with the
+master path if one becomes available. `apps/desktop/scripts/render-app-icons.mjs`
+references the monochrome layer but does not generate it.
