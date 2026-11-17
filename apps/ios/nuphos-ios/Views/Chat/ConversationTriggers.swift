@@ -36,7 +36,7 @@ struct ConversationTriggers: View {
                 if let failure { Text(failure).foregroundStyle(.red).accessibilityAddTraits(.updatesFrequently) }
                 if loading { ProgressView() }
                 if !loading && triggers.isEmpty && failure == nil {
-                    Text("Ask the agent to schedule recurring work in this conversation.").foregroundStyle(.secondary)
+                    Text("Ask the agent to schedule recurring work in this conversation.").foregroundStyle(Theme.body)
                 }
                 ForEach(triggers) { trigger in
                     Toggle(isOn: Binding(get: { trigger.enabled }, set: { enabled in
@@ -44,12 +44,12 @@ struct ConversationTriggers: View {
                     })) {
                         VStack(alignment: .leading, spacing: 5) {
                             Text(trigger.name)
-                            Text(trigger.schedule).font(.caption).foregroundStyle(.secondary)
-                            if !trigger.enabled { Text("Paused").font(.caption).foregroundStyle(.secondary) }
+                            Text(trigger.schedule).font(.caption).foregroundStyle(Theme.body)
+                            if !trigger.enabled { Text("Paused").font(.caption).foregroundStyle(Theme.body) }
                             else if let date = trigger.nextRun {
-                                Text("Next: \(date.formatted(date: .abbreviated, time: .shortened))").font(.caption).foregroundStyle(.secondary)
+                                Text("Next: \(date.formatted(date: .abbreviated, time: .shortened))").font(.caption).foregroundStyle(Theme.body)
                             } else {
-                                Text(trigger.triggerType == "webhook" ? "Waiting for webhook" : "No upcoming runs").font(.caption).foregroundStyle(.secondary)
+                                Text(trigger.triggerType == "webhook" ? "Waiting for webhook" : "No upcoming runs").font(.caption).foregroundStyle(Theme.body)
                             }
                         }
                     }

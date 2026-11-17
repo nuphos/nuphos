@@ -3,6 +3,7 @@ import { mock, test } from 'node:test'
 
 import {
   discoverModels,
+  MODEL_FIRST_READ_MS,
   MODEL_ON_DEMAND_MS,
   MODEL_REFRESH_MS,
   MODEL_RETRY_MS,
@@ -19,7 +20,7 @@ const catalog: LocalModelCatalog = {
   controls: {},
 }
 
-function setup(results: (LocalModelCatalog | Error)[]) {
+function setup(results: (LocalModelCatalog | Error)[], provider = 'codex') {
   let probes = 0
   let sent = 0
   const deps = {
@@ -30,7 +31,7 @@ function setup(results: (LocalModelCatalog | Error)[]) {
     },
   } as unknown as LocalRuntimeControllerDeps
   const current = { value: true }
-  const run = { provider: 'codex', env: {}, current: () => current.value } as LocalAgentRun
+  const run = { provider, env: {}, current: () => current.value } as LocalAgentRun
   const agent = { runtime: { port: 1 } } as unknown as Agent
 
   discoverModels(deps, run, agent, '/w', () => sent++)
@@ -232,6 +233,39 @@ test('an opened picker reads running agents again, at most once a minute', async
     mock.timers.tick(MODEL_ON_DEMAND_MS)
     assert.equal(await refreshRunningModels(), false)
     assert.equal(agent.probes.length, 3)
+  } finally {
+    mock.timers.reset()
+  }
+})
+
+test("Hermes's first read waits, so its daemon does not start beside the first conversation's", async () => {
+  mock.timers.enable({ apis: ['setTimeout'] })
+  try {
+    const { agent, probes } = setup([catalog], 'hermes')
+
+    await settle()
+    assert.equal(probes(), 0)
+    mock.timers.tick(MODEL_FIRST_READ_MS.hermes! - 1)
+    await settle()
+    assert.equal(probes(), 0)
+    mock.timers.tick(1)
+    await settle()
+    assert.equal(probes(), 1)
+    assert.deepEqual(agent.models, catalog)
+  } finally {
+    mock.timers.reset()
+  }
+})
+
+test('an opened picker reads a waiting Hermes at once', async () => {
+  mock.timers.enable({ apis: ['setTimeout'] })
+  try {
+    const { agent, probes } = setup([catalog], 'hermes')
+
+    await settle()
+    assert.equal(await refreshRunningModels(), true)
+    assert.equal(probes(), 1)
+    assert.deepEqual(agent.models, catalog)
   } finally {
     mock.timers.reset()
   }

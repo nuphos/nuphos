@@ -57,16 +57,21 @@ export function InboxView({
       ),
   )
   const open = rows ? openQuestion(rows, selected) : undefined
+  const openId = open?.request.id
   const at = open && rows ? rows.indexOf(open) : -1
 
+  // What opens stays open: a question listed later never takes its place.
+  useEffect(() => {
+    if (openId) selectInboxQuestion(teamId, openId)
+  }, [teamId, openId])
   useEffect(() => onLoading?.(all === null), [all, onLoading])
   useEffect(() => onCount?.(all?.length ?? 0), [all?.length, onCount])
 
   const move = useCallback(
     (row: InboxQuestion | undefined) => {
-      if (row && rows) selectInboxQuestion(teamId, { id: row.request.id, index: rows.indexOf(row) })
+      if (row) selectInboxQuestion(teamId, row.request.id)
     },
-    [teamId, rows],
+    [teamId],
   )
 
   // ↑ and ↓ open the question above or below, unless a field has the caret.
@@ -101,9 +106,7 @@ export function InboxView({
 
   const answer = (row: InboxQuestion, reply: DecisionAnswer) => {
     // The answered question leaves the list, and the one that takes its place opens.
-    const selection = { id: row.request.id, index: at }
-
-    selectInboxQuestion(teamId, selection)
+    move(rows?.at(at + 1) ?? rows?.at(at - 1))
     const undo = holdAnswer(teamId, row.conversation.sessionId, row.request.id, reply, (reason) =>
       toast.error(t('Could not send your answer'), reason),
     )
@@ -120,7 +123,7 @@ export function InboxView({
           label: t('Undo'),
           // Once sent, the answer stays: the question is not opened again.
           onClick: () => {
-            if (undo()) selectInboxQuestion(teamId, selection)
+            if (undo()) selectInboxQuestion(teamId, row.request.id)
           },
         },
       },

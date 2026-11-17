@@ -75,7 +75,7 @@ struct AgentThreadBadge: View {
                         .foregroundStyle(status == .needsInput ? Theme.warning : Theme.muted)
                         .fixedSize()
                 }
-                Image(systemName: "chevron.right")
+                LucideIcon("chevron-right")
                     .font(Theme.Text.micro.weight(.bold)).foregroundStyle(Theme.muted).opacity(0.35)
                 Spacer(minLength: 0)
             }
