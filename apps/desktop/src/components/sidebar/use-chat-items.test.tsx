@@ -29,6 +29,10 @@ async function rowsOf(rows: AgentConversation[]): Promise<Item[]> {
     window: dom,
     document: dom.document,
     navigator: dom.navigator,
+    location: dom.location,
+    HTMLElement: dom.HTMLElement,
+    Node: dom.Node,
+    Element: dom.Element,
     localStorage: dom.localStorage,
     IS_REACT_ACT_ENVIRONMENT: true,
   }
