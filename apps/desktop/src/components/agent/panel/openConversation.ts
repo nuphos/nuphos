@@ -8,7 +8,9 @@ import { toast } from '../../ui/toast'
 
 import { finalizeIncompleteTools } from './clientTools'
 import { openingAfterFailure } from './conversationUnavailable'
-import { reconcileStoredCredentialAccess, credentialSelectionSignature } from './credentialAccess'
+import { storedConversationCredentialAccess } from './conversationCredentialAccess'
+import { credentialSelectionSignature } from './credentialAccess'
+import { loadedCredentialOptions } from './loadedCredentialOptions'
 import { CONVERSATION_TAIL_LIMIT } from './model'
 import { fromPersistedMessages, transcriptSignature } from './persistence'
 import { retainOpenedTabs, touchOpenedTab } from './sessionContinuity'
@@ -99,10 +101,13 @@ export async function runOpenConversation(
   try {
     // The runtime probe is skipped unless a run needs confirming; the catch-up
     // poll fetches runtime state as soon as the tab is active.
-    const detail = await api.agentGetConversation(sessionId, teamId, {
-      tail: CONVERSATION_TAIL_LIMIT,
-      runtimeState: 'omit',
-    })
+    const [detail, options] = await Promise.all([
+      api.agentGetConversation(sessionId, teamId, {
+        tail: CONVERSATION_TAIL_LIMIT,
+        runtimeState: 'omit',
+      }),
+      loadedCredentialOptions(teamId, credentialOptions),
+    ])
 
     if (openGenerationRef.current !== generation) {
       // Superseded: clear our own spinner only — a newer open may have
@@ -132,10 +137,7 @@ export async function runOpenConversation(
     if (!activeRun) {
       replayBaseMessages = finalizeIncompleteTools(replayBaseMessages, INTERRUPTED_TOOL_MESSAGE)
     }
-    const credentialAccess = reconcileStoredCredentialAccess(
-      detail.credentialAccess,
-      credentialOptions,
-    )
+    const credentialAccess = storedConversationCredentialAccess(detail.credentialAccess, options)
     const activeStartedAt = activeRun?.startedAt ? Date.parse(activeRun.startedAt) : NaN
     const streamStartedAt = Number.isFinite(activeStartedAt) ? activeStartedAt : Date.now()
 

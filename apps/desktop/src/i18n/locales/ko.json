@@ -4689,6 +4689,7 @@
   "They can view and reply": "보기 및 답장이 가능합니다",
   "Thinking": "생각 중",
   "Thinking…": "생각 중…",
+  "This Bot can't use any computers or credentials yet. Choose what it may use.": "이 Bot은 아직 어떤 컴퓨터나 자격 증명도 사용할 수 없습니다. 사용할 수 있는 항목을 선택하세요.",
   "This Bot is not ready to move.": "이 봇은 아직 이동할 준비가 되지 않았습니다.",
   "This ConfigMap has no data keys.": "이 ConfigMap에는 데이터 키가 없습니다.",
   "This Loki datasource has no log streams — nothing has pushed logs to it yet.": "이 Loki 데이터 소스에는 로그 스트림이 없습니다. 아직 로그를 보낸 곳이 없습니다.",
