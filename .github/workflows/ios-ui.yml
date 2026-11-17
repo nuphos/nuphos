@@ -38,12 +38,13 @@ jobs:
           xcrun simctl boot "$udid"
           xcrun simctl bootstatus "$udid" -b > /dev/null
           xcrun simctl ui "$udid" appearance light
+          # The shell stops at the first failed command, so keep the test status for the end.
+          status=0
           xcodebuild test -project nuphos-ios.xcodeproj -scheme nuphos-ios -destination "id=$udid" \
             -parallel-testing-enabled NO -only-testing:nuphos-iosUITests \
-            -resultBundlePath "$RUNNER_TEMP/ui.xcresult" > "$RUNNER_TEMP/xcodebuild.log" 2>&1
-          status=$?
+            -resultBundlePath "$RUNNER_TEMP/ui.xcresult" > "$RUNNER_TEMP/xcodebuild.log" 2>&1 || status=$?
           xcrun xcresulttool get test-results tests --path "$RUNNER_TEMP/ui.xcresult" > "$RUNNER_TEMP/tests.json"
-          grep -E "^Test Case .*(passed|failed)|TEST (FAILED|SUCCEEDED)" "$RUNNER_TEMP/xcodebuild.log"
+          grep -E "^Test Case .*(passed|failed)|TEST (FAILED|SUCCEEDED)" "$RUNNER_TEMP/xcodebuild.log" || true
           exit "$status"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: ${{ !cancelled() }}
