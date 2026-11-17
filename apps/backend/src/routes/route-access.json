@@ -836,6 +836,7 @@
   "POST /teams/:teamId/instabox-accounts": "admin",
   "POST /teams/:teamId/instructions": "member",
   "POST /teams/:teamId/invitations": "admin",
+  "POST /teams/:teamId/invitations/:invitationId/resend": "admin",
   "POST /teams/:teamId/jira-sites/start-oauth": "admin",
   "POST /teams/:teamId/knowledge/contributions": "member",
   "POST /teams/:teamId/knowledge/issues": "member",
