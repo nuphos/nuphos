@@ -133,7 +133,8 @@ export const channelScenarios: Scenario[] = [
       })
       const answered = await shown(
         page,
-        page.getByText('POSTED E2E_DELIVERY:away', { exact: true }),
+        // The Bot's row in the sidebar shows the same post as its preview.
+        page.getByText('POSTED E2E_DELIVERY:away', { exact: true }).first(),
         150_000,
         'bot-away-answered-light.png',
       )
