@@ -6,9 +6,10 @@ import { join, resolve } from 'node:path'
 
 import { agentLog } from './agent-log.ts'
 import { backendLines, backendLog } from './backend-log.ts'
+import { boxScenarios } from './box-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { transferRefundScenarios } from './transfer-refund-scenarios.ts'
-import { newTask, send } from './ui.ts'
+import { newTask, openComputers, send } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
@@ -16,7 +17,7 @@ import type { Scenario } from './ui.ts'
 const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
 const OPENED = /"agent\.local_runtime\.tunnel_opened".*"device_id":"([^"]+)"/
 
-function forgetComputer(mongoUri: string, deviceId: string) {
+export function forgetComputer(mongoUri: string, deviceId: string) {
   const script = `
     import { MongoClient } from 'mongodb'
     const client = await new MongoClient(process.argv[1]).connect()
@@ -76,10 +77,11 @@ export const computerScenarios: Scenario[] = [
     run: async (_page, stack) => {
       let deviceId: string | undefined
 
+      // The app's tunnel opens first; computers other scenarios fake open theirs later.
       await until('the app to open its tunnel', async () => {
         deviceId = backendLog()
           .map((line) => OPENED.exec(line)?.[1])
-          .findLast(Boolean)
+          .find(Boolean)
 
         return deviceId
       })
@@ -211,12 +213,7 @@ export const computerScenarios: Scenario[] = [
       })
       host.send(JSON.stringify({ t: 'status', status: { agentInstances: true, agents: {} } }))
       try {
-        await page
-          .getByRole('button', { name: /^Search/ })
-          .first()
-          .click()
-        await page.keyboard.type('Computers')
-        await page.getByRole('option', { name: 'Computers' }).first().click()
+        await openComputers(page)
         await page.getByRole('button', { name: `New runtime on ${label}` }).click()
         await page.getByRole('menu').waitFor()
         // The menu fades in.
@@ -237,4 +234,5 @@ export const computerScenarios: Scenario[] = [
     },
   },
   ...transferRefundScenarios,
+  ...boxScenarios,
 ]
