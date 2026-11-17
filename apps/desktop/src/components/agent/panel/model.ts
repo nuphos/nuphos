@@ -88,6 +88,8 @@ export type Tab = {
   timelineEvents?: import('../../../api/agent-types').AgentTimelineEvent[]
   /** The runtime's guess at the next prompt; Tab accepts it. */
   promptSuggestion?: string | null
+  /** Answered questions still waiting for the agent, refreshed with every detail read. */
+  waitingAnswers?: import('../../../api/agent-types').AgentConversation['waitingAnswers']
   /** When this tab loaded the session; timeline events after it animate in. */
   openedAt?: number
   /** The server has stored this session: a frame of its run arrived, or it was

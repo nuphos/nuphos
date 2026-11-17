@@ -12,6 +12,7 @@ import { ChannelReplyFailed } from './ChannelReplyFailed'
 import { ChannelMessage } from './ChannelPost'
 import { sentSinceOpening, startsTimeGap, timeGapLabel } from './chatTime'
 import { Typing } from './ChannelTyping'
+import { useOpenAtPost } from './postJump'
 
 import type {
   AgentMessageReply,
@@ -54,6 +55,7 @@ const postedAt = (message: AgentPersistedMessage) =>
   stamp(parseMessageMetadata(message.metadata)?.sentAt ?? message.createdAt)
 
 export function ChannelMessages({
+  botId,
   messages,
   events,
   agents,
@@ -66,6 +68,7 @@ export function ChannelMessages({
   extraRows = [],
   fixes,
 }: {
+  botId?: string
   messages: AgentPersistedMessage[]
   events: AgentTimelineEvent[]
   agents: ChannelAgent[]
@@ -82,6 +85,8 @@ export function ChannelMessages({
   fixes?: ChannelFixes
 }) {
   const renderAgentLink = useAgentLinks(teamId, onOpenNuphosLink)
+
+  useOpenAtPost(channelId)
   // One function across renders: a new one makes every post rebuild its text,
   // which drops a selection the reader is dragging.
   const renderLink = useCallback(
@@ -177,7 +182,7 @@ export function ChannelMessages({
       {rows.map((row) => (
         <Fragment key={row.key}>{row.node}</Fragment>
       ))}
-      <Typing agents={agents} channelId={channelId} />
+      <Typing agents={agents} channelId={channelId} botId={botId} />
       {menu && onReply && (
         <ContextMenu
           x={menu.x}

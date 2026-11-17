@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { fileURLToPath } from 'node:url'
 
 const desktopLocales = new URL('../apps/desktop/src/i18n/locales/', import.meta.url)
-const iosCatalog = new URL('../apps/ios/nuphos-ios/Localizable.xcstrings', import.meta.url)
+const iosCatalog = new URL('../apps/ios/Shared/Localizable.xcstrings', import.meta.url)
 
 const androidRes = new URL('../apps/android/app/src/main/res/', import.meta.url)
 

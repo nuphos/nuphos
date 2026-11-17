@@ -20,7 +20,7 @@ export type SessionHeading = {
 export function useSessionHeading(selectedSessionId: string | null) {
   const [heading, setHeading] = useState<SessionHeading>({
     sessionId: null,
-    title: t('Agent'),
+    title: t('Task'),
     runtime: null,
   })
   const handleTitleChange = useCallback(
@@ -41,7 +41,7 @@ export function useSessionHeading(selectedSessionId: string | null) {
         saved,
         watching,
         runtimeId,
-        title: nextTitle || t('Agent'),
+        title: nextTitle || t('Task'),
         runtime: agentRuntime ?? null,
       })
     },
@@ -50,7 +50,7 @@ export function useSessionHeading(selectedSessionId: string | null) {
   const currentHeading: SessionHeading =
     heading.sessionId === selectedSessionId
       ? heading
-      : { sessionId: selectedSessionId, title: t('Agent'), runtime: null }
+      : { sessionId: selectedSessionId, title: t('Task'), runtime: null }
 
   return { currentHeading, handleTitleChange }
 }

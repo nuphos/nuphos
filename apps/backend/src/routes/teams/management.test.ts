@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { Hono } from 'hono'
 
 import { errorHandler } from '@/lib/errors'
+import { useAgentDeviceStore } from '@/lib/test/doubles/agent-devices-store'
 import { useIdentity } from '@/lib/test/doubles/identity'
 
 import type { TransferTeamOwnershipResult } from '@/lib/identity/team-roles'
@@ -39,6 +40,19 @@ useIdentity({
     )
   },
   transferTeamOwnership: (_teamId, newOwnerId) => Promise.resolve(TRANSFER_RESULTS[newOwnerId]!),
+  updateTeamMemberRole: (_teamId, _memberId, role) =>
+    Promise.resolve({ kind: 'updated', member: { ...MEMBER, role } } as never),
+})
+
+// Which team's cloud computers were looked up to close someone's open agents on them.
+const boxLookups: string[] = []
+
+useAgentDeviceStore({
+  listTeamBoxes: async (teamId: string) => {
+    boxLookups.push(teamId)
+
+    return []
+  },
 })
 
 const { registerTeamManagementRoutes } = await import('./management')
@@ -107,5 +121,22 @@ describe('POST /transfer-ownership', () => {
 
   test('rejects a malformed userId', async () => {
     expect((await transfer('not-an-id')).status).toBe(400)
+  })
+})
+
+describe('PATCH /members/:memberId', () => {
+  test('changing a role leaves what the person has open on the team’s computers alone', async () => {
+    boxLookups.length = 0
+    for (const role of ['EDITOR', 'VIEWER'] as const) {
+      const response = await createApp().request('/members/000000000000000000000009', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role }),
+      })
+
+      expect(response.status).toBe(200)
+    }
+    // Since #1391 a team role confers nothing on a computer: only its access list does.
+    expect(boxLookups).toEqual([])
   })
 })

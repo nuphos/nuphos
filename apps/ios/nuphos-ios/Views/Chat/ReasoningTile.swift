@@ -59,8 +59,8 @@ struct ReasoningTile: View {
 
     private func title(now: Date) -> String {
         let seconds = part.startedAt.map { Int((part.endedAt ?? now).timeIntervalSince($0)) } ?? 0
-        if isThinking { return seconds > 0 ? "Thinking \(seconds)s" : "Thinking" }
-        return seconds > 0 ? "Thought for \(seconds)s" : "Thought"
+        if isThinking { return seconds > 0 ? String(localized: "Thinking \(seconds)s") : String(localized: "Thinking") }
+        return seconds > 0 ? String(localized: "Thought for \(seconds)s") : String(localized: "Thought")
     }
 }
 

@@ -12,7 +12,6 @@ import { dashboardCadenceUpdate, setDashboardCadence } from '@/lib/dashboards/re
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
-import { requireTeamRole } from '@/middleware/auth'
 import {
   nuphosDashboards,
   dashboardPanelAlerts,
@@ -23,7 +22,8 @@ import { intersectTriggerCredentialAccess } from '@/lib/agent/trigger-credential
 import { resolveAgentCredentialAccess } from '@/routes/agent/credential-resolve'
 import { getAgentCredentialAccess, normalizeCredentialAccess } from '@/routes/agent-sessions/shared'
 
-import { cadenceSchema, loadDashboard } from './dashboards'
+import { loadDashboard, loadPanel, viewerOf } from './access'
+import { cadenceSchema } from './dashboards'
 import { appendScriptVersion, serializePanel, serializeSnapshot } from './serialize'
 
 import type { AgentCredentialAccess } from '@/lib/agent/db'
@@ -80,24 +80,6 @@ export async function panelCredentialAccess(
   return intersectTriggerCredentialAccess(requested ?? held, held)
 }
 
-export async function loadPanel(
-  teamIdRaw: string,
-  dashboardIdRaw: string,
-  panelIdRaw: string,
-): Promise<{ teamId: ObjectId; dashboard: NuphosDashboard; panel: DashboardPanel }> {
-  const teamId = parseObjectId(teamIdRaw, 'teamId')
-  const dashboardId = parseObjectId(dashboardIdRaw, 'dashboardId')
-  const panelId = parseObjectId(panelIdRaw, 'panelId')
-  const dashboard = await nuphosDashboards().findOne({ _id: dashboardId, teamId })
-
-  if (!dashboard) throw new AppError(404, 'dashboard_not_found', 'Dashboard not found')
-  const panel = await dashboardPanels().findOne({ _id: panelId, teamId, dashboardId })
-
-  if (!panel) throw new AppError(404, 'panel_not_found', 'Panel not found')
-
-  return { teamId, dashboard, panel }
-}
-
 const updatePanelSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   kind: panelKindSchema.optional(),
@@ -114,67 +96,68 @@ const snapshotListSchema = z.object({ limit: z.coerce.number().int().min(1).max(
 export function registerDashboardPanelRoutes(
   nuphosDashboardsRoutes: Hono<{ Variables: TeamAuthVariables }>,
 ): void {
-  nuphosDashboardsRoutes.post(
-    '/:dashboardId/panels',
-    requireTeamRole('ADMINISTRATOR', 'EDITOR'),
-    zv('json', createPanelSchema),
-    async (c) => {
-      const { teamId, dashboard } = await loadDashboard(c.get('teamId'), c.req.param('dashboardId'))
-      const input = c.req.valid('json')
-      const now = new Date()
-      const version: DashboardPanelScriptVersion = {
-        version: 1,
-        code: input.code,
-        codeHash: createHash('sha256').update(input.code).digest('hex'),
-        authoredBy: c.get('userId'),
-        createdAt: now,
-      }
-      const credentialAccess = await panelCredentialAccess(c, teamId, input.credentialAccess)
-      const doc: DashboardPanel = {
-        _id: new ObjectId(),
-        teamId,
-        dashboardId: dashboard._id,
-        title: input.title,
-        kind: input.kind,
-        scriptVersion: 1,
-        versions: [version],
-        ...(input.staticParams ? { staticParams: input.staticParams } : {}),
-        ...(credentialAccess ? { credentialAccess } : {}),
-        createdBy: c.get('userId'),
-        createdAt: now,
-        updatedAt: now,
-      }
+  nuphosDashboardsRoutes.post('/:dashboardId/panels', zv('json', createPanelSchema), async (c) => {
+    const { teamId, dashboard } = await loadDashboard(
+      c.get('teamId'),
+      c.req.param('dashboardId'),
+      viewerOf(c),
+      'edit',
+    )
+    const input = c.req.valid('json')
+    const now = new Date()
+    const version: DashboardPanelScriptVersion = {
+      version: 1,
+      code: input.code,
+      codeHash: createHash('sha256').update(input.code).digest('hex'),
+      authoredBy: c.get('userId'),
+      createdAt: now,
+    }
+    const credentialAccess = await panelCredentialAccess(c, teamId, input.credentialAccess)
+    const doc: DashboardPanel = {
+      _id: new ObjectId(),
+      teamId,
+      dashboardId: dashboard._id,
+      title: input.title,
+      kind: input.kind,
+      scriptVersion: 1,
+      versions: [version],
+      ...(input.staticParams ? { staticParams: input.staticParams } : {}),
+      ...(credentialAccess ? { credentialAccess } : {}),
+      createdBy: c.get('userId'),
+      createdAt: now,
+      updatedAt: now,
+    }
 
-      await dashboardPanels().insertOne(doc)
-      // Append to the dashboard layout so it renders on the canvas. Simple flow
-      // placement; the client can rearrange via PUT /:dashboardId.
-      const cadence = input.cadence ? dashboardCadenceUpdate(dashboard, input.cadence, now).set : {}
+    await dashboardPanels().insertOne(doc)
+    // Append to the dashboard layout so it renders on the canvas. Simple flow
+    // placement; the client can rearrange via PUT /:dashboardId.
+    const cadence = input.cadence ? dashboardCadenceUpdate(dashboard, input.cadence, now).set : {}
 
-      await nuphosDashboards().updateOne(
-        { _id: dashboard._id, teamId },
-        {
-          $push: { layout: { panelId: doc._id, x: 0, y: dashboard.layout.length, w: 12, h: 8 } },
-          $set: { updatedAt: now, ...cadence },
-        },
-      )
-      // Kick off the first run in the background and return immediately with the
-      // `running` snapshot — the client polls it to completion. Alert evaluation
-      // fires from the background completion.
-      const snapshot = await executePanel({ teamId, dashboard, panel: doc })
+    await nuphosDashboards().updateOne(
+      { _id: dashboard._id, teamId },
+      {
+        $push: { layout: { panelId: doc._id, x: 0, y: dashboard.layout.length, w: 12, h: 8 } },
+        $set: { updatedAt: now, ...cadence },
+      },
+    )
+    // Kick off the first run in the background and return immediately with the
+    // `running` snapshot — the client polls it to completion. Alert evaluation
+    // fires from the background completion.
+    const snapshot = await executePanel({ teamId, dashboard, panel: doc })
 
-      return c.json(serializePanel(doc, { ...dashboard, ...cadence }, snapshot), 201)
-    },
-  )
+    return c.json(serializePanel(doc, { ...dashboard, ...cadence }, snapshot), 201)
+  })
 
   nuphosDashboardsRoutes.put(
     '/:dashboardId/panels/:panelId',
-    requireTeamRole('ADMINISTRATOR', 'EDITOR'),
     zv('json', updatePanelSchema),
     async (c) => {
       const { teamId, dashboard, panel } = await loadPanel(
         c.get('teamId'),
         c.req.param('dashboardId'),
         c.req.param('panelId'),
+        viewerOf(c),
+        'edit',
       )
       const input = c.req.valid('json')
       const now = new Date()
@@ -235,29 +218,27 @@ export function registerDashboardPanelRoutes(
     },
   )
 
-  nuphosDashboardsRoutes.delete(
-    '/:dashboardId/panels/:panelId',
-    requireTeamRole('ADMINISTRATOR', 'EDITOR'),
-    async (c) => {
-      const { teamId, panel } = await loadPanel(
-        c.get('teamId'),
-        c.req.param('dashboardId'),
-        c.req.param('panelId'),
-      )
+  nuphosDashboardsRoutes.delete('/:dashboardId/panels/:panelId', async (c) => {
+    const { teamId, panel } = await loadPanel(
+      c.get('teamId'),
+      c.req.param('dashboardId'),
+      c.req.param('panelId'),
+      viewerOf(c),
+      'edit',
+    )
 
-      await Promise.all([
-        dashboardPanelSnapshots().deleteMany({ teamId, panelId: panel._id }),
-        dashboardPanelAlerts().deleteMany({ teamId, panelId: panel._id }),
-      ])
-      await dashboardPanels().deleteOne({ _id: panel._id, teamId })
-      await nuphosDashboards().updateOne(
-        { _id: panel.dashboardId, teamId },
-        { $pull: { layout: { panelId: panel._id } }, $set: { updatedAt: new Date() } },
-      )
+    await Promise.all([
+      dashboardPanelSnapshots().deleteMany({ teamId, panelId: panel._id }),
+      dashboardPanelAlerts().deleteMany({ teamId, panelId: panel._id }),
+    ])
+    await dashboardPanels().deleteOne({ _id: panel._id, teamId })
+    await nuphosDashboards().updateOne(
+      { _id: panel.dashboardId, teamId },
+      { $pull: { layout: { panelId: panel._id } }, $set: { updatedAt: new Date() } },
+    )
 
-      return c.body(null, 204)
-    },
-  )
+    return c.body(null, 204)
+  })
 
   nuphosDashboardsRoutes.get(
     '/:dashboardId/panels/:panelId/snapshots',
@@ -267,6 +248,8 @@ export function registerDashboardPanelRoutes(
         c.get('teamId'),
         c.req.param('dashboardId'),
         c.req.param('panelId'),
+        viewerOf(c),
+        'read',
       )
       const { limit } = c.req.valid('query')
       const rows = await dashboardPanelSnapshots()
@@ -284,6 +267,8 @@ export function registerDashboardPanelRoutes(
       c.get('teamId'),
       c.req.param('dashboardId'),
       c.req.param('panelId'),
+      viewerOf(c),
+      'read',
     )
     const sid = parseObjectId(c.req.param('snapshotId'), 'snapshotId')
     const snapshot = await dashboardPanelSnapshots().findOne({

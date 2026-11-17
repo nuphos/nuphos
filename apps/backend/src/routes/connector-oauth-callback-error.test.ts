@@ -21,6 +21,8 @@ function pending(name: string) {
 
   return () =>
     ({
+      // Reading which attempt the error belongs to is fine; changing it is not.
+      findOne: () => Promise.resolve(null),
       deleteOne: record('deleteOne'),
       deleteMany: record('deleteMany'),
       findOneAndDelete: record('findOneAndDelete'),

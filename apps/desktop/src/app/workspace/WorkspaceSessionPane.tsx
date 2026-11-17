@@ -100,7 +100,7 @@ export function WorkspaceSessionPane({
             onOpenNuphosLink={ws.stableOpenNuphosLinkFromChat}
             fixes={{
               isTeamAdmin: ws.currentTeam?.role === 'ADMINISTRATOR',
-              onOpenAgentSettings: () => ws.openSettingsSection('workspace.agent'),
+              onOpenAgentSettings: () => ws.openSettingsSection('workspace.computers'),
             }}
           />
         </main>

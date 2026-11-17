@@ -29,11 +29,24 @@ let lastProgressAt = 0
 /** The version the last restart was meant to install, when the app came back older. */
 let failedVersion: string | null = null
 
+const watchers = new Set<() => void>()
+
 function setUpdaterState(next: UpdaterState) {
   updaterState = next
   for (const win of BrowserWindow.getAllWindows()) {
     win.webContents.send('updater:status', next)
   }
+  for (const watcher of watchers) watcher()
+}
+
+/** Calls `changed` on every state change, download progress included. */
+export function watchUpdater(changed: () => void) {
+  watchers.add(changed)
+}
+
+/** The staged update, and whether the last restart into it came back on the old version. */
+export function readyUpdate(): { failedBefore: boolean } | null {
+  return updaterState.kind === 'ready' ? { failedBefore: updaterState.installerUrl !== null } : null
 }
 
 export function getUpdaterState(): UpdaterState {
@@ -147,11 +160,7 @@ export function startUpdatePolling() {
   if (isDev || updaterCheckTimer) return
   checkForUpdates()
   updaterCheckTimer = setInterval(checkForUpdates, 5 * 60 * 1000)
-  startAutoInstall({
-    ready: () =>
-      updaterState.kind === 'ready' ? { failedBefore: updaterState.installerUrl !== null } : null,
-    install: installUpdate,
-  })
+  startAutoInstall({ ready: readyUpdate, install: installUpdate })
 }
 
 export function stopUpdatePolling() {

@@ -11,7 +11,7 @@ import { CredentialSelectorButton } from './CredentialSelectorButton'
 import { ModelSelector } from './ModelSelector'
 import { runtimeSendRefusal } from './queuedAutoSend'
 import { AgentStatusBanner, ReadOnlyConversationNotice } from './ReadOnlyNotice'
-import { runtimeControlSendBlock, runtimeGone } from './runtimeControlSignOut'
+import { runtimeControlSendBlock, shouldSwitchAgent } from './runtimeControlSignOut'
 import { RuntimeSelector } from './RuntimeSelector'
 import { useComposerActions } from './useComposerActions'
 import { useComposerDraft } from './useComposerDraft'
@@ -117,7 +117,7 @@ export function Composer({
   const [agentMenuOpen, setAgentMenuOpen] = useState(false) // the banner can open it
   const agentMenuRequested = useAgentMenuRequested(runtimeControl?.sessionId)
   const switchAgent =
-    newChat || runtimeGone(runtimeControl) ? () => setAgentMenuOpen(true) : undefined
+    newChat || shouldSwitchAgent(runtimeControl) ? () => setAgentMenuOpen(true) : undefined
   const sendBlocked = Boolean(runtimeSendBlock ?? agentSendBlock) || modelControl.saving
   const state = useComposerState({
     hero,

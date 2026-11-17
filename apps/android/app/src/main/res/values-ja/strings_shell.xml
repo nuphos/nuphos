@@ -57,9 +57,6 @@
     <string name="shell_request_code_in">%1$d 秒後に別のコードをリクエストできます。</string>
     <string name="shell_use_email_code">メールのコードを使用する</string>
     <string name="shell_use_password">パスワードを使用する</string>
-    <string name="shell_terms_agreement">続行すると、%1$sと%2$sに同意したことになります。</string>
-    <string name="shell_terms_of_service">利用規約</string>
-    <string name="shell_privacy_policy">プライバシーポリシー</string>
     <string name="shell_email_code_field">6 桁のメールコード</string>
     <string name="shell_auth_cleanup_failed">保存済みの下書きを削除できませんでした。ストレージを確認してから、もう一度お試しください。</string>
     <string name="shell_auth_signed_out_cleanup_failed">サインアウトしましたが、保存済みの下書きを削除できませんでした。アプリを閉じる前にストレージを確認してください。</string>
@@ -141,6 +138,7 @@
     <string name="shell_notification_open_history">タスクの履歴を開く</string>
     <string name="shell_notification_open_update">Nuphos を開いて更新を確認</string>
     <string name="shell_notification_reply">返信</string>
+    <string name="shell_notification_you">あなた</string>
     <string name="shell_notification_message">メッセージ</string>
     <string name="shell_notification_reply_not_sent">返信を送信できませんでした</string>
     <string name="shell_voice_input">音声入力</string>
@@ -153,7 +151,6 @@
     <string name="shell_voice_prompt_save_failed">プロンプトを保存できませんでした。</string>
     <string name="shell_voice_prompt">文字起こしのプロンプト</string>
     <string name="shell_voice_reset_prompt">プロンプトをリセット</string>
-    <string name="shell_voice_prompt_help">プロンプトは表記や文体の目安になります。録音は Nuphos を通じて OpenAI が文字起こしします。</string>
     <string name="shell_desktop">デスクトップ</string>
     <string name="shell_desktop_decode_failed">このデスクトップをデコードできませんでした。再試行して新しい接続を開始してください。</string>
     <string name="shell_desktop_connecting">接続中…</string>

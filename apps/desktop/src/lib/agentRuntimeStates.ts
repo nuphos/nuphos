@@ -31,9 +31,14 @@ export function publishRuntimeStates(states: Iterable<readonly [string, RuntimeE
   const next = new Map(snapshot)
   let changed = false
 
-  for (const [sessionId, state] of states) {
-    if (fromRetiredEpoch(sessionId, state)) continue
+  for (const [sessionId, reading] of states) {
+    if (fromRetiredEpoch(sessionId, reading)) continue
     const current = next.get(sessionId)
+    // A run's frames leave the slash commands out until they change.
+    const state =
+      reading.commands === undefined && current?.commands
+        ? { ...reading, commands: current.commands }
+        : reading
     const selected = acceptRuntimeSnapshot(current, state)
 
     if (selected === current) continue

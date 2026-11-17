@@ -32,13 +32,14 @@ struct InboxPage: View {
                 // On iPhone the list's selection pushes the question. Wide, a tap opens it beside the
                 // list, and its fill marks it: the system's selection would ring it on iPad.
                 List(selection: wide ? nil : Bindable(inbox).selected) {
-                    ForEach(inbox.groups, id: \.[0].sessionId) { group in
+                    ForEach(inbox.groups, id: \.[0].sourceId) { group in
                         Section {
                             ForEach(group) { question in
                                 HStack(spacing: 8) {
-                                    Text(question.request.question)
+                                    // A Bot's group names the Task that asked after the question, as on Desktop.
+                                    (Text(question.request.question).foregroundStyle(Theme.heading)
+                                        + Text(verbatim: question.bot == nil ? "" : " · \(question.title)").foregroundStyle(Theme.faint))
                                         .font(.system(size: 15))
-                                        .foregroundStyle(Theme.heading)
                                         .lineLimit(1)
                                         .truncationMode(.tail)
                                     // On iPhone a row pushes its question.
@@ -115,8 +116,8 @@ struct InboxSource: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            AgentAvatar(agentId: question.sessionId, runtime: question.runtime, size: 18, showBadge: false)
-            Text(question.title)
+            AgentAvatar(agentId: question.sourceId, runtime: question.bot?.agentRuntime ?? question.runtime, size: 18, showBadge: false)
+            Text(question.bot?.displayTitle ?? question.title)
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Theme.body)
                 .lineLimit(1)

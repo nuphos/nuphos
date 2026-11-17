@@ -41,7 +41,7 @@ import {
   revokeAgentDeviceCredential,
   upsertAgentDevice,
 } from '@/lib/agent/devices/store'
-import { boxDesktops, computerDesktopRuntimeId } from '@/lib/claude-code-preview/session-desktops'
+import { boxDesktops, ownComputer } from '@/lib/claude-code-preview/session-desktops'
 import { AppError } from '@/lib/errors'
 import { getTeamMembers } from '@/lib/identity'
 import { zv } from '@/lib/validate'
@@ -96,7 +96,7 @@ export type AgentDeviceRouteDependencies = {
   listDeviceExecAudit: typeof listDeviceExecAudit
   conversationTitlesFor: (sessionIds: string[]) => Promise<Map<string, string>>
   boxDesktops: typeof boxDesktops
-  computerDesktopRuntimeId: typeof computerDesktopRuntimeId
+  ownComputer: typeof ownComputer
   issueJoinToken: typeof issueDeviceJoinToken
   revokeCredential: (userId: string, deviceId: string) => Promise<boolean>
   disconnect: (userId: string, deviceId: string) => Promise<void>
@@ -143,7 +143,7 @@ const defaultDependencies: AgentDeviceRouteDependencies = {
   listDeviceExecAudit,
   conversationTitlesFor,
   boxDesktops,
-  computerDesktopRuntimeId,
+  ownComputer,
   listDevices: listAgentDevicesForUser,
   isOnline: isDevicePresent,
   deleteDevice: deleteAgentDevice,
@@ -174,7 +174,7 @@ export function createAgentDeviceRoutes(deps: AgentDeviceRouteDependencies = def
     const registration = c.req.valid('json')
 
     if ((await deps.getAgentDevice(c.get('userId'), registration.deviceId))?.box)
-      throw new AppError(409, 'device_is_box', 'A Box is not registered from a computer')
+      throw new AppError(409, 'device_is_box', 'A cloud computer is not registered this way')
     await deps.upsertAgentDevice(c.get('userId'), registration)
 
     return c.json({ ok: true })
@@ -229,7 +229,7 @@ export function createAgentDeviceRoutes(deps: AgentDeviceRouteDependencies = def
       const device = await deps.getAgentDevice(userId, deviceId)
 
       if (!device) throw new AppError(404, 'device_not_found', 'Device is not registered')
-      if (device.box) throw new AppError(400, 'device_is_box', 'Delete a Box with its Box delete')
+      if (device.box) throw new AppError(400, 'device_is_box', 'Use Delete for a cloud computer')
       if (await deps.isOnline(userId, deviceId))
         throw new AppError(409, 'device_online', 'Quit Nuphos on this computer first')
       // Forgotten before the delete, so a failure here leaves the computer registered and

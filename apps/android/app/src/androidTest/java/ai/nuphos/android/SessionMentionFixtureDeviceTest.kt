@@ -6,7 +6,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -39,7 +39,6 @@ class SessionMentionFixtureDeviceTest {
     private var sends = 0
 
     @Before fun isolate() {
-        assumeTrue("Separate fixture package required", instrumentation.targetContext.packageName in setOf("ai.nuphos.android.mentionfixture", "ai.nuphos.android.contentinput1337"))
         val app = instrumentation.targetContext.applicationContext as NuphosApplication
         assertNull("Fixture must not have credentials", app.tokenStore.read())
         store = AgentStore("synthetic-no-credentials", instrumentation.targetContext)
@@ -88,7 +87,7 @@ class SessionMentionFixtureDeviceTest {
         compose.runOnIdle { dark = true }
         snap("synthetic-mention-dark")
         compose.onNodeWithText("Synthetic project notes").performClick()
-        field().assertTextEquals("context\nhttps://nuphos.ai/teams/$team/agent/synthetic-session ")
+        field().assertTextEquals("context\n@Synthetic project notes ")
         compose.onNodeWithText("Synthetic project notes").assertDoesNotExist()
         assertEquals(0, sends)
         field().performTextReplacement("email@example.com")
@@ -151,7 +150,7 @@ class SessionMentionFixtureDeviceTest {
         compose.onNodeWithText("Fresh $team").assertDoesNotExist()
         compose.waitUntil(5000) { calls.contains("507f1f77bcf86cd799439012:next") }
         compose.onNodeWithText("Fresh 507f1f77bcf86cd799439012").performClick()
-        field().assertTextEquals("https://nuphos.ai/teams/507f1f77bcf86cd799439012/agent/fresh ")
+        field().assertTextEquals("@Fresh 507f1f77bcf86cd799439012 ")
         assertEquals(0, sends)
     }
 }

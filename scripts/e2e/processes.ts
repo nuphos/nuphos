@@ -29,14 +29,26 @@ export async function freePorts(count: number): Promise<number[]> {
   return ports
 }
 
+// Retries `check` until it is truthy. It may throw while what it waits for is starting;
+// a timeout reports the error of its last attempt, if that attempt threw.
 export async function until(label: string, check: () => Promise<unknown>, timeoutMs = 60_000) {
   const deadline = Date.now() + timeoutMs
+  let failure: unknown
 
   while (Date.now() < deadline) {
-    if (await check().catch(() => false)) return
+    failure = undefined
+    const passed = await check().then(Boolean, (error: unknown) => {
+      failure = error
+
+      return false
+    })
+
+    if (passed) return
     await new Promise((resolve) => setTimeout(resolve, 250))
   }
-  throw new Error(`Timed out waiting for ${label}; logs are in ${artifacts}`)
+  const last = failure instanceof Error ? ` (last error: ${failure.message})` : ''
+
+  throw new Error(`Timed out waiting for ${label}${last}; logs are in ${artifacts}`)
 }
 
 type SpawnOptions = { cwd?: string; env?: Record<string, string> }
@@ -65,7 +77,7 @@ export function spawn(name: string, command: string[], options: SpawnOptions = {
   return child
 }
 
-function signalGroup(child: ChildProcess, signal: NodeJS.Signals | 0): boolean {
+export function signalGroup(child: ChildProcess, signal: NodeJS.Signals | 0): boolean {
   try {
     return process.kill(-child.pid!, signal)
   } catch {

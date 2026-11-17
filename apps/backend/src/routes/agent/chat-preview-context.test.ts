@@ -55,6 +55,12 @@ beforeEach(() => {
   clearFails = false
 })
 
+test('a phone turn stores that it draws the secure input card, and no Desktop-tool capability', async () => {
+  await persistPreviewTurnContext({ ...turn(false), secretCardEnabled: true }, 'req-1')
+
+  expect(written).toEqual([{ activeTurnKey: 'req-1', activeTurnOrigin: 'user', secretCard: true }])
+})
+
 test('a capable turn stores the Desktop-tool capability', async () => {
   await persistPreviewTurnContext(turn(true), 'req-1')
 

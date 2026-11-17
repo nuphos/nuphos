@@ -1,4 +1,7 @@
+import { withShare } from './binding-access'
 import { call } from './client'
+
+import type { BindingShare } from './binding-access'
 
 export type BetterStackIntegration = {
   id: string
@@ -100,15 +103,19 @@ export async function bindBetterStackIntegration(
   label: string,
   uptimeApiToken: string | null,
   telemetryApiToken: string | null,
+  share?: BindingShare,
 ): Promise<BetterStackIntegration> {
   return call<BetterStackIntegration>(
     'POST',
     `/teams/${teamId}/betterstack-integrations`,
-    {
-      label,
-      ...(uptimeApiToken ? { uptimeApiToken } : {}),
-      ...(telemetryApiToken ? { telemetryApiToken } : {}),
-    },
+    withShare(
+      {
+        label,
+        ...(uptimeApiToken ? { uptimeApiToken } : {}),
+        ...(telemetryApiToken ? { telemetryApiToken } : {}),
+      },
+      share,
+    ),
     { retry: false },
   )
 }

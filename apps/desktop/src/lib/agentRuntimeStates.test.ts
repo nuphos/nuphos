@@ -77,3 +77,18 @@ test('a resting reading in between does not let the retired process back in', ()
 
   assert.equal(runtimeStateOf(session)?.epoch, 'b')
 })
+
+// A run's frames carry the slash commands only when they change; a snapshot
+// without them keeps the list this session already has.
+test('a snapshot without commands keeps the ones the session already has', () => {
+  const session = 'commands-once'
+  const help = [{ name: 'help', description: 'Show help' }]
+
+  publishRuntimeStates([
+    [session, { schemaVersion: 2, state: 'active', epoch: 'e', revision: 1, commands: help }],
+  ])
+  publishRuntimeStates([[session, { schemaVersion: 2, state: 'active', epoch: 'e', revision: 2 }]])
+
+  assert.equal(runtimeStateOf(session)?.revision, 2)
+  assert.deepEqual(runtimeStateOf(session)?.commands, help)
+})

@@ -4,6 +4,15 @@ import { randomUUID } from 'node:crypto'
 import { appendFileSync, existsSync } from 'node:fs'
 import { createInterface } from 'node:readline'
 
+import { nuphosApplyRuntimeDefaults } from '../../apps/runtime/image/runtime-defaults.mjs'
+
+import { answerChannel } from './fixture-channel.mjs'
+import { listCommands } from './fixture-commands.mjs'
+import { hop, inherit } from './fixture-hop.mjs'
+import { call, callNamed, setToolsServer, toolsServer } from './fixture-mcp.mjs'
+import { applySetting } from './fixture-settings.mjs'
+import { refuse } from './fixture-turn-refusals.mjs'
+
 const send = (message) =>
   process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', ...message })}\n`)
 // Every entry names the agent host it ran on, which is what tells two runtimes apart.
@@ -14,79 +23,11 @@ const log = (entry) =>
   )
 // A prompt containing E2E_HOLD stays in its turn until the client cancels it.
 const held = new Map()
-// The Nuphos tools server each session was given, when the backend offers one.
-const tools = new Map()
 // Requests this agent made of its client, waiting for their answers. OpenAB reads ids as numbers.
 const asked = new Map()
 let nextRequest = 1_000_000
 // The thread E2E_THREAD started last, for E2E_POKE to message.
 let thread
-// Each session's model settings, as a real agent reports and changes them.
-const settings = new Map()
-const choice = (value) => ({ value, name: value })
-const newSettings = () => [
-  {
-    id: 'model',
-    name: 'Model',
-    category: 'model',
-    type: 'select',
-    currentValue: 'fixture',
-    options: [choice('fixture')],
-  },
-  {
-    id: 'fast',
-    name: 'Fast',
-    type: 'select',
-    currentValue: 'off',
-    options: [choice('off'), choice('on')],
-  },
-]
-
-function applySetting(sessionId, id, value) {
-  const list = settings.get(sessionId) ?? newSettings()
-  const option = list.find((candidate) => candidate.id === id)
-
-  if (option?.options.some((candidate) => candidate.value === value)) option.currentValue = value
-  settings.set(sessionId, list)
-
-  return list
-}
-
-/** One JSON-RPC call to a streamable-HTTP MCP server; the reply is JSON or a one-event stream. */
-async function mcp(server, sessionHeader, method, params) {
-  const response = await fetch(server.url, {
-    method: 'POST',
-    headers: {
-      ...Object.fromEntries(server.headers.map(({ name, value }) => [name, value])),
-      ...sessionHeader,
-      'content-type': 'application/json',
-      accept: 'application/json, text/event-stream',
-    },
-    body: JSON.stringify({ jsonrpc: '2.0', id: randomUUID(), method, params }),
-  })
-  const text = await response.text()
-  const data = text.startsWith('{') ? text : (/^data: (.+)$/m.exec(text)?.[1] ?? '{}')
-
-  return { message: JSON.parse(data), session: response.headers.get('mcp-session-id') }
-}
-
-/** Calls one Nuphos tool the way a real agent does. */
-async function call(sessionId, name, args) {
-  const server = tools.get(sessionId)
-  const opened = await mcp(server, {}, 'initialize', {
-    protocolVersion: '2025-06-18',
-    capabilities: {},
-    clientInfo: { name: 'e2e-fixture', version: '1' },
-  })
-  const { message } = await mcp(
-    server,
-    opened.session ? { 'mcp-session-id': opened.session } : {},
-    'tools/call',
-    { name, arguments: args },
-  )
-
-  return message
-}
 
 const refused = (message) => Boolean(message.error ?? message.result?.isError)
 
@@ -97,7 +38,7 @@ async function ask(sessionId, category) {
     category,
     question: 'Which marker should the fixture use?',
     // A link the app can open without leaving this computer.
-    body: `Background is at ${new URL(tools.get(sessionId).url).origin}/health/ready`,
+    body: `Background is at ${new URL(toolsServer(sessionId).url).origin}/health/ready`,
     options: ['E2E_DELIVERY:answered', 'E2E_DELIVERY:other'],
   })
 
@@ -172,6 +113,9 @@ async function permission(sessionId, marker) {
   log({ sessionId, marker, event: `permission-${outcome?.optionId ?? outcome?.outcome ?? 'none'}` })
 }
 
+// Sessions whose answer the first agent refuses as out of usage (#3055).
+const late = new Set()
+
 async function prompt({ sessionId, prompt: parts }) {
   const text = parts
     .filter((part) => part.type === 'text')
@@ -180,12 +124,28 @@ async function prompt({ sessionId, prompt: parts }) {
   const marker = (text.match(/E2E_DELIVERY:[a-z0-9-]+/g) ?? []).at(-1) ?? 'E2E_DELIVERY:missing'
 
   log({ sessionId, marker, event: 'start' })
+  // #3051: the first agent refuses this prompt as out of usage, as Claude Code words it.
+  // #3055: and the answer to a question asked with E2E_ASK_LATE.
+  if (text.includes('E2E_ASK_LATE')) late.add(sessionId)
+  const outOfUsage =
+    text.includes('E2E_USAGE_LIMIT') || (late.has(sessionId) && !text.includes('E2E_ASK'))
+
+  refuse(text, outOfUsage && process.env.E2E_AGENT !== 'second')
+  // Nuphos tells the agent when a person dismisses its question.
+  if (text.includes('was dismissed by')) log({ sessionId, marker, event: 'dismissed' })
   if (text.includes('E2E_DELEGATE') && !text.includes(CHILD)) {
     await delegate(sessionId, text.includes('E2E_DELEGATE_FAST'))
   }
+  // A thread started here, then moved (E2E_HOP), or left on this session's model (E2E_INHERIT).
+  if (/E2E_(HOP|INHERIT)/.test(text) && !text.includes(CHILD))
+    await (text.includes('E2E_HOP') ? hop : inherit)({ call, send, log, sessionId, child: CHILD })
   if (text.includes('E2E_ASK')) {
     await ask(sessionId, text.includes('E2E_ASK_CREDENTIAL') ? 'credential' : 'preference')
   }
+  // A Bot is woken by its chat's posts and answers there, as only channel_post can.
+  const channelId = /\(channelId ([^)]+)\)/.exec(text)?.[1]
+
+  if (channelId) await answerChannel({ call, log, sessionId, channelId, text })
   // The thread's own prompt can carry its parent's words; only the parent starts one.
   if (text.includes('E2E_THREAD') && !text.includes('E2E_PERMISSION')) {
     await startThread(sessionId, marker)
@@ -198,6 +158,8 @@ async function prompt({ sessionId, prompt: parts }) {
     })
   }
   if (text.includes('E2E_PERMISSION')) await permission(sessionId, marker)
+  if (text.includes('E2E_COMMANDS')) listCommands({ send, sessionId })
+  if (text.includes('E2E_CALL')) await callNamed({ log, sessionId, text })
   if (text.includes('E2E_HOLD')) {
     await new Promise((resolve) => held.set(sessionId, resolve))
     log({ sessionId, marker, event: 'cancelled' })
@@ -238,18 +200,26 @@ async function answer(request) {
         await new Promise((resolve) => setTimeout(resolve, 50))
       }
 
-      tools.set(
+      setToolsServer(
         sessionId,
         request.params.mcpServers?.find(({ name }) => name === 'nuphos-tools'),
       )
 
-      // The settings the conversation was created with, which a real runtime applies here.
+      // The settings the conversation was created with, applied by the runtime's own code,
+      // which refuses to open a session on a value this agent does not offer.
       const defaults = request.params._meta?.['ai.nuphos/runtimeDefaults'] ?? {}
+      const agent = {
+        setSessionConfigOption: async ({ configId, value }) => ({
+          configOptions: applySetting(sessionId, configId, value),
+        }),
+      }
 
-      for (const [id, value] of Object.entries(defaults)) applySetting(sessionId, id, value)
       log({ sessionId, event: 'session', defaults })
 
-      return { sessionId, configOptions: applySetting(sessionId) }
+      return nuphosApplyRuntimeDefaults(agent, request.params, {
+        sessionId,
+        configOptions: applySetting(sessionId),
+      })
     }
     case 'session/prompt':
       return prompt(request.params)
@@ -262,7 +232,7 @@ async function answer(request) {
     case 'session/set_config_option': {
       const { sessionId, configId, value } = request.params
 
-      return { configOptions: applySetting(sessionId, configId, value) }
+      return { configOptions: applySetting(sessionId, configId, value, log) }
     }
     default:
       throw new Error(`Unsupported fixture method: ${request.method}`)
@@ -287,6 +257,7 @@ for await (const line of createInterface({ input: process.stdin })) {
   if (request.id === undefined) continue
   answer(request).then(
     (result) => send({ id: request.id, result }),
-    (error) => send({ id: request.id, error: { code: -32601, message: error.message } }),
+    (error) =>
+      send({ id: request.id, error: { code: error.code ?? -32601, message: error.message } }),
   )
 }

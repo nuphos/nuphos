@@ -4,7 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -100,10 +100,11 @@ class ChannelFilesFixtureDeviceTest {
             post("p4", 3, "One group gone, one fine:", downloads = listOf("gD1", "gD2")),
             post("p5", 4, "Both groups gone:", uploads = listOf(TransferUpload("gE1", listOf("old-a.png")), TransferUpload("gE2", listOf("old-b.png"))), agent = false),
         )
+        val agents = ai.nuphos.android.session.AgentStore("synthetic-no-credentials", androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext)
         compose.setContent {
             NuphosTheme(darkTheme = dark) {
                 androidx.compose.material3.Surface {
-                    ChannelTranscript(session, ChannelPost.items(posts, emptyList(), emptyList()), viewerId = "me", onLink = {}, downloads = storage)
+                    androidx.compose.runtime.CompositionLocalProvider(ai.nuphos.android.ui.LocalAgentStore provides agents) { ChannelTranscript(session, ChannelPost.items(posts, emptyList(), emptyList()), viewerId = "me", onLink = {}, downloads = storage) }
                 }
             }
         }
@@ -117,6 +118,8 @@ class ChannelFilesFixtureDeviceTest {
         }
     }
     private fun bounds(name: String) = compose.onNodeWithContentDescription(name).fetchSemanticsNode().boundsInRoot
+    // A post is long-pressable, so its merged node is the whole post; the words' own node is in the unmerged tree.
+    private fun words(text: String) = compose.onNodeWithText(text, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
     private fun scrollTo(text: String) = compose.onNodeWithTag("channel-transcript").performScrollToNode(hasText(text))
 
     @Test fun aPostsGroupsShareOneGridAndOnePager() {
@@ -128,15 +131,15 @@ class ChannelFilesFixtureDeviceTest {
         assertEquals(one.top, three.top, 1f)
         assertTrue("$one $two $three", one.left < two.left && two.left < three.left)
         assertEquals(with(compose.density) { 84f * density }, one.width, 2f)
-        assertTrue(compose.onNodeWithText("Two groups, all images:").fetchSemanticsNode().boundsInRoot.bottom <= one.top)
+        assertTrue(words("Two groups, all images:").bottom <= one.top)
         shot("channel-files-grid")
         // The pager opens on the tapped image of the second group and pages across both groups.
         compose.onNodeWithContentDescription("three.png").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithText("3 / 3").fetchSemanticsNodes().isNotEmpty() }
         shot("channel-files-pager")
-        compose.onNodeWithText("Next image").performClick()
+        compose.onNodeWithText("Next").performClick()
         compose.onNodeWithText("1 / 3").assertExists()
-        compose.onNodeWithText("Next image").performClick()
+        compose.onNodeWithText("Next").performClick()
         compose.onNodeWithText("2 / 3").assertExists()
         compose.onNodeWithText("Close").performClick()
         compose.onNodeWithText("2 / 3").assertDoesNotExist()
@@ -156,8 +159,8 @@ class ChannelFilesFixtureDeviceTest {
                 assertEquals("$name width", width.dp.toPx(), size.width.toFloat(), 2f)
                 assertEquals("$name height", height.dp.toPx(), size.height.toFloat(), 2f)
             }
-            val words = compose.onNodeWithText(text).fetchSemanticsNode().boundsInRoot
-            val gap = box.top - words.bottom
+            val said = words(text)
+            val gap = box.top - said.bottom
             with(compose.density) { assertTrue("$name has no band above it: $gap", gap >= 0f && gap <= 16.dp.toPx()) }
         }
         assertSize("wide.png", "Wide", 260f, 65f)
@@ -171,7 +174,7 @@ class ChannelFilesFixtureDeviceTest {
         scrollTo("Mixed groups:")
         val four = bounds("four.png"); val clip = bounds("clip.mp4")
         assertEquals(four.top, clip.top, 1f)
-        val pdf = compose.onNodeWithText("report.pdf").fetchSemanticsNode().boundsInRoot
+        val pdf = words("report.pdf")
         assertTrue("$four $pdf", pdf.top >= four.bottom)
         compose.onNodeWithText("notes.txt").assertExists()
         compose.onNodeWithContentDescription("four.png").performClick()
@@ -186,22 +189,21 @@ class ChannelFilesFixtureDeviceTest {
         scrollTo("Both groups gone:")
         compose.waitUntil(5_000) { compose.onAllNodesWithText("old-a.png").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("old-b.png").assertExists()
-        assertTrue(compose.onNodeWithText("old-b.png").fetchSemanticsNode().boundsInRoot.bottom <=
-            compose.onNodeWithText("Both groups gone:").fetchSemanticsNode().boundsInRoot.top)
+        assertTrue(words("old-b.png").bottom <= words("Both groups gone:").top)
         shot("channel-files-gone")
         val retries = compose.onAllNodesWithText("Retry attachments").fetchSemanticsNodes().size
         assertTrue("Each post with a gone group offers a retry", retries >= 1)
         gone -= "gE1"; groups["gE1"] = listOf(file("img1", "back.png", "image/png"))
         // The retry of Diana's post: the closest one above her words.
-        val words = compose.onNodeWithText("Both groups gone:").fetchSemanticsNode().boundsInRoot
+        val said = words("Both groups gone:")
         val nodes = compose.onAllNodesWithText("Retry attachments").fetchSemanticsNodes()
-        val mine = nodes.indices.filter { nodes[it].boundsInRoot.bottom <= words.top }.maxBy { nodes[it].boundsInRoot.bottom }
+        val mine = nodes.indices.filter { nodes[it].boundsInRoot.bottom <= said.top }.maxBy { nodes[it].boundsInRoot.bottom }
         compose.onAllNodesWithText("Retry attachments")[mine].performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithContentDescription("back.png").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("old-a.png").assertDoesNotExist()
         // The upload shows whole above Diana's words.
         scrollTo("Single upload: the text sits below the image.")
         compose.waitUntil(5_000) { compose.onAllNodesWithContentDescription("five.png").fetchSemanticsNodes().isNotEmpty() }
-        assertTrue(bounds("five.png").bottom <= compose.onNodeWithText("Single upload: the text sits below the image.").fetchSemanticsNode().boundsInRoot.top)
+        assertTrue(bounds("five.png").bottom <= words("Single upload: the text sits below the image.").top)
     }
 }

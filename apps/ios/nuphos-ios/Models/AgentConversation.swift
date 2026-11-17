@@ -34,7 +34,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         var displayName: String {
             if let name, !name.isEmpty { return name }
             if let email, !email.isEmpty { return email }
-            return "User"
+            return String(localized: "User")
         }
     }
 
@@ -75,6 +75,8 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         /// An integration question's providers (any access answers it), or the exact credentials it names.
         var providers: [String]? = nil
         var credentials: [CredentialRef]? = nil
+        /// The secret a credential question asks for: answered with the secure input card.
+        var secretName: String? = nil
         /// Any number of `options` may be picked.
         var multiSelect: Bool? = nil
         /// Related questions answered together; `question` is their headline.
@@ -172,7 +174,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     var displayTitle: String {
         if !title.isEmpty { return title }
         if !firstMessage.isEmpty { return firstMessage }
-        return isChannel ? "New Group Chat" : "Untitled task"
+        return isChannel ? String(localized: "New Group Chat") : String(localized: "Untitled task")
     }
 
     /// An open question waits on the viewer.
@@ -379,6 +381,12 @@ struct AgentConversationDetail: Decodable, Sendable {
     let readSeq: Int?
     let watching: Bool?
     let timelineEvents: [TimelineEvent]
+    /// Answered questions whose agent has not run the answer yet, with the line their row shows.
+    let waitingAnswers: [WaitingAnswer]
+    struct WaitingAnswer: Decodable, Equatable, Sendable {
+        let requestId: String
+        let note: String
+    }
     /// The runtime's guess at what the user will send next.
     let promptSuggestion: String?
     /// `channel` for a chat; nil for an agent.
@@ -411,7 +419,7 @@ struct AgentConversationDetail: Decodable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case faces, group, kind, messageCount, transcriptUpdatedAt, isOwner, canManage, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, credentialSource, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, watching, timelineEvents, promptSuggestion
+        case faces, group, kind, messageCount, transcriptUpdatedAt, isOwner, canManage, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, credentialSource, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, watching, timelineEvents, waitingAnswers, promptSuggestion
     }
 
     init(from decoder: Decoder) throws {
@@ -439,6 +447,7 @@ struct AgentConversationDetail: Decodable, Sendable {
         readSeq = try? c.decodeIfPresent(Int.self, forKey: .readSeq)
         watching = try? c.decodeIfPresent(Bool.self, forKey: .watching)
         timelineEvents = (try? c.decodeIfPresent([TimelineEvent].self, forKey: .timelineEvents)) ?? []
+        waitingAnswers = (try? c.decodeIfPresent([WaitingAnswer].self, forKey: .waitingAnswers)) ?? []
         promptSuggestion = try? c.decodeIfPresent(String.self, forKey: .promptSuggestion)
         kind = try? c.decodeIfPresent(String.self, forKey: .kind)
         messageCount = try? c.decodeIfPresent(Int.self, forKey: .messageCount)

@@ -25,7 +25,27 @@ mock.module('../agent/panel/Composer', () => ({
 
 const dom = new Window()
 // No request answers during the test: only what is known before the chat loads is drawn.
-const pending = new Proxy({}, { get: () => () => new Promise(() => {}) })
+const neverResponds = () =>
+  new Promise<never>(() => {
+    /* Unrelated API calls stay pending. */
+  })
+const triggerQueries: unknown[][] = []
+const pending = new Proxy(
+  {},
+  {
+    get:
+      (_target, key) =>
+      (...args: unknown[]) => {
+        if (key === 'agentListTriggers') {
+          triggerQueries.push(args)
+
+          return Promise.resolve([])
+        }
+
+        return neverResponds()
+      },
+  },
+)
 
 Object.assign(dom, { api: pending })
 // The app's modules read browser globals as they load: every one the window has, once.
@@ -75,6 +95,7 @@ test('a listed Bot chat opens with its name, runtime and credentials before it l
       } as AgentConversation['credentialAccess'],
     }),
   ])
+  let settingsOpened = 0
   const container = dom.document.createElement('div')
 
   dom.document.body.append(container)
@@ -90,12 +111,27 @@ test('a listed Bot chat opens with its name, runtime and credentials before it l
           channelId: 'chat',
           user: { id: 'me', name: 'Me' } as UserInfo,
           dockOpen: false,
+          fixes: { onOpenAgentSettings: () => settingsOpened++ },
           onOpenSession: () => {},
         }),
       ),
     ),
   )
 
+  assert.ok(
+    container.querySelector('[aria-label="Triggers"]'),
+    'Bot chat exposes its triggers directly',
+  )
+  const triggerButton = container.querySelector<HTMLButtonElement>('[aria-label="Triggers"]')
+
+  assert.ok(triggerButton)
+  await act(() => triggerButton.click())
+  assert.deepEqual(triggerQueries, [['team', 'bot']], 'queries the Bot, not its chat or the team')
+  assert.ok(
+    dom.document.body.textContent?.includes(
+      'Ask the agent to schedule recurring work in this conversation.',
+    ),
+  )
   assert.ok(frames.length > 0)
   // Every frame, the first one included: a frame without them is the composer jumping.
   for (const frame of frames) {
@@ -103,6 +139,9 @@ test('a listed Bot chat opens with its name, runtime and credentials before it l
     assert.equal(frame.runtimeControl?.value?.label, 'Claude Code on a laptop')
     assert.deepEqual(frame.credentialSelector?.value.personalCredentialIds, ['github'])
   }
+  assert.ok(frames.at(-1)?.runtimeControl?.onSettings)
+  frames.at(-1)?.runtimeControl?.onSettings?.()
+  assert.equal(settingsOpened, 1)
   await act(() => root.unmount())
   queryClient.clear()
 })

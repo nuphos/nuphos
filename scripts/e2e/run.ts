@@ -1,61 +1,78 @@
 // `bun run e2e`: the Desktop app against a real backend, database and OpenAB, with a
 // deterministic agent in place of a model. Each scenario is a flow a person takes.
-import { readFileSync, rmSync } from 'node:fs'
+import { rmSync } from 'node:fs'
 
-import { agentEvents, agentLog, delegatedTurn } from './agent-log.ts'
+import { accessScenarios } from './access-scenarios.ts'
+import { agentEvents } from './agent-log.ts'
+import { agentWordScenarios } from './agent-word-scenarios.ts'
+import { backendFailures, backendLines } from './backend-log.ts'
+import { checkDecisionOutline, checkOutgoingChip } from './chat-presentation.ts'
+import { channelScenarios } from './channel-scenarios.ts'
+import { commandScenarios } from './command-scenarios.ts'
+import { computerScenarios } from './computer-scenarios.ts'
+import { connectorScenarios } from './connector-scenarios.ts'
+import { dashboardScenarios } from './dashboard-scenarios.ts'
 import { startDesktop } from './desktop.ts'
-import { artifacts, logPath, stopAll, until } from './processes.ts'
+import { offlineScenarios } from './offline-scenarios.ts'
+import { artifacts, stopAll, until } from './processes.ts'
+import { questionScenarios } from './question-scenarios.ts'
+import { runtimeScenarios } from './runtime-scenarios.ts'
+import { signInScenarios } from './sign-in-scenarios.ts'
 import { startStack } from './stack.ts'
+import { threadScenarios } from './thread-scenarios.ts'
+import { triggerScenarios } from './trigger-scenarios.ts'
+import { newTask, send } from './ui.ts'
 
 import type { Desktop } from './desktop.ts'
-import type { Stack } from './stack.ts'
-import type { Page } from 'playwright-core'
-
-type Scenario = { name: string; run: (page: Page, stack: Stack) => Promise<void> }
-
-// The sign-in page asks which social providers exist; this stack configures none. The app also
-// asks for a new Task's resources as its first message is sent, before that message has stored it.
-const EXPECTED_FAILURE =
-  /"path":"\/auth\/social\/login"|Social sign-in is not configured|\/resources","status":404/
-
-/** Requests the backend refused or failed, and errors it logged, since `from` lines in. */
-function backendFailures(from: number): string[] {
-  return readFileSync(logPath('backend'), 'utf8')
-    .split('\n')
-    .slice(from)
-    .filter(
-      (line) => /"level":"error"|"status":[45]\d\d/.test(line) && !EXPECTED_FAILURE.test(line),
-    )
-}
-
-const backendLines = () => readFileSync(logPath('backend'), 'utf8').split('\n').length
-
-/** Types into the conversation composer and sends. */
-async function send(page: Page, text: string) {
-  await page.getByRole('textbox', { name: 'Message' }).click()
-  await page.keyboard.type(text)
-  await page.keyboard.press('Enter')
-}
-
-async function newTask(page: Page) {
-  await page.getByRole('tab', { name: 'Tasks' }).click()
-  await page.getByRole('button', { name: 'New task', exact: true }).click()
-}
+import type { Scenario } from './ui.ts'
 
 const scenarios: Scenario[] = [
+  ...signInScenarios,
   {
-    name: 'sign in with an email code and land in the team',
+    // The flow #3012 was reported in: the sidebar is on Bots, the page a new team opens on.
+    // The connector's CLI (`aws`) has to be on the PATH for the dialog to offer the agent.
+    name: 'set up a cloud connector with the agent from the Bots page, and the setup turn runs',
     run: async (page, stack) => {
-      await page.evaluate(() => localStorage.setItem('nuphos.locale', 'en'))
-      await page.reload()
-      await page.locator('input[type=email]').fill(stack.email)
-      await page.getByRole('button', { name: 'Continue with email' }).click()
-      await page.getByText('Enter the 6-digit code').waitFor()
-      // Entering the sixth digit submits the form.
-      await page.locator('input[placeholder="000000"]').fill(stack.signInCode(stack.email) ?? '')
-      await page.getByText('Start with your first Bot').waitFor()
+      await page.getByRole('button', { name: 'Connectors', exact: true }).click()
+      await page.getByRole('button', { name: 'Add AWS' }).click()
+      await page.getByRole('button', { name: /Set up with agent/ }).click()
+      await page.getByText('ACK E2E_DELIVERY:missing').waitFor()
+      await until('the setup prompt to reach the agent', async () =>
+        agentEvents(stack).includes('finish E2E_DELIVERY:missing'),
+      )
+      // Back where a new team starts, for the scenarios that follow.
+      await page.getByRole('tab', { name: 'Bots' }).click()
     },
   },
+  {
+    // The flow #2412 was reported in: a Bot's credential question with choices, answered in its chat.
+    name: 'create a Bot, talk to it in its chat, and answer its question there',
+    run: async (page, stack) => {
+      await page.getByRole('button', { name: 'New Bot', exact: true }).click()
+      await page.getByRole('textbox', { name: 'Agent name' }).fill('E2E Bot')
+      await page.getByRole('button', { name: 'Create', exact: true }).click()
+      // No user prompt precedes this reply: creating/opening the Bot starts its introduction.
+      // The fixture's missing marker proves the turn did not originate from a delivery prompt.
+      await page.getByText('POSTED E2E_DELIVERY:missing', { exact: true }).waitFor()
+      await until('the unprompted Bot introduction to finish', async () =>
+        agentEvents(stack).includes('finish E2E_DELIVERY:missing'),
+      )
+      await page.screenshot({ path: `${artifacts}/bot-first-reply.png` })
+      await send(
+        page,
+        'Review https://github.com/nuphos/nuphos/issues/1 E2E_ASK_CREDENTIAL E2E_DELIVERY:bot',
+      )
+      await page.getByText('POSTED E2E_DELIVERY:bot', { exact: true }).waitFor()
+      await checkDecisionOutline(page)
+      await checkOutgoingChip(page)
+      await page.screenshot({ path: `${artifacts}/bot-question-outline.png` })
+      await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).click()
+      await until('the answer in the Bot chat to reach the Bot', async () =>
+        agentEvents(stack).includes('finish E2E_DELIVERY:answered'),
+      )
+    },
+  },
+  ...channelScenarios,
   {
     name: 'start a Task, send a message and read the reply',
     run: async (page) => {
@@ -64,6 +81,7 @@ const scenarios: Scenario[] = [
       await page.getByText('ACK E2E_DELIVERY:first').waitFor()
     },
   },
+  ...agentWordScenarios,
   {
     // The flow #2812 was reported in. Its race (a Stop during the queued turn's startup) is not reproduced.
     name: 'queue a message during a turn, press Stop, and the queued message still runs',
@@ -125,6 +143,12 @@ const scenarios: Scenario[] = [
         .getByRole('heading', { name: 'Which marker should the fixture use?' })
         .last()
         .waitFor()
+      await checkDecisionOutline(page)
+      await page.screenshot({ path: `${artifacts}/question-pending.png` })
+      // #2972: a question is answered on its card; nothing above the composer answers it.
+      if (await page.getByRole('group', { name: 'Reply target' }).count()) {
+        throw new Error('A "Replying to" chip is above the composer')
+      }
       await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).click()
       await page.getByText('ACK E2E_DELIVERY:answered').waitFor()
     },
@@ -135,6 +159,9 @@ const scenarios: Scenario[] = [
     run: async (page, stack) => {
       await send(page, 'Ask again E2E_ASK E2E_DELIVERY:again')
       await page.getByText('ACK E2E_DELIVERY:again').waitFor()
+      // #2972: what the composer sends meanwhile is an ordinary message; the question stays open.
+      await send(page, 'A note while it waits E2E_DELIVERY:note')
+      await page.getByText('ACK E2E_DELIVERY:note').waitFor()
       await page.getByRole('tab', { name: 'Inbox' }).click()
       await page.getByRole('link', { name: /\/health\/ready$/ }).click()
       // The link opens in the dock; give a wrong navigation the time to happen.
@@ -173,56 +200,31 @@ const scenarios: Scenario[] = [
     },
   },
   {
-    // A runtime restart between turns, the situation #2612 was reported in. Not checked against its fix.
-    name: 'the agent host restarts between two messages and the conversation carries on',
+    // #2998: Skip withdrew the question silently; the agent that asked was never told.
+    name: 'skipping a question on its card tells the agent that asked',
     run: async (page, stack) => {
       await newTask(page)
-      await send(page, 'Before the restart E2E_DELIVERY:before')
-      await page.getByText('ACK E2E_DELIVERY:before').waitFor()
-      await stack.restartAgentHost()
-      await send(page, 'After the restart E2E_DELIVERY:after')
-      await page.getByText('ACK E2E_DELIVERY:after').waitFor()
-      if (!agentEvents(stack).includes('loaded')) {
-        throw new Error('The agent was not asked to load the earlier session')
-      }
+      await send(page, 'Ask me E2E_ASK E2E_DELIVERY:skip')
+      await page.getByText('ACK E2E_DELIVERY:skip').waitFor()
+      await page.getByRole('button', { name: 'Skip', exact: true }).last().click()
+      // The card leaves with its question; the agent's wake notice stays in the chat.
+      await page.getByText(/was dismissed by .*: no answer is coming/).waitFor()
+      await until('the agent to be told its question was dismissed', async () =>
+        agentEvents(stack).includes('dismissed E2E_DELIVERY:missing'),
+      )
+      await page.getByText('ACK E2E_DELIVERY:missing').waitFor()
+      await page.screenshot({ path: `${artifacts}/question-skipped.png` })
     },
   },
-  {
-    // #2760 and #2761: create_thread names the agent and the fast mode a new Task starts with.
-    name: 'the agent delegates to another agent, and the new Task starts there, then in fast mode',
-    run: async (page, stack) => {
-      await newTask(page)
-      await send(page, 'Delegate E2E_DELEGATE E2E_DELIVERY:delegating')
-      await until('the delegated Task to finish', async () =>
-        delegatedTurn(stack, 'E2E_DELIVERY:child'),
-      )
-      await page.getByText('ACK E2E_DELIVERY:delegating', { exact: true }).waitFor()
-      await send(page, 'Delegate fast E2E_DELEGATE_FAST E2E_DELIVERY:delegating-fast')
-      await until('the fast delegated Task to finish', async () =>
-        delegatedTurn(stack, 'E2E_DELIVERY:child-fast'),
-      )
-      const log = agentLog(stack)
-      const children = log.filter((entry) => entry.marker?.startsWith('E2E_DELIVERY:child'))
-      const strays = children.filter((entry) => entry.agent !== 'second')
-
-      if (strays.length > 0) {
-        throw new Error(`A delegated Task ran on its parent's agent: ${JSON.stringify(strays)}`)
-      }
-      const fast = delegatedTurn(stack, 'E2E_DELIVERY:child-fast')
-      const session = log.find(
-        (entry) => entry.event === 'session' && entry.sessionId === fast?.sessionId,
-      )
-
-      if (session?.defaults?.fast !== 'on') {
-        throw new Error(`The fast Task's session was not created fast: ${JSON.stringify(session)}`)
-      }
-      const refusal = log.find((entry) => entry.event === 'refused')?.detail
-
-      if (!refusal?.includes('Choose one of: off, on')) {
-        throw new Error(`A speed not on offer was not refused with the choices: ${refusal ?? ''}`)
-      }
-    },
-  },
+  ...questionScenarios,
+  ...triggerScenarios,
+  ...connectorScenarios,
+  ...accessScenarios,
+  ...runtimeScenarios,
+  ...computerScenarios,
+  ...commandScenarios,
+  ...threadScenarios,
+  ...offlineScenarios,
   {
     // #2577: a Task under another has no permission mode of its own. The parent here is a
     // plain Task in Full Access, not a Bot. Last, because its thread is left waiting for a person.
@@ -254,6 +256,8 @@ const scenarios: Scenario[] = [
       }
     },
   },
+  // Last: it removes a member from the team.
+  ...dashboardScenarios,
 ]
 
 let desktop: Desktop | undefined

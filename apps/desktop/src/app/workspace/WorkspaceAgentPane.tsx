@@ -9,7 +9,7 @@ import { SessionParticipants } from '../../components/agent/SessionParticipants'
 import { SessionTitlebarResources } from '../../components/agent/SessionTitlebarResources'
 import { ChatSummaryPanel } from '../../components/agent/summary/ChatSummaryPanel'
 import { ChatSummaryToggle } from '../../components/agent/summary/ChatSummaryToggle'
-import { useComposerReplyTarget } from '../../components/agent/summary/useComposerReplyTarget'
+import { useOpenQuestions } from '../../components/agent/summary/useOpenQuestions'
 import { useSessionInputRequests } from '../../components/agent/summary/useSessionInputRequests'
 import { HeaderEdge } from '../../components/ui/header-edge'
 import { setChatSummaryDocked } from '../../lib/chatSummaryPanel'
@@ -79,7 +79,7 @@ export function WorkspaceAgentPane({
   const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null)
   const teamId = scope?.teamId
   const inputQueue = useSessionInputRequests(savedSessionId, teamId)
-  const { replyTarget, openQuestions } = useComposerReplyTarget(savedSessionId, teamId, inputQueue)
+  const openQuestions = useOpenQuestions(savedSessionId, inputQueue)
   const unbound =
     firstRunDevForced || (accounts !== undefined && !hasCloudOnboardingBinding(accounts))
   // Workspace context is consumed only when dispatching the next turn. Keep it
@@ -182,10 +182,10 @@ export function WorkspaceAgentPane({
                 )
               }
             />
-            {selectedSessionId && (
+            {savedSessionId && (
               <SessionTitlebarResources
-                key={`resources-${selectedSessionId}`}
-                sessionId={selectedSessionId}
+                key={`resources-${savedSessionId}`}
+                sessionId={savedSessionId}
                 teamId={teamId}
                 onOpen={stableOpenSessionResource}
                 onOpenTab={openDockTab}
@@ -258,8 +258,6 @@ export function WorkspaceAgentPane({
               newChatDraftId={paneId}
               sessionId={selectedSessionId}
               sessionReadOnly={selectedSessionReadOnly}
-              decisionReplyTo={replyTarget?.chosen ?? undefined}
-              replyTarget={replyTarget}
               openQuestions={openQuestions}
               onSessionChange={handleSessionChange}
               onOpenNuphosLink={stableOpenNuphosLinkFromChat}
@@ -284,7 +282,6 @@ export function WorkspaceAgentPane({
               onOpenLink={stableOpenSessionResource}
               onOpenSession={handleSessionChange}
               onOpenRequest={handleOpenRequest}
-              onChooseReply={replyTarget?.onChoose}
               requests={inputQueue.requests}
               requestsLoaded={inputQueue.loaded}
               requestsFailed={inputQueue.failed}

@@ -39,10 +39,18 @@ export function usePanelQueueWatchdogs({
   const stopTab = useCallback(
     (tab: Tab) => {
       setPhase(tab.id, 'stopping')
-      void api.agentCancelRuntime(tab.sessionId, teamIdRef.current).catch((error: unknown) => {
-        setPhase(tab.id, null)
-        toast.apiError(t('Could not send the stop request to the agent'), error)
-      })
+      void api.agentCancelRuntime(tab.sessionId, teamIdRef.current).then(
+        ({ status }) => {
+          // The runtime never heard the Stop, so it will not end the turn: say so.
+          if (status !== 'runtime_unreachable') return
+          setPhase(tab.id, null)
+          toast.info(t("The runtime didn't respond; the turn was stopped here."))
+        },
+        (error: unknown) => {
+          setPhase(tab.id, null)
+          toast.apiError(t('Could not send the stop request to the agent'), error)
+        },
+      )
     },
     [setPhase, teamIdRef],
   )

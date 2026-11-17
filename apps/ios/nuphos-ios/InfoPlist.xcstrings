@@ -1,0 +1,32 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "NSMicrophoneUsageDescription" : {
+      "comment" : "Legal text",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Nuphos records your voice only while you dictate a message, then sends it to OpenAI to transcribe."
+          }
+        }
+      },
+      "shouldTranslate" : false
+    },
+    "NSPhotoLibraryAddUsageDescription" : {
+      "comment" : "Legal text",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Nuphos saves the images and videos you choose to share from an agent to your photo library."
+          }
+        }
+      },
+      "shouldTranslate" : false
+    }
+  },
+  "version" : "1.0"
+}

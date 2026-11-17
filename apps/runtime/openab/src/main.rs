@@ -1290,6 +1290,37 @@ async fn main() -> anyhow::Result<()> {
                     }
                 });
 
+                let (close_tx, mut close_rx) = tokio::sync::mpsc::channel::<String>(32);
+                gw_state_inner.acp_pool_close = Some(close_tx);
+                let close_pool = pool.clone();
+                tokio::spawn(async move {
+                    while let Some(thread_key) = close_rx.recv().await {
+                        // Nothing left to close is already the goal.
+                        let _ = close_pool.reset_session(&thread_key).await;
+                    }
+                });
+
+                // One throwaway agent at a time answers what a new session offers.
+                let (fresh_tx, mut fresh_rx) = tokio::sync::mpsc::channel(4);
+                gw_state_inner.acp_fresh_config = Some(fresh_tx);
+                let fresh_pool = pool.clone();
+                tokio::spawn(async move {
+                    while let Some((model, reply)) = fresh_rx.recv().await {
+                        if reply.is_closed() {
+                            continue;
+                        }
+                        let result = tokio::time::timeout(
+                            std::time::Duration::from_secs(55),
+                            fresh_pool.fresh_config_options(model.as_deref()),
+                        )
+                        .await
+                        .unwrap_or_else(|_| {
+                            Err((-32603, "Agent did not report its configuration".into()))
+                        });
+                        let _ = reply.send(result);
+                    }
+                });
+
                 // Liveness query bridge: session/resume asks whether the
                 // inner agent session behind a thread key still exists, so
                 // the resume response can report it to the client.

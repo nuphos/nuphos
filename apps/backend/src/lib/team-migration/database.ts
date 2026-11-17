@@ -18,6 +18,7 @@ import {
 import { serializeDashboard } from '@/routes/dashboards/serialize'
 
 import { portableSchemas } from './format'
+import { personalDashboardIds } from './personal-dashboards'
 import { writeReconnectReport } from './report'
 
 import type { createMigrationArchive } from './archive'
@@ -45,6 +46,7 @@ async function writeIdentity(
   archive: ReturnType<typeof createMigrationArchive>,
   teamId: string,
   session: ClientSession,
+  personal: ReadonlySet<string>,
 ) {
   const team = await teams().findOne({ _id: new ObjectId(teamId) }, { session })
 
@@ -63,10 +65,13 @@ async function writeIdentity(
     homeLayout: home
       ? {
           team: home.layout.team,
-          panels: home.layout.panels.map((panel) => ({
-            dashboardId: panel.dashboardId,
-            panelId: panel.panelId,
-          })),
+          // A pin from a personal dashboard leaves with the dashboard: neither is exported.
+          panels: home.layout.panels
+            .filter((panel) => !personal.has(panel.dashboardId))
+            .map((panel) => ({
+              dashboardId: panel.dashboardId,
+              panelId: panel.panelId,
+            })),
           metrics: home.layout.metrics?.map((metric) => ({
             id: metric.id,
             kind: metric.kind,
@@ -151,8 +156,9 @@ export async function writeDatabase(
   exclusions: Exclusion[],
 ) {
   const teamObjectId = new ObjectId(teamId)
+  const personal = await personalDashboardIds(teamObjectId, session)
 
-  await writeIdentity(archive, teamId, session)
+  await writeIdentity(archive, teamId, session, personal)
   await writeRows(
     archive,
     'knowledge/instructions.ndjson',
@@ -244,11 +250,13 @@ export async function writeDatabase(
   await writeRows(
     archive,
     'work/dashboards.ndjson',
-    nuphosDashboards().find({ teamId: teamObjectId }, { session }),
+    // Personal dashboards are their creator's, not the team's: they stay behind.
+    nuphosDashboards().find({ teamId: teamObjectId, visibility: { $ne: 'personal' } }, { session }),
     (row) => {
       const {
         nextRefreshAt: _next,
         lastScheduledRefreshAt: _last,
+        visibility: _visibility,
         ...portable
       } = serializeDashboard(row)
 
@@ -258,7 +266,10 @@ export async function writeDatabase(
   await writeRows(
     archive,
     'work/panels.ndjson',
-    dashboardPanels().find({ teamId: teamObjectId }, { session }),
+    dashboardPanels().find(
+      { teamId: teamObjectId, dashboardId: { $nin: [...personal].map((id) => new ObjectId(id)) } },
+      { session },
+    ),
     (row) => {
       if (row.staticParams)
         exclusions.push({

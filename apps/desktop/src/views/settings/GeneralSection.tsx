@@ -1,16 +1,17 @@
-import { faCheck, faCopy } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
+import { Copy as CopyIcon, Check as CheckIcon } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../api'
 import { Avatar } from '../../components/Avatar'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { t } from '../../i18n'
 
 import { AllowedEmailDomainCard } from './AllowedEmailDomainCard'
 import { AvatarPicker } from './AvatarPicker'
+import { BindingShareDefaultCard } from './BindingShareDefaultCard'
 import { DangerZone } from './DangerZone'
 import { DataMigrationCard } from './DataMigrationCard'
 import { GoogleOAuthClientCard } from './GoogleOAuthClientCard'
@@ -45,10 +46,11 @@ function CopyableTeamId({ id }: { id: string }) {
       className="group flex items-center gap-1.5 min-w-0 max-w-full text-[12.5px] text-tertiary hover:text-secondary transition-colors"
     >
       <span className="truncate font-mono">{id}</span>
-      <FontAwesomeIcon
-        icon={copied ? faCheck : faCopy}
+      <UiIcon
+        size={16}
+        icon={copied ? CheckIcon : CopyIcon}
         className={clsx(
-          'w-3 h-3 flex-shrink-0',
+          'w-4 h-4 flex-shrink-0',
           copied ? 'text-primary' : 'opacity-0 group-hover:opacity-100 transition-opacity',
         )}
       />
@@ -161,6 +163,7 @@ export function GeneralSection({
           </form>
 
           <AllowedEmailDomainCard team={team} userEmail={userEmail} onTeamUpdated={onTeamUpdated} />
+          <BindingShareDefaultCard team={team} onTeamUpdated={onTeamUpdated} />
           <GoogleOAuthClientCard team={team} />
 
           <DataMigrationCard team={team} />

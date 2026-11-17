@@ -1,14 +1,14 @@
-import {
-  faCircleCheck,
-  faCircleExclamation,
-  faCirclePause,
-  faCircleQuestion,
-  faClock,
-} from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
+import {
+  CircleCheck as CircleCheckIcon,
+  CircleAlert as CircleAlertIcon,
+  CirclePause as CirclePauseIcon,
+  CircleHelp as CircleHelpIcon,
+  Clock as ClockIcon,
+} from 'lucide-react'
 
 import { AppSelect } from '../../components/ui/select'
+import { UiIcon } from '../../components/ui/ui-icon'
 
 import type { MonitoringOverviewRow } from '../../types'
 
@@ -25,19 +25,19 @@ export function StatusBadge({
 }) {
   const map: Record<
     MonitoringOverviewRow['status'],
-    { color: string; icon: typeof faCircleCheck }
+    { color: string; icon: typeof CircleCheckIcon }
   > = {
-    up: { color: 'text-success', icon: faCircleCheck },
-    down: { color: 'text-error', icon: faCircleExclamation },
-    paused: { color: 'text-tertiary', icon: faCirclePause },
-    pending: { color: 'text-warning', icon: faClock },
-    unknown: { color: 'text-tertiary', icon: faCircleQuestion },
+    up: { color: 'text-success', icon: CircleCheckIcon },
+    down: { color: 'text-error', icon: CircleAlertIcon },
+    paused: { color: 'text-tertiary', icon: CirclePauseIcon },
+    pending: { color: 'text-warning', icon: ClockIcon },
+    unknown: { color: 'text-tertiary', icon: CircleHelpIcon },
   }
   const m = map[status]
 
   return (
     <span className={clsx('inline-flex items-center gap-1.5 text-[11.5px]', m.color)}>
-      <FontAwesomeIcon icon={m.icon} className="h-3 w-3" />
+      <UiIcon size={14} icon={m.icon} className="h-3.5 w-3.5" />
       {label}
     </span>
   )

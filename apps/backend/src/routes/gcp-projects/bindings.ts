@@ -1,6 +1,7 @@
 import { ObjectId } from 'mongodb'
 
-import { accessView, canUseAllowList, createDefaultAccess } from '@/lib/byos/access'
+import { accessView, canUseAllowList, canUseBinding } from '@/lib/byos/access'
+import { newBindingAccess } from '@/lib/byos/initial-access'
 import { listGcpBindingsForProject } from '@/lib/byos/account'
 import { gcpConnectorSchema } from '@/lib/byos/connector-schemas'
 import { appendEnvironmentBinding } from '@/lib/byos/environment-bindings'
@@ -9,7 +10,7 @@ import { gcpWifConfigured, gcpWifPrincipalForTeam } from '@/lib/byos/gcp-wif'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
-import { requireTeamRole } from '@/middleware/auth'
+import { assertMayBindIdentity, requireTeamRole } from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
@@ -55,7 +56,7 @@ export async function gcpProjectsView(
       // The ACL (allow list + updatedAt/updatedBy) is admin-only metadata —
       // /access is admin-gated, so don't leak it to members in the list.
       ...(isAdmin ? { access: accessView(b.access) } : {}),
-      canUse: canUseAllowList(b.access?.memberAllowList, userId),
+      canUse: canUseBinding(b.access, userId, teamRole),
       createdAt: b.createdAt,
       purpose: b.purpose ?? null,
       warnings: [],
@@ -105,6 +106,19 @@ export function registerGcpBindingRoutes(
           `GCP service account ${serviceAccountEmail} is already bound to project ${projectId}`,
         )
       }
+      const sameAccount = await teamByosBindings().findOne(
+        { _id: teamId },
+        { projection: { gcpServiceAccounts: 1 } },
+      )
+
+      assertMayBindIdentity(
+        c,
+        (sameAccount?.gcpServiceAccounts ?? []).filter(
+          (binding) =>
+            binding.serviceAccountEmail.toLowerCase() === serviceAccountEmail.toLowerCase(),
+        ),
+        `GCP service account ${serviceAccountEmail}`,
+      )
       // After the duplicate check (re-binding a known account adds no
       // environment) but before the credential round trips.
 
@@ -116,7 +130,7 @@ export function registerGcpBindingRoutes(
 
       const id = new ObjectId()
       const createdAt = new Date()
-      const access = createDefaultAccess(c.get('userId'), createdAt)
+      const access = await newBindingAccess(c, { now: createdAt, highPrivilege: true })
 
       const inserted = await appendEnvironmentBinding(
         teamId,

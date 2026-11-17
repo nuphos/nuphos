@@ -291,7 +291,7 @@ function MessageList({
 /** The transcript; each choice card reads its answer from the replies after it. */
 export function ConversationMessageList(props: Parameters<typeof MessageList>[0]) {
   return (
-    <DecisionCardsProvider messages={props.tab.messages}>
+    <DecisionCardsProvider messages={props.tab.messages} waiting={props.tab.waitingAnswers}>
       <MessageList {...props} />
     </DecisionCardsProvider>
   )

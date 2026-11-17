@@ -1,4 +1,5 @@
 import type { LocalAgentProvider } from './agent-cli.ts'
+import type { AppUpdateStatus } from './app-update-request.ts'
 import type { LocalModelCatalog } from './model-probe.ts'
 
 export type TunnelPurpose = 'transport' | 'control'
@@ -7,6 +8,7 @@ export type StreamPurpose =
   | TunnelPurpose
   | 'exec'
   | 'upload'
+  | 'download'
   | 'file'
   | 'attachments'
   | 'terminal'
@@ -70,6 +72,8 @@ export type LocalRuntimeTunnelStatus = {
   } & Partial<NonNullable<LocalRuntimeTunnelStatus['agents']['codex']>>)[]
   backendUrl?: string
   cliVersion?: string
+  /** This Nuphos Desktop and the update it found; its owner restarts into it with `method: 'update'`. */
+  app?: AppUpdateStatus
   desktops?: { sessionId: string; display: number }[]
   /** Opens a conversation's desktop on request (`method: 'desktop'`). */
   desktopOpen?: boolean

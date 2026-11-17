@@ -7,6 +7,7 @@ export type TunnelPurpose =
   | 'control'
   | 'exec'
   | 'upload'
+  | 'download'
   | 'file'
   | 'attachments'
   | 'terminal'
@@ -158,6 +159,7 @@ export const localRuntimeStatusSchema = z.object({
   fileImport: z.boolean().optional(),
   localExec: z.boolean().optional(),
   localUpload: z.boolean().optional(),
+  localDownload: z.boolean().optional(),
   localMetrics: z.boolean().optional(),
   localTerminal: z.boolean().optional(),
   localCua: z.boolean().optional(),
@@ -169,6 +171,15 @@ export const localRuntimeStatusSchema = z.object({
   desktopOpen: z.boolean().optional(),
   /** The `nuphos` CLI running this host; a Box updates by installing a newer one. */
   cliVersion: z.string().max(50).optional(),
+  /** The Nuphos Desktop running this host, and an update it found: downloading, or staged for
+   *  the restart its owner may ask for from another computer (`method: 'update'`). Never fatal. */
+  app: z
+    .object({
+      version: z.string().max(50),
+      update: z.object({ version: z.string().max(50), ready: z.boolean() }).optional(),
+    })
+    .optional()
+    .catch(undefined),
   /** Desktops this computer runs for conversations (a Box: one X display per session; a Mac: its screen, :0). */
   desktops: z
     .array(

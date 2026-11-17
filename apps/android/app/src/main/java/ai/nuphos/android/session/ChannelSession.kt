@@ -72,6 +72,8 @@ class ChannelSession(
         override suspend fun pending() = questions.pending()
         override suspend fun answer(sessionId: String, requestId: String, answer: JsonValue) =
             questions.answer(sessionId, requestId, answer)
+        override suspend fun credentials(sessionId: String) = questions.credentials(sessionId)
+        override suspend fun saveCredentials(sessionId: String, access: JsonValue) = questions.saveCredentials(sessionId, access)
     }
 
     var title by mutableStateOf(title)
@@ -129,7 +131,8 @@ class ChannelSession(
 
     val posts: List<ChannelPost> get() = stored + ChannelPost.stillSending(stored, sending)
 
-    private val open = OpenQuestions(transport)
+    /** In a Bot's chat: its open questions, answered and connected on their cards as in the Inbox. */
+    val open = OpenQuestions(transport)
     /** In a Bot's chat: the open questions of the Bot and of every agent under it. */
     val questions: List<BotQuestion> get() = open.list
 

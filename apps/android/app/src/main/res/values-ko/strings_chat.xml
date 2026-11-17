@@ -5,6 +5,8 @@
     <string name="chat_event_expand">이벤트 펼치기</string>
     <string name="chat_channel_new_messages">#%1$s의 새 메시지</string>
     <string name="chat_open_channel">채널 열기</string>
+    <string name="chat_channel_sent_file">파일을 보냈습니다</string>
+    <string name="chat_channel_more_posts">외 %1$d개</string>
     <string name="chat_answered_by">%1$s 님이 답변함</string>
     <string name="chat_question_collapse">질문 접기</string>
     <string name="chat_question_expand">질문 펼치기</string>
@@ -68,8 +70,8 @@
     <string name="chat_image_close">닫기</string>
     <string name="chat_image_reset_zoom">확대/축소 초기화</string>
     <string name="chat_video_save">동영상 저장</string>
-    <string name="chat_image_previous">이전 이미지</string>
-    <string name="chat_image_next">다음 이미지</string>
+    <string name="chat_image_previous">이전</string>
+    <string name="chat_image_next">다음</string>
     <string name="chat_image_zoom_in">확대</string>
     <string name="chat_image_zoom_percent">확대/축소 %1$d%%</string>
     <string name="chat_video_position">동영상 %1$d/%2$d</string>

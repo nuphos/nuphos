@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto'
 
 import { sessionsByConversation } from '@/lib/claude-code-preview/agent-chat-registry'
 import { isRuntimeRefusal } from '@/lib/claude-code-preview/runtime-refusal'
-import { AppError } from '@/lib/errors'
 import { signNuphosToken } from '@/lib/identity'
 import { logError } from '@/lib/observability'
 import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
@@ -12,9 +11,12 @@ import { channelIdOf, withChannelPosts } from './channel-wake'
 import { systemSender } from './message-metadata'
 import { buildPendingUserMessage, hasPendingUserMessage } from './pending-messages'
 import { requeueTurnQueue } from './session-released'
-import { recordDroppedFires, recordFiresRan } from './trigger-missed-runs'
+import { recordFailedFires } from './trigger-failed-runs'
+import { recordFiresRan } from './trigger-missed-runs'
+import { reconnecting } from './turn-offline'
 import { turnRunner } from './turn-runner'
 import { keepUndeliveredSend, reopenUndeliveredAnswer } from './undelivered-send'
+import { failureLine, keepAnswersThatWait } from './waiting-answers'
 
 import type { AgentConversation } from './db'
 import type { ConversationTriggerRun } from './conversation-trigger-run'
@@ -94,15 +96,6 @@ export async function startConversationTurn(
   return { status: 'started', run: run() }
 }
 
-// A computer's tunnel redials for about 20s after it drops, so a turn that finds it
-// offline waits in the queue. One still offline after this is gone; its senders are told.
-const OFFLINE_GRACE_MS = 60_000
-
-export const reconnecting = (error: unknown, message: PendingUserMessage) =>
-  error instanceof AppError &&
-  error.code === 'runtime_offline' &&
-  Date.now() - Date.parse(message.offlineSince ?? new Date().toISOString()) < OFFLINE_GRACE_MS
-
 type DeliveredTo = Pick<ConversationTurn, 'userId' | 'teamId' | 'targetSessionId'> & {
   locale?: string
 }
@@ -118,6 +111,7 @@ export async function runTurn(
   pending: PendingUserMessage[],
 ): Promise<string | undefined> {
   let taken = pending
+  let unmarkRead: (() => Promise<void>) | undefined
 
   try {
     // Read after taking the claim so a just-finished turn cannot be overwritten.
@@ -141,6 +135,8 @@ export async function runTurn(
 
     taken = fresh
     if (!head) return
+    // Read as the turn sees them, so its channel_read goes on from there.
+    unmarkRead = await markRead()
     const prior = history.messages
       .filter((message) => !fresh.some((entry) => entry.id === message.messageId))
       .map(persistedMessageToUiMessage)
@@ -179,6 +175,7 @@ export async function runTurn(
 
         if (!offline && !isRuntimeRefusal(error)) throw error
         taken = []
+        await unmarkRead?.()
         await requeueTurnQueue(data.userId, data.targetSessionId, rest, {
           ...head,
           // Only an unbroken run of offline tries counts toward the grace.
@@ -192,18 +189,21 @@ export async function runTurn(
 
     if (outcome.status === 'failed')
       throw new Error('Thread run failed; inspect the target conversation.')
-    // The channel posts it carried were delivered: a retry would show them again.
-    await Promise.all([markRead(), recordFiresRan(fresh)])
+    await recordFiresRan(fresh)
     // Not awaited: it waits for the computer to come back, which may be never,
     // and this turn's claim must not wait with it.
     if (outcome.finishReason === 'connection-lost') void reportIfRestarted(data, fresh)
 
     return outcome.finishReason
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error)
-
-    await reportUndelivered(data, taken, `did not run: ${reason}`)
-    await recordDroppedFires(error, taken)
+    // Not run, or failed: a later notice shows the same posts again.
+    await unmarkRead?.()
+    await reportUndelivered(
+      data,
+      await keepAnswersThatWait(target, taken, error),
+      `did not run: ${failureLine(error)}`,
+    )
+    await recordFailedFires(error, taken)
     throw error
   }
 }

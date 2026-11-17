@@ -97,6 +97,12 @@ export function writePiMcpServers(agentDir, servers = []) {
   writeJson(join(agentDir, 'mcp.json'), { mcpServers })
 }
 
+// Providers echo part of a rejected key (OpenAI: `sk-proj-****abcd`), and the error is
+// shown to everyone in the conversation.
+const KEY = /\b(?:(?:sk|pk|rk)[-_]|xai-|gsk_|hf_|nvapi-|AIza)[\w*-]{4,}|\bBearer\s+\S+/gu
+
+export const redactKeys = (text) => text.replace(KEY, '[redacted]')
+
 /**
  * Why a session's last turn failed, as Pi recorded it, or undefined. pi-acp drops the
  * error a provider answered with (a rejected key, a spent quota) and ends the turn as if
@@ -116,7 +122,7 @@ export function piTurnError(agentDir, sessionId) {
         .at(-1)
       const { message } = JSON.parse(last)
       return message?.role === 'assistant' && message.stopReason === 'error'
-        ? String(message.errorMessage || 'The model provider returned an error.')
+        ? redactKeys(String(message.errorMessage || 'The model provider returned an error.'))
         : undefined
     }
   } catch {

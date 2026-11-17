@@ -1,6 +1,9 @@
-import { faArrowsRotate, faPlay, faRotateLeft } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  RotateCcw as RotateCcwIcon,
+  Play as PlayIcon,
+  RefreshCw as RefreshCwIcon,
+} from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../api'
@@ -9,6 +12,7 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { StatusBadge } from '../../components/StatusBadge'
 import { Table } from '../../components/Table'
 import { toast } from '../../components/ui/toast'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { useReportLoading } from '../../components/useReportLoading'
 import { t } from '../../i18n'
 import { queryKeys } from '../../lib/query/keys'
@@ -91,7 +95,7 @@ export function CloudflarePagesProjectDetailView({
           disabled={busy}
           className="h-7 px-2.5 rounded-md bg-surface-sunken hover:bg-state-hover text-secondary hover:text-main text-[12.5px] flex items-center gap-1.5 disabled:opacity-50"
         >
-          <FontAwesomeIcon icon={faPlay} className="w-3.5 h-3.5" /> {t('Deploy')}
+          <UiIcon size={16} icon={PlayIcon} className="w-4 h-4" /> {t('Deploy')}
         </button>
       </CfDetailActionBar>
       {query.error && !query.data ? (
@@ -211,14 +215,14 @@ export function CloudflarePagesProjectDetailView({
                         className="w-6 h-6 rounded text-tertiary hover:bg-state-hover hover:text-main flex items-center justify-center"
                         title={t('Retry')}
                       >
-                        <FontAwesomeIcon icon={faRotateLeft} className="w-3.5 h-3.5" />
+                        <UiIcon size={16} icon={RotateCcwIcon} className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => setPendingRollback(r.id)}
                         className="w-6 h-6 rounded text-tertiary hover:bg-state-hover hover:text-main flex items-center justify-center"
                         title={t('Rollback to this deployment')}
                       >
-                        <FontAwesomeIcon icon={faArrowsRotate} className="w-3.5 h-3.5" />
+                        <UiIcon size={16} icon={RefreshCwIcon} className="w-4 h-4" />
                       </button>
                     </div>
                   ),
@@ -240,7 +244,7 @@ export function CloudflarePagesProjectDetailView({
       )}
 
       <ConfirmDialog
-        open={!!pendingRollback}
+        open={Boolean(pendingRollback)}
         title={t('Roll back to this deployment?')}
         description={t('This changes the live production deployment for this Pages project.')}
         confirmLabel={t('Roll back')}

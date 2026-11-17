@@ -35,6 +35,7 @@ export class LocalRuntimeController {
   private readonly usage: ReturnType<typeof createUsageSampler>
   private online = false
   private superseded = false
+  private revoked = false
   private readonly deps: LocalRuntimeControllerDeps
   private readonly providers: readonly LocalAgentProvider[]
   private requestedIdentity: string | undefined
@@ -76,6 +77,7 @@ export class LocalRuntimeController {
       this.superseded,
       this.userId,
       this.instances?.states(this.online),
+      this.revoked,
     )
   }
   async setUser(userId: string | null): Promise<void> {
@@ -152,6 +154,7 @@ export class LocalRuntimeController {
     this.tunnel = undefined
     this.online = false
     this.superseded = false
+    this.revoked = false
     await Promise.all(this.providers.map((provider) => this.stopAgent(provider)))
     await this.instances?.shutdown()
   }
@@ -174,9 +177,10 @@ export class LocalRuntimeController {
         ...this.status(),
         ...(this.instances ? { instances: this.instances.status() } : {}),
       }),
-      (connected, superseded) => {
+      (connected, superseded, revoked = false) => {
         this.online = connected
         this.superseded = superseded
+        this.revoked = revoked
         this.changed()
       },
       (request) => this.instanceRequest(request),

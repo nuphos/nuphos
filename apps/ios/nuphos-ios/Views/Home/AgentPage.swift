@@ -11,13 +11,13 @@ struct AgentPage: View {
     @Binding var titleCollapsed: Bool
     /// The chat shown beside (or, when compact, on top of) the list.
     @Binding var openChat: OpenChat?
+    @Binding var showNewBot: Bool
     /// False when the detail column hosts the new-chat composer instead.
     var showsComposer = true
 
     /// Whether the keyboard on screen is this page's composer's.
     @State private var ownsKeyboard = false
     @State private var showWorkspaceSetup = false
-    @State private var showNewBot = false
     @State private var renaming: AgentConversation?
     @State private var archivingBot: AgentConversation?
     @State private var renamedTitle = ""
@@ -222,7 +222,6 @@ struct AgentPage: View {
             return
         }
         let session = store.session(sessionId: target.sessionId, title: target.title, teamId: target.teamId)
-        session.answering = target.answering.map { BotQuestion(sessionId: target.sessionId, title: target.title, request: $0) }
         openChat = OpenChat(session: session)
     }
 
@@ -439,18 +438,6 @@ struct AgentPage: View {
             if page == .chats {
                 Section {
                     ForEach(store.nestedBots) { item in agentRow(item) }
-                } header: {
-                    sectionHeader("Bots") {
-                        Button { showNewBot = true } label: {
-                            // A 44pt hit area without making the header taller.
-                            Image(systemName: "plus")
-                                .padding(14)
-                                .contentShape(Rectangle())
-                                .padding(-14)
-                        }
-                        .disabled(store.creatingBot || !store.runtimesLoaded)
-                        .accessibilityLabel("New Bot")
-                    }
                 }
             } else {
                 Section {
@@ -585,10 +572,11 @@ struct SearchBar: View {
 
 #Preview {
     @Previewable @State var searching = false
+    @Previewable @State var newBot = false
     @Previewable @State var page = HomePage.agent
     @Previewable @State var collapsed = false
     NavigationStack {
-        AgentPage(page: $page, isSearching: $searching, titleCollapsed: $collapsed, openChat: .constant(nil))
+        AgentPage(page: $page, isSearching: $searching, titleCollapsed: $collapsed, openChat: .constant(nil), showNewBot: $newBot)
     }
     .environment(AgentStore(token: ""))
 }

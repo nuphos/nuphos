@@ -14,7 +14,7 @@ import { materializeRuntimeAttachments, runtimeAttachments } from './runtime-att
 import { parseSessionExecutionState } from './runtime-execution-snapshot'
 import { rememberRuntimeState } from './runtime-state-store'
 import { withSessionDesktops } from './session-desktops'
-import { steerNotInjected } from './steer-refusal'
+import { steerNotInjected, steerRejected } from './steer-refusal'
 import { steeringText } from './steering-receipt'
 
 import type { RuntimeAttachment } from './runtime-attachments'
@@ -291,7 +291,7 @@ export async function steerConversationRuntime(
   } catch (error) {
     // A refused steer has no receipt to read its sender back.
     await takeSteerSender(conversation.sessionId, messageId)
-    throw error
+    throw steerRejected(error)
   } finally {
     client.close()
   }

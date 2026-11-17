@@ -138,6 +138,7 @@ export async function persistPreviewTurnContext(
       activeTurnKey: requestId,
       activeTurnOrigin: args.origin,
       ...(args.localToolsEnabled ? { localTools: true } : {}),
+      ...(args.secretCardEnabled ? { secretCard: true } : {}),
       ...(args.diagramId ? { diagramId: args.diagramId } : {}),
       ...(args.kubeContext ? { kubeContext: args.kubeContext } : {}),
     })

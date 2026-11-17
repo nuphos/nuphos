@@ -10,9 +10,12 @@ type AgentEntry = {
   event: string
   marker?: string
   /** The model settings a new session was created with. */
-  defaults?: { fast?: string }
+  defaults?: { model?: string; fast?: string }
   isError?: boolean
   detail?: string
+  /** E2E_CALL: the tool it called and that tool's answer. */
+  name?: string
+  result?: unknown
 }
 
 export function agentLog(stack: Stack): AgentEntry[] {
@@ -27,7 +30,7 @@ export function agentEvents(stack: Stack): string[] {
   return agentLog(stack).map(({ event, marker }) => (marker ? `${event} ${marker}` : event))
 }
 
-/** The turn a delegated Task ran, once it has finished. A refused create_thread fails at once. */
+/** The turn a delegated Task ran, once it has finished. A refused create_thread throws its reason. */
 export function delegatedTurn(stack: Stack, marker: string): AgentEntry | undefined {
   const log = agentLog(stack)
   const refusal = log.find((entry) => entry.event === 'delegated' && entry.isError)
@@ -35,4 +38,18 @@ export function delegatedTurn(stack: Stack, marker: string): AgentEntry | undefi
   if (refusal) throw new Error(`create_thread was refused: ${refusal.detail ?? ''}`)
 
   return log.find((entry) => entry.event === 'finish' && entry.marker === marker)
+}
+
+/** The first agent applied `model` to the session that ran the turn marked `marker`. */
+export function firstAgentHolds(stack: Stack, marker: string, model: string) {
+  const log = agentLog(stack)
+  const session = log.find((entry) => entry.marker === marker)?.sessionId
+
+  return log.some(
+    (entry) =>
+      entry.agent === 'first' &&
+      entry.sessionId === session &&
+      entry.event === 'setting' &&
+      entry.detail === `model=${model}`,
+  )
 }

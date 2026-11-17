@@ -64,6 +64,10 @@ export function PaneAgentPage({
         dockOpen
         onOpenSession={(sid) => updateTab(tabId, (cur) => ({ ...cur, agentSessionId: sid }))}
         onOpenNuphosLink={onOpenNuphosLink}
+        fixes={{
+          isTeamAdmin,
+          onOpenAgentSettings: () => onOpenSettingsSection('workspace.computers'),
+        }}
       />
     )
 
@@ -101,7 +105,7 @@ export function PaneAgentPage({
             }
             setPageMeta({
               pageKey: 'team.agent',
-              title: title || t('Agent'),
+              title: title || t('Task'),
               iconKey: `${reportedSessionId ?? 'new'}:${agentRuntime ?? 'claude-code'}`,
               icon: reportedSessionId ? (
                 <AgentAvatar agentId={reportedSessionId} provider={agentRuntime} size={16} />

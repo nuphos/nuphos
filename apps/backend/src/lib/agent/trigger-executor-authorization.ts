@@ -6,11 +6,21 @@ import { executionAuthorizationIsCurrent } from './trigger-access'
 import { agentTriggers } from './trigger-db'
 
 import type { AgentTrigger } from './trigger-db'
+import type { Collection } from 'mongodb'
 
-/** Pause a Trigger whose Task or Task owner can no longer run it. */
-async function pauseTrigger(trigger: AgentTrigger, error: string, now: Date): Promise<void> {
-  await agentTriggers().updateOne(
-    { _id: trigger._id },
+/**
+ * Pause a Trigger that cannot run, with the reason shown on it. Its failed-run
+ * count goes with it, so a resumed Trigger starts over. False when it was
+ * already paused.
+ */
+export async function pauseTrigger(
+  trigger: Pick<AgentTrigger, '_id'>,
+  error: string,
+  now: Date,
+  triggers: Pick<Collection<AgentTrigger>, 'updateOne'> = agentTriggers(),
+): Promise<boolean> {
+  const { modifiedCount } = await triggers.updateOne(
+    { _id: trigger._id, enabled: true },
     {
       $set: {
         enabled: false,
@@ -19,9 +29,12 @@ async function pauseTrigger(trigger: AgentTrigger, error: string, now: Date): Pr
         executionAuthorizationError: error,
         updatedAt: now,
       },
+      $unset: { failedRunCount: '' },
       $inc: { configRevision: 1 },
     },
   )
+
+  return modifiedCount > 0
 }
 
 /**

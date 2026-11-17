@@ -1,6 +1,5 @@
-import { faPlus, faXmark } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { X as XIcon, Plus as PlusIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
@@ -8,6 +7,7 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { t } from '../../i18n'
 import { queryKeys } from '../../lib/query/keys'
 import { refreshAfterWrite } from '../../lib/query/refreshAfterWrite'
@@ -60,7 +60,7 @@ export function PagesDomainsSection({
           onClick={() => setAdding((v) => !v)}
           className="text-[12px] text-link hover:underline flex items-center gap-1"
         >
-          <FontAwesomeIcon icon={faPlus} className="w-3 h-3" /> {t('Add')}
+          <UiIcon size={16} icon={PlusIcon} className="w-4 h-4" /> {t('Add')}
         </button>
       </div>
       {adding && (
@@ -89,7 +89,7 @@ export function PagesDomainsSection({
                 className="w-5 h-5 rounded text-tertiary hover:bg-error/15 hover:text-error flex items-center justify-center"
                 title={t('Remove domain')}
               >
-                <FontAwesomeIcon icon={faXmark} className="w-3 h-3" />
+                <UiIcon size={16} icon={XIcon} className="w-4 h-4" />
               </button>
             </div>
           ))}
@@ -97,7 +97,7 @@ export function PagesDomainsSection({
       )}
 
       <ConfirmDialog
-        open={!!pendingRemove}
+        open={Boolean(pendingRemove)}
         title={t('Remove custom domain?')}
         description={
           pendingRemove
