@@ -25,8 +25,12 @@ export function savePath(dir: string, suggested: string, isTaken = taken): strin
   const name = base === '' || base === '.' || base === '..' ? 'download' : base
   const { name: stem, ext } = path.parse(name)
   let file = path.join(dir, name)
+  let n = 0
 
-  for (let n = 1; isTaken(file); n++) file = path.join(dir, `${stem} (${String(n)})${ext}`)
+  while (isTaken(file)) {
+    n += 1
+    file = path.join(dir, `${stem} (${String(n)})${ext}`)
+  }
 
   return file
 }
@@ -64,10 +68,29 @@ export function saveDownload(download: Download, dir: string, report: (line: str
 
 /** How each agent tab saves its downloads; a page that is not one has none. */
 const savers = new WeakMap<object, (download: DownloadItem) => void>()
+/** What became of each conversation's downloads since it was last told. */
+const news = new Map<string, string[]>()
 
-/** Makes `contents` save its downloads with `save` from now on, with no save dialog. */
-export function saveDownloadsOf(contents: object, save: (download: DownloadItem) => void) {
-  savers.set(contents, save)
+/** Makes `contents`, a tab of `conversation`, save its downloads in `dir()` with no dialog. */
+export function saveDownloadsOf(contents: object, conversation: string, dir: () => string) {
+  savers.set(contents, (download) =>
+    saveDownload(download, dir(), (line) =>
+      news.set(conversation, [...(news.get(conversation) ?? []), line]),
+    ),
+  )
+}
+
+/** `result` with what became of the conversation's downloads since it was last told. */
+export function withDownloadNews<T extends { content: unknown[] }>(
+  conversation: string,
+  result: T,
+): T {
+  const lines = news.get(conversation)
+
+  if (!lines) return result
+  news.delete(conversation)
+
+  return { ...result, content: [...result.content, { type: 'text', text: lines.join('\n') }] }
 }
 
 /** Saves `download` if its page is an agent tab, and says whether it did. */

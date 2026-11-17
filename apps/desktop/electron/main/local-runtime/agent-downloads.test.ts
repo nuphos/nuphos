@@ -11,6 +11,7 @@ import {
   saveDownload,
   saveDownloadsOf,
   savePath,
+  withDownloadNews,
 } from './agent-downloads.ts'
 
 /** A download as Electron hands it over, driven by the test. */
@@ -49,7 +50,7 @@ test('a download is saved in the folder under its own name, without a dialog', (
 })
 
 test('a name never leaves the folder or carries control characters', () => {
-  const folder = '/tmp/Nuphos'
+  const folder = join('/Users', 'me', 'Downloads', 'Nuphos')
   const free = () => false
 
   assert.equal(
@@ -106,14 +107,26 @@ test('an interrupted download says so', () => {
   assert.match(lines[0] ?? '', /^Download interrupted: .+notes\.txt \(3 bytes\)$/)
 })
 
-test("only an agent tab's downloads are taken, by the saver its tab gave", () => {
+test("only an agent tab's downloads are saved, and its conversation is told once", () => {
+  const folder = dir()
   const agentTab = {}
-  const saved: unknown[] = []
-  const item = download('a.txt') as unknown as Parameters<typeof saveAgentDownload>[0]
+  const item = download('a.txt')
+  const taken = item as unknown as Parameters<typeof saveAgentDownload>[0]
 
-  saveDownloadsOf(agentTab, (taken) => saved.push(taken))
-  assert.equal(saveAgentDownload(item, {}), false)
-  assert.equal(saveAgentDownload(item, undefined), false)
-  assert.equal(saveAgentDownload(item, agentTab), true)
-  assert.deepEqual(saved, [item])
+  saveDownloadsOf(agentTab, 'c1', () => folder)
+  assert.equal(saveAgentDownload(taken, {}), false)
+  assert.equal(saveAgentDownload(taken, undefined), false)
+  assert.equal(saveAgentDownload(taken, agentTab), true)
+  assert.equal(item.savePath, join(folder, 'a.txt'))
+  item.received = 7
+  item.emit('done', {}, 'completed')
+  const told = (conversation: string) =>
+    withDownloadNews(conversation, { content: [{ type: 'text', text: 'tabs' }] }).content
+
+  assert.equal(told('c2').length, 1)
+  assert.deepEqual(told('c1'), [
+    { type: 'text', text: 'tabs' },
+    { type: 'text', text: `Downloaded: ${join(folder, 'a.txt')} (completed, 7 bytes)` },
+  ])
+  assert.equal(told('c1').length, 1)
 })

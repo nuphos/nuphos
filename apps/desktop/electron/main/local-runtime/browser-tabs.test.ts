@@ -311,7 +311,9 @@ test('eval still answers when its click starts a download instead of a new page 
   const { page } = await opened()
   let answer = (_value: unknown) => {}
 
-  page.script = new Promise((resolve) => (answer = resolve))
+  page.script = new Promise((resolve) => {
+    answer = resolve
+  })
   const result = runBrowserCall({
     action: 'eval',
     team: 't1',

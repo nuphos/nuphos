@@ -26,7 +26,12 @@ test("an agent's tab saves its downloads, repeats included, so the guard never d
     return true
   })
   for (let i = 0; i < 2; i++) {
-    const event = { defaultPrevented: false, preventDefault: () => (event.defaultPrevented = true) }
+    const event = {
+      defaultPrevented: false,
+      preventDefault: () => {
+        event.defaultPrevented = true
+      },
+    }
 
     browserSession.emit('will-download', event, item([FILE]), tab(''))
     assert.equal(event.defaultPrevented, false)

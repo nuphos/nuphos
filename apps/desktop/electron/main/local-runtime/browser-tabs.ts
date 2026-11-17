@@ -7,7 +7,7 @@ import { browserSession } from '../browser-extensions/manage.ts'
 import { isAppQuitting } from '../window-session.ts'
 import { raiseWindow } from '../../window-raise.ts'
 
-import { saveDownload, saveDownloadsOf } from './agent-downloads.ts'
+import { saveDownloadsOf, withDownloadNews } from './agent-downloads.ts'
 import { startRecording, stopRecording } from './browser-recording.ts'
 import { failed } from './cua-host.ts'
 import { closeDockTab, dockMirrorOf, focusDockTab, openDockTab } from './dock-mirror.ts'
@@ -51,19 +51,6 @@ const tabs = new Map<
   { conversation: string; window: BrowserWindow; opener?: WebContents }
 >()
 
-/** What became of each conversation's downloads since its last `tabs` or `eval`. */
-const downloads = new Map<string, string[]>()
-
-/** `result` with the conversation's download news since it last heard, which it now has. */
-function withDownloads(conversation: string, result: CuaToolResult): CuaToolResult {
-  const lines = downloads.get(conversation)
-
-  if (!lines) return result
-  downloads.delete(conversation)
-
-  return { ...result, content: [...result.content, { type: 'text', text: lines.join('\n') }] }
-}
-
 /** The browser tabs this conversation opened. */
 function browserTabs(conversation: string): WebContents[] {
   return [...tabs].flatMap(([contents, tab]) =>
@@ -81,11 +68,7 @@ function track(window: BrowserWindow, conversation: string, opener?: WebContents
 
   tabs.set(contents, { conversation, window, opener })
   // Its downloads are saved with no save dialog, which the agent could not answer.
-  saveDownloadsOf(contents, (download) =>
-    saveDownload(download, path.join(app.getPath('downloads'), 'Nuphos'), (line) =>
-      downloads.set(conversation, [...(downloads.get(conversation) ?? []), line]),
-    ),
-  )
+  saveDownloadsOf(contents, conversation, () => path.join(app.getPath('downloads'), 'Nuphos'))
   // Shown once, unseen, the page paints and can be captured; hidden again, it sleeps
   // like a background tab, so an idle tab costs no battery.
   window.once('ready-to-show', () => {
@@ -224,7 +207,7 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
   // Without a conversation, tabs nobody opened (the app's own renderer included) would match.
   if (!call.session) return failed('session is required.')
   if (call.action === 'tabs')
-    return withDownloads(call.session, text(browserTabs(call.session).map(describe)))
+    return withDownloadNews(call.session, text(browserTabs(call.session).map(describe)))
   if (call.action === 'dock') return dockMirrorOf(call)
   if (call.action === 'focus') return focusDockTab(call)
   // The iPhone closes a dock tab by its workspace id; an agent closes its own tab.
@@ -270,7 +253,7 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
       return result
     })
 
-    return withDownloads(call.session, text(value === undefined ? 'undefined' : value))
+    return withDownloadNews(call.session, text(value === undefined ? 'undefined' : value))
   }
   const window = tabs.get(contents)?.window
 
