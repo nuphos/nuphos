@@ -521,6 +521,32 @@ final class InboxUITests: XCTestCase {
     }
 
     /// Its row by its words, whatever it is to accessibility: wide, a row is a button.
+    /// A question asked before the one-line limit is its card's one line, cut with an ellipsis,
+    /// until a tap shows it in full.
+    func testALongQuestionIsOneLineUntilTapped() throws {
+        let question = "Delete the staging cluster now? It has been idle for thirty days, costs about forty dollars a day, and nobody has deployed to it since the migration."
+        try listQuestions([InboxUITests.row(
+            "agent-ops", "Release ops",
+            ["id": "q-deploy", "category": "approval", "question": question, "body": "Idle since the migration.",
+             "options": ["Delete", "Keep"], "askedAt": "2026-11-03T09:40:00Z", "status": "open"])])
+        app = launch(page: "inbox")
+        let row = listed(question)
+        XCTAssertTrue(row.waitForExistence(timeout: 10), "The question is not listed")
+        row.tap()
+
+        let title = app.staticTexts["inbox.title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5), "The question did not open")
+        let line = title.frame.height
+        XCTAssertLessThan(line, 40, "The question wraps over several lines")
+        XCTAssertTrue(app.staticTexts["Idle since the migration."].exists, "No body under the question")
+        shot("long-question-cut")
+
+        title.tap()
+        let opened = expectation(for: NSPredicate { _, _ in title.frame.height > line * 2 }, evaluatedWith: nil)
+        wait(for: [opened], timeout: 3)
+        shot("long-question-open")
+    }
+
     private func listed(_ question: String) -> XCUIElement {
         app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier == %@ AND label == %@", "inbox.row", question)).firstMatch

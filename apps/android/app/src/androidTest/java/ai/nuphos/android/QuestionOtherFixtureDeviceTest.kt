@@ -13,8 +13,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -27,6 +29,7 @@ import ai.nuphos.android.ui.LocalAuthSession
 import ai.nuphos.android.ui.chats.BotQuestionCard
 import ai.nuphos.android.ui.theme.NuphosTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -128,6 +131,34 @@ class QuestionOtherFixtureDeviceTest {
         compose.onNodeWithTag("bot-question-send").performClick()
         compose.onNodeWithText("Wait for it to go live").performClick()
         assertEquals(listOf("Check the review status by hand", "Wait for it to go live"), answers)
+    }
+
+    @Test fun aLongQuestionIsOneLineUntilTapped() {
+        val long = BotQuestion("agent-ops", "Release ops", InputRequest("q-long", "approval",
+            "Delete the staging cluster now? It has been idle for thirty days, costs about forty dollars a day, and nobody has deployed to it since the migration.",
+            listOf("Delete", "Keep"), body = "Idle since the migration."))
+        screen {
+            Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
+                BotQuestionCard(long, onOpen = {}, onConnect = {}, onAnswer = {}, answersInPlace = true)
+            }
+        }
+        // One line, cut, with the body under it.
+        val title = compose.onNodeWithTag("bot-question-title")
+        assertEquals(1, layout(title).lineCount)
+        assertTrue(layout(title).hasVisualOverflow)
+        compose.onNodeWithText("Idle since the migration.", substring = true).assertExists()
+        capture("long-question-cut")
+        // A tap shows it in full.
+        title.performClick()
+        compose.waitForIdle()
+        assertTrue(layout(title).lineCount > 1)
+        capture("long-question-open")
+    }
+
+    private fun layout(node: SemanticsNodeInteraction): TextLayoutResult {
+        val results = mutableListOf<TextLayoutResult>()
+        node.fetchSemanticsNode().config[SemanticsActions.GetTextLayoutResult].action?.invoke(results)
+        return results.first()
     }
 
     private fun screen(content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
