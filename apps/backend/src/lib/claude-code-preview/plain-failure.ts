@@ -4,6 +4,8 @@ export const CONTEXT_TOO_LONG_MESSAGE =
   'This conversation is too long for the model. Start a new Task, or switch to a model with a larger context.'
 export const MODEL_UNAVAILABLE_MESSAGE =
   "This model isn't available through the agent's current API endpoint or key. Pick another model, or check the endpoint's model list."
+export const AGENT_CLI_UNSTARTABLE_MESSAGE =
+  "The agent's CLI couldn't start on this computer. Reinstall it with the Install button, then resend your message."
 
 /** How each provider words a prompt over its model's context, through any adapter. */
 const CONTEXT_TOO_LONG =
@@ -11,6 +13,15 @@ const CONTEXT_TOO_LONG =
 /** How providers and proxies word a model they do not serve: LiteLLM, Anthropic, OpenAI. */
 const MODEL_UNAVAILABLE =
   /Invalid model name passed in model=|not_found_error[^}]*"model: |model_not_found|The model `[^`]+` does not exist/iu
+/** Node's refusal to start the agent's CLI: missing, not executable, or a Windows .cmd it spawns without a shell. */
+const AGENT_CLI_UNSTARTABLE = /\bspawn (?:EINVAL|ENOENT|EACCES)\b/u
+
+/** The sentence for each failure the user's own setup caused. */
+export const USER_SETUP_MESSAGE = {
+  context_too_long: CONTEXT_TOO_LONG_MESSAGE,
+  model_unavailable: MODEL_UNAVAILABLE_MESSAGE,
+  agent_cli_unstartable: AGENT_CLI_UNSTARTABLE_MESSAGE,
+}
 
 const said = (error: unknown, pattern: RegExp) => {
   for (let cause = error; cause instanceof Error; cause = cause.cause)
@@ -19,10 +30,14 @@ const said = (error: unknown, pattern: RegExp) => {
   return false
 }
 
-/** A failure the user's own setup caused: a conversation too long for the model, or a model the endpoint does not serve. */
-export function userSetupFailure(error: unknown) {
-  if (said(error, CONTEXT_TOO_LONG)) return 'context_too_long' as const
-  if (said(error, MODEL_UNAVAILABLE)) return 'model_unavailable' as const
+/**
+ * A failure the user's own setup caused: a conversation too long for the model, a model the
+ * endpoint does not serve, or an agent CLI that cannot start.
+ */
+export function userSetupFailure(error: unknown): keyof typeof USER_SETUP_MESSAGE | undefined {
+  if (said(error, CONTEXT_TOO_LONG)) return 'context_too_long'
+  if (said(error, MODEL_UNAVAILABLE)) return 'model_unavailable'
+  if (said(error, AGENT_CLI_UNSTARTABLE)) return 'agent_cli_unstartable'
 
   return undefined
 }
@@ -34,8 +49,5 @@ export function userSetupFailure(error: unknown) {
 export function plainTurnFailure(error: unknown): string | undefined {
   const setup = userSetupFailure(error)
 
-  if (setup === 'context_too_long') return CONTEXT_TOO_LONG_MESSAGE
-  if (setup === 'model_unavailable') return MODEL_UNAVAILABLE_MESSAGE
-
-  return runtimeProductStateMessage(error)
+  return setup ? USER_SETUP_MESSAGE[setup] : runtimeProductStateMessage(error)
 }
