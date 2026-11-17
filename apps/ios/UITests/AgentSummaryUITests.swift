@@ -8,7 +8,7 @@ final class AgentSummaryUITests: XCTestCase {
         XCTAssertTrue(button.waitForExistence(timeout: 10))
         XCTAssertEqual(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "1 merged")).count, 0)
         button.tap()
-        XCTAssertTrue(app.navigationBars["Task summary"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Task summary"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertFalse(app.textFields["dock-search"].exists)
         XCTAssertFalse(app.buttons["dock-new-tab"].exists)
         XCTAssertTrue(app.staticTexts["Ship the release after checks pass?"].waitForExistence(timeout: 10))

@@ -7,6 +7,7 @@ struct AgentSummaryPanel: View {
     let close: () -> Void
     let openSession: (AgentConversation) -> Void
     @Environment(AgentStore.self) private var store
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var questions: OpenQuestions?
     @State private var triggers: [ConversationTrigger] = []
     @State private var triggersFailed = false
@@ -135,6 +136,16 @@ struct AgentSummaryPanel: View {
                 }
               }.padding(Theme.Space.large)
             }
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if sizeClass == .regular {
+                    HStack {
+                        Text("Task summary").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.heading)
+                        Spacer()
+                        Button(action: close) { LucideIcon("x").frame(width: 44, height: 44) }
+                            .accessibilityLabel("Close summary")
+                    }.padding(.leading, 16).padding(.trailing, 4).background(Theme.canvas)
+                }
+            }
             .background(Theme.canvas)
             .font(Theme.Text.secondary)
             .foregroundStyle(Theme.body)
@@ -144,9 +155,10 @@ struct AgentSummaryPanel: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.visible, for: .navigationBar)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: close) { LucideIcon("x") }
-                        .accessibilityLabel("Close summary")
+                if sizeClass != .regular {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button(action: close) { LucideIcon("x") }.accessibilityLabel("Close summary")
+                    }
                 }
             }
             .refreshable { await refresh() }

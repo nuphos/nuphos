@@ -32,6 +32,7 @@ struct ConversationView: View {
     /// The dock panel: this conversation's dock, mirrored from the Mac.
     @State private var dockOpen = false
     @State private var summaryOpen = false
+    @State private var summaryOpening = false
     @State private var summaryTarget: AgentConversation?
     /// A dock page open in the phone's own browser.
     @State private var web: DockWeb?
@@ -50,6 +51,19 @@ struct ConversationView: View {
     /// The dock shows the owner's own computer, so only the owner gets it.
     private var hasDock: Bool { !session.isNew && session.ownsChat }
     @State private var referencedAgents = ReferencedAgents()
+
+    private func toggleSummary() {
+        guard !summaryOpening else { return }
+        if summaryOpen { summaryOpen = false; return }
+        summaryOpening = true
+        dismissComposerKeyboard()
+        Task { @MainActor in
+            do { try await Task.sleep(for: .milliseconds(250)) } catch { summaryOpening = false; return }
+            dismissComposerKeyboard()
+            summaryOpen = true
+            summaryOpening = false
+        }
+    }
 
     private func dismissComposerKeyboard() {
         #if os(iOS) && !NUPHOS_SHARE_EXTENSION
@@ -166,7 +180,7 @@ struct ConversationView: View {
             ToolbarItem(placement: .principal) { titleBar }
             if session.loaded && (initialPrompt == nil || !session.isNew) {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { dismissComposerKeyboard(); summaryOpen.toggle() } label: { LucideIcon("panel-right") }
+                    Button(action: toggleSummary) { LucideIcon("panel-right") }
                         .accessibilityLabel("Agent summary")
                         .accessibilityIdentifier("agent-summary-button")
                 }
@@ -408,7 +422,7 @@ struct ConversationView: View {
                 ),
                 voiceTeamId: session.teamId,
                 temporaryDirectory: temporaryDirectory,
-                autoFocus: session.loaded && !session.readOnly && !summaryOpen && !dockOpen,
+                autoFocus: session.loaded && !session.readOnly && !summaryOpen && !summaryOpening && !dockOpen,
                 onSend: { session.send($0) },
                 onStop: { session.stop() }
             ) {
