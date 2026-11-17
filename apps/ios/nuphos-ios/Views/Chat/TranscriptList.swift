@@ -157,7 +157,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
             return cell
         }
         var config = UIButton.Configuration.filled()
-        config.image = UIImage(systemName: "arrow.down")
+        config.image = UIImage(named: "lucide-arrow-down")
         config.cornerStyle = .capsule
         config.baseBackgroundColor = .secondarySystemBackground
         config.baseForegroundColor = .label
