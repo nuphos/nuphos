@@ -43,7 +43,8 @@ extension NuphosAPI {
         scope: String = "mine",
         channels: Bool = false,
         bots: Bool = false,
-        pendingDecision: Bool = false
+        pendingDecision: Bool = false,
+        includeOnboarding: Bool = false
     ) async throws -> AgentConversationsPage {
         var query = [
             URLQueryItem(name: "teamId", value: teamId),
@@ -60,6 +61,7 @@ extension NuphosAPI {
         if bots { query.append(URLQueryItem(name: "bots", value: "true")) }
         // Only conversations with an open question, each with every parent above it.
         if pendingDecision { query.append(URLQueryItem(name: "pendingDecision", value: "true")) }
+        if includeOnboarding { query.append(URLQueryItem(name: "includeOnboarding", value: "true")) }
         let observedAt = ProcessInfo.processInfo.systemUptime
         let page: AgentConversationsPage = try await get("agent/conversations", query: query, token: token, timeout: 20)
         for row in page.rows {
@@ -119,6 +121,13 @@ extension NuphosAPI {
     /// `GET /teams/:id/favorites` — pinned chats live here.
     static func sidebarFavorites(token: String, teamId: String) async throws -> SidebarFavorites {
         try await get("teams/\(teamId)/favorites", token: token, timeout: 20)
+    }
+
+    /// `PUT /teams/:id/favorites` — replaces the whole list. A 409 means it changed
+    /// since `revision` was read.
+    static func saveSidebarFavorites(token: String, teamId: String, entries: [SidebarFavorites.Entry], revision: Int) async throws {
+        struct Body: Encodable { let expectedRevision: Int; let entries: [SidebarFavorites.Entry] }
+        try await AgentChatAPI.send("PUT", "teams/\(teamId)/favorites", token: token, body: Body(expectedRevision: revision, entries: entries), timeout: 20)
     }
 
     // MARK: - Transport

@@ -29,12 +29,31 @@ import { deleteDeviceJoinTokens } from './join-tokens'
 import { isDevicePresent, waitForPresence } from './presence'
 import { getAgentDevice } from './store'
 
+import type { createBox } from './box-instabox-create'
+import type { BoxState } from './box-instabox-state'
 import type { AgentDevice, AgentDeviceBox } from './store'
 
 export { boxBackendUrl, boxesAvailable } from './box-instabox-client'
 export { createBox } from './box-instabox-create'
-export { boxState } from './box-instabox-state'
+export { boxPausedBy, boxState } from './box-instabox-state'
 export type { BoxState } from './box-instabox-state'
+
+/** What the device routes call on the Box provider. */
+export type BoxProvider = {
+  create: typeof createBox
+  pause: (userId: string, deviceId: string) => Promise<AgentDevice>
+  resume: (userId: string, deviceId: string) => Promise<AgentDevice>
+  destroy: (userId: string, deviceId: string) => Promise<void>
+  /** A link to the Box's desktop, to watch and take over what its agents do. */
+  desktop: (userId: string, deviceId: string) => Promise<string>
+  /** Starts the host again on a running machine whose host dropped; rate-limited. */
+  heal: (userId: string, deviceId: string) => void
+  /** Whether Boxes can be ordered here: a provider and a public URL for the machine to dial. */
+  available: () => boolean
+  state: (device: AgentDevice, online: boolean) => Promise<BoxState | 'gone'>
+  /** Why instabox paused the machine on its own (`memory_pressure`, …); undefined if a person did. */
+  pausedBy: (device: AgentDevice) => Promise<string | undefined>
+}
 
 /** How long a resume may take before the tunnel is back. */
 const WAKE_TIMEOUT_MS = 60_000

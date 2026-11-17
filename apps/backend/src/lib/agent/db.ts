@@ -13,6 +13,7 @@ export {
   getConversationMessages,
   getConversationModelFallbackModelId,
   getConversationWithMessages,
+  getLatestAssistantMessage,
   getReadableConversation,
   markConversationModelFallbackActive,
   pickModelFallbackModelId,

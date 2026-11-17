@@ -39,9 +39,9 @@ export type PreviewAgentUpdate =
       terminalId?: string
     }
   // The provider's reported usage for a finished turn. The runtime relays it as
-  // a non-schema `turn_usage` session update, so the payload stays `unknown`:
-  // each agent reports its own shape and normalizeTokenUsage knows each one.
-  | { kind: 'turn-usage'; usage: unknown }
+  // a non-schema `turn_usage` session update carrying ACP `PromptResponse.usage`
+  // and the agent's `_meta.quota`; the recorder reads them, so both stay `unknown` here.
+  | { kind: 'turn-usage'; usage: unknown; quota?: unknown }
 
 // ACP ToolCallContent: [{ type: 'content', content: { type: 'text', text } }, …]
 export function extractToolContentText(content: unknown): string {
@@ -182,12 +182,22 @@ export function parseToolUpdate(
   }
 }
 
+/** What a runtime reported about one turn's usage. */
+export type TurnUsageReport = Omit<Extract<PreviewAgentUpdate, { kind: 'turn-usage' }>, 'kind'>
+
 /** A `turn_usage` session update, or null when it carries no usage object. */
 export function parseTurnUsageUpdate(
   payload: Record<string, unknown>,
 ): { kind: 'agent'; update: PreviewAgentUpdate } | null {
   return payload.usage && typeof payload.usage === 'object'
-    ? { kind: 'agent', update: { kind: 'turn-usage', usage: payload.usage } }
+    ? {
+        kind: 'agent',
+        update: {
+          kind: 'turn-usage',
+          usage: payload.usage,
+          ...(payload.quota !== undefined ? { quota: payload.quota } : {}),
+        },
+      }
     : null
 }
 
@@ -197,10 +207,12 @@ export function parseTurnUsageUpdate(
  */
 export function consumeTurnUsage(
   update: PreviewAgentUpdate,
-  onUsage?: (usage: unknown) => void,
+  onUsage?: (report: TurnUsageReport) => void,
 ): update is Exclude<PreviewAgentUpdate, { kind: 'turn-usage' }> {
   if (update.kind !== 'turn-usage') return true
-  onUsage?.(update.usage)
+  const { kind: _kind, ...report } = update
+
+  onUsage?.(report)
 
   return false
 }

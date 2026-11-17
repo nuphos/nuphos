@@ -6,10 +6,10 @@ import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
 import { artifacts, freePorts, logPath, signalGroup, spawn, stop, until } from './processes.ts'
+import { startInstaboxStub } from './instabox-stub.ts'
 import { startStorage } from './storage.ts'
 
-const ROOT = resolve(import.meta.dirname, '../..')
-const BACKEND_DIR = join(ROOT, 'apps/backend')
+const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
 const FIXTURE = join(import.meta.dirname, 'acp-fixture.mjs')
 const AUTH_KEY = 'local-e2e-openab-transport-key-123456789'
 const CONTROL_KEY = 'local-e2e-openab-control-key-123456789'
@@ -29,8 +29,8 @@ export type Stack = {
   holdSessionOpening: () => () => void
   /** The first agent offers Claude Code's "Default" stand-in until the returned function is called. */
   offerDefaultStandIn: () => () => void
-  /** Stops OpenAB and its agents, runs `whileDown`, then starts it again on the same address, as a runtime restart does. */
-  restartAgentHost: (whileDown?: () => Promise<void>) => Promise<void>
+  /** Stops OpenAB and its agents, runs `whileDown`, then starts it again on the same address, as a runtime restart does, offering the runtime `jobs` given. */
+  restartAgentHost: (whileDown?: () => Promise<void>, jobs?: string) => Promise<void>
   /** Freezes OpenAB and its agents, so its sockets stay open and nothing answers, runs `whileFrozen`, then lets them go on. */
   freezeAgentHost: (whileFrozen: () => Promise<void>) => Promise<void>
   /** The `state` of the newest Cloudflare authorization the app started. */
@@ -136,31 +136,29 @@ function signInCode(address: string): string | undefined {
     .findLast(Boolean)
 }
 
-export async function startStack(): Promise<Stack> {
+export async function startStack(options: { botOnboarding?: boolean } = {}): Promise<Stack> {
   const [mongoPort, backendPort, runtimePort, secondRuntimePort, storagePort] = await freePorts(5)
   const mongoUri = startMongo(mongoPort)
-  const storage = await startStorage(storagePort)
+  // Cloud computers too: only what a scenario puts in this instabox exists.
+  const fakes = { ...(await startStorage(storagePort)), ...(await startInstaboxStub()) }
 
   await until('MongoDB to become primary', async () => initiateReplicaSet(mongoUri))
   const apiUrl = `http://127.0.0.1:${String(backendPort)}`
   const acpLog = join(artifacts, 'acp.jsonl')
   const holdOpening = join(artifacts, 'hold-opening')
   const standIn = join(artifacts, 'stand-in')
-  const offerDefaultStandIn = () => {
-    writeFileSync(standIn, '')
+  // A file the fixture agent checks for, until the returned function removes it.
+  const flag = (path: string) => () => {
+    writeFileSync(path, '')
 
-    return () => rmSync(standIn)
+    return () => rmSync(path)
   }
-  const holdSessionOpening = () => {
-    writeFileSync(holdOpening, '')
-
-    return () => rmSync(holdOpening)
-  }
+  const offerDefaultStandIn = flag(standIn)
+  const holdSessionOpening = flag(holdOpening)
 
   writeFileSync(acpLog, '')
-  // One OpenAB per runtime. The fixture logs `agent` with every entry, and each
-  // OpenAB keeps its session files in a home of its own.
-  const startAgentHost = (agent = 'first', port = runtimePort) => {
+  // One OpenAB and isolated home per runtime; each fixture entry logs its agent.
+  const startAgentHost = (agent = 'first', port = runtimePort, jobs = '') => {
     const config = join(artifacts, `openab-${agent}.toml`)
     const home = join(artifacts, `home-${agent}`)
 
@@ -173,6 +171,7 @@ export async function startStack(): Promise<Stack> {
         `args = [${JSON.stringify(FIXTURE)}]`,
         `working_dir = ${JSON.stringify(artifacts)}`,
         '[agent.env]',
+        ...(options.botOnboarding ? ['E2E_BOT_ONBOARDING = "true"'] : []),
         `E2E_ACP_LOG = ${JSON.stringify(acpLog)}`,
         `E2E_AGENT = ${JSON.stringify(agent)}`,
         `E2E_HOLD_OPENING = ${JSON.stringify(holdOpening)}`,
@@ -193,14 +192,15 @@ export async function startStack(): Promise<Stack> {
         OPENAB_ACP_CONTROL_KEY: CONTROL_KEY,
         OPENAB_ACP_MCP_SERVERS: 'true',
         GATEWAY_LISTEN: `127.0.0.1:${String(port)}`,
+        ...(jobs ? { OPENAB_RUNTIME_JOBS: jobs } : {}),
       },
     })
   }
   const agentHosts = [startAgentHost()]
-  const restartAgentHost = async (whileDown?: () => Promise<void>) => {
+  const restartAgentHost = async (whileDown?: () => Promise<void>, jobs = '') => {
     await stop(agentHosts.at(-1)!)
     await whileDown?.()
-    agentHosts.push(startAgentHost())
+    agentHosts.push(startAgentHost('first', runtimePort, jobs))
     await until('OpenAB to listen again', async () =>
       fetch(`http://127.0.0.1:${String(runtimePort)}/`),
     )
@@ -236,7 +236,7 @@ export async function startStack(): Promise<Stack> {
         '6c6f63616c2d6532652d736f6e6172717562652d6b65792d6e6f742d70726f64',
       // Where the agent reaches the backend's tools, as a runtime on this computer would.
       NUPHOS_BACKEND_URL: apiUrl,
-      ...storage,
+      ...fakes,
     },
   })
   await until('the backend to be ready', async () => (await fetch(`${apiUrl}/health/ready`)).ok)

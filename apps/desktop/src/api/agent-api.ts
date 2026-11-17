@@ -91,6 +91,7 @@ export const agentApi = {
       archived?: 'exclude' | 'only'
       sort?: 'activity' | 'created' | 'archived'
       pendingDecision?: boolean
+      includeOnboarding?: boolean
       /** Channels instead of agent conversations; lists never mix the two. */
       kind?: 'channel'
     },

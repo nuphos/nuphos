@@ -5,6 +5,7 @@ import { notifyNudge } from '@/lib/push/notify'
 import { plainText, truncate } from '@/lib/push/turn-outcome'
 import { readingWatchers } from '@/lib/push/watchers'
 
+import { chatName } from './db/archive'
 import { inviteConversationParticipants } from './db/participants'
 import { agentConversations } from './db/shared'
 import { canReplyIn } from './devices/conversation-computer'
@@ -99,7 +100,8 @@ export async function noteMentions(
   )
   if (mentioned.length === 0) return
   // An unnamed chat's name is each reader's own view; the push goes to all of them alike.
-  const where = conversation.title ? ` in ${conversation.title}` : ''
+  const name = chatName(conversation)
+  const where = name ? ` in ${name}` : ''
 
   notifyNudge(mentioned, {
     sessionId: conversation.sessionId,
@@ -134,7 +136,7 @@ export async function notePost(
       sessionId: channel.sessionId,
       teamId: channel.teamId,
       title: senderLabel(post.metadata.sender),
-      ...(channel.title ? { subtitle: channel.title } : {}),
+      ...(chatName(channel) ? { subtitle: chatName(channel) } : {}),
       body: truncate(plainText(post.text)) || 'File',
       ...botFace(bot),
     })
