@@ -141,6 +141,35 @@ describe('GitHub skill install', () => {
     expect(preview.skills.at(-1)).toMatchObject({ fileCount: 2, skipped: ['link'] })
   })
 
+  test('a skill with hundreds of files installs, and one past the limit says what the limit is', async () => {
+    const files = (name: string, count: number) => [
+      { path: `skills/${name}/SKILL.md`, content: skillMd(name) },
+      ...Array.from({ length: count - 1 }, (_, index) => ({
+        path: `skills/${name}/assets/${String(index)}.txt`,
+        content: 'x',
+      })),
+    ]
+    const large = repoTarball([...files('large', 408), ...files('huge', 2001)], { commitSha: sha })
+    const read = async () =>
+      readRepoTarball(large) as ReturnType<typeof readRepoTarball> & { commitSha: string }
+    const preview = await previewGithubSkills(scope, 'acme/skills', read)
+
+    expect(Object.fromEntries(preview.skills.map((skill) => [skill.name, skill.problem]))).toEqual({
+      large: null,
+      huge: {
+        code: 'too_many_files',
+        message: 'Has 2,001 files; a skill can have at most 2,000',
+      },
+    })
+    await installGithubSkills(
+      scope,
+      { source: 'acme/skills', commitSha: sha, names: ['large'] },
+      context,
+      read,
+    )
+    expect(writes[0]).toHaveLength(408)
+  })
+
   test('install writes the skill at the previewed commit and records its origin', async () => {
     const installed = await installGithubSkills(
       scope,

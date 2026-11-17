@@ -24,7 +24,9 @@ import type { GithubSkillSource } from './source'
 import type { RepoArchive } from './tarball'
 import type { SkillMutationContext } from '@/lib/agent/skill-store/service'
 
-export const GITHUB_SKILL_LIMITS = { files: 200, bytes: 25_000_000, listed: 100 }
+// `files` is what one runtime bundle can carry (MAX_RUNTIME_SKILL_FILES): a skill
+// with more could never reach a runtime, and nothing else bounds the count.
+export const GITHUB_SKILL_LIMITS = { files: 2_000, bytes: 25_000_000, listed: 100 }
 
 export type GithubSkillCandidate = {
   name: string
@@ -98,7 +100,11 @@ export async function assess(
   }
   if (taken.builtin.has(skill.name)) return fail('reserved_name', 'A built-in skill uses this name')
   if (taken.existing.has(skill.name)) return fail('exists', 'A skill with this name already exists')
-  if (sizes.length > GITHUB_SKILL_LIMITS.files) return fail('too_many_files', 'Too many files')
+  if (sizes.length > GITHUB_SKILL_LIMITS.files)
+    return fail(
+      'too_many_files',
+      `Has ${sizes.length.toLocaleString('en-US')} files; a skill can have at most ${GITHUB_SKILL_LIMITS.files.toLocaleString('en-US')}`,
+    )
   if (
     sizes.some((size) => size > MAX_SKILL_UPLOAD_BYTES) ||
     sizes.reduce((a, b) => a + b, 0) > GITHUB_SKILL_LIMITS.bytes
