@@ -7,7 +7,9 @@ import { act, createElement } from 'react'
 
 import type { AgentConversation } from '../../api'
 import type { UserInfo } from '../../types'
+import type { RuntimeQuota } from '../../types/runtime'
 import type { Composer } from '../agent/panel/Composer'
+import type { RuntimeControl } from '../agent/panel/RuntimeSelector'
 import type { ComponentProps } from 'react'
 
 type ComposerProps = ComponentProps<typeof Composer>
@@ -63,6 +65,7 @@ for (const [key, value] of Object.entries(browser))
 const { queryClient } = await import('../../lib/query/client')
 const { queryKeys } = await import('../../lib/query/keys')
 const { ChannelPane } = await import('./ChannelPane')
+const { RuntimeSelector } = await import('../agent/panel/RuntimeSelector')
 const { createRoot } = await import('react-dom/client')
 
 const row = (fields: Partial<AgentConversation> & { sessionId: string }): AgentConversation => ({
@@ -138,6 +141,42 @@ test('a listed Bot chat opens with its name, runtime and credentials before it l
   assert.ok(frames.at(-1)?.runtimeControl?.onSettings)
   frames.at(-1)?.runtimeControl?.onSettings?.()
   assert.equal(settingsOpened, 1)
+
+  // The Bot's runtime line is the Task's: a runtime with quota data shows its usage in both.
+  const quota: RuntimeQuota = {
+    runtimeId: 'runtime-1',
+    provider: 'claude-code',
+    fetchedAt: '2026-01-01T00:00:00.000Z',
+    available: true,
+    windows: [{ id: 'five_hour', label: '5-hour', usedPercent: 40, resetsAt: null }],
+  }
+  const quotas = new Map([['runtime-1', quota]])
+  const botControl = frames.at(-1)?.runtimeControl
+
+  assert.ok(botControl)
+  const taskControl: RuntimeControl = { value: botControl.value }
+
+  for (const [name, control] of [
+    ['Bot', botControl],
+    ['Task', taskControl],
+  ] as const) {
+    const line = dom.document.createElement('div')
+
+    dom.document.body.append(line)
+    const lineRoot = createRoot(line as unknown as HTMLElement)
+
+    await act(() =>
+      lineRoot.render(
+        createElement(
+          QueryClientProvider,
+          { client: queryClient },
+          createElement(RuntimeSelector, { ...control, quotas }),
+        ),
+      ),
+    )
+    assert.ok(line.querySelector('[role="progressbar"]'), `${name} composer shows usage`)
+    await act(() => lineRoot.unmount())
+  }
   await act(() => root.unmount())
   queryClient.clear()
 })

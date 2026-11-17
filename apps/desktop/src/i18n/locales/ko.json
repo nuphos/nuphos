@@ -2218,6 +2218,7 @@
   "Installation {id}": "설치 {id}",
   "Installed": "설치됨",
   "Installed from": "설치 출처",
+  "Installing {name} on {computer}…": "{computer}에 {name} 설치 중…",
   "Installing…": "설치 중…",
   "Instance ID": "인스턴스 ID",
   "Instances": "인스턴스",

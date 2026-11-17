@@ -2218,6 +2218,7 @@
   "Installation {id}": "การติดตั้ง {id}",
   "Installed": "ติดตั้งแล้ว",
   "Installed from": "ติดตั้งจาก",
+  "Installing {name} on {computer}…": "กำลังติดตั้ง {name} บน {computer}…",
   "Installing…": "กำลังติดตั้ง…",
   "Instance ID": "ID อินสแตนซ์",
   "Instances": "อินสแตนซ์",

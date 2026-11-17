@@ -2218,6 +2218,7 @@
   "Installation {id}": "Instalasi {id}",
   "Installed": "Terinstal",
   "Installed from": "Dipasang dari",
+  "Installing {name} on {computer}…": "Menginstal {name} di {computer}…",
   "Installing…": "Menginstal…",
   "Instance ID": "ID instans",
   "Instances": "Instans",

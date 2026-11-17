@@ -17,7 +17,7 @@ export function openQuestionCount(open: number): string | null {
 }
 
 export function botIsOnboarding(conversation: Pick<AgentConversation, 'botOnboarding'>): boolean {
-  return conversation.botOnboarding === 'pending' || conversation.botOnboarding === 'started'
+  return conversation.botOnboarding === 'pending' || conversation.botOnboarding === 'active'
 }
 
 /** Chat keeps all questions; work surfaces exclude initial setup preferences. */

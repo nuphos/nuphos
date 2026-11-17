@@ -5,6 +5,7 @@ import { useDb } from '@/lib/test/doubles/db'
 import { getConversations } from './conversations-list'
 import {
   addInputRequest,
+  attentionInputRequests,
   openInputRequests,
   reopenInputRequest,
   resolveInputRequest,
@@ -189,7 +190,7 @@ describe('input requests', () => {
         {
           'inputRequests.status': 'open',
           $or: [
-            { botOnboarding: { $nin: ['pending', 'started'] } },
+            { botOnboarding: { $nin: ['pending', 'active'] } },
             { inputRequests: { $elemMatch: { status: 'open', category: { $ne: 'preference' } } } },
           ],
           userId: '642802f4c38340345aa2384d',
@@ -218,7 +219,7 @@ describe('input requests', () => {
         {
           'inputRequests.status': 'open',
           $or: [
-            { botOnboarding: { $nin: ['pending', 'started'] } },
+            { botOnboarding: { $nin: ['pending', 'active'] } },
             { inputRequests: { $elemMatch: { status: 'open', category: { $ne: 'preference' } } } },
           ],
         },
@@ -245,7 +246,7 @@ describe('input requests', () => {
         {
           'inputRequests.status': 'open',
           $or: [
-            { botOnboarding: { $nin: ['pending', 'started'] } },
+            { botOnboarding: { $nin: ['pending', 'active'] } },
             { inputRequests: { $elemMatch: { status: 'open', category: { $ne: 'preference' } } } },
           ],
           userId: 'member-1',
@@ -272,4 +273,11 @@ test('chat listings opt into onboarding without removing the pending-question fi
       },
     ],
   })
+})
+
+test('an introduced Bot keeps its open preference questions as attention', () => {
+  const inputRequests = [{ id: 'q', status: 'open', category: 'preference' } as InputRequest]
+
+  expect(attentionInputRequests({ botOnboarding: 'started', inputRequests })).toEqual(inputRequests)
+  expect(attentionInputRequests({ botOnboarding: 'active', inputRequests })).toEqual([])
 })

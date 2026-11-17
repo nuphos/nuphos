@@ -2218,6 +2218,7 @@
   "Installation {id}": "インストール {id}",
   "Installed": "インストール済み",
   "Installed from": "インストール元",
+  "Installing {name} on {computer}…": "{computer} に {name} をインストールしています…",
   "Installing…": "インストール中…",
   "Instance ID": "インスタンス ID",
   "Instances": "インスタンス",
