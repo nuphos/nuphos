@@ -109,7 +109,7 @@ final class BotPinsUITests: XCTestCase {
         XCTAssertTrue(app.buttons["conversation-trigger-entry"].waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["Share"].exists)
         shot("bot-own-task")
-        app.navigationBars.buttons["BackButton"].tap()
+        app.buttons["BackButton"].firstMatch.tap()
         XCTAssertTrue(entry.waitForExistence(timeout: 5), "Back must return to the Bot chat, not its list")
         shot("bot-task-returned-to-chat")
     }
