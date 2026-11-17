@@ -8,6 +8,7 @@ import { agentWordScenarios } from './agent-word-scenarios.ts'
 import { backendFailures, backendLines } from './backend-log.ts'
 import { checkDecisionOutline, checkOutgoingChip } from './chat-presentation.ts'
 import { channelScenarios } from './channel-scenarios.ts'
+import { channelAwayScenarios } from './channel-away-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
@@ -80,6 +81,7 @@ const scenarios: Scenario[] = [
     },
   },
   ...channelScenarios,
+  ...channelAwayScenarios,
   ...teammateBotScenarios,
   {
     name: 'start a Task, send a message and read the reply',

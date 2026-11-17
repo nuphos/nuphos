@@ -60,6 +60,18 @@ export const botOnboardingScenarios: Scenario[] = [
       await until('the setup answer to reach the Bot', async () =>
         agentEvents(stack).includes('finish E2E_DELIVERY:answered'),
       )
+      // A Bot still in setup that is working shows its work dots, and its setup again at rest.
+      const row = page.locator('[data-sidebar-row]').filter({ hasText: 'Release Helper' }).first()
+
+      await send(page, 'Still setting up E2E_SLOW E2E_DELIVERY:setup-busy')
+      await row.locator('.t-typing-dot').first().waitFor()
+      assert.equal(await row.getByText('Getting started', { exact: true }).count(), 0)
+      await page.screenshot({ path: `${artifacts}/onboarding-working-light.png` })
+      await until('the setup-time turn to finish', async () =>
+        agentEvents(stack).includes('finish E2E_DELIVERY:setup-busy'),
+      )
+      await row.getByText('Getting started', { exact: true }).waitFor()
+      await page.screenshot({ path: `${artifacts}/onboarding-at-rest-light.png` })
       await send(
         page,
         'Confirmed: review project releases and prepare a weekly summary. E2E_ONBOARDING_COMPLETE',

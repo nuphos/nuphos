@@ -10,8 +10,10 @@ import type { Scenario } from './ui.ts'
 
 const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
 
-/** Each model's step_total tokens from runtime turns, or null before any is written. */
-function turnTokensByModel(stack: Stack): Record<string, Record<string, number>> | null {
+type TurnRow = { modelId: string; tokens: Record<string, number> } & Record<string, unknown>
+
+/** The step_total rows of runtime turns, or null before any is written. */
+function turnRows(stack: Stack): TurnRow[] | null {
   const script = `
     import { MongoClient } from 'mongodb'
     const [uri, teamId] = process.argv.slice(1)
@@ -19,14 +21,14 @@ function turnTokensByModel(stack: Stack): Record<string, Record<string, number>>
     const rows = await client.db('nuphos_e2e').collection('agent_token_usage')
       .find({ teamId, source: 'agent-runtime', kind: 'step_total' }).toArray()
     await client.close()
-    console.log(JSON.stringify(rows.length ? Object.fromEntries(rows.map((row) => [row.modelId, row.tokens])) : null))`
+    console.log(JSON.stringify(rows.length ? rows : null))`
 
   return JSON.parse(
     execFileSync('bun', ['-e', script, stack.mongoUri, stack.teamId], {
       cwd: BACKEND_DIR,
       timeout: 10_000,
     }).toString(),
-  ) as Record<string, Record<string, number>> | null
+  ) as TurnRow[] | null
 }
 
 /** JSON with every object's keys in order, so two values compare as text. */
@@ -39,18 +41,19 @@ const canonical = (value: unknown) =>
 
 export const usageScenarios: Scenario[] = [
   {
-    name: 'a Claude Code turn is stored per model, with its cache tokens and sub-agents counted',
+    name: 'a Claude Code turn is stored per model with its sender, runtime and stop reason',
     run: async (page, stack) => {
       await newTask(page)
       await send(page, 'Count this E2E_TURN_USAGE E2E_DELIVERY:usage')
       await page.getByText('ACK E2E_DELIVERY:usage').waitFor()
-      let byModel: Record<string, Record<string, number>> | null = null
+      let rows: TurnRow[] | null = null
 
       await until('the turn usage to be stored', async () => {
-        byModel = turnTokensByModel(stack)
+        rows = turnRows(stack)
 
-        return byModel !== null
+        return rows !== null
       })
+      const byModel = Object.fromEntries((rows ?? []).map((row) => [row.modelId, row.tokens]))
       const expected = {
         'claude-opus-5-5': {
           inputTokens: 258_012,
@@ -70,6 +73,15 @@ export const usageScenarios: Scenario[] = [
 
       if (canonical(byModel) !== canonical(expected))
         throw new Error(`Stored ${JSON.stringify(byModel)}, expected ${JSON.stringify(expected)}`)
+      // The app's own member sent it, on the stack's hosted runtime, and it ended normally.
+      for (const row of rows ?? [])
+        if (
+          row.actorUserId !== row.userId ||
+          row.turnSource !== 'app' ||
+          typeof row.runtimeId !== 'string' ||
+          row.finishReason !== 'end_turn'
+        )
+          throw new Error(`Turn row is missing who, where or how: ${JSON.stringify(row)}`)
     },
   },
 ]

@@ -3,7 +3,7 @@
 import { userDataDir } from './main/app-paths'
 import path from 'node:path'
 
-import { app, BrowserWindow, ipcMain, nativeTheme, net } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeTheme, net, session } from 'electron'
 
 import {
   initMainAnalytics,
@@ -11,7 +11,9 @@ import {
   captureMainException,
   shutdownMainAnalytics,
 } from './analytics'
+import { apiUrl } from './api-endpoint'
 import * as asanaInstall from './asana-install'
+import { routeBackendSocketsThroughSystemProxy } from './backend-socket'
 import * as cloudflareInstall from './cloudflare-install'
 import { watchCrashes } from './crash-reporter'
 import * as discordInstall from './discord-install'
@@ -213,7 +215,10 @@ app
     void resolveShellEnv()
     initMainAnalytics()
     startDevBackendHealthProbe()
-    initLocalRuntime()
+    // The tunnel's first dial must already know the proxy.
+    void routeBackendSocketsThroughSystemProxy(session.defaultSession, apiUrl()).finally(
+      initLocalRuntime,
+    )
     captureMain('app_launched', {
       version: app.getVersion(),
       platform: process.platform,
