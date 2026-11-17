@@ -103,6 +103,10 @@
     <string name="composer_saving">Menyimpan…</string>
     <string name="composer_send_securely">Kirim dengan aman</string>
     <string name="composer_secret_footer">Nilai ini ditulis ke file di runtime tugas dan tidak pernah muncul di tugas ini.</string>
+    <string name="composer_secret_details_needed">Data yang diperlukan untuk %1$s</string>
+    <string name="composer_secret_fields_footer">Nilai-nilai ini ditulis ke file di runtime tugas dan dimasukkan di %1$s tanpa melewati tugas ini.</string>
+    <string name="composer_secret_reveal">Tampilkan nilai</string>
+    <string name="composer_secret_hide">Sembunyikan nilai</string>
     <string name="composer_attachments_unavailable">Lampiran tidak tersedia</string>
     <string name="composer_attachments">Lampiran</string>
     <string name="composer_loading_attachments">Memuat lampiran…</string>

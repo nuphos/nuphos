@@ -8,8 +8,8 @@ import { nuphosReplyImages, nuphosUploadReplyImages } from './reply-images.mjs'
 // a container Nuphos never created. The backend instead delivers a one-conversation URL
 // and token in the session's own environment, so the runtime fetches its own bundle.
 //
-// A session waits for both fetches, because the agent reads its skills once, when it
-// starts: skills that land a moment later would be missing from the whole conversation.
+// A session waits for both fetches, so its first turn already has them. Later turns
+// re-sync before each prompt, and the running agent reads the change from disk.
 // A runtime that already holds the current bundle is answered 304 without a file being
 // read (#1923), so the wait is one round trip. Never fatal either — skills are an
 // enrichment, not a precondition. The script allows itself two minutes, so the timeout
@@ -83,8 +83,8 @@ export async function nuphosSyncRuntimeSkills(params, run) {
     'skills',
   )
   // Nothing reads the result past the wait, so a failure would otherwise vanish with it.
-  const syncTeam = () =>
-    sync().then((ok) => {
+  const syncTeam = (timeoutMs) =>
+    sync(undefined, timeoutMs).then((ok) => {
       if (!ok) process.stderr.write('runtime skills sync failed\n')
 
       return ok
@@ -99,7 +99,13 @@ export async function nuphosSyncRuntimeSkills(params, run) {
     : (run?.sessionHome ??
       (typeof nuphosSessionHomeEnv === 'function' ? nuphosSessionHomeEnv(env).HOME : undefined))
 
-  if (!home) return { synced: Promise.resolve(await syncTeam()) }
+  // A live session reads skill files as they change on disk, so a prompt re-syncs the
+  // team bundle too (#3365): one round trip, answered 304 when nothing changed.
+  if (!home) {
+    globalThis.nuphosRefreshSkills = () => syncTeam(5_000).catch(() => {})
+
+    return { synced: Promise.resolve(await syncTeam()) }
+  }
   // Whether a tree holds exactly the files of the revision recorded beside it. The
   // revision is the backend's hash of the bundle's files (`revisionOf`), so a skill
   // anyone added or changed after the sync, in a directory the agent can write to,
@@ -190,7 +196,8 @@ export async function nuphosSyncRuntimeSkills(params, run) {
   // through its own file watcher, and a new process reads it on start. Rebuilding the
   // session here meant tearing it down before resuming it, and a failed resume left
   // the runtime holding a connection with no session (#2612).
-  globalThis.nuphosRefreshPersonalSkills = () => syncPersonal(5_000, true).catch(() => {})
+  globalThis.nuphosRefreshSkills = () =>
+    Promise.all([syncTeam(5_000), syncPersonal(5_000, true)]).catch(() => {})
   // A session reads its skills when it starts, and the fetch runs behind it. So skills
   // left here for anyone but the member opening it are cleared first; that is local.
   const opener = holder(await credentialFor(false))
@@ -443,18 +450,18 @@ export function patchRuntimeDefaults(source) {
   return `${shebang}${nuphosStreamReplyImages.toString()}\n${nuphosReplyImages.toString()}\n${nuphosUploadReplyImages.toString()}\n${nuphosSyncRuntimeSkills.toString()}\n${nuphosApplyRuntimeDefaults.toString()}\n${nuphosTraceRestore.toString()}\n${body}`
 }
 
-// Claude only. The sender of a turn may differ from the last one's, so the personal
-// skills are re-synced before every prompt of a live session, which is rebuilt when
-// the skills on disk changed. Strict on purpose: losing
-// this silently would leave one member's skills in place for the next.
-export function patchPersonalSkillsRefresh(source) {
-  const anchor = 'async prompt(params) {'
+// Before every prompt of a live session, the team skills are re-synced, and for Claude
+// the personal skills too, since the sender of a turn may differ from the last one's.
+// The session picks the change up from disk. Strict on purpose: losing this silently
+// would leave one member's skills in place for the next.
+export function patchSkillsRefresh(source) {
+  const anchors = source.match(/async prompt\(params(?:, signal)?\) \{/gu) ?? []
 
-  if (source.split(anchor).length !== 2)
-    throw new Error(`Expected exactly one native ACP \`${anchor}\` handler.`)
+  if (anchors.length !== 1)
+    throw new Error('Expected exactly one native ACP `async prompt(params) {` handler.')
 
   return source.replace(
-    anchor,
-    `${anchor}\n        await globalThis.nuphosRefreshPersonalSkills?.(this, params);`,
+    anchors[0],
+    `${anchors[0]}\n        await globalThis.nuphosRefreshSkills?.(this, params);`,
   )
 }

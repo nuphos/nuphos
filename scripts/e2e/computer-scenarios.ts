@@ -95,6 +95,15 @@ export const computerScenarios: Scenario[] = [
         other.addEventListener('open', opened)
         other.addEventListener('error', failed)
       })
+      // It takes the computer once it speaks, as an app does on connecting (#3366).
+      const speaking = backendLines()
+
+      other.send(JSON.stringify({ t: 'status', status: { agents: {} } }))
+      await until('the other connection to take the computer', async () =>
+        backendLog(speaking).some(
+          (line) => line.includes(deviceId!) && line.includes('"code":4000'),
+        ),
+      )
       const from = backendLines()
 
       forgetComputer(stack.mongoUri, deviceId!)

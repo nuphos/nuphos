@@ -103,6 +103,10 @@
     <string name="composer_saving">保存中…</string>
     <string name="composer_send_securely">安全に送信</string>
     <string name="composer_secret_footer">値はタスクのランタイム上のファイルに書き込まれ、このタスクには表示されません。</string>
+    <string name="composer_secret_details_needed">%1$s に必要な情報</string>
+    <string name="composer_secret_fields_footer">値はタスクのランタイム上のファイルに書き込まれ、このタスクを経由せずに %1$s に入力されます。</string>
+    <string name="composer_secret_reveal">値を表示</string>
+    <string name="composer_secret_hide">値を隠す</string>
     <string name="composer_attachments_unavailable">添付ファイルを利用できません</string>
     <string name="composer_attachments">添付ファイル</string>
     <string name="composer_loading_attachments">添付ファイルを読み込み中…</string>
