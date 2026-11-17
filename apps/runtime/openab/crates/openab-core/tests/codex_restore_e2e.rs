@@ -1,15 +1,6 @@
-//! A real codex-acp session survives its agent being dropped and restored (#3371).
-//!
-//! The pool drops an agent's connection whenever it suspends a session (idle sweep, an agent
-//! that lost its session, an MCP change) and restores it with `session/load` on the next
-//! message. That load only works once the dropped agent's own Codex App Server has let go of
-//! the thread: while it is still running, a new one answers "thread … already has an active
-//! writer". On Windows nothing ended that process tree, so every restore failed.
-//!
-//! Runs only when `OPENAB_E2E_CODEX_ACP` (the patched adapter's `dist/index.js`) and
-//! `OPENAB_E2E_CODEX` (the Codex CLI binary) are set, as the Windows runtime CI job does.
-//! No model is reached: Codex talks to a local server that answers 401, which still records
-//! the turn in the thread's rollout, so there is something to restore.
+//! A real codex-acp session survives the pool dropping its agent and restoring it (#3371).
+//! Runs when `OPENAB_E2E_CODEX_ACP` (patched adapter) and `OPENAB_E2E_CODEX` (Codex CLI) are
+//! set. Codex talks to a local server that answers 401, which still records the turn.
 use openab_core::acp::{ContentBlock, SessionPool};
 use openab_core::config::AgentConfig;
 use std::collections::HashMap;

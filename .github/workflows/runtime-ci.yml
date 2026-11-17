@@ -83,7 +83,7 @@ jobs:
       - name: Restore a dropped Codex session
         run: |
           adapter="$PWD/image/codex-acp/node_modules/@agentclientprotocol/codex-acp/dist/index.js"
-          codex=$(find "$PWD/image/codex-acp/node_modules/@openai" -path '*/bin/codex*' -type f ! -name '*.js' | head -1)
+          codex=$(find "$PWD/image/codex-acp/node_modules/@openai" -type f \( -path '*/bin/codex' -o -path '*/bin/codex.exe' \) | head -1)
           if command -v cygpath >/dev/null; then adapter=$(cygpath -w "$adapter"); codex=$(cygpath -w "$codex"); fi
           export OPENAB_E2E_CODEX_ACP="$adapter" OPENAB_E2E_CODEX="$codex"
           cd openab && cargo +1.99.0 test --locked -p openab-core --test codex_restore_e2e -- --nocapture
