@@ -1,7 +1,7 @@
 // A computer whose path to the backend goes silent in the middle of a turn redials, and the
 // turn still ends there (#3366). The computer is a real `nuphos agent` host whose Claude Code
 // runtime runs the fixture agent, so the turn goes through its tunnel.
-import { mkdirSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
@@ -28,11 +28,13 @@ function fixtureBundle(stack: Stack): string {
     adapters: Record<string, { version: string }>
   }
 
+  // Copies, not links: the bundle's scripts run only when started by their own path.
+  cpSync(real, root, {
+    recursive: true,
+    filter: (source) => !source.startsWith(join(real, 'adapters')) || source === real,
+  })
   mkdirSync(adapter, { recursive: true })
-  for (const entry of readdirSync(real))
-    if (entry !== 'adapters' && entry !== 'manifest.json')
-      symlinkSync(join(real, entry), join(root, entry))
-  symlinkSync(
+  cpSync(
     join(real, 'adapters', 'claude-code', 'mcp-http-bridge.mjs'),
     join(adapter, 'mcp-http-bridge.mjs'),
   )
