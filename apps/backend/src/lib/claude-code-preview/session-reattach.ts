@@ -249,7 +249,7 @@ export async function reattachAfterTransportLoss(
           attempt: attempt + 1,
         })
         // Back on the air: posts that could not wake it while it was away do now.
-        void import('@/lib/agent/channel-chat').then(({ wakeMissedPosts }) =>
+        void import('@/lib/agent/channel-missed-posts').then(({ wakeMissedPosts }) =>
           wakeMissedPosts({ sessionId: session.conversationId }),
         )
 

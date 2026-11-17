@@ -6,7 +6,7 @@ import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
 
-import { reportUndelivered, runTurn } from './conversation-turn'
+import { runTurn } from './conversation-turn'
 import { getConversationBySessionId } from './db'
 import { canReplyIn } from './devices/conversation-computer'
 import { listPendingUserMessages, queueHead, takePendingUserMessages } from './pending-queue'
@@ -19,6 +19,7 @@ import {
 import { openSignInRequest, releaseWhenAskLapses } from './sign-in-request'
 import { withinOfflineGrace } from './turn-offline'
 import { turnRunner } from './turn-runner'
+import { reportUndelivered } from './undelivered-send'
 
 import type { AgentConversation } from './db'
 import type { PendingUserMessage } from './pending-message-types'

@@ -1,21 +1,18 @@
-import { randomUUID } from 'node:crypto'
-
 import { sessionsByConversation } from '@/lib/claude-code-preview/agent-chat-registry'
 import { isRuntimeRefusal } from '@/lib/claude-code-preview/runtime-refusal'
 import { signNuphosToken } from '@/lib/identity'
-import { logError, logEvent } from '@/lib/observability'
+import { logError } from '@/lib/observability'
 import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
 
-import { agentMessages, getConversationBySessionId, getConversationWithMessages } from './db'
-import { channelIdOf, noteReplyFailed, withChannelPosts } from './channel-wake'
-import { systemSender } from './message-metadata'
+import { agentMessages, getConversationWithMessages } from './db'
+import { channelIdOf, withChannelPosts } from './channel-wake'
 import { buildPendingUserMessage, hasPendingUserMessage } from './pending-messages'
 import { requeueTurnQueue } from './session-released'
 import { recordFailedFires } from './trigger-failed-runs'
 import { recordFiresRan } from './trigger-missed-runs'
 import { reconnecting } from './turn-offline'
 import { turnRunner } from './turn-runner'
-import { keepUndeliveredSend, reopenUndeliveredAnswer } from './undelivered-send'
+import { reportUndelivered } from './undelivered-send'
 import { failureLine, keepAnswersThatWait } from './waiting-answers'
 
 import type { AgentConversation } from './db'
@@ -96,7 +93,7 @@ export async function startConversationTurn(
   return { status: 'started', run: run() }
 }
 
-type DeliveredTo = Pick<ConversationTurn, 'userId' | 'teamId' | 'targetSessionId'> & {
+export type DeliveredTo = Pick<ConversationTurn, 'userId' | 'teamId' | 'targetSessionId'> & {
   locale?: string
 }
 
@@ -236,81 +233,5 @@ async function reportIfRestarted(
     if (await runtimeRestarted(data)) await reportUndelivered(data, messages, LOST_TURN)
   } catch (error) {
     logError('agent.thread.lost_turn_check_failed', error, { session_id: data.targetSessionId })
-  }
-}
-
-/**
- * The one rule for an accepted message: it runs as a turn of its target, or its
- * sender is told, once, that it did not. A thread message is answered in its
- * sender's thread; a person's send stays in the conversation, with the reason;
- * a channel's wake notice is a line in that channel.
- */
-export async function reportUndelivered(
-  // No team when the target conversation is gone: the sender's own is the one it sent from.
-  data: Omit<DeliveredTo, 'teamId'> & { teamId?: string },
-  messages: readonly PendingUserMessage[],
-  reason: string,
-  /** Why, for a channel's line; none says only that the agent could not reply. */
-  error?: unknown,
-): Promise<void> {
-  for (const message of messages) {
-    const senderId = message.metadata?.sourceSessionId
-    const channelId = channelIdOf(message)
-
-    // A channel's wake notice is told to the channel: its people see the agent could not reply.
-    if (channelId) {
-      logEvent('warn', 'agent.channel.wake_undelivered', {
-        channel_id: channelId,
-        session_id: data.targetSessionId,
-        message_id: message.id,
-        reason,
-      })
-      await noteReplyFailed(channelId, data.targetSessionId, error ?? new Error(reason))
-      continue
-    }
-    if (message.chat) await keepUndeliveredSend(data, message, `This message ${reason}`)
-    if (message.answers) await reopenUndeliveredAnswer(data, message.answers, reason)
-    // Only an agent's message is answered. The answer is Nuphos's own notice,
-    // never an agent's, so it is never reported back: threads cannot ping-pong.
-    if (message.source !== 'agent.thread' || !senderId) continue
-    const failed = (error: unknown) => {
-      logError('agent.thread.undelivered_report_failed', error, {
-        session_id: data.targetSessionId,
-        source_session_id: senderId,
-        message_id: message.id,
-      })
-    }
-
-    try {
-      const sender = await getConversationBySessionId(senderId)
-
-      // The same owner and team the delivery was authorized for; an archived one is restored.
-      if (
-        sender?.userId !== data.userId ||
-        !sender.teamId ||
-        (data.teamId && sender.teamId !== data.teamId)
-      )
-        continue
-      const excerpt = message.renderedText.slice(0, 200)
-      const notice = `Your message to thread ${data.targetSessionId} ${reason} It began: "${excerpt}". Check that thread before resending anything, since work may be partly done. If its agent is unavailable, move it to a running agent (update_thread runtimeId) first.`
-      // Not awaited: this turn still holds its own target, and the sender may be busy.
-      const { run } = await startConversationTurn(
-        {
-          ...data,
-          teamId: sender.teamId,
-          targetSessionId: senderId,
-          messageId: randomUUID(),
-          locale: data.locale ?? 'en',
-        },
-        sender,
-        notice,
-        'agent.resource',
-        systemSender('nuphos', 'Nuphos', `/teams/${sender.teamId}/agent/${data.targetSessionId}`),
-      )
-
-      run.catch(failed)
-    } catch (error) {
-      failed(error)
-    }
   }
 }

@@ -18,8 +18,8 @@ import {
   postChannelMessage,
   replyQuote,
   wakeAfterTurn,
-  wakeMissedPosts,
 } from './channel-chat'
+import { wakeMissedPosts } from './channel-missed-posts'
 import { runTurn, startConversationTurn } from './conversation-turn'
 import { inviteToConversation, resolveMentions } from './mentions'
 import { firstLine } from './channel-newest-post'
