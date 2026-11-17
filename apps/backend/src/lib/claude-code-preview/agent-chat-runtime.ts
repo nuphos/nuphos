@@ -9,7 +9,7 @@ import {
 } from './autonomous-session-observer'
 import { backgroundWorkPrompt, markBackgroundWorkLost } from './background-work'
 import { openConversationSession } from './open-conversation-session'
-import { turnFailureCause } from './openab-acp-errors'
+import { agentHostAway } from './openab-acp-connect'
 import { redactedPromptUpdates } from './redacted-prompt-updates'
 import { retractedPrompt } from './retracted-notice'
 import { promptFailure } from './prompt-failure'
@@ -140,7 +140,7 @@ export async function runClaudeCodePreviewPrompt(args: {
         openabSessionId: session.openabSessionId,
       },
     }).catch(async (cause: unknown) => {
-      throw turnFailureCause(cause) === 'offline' ? cause : await RuntimeStateProbeError.from(cause)
+      throw agentHostAway(cause) ? cause : await RuntimeStateProbeError.from(cause)
     })
   const observed = await observe()
 

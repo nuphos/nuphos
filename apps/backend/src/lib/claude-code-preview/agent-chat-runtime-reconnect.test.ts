@@ -292,14 +292,19 @@ for (const [name, error, diagnostics] of [
   })
 }
 
-test('a computer the probe finds offline fails the turn as offline, which the queue waits out', async () => {
+test('an agent host the probe finds away fails the turn as away, which the queue waits out', async () => {
   const { AppError } = await import('@/lib/errors')
+  const { OpenAbConnectError } = await import('./openab-acp-connect')
 
-  probeError = new AppError(409, 'runtime_offline', 'The computer running this agent is offline.')
-  const failure = await run().catch((cause: unknown) => cause)
-
-  expect(failure).toBe(probeError)
-  expect(calls).toEqual(['observe-control'])
+  for (const away of [
+    new AppError(409, 'runtime_offline', 'The computer running this agent is offline.'),
+    new OpenAbConnectError('OpenAB ACP connection failed'),
+  ]) {
+    calls.length = 0
+    probeError = away
+    expect(await run().catch((cause: unknown) => cause)).toBe(away)
+    expect(calls).toEqual(['observe-control'])
+  }
 })
 
 test('a probe failure is redacted before display and cancellation still takes precedence', async () => {

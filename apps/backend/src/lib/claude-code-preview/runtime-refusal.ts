@@ -1,5 +1,6 @@
 import { AppError } from '@/lib/errors'
 
+import { agentHostAway } from './openab-acp-connect'
 import { turnFailureCause } from './openab-acp-errors'
 
 /**
@@ -14,14 +15,15 @@ export const isRuntimeRefusal = (error: unknown) =>
 
 /**
  * Whether the queue sends this turn again, so it is not recorded: a refusal for a
- * client that resends, or an offline computer the conversation queue waits for.
+ * client that resends, or an agent host away or offline that the conversation queue waits for.
  */
 export const resentAfter = (
   error: unknown,
   turn: { clientResendsRefusal?: boolean; queued?: unknown },
 ) =>
   ((turn.clientResendsRefusal || Boolean(turn.queued)) && isRuntimeRefusal(error)) ||
-  (Boolean(turn.clientResendsRefusal) && turnFailureCause(error) === 'offline')
+  (Boolean(turn.clientResendsRefusal) &&
+    (agentHostAway(error) || turnFailureCause(error) === 'offline'))
 
 /**
  * What the client hears about a refused turn that came from, or went back to,
