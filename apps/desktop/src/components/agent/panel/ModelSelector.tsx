@@ -41,11 +41,14 @@ export function ModelSelector({
   control,
   disabled,
   hero = false,
+  disabledHint,
 }: {
   control: ModelControl
   disabled: boolean
   /** Sized like the hero composer's other controls; compact otherwise. */
   hero?: boolean
+  /** Why the picker is disabled, when it is not just waiting for the agent. */
+  disabledHint?: string
 }) {
   const { data, loading, slow, saving, error, writeError } = control
   // A refused change reports its own reason; a stalled connection keeps its note.
@@ -134,9 +137,10 @@ export function ModelSelector({
       failure && model && t('Showing last synced settings.'),
       control.queued ? t('Selected for the next reply.') : hint,
       disabled &&
-        !busy &&
-        status === 'ready' &&
-        t('Available when this agent is ready for your next message.'),
+        (disabledHint ??
+          (!busy &&
+            status === 'ready' &&
+            t('Available when this agent is ready for your next message.'))),
     ].filter((line): line is string => Boolean(line)),
     error: failure ?? undefined,
     onRetry: error || status === 'offline' ? control.refresh : undefined,

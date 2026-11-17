@@ -90,8 +90,16 @@ export function ChannelPane({
   const botOwned = ownsBot(teamId, bot, user.id, detail && agents)
   const manage = fixes?.onOpenAgentSettings
   const control = useBotRuntimeControl(teamId, bot, botOwned, user, botState, refresh, manage)
-  // The Bot's own permission mode, the one its own page edits: never the chat's.
+  // The Bot's own permission mode and model, the ones its own page edits: never the chat's.
   const bypassControl = useBypassControl(botOwned ? bot : undefined)
+  const modelSession = bot
+    ? {
+        sessionId: bot,
+        teamId,
+        runtimeId: control?.value?.id,
+        lockedHint: botOwned ? undefined : t('Only the owner can change model settings.'),
+      }
+    : undefined
   const sessions = useAgentSessions(teamId).data
   const settingUp = sessions?.some((row) => row.sessionId === bot && botIsOnboarding(row))
   const taskAccess = useBotTaskAccess(teamId, bot, botOwned)
@@ -295,6 +303,7 @@ export function ChannelPane({
             placeholder={t('Message {name}', { name: title })}
             credentialSelector={questions.credentials}
             runtimeControl={control}
+            modelSession={modelSession}
             bypassControl={bypassControl}
           />
         </div>
