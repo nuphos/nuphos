@@ -76,7 +76,7 @@ test('saves through a selected computer for the conversation owner, audited', as
   expect(audits.at(-1)).toMatchObject({
     actorUserId: 'participant',
     ownerUserId: 'computer-owner',
-    command: 'local_download "/deck.html"',
+    command: 'local_download --overwrite "/deck.html"',
     outcome: 'ok',
   })
 })

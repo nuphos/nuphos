@@ -23,7 +23,7 @@ export function createLocalDownloadTool(devices: LocalExecDevice[], turn: LocalE
       execute: ({ device, ...request }: LocalDownloadRequest & { device?: string }) =>
         onComputer(
           device,
-          `local_download ${JSON.stringify(request.path)}`,
+          `local_download ${request.overwrite ? '--overwrite ' : ''}${JSON.stringify(request.path)}`,
           'download_failed',
           (id, actor, scope) => dispatchLocalDownload(actor, id, request, scope),
         ),
