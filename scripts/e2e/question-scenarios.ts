@@ -61,7 +61,8 @@ async function screencast(page: Page, name: string) {
   })
   await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 80, everyNthFrame: 1 })
 
-  return () => cdp.send('Page.stopScreencast')
+  // A reload may have ended the screencast already.
+  return () => cdp.send('Page.stopScreencast').catch(() => undefined)
 }
 
 export const questionScenarios: Scenario[] = [
@@ -69,11 +70,23 @@ export const questionScenarios: Scenario[] = [
     // #3292: the question being read in the Inbox was replaced when a newer one was listed.
     name: 'a newer question slides into the Inbox list and the one being read stays open',
     run: async (page) => {
+      const entered = () =>
+        page.evaluate(
+          () => (window as { inboxEntered?: Record<string, number> }).inboxEntered ?? {},
+        )
+
+      // The sidebar keeps the Inbox list mounted, so its rows are added as they are asked.
+      await watchInboxRows(page)
       for (const marker of ['stay-a', 'stay-b', 'stay-c']) {
         await newTask(page)
         await send(page, `Ask me E2E_ASK E2E_DELIVERY:${marker}`)
         await page.getByText(`ACK E2E_DELIVERY:${marker}`).waitFor()
       }
+      await until('the three questions to be listed', async () => {
+        const rows = Object.values(await entered())
+
+        return rows.length >= 3 && rows.every((animations) => animations > 0)
+      })
       await page.getByRole('tab', { name: 'Inbox' }).click()
       await light(page)
       await page.locator('[data-inbox-question]').first().click()
@@ -87,7 +100,6 @@ export const questionScenarios: Scenario[] = [
       await page.screenshot({ path: `${artifacts}/inbox-reading-light.png` })
       // A newer question is asked meanwhile; it is listed first.
       await newTask(page)
-      await watchInboxRows(page)
       await send(page, 'Ask me E2E_ASK E2E_DELIVERY:stay-new')
       await page.getByRole('tab', { name: 'Inbox' }).click()
       await light(page)
@@ -103,13 +115,23 @@ export const questionScenarios: Scenario[] = [
       await stop()
       await page.screenshot({ path: `${artifacts}/inbox-after-arrival-light.png` })
       const open = await openInInbox(page)
-      const animations = await page.evaluate(
-        (id) => (window as { inboxEntered?: Record<string, number> }).inboxEntered?.[id] ?? 0,
-        added!,
-      )
+      const animations = (await entered())[added!] ?? 0
 
       must(open === reading, `the question being read to stay open, ${reading} became ${open}`)
       must(animations > 0, 'the newer question to enter its list with a transition')
+      // The whole list entering at once, as it does when the app starts on the Inbox.
+      await page.emulateMedia({ colorScheme: 'light' })
+      const reload = await screencast(page, 'inbox-first-render')
+
+      await page.reload()
+      await light(page)
+      const inbox = page.getByRole('tab', { name: 'Inbox' })
+
+      if ((await inbox.getAttribute('aria-selected')) !== 'true') await inbox.click()
+      await page.locator('[data-inbox-question]').first().waitFor()
+      await page.waitForTimeout(1_500)
+      await reload()
+      await page.emulateMedia({ colorScheme: null })
     },
   },
   {
