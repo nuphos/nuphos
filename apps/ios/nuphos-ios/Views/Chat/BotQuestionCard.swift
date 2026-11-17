@@ -3,8 +3,9 @@ import SwiftUI
 /// An open question in a Bot's chat, laid out as the Inbox lays one out: who asked, when another
 /// conversation did, the question as the heading, what the agent wrote to decide it from, then
 /// its answers. The first option is the dark one; "Other…" asks for the answer in words in the
-/// card and "Skip" withdraws the question unanswered. On iPhone the options are full-width with
-/// "Other…" and "Skip" as outlined halves below; wide, one row of capsules with "Skip" at its end.
+/// card and "Dismiss" closes the question unanswered, telling the agent. On iPhone the options are
+/// full-width with "Other…" and "Dismiss" as outlined halves below; wide, one row of capsules with
+/// "Dismiss" at its end. A chat offers no Snooze: that sets a question aside in the Inbox.
 /// A multi-select or several questions are a form, sent as one answer. An answer wakes the agent
 /// that asked; no message is sent. A secret is asked for with the task's own `SecretCard`, saved
 /// and replied to in the conversation that asked. A connect question opens that conversation's
@@ -19,7 +20,7 @@ struct BotQuestionCard: View {
     /// the last answer or save failed while the question is still open.
     let questions: OpenQuestions
     let onAnswer: (DecisionAnswer) -> Void
-    let onSkip: () -> Void
+    let onDismiss: () -> Void
     /// A tapped link in the body. Absent, the system opens it.
     var onLink: ((URL) -> Void)?
 
@@ -27,7 +28,7 @@ struct BotQuestionCard: View {
     /// "Other…" was tapped: the card asks for the answer in words.
     @State private var typing = false
     @State private var words = ""
-    /// The secret was sent: nothing is left to skip while the listing catches up.
+    /// The secret was sent: nothing is left to dismiss while the listing catches up.
     @State private var saved = false
     @FocusState private var focused: Bool
     @Environment(\.horizontalSizeClass) private var sizeClass
@@ -58,7 +59,7 @@ struct BotQuestionCard: View {
                 QuestionSource(question: question, prominent: true, identifier: "botQuestion.source", open: onOpen)
             }
             AskedSecretCard(question: question, part: part, teamId: teamId) { saved = true }
-            if !saved { HStack(spacing: 8) { Color.clear.frame(maxWidth: .infinity); skip } }
+            if !saved { HStack(spacing: 8) { Color.clear.frame(maxWidth: .infinity); dismiss } }
         }
         .frame(maxWidth: wide ? 640 : nil, alignment: .leading)
     }
@@ -90,16 +91,16 @@ struct BotQuestionCard: View {
     @ViewBuilder private var answers: some View {
         if let form = question.form {
             DecisionForm(questions: form, onSubmit: onAnswer)
-            HStack { Spacer(); skip }.padding(.top, 12)
+            HStack { Spacer(); dismiss }.padding(.top, 12)
         } else if let options = question.options {
             VStack(alignment: .leading, spacing: wide ? 10 : 8) {
                 if wide {
-                    // One row, Skip at its end; long options take the row and the outlined two the next.
+                    // One row, Dismiss at its end; long options take the row and the outlined two the next.
                     ViewThatFits(in: .horizontal) {
-                        HStack(spacing: 10) { buttons(for: options); other; Spacer(minLength: 10); skip }
+                        HStack(spacing: 10) { buttons(for: options); other; Spacer(minLength: 10); dismiss }
                         VStack(alignment: .leading, spacing: 10) {
                             HStack(spacing: 10) { buttons(for: options) }
-                            HStack(spacing: 10) { other; Spacer(minLength: 10); skip }
+                            HStack(spacing: 10) { other; Spacer(minLength: 10); dismiss }
                         }
                     }
                     if typing { field }
@@ -111,7 +112,7 @@ struct BotQuestionCard: View {
                     } else {
                         HStack(spacing: 8) {
                             if question.typed { other } else { Color.clear.frame(maxWidth: .infinity) }
-                            skip
+                            dismiss
                         }
                     }
                 }
@@ -119,11 +120,11 @@ struct BotQuestionCard: View {
         } else {
             let connect = QuestionConnect(questions: questions, question: question, height: wide ? 40 : 44, size: 15, fill: !wide)
             if wide {
-                HStack(spacing: 10) { connect; Spacer(); skip }
+                HStack(spacing: 10) { connect; Spacer(); dismiss }
             } else {
                 VStack(spacing: 8) {
                     connect
-                    HStack(spacing: 8) { Color.clear.frame(maxWidth: .infinity); skip }
+                    HStack(spacing: 8) { Color.clear.frame(maxWidth: .infinity); dismiss }
                 }
             }
         }
@@ -148,8 +149,8 @@ struct BotQuestionCard: View {
         }
     }
 
-    private var skip: some View {
-        InboxOutlineButton(title: String(localized: "Skip"), fill: !wide, action: onSkip)
+    private var dismiss: some View {
+        InboxOutlineButton(title: String(localized: "Dismiss"), fill: !wide, action: onDismiss)
     }
 
     private var field: some View {

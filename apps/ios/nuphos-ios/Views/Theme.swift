@@ -42,7 +42,7 @@ enum Theme {
     static let selected = adaptive(light: 0xE2E2E6, dark: 0x2E2E33)
     /// A secondary button's fill, and a toggled one's.
     static let control = adaptive(light: 0xE4E4E7, dark: 0x2A2A2E)
-    /// An outlined button's edge, as the Inbox's Other… and Skip.
+    /// An outlined button's edge, as the Inbox's Other…, Snooze and Dismiss.
     static let outline = adaptive(light: 0xD4D4D8, dark: 0x3F3F46)
     /// A quiet edge or mark: a text field's outline, a row's disclosure chevron.
     static let faint = adaptive(light: 0xA1A1AA, dark: 0x52525B)
