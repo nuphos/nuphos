@@ -292,6 +292,16 @@ for (const [name, error, diagnostics] of [
   })
 }
 
+test('a computer the probe finds offline fails the turn as offline, which the queue waits out', async () => {
+  const { AppError } = await import('@/lib/errors')
+
+  probeError = new AppError(409, 'runtime_offline', 'The computer running this agent is offline.')
+  const failure = await run().catch((cause: unknown) => cause)
+
+  expect(failure).toBe(probeError)
+  expect(calls).toEqual(['observe-control'])
+})
+
 test('a probe failure is redacted before display and cancellation still takes precedence', async () => {
   probeError = new Error('Authorization: Bearer abcdefghijklmnopqrstuvwxyz')
   const failure = await run().catch((cause: unknown) => cause)
