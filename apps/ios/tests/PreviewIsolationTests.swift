@@ -37,6 +37,13 @@ struct PreviewIsolationTests {
         check(!PreviewIsolation.isPreview(arguments: ["-preview-home", "-share-verification"], fixture: nil),
               "share verification runs its own backend")
 
+        check(!PreviewIsolation.isPreview(arguments: ["-clear-preview"], fixture: "/tmp/stale.json"),
+              "explicitly clearing a persisted fixture restores a normal launch")
+        UserDefaults.standard.set("/tmp/stale.json", forKey: "previewResponses")
+        PreviewIsolation.installIfPreview(arguments: ["-clear-preview"], fixture: "/tmp/stale.json")
+        check(UserDefaults.standard.string(forKey: "previewResponses") == nil,
+              "clearing preview happens before transport registration")
+
         // A normal launch changes nothing.
         PreviewIsolation.installIfPreview(arguments: ["app"], fixture: nil)
         check(!PreviewIsolation.isActive, "a normal launch stays inactive")

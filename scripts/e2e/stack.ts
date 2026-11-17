@@ -6,6 +6,7 @@ import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
 import { artifacts, freePorts, logPath, signalGroup, spawn, stop, until } from './processes.ts'
+import { startInstaboxStub } from './instabox-stub.ts'
 import { startStorage } from './storage.ts'
 
 const ROOT = resolve(import.meta.dirname, '../..')
@@ -139,23 +140,22 @@ function signInCode(address: string): string | undefined {
 export async function startStack(options: { botOnboarding?: boolean } = {}): Promise<Stack> {
   const [mongoPort, backendPort, runtimePort, secondRuntimePort, storagePort] = await freePorts(5)
   const mongoUri = startMongo(mongoPort)
-  const storage = await startStorage(storagePort)
+  // Cloud computers too: only what a scenario puts in this instabox exists.
+  const fakes = { ...(await startStorage(storagePort)), ...(await startInstaboxStub()) }
 
   await until('MongoDB to become primary', async () => initiateReplicaSet(mongoUri))
   const apiUrl = `http://127.0.0.1:${String(backendPort)}`
   const acpLog = join(artifacts, 'acp.jsonl')
   const holdOpening = join(artifacts, 'hold-opening')
   const standIn = join(artifacts, 'stand-in')
-  const offerDefaultStandIn = () => {
-    writeFileSync(standIn, '')
+  // A file the fixture agent checks for, until the returned function removes it.
+  const flag = (path: string) => () => {
+    writeFileSync(path, '')
 
-    return () => rmSync(standIn)
+    return () => rmSync(path)
   }
-  const holdSessionOpening = () => {
-    writeFileSync(holdOpening, '')
-
-    return () => rmSync(holdOpening)
-  }
+  const offerDefaultStandIn = flag(standIn)
+  const holdSessionOpening = flag(holdOpening)
 
   writeFileSync(acpLog, '')
   // One OpenAB and isolated home per runtime; each fixture entry logs its agent.
@@ -236,7 +236,7 @@ export async function startStack(options: { botOnboarding?: boolean } = {}): Pro
         '6c6f63616c2d6532652d736f6e6172717562652d6b65792d6e6f742d70726f64',
       // Where the agent reaches the backend's tools, as a runtime on this computer would.
       NUPHOS_BACKEND_URL: apiUrl,
-      ...storage,
+      ...fakes,
     },
   })
   await until('the backend to be ready', async () => (await fetch(`${apiUrl}/health/ready`)).ok)

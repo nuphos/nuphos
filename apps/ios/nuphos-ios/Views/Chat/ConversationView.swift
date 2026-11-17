@@ -6,6 +6,7 @@ struct ConversationView: View {
     @Bindable var session: ChatSession
     /// First message for a brand-new chat, sent once the view appears.
     var initialPrompt: ComposerSubmission?
+    var onArchived: (() -> Void)?
     var temporaryDirectory: URL = FileManager.default.temporaryDirectory
     /// Top-level page that presented this chat, used by navigation diagnostics.
     var sourcePage = HomePage.agent.rawValue
@@ -19,6 +20,7 @@ struct ConversationView: View {
     @State private var didSendInitial = false
     @Environment(AgentStore.self) private var store
     @State private var archiveError: String?
+    @State private var confirmBotArchive = false
     @State private var updating = false
     @State private var showTriggers = false
     @State private var showRename = false
@@ -31,6 +33,9 @@ struct ConversationView: View {
     @State private var pane: (any BesidePane)?
     /// The dock panel: this conversation's dock, mirrored from the Mac.
     @State private var dockOpen = false
+    @State private var summaryOpen = false
+    @State private var summaryOpening = false
+    @State private var summaryTarget: AgentConversation?
     /// A dock page open in the phone's own browser.
     @State private var web: DockWeb?
     /// An iPhone screen opened from the dock: Runtimes or Connectors.
@@ -49,6 +54,89 @@ struct ConversationView: View {
     private var hasDock: Bool { !session.isNew && session.ownsChat }
     @State private var referencedAgents = ReferencedAgents()
 
+    private var taskOptions: some View {
+        Menu {
+            if hasDock {
+                Button { dismissComposerKeyboard(); dockOpen = true } label: {
+                    Label("Work tools", image: "lucide-monitor")
+                }
+            }
+            if session.loaded && !session.isBot {
+                Button { showShare = true } label: { Label("Share", image: "lucide-user-plus") }
+            }
+            if let watching = session.isWatching {
+                Button {
+                    Task {
+                        updating = true
+                        defer { updating = false }
+                        do { try await session.setWatching(!watching) }
+                        catch { archiveError = error.localizedDescription }
+                    }
+                } label: {
+                    Label(watching ? String(localized: "Unwatch") : String(localized: "Watch"), image: watching ? "lucide-bell-off" : "lucide-bell")
+                }
+            }
+            if session.ownsChat {
+                Button { renamedTitle = session.title; showRename = true } label: { Label("Rename", image: "lucide-pencil") }
+            }
+            if session.canManage {
+                Button { showRuntimes = true } label: { Label("Switch runtime", image: "lucide-arrow-left-right") }
+                    .disabled(session.isStreaming)
+                Button {
+                    // An archived chat leaves the list, so go
+                    // back to it at once and archive from there,
+                    // as a swipe does; a restored one rejoins it.
+                    if !session.isArchived {
+                        if session.isBot { confirmBotArchive = true } else { archiveTask() }
+                        return
+                    }
+                    Task {
+                        updating = true
+                        defer { updating = false }
+                        do {
+                            try await session.setArchived(false)
+                            await store.reload()
+                        } catch { archiveError = error.localizedDescription }
+                    }
+                } label: {
+                    Label(session.isArchived ? String(localized: "Restore from archive") : String(localized: "Archive"), image: session.isArchived ? "lucide-archive-restore" : "lucide-archive")
+                }
+            }
+        } label: {
+            // A Label, not a bare Image: the bar takes it as a
+            // native item, so the whole glass answers, not just
+            // the glyph.
+            Label("Task options", image: "lucide-ellipsis")
+        }
+        .disabled(updating)
+        .accessibilityLabel("Task options")
+    }
+
+    private func archiveTask() {
+        summaryOpen = false
+        if let onArchived { onArchived() } else { dismiss() }
+        Task { await store.archive(sessionId: session.sessionId, teamId: session.teamId) }
+    }
+
+    private func toggleSummary() {
+        guard !summaryOpening else { return }
+        if summaryOpen { summaryOpen = false; return }
+        summaryOpening = true
+        dismissComposerKeyboard()
+        Task { @MainActor in
+            do { try await Task.sleep(for: .milliseconds(250)) } catch { summaryOpening = false; return }
+            dismissComposerKeyboard()
+            summaryOpen = true
+            summaryOpening = false
+        }
+    }
+
+    private func dismissComposerKeyboard() {
+        #if os(iOS) && !NUPHOS_SHARE_EXTENSION
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        #endif
+    }
+
     private var rows: [ChatRow] { ChatRow.rows(for: session, runtimeOffline: conversationRuntime?.local?.online == false) }
 
     /// Shown instead of the transcript while it loads or after it failed.
@@ -57,7 +145,7 @@ struct ConversationView: View {
         if !session.loaded || session.awaitingReplay {
             ProgressView().tint(Theme.muted)
         } else if let loadError = session.loadError {
-            ContentUnavailableView("Couldn't load this task", systemImage: "exclamationmark.bubble", description: Text(loadError))
+            ContentUnavailableView("Couldn't load this task", image: "lucide-message-circle-warning", description: Text(loadError))
         }
     }
 
@@ -74,7 +162,17 @@ struct ConversationView: View {
             #endif
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .dock(isOpen: Binding(get: { dockOpen }, set: { dockOpen = $0 && hasDock })) {
+        .agentSummary(isPresented: $summaryOpen) {
+            AgentSummaryPanel(session: session, close: { summaryOpen = false }, archive: archiveTask) { row in
+                summaryOpen = false
+                summaryTarget = row
+            }
+            .environment(store)
+            .inspectorColumnWidth(min: 300, ideal: 340, max: 420)
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: Binding(get: { dockOpen }, set: { dockOpen = $0 && hasDock })) {
             DockPanel(session: session) {
                 dockOpen = false
                 pane = session.makeDesktop()
@@ -102,11 +200,19 @@ struct ConversationView: View {
         .sheet(item: $dockScreen) { screen in
             NavigationStack { DockScreen(destination: screen) }
         }
+        .navigationDestination(item: $summaryTarget) { row in
+            ConversationView(session: store.session(for: row))
+        }
+        #if DEBUG
+        .onChange(of: session.loaded, initial: true) { _, loaded in
+            if loaded && CommandLine.arguments.contains("-show-agent-summary") {
+                dismissComposerKeyboard()
+                summaryOpen = true
+            }
+        }
+        #endif
         .pane($pane)
         .background(Theme.chatCanvas)
-        .safeAreaInset(edge: .top, spacing: 0) {
-            if !session.resources.isEmpty { ResourceStrip(resources: session.resources) }
-        }
         #if !os(iOS)
         .safeAreaInset(edge: .bottom, spacing: 0) { composer }
         #endif
@@ -138,65 +244,24 @@ struct ConversationView: View {
         #endif
         .toolbar {
             ToolbarItem(placement: .principal) { titleBar }
-            if hasDock {
+            if session.loaded && (initialPrompt == nil || !session.isNew) {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Dock", systemImage: "sidebar.right") { dockOpen.toggle() }
-                        .accessibilityIdentifier("dock-button")
+                    Button(action: toggleSummary) { LucideIcon("panel-right") }
+                        .accessibilityLabel("Agent summary")
+                        .accessibilityIdentifier("agent-summary-button")
                 }
             }
             if !session.isNew {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button("Share", systemImage: "person.crop.circle.badge.plus") { showShare = true }
-                        if let watching = session.isWatching {
-                            Button {
-                                Task {
-                                    updating = true
-                                    defer { updating = false }
-                                    do { try await session.setWatching(!watching) }
-                                    catch { archiveError = error.localizedDescription }
-                                }
-                            } label: {
-                                Label(watching ? "Unwatch" : "Watch", systemImage: watching ? "bell.slash" : "bell")
-                            }
-                        }
-                        if session.ownsChat {
-                            Button("Rename", systemImage: "pencil") { renamedTitle = session.title; showRename = true }
-                        }
-                        if session.canManage {
-                            Button("Switch runtime", systemImage: "arrow.left.arrow.right") { showRuntimes = true }
-                                .disabled(session.isStreaming)
-                            Button {
-                                // An archived chat leaves the list, so go
-                                // back to it at once and archive from there,
-                                // as a swipe does; a restored one rejoins it.
-                                if !session.isArchived {
-                                    dismiss()
-                                    Task { await store.archive(sessionId: session.sessionId, teamId: session.teamId) }
-                                    return
-                                }
-                                Task {
-                                    updating = true
-                                    defer { updating = false }
-                                    do {
-                                        try await session.setArchived(false)
-                                        await store.reload()
-                                    } catch { archiveError = error.localizedDescription }
-                                }
-                            } label: {
-                                Label(session.isArchived ? "Restore from archive" : "Archive", systemImage: session.isArchived ? "tray.and.arrow.up" : "archivebox")
-                            }
-                        }
-                    } label: {
-                        // A Label, not a bare Image: the bar takes it as a
-                        // native item, so the whole glass answers, not just
-                        // the glyph.
-                        Label("Task options", systemImage: "ellipsis")
-                    }
-                    .disabled(updating)
-                    .accessibilityLabel("Task options")
+                    taskOptions
                 }
             }
+        }
+        .alert("This is a Bot. Archive the Bot?", isPresented: $confirmBotArchive) {
+            Button("Cancel", role: .cancel) {}
+            Button("Archive Bot", role: .destructive, action: archiveTask)
+        } message: {
+            Text("Its chat is archived with it. Unarchive either one to bring both back.")
         }
         .alert("Couldn't update task", isPresented: Binding(get: { archiveError != nil }, set: { if !$0 { archiveError = nil } })) {
             Button("OK") { archiveError = nil }
@@ -214,7 +279,9 @@ struct ConversationView: View {
         }
         .sheet(item: $toolDetail) { ToolDetailSheet(part: $0, session: session) }
         .sheet(isPresented: $showTriggers) { ConversationTriggers(teamId: session.teamId, sessionId: session.sessionId, token: store.token).presentationDetents([.large]) }
-        .sheet(isPresented: $showShare) { ShareSessionSheet(session: session).presentationDetents([.medium, .large]) }
+        .sheet(isPresented: $showShare) {
+            if !session.isBot { ShareSessionSheet(session: session).presentationDetents([.medium, .large]) }
+        }
         .sheet(isPresented: $showRuntimes) {
             RuntimePickerSheet(session: session) { runtime in
                 Task {
@@ -269,7 +336,6 @@ struct ConversationView: View {
                     if session.loaded || session.runtimeDisplayName != nil {
                         let name = session.runtimeDisplayName
                         HStack(spacing: 4) {
-                            if botAvatars { RuntimeMark(runtime: session.agentRuntime) }
                             Text(RuntimeInstance.Provider.detail(session.agentRuntime, instance: name))
                                 .font(Theme.Text.micro)
                                 .foregroundStyle(Theme.muted)
@@ -373,6 +439,7 @@ struct ConversationView: View {
                 ),
                 voiceTeamId: session.teamId,
                 temporaryDirectory: temporaryDirectory,
+                autoFocus: session.loaded && !session.readOnly && !summaryOpen && !summaryOpening && !dockOpen,
                 onSend: { session.send($0) },
                 onStop: { session.stop() }
             ) {
@@ -534,7 +601,7 @@ struct UserBubble: View {
             if let sender {
                 HStack(spacing: 6) {
                     if let url = sender.avatar {
-                        AsyncImage(url: url) { image in image.resizable().scaledToFill() } placeholder: { Image(systemName: "person.circle") }
+                        AsyncImage(url: url) { image in image.resizable().scaledToFill() } placeholder: { LucideIcon("circle-user-round") }
                             .frame(width: 20, height: 20).clipShape(Circle())
                     }
                     Text(sender.name).font(.caption).foregroundStyle(Theme.muted)
@@ -661,7 +728,7 @@ struct FailedBubble: View {
                     .background(Theme.bubble, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
             HStack(spacing: 14) {
-                Label("Not sent", systemImage: "exclamationmark.circle.fill")
+                Label("Not sent", image: "lucide-circle-alert")
                     .foregroundStyle(.red)
                 Button("Retry", action: onRetry)
                 Button("Edit", action: onEdit)
@@ -734,7 +801,7 @@ struct HintRow: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top, spacing: 6) {
                 if isError {
-                    Image(systemName: "exclamationmark.triangle.fill").font(Theme.Text.caption)
+                    LucideIcon("triangle-alert").font(Theme.Text.caption)
                 }
                 Text(text).font(Theme.Text.label)
             }
@@ -745,7 +812,7 @@ struct HintRow: View {
             if ask?.asked == false || onSwitchRuntime != nil || onRetry != nil || copyText != nil {
                 HStack(spacing: 8) {
                     if let ask, !ask.asked {
-                        Button(ask.label, systemImage: "hand.wave", action: ask.action)
+                        DesignButton(ask.label, image: "lucide-hand", action: ask.action)
                             .font(Theme.Text.label.weight(.medium))
                             .buttonStyle(.borderedProminent)
                             .controlSize(.small)
@@ -754,10 +821,10 @@ struct HintRow: View {
                         SwitchRuntimeButton(action: onSwitchRuntime)
                     }
                     if let onRetry {
-                        Button("Retry", systemImage: "arrow.clockwise", action: onRetry)
+                        DesignButton("Retry", image: "lucide-rotate-cw", action: onRetry)
                     }
                     if let copyText {
-                        Button(copied ? "Copied" : "Copy", systemImage: copied ? "checkmark" : "doc.on.doc") {
+                        DesignButton(copied ? "Copied" : "Copy", image: copied ? "lucide-check" : "lucide-copy") {
                             UIPasteboard.general.string = copyText
                             copied = true
                         }
@@ -778,7 +845,7 @@ struct SwitchRuntimeButton: View {
     let action: () -> Void
 
     var body: some View {
-        Button("Switch runtime", systemImage: "arrow.left.arrow.right", action: action)
+        DesignButton("Switch runtime", image: "lucide-arrow-left-right", action: action)
             .font(Theme.Text.label.weight(.medium))
             .buttonStyle(.bordered)
             .controlSize(.small)
@@ -889,7 +956,7 @@ struct EventLine: View {
                         Text(event.name).fontWeight(.medium).foregroundStyle(Theme.heading).layoutPriority(1)
                         Text(event.text.prefix { $0 != "\n" })
                     }
-                    Image(systemName: "chevron.right")
+                    LucideIcon("chevron-right")
                         .font(.system(size: 9, weight: .semibold))
                         .rotationEffect(.degrees(expanded ? 90 : 0))
                 }
@@ -919,7 +986,7 @@ struct MemoryPill: View {
     let updated: Int
 
     var body: some View {
-        Label("Memory updated", systemImage: "brain")
+        Label("Memory updated", image: "lucide-brain")
             .font(Theme.Text.caption.weight(.medium))
             .foregroundStyle(Theme.muted)
             .padding(.horizontal, 10)
@@ -943,10 +1010,10 @@ struct MemoryRecallPill: View {
                 disclose(readingInteraction) { expanded.toggle() }
             } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: "brain").font(Theme.Text.micro.weight(.semibold))
+                    LucideIcon("brain").font(Theme.Text.micro.weight(.semibold))
                     Text("Memory recalled · \(count)").font(Theme.Text.caption.weight(.medium))
                     if !entries.isEmpty {
-                        Image(systemName: "chevron.right")
+                        LucideIcon("chevron-right")
                             .font(Theme.Text.micro.weight(.bold))
                             .rotationEffect(.degrees(expanded ? 90 : 0))
                     }
@@ -963,7 +1030,7 @@ struct MemoryRecallPill: View {
                 VStack(alignment: .leading, spacing: 6) {
                     ForEach(entries) { entry in
                         HStack(alignment: .top, spacing: 8) {
-                            Image(systemName: entry.scope == "team" ? "person.2" : "person")
+                            LucideIcon(systemName: entry.scope == "team" ? "person.2" : "person")
                                 .font(Theme.Text.micro).foregroundStyle(Theme.muted).padding(.top, 3)
                             Text(entry.label).font(Theme.Text.label).foregroundStyle(Theme.body)
                         }
@@ -1046,7 +1113,7 @@ struct SuggestionChip: View {
         HStack {
             Button(action: onUse) {
                 HStack(spacing: 6) {
-                    Image(systemName: "sparkles").font(Theme.Text.micro)
+                    LucideIcon("sparkles").font(Theme.Text.micro)
                     Text(text).lineLimit(1).font(Theme.Text.label)
                 }
                 .foregroundStyle(Theme.body)
@@ -1104,7 +1171,7 @@ struct QueuedStrip: View {
         HStack(spacing: 8) {
             Button { onEdit(item.id) } label: {
                 HStack(spacing: 8) {
-                    Image(systemName: "text.badge.plus").font(Theme.Text.micro)
+                    LucideIcon("text-cursor-input").font(Theme.Text.micro)
                     Text("\(number)").font(Theme.Text.micro).monospacedDigit().foregroundStyle(Theme.muted)
                     Text(item.text).lineLimit(1).font(Theme.Text.label)
                     Spacer(minLength: 0)
@@ -1118,7 +1185,7 @@ struct QueuedStrip: View {
                 Button { onSteer(item.id) } label: {
                     Group {
                         if item.steering { ProgressView().controlSize(.mini) }
-                        else { Image(systemName: "arrow.turn.down.right").font(Theme.Text.micro.weight(.bold)) }
+                        else { LucideIcon("corner-down-right").font(Theme.Text.micro.weight(.bold)) }
                     }
                     .frame(width: 28, height: 28)
                     .contentShape(Rectangle())
@@ -1129,7 +1196,7 @@ struct QueuedStrip: View {
                 .accessibilityLabel("Send into the running turn")
             }
             Button { onRemove(item.id) } label: {
-                Image(systemName: "xmark").font(Theme.Text.micro.weight(.bold))
+                LucideIcon("x").font(Theme.Text.micro.weight(.bold))
                     .frame(width: 28, height: 28)
                     .contentShape(Rectangle())
             }

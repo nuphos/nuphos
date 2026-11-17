@@ -67,7 +67,7 @@ struct SecretCard: View {
 
     /// The answered card: one line, no field.
     private func line(_ symbol: String, _ text: LocalizedStringKey) -> some View {
-        Label(text, systemImage: symbol)
+        DesignLabel(text, systemImage: symbol)
             .font(Theme.Text.label)
             .foregroundStyle(Theme.muted)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -76,7 +76,7 @@ struct SecretCard: View {
     private var card: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
-                Image(systemName: "lock.fill").font(Theme.Text.caption).foregroundStyle(Theme.muted)
+                LucideIcon("lock").font(Theme.Text.caption).foregroundStyle(Theme.muted)
                 Text("Secret needed: ").foregroundStyle(Theme.heading)
                     + Text(name).font(Theme.Text.mono(.subheadline)).foregroundStyle(Theme.heading)
             }

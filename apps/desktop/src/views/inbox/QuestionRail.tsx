@@ -9,6 +9,7 @@ import { inboxGroups, inboxSource } from './inboxItems'
 
 import type { InboxQuestion } from './inboxItems'
 import type { AgentConversation } from '../../api/agent-types'
+import type { ReactNode } from 'react'
 
 type Source = Pick<AgentConversation, 'sessionId' | 'title' | 'avatar' | 'agentRuntime'>
 
@@ -32,38 +33,50 @@ export function QuestionRail({
         const conversation = inboxSource(group[0])
 
         return (
-          <section key={conversation.sessionId} className="flex flex-col gap-px">
-            <h3 className="flex h-7 items-center gap-2 px-2 text-[12.5px] font-medium text-main">
-              <QuestionSourceIcon conversation={conversation} />
-              <span className="truncate">{conversation.title || t('Untitled task')}</span>
-            </h3>
-            {group.map((row) => (
-              <button
-                key={row.request.id}
-                type="button"
-                aria-current={row.request.id === openId ? 'true' : undefined}
-                data-inbox-question={row.request.id}
-                onClick={() => onSelect(row)}
-                className={clsx(
-                  'h-7 truncate rounded-md pl-8 pr-2 text-left text-[13px] outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-line-focus',
-                  row.request.id === openId
-                    ? 'bg-state-selected text-main'
-                    : 'text-secondary hover:bg-state-hover hover:text-main',
-                )}
-              >
-                {row.request.question}
-                {row.bot && (
-                  <span className="text-tertiary">
-                    {' · '}
-                    {row.conversation.title || t('Untitled task')}
-                  </span>
-                )}
-              </button>
-            ))}
-          </section>
+          <Entering key={conversation.sessionId} as="section">
+            <div className="flex flex-col gap-px">
+              <h3 className="flex h-7 items-center gap-2 px-2 text-[12.5px] font-medium text-main">
+                <QuestionSourceIcon conversation={conversation} />
+                <span className="truncate">{conversation.title || t('Untitled task')}</span>
+              </h3>
+              {group.map((row) => (
+                <Entering key={row.request.id}>
+                  <button
+                    type="button"
+                    aria-current={row.request.id === openId ? 'true' : undefined}
+                    data-inbox-question={row.request.id}
+                    onClick={() => onSelect(row)}
+                    className={clsx(
+                      'h-7 w-full truncate rounded-md pl-8 pr-2 text-left text-[13px] outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-line-focus',
+                      row.request.id === openId
+                        ? 'bg-state-selected text-main'
+                        : 'text-secondary hover:bg-state-hover hover:text-main',
+                    )}
+                  >
+                    {row.request.question}
+                    {row.bot && (
+                      <span className="text-tertiary">
+                        {' · '}
+                        {row.conversation.title || t('Untitled task')}
+                      </span>
+                    )}
+                  </button>
+                </Entering>
+              ))}
+            </div>
+          </Entering>
         )
       })}
     </div>
+  )
+}
+
+/** A group or row of the list, entering with the sidebar's rows: it opens to its height and rises in. */
+function Entering({ as: Tag = 'div', children }: { as?: 'div' | 'section'; children: ReactNode }) {
+  return (
+    <Tag className="t-collapse t-sidebar-session t-stagger is-shown" data-open="true">
+      <div className="t-collapse-inner t-stagger-line">{children}</div>
+    </Tag>
   )
 }
 

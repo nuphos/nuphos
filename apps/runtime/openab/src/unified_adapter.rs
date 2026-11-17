@@ -31,7 +31,6 @@ impl UnifiedGatewayAdapter {
 
     /// Dispatch a reply that may carry the adapter's original `{code, message}`,
     /// relayed only on the ACP path as the prompt response's `error.data`.
-    #[cfg_attr(not(feature = "acp"), allow(unused_variables))]
     async fn dispatch_reply_with_error(
         &self,
         reply: &GatewayReply,
@@ -116,7 +115,6 @@ impl UnifiedGatewayAdapter {
                     .await;
                 }
             }
-            #[cfg(feature = "acp")]
             "acp" => {
                 if let Some(ref registry) = self.gw_state.acp_reply_registry {
                     openab_gateway::adapters::acp_server::publish_runtime_snapshot(
