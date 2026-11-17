@@ -4,8 +4,10 @@ import { useState } from 'react'
 
 import { t } from '../../../i18n'
 
+import { failedCallCount, toolFailure } from './activity'
 import { disclosureControlClass, LoadingText, ToolElapsedBadge } from './partChrome'
 import { getToolLabel, isCommandTool } from './toolPartUtils'
+import { ToolFailureLabel } from './ToolPartView'
 import { pendingApproval } from './toolRuns'
 
 import type { ToolPart } from './parts'
@@ -51,6 +53,9 @@ export function ToolRunView({
   const done = latest.state === 'output-available' || latest.state === 'output-error'
   const label = getToolLabel(latest)
   const commandTool = isCommandTool(latest)
+  // Closed, the line still says whether calls failed: one call shows its own
+  // mark, several say how many of them failed.
+  const failed = count > 1 ? failedCallCount(parts) : 0
   const toggle = () => setUserOpen(!open)
 
   return (
@@ -90,10 +95,16 @@ export function ToolRunView({
             </>
           )}
           <ToolElapsedBadge part={latest} now={now} />
+          {count === 1 && <ToolFailureLabel failure={toolFailure(latest)} />}
         </span>
         {count > 1 && (
           <span className="flex-shrink-0 text-tertiary">
             · {t('{n} calls', { n: String(count) })}
+          </span>
+        )}
+        {failed > 0 && (
+          <span className="flex-shrink-0 text-tertiary" data-tool-run-failed>
+            · <span className="text-error">{t('{n} failed', { n: String(failed) })}</span>
           </span>
         )}
         <ChevronRight

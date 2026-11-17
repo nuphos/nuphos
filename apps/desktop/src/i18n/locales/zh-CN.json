@@ -5705,6 +5705,7 @@
   "{n} enabled channel(s) · Account linked": "{n} 个已启用频道 · 账号已关联",
   "{n} enabled channel(s) · Account not linked": "{n} 个已启用频道 · 账号未关联",
   "{n} events · chain head": "{n} 个事件 · 链头",
+  "{n} failed": "{n} 个失败",
   "{n} field paths": "{n} 个字段路径",
   "{n} file(s)": "{n} 个文件",
   "{n} files": "{n} 个文件",

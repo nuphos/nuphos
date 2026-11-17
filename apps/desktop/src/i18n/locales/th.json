@@ -5705,6 +5705,7 @@
   "{n} enabled channel(s) · Account linked": "{n} ช่องที่เปิดใช้ · เชื่อมโยงบัญชีแล้ว",
   "{n} enabled channel(s) · Account not linked": "{n} ช่องที่เปิดใช้ · ยังไม่เชื่อมโยงบัญชี",
   "{n} events · chain head": "{n} เหตุการณ์ · ส่วนหัวห่วงโซ่",
+  "{n} failed": "ล้มเหลว {n} รายการ",
   "{n} field paths": "{n} เส้นทางฟิลด์",
   "{n} file(s)": "{n} ไฟล์",
   "{n} files": "{n} ไฟล์",

@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { conversationActivity, liveActivityIndices } from './activity.ts'
+import {
+  conversationActivity,
+  failedCallCount,
+  liveActivityIndices,
+  toolFailure,
+} from './activity.ts'
 
 import type { Message } from './model.ts'
 import type { Part, ToolPart } from './parts.ts'
@@ -41,6 +46,7 @@ test('unknown text, questions, cards, failed commands and approvals are retained
     tool('output-available', { toolName: 'render_chart' }),
     tool('output-available', { output: { exit_code: 6 } }),
     tool('output-available', { output: { isError: true } }),
+    tool('output-available', { output: { error: 'upload_failed' } }),
   ]) {
     assert.equal(
       conversationActivity([message('a', part), message('b', text('Current', 'commentary'))]).hidden
@@ -92,4 +98,50 @@ test('live folding keeps the newest text and active tool outside the log', () =>
     ],
     [],
   )
+})
+
+test('a finished call is marked failed when it threw, flagged an error, or returned one', () => {
+  assert.equal(toolFailure(tool('output-error', { errorText: 'boom' })), '')
+  assert.equal(toolFailure(tool('output-available', { output: { isError: true } })), '')
+  assert.equal(
+    toolFailure(tool('output-available', { output: { error: 'file_transfer_rate_limited' } })),
+    'file transfer rate limited',
+  )
+  assert.equal(
+    toolFailure(
+      tool('output-available', { output: { error: 'You are no longer a member of this team.' } }),
+    ),
+    'You are no longer a member of this team.',
+  )
+})
+
+test('successes, running calls and command exit codes are not marked failed', () => {
+  for (const part of [
+    tool('output-available', { output: { groupId: 'g', fileName: 'a.png', size: 1 } }),
+    tool('output-available', { output: { error: '' } }),
+    tool('output-available', { output: { error: null } }),
+    tool('output-available', { output: { ok: true, error: 'already_reacted' } }),
+    tool('output-available', { output: [{ error: 'not a result object' }] }),
+    tool('output-available', { output: 'error' }),
+    tool('output-available', { output: { exit_code: 1 } }),
+    tool('output-available'),
+    tool('input-available'),
+  ])
+    assert.equal(toolFailure(part), null)
+})
+
+test('a run counts its failed calls by the same rule as each row', () => {
+  assert.equal(
+    failedCallCount([
+      tool('output-available', { output: { stdout: 'ok', exitCode: 0 } }),
+      tool('output-error', { errorText: 'boom' }),
+      tool('output-available', { output: { error: 'file_not_found' } }),
+      tool('output-available', { output: { isError: true } }),
+      tool('output-available', { output: { ok: true, error: 'already_reacted' } }),
+      tool('output-available', { output: { exit_code: 1 } }),
+      tool('input-available'),
+    ]),
+    3,
+  )
+  assert.equal(failedCallCount([tool('output-available'), tool('output-available')]), 0)
 })

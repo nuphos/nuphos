@@ -11,6 +11,7 @@ let actualSize = 10
 let deleted = false
 let readyWrites = 0
 let deleteFails = false
+let releasedAt: Date | undefined
 
 useModels({
   fileTransferGroups: () => ({
@@ -20,6 +21,7 @@ useModels({
       userId: 'user',
       direction: 'upload',
       status: 'pending',
+      ...(releasedAt ? { admission: { key: 'team:0', bytes: 10, releasedAt } } : {}),
       createdAt: new Date(),
       expiresAt: new Date(Date.now() + 60000),
     }),
@@ -70,6 +72,7 @@ beforeEach(() => {
   deleted = false
   readyWrites = 0
   deleteFails = false
+  releasedAt = undefined
 })
 
 test('finalization accepts the declared size', async () => {
@@ -88,6 +91,15 @@ test('finalization deletes and rejects a mismatched object', async () => {
   expect(result.files[0]?.downloadUrl).toBeUndefined()
   expect(readyWrites).toBe(0)
   expect(deleted).toBe(true)
+})
+
+test('a group whose slot was given back stays undelivered when its file lands later', async () => {
+  releasedAt = new Date()
+  const result = await real.finalizeTransfer({ teamId, userId: 'user' }, groupId.toHexString())
+
+  expect(result.status).not.toBe('ready')
+  expect(result.files[0]?.status).not.toBe('ready')
+  expect(readyWrites).toBe(0)
 })
 
 test('failed deletion never marks a mismatched object ready', async () => {

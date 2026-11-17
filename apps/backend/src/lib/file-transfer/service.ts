@@ -18,6 +18,8 @@ import { ObjectId } from 'mongodb'
 import { admitFileTransfer } from './admission'
 import { groupStatusFrom, loadGroup, objectKey, validateInputs, view } from './service-shared'
 
+export { releaseTransfer } from './release'
+
 import type {
   CreatedItemView,
   CreatedTransferView,
@@ -49,7 +51,7 @@ export async function createTransfer(
   validateInputs(files)
   const provider = getStorageProvider(scope.teamId.toHexString())
 
-  await admitFileTransfer(
+  const admission = await admitFileTransfer(
     scope.teamId.toHexString(),
     files.reduce((sum, file) => sum + file.size, 0),
   )
@@ -70,6 +72,7 @@ export async function createTransfer(
     status: 'pending',
     storageProvider: provider.id,
     ...(label ? { label } : {}),
+    admission,
     createdAt: now,
     expiresAt,
   }
@@ -134,6 +137,9 @@ export async function finalizeTransfer(
   const provider = getStorageProvider(scope.teamId.toHexString())
   const items = await fileTransferItems().find({ groupId: group._id }).toArray()
 
+  // A group whose slot was given back (release.ts) stays as it was released:
+  // a file that lands afterwards was never paid for, so it is not delivered.
+  if (group.admission?.releasedAt) return view(group, items)
   for (const item of items) {
     if (item.status === 'ready') continue
     const head = await provider.headObject({

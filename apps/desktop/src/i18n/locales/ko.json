@@ -5705,6 +5705,7 @@
   "{n} enabled channel(s) · Account linked": "활성화된 채널 {n}개 · 계정 연결됨",
   "{n} enabled channel(s) · Account not linked": "활성화된 채널 {n}개 · 계정 연결 안 됨",
   "{n} events · chain head": "이벤트 {n}개 · 체인 헤드",
+  "{n} failed": "{n}개 실패",
   "{n} field paths": "필드 경로 {n}개",
   "{n} file(s)": "파일 {n}개",
   "{n} files": "파일 {n}개",

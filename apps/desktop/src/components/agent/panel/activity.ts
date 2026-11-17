@@ -1,7 +1,16 @@
 import { isPlainToolPart } from './toolRuns.ts'
 
 import type { Message } from './model.ts'
-import type { Part } from './parts.ts'
+import type { Part, ToolPart } from './parts.ts'
+
+/** A tool's own `{ error: '…' }` result: tools like local_upload report a failure as a normal output. */
+function returnedError(output: unknown): string | null {
+  if (!output || typeof output !== 'object' || Array.isArray(output)) return null
+  const { error, ok } = output as Record<string, unknown>
+
+  // `{ ok: true, error }` is a success carrying a note, not a failure.
+  return ok !== true && typeof error === 'string' && error.trim() ? error.trim() : null
+}
 
 export function failedOutput(output: unknown): boolean {
   if (!output || typeof output !== 'object') return false
@@ -9,8 +18,31 @@ export function failedOutput(output: unknown): boolean {
 
   return (
     value.isError === true ||
+    returnedError(output) !== null ||
     [value.exitCode, value.exit_code].some((code) => typeof code === 'number' && code !== 0)
   )
+}
+
+/**
+ * Whether a finished call failed, for its row: `''` when it failed with no
+ * reason worth showing, the reason when it returned one, null when it did not
+ * fail. A command's exit code is left to its terminal view.
+ */
+export function toolFailure(part: ToolPart): string | null {
+  if (part.state === 'output-error') return ''
+  if (part.state !== 'output-available') return null
+  const error = returnedError(part.output)
+
+  // An error code reads as words: file_transfer_rate_limited → file transfer rate limited.
+  if (error) return /^[a-z][a-z0-9_]*$/u.test(error) ? error.replaceAll('_', ' ') : error
+  const value = part.output as Record<string, unknown> | null | undefined
+
+  return value && typeof value === 'object' && value.isError === true ? '' : null
+}
+
+/** How many calls of a run failed, by the same rule as each call's own row. */
+export function failedCallCount(parts: ToolPart[]): number {
+  return parts.filter((part) => toolFailure(part) !== null).length
 }
 
 export function isRoutineActivity(part: Part): boolean {
