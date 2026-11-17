@@ -1,4 +1,5 @@
 import { turnFailureCause } from '@/lib/claude-code-preview/openab-acp-errors'
+import { isRuntimeRefusal } from '@/lib/claude-code-preview/runtime-refusal'
 import { captureException } from '@/lib/posthog'
 
 import { traceAgentChatError } from './trace'
@@ -6,10 +7,12 @@ import { traceAgentChatError } from './trace'
 import type { AgentRunTrace } from './types'
 
 /** The agent's own state, which the app already names: its computer is offline,
- *  its provider hit a usage limit, or it needs signing in. Not a fault. The state
- *  probe keeps the original failure as its cause. */
+ *  its provider hit a usage limit, or it needs signing in. Or it is busy, and the
+ *  message waits for the turn ahead. Not a fault. The state probe keeps the
+ *  original failure as its cause. */
 function isAgentState(error: unknown): boolean {
   return (
+    isRuntimeRefusal(error) ||
     turnFailureCause(error) !== 'other' ||
     (error instanceof Error && turnFailureCause(error.cause) !== 'other')
   )

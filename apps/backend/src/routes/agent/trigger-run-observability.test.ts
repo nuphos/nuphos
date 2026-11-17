@@ -77,6 +77,18 @@ test('a Codex usage limit is not reported', () => {
   expect(captured).toHaveLength(0)
 })
 
+test('a busy runtime is not reported: the message waits and runs after the turn ahead', () => {
+  // The runtime names what it is busy with; the refusal carries that label.
+  for (const label of ['Running tools…', 'Responding…', 'Reading or updating session settings…'])
+    recordTriggerRunFailure(
+      new AppError(409, 'runtime_not_accepting_message', label),
+      trace,
+      'agent.resource',
+    )
+
+  expect(captured).toHaveLength(0)
+})
+
 test('a probe that times out, and any other failure, are still reported', async () => {
   const timeout = await RuntimeStateProbeError.from(new Error('OpenAB ACP initialize timed out'))
 
