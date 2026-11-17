@@ -137,3 +137,60 @@ test('a storage failure is logged and never fails the turn', async () => {
   expect(failures).toEqual(['agent.turn_usage.record_failed'])
   expect(conversationUpdates).toHaveLength(0)
 })
+
+// PromptResponse.usage as claude-agent-acp 0.74.0 builds it (sessionUsage): `inputTokens` is
+// Anthropic's uncached `input_tokens`, and the cache classes travel in their own fields.
+test('a Claude Code turn keeps its cache reads and writes in the prompt count', async () => {
+  await writeRuntimeTurnUsage({
+    ...turn,
+    usage: {
+      inputTokens: 12,
+      outputTokens: 900,
+      cachedReadTokens: 250_000,
+      cachedWriteTokens: 8000,
+      totalTokens: 258_912,
+    },
+  })
+
+  const byKind = new Map(inserted.map((row) => [row.kind, row]))
+
+  expect(byKind.get('step_total')?.tokens).toEqual({
+    inputTokens: 258_012,
+    cachedInputTokens: 250_000,
+    cacheWriteTokens: 8000,
+    outputTokens: 900,
+    totalTokens: 258_912,
+  })
+  expect(byKind.get('input')?.tokens).toEqual({
+    inputTokens: 258_012,
+    cachedInputTokens: 250_000,
+    cacheWriteTokens: 8000,
+  })
+})
+
+// PromptResponse.usage as codex-acp 1.1.4 builds it (toPromptUsage): uncached input, cache
+// reads, and reasoning as `thoughtTokens`, a part of the output count.
+test('a Codex turn keeps its cache reads and reasoning tokens', async () => {
+  await writeRuntimeTurnUsage({
+    ...turn,
+    provider: 'codex',
+    usage: {
+      totalTokens: 43_500,
+      inputTokens: 3000,
+      cachedReadTokens: 40_000,
+      outputTokens: 500,
+      thoughtTokens: 200,
+    },
+  })
+
+  const byKind = new Map(inserted.map((row) => [row.kind, row]))
+
+  expect(byKind.get('step_total')?.tokens).toEqual({
+    inputTokens: 43_000,
+    cachedInputTokens: 40_000,
+    outputTokens: 500,
+    reasoningTokens: 200,
+    totalTokens: 43_500,
+  })
+  expect(byKind.get('thinking')?.tokens).toEqual({ reasoningTokens: 200 })
+})
