@@ -121,12 +121,10 @@ export async function runTurn(
     if (!history) throw new Error('Target conversation no longer exists.')
     // BullMQ can redeliver a stalled job. An answered message must not run twice;
     // one after the last reply was accepted by a refused turn and runs again.
-    const answered = history.messages.findLastIndex((message) => message.role === 'assistant')
-    const ran = new Set(history.messages.slice(0, answered + 1).map((message) => message.messageId))
     const { messages: fresh, markRead } = await withChannelPosts(
       data.targetSessionId,
       data.userId,
-      pending.filter((message) => !ran.has(message.id)),
+      pending.filter((message) => !history.answered.has(message.id)),
     )
     const [head, ...rest] = fresh
 
