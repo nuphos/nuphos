@@ -12,6 +12,8 @@ import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-s
 import { useSlackAgentBot } from '@/lib/test/doubles/slack-agent-bot'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
+import { agentConversations } from '@/lib/agent/db'
+
 import { serializeConversationList } from './conversations-list-view'
 import { agent } from './router'
 
@@ -97,4 +99,51 @@ test('alone in an unnamed chat, the viewer sees their own name', async () => {
   participantIds = []
   expect(await listed()).toBe('Ann')
   expect(await opened()).toBe('Ann')
+})
+
+// A Bot's 1:1 chat has no name of its own: it is called by the Bot wherever it shows.
+async function botChat(title: string) {
+  await agentConversations().insertOne({
+    sessionId: 'bot',
+    userId: ann,
+    teamId,
+    title: 'Writer',
+    firstMessage: '',
+    avatar: '07-ada',
+  } as never)
+  await agentConversations().insertOne({
+    sessionId: 'bot-chat',
+    userId: ann,
+    teamId,
+    kind: 'channel',
+    title,
+    firstMessage: '',
+    agentSessionIds: ['bot'],
+    mentions: { [ann]: { messageId: 'm1', at: new Date(), by: { id: 'bot', name: 'Writer' } } },
+  } as never)
+}
+
+test("an Inbox entry in a Bot's chat is called after the Bot, over a name the chat stored", async () => {
+  await botChat('Old name')
+  const response = await app.request(`/agent/channels/mentions?teamId=${teamId}`, {
+    headers: { authorization: 'Bearer test-token' },
+  })
+  const { mentions } = (await response.json()) as {
+    mentions: { channelId: string; title: string }[]
+  }
+
+  expect(mentions.find((mention) => mention.channelId === 'bot-chat')?.title).toBe('Writer')
+})
+
+test("renaming a Bot's chat renames the Bot, and the chat stores no name", async () => {
+  await botChat('')
+  const response = await app.request('/agent/conversations/bot-chat/title', {
+    method: 'PATCH',
+    headers: { authorization: 'Bearer test-token', 'content-type': 'application/json' },
+    body: JSON.stringify({ teamId, title: 'Scout' }),
+  })
+
+  expect(response.status).toBe(200)
+  expect((await agentConversations().findOne({ sessionId: 'bot' }))?.title).toBe('Scout')
+  expect((await agentConversations().findOne({ sessionId: 'bot-chat' }))?.title).toBe('')
 })
