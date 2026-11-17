@@ -71,8 +71,12 @@ nuphos exec "list the EKS clusters"          # send, print the reply, exit
 echo "..." | nuphos exec --session ID        # continue an agent
 nuphos exec --approve --agent Codex "..."    # allow commands needing approval
 nuphos conversations [QUERY]                 # recent agents / find one by title
+nuphos triggers [SESSION]                    # a task's Triggers (or yours) with last and next run
+nuphos triggers usage TRIGGER                # what a trigger spent in the last 7 days
 nuphos team [NAME] [--create]                # list teams / set the default / create
-nuphos agents [NAME] [--session ID]          # list runtimes (Claude Code, Codex, …) / pick or move
+nuphos agents                                # list runtimes (Claude Code, Codex, …)
+nuphos agents NAME --session ID              # move a task to runtime NAME
+nuphos agents NAME --default                 # start every new task in the team on NAME
 nuphos agents NAME --login                   # sign an existing runtime in
 nuphos bots                                  # list your Bots in the team
 nuphos bots NAME --create [--avatar A]       # create a Bot; it runs with Full Access

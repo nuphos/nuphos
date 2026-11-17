@@ -60,6 +60,25 @@ function appClis(provider: LocalAgentProvider, home: string, env: NodeJS.Process
   return ['/opt/OpenCode/resources/opencode-cli']
 }
 
+/**
+ * npm installs Claude Code on Windows as a `claude.cmd` shim around its `bin\claude.exe`. The
+ * Agent SDK spawns its CLI without a shell, and Node refuses to spawn a .cmd that way (EINVAL),
+ * so the adapter gets the executable the shim runs.
+ */
+export function npmShimTarget(file: string): string {
+  if (path.basename(file).toLowerCase() !== 'claude.cmd') return file
+  const target = path.join(
+    path.dirname(file),
+    'node_modules',
+    '@anthropic-ai',
+    'claude-code',
+    'bin',
+    'claude.exe',
+  )
+
+  return executable(target) ? target : file
+}
+
 /** The last CLI found inside a Microsoft Store app, which only an async lookup can find. */
 const storeCli: Partial<Record<LocalAgentProvider, string>> = {}
 
@@ -80,7 +99,7 @@ export function findAgentCli(provider: LocalAgentProvider, env: NodeJS.ProcessEn
     ...dirs.flatMap((dir) => names.map((name) => path.join(dir, name))),
     ...appClis(provider, home, env),
   ])
-    if (executable(file)) return file
+    if (executable(file)) return npmShimTarget(file)
   if (provider === 'claude-code') {
     const [desktop] = claudeDesktopClis(env)
 
