@@ -224,25 +224,35 @@ test('the sign-in a computer runs asks for a provider and a key, then is done', 
   }
 })
 
+const CUSTOM = 'nuphos-custom'
+
+/** Signs in to a custom endpoint against a stand-in Pi that accepts it and lists its model. */
+async function signInCustom(home, baseUrl, model = 'qwen2.5:1.5b') {
+  const frames = []
+  const calls = []
+  const lines = (async function* () {
+    yield* [CUSTOM, baseUrl, model, 'sk-local']
+  })()
+  const run = async (args, agentDir) => {
+    calls.push({ args, models: readJson(join(agentDir, 'models.json')) })
+    return args[0] === 'auth'
+      ? JSON.stringify({ status: 'ready' })
+      : `provider model\n${CUSTOM} ${model}\ncustom hand-written\n`
+  }
+  await runPiLogin({ lines, emit: (frame) => frames.push(frame), home, run })
+  return { frames, calls }
+}
+
 test('Pi signs in to an OpenAI-compatible endpoint of the user’s own', async () => {
   const home = mkdtempSync(join(tmpdir(), 'pi-login-'))
   try {
     const dir = join(home, '.pi', 'agent')
     mkdirSync(dir, { recursive: true })
-    // A provider the user already added by hand stays.
-    writeFileSync(join(dir, 'models.json'), JSON.stringify({ providers: { mine: { x: 1 } } }))
-    const frames = []
-    const calls = []
-    const lines = (async function* () {
-      yield* ['custom', 'http://localhost:11434/v1', 'qwen2.5:1.5b', 'sk-local']
-    })()
-    const run = async (args, agentDir) => {
-      calls.push({ args, models: readJson(join(agentDir, 'models.json')) })
-      return args[0] === 'auth'
-        ? JSON.stringify({ status: 'ready' })
-        : 'provider model\ncustom qwen2.5:1.5b\ndeepseek deepseek-chat\n'
-    }
-    await runPiLogin({ lines, emit: (frame) => frames.push(frame), home, run })
+    // A provider the user added by hand, even one named `custom`, stays with its key.
+    const mine = { baseUrl: 'https://mine.example/v1', api: 'openai-completions' }
+    writeFileSync(join(dir, 'models.json'), JSON.stringify({ providers: { custom: mine } }))
+    writeFileSync(join(dir, 'auth.json'), JSON.stringify({ custom: { type: 'api_key', key: 'k' } }))
+    const { frames, calls } = await signInCustom(home, 'http://localhost:11434/v1')
     assert.deepEqual(
       frames.map(({ type, message }) => (message ? `${type}: ${message}` : type)),
       [
@@ -261,18 +271,39 @@ test('Pi signs in to an OpenAI-compatible endpoint of the user’s own', async (
       models: [{ id: 'qwen2.5:1.5b' }],
     }
     // Pi checks the endpoint with it already in its models.json, the key in auth.json only.
-    assert.deepEqual(calls[0].args, ['auth', 'check', '--provider', 'custom', '--json'])
-    assert.deepEqual(calls[0].models.providers.custom, provider)
+    assert.deepEqual(calls[0].args, ['auth', 'check', '--provider', CUSTOM, '--json'])
+    assert.deepEqual(calls[0].models.providers[CUSTOM], provider)
     assert.deepEqual(readJson(join(dir, 'models.json')), {
-      providers: { mine: { x: 1 }, custom: provider },
+      providers: { custom: mine, [CUSTOM]: provider },
     })
     assert.deepEqual(readJson(join(dir, 'auth.json')), {
-      custom: { type: 'api_key', key: 'sk-local' },
+      custom: { type: 'api_key', key: 'k' },
+      [CUSTOM]: { type: 'api_key', key: 'sk-local' },
     })
     assert.deepEqual(readJson(join(dir, 'settings.json')), {
-      defaultProvider: 'custom',
+      defaultProvider: CUSTOM,
       defaultModel: 'qwen2.5:1.5b',
     })
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
+})
+
+test('the key prompt says when the key would cross the network unencrypted', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'pi-login-'))
+  try {
+    const prompt = async (baseUrl) => (await signInCustom(home, baseUrl)).frames[3].message
+    // Another computer over plain http: the key is readable on the way.
+    assert.equal(
+      await prompt('http://192.168.1.20:8000/v1'),
+      'API key (sent unencrypted over http)',
+    )
+    assert.equal(await prompt('http://models.example/v1'), 'API key (sent unencrypted over http)')
+    // Encrypted, or never leaving this computer.
+    assert.equal(await prompt('https://models.example/v1'), 'API key')
+    assert.equal(await prompt('http://localhost:11434/v1'), 'API key')
+    assert.equal(await prompt('http://127.0.0.1:8080/v1'), 'API key')
+    assert.equal(await prompt('http://[::1]:8080/v1'), 'API key')
   } finally {
     rmSync(home, { recursive: true, force: true })
   }
@@ -281,13 +312,13 @@ test('Pi signs in to an OpenAI-compatible endpoint of the user’s own', async (
 test('an endpoint Pi does not accept leaves its models.json as it was', async () => {
   const home = mkdtempSync(join(tmpdir(), 'pi-login-'))
   try {
-    const answers = ['custom', 'http://localhost:1/v1', 'm', 'k']
+    const answers = [CUSTOM, 'http://localhost:1/v1', 'm', 'k']
     const { calls, result } = await signIn(answers, { ready: false, home })
     await assert.rejects(result)
-    assert.deepEqual(calls[0].args, ['auth', 'check', '--provider', 'custom', '--json'])
+    assert.deepEqual(calls[0].args, ['auth', 'check', '--provider', CUSTOM, '--json'])
     assert.equal(existsSync(join(home, '.pi', 'agent', 'models.json')), false)
     // Not a web address: refused before a key is asked for, and nothing is written.
-    const other = await signIn(['custom', 'localhost:11434', 'm', 'k'], { home })
+    const other = await signIn([CUSTOM, 'localhost:11434', 'm', 'k'], { home })
     await assert.rejects(other.result)
     assert.deepEqual(
       other.frames.map(({ message }) => message),
