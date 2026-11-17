@@ -5,7 +5,13 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
 
-import { MAX_DOWNLOAD_BYTES, saveDownload, savePath } from './agent-downloads.ts'
+import {
+  MAX_DOWNLOAD_BYTES,
+  saveAgentDownload,
+  saveDownload,
+  saveDownloadsOf,
+  savePath,
+} from './agent-downloads.ts'
 
 /** A download as Electron hands it over, driven by the test. */
 function download(filename: string, total = 7) {
@@ -98,4 +104,16 @@ test('an interrupted download says so', () => {
   item.received = 3
   item.emit('done', {}, 'interrupted')
   assert.match(lines[0] ?? '', /^Download interrupted: .+notes\.txt \(3 bytes\)$/)
+})
+
+test("only an agent tab's downloads are taken, by the saver its tab gave", () => {
+  const agentTab = {}
+  const saved: unknown[] = []
+  const item = download('a.txt') as unknown as Parameters<typeof saveAgentDownload>[0]
+
+  saveDownloadsOf(agentTab, (taken) => saved.push(taken))
+  assert.equal(saveAgentDownload(item, {}), false)
+  assert.equal(saveAgentDownload(item, undefined), false)
+  assert.equal(saveAgentDownload(item, agentTab), true)
+  assert.deepEqual(saved, [item])
 })

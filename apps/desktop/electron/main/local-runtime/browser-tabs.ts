@@ -7,7 +7,7 @@ import { browserSession } from '../browser-extensions/manage.ts'
 import { isAppQuitting } from '../window-session.ts'
 import { raiseWindow } from '../../window-raise.ts'
 
-import { saveDownload } from './agent-downloads.ts'
+import { saveDownload, saveDownloadsOf } from './agent-downloads.ts'
 import { startRecording, stopRecording } from './browser-recording.ts'
 import { failed } from './cua-host.ts'
 import { closeDockTab, dockMirrorOf, focusDockTab, openDockTab } from './dock-mirror.ts'
@@ -15,7 +15,7 @@ import { proxyFetch } from './dock-proxy.ts'
 
 import type { BrowserCall } from './browser-stream.ts'
 import type { CuaToolResult } from './cua-host.ts'
-import type { DownloadItem, WebContents } from 'electron'
+import type { WebContents } from 'electron'
 
 /** How long a page may take to load before a call returns it as it is. */
 const LOAD_TIMEOUT_MS = 20_000
@@ -54,21 +54,6 @@ const tabs = new Map<
 /** What became of each conversation's downloads since its last `tabs` or `eval`. */
 const downloads = new Map<string, string[]>()
 
-/**
- * Saves a download from a conversation's tab into Downloads/Nuphos with no save dialog,
- * which the agent could not answer. A download from any other page is not taken.
- */
-export function saveAgentDownload(item: DownloadItem, contents: WebContents | undefined): boolean {
-  const conversation = contents && tabs.get(contents)?.conversation
-
-  if (!conversation) return false
-  saveDownload(item, path.join(app.getPath('downloads'), 'Nuphos'), (line) =>
-    downloads.set(conversation, [...(downloads.get(conversation) ?? []), line]),
-  )
-
-  return true
-}
-
 /** `result` with the conversation's download news since it last heard, which it now has. */
 function withDownloads(conversation: string, result: CuaToolResult): CuaToolResult {
   const lines = downloads.get(conversation)
@@ -95,6 +80,12 @@ function track(window: BrowserWindow, conversation: string, opener?: WebContents
   const contents = window.webContents
 
   tabs.set(contents, { conversation, window, opener })
+  // Its downloads are saved with no save dialog, which the agent could not answer.
+  saveDownloadsOf(contents, (download) =>
+    saveDownload(download, path.join(app.getPath('downloads'), 'Nuphos'), (line) =>
+      downloads.set(conversation, [...(downloads.get(conversation) ?? []), line]),
+    ),
+  )
   // Shown once, unseen, the page paints and can be captured; hidden again, it sleeps
   // like a background tab, so an idle tab costs no battery.
   window.once('ready-to-show', () => {

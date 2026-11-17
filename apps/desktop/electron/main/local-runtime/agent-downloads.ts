@@ -61,3 +61,21 @@ export function saveDownload(download: Download, dir: string, report: (line: str
   })
   if (tooLarge()) download.cancel()
 }
+
+/** How each agent tab saves its downloads; a page that is not one has none. */
+const savers = new WeakMap<object, (download: DownloadItem) => void>()
+
+/** Makes `contents` save its downloads with `save` from now on, with no save dialog. */
+export function saveDownloadsOf(contents: object, save: (download: DownloadItem) => void) {
+  savers.set(contents, save)
+}
+
+/** Saves `download` if its page is an agent tab, and says whether it did. */
+export function saveAgentDownload(download: DownloadItem, contents: object | undefined): boolean {
+  const save = contents && savers.get(contents)
+
+  if (!save) return false
+  save(download)
+
+  return true
+}

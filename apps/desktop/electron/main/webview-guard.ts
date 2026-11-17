@@ -5,7 +5,7 @@ import { app, BrowserWindow, session } from 'electron'
 
 import { guardBrowserDownloads } from './browser-downloads.ts'
 import { CHANGELOG_PAGE_PREFIX } from './changelog-feed.ts'
-import { saveAgentDownload } from './local-runtime/browser-tabs.ts'
+import { saveAgentDownload } from './local-runtime/agent-downloads.ts'
 import { openExternal } from './open-external.ts'
 
 function isHttp(url: string) {
