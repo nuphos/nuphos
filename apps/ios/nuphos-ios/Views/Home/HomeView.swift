@@ -230,6 +230,14 @@ struct HomeView: View {
             page = .agent
             openChat = nil
         }
+        // Tasks lists no chat (#2708), and compact opens one by selecting its row, so a chat
+        // opened from Tasks, as "Make this a Bot" opens one, opens on Bots instead.
+        .onChange(of: openChat?.channel?.channelId) { _, id in
+            guard id != nil, page == .agent, let chat = openChat else { return }
+            page = .chats
+            // After the page change below has cleared it.
+            Task { openChat = chat }
+        }
         .onChange(of: page) { oldPage, newPage in
             if autoPage { autoPage = false } else { pageChosen = true }
             searches[oldPage] = store?.search ?? ""
