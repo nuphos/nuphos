@@ -243,3 +243,47 @@ test('a file too large to preview is sized, then uploaded whole to the given URL
     await rm(root, { recursive: true, force: true })
   }
 })
+
+// A cloud runtime keeps the secure input card's values under /tmp, outside the workspace.
+test('a saved secret under /tmp is read only when the read asks for one', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'runtime-secret-workspace-'))
+  // eslint-disable-next-line sonarjs/publicly-writable-directories -- The fixed place a cloud runtime keeps them; mkdtemp makes a private directory.
+  const dir = await mkdtemp('/tmp/nuphos-secret-')
+  // eslint-disable-next-line sonarjs/publicly-writable-directories -- A sibling the program must refuse; mkdtemp makes a private directory.
+  const other = await mkdtemp('/tmp/nuphos-attachments-')
+
+  try {
+    await mkdir(join(dir, '0'))
+    await mkdir(join(other, '0'))
+    await writeFile(join(dir, '0', 'NATIONAL_ID'), 'a synthetic value')
+    await writeFile(join(other, '0', 'NATIONAL_ID'), 'not a secret')
+    const read = (path: string, patch: Record<string, unknown> = {}) =>
+      JSON.parse(
+        // eslint-disable-next-line sonarjs/no-os-command-from-path -- Uses the installed Node interpreter without a shell.
+        execFileSync('node', ['--input-type=module', '-e', RUNTIME_FILE_PROGRAM], {
+          input: JSON.stringify({ path, workspace: root, action: 'read', ...patch }),
+          env: { PATH: process.env.PATH },
+          encoding: 'utf8',
+          timeout: 5000,
+        }),
+      ) as { data?: string; error?: string }
+    const saved = join(dir, '0', 'NATIONAL_ID')
+
+    expect(Buffer.from(read(saved, { secret: true }).data ?? '', 'base64').toString()).toBe(
+      'a synthetic value',
+    )
+    // An agent host without the runtime image's workspace directory can have one read too.
+    expect(read(saved, { secret: true, workspace: join(root, 'absent') }).data).toBeDefined()
+    expect(read(saved, { workspace: join(root, 'absent') }).error).toBe('file_not_found')
+    // The file preview never asks for one, so it still cannot leave the workspace.
+    expect(read(saved).error).toBe('forbidden_path')
+    expect(read(saved, { secret: true, action: 'stat' }).error).toBe('forbidden_path')
+    expect(read(join(other, '0', 'NATIONAL_ID'), { secret: true }).error).toBe('forbidden_path')
+    expect(read('/etc/hostname', { secret: true }).error).toBe('forbidden_path')
+    expect(read(dir, { secret: true, action: 'list' }).error).toBe('forbidden_path')
+  } finally {
+    await rm(root, { recursive: true, force: true })
+    await rm(dir, { recursive: true, force: true })
+    await rm(other, { recursive: true, force: true })
+  }
+})

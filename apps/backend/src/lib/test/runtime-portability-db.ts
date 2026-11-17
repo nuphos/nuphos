@@ -25,7 +25,10 @@ function matches(doc: Doc, query: Doc): boolean {
       if ('$gt' in expected) return actual > expected.$gt
       if ('$ne' in expected)
         return Array.isArray(actual) ? !actual.includes(expected.$ne) : actual !== expected.$ne
-      if ('$in' in expected) return expected.$in.includes(actual)
+      if ('$in' in expected)
+        return Array.isArray(actual)
+          ? actual.some((value) => expected.$in.includes(value))
+          : expected.$in.includes(actual)
     }
 
     return Array.isArray(actual) ? actual.includes(expected) : actual === expected
