@@ -44,8 +44,13 @@ export async function checkOutgoingChip(page: Page): Promise<void> {
 /** The workspace panel toggle floats over the chat header's right end; the header's content must end left of it (#3312). */
 export async function checkDockToggleClear(page: Page, where: string): Promise<void> {
   const room = await page.evaluate(() => {
-    const toggle = document.querySelector('.workspace-dock-toggle')?.getBoundingClientRect()
-    const header = document.querySelector('.workspace-agent-titlebar')
+    // Panes left open stay mounted, hidden: only the one on screen counts.
+    const shown = (selector: string) =>
+      [...document.querySelectorAll(selector)].find(
+        (node) => node.getBoundingClientRect().width > 0,
+      )
+    const toggle = shown('.workspace-dock-toggle')?.getBoundingClientRect()
+    const header = shown('.workspace-agent-titlebar')
 
     if (!toggle || !header) return null
 
@@ -57,6 +62,9 @@ export async function checkDockToggleClear(page: Page, where: string): Promise<v
   })
 
   if (!room) throw new Error(`The ${where} has no chat header or workspace panel toggle`)
+  console.log(
+    `${where}: header content ends at ${String(Math.round(room.contentRight))} px, toggle starts at ${String(Math.round(room.toggleLeft))} px`,
+  )
   await page.screenshot({ path: `${artifacts}/dock-toggle-${where.replaceAll(' ', '-')}.png` })
   if (room.contentRight > room.toggleLeft)
     throw new Error(
