@@ -6,12 +6,13 @@ import { accessScenarios } from './access-scenarios.ts'
 import { agentEvents } from './agent-log.ts'
 import { agentWordScenarios } from './agent-word-scenarios.ts'
 import { backendFailures, backendLines } from './backend-log.ts'
-import { checkDecisionOutline, checkOutgoingChip } from './chat-presentation.ts'
 import { channelScenarios } from './channel-scenarios.ts'
+import { checkDecisionOutline, checkOutgoingChip } from './chat-presentation.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
 import { dashboardScenarios } from './dashboard-scenarios.ts'
+import { decisionTitleScenarios } from './decision-title-scenarios.ts'
 import { startDesktop } from './desktop.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
@@ -216,6 +217,7 @@ const scenarios: Scenario[] = [
       await page.screenshot({ path: `${artifacts}/question-skipped.png` })
     },
   },
+  ...decisionTitleScenarios,
   ...questionScenarios,
   ...triggerScenarios,
   ...connectorScenarios,
