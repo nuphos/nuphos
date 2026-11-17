@@ -11,6 +11,7 @@ import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
 import { dashboardScenarios } from './dashboard-scenarios.ts'
+import { dashboardUiScenarios } from './dashboard-ui-scenarios.ts'
 import { startDesktop } from './desktop.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
@@ -256,6 +257,7 @@ const scenarios: Scenario[] = [
   },
   // Last: it removes a member from the team.
   ...dashboardScenarios,
+  ...dashboardUiScenarios,
 ]
 
 let desktop: Desktop | undefined
