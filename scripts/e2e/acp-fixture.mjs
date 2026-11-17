@@ -30,6 +30,34 @@ const CLAUDE_TURN_USAGE = {
   cachedWriteTokens: 8000,
   totalTokens: 258_912,
 }
+// Its `_meta.quota`: the model rows also count a Task sub-agent the main-loop usage leaves out.
+const CLAUDE_TURN_QUOTA = {
+  token_count: { ...CLAUDE_TURN_USAGE, cachedInputTokens: 250_000, reasoningOutputTokens: 0 },
+  model_usage: [
+    {
+      model: 'claude-opus-5-5',
+      token_count: {
+        totalTokens: 258_912,
+        inputTokens: 12,
+        cachedInputTokens: 250_000,
+        cachedWriteTokens: 8000,
+        outputTokens: 900,
+        reasoningOutputTokens: 0,
+      },
+    },
+    {
+      model: 'claude-haiku-5-5',
+      token_count: {
+        totalTokens: 31_400,
+        inputTokens: 400,
+        cachedInputTokens: 30_000,
+        cachedWriteTokens: 600,
+        outputTokens: 400,
+        reasoningOutputTokens: 0,
+      },
+    },
+  ],
+}
 
 // A prompt containing E2E_HOLD stays in its turn until the client cancels it.
 const held = new Map()
@@ -207,7 +235,7 @@ async function prompt({ sessionId, prompt: parts }) {
   log({ sessionId, marker, event: 'finish' })
 
   return text.includes('E2E_TURN_USAGE')
-    ? { stopReason: 'end_turn', usage: CLAUDE_TURN_USAGE }
+    ? { stopReason: 'end_turn', usage: CLAUDE_TURN_USAGE, _meta: { quota: CLAUDE_TURN_QUOTA } }
     : { stopReason: 'end_turn' }
 }
 

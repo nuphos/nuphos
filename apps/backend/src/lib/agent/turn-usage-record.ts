@@ -21,6 +21,8 @@ export type RuntimeTurnUsage = {
   provider: string
   /** The ACP `PromptResponse.usage` the runtime reported for the turn. */
   usage: unknown
+  /** The agent's `_meta.quota`, whose `model_usage` splits the turn by model. */
+  quota?: unknown
   /** The fire that produced this turn, when it was a Trigger that did. */
   trigger?: ConversationTriggerRun
 }
@@ -44,13 +46,23 @@ export function recordRuntimeTurnUsage(turn: RuntimeTurnUsage): void {
 
 /** The write itself, so a test can await what the turn path must not. */
 export async function writeRuntimeTurnUsage(turn: RuntimeTurnUsage): Promise<void> {
-  const tokens = acpUsageTokens(turn.usage)
+  const byModel = quotaModelTokens(turn.quota)
+  const rows = (
+    byModel.length
+      ? byModel
+      : [
+          {
+            modelId: await turnModelId(turn.sessionId, turn.teamId),
+            tokens: acpUsageTokens(turn.usage),
+          },
+        ]
+  ).flatMap(({ modelId, tokens }) =>
+    Object.keys(tokens).length ? turnUsageRows(turn, tokens, modelId) : [],
+  )
 
   // Runtimes that report nothing record nothing; nothing is estimated.
-  if (Object.keys(tokens).length === 0) return
-  const modelId = await turnModelId(turn.sessionId, turn.teamId)
-
-  await agentTokenUsage().insertMany(turnUsageRows(turn, tokens, modelId))
+  if (rows.length === 0) return
+  await agentTokenUsage().insertMany(rows)
   await refreshConversationTokenUsageSummary(turn.sessionId, turn.userId, turn.teamId)
 }
 
@@ -86,6 +98,39 @@ function acpUsageTokens(usage: unknown): AgentTokenUsageTokens {
     reasoningTokens: count(acp.thoughtTokens),
     totalTokens,
   })
+}
+
+// `_meta.quota.model_usage`: one token count per model the turn used. Claude's
+// also counts Task sub-agents, sidechains and compaction, which its `usage`
+// leaves out, so it is the fuller record when present.
+function quotaModelTokens(quota: unknown): { modelId: string; tokens: AgentTokenUsageTokens }[] {
+  const models = (quota as { model_usage?: unknown } | null | undefined)?.model_usage
+
+  if (!Array.isArray(models)) return []
+
+  return models.flatMap(
+    (entry: { model?: unknown; token_count?: Record<string, unknown> } | null) => {
+      const count = entry?.token_count
+
+      if (typeof entry?.model !== 'string' || !entry.model || !count) return []
+
+      return [
+        {
+          modelId: entry.model,
+          tokens: acpUsageTokens({
+            inputTokens: count.inputTokens,
+            cachedReadTokens: count.cachedInputTokens,
+            cachedWriteTokens: count.cachedWriteTokens,
+            outputTokens: count.outputTokens,
+            // Claude always sends 0 here: its thinking is billed inside the output.
+            thoughtTokens:
+              count.reasoningOutputTokens === 0 ? undefined : count.reasoningOutputTokens,
+            totalTokens: count.totalTokens,
+          }),
+        },
+      ]
+    },
+  )
 }
 
 // The same shape the AI SDK path writes: one model call records a step_total
