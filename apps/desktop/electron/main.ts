@@ -13,7 +13,7 @@ import {
 } from './analytics'
 import { apiUrl } from './api-endpoint'
 import * as asanaInstall from './asana-install'
-import { refreshBackendProxy, routeBackendSocketsThroughSystemProxy } from './backend-socket'
+import { routeBackendSocketsThroughSystemProxy } from './backend-socket'
 import * as cloudflareInstall from './cloudflare-install'
 import { watchCrashes } from './crash-reporter'
 import * as discordInstall from './discord-install'
@@ -208,7 +208,6 @@ app
   .whenReady()
   .then(() => {
     routeFetchThroughChromium(net)
-    routeBackendSocketsThroughSystemProxy((url) => session.defaultSession.resolveProxy(url))
     // Before any window exists: web-contents-created only fires for contents created
     // after registration, or the first window never gets the will-attach-webview hook.
     initBrowserSessions()
@@ -216,12 +215,10 @@ app
     void resolveShellEnv()
     initMainAnalytics()
     startDevBackendHealthProbe()
-    // The tunnel's first dial must already know the proxy, and Chromium answers DIRECT
-    // until its proxy config has loaded, so the local runtime starts after both.
-    void session.defaultSession
-      .forceReloadProxyConfig()
-      .then(() => refreshBackendProxy(apiUrl()))
-      .finally(initLocalRuntime)
+    // The tunnel's first dial must already know the proxy.
+    void routeBackendSocketsThroughSystemProxy(session.defaultSession, apiUrl()).finally(
+      initLocalRuntime,
+    )
     captureMain('app_launched', {
       version: app.getVersion(),
       platform: process.platform,

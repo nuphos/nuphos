@@ -12,8 +12,7 @@ const failures: unknown[] = []
 mock.module('./analytics.ts', {
   namedExports: { captureMain: (_event: string, failure: unknown) => failures.push(failure) },
 })
-const { dialBackend, refreshBackendProxy, routeBackendSocketsThroughSystemProxy } =
-  await import('./backend-socket.ts')
+const { dialBackend, routeBackendSocketsThroughSystemProxy } = await import('./backend-socket.ts')
 
 /** Dials and waits for the failure, which dialBackend has already handled. */
 function dial(url: string): Promise<void> {
@@ -69,6 +68,11 @@ test('a refused dial tells its caller the status the server answered with', asyn
   assert.deepEqual(statuses, [404])
 })
 
+/** A session whose proxy config answers `rule` for every URL. */
+function systemProxy(rule: string) {
+  return { resolveProxy: async () => rule, forceReloadProxyConfig: async () => undefined }
+}
+
 /** A WebSocket server that only accepts the upgrade, enough for a dial to open. */
 async function upgradeServer(): Promise<{ port: number; close: () => void }> {
   const server = createServer()
@@ -115,8 +119,10 @@ test('a dial goes through the proxy the system gives for the backend', async () 
   const proxyPort = (proxy.address() as AddressInfo).port
   const url = `http://127.0.0.1:${String(backend.port)}/agent/devices/d/runtime-tunnel`
 
-  routeBackendSocketsThroughSystemProxy(async () => `PROXY 127.0.0.1:${String(proxyPort)}; DIRECT`)
-  await refreshBackendProxy(url)
+  await routeBackendSocketsThroughSystemProxy(
+    systemProxy(`PROXY 127.0.0.1:${String(proxyPort)}; DIRECT`),
+    url,
+  )
   const socket = dialBackend(url, { authorization: 'Bearer t' })
 
   await new Promise((resolve, reject) => {
@@ -124,11 +130,22 @@ test('a dial goes through the proxy the system gives for the backend', async () 
     socket.addEventListener('error', reject)
   })
   socket.close()
-  routeBackendSocketsThroughSystemProxy(async () => 'DIRECT')
-  await refreshBackendProxy(url)
+  await routeBackendSocketsThroughSystemProxy(systemProxy('DIRECT'), url)
   proxy.close()
   proxy.closeAllConnections()
   backend.close()
 
   assert.deepEqual(tunneled, [`127.0.0.1:${String(backend.port)}`])
+})
+
+test('a proxy lookup that never answers lets the runtime start anyway', async () => {
+  const stuck = {
+    resolveProxy: () => new Promise<string>(() => {}),
+    forceReloadProxyConfig: () => new Promise<void>(() => {}),
+  }
+  const started = Date.now()
+
+  await routeBackendSocketsThroughSystemProxy(stuck, 'http://127.0.0.1:1', 50)
+
+  assert.ok(Date.now() - started < 1000)
 })

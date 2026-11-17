@@ -51,12 +51,6 @@ const proxyRules = new Map<string, string>()
 /** One agent per proxy, kept open: a tunnel still on it must not be cut when the rule changes. */
 const proxyAgents = new Map<string, Dispatcher | undefined>()
 
-export function routeBackendSocketsThroughSystemProxy(
-  resolve: (url: string) => Promise<string>,
-): void {
-  resolveProxy = resolve
-}
-
 function agentFor(scheme: string, hostPort: string): Dispatcher | undefined {
   if (scheme === 'PROXY') return new ProxyAgent(`http://${hostPort}`)
   if (scheme === 'HTTPS') return new ProxyAgent(`https://${hostPort}`)
@@ -76,11 +70,36 @@ function proxyAgent(rule: string): Dispatcher | undefined {
 }
 
 /** Looks up the proxy for `url` again, so the next dial follows a VPN switched on or off. */
-export async function refreshBackendProxy(url: URL | string): Promise<void> {
+async function refreshBackendProxy(url: URL | string): Promise<void> {
   if (!resolveProxy) return
   const target = new URL(String(url).replace(/^ws/u, 'http'))
 
   proxyRules.set(target.host, await resolveProxy(target.href).catch(() => 'DIRECT'))
+}
+
+type ProxySession = {
+  resolveProxy: (url: string) => Promise<string>
+  forceReloadProxyConfig: () => Promise<void>
+}
+
+/**
+ * Dials backend WebSockets through `session`'s proxy from now on. Resolves once the proxy
+ * for `api` is known, so the tunnel's first dial can wait for it: Chromium answers DIRECT
+ * until its proxy config has loaded. A PAC script that never answers must not keep the
+ * computer offline, so it resolves after `waitMs` regardless.
+ */
+export function routeBackendSocketsThroughSystemProxy(
+  session: ProxySession,
+  api: string,
+  waitMs = 3000,
+): Promise<void> {
+  resolveProxy = (url) => session.resolveProxy(url)
+  const known = session
+    .forceReloadProxyConfig()
+    .catch(() => undefined)
+    .then(() => refreshBackendProxy(api))
+
+  return Promise.race([known, new Promise<void>((resolve) => setTimeout(resolve, waitMs))])
 }
 
 /**
