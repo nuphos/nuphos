@@ -19,6 +19,11 @@ const LABEL: &str = "ai.nuphos.agent";
 /// What the service needs from the shell that installed it. PATH finds node, claude and codex.
 const FORWARD: [&str; 4] = ["PATH", "NUPHOS_API_URL", "NUPHOS_DOWNLOAD_URL", "NUPHOS_AGENT_HOME"];
 
+/// The service's environment: the installing shell's values of FORWARD.
+fn service_env(var: impl Fn(&str) -> Option<String>) -> Vec<(&'static str, String)> {
+    FORWARD.iter().filter_map(|key| var(key).map(|value| (*key, value))).collect()
+}
+
 /// How long a join may take before the install reports it as not joined.
 const JOIN_WAIT: Duration = Duration::from_secs(60);
 
@@ -50,8 +55,7 @@ pub fn install(join: Option<&str>) -> Result<i32> {
     let config = config_home()?;
     let unit_path = config.join("systemd/user").join(UNIT);
     let env_path = config.join("nuphos/agent.env");
-    let forwarded: Vec<(&str, String)> =
-        FORWARD.iter().filter_map(|key| std::env::var(key).ok().map(|value| (*key, value))).collect();
+    let forwarded = service_env(|key| std::env::var(key).ok());
     write(&env_path, &env_file(&forwarded, join))?;
     write(&unit_path, &unit(&std::env::current_exe()?, &env_path))?;
     for args in [&["daemon-reload"][..], &["enable", "--quiet", UNIT], &["restart", UNIT]] {
@@ -105,8 +109,7 @@ fn install_launch_agent(join: Option<&str>) -> Result<i32> {
     let home = PathBuf::from(std::env::var_os("HOME").context("HOME is not set")?);
     let plist_path = home.join("Library/LaunchAgents").join(format!("{LABEL}.plist"));
     let log = home.join("Library/Logs/nuphos-agent.log");
-    let forwarded: Vec<(&str, String)> =
-        FORWARD.iter().filter_map(|key| std::env::var(key).ok().map(|value| (*key, value))).collect();
+    let forwarded = service_env(|key| std::env::var(key).ok());
     let exe = std::env::current_exe()?;
     write(&plist_path, &plist(&exe, &forwarded, join, &log))?;
     let domain = gui_domain();
@@ -311,6 +314,17 @@ mod tests {
         assert!(text.contains("<key>NUPHOS_JOIN_TOKEN</key><string>nbj_1</string>"));
         assert!(text.contains("<key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>"));
         assert!(!plist(Path::new("/n"), &vars, None, log).contains("NUPHOS_JOIN_TOKEN"));
+    }
+
+    #[test]
+    fn the_service_keeps_the_home_it_was_installed_from() {
+        // launchd and systemd start the service in the account's own home; installed from
+        // another HOME, the agent's data has to stay there.
+        let env = service_env(|key| (key == "HOME").then(|| "/tmp/isolated".to_owned()));
+        assert_eq!(env, [("HOME", "/tmp/isolated".to_owned())]);
+        let log = Path::new("/tmp/isolated/Library/Logs/nuphos-agent.log");
+        assert!(plist(Path::new("/n"), &env, None, log).contains("<key>HOME</key><string>/tmp/isolated</string>"));
+        assert!(env_file(&env, None).contains("HOME=/tmp/isolated\n"));
     }
 
     #[test]
