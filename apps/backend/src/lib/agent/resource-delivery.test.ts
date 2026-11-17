@@ -86,7 +86,8 @@ useByosGithub({ getInstallationToken: async () => ({ token: 'token', expiresAt: 
 useGithubHttp({
   githubFetch: async (url) => {
     // The lookups that decide who wakes; health reads are covered in resource-webhook-health.test.ts.
-    if (/\/collaborators\/|\/commits\/[0-9a-f]{40}\/pulls$/.test(url)) lookups.push(url)
+    if (url.includes('/collaborators/') || /\/commits\/[0-9a-f]{40}\/pulls$/.test(url))
+      lookups.push(url)
     if (url.endsWith('/pulls'))
       return Response.json(commitPulls.pulls, { status: commitPulls.status })
 
