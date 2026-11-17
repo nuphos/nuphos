@@ -70,9 +70,27 @@ export const formScenario = {
       await page.getByRole('tab', { name: 'Tasks' }).click()
       await page.getByRole('button', { name: 'New task', exact: true }).click()
       // An earlier scenario may have left the other agent as the one a new Task starts on.
-      await page.getByRole('button', { name: /^Runtime:/ }).click()
-      await page.getByRole('menu').getByText('E2E fixture agent').click()
-      await page.getByRole('menuitem', { name: /^E2E fixture agent.*Claude Code/ }).click()
+      // The restarted host is listed again a moment later, and the list drawn again closes an
+      // open submenu: a pick that misses starts over.
+      await until('the fixture agent to be picked', async () => {
+        try {
+          // "Agent runtime" until #3271 renames the picker.
+          await page
+            .getByRole('button', { name: /^(Agent runtime|Runtime:)/ })
+            .click({ timeout: 5_000 })
+          await page.getByRole('menu').getByText('E2E fixture agent').click({ timeout: 5_000 })
+          await page
+            .getByRole('menuitem', { name: /^E2E fixture agent.*Claude Code/ })
+            .click({ timeout: 5_000 })
+
+          return true
+        } catch (error) {
+          // Closes the submenu, then the menu.
+          await page.keyboard.press('Escape')
+          await page.keyboard.press('Escape')
+          throw error
+        }
+      })
       await page.getByRole('textbox', { name: 'Message' }).click()
       await page.keyboard.type(`fill the form E2E_FORM:${site} E2E_DELIVERY:form`)
       await page.keyboard.press('Enter')
