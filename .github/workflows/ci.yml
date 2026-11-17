@@ -387,6 +387,8 @@ jobs:
           MONGODB_DB: nuphos_test
         # A suite that skips here passes without having touched the database.
         run: |
+          # A run block is `bash -e` without pipefail: without this, tee's exit hides bun's.
+          set -o pipefail
           bun test $(find src -name '*.mongo.test.ts' | sort) 2>&1 | tee "$RUNNER_TEMP/mongo-tests.txt"
           if grep -q '^(skip)' "$RUNNER_TEMP/mongo-tests.txt"; then
             echo "::error::A *.mongo.test.ts test skipped against the real MongoDB"; exit 1
