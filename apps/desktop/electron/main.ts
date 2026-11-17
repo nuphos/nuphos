@@ -3,7 +3,7 @@
 import { userDataDir } from './main/app-paths'
 import path from 'node:path'
 
-import { app, BrowserWindow, ipcMain, nativeTheme, net } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeTheme, net, session } from 'electron'
 
 import {
   initMainAnalytics,
@@ -11,7 +11,9 @@ import {
   captureMainException,
   shutdownMainAnalytics,
 } from './analytics'
+import { apiUrl } from './api-endpoint'
 import * as asanaInstall from './asana-install'
+import { refreshBackendProxy, routeBackendSocketsThroughSystemProxy } from './backend-socket'
 import * as cloudflareInstall from './cloudflare-install'
 import { watchCrashes } from './crash-reporter'
 import * as discordInstall from './discord-install'
@@ -206,6 +208,8 @@ app
   .whenReady()
   .then(() => {
     routeFetchThroughChromium(net)
+    routeBackendSocketsThroughSystemProxy((url) => session.defaultSession.resolveProxy(url))
+    void refreshBackendProxy(apiUrl())
     // Before any window exists: web-contents-created only fires for contents created
     // after registration, or the first window never gets the will-attach-webview hook.
     initBrowserSessions()
