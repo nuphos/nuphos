@@ -147,12 +147,12 @@ class QuestionOtherFixtureDeviceTest {
         assertEquals(1, layout(title).lineCount)
         assertTrue(layout(title).hasVisualOverflow)
         compose.onNodeWithText("Idle since the migration.", substring = true).assertExists()
-        capture("long-question-cut")
+        artifact("long-question-cut")
         // A tap shows it in full.
         title.performClick()
         compose.waitForIdle()
         assertTrue(layout(title).lineCount > 1)
-        capture("long-question-open")
+        artifact("long-question-open")
     }
 
     private fun layout(node: SemanticsNodeInteraction): TextLayoutResult {
@@ -172,6 +172,15 @@ class QuestionOtherFixtureDeviceTest {
                 }
             } }
         }
+    }
+
+    /** Saved to the additional test output, which CI uploads with the device test report. */
+    private fun artifact(name: String) {
+        compose.waitForIdle()
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val directory = File(context.externalMediaDirs.first(), "additional_test_output").apply { mkdirs() }
+        val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot() ?: error("Screenshot unavailable")
+        File(directory, "review-3273-$name.png").outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
     }
 
     /** Saved under the app's files, `review-2298/`, for the PR's screenshots. */

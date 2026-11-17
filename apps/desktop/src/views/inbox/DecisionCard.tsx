@@ -7,6 +7,7 @@ import {
   parseConnectRequest,
 } from '../../components/agent/panel/connectCardModel'
 import { CredentialSelectorButton } from '../../components/agent/panel/CredentialSelectorButton'
+import { DecisionTitle } from '../../components/agent/panel/DecisionTitle'
 import { botChatQuestion } from '../../components/channels/botChatQuestion'
 import { BotChatQuestion } from '../../components/channels/BotChatQuestions'
 import { useBotCredentials } from '../../components/channels/useBotCredentials'
@@ -75,9 +76,9 @@ export function DecisionCard({
         />
         {plain ? (
           <>
-            <h1 className="selectable mt-3 text-[20px] font-semibold leading-7 text-main">
+            <DecisionTitle as="h1" className="mt-3 text-[20px] font-semibold leading-7 text-main">
               {request.question}
-            </h1>
+            </DecisionTitle>
             {choice.body && (
               <MessageResponse
                 className="selectable mt-3 text-[13.5px] text-secondary"
