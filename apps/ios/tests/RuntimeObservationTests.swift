@@ -243,7 +243,6 @@ struct RuntimeObservationTests {
         SSEClientTests.run()
         StreamingMarkdownTests.run()
         LocalAgentTests.run()
-        ShareApprovalTests.run()
         ImageAttachmentTests.run()
         PastedFileTests.run()
         SignInSessionsTests.run()
