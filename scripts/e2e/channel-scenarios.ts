@@ -192,6 +192,8 @@ export const channelScenarios: Scenario[] = [
 
       await page.keyboard.press('Escape')
       await task.getByRole('button', { name: 'Back to conversation' }).click()
+      // The next scenario starts in the Bot chat, with its composer the only one.
+      await task.waitFor({ state: 'detached' })
       if (open !== 1) throw new Error(`Switch runtime opened ${String(open)} runtime lists`)
     },
   },
