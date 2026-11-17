@@ -7,6 +7,8 @@ import type { RequestOrigin } from '@/lib/request-origin'
 export type TunnelConnection = {
   send(frame: BackendFrame): void
   close(code: number, reason: string): void
+  /** Bytes sent but not yet written to the network. */
+  bufferedAmount?(): number
 }
 
 export type TunnelHolderDeps = {

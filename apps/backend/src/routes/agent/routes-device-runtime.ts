@@ -104,6 +104,9 @@ export function runtimeTunnelEvents(
           close: (code, reason) => {
             ws.close(code, reason)
           },
+          bufferedAmount: () =>
+            (ws.raw as { getBufferedAmount?: () => number } | undefined)?.getBufferedAmount?.() ??
+            0,
         },
         deps,
         client,

@@ -302,6 +302,33 @@ describe('local runtime tunnel', () => {
     )
   })
 
+  test('a closed tunnel logs the most it ever had queued behind a ping', async () => {
+    const queued = [0, 600_000, 2_000]
+    const tunnel = await attachRuntimeTunnel(
+      owner.userId,
+      owner.deviceId,
+      { send: () => {}, close: () => {}, bufferedAmount: () => queued.shift() ?? 0 },
+      {
+        bus: createLocalTunnelBus(),
+        presence: createMemoryPresenceStore(),
+        isMember: async () => true,
+        heartbeatMs: 10,
+      },
+    )
+    const lines = await logged('log', async () => {
+      await eventually(() => queued.length === 0)
+      tunnel.closed(1006, '')
+    })
+
+    expect(lines).toContainEqual(
+      expect.objectContaining({
+        event: 'agent.local_runtime.tunnel_closed',
+        code: 1006,
+        max_buffered_bytes: 600_000,
+      }),
+    )
+  })
+
   test('the computer reports why it gave up its last tunnel', async () => {
     const desktop = await connectDesktop(
       createLocalTunnelBus(),

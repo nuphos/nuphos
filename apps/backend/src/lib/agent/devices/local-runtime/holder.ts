@@ -53,6 +53,7 @@ export async function attachRuntimeTunnel(
   let lastFrameAt = Date.now()
   let lastEchoAt = lastFrameAt
   let presenceAt = 0
+  let maxBufferedBytes = 0 // the most ever queued ahead of a ping
   let ended = false
   let counted = false
   let heartbeat: ReturnType<typeof setInterval> | undefined
@@ -108,7 +109,7 @@ export async function attachRuntimeTunnel(
   const shut = (code: number, reason: string) => {
     if (ended) return
     end()
-    logClosed(code, reason)
+    logClosed(code, reason, { max_buffered_bytes: maxBufferedBytes })
     connection.close(code, reason)
   }
 
@@ -196,6 +197,7 @@ export async function attachRuntimeTunnel(
 
       return shut(TUNNEL_CLOSE_IDLE, 'Device channel unavailable')
     }
+    maxBufferedBytes = Math.max(maxBufferedBytes, connection.bufferedAmount?.() ?? 0)
     connection.send({ t: 'ping' })
     void deps.bus
       .publish(channel, JSON.stringify({ t: 'ping', conn } satisfies HolderMessage))
@@ -291,7 +293,8 @@ export async function attachRuntimeTunnel(
       sawFrame()
     },
     closed(code, reason) {
-      if (!ended) logClosed(code, reason || 'The connection closed')
+      if (!ended)
+        logClosed(code, reason || 'The connection closed', { max_buffered_bytes: maxBufferedBytes })
       end()
     },
   }
