@@ -103,6 +103,10 @@
     <string name="composer_saving">저장 중…</string>
     <string name="composer_send_securely">안전하게 보내기</string>
     <string name="composer_secret_footer">값은 작업 런타임의 파일에 기록되며 이 작업에는 표시되지 않습니다.</string>
+    <string name="composer_secret_details_needed">%1$s에 필요한 정보</string>
+    <string name="composer_secret_fields_footer">값은 작업 런타임의 파일에 기록되며 이 작업을 거치지 않고 %1$s에 입력됩니다.</string>
+    <string name="composer_secret_reveal">값 표시</string>
+    <string name="composer_secret_hide">값 숨기기</string>
     <string name="composer_attachments_unavailable">첨부 파일을 사용할 수 없습니다</string>
     <string name="composer_attachments">첨부 파일</string>
     <string name="composer_loading_attachments">첨부 파일을 불러오는 중…</string>
