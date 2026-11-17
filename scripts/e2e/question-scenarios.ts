@@ -57,7 +57,10 @@ export const questionScenarios: Scenario[] = [
 
       must(Boolean(request), 'the question to be listed')
       const until1h = new Date(Date.now() + 3_600_000).toISOString()
-      const turns = agentEvents(stack).length
+      // A wake starts a turn. The question's own turn may still be logging its finish, and
+      // other sessions open while runtimes are probed, so neither counts.
+      const turns = () => agentEvents(stack).filter((event) => event.startsWith('start')).length
+      const before = turns()
       const snoozed = await decide(sessionId, request!.id, 'snooze', { until: until1h })
 
       must(
@@ -66,7 +69,7 @@ export const questionScenarios: Scenario[] = [
       )
       must((await asked()).request?.snoozedUntil === until1h, 'the listing to carry snoozedUntil')
       await new Promise((resolve) => setTimeout(resolve, 2_000))
-      must(agentEvents(stack).length === turns, 'a snooze to wake no agent')
+      must(turns() === before, 'a snooze to wake no agent')
 
       const dismissed = await decide(sessionId, request!.id, 'resolve', {
         resolution: 'dismissed',
