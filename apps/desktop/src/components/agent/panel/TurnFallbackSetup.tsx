@@ -21,8 +21,9 @@ import type { PanelViewCtx } from './ctx'
 import type { RuntimeControl } from './RuntimeSelector'
 import type { RuntimeInstance } from '../../../types/runtime'
 
+// Under the menu layer (z-[1000]), so the runtime list opens above the dialog.
 const POPUP =
-  'fixed left-1/2 top-1/2 z-[1001] flex w-[480px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-xl border border-line-control bg-surface-sheet p-6 text-main shadow-2xl shadow-black/30 outline-none'
+  'fixed left-1/2 top-1/2 z-[999] flex w-[480px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-xl border border-line-control bg-surface-sheet p-6 text-main shadow-2xl shadow-black/30 outline-none'
 
 /**
  * The Task's latest turn failed because its runtime could not run it, and that runtime has no
@@ -102,7 +103,7 @@ function FallbackSetupDialog({
   return (
     <Dialog.Root open={open} onOpenChange={(next) => !next && !saving && close()}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-[1000] bg-black/40" />
+        <Dialog.Backdrop className="fixed inset-0 z-[998] bg-black/40" />
         <Dialog.Popup className={POPUP}>
           <div className="border-b border-line-control pb-4">
             <Dialog.Title className="text-[18px] font-semibold">
