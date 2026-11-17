@@ -209,7 +209,6 @@ app
   .then(() => {
     routeFetchThroughChromium(net)
     routeBackendSocketsThroughSystemProxy((url) => session.defaultSession.resolveProxy(url))
-    void refreshBackendProxy(apiUrl())
     // Before any window exists: web-contents-created only fires for contents created
     // after registration, or the first window never gets the will-attach-webview hook.
     initBrowserSessions()
@@ -217,7 +216,12 @@ app
     void resolveShellEnv()
     initMainAnalytics()
     startDevBackendHealthProbe()
-    initLocalRuntime()
+    // The tunnel's first dial must already know the proxy, and Chromium answers DIRECT
+    // until its proxy config has loaded, so the local runtime starts after both.
+    void session.defaultSession
+      .forceReloadProxyConfig()
+      .then(() => refreshBackendProxy(apiUrl()))
+      .finally(initLocalRuntime)
     captureMain('app_launched', {
       version: app.getVersion(),
       platform: process.platform,
