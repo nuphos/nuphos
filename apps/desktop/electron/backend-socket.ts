@@ -20,13 +20,35 @@ subscribe('undici:client:connectError', (message) => {
   connectErrors.set(connectParams.hostname, error.code ?? error.name)
 })
 
+// Nor does it carry the status of a handshake the server answered without upgrading.
+const refusals = new Map<string, number>()
+
+subscribe('undici:request:headers', (message) => {
+  const { request, response } = message as {
+    request: { origin: string; path: string }
+    response: { statusCode: number }
+  }
+  const dialed = new URL(request.origin).host + request.path
+
+  if (refusals.has(dialed)) refusals.set(dialed, response.statusCode)
+})
+
 let lastFailure = ''
 
-/** The one way this app opens a WebSocket to its backend. `url` may be http(s) or ws(s). */
-export function dialBackend(url: URL | string, headers: Record<string, string>): WebSocket {
+/**
+ * The one way this app opens a WebSocket to its backend. `url` may be http(s) or ws(s).
+ * `onRefused` gets the status the server answered with instead of upgrading.
+ */
+export function dialBackend(
+  url: URL | string,
+  headers: Record<string, string>,
+  onRefused?: (status: number) => void,
+): WebSocket {
   const target = new URL(String(url).replace(/^http/u, 'ws'))
+  const dialed = target.host + target.pathname + target.search
 
   connectErrors.delete(target.hostname)
+  refusals.set(dialed, 0)
   const socket = new WebSocket(target, { headers })
   let opened = false
 
@@ -36,6 +58,9 @@ export function dialBackend(url: URL | string, headers: Record<string, string>):
   })
   socket.addEventListener('error', () => {
     if (opened) return
+    const status = refusals.get(dialed)
+
+    if (status) onRefused?.(status)
     const failure: DialFailure = {
       host: target.host,
       code: connectErrors.get(target.hostname) ?? 'handshake_rejected',

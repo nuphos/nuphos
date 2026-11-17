@@ -7,6 +7,7 @@ import { backendFailures, backendLines } from './backend-log.ts'
 import { bindingAccessScenarios } from './binding-access-scenarios.ts'
 import { channelScenarios } from './channel-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
+import { computerScenarios } from './computer-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
 import { startDesktop } from './desktop.ts'
 import { artifacts, stopAll, until } from './processes.ts'
@@ -215,6 +216,7 @@ const scenarios: Scenario[] = [
   ...connectorScenarios,
   ...bindingAccessScenarios,
   ...runtimeScenarios,
+  ...computerScenarios,
   ...commandScenarios,
   ...threadScenarios,
   {
