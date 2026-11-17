@@ -107,6 +107,17 @@ export async function readAgentUsage(
   const request = await usageRequest(provider, env, version)
 
   if (!request) return
+  const usage = await ask(request)
+
+  // An opted-in read Anthropic refuses falls back to the plain one: the usage bars
+  // must not depend on the unofficial reset block.
+  if (usage !== undefined || request.url !== CLAUDE_RESETS_URL) return usage
+  const { 'user-agent': _agent, 'x-app': _app, ...headers } = request.headers
+
+  return ask({ url: CLAUDE_USAGE_URL, headers })
+}
+
+async function ask(request: UsageRequest): Promise<unknown> {
   try {
     const response = await fetch(request.url, {
       headers: request.headers,

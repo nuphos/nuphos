@@ -146,3 +146,31 @@ test('without the opt-in, the read neither asks for resets nor says it is Claude
     rmSync(home, { recursive: true, force: true })
   }
 })
+
+test('an opted-in read Anthropic refuses falls back to the plain one', async () => {
+  const home = homeWith('.claude/.credentials.json', { claudeAiOauth: { accessToken: 'x' } })
+  const seen: { url: string; agent?: string }[] = []
+
+  writeFileSync(path.join(home, '.claude', '.nuphos-limit-resets'), '')
+  stubFetch((url, headers) => {
+    seen.push({ url, agent: headers['user-agent'] })
+
+    return url.includes('cedar_ember')
+      ? new Response('forbidden', { status: 403 })
+      : Response.json({ seven_day: { utilization: 3, resets_at: null } })
+  })
+  try {
+    assert.deepEqual(await readAgentUsage('claude-code', { HOME: home }, '2.1.322'), {
+      seven_day: { utilization: 3, resets_at: null },
+    })
+    assert.deepEqual(seen, [
+      {
+        url: 'https://api.anthropic.com/api/oauth/usage?cedar_ember=1',
+        agent: 'claude-cli/2.1.322 (external, cli)',
+      },
+      { url: 'https://api.anthropic.com/api/oauth/usage', agent: undefined },
+    ])
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
+})
