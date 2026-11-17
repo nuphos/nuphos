@@ -161,11 +161,8 @@ export async function runTurn(
         ...(data.locale ? { locale: data.locale } : {}),
         // 'user' adds no Full Access default: a thread took its parent's mode at creation.
         origin: source === 'agent.resource' ? 'trigger' : 'user',
-        // The channels this turn answers: they show it typing until it ends. An
-        // answer to a question asked in a channel was given there.
-        channelIds: fresh.flatMap(
-          (message) => channelIdOf(message) ?? message.answers?.channelId ?? [],
-        ),
+        // The channels this turn answers, where a question was answered too: they show it typing.
+        channelIds: fresh.flatMap((m) => channelIdOf(m) ?? m.answers?.channelId ?? []),
         ...(fresh.every((message) => channelIdOf(message)) ? { channelWoken: true } : {}),
         // Not recorded as interrupted: the messages go back on the queue below.
         clientResendsRefusal: true,
