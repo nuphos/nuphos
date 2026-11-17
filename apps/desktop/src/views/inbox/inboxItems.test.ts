@@ -144,5 +144,6 @@ test('onboarding preferences stay in the Bot chat without entering the Inbox', (
 
 test('legacy introduced Bots keep their normal Inbox questions', () => {
   const bot = { ...waiting('legacy', 'work'), botOnboarding: 'started' as const }
+
   assert.equal(inboxCount([bot], new Map()), 1)
 })
