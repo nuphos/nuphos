@@ -1,5 +1,7 @@
 // Spawns the Claude Code that findAgentCli picks the way the Agent SDK spawns it, without a shell.
-// Usage: node windows-npm-claude-spawn.ts <agent-cli-find module> <exe|einval>
+// Usage: node windows-npm-claude-spawn.ts <agent-cli-find module> <exe|einval|unstartable>
+// unstartable: npm skipped the postinstall, so bin\claude.exe is still its placeholder script, and
+// the spawn must fail with a code the backend turns into its "reinstall" sentence.
 import { spawn } from 'node:child_process'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -35,9 +37,11 @@ console.log(`spawn: ${JSON.stringify(result)}`)
 const ok =
   expected === 'einval'
     ? cli.toLowerCase().endsWith('.cmd') && result.error === 'EINVAL'
-    : cli.toLowerCase().endsWith('claude.exe') &&
-      result.code === 0 &&
-      /Claude Code/u.test(result.stdout)
+    : expected === 'unstartable'
+      ? ['EINVAL', 'ENOENT', 'EACCES', 'EFTYPE'].includes(result.error ?? '')
+      : cli.toLowerCase().endsWith('claude.exe') &&
+        result.code === 0 &&
+        /Claude Code/u.test(result.stdout)
 
 if (!ok) throw new Error(`expected ${expected}`)
 console.log(`as expected: ${expected}`)

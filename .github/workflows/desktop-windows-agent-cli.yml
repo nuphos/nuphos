@@ -51,3 +51,12 @@ jobs:
       - name: After (this branch) picks claude.exe, which runs
         working-directory: apps/desktop/electron/main/local-runtime
         run: node ../../../scripts/windows-npm-claude-spawn.ts agent-cli-find.ts exe
+      # Without its postinstall (npm 11 skips unallowed scripts), bin\claude.exe
+      # stays a placeholder script; the user must reinstall, and is told so.
+      - name: An npm install without its postinstall fails to spawn plainly
+        shell: pwsh
+        working-directory: apps/desktop/electron/main/local-runtime
+        run: |
+          $env:APPDATA = "$env:RUNNER_TEMP\no-postinstall"
+          npm install -g --prefix "$env:APPDATA\npm" --ignore-scripts @anthropic-ai/claude-code
+          node ../../../scripts/windows-npm-claude-spawn.ts agent-cli-find.ts unstartable

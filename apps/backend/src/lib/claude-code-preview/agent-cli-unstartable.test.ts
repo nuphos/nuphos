@@ -21,3 +21,13 @@ test('an agent CLI that cannot start is one plain sentence, live and stored alik
 test('Node’s spawn error code never reaches the user', () => {
   expect(formatAgentStreamError(einval)).not.toContain('EINVAL')
 })
+
+test("npm's placeholder claude.exe, before its postinstall ran, gets the same sentence", () => {
+  const placeholder = new OpenAbRpcError(
+    '**Internal Error** (code: -32603)\nInternal error\n> spawn EFTYPE',
+    -32603,
+    { code: -32603, message: 'Internal error' },
+  )
+
+  expect(formatAgentStreamError(placeholder)).toBe(AGENT_CLI_UNSTARTABLE_MESSAGE)
+})
