@@ -11,7 +11,7 @@ import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
 
 /** A computer whose Claude Code reports usage with its status, as Desktop's host does. */
-async function computerWithUsage(stack: Stack, label: string) {
+export async function computerWithUsage(stack: Stack, label: string) {
   const deviceId = randomUUID()
   const auth = { authorization: `Bearer ${stack.token}` }
   const registered = await fetch(`${stack.apiUrl}/agent/devices`, {
@@ -61,14 +61,14 @@ async function computerWithUsage(stack: Stack, label: string) {
 }
 
 /** Puts the composer on a runtime: `row` opens its submenu and `item` names the runtime in it. */
-async function pickRuntime(page: Page, row: string, item: RegExp) {
+export async function pickRuntime(page: Page, row: string, item: RegExp) {
   await page.getByRole('button', { name: /^Agent runtime/ }).click()
   await page.getByRole('menu').getByText(row).first().click({ timeout: 60_000 })
   await page.getByRole('menuitem', { name: item }).last().click()
 }
 
 /** Shoots the composer in light; whether its runtime line shows the usage bar. */
-async function shootRuntimeLine(page: Page, name: string) {
+export async function shootRuntimeLine(page: Page, name: string) {
   const bar = page.getByRole('progressbar', { name: 'Usage remaining' })
   const path = `${artifacts}/${name}-composer-light.png`
 

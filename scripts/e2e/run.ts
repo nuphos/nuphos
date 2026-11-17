@@ -1,6 +1,7 @@
 // `bun run e2e`: the Desktop app against a real backend, database and OpenAB, with a
 // deterministic agent in place of a model. Each scenario is a flow a person takes.
-import { rmSync } from 'node:fs'
+import { existsSync, readdirSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
 
 import { accessScenarios } from './access-scenarios.ts'
 import { agentEvents } from './agent-log.ts'
@@ -32,6 +33,19 @@ import { usageScenarios } from './usage-scenarios.ts'
 
 import type { Desktop } from './desktop.ts'
 import type { Scenario } from './ui.ts'
+
+/** One scenario per file in `dir`, its default export, in file-name order. */
+async function scenarioFiles(dir: string): Promise<Scenario[]> {
+  const path = join(import.meta.dirname, dir)
+  if (!existsSync(path)) return []
+  const files = readdirSync(path)
+    .filter((file) => file.endsWith('.ts'))
+    .sort()
+
+  return Promise.all(
+    files.map(async (file) => ((await import(join(path, file))) as { default: Scenario }).default),
+  )
+}
 
 const scenarios: Scenario[] = [
   ...signInScenarios,
@@ -81,6 +95,8 @@ const scenarios: Scenario[] = [
     },
   },
   ...channelScenarios,
+  // A new channel scenario is a file of its own there, not one more entry in channel-scenarios.ts.
+  ...(await scenarioFiles('channel')),
   ...channelAwayScenarios,
   ...teammateBotScenarios,
   {
