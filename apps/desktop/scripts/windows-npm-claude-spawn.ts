@@ -37,7 +37,9 @@ const result = await new Promise<{ code: number | null; error?: string; stdout: 
       return
     }
 
-    child.stdout?.on('data', (chunk) => (stdout += chunk))
+    child.stdout?.on('data', (chunk: Buffer) => {
+      stdout += chunk.toString()
+    })
     child.once('error', (error: NodeJS.ErrnoException) =>
       resolve({ code: null, error: error.code, stdout }),
     )
@@ -53,7 +55,7 @@ const ok =
       ? ['EINVAL', 'ENOENT', 'EACCES', 'UNKNOWN'].includes(result.error ?? '')
       : cli.toLowerCase().endsWith('claude.exe') &&
         result.code === 0 &&
-        /Claude Code/u.test(result.stdout)
+        result.stdout.includes('Claude Code')
 
 if (!ok) throw new Error(`expected ${expected}`)
 console.log(`as expected: ${expected}`)
