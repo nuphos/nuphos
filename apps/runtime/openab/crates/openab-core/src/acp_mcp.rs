@@ -1,4 +1,4 @@
-//! Agent-facing wiring for MCP-over-ACP browser control (feature `acp-mcp`).
+//! Agent-facing wiring for MCP-over-ACP browser control.
 //!
 //! The module name is historical. It no longer hosts a proxy: the per-session loopback MCP
 //! server, its bearer and its per-session config rewrite were removed along with the stdio

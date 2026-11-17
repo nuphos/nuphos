@@ -1,11 +1,7 @@
 import { ObjectId } from 'mongodb'
 
 import { turnFailureCause } from '@/lib/claude-code-preview/openab-acp-errors'
-import {
-  CONTEXT_TOO_LONG_MESSAGE,
-  MODEL_UNAVAILABLE_MESSAGE,
-  userSetupFailure,
-} from '@/lib/claude-code-preview/plain-failure'
+import { USER_SETUP_MESSAGE, userSetupFailure } from '@/lib/claude-code-preview/plain-failure'
 import { AppError } from '@/lib/errors'
 import { logError, logEvent } from '@/lib/observability'
 
@@ -19,14 +15,14 @@ export const PAUSE_AFTER_FAILED_RUNS = 3
 
 /**
  * Why a turn failed, in plain words, when the cause cannot pass with time: a
- * conversation too long for the model, a model the endpoint does not serve, or
- * a signed-out agent. Undefined for anything else, such as a usage limit.
+ * conversation too long for the model, a model the endpoint does not serve, an
+ * agent CLI that cannot start, or a signed-out agent. Undefined for anything
+ * else, such as a usage limit.
  */
 function lastingFailure(error: unknown): string | undefined {
   const setup = userSetupFailure(error)
 
-  if (setup === 'context_too_long') return CONTEXT_TOO_LONG_MESSAGE
-  if (setup === 'model_unavailable') return MODEL_UNAVAILABLE_MESSAGE
+  if (setup) return USER_SETUP_MESSAGE[setup]
   for (let cause = error; cause instanceof Error; cause = cause.cause)
     if (turnFailureCause(cause) === 'auth')
       return 'This agent’s sign-in is no longer valid. Sign the agent in again.'

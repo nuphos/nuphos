@@ -8,6 +8,7 @@ import {
   listLocalRuntimeActivity,
 } from '@/lib/agent/devices/local-runtime/activity'
 import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
+import { noteBoxEviction } from '@/lib/agent/devices/box-instabox-state'
 import { noteBoxPresence } from '@/lib/agent/devices/box-usage-history'
 import { attachRuntimeTunnel } from '@/lib/agent/devices/local-runtime/holder'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
@@ -62,6 +63,7 @@ function defaultDependencies(): DeviceRuntimeRouteDependencies {
         void noteBoxPresence(userId, deviceId, getAgentDevice)
         void presenceChanged(userId, deviceId, online).catch(() => undefined)
         if (online) void deliverWaitingAnswersOnDevice(userId, deviceId)
+        else void noteBoxEviction(userId, deviceId, getAgentDevice)
       },
       recordMetrics: recordDeviceMetricSample,
     },
