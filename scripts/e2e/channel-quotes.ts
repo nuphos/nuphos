@@ -28,8 +28,11 @@ export function store(stack: Stack, sessionId: string, id: string, metadata: obj
       metadata: { ...JSON.parse(metadata), sentAt: now.toISOString() },
       createdAt: now, updatedAt: now,
     })
+    // Read by the chat's agents, as if it had woken them: it is a picture, not news for them.
+    const read = Object.fromEntries((conversation.agentSessionIds ?? []).map((id) => ['agentReadIndex.' + id, conversation.messageCount]))
     await db.collection('agent_conversations').updateOne({ sessionId }, {
       $set: { messageCount: conversation.messageCount + 1, transcriptUpdatedAt: now, lastActiveAt: now },
+      $max: read,
     })
     await client.close()`
 
