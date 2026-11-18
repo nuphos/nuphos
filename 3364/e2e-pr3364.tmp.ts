@@ -1,7 +1,6 @@
 // Temporary pre-merge e2e for nuphos#3364 against real Composio. Not committed.
 import { composioAuthConfigId, composioRequest } from '@/lib/composio'
 import { composioConnection, composioUserId, createComposioLink, deleteComposioAccount, executeComposioTool } from '@/lib/personal-credentials/composio'
-import { googleScopes } from '@/lib/personal-credentials/google'
 
 const user = composioUserId('e2e-pr3364', 'calendar-tester')
 const [mode, ca] = process.argv.slice(2)
@@ -9,7 +8,7 @@ const run = (tool: string, args: Record<string, unknown>) => executeComposioTool
 const shape = (v: unknown): unknown => Array.isArray(v) ? [v.length ? shape(v[0]) : 'empty'] : v && typeof v === 'object' ? Object.keys(v) : typeof v
 
 if (mode === 'link') {
-  const id = await composioAuthConfigId('googlecalendar', [googleScopes('google-calendar')])
+  const id = await composioAuthConfigId('googlecalendar')
   const cfg = await composioRequest<Record<string, unknown>>('GET', `/auth_configs/${id}`)
   console.log('auth config', id, JSON.stringify({ scopes: (cfg.credentials as { scopes?: unknown } | undefined)?.scopes ?? cfg.scopes, is_composio_managed: cfg.is_composio_managed }))
   const link = await createComposioLink({ provider: 'google-calendar', composioUserId: user, callbackUrl: 'https://nuphos.ai/' })
