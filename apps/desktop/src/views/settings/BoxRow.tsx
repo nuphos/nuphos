@@ -1,9 +1,8 @@
-import { Ellipsis, Loader2, Play } from 'lucide-react'
+import { Ellipsis, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../api'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
-import { Button } from '../../components/ui/button'
 import { InlineRename } from '../../components/ui/inline-rename'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../../components/ui/menu'
 import { toast } from '../../components/ui/toast'
@@ -19,7 +18,7 @@ import { DeskArt } from './BoxDesk'
 import { DeskAgents, DeskReadings } from './BoxDeskInfo'
 import { deskModel } from './boxDeskModel'
 import { BoxHostUpdate } from './BoxHostUpdate'
-import { AccessHint, LiveDot, MachineLine, OwnerLine } from './BoxParts'
+import { AccessHint, LiveDot, MachineLine, OwnerLine, ResumeButton, ShareButton } from './BoxParts'
 import { copyUid } from './boxCopyUid'
 import { openBoxPaywall } from './boxPaywallStore'
 import { BOX_BADGE, boxActions, boxState, removal } from './boxPresentation'
@@ -173,6 +172,7 @@ export function BoxRow({
           </span>
         )}
         <span className="flex-1" />
+        {manage && <ShareButton disabled={busy} onClick={() => setSharing(true)} />}
         {manage && (
           <Menu>
             <MenuTrigger
@@ -245,14 +245,7 @@ export function BoxRow({
       </div>
       <OwnerLine device={device} owner={owner} />
       <ComputerNotices teamId={teamId} device={device} here={thisComputer} running={running} />
-      {manage && away && (
-        <div className="mt-2">
-          <Button size="sm" variant="secondary" disabled={busy} onClick={() => void resume()}>
-            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
-            {busy ? t('Resuming…') : t('Resume')}
-          </Button>
-        </div>
-      )}
+      {manage && away && <ResumeButton busy={busy} onClick={() => void resume()} />}
       {adding && (
         <BoxAgentSetup
           teamId={teamId}

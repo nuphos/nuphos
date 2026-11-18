@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Plus } from 'lucide-react'
+import { Loader2, Play, Plus } from 'lucide-react'
 
 import { LOCAL_AGENT_PROVIDERS } from '../../api/local-agent-providers'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
@@ -155,4 +155,30 @@ export function AccessHint({ device }: { device: AgentDevice }) {
   const hint = accessHint(device)
 
   return hint && <span className="truncate text-[11px] text-tertiary">· {hint}</span>
+}
+
+/** Sharing is the usual reason to open a computer's menu, so its row has its own button. */
+export function ShareButton({ disabled, onClick }: { disabled: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className="h-6 shrink-0 rounded-md px-1.5 text-[12px] text-tertiary outline-none hover:bg-state-hover hover:text-main focus-visible:ring-2 focus-visible:ring-line-focus disabled:opacity-50"
+    >
+      {t('Share')}
+    </button>
+  )
+}
+
+/** Wakes a paused or stopped cloud computer, for those who manage it. */
+export function ResumeButton({ busy, onClick }: { busy: boolean; onClick: () => void }) {
+  return (
+    <div className="mt-2">
+      <Button size="sm" variant="secondary" disabled={busy} onClick={onClick}>
+        {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
+        {busy ? t('Resuming…') : t('Resume')}
+      </Button>
+    </div>
+  )
 }

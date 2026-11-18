@@ -76,6 +76,7 @@ export function DecisionCard({
         <QuestionSource
           conversation={source}
           askedAt={request.askedAt}
+          updatedAt={request.updatedAt}
           onOpen={() => onOpenSource(source)}
         />
         {plain ? (
@@ -94,6 +95,7 @@ export function DecisionCard({
             )}
             <ChoiceRow
               requestId={request.id}
+              teamId={teamId}
               options={choice.options}
               typed={typed}
               keys={keys}
@@ -161,6 +163,7 @@ export function DecisionCard({
  */
 function ChoiceRow({
   requestId,
+  teamId,
   options,
   typed,
   keys,
@@ -169,6 +172,7 @@ function ChoiceRow({
   onAnswer,
 }: {
   requestId: string
+  teamId: string
   options: string[]
   /** It may be answered in words. */
   typed: boolean
@@ -231,6 +235,7 @@ function ChoiceRow({
           onText={setDraft}
           onSend={(text) => onAnswer({ text })}
           onClose={() => onOther(false)}
+          voiceTeamId={teamId}
         />
       )}
       {failure && <AnswerFailure message={failure} />}

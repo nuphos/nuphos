@@ -3,7 +3,7 @@ import SwiftUI
 /// The desktop's Inbox ("Needs your input"): every open question across the
 /// viewer's Bots and Tasks, grouped by the one that asked, one line each.
 /// Picking one opens it in `InboxQuestionView`: beside the list when wide,
-/// pushed over it on iPhone.
+/// pushed over it on iPhone. Snoozed questions wait in a section of their own below.
 struct InboxPage: View {
     @Environment(AgentStore.self) private var store
     let inbox: OpenQuestions?
@@ -41,6 +41,8 @@ struct InboxPage: View {
                 }
                 .padding(24).frame(maxWidth: 400)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                // The last question answered or dismissed still offers its Undo here.
+                .overlay(alignment: .bottom) { InboxToast(inbox: inbox).padding(.bottom, 24) }
 
             } else {
                 // On iPhone the list's selection pushes the question. Wide, a tap opens it beside the
@@ -84,6 +86,7 @@ struct InboxPage: View {
                                 .listRowInsets(EdgeInsets(top: 0, leading: Self.margin + 4, bottom: 6, trailing: Self.margin))
                         }
                     }
+                    if !inbox.snoozed.isEmpty { snoozed(inbox) }
                 }
                 // Grouped, not inset: the groups' corners and margins are drawn by InboxRowBackground.
                 .listStyle(.grouped)
@@ -105,6 +108,45 @@ struct InboxPage: View {
     }
 }
 
+extension InboxPage {
+    /// The snoozed questions, each with when it comes back and Unsnooze to bring it back now.
+    /// They open nothing: a snoozed question is answered from its chat, or once it is back.
+    fileprivate func snoozed(_ inbox: OpenQuestions) -> some View {
+        Section {
+            ForEach(inbox.snoozed) { question in
+                HStack(spacing: 8) {
+                    Text(question.request.question)
+                        .font(.system(size: 15))
+                        .foregroundStyle(Theme.muted)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if let until = question.snoozedDate {
+                        Text(Snooze.returnTime(until)).font(.system(size: 13)).foregroundStyle(Theme.faint)
+                    }
+                    Button("Unsnooze") { Task { await inbox.snooze(question, until: nil) } }
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Theme.heading)
+                        .frame(minHeight: 44)
+                        .buttonStyle(.borderless)
+                }
+                .listRowInsets(EdgeInsets(top: 0, leading: Self.margin + 14, bottom: 0, trailing: Self.margin + 14))
+                .listRowBackground(InboxRowBackground(
+                    first: question.id == inbox.snoozed.first?.id, last: question.id == inbox.snoozed.last?.id, selected: false))
+                .listRowSeparator(.hidden)
+                .selectionDisabled()
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("inbox.snoozed")
+            }
+        } header: {
+            Text("Snoozed")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.body)
+                .textCase(nil)
+                .listRowInsets(EdgeInsets(top: 0, leading: Self.margin + 4, bottom: 6, trailing: Self.margin))
+        }
+    }
+}
+
 /// One row of a group: the group's rounded corners on its first and last row, and the
 /// divider under every row but the last.
 private struct InboxRowBackground: View {
@@ -116,7 +158,7 @@ private struct InboxRowBackground: View {
         UnevenRoundedRectangle(
             topLeadingRadius: first ? 14 : 0, bottomLeadingRadius: last ? 14 : 0,
             bottomTrailingRadius: last ? 14 : 0, topTrailingRadius: first ? 14 : 0, style: .continuous)
-            .fill(selected ? Theme.selected : Theme.chatSurface)
+            .fill(selected ? Theme.selected : Theme.surface)
             .overlay(alignment: .bottom) {
                 if !last { Theme.separator.frame(height: 0.5).padding(.leading, 14) }
             }
@@ -140,14 +182,14 @@ struct InboxSource: View {
     }
 }
 
-/// "Answered "…"" with Undo, while the answer is held.
+/// "Answered "…"" or "Dismissed" with Undo, while the reply is held.
 struct InboxToast: View {
     let inbox: OpenQuestions
 
     var body: some View {
-        if let answered = inbox.toast {
+        if let message = inbox.toast {
             HStack(spacing: 12) {
-                Text("Answered “\(answered)”")
+                Text(verbatim: message)
                     .font(.system(size: 14))
                     .lineLimit(1)
                 Button("Undo") { withAnimation(.snappy) { inbox.undo() } }

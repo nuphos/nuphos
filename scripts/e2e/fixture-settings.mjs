@@ -78,3 +78,8 @@ export function applySetting(sessionId, id, value, log) {
 
   return list
 }
+
+/** The response language a turn's prompt names (#3469). */
+export function promptLanguage(text) {
+  return /Response language: ([^.\n]+)\./.exec(text)?.[1]
+}

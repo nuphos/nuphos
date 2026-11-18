@@ -16,9 +16,11 @@ import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
 import { dashboardScenarios } from './dashboard-scenarios.ts'
+import { dashboardUiScenarios } from './dashboard-ui-scenarios.ts'
 import { installScenarios } from './install-scenarios.ts'
 import { linkChipScenarios } from './link-chip-scenarios.ts'
 import { longTranscriptScenarios } from './long-transcript-scenarios.ts'
+import { mcpScenarios } from './mcp-scenarios.ts'
 import { startDesktop } from './desktop.ts'
 import { fallbackScenarios } from './fallback-scenarios.ts'
 import { formScenario } from './form-scenario.ts'
@@ -31,11 +33,14 @@ import { runtimeScenarios } from './runtime-scenarios.ts'
 import { botFoldScenarios, sidebarScenarios } from './sidebar-scenarios.ts'
 import { signInScenarios } from './sign-in-scenarios.ts'
 import { splitPaneScenarios } from './split-pane-scenarios.ts'
+import { sessionResourceScenarios } from './session-resource-scenarios.ts'
 import { startStack } from './stack.ts'
 import { teammateBotScenarios } from './teammate-bot-scenarios.ts'
+import { terminalScenarios } from './terminal-scenarios.ts'
 import { threadModeScenario, threadScenarios } from './thread-scenarios.ts'
 import { triggerScenarios } from './trigger-scenarios.ts'
 import { tunnelScenarios } from './tunnel-scenarios.ts'
+import { turnScenarios } from './turn-scenarios.ts'
 import { newTask, send } from './ui.ts'
 import { usageScenarios } from './usage-scenarios.ts'
 
@@ -103,143 +108,11 @@ const scenarios: Scenario[] = [
     },
   },
   ...linkChipScenarios,
+  ...sessionResourceScenarios,
   // Before the Stop scenarios: a Stop while its turn was being saved was lost (#3403).
   ...longTranscriptScenarios,
   ...agentWordScenarios,
-  {
-    // The flow #2812 was reported in. Its race (a Stop during the queued turn's startup) is not reproduced.
-    name: 'queue a message during a turn, press Stop, and the queued message still runs',
-    run: async (page, stack) => {
-      await newTask(page)
-      await send(page, 'Work until stopped E2E_HOLD E2E_DELIVERY:held')
-      await until('the agent to start the held turn', async () =>
-        agentEvents(stack).includes('start E2E_DELIVERY:held'),
-      )
-      await send(page, 'Then this E2E_DELIVERY:queued')
-      await page.getByText('Queued messages').waitFor()
-      await page.locator('button[title="Stop"]').click()
-      await page.getByText('Turn stopped').waitFor()
-      await page.getByText('ACK E2E_DELIVERY:queued').waitFor()
-      const events = agentEvents(stack)
-
-      if (
-        events.indexOf('cancelled E2E_DELIVERY:held') > events.indexOf('start E2E_DELIVERY:queued')
-      ) {
-        throw new Error(`The queued message ran before the turn was stopped: ${events.join(', ')}`)
-      }
-    },
-  },
-  {
-    // #2872: the agent read the message once its session opened, seconds after the Stop.
-    name: 'Stop while the agent is still starting, and the agent never reads the message',
-    run: async (page, stack) => {
-      const openings = () => agentEvents(stack).filter((event) => event === 'opening').length
-      const before = openings()
-      const open = stack.holdSessionOpening()
-
-      try {
-        await newTask(page)
-        await send(page, 'Stopped before it starts E2E_DELIVERY:stopped')
-        await until('the agent to be asked for a session', async () => openings() > before)
-        await page.locator('button[title="Stop"]').click()
-        // The Stop has to reach the agent host while the session is still opening.
-        await page.waitForTimeout(2_000)
-      } finally {
-        open()
-      }
-      await page.getByText('Turn stopped').waitFor()
-      await send(page, 'Sent after the stop E2E_DELIVERY:after-stop')
-      await page.getByText('ACK E2E_DELIVERY:after-stop').waitFor()
-      const events = agentEvents(stack)
-
-      if (events.includes('start E2E_DELIVERY:stopped')) {
-        throw new Error(`The agent read a message stopped before it started: ${events.join(', ')}`)
-      }
-    },
-  },
-  {
-    // An ordinary question. #2412 was a credential-category card in a Bot chat, which this does not cover.
-    name: 'the agent asks a question and the answer on its card reaches the agent',
-    run: async (page) => {
-      await newTask(page)
-      await send(page, 'Ask me E2E_ASK E2E_DELIVERY:asking')
-      await page
-        .getByRole('heading', { name: 'Which marker should the fixture use?' })
-        .last()
-        .waitFor()
-      await checkDecisionOutline(page)
-      await page.screenshot({ path: `${artifacts}/question-pending.png` })
-      // #2972: a question is answered on its card; nothing above the composer answers it.
-      if (await page.getByRole('group', { name: 'Reply target' }).count()) {
-        throw new Error('A "Replying to" chip is above the composer')
-      }
-      await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).click()
-      await page.getByText('ACK E2E_DELIVERY:answered').waitFor()
-    },
-  },
-  {
-    // The flow #2844 was reported in. Reverting its fix does not fail this, so its trigger is not covered.
-    name: 'a link in an Inbox question keeps the question, which is then answered from the Inbox',
-    run: async (page, stack) => {
-      await send(page, 'Ask again E2E_ASK E2E_DELIVERY:again')
-      await page.getByText('ACK E2E_DELIVERY:again').waitFor()
-      // #2972: what the composer sends meanwhile is an ordinary message; the question stays open.
-      await send(page, 'A note while it waits E2E_DELIVERY:note')
-      await page.getByText('ACK E2E_DELIVERY:note').waitFor()
-      await page.getByRole('tab', { name: 'Inbox' }).click()
-      await page.getByRole('link', { name: /\/health\/ready$/ }).click()
-      // The link opens in the dock; give a wrong navigation the time to happen.
-      await page.waitForTimeout(2_000)
-      await page.getByRole('button', { name: 'E2E_DELIVERY:other' }).click()
-      await page.getByRole('heading', { name: /^Answered/ }).waitFor()
-      // The answer is sent once its Undo has expired.
-      await until('the Inbox answer to reach the agent', async () =>
-        agentEvents(stack).includes('finish E2E_DELIVERY:other'),
-      )
-    },
-  },
-  {
-    // #2870: a credential question with choices and no secret to save is an ordinary choice card.
-    name: 'the agent asks a credential question with choices and its card and the Inbox answer it',
-    run: async (page, stack) => {
-      const finished = () =>
-        agentEvents(stack).filter((event) => event === 'finish E2E_DELIVERY:other').length
-      const before = finished()
-
-      await newTask(page)
-      await send(page, 'Ask me E2E_ASK_CREDENTIAL E2E_DELIVERY:credential')
-      // A credential question with choices is an ordinary question card, with no category label.
-      await page
-        .getByRole('heading', { name: 'Which marker should the fixture use?' })
-        .last()
-        .waitFor()
-      await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).click()
-      await page.getByText('ACK E2E_DELIVERY:answered').waitFor()
-      await send(page, 'Ask again E2E_ASK_CREDENTIAL E2E_DELIVERY:credential-again')
-      await page.getByText('ACK E2E_DELIVERY:credential-again').waitFor()
-      await page.getByRole('tab', { name: 'Inbox' }).click()
-      await page.getByRole('button', { name: 'E2E_DELIVERY:other' }).click()
-      await page.getByRole('heading', { name: /^Answered/ }).waitFor()
-      await until('the Inbox answer to reach the agent', async () => finished() === before + 1)
-    },
-  },
-  {
-    // #2998: Skip withdrew the question silently; the agent that asked was never told.
-    name: 'skipping a question on its card tells the agent that asked',
-    run: async (page, stack) => {
-      await newTask(page)
-      await send(page, 'Ask me E2E_ASK E2E_DELIVERY:skip')
-      await page.getByText('ACK E2E_DELIVERY:skip').waitFor()
-      await page.getByRole('button', { name: 'Skip', exact: true }).last().click()
-      // The card leaves with its question; the agent's wake notice stays in the chat.
-      await page.getByText(/was dismissed by .*: no answer is coming/).waitFor()
-      await until('the agent to be told its question was dismissed', async () =>
-        agentEvents(stack).includes('dismissed E2E_DELIVERY:missing'),
-      )
-      await page.getByText('ACK E2E_DELIVERY:missing').waitFor()
-      await page.screenshot({ path: `${artifacts}/question-skipped.png` })
-    },
-  },
+  ...turnScenarios,
   ...questionScenarios,
   ...triggerScenarios,
   ...usageScenarios,
@@ -252,16 +125,20 @@ const scenarios: Scenario[] = [
   ...commandScenarios,
   ...threadScenarios,
   ...offlineScenarios,
+  ...mcpScenarios,
   threadModeScenario,
   ...botFoldScenarios,
   ...fallbackScenarios,
   ...memberStreamScenarios,
   // It removes a member from the team.
   ...dashboardScenarios,
+  // Right after the one above: it opens the dashboards that scenario leaves behind.
+  ...dashboardUiScenarios,
   // It leaves the window split, then closes a pane.
   ...splitPaneScenarios,
   // A second computer of its own, which it stops again.
   ...tunnelScenarios,
+  ...terminalScenarios,
   // Last: this computer has Claude Code from then on.
   ...installScenarios,
 ]
@@ -276,6 +153,7 @@ try {
   desktop = await startDesktop(stack.apiUrl)
   desktop.page.setDefaultTimeout(30_000)
   for (const [index, scenario] of [...scenarios, formScenario].entries()) {
+    await desktop.traceNextScenario()
     const from = backendLines()
 
     await scenario.run(desktop.page, stack)
@@ -290,9 +168,9 @@ try {
 } catch (error) {
   failed = true
   console.error(error)
-  console.error(`FAIL: logs and the last screenshot are in ${artifacts}`)
+  console.error(`FAIL: logs, the last screenshot and trace.zip are in ${artifacts}`)
 } finally {
-  await desktop?.close()
+  await desktop?.close(failed)
   await stopAll()
   if (desktop) rmSync(desktop.profile, { recursive: true, force: true })
 }

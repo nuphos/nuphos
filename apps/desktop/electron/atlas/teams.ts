@@ -58,6 +58,8 @@ export type TeamInvitation = {
   inviteeEmail: string
   acceptedAt?: string
   rejectedAt?: string
+  inviteUrl?: string
+  role?: 'ADMINISTRATOR' | 'EDITOR' | 'VIEWER'
 }
 
 export type SidebarFavoriteEntry = { label: string; key?: string; href?: string }
@@ -113,6 +115,17 @@ export async function getAgentStats(teamId: string, query: AgentStatsQuery): Pro
   return call(
     'GET',
     `/teams/${encodeURIComponent(teamId)}/agent-stats?${new URLSearchParams(query).toString()}`,
+  )
+}
+
+/** Team token usage grouped by one dimension and/or a time bucket; members get only their own. */
+export async function queryTeamUsage(
+  teamId: string,
+  query: Record<string, string>,
+): Promise<unknown> {
+  return call(
+    'GET',
+    `/teams/${encodeURIComponent(teamId)}/usage/query?${new URLSearchParams(query).toString()}`,
   )
 }
 
@@ -249,20 +262,6 @@ export async function listMyInvitations(): Promise<TeamInvitation[]> {
   const data = await call<{ invitations: TeamInvitation[] }>('GET', '/invitations')
 
   return data.invitations ?? []
-}
-
-export async function inviteTeamMember(
-  teamId: string,
-  inviteeEmail: string,
-): Promise<TeamInvitation> {
-  const data = await call<{ invitation: TeamInvitation }>(
-    'POST',
-    `/teams/${teamId}/invitations`,
-    { inviteeEmail },
-    { retry: false },
-  )
-
-  return data.invitation
 }
 
 export async function acceptInvitation(invitationId: string): Promise<TeamInvitation> {

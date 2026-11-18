@@ -1,4 +1,3 @@
-import { reachableRuntimeEndpoint } from './dev-runtime-forward'
 import { OpenAbAcpClient } from './openab-acp-client'
 import { createTeamRuntimeRegistry } from './team-openab-runtime'
 
@@ -10,10 +9,10 @@ export const sessionsByConversation = new Map<string, TeamSession>()
 export const sessionCreations = new Map<string, { route: string; session: Promise<TeamSession> }>()
 /** Separate sockets keep operator capabilities out of prompt transports. */
 export const controlRegistry = createTeamRuntimeRegistry(async (endpoint) =>
-  OpenAbAcpClient.connect(await reachableRuntimeEndpoint(endpoint)),
+  OpenAbAcpClient.connect(endpoint),
 )
 export const registry = createTeamRuntimeRegistry<TeamPreviewClient>(async (endpoint) =>
-  OpenAbAcpClient.connect(await reachableRuntimeEndpoint(endpoint)),
+  OpenAbAcpClient.connect(endpoint),
 )
 
 /** Process-local observability for the runtime-status probe (runtime-status.ts). */
