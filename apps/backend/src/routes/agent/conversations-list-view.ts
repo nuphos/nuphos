@@ -9,6 +9,7 @@ import type { SessionThreadResource } from '@/lib/agent/session-thread-resources
 import type { SessionExecutionState } from '@/lib/claude-code-preview/runtime-execution-snapshot'
 import type { SlackAgentThreadSummary } from '@/lib/slack/agent-bot'
 
+import { botPresence, botRuntimes } from '@/lib/agent/bot-presence'
 import { channelFacesField } from '@/lib/agent/channel-faces'
 import { liveAttachment } from '@/lib/agent/db/shared'
 import { lastMessage } from '@/lib/agent/last-message'
@@ -152,7 +153,10 @@ export async function serializeConversationList<T extends ListedConversation>(
   const slackThreadBySessionId = new Map(slackThreads.map((thread) => [thread.sessionId, thread]))
 
   // A conversation's desktops on its Box come from the device's presence, not the snapshot.
-  const [desktops, faces, answering, lastMessages] = await Promise.all([
+  const bots = conversations.filter(
+    (conversation) => conversation.avatar && conversation.kind !== 'channel',
+  )
+  const [desktops, faces, answering, lastMessages, runtimes] = await Promise.all([
     Promise.all(conversations.map((conversation) => sessionDesktops(conversation))),
     Promise.all(
       conversations.map((conversation) =>
@@ -168,6 +172,15 @@ export async function serializeConversationList<T extends ListedConversation>(
     Promise.all(
       conversations.map((conversation) => lastMessage(conversation, viewer.id).catch(() => null)),
     ),
+    teamId && bots.length
+      ? botRuntimes(teamId, bots as { userId: string; runtimeId?: string }[]).catch(
+          (err: unknown) => {
+            logError('agent.conversations.bot_presence.error', err, { team_id: teamId })
+
+            return undefined
+          },
+        )
+      : undefined,
   ])
 
   return conversations.map((conversation, index) => {
@@ -179,6 +192,7 @@ export async function serializeConversationList<T extends ListedConversation>(
       ),
       run,
     )
+    const bot = runtimes ? bots.indexOf(conversation) : -1
 
     return {
       ...listRow(
@@ -202,6 +216,15 @@ export async function serializeConversationList<T extends ListedConversation>(
       runtimeState,
       ...faces[index],
       ...(lastMessages[index] ? { lastMessage: lastMessages[index] } : {}),
+      ...(runtimes && bot >= 0
+        ? {
+            presence: botPresence({
+              ownerRemoved: Boolean(ownerById.get(conversation.userId)?.deactivated),
+              runtime: runtimes[bot] ?? null,
+              busy: runtimeState.state === 'active' && Boolean(run),
+            }),
+          }
+        : {}),
     }
   })
 }

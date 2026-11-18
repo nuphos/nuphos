@@ -6,7 +6,7 @@ import { runtimeLogins } from './runtime-login-store'
 import { runtimeDeletions } from './runtime-portability-store'
 import { OPENAB_PROVIDERS, runtimeLabel } from './runtime-provider'
 import { fetchRuntimeQuota } from './runtime-quota'
-import { withSharedQuota } from './runtime-quota-shape'
+import { usedUp, withSharedQuota } from './runtime-quota-shape'
 import { runtimeGone } from './runtime-refusal'
 import { listTeamRuntimes, resolveTeamRuntimeEndpoints } from './runtime-registry'
 
@@ -183,10 +183,6 @@ export async function usageResetsAt(
     (entry) => entry.id === runtimeId,
   )
   const [quota] = instance ? await listRuntimeQuotas(teamId, [instance]) : []
-  const resets = (quota?.windows ?? []).flatMap((window) =>
-    window.usedPercent >= 100 && window.resetsAt ? [Date.parse(window.resetsAt)] : [],
-  )
-  const latest = Math.max(...resets.filter(Number.isFinite))
 
-  return Number.isFinite(latest) ? new Date(latest).toISOString() : undefined
+  return usedUp(quota)?.resetsAt
 }
