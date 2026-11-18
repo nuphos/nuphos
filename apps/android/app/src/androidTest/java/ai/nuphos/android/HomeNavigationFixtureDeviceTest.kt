@@ -237,6 +237,7 @@ class HomeNavigationFixtureDeviceTest {
         app.incomingShares.identityReset()
         kotlinx.coroutines.runBlocking { app.incomingShares.bindAccount(NuphosUser.preview.id) }
         render(newTask = true)
+        shot("new-task-entry")
         compose.onNodeWithTag("new-task-open").performClick()
         compose.onNodeWithTag("new-task-sheet").assertIsDisplayed()
         compose.onNode(androidx.compose.ui.test.hasSetTextAction()).assertIsFocused()
@@ -257,6 +258,8 @@ class HomeNavigationFixtureDeviceTest {
         app.incomingShares.cancel()
         kotlinx.coroutines.runBlocking { app.incomingShares.awaitIdle() }
         render(newTask = true)
+        select("runtimes")
+        compose.onNodeWithTag("new-task-open").assertDoesNotExist()
         val key = ai.nuphos.android.session.ComposerDrafts.Key(NuphosUser.preview.id, a.id,
             ai.nuphos.android.session.ComposerDrafts.Destination.NewChat)
         kotlinx.coroutines.runBlocking {
@@ -274,6 +277,17 @@ class HomeNavigationFixtureDeviceTest {
         noWrites()
     }
 
+    @Test fun newTaskWithoutNameUsesGenericGreeting() {
+        app.incomingShares.identityReset()
+        kotlinx.coroutines.runBlocking { app.incomingShares.bindAccount(NuphosUser.preview.id) }
+        render(newTask = true)
+        compose.runOnIdle { state(auth, "state").value = AuthSession.State.SignedIn(NuphosUser.preview.copy(name = "")) }
+        compose.onNodeWithTag("new-task-open").performClick()
+        compose.onNodeWithText(app.getString(R.string.new_task_welcome)).assertIsDisplayed()
+        compose.onNode(hasSetTextAction()).assertIsFocused()
+        shot("new-task-unnamed")
+        noWrites()
+    }
     @Test fun newTaskSubmitDismissesSheetAndHandsOffPrompt() {
         app.incomingShares.identityReset()
         kotlinx.coroutines.runBlocking { app.incomingShares.bindAccount(NuphosUser.preview.id) }
