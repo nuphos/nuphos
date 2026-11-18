@@ -53,14 +53,18 @@ final class NewBotFailureUITests: XCTestCase {
         fail("POST /agent/bots")
         try write()
         launch()
+        // Since #3343, New Bot is in the home's Create menu.
+        let create = app.buttons["Create"].firstMatch
+        XCTAssertTrue(create.waitForExistence(timeout: 10))
+        create.tap()
         let plus = app.buttons["New Bot"].firstMatch
-        XCTAssertTrue(plus.waitForExistence(timeout: 10))
+        XCTAssertTrue(plus.waitForExistence(timeout: 5))
         XCTAssertTrue(plus.wait(for: \.isEnabled, toEqual: true, timeout: 10))
         plus.tap()
         let name = app.textFields["Name"]
         XCTAssertTrue(name.waitForExistence(timeout: 5))
         name.typeText("Atlas")
-        app.buttons["Create"].tap()
+        app.navigationBars["New Bot"].buttons["Create"].tap()
         let alert = app.alerts.firstMatch
         XCTAssertTrue(alert.waitForExistence(timeout: 5), "No alert after creating failed")
         shot("b-failed")
@@ -71,7 +75,7 @@ final class NewBotFailureUITests: XCTestCase {
         responses["POST /agent/bots"] = ["status": 200, "body": ["sessionId": "bot-atlas"]]
         responses["GET /agent/conversations?bots=true"] = Self.listing([Self.bot("bot-atlas", title: "Atlas")])
         try madeChat()
-        app.buttons["Create"].tap()
+        app.navigationBars["New Bot"].buttons["Create"].tap()
         try expectChat("Atlas")
     }
 
