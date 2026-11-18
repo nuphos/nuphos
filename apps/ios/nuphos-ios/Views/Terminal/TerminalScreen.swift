@@ -65,8 +65,7 @@ struct TerminalScreen: View {
                 Button("Close", action: close)
                     .buttonStyle(.bordered)
                 Button(retry) { terminal.retry() }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Theme.brand)
+                    .prominentButton()
             }
         }
         .foregroundStyle(.white)
