@@ -19,8 +19,9 @@ struct BotQuestion: Identifiable, Equatable, Sendable {
     var id: String { "\(sessionId):\(request.id)" }
 
     /// Answered in words, "Other…": never a plan, approved or rejected, nor a credential or connection.
+    /// An integration question naming nothing to select, e.g. a service Nuphos cannot connect, takes words.
     var typed: Bool {
-        !["credential", "integration"].contains(request.category) && request.planId == nil
+        request.category != "credential" && !connectable && request.planId == nil
     }
 
     /// A secret request as its tool call carries it in the transcript, so the secure input card
@@ -42,9 +43,17 @@ struct BotQuestion: Identifiable, Equatable, Sendable {
         return refs.map(\.id)
     }
 
+    /// The one-tap answers, possibly none, beside Skip; nil for a form, a secret or a connection,
+    /// each answered in its own way. Every other open question is answered here, never elsewhere.
+    var options: [String]? {
+        guard form == nil, secretPart == nil, !connectable else { return nil }
+        return (request.options ?? []).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+    }
+
     /// An integration question the Inbox answers in place: by its providers, or by the member's own credentials.
     var connectable: Bool {
-        request.category == "integration" && (request.credentials == nil || personalCredentials != nil)
+        request.category == "integration"
+            && (personalCredentials != nil || (request.credentials == nil && !(request.providers ?? []).isEmpty))
     }
 
     /// The desktop's `formQuestions`: the questions a multi-select or several-question card answers
@@ -118,7 +127,7 @@ enum BotQuestions {
             }
             return false
         }
-        return open(rows: rows.filter { isUnder($0.sessionId) })
+        return open(rows: rows.filter { isUnder($0.sessionId) }, includeOnboarding: true)
     }
 
     /// The Inbox's list by its Bot, else the conversation that asked: the group with the newest question first,
@@ -137,13 +146,17 @@ enum BotQuestions {
 
     /// The viewer's own open questions in `rows`, oldest first: the Inbox's list.
     static func open(rows: [AgentConversation]) -> [BotQuestion] {
+        open(rows: rows, includeOnboarding: false)
+    }
+
+    private static func open(rows: [AgentConversation], includeOnboarding: Bool) -> [BotQuestion] {
         var listed = Set<String>()
         let owners = ConversationNesting.botOwners(rows)
         let byId = Dictionary(rows.map { ($0.sessionId, $0) }, uniquingKeysWith: { first, _ in first })
         return rows
             .filter { $0.isOwner == true && listed.insert($0.sessionId).inserted }
             .flatMap { row in
-                (row.inputRequests ?? []).map { BotQuestion(sessionId: row.sessionId, title: row.displayTitle, request: $0, runtime: row.agentRuntime,
+                (row.inputRequests ?? []).filter { includeOnboarding || !["pending", "active"].contains(row.botOnboarding ?? "") || $0.category != "preference" }.map { BotQuestion(sessionId: row.sessionId, title: row.displayTitle, request: $0, runtime: row.agentRuntime,
                                                      bot: owners[row.sessionId].flatMap { byId[$0] }) }
             }
             .sorted { ($0.request.askedAt ?? "", $0.id) < ($1.request.askedAt ?? "", $1.id) }

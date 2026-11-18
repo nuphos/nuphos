@@ -6,6 +6,7 @@
 // does not depend on the sending client's `localTools` capability.
 import { wakeBox } from '@/lib/agent/devices/box-instabox'
 import { requireShellAccess } from '@/lib/agent/devices/manage-access'
+import { createLocalDownloadTool } from '@/lib/agent/tools-skilled/local-download'
 import { createLocalTerminalTool } from '@/lib/agent/tools-skilled/local-terminal'
 import { createLocalExecTool } from '@/lib/agent/tools-skilled/local-tools'
 import { createLocalUploadTool } from '@/lib/agent/tools-skilled/local-upload'
@@ -86,22 +87,18 @@ export async function localExecToolModule(ctx: PreviewToolContext): Promise<Prev
     resolveAvailableLocalExecDevices(ctx),
     resolveAvailableLocalExecDevices(ctx, 'terminal'),
   ])
+  const turn = {
+    userId: ctx.userId,
+    conversationOwnerUserId: ctx.conversationOwnerUserId,
+    teamId: ctx.teamId,
+    sessionId: ctx.sessionId,
+    origin: ctx.turnOrigin ?? 'user',
+  }
 
   return toolModuleFromAiSdkTools({
-    local_upload: createLocalUploadTool(devices, {
-      userId: ctx.userId,
-      conversationOwnerUserId: ctx.conversationOwnerUserId,
-      teamId: ctx.teamId,
-      sessionId: ctx.sessionId,
-      origin: ctx.turnOrigin ?? 'user',
-    }),
-    local_terminal: createLocalTerminalTool(terminals, {
-      userId: ctx.userId,
-      conversationOwnerUserId: ctx.conversationOwnerUserId,
-      teamId: ctx.teamId,
-      sessionId: ctx.sessionId,
-      origin: ctx.turnOrigin ?? 'user',
-    }),
+    local_upload: createLocalUploadTool(devices, turn),
+    local_download: createLocalDownloadTool(devices, turn),
+    local_terminal: createLocalTerminalTool(terminals, turn),
     local_exec: createLocalExecTool(devices, {
       userId: ctx.userId,
       ...(ctx.conversationOwnerUserId

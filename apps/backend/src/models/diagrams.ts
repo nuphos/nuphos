@@ -97,6 +97,9 @@ export type FileTransferGroup = {
   storageProvider: string
   // Optional human label for the whole group (e.g. used as the zip name).
   label?: string
+  // The hourly admission this group took (file-transfer/admission.ts), and when
+  // it was given back because the file never arrived. Absent on older groups.
+  admission?: { key: string; bytes: number; releasedAt?: Date }
   createdAt: Date
   expiresAt: Date
 }

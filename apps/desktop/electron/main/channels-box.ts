@@ -10,6 +10,7 @@ import {
   deleteBox,
   removeDevice,
   updateDeviceApp,
+  clearBoxCaches,
   getBoxUsage,
   getBoxUsageHistory,
   bindInstaboxAccount,
@@ -161,6 +162,8 @@ export const boxChannels = {
     removeDevice(string(deviceId), string(teamId)),
   'box:appUpdate': (_e: unknown, deviceId: unknown, teamId: unknown) =>
     updateDeviceApp(string(deviceId), string(teamId)),
+  'box:clearCaches': (_e: unknown, deviceId: unknown, teamId: unknown) =>
+    clearBoxCaches(string(deviceId), string(teamId)),
   'box:desktop': (_e: unknown, deviceId: unknown, teamId: unknown) =>
     boxDesktop(string(deviceId), string(teamId)),
   'box:join-token': () => boxJoinToken(),

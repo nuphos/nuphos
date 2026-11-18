@@ -8,6 +8,7 @@ import { InlineRename } from '../../components/ui/inline-rename'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../../components/ui/menu'
 import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
+import { useThisComputerBadge } from '../../hooks/useThisComputer'
 import { t } from '../../i18n'
 
 import { canManage, newAgentAction } from './agentPresentation'
@@ -25,6 +26,7 @@ import { BOX_BADGE, boxActions, boxState, removal } from './boxPresentation'
 import { boxRestartLabel, boxRestartOf } from './boxRestartPresentation'
 import { boxRestarts, useBoxRestart } from './boxRestartStore'
 import { openDesktop } from './computerDesktop'
+import { ComputerNotices } from './ComputerNotices'
 import { LocalAgentShareDialog } from './LocalAgentShareDialog'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 import { useComputerOwner } from './useComputerOwner'
@@ -71,7 +73,7 @@ export function BoxRow({
   // Besides a Box, another of the viewer's own computers whose host opens its screen.
   const screen = thisComputer ? undefined : device.desktopRuntimeId
   const remove = removal(device)
-  const badge = BOX_BADGE[state]
+  const badge = useThisComputerBadge(thisComputer) ?? BOX_BADGE[state]
   const actions = cloud && !restart ? boxActions(state) : { pause: false, resume: false }
   // Every Box action names the Box and the page's team.
   const act = (
@@ -128,11 +130,9 @@ export function BoxRow({
       boxRestarts.start(deviceId, team, 'update')
     })
 
-  const model = deskModel(device)
-
   return (
     <li className="flex w-[300px] shrink-0 flex-col">
-      <DeskArt model={model} on={!away && !dim}>
+      <DeskArt model={deskModel(device)} on={!away && !dim}>
         <DeskReadings device={device} metricsStatus={restart ? 'connecting' : metricsStatus} />
         <DeskAgents
           device={device}
@@ -230,7 +230,7 @@ export function BoxRow({
           )}
           {restart ? boxRestartLabel(restart.kind) : badge.label}
         </span>
-        <MachineLine device={device} dim={dim} />
+        <MachineLine device={device} dim={dim} live={badge !== BOX_BADGE[state]} />
         <AccessHint device={device} />
         {updateVersion !== undefined && (
           <BoxHostUpdate
@@ -244,6 +244,7 @@ export function BoxRow({
         )}
       </div>
       <OwnerLine device={device} owner={owner} />
+      <ComputerNotices teamId={teamId} device={device} here={thisComputer} running={running} />
       {manage && away && (
         <div className="mt-2">
           <Button size="sm" variant="secondary" disabled={busy} onClick={() => void resume()}>

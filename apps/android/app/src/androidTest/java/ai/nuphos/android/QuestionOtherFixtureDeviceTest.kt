@@ -13,8 +13,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -27,6 +29,7 @@ import ai.nuphos.android.ui.LocalAuthSession
 import ai.nuphos.android.ui.chats.BotQuestionCard
 import ai.nuphos.android.ui.theme.NuphosTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -53,7 +56,7 @@ class QuestionOtherFixtureDeviceTest {
         screen {
             Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
                 for (question in listOf(deploy, plan)) {
-                    BotQuestionCard(question, onOpen = {}, onAnswer = { answers += it }, showsFrom = false)
+                    BotQuestionCard(question, onOpen = {}, onConnect = {}, onAnswer = { answers += it }, showsFrom = false)
                 }
             }
         }
@@ -73,7 +76,7 @@ class QuestionOtherFixtureDeviceTest {
         screen {
             Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
                 for (question in listOf(deploy, staging, plan)) {
-                    BotQuestionCard(question, onOpen = {}, onAnswer = { answers += it }, answersInPlace = true)
+                    BotQuestionCard(question, onOpen = {}, onConnect = {}, onAnswer = { answers += it }, answersInPlace = true)
                 }
             }
         }
@@ -90,7 +93,7 @@ class QuestionOtherFixtureDeviceTest {
 
     @Test fun anIntegrationQuestionChoosesCredentialsInTheInbox() {
         val github = BotQuestion("agent-ops", "Release ops",
-            InputRequest("q-github", "integration", "Select your own GitHub so I can open the PR as you.", null))
+            InputRequest("q-github", "integration", "Select your own GitHub so I can open the PR as you.", null, providers = listOf("github")))
         // One naming the member's own GitHub: answered by that alone, with no picker.
         val own = BotQuestion("agent-ops", "Release ops", InputRequest("q-own", "integration",
             "Connect your own GitHub so I can push as you.", null, credentials = listOf(CredentialRef("personal", "github"))))
@@ -110,6 +113,54 @@ class QuestionOtherFixtureDeviceTest {
         assertEquals(github, connecting)
     }
 
+    @Test fun anIntegrationQuestionNamingNoProviderIsAnsweredWithItsOptionsOrWords() {
+        val play = BotQuestion("agent-ops", "Release ops", InputRequest("q-play", "integration",
+            "How should I handle Android releases stuck in Play review?", listOf("I'll check the Publishing overview", "Wait for it to go live")))
+        val answers = mutableListOf<String>()
+        screen {
+            Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
+                BotQuestionCard(play, onOpen = {}, onAnswer = { answers += it }, onConnect = {})
+            }
+        }
+        // No connector names Play Console: no picker that can't answer it, nor "answer it in the task".
+        compose.onAllNodesWithTag("bot-question-connect").assertCountEquals(0)
+        compose.onNodeWithText("Answer in the task").assertDoesNotExist()
+        compose.onAllNodesWithTag("bot-question-option").assertCountEquals(2)
+        compose.onNodeWithText("Other…").performClick()
+        compose.onNodeWithTag("bot-question-answer").performTextInput("Check the review status by hand")
+        compose.onNodeWithTag("bot-question-send").performClick()
+        compose.onNodeWithText("Wait for it to go live").performClick()
+        assertEquals(listOf("Check the review status by hand", "Wait for it to go live"), answers)
+    }
+
+    @Test fun aLongQuestionIsOneLineUntilTapped() {
+        val long = BotQuestion("agent-ops", "Release ops", InputRequest("q-long", "approval",
+            "Delete the staging cluster now? It has been idle for thirty days, costs about forty dollars a day, and nobody has deployed to it since the migration.",
+            listOf("Delete", "Keep"), body = "Idle since the migration."))
+        screen {
+            Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
+                BotQuestionCard(long, onOpen = {}, onConnect = {}, onAnswer = {}, answersInPlace = true)
+            }
+        }
+        // One line, cut, with the body under it.
+        val title = compose.onNodeWithTag("bot-question-title")
+        assertEquals(1, layout(title).lineCount)
+        assertTrue(layout(title).hasVisualOverflow)
+        compose.onNodeWithText("Idle since the migration.", substring = true).assertExists()
+        artifact("long-question-cut")
+        // A tap shows it in full.
+        title.performClick()
+        compose.waitForIdle()
+        assertTrue(layout(title).lineCount > 1)
+        artifact("long-question-open")
+    }
+
+    private fun layout(node: SemanticsNodeInteraction): TextLayoutResult {
+        val results = mutableListOf<TextLayoutResult>()
+        node.fetchSemanticsNode().config[SemanticsActions.GetTextLayoutResult].action?.invoke(results)
+        return results.first()
+    }
+
     private fun screen(content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
         compose.setContent {
             val context = LocalContext.current
@@ -121,6 +172,15 @@ class QuestionOtherFixtureDeviceTest {
                 }
             } }
         }
+    }
+
+    /** Saved to the additional test output, which CI uploads with the device test report. */
+    private fun artifact(name: String) {
+        compose.waitForIdle()
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val directory = File(context.externalMediaDirs.first(), "additional_test_output").apply { mkdirs() }
+        val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot() ?: error("Screenshot unavailable")
+        File(directory, "review-3273-$name.png").outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
     }
 
     /** Saved under the app's files, `review-2298/`, for the PR's screenshots. */

@@ -105,7 +105,7 @@ export function PaneAgentPage({
             }
             setPageMeta({
               pageKey: 'team.agent',
-              title: title || t('Agent'),
+              title: title || t('Task'),
               iconKey: `${reportedSessionId ?? 'new'}:${agentRuntime ?? 'claude-code'}`,
               icon: reportedSessionId ? (
                 <AgentAvatar agentId={reportedSessionId} provider={agentRuntime} size={16} />

@@ -69,9 +69,19 @@ export function LiveDot() {
 
 /** One short line after the status: the machine's kind, and when it was last seen if it is away. For a manager the
  * tooltip adds its UID and where it last reported from; Copy UID lives in its ⋯ menu. */
-export function MachineLine({ device, dim }: { device: AgentDevice; dim: boolean }) {
+/** `live`: the status beside it is this computer's own, so the backend's last sighting is left out. */
+export function MachineLine({
+  device,
+  dim,
+  live = false,
+}: {
+  device: AgentDevice
+  dim: boolean
+  live?: boolean
+}) {
   const seen = seenFrom(device)
-  const away = device.lastSeenAt && !device.online ? relativeTimeFromNow(device.lastSeenAt) : null
+  const away =
+    !live && device.lastSeenAt && !device.online ? relativeTimeFromNow(device.lastSeenAt) : null
   const line = away ? `${machineLine(device)} · ${away}` : machineLine(device)
   const details =
     device.access === 'manage'
@@ -93,7 +103,7 @@ export function MachineLine({ device, dim }: { device: AgentDevice; dim: boolean
   )
 }
 
-/** Add an agent to a machine; an older host can only sign in the agents it already has. */
+/** Add an agent to a machine, or sign in one it already has. */
 export function NewAgentMenu({
   device,
   agents,
@@ -105,9 +115,6 @@ export function NewAgentMenu({
   busy: boolean
   onAdd: (provider: LocalAgentProvider) => void
 }) {
-  // An older host cannot add agents; the backend still refuses with 409 if this is stale.
-  const canAddAgents = agents.some((agent) => agent.local?.agentInstances === true)
-
   return (
     <Menu>
       <MenuTrigger
@@ -138,9 +145,6 @@ export function NewAgentMenu({
             </MenuItem>
           )
         })}
-        {!canAddAgents && (
-          <MenuItem disabled>{t('Update the computer host to add more runtimes')}</MenuItem>
-        )}
       </MenuContent>
     </Menu>
   )

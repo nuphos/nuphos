@@ -7,7 +7,9 @@ import { act, createElement } from 'react'
 
 import type { AgentConversation } from '../../api'
 import type { UserInfo } from '../../types'
+import type { RuntimeQuota } from '../../types/runtime'
 import type { Composer } from '../agent/panel/Composer'
+import type { RuntimeControl } from '../agent/panel/RuntimeSelector'
 import type { ComponentProps } from 'react'
 
 type ComposerProps = ComponentProps<typeof Composer>
@@ -25,7 +27,33 @@ mock.module('../agent/panel/Composer', () => ({
 
 const dom = new Window()
 // No request answers during the test: only what is known before the chat loads is drawn.
-const pending = new Proxy({}, { get: () => () => new Promise(() => {}) })
+const neverResponds = () =>
+  new Promise<never>(() => {
+    /* Unrelated API calls stay pending. */
+  })
+const triggerQueries: unknown[][] = []
+const bypassQueries: unknown[] = []
+const pending = new Proxy(
+  {},
+  {
+    get:
+      (_target, key) =>
+      (...args: unknown[]) => {
+        if (key === 'agentListTriggers') {
+          triggerQueries.push(args)
+
+          return Promise.resolve([])
+        }
+        if (key === 'agentGetAutoModeBypass') {
+          bypassQueries.push(args[0])
+
+          return Promise.resolve({ bypass: true })
+        }
+
+        return neverResponds()
+      },
+  },
+)
 
 Object.assign(dom, { api: pending })
 // The app's modules read browser globals as they load: every one the window has, once.
@@ -43,6 +71,7 @@ for (const [key, value] of Object.entries(browser))
 const { queryClient } = await import('../../lib/query/client')
 const { queryKeys } = await import('../../lib/query/keys')
 const { ChannelPane } = await import('./ChannelPane')
+const { RuntimeSelector } = await import('../agent/panel/RuntimeSelector')
 const { createRoot } = await import('react-dom/client')
 
 const row = (fields: Partial<AgentConversation> & { sessionId: string }): AgentConversation => ({
@@ -98,6 +127,16 @@ test('a listed Bot chat opens with its name, runtime and credentials before it l
     ),
   )
 
+  assert.ok(
+    container.querySelector('[aria-label="Triggers"]'),
+    'Bot chat exposes its triggers directly',
+  )
+  const triggerButton = container.querySelector<HTMLButtonElement>('[aria-label="Triggers"]')
+
+  assert.ok(triggerButton)
+  await act(() => triggerButton.click())
+  assert.deepEqual(triggerQueries, [['team', 'bot']], 'queries the Bot, not its chat or the team')
+  assert.ok(dom.document.body.textContent?.includes('Ask here to schedule recurring work.'))
   assert.ok(frames.length > 0)
   // Every frame, the first one included: a frame without them is the composer jumping.
   for (const frame of frames) {
@@ -108,6 +147,87 @@ test('a listed Bot chat opens with its name, runtime and credentials before it l
   assert.ok(frames.at(-1)?.runtimeControl?.onSettings)
   frames.at(-1)?.runtimeControl?.onSettings?.()
   assert.equal(settingsOpened, 1)
+  // #3298: the composer edits the Bot's own permission mode and model, the ones its own page edits.
+  assert.deepEqual(bypassQueries, ['bot'], "reads the Bot's permission mode, not its chat's")
+  assert.equal(frames.at(-1)?.bypassControl?.active, true)
+  assert.equal(frames.at(-1)?.modelSession?.sessionId, 'bot')
+
+  // The Bot's runtime line is the Task's: a runtime with quota data shows its usage in both.
+  const quota: RuntimeQuota = {
+    runtimeId: 'runtime-1',
+    provider: 'claude-code',
+    fetchedAt: '2026-01-01T00:00:00.000Z',
+    available: true,
+    windows: [{ id: 'five_hour', label: '5-hour', usedPercent: 40, resetsAt: null }],
+  }
+  const quotas = new Map([['runtime-1', quota]])
+  const botControl = frames.at(-1)?.runtimeControl
+
+  assert.ok(botControl)
+  const taskControl: RuntimeControl = { value: botControl.value }
+
+  for (const [name, control] of [
+    ['Bot', botControl],
+    ['Task', taskControl],
+  ] as const) {
+    const line = dom.document.createElement('div')
+
+    dom.document.body.append(line)
+    const lineRoot = createRoot(line as unknown as HTMLElement)
+
+    await act(() =>
+      lineRoot.render(
+        createElement(
+          QueryClientProvider,
+          { client: queryClient },
+          createElement(RuntimeSelector, { ...control, quotas }),
+        ),
+      ),
+    )
+    assert.ok(line.querySelector('[role="progressbar"]'), `${name} composer shows usage`)
+    await act(() => lineRoot.unmount())
+  }
+  await act(() => root.unmount())
+  queryClient.clear()
+})
+
+test("a teammate's Bot chat shows its model locked and no permission mode", async () => {
+  queryClient.setQueryData<AgentConversation[]>(queryKeys.agentSessions('team'), [
+    row({
+      sessionId: 'chat',
+      kind: 'channel',
+      title: 'Ada',
+      faces: [{ id: 'bot', name: 'Ada', agent: {} }],
+    }),
+    row({ sessionId: 'bot', title: 'Ada', isOwner: false, runtimeId: 'runtime-1' }),
+  ])
+  frames.length = 0
+  bypassQueries.length = 0
+  const container = dom.document.createElement('div')
+
+  dom.document.body.append(container)
+  const root = createRoot(container as unknown as HTMLElement)
+
+  await act(() =>
+    root.render(
+      createElement(
+        QueryClientProvider,
+        { client: queryClient },
+        createElement(ChannelPane, {
+          teamId: 'team',
+          channelId: 'chat',
+          user: { id: 'me', name: 'Me' } as UserInfo,
+          dockOpen: false,
+          onOpenSession: () => {},
+        }),
+      ),
+    ),
+  )
+  // Only the owner may read or change a Bot's permission mode; everyone sees its model.
+  assert.deepEqual(bypassQueries, [])
+  assert.equal(frames.at(-1)?.bypassControl, undefined)
+  assert.equal(frames.at(-1)?.modelSession?.sessionId, 'bot')
+  assert.equal(frames.at(-1)?.modelSession?.lockedHint, 'Only the owner can change model settings.')
   await act(() => root.unmount())
   queryClient.clear()
 })

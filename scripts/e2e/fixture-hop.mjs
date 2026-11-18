@@ -64,3 +64,19 @@ export async function hop({ call, send, log, sessionId, child }) {
     }),
   })
 }
+
+// E2E_INHERIT: start a thread on this agent with no model picked, so it starts on this session's.
+export async function inherit({ call, log, sessionId, child }) {
+  const message = await call(sessionId, 'create_thread', {
+    label: 'Delegate on this agent',
+    title: 'E2E inherit',
+    prompt: `${child} E2E_DELIVERY:inherit-child`,
+  })
+
+  log({
+    sessionId,
+    event: 'delegated',
+    isError: Boolean(message.error ?? message.result?.isError),
+    detail: message.error?.message ?? message.result?.content?.[0]?.text,
+  })
+}

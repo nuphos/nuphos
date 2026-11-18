@@ -34,7 +34,7 @@ class OpenQuestions(private val source: Source) {
             var cursor: String? = null
             // Bounded like Desktop's: a cursor never repeats a page.
             repeat(10) {
-                val page = NuphosApi.conversations(token, teamId, cursor = cursor, limit = 100, pendingDecision = true)
+                val page = NuphosApi.conversations(token, teamId, cursor = cursor, limit = 100, pendingDecision = true, includeOnboarding = true)
                 rows += page.rows
                 val next = page.nextCursor
                 if (!page.hasMore || next == null || next == cursor) return rows
@@ -69,7 +69,11 @@ class OpenQuestions(private val source: Source) {
     /** What the cards show: the listing, less what was answered here. */
     val list: List<BotQuestion> get() = listed.filter { it.id !in answered }
 
-    suspend fun refresh(pick: (List<AgentConversation>) -> List<BotQuestion> = BotQuestions::open) {
+    /** Which of the listing's questions this list shows: all of them, or a Bot's; kept for refreshes after a save. */
+    private var pick: (List<AgentConversation>) -> List<BotQuestion> = BotQuestions::open
+
+    suspend fun refresh(pick: (List<AgentConversation>) -> List<BotQuestion> = this.pick) {
+        this.pick = pick
         try {
             listed = pick(source.pending())
             answered = answered intersect listed.map { it.id }.toSet()
@@ -118,7 +122,7 @@ class OpenQuestions(private val source: Source) {
 
     /**
      * Saves the asking conversation's selection, as its credential picker would. The server answers
-     * the question once it covers a provider asked for; the card leaves with the listing.
+     * the question once it adds a provider asked for; the card leaves with the listing, or says why it is still open.
      */
     suspend fun select(selection: CredentialSelection, question: BotQuestion) {
         failures = failures - question.id
@@ -128,8 +132,12 @@ class OpenQuestions(private val source: Source) {
             throw e
         } catch (e: Exception) {
             failures = failures + (question.id to ChannelSession.postFailureMessage(e))
+            return
         }
         refresh()
+        if (listed.any { it.id == question.id }) {
+            failures = failures + (question.id to "The selection adds no credential this question asks for.")
+        }
     }
 
     /**

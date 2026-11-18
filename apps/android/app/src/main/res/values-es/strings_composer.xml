@@ -103,6 +103,10 @@
     <string name="composer_saving">Guardando…</string>
     <string name="composer_send_securely">Enviar de forma segura</string>
     <string name="composer_secret_footer">El valor se escribe en un archivo del entorno de ejecución de la tarea y nunca aparece en esta tarea.</string>
+    <string name="composer_secret_details_needed">Datos necesarios para %1$s</string>
+    <string name="composer_secret_fields_footer">Los valores se escriben en archivos del entorno de ejecución de la tarea y se introducen en %1$s sin pasar por esta tarea.</string>
+    <string name="composer_secret_reveal">Mostrar valores</string>
+    <string name="composer_secret_hide">Ocultar valores</string>
     <string name="composer_attachments_unavailable">Adjuntos no disponibles</string>
     <string name="composer_attachments">Adjuntos</string>
     <string name="composer_loading_attachments">Cargando adjuntos…</string>

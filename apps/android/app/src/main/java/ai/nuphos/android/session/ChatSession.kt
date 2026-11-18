@@ -49,7 +49,6 @@ class ChatSession(
     private val moveRuntime: suspend (String, String, String, ai.nuphos.android.data.AgentRuntime) -> ai.nuphos.android.data.RuntimeBinding = ai.nuphos.android.data.ConversationRuntimeApi::move,
     private val steerRuntime: suspend (String, String, String, String) -> String = RuntimeApi::steer,
     private val readBypass: suspend (String, String) -> Boolean = AgentChatApi::bypass,
-    private val readShareApproval: suspend (String, String) -> String? = NuphosApi::ownShareApproval,
     private val readEvents: (okhttp3.Request) -> kotlinx.coroutines.flow.Flow<ai.nuphos.android.data.SseEvent> = { SseClient.events(it) },
 ) {
     private val localSenders = ai.nuphos.android.model.LocalMessageSenders()
@@ -112,6 +111,9 @@ class ChatSession(
     var downloadsError by mutableStateOf<String?>(null)
         private set
     var timelineEvents by mutableStateOf<List<AgentConversationDetail.TimelineEvent>>(emptyList())
+        private set
+    /** What each answered question still waits for, by request id, already phrased by the backend. */
+    var waitingAnswers by mutableStateOf<Map<String, String>>(emptyMap())
         private set
     val canReadDownloads get() = hasAiAccess && loaded && loadError == null && isOwner
     suspend fun refreshDownloads() {
@@ -230,10 +232,7 @@ class ChatSession(
     private var submissionAccepted = false
     var runtimeRecoveryRequired by mutableStateOf(false)
         private set
-    /** On a teammate's computer that asks its owner first: this conversation waits, or was declined. */
-    var shareApproval by mutableStateOf<ShareApprovalWait?>(null)
-        private set
-    /** Counts sends the server queued, so a waiting conversation is asked about at once. */
+    /** Counts sends the server queued. */
     var queuedSends by mutableStateOf(0)
         private set
     var steeringRetryRequired by mutableStateOf(false)
@@ -280,7 +279,7 @@ class ChatSession(
 
     suspend fun moveAgent(target: ai.nuphos.android.data.AgentRuntime) {
         check(canMoveAgent) { Words(R.string.convtext_move_wait) }
-        require(target.selectable && (isOwner || target.kind == "managed")) { Words(R.string.convtext_move_choose_runtime) }
+        require(target.selectable && isOwner) { Words(R.string.convtext_move_choose_runtime) }
         if (target.id == runtimeId) return
         movingAgent = true
         transportGeneration++
@@ -453,11 +452,19 @@ class ChatSession(
      * straight to a file on the agent's runtime, and the reply names only the
      * file's path. The value is never kept, logged or put in the transcript.
      */
-    suspend fun provideSecret(value: String, part: ChatPart.Tool) {
-        val name = part.secretRequest?.name ?: return
-        val path = AgentChatApi.saveSecret(token, teamId, sessionId, name, value)
+    suspend fun provideSecret(value: String, part: ChatPart.Tool) = provideSecrets(listOf(value), part)
+
+    /** A card with several fields saves one file each, in order, and names them all in one reply. */
+    suspend fun provideSecrets(values: List<String>, part: ChatPart.Tool) {
+        val request = part.secretRequest ?: return
+        val names = request.fields?.map { it.name } ?: listOf(request.name)
+        if (values.size != names.size) return
+        val saved = names.zip(values).map { (name, value) -> name to AgentChatApi.saveSecret(token, teamId, sessionId, name, value) }
         runCatching { AgentChatApi.resolveDecision(token, teamId, sessionId, part.decisionRequestId) }
-        send(ChatPart.Tool.SecretRequest.savedReply(name) + path)
+        send(
+            if (request.fields == null) ChatPart.Tool.SecretRequest.savedReply(request.name) + saved.first().second
+            else ChatPart.Tool.SecretRequest.fieldsSavedReply(request.name, saved),
+        )
     }
 
     /** The first reply after the message that asked, if anyone replied yet. */
@@ -714,7 +721,15 @@ class ChatSession(
         if (isNative) {
             cancelRequested = true
             scope.launch {
-                try { if (!hasAiAccess) return@launch; RuntimeApi.cancel(token, teamId, sessionId) }
+                try {
+                    if (!hasAiAccess) return@launch
+                    // The runtime never heard the Stop; the server ended the turn on its side. Say so, or the tap looks ignored.
+                    if (RuntimeApi.cancel(token, teamId, sessionId) == "runtime_unreachable") {
+                        cancelRequested = false
+                        error = Words(R.string.convtext_stop_runtime_unreachable)
+                        scrollToLatestRevision += 1
+                    }
+                }
                 catch (e: Exception) {
                     cancelRequested = false
                     showError(e)
@@ -913,6 +928,7 @@ class ChatSession(
         isArchived = detail.archivedAt != null
         readOnly = detail.readOnly ?: false
         timelineEvents = detail.timelineEvents
+        waitingAnswers = detail.waitingAnswers.associate { it.requestId to it.note }
         isOwner = detail.isOwner ?: false
         if (!isOwner) { downloads = emptyList(); downloadsError = null }
         manages = detail.canManage ?: isOwner
@@ -1105,22 +1121,6 @@ class ChatSession(
         if (isNative || serverTotal >= baseIndex + messages.size) adoptMessages(detail.messages, detail.messagesFirstIndex ?: 0)
         recordReadTranscript(detail)
         lastSyncedSignature = signature()
-    }
-
-    /**
-     * Only a local agent can be a teammate's shared computer: asks once, then keeps
-     * asking while the owner has not answered. A decline stays shown.
-     */
-    suspend fun watchShareApproval() {
-        if (runtimeId?.startsWith("local_") != true) return
-        while (coroutineContext.isActive && hasAiAccess) {
-            val status = runCatching { readShareApproval(token, sessionId) }
-            if (status.isSuccess) {
-                shareApproval = ShareApprovalWait.of(status.getOrNull())
-                if (status.getOrNull() != "pending") return
-            }
-            delay(5_000)
-        }
     }
 
     suspend fun pollWhileIdle() {
@@ -1603,6 +1603,7 @@ class ChatSession(
         downloads = emptyList()
         downloadsError = null
         timelineEvents = emptyList()
+        waitingAnswers = emptyMap()
         modelScopeActive = false
         resetModelSettings()
         initialModelPick = null

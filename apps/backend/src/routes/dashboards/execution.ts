@@ -3,11 +3,9 @@ import { z } from 'zod'
 import { executePanel, refreshDashboard } from '@/lib/dashboards/exec-service'
 import { AppError } from '@/lib/errors'
 import { zv } from '@/lib/validate'
-import { requireTeamRole } from '@/middleware/auth'
 import { nuphosDashboards } from '@/models'
 
-import { loadDashboard } from './dashboards'
-import { loadPanel } from './panels'
+import { loadDashboard, loadPanel, viewerOf } from './access'
 import { serializeSnapshot } from './serialize'
 import { dashboardForView, dashboardViewSchema } from './view-range'
 
@@ -30,10 +28,14 @@ export function registerDashboardExecutionRoutes(
   /** Re-execute every panel of the dashboard and return the resulting snapshots. */
   nuphosDashboardsRoutes.post(
     '/:dashboardId/refresh',
-    requireTeamRole('ADMINISTRATOR', 'EDITOR'),
     zv('query', dashboardViewSchema.and(forceSchema)),
     async (c) => {
-      const { teamId, dashboard } = await loadDashboard(c.get('teamId'), c.req.param('dashboardId'))
+      const { teamId, dashboard } = await loadDashboard(
+        c.get('teamId'),
+        c.req.param('dashboardId'),
+        viewerOf(c),
+        'edit',
+      )
       const query = c.req.valid('query')
       const viewOnly = Boolean(query.preset || query.periodStart || query.granularity)
       const snapshots = await refreshDashboard({
@@ -50,13 +52,14 @@ export function registerDashboardExecutionRoutes(
   /** Re-execute a single panel; `?force=1` bypasses snapshot dedupe. */
   nuphosDashboardsRoutes.post(
     '/:dashboardId/panels/:panelId/execute',
-    requireTeamRole('ADMINISTRATOR', 'EDITOR'),
     zv('query', dashboardViewSchema.and(forceSchema)),
     async (c) => {
       const { teamId, panel } = await loadPanel(
         c.get('teamId'),
         c.req.param('dashboardId'),
         c.req.param('panelId'),
+        viewerOf(c),
+        'edit',
       )
       const dashboard = await nuphosDashboards().findOne({ _id: panel.dashboardId, teamId })
 

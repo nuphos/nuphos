@@ -116,8 +116,10 @@ export async function answerDecision(args: {
   if (request?.status !== 'open')
     throw new AppError(409, 'decision_already_answered', 'This question is no longer open')
   // A secret is typed in its masked card and a connection is made by selecting it: never as text here.
+  // An integration question naming nothing to select, e.g. a service Nuphos cannot connect, takes words.
   if (
-    request.category === 'integration' ||
+    (request.category === 'integration' &&
+      (Boolean(request.providers?.length) || Boolean(request.credentials?.length))) ||
     (request.category === 'credential' && !credentialStatusChoice(request, answer))
   )
     throw new AppError(400, 'decision_not_answerable', 'Answer this question in its own card')
@@ -143,16 +145,17 @@ export async function answerDecision(args: {
 }
 
 /**
- * A person skips an open question: it is withdrawn and the agent that asked is
- * woken to carry on without it. Refused once the question is no longer open.
+ * A person dismisses an open question: it is closed and the agent that asked is woken to
+ * carry on without it, with the reason when one was given. Refused once it is no longer open.
  */
-export async function skipDecision(args: {
+export async function dismissDecision(args: {
   conversation: AgentConversation
   requestId: string
   actor: { id: string; displayName: string }
   teamId: string
+  reason?: string
 }): Promise<void> {
-  const { conversation, requestId, actor, teamId } = args
+  const { conversation, requestId, actor, teamId, reason } = args
   const request = conversation.inputRequests?.find((entry) => entry.id === requestId)
 
   if (
@@ -160,15 +163,15 @@ export async function skipDecision(args: {
     !(await resolveInputRequest(conversation.sessionId, conversation.userId, requestId))
   )
     throw new AppError(409, 'decision_already_answered', 'This question is no longer open')
-  const who = { displayName: actor.displayName, owner: actor.id === conversation.userId }
+  const by = `${JSON.stringify(actor.displayName)}, ${actor.id === conversation.userId ? "this conversation's owner" : 'a teammate'}`
 
   await wakeAsker(
     conversation,
     request,
     teamId,
     [
-      `Your question (requestId ${request.id}) was skipped: no answer is coming.`,
-      `Skipped by: ${JSON.stringify(who.displayName)}, ${who.owner ? "this conversation's owner." : 'a teammate.'}`,
+      `Your question (requestId ${request.id}) was dismissed by ${by}: no answer is coming.`,
+      ...(reason ? [`Reason: ${JSON.stringify(reason)}`] : []),
       `Question: ${request.question}`,
       'Carry on without it as far as you can and say what you assumed. Do not ask it again unless something has changed.',
     ].join('\n'),

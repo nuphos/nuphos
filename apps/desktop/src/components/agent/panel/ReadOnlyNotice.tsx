@@ -1,7 +1,16 @@
 import { faSlack } from '@fortawesome/free-brands-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
-import { Ban, ExternalLink, Hourglass, KeyRound, Loader2, WifiOff } from 'lucide-react'
+import {
+  Ban,
+  ExternalLink,
+  HardDrive,
+  Hourglass,
+  KeyRound,
+  Loader2,
+  RefreshCw,
+  WifiOff,
+} from 'lucide-react'
 import { useCallback, useState } from 'react'
 
 import { api } from '../../../api'
@@ -10,12 +19,13 @@ import { conversationReadOnlyLabel } from '../../../lib/conversationActivityBadg
 import { Button } from '../../ui/button'
 import { toast } from '../../ui/toast'
 
-import { reachabilityCopy } from './agentBannerCopy'
+import { diskFullCopy, outdatedCopy, reachabilityCopy } from './agentBannerCopy'
 import { agentProblem } from './agentRowFix'
 import { ConversationActivityBadges } from './historyRows'
 import { sharedComputerLabel, shareApprovalText } from './queuedShareApproval'
 import { runtimeGone, runtimeGoneText, selectedAgentReachability } from './runtimeControlSignOut'
 import { useAskedName } from './signInAsks'
+import { useComputerNotice } from './useComputerNotice'
 import { slackThreadFallbackUrl } from './slackThreadUrl'
 import { usePickerFixes } from './usePickerFixes'
 import { useShareApprovalWait } from './useShareApprovalWait'
@@ -23,6 +33,7 @@ import { useShareApprovalWait } from './useShareApprovalWait'
 import type { BannerCopy, BannerFixes } from './agentBannerCopy'
 import type { AgentFix } from './agentRowFix'
 import type { RuntimeControl } from './RuntimeSelector'
+import type { ComputerNotice } from './useComputerNotice'
 import type { ViewOnlyNotice } from './viewOnlyNotice'
 import type { AgentConversation, AgentSlackThread } from '../../../api'
 
@@ -122,12 +133,26 @@ const BANNER = {
   },
   declined: { Icon: Ban, icon: 'text-error', border: 'border-error/35', tint: 'bg-error/10' },
   gone: { Icon: Ban, icon: 'text-error', border: 'border-error/35', tint: 'bg-error/10' },
+  disk: {
+    Icon: HardDrive,
+    icon: 'text-warning',
+    border: 'border-warning/35',
+    tint: 'bg-warning/10',
+  },
+  outdated: {
+    Icon: RefreshCw,
+    icon: 'text-warning',
+    border: 'border-warning/35',
+    tint: 'bg-warning/10',
+  },
 } as const
 
 type BannerKind = keyof typeof BANNER
+/** The agent cannot take a message; the other kinds only warn about its computer. */
+type BlockedKind = Exclude<BannerKind, ComputerNotice['kind']>
 
 function bannerCopy(
-  reachability: BannerKind,
+  reachability: BlockedKind,
   control: RuntimeControl,
   fix: AgentFix | undefined,
   fixes: BannerFixes,
@@ -153,6 +178,14 @@ function bannerCopy(
     : { text: shareApprovalText('denied', computer), action: switchAgent ?? null }
 }
 
+function noticeCopy(notice: ComputerNotice | null, onSettings?: () => void): BannerCopy {
+  if (!notice) return { text: '', action: null }
+
+  return notice.kind === 'disk'
+    ? diskFullCopy(notice, onSettings)
+    : outdatedCopy(notice.label, onSettings)
+}
+
 /**
  * Said before the message goes, not after it fails. A slim tab on the composer's
  * top edge: positioned out of flow, so showing or hiding it never moves the input.
@@ -166,7 +199,7 @@ export function AgentStatusBanner({
   control: RuntimeControl
   /** The new-chat card: wider corners to clear. */
   hero?: boolean
-  /** Set for a new chat, or a conversation whose agent is gone: the fix is picking another. */
+  /** Set for a new chat, a gone agent, or an offline computer the conversation may leave: the fix is picking another. */
   onSwitchAgent?: () => void
 }) {
   const reachability = selectedAgentReachability(control)
@@ -175,12 +208,16 @@ export function AgentStatusBanner({
   const unreachable = reachability === 'signIn' || reachability === 'offline' ? reachability : null
   // Reachability comes first: an offline computer cannot run it even once approved.
   // Its agent is gone: nothing else about it matters until the conversation moves.
-  const blocked: BannerKind | null =
+  const blocked: BlockedKind | null =
     (runtimeGone(control) ? 'gone' : null) ??
     unreachable ??
     (shareApproval === 'pending' ? 'waiting' : shareApproval === 'denied' ? 'declined' : null)
+  // An agent that can take the message, on a computer about to fail it: said, without blocking.
+  const notice = useComputerNotice(control)
+  const [noticed, setNoticed] = useState(notice)
+  const active: BannerKind | null = blocked ?? notice?.kind ?? null
   // The words stay while the banner leaves, so it closes on what it said.
-  const [shown, setShown] = useState(blocked)
+  const [shown, setShown] = useState(active)
   const selected = control.options?.find((instance) => instance.id === control.value?.id)
   // The same fix the picker offers for this agent, so the two never disagree.
   const { fixes, dialogs } = usePickerFixes({
@@ -194,23 +231,33 @@ export function AgentStatusBanner({
   const fix =
     unreachable && selected ? agentProblem(selected, undefined, fixes.viewer)?.fix : undefined
 
-  if (blocked && blocked !== shown) setShown(blocked)
+  if (active && active !== shown) setShown(active)
+  if (notice && JSON.stringify(notice) !== JSON.stringify(noticed)) setNoticed(notice)
   const variant = shown ? BANNER[shown] : null
-  const { text, action } = shown
-    ? bannerCopy(shown, control, fix, { ...fixes, ...(askedName && { askedName }) }, onSwitchAgent)
-    : { text: '', action: null }
+  let copy: BannerCopy = { text: '', action: null }
+
+  if (shown === 'disk' || shown === 'outdated') copy = noticeCopy(noticed, control.onSettings)
+  else if (shown)
+    copy = bannerCopy(
+      shown,
+      control,
+      fix,
+      { ...fixes, ...(askedName && { askedName }) },
+      onSwitchAgent,
+    )
+  const { text, action } = copy
 
   return (
     <>
       <div
         role="status"
-        aria-hidden={!blocked}
+        aria-hidden={!active}
         // Leaving, it keeps its words for the exit animation but takes no focus or clicks.
-        inert={!blocked}
+        inert={!active}
         className={clsx(
           't-toast absolute bottom-full',
           hero ? 'inset-x-6' : 'inset-x-4',
-          blocked ? 'is-open' : 'pointer-events-none',
+          active ? 'is-open' : 'pointer-events-none',
         )}
       >
         {variant && (
@@ -221,9 +268,10 @@ export function AgentStatusBanner({
             )}
           >
             <span aria-hidden className={clsx('absolute inset-0', variant.tint)} />
-            <div className="relative flex h-8 min-w-0 items-center gap-2 px-3 text-[12.5px] text-secondary">
+            {/* A long reason wraps and the tab grows upward, never under the input. */}
+            <div className="relative flex min-h-8 min-w-0 items-center gap-2 px-3 py-1 text-[12.5px] leading-snug text-secondary">
               <variant.Icon aria-hidden className={clsx('h-3.5 w-3.5 shrink-0', variant.icon)} />
-              <span className="min-w-0 flex-1 truncate">{text}</span>
+              <span className="min-w-0 flex-1">{text}</span>
               {action && (
                 <Button
                   type="button"

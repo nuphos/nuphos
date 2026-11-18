@@ -10,12 +10,12 @@ import {
 } from '@/lib/byos/cloudflare-oauth'
 import { appendEnvironmentBinding } from '@/lib/byos/environment-bindings'
 import { encryptCloudflareApiKey } from '@/lib/byos/secrets'
-import { finishConnectorOAuth } from '@/lib/connector-oauth'
+import { assertMayRebind, finishConnectorOAuth } from '@/lib/connector-oauth'
 import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
 import { AppError } from '@/lib/errors'
 import { cloudflarePendingOAuth, cloudflareOAuthResult, teamByosBindings } from '@/models'
 
-import type { CloudflareAccountBinding } from '@/models'
+import type { BindingAccess, CloudflareAccountBinding } from '@/models'
 import type { Context } from 'hono'
 
 export const cloudflareAppRoutes = new Hono()
@@ -27,6 +27,26 @@ const DESKTOP_CALLBACK = 'nuphos://cloudflare-callback'
 const desktopCallback = (c: Context, params: Record<string, string>) =>
   desktopCallbackResponse(c, DESKTOP_CALLBACK, params)
 
+// Record Cloudflare's rejection for the desktop's poll too, so a deep link
+// captured by another app can't leave the dialog waiting. The pending request
+// stays: a replayed error must not cancel it, and a later approval replaces
+// this result.
+async function recordAuthorizeError(state: string, error: string, errorDescription: string) {
+  const pending = await cloudflarePendingOAuth().findOne({ _id: state })
+
+  if (!pending) return
+  await cloudflareOAuthResult().replaceOne(
+    { _id: state },
+    {
+      teamId: pending.teamId,
+      error,
+      errorDescription,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+    },
+    { upsert: true },
+  )
+}
+
 cloudflareAppRoutes.get('/setup', async (c) => {
   const state = c.req.query('state') ?? ''
   const code = c.req.query('code') ?? ''
@@ -37,11 +57,11 @@ cloudflareAppRoutes.get('/setup', async (c) => {
   }
 
   if (errorParam) {
-    return desktopCallback(c, {
-      state,
-      error: errorParam,
-      error_description: c.req.query('error_description') ?? '',
-    })
+    const errorDescription = c.req.query('error_description') ?? ''
+
+    await recordAuthorizeError(state, errorParam, errorDescription)
+
+    return desktopCallback(c, { state, error: errorParam, error_description: errorDescription })
   }
 
   if (!code) {
@@ -127,6 +147,8 @@ cloudflareAppRoutes.get('/setup', async (c) => {
       state,
       teamId: pending.teamId,
       requesterUserId: pending.requesterUserId,
+      share: pending.share,
+      highPrivilege: true,
       draft,
       persist: persistCloudflareBinding,
     }),
@@ -146,6 +168,7 @@ type CloudflareBindingDraft = Pick<CloudflareAccountBinding, 'accountId' | 'acco
 export async function persistCloudflareBinding(
   teamId: ObjectId,
   draft: CloudflareBindingDraft,
+  access: BindingAccess,
 ): Promise<Record<string, string>> {
   const now = new Date()
   const { state, accountId, accountName, oauth: oauthEnvelope } = draft
@@ -167,16 +190,20 @@ export async function persistCloudflareBinding(
         $unset: { 'cloudflareAccounts.$.encryptedApiKey': '' },
       },
     )
-  const idForAccount = async (): Promise<ObjectId> => {
-    const doc = await teamByosBindings().findOne(
-      { _id: teamId, 'cloudflareAccounts.accountId': accountId },
-      { projection: { 'cloudflareAccounts.$': 1 } },
-    )
-
-    return doc?.cloudflareAccounts?.[0]?.id ?? new ObjectId()
-  }
+  const entryForAccount = async () =>
+    (
+      await teamByosBindings().findOne(
+        { _id: teamId, 'cloudflareAccounts.accountId': accountId },
+        { projection: { 'cloudflareAccounts.$': 1 } },
+      )
+    )?.cloudflareAccounts?.[0]
+  const idForAccount = async (): Promise<ObjectId> =>
+    (await entryForAccount())?.id ?? new ObjectId()
 
   let bindingId: ObjectId
+  const existing = await entryForAccount()
+
+  if (existing) assertMayRebind(existing, access)
 
   if ((await rebindInPlace()).matchedCount > 0) {
     bindingId = await idForAccount()
@@ -189,6 +216,7 @@ export async function persistCloudflareBinding(
       authType: 'oauth',
       oauth: oauthEnvelope,
       createdAt: now,
+      access,
     }
     const inserted = await appendEnvironmentBinding(
       teamId,
@@ -218,16 +246,14 @@ export async function persistCloudflareBinding(
 
   // Record the result keyed by `state` so the desktop can finish the bind by
   // polling even if the nuphos:// deep link below is captured by another app.
-  await cloudflareOAuthResult().updateOne(
+  await cloudflareOAuthResult().replaceOne(
     { _id: state },
     {
-      $set: {
-        teamId,
-        bindingId,
-        accountId,
-        accountName,
-        expiresAt: new Date(now.getTime() + 10 * 60 * 1000),
-      },
+      teamId,
+      bindingId,
+      accountId,
+      accountName,
+      expiresAt: new Date(now.getTime() + 10 * 60 * 1000),
     },
     { upsert: true },
   )
@@ -255,6 +281,11 @@ cloudflareAppRoutes.get('/result/:state', async (c) => {
 
   if (!result) {
     return c.json({ ready: false })
+  }
+  // A rejection stays `ready: false`: desktops before the error field resolved
+  // any ready result as a successful bind.
+  if (!result.bindingId) {
+    return c.json({ ready: false, error: result.error, errorDescription: result.errorDescription })
   }
 
   return c.json({

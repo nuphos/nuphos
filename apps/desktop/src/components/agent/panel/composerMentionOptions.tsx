@@ -27,7 +27,7 @@ function Row({ icon, label, detail }: { icon: ReactNode; label: string; detail?:
 const SECTION_TITLES: Record<MentionOption['kind'], string> = {
   member: t('People'),
   device: t('Computers'),
-  session: t('Agents'),
+  session: t('Bots and tasks'),
 }
 
 function MentionOptionRow({

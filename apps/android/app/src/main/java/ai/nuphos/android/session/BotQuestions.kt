@@ -2,6 +2,7 @@ package ai.nuphos.android.session
 
 import ai.nuphos.android.data.JsonValue
 import ai.nuphos.android.model.AgentConversation
+import ai.nuphos.android.model.ChatPart
 import ai.nuphos.android.model.DecisionQuestion
 import ai.nuphos.android.model.InputRequest
 
@@ -12,8 +13,11 @@ data class BotQuestion(val sessionId: String, val title: String, val request: In
     /** The conversation that asked, opened in the app like any Nuphos link. */
     fun link(teamId: String): String = "${ai.nuphos.android.data.NuphosWeb.SITE_URL}/teams/$teamId/agent/$sessionId"
 
-    /** Answered in words, "Other…": never a plan, approved or rejected, nor a credential or connection. */
-    val typed: Boolean get() = request.category != "credential" && request.category != "integration" && request.planId == null
+    /**
+     * Answered in words, "Other…": never a plan, approved or rejected, nor a credential or connection.
+     * An integration question naming nothing to select, e.g. a service Nuphos cannot connect, takes words.
+     */
+    val typed: Boolean get() = request.category != "credential" && !connectable && request.planId == null
 
     /**
      * The member's own credentials an integration question names, answered only by adding them to
@@ -23,8 +27,21 @@ data class BotQuestion(val sessionId: String, val title: String, val request: In
         ?.takeIf { request.providers == null && it.isNotEmpty() && it.all { ref -> ref.provider == "personal" } }
         ?.map { it.id }
 
+    /**
+     * A secret request as its tool call carries it in the transcript, so the card draws the conversation's
+     * `SecretCard`; null unless the question names a secret.
+     */
+    val secretPart: ChatPart.Tool? get() {
+        val name = request.secretName ?: return null
+        return ChatPart.Tool(request.id, "request_user_decision", isDynamic = true, state = ChatPart.Tool.State.InputAvailable,
+            input = JsonValue.obj("category" to JsonValue.Str(request.category.orEmpty()),
+                "question" to JsonValue.Str(request.question), "secretName" to JsonValue.Str(name)))
+            .takeIf { it.secretRequest != null }
+    }
+
     /** An integration question the Inbox answers in place: by its providers, or by the member's own credentials. */
-    val connectable: Boolean get() = request.category == "integration" && (request.credentials == null || personalCredentials != null)
+    val connectable: Boolean get() = request.category == "integration" &&
+        (personalCredentials != null || (request.credentials == null && !request.providers.isNullOrEmpty()))
 
     /**
      * Desktop's `formQuestions`: the questions a multi-select or several-question card answers as a
@@ -101,14 +118,16 @@ object BotQuestions {
             }
             return false
         }
-        return open(rows.filter { isUnder(it.sessionId) })
+        return open(rows.filter { isUnder(it.sessionId) }, includeOnboarding = true)
     }
 
     /** The viewer's own open questions in [rows], oldest first: the Inbox's list. */
-    fun open(rows: List<AgentConversation>): List<BotQuestion> {
+    fun open(rows: List<AgentConversation>): List<BotQuestion> = open(rows, includeOnboarding = false)
+
+    private fun open(rows: List<AgentConversation>, includeOnboarding: Boolean): List<BotQuestion> {
         return rows.distinctBy { it.sessionId }
             .filter { it.isOwner == true }
-            .flatMap { row -> row.inputRequests.orEmpty().map { BotQuestion(row.sessionId, row.displayTitle, it) } }
+            .flatMap { row -> row.inputRequests.orEmpty().filter { includeOnboarding || row.botOnboarding !in setOf("pending", "active") || it.category != "preference" }.map { BotQuestion(row.sessionId, row.displayTitle, it) } }
             .sortedWith(compareBy({ it.request.askedAt.orEmpty() }, { it.id }))
     }
 }

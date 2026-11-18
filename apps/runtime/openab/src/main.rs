@@ -534,8 +534,6 @@ async fn main() -> anyhow::Result<()> {
     // here rather than by inferring it from tools that never appear. This is NOT the
     // `OPENAB_BROWSER_MODE` migration notice — that was removed (see `acp_mcp`), and nothing
     // reports the variable now.
-    // Gated on `acp` (the root feature that pulls in core's `acp-mcp`), not on `acp-mcp` itself —
-    // that is a core feature and naming it here is an unknown-cfg error.
     #[cfg(feature = "acp")]
     openab_core::acp_mcp::report_facade_status(cfg.mcp.is_some(), &cfg.agent.working_dir);
     if let Some(mcp_cfg) = cfg.mcp.clone() {
@@ -1287,6 +1285,16 @@ async fn main() -> anyhow::Result<()> {
                             .session_config_options(&request.thread_key, selection)
                             .await;
                         let _ = request.reply.send(result);
+                    }
+                });
+
+                let (close_tx, mut close_rx) = tokio::sync::mpsc::channel::<String>(32);
+                gw_state_inner.acp_pool_close = Some(close_tx);
+                let close_pool = pool.clone();
+                tokio::spawn(async move {
+                    while let Some(thread_key) = close_rx.recv().await {
+                        // Nothing left to close is already the goal.
+                        let _ = close_pool.reset_session(&thread_key).await;
                     }
                 });
 

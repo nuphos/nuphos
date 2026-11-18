@@ -1,18 +1,18 @@
-import { faXmark } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
+import { X as XIcon } from 'lucide-react'
 import { useState } from 'react'
 
 import { t } from '../i18n'
 
 import { ConfirmDialog } from './ConfirmDialog'
+import { UiIcon } from './ui/ui-icon'
 
-import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
+import type { LucideIcon } from 'lucide-react'
 
 export type BulkAction = {
   key: string
   label: string
-  icon?: IconDefinition
+  icon?: LucideIcon
   onClick: () => void | Promise<void>
   // When set, clicking the action first shows a ConfirmDialog with this text
   // (same idiom as ContextMenuItem.confirm); onClick runs only on confirm.
@@ -88,7 +88,7 @@ export function BulkActionBar({
                 : 'text-main hover:bg-state-hover',
             )}
           >
-            {action.icon && <FontAwesomeIcon icon={action.icon} className="h-3 w-3" />}
+            {action.icon && <UiIcon size={16} icon={action.icon} className="h-4 w-4" />}
             {action.label}
           </button>
         ))}
@@ -99,7 +99,7 @@ export function BulkActionBar({
           aria-label={t('Clear selection')}
           className="rounded p-1.5 text-tertiary transition-colors hover:bg-state-hover hover:text-secondary"
         >
-          <FontAwesomeIcon icon={faXmark} className="h-3 w-3" />
+          <UiIcon size={16} icon={XIcon} className="h-4 w-4" />
         </button>
       </div>
     </>

@@ -76,7 +76,9 @@ export function createBox(
       ...(access ? { access } : {}),
       ...(instaboxAccountId ? { instaboxAccountId } : {}),
     },
-    { retry: false },
+    // As long as the proxy in front of the backend waits: the create reads instabox, then waits
+    // up to 10 s for it to accept or refuse the order. Giving up sooner could hide a Box it made.
+    { retry: false, timeoutMs: 60_000 },
   )
 }
 
@@ -199,6 +201,16 @@ export function updateDeviceApp(deviceId: string, teamId: string): Promise<{ ver
   return call(
     'POST',
     `/teams/${encodeURIComponent(teamId)}/computers/${encodeURIComponent(deviceId)}/app-update`,
+    undefined,
+    { retry: false },
+  )
+}
+
+/** Frees a Box's disk of the caches its tools rebuild; whoever manages it may ask. */
+export function clearBoxCaches(deviceId: string, teamId: string): Promise<{ ok: true }> {
+  return call(
+    'POST',
+    `/teams/${encodeURIComponent(teamId)}/computers/${encodeURIComponent(deviceId)}/clear-caches`,
     undefined,
     { retry: false },
   )

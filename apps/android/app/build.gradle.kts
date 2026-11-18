@@ -143,6 +143,7 @@ tasks.withType<Test>().configureEach {
     maxParallelForks = 1
     // Off a device, [ai.nuphos.android.model.Words] reads the English strings from here.
     systemProperty("nuphos.strings", file("src/main/res/values").absolutePath)
+    inputs.dir("src/main/res").withPathSensitivity(PathSensitivity.RELATIVE)
 }
 
 // Debug builds may omit Firebase, but shipping variants must include the reviewed client config.

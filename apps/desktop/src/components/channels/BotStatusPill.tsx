@@ -43,6 +43,7 @@ function waitingText(work: BotWork & { kind: 'waiting' }): string {
 
 /** The one line the pill says: what the Bot does, and why when it is not this chat. */
 function workText(work: BotWork): string {
+  if (work.kind === 'onboarding') return t('Getting started')
   if (work.kind === 'asking') return askingText(work)
   if (work.kind === 'waiting') return waitingText(work)
   if (work.kind === 'background') return t('Working in the background')
@@ -109,8 +110,10 @@ export function BotStatusPill({
   const asking = work.kind === 'asking'
   const onClick = asking
     ? () => showBotQuestion(chat.current, teamId, work.id, onOpenLink)
-    : onOpenTask && (() => onOpenTask(botId))
-  const Pill = onClick ? 'button' : 'div'
+    : undefined
+  const openWork =
+    !asking && work.kind !== 'onboarding' && onOpenTask ? () => onOpenTask(botId) : onClick
+  const Pill = openWork ? 'button' : 'div'
 
   return (
     // Its own container, so the pill leaves altogether once under 120px remain.
@@ -123,14 +126,14 @@ export function BotStatusPill({
         disabled={!cut}
         trigger={
           <Pill
-            type={onClick ? 'button' : undefined}
-            onClick={onClick}
-            role={onClick ? undefined : 'status'}
-            className={pillClass(asking, onClick !== undefined)}
+            type={openWork ? 'button' : undefined}
+            onClick={openWork}
+            role={openWork ? undefined : 'status'}
+            className={pillClass(asking, openWork !== undefined)}
           />
         }
       >
-        {asking ? (
+        {asking || work.kind === 'onboarding' ? (
           <span className="size-1.5 shrink-0 rounded-full bg-current" aria-hidden />
         ) : (
           <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />

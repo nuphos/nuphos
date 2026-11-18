@@ -54,6 +54,7 @@ final class AnsweredQuestionUITests: XCTestCase {
         app.launch()
         let lines = app.buttons.matching(identifier: "answered.line")
         XCTAssertTrue(lines.firstMatch.waitForExistence(timeout: 10))
+        app.dismissAutoFocusedKeyboard()
         XCTAssertEqual(lines.count, 3, "One line per question answered")
         XCTAssertGreaterThanOrEqual(lines.firstMatch.frame.height, 44)
         let machine = NSPredicate(format: "label CONTAINS 'requestId' OR label CONTAINS 'About:' OR label CONTAINS 'Continue the task'")
@@ -69,6 +70,51 @@ final class AnsweredQuestionUITests: XCTestCase {
         lines.element(boundBy: 2).tap()
         XCTAssertTrue(app.staticTexts["Android"].waitForExistence(timeout: 5))
         attach(app, "Answered questions · several and a typed answer, expanded · light")
+    }
+
+    /// #3055: an answer its agent could not run yet says, under its line, what it waits for.
+    func testAnAnswerWaitingForItsAgentSaysWhy() throws {
+        continueAfterFailure = false
+        let fixture = URL(filePath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .appending(path: "tests/fixtures/push-responses.json")
+        let live = FileManager.default.temporaryDirectory.appending(path: "waiting-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: live) }
+        var responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: fixture)) as? [String: Any])
+        var conversation = try XCTUnwrap(responses["GET /agent/conversations/push-a"] as? [String: Any])
+        var body = try XCTUnwrap(conversation["body"] as? [String: Any])
+        let note = "Answered · waiting for Claude Code (out of usage until 11:20 UTC)"
+        body["messages"] = [
+            ["id": "ask-q-77", "role": "assistant", "createdAt": "2026-11-16T11:05:00Z", "parts": [[
+                "type": "dynamic-tool", "toolCallId": "q-77", "toolName": "request_user_decision",
+                "state": "output-available", "output": ["requestId": "q-77"],
+                "input": ["category": "preference", "question": "Which hero layout should I ship?",
+                          "options": ["Split, image right", "Full-bleed image", "Not yet"]],
+            ]]],
+            ["id": "notice-q-77", "role": "user", "createdAt": "2026-11-16T11:09:00Z",
+             "parts": [["type": "text", "text": [
+                "Your question (requestId q-77) was answered from the Inbox.",
+                "Answered by: \"Yuanlin\", this conversation's owner: it is their own answer.",
+                "Question: Which hero layout should I ship?", "Answer:",
+                "- Which hero layout should I ship? → Split, image right", "Continue the task with this answer.",
+             ].joined(separator: "\n")]],
+             "metadata": ["version": 1, "source": "agent.resource", "sentAt": "2026-11-16T11:09:00Z",
+                          "sender": ["type": "system", "id": "nuphos:decision", "displayName": "Nuphos"]]],
+        ]
+        body["waitingAnswers"] = [["requestId": "q-77", "note": note]]
+        conversation["body"] = body
+        responses["GET /agent/conversations/push-a"] = conversation
+        responses["GET /agent/conversations?kind=channel"] = ["status": 200, "body": ["conversations": []]]
+        try JSONSerialization.data(withJSONObject: responses).write(to: live)
+
+        let app = XCUIApplication()
+        app.launchArguments = ["-preview-home", "-preview-no-push", "-page", "agent", "-open-links",
+            "https://nuphos.ai/teams/64b5f1c2e4b0a1d2c3e4f5a6/agent/push-a"]
+        app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path]
+        app.launch()
+        XCTAssertTrue(app.buttons.matching(identifier: "answered.line").firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts[note].waitForExistence(timeout: 5), "The line says what the answer waits for")
+        attach(app, "An answer waiting for its agent · light")
     }
 
     private func attach(_ app: XCUIApplication, _ name: String) {

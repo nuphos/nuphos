@@ -52,6 +52,7 @@ const CAPABILITY: Partial<Record<TunnelPurpose, keyof LocalRuntimeStatus>> = {
   attachments: 'localAttachments',
   exec: 'localExec',
   upload: 'localUpload',
+  download: 'localDownload',
   terminal: 'localTerminal',
   cua: 'localCua',
   browser: 'localBrowser',
@@ -117,11 +118,12 @@ export class DeviceRuntimeSocket {
 
   /** Logs which check found the computer unreachable, since the person only sees "offline". */
   private fail(stage: 'connect' | 'liveness' | 'send', cause: string, error?: unknown): void {
-    const { userId, deviceId, purpose, provider, instanceId } = this.target
+    const { userId, deviceId, teamId, purpose, provider, instanceId } = this.target
 
     logEvent('warn', 'agent.local_runtime.stream_failed', {
       user_id: userId,
       device_id: deviceId,
+      team_id: teamId,
       purpose,
       provider,
       instance_id: instanceId,

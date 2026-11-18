@@ -9,7 +9,7 @@ import type { Collection, ObjectId } from 'mongodb'
 import { config } from '@/config'
 import { db } from '@/lib/db'
 import { consumePairQuota } from '@/lib/download-handoff-rate-limit'
-import { escapeHtml, isEmailConfigured, sendEmail } from '@/lib/email'
+import { escapeHtml, InvalidRecipientError, isEmailConfigured, sendEmail } from '@/lib/email'
 import { AppError } from '@/lib/errors'
 import { signInWithVerifiedEmail } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
@@ -58,6 +58,7 @@ export async function requestEmailOtp(
     if (await otps().findOne({ email: normalized, expiresAt: { $gt: new Date() } })) return
     throw new AppError(503, 'email_not_configured', 'Email sign-in is not available on this server')
   }
+  if (!SENDABLE_EMAIL.test(normalized)) throw invalidEmail()
 
   const code = newCode()
   const codeHash = hashCode(normalized, code)
@@ -135,6 +136,7 @@ export async function requestEmailOtp(
     await otps()
       .deleteOne({ email: normalized, codeHash })
       .catch(() => {})
+    if (err instanceof InvalidRecipientError) throw invalidEmail()
     console.error('email-otp: failed to send code', err)
     throw new AppError(502, 'otp_send_failed', 'Failed to send the sign-in code — try again')
   }
@@ -210,18 +212,29 @@ function newCode(): string {
   return randomInt(0, 1_000_000).toString().padStart(6, '0')
 }
 
+const ADDRESS = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/
+// What a code is mailed to: dot atoms, '@', hostname labels (RFC 5321 without
+// quoted forms), so a typo is answered instead of failing the send. An address
+// outside it still signs in with a code an operator issued.
+const ATOM = "[a-z0-9!#$%&'*+/=?^_`{|}~-]+"
+const LABEL = '[a-z0-9](?:[a-z0-9-]*[a-z0-9])?'
+const TLD = '[a-z][a-z0-9-]*[a-z0-9]'
+const SENDABLE_EMAIL = new RegExp(`^${ATOM}(?:\\.${ATOM})*@(?:${LABEL}\\.)+${TLD}$`)
+
 function normalizeEmail(email: string): string {
   const normalized = email.trim().toLowerCase()
 
-  if (
-    normalized.length < 3 ||
-    normalized.length > 254 ||
-    !/^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/.test(normalized)
-  ) {
-    throw new AppError(400, 'invalid_email', 'Enter a valid email address')
-  }
+  if (normalized.length > 254 || !ADDRESS.test(normalized)) throw invalidEmail()
 
   return normalized
+}
+
+function invalidEmail(): AppError {
+  return new AppError(
+    400,
+    'invalid_email',
+    "That email address doesn't look right. Check it and try again.",
+  )
 }
 
 // HMAC keyed with a secret so a leaked collection alone can't be brute forced

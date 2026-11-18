@@ -171,11 +171,6 @@ export function ChannelMessage({
             ) : (
               <span className="truncate font-medium text-secondary">{sender.displayName}</span>
             )}
-            {agentId && (
-              <span className="shrink-0 rounded bg-surface-hover px-1.5 py-0.5 text-[10px] text-tertiary">
-                {t('Agent')}
-              </span>
-            )}
           </div>
         )}
         {quote}

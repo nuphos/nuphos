@@ -3,6 +3,7 @@ import Foundation
 enum ChannelPostTests {
     static func run() {
         readsTypingProviders()
+        readsATeammatesBotFace()
         readsPeopleAgentsAndFiles()
         skipsMessagesWithoutASenderOrContent()
         startsARunAtEachNewSender()
@@ -24,6 +25,12 @@ enum ChannelPostTests {
             let agent = try! JSONDecoder().decode(ChannelAgent.self, from: data)
             precondition(agent.provider == provider)
         }
+    }
+
+    private static func readsATeammatesBotFace() {
+        let data = Data("{\"sessionId\":\"bot\",\"title\":\"書記官\",\"ownerId\":\"teammate\",\"avatar\":\"07-ada\"}".utf8)
+        let agent = try! JSONDecoder().decode(ChannelAgent.self, from: data)
+        precondition(agent.avatar == "07-ada")
     }
 
     private static func message(_ id: String, sender: [String: JSONValue], source: String? = nil, sentAt: String = "2026-11-03T09:00:00.000Z",

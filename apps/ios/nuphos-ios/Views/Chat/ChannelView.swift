@@ -8,6 +8,8 @@ struct ChannelView: View {
 
     @Environment(AgentStore.self) private var store
     @Environment(\.openURL) private var openURL
+    var openTask: (String) -> Void = { _ in }
+    @State private var canOpenTask = false
     @State private var draft = ""
     @State private var showTriggers = false
     /// The agents typing: those in a turn, as of the last read of this chat. See `inTurn`.
@@ -86,16 +88,38 @@ struct ChannelView: View {
                     .disabled(channel.botId == nil)
                     .accessibilityIdentifier("bot-trigger-entry")
                 }
+                if let bot = channel.botId, canOpenTask {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            openTask(bot)
+                        } label: {
+                            Label { Text("Task") } icon: { LucideIcon("clipboard-list") }
+                        }
+                        .accessibilityIdentifier("bot-task-entry")
+                    }
+                }
                 if let bot = desktopBot {
                     ToolbarItem(placement: .primaryAction) {
                         Button {
                             desktop = DesktopSession(teamId: channel.teamId, sessionId: bot, token: store.token)
                         } label: {
-                            Image(systemName: "display")
+                            LucideIcon("monitor")
                         }
                         .accessibilityLabel("Desktop")
                         .accessibilityIdentifier("chat.desktop")
                     }
+                }
+            }
+            .task(id: channel.botId) {
+                canOpenTask = false
+                guard let bot = channel.botId else { return }
+                if channel.agents.contains(where: { $0.sessionId == bot && $0.ownerId == channel.viewerId }) {
+                    canOpenTask = true
+                } else {
+                    // Channel membership alone does not grant session access.
+                    let detail = try? await NuphosAPI.conversationDetail(token: store.token, teamId: channel.teamId, sessionId: bot, tail: 1, displayed: false)
+                    guard !Task.isCancelled, channel.botId == bot else { return }
+                    canOpenTask = detail != nil
                 }
             }
             .desktop($desktop)
@@ -151,7 +175,7 @@ struct ChannelView: View {
         if !channel.loaded {
             ProgressView().tint(Theme.muted)
         } else if let error = channel.loadError {
-            ContentUnavailableView("Couldn't load this chat", systemImage: "exclamationmark.bubble", description: Text(error))
+            ContentUnavailableView("Couldn't load this chat", image: "lucide-message-circle-warning", description: Text(error))
         } else if channel.posts.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
                 ChatIcon(faces: channel.faces, title: channel.title, size: 44)
@@ -182,6 +206,7 @@ struct ChannelView: View {
                 voiceTeamId: channel.teamId,
                 recipient: channel.title,
                 focusRequest: replyFocus,
+                autoFocus: channel.loaded && !channel.readOnly,
                 onSend: { channel.send($0) },
                 controls: { EmptyView() }
             )
@@ -252,8 +277,8 @@ struct ChannelView: View {
                 TimestampLabel(date: date)
             case .post(let post, let first):
                 ChannelPostRow(post: post, first: first, mine: post.isMine(viewerId: channel.viewerId),
-                               attachments: channel.sendingAttachments[post.id] ?? [], files: channel.files,
-                               resolve: channel.transferGroup, onLink: open(link:),
+                               attachments: channel.sendingAttachments[post.id] ?? [], channel: channel,
+                               onLink: open(link:),
                                flashed: flashed == post.id,
                                onReply: channel.readOnly || post.sending ? nil : { reply(to: post) },
                                onQuote: show)
@@ -282,10 +307,10 @@ struct ChannelView: View {
                     showsFrom: question.sessionId != channel.botId,
                     onOpen: { open(link: question.link(team: channel.teamId)) },
                     teamId: channel.teamId,
+                    questions: channel.questions,
                     onAnswer: { channel.answer(question, with: $0) },
                     onSkip: { channel.skip(question) },
-                    onLink: open(link:),
-                    failure: channel.questions.failures[question.id])
+                    onLink: open(link:))
             }
         }
     }
@@ -381,9 +406,9 @@ private struct ChannelPostRow: View {
     let first: Bool
     let mine: Bool
     let attachments: [ComposerAttachment]
-    /// The chat's file groups, already read.
-    let files: [String: [TransferDownloadGroup.File]]
-    let resolve: (String) async throws -> TransferDownloadGroup
+    /// The chat: its file groups read so far, and fresh links for them. Read
+    /// here, not passed in, so a group read after the row was drawn shows.
+    let channel: ChannelSession
     let onLink: (URL) -> Void
     /// Briefly highlighted: a quote of it was tapped.
     var flashed = false
@@ -397,7 +422,7 @@ private struct ChannelPostRow: View {
 
     /// The groups' files when the chat has read them all; else the card reads them.
     private func read(_ groupIds: [String]) -> [TransferDownloadGroup.File]? {
-        let groups = groupIds.compactMap { files[$0] }
+        let groups = groupIds.compactMap { channel.files[$0] }
         return groups.count == groupIds.count ? groups.flatMap { $0 } : nil
     }
 
@@ -410,23 +435,23 @@ private struct ChannelPostRow: View {
                 if !post.uploads.isEmpty {
                     TransferCard(groupIds: post.uploads.map(\.groupId), fromUser: mine,
                                  names: post.uploads.flatMap { $0.files.map(\.fileName) },
-                                 files: read(post.uploads.map(\.groupId)), resolve: resolve)
+                                 files: read(post.uploads.map(\.groupId)), resolve: channel.transferGroup)
                 }
                 if !attachments.isEmpty { localAttachments }
                 if !post.text.isEmpty { bubble }
                 if !post.downloads.isEmpty {
-                    TransferCard(groupIds: post.downloads, fromUser: false, files: read(post.downloads), resolve: resolve)
+                    TransferCard(groupIds: post.downloads, fromUser: false, files: read(post.downloads), resolve: channel.transferGroup)
                 }
             }
             .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 18, style: .continuous))
             .contextMenu {
                 if let onReply {
-                    Button("Reply", systemImage: "arrowshape.turn.up.left", action: onReply)
+                    DesignButton("Reply", image: "lucide-undo-2", action: onReply)
                 }
                 #if canImport(UIKit)
                 if !post.text.isEmpty {
-                    Button("Select Text", systemImage: "text.cursor") { selectionRequest += 1 }
-                    Button("Copy", systemImage: "doc.on.doc") { UIPasteboard.general.string = post.text }
+                    DesignButton("Select Text", image: "lucide-text-cursor") { selectionRequest += 1 }
+                    DesignButton("Copy", image: "lucide-copy") { UIPasteboard.general.string = post.text }
                 }
                 #endif
             }
@@ -505,7 +530,7 @@ private struct PausedLine: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: "pause.fill").font(.system(size: 9)).foregroundStyle(Theme.warning)
+            LucideIcon("pause").font(.system(size: 9)).foregroundStyle(Theme.warning)
             Text(text).font(Theme.Text.caption).foregroundStyle(Theme.body)
         }
         .padding(.horizontal, 12)
@@ -529,7 +554,7 @@ private struct ReplyFailedLine: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Image(systemName: "exclamationmark.circle").font(.system(size: 11)).foregroundStyle(Theme.warning)
+                LucideIcon("circle-alert").font(.system(size: 11)).foregroundStyle(Theme.warning)
                 Text([event.text, resets].compactMap(\.self).joined(separator: " "))
                     .font(Theme.Text.caption).foregroundStyle(Theme.body)
             }
@@ -612,14 +637,14 @@ struct ReplyChip: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: "arrowshape.turn.up.left.fill").font(.system(size: 12)).foregroundStyle(Theme.muted)
+            LucideIcon("undo-2").font(.system(size: 12)).foregroundStyle(Theme.muted)
             (Text("Replying to \(reply.authorName) ").foregroundStyle(Theme.body).fontWeight(.medium)
                 + Text(reply.text).foregroundStyle(Theme.muted))
                 .font(Theme.Text.caption)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
             Button(action: onCancel) {
-                Image(systemName: "xmark.circle.fill").font(.system(size: 17)).foregroundStyle(Theme.muted)
+                LucideIcon("circle-x").font(.system(size: 17)).foregroundStyle(Theme.muted)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Cancel reply")

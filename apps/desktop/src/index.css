@@ -382,15 +382,23 @@
   }
 
   /* A link is the same white as the text around it; the underline marks it. */
-  .user-message-bubble a:not(.atlas-mention) {
+  .user-message-bubble a:not(.atlas-mention, .chat-resource-chip) {
     color: inherit;
     text-decoration-line: underline;
     text-decoration-color: rgba(255, 255, 255, 0.45);
     text-underline-offset: 2px;
   }
 
-  .user-message-bubble a:not(.atlas-mention):hover {
+  .user-message-bubble a:not(.atlas-mention, .chat-resource-chip):hover {
     text-decoration-color: currentColor;
+  }
+
+  /* Resource chips are controls, not underlined prose links. Their border and
+     fill need contrast against the dark outgoing bubble in either theme. */
+  .user-message-bubble .chat-resource-chip {
+    --color-line-control: 44, 44, 44;
+    --color-state-selected: rgba(255, 255, 255, 0.08);
+    --color-state-hover: rgba(255, 255, 255, 0.16);
   }
 
   html.light .user-message-bubble {
@@ -1008,37 +1016,35 @@
     margin-left: calc(28px + 54px / var(--zoom-factor, 1));
   }
 
-  /* Reserve room on the trailing edge of the tab strip for the Windows and
-     Linux caption buttons (minimize/maximize/close) that the native title-bar
-     overlay draws over the top-right of the window. macOS keeps the normal
-     inset because its traffic lights sit on the leading edge. */
-  .titlebar-caption-pad {
-    padding-right: 0.75rem;
-  }
-  html.platform-windows .titlebar-caption-pad,
-  html.platform-linux .titlebar-caption-pad {
-    padding-right: calc(138px / var(--zoom-factor, 1));
+  /* The room the Windows and Linux caption buttons (minimize/maximize/close)
+     take: the native title-bar overlay draws them over the top-right of the
+     window and reports where they start, already in zoomed CSS px, so the
+     reserve follows the real buttons at any display scale, page zoom or button
+     layout. It is 0 on macOS, whose traffic lights sit on the leading edge. */
+  :root {
+    --caption-reserve: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw));
   }
 
   /* The workspace-dock toggle is viewport-anchored so opening the dock never
-     pushes it left. The tab strip stops 4px short of it, so the dock's own
-     trailing controls sit beside it. */
+     pushes it left. Whatever runs under it, the dock's tab strip or a header
+     while the dock is closed, pads its right end by --dock-toggle-pad and so
+     stops 4px short of it. */
+  :root {
+    --dock-toggle-pad: calc(2.5rem + 4px);
+  }
+  html.platform-windows,
+  html.platform-linux {
+    --dock-toggle-pad: calc(var(--caption-reserve) + 2.5rem + 4px);
+  }
   .workspace-dock-toggle {
     position: fixed;
     z-index: 40;
     top: calc(8px + var(--sheet-inset));
     right: calc(0.75rem + var(--sheet-inset));
   }
-  .workspace-dock-toggle-pad {
-    padding-right: calc(2.5rem + 4px);
-  }
   html.platform-windows .workspace-dock-toggle,
   html.platform-linux .workspace-dock-toggle {
-    right: calc(138px / var(--zoom-factor, 1) + 0.75rem + var(--sheet-inset));
-  }
-  html.platform-windows .workspace-dock-toggle-pad,
-  html.platform-linux .workspace-dock-toggle-pad {
-    padding-right: calc(138px / var(--zoom-factor, 1) + 2.5rem + 4px);
+    right: calc(var(--caption-reserve) + 0.75rem + var(--sheet-inset));
   }
 
   [data-base-ui-inert] {

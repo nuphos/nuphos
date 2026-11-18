@@ -1,7 +1,7 @@
-import { faRotateRight } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { RotateCw as RotateCwIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
+import { UiIcon } from '../../components/ui/ui-icon'
 import { useReportLoading } from '../../components/useReportLoading'
 import { TimeSeriesPanel } from '../../grafana/components/TimeSeriesPanel'
 import { t } from '../../i18n'
@@ -130,9 +130,10 @@ export function LambdaMetricsPanel({
           className="ml-2 inline-flex items-center gap-1 text-tertiary hover:text-main text-[12px]"
           title={t('Reload metrics')}
         >
-          <FontAwesomeIcon
-            icon={faRotateRight}
-            className={`w-3.5 h-3.5${loading ? ' animate-spin' : ''}`}
+          <UiIcon
+            size={16}
+            icon={RotateCwIcon}
+            className={`w-4 h-4${loading ? ' animate-spin' : ''}`}
           />
         </button>
         {data && (

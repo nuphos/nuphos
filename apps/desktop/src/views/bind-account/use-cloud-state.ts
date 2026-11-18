@@ -102,7 +102,6 @@ export function useCloudProviderState(initialProvider: Provider) {
     setAwsStep(0)
     setError(null)
     setSubmitting(false)
-    setProvider('aws')
   }
 
   return {

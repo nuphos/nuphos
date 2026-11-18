@@ -12,6 +12,7 @@ import { ConnectCardContext } from './connectCardContext'
 import { DecisionAnswersContext } from './decisionAnswers'
 import { DecisionForm } from './DecisionForm'
 import { formQuestions, ownBody } from './decisionFormModel'
+import { DecisionTitle } from './DecisionTitle'
 import { useDecisionKeys } from './useDecisionKeys'
 
 import type { ConnectCardContextValue } from './connectCardContext'
@@ -92,12 +93,12 @@ export function ChoiceCard({
       data-tool-call-id={toolCallId}
       data-decision-question={question}
       data-decision-options={JSON.stringify(options)}
-      className="flex flex-col rounded-[14px] bg-surface-raised px-4 pb-3 pt-3.5 shadow-[0_0_0_1px_rgb(var(--color-line-control)),0_1px_2px_rgba(0,0,0,0.04)]"
+      className="flex flex-col rounded-[14px] border border-line-control bg-surface-raised px-4 pb-3 pt-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
     >
       {ctx?.source && <div className="pb-1.5">{ctx.source}</div>}
-      <h3 className="selectable whitespace-pre-wrap text-[16px] font-semibold leading-[23px] tracking-[-0.01em] text-main">
+      <DecisionTitle className="text-[16px] font-semibold leading-[23px] tracking-[-0.01em] text-main">
         {question}
-      </h3>
+      </DecisionTitle>
       <DecisionBody
         text={ownBody(body, questions)}
         full={ctx?.fullBody}
@@ -212,7 +213,7 @@ function AnswerStatus({
   if (skipped)
     return (
       <div className="mt-2 text-[12.5px] text-secondary">
-        {t('Skipped. The agent carries on without an answer.')}
+        {t('Skipped. It carries on without an answer.')}
       </div>
     )
 

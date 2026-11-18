@@ -2,31 +2,63 @@
 // deterministic agent in place of a model. Each scenario is a flow a person takes.
 import { rmSync } from 'node:fs'
 
+import { accessScenarios } from './access-scenarios.ts'
 import { agentEvents } from './agent-log.ts'
+import { agentWordScenarios } from './agent-word-scenarios.ts'
 import { backendFailures, backendLines } from './backend-log.ts'
+import { botTurnScenarios } from './bot-turn-scenarios.ts'
+import { botUnreadScenarios } from './bot-unread-scenarios.ts'
+import { botWorkingDotsScenarios } from './bot-working-dots-scenarios.ts'
+import { checkDecisionOutline, checkOutgoingChip } from './chat-presentation.ts'
 import { channelScenarios } from './channel-scenarios.ts'
+import { channelAwayScenarios } from './channel-away-scenarios.ts'
+import { commandScenarios } from './command-scenarios.ts'
+import { computerScenarios } from './computer-scenarios.ts'
+import { connectorScenarios } from './connector-scenarios.ts'
+import { dashboardScenarios } from './dashboard-scenarios.ts'
+import { installScenarios } from './install-scenarios.ts'
+import { linkChipScenarios } from './link-chip-scenarios.ts'
+import { longTranscriptScenarios } from './long-transcript-scenarios.ts'
 import { startDesktop } from './desktop.ts'
+import { fallbackScenarios } from './fallback-scenarios.ts'
+import { formScenario } from './form-scenario.ts'
+import { memberStreamScenarios } from './member-stream-scenarios.ts'
+import { offlineScenarios } from './offline-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
+import { providerUnreachableScenarios } from './provider-unreachable-scenarios.ts'
+import { questionScenarios } from './question-scenarios.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
+import { botFoldScenarios, sidebarScenarios } from './sidebar-scenarios.ts'
+import { signInScenarios } from './sign-in-scenarios.ts'
+import { splitPaneScenarios } from './split-pane-scenarios.ts'
 import { startStack } from './stack.ts'
-import { threadScenarios } from './thread-scenarios.ts'
+import { teammateBotScenarios } from './teammate-bot-scenarios.ts'
+import { threadModeScenario, threadScenarios } from './thread-scenarios.ts'
+import { triggerScenarios } from './trigger-scenarios.ts'
+import { tunnelScenarios } from './tunnel-scenarios.ts'
 import { newTask, send } from './ui.ts'
+import { usageScenarios } from './usage-scenarios.ts'
 
 import type { Desktop } from './desktop.ts'
 import type { Scenario } from './ui.ts'
 
 const scenarios: Scenario[] = [
+  ...signInScenarios,
+  ...sidebarScenarios,
   {
-    name: 'sign in with an email code and land in the team',
+    // The flow #3012 was reported in: the sidebar is on Bots, the page a new team opens on.
+    // The connector's CLI (`aws`) has to be on the PATH for the dialog to offer the agent.
+    name: 'set up a cloud connector with the agent from the Bots page, and the setup turn runs',
     run: async (page, stack) => {
-      await page.evaluate(() => localStorage.setItem('nuphos.locale', 'en'))
-      await page.reload()
-      await page.locator('input[type=email]').fill(stack.email)
-      await page.getByRole('button', { name: 'Continue with email' }).click()
-      await page.getByText('Enter the 6-digit code').waitFor()
-      // Entering the sixth digit submits the form.
-      await page.locator('input[placeholder="000000"]').fill(stack.signInCode(stack.email) ?? '')
-      await page.getByText('Start with your first Bot').waitFor()
+      await page.getByRole('button', { name: 'Connectors', exact: true }).click()
+      await page.getByRole('button', { name: 'Add AWS' }).click()
+      await page.getByRole('button', { name: /Set up with agent/ }).click()
+      await page.getByText('ACK E2E_DELIVERY:missing').waitFor()
+      await until('the setup prompt to reach the agent', async () =>
+        agentEvents(stack).includes('finish E2E_DELIVERY:missing'),
+      )
+      // Back where a new team starts, for the scenarios that follow.
+      await page.getByRole('tab', { name: 'Bots' }).click()
     },
   },
   {
@@ -34,17 +66,34 @@ const scenarios: Scenario[] = [
     name: 'create a Bot, talk to it in its chat, and answer its question there',
     run: async (page, stack) => {
       await page.getByRole('button', { name: 'New Bot', exact: true }).click()
-      await page.getByRole('textbox', { name: 'Agent name' }).fill('E2E Bot')
+      await page.getByRole('textbox', { name: 'Bot name' }).fill('E2E Bot')
       await page.getByRole('button', { name: 'Create', exact: true }).click()
-      await send(page, 'Ask me E2E_ASK_CREDENTIAL E2E_DELIVERY:bot')
+      // No user prompt precedes this reply: creating/opening the Bot starts its introduction.
+      // The fixture's missing marker proves the turn did not originate from a delivery prompt.
+      await page.getByText('POSTED E2E_DELIVERY:missing', { exact: true }).waitFor()
+      await until('the unprompted Bot introduction to finish', async () =>
+        agentEvents(stack).includes('finish E2E_DELIVERY:missing'),
+      )
+      await page.screenshot({ path: `${artifacts}/bot-first-reply.png` })
+      await send(
+        page,
+        'Review https://github.com/nuphos/nuphos/issues/1 E2E_ASK_CREDENTIAL E2E_DELIVERY:bot',
+      )
       await page.getByText('POSTED E2E_DELIVERY:bot', { exact: true }).waitFor()
+      await checkDecisionOutline(page)
+      await checkOutgoingChip(page)
+      await page.screenshot({ path: `${artifacts}/bot-question-outline.png` })
       await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).click()
       await until('the answer in the Bot chat to reach the Bot', async () =>
         agentEvents(stack).includes('finish E2E_DELIVERY:answered'),
       )
     },
   },
+  ...botUnreadScenarios,
   ...channelScenarios,
+  ...botWorkingDotsScenarios,
+  ...channelAwayScenarios,
+  ...teammateBotScenarios,
   {
     name: 'start a Task, send a message and read the reply',
     run: async (page) => {
@@ -53,6 +102,10 @@ const scenarios: Scenario[] = [
       await page.getByText('ACK E2E_DELIVERY:first').waitFor()
     },
   },
+  ...linkChipScenarios,
+  // Before the Stop scenarios: a Stop while its turn was being saved was lost (#3403).
+  ...longTranscriptScenarios,
+  ...agentWordScenarios,
   {
     // The flow #2812 was reported in. Its race (a Stop during the queued turn's startup) is not reproduced.
     name: 'queue a message during a turn, press Stop, and the queued message still runs',
@@ -114,6 +167,7 @@ const scenarios: Scenario[] = [
         .getByRole('heading', { name: 'Which marker should the fixture use?' })
         .last()
         .waitFor()
+      await checkDecisionOutline(page)
       await page.screenshot({ path: `${artifacts}/question-pending.png` })
       // #2972: a question is answered on its card; nothing above the composer answers it.
       if (await page.getByRole('group', { name: 'Reply target' }).count()) {
@@ -178,47 +232,38 @@ const scenarios: Scenario[] = [
       await page.getByText('ACK E2E_DELIVERY:skip').waitFor()
       await page.getByRole('button', { name: 'Skip', exact: true }).last().click()
       // The card leaves with its question; the agent's wake notice stays in the chat.
-      await page.getByText(/was skipped: no answer is coming/).waitFor()
-      await until('the agent to be told its question was skipped', async () =>
-        agentEvents(stack).includes('skipped E2E_DELIVERY:missing'),
+      await page.getByText(/was dismissed by .*: no answer is coming/).waitFor()
+      await until('the agent to be told its question was dismissed', async () =>
+        agentEvents(stack).includes('dismissed E2E_DELIVERY:missing'),
       )
       await page.getByText('ACK E2E_DELIVERY:missing').waitFor()
       await page.screenshot({ path: `${artifacts}/question-skipped.png` })
     },
   },
+  ...questionScenarios,
+  ...triggerScenarios,
+  ...usageScenarios,
+  ...connectorScenarios,
+  ...accessScenarios,
   ...runtimeScenarios,
+  ...botTurnScenarios,
+  ...providerUnreachableScenarios,
+  ...computerScenarios,
+  ...commandScenarios,
   ...threadScenarios,
-  {
-    // #2577: a Task under another has no permission mode of its own. The parent here is a
-    // plain Task in Full Access, not a Bot. Last, because its thread is left waiting for a person.
-    name: "a Task's thread runs in the Task's permission mode, follows a change and cannot set its own",
-    run: async (page, stack) => {
-      const has = (event: string) => agentEvents(stack).includes(event)
-
-      await newTask(page)
-      await send(page, 'Start a thread E2E_THREAD E2E_DELIVERY:parent')
-      await page.getByText('ACK E2E_DELIVERY:parent').waitFor()
-      if (!has('thread-mode-refused E2E_DELIVERY:parent')) {
-        throw new Error(`The thread was given a mode of its own: ${agentEvents(stack).join(', ')}`)
-      }
-      // Full Access above it: the thread's command is allowed without asking anyone.
-      await until('the thread to run its command', async () =>
-        has('permission-allow E2E_DELIVERY:thread'),
-      )
-      await page.getByRole('button', { name: 'Authorization mode' }).click()
-      await page.getByText('Auto Mode', { exact: true }).click()
-      await send(page, 'Message the thread E2E_POKE E2E_DELIVERY:poke')
-      await page.getByText('ACK E2E_DELIVERY:poke').waitFor()
-      await until('the thread to ask for its command', async () =>
-        has('permission-asked E2E_DELIVERY:thread-again'),
-      )
-      // Auto Mode above it now: the same command waits for a person instead.
-      await page.waitForTimeout(5_000)
-      if (has('permission-allow E2E_DELIVERY:thread-again')) {
-        throw new Error('The thread kept Full Access after its parent moved to Auto Mode')
-      }
-    },
-  },
+  ...offlineScenarios,
+  threadModeScenario,
+  ...botFoldScenarios,
+  ...fallbackScenarios,
+  ...memberStreamScenarios,
+  // It removes a member from the team.
+  ...dashboardScenarios,
+  // It leaves the window split, then closes a pane.
+  ...splitPaneScenarios,
+  // A second computer of its own, which it stops again.
+  ...tunnelScenarios,
+  // Last: this computer has Claude Code from then on.
+  ...installScenarios,
 ]
 
 let desktop: Desktop | undefined
@@ -230,11 +275,11 @@ try {
 
   desktop = await startDesktop(stack.apiUrl)
   desktop.page.setDefaultTimeout(30_000)
-  for (const [index, scenario] of scenarios.entries()) {
+  for (const [index, scenario] of [...scenarios, formScenario].entries()) {
     const from = backendLines()
 
     await scenario.run(desktop.page, stack)
-    const failures = backendFailures(from)
+    const failures = backendFailures(from, scenario.expected)
 
     await desktop.page.screenshot({ path: `${artifacts}/${String(index + 1)}.png` })
     if (failures.length > 0)

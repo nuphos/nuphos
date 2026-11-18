@@ -41,6 +41,9 @@ final class ChatSession {
     /// Not a transcript row: one at the end is off screen to a reader of
     /// older messages, so the tap looked like it did nothing.
     var stopRefusal: String?
+    /// Set when the runtime never heard the Stop and the server stopped the
+    /// turn on its side, so the tap is answered rather than looking ignored.
+    var stopNotice: String?
     /// New conversation: sent on the first POST. Existing: mirrors the
     /// server's bypass flag — change it with `setPermissionMode`.
     private(set) var permissionMode: PermissionMode = .auto
@@ -55,16 +58,17 @@ final class ChatSession {
     private(set) var agentRuntime: String?
     private(set) var runtimeId: String?
     private(set) var runtimeLabel: String?
-    /// On a teammate's computer that asks its owner first: this conversation waits, or was declined.
-    private(set) var shareApproval: ShareApprovalWait?
-    /// Counts sends the server queued, so a waiting conversation is asked about at once.
+    /// Counts sends the server queued.
     private(set) var queuedSends = 0
     /// Pull requests and issues the agent linked to this conversation.
     private(set) var resources: [SessionResource] = []
     /// Invites, removals and runtime moves, refreshed with every detail read.
     private(set) var timelineEvents: [AgentConversationDetail.TimelineEvent] = []
+    /// What each answered question still waits for, by request id, already phrased by the backend.
+    private(set) var waitingAnswers: [String: String] = [:]
     /// The session is a chat, found on loading it from a link.
     private(set) var isChannel = false
+    private(set) var isBot = false
     /// Files the agent sent the user here, read from the transfer store.
     private(set) var downloads: [TransferDownloadGroup] = []
     private(set) var isArchived = false
@@ -238,15 +242,6 @@ final class ChatSession {
         try await WorkspaceAPI.request("teams/\(teamId)/file-transfers/\(groupId)/download", token: token)
     }
 
-    /// Reads where this conversation stands with the owner of the teammate's computer it
-    /// runs on; false once it is no longer pending, when there is nothing more to watch.
-    func refreshShareApproval() async -> Bool {
-        guard let answer = try? await NuphosAPI.ownShareApproval(token: token, sessionId: sessionId) else { return true }
-        shareApproval = ShareApprovalWait(status: answer.status)
-
-        return ShareApprovalWait.keepsWatching(status: answer.status)
-    }
-
     private var transferPath: String { "agent-sessions/\(sessionId)/teams/\(teamId)/file-transfers" }
 
     // MARK: - Private
@@ -372,6 +367,7 @@ final class ChatSession {
             serverTail = ServerTail(detail)
             // A link can name a chat; the app shows it as one, not as an agent.
             isChannel = detail.isChannel
+            isBot = detail.avatar != nil && !detail.isChannel
             var msgs = detail.messages
             baseIndex = detail.messagesFirstIndex ?? 0
             readOnly = detail.readOnly ?? true
@@ -428,11 +424,20 @@ final class ChatSession {
     /// The secure input card's answer, as on the desktop: the value goes
     /// straight to a file on the agent's runtime, and the reply names only
     /// the file's path. The value is never kept, logged or put in the transcript.
-    func provideSecret(_ value: String, for part: ChatPart.ToolPart) async throws {
-        guard let name = part.secretRequest?.name else { return }
-        let path = try await AgentChatAPI.saveSecret(token: token, teamId: teamId, sessionId: sessionId, name: name, value: value)
+    /// A card with several fields saves one file each, in order, and names them all in one reply.
+    func provideSecret(_ values: [String], for part: ChatPart.ToolPart) async throws {
+        guard let request = part.secretRequest else { return }
+        let names = request.fields?.map(\.name) ?? [request.name]
+        guard values.count == names.count else { return }
+        var saved: [(name: String, path: String)] = []
+        for (name, value) in zip(names, values) {
+            saved.append((name, try await AgentChatAPI.saveSecret(token: token, teamId: teamId, sessionId: sessionId, name: name, value: value)))
+        }
+        let reply = request.fields == nil
+            ? ChatPart.ToolPart.secretSavedReply(request.name) + saved[0].path
+            : ChatPart.ToolPart.secretFieldsSavedReply(request.name, saved: saved)
         try? await AgentChatAPI.resolveDecision(token: token, teamId: teamId, sessionId: sessionId, requestId: part.decisionRequestId)
-        send(SecretCard.savedReply(name) + path)
+        send(reply)
     }
 
     /// The first reply after the message that asked, if anyone replied yet.
@@ -858,7 +863,9 @@ final class ChatSession {
             Task {
                 defer { isStopping = false }
                 do {
-                    try await AgentChatAPI.cancelRuntime(token: token, teamId: teamId, sessionId: sessionId)
+                    if try await AgentChatAPI.cancelRuntime(token: token, teamId: teamId, sessionId: sessionId) == "runtime_unreachable" {
+                        stopNotice = String(localized: "The runtime didn't respond; the turn was stopped here.")
+                    }
                     // Show the stopped turn now, not at the next idle poll.
                     let observedAt = ProcessInfo.processInfo.systemUptime
                     if let detail = try? await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: sessionId, tail: 1) {
@@ -1114,6 +1121,7 @@ final class ChatSession {
         if let id = detail.runtimeId { runtimeId = id }
         if let l = detail.runtimeLabel { runtimeLabel = l }
         timelineEvents = detail.timelineEvents
+        waitingAnswers = Dictionary(detail.waitingAnswers.map { ($0.requestId, $0.note) }, uniquingKeysWith: { first, _ in first })
         isArchived = detail.archivedAt != nil
         isWatching = detail.watching
     }

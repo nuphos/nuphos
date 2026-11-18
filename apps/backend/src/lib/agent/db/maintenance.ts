@@ -1,5 +1,6 @@
 import { pruneAvatars } from '@/lib/identity/avatar-upload'
 
+import { isBotChat } from './archive'
 import { pushTimelineEvent } from './participants'
 import { agentConversations, withTeamScope } from './shared'
 
@@ -46,8 +47,11 @@ export async function renameConversation(
   const next = title.trim()
 
   if (!next || next.length > 120) return false
+  const chat = await agentConversations().findOne(withTeamScope({ sessionId, userId }, teamId))
+  // A Bot's chat is called by its Bot, so renaming the chat renames the Bot.
+  const target = (chat && isBotChat(chat) && chat.agentSessionIds?.[0]) || sessionId
   const result = await agentConversations().updateOne(
-    withTeamScope({ sessionId, userId }, teamId),
+    withTeamScope({ sessionId: target, userId }, teamId),
     { $set: { title: next, titleManuallySet: true } },
   )
 
@@ -86,7 +90,12 @@ export async function claimBotAvatar(
   return result.modifiedCount > 0
 }
 
-export type BotSelfUpdate = { title?: string; avatar?: string; instructions?: string }
+export type BotSelfUpdate = {
+  title?: string
+  avatar?: string
+  instructions?: string
+  botOnboarding?: 'completed'
+}
 
 // A Bot (a conversation with an avatar) edits its own name, face and
 // instructions. A Task has no avatar, so this never turns a Task into a Bot.
@@ -97,8 +106,22 @@ export async function updateBotSelf(
   update: BotSelfUpdate,
   via: 'update_self' | 'bot_import' = 'update_self',
 ): Promise<boolean> {
+  if (update.botOnboarding && !update.instructions?.trim()) return false
   const bot = await agentConversations().findOneAndUpdate(
-    withTeamScope({ sessionId, userId, avatar: { $exists: true } }, teamId),
+    withTeamScope(
+      {
+        sessionId,
+        userId,
+        avatar: { $exists: true },
+        ...(update.botOnboarding
+          ? {
+              botOnboarding: 'active',
+              inputRequests: { $not: { $elemMatch: { status: 'open', category: 'preference' } } },
+            }
+          : {}),
+      },
+      teamId,
+    ),
     {
       $set: {
         ...update,

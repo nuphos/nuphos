@@ -1,5 +1,5 @@
-// Scenarios about the cards a Task shows for the threads it starts and messages.
-import { agentLog, delegatedTurn } from './agent-log.ts'
+// Scenarios about the threads a Task starts: the cards it shows for them and the model they start on.
+import { agentEvents, agentLog, delegatedTurn } from './agent-log.ts'
 import { until } from './processes.ts'
 import { newTask, send } from './ui.ts'
 
@@ -51,4 +51,69 @@ export const threadScenarios: Scenario[] = [
       }
     },
   },
+  {
+    // #2577: a thread started with no model picked begins on its parent's. The parent here
+    // is a top-level Task; a Bot takes the same create_thread path.
+    name: "a thread started with no model picked starts on its parent's model",
+    run: async (page, stack) => {
+      await newTask(page)
+      await send(page, 'Before the pick E2E_DELIVERY:inherit-parent')
+      await page.getByText('ACK E2E_DELIVERY:inherit-parent').waitFor()
+      await page.getByRole('button', { name: /^Model settings/ }).click()
+      await page.getByRole('button', { name: 'Select model' }).click()
+      await page.getByRole('menuitemcheckbox', { name: /fixture-small/ }).click()
+      await page.keyboard.press('Escape')
+      await page.getByRole('button', { name: /^Model settings: fixture-small/ }).waitFor()
+      await send(page, 'Start a thread E2E_INHERIT E2E_DELIVERY:inherit')
+      await until('the thread with no pick to finish', async () =>
+        delegatedTurn(stack, 'E2E_DELIVERY:inherit-child'),
+      )
+      const turn = delegatedTurn(stack, 'E2E_DELIVERY:inherit-child')
+      const session = agentLog(stack).find(
+        (entry) => entry.event === 'session' && entry.sessionId === turn?.sessionId,
+      )
+
+      if (session?.defaults?.model !== 'fixture-small') {
+        throw new Error(
+          `The thread's session was not created on its parent's model: ${JSON.stringify(session)}`,
+        )
+      }
+    },
+  },
 ]
+
+export const threadModeScenario: Scenario = {
+  // #2577: a Task under another has no permission mode of its own. The parent here is a
+  // plain Task in Full Access, not a Bot.
+  name: "a Task's thread runs in the Task's permission mode, follows a change and cannot set its own",
+  run: async (page, stack) => {
+    const has = (event: string) => agentEvents(stack).includes(event)
+
+    await newTask(page)
+    await send(page, 'Start a thread E2E_THREAD E2E_DELIVERY:parent')
+    await page.getByText('ACK E2E_DELIVERY:parent').waitFor()
+    if (!has('thread-mode-refused E2E_DELIVERY:parent')) {
+      throw new Error(`The thread was given a mode of its own: ${agentEvents(stack).join(', ')}`)
+    }
+    // Full Access above it: the thread's command is allowed without asking anyone.
+    await until('the thread to run its command', async () =>
+      has('permission-allow E2E_DELIVERY:thread'),
+    )
+    await page.getByRole('button', { name: 'Authorization mode' }).click()
+    await page.getByText('Auto Mode', { exact: true }).click()
+    await send(page, 'Message the thread E2E_POKE E2E_DELIVERY:poke')
+    await page.getByText('ACK E2E_DELIVERY:poke').waitFor()
+    await until('the thread to ask for its command', async () =>
+      has('permission-asked E2E_DELIVERY:thread-again'),
+    )
+    // Auto Mode above it now: the same command waits for a person instead.
+    await page.waitForTimeout(5_000)
+    if (has('permission-allow E2E_DELIVERY:thread-again')) {
+      throw new Error('The thread kept Full Access after its parent moved to Auto Mode')
+    }
+    // A later agent host restart would fail a turn still waiting for a person.
+    await page.getByText('E2E thread', { exact: true }).click()
+    await page.getByRole('button', { name: /^Deny/ }).click()
+    await until('the thread to finish', async () => has('finish E2E_DELIVERY:thread-again'))
+  },
+}

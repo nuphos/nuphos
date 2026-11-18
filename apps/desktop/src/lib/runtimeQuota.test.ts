@@ -5,6 +5,7 @@ import {
   formatResetsAt,
   quotaDetailLines,
   quotaNote,
+  quotaSharedWith,
   quotaSignedOut,
   quotaSummary,
   quotaTone,
@@ -115,4 +116,27 @@ test('only the probe finding no sign-in reads as signed out', () => {
   assert.equal(quotaSignedOut({ ...signedOut, reason: 'Usage lookup failed' }), false)
   assert.equal(quotaSignedOut({ ...signedOut, available: true }), false)
   assert.equal(quotaSignedOut(undefined), false)
+})
+
+test('names the agents that spend the same account, and nothing for one alone', () => {
+  const base = {
+    runtimeId: 'a',
+    provider: 'claude-code' as const,
+    fetchedAt: '2026-11-17T00:00:00Z',
+    available: true,
+    windows: [],
+  }
+
+  assert.equal(quotaSharedWith(base), null)
+  assert.equal(quotaSharedWith(undefined), null)
+  assert.equal(
+    quotaSharedWith({
+      ...base,
+      sharesQuotaWith: [
+        { runtimeId: 'b', label: 'Yuanlin (20x) in Box' },
+        { runtimeId: 'c', label: 'Claude in Mac' },
+      ],
+    }),
+    'Shares quota with Yuanlin (20x) in Box, Claude in Mac',
+  )
 })

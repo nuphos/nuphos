@@ -1,0 +1,87 @@
+// What a turn's reported usage becomes in the database, read back as the usage views read it.
+import { execFileSync } from 'node:child_process'
+import { resolve } from 'node:path'
+
+import { until } from './processes.ts'
+import { newTask, send } from './ui.ts'
+
+import type { Stack } from './stack.ts'
+import type { Scenario } from './ui.ts'
+
+const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
+
+type TurnRow = { modelId: string; tokens: Record<string, number> } & Record<string, unknown>
+
+/** The step_total rows of runtime turns, or null before any is written. */
+function turnRows(stack: Stack): TurnRow[] | null {
+  const script = `
+    import { MongoClient } from 'mongodb'
+    const [uri, teamId] = process.argv.slice(1)
+    const client = await new MongoClient(uri).connect()
+    const rows = await client.db('nuphos_e2e').collection('agent_token_usage')
+      .find({ teamId, source: 'agent-runtime', kind: 'step_total' }).toArray()
+    await client.close()
+    console.log(JSON.stringify(rows.length ? rows : null))`
+
+  return JSON.parse(
+    execFileSync('bun', ['-e', script, stack.mongoUri, stack.teamId], {
+      cwd: BACKEND_DIR,
+      timeout: 10_000,
+    }).toString(),
+  ) as TurnRow[] | null
+}
+
+/** JSON with every object's keys in order, so two values compare as text. */
+const canonical = (value: unknown) =>
+  JSON.stringify(value, (_key, inner: unknown) =>
+    inner && typeof inner === 'object' && !Array.isArray(inner)
+      ? Object.fromEntries(Object.entries(inner).sort(([a], [b]) => a.localeCompare(b)))
+      : inner,
+  )
+
+export const usageScenarios: Scenario[] = [
+  {
+    name: 'a Claude Code turn is stored per model with its sender, runtime and stop reason',
+    run: async (page, stack) => {
+      await newTask(page)
+      await send(page, 'Count this E2E_TURN_USAGE E2E_DELIVERY:usage')
+      await page.getByText('ACK E2E_DELIVERY:usage').waitFor()
+      let rows: TurnRow[] | null = null
+
+      await until('the turn usage to be stored', async () => {
+        rows = turnRows(stack)
+
+        return rows !== null
+      })
+      const byModel = Object.fromEntries((rows ?? []).map((row) => [row.modelId, row.tokens]))
+      const expected = {
+        'claude-opus-5-5': {
+          inputTokens: 258_012,
+          cachedInputTokens: 250_000,
+          cacheWriteTokens: 8000,
+          outputTokens: 900,
+          totalTokens: 258_912,
+        },
+        'claude-haiku-5-5': {
+          inputTokens: 31_000,
+          cachedInputTokens: 30_000,
+          cacheWriteTokens: 600,
+          outputTokens: 400,
+          totalTokens: 31_400,
+        },
+      }
+
+      if (canonical(byModel) !== canonical(expected))
+        throw new Error(`Stored ${JSON.stringify(byModel)}, expected ${JSON.stringify(expected)}`)
+      // The app's own member sent it, on the stack's hosted runtime, and it ended normally.
+      for (const row of rows ?? [])
+        if (
+          row.actorUserId !== row.userId ||
+          row.turnSource !== 'app' ||
+          typeof row.runtimeId !== 'string' ||
+          row.finishReason !== 'end_turn'
+        )
+          throw new Error(`Turn row is missing who, where or how: ${JSON.stringify(row)}`)
+    },
+  },
+]

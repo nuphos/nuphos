@@ -15,6 +15,7 @@ export function FailureRow({
   children,
   fix,
   onSwitchAgent,
+  onSetUpFallback,
   onRetry,
   retrying = false,
   copyText,
@@ -24,6 +25,8 @@ export function FailureRow({
   fix?: ReactNode
   /** Opens the agent list: only for the agent's owner, when the agent itself was the cause. */
   onSwitchAgent?: () => void
+  /** Sets the failed runtime's team fallback and moves there: only while it has none. */
+  onSetUpFallback?: () => void
   onRetry?: () => void
   retrying?: boolean
   copyText?: string
@@ -40,6 +43,11 @@ export function FailureRow({
               {onSwitchAgent && (
                 <Button size="sm" variant="secondary" onClick={onSwitchAgent}>
                   {t('Switch runtime')}
+                </Button>
+              )}
+              {onSetUpFallback && (
+                <Button size="sm" variant="secondary" onClick={onSetUpFallback}>
+                  {t('Set up fallback')}
                 </Button>
               )}
               {onRetry && (

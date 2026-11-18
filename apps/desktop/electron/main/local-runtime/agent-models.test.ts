@@ -3,9 +3,11 @@ import { mock, test } from 'node:test'
 
 import {
   discoverModels,
+  MODEL_FIRST_READ_MS,
   MODEL_ON_DEMAND_MS,
   MODEL_REFRESH_MS,
   MODEL_RETRY_MS,
+  MODEL_SIGNED_OUT_MS,
   refreshRunningModels,
 } from './agent-models.ts'
 
@@ -18,7 +20,7 @@ const catalog: LocalModelCatalog = {
   controls: {},
 }
 
-function setup(results: (LocalModelCatalog | Error)[]) {
+function setup(results: (LocalModelCatalog | Error)[], provider = 'codex') {
   let probes = 0
   let sent = 0
   const deps = {
@@ -29,7 +31,7 @@ function setup(results: (LocalModelCatalog | Error)[]) {
     },
   } as unknown as LocalRuntimeControllerDeps
   const current = { value: true }
-  const run = { provider: 'codex', env: {}, current: () => current.value } as LocalAgentRun
+  const run = { provider, env: {}, current: () => current.value } as LocalAgentRun
   const agent = { runtime: { port: 1 } } as unknown as Agent
 
   discoverModels(deps, run, agent, '/w', () => sent++)
@@ -75,6 +77,43 @@ test('retries stop once the agent it probed for is stopped or replaced', async (
     await settle()
     assert.equal(replaced.probes(), 1)
     assert.equal(agent.models, undefined)
+  } finally {
+    mock.timers.reset()
+  }
+})
+
+test('a signed-out CLI is not started to list models until it signs in', async () => {
+  mock.timers.enable({ apis: ['setTimeout'] })
+  try {
+    let probes = 0
+    const deps = {
+      probeModels: () => {
+        probes++
+
+        return Promise.resolve(catalog)
+      },
+    } as unknown as LocalRuntimeControllerDeps
+    const run = { provider: 'codex', env: {}, current: () => true } as LocalAgentRun
+    const agent = {
+      runtime: { port: 1 },
+      cli: { installed: true, path: '/bin/codex', loggedIn: false },
+    } as unknown as Agent
+
+    let sent = 0
+
+    discoverModels(deps, run, agent, '/w', () => sent++)
+    await settle()
+    assert.equal(await refreshRunningModels(), false)
+    mock.timers.tick(3_600_000)
+    await settle()
+    assert.equal(probes, 0)
+
+    agent.cli = { installed: true, path: '/bin/codex', loggedIn: true }
+    mock.timers.tick(MODEL_SIGNED_OUT_MS)
+    await settle()
+    assert.equal(probes, 1)
+    assert.deepEqual(agent.models, catalog)
+    assert.equal(sent, 1)
   } finally {
     mock.timers.reset()
   }
@@ -194,6 +233,39 @@ test('an opened picker reads running agents again, at most once a minute', async
     mock.timers.tick(MODEL_ON_DEMAND_MS)
     assert.equal(await refreshRunningModels(), false)
     assert.equal(agent.probes.length, 3)
+  } finally {
+    mock.timers.reset()
+  }
+})
+
+test("Hermes's first read waits, so its daemon does not start beside the first conversation's", async () => {
+  mock.timers.enable({ apis: ['setTimeout'] })
+  try {
+    const { agent, probes } = setup([catalog], 'hermes')
+
+    await settle()
+    assert.equal(probes(), 0)
+    mock.timers.tick(MODEL_FIRST_READ_MS.hermes! - 1)
+    await settle()
+    assert.equal(probes(), 0)
+    mock.timers.tick(1)
+    await settle()
+    assert.equal(probes(), 1)
+    assert.deepEqual(agent.models, catalog)
+  } finally {
+    mock.timers.reset()
+  }
+})
+
+test('an opened picker reads a waiting Hermes at once', async () => {
+  mock.timers.enable({ apis: ['setTimeout'] })
+  try {
+    const { agent, probes } = setup([catalog], 'hermes')
+
+    await settle()
+    assert.equal(await refreshRunningModels(), true)
+    assert.equal(probes(), 1)
+    assert.deepEqual(agent.models, catalog)
   } finally {
     mock.timers.reset()
   }

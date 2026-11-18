@@ -14,6 +14,7 @@ import {
 import {
   boxBackendUrl,
   boxDesktopUrl,
+  boxPausedBy,
   boxState,
   boxesAvailable,
   createBox,
@@ -52,7 +53,7 @@ import { createAgentDeviceBoxRoutes } from './routes-devices-box'
 import { readTeamIdCandidate } from './team-scope'
 
 import type { DeviceAccessDeps } from '@/lib/agent/devices/box-access'
-import type { BoxState } from '@/lib/agent/devices/box-instabox'
+import type { BoxProvider } from '@/lib/agent/devices/box-instabox'
 import type { HolderMessage } from '@/lib/agent/devices/local-runtime/protocol'
 import type { AgentDevice, AgentDeviceRegistration } from '@/lib/agent/devices/store'
 import type { AuthVariables } from '@/middleware/auth'
@@ -109,19 +110,7 @@ export type AgentDeviceRouteDependencies = {
   /** Where a joining machine dials: this deployment's public URL, if it has one. */
   publicUrl: () => string | undefined
   /** Null only in tests that have no Box provider. */
-  box: {
-    create: typeof createBox
-    pause: (userId: string, deviceId: string) => Promise<AgentDevice>
-    resume: (userId: string, deviceId: string) => Promise<AgentDevice>
-    destroy: (userId: string, deviceId: string) => Promise<void>
-    /** A link to the Box's desktop, to watch and take over what its agents do. */
-    desktop: (userId: string, deviceId: string) => Promise<string>
-    /** Starts the host again on a running machine whose host dropped; rate-limited. */
-    heal: (userId: string, deviceId: string) => void
-    /** Whether Boxes can be ordered here: a provider and a public URL for the machine to dial. */
-    available: () => boolean
-    state: (device: AgentDevice, online: boolean) => Promise<BoxState | 'gone'>
-  } | null
+  box: BoxProvider | null
 }
 
 const defaultDependencies: AgentDeviceRouteDependencies = {
@@ -160,6 +149,7 @@ const defaultDependencies: AgentDeviceRouteDependencies = {
     heal: healBox,
     available: boxesAvailable,
     state: boxState,
+    pausedBy: boxPausedBy,
   },
 }
 
@@ -174,7 +164,7 @@ export function createAgentDeviceRoutes(deps: AgentDeviceRouteDependencies = def
     const registration = c.req.valid('json')
 
     if ((await deps.getAgentDevice(c.get('userId'), registration.deviceId))?.box)
-      throw new AppError(409, 'device_is_box', 'A Box is not registered from a computer')
+      throw new AppError(409, 'device_is_box', 'A cloud computer is not registered this way')
     await deps.upsertAgentDevice(c.get('userId'), registration)
 
     return c.json({ ok: true })
@@ -229,7 +219,7 @@ export function createAgentDeviceRoutes(deps: AgentDeviceRouteDependencies = def
       const device = await deps.getAgentDevice(userId, deviceId)
 
       if (!device) throw new AppError(404, 'device_not_found', 'Device is not registered')
-      if (device.box) throw new AppError(400, 'device_is_box', 'Delete a Box with its Box delete')
+      if (device.box) throw new AppError(400, 'device_is_box', 'Use Delete for a cloud computer')
       if (await deps.isOnline(userId, deviceId))
         throw new AppError(409, 'device_online', 'Quit Nuphos on this computer first')
       // Forgotten before the delete, so a failure here leaves the computer registered and

@@ -1,10 +1,11 @@
 // The instabox connection shared by the Box provider: the deployment's key,
 // bounded timeouts, and the commands a fresh machine runs.
 
-import { InstaboxError } from '@insforge/instabox-sdk'
+import { InstaboxAuthError, InstaboxError, InstaboxQuotaError } from '@insforge/instabox-sdk'
 
 import { config } from '@/config'
 import { AppError } from '@/lib/errors'
+import { logError } from '@/lib/observability'
 
 import { killMachine, listMachines } from './instabox-machines'
 
@@ -21,13 +22,15 @@ export const REQUEST_TIMEOUT_MS = 15_000
 
 const PATHS = 'export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"'
 
-/** Node 22 and the agents; the template already has all but grok, so this is mostly checks. */
+/** Node 22 and the agents; the template already has all but grok and Pi, so this is mostly checks. */
 const AGENTS = [
   'if ! node -e "process.exit(+process.versions.node.split(\'.\')[0] >= 22 ? 0 : 1)" 2>/dev/null; then',
   '  curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt-get install -y nodejs',
   'fi',
   'command -v claude >/dev/null && command -v codex >/dev/null && command -v opencode >/dev/null || { npm config set prefix "$HOME/.npm-global" && npm i -g @anthropic-ai/claude-code @openai/codex opencode-ai; }',
   'command -v grok >/dev/null || curl -fsSL https://x.ai/cli/install.sh | GROK_BIN_DIR="$HOME/.local/bin" bash',
+  // Its own check, so a Box that already has the others gets it on its next update.
+  'command -v pi >/dev/null || { npm config set prefix "$HOME/.npm-global" && npm i -g @earendil-works/pi-coding-agent; }',
 ]
 
 /**
@@ -58,6 +61,18 @@ export const BOX_MOUNTS_COMMAND = [
   // fill the root disk. Only while Docker holds nothing yet, since the bind would hide what it has.
   'sudo install -d -m 711 /data/docker /data/containerd',
   'grep -q " /var/lib/docker " /etc/fstab || [ -n "$(sudo docker images -q 2>/dev/null)$(sudo docker volume ls -q 2>/dev/null)" ] || printf "%s\\n" "/data/docker /var/lib/docker none bind,nofail,x-systemd.requires-mounts-for=/data,x-systemd.before=docker.service 0 0" "/data/containerd /var/lib/containerd none bind,nofail,x-systemd.requires-mounts-for=/data,x-systemd.before=containerd.service 0 0" | sudo tee -a /etc/fstab >/dev/null',
+].join('\n')
+
+/**
+ * Frees a full /data without losing anything: only the caches the runtime shares between
+ * conversations (session-home.mjs), which their tools refill on the next install or build, and
+ * Docker's build cache. Never a workspace, a sign-in, an image or a volume.
+ */
+export const BOX_CLEAR_CACHES_COMMAND = [
+  'rm -rf "$HOME/.cache/go-build" "$HOME/.bun/install/cache" "$HOME/.cache/pip" "$HOME/.cache/uv" "$HOME/.local/share/pnpm/store"',
+  // Go writes its module cache read-only.
+  'chmod -R u+w "$HOME/go/pkg/mod" 2>/dev/null; rm -rf "$HOME/go/pkg/mod"',
+  'sudo docker builder prune -f >/dev/null 2>&1 || true',
 ].join('\n')
 
 /**
@@ -102,7 +117,7 @@ export const BOX_UPDATE_COMMAND = [
 export function connection(timeoutMs: number) {
   const box = config.box.instabox
 
-  if (!box) throw new AppError(503, 'box_unavailable', 'Boxes are not enabled on this deployment')
+  if (!box) throw new AppError(503, 'box_unavailable', 'Cloud computers are off on this deployment')
 
   // One stalled poll must not hold a whole operation: each request gets its own short budget.
   return {
@@ -131,7 +146,7 @@ export function requireBackendUrl(): string {
     throw new AppError(
       503,
       'box_unavailable',
-      'This deployment has no public URL for a Box to reach',
+      'This deployment has no public URL for a cloud computer to reach',
     )
 
   return url
@@ -141,9 +156,50 @@ export function boxesAvailable(): boolean {
   return config.box.instabox !== null && boxBackendUrl() !== undefined
 }
 
-export const reason = (error: unknown) => (error instanceof Error ? error.message : String(error))
-export const unavailable = (what: string, error: unknown) =>
-  new AppError(503, 'box_unavailable', `${what}: ${reason(error)}`)
+/**
+ * A failed instabox call, in words for whoever asked: what failed, never instabox's own
+ * text, which can name the account and its owner. That text goes to the server log.
+ */
+export function unavailable(what: string, error: unknown): AppError {
+  if (error instanceof AppError) return error
+  logError('agent.box.instabox_failed', error, { what })
+
+  return new AppError(503, 'box_unavailable', `${what}. Try again in a few minutes.`)
+}
+
+/**
+ * Why instabox did not make a Box, in words for whoever asked. Its own text can name the
+ * account and its owner, so it stays in the server log. The deployment's account is
+ * Nuphos's to fix, so only a team's own account gets the 4xx that asks the team to act.
+ */
+export function orderRefused(error: unknown, ownAccount: boolean): AppError {
+  if (error instanceof AppError) return error
+  if (ownAccount && error instanceof InstaboxQuotaError)
+    return new AppError(
+      409,
+      'instabox_quota_exceeded',
+      'Your instabox account has reached its limit of computers. Delete one there or upgrade its plan, then try again.',
+    )
+  // instabox answers a setting the plan does not allow with a 403 too: not a key problem.
+  if (ownAccount && error instanceof InstaboxError && error.code === 'spec_not_allowed')
+    return new AppError(
+      409,
+      'instabox_plan_not_allowed',
+      'Your instabox plan does not allow this computer. Upgrade the plan there, then try again.',
+    )
+  if (ownAccount && error instanceof InstaboxAuthError)
+    return new AppError(
+      409,
+      'instabox_key_rejected',
+      'Your instabox account no longer accepts its API key. A team administrator can bind the account again with a new key under Settings → Integrations.',
+    )
+
+  return new AppError(
+    503,
+    'box_unavailable',
+    'instabox could not make the computer. Try again in a few minutes.',
+  )
+}
 
 /**
  * Deletes the machine a Box owns. A row that never got its machine id (the backend

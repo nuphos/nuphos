@@ -42,7 +42,18 @@ fi
 
 mkdir -p "$dest_dir"
 url="${base}/agent-sessions/${session}/teams/${team_id}/file-transfers/${group_id}/download"
-resp="$(curl -fsSL -H @<(printf 'Authorization: Bearer %s\n' "${token}") "$url")"
+fetch() {
+  curl -fsSL -H @<(printf 'Authorization: Bearer %s\n' "${token}") "$url"
+}
+# An upload may still be travelling from the user's computer when its group id
+# arrives, so wait for it with short requests instead of one long one.
+wait_seconds="${NUPHOS_TRANSFER_WAIT_SECONDS:-90}"
+resp="$(fetch)"
+pending='"status"[[:space:]]*:[[:space:]]*"pending"'
+while [[ "$resp" =~ $pending ]] && [ "$SECONDS" -lt "$wait_seconds" ]; do
+  sleep 3
+  resp="$(fetch)"
+done
 
 # Parse the file list, download each ready file (preserving relPath), and
 # optionally unpack any pulled .zip archives.
@@ -54,7 +65,8 @@ extract = sys.argv[3] == "1"
 dest_abs = os.path.abspath(dest)
 files = data.get("files", [])
 ready = [f for f in files if f.get("status") == "ready" and f.get("downloadUrl")]
-pending = [f for f in files if f.get("status") != "ready"]
+lost = [f for f in files if f.get("status") == "failed"]
+pending = [f for f in files if f.get("status") not in ("ready", "failed")]
 
 def safe_rel(rel):
     rel = os.path.normpath(rel).lstrip("/")
@@ -98,12 +110,18 @@ if extract:
             failed += 1
             print(f"  extract FAILED {os.path.relpath(out, dest)}: {e}", file=sys.stderr)
 
+if lost:
+    names = ", ".join(p.get("fileName","?") for p in lost)
+    print(f"Upload failed ({len(lost)}): {names} never reached storage. "
+          "The upload from the user's computer was interrupted or the file changed while it was being sent. "
+          "Start the upload again; re-running this command will not help.", file=sys.stderr)
 if pending:
     names = ", ".join(p.get("fileName","?") for p in pending)
-    print(f"Not ready yet ({len(pending)}): {names} — re-run to retry", file=sys.stderr)
+    print(f"Still uploading ({len(pending)}): {names}. Nothing is wrong yet; "
+          "run this command again to keep waiting.", file=sys.stderr)
 
 # Non-zero exit if anything failed or is still pending, so the agent doesn't
 # continue a workflow with missing inputs.
-if failed > 0 or pending:
+if failed > 0 or lost or pending:
     sys.exit(1)
 PY

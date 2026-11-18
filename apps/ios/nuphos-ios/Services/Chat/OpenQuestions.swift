@@ -41,21 +41,25 @@ final class OpenQuestions {
     /// The question to open after `id`.
     func next(after id: String) -> String? { BotQuestions.next(after: id, in: groups) }
 
-    func refresh(pick: @MainActor ([AgentConversation]) -> [BotQuestion] = BotQuestions.open) async {
+    /// Which of the listing's questions this list shows: all of them, or a Bot's; kept for refreshes after a save.
+    @ObservationIgnored private var pick: @MainActor ([AgentConversation]) -> [BotQuestion] = BotQuestions.open
+
+    func refresh(pick: (@MainActor ([AgentConversation]) -> [BotQuestion])? = nil) async {
+        if let pick { self.pick = pick }
         do {
             var rows: [AgentConversation] = []
             var cursor: String?
             // Bounded like the desktop's: a cursor never repeats a page.
             for _ in 0..<10 {
                 let page = try await NuphosAPI.conversations(
-                    token: token, teamId: teamId, cursor: cursor, limit: 100, pendingDecision: true)
+                    token: token, teamId: teamId, cursor: cursor, limit: 100, pendingDecision: true, includeOnboarding: true)
                 rows += page.rows
                 guard page.hasMore, let next = page.nextCursor, next != cursor else { break }
                 cursor = next
             }
             // A Bot's group wears its face, even before the Bot list loads.
             await MainActor.run { BotFaces.shared.learn(rows) }
-            listed = pick(rows)
+            listed = self.pick(rows)
             answered.formIntersection(listed.map(\.id))
             // Answered elsewhere: nothing stays open on it.
             if let selected, !list.contains(where: { $0.id == selected }) { self.selected = nil }
@@ -97,15 +101,20 @@ final class OpenQuestions {
     }
 
     /// Saves the asking conversation's selection, as its credential picker would. The server
-    /// answers the question once it covers a provider asked for; the card leaves with the listing.
+    /// answers the question once it adds a provider asked for; the card leaves with the listing,
+    /// or says why it is still open.
     func select(_ selection: CredentialSelection, for question: BotQuestion) async {
         failures[question.id] = nil
         do {
             try await AgentChatAPI.updateCredentials(token: token, teamId: teamId, sessionId: question.sessionId, selection: selection)
         } catch {
             failures[question.id] = error.localizedDescription
+            return
         }
         await refresh()
+        if listed.contains(where: { $0.id == question.id }) {
+            failures[question.id] = String(localized: "The selection adds no credential this question asks for.")
+        }
     }
 
     /// Answers a question: the server wakes the agent that asked with the answer, and no

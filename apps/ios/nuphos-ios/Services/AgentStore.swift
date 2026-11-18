@@ -184,6 +184,8 @@ final class AgentStore {
             try await AgentChatAPI.setArchived(token: token, teamId: teamId, sessionId: sessionId, archived: true)
             guard scope == workspaceScope else { return }
             removeFromList(sessionId)
+            // An archived Bot comes back folded, as on Desktop.
+            updateFolds { _ = $0.remove("bots:\(sessionId)") }
             // A Bot goes with its chat on the server, so the chats list drops it too.
             await loadChannels()
         } catch {
@@ -234,7 +236,9 @@ final class AgentStore {
     // MARK: - Threads
 
     private static let foldedThreadsKey = "nuphos.agent.foldedThreads"
-    /// Thread parents folded on the Agent page, per team.
+    /// Rows whose fold was flipped by hand, per team. A Tasks row is open
+    /// until folded. A Bots row, keyed `bots:<id>` as on Desktop, is folded
+    /// until opened, and then stays open.
     private var foldedThreads: [String: Set<String>] =
         (UserDefaults.standard.dictionary(forKey: AgentStore.foldedThreadsKey) as? [String: [String]] ?? [:])
             .mapValues(Set.init)
@@ -244,31 +248,73 @@ final class AgentStore {
         ConversationNesting.nest(listedConversations, folded: foldedThreads[selectedTeam?.id ?? ""] ?? [], byFamily: true)
     }
 
-    /// Rows opened by hand on Bots. Everything there is folded at rest: it
-    /// folds again when Bots is left, the team changes or the app starts.
-    private var openedBotRows: Set<String> = []
-
-    /// The Bots rows: each chat or Bot, with what a Bot dispatched under it, folded.
+    /// The Bots rows: each chat or Bot, with what a Bot dispatched under it.
     var nestedBots: [NestedConversation] {
         let rows = ConversationNesting.botRows(botsList, threads: conversations, owners: botOwners)
-        return ConversationNesting.nest(rows, folded: Set(rows.map(\.sessionId)).subtracting(openedBotRows))
+        return ConversationNesting.nest(rows, folded: Set(rows.map(\.sessionId).filter { isFolded($0, onBots: true) }))
     }
 
-    func foldBots() { openedBotRows = [] }
-
     func isFolded(_ sessionId: String, onBots: Bool = false) -> Bool {
-        onBots ? !openedBotRows.contains(sessionId) : foldedThreads[selectedTeam?.id ?? ""]?.contains(sessionId) == true
+        let flipped = foldedThreads[selectedTeam?.id ?? ""]?.contains(onBots ? "bots:\(sessionId)" : sessionId) == true
+        return flipped != onBots
+    }
+
+    // MARK: - Pins
+
+    /// The viewer's favorites in this team, which Desktop pins Bots and chats into.
+    private(set) var favorites: SidebarFavorites?
+
+    /// Pinned chats and Bots, in the order they were pinned or arranged.
+    private var pinnedIds: [String] { favorites?.entries.compactMap(\.sessionId) ?? [] }
+
+    /// The pin shelf above Bots: only Bots and chats pin; an older Task pin stays stored.
+    var pins: [AgentConversation] {
+        let rows = Dictionary(botsList.map { ($0.sessionId, $0) }, uniquingKeysWith: { first, _ in first })
+        return pinnedIds.compactMap { rows[$0] }
+    }
+
+    func isPinned(_ row: AgentConversation) -> Bool { pinnedIds.contains(row.sessionId) }
+
+    func loadFavorites() async {
+        guard let team = selectedTeam?.id, let saved = try? await NuphosAPI.sidebarFavorites(token: token, teamId: team),
+              team == selectedTeam?.id else { return }
+        favorites = saved
+    }
+
+    /// Pins or unpins at once, then writes the whole list over the one on the
+    /// server, reading it again when another client changed it meanwhile.
+    func setPinned(_ pinned: Bool, _ row: AgentConversation) async {
+        guard let team = selectedTeam?.id else { return }
+        let scope = workspaceScope
+        func apply(_ entries: [SidebarFavorites.Entry]) -> [SidebarFavorites.Entry] {
+            let rest = entries.filter { $0.sessionId != row.sessionId }
+            return pinned ? rest + [.init(label: title(of: row), href: "/teams/\(team)/agent/\(row.sessionId)")] : rest
+        }
+        favorites = SidebarFavorites(entries: apply(favorites?.entries ?? []), revision: favorites?.revision ?? 0)
+        var lastError: Error?
+        for _ in 0..<4 {
+            do {
+                let current = try await NuphosAPI.sidebarFavorites(token: token, teamId: team)
+                let entries = apply(current.entries)
+                try await NuphosAPI.saveSidebarFavorites(token: token, teamId: team, entries: entries, revision: current.revision)
+                guard scope == workspaceScope else { return }
+                favorites = SidebarFavorites(entries: entries, revision: current.revision + 1)
+                return
+            } catch { lastError = error }
+        }
+        guard scope == workspaceScope else { return }
+        await loadFavorites()
+        rowActionFailed(lastError ?? NuphosAPI.Failure.invalidResponse, scope: scope) { [weak self] in await self?.setPinned(pinned, row) }
     }
 
     func toggleFolded(_ sessionId: String, onBots: Bool = false) {
-        if onBots {
-            if openedBotRows.remove(sessionId) == nil { openedBotRows.insert(sessionId) }
-            return
-        }
+        let key = onBots ? "bots:\(sessionId)" : sessionId
+        updateFolds { if $0.remove(key) == nil { $0.insert(key) } }
+    }
+
+    private func updateFolds(_ change: (inout Set<String>) -> Void) {
         guard let team = selectedTeam?.id else { return }
-        var folded = foldedThreads[team] ?? []
-        if folded.remove(sessionId) == nil { folded.insert(sessionId) }
-        foldedThreads[team] = folded
+        change(&foldedThreads[team, default: []])
         UserDefaults.standard.set(foldedThreads.mapValues(Array.init), forKey: Self.foldedThreadsKey)
     }
 
@@ -485,7 +531,7 @@ final class AgentStore {
         credentials.reset()
         channels = []
         bots = []
-        openedBotRows = []
+        favorites = nil
         runtimes = []
         agentDevices = []
         agentDevicesError = false
@@ -673,12 +719,13 @@ final class AgentStore {
         if conversations.isEmpty { phase = .loading }
         async let runtimesLoad: () = loadRuntimes()
         async let channelsLoad: () = loadChannels()
+        async let pinsLoad: () = loadFavorites()
 
         do {
             let page = try await NuphosAPI.conversations(
                 token: token, teamId: team.id, limit: Self.pageSize, search: search
             )
-            _ = await (runtimesLoad, channelsLoad)
+            _ = await (runtimesLoad, channelsLoad, pinsLoad)
             guard generation == loadGeneration else { return }
             conversations = page.rows
             nextCursor = page.nextCursor

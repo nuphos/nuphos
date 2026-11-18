@@ -1,5 +1,4 @@
-import { faShieldHalved } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { Shield as ShieldIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
 import { api } from '../../api'
@@ -10,6 +9,7 @@ import { StatusBadge } from '../../components/StatusBadge'
 import { Table } from '../../components/Table'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
 import { t } from '../../i18n'
 import {
@@ -150,9 +150,10 @@ export function LkeClustersView({
               <span className="inline-flex items-center gap-1.5 font-mono text-[12px]">
                 {c.label}
                 {getEndpointOverride(accountId, c.id) && (
-                  <FontAwesomeIcon
-                    icon={faShieldHalved}
-                    className="h-3 w-3 text-tertiary"
+                  <UiIcon
+                    size={14}
+                    icon={ShieldIcon}
+                    className="h-3.5 w-3.5 text-tertiary"
                     title={t('Connects via {host}', {
                       host: String(getEndpointOverride(accountId, c.id)),
                     })}

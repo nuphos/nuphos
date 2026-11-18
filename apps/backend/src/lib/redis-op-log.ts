@@ -1,3 +1,5 @@
+import { AsyncLocalStorage } from 'node:async_hooks'
+
 import type Redis from 'ioredis'
 
 // Context for the `redis.operation.failed` line, so a burst of timeouts says
@@ -7,6 +9,15 @@ import type Redis from 'ioredis'
 type RedisQueueView = Pick<Redis, 'commandQueue' | 'status'>
 
 const WRAPPER_FRAME = /\/lib\/redis(?:-op-log)?\.ts:/
+const turn = new AsyncLocalStorage<{ session_id: string; route: string }>()
+
+/** The session and route a failed op was for, named on its line, for any op `fn` starts. */
+export function withRedisLogContext<T>(
+  context: { session_id: string; route: string },
+  fn: () => T,
+) {
+  return turn.run(context, fn)
+}
 const MAX_COMMANDS = 5
 
 /** First stack frame outside the Redis wrapper, as `fn (path:line)` relative to src/. */
@@ -46,6 +57,7 @@ function safely<T>(read: () => T): T | undefined {
  */
 export function trackRedisOp(client: RedisQueueView) {
   const caller = safely(() => callerFrame(new Error('redis op caller').stack))
+  const context = turn.getStore()
   const start = performance.now()
   const queued = safely(() => client.commandQueue.length)
   let command: string | undefined
@@ -74,6 +86,7 @@ export function trackRedisOp(client: RedisQueueView) {
         status: safely(() => client.status),
         in_flight: safely(() => client.commandQueue.length),
         head_command: safely(() => commandName(client, 0)),
+        ...context,
       }
     },
   }

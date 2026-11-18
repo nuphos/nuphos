@@ -61,13 +61,14 @@ const requestFollowUps = {
     const open = await listOpenInputRequests(ctx.sessionId, owner, answering)
 
     return toolResult({
-      requests: open.map(({ id, category, question, options, about, askedAt }) => ({
+      requests: open.map(({ id, category, question, options, about, askedAt, snoozedUntil }) => ({
         requestId: id,
         category,
         question,
         ...(options ? { options } : {}),
         ...(about ? { about } : {}),
         askedAt,
+        ...(snoozedUntil ? { snoozedUntil } : {}),
       })),
     })
   },
@@ -84,7 +85,13 @@ export async function checkedCall<T>(
 ): Promise<ToolResult> {
   const parsed = (tool.inputSchema as ZodType<T>).safeParse(args)
 
-  return parsed.success ? handle(parsed.data) : toolError(`Invalid input: ${parsed.error.message}`)
+  if (parsed.success) return handle(parsed.data)
+  // Each problem as one line the agent can act on, not the raw issue JSON.
+  const problems = parsed.error.issues.map(({ path, message }) =>
+    path.length ? `${path.join('.')}: ${message}` : message,
+  )
+
+  return toolError(`Invalid input: ${problems.join('; ')}`)
 }
 
 export function followUpHandler(
@@ -170,6 +177,11 @@ export async function askInChannel(
     // The card is already out: an unread title falls back to the generic name.
     const bot = await getConversationBySessionId(ctx.sessionId).catch(() => null)
 
+    if (
+      category === 'preference' &&
+      (bot?.botOnboarding === 'pending' || bot?.botOnboarding === 'active')
+    )
+      return asked
     notifyNudge([requestOwner(ctx)], {
       sessionId: asked.channelId,
       teamId: ctx.teamId,
