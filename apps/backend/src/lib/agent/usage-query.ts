@@ -1,7 +1,12 @@
 // The team's token usage over a time range, grouped by and filtered on any of
 // the dimensions a usage record carries, priced at list prices on read.
+import { ObjectId } from 'mongodb'
+
+import { agentConversations } from '@/lib/agent/db/shared'
+import { agentDevices } from '@/lib/agent/devices/store'
 import { providerCostUsd } from '@/lib/agent/model-pricing'
 import { agentTokenUsage } from '@/lib/agent/token-usage'
+import { agentTriggers } from '@/lib/agent/trigger-db'
 import { KIND_TOKEN_SUMS } from '@/lib/agent/usage-aggregation'
 import { AppError } from '@/lib/errors'
 
@@ -179,6 +184,61 @@ export async function queryTeamUsage(
     )
 
   return foldModels(rows, query.groupBy)
+}
+
+/** Names read where the grouped values are ids: conversation titles, Trigger names, computer labels. */
+const NAMED: Partial<
+  Record<UsageDimension, (teamId: string, ids: string[]) => Promise<[string, string][]>>
+> = {
+  conversation: conversationTitles,
+  bot: conversationTitles,
+  task: conversationTitles,
+  trigger: async (teamId, ids) =>
+    (
+      await agentTriggers()
+        .find({ teamId, _id: { $in: ids.filter(ObjectId.isValid).map((id) => new ObjectId(id)) } })
+        .project<{ _id: ObjectId; name: string }>({ name: 1 })
+        .toArray()
+    ).map((trigger) => [trigger._id.toHexString(), trigger.name]),
+  computer: async (teamId, ids) =>
+    (
+      await agentDevices()
+        .find({ teamId, deviceId: { $in: ids } })
+        .project<{ deviceId: string; label: string }>({ _id: 0, deviceId: 1, label: 1 })
+        .toArray()
+    ).map((device) => [device.deviceId, device.label]),
+}
+
+async function conversationTitles(teamId: string, ids: string[]): Promise<[string, string][]> {
+  const conversations = await agentConversations()
+    .find({ teamId, sessionId: { $in: ids } })
+    .project<{ sessionId: string; title: string }>({ _id: 0, sessionId: 1, title: 1 })
+    .toArray()
+
+  return conversations.map((conversation) => [conversation.sessionId, conversation.title])
+}
+
+/**
+ * A display name for each grouped value the rows hold. The rows are already scoped to what
+ * the viewer may see, so only names of their own conversations reach a member.
+ */
+export async function usageNames(
+  teamId: string,
+  groupBy: UsageDimension[],
+  rows: UsageQueryRow[],
+): Promise<Partial<Record<UsageDimension, Record<string, string>>>> {
+  const named = await Promise.all(
+    groupBy.flatMap((dimension) => {
+      const read = NAMED[dimension]
+      const ids = [...new Set(rows.flatMap((row) => row.keys[dimension] ?? []))]
+
+      return read && ids.length
+        ? [read(teamId, ids).then((pairs) => [dimension, Object.fromEntries(pairs)] as const)]
+        : []
+    }),
+  )
+
+  return Object.fromEntries(named)
 }
 
 // Price each model's tokens, then fold the models into the groups asked for.

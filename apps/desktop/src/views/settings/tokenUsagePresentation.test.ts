@@ -2,7 +2,9 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import {
+  formatChange,
   formatTokens,
+  previousTokenUsageWindow,
   tokenUsageDays,
   tokenUsageLines,
   tokenUsageWindow,
@@ -81,4 +83,37 @@ test('token counts are shortened', () => {
     '3.4M',
     '2.1B',
   ])
+})
+
+test('the backend’s names win, and each line carries the window before’s total', () => {
+  const lines = tokenUsageLines(
+    [row({ trigger: 't1' }, 300), row({ trigger: 't2' }, 100)],
+    'trigger',
+    { ...names, served: { trigger: { t1: 'Nightly report' } } },
+    [row({ trigger: 't1' }, 100)],
+  )
+
+  assert.deepEqual(
+    lines.map((line) => [line.label, formatChange(line)]),
+    [
+      ['Nightly report', '+200%'],
+      ['t2', 'New'],
+    ],
+  )
+})
+
+test('a drop shows as a negative change', () => {
+  const [line] = tokenUsageLines([row({ model: 'm' }, 70)], 'model', names, [
+    row({ model: 'm' }, 100),
+  ])
+
+  assert.equal(line && formatChange(line), '−30%')
+})
+
+test('the window before is the same number of whole days, ending where this one starts', () => {
+  const window = tokenUsageWindow('7d', new Date(2026, 10, 18, 9))
+  const before = previousTokenUsageWindow(window)
+
+  assert.equal(before.to, window.from)
+  assert.equal(new Date(before.from).getTime(), new Date(2026, 10, 5).getTime())
 })

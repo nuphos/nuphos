@@ -13,8 +13,10 @@ import { PanelHeading } from './RuntimePanel'
 import {
   TOKEN_USAGE_GROUPS,
   TOKEN_USAGE_RANGES,
+  formatChange,
   formatTokens,
   formatUsd,
+  previousTokenUsageWindow,
   tokenUsageDays,
   tokenUsageLines,
   tokenUsageWindow,
@@ -22,14 +24,19 @@ import {
 
 import type { TokenUsageLine, TokenUsageRange, UsageNames } from './tokenUsagePresentation'
 import type { RuntimeInstance } from '../../types/runtime'
-import type { TeamUsageQuery, TeamUsageRow, UsageDimension } from '../../types/usage'
+import type {
+  TeamUsageNames,
+  TeamUsageQuery,
+  TeamUsageRow,
+  UsageDimension,
+} from '../../types/usage'
 
 const RANGE_OPTIONS = (Object.keys(TOKEN_USAGE_RANGES) as TokenUsageRange[]).map((value) => ({
   value,
   label: TOKEN_USAGE_RANGES[value].label,
 }))
 
-const COLUMNS = 'grid-cols-[minmax(0,1fr)_repeat(5,minmax(4.5rem,auto))]'
+const COLUMNS = 'grid-cols-[minmax(0,1fr)_repeat(6,minmax(4.5rem,auto))]'
 const NOTE =
   'mt-3 rounded-xl border border-dashed border-line-control px-4 py-6 text-center text-xs leading-5 text-tertiary'
 
@@ -49,6 +56,8 @@ export function TokenUsage({
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
   const days = useTeamUsageQuery(teamId, { ...span, bucket: 'day', timeZone })
   const groups = useTeamUsageQuery(teamId, { ...span, groupBy })
+  // The same days just before, so a group that grew stands out.
+  const previous = useTeamUsageQuery(teamId, { ...previousTokenUsageWindow(span), groupBy })
   // People who left still name their usage.
   const { data: roster = [] } = useQuery(teamRosterQuery(teamId))
   const names = useMemo(
@@ -86,6 +95,7 @@ export function TokenUsage({
       <UsageReport
         days={days.data}
         groups={groups.data}
+        previous={previous.data}
         names={names}
         // The last range or grouping stays on screen, dimmed, until the new one arrives.
         stale={groups.isPlaceholderData || days.isPlaceholderData}
@@ -115,11 +125,12 @@ export function TokenUsage({
   )
 }
 
-type UsageAnswer = { query: TeamUsageQuery; rows: TeamUsageRow[] }
+type UsageAnswer = { query: TeamUsageQuery; rows: TeamUsageRow[]; names: TeamUsageNames }
 
 function UsageReport({
   days,
   groups,
+  previous,
   names,
   stale,
   groupBy,
@@ -127,6 +138,8 @@ function UsageReport({
 }: {
   days: UsageAnswer
   groups: UsageAnswer
+  /** Absent until read; compared only once it is for the same grouping. */
+  previous: UsageAnswer | undefined
   names: UsageNames
   stale: boolean
   groupBy: UsageDimension
@@ -134,7 +147,12 @@ function UsageReport({
 }) {
   // Labelled by the grouping the shown rows were asked for, not the one being loaded.
   const shownGroup = groups.query.groupBy ?? groupBy
-  const lines = tokenUsageLines(groups.rows, shownGroup, names)
+  const lines = tokenUsageLines(
+    groups.rows,
+    shownGroup,
+    { ...names, served: groups.names },
+    previous?.query.groupBy === shownGroup ? previous.rows : [],
+  )
   const points = tokenUsageDays(days.rows, days.query)
   const total = points.reduce((sum, point) => sum + point.value, 0)
   const cost = lines.some((line) => line.costUsd !== undefined)
@@ -201,6 +219,9 @@ function UsageTable({ lines, groupLabel }: { lines: TokenUsageLine[]; groupLabel
           {t('Total')}
         </span>
         <span role="columnheader" className="text-right">
+          {t('vs previous')}
+        </span>
+        <span role="columnheader" className="text-right">
           {t('Est. cost')}
         </span>
       </div>
@@ -224,6 +245,9 @@ function UsageTable({ lines, groupLabel }: { lines: TokenUsageLine[]; groupLabel
           </span>
           <span role="cell" className={amount}>
             {formatTokens(line.totalTokens)}
+          </span>
+          <span role="cell" className={amount}>
+            {formatChange(line)}
           </span>
           <span role="cell" className={amount}>
             {line.costUsd === undefined ? '—' : formatUsd(line.costUsd)}

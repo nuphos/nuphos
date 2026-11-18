@@ -163,6 +163,17 @@ export const usageScenarios: Scenario[] = [
       if ((await table.getByText('Not recorded').count()) > 0)
         throw new Error('A runtime turn was not attributed to its runtime')
       await section.screenshot({ path: `${artifacts}/token-usage-by-runtime.png` })
+
+      // The backend names conversations by their titles, not their session ids.
+      await section.getByRole('combobox', { name: 'Group by' }).click()
+      await page.getByRole('option', { name: 'Conversation' }).click()
+      await table.getByRole('columnheader', { name: 'Conversation' }).waitFor()
+      await table.getByText('290.3K').waitFor()
+      const label = await table.getByRole('row').nth(1).getByRole('cell').first().innerText()
+
+      if (/^[0-9a-f-]{36}$/.test(label) || label === 'Not recorded')
+        throw new Error(`The conversation shows as "${label}", not its title`)
+      await section.screenshot({ path: `${artifacts}/token-usage-by-conversation.png` })
       await page.getByText('Back to app', { exact: true }).click()
     },
   },

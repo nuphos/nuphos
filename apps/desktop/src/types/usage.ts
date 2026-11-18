@@ -31,3 +31,8 @@ export type TeamUsageRow = {
   totalTokens: number
   costUsd?: number
 }
+
+/** A grouped value's display name, where the backend knows one (titles, Trigger names, computer labels). */
+export type TeamUsageNames = Partial<Record<UsageDimension, Record<string, string>>>
+
+export type TeamUsageAnswer = { rows: TeamUsageRow[]; names: TeamUsageNames }

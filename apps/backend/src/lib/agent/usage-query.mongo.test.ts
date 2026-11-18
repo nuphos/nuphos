@@ -8,7 +8,7 @@ import { closeDb, connectDb } from '@/lib/db'
 
 import { agentConversations } from './db'
 import { agentTokenUsage } from './token-usage'
-import { queryTeamUsage } from './usage-query'
+import { queryTeamUsage, usageNames } from './usage-query'
 
 import type { UsageQuery } from './usage-query'
 
@@ -119,6 +119,24 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('team usage query', () => {
   test("a member sees only their own conversations, not a teammate's they sent into", async () => {
     expect(await run('EDITOR', { groupBy: ['conversation'] })).toEqual({
       [JSON.stringify({ conversation: OWN })]: 50,
+    })
+  })
+
+  test('grouped conversations come with their titles, only those the viewer sees', async () => {
+    const query = {
+      from: new Date('2026-11-17T00:00:00Z'),
+      to: new Date('2026-11-18T00:00:00Z'),
+      groupBy: ['conversation' as const],
+      filters: {},
+    }
+    const admin = await queryTeamUsage(TEAM, { userId: ADMIN, teamRole: 'ADMINISTRATOR' }, query)
+    const member = await queryTeamUsage(TEAM, { userId: MEMBER, teamRole: 'EDITOR' }, query)
+
+    expect(await usageNames(TEAM, ['conversation'], admin)).toEqual({
+      conversation: { [BOT]: 'Bot', [TASK]: 'Task', [OWN]: 'Own' },
+    })
+    expect(await usageNames(TEAM, ['conversation'], member)).toEqual({
+      conversation: { [OWN]: 'Own' },
     })
   })
 

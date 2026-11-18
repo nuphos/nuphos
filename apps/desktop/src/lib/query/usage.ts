@@ -11,7 +11,7 @@ import type { TeamUsageQuery } from '../../types/usage.ts'
 export const useTeamUsageQuery = (teamId: string, query: TeamUsageQuery) =>
   useQuery({
     queryKey: queryKeys.teamUsage(teamId, query),
-    queryFn: async () => ({ query, rows: (await api.atlasQueryTeamUsage(teamId, query)).rows }),
+    queryFn: async () => ({ query, ...(await api.atlasQueryTeamUsage(teamId, query)) }),
     // Read again whenever the section opens, so a turn just finished shows; the last answer stays meanwhile.
     staleTime: 0,
     placeholderData: keepPreviousData,

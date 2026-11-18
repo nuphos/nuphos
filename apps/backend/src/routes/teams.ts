@@ -5,7 +5,12 @@ import { getAgentStats, isTimeZone } from '@/lib/agent/agent-stats'
 import { boxUsageView } from '@/lib/agent/devices/box-instabox-limit'
 import { listBoxUsageHistory } from '@/lib/agent/devices/box-usage-history'
 import { ACTIVITY_RANGES, getTeamActivity, ownActivity } from '@/lib/agent/team-activity'
-import { USAGE_BUCKETS, USAGE_DIMENSIONS, queryTeamUsage } from '@/lib/agent/usage-query'
+import {
+  USAGE_BUCKETS,
+  USAGE_DIMENSIONS,
+  queryTeamUsage,
+  usageNames,
+} from '@/lib/agent/usage-query'
 import { getTeamUsageSeries } from '@/lib/agent/usage-summary'
 import { QUOTA_HISTORY_RANGES } from '@/lib/claude-code-preview/runtime-quota-history'
 import { AppError } from '@/lib/errors'
@@ -179,13 +184,13 @@ teamScoped.get('/usage/query', zv('query', usageQuerySchema), async (c) => {
     }),
   )
 
-  return c.json({
-    rows: await queryTeamUsage(
-      c.get('teamId'),
-      { userId: c.get('userId'), teamRole: c.get('teamRole') },
-      { from, to, bucket, timeZone, groupBy, filters },
-    ),
-  })
+  const rows = await queryTeamUsage(
+    c.get('teamId'),
+    { userId: c.get('userId'), teamRole: c.get('teamRole') },
+    { from, to, bucket, timeZone, groupBy, filters },
+  )
+
+  return c.json({ rows, names: await usageNames(c.get('teamId'), groupBy, rows) })
 })
 // Read-only compatibility for saved dashboard scripts and older desktop clients.
 teamScoped.get('/billing/usage', async (c) =>
