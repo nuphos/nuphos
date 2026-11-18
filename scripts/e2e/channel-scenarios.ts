@@ -4,7 +4,7 @@ import { join } from 'node:path'
 
 import { agentEvents, agentLog } from './agent-log.ts'
 import { botAccessScenarios } from './bot-access-scenarios.ts'
-import { forgetComputer } from './computer-scenarios.ts'
+import { computerWithUsage, pickRuntime, shootRuntimeLine } from './channel-helpers.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
 
