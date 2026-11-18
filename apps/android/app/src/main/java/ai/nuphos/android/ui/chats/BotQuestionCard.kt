@@ -12,11 +12,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Button
@@ -135,11 +136,13 @@ internal fun cardReplies(question: BotQuestion): List<Pair<String, String>>? {
 
 /**
  * A card's options, one design whether one or any number may be picked, as Desktop's
- * `DecisionOptions`: each option a button, "Other…" for the answer in words (in the Inbox,
- * [answersInPlace], the text box is already there), and "Send answer". One single-choice question
- * ([pick] off) is answered by its option, and Send sends only its words; a multi-select or several
- * questions pick their options, filled with a check once picked, and Send sends them together.
+ * `DecisionOptions` and Paper's question card: each option the same pill, wrapping, and "Other…" as a
+ * line of text for the answer in words (in the Inbox, [answersInPlace], the text box is already
+ * there), then "Send answer". One single-choice question ([pick] off) is answered by its option, and
+ * Send sends only its words; a multi-select or several questions pick their options, a check once
+ * picked, and Send sends them together.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun QuestionOptions(
     id: String,
@@ -162,26 +165,25 @@ private fun QuestionOptions(
         questions.forEachIndexed { index, item ->
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (questions.size > 1) Text(item.question, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                item.options.orEmpty().forEach { option ->
-                    val on = option in picked[index]
-                    val tag = Modifier.testTag("bot-question-option").semantics { if (pick) selected = on }
-                    when {
-                        !pick -> OutlinedButton(onClick = { onAnswer(option) }, modifier = tag) { Text(option) }
-                        on -> FilledTonalButton(onClick = { picked[index] = picked[index] - option }, modifier = tag) {
-                            Icon(Icons.Filled.Check, null, Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text(option)
+                if (!item.options.isNullOrEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item.options.forEach { option ->
+                        val on = option in picked[index]
+                        QuestionPill(option, checked = if (pick) on else null, Modifier.testTag("bot-question-option")) {
+                            if (!pick) onAnswer(option)
+                            else picked[index] = when {
+                                on -> picked[index] - option
+                                item.multiSelect == true -> picked[index] + option
+                                else -> listOf(option)
+                            }
                         }
-                        else -> OutlinedButton(onClick = {
-                            picked[index] = if (item.multiSelect == true) picked[index] + option else listOf(option)
-                        }, modifier = tag) { Text(option) }
                     }
                 }
                 if (open[index]) OutlinedTextField(words[index], { words[index] = it }, Modifier.fillMaxWidth().testTag("bot-question-answer"),
                     placeholder = { Text(stringResource(R.string.chats_question_your_answer)) }, textStyle = MaterialTheme.typography.bodyMedium)
-                else if (typed) TextButton(onClick = { open[index] = true }, Modifier.testTag("bot-question-other")) {
-                    Text(stringResource(if (item.options.isNullOrEmpty()) R.string.chats_question_reply else R.string.chats_question_other))
-                }
+                // "Other…" as a line of text under the options, as Paper draws it.
+                else if (typed) Text(stringResource(if (item.options.isNullOrEmpty()) R.string.chats_question_reply else R.string.chats_question_other),
+                    Modifier.clickable { open[index] = true }.minimumInteractiveComponentSize().testTag("bot-question-other"),
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         if (pick || open.any { it }) Button(
@@ -189,6 +191,24 @@ private fun QuestionOptions(
             enabled = if (pick) complete else answers[0].isNotEmpty(),
             modifier = Modifier.testTag("bot-question-send"),
         ) { Text(stringResource(R.string.chats_question_send_answer)) }
+    }
+}
+
+/**
+ * An option, the same pill for every one as Paper draws it: the raised surface with a hairline ring
+ * and a soft shadow, radius 9, hugging its words. [checked], it is picked rather than sent: a check
+ * once picked.
+ */
+@Composable
+private fun QuestionPill(title: String, checked: Boolean?, modifier: Modifier, onClick: () -> Unit) {
+    Surface(onClick = onClick, shape = RoundedCornerShape(9.dp), color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), shadowElevation = 1.dp,
+        modifier = modifier.semantics { if (checked != null) selected = checked }) {
+        Row(Modifier.heightIn(min = 40.dp).padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (checked == true) Icon(Icons.Filled.Check, null, Modifier.size(16.dp))
+            Text(title, style = MaterialTheme.typography.bodyMedium)
+        }
     }
 }
 
