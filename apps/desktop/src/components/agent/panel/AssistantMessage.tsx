@@ -226,16 +226,10 @@ export const AssistantMessage = memo(
     const liveHistory =
       streaming && !activityHistory ? liveActivityIndices(displayParts) : new Set<number>()
     const liveIndices = displayParts.map((_, index) => index).slice(recallLead)
-
     const livePast = liveIndices.filter((index) => liveHistory.has(index))
     const liveCurrent = liveIndices.filter((index) => !liveHistory.has(index))
-
-    // One keyed list in every state: a card lifted out of the fold when the turn ends
-    // stays the same element, and keeps what the person was typing in it.
-    const body: ReactNode[] = [
-      // Above the fold, always: what the turn already knew when it started.
-      ...renderRange(0, recallLead),
-    ]
+    // One keyed list in every state, so a card lifted out of the fold keeps what was typed in it.
+    const body: ReactNode[] = renderRange(0, recallLead)
 
     if (liveHistory.size > 0) {
       body.push(
@@ -249,7 +243,7 @@ export const AssistantMessage = memo(
         </CollapsedWorkView>,
         ...renderSelectedParts(displayParts, liveCurrent, renderMessagePart, now),
       )
-    } else if (folded) {
+    } else {
       if (foldHasWork)
         body.push(
           <CollapsedWorkView
@@ -260,8 +254,8 @@ export const AssistantMessage = memo(
             {() => renderPartRange(displayParts, recallLead, collapseSplit, renderFoldPart, now)}
           </CollapsedWorkView>,
         )
-      body.push(...renderRange(collapseSplit, orderedParts.length))
-    } else body.push(...renderRange(recallLead, orderedParts.length))
+      body.push(...renderRange(folded ? collapseSplit : recallLead, orderedParts.length))
+    }
     if (teamId && downloadGroups)
       body.push(<DownloadGroups key="downloads" groups={downloadGroups} teamId={teamId} />)
     // Mid-turn recall belongs beside what the agent learned.
