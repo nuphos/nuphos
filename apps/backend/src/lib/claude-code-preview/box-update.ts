@@ -15,9 +15,10 @@ import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 
 import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
+import { OpenAbAcpClient } from './openab-acp-client'
 import { RUNTIME_RELEASES_URL, latestCliRelease, newerRuntimeVersion } from './runtime-release'
-import { endpointHasActiveTurn } from './runtime-rollout'
 
+import type { TeamRuntimeEndpoint } from './team-openab-runtime'
 import type { LocalAgentRef, LocalRuntimeRef } from '@/lib/agent/devices/local-runtime/address'
 import type { LocalRuntimeStatus } from '@/lib/agent/devices/local-runtime/protocol'
 
@@ -31,6 +32,34 @@ export type BoxUpdateDeps = {
   update: (ref: LocalRuntimeRef) => Promise<unknown>
   /** Notes the restart on the Box, so every viewer sees it updating rather than offline. */
   markUpdating: (ref: LocalRuntimeRef) => Promise<unknown>
+}
+
+/**
+ * Whether the runtime at `endpoint` reports a running turn. Anything it cannot read as one
+ * (unreachable, an older runtime's answer, leftover background tools) counts as idle:
+ * refusing on those would block the update that fixes them.
+ */
+async function endpointHasActiveTurn(endpoint: TeamRuntimeEndpoint): Promise<boolean> {
+  let client: OpenAbAcpClient | undefined
+
+  try {
+    client = await OpenAbAcpClient.connect({
+      ...endpoint,
+      connectTimeoutMs: 3_000,
+      callTimeoutMs: 3_000,
+    })
+    await client.initialize()
+    const inventory = await client.getRuntimeExecutionState()
+
+    return (
+      Array.isArray(inventory.sessions) &&
+      inventory.sessions.some((snapshot: { state?: string }) => snapshot.state === 'active')
+    )
+  } catch {
+    return false
+  } finally {
+    client?.close()
+  }
 }
 
 /** Whether that agent is mid-turn, asked as `actorId`; an agent that cannot be reached counts as idle. */

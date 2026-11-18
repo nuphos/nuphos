@@ -4,12 +4,10 @@
 // scripts) are adapted to the native runtime equivalents it actually has.
 
 import { getConversationBySessionId } from '@/lib/agent/db'
-import { ancestorUserTexts } from '@/lib/agent/db/ancestor-user-texts'
 import { OWNER_DECISION_NOTE } from '@/lib/agent/db/channel-notes'
 import { agentConversations } from '@/lib/agent/db/shared'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { getAgentDevice } from '@/lib/agent/devices/store'
-import { inferUserFacingLanguage } from '@/lib/agent/language'
 import { getSystemPrompt } from '@/lib/agent/system-prompt'
 import { isUnnamedTask } from '@/lib/agent/title-fallback'
 import { generateContextPrompt, parseUrlContext } from '@/lib/agent/url-context'
@@ -45,8 +43,6 @@ export type PreviewPromptArgs = {
   teamId: string
   sessionId: string
   locale: string
-  /** Latest user texts, newest first — drives the user-facing language. */
-  userTexts?: string[]
   kubeContext?: string
   diagramId?: string
   currentUrl?: string | null
@@ -172,11 +168,6 @@ export async function buildPreviewSystemPrompt(args: PreviewPromptArgs): Promise
       taskNameSection(args.sessionId).catch(() => null),
       channelsSection(args.sessionId).catch(() => null),
     ])
-  // A sub-agent thread hears only agents: its owner's language is where they last wrote.
-  const userTexts = args.userTexts?.length
-    ? args.userTexts
-    : await ancestorUserTexts(args.sessionId).catch(() => [])
-  const userFacingLanguage = inferUserFacingLanguage(userTexts, args.locale)
 
   // The notes are written for Claude Code. Grok Build reads `.claude/skills` as well;
   // Codex, Antigravity, OpenCode and DeepSeek Harness read the `.agents/skills` link to it.
@@ -206,7 +197,7 @@ export async function buildPreviewSystemPrompt(args: PreviewPromptArgs): Promise
     buildKubeContextMessage(args.kubeContext),
     nativeText(buildDiagramMessage(args.diagramId, { nativeClaudeSkills: true })),
     urlContext,
-    buildTurnRulesMessage({ userFacingLanguage }),
+    buildTurnRulesMessage(),
     nativeText(DASHBOARDS_RUNTIME_NOTE),
     BACKGROUND_MONITOR_NOTE,
     taskName,

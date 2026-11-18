@@ -23,7 +23,7 @@ async function readableConversation(c: Context<{ Variables: AuthVariables }>) {
   return { userId, conversation }
 }
 
-async function queued(conversation: { userId: string; sessionId: string }) {
+export async function queued(conversation: { userId: string; sessionId: string }) {
   const queue = await listPendingUserMessages(conversation.userId, conversation.sessionId)
 
   return queue.filter((message) =>
@@ -49,6 +49,8 @@ agent.get('/conversations/:sessionId/queue', async (c) => {
   })
 })
 
+const TAKEABLE = new Set(['app', 'mcp'])
+
 /** Takes the sender's own waiting message off the queue, so nothing else can run it. */
 export async function takeOwnQueued(
   conversation: { userId: string; sessionId: string },
@@ -58,7 +60,8 @@ export async function takeOwnQueued(
   const message = (await queued(conversation)).find((entry) => entry.id === messageId)
 
   if (!message) throw new AppError(404, 'not_found', 'This message is no longer waiting')
-  if (message.source !== 'app' || (message.actorUserId ?? conversation.userId) !== userId)
+  // A message sent through the app or an MCP client is its sender's to take back.
+  if (!TAKEABLE.has(message.source) || (message.actorUserId ?? conversation.userId) !== userId)
     throw new AppError(403, 'not_sender', 'Only the person who sent a message can take it back')
   const removed = await removePendingUserMessage(
     conversation.userId,

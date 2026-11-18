@@ -22,7 +22,6 @@ import { setupSkillMetadataIndexes } from '@/lib/agent/skill-store/metadata'
 import { setupTokenUsageIndexes } from '@/lib/agent/token-usage'
 import { setupTriggerIndexes } from '@/lib/agent/trigger-db'
 import { setupRuntimeImageAuditIndexes } from '@/lib/claude-code-preview/runtime-image-audit'
-import { setupHostedRuntimeSlotIndexes } from '@/lib/claude-code-preview/runtime-instances'
 import { setupRuntimeLoginIndexes } from '@/lib/claude-code-preview/runtime-login-store'
 import { setupRuntimeMetricIndexes } from '@/lib/claude-code-preview/runtime-metrics-store'
 import { setupRuntimeQuotaHistoryIndexes } from '@/lib/claude-code-preview/runtime-quota-history'
@@ -89,7 +88,6 @@ export async function setupIndexes(): Promise<void> {
     ['mfa-challenges', setupMfaChallengeIndexes],
     ['device-login', setupDeviceLoginIndexes],
     ['runtime-login', setupRuntimeLoginIndexes],
-    ['hosted-runtime-slots', setupHostedRuntimeSlotIndexes],
     ['runtime-metrics', setupRuntimeMetricIndexes],
     ['runtime-quota-history', setupRuntimeQuotaHistoryIndexes],
     ['box-usage-history', setupBoxUsageHistoryIndexes],

@@ -185,7 +185,7 @@ fun AgentPage(
     var foldedIds by rememberSaveable(account, team?.id) { mutableStateOf(store.foldedThreadIds(account, team?.id).toList()) }
     val showInitialLoading = store.phase == AgentStore.Phase.Loading || store.phase == AgentStore.Phase.Idle
     val tree = remember(store.conversations, foldedIds, account) {
-        ConversationNesting.nest(store.conversations, foldedIds.toSet(), account, groupSections = false)
+        ConversationNesting.nest(store.conversations, foldedIds.toSet(), account, groupSections = false, byFamily = true)
     }
     LaunchedEffect(tree.rows.map { Triple(it.conversation.sessionId, it.depth, it.section) }) { rowInteractions.dismiss() }
     LaunchedEffect(listState, store.hasMore, store.conversations) {

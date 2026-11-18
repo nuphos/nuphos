@@ -95,13 +95,12 @@ test('dispatches and returns the result through the shared tunnel without any lo
 test('offline and old clients without exec capability fail immediately', async () => {
   const deps = await setup({ exec: false })
 
-  for (const device of ['d1', 'offline']) {
-    expect(
-      await dispatchLocalExec('u1', device, 'echo ok', { teamId: 't1', access, deps }),
-    ).toEqual({
-      status: 'device_disconnected',
-    })
-  }
+  expect(await dispatchLocalExec('u1', 'd1', 'echo ok', { teamId: 't1', access, deps })).toEqual({
+    status: 'unsupported',
+  })
+  expect(
+    await dispatchLocalExec('u1', 'offline', 'echo ok', { teamId: 't1', access, deps }),
+  ).toEqual({ status: 'device_disconnected' })
   expect(deps.commands).toEqual([])
 })
 
@@ -142,7 +141,7 @@ test('terminal requests require their own capability and never reach old exec cl
       deps: old,
       purpose: 'terminal',
     }),
-  ).toEqual({ status: 'device_disconnected' })
+  ).toEqual({ status: 'unsupported' })
   expect(old.commands).toEqual([])
   const current = await setup({ terminal: true })
 

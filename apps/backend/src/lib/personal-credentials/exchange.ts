@@ -15,11 +15,12 @@ import type {
   PersonalCredentialProvider,
 } from '@/models'
 
-const NAMES: Record<PersonalCredentialProvider, string> = {
+export const NAMES: Record<PersonalCredentialProvider, string> = {
   github: 'GitHub',
   linear: 'Linear',
   gmail: 'Gmail',
   'google-drive': 'Google Drive',
+  'google-calendar': 'Google Calendar',
 }
 
 /** The callback is on the backend's public origin (NUPHOS_PUBLIC_BACKEND_URL). */
