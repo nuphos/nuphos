@@ -27,7 +27,20 @@ data class ChannelAgent(val sessionId: String, val title: String = "", val owner
 
 /** Whether a Bot can reply now (#3308): `online`, `busy`, or `offline` with a `reason`, and `resetsAt` for `usage_limit`. */
 @Serializable
-data class BotPresence(val state: String, val reason: String? = null, val resetsAt: String? = null)
+data class BotPresence(val state: String, val reason: String? = null, val resetsAt: String? = null) {
+    /** The colour of its dot: green can reply, amber needs a person or a wait, red cannot run, as in the runtime menu. */
+    enum class Tone { Ready, Waiting, Down }
+
+    /** What a chat's member list shows beside the Bot, in Desktop's words. */
+    val tag: Pair<Tone, String> get() = when {
+        state == "online" -> Tone.Ready to Words(R.string.chats_presence_online)
+        state == "busy" -> Tone.Ready to Words(R.string.chats_presence_busy)
+        reason == "computer_offline" -> Tone.Down to Words(R.string.chats_presence_offline)
+        reason == "sign_in_required" -> Tone.Waiting to Words(R.string.chats_presence_sign_in)
+        reason == "usage_limit" -> Tone.Waiting to Words(R.string.chats_presence_usage)
+        else -> Tone.Down to Words(R.string.chats_presence_unavailable)
+    }
+}
 
 @Serializable
 data class ChannelAgentsEnvelope(val agents: List<ChannelAgent> = emptyList())

@@ -59,4 +59,11 @@
     <string name="chats_question_snooze_monday">วันจันทร์หน้า 9:00</string>
     <string name="chats_question_dismiss_reason">เหตุผล (ไม่บังคับ)</string>
     <string name="chats_bot_computer_offline">คอมพิวเตอร์ของ %1$s ออฟไลน์อยู่</string>
+    <string name="chats_members">สมาชิก</string>
+    <string name="chats_presence_online">ออนไลน์</string>
+    <string name="chats_presence_busy">ไม่ว่าง</string>
+    <string name="chats_presence_offline">ออฟไลน์</string>
+    <string name="chats_presence_sign_in">ต้องลงชื่อเข้าใช้</string>
+    <string name="chats_presence_usage">ใช้งานครบโควตา</string>
+    <string name="chats_presence_unavailable">ไม่พร้อมใช้งาน</string>
 </resources>

@@ -146,6 +146,8 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) { bot.pollWhileIdle() }
     }
     var showTriggers by remember(session.channelId) { mutableStateOf(false) }
+    var showMembers by remember(session.channelId) { mutableStateOf(false) }
+    if (showMembers) ChannelMembersSheet(session.agents) { showMembers = false }
     if (showTriggers && botFace != null && auth.token != null) {
         ai.nuphos.android.ui.chat.ConversationTriggersSheet(auth.token!!, session.teamId, botFace.id) { showTriggers = false }
     }
@@ -166,7 +168,10 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
-                    Row(modifier = Modifier.clickable(enabled = botFace != null) { showTriggers = true }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // A Bot's chat opens its triggers; a group chat, its members.
+                    Row(modifier = Modifier.testTag("chat-title").clickable(enabled = botFace != null || session.agents.isNotEmpty()) {
+                        if (botFace != null) showTriggers = true else showMembers = true
+                    }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         ChatIcon(session.faces, session.title, 28.dp)
                         Text(session.title, maxLines = 1, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     }
