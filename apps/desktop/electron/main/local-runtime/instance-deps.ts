@@ -2,7 +2,6 @@ import { INSTALLABLE, installAgentCli } from './agent-cli-install.ts'
 import { prepareIsolatedAgentHome } from './agent-home.ts'
 import { userDir } from './controller-types.ts'
 
-import type { LocalAgentProvider } from './agent-cli.ts'
 import type { LocalRuntimeControllerDeps } from './controller-types.ts'
 
 /** An added agent's own install of its missing CLI: tried once, reported while it runs. */
