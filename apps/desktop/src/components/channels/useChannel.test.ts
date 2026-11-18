@@ -16,6 +16,9 @@ mock.module('../../api.ts', {
   },
 })
 
+// Analytics loads only in the app.
+mock.module('../../lib/chatSwitchTiming.ts', { namedExports: { useChatSwitchShown: () => {} } })
+
 const { createQueryClient } = await import('../../lib/query/client.ts')
 const { queryKeys } = await import('../../lib/query/keys.ts')
 const { channelRetryMs, loadChannel, refreshChannel } = await import('./useChannel.ts')
