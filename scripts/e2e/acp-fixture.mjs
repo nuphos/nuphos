@@ -10,7 +10,7 @@ import { formSteps } from './acp-fixture-form.mjs'
 import { answerChannel } from './fixture-channel.mjs'
 import { listCommands } from './fixture-commands.mjs'
 import { hop, inherit } from './fixture-hop.mjs'
-import { call, callNamed, reporting, setToolsServer, toolsServer } from './fixture-mcp.mjs'
+import { call, callNamed, setToolsServer, subtask, toolsServer } from './fixture-mcp.mjs'
 import { applySetting } from './fixture-settings.mjs'
 import { refuse } from './fixture-turn-refusals.mjs'
 import { CLAUDE_TURN_QUOTA, CLAUDE_TURN_USAGE } from './fixture-usage.mjs'
@@ -33,11 +33,10 @@ let nextRequest = 1_000_000
 let thread
 
 const refused = (message) => Boolean(message.error ?? message.result?.isError)
-const step = reporting(send)
 
 /** Asks the person a question through request_user_decision. */
 async function ask(sessionId, category) {
-  const message = await step(sessionId, 'request_user_decision', {
+  const message = await call(sessionId, 'request_user_decision', {
     label: 'Ask which marker to use',
     category,
     question: 'Which marker should the fixture use?',
@@ -49,7 +48,7 @@ async function ask(sessionId, category) {
   log({ sessionId, event: 'asked', isError: refused(message) })
 }
 
-const form = formSteps({ call: step, log, refused })
+const form = formSteps({ call, log, refused })
 
 // A delegated turn names its sender by title, which carries the sender's own
 // markers, so the fixture tells such a turn by its prompt and does not delegate again.
@@ -146,6 +145,7 @@ async function prompt({ sessionId, prompt: parts }) {
   // A thread started here, then moved (E2E_HOP), or left on this session's model (E2E_INHERIT).
   if (/E2E_(HOP|INHERIT)/.test(text) && !text.includes(CHILD))
     await (text.includes('E2E_HOP') ? hop : inherit)({ call, send, log, sessionId, child: CHILD })
+  if (text.includes('E2E_SUBTASK')) await subtask({ log, sessionId, marker })
   if (text.includes('E2E_ASK')) {
     await ask(sessionId, text.includes('E2E_ASK_CREDENTIAL') ? 'credential' : 'preference')
   }
