@@ -80,6 +80,7 @@ export function FormerMembersSection({
   return (
     <section className="mb-6">
       <SectionHeading
+        inset
         title={t('Personal dashboards of former members')}
         hint={t(
           'Their creators are no longer in the team. You can open them, move them to Team, or delete them.',

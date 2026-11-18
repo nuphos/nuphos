@@ -8,8 +8,10 @@ import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 
 import { RANGE_PRESETS, rangeLabel } from './helpers'
+import { VisibilityMenu } from './VisibilityMenu'
 
 import type {
+  NuphosDashboard,
   NuphosDashboardDetail,
   DashboardViewRange,
   DashboardGranularity,
@@ -36,6 +38,8 @@ type Props = {
   ) => void
   onAddPanel: () => void
   openPanelAssistant: () => void
+  /** A move between Personal and Team, from the visibility menu. */
+  onVisibilitySaved: (dashboard: NuphosDashboard) => void
 }
 
 export function DashboardToolbar({
@@ -51,6 +55,7 @@ export function DashboardToolbar({
   applyDate,
   onAddPanel,
   openPanelAssistant,
+  onVisibilitySaved,
 }: Props) {
   const [savingDefault, setSavingDefault] = useState(false)
   const savingDefaultRef = useRef(false)
@@ -150,6 +155,8 @@ export function DashboardToolbar({
                 )}
               </MenuContent>
             </Menu>
+            {/* Here rather than in the page header, which a dashboard open in a panel lacks. */}
+            <VisibilityMenu teamId={teamId} detail={detail} onSaved={onVisibilitySaved} />
             {customRange && (
               <>
                 <input

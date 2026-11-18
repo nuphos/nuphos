@@ -190,6 +190,12 @@ export function NuphosDashboardsView({
     )
   }
 
+  // A move between Personal and Team: the open dashboard and its row in the list.
+  const onDashboardSaved = (dashboard: NuphosDashboard) => {
+    setDetail((current) => current && { ...current, dashboard })
+    setDashboards((prev) => prev.map((d) => (d.id === dashboard.id ? dashboard : d)))
+  }
+
   return (
     <div className="flex h-full flex-col">
       {embedded && (
@@ -212,10 +218,7 @@ export function NuphosDashboardsView({
             lastRefreshAt={lastRefreshAt}
             refreshing={refreshing}
             onRefresh={() => void refreshAll(true)}
-            onSaved={(dashboard) => {
-              setDetail((current) => current && { ...current, dashboard })
-              setDashboards((prev) => prev.map((d) => (d.id === dashboard.id ? dashboard : d)))
-            }}
+            onSaved={onDashboardSaved}
           />,
           headerRightSlot,
         )}
@@ -232,6 +235,7 @@ export function NuphosDashboardsView({
         applyDate={applyDate}
         onAddPanel={() => setEditor({ panel: null })}
         openPanelAssistant={openPanelAssistant}
+        onVisibilitySaved={onDashboardSaved}
       />
 
       <DashboardCanvas

@@ -3,11 +3,10 @@ import { t } from '../../i18n'
 
 import { CadenceMenu } from './CadenceMenu'
 import { refreshAge } from './helpers'
-import { VisibilityMenu } from './VisibilityMenu'
 
 import type { NuphosDashboard, NuphosDashboardDetail } from '../schema'
 
-/** The open dashboard's header controls: last refresh, who sees it, auto-refresh, refresh. */
+/** The open dashboard's header controls: last refresh, auto-refresh, refresh. */
 export function DashboardHeaderControls({
   teamId,
   detail,
@@ -31,7 +30,6 @@ export function DashboardHeaderControls({
       >
         {lastRefreshAt ? refreshAge(lastRefreshAt) : t('No completed refresh')}
       </span>
-      <VisibilityMenu teamId={teamId} detail={detail} onSaved={onSaved} />
       <CadenceMenu teamId={teamId} detail={detail} onSaved={onSaved} />
       <RefreshButton onRefresh={onRefresh} loading={refreshing} />
     </>

@@ -27,8 +27,9 @@ function visibilityTitle(personal: boolean, tookOver: boolean) {
     : t('Everyone in the team can see this dashboard.')
 }
 
+// Sized like the time-range picker beside it in the dashboard's toolbar.
 const CHIP =
-  'flex h-7 items-center gap-1.5 whitespace-nowrap rounded-md border border-line-control px-2 text-[12px] text-secondary outline-none'
+  'flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-line-control bg-surface-sheet px-2.5 text-[12.5px] text-main outline-none'
 
 /**
  * Who sees the open dashboard, Personal or Team. Its creator moves it from here;
@@ -79,7 +80,7 @@ export function VisibilityMenu({ teamId, detail, onSaved }: Props) {
             type="button"
             title={title}
             disabled={saving}
-            className={`${CHIP} hover:bg-state-hover hover:text-main focus:border-line-focus disabled:opacity-50`}
+            className={`${CHIP} hover:bg-state-hover focus:border-line-focus disabled:opacity-50`}
           >
             <Icon className="h-3.5 w-3.5 text-tertiary" />
             {label}
@@ -87,7 +88,7 @@ export function VisibilityMenu({ teamId, detail, onSaved }: Props) {
           </button>
         }
       />
-      <MenuContent align="end">
+      <MenuContent align="start">
         <MenuItem
           selected={personal}
           onClick={() => void (personal ? undefined : save('personal'))}

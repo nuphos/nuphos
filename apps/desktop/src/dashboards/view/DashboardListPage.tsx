@@ -141,7 +141,7 @@ export function DashboardListPage({
       )}
       {listSections(visibleDashboards, dashboards).map((section) => (
         <section key={section.key} className="mb-6">
-          <SectionHeading title={section.title} hint={section.hint} />
+          <SectionHeading title={section.title} hint={section.hint} inset={!embedded} />
           <SectionBody
             embedded={embedded}
             rows={section.rows}
