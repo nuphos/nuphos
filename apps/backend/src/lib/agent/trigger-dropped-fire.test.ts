@@ -34,6 +34,8 @@ const target = {
 } as AgentConversation
 let online = false
 let failure: Error | undefined
+// What waking the conversation's Box answers: resuming, nothing to wake, or refused by the plan.
+let wake: () => Promise<boolean> = async () => false
 // Every write to the Trigger, in order.
 const writes: { op: string; filter: Record<string, unknown>; update: Record<string, unknown> }[] =
   []
@@ -47,7 +49,7 @@ useIdentity({ signNuphosToken: () => 'test-token' })
 useConversationChatRoute({
   resolveConversationChatRuntime: async () => ({ runtime: 'claude-code' }),
 })
-useBoxWake({ wakeOfflineBox: async () => false })
+useBoxWake({ wakeOfflineBox: () => wake() })
 useDb({
   db: (() => ({
     collection: () => ({
@@ -77,6 +79,7 @@ function fire(offlineSince?: string) {
 beforeEach(() => {
   online = false
   failure = undefined
+  wake = async () => false
   writes.length = 0
   installTurnRunner({
     claimAgentRunForSession: async () => () => {},
@@ -148,4 +151,31 @@ test('a fire whose turn fails for a passing reason writes nothing to its Trigger
 
   await expect(startQueuedTurn('owner', 'target')).rejects.toThrow('402')
   expect(writes).toEqual([])
+})
+
+test('a fire on a paused Box wakes it and waits in the queue', async () => {
+  wake = async () => true
+  await enqueuePendingUserMessage('owner', 'target', fire())
+
+  await startQueuedTurn('owner', 'target')
+  expect(await hasPendingUserMessages('owner', 'target')).toBe(true)
+  expect(writes).toEqual([])
+})
+
+test('a fire on a Box its plan will not start fails, and counts toward pausing its Trigger', async () => {
+  wake = async () => {
+    throw new AppError(
+      402,
+      'box_vcpu_limit',
+      "Your team's free cloud computer has used its 50 hours this month.",
+    )
+  }
+  await enqueuePendingUserMessage('owner', 'target', fire())
+
+  await startQueuedTurn('owner', 'target')
+  expect(await hasPendingUserMessages('owner', 'target')).toBe(false)
+  expect(writes).toHaveLength(1)
+  expect(writes[0]?.op).toBe('findOneAndUpdate')
+  expect(String(writes[0]?.filter._id)).toBe(TRIGGER_ID)
+  expect(writes[0]?.update).toEqual({ $inc: { failedRunCount: 1 } })
 })
