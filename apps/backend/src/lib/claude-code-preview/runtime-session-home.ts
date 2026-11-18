@@ -10,7 +10,6 @@ import { logError, logEvent } from '@/lib/observability'
 
 import { controlRegistry } from './agent-chat-registry'
 import { developmentRuntimeEndpoint, requireRuntimeInstance } from './runtime-catalog'
-import { SESSION_TTL_HOURS } from './runtime-objects'
 import { resolveTeamRuntimeEndpoints } from './runtime-registry'
 import { RECLAIM_SESSION_HOME_PROGRAM } from './runtime-session-home-program'
 import { conversationExecutionState } from './session-execution-state'
@@ -29,6 +28,8 @@ const BOX_RECLAIM_COMMAND =
   's=$?; rm -rf "$d"; exit $s'
 
 const RETRY_WINDOW_MS = 30 * 24 * 60 * 60 * 1000
+// OpenAB ends an inner session idle this long (also its own default).
+const SESSION_TTL_HOURS = 4
 
 // Conversations whose home is no longer needed: archived ones, trigger runs nobody
 // archives once the runtime has ended their inner session for idleness, and moved
@@ -156,7 +157,7 @@ async function controlEndpoint(
 ) {
   return runtimeId === `development-${provider}`
     ? developmentRuntimeEndpoint(provider, 'control')
-    : (await resolveTeamRuntimeEndpoints(teamId, undefined, provider, 'control')).find(
+    : (await resolveTeamRuntimeEndpoints(teamId, provider, 'control')).find(
         (item) => item.runtimeId === runtimeId,
       )
 }

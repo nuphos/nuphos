@@ -14,11 +14,11 @@ import { getAgentDevice } from '@/lib/agent/devices/store'
 import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 
-import { reachableRuntimeEndpoint } from './dev-runtime-forward'
 import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { OpenAbAcpClient } from './openab-acp-client'
 import { RUNTIME_RELEASES_URL, latestCliRelease, newerRuntimeVersion } from './runtime-release'
 
+import type { TeamRuntimeEndpoint } from './team-openab-runtime'
 import type { LocalAgentRef, LocalRuntimeRef } from '@/lib/agent/devices/local-runtime/address'
 import type { LocalRuntimeStatus } from '@/lib/agent/devices/local-runtime/protocol'
 
@@ -39,14 +39,12 @@ export type BoxUpdateDeps = {
  * (unreachable, an older runtime's answer, leftover background tools) counts as idle:
  * refusing on those would block the update that fixes them.
  */
-async function endpointHasActiveTurn(
-  endpoint: Parameters<typeof reachableRuntimeEndpoint>[0],
-): Promise<boolean> {
+async function endpointHasActiveTurn(endpoint: TeamRuntimeEndpoint): Promise<boolean> {
   let client: OpenAbAcpClient | undefined
 
   try {
     client = await OpenAbAcpClient.connect({
-      ...(await reachableRuntimeEndpoint(endpoint)),
+      ...endpoint,
       connectTimeoutMs: 3_000,
       callTimeoutMs: 3_000,
     })
