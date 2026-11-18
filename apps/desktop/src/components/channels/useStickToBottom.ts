@@ -35,13 +35,8 @@ export function useStickToBottom(ref: RefObject<HTMLDivElement | null>) {
       scroller.style.overflowAnchor = stuck.current ? 'none' : ''
       lastTop = top
     }
-    // Away from the bottom, the bottom edge still holds its place: what the
-    // composer or the reply bar takes from the scroller comes off the top.
-    let height = scroller.clientHeight
     const follow = new ResizeObserver(() => {
       if (stuck.current) scroller.scrollTop = scroller.scrollHeight
-      else scroller.scrollTop += height - scroller.clientHeight
-      height = scroller.clientHeight
     })
 
     scroller.style.overflowAnchor = stuck.current ? 'none' : ''

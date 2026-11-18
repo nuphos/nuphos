@@ -1,4 +1,4 @@
-// #3542: opening a reply cut the Bot chat off under the reply bar. Runs in the Bot chat the
+// #3542: the reply bar cut the Bot chat off along a hard line at its top. Runs in the Bot chat the
 // scenarios before left open.
 import { agentLog } from '../agent-log.ts'
 import { artifacts, until } from '../processes.ts'
@@ -82,21 +82,24 @@ const scenario: Scenario = {
     // At the bottom: the chat stays there, its newest post whole above the bar.
     await reply(page, 'Reply bar 8:')
     const bottom = await layout(page, 'Reply bar 8:')
+    const bar = bottom.bar
 
     await page.screenshot({ path: `${artifacts}/reply-bar-at-bottom.png` })
-    if (bottom.fromBottom > 1 || bottom.post.bottom > bottom.scroller.bottom)
+    if (!bar) throw new Error('No reply bar')
+    if (bottom.fromBottom > 1 || bottom.post.bottom > bar.top)
       throw new Error(`Replying at the bottom hid the newest post: ${JSON.stringify(bottom)}`)
-    // The bar is the composer's width, so the chat's edge above it is the composer's own.
+    // The bar keeps its place: just above the composer, a face (38px) in from each side.
     if (
-      !bottom.bar ||
-      !near(bottom.bar.left, bottom.composer.left) ||
-      !near(bottom.bar.right, bottom.composer.right)
+      !near(bar.bottom, bottom.composer.top) ||
+      !near(bar.left - bottom.composer.left, 38) ||
+      !near(bottom.composer.right - bar.right, 38)
     )
-      throw new Error(`The reply bar is not as wide as the composer: ${JSON.stringify(bottom)}`)
+      throw new Error(`The reply bar moved: ${JSON.stringify(bottom)}`)
     await page.keyboard.press('Escape')
     await page.getByRole('button', { name: 'Cancel reply' }).waitFor({ state: 'hidden' })
 
-    // Scrolled up, a post's end just above the edge: opening the bar keeps it in view.
+    // Scrolled up, a post's end just above the composer: the bar floats over the chat,
+    // which runs on under it to the composer, with no edge at the bar's top.
     await page.evaluate(() => {
       const scroller = [...document.querySelectorAll<HTMLElement>('.header-edge.selectable')].find(
         (el) => !el.closest('[inert]') && el.offsetParent,
@@ -117,13 +120,14 @@ const scenario: Scenario = {
     const open = await layout(page, 'Reply bar 5:')
 
     await page.screenshot({ path: `${artifacts}/reply-bar-scrolled-up.png` })
-    if (open.post.bottom > open.scroller.bottom)
-      throw new Error(`The reply bar cut the post being read: ${JSON.stringify({ before, open })}`)
+    if (!open.bar || !near(open.scroller.bottom, open.composer.top))
+      throw new Error(`The chat ends at the reply bar: ${JSON.stringify({ before, open })}`)
+    if (!near(open.post.bottom, before.post.bottom))
+      throw new Error(`Opening the reply moved the chat: ${JSON.stringify({ before, open })}`)
     await page.keyboard.press('Escape')
     await page.getByRole('button', { name: 'Cancel reply' }).waitFor({ state: 'hidden' })
     const closed = await layout(page, 'Reply bar 5:')
 
-    // Closing it puts the chat back where it was.
     if (!near(closed.post.bottom, before.post.bottom))
       throw new Error(`Closing the reply moved the chat: ${JSON.stringify({ before, closed })}`)
   },
