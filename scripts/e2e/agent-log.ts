@@ -11,7 +11,7 @@ type AgentEntry = {
   marker?: string
   /** The model settings a new session was created with. */
   defaults?: { model?: string; fast?: string }
-  /** The response language a new session's system prompt names. */
+  /** The response language a turn's prompt names. */
   language?: string
   isError?: boolean
   detail?: string
