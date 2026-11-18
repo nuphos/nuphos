@@ -16,6 +16,29 @@ function tab(url: string) {
   return { getURL: () => url }
 }
 
+test("an agent's tab saves its downloads, repeats included, so the guard never drops one", () => {
+  const browserSession = new EventEmitter()
+  const saved: string[] = []
+
+  guardBrowserDownloads(browserSession as unknown as Session, (download) => {
+    saved.push(download.getURL())
+
+    return true
+  })
+  for (let i = 0; i < 2; i++) {
+    const event = {
+      defaultPrevented: false,
+      preventDefault: () => {
+        event.defaultPrevented = true
+      },
+    }
+
+    browserSession.emit('will-download', event, item([FILE]), tab(''))
+    assert.equal(event.defaultPrevented, false)
+  }
+  assert.deepEqual(saved, [FILE, FILE])
+})
+
 test('a tab that is a file asks once, then its reloads are dropped', () => {
   const asked = new Set<string>()
 

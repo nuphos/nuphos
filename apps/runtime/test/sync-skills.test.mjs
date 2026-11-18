@@ -529,6 +529,8 @@ test('swaps a new bundle in without ever exposing a missing tree', async () => {
     })
     assert.equal(statSync(join(claude, 'settings.json')).mode & 0o777, 0o600)
     assert.equal(readFileSync(join(claude, '.skills-revision'), 'utf8'), 'rev-2')
+    // Swap first, then delete the old tree. A live Codex session notices a new bundle only
+    // when the tree it watches is deleted, not when the symlink moves (#3365).
     assert.deepEqual(
       readdirSync(claude).filter((entry) => entry.startsWith('skills.')),
       [readlinkSync(skills)],

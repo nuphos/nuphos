@@ -137,6 +137,8 @@ export type RuntimeQuota = {
   offline?: true
   plan?: string
   windows: RuntimeQuotaWindow[]
+  /** The other agents signed in to the same account: they run out together. */
+  sharesQuotaWith?: { runtimeId: string; label: string }[]
 }
 
 export type RuntimeMetricSample = {
