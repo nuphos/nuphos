@@ -25,16 +25,19 @@ const scenario: Scenario = {
     await page.getByText('POSTED E2E_DELIVERY:inbox-reply', { exact: true }).waitFor()
     const wakes = channelWakes(stack)
     const answered = count(stack, `finish ${ANSWER}`)
-    const asker = agentLog(stack).findLast((entry) => entry.event === 'asked')?.sessionId
+    // The only open question asked in a chat: the scenarios before answered theirs.
     const listed = (
       await client(stack.apiUrl, stack.token)(
         'GET',
-        `/agent/conversations?teamId=${stack.teamId}&pendingDecision=true`,
+        `/agent/conversations?teamId=${stack.teamId}&pendingDecision=true&bots=true`,
       )
-    ).body as { conversations: { sessionId: string; inputRequests?: { id: string }[] }[] }
-    const asked = listed.conversations.find((row) => row.sessionId === asker)?.inputRequests?.at(-1)
+    ).body as { conversations: { inputRequests?: { id: string; channelId?: string }[] }[] }
+    const asked = listed.conversations
+      .flatMap((row) => row.inputRequests ?? [])
+      .find((request) => request.channelId)
 
-    if (!asked) throw new Error("The Bot's question is not open in the Inbox")
+    if (!asked)
+      throw new Error(`The Bot's question is not open in the Inbox: ${JSON.stringify(listed)}`)
     await page.getByRole('tab', { name: /^Inbox/ }).click()
     await page.locator(`[data-inbox-question="${asked.id}"]`).click()
     await page.getByRole('button', { name: ANSWER }).last().click()
