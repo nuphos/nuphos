@@ -198,7 +198,10 @@ sign Claude Code in.
 On start `nuphos agent` prints which variables it passes, by name; no value is
 written to a log or to the runtime's own config. The values reach the agents'
 processes, so the commands an agent runs can read them, as they can read a
-key in any CLI's own environment. The desktop app never reads these from your
+key in any CLI's own environment. That includes everyone who may use this
+computer: anyone you share it with, and anyone in a team who continues an agent
+moved onto it, runs commands as its user and can read these keys (see
+[Working on a shared computer](../../docs/shared-computers.md)). The desktop app never reads these from your
 shell; it has **Custom provider** under each local runtime instead.
 
 `exec` writes the reply to stdout and tool activity to stderr, ending with
