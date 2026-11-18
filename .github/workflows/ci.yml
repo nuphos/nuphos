@@ -566,16 +566,16 @@ jobs:
   # native addon only compiles there. A PR or queue entry gets the Mac only when
   # it changes a packaging input or the addon (desktop_package); every other
   # desktop change is checked by the Linux job above, and its skipped Mac job
-  # still passes the required check. The full package runs on main after each
-  # merge and every night, so what only the Mac catches shows up there.
+  # still passes the required check. The full package runs on main every
+  # night, so what only the Mac catches shows up within a day.
   # Staging and electron-builder are skipped in the queue: the PR already
   # packaged the same inputs.
   desktop:
     name: Desktop (Nuphos macOS package)
     needs: changes
-    # On push and schedule `changes` is skipped; !cancelled() keeps this job running.
+    # On schedule `changes` is skipped; !cancelled() keeps this job running.
     if: >-
-      ${{ !cancelled() && (github.event_name == 'push' || github.event_name == 'schedule' ||
+      ${{ !cancelled() && (github.event_name == 'schedule' ||
       (needs.changes.outputs.desktop == 'true' && needs.changes.outputs.desktop_package == 'true')) }}
     runs-on: macos-26
     steps:
