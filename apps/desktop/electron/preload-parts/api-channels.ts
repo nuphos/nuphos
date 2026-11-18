@@ -27,6 +27,10 @@ export const channelsApi = {
   ) => ipcRenderer.invoke('agent:createBot', teamId, bot),
   agentStartBotOnboarding: (sessionId: string, teamId: string, channelId: string) =>
     ipcRenderer.invoke('agent:startBotOnboarding', sessionId, teamId, channelId),
+  agentWaitForRunEnd: (args: { sessionId: string; teamId: string; streamId: string }) =>
+    ipcRenderer.invoke('agent:waitForRunEnd', args),
+  agentStopWaitingForRunEnd: (streamId: string) =>
+    ipcRenderer.invoke('agent:stopWaitingForRunEnd', streamId),
   agentMakeBot: (sessionId: string, teamId: string) =>
     ipcRenderer.invoke('agent:makeBot', sessionId, teamId),
   agentListChannelMentions: (teamId: string) =>
