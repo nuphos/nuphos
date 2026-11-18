@@ -113,7 +113,10 @@ test("a question asked in a channel gets the answerer's replies there, one per q
       questions: [{ question: 'Which regions?' }, { question: 'Keep the old cluster?' }],
     }),
     requestId: 'q1',
-    answer: { questions: [{ choices: ['us-east'] }, { text: 'Keep it a week' }] },
+    answer: {
+      questions: [{ choices: ['us-east'] }, { text: 'Keep it a week' }],
+      answeredIn: 'inbox',
+    },
     actor: { ...actor, avatarURL: 'https://avatars.githubusercontent.com/u/1' },
     teamId: 't1',
   })
@@ -160,7 +163,7 @@ test("a question asked in a channel gets the answerer's replies there, one per q
   expect(turns[0]!.text).toContain('reply there with channel_post')
 })
 
-test('a single question in a channel gets one reply with the answer', async () => {
+test('an answer given on its card in the chat is a reply that names no Inbox', async () => {
   await answerDecision({
     conversation: ask({ channelId: 'chan-1' }),
     requestId: 'q1',
@@ -177,6 +180,10 @@ test('a single question in a channel gets one reply with the answer', async () =
       replyTo: { authorName: 'Scribe', text: 'Which regions?' },
     },
   })
+  const metadata = channelRecords[0]!.messages[0]!.metadata as Record<string, unknown>
+
+  expect(metadata.requestId).toBe('q1')
+  expect(metadata).not.toHaveProperty('answeredIn')
 })
 
 test("a teammate's answer is told apart from the owner's", async () => {

@@ -180,7 +180,7 @@ export async function readChannelMessages(
       // Its own posts are not news to it, and must not push others' off the page.
       'metadata.sender.id': { $ne: agentSessionId },
       // Nor is an answer to a question card: the agent that asked was given it as it was given.
-      'metadata.answeredIn': { $exists: false },
+      'metadata.requestId': { $exists: false },
     })
     .sort({ index: 1 })
     .limit(READ_PAGE + 1)

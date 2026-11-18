@@ -16,6 +16,8 @@ export type DecisionAnswer = {
   choices?: string[]
   text?: string
   questions?: { choices?: string[]; text?: string }[]
+  /** Given in the Inbox, not on the card where it was asked. */
+  answeredIn?: 'inbox'
 }
 
 /** The person answering, as their posts name them. */
@@ -73,8 +75,8 @@ export async function recordInChannel(
         source: 'nuphos',
         sentAt,
         replyTo: { authorName: asker.title || 'Nuphos agent', text: entry.question },
-        answeredIn: 'inbox',
         requestId: request.id,
+        ...(answer.answeredIn ? { answeredIn: answer.answeredIn } : {}),
       } satisfies MessageMetadata,
     })),
   })

@@ -27,12 +27,9 @@ export type MessageMetadata = {
    * `id` is the original's in the same chat, for a channel reply.
    */
   replyTo?: { id?: string; authorName: string; text: string }
-  /**
-   * A person's answer to a question card, recorded by Nuphos as their reply to it:
-   * the agent that asked was already given it, as `requestId`'s answer.
-   */
-  answeredIn?: 'inbox'
+  /** Nuphos's record of a person's answer to card `requestId`; `answeredIn` if in the Inbox. */
   requestId?: string
+  answeredIn?: 'inbox'
   /** A Discord author with no verified Nuphos identity: the body is fenced for the model. */
   unattested?: true
   /** The stored CLI or agent token that sent it, for audit. */
@@ -186,8 +183,11 @@ export function parseMessageMetadata(value: unknown): MessageMetadata | undefine
       ? { resourceUrl: m.resourceUrl }
       : {}),
     ...(replyTo ? { replyTo } : {}),
-    ...(m.source === 'nuphos' && m.answeredIn === 'inbox' && nonEmpty(m.requestId)
-      ? { answeredIn: m.answeredIn, requestId: m.requestId }
+    ...(m.source === 'nuphos' && nonEmpty(m.requestId)
+      ? {
+          requestId: m.requestId,
+          ...(m.answeredIn === 'inbox' ? { answeredIn: m.answeredIn } : {}),
+        }
       : {}),
     ...(m.source === 'discord' && m.unattested === true ? { unattested: true as const } : {}),
     ...(nonEmpty(m.cliTokenId) ? { cliTokenId: m.cliTokenId } : {}),
