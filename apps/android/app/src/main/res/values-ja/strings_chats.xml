@@ -59,7 +59,6 @@
     <string name="chats_question_snooze_monday">来週月曜 9:00</string>
     <string name="chats_question_dismiss_reason">理由（任意）</string>
     <string name="chats_bot_computer_offline">%1$s のコンピューターはオフラインです。</string>
-    <string name="chats_members">メンバー</string>
     <string name="chats_presence_online">オンライン</string>
     <string name="chats_presence_busy">作業中</string>
     <string name="chats_presence_offline">オフライン</string>

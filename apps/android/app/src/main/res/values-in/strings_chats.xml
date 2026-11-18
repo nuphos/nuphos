@@ -59,7 +59,6 @@
     <string name="chats_question_snooze_monday">Senin depan, 9:00</string>
     <string name="chats_question_dismiss_reason">Alasan (opsional)</string>
     <string name="chats_bot_computer_offline">Komputer %1$s sedang offline.</string>
-    <string name="chats_members">Anggota</string>
     <string name="chats_presence_online">Online</string>
     <string name="chats_presence_busy">Sibuk</string>
     <string name="chats_presence_offline">Offline</string>

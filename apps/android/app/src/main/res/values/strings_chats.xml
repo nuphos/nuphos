@@ -59,7 +59,6 @@
     <string name="chats_question_snooze_monday">Next Monday, 9:00</string>
     <string name="chats_question_dismiss_reason">Reason (optional)</string>
     <string name="chats_bot_computer_offline">%1$s’s computer is offline.</string>
-    <string name="chats_members">Members</string>
     <string name="chats_presence_online">Online</string>
     <string name="chats_presence_busy">Busy</string>
     <string name="chats_presence_offline">Offline</string>

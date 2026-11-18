@@ -19,14 +19,14 @@ import ai.nuphos.android.model.BotPresence
 import ai.nuphos.android.model.ChannelAgent
 import ai.nuphos.android.ui.components.AgentAvatar
 
-/** A group chat's Bots, each with whether it can reply now (#3308), as Desktop's member list shows them. */
+/** A group chat's Bots, each with whether it can reply now (#3308), as Desktop's member list shows them. It lists no people, so it is titled Bots. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ChannelMembersSheet(agents: List<ChannelAgent>, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         LazyColumn(Modifier.fillMaxWidth().testTag("members-sheet"), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item { Text(stringResource(R.string.chats_members), style = MaterialTheme.typography.titleLarge) }
+            item { Text(stringResource(R.string.chats_bots), style = MaterialTheme.typography.titleLarge) }
             items(agents, key = { it.sessionId }) { agent ->
                 Row(Modifier.fillMaxWidth().testTag("member-row"), verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)) {

@@ -59,7 +59,6 @@
     <string name="chats_question_snooze_monday">다음 주 월요일 9:00</string>
     <string name="chats_question_dismiss_reason">이유(선택)</string>
     <string name="chats_bot_computer_offline">%1$s의 컴퓨터가 오프라인입니다.</string>
-    <string name="chats_members">멤버</string>
     <string name="chats_presence_online">온라인</string>
     <string name="chats_presence_busy">작업 중</string>
     <string name="chats_presence_offline">오프라인</string>
