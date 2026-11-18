@@ -11,6 +11,7 @@ import { useThisComputerBadge } from '../../hooks/useThisComputer'
 import { t } from '../../i18n'
 
 import { canManage, newAgentAction } from './agentPresentation'
+import { AutoInstallMenuItem } from './AutoInstallMenuItem'
 import { BoxAccessDialog } from './BoxAccessDialog'
 import { BoxAgentSetup } from './BoxAgentSetup'
 import { agentSlots, askToAdd, canAddAgent } from './boxAgentSlots'
@@ -196,6 +197,7 @@ export function BoxRow({
                   {hostUpdate.label}
                 </MenuItem>
               )}
+              <AutoInstallMenuItem device={device} teamId={teamId} onChanged={changed} />
               <MenuItem onClick={() => setRenaming(true)}>{t('Rename')}</MenuItem>
               <MenuItem onClick={() => void copyUid(device)}>{t('Copy UID')}</MenuItem>
               <MenuItem onClick={() => setSharing(true)}>{t('Manage access…')}</MenuItem>

@@ -5,7 +5,8 @@
 // updates its host instead (box-update.ts). Nothing is stored: the report is the state,
 // which the device list shows its owner (ownComputer in session-desktops.ts).
 
-import { updateLocalApp } from '@/lib/agent/devices/local-runtime/instances'
+import { requireDeviceAccess } from '@/lib/agent/devices/box-access'
+import { setLocalAutoInstall, updateLocalApp } from '@/lib/agent/devices/local-runtime/instances'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { getAgentDevice } from '@/lib/agent/devices/store'
 import { AppError } from '@/lib/errors'
@@ -49,4 +50,41 @@ export async function requestComputerAppUpdate(
   await deps.update({ userId, actorId: userId, deviceId, teamId })
 
   return { version: update.version }
+}
+
+export type ComputerAutoInstallDeps = {
+  /** The computer, when the actor may manage it in this team; throws otherwise. */
+  manage: (actorId: string, teamId: string, deviceId: string) => Promise<{ userId: string }>
+  online: (userId: string, deviceId: string) => Promise<boolean>
+  set: typeof setLocalAutoInstall
+}
+
+const autoInstallDeps: ComputerAutoInstallDeps = {
+  manage: (actorId, teamId, deviceId) => requireDeviceAccess(actorId, teamId, deviceId, 'manage'),
+  online: async (userId, deviceId) =>
+    Boolean((await runtimePresenceStore().get(userId, deviceId))?.status),
+  set: setLocalAutoInstall,
+}
+
+/**
+ * Whoever manages a computer turns its automatic updates on or off. The switch lives on the
+ * computer, which updates itself when idle (cli-auto-update.ts, auto-update.ts on the Desktop).
+ */
+export async function setComputerAutoInstall(
+  teamId: string,
+  actorId: string,
+  deviceId: string,
+  enabled: boolean,
+  deps = autoInstallDeps,
+): Promise<{ enabled: boolean }> {
+  const { userId } = await deps.manage(actorId, teamId, deviceId)
+
+  if (!(await deps.online(userId, deviceId)))
+    throw new AppError(
+      409,
+      'runtime_offline',
+      'The computer is offline. Turn it on, then change this.',
+    )
+
+  return deps.set({ userId, actorId, deviceId, teamId }, enabled)
 }

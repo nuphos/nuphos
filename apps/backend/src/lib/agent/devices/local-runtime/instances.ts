@@ -153,6 +153,24 @@ export async function openLocalDesktop(
   return display
 }
 
+/** Turns the computer's automatic updates on or off; it answers with the switch as it now is. */
+export async function setLocalAutoInstall(
+  target: Target,
+  enabled: boolean,
+  options: Options = {},
+): Promise<{ enabled: boolean }> {
+  const answer = await requestInstances(target, { method: 'autoInstall', enabled }, options)
+
+  if (typeof answer.enabled !== 'boolean')
+    throw new AppError(
+      502,
+      'agent_instance_invalid_response',
+      'The computer returned an invalid answer.',
+    )
+
+  return { enabled: answer.enabled }
+}
+
 /** Has the computer's Nuphos Desktop restart into the update it staged; it refuses while busy. */
 export async function updateLocalApp(target: Target, options: Options = {}): Promise<void> {
   await requestInstances(target, { method: 'update' }, options)

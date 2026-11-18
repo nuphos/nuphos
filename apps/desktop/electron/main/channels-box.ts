@@ -11,6 +11,7 @@ import {
   removeDevice,
   updateDeviceApp,
   clearBoxCaches,
+  setDeviceAutoInstall,
   getBoxUsage,
   getBoxUsageHistory,
   bindInstaboxAccount,
@@ -166,6 +167,8 @@ export const boxChannels = {
     updateDeviceApp(string(deviceId), string(teamId)),
   'box:clearCaches': (_e: unknown, deviceId: unknown, teamId: unknown) =>
     clearBoxCaches(string(deviceId), string(teamId)),
+  'box:autoInstall': (_e: unknown, deviceId: unknown, teamId: unknown, enabled: unknown) =>
+    setDeviceAutoInstall(string(deviceId), string(teamId), enabled === true),
   'box:desktop': (_e: unknown, deviceId: unknown, teamId: unknown) =>
     boxDesktop(string(deviceId), string(teamId)),
   'box:join-token': () => boxJoinToken(),

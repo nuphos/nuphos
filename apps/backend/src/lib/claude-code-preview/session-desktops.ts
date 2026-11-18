@@ -129,10 +129,16 @@ export async function ownComputer(
   desktopRuntimeId?: string
   app?: NonNullable<LocalRuntimeStatus['app']>
   outdated?: OutdatedHost
+  autoInstall?: boolean
 }> {
   const present = await presence.get(userId, deviceId)
   const old = hostOutdated(present)
-  const outdated = old ? { outdated: old } : {}
+  // Everyone sees whether it updates itself when idle; whoever manages it may change that.
+  const autoInstall = present?.status?.autoInstall
+  const outdated = {
+    ...(old ? { outdated: old } : {}),
+    ...(typeof autoInstall === 'boolean' ? { autoInstall } : {}),
+  }
 
   if (box || userId !== viewerId) return outdated
   const status = present?.status
