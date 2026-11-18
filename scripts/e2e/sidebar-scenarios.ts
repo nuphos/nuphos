@@ -3,6 +3,7 @@ import { agentEvents } from './agent-log.ts'
 import { client, must } from './binding-access-scenarios.ts'
 import { checkDockToggleClear } from './chat-presentation.ts'
 import { artifacts, until } from './processes.ts'
+import { screencast } from './question-scenarios.ts'
 import { newTask, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
@@ -130,6 +131,9 @@ export const botFoldScenarios: Scenario[] = [
 
       must(team.status < 300, `a second team, got ${String(team.status)}`)
       await switchTo('Listing Team')
+      // Frames from the switch to the reveal, for a recording of the loading state and its end.
+      const recording = await screencast(page, 'bots-first-listing')
+
       await stack.freezeBackend(async () => {
         await workspace('Listing Team').click()
         await page.getByRole('tab', { name: 'Bots' }).click()
@@ -150,6 +154,7 @@ export const botFoldScenarios: Scenario[] = [
       // Past the reveals, so the capture shows where they land.
       await page.waitForTimeout(800)
       await page.screenshot({ path: `${artifacts}/bots-first-listing-empty.png` })
+      await recording()
       // Back in the first team, where the scenarios after this one found the window before.
       await switchTo('E2E')
       await workspace('E2E').click()
