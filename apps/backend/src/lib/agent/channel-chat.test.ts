@@ -749,6 +749,19 @@ describe('reading a channel', () => {
     expect(read.note).toContain('replyTo')
   })
 
+  test('an answer given in the Inbox reads as a record of an answer already delivered', async () => {
+    await say('us-east', {
+      ...person,
+      replyTo: { authorName: 'Scribe', text: 'Which regions?' },
+      answeredIn: 'inbox',
+      requestId: 'q1',
+    })
+    const read = await readChannelMessages(await channel(), 'agent-a', 'agent-a-owner')
+
+    expect(read.messages.at(-1)).toMatchObject({ answeredIn: 'inbox', requestId: 'q1' })
+    expect(read.note).toContain('answeredIn')
+  })
+
   test('starts at the latest page, then returns only what is new', async () => {
     for (let n = 0; n < 55; n++) await say(`message ${String(n)}`)
     const first = await readChannelMessages(await channel(), 'agent-a', 'agent-a-owner')

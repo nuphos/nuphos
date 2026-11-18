@@ -62,7 +62,7 @@ async function answerQuestion(
       conversation,
       requestId,
       answer: { text },
-      actor: { id: ctx.userId, displayName: sender.displayName },
+      actor: { id: ctx.userId, displayName: sender.displayName, avatarURL: sender.avatarURL },
       teamId,
     })
     recordAgentEvent({
