@@ -171,7 +171,7 @@ final class InboxUITests: XCTestCase {
     }
 
     /// A Bot's chat shows a question as the Inbox does: the question as the heading under who asked,
-    /// the options as pills in reading order, "Other… · Skip" a line under them, and "Show more" each a full touch target. Skip
+    /// the options, "Other…" and "Skip" one row of the same pill in reading order, and "Show more" each a full touch target. Skip
     /// withdraws it unanswered.
     func testABotChatCardLeadsWithTheQuestionAndSkips() throws {
         responses["POST /agent/conversations/agent-ops/decisions/q-deploy/resolve"] = ["status": 200, "body": ["ok": true]]
@@ -195,12 +195,17 @@ final class InboxUITests: XCTestCase {
                       "The first option is not first")
         XCTAssertEqual(options[0].height, options[1].height, accuracy: 1, "The options are not one style")
 
-        // Touch targets: 44pt. "Other…" and "Skip" are one line of text under the options, and "Show more" spans the body.
+        // Touch targets: 44pt, and "Show more" spans the body.
         for label in ["Other…", "Skip"] {
             XCTAssertGreaterThanOrEqual(app.buttons[label].frame.height.rounded(), 44, "\(label) is too small to hit")
         }
-        XCTAssertEqual(app.buttons["Other…"].frame.midY, app.buttons["Skip"].frame.midY, accuracy: 1, "Other… and Skip are not one line")
-        XCTAssertGreaterThan(app.buttons["Other…"].frame.minY, options.map(\.maxY).max() ?? 0, "Other… is not under the options")
+        // "Other…" and "Skip" are buttons after the options, the same pill (#3468).
+        for label in ["Other…", "Skip"] {
+            XCTAssertEqual(app.buttons[label].frame.height, options[0].height, accuracy: 1, "\(label) is not the options' pill")
+        }
+        let other = app.buttons["Other…"].frame
+        XCTAssertTrue(other.minY > options[1].minY + 1 || (abs(other.minY - options[1].minY) <= 1 && other.minX > options[1].maxX),
+                      "Other… does not follow the options")
         let more = app.buttons["botQuestion.more"]
         XCTAssertGreaterThanOrEqual(more.frame.height.rounded(), 44, "Show more is too small to hit")
         XCTAssertGreaterThanOrEqual(more.frame.width, app.descendants(matching: .any)["botQuestion.body"].frame.width - 1, "Show more is not full-width")

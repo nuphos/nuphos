@@ -2,8 +2,8 @@ import SwiftUI
 
 /// An open question in a Bot's chat, laid out as the Inbox lays one out: who asked, when another
 /// conversation did, the question as the heading, what the agent wrote to decide it from, then
-/// its answers: `QuestionOptions`, each option the same pill, then "Other…" to answer in words in
-/// the card and "Skip" to withdraw the question unanswered, as a line of text. A multi-select or
+/// its answers: `QuestionOptions`, the options, "Other…" to answer in words in the card and "Skip"
+/// to withdraw the question unanswered, one row of the same pill. A multi-select or
 /// several questions pick the same pills and send them at once. An answer wakes the agent
 /// that asked; no message is sent. A secret is asked for with the task's own `SecretCard`, saved
 /// and replied to in the conversation that asked. A connect question opens that conversation's
@@ -91,7 +91,7 @@ struct BotQuestionCard: View {
     }
 
     private var skip: some View {
-        QuestionTextButton(title: String(localized: "Skip"), action: onSkip)
+        QuestionPill(title: String(localized: "Skip"), action: onSkip)
     }
 
     /// The question's markdown body: four lines (84pt) at first, the last fading out, and a full-width
@@ -127,11 +127,11 @@ struct BotQuestionCard: View {
     }
 }
 
-/// A question card's options, one design for every question, as Paper's question card draws them:
-/// each option the same pill, hugging its words and wrapping, then a line of text with "Other…" and
-/// `trailing` (Skip). One question with one answer is answered by a tap; a multi-select, or several
-/// questions, pick theirs (a check once picked) and send them with Send at the line's end. Here and in
-/// the Inbox; the desktop's `DecisionOptions`.
+/// A question card's options, one design for every question: the options, "Other…" and `trailing`
+/// (Skip) one wrapping row of the same pill, as Paper draws a choice. One question with one answer is
+/// answered by a tap; a multi-select, or several questions, pick theirs (a check once picked) and
+/// send them with Send, the row's one ink button, at its end. Here and in the Inbox; the desktop's
+/// `DecisionOptions`.
 struct QuestionOptions<Trailing: View>: View {
     let questions: [AgentConversation.DecisionQuestion]
     /// It may be answered in words, with "Other…".
@@ -193,16 +193,24 @@ struct QuestionOptions<Trailing: View>: View {
                         .padding(.top, index > 0 ? 8 : 0)
                 }
                 let options = questions[index].options ?? []
-                if !options.isEmpty {
-                    FlowLayout(spacing: 8) {
-                        ForEach(options, id: \.self) { option in
-                            QuestionPill(title: option, checked: instant ? nil : picked[index].contains(option)) {
-                                tap(option, at: index)
-                            }
+                // One row of the same pill: the options, "Other…", and on the last row `trailing` and Send.
+                FlowLayout(spacing: 8) {
+                    ForEach(options, id: \.self) { option in
+                        QuestionPill(title: option, checked: instant ? nil : picked[index].contains(option)) {
+                            tap(option, at: index)
                         }
                     }
+                    if typed {
+                        QuestionPill(title: options.isEmpty ? String(localized: "Reply…") : String(localized: "Other…"), on: open == index) {
+                            open = open == index ? nil : index
+                            focused = open != nil
+                        }
+                    }
+                    if index == questions.count - 1 {
+                        trailing()
+                        if !instant { sendButton }
+                    }
                 }
-                line(at: index, hasOptions: !options.isEmpty)
                 if open == index {
                     AnswerField(words: $words[index], focused: $focused, send: send)
                 }
@@ -210,35 +218,20 @@ struct QuestionOptions<Trailing: View>: View {
         }
     }
 
-    /// "Other…" ("Reply…" with nothing to pick) · `trailing` as a line of text, and Send at its end for picks.
-    private func line(at index: Int, hasOptions: Bool) -> some View {
-        HStack(spacing: 6) {
-            if typed {
-                QuestionTextButton(title: hasOptions ? String(localized: "Other…") : String(localized: "Reply…"), on: open == index) {
-                    open = open == index ? nil : index
-                    focused = open != nil
-                }
-            }
-            if index == questions.count - 1 {
-                if typed { Text(verbatim: "·").foregroundStyle(Theme.muted).accessibilityHidden(true) }
-                trailing()
-                Spacer(minLength: 10)
-                if !instant {
-                    Button(action: send) {
-                        Text("Send")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(Theme.chatCanvas)
-                            .padding(.horizontal, 16)
-                            .frame(minHeight: 40)
-                            .background(Theme.heading, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(!complete)
-                    .opacity(complete ? 1 : 0.4)
-                }
-            }
+    /// Send, the row's one ink button, for the picks.
+    private var sendButton: some View {
+        Button(action: send) {
+            Text("Send")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Theme.chatCanvas)
+                .padding(.horizontal, 16)
+                .frame(minHeight: 44)
+                .background(Theme.heading, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .disabled(!complete)
+        .opacity(complete ? 1 : 0.4)
     }
 }
 
@@ -247,7 +240,10 @@ struct QuestionOptions<Trailing: View>: View {
 struct QuestionPill: View {
     let title: String
     var checked: Bool?
+    /// Its box is open, as "Other…" while typing.
+    var on = false
     let action: () -> Void
+    @Environment(\.isEnabled) private var enabled
 
     var body: some View {
         Button(action: action) {
@@ -259,35 +255,15 @@ struct QuestionPill: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 9)
             .frame(minHeight: 44)
-            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .background(on ? Theme.control : Theme.surface, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Theme.hairline, lineWidth: 1))
             .shadow(color: .black.opacity(0.04), radius: 1, y: 1)
             .shadow(color: .black.opacity(0.06), radius: 4, y: 3)
             .contentShape(Rectangle())
+            .opacity(enabled ? 1 : 0.4)
         }
         .buttonStyle(.plain)
-        .accessibilityAddTraits(checked == true ? .isSelected : [])
-    }
-}
-
-/// "Other…", "Skip" and their like: words on the card's line of text, 44pt tall to tap.
-struct QuestionTextButton: View {
-    let title: String
-    var on = false
-    let action: () -> Void
-    @Environment(\.isEnabled) private var enabled
-
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: 15))
-                .foregroundStyle(on ? Theme.heading : Theme.muted)
-                .frame(minHeight: 44)
-                .contentShape(Rectangle())
-                .opacity(enabled ? 1 : 0.4)
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(on ? .isSelected : [])
+        .accessibilityAddTraits(checked == true || on ? .isSelected : [])
     }
 }
 

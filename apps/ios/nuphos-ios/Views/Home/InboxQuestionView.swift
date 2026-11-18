@@ -2,8 +2,8 @@ import MarkdownView
 import SwiftUI
 
 /// One Inbox question: who asked (the name opens that Bot or Task), when, the
-/// question and its markdown body, then its answers: `QuestionOptions`, each option the
-/// same pill and "Other… · Skip" a line of text, pinned to the bottom on iPhone for one
+/// question and its markdown body, then its answers: `QuestionOptions`, the options,
+/// "Other…" and "Skip" one row of the same pill, pinned to the bottom on iPhone for one
 /// question. An integration question and a plan keep their own controls. A secret is asked for with the task's own `SecretCard`,
 /// which says the question itself.
 struct InboxQuestionView: View {
@@ -129,7 +129,7 @@ struct InboxQuestionView: View {
     }
 
     private var skip: some View {
-        QuestionTextButton(title: String(localized: "Skip")) { inbox.selected = inbox.next(after: question.id) }
+        QuestionPill(title: String(localized: "Skip")) { inbox.selected = inbox.next(after: question.id) }
             .disabled(inbox.list.count < 2 && wide)
     }
 
