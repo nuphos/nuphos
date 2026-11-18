@@ -505,14 +505,28 @@ final class InboxUITests: XCTestCase {
         XCTAssertFalse(app.buttons["Send answer"].exists, "The multi-select is still a form")
         XCTAssertFalse(send.isEnabled, "Send before anything is picked")
         // Where a single-select's options are: pinned under the question on iPhone.
-        XCTAssertGreaterThan(app.buttons["Skip"].firstMatch.frame.minY, app.frame.height * 0.7,
-                             "The multi-select options are not where a single-select's are")
+        if UIDevice.current.userInterfaceIdiom == .phone {
+            XCTAssertGreaterThan(app.buttons["Skip"].firstMatch.frame.minY, app.frame.height * 0.7,
+                                 "The multi-select options are not where a single-select's are")
+        }
         app.buttons["us-east"].tap()
         app.buttons["ap-south"].tap()
         XCTAssertTrue(app.buttons["us-east"].isSelected && app.buttons["ap-south"].isSelected && !app.buttons["eu-west"].isSelected,
                       "A tap does not pick, or picks one only")
         XCTAssertTrue(send.isEnabled)
         shot("15-inbox-multi-select-picked")
+        // With "Other…" open, the keyboard up, Send stays above it.
+        app.buttons["Other…"].tap()
+        let words = app.textFields["Your answer"].firstMatch
+        XCTAssertTrue(words.waitForExistence(timeout: 5), "Other… does not open a text box")
+        XCTAssertTrue(send.isHittable && words.isHittable, "Send or the text box is hidden")
+        // The pinned card on iPhone rides above the keyboard.
+        if UIDevice.current.userInterfaceIdiom == .phone {
+            XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5), "No keyboard")
+            XCTAssertLessThan(send.frame.maxY, app.keyboards.firstMatch.frame.minY, "Send is under the keyboard")
+        }
+        shot("16-inbox-multi-select-other")
+        app.buttons["Other…"].tap()
         send.tap()
         try listQuestions([single])
         XCTAssertTrue(listed("Which regions ship today?").waitForNonExistence(timeout: 5), "The answered question stayed")

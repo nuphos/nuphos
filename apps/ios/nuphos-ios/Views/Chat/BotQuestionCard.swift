@@ -249,14 +249,16 @@ struct QuestionPicks<Trailing: View>: View {
                         .padding(.top, index > 0 ? 8 : 0)
                 }
                 if wide {
+                    // One row with "Other…", as a single-select's; long options take the row and the rest the next.
                     ViewThatFits(in: .horizontal) {
-                        HStack(spacing: 10) { options(at: index) }
-                        VStack(alignment: .leading, spacing: 10) { options(at: index) }
+                        HStack(spacing: 10) { options(at: index); row(at: index) }
+                        VStack(alignment: .leading, spacing: 10) { HStack(spacing: 10) { options(at: index) }; row(at: index) }
+                        VStack(alignment: .leading, spacing: 10) { options(at: index); row(at: index) }
                     }
                 } else {
                     options(at: index)
+                    row(at: index)
                 }
-                row(at: index)
                 if open == index {
                     AnswerField(words: $words[index], focused: $focused, send: send)
                 }
