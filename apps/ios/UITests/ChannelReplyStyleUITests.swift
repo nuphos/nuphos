@@ -63,6 +63,9 @@ final class ChannelReplyStyleUITests: XCTestCase {
              "metadata": ["version": 1, "sender": ["type": "system", "id": "nuphos:decision", "displayName": "Nuphos"],
                           "sentAt": "2026-11-03T09:00:00.000Z"],
              "createdAt": "2026-11-03T09:00:00.000Z"],
+            // Answered on the card in the chat: an answer post without the Inbox's line.
+            post("c0", "Tuesday", me, at: "09:10", extra: ["source": "nuphos", "requestId": "req-0",
+                                                           "replyTo": ["authorName": "Preview Bot", "text": "Which day is the review?"]]),
             post("a1", "Friday", diana, at: "09:20", extra: inbox("req-1", "Which day works for the move?")),
             post("a2", "Staging first", diana, at: "09:20", extra: inbox("req-1", "Where should it go first?")),
             post("b1", "Ship it", me, at: "09:21", extra: inbox("req-2", question)),
@@ -86,11 +89,14 @@ final class ChannelReplyStyleUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Diana Prince answered: Rotate the key? → Yes"].waitForExistence(timeout: 5),
                       "The old record lost its line")
         XCTAssertTrue(app.staticTexts["Diana Prince"].exists, "The answerer's name is missing")
+        let inChat = app.buttons["Replying to Preview Bot: Which day is the review?"]
+        XCTAssertTrue(inChat.exists, "The answer given in the chat is not a reply bubble")
         let dianasFirst = app.buttons["Replying to Preview Bot: Which day works for the move?"]
         let dianasLast = app.buttons["Replying to Preview Bot: Where should it go first?"]
         XCTAssertTrue(dianasFirst.exists && dianasLast.exists)
         let theirs = lines.firstMatch
         XCTAssertLessThan(theirs.frame.midX, width / 2)
+        // The first line on screen is under Diana's card, none under the answer given in the chat.
         XCTAssertGreaterThan(theirs.frame.minY, dianasLast.frame.maxY, "The card's line is not under its last answer")
         keep(app, "inbox-answers")
     }
