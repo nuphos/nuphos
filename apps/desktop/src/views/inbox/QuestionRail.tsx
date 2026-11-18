@@ -6,6 +6,7 @@ import { chatTime } from '../../components/sidebar/chat-preview'
 import { t } from '../../i18n'
 
 import { inboxGroups, inboxSource } from './inboxItems'
+import { returnTime } from './snooze'
 
 import type { InboxQuestion } from './inboxItems'
 import type { AgentConversation } from '../../api/agent-types'
@@ -71,6 +72,53 @@ export function QuestionRail({
   )
 }
 
+/**
+ * The questions snoozed out of the Inbox, below its list: each with when it
+ * comes back, and Unsnooze to bring it back now.
+ */
+export function SnoozedRail({
+  rows,
+  onUnsnooze,
+}: {
+  rows: readonly InboxQuestion[]
+  onUnsnooze: (row: InboxQuestion) => void
+}) {
+  if (!rows.length) return null
+
+  return (
+    <section className="mt-3 flex flex-col gap-px">
+      <h3 className="flex h-7 items-center px-2 text-[12.5px] font-medium text-tertiary">
+        {t('Snoozed')}
+      </h3>
+      {rows.map((row) => (
+        <div
+          key={row.request.id}
+          data-snoozed-question={row.request.id}
+          className="group flex h-7 items-center gap-2 rounded-md pl-2 pr-1 text-[13px] text-tertiary hover:bg-state-hover"
+        >
+          <span className="min-w-0 flex-1 truncate">{row.request.question}</span>
+          {/* When it comes back, until hovered or focused: then Unsnooze, in the same place. */}
+          <span className="grid shrink-0 justify-items-end text-[11.5px]">
+            <time
+              dateTime={row.request.snoozedUntil}
+              className="pointer-events-none col-start-1 row-start-1 group-focus-within:opacity-0 group-hover:opacity-0"
+            >
+              {returnTime(row.request.snoozedUntil ?? '')}
+            </time>
+            <button
+              type="button"
+              onClick={() => onUnsnooze(row)}
+              className="col-start-1 row-start-1 text-secondary opacity-0 outline-none hover:text-main focus-visible:opacity-100 group-hover:opacity-100"
+            >
+              {t('Unsnooze')}
+            </button>
+          </span>
+        </div>
+      ))}
+    </section>
+  )
+}
+
 /** A group or row of the list, entering with the sidebar's rows: it opens to its height and rises in. */
 function Entering({ as: Tag = 'div', children }: { as?: 'div' | 'section'; children: ReactNode }) {
   return (
@@ -80,14 +128,19 @@ function Entering({ as: Tag = 'div', children }: { as?: 'div' | 'section'; child
   )
 }
 
-/** Who asked a question and when: its face or Runtime icon, its name, which opens it, and the time. */
+/**
+ * Who asked a question and when: its face or Runtime icon, its name, which opens it, and the time.
+ * A question the agent rewrote since says when, so an old card's new premise is not a surprise.
+ */
 export function QuestionSource({
   conversation,
   askedAt,
+  updatedAt,
   onOpen,
 }: {
   conversation: Source
   askedAt: string
+  updatedAt?: string
   onOpen: () => void
 }) {
   return (
@@ -105,6 +158,14 @@ export function QuestionSource({
       <time dateTime={askedAt} className="shrink-0">
         {chatTime(askedAt)}
       </time>
+      {updatedAt && (
+        <>
+          <span aria-hidden>·</span>
+          <time dateTime={updatedAt} className="shrink-0">
+            {t('Edited {time}', { time: chatTime(updatedAt) ?? '' })}
+          </time>
+        </>
+      )}
     </header>
   )
 }

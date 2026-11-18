@@ -31,8 +31,30 @@ export type ConversationMoveCheck = {
 /** A participant replies while they may use the computer the session runs on; else they read. */
 export type ConversationAccess = 'owner' | 'reply' | 'view'
 
-/** What makes a person an agent: the face it shows, and whether this viewer may take it out. */
-export type AgentFace = { avatar?: string; provider?: AgentProvider; removable?: boolean }
+/** Whether an agent can reply now, as the server works it out (#3308). */
+export type BotPresence =
+  | { state: 'online' }
+  | { state: 'busy' }
+  | {
+      state: 'offline'
+      reason:
+        | 'owner_removed'
+        | 'runtime_deleted'
+        | 'runtime_disabled'
+        | 'computer_offline'
+        | 'sign_in_required'
+        | 'usage_limit'
+      resetsAt?: string
+    }
+
+/** What makes a person an agent: the face it shows, whether this viewer may take it out, and
+ *  whether it can reply now. */
+export type AgentFace = {
+  avatar?: string
+  provider?: AgentProvider
+  removable?: boolean
+  presence?: BotPresence
+}
 
 export type AgentConversationParticipant = AgentConversationPerson & {
   isOwner: boolean

@@ -9,7 +9,6 @@ import type { RuntimeInstance } from './runtime-instances'
 useRuntimeRegistry({
   resolveTeamRuntimeEndpoints: async (
     _teamId: string,
-    _kube: unknown,
     provider = 'claude-code',
     purpose = 'transport',
   ) =>

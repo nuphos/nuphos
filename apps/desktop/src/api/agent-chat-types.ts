@@ -34,7 +34,14 @@ export type AgentDecisionApi = {
     toolCallId: string,
     teamId?: string,
     resolution?: 'answered' | 'dismissed',
+    reason?: string,
   ): Promise<{ ok: boolean; resolved: boolean }>
+  agentSnoozeDecision(
+    sessionId: string,
+    requestId: string,
+    teamId: string | undefined,
+    until: string | null,
+  ): Promise<{ ok: boolean; snoozedUntil: string | null }>
   agentAnswerDecision(
     sessionId: string,
     requestId: string,

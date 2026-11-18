@@ -15,6 +15,7 @@ import { getTeamMembership, signNuphosToken } from '@/lib/identity'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 import { logError } from '@/lib/observability'
 import { claimAgentRunOrEnqueue, runAgentForTrigger } from '@/routes/agent'
+import { startChoice } from '@/routes/mcp/ask-pick'
 import { persistedMessageToUiMessage, readLatestAnswer } from '@/routes/mcp/transcript'
 
 import type { AgentConversation } from '@/lib/agent/db'
@@ -132,6 +133,9 @@ export async function nuphosAsk(
     )
   }
   const ownerUserId = existing?.userId ?? ctx.userId
+  const start = await startChoice(args, existing, teamId, ctx.userId)
+
+  if ('refused' in start) return toolError(start.refused)
   const requestId = typeof args.request_id === 'string' ? args.request_id.trim() : ''
 
   if (requestId) {
@@ -229,6 +233,8 @@ export async function nuphosAsk(
         firstMessage: prompt,
         source: 'mcp',
         client: ctx.client,
+        ...(start.runtimeId ? { runtimeId: start.runtimeId } : {}),
+        ...(start.pick ? { initialSessionConfig: start.pick } : {}),
       })
     } finally {
       release()
