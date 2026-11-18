@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useState } from 'react'
 
 import { api } from '../../../api'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
@@ -30,9 +30,8 @@ import { useQueuedShareApproval } from './queuedShareApproval'
 import { QueuedStrip } from './QueuedStrip'
 import { cardReplyId } from './replyTarget'
 import { serverHasConversation } from './sessionActions'
-import { TurnSwitchAgentContext } from './turnFailureActions'
+import { TurnSwitchAgentContext, turnSwitchAgent } from './turnFailureActions'
 import { TurnRetryContext, useFailedTurnRetry } from './turnRetryContext'
-import { useTurnFallbackSetup } from './useTurnFallbackSetup'
 import { useViewOnlyNotice } from './useViewOnlyNotice'
 
 import type { PanelViewCtx } from './ctx'
@@ -76,10 +75,11 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
   } = c
   const { runtimeControl: conversationControl } = useConversationRuntimeControl(c)
   const { runtimeControl, queuedApproval } = useQueuedShareApproval(conversationControl, activeTab)
-  const fallbackSetup = useTurnFallbackSetup(c, runtimeControl)
   const readOnlyNotice = useViewOnlyNotice(c)
   const questions = c.openQuestions
   const composerRef = useRef<HTMLDivElement>(null)
+  const agentMenu = useState(false)
+  const turnSwitch = turnSwitchAgent(activeTab, () => agentMenu[1](true))
   // A card answers while its conversation has an open question, whatever the composer replies to.
   const canReply = activeTab !== null && !activeTab.readOnly && Boolean(questions?.length)
   // The fork needs the chat stored on the server; each message is then gated on its author.
@@ -185,7 +185,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   onLinkClick: onOpenNuphosLink,
                 }}
               >
-                <TurnSwitchAgentContext.Provider value={fallbackSetup.turnSwitch}>
+                <TurnSwitchAgentContext.Provider value={turnSwitch}>
                   <TurnRetryContext.Provider value={turnRetry}>
                     <Conversation
                       tab={shownTab ?? activeTab}
@@ -210,7 +210,6 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                     />
                   </TurnRetryContext.Provider>
                 </TurnSwitchAgentContext.Provider>
-                {fallbackSetup.dialog}
               </ConnectCardContext.Provider>
             </div>
             <div ref={composerRef} className="col-start-1 row-start-2 z-10">
@@ -240,6 +239,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                       slackThread={activeTab.slackThread}
                       credentialSelector={visibleConversationCredentialSelector}
                       runtimeControl={runtimeControl}
+                      agentMenu={agentMenu}
                       modelSession={modelSession}
                       bypassControl={bypassControl}
                       pendingSeed={pendingPromptReady}
@@ -272,6 +272,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                       slackThread={activeTab.slackThread}
                       credentialSelector={visibleConversationCredentialSelector}
                       runtimeControl={runtimeControl}
+                      agentMenu={agentMenu}
                       modelSession={modelSession}
                       bypassControl={bypassControl}
                       pendingSeed={pendingPromptReady}

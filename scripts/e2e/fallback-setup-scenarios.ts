@@ -50,7 +50,7 @@ const finishedOnSecond = (stack: Stack, marker: string) =>
     (entry) => entry.agent === 'second' && entry.marker === marker && entry.event === 'finish',
   ).length
 
-export const fallbackScenarios: Scenario[] = [
+export const fallbackSetupScenarios: Scenario[] = [
   {
     name: 'a turn refused for usage sets up its runtime’s fallback from the failure and continues there',
     run: async (page, stack) => {

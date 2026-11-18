@@ -1,32 +1,28 @@
 import { createContext } from 'react'
 
-import { requestAgentMenu } from './agentMenuRequest.ts'
-
 import type { Tab } from './model.ts'
 
-type TurnSwitchAgent = { partId: string; switchAgent: () => void; setUpFallback?: () => void }
+type TurnSwitchAgent = { partId: string; switchAgent: () => void }
 
 /** Switch runtime on the latest failure line; null where the viewer may not move the agent. */
 export const TurnSwitchAgentContext = createContext<TurnSwitchAgent | null>(null)
 
-/** The failure line that ends the conversation, if its latest reply failed. */
-export function latestFailure(tab: Pick<Tab, 'messages'> | null | undefined) {
-  const reply = tab?.messages.at(-1)
-
-  return reply?.role === 'assistant'
-    ? reply.parts.findLast((part) => part.type === 'turn-interrupted')
-    : undefined
-}
-
-/** The latest turn's failure line, for whoever may move the conversation to another agent. */
+/**
+ * The latest turn's failure line, for whoever may move the conversation to another agent.
+ * It opens the composer in its own panel: another composer for the session (a Bot's chat
+ * under its open conversation) must stay closed.
+ */
 export function turnSwitchAgent(
   tab: Tab | null | undefined,
-  setUpFallback?: () => void,
+  openAgentMenu: () => void,
 ): TurnSwitchAgent | null {
-  const failed = latestFailure(tab)
-  const sessionId = tab?.sessionId
+  const reply = tab?.messages.at(-1)
+  const failed =
+    reply?.role === 'assistant'
+      ? reply.parts.findLast((part) => part.type === 'turn-interrupted')
+      : undefined
 
-  if (!failed || !sessionId || tab.readOnly || tab.foreign) return null
+  if (!failed || !tab?.sessionId || tab.readOnly || tab.foreign) return null
 
-  return { partId: failed.id, switchAgent: () => requestAgentMenu(sessionId), setUpFallback }
+  return { partId: failed.id, switchAgent: openAgentMenu }
 }
