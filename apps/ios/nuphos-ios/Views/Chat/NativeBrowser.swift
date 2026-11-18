@@ -136,6 +136,7 @@ struct NativeBrowser: View {
             Spacer()
             if let current = page.current {
                 ShareLink(item: current) { LucideIcon("share") }
+                .accessibilityLabel("Share")
             } else {
                 LucideIcon("share").foregroundStyle(Theme.muted)
             }

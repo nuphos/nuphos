@@ -58,6 +58,8 @@ export type TeamInvitation = {
   inviteeEmail: string
   acceptedAt?: string
   rejectedAt?: string
+  inviteUrl?: string
+  role?: 'ADMINISTRATOR' | 'EDITOR' | 'VIEWER'
 }
 
 export type SidebarFavoriteEntry = { label: string; key?: string; href?: string }
@@ -249,20 +251,6 @@ export async function listMyInvitations(): Promise<TeamInvitation[]> {
   const data = await call<{ invitations: TeamInvitation[] }>('GET', '/invitations')
 
   return data.invitations ?? []
-}
-
-export async function inviteTeamMember(
-  teamId: string,
-  inviteeEmail: string,
-): Promise<TeamInvitation> {
-  const data = await call<{ invitation: TeamInvitation }>(
-    'POST',
-    `/teams/${teamId}/invitations`,
-    { inviteeEmail },
-    { retry: false },
-  )
-
-  return data.invitation
 }
 
 export async function acceptInvitation(invitationId: string): Promise<TeamInvitation> {

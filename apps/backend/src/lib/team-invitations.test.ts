@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { buildInvitationEmail } from './team-invitations'
+import { buildInvitationEmail, invitationRole } from './team-invitations'
 
 describe('buildInvitationEmail', () => {
   test('names the inviter and team in the copy', () => {
@@ -88,5 +88,13 @@ describe('buildInvitationEmail', () => {
 
     expect(html).not.toContain('"><img src=x>')
     expect(html).toContain('&quot;&gt;&lt;img src=x&gt;')
+  })
+})
+
+describe('invitationRole', () => {
+  test('accepting gives the role chosen when inviting, and Editor for an older invitation', () => {
+    expect(invitationRole({ role: 'VIEWER' })).toBe('VIEWER')
+    expect(invitationRole({ role: 'ADMINISTRATOR' })).toBe('ADMINISTRATOR')
+    expect(invitationRole({})).toBe('EDITOR')
   })
 })

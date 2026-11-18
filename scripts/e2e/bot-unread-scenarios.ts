@@ -1,5 +1,6 @@
 // Scenarios about a Bot row's unread dot, in the chat of the Bot an earlier scenario created.
 import { agentEvents, agentLog } from './agent-log.ts'
+import { botSubtaskModelScenarios } from './bot-subtask-model-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
 
@@ -111,4 +112,6 @@ export const botUnreadScenarios: Scenario[] = [
       await bots.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first().click()
     },
   },
+  // Then, in the same Bot's chat, the model its sub-Task names.
+  ...botSubtaskModelScenarios,
 ]

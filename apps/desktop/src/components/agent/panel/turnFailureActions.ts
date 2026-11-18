@@ -1,8 +1,16 @@
 import { createContext } from 'react'
 
 import type { Tab } from './model.ts'
+import type { ReactNode } from 'react'
 
-type TurnSwitchAgent = { partId: string; switchAgent: () => void }
+type TurnSwitchAgent = {
+  partId: string
+  switchAgent: () => void
+  /** Sets the failed runtime's team fallback, while it has none (useTurnFailureActions). */
+  setUpFallback?: () => void
+  /** That setup's dialog, drawn with the failure line. */
+  fallbackDialog?: ReactNode
+}
 
 /** Switch runtime on the latest failure line; null where the viewer may not move the agent. */
 export const TurnSwitchAgentContext = createContext<TurnSwitchAgent | null>(null)
@@ -15,14 +23,20 @@ export const TurnSwitchAgentContext = createContext<TurnSwitchAgent | null>(null
 export function turnSwitchAgent(
   tab: Tab | null | undefined,
   openAgentMenu: () => void,
+  setUpFallback?: () => void,
 ): TurnSwitchAgent | null {
-  const reply = tab?.messages.at(-1)
-  const failed =
-    reply?.role === 'assistant'
-      ? reply.parts.findLast((part) => part.type === 'turn-interrupted')
-      : undefined
+  const failed = latestFailure(tab)
 
   if (!failed || !tab?.sessionId || tab.readOnly || tab.foreign) return null
 
-  return { partId: failed.id, switchAgent: openAgentMenu }
+  return { partId: failed.id, switchAgent: openAgentMenu, setUpFallback }
+}
+
+/** The failure line that ends the conversation, if its latest reply failed. */
+export function latestFailure(tab: Pick<Tab, 'messages'> | null | undefined) {
+  const reply = tab?.messages.at(-1)
+
+  return reply?.role === 'assistant'
+    ? reply.parts.findLast((part) => part.type === 'turn-interrupted')
+    : undefined
 }

@@ -28,6 +28,7 @@ import {
   askRuntimeSignIn,
   decideShareApproval,
   dropShareTrust,
+  getDeviceAccessHistory,
   getDeviceShare,
   listShareApprovals,
   listShareTrusts,
@@ -38,6 +39,7 @@ import {
 
 import { LOCAL_AGENT_PROVIDERS } from './local-runtime/providers.ts'
 
+import type { IpcMainInvokeEvent } from 'electron'
 import type {
   AgentDeviceListOptions,
   BoxAccess,
@@ -175,6 +177,12 @@ export const boxChannels = {
     renameBox(string(deviceId), string(teamId), string(label)),
   'localShare:get': (_e: unknown, deviceId: unknown, teamId: unknown) =>
     getDeviceShare(string(deviceId), string(teamId)),
+  'box:accessHistory': (_e: unknown, deviceId: unknown, teamId: unknown, before: unknown) =>
+    getDeviceAccessHistory(
+      string(deviceId),
+      string(teamId),
+      before === undefined ? undefined : string(before),
+    ),
   'localShare:set': (_e: unknown, deviceId: unknown, teamId: unknown, input: unknown) =>
     setDeviceShare(string(deviceId), string(teamId), localShare(input)),
   'localShare:approvals': (_e: unknown, teamId: unknown) => listShareApprovals(string(teamId)),
@@ -195,6 +203,27 @@ export const boxChannels = {
     listShareTrusts(string(deviceId), string(teamId)),
   'localShare:untrust': (_e: unknown, deviceId: unknown, teamId: unknown, actorId: unknown) =>
     dropShareTrust(string(deviceId), string(teamId), string(actorId)),
+  'computers:notifyShared': async (
+    e: IpcMainInvokeEvent,
+    key: unknown,
+    teamId: unknown,
+    title: unknown,
+    body: unknown,
+  ) => {
+    // Loaded on use: it reaches into Electron, which this module's tests do not load.
+    const [{ notifyComputerShared }, { BrowserWindow }] = await Promise.all([
+      import('../agent/notify.ts'),
+      import('electron'),
+    ])
+
+    return notifyComputerShared({
+      key: string(key),
+      teamId: string(teamId),
+      title: string(title),
+      body: string(body),
+      parentWindow: BrowserWindow.fromWebContents(e.sender),
+    })
+  },
   'localShare:notify': async (
     _e: unknown,
     approvalId: unknown,

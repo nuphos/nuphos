@@ -85,7 +85,13 @@ export async function checkedCall<T>(
 ): Promise<ToolResult> {
   const parsed = (tool.inputSchema as ZodType<T>).safeParse(args)
 
-  return parsed.success ? handle(parsed.data) : toolError(`Invalid input: ${parsed.error.message}`)
+  if (parsed.success) return handle(parsed.data)
+  // Each problem as one line the agent can act on, not the raw issue JSON.
+  const problems = parsed.error.issues.map(({ path, message }) =>
+    path.length ? `${path.join('.')}: ${message}` : message,
+  )
+
+  return toolError(`Invalid input: ${problems.join('; ')}`)
 }
 
 export function followUpHandler(

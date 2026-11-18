@@ -4,7 +4,7 @@
 // a short-lived ownership lease while the run is active.
 
 export { getActiveAgentRunsForSessions } from './run-store/active-runs'
-export { readAgentRunFrames } from './run-store/frames'
+export { readAgentRunFrames, readAgentRunFramesAfter } from './run-store/frames'
 export { flushGuardWrites } from './run-store/guards'
 export { expireAgentRunMirror, mirrorAgentRunFrame } from './run-store/mirror'
 export {

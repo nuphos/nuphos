@@ -10,7 +10,10 @@ import type { CliInstall } from './instance-deps.ts'
 const missing = { installed: false } as AgentCliStatus
 const present = { installed: true, loggedIn: false, path: '/bin/claude' } as AgentCliStatus
 
-function added(installCli: NonNullable<LocalRuntimeControllerDeps['installCli']>) {
+function added(
+  installCli: NonNullable<LocalRuntimeControllerDeps['installCli']>,
+  provider: LocalAgentProvider = 'claude-code',
+) {
   let installed = false
   const seen: CliInstall[] = []
   const install: CliInstall = {}
@@ -29,7 +32,7 @@ function added(installCli: NonNullable<LocalRuntimeControllerDeps['installCli']>
     install,
   )
 
-  return { probe: () => deps.probeCli('claude-code', {}, undefined), install, seen }
+  return { probe: () => deps.probeCli(provider, {}, undefined), install, seen }
 }
 
 test('an added agent whose CLI is missing installs it, says so meanwhile, and runs it', async () => {
@@ -43,6 +46,18 @@ test('an added agent whose CLI is missing installs it, says so meanwhile, and ru
   assert.deepEqual(await probe(), present)
   assert.equal(calls, 1)
   assert.deepEqual(seen, [{ tried: true, installing: true }, { tried: true }])
+})
+
+test('an added Pi whose CLI is missing installs it too', async () => {
+  const asked: LocalAgentProvider[] = []
+  const { probe } = added((provider) => {
+    asked.push(provider)
+
+    return Promise.resolve()
+  }, 'pi')
+
+  assert.deepEqual(await probe(), present)
+  assert.deepEqual(asked, ['pi'])
 })
 
 test('an install that fails twice is reported and not tried again', async () => {
