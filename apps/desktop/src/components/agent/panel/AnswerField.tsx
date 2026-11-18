@@ -89,14 +89,7 @@ export function AnswerField({
         className="h-[38px] min-w-0 flex-1 rounded-[10px] bg-surface-raised px-3 text-[13.5px] text-main shadow-[0_0_0_1px_rgb(var(--color-line-control))] outline-none placeholder:text-tertiary focus:shadow-[0_0_0_1px_rgb(var(--color-line-focus)),0_0_0_4px_rgba(28,26,23,0.05)]"
       />
       {voice.available && (
-        <ComposerVoiceButton
-          phase={voice.phase}
-          elapsedMs={voice.elapsedMs}
-          hero={false}
-          onStart={() => void voice.start()}
-          onStop={() => voice.stop()}
-          onCancel={voice.cancel}
-        />
+        <ComposerVoiceButton hero={false} onStart={() => void voice.start()} />
       )}
       <Button
         type="submit"
