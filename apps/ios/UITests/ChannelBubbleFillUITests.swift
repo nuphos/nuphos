@@ -39,7 +39,7 @@ final class ChannelBubbleFillUITests: XCTestCase {
         // Cells: the timestamp, the Bot's post, the teammate's, then the viewer's.
         let transcript = app.collectionViews["chat.transcript"]
         XCTAssertTrue(transcript.cells.element(boundBy: 3).waitForExistence(timeout: 15))
-        settle(transcript)
+        settle(app)
         continueAfterFailure = true
         let theirText = text(in: transcript.cells.element(boundBy: 1))
         let teammateText = text(in: transcript.cells.element(boundBy: 2))
@@ -101,7 +101,7 @@ final class ChannelBubbleFillUITests: XCTestCase {
         app.launch()
         let line = app.buttons.matching(identifier: "answered.line").firstMatch
         XCTAssertTrue(line.waitForExistence(timeout: 15))
-        settle(app.collectionViews["chat.transcript"])
+        settle(app)
         continueAfterFailure = true
 
         // The answer chip pads its text by 10pt; sample beside the text, and
@@ -133,8 +133,10 @@ final class ChannelBubbleFillUITests: XCTestCase {
 
     /// Waits for the push to finish sliding the chat in, so pixels are read
     /// where the frames say.
-    private func settle(_ transcript: XCUIElement) {
-        let inPlace = NSPredicate { _, _ in transcript.exists && transcript.frame.minX == 0 }
+    private func settle(_ app: XCUIApplication) {
+        // While the push runs, the chat it leaves can still be on screen too.
+        let transcripts = app.collectionViews.matching(identifier: "chat.transcript")
+        let inPlace = NSPredicate { _, _ in transcripts.count == 1 && transcripts.firstMatch.frame.minX == 0 }
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: inPlace, object: nil)], timeout: 10),
                        .completed, "The chat did not finish opening")
         sleep(1)
