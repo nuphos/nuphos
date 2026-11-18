@@ -46,12 +46,13 @@ final class NewBoxUITests: XCTestCase {
         newBox.tap()
 
         XCTAssertTrue(app.staticTexts["Leave it empty to call it Computer 1."].waitForExistence(timeout: 5))
+        // The backend lists the Box by the time it answers the create.
+        devices([["deviceId": "box-1", "label": "Computer 1", "access": "owner", "box": ["state": "creating"], "metricsStatus": "offline", "metrics": NSNull()]])
+        try write()
         let create = app.buttons["Create computer"]
         XCTAssertTrue(create.waitForExistence(timeout: 5))
         create.tap()
         XCTAssertTrue(app.buttons["Creating…"].waitForExistence(timeout: 2), "No sign of creating")
-        devices([["deviceId": "box-1", "label": "Computer 1", "access": "owner", "box": ["state": "creating"], "metricsStatus": "offline", "metrics": NSNull()]])
-        try write()
 
         let starting = app.staticTexts["Starting the computer and its runtimes, usually 10 to 30 seconds…"]
         XCTAssertTrue(starting.waitForExistence(timeout: 10), "The new Box is not shown starting")
@@ -65,6 +66,40 @@ final class NewBoxUITests: XCTestCase {
         try write()
         XCTAssertTrue(app.staticTexts["Your computer is running. Choose a runtime to sign in."].waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["Claude Code"].exists, "The Box's runtime is not offered to sign in")
+    }
+
+    func testAFailedListReadKeepsTheNewBoxStarting() throws {
+        responses["POST /agent/devices/boxes"] = ["status": 201, "body": ["deviceId": "box-1", "label": "Computer 1", "box": ["state": "creating"]]]
+        try write()
+        launch()
+
+        let setUp = app.buttons["Set up a computer"]
+        XCTAssertTrue(setUp.waitForExistence(timeout: 15))
+        setUp.tap()
+        let newBox = app.buttons["new-box"]
+        XCTAssertTrue(newBox.waitForExistence(timeout: 10))
+        newBox.tap()
+        // Every read of the device list fails from here on, so the new Box is never listed.
+        responses["GET /agent/devices"] = ["status": 500, "body": ["error": ["message": "Internal error"]]]
+        try write()
+        let create = app.buttons["Create computer"]
+        XCTAssertTrue(create.waitForExistence(timeout: 5))
+        create.tap()
+
+        let starting = app.staticTexts["Starting the computer and its runtimes, usually 10 to 30 seconds…"]
+        XCTAssertTrue(starting.waitForExistence(timeout: 10), "An unlisted Box is not shown starting")
+        Thread.sleep(forTimeInterval: 3)
+        XCTAssertTrue(starting.exists, "A failed read ended the wait")
+        XCTAssertFalse(app.staticTexts["The computer could not start. Delete it on the Runtimes page and try again."].exists)
+
+        // The polling goes on, so the Box's runtime still shows once it joins.
+        responses["GET /teams/\(Self.team)/agent-runtimes"] = ["status": 200, "body": ["runtimes": [[
+            "id": "local_507f1f77bcf86cd799439011_box-1", "provider": "claude-code", "label": "Claude Code in Computer 1",
+            "status": "active", "kind": "local",
+            "local": ["ownerUserId": "507f1f77bcf86cd799439011", "deviceId": "box-1", "deviceLabel": "Computer 1", "online": true, "signedIn": false],
+        ]]]]
+        try write()
+        XCTAssertTrue(app.staticTexts["Your computer is running. Choose a runtime to sign in."].waitForExistence(timeout: 10))
     }
 
     func testThePlansRefusalShowsTheServersSentence() throws {

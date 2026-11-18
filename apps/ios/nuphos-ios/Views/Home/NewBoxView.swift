@@ -8,6 +8,8 @@ struct NewBoxView: View {
     @State private var creating = false
     /// The Box this screen made, and when, for Desktop's five-minute timeout.
     @State private var made: (deviceId: String, at: Date)?
+    /// Written by the polling loop, so the timeout shows even when the lists stay the same.
+    @State private var now = Date()
     @State private var failure: Failure?
 
     struct Failure {
@@ -32,13 +34,13 @@ struct NewBoxView: View {
         return store.runtimes.filter { $0.local?.deviceId == made.deviceId }
     }
 
-    /// Desktop's `boxSetupPhase`: up once the team lists one of its runtimes.
+    /// Desktop's `boxSetupPhase`: up once the team lists one of its runtimes. A Box not
+    /// listed yet is starting, as Desktop's unloaded list is: a failed read keeps the old one.
     private var phase: Phase {
         guard let made else { return .idle }
         if !agents.isEmpty { return .ready }
-        guard let device = store.agentDevices.first(where: { $0.deviceId == made.deviceId }),
-              device.box?.state != "error" else { return .error }
-        return Date().timeIntervalSince(made.at) > 5 * 60 ? .timeout : .starting
+        if store.agentDevices.first(where: { $0.deviceId == made.deviceId })?.box?.state == "error" { return .error }
+        return now.timeIntervalSince(made.at) > 5 * 60 ? .timeout : .starting
     }
 
     var body: some View {
@@ -81,6 +83,7 @@ struct NewBoxView: View {
                 async let devices: Void = store.loadAgentDevices()
                 async let runtimes: Void = store.loadRuntimes(force: true)
                 _ = await (devices, runtimes)
+                now = Date()
             }
         }
     }
@@ -114,8 +117,14 @@ struct NewBoxView: View {
                         NavigationLink {
                             AgentSetupView(team: team, runtime: runtime, selectOnCompletion: false)
                         } label: {
-                            SelectorAgentRow(runtime: runtime, quota: store.quotas[runtime.id], selected: false)
-                                .padding(12).frame(minHeight: 48)
+                            // Desktop's runtime choices: its logo and name, signed in from here.
+                            HStack(spacing: 12) {
+                                BrandLogo(name: RuntimeInstance.Provider.logo(runtime.provider.rawValue), size: 20).frame(width: 28)
+                                Text(SelectorBox.agentName(runtime)).font(.callout.weight(.medium)).foregroundStyle(Theme.heading)
+                                Spacer(minLength: 0)
+                                LucideIcon("chevron-right").foregroundStyle(Theme.muted)
+                            }
+                            .padding(12).frame(minHeight: 48).contentShape(Rectangle())
                         }.buttonStyle(.plain)
                     }
                 }.background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
@@ -137,8 +146,6 @@ struct NewBoxView: View {
                 "POST", "agent/devices/boxes", token: store.token,
                 body: Request(label: label.isEmpty ? placeholder : label, teamId: team.id), timeout: 60)
             let box = try JSONDecoder().decode(Made.self, from: data)
-            // Listed before it is shown, so it never reads as missing.
-            await store.loadAgentDevices()
             made = (box.deviceId, Date())
         } catch AgentChatAPI.Conflict.other(code: "box_vcpu_limit", let message, _) {
             failure = Failure(plan: true, message: message)
