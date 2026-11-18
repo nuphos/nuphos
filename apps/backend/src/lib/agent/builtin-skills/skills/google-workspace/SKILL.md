@@ -67,8 +67,8 @@ paths below, so take any other tool's exact slug and arguments from the toolkit
 pages above rather than guessing; an unknown one fails with `Tool … not found`.
 
 Each prints `{"successful":…,"data":…,"error":…}`. Only `GMAIL_*`,
-`GOOGLEDRIVE_*` and `GOOGLECALENDAR_*` tools run, and permanent mail deletion is refused (trash
-instead). The same rules apply: prefer a draft (`GMAIL_CREATE_EMAIL_DRAFT`) over
+`GOOGLEDRIVE_*` and Google Calendar event tools run. Permanent mail deletion is refused (trash
+instead), and so are Calendar tools that share, create, change or delete whole calendars. The same rules apply: prefer a draft (`GMAIL_CREATE_EMAIL_DRAFT`) over
 `GMAIL_SEND_EMAIL` unless the member asked to send.
 
 ## Gmail

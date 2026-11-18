@@ -6,6 +6,7 @@ import { config } from '@/config'
 import * as composioClient from '@/lib/composio'
 import { mintPreviewMcpToken } from '@/lib/claude-code-preview/mcp-token'
 import { AppError } from '@/lib/errors'
+import { composioToolProvider } from '@/lib/personal-credentials/composio'
 import { useAuthMiddleware } from '@/lib/test/doubles/auth-middleware'
 import { useByosSecrets } from '@/lib/test/doubles/byos-secrets'
 import { useIdentity } from '@/lib/test/doubles/identity'
@@ -427,7 +428,7 @@ describe('agents running tools through Composio', () => {
     })
   })
 
-  test('refuses other toolkits and permanent mail deletion', async () => {
+  test('refuses other toolkits, permanent mail deletion and calendar management', async () => {
     const token = await turn('owner', true)
 
     for (const tool of ['SLACK_SEND_MESSAGE', 'GMAIL_DELETE_MESSAGE', 'gmail_send_email']) {
@@ -436,6 +437,40 @@ describe('agents running tools through Composio', () => {
       expect(res.status).toBe(400)
     }
     expect(requests).toHaveLength(0)
+  })
+
+  test('Calendar runs event tools only, as a calendar.events grant would', () => {
+    for (const tool of [
+      'GOOGLECALENDAR_EVENTS_LIST',
+      'GOOGLECALENDAR_CREATE_EVENT',
+      'GOOGLECALENDAR_PATCH_EVENT',
+      'GOOGLECALENDAR_DELETE_EVENT',
+      'GOOGLECALENDAR_QUICK_ADD',
+    ]) {
+      expect(composioToolProvider(tool)).toBe('google-calendar')
+    }
+    for (const tool of [
+      'GOOGLECALENDAR_ACL_INSERT',
+      'GOOGLECALENDAR_ACL_PATCH',
+      'GOOGLECALENDAR_ACL_UPDATE',
+      'GOOGLECALENDAR_ACL_DELETE',
+      'GOOGLECALENDAR_ACL_LIST',
+      'GOOGLECALENDAR_ACL_GET',
+      'GOOGLECALENDAR_ACL_WATCH',
+      'GOOGLECALENDAR_LIST_ACL_RULES',
+      'GOOGLECALENDAR_CREATE_CALENDAR',
+      'GOOGLECALENDAR_DUPLICATE_CALENDAR',
+      'GOOGLECALENDAR_CALENDARS_UPDATE',
+      'GOOGLECALENDAR_PATCH_CALENDAR',
+      'GOOGLECALENDAR_CALENDARS_DELETE',
+      'GOOGLECALENDAR_CLEAR_CALENDAR',
+      'GOOGLECALENDAR_CALENDAR_LIST_INSERT',
+      'GOOGLECALENDAR_CALENDAR_LIST_DELETE',
+      'GOOGLECALENDAR_SETTINGS_LIST',
+      'GOOGLECALENDAR_EVENTS_WATCH',
+    ]) {
+      expect(composioToolProvider(tool)).toBeNull()
+    }
   })
 
   test('a teammate’s message, another team, or an unconnected toolkit gets nothing', async () => {

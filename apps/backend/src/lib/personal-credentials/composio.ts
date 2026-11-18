@@ -41,12 +41,34 @@ const BLOCKED = new Set([
   'GMAIL_BATCH_DELETE_MESSAGES',
 ])
 
+// The managed Calendar config uses Composio's default scopes, which can also share,
+// create and delete whole calendars. A team-client grant is calendar.events only,
+// so here only event tools run, plus the profile and clock tools.
+const CALENDAR_TOOLS = new Set([
+  'GOOGLECALENDAR_BATCH_EVENTS',
+  'GOOGLECALENDAR_CREATE_EVENT',
+  'GOOGLECALENDAR_DELETE_EVENT',
+  'GOOGLECALENDAR_EVENTS_GET',
+  'GOOGLECALENDAR_EVENTS_IMPORT',
+  'GOOGLECALENDAR_EVENTS_INSTANCES',
+  'GOOGLECALENDAR_EVENTS_LIST',
+  'GOOGLECALENDAR_EVENTS_MOVE',
+  'GOOGLECALENDAR_FIND_EVENT',
+  'GOOGLECALENDAR_GET_CURRENT_DATE_TIME',
+  'GOOGLECALENDAR_GET_CURRENT_USER',
+  'GOOGLECALENDAR_PATCH_EVENT',
+  'GOOGLECALENDAR_QUICK_ADD',
+  'GOOGLECALENDAR_REMOVE_ATTENDEE',
+  'GOOGLECALENDAR_SYNC_EVENTS',
+  'GOOGLECALENDAR_UPDATE_EVENT',
+])
+
 /** The toolkit an agent's tool belongs to, so it can only use the member's own connection for it. */
 export function composioToolProvider(tool: string): GoogleProvider | null {
   if (BLOCKED.has(tool)) return null
   if (/^GMAIL_[A-Z0-9_]+$/u.test(tool)) return 'gmail'
   if (/^GOOGLEDRIVE_[A-Z0-9_]+$/u.test(tool)) return 'google-drive'
-  if (/^GOOGLECALENDAR_[A-Z0-9_]+$/u.test(tool)) return 'google-calendar'
+  if (CALENDAR_TOOLS.has(tool)) return 'google-calendar'
 
   return null
 }

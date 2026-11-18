@@ -255,7 +255,7 @@ composioRoutes.post('/execute', zv('json', executeSchema), async (c) => {
     throw new AppError(
       400,
       'tool_not_allowed',
-      'Only Gmail, Google Drive and Google Calendar tools, other than permanent mail deletion, can run here',
+      'Only Gmail, Google Drive and Google Calendar event tools, other than permanent mail deletion, can run here',
     )
   }
   const claims = await ownerClaims(
