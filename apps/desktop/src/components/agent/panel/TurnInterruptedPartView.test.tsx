@@ -51,7 +51,7 @@ test('a broken Codex on this computer offers its installer on the failed turn', 
     id: 'r1:interrupted',
     reason: 'error',
     message:
-      "The agent's CLI couldn't start on this computer. Reinstall it with the Install button, then resend your message.",
+      "The agent's CLI couldn't start on its computer, so its install may be broken. Reinstall it there, then resend your message.",
     createdAt: '2026-11-18T08:00:00Z',
     cause: 'cli',
   })!
