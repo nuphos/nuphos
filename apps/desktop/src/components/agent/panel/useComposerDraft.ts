@@ -73,8 +73,11 @@ export function useComposerDraft(state: ComposerState, draftKey: string | undefi
       setFolderPaths(new Set(draft?.folderPaths ?? []))
       syncEmpty()
     }
+    // A reload or a closed window never unmounts the composer, so it saves here too.
+    window.addEventListener('pagehide', flush)
 
     return () => {
+      window.removeEventListener('pagehide', flush)
       flush()
       activeKey.current = undefined
     }
