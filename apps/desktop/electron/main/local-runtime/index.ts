@@ -107,7 +107,6 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
     })
     const instances = withAppUpdate(agentInstances, {
       ready: readyUpdate,
-      busy: () => sleep.taskActivity.busy(),
       install: installUpdate,
     })
 

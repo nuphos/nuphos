@@ -48,22 +48,19 @@ async function listExternalRuntimeControls(nowMs: number): Promise<ExternalRunti
   }
   const resolved = await Promise.all(
     [...groups.values()].map(async ({ teamId, provider, ids }) => {
-      const endpoints = await resolveTeamRuntimeEndpoints(
-        teamId,
-        undefined,
-        provider,
-        'control',
-      ).catch((error: unknown) => {
-        logQuietly(
-          `resolve\0${teamId}\0${provider}`,
-          'openab.metrics.external_resolve_failed',
-          { team_id: teamId, provider },
-          error,
-          nowMs,
-        )
+      const endpoints = await resolveTeamRuntimeEndpoints(teamId, provider, 'control').catch(
+        (error: unknown) => {
+          logQuietly(
+            `resolve\0${teamId}\0${provider}`,
+            'openab.metrics.external_resolve_failed',
+            { team_id: teamId, provider },
+            error,
+            nowMs,
+          )
 
-        return []
-      })
+          return []
+        },
+      )
 
       return endpoints.flatMap(({ runtimeId, ...rest }) =>
         runtimeId && ids.includes(runtimeId)
