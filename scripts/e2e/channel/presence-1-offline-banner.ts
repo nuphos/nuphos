@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto'
 
 import { botPresence, computerWithUsage, pickRuntime } from '../channel-helpers.ts'
 import { artifacts, until } from '../processes.ts'
+import { newTask } from '../ui.ts'
 
 import type { Scenario } from '../ui.ts'
 
@@ -28,9 +29,20 @@ export default {
         document.documentElement.classList.remove('dark')
         document.documentElement.classList.add('light')
       })
-      await page.getByText('Its computer is offline.', { exact: true }).waitFor({ timeout: 60_000 })
+      const strip = page.getByText('Its computer is offline.', { exact: true })
+
+      await strip.waitFor({ timeout: 60_000 })
       await page.screenshot({ path: `${artifacts}/presence-offline-banner-light.png` })
+      // The same strip on a Task on that computer, for comparison.
+      await newTask(page)
+      await pickRuntime(page, computer, /^Claude Code/)
+      await strip.waitFor({ timeout: 60_000 })
+      await page.screenshot({ path: `${artifacts}/presence-offline-task-light.png` })
+      // A new Task starts on the runtime picked last: leave it on one that runs.
+      await pickRuntime(page, 'E2E fixture agent', /^E2E fixture agent.*Claude Code/)
     } finally {
+      await page.getByRole('tab', { name: 'Bots' }).click()
+      await page.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first().click()
       await pickRuntime(page, 'E2E fixture agent', /^E2E fixture agent.*Claude Code/)
       disconnect()
     }
