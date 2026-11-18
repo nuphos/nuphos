@@ -1,5 +1,7 @@
 import type { AgentProvider } from './runtime.ts'
 
+export * from './app-updates.ts'
+
 export type UserInfo = {
   id: string
   name: string
@@ -68,32 +70,6 @@ export type PersonalCredentialDeepLinkPayload = {
   login?: string
   error?: string
 }
-
-export type UpdaterState =
-  | { kind: 'idle' }
-  | { kind: 'checking' }
-  | { kind: 'up-to-date' }
-  | {
-      kind: 'downloading'
-      version: string
-      transferred: number
-      total: number
-      bytesPerSecond: number
-    }
-  /** installerUrl: set when the last restart came back without this version. */
-  | { kind: 'ready'; version: string; installerUrl: string | null }
-  | { kind: 'error' }
-
-export type ChangelogEntry = {
-  slug: string
-  title: string
-  summary: string
-  date: string
-  coverUrl: string
-  url: string
-}
-
-export type ChangelogState = { kind: 'unavailable' } | { kind: 'ready'; entries: ChangelogEntry[] }
 
 /** Compatibility with older servers; never used to restrict access. */
 export type TeamBillingSummary = { activated: boolean; active: boolean }
