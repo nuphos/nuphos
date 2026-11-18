@@ -9,6 +9,7 @@ import { seedUsage, tooManyModels } from './usage-seeds.ts'
 
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
+import type { Locator } from 'playwright-core'
 
 const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
 
@@ -33,6 +34,12 @@ function turnRows(stack: Stack): TurnRow[] | null {
   ) as TurnRow[] | null
 }
 
+/** The whole section, scrolled to the top of the window first, so a tall one is not cut off. */
+async function shot(section: Locator, name: string) {
+  await section.evaluate((element) => element.scrollIntoView({ block: 'start' }))
+  await section.screenshot({ path: `${artifacts}/${name}.png` })
+}
+
 /** JSON with every object's keys in order, so two values compare as text. */
 const canonical = (value: unknown) =>
   JSON.stringify(value, (_key, inner: unknown) =>
@@ -49,14 +56,13 @@ export const usageScenarios: Scenario[] = [
       const section = page.getByRole('region', { name: 'Token usage' })
 
       await section.getByText('No token usage recorded in this range yet.').waitFor()
-      await section.scrollIntoViewIfNeeded()
-      await section.screenshot({ path: `${artifacts}/token-usage-empty.png` })
+      await shot(section, 'token-usage-empty')
 
       // A range the app has not read yet, while the backend cannot answer: the last one stays, dimmed.
       await stack.freezeBackend(async () => {
         await section.getByRole('radio', { name: '90d' }).click()
         await section.locator('[aria-busy="true"]').waitFor()
-        await section.screenshot({ path: `${artifacts}/token-usage-loading.png` })
+        await shot(section, 'token-usage-loading')
       })
       await section.locator('[aria-busy="false"]').waitFor()
 
@@ -65,7 +71,7 @@ export const usageScenarios: Scenario[] = [
       try {
         await section.getByRole('radio', { name: '30d' }).click()
         await section.getByRole('alert').getByText('Couldn’t load token usage.').waitFor()
-        await section.screenshot({ path: `${artifacts}/token-usage-error.png` })
+        await shot(section, 'token-usage-error')
       } finally {
         tooManyModels(stack, false)
       }
@@ -132,8 +138,7 @@ export const usageScenarios: Scenario[] = [
       await table.getByText('claude-haiku-5-5').waitFor()
       // Input includes the cache, so the total is input + output.
       await table.getByText('258.9K').waitFor()
-      await section.scrollIntoViewIfNeeded()
-      await section.screenshot({ path: `${artifacts}/token-usage-by-model.png` })
+      await shot(section, 'token-usage-by-model')
 
       await section.getByRole('combobox', { name: 'Group by' }).click()
       await page.getByRole('option', { name: 'Runtime' }).click()
@@ -141,7 +146,7 @@ export const usageScenarios: Scenario[] = [
       await table.getByText('290.3K').waitFor()
       if ((await table.getByText('Not recorded').count()) > 0)
         throw new Error('A runtime turn was not attributed to its runtime')
-      await section.screenshot({ path: `${artifacts}/token-usage-by-runtime.png` })
+      await shot(section, 'token-usage-by-runtime')
 
       // The backend names conversations by their titles, not their session ids.
       await section.getByRole('combobox', { name: 'Group by' }).click()
@@ -152,7 +157,7 @@ export const usageScenarios: Scenario[] = [
 
       if (/^[0-9a-f-]{36}$/.test(label) || label === 'Not recorded')
         throw new Error(`The conversation shows as "${label}", not its title`)
-      await section.screenshot({ path: `${artifacts}/token-usage-by-conversation.png` })
+      await shot(section, 'token-usage-by-conversation')
       await page.getByText('Back to app', { exact: true }).click()
     },
   },
@@ -227,8 +232,7 @@ export const usageScenarios: Scenario[] = [
         const person = await top.getByRole('cell').first().innerText()
 
         if (/^[0-9a-f]{24}$/.test(person)) throw new Error(`The teammate shows as id ${person}`)
-        await section.scrollIntoViewIfNeeded()
-        await section.screenshot({ path: `${artifacts}/token-usage-why-1-member.png` })
+        await shot(section, 'token-usage-why-1-member')
 
         // Click two: into that member, by Trigger, and the Trigger is named and new.
         await top.getByRole('button').click()
@@ -239,7 +243,7 @@ export const usageScenarios: Scenario[] = [
 
         await trigger.getByText('Nightly digest').waitFor()
         await trigger.getByText('New').waitFor()
-        await section.screenshot({ path: `${artifacts}/token-usage-why-2-trigger.png` })
+        await shot(section, 'token-usage-why-2-trigger')
         await section.getByRole('button', { name: 'Clear filter' }).click()
         await page.getByText('Back to app', { exact: true }).click()
       } finally {
