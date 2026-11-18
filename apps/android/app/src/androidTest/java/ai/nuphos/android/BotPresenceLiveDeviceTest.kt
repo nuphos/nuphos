@@ -85,7 +85,11 @@ class BotPresenceLiveDeviceTest {
         if (port == null) return
         inst.runOnMainSync {
             if (::store.isInitialized) store.disposeForConsent()
-            if (::auth.isInitialized) auth.signOut()
+            // Without its token first, or signing out would end the stack user's session for the next test.
+            if (::auth.isInitialized) {
+                AuthSession::class.java.getDeclaredField("token").also { it.isAccessible = true }.set(auth, null)
+                auth.signOut()
+            }
             access().value = savedAccess
         }
         if (::tokens.isInitialized) tokens.clear()
