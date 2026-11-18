@@ -33,7 +33,11 @@ useDb({
           let limit = Infinity
           const cursor = {
             sort: () => cursor,
-            limit: (count: number) => ((limit = count), cursor),
+            limit: (count: number) => {
+              limit = count
+
+              return cursor
+            },
             toArray: async () => [...found].reverse().slice(0, limit),
           }
 
