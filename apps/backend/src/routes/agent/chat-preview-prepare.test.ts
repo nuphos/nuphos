@@ -315,3 +315,22 @@ test('a failed token mint hands the carried queue back and releases the turn', a
   expect(unbound).toBe(true)
   expect(await hasPendingUserMessage('owner', 'mint-fails', carried.id)).toBe(true)
 })
+
+// #3469 follow-up: the system prompt only reaches a running agent when its session opens,
+// so the language rides on every turn and a session already running follows it too.
+test('every turn names its response language just before the current message', () => {
+  const language = 'Traditional Chinese — every Han character in its traditional form'
+  const { lead } = turnPrompt({
+    resume: null,
+    inputs: [attributed('m1', 'Ask the owner', 'parent')],
+    carried: '',
+    language,
+  })
+  const parts = lead().split('\n\n')
+
+  expect(parts.at(-2)).toBe(`Response language: ${language}.`)
+  expect(parts.at(-1)).toContain(header('m1'))
+  expect(turnPrompt({ resume: 'Carry on', inputs: [], carried: '', language }).lead()).toBe(
+    `Response language: ${language}.`,
+  )
+})

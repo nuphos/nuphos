@@ -5,7 +5,6 @@
 
 import { controlRegistry } from './agent-chat-registry'
 import { previewRuntimeObservability } from './agent-chat-runtime'
-import { reachableRuntimeEndpoint } from './dev-runtime-forward'
 import { developmentRuntimeEndpoint } from './runtime-catalog'
 import { pairedBindingRevoked } from './runtime-pairing'
 import { resolveTeamRuntimeEndpoints } from './runtime-registry'
@@ -121,7 +120,7 @@ export async function claudeCodePreviewRuntimeStatus(
   provider: OpenAbProvider = 'claude-code',
   runtimeId?: string,
 ): Promise<PreviewRuntimeStatus> {
-  const endpoints = await resolveTeamRuntimeEndpoints(teamId, undefined, provider)
+  const endpoints = await resolveTeamRuntimeEndpoints(teamId, provider)
   const development = developmentRuntimeEndpoint(provider)
 
   if (development && runtimeId === development.runtimeId) endpoints.push(development)
@@ -135,7 +134,7 @@ export async function claudeCodePreviewRuntimeStatus(
   )
   const configured = registered.length > 0
   const selected = (await getTeamAgentRuntime(teamId)) === provider
-  const controls = await resolveTeamRuntimeEndpoints(teamId, undefined, provider, 'control')
+  const controls = await resolveTeamRuntimeEndpoints(teamId, provider, 'control')
 
   if (development && runtimeId === development.runtimeId) {
     const control = developmentRuntimeEndpoint(provider, 'control')
@@ -203,9 +202,7 @@ export async function claudeCodePreviewRuntimeStatus(
   const probeTarget = registered[0]
 
   if (!probeTarget) return base
-  const probe = await reachableRuntimeEndpoint(probeTarget)
-    .catch(() => probeTarget)
-    .then((reachable) => fetchStatusz(reachable.url))
+  const probe = await fetchStatusz(probeTarget.url)
 
   if (!probe) return { ...base, online: false }
 

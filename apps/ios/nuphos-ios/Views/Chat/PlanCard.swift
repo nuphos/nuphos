@@ -31,8 +31,7 @@ struct PlanCard: View {
             }
         }
         .padding(14)
-        .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Theme.hairline, lineWidth: 1))
+        .raisedCard()
         .task(id: planId) { await poll() }
         .alert("Request changes", isPresented: $showRevise) {
             TextField("What should change?", text: $reviseReason)
