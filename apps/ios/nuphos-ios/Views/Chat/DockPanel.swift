@@ -56,7 +56,7 @@ struct DockPanel: View {
                 .accessibilityIdentifier("dock-notice")
             }
         }
-        .background(Theme.chatSurface)
+        .background(Theme.canvas)
         .task { await load() }
         .alert("Couldn't reach your Mac", isPresented: Binding(get: { problem != nil }, set: { if !$0 { problem = nil } })) {
             Button("OK", role: .cancel) {}
