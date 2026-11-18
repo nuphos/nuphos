@@ -71,29 +71,23 @@ final class BotsAndTasksListUITests: XCTestCase {
             app.buttons["Show 1 sub-agents"].firstMatch.tap()
         }
 
-        for t in ["Check the CI flake", "Collect crash logs", "Fix broken links", "Helper Bot", "Release Lead", "Docs Bot"] {
-            for e in app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", t)).allElementsBoundByIndex {
-                print("PROBE \(t) | type=\(e.elementType.rawValue) id=\(e.identifier) label=\(e.label) frame=\(e.frame)")
-            }
-        }
-        for t in ["Helper Bot, ", "Collect crash logs", "Release Lead, ", "Check the CI flake"] {
-            let row = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", t)).firstMatch
-            print("PROBE ROW \(t) \(row.frame)")
-            for e in row.descendants(matching: .any).allElementsBoundByIndex {
-                print("PROBE   \(t) | type=\(e.elementType.rawValue) id=\(e.identifier) label=\(e.label) frame=\(e.frame)")
-            }
-        }
         // What each Bot dispatched, nested under it, deeper threads under theirs.
-        for (thread, below) in [("Check the CI flake", lead), ("Fix broken links", app.staticTexts["Docs Bot"].firstMatch),
-                                ("Collect crash logs", app.staticTexts["Helper Bot"].firstMatch)] {
+        for (thread, bot) in [("Check the CI flake", "Release Lead"), ("Fix broken links", "Docs Bot"),
+                              ("Collect crash logs", "Helper Bot")] {
             let row = app.staticTexts[thread].firstMatch
             XCTAssertTrue(row.exists, "\(thread) is not under its Bot")
-            XCTAssertGreaterThan(row.frame.minY, below.frame.minY)
-            XCTAssertGreaterThan(row.frame.minX, below.frame.minX, "\(thread) is not nested")
+            XCTAssertGreaterThan(row.frame.minY, app.staticTexts[bot].firstMatch.frame.minY)
+            XCTAssertGreaterThan(indent(of: thread), indent(of: bot), "\(thread) is not nested")
         }
-        let rerun = app.staticTexts["Rerun the iOS job"].firstMatch
-        XCTAssertGreaterThan(rerun.frame.minX, app.staticTexts["Check the CI flake"].firstMatch.frame.minX, "A deeper thread lost its parent")
+        XCTAssertGreaterThan(indent(of: "Rerun the iOS job"), indent(of: "Check the CI flake"), "A deeper thread lost its parent")
         shot("2-bots-opened")
+    }
+
+    /// Where a row starts: its leading face or runtime mark. A row's title text can
+    /// span its mark when the row has nothing else to say, so it can't show the indent.
+    private func indent(of title: String) -> CGFloat {
+        let row = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
+        return row.images.allElementsBoundByIndex.map(\.frame.minX).min() ?? 0
     }
 
     /// A Bot opened by hand stays open when Bots is left and on a restart,
