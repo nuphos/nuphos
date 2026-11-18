@@ -15,9 +15,18 @@ export const botSubtaskModelScenarios: Scenario[] = [
       const kid = bots.locator('[data-sidebar-row]').filter({ hasText: 'E2E bot kid' }).first()
       const chip = page.getByRole('button', { name: /^Model settings/ }).last()
       const behind = join(artifacts, 'behind')
+      // A finished sub-Task is listed under its Bot once the Bot's done count is opened.
+      const openKid = async () => {
+        if (!(await kid.isVisible()))
+          await bots
+            .getByTitle(/sub-agents? done$/)
+            .first()
+            .click()
+        await kid.click()
+      }
 
       await page.getByRole('tab', { name: 'Bots' }).click()
-      await kid.click()
+      await openKid()
       await page
         .getByRole('button', { name: /^Model settings: / })
         .last()
@@ -30,7 +39,7 @@ export const botSubtaskModelScenarios: Scenario[] = [
       try {
         // Opened again, the chip reads the list again.
         await bots.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first().click()
-        await kid.click()
+        await openKid()
         await page.waitForTimeout(5_000)
         await page.evaluate(() => {
           document.documentElement.classList.remove('dark')
