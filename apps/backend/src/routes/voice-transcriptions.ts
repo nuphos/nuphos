@@ -52,7 +52,7 @@ voiceTranscriptionsRoutes.post(
     if (typeof body.prompt === 'string' && body.prompt.trim()) form.append('prompt', body.prompt)
     form.append('file', body.file)
 
-    const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    const res = await fetch(process.env.E2E_TRANSCRIPTIONS_URL ?? 'https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
       headers: { authorization: `Bearer ${apiKey}` },
       body: form,

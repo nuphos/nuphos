@@ -175,6 +175,23 @@ export async function startStack(): Promise<Stack> {
     )
   }
 
+  // Evidence only: stands in for OpenAI's transcription API, and logs what the backend sent it.
+  const transcriptions = Bun.serve({
+    port: 0,
+    fetch: async (request) => {
+      const form = await request.formData()
+      const file = form.get('file')
+
+      console.log(
+        `fake transcription: model=${String(form.get('model'))} file=${file instanceof File ? `${file.type} ${String(file.size)} bytes` : 'missing'}`,
+      )
+
+      // Slow enough that the app's transcribing state can be seen.
+      await new Promise((resolve) => setTimeout(resolve, 2_500))
+
+      return Response.json({ text: 'Use the staging marker, not production.', language: 'english' })
+    },
+  })
   spawn('backend', ['bun', 'run', 'src/index.ts'], {
     cwd: BACKEND_DIR,
     env: {
@@ -190,6 +207,8 @@ export async function startStack(): Promise<Stack> {
       NUPHOS_LOCAL_STACK: 'true',
       // Where the agent reaches the backend's tools, as a runtime on this computer would.
       NUPHOS_BACKEND_URL: apiUrl,
+      OPENAI_API_KEY: 'e2e-fake-not-a-credential',
+      E2E_TRANSCRIPTIONS_URL: `http://127.0.0.1:${String(transcriptions.port)}/v1/audio/transcriptions`,
     },
   })
   await until('the backend to be ready', async () => (await fetch(`${apiUrl}/health/ready`)).ok)

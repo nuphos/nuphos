@@ -11,6 +11,7 @@ import { runtimeScenarios } from './runtime-scenarios.ts'
 import { startStack } from './stack.ts'
 import { threadScenarios } from './thread-scenarios.ts'
 import { newTask, send } from './ui.ts'
+import { voiceAnswerScenarios } from './voice-answer-scenarios.ts'
 
 import type { Desktop } from './desktop.ts'
 import type { Scenario } from './ui.ts'
@@ -53,6 +54,7 @@ const scenarios: Scenario[] = [
       await page.getByText('ACK E2E_DELIVERY:first').waitFor()
     },
   },
+  ...voiceAnswerScenarios,
   {
     // The flow #2812 was reported in. Its race (a Stop during the queued turn's startup) is not reproduced.
     name: 'queue a message during a turn, press Stop, and the queued message still runs',
