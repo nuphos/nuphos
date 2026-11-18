@@ -34,7 +34,7 @@ export function AgentAvatar({
   animated?: boolean
   /** False: only the Runtime icon, in main's sidebar box (a Tasks row). */
   face?: boolean
-  /** Groups render badges above both face layers. */
+  /** False inside a group chat's cluster, whose faces carry no badge. */
   showBadge?: boolean
   /** Loops the idle loop regardless of this agent's own turn (a Bot whose sub-agent works). */
   looping?: boolean
@@ -82,14 +82,8 @@ export function AgentAvatar({
   )
 }
 
-/** Decorative runtime disc shared with overlapping group faces. */
-export function AgentRuntimeBadge({
-  provider,
-  size,
-}: {
-  provider?: AgentProvider | null
-  size: number
-}) {
+/** Decorative runtime disc on a Bot's face. */
+function AgentRuntimeBadge({ provider, size }: { provider?: AgentProvider | null; size: number }) {
   return (
     <span
       aria-hidden="true"
@@ -99,23 +93,4 @@ export function AgentRuntimeBadge({
       <AgentProviderIcon provider={provider} style={{ width: '100%', height: '100%' }} />
     </span>
   )
-}
-
-/** Only Bots wear a badge; the same live avatar selection drives their face. */
-export function AgentFaceBadge({
-  agentId,
-  avatar,
-  provider,
-  size,
-}: {
-  agentId: string
-  avatar?: string
-  provider?: AgentProvider | null
-  size: number
-}) {
-  const seen = useAgentAvatarPick(agentId)
-
-  const picked = seen === undefined ? avatar : seen
-
-  return picked ? <AgentRuntimeBadge provider={provider} size={size} /> : null
 }
