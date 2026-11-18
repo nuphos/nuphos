@@ -29,6 +29,7 @@ export function DecisionOptions({
   onSubmit,
   onTyping,
   voiceTeamId,
+  closesWords = false,
   children,
 }: {
   questions: readonly DecisionQuestion[]
@@ -43,12 +44,16 @@ export function DecisionOptions({
   onTyping?: (open: boolean) => void
   /** "Other…" may be dictated, as the Inbox, which has no composer, lets it be. */
   voiceTeamId?: string
+  /** Another field took the words' place, as Dismiss's reason: "Other…" closes. */
+  closesWords?: boolean
   children?: ReactNode
 }) {
   const [picked, setPicked] = useState<string[][]>(() => questions.map(() => []))
   // What was typed is kept while a field is closed; only an open field answers.
   const [typed, setTyped] = useState<string[]>(() => questions.map(() => ''))
-  const [open, setOpen] = useState<boolean[]>(() => questions.map(() => false))
+  const [kept, setOpen] = useState<boolean[]>(() => questions.map(() => false))
+  // Put away while another field takes the words' place, and back as it was after.
+  const open = kept.map((was) => was && !closesWords)
   const instant = clickOptions(questions) !== undefined
   const words = typed.map((text, index) => (open[index] ? text : ''))
   const complete = questions.every(
