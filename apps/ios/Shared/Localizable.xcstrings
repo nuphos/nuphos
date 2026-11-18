@@ -17590,6 +17590,7 @@
       }
     },
     "Or type your own answer" : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
