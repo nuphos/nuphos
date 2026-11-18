@@ -58,7 +58,18 @@ export function shouldSwitchAgent(control: RuntimeControl | undefined): boolean 
 
 /** What the banner and the send button say about a gone agent. */
 export function runtimeGoneText(control: Pick<RuntimeControl, 'value'>): string {
-  return t('{name} is no longer available.', { name: control.value?.label ?? t('The runtime') })
+  const name = control.value?.label ?? t('The runtime')
+
+  // On a person's computer, losing access looks the same as removal: the server never says
+  // which, so a computer's existence is not revealed to someone it is no longer shared with.
+  return control.value?.id?.startsWith('local_')
+    ? t(
+        '{name} is no longer available. It was removed, or its computer is no longer shared with you.',
+        {
+          name,
+        },
+      )
+    : t('{name} is no longer available.', { name })
 }
 
 /** Why the next message cannot go, or null when it can: no agent, or one that cannot take it. */
