@@ -83,7 +83,7 @@ struct RuntimesPage: View {
                 Section {
                     SelectorBoxHeader(box: box, current: false, expanded: true, metricsUnavailable: store.agentDevicesError, showsChevron: false)
                         .listRowInsets(EdgeInsets(top: 16, leading: 20, bottom: 16, trailing: 20))
-                    if let device = box.device, let state = device.box?.state, BoxStateRow.label(state) != nil {
+                    if let device = box.device, let state = device.box?.state, NewBox.stateLabel(state) != nil {
                         BoxStateRow(device: device, state: state)
                             .listRowInsets(EdgeInsets(top: 12, leading: 44, bottom: 12, trailing: 20))
                     }
@@ -184,26 +184,14 @@ private struct BoxStateRow: View {
     let device: AgentDevice
     let state: String
     @State private var resuming = false
-    @State private var failure: NewBoxView.Failure?
-
-    /// Desktop's `BOX_BADGE` labels; nil for a running Box.
-    static func label(_ state: String) -> LocalizedStringKey? {
-        switch state {
-        case "creating": "Starting"
-        case "connecting": "Connecting"
-        case "paused": "Paused"
-        case "error": "Didn't start"
-        default: nil
-        }
-    }
+    @State private var failure: NewBox.Failure?
 
     var body: some View {
         HStack(spacing: 12) {
             if state == "creating" || state == "connecting" { ProgressView().controlSize(.small).tint(Theme.muted) }
-            if let label = Self.label(state) { Text(label).font(.system(size: 13)).foregroundStyle(Theme.muted) }
+            if let label = NewBox.stateLabel(state) { Text(label).font(.system(size: 13)).foregroundStyle(Theme.muted) }
             Spacer(minLength: 0)
-            // Only its owner and managers may resume it, as on Desktop.
-            if state == "paused", device.access != "use" {
+            if NewBox.resumable(state: state, access: device.access) {
                 Button(resuming ? "Resuming…" : "Resume") { Task { await resume() } }
                     .buttonStyle(.bordered).controlSize(.small).disabled(resuming)
             }
@@ -225,13 +213,13 @@ private struct BoxStateRow: View {
         defer { resuming = false }
         do {
             _ = try await AgentChatAPI.send(
-                "POST", "agent/devices/\(device.deviceId)/box/resume", query: [URLQueryItem(name: "teamId", value: team.id)],
+                "POST", NewBox.resumePath(deviceId: device.deviceId), query: [URLQueryItem(name: "teamId", value: team.id)],
                 token: store.token, body: JSONValue?.none, timeout: 60)
             await store.loadAgentDevices()
-        } catch AgentChatAPI.Conflict.other(code: "box_vcpu_limit", let message, _) {
-            failure = .init(plan: true, message: message)
+        } catch AgentChatAPI.Conflict.other(let code, let message, _) {
+            failure = .init(code: code, message: message)
         } catch {
-            failure = .init(plan: false, message: error.localizedDescription)
+            failure = .init(code: nil, message: error.localizedDescription)
         }
     }
 }

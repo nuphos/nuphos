@@ -449,7 +449,7 @@ final class AgentStore {
             guard !Task.isCancelled, selectedTeam?.id == team.id else { return }
             agentDevices = result.devices
             agentDevicesError = false
-            canCreateBox = result.boxAvailable == true && result.canCreateBox == true
+            canCreateBox = NewBox.offered(boxAvailable: result.boxAvailable, canCreateBox: result.canCreateBox)
         } catch {
             guard !Task.isCancelled, selectedTeam?.id == team.id else { return }
             agentDevicesError = true
