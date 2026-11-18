@@ -12,6 +12,8 @@ enum Theme {
     static let canvas = adaptive(light: 0xF5F4F2, dark: 0x141312)
     static let surface = adaptive(light: 0xFCFBF9, dark: 0x1A1917)
     static let sunken = adaptive(light: 0xEEECE8, dark: 0x272624)
+    /// Cards that ask for an action, as the composer: lifted by a ring, not a tint.
+    static let raised = adaptive(light: 0xFFFFFE, dark: 0x242321)
     static let heading = adaptive(light: 0x1C1A17, dark: 0xF2F0EC)
     static let body = adaptive(light: 0x5C5852, dark: 0xB8B4AD)
     static let muted = adaptive(light: 0x69645D, dark: 0xA09C95)
@@ -24,9 +26,6 @@ enum Theme {
 
     // Compatibility names keep existing controls on the shared palette.
     static let chatCanvas = surface
-    /// Chips and cards inside the transcript, which `surface` cannot be
-    /// because it matches the transcript's own light-mode background.
-    static let chatSurface = adaptive(light: 0xF1F1F4, dark: 0x202024)
     static let bubble = sunken
     static let brand = heading
     static let brandText = link
@@ -72,6 +71,16 @@ enum Theme {
 }
 
 extension View {
+    /// A card that asks for an action (a question, a secret, a plan, a
+    /// connection): the raised surface and its ring, per the design system.
+    /// Passive fills inside the transcript (bubbles, chips) are `Theme.sunken`.
+    func raisedCard(cornerRadius: CGFloat = 14) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        return background(Theme.raised, in: shape)
+            .overlay(shape.strokeBorder(Theme.hairline, lineWidth: 1))
+            .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
+    }
+
     /// The filled call-to-action. The app tints with `Theme.heading`, which
     /// is white in the dark — the color `.borderedProminent` draws its label
     /// in — so the fill takes the brand instead.

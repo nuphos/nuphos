@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
-import { artifacts, freePorts, logPath, signalGroup, spawn, stop, until } from './processes.ts'
+import { artifacts, freePorts, frozen, logPath, spawn, stop, until } from './processes.ts'
 import { startInstaboxStub } from './instabox-stub.ts'
 import { startStorage } from './storage.ts'
 
@@ -33,6 +33,8 @@ export type Stack = {
   restartAgentHost: (whileDown?: () => Promise<void>, jobs?: string) => Promise<void>
   /** Freezes OpenAB and its agents, so its sockets stay open and nothing answers, runs `whileFrozen`, then lets them go on. */
   freezeAgentHost: (whileFrozen: () => Promise<void>) => Promise<void>
+  /** Freezes the backend, so every request waits, runs `whileFrozen`, then lets it go on. */
+  freezeBackend: (whileFrozen: () => Promise<void>) => Promise<void>
   /** The `state` of the newest Cloudflare authorization the app started. */
   cloudflareState: () => string
 }
@@ -205,12 +207,7 @@ export async function startStack(options: { botOnboarding?: boolean } = {}): Pro
       fetch(`http://127.0.0.1:${String(runtimePort)}/`),
     )
   }
-  const freezeAgentHost = async (whileFrozen: () => Promise<void>) => {
-    signalGroup(agentHosts.at(-1)!, 'SIGSTOP')
-    await whileFrozen().finally(() => signalGroup(agentHosts.at(-1)!, 'SIGCONT'))
-  }
-
-  spawn('backend', ['bun', 'run', 'src/index.ts'], {
+  const backend = spawn('backend', ['bun', 'run', 'src/index.ts'], {
     cwd: BACKEND_DIR,
     env: {
       NODE_ENV: 'development',
@@ -219,8 +216,6 @@ export async function startStack(options: { botOnboarding?: boolean } = {}): Pro
       MONGODB_URI: mongoUri,
       MONGODB_DB: 'nuphos_e2e',
       ATLAS_REDIS_ENABLED: 'false',
-      CLAUDE_CODE_RUNTIME_KUBECTL: 'false',
-      CLAUDE_CODE_RUNTIME_PROVISIONER_ENABLED: 'false',
       NUPHOS_DEV_EMAIL_OTP_LOG: 'true',
       NUPHOS_LOCAL_STACK: 'true',
       // Cloudflare is never reached: a scenario answers for it on this redirect.
@@ -239,6 +234,7 @@ export async function startStack(options: { botOnboarding?: boolean } = {}): Pro
       ...fakes,
     },
   })
+
   await until('the backend to be ready', async () => (await fetch(`${apiUrl}/health/ready`)).ok)
 
   const email = `e2e-${String(Date.now())}@example.com`
@@ -294,7 +290,8 @@ export async function startStack(options: { botOnboarding?: boolean } = {}): Pro
     holdSessionOpening,
     offerDefaultStandIn,
     restartAgentHost,
-    freezeAgentHost,
+    freezeAgentHost: (whileFrozen) => frozen(agentHosts.at(-1)!, whileFrozen),
+    freezeBackend: (whileFrozen) => frozen(backend, whileFrozen),
     cloudflareState: () => cloudflareState(mongoUri),
   }
 }

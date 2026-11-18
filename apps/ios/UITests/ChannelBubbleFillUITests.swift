@@ -39,7 +39,7 @@ final class ChannelBubbleFillUITests: XCTestCase {
         // Cells: the timestamp, the Bot's post, the teammate's, then the viewer's.
         let transcript = app.collectionViews["chat.transcript"]
         XCTAssertTrue(transcript.cells.element(boundBy: 3).waitForExistence(timeout: 15))
-        settle(transcript)
+        settle(app)
         continueAfterFailure = true
         let theirText = text(in: transcript.cells.element(boundBy: 1))
         let teammateText = text(in: transcript.cells.element(boundBy: 2))
@@ -101,7 +101,7 @@ final class ChannelBubbleFillUITests: XCTestCase {
         app.launch()
         let line = app.buttons.matching(identifier: "answered.line").firstMatch
         XCTAssertTrue(line.waitForExistence(timeout: 15))
-        settle(app.collectionViews["chat.transcript"])
+        settle(app)
         continueAfterFailure = true
 
         // The answer chip pads its text by 10pt; sample beside the text, and
@@ -121,16 +121,22 @@ final class ChannelBubbleFillUITests: XCTestCase {
         let expanded = app.screenshot()
         keep(expanded, "answered-card-light")
         // The card pads its question by 16pt and sits 16pt in from the transcript's edge.
+        // It is raised, nearly the transcript's own color, so its ring is what sets it apart.
         let titles = app.staticTexts.matching(NSPredicate(format: "label == 'Ship it?'")).allElementsBoundByIndex
         let title = try XCTUnwrap(titles.max { $0.frame.minY < $1.frame.minY }).frame
-        assertFilled(try XCTUnwrap(Pixels(expanded.image)), inside: CGPoint(x: title.minX - 8, y: title.midY),
-                     outside: CGPoint(x: title.minX - 24, y: title.midY), "the answered question's card")
+        let pixels = try XCTUnwrap(Pixels(expanded.image))
+        let page = CGPoint(x: title.minX - 26, y: title.midY)
+        let edge = stride(from: title.minX - 8, through: title.minX - 22, by: -0.25).map { CGPoint(x: $0, y: title.midY) }
+        XCTAssertTrue(edge.contains { distance(pixels.color(at: $0), pixels.color(at: page)) > 12 },
+                      "the answered question's card has no edge against the transcript (\(pixels.color(at: page)))")
     }
 
     /// Waits for the push to finish sliding the chat in, so pixels are read
     /// where the frames say.
-    private func settle(_ transcript: XCUIElement) {
-        let inPlace = NSPredicate { _, _ in transcript.exists && transcript.frame.minX == 0 }
+    private func settle(_ app: XCUIApplication) {
+        // While the push runs, the chat it leaves can still be on screen too.
+        let transcripts = app.collectionViews.matching(identifier: "chat.transcript")
+        let inPlace = NSPredicate { _, _ in transcripts.count == 1 && transcripts.firstMatch.frame.minX == 0 }
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: inPlace, object: nil)], timeout: 10),
                        .completed, "The chat did not finish opening")
         sleep(1)
@@ -146,9 +152,12 @@ final class ChannelBubbleFillUITests: XCTestCase {
     private func assertFilled(_ pixels: Pixels, inside: CGPoint, outside: CGPoint, _ name: String,
                               file: StaticString = #filePath, line: UInt = #line) {
         let fill = pixels.color(at: inside), page = pixels.color(at: outside)
-        let distance = zip(fill, page).map { abs(Int($0) - Int($1)) }.reduce(0, +)
-        XCTAssertGreaterThan(distance, 12, "\(name) is \(fill), the same as the transcript behind it (\(page))",
+        XCTAssertGreaterThan(distance(fill, page), 12, "\(name) is \(fill), the same as the transcript behind it (\(page))",
                              file: file, line: line)
+    }
+
+    private func distance(_ a: [UInt8], _ b: [UInt8]) -> Int {
+        zip(a, b).map { abs(Int($0) - Int($1)) }.reduce(0, +)
     }
 
     /// A post's text, the innermost view of its cell; its bubble pads it by 14pt.

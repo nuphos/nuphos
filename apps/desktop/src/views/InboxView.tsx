@@ -12,11 +12,12 @@ import { openQuestion } from './inbox/inboxItems'
 import { selectInboxQuestion, useInboxSelection } from './inbox/inboxSelection'
 import { openListed } from './inbox/openListed'
 import { useChannelMentions } from './inbox/useChannelMentions'
+import { snoozeQuestion } from './inbox/dismissQuestion'
 import { ANSWER_UNDO_MS, holdAnswer, sendHeldAnswer } from './inbox/useInbox'
 import { useInboxQuestions } from './inbox/useInboxQuestions'
 
 import type { InboxQuestion } from './inbox/inboxItems'
-import type { DecisionAnswer } from '../api/agent-chat-types'
+import type { HeldReply } from './inbox/useInbox'
 
 type Props = {
   teamId: string
@@ -33,7 +34,8 @@ type Props = {
  * Teammates asking to use the viewer's own computer and channel @mentions,
  * above one open question at a time, the one the sidebar's Inbox list opens.
  * Answering it opens the next, and wakes the agent that asked once its Undo
- * window passes, or at once when the viewer leaves; ↑ ↓ or Skip move between them. Who asked opens from the question's source line, where the sidebar lists it.
+ * window passes, or at once when the viewer leaves; a dismissal waits out the same window.
+ * Snooze sets it aside until a time. ↑ ↓ move between them. Who asked opens from the question's source line, where the sidebar lists it.
  */
 export function InboxView({
   teamId,
@@ -105,17 +107,24 @@ export function InboxView({
     return sendHeldAnswer
   }, [isActive])
 
-  const answer = (row: InboxQuestion, reply: DecisionAnswer) => {
+  const answer = (row: InboxQuestion, reply: HeldReply) => {
     // The answered question leaves the list, and the one that takes its place opens.
+    const dismissed = 'dismissed' in reply
+
     move(rows?.at(at + 1) ?? rows?.at(at - 1))
     const undo = holdAnswer(teamId, row.conversation.sessionId, row.request.id, reply, (reason) =>
-      toast.error(t('Could not send your answer'), reason),
+      toast.error(
+        dismissed ? t('Could not dismiss question') : t('Could not send your answer'),
+        reason,
+      ),
     )
 
     toast.success(
-      t('Answered “{answer}”', {
-        answer: reply.choices?.join(', ') ?? reply.text ?? row.request.question,
-      }),
+      dismissed
+        ? t('Dismissed')
+        : t('Answered “{answer}”', {
+            answer: reply.choices?.join(', ') ?? reply.text ?? row.request.question,
+          }),
       undefined,
       {
         timeoutMs: ANSWER_UNDO_MS,
@@ -159,7 +168,12 @@ export function InboxView({
           request={open.request}
           keys={isActive}
           onAnswer={(reply) => answer(open, reply)}
-          onSkip={rows && rows.length > 1 ? () => move(rows.at(at + 1) ?? rows[0]) : undefined}
+          onSnooze={(until) => {
+            // The snoozed question leaves the list, and its neighbour opens, as after an answer.
+            move(rows?.at(at + 1) ?? rows?.at(at - 1))
+            void snoozeQuestion(teamId, open.conversation.sessionId, open.request.id, until)
+          }}
+          onDismiss={(reason) => answer(open, { dismissed: true, reason: reason || undefined })}
           onOpenSource={(source) => openListed(teamId, source, onOpenConversation)}
           onOpenLink={onOpenLink}
         />

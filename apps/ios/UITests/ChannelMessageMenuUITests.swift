@@ -27,7 +27,11 @@ final class ChannelMessageMenuUITests: XCTestCase {
         app.launch()
         let cell = app.collectionViews["chat.transcript"].cells.element(boundBy: 2)
         XCTAssertTrue(cell.waitForExistence(timeout: 15))
-        let composer = try XCTUnwrap([app.textFields.firstMatch, app.textViews.firstMatch].first { $0.exists })
+        // The composer can appear a moment after the transcript does: wait for it, as a text view
+        // (a vertical text field on iOS 27) or a text field.
+        let field = app.textViews.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 10) || app.textFields.firstMatch.exists, "No composer")
+        let composer = field.exists ? field : app.textFields.firstMatch
         composer.tap()
         if app.buttons["Continue"].waitForExistence(timeout: 2) { app.buttons["Continue"].tap() }
         app.collectionViews["chat.transcript"].swipeDown()
