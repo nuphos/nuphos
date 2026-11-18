@@ -272,7 +272,8 @@ function SummaryBody({
           {outputs.length > 0 && (
             <OutputsSection files={outputs} teamId={teamId} sessionId={sessionId} />
           )}
-          {loaded && !conversation && (
+          {/* A Task's first reply fills it; a Bot's card already stands in. */}
+          {loaded && !conversation && !lead && (
             <div className="px-1 pt-1 text-[13px] leading-5">
               <p className="text-main">{t('Nothing here yet')}</p>
               <p className="text-tertiary">

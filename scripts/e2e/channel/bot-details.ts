@@ -73,6 +73,8 @@ async function expectOpen(page: Page, open: boolean, why: string) {
 
 /** In a narrow pane the panel floats under the name, start-aligned with it, as the Task summary floats. */
 async function checkFloating(page: Page) {
+  // It scales in from the name; measure where it lands.
+  await page.waitForTimeout(500)
   const toggle = await botDetailsToggle(page).boundingBox()
   const panel = await details(page).boundingBox()
 
@@ -159,6 +161,9 @@ const scenario: Scenario = {
     await details(page).getByRole('region', { name: RENAMED }).waitFor()
     if ((await details(page).getByRole('button', { name: 'Edit Bot' }).count()) > 0)
       throw new Error("A teammate's Bot offers Edit Bot")
+    // The Task's empty note is not the Bot's: its card already fills the panel.
+    if ((await details(page).getByText('Nothing here yet').count()) > 0)
+      throw new Error("A teammate's Bot says its Task has nothing yet")
     await shoot(page, 'teammate-wide-open')
 
     // Narrow: the chat pane under 600px.
