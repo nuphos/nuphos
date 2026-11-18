@@ -244,8 +244,10 @@ struct DesktopScreen: View {
                 HStack(spacing: 12) {
                     Button("Close", action: close)
                         .buttonStyle(.bordered)
-                    Button("Try again") { desktop.retry() }
-                        .prominentButton()
+                    // Close's shape and size; Take over's ink fill and surface label.
+                    Button { desktop.retry() } label: { Text("Try again").foregroundStyle(Theme.surface) }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Theme.brand)
                 }
             }
             .foregroundStyle(.white)

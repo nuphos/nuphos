@@ -64,8 +64,10 @@ struct TerminalScreen: View {
             HStack(spacing: 12) {
                 Button("Close", action: close)
                     .buttonStyle(.bordered)
-                Button(retry) { terminal.retry() }
-                    .prominentButton()
+                // Close's shape and size; the ink fill and surface label of the desktop's Take over.
+                Button { terminal.retry() } label: { Text(retry).foregroundStyle(Theme.surface) }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Theme.brand)
             }
         }
         .foregroundStyle(.white)
