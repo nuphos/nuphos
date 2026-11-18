@@ -99,6 +99,13 @@ export function tokenUsageLines(
     .sort((a, b) => b.totalTokens - a.totalTokens || a.label.localeCompare(b.label))
 }
 
+/** What a name the viewer may not see shows as. */
+const HIDDEN: Partial<Record<UsageDimension, string>> = {
+  bot: t('Teammate’s Bot'),
+  task: t('Teammate’s Task'),
+  conversation: t('Teammate’s conversation'),
+}
+
 /** A grouped value as the page shows it: the backend's name, a runtime's name, or the id. */
 export function usageLabel(
   value: string | null,
@@ -107,9 +114,11 @@ export function usageLabel(
 ): string {
   if (value === null) return t('Not recorded')
 
-  const runtime = groupBy === 'runtime' ? names.runtimes.get(value) : undefined
+  const served = names.served?.[groupBy]?.[value]
 
-  return names.served?.[groupBy]?.[value] ?? runtime ?? value
+  if (served === null) return HIDDEN[groupBy] ?? value
+
+  return served ?? (groupBy === 'runtime' ? names.runtimes.get(value) : undefined) ?? value
 }
 
 const SPLIT_TOP = 4

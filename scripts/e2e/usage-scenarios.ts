@@ -5,6 +5,7 @@ import { resolve } from 'node:path'
 import { api, joinTeam } from './dashboard-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, openComputers, send } from './ui.ts'
+import { seedUsage, tooManyModels } from './usage-seeds.ts'
 
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
@@ -30,65 +31,6 @@ function turnRows(stack: Stack): TurnRow[] | null {
       timeout: 10_000,
     }).toString(),
   ) as TurnRow[] | null
-}
-
-/** Adds (or removes) one usage row for each of 5,001 models, more groups than a usage query reads. */
-function tooManyModels(stack: Stack, add: boolean) {
-  const script = `
-    import { MongoClient } from 'mongodb'
-    const [uri, teamId, add] = process.argv.slice(1)
-    const client = await new MongoClient(uri).connect()
-    const usage = client.db('nuphos_e2e').collection('agent_token_usage')
-    if (add === 'true')
-      await usage.insertMany(Array.from({ length: 5001 }, (_, n) => ({
-        recordId: 'e2e-many-' + n, sessionId: 'e2e-many', userId: 'e2e-many', teamId,
-        operation: 'agent.turn', source: 'agent-runtime', kind: 'step_total',
-        accounting: 'upstream_reported', provider: 'e2e', modelId: 'e2e-model-' + n,
-        tokens: { totalTokens: 1 }, createdAt: new Date(),
-      })))
-    else await usage.deleteMany({ teamId, sessionId: 'e2e-many' })
-    await client.close()`
-
-  execFileSync('bun', ['-e', script, stack.mongoUri, stack.teamId, String(add)], {
-    cwd: BACKEND_DIR,
-    timeout: 20_000,
-  })
-}
-
-type Seed = { actor: string; total: number; daysAgo: number; triggerId?: string }
-
-/** Writes (or, with no seeds, removes) usage a turn would record, in `sessionId`, owned by its owner. */
-function seedUsage(stack: Stack, sessionId: string, owner: string, seeds: Seed[]) {
-  const script = `
-    import { MongoClient, ObjectId } from 'mongodb'
-    const [uri, teamId, sessionId, owner, seeds] = process.argv.slice(1)
-    const client = await new MongoClient(uri).connect()
-    const usage = client.db('nuphos_e2e').collection('agent_token_usage')
-    const parsed = JSON.parse(seeds)
-    if (parsed.length === 0) await usage.deleteMany({ teamId, operation: 'e2e.seed' })
-    else
-      await usage.insertMany(parsed.flatMap((seed) => {
-        const base = {
-          sessionId, userId: owner, actorUserId: seed.actor, teamId, operation: 'e2e.seed',
-          source: 'agent-runtime', accounting: 'upstream_reported', provider: 'claude-code',
-          modelId: 'claude-opus-5-5', turnSource: seed.triggerId ? 'agent.trigger' : 'app',
-          createdAt: new Date(Date.now() - seed.daysAgo * 86400000),
-          ...(seed.triggerId ? { triggerId: seed.triggerId } : {}),
-        }
-        const row = (kind, tokens) => ({ ...base, recordId: new ObjectId().toHexString(), kind, tokens })
-        return [
-          row('step_total', { totalTokens: seed.total }),
-          row('input', { inputTokens: seed.total - 1000 }),
-          row('output', { outputTokens: 1000 }),
-        ]
-      }))
-    await client.close()`
-
-  execFileSync(
-    'bun',
-    ['-e', script, stack.mongoUri, stack.teamId, sessionId, owner, JSON.stringify(seeds)],
-    { cwd: BACKEND_DIR, timeout: 20_000 },
-  )
 }
 
 /** JSON with every object's keys in order, so two values compare as text. */
@@ -242,6 +184,34 @@ export const usageScenarios: Scenario[] = [
         { actor: owner, total: 50_000, daysAgo: 1 },
       ])
       try {
+        // Every member sees the team's numbers; only an administrator sees another's conversation name.
+        const now = Date.now()
+        const read = async (token: string) => {
+          const query = new URLSearchParams({
+            from: new Date(now - 7 * 86_400_000).toISOString(),
+            to: new Date(now + 86_400_000).toISOString(),
+            groupBy: 'conversation',
+          })
+          const answer = await api(stack, token)(
+            'GET',
+            `/teams/${stack.teamId}/usage/query?${query.toString()}`,
+          )
+
+          return answer.body as unknown as {
+            rows: { keys: { conversation?: string }; totalTokens: number }[]
+            names: { conversation?: Record<string, string | null> }
+          }
+        }
+        const asTeammate = await read(teammate.token)
+        const asOwner = await read(stack.token)
+
+        if (!asTeammate.rows.some((row) => row.keys.conversation === sessionId))
+          throw new Error('A member does not see the team’s usage')
+        if (asTeammate.names.conversation?.[sessionId] !== null)
+          throw new Error('A member sees the name of a teammate’s conversation')
+        if (!asOwner.names.conversation?.[sessionId])
+          throw new Error('An administrator does not see the conversation’s name')
+
         await openComputers(page)
         const section = page.getByRole('region', { name: 'Token usage' })
         const table = section.getByRole('table', { name: 'Token usage by group' })

@@ -43,8 +43,8 @@ const NOTE =
 type UsageFilter = { dimension: UsageDimension; value: string; label: string }
 
 /** What the team's runtimes spent in model tokens, per day and split by one dimension, each
- *  group against the period before. An administrator sees the whole team; anyone else their
- *  own conversations. */
+ *  group against the period before. Every member sees the team's numbers; another member's
+ *  Bot, Task or conversation is named only to administrators. */
 export function TokenUsage({
   teamId,
   instances,

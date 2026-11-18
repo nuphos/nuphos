@@ -1,14 +1,22 @@
 // Display names for the ids a usage query groups by, read inside the team.
 import { ObjectId } from 'mongodb'
 
+import { canSeeConversationName } from '@/lib/agent/conversation-visibility'
 import { agentConversations } from '@/lib/agent/db/shared'
 import { agentDevices } from '@/lib/agent/devices/store'
 import { agentTriggers } from '@/lib/agent/trigger-db'
 import { getTeamMembers } from '@/lib/identity'
 
 import type { UsageDimension, UsageQueryRow } from '@/lib/agent/usage-query'
+import type { NuphosTeamRole } from '@/lib/identity/types'
 
-type ReadNames = (teamId: string, ids: string[], viewerId: string) => Promise<[string, string][]>
+type Viewer = { userId: string; teamRole: NuphosTeamRole }
+/** A name, or null where the viewer may not see it. */
+type ReadNames = (
+  teamId: string,
+  ids: string[],
+  viewer: Viewer,
+) => Promise<[string, string | null][]>
 
 /** Names read where the grouped values are ids: people, conversation titles, Trigger names and
  *  computer labels. People who left still name what they sent. */
@@ -42,8 +50,8 @@ const NAMED: Partial<Record<UsageDimension, ReadNames>> = {
 async function conversationTitles(
   teamId: string,
   ids: string[],
-  viewerId: string,
-): Promise<[string, string][]> {
+  viewer: Viewer,
+): Promise<[string, string | null][]> {
   const conversations = await agentConversations()
     .find({ teamId, sessionId: { $in: ids } })
     .project<{ sessionId: string; title: string; userId: string; generalAccess?: string }>({
@@ -55,23 +63,20 @@ async function conversationTitles(
     })
     .toArray()
 
-  // As in team activity: someone else's private conversation shows that it spent, never what on.
-  return conversations.map((c) => [
-    c.sessionId,
-    c.generalAccess === 'none' && c.userId !== viewerId ? 'Private session' : c.title,
-  ])
+  return conversations.map((c) => [c.sessionId, canSeeConversationName(c, viewer) ? c.title : null])
 }
 
 /**
- * A display name for each grouped value the rows hold. The rows are already scoped to what
- * the viewer may see, so only names of their own conversations reach a member.
+ * A display name for each grouped value the rows hold. Every member sees the team's numbers,
+ * but another member's Bot, Task or conversation is named only where `canSeeConversationName`
+ * allows; elsewhere its name is null.
  */
 export async function usageNames(
   teamId: string,
-  viewerId: string,
+  viewer: Viewer,
   groupBy: UsageDimension[],
   rows: UsageQueryRow[],
-): Promise<Partial<Record<UsageDimension, Record<string, string>>>> {
+): Promise<Partial<Record<UsageDimension, Record<string, string | null>>>> {
   const named = await Promise.all(
     groupBy.flatMap((dimension) => {
       const read = NAMED[dimension]
@@ -79,7 +84,7 @@ export async function usageNames(
 
       return read && ids.length
         ? [
-            read(teamId, ids, viewerId).then(
+            read(teamId, ids, viewer).then(
               (pairs) => [dimension, Object.fromEntries(pairs)] as const,
             ),
           ]

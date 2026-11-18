@@ -33,7 +33,8 @@ export type TeamUsageRow = {
   costUsd?: number
 }
 
-/** A grouped value's display name, where the backend knows one (titles, Trigger names, computer labels). */
-export type TeamUsageNames = Partial<Record<UsageDimension, Record<string, string>>>
+/** A grouped value's display name, where the backend knows one (people, titles, Trigger names,
+ *  computer labels); null where the viewer may not see it, such as a teammate's conversation. */
+export type TeamUsageNames = Partial<Record<UsageDimension, Record<string, string | null>>>
 
 export type TeamUsageAnswer = { rows: TeamUsageRow[]; names: TeamUsageNames }

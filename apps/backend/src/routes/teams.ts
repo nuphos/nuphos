@@ -167,7 +167,7 @@ teamScoped.get('/agent-stats', zv('query', statsQuerySchema), async (c) => {
 
   return c.json(await getAgentStats(c.get('teamId'), { viewerId: c.get('userId'), ...query }))
 })
-// Token usage grouped and filtered by any dimension; members see only their own.
+// The team's token usage, grouped and filtered by any dimension; names follow the viewer's role.
 teamScoped.get('/usage/query', zv('query', usageQuerySchema), async (c) => {
   const { from, to, bucket, timeZone, groupBy, ...rest } = c.req.valid('query')
   // The schema spreads the dimension lists in, so their keys are lost to the type.
@@ -180,13 +180,17 @@ teamScoped.get('/usage/query', zv('query', usageQuerySchema), async (c) => {
     }),
   )
 
-  const rows = await queryTeamUsage(
-    c.get('teamId'),
-    { userId: c.get('userId'), teamRole: c.get('teamRole') },
-    { from, to, bucket, timeZone, groupBy, filters },
-  )
+  const rows = await queryTeamUsage(c.get('teamId'), {
+    from,
+    to,
+    bucket,
+    timeZone,
+    groupBy,
+    filters,
+  })
+  const viewer = { userId: c.get('userId'), teamRole: c.get('teamRole') }
 
-  return c.json({ rows, names: await usageNames(c.get('teamId'), c.get('userId'), groupBy, rows) })
+  return c.json({ rows, names: await usageNames(c.get('teamId'), viewer, groupBy, rows) })
 })
 // Read-only compatibility for saved dashboard scripts and older desktop clients.
 teamScoped.get('/billing/usage', async (c) =>

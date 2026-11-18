@@ -73,83 +73,66 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('team usage query', () => {
     await closeDb()
   })
 
-  const run = async (
-    teamRole: 'ADMINISTRATOR' | 'EDITOR',
-    query: Partial<UsageQuery>,
-    userId = teamRole === 'ADMINISTRATOR' ? ADMIN : MEMBER,
-  ) => {
-    const rows = await queryTeamUsage(
-      TEAM,
-      { userId, teamRole },
-      {
-        from: new Date('2026-11-17T00:00:00Z'),
-        to: new Date('2026-11-18T00:00:00Z'),
-        groupBy: [],
-        filters: {},
-        ...query,
-      },
-    )
+  const day = { from: new Date('2026-11-17T00:00:00Z'), to: new Date('2026-11-18T00:00:00Z') }
+  const run = async (query: Partial<UsageQuery>) => {
+    const rows = await queryTeamUsage(TEAM, { ...day, groupBy: [], filters: {}, ...query })
 
     return Object.fromEntries(rows.map((row) => [JSON.stringify(row.keys), row.totalTokens]))
   }
+  const named = async (
+    team: string,
+    userId: string,
+    teamRole: 'ADMINISTRATOR' | 'EDITOR' | 'VIEWER',
+  ) =>
+    usageNames(
+      team,
+      { userId, teamRole },
+      ['conversation'],
+      await queryTeamUsage(team, { ...day, groupBy: ['conversation'], filters: {} }),
+    )
 
-  test('an admin groups the team by sender', async () => {
-    expect(await run('ADMINISTRATOR', { groupBy: ['member'] })).toEqual({
+  test('the team is grouped by sender', async () => {
+    expect(await run({ groupBy: ['member'] })).toEqual({
       [JSON.stringify({ member: ADMIN })]: 1300,
       [JSON.stringify({ member: MEMBER })]: 120,
     })
   })
 
   test('a Task counts toward the Bot above it, and a plain chat has no Bot', async () => {
-    expect(await run('ADMINISTRATOR', { groupBy: ['bot'] })).toEqual({
+    expect(await run({ groupBy: ['bot'] })).toEqual({
       [JSON.stringify({ bot: BOT })]: 1370,
       [JSON.stringify({ bot: null })]: 50,
     })
-    expect(
-      await run('ADMINISTRATOR', { groupBy: ['task'], filters: { model: ['haiku'] } }),
-    ).toEqual({ [JSON.stringify({ task: TASK })]: 300 })
+    expect(await run({ groupBy: ['task'], filters: { model: ['haiku'] } })).toEqual({
+      [JSON.stringify({ task: TASK })]: 300,
+    })
   })
 
   test('buckets carry their start time', async () => {
-    expect(await run('ADMINISTRATOR', { bucket: 'day', groupBy: ['model'] })).toEqual({
+    expect(await run({ bucket: 'day', groupBy: ['model'] })).toEqual({
       [JSON.stringify({ time: '2026-11-17T00:00:00.000Z', model: 'opus' })]: 1120,
       [JSON.stringify({ time: '2026-11-17T00:00:00.000Z', model: 'haiku' })]: 300,
     })
   })
 
-  test("a member sees only their own conversations, not a teammate's they sent into", async () => {
-    expect(await run('EDITOR', { groupBy: ['conversation'] })).toEqual({
-      [JSON.stringify({ conversation: OWN })]: 50,
-    })
-  })
-
-  test('grouped conversations come with their titles, only those the viewer sees', async () => {
-    const query = {
-      from: new Date('2026-11-17T00:00:00Z'),
-      to: new Date('2026-11-18T00:00:00Z'),
-      groupBy: ['conversation' as const],
-      filters: {},
-    }
-    const admin = await queryTeamUsage(TEAM, { userId: ADMIN, teamRole: 'ADMINISTRATOR' }, query)
-    const member = await queryTeamUsage(TEAM, { userId: MEMBER, teamRole: 'EDITOR' }, query)
-
-    expect(await usageNames(TEAM, ADMIN, ['conversation'], admin)).toEqual({
+  test('an administrator sees every conversation’s name', async () => {
+    expect(await named(TEAM, ADMIN, 'ADMINISTRATOR')).toEqual({
       conversation: { [BOT]: 'Bot', [TASK]: 'Task', [OWN]: 'Own' },
     })
-    expect(await usageNames(TEAM, MEMBER, ['conversation'], member)).toEqual({
-      conversation: { [OWN]: 'Own' },
-    })
   })
 
-  test("someone else's private conversation is named only as private", async () => {
+  test.each(['EDITOR', 'VIEWER'] as const)(
+    'a member with %s sees the team’s numbers, but only their own conversations’ names',
+    async (teamRole) => {
+      expect(await named(TEAM, MEMBER, teamRole)).toEqual({
+        conversation: { [BOT]: null, [TASK]: null, [OWN]: 'Own' },
+      })
+    },
+  )
+
+  test('a conversation its owner made private is named to its owner alone', async () => {
     const team = `${TEAM}-private`
     const secret = `${team}-secret`
-    const query = {
-      from: new Date('2026-11-17T00:00:00Z'),
-      to: new Date('2026-11-18T00:00:00Z'),
-      groupBy: ['conversation' as const],
-      filters: {},
-    }
 
     await agentConversations().insertOne({
       sessionId: secret,
@@ -162,21 +145,15 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('team usage query', () => {
       turn(secret, MEMBER, 'opus', 10).map((row) => ({ ...row, teamId: team })),
     )
     try {
-      const rows = await queryTeamUsage(team, { userId: ADMIN, teamRole: 'ADMINISTRATOR' }, query)
-
-      expect(await usageNames(team, ADMIN, ['conversation'], rows)).toEqual({
-        conversation: { [secret]: 'Private session' },
+      expect(await named(team, ADMIN, 'ADMINISTRATOR')).toEqual({
+        conversation: { [secret]: null },
       })
-      expect(await usageNames(team, MEMBER, ['conversation'], rows)).toEqual({
+      expect(await named(team, MEMBER, 'EDITOR')).toEqual({
         conversation: { [secret]: 'Salary review' },
       })
     } finally {
       await agentTokenUsage().deleteMany({ teamId: team })
       await agentConversations().deleteMany({ teamId: team })
     }
-  })
-
-  test("a member's filters cannot reach another member's conversation", async () => {
-    expect(await run('EDITOR', { filters: { conversation: [BOT] } })).toEqual({})
   })
 })
