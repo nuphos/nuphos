@@ -80,6 +80,8 @@ export type ChannelFace = {
 }
 
 export type AgentConversation = {
+  /** A Bot's: whether it can reply now (#3308). */
+  presence?: BotPresence
   /** Answered questions whose agent has not run the answer yet, with the line their card shows. */
   waitingAnswers?: { requestId: string; note: string }[]
   /** A channel: a place where people and agents talk. It runs no agent of its own. */
