@@ -2,7 +2,7 @@ import { useRef } from 'react'
 
 import { useWorkspacePane } from '../../app/workspace/WorkspacePaneContext'
 import { t } from '../../i18n'
-import { setBotDetailsOpen, useBotDetailsOpen } from '../../lib/botDetailsPanel'
+import { dismissBotDetails, setBotDetailsOpen, useBotDetailsOpen } from '../../lib/botDetailsPanel'
 import { sessionDesktopsOf } from '../agent/panel/shells'
 import { ChatSummaryPanel } from '../agent/summary/ChatSummaryPanel'
 import { useChatSummaryShortcut } from '../agent/summary/useChatSummaryShortcut'
@@ -18,16 +18,18 @@ import type { RuntimeExecution } from '../../lib/runtimeExecution'
 
 /** A Bot chat's face and name: one button for the Bot's details beside the chat, as ⌘I is. */
 function BotDetailsToggle({
+  bot,
   faces,
   title,
   visible,
 }: {
+  bot: string
   faces?: ChannelFace[]
   title: string
   visible: boolean
 }) {
   const ref = useRef<HTMLButtonElement>(null)
-  const open = useBotDetailsOpen()
+  const open = useBotDetailsOpen(bot)
   const paneActive = useWorkspacePane()?.active !== false
 
   // A Task opened over the chat leaves it inert and takes ⌘I for its own panel.
@@ -65,8 +67,9 @@ export function ChannelHeading({
   title: string
   visible: boolean
 }) {
-  if (botOfChannel(chat))
-    return <BotDetailsToggle faces={chat?.faces} title={title} visible={visible} />
+  const bot = botOfChannel(chat)
+
+  if (bot) return <BotDetailsToggle bot={bot} faces={chat?.faces} title={title} visible={visible} />
 
   return (
     <>
@@ -112,9 +115,10 @@ export function BotDetailsPanel({
 
   return (
     <ChatSummaryPanel
-      open={useBotDetailsOpen()}
+      open={useBotDetailsOpen(bot)}
       label={t('Bot details')}
       onClose={() => setBotDetailsOpen(false)}
+      onDismiss={() => dismissBotDetails(bot)}
       sessionId={bot}
       teamId={teamId}
       onOpenLink={(url) => onOpenLink?.(url)}
