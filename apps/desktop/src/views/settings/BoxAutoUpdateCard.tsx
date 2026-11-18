@@ -40,10 +40,10 @@ export function BoxAutoUpdateCard({
   return (
     <div className="mt-10">
       <div className="mb-4">
-        <h2 className="text-[15px] font-semibold text-main">{t('Computer updates')}</h2>
+        <h2 className="text-[15px] font-semibold text-main">{t('Automatic updates')}</h2>
         <p className="mt-1 text-[13px] text-tertiary">
           {t(
-            "When a new release is out and a computer's agents have been idle for 10 minutes, Nuphos updates the computers it runs for this workspace. The update restarts Nuphos on the computer, which also stops terminals and programs open on it.",
+            "Update computers to the latest version when they're idle. Updating restarts the computer's Nuphos service; programs you started on it stop.",
           )}
         </p>
       </div>

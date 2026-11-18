@@ -60,3 +60,24 @@ test('no locale shows a bare "Agent" except for AWS', () => {
 
   assert.deepEqual(bare, [])
 })
+
+// Every machine is a computer; there is no "cloud computer" (or cloud machine) beside it.
+const CLOUD_COMPUTER =
+  /cloud[ -]?(computer|machine)|(computer|machine)s? in the cloud|雲端電腦|雲電腦|云电脑|云端电脑|雲端 ?Linux|クラウドコンピュータ|クラウド上の(Linux )?(マシン|コンピュータ)|클라우드 컴퓨터|(computadoras?|ordenador(es)?|máquinas?)( Linux)? en la nube|komputer cloud|(mesin|komputer) (Linux )?di cloud|คอมพิวเตอร์คลาวด์|บนคลาวด์ที่มี/iu
+
+test('no text or translation calls a computer a cloud computer', () => {
+  const found = [
+    ...sources.flatMap((path) =>
+      keys(path)
+        .filter((key) => CLOUD_COMPUTER.test(key))
+        .map((key) => `${path}: ${key}`),
+    ),
+    ...Object.entries(MESSAGES).flatMap(([code, messages]) =>
+      Object.entries(messages)
+        .filter(([key, value]) => CLOUD_COMPUTER.test(key) || CLOUD_COMPUTER.test(value))
+        .map(([key]) => `${code}: ${key}`),
+    ),
+  ]
+
+  assert.deepEqual(found, [])
+})

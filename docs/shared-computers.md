@@ -15,8 +15,8 @@ personal environment containing unrelated private data.
 
 `manage` also permits Nuphos's own device tools (local exec, file upload and
 browser/computer control), opening a terminal, signing the computer's agents in
-or out, computer management, and changing who may use it. A cloud computer's
-owner can let teammates who only use it open a terminal too. The owner retains
+or out, computer management, and changing who may use it. The owner of a computer
+from Nuphos can let teammates who only use it open a terminal too. The owner retains
 ownership actions. Team membership or team-administrator status does not by
 itself grant access to another member's personal computer.
 

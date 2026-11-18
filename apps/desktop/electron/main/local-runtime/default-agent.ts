@@ -20,7 +20,7 @@ export async function removeDefaultAgent(
   refresh: RefreshDefault | undefined,
 ): Promise<unknown> {
   if (!deps.ownsMachine || !refresh)
-    throw new Error('Only a cloud computer removes its default runtimes')
+    throw new Error('Only a computer from Nuphos removes its default runtimes')
   if (!LOCAL_AGENT_PROVIDERS.includes(provider as LocalAgentProvider))
     throw new Error('Invalid runtime provider')
   if (provider === 'antigravity')
