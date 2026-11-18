@@ -192,7 +192,9 @@ environment of `nuphos agent`.
 Claude Code also takes `ANTHROPIC_MODEL` and `ANTHROPIC_DEFAULT_{OPUS,SONNET,HAIKU}_MODEL`
 for the model ids of your provider. Codex sends the model you pick in Nuphos, so
 name an Azure OpenAI deployment after the model (`gpt-5.5`). Every agent on the
-computer uses the provider, which the runtime card shows in place of a sign-in.
+computer uses the provider, which counts as its sign-in: Nuphos lists the agent
+as signed in, shows no plan usage for it, and `nuphos agent` does not ask you to
+sign Claude Code in.
 On start `nuphos agent` prints which variables it passes, by name; no value is
 written to a log or to the runtime's own config. The values reach the agents'
 processes, so the commands an agent runs can read them, as they can read a
