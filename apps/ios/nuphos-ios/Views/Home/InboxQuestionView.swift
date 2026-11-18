@@ -2,9 +2,10 @@ import MarkdownView
 import SwiftUI
 
 /// One Inbox question: who asked (the name opens that Bot or Task), when, the
-/// question and its markdown body, then its answers: `QuestionOptions`, the options,
-/// "Other…" and "Skip" one row of the same pill, pinned to the bottom on iPhone for one
-/// question. An integration question and a plan keep their own controls. A secret is asked for with the task's own `SecretCard`,
+/// question and its markdown body, then its answers. On iPhone the options are
+/// full-width buttons pinned to the bottom with "Other…" and "Skip" as outlined halves
+/// below; wide, a row of capsules with an outlined "Skip" at its end. A form, an integration question
+/// and a plan keep their own controls. A secret is asked for with the task's own `SecretCard`,
 /// which says the question itself.
 struct InboxQuestionView: View {
     let inbox: OpenQuestions
@@ -12,12 +13,12 @@ struct InboxQuestionView: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.openURL) private var openURL
 
+    /// "Other…" was tapped: the text box and its send button show.
+    @State private var typing = false
+    @State private var words = ""
+    @FocusState private var focused: Bool
 
     private var wide: Bool { sizeClass == .regular }
-
-    /// On iPhone one question's options, single- or multi-select, sit at the bottom under the
-    /// question; several questions scroll with it, as they may not fit there.
-    private var pinned: Bool { question.choices?.count == 1 }
 
     /// Margins: iPhone 20 at the sides, right under the bar; iPad 56 and 25 from the top. A wide
     /// iPhone, as iPhone Duo's inner display, takes 40 / 16 and 51 from the top: the 16 is past the
@@ -40,7 +41,7 @@ struct InboxQuestionView: View {
                         .padding(.top, 18)
                         .accessibilityIdentifier("inbox.body")
                 }
-                if wide || !pinned { answers.padding(.top, 24) }
+                if wide || question.options == nil { answers.padding(.top, 24) }
                 if let failure = inbox.failures[question.id] {
                     Label("Couldn't send the answer · \(failure)", image: "lucide-circle-alert")
                         .font(Theme.Text.caption)
@@ -62,7 +63,7 @@ struct InboxQuestionView: View {
             if wide { Theme.separator.frame(width: 0.5).ignoresSafeArea() }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            if !wide, pinned {
+            if !wide, question.options != nil {
                 answers
                     .padding(.horizontal, 20)
                     .padding(.top, 12)
@@ -83,6 +84,7 @@ struct InboxQuestionView: View {
             }
         }
         .animation(.snappy, value: inbox.toast)
+        .animation(.snappy, value: typing)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
@@ -118,8 +120,40 @@ struct InboxQuestionView: View {
     }
 
     @ViewBuilder private var answers: some View {
-        if let choices = question.choices {
-            QuestionOptions(questions: choices, typed: question.typed, onSubmit: { answer($0) }) { skip }
+        if let form = question.form {
+            DecisionForm(questions: form) { answer($0) }
+            HStack { Spacer(); skip }.padding(.top, 12)
+        } else if let options = question.options {
+            VStack(alignment: .leading, spacing: 10) {
+                if wide {
+                    HStack(spacing: 10) {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 10) {
+                                ForEach(Array(options.enumerated()), id: \.element) { index, option in
+                                    InboxOption(title: option, primary: index == 0, height: 40, size: 15) {
+                                        answer(DecisionAnswer(choices: [option]))
+                                    }
+                                }
+                                if question.typed, !options.isEmpty { otherButton }
+                            }
+                        }
+                        .scrollClipDisabled()
+                        skip
+                    }
+                } else {
+                    ForEach(Array(options.enumerated()), id: \.element) { index, option in
+                        InboxOption(title: option, primary: index == 0, height: 50, size: 16, fill: true) {
+                            answer(DecisionAnswer(choices: [option]))
+                        }
+                    }
+                    // Two halves; Skip keeps the right one when there is no Other….
+                    HStack(spacing: 10) {
+                        if question.typed, !options.isEmpty { otherButton } else { Color.clear.frame(maxWidth: .infinity, maxHeight: 0) }
+                        skip
+                    }
+                }
+                if typing || (options.isEmpty && question.typed) { field }
+            }
         } else if let part = question.secretPart {
             // Saved in the conversation that asked; the listing then drops the question.
             AskedSecretCard(question: question, part: part, teamId: inbox.teamId) { Task { await inbox.refresh() } }
@@ -128,12 +162,34 @@ struct InboxQuestionView: View {
         }
     }
 
+    /// "Other…": the text box and its send button, or put away again.
+    private func other() {
+        typing.toggle()
+        focused = typing
+    }
+
+    private var field: some View {
+        AnswerField(words: $words, focused: $focused, send: sendWords)
+            .padding(.horizontal, wide ? 0 : -4)
+    }
+
+    private var otherButton: some View {
+        InboxOutlineButton(title: String(localized: "Other…"), fill: !wide, toggled: typing, action: other)
+    }
+
     private var skip: some View {
-        QuestionPill(title: String(localized: "Skip")) { inbox.selected = inbox.next(after: question.id) }
+        InboxOutlineButton(title: String(localized: "Skip"), fill: !wide) { inbox.selected = inbox.next(after: question.id) }
             .disabled(inbox.list.count < 2 && wide)
     }
 
+    private func sendWords() {
+        let text = words.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        answer(DecisionAnswer(text: text))
+    }
+
     private func answer(_ answer: DecisionAnswer) {
+        focused = false
         Task { await inbox.hold(question, with: answer) }
     }
 
@@ -143,7 +199,7 @@ struct InboxQuestionView: View {
     }
 }
 
-/// An action as a capsule, as a connect question's: dark when `primary`, light otherwise.
+/// An answer as a capsule, in the Inbox and on a chat's question card: the first one dark, the rest light.
 struct InboxOption: View {
     let title: String
     let primary: Bool
@@ -164,6 +220,33 @@ struct InboxOption: View {
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// Other… and Skip: an outlined capsule, filled light instead while toggled. Half the row on
+/// iPhone at 44pt; wide, as wide as its title at 40pt.
+struct InboxOutlineButton: View {
+    let title: String
+    let fill: Bool
+    var toggled = false
+    let action: () -> Void
+    @Environment(\.isEnabled) private var enabled
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 15, weight: .semibold))
+                .lineLimit(1)
+                .foregroundStyle(Theme.heading)
+                .padding(.horizontal, 14)
+                .frame(maxWidth: fill ? .infinity : nil, minHeight: fill ? 44 : 40)
+                .background(toggled ? Theme.control : .clear, in: Capsule())
+                .overlay { if !toggled { Capsule().strokeBorder(Theme.outline, lineWidth: 1) } }
+                .contentShape(Capsule())
+                .opacity(enabled ? 1 : 0.4)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(toggled ? .isSelected : [])
     }
 }
 
