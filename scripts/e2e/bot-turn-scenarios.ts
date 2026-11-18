@@ -56,7 +56,22 @@ export const botTurnScenarios: Scenario[] = [
     run: async (page, stack) => {
       const marker = 'E2E_DELIVERY:pill-clears'
       const thinking = page.locator('.workspace-agent-titlebar').getByText('Thinking…')
+      const introductions = agentEvents(stack).filter(
+        (event) => event === 'finish E2E_DELIVERY:missing',
+      ).length
 
+      // A Bot of its own: a Bot with an open question says so instead of Thinking.
+      await page.getByRole('tab', { name: 'Bots' }).click()
+      await page.getByRole('button', { name: 'New', exact: true }).click()
+      await page.getByRole('menuitem', { name: 'New Bot' }).click()
+      await page.getByRole('textbox', { name: 'Bot name' }).fill('Pill Bot')
+      await page.getByRole('button', { name: 'Create', exact: true }).click()
+      await until(
+        'the new Bot to introduce itself',
+        async () =>
+          agentEvents(stack).filter((event) => event === 'finish E2E_DELIVERY:missing').length >
+          introductions,
+      )
       // E2E_SLOW keeps the turn going long enough for the 4 s poll to see it start.
       await send(page, `Work a while E2E_SLOW ${marker}`)
       await thinking.first().waitFor({ timeout: 30_000 })
