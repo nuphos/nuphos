@@ -77,10 +77,19 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         var credentials: [CredentialRef]? = nil
         /// The secret a credential question asks for: answered with the secure input card.
         var secretName: String? = nil
+        /// A web form's details asked together in that card, and the site they are entered on.
+        var fields: [FormField]? = nil
+        var site: String? = nil
         /// Any number of `options` may be picked.
         var multiSelect: Bool? = nil
         /// Related questions answered together; `question` is their headline.
         var questions: [DecisionQuestion]? = nil
+    }
+
+    /// One input of a card that asks for a web form's details: its file name and what the person reads.
+    struct FormField: Codable, Equatable, Hashable, Sendable {
+        let name: String
+        let label: String
     }
 
     /// One question of a card that asks several, with its own choices.
