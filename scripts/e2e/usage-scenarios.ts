@@ -2,8 +2,8 @@
 import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
 
-import { until } from './processes.ts'
-import { newTask, send } from './ui.ts'
+import { artifacts, until } from './processes.ts'
+import { newTask, openComputers, send } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
@@ -82,6 +82,29 @@ export const usageScenarios: Scenario[] = [
           row.finishReason !== 'end_turn'
         )
           throw new Error(`Turn row is missing who, where or how: ${JSON.stringify(row)}`)
+    },
+  },
+  {
+    name: 'the Computers page shows that turn’s tokens by model, then by runtime',
+    run: async (page) => {
+      await openComputers(page)
+      const section = page.getByRole('region', { name: 'Token usage' })
+      const table = section.getByRole('table', { name: 'Token usage by group' })
+
+      await table.getByText('claude-opus-5-5').waitFor()
+      await table.getByText('claude-haiku-5-5').waitFor()
+      // Input includes the cache, so the total is input + output.
+      await table.getByText('258.9K').waitFor()
+      await section.scrollIntoViewIfNeeded()
+      await section.screenshot({ path: `${artifacts}/token-usage-by-model.png` })
+
+      await section.getByRole('combobox', { name: 'Group by' }).click()
+      await page.getByRole('option', { name: 'Runtime' }).click()
+      // Both models ran on the stack's one runtime, shown by its name rather than its id.
+      await table.getByText('290.3K').waitFor()
+      if ((await table.getByText('Not recorded').count()) > 0)
+        throw new Error('A runtime turn was not attributed to its runtime')
+      await section.screenshot({ path: `${artifacts}/token-usage-by-runtime.png` })
     },
   },
 ]

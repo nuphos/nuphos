@@ -18,6 +18,8 @@ export const queryKeys = {
   runtimeQuotas: (teamId: string) => [...queryKeys.team(teamId), 'runtime-quotas'] as const,
   runtimeQuotaHistory: (teamId: string, range: string) =>
     [...queryKeys.team(teamId), 'runtime-quota-history', range] as const,
+  teamUsage: (teamId: string, query: object) =>
+    [...queryKeys.team(teamId), 'team-usage', query] as const,
   /** Under `runtimeInstances`, so a change to the agents reads their status again too. */
   runtimeStatus: (teamId: string, runtimeId: string) =>
     [...queryKeys.runtimeInstances(teamId), runtimeId, 'status'] as const,

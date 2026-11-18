@@ -48,6 +48,7 @@ import type {
   SidebarFavoriteCloudEntry,
   SidebarFavoritesCloudSnapshot,
 } from '../types/team.ts'
+import type { TeamUsageQuery, TeamUsageRow } from '../types/usage.ts'
 
 export type WindowTeamApi = {
   atlasExportTeam(teamId: string): Promise<boolean>
@@ -167,6 +168,7 @@ export type WindowTeamApi = {
   ): Promise<unknown>
   atlasGetTeamActivity(teamId: string, range: TeamActivityRange): Promise<TeamActivity>
   atlasGetAgentStats(teamId: string, query: AgentStatsQuery): Promise<AgentStats>
+  atlasQueryTeamUsage(teamId: string, query: TeamUsageQuery): Promise<{ rows: TeamUsageRow[] }>
   atlasPutHomeLayout(
     teamId: string,
     scope: 'personal' | 'team',
