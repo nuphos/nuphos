@@ -1394,16 +1394,16 @@
     },
     "1 hour" : {
       "localizations" : {
-        "zh-Hant" : {
+        "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "1 小時"
+            "value" : "1 hora"
           }
         },
-        "zh-Hans" : {
+        "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "1 小时"
+            "value" : "1 jam"
           }
         },
         "ja" : {
@@ -1424,16 +1424,16 @@
             "value" : "1 ชั่วโมง"
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "1 jam"
+            "value" : "1 小时"
           }
         },
-        "es" : {
+        "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "1 hora"
+            "value" : "1 小時"
           }
         }
       }
@@ -10619,7 +10619,6 @@
       }
     },
     "Dismiss" : {
-      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -10667,16 +10666,16 @@
     },
     "Dismiss question" : {
       "localizations" : {
-        "zh-Hant" : {
+        "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "關閉問題"
+            "value" : "Descartar pregunta"
           }
         },
-        "zh-Hans" : {
+        "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "关闭问题"
+            "value" : "Tutup pertanyaan"
           }
         },
         "ja" : {
@@ -10697,32 +10696,32 @@
             "value" : "ปิดคำถาม"
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tutup pertanyaan"
+            "value" : "关闭问题"
           }
         },
-        "es" : {
+        "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Descartar pregunta"
+            "value" : "關閉問題"
           }
         }
       }
     },
     "Dismissed" : {
       "localizations" : {
-        "zh-Hant" : {
+        "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已關閉"
+            "value" : "Descartada"
           }
         },
-        "zh-Hans" : {
+        "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已关闭"
+            "value" : "Ditutup"
           }
         },
         "ja" : {
@@ -10743,16 +10742,16 @@
             "value" : "ปิดแล้ว"
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ditutup"
+            "value" : "已关闭"
           }
         },
-        "es" : {
+        "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Descartada"
+            "value" : "已關閉"
           }
         }
       }
@@ -15467,16 +15466,16 @@
     },
     "Next Monday, 9:00" : {
       "localizations" : {
-        "zh-Hant" : {
+        "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "下週一 9:00"
+            "value" : "El próximo lunes, 9:00"
           }
         },
-        "zh-Hans" : {
+        "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "下周一 9:00"
+            "value" : "Senin depan, 9:00"
           }
         },
         "ja" : {
@@ -15497,16 +15496,16 @@
             "value" : "วันจันทร์หน้า 9:00"
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Senin depan, 9:00"
+            "value" : "下周一 9:00"
           }
         },
-        "es" : {
+        "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "El próximo lunes, 9:00"
+            "value" : "下週一 9:00"
           }
         }
       }
@@ -19668,16 +19667,16 @@
     },
     "Reason (optional)" : {
       "localizations" : {
-        "zh-Hant" : {
+        "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "理由（選填）"
+            "value" : "Motivo (opcional)"
           }
         },
-        "zh-Hans" : {
+        "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "理由（可选）"
+            "value" : "Alasan (opsional)"
           }
         },
         "ja" : {
@@ -19698,16 +19697,16 @@
             "value" : "เหตุผล (ไม่บังคับ)"
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Alasan (opsional)"
+            "value" : "理由（可选）"
           }
         },
-        "es" : {
+        "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Motivo (opcional)"
+            "value" : "理由（選填）"
           }
         }
       }
@@ -25336,16 +25335,16 @@
     },
     "Snooze" : {
       "localizations" : {
-        "zh-Hant" : {
+        "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "稍後提醒"
+            "value" : "Posponer"
           }
         },
-        "zh-Hans" : {
+        "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "稍后提醒"
+            "value" : "Tunda"
           }
         },
         "ja" : {
@@ -25366,32 +25365,32 @@
             "value" : "เลื่อนเตือน"
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tunda"
+            "value" : "稍后提醒"
           }
         },
-        "es" : {
+        "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Posponer"
+            "value" : "稍後提醒"
           }
         }
       }
     },
     "Snoozed" : {
       "localizations" : {
-        "zh-Hant" : {
+        "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已延後"
+            "value" : "Pospuestas"
           }
         },
-        "zh-Hans" : {
+        "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已推迟"
+            "value" : "Ditunda"
           }
         },
         "ja" : {
@@ -25412,16 +25411,16 @@
             "value" : "เลื่อนไว้"
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ditunda"
+            "value" : "已推迟"
           }
         },
-        "es" : {
+        "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pospuestas"
+            "value" : "已延後"
           }
         }
       }
@@ -29307,16 +29306,16 @@
     },
     "Tomorrow, 9:00" : {
       "localizations" : {
-        "zh-Hant" : {
+        "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "明天 9:00"
+            "value" : "Mañana, 9:00"
           }
         },
-        "zh-Hans" : {
+        "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "明天 9:00"
+            "value" : "Besok, 9:00"
           }
         },
         "ja" : {
@@ -29337,16 +29336,16 @@
             "value" : "พรุ่งนี้ 9:00"
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Besok, 9:00"
+            "value" : "明天 9:00"
           }
         },
-        "es" : {
+        "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mañana, 9:00"
+            "value" : "明天 9:00"
           }
         }
       }
@@ -30595,16 +30594,16 @@
     },
     "Unsnooze" : {
       "localizations" : {
-        "zh-Hant" : {
+        "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "取消延後"
+            "value" : "Dejar de posponer"
           }
         },
-        "zh-Hans" : {
+        "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "取消推迟"
+            "value" : "Batalkan tunda"
           }
         },
         "ja" : {
@@ -30625,16 +30624,16 @@
             "value" : "ยกเลิกการเลื่อน"
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Batalkan tunda"
+            "value" : "取消推迟"
           }
         },
-        "es" : {
+        "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dejar de posponer"
+            "value" : "取消延後"
           }
         }
       }
