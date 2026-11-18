@@ -38,7 +38,7 @@ function toIso(ms: number | string | null | undefined): string | null {
 
 type FrameEvent = { type: string } & Record<string, unknown>
 
-function frameEvent(frame: string): FrameEvent | null {
+export function frameEvent(frame: string): FrameEvent | null {
   if (!frame.startsWith('data: ')) return null
   try {
     const event = JSON.parse(frame.slice('data: '.length).trimEnd()) as Record<string, unknown>

@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { turnSwitchAgent } from './turnFailureActions.ts'
+import { reinstallProvider, turnSwitchAgent } from './turnFailureActions.ts'
 
 import type { Tab } from './model.ts'
+import type { RuntimeInstance } from '../../../types/runtime.ts'
 
 const failed = (extra: Partial<Tab> = {}) =>
   ({
@@ -73,4 +74,20 @@ test('nothing is offered once the conversation moved past the failure', () => {
     turnSwitchAgent(tab, () => undefined),
     null,
   )
+})
+
+const me = { userId: 'u1', deviceId: 'mac' }
+const agent = (provider: string, deviceId = 'mac') =>
+  ({ id: `local_u1_${deviceId}`, label: 'Local', provider }) as unknown as RuntimeInstance
+
+test('a broken CLI on this computer is reinstalled from the failure line', () => {
+  assert.equal(reinstallProvider('cli', agent('codex'), me), 'codex')
+  assert.equal(reinstallProvider('cli', agent('claude-code'), me), 'claude-code')
+})
+
+test('only this computer’s Codex or Claude Code, and only a broken CLI, offer Install', () => {
+  assert.equal(reinstallProvider('cli', agent('codex', 'other-mac'), me), undefined)
+  assert.equal(reinstallProvider('cli', agent('opencode'), me), undefined)
+  assert.equal(reinstallProvider('auth', agent('codex'), me), undefined)
+  assert.equal(reinstallProvider('cli', agent('codex'), null), undefined)
 })

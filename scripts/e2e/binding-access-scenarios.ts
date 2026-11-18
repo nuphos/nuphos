@@ -33,7 +33,7 @@ function parse(text: string): unknown {
   }
 }
 
-export function must(condition: boolean, what: string): void {
+export function must(condition: boolean, what: string): asserts condition {
   if (!condition) throw new Error(`Expected ${what}`)
 }
 

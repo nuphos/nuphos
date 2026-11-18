@@ -87,8 +87,8 @@ export function ChannelPane({
   const firstReplyFailed =
     detail?.timelineEvents?.some((event) => event.kind === 'agent_reply_failed') ?? false
   const botOwned = ownsBot(teamId, bot, user.id, detail && agents)
-  const manage = fixes?.onOpenAgentSettings
-  const controls = useBotComposerControls(teamId, bot, botOwned, user, botState, refresh, manage)
+  const lent = { manage: fixes?.onOpenAgentSettings, agents }
+  const controls = useBotComposerControls(teamId, bot, botOwned, user, botState, refresh, lent)
   const sessions = useAgentSessions(teamId).data
   const settingUp = sessions?.some((row) => row.sessionId === bot && botIsOnboarding(row))
   const taskAccess = useBotTaskAccess(teamId, bot, botOwned)
