@@ -368,6 +368,34 @@ describe('waking a channel’s agents', () => {
     })
   })
 
+  test("an agent the model provider refused says the provider's words", async () => {
+    const refused =
+      'The model provider refused the request: 400: request (46055 tokens) exceeds the available context size (8192 tokens)'
+
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async ({ sessionId }) => {
+        if (sessionId === 'agent-a')
+          throw new OpenAbRpcError(
+            `**Internal Error** (code: -32603)\nInternal error: ${refused}`,
+            -32603,
+            {
+              code: -32603,
+              message: `Internal error: ${refused}`,
+            },
+          )
+
+        return { status: 'completed' }
+      },
+    })
+    await say('hello')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(
+      (await channel()).timelineEvents?.find((event) => event.kind === 'agent_reply_failed'),
+    ).toMatchObject({ agentId: 'agent-a', cause: 'other', reason: refused })
+  })
+
   test('a disabled agent says where to move, so the chat can offer Switch agent', async () => {
     const disabled = 'This agent has been retired. Move this conversation to another agent.'
 
