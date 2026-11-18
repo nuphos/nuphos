@@ -30,7 +30,7 @@ class BotRuntimeAvatarFixtureDeviceTest {
     private val second = "synthetic-avatar-second"
     @After fun clearFaces() { BotFaces.learn(first, null); BotFaces.learn(second, null) }
 
-    @Test fun frontRearAndTwoBotBadgesSurviveProviderChanges() {
+    @Test fun groupFacesCarryNoBadgeWhileABotsOwnFaceFollowsItsProvider() {
         var provider by mutableStateOf<String?>("codex")
         BotFaces.learn(first, "02-leonardo"); BotFaces.learn(second, "07-ada")
         compose.setContent {
@@ -46,6 +46,7 @@ class BotRuntimeAvatarFixtureDeviceTest {
                             Box(Modifier.testTag("front-$size")) { ChatIcon(listOf(bot, human), "Front Bot", size) }
                             Box(Modifier.testTag("pair-$size")) { ChatIcon(listOf(bot, other), "Two Bots", size) }
                             Box(Modifier.testTag("human-$size")) { ChatIcon(listOf(human, ChatFace("other-human", "Other")), "People", size) }
+                            Box(Modifier.testTag("trio-$size")) { ChatIcon(listOf(bot, human, other), "Three", size) }
                         }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
@@ -55,15 +56,15 @@ class BotRuntimeAvatarFixtureDeviceTest {
                 }
             } }
         }
-        // 4 group marks per size + 4 single-avatar marks. Humans receive none.
-        compose.onAllNodesWithTag("runtime-provider-mark", useUnmergedTree = true).assertCountEquals(12)
+        // Only the 4 single avatars: a group's clustered faces carry no badge, as in the design system.
+        compose.onAllNodesWithTag("runtime-provider-mark", useUnmergedTree = true).assertCountEquals(4)
         repeat(3) { compose.onNodeWithText("Switch runtime").performClick() }
         capture("01-codex-and-grok")
         compose.onNodeWithText("Switch runtime").performClick()
         capture("02-same-bot-grok")
         compose.onNodeWithText("Switch runtime").performClick()
         capture("03-same-bot-missing-runtime")
-        compose.onAllNodesWithTag("runtime-provider-mark", useUnmergedTree = true).assertCountEquals(12)
+        compose.onAllNodesWithTag("runtime-provider-mark", useUnmergedTree = true).assertCountEquals(4)
     }
 
     private fun capture(name: String) {
