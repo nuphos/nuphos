@@ -6,7 +6,12 @@ import { test } from 'node:test'
 
 import { prepareAgentHome } from './agent-home.ts'
 import { openabConfigToml, openabEnv } from './config.ts'
-import { hostProviderEnv, withHostProvider } from './host-provider.ts'
+import {
+  CLAUDE_PROVIDER_ENV,
+  CODEX_PROVIDER_ENV,
+  hostProviderEnv,
+  withHostProvider,
+} from './host-provider.ts'
 
 import type { LocalRuntimeLaunch } from './config.ts'
 import type { LocalRuntimeControllerDeps } from './controller-types.ts'
@@ -129,4 +134,17 @@ test('Codex gets the endpoint as its provider entry, which goes with the variabl
   assert.doesNotMatch(readFileSync(config, 'utf8'), secrets)
   hostDeps(unset).deps.prepareAgentHome('codex', dir, dir, runtimeEnv)
   assert.doesNotMatch(readFileSync(config, 'utf8'), /model_provider/u)
+})
+
+test('the CLI service forwards exactly the variables the host reads', () => {
+  const service = readFileSync(
+    path.join(import.meta.dirname, '../../../../cli/src/service.rs'),
+    'utf8',
+  )
+  const list = /const PROVIDER: \[&str; \d+\] = \[([^\]]*)\]/u.exec(service)?.[1] ?? ''
+
+  assert.deepEqual(
+    [...list.matchAll(/"(\w+)"/gu)].map(([, name]) => name).sort(),
+    [...CLAUDE_PROVIDER_ENV, ...CODEX_PROVIDER_ENV].sort(),
+  )
 })
