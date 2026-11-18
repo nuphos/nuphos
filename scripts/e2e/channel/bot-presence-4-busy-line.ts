@@ -1,4 +1,5 @@
-// #3308: a post to a Bot busy with work outside its chat says it will reply when that is done.
+// #3308: a Bot busy with work outside a group chat shows Busy among the chat's members, and a
+// post to it there joins its running turn, so the chat shows its dots rather than a wait line.
 import { agentEvents } from '../agent-log.ts'
 import { artifacts, until } from '../processes.ts'
 import { newTask, send } from '../ui.ts'
@@ -6,21 +7,23 @@ import { newTask, send } from '../ui.ts'
 import type { Stack } from '../stack.ts'
 import type { Scenario } from '../ui.ts'
 
-async function api(stack: Stack, method: string, path: string) {
+async function api(stack: Stack, method: string, path: string, body?: object) {
   const response = await fetch(`${stack.apiUrl}${path}?teamId=${stack.teamId}`, {
     method,
-    headers: { authorization: `Bearer ${stack.token}` },
+    headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
+    ...(body ? { body: JSON.stringify({ teamId: stack.teamId, ...body }) } : {}),
   })
 
   if (!response.ok) throw new Error(`${path} answered ${String(response.status)}`)
 
   return (await response.json()) as {
+    sessionId?: string
     conversations?: { sessionId: string; firstMessage?: string }[]
   }
 }
 
 export default {
-  name: 'a post to a Bot busy outside its chat says it will reply when that is done',
+  name: "a busy Bot reads Busy among a chat's members, and a post to it there joins its turn",
   run: async (page, stack) => {
     await newTask(page)
     await send(page, 'Keep working E2E_HOLD E2E_DELIVERY:busy-elsewhere')
@@ -28,31 +31,39 @@ export default {
       agentEvents(stack).includes('start E2E_DELIVERY:busy-elsewhere'),
     )
     const listed = (await api(stack, 'GET', '/agent/conversations')).conversations ?? []
-    const busy = listed.find((row) => row.firstMessage?.includes('busy-elsewhere'))
+    const busy = listed.find((row) => row.firstMessage?.includes('busy-elsewhere'))?.sessionId
 
     if (!busy) throw new Error('The held Task is not listed')
     try {
-      await api(stack, 'POST', `/agent/conversations/${busy.sessionId}/bot`)
-      await page.getByRole('tab', { name: 'Bots' }).click()
-      const rows = page.locator('[data-sidebar-row]')
+      await api(stack, 'POST', `/agent/conversations/${busy}/bot`)
+      const chat = (
+        await api(stack, 'POST', '/agent/channels', { title: 'E2E presence chat', group: true })
+      ).sessionId
 
-      await rows.filter({ hasText: 'E2E_DELIVERY:busy-elsewhere' }).first().click()
+      await api(stack, 'POST', `/agent/conversations/${chat ?? ''}/agents`, { sessionId: busy })
+      await page.getByRole('tab', { name: 'Bots' }).click()
+      await page.getByText('E2E presence chat').first().click()
       await page.evaluate(() => {
         document.documentElement.classList.remove('dark')
         document.documentElement.classList.add('light')
       })
-      await send(page, 'Are you free? E2E_DELIVERY:busy-asked')
-      await page
-        .getByText(/is working outside this chat\. It will reply when that’s done\./)
-        .waitFor({
-          timeout: 30_000,
-        })
-      await page.screenshot({ path: `${artifacts}/presence-busy-line-light.png` })
+      await page.getByRole('button', { name: 'Share' }).first().click()
+      await page.getByText('Busy', { exact: true }).waitFor({ timeout: 30_000 })
+      await page.screenshot({ path: `${artifacts}/presence-members-busy-light.png` })
+      await page.keyboard.press('Escape')
+      await api(stack, 'POST', `/agent/conversations/${chat ?? ''}/channel-messages`, {
+        text: `Can you look at this? ${stack.apiUrl}/teams/${stack.teamId}/agent/${busy}`,
+      })
+      await page.locator('.t-typing-dot').first().waitFor({ timeout: 30_000 })
+      await page.screenshot({ path: `${artifacts}/presence-busy-joins-turn-light.png` })
+      if ((await page.getByText(/is working outside this chat/).count()) > 0)
+        throw new Error('A Bot whose turn took the post still says it works elsewhere')
     } finally {
-      await api(stack, 'POST', `/agent/conversations/${busy.sessionId}/cancel-runtime`)
+      await api(stack, 'POST', `/agent/conversations/${busy}/cancel-runtime`)
       await until('the held turn to stop', async () =>
         agentEvents(stack).includes('cancelled E2E_DELIVERY:busy-elsewhere'),
       )
+      await page.getByRole('tab', { name: 'Bots' }).click()
       await page.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first().click()
     }
   },
