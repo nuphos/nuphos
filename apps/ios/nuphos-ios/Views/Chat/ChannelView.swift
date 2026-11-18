@@ -333,11 +333,14 @@ struct TranscriptJump: Equatable {
     var nonce = UUID()
 }
 
-/// A chat's icon, as iMessage draws one: the one other member's face, or two
-/// overlapping, whoever spoke last in front. A chat with nobody else shows
-/// its title's initials.
+/// A chat's icon: the one other member's face, or up to three members
+/// clustered as in the design system. A chat with nobody else shows its
+/// title's initials.
 struct ChatIcon: View {
-    @AppStorage(BotAvatars.enabledKey, store: BotAvatars.defaults) private var avatarsEnabled = true
+    /// Where a group's faces sit in a 36pt box, whoever spoke last largest:
+    /// left, top and size.
+    static let cluster: [(x: CGFloat, y: CGFloat, size: CGFloat)] = [(0, 0, 24), (18, 12, 18), (5, 22, 14)]
+
     let faces: [ChatFace]
     let title: String
     var size: CGFloat = 22
@@ -345,22 +348,24 @@ struct ChatIcon: View {
     var body: some View {
         Group {
             if faces.count >= 2 {
-                let small = (size * 0.72).rounded()
-                ZStack {
-                    face(faces[1], size: small, showBadge: false).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    face(faces[0], size: small, showBadge: false)
-                        .padding(1.5)
-                        .background(Theme.chatCanvas, in: Circle())
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                    badge(faces[1], badgeSize: small <= 24 ? 9 : 12)
-                        .frame(width: small, height: small, alignment: .bottomTrailing)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    badge(faces[0], badgeSize: small <= 24 ? 9 : 12)
-                        .frame(width: small, height: small, alignment: .bottomTrailing)
-                        .padding(1.5)
-                        .offset(x: badgeSeparation(small), y: badgeSeparation(small))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                let scale = size / 36
+                ZStack(alignment: .topLeading) {
+                    ForEach(Array(faces.prefix(Self.cluster.count).enumerated()), id: \.element.id) { index, member in
+                        let slot = Self.cluster[index]
+                        // Each face is ringed by whatever lies behind the icon: its ring
+                        // cuts the faces beneath it out rather than painting a color.
+                        Circle()
+                            .frame(width: (slot.size + 4) * scale, height: (slot.size + 4) * scale)
+                            .offset(x: (slot.x - 2) * scale, y: (slot.y - 2) * scale)
+                            .blendMode(.destinationOut)
+                        face(member, size: slot.size * scale, showBadge: false)
+                            .background(Theme.sunken, in: Circle())
+                            .clipShape(Circle())
+                            .offset(x: slot.x * scale, y: slot.y * scale)
+                    }
                 }
+                .frame(width: size, height: size, alignment: .topLeading)
+                .compositingGroup()
             } else if let only = faces.first {
                 face(only, size: size)
             } else {
@@ -377,18 +382,6 @@ struct ChatIcon: View {
             AgentAvatar(agentId: face.id, runtime: face.agent?.provider, size: size, showBadge: showBadge)
         } else {
             person(id: face.id, name: face.name, avatarURL: face.avatarURL, size: size)
-        }
-    }
-
-    private func badgeSeparation(_ small: CGFloat) -> CGFloat {
-        guard faces[0].agent != nil, faces[1].agent != nil else { return 0 }
-        return max(0, (small <= 24 ? 9 : 12) - (size - small - 1.5))
-    }
-
-    @ViewBuilder
-    private func badge(_ face: ChatFace, badgeSize: CGFloat) -> some View {
-        if face.agent != nil, avatarsEnabled, BotFaces.shared.face(for: face.id) != nil {
-            AgentRuntimeBadge(runtime: face.agent?.provider, size: badgeSize)
         }
     }
 
