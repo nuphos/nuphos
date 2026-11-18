@@ -7,6 +7,7 @@ import { agentEvents } from './agent-log.ts'
 import { agentWordScenarios } from './agent-word-scenarios.ts'
 import { backendFailures, backendLines } from './backend-log.ts'
 import { botUnreadScenarios } from './bot-unread-scenarios.ts'
+import { botWorkingDotsScenarios } from './bot-working-dots-scenarios.ts'
 import { checkDecisionOutline, checkOutgoingChip } from './chat-presentation.ts'
 import { channelScenarios } from './channel-scenarios.ts'
 import { channelAwayScenarios } from './channel-away-scenarios.ts'
@@ -87,6 +88,7 @@ const scenarios: Scenario[] = [
   },
   ...botUnreadScenarios,
   ...channelScenarios,
+  ...botWorkingDotsScenarios,
   ...channelAwayScenarios,
   ...teammateBotScenarios,
   {
