@@ -25,19 +25,17 @@ const scenario: Scenario = {
     await page.getByText('POSTED E2E_DELIVERY:inbox-reply', { exact: true }).waitFor()
     const wakes = channelWakes(stack)
     const answered = count(stack, `finish ${ANSWER}`)
-    // The only open question asked in a chat: the scenarios before answered theirs.
+    // The question it just asked, the Bot's only open one: the scenarios before answered theirs.
     const listed = (
       await client(stack.apiUrl, stack.token)(
         'GET',
         `/agent/conversations?teamId=${stack.teamId}&pendingDecision=true&bots=true`,
       )
-    ).body as { conversations: { inputRequests?: { id: string; channelId?: string }[] }[] }
-    const asked = listed.conversations
-      .flatMap((row) => row.inputRequests ?? [])
-      .find((request) => request.channelId)
+    ).body as { conversations: { title?: string; inputRequests?: { id: string }[] }[] }
+    const asked = listed.conversations.find((row) => row.title === 'E2E Bot')?.inputRequests?.at(-1)
 
     if (!asked)
-      throw new Error(`The Bot's question is not open in the Inbox: ${JSON.stringify(listed)}`)
+      throw new Error(`The Bot's question is not open: ${JSON.stringify(listed).slice(0, 2000)}`)
     await page.getByRole('tab', { name: /^Inbox/ }).click()
     await page.locator(`[data-inbox-question="${asked.id}"]`).click()
     await page.getByRole('button', { name: ANSWER }).last().click()
