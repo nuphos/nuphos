@@ -22,6 +22,7 @@ const PROVIDERS: readonly PersonalCredentialProvider[] = [
   'linear',
   'gmail',
   'google-drive',
+  'google-calendar',
 ]
 
 function parse(rawUrl: string): URL | null {
