@@ -8,16 +8,14 @@ struct QuestionConnect: View {
     @Environment(AgentStore.self) private var store
     let questions: OpenQuestions
     let question: BotQuestion
-    let height: CGFloat
-    let size: CGFloat
-    var fill = false
+    let wide: Bool
 
     /// The picker shows, on the asking conversation's selection as edited there.
     @State private var connecting = false
     @State private var selection = CredentialSelection()
 
     var body: some View {
-        InboxOption(title: label, primary: true, height: height, size: size, fill: fill) { Task { await connect() } }
+        InboxOption(title: label, wide: wide, fill: !wide, primary: true) { Task { await connect() } }
             .sheet(isPresented: $connecting, onDismiss: save) {
                 CredentialPickerSheet(selection: $selection, providers: question.request.providers).presentationDetents([.medium, .large])
             }

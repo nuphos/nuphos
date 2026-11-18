@@ -3,8 +3,8 @@ import SwiftUI
 
 /// One Inbox question: who asked (the name opens that Bot or Task), when, the
 /// question and its markdown body, then its answers. On iPhone the options are
-/// full-width buttons pinned to the bottom with "Other…" and "Skip" as outlined halves
-/// below; wide, a row of capsules with an outlined "Skip" at its end. A multi-select or several
+/// full-width buttons pinned to the bottom with "Other…" and "Skip" as halves
+/// below; wide, a row of capsules with "Skip" at its end. A multi-select or several
 /// questions pick the same capsules and send them; an integration question and a plan keep their own controls. A secret is asked for with the task's own `SecretCard`,
 /// which says the question itself.
 struct InboxQuestionView: View {
@@ -125,7 +125,7 @@ struct InboxQuestionView: View {
 
     @ViewBuilder private var answers: some View {
         if let form = question.form {
-            QuestionPicks(questions: form, wide: wide, height: wide ? 40 : 50, size: wide ? 15 : 16, onSubmit: { answer($0) }) { skip }
+            QuestionPicks(questions: form, wide: wide, onSubmit: { answer($0) }) { skip }
         } else if let options = question.options {
             VStack(alignment: .leading, spacing: 10) {
                 if wide {
@@ -133,7 +133,7 @@ struct InboxQuestionView: View {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 10) {
                                 ForEach(Array(options.enumerated()), id: \.element) { index, option in
-                                    InboxOption(title: option, primary: index == 0, height: 40, size: 15) {
+                                    InboxOption(title: option, wide: true) {
                                         answer(DecisionAnswer(choices: [option]))
                                     }
                                 }
@@ -145,7 +145,7 @@ struct InboxQuestionView: View {
                     }
                 } else {
                     ForEach(Array(options.enumerated()), id: \.element) { index, option in
-                        InboxOption(title: option, primary: index == 0, height: 50, size: 16, fill: true) {
+                        InboxOption(title: option, wide: false, fill: true) {
                             answer(DecisionAnswer(choices: [option]))
                         }
                     }
@@ -161,7 +161,7 @@ struct InboxQuestionView: View {
             // Saved in the conversation that asked; the listing then drops the question.
             AskedSecretCard(question: question, part: part, teamId: inbox.teamId) { Task { await inbox.refresh() } }
         } else if question.connectable {
-            QuestionConnect(questions: inbox, question: question, height: wide ? 40 : 50, size: wide ? 15 : 16, fill: !wide)
+            QuestionConnect(questions: inbox, question: question, wide: wide)
         }
     }
 
@@ -177,11 +177,11 @@ struct InboxQuestionView: View {
     }
 
     private var otherButton: some View {
-        InboxOutlineButton(title: String(localized: "Other…"), fill: !wide, toggled: typing, action: other)
+        InboxOption(title: String(localized: "Other…"), wide: wide, fill: !wide, on: typing, action: other)
     }
 
     private var skip: some View {
-        InboxOutlineButton(title: String(localized: "Skip"), fill: !wide) { inbox.selected = inbox.next(after: question.id) }
+        InboxOption(title: String(localized: "Skip"), wide: wide, fill: !wide) { inbox.selected = inbox.next(after: question.id) }
             .disabled(inbox.list.count < 2 && wide)
     }
 
@@ -202,60 +202,41 @@ struct InboxQuestionView: View {
     }
 }
 
-/// An answer as a capsule, in the Inbox and on a chat's question card: the first one dark, the rest
-/// light. `checked`, it is picked rather than sent: dark with a check once picked.
+/// Every button on a question card, in the Inbox and in a chat: an answer, Other…, Skip, Send,
+/// Connect. One shape and size per layout, so a row never mixes two (the design system's
+/// question card): a pill on the surface with a ring, ink once picked or toggled open, and ink for
+/// the view's one primary action. 44pt on iPhone, as wide as the row allows; 40pt wide.
 struct InboxOption: View {
     let title: String
-    let primary: Bool
-    let height: CGFloat
-    let size: CGFloat
+    let wide: Bool
     var fill = false
+    /// Send or Connect: the view's one primary action.
+    var primary = false
+    /// Toggled open, as Other… while its field shows.
+    var on = false
+    /// Picked rather than sent: shows a check while picked.
     var checked: Bool?
     let action: () -> Void
+    @Environment(\.isEnabled) private var enabled
 
-    private var dark: Bool { checked ?? primary }
+    private var ink: Bool { checked ?? (on || primary) }
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 6) {
-                if checked == true { LucideIcon("check").font(.system(size: size - 2, weight: .semibold)) }
-                Text(title).font(.system(size: size, weight: .semibold)).lineLimit(1)
+                if checked == true { LucideIcon("check").font(.system(size: wide ? 13 : 14, weight: .semibold)) }
+                Text(title).font(.system(size: wide ? 15 : 16, weight: .semibold)).lineLimit(1)
             }
-            .foregroundStyle(dark ? Theme.chatCanvas : Theme.heading)
-            .padding(.horizontal, 20)
-            .frame(maxWidth: fill ? .infinity : nil, minHeight: height)
-            .background(dark ? Theme.heading : Theme.control, in: Capsule())
+            .foregroundStyle(ink ? Theme.chatCanvas : Theme.heading)
+            .padding(.horizontal, 16)
+            .frame(maxWidth: fill ? .infinity : nil, minHeight: wide ? 40 : 44)
+            .background(ink ? Theme.heading : Theme.surface, in: Capsule())
+            .overlay { if !ink { Capsule().strokeBorder(Theme.hairline, lineWidth: 1) } }
             .contentShape(Capsule())
+            .opacity(enabled ? 1 : 0.4)
         }
         .buttonStyle(.plain)
-        .accessibilityAddTraits(checked == true ? .isSelected : [])
-    }
-}
-
-/// Other… and Skip: an outlined capsule, filled light instead while toggled. Half the row on
-/// iPhone at 44pt; wide, as wide as its title at 40pt.
-struct InboxOutlineButton: View {
-    let title: String
-    let fill: Bool
-    var toggled = false
-    let action: () -> Void
-    @Environment(\.isEnabled) private var enabled
-
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: 15, weight: .semibold))
-                .lineLimit(1)
-                .foregroundStyle(Theme.heading)
-                .padding(.horizontal, 14)
-                .frame(maxWidth: fill ? .infinity : nil, minHeight: fill ? 44 : 40)
-                .background(toggled ? Theme.control : .clear, in: Capsule())
-                .overlay { if !toggled { Capsule().strokeBorder(Theme.outline, lineWidth: 1) } }
-                .contentShape(Capsule())
-                .opacity(enabled ? 1 : 0.4)
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(toggled ? .isSelected : [])
+        .accessibilityAddTraits(checked == true || on ? .isSelected : [])
     }
 }
 

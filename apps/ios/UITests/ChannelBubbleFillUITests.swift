@@ -165,8 +165,8 @@ final class ChannelBubbleFillUITests: XCTestCase {
     }
 }
 
-/// RGB of a screenshot, addressed in points.
-private struct Pixels {
+/// RGB of a screenshot, addressed in points. Shared with the other pixel checks.
+struct Pixels {
     let data: [UInt8]
     let width: Int
     let height: Int

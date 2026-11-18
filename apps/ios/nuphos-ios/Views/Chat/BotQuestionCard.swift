@@ -4,7 +4,7 @@ import SwiftUI
 /// conversation did, the question as the heading, what the agent wrote to decide it from, then
 /// its answers. The first option is the dark one; "Other…" asks for the answer in words in the
 /// card and "Skip" withdraws the question unanswered. On iPhone the options are full-width with
-/// "Other…" and "Skip" as outlined halves below; wide, one row of capsules with "Skip" at its end.
+/// "Other…" and "Skip" as halves below; wide, one row of capsules with "Skip" at its end.
 /// A multi-select or several questions pick the same options and send them at once. An answer wakes the agent
 /// that asked; no message is sent. A secret is asked for with the task's own `SecretCard`, saved
 /// and replied to in the conversation that asked. A connect question opens that conversation's
@@ -85,11 +85,11 @@ struct BotQuestionCard: View {
 
     @ViewBuilder private var answers: some View {
         if let form = question.form {
-            QuestionPicks(questions: form, wide: wide, height: wide ? 40 : 44, size: wide ? 15 : 16, onSubmit: onAnswer) { skip }
+            QuestionPicks(questions: form, wide: wide, onSubmit: onAnswer) { skip }
         } else if let options = question.options {
             VStack(alignment: .leading, spacing: wide ? 10 : 8) {
                 if wide {
-                    // One row, Skip at its end; long options take the row and the outlined two the next.
+                    // One row, Skip at its end; long options take the row and the other two the next.
                     ViewThatFits(in: .horizontal) {
                         HStack(spacing: 10) { buttons(for: options); other; Spacer(minLength: 10); skip }
                         VStack(alignment: .leading, spacing: 10) {
@@ -112,7 +112,7 @@ struct BotQuestionCard: View {
                 }
             }
         } else {
-            let connect = QuestionConnect(questions: questions, question: question, height: wide ? 40 : 44, size: 15, fill: !wide)
+            let connect = QuestionConnect(questions: questions, question: question, wide: wide)
             if wide {
                 HStack(spacing: 10) { connect; Spacer(); skip }
             } else {
@@ -126,7 +126,7 @@ struct BotQuestionCard: View {
 
     private func buttons(for options: [String]) -> some View {
         ForEach(Array(options.enumerated()), id: \.element) { index, option in
-            InboxOption(title: option, primary: index == 0, height: wide ? 40 : 44, size: wide ? 15 : 16, fill: !wide) {
+            InboxOption(title: option, wide: wide, fill: !wide) {
                 onAnswer(DecisionAnswer(choices: [option]))
             }
         }
@@ -136,7 +136,7 @@ struct BotQuestionCard: View {
     @ViewBuilder private var other: some View {
         let title = question.options?.isEmpty == true ? String(localized: "Reply…") : String(localized: "Other…")
         if question.typed {
-            InboxOutlineButton(title: title, fill: !wide, toggled: typing) {
+            InboxOption(title: title, wide: wide, fill: !wide, on: typing) {
                 typing.toggle()
                 focused = typing
             }
@@ -144,7 +144,7 @@ struct BotQuestionCard: View {
     }
 
     private var skip: some View {
-        InboxOutlineButton(title: String(localized: "Skip"), fill: !wide, action: onSkip)
+        InboxOption(title: String(localized: "Skip"), wide: wide, fill: !wide, action: onSkip)
     }
 
     private var field: some View {
@@ -194,8 +194,6 @@ struct BotQuestionCard: View {
 struct QuestionPicks<Trailing: View>: View {
     let questions: [AgentConversation.DecisionQuestion]
     let wide: Bool
-    let height: CGFloat
-    let size: CGFloat
     let onSubmit: (DecisionAnswer) -> Void
     @ViewBuilder let trailing: () -> Trailing
 
@@ -205,12 +203,10 @@ struct QuestionPicks<Trailing: View>: View {
     @State private var open: Int?
     @FocusState private var focused: Bool
 
-    init(questions: [AgentConversation.DecisionQuestion], wide: Bool, height: CGFloat, size: CGFloat,
+    init(questions: [AgentConversation.DecisionQuestion], wide: Bool,
          onSubmit: @escaping (DecisionAnswer) -> Void, @ViewBuilder trailing: @escaping () -> Trailing) {
         self.questions = questions
         self.wide = wide
-        self.height = height
-        self.size = size
         self.onSubmit = onSubmit
         self.trailing = trailing
         _picked = State(initialValue: questions.map { _ in [] })
@@ -268,8 +264,7 @@ struct QuestionPicks<Trailing: View>: View {
 
     private func options(at index: Int) -> some View {
         ForEach(questions[index].options ?? [], id: \.self) { option in
-            InboxOption(title: option, primary: false, height: height, size: size, fill: !wide,
-                        checked: picked[index].contains(option)) {
+            InboxOption(title: option, wide: wide, fill: !wide, checked: picked[index].contains(option)) {
                 toggle(option, at: index)
             }
         }
@@ -279,15 +274,14 @@ struct QuestionPicks<Trailing: View>: View {
     private func row(at index: Int) -> some View {
         HStack(spacing: wide ? 10 : 8) {
             let title = (questions[index].options ?? []).isEmpty ? String(localized: "Reply…") : String(localized: "Other…")
-            InboxOutlineButton(title: title, fill: !wide, toggled: open == index) {
+            InboxOption(title: title, wide: wide, fill: !wide, on: open == index) {
                 open = open == index ? nil : index
                 focused = open != nil
             }
             if index == questions.count - 1 {
                 if wide { Spacer(minLength: 10) }
-                InboxOption(title: String(localized: "Send"), primary: true, height: wide ? 40 : 44, size: 15, fill: !wide, action: send)
+                InboxOption(title: String(localized: "Send"), wide: wide, fill: !wide, primary: true, action: send)
                     .disabled(!complete)
-                    .opacity(complete ? 1 : 0.4)
                 trailing()
             }
         }

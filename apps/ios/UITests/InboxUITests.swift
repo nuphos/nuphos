@@ -67,6 +67,16 @@ final class InboxUITests: XCTestCase {
         XCTAssertFalse(app.buttons["Open conversation"].exists)
         XCTAssertTrue(app.buttons["Skip"].exists)
         shot("3-question")
+        // One button style on the card: every answer, Other… and Skip are as tall, and the answers
+        // share one fill, so no row mixes two kinds of button.
+        let buttons = ["Ship it", "Wait for QA", "Other…", "Skip"].map { app.buttons[$0].firstMatch.frame }
+        for frame in buttons.dropFirst() {
+            XCTAssertEqual(frame.height, buttons[0].height, accuracy: 1, "The card's buttons are not one height")
+        }
+        let pixels = try XCTUnwrap(Pixels(app.screenshot().image))
+        let fills = buttons.prefix(2).map { pixels.color(at: CGPoint(x: $0.minX + 8, y: $0.midY)) }
+        XCTAssertLessThanOrEqual(zip(fills[0], fills[1]).map { abs(Int($0) - Int($1)) }.reduce(0, +), 6,
+                                 "The answers are drawn in two styles: \(fills[0]) and \(fills[1])")
 
         // The answer leaves the list, says so, and opens the next question.
         app.buttons["Ship it"].tap()
