@@ -70,7 +70,10 @@ await until('one Bot to read as offline and the other online', async () => {
     'GET',
     `/agent/conversations/${groupChat}/agents?teamId=${stack.teamId}`,
   )
-  const [away, here] = agents as { ownerId: string; presence?: { state: string; reason?: string } }[]
+  const [away, here] = agents as {
+    ownerId: string
+    presence?: { state: string; reason?: string }
+  }[]
 
   userId = away?.ownerId ?? ''
 
