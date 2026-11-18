@@ -94,6 +94,18 @@ export const botFoldScenarios: Scenario[] = [
       await page.getByRole('tab', { name: 'Bots' }).click()
       await mustBeOpen('after a reload')
       await page.screenshot({ path: `${artifacts}/bot-tree-open-after-reload.png` })
+      // Stop the waiting sub-agent, so the scenarios after this one find the computer free.
+      const answered = () =>
+        agentEvents(stack).filter(
+          (event) => /^permission-(?!asked)/.test(event) && event.endsWith(' E2E_DELIVERY:thread'),
+        ).length
+      const before = answered()
+
+      await page.locator('[data-sidebar-row]').filter({ hasText: 'E2E thread' }).first().click()
+      await page.locator('button[title="Stop"]').click()
+      await until('the stopped sub-agent to let go of its command', async () => answered() > before)
+      // Back in the Bot chat, where the scenarios after this one found the window before.
+      await row.click()
     },
   },
 ]
