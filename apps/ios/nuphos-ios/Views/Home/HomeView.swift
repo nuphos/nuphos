@@ -82,7 +82,7 @@ struct HomeView: View {
                                     .font(.subheadline.weight(.semibold))
                                     .lineLimit(1)
                                     .truncationMode(.tail)
-                                    .frame(maxWidth: sizeClass == .regular ? (openChat == nil ? nil : 90) : 180, alignment: .leading)
+                                    .frame(maxWidth: sizeClass == .regular ? (openChat == nil ? nil : 90) : 100, alignment: .leading)
                                 LucideIcon("chevron-down", size: 14)
                             }
                         }
@@ -96,12 +96,10 @@ struct HomeView: View {
                     }
                 }
                 if sizeClass != .regular || openChat != nil {
-                    if #available(iOS 27, *) {
-                            ToolbarItemGroup(placement: .topBarTrailing) { homeActions }
-                        } else {
-                            ToolbarItem(placement: .topBarTrailing) {
-                                HStack(spacing: 0) { homeActions }.buttonStyle(.plain)
-                            }
+                    // Keep these direct entry points atomic: separate items can
+                    // be collapsed into the system overflow on narrow screens.
+                    ToolbarItem(placement: .topBarTrailing) {
+                        HStack(spacing: 0) { homeActions }.buttonStyle(.plain)
                     }
                 }
             }
