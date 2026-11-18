@@ -27,7 +27,7 @@ enum BotAvatarTests {
         print("Shared avatar preference migration and conflicting legacy toggles passed")
     }
 
-    /// A Bot's background is learned with its face, gone with it, and painted only for a known tint (#3504).
+    /// A Bot's background is learned with its face and gone with it (#3504). AvatarBackgroundUITests checks the paint.
     private static func backgroundsFollowTheirFace() throws {
         try MainActor.assumeIsolated {
             let faces = BotFaces()
@@ -43,12 +43,6 @@ enum BotAvatarTests {
             precondition(face.agent?.avatarBackground == "mint")
             let agent = try JSONDecoder().decode(ChannelAgent.self, from: Data(#"{"sessionId":"b","title":"B","ownerId":"o","avatar":"07-ada","avatarBackground":"rose"}"#.utf8))
             precondition(agent.avatarBackground == "rose")
-        }
-        for name in ["sand", "peach", "rose", "lilac", "sky", "mint", "sage", "slate"] {
-            precondition(Theme.avatarBackground(name) != nil, "No token for \(name)")
-        }
-        for name in [nil, "", "none", "teal"] as [String?] {
-            precondition(Theme.avatarBackground(name) == nil, "None or an unknown tint paints nothing")
         }
         print("Bot avatar backgrounds passed")
     }
