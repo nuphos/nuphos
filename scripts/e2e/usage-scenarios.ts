@@ -95,6 +95,8 @@ export const usageScenarios: Scenario[] = [
       await section.getByRole('radio', { name: '7d' }).click()
       await page.getByText('Back to app', { exact: true }).click()
     },
+    // The read it refuses on purpose: more groups than a usage query may build.
+    expected: /\/usage\/query".*"status":400/,
   },
   {
     name: 'a Claude Code turn is stored per model with its sender, runtime and stop reason',
