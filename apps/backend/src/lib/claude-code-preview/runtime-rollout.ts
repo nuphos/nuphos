@@ -65,7 +65,8 @@ async function defaultHasActiveRuntimeTurn(teamId: string, runtimeId: string): P
 
   if (!endpoint) return false
 
-  return endpointHasActiveTurn(endpoint)
+  // A runtime that could not be reached holds no rollout (see endpointHasActiveTurn).
+  return (await endpointHasActiveTurn(endpoint)) === true
 }
 
 /** Whether the runtime at `endpoint` reports a running turn. */

@@ -80,7 +80,7 @@ async function box(runtimeId: string, deps: BoxUpdateDeps) {
 export async function boxUpdateStatus(runtimeId: string, deps = defaultDeps) {
   const found = await box(runtimeId, deps)
 
-  if (!found?.status) return
+  if (!found?.status) return undefined
   const currentVersion = found.status.cliVersion
   const release = await deps.latestVersion()
   let state: 'unknown' | 'current' | 'available' = 'unknown'

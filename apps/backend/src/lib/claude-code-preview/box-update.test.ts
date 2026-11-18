@@ -72,7 +72,9 @@ describe('Box update', () => {
     expect((await boxUpdateStatus(claude, old))?.state).toBe('unknown')
     // Not a Box, or a Box that is away: no update to show.
     expect(await boxUpdateStatus(claude, deps({ isBox: async () => false }).value)).toBeUndefined()
-    expect(await boxUpdateStatus(claude, deps({ status: async () => {} }).value)).toBeUndefined()
+    expect(
+      await boxUpdateStatus(claude, deps({ status: async () => undefined }).value),
+    ).toBeUndefined()
   })
 
   test('updating restarts the host only when none of its agents is mid-turn', async () => {
@@ -128,7 +130,7 @@ describe('Box update', () => {
       status: 404,
       code: 'device_not_found',
     })
-    await expect(refused({ status: async () => {} })).rejects.toMatchObject({
+    await expect(refused({ status: async () => undefined })).rejects.toMatchObject({
       code: 'runtime_offline',
     })
     await expect(refused({ latestVersion: async () => null })).rejects.toMatchObject({
@@ -395,7 +397,7 @@ describe('Box auto-update', () => {
   test('a current, away or unversioned Box is left alone, and so is every Box without a release', async () => {
     for (const overrides of [
       { status: async () => status('0.22.0') },
-      { status: async () => {} },
+      { status: async () => undefined },
       { status: async () => status() },
       { latestVersion: async () => null },
     ] satisfies Partial<BoxAutoUpdateDeps>[]) {
