@@ -106,11 +106,11 @@ struct ShareSessionSheet: View {
                 Text("Adding this person to the task also gives them use of this computer. Continue?")
             }
             .task {
-                do { access = try await session.access("GET") } catch { loadError = error.localizedDescription }
+                do { access = try await session.access("GET") } catch { if !Task.isCancelled { loadError = error.localizedDescription } }
             }
             .task {
                 guard canManage else { return }
-                do { members = try await session.teamMembers() } catch { membersError = error.localizedDescription }
+                do { members = try await session.teamMembers() } catch { if !Task.isCancelled { membersError = error.localizedDescription } }
             }
         }
         .tint(Theme.heading)
