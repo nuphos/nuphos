@@ -5,7 +5,7 @@ import { Button } from '../../../components/ui/button'
 import { t } from '../../../i18n'
 import { AddAgentDialog } from '../../settings/AddAgentDialog'
 
-import { OPEN_COMPUTERS, agentSetup } from './agentSetupStore'
+import { OPEN_COMPUTERS, agentSetup, openAgentSetup } from './agentSetupStore'
 import { LocalAgentSetupCards } from './LocalAgentsStep'
 
 export function AgentSetupHost() {
@@ -16,9 +16,11 @@ export function AgentSetupHost() {
       <AddAgentDialog
         teamId={request.teamId}
         onClose={agentSetup.close}
-        onBoxCreated={
-          request.box ? () => window.dispatchEvent(new Event(OPEN_COMPUTERS)) : undefined
-        }
+        {...(request.box && {
+          onBoxCreated: () => window.dispatchEvent(new Event(OPEN_COMPUTERS)),
+          // Back to where the cloud computer was chosen, not a first step never seen.
+          onBack: () => openAgentSetup(request.teamId),
+        })}
       />
     )
   if (!request) return null

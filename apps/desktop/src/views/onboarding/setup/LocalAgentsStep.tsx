@@ -7,7 +7,6 @@ import { Button } from '../../../components/ui/button'
 import { useLocalRuntimeState } from '../../../hooks/useLocalRuntimeState'
 import { t } from '../../../i18n'
 import { isMac } from '../../../lib/platform'
-import { Choice } from '../../settings/AddAgentChoice'
 import { CLOUD_COMPUTER_DESCRIPTION } from '../../settings/boxCreatePresentation'
 import { ClaudeSignInCode } from '../../settings/ClaudeSignInCode'
 import { InstallButton } from '../../settings/LocalAgentCard'
@@ -239,15 +238,25 @@ export function LocalAgentSetupCards({
         <LocalAgentSetupCard key={provider} provider={provider} />
       ))}
       {teamId && devices?.boxAvailable && devices.canCreateBox && (
-        <Choice
-          icon={<Box className="h-4 w-4" />}
-          title={t('Nuphos cloud computer')}
-          description={CLOUD_COMPUTER_DESCRIPTION}
+        // Drawn as this list's rows, a little apart: not on this computer.
+        <button
+          type="button"
           onClick={() => {
             onCloud?.()
             openCloudComputer(teamId)
           }}
-        />
+          className="!mt-5 flex w-full items-center gap-3 rounded-xl border border-line-control bg-surface-sheet px-4 py-3.5 text-left transition-colors hover:bg-state-hover"
+        >
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-sunken text-main">
+            <Box className="h-5 w-5" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[13.5px] font-medium text-main">
+              {t('Nuphos cloud computer')}
+            </span>
+            <span className="block text-[12px] text-tertiary">{CLOUD_COMPUTER_DESCRIPTION}</span>
+          </span>
+        </button>
       )}
     </div>
   )

@@ -34,12 +34,15 @@ export function AddAgentDialog({
   onClose,
   onAdded,
   onBoxCreated,
+  onBack,
 }: {
   teamId: string
   onClose: () => void
   onAdded?: (runtimeId: string) => void
   /** Opens on the cloud computer and, once one is made, closes and hands off here. */
   onBoxCreated?: () => void
+  /** Where Back from the cloud computer goes when the dialog opened on it. */
+  onBack?: () => void
 }) {
   const [step, setStep] = useState<Step>(onBoxCreated ? 'box' : 'choose')
   const devices = useAgentDevices(() => 0, teamId, { teamId }).list
@@ -137,7 +140,7 @@ export function AddAgentDialog({
                       onCloseGuard={(guard) => {
                         closeGuard.current = guard
                       }}
-                      onBack={() => go('choose')}
+                      onBack={onBack ?? (() => go('choose'))}
                       onChosen={setSigningIn}
                       onCreated={
                         onBoxCreated &&

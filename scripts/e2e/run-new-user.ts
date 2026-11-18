@@ -61,6 +61,13 @@ try {
   await page.getByRole('button', { name: 'Create computer' }).waitFor()
   await page.waitForTimeout(800)
   await page.screenshot({ path: `${artifacts}/new-user-cloud-computer.png` })
+  // Back returns to Connect a runtime, where it was chosen.
+  await page.getByRole('button', { name: 'Back', exact: true }).click()
+  await page.getByText('Connect a runtime', { exact: true }).first().waitFor()
+  await cloud.waitFor()
+  await page.waitForTimeout(800)
+  await page.screenshot({ path: `${artifacts}/new-user-back.png` })
+  await cloud.click()
   await page.getByRole('button', { name: 'Create computer' }).click()
   // Made: the Computers page, where the card's + adds a runtime such as OpenCode once the
   // computer is up. This instabox's computers never come up, so it stays connecting.

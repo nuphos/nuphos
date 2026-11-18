@@ -20,7 +20,9 @@ for (const key of Object.getOwnPropertyNames(dom))
 for (const [key, value] of Object.entries(browser))
   Object.defineProperty(globalThis, key, { configurable: true, writable: true, value })
 
-const dialogs: { teamId: string; onBoxCreated?: () => void }[] = []
+type DialogProps = { teamId: string; onBoxCreated?: () => void; onBack?: () => void }
+
+const dialogs: DialogProps[] = []
 let devices = { boxAvailable: true, canCreateBox: true, devices: [] }
 
 mock.module('../../../components/Modal', () => ({
@@ -31,7 +33,7 @@ mock.module('../../settings/useAgentDevices', () => ({
   useAgentDevices: () => ({ list: devices, error: false, reload: () => undefined }),
 }))
 mock.module('../../settings/AddAgentDialog', () => ({
-  AddAgentDialog: (props: { teamId: string; onBoxCreated?: () => void }) => {
+  AddAgentDialog: (props: DialogProps) => {
     dialogs.push(props)
 
     return createElement('div', null, `Add computer for ${props.teamId}`)
@@ -75,6 +77,10 @@ test('a new user who may make a cloud computer is offered one, and once made it 
     assert.doesNotMatch(choice.textContent ?? '', /with Claude Code and Codex\./)
     await act(() => choice.click())
     assert.match(container.textContent ?? '', /Add computer for team-1/)
+    // Back returns to where it was chosen, then on again.
+    await act(() => dialogs.at(-1)?.onBack?.())
+    assert.ok(cloudChoice(container), 'Back returns to Connect a runtime')
+    await act(() => cloudChoice(container)?.click())
     dialogs.at(-1)?.onBoxCreated?.()
     assert.equal(opened, 1, 'a made computer opens the page where its runtimes are added')
   } finally {
@@ -106,6 +112,7 @@ test('Add new runtime keeps its own flow after a computer is made', async () => 
   try {
     await act(() => openAddRuntime('team-1'))
     assert.equal(dialogs.at(-1)?.onBoxCreated, undefined)
+    assert.equal(dialogs.at(-1)?.onBack, undefined)
   } finally {
     await act(() => agentSetup.close())
     await act(() => root.unmount())
