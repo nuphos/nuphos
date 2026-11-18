@@ -18,7 +18,6 @@ import { formScenario } from './form-scenario.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
 import { questionScenarios } from './question-scenarios.ts'
-import { secretScenarios } from './secret-scenarios.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
 import { sidebarScenarios } from './sidebar-scenarios.ts'
 import { signInScenarios } from './sign-in-scenarios.ts'
@@ -227,7 +226,6 @@ const scenarios: Scenario[] = [
     },
   },
   ...questionScenarios,
-  ...secretScenarios,
   ...triggerScenarios,
   ...usageScenarios,
   ...connectorScenarios,
