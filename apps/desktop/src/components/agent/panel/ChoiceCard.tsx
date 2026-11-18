@@ -7,10 +7,11 @@ import { comboText } from '../../../lib/platform'
 import { Button } from '../../ui/button'
 import { MessageResponse } from '../MessageResponse'
 
+import { AnswerField } from './AnswerField'
 import { ConnectCardContext } from './connectCardContext'
 import { DecisionAnswersContext } from './decisionAnswers'
-import { clickOptions, formQuestions, ownBody } from './decisionFormModel'
-import { DecisionOptions, PILL } from './DecisionOptions'
+import { DecisionForm } from './DecisionForm'
+import { formQuestions, ownBody } from './decisionFormModel'
 import { DecisionTitle } from './DecisionTitle'
 import { useDecisionKeys } from './useDecisionKeys'
 
@@ -23,7 +24,7 @@ import type { DecisionAnswer } from '../../../api/agent-chat-types'
  * A user decision other than a Connect card: the question as its heading, under
  * who asked it when that is another conversation, with each option an answer,
  * "Other…" to type one in the card instead, and "Skip" to withdraw it unanswered.
- * A multi-select or several questions pick their options and send them at once. The answer
+ * A multi-select or several questions are a form sent as one answer. The answer
  * wakes the agent that asked; no message is sent. Once answered, the options go.
  */
 export function ChoiceCard({
@@ -53,36 +54,36 @@ export function ChoiceCard({
   const recorded = useContext(DecisionAnswersContext).get(toolCallId)?.option
   const card = { toolCallId, question, options }
   const { chosen, failed, submit } = useSubmit(ctx, card, recorded)
+  const [typing, setTyping] = useState(false)
+  // Kept while the field is closed, so Esc and "Other…" again lose nothing.
+  const [draft, setDraft] = useState('')
   const [skipped, setSkipped] = useState<'no' | 'sending' | 'yes'>('no')
   const interactive = Boolean(ctx?.answer) && canAct && !chosen && skipped !== 'yes'
   const typeable = interactive && category !== 'credential'
   const form = formQuestions({ question, options, multiSelect, questions })
-  // One question with one answer is answered by a click, so its keys choose.
-  const clicked = clickOptions(form)
-  const live = interactive && form.some((q) => q.options.length > 0)
+  const live = interactive && (form !== null || options.length > 0)
   const cardRef = useRef<HTMLDivElement | null>(null)
   const choose = (option: string) => submit({ choices: [option] })
   const act = useDecisionKeys(cardRef, live, (key) => {
-    // Picked options are sent with Send, so a key never answers them.
-    const option = key.kind === 'option' ? clicked?.[key.index] : undefined
+    // A form's options are toggles, not answers.
+    const option = key.kind === 'option' && !form ? options[key.index] : undefined
 
     if (option === undefined) return false
 
     return choose(option)
   })
   const skip = interactive && ctx?.skip && (
-    <Button
-      variant="secondary"
-      size="sm"
+    <button
+      type="button"
       disabled={skipped === 'sending'}
-      className={PILL}
+      className="ml-auto px-1 text-[12.5px] text-tertiary hover:text-main"
       onClick={() => {
         setSkipped('sending')
         void ctx.skip?.(card).then((ok) => setSkipped(ok ? 'yes' : 'no'))
       }}
     >
       {t('Skip')}
-    </Button>
+    </button>
   )
 
   return (
@@ -104,22 +105,61 @@ export function ChoiceCard({
         onLinkClick={ctx?.onLinkClick}
       />
       <AnswerStatus recorded={recorded} failed={failed} skipped={skipped === 'yes'} />
-      {!chosen && (
-        <DecisionOptions
-          questions={form}
-          disabled={!interactive}
-          typeable={typeable}
-          hint={
-            canAct && (
-              <span className="text-[12px] text-tertiary">{t('Reply below to answer.')}</span>
-            )
-          }
-          keyTitle={(index) => (index < 9 ? comboText(`mod+alt+${String(index + 1)}`) : undefined)}
-          onSubmit={(answer) => act(() => submit(answer))}
-        >
-          {skip}
-        </DecisionOptions>
-      )}
+      {!chosen &&
+        (form ? (
+          <DecisionForm
+            questions={form}
+            disabled={!interactive}
+            onSubmit={(answer) => act(() => submit(answer))}
+          >
+            {skip}
+          </DecisionForm>
+        ) : (
+          <>
+            <div className="flex flex-wrap items-center gap-2 pt-3">
+              {options.map((option, index) => (
+                <Button
+                  key={option}
+                  variant={index === 0 ? 'primary' : 'secondary'}
+                  size="sm"
+                  className="h-auto min-h-8 whitespace-normal rounded-[9px] px-[13px] py-1.5 text-left"
+                  disabled={!interactive}
+                  title={index < 9 ? comboText(`mod+alt+${String(index + 1)}`) : undefined}
+                  onClick={() => act(() => choose(option))}
+                >
+                  {option}
+                </Button>
+              ))}
+              {typeable ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={clsx('px-3', typing && '!bg-state-hover !text-main')}
+                  aria-expanded={typing}
+                  onClick={() => setTyping(!typing)}
+                >
+                  {options.length > 0 ? t('Other…') : t('Reply…')}
+                </Button>
+              ) : (
+                options.length === 0 &&
+                canAct && (
+                  <span className="text-[12px] text-tertiary">{t('Reply below to answer.')}</span>
+                )
+              )}
+              {skip}
+            </div>
+            {typing && typeable && (
+              <div className="pt-2.5" data-card-answer-field>
+                <AnswerField
+                  text={draft}
+                  onText={setDraft}
+                  onSend={(text) => act(() => submit({ text }))}
+                  onClose={() => setTyping(false)}
+                />
+              </div>
+            )}
+          </>
+        ))}
     </div>
   )
 }
