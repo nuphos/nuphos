@@ -16,6 +16,7 @@ export const botSubtaskModelScenarios: Scenario[] = [
       const bots = page.getByRole('tabpanel', { name: 'Bots' })
       const bot = bots.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first()
       const behind = join(artifacts, 'behind')
+
       await page.getByRole('tab', { name: 'Bots' }).click()
       await bot.click()
       // The sub-Task's session runs a model the agent's own list never offers.
@@ -48,7 +49,7 @@ export const botSubtaskModelScenarios: Scenario[] = [
         throw new Error("The Bot's row still shows a done count")
       await fold('Hide sub-agents')
       // It opens from the Sub-tasks of the Bot's own Task.
-      await page.getByTitle('Open session').click()
+      await page.getByRole('button', { name: 'Task', exact: true }).click()
       await page.getByRole('button', { name: 'Back to conversation' }).waitFor()
       await page
         .getByRole('button', { name: /task summary$/ })
