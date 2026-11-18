@@ -396,6 +396,32 @@ describe('waking a channel’s agents', () => {
     ).toMatchObject({ agentId: 'agent-a', cause: 'other', reason: refused })
   })
 
+  test("an agent's other internal error leaves its words out of the chat", async () => {
+    const internal = 'Internal error: ENOENT: no such file, open /home/runner/.claude/settings.json'
+
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async ({ sessionId }) => {
+        if (sessionId === 'agent-a')
+          throw new OpenAbRpcError(`**Internal Error** (code: -32603)\n${internal}`, -32603, {
+            code: -32603,
+            message: internal,
+          })
+
+        return { status: 'completed' }
+      },
+    })
+    await say('hello')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    const failed = (await channel()).timelineEvents?.find(
+      (event) => event.kind === 'agent_reply_failed',
+    )
+
+    expect(failed).toMatchObject({ agentId: 'agent-a', cause: 'other' })
+    expect(failed && 'reason' in failed ? failed.reason : undefined).toBeUndefined()
+  })
+
   test('a disabled agent says where to move, so the chat can offer Switch agent', async () => {
     const disabled = 'This agent has been retired. Move this conversation to another agent.'
 

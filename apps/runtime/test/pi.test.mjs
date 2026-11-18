@@ -369,6 +369,12 @@ test("a turn's error is read from the session file Pi keeps", () => {
         `${JSON.stringify({ type: 'context_edit', targetId: 'm1', replacement: [] })}\n`,
     )
     assert.equal(piTurnError(dir, 'abc'), overflow)
+    // A line Pi is still writing is passed over.
+    writeFileSync(
+      file,
+      line({ role: 'assistant', stopReason: 'error', errorMessage: '429 quota' }) + '{"type":"cont',
+    )
+    assert.equal(piTurnError(dir, 'abc'), '429 quota')
     writeFileSync(file, line({ role: 'assistant', stopReason: 'stop', content: [] }))
     assert.equal(piTurnError(dir, 'abc'), undefined)
     assert.equal(piTurnError(dir, 'other'), undefined)

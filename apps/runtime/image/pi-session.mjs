@@ -118,14 +118,24 @@ export function piTurnError(agentDir, sessionId) {
       if (!name) continue
       // The last message, not the last line: after a prompt over the model's context Pi
       // appends a context_edit that takes the error out of what it sends next time.
-      const { message } = readFileSync(join(sessions, folder, name), 'utf8')
+      // Read from the end, past a line Pi is still writing.
+      const lines = readFileSync(join(sessions, folder, name), 'utf8')
         .trimEnd()
         .split('\n')
-        .map((line) => JSON.parse(line))
-        .findLast((entry) => entry.type === 'message')
-      return message?.role === 'assistant' && message.stopReason === 'error'
-        ? redactKeys(String(message.errorMessage || 'The model provider returned an error.'))
-        : undefined
+      for (const line of lines.reverse()) {
+        let entry
+        try {
+          entry = JSON.parse(line)
+        } catch {
+          continue
+        }
+        if (entry?.type !== 'message') continue
+        const { message } = entry
+        return message?.role === 'assistant' && message.stopReason === 'error'
+          ? redactKeys(String(message.errorMessage || 'The model provider returned an error.'))
+          : undefined
+      }
+      return undefined
     }
   } catch {
     return undefined
