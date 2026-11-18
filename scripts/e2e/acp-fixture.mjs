@@ -8,7 +8,7 @@ import { nuphosApplyRuntimeDefaults } from '../../apps/runtime/image/runtime-def
 
 import { formSteps } from './acp-fixture-form.mjs'
 import { answerChannel } from './fixture-channel.mjs'
-import { listCommands } from './fixture-commands.mjs'
+import { scriptedUpdates } from './fixture-commands.mjs'
 import { hop, inherit } from './fixture-hop.mjs'
 import { call, callNamed, reporting, setToolsServer, subtask, toolsServer } from './fixture-mcp.mjs'
 import { applySetting, heldDefaults, sessionLanguage } from './fixture-settings.mjs'
@@ -183,7 +183,7 @@ async function prompt({ sessionId, prompt: parts }) {
     })
   }
   if (text.includes('E2E_PERMISSION')) await permission(sessionId, marker)
-  if (text.includes('E2E_COMMANDS')) listCommands({ send, sessionId })
+  scriptedUpdates({ send, sessionId, text })
   if (text.includes('E2E_CALL')) await callNamed({ log, sessionId, text })
   // Answers only once the scenario writes E2E_RELEASE, so a turn can span what it does meanwhile.
   if (text.includes('E2E_WAIT_RELEASE')) {
