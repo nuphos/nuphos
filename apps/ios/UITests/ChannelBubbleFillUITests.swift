@@ -6,6 +6,7 @@ import XCTest
 final class ChannelBubbleFillUITests: XCTestCase {
     private let theirs = "A reply from the Bot."
     private let mine = "A reply from me."
+    private let teammate = "A reply from a teammate."
 
     func testBubblesAreFilledInLightAppearance() throws {
         continueAfterFailure = false
@@ -17,10 +18,11 @@ final class ChannelBubbleFillUITests: XCTestCase {
         var body = try XCTUnwrap(detail["body"] as? [String: Any])
         body["messages"] = [
             post("theirs", text: theirs, sender: ["type": "agent", "id": "agent-ops", "displayName": "Preview Bot"]),
+            post("teammate", text: teammate, sender: ["type": "user", "id": "5f1b2c3d4e5f60718293a4b5", "displayName": "Diana Prince"]),
             // The preview account's own id, so this post is drawn as the viewer's.
             post("mine", text: mine, sender: ["type": "user", "id": "507f1f77bcf86cd799439011", "displayName": "Bruce Wayne"]),
         ]
-        body["messageCount"] = 2
+        body["messageCount"] = 3
         body["timelineEvents"] = []
         detail["body"] = body
         responses["GET /agent/conversations/chat-release"] = detail
@@ -34,22 +36,20 @@ final class ChannelBubbleFillUITests: XCTestCase {
             "-AppleInterfaceStyle", "Light"]
         app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path]
         app.launch()
-        // Cells: the timestamp, the Bot's post, then the viewer's.
+        // Cells: the timestamp, the Bot's post, the teammate's, then the viewer's.
         let transcript = app.collectionViews["chat.transcript"]
-        XCTAssertTrue(transcript.cells.element(boundBy: 2).waitForExistence(timeout: 15))
+        XCTAssertTrue(transcript.cells.element(boundBy: 3).waitForExistence(timeout: 15))
         // Sample once the push has finished sliding the chat in.
         let settled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == true"), object: transcript)
         XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 10), .completed)
         sleep(1)
         continueAfterFailure = true
         let theirText = text(in: transcript.cells.element(boundBy: 1))
-        let myText = text(in: transcript.cells.element(boundBy: 2))
+        let teammateText = text(in: transcript.cells.element(boundBy: 2))
+        let myText = text(in: transcript.cells.element(boundBy: 3))
 
         let screenshot = app.screenshot()
-        let attachment = XCTAttachment(screenshot: screenshot)
-        attachment.name = "bubbles-light"
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        keep(screenshot, "bubbles-light")
         let pixels = try XCTUnwrap(Pixels(screenshot.image))
 
         // Inside the bubble's 14pt horizontal padding, against the transcript
@@ -58,9 +58,85 @@ final class ChannelBubbleFillUITests: XCTestCase {
         XCTAssertLessThan(their.width, 300, "expected the Bot's text, found \(theirText.debugDescription)")
         assertFilled(pixels, inside: CGPoint(x: their.minX - 7, y: their.midY),
                      outside: CGPoint(x: their.maxX + 40, y: their.midY), "the Bot's bubble")
+        let theirs2 = teammateText.frame
+        assertFilled(pixels, inside: CGPoint(x: theirs2.minX - 7, y: theirs2.midY),
+                     outside: CGPoint(x: theirs2.maxX + 40, y: theirs2.midY), "a teammate's bubble")
         let my = myText.frame
         assertFilled(pixels, inside: CGPoint(x: my.maxX + 7, y: my.midY),
                      outside: CGPoint(x: my.minX - 40, y: my.midY), "the viewer's bubble")
+    }
+
+    /// A chip and a card inside a Task's transcript: an answered question's
+    /// answer, and the card it opens to.
+    func testAnsweredChipAndCardAreFilledInLightAppearance() throws {
+        continueAfterFailure = false
+        let fixture = URL(filePath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .appending(path: "tests/fixtures/push-responses.json")
+        var responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: fixture)) as? [String: Any])
+        var conversation = try XCTUnwrap(responses["GET /agent/conversations/push-a"] as? [String: Any])
+        var body = try XCTUnwrap(conversation["body"] as? [String: Any])
+        body["messages"] = [
+            ["id": "ask-q-1", "role": "assistant", "createdAt": "2026-11-14T01:12:00Z", "parts": [[
+                "type": "dynamic-tool", "toolCallId": "q-1", "toolName": "request_user_decision", "state": "output-available",
+                "input": ["category": "approval", "question": "Ship it?", "options": ["Ship", "Wait"]],
+                "output": ["requestId": "q-1"]]]],
+            ["id": "notice-q-1", "role": "user", "createdAt": "2026-11-14T01:47:00Z",
+             "parts": [["type": "text", "text": [
+                "Your question (requestId q-1) was answered from the Inbox.",
+                "Answered by: \"Jamie Doe\", this conversation's owner: it is their own answer.",
+                "Question: Ship it?", "Options: Ship | Wait", "Answer:", "- Ship it? → Ship",
+                "Continue the task with this answer."].joined(separator: "\n")]],
+             "metadata": ["version": 1, "source": "agent.resource", "sentAt": "2026-11-14T01:47:00Z",
+                          "sender": ["type": "system", "id": "nuphos:decision", "displayName": "Nuphos"]]],
+        ]
+        conversation["body"] = body
+        responses["GET /agent/conversations/push-a"] = conversation
+        responses["GET /agent/conversations?kind=channel"] = ["status": 200, "body": ["conversations": []]]
+        let live = FileManager.default.temporaryDirectory.appending(path: "answered-fill-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: live) }
+        try JSONSerialization.data(withJSONObject: responses).write(to: live)
+
+        let app = XCUIApplication()
+        app.launchArguments = ["-preview-home", "-preview-no-push", "-page", "agent", "-open-links",
+            "https://nuphos.ai/teams/64b5f1c2e4b0a1d2c3e4f5a6/agent/push-a"]
+        app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path]
+        app.launch()
+        let line = app.buttons.matching(identifier: "answered.line").firstMatch
+        XCTAssertTrue(line.waitForExistence(timeout: 15))
+        let settled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == true"), object: line)
+        XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 10), .completed)
+        sleep(1)
+        continueAfterFailure = true
+
+        // The answer chip pads its text by 10pt; sample beside the text, and
+        // the row above the 24pt capsule.
+        let answer = line.staticTexts["Ship"].firstMatch
+        XCTAssertTrue(answer.exists, "expected the answer chip in \(line.debugDescription)")
+        let collapsed = app.screenshot()
+        keep(collapsed, "answered-chip-light")
+        let chip = answer.frame
+        assertFilled(try XCTUnwrap(Pixels(collapsed.image)), inside: CGPoint(x: chip.maxX + 5, y: chip.midY),
+                     outside: CGPoint(x: chip.maxX + 5, y: chip.midY - 20), "the answer chip")
+
+        line.tap()
+        let card = app.descendants(matching: .any).matching(identifier: "answered.card").firstMatch
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        sleep(1)
+        let expanded = app.screenshot()
+        keep(expanded, "answered-card-light")
+        // The card pads its question by 16pt and sits 16pt in from the transcript's edge.
+        let titles = app.staticTexts.matching(NSPredicate(format: "label == 'Ship it?'")).allElementsBoundByIndex
+        let title = try XCTUnwrap(titles.max { $0.frame.minY < $1.frame.minY }).frame
+        assertFilled(try XCTUnwrap(Pixels(expanded.image)), inside: CGPoint(x: title.minX - 8, y: title.midY),
+                     outside: CGPoint(x: title.minX - 24, y: title.midY), "the answered question's card")
+    }
+
+    private func keep(_ screenshot: XCUIScreenshot, _ name: String) {
+        let attachment = XCTAttachment(screenshot: screenshot)
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 
     private func assertFilled(_ pixels: Pixels, inside: CGPoint, outside: CGPoint, _ name: String,

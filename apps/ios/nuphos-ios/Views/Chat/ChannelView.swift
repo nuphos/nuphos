@@ -506,7 +506,7 @@ private struct ChannelPostRow: View {
         AssistantMarkdown(text: SessionMention.named(post.text) { store.title(ofSession: $0) }, theme: AssistantMarkdown.bubbleTheme, keepsLineBreaks: true, selectionRequest: selectionRequest, onLink: onLink)
             .padding(.horizontal, 14)
             .padding(.vertical, 9)
-            .background(flashed ? Theme.brand.opacity(0.3) : mine ? Theme.brand.opacity(0.14) : Theme.bubble,
+            .background(flashed ? Theme.brand.opacity(0.3) : mine ? Theme.brand.opacity(0.14) : Theme.chatSurface,
                         in: UnevenRoundedRectangle(cornerRadii: .init(
                             topLeading: !mine && first ? 6 : 18, bottomLeading: 18,
                             bottomTrailing: 18, topTrailing: mine && first ? 6 : 18), style: .continuous))
@@ -593,7 +593,7 @@ private struct TypingRow: View {
                     TypingDots()
                         .padding(.horizontal, 14)
                         .padding(.vertical, 12)
-                        .background(Theme.bubble, in: UnevenRoundedRectangle(cornerRadii: .init(
+                        .background(Theme.chatSurface, in: UnevenRoundedRectangle(cornerRadii: .init(
                             topLeading: 18, bottomLeading: 6, bottomTrailing: 18, topTrailing: 18), style: .continuous))
                         .scaleEffect(shown || reduceMotion ? 1 : 0.5, anchor: .bottomLeading)
                 }
