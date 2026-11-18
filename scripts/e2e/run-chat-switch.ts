@@ -109,14 +109,18 @@ async function open(
   name: string,
   chat: Chat,
   texts: Parameters<typeof watchSwitch>[2],
+  // `tab`: the sidebar's Tasks or Bots tab is the click, back to the chat it showed last.
+  by: 'row' | 'tab' = 'row',
 ) {
-  await page.getByRole('tab', { name: chat.tab }).click()
+  const tab = page.getByRole('tab', { name: chat.tab })
+
+  if (by === 'row') await tab.click()
   const row = page
     .getByRole('tabpanel', { name: chat.tab })
     .locator('[data-sidebar-row]')
     .filter({ hasText: chat.title })
     .first()
-  const watch = await watchSwitch(page, row, texts)
+  const watch = await watchSwitch(page, by === 'tab' ? tab : row, texts)
   const requests = readsFor(chat.sessionId, watch.clickedAt, watch.shownAt ?? Date.now())
 
   cases.push({ name, watch, requests })
@@ -181,6 +185,11 @@ async function scenario(page: Page, stack: Stack) {
     ...lastPost(chatB),
     newest: 'Said while away',
   })
+  // From a Bot chat back to Tasks, where a reply in progress was open: its streamed words
+  // were hidden meanwhile, and must not fade in again.
+  await open(page, 'task, opened before, reply in progress', long, { history: 'LONG_END' })
+  await open(page, 'bot chat, opened before, again', chatA, lastPost(chatA))
+  await open(page, 'tasks tab, back to a reply in progress', long, { history: 'LONG_END' }, 'tab')
 }
 
 /** What fails the run now, and what is reported until the change that meets it lands. */

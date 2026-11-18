@@ -6,5 +6,8 @@
   "task, opened before": 0,
   "bot chat, first open, another": 3,
   "bot chat, opened before": 0,
-  "bot chat, new post while away": 0
+  "bot chat, new post while away": 0,
+  "task, opened before, reply in progress": 0,
+  "bot chat, opened before, again": 0,
+  "tasks tab, back to a reply in progress": 0
 }
