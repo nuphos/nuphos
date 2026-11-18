@@ -1,7 +1,6 @@
 // #3401: a computer whose agent cannot reach its model API is told what to check, not EPROTO.
 import { artifacts } from './processes.ts'
-import { pickAgent } from './runtime-scenarios.ts'
-import { newTask, send } from './ui.ts'
+import { newTask, pickAgent, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 

@@ -8,8 +8,21 @@ const shared = ['fixture', 'fixture-small']
 const first = process.env.E2E_AGENT === 'first'
 const models = first ? [...shared, 'fixture-large'] : shared
 // While its scenario asks (E2E_STAND_IN), the first agent also offers Claude Code's
-// "Default", which names the model it stands for and is a new session's model.
+// "Default", which names the model it stands for and is a new session's model, and
+// Claude Code's effort levels, whose "default" names the level it stands for.
 const standIn = { value: 'default', name: 'Default (recommended)', description: 'fixture' }
+const effort = {
+  id: 'effort',
+  name: 'Effort',
+  category: 'thought_level',
+  type: 'select',
+  currentValue: 'default',
+  options: [
+    { value: 'default', name: 'Default', description: 'low' },
+    choice('low'),
+    choice('high'),
+  ],
+}
 const newSettings = () => {
   const claudeLike = first && existsSync(process.env.E2E_STAND_IN ?? '')
 
@@ -29,6 +42,7 @@ const newSettings = () => {
       currentValue: 'off',
       options: [choice('off'), choice('on')],
     },
+    ...(claudeLike ? [effort] : []),
   ]
 }
 

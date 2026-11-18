@@ -69,11 +69,7 @@ struct BotQuestionCard: View {
                 QuestionSource(question: question, prominent: true, identifier: "botQuestion.source", open: onOpen)
                     .padding(.bottom, 6)
             }
-            Text(question.request.question)
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(Theme.heading)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityAddTraits(.isHeader)
+            QuestionTitle(text: question.request.question, size: 17, identifier: "botQuestion.title")
             if let body = question.ownBody {
                 questionBody(body).padding(.top, 4)
             }

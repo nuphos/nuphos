@@ -115,17 +115,87 @@ test('a locked model picker shows the setting and why, and a pick changes nothin
       ),
     )
 
-  // The owner's pick goes through.
+  // A runtime without effort opens the same card; its model list is one step further.
+  const selectModel = () =>
+    act(() =>
+      (
+        dom.document.querySelector('[aria-label="Select model"]') as unknown as HTMLButtonElement
+      ).click(),
+    )
+
   await render()
+  assert.equal(item('Opus'), undefined, 'no bare model list')
+  assert.equal(dom.document.querySelector('input[type="range"]'), null, 'no effort to slide')
+  await selectModel()
+  // The owner's pick goes through.
   await act(() => item('Opus')?.click())
   assert.deepEqual(selected, [{ configId: 'model', value: 'opus' }])
 
   // Anyone else sees the same choices, is told why, and a pick changes nothing.
   await render('Only the owner can change model settings.')
+  if (!item('Opus')) await selectModel()
   assert.ok(item('Opus'), 'the choices still show')
   assert.match(dom.document.body.textContent ?? '', /Only the owner can change model settings\./)
   assert.equal(item('Opus')?.disabled, true)
   await act(() => item('Opus')?.click())
   assert.equal(selected.length, 1)
+  await act(() => root.unmount())
+})
+
+// #3427: the chip opened before its settings arrived stayed on the bare model list.
+test('a chip opened while its settings load shows the effort card once they arrive', async () => {
+  const withEffort: SessionConfigState = {
+    status: 'ready',
+    options: [
+      ...offering.options,
+      {
+        id: 'effort',
+        name: 'Effort',
+        kind: 'effort',
+        currentValue: 'high',
+        options: [
+          { value: 'low', name: 'Low' },
+          { value: 'high', name: 'High' },
+        ],
+      },
+    ],
+  }
+  const container = dom.document.createElement('div')
+
+  dom.document.body.append(container)
+  const root = createRoot(container as unknown as HTMLElement)
+  let open = false
+  const render = (data?: SessionConfigState) =>
+    act(() =>
+      root.render(
+        createElement(ModelSelector, {
+          control: {
+            data,
+            loading: !data,
+            slow: false,
+            saving: false,
+            error: null,
+            writeError: null,
+            queued: undefined,
+            open,
+            setOpen: (next: boolean) => {
+              open = next
+            },
+            select: () => {},
+            refresh: () => {},
+          },
+          disabled: false,
+        }),
+      ),
+    )
+
+  await render()
+  const chip = dom.document.querySelector('[data-model-chip]') as unknown as HTMLButtonElement
+
+  await act(() => chip.click())
+  assert.equal(open, true, 'the chip opens while its settings load')
+  await render(withEffort)
+  assert.equal(dom.document.querySelector('[role="menu"]'), null, 'no bare model list')
+  assert.ok(dom.document.querySelector('input[type="range"]'), 'the effort slider shows')
   await act(() => root.unmount())
 })
