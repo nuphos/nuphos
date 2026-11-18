@@ -11,8 +11,8 @@ import { useThisComputerBadge } from '../../hooks/useThisComputer'
 import { t } from '../../i18n'
 
 import { canManage, newAgentAction } from './agentPresentation'
-import { AutoInstallMenuItem } from './AutoInstallMenuItem'
 import { BoxAccessDialog } from './BoxAccessDialog'
+import { useComputerSettings } from './ComputerSettingsDialog'
 import { BoxAgentSetup } from './BoxAgentSetup'
 import { agentSlots, askToAdd, canAddAgent } from './boxAgentSlots'
 import { DeskArt } from './BoxDesk'
@@ -81,6 +81,9 @@ export function BoxRow({
     call: (deviceId: string, teamId: string) => Promise<unknown>,
     fallback?: string,
   ) => run(title, () => call(device.deviceId, teamId), fallback)
+  const computerSettings = useComputerSettings(device, teamId, () => {
+    changed()
+  })
   const changed = () => {
     onChanged()
     window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
@@ -197,7 +200,7 @@ export function BoxRow({
                   {hostUpdate.label}
                 </MenuItem>
               )}
-              <AutoInstallMenuItem device={device} teamId={teamId} onChanged={changed} />
+              {computerSettings.menuItem}
               <MenuItem onClick={() => setRenaming(true)}>{t('Rename')}</MenuItem>
               <MenuItem onClick={() => void copyUid(device)}>{t('Copy UID')}</MenuItem>
               <MenuItem onClick={() => setSharing(true)}>{t('Manage access…')}</MenuItem>
@@ -271,6 +274,7 @@ export function BoxRow({
           }}
         />
       )}
+      {computerSettings.dialog}
       {sharing && (
         <AccessDialog
           teamId={teamId}
