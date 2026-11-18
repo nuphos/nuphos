@@ -29,7 +29,7 @@ type Chat = { tab: 'Tasks' | 'Bots'; title: string; sessionId: string }
 type Case = {
   name: string
   watch: SwitchWatch
-  /** Requests for this chat the backend got between the click and the chat's first frame. */
+  /** Reads of this chat the backend got between the click and the chat's first frame. */
   requests: number
 }
 
@@ -85,14 +85,22 @@ async function task(page: Page, stack: Stack, title: string, prompt: string, sho
   return { tab: 'Tasks', title, sessionId: row.sessionId } satisfies Chat
 }
 
-/** The backend's requests for `sessionId` that started in [from, to] (epoch ms). */
-function requestsFor(sessionId: string, from: number, to: number) {
+// Reads a chat's first frame can wait on, started in [from, to] (epoch ms): its conversation,
+// and a Bot chat's agents. Its other requests race the frame either way.
+function readsFor(sessionId: string, from: number, to: number) {
+  const read = new RegExp(`^/agent/conversations/${sessionId}(/agents)?$`)
+
   return backendLog().filter((line) => {
     if (!line.includes('"http.request"') || !line.includes(sessionId)) return false
-    const entry = JSON.parse(line) as { ts: string; duration_ms: number }
+    const entry = JSON.parse(line) as {
+      ts: string
+      duration_ms: number
+      method: string
+      path: string
+    }
     const started = Date.parse(entry.ts) - entry.duration_ms
 
-    return started >= from && started <= to
+    return entry.method === 'GET' && read.test(entry.path) && started >= from && started <= to
   }).length
 }
 
@@ -109,7 +117,7 @@ async function open(
     .filter({ hasText: chat.title })
     .first()
   const watch = await watchSwitch(page, row, texts)
-  const requests = requestsFor(chat.sessionId, watch.clickedAt, watch.shownAt ?? Date.now())
+  const requests = readsFor(chat.sessionId, watch.clickedAt, watch.shownAt ?? Date.now())
 
   cases.push({ name, watch, requests })
   console.log(`${name}: ${JSON.stringify({ ...watch, requests })}`)
@@ -179,7 +187,7 @@ async function scenario(page: Page, stack: Stack) {
 function check(baseline: Record<string, number> | null) {
   const failed: string[] = []
   const lines = [
-    '| Switch | Frames to content | Requests before content | Fade frames | Typed frames | Newest after |',
+    '| Switch | Frames to content | Reads before content | Fade frames | Typed frames | Newest after |',
     '| --- | --: | --: | --: | --: | --: |',
   ]
 
@@ -193,7 +201,7 @@ function check(baseline: Record<string, number> | null) {
     if (watch.typedFrames > MAX_TYPED_FRAMES)
       fail(`a reply in progress was typed out over ${String(watch.typedFrames)} frames`)
     if (allowed !== undefined && requests > allowed)
-      fail(`${String(requests)} requests before its first frame, baseline ${String(allowed)}`)
+      fail(`${String(requests)} reads before its first frame, baseline ${String(allowed)}`)
     lines.push(
       `| ${name} | ${String(watch.framesToContent ?? 'never')} | ${String(requests)} | ${String(watch.fadeFrames)} | ${String(watch.typedFrames)} | ${newest} |`,
     )
@@ -204,7 +212,7 @@ function check(baseline: Record<string, number> | null) {
 
   for (const { name, watch, requests } of cases.filter((c) => c.name.endsWith('opened before'))) {
     if (watch.framesToContent === 1 && requests === 0) continue
-    const why = `${name}: not on the first frame without a request`
+    const why = `${name}: not on the first frame without a read`
 
     if (name.startsWith('task')) failed.push(why)
     else pending.push(why)
