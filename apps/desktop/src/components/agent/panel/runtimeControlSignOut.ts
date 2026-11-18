@@ -9,9 +9,20 @@ import type { RuntimeInstance } from '../../../types/runtime.ts'
 export type AgentReachability = 'ready' | 'signIn' | 'offline'
 
 /**
- * One answer for the dot, the banner and the send button. Agents without a Box have no dot.
- * Signed out is only the agent CLI's own status, as its Box reports it; the usage probe's
- * sign-in hint is a guess (it cannot see a token in the environment), so it never counts.
+ * The computer's name when it is an offline Box that instabox has paused, else null. Sending
+ * wakes it (box-wake.ts), so to a person it is neither offline nor signed out: nothing about
+ * it stops the message.
+ */
+export function pausedBoxLabel(local: RuntimeInstance['local']): string | null {
+  return local?.online === false && local.box?.state === 'paused' ? local.deviceLabel : null
+}
+
+/**
+ * One answer for the dot, the banner and the send button. Agents without a Box have no dot,
+ * and neither has a paused one: sending resumes it, so the composer only says it is paused
+ * (useComputerNotice). Signed out is only the agent CLI's own status, as its Box reports it;
+ * the usage probe's sign-in hint is a guess (it cannot see a token in the environment), so it
+ * never counts.
  */
 export function selectedAgentReachability(
   control: Pick<RuntimeControl, 'value' | 'options'> | undefined,
@@ -21,6 +32,7 @@ export function selectedAgentReachability(
   if (!id) return null
   const local = control.options?.find((instance) => instance.id === id)?.local
 
+  if (pausedBoxLabel(local) !== null) return null
   if (local?.online === false) return 'offline'
   if (local?.signedIn === false) return 'signIn'
 

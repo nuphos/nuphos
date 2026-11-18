@@ -207,6 +207,10 @@ export function formatAgentHttpError(
   error: AgentHttpErrorPayload,
   context: AgentErrorContext,
 ): string {
+  // A plan refusal is an answer, not a fault: it already says which limit the team hit and
+  // how to lift it (box-vcpu.ts). Diagnostics would only bury the sentence that helps. This
+  // is how a send to a paused Box the vCPU limit cannot resume reads.
+  if (error.status === 402 && error.code) return error.message
   const status = httpStatusLine(error.status, error.statusText)
   const headline = error.code
     ? `Agent chat request failed with ${error.code} (${status}).`

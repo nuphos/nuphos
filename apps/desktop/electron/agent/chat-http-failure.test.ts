@@ -23,6 +23,32 @@ test('legacy subscription failures never open a payment flow', () => {
   )
 })
 
+test('a plan refusal reaches the person as its own sentence, not as diagnostics', async () => {
+  const refusal =
+    "This computer needs 2 vCPU, and your team's running computers already use 4 of the 4 in its plan. Pause a computer or choose a bigger plan."
+  const emitted: unknown[] = []
+  const result = await handleChatHttpFailure(
+    {
+      streamId: 'stream-1',
+      sessionId: 'session-1',
+      explicitResume: false,
+      signal: new AbortController().signal,
+      state: createChatStreamState(0),
+      emit: (event) => emitted.push(event),
+      noteFirstFrame: () => {},
+    },
+    new Response(
+      JSON.stringify({ error: { code: 'box_vcpu_limit', message: refusal, requestId: 'req-1' } }),
+      { status: 402, statusText: 'Payment Required' },
+    ),
+    false,
+  )
+
+  assert.equal(result, 'stop')
+  // How a send to a paused Box the team's vCPU limit cannot resume reads, and nothing else.
+  assert.deepEqual(emitted, [{ type: 'error', error: refusal }])
+})
+
 test('missing Claude Code setup becomes an actionable product event', () => {
   assert.deepEqual(
     agentHttpProductEvent({

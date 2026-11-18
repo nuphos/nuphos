@@ -5590,6 +5590,7 @@
   "{a}, {b}, and {n} others": "{a}, {b} y {n} personas más",
   "{badge}, show all": "{badge}; mostrar todos",
   "{box} is offline.": "{box} está sin conexión.",
+  "{box} is paused. It resumes when you send.": "{box} está en pausa. Se reanudará cuando envíes un mensaje.",
   "{box}’s disk is almost full ({percent}%). Bots and tasks on it may fail.": "El disco de {box} está casi lleno ({percent} %). Sus Bots y tareas pueden fallar.",
   "{breakdown}, show in Changes": "{breakdown}; mostrar en Cambios",
   "{browser} on {system}": "{browser} en {system}",

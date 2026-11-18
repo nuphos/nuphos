@@ -60,6 +60,20 @@ test('red: an agent whose Box is offline cannot send, whatever its sign-in', () 
   assert.equal(runtimeControlSendBlock(offline), 'Its computer is offline')
 })
 
+test('a paused Box is not offline: the send resumes it, so nothing stops the message', () => {
+  const paused = control({ online: false, signedIn: false, box: { state: 'paused' } })
+
+  // No dot, no banner of its own and no block: the composer only says it is paused.
+  assert.equal(selectedAgentReachability(paused), null)
+  assert.equal(runtimeControlSendBlock(paused), null)
+  assert.equal(shouldSwitchAgent(paused), false)
+  // An offline Box in any other state is still offline.
+  assert.equal(
+    selectedAgentReachability(control({ online: false, box: { state: 'running' } })),
+    'offline',
+  )
+})
+
 test('the usage probe sign-in guess never makes an agent yellow or blocks it', () => {
   const probeOnly = { available: false, reason: 'Sign in required' }
 
