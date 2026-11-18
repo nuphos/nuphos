@@ -12,6 +12,10 @@ final class ChatComposerLayoutUITests: XCTestCase {
         let composer = app.textViews["Message release-planning"].firstMatch
         XCTAssertTrue(composer.waitForExistence(timeout: 10), "No composer")
         XCTAssertTrue(app.buttons["Open sheet.jpg"].waitForExistence(timeout: 10), "The transcript never loaded")
+        // Into the older posts first, as main's flow did while it also put an auto-raised
+        // keyboard away (#3449): the scroll-to-latest button then shows in both shots.
+        transcript.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
+            .press(forDuration: 0.05, thenDragTo: app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)))
         sleep(2)
         let bar = app.navigationBars.firstMatch.frame
         let window = app.windows.firstMatch.frame
