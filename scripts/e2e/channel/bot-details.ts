@@ -96,7 +96,6 @@ const scenario: Scenario = {
       title: SECOND,
       avatar: '07-ada',
       agentRuntime: 'claude-code',
-      runtimeLabel: 'E2E details computer',
     })
 
     await openBotChat(page, 'E2E Bot')
@@ -135,7 +134,8 @@ const scenario: Scenario = {
     await openBotChat(page, SECOND)
     await expectOpen(page, true, `In ${SECOND}'s chat`)
     await details(page).getByRole('region', { name: SECOND }).waitFor()
-    await details(page).getByText('E2E details computer · Claude Code').waitFor()
+    // Made without a computer, it says only which agent it is.
+    await details(page).getByText('Claude Code', { exact: true }).waitFor()
 
     // A Bot someone else owns: no Edit Bot, and the rest as before.
     const mate = await joinTeam(stack, 'details-mate')
