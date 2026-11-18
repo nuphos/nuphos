@@ -211,6 +211,7 @@ export function AgentStatusBanner({
   const blocked: BlockedKind | null =
     (runtimeGone(control) ? 'gone' : null) ??
     unreachable ??
+    (control.offlineAgent ? 'offline' : null) ??
     (shareApproval === 'pending' ? 'waiting' : shareApproval === 'denied' ? 'declined' : null)
   // An agent that can take the message, on a computer about to fail it: said, without blocking.
   const notice = useComputerNotice(control)
@@ -245,6 +246,11 @@ export function AgentStatusBanner({
       { ...fixes, ...(askedName && { askedName }) },
       onSwitchAgent,
     )
+  if (shown === 'offline' && !unreachable && control.offlineAgent)
+    copy = {
+      text: t('{name}’s computer is offline.', { name: control.offlineAgent }),
+      action: null,
+    }
   const { text, action } = copy
 
   return (

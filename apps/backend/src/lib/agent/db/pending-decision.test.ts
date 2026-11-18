@@ -9,6 +9,7 @@ import {
   openInputRequests,
   reopenInputRequest,
   resolveInputRequest,
+  updateInputRequest,
 } from './pending-decision'
 
 import type { InputRequest } from './pending-decision'
@@ -160,6 +161,17 @@ describe('input requests', () => {
       userId: 'owner',
       'inputRequests.id': { $ne: 'nuphos-1' },
     })
+  })
+
+  // #3470: a card rewritten in place says when, so an old question's new premise is visible.
+  test('correcting a question stamps when it was last edited', async () => {
+    const before = Date.now()
+
+    expect(await updateInputRequest('s1', 'u1', 'nuphos-1', { question: 'Merge #469?' })).toBe(true)
+    const set = updates.at(-1)?.update.$set as Doc
+
+    expect(set['inputRequests.$.question']).toBe('Merge #469?')
+    expect((set['inputRequests.$.updatedAt'] as Date).getTime()).toBeGreaterThanOrEqual(before)
   })
 
   test('open requests are the open ones, oldest first', () => {

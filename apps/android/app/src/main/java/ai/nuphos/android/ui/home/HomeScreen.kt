@@ -381,7 +381,7 @@ fun HomeScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    if (unavailablePage) Text(stringResource(R.string.shell_page_unavailable)) else PageSwitcher(selected = current, inboxCount = inbox?.list?.size ?: 0, onSelect = {
+                    if (unavailablePage) Text(stringResource(R.string.shell_page_unavailable)) else PageSwitcher(selected = current, inboxCount = inbox?.waiting?.size ?: 0, onSelect = {
                         if (it != current) {
                             pagePicked = true
                             if (current == HomePage.Agent || current == HomePage.Chats) store.updateSearch("")

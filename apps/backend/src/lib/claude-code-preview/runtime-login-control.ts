@@ -6,7 +6,7 @@ import { controlRegistry } from './agent-chat-registry'
 import { reportedLocalAgent, resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { OpenAbRpcError } from './openab-acp-errors'
 import { requireRuntimeInstance } from './runtime-catalog'
-import { loginFrameReader } from './runtime-login-exec'
+import { loginFrameReader } from './runtime-login-frames'
 import { runtimeLabel, runtimeProvider } from './runtime-provider'
 import { resolveTeamRuntimeEndpoints } from './runtime-registry'
 
@@ -39,7 +39,7 @@ async function controlEndpoint(teamId: string, runtimeId: string, userId?: strin
   if (parseLocalRuntimeId(runtimeId) && userId)
     return resolveLocalRuntimeEndpoint(teamId, runtimeId, userId, 'login')
   const { provider } = await requireRuntimeInstance(teamId, runtimeId, userId)
-  const endpoint = (await resolveTeamRuntimeEndpoints(teamId, undefined, provider, 'control')).find(
+  const endpoint = (await resolveTeamRuntimeEndpoints(teamId, provider, 'control')).find(
     (candidate) => candidate.runtimeId === runtimeId,
   )
 
@@ -84,10 +84,10 @@ function runtimeLoginError(error: unknown): AppError {
  * Drive the runtime's own device sign-in over the operator channel.
  *
  * The runtime installs the credential itself and reports only that it did, so the
- * frames carry a device code and nothing else. `loginFrameReader` is fed the same
- * NDJSON it parses on the exec path, so the framing, the size cap and the fixed error
- * string are the ones already proven there. The sign-in ends with the runtime's
- * `exited` frame, or when `signal` aborts it.
+ * frames carry a device code and nothing else. Each frame goes through
+ * `loginFrameReader` as one NDJSON line, so its framing, size cap and fixed error
+ * strings apply. The sign-in ends with the runtime's `exited` frame, or when `signal`
+ * aborts it.
  */
 export async function driveControlRuntimeLogin(
   client: Pick<TeamPreviewClient, 'runtimeLogin' | 'cancelRuntimeLogin' | 'onRuntimeLoginFrame'>,
