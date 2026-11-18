@@ -1,6 +1,7 @@
 // Scenarios about a Bot's own session, opened over its chat. They run after the runtime
 // scenarios: they leave the Bot on the second agent, which those need unused until then.
 import { agentLog } from './agent-log.ts'
+import { checkDockToggleClear } from './chat-presentation.ts'
 import { artifacts, until } from './processes.ts'
 
 import type { Scenario } from './ui.ts'
@@ -18,6 +19,27 @@ export const botTurnScenarios: Scenario[] = [
       await page.getByRole('button', { name: 'Task', exact: true }).click()
       const task = page.locator('.t-bot-task-mode')
 
+      await task.getByRole('button', { name: 'Toggle task summary' }).waitFor()
+      // #3561: the Task's header kept its summary toggle under the workspace panel toggle.
+      for (const theme of ['light', 'dark']) {
+        await page.evaluate((value) => {
+          document.documentElement.classList.remove('light', 'dark')
+          document.documentElement.classList.add(value)
+        }, theme)
+        await checkDockToggleClear(page, `Bot Task header ${theme}`, '.t-bot-task-mode header')
+        await page.getByRole('button', { name: 'Open workspace panel' }).click()
+        await page.getByRole('button', { name: 'Close workspace panel' }).waitFor()
+        await page.waitForTimeout(500)
+        await page.screenshot({
+          path: `${artifacts}/dock-toggle-Bot-Task-header-${theme}-open.png`,
+        })
+        await page.getByRole('button', { name: 'Close workspace panel' }).click()
+        await page.getByRole('button', { name: 'Open workspace panel' }).waitFor()
+      }
+      await page.evaluate(() => {
+        document.documentElement.classList.remove('dark')
+        document.documentElement.classList.add('light')
+      })
       await task.getByRole('textbox').last().click()
       await page.keyboard.type(`Out of usage E2E_USAGE_LIMIT ${marker}`)
       await page.keyboard.press('Enter')
