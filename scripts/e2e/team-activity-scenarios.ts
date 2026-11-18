@@ -118,9 +118,8 @@ export const teamActivityScenarios: Scenario[] = [
       must(stats.status === 200, `the member to read team stats, got ${String(stats.status)}`)
 
       // The member's home in that team: the activity card, the teammate's session unnamed.
-      const switcher = page.getByRole('button', { name: 'E2E', exact: true })
-
-      await switcher.click()
+      // The switcher's name starts with the team icon's initials, so its label text is clicked.
+      await page.getByText('E2E', { exact: true }).first().click()
       await page.getByRole('menuitem', { name: 'Switch workspace' }).click()
       await page.getByRole('menuitem', { name: TEAM_NAME }).click()
       try {
@@ -130,9 +129,9 @@ export const teamActivityScenarios: Scenario[] = [
         await page.screenshot({ path: `${artifacts}/team-activity-member-home.png` })
         await page.getByRole('button', { name: 'Stats', exact: true }).click()
       } finally {
-        await page.getByRole('button', { name: TEAM_NAME, exact: true }).click()
+        await page.getByText(TEAM_NAME, { exact: true }).first().click()
         await page.getByRole('menuitem', { name: 'Switch workspace' }).click()
-        await page.getByRole('menuitem', { name: 'E2E', exact: true }).click()
+        await page.getByRole('menuitem', { name: /E2E$/ }).click()
       }
     },
   },
