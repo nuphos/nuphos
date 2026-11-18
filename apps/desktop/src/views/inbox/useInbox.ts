@@ -174,9 +174,11 @@ export function holdAnswer(
     if (held !== finish) return false
     held = undefined
     if (send)
-      void answerDecision(teamId, sessionId, requestId, answer).then((ok) => {
-        if (!ok) onFailed(failures.get(requestId))
-      })
+      void answerDecision(teamId, sessionId, requestId, { ...answer, answeredIn: 'inbox' }).then(
+        (ok) => {
+          if (!ok) onFailed(failures.get(requestId))
+        },
+      )
     else if (answered.delete(requestId)) emit()
 
     return true

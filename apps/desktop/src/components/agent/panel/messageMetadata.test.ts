@@ -94,6 +94,11 @@ test('an answer given in the Inbox keeps its marker and card, only from Nuphos',
   assert.equal(parseMessageMetadata(metadata)?.requestId, 'q1')
   assert.equal(parseMessageMetadata({ ...metadata, source: 'slack' })?.answeredIn, undefined)
   assert.equal(parseMessageMetadata({ ...metadata, requestId: '' })?.answeredIn, undefined)
+  // Answered on its card in the chat: the card, but no Inbox.
+  const onCard = parseMessageMetadata({ ...metadata, answeredIn: undefined })
+
+  assert.equal(onCard?.requestId, 'q1')
+  assert.equal(onCard?.answeredIn, undefined)
 })
 
 test('an unverified Discord author keeps the unattested mark, and only for Discord', () => {

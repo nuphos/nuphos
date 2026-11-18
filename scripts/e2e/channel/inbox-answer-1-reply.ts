@@ -1,6 +1,7 @@
 // #3548: an answer given in the Inbox shows in the Bot chat as the answerer's reply to the
 // question, quoted inside their bubble, and wakes the Bot no more than the answer itself does.
 import { agentEvents, agentLog } from '../agent-log.ts'
+import { client } from '../binding-access-scenarios.ts'
 import { openBotChat, shoot } from '../channel-quotes.ts'
 import { until } from '../processes.ts'
 import { send } from '../ui.ts'
@@ -24,9 +25,18 @@ const scenario: Scenario = {
     await page.getByText('POSTED E2E_DELIVERY:inbox-reply', { exact: true }).waitFor()
     const wakes = channelWakes(stack)
     const answered = count(stack, `finish ${ANSWER}`)
+    const asker = agentLog(stack).findLast((entry) => entry.event === 'asked')?.sessionId
+    const listed = (
+      await client(stack.apiUrl, stack.token)(
+        'GET',
+        `/agent/conversations?teamId=${stack.teamId}&pendingDecision=true`,
+      )
+    ).body as { conversations: { sessionId: string; inputRequests?: { id: string }[] }[] }
+    const asked = listed.conversations.find((row) => row.sessionId === asker)?.inputRequests?.at(-1)
 
+    if (!asked) throw new Error("The Bot's question is not open in the Inbox")
     await page.getByRole('tab', { name: /^Inbox/ }).click()
-    await page.locator('[data-inbox-question]').filter({ hasText: QUESTION }).first().click()
+    await page.locator(`[data-inbox-question="${asked.id}"]`).click()
     await page.getByRole('button', { name: ANSWER }).last().click()
     await until(
       'the answer to reach the Bot',
@@ -34,12 +44,24 @@ const scenario: Scenario = {
     )
 
     await openBotChat(page)
-    const post = page.locator('.group\\/post', { hasText: ANSWER }).last()
+    // The chat in front: a Bot chat stays mounted, inert, behind other pages.
+    const answers = page.locator('.group\\/post:not([inert] *)', { hasText: ANSWER })
+    const post = answers.last()
     const bubble = post.locator('.user-message-bubble')
 
     // The quote is the bubble's first line: the Bot's name, then its question.
     await bubble.getByRole('button', { name: new RegExp(`^E2E Bot\\s*${QUESTION}`) }).waitFor()
     await post.getByText('Answered in Inbox', { exact: true }).waitFor()
+    const asking = page.locator('.group\\/post:not([inert] *)', {
+      hasText: 'POSTED E2E_DELIVERY:inbox-reply',
+    })
+
+    if ((await post.boundingBox())!.y < (await asking.last().boundingBox())!.y)
+      throw new Error('No answer post came after the question was asked')
+    // Answers given on their card in the chat, by the scenarios before, say nothing of the Inbox.
+    for (const earlier of (await answers.all()).slice(0, -1))
+      if ((await earlier.getByText('Answered in Inbox').count()) > 0)
+        throw new Error('An answer given on its card in the chat says "Answered in Inbox"')
     if ((await page.locator('[data-decision-record]').count()) > 0)
       throw new Error('An answer left the old "answered:" line instead of a post')
 

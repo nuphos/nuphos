@@ -31,6 +31,7 @@ export function replyTo(message: AgentPersistedMessage): AgentMessageReply | nul
 export function endsInboxAnswer(messages: AgentPersistedMessage[], index: number): boolean {
   const card = (message: AgentPersistedMessage | undefined) =>
     parseMessageMetadata(message?.metadata)?.requestId
+  const here = parseMessageMetadata(messages[index]?.metadata)
 
-  return card(messages[index]) !== undefined && card(messages[index + 1]) !== card(messages[index])
+  return Boolean(here?.answeredIn) && card(messages[index + 1]) !== here?.requestId
 }

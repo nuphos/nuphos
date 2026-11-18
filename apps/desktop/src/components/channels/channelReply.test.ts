@@ -37,10 +37,20 @@ test('"Answered in Inbox" goes under the last post of each Inbox answer only', (
       ...(requestId ? { answeredIn: 'inbox', requestId } : {}),
     },
   })
-  const posts = [post('a1', 'q1'), post('a2', 'q1'), post('b1', 'q2'), post('plain')] as never[]
+  const onCard = {
+    ...post('c1', 'q3'),
+    metadata: { ...post('c1', 'q3').metadata, answeredIn: undefined },
+  }
+  const posts = [
+    post('a1', 'q1'),
+    post('a2', 'q1'),
+    post('b1', 'q2'),
+    onCard,
+    post('plain'),
+  ] as never[]
 
   assert.deepEqual(
     posts.map((_, index) => endsInboxAnswer(posts, index)),
-    [false, true, true, false],
+    [false, true, true, false, false],
   )
 })

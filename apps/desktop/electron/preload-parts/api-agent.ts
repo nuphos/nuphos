@@ -19,6 +19,7 @@ export const agentApi = {
       choices?: string[]
       text?: string
       questions?: { choices?: string[]; text?: string }[]
+      answeredIn?: 'inbox'
     },
   ) => ipcRenderer.invoke('agent:answerDecision', sessionId, requestId, teamId, answer),
   agentMoveConversationRuntime: (
