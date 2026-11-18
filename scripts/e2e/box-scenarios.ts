@@ -132,6 +132,9 @@ export const boxScenarios: Scenario[] = [
   },
   {
     name: 'a conversation on a Box that is away says the send resumes it, and does not block the send',
+    // The send does start the wake, which reaches the half this stack cannot run: a Box resumed
+    // here would have no public URL to dial back on. The message still queues, which is the point.
+    expected: /"event":"agent\.box\.heal_failed".*no public URL for a cloud computer/,
     run: async (page, stack) => {
       const deviceId = randomUUID()
       const sandboxId = `m_e2e_${deviceId.slice(0, 8)}`
