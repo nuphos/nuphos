@@ -111,7 +111,7 @@ async function rowsOf(rows: AgentConversation[]): Promise<Item[]> {
 
 const markup = (node: unknown) => (isValidElement(node) ? renderToStaticMarkup(node) : '')
 
-test('a working Bot shows the same work dots with or without a chat; a Task keeps its spinner', async () => {
+test('a working Bot row shows its latest message, with no spinner or shimmer, folded or not', async () => {
   const items = await rowsOf([
     // A Bot with no chat yet is listed by its own session.
     row('solo-bot', { avatar: '05-rembrandt' }),
@@ -123,17 +123,25 @@ test('a working Bot shows the same work dots with or without a chat; a Task keep
       lastMessage: { text: 'The newest post' },
     }),
     row('task'),
-    row('kid', { parentSessionId: 'chatted-bot', runtimeState: undefined }),
+    // A sub-Task at work, hidden when its Bot's row is folded.
+    row('kid', { parentSessionId: 'chatted-bot' }),
   ])
   const at = (id: string) => items.find((item) => item.key === `agent-session:${id}`)!
+  const latest = { 'solo-bot': 'solo-bot own transcript', chat: 'The newest post' }
 
-  for (const id of ['solo-bot', 'chat']) {
-    const preview = markup(at(id).previewNode)
-
-    assert.ok(preview.includes('t-typing-dot'), `${id} shows the work dots`)
-    assert.ok(!preview.includes('own transcript'), `${id} hides the Bot's own transcript`)
+  for (const [id, text] of Object.entries(latest)) {
+    assert.equal(at(id).previewNode, undefined, `${id} keeps its preview line`)
+    assert.equal(at(id).preview, text, `${id} previews its latest message`)
+    assert.ok(!at(id).labelShimmer, `${id} is not greyed out`)
     assert.ok(!markup(at(id).trailing).includes('animate-spin'), `${id} has no spinner`)
   }
+  const copies = items.filter((item) => item.parentKey === 'agent-session:chat')
+
+  assert.equal(copies.length, 1)
+  assert.ok(
+    !markup(copies[0]?.foldedStatus).includes('animate-spin'),
+    'a folded Bot shows no spinner for its sub-Task',
+  )
   assert.ok(markup(at('task').trailing).includes('animate-spin'), 'a Task keeps its spinner')
   // Its own row and its copy under the chat: the Bot's own row adds no third.
   assert.equal(items.filter((item) => item.key === 'agent-session:kid').length, 2)
@@ -257,7 +265,7 @@ test('finishing Bot work restores the latest chat post, never its older Task pre
       openId: 'chat',
     })[0]
 
-  assert.ok(make('active')?.previewNode, 'the indicator takes the preview line while busy')
+  assert.equal(make('active')?.preview, 'The newest reply posted in this chat')
   const finished = make('idle')
 
   assert.equal(finished?.previewNode, undefined, 'no work indicator remains after the turn')
@@ -265,7 +273,7 @@ test('finishing Bot work restores the latest chat post, never its older Task pre
   assert.notEqual(finished?.preview, bot.conversation.lastMessage.text)
 })
 
-test("a busy Bot's chat row never previews the Bot's own transcript, only the chat's posts", () => {
+test("a busy Bot's chat row previews the chat's newest post, never the Bot's own transcript", () => {
   // The Bot posted twice this turn and is still working. Its own transcript
   // ends with what it last told its owner, which was never posted in the chat.
   const { avatar: _avatar, ...plain } = conversation
@@ -298,10 +306,7 @@ test("a busy Bot's chat row never previews the Bot's own transcript, only the ch
     })[0]
   const busy = row('active')
 
-  assert.ok(isValidElement(busy?.previewNode))
-  const shown = renderToStaticMarkup(busy.previewNode)
-
-  assert.ok(shown.includes('t-typing-dot'), 'a busy row shows the work dots')
-  assert.ok(!shown.includes('Narration for the owner only'))
+  assert.equal(busy?.previewNode, undefined, 'a busy row keeps its preview line')
+  assert.equal(busy?.preview, 'Second post of the turn')
   assert.equal(row('idle')?.preview, 'Second post of the turn')
 })
