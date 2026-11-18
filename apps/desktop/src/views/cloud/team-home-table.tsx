@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
+import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
 import { api } from '../../api'
@@ -187,6 +188,7 @@ export function IntegrationCatalog({
     return (
       <div className="flex-1 overflow-y-auto px-8 pb-8 pt-2 selectable">
         <Button variant="ghost" size="sm" onClick={() => setPersonalProvider(null)}>
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           {t('Back')}
         </Button>
         {teamQuery.data ? (
@@ -214,7 +216,7 @@ export function IntegrationCatalog({
               className="-ml-2 mb-3"
               onClick={() => setCatalogTab('browse')}
             >
-              <span aria-hidden="true">← </span>
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
               {t('Connectors')}
             </Button>
           )}
@@ -225,7 +227,7 @@ export function IntegrationCatalog({
             {catalogTab === 'browse' && (
               <Button variant="secondary" onClick={() => setCatalogTab('mine')}>
                 {t('Manage connections')}
-                <span aria-hidden="true"> →</span>
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Button>
             )}
           </div>

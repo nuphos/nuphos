@@ -35,15 +35,17 @@ export function ConnectorGroups({
       <h2 className="border-b border-line-control/55 pb-2.5 text-[13px] font-medium text-main">
         {mode === 'mine' ? t('Connections') : t('Installed')}
       </h2>
-      <div className="grid grid-cols-1 gap-2 py-3 sm:grid-cols-2">
+      <div className="-mx-2 grid grid-cols-1 gap-x-5 gap-y-0.5 py-3 sm:grid-cols-2">
         {[...services].map(([provider, connections]) => (
           <button
             key={provider}
             type="button"
             onClick={() => onOpen(connections)}
-            className="flex items-center gap-3 rounded-lg border border-line-control/55 px-4 py-3 text-left hover:bg-state-hover"
+            className="group flex min-w-0 items-center gap-3 rounded-lg px-2 py-2.5 text-left hover:bg-state-hover"
           >
-            <IntegrationPlatformIcon provider={provider} size={22} />
+            <span className="flex h-9 w-9 flex-none items-center justify-center rounded-lg border border-line-control/55 bg-surface shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+              <IntegrationPlatformIcon provider={provider} size={20} />
+            </span>
             <span className="min-w-0 flex-1">
               <span className="block text-[13.5px] font-medium text-main">
                 {CONNECTOR_INFO_LABELS[provider]}
@@ -52,8 +54,8 @@ export function ConnectorGroups({
                 {t('{n} connections', { n: connections.length })}
               </span>
             </span>
-            <span aria-hidden="true" className="text-tertiary">
-              →
+            <span className="flex h-7 w-[76px] flex-none items-center justify-center rounded-lg border border-line-control bg-surface-sheet text-[12px] font-medium text-secondary group-hover:text-main">
+              {t('Manage')}
             </span>
           </button>
         ))}
