@@ -8,7 +8,7 @@ Install Desktop dependencies with `pnpm install --frozen-lockfile`. The `node-ap
 
 The `sidebar-native-gestures` Vite `buildStart` plugin invokes `scripts/build-sidebar-gestures.ts` on macOS, using Xcode's `clang++` through `/usr/bin/xcrun`. It targets macOS 12.0, matching `build.mac.minimumSystemVersion` in `package.json`, and produces one universal arm64/x86_64 binary at `build/native/sidebar-gestures.node`.
 
-- PR CI: the **Desktop (Nuphos macOS package)** job compiles it during **Build renderer and main bundles**, before `electron-builder` packages both architectures.
+- CI: the **Desktop (Nuphos macOS package)** job compiles it during **Build renderer and main bundles**, in the merge queue and on a PR that changes it or a packaging input, before `electron-builder` packages both architectures on that PR. The Linux **Desktop (typecheck, tests, build)** job skips it.
 - Releases: the macOS jobs in `release-desktop.yml` compile it during **Build application**, before signing and notarization.
 - `package.json` copies `build/native/*.node` into the application's `Resources/native` directory using `extraResources`. Build outputs remain ignored by Git. Concurrent builds compile in unique directories under `build/native` and atomically replace the final binary, so a dev watcher and a manual build do not share a linker output.
 
