@@ -23,12 +23,27 @@ struct AgentDevice: Decodable, Sendable {
     let metrics: Metrics?
     /// The id this computer opens its desktop by: present on the viewer's own online computer whose host can.
     var desktopRuntimeId: String? = nil
+    /// Whether its host is connected now; nil from older backends.
+    var online: Bool? = nil
     /// A live, sane reading, or nil: the picker then shows no meters at all.
     var liveMetrics: Metrics? {
         guard metricsStatus == "live", let metrics, metrics.cpuPercent.isFinite, (0...100).contains(metrics.cpuPercent),
               metrics.memory.valid, metrics.disk.valid else { return nil }
         return metrics
     }
+
+    /// Desktop's `boxState(device) == "running"`: the host is connected, and a Box is
+    /// neither paused, stopped, still being made nor in error. A Box being made is never
+    /// running whatever its host says, so its own state alone decides for it.
+    var running: Bool { online == true && (box.map { $0.state == "running" } ?? true) }
+
+    /// Desktop's `canManage`: a member who may only use a computer sees it without the
+    /// controls the backend would refuse. A team role grants nothing here (box-access.ts).
+    var canManage: Bool { access != "use" }
+
+    /// Desktop's `canAddAgent`: a new runtime goes on a running computer the viewer
+    /// manages, since adding one configures that computer.
+    var canAddRuntime: Bool { running && canManage }
 }
 
 /// How the conversation's computer stands right now, as its chat tells it.
@@ -78,5 +93,20 @@ struct SelectorBox: Identifiable {
     static func agentName(_ runtime: RuntimeInstance) -> String {
         guard let local = runtime.local else { return runtime.label }
         return local.agentLabel ?? runtime.providerName
+    }
+
+    /// Desktop's `agentNameTaken`: a name a runtime on this computer already goes by.
+    func nameTaken(_ name: String) -> Bool {
+        let wanted = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return agents.contains { Self.agentName($0).lowercased() == wanted }
+    }
+
+    /// Desktop's `defaultAgentName`: the provider's own name, numbered past the ones this
+    /// computer already has — the 2 of "Claude Code 2".
+    func defaultRuntimeName(_ provider: RuntimeInstance.Provider) -> String {
+        let base = RuntimeInstance.Provider.name(provider.rawValue)
+        var n = 1
+        while nameTaken(n == 1 ? base : "\(base) \(n)") { n += 1 }
+        return n == 1 ? base : "\(base) \(n)"
     }
 }
