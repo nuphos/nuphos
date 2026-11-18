@@ -64,18 +64,16 @@ test('a Bot keeps its own face', async () => {
 })
 
 test("a chat's members carry the background their Bot's face sits on", async () => {
-  memory
-    .rows('agent_conversations')
-    .push(
-      {
-        sessionId: 'agent-1',
-        userId: 'owner',
-        teamId: 'team',
-        avatar: '07-ada',
-        avatarBackground: 'sky',
-      },
-      { sessionId: 'agent-2', userId: 'owner', teamId: 'team', avatar: '05-rembrandt' },
-    )
+  memory.rows('agent_conversations').push(
+    {
+      sessionId: 'agent-1',
+      userId: 'owner',
+      teamId: 'team',
+      avatar: '07-ada',
+      avatarBackground: 'sky',
+    },
+    { sessionId: 'agent-2', userId: 'owner', teamId: 'team', avatar: '05-rembrandt' },
+  )
 
   const [tinted, plain] = await listChannelAgents({
     teamId: 'team',
