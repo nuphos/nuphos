@@ -4,12 +4,9 @@ import { randomUUID } from 'node:crypto'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
-import yaml from 'js-yaml'
-
 import { callJson, setTokenSource } from '../../agent/http.ts'
 import { apiUrl } from '../../api-endpoint.ts'
 import { dialBackend } from '../../backend-socket.ts'
-import { CLI_CONFIG_PATH } from '../../cli-config-path.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../../client-version.ts'
 import {
   defaultDeviceLabel,
@@ -25,7 +22,7 @@ import { readAgentUsage } from './agent-cli-usage.ts'
 import { podOwnerAgentHome } from './agent-home.ts'
 import { localFileConnectors } from './attachment-stream.ts'
 import { readCliCache, writeCliCache } from './cli-cache.ts'
-import { cliSessionToken, hostOwner } from './cli-host-session.ts'
+import { cliSessionToken, hostOwner, readCliConfig } from './cli-host-session.ts'
 import { signInClaude } from './cli-sign-in.ts'
 import { readBundle } from './config.ts'
 import { LocalRuntimeController } from './controller.ts'
@@ -38,6 +35,7 @@ import {
 } from './desktop-pool.ts'
 import { deviceCredentialFor, exitRevoked, ownsMachine, tunnelUrlFor } from './device-credential.ts'
 import { LocalExecStream } from './exec-stream.ts'
+import { withHostProvider } from './host-provider.ts'
 import { enableMacScreen, macScreenDeps } from './mac-screen.ts'
 import { bundledModelProbe } from './model-probe.ts'
 import { OpenabProcess } from './openab-process.ts'
@@ -46,7 +44,6 @@ import { RuntimeTunnelClient } from './tunnel-client.ts'
 import { VncStream } from './vnc-stream.ts'
 
 import type { DeviceIdentity } from '../device-identity-core.ts'
-import type { CliConfig } from './cli-host-session.ts'
 import type { LocalRuntimeTunnelStatus } from './tunnel-protocol.ts'
 
 type Instances = (request: unknown) => Promise<unknown>
@@ -96,14 +93,6 @@ const launchToken = process.env.NUPHOS_SESSION_TOKEN || null
 
 delete process.env.NUPHOS_SESSION_TOKEN
 
-function readCliConfig(): CliConfig {
-  try {
-    return yaml.load(readFileSync(CLI_CONFIG_PATH, 'utf8')) as CliConfig
-  } catch {
-    return null
-  }
-}
-
 const launch = { token: launchToken, keychainAccount: readCliConfig()?.keychainAccount }
 const currentToken = () => cliSessionToken(readCliConfig(), launch)
 
@@ -143,7 +132,7 @@ if (!bundle()) {
 }
 
 const prepareAgentHome = podOwnerAgentHome(owner, dataDir)
-const controller: LocalRuntimeController = new LocalRuntimeController({
+const deps: ConstructorParameters<typeof LocalRuntimeController>[0] = {
   bundle,
   ownsMachine: ownsMachine(deviceCredential),
   dataDir: () => dataDir,
@@ -211,7 +200,9 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
     return tunnel
   },
   log,
-})
+}
+// The operator's own model provider, from this process's environment (host-provider.ts).
+const controller = new LocalRuntimeController(withHostProvider(process.env, deps))
 
 // A desktop appearing or going changes the status; the pool directory says when.
 if (desktopPool) watchDesktops(desktopPool, () => tunnel?.sendStatus())
