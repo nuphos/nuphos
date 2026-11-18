@@ -28,10 +28,15 @@ struct BotQuestion: Identifiable, Equatable, Sendable {
     /// draws from the listing too; nil unless the question names a secret.
     var secretPart: ChatPart.ToolPart? {
         guard let name = request.secretName else { return nil }
+        var input: [String: JSONValue] = ["category": .string(request.category ?? ""), "question": .string(request.question),
+                                          "secretName": .string(name)]
+        if let fields = request.fields, let site = request.site {
+            input["fields"] = .array(fields.map { .object(["name": .string($0.name), "label": .string($0.label)]) })
+            input["site"] = .string(site)
+        }
         let part = ChatPart.ToolPart(
             toolCallId: request.id, toolName: "request_user_decision", isDynamic: true, state: .inputAvailable,
-            input: .object(["category": .string(request.category ?? ""), "question": .string(request.question),
-                            "secretName": .string(name)]))
+            input: .object(input))
         return part.secretRequest == nil ? nil : part
     }
 

@@ -33,9 +33,16 @@ data class BotQuestion(val sessionId: String, val title: String, val request: In
      */
     val secretPart: ChatPart.Tool? get() {
         val name = request.secretName ?: return null
+        // A web form's details: every field and the site, as the agent's own call carries them.
+        val fields = request.fields
+        val site = request.site
+        val form = if (fields == null || site == null) emptyList() else listOf(
+            "fields" to JsonValue.Arr(fields.map { JsonValue.obj("name" to JsonValue.Str(it.name), "label" to JsonValue.Str(it.label)) }),
+            "site" to JsonValue.Str(site),
+        )
         return ChatPart.Tool(request.id, "request_user_decision", isDynamic = true, state = ChatPart.Tool.State.InputAvailable,
             input = JsonValue.obj("category" to JsonValue.Str(request.category.orEmpty()),
-                "question" to JsonValue.Str(request.question), "secretName" to JsonValue.Str(name)))
+                "question" to JsonValue.Str(request.question), "secretName" to JsonValue.Str(name), *form.toTypedArray()))
             .takeIf { it.secretRequest != null }
     }
 

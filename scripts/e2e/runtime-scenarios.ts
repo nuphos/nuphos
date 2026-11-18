@@ -3,6 +3,7 @@ import { agentEvents, agentLog, delegatedTurn, firstAgentHolds } from './agent-l
 import { backendLines, backendLog } from './backend-log.ts'
 import { effortCardScenarios } from './effort-card-scenarios.ts'
 import { fallbackSetupScenarios } from './fallback-setup-scenarios.ts'
+import { languageScenarios } from './language-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, pickAgent, send } from './ui.ts'
 
@@ -289,4 +290,5 @@ export const runtimeScenarios: Scenario[] = [
     },
   },
   ...fallbackSetupScenarios,
+  ...languageScenarios,
 ]

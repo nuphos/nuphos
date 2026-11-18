@@ -167,8 +167,6 @@ export const teamApi = {
   atlasUpdateTeamMemberRole: (teamId: string, memberId: string, role: string) =>
     ipcRenderer.invoke('atlas:updateTeamMemberRole', teamId, memberId, role),
   atlasListMyInvitations: () => ipcRenderer.invoke('atlas:listMyInvitations'),
-  atlasInviteTeamMember: (teamId: string, inviteeEmail: string) =>
-    ipcRenderer.invoke('atlas:inviteTeamMember', teamId, inviteeEmail),
   atlasAcceptInvitation: (invitationId: string) =>
     ipcRenderer.invoke('atlas:acceptInvitation', invitationId),
   atlasRejectInvitation: (invitationId: string) =>

@@ -9,6 +9,7 @@ import type {
   ShareTrustDuration,
   SignInAsk,
 } from '../../src/api/device-types.ts'
+import type { AccessHistoryPage } from '../../src/api/device-access-types.ts'
 
 // Sharing this person's own computer's Local Agent with teammates in one team.
 
@@ -102,4 +103,18 @@ export function settleRuntimeSignIn(teamId: string, runtimeId: string): Promise<
   return call('DELETE', `${runtime(teamId, runtimeId)}/sign-in-requests`, undefined, {
     retry: false,
   })
+}
+
+/** Who changed who may use or manage this computer in this team, newest first, for its managers. */
+export function getDeviceAccessHistory(
+  deviceId: string,
+  teamId: string,
+  before?: string,
+): Promise<AccessHistoryPage> {
+  const query = new URLSearchParams({ teamId, limit: '20', ...(before ? { before } : {}) })
+
+  return call<AccessHistoryPage>(
+    'GET',
+    `/agent/devices/${encodeURIComponent(deviceId)}/access-audit?${query.toString()}`,
+  )
 }

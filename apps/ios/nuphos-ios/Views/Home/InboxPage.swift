@@ -116,7 +116,7 @@ private struct InboxRowBackground: View {
         UnevenRoundedRectangle(
             topLeadingRadius: first ? 14 : 0, bottomLeadingRadius: last ? 14 : 0,
             bottomTrailingRadius: last ? 14 : 0, topTrailingRadius: first ? 14 : 0, style: .continuous)
-            .fill(selected ? Theme.selected : Theme.chatSurface)
+            .fill(selected ? Theme.selected : Theme.surface)
             .overlay(alignment: .bottom) {
                 if !last { Theme.separator.frame(height: 0.5).padding(.leading, 14) }
             }
