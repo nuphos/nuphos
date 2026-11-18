@@ -63,6 +63,21 @@ test('a Bot keeps its own face', async () => {
   expect((await listChannelAgents(added!))[0]?.avatar).toBe('07-ada')
 })
 
+test("a chat's members carry the background their Bot's face sits on", async () => {
+  memory.rows('agent_conversations').push(
+    { sessionId: 'agent-1', userId: 'owner', teamId: 'team', avatar: '07-ada', avatarBackground: 'sky' },
+    { sessionId: 'agent-2', userId: 'owner', teamId: 'team', avatar: '05-rembrandt' },
+  )
+
+  const [tinted, plain] = await listChannelAgents({
+    teamId: 'team',
+    agentSessionIds: ['agent-1', 'agent-2'],
+  })
+
+  expect(tinted?.avatarBackground).toBe('sky')
+  expect(plain).not.toHaveProperty('avatarBackground')
+})
+
 test('nothing is added when the channel does not exist', async () => {
   bot()
 
