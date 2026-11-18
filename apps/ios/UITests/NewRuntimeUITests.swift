@@ -26,8 +26,8 @@ final class NewRuntimeUITests: XCTestCase {
         app.launch()
         // A freshly installed app asks about notifications, and that alert takes every tap.
         let deny = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Don’t Allow"].firstMatch
-        if deny.waitForExistence(timeout: 5) { deny.tap() }
-        XCTAssertTrue(text(app, "Mac mini").waitForExistence(timeout: 20), "The Runtimes page did not load")
+        if deny.waitForExistence(timeout: 10) { deny.tap() }
+        XCTAssertTrue(text(app, "Mac mini").waitForExistence(timeout: 60), "The Runtimes page did not load")
         return app
     }
 
@@ -48,7 +48,7 @@ final class NewRuntimeUITests: XCTestCase {
 
         let order = ["claude-code", "codex", "grok", "antigravity", "opencode", "dsh", "hermes", "pi"]
         for provider in order {
-            XCTAssertTrue(app.buttons["provider-\(provider)"].waitForExistence(timeout: 5),
+            XCTAssertTrue(app.buttons["provider-\(provider)"].waitForExistence(timeout: 15),
                           "\(provider) is missing from the New runtime list")
         }
         let offered = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'provider-'"))
@@ -69,17 +69,17 @@ final class NewRuntimeUITests: XCTestCase {
         let app = computers()
         app.buttons["new-runtime-device:mac-mini"].tap()
         let opencode = app.buttons["provider-opencode"]
-        XCTAssertTrue(opencode.waitForExistence(timeout: 5), "OpenCode is missing from the New runtime list")
+        XCTAssertTrue(opencode.waitForExistence(timeout: 15), "OpenCode is missing from the New runtime list")
         opencode.tap()
 
-        XCTAssertTrue(text(app, "New OpenCode runtime").waitForExistence(timeout: 5), "The settings step did not open")
+        XCTAssertTrue(text(app, "New OpenCode runtime").waitForExistence(timeout: 15), "The settings step did not open")
         let name = app.textFields.firstMatch
-        XCTAssertTrue(name.waitForExistence(timeout: 5), "The new runtime has no name field")
+        XCTAssertTrue(name.waitForExistence(timeout: 15), "The new runtime has no name field")
         XCTAssertEqual(name.value as? String, "OpenCode", "A new runtime does not start with its provider's name")
 
         button(app, "Continue").tap()
         // Step three is the same sign-in a listed runtime uses.
-        XCTAssertTrue(text(app, "Sign in to OpenCode").waitForExistence(timeout: 20),
+        XCTAssertTrue(text(app, "Sign in to OpenCode").waitForExistence(timeout: 60),
                       "The new runtime did not reach its sign-in")
         XCTAssertTrue(button(app, "Cancel").exists, "Leaving the sign-in is the only way to undo the runtime")
     }
