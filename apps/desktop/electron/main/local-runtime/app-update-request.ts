@@ -1,8 +1,9 @@
 // The owner updating this computer's Nuphos from another of their computers: the
 // tunnel status says which version runs here and which update the updater found,
 // and a `method: 'update'` request restarts into it the way Restart to update does.
-// It holds to the automatic install's rules (auto-update.ts): never while an agent
-// task runs here, and never again into a version whose last install came back old.
+// Unlike the automatic install (auto-update.ts) it does not wait for running Tasks: the
+// owner asked for the restart, and a turn it ends shows its computer disconnected. It
+// still never restarts again into a version whose last install came back old.
 //
 // Runtime imports stay free of Electron so this loads under plain `node --test`.
 
@@ -27,8 +28,6 @@ export function withAppUpdate(
   handle: ((request: unknown) => Promise<unknown>) | undefined,
   update: {
     ready: () => { failedBefore: boolean } | null
-    /** An agent prompt, command, terminal or Computer Use call is running here. */
-    busy: () => boolean
     install: () => void
     /** Lets the answer reach the backend before the app quits. */
     defer?: (run: () => void) => void
@@ -44,14 +43,40 @@ export function withAppUpdate(
       return Promise.reject(
         new Error('The last update did not install on this computer. Install it there.'),
       )
-    if (update.busy())
-      return Promise.reject(
-        new Error('An agent is working on this computer. Update when it finishes.'),
-      )
     const defer = update.defer ?? ((run) => setTimeout(run, 1_000))
 
     defer(update.install)
 
     return Promise.resolve({})
   }
+}
+
+export type Instances = (request: unknown) => Promise<unknown>
+type CreateTunnel<R, S, C, T> = (
+  runtime: R,
+  status: () => S,
+  onChange: C,
+  instances?: Instances,
+) => T
+
+/**
+ * The e2e suite's stand-in for an update a Nuphos Desktop downloaded (scripts/e2e/second-computer.ts):
+ * with NUPHOS_E2E_STAGED_UPDATE set, `nuphos agent` reports that version staged, and its owner's
+ * Update runs `install`, as the Desktop quits to install it. Unset, the tunnel is made as before.
+ */
+export function withE2eStagedUpdate<R, S, C, T>(
+  install: () => void,
+  create: CreateTunnel<R, S, C, T>,
+  version = process.env.NUPHOS_E2E_STAGED_UPDATE,
+): CreateTunnel<R, S, C, T> {
+  if (!version) return create
+  const app: AppUpdateStatus = { version: '0.0.0', update: { version, ready: true } }
+
+  return (runtime, status, onChange, instances) =>
+    create(
+      runtime,
+      () => ({ ...status(), app }),
+      onChange,
+      withAppUpdate(instances, { ready: () => ({ failedBefore: false }), install }),
+    )
 }

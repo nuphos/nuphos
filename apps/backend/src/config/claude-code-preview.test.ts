@@ -1,13 +1,11 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 
-import { claudeCodePreviewConfig, claudeCodeRuntimeProvisionerConfig } from './claude-code-preview'
+import { claudeCodePreviewConfig } from './claude-code-preview'
 
 const keys = [
   'CODEX_RUNTIME_DEV_URL',
   'CODEX_RUNTIME_DEV_AUTH_KEY',
   'OPENAB_RUNTIME_TOKEN_ENCRYPTION_KEY',
-  'CLAUDE_CODE_RUNTIME_NAMESPACE',
-  'CLAUDE_CODE_RUNTIME_KUBECTL',
   'CLAUDE_CODE_RUNTIME_DEV_URL',
   'CLAUDE_CODE_RUNTIME_DEV_AUTH_KEY',
   'CLAUDE_CODE_PREVIEW_TOKEN_ENCRYPTION_KEY',
@@ -86,35 +84,6 @@ describe('local-stack token encryption key', () => {
     localStack('development')
     process.env.CLAUDE_CODE_PREVIEW_TOKEN_ENCRYPTION_KEY = 'explicit-key'
     expect(claudeCodePreviewConfig().tokenEncryptionKey).toBe('explicit-key')
-  })
-})
-
-describe('claudeCodeRuntimeProvisionerConfig', () => {
-  test('defaults to the dedicated namespace', () => {
-    for (const key of keys) delete process.env[key]
-
-    expect(claudeCodeRuntimeProvisionerConfig()).toEqual({
-      namespace: 'openab-runtimes',
-      kubectl: false,
-    })
-  })
-
-  test('parses the namespace and dev kubectl mode', () => {
-    process.env.NODE_ENV = 'development'
-    process.env.CLAUDE_CODE_RUNTIME_NAMESPACE = 'openab-dev'
-    process.env.CLAUDE_CODE_RUNTIME_KUBECTL = 'true'
-
-    expect(claudeCodeRuntimeProvisionerConfig()).toEqual({
-      namespace: 'openab-dev',
-      kubectl: true,
-    })
-  })
-
-  test('never uses the kubectl client in production', () => {
-    process.env.NODE_ENV = 'production'
-    process.env.CLAUDE_CODE_RUNTIME_KUBECTL = 'true'
-
-    expect(claudeCodeRuntimeProvisionerConfig().kubectl).toBe(false)
   })
 })
 

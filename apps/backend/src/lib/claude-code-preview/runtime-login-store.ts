@@ -84,10 +84,9 @@ export function openAnswer(attemptId: string, sealed: string): string {
 }
 
 export const runtimeLogins = () => db().collection<RuntimeLoginDoc>('runtime_login_attempts')
+/** Hashes in the retired hosted-runtime namespace, so a stored sign-in keeps its key. */
 export function runtimeLoginKey(teamId: string, runtimeId: string): string {
-  return createHash('sha256')
-    .update(`${teamId}|${runtimeId}|${config.claudeCodeRuntimeProvisioner.namespace}`)
-    .digest('hex')
+  return createHash('sha256').update(`${teamId}|${runtimeId}|openab-runtimes`).digest('hex')
 }
 export function publicLogin(doc: RuntimeLoginDoc): RuntimeLoginStatus {
   const expired =
