@@ -251,7 +251,6 @@ const scenarios: Scenario[] = [
   ...threadScenarios,
   ...offlineScenarios,
   threadModeScenario,
-  // After the thread mode one: its sub-agent's events carry the same marker.
   ...botFoldScenarios,
   ...fallbackScenarios,
   ...memberStreamScenarios,
