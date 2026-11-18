@@ -13,31 +13,25 @@ import type { Page } from 'playwright-core'
 
 const BACKEND_DIR = resolve(import.meta.dirname, '../../../apps/backend')
 const SECOND = 'Details Bot'
+const RENAMED = 'Scout Bot'
+const GROUP = 'Details group'
 
 function details(page: Page) {
   return page.getByRole('complementary', { name: 'Bot details' })
 }
 
-async function theme(page: Page, mode: 'light' | 'dark') {
-  await page.evaluate((next) => {
-    document.documentElement.classList.remove('light', 'dark')
-    document.documentElement.classList.add(next)
-  }, mode)
-  await page.waitForTimeout(300)
-}
-
-/** Light and dark captures of the window as it is now. */
+/** A light capture of the window as it is now. */
 async function shoot(page: Page, name: string) {
-  // The panel slides in; let it land.
-  await page.waitForTimeout(500)
-  for (const mode of ['light', 'dark'] as const) {
-    await theme(page, mode)
-    await page.screenshot({ path: `${artifacts}/bot-details-${name}-${mode}.png` })
-  }
-  await theme(page, 'light')
+  await page.evaluate(() => {
+    document.documentElement.classList.remove('dark')
+    document.documentElement.classList.add('light')
+  })
+  // The panel slides in and out; let it land.
+  await page.waitForTimeout(600)
+  await page.screenshot({ path: `${artifacts}/bot-details-${name}.png` })
 }
 
-async function openBotChat(page: Page, name: string) {
+async function openChat(page: Page, name: string) {
   await page.getByRole('tab', { name: /^Bots/ }).click()
   await page.locator('[data-sidebar-row]').filter({ hasText: name }).first().click()
   await page.locator(`[aria-placeholder="Message ${name}"]`).waitFor()
@@ -97,25 +91,34 @@ const scenario: Scenario = {
       avatar: '07-ada',
       agentRuntime: 'claude-code',
     })
+    const mate = await joinTeam(stack, 'details-mate')
+    const group = await call(stack, '/agent/channels', { title: GROUP, group: true })
 
-    await openBotChat(page, 'E2E Bot')
+    await call(stack, `/agent/conversations/${group.sessionId}/participants`, {
+      userIds: [mate.id],
+    })
+
+    await openChat(page, 'E2E Bot')
     const titlebar = page.locator('.workspace-agent-titlebar').last()
 
     for (const name of ['Triggers', 'Task', 'Desktop'])
       if ((await titlebar.getByRole('button', { name, exact: true }).count()) > 0)
         throw new Error(`The title bar still has ${name}`)
     await expectOpen(page, false, 'A fresh profile')
+    await shoot(page, 'owner-wide-closed')
     await botDetailsToggle(page).click()
     await expectOpen(page, true, 'After a click on the name')
     const card = details(page).getByRole('region', { name: 'E2E Bot' })
 
     await card.waitFor()
-    await card.getByRole('button', { name: 'Edit Bot' }).waitFor()
     await details(page).getByText('Bot instructions').waitFor()
-    await shoot(page, 'owner-wide')
-    // Edit Bot opens the dialog the title bar's rename did.
+    await shoot(page, 'owner-wide-open')
+    // Its owner renames the Bot in Edit Bot, the dialog the title bar's rename opened.
     await card.getByRole('button', { name: 'Edit Bot' }).click()
-    await page.getByRole('dialog').getByText('Edit Bot').first().waitFor()
+    const name = page.getByRole('dialog').getByRole('textbox', { name: 'Bot name' })
+
+    if ((await name.inputValue()) !== 'E2E Bot') throw new Error('Edit Bot has no name to change')
+    await shoot(page, 'owner-edit-bot')
     await page.keyboard.press('Escape')
     await page.getByRole('dialog').waitFor({ state: 'detached' })
 
@@ -131,22 +134,32 @@ const scenario: Scenario = {
     await expectOpen(page, true, 'After ⌘I')
 
     // Another Bot's chat opens with the details still open, now of that Bot.
-    await openBotChat(page, SECOND)
+    await openChat(page, SECOND)
     await expectOpen(page, true, `In ${SECOND}'s chat`)
     await details(page).getByRole('region', { name: SECOND }).waitFor()
     // Made without a computer, it says only which agent it is.
     await details(page).getByText('Claude Code', { exact: true }).waitFor()
+    // Renaming in Edit Bot renames the Bot, its chat and the name button.
+    await details(page).getByRole('button', { name: 'Edit Bot' }).click()
+    await page.getByRole('dialog').getByRole('textbox', { name: 'Bot name' }).fill(RENAMED)
+    await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click()
+    await page.getByRole('dialog').waitFor({ state: 'detached' })
+    await details(page).getByRole('region', { name: RENAMED }).waitFor()
+    await botDetailsToggle(page).getByText(RENAMED).waitFor()
+
+    // A group chat keeps its header: no Bot details, its members on the right.
+    await openChat(page, GROUP)
+    if ((await botDetailsToggle(page).count()) > 0) throw new Error('A group chat has Bot details')
+    await shoot(page, 'group-wide')
 
     // A Bot someone else owns: no Edit Bot, and the rest as before.
-    const mate = await joinTeam(stack, 'details-mate')
-
     handOver(stack, second.sessionId, mate.id)
     await page.reload()
-    await openBotChat(page, SECOND)
-    await details(page).getByRole('region', { name: SECOND }).waitFor()
+    await openChat(page, RENAMED)
+    await details(page).getByRole('region', { name: RENAMED }).waitFor()
     if ((await details(page).getByRole('button', { name: 'Edit Bot' }).count()) > 0)
       throw new Error("A teammate's Bot offers Edit Bot")
-    await shoot(page, 'teammate-wide')
+    await shoot(page, 'teammate-wide-open')
 
     // Narrow: the chat pane under 600px.
     const cdp = await page.context().newCDPSession(page)
@@ -160,17 +173,21 @@ const scenario: Scenario = {
       })
       await page.waitForTimeout(500)
       await checkFloating(page)
-      await shoot(page, 'teammate-narrow')
+      await shoot(page, 'teammate-narrow-open')
       // Floating, it is a popover: a press outside, here on the sidebar, closes it.
-      await openBotChat(page, 'E2E Bot')
+      await openChat(page, 'E2E Bot')
       await expectOpen(page, false, 'After a press outside the floating details')
+      await shoot(page, 'owner-narrow-closed')
       await setBotDetails(page, true)
       await checkFloating(page)
-      await shoot(page, 'owner-narrow')
+      await shoot(page, 'owner-narrow-open')
+      await openChat(page, GROUP)
+      await shoot(page, 'group-narrow')
     } finally {
       await cdp.send('Emulation.clearDeviceMetricsOverride')
       await cdp.detach()
     }
+    await openChat(page, 'E2E Bot')
     await setBotDetails(page, false)
   },
 }
