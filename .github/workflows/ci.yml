@@ -612,6 +612,15 @@ jobs:
         run: pnpm exec electron-builder --mac --arm64 --x64 --dir --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
+      # Nobody watches the nightly run, so a failure is posted to the maintainers.
+      - name: Report a failed nightly run
+        if: failure() && github.event_name == 'schedule'
+        env:
+          WEBHOOK: ${{ secrets.NIGHTLY_MACOS_FAILURE_WEBHOOK }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: >-
+          curl -fsS -X POST "$WEBHOOK" -H 'content-type: application/json'
+          -d "{\"run\":\"$RUN\",\"commit\":\"$GITHUB_SHA\"}"
 
   # Type-aware ESLint is the slowest step in both apps, so it runs beside their
   # main jobs instead of after typecheck. A PR then waits for the slower of the
