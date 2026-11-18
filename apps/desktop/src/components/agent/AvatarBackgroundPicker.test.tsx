@@ -49,10 +49,7 @@ test('Background is one radio group: None first, then each tint by name', async 
   await act(() => (radios[5] as unknown as HTMLElement).click())
   assert.deepEqual(picked, ['sky'])
   await render('sky')
-  assert.equal(
-    container.querySelector('[aria-checked="true"]')?.getAttribute('aria-label'),
-    'Sky',
-  )
+  assert.equal(container.querySelector('[aria-checked="true"]')?.getAttribute('aria-label'), 'Sky')
   // Arrow keys move the pick, as in the character grid.
   await act(() => {
     container

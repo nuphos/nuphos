@@ -104,7 +104,15 @@ export async function listChannelAgents(channel: ChannelFields & { teamId?: stri
         AgentConversation,
         'sessionId' | 'userId' | 'title' | 'avatar' | 'avatarBackground' | 'agentRuntime'
       >
-    >({ _id: 0, sessionId: 1, userId: 1, title: 1, avatar: 1, avatarBackground: 1, agentRuntime: 1 })
+    >({
+      _id: 0,
+      sessionId: 1,
+      userId: 1,
+      title: 1,
+      avatar: 1,
+      avatarBackground: 1,
+      agentRuntime: 1,
+    })
     .toArray()
   const byId = new Map(sessions.map((session) => [session.sessionId, session]))
 

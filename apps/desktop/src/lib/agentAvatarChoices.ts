@@ -55,9 +55,7 @@ export async function pickAgentAvatar(
   const previous = picks.get(sessionId)
   const previousBackground = backgrounds.get(sessionId)
   const nextBackground =
-    avatar === null || background === 'none'
-      ? null
-      : (background ?? previousBackground ?? null)
+    avatar === null || background === 'none' ? null : (background ?? previousBackground ?? null)
 
   saving.set(sessionId, (saving.get(sessionId) ?? 0) + 1)
   publish(

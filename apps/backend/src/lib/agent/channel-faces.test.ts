@@ -62,7 +62,10 @@ describe('channelFacesField', () => {
   })
 
   test("a Bot's face carries the background it sits on", async () => {
-    await agentConversations().updateOne({ sessionId: 'a1' }, { $set: { avatarBackground: 'mint' } })
+    await agentConversations().updateOne(
+      { sessionId: 'a1' },
+      { $set: { avatarBackground: 'mint' } },
+    )
 
     expect((await channelFacesField(channel, 'me', people)).faces).toContainEqual({
       id: 'a1',

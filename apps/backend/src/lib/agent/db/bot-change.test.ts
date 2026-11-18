@@ -73,7 +73,10 @@ test('changing a face and taking it away are both recorded', async () => {
       $push: recorded({ actorId: 'alice', via: 'avatar_route', avatar: '05-rembrandt' }),
     },
     // No avatar on the record: the Bot is a Task again.
-    { $unset: { avatar: '', avatarBackground: '' }, $push: recorded({ actorId: 'alice', via: 'avatar_route' }) },
+    {
+      $unset: { avatar: '', avatarBackground: '' },
+      $push: recorded({ actorId: 'alice', via: 'avatar_route' }),
+    },
   ])
 })
 
