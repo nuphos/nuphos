@@ -13,13 +13,25 @@ const models = first ? [...shared, 'fixture-large'] : shared
 // While its scenario asks (E2E_STAND_IN), the first agent also offers Claude Code's
 // "Default", which names the model it stands for and is a new session's model.
 const standIn = { value: 'default', name: 'Default (recommended)', description: 'fixture' }
-// While its scenario asks (a `behind` file beside the log, naming a model), a session opened
-// with Nuphos's tools also offers that model and runs on it, while a model probe, which opens
-// one without them, never lists it: the session runs a model its computer's list lacks.
+// While a `behind` file beside the log names a model, a session with Nuphos's tools offers it
+// and stays on it whatever it was asked to start on; a model probe, opened without them, never
+// lists it: the session runs a model its computer's list lacks.
 const behind = join(dirname(process.env.E2E_ACP_LOG ?? ''), 'behind')
+const unlistedFor = (sessionId) =>
+  toolsServer(sessionId) && existsSync(behind) && readFileSync(behind, 'utf8')
+const meta = 'ai.nuphos/runtimeDefaults'
+
+/** A new session's params, with no model to start on when it stays on the unlisted one. */
+export function heldDefaults(sessionId, params) {
+  if (!unlistedFor(sessionId)) return params
+  const { model: _model, ...defaults } = params._meta?.[meta] ?? {}
+
+  return { ...params, _meta: { ...params._meta, [meta]: defaults } }
+}
+
 const newSettings = (sessionId) => {
   const claudeLike = first && existsSync(process.env.E2E_STAND_IN ?? '')
-  const unlisted = toolsServer(sessionId) && existsSync(behind) && readFileSync(behind, 'utf8')
+  const unlisted = unlistedFor(sessionId)
   const listed = unlisted ? [...models, unlisted] : models
 
   return [

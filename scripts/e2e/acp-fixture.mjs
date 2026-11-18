@@ -11,7 +11,7 @@ import { answerChannel } from './fixture-channel.mjs'
 import { listCommands } from './fixture-commands.mjs'
 import { hop, inherit } from './fixture-hop.mjs'
 import { call, callNamed, reporting, setToolsServer, subtask, toolsServer } from './fixture-mcp.mjs'
-import { applySetting } from './fixture-settings.mjs'
+import { applySetting, heldDefaults } from './fixture-settings.mjs'
 import { refuse } from './fixture-turn-refusals.mjs'
 import { CLAUDE_TURN_QUOTA, CLAUDE_TURN_USAGE } from './fixture-usage.mjs'
 
@@ -248,7 +248,7 @@ async function answer(request) {
 
       log({ sessionId, event: 'session', defaults })
 
-      return nuphosApplyRuntimeDefaults(agent, request.params, {
+      return nuphosApplyRuntimeDefaults(agent, heldDefaults(sessionId, request.params), {
         sessionId,
         configOptions: applySetting(sessionId),
       })
