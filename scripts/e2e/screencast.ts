@@ -31,6 +31,8 @@ export async function recordScreencast<T>(page: Page, dir: string, run: () => Pr
     return await run()
   } finally {
     await cdp.send('Page.stopScreencast')
+    // Each frame's epoch seconds, to find a moment the run logged.
+    writeFileSync(`${artifacts}/${dir}.json`, JSON.stringify(times))
     writeFileSync(
       `${artifacts}/${dir}.txt`,
       times
