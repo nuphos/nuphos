@@ -170,7 +170,7 @@ export function ReplyingBanner({
   onCancel: () => void
 }) {
   return (
-    <div className="mx-[2.375rem] flex items-center gap-2 rounded-xl bg-state-hover py-1 pl-3 pr-1 text-xs leading-4">
+    <div className="flex items-center gap-2 rounded-xl bg-state-hover py-1 pl-3 pr-1 text-xs leading-4">
       <CornerUpLeft className="h-3.5 w-3.5 shrink-0 text-tertiary" strokeWidth={2.2} />
       <div className="min-w-0 flex-1 truncate text-tertiary">
         <span className="font-medium text-secondary">
