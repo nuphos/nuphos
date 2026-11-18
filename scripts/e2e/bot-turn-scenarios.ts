@@ -2,7 +2,6 @@
 // scenarios: they leave the Bot on the second agent, which those need unused until then.
 import { agentLog } from './agent-log.ts'
 import { artifacts, until } from './processes.ts'
-import { openBotTask, setBotDetails } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 
@@ -16,7 +15,7 @@ export const botTurnScenarios: Scenario[] = [
       await page.getByRole('tab', { name: 'Bots' }).click()
       await page.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first().click()
       await page.getByText('Message E2E Bot', { exact: true }).waitFor()
-      await openBotTask(page)
+      await page.getByRole('button', { name: 'Task', exact: true }).click()
       const task = page.locator('.t-bot-task-mode')
 
       await task.getByRole('textbox').last().click()
@@ -44,9 +43,8 @@ export const botTurnScenarios: Scenario[] = [
         ),
       )
       await task.getByRole('button', { name: 'Back to conversation' }).click()
-      // The scenarios after this one find a single composer on the page, and the chat at full width.
+      // The scenarios after this one find a single composer on the page.
       await task.waitFor({ state: 'detached' })
-      await setBotDetails(page, false)
     },
   },
 ]
