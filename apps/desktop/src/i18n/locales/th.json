@@ -5785,6 +5785,7 @@
   "{name} is now available in {team}.": "{name} พร้อมใช้งานใน {team} แล้ว",
   "{name} is now signed in.": "{name} ลงชื่อเข้าใช้แล้ว",
   "{name} is online and listed under Computers.": "{name} ออนไลน์แล้วและแสดงอยู่ในคอมพิวเตอร์",
+  "{name} is ready.": "{name} พร้อมใช้งานแล้ว",
   "{name} is signed out.": "{name} ออกจากระบบแล้ว",
   "{name} is signed out. Ask a workspace administrator to reconnect this runtime.": "{name} ออกจากระบบแล้ว ขอให้ผู้ดูแลเวิร์กสเปซเชื่อมต่อรันไทม์นี้ใหม่",
   "{name} is signed out. Ask its owner to sign it in.": "{name} ออกจากระบบแล้ว ขอให้เจ้าของลงชื่อเข้าใช้",

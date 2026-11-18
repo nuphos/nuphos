@@ -5785,6 +5785,7 @@
   "{name} is now available in {team}.": "{name} 現已可在 {team} 中使用。",
   "{name} is now signed in.": "{name} 已登入。",
   "{name} is online and listed under Computers.": "{name} 已上線，並列在「電腦」中。",
+  "{name} is ready.": "{name} 已就緒。",
   "{name} is signed out.": "{name} 已登出。",
   "{name} is signed out. Ask a workspace administrator to reconnect this runtime.": "{name} 已登出。請聯絡工作區管理員重新連接此執行環境。",
   "{name} is signed out. Ask its owner to sign it in.": "{name} 已登出。請其擁有者登入。",

@@ -5785,6 +5785,7 @@
   "{name} is now available in {team}.": "{name} が {team} で利用可能になりました。",
   "{name} is now signed in.": "{name} にサインインしました。",
   "{name} is online and listed under Computers.": "{name} がオンラインになり、コンピューターに表示されています。",
+  "{name} is ready.": "{name} の準備ができました。",
   "{name} is signed out.": "{name} はサインアウトしています。",
   "{name} is signed out. Ask a workspace administrator to reconnect this runtime.": "{name} はサインアウトしています。ワークスペースの管理者にこのランタイムの再接続を依頼してください。",
   "{name} is signed out. Ask its owner to sign it in.": "{name} はサインアウトしています。所有者にサインインを依頼してください。",
