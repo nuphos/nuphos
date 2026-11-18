@@ -39,6 +39,8 @@ for (const [key, value] of Object.entries({
   Node: dom.Node,
   // The strings module picks a language from it as it loads.
   navigator: dom.navigator,
+  // The bar sizes its waveform to its width.
+  ResizeObserver: dom.ResizeObserver,
   IS_REACT_ACT_ENVIRONMENT: true,
 }))
   Object.defineProperty(globalThis, key, { configurable: true, value })
