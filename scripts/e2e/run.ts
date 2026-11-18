@@ -19,6 +19,7 @@ import { dashboardScenarios } from './dashboard-scenarios.ts'
 import { installScenarios } from './install-scenarios.ts'
 import { linkChipScenarios } from './link-chip-scenarios.ts'
 import { longTranscriptScenarios } from './long-transcript-scenarios.ts'
+import { mcpScenarios } from './mcp-scenarios.ts'
 import { startDesktop } from './desktop.ts'
 import { fallbackScenarios } from './fallback-scenarios.ts'
 import { formScenario } from './form-scenario.ts'
@@ -33,6 +34,7 @@ import { signInScenarios } from './sign-in-scenarios.ts'
 import { splitPaneScenarios } from './split-pane-scenarios.ts'
 import { startStack } from './stack.ts'
 import { teammateBotScenarios } from './teammate-bot-scenarios.ts'
+import { terminalScenarios } from './terminal-scenarios.ts'
 import { threadModeScenario, threadScenarios } from './thread-scenarios.ts'
 import { triggerScenarios } from './trigger-scenarios.ts'
 import { tunnelScenarios } from './tunnel-scenarios.ts'
@@ -120,6 +122,7 @@ const scenarios: Scenario[] = [
   ...commandScenarios,
   ...threadScenarios,
   ...offlineScenarios,
+  ...mcpScenarios,
   threadModeScenario,
   ...botFoldScenarios,
   ...fallbackScenarios,
@@ -130,6 +133,7 @@ const scenarios: Scenario[] = [
   ...splitPaneScenarios,
   // A second computer of its own, which it stops again.
   ...tunnelScenarios,
+  ...terminalScenarios,
   // Last: this computer has Claude Code from then on.
   ...installScenarios,
 ]

@@ -20,17 +20,6 @@ function digestOf(tag: string): string {
   return `sha256:${createHash('sha256').update(tag).digest('hex')}`
 }
 
-/** The image a retired managed runtime ran, for a version the registry serves. */
-export function publishedRuntimeImage(
-  version: string,
-  provider: OpenAbProvider,
-  legacy = false,
-): string {
-  const tag = `${version}-${provider}`
-
-  return `${legacy ? LEGACY_RUNTIME_REPOSITORY : NUPHOS_RUNTIME_REPOSITORY}:${tag}@${digestOf(tag)}`
-}
-
 /**
  * What the stubbed feed serves. `version` is the latest release, omitted for an outage;
  * `published` names the versions the registry serves manifests for, defaulting to
