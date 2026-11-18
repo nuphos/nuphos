@@ -73,6 +73,8 @@ export function createDeviceAccessAuditRoutes(
           via: entry.via,
           previous: entry.previous,
           next: entry.next,
+          // Set when a removed member's cloud computer passes to the team owner.
+          owner: entry.owner ?? null,
           changedAt: entry.changedAt.toISOString(),
         })),
         nextCursor: page.nextCursor,

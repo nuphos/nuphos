@@ -157,11 +157,18 @@ data class InputRequest(
     val credentials: List<CredentialRef>? = null,
     /** A secret only the user can type, in its masked card in the conversation that asked. */
     val secretName: String? = null,
+    /** A web form's details asked together in that card, and the site they are entered on. */
+    val fields: List<FormField>? = null,
+    val site: String? = null,
     /** Any number of [options] may be picked. */
     val multiSelect: Boolean? = null,
     /** Related questions answered together; [question] is their headline. */
     val questions: List<DecisionQuestion>? = null,
 )
+
+/** One input of a card that asks for a web form's details: its file name and what the person reads. */
+@Serializable
+data class FormField(val name: String, val label: String)
 
 /** One of the questions a several-question card answers together. */
 @Serializable

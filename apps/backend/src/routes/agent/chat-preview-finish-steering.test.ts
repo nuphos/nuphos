@@ -20,14 +20,22 @@ useAgentDb({
   appendTranscriptMessages: (args) => {
     persisted.push({ messages: args.messages })
 
-    return Promise.resolve({ isNew: false, count: args.messages.length })
+    return Promise.resolve({
+      isNew: false,
+      count: args.messages.length,
+      lastIndex: args.messages.length - 1,
+    })
   },
-  getConversationMessagesHead: async () =>
-    persisted.at(-1)!.messages.map((message) => ({
-      ...message,
-      messageId: message.id,
-      createdAt: message.id === 'old-answer' ? new Date('2026-10-08T04:00:00.000Z') : storedAt,
-    })),
+  // The finished turn reads back only its recent window.
+  getConversationMessages: async (_session, _user, options) =>
+    persisted
+      .at(-1)!
+      .messages.slice(-(options?.tail ?? Infinity))
+      .map((message) => ({
+        ...message,
+        messageId: message.id,
+        createdAt: message.id === 'old-answer' ? new Date('2026-10-08T04:00:00.000Z') : storedAt,
+      })),
 })
 useAgentPlans({
   listPlansCreatedForConversation: async () => createdPlans,
@@ -45,7 +53,7 @@ describe('finishPreviewTurn with steering segments', () => {
     ]
 
     await finishPreviewTurn({
-      run: { trace: undefined } as unknown as AgentRun,
+      run: { trace: undefined, streamId: 'stream' } as unknown as AgentRun,
       sessionId: 's1',
       teamId: 't1',
       userId: 'u1',
@@ -92,7 +100,7 @@ describe('finishPreviewTurn with steering segments', () => {
     ]
 
     await finishPreviewTurn({
-      run: { trace: undefined } as unknown as AgentRun,
+      run: { trace: undefined, streamId: 'stream' } as unknown as AgentRun,
       sessionId: 's2',
       teamId: 't1',
       userId: 'u1',
@@ -223,7 +231,7 @@ for (const interrupted of [false, true]) {
 test('a completed turn without text or tools preserves its assistant completion boundary', async () => {
   createdPlans = []
   await finishPreviewTurn({
-    run: { trace: undefined } as unknown as AgentRun,
+    run: { trace: undefined, streamId: 'stream' } as unknown as AgentRun,
     sessionId: 'empty',
     teamId: 'team',
     userId: 'owner',
@@ -244,7 +252,8 @@ test('a completed turn without text or tools preserves its assistant completion 
   })
   expect(persisted.at(-1)!.messages).toEqual([
     { id: 'question', role: 'user', parts: [{ type: 'text', text: 'start' }] },
-    { id: expect.any(String), role: 'assistant', parts: [] },
+    // The reply is stored under its run's stream id, the id a client's live reply has.
+    { id: 'stream', role: 'assistant', parts: [] },
   ])
 })
 
@@ -256,7 +265,7 @@ describe('successful empty completion', () => {
       const frames: Record<string, unknown>[] = []
 
       await finishPreviewTurn({
-        run: { trace: undefined } as unknown as AgentRun,
+        run: { trace: undefined, streamId: 'stream' } as unknown as AgentRun,
         sessionId: 'silent',
         teamId: 't1',
         userId: 'u1',

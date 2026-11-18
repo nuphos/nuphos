@@ -55,6 +55,12 @@ export const teammateBotScenarios: Scenario[] = [
       // The face, not only the runtime mark.
       await post.locator('img[src*="bot-avatars/07-ada"]').first().waitFor({ timeout: 10_000 })
       await page.screenshot({ path: `${artifacts}/teammate-bot-post.png` })
+      // #3298: a teammate's Bot's permission mode and model are its owner's to change.
+      const offered = await page
+        .getByRole('button', { name: /^(Authorization mode|Model settings)/ })
+        .count()
+
+      if (offered > 0) throw new Error(`A teammate's Bot offers ${String(offered)} of its settings`)
     },
   },
 ]

@@ -66,7 +66,7 @@ test('a phase change starts a new part and a following legacy chunk resets metad
   expect(values.map((part) => part.text)).toEqual(['Checking', 'Answer', 'Legacy continuation'])
 })
 
-test('a turn_usage update reaches the prompt sink as one agent update, with its quota', () => {
+test('a turn_usage update reaches the prompt sink as one agent update, with its quota and stop reason', () => {
   const updates: unknown[] = []
   const usage = { inputTokens: 1000, outputTokens: 200 }
   const quota = { model_usage: [{ model: 'claude-opus-5-5', token_count: { totalTokens: 1200 } }] }
@@ -81,10 +81,13 @@ test('a turn_usage update reaches the prompt sink as one agent update, with its 
       },
     ],
     notify: () => {},
-    params: { sessionId: 'session', update: { sessionUpdate: 'turn_usage', usage, quota } },
+    params: {
+      sessionId: 'session',
+      update: { sessionUpdate: 'turn_usage', usage, quota, stopReason: 'end_turn' },
+    },
   })
 
-  expect(updates).toEqual([{ kind: 'turn-usage', usage, quota }])
+  expect(updates).toEqual([{ kind: 'turn-usage', usage, quota, stopReason: 'end_turn' }])
 })
 
 test('a turn_usage update with no usage object is ignored', () => {

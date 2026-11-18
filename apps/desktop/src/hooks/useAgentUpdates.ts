@@ -83,7 +83,7 @@ async function updateLocal(provider: CliLoginProvider, before?: string) {
         version
           ? t('{name} updated to v{version}', { name, version })
           : t('{name} updated', { name }),
-        t('New agents use it; running ones finish on the version they started with.'),
+        t('New tasks use it; running ones finish on the version they started with.'),
       )
     }
   } catch (err) {
@@ -110,7 +110,10 @@ async function updateTeamAgent(teamId: string, runtimeId: string) {
       ttl: PENDING_TTL_MS,
       status: Promise.resolve({ state: 'waiting', targetVersion: version }),
     })
-    toast.success(t('Update queued'), t('It starts once agents on this runtime finish replying.'))
+    toast.success(
+      t('Update queued'),
+      t('It starts once Bots and tasks on this runtime finish replying.'),
+    )
   } catch (err) {
     setResult(runtimeId, { state: 'failed', reason: t('The runtime did not accept the update.') })
     toast.apiError(t('Could not update this runtime'), err)

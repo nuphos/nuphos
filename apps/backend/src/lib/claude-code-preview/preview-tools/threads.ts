@@ -170,7 +170,9 @@ export function threadToolModule(
         description:
           "List the team's agents (runtimes) and your Boxes' agents that your threads can run on, with each one's readiness, " +
           'usage quota and the models it offers. Use it to pick a runtimeId or model for create_thread ' +
-          "or update_thread, for example when a thread has hit its agent's usage limit.",
+          "or update_thread, for example when a thread has hit its agent's usage limit. " +
+          'Agents listed in sharesQuotaWith are signed in to the same account and run out ' +
+          'together: moving to one of them does not get past a limit.',
         inputSchema: toolInputJsonSchema(list),
       },
       {

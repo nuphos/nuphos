@@ -8,6 +8,7 @@ import {
   parseConnectRequest,
 } from '../../components/agent/panel/connectCardModel'
 import { CredentialSelectorButton } from '../../components/agent/panel/CredentialSelectorButton'
+import { DecisionTitle } from '../../components/agent/panel/DecisionTitle'
 import { botChatQuestion } from '../../components/channels/botChatQuestion'
 import { BotChatQuestion } from '../../components/channels/BotChatQuestions'
 import { useBotCredentials } from '../../components/channels/useBotCredentials'
@@ -15,6 +16,7 @@ import { Button } from '../../components/ui/button'
 import { t } from '../../i18n'
 
 import { AnswerFailure } from './AnswerFailure'
+import { KeyHint } from './KeyHint'
 import { QuestionSource } from './QuestionRail'
 import { SnoozeMenu } from './SnoozeMenu'
 import { useAnswerFailure } from './useInbox'
@@ -39,27 +41,31 @@ const OPTION = 'h-auto min-h-8 whitespace-normal py-1.5 text-left'
 export function DecisionCard({
   teamId,
   conversation,
+  bot,
   request,
   keys,
   onAnswer,
   onSnooze,
   onDismiss,
-  onOpenConversation,
+  onOpenSource,
   onOpenLink,
 }: {
   teamId: string
   conversation: AgentConversation
+  /** The Bot it works under, when a Bot's task asked: the Inbox lists it there. */
+  bot: AgentConversation | undefined
   request: AgentInputRequest
   /** Its keys are live: 1–9 choose, Esc closes "Other…". */
   keys: boolean
   onAnswer: (answer: DecisionAnswer) => void
   onSnooze: (until: Date) => void
   onDismiss: (reason: string) => void
-  onOpenConversation: () => void
+  onOpenSource: (source: AgentConversation) => void
   /** Opens a link in the question's text, as the conversation does. */
   onOpenLink: (href: string, beside: boolean) => boolean
 }) {
   const { sessionId } = conversation
+  const source = bot ?? conversation
   const canManage = Boolean(conversation.canManage) && !conversation.readOnly
   const connect = parseConnectRequest(request) !== null
   const credentials = useBotCredentials(teamId, connect && canManage ? sessionId : undefined)
@@ -99,15 +105,15 @@ export function DecisionCard({
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
       <article className="mx-auto flex w-full max-w-[640px] flex-col px-6 pb-10 pt-12">
         <QuestionSource
-          conversation={conversation}
+          conversation={source}
           askedAt={request.askedAt}
-          onOpen={onOpenConversation}
+          onOpen={() => onOpenSource(source)}
         />
         {plain ? (
           <>
-            <h1 className="selectable mt-3 text-[20px] font-semibold leading-7 text-main">
+            <DecisionTitle as="h1" className="mt-3 text-[20px] font-semibold leading-7 text-main">
               {request.question}
-            </h1>
+            </DecisionTitle>
             {choice.body && (
               <MessageResponse
                 className="selectable mt-3 text-[13.5px] text-secondary"
@@ -165,7 +171,7 @@ export function DecisionCard({
               onText={setReason}
               onSend={onDismiss}
               onClose={() => setDismissing(false)}
-              label={t('Reason for the agent (optional)')}
+              label={t('Reason (optional)')}
               action={t('Dismiss')}
               optional
             />
@@ -279,22 +285,5 @@ function ChoiceRow({
       )}
       {failure && <AnswerFailure message={failure} />}
     </div>
-  )
-}
-
-/** A key, or keys, and what pressing it does. */
-function KeyHint({ keys, label }: { keys: string[]; label: ReactNode }) {
-  return (
-    <span className="flex items-center gap-1">
-      {keys.map((key) => (
-        <kbd
-          key={key}
-          className="min-w-4 rounded bg-surface-sunken px-1 text-center font-sans text-[10.5px] leading-4 text-secondary"
-        >
-          {key}
-        </kbd>
-      ))}
-      <span className="ml-0.5">{label}</span>
-    </span>
   )
 }

@@ -63,13 +63,14 @@ class SecretQuestionFixtureDeviceTest {
         val client = OkHttpClient.Builder().addInterceptor { chain ->
             val req = chain.request()
             val buffer = okio.Buffer(); req.body?.writeTo(buffer)
-            requests += req to buffer.readUtf8()
+            val body = buffer.readUtf8()
+            requests += req to body
             var media = Http.jsonMedia
             val path = req.url.encodedPath
             val text = when {
                 path == "/agent/conversations/agent-ops" -> Http.json.encodeToString(AgentConversationDetail.serializer(),
                     AgentConversationDetail(title = "Release ops", readOnly = false, isOwner = true))
-                path.endsWith("/secrets") -> """{"path":"/home/agent/.secrets/API_KEY"}"""
+                path.endsWith("/secrets") -> """{"path":"/home/agent/.secrets/${JsonValue.parse(body)?.get("name")?.stringValue}"}"""
                 path == "/agent/chat" -> {
                     media = "text/event-stream".toMediaType()
                     listOf("{\"type\":\"start\",\"messageId\":\"reply\"}", "{\"type\":\"atlas-turn-complete\"}", "{\"type\":\"atlas-stream-done\"}")
@@ -126,6 +127,41 @@ class SecretQuestionFixtureDeviceTest {
         assert(requests.any { it.first.url.encodedPath.endsWith("/decisions/q-key/resolve") })
         // The conversation hears its path.
         assert(requests.single { it.first.url.encodedPath == "/agent/chat" }.second.contains("API_KEY saved to /home/agent/.secrets/API_KEY"))
+    }
+
+    @Test fun aFormsDetailsAreTypedIntoTheInboxCardOneFilePerField() {
+        val form = BotQuestion("agent-ops", "Release ops", Http.json.decodeFromString<InputRequest>(
+            """{"id":"q-form","category":"credential","question":"The lookup form needs these details.",
+               "secretName":"CLINIC_LOOKUP","site":"www.clinic.example",
+               "fields":[{"name":"NATIONAL_ID","label":"ID number"},{"name":"BIRTH_DATE","label":"Date of birth"}]}"""))
+        compose.setContent {
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val store = androidx.compose.runtime.remember { AgentStore(token, context) }
+            NuphosTheme { Surface(Modifier.fillMaxSize()) {
+                CompositionLocalProvider(LocalAgentStore provides store) {
+                    Column(Modifier.fillMaxSize().padding(16.dp)) {
+                        BotQuestionCard(form, onOpen = {}, onConnect = {}, onAnswer = {}, answersInPlace = true)
+                    }
+                }
+            } }
+        }
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("secret-value:q-form:NATIONAL_ID").fetchSemanticsNodes().isNotEmpty()
+        }
+        capture("form-card")
+        compose.onNodeWithText("Details needed for www.clinic.example").assertIsDisplayed()
+        compose.onNodeWithTag("secret-value:q-form:NATIONAL_ID").performTextInput("E2E-ID-48213")
+        compose.onNodeWithTag("secret-value:q-form:BIRTH_DATE").performTextInput("1990-04-12")
+        compose.onNodeWithText("Send securely").performClick()
+        compose.waitUntil(10_000) { requests.any { it.first.url.encodedPath == "/agent/chat" } }
+        capture("form-card-saved")
+
+        // Each value is written to its own file, and only the paths reach the conversation.
+        val saved = requests.filter { it.first.url.encodedPath.endsWith("/secrets") }
+        assertEquals(listOf("E2E-ID-48213", "1990-04-12"), saved.map { JsonValue.parse(it.second)?.get("value")?.stringValue })
+        val reply = requests.single { it.first.url.encodedPath == "/agent/chat" }.second
+        assert(reply.contains("NATIONAL_ID: /home/agent/.secrets/NATIONAL_ID") && reply.contains("BIRTH_DATE: /home/agent/.secrets/BIRTH_DATE"))
+        assert(!reply.contains("E2E-ID-48213") && !reply.contains("1990-04-12"))
     }
 
     /** Saved under the app's files, `review-3059/`, for the PR's screenshots. */

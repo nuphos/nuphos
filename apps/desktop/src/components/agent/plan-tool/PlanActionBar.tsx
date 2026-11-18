@@ -84,7 +84,7 @@ export function PlanActionBar({
                       ref={changeRequestRef}
                       value={changeRequest}
                       onChange={(e) => setChangeRequest(e.target.value)}
-                      placeholder={t('Tell the agent what to change…')}
+                      placeholder={t('Say what to change…')}
                       rows={2}
                       onCompositionStart={() => {
                         imeComposingRef.current = true
@@ -239,7 +239,7 @@ export function PlanActionBar({
         ) : decision === 'changes-requested' ? (
           <span className="inline-flex items-center gap-1.5 text-[12.5px] text-tertiary">
             <MessageSquare className="h-3.5 w-3.5" strokeWidth={2} />
-            {t('Changes requested — agent revising.')}
+            {t('Changes requested — revising.')}
           </span>
         ) : decision === 'rejected' ? (
           <span className="inline-flex items-center gap-1.5 text-[12.5px] text-tertiary">

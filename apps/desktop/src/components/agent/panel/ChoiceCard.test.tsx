@@ -85,6 +85,9 @@ test('the card leads with its question, answers with its buttons, and is snoozed
     await render(ctx)
     // Who asked, then the question as the heading: no category label over it.
     assert.equal(container.querySelector('h3')?.textContent, 'Merge the release branch?')
+    // The question is one line, cut with an ellipsis, never wrapped across several.
+    assert.match(container.querySelector('h3')?.className ?? '', /\btruncate\b/)
+    assert.doesNotMatch(container.querySelector('h3')?.className ?? '', /whitespace-pre-wrap/)
     assert.match(container.textContent ?? '', /^Release notes · 5:52 PMMerge the release branch\?/)
     assert.doesNotMatch(container.textContent ?? '', /Approval needed|Agent:/)
     // The first option is the one filled button; Snooze and Dismiss follow in the same row.
@@ -149,10 +152,7 @@ test('the card leads with its question, answers with its buttons, and is snoozed
     await click('Dismiss')
     assert.deepEqual(dismissed, ['q1', 'q1'])
     // Withdrawn: it says so, and nothing on it answers or dismisses any more.
-    assert.match(
-      container.textContent ?? '',
-      /Dismissed\. The agent carries on without an answer\./,
-    )
+    assert.match(container.textContent ?? '', /Dismissed\. It carries on without an answer\./)
     assert.equal(button('Dismiss'), undefined)
     assert.equal(button('Other…'), undefined)
     assert.equal(button('Merge')?.disabled, true)

@@ -135,7 +135,13 @@ export function SidebarSectionList({
                           const bot = twoLine || Boolean(item.botNested)
                           const favoriteToggle = canFavorite(item) ? (
                             <FavoriteToggle
-                              pin={Boolean(item.bot || item.botChannelOf)}
+                              pin={
+                                item.bot || item.botChannelOf
+                                  ? 'bot'
+                                  : item.channel
+                                    ? 'chat'
+                                    : undefined
+                              }
                               favorited={favorited}
                               label={item.label}
                               onToggle={() => toggleFavorite(item)}

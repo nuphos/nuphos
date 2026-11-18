@@ -1,10 +1,10 @@
 import { BrowserWindow, Notification } from 'electron'
 
 import { authSession } from '../auth-session.ts'
-import { openAsAccount } from '../main/account-for-link'
+import { openAsAccount } from '../main/account-for-link.ts'
 import { accountOf } from '../main/account-leave-core.ts'
-import { openAppPath } from '../main/deep-links'
-import { raiseWindow } from '../window-raise'
+import { openAppPath } from '../main/deep-links.ts'
+import { raiseWindow } from '../window-raise.ts'
 
 import type { WebContents } from 'electron'
 
@@ -123,4 +123,65 @@ export function notifyShareApproval(args: {
     openInbox()
   })
   n.show()
+}
+
+// Every window's sidebar watches the same computers and finds a grant within a minute of each
+// other, so one is announced once here. Only for a while: lost and given back later is news again.
+const announcedShares = new Map<string, number>()
+const SHARE_DEDUPE_MS = 5 * 60_000
+const MAX_ANNOUNCED_SHARES = 500
+// The renderer writes these; a longer one is not a notice this app wrote.
+const MAX_SHARE_KEY = 256
+const MAX_SHARE_TITLE = 200
+const MAX_SHARE_BODY = 400
+
+const clip = (text: string, max: number) =>
+  text.length > max ? `${text.slice(0, max - 1)}…` : text
+
+/**
+ * A teammate let this person use (or manage) one of their computers. When the window that found
+ * it is focused, it says it in a toast instead; otherwise a notification opens Computers & runtimes.
+ */
+export function notifyComputerShared(args: {
+  key: string
+  title: string
+  body: string
+  teamId: string
+  parentWindow?: BrowserWindow | null
+}): 'notification' | 'in-app' | 'duplicate' {
+  const { key, teamId, parentWindow } = args
+  const title = clip(args.title, MAX_SHARE_TITLE)
+  const body = clip(args.body, MAX_SHARE_BODY)
+  // Raised for the account in use now; clicked maybe after a switch.
+  const owner = accountOf(authSession.context())
+  const now = Date.now()
+
+  if (key.length > MAX_SHARE_KEY) throw new RangeError('Notice key too long')
+  for (const [seen, at] of announcedShares)
+    if (now - at > SHARE_DEDUPE_MS) announcedShares.delete(seen)
+  if (announcedShares.has(key)) return 'duplicate'
+  announcedShares.set(key, now)
+  for (const oldest of announcedShares.keys()) {
+    if (announcedShares.size <= MAX_ANNOUNCED_SHARES) break
+    announcedShares.delete(oldest)
+  }
+  if (!Notification.isSupported()) return 'in-app'
+  // Only the asking window shows its toast: another focused window would never see it.
+  if (parentWindow?.isFocused()) return 'in-app'
+  const n = new Notification({ title, body })
+  const release = retainNotification(n)
+
+  n.on('close', release)
+  n.on('click', () => {
+    release()
+    // The link opens Computers in the notice's team, whichever one is on screen by now.
+    const open = () => openAppPath(`/teams/${encodeURIComponent(teamId)}/agents`)
+
+    // Since raised, the app moved to another account: back to this one first.
+    if (owner && accountOf(authSession.context()) !== owner) void openAsAccount(owner, open)
+    else void open()
+  })
+  n.show()
+
+  return 'notification'
 }

@@ -10,6 +10,7 @@ import { ChannelMentions } from './inbox/ChannelMentions'
 import { DecisionCard } from './inbox/DecisionCard'
 import { openQuestion } from './inbox/inboxItems'
 import { selectInboxQuestion, useInboxSelection } from './inbox/inboxSelection'
+import { openListed } from './inbox/openListed'
 import { useChannelMentions } from './inbox/useChannelMentions'
 import { snoozeQuestion } from './inbox/dismissQuestion'
 import { ANSWER_UNDO_MS, holdAnswer, sendHeldAnswer } from './inbox/useInbox'
@@ -34,7 +35,7 @@ type Props = {
  * above one open question at a time, the one the sidebar's Inbox list opens.
  * Answering it opens the next, and wakes the agent that asked once its Undo
  * window passes, or at once when the viewer leaves; a dismissal waits out the same window.
- * Snooze sets it aside until a time. ↑ ↓ move between them. Its Bot or Task opens from the question's source line.
+ * Snooze sets it aside until a time. ↑ ↓ move between them. Who asked opens from the question's source line, where the sidebar lists it.
  */
 export function InboxView({
   teamId,
@@ -143,7 +144,12 @@ export function InboxView({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <ChannelMentions mentions={mentions} onOpen={onOpenConversation} />
+      <ChannelMentions
+        mentions={mentions}
+        onOpen={(sessionId) =>
+          openListed(teamId, { sessionId, kind: 'channel' }, onOpenConversation)
+        }
+      />
       {caughtUp && (
         <EmptyState
           icon={Inbox}
@@ -158,6 +164,7 @@ export function InboxView({
           key={open.request.id}
           teamId={teamId}
           conversation={open.conversation}
+          bot={open.bot}
           request={open.request}
           keys={isActive}
           onAnswer={(reply) => answer(open, reply)}
@@ -167,7 +174,7 @@ export function InboxView({
             void snoozeQuestion(teamId, open.conversation.sessionId, open.request.id, until)
           }}
           onDismiss={(reason) => answer(open, { dismissed: true, reason: reason || undefined })}
-          onOpenConversation={() => onOpenConversation(open.conversation.sessionId)}
+          onOpenSource={(source) => openListed(teamId, source, onOpenConversation)}
           onOpenLink={onOpenLink}
         />
       )}
