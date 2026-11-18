@@ -145,7 +145,8 @@ async function scenario(page: Page, stack: Stack) {
     stack,
     'Switch task long',
     'Long E2E_LONG E2E_HOLD E2E_DELIVERY:switch-long',
-    'LONG_END',
+    // Started is enough: the whole reply is on the server at once, however long it takes to show.
+    'LONG_START',
   )
 
   await restart(page)
