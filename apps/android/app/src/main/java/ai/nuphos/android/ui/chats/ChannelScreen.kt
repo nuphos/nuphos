@@ -88,6 +88,7 @@ import ai.nuphos.android.ui.LocalAgentStore
 import ai.nuphos.android.ui.LocalAuthSession
 import ai.nuphos.android.ui.components.AgentAvatar
 import ai.nuphos.android.ui.components.MarkdownText
+import ai.nuphos.android.ui.components.containsMarkdownTable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -378,8 +379,11 @@ private fun PostRow(session: ChannelSession, post: ChannelPost, first: Boolean, 
                     modifier = Modifier.padding(bottom = 4.dp).clip(RoundedCornerShape(8.dp))
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(horizontal = 8.dp, vertical = 4.dp))
             }
-            // A bubble is as wide as its words, up to the column's width.
-            if (post.text.isNotEmpty()) Surface(modifier = Modifier.width(IntrinsicSize.Max), shape = RoundedCornerShape(18.dp),
+            // A bubble is as wide as its words, up to the column's width. A table takes the column's width:
+            // its renderer can't answer the intrinsic measurement that sizing to the words needs.
+            if (post.text.isNotEmpty()) Surface(
+                modifier = if (remember(post.text) { containsMarkdownTable(post.text) }) Modifier else Modifier.width(IntrinsicSize.Max),
+                shape = RoundedCornerShape(18.dp),
                 color = when {
                     flashed -> MaterialTheme.colorScheme.tertiaryContainer
                     mine -> MaterialTheme.colorScheme.primaryContainer
