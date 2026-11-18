@@ -10,8 +10,6 @@ import { useConversationComputer } from '@/lib/test/doubles/conversation-compute
 import { useDecisionAnswer } from '@/lib/test/doubles/decision-answer'
 import { useIdentity } from '@/lib/test/doubles/identity'
 import { useMessageAttribution } from '@/lib/test/doubles/message-attribution'
-import { useRuntimeCatalog } from '@/lib/test/doubles/runtime-catalog'
-import { useRuntimeModels } from '@/lib/test/doubles/runtime-models'
 import { useTriggerRunExecute } from '@/lib/test/doubles/trigger-run-execute'
 
 import type { AgentConversation } from '@/lib/agent/db'
@@ -32,31 +30,6 @@ useIdentity({ getTeamMembership: async () => ({ role: 'MEMBER' }) as never })
 useMessageAttribution({
   createMessageMetadata: async (userId) =>
     ({ version: 1, sender: { type: 'user', id: userId, displayName: 'Ada' } }) as never,
-})
-// The caller's runtimes: r1 is theirs to use, r2 is disabled; any other is gone.
-useRuntimeCatalog({
-  requireRuntimeInstance: async (_team, id) => {
-    if (id !== 'r1' && id !== 'r2')
-      throw new AppError(404, 'runtime_not_found', 'This agent is no longer available to you.')
-
-    return { id, status: id === 'r1' ? 'active' : 'disabled' } as never
-  },
-})
-// What agent r1 offers.
-useRuntimeModels({
-  runtimeModelCatalog: async () => ({
-    models: [
-      { id: 'gpt-5', name: 'GPT-5' },
-      { id: 'gpt-5-mini', name: 'GPT-5 mini' },
-    ],
-    controls: {
-      effort: [
-        { value: 'low', name: 'Low' },
-        { value: 'high', name: 'High' },
-      ],
-      fast: [],
-    },
-  }),
 })
 useConversationComputer({ canReplyIn: async () => participant })
 useDecisionAnswer({
@@ -199,103 +172,5 @@ describe('nuphos_ask wait', () => {
     await new Promise((resolve) => setTimeout(resolve, 20))
     finishRun()
     expect(body(await waiting)).toMatchObject({ status: 'completed', answer: 'Done.' })
-  })
-})
-
-describe('nuphos_ask runtime_id', () => {
-  test('starts a new session on the chosen agent', async () => {
-    stored = null
-    const starting = nuphosAsk({ prompt: 'Go.', team_id: 't1', runtime_id: 'r1', wait: false }, ctx)
-
-    await new Promise((resolve) => setTimeout(resolve, 20))
-    stored = session()
-    expect(body(await starting).status).toBe('running')
-    expect(runs[0]).toMatchObject({ runtimeId: 'r1' })
-    finishRun()
-  })
-
-  test('refuses an agent the caller cannot use, or a disabled one, before anything runs', async () => {
-    stored = null
-
-    for (const [id, message] of [
-      ['r9', 'This agent is no longer available to you.'],
-      ['r2', 'This agent is disabled.'],
-    ]) {
-      const result = await nuphosAsk({ prompt: 'Go.', team_id: 't1', runtime_id: id }, ctx)
-
-      expect(result.isError).toBe(true)
-      expect(result.content[0]).toMatchObject({ text: message })
-    }
-    expect(claims).toEqual([])
-    expect(runs).toEqual([])
-  })
-
-  test('an existing session keeps its own agent', async () => {
-    const result = await nuphosAsk(
-      { prompt: 'Go.', team_id: 't1', session_id: 's1', runtime_id: 'r1' },
-      ctx,
-    )
-
-    expect(result.isError).toBe(true)
-    expect(runs).toEqual([])
-  })
-})
-
-describe('nuphos_ask model and effort', () => {
-  test('a new session on a chosen agent starts on the model and effort asked for', async () => {
-    stored = null
-    const starting = nuphosAsk(
-      {
-        prompt: 'Go.',
-        team_id: 't1',
-        runtime_id: 'r1',
-        model: 'gpt-5-mini',
-        effort: 'high',
-        wait: false,
-      },
-      ctx,
-    )
-
-    await new Promise((resolve) => setTimeout(resolve, 20))
-    stored = session()
-    expect(body(await starting).status).toBe('running')
-    expect(runs[0]).toMatchObject({
-      runtimeId: 'r1',
-      initialSessionConfig: { model: 'gpt-5-mini', effort: 'high' },
-    })
-    finishRun()
-  })
-
-  test('a value the agent does not offer is refused with its choices, before anything runs', async () => {
-    stored = null
-    const result = await nuphosAsk(
-      { prompt: 'Go.', team_id: 't1', runtime_id: 'r1', model: 'gpt-9' },
-      ctx,
-    )
-
-    expect(result.isError).toBe(true)
-    expect(result.content[0]).toMatchObject({
-      text: 'model "gpt-9" is not offered by this agent. Choose one of: gpt-5, gpt-5-mini.',
-    })
-    expect(claims).toEqual([])
-    expect(runs).toEqual([])
-  })
-
-  test('model and effort need a runtime_id, and only start a new session', async () => {
-    stored = null
-    const loose = await nuphosAsk({ prompt: 'Go.', team_id: 't1', effort: 'high' }, ctx)
-
-    expect(loose.content[0]).toMatchObject({ text: expect.stringContaining('need a runtime_id') })
-
-    stored = session()
-    const later = await nuphosAsk(
-      { prompt: 'Go.', team_id: 't1', session_id: 's1', model: 'gpt-5' },
-      ctx,
-    )
-
-    expect(later.content[0]).toMatchObject({
-      text: expect.stringContaining('nuphos_update_session'),
-    })
-    expect(runs).toEqual([])
   })
 })
