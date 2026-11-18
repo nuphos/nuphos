@@ -160,7 +160,7 @@ export function ConnectAgentDialog({
         {duplicateId && team && (
           <p className="rounded-lg bg-state-selected p-3 text-[13px] leading-5 text-secondary">
             {t(
-              'This agent is already connected to {team}. Updating the existing connection gives it a new key and keeps its agents.',
+              'This runtime is already connected to {team}. Updating the existing connection gives it a new key and keeps its tasks.',
               { team: team.name },
             )}
           </p>
