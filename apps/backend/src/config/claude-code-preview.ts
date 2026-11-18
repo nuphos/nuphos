@@ -1,9 +1,8 @@
 import { createHmac } from 'node:crypto'
 
-import { bool, optional, optionalList } from './env'
+import { bool, optional } from './env'
 
 import type { ClaudeCodePreviewConfig } from '@/lib/claude-code-preview/gate'
-import type { RuntimeScheduling } from '@/lib/claude-code-preview/runtime-deployment'
 
 import { resolveDevelopmentRuntimeEndpoint } from '@/lib/claude-code-preview/gate'
 
@@ -48,7 +47,6 @@ export function claudeCodePreviewConfig(): ClaudeCodePreviewConfig {
 }
 
 export type ClaudeCodeRuntimeProvisionerConfig = {
-  enabled: boolean
   namespace: string
   /** Dev-only: reconcile through the operator's kubectl login instead of the
    *  in-cluster ServiceAccount. Ignored in production. */
@@ -56,63 +54,12 @@ export type ClaudeCodeRuntimeProvisionerConfig = {
   /** Dev-only: kubeconfig context for those kubectl calls, so the operator's
    *  current context does not have to be the runtime cluster. */
   kubeContext?: string
-  /** Where runtime pods are allowed to land, and how much CPU they may burn. */
-  scheduling: RuntimeScheduling
-}
-
-function keyValuePairs(entries: string[]): [string, string][] {
-  return entries.map((entry) => {
-    const separator = entry.indexOf('=')
-    const key = separator === -1 ? '' : entry.slice(0, separator).trim()
-    const value = separator === -1 ? '' : entry.slice(separator + 1).trim()
-
-    if (!key || !value) {
-      throw new Error(
-        `Runtime scheduling entries must be key=value (got: ${JSON.stringify(entry)})`,
-      )
-    }
-
-    return [key, value]
-  })
-}
-
-function runtimeCpuLimit(): string | undefined {
-  const raw = optional('CLAUDE_CODE_RUNTIME_CPU_LIMIT') ?? '4'
-
-  if (raw === 'none') return undefined
-  // Kubernetes CPU quantities are a plain number of cores or milli-cores.
-  // Rejecting here turns a typo into a startup failure rather than a
-  // Deployment the API server refuses on the next reconcile.
-  if (!/^\d+(?:\.\d+)?m?$/.test(raw) || Number.parseFloat(raw) <= 0) {
-    throw new Error(
-      'CLAUDE_CODE_RUNTIME_CPU_LIMIT must be a positive CPU quantity such as 4 or 500m, ' +
-        `or \`none\` (got: ${JSON.stringify(raw)})`,
-    )
-  }
-
-  return raw
-}
-
-function runtimeSchedulingConfig(): RuntimeScheduling {
-  const cpuLimit = runtimeCpuLimit()
-
-  return {
-    nodeSelector: Object.fromEntries(
-      keyValuePairs(optionalList('CLAUDE_CODE_RUNTIME_NODE_SELECTOR')),
-    ),
-    tolerations: keyValuePairs(optionalList('CLAUDE_CODE_RUNTIME_NODE_TOLERATIONS')).map(
-      ([key, value]) => ({ key, value }),
-    ),
-    ...(cpuLimit ? { cpuLimit } : {}),
-  }
 }
 
 export function claudeCodeRuntimeProvisionerConfig(): ClaudeCodeRuntimeProvisionerConfig {
   return {
-    enabled: bool('CLAUDE_CODE_RUNTIME_PROVISIONER_ENABLED', false),
     namespace: optional('CLAUDE_CODE_RUNTIME_NAMESPACE') ?? 'openab-runtimes',
     kubectl: process.env.NODE_ENV !== 'production' && bool('CLAUDE_CODE_RUNTIME_KUBECTL', false),
     kubeContext: optional('CLAUDE_CODE_RUNTIME_KUBE_CONTEXT'),
-    scheduling: runtimeSchedulingConfig(),
   }
 }

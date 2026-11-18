@@ -76,6 +76,7 @@ export function DecisionCard({
         <QuestionSource
           conversation={source}
           askedAt={request.askedAt}
+          updatedAt={request.updatedAt}
           onOpen={() => onOpenSource(source)}
         />
         {plain ? (

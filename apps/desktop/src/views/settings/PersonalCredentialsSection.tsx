@@ -53,6 +53,13 @@ const PROVIDERS: { provider: PersonalCredentialProvider; name: string; descripti
     name: 'Google Drive',
     description: t('Let your Bots and tasks find, read and save files in your own Google Drive.'),
   },
+  {
+    provider: 'google-calendar',
+    name: 'Google Calendar',
+    description: t(
+      'Let the agent check your schedule and create or update events in your own Google Calendar.',
+    ),
+  },
 ]
 // The login is styled, so split one sentence around it.
 const CONNECTED_AS = t('Connected as {login}').split('{login}')

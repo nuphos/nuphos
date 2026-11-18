@@ -5,8 +5,6 @@ import { AppError } from '@/lib/errors'
 import { requestBoxUpdate } from './box-update'
 import { localRuntimeStatus } from './local-runtime-catalog'
 import { provisionerKubeClient } from './provisioner-kube'
-import { managedRuntimeImage, runtimeImageVersion } from './runtime-image'
-import { assertRuntimeNotDeleting } from './runtime-portability-store'
 import { runtimes } from './runtime-registry'
 import {
   latestRuntimeRelease,
@@ -21,6 +19,11 @@ import type { KubeResourceState } from './kube-client'
 import type { RuntimeInstance } from './runtime-instances'
 import type { ClaudeCodeRuntimeDoc } from './runtime-registry'
 import type { PreviewRuntimeStatus } from './runtime-status'
+
+/** The release version an image names through its `<version>-<provider>` tag. */
+function runtimeImageVersion(image: string | undefined): string | undefined {
+  return image?.match(/:(\d+\.\d+\.\d+)-(?:claude-code|codex)(?:@|$)/)?.[1]
+}
 
 function readDeployment(doc: ClaudeCodeRuntimeDoc) {
   const namespace = config.claudeCodeRuntimeProvisioner.namespace
@@ -130,67 +133,12 @@ export async function runtimeStatusWithUpdate(
   return { ...status, runtimeUpdate: await runtimeUpdateStatus(provider, doc, status) }
 }
 
-/** Only a team administrator's route can request an update. The normal idle-safe reconciler executes it. */
+/** Only a team administrator's route can request an update; only a Box's agents update from here. */
 export async function requestRuntimeUpdate(
   teamId: string,
   instance: RuntimeInstance,
   actorId?: string,
 ) {
   if (instance.kind === 'local' && actorId) return requestBoxUpdate(teamId, instance.id, actorId)
-  await assertRuntimeNotDeleting(teamId, instance.id)
-  if (instance.kind !== 'managed')
-    throw new AppError(409, 'runtime_not_managed', 'Update this agent on its host.')
-  const namespace = config.claudeCodeRuntimeProvisioner.namespace
-  const doc = await runtimes().findOne({ _id: instance.id, teamId, hostedBy: 'nuphos' })
-
-  if (
-    !doc ||
-    !runtimeServiceName(doc.url, namespace) ||
-    !config.claudeCodeRuntimeProvisioner.enabled ||
-    !provisionerKubeClient()
-  )
-    throw new AppError(409, 'runtime_update_unavailable', 'This server cannot update this agent.')
-  const release = await latestRuntimeRelease(instance.provider, true)
-
-  if (!release)
-    throw new AppError(
-      503,
-      'runtime_release_unavailable',
-      'Could not check the latest release. Try again shortly.',
-    )
-  if (
-    doc.requestedRuntimeVersion &&
-    newerRuntimeVersion(doc.requestedRuntimeVersion, release.version)
-  )
-    throw new AppError(409, 'runtime_update_stale', 'A newer update is already selected.')
-  const image = await managedRuntimeImage(instance.provider, release.version)
-
-  if (!image)
-    throw new AppError(
-      503,
-      'runtime_release_unavailable',
-      'The release image is unavailable. Try again shortly.',
-    )
-  const updated = await runtimes().updateOne(
-    {
-      _id: instance.id,
-      teamId,
-      hostedBy: 'nuphos',
-      requestedRuntimeVersion: doc.requestedRuntimeVersion ?? { $exists: false },
-      deploymentImage: doc.deploymentImage ?? { $exists: false },
-    },
-    {
-      $set: {
-        requestedRuntimeVersion: release.version,
-        deploymentImage: image,
-        updatedAt: new Date(),
-      },
-      $unset: { runtimeUpdateError: '' },
-    },
-  )
-
-  if (!updated.matchedCount)
-    throw new AppError(409, 'runtime_update_changed', 'The agent changed. Refresh and try again.')
-
-  return { version: release.version }
+  throw new AppError(409, 'runtime_not_managed', 'Update this agent on its host.')
 }
