@@ -1,9 +1,12 @@
-import { motion, useReducedMotion } from 'framer-motion'
+import clsx from 'clsx'
 import { Plus, Upload } from 'lucide-react'
+import { useEffect, useRef } from 'react'
 
 import { t } from '../../i18n'
 import { BotAvatarImage } from '../agent/BotAvatarImage'
 import { Button } from '../ui/button'
+
+import type { CSSProperties } from 'react'
 
 export function BotStartIntro({
   onCreate,
@@ -16,24 +19,31 @@ export function BotStartIntro({
   onCreate: () => void
   onImport: () => void
 }) {
-  const reduceMotion = useReducedMotion()
-  const reveal = {
-    hidden: { opacity: 0, y: reduceMotion ? 0 : 8 },
-    shown: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: reduceMotion ? 0 : 0.35, ease: 'easeOut' as const },
-    },
-  }
+  const intro = useRef<HTMLElement>(null)
+
+  // Texts reveal: its lines rise in turn once shown, from a frame after mount so they animate.
+  useEffect(() => {
+    const el = intro.current
+
+    if (!el) return
+    if (!visible) {
+      el.classList.remove('is-shown')
+
+      return
+    }
+    el.getBoundingClientRect()
+    const frame = requestAnimationFrame(() => el.classList.add('is-shown'))
+
+    return () => cancelAnimationFrame(frame)
+  }, [visible])
+  const line = (index: number, className?: string) => ({
+    className: clsx('t-stagger-line', className),
+    style: { '--line': index } as CSSProperties,
+  })
 
   return (
-    <motion.section
-      className="w-full pb-1"
-      initial="hidden"
-      animate={visible ? 'shown' : 'hidden'}
-      variants={{ shown: { transition: { staggerChildren: reduceMotion ? 0 : 0.055 } } }}
-    >
-      <motion.div variants={reveal} aria-hidden className="mb-7 flex h-[88px] items-end gap-3">
+    <section ref={intro} className="t-stagger t-bot-start w-full pb-1">
+      <div {...line(0, 'mb-7 flex h-[88px] items-end gap-3')} aria-hidden>
         <BotAvatarImage
           looping={visible}
           file="01-vermeer-girl.svg"
@@ -49,19 +59,16 @@ export function BotStartIntro({
           file="03-mona-lisa.svg"
           className="size-[72px] object-contain"
         />
-      </motion.div>
-      <motion.h1 variants={reveal} className="text-2xl font-semibold tracking-tight text-main">
+      </div>
+      <h1 {...line(1, 'text-2xl font-semibold tracking-tight text-main')}>
         {firstBot ? t('Start with your first Bot') : t('New Bot')}
-      </motion.h1>
-      <motion.p
-        variants={reveal}
-        className="mt-3 max-w-[540px] text-sm leading-relaxed text-secondary"
-      >
+      </h1>
+      <p {...line(2, 'mt-3 max-w-[540px] text-sm leading-relaxed text-secondary')}>
         {t(
           'A familiar face for ongoing work. Pick a name and let your team join the conversation.',
         )}
-      </motion.p>
-      <motion.div variants={reveal} className="mt-8 flex flex-wrap items-center gap-2">
+      </p>
+      <div {...line(3, 'mt-8 flex flex-wrap items-center gap-2')}>
         <Button onClick={onCreate}>
           <Plus className="size-4" strokeWidth={1.8} />
           {t('New Bot')}
@@ -70,7 +77,7 @@ export function BotStartIntro({
           <Upload className="size-4" strokeWidth={1.8} />
           {t('Import from Grok Bot')}
         </Button>
-      </motion.div>
-    </motion.section>
+      </div>
+    </section>
   )
 }

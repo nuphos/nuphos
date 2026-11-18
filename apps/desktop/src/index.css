@@ -2509,3 +2509,13 @@ html.light .workspace-desk {
     transition: none;
   }
 }
+
+/* The Bots start page's intro: a texts reveal of its four lines, in turn. */
+.t-bot-start {
+  --stagger-dur: 350ms;
+  --stagger-distance: 8px;
+  --stagger-stagger: 55ms;
+}
+.t-bot-start .t-stagger-line {
+  transition-delay: calc(var(--stagger-stagger) * var(--line, 0));
+}
