@@ -46,9 +46,13 @@ const PROVIDERS = [
   { value: 'huggingface', label: 'Hugging Face', model: 'moonshotai/Kimi-K2.7-Code' },
   { value: 'nvidia', label: 'NVIDIA NIM', model: 'nvidia/nemotron-3.5-super-vl-120b-a12b' },
   // An endpoint of the user's own (a gateway, a proxy, a local model server): a provider
-  // Pi's models.json adds, with its key in auth.json like every other provider's.
-  { value: 'custom', label: 'Custom (OpenAI-compatible)' },
+  // Pi's models.json adds, with its key in auth.json like every other provider's. Its id is
+  // one a user is unlikely to have written there themselves, so their own `custom` stays.
+  { value: 'nuphos-custom', label: 'Custom (OpenAI-compatible)' },
 ]
+
+// The computer itself: a key sent there over plain http never crosses the network.
+const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]'])
 
 class LoginError extends Error {}
 
@@ -120,13 +124,17 @@ export async function runPiLogin({
     PROVIDERS.map(({ value, label }) => ({ value, label })),
   )
   const { label, model } = PROVIDERS.find((entry) => entry.value === provider)
-  const endpoint = provider === 'custom' && {
+  const endpoint = provider === 'nuphos-custom' && {
     baseUrl: await input({ message: 'Base URL', placeholder: 'http://localhost:11434/v1' }),
   }
   if (endpoint && !/^https?:\/\/./u.test(endpoint.baseUrl)) throw new LoginError('Not a URL')
   const preferred = endpoint ? await input({ message: 'Model ID' }) : model
   const key = await input({
-    message: endpoint ? 'API key' : `${label} API key`,
+    message: !endpoint
+      ? `${label} API key`
+      : endpoint.baseUrl.startsWith('http:') && !LOOPBACK.has(new URL(endpoint.baseUrl).hostname)
+        ? 'API key (sent unencrypted over http)'
+        : 'API key',
     ...(endpoint ? { placeholder: 'Any text if the endpoint takes none' } : {}),
     secret: true,
   })
@@ -143,7 +151,7 @@ export async function runPiLogin({
       ...beforeModels,
       providers: {
         ...beforeModels.providers,
-        custom: {
+        [provider]: {
           name: 'Custom',
           ...endpoint,
           api: 'openai-completions',

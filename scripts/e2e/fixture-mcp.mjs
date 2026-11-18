@@ -50,3 +50,19 @@ export async function callNamed({ log, sessionId, text }) {
 
   log({ sessionId, event: 'called', name, result: message.result ?? message.error })
 }
+
+/** #3329: a Task on this same agent, as a Bot hands off work; a chat escapes E2E_CALL's JSON. */
+export async function subtask({ log, sessionId, marker }) {
+  const message = await call(sessionId, 'create_thread', {
+    label: 'Hand off',
+    title: 'E2E bot kid',
+    prompt: 'Reply E2E_DELIVERY:bot-kid',
+  })
+
+  log({
+    sessionId,
+    marker,
+    event: 'subtask',
+    isError: Boolean(message.error ?? message.result?.isError),
+  })
+}

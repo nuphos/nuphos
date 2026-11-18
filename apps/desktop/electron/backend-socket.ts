@@ -48,6 +48,8 @@ let lastFailure = ''
 let resolveProxy: ((url: string) => Promise<string>) | undefined
 /** The last proxy Chromium gave for each host; a dial uses it and asks again for the next one. */
 const proxyRules = new Map<string, string>()
+/** Which entry of that host's PAC result the next dial uses; a dial that cannot connect moves on. */
+const proxyTries = new Map<string, number>()
 /** One agent per proxy, kept open: a tunnel still on it must not be cut when the rule changes. */
 const proxyAgents = new Map<string, Dispatcher | undefined>()
 
@@ -59,14 +61,24 @@ function agentFor(scheme: string, hostPort: string): Dispatcher | undefined {
   return undefined
 }
 
-/** The first entry of a PAC result as a dispatcher; `DIRECT` and SOCKS4 dial directly. */
-function proxyAgent(rule: string): Dispatcher | undefined {
-  const [scheme = '', hostPort] = (rule.split(';')[0] ?? '').trim().split(/\s+/u)
+/** The entries of a PAC result that can be dialed, in order; SOCKS4, which undici lacks, is skipped. */
+function proxyEntries(rule: string): string[] {
+  const entries = rule
+    .split(';')
+    .map((entry) => entry.trim().replace(/\s+/gu, ' '))
+    .filter((entry) => entry === 'DIRECT' || /^(PROXY|HTTPS|SOCKS5) \S+$/u.test(entry))
+
+  return entries.length > 0 ? entries : ['DIRECT']
+}
+
+/** A PAC entry as a dispatcher; `DIRECT` has none. */
+function proxyAgent(entry: string): Dispatcher | undefined {
+  const [scheme = '', hostPort] = entry.split(' ')
 
   if (!hostPort) return undefined
-  if (!proxyAgents.has(rule)) proxyAgents.set(rule, agentFor(scheme, hostPort))
+  if (!proxyAgents.has(entry)) proxyAgents.set(entry, agentFor(scheme, hostPort))
 
-  return proxyAgents.get(rule)
+  return proxyAgents.get(entry)
 }
 
 /** Looks up the proxy for `url` again, so the next dial follows a VPN switched on or off. */
@@ -74,7 +86,11 @@ async function refreshBackendProxy(url: URL | string): Promise<void> {
   if (!resolveProxy) return
   const target = new URL(String(url).replace(/^ws/u, 'http'))
 
-  proxyRules.set(target.host, await resolveProxy(target.href).catch(() => 'DIRECT'))
+  const rule = await resolveProxy(target.href).catch(() => 'DIRECT')
+
+  // A new answer starts again from its first entry.
+  if (proxyRules.get(target.host) !== rule) proxyTries.delete(target.host)
+  proxyRules.set(target.host, rule)
 }
 
 type ProxySession = {
@@ -116,7 +132,9 @@ export function dialBackend(
 
   connectErrors.delete(target.hostname)
   refusals.set(dialed, 0)
-  const dispatcher = proxyAgent(proxyRules.get(target.host) ?? 'DIRECT')
+  const entries = proxyEntries(proxyRules.get(target.host) ?? 'DIRECT')
+  const tried = (proxyTries.get(target.host) ?? 0) % entries.length
+  const dispatcher = proxyAgent(entries[tried] ?? 'DIRECT')
   // undici's own Dispatcher type and the copy bundled with @types/node differ only in typings.
   const init = (dispatcher ? { headers, dispatcher } : { headers }) as unknown as WebSocketInit
   const socket = new WebSocket(target, init)
@@ -135,6 +153,9 @@ export function dialBackend(
 
     refusals.delete(dialed)
     if (status) onRefused?.(status)
+    // No answer from the backend: this proxy may be the one that is down, so the next dial
+    // uses the next entry. A backend that answered was reached, and the proxy stays.
+    else proxyTries.set(target.host, tried + 1)
     const failure: DialFailure = {
       host: target.host,
       code: connectErrors.get(target.hostname) ?? 'handshake_rejected',

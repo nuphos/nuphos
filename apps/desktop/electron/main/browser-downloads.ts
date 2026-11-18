@@ -28,8 +28,14 @@ export function isRepeatTabDownload(
   return false
 }
 
-/** Cancels the browser session's repeated tab downloads before Electron shows a save dialog. */
-export function guardBrowserDownloads(browserSession: Pick<Session, 'on'>) {
+/**
+ * Cancels the browser session's repeated tab downloads before Electron shows a save dialog.
+ * `save` first takes the downloads it saves itself (an agent's tabs), which never ask.
+ */
+export function guardBrowserDownloads(
+  browserSession: Pick<Session, 'on'>,
+  save: (item: DownloadItem, contents: WebContents) => boolean = () => false,
+) {
   const asked = new Set<string>()
   const navigating = new WeakMap<WebContents, string>()
 
@@ -37,6 +43,7 @@ export function guardBrowserDownloads(browserSession: Pick<Session, 'on'>) {
     const url = navigating.get(contents)
 
     navigating.delete(contents)
+    if (save(item, contents)) return
     if (isRepeatTabDownload(asked, item, contents, url)) event.preventDefault()
   })
 

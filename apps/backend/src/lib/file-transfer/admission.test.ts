@@ -83,6 +83,18 @@ test('handles an upsert race but fails closed on storage failure', async () => {
   await expect(admitFileTransfer('team', 1, 0)).rejects.toThrow('storage unavailable')
 })
 
+test('the limit error says when the hour resets', async () => {
+  await admitFileTransfer('team', TRANSFER_BYTES_PER_HOUR, 30 * 60_000)
+  const error = await admitFileTransfer('team', 1, 30 * 60_000).catch((e: unknown) => e)
+
+  expect(error).toMatchObject({
+    status: 429,
+    code: 'file_transfer_rate_limited',
+    details: { retryAfter: '1970-01-01T01:00:00.000Z' },
+  })
+  expect((error as Error).message).toContain('01:00 UTC')
+})
+
 test('a refund gives back one transfer and its bytes, never below zero', async () => {
   const admitted = await admitFileTransfer('team', 10, 0)
 
