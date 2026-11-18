@@ -37,9 +37,9 @@ async function openChat(page: Page, name: string) {
   await page.locator(`[aria-placeholder="Message ${name}"]`).waitFor()
 }
 
-async function call(stack: Stack, path: string, body: object) {
+async function call(stack: Stack, path: string, body: object, method = 'POST') {
   const response = await fetch(`${stack.apiUrl}${path}`, {
-    method: 'POST',
+    method,
     headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
     body: JSON.stringify({ teamId: stack.teamId, ...body }),
   })
@@ -205,6 +205,17 @@ const scenario: Scenario = {
     }
     await openChat(page, 'E2E Bot')
     await setBotDetails(page, false)
+    // Leave the lists as the scenarios after this one expect them: the Bot back with its
+    // owner, then it, its chat and the group archived.
+    const me = (await (
+      await fetch(`${stack.apiUrl}/auth/me`, {
+        headers: { authorization: `Bearer ${stack.token}` },
+      })
+    ).json()) as { id: string }
+
+    handOver(stack, second.sessionId, me.id)
+    for (const sessionId of [second.sessionId, group.sessionId])
+      await call(stack, `/agent/conversations/${sessionId}/archive`, { archived: true }, 'PATCH')
   },
 }
 
