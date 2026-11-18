@@ -54,6 +54,14 @@ export const teammateBotScenarios: Scenario[] = [
       await post.waitFor({ timeout: 60_000 })
       // The face, not only the runtime mark.
       await post.locator('img[src*="bot-avatars/07-ada"]').first().waitFor({ timeout: 10_000 })
+      // #3428: its sidebar row wears the design system's cluster, the teammate and the Bot both.
+      const discs = await page
+        .locator('aside [data-sidebar-row]', { hasText: 'Scribe room' })
+        .first()
+        .locator('[data-chat-face]')
+        .evaluateAll((faces) => faces.map((face) => face.getBoundingClientRect().width))
+
+      if (discs.join() !== '24,18') throw new Error(`The group's sidebar faces are ${discs.join()}`)
       await page.screenshot({ path: `${artifacts}/teammate-bot-post.png` })
       // #3298: a teammate's Bot's permission mode and model are its owner's to change.
       const offered = await page

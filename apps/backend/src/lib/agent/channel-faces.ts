@@ -16,7 +16,8 @@ export type ChannelFace = {
 
 type Person = { id: string; name: string; avatarURL?: string }
 
-const FACES = 2
+// The design system's group icon clusters up to three members.
+const FACES = 3
 // Enough recent posts to find who spoke last.
 const RECENT_POSTS = 20
 

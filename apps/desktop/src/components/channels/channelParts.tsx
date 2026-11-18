@@ -2,7 +2,7 @@ import clsx from 'clsx'
 import { CornerUpLeft, X } from 'lucide-react'
 
 import { t } from '../../i18n'
-import { AgentAvatar, AgentFaceBadge } from '../agent/AgentAvatar'
+import { AgentAvatar } from '../agent/AgentAvatar'
 import { CredentialSelectorButton } from '../agent/panel/CredentialSelectorButton'
 import { Avatar } from '../Avatar'
 import { IconButton } from '../ui/icon-button'
@@ -11,9 +11,18 @@ import type { AgentMessageReply, ChannelFace } from '../../api'
 import type { CredentialSelectorControl } from '../agent/panel/credentialSections'
 
 /**
- * A chat's icon, as iMessage draws one: the one other member's face, or two
- * overlapping, whoever spoke last in front. A chat with nobody else shows its
- * title's initials.
+ * Where a group chat's member faces sit, as the design system draws them in a
+ * 36px box: whoever spoke last largest, top left. Each is [left, top, size].
+ */
+const CHAT_CLUSTER = [
+  [0, 0, 24],
+  [18, 12, 18],
+  [5, 22, 14],
+] as const
+
+/**
+ * A chat's icon: the one other member's face, or up to three members clustered
+ * as in the design system. A chat with nobody else shows its title's initials.
  */
 export function ChatIcon({
   faces,
@@ -33,17 +42,17 @@ export function ChatIcon({
   className?: string
 }) {
   const size = sidebar ? 36 : given
-  const [front, back] = faces ?? []
+  const members = (faces ?? []).slice(0, CHAT_CLUSTER.length)
 
-  if (!front) return <Avatar name={title} size={size} className={clsx('rounded-full', className)} />
-  // A sidebar row shows one clean face: whoever spoke last.
-  if (!back || sidebar)
+  if (!members[0])
+    return <Avatar name={title} size={size} className={clsx('rounded-full', className)} />
+  if (members.length === 1)
     return (
       <span aria-hidden="true" className={clsx('inline-flex shrink-0', className)}>
-        <Face face={front} size={size} sidebar={sidebar} looping={looping} />
+        <Face face={members[0]} size={size} sidebar={sidebar} looping={looping} />
       </span>
     )
-  const small = Math.round(size * 0.72)
+  const scale = size / 36
 
   return (
     <span
@@ -51,40 +60,24 @@ export function ChatIcon({
       className={clsx('relative inline-flex shrink-0', className)}
       style={{ width: size, height: size }}
     >
-      <span className="absolute left-0 top-0">
-        <Face face={back} size={small} showBadge={false} />
-      </span>
-      <span className="absolute bottom-0 right-0 rounded-full bg-main p-px">
-        <Face face={front} size={small - 2} showBadge={false} />
-      </span>
-      {[back, front].map((face, index) => {
-        if (!face.agent) return null
-        const badge = small <= 24 ? 9 : 12
-        // Two discs otherwise intersect at small group sizes. Move only the front
-        // disc by the overlap; the faces and the group's layout box stay put.
-        const separation = back.agent && front.agent ? Math.max(0, badge - (size - small - 1)) : 0
+      {members.map((face, index) => {
+        const [left, top, disc] = CHAT_CLUSTER[index].map((value) => value * scale)
 
         return (
           <span
             key={face.id}
-            className="absolute pointer-events-none"
-            style={
-              index === 0
-                ? { left: 0, top: 0, width: small, height: small }
-                : {
-                    right: 1 - separation,
-                    bottom: 1 - separation,
-                    width: small - 2,
-                    height: small - 2,
-                  }
-            }
+            data-chat-face={face.id}
+            className="absolute flex items-center justify-center overflow-hidden rounded-full bg-surface-sunken"
+            style={{
+              left,
+              top,
+              width: disc,
+              height: disc,
+              // The ring is the surface behind it; the sidebar sets its own.
+              boxShadow: `0 0 0 ${String(2 * scale)}px rgb(var(--chat-icon-ring, var(--color-surface-sheet)))`,
+            }}
           >
-            <AgentFaceBadge
-              agentId={face.id}
-              avatar={face.agent.avatar}
-              provider={face.agent.provider}
-              size={badge}
-            />
+            <Face face={face} size={disc} showBadge={false} looping={index === 0 && looping} />
           </span>
         )
       })}
