@@ -135,6 +135,41 @@ final class NewBoxUITests: XCTestCase {
         XCTAssertFalse(app.buttons["new-box"].exists, "A member is offered a Box the backend would refuse")
     }
 
+    func testComputersShowsABoxStateAndResumesAPausedOne() throws {
+        let paused: [String: Any] = ["deviceId": "box-1", "label": "Computer 1", "access": "owner", "box": ["state": "paused"], "metricsStatus": "offline", "metrics": NSNull()]
+        var starting = paused
+        starting["deviceId"] = "box-2"; starting["label"] = "Computer 2"; starting["box"] = ["state": "creating"]
+        devices([paused, starting])
+        responses["POST /agent/devices/box-1/box/resume"] = ["status": 402, "body": ["error": ["code": "box_vcpu_limit", "message": Self.refusal]]]
+        try write()
+        app = XCUIApplication()
+        // `-page runtimes` opens Computers & runtimes itself, as #3617's tests do.
+        app.launchArguments = ["-preview-home", "-preview-no-push", "-page", "runtimes"]
+        app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path]
+        app.launch()
+        let deny = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Don’t Allow"].firstMatch
+        if deny.waitForExistence(timeout: 5) { deny.tap() }
+
+        XCTAssertTrue(app.staticTexts["Paused"].waitForExistence(timeout: 30), "A paused Box does not say so")
+        XCTAssertTrue(app.staticTexts["Starting"].exists, "A Box being made does not say so")
+        let resume = app.buttons["Resume"]
+        XCTAssertTrue(resume.exists, "A paused Box offers no Resume")
+        resume.tap()
+        let paywall = app.alerts["Choose a computer plan"]
+        XCTAssertTrue(paywall.waitForExistence(timeout: 10), "The plan's refusal of a resume is not shown")
+        paywall.buttons["Not now"].tap()
+
+        responses["POST /agent/devices/box-1/box/resume"] = ["status": 200, "body": ["deviceId": "box-1", "label": "Computer 1", "box": ["state": "running"]]]
+        var running = paused
+        running["box"] = ["state": "running"]
+        devices([running, starting])
+        try write()
+        resume.tap()
+        let gone = NSPredicate(format: "exists == false")
+        expectation(for: gone, evaluatedWith: app.staticTexts["Paused"])
+        waitForExpectations(timeout: 15)
+    }
+
     private func launch() {
         app = XCUIApplication()
         app.launchArguments = ["-preview-home", "-preview-no-push"]
