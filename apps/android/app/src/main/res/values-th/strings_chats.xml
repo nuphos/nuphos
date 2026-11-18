@@ -9,7 +9,6 @@
     <string name="chats_show_less">แสดงน้อยลง</string>
     <string name="chats_show_more">แสดงเพิ่มเติม</string>
     <string name="chats_question_your_answer">คำตอบของคุณ</string>
-    <string name="chats_question_or_type_answer">หรือพิมพ์คำตอบของคุณเอง</string>
     <string name="chats_question_send_answer">ส่งคำตอบ</string>
     <string name="chats_question_heading_approval">ต้องการการอนุมัติ</string>
     <string name="chats_question_heading_preference">ตัวเลือกของคุณ</string>
