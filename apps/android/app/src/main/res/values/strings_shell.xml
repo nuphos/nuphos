@@ -131,6 +131,7 @@
     <string name="shell_task_list_interrupted">Task list refresh was interrupted. Try again.</string>
 
     <!-- Inbox -->
+    <string name="shell_inbox_skip">Skip</string>
     <string name="shell_inbox_empty_title">You\'re all caught up</string>
     <string name="shell_inbox_empty_body">When an agent needs you to decide something, it shows up here. Answer it and it leaves the Inbox.</string>
 

@@ -117,6 +117,7 @@
     <string name="shell_unlink_forbidden">此任務無法使用，或你已沒有取消連結的權限。</string>
     <string name="shell_unlink_failed">無法取消連結 Agent。請再試一次。</string>
     <string name="shell_task_list_interrupted">任務清單重新整理中斷。請再試一次。</string>
+    <string name="shell_inbox_skip">略過</string>
     <string name="shell_inbox_empty_title">你都處理完了</string>
     <string name="shell_inbox_empty_body">當 Agent 需要你做決定時，會出現在這裡。回覆後，它就會離開收件匣。</string>
     <string name="shell_clear">清除</string>

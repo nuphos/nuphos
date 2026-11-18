@@ -117,6 +117,7 @@
     <string name="shell_unlink_forbidden">此任务不可用，或你已没有取消关联的权限。</string>
     <string name="shell_unlink_failed">无法取消关联 Agent。请重试。</string>
     <string name="shell_task_list_interrupted">任务列表刷新中断。请重试。</string>
+    <string name="shell_inbox_skip">跳过</string>
     <string name="shell_inbox_empty_title">你已处理完所有事项</string>
     <string name="shell_inbox_empty_body">当 Agent 需要你做决定时，会出现在这里。回复后，它就会离开收件箱。</string>
     <string name="shell_clear">清除</string>

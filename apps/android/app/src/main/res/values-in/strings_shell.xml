@@ -117,6 +117,7 @@
     <string name="shell_unlink_forbidden">Tugas ini tidak tersedia atau Anda tidak lagi memiliki izin untuk melepas tautannya.</string>
     <string name="shell_unlink_failed">Tidak dapat melepas tautan agen. Coba lagi.</string>
     <string name="shell_task_list_interrupted">Pemuatan ulang daftar tugas terputus. Coba lagi.</string>
+    <string name="shell_inbox_skip">Lewati</string>
     <string name="shell_inbox_empty_title">Semua sudah beres</string>
     <string name="shell_inbox_empty_body">Saat agen membutuhkan keputusan Anda, itu akan muncul di sini. Jawab, dan itu akan keluar dari Kotak Masuk.</string>
     <string name="shell_clear">Hapus</string>

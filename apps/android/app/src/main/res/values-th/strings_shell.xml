@@ -117,6 +117,7 @@
     <string name="shell_unlink_forbidden">งานนี้ไม่พร้อมใช้งาน หรือคุณไม่มีสิทธิ์ยกเลิกการลิงก์แล้ว</string>
     <string name="shell_unlink_failed">ยกเลิกการลิงก์เอเจนต์ไม่ได้ โปรดลองอีกครั้ง</string>
     <string name="shell_task_list_interrupted">การรีเฟรชรายการงานถูกขัดจังหวะ โปรดลองอีกครั้ง</string>
+    <string name="shell_inbox_skip">ข้าม</string>
     <string name="shell_inbox_empty_title">คุณจัดการทุกอย่างเรียบร้อยแล้ว</string>
     <string name="shell_inbox_empty_body">เมื่อเอเจนต์ต้องการให้คุณตัดสินใจ รายการจะแสดงที่นี่ เมื่อตอบแล้วรายการจะออกจากกล่องข้อความ</string>
     <string name="shell_clear">ล้าง</string>

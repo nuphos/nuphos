@@ -117,6 +117,7 @@
     <string name="shell_unlink_forbidden">Esta tarea no está disponible o ya no tienes permiso para desvincularla.</string>
     <string name="shell_unlink_failed">No se pudo desvincular el agente. Inténtalo de nuevo.</string>
     <string name="shell_task_list_interrupted">Se interrumpió la actualización de la lista de tareas. Inténtalo de nuevo.</string>
+    <string name="shell_inbox_skip">Omitir</string>
     <string name="shell_inbox_empty_title">Estás al día</string>
     <string name="shell_inbox_empty_body">Cuando un agente necesite que decidas algo, aparecerá aquí. Respóndelo y saldrá de la Bandeja de entrada.</string>
     <string name="shell_clear">Borrar</string>

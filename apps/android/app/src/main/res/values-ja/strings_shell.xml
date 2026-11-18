@@ -117,6 +117,7 @@
     <string name="shell_unlink_forbidden">このタスクは利用できないか、リンクを解除する権限がなくなりました。</string>
     <string name="shell_unlink_failed">エージェントのリンクを解除できませんでした。もう一度お試しください。</string>
     <string name="shell_task_list_interrupted">タスク一覧の更新が中断されました。もう一度お試しください。</string>
+    <string name="shell_inbox_skip">スキップ</string>
     <string name="shell_inbox_empty_title">すべて完了です</string>
     <string name="shell_inbox_empty_body">エージェントがあなたの判断を必要とすると、ここに表示されます。回答すると受信トレイから消えます。</string>
     <string name="shell_clear">クリア</string>

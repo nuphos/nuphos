@@ -117,6 +117,7 @@
     <string name="shell_unlink_forbidden">이 작업을 사용할 수 없거나 더 이상 연결을 해제할 권한이 없습니다.</string>
     <string name="shell_unlink_failed">에이전트 연결을 해제할 수 없습니다. 다시 시도하세요.</string>
     <string name="shell_task_list_interrupted">작업 목록 새로고침이 중단되었습니다. 다시 시도하세요.</string>
+    <string name="shell_inbox_skip">건너뛰기</string>
     <string name="shell_inbox_empty_title">모두 확인했습니다</string>
     <string name="shell_inbox_empty_body">에이전트가 결정을 요청하면 여기에 표시됩니다. 답하면 받은 편지함에서 사라집니다.</string>
     <string name="shell_clear">지우기</string>
