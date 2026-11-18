@@ -1,9 +1,9 @@
 import XCTest
 
 /// Adding a runtime to a computer, under Desktop's rules: offered on a running computer
-/// the viewer manages and on no other, the same providers in the same order, a signed-out
-/// runtime signed in rather than doubled, and a new one taken straight to its sign-in.
-/// Offline fixture.
+/// the viewer manages, the same providers in the same order, a signed-out runtime signed
+/// in rather than doubled, and a new one taken straight to its sign-in. Which computers
+/// qualify is settled in `NewRuntimeTests`; these check the screens. Offline fixture.
 final class NewRuntimeUITests: XCTestCase {
     /// A button by its accessibility label, where it has no identifier of its own.
     private func button(_ app: XCUIApplication, _ label: String) -> XCUIElement {
@@ -27,16 +27,27 @@ final class NewRuntimeUITests: XCTestCase {
         // A freshly installed app asks about notifications, and that alert takes every tap.
         let deny = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Don’t Allow"].firstMatch
         if deny.waitForExistence(timeout: 10) { deny.tap() }
-        XCTAssertTrue(text(app, "Mac mini").waitForExistence(timeout: 60), "The Runtimes page did not load")
+        XCTAssertTrue(app.buttons["new-runtime-device:macbook"].waitForExistence(timeout: 60),
+                      "The Runtimes page did not load")
         return app
     }
 
-    func testOnlyAManagedRunningComputerOffersANewRuntime() {
+    /// The list draws a computer's rows as they come into view, so a computer further
+    /// down is scrolled to rather than waited for.
+    private func reveal(_ app: XCUIApplication, _ identifier: String) -> XCUIElement {
+        let element = app.buttons[identifier]
+
+        for _ in 0..<5 where !element.exists { app.swipeUp() }
+
+        return element
+    }
+
+    func testTheComputersYouManageOfferANewRuntime() {
         let app = computers()
-        XCTAssertTrue(app.buttons["new-runtime-device:mac-mini"].exists, "A computer you manage has no New runtime")
-        XCTAssertTrue(app.buttons["new-runtime-device:macbook"].exists, "Your own computer has no New runtime")
+        // Robin's Mac is shared with `use` access, and its section is on screen beside
+        // this one, so its having no New runtime is a real absence.
         XCTAssertFalse(app.buttons["new-runtime-device:teammate-mac"].exists, "Use access offers New runtime")
-        XCTAssertFalse(app.buttons["new-runtime-device:old-imac"].exists, "An offline computer offers New runtime")
+        XCTAssertTrue(reveal(app, "new-runtime-device:mac-mini").exists, "A computer you manage has no New runtime")
     }
 
     /// Desktop's LOCAL_AGENT_PROVIDERS and newAgentAction: every provider, in that order,
@@ -67,7 +78,7 @@ final class NewRuntimeUITests: XCTestCase {
 
     func testANewRuntimeIsNamedThenTakenToItsSignIn() {
         let app = computers()
-        app.buttons["new-runtime-device:mac-mini"].tap()
+        reveal(app, "new-runtime-device:mac-mini").tap()
         let opencode = app.buttons["provider-opencode"]
         XCTAssertTrue(opencode.waitForExistence(timeout: 15), "OpenCode is missing from the New runtime list")
         opencode.tap()
