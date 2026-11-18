@@ -1,4 +1,4 @@
-import { ExternalLink, Loader2, RotateCw } from 'lucide-react'
+import { Box, ExternalLink, Loader2, RotateCw } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../../api'
@@ -7,8 +7,11 @@ import { Button } from '../../../components/ui/button'
 import { useLocalRuntimeState } from '../../../hooks/useLocalRuntimeState'
 import { t } from '../../../i18n'
 import { isMac } from '../../../lib/platform'
+import { Choice } from '../../settings/AddAgentChoice'
+import { CLOUD_COMPUTER_DESCRIPTION } from '../../settings/boxCreatePresentation'
 import { ClaudeSignInCode } from '../../settings/ClaudeSignInCode'
 import { InstallButton } from '../../settings/LocalAgentCard'
+import { useAgentDevices } from '../../settings/useAgentDevices'
 import { useLocalAgentLogin } from '../../settings/useLocalAgentLogin'
 
 import {
@@ -17,6 +20,7 @@ import {
   setupAgentStatus,
   readyLocalAgents,
 } from './agentSetup'
+import { openCloudComputer } from './agentSetupStore'
 import { SetupScreen, StatusPill } from './SetupChrome'
 
 import type { CliLoginProvider } from '../../../api'
@@ -154,7 +158,15 @@ function LocalAgentSetupCard({ provider }: { provider: CliLoginProvider }) {
   )
 }
 
-export function LocalAgentsStep({ onContinue }: { onContinue: () => void }) {
+export function LocalAgentsStep({
+  teamId,
+  onContinue,
+  onCloud,
+}: {
+  teamId?: string
+  onContinue: () => void
+  onCloud?: () => void
+}) {
   const state = useLocalRuntimeState()
   const ready = readyLocalAgents(state).length > 0
   const checking = LOCAL_SETUP_PROVIDERS.some(
@@ -192,14 +204,24 @@ export function LocalAgentsStep({ onContinue }: { onContinue: () => void }) {
         </>
       }
     >
-      <LocalAgentSetupCards />
+      <LocalAgentSetupCards teamId={teamId} onCloud={onCloud} />
     </SetupScreen>
   )
 }
 
-/** The same account cards, usable in-place without the onboarding screen. */
-export function LocalAgentSetupCards() {
+/**
+ * The same account cards, usable in-place without the onboarding screen. With a team its
+ * admins may make a cloud computer there instead; `onCloud` closes what the cards sit in.
+ */
+export function LocalAgentSetupCards({
+  teamId,
+  onCloud,
+}: { teamId?: string; onCloud?: () => void } = {}) {
   const state = useLocalRuntimeState()
+  const devices = useAgentDevices(() => 0, teamId ?? '', {
+    teamId,
+    enabled: Boolean(teamId),
+  }).list
 
   return (
     <div className="space-y-3">
@@ -216,6 +238,17 @@ export function LocalAgentSetupCards() {
       {LOCAL_SETUP_PROVIDERS.map((provider) => (
         <LocalAgentSetupCard key={provider} provider={provider} />
       ))}
+      {teamId && devices?.boxAvailable && devices.canCreateBox && (
+        <Choice
+          icon={<Box className="h-4 w-4" />}
+          title={t('Nuphos cloud computer')}
+          description={CLOUD_COMPUTER_DESCRIPTION}
+          onClick={() => {
+            onCloud?.()
+            openCloudComputer(teamId)
+          }}
+        />
+      )}
     </div>
   )
 }

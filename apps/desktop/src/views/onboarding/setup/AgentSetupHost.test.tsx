@@ -10,6 +10,8 @@ const dom = new Window()
 const browser: Record<string, unknown> = {
   window: dom,
   navigator: dom.navigator,
+  // The window's own events, so it dispatches what the app makes.
+  Event: dom.Event,
   IS_REACT_ACT_ENVIRONMENT: true,
 }
 
@@ -19,12 +21,14 @@ for (const [key, value] of Object.entries(browser))
   Object.defineProperty(globalThis, key, { configurable: true, writable: true, value })
 
 const dialogs: { teamId: string; onBoxCreated?: () => void }[] = []
+let devices = { boxAvailable: true, canCreateBox: true, devices: [] }
 
 mock.module('../../../components/Modal', () => ({
   Modal: ({ children }: { children: ReactNode }) => createElement('div', null, children),
 }))
-mock.module('./LocalAgentsStep', () => ({
-  LocalAgentSetupCards: () => createElement('div', null, 'Local agents'),
+mock.module('../../../hooks/useLocalRuntimeState', () => ({ useLocalRuntimeState: () => null }))
+mock.module('../../settings/useAgentDevices', () => ({
+  useAgentDevices: () => ({ list: devices, error: false, reload: () => undefined }),
 }))
 mock.module('../../settings/AddAgentDialog', () => ({
   AddAgentDialog: (props: { teamId: string; onBoxCreated?: () => void }) => {
@@ -35,7 +39,8 @@ mock.module('../../settings/AddAgentDialog', () => ({
 }))
 
 const { AgentSetupHost } = await import('./AgentSetupHost')
-const { agentSetup, openAgentSetup } = await import('./agentSetupStore')
+const { OPEN_COMPUTERS, agentSetup, openAddRuntime, openAgentSetup } =
+  await import('./agentSetupStore')
 const { createRoot } = await import('react-dom/client')
 
 async function render() {
@@ -54,16 +59,16 @@ const cloudChoice = (container: { querySelectorAll: (s: string) => Iterable<unkn
     (button as HTMLElement).textContent?.startsWith('Nuphos cloud computer'),
   ) as HTMLElement | undefined
 
-test('a new user who may make a cloud computer is offered one, and it opens on its create step', async () => {
+test('a new user who may make a cloud computer is offered one, and once made it opens Computers', async () => {
   const { container, root } = await render()
-  let created = 0
+  let opened = 0
+  const onOpen = () => {
+    opened += 1
+  }
 
+  window.addEventListener(OPEN_COMPUTERS, onOpen)
   try {
-    const onBoxCreated = () => {
-      created += 1
-    }
-
-    await act(() => openAgentSetup({ teamId: 'team-1', onBoxCreated }))
+    await act(() => openAgentSetup('team-1'))
     const choice = cloudChoice(container)
 
     assert.ok(choice, 'the setup offers a Nuphos cloud computer')
@@ -71,20 +76,36 @@ test('a new user who may make a cloud computer is offered one, and it opens on i
     await act(() => choice.click())
     assert.match(container.textContent ?? '', /Add computer for team-1/)
     dialogs.at(-1)?.onBoxCreated?.()
-    assert.equal(created, 1, 'a made computer hands off to where its runtimes are added')
+    assert.equal(opened, 1, 'a made computer opens the page where its runtimes are added')
   } finally {
+    window.removeEventListener(OPEN_COMPUTERS, onOpen)
     await act(() => agentSetup.close())
     await act(() => root.unmount())
   }
 })
 
-test('without a cloud computer to offer, the setup shows only this computer’s agents', async () => {
+test('only a team admin on a deployment with cloud computers is offered one', async () => {
   const { container, root } = await render()
 
   try {
     await act(() => openAgentSetup())
-    assert.match(container.textContent ?? '', /Local agents/)
-    assert.equal(cloudChoice(container), undefined)
+    assert.equal(cloudChoice(container), undefined, 'no team, no cloud computer')
+    devices = { boxAvailable: true, canCreateBox: false, devices: [] }
+    await act(() => openAgentSetup('team-1'))
+    assert.equal(cloudChoice(container), undefined, 'not an admin')
+  } finally {
+    devices = { boxAvailable: true, canCreateBox: true, devices: [] }
+    await act(() => agentSetup.close())
+    await act(() => root.unmount())
+  }
+})
+
+test('Add new runtime keeps its own flow after a computer is made', async () => {
+  const { root } = await render()
+
+  try {
+    await act(() => openAddRuntime('team-1'))
+    assert.equal(dialogs.at(-1)?.onBoxCreated, undefined)
   } finally {
     await act(() => agentSetup.close())
     await act(() => root.unmount())

@@ -28,13 +28,31 @@ try {
   await page.locator('input[placeholder="000000"]').fill(stack.signInCode(email) ?? '')
   await page.getByPlaceholder('Name your workspace…').fill('New user')
   await page.getByRole('button', { name: 'Create workspace' }).click()
+  const cloud = page.getByRole('button', { name: /^Nuphos cloud computer/ })
+
+  // Each place a new user is asked for a runtime offers the cloud computer: onboarding,
+  await cloud.waitFor()
+  await page.waitForTimeout(800)
+  await page.screenshot({ path: `${artifacts}/new-user-onboarding.png` })
   // No Claude Code or Codex on this computer: setting them up waits.
   await page.getByRole('button', { name: 'Set up later' }).click()
   await page.getByRole('button', { name: 'Open workspace' }).click()
+  // their first Bot,
+  await page.getByRole('button', { name: 'New Bot', exact: true }).click()
+  await page.getByRole('textbox', { name: 'Bot name' }).fill('E2E Bot')
+  await page.getByRole('button', { name: 'Create', exact: true }).click()
+  await cloud.waitFor()
+  await page.waitForTimeout(800)
+  await page.screenshot({ path: `${artifacts}/new-user-new-bot.png` })
+  // Back to naming the Bot, then closed.
+  await page.keyboard.press('Escape')
+  await page.getByRole('textbox', { name: 'Bot name' }).waitFor()
+  await page.keyboard.press('Escape')
+  await cloud.waitFor({ state: 'hidden' })
+  // and a new task, where this one is made.
   // A new task's composer: with no runtime yet, it offers to connect one.
   await page.getByRole('tab', { name: 'Tasks' }).click()
   await page.getByRole('button', { name: 'Connect a runtime' }).first().click()
-  const cloud = page.getByRole('button', { name: /^Nuphos cloud computer/ })
 
   await cloud.waitFor()
   await page.waitForTimeout(800)

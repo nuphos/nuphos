@@ -1,14 +1,11 @@
-import { Box } from 'lucide-react'
 import { useSyncExternalStore } from 'react'
 
 import { Modal } from '../../../components/Modal'
 import { Button } from '../../../components/ui/button'
 import { t } from '../../../i18n'
-import { Choice } from '../../settings/AddAgentChoice'
 import { AddAgentDialog } from '../../settings/AddAgentDialog'
-import { CLOUD_COMPUTER_DESCRIPTION } from '../../settings/boxCreatePresentation'
 
-import { agentSetup, openAddRuntime } from './agentSetupStore'
+import { OPEN_COMPUTERS, agentSetup } from './agentSetupStore'
 import { LocalAgentSetupCards } from './LocalAgentsStep'
 
 export function AgentSetupHost() {
@@ -19,11 +16,12 @@ export function AgentSetupHost() {
       <AddAgentDialog
         teamId={request.teamId}
         onClose={agentSetup.close}
-        onBoxCreated={request.onBoxCreated}
+        onBoxCreated={
+          request.box ? () => window.dispatchEvent(new Event(OPEN_COMPUTERS)) : undefined
+        }
       />
     )
   if (!request) return null
-  const { cloud } = request
 
   return (
     <Modal open title={t('Connect a runtime')} width={600} onClose={agentSetup.close}>
@@ -33,15 +31,7 @@ export function AgentSetupHost() {
             'Use Claude Code or Codex with the subscriptions you already have. Here’s what we found on this computer.',
           )}
         </p>
-        <LocalAgentSetupCards />
-        {cloud && (
-          <Choice
-            icon={<Box className="h-4 w-4" />}
-            title={t('Nuphos cloud computer')}
-            description={CLOUD_COMPUTER_DESCRIPTION}
-            onClick={() => openAddRuntime(cloud.teamId, cloud.onBoxCreated)}
-          />
-        )}
+        <LocalAgentSetupCards teamId={request.teamId} />
         <div className="flex justify-end">
           <Button variant="secondary" onClick={agentSetup.close}>
             {t('Done')}

@@ -4,7 +4,6 @@ import { useThisComputer } from '../../../hooks/useThisComputer'
 import { agentTier } from '../../../lib/agentName'
 import { pickNextTaskAgent, useNextTaskProject } from '../../../lib/taskProjects'
 import { openAgentSetup } from '../../../views/onboarding/setup/agentSetupStore'
-import { useBoxAvailable } from '../../../views/settings/useAgentDevices'
 
 import { AgentHomePage } from './AgentHomePage'
 import { ChatColumn } from './ChatColumn'
@@ -56,21 +55,13 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
     openConversation: c.openConversation,
   })
 
-  // Only where a cloud computer can be made: this team's admins, on a plan that has them.
-  const cloudOffered = useBoxAvailable() && isTeamAdmin && Boolean(teamId)
-  // The draft stays in the composer while setup runs over it. A cloud computer made there
-  // lands on the Computers page, where its card adds runtimes such as OpenCode.
+  // The draft stays in the composer while setup runs over it.
   const onConnectAgent = noAgentToRun(
     runtimeInstances,
     runtimeInstancesLoading,
     runtimeInstancesError,
   )
-    ? () =>
-        openAgentSetup(
-          cloudOffered && teamId && onOpenAgentSettings
-            ? { teamId, onBoxCreated: onOpenAgentSettings }
-            : undefined,
-        )
+    ? () => openAgentSetup(teamId)
     : undefined
 
   const runtimeControl = {
