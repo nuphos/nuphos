@@ -55,6 +55,7 @@ class ConversationWatchFixtureDeviceTest {
     @Volatile private var failList = false
     @Volatile private var failDetails = false
     @Volatile private var taskSummaryFixture = false
+    @Volatile private var emptyTaskSummary = false
     private val entries = """[{"key":"agent-session:normal","label":"Synthetic pin"}]"""
     @Suppress("UNCHECKED_CAST") private fun state(target: Any, name: String, delegated: Boolean = true) =
         target.javaClass.getDeclaredField(name + if (delegated) "\$delegate" else "").also { it.isAccessible = true }.get(target) as MutableState<Any?>
@@ -92,6 +93,8 @@ class ConversationWatchFixtureDeviceTest {
                     mutation && denied -> """{"error":"synthetic unavailable"}"""
                     mutation -> """{"ok":true,"watching":${watching[watchId!!]}}"""
                     listing && req.url.queryParameter("teamId") == "B" -> """{"conversations":[],"hasMore":false}"""
+                    listing && emptyTaskSummary && req.url.queryParameter("pendingDecision") == "true" ->
+                        """{"conversations":[],"hasMore":false}"""
                     listing && taskSummaryFixture && req.url.queryParameter("pendingDecision") == "true" ->
                         """{"conversations":[{"sessionId":"parent","teamId":"A","title":"Synthetic task","isOwner":true,
                             "inputRequests":[{"id":"q-summary","category":"preference","question":"Review the plan?","options":["Review"],"status":"open"}]}],"hasMore":false}"""
@@ -147,7 +150,7 @@ class ConversationWatchFixtureDeviceTest {
             val auth = AuthSession(app, app.tokenStore)
             AuthSession::class.java.getDeclaredField("token").also { it.isAccessible = true }.set(auth, token)
             compose.activity.setContent {
-                NuphosTheme { androidx.compose.material3.Surface(Modifier.fillMaxSize().systemBarsPadding()) { CompositionLocalProvider(LocalAgentStore provides store, LocalAuthSession provides auth) {
+                NuphosTheme(darkTheme = InstrumentationRegistry.getArguments().getString("fixtureDark") == "true") { androidx.compose.material3.Surface(Modifier.fillMaxSize().systemBarsPadding()) { CompositionLocalProvider(LocalAgentStore provides store, LocalAuthSession provides auth) {
                     val nav = rememberNavController()
                     NavHost(nav, startDestination = "history") {
                         composable("history") { AgentPage(false, {}, nav) }
@@ -181,15 +184,31 @@ class ConversationWatchFixtureDeviceTest {
                 """{"tools":[{"id":"term","terminal":{"status":"running","command":"Check the build","output":"Build is running"}}]}""",
             )), RuntimeObservation.now())
         }
+        shot("task-summary-toolbar")
         compose.onNodeWithContentDescription("Agent summary").performClick()
         waitText("Review the plan?")
+        shot("task-summary-pending")
         compose.onNodeWithText("Check the build").performClick()
         waitText("Build is running")
         shot("task-summary")
         compose.onNodeWithText("Review the plan?").performClick()
-        compose.onNodeWithContentDescription("Close question").assertIsDisplayed().performClick()
+        compose.onNodeWithContentDescription("Close question").assertIsDisplayed()
+        shot("task-summary-question")
+        compose.onNodeWithContentDescription("Close question").performClick()
         compose.onNodeWithContentDescription("Close summary").assertIsDisplayed().performClick()
         compose.onNodeWithTag("task-summary").assertDoesNotExist()
+    }
+
+    @Test fun taskSummaryShowsTheEmptyState() {
+        taskSummaryFixture = true
+        emptyTaskSummary = true
+        render()
+        compose.onNodeWithText("Synthetic shared parent").performClick()
+        compose.waitUntil(8_000) { compose.onAllNodesWithContentDescription("Agent summary").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithContentDescription("Agent summary").performClick()
+        waitText("No questions waiting for you.")
+        compose.onNodeWithText("Background work").assertDoesNotExist()
+        shot("task-summary-empty")
     }
 
     private fun waitText(text: String) { compose.waitUntil(5_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() } }

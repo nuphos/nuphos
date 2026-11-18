@@ -207,4 +207,5 @@
     <string name="chat_summary_command">Command</string>
     <string name="chat_summary_running">Running</string>
     <string name="chat_summary_open">Agent summary</string>
+    <string name="chat_summary_output_truncated">Earlier output is hidden.</string>
 </resources>

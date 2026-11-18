@@ -61,6 +61,8 @@ internal fun TaskSummarySheet(
     var attempted by remember(inbox) { mutableStateOf(false) }
     val questions = inbox.list.filter { it.sessionId == session.sessionId || it.sessionId in childIds }
     val selected = questions.firstOrNull { it.id == selectedId }
+    val snapshot = session.runtimeObservation?.snapshot
+    val background = remember(snapshot) { taskSummaryBackground(snapshot) }
     fun closePane() {
         if (selectedId != null) selectedId = null else onDismiss()
     }
@@ -129,7 +131,6 @@ internal fun TaskSummarySheet(
                         }
                     }
                 }
-                val background = taskSummaryBackground(session.runtimeObservation?.snapshot)
                 if (background.isNotEmpty()) {
                     Text(stringResource(R.string.chat_summary_background), style = MaterialTheme.typography.titleMedium)
                     background.forEach { work ->
@@ -144,6 +145,12 @@ internal fun TaskSummarySheet(
                                     if (work.output.isEmpty()) {
                                         Text(stringResource(R.string.chat_summary_running))
                                     } else {
+                                        if (work.outputTruncated) {
+                                            Text(
+                                                stringResource(R.string.chat_summary_output_truncated),
+                                                style = MaterialTheme.typography.bodySmall,
+                                            )
+                                        }
                                         SelectionContainer {
                                             Text(work.output, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
                                         }
@@ -158,14 +165,24 @@ internal fun TaskSummarySheet(
     }
 }
 
-internal data class TaskSummaryWork(val id: String, val title: String?, val output: String = "")
+internal data class TaskSummaryWork(
+    val id: String,
+    val title: String?,
+    val output: String = "",
+    val outputTruncated: Boolean = false,
+)
+
+private const val MAX_SUMMARY_OUTPUT = 6_000
 
 internal fun taskSummaryBackground(snapshot: JsonValue?): List<TaskSummaryWork> {
     val terminals = snapshot?.get("tools")?.arrayValue.orEmpty().mapNotNull { tool ->
         val terminal = tool["terminal"] ?: return@mapNotNull null
         if (terminal["status"]?.stringValue != "running") return@mapNotNull null
         val id = tool["id"]?.stringValue ?: return@mapNotNull null
-        TaskSummaryWork(id, terminal["command"]?.stringValue, terminal["output"]?.stringValue.orEmpty())
+        val output = terminal["output"]?.stringValue.orEmpty()
+        var start = (output.length - MAX_SUMMARY_OUTPUT).coerceAtLeast(0)
+        if (start > 0 && output[start].isLowSurrogate()) start++
+        TaskSummaryWork(id, terminal["command"]?.stringValue, output.substring(start), outputTruncated = start > 0)
     }
     val listed = terminals.mapTo(mutableSetOf()) { it.id }
     val finished = setOf("completed", "failed", "cancelled", "stopped")

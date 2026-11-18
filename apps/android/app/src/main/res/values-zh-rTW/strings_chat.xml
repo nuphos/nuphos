@@ -200,4 +200,5 @@
     <string name="chat_summary_command">指令</string>
     <string name="chat_summary_running">執行中</string>
     <string name="chat_summary_open">Agent 摘要</string>
+    <string name="chat_summary_output_truncated">已隱藏較早的輸出。</string>
 </resources>

@@ -200,4 +200,5 @@
     <string name="chat_summary_command">명령</string>
     <string name="chat_summary_running">실행 중</string>
     <string name="chat_summary_open">에이전트 요약</string>
+    <string name="chat_summary_output_truncated">이전 출력은 숨겨져 있습니다.</string>
 </resources>

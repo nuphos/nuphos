@@ -200,4 +200,5 @@
     <string name="chat_summary_command">คำสั่ง</string>
     <string name="chat_summary_running">กำลังทำงาน</string>
     <string name="chat_summary_open">สรุปเอเจนต์</string>
+    <string name="chat_summary_output_truncated">ซ่อนผลลัพธ์ก่อนหน้านี้</string>
 </resources>

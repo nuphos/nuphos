@@ -200,4 +200,5 @@
     <string name="chat_summary_command">コマンド</string>
     <string name="chat_summary_running">実行中</string>
     <string name="chat_summary_open">エージェントの概要</string>
+    <string name="chat_summary_output_truncated">以前の出力は省略されています。</string>
 </resources>

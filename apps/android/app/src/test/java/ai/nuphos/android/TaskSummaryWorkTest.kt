@@ -27,4 +27,19 @@ class TaskSummaryWorkTest {
             taskSummaryBackground(snapshot),
         )
     }
+    @Test fun longTerminalOutputKeepsTheTailAndMarksItTruncated() {
+        fun work(output: String) = taskSummaryBackground(JsonValue.obj(
+            "tools" to JsonValue.Arr(listOf(JsonValue.obj(
+                "id" to JsonValue.Str("terminal"),
+                "terminal" to JsonValue.obj(
+                    "status" to JsonValue.Str("running"),
+                    "output" to JsonValue.Str(output),
+                ),
+            ))),
+        )).single()
+
+        val tail = "x".repeat(5_999)
+        assertEquals(TaskSummaryWork("terminal", null, tail), work(tail))
+        assertEquals(TaskSummaryWork("terminal", null, tail, outputTruncated = true), work("prefix😀" + tail))
+    }
 }

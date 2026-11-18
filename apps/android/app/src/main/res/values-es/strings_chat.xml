@@ -207,4 +207,5 @@
     <string name="chat_summary_command">Comando</string>
     <string name="chat_summary_running">En curso</string>
     <string name="chat_summary_open">Resumen del agente</string>
+    <string name="chat_summary_output_truncated">Se ha ocultado la salida anterior.</string>
 </resources>

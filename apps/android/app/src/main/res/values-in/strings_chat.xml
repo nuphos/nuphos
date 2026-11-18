@@ -200,4 +200,5 @@
     <string name="chat_summary_command">Perintah</string>
     <string name="chat_summary_running">Berjalan</string>
     <string name="chat_summary_open">Ringkasan agen</string>
+    <string name="chat_summary_output_truncated">Keluaran sebelumnya disembunyikan.</string>
 </resources>
