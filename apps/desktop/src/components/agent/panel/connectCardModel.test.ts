@@ -278,7 +278,7 @@ test('a member who cannot bind a connector is told who can, so nobody reinstalls
 
 test('a bound credential stays usable for a member: only Connect is blocked', () => {
   // Selecting what the team already bound is not a bind, so `available` keeps its
-  // "Use in agent" — the block applies where Connect itself would be offered.
+  // "Use in task" — the block applies where Connect itself would be offered.
   const available = selection({ grafanaInstanceIds: ['g1'] })
   const status = connectRowStatus('grafana', 'idle', selection(), available)
 

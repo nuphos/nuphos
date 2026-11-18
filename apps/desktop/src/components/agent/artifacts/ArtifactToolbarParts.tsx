@@ -105,7 +105,7 @@ export function MoreMenu({
             icon={<Wrench className="size-3.5 text-warning" />}
             onClick={() => onAskAgent(fixPrompt(current, errors))}
           >
-            {t('Ask the agent to fix')}
+            {t('Ask to fix')}
           </MenuItem>
         )}
         {current.kind === 'html' && onAddToDesign && (

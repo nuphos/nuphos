@@ -7,6 +7,7 @@ import { agentEvents } from './agent-log.ts'
 import { agentWordScenarios } from './agent-word-scenarios.ts'
 import { backendFailures, backendLines } from './backend-log.ts'
 import { botUnreadScenarios } from './bot-unread-scenarios.ts'
+import { botWorkingDotsScenarios } from './bot-working-dots-scenarios.ts'
 import { checkDecisionOutline, checkOutgoingChip } from './chat-presentation.ts'
 import { channelScenarios } from './channel-scenarios.ts'
 import { channelAwayScenarios } from './channel-away-scenarios.ts'
@@ -64,7 +65,7 @@ const scenarios: Scenario[] = [
     name: 'create a Bot, talk to it in its chat, and answer its question there',
     run: async (page, stack) => {
       await page.getByRole('button', { name: 'New Bot', exact: true }).click()
-      await page.getByRole('textbox', { name: 'Agent name' }).fill('E2E Bot')
+      await page.getByRole('textbox', { name: 'Bot name' }).fill('E2E Bot')
       await page.getByRole('button', { name: 'Create', exact: true }).click()
       // No user prompt precedes this reply: creating/opening the Bot starts its introduction.
       // The fixture's missing marker proves the turn did not originate from a delivery prompt.
@@ -89,6 +90,7 @@ const scenarios: Scenario[] = [
   },
   ...botUnreadScenarios,
   ...channelScenarios,
+  ...botWorkingDotsScenarios,
   ...channelAwayScenarios,
   ...teammateBotScenarios,
   {

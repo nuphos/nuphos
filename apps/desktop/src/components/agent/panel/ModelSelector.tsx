@@ -136,7 +136,7 @@ export function ModelSelector({
       disabled &&
         !busy &&
         status === 'ready' &&
-        t('Available when this agent is ready for your next message.'),
+        t('Available when this task is ready for your next message.'),
     ].filter((line): line is string => Boolean(line)),
     error: failure ?? undefined,
     onRetry: error || status === 'offline' ? control.refresh : undefined,

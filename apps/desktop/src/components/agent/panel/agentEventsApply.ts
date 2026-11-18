@@ -18,9 +18,9 @@ import type { PanelCtx } from './ctx'
 const busyNoticeShownForStream = new Set<string>()
 
 // Module-level: the tab callbacks below shadow `t`.
-const BUSY_TITLE = t('Agent is replying in Slack')
+const BUSY_TITLE = t('Replying in Slack')
 const BUSY_DETAIL = t(
-  'The agent is currently replying in the linked Slack thread. Send your message again once that reply finishes.',
+  'A reply is in progress in the linked Slack thread. Send your message again once that reply finishes.',
 )
 const WAITING_FOR_APPROVAL = t('Waiting for approval')
 const waitingForSignIn = (name: string) => t('Waiting for {name} to sign in', { name })

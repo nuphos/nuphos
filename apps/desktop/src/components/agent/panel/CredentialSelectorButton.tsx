@@ -57,7 +57,7 @@ function SelectionButton({
     (devices
       ? listedDevices.some((device) => unseen.deviceIds.includes(device.deviceId))
       : countSelectedCredentials(unseen) > 0)
-  const title = devices ? t('Computers') : t('Agent credentials')
+  const title = devices ? t('Computers') : t('Credentials')
   const Icon = devices ? Laptop : Shield
   const iconSize = devices ? 'h-4 w-4' : 'h-3.5 w-3.5'
   const changeAll = (select: boolean) => {

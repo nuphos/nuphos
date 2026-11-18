@@ -215,7 +215,7 @@ function SummaryBody({
   const panel = (
     <aside
       ref={rootRef}
-      aria-label={t('Agent summary')}
+      aria-label={t('Task summary')}
       inert={closing}
       onKeyDown={(event) => closeOnEscape(event, frameRef.current, paneId)}
       style={style}
@@ -264,7 +264,7 @@ function SummaryBody({
               <p className="text-main">{t('Nothing here yet')}</p>
               <p className="text-tertiary">
                 {t(
-                  'Pull requests, sub-agents and files from this task appear here after its first reply.',
+                  'Pull requests, sub-tasks and files from this task appear here after its first reply.',
                 )}
               </p>
             </div>

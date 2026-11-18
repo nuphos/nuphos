@@ -129,7 +129,7 @@ test('a nearly full disk names the computer and how full, and leads to where it 
   let opened = 0
   const copy = diskFullCopy({ label: 'Build Box', percent: 93 }, () => opened++)
 
-  assert.equal(copy.text, 'Build Box’s disk is almost full (93%). Agents on it may fail.')
+  assert.equal(copy.text, 'Build Box’s disk is almost full (93%). Bots and tasks on it may fail.')
   assert.equal(copy.action?.label, 'Free space')
   copy.action?.run()
   assert.equal(opened, 1)
@@ -141,7 +141,7 @@ test('an outdated computer is named, and the banner leads to where it is updated
   let opened = 0
   const copy = outdatedCopy('Studio Mac', () => opened++)
 
-  assert.equal(copy.text, 'Nuphos on Studio Mac is out of date. Its agents may fail.')
+  assert.equal(copy.text, 'Nuphos on Studio Mac is out of date. Bots and tasks on it may fail.')
   assert.equal(copy.action?.label, 'Update')
   copy.action?.run()
   assert.equal(opened, 1)

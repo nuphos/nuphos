@@ -109,9 +109,7 @@ export function ChatSummaryTriggers({ teamId, sessionId }: { teamId: string; ses
       )}
       {!loaded && !error && <p className="text-xs text-tertiary">{t('Loading…')}</p>}
       {loaded && triggers.length === 0 && (
-        <p className="text-xs text-tertiary">
-          {t('Ask the agent to schedule recurring work in this conversation.')}
-        </p>
+        <p className="text-xs text-tertiary">{t('Ask here to schedule recurring work.')}</p>
       )}
       {triggers.map((trigger) => (
         <div key={trigger.id} className="flex items-start gap-3 py-2">
