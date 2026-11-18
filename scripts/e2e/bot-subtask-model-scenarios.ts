@@ -31,12 +31,22 @@ export const botSubtaskModelScenarios: Scenario[] = [
         await kid.click()
       }
 
+      const shot = async (name: string) => {
+        await page.evaluate(() => {
+          document.documentElement.classList.remove('dark')
+          document.documentElement.classList.add('light')
+        })
+        await page.screenshot({ path: `${artifacts}/${name}.png` })
+      }
+
       await page.getByRole('tab', { name: 'Bots' }).click()
       await openKid()
       await page
         .getByRole('button', { name: /^Model settings: / })
         .last()
         .waitFor()
+      await page.waitForTimeout(3_000)
+      await shot('bot-subtask-model-first-light')
       const before = (await chip.getAttribute('aria-label')) ?? ''
       const model = /^Model settings: ([^\s,]+)/.exec(before)?.[1] ?? ''
 
@@ -47,19 +57,20 @@ export const botSubtaskModelScenarios: Scenario[] = [
         await bot.click()
         await openKid()
         await page.waitForTimeout(5_000)
-        await page.evaluate(() => {
-          document.documentElement.classList.remove('dark')
-          document.documentElement.classList.add('light')
-        })
-        await page.screenshot({ path: `${artifacts}/bot-subtask-model-light.png` })
+        await shot('bot-subtask-model-light')
         const after = (await chip.getAttribute('aria-label')) ?? ''
 
-        if (after !== before) throw new Error(`The chip read "${before}", then "${after}"`)
+        // Named both times, never just "Model settings".
+        if (model === 'Model' || after !== before)
+          throw new Error(`The chip read "${before}", then "${after}"`)
       } finally {
         rmSync(behind, { force: true })
       }
-      // Back in the Bot's chat, where the channel scenarios carry on.
+      // Back in the Bot's chat, its done group closed again, where the channel scenarios carry on.
       await bot.click()
+      await page.mouse.move(120, 600)
+      await bots.locator('[title$=" done"]').first().dispatchEvent('click')
+      await kid.waitFor({ state: 'detached' })
     },
   },
 ]
