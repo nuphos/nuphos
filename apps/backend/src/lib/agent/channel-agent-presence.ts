@@ -5,6 +5,7 @@ import { logError } from '@/lib/observability'
 import { botPresence, botRuntimes } from './bot-presence'
 import { agentConversations } from './db/shared'
 import { isActiveTeamMember } from './devices/store'
+import { getLocalActiveAgentRun } from './run-admission'
 import { getActiveAgentRunsForSessions } from './run-store'
 
 import type { BotPresence } from './bot-presence'
@@ -52,7 +53,8 @@ async function presences<T extends Listed>(teamId: string, agents: T[]) {
     presence: botPresence({
       ownerRemoved: removed.has(agent.ownerId),
       runtime: runtimes[i] ?? null,
-      busy: Boolean(runs[i]),
+      // A run on this replica, else one the shared store knows, as the conversation list reads it.
+      busy: Boolean(getLocalActiveAgentRun(agent.ownerId, agent.sessionId) ?? runs[i]),
     }),
   }))
 }
