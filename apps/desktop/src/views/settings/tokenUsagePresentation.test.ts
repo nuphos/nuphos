@@ -5,8 +5,8 @@ import {
   formatChange,
   formatTokens,
   previousTokenUsageWindow,
-  tokenUsageDays,
   tokenUsageLines,
+  tokenUsageSplit,
   tokenUsageWindow,
 } from './tokenUsagePresentation.ts'
 
@@ -64,16 +64,28 @@ test('runtimes are named from the team runtimes; models show as recorded', () =>
   )
 })
 
-test('every day of the window has a point, zero where nothing was used', () => {
+test('the chart splits by the largest groups, the rest as Other, with every day', () => {
   const window = tokenUsageWindow('7d', new Date(2026, 10, 18, 9))
-  const used = new Date(2026, 10, 16).toISOString()
-  const points = tokenUsageDays([row({ time: used }, 4200)], window)
-
-  assert.equal(points.length, 7)
-  assert.deepEqual(
-    points.map((point) => point.value),
-    [0, 0, 0, 0, 4200, 0, 0],
+  const day = new Date(2026, 10, 16).toISOString()
+  const rows = ['a', 'b', 'c', 'd', 'e', 'f'].map((member, index) =>
+    row({ time: day, member }, (index + 1) * 100),
   )
+  const split = tokenUsageSplit(rows, 'member', names, window)
+
+  assert.deepEqual(
+    split.series.map((series) => series.label),
+    ['f', 'e', 'd', 'c', 'Other'],
+  )
+  assert.equal(split.points.length, 7)
+  assert.deepEqual(split.points[4], {
+    at: new Date(2026, 10, 16).getTime(),
+    s0: 600,
+    s1: 500,
+    s2: 400,
+    s3: 300,
+    other: 300,
+  })
+  assert.equal(split.total, 2100)
 })
 
 test('token counts are shortened', () => {

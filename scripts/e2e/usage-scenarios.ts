@@ -2,6 +2,7 @@
 import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
 
+import { api, joinTeam } from './dashboard-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, openComputers, send } from './ui.ts'
 
@@ -52,6 +53,42 @@ function tooManyModels(stack: Stack, add: boolean) {
     cwd: BACKEND_DIR,
     timeout: 20_000,
   })
+}
+
+type Seed = { actor: string; total: number; daysAgo: number; triggerId?: string }
+
+/** Writes (or, with no seeds, removes) usage a turn would record, in `sessionId`, owned by its owner. */
+function seedUsage(stack: Stack, sessionId: string, owner: string, seeds: Seed[]) {
+  const script = `
+    import { MongoClient, ObjectId } from 'mongodb'
+    const [uri, teamId, sessionId, owner, seeds] = process.argv.slice(1)
+    const client = await new MongoClient(uri).connect()
+    const usage = client.db('nuphos_e2e').collection('agent_token_usage')
+    const parsed = JSON.parse(seeds)
+    if (parsed.length === 0) await usage.deleteMany({ teamId, operation: 'e2e.seed' })
+    else
+      await usage.insertMany(parsed.flatMap((seed) => {
+        const base = {
+          sessionId, userId: owner, actorUserId: seed.actor, teamId, operation: 'e2e.seed',
+          source: 'agent-runtime', accounting: 'upstream_reported', provider: 'claude-code',
+          modelId: 'claude-opus-5-5', turnSource: seed.triggerId ? 'agent.trigger' : 'app',
+          createdAt: new Date(Date.now() - seed.daysAgo * 86400000),
+          ...(seed.triggerId ? { triggerId: seed.triggerId } : {}),
+        }
+        const row = (kind, tokens) => ({ ...base, recordId: new ObjectId().toHexString(), kind, tokens })
+        return [
+          row('step_total', { totalTokens: seed.total }),
+          row('input', { inputTokens: seed.total - 1000 }),
+          row('output', { outputTokens: 1000 }),
+        ]
+      }))
+    await client.close()`
+
+  execFileSync(
+    'bun',
+    ['-e', script, stack.mongoUri, stack.teamId, sessionId, owner, JSON.stringify(seeds)],
+    { cwd: BACKEND_DIR, timeout: 20_000 },
+  )
 }
 
 /** JSON with every object's keys in order, so two values compare as text. */
@@ -175,6 +212,69 @@ export const usageScenarios: Scenario[] = [
         throw new Error(`The conversation shows as "${label}", not its title`)
       await section.screenshot({ path: `${artifacts}/token-usage-by-conversation.png` })
       await page.getByText('Back to app', { exact: true }).click()
+    },
+  },
+  {
+    // Yuanlin's benchmark: why did usage jump this week, and who or what drove it, in two clicks.
+    name: 'a teammate’s Trigger that grew tenfold ranks first, by member and then by Trigger',
+    run: async (page, stack) => {
+      const [turn] = turnRows(stack) ?? []
+
+      if (!turn) throw new Error('The earlier turn left no usage row')
+      const sessionId = String(turn.sessionId)
+      const owner = String(turn.userId)
+      const teammate = await joinTeam(stack, 'spender')
+      const created = await api(stack, stack.token)('POST', '/agent/triggers', {
+        teamId: stack.teamId,
+        targetSessionId: sessionId,
+        name: 'Nightly digest',
+        triggerType: 'cron',
+        cronExpression: '0 3 * * *',
+        messageTemplate: 'Digest',
+      })
+      const triggerId = String((created.body as { id?: string }).id)
+
+      // Last week the teammate used little; this week their Trigger used far more than anyone.
+      seedUsage(stack, sessionId, owner, [
+        { actor: teammate.id, total: 10_000, daysAgo: 9 },
+        { actor: owner, total: 100_000, daysAgo: 9, triggerId },
+        { actor: teammate.id, total: 400_000, daysAgo: 1, triggerId },
+        { actor: owner, total: 50_000, daysAgo: 1 },
+      ])
+      try {
+        await openComputers(page)
+        const section = page.getByRole('region', { name: 'Token usage' })
+        const table = section.getByRole('table', { name: 'Token usage by group' })
+
+        // Click one: by member, the teammate who grew is on top.
+        await section.getByRole('combobox', { name: 'Group by' }).click()
+        await page.getByRole('option', { name: 'Member' }).click()
+        const top = table.getByRole('row').nth(1)
+
+        await top.getByText('+3900%').waitFor()
+        await top.getByText('400.0K').waitFor()
+        await section.scrollIntoViewIfNeeded()
+        await section.screenshot({ path: `${artifacts}/token-usage-why-1-member.png` })
+
+        // Click two: into that member, by Trigger, and the Trigger is named and new.
+        await top.getByRole('button').click()
+        await section.getByRole('button', { name: 'Clear filter' }).waitFor()
+        await section.getByRole('combobox', { name: 'Group by' }).click()
+        await page.getByRole('option', { name: 'Trigger' }).click()
+        const trigger = table.getByRole('row').nth(1)
+
+        await trigger.getByText('Nightly digest').waitFor()
+        await trigger.getByText('New').waitFor()
+        await section.screenshot({ path: `${artifacts}/token-usage-why-2-trigger.png` })
+        await section.getByRole('button', { name: 'Clear filter' }).click()
+        await page.getByText('Back to app', { exact: true }).click()
+      } finally {
+        seedUsage(stack, sessionId, owner, [])
+        await api(stack, stack.token)(
+          'DELETE',
+          `/agent/triggers/${triggerId}?teamId=${stack.teamId}`,
+        )
+      }
     },
   },
 ]

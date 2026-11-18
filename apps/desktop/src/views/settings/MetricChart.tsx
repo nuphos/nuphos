@@ -35,7 +35,6 @@ export function MetricChart({
   domain,
   max,
   gaps = [],
-  headline,
 }: {
   title: string
   data: MetricPoint[]
@@ -46,8 +45,6 @@ export function MetricChart({
   /** A fixed ceiling, e.g. 100 for a percentage; otherwise the axis fits the data. */
   max?: number
   gaps?: MetricGap[]
-  /** Shown beside the title instead of the latest value, e.g. a total over the range. */
-  headline?: string
 }) {
   const newest = [...data].reverse()
   const latest = newest.find((p) => p.value !== null)?.value ?? null
@@ -59,7 +56,7 @@ export function MetricChart({
       <div className="flex flex-wrap items-baseline justify-between gap-x-2 text-[11px]">
         <span className="text-tertiary">{title}</span>
         <span className="whitespace-nowrap font-mono text-main">
-          {headline ?? (latest === null ? '—' : format(latest))}
+          {latest === null ? '—' : format(latest)}
           {latestCapacity === null ? null : (
             <span className="text-tertiary"> / {format(latestCapacity)}</span>
           )}

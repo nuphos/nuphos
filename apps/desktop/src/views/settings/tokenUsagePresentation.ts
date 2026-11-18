@@ -24,6 +24,9 @@ export const TOKEN_USAGE_GROUPS: readonly { value: UsageDimension; label: string
   { value: 'outcome', label: t('Outcome') },
 ]
 
+export const usageGroupLabel = (dimension: UsageDimension): string =>
+  TOKEN_USAGE_GROUPS.find((group) => group.value === dimension)?.label ?? dimension
+
 /** The query window: whole local days ending tonight at midnight, so today is included. */
 export function tokenUsageWindow(range: TokenUsageRange, now: Date): { from: string; to: string } {
   const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
@@ -81,14 +84,10 @@ export function tokenUsageLines(
   return rows
     .map((row) => {
       const value = row.keys[groupBy] ?? null
-      const known =
-        value === null
-          ? undefined
-          : (names.served?.[groupBy]?.[value] ?? namesFor(groupBy, names)?.get(value))
 
       return {
         key: value ?? '',
-        label: value === null ? t('Not recorded') : (known ?? value),
+        label: usageLabel(value, groupBy, names),
         inputTokens: row.inputTokens,
         cachedInputTokens: row.cachedInputTokens,
         cacheWriteTokens: row.cacheWriteTokens,
@@ -101,6 +100,17 @@ export function tokenUsageLines(
     .sort((a, b) => b.totalTokens - a.totalTokens || a.label.localeCompare(b.label))
 }
 
+/** A grouped value as the page shows it: the backend's name, a member or runtime name, or the id. */
+export function usageLabel(
+  value: string | null,
+  groupBy: UsageDimension,
+  names: UsageNames,
+): string {
+  if (value === null) return t('Not recorded')
+
+  return names.served?.[groupBy]?.[value] ?? namesFor(groupBy, names)?.get(value) ?? value
+}
+
 function namesFor(groupBy: UsageDimension, names: UsageNames) {
   if (groupBy === 'member') return names.members
   if (groupBy === 'runtime') return names.runtimes
@@ -108,27 +118,62 @@ function namesFor(groupBy: UsageDimension, names: UsageNames) {
   return null
 }
 
-/** The window's total tokens per day, a point for every day, zero where nothing was used. */
-export function tokenUsageDays(
+const SPLIT_TOP = 4
+
+/** One series per largest group, the rest as Other, and a point for every day of the window. */
+export function tokenUsageSplit(
   rows: readonly TeamUsageRow[],
+  groupBy: UsageDimension,
+  names: UsageNames,
   window: { from: string; to: string },
-): { at: number; value: number }[] {
+): { series: { key: string; label: string }[]; points: Record<string, number>[]; total: number } {
+  const totals = new Map<string, number>()
+
+  for (const row of rows) {
+    const value = row.keys[groupBy] ?? ''
+
+    totals.set(value, (totals.get(value) ?? 0) + row.totalTokens)
+  }
+  const ranked = [...totals.entries()].sort((a, b) => b[1] - a[1])
+  const top = ranked.slice(0, SPLIT_TOP).map(([value]) => value)
+  const seriesOf = (value: string) => {
+    const index = top.indexOf(value)
+
+    return index === -1 ? 'other' : `s${String(index)}`
+  }
+  const series = [
+    ...top.map((value, index) => ({
+      key: `s${String(index)}`,
+      label: usageLabel(value === '' ? null : value, groupBy, names),
+    })),
+    ...(ranked.length > SPLIT_TOP ? [{ key: 'other', label: t('Other') }] : []),
+  ]
   // Buckets start at local midnight; keying by local date keeps daylight-saving days aligned.
   const day = (at: Date) => at.toDateString()
-  const byDay = new Map(
-    rows.flatMap((row) =>
-      row.keys.time ? [[day(new Date(row.keys.time)), row.totalTokens] as const] : [],
-    ),
-  )
+  const byDay = new Map<string, Record<string, number>>()
+
+  for (const row of rows) {
+    if (!row.keys.time) continue
+    const point = byDay.get(day(new Date(row.keys.time))) ?? {}
+    const key = seriesOf(row.keys[groupBy] ?? '')
+
+    point[key] = (point[key] ?? 0) + row.totalTokens
+    byDay.set(day(new Date(row.keys.time)), point)
+  }
   const start = new Date(window.from)
   // Rounded, since a daylight-saving day is an hour short or long.
   const count = Math.round((Date.parse(window.to) - start.getTime()) / 86_400_000)
-
-  return Array.from({ length: count }, (_, index) => {
+  const points = Array.from({ length: count }, (_, index) => {
     const at = new Date(start.getFullYear(), start.getMonth(), start.getDate() + index)
+    const used = byDay.get(day(at)) ?? {}
 
-    return { at: at.getTime(), value: byDay.get(day(at)) ?? 0 }
+    return {
+      at: at.getTime(),
+      ...Object.fromEntries(series.map(({ key }) => [key, used[key] ?? 0])),
+    }
   })
+
+  return { series, points, total: ranked.reduce((sum, [, value]) => sum + value, 0) }
 }
 
 /** 1234 → "1.2K", 3_400_000 → "3.4M". */

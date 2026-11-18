@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
 import { Button } from '../../components/ui/button'
@@ -8,21 +9,22 @@ import { teamRosterQuery } from '../../lib/query/team'
 import { useTeamUsageQuery } from '../../lib/query/usage'
 
 import { HeatmapSkeleton } from './AgentUsageSkeleton'
-import { MetricChart, RangeSwitch } from './MetricChart'
+import { RangeSwitch } from './MetricChart'
 import { PanelHeading } from './RuntimePanel'
 import {
   TOKEN_USAGE_GROUPS,
   TOKEN_USAGE_RANGES,
-  formatChange,
-  formatTokens,
   formatUsd,
   previousTokenUsageWindow,
-  tokenUsageDays,
   tokenUsageLines,
+  tokenUsageSplit,
   tokenUsageWindow,
+  usageGroupLabel,
 } from './tokenUsagePresentation'
+import { UsageSplitChart } from './UsageSplitChart'
+import { UsageTable } from './UsageTable'
 
-import type { TokenUsageLine, TokenUsageRange, UsageNames } from './tokenUsagePresentation'
+import type { TokenUsageRange, UsageNames } from './tokenUsagePresentation'
 import type { RuntimeInstance } from '../../types/runtime'
 import type {
   TeamUsageNames,
@@ -36,12 +38,15 @@ const RANGE_OPTIONS = (Object.keys(TOKEN_USAGE_RANGES) as TokenUsageRange[]).map
   label: TOKEN_USAGE_RANGES[value].label,
 }))
 
-const COLUMNS = 'grid-cols-[minmax(0,1fr)_repeat(6,minmax(4.5rem,auto))]'
 const NOTE =
   'mt-3 rounded-xl border border-dashed border-line-control px-4 py-6 text-center text-xs leading-5 text-tertiary'
 
-/** What the team's runtimes spent in model tokens, per day and split by one dimension.
- *  An administrator sees the whole team; anyone else their own conversations. */
+/** A row the reader clicked into: every read keeps only records with this value. */
+type UsageFilter = { dimension: UsageDimension; value: string; label: string }
+
+/** What the team's runtimes spent in model tokens, per day and split by one dimension, each
+ *  group against the period before. An administrator sees the whole team; anyone else their
+ *  own conversations. */
 export function TokenUsage({
   teamId,
   instances,
@@ -51,13 +56,19 @@ export function TokenUsage({
 }) {
   const [range, setRange] = useState<TokenUsageRange>('7d')
   const [groupBy, setGroupBy] = useState<UsageDimension>('model')
+  const [filter, setFilter] = useState<UsageFilter | null>(null)
   // The window moves only when the range does, so a re-render never refetches.
   const span = useMemo(() => tokenUsageWindow(range, new Date()), [range])
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
-  const days = useTeamUsageQuery(teamId, { ...span, bucket: 'day', timeZone })
-  const groups = useTeamUsageQuery(teamId, { ...span, groupBy })
+  const where = filter ? { [filter.dimension]: filter.value } : {}
+  const days = useTeamUsageQuery(teamId, { ...span, ...where, bucket: 'day', timeZone, groupBy })
+  const groups = useTeamUsageQuery(teamId, { ...span, ...where, groupBy })
   // The same days just before, so a group that grew stands out.
-  const previous = useTeamUsageQuery(teamId, { ...previousTokenUsageWindow(span), groupBy })
+  const previous = useTeamUsageQuery(teamId, {
+    ...previousTokenUsageWindow(span),
+    ...where,
+    groupBy,
+  })
   // People who left still name their usage.
   const { data: roster = [] } = useQuery(teamRosterQuery(teamId))
   const names = useMemo(
@@ -101,6 +112,8 @@ export function TokenUsage({
         stale={groups.isPlaceholderData || days.isPlaceholderData}
         groupBy={groupBy}
         onGroupBy={setGroupBy}
+        filter={filter}
+        onFilter={setFilter}
       />
     )
 
@@ -135,6 +148,8 @@ function UsageReport({
   stale,
   groupBy,
   onGroupBy,
+  filter,
+  onFilter,
 }: {
   days: UsageAnswer
   groups: UsageAnswer
@@ -144,8 +159,10 @@ function UsageReport({
   stale: boolean
   groupBy: UsageDimension
   onGroupBy: (groupBy: UsageDimension) => void
+  filter: UsageFilter | null
+  onFilter: (filter: UsageFilter | null) => void
 }) {
-  // Labelled by the grouping the shown rows were asked for, not the one being loaded.
+  // Drawn by the grouping each answer was asked for, not the one being loaded.
   const shownGroup = groups.query.groupBy ?? groupBy
   const lines = tokenUsageLines(
     groups.rows,
@@ -153,8 +170,13 @@ function UsageReport({
     { ...names, served: groups.names },
     previous?.query.groupBy === shownGroup ? previous.rows : [],
   )
-  const points = tokenUsageDays(days.rows, days.query)
-  const total = points.reduce((sum, point) => sum + point.value, 0)
+  const split = tokenUsageSplit(
+    days.rows,
+    days.query.groupBy ?? groupBy,
+    { ...names, served: days.names },
+    days.query,
+  )
+  const total = lines.reduce((sum, line) => sum + line.totalTokens, 0)
   const cost = lines.some((line) => line.costUsd !== undefined)
     ? lines.reduce((sum, line) => sum + (line.costUsd ?? 0), 0)
     : undefined
@@ -162,20 +184,27 @@ function UsageReport({
   return (
     <div aria-busy={stale} className={stale ? 'opacity-50 transition-opacity' : undefined}>
       <div className="rounded-xl border border-line-control/60 p-4">
-        <MetricChart
-          title={t('Tokens per day')}
-          headline={t('{tokens} tokens', { tokens: formatTokens(total) })}
-          data={points}
-          format={formatTokens}
-          timeLabel={(at) =>
-            new Date(at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-          }
-        />
+        <UsageSplitChart series={split.series} points={split.points} total={split.total} />
       </div>
-      <div className="mt-4 flex items-center justify-between gap-3">
-        <span className="text-xs text-tertiary">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3 text-xs text-tertiary">
+          {filter && (
+            <span className="flex min-w-0 items-center gap-1 rounded-md border border-line-control/70 py-0.5 pl-2 pr-1 text-main">
+              <span className="truncate">
+                {usageGroupLabel(filter.dimension)}: {filter.label}
+              </span>
+              <button
+                type="button"
+                aria-label={t('Clear filter')}
+                onClick={() => onFilter(null)}
+                className="rounded p-0.5 text-tertiary hover:bg-state-hover hover:text-main"
+              >
+                <X size={12} />
+              </button>
+            </span>
+          )}
           {cost === undefined ? null : t('About {cost} at list prices', { cost: formatUsd(cost) })}
-        </span>
+        </div>
         <AppSelect
           size="sm"
           ariaLabel={t('Group by')}
@@ -189,71 +218,16 @@ function UsageReport({
       ) : (
         <UsageTable
           lines={lines}
-          groupLabel={TOKEN_USAGE_GROUPS.find((g) => g.value === shownGroup)?.label ?? ''}
+          total={total}
+          group={shownGroup}
+          // A row filters the section to itself; Group by then breaks it down further.
+          onOpen={
+            filter?.dimension === shownGroup
+              ? undefined
+              : (line) => onFilter({ dimension: shownGroup, value: line.key, label: line.label })
+          }
         />
       )}
-    </div>
-  )
-}
-
-function UsageTable({ lines, groupLabel }: { lines: TokenUsageLine[]; groupLabel: string }) {
-  const amount = 'text-right font-mono'
-
-  return (
-    <div role="table" aria-label={t('Token usage by group')} className="mt-3 text-xs">
-      <div
-        role="row"
-        className={`grid ${COLUMNS} gap-3 border-b border-line-control/60 pb-2 text-tertiary`}
-      >
-        <span role="columnheader">{groupLabel}</span>
-        <span role="columnheader" className="text-right">
-          {t('Input')}
-        </span>
-        <span role="columnheader" className="text-right">
-          {t('Cached')}
-        </span>
-        <span role="columnheader" className="text-right">
-          {t('Output')}
-        </span>
-        <span role="columnheader" className="text-right">
-          {t('Total')}
-        </span>
-        <span role="columnheader" className="text-right">
-          {t('vs previous')}
-        </span>
-        <span role="columnheader" className="text-right">
-          {t('Est. cost')}
-        </span>
-      </div>
-      {lines.map((line) => (
-        <div
-          key={line.key}
-          role="row"
-          className={`grid ${COLUMNS} gap-3 border-b border-line-control/30 py-2 text-main`}
-        >
-          <span role="cell" className="truncate" title={line.label}>
-            {line.label}
-          </span>
-          <span role="cell" className={amount}>
-            {formatTokens(line.inputTokens)}
-          </span>
-          <span role="cell" className={amount}>
-            {formatTokens(line.cachedInputTokens)}
-          </span>
-          <span role="cell" className={amount}>
-            {formatTokens(line.outputTokens)}
-          </span>
-          <span role="cell" className={amount}>
-            {formatTokens(line.totalTokens)}
-          </span>
-          <span role="cell" className={amount}>
-            {formatChange(line)}
-          </span>
-          <span role="cell" className={amount}>
-            {line.costUsd === undefined ? '—' : formatUsd(line.costUsd)}
-          </span>
-        </div>
-      ))}
     </div>
   )
 }

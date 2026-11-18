@@ -12,13 +12,14 @@ export type UsageDimension =
   | 'bot'
   | 'task'
 
+/** A usage read; any dimension set here keeps only the records with that value. */
 export type TeamUsageQuery = {
   from: string
   to: string
   bucket?: 'hour' | 'day' | 'week'
   timeZone?: string
   groupBy?: UsageDimension
-}
+} & Partial<Record<UsageDimension, string>>
 
 /** One group's tokens; `keys` holds the bucket start (`time`) and the grouped value (null = not recorded). */
 export type TeamUsageRow = {
