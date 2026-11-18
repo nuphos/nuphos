@@ -7,6 +7,7 @@ import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 
 import { BoxAccessFields } from './BoxAccessFields'
+import { AccessHistory } from './AccessHistory'
 import { SharedComputerNotice } from './SharedComputerNotice'
 import { useBoxAccessChoice } from './useBoxAccessChoice'
 
@@ -60,6 +61,7 @@ export function BoxAccessDialog({
       <div className="space-y-4 p-5">
         <BoxAccessFields teamId={teamId} ownerUserId={device.ownerUserId} choice={choice} />
         <SharedComputerNotice />
+        <AccessHistory deviceId={device.deviceId} teamId={teamId} />
       </div>
     </Modal>
   )

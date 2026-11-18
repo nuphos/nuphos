@@ -176,6 +176,8 @@ export type TeamInvitation = {
   inviteeEmail: string
   acceptedAt?: string
   rejectedAt?: string
+  inviteUrl?: string
+  role?: TeamRole
 }
 
 export type SidebarFavoriteCloudEntry = { label: string; key?: string; href?: string }
