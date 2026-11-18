@@ -540,3 +540,24 @@ test('a host run by the `nuphos` CLI reports that CLI, which a Box updates by', 
     else process.env.NUPHOS_CLI_VERSION = before
   }
 })
+
+test('a running agent reports which account it spends beside its usage, not in its CLI status', async () => {
+  const { tunnelStatusOf } = await import('./controller-types.ts')
+  const signedIn = {
+    installed: true,
+    path: '/bin/claude',
+    loggedIn: true,
+    accountKey: '359cc9796000792b',
+  }
+  const agents = Object.fromEntries(
+    ['claude-code', 'codex', 'grok', 'antigravity', 'opencode', 'dsh', 'hermes', 'pi'].map((p) => [
+      p,
+      p === 'claude-code' ? { runtime: {}, cli: signedIn } : { runtime: null },
+    ]),
+  ) as unknown as Parameters<typeof tunnelStatusOf>[0]
+
+  assert.deepEqual(tunnelStatusOf(agents, 'https://api.test').agents['claude-code'], {
+    cli: { installed: true, loggedIn: true },
+    accountKey: '359cc9796000792b',
+  })
+})

@@ -16,7 +16,7 @@ export function AgentSetupHost() {
   if (!request) return null
 
   return (
-    <Modal open title={t('Connect your agent')} width={600} onClose={agentSetup.close}>
+    <Modal open title={t('Connect a runtime')} width={600} onClose={agentSetup.close}>
       <div className="space-y-5 p-5">
         <p className="text-[13px] leading-relaxed text-secondary">
           {t(

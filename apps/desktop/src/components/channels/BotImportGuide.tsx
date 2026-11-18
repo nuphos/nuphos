@@ -41,8 +41,8 @@ export function BotImportGuide({
           value={selectedId ?? ''}
           onValueChange={onRuntimeChange}
           disabled={busy}
-          ariaLabel={t('Destination agent')}
-          placeholder={t('Choose an agent')}
+          ariaLabel={t('Destination runtime')}
+          placeholder={t('Choose a runtime')}
           options={runtimeInstances
             .filter((runtime) => runtime.status === 'active')
             .map((runtime) => ({ value: runtime.id, label: runtime.label }))}

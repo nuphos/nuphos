@@ -34,7 +34,15 @@ const SUBSCRIPTION = {
 // What `hermes auth add` signs in to, written by hermes-providers.py from the pinned Hermes.
 const CATALOG = new URL('./hermes-providers.json', import.meta.url)
 
-class LoginError extends Error {}
+class LoginError extends Error {
+  constructor(message, reason = 'failed') {
+    super(message)
+    this.reason = reason
+  }
+}
+
+// What Hermes says when it cannot prepare its dependencies for this home.
+const UNPREPARED = 'no dependency environment is committed'
 
 // Not the gateway's environment: no transport keys or session tokens.
 const hermesEnv = (extra = {}) => ({
@@ -46,7 +54,11 @@ const hermesEnv = (extra = {}) => ({
   ...Object.fromEntries(
     WINDOWS_ENV.filter((key) => process.env[key]).map((key) => [key, process.env[key]]),
   ),
-  HERMES_DISABLE_LAZY_INSTALLS: '1',
+  // The image bakes in Hermes' dependencies and refuses more; a computer's Hermes
+  // prepares them for each new home, so only the image's own environment refuses.
+  ...(process.env.HERMES_DISABLE_LAZY_INSTALLS
+    ? { HERMES_DISABLE_LAZY_INSTALLS: process.env.HERMES_DISABLE_LAZY_INSTALLS }
+    : {}),
   NO_COLOR: '1',
   TERM: 'dumb',
   ...extra,
@@ -71,18 +83,29 @@ export function runHermes(command, args, { env = hermesEnv(), onOutput } = {}) {
     } catch {}
   }
   process.once('exit', kill)
+  // A Hermes that refuses can exit before it reads the key; `done` says why, not the pipe.
+  child.stdin.on('error', () => {})
   let output = ''
   child.stdout.on('data', (chunk) => {
     output += chunk.toString()
     onOutput?.(output)
   })
-  child.stderr.resume()
+  let errors = ''
+  child.stderr.on('data', (chunk) => {
+    errors += chunk.toString()
+  })
   const done = new Promise((resolve, reject) => {
     child.once('error', reject)
     child.once('close', (code) => {
       process.off('exit', kill)
       if (code === 0) resolve(output)
-      else reject(new LoginError(`${command} ${args[0]} failed`))
+      else
+        reject(
+          new LoginError(
+            `${command} ${args[0]} failed`,
+            `${output}${errors}`.includes(UNPREPARED) ? 'environment' : 'failed',
+          ),
+        )
     })
   })
   return { write: (text) => child.stdin.write(text), end: () => child.stdin.end(), done }
@@ -113,7 +136,18 @@ export async function runHermesLogin({
   settleMs = 500,
   providers = JSON.parse(readFileSync(CATALOG, 'utf8')),
   windows = WINDOWS,
+  // A computer's Hermes prepares each new home's dependencies the first time it runs
+  // there; the image's are prepared already, and it says so by refusing more.
+  prepare = !process.env.HERMES_DISABLE_LAZY_INSTALLS,
 }) {
+  // Started before the first question, so it runs while the user answers. Any failure is
+  // left to `auth add`, which prepares the home itself and reports what went wrong.
+  let prepared
+  if (prepare) {
+    const listing = run(HERMES, ['auth', 'list'])
+    listing.end()
+    prepared = listing.done.catch(() => {})
+  }
   const answer = async () => {
     const { value, done } = await lines.next()
     if (done) throw new LoginError('No answer')
@@ -141,9 +175,13 @@ export async function runHermesLogin({
     ].filter(({ value }) => !windows || !(value === 'api-key' || id === 'openrouter'))
   const offered = providers.filter((entry) => methodsOf(entry).length)
   const id = await choose(
-    windows
-      ? 'Choose a model provider. API keys cannot be added on Windows yet.'
-      : 'Choose a model provider',
+    [
+      'Choose a model provider.',
+      ...(windows ? ['API keys cannot be added on Windows yet.'] : []),
+      ...(prepared ? ['Hermes gets ready meanwhile, which can take a minute the first time.'] : []),
+    ]
+      .join(' ')
+      .replace(/\.$/u, ''),
     providerOptions(offered),
   )
   const provider = offered.find((entry) => entry.id === id)
@@ -153,12 +191,14 @@ export async function runHermesLogin({
 
   if (method === 'api-key') {
     const key = await input({ message: `${provider.name} API key`, secret: true })
+    await prepared
     // On stdin, never the command line, where every process on the computer could read it.
     const add = run(HERMES, ['auth', 'add', id, '--type', 'api-key'])
     add.write(`${key}\n`)
     add.end()
     await add.done
   } else {
+    await prepared
     let shown
     let settle
     const page = new Promise((resolve) => {
@@ -198,19 +238,19 @@ export async function runHermesLogin({
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   // Provider output can contain sensitive values; report only a fixed reason.
-  const fail = () => {
-    process.stdout.write(`${JSON.stringify({ type: 'error', reason: 'failed' })}\n`)
+  const fail = (reason = 'failed') => {
+    process.stdout.write(`${JSON.stringify({ type: 'error', reason })}\n`)
     process.exit(1)
   }
-  for (const event of ['SIGTERM', 'SIGINT']) process.once(event, fail)
-  process.stdout.on('error', fail)
+  for (const event of ['SIGTERM', 'SIGINT']) process.once(event, () => fail())
+  process.stdout.on('error', () => fail())
   setTimeout(fail, 15 * 60_000).unref()
   try {
     await runHermesLogin({
       lines: createInterface({ input: process.stdin })[Symbol.asyncIterator](),
     })
     process.exit(0)
-  } catch {
-    fail()
+  } catch (error) {
+    fail(error instanceof LoginError ? error.reason : undefined)
   }
 }
