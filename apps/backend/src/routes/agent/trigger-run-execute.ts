@@ -57,6 +57,8 @@ export type TriggerRunParams = {
   // channels omit it and default to 'user'.
   origin?: AgentSessionOrigin
   client?: AgentClientMeta
+  /** The agent a new conversation runs on, already checked against the caller. */
+  runtimeId?: string
   locale?: string
   slackReply?: SlackReplyToolContext
   larkReply?: LarkReplyToolContext
@@ -98,6 +100,7 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
     ownerUserId: conversationOwnerUserId,
     sessionId,
     source,
+    ...(params.runtimeId ? { runtimeId: params.runtimeId } : {}),
   })
   const runtimeProvider = chatRuntime.runtime
   const runtimeModelId = chatRuntime.runtime

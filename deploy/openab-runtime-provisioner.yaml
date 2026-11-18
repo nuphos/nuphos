@@ -1,10 +1,6 @@
-# RBAC for the backend's Claude Code runtime provisioner: it reconciles
-# per-team OpenAB sandboxes (Deployment + Service + Secret) inside this
-# dedicated namespace and nothing else. Enable with
-# CLAUDE_CODE_RUNTIME_PROVISIONER_ENABLED=true on the backend. Team
-# administrators select each managed runtime's image in Settings; the provider
-# image environment variables are optional defaults for legacy runtimes; a
-# selected image must name an immutable @sha256 digest.
+# RBAC for the namespace of the retired Nuphos-hosted runtimes (#2401). The
+# backend no longer deploys runtimes here; it still reads runtime credential
+# Secrets in this namespace and tears down what a deleted runtime left behind.
 #
 # The RoleBinding subject must match the backend's ServiceAccount. Replace
 # the name and namespace below before applying. Find the account with:
@@ -26,8 +22,7 @@ metadata:
     pod-security.kubernetes.io/audit: restricted
     pod-security.kubernetes.io/warn: restricted
 ---
-# Requests only. A quota on `limits.cpu` would reject any pod without a CPU
-# limit, which is what CLAUDE_CODE_RUNTIME_CPU_LIMIT=none produces.
+# Requests only. A quota on `limits.cpu` would reject any pod without a CPU limit.
 apiVersion: v1
 kind: ResourceQuota
 metadata:
