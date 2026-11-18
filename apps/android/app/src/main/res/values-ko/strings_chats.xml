@@ -9,7 +9,6 @@
     <string name="chats_show_less">간략히 보기</string>
     <string name="chats_show_more">더 보기</string>
     <string name="chats_question_your_answer">내 답변</string>
-    <string name="chats_question_or_type_answer">또는 직접 답변 입력</string>
     <string name="chats_question_send_answer">답변 보내기</string>
     <string name="chats_question_heading_approval">승인 필요</string>
     <string name="chats_question_heading_preference">선택하세요</string>

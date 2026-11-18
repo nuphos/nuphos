@@ -11,8 +11,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.outlined.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateListOf
@@ -34,6 +33,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -50,7 +51,7 @@ import androidx.compose.ui.res.stringResource
  * An open question, in a Bot's chat or the Inbox, like Desktop's decision card: which agent asked,
  * the question and what the agent wrote to decide it from, each option an answer, and "Other…" to
  * type the answer in the card (in the Inbox, [answersInPlace], the text box is always there). A card
- * with several questions or any number of picks is a form, sent once as [onForm]. An answer
+ * with several questions or any number of picks picks the same options and sends them once as [onForm]. An answer
  * wakes the agent that asked; no message is sent. A connect question opens the asking conversation's
  * credential picker ([onConnect]); a secret one, its secure input. [showsFrom] is off for the Bot's own
  * questions in its own chat.
@@ -72,8 +73,6 @@ internal fun BotQuestionCard(
     onForm: (JsonValue) -> Unit = {},
 ) {
     val replies = cardReplies(question)
-    // "Other…" was tapped: the card asks for the answer in words.
-    var typing by rememberSaveable(question.id) { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp).testTag("bot-question"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         if (showsFrom) Row(Modifier.clickable(onClick = onOpen).testTag("bot-question-from"), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -92,7 +91,7 @@ internal fun BotQuestionCard(
                 question.ownBody?.let { QuestionBody(question.id, it, onLink) }
                 val form = question.form
                 val secret = question.secretPart
-                if (form != null) DecisionForm(question.id, form, onForm)
+                if (form != null) QuestionOptions(question.id, form, pick = true, question.typed, answersInPlace, onAnswer, onForm)
                 else if (secret != null) AskedSecretCard(question, secret)
                 else if (replies == null) {
                     val own = question.personalCredentials?.map { if (it == "github") "GitHub" else if (it == "linear") "Linear" else it }
@@ -100,17 +99,8 @@ internal fun BotQuestionCard(
                     OutlinedButton(onClick = onConnect, modifier = Modifier.testTag("bot-question-connect")) {
                         Text(own?.let { stringResource(R.string.chats_question_use_own, it) } ?: stringResource(R.string.chats_question_choose_credentials))
                     }
-                } else {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        replies.forEach { (label, reply) ->
-                            OutlinedButton(onClick = { onAnswer(reply) }, modifier = Modifier.testTag("bot-question-option")) { Text(label) }
-                        }
-                    }
-                    if (question.typed && (typing || answersInPlace)) TypedAnswer(question.id, onAnswer)
-                    else if (question.typed) TextButton(onClick = { typing = true }, Modifier.testTag("bot-question-other")) {
-                        Text(stringResource(if (replies.isNotEmpty()) R.string.chats_question_other else R.string.chats_question_reply))
-                    }
-                }
+                } else QuestionOptions(question.id, listOf(DecisionQuestion(question.request.question, replies.map { it.second })),
+                    pick = false, question.typed, answersInPlace, onAnswer, onForm)
             }
         }
         if (failure != null) Text(stringResource(R.string.chats_question_send_failed, failure), Modifier.testTag("bot-question-failure"),
@@ -141,56 +131,60 @@ internal fun cardReplies(question: BotQuestion): List<Pair<String, String>>? {
 }
 
 /**
- * Desktop's `DecisionForm`: each question's options toggled, one or any number, or the answer typed in
- * their place, sent together as one answer once every question has one.
+ * A card's options, one design whether one or any number may be picked, as Desktop's
+ * `DecisionOptions`: each option a button, "Other…" for the answer in words (in the Inbox,
+ * [answersInPlace], the text box is already there), and "Send answer". One single-choice question
+ * ([pick] off) is answered by its option, and Send sends only its words; a multi-select or several
+ * questions pick their options, filled with a check once picked, and Send sends them together.
  */
 @Composable
-private fun DecisionForm(id: String, questions: List<DecisionQuestion>, onSubmit: (JsonValue) -> Unit) {
-    // Keyed on the questions too: an agent can correct an open card, keeping its id, and the form starts over.
+private fun QuestionOptions(
+    id: String,
+    questions: List<DecisionQuestion>,
+    pick: Boolean,
+    typed: Boolean,
+    answersInPlace: Boolean,
+    onAnswer: (String) -> Unit,
+    onForm: (JsonValue) -> Unit,
+) {
+    // Keyed on the questions too: an agent can correct an open card, keeping its id, and it starts over.
     val picked = remember(id, questions) { mutableStateListOf(*Array(questions.size) { emptyList<String>() }) }
-    val typed = remember(id, questions) { mutableStateListOf(*Array(questions.size) { "" }) }
-    val complete = questions.indices.all { BotQuestion.answerText(picked[it], typed[it]).isNotEmpty() }
-    Column(Modifier.testTag("bot-question-form"), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    val words = remember(id, questions) { mutableStateListOf(*Array(questions.size) { "" }) }
+    val open = remember(id, questions) { mutableStateListOf(*Array(questions.size) { typed && answersInPlace }) }
+    // Only an open text box answers its question.
+    val answers = questions.indices.map { if (open[it]) words[it].trim() else "" }
+    val complete = questions.indices.all { picked[it].isNotEmpty() || answers[it].isNotEmpty() }
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         questions.forEachIndexed { index, item ->
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (questions.size > 1) Text(item.question, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                 item.options.orEmpty().forEach { option ->
                     val on = option in picked[index]
-                    val toggle = {
-                        picked[index] = when {
-                            on -> picked[index] - option
-                            item.multiSelect == true -> picked[index] + option
-                            else -> listOf(option)
+                    val tag = Modifier.testTag("bot-question-option").semantics { if (pick) selected = on }
+                    when {
+                        !pick -> OutlinedButton(onClick = { onAnswer(option) }, modifier = tag) { Text(option) }
+                        on -> FilledTonalButton(onClick = { picked[index] = picked[index] - option }, modifier = tag) {
+                            Icon(Icons.Filled.Check, null, Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(option)
                         }
+                        else -> OutlinedButton(onClick = {
+                            picked[index] = if (item.multiSelect == true) picked[index] + option else listOf(option)
+                        }, modifier = tag) { Text(option) }
                     }
-                    val label: @Composable () -> Unit = {
-                        Icon(if (on) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked, null, Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(option)
-                    }
-                    val tag = Modifier.testTag("bot-question-choice")
-                    if (on) FilledTonalButton(onClick = toggle, modifier = tag) { label() }
-                    else OutlinedButton(onClick = toggle, modifier = tag) { label() }
                 }
-                OutlinedTextField(typed[index], { typed[index] = it }, Modifier.fillMaxWidth().testTag("bot-question-form-text"),
-                    placeholder = { Text(stringResource(if (item.options.isNullOrEmpty()) R.string.chats_question_your_answer else R.string.chats_question_or_type_answer)) },
-                    textStyle = MaterialTheme.typography.bodyMedium)
+                if (open[index]) OutlinedTextField(words[index], { words[index] = it }, Modifier.fillMaxWidth().testTag("bot-question-answer"),
+                    placeholder = { Text(stringResource(R.string.chats_question_your_answer)) }, textStyle = MaterialTheme.typography.bodyMedium)
+                else if (typed) TextButton(onClick = { open[index] = true }, Modifier.testTag("bot-question-other")) {
+                    Text(stringResource(if (item.options.isNullOrEmpty()) R.string.chats_question_reply else R.string.chats_question_other))
+                }
             }
         }
-        Button(onClick = { onSubmit(BotQuestion.formAnswer(questions, picked.toList(), typed.toList())) }, enabled = complete,
-            modifier = Modifier.testTag("bot-question-form-send")) { Text(stringResource(R.string.chats_question_send_answer)) }
-    }
-}
-
-/** The answer in words, sent as the question's answer like an option; no message is sent. */
-@Composable
-private fun TypedAnswer(id: String, onAnswer: (String) -> Unit) {
-    var text by rememberSaveable(id) { mutableStateOf("") }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(text, { text = it }, Modifier.fillMaxWidth().testTag("bot-question-answer"),
-            placeholder = { Text(stringResource(R.string.chats_question_your_answer)) }, textStyle = MaterialTheme.typography.bodyMedium)
-        Button(onClick = { onAnswer(text.trim()) }, enabled = text.isNotBlank(),
-            modifier = Modifier.testTag("bot-question-send")) { Text(stringResource(R.string.chats_question_send_answer)) }
+        if (pick || open.any { it }) Button(
+            onClick = { if (pick) onForm(BotQuestion.formAnswer(questions, picked.toList(), answers)) else onAnswer(answers[0]) },
+            enabled = if (pick) complete else answers[0].isNotEmpty(),
+            modifier = Modifier.testTag("bot-question-send"),
+        ) { Text(stringResource(R.string.chats_question_send_answer)) }
     }
 }
 

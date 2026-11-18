@@ -9,7 +9,6 @@
     <string name="chats_show_less">表示を減らす</string>
     <string name="chats_show_more">もっと見る</string>
     <string name="chats_question_your_answer">あなたの回答</string>
-    <string name="chats_question_or_type_answer">または自分で回答を入力</string>
     <string name="chats_question_send_answer">回答を送信</string>
     <string name="chats_question_heading_approval">承認が必要</string>
     <string name="chats_question_heading_preference">選択してください</string>
