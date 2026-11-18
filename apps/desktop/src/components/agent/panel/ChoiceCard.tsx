@@ -212,7 +212,7 @@ function AnswerStatus({
   if (skipped)
     return (
       <div className="mt-2 text-[12.5px] text-secondary">
-        {t('Skipped. The agent carries on without an answer.')}
+        {t('Skipped. It carries on without an answer.')}
       </div>
     )
 

@@ -113,7 +113,7 @@ export const HOME_CARD_CATALOG: HomeCardEntry[] = [
     category: 'activity',
     title: t('Team activity'),
     icon: Users,
-    description: t('Who on the team ran agents, and when, as a heatmap.'),
+    description: t('Who on the team ran Bots and tasks, and when, as a heatmap.'),
     keywords: ['heatmap', 'members', 'people'],
     size: { w: GRID_COLUMNS, h: teamCardHeight(2) },
     add: 'once',
@@ -141,10 +141,10 @@ export const HOME_CARD_CATALOG: HomeCardEntry[] = [
   metric(
     'agent-time',
     Timer,
-    t('How long agents worked, and the human workdays that adds up to.'),
+    t('How long Bots and tasks worked, and the human workdays that adds up to.'),
     ['hours', 'duration', 'estimate'],
   ),
-  metric('sessions', Network, t('Sessions started, and the sub-agents they spawned.'), [
+  metric('sessions', Network, t('Tasks started, and the sub-tasks they started.'), [
     'conversations',
     'subagents',
     'trend',
@@ -152,15 +152,15 @@ export const HOME_CARD_CATALOG: HomeCardEntry[] = [
   metric(
     'pull-requests',
     GitMerge,
-    t('Pull requests agents opened and merged, some while you slept.'),
+    t('Pull requests Bots and tasks opened and merged, some while you slept.'),
     ['github', 'pr', 'merged', 'overnight'],
   ),
-  metric('streak', Flame, t('Days in a row with at least one agent turn.'), ['days', 'habit']),
-  metric('longest-run', Hourglass, t('The longest single agent turn in the range.'), [
+  metric('streak', Flame, t('Days in a row with at least one turn.'), ['days', 'habit']),
+  metric('longest-run', Hourglass, t('The longest single turn in the range.'), [
     'duration',
     'record',
   ]),
-  metric('runtime-mix', Cpu, t('Which agents did the work, by share of agent time.'), [
+  metric('runtime-mix', Cpu, t('Which runtimes did the work, by share of work time.'), [
     'runtimes',
     'claude',
     'codex',

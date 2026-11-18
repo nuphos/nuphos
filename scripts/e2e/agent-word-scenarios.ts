@@ -27,4 +27,26 @@ export const agentWordScenarios: Scenario[] = [
       await page.keyboard.press('Escape')
     },
   },
+  {
+    // Batch 2 of #3250: the cards to add to the home page describe Bots and tasks.
+    name: 'the home cards on offer never say agent',
+    run: async (page) => {
+      const stats = page.getByRole('button', { name: 'Stats', exact: true })
+      const gallery = page.getByRole('dialog')
+
+      await stats.click()
+      await page.getByRole('button', { name: 'Add card', exact: true }).click()
+      await gallery.getByText('Add cards', { exact: true }).waitFor()
+      // The dialog fades in; shoot it once it has settled.
+      await page.waitForTimeout(1_000)
+      await page.screenshot({ path: `${artifacts}/agent-words-cards.png` })
+      const said = (await gallery.innerText())
+        .split('\n')
+        .filter((line) => /\bagents?\b/i.test(line))
+
+      if (said.length > 0) throw new Error(`The home cards say agent: ${said.join(' | ')}`)
+      await page.keyboard.press('Escape')
+      await stats.click()
+    },
+  },
 ]

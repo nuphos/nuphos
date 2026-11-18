@@ -74,10 +74,7 @@ export const formScenario = {
       // open submenu: a pick that misses starts over.
       await until('the fixture agent to be picked', async () => {
         try {
-          // "Agent runtime" until #3271 renames the picker.
-          await page
-            .getByRole('button', { name: /^(Agent runtime|Runtime:)/ })
-            .click({ timeout: 5_000 })
+          await page.getByRole('button', { name: /^Runtime:/ }).click({ timeout: 5_000 })
           await page.getByRole('menu').getByText('E2E fixture agent').click({ timeout: 5_000 })
           await page
             .getByRole('menuitem', { name: /^E2E fixture agent.*Claude Code/ })
