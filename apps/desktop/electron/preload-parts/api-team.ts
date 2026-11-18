@@ -48,6 +48,8 @@ export const teamApi = {
     ipcRenderer.invoke('atlas:getTeamActivity', teamId, range),
   atlasGetAgentStats: (teamId: string, query: { range: string; scope: string; timeZone: string }) =>
     ipcRenderer.invoke('atlas:getAgentStats', teamId, query),
+  atlasQueryTeamUsage: (teamId: string, query: Record<string, string>) =>
+    ipcRenderer.invoke('atlas:queryTeamUsage', teamId, query),
   atlasPutHomeLayout: (teamId: string, scope: 'personal' | 'team', layout: unknown) =>
     ipcRenderer.invoke('atlas:putHomeLayout', teamId, scope, layout),
   archListDiagrams: (teamId: string) => ipcRenderer.invoke('arch:listDiagrams', teamId),
