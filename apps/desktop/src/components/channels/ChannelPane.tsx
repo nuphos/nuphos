@@ -171,7 +171,7 @@ export function ChannelPane({
         className={clsx(
           'workspace-agent-titlebar sheet-titlebar-row relative flex flex-shrink-0 items-center gap-2 pl-3',
           titlebarClassName,
-          dockOpen ? 'pr-3' : 'pr-12',
+          dockOpen ? 'pr-3' : 'pr-[var(--dock-toggle-pad)]',
         )}
       >
         {titlebarLeading}

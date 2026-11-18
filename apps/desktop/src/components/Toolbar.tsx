@@ -49,7 +49,7 @@ type Props = {
    * The workspace's agent chat dock. It rides the toolbar rather than the tab
    * strip because the strip has no stable trailing edge: tabs grow into it, and
    * on Windows and Linux the native caption buttons own that corner (see
-   * `.titlebar-caption-pad`). Passing a handler keeps the header row alive even
+   * `--caption-reserve`). Passing a handler keeps the header row alive even
    * on a page with no breadcrumb of its own — otherwise the dock would have no
    * entry point there at all.
    */
