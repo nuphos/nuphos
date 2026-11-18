@@ -58,11 +58,4 @@
     <string name="chats_question_snooze_tomorrow">明天 9:00</string>
     <string name="chats_question_snooze_monday">下周一 9:00</string>
     <string name="chats_question_dismiss_reason">理由（可选）</string>
-    <string name="chats_bot_computer_offline">%1$s 的电脑离线。</string>
-    <string name="chats_presence_online">在线</string>
-    <string name="chats_presence_busy">忙碌中</string>
-    <string name="chats_presence_offline">离线</string>
-    <string name="chats_presence_sign_in">需要登录</string>
-    <string name="chats_presence_usage">用量已用完</string>
-    <string name="chats_presence_unavailable">不可用</string>
 </resources>
