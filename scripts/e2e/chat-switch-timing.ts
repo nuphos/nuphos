@@ -1,30 +1,29 @@
-// Times one switch to a chat, frame by frame in the window, from the press on its sidebar row:
-// when the chat's history shows, when its newest message shows, and how many frames a
-// spinner or a fade had the chat area show nothing readable meanwhile.
+// Watches one switch to a chat in the window, frame by frame from the click on its sidebar
+// row, for what can be asserted without timing anything.
 import type { Locator, Page } from 'playwright-core'
 
-export type SwitchSample = {
-  /** ms from the press to the first frame the history text is on screen, fully opaque. */
-  history: number | null
-  /** ms to the first frame the newest text is on screen; history's when there is none. */
-  latest: number | null
-  /** Frames, after the press and before the history, with the opening spinner on screen. */
-  spinnerFrames: number
+export type SwitchWatch = {
+  /** Epoch ms of the click and of the first frame with the chat's history on screen. */
+  clickedAt: number
+  shownAt: number | null
+  /** Frames after the click up to and including the first with the history; 1 is the first frame. */
+  framesToContent: number | null
+  /** Frames with the history in the page but faded (between 5 % and 95 % opacity). */
+  fadeFrames: number
+  /** Frames with `typedFrom` on screen but not `typedTo`: a reply being typed out. */
+  typedFrames: number
+  /** ms from the click to the first frame with `newest` on screen. */
+  newestAfterMs: number | null
 }
 
-type Watch = { history: string; latest?: string; timeoutMs: number }
+type Texts = { history: string; newest?: string; typedFrom?: string; typedTo?: string }
 
-/** Clicks `row` and watches for `history`, then `latest`, outside the sidebar. */
-export async function timeSwitch(
-  page: Page,
-  row: Locator,
-  texts: { history: string; latest?: string },
-  timeoutMs = 15_000,
-): Promise<SwitchSample> {
+/** Clicks `row` and watches until `newest` (or the history) is on screen, or `timeoutMs`. */
+export async function watchSwitch(page: Page, row: Locator, texts: Texts, timeoutMs = 15_000) {
   await row.waitFor()
-  const watching = page.evaluate(watchSwitch, { ...texts, timeoutMs })
+  const watching = page.evaluate(watch, { ...texts, timeoutMs })
 
-  // The watcher arms on the next frame; the press must come after it.
+  // The watcher arms on the next frame; the click must come after it.
   await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)))
   await row.click()
 
@@ -32,16 +31,15 @@ export async function timeSwitch(
 }
 
 // Runs in the window, so it must be self-contained.
-function watchSwitch({ history, latest, timeoutMs }: Watch): Promise<SwitchSample> {
-  const opacity = (element: Element | null) => {
-    let value = 1
-
-    for (let node = element; node; node = node.parentElement)
-      value *= Number(getComputedStyle(node).opacity)
-
-    return value
-  }
-  const shown = (text: string) => {
+function watch({
+  history,
+  newest,
+  typedFrom,
+  typedTo,
+  timeoutMs,
+}: Texts & { timeoutMs: number }): Promise<SwitchWatch> {
+  // The text's effective opacity where it is on screen outside the sidebar, or 0.
+  const seen = (text: string) => {
     const found = document.evaluate(
       `//text()[contains(., ${JSON.stringify(text)})]`,
       document.body,
@@ -49,43 +47,64 @@ function watchSwitch({ history, latest, timeoutMs }: Watch): Promise<SwitchSampl
       XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
       null,
     )
+    let best = 0
 
     for (let n = 0; n < found.snapshotLength; n++) {
       const element = found.snapshotItem(n)?.parentElement
 
-      if (!element || element.closest('[data-sidebar-row], nav, aside')) continue
+      if (!element || element.closest('[data-sidebar-row], aside')) continue
       if (!element.checkVisibility({ visibilityProperty: true })) continue
       const box = element.getBoundingClientRect()
 
       if (box.bottom <= 0 || box.top >= innerHeight || box.width === 0) continue
-      if (opacity(element) >= 0.95) return true
+      let opacity = 1
+
+      for (let node: Element | null = element; node; node = node.parentElement)
+        opacity *= Number(getComputedStyle(node).opacity)
+      best = Math.max(best, opacity)
     }
 
-    return false
+    return best
   }
-  const spinner = () =>
-    [...document.querySelectorAll('[aria-busy="true"]')].some((element) =>
-      element.checkVisibility(),
-    )
 
   return new Promise((resolve) => {
-    let start: number | null = null
-    const sample: SwitchSample = { history: null, latest: null, spinnerFrames: 0 }
-    const press = () => {
-      start = performance.now()
+    let clicked: number | null = null
+    let frames = 0
+    const result: SwitchWatch = {
+      clickedAt: 0,
+      shownAt: null,
+      framesToContent: null,
+      fadeFrames: 0,
+      typedFrames: 0,
+      newestAfterMs: null,
     }
 
-    addEventListener('pointerdown', press, { capture: true, once: true })
+    addEventListener(
+      'click',
+      (event) => {
+        clicked = event.timeStamp
+        result.clickedAt = performance.timeOrigin + event.timeStamp
+      },
+      { capture: true, once: true },
+    )
     const frame = (now: number) => {
-      if (start !== null) {
-        const elapsed = Math.round(now - start)
+      if (clicked !== null) {
+        frames++
+        const shown = seen(history)
 
-        if (sample.history === null && spinner()) sample.spinnerFrames++
-        if (sample.history === null && shown(history)) sample.history = elapsed
-        if (sample.history !== null && sample.latest === null && shown(latest ?? history))
-          sample.latest = elapsed
-        if (sample.latest !== null || elapsed > timeoutMs) {
-          resolve(sample)
+        if (shown > 0.05 && shown < 0.95) result.fadeFrames++
+        if (result.framesToContent === null && shown >= 0.95) {
+          result.framesToContent = frames
+          result.shownAt = performance.timeOrigin + now
+        }
+        if (typedFrom && typedTo && seen(typedFrom) > 0 && seen(typedTo) === 0) result.typedFrames++
+        if (result.newestAfterMs === null && seen(newest ?? history) >= 0.95)
+          result.newestAfterMs = Math.round(now - clicked)
+        if (
+          (result.newestAfterMs !== null && result.framesToContent !== null) ||
+          now - clicked > timeoutMs
+        ) {
+          resolve(result)
 
           return
         }

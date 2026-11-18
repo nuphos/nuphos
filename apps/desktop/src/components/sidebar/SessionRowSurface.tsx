@@ -1,7 +1,6 @@
 import clsx from 'clsx'
 
 import { SESSION_DRAG_TYPE } from '../../app/workspace/splitLayout'
-import { startChatSwitch } from '../../lib/chatSwitchTiming'
 
 import { MAKE_BOT_DRAG_TYPE } from './bot-drop'
 import { BOT_PIN_DRAG_TYPE } from './bot-pin-drag'
@@ -38,7 +37,6 @@ export function SessionRowSurface({
     if ((event.target as HTMLElement).closest('button')) return
     const newTab = event.metaKey || event.ctrlKey
 
-    if (sessionId && !newTab && !active) startChatSwitch(sessionId)
     if (item.onActivate) item.onActivate(newTab)
     else if (newTab && onOpenKey) onOpenKey(item.key, null, true)
     else onSelect(item.key)

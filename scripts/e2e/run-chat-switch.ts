@@ -1,9 +1,10 @@
-// `bun run e2e:chat-switch`: how fast a chat shows after its sidebar row is clicked, for Tasks
-// and Bot chats, opened before or not since the app started, and how fast what was said while
-// away shows. Writes chat-switch.json and chat-switch.md, and a recording of every switch.
-import { appendFileSync, writeFileSync } from 'node:fs'
+// `bun run e2e:chat-switch`: what a click on a chat's sidebar row shows, asserted without timing
+// anything (real latency is the app's `chat_switch` event). Writes chat-switch.json and .md.
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 
-import { timeSwitch } from './chat-switch-timing.ts'
+import { backendLog } from './backend-log.ts'
+import { watchSwitch } from './chat-switch-timing.ts'
 import { startDesktop } from './desktop.ts'
 import { artifacts, stopAll } from './processes.ts'
 import { recordScreencast } from './screencast.ts'
@@ -11,26 +12,25 @@ import { signInScenarios } from './sign-in-scenarios.ts'
 import { startStack } from './stack.ts'
 import { newTask, send } from './ui.ts'
 
-import type { SwitchSample } from './chat-switch-timing.ts'
+import type { SwitchWatch } from './chat-switch-timing.ts'
 import type { Desktop } from './desktop.ts'
 import type { Stack } from './stack.ts'
 import type { Page } from 'playwright-core'
 
-/** Budgets in ms at the median. `enforced` ones fail the run; the rest are reported until met. */
-const BUDGETS = {
-  'task, opened before': { history: 100, latest: 300, enforced: false },
-  'bot chat, opened before': { history: 100, latest: 300, enforced: false },
-  'bot chat, new post while away': { history: 100, latest: 300, enforced: false },
-  'task, first open': { history: 400, latest: 700, enforced: false },
-  'bot chat, first open': { history: 400, latest: 700, enforced: false },
-  'task, first open, reply in progress': { history: 400, latest: 700, enforced: false },
-} satisfies Record<string, { history: number; latest: number; enforced: boolean }>
-
-type Case = keyof typeof BUDGETS
-
-const ROUNDS = 5
+const BASELINE = join(import.meta.dirname, 'chat-switch-baseline.json')
+// A Bot chat's poll; the newest post must not wait for it.
+const POLL_MS = 4_000
 const POSTS = 40
-const samples = new Map<Case, SwitchSample[]>()
+
+type Chat = { tab: 'Tasks' | 'Bots'; title: string; sessionId: string }
+type Case = {
+  name: string
+  watch: SwitchWatch
+  /** Requests for this chat the backend got between the click and the chat's first frame. */
+  requests: number
+}
+
+const cases: Case[] = []
 
 async function api(stack: Stack, path: string, body?: unknown, method = body ? 'POST' : 'GET') {
   const response = await fetch(`${stack.apiUrl}${path}`, {
@@ -44,8 +44,8 @@ async function api(stack: Stack, path: string, body?: unknown, method = body ? '
   return (await response.json()) as Record<string, unknown>
 }
 
-/** A group chat with history, the same view as a Bot's chat. */
-async function chat(stack: Stack, title: string) {
+/** A group chat with history: the same view as a Bot's chat. */
+async function chat(stack: Stack, title: string): Promise<Chat> {
   const made = (await api(stack, '/agent/channels', { title, group: true })) as {
     sessionId: string
   }
@@ -55,12 +55,12 @@ async function chat(stack: Stack, title: string) {
       text: `${title} post ${String(n)}`,
     })
 
-  return made.sessionId
+  return { tab: 'Bots', title, sessionId: made.sessionId }
 }
 
 const named = new Set<string>()
 
-/** A Task with one finished turn, named `title` so its row can be found. */
+/** A Task whose first turn showed `shows`, named `title` so its row can be found. */
 async function task(page: Page, stack: Stack, title: string, prompt: string, shows: string) {
   type Row = { sessionId: string; kind?: string; firstMessage?: string; title?: string }
   await newTask(page)
@@ -78,28 +78,38 @@ async function task(page: Page, stack: Stack, title: string, prompt: string, sho
   if (!row) throw new Error(`No Task listed for "${prompt}"`)
   named.add(row.sessionId)
   await api(stack, `/agent/conversations/${row.sessionId}/title`, { title }, 'PATCH')
+
+  return { tab: 'Tasks', title, sessionId: row.sessionId } satisfies Chat
 }
 
-function row(page: Page, tab: 'Tasks' | 'Bots', title: string) {
-  return page
-    .getByRole('tabpanel', { name: tab })
-    .locator('[data-sidebar-row]')
-    .filter({ hasText: title })
-    .first()
+/** The backend's requests for `sessionId` that started in [from, to] (epoch ms). */
+function requestsFor(sessionId: string, from: number, to: number) {
+  return backendLog().filter((line) => {
+    if (!line.includes('"http.request"') || !line.includes(sessionId)) return false
+    const entry = JSON.parse(line) as { ts: string; duration_ms: number }
+    const started = Date.parse(entry.ts) - entry.duration_ms
+
+    return started >= from && started <= to
+  }).length
 }
 
-async function measure(
+async function open(
   page: Page,
-  label: Case,
-  tab: 'Tasks' | 'Bots',
-  title: string,
-  texts: { history: string; latest?: string },
+  name: string,
+  chat: Chat,
+  texts: Parameters<typeof watchSwitch>[2],
 ) {
-  await page.getByRole('tab', { name: tab }).click()
-  const sample = await timeSwitch(page, row(page, tab, title), texts)
+  await page.getByRole('tab', { name: chat.tab }).click()
+  const row = page
+    .getByRole('tabpanel', { name: chat.tab })
+    .locator('[data-sidebar-row]')
+    .filter({ hasText: chat.title })
+    .first()
+  const watch = await watchSwitch(page, row, texts)
+  const requests = requestsFor(chat.sessionId, watch.clickedAt, watch.shownAt ?? Date.now())
 
-  samples.set(label, [...(samples.get(label) ?? []), sample])
-  console.log(`${label}: ${JSON.stringify(sample)}`)
+  cases.push({ name, watch, requests })
+  console.log(`${name}: ${JSON.stringify({ ...watch, requests })}`)
 }
 
 /** Back to a fresh renderer, as after starting the app: nothing opened, nothing cached. */
@@ -110,95 +120,91 @@ async function restart(page: Page) {
   await page.getByRole('tab', { name: 'Tasks' }).waitFor()
 }
 
-const median = (values: (number | null)[]) => {
-  const sorted = values.map((value) => value ?? Infinity).sort((a, b) => a - b)
-
-  return sorted[Math.floor(sorted.length / 2)] ?? Infinity
-}
-
-const ms = (value: number) => (Number.isFinite(value) ? `${String(value)} ms` : 'never')
-
-function report(): string[] {
-  const lines = [
-    '| Switch | History, median | Newest, median | Spinner frames | Budget (history / newest) | Runs |',
-    '| --- | --: | --: | --: | --- | --: |',
-  ]
-  const over: string[] = []
-
-  for (const [label, budget] of Object.entries(BUDGETS) as [Case, (typeof BUDGETS)[Case]][]) {
-    const runs = samples.get(label) ?? []
-    const history = median(runs.map((run) => run.history))
-    const latest = median(runs.map((run) => run.latest))
-    const spinner = Math.max(0, ...runs.map((run) => run.spinnerFrames))
-    const met = history <= budget.history && latest <= budget.latest
-    let verdict = met ? 'met' : 'not yet'
-
-    if (!met && budget.enforced) verdict = '**over**'
-    lines.push(
-      `| ${label} | ${ms(history)} | ${ms(latest)} | ${String(spinner)} | ${String(budget.history)} / ${String(budget.latest)} ms ${verdict} | ${String(runs.length)} |`,
-    )
-    if (!met && budget.enforced) over.push(label)
-  }
-  writeFileSync(
-    `${artifacts}/chat-switch.json`,
-    JSON.stringify(Object.fromEntries(samples), null, 2),
-  )
-  writeFileSync(`${artifacts}/chat-switch.md`, `${lines.join('\n')}\n`)
-  console.log(lines.join('\n'))
-  if (process.env.GITHUB_STEP_SUMMARY)
-    appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### Chat switch\n\n${lines.join('\n')}\n`)
-
-  return over
-}
-
-const lastPost = (title: string) => ({ history: `${title} post ${String(POSTS)}` })
-const reply = (marker: string) => ({ history: `ACK E2E_DELIVERY:${marker}` })
+const lastPost = (chat: Chat) => ({ history: `${chat.title} post ${String(POSTS)}` })
 
 async function scenario(page: Page, stack: Stack) {
-  const chatA = 'Switch chat A'
-  const chatB = 'Switch chat B'
-  const taskA = 'Switch task A'
-  const taskB = 'Switch task B'
-  const taskLong = 'Switch task long'
-  const chats = { [chatA]: await chat(stack, chatA), [chatB]: await chat(stack, chatB) }
-
-  await task(page, stack, taskA, 'First task E2E_DELIVERY:switch-a', 'ACK E2E_DELIVERY:switch-a')
-  await task(page, stack, taskB, 'Second task E2E_DELIVERY:switch-b', 'ACK E2E_DELIVERY:switch-b')
-  // Its reply stays in progress for the rest of the run.
-  await task(
+  const chatA = await chat(stack, 'Switch chat A')
+  const chatB = await chat(stack, 'Switch chat B')
+  const taskA = await task(
     page,
     stack,
-    taskLong,
-    'Long task E2E_LONG E2E_HOLD E2E_DELIVERY:switch-long',
+    'Switch task A',
+    'First E2E_DELIVERY:switch-a',
+    'ACK E2E_DELIVERY:switch-a',
+  )
+  const taskB = await task(
+    page,
+    stack,
+    'Switch task B',
+    'Second E2E_DELIVERY:switch-b',
+    'ACK E2E_DELIVERY:switch-b',
+  )
+  // Its reply stays in progress for the rest of the run.
+  const long = await task(
+    page,
+    stack,
+    'Switch task long',
+    'Long E2E_LONG E2E_HOLD E2E_DELIVERY:switch-long',
     'LONG_END',
   )
 
-  await recordScreencast(page, 'chat-switch-frames', async () => {
-    for (let round = 0; round < ROUNDS; round++) {
-      await restart(page)
-      await measure(page, 'task, first open', 'Tasks', taskA, reply('switch-a'))
-      await measure(page, 'task, first open', 'Tasks', taskB, reply('switch-b'))
-      await measure(page, 'task, first open, reply in progress', 'Tasks', taskLong, {
-        history: 'Long task E2E_LONG',
-        latest: 'LONG_END',
-      })
-      await measure(page, 'bot chat, first open', 'Bots', chatA, lastPost(chatA))
-      await measure(page, 'bot chat, first open', 'Bots', chatB, lastPost(chatB))
-      // Every one opened once now: the switches back and forth a person makes.
-      await measure(page, 'task, opened before', 'Tasks', taskA, reply('switch-a'))
-      await measure(page, 'task, opened before', 'Tasks', taskB, reply('switch-b'))
-      await measure(page, 'bot chat, opened before', 'Bots', chatA, lastPost(chatA))
-      await measure(page, 'bot chat, opened before', 'Bots', chatB, lastPost(chatB))
-      // Said in chat A while chat B is on screen.
-      const fresh = `${chatA} fresh ${String(round)}`
-
-      await api(stack, `/agent/conversations/${chats[chatA]}/channel-messages`, { text: fresh })
-      await measure(page, 'bot chat, new post while away', 'Bots', chatA, {
-        ...lastPost(chatA),
-        latest: fresh,
-      })
-    }
+  await restart(page)
+  await open(page, 'task, first open', taskA, { history: 'ACK E2E_DELIVERY:switch-a' })
+  await open(page, 'task, first open, reply in progress', long, {
+    history: 'Long E2E_LONG',
+    newest: 'LONG_END',
+    typedFrom: 'LONG_START',
+    typedTo: 'LONG_END',
   })
+  await open(page, 'bot chat, first open', chatA, lastPost(chatA))
+  await open(page, 'task, first open, another', taskB, { history: 'ACK E2E_DELIVERY:switch-b' })
+  await open(page, 'task, opened before', taskA, { history: 'ACK E2E_DELIVERY:switch-a' })
+  await open(page, 'bot chat, first open, another', chatB, lastPost(chatB))
+  await open(page, 'bot chat, opened before', chatA, lastPost(chatA))
+  // Said in chat B while chat A is on screen.
+  await api(stack, `/agent/conversations/${chatB.sessionId}/channel-messages`, {
+    text: 'Said while away',
+  })
+  await open(page, 'bot chat, new post while away', chatB, {
+    ...lastPost(chatB),
+    newest: 'Said while away',
+  })
+}
+
+/** What fails the run now, and what is reported until the change that meets it lands. */
+function check(baseline: Record<string, number> | null) {
+  const failed: string[] = []
+  const lines = [
+    '| Switch | Frames to content | Requests before content | Fade frames | Typed frames | Newest after |',
+    '| --- | --: | --: | --: | --: | --: |',
+  ]
+
+  for (const { name, watch, requests } of cases) {
+    const fail = (why: string) => failed.push(`${name}: ${why}`)
+    const allowed = baseline?.[name]
+    const newest = watch.newestAfterMs === null ? 'never' : `${String(watch.newestAfterMs)} ms`
+
+    if (watch.framesToContent === null) fail('its history never showed')
+    if (watch.fadeFrames > 0) fail(`${String(watch.fadeFrames)} frames faded it in`)
+    if (watch.typedFrames > 0)
+      fail(`a reply in progress was typed out over ${String(watch.typedFrames)} frames`)
+    if (allowed !== undefined && requests > allowed)
+      fail(`${String(requests)} requests before its first frame, baseline ${String(allowed)}`)
+    lines.push(
+      `| ${name} | ${String(watch.framesToContent ?? 'never')} | ${String(requests)} | ${String(watch.fadeFrames)} | ${String(watch.typedFrames)} | ${newest} |`,
+    )
+  }
+  // Reported until chats are rendered from a cache (#3523): the first frame, no request first.
+  const pending = cases
+    .filter(({ name }) => name.endsWith('opened before'))
+    .filter(({ watch, requests }) => watch.framesToContent !== 1 || requests > 0)
+    .map(({ name }) => `${name}: not on the first frame without a request`)
+  const away = cases.find(({ name }) => name === 'bot chat, new post while away')
+
+  if (away && (away.watch.newestAfterMs ?? Infinity) >= POLL_MS)
+    pending.push(`${away.name}: the newest post waited for a poll`)
+
+  return { failed, pending, table: lines.join('\n') }
 }
 
 let desktop: Desktop | undefined
@@ -210,12 +216,36 @@ try {
 
   desktop = await startDesktop(stack.apiUrl)
   desktop.page.setDefaultTimeout(30_000)
-  for (const step of signInScenarios) await step.run(desktop.page, stack)
-  await scenario(desktop.page, stack)
-  const over = report()
+  const { page } = desktop
 
-  if (over.length > 0) throw new Error(`Over budget: ${over.join(', ')}`)
-  console.log('PASS chat switch timings')
+  for (const step of signInScenarios) await step.run(page, stack)
+  // The recording is the pull request's evidence of what a switch looks like.
+  await recordScreencast(page, 'chat-switch-frames', () => scenario(page, stack))
+  const baseline = existsSync(BASELINE)
+    ? (JSON.parse(readFileSync(BASELINE, 'utf8')) as Record<string, number>)
+    : null
+  const result = check(baseline)
+  const report = [
+    result.table,
+    '',
+    ...result.pending.map((line) => `- Not yet: ${line}`),
+    ...result.failed.map((line) => `- **Failed**: ${line}`),
+  ].join('\n')
+
+  writeFileSync(
+    `${artifacts}/chat-switch.json`,
+    JSON.stringify(
+      Object.fromEntries(cases.map(({ name, requests }) => [name, requests])),
+      null,
+      2,
+    ),
+  )
+  writeFileSync(`${artifacts}/chat-switch.md`, `${report}\n`)
+  console.log(report)
+  if (process.env.GITHUB_STEP_SUMMARY)
+    appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### Chat switch\n\n${report}\n`)
+  if (result.failed.length > 0) throw new Error(result.failed.join('\n'))
+  console.log('PASS chat switch')
 } catch (error) {
   failed = true
   console.error(error)
