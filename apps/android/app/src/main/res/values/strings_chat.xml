@@ -197,4 +197,14 @@
     <string name="chat_share_access_reply">Team can view and reply</string>
     <string name="chat_share_can_reply">Can reply</string>
     <string name="chat_share_can_view">Can view</string>
+    <string name="chat_summary_title">Task summary</string>
+    <string name="chat_summary_close">Close summary</string>
+    <string name="chat_summary_question">Question</string>
+    <string name="chat_summary_close_question">Close question</string>
+    <string name="chat_summary_needs_input">Needs your input</string>
+    <string name="chat_summary_no_questions">No questions waiting for you.</string>
+    <string name="chat_summary_background">Background work</string>
+    <string name="chat_summary_command">Command</string>
+    <string name="chat_summary_running">Running</string>
+    <string name="chat_summary_open">Agent summary</string>
 </resources>

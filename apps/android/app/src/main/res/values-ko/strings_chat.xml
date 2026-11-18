@@ -190,4 +190,14 @@
     <string name="chat_share_access_reply">팀 보기 및 답장 가능</string>
     <string name="chat_share_can_reply">답장 가능</string>
     <string name="chat_share_can_view">보기 가능</string>
+    <string name="chat_summary_title">작업 요약</string>
+    <string name="chat_summary_close">요약 닫기</string>
+    <string name="chat_summary_question">질문</string>
+    <string name="chat_summary_close_question">질문 닫기</string>
+    <string name="chat_summary_needs_input">입력이 필요합니다</string>
+    <string name="chat_summary_no_questions">답변을 기다리는 질문이 없습니다.</string>
+    <string name="chat_summary_background">Background work</string>
+    <string name="chat_summary_command">명령</string>
+    <string name="chat_summary_running">실행 중</string>
+    <string name="chat_summary_open">에이전트 요약</string>
 </resources>

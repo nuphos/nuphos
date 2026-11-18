@@ -190,4 +190,14 @@
     <string name="chat_share_access_reply">チームが閲覧・返信可</string>
     <string name="chat_share_can_reply">返信可</string>
     <string name="chat_share_can_view">閲覧可</string>
+    <string name="chat_summary_title">タスクの概要</string>
+    <string name="chat_summary_close">概要を閉じる</string>
+    <string name="chat_summary_question">質問</string>
+    <string name="chat_summary_close_question">質問を閉じる</string>
+    <string name="chat_summary_needs_input">入力が必要です</string>
+    <string name="chat_summary_no_questions">回答待ちの質問はありません。</string>
+    <string name="chat_summary_background">Background work</string>
+    <string name="chat_summary_command">コマンド</string>
+    <string name="chat_summary_running">実行中</string>
+    <string name="chat_summary_open">エージェントの概要</string>
 </resources>

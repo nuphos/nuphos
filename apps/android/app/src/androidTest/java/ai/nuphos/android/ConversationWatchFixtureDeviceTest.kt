@@ -54,6 +54,7 @@ class ConversationWatchFixtureDeviceTest {
     @Volatile private var holdDetails: java.util.concurrent.CountDownLatch? = null
     @Volatile private var failList = false
     @Volatile private var failDetails = false
+    @Volatile private var taskSummaryFixture = false
     private val entries = """[{"key":"agent-session:normal","label":"Synthetic pin"}]"""
     @Suppress("UNCHECKED_CAST") private fun state(target: Any, name: String, delegated: Boolean = true) =
         target.javaClass.getDeclaredField(name + if (delegated) "\$delegate" else "").also { it.isAccessible = true }.get(target) as MutableState<Any?>
@@ -91,6 +92,9 @@ class ConversationWatchFixtureDeviceTest {
                     mutation && denied -> """{"error":"synthetic unavailable"}"""
                     mutation -> """{"ok":true,"watching":${watching[watchId!!]}}"""
                     listing && req.url.queryParameter("teamId") == "B" -> """{"conversations":[],"hasMore":false}"""
+                    listing && taskSummaryFixture && req.url.queryParameter("pendingDecision") == "true" ->
+                        """{"conversations":[{"sessionId":"parent","teamId":"A","title":"Synthetic task","isOwner":true,
+                            "inputRequests":[{"id":"q-summary","category":"preference","question":"Review the plan?","options":["Review"],"status":"open"}]}],"hasMore":false}"""
                     listing -> """{"conversations":[{"sessionId":"parent","teamId":"A","title":"Synthetic shared parent","watching":${watching["parent"]},"readOnly":true,"isOwner":false},{"sessionId":"child","teamId":"A","title":"Synthetic child","parentSessionId":"parent","isOwner":false,"readOnly":true,"watching":${watching["child"]}},{"sessionId":"other","teamId":"A","title":"Synthetic other","isOwner":false,"readOnly":true,"watching":${watching["other"]}}],"hasMore":false}"""
                     detailId != null -> """{"messages":[],"readOnly":true,"isOwner":false,"watching":${watching[detailId]}}"""
                     path == "/teams/A/favorites" -> """{"revision":1,"entries":$entries}"""
@@ -148,7 +152,12 @@ class ConversationWatchFixtureDeviceTest {
                     NavHost(nav, startDestination = "history") {
                         composable("history") { AgentPage(false, {}, nav) }
                         composable("conversation/{sessionId}") { back ->
-                            val session = store.session(back.arguments!!.getString("sessionId")!!, "Synthetic shared parent")
+                            val sessionId = back.arguments!!.getString("sessionId")!!
+                            if (taskSummaryFixture) {
+                                ai.nuphos.android.ui.chat.ConversationScreen(sessionId, false, { nav.popBackStack() }, nav)
+                                return@composable
+                            }
+                            val session = store.session(sessionId, "Synthetic shared parent")
                             androidx.compose.runtime.LaunchedEffect(session) { session.load() }
                             androidx.compose.foundation.layout.Column {
                                 androidx.compose.material3.Text("Synthetic shared conversation")
@@ -161,6 +170,28 @@ class ConversationWatchFixtureDeviceTest {
         }
         waitText("Synthetic shared parent")
     }
+    @Test fun taskSummaryShowsQuestionsAndRuntimeWork() {
+        taskSummaryFixture = true
+        render()
+        compose.onNodeWithText("Synthetic shared parent").performClick()
+        compose.waitUntil(8_000) { compose.onAllNodesWithContentDescription("Agent summary").fetchSemanticsNodes().isNotEmpty() }
+        compose.runOnIdle {
+            val session = store.session("parent", "Synthetic shared parent")
+            state(session, "runtimeObservation").value = RuntimeObservation(requireNotNull(JsonValue.parse(
+                """{"tools":[{"id":"term","terminal":{"status":"running","command":"Check the build","output":"Build is running"}}]}""",
+            )), RuntimeObservation.now())
+        }
+        compose.onNodeWithContentDescription("Agent summary").performClick()
+        waitText("Review the plan?")
+        compose.onNodeWithText("Check the build").performClick()
+        waitText("Build is running")
+        shot("task-summary")
+        compose.onNodeWithText("Review the plan?").performClick()
+        compose.onNodeWithContentDescription("Close question").assertIsDisplayed().performClick()
+        compose.onNodeWithContentDescription("Close summary").assertIsDisplayed().performClick()
+        compose.onNodeWithTag("task-summary").assertDoesNotExist()
+    }
+
     private fun waitText(text: String) { compose.waitUntil(5_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() } }
 
     private fun shot(name: String) {

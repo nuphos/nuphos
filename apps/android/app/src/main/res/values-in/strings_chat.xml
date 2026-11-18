@@ -190,4 +190,14 @@
     <string name="chat_share_access_reply">Tim dapat melihat dan membalas</string>
     <string name="chat_share_can_reply">Dapat membalas</string>
     <string name="chat_share_can_view">Dapat melihat</string>
+    <string name="chat_summary_title">Ringkasan tugas</string>
+    <string name="chat_summary_close">Tutup ringkasan</string>
+    <string name="chat_summary_question">Pertanyaan</string>
+    <string name="chat_summary_close_question">Tutup pertanyaan</string>
+    <string name="chat_summary_needs_input">Perlu masukan Anda</string>
+    <string name="chat_summary_no_questions">Tidak ada pertanyaan yang menunggu Anda.</string>
+    <string name="chat_summary_background">Background work</string>
+    <string name="chat_summary_command">Perintah</string>
+    <string name="chat_summary_running">Berjalan</string>
+    <string name="chat_summary_open">Ringkasan agen</string>
 </resources>
