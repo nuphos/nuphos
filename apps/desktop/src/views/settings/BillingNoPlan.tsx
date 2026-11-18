@@ -119,11 +119,11 @@ export function NoPlan({
     <>
       <section className="flex flex-col gap-2">
         <h2 className="text-[22px] font-semibold text-main">
-          {t('Keep your agents running in the cloud')}
+          {t('Keep your Bots and tasks running in the cloud')}
         </h2>
         <p className="text-[14px] text-secondary">
           {t(
-            'A computer plan gives your team cloud computers that run your agents 24/7, each with its own desktop, shared with your teammates.',
+            'A computer plan gives your team cloud computers that run your Bots and tasks 24/7, each with its own desktop, shared with your teammates.',
           )}
         </p>
       </section>

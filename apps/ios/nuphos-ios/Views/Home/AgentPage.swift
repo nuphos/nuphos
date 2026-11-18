@@ -264,8 +264,7 @@ struct AgentPage: View {
         }
     }
 
-    /// One row with the threads it opened under it: a Task, or on Bots a chat
-    /// or a Bot with what the Bot dispatched.
+    /// One row: a Task with the threads it opened under it, or on Bots a chat or a Bot.
     @ViewBuilder
     private func agentRow(_ item: NestedConversation) -> some View {
                 let conversation = item.conversation
@@ -328,12 +327,12 @@ struct AgentPage: View {
 
     /// A row's content with its thread count, indented on the tree's lines.
     private func treeRow<Row: View>(_ item: NestedConversation, @ViewBuilder row: () -> Row) -> some View {
-        let folded = item.hasChildren && store.isFolded(item.id, onBots: page == .chats)
+        let folded = item.hasChildren && store.isFolded(item.id)
         return HStack(spacing: 0) {
             row()
             if item.hasChildren {
                 // The thread count, so it never reads as the row's own disclosure chevron.
-                Button { store.toggleFolded(item.id, onBots: page == .chats) } label: {
+                Button { store.toggleFolded(item.id) } label: {
                     HStack(spacing: 3) {
                         Text("\(item.threads)")
                         LucideIcon(systemName: folded ? "chevron.down" : "chevron.up")
@@ -500,9 +499,9 @@ struct AgentPage: View {
 
 /// A row under Bots: a chat, or a Bot with no chat yet, by its face. A Bot's
 /// chat is named after the Bot. A chat shows its newest post (`lastMessage`),
-/// and when it last moved. A Bot's chat says what the Bot is doing, as
-/// Desktop's `activityOf`: a question from it or a thread it dispatched
-/// first, then the typing dots while it or such a thread is in a turn.
+/// and when it last moved. A question from the Bot or a thread it dispatched
+/// comes first; otherwise the row shows the chat's typing dots exactly while
+/// the chat shows them (#3522). A Bot at work adds nothing else here.
 struct ChannelRow: View {
     let channel: AgentConversation
     @Environment(AgentStore.self) private var store
@@ -536,7 +535,7 @@ struct ChannelRow: View {
                         .font(Theme.Text.label)
                         .foregroundStyle(Theme.body)
                         .lineLimit(1)
-                } else if channel.botTyping(in: store.observations, team: team) || runs.contains(where: store.inTurn) {
+                } else if channel.botTyping(in: store.observations, team: team) {
                     // As iMessage does: the dots stand in for the newest post until the reply lands.
                     TypingDots(size: 5)
                         .frame(height: 16)

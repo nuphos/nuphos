@@ -2,9 +2,29 @@ package ai.nuphos.android.data
 
 import kotlinx.serialization.json.*
 
+/** How the conversation's computer stands right now, as its chat tells it. */
+sealed interface ComputerPresence {
+    data object Online : ComputerPresence
+    data object Offline : ComputerPresence
+    /** A paused Box: sending a message resumes it. */
+    data class Paused(val label: String) : ComputerPresence
+
+    companion object {
+        /** Only the device list says an offline Box is paused. A runtime with no computer is online. */
+        fun of(host: RuntimeHost?, devices: List<RuntimeDevice>): ComputerPresence {
+            if (host?.online != false) return Online
+            val device = devices.firstOrNull { it.id == host.deviceId }
+            return if (device?.box?.state == "paused") Paused(device.label) else Offline
+        }
+    }
+}
+
 data class RuntimeHost(val deviceId: String?, val deviceLabel: String?, val online: Boolean?, val agentLabel: String? = null)
-data class RuntimeDevice(val id: String, val label: String, val online: Boolean, val box: Boolean,
+/** `box`: present only for a Box. */
+data class RuntimeDevice(val id: String, val label: String, val online: Boolean, val box: Box?,
     val metricsStatus: String, val cpuPercent: Double?, val memory: Capacity?, val disk: Capacity?, val access: String? = null) {
+    /** `state`: what instabox says of its machine, such as `paused`. */
+    data class Box(val state: String?)
     data class Capacity(val used: Double, val total: Double) {
         val percent get() = (used / total * 100).toInt().coerceIn(0, 100)
     }
@@ -27,7 +47,8 @@ fun decodeRuntimeDevices(value: JsonObject): List<RuntimeDevice> {
             return if (used.isFinite() && total.isFinite() && used >= 0 && total > 0 && used <= total)
                 RuntimeDevice.Capacity(used, total) else null
         }
-        RuntimeDevice(id, text("label") ?: "Computer", online, obj["box"] is JsonObject, status,
+        val box = (obj["box"] as? JsonObject)?.let { RuntimeDevice.Box((it["state"] as? JsonPrimitive)?.takeIf { state -> state.isString }?.content) }
+        RuntimeDevice(id, text("label") ?: "Computer", online, box, status,
             (metrics?.get("cpuPercent") as? JsonPrimitive)?.doubleOrNull?.takeIf { it.isFinite() && it in 0.0..100.0 },
             capacity("memory"), capacity("disk"), text("access"))
     }.also { if (it.map(RuntimeDevice::id).distinct().size != it.size) throw NuphosApi.Failure.InvalidResponse }

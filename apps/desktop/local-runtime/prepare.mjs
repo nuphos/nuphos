@@ -69,6 +69,7 @@ export const ADAPTERS = {
 const SHIM_SOURCES = [
   'acp-shim.mjs',
   'hermes-session.mjs',
+  'opencode-session.mjs',
   'pi-session.mjs',
   'mcp-bridge-config.mjs',
   'mcp-http-bridge.mjs',
