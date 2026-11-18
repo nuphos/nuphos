@@ -125,7 +125,7 @@ class ChannelEmptyFixtureDeviceTest {
     private val words = "Everyone here sees each message and decides for themselves whether to reply, as in any group chat."
     private fun render() {
         compose.setContent {
-            NuphosTheme {
+            NuphosTheme(darkTheme = InstrumentationRegistry.getArguments().getString("darkTheme") == "true") {
                 CompositionLocalProvider(LocalAgentStore provides store, LocalAuthSession provides auth) {
                     ChannelScreen("chat-a", onBack = { fail("The chat closed itself") })
                 }
@@ -152,6 +152,11 @@ class ChannelEmptyFixtureDeviceTest {
         compose.onNodeWithText("You can start by telling Release ops what you would like to do.").assertIsDisplayed()
         // The group chat's line is not for a chat with one person and one Bot.
         compose.onNodeWithText(words).assertDoesNotExist()
+        compose.waitForIdle()
+        val dark = InstrumentationRegistry.getArguments().getString("darkTheme") == "true"
+        java.io.File(inst.targetContext.getExternalFilesDir("intro")!!, "bot-chat-intro-${if (dark) "dark" else "light"}.png").outputStream().use {
+            inst.uiAutomation.takeScreenshot().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        }
     }
 
     @Test fun theFirstPostReplacesIt() {
