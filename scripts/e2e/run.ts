@@ -10,7 +10,6 @@ import { botUnreadScenarios } from './bot-unread-scenarios.ts'
 import { checkDecisionOutline, checkOutgoingChip } from './chat-presentation.ts'
 import { channelScenarios } from './channel-scenarios.ts'
 import { channelAwayScenarios } from './channel-away-scenarios.ts'
-import { botPresenceScenarios } from './bot-presence-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
@@ -89,7 +88,6 @@ const scenarios: Scenario[] = [
   },
   ...botUnreadScenarios,
   ...channelScenarios,
-  ...botPresenceScenarios,
   ...channelAwayScenarios,
   ...teammateBotScenarios,
   {
