@@ -94,13 +94,12 @@ export const threadScenarios: Scenario[] = [
       const task = (await listedConversations(stack)).find((row) =>
         row.title?.includes('Pick your own model'),
       )
-      const args = JSON.stringify({
-        label: 'Lighter model',
-        taskId: task?.sessionId,
-        model: 'fixture-small',
-      })
+      // A new Task starts on the last model picked, so pick whichever one it is not on.
+      const before = turn('E2E_DELIVERY:self-start')?.model
+      const pick = before === 'fixture-small' ? 'fixture' : 'fixture-small'
+      const args = JSON.stringify({ label: 'Change model', taskId: task?.sessionId, model: pick })
 
-      await send(page, `Go lighter E2E_CALL update_task ${args} E2E_DELIVERY:self-pick`)
+      await send(page, `Switch E2E_CALL update_task ${args} E2E_DELIVERY:self-pick`)
       await until('the picking turn to finish', async () =>
         agentEvents(stack).includes('finish E2E_DELIVERY:self-pick'),
       )
@@ -113,14 +112,18 @@ export const threadScenarios: Scenario[] = [
 
       if (!JSON.stringify(called?.result).includes('next_turn'))
         throw new Error(`update_task did not take the pick: ${JSON.stringify(called)}`)
-      if (picking?.model === 'fixture-small' || during.length > 0)
+      if (picking?.model !== before)
+        throw new Error(
+          `The picking reply did not run on ${String(before)}: ${JSON.stringify(picking)}`,
+        )
+      if (during.length > 0)
         throw new Error(`The reply making the pick changed model: ${JSON.stringify(during)}`)
       await send(page, 'And now? E2E_DELIVERY:self-next')
       await page.getByText('ACK E2E_DELIVERY:self-next').waitFor()
       const next = turn('E2E_DELIVERY:self-next')
 
-      if (next?.model !== 'fixture-small')
-        throw new Error(`The next turn did not run on its own pick: ${JSON.stringify(next)}`)
+      if (next?.model !== pick)
+        throw new Error(`The next turn did not run on ${pick}: ${JSON.stringify(next)}`)
       await page.screenshot({ path: `${artifacts}/task-own-model.png` })
     },
   },
