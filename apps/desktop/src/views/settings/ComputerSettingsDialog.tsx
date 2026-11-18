@@ -1,4 +1,4 @@
-import { createElement, useState } from 'react'
+import { createElement, useEffect, useState } from 'react'
 
 import { api } from '../../api'
 import { Modal } from '../../components/Modal'
@@ -29,11 +29,14 @@ export function ComputerSettingsMenuItem({
  * computer is online, and offline the last value it reported is shown.
  */
 export function ComputerSettingsDialog({
+  open,
   device,
   teamId,
   onClose,
   onChanged,
 }: {
+  /** Kept mounted while closed, so the modal's close transition plays. */
+  open: boolean
   device: AgentDevice
   teamId: string
   onClose: () => void
@@ -41,6 +44,11 @@ export function ComputerSettingsDialog({
 }) {
   const [enabled, setEnabled] = useState(device.autoInstall !== false)
   const [saving, setSaving] = useState(false)
+
+  // Each time it opens, the switch starts from what the computer reported.
+  useEffect(() => {
+    if (open) setEnabled(device.autoInstall !== false)
+  }, [open, device.autoInstall])
 
   async function change(next: boolean) {
     setSaving(true)
@@ -56,7 +64,7 @@ export function ComputerSettingsDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={t('Computer settings')}
       description={device.label}
@@ -101,13 +109,12 @@ export function useComputerSettings(device: AgentDevice, teamId: string, onChang
 
   return {
     menuItem: createElement(ComputerSettingsMenuItem, { device, onOpen: () => setOpen(true) }),
-    dialog: open
-      ? createElement(ComputerSettingsDialog, {
-          device,
-          teamId,
-          onClose: () => setOpen(false),
-          onChanged,
-        })
-      : null,
+    dialog: createElement(ComputerSettingsDialog, {
+      open,
+      device,
+      teamId,
+      onClose: () => setOpen(false),
+      onChanged,
+    }),
   }
 }

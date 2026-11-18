@@ -86,6 +86,7 @@ test('online, turning the switch off changes it on the computer and refreshes th
   let changed = 0
   const { container, calls, unmount } = await render(
     createElement(ComputerSettingsDialog, {
+      open: true,
       device: device({ autoInstall: true }),
       teamId: 'team',
       onClose: () => {},
@@ -110,6 +111,7 @@ test('online, turning the switch off changes it on the computer and refreshes th
 test('offline, it shows the last switch it reported and cannot change it', async () => {
   const { container, calls, unmount } = await render(
     createElement(ComputerSettingsDialog, {
+      open: true,
       device: device({ autoInstall: false, online: false }),
       teamId: 'team',
       onClose: () => {},
