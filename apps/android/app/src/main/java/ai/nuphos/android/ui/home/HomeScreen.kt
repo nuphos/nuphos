@@ -59,6 +59,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -405,7 +406,11 @@ fun HomeScreen(
                                     Badge(Modifier.testTag("inbox-badge").semantics {
                                         contentDescription = inboxBadgeLabel
                                     }) { Text("${inbox?.list?.size}") }
-                            }) { Icon(destination.icon(current == destination), contentDescription = null) }
+                            }) { Icon(painterResource(when (destination) {
+                                    HomePage.Chats -> R.drawable.home_tab_bots
+                                    HomePage.Agent -> R.drawable.home_tab_tasks
+                                    else -> R.drawable.home_tab_inbox
+                                }), contentDescription = null) }
                         },
                     )
                 }
