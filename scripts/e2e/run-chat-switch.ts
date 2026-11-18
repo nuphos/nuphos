@@ -212,6 +212,9 @@ let failed = false
 
 try {
   console.log(`Artifacts: ${artifacts}`)
+  // OpenAB relays a reply's text as it comes, as the runtime image and Desktop's own runtime do,
+  // so a reply in progress is on screen before its turn ends.
+  process.env.OPENAB_ACP_STREAMING = 'true'
   const stack = await startStack()
 
   desktop = await startDesktop(stack.apiUrl)
