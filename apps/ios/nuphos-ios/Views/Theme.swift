@@ -229,11 +229,31 @@ struct SetupEmptyState: View {
 
 struct RuntimeSetupGuide: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(AgentStore.self) private var store
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     Text("Connect a computer").font(.title3.weight(.semibold)).foregroundStyle(Theme.heading)
+                    // Desktop's Add computer offers a Box first, on the same flags.
+                    if store.canCreateBox {
+                        NavigationLink { NewBoxView() } label: {
+                            HStack(alignment: .top, spacing: 12) {
+                                LucideIcon("box").foregroundStyle(Theme.body).padding(.top, 2)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Nuphos computer").font(.callout.weight(.medium)).foregroundStyle(Theme.heading)
+                                    Text("A Linux computer Nuphos runs for you, with Claude Code and Codex. Sign in with your own account.")
+                                        .font(.footnote).foregroundStyle(Theme.body).multilineTextAlignment(.leading)
+                                }
+                                Spacer(minLength: 0)
+                                LucideIcon("chevron-right").foregroundStyle(Theme.muted).padding(.top, 2)
+                            }
+                            .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("new-box")
+                    }
                     Text("Your Bots and tasks need a runtime to work. Connect your computer with Nuphos Desktop, or ask a workspace administrator to share a runtime.").font(.callout).foregroundStyle(Theme.body)
                     VStack(alignment: .leading, spacing: 16) {
                         Text("1. Open Nuphos on your computer.")
@@ -246,5 +266,7 @@ struct RuntimeSetupGuide: View {
             .navigationTitle("Runtime setup").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button { dismiss() } label: { LucideIcon("x") }.accessibilityLabel("Close") } }
         }
+        // Opened from Home too, where the device list may not be loaded yet.
+        .task(id: store.selectedTeam?.id) { await store.loadAgentDevices() }
     }
 }

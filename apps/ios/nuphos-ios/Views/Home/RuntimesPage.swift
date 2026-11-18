@@ -39,7 +39,7 @@ struct RuntimesPage: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.canvas)
         // Full screen even where wide: beside this list, the list itself would be put away.
-        .sheet(isPresented: $showSetup) { RuntimeSetupGuide() }
+        .sheet(isPresented: $showSetup) { RuntimeSetupGuide().environment(store) }
         .sheet(isPresented: $showWorkspaceSetup) { WorkspaceSetupSheet() }
         .desktop($desktop)
         .environment(\.desktopBeside, nil)
@@ -52,6 +52,14 @@ struct RuntimesPage: View {
         .task(id: "\(store.selectedTeam?.id ?? ""): \(scenePhase == .active)") {
             guard scenePhase == .active else { return }
             await store.pollAgentDevices()
+        }
+        // Desktop's Add computer, beside the list as well as in its empty state.
+        .toolbar {
+            if store.selectedTeam != nil {
+                ToolbarItem(placement: .primaryAction) {
+                    Button { showSetup = true } label: { LucideIcon("plus") }.accessibilityLabel("Add computer")
+                }
+            }
         }
         .refreshable {
             async let agents: Void = store.loadRuntimes(force: true)

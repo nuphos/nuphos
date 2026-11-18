@@ -1853,6 +1853,98 @@
         }
       }
     },
+    "A Linux computer Nuphos runs for you, with Claude Code and Codex. Sign in with your own account." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Una computadora Linux que Nuphos ejecuta por ti, con Claude Code y Codex. Inicia sesión con tu propia cuenta."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Komputer Linux yang dijalankan Nuphos untuk Anda, dengan Claude Code dan Codex. Masuk dengan akun Anda sendiri."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos が運用する Linux コンピューターです。Claude Code と Codex を搭載しています。ご自身のアカウントでサインインします。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos가 대신 운영하는 Linux 컴퓨터로, Claude Code와 Codex가 함께 제공됩니다. 본인 계정으로 로그인하세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คอมพิวเตอร์ Linux ที่ Nuphos ดูแลให้ พร้อม Claude Code และ Codex ลงชื่อเข้าใช้ด้วยบัญชีของคุณเอง"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "由 Nuphos 为你运行的 Linux 电脑，预装 Claude Code 和 Codex。使用你自己的账号登录。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "由 Nuphos 為你代管的 Linux 電腦，內建 Claude Code 與 Codex。使用你自己的帳號登入。"
+          }
+        }
+      }
+    },
+    "A Linux computer with Claude Code and Codex on it. Running computers count against your plan's vCPU; paused ones do not." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Una computadora Linux con Claude Code y Codex. Las computadoras en ejecución cuentan para las vCPU de tu plan; las que están en pausa, no."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Komputer Linux dengan Claude Code dan Codex terpasang. Komputer yang berjalan dihitung terhadap vCPU paket Anda; komputer yang dijeda tidak."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code と Codex を搭載した Linux コンピューターです。実行中のコンピュータはプランの vCPU にカウントされますが、一時停止中のものはカウントされません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code와 Codex가 설치된 Linux 컴퓨터입니다. 실행 중인 컴퓨터는 요금제의 vCPU에 포함되며, 일시 중지된 컴퓨터는 포함되지 않습니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คอมพิวเตอร์ Linux ที่มี Claude Code และ Codex คอมพิวเตอร์ที่กำลังทำงานจะนับรวมใน vCPU ของแพ็กเกจ ส่วนเครื่องที่หยุดชั่วคราวไม่นับ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "预装 Claude Code 和 Codex 的 Linux 电脑。运行中的电脑计入套餐 vCPU 额度，已暂停的则不计入。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "內建 Claude Code 與 Codex 的 Linux 電腦。執行中的電腦會計入方案的 vCPU 額度，已暫停的則不計入。"
+          }
+        }
+      }
+    },
     "A browser on %@" : {
       "localizations" : {
         "es" : {
@@ -2539,6 +2631,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "新增帳號"
+          }
+        }
+      }
+    },
+    "Add computer" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir ordenador"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tambah komputer"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コンピューターを追加"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "컴퓨터 추가"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เพิ่มคอมพิวเตอร์"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加电脑"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增電腦"
           }
         }
       }
@@ -5362,6 +5500,52 @@
         }
       }
     },
+    "Choose a computer plan" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elegir un plan de computadoras"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pilih paket komputer"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コンピュータプランを選択"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "컴퓨터 요금제 선택"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เลือกแพ็กเกจคอมพิวเตอร์"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择电脑套餐"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選擇電腦方案"
+          }
+        }
+      }
+    },
     "Choose a connected account to let this task use it." : {
       "localizations" : {
         "es" : {
@@ -5404,6 +5588,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "選擇已連接的帳號，讓這個任務可以使用。"
+          }
+        }
+      }
+    },
+    "Choose a plan in Nuphos on your computer." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige un plan en Nuphos en tu computadora."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pilih paket di Nuphos pada komputer Anda."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "お使いのコンピューターの Nuphos でプランを選択してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "컴퓨터의 Nuphos에서 요금제를 선택하세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เลือกแพ็กเกจใน Nuphos บนคอมพิวเตอร์ของคุณ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请在电脑上的 Nuphos 中选择套餐。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請在電腦上的 Nuphos 選擇方案。"
           }
         }
       }
@@ -8175,6 +8405,52 @@
         }
       }
     },
+    "Could not create computer" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo crear la computadora"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak dapat membuat komputer"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コンピュータを作成できませんでした"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "컴퓨터를 만들 수 없습니다"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่สามารถสร้างคอมพิวเตอร์"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法创建电脑"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法建立電腦"
+          }
+        }
+      }
+    },
     "Could not open the browser." : {
       "localizations" : {
         "es" : {
@@ -9831,6 +10107,52 @@
         }
       }
     },
+    "Create computer" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crear computadora"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buat komputer"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コンピュータを作成"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "컴퓨터 만들기"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "สร้างคอมพิวเตอร์"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "创建电脑"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "建立電腦"
+          }
+        }
+      }
+    },
     "Create or join a workspace before connecting a computer." : {
       "localizations" : {
         "es" : {
@@ -10058,6 +10380,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "建立工作區"
+          }
+        }
+      }
+    },
+    "Creating…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Creando…"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Membuat…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "作成中…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "만드는 중…"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังสร้าง…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在创建…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在建立…"
           }
         }
       }
@@ -13430,6 +13798,52 @@
         }
       }
     },
+    "Leave it empty to call it %@." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Déjalo vacío para llamarlo %@."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Biarkan kosong untuk menamainya %@."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "空欄の場合は %@ という名前になります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "비워 두면 기본 이름을 사용합니다: %@"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เว้นว่างไว้เพื่อใช้ชื่อ %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "留空则命名为 %@。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "留空則命名為 %@。"
+          }
+        }
+      }
+    },
     "Leave this unchanged to use Nuphos Cloud. Enter your server address to use a self-hosted instance." : {
       "localizations" : {
         "es" : {
@@ -16200,6 +16614,52 @@
         }
       }
     },
+    "Not now" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ahora no"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nanti saja"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "後で"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "나중에"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไว้ทีหลัง"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "以后再说"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "稍後再說"
+          }
+        }
+      }
+    },
     "Not now — manage my account" : {
       "localizations" : {
         "es" : {
@@ -16386,6 +16846,52 @@
     },
     "Nuphos" : {
       "shouldTranslate" : false
+    },
+    "Nuphos computer" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Computadora de Nuphos"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Komputer Nuphos"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos コンピューター"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos 컴퓨터"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คอมพิวเตอร์ของ Nuphos"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos 电脑"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos 電腦"
+          }
+        }
+      }
     },
     "Nuphos encrypts it on its way to the runtime, which keeps it; Nuphos does not keep a copy." : {
       "localizations" : {
@@ -25517,6 +26023,52 @@
         }
       }
     },
+    "Starting the computer and its runtimes, usually 10 to 30 seconds…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Iniciando la computadora y sus entornos de ejecución; suele tardar entre 10 y 30 segundos…"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memulai komputer dan runtime-nya, biasanya 10 hingga 30 detik…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コンピュータとランタイムを起動中です。通常 10〜30 秒かかります…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "컴퓨터와 런타임을 시작하는 중입니다. 보통 10~30초 정도 걸립니다…"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังเริ่มคอมพิวเตอร์และรันไทม์ โดยปกติใช้เวลา 10 ถึง 30 วินาที…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在启动电脑及其运行环境，通常需要 10 到 30 秒…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在啟動電腦及其執行環境，通常需要 10 到 30 秒…"
+          }
+        }
+      }
+    },
     "Starting your runtime…" : {
       "localizations" : {
         "es" : {
@@ -27134,6 +27686,52 @@
         }
       }
     },
+    "The computer could not start. Delete it on the Runtimes page and try again." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo iniciar la computadora. Elimínala en la página Entornos de ejecución y vuelve a intentarlo."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Komputer tidak dapat dimulai. Hapus di halaman Runtime lalu coba lagi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コンピュータを起動できませんでした。［ランタイム］ページで削除してから、もう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "컴퓨터를 시작할 수 없습니다. 런타임 페이지에서 삭제한 후 다시 시도하세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คอมพิวเตอร์เริ่มทำงานไม่ได้ ลบเครื่องนี้ที่หน้ารันไทม์ แล้วลองอีกครั้ง"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "电脑无法启动。请在“运行环境”页面中将其删除后重试。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "電腦無法啟動。請在「執行環境」頁面中刪除後再試一次。"
+          }
+        }
+      }
+    },
     "The computer did not answer as a VNC server." : {
       "localizations" : {
         "es" : {
@@ -27176,6 +27774,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "這台電腦沒有以 VNC 伺服器的方式回應。"
+          }
+        }
+      }
+    },
+    "The computer has not started after 5 minutes. Delete it on the Runtimes page and try again." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La computadora no se inició tras 5 minutos. Elimínala en la página Entornos de ejecución y vuelve a intentarlo."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Komputer belum dimulai setelah 5 menit. Hapus di halaman Runtime lalu coba lagi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "5 分経ってもコンピュータが起動しません。［ランタイム］ページで削除してから、もう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "5분이 지나도 컴퓨터가 시작되지 않았습니다. 런타임 페이지에서 삭제한 후 다시 시도하세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คอมพิวเตอร์ยังไม่เริ่มทำงานหลังผ่านไป 5 นาที ลบเครื่องนี้ที่หน้ารันไทม์ แล้วลองอีกครั้ง"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "电脑在 5 分钟后仍未启动。请在“运行环境”页面中将其删除后重试。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "電腦在 5 分鐘後仍未啟動。請在「執行環境」頁面中刪除後再試一次。"
           }
         }
       }
@@ -33789,6 +34433,52 @@
     "Your choice" : {
       "comment" : "Legal text",
       "shouldTranslate" : false
+    },
+    "Your computer is running. Choose a runtime to sign in." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu computadora está en ejecución. Elige un entorno de ejecución para iniciar sesión."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Komputer Anda sedang berjalan. Pilih runtime untuk masuk."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コンピュータが実行中です。サインインするランタイムを選択してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "컴퓨터가 실행 중입니다. 로그인할 런타임을 선택하세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คอมพิวเตอร์ของคุณทำงานแล้ว เลือกรันไทม์เพื่อลงชื่อเข้าใช้"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的电脑已在运行。请选择要登录的运行环境。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的電腦正在執行。請選擇要登入的執行環境。"
+          }
+        }
+      }
     },
     "Your current recovery codes will stop working. Enter a code to confirm." : {
       "localizations" : {

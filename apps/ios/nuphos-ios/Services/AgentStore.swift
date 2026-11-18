@@ -435,10 +435,13 @@ final class AgentStore {
 
     private(set) var agentDevices: [AgentDevice] = []
     private(set) var agentDevicesError = false
+    /// Desktop's Add computer offers a Box on the same two flags: the deployment makes
+    /// Boxes, and the viewer is a team administrator.
+    private(set) var canCreateBox = false
 
     func loadAgentDevices() async {
         guard let team = selectedTeam else { return }
-        struct Envelope: Decodable { let devices: [AgentDevice] }
+        struct Envelope: Decodable { let devices: [AgentDevice]; let boxAvailable: Bool?; let canCreateBox: Bool? }
         do {
             let query = [URLQueryItem(name: "metrics", value: "true"), URLQueryItem(name: "teamId", value: team.id)]
             let data = try await AgentChatAPI.send("GET", "agent/devices", query: query, token: token, body: JSONValue?.none)
@@ -446,6 +449,7 @@ final class AgentStore {
             guard !Task.isCancelled, selectedTeam?.id == team.id else { return }
             agentDevices = result.devices
             agentDevicesError = false
+            canCreateBox = result.boxAvailable == true && result.canCreateBox == true
         } catch {
             guard !Task.isCancelled, selectedTeam?.id == team.id else { return }
             agentDevicesError = true
@@ -535,6 +539,7 @@ final class AgentStore {
         runtimes = []
         agentDevices = []
         agentDevicesError = false
+        canCreateBox = false
         runtimesLoaded = false
         quotas = [:]
         selectedRuntimeId = selectedTeam.flatMap { UserDefaults.standard.string(forKey: runtimeKey(for: $0)) }
