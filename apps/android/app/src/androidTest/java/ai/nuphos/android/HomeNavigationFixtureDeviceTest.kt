@@ -327,6 +327,8 @@ class HomeNavigationFixtureDeviceTest {
         compose.onNodeWithTag("new-task-sheet").assertDoesNotExist()
         compose.onNodeWithTag("new-task-open").performClick()
         compose.onNodeWithText("Team A private draft").assertDoesNotExist()
+        noWrites()
+    }
 
     @Test fun bottomTabsSwitchRestoreAndKeepUtilityDestinationsReachable() {
         val restoration = androidx.compose.ui.test.junit4.StateRestorationTester(compose)
