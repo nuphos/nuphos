@@ -133,7 +133,7 @@ agent.post('/conversations/:sessionId/decisions/:requestId/answer', async (c) =>
     conversation,
     requestId,
     answer: answer.data,
-    actor: { id: userId, displayName: sender.displayName },
+    actor: { id: userId, displayName: sender.displayName, avatarURL: sender.avatarURL },
     teamId: conversation.teamId,
   })
   logEvent('info', 'agent.pending_decision.answered', {
