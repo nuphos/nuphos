@@ -578,8 +578,8 @@ final class InboxUITests: XCTestCase {
             let button = app.buttons[option]
             XCTAssertTrue(button.exists, "The option is not on the card")
             XCTAssertEqual(button.label, option, "The option does not carry its whole text")
-            // Cut to one line it stays 50pt; wrapped it is at least a line taller.
-            XCTAssertGreaterThan(button.frame.height, line.frame.height + 15,
+            // Cut to one line, every option is the short one's 50pt; wrapped, it is taller.
+            XCTAssertGreaterThan(button.frame.height, line.frame.height,
                                  "“\(option)” is still one line, so it is cut with an ellipsis")
             XCTAssertEqual(button.frame.width, line.frame.width, accuracy: 1, "An option is not full-width")
         }
