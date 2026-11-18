@@ -12,11 +12,9 @@ import type { Page } from 'playwright-core'
 
 const DESKTOP_DIR = resolve(import.meta.dirname, '../../apps/desktop')
 
-/**
- * `profile` is the app's own data directory; delete it once the app has exited.
- * `traceNextScenario` starts a Playwright trace of the next scenario, dropping the last one's;
- * `close(true)` keeps the one that failed as trace.zip (`npx playwright show-trace`).
- */
+/** `profile` is the app's own data directory; delete it once the app has exited.
+ * `traceNextScenario` traces the next scenario, dropping the last one's trace;
+ * `close(true)` keeps the failing one as trace.zip (`npx playwright show-trace`). */
 export type Desktop = {
   page: Page
   profile: string
