@@ -20,6 +20,13 @@ export const botTurnScenarios: Scenario[] = [
       const task = page.locator('.t-bot-task-mode')
 
       await task.getByRole('button', { name: 'Toggle task summary' }).waitFor()
+      // The Task slides in from the right; its header is measured once it has arrived.
+      await page.waitForFunction(() => {
+        const box = document.querySelector('.t-bot-task-mode')?.getBoundingClientRect()
+
+        return box !== undefined && box.right <= window.innerWidth + 1
+      })
+      await page.waitForTimeout(300)
       // #3561: the Task's header kept its summary toggle under the workspace panel toggle.
       for (const theme of ['light', 'dark']) {
         await page.evaluate((value) => {
