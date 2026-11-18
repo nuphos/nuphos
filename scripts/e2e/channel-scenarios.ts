@@ -4,6 +4,7 @@ import { join } from 'node:path'
 
 import { agentEvents, agentLog } from './agent-log.ts'
 import { botAccessScenarios } from './bot-access-scenarios.ts'
+import { botModelScenarios } from './bot-model-scenarios.ts'
 import { computerWithUsage, pickRuntime, shootRuntimeLine } from './channel-helpers.ts'
 import { checkDockToggleClear } from './chat-presentation.ts'
 import { artifacts, until } from './processes.ts'
@@ -120,6 +121,7 @@ export const channelScenarios: Scenario[] = [
       await ownWords('After the turn')
     },
   },
+  ...botModelScenarios,
   {
     // #3319: a Bot's chat kept a name of its own, so a renamed Bot still showed its old one.
     name: "renaming a Bot's chat renames the Bot, and every place it shows follows",

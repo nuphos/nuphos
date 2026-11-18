@@ -18,14 +18,19 @@ export const botModelScenarios: Scenario[] = [
       const posted = (marker: string) =>
         page.locator('[data-post-id]').getByText(`POSTED ${marker}`, { exact: true }).waitFor()
 
-      await send(page, `Use the small model from now on E2E_SELF_MODEL:${PICK} E2E_DELIVERY:pick`)
+      const args = JSON.stringify({ label: 'Pick a model', model: PICK })
+
+      await send(
+        page,
+        `Use the small model from now on E2E_CALL update_self ${args} E2E_DELIVERY:pick`,
+      )
       await posted('E2E_DELIVERY:pick')
       await until('the picking turn to finish', async () =>
         agentEvents(stack).includes('finish E2E_DELIVERY:pick'),
       )
       const log = agentLog(stack)
       const picking = turn('E2E_DELIVERY:pick')
-      const picked = log.find((entry) => entry.event === 'self-model')
+      const picked = log.find((entry) => entry.event === 'called' && entry.name === 'update_self')
       const finished = log.findIndex(
         (entry) => entry.event === 'finish' && entry.marker === 'E2E_DELIVERY:pick',
       )
