@@ -8,7 +8,8 @@ import { closeDb, connectDb } from '@/lib/db'
 
 import { agentConversations } from './db'
 import { agentTokenUsage } from './token-usage'
-import { queryTeamUsage, usageNames } from './usage-query'
+import { usageNames } from './usage-names'
+import { queryTeamUsage } from './usage-query'
 
 import type { UsageQuery } from './usage-query'
 
@@ -132,12 +133,47 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('team usage query', () => {
     const admin = await queryTeamUsage(TEAM, { userId: ADMIN, teamRole: 'ADMINISTRATOR' }, query)
     const member = await queryTeamUsage(TEAM, { userId: MEMBER, teamRole: 'EDITOR' }, query)
 
-    expect(await usageNames(TEAM, ['conversation'], admin)).toEqual({
+    expect(await usageNames(TEAM, ADMIN, ['conversation'], admin)).toEqual({
       conversation: { [BOT]: 'Bot', [TASK]: 'Task', [OWN]: 'Own' },
     })
-    expect(await usageNames(TEAM, ['conversation'], member)).toEqual({
+    expect(await usageNames(TEAM, MEMBER, ['conversation'], member)).toEqual({
       conversation: { [OWN]: 'Own' },
     })
+  })
+
+  test("someone else's private conversation is named only as private", async () => {
+    const team = `${TEAM}-private`
+    const secret = `${team}-secret`
+    const query = {
+      from: new Date('2026-11-17T00:00:00Z'),
+      to: new Date('2026-11-18T00:00:00Z'),
+      groupBy: ['conversation' as const],
+      filters: {},
+    }
+
+    await agentConversations().insertOne({
+      sessionId: secret,
+      teamId: team,
+      userId: MEMBER,
+      title: 'Salary review',
+      generalAccess: 'none',
+    } as never)
+    await agentTokenUsage().insertMany(
+      turn(secret, MEMBER, 'opus', 10).map((row) => ({ ...row, teamId: team })),
+    )
+    try {
+      const rows = await queryTeamUsage(team, { userId: ADMIN, teamRole: 'ADMINISTRATOR' }, query)
+
+      expect(await usageNames(team, ADMIN, ['conversation'], rows)).toEqual({
+        conversation: { [secret]: 'Private session' },
+      })
+      expect(await usageNames(team, MEMBER, ['conversation'], rows)).toEqual({
+        conversation: { [secret]: 'Salary review' },
+      })
+    } finally {
+      await agentTokenUsage().deleteMany({ teamId: team })
+      await agentConversations().deleteMany({ teamId: team })
+    }
   })
 
   test("a member's filters cannot reach another member's conversation", async () => {

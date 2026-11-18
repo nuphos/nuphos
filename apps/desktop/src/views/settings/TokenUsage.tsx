@@ -1,11 +1,9 @@
-import { useQuery } from '@tanstack/react-query'
 import { X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
 import { Button } from '../../components/ui/button'
 import { AppSelect } from '../../components/ui/select'
 import { t } from '../../i18n'
-import { teamRosterQuery } from '../../lib/query/team'
 import { useTeamUsageQuery } from '../../lib/query/usage'
 
 import { HeatmapSkeleton } from './AgentUsageSkeleton'
@@ -69,14 +67,10 @@ export function TokenUsage({
     ...where,
     groupBy,
   })
-  // People who left still name their usage.
-  const { data: roster = [] } = useQuery(teamRosterQuery(teamId))
+  // Everything else is named by the backend, which reads it inside the viewer's scope.
   const names = useMemo(
-    () => ({
-      members: new Map(roster.map((member) => [member.id, member.name || member.email])),
-      runtimes: new Map(instances.map((instance) => [instance.id, instance.label])),
-    }),
-    [roster, instances],
+    () => ({ runtimes: new Map(instances.map((instance) => [instance.id, instance.label])) }),
+    [instances],
   )
   const failed = (groups.isError || days.isError) && !(groups.data && days.data)
   let body

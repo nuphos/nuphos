@@ -24,8 +24,8 @@ const row = (keys: TeamUsageRow['keys'], totalTokens: number, costUsd?: number):
 })
 
 const names = {
-  members: new Map([['u1', 'Ada']]),
   runtimes: new Map([['r1', 'Claude Code on Box']]),
+  served: { member: { u1: 'Ada' } },
 }
 
 test('the window is whole local days and includes today', () => {

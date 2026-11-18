@@ -53,9 +53,8 @@ export function previousTokenUsageWindow(window: { from: string; to: string }): 
 
 /** Names the page can show instead of ids; anything unknown shows as recorded. */
 export type UsageNames = {
-  members: ReadonlyMap<string, string>
   runtimes: ReadonlyMap<string, string>
-  /** What the backend named: conversation titles, Trigger names, computer labels. */
+  /** What the backend named: people, conversation titles, Trigger names, computer labels. */
   served?: TeamUsageNames
 }
 
@@ -100,7 +99,7 @@ export function tokenUsageLines(
     .sort((a, b) => b.totalTokens - a.totalTokens || a.label.localeCompare(b.label))
 }
 
-/** A grouped value as the page shows it: the backend's name, a member or runtime name, or the id. */
+/** A grouped value as the page shows it: the backend's name, a runtime's name, or the id. */
 export function usageLabel(
   value: string | null,
   groupBy: UsageDimension,
@@ -108,14 +107,9 @@ export function usageLabel(
 ): string {
   if (value === null) return t('Not recorded')
 
-  return names.served?.[groupBy]?.[value] ?? namesFor(groupBy, names)?.get(value) ?? value
-}
+  const runtime = groupBy === 'runtime' ? names.runtimes.get(value) : undefined
 
-function namesFor(groupBy: UsageDimension, names: UsageNames) {
-  if (groupBy === 'member') return names.members
-  if (groupBy === 'runtime') return names.runtimes
-
-  return null
+  return names.served?.[groupBy]?.[value] ?? runtime ?? value
 }
 
 const SPLIT_TOP = 4

@@ -253,6 +253,10 @@ export const usageScenarios: Scenario[] = [
 
         await top.getByText('+3900%').waitFor()
         await top.getByText('400.0K').waitFor()
+        // A person shows by name, even one who joined after the page first read the team.
+        const person = await top.getByRole('cell').first().innerText()
+
+        if (/^[0-9a-f]{24}$/.test(person)) throw new Error(`The teammate shows as id ${person}`)
         await section.scrollIntoViewIfNeeded()
         await section.screenshot({ path: `${artifacts}/token-usage-why-1-member.png` })
 
