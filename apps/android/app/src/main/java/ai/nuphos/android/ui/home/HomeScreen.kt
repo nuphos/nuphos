@@ -386,6 +386,7 @@ fun HomeScreen(
         searching = false
     }
 
+    val inboxBadgeLabel = stringResource(R.string.shell_inbox_badge, inbox?.list?.size ?: 0)
     val profileLabel = stringResource(R.string.shell_profile)
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -401,7 +402,9 @@ fun HomeScreen(
                         icon = {
                             BadgedBox(badge = {
                                 if (destination == HomePage.Inbox && (inbox?.list?.size ?: 0) > 0)
-                                    Badge(Modifier.testTag("inbox-badge")) { Text("${inbox?.list?.size}") }
+                                    Badge(Modifier.testTag("inbox-badge").semantics {
+                                        contentDescription = inboxBadgeLabel
+                                    }) { Text("${inbox?.list?.size}") }
                             }) { Icon(destination.icon(current == destination), contentDescription = null) }
                         },
                     )

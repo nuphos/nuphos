@@ -139,6 +139,10 @@ class HomeNavigationFixtureDeviceTest {
                     connectors -> "{}"
                     favorites -> """{"entries":[],"revision":0}"""
                     history -> {
+                        if (request.url.queryParameter("pendingDecision") == "true")
+                            return@addInterceptor Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200)
+                                .message("fixture").body("""{"conversations":[{"sessionId":"question-fixture","teamId":"${a.id}","title":"Synthetic question","isOwner":true,"inputRequests":[{"id":"q1","category":"preference","question":"Choose a color","options":["Blue","Green"]}]}],"hasMore":false}""".toResponseBody(Http.jsonMedia)).build()
+
                         // Archived chats are excluded from the list, matching iOS.
                         if (historyFailure) { code = 403; "{}" } else if (archived || request.url.queryParameter("archived") != "exclude") "{\"conversations\":[],\"nextCursor\":null}" else
                             """{"conversations":[{"sessionId":"fixture-chat","teamId":"${request.url.queryParameter("teamId")}","title":"Synthetic active conversation","archivedAt":null,"canManage":true,"isOwner":true,"createdAt":"2026-01-01T00:00:00Z"}],"nextCursor":null}"""
@@ -234,14 +238,21 @@ class HomeNavigationFixtureDeviceTest {
         for (route in listOf("chats", "agent", "inbox")) {
             select(route)
             compose.onNodeWithTag("home-tab-$route").assertIsSelected()
+            shot("bottom-tabs-$route")
         }
         restoration.emulateSavedInstanceStateRestore()
         compose.onNodeWithTag("home-tab-inbox").assertIsSelected()
+        compose.waitUntil(8_000) { compose.onAllNodesWithTag("inbox-badge", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("inbox-badge", useUnmergedTree = true).assert(androidx.compose.ui.test.SemanticsMatcher.expectValue(
+            androidx.compose.ui.semantics.SemanticsProperties.ContentDescription,
+            listOf(app.getString(ai.nuphos.android.R.string.shell_inbox_badge, 1)),
+        ))
         shot("bottom-tabs-inbox")
         menu()
         for (route in listOf("runtimes", "connectors"))
             compose.onNodeWithTag("home-page-$route").assertIsDisplayed()
         compose.onNodeWithTag("home-page-agent").assertDoesNotExist()
+        shot("bottom-tabs-utilities")
         Espresso.pressBack()
         select("agent")
         waitText("Synthetic active conversation")
