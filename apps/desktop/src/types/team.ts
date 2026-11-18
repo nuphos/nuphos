@@ -51,24 +51,7 @@ export type MfaStatus = {
 /** A new authenticator secret, to scan or type in before confirming. */
 export type MfaSetup = { secret: string; otpauthUrl: string }
 
-type GoogleCredentialProvider = 'gmail' | 'google-drive' | 'google-calendar'
-export type PersonalCredentialProvider = 'github' | 'linear' | GoogleCredentialProvider
-
-export type PersonalCredential = {
-  provider: PersonalCredentialProvider
-  login: string
-  workspaceName: string | null
-  /** Gmail / Google Drive: the team whose OAuth client issued the grant. */
-  teamId?: string | null
-  connectedAt: string
-}
-
-/** Outcome of a nuphos://personal-credential deep link, claimed by the main process. */
-export type PersonalCredentialDeepLinkPayload = {
-  provider: PersonalCredentialProvider
-  login?: string
-  error?: string
-}
+export * from './personal-credentials.ts'
 
 export type UpdaterState =
   | { kind: 'idle' }
