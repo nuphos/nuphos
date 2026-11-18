@@ -998,6 +998,7 @@
   "Continuous compliance monitoring.": "持續監控合規狀態。",
   "Control which team members can use this {resource}, including from their agents. Admins can also use it once it is shared, but never a member's private one.": "控制哪些團隊成員可以使用此{resource}，包括透過他們的 Agent 使用。分享後管理員也能使用，但絕不能使用其他成員的私有項目。",
   "Controller local time": "控制器本地時間",
+  "Conversation": "對話",
   "Conversation ({count})": "對話（{count}）",
   "Conversation turns": "對話輪次",
   "Copied": "已複製",

@@ -998,6 +998,7 @@
   "Continuous compliance monitoring.": "継続的なコンプライアンス監視。",
   "Control which team members can use this {resource}, including from their agents. Admins can also use it once it is shared, but never a member's private one.": "この{resource}を使用できるチームメンバーを、エージェントからの利用も含めて管理します。共有されると管理者も使用できますが、他のメンバーのプライベートなものは使用できません。",
   "Controller local time": "コントローラーのローカル時刻",
+  "Conversation": "会話",
   "Conversation ({count})": "会話 ({count})",
   "Conversation turns": "会話のターン",
   "Copied": "コピーしました",

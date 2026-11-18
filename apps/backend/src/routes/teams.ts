@@ -4,11 +4,10 @@ import { z } from 'zod'
 import { getAgentStats, isTimeZone } from '@/lib/agent/agent-stats'
 import { boxUsageView } from '@/lib/agent/devices/box-instabox-limit'
 import { listBoxUsageHistory } from '@/lib/agent/devices/box-usage-history'
-import { ACTIVITY_RANGES, getTeamActivity, ownActivity } from '@/lib/agent/team-activity'
+import { ACTIVITY_RANGES, getTeamActivity, withOwnTitles } from '@/lib/agent/team-activity'
 import { USAGE_BUCKETS, USAGE_DIMENSIONS, queryTeamUsage } from '@/lib/agent/usage-query'
 import { getTeamUsageSeries } from '@/lib/agent/usage-summary'
 import { QUOTA_HISTORY_RANGES } from '@/lib/claude-code-preview/runtime-quota-history'
-import { AppError } from '@/lib/errors'
 import { zv } from '@/lib/validate'
 import { requireTeamMember } from '@/middleware/auth'
 import { agentTriggersRoutes } from '@/routes/agent-triggers'
@@ -150,22 +149,20 @@ teamScoped.get('/usage', async (c) =>
     }),
   ),
 )
-// Team-wide activity and stats are an administrator's; anyone else sees their own.
+// Every member sees the whole team's activity and stats; only an administrator
+// sees the titles of other members' sessions.
 teamScoped.get('/agent-activity', zv('query', activityQuerySchema), async (c) => {
   const activity = await getTeamActivity(c.get('teamId'), c.req.valid('query').range)
 
   return c.json(
-    c.get('teamRole') === 'ADMINISTRATOR' ? activity : ownActivity(activity, c.get('userId')),
+    c.get('teamRole') === 'ADMINISTRATOR' ? activity : withOwnTitles(activity, c.get('userId')),
   )
 })
-teamScoped.get('/agent-stats', zv('query', statsQuerySchema), async (c) => {
-  const query = c.req.valid('query')
-
-  if (query.scope === 'team' && c.get('teamRole') !== 'ADMINISTRATOR')
-    throw new AppError(403, 'forbidden', 'Only an administrator can see the whole team’s stats')
-
-  return c.json(await getAgentStats(c.get('teamId'), { viewerId: c.get('userId'), ...query }))
-})
+teamScoped.get('/agent-stats', zv('query', statsQuerySchema), async (c) =>
+  c.json(
+    await getAgentStats(c.get('teamId'), { viewerId: c.get('userId'), ...c.req.valid('query') }),
+  ),
+)
 // Token usage grouped and filtered by any dimension; members see only their own.
 teamScoped.get('/usage/query', zv('query', usageQuerySchema), async (c) => {
   const { from, to, bucket, timeZone, groupBy, ...rest } = c.req.valid('query')

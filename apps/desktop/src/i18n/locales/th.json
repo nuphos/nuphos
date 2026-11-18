@@ -998,6 +998,7 @@
   "Continuous compliance monitoring.": "ตรวจสอบการปฏิบัติตามข้อกำหนดอย่างต่อเนื่อง",
   "Control which team members can use this {resource}, including from their agents. Admins can also use it once it is shared, but never a member's private one.": "ควบคุมว่าสมาชิกทีมคนใดใช้{resource}นี้ได้ รวมถึงผ่านเอเจนต์ของพวกเขา เมื่อแชร์แล้วผู้ดูแลระบบก็ใช้ได้เช่นกัน แต่จะใช้รายการส่วนตัวของสมาชิกคนอื่นไม่ได้",
   "Controller local time": "เวลาท้องถิ่นของคอนโทรลเลอร์",
+  "Conversation": "การสนทนา",
   "Conversation ({count})": "การสนทนา ({count})",
   "Conversation turns": "รอบของบทสนทนา",
   "Copied": "คัดลอกแล้ว",

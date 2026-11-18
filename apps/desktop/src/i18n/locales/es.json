@@ -998,6 +998,7 @@
   "Continuous compliance monitoring.": "Supervisión continua del cumplimiento.",
   "Control which team members can use this {resource}, including from their agents. Admins can also use it once it is shared, but never a member's private one.": "Controla qué miembros del equipo pueden usar este {resource}, incluso desde sus agentes. Los administradores también pueden usarlo una vez compartido, pero nunca el privado de otro miembro.",
   "Controller local time": "Hora local del controlador",
+  "Conversation": "Conversación",
   "Conversation ({count})": "Conversación ({count})",
   "Conversation turns": "Turnos de la conversación",
   "Copied": "Copiado",

@@ -998,6 +998,7 @@
   "Continuous compliance monitoring.": "지속적인 규정 준수 모니터링.",
   "Control which team members can use this {resource}, including from their agents. Admins can also use it once it is shared, but never a member's private one.": "에이전트를 통한 사용을 포함해 이 {resource}을(를) 사용할 수 있는 팀 멤버를 관리합니다. 공유되면 관리자도 사용할 수 있지만, 다른 멤버의 비공개 항목은 사용할 수 없습니다.",
   "Controller local time": "컨트롤러 로컬 시간",
+  "Conversation": "대화",
   "Conversation ({count})": "대화 ({count})",
   "Conversation turns": "대화 턴",
   "Copied": "복사됨",

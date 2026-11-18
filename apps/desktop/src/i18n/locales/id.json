@@ -998,6 +998,7 @@
   "Continuous compliance monitoring.": "Pemantauan kepatuhan berkelanjutan.",
   "Control which team members can use this {resource}, including from their agents. Admins can also use it once it is shared, but never a member's private one.": "Atur anggota tim mana yang dapat menggunakan {resource} ini, termasuk melalui agen mereka. Admin juga dapat menggunakannya setelah dibagikan, tetapi tidak pernah yang privat milik anggota lain.",
   "Controller local time": "Waktu lokal controller",
+  "Conversation": "Percakapan",
   "Conversation ({count})": "Percakapan ({count})",
   "Conversation turns": "Giliran percakapan",
   "Copied": "Disalin",
