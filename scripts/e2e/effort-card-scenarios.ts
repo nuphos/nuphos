@@ -38,10 +38,12 @@ export const effortCardScenarios: Scenario[] = [
         return previous
       })
 
-      // An error toast left by an earlier scenario covers a started Task's chip.
-      const dismiss = page.locator('[data-base-ui-portal] button[aria-label="Dismiss"]')
+      // Error toasts left by earlier scenarios stack over a started Task's chip, each over
+      // the last one's button, so each is told to close directly.
+      const dismiss = '[data-base-ui-portal] button[aria-label="Dismiss"]'
 
-      while ((await dismiss.count()) > 0) await dismiss.first().click()
+      for (const button of await page.locator(dismiss).all()) await button.dispatchEvent('click')
+      await page.waitForFunction((selector) => !document.querySelector(selector), dismiss)
       try {
         await newTask(page)
         await pickAgent(page, 'E2E fixture agent')
