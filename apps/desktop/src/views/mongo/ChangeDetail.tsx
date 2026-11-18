@@ -35,9 +35,7 @@ export function ChangeDetail({
   }
   const requestLine = !change.planId
     ? t('Requested by {name} · {kind} · digest {digest}…', requestVars)
-    : change.proposalSource === 'agent'
-      ? t('Requested by {name} · {kind} · Plan #{plan} · digest {digest}…', requestVars)
-      : t('Requested by {name} · {kind} · Plan #{plan} · digest {digest}…', requestVars)
+    : t('Requested by {name} · {kind} · Plan #{plan} · digest {digest}…', requestVars)
 
   useReportVisibleError(change.executionErrorMessage, 'database_change_execution_error')
 
