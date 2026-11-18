@@ -6,6 +6,7 @@ import { accessScenarios } from './access-scenarios.ts'
 import { agentEvents } from './agent-log.ts'
 import { agentWordScenarios } from './agent-word-scenarios.ts'
 import { backendFailures, backendLines } from './backend-log.ts'
+import { botSubtaskModelScenarios } from './bot-subtask-model-scenarios.ts'
 import { botUnreadScenarios } from './bot-unread-scenarios.ts'
 import { botWorkingDotsScenarios } from './bot-working-dots-scenarios.ts'
 import { checkDecisionOutline, checkOutgoingChip } from './chat-presentation.ts'
@@ -89,6 +90,7 @@ const scenarios: Scenario[] = [
     },
   },
   ...botUnreadScenarios,
+  ...botSubtaskModelScenarios,
   ...channelScenarios,
   ...botWorkingDotsScenarios,
   ...channelAwayScenarios,
