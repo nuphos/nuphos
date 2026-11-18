@@ -1,12 +1,9 @@
-import { installAgentCli } from './agent-cli-install.ts'
+import { INSTALLABLE, installAgentCli } from './agent-cli-install.ts'
 import { prepareIsolatedAgentHome } from './agent-home.ts'
 import { userDir } from './controller-types.ts'
 
 import type { LocalAgentProvider } from './agent-cli.ts'
 import type { LocalRuntimeControllerDeps } from './controller-types.ts'
-
-/** Nuphos installs only the CLIs it has a vendor installer for. */
-const INSTALLABLE: readonly LocalAgentProvider[] = ['claude-code', 'codex']
 
 /** An added agent's own install of its missing CLI: tried once, reported while it runs. */
 export type CliInstall = { tried?: true; installing?: true; error?: string }
@@ -39,7 +36,7 @@ export function instanceControllerDeps(
         !install ||
         install.tried ||
         !installCli ||
-        !INSTALLABLE.includes(provider)
+        !(INSTALLABLE as readonly string[]).includes(provider)
       )
         return cli
       install.tried = true
