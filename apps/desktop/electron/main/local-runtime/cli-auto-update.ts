@@ -44,16 +44,10 @@ export function newerRelease(candidate: string, current: string): boolean {
   const release = /^\d+\.\d+\.\d+$/u
 
   if (!release.test(candidate) || !release.test(current)) return false
-  const a = candidate.split('.').map(Number)
-  const b = current.split('.').map(Number)
+  // As one number: each part below 100 000, which a release never reaches.
+  const value = (v: string) => v.split('.').reduce((sum, part) => sum * 100_000 + Number(part), 0)
 
-  for (let i = 0; i < 3; i++) {
-    const [x = 0, y = 0] = [a[i], b[i]]
-
-    if (x !== y) return x > y
-  }
-
-  return false
+  return value(candidate) > value(current)
 }
 
 /**
