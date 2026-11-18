@@ -16,9 +16,11 @@ final class ChatReopenUITests: XCTestCase {
         app.staticTexts["Preview push-a"].firstMatch.tap()
         XCTAssertTrue(transcript.waitForExistence(timeout: 10), "Chat A did not load")
 
-        app.navigationBars.buttons["BackButton"].tap()
+        if app.windows.firstMatch.horizontalSizeClass == .compact {
+            app.navigationBars.buttons["BackButton"].tap()
+        }
         app.staticTexts["Preview push-b"].firstMatch.tap()
-        XCTAssertTrue(app.navigationBars["Preview push-b"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Hello from push-b")).firstMatch.waitForExistence(timeout: 5), "The selected chat must load its own messages")
         XCTAssertTrue(transcript.waitForExistence(timeout: 10), "Chat B, opened after going back, never loaded")
     }
 }

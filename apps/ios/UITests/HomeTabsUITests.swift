@@ -39,10 +39,13 @@ final class HomeTabsUITests: XCTestCase {
         XCTAssertTrue(tabs.buttons["Tasks"].isSelected)
         tabs.buttons["Bots"].tap()
         app.staticTexts["design-review"].firstMatch.tap()
-        XCTAssertTrue(app.otherElements["chat.empty"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH %@", "Everyone here sees each message")).firstMatch.waitForExistence(timeout: 5))
         shot("native-tabs-conversation")
         if app.windows.firstMatch.horizontalSizeClass == .compact {
             app.navigationBars.buttons["BackButton"].tap()
+        }
+        if app.keyboards.buttons["Hide keyboard"].exists {
+            app.keyboards.buttons["Hide keyboard"].tap()
         }
         tabs.buttons["Tasks"].tap()
         XCTAssertTrue(tabs.buttons["Tasks"].isSelected)
@@ -152,7 +155,7 @@ final class HomeTabsUITests: XCTestCase {
         app.navigationBars.buttons["Cancel"].tap()
         tabs.buttons["Bots"].tap()
         app.staticTexts["design-review"].firstMatch.tap()
-        XCTAssertTrue(app.otherElements["chat.empty"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH %@", "Everyone here sees each message")).firstMatch.waitForExistence(timeout: 5))
         shot("review-bot-conversation")
         if !wide { app.navigationBars.buttons["BackButton"].tap() }
         tabs.buttons["Tasks"].tap()

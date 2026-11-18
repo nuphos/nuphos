@@ -466,7 +466,11 @@ final class InboxUITests: XCTestCase {
         XCTAssertTrue(title.waitForExistence(timeout: 5) && title.isHittable, "The question is hidden")
         XCTAssertTrue(app.textFields["Your answer"].firstMatch.waitForExistence(timeout: 5), "A words-only question can't be answered")
         // The answers sit at the bottom, under the question, not over it.
-        XCTAssertGreaterThan(app.buttons["Skip"].firstMatch.frame.minY, app.frame.height * 0.7, "The answers cover the question")
+        let answer = app.textFields["Your answer"].firstMatch
+        let skip = app.buttons["Skip"].firstMatch
+        XCTAssertTrue(answer.isHittable && skip.isHittable, "The answer controls must remain reachable")
+        XCTAssertGreaterThanOrEqual(answer.frame.minY, title.frame.maxY, "The answer covers the question")
+        XCTAssertGreaterThanOrEqual(skip.frame.minY, title.frame.maxY, "Skip covers the question")
         shot("8-words-only-in-view")
     }
 

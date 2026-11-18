@@ -17,14 +17,18 @@ final class ChannelReopenUITests: XCTestCase {
         app.staticTexts["release-planning"].firstMatch.tap()
         XCTAssertTrue(transcript.waitForExistence(timeout: 10), "Chat A did not load")
 
-        app.navigationBars.buttons["BackButton"].tap()
+        if app.windows.firstMatch.horizontalSizeClass == .compact {
+            app.navigationBars.buttons["BackButton"].tap()
+        }
         app.staticTexts["design-review"].firstMatch.tap()
         // The fixture's second chat has no posts yet.
         let empty = app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH 'Everyone here sees'")).firstMatch
         XCTAssertTrue(empty.waitForExistence(timeout: 10), "Chat B, opened after going back, never loaded")
         XCTAssertFalse(failed.exists)
 
-        app.navigationBars.buttons["BackButton"].tap()
+        if app.windows.firstMatch.horizontalSizeClass == .compact {
+            app.navigationBars.buttons["BackButton"].tap()
+        }
         app.staticTexts["release-planning"].firstMatch.tap()
         XCTAssertTrue(transcript.waitForExistence(timeout: 10), "Chat A, opened again, never loaded")
         XCTAssertFalse(failed.exists)

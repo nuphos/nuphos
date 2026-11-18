@@ -307,6 +307,12 @@ private struct MarkdownTextRepresentable: UIViewRepresentable {
             }
             fills = content.blocks.contains(where: \.isWide)
             view.setContentImmediately(content, theme: theme)
+            // Litext draws glyphs itself, so UIKit cannot infer their spoken text.
+            // Expose the rendered label for plain and Markdown messages alike.
+            let label = view.textLabelView
+            label.isAccessibilityElement = true
+            label.accessibilityLabel = label.attributedText.string
+            label.accessibilityTraits = .staticText
             view.invalidateIntrinsicContentSize()
             lastText = text
             lastTheme = theme
