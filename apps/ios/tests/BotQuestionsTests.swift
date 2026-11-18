@@ -10,6 +10,7 @@ enum BotQuestionsTests {
         keepsTheBodyTheAgentWroteToDecideFrom()
         aPlanOrASecretIsNeverAnsweredInWords()
         aSecretRequestDrawsTheSecureInputCard()
+        aFormRequestDrawsItsFieldsAndSite()
         aQuestionNamingTheMembersOwnCredentialIsConnectable()
         everyOpenQuestionIsAnsweredOnItsCard()
         aMultiSelectOrSeveralQuestionsAreAForm()
@@ -191,6 +192,20 @@ enum BotQuestionsTests {
         precondition(part?.decisionRequestId == "r")
         precondition(ask(#"{"id":"r","category":"credential","question":"Sign in."}"#).secretPart == nil)
         precondition(ask(#"{"id":"r","category":"credential","question":"Key?","secretName":"not a name"}"#).secretPart == nil)
+    }
+
+    /// A web form's details are asked in one card, so the Inbox and a Bot's chat draw every field and the site.
+    private static func aFormRequestDrawsItsFieldsAndSite() {
+        let request = try! JSONDecoder().decode(AgentConversation.InputRequest.self, from: Data(#"""
+            {"id":"r","category":"credential","question":"The lookup needs these.","secretName":"CLINIC_LOOKUP",
+             "fields":[{"name":"NATIONAL_ID","label":"ID number"},{"name":"BIRTH_DATE","label":"Date of birth"}],
+             "site":"www.clinic.example"}
+            """#.utf8))
+        let secret = BotQuestion(sessionId: "s", title: "Agent", request: request).secretPart?.secretRequest
+        precondition(secret?.name == "CLINIC_LOOKUP")
+        precondition(secret?.fields?.map(\.name) == ["NATIONAL_ID", "BIRTH_DATE"])
+        precondition(secret?.fields?.map(\.label) == ["ID number", "Date of birth"])
+        precondition(secret?.site == "www.clinic.example")
     }
 
     private static func aPlanOrASecretIsNeverAnsweredInWords() {
