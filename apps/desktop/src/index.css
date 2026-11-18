@@ -2276,7 +2276,7 @@ html.platform-darwin:not(.window-fullscreen) .workspace-corner-titlebar {
   }
 }
 
-/* Session heading changes use the text-swap motion tokens without delaying navigation. */
+/* A Task's linked resource chips fade in as they appear in its title bar. */
 .t-session-heading {
   animation: t-session-heading-enter var(--text-swap-dur) var(--text-swap-ease) both;
 }
