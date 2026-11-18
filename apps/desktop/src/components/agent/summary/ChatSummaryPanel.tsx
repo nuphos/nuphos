@@ -1,4 +1,3 @@
-import { clsx } from 'clsx'
 import { File, Image as ImageIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -21,7 +20,14 @@ import { summaryTriggerHome } from './chatSummaryTriggerHome'
 import { ChatSummaryTriggers } from './ChatSummaryTriggers'
 import { SessionInputQueue, SessionInputReply } from './SessionInputQueue'
 import { inputRequestKey } from './sessionInputRequests'
-import { PANE, TOGGLE, useDismissOutside, useSummaryPlacement } from './summaryPlacement'
+import {
+  PANE,
+  TOGGLE,
+  panelClass,
+  slotClass,
+  useDismissOutside,
+  useSummaryPlacement,
+} from './summaryPlacement'
 import { useChatSummary } from './useChatSummary'
 
 import type { OutputFile } from './chatSummaryModel'
@@ -161,33 +167,6 @@ function closeOnEscape(event: KeyboardEvent, root: HTMLElement | null, close: ()
   event.preventDefault()
   close()
   root?.closest(PANE)?.querySelector<HTMLElement>(TOGGLE)?.focus()
-}
-
-/** Beside the transcript it is a plain column; floating, a popover like the titlebar menus. */
-function panelClass(floating: boolean, closing: boolean, reply: boolean) {
-  const content = reply
-    ? 'w-[440px] overflow-hidden bg-main'
-    : 'w-[304px] gap-3 overflow-y-auto px-3.5 py-3'
-
-  if (!floating)
-    return clsx('flex flex-shrink-0 flex-col', content, closing ? 't-summary-out' : 't-summary-in')
-
-  return clsx(
-    't-dropdown fixed z-[1000] flex max-w-[calc(100vw-1rem)] flex-col rounded-lg border border-line-control/60 bg-main text-main shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)]',
-    content,
-    !closing && 'is-open',
-  )
-}
-
-/** Beside, the slot's width opens and closes with the panel; floating, it takes no room. */
-function slotClass(floating: boolean, closing: boolean, reply: boolean) {
-  return clsx(
-    reply ? '[--summary-width:440px]' : '[--summary-width:304px]',
-    floating
-      ? 'contents'
-      : 'flex w-[var(--summary-width)] flex-shrink-0 justify-end overflow-hidden',
-    !floating && (closing ? 't-summary-slot-out' : 't-summary-slot-in'),
-  )
 }
 
 /** What this chat did and what it runs on. A block appears only when it has something. */

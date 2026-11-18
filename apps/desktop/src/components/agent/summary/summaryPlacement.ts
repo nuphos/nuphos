@@ -1,3 +1,4 @@
+import { clsx } from 'clsx'
 import { useEffect, useLayoutEffect, useState } from 'react'
 
 import type { CSSProperties, RefObject } from 'react'
@@ -135,4 +136,31 @@ export function useDismissOutside(
 
     return () => document.removeEventListener('pointerdown', onPointerDown, true)
   }, [rootRef, close, active])
+}
+
+/** Beside the transcript it is a plain column; floating, a popover like the titlebar menus. */
+export function panelClass(floating: boolean, closing: boolean, reply: boolean) {
+  const content = reply
+    ? 'w-[440px] overflow-hidden bg-main'
+    : 'w-[304px] gap-3 overflow-y-auto px-3.5 py-3'
+
+  if (!floating)
+    return clsx('flex flex-shrink-0 flex-col', content, closing ? 't-summary-out' : 't-summary-in')
+
+  return clsx(
+    't-dropdown fixed z-[1000] flex max-w-[calc(100vw-1rem)] flex-col rounded-lg border border-line-control/60 bg-main text-main shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)]',
+    content,
+    !closing && 'is-open',
+  )
+}
+
+/** Beside, the slot's width opens and closes with the panel; floating, it takes no room. */
+export function slotClass(floating: boolean, closing: boolean, reply: boolean) {
+  return clsx(
+    reply ? '[--summary-width:440px]' : '[--summary-width:304px]',
+    floating
+      ? 'contents'
+      : 'flex w-[var(--summary-width)] flex-shrink-0 justify-end overflow-hidden',
+    !floating && (closing ? 't-summary-slot-out' : 't-summary-slot-in'),
+  )
 }
