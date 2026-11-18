@@ -29,17 +29,12 @@ const status = (cliVersion?: string) =>
   }) as unknown as LocalRuntimeStatus
 
 function deps(overrides: Partial<BoxUpdateDeps> = {}) {
-  const calls = { updated: 0, marked: 0, asked: [] as string[] }
+  const calls = { updated: 0, marked: 0 }
   const value: BoxUpdateDeps = {
     isBox: async () => true,
     canManage: async (actorId) => actorId === 'admin',
     status: async () => status('0.4.0'),
     latestVersion: async () => ({ version: '0.5.0', url: 'https://example.test/cli-v0.5.0' }),
-    busy: async (_team, id, actorId) => {
-      calls.asked.push(`${actorId}:${id}`)
-
-      return false
-    },
     update: async () => {
       calls.updated++
     },
@@ -76,24 +71,13 @@ describe('Box update', () => {
     ).toBeUndefined()
   })
 
-  test('updating restarts the host only when none of its agents is mid-turn', async () => {
-    const idle = deps()
+  test('updating restarts the host at once, without asking whether a turn is running', async () => {
+    const update = deps()
 
-    expect(await requestBoxUpdate('t1', codex, 'admin', idle.value)).toEqual({ version: '0.5.0' })
-    expect(idle.calls.updated).toBe(1)
+    expect(await requestBoxUpdate('t1', codex, 'admin', update.value)).toEqual({ version: '0.5.0' })
+    expect(update.calls.updated).toBe(1)
     // Every viewer of the Box sees it updating rather than offline.
-    expect(idle.calls.marked).toBe(1)
-    // Every agent the host runs is asked, as the administrator, not only the one whose card was used.
-    expect(idle.calls.asked).toEqual([`admin:${claude}`, `admin:${codex}`])
-
-    const busy = deps({ busy: async (_team, id) => id === codex })
-
-    await expect(requestBoxUpdate('t1', claude, 'admin', busy.value)).rejects.toMatchObject({
-      status: 409,
-      code: 'runtime_busy',
-      message: 'Updates wait for active conversations to finish.',
-    })
-    expect(busy.calls.updated).toBe(0)
+    expect(update.calls.marked).toBe(1)
   })
 
   test('an update that started is reported as started even when noting it fails', async () => {
