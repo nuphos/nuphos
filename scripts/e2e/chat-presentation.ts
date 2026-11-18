@@ -20,7 +20,9 @@ export async function checkDecisionOutline(page: Page): Promise<void> {
     throw new Error(`Decision card has an incomplete outline: ${borders.join(', ')}`)
 }
 
-export async function checkOutgoingChip(page: Page): Promise<void> {
+export async function checkOutgoingChip(page: Page, agentMention?: string): Promise<void> {
+  if (agentMention)
+    await page.getByRole('button', { name: agentMention, exact: true }).last().waitFor()
   const chip = page.locator('.user-message-bubble .chat-resource-chip').last()
 
   await chip.waitFor()
