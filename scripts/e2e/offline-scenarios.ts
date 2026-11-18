@@ -86,6 +86,8 @@ async function laptopOnline(
 }
 
 export const RESTORE_FAILED = 'Could not restore the saved session; it is kept for the next attempt'
+const OUTDATED_LINE =
+  'Nuphos on the computer running this agent is out of date. Update it there, then try again.'
 
 // How a runtime without #3373 answered once it could not restore the saved session (#3371).
 function answerAsOldRuntime(tunnel: WebSocket, raw: string) {
@@ -174,7 +176,10 @@ export const offlineScenarios: Scenario[] = [
     // #3182: a computer on a Nuphos too old to run a conversation failed without saying why.
     name: 'a conversation on a computer whose Nuphos is out of date says so, and leads to the computer',
     run: async (page, stack) => {
-      const goOffline = await laptopOnline(stack, { client: 'nuphos-desktop/0.119.0' })
+      const goOffline = await laptopOnline(stack, {
+        client: 'nuphos-desktop/0.119.0',
+        restoreFails: true,
+      })
 
       try {
         await newTask(page)
@@ -193,6 +198,11 @@ export const offlineScenarios: Scenario[] = [
 
         await banner.waitFor()
         await page.screenshot({ path: join(artifacts, 'outdated-banner.png') })
+        // #3562: a turn that fails there says why, for clients too old to show the banner.
+        await send(page, 'On the old laptop')
+        await page.getByText(RESTORE_FAILED).waitFor()
+        await page.getByText(OUTDATED_LINE).waitFor()
+        await page.screenshot({ path: join(artifacts, 'outdated-turn-error.png') })
         await banner.getByRole('button', { name: 'Update' }).click()
         await page.getByText('Nuphos on this computer is out of date').waitFor()
         await page.getByText('Open Nuphos on it and restart to update.').waitFor()
@@ -228,11 +238,7 @@ export const offlineScenarios: Scenario[] = [
         await page.getByText(`moved this task from E2E fixture agent to`).waitFor()
         await send(page, 'On the laptop behind the latest release')
         await page.getByText(RESTORE_FAILED).waitFor()
-        await page
-          .getByText(
-            'Nuphos on the computer running this agent is out of date. Update it there, then try again.',
-          )
-          .waitFor()
+        await page.getByText(OUTDATED_LINE).waitFor()
         await page.screenshot({ path: join(artifacts, 'behind-turn-error.png') })
       } finally {
         goOffline()

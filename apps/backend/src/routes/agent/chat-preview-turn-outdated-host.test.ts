@@ -7,6 +7,7 @@ import { beforeEach, expect, test } from 'bun:test'
 import type { UIMessage } from 'ai'
 
 import { OUTDATED_HOST_HINT } from '@/lib/claude-code-preview/host-minimum-version'
+import { OpenAbRpcError } from '@/lib/claude-code-preview/openab-acp-errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useChatPreviewFinish } from '@/lib/test/doubles/chat-preview-finish'
 import { useChatPreviewPrepare } from '@/lib/test/doubles/chat-preview-prepare'
@@ -18,10 +19,14 @@ const restoreFailed = 'Could not restore the saved session; it is kept for the n
 
 type App = { version: string; update?: { version: string; ready: boolean } }
 
+const desktop = (app: App) => ({
+  client: `nuphos-desktop/${app.version}`,
+  status: { agents: {}, app },
+})
 // #3560: Desktop 0.125.0 with 0.127.0 downloaded and waiting for a restart.
-const behind: App = { version: '0.125.0', update: { version: '0.127.0', ready: true } }
-let app: App = behind
-let fail = true
+const behind = desktop({ version: '0.125.0', update: { version: '0.127.0', ready: true } })
+let presence: object = behind
+let fail: (() => Error) | null = () => new Error(restoreFailed)
 let finished = 0
 
 useRedis({ redisEnabled: () => false, withRedis: async () => null })
@@ -31,10 +36,7 @@ useAgentDb({
 })
 useLocalRuntimePresence({
   runtimePresenceStore: () => ({
-    get: async () => ({
-      client: `nuphos-desktop/${app.version}`,
-      status: { agents: {}, app },
-    }),
+    get: async () => presence,
   }),
 })
 useChatPreviewPrepare({
@@ -52,7 +54,7 @@ useChatPreviewPrepare({
 useClaudeCodePreviewRuntime({
   runClaudeCodePreviewPrompt: async (args) => {
     args.onTextDelta('Done.')
-    if (fail) throw new Error(restoreFailed)
+    if (fail) throw fail()
 
     return { stopReason: 'end_turn' }
   },
@@ -91,12 +93,12 @@ function localTurn(streamId: string) {
 }
 
 beforeEach(() => {
-  fail = true
+  fail = () => new Error(restoreFailed)
   finished = 0
 })
 
 test('a failed turn on a Desktop with a newer release waiting says Nuphos there is out of date', async () => {
-  app = behind
+  presence = behind
   const error = await runClaudeCodePreviewChatTurn(localTurn('run-old')).catch((e: unknown) => e)
 
   expect(error).toBeInstanceOf(Error)
@@ -105,19 +107,44 @@ test('a failed turn on a Desktop with a newer release waiting says Nuphos there 
 })
 
 test('a failed turn on an up-to-date Desktop keeps its error as it was', async () => {
-  app = { version: '0.127.0' }
+  presence = desktop({ version: '0.127.0' })
   const error = await runClaudeCodePreviewChatTurn(localTurn('run-new')).catch((e: unknown) => e)
 
   expect((error as Error).message).toBe(restoreFailed)
 })
 
 test('a turn that succeeds on a Desktop behind the latest release is not touched', async () => {
-  app = behind
-  fail = false
+  presence = behind
+  fail = null
   const run = localTurn('run-ok')
 
   await runClaudeCodePreviewChatTurn(run)
 
   expect(finished).toBe(1)
   expect(run.run.frames.join('')).not.toContain(OUTDATED_HOST_HINT)
+})
+
+test('a failed turn on a Desktop below the support floor says so, though it reports no update', async () => {
+  // Desktops that old report no `app` in their status; only the version they connected as.
+  presence = { client: 'nuphos-desktop/0.119.0' }
+  const error = await runClaudeCodePreviewChatTurn(localTurn('run-floor')).catch((e: unknown) => e)
+
+  expect((error as Error).message).toContain(restoreFailed)
+  expect((error as Error).message).toContain(OUTDATED_HOST_HINT)
+})
+
+test('a usage limit on a computer with an update waiting still reads as a usage limit', async () => {
+  const { agentStreamErrorFrame } = await import('./errors')
+
+  presence = behind
+  fail = () =>
+    new OpenAbRpcError(
+      "**Internal Error** (code: -32603)\nInternal error: You've hit your session limit · resets 4:20am (UTC)",
+      -32603,
+    )
+  const error = await runClaudeCodePreviewChatTurn(localTurn('run-usage')).catch((e: unknown) => e)
+  const frame = agentStreamErrorFrame(error, undefined)
+
+  expect(frame.errorCode).toBe('runtime_usage_exhausted')
+  expect(frame.errorText).toBe("You've hit your session limit · resets 4:20am (UTC)")
 })
