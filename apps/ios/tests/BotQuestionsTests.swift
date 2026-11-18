@@ -18,6 +18,7 @@ enum BotQuestionsTests {
         aBotsTaskQuestionIsInTheBotsGroup()
         snoozeOffersAnHourTomorrowAndNextMonday()
         aSnoozedQuestionLeavesTheInboxUntilItsTime()
+        aDismissalsReasonIsTrimmedAndCapped()
         print("Bot questions passed")
     }
 
@@ -67,6 +68,23 @@ enum BotQuestionsTests {
         precondition(sunday.map(\.until) == [at(22, 21), at(23, 9)])
         // Monday before 9:00: a week ahead, never today's 9:00.
         precondition(Snooze.times(from: at(23, 8), calendar: calendar).map(\.until) == [at(23, 9), at(24, 9), at(30, 9)])
+
+        // Across a daylight-saving change, 9:00 stays 9:00 on the clock: New York falls back on 1 November.
+        var newYork = Calendar(identifier: .gregorian)
+        newYork.timeZone = TimeZone(identifier: "America/New_York")!
+        func ny(_ month: Int, _ day: Int, _ hour: Int) -> Date {
+            newYork.date(from: DateComponents(year: 2026, month: month, day: day, hour: hour))!
+        }
+        precondition(Snooze.times(from: ny(10, 31, 14), calendar: newYork).map(\.until)
+            == [ny(10, 31, 15), ny(11, 1, 9), ny(11, 2, 9)])
+    }
+
+    /// A dismissal's reason is sent trimmed, never past what the server keeps, and not at all when empty.
+    private static func aDismissalsReasonIsTrimmedAndCapped() {
+        precondition(Snooze.reason("  Use the token in CI \n") == "Use the token in CI")
+        precondition(Snooze.reason(" \n ") == nil)
+        let long = String(repeating: "a", count: 1_200)
+        precondition(Snooze.reason(long)?.count == 1_000)
     }
 
     /// A question snoozed until a time still to come leaves the Inbox and its count, and is listed

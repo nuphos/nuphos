@@ -214,11 +214,14 @@ struct InboxQuestionView: View {
     private var reasonField: some View {
         AnswerField(words: $reason, focused: $focused, prompt: "Reason (optional)",
                     sendLabel: "Dismiss question", optional: true) {
-            let text = reason.trimmingCharacters(in: .whitespacesAndNewlines)
             focused = false
-            Task { await inbox.hold(question, with: .dismiss(reason: text.isEmpty ? nil : text)) }
+            Task { await inbox.hold(question, with: .dismiss(reason: Snooze.reason(reason))) }
         }
         .padding(.horizontal, wide ? 0 : -4)
+        // As Desktop's field, it takes no more than the server keeps.
+        .onChange(of: reason) { _, text in
+            if text.count > Snooze.reasonLimit { reason = String(text.prefix(Snooze.reasonLimit)) }
+        }
     }
 
     private func sendWords() {

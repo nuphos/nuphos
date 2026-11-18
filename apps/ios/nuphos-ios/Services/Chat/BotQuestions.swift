@@ -231,6 +231,15 @@ enum Snooze {
             + (monday == tomorrow ? [] : [Time(label: String(localized: "Next Monday, 9:00"), until: monday)])
     }
 
+    /// The most a dismissal's reason may hold: the server refuses a longer one.
+    static let reasonLimit = 1_000
+
+    /// A dismissal's reason as it is sent: trimmed, within the limit, and nil when left empty.
+    static func reason(_ text: String) -> String? {
+        let trimmed = String(text.trimmingCharacters(in: .whitespacesAndNewlines).prefix(reasonLimit))
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
     /// When a snoozed question comes back: its time today, else its weekday and time.
     static func returnTime(_ date: Date, now: Date = .now) -> String {
         Calendar.current.isDate(date, inSameDayAs: now)
