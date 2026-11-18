@@ -31,7 +31,8 @@ export function compare(branch, main) {
   // Fewer tests than main means the run stopped partway, as when the app crashes: a test that
   // passed on main and never ran here counts as failing. A renamed test keeps the count.
   if (branch.size < main.size) {
-    for (const [test, before] of main) if (before === 'Passed' && !branch.has(test)) newFailures.push(`${test} (did not run)`)
+    for (const [test, before] of main)
+      if (before === 'Passed' && !branch.has(test)) newFailures.push(`${test} (did not run)`)
   }
 
   return { newFailures: newFailures.sort(), stillFailing: stillFailing.sort(), fixed: fixed.sort() }
@@ -39,10 +40,14 @@ export function compare(branch, main) {
 
 export function summary({ newFailures, stillFailing, fixed }, total) {
   const list = (title, tests) =>
-    tests.length ? [`**${title} (${tests.length})**`, ...tests.map((test) => `- \`${test}\``), ''] : []
+    tests.length
+      ? [`**${title} (${tests.length})**`, ...tests.map((test) => `- \`${test}\``), '']
+      : []
+
+  const verdict = newFailures.length ? `${newFailures.length} new failures.` : 'No new failures.'
 
   return [
-    `${total} tests ran. ${newFailures.length ? `${newFailures.length} new failures.` : 'No new failures.'}`,
+    `${total} tests ran. ${verdict}`,
     '',
     ...list('New failures: passed on main', newFailures),
     ...list('Also failing on main', stillFailing),
