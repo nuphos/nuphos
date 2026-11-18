@@ -227,8 +227,8 @@ export function useSidebarChats({
 
   return {
     agentSessions,
-    // Nothing until the first listing arrives, so the sidebar can tell loading from empty.
-    chatItems: listing.isPending ? undefined : chatItems,
+    // Nothing until a listing arrives: one still loading, or failed and polled again, is not empty.
+    chatItems: listing.data && chatItems,
     newChatActive,
     archiveChat,
     unlinkChat,
