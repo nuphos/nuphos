@@ -219,7 +219,6 @@ export async function startStack(options: { botOnboarding?: boolean } = {}): Pro
       MONGODB_URI: mongoUri,
       MONGODB_DB: 'nuphos_e2e',
       ATLAS_REDIS_ENABLED: 'false',
-      CLAUDE_CODE_RUNTIME_KUBECTL: 'false',
       NUPHOS_DEV_EMAIL_OTP_LOG: 'true',
       NUPHOS_LOCAL_STACK: 'true',
       // Cloudflare is never reached: a scenario answers for it on this redirect.

@@ -3,6 +3,8 @@ import { useContext } from 'react'
 
 import { t } from '../../../i18n'
 
+import { InstallButton } from '../../../views/settings/LocalAgentCard'
+
 import { FailureRow } from './FailureRow'
 import { CopyMessageButton } from './messageActions'
 import { normalizeAgentError } from './stall'
@@ -32,6 +34,7 @@ export function TurnInterruptedPartView({ part }: { part: TurnInterruptedPart })
     return (
       <>
         <FailureRow
+          fix={actions?.reinstall && <InstallButton provider={actions.reinstall} />}
           onSwitchAgent={actions?.switchAgent}
           onSetUpFallback={actions?.setUpFallback}
           onRetry={retry}

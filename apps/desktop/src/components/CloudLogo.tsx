@@ -28,6 +28,7 @@ type Props = {
     | 'linear'
     | 'gmail'
     | 'google-drive'
+    | 'google-calendar'
     | 'zeabur'
     | 'vanta'
     | 'secureframe'
@@ -77,6 +78,7 @@ const SRC = {
   linear: '/linear.svg',
   gmail: '/gmail.svg',
   'google-drive': '/google-drive.svg',
+  'google-calendar': '/google-calendar.svg',
   zeabur: '/zeabur-dark-bg.svg',
   vanta: '/vanta.png',
   secureframe: '/secureframe.png',
