@@ -6,10 +6,19 @@ import { accountSizes } from './box-instabox-account'
 // to instabox must not fail it.
 
 const me = () =>
-  new Response(JSON.stringify({ allowedSpecs: [{ vcpus: 4, memMiB: 8192 }, { vcpus: 2, memMiB: 4096 }] }), {
-    status: 200,
-  })
-const reset = () => Object.assign(new Error('The socket connection was closed unexpectedly'), { code: 'ECONNRESET' })
+  new Response(
+    JSON.stringify({
+      allowedSpecs: [
+        { vcpus: 4, memMiB: 8192 },
+        { vcpus: 2, memMiB: 4096 },
+      ],
+    }),
+    {
+      status: 200,
+    },
+  )
+const reset = () =>
+  Object.assign(new Error('The socket connection was closed unexpectedly'), { code: 'ECONNRESET' })
 const spies: { mockRestore: () => void }[] = []
 
 afterEach(() => {
@@ -17,7 +26,9 @@ afterEach(() => {
 })
 
 test('a reset connection is read again once', async () => {
-  const fetched = spyOn(globalThis, 'fetch').mockRejectedValueOnce(reset()).mockResolvedValueOnce(me())
+  const fetched = spyOn(globalThis, 'fetch')
+    .mockRejectedValueOnce(reset())
+    .mockResolvedValueOnce(me())
 
   spies.push(fetched)
   expect(await accountSizes({ apiKey: 'k' })).toEqual([
