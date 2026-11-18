@@ -41,6 +41,8 @@ struct InboxPage: View {
                 }
                 .padding(24).frame(maxWidth: 400)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                // The last question answered or dismissed still offers its Undo here.
+                .overlay(alignment: .bottom) { InboxToast(inbox: inbox).padding(.bottom, 24) }
 
             } else {
                 // On iPhone the list's selection pushes the question. Wide, a tap opens it beside the
