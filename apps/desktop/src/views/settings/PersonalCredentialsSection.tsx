@@ -57,7 +57,7 @@ const PROVIDERS: { provider: PersonalCredentialProvider; name: string; descripti
     provider: 'google-calendar',
     name: 'Google Calendar',
     description: t(
-      'Let the agent check your schedule and create or update events in your own Google Calendar.',
+      'Let your Bots and tasks check your schedule and create or update events in your own Google Calendar.',
     ),
   },
 ]
