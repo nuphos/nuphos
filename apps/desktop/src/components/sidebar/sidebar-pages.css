@@ -58,8 +58,16 @@
   outline: 1px solid rgb(var(--color-line-focus));
   outline-offset: 2px;
 }
+/* The list ends past its fade, so its last row clears the fade at the scroll limit. */
 .sidebar-page-list {
-  mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 26px), transparent 100%);
+  --sidebar-list-fade: 26px;
+  padding-bottom: calc(var(--sidebar-list-fade) + 8px);
+  mask-image: linear-gradient(
+    to bottom,
+    #000 0,
+    #000 calc(100% - var(--sidebar-list-fade)),
+    transparent 100%
+  );
 }
 
 .sidebar-pin-shelf {
