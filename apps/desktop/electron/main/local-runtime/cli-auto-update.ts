@@ -44,9 +44,14 @@ export function newerRelease(candidate: string, current: string): boolean {
   const release = /^\d+\.\d+\.\d+$/u
 
   if (!release.test(candidate) || !release.test(current)) return false
-  const [a, b] = [candidate, current].map((v) => v.split('.').map(Number))
+  const a = candidate.split('.').map(Number)
+  const b = current.split('.').map(Number)
 
-  for (let i = 0; i < 3; i++) if (a[i] !== b[i]) return (a[i] ?? 0) > (b[i] ?? 0)
+  for (let i = 0; i < 3; i++) {
+    const [x = 0, y = 0] = [a[i], b[i]]
+
+    if (x !== y) return x > y
+  }
 
   return false
 }
