@@ -34,48 +34,47 @@ function turnRows(stack: Stack): TurnRow[] | null {
   ) as TurnRow[] | null
 }
 
-/** As the second member and as the owner: everyone gets the team's numbers, only an
- *  administrator gets another's conversation name. */
+/** As the second member and as the owner. A Task started in the app is private by default, so
+ *  the member gets the team's numbers by member, but the owner's conversations only as the
+ *  one merged row, with no id or name of theirs; the owner gets their own. */
 async function checkNamesByRole(
   stack: Stack,
-  sessionId: string,
-  privateId: string,
+  ids: { sessionId: string; privateId: string; owner: string },
   teammateToken: string,
 ) {
-  // Every member sees the team's numbers; only an administrator sees another's conversation name.
   const now = Date.now()
-  const read = async (token: string) => {
+  const read = async (token: string, groupBy: string) => {
     const query = new URLSearchParams({
       from: new Date(now - 7 * 86_400_000).toISOString(),
       to: new Date(now + 86_400_000).toISOString(),
-      groupBy: 'conversation',
+      groupBy,
     })
     const answer = await api(stack, token)(
       'GET',
       `/teams/${stack.teamId}/usage/query?${query.toString()}`,
     )
 
-    return answer.body as unknown as {
-      rows: { keys: { conversation?: string }; totalTokens: number }[]
-      names: { conversation?: Record<string, string | null> }
-    }
+    return answer.body as unknown as { rows: { keys: Record<string, string | null> }[] }
   }
-  const asTeammate = await read(teammateToken)
-  const asOwner = await read(stack.token)
+  const byMember = await read(teammateToken, 'member')
+  const asTeammate = await read(teammateToken, 'conversation')
+  const asOwner = await read(stack.token, 'conversation')
+  const conversations = (answer: typeof asOwner) => answer.rows.map((row) => row.keys.conversation)
 
-  if (!asTeammate.rows.some((row) => row.keys.conversation === sessionId))
-    throw new Error('A member does not see the team’s usage')
-  if (asTeammate.names.conversation?.[sessionId] !== null)
-    throw new Error('A member sees the name of a teammate’s conversation')
-  if (!asOwner.names.conversation?.[sessionId])
-    throw new Error('An administrator does not see the conversation’s name')
-  // The owner's private conversation: to the member, only the one merged row, never its id.
-  if (!asTeammate.rows.some((row) => row.keys.conversation === 'private:others'))
-    throw new Error('A member does not get the merged row of private conversations')
-  if (JSON.stringify(asTeammate).includes(privateId))
+  if (!byMember.rows.some((row) => row.keys.member === ids.owner))
+    throw new Error('A member does not see the team’s numbers')
+  if (JSON.stringify(conversations(asTeammate)) !== JSON.stringify(['private:others']))
+    throw new Error(`A member sees another’s conversations: ${JSON.stringify(asTeammate)}`)
+  if (
+    JSON.stringify(asTeammate).includes(ids.sessionId) ||
+    JSON.stringify(asTeammate).includes(ids.privateId)
+  )
     throw new Error('A member is told of another’s private conversation')
-  if (!asOwner.rows.some((row) => row.keys.conversation === privateId))
-    throw new Error('The owner does not see their own private conversation')
+  if (
+    !conversations(asOwner).includes(ids.sessionId) ||
+    !conversations(asOwner).includes(ids.privateId)
+  )
+    throw new Error('The owner does not see their own conversations')
 }
 
 /** Filters take several values per dimension: the member picked by clicking is ticked. */
@@ -240,7 +239,7 @@ export const usageScenarios: Scenario[] = [
 
       seedTenfold(stack, { sessionId, privateId, owner, teammate: teammate.id, triggerId })
       try {
-        await checkNamesByRole(stack, sessionId, privateId, teammate.token)
+        await checkNamesByRole(stack, { sessionId, privateId, owner }, teammate.token)
         await openComputers(page)
         const section = page.getByRole('region', { name: 'Token usage' })
         const table = section.getByRole('table', { name: 'Token usage by group' })
