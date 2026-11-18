@@ -3,6 +3,7 @@ import '@/routes/agent'
 
 import { beforeEach, describe, expect, test } from 'bun:test'
 
+import { agentRuns } from '@/lib/agent/run-admission'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useAgentRunStore } from '@/lib/test/doubles/agent-run-store'
 import { useConversationComputer } from '@/lib/test/doubles/conversation-computer'
@@ -27,6 +28,8 @@ let stopped: string[]
 let queue: PendingUserMessage[]
 let active: { streamId: string } | null
 let frames: Record<string, { id: string; frame: string }[]>
+// A self-hosted compose stack runs without Redis: runs live in this process only.
+let redisOn: boolean
 
 useIdentity({ getTeamMembership: async () => (member ? ({ role: 'MEMBER' } as never) : null) })
 useAgentDb({ getReadableConversation: async () => readable })
@@ -70,8 +73,9 @@ usePendingMessages({
   },
 })
 useAgentRunStore({
-  getActiveAgentRunForSession: async () => active as never,
+  getActiveAgentRunForSession: async () => (redisOn ? (active as never) : null),
   readAgentRunFramesAfter: async (_owner, streamId, after, count) => {
+    if (!redisOn) return null
     const all = frames[streamId] ?? []
     const from = after === '-' ? 0 : all.findIndex((entry) => entry.id === after) + 1
 
@@ -103,6 +107,8 @@ beforeEach(() => {
   queue = []
   active = null
   frames = {}
+  redisOn = true
+  agentRuns.clear()
 })
 
 describe('nuphos_list_runtimes', () => {
@@ -231,6 +237,33 @@ describe('nuphos_events', () => {
 
     expect(fresh.events).toEqual([{ type: 'start' }])
     expect(fresh.cursor).toBe('st2/9-0')
+  })
+
+  test('without Redis, reads the run this process holds by frame position', async () => {
+    redisOn = false
+    const run = {
+      key: 'k',
+      userId: ME,
+      sessionId: 's1',
+      streamId: 'st1',
+      done: false,
+      createdAt: Date.now(),
+      frames: [frame({ type: 'start' }), frame({ type: 'text-delta', id: 't', delta: 'Hi' })],
+    }
+
+    agentRuns.set('k', run as never)
+    const first = body(await nuphosEvents({ session_id: 's1' }, ctx))
+
+    expect(first.running).toBe(true)
+    expect(first.events).toHaveLength(2)
+    expect(first.cursor).toBe('st1/2')
+
+    run.frames.push(frame({ type: 'finish' }))
+    run.done = true
+    const rest = body(await nuphosEvents({ session_id: 's1', cursor: first.cursor }, ctx))
+
+    expect(rest.events).toEqual([{ type: 'finish' }])
+    expect(rest).toMatchObject({ running: false, turn_ended: true, cursor: null })
   })
 
   test('with nothing running there is nothing to read', async () => {

@@ -5,6 +5,7 @@
 import { getReadableConversation } from '@/lib/agent/db'
 import { canReplyIn } from '@/lib/agent/devices/conversation-computer'
 import { frameEvent } from '@/lib/agent/live-turn'
+import { agentRuns, getLocalActiveAgentRun } from '@/lib/agent/run-admission'
 import { getActiveAgentRunForSession, readAgentRunFramesAfter } from '@/lib/agent/run-store'
 import {
   listRuntimeInstances,
@@ -129,6 +130,22 @@ function parseCursor(value: string): { streamId: string; after: string } | null 
   return streamId && after && extra === undefined ? { streamId, after } : null
 }
 
+/**
+ * Without Redis (one replica, as a self-hosted compose stack runs) the run's
+ * frames are only in this process: an entry id is the frame's position.
+ */
+function localFramesAfter(owner: string, streamId: string, after: string, count: number) {
+  // eslint-disable-next-line sonarjs/no-empty-collection -- populated by registerAgentRun
+  const run = [...agentRuns.values()].find((r) => r.userId === owner && r.streamId === streamId)
+  const start = after === '-' ? 0 : Number(after)
+
+  if (!run || !Number.isInteger(start) || start < 0) return []
+
+  return run.frames
+    .slice(start, start + count)
+    .map((frame, i) => ({ id: String(start + i + 1), frame }))
+}
+
 export async function nuphosEvents(
   args: Record<string, unknown>,
   ctx: McpCallContext,
@@ -142,7 +159,9 @@ export async function nuphosEvents(
   if (raw && !cursor) return toolError('`cursor` is not one this tool returned.')
   // Runs are keyed by the conversation owner, whoever reads them.
   const owner = conversation.userId
-  const active = await getActiveAgentRunForSession(owner, conversation.sessionId)
+  const active =
+    getLocalActiveAgentRun(owner, conversation.sessionId) ??
+    (await getActiveAgentRunForSession(owner, conversation.sessionId))
   const base = {
     session_id: conversation.sessionId,
     running: Boolean(active),
@@ -154,10 +173,9 @@ export async function nuphosEvents(
 
   if (!streamId) return toolResult({ ...base, events: [], cursor: null })
   const after = cursor?.streamId === streamId ? cursor.after : '-'
-  const entries = await readAgentRunFramesAfter(owner, streamId, after, EVENTS_PAGE)
-
-  if (entries === null)
-    return toolError('Execution events need Redis, which this server runs without.')
+  const entries =
+    (await readAgentRunFramesAfter(owner, streamId, after, EVENTS_PAGE)) ??
+    localFramesAfter(owner, streamId, after, EVENTS_PAGE)
   const events = entries.flatMap((entry) => frameEvent(entry.frame) ?? [])
   const last = entries.at(-1)?.id ?? after
   // Read to the end of a turn that is no longer the running one: continue on the new one.
