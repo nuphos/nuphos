@@ -446,8 +446,13 @@ test('OpenCode 2.x is told apart from 1.x by its integration list', async () => 
   const answering = (response) => async () => response
 
   assert.equal(
-    await isOpenCodeV2(server, answering({ ok: true, json: async () => ({ data: [] }) })),
+    await isOpenCodeV2(server, answering({ ok: true, json: async () => ({ data: INTEGRATIONS }) })),
     true,
+  )
+  // 1.19 answers the path too, with no integrations: its providers are on /provider (#3616).
+  assert.equal(
+    await isOpenCodeV2(server, answering({ ok: true, json: async () => ({ data: [] }) })),
+    false,
   )
   // 1.x serves its web app for any unknown path.
   const html = { ok: true, json: async () => JSON.parse('<!doctype html>') }

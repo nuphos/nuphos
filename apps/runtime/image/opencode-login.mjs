@@ -300,8 +300,9 @@ export async function isOpenCodeV2(server, fetchImpl = fetch) {
     headers: { authorization: server.authorization },
   }).catch(() => undefined)
   if (!response?.ok) return false
+  // 1.19 answers too, with an empty list: a 2.x server lists every integration it supports.
   return response.json().then(
-    (body) => Array.isArray(body?.data),
+    (body) => Array.isArray(body?.data) && body.data.length > 0,
     () => false,
   )
 }
