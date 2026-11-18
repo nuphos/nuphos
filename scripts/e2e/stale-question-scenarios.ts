@@ -43,7 +43,7 @@ export const staleQuestionScenarios: Scenario[] = [
       }
 
       await callAndWait(page, 'create_thread', start, 'about-start')
-      const threadId = /threadId[\\"]*:[\\"]*([0-9a-f-]{36})/.exec(
+      const threadId = /threadId[\\": ]*([0-9a-f-]{36})/.exec(
         await calledTool(stack, 'create_thread'),
       )?.[1]
 
@@ -58,7 +58,8 @@ export const staleQuestionScenarios: Scenario[] = [
       }
 
       await callAndWait(page, 'request_user_decision', ask, 'about-ask')
-      const requestId = /requestId[\\"]*:[\\"]*([^\\"]+)/.exec(
+      // The tool's text pretty-prints its JSON (`"requestId": "nuphos-…"`): match the id itself.
+      const requestId = /(nuphos-[0-9a-f-]{36})/.exec(
         await calledTool(stack, 'request_user_decision'),
       )?.[1]
 
