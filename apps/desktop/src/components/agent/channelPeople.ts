@@ -46,7 +46,11 @@ export function addableAgents(
       id: agent.sessionId,
       name: agent.title || t('Untitled task'),
       email: '',
-      agent: { avatar: agent.avatar, provider: agent.agentRuntime },
+      agent: {
+        avatar: agent.avatar,
+        avatarBackground: agent.avatarBackground,
+        provider: agent.agentRuntime,
+      },
     }))
 }
 

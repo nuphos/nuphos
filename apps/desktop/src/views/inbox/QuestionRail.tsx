@@ -115,6 +115,7 @@ function QuestionSourceIcon({ conversation, size = 16 }: { conversation: Source;
     <AgentAvatar
       agentId={conversation.sessionId}
       avatar={conversation.avatar}
+      avatarBackground={conversation.avatarBackground}
       provider={conversation.agentRuntime}
       size={size}
       showBadge={false}

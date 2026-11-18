@@ -135,6 +135,7 @@ function Face({
     <AgentAvatar
       agentId={face.id}
       avatar={face.agent.avatar}
+      avatarBackground={face.agent.avatarBackground}
       provider={face.agent.provider}
       size={size}
       sidebar={sidebar}

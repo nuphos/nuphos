@@ -268,8 +268,12 @@ export const cloudOpsApi = {
     ipcRenderer.invoke('agent:listConversations', teamId, options),
   agentRenameConversation: (sessionId: string, title: string, teamId?: string) =>
     ipcRenderer.invoke('agent:renameConversation', sessionId, title, teamId),
-  agentSetConversationAvatar: (sessionId: string, avatar: string | null, teamId?: string) =>
-    ipcRenderer.invoke('agent:setConversationAvatar', sessionId, avatar, teamId),
+  agentSetConversationAvatar: (
+    sessionId: string,
+    avatar: string | null,
+    teamId?: string,
+    background?: string,
+  ) => ipcRenderer.invoke('agent:setConversationAvatar', sessionId, avatar, teamId, background),
   agentSetConversationArchived: (sessionId: string, archived: boolean, teamId?: string) =>
     ipcRenderer.invoke('agent:setConversationArchived', sessionId, archived, teamId),
   agentSetConversationWatched: (sessionId: string, watching: boolean, teamId?: string) =>
