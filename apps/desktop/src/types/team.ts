@@ -288,7 +288,6 @@ export type TeamActivity = {
   range: TeamActivityRange
   slotMinutes: number
   start: string
-  /** `title` is null for another member's session when the viewer is not an administrator. */
   sessions: { id: string; title: string | null; runtime: AgentProvider | null }[]
   /** Every current member, busiest first. */
   members: {
