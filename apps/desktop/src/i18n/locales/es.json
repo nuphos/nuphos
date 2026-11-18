@@ -355,6 +355,7 @@
   "Annotations": "Anotaciones",
   "Another runtime on this computer already has this name.": "Otro entorno de ejecución de esta computadora ya tiene este nombre.",
   "Answer in the secure card below. Never paste a secret in a message.": "Responde en la tarjeta segura de abajo. Nunca pegues un secreto en un mensaje.",
+  "Answered in Inbox": "Respondida en la Bandeja de entrada",
   "Answered {answered} from the Inbox": "Respondido {answered} desde la Bandeja de entrada",
   "Answered “{answer}”": "Respondido “{answer}”",
   "Answered: {answer}": "Respondido: {answer}",

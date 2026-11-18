@@ -161,7 +161,7 @@ export function ChannelIntro({ faces, title }: { faces?: ChannelFace[]; title: s
   )
 }
 
-/** The post the next one answers, above the composer and as wide as it. */
+/** The post the next one answers, above the composer: its author, then two lines of it. */
 export function ReplyingBanner({
   reply,
   onCancel,
@@ -170,13 +170,13 @@ export function ReplyingBanner({
   onCancel: () => void
 }) {
   return (
-    <div className="mx-[2.375rem] flex items-center gap-2 rounded-xl bg-state-hover py-1 pl-3 pr-1 text-xs leading-4">
-      <CornerUpLeft className="h-3.5 w-3.5 shrink-0 text-tertiary" strokeWidth={2.2} />
-      <div className="min-w-0 flex-1 truncate text-tertiary">
-        <span className="font-medium text-secondary">
-          {t('Replying to {name}', { name: reply.authorName })}
-        </span>{' '}
-        {reply.text}
+    <div className="mx-[2.375rem] flex items-start gap-2 rounded-xl border-l-2 border-line-control bg-state-hover py-1.5 pl-3 pr-1 text-xs leading-4">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1 font-medium text-secondary">
+          <CornerUpLeft className="h-3 w-3 shrink-0" strokeWidth={2.2} />
+          <span className="truncate">{t('Replying to {name}', { name: reply.authorName })}</span>
+        </div>
+        <div className="line-clamp-2 text-tertiary">{reply.text}</div>
       </div>
       <IconButton
         size="sm"

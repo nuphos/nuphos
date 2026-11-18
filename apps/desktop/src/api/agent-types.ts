@@ -212,6 +212,9 @@ export type AgentMessageMetadata = {
   sourceSessionId?: string
   /** The message this one replies to. */
   replyTo?: AgentMessageReply
+  /** A person's answer to a question card, posted for them: the card it answered. */
+  answeredIn?: 'inbox'
+  requestId?: string
   /** A Discord author with no verified Nuphos identity; the name is theirs to choose. */
   unattested?: true
   /** Teammates it @mentions, as the server resolved them. */

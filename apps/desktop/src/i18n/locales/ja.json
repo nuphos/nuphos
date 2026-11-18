@@ -355,6 +355,7 @@
   "Annotations": "アノテーション",
   "Another runtime on this computer already has this name.": "このコンピュータの別のランタイムがすでにこの名前を使用しています。",
   "Answer in the secure card below. Never paste a secret in a message.": "下の安全なカードで回答してください。シークレットをメッセージに貼り付けないでください。",
+  "Answered in Inbox": "受信トレイで回答",
   "Answered {answered} from the Inbox": "{answered} に受信トレイから回答",
   "Answered “{answer}”": "「{answer}」と回答しました",
   "Answered: {answer}": "回答済み：{answer}",

@@ -91,6 +91,12 @@ export function parseMessageMetadata(value: unknown): AgentMessageMetadata | und
       ? { sourceSessionId: m.sourceSessionId }
       : {}),
     ...(replyTo ? { replyTo } : {}),
+    ...(m.source === 'nuphos' &&
+    m.answeredIn === 'inbox' &&
+    typeof m.requestId === 'string' &&
+    m.requestId
+      ? { answeredIn: m.answeredIn, requestId: m.requestId }
+      : {}),
     ...(m.source === 'discord' && m.unattested === true ? { unattested: true as const } : {}),
     ...(mentions ? { mentions } : {}),
     ...(channelPost ? { channelPost } : {}),
