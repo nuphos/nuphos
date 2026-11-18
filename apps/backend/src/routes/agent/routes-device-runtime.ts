@@ -98,16 +98,21 @@ export function runtimeTunnelEvents(
 
   return {
     onOpen: (_event: Event, ws: WSContext) => {
+      const raw = ws.raw as { getBufferedAmount?: () => number } | undefined
+      let backlog = 0
+
       tunnel = attachRuntimeTunnel(
         userId,
         deviceId,
         {
           send: (frame) => {
+            backlog = Math.max(backlog, raw?.getBufferedAmount?.() ?? 0)
             ws.send(JSON.stringify(frame))
           },
           close: (code, reason) => {
             ws.close(code, reason)
           },
+          backlog: () => backlog,
         },
         deps,
         client,

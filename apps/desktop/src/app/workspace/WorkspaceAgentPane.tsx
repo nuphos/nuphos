@@ -150,7 +150,7 @@ export function WorkspaceAgentPane({
             // The viewport-anchored dock toggle (see `.workspace-dock-toggle`)
             // sits over this header only while the dock is closed; once it is
             // open the toggle rides the dock's own tab strip instead.
-            dockOpen ? 'pr-3' : 'pr-12',
+            dockOpen ? 'pr-3' : 'pr-[var(--dock-toggle-pad)]',
           )}
         >
           <CornerSidebarToggle />

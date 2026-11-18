@@ -124,6 +124,19 @@ test('sending sets up an agent only when the team surely has none to run', () =>
   assert.equal(noAgentToRun([], false, 'offline'), false)
 })
 
+test('an agent gone from someone’s computer says the computer may no longer be shared', () => {
+  const gone: RuntimeControl = {
+    value: { id: 'local_maya_mac-1', provider: 'claude-code', label: 'Claude Code in Maya’s Mac' },
+    options: [],
+    unavailable: true,
+  }
+
+  assert.equal(
+    runtimeControlSendBlock(gone),
+    'Claude Code in Maya’s Mac is no longer available. It was removed, or its computer is no longer shared with you.',
+  )
+})
+
 test("a conversation whose agent is gone can't send, and says why", () => {
   const gone: RuntimeControl = {
     value: { id: 'rt-removed', provider: 'claude-code', label: 'Build agent' },

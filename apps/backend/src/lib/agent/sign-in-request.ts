@@ -11,9 +11,11 @@ import { logEvent } from '@/lib/observability'
 import { notifyNudge } from '@/lib/push/notify'
 
 import { getConversationBySessionId } from './db'
+import { computerSigners } from './sign-in-signers'
 import { ASK_OPEN_MS } from './db/conversations-list'
 
 import type { AgentConversation } from './db'
+import type { ComputerSigners } from './sign-in-signers'
 import type { DownloadHandoffRateLimitResult } from '@/lib/download-handoff-rate-limit'
 import type { NuphosTeamMember, NuphosTeamRole } from '@/lib/identity/types'
 
@@ -85,15 +87,23 @@ export function signInRecipients(
   runtimeId: string,
   requester: { id: string; role: NuphosTeamRole },
   members: Member[],
+  /** The computer as on record; without it, only the owner its agent's id names. */
+  computer?: ComputerSigners | null,
 ): Member[] | null {
-  const owner = parseLocalRuntimeId(runtimeId)?.userId
+  const parsed = parseLocalRuntimeId(runtimeId)?.userId
+  const owner = computer?.owner ?? parsed
+  const canSignIn = (id: string) =>
+    computer ? computer.canSignIn(id) : owner ? id === owner : false
 
-  if (owner ? owner === requester.id : requester.role === 'ADMINISTRATOR') return null
+  if (parsed ? canSignIn(requester.id) : requester.role === 'ADMINISTRATOR') return null
 
   return members
     .filter((member) => !member.removedAt && member.id !== requester.id)
-    .filter((member) => (owner ? member.id === owner : member.role === 'ADMINISTRATOR'))
-    .sort((a, b) => a.joinedAt.localeCompare(b.joinedAt))
+    .filter((member) => (parsed ? canSignIn(member.id) : member.role === 'ADMINISTRATOR'))
+    .sort(
+      (a, b) =>
+        Number(b.id === owner) - Number(a.id === owner) || a.joinedAt.localeCompare(b.joinedAt),
+    )
 }
 
 export type NudgePush = { sessionId: string; teamId: string; title: string; body: string }
@@ -116,6 +126,8 @@ export type NudgeDeps = {
   ) => Promise<boolean>
   notify: (userIds: string[], push: NudgePush) => void
   now: () => number
+  /** Who may sign a computer's agent in; null when the computer is not on record. */
+  computer: (teamId: string, runtimeId: string) => Promise<ComputerSigners | null>
 }
 
 export const nudgeDeps: NudgeDeps = {
@@ -167,6 +179,7 @@ export const nudgeDeps: NudgeDeps = {
   },
   notify: notifyNudge,
   now: Date.now,
+  computer: computerSigners,
 }
 
 // Names and the agent's label only: never an error, a token or the message itself.
@@ -198,8 +211,11 @@ export async function nudge(
     throw new AppError(404, 'conversation_not_found', 'Conversation not found')
   if (conversation.runtimeId !== runtimeId)
     throw new AppError(409, 'runtime_mismatch', 'This conversation runs on another agent')
-  const members = await deps.members(teamId)
-  const recipients = recipientsFor(conversation, requesterId, requesterRole, members)
+  const [members, computer] = await Promise.all([
+    deps.members(teamId),
+    deps.computer(teamId, runtimeId),
+  ])
+  const recipients = recipientsFor(conversation, requesterId, requesterRole, members, computer)
 
   if (!recipients[0])
     throw new AppError(409, 'nobody_to_ask', 'Nobody in this team can act on this agent')
@@ -261,11 +277,13 @@ function recipientsFor(
   requesterId: string,
   requesterRole: NuphosTeamRole,
   members: Member[],
+  computer: ComputerSigners | null,
 ): Member[] {
   const recipients = signInRecipients(
     conversation.runtimeId ?? '',
     { id: requesterId, role: requesterRole },
     members,
+    computer,
   )
 
   if (!recipients) throw new AppError(409, 'can_sign_in', 'You can sign this agent in yourself')

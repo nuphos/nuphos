@@ -29,17 +29,48 @@ const failed = (extra: Partial<Tab> = {}) =>
   }) as unknown as Tab
 
 test('the latest failure line offers Switch runtime', () => {
-  assert.equal(turnSwitchAgent(failed())?.partId, 'r1:interrupted')
+  assert.equal(turnSwitchAgent(failed(), () => undefined)?.partId, 'r1:interrupted')
+})
+
+test('Switch runtime opens only the composer beside the failure line', () => {
+  let opened = 0
+
+  turnSwitchAgent(failed(), () => opened++)?.switchAgent()
+  assert.equal(opened, 1)
+})
+
+test('with Set up fallback offered, Switch runtime still opens only its own list', () => {
+  let opened = 0
+  let setUp = 0
+  const actions = turnSwitchAgent(
+    failed(),
+    () => opened++,
+    () => setUp++,
+  )
+
+  actions?.switchAgent()
+  assert.deepEqual([opened, setUp], [1, 0])
+  actions?.setUpFallback?.()
+  assert.deepEqual([opened, setUp], [1, 1])
 })
 
 test('a viewer who cannot move the agent is not offered it', () => {
-  assert.equal(turnSwitchAgent(failed({ foreign: true })), null)
-  assert.equal(turnSwitchAgent(failed({ readOnly: true })), null)
+  assert.equal(
+    turnSwitchAgent(failed({ foreign: true }), () => undefined),
+    null,
+  )
+  assert.equal(
+    turnSwitchAgent(failed({ readOnly: true }), () => undefined),
+    null,
+  )
 })
 
 test('nothing is offered once the conversation moved past the failure', () => {
   const tab = failed()
 
   tab.messages.push({ id: 'u2', role: 'user', parts: [{ type: 'text', text: 'Hello?' }] } as never)
-  assert.equal(turnSwitchAgent(tab), null)
+  assert.equal(
+    turnSwitchAgent(tab, () => undefined),
+    null,
+  )
 })

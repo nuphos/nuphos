@@ -169,7 +169,7 @@ export function runEndEventEffects(
         )
         fireStopNotification(
           buildAgentStopNotification({
-            outcome: { kind: 'failed', cause: t('The agent could not be resumed.') },
+            outcome: { kind: 'failed', cause: t('The task could not be resumed.') },
             title: tabsRef.current.find((t) => t.streamId === newStreamId)?.title,
           }),
           payload.sessionId,

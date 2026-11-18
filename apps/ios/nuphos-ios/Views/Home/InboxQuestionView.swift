@@ -33,13 +33,7 @@ struct InboxQuestionView: View {
             VStack(alignment: .leading, spacing: 0) {
                 source
                 if question.secretPart == nil {
-                    Text(question.request.question)
-                        .font(.system(size: 22, weight: .semibold))
-                        .tracking(-0.2)
-                        .lineSpacing(3)
-                        .foregroundStyle(Theme.heading)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityAddTraits(.isHeader)
+                    QuestionTitle(text: question.request.question, size: 22, tracking: -0.2, identifier: "inbox.title")
                         .padding(.top, 10)
                 }
                 if let body = question.ownBody {

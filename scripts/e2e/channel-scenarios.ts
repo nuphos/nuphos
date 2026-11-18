@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { agentEvents, agentLog } from './agent-log.ts'
 import { botAccessScenarios } from './bot-access-scenarios.ts'
 import { computerWithUsage, pickRuntime, shootRuntimeLine } from './channel-helpers.ts'
+import { checkDockToggleClear } from './chat-presentation.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
 
@@ -25,6 +26,12 @@ async function scenarioFiles(): Promise<Scenario[]> {
 }
 
 export const channelScenarios: Scenario[] = [
+  {
+    name: "the Bot chat's header ends left of the workspace panel toggle",
+    run: async (page) => {
+      await checkDockToggleClear(page, 'Bot chat header')
+    },
+  },
   {
     // #2949: channel_read in a woken turn returned the page the notice had shown, not the rest.
     name: 'a Bot woken by more than a page of posts reads on to the newest one',

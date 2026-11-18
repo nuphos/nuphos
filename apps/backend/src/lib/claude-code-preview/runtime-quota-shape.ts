@@ -84,3 +84,17 @@ export function unavailable(
     windows: [],
   }
 }
+
+/** Whether an agent's usage is used up, and when the latest used-up window resets. */
+export function usedUp(quota: RuntimeQuota | undefined): { resetsAt?: string } | undefined {
+  const spent = (quota?.windows ?? []).filter((window) => window.usedPercent >= 100)
+
+  if (spent.length === 0) return undefined
+  const latest = Math.max(
+    ...spent
+      .flatMap((window) => (window.resetsAt ? [Date.parse(window.resetsAt)] : []))
+      .filter(Number.isFinite),
+  )
+
+  return Number.isFinite(latest) ? { resetsAt: new Date(latest).toISOString() } : {}
+}

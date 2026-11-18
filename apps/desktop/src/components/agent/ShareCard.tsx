@@ -228,7 +228,7 @@ export function ParticipantList({
                 className="px-1.5 text-[12px] text-tertiary"
                 title={
                   participant.role === 'view'
-                    ? t('They can reply once they can use the computer this agent runs on.')
+                    ? t('They can reply once they can use the computer this task runs on.')
                     : undefined
                 }
               >

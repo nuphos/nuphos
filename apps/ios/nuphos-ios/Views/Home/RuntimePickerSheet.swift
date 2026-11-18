@@ -37,8 +37,9 @@ private struct RuntimePicker: View {
     /// listed, greyed with the reason, so a closed laptop does not look missing.
     private var choices: [RuntimeInstance] {
         let listed = store.runtimes.filter { ready($0) || $0.tier == .myComputers }
+        // Only its owner moves a conversation.
         guard let session, !session.isOwner else { return listed }
-        return listed.filter { $0.kind == "managed" }
+        return []
     }
     private var boxes: [SelectorBox] { SelectorBox.grouped(choices, devices: store.agentDevices) }
     private var browsing: Bool { !managing && scenePhase == .active }

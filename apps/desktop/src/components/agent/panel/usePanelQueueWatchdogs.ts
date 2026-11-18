@@ -48,7 +48,7 @@ export function usePanelQueueWatchdogs({
         },
         (error: unknown) => {
           setPhase(tab.id, null)
-          toast.apiError(t('Could not send the stop request to the agent'), error)
+          toast.apiError(t('Could not send the stop request'), error)
         },
       )
     },
@@ -124,7 +124,7 @@ export function usePanelQueueWatchdogs({
         if (parseAtlasError(error).code === 'message_answered') {
           // Output arrived first: Esc still stops the turn, as it does once the agent answers.
           stopTab(tab)
-          toast.info(t('The agent had already started, so your message stays and the turn stops'))
+          toast.info(t('The turn had already started, so your message stays and the turn stops'))
         } else {
           setPhase(tab.id, null)
           toast.apiError(t('Could not take back the message'), error)

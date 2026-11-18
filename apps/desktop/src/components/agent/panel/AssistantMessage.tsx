@@ -35,6 +35,7 @@ import type { Part, TextPart } from './parts'
 import type { RenderPartOptions } from './renderPartRange'
 import type { ActivePlanCanAct } from './toolParts'
 import type { FileTransferGroup } from '../../../types'
+import type { ReactNode } from 'react'
 
 // Historical message identity stays stable across the streaming clock tick.
 export const AssistantMessage = memo(
@@ -225,55 +226,54 @@ export const AssistantMessage = memo(
     const liveHistory =
       streaming && !activityHistory ? liveActivityIndices(displayParts) : new Set<number>()
     const liveIndices = displayParts.map((_, index) => index).slice(recallLead)
-
     const livePast = liveIndices.filter((index) => liveHistory.has(index))
     const liveCurrent = liveIndices.filter((index) => !liveHistory.has(index))
+    // One keyed list in every state, so a card lifted out of the fold keeps what was typed in it.
+    const body: ReactNode[] = renderRange(0, recallLead)
+
+    if (liveHistory.size > 0) {
+      body.push(
+        <CollapsedWorkView
+          key="activity"
+          seconds={null}
+          label={t('Activity')}
+          toolCallIds={toolAnchorIds(displayParts.filter((_, index) => liveHistory.has(index)))}
+        >
+          {() => renderSelectedParts(displayParts, livePast, renderMessagePart, now)}
+        </CollapsedWorkView>,
+        ...renderSelectedParts(displayParts, liveCurrent, renderMessagePart, now),
+      )
+    } else {
+      if (foldHasWork)
+        body.push(
+          <CollapsedWorkView
+            key="fold"
+            seconds={workSeconds}
+            toolCallIds={toolAnchorIds(displayParts.slice(recallLead, collapseSplit))}
+          >
+            {() => renderPartRange(displayParts, recallLead, collapseSplit, renderFoldPart, now)}
+          </CollapsedWorkView>,
+        )
+      body.push(...renderRange(folded ? collapseSplit : recallLead, orderedParts.length))
+    }
+    if (teamId && downloadGroups)
+      body.push(<DownloadGroups key="downloads" groups={downloadGroups} teamId={teamId} />)
+    // Mid-turn recall belongs beside what the agent learned.
+    for (const p of orderedParts)
+      if (p.type === 'memory-provenance')
+        body.push(
+          <MemoryProvenancePartView
+            key={`${p.id}:lookedUp`}
+            part={p}
+            teamId={teamId}
+            section="lookedUp"
+          />,
+        )
+    body.push(...planIndices.map((i) => renderMessagePart(displayParts[i], i)))
 
     return (
       <div className="group/message space-y-2">
-        {/* Above the fold, always: what the turn already knew when it started. */}
-        {renderRange(0, recallLead)}
-        {liveHistory.size > 0 ? (
-          <>
-            <CollapsedWorkView
-              seconds={null}
-              label={t('Activity')}
-              toolCallIds={toolAnchorIds(displayParts.filter((_, index) => liveHistory.has(index)))}
-            >
-              {() => renderSelectedParts(displayParts, livePast, renderMessagePart, now)}
-            </CollapsedWorkView>
-            {renderSelectedParts(displayParts, liveCurrent, renderMessagePart, now)}
-          </>
-        ) : folded ? (
-          <>
-            {foldHasWork && (
-              <CollapsedWorkView
-                seconds={workSeconds}
-                toolCallIds={toolAnchorIds(displayParts.slice(recallLead, collapseSplit))}
-              >
-                {() =>
-                  renderPartRange(displayParts, recallLead, collapseSplit, renderFoldPart, now)
-                }
-              </CollapsedWorkView>
-            )}
-            {renderRange(collapseSplit, orderedParts.length)}
-          </>
-        ) : (
-          renderRange(recallLead, orderedParts.length)
-        )}
-        {teamId && downloadGroups && <DownloadGroups groups={downloadGroups} teamId={teamId} />}
-        {/* Mid-turn recall belongs beside what the agent learned. */}
-        {orderedParts
-          .filter((p) => p.type === 'memory-provenance')
-          .map((p) => (
-            <MemoryProvenancePartView
-              key={`${p.id}:lookedUp`}
-              part={p}
-              teamId={teamId}
-              section="lookedUp"
-            />
-          ))}
-        {planIndices.map((i) => renderMessagePart(displayParts[i], i))}
+        {body}
         {!streaming && (
           <TurnLinkChips parts={orderedParts} teamId={teamId} onOpen={onOpenNuphosLink} />
         )}

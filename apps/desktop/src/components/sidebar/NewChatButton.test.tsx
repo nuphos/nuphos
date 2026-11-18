@@ -139,7 +139,7 @@ test('connect before creating, preserving the name and avatar when returning to 
     await click('[data-pick-avatar]')
     await submit()
     assert.equal(created.length, 0, 'no Bot shell is created before an agent exists')
-    assert.ok(container.querySelector('[data-modal="Connect your agent"]'))
+    assert.ok(container.querySelector('[data-modal="Connect a runtime"]'))
     assert.ok(form.closest('[hidden]'))
     const back = [...container.querySelectorAll('button')].find(
       (button) => button.textContent === 'Back',

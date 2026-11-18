@@ -18,6 +18,7 @@ import { AgentAddedBy } from './AgentAddedBy'
 import { agentName, localSignIn, managesRuntime, ownSignedInCli } from './agentPresentation'
 import { LocalAgentSignInRow } from './LocalAgentSignInRow'
 import { RuntimeActionsMenu } from './RuntimeActionsMenu'
+import { editsRuntime } from './runtimeFallback'
 import { RuntimeFallbackPicker } from './RuntimeFallbackPicker'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 import { RuntimeMetricsCharts } from './RuntimeMetricsCharts'
@@ -85,7 +86,7 @@ export function RuntimeInstanceCard({
           label,
         )
       : api.atlasUpdateRuntimeInstance(teamId, instance.id, { label })
-  const canEdit = manages && instance.kind !== 'development' && !instance.deletion
+  const canEdit = editsRuntime(instance, manages)
   const status = runtimeStatusView(instance, runtime, statusError)
   const kindTag =
     instance.kind === 'external'
