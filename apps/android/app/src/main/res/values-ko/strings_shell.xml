@@ -169,4 +169,8 @@
     <string name="shell_desktop_type_on">데스크톱에 입력</string>
     <string name="shell_desktop_typing">입력 중…</string>
     <string name="shell_desktop_type">입력</string>
+    <string name="shell_inbox_snoozed">다시 알림 예약됨</string>
+    <string name="shell_inbox_unsnooze">다시 알림 취소</string>
+    <string name="shell_inbox_undo">실행 취소</string>
+    <string name="shell_inbox_dismissed">닫았습니다. 답변 없이 계속합니다.</string>
 </resources>

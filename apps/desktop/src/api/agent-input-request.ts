@@ -20,5 +20,7 @@ export type AgentInputRequest = {
   credentials?: { provider: 'personal'; id: 'github' | 'linear' }[]
   planId?: string
   askedAt: string
+  /** When the agent last rewrote it with update_user_decision. */
+  updatedAt?: string
   status: 'open' | 'answered' | 'dismissed'
 }

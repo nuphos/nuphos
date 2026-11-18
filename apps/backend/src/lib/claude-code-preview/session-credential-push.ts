@@ -1,6 +1,5 @@
 import { sameRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { resolveConversationChatRuntime } from './conversation-chat-route'
-import { reachableRuntimeEndpoint } from './dev-runtime-forward'
 import { OpenAbAcpClient } from './openab-acp-client'
 import { supportsCredentialRefresh } from './openab-acp-session'
 import { UndeliveredCredentialPush } from './turn-credential-renewal'
@@ -68,7 +67,7 @@ async function connectControl(target: CredentialPushTarget) {
     throw new Error('Conversation runtime changed')
 
   return OpenAbAcpClient.connect({
-    ...(await reachableRuntimeEndpoint(endpoint)),
+    ...endpoint,
     connectTimeoutMs: 10_000,
     callTimeoutMs: 15_000,
   })

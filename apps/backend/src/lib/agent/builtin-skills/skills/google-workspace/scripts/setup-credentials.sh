@@ -5,8 +5,8 @@ if [[ -n "${OPENAB_CREDENTIALS_DIR:-}" ]]; then
   export NUPHOS_TOKEN
 fi
 
-if [ "$#" -ne 2 ] || { [ "$2" != "gmail" ] && [ "$2" != "google-drive" ]; }; then
-  echo "Usage: setup-credentials.sh <teamId> <gmail|google-drive>" >&2
+if [ "$#" -ne 2 ] || { [ "$2" != "gmail" ] && [ "$2" != "google-drive" ] && [ "$2" != "google-calendar" ]; }; then
+  echo "Usage: setup-credentials.sh <teamId> <gmail|google-drive|google-calendar>" >&2
   exit 2
 fi
 
@@ -45,7 +45,11 @@ fi
 mkdir -p "$HOME/.google"
 chmod 700 "$HOME/.google"
 env_file="$HOME/.google/${provider}.env"
-var="$( [ "$provider" = "gmail" ] && echo GMAIL || echo GOOGLE_DRIVE )"
+case "$provider" in
+  gmail) var=GMAIL ;;
+  google-drive) var=GOOGLE_DRIVE ;;
+  *) var=GOOGLE_CALENDAR ;;
+esac
 
 python3 - "$tmp" "$env_file" "$var" <<'PY'
 import json, shlex, sys

@@ -169,4 +169,8 @@
     <string name="shell_desktop_type_on">พิมพ์บนเดสก์ท็อป</string>
     <string name="shell_desktop_typing">กำลังพิมพ์…</string>
     <string name="shell_desktop_type">พิมพ์</string>
+    <string name="shell_inbox_snoozed">เลื่อนไว้</string>
+    <string name="shell_inbox_unsnooze">ยกเลิกการเลื่อน</string>
+    <string name="shell_inbox_undo">เลิกทำ</string>
+    <string name="shell_inbox_dismissed">ปิดแล้ว ดำเนินการต่อโดยไม่มีคำตอบ</string>
 </resources>
