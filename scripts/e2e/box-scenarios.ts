@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path'
 import { backendLines, backendLog } from './backend-log.ts'
 import { instaboxMachines } from './instabox-stub.ts'
 import { artifacts, until } from './processes.ts'
+import { send } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
@@ -36,6 +37,23 @@ async function me(stack: Stack): Promise<string> {
   })
 
   return ((await response.json()) as { id: string }).id
+}
+
+/** Writes or removes a conversation bound to a runtime: the app cannot start one on a Box that is away. */
+function conversationRow(mongoUri: string, row: Record<string, unknown> | { remove: string }) {
+  const script = `
+    import { MongoClient } from 'mongodb'
+    const row = JSON.parse(process.argv[2])
+    const client = await new MongoClient(process.argv[1]).connect()
+    const conversations = client.db('nuphos_e2e').collection('agent_conversations')
+    if (row.remove) await conversations.deleteOne({ sessionId: row.remove })
+    else await conversations.insertOne({ ...row, createdAt: new Date(), updatedAt: new Date() })
+    await client.close()`
+
+  execFileSync('bun', ['-e', script, mongoUri, JSON.stringify(row)], {
+    cwd: BACKEND_DIR,
+    timeout: 10_000,
+  })
 }
 
 export const boxScenarios: Scenario[] = [
@@ -107,6 +125,71 @@ export const boxScenarios: Scenario[] = [
         await page.screenshot({ path: join(artifacts, 'box-evicted-notice.png') })
         await page.getByText('Back to app', { exact: true }).click()
       } finally {
+        boxRow(stack.mongoUri, { remove: deviceId })
+        instaboxMachines.delete(sandboxId)
+      }
+    },
+  },
+  {
+    name: 'a conversation on a Box that is away says the send resumes it, and does not block the send',
+    run: async (page, stack) => {
+      const deviceId = randomUUID()
+      const sandboxId = `m_e2e_${deviceId.slice(0, 8)}`
+      const label = `E2E Paused Box ${deviceId.slice(0, 8)}`
+      const sessionId = `e2e-paused-box-${randomUUID()}`
+      const title = `Paused Box chat ${deviceId.slice(0, 8)}`
+      const userId = await me(stack)
+
+      // A machine instabox has parked, and no host: exactly what an idle Box looks like.
+      instaboxMachines.set(sandboxId, { id: sandboxId, state: 'suspended', operations: [] })
+      boxRow(stack.mongoUri, {
+        userId,
+        deviceId,
+        label,
+        platform: 'linux',
+        allowLocalExec: true,
+        // Its agent is remembered while the computer is away, so the conversation still has one.
+        agents: [{ provider: 'claude-code', signedIn: true }],
+        box: { provider: 'instabox', sandboxId, teamId: stack.teamId, createdBy: userId },
+        access: [{ teamId: stack.teamId, everyone: false, userIds: [], managerIds: [] }],
+      })
+      conversationRow(stack.mongoUri, {
+        sessionId,
+        teamId: stack.teamId,
+        userId,
+        runtimeId: `local_${userId}_${deviceId}`,
+        runtimeLabel: 'Claude Code',
+        title,
+      })
+      try {
+        await page.locator('[data-sidebar-row]').filter({ hasText: title }).first().click()
+        // The hint, not a red banner: the composer says the Box comes back when the message goes.
+        await page
+          .getByText(`${label} is paused. It resumes when you send.`)
+          .first()
+          .waitFor({ timeout: 30_000 })
+        const sendButton = page.getByRole('button', { name: /^Send/ }).first()
+        const reason = await sendButton.getAttribute('aria-label')
+
+        if (reason !== 'Send')
+          throw new Error(`the send to be free on a Box that is away, blocked with: ${reason}`)
+        if (await page.getByRole('button', { name: 'Switch runtime' }).count())
+          throw new Error('a Box that is away offered Switch runtime')
+        await page.waitForTimeout(1_000)
+        await page.screenshot({ path: join(artifacts, 'box-paused-composer.png') })
+
+        // The promise the hint makes: the message is taken and waits for the Box, instead of
+        // being refused. Waking the machine itself is instabox's, and this instabox is a stub.
+        const text = `Does this reach the Box ${deviceId.slice(0, 8)}?`
+
+        await send(page, text)
+        // It waits in the conversation for the Box instead of being refused.
+        await page.getByText(text).first().waitFor({ timeout: 30_000 })
+        if (await page.getByText('Its computer is offline').count())
+          throw new Error('the send to a Box that is away was refused as offline')
+        await page.screenshot({ path: join(artifacts, 'box-paused-queued.png') })
+      } finally {
+        conversationRow(stack.mongoUri, { remove: sessionId })
         boxRow(stack.mongoUri, { remove: deviceId })
         instaboxMachines.delete(sandboxId)
       }
