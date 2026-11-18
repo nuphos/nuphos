@@ -8,7 +8,7 @@
 import { requireDeviceAccess } from '@/lib/agent/devices/box-access'
 import { setLocalAutoInstall, updateLocalApp } from '@/lib/agent/devices/local-runtime/instances'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
-import { getAgentDevice } from '@/lib/agent/devices/store'
+import { agentDevices, getAgentDevice } from '@/lib/agent/devices/store'
 import { AppError } from '@/lib/errors'
 
 import type { LocalRuntimeStatus } from '@/lib/agent/devices/local-runtime/protocol'
@@ -57,6 +57,8 @@ export type ComputerAutoInstallDeps = {
   manage: (actorId: string, teamId: string, deviceId: string) => Promise<{ userId: string }>
   online: (userId: string, deviceId: string) => Promise<boolean>
   set: typeof setLocalAutoInstall
+  /** Notes the switch as the computer now has it, for its card while it is offline. */
+  remember: (userId: string, deviceId: string, enabled: boolean) => Promise<unknown>
 }
 
 const autoInstallDeps: ComputerAutoInstallDeps = {
@@ -64,6 +66,8 @@ const autoInstallDeps: ComputerAutoInstallDeps = {
   online: async (userId, deviceId) =>
     Boolean((await runtimePresenceStore().get(userId, deviceId))?.status),
   set: setLocalAutoInstall,
+  remember: (userId, deviceId, autoInstall) =>
+    agentDevices().updateOne({ userId, deviceId }, { $set: { autoInstall } }),
 }
 
 /**
@@ -86,5 +90,9 @@ export async function setComputerAutoInstall(
       'The computer is offline. Turn it on, then change this.',
     )
 
-  return deps.set({ userId, actorId, deviceId, teamId }, enabled)
+  const answer = await deps.set({ userId, actorId, deviceId, teamId }, enabled)
+
+  await deps.remember(userId, deviceId, answer.enabled)
+
+  return answer
 }

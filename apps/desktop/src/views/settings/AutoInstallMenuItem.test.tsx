@@ -10,21 +10,27 @@ import type { ReactNode } from 'react'
 // Run with: cd apps/desktop && bun test src/views/settings/AutoInstallMenuItem.test.tsx
 
 mock.module('../../components/ui/menu', () => ({
-  MenuItem: ({
-    children,
-    onClick,
-    selected,
-  }: {
+  MenuItem: (props: {
     children: ReactNode
     onClick: () => void
     selected?: boolean
+    disabled?: boolean
   }) =>
-    createElement('div', { role: 'menuitem', 'aria-checked': String(selected), onClick }, children),
+    createElement(
+      'div',
+      {
+        role: 'menuitem',
+        'aria-checked': String(props.selected),
+        'aria-disabled': String(Boolean(props.disabled)),
+        onClick: props.disabled ? undefined : props.onClick,
+      },
+      props.children,
+    ),
 }))
 
 const { AutoInstallMenuItem } = await import('./AutoInstallMenuItem')
 
-async function mount(autoInstall: boolean | undefined) {
+async function mount(autoInstall: boolean | undefined, online = true) {
   const dom = new Window()
   const calls: unknown[][] = []
   let changed = 0
@@ -54,6 +60,7 @@ async function mount(autoInstall: boolean | undefined) {
   const root = createRoot(container as unknown as HTMLElement)
   const device = {
     deviceId: 'd1',
+    online,
     ...(autoInstall === undefined ? {} : { autoInstall }),
   } as AgentDevice
 
@@ -96,6 +103,20 @@ test('a computer that reports no switch (offline, or an older Nuphos) shows none
 
   try {
     assert.equal(item, null)
+  } finally {
+    await unmount()
+  }
+})
+
+test('an offline computer shows its last switch, and nothing pretends to change it', async () => {
+  const { item, calls, unmount } = await mount(false, false)
+
+  try {
+    assert.ok(item)
+    assert.equal(item.getAttribute('aria-checked'), 'false')
+    assert.equal(item.getAttribute('aria-disabled'), 'true')
+    await act(async () => item.click())
+    assert.deepEqual(calls, [])
   } finally {
     await unmount()
   }

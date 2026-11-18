@@ -7,7 +7,8 @@ import type { AgentDevice } from '../../api'
 
 /**
  * A computer's switch for installing updates by itself when idle, the same one as Settings >
- * Updates on a Desktop; the computer keeps it. Shown once it reports one, to whoever manages it.
+ * Updates on a Desktop; the computer keeps it. Shown once it has reported one, to whoever manages
+ * it, and only changeable while it is online.
  */
 export function AutoInstallMenuItem({
   device,
@@ -23,6 +24,8 @@ export function AutoInstallMenuItem({
   return (
     <MenuItem
       selected={device.autoInstall}
+      // Offline it shows the switch as the computer last reported it; only the computer can change it.
+      disabled={!device.online}
       onClick={() =>
         void api
           .deviceSetAutoInstall(device.deviceId, teamId, !device.autoInstall)

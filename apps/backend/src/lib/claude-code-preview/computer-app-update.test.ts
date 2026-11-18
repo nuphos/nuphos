@@ -77,6 +77,9 @@ describe('computer automatic updates', () => {
 
         return { enabled }
       },
+      remember: async (userId, deviceId, enabled) => {
+        sent.push(['remember', userId, deviceId, enabled])
+      },
       ...over,
     }
 
@@ -91,6 +94,8 @@ describe('computer automatic updates', () => {
     })
     expect(sent).toEqual([
       [{ userId: 'transport', actorId: 'admin', deviceId: 'box-1', teamId: 't1' }, false],
+      // Noted for its card while it is offline: what the computer answered.
+      ['remember', 'transport', 'box-1', false],
     ])
   })
 
