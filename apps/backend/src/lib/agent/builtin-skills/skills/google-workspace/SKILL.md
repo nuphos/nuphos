@@ -65,8 +65,10 @@ instead). The same rules apply: prefer a draft (`GMAIL_CREATE_EMAIL_DRAFT`) over
 
 ## Gmail
 
-Scope: `gmail.modify` — read, label, archive, trash, draft and send. Permanent
-delete is not allowed.
+Scopes: `gmail.modify` — read, label, archive, trash, draft and send;
+`gmail.settings.basic` — create, list and delete filters; `contacts.readonly` —
+look up the member's contacts (People API, read only). Permanent delete is not
+allowed.
 
 ```bash
 source ~/.google/gmail.env
@@ -83,6 +85,13 @@ To draft or send, build an RFC 2822 message, base64url-encode it as `raw`, and
 POST `/drafts` (`{"message":{"raw":…}}`) or `/messages/send` (`{"raw":…}`). For
 a reply, set `In-Reply-To` and `References` from the original's `Message-ID`
 and pass its `threadId`. Prefer a draft unless the member asked to send.
+
+Filters live under `/settings/filters` (GET to list, POST
+`{"criteria":…,"action":…}` to create, DELETE `/settings/filters/<id>`). Look
+up contacts with the People API:
+`https://people.googleapis.com/v1/people:searchContacts?query=<name>&readMask=names,emailAddresses`
+(same bearer token). A connection made before these scopes were added must be
+reconnected once; until then those calls return 403.
 
 ## Google Drive
 
