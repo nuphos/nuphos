@@ -3,10 +3,12 @@ import { CornerUpLeft, X } from 'lucide-react'
 
 import { t } from '../../i18n'
 import { AgentAvatar, AgentFaceBadge } from '../agent/AgentAvatar'
+import { CredentialSelectorButton } from '../agent/panel/CredentialSelectorButton'
 import { Avatar } from '../Avatar'
 import { IconButton } from '../ui/icon-button'
 
 import type { AgentMessageReply, ChannelFace } from '../../api'
+import type { CredentialSelectorControl } from '../agent/panel/credentialSections'
 
 /**
  * A chat's icon, as iMessage draws one: the one other member's face, or two
@@ -159,7 +161,7 @@ export function ReplyingBanner({
   onCancel: () => void
 }) {
   return (
-    <div className="mb-1.5 flex items-center gap-2 rounded-xl bg-state-hover py-1 pl-3 pr-1 text-xs leading-4">
+    <div className="mx-[2.375rem] flex items-center gap-2 rounded-xl bg-state-hover py-1 pl-3 pr-1 text-xs leading-4">
       <CornerUpLeft className="h-3.5 w-3.5 shrink-0 text-tertiary" strokeWidth={2.2} />
       <div className="min-w-0 flex-1 truncate text-tertiary">
         <span className="font-medium text-secondary">
@@ -174,6 +176,22 @@ export function ReplyingBanner({
         icon={<X />}
         onClick={onCancel}
       />
+    </div>
+  )
+}
+
+/**
+ * The last line in the chat of a Bot that has never been given computers or
+ * credentials: it runs with none until its owner picks them, here or in the
+ * composer's picker. Gone once anything is saved.
+ */
+export function ChooseAccessBanner({ credentials }: { credentials: CredentialSelectorControl }) {
+  return (
+    <div className="mx-[2.375rem] flex items-center gap-2 rounded-xl bg-state-hover py-1 pl-3 pr-1 text-xs leading-4">
+      <div className="min-w-0 flex-1 text-secondary">
+        {t("This Bot can't use any computers or credentials yet. Choose what it may use.")}
+      </div>
+      <CredentialSelectorButton {...credentials} hero={false} personalIdentity />
     </div>
   )
 }
