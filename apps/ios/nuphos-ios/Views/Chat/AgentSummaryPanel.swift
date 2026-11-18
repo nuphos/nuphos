@@ -177,7 +177,7 @@ struct AgentSummaryPanel: View {
                             onOpen: { selectedQuestion = nil; openQuestion(question) },
                             teamId: session.teamId, questions: questions,
                             onAnswer: { answer in Task { await questions.answer(question, with: answer) } },
-                            onSkip: { Task { await questions.dismiss(question) } })
+                            onDismiss: { Task { await questions.dismiss(question) } })
                             .padding()
                         }
                     }
