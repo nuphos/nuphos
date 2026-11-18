@@ -194,5 +194,8 @@ class InboxSnoozeFixtureDeviceTest {
         val directory = File(context.getExternalFilesDir(null), "review-3231").apply { mkdirs() }
         val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot() ?: error("Screenshot unavailable")
         File(directory, "$name-${width}dp.png").outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
+        // And to the additional test output, which CI uploads with the device test report (#3468).
+        val uploaded = File(context.externalMediaDirs.first(), "additional_test_output").apply { mkdirs() }
+        File(uploaded, "review-3468-inbox-$name.png").outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
     }
 }
