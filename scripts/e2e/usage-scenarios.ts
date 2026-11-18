@@ -57,7 +57,7 @@ export const usageScenarios: Scenario[] = [
 
       await section.getByText('No token usage recorded in this range yet.').waitFor()
       // Rows from before cached tokens were recorded in input are left as they are, and say so.
-      await section.getByText(/cached tokens were counted only in the total/).waitFor()
+      await section.getByText(/Input left out cached tokens; Total included them/).waitFor()
       await shot(section, 'token-usage-empty')
 
       // A range the app has not read yet, while the backend cannot answer: the last one stays, dimmed.

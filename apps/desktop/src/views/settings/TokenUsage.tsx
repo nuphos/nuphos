@@ -118,7 +118,7 @@ export function TokenUsage({
       <PanelHeading
         title={t('Token usage')}
         hint={t(
-          'Tokens the team’s runtimes reported. Input includes cached tokens; cost is estimated at list prices. Before {date}, cached tokens were counted only in the total.',
+          'Tokens the team’s runtimes reported. Input includes cached tokens; cost is estimated at list prices. Before {date}, Input left out cached tokens; Total included them.',
           { date: usageCacheCutoff() },
         )}
         right={
