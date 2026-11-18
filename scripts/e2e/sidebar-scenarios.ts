@@ -1,4 +1,6 @@
 // Scenarios about the sidebar itself.
+import { writeFileSync } from 'node:fs'
+
 import { agentEvents } from './agent-log.ts'
 import { client, must } from './binding-access-scenarios.ts'
 import { checkDockToggleClear } from './chat-presentation.ts'
@@ -106,6 +108,42 @@ export const botFoldScenarios: Scenario[] = [
       await until('the stopped sub-agent to let go of its command', async () => answered() > before)
       // Back in the Bot chat, where the scenarios after this one found the window before.
       await row.click()
+    },
+  },
+  {
+    // #3459: until the first listing arrived, Bots said "No Bots yet" in a team that has Bots.
+    name: 'Bots never says "No Bots yet" while its first listing loads',
+    run: async (page) => {
+      const row = page.locator('[data-sidebar-row]').filter({ hasText: 'Fold Bot' }).first()
+      const cdp = await page.context().newCDPSession(page)
+      let loading: Buffer | undefined
+
+      await page.getByRole('tab', { name: 'Bots' }).click()
+      // Watches every render from the first one on, so even one frame of the message counts.
+      await page.addInitScript(() => {
+        const seen = window as unknown as { sawNoBots?: boolean }
+        const observer = new MutationObserver(() => {
+          if (document.body.textContent?.includes('No Bots yet')) seen.sawNoBots = true
+        })
+
+        observer.observe(document, { childList: true, subtree: true, characterData: true })
+      })
+      // Slowed down, so a capture can land between the first render and the listing.
+      await cdp.send('Emulation.setCPUThrottlingRate', { rate: 20 })
+      await page.reload()
+      while ((await row.count()) === 0) {
+        if ((await page.getByRole('tab', { name: 'Bots' }).count()) === 0) continue
+        const shot = await page.screenshot()
+
+        if ((await row.count()) === 0) loading = shot
+      }
+      await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 })
+      if (loading) writeFileSync(`${artifacts}/bots-first-listing-loading.png`, loading)
+      await page.screenshot({ path: `${artifacts}/bots-first-listing-loaded.png` })
+      must(
+        !(await page.evaluate(() => (window as unknown as { sawNoBots?: boolean }).sawNoBots)),
+        'Bots not to say "No Bots yet" before its first listing arrived',
+      )
     },
   },
 ]
