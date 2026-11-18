@@ -195,15 +195,12 @@ export function AgentStatusBanner({
   control,
   hero = false,
   onSwitchAgent,
-  offlineAgent,
 }: {
   control: RuntimeControl
   /** The new-chat card: wider corners to clear. */
   hero?: boolean
   /** Set for a new chat, a gone agent, or an offline computer the conversation may leave: the fix is picking another. */
   onSwitchAgent?: () => void
-  /** A group chat's member Bot whose computer is offline, named on the strip (#3308). */
-  offlineAgent?: string
 }) {
   const reachability = selectedAgentReachability(control)
   // A teammate's computer that asks its owner first: this conversation waits, or was declined.
@@ -214,7 +211,7 @@ export function AgentStatusBanner({
   const blocked: BlockedKind | null =
     (runtimeGone(control) ? 'gone' : null) ??
     unreachable ??
-    (offlineAgent ? 'offline' : null) ??
+    (control.offlineAgent ? 'offline' : null) ??
     (shareApproval === 'pending' ? 'waiting' : shareApproval === 'denied' ? 'declined' : null)
   // An agent that can take the message, on a computer about to fail it: said, without blocking.
   const notice = useComputerNotice(control)
@@ -249,8 +246,11 @@ export function AgentStatusBanner({
       { ...fixes, ...(askedName && { askedName }) },
       onSwitchAgent,
     )
-  if (shown === 'offline' && !unreachable && offlineAgent)
-    copy = { text: t('{name}’s computer is offline.', { name: offlineAgent }), action: null }
+  if (shown === 'offline' && !unreachable && control.offlineAgent)
+    copy = {
+      text: t('{name}’s computer is offline.', { name: control.offlineAgent }),
+      action: null,
+    }
   const { text, action } = copy
 
   return (
