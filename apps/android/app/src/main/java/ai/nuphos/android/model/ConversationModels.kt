@@ -67,6 +67,8 @@ data class AgentConversation(
     val faces: List<ChatFace>? = null,
     /** A Bot's face, e.g. `05-rembrandt`; null for a Task. */
     val avatar: String? = null,
+    /** The tint a Bot's face sits on, e.g. `sky`; null for none. */
+    val avatarBackground: String? = null,
     /** A chat's newest post. Read through [lastPost], so a bad value only costs the preview. */
     val lastMessage: JsonValue? = null,
     /** Open `request_user_decision` questions, oldest first; list rows carry only the open ones. */
@@ -136,7 +138,7 @@ data class ChatFace(
     val agent: Agent? = null,
 ) {
     @Serializable
-    data class Agent(val avatar: String? = null, val provider: String? = null)
+    data class Agent(val avatar: String? = null, val provider: String? = null, val avatarBackground: String? = null)
 }
 
 /** A question still waiting on the conversation's owner. */

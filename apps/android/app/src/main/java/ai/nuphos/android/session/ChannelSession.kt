@@ -296,7 +296,7 @@ class ChannelSession(
         events = detail.timelineEvents
         agents = listed
         // A teammate's Bot is in none of this viewer's lists: its face comes from the chat.
-        listed.forEach { BotFaces.learn(it.sessionId, it.avatar) }
+        listed.forEach { BotFaces.learn(it.sessionId, it.avatar, it.avatarBackground) }
         readOnly = detail.readOnly == true
         detail.title?.takeIf { it.isNotBlank() }?.let { title = it }
         faces = detail.faces
