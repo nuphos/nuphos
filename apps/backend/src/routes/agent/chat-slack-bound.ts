@@ -12,6 +12,7 @@ import { parseMessageMetadata, senderLabel } from '@/lib/agent/message-metadata'
 // The thread lookup lives against lib/slack directly; the delivery setup is a
 // dynamic import because `@/routes/slack` transitively imports routes/agent.
 import { parseAgentMessageOrigin } from '@/lib/agent/message-origin'
+import { TURN_HISTORY_TAIL } from '@/lib/agent/turn-history'
 import { AppError } from '@/lib/errors'
 import { logError, logEvent } from '@/lib/observability'
 import { getSlackAgentThreadBySessionId } from '@/lib/slack/agent-bot'
@@ -135,10 +136,9 @@ export async function beginSlackBoundTurnDelivery(
  *
  * The list is a merge, never a replacement, because both sides hold truth the
  * other lacks: the store has Slack-side exchanges a stale desktop tab never
- * saw (and the accepted-turn sync deletes what the list omits), while the
- * client view has newer content for its own messages — local tool outputs on
- * a client-tool continuation, the partial assistant text on a pause resume,
- * and user messages a refused send left behind. So: store order wins, a
+ * saw, while the client view has newer content for its own messages — local
+ * tool outputs on a client-tool continuation, the partial assistant text on a
+ * pause resume, and user messages a refused send left behind. So: store order wins, a
  * client copy replaces the store copy on id collision, and client-only
  * messages append at the end.
  */
@@ -151,10 +151,14 @@ export async function buildSlackBoundTurnPlan(args: {
   teamId: string | undefined
 }): Promise<SlackBoundTurnPlan> {
   const { body, clientView } = args
+  // A recent window, as for a thread's turn: the persist only appends, and the
+  // client's tail starts at its latest user message. Decoding a whole session
+  // thousands of messages long on every send blocked the event loop.
   const existing = await getConversationWithMessages(
     args.sessionId,
     args.runOwnerUserId,
     args.teamId,
+    { tail: TURN_HISTORY_TAIL },
   )
   const stored = (existing?.messages ?? [])
     .map(persistedMessageToLosslessUiMessage)
