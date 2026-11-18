@@ -119,11 +119,17 @@ final class OpenQuestions {
 
     /// Answers a question: the server wakes the agent that asked with the answer, and no
     /// message is sent. Hidden at once; if the answer is refused, the question comes back with why.
-    func answer(_ question: BotQuestion, with answer: DecisionAnswer) async {
+    /// `inInbox` tells the server it was given in the Inbox, which the chat's record of it says (#3548).
+    func answer(_ question: BotQuestion, with answer: DecisionAnswer, inInbox: Bool = false) async {
+        var body = answer.json
+        if inInbox, case .object(var fields) = body {
+            fields["answeredIn"] = .string("inbox")
+            body = .object(fields)
+        }
         await close(question) {
             _ = try await AgentChatAPI.send(
                 "POST", "agent/conversations/\(question.sessionId)/decisions/\(question.request.id)/answer",
-                query: [URLQueryItem(name: "teamId", value: self.teamId)], token: self.token, body: answer.json)
+                query: [URLQueryItem(name: "teamId", value: self.teamId)], token: self.token, body: body)
         }
     }
 
@@ -176,6 +182,6 @@ final class OpenQuestions {
     func sendHeld() async {
         guard let held else { return }
         self.held = nil
-        await answer(held.question, with: held.answer)
+        await answer(held.question, with: held.answer, inInbox: true)
     }
 }
