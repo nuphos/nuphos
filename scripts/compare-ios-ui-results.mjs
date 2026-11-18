@@ -28,6 +28,11 @@ export function compare(branch, main) {
     if (result === 'Failed') (before === 'Failed' ? stillFailing : newFailures).push(test)
     else if (result === 'Passed' && before === 'Failed') fixed.push(test)
   }
+  // Fewer tests than main means the run stopped partway, as when the app crashes: a test that
+  // passed on main and never ran here counts as failing. A renamed test keeps the count.
+  if (branch.size < main.size) {
+    for (const [test, before] of main) if (before === 'Passed' && !branch.has(test)) newFailures.push(`${test} (did not run)`)
+  }
 
   return { newFailures: newFailures.sort(), stillFailing: stillFailing.sort(), fixed: fixed.sort() }
 }
