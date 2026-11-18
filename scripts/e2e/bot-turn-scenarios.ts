@@ -1,5 +1,6 @@
 // Scenarios about a Bot's own session, opened over its chat. They run after the channel scenarios.
-import { artifacts } from './processes.ts'
+import { agentLog } from './agent-log.ts'
+import { artifacts, until } from './processes.ts'
 
 import type { Scenario } from './ui.ts'
 
@@ -7,17 +8,17 @@ export const botTurnScenarios: Scenario[] = [
   {
     // #3309: Switch runtime in a Bot's own failed turn also opened its chat's list, underneath.
     name: "Switch runtime on a Bot's failed turn opens one runtime list",
-    run: async (page) => {
+    run: async (page, stack) => {
+      const marker = 'E2E_DELIVERY:bot-usage'
+
       await page.getByRole('tab', { name: 'Bots' }).click()
       await page.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first().click()
       await page.getByText('Message E2E Bot', { exact: true }).waitFor()
       await page.getByRole('button', { name: 'Task', exact: true }).click()
       const task = page.locator('.t-bot-task-mode')
 
-      // Sent in the Bot's own session, not its chat: the Bot reads its chat's recent posts on
-      // every later wake, and the fixture would refuse each of those turns as out of usage too.
       await task.getByRole('textbox').last().click()
-      await page.keyboard.type('Out of usage E2E_USAGE_LIMIT E2E_DELIVERY:bot-usage')
+      await page.keyboard.type(`Out of usage E2E_USAGE_LIMIT ${marker}`)
       await page.keyboard.press('Enter')
       await task.getByText('You’ve hit your usage limit').last().waitFor()
       await task.getByRole('button', { name: 'Switch runtime' }).click()
@@ -29,11 +30,23 @@ export const botTurnScenarios: Scenario[] = [
       await page.screenshot({ path: `${artifacts}/bot-turn-switch-runtime-light.png` })
       const open = await lists.count()
 
-      await page.keyboard.press('Escape')
+      if (open !== 1) throw new Error(`Switch runtime opened ${String(open)} runtime lists`)
+      // The refused turn stays with the Bot and would ride along with its next turn, so it
+      // moves on from this list and runs once on the second agent, then the Bot moves back.
+      await lists.getByText('E2E second agent').click()
+      await page.getByRole('menuitem', { name: /^E2E second agent.*Claude Code/ }).click()
+      await until('the refused turn to finish on the second agent', async () =>
+        agentLog(stack).some(
+          (entry) =>
+            entry.agent === 'second' && entry.marker === marker && entry.event === 'finish',
+        ),
+      )
+      await task.getByRole('button', { name: /^Runtime:/ }).click()
+      await lists.getByText('E2E fixture agent').click()
+      await page.getByRole('menuitem', { name: /^E2E fixture agent.*Claude Code/ }).click()
       await task.getByRole('button', { name: 'Back to conversation' }).click()
       // The scenarios after this one find a single composer on the page.
       await task.waitFor({ state: 'detached' })
-      if (open !== 1) throw new Error(`Switch runtime opened ${String(open)} runtime lists`)
     },
   },
 ]
