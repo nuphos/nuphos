@@ -95,7 +95,7 @@ function EventLine({
   if (event.kind === 'runtime_fallback_stopped')
     return (
       <Rule title={event.text}>
-        {t('No fallback agent could take over')}
+        {t('No fallback runtime could take over')}
         {event.skipped?.length ? (
           <span className="truncate">
             ({event.skipped.map((entry) => `${entry.label}: ${entry.reason}`).join(', ')})

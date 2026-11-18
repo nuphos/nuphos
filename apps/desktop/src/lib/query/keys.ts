@@ -14,10 +14,14 @@ export const queryKeys = {
   credentialOptions: (teamId: string) => [...queryKeys.team(teamId), 'credential-options'] as const,
   channel: (teamId: string, channelId: string) =>
     [...queryKeys.team(teamId), 'channel', channelId] as const,
+  /** The computers in a team the viewer manages: they sign those computers' agents in. */
+  managedComputers: (teamId: string) => [...queryKeys.team(teamId), 'managed-computers'] as const,
   runtimeInstances: (teamId: string) => [...queryKeys.team(teamId), 'runtime-instances'] as const,
   runtimeQuotas: (teamId: string) => [...queryKeys.team(teamId), 'runtime-quotas'] as const,
   runtimeQuotaHistory: (teamId: string, range: string) =>
     [...queryKeys.team(teamId), 'runtime-quota-history', range] as const,
+  teamUsage: (teamId: string, query: object) =>
+    [...queryKeys.team(teamId), 'team-usage', query] as const,
   /** Under `runtimeInstances`, so a change to the agents reads their status again too. */
   runtimeStatus: (teamId: string, runtimeId: string) =>
     [...queryKeys.runtimeInstances(teamId), runtimeId, 'status'] as const,

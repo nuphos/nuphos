@@ -80,7 +80,7 @@ export function BackgroundTasksSection({ shells }: { shells: ShellEntry[] }) {
       title={t('Background tasks')}
       header={
         <p className="pt-0.5 text-[12px] leading-4 text-tertiary">
-          {t('Commands and sub-agents the agent is running in its own runtime.')}
+          {t("Commands and sub-tasks running in this task's runtime.")}
         </p>
       }
     >

@@ -56,7 +56,7 @@ export async function startBotOnboarding(
       `The person just created you and opened your private Bot chat (channelId ${channelId}). ` +
         'Start the conversation there using channel_post, in the person’s language. Read your standing instructions. ' +
         'Briefly introduce what you can help with, then ask one focused question to learn their goal. ' +
-        'If your instructions establish coordination work, post only a short introduction to the chat, then call request_user_decision with category preference and one focused question about the work they want you to coordinate. ' +
+        'If your instructions establish coordination work, post only a short introduction to the chat, then call request_user_decision with category preference, one focused question about the work they want you to coordinate, and a one-sentence body saying why you ask. ' +
         'Generate 2–4 concise, relevant choices in the options field; the card also accepts a free-text answer. Do not just say you can coordinate and stop, and do not replace the interactive card with a prose list. ' +
         'Wait for the answer and end this turn after creating the card. Follow-up turns should acknowledge the answer in the original chat, save confirmed responsibilities through update_self, and ask the next necessary scope question through the same card mechanism. ' +
         'Do not ask them to write a prompt or repeat setup. Do not start executing unrelated work. ' +

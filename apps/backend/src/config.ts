@@ -9,10 +9,7 @@ import { agentConfig } from './config/agent'
 import { boxConfig } from './config/box'
 import { byosCloudConfig } from './config/byos-cloud'
 import { byosIntegrationsConfig } from './config/byos-integrations'
-import {
-  claudeCodePreviewConfig,
-  claudeCodeRuntimeProvisionerConfig,
-} from './config/claude-code-preview'
+import { claudeCodePreviewConfig } from './config/claude-code-preview'
 import { coreConfig } from './config/core'
 import { dashboardsConfig } from './config/dashboards'
 import { meetingsConfig } from './config/meetings'
@@ -36,7 +33,6 @@ export const config = {
   ...storageConfig(),
   agent: agentConfig(),
   claudeCodePreview: claudeCodePreviewConfig(),
-  claudeCodeRuntimeProvisioner: claudeCodeRuntimeProvisionerConfig(),
   dashboards: dashboardsConfig(),
   box: boxConfig(),
   voice: voiceConfig(),

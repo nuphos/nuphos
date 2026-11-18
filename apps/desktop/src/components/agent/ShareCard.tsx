@@ -9,6 +9,7 @@ import { Button } from '../ui/button'
 import { toast } from '../ui/toast'
 
 import { PersonFace } from './PersonFace'
+import { PresenceTag } from './PresenceTag'
 import { ParticipantMenu } from './ShareAccess'
 
 import type { AgentConversationParticipant } from '../../api/agent-types'
@@ -205,6 +206,7 @@ export function ParticipantList({
             {participant.isOwner && (
               <span className="px-1.5 text-[12px] text-tertiary">{t('Owner')}</span>
             )}
+            {participant.agent?.presence && <PresenceTag presence={participant.agent.presence} />}
             {participant.agent?.removable && (
               <Button
                 variant="ghost"
@@ -228,7 +230,7 @@ export function ParticipantList({
                 className="px-1.5 text-[12px] text-tertiary"
                 title={
                   participant.role === 'view'
-                    ? t('They can reply once they can use the computer this agent runs on.')
+                    ? t('They can reply once they can use the computer this task runs on.')
                     : undefined
                 }
               >

@@ -140,7 +140,12 @@ async function doResolve(target: MentionTarget): Promise<string | null> {
         return [`Plan ${num}`.trim(), plan.title].filter(Boolean).join(' · ')
       }
       case 'agent-session': {
-        const conversation = await api.agentGetConversation(target.sessionId, target.teamId)
+        // Its name, kind and face: none of its messages, which a long session holds tens of thousands of.
+        const conversation = await api.agentGetConversation(target.sessionId, target.teamId, {
+          tail: 1,
+          messages: 'omit',
+          runtimeState: 'omit',
+        })
 
         return conversation.title || null
       }

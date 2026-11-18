@@ -254,12 +254,22 @@ enum AgentChatAPI {
     }
 
     /// `POST /agent/conversations/:id/decisions/:requestId/resolve` — marks a question answered,
-    /// or `dismissed`: withdrawn unanswered.
+    /// or `dismissed`: closed unanswered, and the agent that asked is told, with `reason` if given.
     static func resolveDecision(
-        token: String, teamId: String, sessionId: String, requestId: String, resolution: String = "answered"
+        token: String, teamId: String, sessionId: String, requestId: String, resolution: String = "answered",
+        reason: String? = nil
     ) async throws {
+        struct Body: Encodable { var resolution: String; var reason: String? }
         _ = try await send("POST", "agent/conversations/\(sessionId)/decisions/\(requestId)/resolve",
-            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: ["resolution": resolution])
+            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: Body(resolution: resolution, reason: reason))
+    }
+
+    /// `POST /agent/conversations/:id/decisions/:requestId/snooze` — its owner sets an open question
+    /// aside until `until`, at most 30 days ahead, or brings it back with nil. The agent is not told.
+    static func snoozeDecision(token: String, teamId: String, sessionId: String, requestId: String, until: Date?) async throws {
+        let at = until.map { JSONValue.string(ISO8601DateFormatter().string(from: $0)) } ?? .null
+        _ = try await send("POST", "agent/conversations/\(sessionId)/decisions/\(requestId)/snooze",
+            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: JSONValue.object(["until": at]))
     }
 
     /// `POST /agent/conversations/:id/steer` — hands a message to the turn

@@ -60,6 +60,7 @@ export const threadScenarios: Scenario[] = [
       await send(page, 'Before the pick E2E_DELIVERY:inherit-parent')
       await page.getByText('ACK E2E_DELIVERY:inherit-parent').waitFor()
       await page.getByRole('button', { name: /^Model settings/ }).click()
+      await page.getByRole('button', { name: 'Select model' }).click()
       await page.getByRole('menuitemcheckbox', { name: /fixture-small/ }).click()
       await page.keyboard.press('Escape')
       await page.getByRole('button', { name: /^Model settings: fixture-small/ }).waitFor()
@@ -83,7 +84,7 @@ export const threadScenarios: Scenario[] = [
 
 export const threadModeScenario: Scenario = {
   // #2577: a Task under another has no permission mode of its own. The parent here is a
-  // plain Task in Full Access, not a Bot. Last, because its thread is left waiting for a person.
+  // plain Task in Full Access, not a Bot.
   name: "a Task's thread runs in the Task's permission mode, follows a change and cannot set its own",
   run: async (page, stack) => {
     const has = (event: string) => agentEvents(stack).includes(event)
@@ -110,5 +111,9 @@ export const threadModeScenario: Scenario = {
     if (has('permission-allow E2E_DELIVERY:thread-again')) {
       throw new Error('The thread kept Full Access after its parent moved to Auto Mode')
     }
+    // A later agent host restart would fail a turn still waiting for a person.
+    await page.getByText('E2E thread', { exact: true }).click()
+    await page.getByRole('button', { name: /^Deny/ }).click()
+    await until('the thread to finish', async () => has('finish E2E_DELIVERY:thread-again'))
   },
 }

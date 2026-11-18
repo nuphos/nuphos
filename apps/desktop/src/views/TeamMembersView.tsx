@@ -18,7 +18,7 @@ import { applyFilter } from './members/memberRows'
 import { useMemberActions } from './members/useMemberActions'
 import { useResetOnKey } from './useResetOnKey'
 
-import type { TeamInvitation, TeamMember } from '../types'
+import type { TeamInvitation, TeamMember, TeamRole } from '../types'
 import type { MemberRow } from './members/memberRows'
 
 type Props = {
@@ -50,6 +50,13 @@ export function TeamMembersView({
   const [error, setError] = useState<string | null>(null)
   const [inviteOpen, setInviteOpen] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
+  // Editor unless the inviter picks otherwise: what everyone joined as before.
+  const [inviteRole, setInviteRole] = useState<TeamRole>('EDITOR')
+  // Each invite starts at Editor again, so an Admin choice is never carried to the next person.
+  const openInvite = () => {
+    setInviteRole('EDITOR')
+    setInviteOpen(true)
+  }
   const [inviteSubmitting, setInviteSubmitting] = useState(false)
   const [menuState, setMenuState] = useState<{ row: MemberRow; x: number; y: number } | null>(null)
   const [actingRowKey, setActingRowKey] = useState<string | null>(null)
@@ -112,7 +119,7 @@ export function TeamMembersView({
 
   useToolbarPrimaryAction(
     inWorkspaceShell && isActive && canManageMembers ? t('Invite') : null,
-    () => setInviteOpen(true),
+    openInvite,
   )
 
   useEffect(() => {
@@ -123,6 +130,7 @@ export function TeamMembersView({
     teamId,
     currentUserId,
     inviteEmail,
+    inviteRole,
     inviteSubmitting,
     setInviteOpen,
     setInviteEmail,
@@ -151,7 +159,7 @@ export function TeamMembersView({
             />
             <div className="flex-1" />
             {canManageMembers && (
-              <Button size="sm" type="button" onClick={() => setInviteOpen(true)}>
+              <Button size="sm" type="button" onClick={openInvite}>
                 <Plus className="w-3.5 h-3.5" strokeWidth={2} />
                 {t('Invite')}
               </Button>
@@ -197,6 +205,8 @@ export function TeamMembersView({
         submitting={inviteSubmitting}
         email={inviteEmail}
         onEmailChange={setInviteEmail}
+        role={inviteRole}
+        onRoleChange={setInviteRole}
         onClose={() => setInviteOpen(false)}
         onSubmit={(e) => void submitInvite(e)}
       />

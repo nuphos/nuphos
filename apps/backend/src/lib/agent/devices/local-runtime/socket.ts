@@ -48,6 +48,9 @@ const DEFAULT_LIVENESS_MS = 10_000
 const CLOSE_RETRY_MS = 1_000
 const CLOSE_RETRIES = 30
 const OFFLINE_REASON = 'The computer running this agent is offline'
+
+/** Closes a stream the computer is online for but cannot take, such as a terminal on a Box. */
+export const UNSUPPORTED_CLOSE_CODE = 4400
 const CAPABILITY: Partial<Record<TunnelPurpose, keyof LocalRuntimeStatus>> = {
   attachments: 'localAttachments',
   exec: 'localExec',
@@ -118,11 +121,12 @@ export class DeviceRuntimeSocket {
 
   /** Logs which check found the computer unreachable, since the person only sees "offline". */
   private fail(stage: 'connect' | 'liveness' | 'send', cause: string, error?: unknown): void {
-    const { userId, deviceId, purpose, provider, instanceId } = this.target
+    const { userId, deviceId, teamId, purpose, provider, instanceId } = this.target
 
     logEvent('warn', 'agent.local_runtime.stream_failed', {
       user_id: userId,
       device_id: deviceId,
+      team_id: teamId,
       purpose,
       provider,
       instance_id: instanceId,
@@ -130,7 +134,10 @@ export class DeviceRuntimeSocket {
       cause,
       ...(error === undefined ? {} : errorTelemetryProperties(error)),
     })
-    this.finish(1006, error instanceof Error ? error.message : OFFLINE_REASON)
+    this.finish(
+      cause === 'capability_missing' ? UNSUPPORTED_CLOSE_CODE : 1006,
+      error instanceof Error ? error.message : OFFLINE_REASON,
+    )
   }
 
   private emit(type: string, event: SocketEvent): void {

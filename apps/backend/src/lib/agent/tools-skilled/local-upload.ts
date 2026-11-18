@@ -70,7 +70,8 @@ export function createLocalUploadTool(devices: LocalExecDevice[], turn: LocalExe
         'Pass an absolute path (or ~/path) and optionally a device ID, as for local_exec. No shell expansion is performed. ' +
         'Returns {groupId, fileName, size} as soon as the upload starts, not when it ends. Immediately run bash skills/file-transfer/scripts/transfer-pull.sh <TEAM> <groupId> <dest-dir> in your workspace: it waits for the upload and reports whether it arrived. ' +
         'Signed URLs and credentials stay internal. Do not use local_exec with signed URLs or third-party staging for this transfer. ' +
-        'Requires an online computer with local exec allowed and an updated Desktop or CLI host. The existing file-transfer limits apply.',
+        'Requires an online computer with local exec allowed and an updated Desktop or CLI host. The existing file-transfer limits apply. ' +
+        'If it returns file_transfer_rate_limited, do not retry: tell the person the team hit its hourly file-transfer limit and when it resets (retryAfter).',
       execute: ({ path, device }: { path: string; device?: string }) =>
         onComputer(
           device,

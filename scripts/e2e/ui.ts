@@ -2,13 +2,26 @@
 import type { Stack } from './stack.ts'
 import type { Page } from 'playwright-core'
 
-export type Scenario = { name: string; run: (page: Page, stack: Stack) => Promise<void> }
+export type Scenario = {
+  name: string
+  run: (page: Page, stack: Stack) => Promise<void>
+  /** A backend failure this scenario alone is known to cause. */
+  expected?: RegExp
+}
 
 /** Types into the conversation composer and sends. */
 export async function send(page: Page, text: string) {
   await page.getByRole('textbox', { name: 'Message' }).click()
   await page.keyboard.type(text)
   await page.keyboard.press('Enter')
+}
+
+/** Moves the open conversation to `label`'s Claude Code runtime. */
+export async function pickAgent(page: Page, label: string) {
+  await page.getByRole('button', { name: /^Runtime:/ }).click()
+  // The computer's row opens a submenu of its runtimes.
+  await page.getByRole('menu').getByText(label).click()
+  await page.getByRole('menuitem', { name: new RegExp(`^${label}.*Claude Code`) }).click()
 }
 
 export async function newTask(page: Page) {

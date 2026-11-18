@@ -169,4 +169,8 @@
     <string name="shell_desktop_type_on">デスクトップに入力</string>
     <string name="shell_desktop_typing">入力中…</string>
     <string name="shell_desktop_type">入力</string>
+    <string name="shell_inbox_snoozed">スヌーズ中</string>
+    <string name="shell_inbox_unsnooze">スヌーズを解除</string>
+    <string name="shell_inbox_undo">元に戻す</string>
+    <string name="shell_inbox_dismissed">却下しました。回答なしで続行します。</string>
 </resources>

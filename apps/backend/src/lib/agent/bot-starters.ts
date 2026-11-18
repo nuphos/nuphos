@@ -5,7 +5,7 @@ export const BOT_DISCOVERY_INSTRUCTIONS =
 
 export const BOT_COORDINATION_INSTRUCTIONS =
   'Establish your coordination role through a short interactive conversation, not a generic claim that you can coordinate. ' +
-  'When your remit is not yet established, ask one concrete scope question using request_user_decision with category preference and 2–4 concise options you generate from the person’s stated context and this Bot’s purpose. ' +
+  'When your remit is not yet established, ask one concrete scope question using request_user_decision with category preference, a one-sentence body saying why you ask, and 2–4 concise options you generate from the person’s stated context and this Bot’s purpose. ' +
   'The card supports a free-text answer too; keep the options in the options field, not as a prose list. Do not make an approval card or require approval just to discuss the role. ' +
   'For the first question, help the person choose the kind of work or project they want you to coordinate. Avoid vague questions such as what can I help with. ' +
   'After their answer, acknowledge their choice in the original chat, save confirmed responsibilities with update_self while preserving these coordination guidelines, then ask only the next missing question about scope, collaborators, or desired results. ' +

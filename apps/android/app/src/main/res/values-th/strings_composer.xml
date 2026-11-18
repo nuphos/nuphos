@@ -103,6 +103,10 @@
     <string name="composer_saving">กำลังบันทึก…</string>
     <string name="composer_send_securely">ส่งอย่างปลอดภัย</string>
     <string name="composer_secret_footer">ค่านี้จะถูกเขียนลงไฟล์บนรันไทม์ของงาน และจะไม่ปรากฏในงานนี้</string>
+    <string name="composer_secret_details_needed">ข้อมูลที่ต้องใช้สำหรับ %1$s</string>
+    <string name="composer_secret_fields_footer">ค่าเหล่านี้จะถูกเขียนลงไฟล์บนรันไทม์ของงาน และกรอกใน %1$s โดยไม่ผ่านงานนี้</string>
+    <string name="composer_secret_reveal">แสดงค่า</string>
+    <string name="composer_secret_hide">ซ่อนค่า</string>
     <string name="composer_attachments_unavailable">ใช้งานไฟล์แนบไม่ได้</string>
     <string name="composer_attachments">ไฟล์แนบ</string>
     <string name="composer_loading_attachments">กำลังโหลดไฟล์แนบ…</string>

@@ -999,7 +999,7 @@ struct MemoryPill: View {
             .foregroundStyle(Theme.muted)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
-            .background(Theme.chatSurface, in: Capsule())
+            .background(Theme.sunken, in: Capsule())
     }
 }
 
@@ -1029,7 +1029,7 @@ struct MemoryRecallPill: View {
                 .foregroundStyle(Theme.muted)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
-                .background(Theme.chatSurface, in: Capsule())
+                .background(Theme.sunken, in: Capsule())
             }
             .buttonStyle(.plain)
             .disabled(entries.isEmpty)
@@ -1072,7 +1072,7 @@ struct ResourceStrip: View {
                             .font(Theme.Text.caption)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
-                            .background(Theme.chatSurface, in: Capsule())
+                            .background(Theme.sunken, in: Capsule())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("\(label), \(showFinished ? "hide" : "show") finished links")
@@ -1095,7 +1095,7 @@ struct ResourceStrip: View {
             .font(Theme.Text.caption)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(Theme.chatSurface, in: Capsule())
+            .background(Theme.sunken, in: Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(resource.title), \(resource.state)")
@@ -1127,7 +1127,7 @@ struct SuggestionChip: View {
                 .foregroundStyle(Theme.body)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 7)
-                .background(Theme.chatSurface, in: Capsule())
+                .background(Theme.sunken, in: Capsule())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Use suggestion: \(text)")
@@ -1215,7 +1215,7 @@ struct QueuedStrip: View {
         .padding(.leading, 12)
         .padding(.trailing, 4)
         .padding(.vertical, 4)
-        .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(Theme.sunken, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 

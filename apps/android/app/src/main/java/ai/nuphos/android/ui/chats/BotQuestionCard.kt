@@ -45,6 +45,12 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.draw.clipToBounds
 import ai.nuphos.android.R
 import androidx.compose.ui.res.stringResource
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.foundation.layout.Box
+import ai.nuphos.android.session.SnoozePreset
+import ai.nuphos.android.session.snoozeTimes
+import java.time.Instant
 
 /**
  * An open question, in a Bot's chat or the Inbox, like Desktop's decision card: which agent asked,
@@ -53,7 +59,8 @@ import androidx.compose.ui.res.stringResource
  * with several questions or any number of picks is a form, sent once as [onForm]. An answer
  * wakes the agent that asked; no message is sent. A connect question opens the asking conversation's
  * credential picker ([onConnect]); a secret one, its secure input. [showsFrom] is off for the Bot's own
- * questions in its own chat.
+ * questions in its own chat. Dismiss closes it unanswered, in the Inbox with a reason for the agent
+ * ([asksReason]); Snooze, only in the Inbox, sets it aside until one of [snoozeTimes].
  */
 @Composable
 internal fun BotQuestionCard(
@@ -70,6 +77,11 @@ internal fun BotQuestionCard(
     answersInPlace: Boolean = false,
     /** A several-question or multi-select card's answer, as its form builds it. */
     onForm: (JsonValue) -> Unit = {},
+    /** Closes the question unanswered, with the reason typed when [asksReason]; absent where it cannot. */
+    onDismiss: ((String?) -> Unit)? = null,
+    asksReason: Boolean = false,
+    /** Sets the question aside until a time; only the Inbox offers it. */
+    onSnooze: ((Instant) -> Unit)? = null,
 ) {
     val replies = cardReplies(question)
     // "Other…" was tapped: the card asks for the answer in words.
@@ -84,8 +96,11 @@ internal fun BotQuestionCard(
         Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(heading(question.request.category), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium)
+                // One line, cut with an ellipsis, as on Desktop and iOS; a tap shows it in full.
+                var open by rememberSaveable(question.id) { mutableStateOf(false) }
                 Text(question.request.question, style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = if (open) Int.MAX_VALUE else 1,
+                    overflow = TextOverflow.Ellipsis, modifier = Modifier.clickable { open = !open }.testTag("bot-question-title"))
                 question.ownBody?.let { QuestionBody(question.id, it, onLink) }
                 val form = question.form
                 val secret = question.secretPart
@@ -108,10 +123,47 @@ internal fun BotQuestionCard(
                         Text(stringResource(if (replies.isNotEmpty()) R.string.chats_question_other else R.string.chats_question_reply))
                     }
                 }
+                if (onDismiss != null || onSnooze != null) SetAside(question.id, onDismiss, asksReason, onSnooze)
             }
         }
         if (failure != null) Text(stringResource(R.string.chats_question_send_failed, failure), Modifier.testTag("bot-question-failure"),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+    }
+}
+
+/**
+ * Snooze and Dismiss under the card, end-aligned. Snooze opens its preset times; Dismiss either closes
+ * the question at once, or first asks for an optional reason for the agent.
+ */
+@Composable
+private fun SetAside(id: String, onDismiss: ((String?) -> Unit)?, asksReason: Boolean, onSnooze: ((Instant) -> Unit)?) {
+    var dismissing by rememberSaveable(id) { mutableStateOf(false) }
+    var reason by rememberSaveable(id) { mutableStateOf("") }
+    if (dismissing && onDismiss != null) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedTextField(reason, { reason = it.take(ai.nuphos.android.session.DISMISS_REASON_LIMIT) }, Modifier.fillMaxWidth().testTag("bot-question-dismiss-reason"),
+            label = { Text(stringResource(R.string.chats_question_dismiss_reason)) }, textStyle = MaterialTheme.typography.bodyMedium)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+            TextButton(onClick = { dismissing = false }) { Text(stringResource(R.string.cancel)) }
+            Button(onClick = { onDismiss(reason) }, modifier = Modifier.testTag("bot-question-dismiss-send")) {
+                Text(stringResource(R.string.chats_question_dismiss))
+            }
+        }
+    } else Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+        if (onSnooze != null) Box {
+            var menu by remember { mutableStateOf(false) }
+            TextButton(onClick = { menu = true }, Modifier.testTag("bot-question-snooze")) { Text(stringResource(R.string.chats_question_snooze)) }
+            DropdownMenu(menu, { menu = false }) {
+                snoozeTimes().forEach { (preset, until) ->
+                    DropdownMenuItem(text = { Text(stringResource(when (preset) {
+                        SnoozePreset.Hour -> R.string.chats_question_snooze_hour
+                        SnoozePreset.Tomorrow -> R.string.chats_question_snooze_tomorrow
+                        SnoozePreset.NextMonday -> R.string.chats_question_snooze_monday
+                    })) }, onClick = { menu = false; onSnooze(until) }, modifier = Modifier.testTag("bot-question-snooze-time"))
+                }
+            }
+        }
+        if (onDismiss != null) TextButton(onClick = { if (asksReason) dismissing = true else onDismiss(null) },
+            Modifier.testTag("bot-question-dismiss")) { Text(stringResource(R.string.chats_question_dismiss)) }
     }
 }
 

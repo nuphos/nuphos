@@ -49,16 +49,18 @@ export function serializeMessageDoc(message: {
 export function transcriptTailFrame(
   stored: Parameters<typeof serializeMessageDoc>[0][],
   promptCount: number,
+  // Transcript position of `stored[0]`: a turn reads its recent window, not the whole transcript.
+  offset = 0,
 ): Record<string, unknown> {
-  const messagesFirstIndex = Math.max(
+  const first = Math.max(
     0,
-    stored.slice(0, promptCount).findLastIndex((message) => message.role === 'user'),
+    stored.slice(0, promptCount - offset).findLastIndex((message) => message.role === 'user'),
   )
 
   return {
     type: 'atlas-transcript-tail',
-    messages: stored.slice(messagesFirstIndex).map(serializeMessageDoc),
-    messagesFirstIndex,
+    messages: stored.slice(first).map(serializeMessageDoc),
+    messagesFirstIndex: offset + first,
   }
 }
 

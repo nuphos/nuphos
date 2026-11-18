@@ -79,7 +79,7 @@ export function SessionParticipants({
         .then((result) => {
           if (!cancelled) apply(result)
         })
-        .catch((err: unknown) => toast.apiError(t('Failed to load agent participants'), err))
+        .catch((err: unknown) => toast.apiError(t('Failed to load participants'), err))
     const reloadIfThisSession = (event: Event) => {
       if ((event as CustomEvent<string>).detail === sessionId) void load()
     }

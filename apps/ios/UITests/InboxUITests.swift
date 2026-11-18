@@ -65,7 +65,9 @@ final class InboxUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Ship it"].waitForExistence(timeout: 5), "The question did not open")
         XCTAssertTrue(app.buttons["inbox.source"].exists, "No link to who asked")
         XCTAssertFalse(app.buttons["Open conversation"].exists)
-        XCTAssertTrue(app.buttons["Skip"].exists)
+        XCTAssertTrue(app.buttons["Snooze"].exists, "No Snooze")
+        XCTAssertTrue(app.buttons["Dismiss"].exists, "No Dismiss")
+        XCTAssertFalse(app.buttons["Skip"].exists, "Skip is still offered")
         shot("3-question")
 
         // The answer leaves the list, says so, and opens the next question.
@@ -85,19 +87,84 @@ final class InboxUITests: XCTestCase {
         XCTAssertTrue(toast.waitForNonExistence(timeout: 10), "The answer was never sent")
         try listQuestions([notes, staging])
 
-        // Skip opens the one after it without answering: the next in the same group, then the next group.
-        app.buttons["Skip"].tap()
-        XCTAssertTrue(app.staticTexts["Post the 1.4 release notes to the blog too?"].waitForExistence(timeout: 5),
-                      "Skip did not open the next question")
-        app.buttons["Skip"].tap()
-        XCTAssertTrue(app.staticTexts["Which node pool should the staging cluster use?"].waitForExistence(timeout: 5),
-                      "Skip did not open the next group's question")
-
         // The source's name opens the conversation that asked.
+        openQuestion("Which node pool should the staging cluster use?")
+        XCTAssertTrue(app.staticTexts["Which node pool should the staging cluster use?"].waitForExistence(timeout: 5))
         app.buttons["inbox.source"].tap()
         XCTAssertTrue(app.navigationBars.staticTexts["Check the staging cluster"].waitForExistence(timeout: 10)
                       || app.staticTexts["Check the staging cluster"].waitForExistence(timeout: 1),
                       "The asking conversation did not open")
+    }
+
+    /// Snooze sets a question aside until one of its times: it leaves the list for the Snoozed section,
+    /// which says when it comes back, and Unsnooze brings it back now. Dismiss asks for an optional
+    /// reason for the agent, and is held for Undo as an answer is, then sent.
+    func testSnoozesAndDismissesAQuestionInTheInbox() throws {
+        responses["POST /agent/conversations/agent-ops/decisions/q-deploy/snooze"] = ["status": 200, "body": ["ok": true]]
+        responses["POST /agent/conversations/bot-release/decisions/q-notes/resolve"] = ["status": 200, "body": ["ok": true]]
+        app = launch(page: "inbox")
+        openQuestion("Roll out 1.4 to production?")
+
+        let snooze = app.buttons["Snooze"]
+        let dismiss = app.buttons["Dismiss"]
+        XCTAssertTrue(snooze.waitForExistence(timeout: 10), "No Snooze")
+        XCTAssertTrue(dismiss.exists, "No Dismiss")
+        XCTAssertFalse(app.buttons["Skip"].exists, "Skip is still offered")
+        let wide = app.windows.firstMatch.horizontalSizeClass == .regular
+        for button in [snooze, dismiss] {
+            XCTAssertGreaterThanOrEqual(button.frame.height.rounded(), wide ? 40 : 44, "\(button.label) is too small to hit")
+        }
+        XCTAssertEqual(snooze.frame.minY, dismiss.frame.minY, accuracy: 1, "Snooze and Dismiss are not side by side")
+        shot("snooze-1-question")
+
+        snooze.tap()
+        let hour = app.buttons["1 hour"]
+        XCTAssertTrue(hour.waitForExistence(timeout: 5), "Snooze does not offer its times")
+        XCTAssertTrue(app.buttons["Tomorrow, 9:00"].exists, "No tomorrow morning")
+        shot("snooze-2-menu")
+
+        // The server lists it snoozed from now on: out of the list, into the Snoozed section.
+        var snoozed = deploy
+        var request = (snoozed["inputRequests"] as? [[String: Any]])?.first ?? [:]
+        request["snoozedUntil"] = ISO8601DateFormatter().string(from: .now.addingTimeInterval(3_600))
+        snoozed["inputRequests"] = [request]
+        try listQuestions([snoozed, notes, staging])
+        hour.tap()
+        XCTAssertTrue(app.buttons["Friendly"].waitForExistence(timeout: 5), "The next question did not open")
+
+        // Dismiss asks for a reason, which may be left out.
+        app.buttons["Dismiss"].tap()
+        let reason = app.textFields["Reason (optional)"].firstMatch
+        XCTAssertTrue(reason.waitForExistence(timeout: 5), "Dismiss does not ask for a reason")
+        reason.tap()
+        reason.typeText("The drafts are not ready yet")
+        shot("snooze-3-dismiss-reason")
+        app.buttons["Dismiss question"].tap()
+        let toast = app.staticTexts["Dismissed"]
+        XCTAssertTrue(toast.waitForExistence(timeout: 5), "No toast saying it was dismissed")
+        XCTAssertTrue(app.buttons["Undo"].exists, "No Undo on the toast")
+        var blog = notes
+        blog["inputRequests"] = (notes["inputRequests"] as? [[String: Any]])?.filter { $0["id"] as? String == "q-blog" }
+        try listQuestions([snoozed, blog, staging])
+        XCTAssertTrue(toast.waitForNonExistence(timeout: 10), "The dismissal was never sent")
+
+        // On iPhone the next question is open over the list: back to it.
+        if !wide {
+            XCTAssertTrue(app.staticTexts["Post the 1.4 release notes to the blog too?"].waitForExistence(timeout: 5),
+                          "The next question did not open")
+            app.navigationBars.buttons.firstMatch.tap()
+        }
+        let row = app.descendants(matching: .any).matching(identifier: "inbox.snoozed").firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10) && row.isHittable, "No Snoozed section")
+        XCTAssertTrue(app.staticTexts["Snoozed"].exists, "The Snoozed section has no heading")
+        XCTAssertTrue(row.staticTexts["Roll out 1.4 to production?"].exists, "The snoozed row does not name its question")
+        XCTAssertFalse(listed("Roll out 1.4 to production?").exists, "The snoozed question is still in the list")
+        shot("snooze-4-snoozed-section")
+
+        try listQuestions([deploy, blog, staging])
+        app.buttons["Unsnooze"].firstMatch.tap()
+        XCTAssertTrue(listed("Roll out 1.4 to production?").waitForExistence(timeout: 10), "Unsnooze did not bring it back")
+        XCTAssertFalse(row.exists, "The question is still snoozed")
     }
 
     /// "Other…" opens a text box with its send button; the words are the answer. A question with
@@ -171,9 +238,9 @@ final class InboxUITests: XCTestCase {
     }
 
     /// A Bot's chat shows a question as the Inbox does: the question as the heading under who asked,
-    /// the first option first, "Other…", "Skip" and "Show more" each a full touch target. Skip
-    /// withdraws it unanswered.
-    func testABotChatCardLeadsWithTheQuestionAndSkips() throws {
+    /// the first option first, "Other…", "Dismiss" and "Show more" each a full touch target. Dismiss
+    /// withdraws it unanswered; a chat offers no Snooze.
+    func testABotChatCardLeadsWithTheQuestionAndDismisses() throws {
         responses["POST /agent/conversations/agent-ops/decisions/q-deploy/resolve"] = ["status": 200, "body": ["ok": true]]
         // Asked by a Task under the Bot, with more to read than four lines.
         var task = deploy
@@ -194,16 +261,17 @@ final class InboxUITests: XCTestCase {
         XCTAssertTrue(wide ? options[0].minX < options[1].minX : options[0].minY < options[1].minY, "The first option is not first")
 
         // Touch targets: 44pt on iPhone; wide, 40pt capsules. "Show more" spans the card.
-        for label in ["Other…", "Skip"] {
+        XCTAssertFalse(app.buttons["Skip"].exists || app.buttons["Snooze"].exists, "The card offers Skip or Snooze")
+        for label in ["Other…", "Dismiss"] {
             XCTAssertGreaterThanOrEqual(app.buttons[label].frame.height.rounded(), wide ? 40 : 44, "\(label) is too small to hit")
         }
         if !wide {
-            XCTAssertEqual(app.buttons["Other…"].frame.width, app.buttons["Skip"].frame.width, accuracy: 1, "Not two halves")
-            XCTAssertEqual(app.buttons["Other…"].frame.minY, app.buttons["Skip"].frame.minY, accuracy: 1, "Not side by side")
+            XCTAssertEqual(app.buttons["Other…"].frame.width, app.buttons["Dismiss"].frame.width, accuracy: 1, "Not two halves")
+            XCTAssertEqual(app.buttons["Other…"].frame.minY, app.buttons["Dismiss"].frame.minY, accuracy: 1, "Not side by side")
         }
         let more = app.buttons["botQuestion.more"]
         XCTAssertGreaterThanOrEqual(more.frame.height.rounded(), 44, "Show more is too small to hit")
-        XCTAssertEqual(more.frame.width, options[0].union(app.buttons["Skip"].frame).width, accuracy: 1, "Show more is not full-width")
+        XCTAssertEqual(more.frame.width, options[0].union(app.buttons["Dismiss"].frame).width, accuracy: 1, "Show more is not full-width")
         XCTAssertEqual(more.label, "Show more")
         more.tap()
         XCTAssertEqual(more.label, "Show less")
@@ -215,8 +283,8 @@ final class InboxUITests: XCTestCase {
         sleep(1)
         shot("14-bot-chat-card-expanded")
 
-        app.buttons["Skip"].tap()
-        XCTAssertTrue(heading.waitForNonExistence(timeout: 5), "Skip left the question in the chat")
+        app.buttons["Dismiss"].tap()
+        XCTAssertTrue(heading.waitForNonExistence(timeout: 5), "Dismiss left the question in the chat")
     }
 
     /// A secret a Task under the Bot asks for is given in the Bot's chat, with the task's masked
@@ -236,7 +304,7 @@ final class InboxUITests: XCTestCase {
         XCTAssertTrue(masked, "No masked input for the secret in the Bot's chat")
         XCTAssertFalse(app.buttons["Answer in the task"].exists, "The secret is still sent to the task to be answered")
         XCTAssertEqual(app.buttons["botQuestion.source"].label, "Release ops", "The source line does not name who asked")
-        XCTAssertTrue(app.buttons["Skip"].exists)
+        XCTAssertTrue(app.buttons["Dismiss"].exists)
 
         field.tap()
         field.typeText("fixture-value")
@@ -245,7 +313,7 @@ final class InboxUITests: XCTestCase {
         app.buttons["Send securely"].tap()
         XCTAssertTrue(app.staticTexts["DEPLOY_TOKEN saved on the task's runtime."].waitForExistence(timeout: 10),
                       "The secret was not saved on the conversation that asked")
-        XCTAssertFalse(app.buttons["Skip"].exists, "A saved secret can still be skipped")
+        XCTAssertFalse(app.buttons["Dismiss"].exists, "A saved secret can still be dismissed")
         XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "fixture-value")).firstMatch.exists,
                        "The value shows in the chat")
         shot("17-bot-chat-secret-saved")
@@ -277,6 +345,37 @@ final class InboxUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "fixture-value")).firstMatch.exists,
                        "The value shows in the Inbox")
         shot("19-inbox-secret-saved")
+    }
+
+    /// A secret can be declined (#3474): Dismiss sits under its masked card as under any question,
+    /// and the reason goes to the agent as a dismissal. No value is sent.
+    func testDismissesASecretInTheInboxWithAReason() throws {
+        responses["POST /agent/conversations/agent-ops/decisions/q-token/resolve"] = ["status": 200, "body": ["ok": true]]
+        try listQuestions([InboxUITests.row("agent-ops", "Release ops", [
+            "id": "q-token", "category": "credential", "question": "The rollout needs a deploy token.",
+            "secretName": "DEPLOY_TOKEN", "askedAt": "2026-11-03T09:40:00Z", "status": "open"])])
+        app = launch(page: "inbox")
+        openQuestion("The rollout needs a deploy token.")
+
+        XCTAssertTrue(app.secureTextFields["Paste the value"].waitForExistence(timeout: 10), "No masked input for the secret")
+        let dismiss = app.buttons["Dismiss"]
+        XCTAssertTrue(dismiss.waitForExistence(timeout: 5), "A secret cannot be dismissed")
+        XCTAssertTrue(app.buttons["Snooze"].exists, "A secret cannot be snoozed")
+        shot("20-inbox-secret-dismiss")
+
+        dismiss.tap()
+        let reason = app.textFields["Reason (optional)"].firstMatch
+        XCTAssertTrue(reason.waitForExistence(timeout: 5), "Dismiss does not ask for a reason")
+        reason.tap()
+        reason.typeText("Use the token already in CI")
+        shot("21-inbox-secret-dismiss-reason")
+        app.buttons["Dismiss question"].tap()
+        let toast = app.staticTexts["Dismissed"]
+        XCTAssertTrue(toast.waitForExistence(timeout: 5), "No toast saying it was dismissed")
+        try listQuestions([])
+        XCTAssertTrue(toast.waitForNonExistence(timeout: 10), "The dismissal was never sent")
+        XCTAssertFalse(app.staticTexts["DEPLOY_TOKEN saved on the task's runtime."].exists, "A value was sent")
+        XCTAssertFalse(listed("The rollout needs a deploy token.").exists, "The dismissed secret is still listed")
     }
 
     /// In a Bot's chat, an integration question naming providers opens the same scoped credential picker
@@ -466,7 +565,7 @@ final class InboxUITests: XCTestCase {
         XCTAssertTrue(title.waitForExistence(timeout: 5) && title.isHittable, "The question is hidden")
         XCTAssertTrue(app.textFields["Your answer"].firstMatch.waitForExistence(timeout: 5), "A words-only question can't be answered")
         // The answers sit at the bottom, under the question, not over it.
-        XCTAssertGreaterThan(app.buttons["Skip"].firstMatch.frame.minY, app.frame.height * 0.7, "The answers cover the question")
+        XCTAssertGreaterThan(app.buttons["Dismiss"].firstMatch.frame.minY, app.frame.height * 0.7, "The answers cover the question")
         shot("8-words-only-in-view")
     }
 
@@ -521,6 +620,36 @@ final class InboxUITests: XCTestCase {
     }
 
     /// Its row by its words, whatever it is to accessibility: wide, a row is a button.
+    /// A question asked before the one-line limit is its card's one line, cut with an ellipsis,
+    /// until a tap shows it in full.
+    func testALongQuestionIsOneLineUntilTapped() throws {
+        let question = "Delete the staging cluster now? It has been idle for thirty days, costs about forty dollars a day, and nobody has deployed to it since the migration."
+        try listQuestions([InboxUITests.row(
+            "agent-ops", "Release ops",
+            ["id": "q-deploy", "category": "approval", "question": question, "body": "Idle since the migration.",
+             "options": ["Delete", "Keep"], "askedAt": "2026-11-03T09:40:00Z", "status": "open"])])
+        app = launch(page: "agent")
+        let inboxTab = app.tabBars.buttons["Inbox"].firstMatch
+        XCTAssertTrue(inboxTab.waitForExistence(timeout: 10), "No Inbox tab")
+        inboxTab.tap()
+        let row = listed(question)
+        XCTAssertTrue(row.waitForExistence(timeout: 10), "The question is not listed")
+        shot("long-question-list")
+        row.tap()
+
+        let title = app.staticTexts["inbox.title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5), "The question did not open")
+        let line = title.frame.height
+        XCTAssertLessThan(line, 40, "The question wraps over several lines")
+        XCTAssertTrue(app.descendants(matching: .any)["inbox.body"].exists, "No body under the question")
+        shot("long-question-cut")
+
+        title.tap()
+        let opened = expectation(for: NSPredicate { _, _ in title.frame.height > line * 2 }, evaluatedWith: nil)
+        wait(for: [opened], timeout: 3)
+        shot("long-question-open")
+    }
+
     private func listed(_ question: String) -> XCUIElement {
         app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier == %@ AND label == %@", "inbox.row", question)).firstMatch
