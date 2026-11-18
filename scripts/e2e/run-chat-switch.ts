@@ -196,8 +196,8 @@ async function scenario(page: Page, stack: Stack) {
 function check(baseline: Record<string, number> | null) {
   const failed: string[] = []
   const lines = [
-    '| Switch | Frames to content | Reads before content | Fade frames | Typed frames | Newest after |',
-    '| --- | --: | --: | --: | --: | --: |',
+    '| Switch | Frames to content | Reads before content | Fade frames | Wash frames | Typed frames | Newest after |',
+    '| --- | --: | --: | --: | --: | --: | --: |',
   ]
 
   for (const { name, watch, requests } of cases) {
@@ -207,12 +207,13 @@ function check(baseline: Record<string, number> | null) {
 
     if (watch.framesToContent === null) fail('its history never showed')
     if (watch.fadeFrames > 0) fail(`${String(watch.fadeFrames)} frames faded it in`)
+    if (watch.washFrames > 0) fail(`${String(watch.washFrames)} frames had faded text in the pane`)
     if (watch.typedFrames > MAX_TYPED_FRAMES)
       fail(`a reply in progress was typed out over ${String(watch.typedFrames)} frames`)
     if (allowed !== undefined && requests > allowed)
       fail(`${String(requests)} reads before its first frame, baseline ${String(allowed)}`)
     lines.push(
-      `| ${name} | ${String(watch.framesToContent ?? 'never')} | ${String(requests)} | ${String(watch.fadeFrames)} | ${String(watch.typedFrames)} | ${newest} |`,
+      `| ${name} | ${String(watch.framesToContent ?? 'never')} | ${String(requests)} | ${String(watch.fadeFrames)} | ${String(watch.washFrames)} | ${String(watch.typedFrames)} | ${newest} |`,
     )
   }
   // A chat opened before shows on the first frame, with no request first. A Task does; a Bot

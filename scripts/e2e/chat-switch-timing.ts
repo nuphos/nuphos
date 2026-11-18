@@ -10,6 +10,8 @@ export type SwitchWatch = {
   framesToContent: number | null
   /** Frames with the history in the page but faded (between 5 % and 95 % opacity). */
   fadeFrames: number
+  /** Frames where text sampled across the chat pane was fainter than once the switch settled. */
+  washFrames: number
   /** Frames with `typedFrom` on screen but not `typedTo`: a reply being typed out. */
   typedFrames: number
   /** ms from the click to the first frame with `newest` on screen. */
@@ -67,14 +69,40 @@ function watch({
     return best
   }
 
+  // The faintest text across the chat pane, sampled on a grid between its header and composer.
+  const paneOpacity = () => {
+    const left = (document.querySelector('aside')?.getBoundingClientRect().right ?? 0) + 24
+    let faintest = 1
+
+    for (let col = 0; col < 6; col++)
+      for (let row = 0; row < 6; row++) {
+        const x = left + ((innerWidth - 24 - left) * (col + 0.5)) / 6
+        const y = 80 + ((innerHeight - 220) * (row + 0.5)) / 6
+        const element = document.elementFromPoint(x, y)
+
+        if (!element?.textContent?.trim() || element.closest('aside')) continue
+        let opacity = 1
+
+        for (let node: Element | null = element; node; node = node.parentElement)
+          opacity *= Number(getComputedStyle(node).opacity)
+        faintest = Math.min(faintest, opacity)
+      }
+
+    return faintest
+  }
+
   return new Promise((resolve) => {
     let clicked: number | null = null
+    let settledAt: number | null = null
+    // Each frame's faintest pane text; text meant to be faint is as faint in the last frame.
+    const panes: number[] = []
     let frames = 0
     const result: SwitchWatch = {
       clickedAt: 0,
       shownAt: null,
       framesToContent: null,
       fadeFrames: 0,
+      washFrames: 0,
       typedFrames: 0,
       newestAfterMs: null,
     }
@@ -93,6 +121,7 @@ function watch({
         const shown = seen(history)
 
         if (shown > 0.05 && shown < 0.95) result.fadeFrames++
+        panes.push(paneOpacity())
         if (result.framesToContent === null && shown >= 0.95) {
           result.framesToContent = frames
           result.shownAt = performance.timeOrigin + now
@@ -100,10 +129,12 @@ function watch({
         if (typedFrom && typedTo && seen(typedFrom) > 0 && seen(typedTo) === 0) result.typedFrames++
         if (result.newestAfterMs === null && seen(newest ?? history) >= 0.95)
           result.newestAfterMs = Math.round(now - clicked)
-        if (
-          (result.newestAfterMs !== null && result.framesToContent !== null) ||
-          now - clicked > timeoutMs
-        ) {
+        // On for half a second more, for a fade that starts once the chat is there.
+        if (result.newestAfterMs !== null && result.framesToContent !== null) settledAt ??= now
+        if ((settledAt !== null && now - settledAt > 500) || now - clicked > timeoutMs) {
+          const settled = panes.at(-1) ?? 1
+
+          result.washFrames = panes.filter((faintest) => faintest < settled - 0.05).length
           resolve(result)
 
           return
