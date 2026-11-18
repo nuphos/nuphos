@@ -23,6 +23,9 @@ import { dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { pathToFileURL } from 'node:url'
 
+// OpenCode answers on OpenCode Zen's free models with nothing signed in, so choosing them
+// ends the sign-in at once.
+const FREE_MODELS = { value: 'free', label: 'Free models', hint: 'No sign-in needed' }
 // Listed first; every other provider follows by name.
 const FEATURED = [
   'openai',
@@ -78,13 +81,16 @@ export function pastedAddress(text, redirect) {
 
 export function providerOptions({ all, connected }) {
   const rank = (id) => (FEATURED.includes(id) ? FEATURED.indexOf(id) : FEATURED.length)
-  return [...all]
-    .sort((a, b) => rank(a.id) - rank(b.id) || a.name.localeCompare(b.name))
-    .map(({ id, name }) => ({
-      value: id,
-      label: name,
-      ...(connected.includes(id) ? { hint: 'Connected' } : {}),
-    }))
+  return [
+    FREE_MODELS,
+    ...[...all]
+      .sort((a, b) => rank(a.id) - rank(b.id) || a.name.localeCompare(b.name))
+      .map(({ id, name }) => ({
+        value: id,
+        label: name,
+        ...(connected.includes(id) ? { hint: 'Connected' } : {}),
+      })),
+  ]
 }
 
 /** OpenCode's server, on loopback only and behind a password nobody else holds. */
@@ -187,6 +193,7 @@ export async function runOpenCodeLogin({
     api('GET', '/provider/auth'),
   ])
   const providerID = await choose('Choose a model provider', providerOptions(providers))
+  if (providerID === FREE_MODELS.value) return emit({ type: 'authenticated' })
   const name = providers.all.find((provider) => provider.id === providerID).name
   if (providerID === BEDROCK) {
     const how = await choose(`Sign in to ${name}`, BEDROCK_METHODS)
@@ -380,6 +387,7 @@ export async function runOpenCodeLoginV2({
   )
   const connected = all.filter(({ connections }) => connections?.length).map(({ id }) => id)
   const integrationID = await choose('Choose a model provider', providerOptions({ all, connected }))
+  if (integrationID === FREE_MODELS.value) return emit({ type: 'authenticated' })
   const integration = all.find(({ id }) => id === integrationID)
   const offered = integration.methods.filter((method) => method.type !== 'env')
   const choice =

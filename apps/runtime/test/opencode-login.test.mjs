@@ -54,6 +54,8 @@ const METHODS = {
     },
   ],
 }
+// OpenCode answers on OpenCode Zen's free models with nothing signed in (#3598).
+const FREE_MODELS = { value: 'free', label: 'Free models', hint: 'No sign-in needed' }
 const BROWSER_URL =
   'https://auth.openai.com/oauth/authorize?redirect_uri=http%3A%2F%2Flocalhost%3A1455%2Fauth%2Fcallback&state=s'
 
@@ -94,12 +96,23 @@ async function login(
 
 test('providers are offered featured first, with the ones already signed in marked', () => {
   assert.deepEqual(providerOptions(PROVIDERS), [
+    FREE_MODELS,
     { value: 'openai', label: 'OpenAI' },
     { value: 'github-copilot', label: 'GitHub Copilot' },
     { value: 'amazon-bedrock', label: 'Amazon Bedrock' },
     { value: 'groq', label: 'Groq', hint: 'Connected' },
     { value: 'zai', label: 'Z.AI' },
   ])
+})
+
+test('the free models need no sign-in: choosing them finishes without saving anything', async () => {
+  const { frames, calls } = await login(['free'])
+
+  assert.deepEqual(frames.slice(1), [{ type: 'authenticated' }])
+  assert.deepEqual(
+    calls.filter(({ method }) => method && method !== 'GET'),
+    [],
+  )
 })
 
 test('a provider without its own methods signs in with an API key', async () => {
@@ -455,12 +468,23 @@ test('2.x: integrations with a sign-in are offered, the connected ones marked', 
     type: 'choose',
     message: 'Choose a model provider',
     options: [
+      FREE_MODELS,
       { value: 'anthropic', label: 'Anthropic' },
       { value: 'github-copilot', label: 'GitHub Copilot' },
       { value: 'opencode', label: 'OpenCode Console' },
       { value: 'groq', label: 'Groq', hint: 'Connected' },
     ],
   })
+})
+
+test('2.x: the free models need no sign-in either', async () => {
+  const { frames, calls } = await loginV2(['free'])
+
+  assert.deepEqual(frames.slice(1), [{ type: 'authenticated' }])
+  assert.deepEqual(
+    calls.filter(({ method }) => method !== 'GET'),
+    [],
+  )
 })
 
 test('2.x: an API key is asked for as a secret and saved through its integration', async () => {
