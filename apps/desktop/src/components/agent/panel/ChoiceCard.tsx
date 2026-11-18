@@ -4,12 +4,13 @@ import { useContext, useLayoutEffect, useRef, useState } from 'react'
 
 import { t } from '../../../i18n'
 import { comboText } from '../../../lib/platform'
+import { Button } from '../../ui/button'
 import { MessageResponse } from '../MessageResponse'
 
 import { ConnectCardContext } from './connectCardContext'
 import { DecisionAnswersContext } from './decisionAnswers'
 import { clickOptions, formQuestions, ownBody } from './decisionFormModel'
-import { DecisionOptions } from './DecisionOptions'
+import { DecisionOptions, PILL } from './DecisionOptions'
 import { DecisionTitle } from './DecisionTitle'
 import { useDecisionKeys } from './useDecisionKeys'
 
@@ -70,17 +71,18 @@ export function ChoiceCard({
     return choose(option)
   })
   const skip = interactive && ctx?.skip && (
-    <button
-      type="button"
+    <Button
+      variant="secondary"
+      size="sm"
       disabled={skipped === 'sending'}
-      className="hover:text-main"
+      className={PILL}
       onClick={() => {
         setSkipped('sending')
         void ctx.skip?.(card).then((ok) => setSkipped(ok ? 'yes' : 'no'))
       }}
     >
       {t('Skip')}
-    </button>
+    </Button>
   )
 
   return (

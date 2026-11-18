@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { Check } from 'lucide-react'
-import { Children, useState } from 'react'
+import { useState } from 'react'
 
 import { t } from '../../../i18n'
 import { Button } from '../../ui/button'
@@ -13,12 +13,12 @@ import type { DecisionAnswer } from '../../../api/agent-chat-types'
 import type { ReactNode } from 'react'
 
 /**
- * A question card's options, one design for every question, as Paper's question
- * card draws them: each option the same pill, then a line of text with "Other…"
- * to answer in words and `children` (Skip). One question with one answer is
- * answered by clicking an option. A multi-select, or a card of several questions,
- * picks its options (checkboxes, or radios for a one-answer question among
- * several; a check once picked) and sends them with Send at the line's end.
+ * A question card's options, one design for every question: each option, then
+ * "Other…" to answer in words and `children` (Skip), one row of the same pill
+ * (`PILL`). One question with one answer is answered by clicking an option. A
+ * multi-select, or a card of several questions, picks its options (checkboxes,
+ * or radios for a one-answer question among several; a check once picked) and
+ * sends them with Send, the row's one filled button, at its end.
  */
 export function DecisionOptions({
   questions,
@@ -67,57 +67,51 @@ export function DecisionOptions({
           {questions.length > 1 && (
             <legend className="mb-2 text-[12.5px] font-medium text-main">{q.question}</legend>
           )}
-          {q.options.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              {q.options.map((option, at) => {
-                const on = picked[index]?.includes(option) ?? false
+          <div className="flex flex-wrap items-center gap-2">
+            {q.options.map((option, at) => {
+              const on = picked[index]?.includes(option) ?? false
 
-                return (
-                  <Button
-                    key={option}
-                    variant="secondary"
-                    size="sm"
-                    disabled={disabled}
-                    role={instant ? undefined : pickRole(q)}
-                    aria-checked={instant ? undefined : on}
-                    className="h-auto min-h-8 gap-1.5 whitespace-normal rounded-[9px] px-3 py-1.5 text-left text-[13px] font-normal"
-                    title={instant ? keyTitle?.(at) : undefined}
-                    onClick={() => {
-                      if (instant) onSubmit({ choices: [option] })
-                      else
-                        setPicked(
-                          replaceAt(
-                            picked,
-                            index,
-                            togglePick(picked[index] ?? [], option, q.multiSelect),
-                          ),
-                        )
-                    }}
-                  >
-                    {on && <Check aria-hidden className="size-3.5 shrink-0" />}
-                    {option}
-                  </Button>
-                )
-              })}
-            </div>
-          )}
-          {/* "Other… · Skip" as a line of text under the options, and Send at its end for picks. */}
-          <div className="flex min-h-5 items-center gap-1.5 text-[12.5px] text-secondary">
-            <TextLine>
-              {typeable ? (
-                <button
-                  type="button"
-                  aria-expanded={open[index] ?? false}
-                  className={clsx('hover:text-main', open[index] && 'text-main')}
-                  onClick={() => toggleField(index, !open[index])}
+              return (
+                <Button
+                  key={option}
+                  variant="secondary"
+                  size="sm"
+                  disabled={disabled}
+                  role={instant ? undefined : pickRole(q)}
+                  aria-checked={instant ? undefined : on}
+                  className={PILL}
+                  title={instant ? keyTitle?.(at) : undefined}
+                  onClick={() => {
+                    if (instant) onSubmit({ choices: [option] })
+                    else
+                      setPicked(
+                        replaceAt(
+                          picked,
+                          index,
+                          togglePick(picked[index] ?? [], option, q.multiSelect),
+                        ),
+                      )
+                  }}
                 >
-                  {q.options.length > 0 ? t('Other…') : t('Reply…')}
-                </button>
-              ) : (
-                q.options.length === 0 && hint
-              )}
-              {index === last && children}
-            </TextLine>
+                  {on && <Check aria-hidden className="size-3.5 shrink-0" />}
+                  {option}
+                </Button>
+              )
+            })}
+            {typeable ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                className={clsx(PILL, open[index] && '!bg-state-hover')}
+                aria-expanded={open[index] ?? false}
+                onClick={() => toggleField(index, !open[index])}
+              >
+                {q.options.length > 0 ? t('Other…') : t('Reply…')}
+              </Button>
+            ) : (
+              q.options.length === 0 && hint
+            )}
+            {index === last && children}
             {!instant && index === last && (
               <Button
                 size="sm"
@@ -146,21 +140,9 @@ export function DecisionOptions({
   )
 }
 
-/** Its items one after another, a middle dot between each two. */
-function TextLine({ children }: { children: ReactNode }) {
-  const items = Children.toArray(children)
-
-  return items.flatMap((item, index) =>
-    index === 0
-      ? [item]
-      : [
-          <span key={`dot${String(index)}`} aria-hidden className="text-tertiary">
-            ·
-          </span>,
-          item,
-        ],
-  )
-}
+/** Every button of the row the same pill, as Paper's question card draws a choice. */
+export const PILL =
+  'h-auto min-h-8 gap-1.5 whitespace-normal rounded-[9px] px-3 py-1.5 text-left text-[13px] font-normal'
 
 /** How a question's options are picked when Send answers them. */
 function pickRole(question: DecisionQuestion) {
