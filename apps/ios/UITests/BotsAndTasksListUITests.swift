@@ -76,6 +76,13 @@ final class BotsAndTasksListUITests: XCTestCase {
                 print("PROBE \(t) | type=\(e.elementType.rawValue) id=\(e.identifier) label=\(e.label) frame=\(e.frame)")
             }
         }
+        for t in ["Helper Bot, ", "Collect crash logs", "Release Lead, ", "Check the CI flake"] {
+            let row = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", t)).firstMatch
+            print("PROBE ROW \(t) \(row.frame)")
+            for e in row.descendants(matching: .any).allElementsBoundByIndex {
+                print("PROBE   \(t) | type=\(e.elementType.rawValue) id=\(e.identifier) label=\(e.label) frame=\(e.frame)")
+            }
+        }
         // What each Bot dispatched, nested under it, deeper threads under theirs.
         for (thread, below) in [("Check the CI flake", lead), ("Fix broken links", app.staticTexts["Docs Bot"].firstMatch),
                                 ("Collect crash logs", app.staticTexts["Helper Bot"].firstMatch)] {
