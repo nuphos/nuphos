@@ -110,8 +110,6 @@ spec:
               value: 'false'
             - name: CLAUDE_CODE_RUNTIME_KUBECTL
               value: 'false'
-            - name: CLAUDE_CODE_RUNTIME_PROVISIONER_ENABLED
-              value: 'false'
             - name: STORAGE_SECRET_KEY
               valueFrom:
                 secretKeyRef:

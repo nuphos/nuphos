@@ -128,14 +128,19 @@ function Entering({ as: Tag = 'div', children }: { as?: 'div' | 'section'; child
   )
 }
 
-/** Who asked a question and when: its face or Runtime icon, its name, which opens it, and the time. */
+/**
+ * Who asked a question and when: its face or Runtime icon, its name, which opens it, and the time.
+ * A question the agent rewrote since says when, so an old card's new premise is not a surprise.
+ */
 export function QuestionSource({
   conversation,
   askedAt,
+  updatedAt,
   onOpen,
 }: {
   conversation: Source
   askedAt: string
+  updatedAt?: string
   onOpen: () => void
 }) {
   return (
@@ -153,6 +158,14 @@ export function QuestionSource({
       <time dateTime={askedAt} className="shrink-0">
         {chatTime(askedAt)}
       </time>
+      {updatedAt && (
+        <>
+          <span aria-hidden>·</span>
+          <time dateTime={updatedAt} className="shrink-0">
+            {t('Edited {time}', { time: chatTime(updatedAt) ?? '' })}
+          </time>
+        </>
+      )}
     </header>
   )
 }

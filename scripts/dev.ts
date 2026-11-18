@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
 
 // nuphos dev — the local docker compose stack, the backend with hot reload, and Desktop.
-// `--managed` adds managed agents on local k8s.
 import { ensureBackendEnv, resetBackendRetries, startBackend } from './dev-backend.ts'
 import { BOLD, DIM, GREEN, RESET, enterAltScreen, leaveAltScreen, render } from './dev-dashboard.ts'
 import { claimDesktopPorts, desktopPorts, startDesktop } from './dev-desktop.ts'
@@ -13,8 +12,6 @@ import {
   writeInstance,
 } from './dev-instance.ts'
 import { startLocalAgent } from './dev-local-agent.ts'
-import { isLocalContextName } from './dev-managed-env.ts'
-import { startManagedAgents } from './dev-managed.ts'
 import { DEV_OPTIONS } from './dev-options.ts'
 import { releaseAllPorts } from './dev-ports.ts'
 import { stopStorageTunnel } from './dev-quick-tunnel.ts'
@@ -121,12 +118,10 @@ async function waitForReset() {
 // The stack stays up across restarts and quits; `up` on a running stack is a no-op.
 async function startAll() {
   void startLocalAgent()
-  const { managed } = DEV_OPTIONS
-  const managedReady = managed ? startManagedAgents(managed) : Promise.resolve(false)
   const local = await startStack()
 
   if (!local) return
-  await startBackend(local, managed && (await managedReady) ? managed : null)
+  await startBackend(local)
   void startLocalRuntime(local)
   await claimDesktopPorts()
   await startDesktop()
@@ -203,12 +198,6 @@ process.stdout.on('resize', () => {
 })
 
 async function main() {
-  if (DEV_OPTIONS.managed !== null && !isLocalContextName(DEV_OPTIONS.managed)) {
-    process.stderr.write(
-      `--managed only runs against a local cluster (orbstack, docker-desktop, minikube, kind-*); refusing "${DEV_OPTIONS.managed}".\n`,
-    )
-    process.exit(2)
-  }
   try {
     releaseInstance = await acquireDevInstance(INSTANCE)
     recordInstance()
@@ -219,9 +208,8 @@ async function main() {
   await waitForReset()
   enterAltScreen()
   bindKeys()
-  const mode = DEV_OPTIONS.managed ? ' --managed' : ''
 
-  if (!TTY) process.stdout.write(`▲ nuphos dev${mode}  (${INSTANCE})\n`)
+  if (!TTY) process.stdout.write(`▲ nuphos dev  (${INSTANCE})\n`)
   render()
   setInterval(() => {
     if (consumeDirty()) render()

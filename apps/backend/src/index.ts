@@ -29,9 +29,9 @@ import {
   startRuntimeHandoffAdoption,
 } from '@/lib/claude-code-preview/runtime-handoff'
 import {
-  initClaudeCodeRuntimeProvisioner,
-  shutdownClaudeCodeRuntimeProvisioner,
-} from '@/lib/claude-code-preview/runtime-provisioner'
+  initRuntimeMetricsSampler,
+  shutdownRuntimeMetricsSampler,
+} from '@/lib/claude-code-preview/runtime-metrics-sampler'
 import { recoverDashboardPanelExecutions } from '@/lib/dashboards/exec-service'
 import { dashboardRefreshScheduler } from '@/lib/dashboards/refresh-schedule'
 import { connectDb, closeDb } from '@/lib/db'
@@ -134,9 +134,7 @@ logEvent('info', 'backend.memory_retention_rollup.ready')
 initStuckTurnProbe()
 logEvent('info', 'backend.stuck_turn_probe.ready')
 
-if (initClaudeCodeRuntimeProvisioner()) {
-  logEvent('info', 'backend.claude_code_runtime_provisioner.ready')
-}
+initRuntimeMetricsSampler()
 startAgentRunStallSweeper()
 startBotImportCleanup()
 const stopRuntimeHandoffAdoption = startRuntimeHandoffAdoption()
@@ -214,9 +212,7 @@ async function shutdown(sig: string) {
   logEvent('info', 'backend.shutdown.started', { signal: sig })
   markShuttingDown()
   dashboardRefreshScheduler.shutdown()
-  // Stop reconciliation before draining so the old backend cannot overwrite
-  // runtime Deployments after the replacement revision takes ownership.
-  shutdownClaudeCodeRuntimeProvisioner()
+  shutdownRuntimeMetricsSampler()
   shutdownDiscordGateway()
   const workersStopped = quiesceAgentWorkers()
 

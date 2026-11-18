@@ -11,6 +11,7 @@ import { canReplyIn } from '@/lib/agent/devices/conversation-computer'
 import { createMessageMetadata } from '@/lib/agent/message-attribution'
 import { buildPendingUserMessage } from '@/lib/agent/pending-messages'
 import { AppError } from '@/lib/errors'
+import { requireRuntimeInstance } from '@/lib/claude-code-preview/runtime-catalog'
 import { getTeamMembership, signNuphosToken } from '@/lib/identity'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 import { logError } from '@/lib/observability'
@@ -132,6 +133,24 @@ export async function nuphosAsk(
     )
   }
   const ownerUserId = existing?.userId ?? ctx.userId
+  const runtimeId = typeof args.runtime_id === 'string' ? args.runtime_id.trim() : ''
+
+  // The agent is chosen as a session starts; an existing one keeps its own.
+  if (runtimeId && existing && existing.runtimeId !== runtimeId)
+    return toolError(
+      `runtime_id only applies to a new session; ${sessionId} already runs on its own.`,
+    )
+  if (runtimeId && !existing) {
+    const refused = await requireRuntimeInstance(teamId, runtimeId, ctx.userId).then(
+      (instance) => (instance.status === 'disabled' ? 'This agent is disabled.' : null),
+      (err: unknown) => {
+        if (err instanceof AppError) return err.message
+        throw err
+      },
+    )
+
+    if (refused) return toolError(refused)
+  }
   const requestId = typeof args.request_id === 'string' ? args.request_id.trim() : ''
 
   if (requestId) {
@@ -229,6 +248,7 @@ export async function nuphosAsk(
         firstMessage: prompt,
         source: 'mcp',
         client: ctx.client,
+        ...(runtimeId && !existing ? { runtimeId } : {}),
       })
     } finally {
       release()

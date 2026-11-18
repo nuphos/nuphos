@@ -40,7 +40,6 @@ test('the backend env points every datastore at the local stack and turns cluste
   assert.equal(env.ATLAS_REDIS_ENABLED, 'false')
   assert.equal(env.NUPHOS_LOCAL_STACK, 'true')
   assert.equal(env.CLAUDE_CODE_RUNTIME_KUBECTL, 'false')
-  assert.equal(env.CLAUDE_CODE_RUNTIME_PROVISIONER_ENABLED, 'false')
   for (const key of [
     'NUPHOS_FILE_TRANSFER_S3_ENDPOINT',
     'ATLAS_SKILLS_S3_ENDPOINT',

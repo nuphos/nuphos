@@ -1686,6 +1686,7 @@
   "Edit the manifest and apply it to this object.": "マニフェストを編集して、このオブジェクトに適用します。",
   "Edit value": "値を編集",
   "Edited in Nuphos": "Nuphos で編集済み",
+  "Edited {time}": "{time} に編集",
   "Editor": "編集者",
   "Editors and administrators can upload skill files.": "エディターと管理者はスキルファイルをアップロードできます。",
   "Effective permissions": "有効な権限",
