@@ -158,7 +158,8 @@ test('a check that fails is logged, never thrown at the host', async () => {
 
 test('nuphos update that cannot start says so instead of crashing the host', async () => {
   assert.equal(await runCliUpdate(path.join(tmpdir(), 'no-such-nuphos')), false)
-  assert.equal(await runCliUpdate('/bin/true'), true)
+  // Node itself starts on every platform (macOS has no /bin/true).
+  assert.equal(await runCliUpdate(process.execPath), true)
 })
 
 test('the idle wait follows NUPHOS_AUTO_UPDATE_IDLE_SECONDS, as on the Desktop', async () => {
