@@ -94,6 +94,11 @@ if (process.platform === 'darwin') {
 // unaffected. Runs before app.whenReady() below; appendSwitch is a no-op after ready.
 if (process.env.ATLAS_DEV_CDP_PORT) {
   app.commandLine.appendSwitch('remote-debugging-port', process.env.ATLAS_DEV_CDP_PORT)
+// Evidence only: Chromium's fake microphone (a tone) for the e2e run.
+if (process.env.E2E_FAKE_MIC) {
+  app.commandLine.appendSwitch('use-fake-device-for-media-stream')
+  app.commandLine.appendSwitch('use-fake-ui-for-media-stream')
+}
 }
 
 // stdout/stderr are pipes to whoever launched us (the dev launcher, a

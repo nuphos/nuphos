@@ -30,6 +30,7 @@ export async function startDesktop(apiUrl: string): Promise<Desktop> {
       // A name of its own gives the app a profile of its own, away from any installed app's.
       ATLAS_DEV_SUFFIX: `e2e-${String(cdpPort)}`,
       ATLAS_DEV_CDP_PORT: String(cdpPort),
+      E2E_FAKE_MIC: '1',
     },
   })
   const cdp = `http://127.0.0.1:${String(cdpPort)}`
