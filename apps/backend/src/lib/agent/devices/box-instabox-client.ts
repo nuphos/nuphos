@@ -19,6 +19,11 @@ export const CREATE_TIMEOUT_MS = 3 * 60_000
 export const QUICK_TIMEOUT_MS = 30_000
 /** The most one HTTP request to instabox may take; long operations poll within their own budget. */
 export const REQUEST_TIMEOUT_MS = 15_000
+/** The wait before the one retry of a call a dropped connection or an overloaded instabox failed. */
+export const RETRY_AFTER_MS = 300
+
+/** A failure the next try may not meet: a reset connection or a 502–504, never a timeout. */
+export const transient = (error: unknown) => error instanceof InstaboxError && error.retryable
 
 const PATHS = 'export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"'
 
@@ -36,10 +41,12 @@ const AGENTS = [
 /**
  * What the host needs before it starts: the agents (it looks for them once, at start) and the
  * newest CLI, whose host fetches the newest runtime. Both download, so they run side by side.
- * Idempotent, so an update runs it again.
+ * Idempotent, so an update runs it again. One at a time: a run whose request dropped may still
+ * be going on the machine, and the next waits for it rather than installing beside it.
  */
 export const BOX_INSTALL_COMMAND = [
   'set -e',
+  'exec 9>/tmp/nuphos-install.lock && flock 9',
   PATHS,
   `( ${AGENTS.join('\n')}\n) & agents=$!`,
   // Always the newest CLI, so the same step installs a Box and updates one.
