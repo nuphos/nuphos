@@ -49,6 +49,40 @@ test('a plan refusal reaches the person as its own sentence, not as diagnostics'
   assert.deepEqual(emitted, [{ type: 'error', error: refusal }])
 })
 
+test('any other payment failure keeps its diagnostics', async () => {
+  const emitted: { type: string; error: string }[] = []
+
+  await handleChatHttpFailure(
+    {
+      streamId: 'stream-2',
+      sessionId: 'session-2',
+      explicitResume: false,
+      signal: new AbortController().signal,
+      state: createChatStreamState(0),
+      emit: (event) => emitted.push(event as { type: string; error: string }),
+      noteFirstFrame: () => {},
+    },
+    new Response(
+      JSON.stringify({
+        error: {
+          code: 'subscription_required',
+          message: 'Agent runs need a paid plan.',
+          requestId: 'req-2',
+        },
+      }),
+      { status: 402, statusText: 'Payment Required' },
+    ),
+    false,
+  )
+
+  // Only the vCPU limit's refusal is a sentence we can stand behind as the whole answer.
+  assert.match(
+    emitted[0]?.error ?? '',
+    /^Agent chat request failed with subscription_required \(HTTP 402 Payment Required\)\./u,
+  )
+  assert.match(emitted[0]?.error ?? '', /requestId=req-2/u)
+})
+
 test('missing Claude Code setup becomes an actionable product event', () => {
   assert.deepEqual(
     agentHttpProductEvent({
