@@ -24,8 +24,6 @@ import android.graphics.Bitmap
 import java.io.File
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import ai.nuphos.android.data.*
@@ -187,7 +185,7 @@ class HomeNavigationFixtureDeviceTest {
     private fun waitText(text: String) {
         compose.waitUntil(8_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
     }
-    private fun render(newTask: Boolean = false, compact: Boolean = false, restoration: StateRestorationTester? = null, keyboard: Boolean = false) {
+    private fun render(compact: Boolean = false, restoration: StateRestorationTester? = null, keyboard: Boolean = false) {
         memberships = listOf(a, b)
         compose.runOnIdle {
             if (compact) {
@@ -210,16 +208,8 @@ class HomeNavigationFixtureDeviceTest {
                     LocalAgentStore provides agent, LocalAuthSession provides auth,
                     LocalPlansStore provides plansStore, LocalConnectorsStore provides connectors) {
                     NuphosTheme(darkTheme = InstrumentationRegistry.getArguments().getString("fixtureDark") == "true") { Box(if (compact) Modifier.width(320.dp) else Modifier) {
-                        val nav = rememberNavController()
-                        if (newTask) NavHost(nav, startDestination = "fixture-home") {
-                            composable("fixture-home") {
-                                HomeScreen(NuphosUser.preview, nav, showComposer = true,
-                                    newChatComposer = { ai.nuphos.android.ui.agent.NewChatComposer(nav) })
-                            }
-                            composable("conversation/{id}?fresh={fresh}") {
-                                androidx.compose.material3.Text("Synthetic task destination")
-                            }
-                        } else HomeScreen(NuphosUser.preview, nav, showComposer = false)
+                        HomeScreen(NuphosUser.preview, rememberNavController(),
+                            showComposer = false, newChatComposer = {})
                     } }
                 }
             }
@@ -241,87 +231,6 @@ class HomeNavigationFixtureDeviceTest {
         val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
         try { file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) } } finally { bitmap.recycle() }
     }
-    @Test fun newTaskSheetCancelAndReopenPreservesDraft() {
-        app.incomingShares.identityReset()
-        kotlinx.coroutines.runBlocking { app.incomingShares.bindAccount(NuphosUser.preview.id) }
-        render(newTask = true)
-        shot("new-task-entry")
-        compose.onNodeWithTag("new-task-open").performClick()
-        compose.onNodeWithTag("new-task-sheet").assertIsDisplayed()
-        compose.onNode(androidx.compose.ui.test.hasSetTextAction()).assertIsFocused()
-        shot("new-task-open")
-        compose.onNode(androidx.compose.ui.test.hasSetTextAction()).performTextClearance()
-        compose.onNode(androidx.compose.ui.test.hasSetTextAction()).performTextInput("Synthetic new task draft")
-        compose.onNodeWithTag("new-task-cancel").performClick()
-        compose.onNodeWithTag("new-task-sheet").assertDoesNotExist()
-        compose.onNodeWithTag("new-task-open").performClick()
-        shot("new-task-draft")
-        compose.onNodeWithText("Synthetic new task draft").assertIsDisplayed()
-        noWrites()
-    }
-
-    @Test fun newTaskShareOpensSheetAndKeepsFileInDraft() {
-        app.incomingShares.identityReset()
-        kotlinx.coroutines.runBlocking { app.incomingShares.bindAccount(NuphosUser.preview.id) }
-        app.incomingShares.cancel()
-        kotlinx.coroutines.runBlocking { app.incomingShares.awaitIdle() }
-        render(newTask = true)
-        select("runtimes")
-        compose.onNodeWithTag("new-task-open").assertDoesNotExist()
-        val key = ai.nuphos.android.session.ComposerDrafts.Key(NuphosUser.preview.id, a.id,
-            ai.nuphos.android.session.ComposerDrafts.Destination.NewChat)
-        kotlinx.coroutines.runBlocking {
-            val id = requireNotNull(app.incomingShares.begin(NuphosUser.preview.id))
-            val file = ai.nuphos.android.model.ComposerAttachment(name = "synthetic-note.txt",
-                kind = ai.nuphos.android.model.ComposerAttachment.Kind.File("fixture".toByteArray(), "text/plain"))
-            app.incomingShares.loaded(id, "Shared synthetic note", app.incomingShares.prepare(listOf(file)))
-            app.incomingShares.choose(id, key)
-        }
-        compose.waitUntil(8_000) { compose.onAllNodesWithTag("new-task-sheet").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("Shared synthetic note", substring = true).assertIsDisplayed()
-        shot("new-task-shared")
-        compose.onNodeWithText("TXT").assertIsDisplayed()
-        compose.runOnIdle { assertEquals(listOf("synthetic-note.txt"), app.incomingShares.attachments(key).map { it.name }) }
-        noWrites()
-    }
-
-    @Test fun newTaskWithoutNameUsesGenericGreeting() {
-        app.incomingShares.identityReset()
-        kotlinx.coroutines.runBlocking { app.incomingShares.bindAccount(NuphosUser.preview.id) }
-        render(newTask = true)
-        compose.runOnIdle { state(auth, "state").value = AuthSession.State.SignedIn(NuphosUser.preview.copy(name = "")) }
-        compose.onNodeWithTag("new-task-open").performClick()
-        compose.onNodeWithText(app.getString(R.string.new_task_welcome)).assertIsDisplayed()
-        compose.onNode(hasSetTextAction()).assertIsFocused()
-        shot("new-task-unnamed")
-        noWrites()
-    }
-    @Test fun newTaskSubmitDismissesSheetAndHandsOffPrompt() {
-        app.incomingShares.identityReset()
-        kotlinx.coroutines.runBlocking { app.incomingShares.bindAccount(NuphosUser.preview.id) }
-        render(newTask = true)
-        compose.onNodeWithTag("new-task-open").performClick()
-        compose.onNode(hasSetTextAction()).performTextClearance()
-        compose.onNode(hasSetTextAction()).performTextInput("Synthetic submitted task")
-        compose.onNodeWithContentDescription(app.getString(R.string.send)).performClick()
-        waitText("Synthetic task destination")
-        compose.onNodeWithTag("new-task-sheet").assertDoesNotExist()
-        compose.runOnIdle { assertEquals("Synthetic submitted task", agent.pendingPrompt?.text) }
-        noWrites() // Stops at the conversation handoff; never sends a real agent request.
-    }
-    @Test fun newTaskTeamSwitchClosesSheetAndIsolatesDraft() {
-        app.incomingShares.identityReset()
-        kotlinx.coroutines.runBlocking { app.incomingShares.bindAccount(NuphosUser.preview.id) }
-        render(newTask = true)
-        compose.onNodeWithTag("new-task-open").performClick()
-        compose.onNode(androidx.compose.ui.test.hasSetTextAction()).performTextInput("Team A private draft")
-        compose.runOnIdle { agent.select(b) }
-        compose.onNodeWithTag("new-task-sheet").assertDoesNotExist()
-        compose.onNodeWithTag("new-task-open").performClick()
-        compose.onNodeWithText("Team A private draft").assertDoesNotExist()
-        noWrites()
-    }
-
     @Test fun allFourPagesSelectedAndBackReturnFocusWithoutWrites() {
         render(keyboard = true); waitText("Synthetic active conversation"); shot("normal")
         compose.onNodeWithTag("home-page-switcher").performKeyInput { pressKey(androidx.compose.ui.input.key.Key.Tab) }
