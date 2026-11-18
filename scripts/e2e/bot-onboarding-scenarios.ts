@@ -28,7 +28,7 @@ export const botOnboardingScenarios: Scenario[] = [
         ).body as { conversations: Row[] }
 
       await page.getByRole('button', { name: 'New Bot', exact: true }).click()
-      await page.getByRole('textbox', { name: 'Agent name' }).fill('Release Helper')
+      await page.getByRole('textbox', { name: 'Bot name' }).fill('Release Helper')
       await page.getByRole('button', { name: 'Create', exact: true }).click()
       await page.getByText('Which marker should the fixture use?', { exact: true }).waitFor()
       const bot = (await list()).conversations[0]!

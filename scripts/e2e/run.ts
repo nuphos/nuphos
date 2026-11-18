@@ -6,6 +6,7 @@ import { accessScenarios } from './access-scenarios.ts'
 import { agentEvents } from './agent-log.ts'
 import { agentWordScenarios } from './agent-word-scenarios.ts'
 import { backendFailures, backendLines } from './backend-log.ts'
+import { botTurnScenarios } from './bot-turn-scenarios.ts'
 import { botUnreadScenarios } from './bot-unread-scenarios.ts'
 import { botWorkingDotsScenarios } from './bot-working-dots-scenarios.ts'
 import { checkDecisionOutline, checkOutgoingChip } from './chat-presentation.ts'
@@ -27,7 +28,7 @@ import { artifacts, stopAll, until } from './processes.ts'
 import { providerUnreachableScenarios } from './provider-unreachable-scenarios.ts'
 import { questionScenarios } from './question-scenarios.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
-import { sidebarScenarios } from './sidebar-scenarios.ts'
+import { botFoldScenarios, sidebarScenarios } from './sidebar-scenarios.ts'
 import { signInScenarios } from './sign-in-scenarios.ts'
 import { splitPaneScenarios } from './split-pane-scenarios.ts'
 import { startStack } from './stack.ts'
@@ -65,7 +66,7 @@ const scenarios: Scenario[] = [
     name: 'create a Bot, talk to it in its chat, and answer its question there',
     run: async (page, stack) => {
       await page.getByRole('button', { name: 'New Bot', exact: true }).click()
-      await page.getByRole('textbox', { name: 'Agent name' }).fill('E2E Bot')
+      await page.getByRole('textbox', { name: 'Bot name' }).fill('E2E Bot')
       await page.getByRole('button', { name: 'Create', exact: true }).click()
       // No user prompt precedes this reply: creating/opening the Bot starts its introduction.
       // The fixture's missing marker proves the turn did not originate from a delivery prompt.
@@ -245,12 +246,14 @@ const scenarios: Scenario[] = [
   ...connectorScenarios,
   ...accessScenarios,
   ...runtimeScenarios,
+  ...botTurnScenarios,
   ...providerUnreachableScenarios,
   ...computerScenarios,
   ...commandScenarios,
   ...threadScenarios,
   ...offlineScenarios,
   threadModeScenario,
+  ...botFoldScenarios,
   ...fallbackScenarios,
   ...memberStreamScenarios,
   // It removes a member from the team.

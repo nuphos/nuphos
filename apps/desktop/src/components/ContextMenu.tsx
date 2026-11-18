@@ -18,6 +18,8 @@ export type ContextMenuAction = {
   icon?: ContextMenuIcon
   // Optional confirmation prompt — if set, ask before running.
   confirm?: string
+  /** The confirm button, when the action's own name would read badly there (next to Cancel). */
+  confirmLabel?: string
   destructive?: boolean
   disabled?: boolean
   // Optional sublabel rendered grey on the right (e.g. "soon", a <Kbd> shortcut).
@@ -92,7 +94,11 @@ export function ContextMenu({ x, y, items, onClose: dismiss }: Props) {
         open
         title={confirmAction.label}
         description={confirmAction.confirm ?? ''}
-        confirmLabel={confirmAction.destructive ? t('Delete') : t('Confirm')}
+        // The action's own name ("Remove from team", "Cancel invite"), not a generic Delete.
+        confirmLabel={
+          confirmAction.confirmLabel ??
+          (confirmAction.destructive ? confirmAction.label : t('Confirm'))
+        }
         destructive={confirmAction.destructive}
         onConfirm={confirmAction.onSelect}
         onClose={onClose}

@@ -64,7 +64,7 @@ export async function computerWithUsage(stack: Stack, label: string, deviceId = 
 
 /** Puts the composer on a runtime: `row` opens its submenu and `item` names the runtime in it. */
 export async function pickRuntime(page: Page, row: string, item: RegExp) {
-  await page.getByRole('button', { name: /^Agent runtime/ }).click()
+  await page.getByRole('button', { name: /^Runtime:/ }).click()
   await page.getByRole('menu').getByText(row).first().click({ timeout: 60_000 })
   await page.getByRole('menuitem', { name: item }).last().click()
 }

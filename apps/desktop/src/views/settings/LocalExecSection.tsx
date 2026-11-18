@@ -71,7 +71,7 @@ export function LocalExecSection({
       <SectionHeader
         title={t('Local exec')}
         description={t(
-          'Keep Nuphos open and signed in to use this computer for local exec. Your agents can use it once its connection is ready. Only your own agents can use it.',
+          'Keep Nuphos open and signed in to use this computer for local exec. Your agents can use it once its connection is ready, and so can those of teammates who manage this computer.',
         )}
       />
 

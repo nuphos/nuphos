@@ -9,7 +9,7 @@ import { OpenAbAcpClient } from './openab-acp-client'
 import { OpenAbConnectError } from './openab-acp-connect'
 import { OpenAbConnectionLostError, OpenAbRpcError } from './openab-acp-errors'
 import { runtimeModelCatalog } from './runtime-models'
-import { offeredSessionConfig } from './session-config-catalog'
+import { offeredSessionConfig, namedModel } from './session-config-catalog'
 import { parseSessionConfigOptions, storedPick } from './session-config-options'
 import { storeSessionConfig } from './session-config-record'
 import { sessionConfigRestoreContext } from './session-config-restore'
@@ -120,7 +120,7 @@ export async function conversationSessionConfig(
   if (!selection) {
     if (shouldPrewarm(conversation, viewerUserId)) prewarmSession(conversation, attachment)
 
-    return await sessionConfigView(storedPick(attachment), catalogFor)
+    return namedModel(await sessionConfigView(storedPick(attachment), catalogFor), attachment)
   }
   const picked = await applySessionConfig(conversation, attachment, selection, viewerUserId)
 

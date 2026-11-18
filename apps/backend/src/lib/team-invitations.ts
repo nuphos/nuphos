@@ -2,6 +2,7 @@ import { config } from '@/config'
 import { isEmailConfigured, sendEmail } from '@/lib/email'
 
 import type { NuphosTeam } from '@/lib/identity'
+import type { NuphosTeamRole } from '@/lib/identity/types'
 import type { TeamInvitation } from '@/models'
 
 export type SerializedTeamInvitation = {
@@ -13,6 +14,9 @@ export type SerializedTeamInvitation = {
   inviteeEmail: string
   acceptedAt?: string
   rejectedAt?: string
+  /** The page the email's accept button opens, for an admin to send another way. */
+  inviteUrl?: string
+  role: NuphosTeamRole
 }
 
 export function normalizeInviteeEmail(email: string): string {
@@ -22,6 +26,7 @@ export function normalizeInviteeEmail(email: string): string {
 export function serializeTeamInvitation(
   invitation: TeamInvitation,
   team?: Pick<NuphosTeam, 'id' | 'name' | 'avatarUrl'>,
+  inviteUrl?: string,
 ): SerializedTeamInvitation {
   return {
     id: invitation._id.toHexString(),
@@ -30,9 +35,32 @@ export function serializeTeamInvitation(
     ...(team ? { team } : {}),
     invitedAt: invitation.invitedAt.toISOString(),
     inviteeEmail: invitation.inviteeEmail,
+    role: invitationRole(invitation),
     ...(invitation.acceptedAt ? { acceptedAt: invitation.acceptedAt.toISOString() } : {}),
     ...(invitation.rejectedAt ? { rejectedAt: invitation.rejectedAt.toISOString() } : {}),
+    ...(inviteUrl ? { inviteUrl } : {}),
   }
+}
+
+/** The role accepting this invitation gives; one made before roles were stored gives Editor. */
+export function invitationRole(invitation: Pick<TeamInvitation, 'role'>): NuphosTeamRole {
+  return invitation.role ?? 'EDITOR'
+}
+
+/** An invitation email goes again at most this often, so a click-happy admin spams nobody. */
+export const INVITATION_RESEND_MS = 5 * 60_000
+
+/**
+ * The backend's own /invite landing page (routes/invite-landing.ts): installed apps deep-link
+ * open, everyone else gets the download. It holds no token, since invitations are keyed to the
+ * invitee's email, so it is safe to copy and send another way. The team name is display only.
+ */
+export function inviteLandingUrl(teamName: string): string {
+  const url = new URL(`${config.auth.publicBaseUrl}/invite`)
+
+  if (teamName.trim()) url.searchParams.set('team', teamName.trim())
+
+  return url.toString()
 }
 
 export type TeamInvitationEmailInput = {
@@ -107,16 +135,10 @@ export async function sendTeamInvitationEmail(
   input: Omit<TeamInvitationEmailInput, 'appUrl'>,
 ): Promise<boolean> {
   if (!isEmailConfigured()) return false
-  // The accept button targets the backend's own /invite landing page (see
-  // routes/invite-landing.ts): installed apps deep-link open, everyone else
-  // gets the download fallback. publicBaseUrl always resolves, so the button
-  // is always present; the team name rides along for display only.
-  const acceptUrl = new URL(`${config.auth.publicBaseUrl}/invite`)
-
-  if (input.teamName.trim()) acceptUrl.searchParams.set('team', input.teamName.trim())
+  // publicBaseUrl always resolves, so the accept button is always present.
   const { subject, html, text } = buildInvitationEmail({
     ...input,
-    appUrl: acceptUrl.toString(),
+    appUrl: inviteLandingUrl(input.teamName),
   })
 
   try {

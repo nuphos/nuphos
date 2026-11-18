@@ -26,7 +26,7 @@ function pendingInstance(agent: DeviceAgentInstance, device: AgentDevice): Runti
   return {
     id: agent.runtimeId,
     provider: agent.provider,
-    label: t('{agent} on {computer}', { agent: agent.label, computer: device.label }),
+    label: t('{runtime} on {computer}', { runtime: agent.label, computer: device.label }),
     status: 'active',
     kind: 'local',
     createdAt: '',

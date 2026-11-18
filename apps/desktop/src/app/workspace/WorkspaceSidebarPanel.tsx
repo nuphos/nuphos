@@ -11,6 +11,7 @@ import {
   MY_PREFERENCES_DEFAULT_SECTION,
   USER_SETTINGS_DEFAULT_SECTION,
 } from '../../views/settings/settingsNav'
+import { useComputerAccessNotices } from '../../views/settings/useComputerAccessNotices'
 
 import { sidebarSurface } from './store/workspaceState'
 
@@ -107,6 +108,8 @@ export function WorkspaceSidebarPanel({ ws, user }: { ws: WorkspaceController; u
     setSettingsOpen(true)
   })
   const openComputers = useStableCallback(() => openSettingsSection('workspace.computers'))
+
+  useComputerAccessNotices(currentTeam?.id, ws.teams, openComputers)
   const openMyPreferences = useStableCallback(() =>
     openSettingsSection(MY_PREFERENCES_DEFAULT_SECTION),
   )
