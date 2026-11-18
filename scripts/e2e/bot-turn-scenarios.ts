@@ -1,4 +1,5 @@
-// Scenarios about a Bot's own session, opened over its chat. They run after the channel scenarios.
+// Scenarios about a Bot's own session, opened over its chat. They run after the runtime
+// scenarios: they leave the Bot on the second agent, which those need unused until then.
 import { agentLog } from './agent-log.ts'
 import { artifacts, until } from './processes.ts'
 
