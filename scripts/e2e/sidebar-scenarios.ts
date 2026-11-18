@@ -153,6 +153,15 @@ export const botFoldScenarios: Scenario[] = [
       await page.locator('.t-bot-start.is-shown').getByText('Start with your first Bot').waitFor()
       // Past the reveals, so the capture shows where they land.
       await page.waitForTimeout(800)
+      // The reveal moves each line as a whole: the faces still stand side by side.
+      const faces = await page
+        .locator('.t-bot-start img')
+        .evaluateAll((images) => images.map((image) => image.getBoundingClientRect().left))
+
+      must(
+        faces.length === 3 && faces[0]! < faces[1]! && faces[1]! < faces[2]!,
+        `the intro's three faces in a row, got left edges ${faces.join(', ')}`,
+      )
       await page.screenshot({ path: `${artifacts}/bots-first-listing-empty.png` })
       await recording()
       // Back in the first team, where the scenarios after this one found the window before.

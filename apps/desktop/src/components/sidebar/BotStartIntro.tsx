@@ -1,4 +1,3 @@
-import clsx from 'clsx'
 import { Plus, Upload } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 
@@ -6,7 +5,7 @@ import { t } from '../../i18n'
 import { BotAvatarImage } from '../agent/BotAvatarImage'
 import { Button } from '../ui/button'
 
-import type { CSSProperties } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 
 export function BotStartIntro({
   onCreate,
@@ -36,48 +35,61 @@ export function BotStartIntro({
 
     return () => cancelAnimationFrame(frame)
   }, [visible])
-  const line = (index: number, className?: string) => ({
-    className: clsx('t-stagger-line', className),
-    style: { '--line': index } as CSSProperties,
-  })
 
   return (
     <section ref={intro} className="t-stagger t-bot-start w-full pb-1">
-      <div {...line(0, 'mb-7 flex h-[88px] items-end gap-3')} aria-hidden>
-        <BotAvatarImage
-          looping={visible}
-          file="01-vermeer-girl.svg"
-          className="size-[72px] object-contain"
-        />
-        <BotAvatarImage
-          looping={visible}
-          file="07-ada.svg"
-          className="mb-3 size-[80px] object-contain"
-        />
-        <BotAvatarImage
-          looping={visible}
-          file="03-mona-lisa.svg"
-          className="size-[72px] object-contain"
-        />
-      </div>
-      <h1 {...line(1, 'text-2xl font-semibold tracking-tight text-main')}>
-        {firstBot ? t('Start with your first Bot') : t('New Bot')}
-      </h1>
-      <p {...line(2, 'mt-3 max-w-[540px] text-sm leading-relaxed text-secondary')}>
-        {t(
-          'A familiar face for ongoing work. Pick a name and let your team join the conversation.',
-        )}
-      </p>
-      <div {...line(3, 'mt-8 flex flex-wrap items-center gap-2')}>
-        <Button onClick={onCreate}>
-          <Plus className="size-4" strokeWidth={1.8} />
-          {t('New Bot')}
-        </Button>
-        <Button variant="secondary" onClick={onImport}>
-          <Upload className="size-4" strokeWidth={1.8} />
-          {t('Import from Grok Bot')}
-        </Button>
-      </div>
+      <Line index={0}>
+        <div aria-hidden className="mb-7 flex h-[88px] items-end gap-3">
+          <BotAvatarImage
+            looping={visible}
+            file="01-vermeer-girl.svg"
+            className="size-[72px] object-contain"
+          />
+          <BotAvatarImage
+            looping={visible}
+            file="07-ada.svg"
+            className="mb-3 size-[80px] object-contain"
+          />
+          <BotAvatarImage
+            looping={visible}
+            file="03-mona-lisa.svg"
+            className="size-[72px] object-contain"
+          />
+        </div>
+      </Line>
+      <Line index={1}>
+        <h1 className="text-2xl font-semibold tracking-tight text-main">
+          {firstBot ? t('Start with your first Bot') : t('New Bot')}
+        </h1>
+      </Line>
+      <Line index={2}>
+        <p className="mt-3 max-w-[540px] text-sm leading-relaxed text-secondary">
+          {t(
+            'A familiar face for ongoing work. Pick a name and let your team join the conversation.',
+          )}
+        </p>
+      </Line>
+      <Line index={3}>
+        <div className="mt-8 flex flex-wrap items-center gap-2">
+          <Button onClick={onCreate}>
+            <Plus className="size-4" strokeWidth={1.8} />
+            {t('New Bot')}
+          </Button>
+          <Button variant="secondary" onClick={onImport}>
+            <Upload className="size-4" strokeWidth={1.8} />
+            {t('Import from Grok Bot')}
+          </Button>
+        </div>
+      </Line>
     </section>
+  )
+}
+
+/** One line of the texts reveal: the preset's line moves; what it holds keeps its own layout. */
+function Line({ index, children }: { index: number; children: ReactNode }) {
+  return (
+    <div className="t-stagger-line" style={{ '--line': index } as CSSProperties}>
+      {children}
+    </div>
   )
 }
