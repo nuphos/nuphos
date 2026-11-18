@@ -7,6 +7,21 @@ private final class BotAvatarBundle: NSObject {}
 
 /// Keep this order and hash identical to Desktop's botAvatars.ts.
 enum BotAvatars {
+    /// Uploaded Bot photos belong only to the backend currently in use.
+    static func uploadedURL(_ raw: String, apiBase: URL) -> URL? {
+        func port(_ url: URL) -> Int? {
+            url.port ?? (url.scheme?.lowercased() == "https" ? 443 : url.scheme?.lowercased() == "http" ? 80 : nil)
+        }
+        guard raw.count <= 2048, let url = URL(string: raw),
+              url.user == nil, url.password == nil, url.query == nil, url.fragment == nil,
+              url.scheme?.lowercased() == apiBase.scheme?.lowercased(), url.host?.lowercased() == apiBase.host?.lowercased(),
+              url.host != nil, port(url) == port(apiBase),
+              ["https", "http"].contains(url.scheme?.lowercased() ?? ""),
+              (URLComponents(url: url, resolvingAgainstBaseURL: false)?.percentEncodedPath ?? "").range(of: #"^/avatars/[0-9a-f]{24}/[0-9a-f]{64}\.webp$"#, options: .regularExpression) != nil
+        else { return nil }
+        return url
+    }
+
     static let enabledKey = "nuphos.botAvatars"
 
     /// Shared with the notification extension, which shows the avatar on pushes.
