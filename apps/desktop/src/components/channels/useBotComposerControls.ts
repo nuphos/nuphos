@@ -1,6 +1,7 @@
 import { t } from '../../i18n'
 import { useBypassControl } from '../agent/panel/sessionBypass'
 
+import { offlineMember } from './botPresenceRuntime'
 import { useBotRuntimeControl } from './useBotRuntimeControl'
 
 /**
@@ -9,8 +10,11 @@ import { useBotRuntimeControl } from './useBotRuntimeControl'
  * anyone else sees its model locked.
  */
 export function useBotComposerControls(...args: Parameters<typeof useBotRuntimeControl>) {
-  const [teamId, bot, owned] = args
-  const runtimeControl = useBotRuntimeControl(...args)
+  const [teamId, bot, owned, , , , chat] = args
+  const ownRuntime = useBotRuntimeControl(...args)
+  // A group chat has no runtime: its strip names a member Bot whose computer is offline.
+  const offlineAgent = bot ? undefined : offlineMember(chat?.agents ?? [])
+  const runtimeControl = ownRuntime ?? (offlineAgent ? { value: null, offlineAgent } : undefined)
   const bypassControl = useBypassControl(owned ? bot : undefined)
   const modelSession = bot
     ? {

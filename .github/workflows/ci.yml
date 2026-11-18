@@ -103,11 +103,13 @@ jobs:
               # The local runtime bundles most of the runtime image (apps/runtime/README.md).
               - 'apps/runtime/image/**'
               - '.github/workflows/ci.yml'
-            # What electron-builder adds beyond the vite bundle, which every
-            # desktop change still builds. The single `*` takes the top-level
-            # config: package.json (electron-builder's config) and the lockfile.
+            # What a PR needs the Mac for: what electron-builder adds beyond the
+            # vite bundle, and the macOS-only native addon. The single `*` takes
+            # the top-level config: package.json (electron-builder's config) and
+            # the lockfile.
             desktop_package:
               - 'apps/desktop/*'
+              - 'apps/desktop/native/**'
               - 'apps/backend/src/lib/claude-code-preview/runtime-file-program.ts'
               - 'apps/runtime/image/**'
               - 'apps/desktop/electron/**'
@@ -505,11 +507,13 @@ jobs:
             !${{ runner.temp }}/e2e-onboarding/sign-in
           retention-days: 7
 
-  desktop:
-    name: Desktop (Nuphos macOS package)
+  # Typecheck, tests and the bundles do not depend on macOS, so a PR gets them
+  # from a Linux runner instead of waiting for a Mac.
+  desktop-checks:
+    name: Desktop (typecheck, tests, build)
     needs: changes
     if: needs.changes.outputs.desktop == 'true'
-    runs-on: macos-26
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -555,18 +559,51 @@ jobs:
         run: |
           bun build electron/main/local-runtime/cli-host.ts --target=node --format=esm --external @napi-rs/keyring --outfile "$RUNNER_TEMP/host.mjs"
           (env -u NUPHOS_AGENT_HOME node "$RUNNER_TEMP/host.mjs" 2>&1 || true) | tee /dev/stderr | grep -qF 'NUPHOS_AGENT_HOME is not set'
-      # Staging and electron-builder cost ~4 minutes and have not caught
-      # anything the steps above missed, so they run only on a pull request that
-      # changes a packaging input. The merge queue re-runs the steps above on
-      # the merged result and skips the package, so a queued PR does not wait
-      # for it again; the release workflow packages before anything ships.
+
+  # Some tests only run on macOS (the keychain, macOS config paths), and the
+  # native addon only compiles there, so the Mac runs the suite and the build
+  # wherever it runs: in the merge queue, so nothing reaches main without them,
+  # and on a PR that changes a packaging input or the addon.
+  # Staging and electron-builder cost ~4 minutes and have not caught anything
+  # the Linux job missed, so they run only on such a PR; the release workflow
+  # packages before anything ships.
+  desktop:
+    name: Desktop (Nuphos macOS package)
+    needs: changes
+    if: >-
+      needs.changes.outputs.desktop == 'true' &&
+      (github.event_name != 'pull_request' || needs.changes.outputs.desktop_package == 'true')
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: apps/desktop/pnpm-lock.yaml
+      - name: Install dependencies
+        working-directory: apps/desktop
+        run: pnpm install --frozen-lockfile
+      - name: Run tests
+        timeout-minutes: 3
+        working-directory: apps/desktop
+        run: pnpm test
+      # On macOS this also compiles the native addon (apps/desktop/native).
+      - name: Build renderer and main bundles
+        working-directory: apps/desktop
+        run: pnpm exec vite build
       - name: Stage the local agent adapter
-        if: github.event_name == 'pull_request' && needs.changes.outputs.desktop_package == 'true'
+        if: github.event_name == 'pull_request'
         working-directory: apps/desktop
         run: node local-runtime/prepare.mjs --targets darwin-arm64,darwin-x64 --no-openab
       # Exercise both native architectures without producing release ZIP/DMG files.
       - name: Package Nuphos macOS app
-        if: github.event_name == 'pull_request' && needs.changes.outputs.desktop_package == 'true'
+        if: github.event_name == 'pull_request'
         working-directory: apps/desktop
         run: pnpm exec electron-builder --mac --arm64 --x64 --dir --publish never
         env:
