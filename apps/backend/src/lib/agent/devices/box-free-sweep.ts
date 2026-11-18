@@ -1,12 +1,14 @@
 // Pauses free Boxes (box-free): one nobody used for IDLE_PAUSE_MS, and every running one of a
 // team whose month's hours are used. A Box is used while data moves on its tunnel's streams
 // (agent turns, commands, terminals, desktops), as the replica holding the tunnel records on
-// its presence. Every replica sweeps: pausing a paused Box changes nothing.
+// its presence, or while one of its agents is mid-turn: a tool can run long without output.
+// Every replica sweeps: pausing a paused Box changes nothing.
 
 import { Sandbox } from '@insforge/instabox-sdk'
 import { ObjectId } from 'mongodb'
 
 import { config } from '@/config'
+import { boxAgentBusy, hostAgents } from '@/lib/claude-code-preview/box-update'
 import { teams } from '@/lib/identity/shared'
 import { logError, logEvent } from '@/lib/observability'
 
@@ -28,6 +30,8 @@ export type FreeSweepDeps = {
   subscribed: (teamIds: string[]) => Promise<Set<string>>
   monthVcpuHours: typeof monthVcpuHours
   usedAt: (userId: string, deviceId: string) => Promise<number | undefined>
+  /** Whether one of the Box's agents is mid-turn. */
+  busy: (teamId: string, userId: string, deviceId: string) => Promise<boolean>
   pause: (userId: string, deviceId: string) => Promise<unknown>
   noteUsage: (teamId: string) => void
 }
@@ -54,6 +58,14 @@ const defaultDeps: FreeSweepDeps = {
   },
   monthVcpuHours,
   usedAt: async (userId, deviceId) => (await runtimePresenceStore().get(userId, deviceId))?.usedAt,
+  busy: async (teamId, userId, deviceId) => {
+    const status = (await runtimePresenceStore().get(userId, deviceId))?.status
+
+    for (const id of status ? hostAgents({ userId, deviceId }, status) : [])
+      if (await boxAgentBusy(teamId, id, userId)) return true
+
+    return false
+  },
   pause: pauseBox,
   noteUsage: noteBoxUsage,
 }
@@ -76,6 +88,7 @@ export async function sweepFreeBoxes(nowMs = Date.now(), deps = defaultDeps): Pr
       const usedAt = spent ? undefined : await deps.usedAt(userId, deviceId)
 
       if (!spent && (usedAt === undefined || nowMs - usedAt < IDLE_PAUSE_MS)) continue
+      if (!spent && (await deps.busy(teamId, userId, deviceId))) continue
       try {
         await deps.pause(userId, deviceId)
         logEvent('info', 'agent.box.free_paused', {

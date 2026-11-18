@@ -88,7 +88,8 @@ function deps(over: Partial<FreeSweepDeps> = {}) {
       running: () =>
         Promise.resolve([
           { teamId: 'free', userId: 'u1', deviceId: 'idle' },
-          { teamId: 'free', userId: 'u1', deviceId: 'busy' },
+          { teamId: 'free', userId: 'u1', deviceId: 'recent' },
+          { teamId: 'free', userId: 'u1', deviceId: 'silent-turn' },
           { teamId: 'free', userId: 'u1', deviceId: 'unjoined' },
           { teamId: 'paid', userId: 'u2', deviceId: 'paid-idle' },
         ]),
@@ -97,12 +98,17 @@ function deps(over: Partial<FreeSweepDeps> = {}) {
       usedAt: (_userId: string, deviceId: string) =>
         Promise.resolve(
           (
-            { idle: now - IDLE_PAUSE_MS, busy: now - 60_000, 'paid-idle': 0 } as Record<
-              string,
-              number | undefined
-            >
+            {
+              idle: now - IDLE_PAUSE_MS,
+              recent: now - 60_000,
+              'silent-turn': now - 2 * IDLE_PAUSE_MS,
+              'paid-idle': 0,
+            } as Record<string, number | undefined>
           )[deviceId],
         ),
+      // An agent mid-turn whose tool has printed nothing for longer than the idle time.
+      busy: (_teamId: string, _userId: string, deviceId: string) =>
+        Promise.resolve(deviceId === 'silent-turn'),
       pause: (_userId: string, deviceId: string) => {
         paused.push(deviceId)
 
@@ -117,7 +123,7 @@ function deps(over: Partial<FreeSweepDeps> = {}) {
 }
 
 describe('free Box sweep', () => {
-  test('pauses a free Box nobody used for the idle time, and no other', async () => {
+  test('pauses a free Box nobody used for the idle time, and none with an agent mid-turn', async () => {
     const { deps: d, paused, noted } = deps()
 
     await sweepFreeBoxes(now, d)
@@ -130,7 +136,7 @@ describe('free Box sweep', () => {
     const { deps: d, paused } = deps({ monthVcpuHours: () => Promise.resolve(100) })
 
     await sweepFreeBoxes(now, d)
-    expect(paused).toEqual(['idle', 'busy', 'unjoined'])
+    expect(paused).toEqual(['idle', 'recent', 'silent-turn', 'unjoined'])
   })
 
   test('does nothing without the setting', async () => {
