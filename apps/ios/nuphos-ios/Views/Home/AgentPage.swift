@@ -264,8 +264,7 @@ struct AgentPage: View {
         }
     }
 
-    /// One row with the threads it opened under it: a Task, or on Bots a chat
-    /// or a Bot with what the Bot dispatched.
+    /// One row: a Task with the threads it opened under it, or on Bots a chat or a Bot.
     @ViewBuilder
     private func agentRow(_ item: NestedConversation) -> some View {
                 let conversation = item.conversation
@@ -328,12 +327,12 @@ struct AgentPage: View {
 
     /// A row's content with its thread count, indented on the tree's lines.
     private func treeRow<Row: View>(_ item: NestedConversation, @ViewBuilder row: () -> Row) -> some View {
-        let folded = item.hasChildren && store.isFolded(item.id, onBots: page == .chats)
+        let folded = item.hasChildren && store.isFolded(item.id)
         return HStack(spacing: 0) {
             row()
             if item.hasChildren {
                 // The thread count, so it never reads as the row's own disclosure chevron.
-                Button { store.toggleFolded(item.id, onBots: page == .chats) } label: {
+                Button { store.toggleFolded(item.id) } label: {
                     HStack(spacing: 3) {
                         Text("\(item.threads)")
                         LucideIcon(systemName: folded ? "chevron.down" : "chevron.up")
