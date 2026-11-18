@@ -23,6 +23,8 @@ type Question = { id: string; about?: string[] }
 const questions = (doc: Doc) => (doc.inputRequests ?? []) as Question[]
 const isAbout = (question: Question, ids: unknown[]) =>
   Boolean(question.about?.some((ref) => ids.includes(ref)))
+const onlyAbout = (question: Question, ids: unknown[]) =>
+  Boolean(question.about?.length) && Boolean(question.about?.every((ref) => ids.includes(ref)))
 
 function matches(doc: Doc, filter: Doc): boolean {
   return Object.entries(filter).every(([key, value]) => {
@@ -47,7 +49,7 @@ function matches(doc: Doc, filter: Doc): boolean {
 type Update = {
   $set?: Doc
   $unset?: Doc
-  $pull?: { inputRequests: { about: { $in: unknown[] } } }
+  $pull?: { inputRequests: { about: { $not: { $elemMatch: { $nin: unknown[] } } } } }
 }
 
 class FakeConversations {
@@ -69,9 +71,9 @@ class FakeConversations {
   private apply(doc: Doc, update: Update) {
     Object.assign(doc, update.$set)
     for (const key of Object.keys(update.$unset ?? {})) delete doc[key]
-    const pulled = update.$pull?.inputRequests.about.$in
+    const tree = update.$pull?.inputRequests.about.$not.$elemMatch.$nin
 
-    if (pulled) doc.inputRequests = questions(doc).filter((question) => !isAbout(question, pulled))
+    if (tree) doc.inputRequests = questions(doc).filter((question) => !onlyAbout(question, tree))
   }
   async updateOne(filter: Doc, update: Update) {
     this.failIf('updateOne')
@@ -121,6 +123,7 @@ describe('setConversationArchived', () => {
     root.inputRequests = [
       { id: 'about-child', about: ['child'] },
       { id: 'about-pr', about: ['pr-1'] },
+      { id: 'about-both', about: ['grandchild', 'pr-1'] },
       { id: 'plain' },
     ]
     conversations.docs.push({
@@ -131,7 +134,11 @@ describe('setConversationArchived', () => {
     })
     await setConversationArchived('child', true)
 
-    expect(questions(root).map((question) => question.id)).toEqual(['about-pr', 'plain'])
+    expect(questions(root).map((question) => question.id)).toEqual([
+      'about-pr',
+      'about-both',
+      'plain',
+    ])
     expect(questions(conversations.docs.at(-1)!).map((question) => question.id)).toEqual(['theirs'])
   })
 
