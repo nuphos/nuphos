@@ -5,6 +5,7 @@ import { Window } from 'happy-dom'
 import { act, createElement } from 'react'
 
 import type { ConnectCardContextValue } from './connectCardContext'
+import type { DecisionQuestion } from './decisionFormModel'
 import type { DecisionAnswer } from '../../../api/agent-chat-types'
 import type { ReactNode } from 'react'
 
@@ -184,19 +185,20 @@ test('a single- and a multi-select question are one option row: multiSelect only
     },
     skip: () => Promise.resolve(false),
   }
-  const render = (multiSelect: boolean) =>
+  const render = (multiSelect: boolean, questions?: DecisionQuestion[]) =>
     act(() =>
       root.render(
         createElement(
           ConnectCardContext.Provider,
           { value: ctx },
           createElement(ChoiceCard, {
-            key: String(multiSelect),
+            key: `${String(multiSelect)}${String(questions?.length)}`,
             toolCallId: 'q1',
             category: 'preference',
             question: 'Which regions first?',
             options: ['us-east', 'eu-west', 'ap-northeast'],
             multiSelect,
+            questions,
             canAct: true,
           }),
         ),
@@ -234,6 +236,28 @@ test('a single- and a multi-select question are one option row: multiSelect only
     assert.equal(button('eu-west')?.getAttribute('aria-checked'), 'false')
     await click('Send')
     assert.deepEqual(answers.at(-1), { choices: ['us-east', 'ap-northeast'] })
+
+    // One entry in `questions` with its own multiSelect, the top level saying nothing of it:
+    // its own options, as checkboxes, and a key never answers them.
+    await render(false, [
+      { question: 'Which regions first?', options: ['x', 'y'], multiSelect: true },
+    ])
+    assert.deepEqual(row(), ['x', 'y', 'Other…', 'Send', 'Skip'])
+    assert.equal(container.querySelectorAll('[role="checkbox"]').length, 2)
+    const sent = answers.length
+
+    await act(async () => {
+      dom.document.dispatchEvent(
+        new dom.KeyboardEvent('keydown', {
+          key: '1',
+          code: 'Digit1',
+          ctrlKey: true,
+          altKey: true,
+          bubbles: true,
+        }) as unknown as Event,
+      )
+    })
+    assert.equal(answers.length, sent)
   } finally {
     await act(() => root.unmount())
     for (const [key, descriptor] of originals)

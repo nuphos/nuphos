@@ -6,7 +6,7 @@ import { t } from '../../../i18n'
 import { Button } from '../../ui/button'
 
 import { AnswerField } from './AnswerField'
-import { formAnswer, replaceAt, togglePick } from './decisionFormModel'
+import { clickOptions, formAnswer, replaceAt, togglePick } from './decisionFormModel'
 
 import type { DecisionQuestion } from './decisionFormModel'
 import type { DecisionAnswer } from '../../../api/agent-chat-types'
@@ -48,7 +48,7 @@ export function DecisionOptions({
   // What was typed is kept while a field is closed; only an open field answers.
   const [typed, setTyped] = useState<string[]>(() => questions.map(() => ''))
   const [open, setOpen] = useState<boolean[]>(() => questions.map(() => false))
-  const instant = questions.length === 1 && !questions[0]?.multiSelect
+  const instant = clickOptions(questions) !== undefined
   const words = typed.map((text, index) => (open[index] ? text : ''))
   const complete = questions.every(
     (_, index) => (picked[index]?.length ?? 0) > 0 || Boolean(words[index]?.trim()),

@@ -8,7 +8,7 @@ import { MessageResponse } from '../MessageResponse'
 
 import { ConnectCardContext } from './connectCardContext'
 import { DecisionAnswersContext } from './decisionAnswers'
-import { formQuestions, ownBody } from './decisionFormModel'
+import { clickOptions, formQuestions, ownBody } from './decisionFormModel'
 import { DecisionOptions } from './DecisionOptions'
 import { DecisionTitle } from './DecisionTitle'
 import { useDecisionKeys } from './useDecisionKeys'
@@ -57,13 +57,13 @@ export function ChoiceCard({
   const typeable = interactive && category !== 'credential'
   const form = formQuestions({ question, options, multiSelect, questions })
   // One question with one answer is answered by a click, so its keys choose.
-  const instant = form.length === 1 && !form[0]?.multiSelect
+  const clicked = clickOptions(form)
   const live = interactive && form.some((q) => q.options.length > 0)
   const cardRef = useRef<HTMLDivElement | null>(null)
   const choose = (option: string) => submit({ choices: [option] })
   const act = useDecisionKeys(cardRef, live, (key) => {
     // Picked options are sent with Send, so a key never answers them.
-    const option = key.kind === 'option' && instant ? options[key.index] : undefined
+    const option = key.kind === 'option' ? clicked?.[key.index] : undefined
 
     if (option === undefined) return false
 

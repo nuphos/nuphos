@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { formAnswer, formQuestions, ownBody, writtenQuestions } from './decisionFormModel.ts'
+import {
+  clickOptions,
+  formAnswer,
+  formQuestions,
+  ownBody,
+  writtenQuestions,
+} from './decisionFormModel.ts'
 
 const regions = { question: 'Which regions?', options: ['us', 'eu', 'ap'], multiSelect: true }
 const keep = { question: 'Keep the old cluster?', options: ['Keep', 'Delete'], multiSelect: false }
@@ -43,4 +49,16 @@ test('a card with questions drops only the list the backend wrote out, never a `
 
   assert.equal(ownBody(own, [regions, keep]), own)
   assert.equal(ownBody(`${own}${writtenQuestions([regions, keep])}`, [regions, keep]), own)
+})
+
+test('only one question with one answer is answered by a click, read from the question itself', () => {
+  assert.deepEqual(
+    clickOptions([{ question: 'Ship?', options: ['Yes', 'No'], multiSelect: false }]),
+    ['Yes', 'No'],
+  )
+  // A one-entry `questions` card with its own multiSelect, the top level saying nothing of it.
+  const card = { question: 'q', options: ['a', 'b'], questions: [{ ...regions }] }
+
+  assert.equal(clickOptions(formQuestions(card)), undefined)
+  assert.equal(clickOptions([regions, keep]), undefined)
 })

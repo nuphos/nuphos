@@ -6,7 +6,11 @@ import {
   parseConnectRequest,
 } from '../../components/agent/panel/connectCardModel'
 import { CredentialSelectorButton } from '../../components/agent/panel/CredentialSelectorButton'
-import { formQuestions, ownBody } from '../../components/agent/panel/decisionFormModel'
+import {
+  clickOptions,
+  formQuestions,
+  ownBody,
+} from '../../components/agent/panel/decisionFormModel'
 import { DecisionOptions } from '../../components/agent/panel/DecisionOptions'
 import { DecisionTitle } from '../../components/agent/panel/DecisionTitle'
 import { botChatQuestion } from '../../components/channels/botChatQuestion'
@@ -167,12 +171,12 @@ function pageChoice(input: unknown, typed: boolean) {
   const questions = formQuestions(choice)
 
   if (!typed && !questions.some((q) => q.options.length > 0)) return null
-  const instant = questions.length === 1 && !choice.multiSelect
+  const clicked = clickOptions(questions)
 
   return {
     questions,
     body: ownBody(choice.body, choice.questions),
-    keyOptions: instant && choice.options.length > 0 ? choice.options : undefined,
+    keyOptions: clicked?.length ? clicked : undefined,
   }
 }
 

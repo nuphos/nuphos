@@ -20,6 +20,16 @@ export function formQuestions(card: DecisionFormInput): DecisionQuestion[] {
   ]
 }
 
+/**
+ * The options a click answers, which keys choose: those of one question with one answer, read
+ * from the question itself; none for a multi-select or several questions, which Send answers.
+ */
+export function clickOptions(questions: readonly DecisionQuestion[]): string[] | undefined {
+  const [first] = questions
+
+  return questions.length === 1 && first && !first.multiSelect ? first.options : undefined
+}
+
 /** Text on one line, as the written-out list has it. */
 function oneLine(text: string) {
   return text.replace(/\s+/g, ' ').trim()
