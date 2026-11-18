@@ -69,15 +69,16 @@ function watch({
     return best
   }
 
-  // The faintest text across the chat pane, sampled on a grid between its header and composer.
+  // The faintest text across the chat pane, its title bar included, sampled down to the composer.
   const paneOpacity = () => {
     const left = (document.querySelector('aside')?.getBoundingClientRect().right ?? 0) + 24
     let faintest = 1
 
     for (let col = 0; col < 6; col++)
-      for (let row = 0; row < 6; row++) {
+      for (let row = 0; row < 7; row++) {
         const x = left + ((innerWidth - 24 - left) * (col + 0.5)) / 6
-        const y = 80 + ((innerHeight - 220) * (row + 0.5)) / 6
+        // Row 0 runs through the title bar.
+        const y = row === 0 ? 30 : 80 + ((innerHeight - 220) * (row - 0.5)) / 6
         const element = document.elementFromPoint(x, y)
 
         if (!element?.textContent?.trim() || element.closest('aside')) continue
