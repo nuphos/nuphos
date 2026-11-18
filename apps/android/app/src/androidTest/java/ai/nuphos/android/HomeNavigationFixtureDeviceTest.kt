@@ -67,6 +67,7 @@ class HomeNavigationFixtureDeviceTest {
     @Volatile private var archiveFailure = false
     @Volatile private var archived = false
     @Volatile private var historyFailure = false
+    @Volatile private var historyFamilies = false
     @Volatile private var runtimeCatalogHold: CountDownLatch? = null
     @Volatile private var runtimeCatalogFailure = false
     @Volatile private var runtimeRemoved = false
@@ -140,7 +141,14 @@ class HomeNavigationFixtureDeviceTest {
                     favorites -> """{"entries":[],"revision":0}"""
                     history -> {
                         // Archived chats are excluded from the list, matching iOS.
-                        if (historyFailure) { code = 403; "{}" } else if (archived || request.url.queryParameter("archived") != "exclude") "{\"conversations\":[],\"nextCursor\":null}" else
+                        if (historyFailure) { code = 403; "{}" } else if (historyFamilies) {
+                            """{"conversations":[
+                                {"sessionId":"recent","title":"Recent standalone task","lastActiveAt":"2026-01-02T00:00:00Z","isOwner":true},
+                                {"sessionId":"parent","title":"Task with a waiting thread","lastActiveAt":"2026-01-01T00:00:00Z","isOwner":true},
+                                {"sessionId":"child","parentSessionId":"parent","title":"Waiting thread","isOwner":true,
+                                 "inputRequests":[{"id":"q","category":"approval","question":"Continue?","status":"open"}]}
+                            ],"nextCursor":null}"""
+                        } else if (archived || request.url.queryParameter("archived") != "exclude") "{\"conversations\":[],\"nextCursor\":null}" else
                             """{"conversations":[{"sessionId":"fixture-chat","teamId":"${request.url.queryParameter("teamId")}","title":"Synthetic active conversation","archivedAt":null,"canManage":true,"isOwner":true,"createdAt":"2026-01-01T00:00:00Z"}],"nextCursor":null}"""
                     }
                     browsing -> "{}"
@@ -294,6 +302,18 @@ class HomeNavigationFixtureDeviceTest {
         select("agent"); compose.runOnIdle { agent.select(b) }
         compose.waitUntil(8_000) { requests.any { it.url.encodedPath == "/agent/conversations" && it.url.queryParameter("teamId") == b.id } }
         assertFixedListSelectors(); noWrites()
+    }
+
+    @Test fun taskFamiliesWaitingOnAQuestionAppearFirst() {
+        historyFamilies = true
+        render()
+        waitText("Task with a waiting thread")
+        waitText("Recent standalone task")
+        val waiting = compose.onNodeWithText("Task with a waiting thread").fetchSemanticsNode().boundsInRoot.top
+        val recent = compose.onNodeWithText("Recent standalone task").fetchSemanticsNode().boundsInRoot.top
+        assertTrue(waiting < recent)
+        shot("task-family-order")
+        noWrites()
     }
 
     @Test fun selectedPageSurvivesSavedStateAndOutsideDismisses() {
