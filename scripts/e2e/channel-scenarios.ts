@@ -116,6 +116,8 @@ export const channelScenarios: Scenario[] = [
         // Still in its turn: the row has the dots exactly while the chat types.
         await row.locator('.t-typing-dot').first().waitFor()
         await page.getByRole('status', { name: 'E2E Bot is thinking' }).waitFor()
+        // The chat's bubble opens after a beat; let it draw before the capture.
+        await page.waitForTimeout(1_000)
         await page.screenshot({ path: `${artifacts}/bot-row-busy-light.png` })
         await loadingFree(row, 'While the Bot works')
         await ownWords('While the Bot works')
