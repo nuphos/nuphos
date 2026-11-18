@@ -46,13 +46,13 @@ export type BoxUpdateDeps = {
   markUpdating: (ref: LocalRuntimeRef, version: string) => Promise<unknown>
 }
 
-/** Whether that agent is mid-turn, asked as `actorId`; an agent that cannot be reached counts as idle. */
+/** Whether that agent is mid-turn, asked as `actorId`; undefined when it could not be asked. */
 export async function boxAgentBusy(teamId: string, runtimeId: string, actorId: string) {
   const endpoint = await resolveLocalRuntimeEndpoint(teamId, runtimeId, actorId, 'control').catch(
     () => null,
   )
 
-  return endpoint ? endpointHasActiveTurn(endpoint) : false
+  return endpoint ? endpointHasActiveTurn(endpoint) : undefined
 }
 
 const defaultDeps: BoxUpdateDeps = {
@@ -136,23 +136,32 @@ export async function requestBoxUpdate(
       'runtime_release_unavailable',
       'Could not check the latest release. Try again shortly.',
     )
-  if (await anyBusy(teamId, found.ref, found.status, actorId, deps))
+  // An agent that could not be asked counts as idle: holding there deadlocks the update.
+  if ((await agentsIdle(teamId, found.ref, found.status, actorId, deps)) === false)
     throw new AppError(409, 'runtime_busy', 'Updates wait for active conversations to finish.')
   await startUpdate(found.ref, release.version, deps)
 
   return { version: release.version }
 }
 
-async function anyBusy(
+/** Whether no agent the host runs is mid-turn; undefined when one could not be asked. */
+async function agentsIdle(
   teamId: string,
   ref: LocalRuntimeRef,
   status: LocalRuntimeStatus,
   actorId: string,
   deps: BoxUpdateDeps,
 ) {
-  for (const id of hostAgents(ref, status)) if (await deps.busy(teamId, id, actorId)) return true
+  let idle: boolean | undefined = true
 
-  return false
+  for (const id of hostAgents(ref, status)) {
+    const busy = await deps.busy(teamId, id, actorId)
+
+    if (busy) return false
+    if (busy === undefined) idle = undefined
+  }
+
+  return idle
 }
 
 async function startUpdate(ref: LocalRuntimeRef, version: string, deps: BoxUpdateDeps) {
@@ -170,6 +179,8 @@ async function startUpdate(ref: LocalRuntimeRef, version: string, deps: BoxUpdat
 /** How often Boxes are checked, and how long a Box's agents must have been quiet to update. */
 export const BOX_AUTO_UPDATE_INTERVAL_MS = 15 * 60_000
 export const BOX_AUTO_UPDATE_IDLE_MS = 10 * 60_000
+/** Updates one sweep starts at most, so a release does not restart every Box at once. */
+export const BOX_AUTO_UPDATE_PER_SWEEP = 5
 
 export type BoxAutoUpdateDeps = BoxUpdateDeps & {
   boxes: () => Promise<AgentDevice[]>
@@ -190,7 +201,9 @@ const defaultAutoDeps: BoxAutoUpdateDeps = {
  * once its agents have been quiet for a while: none mid-turn, none served a turn in the last
  * BOX_AUTO_UPDATE_IDLE_MS. A team can turn this off, except for a Box below the oldest CLI a
  * conversation runs on. A version an update already went to, and the Box came back without,
- * is not tried again on its own. Returns the Boxes it updated.
+ * is not tried again on its own. Unlike Update, a Box whose agents could not be asked waits.
+ * At most BOX_AUTO_UPDATE_PER_SWEEP start; the rest wait for a later sweep. Returns the Boxes
+ * it updated.
  */
 export async function runBoxAutoUpdates(deps = defaultAutoDeps, now = Date.now()) {
   const release = await deps.latestVersion()
@@ -198,38 +211,49 @@ export async function runBoxAutoUpdates(deps = defaultAutoDeps, now = Date.now()
 
   if (!release) return updated
   for (const device of await deps.boxes()) {
-    const ref = { userId: device.userId, deviceId: device.deviceId }
-    const { box } = device
-    const status = await deps.status(ref)
-    const current = status?.cliVersion
-
-    // Away, a host that names no version, or already current.
-    if (!box || !status || !current || !newerRuntimeVersion(release.version, current)) continue
-    if (box.updateVersion === release.version) continue
-    if (
-      runtimeVersionAtLeast(current, MINIMUM_HOST_VERSION.cli) &&
-      !(await deps.enabled(box.teamId))
-    )
-      continue
-    const lastTurn = await deps.lastTurnAt(ref)
-
-    if (lastTurn && now - lastTurn.getTime() < BOX_AUTO_UPDATE_IDLE_MS) continue
-    if (await anyBusy(box.teamId, ref, status, box.createdBy ?? device.userId, deps)) continue
-    try {
-      await startUpdate(ref, release.version, deps)
-      updated.push(device.deviceId)
-      logEvent('info', 'agent.box.auto_update_started', {
-        device_id: device.deviceId,
-        team_id: box.teamId,
-        from_version: current,
-        to_version: release.version,
-      })
-    } catch (error) {
+    if (updated.length >= BOX_AUTO_UPDATE_PER_SWEEP) break
+    // One Box that fails is logged and skipped; the others still get their turn.
+    const from = await autoUpdate(device, release.version, deps, now).catch((error: unknown) => {
       logError('agent.box.auto_update_failed', error, { device_id: device.deviceId })
-    }
+    })
+
+    if (!from) continue
+    updated.push(device.deviceId)
+    logEvent('info', 'agent.box.auto_update_started', {
+      device_id: device.deviceId,
+      team_id: device.box?.teamId,
+      from_version: from,
+      to_version: release.version,
+    })
   }
 
   return updated
+}
+
+/** Updates this Box when it should be; returns the version it ran, or undefined when it waits. */
+async function autoUpdate(
+  device: AgentDevice,
+  version: string,
+  deps: BoxAutoUpdateDeps,
+  now: number,
+): Promise<string | undefined> {
+  const ref = { userId: device.userId, deviceId: device.deviceId }
+  const { box } = device
+  const status = await deps.status(ref)
+  const current = status?.cliVersion
+
+  // Away, a host that names no version, or already current.
+  if (!box || !status || !current || !newerRuntimeVersion(version, current)) return
+  if (box.updateVersion === version) return
+  if (runtimeVersionAtLeast(current, MINIMUM_HOST_VERSION.cli) && !(await deps.enabled(box.teamId)))
+    return
+  const lastTurn = await deps.lastTurnAt(ref)
+
+  if (lastTurn && now - lastTurn.getTime() < BOX_AUTO_UPDATE_IDLE_MS) return
+  if (!(await agentsIdle(box.teamId, ref, status, box.createdBy ?? device.userId, deps))) return
+  await startUpdate(ref, version, deps)
+
+  return current
 }
 
 /** Runs runBoxAutoUpdates on one replica every BOX_AUTO_UPDATE_INTERVAL_MS. */

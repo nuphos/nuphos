@@ -71,13 +71,14 @@ async function defaultHasActiveRuntimeTurn(teamId: string, runtimeId: string): P
 /** Whether the runtime at `endpoint` reports a running turn. */
 export async function endpointHasActiveTurn(
   endpoint: Parameters<typeof reachableRuntimeEndpoint>[0],
-): Promise<boolean> {
+): Promise<boolean | undefined> {
   let client: OpenAbAcpClient | undefined
 
   // Only a turn the runtime reports as running holds a rollout. Anything the
-  // guard cannot read as one (unreachable, an older runtime's answer, leftover
-  // background tools) lets it through: holding on those deadlocks the update
-  // that would fix them.
+  // guard cannot read as one (an older runtime's answer, leftover background
+  // tools) lets it through: holding on those deadlocks the update that would
+  // fix them. A runtime that could not be reached at all is undefined, for a
+  // caller that must not guess.
   try {
     client = await OpenAbAcpClient.connect({
       ...(await reachableRuntimeEndpoint(endpoint)),
@@ -85,6 +86,12 @@ export async function endpointHasActiveTurn(
       callTimeoutMs: 3_000,
     })
     await client.initialize()
+  } catch {
+    client?.close()
+
+    return undefined
+  }
+  try {
     const inventory = await client.getRuntimeExecutionState()
 
     return (

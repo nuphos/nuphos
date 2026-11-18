@@ -67,6 +67,20 @@ is best effort; a write failure does not necessarily stop the operation. An
 unfinished record has an unknown outcome, not proof of success or failure.
 These records are not a tamper-proof or complete security log.
 
+## Cloud computer updates
+
+A cloud computer (Box) updates Nuphos on itself to the newest release. When a new
+release is out and none of its agents has run a turn for 10 minutes, Nuphos
+restarts the computer's Nuphos service on the new version, the same as **Update**
+on its agent's card. The restart ends every conversation and terminal open on the
+computer; idle only means its agents are not working, so a program you started
+yourself, such as a dev server, stops too. An update that does not take is not
+tried again until the next release.
+
+A team administrator can turn this off for the team's cloud computers with
+`PUT /teams/<team>/box-auto-update` and `{"enabled": false}`. A computer on a
+Nuphos too old to run conversations is still updated.
+
 ## Removing access
 
 Removing a grant prevents subsequent authorized access and attempts to close

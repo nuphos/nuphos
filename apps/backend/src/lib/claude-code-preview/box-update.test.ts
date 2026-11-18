@@ -356,6 +356,42 @@ describe('Box auto-update', () => {
     expect(await runBoxAutoUpdates(older.value, now)).toEqual(['box-1'])
   })
 
+  test('a Box whose agents could not be asked waits, while Update goes ahead', async () => {
+    const unknown = { busy: async () => undefined }
+    const auto = autoDeps(unknown)
+    const manual = deps(unknown)
+
+    expect(await runBoxAutoUpdates(auto.value, now)).toEqual([])
+    expect(auto.calls.updated).toBe(0)
+    expect(await requestBoxUpdate('t1', claude, 'admin', manual.value)).toEqual({
+      version: '0.5.0',
+    })
+    expect(manual.calls.updated).toBe(1)
+  })
+
+  test('a sweep starts at most a few updates, and one failing Box does not stop the rest', async () => {
+    const boxes = Array.from({ length: 8 }, (_, index) => ({
+      ...device(),
+      deviceId: `box-${String(index)}`,
+    }))
+    const { value } = autoDeps({
+      boxes: async () => boxes,
+      status: async ({ deviceId }) => {
+        if (deviceId === 'box-0') throw new Error('presence is down')
+
+        return status('0.21.0')
+      },
+    })
+
+    expect(await runBoxAutoUpdates(value, now)).toEqual([
+      'box-1',
+      'box-2',
+      'box-3',
+      'box-4',
+      'box-5',
+    ])
+  })
+
   test('a current, away or unversioned Box is left alone, and so is every Box without a release', async () => {
     for (const overrides of [
       { status: async () => status('0.22.0') },
