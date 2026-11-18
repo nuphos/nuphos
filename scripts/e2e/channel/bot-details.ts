@@ -183,16 +183,9 @@ const scenario: Scenario = {
       await page.waitForTimeout(500)
       await checkFloating(page)
       await shoot(page, 'teammate-narrow-open')
-      // Floating, it is a popover: a press outside closes it in that chat, and saves nothing.
+      // Floating, it is a popover: a press outside, here on the sidebar, closes it.
       await openChat(page, 'E2E Bot')
-      await expectOpen(page, true, 'In the next Bot chat after a press outside')
-      await checkFloating(page)
-      // Right of the panel, which floats from the name at the pane's left.
-      await page.mouse.click(780, 400)
-      await expectOpen(page, false, 'After a press on the transcript')
-      const saved = await page.evaluate(() => localStorage.getItem('nuphos.botDetailsOpen'))
-
-      if (saved !== '1') throw new Error(`A press outside saved the details as ${String(saved)}`)
+      await expectOpen(page, false, 'After a press outside the floating details')
       await shoot(page, 'owner-narrow-closed')
       await setBotDetails(page, true)
       await checkFloating(page)

@@ -46,20 +46,13 @@ type Props = {
   label?: string
   /** Closes the panel; by default this pane's Task summary. */
   onClose?: () => void
-  /** What a press outside the floating panel does; by default onClose. */
-  onDismiss?: () => void
 }
 
 // Matches `.t-summary-slot-out` in index.css.
 const CLOSE_MS = 300
 
 /** The panel beside the transcript, mounted while open and while it slides shut. */
-export function ChatSummaryPanel({
-  open,
-  onClose,
-  onDismiss,
-  ...props
-}: Props & { open: boolean }) {
+export function ChatSummaryPanel({ open, onClose, ...props }: Props & { open: boolean }) {
   const paneId = usePaneId()
   const [mounted, setMounted] = useState(open)
 
@@ -75,9 +68,7 @@ export function ChatSummaryPanel({
 
   const close = onClose ?? (() => setChatSummaryOpen(paneId, false))
 
-  return mounted ? (
-    <SummaryBody {...props} onClose={close} onDismiss={onDismiss ?? close} closing={!open} />
-  ) : null
+  return mounted ? <SummaryBody {...props} onClose={close} closing={!open} /> : null
 }
 
 function Skeleton() {
@@ -203,9 +194,8 @@ function SummaryBody({
   lead,
   label,
   onClose: close,
-  onDismiss: dismiss,
   closing,
-}: Props & { onClose: () => void; onDismiss: () => void; closing: boolean }) {
+}: Props & { onClose: () => void; closing: boolean }) {
   const paneId = usePaneId()
   const rootRef = useRef<HTMLElement>(null)
   const frameRef = useRef<HTMLSpanElement>(null)
@@ -232,7 +222,7 @@ function SummaryBody({
   const background = shellsFromRuntimeState(runtimeStates.get(sessionId))
   const { floating, style } = useSummaryPlacement(frameRef, selected !== null, docked)
 
-  useDismissOutside(rootRef, dismiss, floating && !closing)
+  useDismissOutside(rootRef, close, floating && !closing)
 
   const panel = (
     <aside

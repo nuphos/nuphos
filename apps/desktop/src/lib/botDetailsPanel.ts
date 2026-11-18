@@ -4,10 +4,8 @@ import { useSyncExternalStore } from 'react'
 const KEY = 'nuphos.botDetailsOpen'
 const listeners = new Set<() => void>()
 let open: boolean | undefined
-// The Bot chat whose floating details a press outside closed, without changing the choice.
-let dismissedFor: string | null = null
 
-function saved(): boolean {
+export function isBotDetailsOpen(): boolean {
   if (open === undefined) {
     try {
       open = localStorage.getItem(KEY) === '1'
@@ -19,29 +17,14 @@ function saved(): boolean {
   return open
 }
 
-function notify() {
-  for (const listener of listeners) listener()
-}
-
-export function isBotDetailsOpen(bot: string): boolean {
-  return saved() && dismissedFor !== bot
-}
-
 export function setBotDetailsOpen(next: boolean): void {
   open = next
-  dismissedFor = null
   try {
     localStorage.setItem(KEY, next ? '1' : '0')
   } catch {
     // Without storage the choice still holds until the app closes.
   }
-  notify()
-}
-
-/** Closes a floating popover as a press outside does: in this Bot's chat only, saving nothing. */
-export function dismissBotDetails(bot: string): void {
-  dismissedFor = bot
-  notify()
+  for (const listener of listeners) listener()
 }
 
 function subscribe(listener: () => void) {
@@ -50,10 +33,6 @@ function subscribe(listener: () => void) {
   return () => listeners.delete(listener)
 }
 
-export function useBotDetailsOpen(bot: string): boolean {
-  return useSyncExternalStore(
-    subscribe,
-    () => isBotDetailsOpen(bot),
-    () => false,
-  )
+export function useBotDetailsOpen(): boolean {
+  return useSyncExternalStore(subscribe, isBotDetailsOpen, () => false)
 }

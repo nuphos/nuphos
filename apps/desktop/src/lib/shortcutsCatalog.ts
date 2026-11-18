@@ -84,7 +84,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { label: t('Copy last reply'), combos: ['mod+alt+c'] },
       { label: t('Find in conversation'), combos: ['mod+f'] },
       { label: t('Scroll conversation'), combos: ['pageup', 'pagedown'] },
-      { label: t('Toggle task summary or Bot details'), combos: ['mod+i'] },
+      { label: t('Toggle details panel'), combos: ['mod+i'] },
     ],
   },
   {
