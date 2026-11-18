@@ -16,6 +16,7 @@ import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
 import { dashboardScenarios } from './dashboard-scenarios.ts'
+import { effortCardScenarios } from './effort-card-scenarios.ts'
 import { installScenarios } from './install-scenarios.ts'
 import { linkChipScenarios } from './link-chip-scenarios.ts'
 import { longTranscriptScenarios } from './long-transcript-scenarios.ts'
@@ -245,6 +246,7 @@ const scenarios: Scenario[] = [
   ...usageScenarios,
   ...connectorScenarios,
   ...accessScenarios,
+  ...effortCardScenarios,
   ...runtimeScenarios,
   ...botTurnScenarios,
   ...providerUnreachableScenarios,
