@@ -9,7 +9,11 @@ import { backendFailures, backendLines } from './backend-log.ts'
 import { botTurnScenarios } from './bot-turn-scenarios.ts'
 import { botUnreadScenarios } from './bot-unread-scenarios.ts'
 import { botWorkingDotsScenarios } from './bot-working-dots-scenarios.ts'
-import { checkBotChatTopInset, checkDecisionOutline, checkOutgoingChip } from './chat-presentation.ts'
+import {
+  checkBotChatTopInset,
+  checkDecisionOutline,
+  checkOutgoingChip,
+} from './chat-presentation.ts'
 import { channelScenarios } from './channel-scenarios.ts'
 import { channelAwayScenarios } from './channel-away-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'

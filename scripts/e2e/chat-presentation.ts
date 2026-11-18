@@ -92,5 +92,7 @@ export async function checkBotChatTopInset(page: Page, room: number): Promise<vo
   })
 
   if (gap === null || gap < room)
-    throw new Error(`Bot chat's first line is ${String(gap)}px below its header, want ${String(room)}px`)
+    throw new Error(
+      `Bot chat's first line is ${String(gap)}px below its header, want ${String(room)}px`,
+    )
 }

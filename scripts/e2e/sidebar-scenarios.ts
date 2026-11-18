@@ -68,7 +68,10 @@ export const sidebarScenarios: Scenario[] = [
     run: async (page, stack) => {
       const api = client(stack.apiUrl, stack.token)
       const { conversations } = (
-        await api('GET', `/agent/conversations?teamId=${stack.teamId}&search=E2E_DELIVERY%3Asidebar`)
+        await api(
+          'GET',
+          `/agent/conversations?teamId=${stack.teamId}&search=E2E_DELIVERY%3Asidebar`,
+        )
       ).body as { conversations: { sessionId: string }[] }
       const task = conversations[0]?.sessionId
 
@@ -85,7 +88,12 @@ export const sidebarScenarios: Scenario[] = [
               (node) => {
                 const box = node.getBoundingClientRect()
 
-                return pages && box.width > 0 && box.left >= pages.left - 1 && box.right <= pages.right + 1
+                return (
+                  pages &&
+                  box.width > 0 &&
+                  box.left >= pages.left - 1 &&
+                  box.right <= pages.right + 1
+                )
               },
             )
             const rows = list?.querySelectorAll('[data-sidebar-row]')
