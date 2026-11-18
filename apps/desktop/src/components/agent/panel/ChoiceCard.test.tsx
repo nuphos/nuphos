@@ -150,3 +150,94 @@ test('the card leads with its question, answers with its buttons, and is skipped
       else Reflect.deleteProperty(globalThis, key)
   }
 })
+
+test('a single- and a multi-select question are one option row: multiSelect only picks any number and sends them', async () => {
+  const dom = new Window()
+  const values = {
+    window: dom,
+    document: dom.document,
+    HTMLElement: dom.HTMLElement,
+    HTMLInputElement: dom.HTMLInputElement,
+    HTMLTextAreaElement: dom.HTMLTextAreaElement,
+    Element: dom.Element,
+    Node: dom.Node,
+    IS_REACT_ACT_ENVIRONMENT: true,
+  }
+  const originals = Object.keys(values).map(
+    (key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)] as const,
+  )
+
+  for (const [key, value] of Object.entries(values))
+    Object.defineProperty(globalThis, key, { configurable: true, value })
+  const { createRoot } = await import('react-dom/client')
+  const container = dom.document.createElement('div')
+
+  dom.document.body.append(container)
+  const root = createRoot(container as unknown as HTMLElement)
+  const answers: DecisionAnswer[] = []
+  const ctx: ConnectCardContextValue = {
+    send: () => true,
+    answer: (answer) => {
+      answers.push(answer)
+
+      return false
+    },
+    skip: () => Promise.resolve(false),
+  }
+  const render = (multiSelect: boolean) =>
+    act(() =>
+      root.render(
+        createElement(
+          ConnectCardContext.Provider,
+          { value: ctx },
+          createElement(ChoiceCard, {
+            key: String(multiSelect),
+            toolCallId: 'q1',
+            category: 'preference',
+            question: 'Which regions first?',
+            options: ['us-east', 'eu-west', 'ap-northeast'],
+            multiSelect,
+            canAct: true,
+          }),
+        ),
+      ),
+    )
+  const buttons = () => [...container.querySelectorAll('button')] as unknown as HTMLButtonElement[]
+  const button = (label: string) => buttons().find((item) => item.textContent === label)
+  const click = (label: string) => act(async () => button(label)?.click())
+  const row = () => buttons().map((item) => item.textContent)
+
+  try {
+    await render(false)
+    const single = row()
+
+    // One row: the options, "Other…" and "Skip"; no field until "Other…" opens one.
+    assert.deepEqual(single, ['us-east', 'eu-west', 'ap-northeast', 'Other…', 'Skip'])
+    assert.equal(container.querySelector('input'), null)
+    await click('eu-west')
+    assert.deepEqual(answers, [{ choices: ['eu-west'] }])
+
+    await render(true)
+    // The same row and the same card, with Send for the picks.
+    assert.deepEqual(row(), ['us-east', 'eu-west', 'ap-northeast', 'Other…', 'Send', 'Skip'])
+    assert.equal(container.querySelector('input'), null)
+    // Its options are checkboxes: a click picks, and only Send answers.
+    assert.deepEqual(
+      [...container.querySelectorAll('[role="checkbox"]')].map((item) => item.textContent),
+      ['us-east', 'eu-west', 'ap-northeast'],
+    )
+    assert.equal(button('Send')?.disabled, true)
+    await click('us-east')
+    await click('ap-northeast')
+    assert.equal(answers.length, 1)
+    assert.equal(button('us-east')?.getAttribute('aria-checked'), 'true')
+    assert.equal(button('eu-west')?.getAttribute('aria-checked'), 'false')
+    await click('Send')
+    assert.deepEqual(answers.at(-1), { choices: ['us-east', 'ap-northeast'] })
+  } finally {
+    await act(() => root.unmount())
+    for (const [key, descriptor] of originals)
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor)
+      else Reflect.deleteProperty(globalThis, key)
+  }
+})
