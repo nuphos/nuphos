@@ -3,6 +3,7 @@ package ai.nuphos.android
 import android.graphics.Bitmap
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -45,8 +46,9 @@ class AvatarBackgroundFixtureDeviceTest {
         var dark by mutableStateOf(false)
         compose.setContent {
             NuphosTheme(darkTheme = dark) { Surface(Modifier.fillMaxSize()) {
-                Row(Modifier.padding(24.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                    for (size in listOf(16.dp, 36.dp, 64.dp)) {
+                // One row per size, so every face fits on the narrowest test device.
+                Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    for (size in listOf(16.dp, 36.dp, 64.dp)) Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                         Box(Modifier.testTag("tinted-$size")) { AgentAvatar(tinted, "codex", size) }
                         Box(Modifier.testTag("plain-$size")) { AgentAvatar(plain, "codex", size) }
                     }
