@@ -442,34 +442,50 @@ test('size and rate limits return only their known code', async () => {
     [413, 'file_too_large'],
     [429, 'file_transfer_rate_limited'],
   ] as const) {
-    const deps = await setup({
-      onData: (_data, send) =>
-        send({
-          t: 'post',
-          suffix: '',
-          body: {
-            direction: 'upload',
-            files: [{ fileName: 'fixture', relPath: 'fixture', size: 1, contentType: null }],
-          },
-        }),
+    const deps = await setup({ onData: (_data, send) => send(createIntent) })
+    const result = await dispatchLocalUpload('conversation-owner', 'd1', '/fixture', scope, {
+      access,
+      deps,
+      transfers: {
+        create: async () => {
+          throw new AppError(status, code, 'signed=never-return', { signed: 'never-return' })
+        },
+        finalize: async () => {
+          throw new Error('must not finalize')
+        },
+      },
     })
 
-    expect(
-      await dispatchLocalUpload('conversation-owner', 'd1', '/fixture', scope, {
-        access,
-        deps,
-        transfers: {
-          create: async () => {
-            throw new AppError(status, code, 'signed=never-return')
-          },
-          finalize: async () => {
-            throw new Error('must not finalize')
-          },
-        },
-      }),
-    ).toEqual({ error: code })
+    expect(result).toMatchObject({ error: code })
+    expect(JSON.stringify(result)).not.toContain('signed')
     deps.tunnel.closed()
   }
+})
+
+test('the hourly limit tells the agent when it resets and not to retry', async () => {
+  const deps = await setup({ onData: (_data, send) => send(createIntent) })
+  const result = await dispatchLocalUpload('conversation-owner', 'd1', '/fixture', scope, {
+    access,
+    deps,
+    transfers: {
+      create: async () => {
+        throw new AppError(429, 'file_transfer_rate_limited', 'signed=never-return', {
+          retryAfter: '2026-11-16T19:00:00.000Z',
+        })
+      },
+      finalize: async () => {
+        throw new Error('must not finalize')
+      },
+    },
+  })
+
+  expect(result).toEqual({
+    error: 'file_transfer_rate_limited',
+    message:
+      'This team used its hourly file-transfer limit. It resets at 19:00 UTC. Do not retry; tell the person.',
+    retryAfter: '2026-11-16T19:00:00.000Z',
+  })
+  deps.tunnel.closed()
 })
 
 // The caller already has its answer, so the slot is given back in the background,

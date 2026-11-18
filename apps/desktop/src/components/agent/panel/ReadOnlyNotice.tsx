@@ -268,9 +268,10 @@ export function AgentStatusBanner({
             )}
           >
             <span aria-hidden className={clsx('absolute inset-0', variant.tint)} />
-            <div className="relative flex h-8 min-w-0 items-center gap-2 px-3 text-[12.5px] text-secondary">
+            {/* A long reason wraps and the tab grows upward, never under the input. */}
+            <div className="relative flex min-h-8 min-w-0 items-center gap-2 px-3 py-1 text-[12.5px] leading-snug text-secondary">
               <variant.Icon aria-hidden className={clsx('h-3.5 w-3.5 shrink-0', variant.icon)} />
-              <span className="min-w-0 flex-1 truncate">{text}</span>
+              <span className="min-w-0 flex-1">{text}</span>
               {action && (
                 <Button
                   type="button"

@@ -58,6 +58,8 @@ export type LocalRuntimeSummary = {
   usage?: unknown
   /** When that computer read the usage above. */
   usageAt?: string
+  /** Which account's quota the agent spends, hashed by that computer; see runtime-quota-shape. */
+  accountKey?: string
   /** Present when the computer is a Box Nuphos made, rather than someone's own machine. */
   box?: Pick<AgentDeviceBox, 'provider'>
   /** Present when it is a teammate's own computer they share with the viewer; see local-share. */
@@ -163,6 +165,7 @@ export async function listOwnLocalRuntimes(
               online: reported !== undefined,
               signedIn: reported ? reported.cli.loggedIn : agent.signedIn,
               ...(registered.has(registryKey(agent)) ? { everSignedIn: true as const } : {}),
+              ...(reported?.accountKey ? { accountKey: reported.accountKey } : {}),
               ...(reported?.usage !== undefined
                 ? {
                     usage: reported.usage,

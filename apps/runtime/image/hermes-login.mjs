@@ -136,7 +136,18 @@ export async function runHermesLogin({
   settleMs = 500,
   providers = JSON.parse(readFileSync(CATALOG, 'utf8')),
   windows = WINDOWS,
+  // A computer's Hermes prepares each new home's dependencies the first time it runs
+  // there; the image's are prepared already, and it says so by refusing more.
+  prepare = !process.env.HERMES_DISABLE_LAZY_INSTALLS,
 }) {
+  // Started before the first question, so it runs while the user answers. Any failure is
+  // left to `auth add`, which prepares the home itself and reports what went wrong.
+  let prepared
+  if (prepare) {
+    const listing = run(HERMES, ['auth', 'list'])
+    listing.end()
+    prepared = listing.done.catch(() => {})
+  }
   const answer = async () => {
     const { value, done } = await lines.next()
     if (done) throw new LoginError('No answer')
@@ -164,9 +175,13 @@ export async function runHermesLogin({
     ].filter(({ value }) => !windows || !(value === 'api-key' || id === 'openrouter'))
   const offered = providers.filter((entry) => methodsOf(entry).length)
   const id = await choose(
-    windows
-      ? 'Choose a model provider. API keys cannot be added on Windows yet.'
-      : 'Choose a model provider',
+    [
+      'Choose a model provider.',
+      ...(windows ? ['API keys cannot be added on Windows yet.'] : []),
+      ...(prepared ? ['Hermes gets ready meanwhile, which can take a minute the first time.'] : []),
+    ]
+      .join(' ')
+      .replace(/\.$/u, ''),
     providerOptions(offered),
   )
   const provider = offered.find((entry) => entry.id === id)
@@ -176,12 +191,14 @@ export async function runHermesLogin({
 
   if (method === 'api-key') {
     const key = await input({ message: `${provider.name} API key`, secret: true })
+    await prepared
     // On stdin, never the command line, where every process on the computer could read it.
     const add = run(HERMES, ['auth', 'add', id, '--type', 'api-key'])
     add.write(`${key}\n`)
     add.end()
     await add.done
   } else {
+    await prepared
     let shown
     let settle
     const page = new Promise((resolve) => {

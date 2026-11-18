@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { resolve } from 'node:path'
 
-import { agentLog } from './agent-log.ts'
+import { agentEvents, agentLog } from './agent-log.ts'
 import { freePorts, logPath, until } from './processes.ts'
 
 import type { Stack } from './stack.ts'
@@ -70,14 +70,35 @@ export const formScenario = {
       await page.getByRole('tab', { name: 'Tasks' }).click()
       await page.getByRole('button', { name: 'New task', exact: true }).click()
       // An earlier scenario may have left the other agent as the one a new Task starts on.
-      await page.getByRole('button', { name: /^Agent runtime/ }).click()
-      await page.getByRole('menu').getByText('E2E fixture agent').click()
-      await page.getByRole('menuitem', { name: /^E2E fixture agent.*Claude Code/ }).click()
+      // The restarted host is listed again a moment later, and the list drawn again closes an
+      // open submenu: a pick that misses starts over.
+      await until('the fixture agent to be picked', async () => {
+        try {
+          await page.getByRole('button', { name: /^Runtime:/ }).click({ timeout: 5_000 })
+          await page.getByRole('menu').getByText('E2E fixture agent').click({ timeout: 5_000 })
+          await page
+            .getByRole('menuitem', { name: /^E2E fixture agent.*Claude Code/ })
+            .click({ timeout: 5_000 })
+
+          return true
+        } catch (error) {
+          // Closes the submenu, then the menu.
+          await page.keyboard.press('Escape')
+          await page.keyboard.press('Escape')
+          throw error
+        }
+      })
       await page.getByRole('textbox', { name: 'Message' }).click()
       await page.keyboard.type(`fill the form E2E_FORM:${site} E2E_DELIVERY:form`)
       await page.keyboard.press('Enter')
 
       await page.getByText(`Details needed for ${site}`).waitFor()
+      // #3397: the person types while the agent's turn still runs, and the turn ends under them.
+      await page.getByLabel('ID number').fill(ID)
+      await page.getByLabel('Date of birth').fill(BIRTH)
+      await until('the asking turn to end', async () =>
+        agentEvents(stack).includes('finish E2E_DELIVERY:form'),
+      )
       // The Nuphos browser runs on this computer, so the person lets the Task use it.
       // An earlier scenario's Task keeps its own composer, inert, behind this one.
       await page.locator('button[title^="Computers"]:not([inert])').last().click()
@@ -87,8 +108,14 @@ export const formScenario = {
       // Already selected when the person has used this computer in another Task.
       if (await selectAll.isEnabled()) await selectAll.click()
       await page.keyboard.press('Escape')
-      await page.getByLabel('ID number').fill(ID)
-      await page.getByLabel('Date of birth').fill(BIRTH)
+      // The app takes the stored transcript within a second of the turn's end, and nothing on
+      // the page says when. After it, the card is still the card that was typed in.
+      await new Promise((resolve) => setTimeout(resolve, 2000))
+      const kept =
+        (await page.getByLabel('ID number').inputValue()) === ID &&
+        (await page.getByLabel('Date of birth').inputValue()) === BIRTH
+
+      if (!kept) throw new Error('The card lost what was typed when the turn ended')
       await page.getByRole('button', { name: 'Send securely' }).click()
       // Submitting the card is all the person does: the agent carries on from the saved files.
       await until('the agent to fill the form', async () => events().length === 2)
