@@ -85,6 +85,17 @@ export const botFoldScenarios: Scenario[] = [
       await page.getByRole('tab', { name: 'Bots' }).click()
       await mustBeOpen('after a reload')
       await page.screenshot({ path: `${artifacts}/bot-tree-open-after-reload.png` })
+      // Stop the kept sub-agent, so it holds nothing the scenarios after this one need.
+      const stopped = count('cancelled E2E_DELIVERY:inherit-child')
+
+      await page.locator('[data-sidebar-row]').filter({ hasText: 'E2E inherit' }).first().click()
+      await page.locator('button[title="Stop"]').click()
+      await until(
+        'the kept sub-agent to stop',
+        async () => count('cancelled E2E_DELIVERY:inherit-child') > stopped,
+      )
+      // Back in the Bot chat, where the scenarios after this one found the window before.
+      await row.click()
     },
   },
 ]
