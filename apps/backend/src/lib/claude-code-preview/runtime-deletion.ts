@@ -1,4 +1,6 @@
 import { config } from '@/config'
+import { deleteDeviceJoinTokens } from '@/lib/agent/devices/join-tokens'
+import { deleteAgentDevice } from '@/lib/agent/devices/store'
 import { AppError } from '@/lib/errors'
 import { logError, logEvent } from '@/lib/observability'
 
@@ -9,7 +11,6 @@ import { inspectClaim, removeClaim } from './runtime-deletion-volumes'
 import { runtimeHomeClaimName, runtimeWorkspaceClaimName } from './runtime-objects'
 import { withRuntimePlacementLease } from './runtime-placement-lease'
 import { runtimeDeletions } from './runtime-portability-store'
-import { forgetHostedRuntimeDevice } from './runtime-device-join'
 import { removeTeamRuntime, runtimes, setTeamRuntimeStatus } from './runtime-registry'
 import { clearRuntimeAuthKey } from './runtime-registry-credentials'
 import { runtimeServiceName } from './runtime-service-name'
@@ -192,7 +193,10 @@ export async function reconcileRuntimeDeletions(
       if (latest?.placements.every(placementSettled)) {
         const device = (await runtimes().findOne({ _id: job._id, teamId: job.teamId }))?.device
 
-        if (device) await forgetHostedRuntimeDevice(device)
+        if (device) {
+          await deleteDeviceJoinTokens(device.deviceId)
+          await deleteAgentDevice(device.userId, device.deviceId)
+        }
         await removeTeamRuntime(job.teamId, job._id, kube)
         await runtimeDeletions().updateOne(
           { _id: job._id, teamId: job.teamId },

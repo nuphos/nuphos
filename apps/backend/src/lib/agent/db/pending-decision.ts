@@ -31,6 +31,8 @@ export type InputRequest = ExplicitUserDecision & {
   /** The linked resources and sub-agent threads it is about: their changes remind the agent of it. */
   about?: string[]
   askedAt: Date
+  /** When the agent last corrected it with update_user_decision. */
+  updatedAt?: Date
   /** Set aside by the owner: out of their Inbox until then, still answerable where it was asked. */
   snoozedUntil?: Date
   /** Always 'open': clients still filter on it. */
@@ -117,7 +119,10 @@ export async function updateInputRequest(
       }
   }
   const set = Object.fromEntries(
-    Object.entries(patch).map(([field, value]) => [`inputRequests.$.${field}`, value]),
+    Object.entries({ ...patch, updatedAt: new Date() }).map(([field, value]) => [
+      `inputRequests.$.${field}`,
+      value,
+    ]),
   )
   const result = await agentConversations().updateOne(
     { sessionId, userId, 'inputRequests.id': id },

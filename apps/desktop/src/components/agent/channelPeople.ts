@@ -28,6 +28,7 @@ export function agentPeople(
       avatar: agent.avatar,
       avatarBackground: agent.avatarBackground,
       removable: agent.ownerId === viewerId || channelOwnerId === viewerId,
+      ...(agent.presence ? { presence: agent.presence } : {}),
     },
   }))
 }
