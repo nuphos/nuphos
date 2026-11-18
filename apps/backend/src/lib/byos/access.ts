@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import type { BindingAccess } from '@/models'
+import type { BindingAccess } from '@/models/common'
 
 export type BindingAccessView = {
   memberAllowList: string[]
@@ -117,8 +117,8 @@ export function canViewAccess(
 }
 
 /**
- * Its owner may always change who a binding is shared with; an admin only
- * while it is shared, never another member's private binding.
+ * Its owner manages a private binding; after sharing, only admins manage it.
+ * An admin cannot change another member's private binding.
  */
 export function canEditAccess(
   access: BindingAccess | undefined,
@@ -127,7 +127,7 @@ export function canEditAccess(
 ): boolean {
   const owner = bindingOwner(access)
 
-  if (owner === userId) return true
+  if (owner === userId && isPrivateAccess(access)) return true
   if (teamRole !== 'ADMINISTRATOR') return false
   // A list emptied before owners were kept is nobody's to protect.
   const unowned = !owner && normalizeAllowList(access?.memberAllowList).length === 0
@@ -145,6 +145,7 @@ export function canUseBinding(
   userId: string,
   teamRole: string | undefined,
 ): boolean {
+  if (teamRole === 'VIEWER' && !isPrivateAccess(access)) return false
   if (canUseAllowList(access?.memberAllowList, userId)) return true
 
   return teamRole === 'ADMINISTRATOR' && !isPrivateAccess(access)

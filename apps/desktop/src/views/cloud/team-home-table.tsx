@@ -12,6 +12,7 @@ import { PersonalCredentialsSection } from '../settings/PersonalCredentialsSecti
 
 import { CatalogLogo } from './catalog-logo'
 import { CONNECTOR_HOVER } from './connector-actions'
+import { ConnectorGroups } from './connector-groups'
 import { ConnectorSearch } from './connector-search'
 import { searchTerms } from './connector-suggestions'
 import { githubConnectedSummary, visibleGithubInstallations } from './github-installation-display'
@@ -153,6 +154,7 @@ export function IntegrationCatalog({
   onOpen: (rows: IntegrationPlatformRow[]) => void
   onOpenSettingsSection: (section: string) => void
 }) {
+  const [catalogTab, setCatalogTab] = useState<'mine' | 'shared' | 'browse'>('mine')
   const terms = filter.trim().toLowerCase().split(/\s+/).filter(Boolean)
   const installedKeys = useMemo(() => new Set<string>(rows.map((row) => row.provider)), [rows])
   const visibleCategories = CATALOG.map((category) => ({
@@ -173,6 +175,11 @@ export function IntegrationCatalog({
     },
     enabled: personalProvider !== null,
   })
+  const sharingQuery = useQuery({
+    queryKey: ['connector-sharing', teamId, rows.map((row) => row.key).join(',')],
+    queryFn: () => api.atlasListTeamConnectors(teamId),
+  })
+  const sharing = sharingQuery.data?.sharing
   const openPersonalCredentials = (provider: PersonalCredentialProvider) =>
     setPersonalProvider(provider)
 
@@ -219,20 +226,35 @@ export function IntegrationCatalog({
               else onAdd(item.key)
             }}
           />
+          <div className="mt-5 flex gap-2">
+            {(['mine', 'shared', 'browse'] as const).map((tab) => (
+              <Button
+                key={tab}
+                variant={catalogTab === tab ? 'secondary' : 'ghost'}
+                aria-pressed={catalogTab === tab}
+                onClick={() => setCatalogTab(tab)}
+              >
+                {tab === 'mine' && t('My connections')}
+                {tab === 'shared' && t('Shared with the team')}
+                {tab === 'browse' && t('Add a connector')}
+              </Button>
+            ))}
+          </div>
         </header>
-        {/* A search with no installed match skips this section, so only one empty message shows. */}
-        {(loading || visibleRows.length > 0 || terms.length === 0) && (
-          <section>
-            <h2 className="border-b border-line-control/55 pb-2.5 text-[13px] font-medium text-main">
-              {t('Installed')}
-            </h2>
-            <div className="flex min-h-[76px] flex-wrap items-center gap-2 py-4">
-              <InstalledList loading={loading} rows={visibleRows} filter={filter} onOpen={onOpen} />
-            </div>
-          </section>
+        {catalogTab === 'mine' && (
+          <PersonalConnectors
+            teamId={teamId}
+            items={personal}
+            onOpenAccount={openPersonalCredentials}
+            connectedOnly
+          />
         )}
+        {catalogTab !== 'browse' && (
+          <ConnectorGroups rows={visibleRows} sharing={sharing} onOpen={onOpen} mode={catalogTab} />
+        )}
+        {loading && <InstalledList loading rows={[]} filter={filter} onOpen={onOpen} />}
 
-        {visibleCategories.length > 0 || personal.length > 0 ? (
+        {catalogTab === 'browse' && (visibleCategories.length > 0 || personal.length > 0) ? (
           <div className="space-y-8 pt-4">
             {personal.length > 0 && (
               <PersonalConnectors
@@ -265,11 +287,11 @@ export function IntegrationCatalog({
               </section>
             ))}
           </div>
-        ) : (
+        ) : catalogTab === 'browse' ? (
           <div className="flex min-h-44 items-center justify-center text-[12.5px] text-tertiary">
             {t('No connectors match “{query}”.', { query: filter.trim() })}
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   )

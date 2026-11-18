@@ -122,6 +122,12 @@ describe('registerBindingAccessRoutes', () => {
     expect((await put('EDITOR', ['u1', 'u2'], 'u1')).status).toBe(200)
   })
 
+  test('an editor cannot manage their binding after sharing it', async () => {
+    memberAllowList = ['*']
+    expect((await put('EDITOR', ['u1'], 'u1')).status).toBe(403)
+    expect(updates).toEqual([])
+  })
+
   test('lets the owner reopen a list that was emptied', async () => {
     memberAllowList = []
     expect((await put('EDITOR', ['u1'], 'u1')).status).toBe(200)

@@ -1,6 +1,9 @@
 import { Hono } from 'hono'
 
+import type { TeamAuthVariables } from '@/middleware/auth'
+
 import { syncZeaburProviderBindings } from '@/lib/byos/account'
+import { connectorSharing } from '@/lib/byos/connector-sharing'
 import { getDiscordConnection } from '@/lib/discord/connection'
 import { getLarkBindingForTeam, publicLarkInstallationView } from '@/lib/lark/installations'
 import { parseObjectId } from '@/lib/objectid'
@@ -43,8 +46,6 @@ import { uptimeKumaInstancesView } from '@/routes/uptime-kuma-instances'
 import { publicView as vantaIntegrationView } from '@/routes/vanta-integrations'
 import { volcengineAccountsView } from '@/routes/volcengine-accounts'
 import { publicView as zeaburProviderView } from '@/routes/zeabur-providers'
-
-import type { TeamAuthVariables } from '@/middleware/auth'
 
 export const teamConnectorsRoutes = new Hono<{ Variables: TeamAuthVariables }>()
 
@@ -100,6 +101,7 @@ teamConnectorsRoutes.get('/', async (c) => {
   const slackLinkedChannels = await summarizeSlackLinkedChannels(slackMappings, slackBinding)
 
   return c.json({
+    sharing: connectorSharing(doc, userId, teamRole),
     aws,
     gcp,
     cloudflare: connectorViews('cloudflare', doc?.cloudflareAccounts, cloudflareAccountView),
