@@ -2298,7 +2298,6 @@
   "It may be installed by a package manager that updates it separately.": "별도로 업데이트하는 패키지 관리자로 설치되었을 수 있습니다.",
   "It may be private, or it may have been deleted. If someone shared it with you, ask them to invite you.": "비공개이거나 삭제되었을 수 있습니다. 누군가 공유했다면 그 사람에게 초대를 요청하세요.",
   "It starts once Bots and tasks on this runtime finish replying.": "이 런타임의 봇과 작업이 답장을 마치면 시작됩니다.",
-  "It starts once agents on this runtime finish replying.": "이 런타임의 에이전트가 답장을 마치면 시작됩니다.",
   "It works for the invited address only.": "초대된 주소에서만 사용할 수 있습니다.",
   "Its chat is archived with it. Unarchive either one to bring both back.": "채팅도 함께 보관됩니다. 어느 쪽이든 보관을 해제하면 둘 다 돌아옵니다.",
   "Its computer is offline": "런타임의 컴퓨터가 오프라인 상태입니다",

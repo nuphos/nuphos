@@ -2298,7 +2298,6 @@
   "It may be installed by a package manager that updates it separately.": "它可能由包管理器安装，需单独更新。",
   "It may be private, or it may have been deleted. If someone shared it with you, ask them to invite you.": "此对话可能是私人的，也可能已被删除。如果是别人分享给你的，请让对方邀请你。",
   "It starts once Bots and tasks on this runtime finish replying.": "此运行环境上的 Bot 和任务完成回复后即会开始。",
-  "It starts once agents on this runtime finish replying.": "此运行环境上的 Agent 完成回复后即会开始。",
   "It works for the invited address only.": "仅对受邀地址有效。",
   "Its chat is archived with it. Unarchive either one to bring both back.": "它的聊天会一起归档。取消归档任意一个，两者都会恢复。",
   "Its computer is offline": "其所在电脑已离线",
