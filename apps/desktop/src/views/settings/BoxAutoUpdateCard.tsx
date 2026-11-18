@@ -11,7 +11,7 @@ import { AdminOnlyHint } from './shared'
 
 import type { AtlasTeam } from '../../types'
 
-// Whether the team's cloud computers update Nuphos on their own once their agents are idle.
+// Whether the computers Nuphos runs for the team update on their own once their agents are idle.
 // On unless an administrator turned it off; a computer too old to run conversations updates
 // either way (the backend's box-update).
 export function BoxAutoUpdateCard({
@@ -40,10 +40,10 @@ export function BoxAutoUpdateCard({
   return (
     <div className="mt-10">
       <div className="mb-4">
-        <h2 className="text-[15px] font-semibold text-main">{t('Cloud computer updates')}</h2>
+        <h2 className="text-[15px] font-semibold text-main">{t('Computer updates')}</h2>
         <p className="mt-1 text-[13px] text-tertiary">
           {t(
-            "Update Nuphos on this workspace's cloud computers when a new release is out and their agents have been idle for 10 minutes. The update restarts Nuphos on the computer, which also stops terminals and programs open on it.",
+            "When a new release is out and a computer's agents have been idle for 10 minutes, Nuphos updates the computers it runs for this workspace. The update restarts Nuphos on the computer, which also stops terminals and programs open on it.",
           )}
         </p>
       </div>
@@ -54,9 +54,9 @@ export function BoxAutoUpdateCard({
           <div className="text-[13px] text-main">{t('Update automatically when idle')}</div>
           <div className="mt-0.5 text-[12px] text-tertiary">
             {enabled
-              ? t('Cloud computers stay on the newest release.')
+              ? t('Computers stay on the newest release.')
               : t(
-                  'Administrators update each cloud computer from its card. One too old to run conversations still updates.',
+                  'Administrators update each computer from its card. One too old to run conversations still updates.',
                 )}
           </div>
         </div>
