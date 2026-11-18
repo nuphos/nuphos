@@ -1,5 +1,6 @@
 package ai.nuphos.android
 
+import android.graphics.Bitmap
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -17,6 +18,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import ai.nuphos.android.model.BotFaces
 import ai.nuphos.android.ui.components.AgentAvatar
 import ai.nuphos.android.ui.theme.NuphosTheme
@@ -26,6 +28,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
 import kotlin.math.abs
 
 /** A Bot's picked background is a disc in its tint behind the character; None looks as before (#3515). */
@@ -43,7 +46,7 @@ class AvatarBackgroundFixtureDeviceTest {
         compose.setContent {
             NuphosTheme(darkTheme = dark) { Surface(Modifier.fillMaxSize()) {
                 Row(Modifier.padding(24.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                    for (size in listOf(16.dp, 36.dp)) {
+                    for (size in listOf(16.dp, 36.dp, 64.dp)) {
                         Box(Modifier.testTag("tinted-$size")) { AgentAvatar(tinted, "codex", size) }
                         Box(Modifier.testTag("plain-$size")) { AgentAvatar(plain, "codex", size) }
                     }
@@ -53,12 +56,23 @@ class AvatarBackgroundFixtureDeviceTest {
         for (theme in listOf(false, true)) {
             dark = theme
             compose.waitForIdle()
-            for (size in listOf(16.dp, 36.dp)) {
+            for (size in listOf(16.dp, 36.dp, 64.dp)) {
                 val withTint = skyPixels("tinted-$size")
                 assertTrue("dark=$theme $size: $withTint sky pixels behind a tinted Bot", withTint > 6)
                 assertEquals("dark=$theme $size: None paints no disc", 0, skyPixels("plain-$size"))
             }
+            capture(if (theme) "dark" else "light")
         }
+    }
+
+    /** For review: the screen as drawn, in the app's files dir under review-avatar-background. */
+    private fun capture(name: String) {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        instrumentation.waitForIdleSync()
+        val image = instrumentation.uiAutomation.takeScreenshot() ?: error("No screenshot")
+        val directory = File(instrumentation.targetContext.getExternalFilesDir(null), "review-avatar-background").apply { mkdirs() }
+        File(directory, "$name.png").outputStream().use { image.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        image.recycle()
     }
 
     /** Pixels of the Sky token (#D6E6F7), the same in both themes. */
