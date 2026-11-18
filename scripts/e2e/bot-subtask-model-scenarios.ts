@@ -15,15 +15,7 @@ export const botSubtaskModelScenarios: Scenario[] = [
     run: async (page, stack) => {
       const bots = page.getByRole('tabpanel', { name: 'Bots' })
       const bot = bots.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first()
-      const kid = bots.locator('[data-sidebar-row]').filter({ hasText: 'E2E unlisted kid' }).first()
       const behind = join(artifacts, 'behind')
-      // The Bot's controls hide while its row is hovered, so each is clicked where it is.
-      const toggle = async (control: string) => {
-        await page.mouse.move(120, 600)
-        await page.waitForTimeout(1_000)
-        await bots.locator(control).first().dispatchEvent('click')
-      }
-
       await page.getByRole('tab', { name: 'Bots' }).click()
       await bot.click()
       // The sub-Task's session runs a model the agent's own list never offers.
@@ -36,7 +28,8 @@ export const botSubtaskModelScenarios: Scenario[] = [
       } finally {
         rmSync(behind, { force: true })
       }
-      // The Bot's row once its sub-Task finished.
+      // A finished sub-Task leaves the sidebar with no count in its place, so the Bot's name has
+      // the row's width.
       await page.mouse.move(600, 400)
       await page.waitForTimeout(3_000)
       await page.evaluate(() => {
@@ -44,11 +37,20 @@ export const botSubtaskModelScenarios: Scenario[] = [
         document.documentElement.classList.add('light')
       })
       await bots.screenshot({ path: `${artifacts}/bot-row-light.png` })
-      // A finished sub-Task is listed once the Bot's done count is opened, which gives the Bot
-      // sub-agents to show, and then they are shown.
-      await toggle('[title$=" done"]')
-      if (!(await kid.count())) await toggle('[aria-label="Show sub-agents"]')
-      await kid.click()
+      if (await bots.locator('[title$=" done"]').count())
+        throw new Error("The Bot's row still shows a done count")
+      // It opens from the Sub-tasks of the Bot's own Task.
+      await page.getByTitle('Open session').click()
+      await page.getByRole('button', { name: 'Back to conversation' }).waitFor()
+      await page
+        .getByRole('button', { name: /task summary$/ })
+        .last()
+        .click()
+      await page
+        .getByRole('region', { name: 'Sub-tasks' })
+        .getByText('E2E unlisted kid')
+        .first()
+        .click()
       await page.getByText('ACK E2E_DELIVERY:unlisted-kid').waitFor()
       await page.waitForTimeout(3_000)
       await page.evaluate(() => {
@@ -61,10 +63,13 @@ export const botSubtaskModelScenarios: Scenario[] = [
 
       if (!label.startsWith('Model settings: fixture-unlisted'))
         throw new Error(`The sub-Task's chip reads "${label}"`)
-      // Back in the Bot's chat, its done group closed again, where the channel scenarios carry on.
+      // Back in the Bot's chat, where the channel scenarios carry on.
+      await page
+        .getByRole('button', { name: /task summary$/ })
+        .last()
+        .click()
+      await page.getByRole('button', { name: 'Back to conversation' }).click()
       await bot.click()
-      await toggle('[title$=" done"]')
-      await kid.waitFor({ state: 'detached' })
     },
   },
 ]
