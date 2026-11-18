@@ -105,12 +105,6 @@ struct BotQuestion: Identifiable, Equatable, Sendable {
         return own.isEmpty ? nil : own
     }
 
-    /// One question's answer: what was typed, else the picked options.
-    static func answerText(picked: [String], typed: String) -> String {
-        let words = typed.trimmingCharacters(in: .whitespacesAndNewlines)
-        return words.isEmpty ? picked.joined(separator: ", ") : words
-    }
-
     /// The Inbox group it is in: its Bot's, else the conversation that asked.
     var sourceId: String { bot?.sessionId ?? sessionId }
 }

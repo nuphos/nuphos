@@ -4,8 +4,8 @@ import SwiftUI
 /// One Inbox question: who asked (the name opens that Bot or Task), when, the
 /// question and its markdown body, then its answers. On iPhone the options are
 /// full-width buttons pinned to the bottom with "Other…" and "Skip" as outlined halves
-/// below; wide, a row of capsules with an outlined "Skip" at its end. A form, an integration question
-/// and a plan keep their own controls. A secret is asked for with the task's own `SecretCard`,
+/// below; wide, a row of capsules with an outlined "Skip" at its end. A multi-select or several
+/// questions pick the same capsules and send them; an integration question and a plan keep their own controls. A secret is asked for with the task's own `SecretCard`,
 /// which says the question itself.
 struct InboxQuestionView: View {
     let inbox: OpenQuestions
@@ -19,6 +19,10 @@ struct InboxQuestionView: View {
     @FocusState private var focused: Bool
 
     private var wide: Bool { sizeClass == .regular }
+
+    /// On iPhone one question's options, single- or multi-select, sit at the bottom under the
+    /// question; several questions scroll with it, as they may not fit there.
+    private var pinned: Bool { question.options != nil || question.form?.count == 1 }
 
     /// Margins: iPhone 20 at the sides, right under the bar; iPad 56 and 25 from the top. A wide
     /// iPhone, as iPhone Duo's inner display, takes 40 / 16 and 51 from the top: the 16 is past the
@@ -41,7 +45,7 @@ struct InboxQuestionView: View {
                         .padding(.top, 18)
                         .accessibilityIdentifier("inbox.body")
                 }
-                if wide || question.options == nil { answers.padding(.top, 24) }
+                if wide || !pinned { answers.padding(.top, 24) }
                 if let failure = inbox.failures[question.id] {
                     Label("Couldn't send the answer · \(failure)", image: "lucide-circle-alert")
                         .font(Theme.Text.caption)
@@ -63,7 +67,7 @@ struct InboxQuestionView: View {
             if wide { Theme.separator.frame(width: 0.5).ignoresSafeArea() }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            if !wide, question.options != nil {
+            if !wide, pinned {
                 answers
                     .padding(.horizontal, 20)
                     .padding(.top, 12)
@@ -121,8 +125,7 @@ struct InboxQuestionView: View {
 
     @ViewBuilder private var answers: some View {
         if let form = question.form {
-            DecisionForm(questions: form) { answer($0) }
-            HStack { Spacer(); skip }.padding(.top, 12)
+            QuestionPicks(questions: form, wide: wide, height: wide ? 40 : 50, size: wide ? 15 : 16, onSubmit: { answer($0) }) { skip }
         } else if let options = question.options {
             VStack(alignment: .leading, spacing: 10) {
                 if wide {
@@ -199,27 +202,33 @@ struct InboxQuestionView: View {
     }
 }
 
-/// An answer as a capsule, in the Inbox and on a chat's question card: the first one dark, the rest light.
+/// An answer as a capsule, in the Inbox and on a chat's question card: the first one dark, the rest
+/// light. `checked`, it is picked rather than sent: dark with a check once picked.
 struct InboxOption: View {
     let title: String
     let primary: Bool
     let height: CGFloat
     let size: CGFloat
     var fill = false
+    var checked: Bool?
     let action: () -> Void
+
+    private var dark: Bool { checked ?? primary }
 
     var body: some View {
         Button(action: action) {
-            Text(title)
-                .font(.system(size: size, weight: .semibold))
-                .lineLimit(1)
-                .foregroundStyle(primary ? Theme.chatCanvas : Theme.heading)
-                .padding(.horizontal, 20)
-                .frame(maxWidth: fill ? .infinity : nil, minHeight: height)
-                .background(primary ? Theme.heading : Theme.control, in: Capsule())
-                .contentShape(Capsule())
+            HStack(spacing: 6) {
+                if checked == true { LucideIcon("check").font(.system(size: size - 2, weight: .semibold)) }
+                Text(title).font(.system(size: size, weight: .semibold)).lineLimit(1)
+            }
+            .foregroundStyle(dark ? Theme.chatCanvas : Theme.heading)
+            .padding(.horizontal, 20)
+            .frame(maxWidth: fill ? .infinity : nil, minHeight: height)
+            .background(dark ? Theme.heading : Theme.control, in: Capsule())
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(checked == true ? .isSelected : [])
     }
 }
 

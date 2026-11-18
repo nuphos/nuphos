@@ -5,7 +5,7 @@ import SwiftUI
 /// its answers. The first option is the dark one; "Other…" asks for the answer in words in the
 /// card and "Skip" withdraws the question unanswered. On iPhone the options are full-width with
 /// "Other…" and "Skip" as outlined halves below; wide, one row of capsules with "Skip" at its end.
-/// A multi-select or several questions are a form, sent as one answer. An answer wakes the agent
+/// A multi-select or several questions pick the same options and send them at once. An answer wakes the agent
 /// that asked; no message is sent. A secret is asked for with the task's own `SecretCard`, saved
 /// and replied to in the conversation that asked. A connect question opens that conversation's
 /// credential picker, as in the Inbox. `showsFrom` is off for the Bot's own questions in its own chat.
@@ -85,8 +85,7 @@ struct BotQuestionCard: View {
 
     @ViewBuilder private var answers: some View {
         if let form = question.form {
-            DecisionForm(questions: form, onSubmit: onAnswer)
-            HStack { Spacer(); skip }.padding(.top, 12)
+            QuestionPicks(questions: form, wide: wide, height: wide ? 40 : 44, size: wide ? 15 : 16, onSubmit: onAnswer) { skip }
         } else if let options = question.options {
             VStack(alignment: .leading, spacing: wide ? 10 : 8) {
                 if wide {
@@ -188,24 +187,48 @@ struct BotQuestionCard: View {
     }
 }
 
-/// The desktop's `DecisionForm`, here and in the Inbox: each question's options toggled, one or any
-/// number, or the answer typed in their place, sent together as one answer.
-struct DecisionForm: View {
+/// A multi-select, or several questions, drawn as a one-answer card draws its options: the same
+/// capsules, each picked or not (a check once picked), "Other…" under a question to answer it in
+/// words, and Send for the picks at the end of the last row, before `trailing` (Skip). Here and in
+/// the Inbox; the desktop's `DecisionOptions`.
+struct QuestionPicks<Trailing: View>: View {
     let questions: [AgentConversation.DecisionQuestion]
+    let wide: Bool
+    let height: CGFloat
+    let size: CGFloat
     let onSubmit: (DecisionAnswer) -> Void
+    @ViewBuilder let trailing: () -> Trailing
 
     @State private var picked: [[String]]
-    @State private var typed: [String]
+    @State private var words: [String]
+    /// The question whose "Other…" is open; only its words answer it.
+    @State private var open: Int?
+    @FocusState private var focused: Bool
 
-    init(questions: [AgentConversation.DecisionQuestion], onSubmit: @escaping (DecisionAnswer) -> Void) {
+    init(questions: [AgentConversation.DecisionQuestion], wide: Bool, height: CGFloat, size: CGFloat,
+         onSubmit: @escaping (DecisionAnswer) -> Void, @ViewBuilder trailing: @escaping () -> Trailing) {
         self.questions = questions
+        self.wide = wide
+        self.height = height
+        self.size = size
         self.onSubmit = onSubmit
+        self.trailing = trailing
         _picked = State(initialValue: questions.map { _ in [] })
-        _typed = State(initialValue: questions.map { _ in "" })
+        _words = State(initialValue: questions.map { _ in "" })
     }
 
-    private var answers: [String] {
-        questions.indices.map { BotQuestion.answerText(picked: picked[$0], typed: typed[$0]) }
+    private var typed: [String] { questions.indices.map { open == $0 ? words[$0] : "" } }
+
+    private var complete: Bool {
+        questions.indices.allSatisfy {
+            !picked[$0].isEmpty || !typed[$0].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+    }
+
+    private func send() {
+        guard complete else { return }
+        focused = false
+        onSubmit(BotQuestion.formAnswer(questions, picked: picked, typed: typed))
     }
 
     private func toggle(_ option: String, at index: Int) {
@@ -217,36 +240,54 @@ struct DecisionForm: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: wide ? 10 : 8) {
             ForEach(questions.indices, id: \.self) { index in
-                VStack(alignment: .leading, spacing: 8) {
-                    if questions.count > 1 {
-                        Text(questions[index].question)
-                            .font(Theme.Text.label.weight(.medium))
-                            .foregroundStyle(Theme.heading)
+                if questions.count > 1 {
+                    Text(questions[index].question)
+                        .font(Theme.Text.label.weight(.medium))
+                        .foregroundStyle(Theme.heading)
+                        .padding(.top, index > 0 ? 8 : 0)
+                }
+                if wide {
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 10) { options(at: index) }
+                        VStack(alignment: .leading, spacing: 10) { options(at: index) }
                     }
-                    ForEach(questions[index].options ?? [], id: \.self) { option in
-                        let on = picked[index].contains(option)
-                        Button { toggle(option, at: index) } label: {
-                            DesignLabel(option, systemImage: on ? "checkmark.circle.fill" : "circle")
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                        .tint(on ? Theme.brand : Theme.heading)
-                        .accessibilityAddTraits(on ? .isSelected : [])
-                    }
-                    TextField(
-                        (questions[index].options ?? []).isEmpty ? "Your answer" : "Or type your own answer",
-                        text: $typed[index]
-                    )
-                    .textFieldStyle(.roundedBorder)
-                    .font(Theme.Text.label)
+                } else {
+                    options(at: index)
+                }
+                row(at: index)
+                if open == index {
+                    AnswerField(words: $words[index], focused: $focused, send: send)
                 }
             }
-            Button("Send answer") { onSubmit(BotQuestion.formAnswer(questions, picked: picked, typed: typed)) }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-                .disabled(answers.contains { $0.isEmpty })
+        }
+    }
+
+    private func options(at index: Int) -> some View {
+        ForEach(questions[index].options ?? [], id: \.self) { option in
+            InboxOption(title: option, primary: false, height: height, size: size, fill: !wide,
+                        checked: picked[index].contains(option)) {
+                toggle(option, at: index)
+            }
+        }
+    }
+
+    /// "Other…" ("Reply…" with nothing to pick), and on the last row Send and `trailing`.
+    private func row(at index: Int) -> some View {
+        HStack(spacing: wide ? 10 : 8) {
+            let title = (questions[index].options ?? []).isEmpty ? String(localized: "Reply…") : String(localized: "Other…")
+            InboxOutlineButton(title: title, fill: !wide, toggled: open == index) {
+                open = open == index ? nil : index
+                focused = open != nil
+            }
+            if index == questions.count - 1 {
+                if wide { Spacer(minLength: 10) }
+                InboxOption(title: String(localized: "Send"), primary: true, height: wide ? 40 : 44, size: 15, fill: !wide, action: send)
+                    .disabled(!complete)
+                    .opacity(complete ? 1 : 0.4)
+                trailing()
+            }
         }
     }
 }
