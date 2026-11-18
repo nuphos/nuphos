@@ -31,3 +31,30 @@ test("unattested messages are not the user's words: no language, recall or memor
     'check the DNS for example.com',
   ])
 })
+
+test("an agent's or a system's message is not the user's words: it never sets the language", () => {
+  const sentAt = '2026-11-18T00:00:00Z'
+  const messages = [
+    user('1', '幫我看一下這個問題', {
+      version: 1,
+      sender: { type: 'user', id: 'u1', displayName: 'Owner' },
+      source: 'nuphos',
+      sentAt,
+    }),
+    user('2', 'From the parent agent: open an issue for this.', {
+      version: 1,
+      sender: { type: 'agent', id: 'parent', displayName: 'Parent' },
+      source: 'agent.thread',
+      sourceSessionId: 'parent',
+      sentAt,
+    }),
+    user('3', 'GitHub: the pull request was closed.', {
+      version: 1,
+      sender: { type: 'system', id: 'github', displayName: 'GitHub' },
+      source: 'agent.resource',
+      sentAt,
+    }),
+  ]
+
+  expect(getUserMessageTexts(messages)).toEqual(['幫我看一下這個問題'])
+})
