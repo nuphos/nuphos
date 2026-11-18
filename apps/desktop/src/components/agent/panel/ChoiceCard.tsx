@@ -1,10 +1,9 @@
 import clsx from 'clsx'
-import { ChevronDown, X } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import { useContext, useLayoutEffect, useRef, useState } from 'react'
 
 import { t } from '../../../i18n'
 import { comboText } from '../../../lib/platform'
-import { SnoozeMenu } from '../../../views/inbox/SnoozeMenu'
 import { Button } from '../../ui/button'
 import { MessageResponse } from '../MessageResponse'
 
@@ -20,14 +19,10 @@ import type { DecisionQuestion } from './decisionFormModel'
 import type { DecisionCardRef } from './replyTarget'
 import type { DecisionAnswer } from '../../../api/agent-chat-types'
 
-// An option button's look, which Snooze and Dismiss share.
-const OPTION = 'h-auto min-h-8 whitespace-normal rounded-[9px] px-[13px] py-1.5 text-left'
-
 /**
  * A user decision other than a Connect card: the question as its heading, under
  * who asked it when that is another conversation, with each option an answer,
- * "Other…" to type one in the card instead, then "Snooze" to set it aside until a time
- * and "Dismiss" to withdraw it unanswered, both in the options' row.
+ * "Other…" to type one in the card instead, and "Skip" to withdraw it unanswered.
  * A multi-select or several questions are a form sent as one answer. The answer
  * wakes the agent that asked; no message is sent. Once answered, the options go.
  */
@@ -61,8 +56,8 @@ export function ChoiceCard({
   const [typing, setTyping] = useState(false)
   // Kept while the field is closed, so Esc and "Other…" again lose nothing.
   const [draft, setDraft] = useState('')
-  const [dismissed, setDismissed] = useState<'no' | 'sending' | 'yes'>('no')
-  const interactive = Boolean(ctx?.answer) && canAct && !chosen && dismissed !== 'yes'
+  const [skipped, setSkipped] = useState<'no' | 'sending' | 'yes'>('no')
+  const interactive = Boolean(ctx?.answer) && canAct && !chosen && skipped !== 'yes'
   const typeable = interactive && category !== 'credential'
   const form = formQuestions({ question, options, multiSelect, questions })
   const live = interactive && (form !== null || options.length > 0)
@@ -76,27 +71,18 @@ export function ChoiceCard({
 
     return choose(option)
   })
-  const asides = interactive && (
-    <>
-      {ctx?.snooze && (
-        <SnoozeMenu className={OPTION} onSnooze={(until) => ctx.snooze?.(card, until)} />
-      )}
-      {ctx?.dismiss && (
-        <Button
-          variant="secondary"
-          size="sm"
-          className={OPTION}
-          disabled={dismissed === 'sending'}
-          onClick={() => {
-            setDismissed('sending')
-            void ctx.dismiss?.(card).then((ok) => setDismissed(ok ? 'yes' : 'no'))
-          }}
-        >
-          <X aria-hidden className="size-3.5" />
-          {t('Dismiss')}
-        </Button>
-      )}
-    </>
+  const skip = interactive && ctx?.skip && (
+    <button
+      type="button"
+      disabled={skipped === 'sending'}
+      className="ml-auto px-1 text-[12.5px] text-tertiary hover:text-main"
+      onClick={() => {
+        setSkipped('sending')
+        void ctx.skip?.(card).then((ok) => setSkipped(ok ? 'yes' : 'no'))
+      }}
+    >
+      {t('Skip')}
+    </button>
   )
 
   return (
@@ -117,7 +103,7 @@ export function ChoiceCard({
         full={ctx?.fullBody}
         onLinkClick={ctx?.onLinkClick}
       />
-      <AnswerStatus recorded={recorded} failed={failed} dismissed={dismissed === 'yes'} />
+      <AnswerStatus recorded={recorded} failed={failed} skipped={skipped === 'yes'} />
       {!chosen &&
         (form ? (
           <DecisionForm
@@ -125,7 +111,7 @@ export function ChoiceCard({
             disabled={!interactive}
             onSubmit={(answer) => act(() => submit(answer))}
           >
-            {asides}
+            {skip}
           </DecisionForm>
         ) : (
           <>
@@ -135,7 +121,7 @@ export function ChoiceCard({
                   key={option}
                   variant={index === 0 ? 'primary' : 'secondary'}
                   size="sm"
-                  className={OPTION}
+                  className="h-auto min-h-8 whitespace-normal rounded-[9px] px-[13px] py-1.5 text-left"
                   disabled={!interactive}
                   title={index < 9 ? comboText(`mod+alt+${String(index + 1)}`) : undefined}
                   onClick={() => act(() => choose(option))}
@@ -145,9 +131,9 @@ export function ChoiceCard({
               ))}
               {typeable ? (
                 <Button
-                  variant="secondary"
+                  variant="ghost"
                   size="sm"
-                  className={clsx(OPTION, typing && '!bg-state-hover')}
+                  className={clsx('px-3', typing && '!bg-state-hover !text-main')}
                   aria-expanded={typing}
                   onClick={() => setTyping(!typing)}
                 >
@@ -159,7 +145,7 @@ export function ChoiceCard({
                   <span className="text-[12px] text-tertiary">{t('Reply below to answer.')}</span>
                 )
               )}
-              {asides}
+              {skip}
             </div>
             {typing && typeable && (
               <div className="pt-2.5" data-card-answer-field>
@@ -206,15 +192,15 @@ function useSubmit(
   return { chosen: sent || recorded !== undefined, failed, submit }
 }
 
-/** What answered the card, that it was dismissed, or that its answer was not taken. */
+/** What answered the card, that it was skipped, or that its answer was not taken. */
 function AnswerStatus({
   recorded,
   failed,
-  dismissed,
+  skipped,
 }: {
   recorded: string | undefined
   failed: boolean
-  dismissed: boolean
+  skipped: boolean
 }) {
   if (recorded)
     return (
@@ -223,10 +209,10 @@ function AnswerStatus({
       </div>
     )
 
-  if (dismissed)
+  if (skipped)
     return (
       <div className="mt-2 text-[12.5px] text-secondary">
-        {t('Dismissed. The agent carries on without an answer.')}
+        {t('Skipped. The agent carries on without an answer.')}
       </div>
     )
 
