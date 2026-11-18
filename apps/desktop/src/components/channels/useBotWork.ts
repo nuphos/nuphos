@@ -4,12 +4,14 @@ import { useAgentRuntimeStates } from '../../lib/agentRuntimeStates'
 import { runtimeTurnActive } from '../../lib/runtimeExecution'
 import { useAgentSessions } from '../sidebar/agentSessions'
 
-import { botWorkOf, workSince } from './botWork'
+import { botWorkOf, runStartedAt, workSince } from './botWork'
 
 import type { BotWork } from './botWork'
 import type { Run } from '../sidebar/bot-activity'
 
 const BOT_TURN_POLL_MS = 1_000
+// A turn the runtime never closes must not keep the fast poll up for as long as the chat is open.
+const BOT_TURN_FAST_FOR_MS = 120_000
 
 /**
  * What the Bot of this chat is doing, read as its sidebar row reads it: the
@@ -32,9 +34,16 @@ export function useBotWork(
   const kids = botId ? (sessions ?? []).filter((row) => row.parentSessionId === botId).map(run) : []
   const work = botWorkOf(bot, kids, channelId)
 
-  // Only the list says a turn ended: while the Bot's turn runs, read it every second, so the
-  // header and its row stop soon after the Bot does.
-  useAgentSessions(teamId, runtimeTurnActive(bot?.runtimeState) && BOT_TURN_POLL_MS)
+  // Only the list says a turn ended: in a turn's first two minutes, read it every second, so
+  // the header and its row stop soon after the Bot does. Asked again after every listing.
+  const active = runtimeTurnActive(bot?.runtimeState)
+  const started = runStartedAt(bot)
+
+  useAgentSessions(teamId, () =>
+    active && started !== undefined && Date.now() - started < BOT_TURN_FAST_FOR_MS
+      ? BOT_TURN_POLL_MS
+      : false,
+  )
 
   return { work, since: workSince(work, bot) }
 }

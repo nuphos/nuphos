@@ -27,7 +27,10 @@ export const agentSessionsQuery = (teamId: string) =>
   })
 
 /** {@link agentSessionsQuery}, polled every `pollMs` (`false`: not by this reader); undefined until listed once. */
-export function useAgentSessions(teamId: string, pollMs: number | false = AGENT_SESSIONS_POLL_MS) {
+export function useAgentSessions(
+  teamId: string,
+  pollMs: number | false | (() => number | false) = AGENT_SESSIONS_POLL_MS,
+) {
   return useQuery({
     ...agentSessionsQuery(teamId),
     refetchInterval: pollMs,
