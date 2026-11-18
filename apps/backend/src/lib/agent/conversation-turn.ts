@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto'
 
-import { sessionsByConversation } from '@/lib/claude-code-preview/agent-chat-registry'
 import { isRuntimeRefusal } from '@/lib/claude-code-preview/runtime-refusal'
 import { signNuphosToken } from '@/lib/identity'
 import { logError } from '@/lib/observability'
