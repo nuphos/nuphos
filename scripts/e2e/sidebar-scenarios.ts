@@ -44,7 +44,7 @@ export const botFoldScenarios: Scenario[] = [
       const count = (event: string) =>
         agentEvents(stack).filter((logged) => logged === event).length
       const introductions = count('finish E2E_DELIVERY:missing')
-      const dispatched = count('finish E2E_DELIVERY:inherit-child')
+      const asked = count('permission-asked E2E_DELIVERY:thread')
       // Its own Bot, so no scenario before it decides what the tree holds.
       const row = page.locator('[data-sidebar-row]').filter({ hasText: 'Fold Bot' }).first()
       const show = row.locator('[aria-label="Show sub-agents"]')
@@ -67,10 +67,12 @@ export const botFoldScenarios: Scenario[] = [
         'the new Bot to introduce itself',
         async () => count('finish E2E_DELIVERY:missing') > introductions,
       )
-      await send(page, 'Dispatch a sub-agent E2E_INHERIT E2E_DELIVERY:fold')
+      // The sub-agent waits for a person to allow its command, so it stays in the tree:
+      // a finished one would sit behind the done badge instead.
+      await send(page, 'Start a thread E2E_THREAD E2E_DELIVERY:fold')
       await until(
-        'the Bot to dispatch a sub-agent',
-        async () => count('finish E2E_DELIVERY:inherit-child') > dispatched,
+        'the sub-agent to wait on its command',
+        async () => count('permission-asked E2E_DELIVERY:thread') > asked,
       )
       // Folded until someone opens it.
       await show.click()

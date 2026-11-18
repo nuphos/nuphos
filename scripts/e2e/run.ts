@@ -250,8 +250,9 @@ const scenarios: Scenario[] = [
   ...commandScenarios,
   ...threadScenarios,
   ...offlineScenarios,
-  ...botFoldScenarios,
   threadModeScenario,
+  // After the thread mode one: its sub-agent's events carry the same marker.
+  ...botFoldScenarios,
   ...fallbackScenarios,
   ...memberStreamScenarios,
   // It removes a member from the team.
