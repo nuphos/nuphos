@@ -115,13 +115,25 @@ test('a locked model picker shows the setting and why, and a pick changes nothin
       ),
     )
 
-  // The owner's pick goes through.
+  // A runtime without effort opens the same card; its model list is one step further.
+  const selectModel = () =>
+    act(() =>
+      (
+        dom.document.querySelector('[aria-label="Select model"]') as unknown as HTMLButtonElement
+      ).click(),
+    )
+
   await render()
+  assert.equal(item('Opus'), undefined, 'no bare model list')
+  assert.equal(dom.document.querySelector('input[type="range"]'), null, 'no effort to slide')
+  await selectModel()
+  // The owner's pick goes through.
   await act(() => item('Opus')?.click())
   assert.deepEqual(selected, [{ configId: 'model', value: 'opus' }])
 
   // Anyone else sees the same choices, is told why, and a pick changes nothing.
   await render('Only the owner can change model settings.')
+  if (!item('Opus')) await selectModel()
   assert.ok(item('Opus'), 'the choices still show')
   assert.match(dom.document.body.textContent ?? '', /Only the owner can change model settings\./)
   assert.equal(item('Opus')?.disabled, true)

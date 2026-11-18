@@ -60,6 +60,7 @@ export const threadScenarios: Scenario[] = [
       await send(page, 'Before the pick E2E_DELIVERY:inherit-parent')
       await page.getByText('ACK E2E_DELIVERY:inherit-parent').waitFor()
       await page.getByRole('button', { name: /^Model settings/ }).click()
+      await page.getByRole('button', { name: 'Select model' }).click()
       await page.getByRole('menuitemcheckbox', { name: /fixture-small/ }).click()
       await page.keyboard.press('Escape')
       await page.getByRole('button', { name: /^Model settings: fixture-small/ }).waitFor()
