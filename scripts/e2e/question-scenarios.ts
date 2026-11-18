@@ -4,6 +4,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { agentEvents, agentLog } from './agent-log.ts'
 import { backendLines, backendLog } from './backend-log.ts'
 import { client, must } from './binding-access-scenarios.ts'
+import { decisionTitleScenarios } from './decision-title-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
 
@@ -281,4 +282,5 @@ export const questionScenarios: Scenario[] = [
       must(answered() === 1, `the answer to reach the agent once, got ${String(answered())}`)
     },
   },
+  ...decisionTitleScenarios,
 ]
