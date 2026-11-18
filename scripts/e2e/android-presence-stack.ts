@@ -1,8 +1,6 @@
-// Real backend for Android's Bot presence device test (#3308): a Bot whose computer is offline,
-// in its own chat and in a group chat with an online Bot. Writes what the test needs to `$E2E_ARTIFACTS/presence.json`,
-// then keeps the stack up until `$E2E_ARTIFACTS/done` exists.
-//   bun scripts/e2e/android-presence-stack.ts
-// then, with `adb reverse tcp:<port> tcp:<port>`, run BotPresenceLiveDeviceTest with its arguments.
+// Real backend for Android's BotPresenceLiveDeviceTest (#3308): a Bot whose computer is offline, in its
+// chat and in a group with an online Bot. Writes `$E2E_ARTIFACTS/presence.json` (the test's arguments;
+// reach the port with `adb reverse`) and keeps the stack up until `$E2E_ARTIFACTS/done` exists.
 import { randomUUID } from 'node:crypto'
 import { existsSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -34,6 +32,7 @@ const consent = await fetch(`${stack.apiUrl}/auth/ai-consent`, {
 if (!consent.ok) throw new Error(`Consent answered ${String(consent.status)}`)
 const deviceId = randomUUID()
 const disconnect = await computerWithUsage(stack, 'E2E away computer', deviceId)
+
 type Runtime = { id: string; local?: { deviceId?: string } }
 let runtime: Runtime | undefined
 
