@@ -80,6 +80,7 @@ export const choiceModeScenarios: Scenario[] = [
       // Picked out of order: the agent reads the picks as they were made, the last one last.
       await page.getByRole('checkbox', { name: 'E2E_DELIVERY:any-ap' }).click()
       await page.getByRole('checkbox', { name: 'E2E_DELIVERY:any-us' }).click()
+      await page.screenshot({ path: `${artifacts}/choice-modes-inbox-multi-picked.png` })
       await page.getByRole('button', { name: 'Send', exact: true }).click()
       await delivered('E2E_DELIVERY:any-us')
 
