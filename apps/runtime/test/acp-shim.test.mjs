@@ -609,3 +609,91 @@ test('a pi turn the provider refused shows why, which pi-acp drops', async () =>
     assert.match(shown[0].params.update.content.text, /401 invalid x-api-key/u)
   })
 })
+
+// OpenCode 1.19 stand-in: a prompt never answers on its own, as when OpenCode retries a
+// provider error inside the turn; a cancel ends it.
+const STALLED_OPENCODE = `
+const rl = require('node:readline').createInterface({ input: process.stdin })
+const open = new Map()
+const reply = (id, result) => process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id, result }) + '\\n')
+rl.on('line', (line) => {
+  const m = JSON.parse(line)
+  if (m.method === 'session/cancel') {
+    for (const id of open.values()) reply(id, { stopReason: 'end_turn' })
+    return open.clear()
+  }
+  if (m.id === undefined) return
+  if (m.method === 'session/prompt') return void open.set(m.params.sessionId, m.id)
+  reply(m.id, m.method === 'session/new' ? { sessionId: 'ses_1', configOptions: [] } : {})
+})
+`
+
+const openCodeLog = (home) => join(home, '.local', 'share', 'opencode', 'log', 'opencode.log')
+const streamError = (at, sessionId, small, error) =>
+  `timestamp=${at} level=ERROR run=r1 message="stream error" providerID=opencode modelID=big-pickle session.id=${sessionId} small=${small} agent=build mode=primary error.error="${error}"\n`
+const LIMIT =
+  'AI_APICallError: Free usage limit reached. Free models work in OpenCode (https://opencode.ai); subscribe to OpenCode Go to keep going: https://opencode.ai/go'
+
+test('an opencode turn its provider refuses ends with OpenCode’s own error instead of hanging (#3630)', async () => {
+  await withShim(
+    'opencode',
+    async ({ call, home, notifications }) => {
+      await call('initialize', { protocolVersion: 1 })
+      await call('session/new', session('Be Nuphos.'))
+      const { appendFile, mkdir } = await import('node:fs/promises')
+      await mkdir(join(home, '.local', 'share', 'opencode', 'log'), { recursive: true })
+      // An earlier turn's error, and the title request's, end nothing.
+      await appendFile(
+        openCodeLog(home),
+        streamError(new Date(Date.now() - 60_000).toISOString(), 'ses_1', false, LIMIT) +
+          streamError(new Date().toISOString(), 'ses_1', true, LIMIT),
+      )
+      const answered = call('session/prompt', {
+        sessionId: 'ses_1',
+        prompt: [{ type: 'text', text: 'hi' }],
+      })
+      const early = await Promise.race([answered, new Promise((r) => setTimeout(r, 300, 'open'))])
+      assert.equal(early, 'open', 'a retrying turn stays open until OpenCode reports why')
+      await appendFile(
+        openCodeLog(home),
+        streamError(new Date().toISOString(), 'ses_1', false, LIMIT),
+      )
+      const reply = await Promise.race([answered, new Promise((r) => setTimeout(r, 5000, 'hung'))])
+
+      assert.notEqual(reply, 'hung', 'the turn ends once OpenCode logged the refusal')
+      assert.equal(reply.result.stopReason, 'end_turn')
+      const shown = notifications.filter(
+        (n) => n.params?.update?.sessionUpdate === 'agent_message_chunk',
+      )
+      assert.equal(shown.length, 1)
+      assert.match(
+        shown[0].params.update.content.text,
+        /^The model provider refused the request: Free usage limit reached\./u,
+      )
+    },
+    STALLED_OPENCODE,
+  )
+})
+
+test('an opencode turn that answers is left alone, whatever another session logged', async () => {
+  await withShim('opencode', async ({ call, home, notifications }) => {
+    await call('initialize', { protocolVersion: 1 })
+    await call('session/new', session('Be Nuphos.'))
+    const { appendFile, mkdir } = await import('node:fs/promises')
+    await mkdir(join(home, '.local', 'share', 'opencode', 'log'), { recursive: true })
+    await appendFile(
+      openCodeLog(home),
+      streamError(new Date().toISOString(), 'ses_other', false, LIMIT),
+    )
+    const reply = await call('session/prompt', {
+      sessionId: 's1',
+      prompt: [{ type: 'text', text: 'hi' }],
+    })
+
+    assert.ok(reply.result.seen, 'the agent’s own answer')
+    assert.equal(
+      notifications.filter((n) => n.params?.update?.sessionUpdate === 'agent_message_chunk').length,
+      0,
+    )
+  })
+})
