@@ -1,26 +1,27 @@
 import { CornerUpLeft, Pause } from 'lucide-react'
-import { Fragment, useCallback, useState } from 'react'
+import { Fragment, useCallback, useMemo, useState } from 'react'
 
 import { t } from '../../i18n'
-import { useAgentLinks } from '../agent/panel/useAgentLinks'
 import { renderAtlasMentionLink, renderMemberMentionLink } from '../agent/panel/messageInlineLinks'
 import { parseMessageMetadata } from '../agent/panel/messageMetadata'
+import { useAgentLinks } from '../agent/panel/useAgentLinks'
 import { ContextMenu } from '../ContextMenu'
 
+import { ChannelMessage } from './ChannelPost'
+import { channelAgentMention } from './ChannelAgentMention'
 import { replyTo } from './channelReply'
 import { ChannelReplyFailed } from './ChannelReplyFailed'
-import { ChannelMessage } from './ChannelPost'
-import { sentSinceOpening, startsTimeGap, timeGapLabel } from './chatTime'
 import { Typing } from './ChannelTyping'
+import { sentSinceOpening, startsTimeGap, timeGapLabel } from './chatTime'
 import { useOpenAtPost } from './postJump'
 
+import type { ChannelFixes } from './ChannelReplyFix'
 import type {
   AgentMessageReply,
   AgentPersistedMessage,
   AgentTimelineEvent,
   ChannelAgent,
 } from '../../api'
-import type { ChannelFixes } from './ChannelReplyFix'
 import type { ReactNode } from 'react'
 
 /** Who posted: the sender's id, so consecutive posts from one sender form a run. */
@@ -85,18 +86,21 @@ export function ChannelMessages({
   fixes?: ChannelFixes
 }) {
   const renderAgentLink = useAgentLinks(teamId, onOpenNuphosLink)
+  const agentKey = JSON.stringify(agents)
+  const mentionAgents = useMemo(() => JSON.parse(agentKey) as ChannelAgent[], [agentKey])
 
   useOpenAtPost(channelId)
   // One function across renders: a new one makes every post rebuild its text,
   // which drops a selection the reader is dragging.
   const renderLink = useCallback(
     (href: string, children: ReactNode) =>
+      channelAgentMention(href, children, mentionAgents, viewerId, onOpenSession) ??
       renderMemberMentionLink(href, children, teamId) ??
       renderAtlasMentionLink(href, children, onOpenNuphosLink) ??
       renderAgentLink(href, children),
-    [teamId, renderAgentLink, onOpenNuphosLink],
+    [mentionAgents, viewerId, onOpenSession, teamId, renderAgentLink, onOpenNuphosLink],
   )
-  const links = { channelId, renderLink, onLinkClick: onOpenNuphosLink }
+  const links = { channelId, agents, renderLink, onLinkClick: onOpenNuphosLink }
   // What was here on opening stays put; only posts that arrive later spring in.
   const owned = new Set(
     agents.filter((agent) => agent.ownerId === viewerId).map((agent) => agent.sessionId),
@@ -110,7 +114,7 @@ export function ChannelMessages({
     ...messages.map((message, i) => {
       const at = postedAt(message)
       // A time above the post starts a new run, as in iMessage.
-      const gap = startsTimeGap(at, i > 0 ? postedAt(messages[i - 1]!) : undefined)
+      const gap = startsTimeGap(at, i > 0 ? postedAt(messages[i - 1]) : undefined)
 
       return {
         at,
@@ -125,7 +129,7 @@ export function ChannelMessages({
             <ChannelMessage
               message={message}
               at={at}
-              first={gap || i === 0 || senderOf(messages[i - 1]!) !== senderOf(message)}
+              first={gap || i === 0 || senderOf(messages[i - 1]) !== senderOf(message)}
               fresh={sentSinceOpening(at, openedAt)}
               ownAgent={owned.has(senderOf(message) ?? '')}
               viewerId={viewerId}

@@ -24,6 +24,7 @@ import { fallbackScenarios } from './fallback-scenarios.ts'
 import { formScenario } from './form-scenario.ts'
 import { memberStreamScenarios } from './member-stream-scenarios.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
+import { checkChatSpacing } from './chat-spacing.ts'
 import { artifacts, stopAll, until } from './processes.ts'
 import { providerUnreachableScenarios } from './provider-unreachable-scenarios.ts'
 import { questionScenarios } from './question-scenarios.ts'
@@ -74,12 +75,13 @@ const scenarios: Scenario[] = [
       await until('the unprompted Bot introduction to finish', async () =>
         agentEvents(stack).includes('finish E2E_DELIVERY:missing'),
       )
-      await page.screenshot({ path: `${artifacts}/bot-first-reply.png` })
+      await checkChatSpacing(page)
       await send(
         page,
-        'Review https://github.com/nuphos/nuphos/issues/1 E2E_ASK_CREDENTIAL E2E_DELIVERY:bot',
+        '@E2E Bot Review https://github.com/nuphos/nuphos/issues/1 E2E_ASK_CREDENTIAL E2E_DELIVERY:bot',
       )
       await page.getByText('POSTED E2E_DELIVERY:bot', { exact: true }).waitFor()
+      await page.getByRole('button', { name: '@E2E Bot', exact: true }).last().waitFor()
       await checkDecisionOutline(page)
       await checkOutgoingChip(page)
       await page.screenshot({ path: `${artifacts}/bot-question-outline.png` })

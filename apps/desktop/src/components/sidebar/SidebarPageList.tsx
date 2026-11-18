@@ -97,7 +97,7 @@ export function SidebarPageList({
         ref={taskList}
         onScroll={onScroll}
         className={clsx(
-          'px-2.5 pb-2',
+          'px-2.5 pb-9',
           'flex flex-col',
           'sidebar-page-list min-h-0 flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-overlay',
         )}
