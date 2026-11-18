@@ -116,10 +116,9 @@ export const botFoldScenarios: Scenario[] = [
       const api = client(stack.apiUrl, stack.token)
       const team = await api('POST', '/teams', { name: 'Listing Team' })
       const switchTo = async (name: string) => {
-        // The team switcher at the top of the sidebar, named for the team open now.
+        // The team switcher at the top of the sidebar, labelled with the team open now.
         await page
-          .locator('button[aria-haspopup="menu"]')
-          .filter({ hasText: /(?:^|\W)(?:E2E|Listing Team)$/ })
+          .getByText(/^(?:E2E|Listing Team)$/)
           .first()
           .click()
         await page.getByRole('menuitem', { name: 'Switch workspace' }).click()
