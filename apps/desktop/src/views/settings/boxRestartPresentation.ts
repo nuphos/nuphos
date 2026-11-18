@@ -118,7 +118,7 @@ export function boxUpdateConfirm(boxLabel: string, version: string | undefined) 
     title: t('Update {boxLabel}?', { boxLabel }),
     confirmLabel: t('Update and restart'),
     description: `${install} ${t(
-      'The computer itself keeps running, but all of its runtimes are unavailable until the host reconnects. The host starts again even if the install fails. The update does not start while anything on it is replying.',
+      'The computer itself keeps running, but all of its runtimes are unavailable until the host reconnects. The host starts again even if the install fails. The update does not start while any agent on it is replying.',
     )}`,
   }
 }
@@ -140,7 +140,7 @@ export function appUpdateConfirm(label: string, version: string) {
     title: t('Update {boxLabel}?', { boxLabel: label }),
     confirmLabel: t('Update and restart'),
     description: t(
-      'This restarts Nuphos on {label} to install v{version}. Its runtimes are unavailable until it reconnects. The update does not start while anything on it is working.',
+      'This restarts Nuphos on {label} to install v{version}. Its agents are unavailable until it reconnects. The update does not start while an agent on it is working.',
       { label, version },
     ),
   }
