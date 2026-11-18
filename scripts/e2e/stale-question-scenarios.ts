@@ -36,6 +36,10 @@ export const staleQuestionScenarios: Scenario[] = [
       }
 
       await newTask(page)
+      // A thread's prompt names its parent by title, the first message: keep E2E_CALL out of it,
+      // or the thread would run the parent's escaped call too.
+      await send(page, 'Plan the about-kid work E2E_DELIVERY:about-plan')
+      await page.getByText('ACK E2E_DELIVERY:about-plan').waitFor()
       const start = {
         label: 'Start',
         title: 'E2E about kid',
