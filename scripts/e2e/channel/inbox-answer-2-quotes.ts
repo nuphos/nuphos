@@ -29,7 +29,10 @@ const scenario: Scenario = {
     // Stored behind the app's back: a reload reads it as a later visit would.
     await page.reload()
     await openBotChat(page)
-    await page.getByText(/^The standard one is fine/).waitFor()
+    await page
+      .getByText(/^The standard one is fine/)
+      .first()
+      .waitFor()
     await shoot(page, 'teammate-reply')
 
     // A Slack reply in a Task: the same quote, in your own bubble.
@@ -59,7 +62,10 @@ const scenario: Scenario = {
     )
     await newTask(page)
     await page.getByText('Quote host E2E_DELIVERY:quote-host', { exact: true }).first().click()
-    await page.getByText(/^Send the standard DPA today/).waitFor()
+    await page
+      .getByText(/^Send the standard DPA today/)
+      .first()
+      .waitFor()
     await shoot(page, 'slack-reply')
     await page.evaluate((themed) => {
       document.documentElement.className = themed
