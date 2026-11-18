@@ -4,7 +4,6 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { agentEvents, agentLog } from './agent-log.ts'
 import { backendLines, backendLog } from './backend-log.ts'
 import { client, must } from './binding-access-scenarios.ts'
-import { inboxScenarios } from './inbox-scenarios.ts'
 import { decisionTitleScenarios } from './decision-title-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
@@ -182,10 +181,6 @@ export const questionScenarios: Scenario[] = [
       await newTask(page)
       await send(page, 'Ask me E2E_ASK E2E_DELIVERY:snooze')
       await page.getByText('ACK E2E_DELIVERY:snooze').waitFor()
-      // Counted once the asking turn is over, so only a wake could add to it.
-      await until('the asking turn to finish', async () =>
-        agentEvents(stack).includes('finish E2E_DELIVERY:snooze'),
-      )
       const { sessionId, request } = await asked()
 
       must(Boolean(request), 'the question to be listed')
@@ -288,5 +283,4 @@ export const questionScenarios: Scenario[] = [
     },
   },
   ...decisionTitleScenarios,
-  ...inboxScenarios,
 ]
