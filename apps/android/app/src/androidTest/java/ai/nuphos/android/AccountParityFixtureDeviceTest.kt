@@ -320,7 +320,8 @@ class AccountParityFixtureDeviceTest {
         draftTeam = true
         awaitText("Before you use AI agents")
         tap("Agree and continue")
-        compose.waitUntil(8_000) { compose.onAllNodes(hasContentDescription("Ask Nuphos anything") and isEnabled()).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
+        compose.waitUntil(8_000) { compose.onAllNodesWithTag("new-task-open").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
+        compose.onNodeWithTag("new-task-open").performClick()
         val text = "  activity draft\n  "
         compose.onNodeWithContentDescription("Ask Nuphos anything").performTextReplacement(text)
         val auth = app.authSession
@@ -335,6 +336,7 @@ class AccountParityFixtureDeviceTest {
         assertEquals("Recreation changed the original draft lease", text, lease.text)
         assertEquals("Recreation changed the bound draft", text, auth.composerDrafts.bind(requireNotNull(auth.user).id, "aaaaaaaaaaaaaaaaaaaaaaaa", destination)!!.text)
         compose.onNodeWithContentDescription("Ask Nuphos anything").assertTextEquals(text)
+        compose.onNodeWithTag("new-task-cancel").performClick()
         compose.onNodeWithContentDescription("Profile").performClick()
         tap("Withdraw AI sharing consent")
         compose.onNodeWithText("Withdraw").performClick()
@@ -370,6 +372,7 @@ class AccountParityFixtureDeviceTest {
             compose.waitUntil(8_000) { compose.onAllNodesWithText("Draft chat one", useUnmergedTree = true).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
         }
         fun openChat(title: String) {
+            if (compose.onAllNodesWithTag("new-task-cancel").fetchSemanticsNodes().isNotEmpty()) compose.onNodeWithTag("new-task-cancel").performClick()
             // On the small API 33 screen, expanded text and the IME can cover a row.
             val collapse = compose.onAllNodesWithContentDescription("Collapse composer")
             if (collapse.fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()) collapse.onFirst().performClick()
@@ -379,11 +382,13 @@ class AccountParityFixtureDeviceTest {
             compose.waitUntil(8_000) { compose.onAllNodesWithContentDescription("Back").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
         }
         try {
+            compose.onNodeWithTag("new-task-open").performClick()
             input().performTextReplacement(" new first team ")
             openChat("Draft chat one")
             compose.waitUntil(8_000) { count("GET", "/agent/conversations/draft-one") > 0 }
             input().performTextReplacement("  A\n ")
             backToHistory()
+            compose.onNodeWithTag("new-task-open").performClick()
             input().assertTextEquals(" new first team ")
             openChat("Draft chat two")
             compose.waitUntil(8_000) { count("GET", "/agent/conversations/draft-two") > 0 }
@@ -400,13 +405,16 @@ class AccountParityFixtureDeviceTest {
             // selection hook with an authorized fixture team, then verify real composer UI.
             compose.runOnIdle { agent.select(agent.teams.single { it.id == "bbbbbbbbbbbbbbbbbbbbbbbb" }) }
             compose.waitUntil(8_000) { agent.selectedTeam?.id == "bbbbbbbbbbbbbbbbbbbbbbbb" && agent.phase == ai.nuphos.android.session.AgentStore.Phase.Loaded }
+            compose.onNodeWithTag("new-task-open").performClick()
             input().assert(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.EditableText, androidx.compose.ui.text.AnnotatedString("")))
             input().performTextReplacement(" other team ")
             compose.runOnIdle { agent.select(agent.teams.single { it.id == "aaaaaaaaaaaaaaaaaaaaaaaa" }) }
             awaitText("Draft chat one")
+            compose.onNodeWithTag("new-task-open").performClick()
             input().assertTextEquals(" new first team ")
             compose.runOnIdle { agent.select(agent.teams.single { it.id == "bbbbbbbbbbbbbbbbbbbbbbbb" }) }
             compose.waitUntil(8_000) { agent.selectedTeam?.id == "bbbbbbbbbbbbbbbbbbbbbbbb" && agent.phase == ai.nuphos.android.session.AgentStore.Phase.Loaded }
+            compose.onNodeWithTag("new-task-open").performClick()
             input().assertTextEquals(" other team ")
         } finally {
             // Restore only the preference this fixture's explicit selection wrote.
