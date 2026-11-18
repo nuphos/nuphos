@@ -79,7 +79,8 @@ async function holdForReattach(target: AgentConversation, head: PendingUserMessa
 /**
  * A send never waits for a Box: the queue does, while it resumes in the background. True
  * when the queue is to wait. A Box its team's plan will not start never comes back, so
- * what waits on it fails now, with the plan's reason.
+ * what waits on it fails now, with the plan's reason, a head at a time: the retry that
+ * follows meets the same refusal for whatever queued behind.
  */
 async function waitForBox(
   userId: string,
@@ -90,9 +91,8 @@ async function waitForBox(
   if (queue.length === 0) return false
   try {
     if (!(await wakeOfflineBox(target?.runtimeId))) return false
-    retryQueuedTurn(userId, sessionId)
   } catch (error) {
-    if (!(error instanceof AppError) || error.status !== 402) throw error
+    if (!(error instanceof AppError) || error.code !== 'box_vcpu_limit') throw error
     const refused = await takePendingUserMessages(userId, sessionId, queueHead(queue, userId))
 
     await reportUndelivered(
@@ -103,6 +103,7 @@ async function waitForBox(
     )
     await recordFailedFires(error, refused)
   }
+  retryQueuedTurn(userId, sessionId)
 
   return true
 }

@@ -15,6 +15,7 @@ import {
   hasPendingUserMessages,
 } from './pending-messages'
 import { startQueuedTurn } from './queued-turn'
+import { installQueuedTurnStarter } from './session-released'
 import { installTurnRunner, resetTurnRunner } from './turn-runner'
 
 import type { AgentConversation } from './db'
@@ -64,13 +65,13 @@ useAgentDb({
   getConversationWithMessages: async () => ({ conversation: target, messages: [] }),
 })
 
-function fire(offlineSince?: string) {
+function fire(offlineSince?: string, triggerId = TRIGGER_ID) {
   return {
     ...buildPendingUserMessage({
       renderedText: 'check the deploy',
       source: 'agent.resource',
       actorUserId: 'owner',
-      metadata: systemSender(`trigger:${TRIGGER_ID}`, 'Hourly check'),
+      metadata: systemSender(`trigger:${triggerId}`, 'Hourly check'),
     }),
     ...(offlineSince ? { offlineSince } : {}),
   }
@@ -170,12 +171,22 @@ test('a fire on a Box its plan will not start fails, and counts toward pausing i
       "Your team's free cloud computer has used its 50 hours this month.",
     )
   }
+  // Another Trigger's fire queues behind it, as its own turn.
+  const other = '6af1a38b843a609932e6f66e'
+
+  installQueuedTurnStarter(startQueuedTurn)
   await enqueuePendingUserMessage('owner', 'target', fire())
+  await enqueuePendingUserMessage('owner', 'target', fire(undefined, other))
 
   await startQueuedTurn('owner', 'target')
+  expect(writes.map((w) => String(w.filter._id))).toEqual([TRIGGER_ID])
+  // The retry that follows meets the same refusal, so nothing waits on forever.
+  for (let i = 0; i < 100 && writes.length < 2; i++)
+    await new Promise((resolve) => setTimeout(resolve, 50))
   expect(await hasPendingUserMessages('owner', 'target')).toBe(false)
-  expect(writes).toHaveLength(1)
-  expect(writes[0]?.op).toBe('findOneAndUpdate')
-  expect(String(writes[0]?.filter._id)).toBe(TRIGGER_ID)
-  expect(writes[0]?.update).toEqual({ $inc: { failedRunCount: 1 } })
+  expect(writes.map((w) => String(w.filter._id))).toEqual([TRIGGER_ID, other])
+  for (const { op, update } of writes) {
+    expect(op).toBe('findOneAndUpdate')
+    expect(update).toEqual({ $inc: { failedRunCount: 1 } })
+  }
 })
