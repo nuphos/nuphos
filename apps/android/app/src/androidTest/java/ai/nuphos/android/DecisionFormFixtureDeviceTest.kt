@@ -58,7 +58,8 @@ class DecisionFormFixtureDeviceTest {
     @Test fun severalQuestionsAreAnsweredAsOneForm() {
         val sent = mutableListOf<JsonValue>()
         val texts = mutableListOf<String>()
-        screen { BotQuestionCard(release, onOpen = {}, onConnect = {}, onAnswer = { texts += it }, onForm = { sent += it }, answersInPlace = true) }
+        screen { BotQuestionCard(release, onOpen = {}, onConnect = {}, onAnswer = { texts += it }, onForm = { sent += it }, answersInPlace = true,
+            onDismiss = {}, asksReason = true, onSnooze = {}) }
         artifact("several")
         // The written-out list is not repeated under the form; the agent's own text is.
         compose.onNodeWithText("The canary has been clean for a day.").assertIsDisplayed()
@@ -128,10 +129,17 @@ class DecisionFormFixtureDeviceTest {
              "options":["us-east","eu-west","ap-northeast"],"multiSelect":true}
         """))
         screen {
-            BotQuestionCard(deploy, onOpen = {}, onConnect = {}, onAnswer = { answers += it }, showsFrom = false)
-            BotQuestionCard(regions, onOpen = {}, onConnect = {}, onAnswer = { answers += it }, onForm = { sent += it }, showsFrom = false)
+            // As the Inbox draws them: Snooze and Dismiss end the row (#3468).
+            BotQuestionCard(deploy, onOpen = {}, onConnect = {}, onAnswer = { answers += it }, showsFrom = false,
+                onDismiss = {}, asksReason = true, onSnooze = {})
+            BotQuestionCard(regions, onOpen = {}, onConnect = {}, onAnswer = { answers += it }, onForm = { sent += it }, showsFrom = false,
+                onDismiss = {}, asksReason = true, onSnooze = {})
         }
         artifact("single-and-multi")
+        // Every button in a row is the one pill: options, Other…, Snooze and Dismiss, no Skip.
+        compose.onAllNodesWithTag("bot-question-snooze").assertCountEquals(2)
+        compose.onAllNodesWithTag("bot-question-dismiss").assertCountEquals(2)
+        compose.onNodeWithText("Skip").assertDoesNotExist()
         // The same option buttons and "Other…" on both, and no text box until "Other…" opens one.
         compose.onAllNodesWithTag("bot-question-option").assertCountEquals(5)
         compose.onAllNodesWithTag("bot-question-other").assertCountEquals(2)
