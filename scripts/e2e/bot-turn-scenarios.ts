@@ -1,7 +1,9 @@
 // Scenarios about a Bot's own session, opened over its chat. They run after the runtime
 // scenarios: they leave the Bot on the second agent, which those need unused until then.
-import { agentLog } from './agent-log.ts'
+import { agentEvents, agentLog } from './agent-log.ts'
+import { must } from './binding-access-scenarios.ts'
 import { artifacts, until } from './processes.ts'
+import { send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 
@@ -45,6 +47,34 @@ export const botTurnScenarios: Scenario[] = [
       await task.getByRole('button', { name: 'Back to conversation' }).click()
       // The scenarios after this one find a single composer on the page.
       await task.waitFor({ state: 'detached' })
+    },
+  },
+  {
+    // #3481: a Bot chat learned its Bot's turn had ended only from the 4 s session poll, so its
+    // header kept saying Thinking for up to 4 s after the turn.
+    name: "a Bot chat's header stops saying Thinking within a second and a half of the turn",
+    run: async (page, stack) => {
+      const marker = 'E2E_DELIVERY:pill-clears'
+      const thinking = page.locator('.workspace-agent-titlebar').getByText('Thinking…')
+
+      // E2E_SLOW keeps the turn going long enough for the 4 s poll to see it start.
+      await send(page, `Work a while E2E_SLOW ${marker}`)
+      await thinking.first().waitFor({ timeout: 30_000 })
+      // Checked every 50 ms, closer than `until`, since the end's time is what this measures.
+      for (
+        const deadline = Date.now() + 60_000;
+        !agentEvents(stack).includes(`finish ${marker}`);
+      ) {
+        must(Date.now() < deadline, 'the Bot to finish its turn')
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      }
+      const finished = Date.now()
+
+      await thinking.first().waitFor({ state: 'detached', timeout: 10_000 })
+      const lag = Date.now() - finished
+
+      await page.screenshot({ path: `${artifacts}/bot-chat-turn-ended.png` })
+      must(lag <= 1_500, `the header to stop saying Thinking within 1.5 s, took ${String(lag)} ms`)
     },
   },
 ]
