@@ -109,6 +109,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       busy: () => sleep.taskActivity.busy(),
       install: installUpdate,
       autoInstall: { read: readAutoInstall, write: writeAutoInstall },
+      changed: () => tunnel?.sendStatus(),
     })
 
     tunnel = new RuntimeTunnelClient({

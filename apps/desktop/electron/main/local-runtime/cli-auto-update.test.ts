@@ -76,6 +76,7 @@ test('it does nothing when switched off, current, or the release cannot be read'
 test('the switch is on until the card turns it off, and other requests pass through', async () => {
   const home = mkdtempSync(path.join(tmpdir(), 'cli-auto-update-'))
   const passed: unknown[] = []
+  let sent = 0
   const handle = withAutoInstallRequest(
     async (request) => {
       passed.push(request)
@@ -83,11 +84,16 @@ test('the switch is on until the card turns it off, and other requests pass thro
       return 'handled'
     },
     (value) => writeCliAutoInstall(home, value),
+    () => {
+      sent++
+    },
   )
 
   assert.equal(readCliAutoInstall(home).enabled, true)
   assert.deepEqual(await handle({ method: 'autoInstall', enabled: false }), { enabled: false })
   assert.equal(readCliAutoInstall(home).enabled, false)
+  // The status goes out at once, so the card shows it.
+  assert.equal(sent, 1)
   await assert.rejects(handle({ method: 'autoInstall', enabled: 'no' }))
   assert.equal(await handle({ method: 'update' }), 'handled')
   assert.deepEqual(passed, [{ method: 'update' }])

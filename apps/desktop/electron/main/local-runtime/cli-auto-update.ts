@@ -141,6 +141,8 @@ export function startCliAutoUpdate(deps: CliAutoUpdateDeps): () => void {
 export function withAutoInstallRequest(
   handle: ((request: unknown) => Promise<unknown>) | undefined,
   write: (value: unknown) => AutoInstallPreferences,
+  /** The status changed: the card shows the switch as it now is. */
+  changed?: () => void,
 ): (request: unknown) => Promise<unknown> {
   return (request) => {
     const { method, enabled } = (request ?? {}) as { method?: unknown; enabled?: unknown }
@@ -149,7 +151,11 @@ export function withAutoInstallRequest(
       return handle?.(request) ?? Promise.reject(new Error('Instance management unavailable'))
 
     try {
-      return Promise.resolve(write({ enabled }))
+      const next = write({ enabled })
+
+      changed?.()
+
+      return Promise.resolve(next)
     } catch (error) {
       return Promise.reject(error instanceof Error ? error : new Error(String(error)))
     }
@@ -168,7 +174,7 @@ export function writeCliAutoInstall(home: string, value: unknown): AutoInstallPr
  * What the CLI host adds for it: the task activity its tunnel reports to, and the status and
  * requests the computer's card reads and changes the switch through. Checks start at once.
  */
-export function cliAutoUpdate(apiUrl: () => string, env = process.env) {
+export function cliAutoUpdate(apiUrl: () => string, changed: () => void, env = process.env) {
   const home = env.NUPHOS_AGENT_HOME
   const version = env.NUPHOS_CLI_VERSION
   const clock = idleClock()
@@ -194,7 +200,7 @@ export function cliAutoUpdate(apiUrl: () => string, env = process.env) {
       home
         ? [
             () => ({ ...status(), autoInstall: readCliAutoInstall(home).enabled }),
-            withAutoInstallRequest(instances, (value) => writeCliAutoInstall(home, value)),
+            withAutoInstallRequest(instances, (value) => writeCliAutoInstall(home, value), changed),
           ]
         : [status, instances],
   }

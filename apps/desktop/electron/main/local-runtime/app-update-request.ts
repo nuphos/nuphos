@@ -69,6 +69,8 @@ export function appUpdateTunnel<S extends object>(
   deps: Parameters<typeof withAppUpdate>[1] & {
     version: () => string
     state: () => UpdaterState
+    /** The status changed: the card shows the switch as it now is. */
+    changed: () => void
     autoInstall: {
       read: () => AutoInstallPreferences
       write: (value: unknown) => AutoInstallPreferences
@@ -81,6 +83,10 @@ export function appUpdateTunnel<S extends object>(
       app: appUpdateStatus(deps.version(), deps.state()),
       autoInstall: deps.autoInstall.read().enabled,
     }),
-    instances: withAutoInstallRequest(withAppUpdate(instances, deps), deps.autoInstall.write),
+    instances: withAutoInstallRequest(
+      withAppUpdate(instances, deps),
+      deps.autoInstall.write,
+      deps.changed,
+    ),
   }
 }

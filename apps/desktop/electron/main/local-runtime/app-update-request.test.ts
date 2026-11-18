@@ -67,6 +67,7 @@ test('passes every other request on', async () => {
 
 test('the card reads and sets the same switch as Settings > Updates', async () => {
   let enabled = true
+  let sent = 0
   const { status, instances } = appUpdateTunnel(
     () => ({ agents: {} }),
     async () => 'handled',
@@ -76,6 +77,9 @@ test('the card reads and sets the same switch as Settings > Updates', async () =
       ready: () => null,
       busy: () => false,
       install: () => {},
+      changed: () => {
+        sent++
+      },
       autoInstall: {
         read: () => ({ enabled }),
         write: (value) => {
@@ -90,5 +94,7 @@ test('the card reads and sets the same switch as Settings > Updates', async () =
   assert.deepEqual(status(), { agents: {}, app: { version: '0.126.0' }, autoInstall: true })
   assert.deepEqual(await instances({ method: 'autoInstall', enabled: false }), { enabled: false })
   assert.equal(status().autoInstall, false)
+  // Sent at once, so the card shows it.
+  assert.equal(sent, 1)
   assert.equal(await instances({ method: 'desktop' }), 'handled')
 })

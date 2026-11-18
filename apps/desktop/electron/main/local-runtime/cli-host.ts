@@ -223,7 +223,7 @@ if (desktopPool) watchDesktops(desktopPool, () => tunnel?.sendStatus())
 const macScreen = enableMacScreen(dataDir, () => tunnel?.sendStatus())
 const macScreenHost = cliMacScreenHost(bundleRoot, () => owner)
 // Keeps this computer's Nuphos current when idle, as the Desktop does (cli-auto-update.ts).
-const autoUpdate = cliAutoUpdate(apiUrl)
+const autoUpdate = cliAutoUpdate(apiUrl, () => tunnel?.sendStatus())
 
 /** The tunnel's desktops, whose holders ride along with the agents' status. */
 function desktops(status: () => LocalRuntimeTunnelStatus, instances?: Instances) {
