@@ -130,7 +130,8 @@ export const offlineScenarios: Scenario[] = [
         await banner.waitFor()
         await page.screenshot({ path: join(artifacts, 'disk-banner.png') })
         // #3567: the banner floats above the composer; the transcript keeps its last message clear
-        // of it. A short window makes the transcript scroll, so the banner has something to cover.
+        // of it. A short, narrow window makes the transcript scroll and the reason wrap, so the
+        // banner is taller than the room below the last message and has something to cover.
         const last = page.getByText(`moved this task from E2E fixture agent to`).last()
         const size = await page.evaluate(() => ({
           width: window.innerWidth,
@@ -178,7 +179,7 @@ export const offlineScenarios: Scenario[] = [
             if (scroller) scroller.scrollTop = scroller.scrollHeight
           }, off)
 
-        await page.setViewportSize({ width: size.width, height: 420 })
+        await page.setViewportSize({ width: 720, height: 420 })
         try {
           for (const theme of ['light', 'dark']) {
             await page.evaluate((value) => {
