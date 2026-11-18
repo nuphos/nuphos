@@ -54,7 +54,7 @@ struct AgentPage: View {
                 }
                 if store.selectedTeam == nil { await store.loadTeams() } else { await store.reload() }
             }
-            .sheet(isPresented: $showRuntimeSetup) { RuntimeSetupGuide() }
+            .sheet(isPresented: $showRuntimeSetup) { RuntimeSetupGuide().environment(store) }
             .sheet(isPresented: $showWorkspaceSetup) { WorkspaceSetupSheet() }
             .sheet(isPresented: $showNewBot) {
                 NewBotSheet { title, avatar in

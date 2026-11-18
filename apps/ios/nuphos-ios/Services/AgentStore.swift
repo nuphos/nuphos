@@ -428,13 +428,16 @@ final class AgentStore {
 
     private(set) var agentDevices: [AgentDevice] = []
     private(set) var agentDevicesError = false
+    /// Desktop's Add computer offers a Box on the same two flags: the deployment makes
+    /// Boxes, and the viewer is a team administrator.
+    private(set) var canCreateBox = false
     /// The team's devices have loaded at least once.
     private(set) var agentDevicesLoaded = false
 
     /// `metrics`: asks every online host to sample, which only a meters view needs.
     func loadAgentDevices(metrics: Bool = true) async {
         guard let team = selectedTeam else { return }
-        struct Envelope: Decodable { let devices: [AgentDevice] }
+        struct Envelope: Decodable { let devices: [AgentDevice]; let boxAvailable: Bool?; let canCreateBox: Bool? }
         do {
             let query = (metrics ? [URLQueryItem(name: "metrics", value: "true")] : []) + [URLQueryItem(name: "teamId", value: team.id)]
             let data = try await AgentChatAPI.send("GET", "agent/devices", query: query, token: token, body: JSONValue?.none)
@@ -442,6 +445,7 @@ final class AgentStore {
             guard !Task.isCancelled, selectedTeam?.id == team.id else { return }
             agentDevices = result.devices
             agentDevicesError = false
+            canCreateBox = NewBox.offered(boxAvailable: result.boxAvailable, canCreateBox: result.canCreateBox)
             agentDevicesLoaded = true
         } catch {
             guard !Task.isCancelled, selectedTeam?.id == team.id else { return }
@@ -533,6 +537,7 @@ final class AgentStore {
         runtimes = []
         agentDevices = []
         agentDevicesError = false
+        canCreateBox = false
         agentDevicesLoaded = false
         runtimesLoaded = false
         quotas = [:]

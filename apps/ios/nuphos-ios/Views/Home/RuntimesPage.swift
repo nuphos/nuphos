@@ -47,7 +47,7 @@ struct RuntimesPage: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.canvas)
         // Full screen even where wide: beside this list, the list itself would be put away.
-        .sheet(isPresented: $showSetup) { RuntimeSetupGuide() }
+        .sheet(isPresented: $showSetup) { RuntimeSetupGuide().environment(store) }
         .sheet(isPresented: $showWorkspaceSetup) { WorkspaceSetupSheet() }
         .sheet(item: $adding) { target in
             if let team = store.selectedTeam {
@@ -67,6 +67,18 @@ struct RuntimesPage: View {
             guard scenePhase == .active else { return }
             await store.pollAgentDevices()
         }
+        // Desktop's Add computer, beside the list as well as in its empty state.
+        .toolbar {
+            if store.selectedTeam != nil {
+                ToolbarItem(placement: .primaryAction) {
+                    Button { showSetup = true } label: { LucideIcon("plus") }.accessibilityLabel("Add computer")
+                }
+            }
+        }
+        // A Box's runtimes join once it is up, and leave when it pauses: read them again then.
+        .onChange(of: store.agentDevices.map { $0.box?.state ?? "" }) { _, _ in
+            Task { await store.loadRuntimes(force: true) }
+        }
         .refreshable {
             async let agents: Void = store.loadRuntimes(force: true)
             async let quotas: Void = store.loadQuotas()
@@ -85,6 +97,10 @@ struct RuntimesPage: View {
                 Section {
                     SelectorBoxHeader(box: box, current: false, expanded: true, metricsUnavailable: store.agentDevicesError, showsChevron: false)
                         .listRowInsets(EdgeInsets(top: 16, leading: 20, bottom: 16, trailing: 20))
+                    if let device = box.device, let state = device.box?.state, NewBox.stateLabel(state) != nil {
+                        BoxStateRow(device: device, state: state)
+                            .listRowInsets(EdgeInsets(top: 12, leading: 44, bottom: 12, trailing: 20))
+                    }
                     // The backend names it only for a computer the viewer may open; it needs no runtime.
                     if let runtimeId = box.device?.desktopRuntimeId, let team = store.selectedTeam {
                         Button {
@@ -183,5 +199,52 @@ private struct AgentSignInInstructions: View {
         return teammate
             ? String(localized: "\(local.deviceLabel) belongs to a teammate, so only they can sign it in. Ask them to open Nuphos on it and choose Sign in on the Runtimes page.")
             : String(localized: "On \(local.deviceLabel), open Nuphos, go to the Runtimes page and choose Sign in for this runtime.")
+    }
+}
+
+/// Desktop's Box badge, for a Box that is not running, and its Resume for a paused one
+/// (`POST /agent/devices/:id/box/resume`), refused by the plan as a create is.
+private struct BoxStateRow: View {
+    @Environment(AgentStore.self) private var store
+    let device: AgentDevice
+    let state: String
+    @State private var resuming = false
+    @State private var failure: NewBox.Failure?
+
+    var body: some View {
+        HStack(spacing: 12) {
+            if state == "creating" || state == "connecting" { ProgressView().controlSize(.small).tint(Theme.muted) }
+            if let label = NewBox.stateLabel(state) { Text(label).font(.system(size: 13)).foregroundStyle(Theme.muted) }
+            Spacer(minLength: 0)
+            if NewBox.resumable(state: state, access: device.access) {
+                Button(resuming ? "Resuming…" : "Resume") { Task { await resume() } }
+                    .buttonStyle(.bordered).controlSize(.small).disabled(resuming)
+            }
+        }
+        .alert(
+            failure?.plan == true ? "Choose a computer plan" : "Could not resume computer",
+            isPresented: Binding(get: { failure != nil }, set: { if !$0 { failure = nil } }),
+            presenting: failure
+        ) { _ in
+            Button("Not now", role: .cancel) {}
+        } message: { failure in
+            Text(failure.plan ? "\(failure.message)\n\n\(String(localized: "Choose a plan in Nuphos on your computer."))" : failure.message)
+        }
+    }
+
+    private func resume() async {
+        guard let team = store.selectedTeam else { return }
+        resuming = true
+        defer { resuming = false }
+        do {
+            _ = try await AgentChatAPI.send(
+                "POST", NewBox.resumePath(deviceId: device.deviceId), query: [URLQueryItem(name: "teamId", value: team.id)],
+                token: store.token, body: JSONValue?.none, timeout: 60)
+            await store.loadAgentDevices()
+        } catch AgentChatAPI.Conflict.other(let code, let message, _) {
+            failure = .init(code: code, message: message)
+        } catch {
+            failure = .init(code: nil, message: error.localizedDescription)
+        }
     }
 }
