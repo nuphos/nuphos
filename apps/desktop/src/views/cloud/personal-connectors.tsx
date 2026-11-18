@@ -19,16 +19,16 @@ import type { PersonalConnector } from '../settings/personalCredentials'
 
 /**
  * The member's own accounts, listed beside the team's connectors so Connectors is the one place
- * to find every integration. They are managed in Settings → Personal Credentials, which a row opens.
+ * to find every integration. Each row opens its provider’s personal account controls.
  */
 export function PersonalConnectors({
   teamId,
   items,
-  onOpenSettings,
+  onOpenAccount,
 }: {
   teamId: string
   items: PersonalConnector[]
-  onOpenSettings: () => void
+  onOpenAccount: (provider: PersonalConnector['provider']) => void
 }) {
   const [credentials, setCredentials] = useState<PersonalCredential[] | null>(null)
   // Status only decorates the rows; if it cannot be read they still open Settings.
@@ -66,7 +66,7 @@ export function PersonalConnectors({
           return (
             <div
               key={provider}
-              onClick={onOpenSettings}
+              onClick={() => onOpenAccount(provider)}
               className={clsx(
                 'group flex min-w-0 items-center gap-3 rounded-lg px-2 py-2.5',
                 CONNECTOR_HOVER,

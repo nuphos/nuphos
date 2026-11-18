@@ -1,13 +1,14 @@
+import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 
+import { api } from '../../api'
+import { Button } from '../../components/ui/button'
 import { Tooltip } from '../../components/ui/tooltip'
 import { t } from '../../i18n'
 import { CATALOG } from '../addIntegrationCatalog'
-import {
-  PERSONAL_CREDENTIALS_SECTION,
-  matchingPersonalConnectors,
-} from '../settings/personalCredentials'
+import { matchingPersonalConnectors } from '../settings/personalCredentials'
+import { PersonalCredentialsSection } from '../settings/PersonalCredentialsSection'
 
 import { CatalogLogo } from './catalog-logo'
 import { CONNECTOR_HOVER } from './connector-actions'
@@ -19,7 +20,7 @@ import { PersonalConnectors } from './personal-connectors'
 import { InstalledList } from './team-home-installed'
 
 import type { IntegrationPlatformRow } from './team-home-bind'
-import type { GithubInstallation } from '../../types'
+import type { PersonalCredentialProvider, GithubInstallation } from '../../types'
 import type { AddIntegrationKey, CatalogItem } from '../addIntegrationCatalog'
 
 /** One catalog row. The whole row opens the connector: its detail view once connected, the add flow before. */
@@ -159,7 +160,41 @@ export function IntegrationCatalog({
     items: category.items.filter((item) => terms.every((term) => item.haystack.includes(term))),
   })).filter((category) => category.items.length > 0)
   const personal = useMemo(() => matchingPersonalConnectors(searchTerms(filter)), [filter])
-  const openPersonalCredentials = () => onOpenSettingsSection(PERSONAL_CREDENTIALS_SECTION)
+  const [personalProvider, setPersonalProvider] = useState<PersonalCredentialProvider | null>(null)
+  const teamQuery = useQuery({
+    queryKey: ['personal-connectors-team', teamId],
+    queryFn: async () => {
+      const teams = await api.atlasListTeams()
+      const team = teams.find((item) => item.id === teamId)
+
+      if (!team) throw new Error('Team is unavailable')
+
+      return team
+    },
+    enabled: personalProvider !== null,
+  })
+  const openPersonalCredentials = (provider: PersonalCredentialProvider) =>
+    setPersonalProvider(provider)
+
+  if (personalProvider)
+    return (
+      <div className="flex-1 overflow-y-auto px-8 pb-8 pt-2 selectable">
+        <Button variant="ghost" size="sm" onClick={() => setPersonalProvider(null)}>
+          {t('Back')}
+        </Button>
+        {teamQuery.data ? (
+          <PersonalCredentialsSection
+            team={teamQuery.data}
+            provider={personalProvider}
+            onOpenSection={onOpenSettingsSection}
+          />
+        ) : null}
+        {!teamQuery.data && teamQuery.isError && (
+          <Button onClick={() => void teamQuery.refetch()}>{t('Retry')}</Button>
+        )}
+        {!teamQuery.data && !teamQuery.isError && <p role="status">{t('Loading...')}</p>}
+      </div>
+    )
 
   return (
     <div className="connector-quiet-focus flex-1 overflow-y-auto">
@@ -203,7 +238,7 @@ export function IntegrationCatalog({
               <PersonalConnectors
                 teamId={teamId}
                 items={personal}
-                onOpenSettings={openPersonalCredentials}
+                onOpenAccount={openPersonalCredentials}
               />
             )}
             {visibleCategories.map((category) => (
