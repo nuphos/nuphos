@@ -103,7 +103,7 @@ test("a teammate's signed-out computer is signed in by its owner", () => {
 })
 
 test("your own paused Box resumes; someone else's asks its owner; an offline computer retries", () => {
-  const paused = { online: false, box: { state: 'paused' as const } }
+  const paused = { online: false, box: { provider: 'instabox' as const } }
 
   assert.deepEqual(agentProblem(local('u-shant', paused), undefined, viewer('u-shant'))?.fix, {
     kind: 'resume',

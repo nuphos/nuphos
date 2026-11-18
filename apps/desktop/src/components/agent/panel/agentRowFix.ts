@@ -50,7 +50,9 @@ export function agentProblem(
   const { local } = instance
 
   if (local?.online === false) {
-    const paused = local.box?.state === 'paused'
+    // A Box that is away is parked, not lost: its owner can bring it back. The runtime list
+    // does not say which state it is parked in, and the fix is the same for all of them.
+    const paused = Boolean(local.box)
     const reason = paused ? t('Paused') : t('Offline')
 
     if (!paused) return { reason, fix: { kind: 'retry' }, pickable: false }

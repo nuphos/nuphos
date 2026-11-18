@@ -53,7 +53,7 @@ test('yellow: a signed-out agent on an online Box cannot send', () => {
   assert.equal(runtimeControlSendBlock(signedOut), 'The runtime needs to sign in')
 })
 
-test('red: an agent whose Box is offline cannot send, whatever its sign-in', () => {
+test('red: an agent on a computer that is away cannot send, whatever its sign-in', () => {
   const offline = control({ online: false, signedIn: false })
 
   assert.equal(selectedAgentReachability(offline), 'offline')
@@ -61,17 +61,15 @@ test('red: an agent whose Box is offline cannot send, whatever its sign-in', () 
 })
 
 test('a paused Box is not offline: the send resumes it, so nothing stops the message', () => {
-  const paused = control({ online: false, signedIn: false, box: { state: 'paused' } })
+  // All the runtime list says about a Box that is not connected is who provides it; the
+  // machine's own state lives in the device list, which the composer never reads. Any Box
+  // that is away is resumed by a send (box-wake.ts), whichever state it is parked in.
+  const paused = control({ online: false, signedIn: false, box: { provider: 'instabox' } })
 
   // No dot, no banner of its own and no block: the composer only says it is paused.
   assert.equal(selectedAgentReachability(paused), null)
   assert.equal(runtimeControlSendBlock(paused), null)
   assert.equal(shouldSwitchAgent(paused), false)
-  // An offline Box in any other state is still offline.
-  assert.equal(
-    selectedAgentReachability(control({ online: false, box: { state: 'running' } })),
-    'offline',
-  )
 })
 
 test('the usage probe sign-in guess never makes an agent yellow or blocks it', () => {

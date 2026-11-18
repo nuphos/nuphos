@@ -9,12 +9,13 @@ import type { RuntimeInstance } from '../../../types/runtime.ts'
 export type AgentReachability = 'ready' | 'signIn' | 'offline'
 
 /**
- * The computer's name when it is an offline Box that instabox has paused, else null. Sending
- * wakes it (box-wake.ts), so to a person it is neither offline nor signed out: nothing about
- * it stops the message.
+ * The computer's name when it is a Box that is not connected, else null. A send resumes any
+ * such Box (box-wake.ts) whichever state it is parked in, so to a person it is neither offline
+ * nor signed out: nothing about it stops the message. Its machine state is not asked for — the
+ * runtime list does not carry it, and the answer would not change what the composer says.
  */
 export function pausedBoxLabel(local: RuntimeInstance['local']): string | null {
-  return local?.online === false && local.box?.state === 'paused' ? local.deviceLabel : null
+  return local?.online === false && local.box ? local.deviceLabel : null
 }
 
 /**
