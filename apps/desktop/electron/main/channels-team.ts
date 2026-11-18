@@ -220,8 +220,6 @@ export const teamChannels = {
     role: atlas.TeamRole,
   ) => atlas.updateTeamMemberRole(teamId, memberId, role),
   'atlas:listMyInvitations': () => atlas.listMyInvitations(),
-  'atlas:inviteTeamMember': (_e: unknown, teamId: string, inviteeEmail: string) =>
-    atlas.inviteTeamMember(teamId, inviteeEmail),
   'atlas:acceptInvitation': (_e: unknown, invitationId: string) =>
     atlas.acceptInvitation(invitationId),
   'atlas:rejectInvitation': (_e: unknown, invitationId: string) =>
