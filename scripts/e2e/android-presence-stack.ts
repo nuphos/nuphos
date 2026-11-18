@@ -24,6 +24,14 @@ const api = async (method: string, path: string, body?: object) => {
   return (await response.json()) as Record<string, unknown>
 }
 
+// The phone app reads AI features only after its user accepted their terms (AccountApi.AI_CONSENT_VERSION).
+const consent = await fetch(`${stack.apiUrl}/auth/ai-consent`, {
+  method: 'PUT',
+  headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
+  body: JSON.stringify({ version: '2026-09-28', accepted: true }),
+})
+
+if (!consent.ok) throw new Error(`Consent answered ${String(consent.status)}`)
 const deviceId = randomUUID()
 const disconnect = await computerWithUsage(stack, 'E2E away computer', deviceId)
 type Runtime = { id: string; local?: { deviceId?: string } }
