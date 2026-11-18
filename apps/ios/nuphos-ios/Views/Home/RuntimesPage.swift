@@ -10,6 +10,14 @@ struct RuntimesPage: View {
     @State private var showSetup = false
     @State private var showWorkspaceSetup = false
     @State private var desktop: DesktopSession?
+    /// The computer a runtime is being added to, with the runtimes it already has.
+    @State private var adding: NewRuntimeTarget?
+
+    struct NewRuntimeTarget: Identifiable {
+        let device: AgentDevice
+        let existing: [RuntimeInstance]
+        var id: String { device.deviceId }
+    }
 
     /// Like Desktop's Computers page, every computer is listed, one with no runtimes too.
     private var boxes: [SelectorBox] {
@@ -41,6 +49,12 @@ struct RuntimesPage: View {
         // Full screen even where wide: beside this list, the list itself would be put away.
         .sheet(isPresented: $showSetup) { RuntimeSetupGuide() }
         .sheet(isPresented: $showWorkspaceSetup) { WorkspaceSetupSheet() }
+        .sheet(item: $adding) { target in
+            if let team = store.selectedTeam {
+                NewRuntimeSheet(team: team, device: target.device, existing: target.existing)
+                    .environment(store)
+            }
+        }
         .desktop($desktop)
         .environment(\.desktopBeside, nil)
         .task(id: store.selectedTeam?.id) {
@@ -90,7 +104,18 @@ struct RuntimesPage: View {
                         }
                         .listRowInsets(EdgeInsets(top: 12, leading: 44, bottom: 12, trailing: 20))
                     }
-                    if box.agents.isEmpty, let device = box.device, device.box == nil {
+                    // Adding a runtime configures the computer, so it is for its managers,
+                    // exactly as Desktop's + is (canAddRuntime).
+                    if let device = box.device, device.canAddRuntime {
+                        Button {
+                            adding = .init(device: device, existing: box.agents)
+                        } label: {
+                            Label { Text("New runtime") } icon: { LucideIcon("plus") }
+                                .font(.system(size: 15)).foregroundStyle(Theme.heading)
+                        }
+                        .accessibilityIdentifier("new-runtime-\(box.id)")
+                        .listRowInsets(EdgeInsets(top: 12, leading: 44, bottom: 12, trailing: 20))
+                    } else if box.agents.isEmpty, let device = box.device, device.box == nil {
                         Text(device.access == "use"
                             ? "No runtime yet. Ask its owner to add one."
                             : "No runtime yet. Install Claude Code or Codex on \(device.label) and sign in.")

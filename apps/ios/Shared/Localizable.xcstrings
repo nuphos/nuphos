@@ -633,6 +633,52 @@
       },
       "shouldTranslate" : false
     },
+    "%@ · Preview" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · Vista previa"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · Pratinjau"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · プレビュー"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · 미리보기"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · ตัวอย่าง"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · 预览"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · 預覽"
+          }
+        }
+      }
+    },
     "%@%@" : {
       "localizations" : {
         "en" : {
@@ -3003,6 +3049,52 @@
         }
       }
     },
+    "Another runtime on this computer already has this name." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otro entorno de ejecución de esta computadora ya tiene este nombre."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Runtime lain di komputer ini sudah memakai nama ini."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このコンピュータの別のランタイムがすでにこの名前を使用しています。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 컴퓨터의 다른 런타임에서 이미 이 이름을 사용하고 있습니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "มีรันไทม์อื่นบนคอมพิวเตอร์นี้ใช้ชื่อนี้แล้ว"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此电脑上已有同名运行环境。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此電腦上已有其他執行環境使用這個名稱。"
+          }
+        }
+      }
+    },
     "Answered %@ from the Inbox" : {
       "comment" : "Answered question: when it was answered",
       "localizations" : {
@@ -3092,6 +3184,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已回答「%@」"
+          }
+        }
+      }
+    },
+    "Antigravity uses this computer’s shared sign-in" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antigravity usa el inicio de sesión compartido de este equipo"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antigravity menggunakan login bersama komputer ini"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antigravity はこのコンピューターの共有ログインを使用します"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antigravity는 이 컴퓨터의 공유 로그인을 사용합니다"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antigravity ใช้การลงชื่อเข้าใช้ร่วมกันของคอมพิวเตอร์นี้"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antigravity 使用此电脑的共享登录"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antigravity 使用這台電腦的共用登入"
           }
         }
       }
@@ -12647,6 +12785,52 @@
         }
       }
     },
+    "How this runtime appears on the computer and when choosing a runtime for an agent." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cómo aparece este entorno de ejecución en la computadora y al elegir un entorno de ejecución para un agente."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cara runtime ini ditampilkan di komputer dan saat memilih runtime untuk agen."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コンピュータ上や、エージェントのランタイムを選択するときに表示される名前です。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "컴퓨터에서, 그리고 에이전트의 런타임을 선택할 때 표시되는 이름입니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ชื่อที่แสดงบนคอมพิวเตอร์และเมื่อเลือกรันไทม์ให้เอเจนต์"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此运行环境在电脑上以及为 Agent 选择运行环境时显示的名称。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此執行環境在電腦上，以及為 Agent 選擇執行環境時顯示的名稱。"
+          }
+        }
+      }
+    },
     "I saved them" : {
       "localizations" : {
         "es" : {
@@ -14958,6 +15142,52 @@
         }
       }
     },
+    "New %@ runtime" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuevo entorno de ejecución de %@"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Runtime %@ baru"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新しい %@ ランタイム"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "새 %@ 런타임"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "รันไทม์ %@ ใหม่"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新的 %@ 运行环境"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新的 %@ 執行環境"
+          }
+        }
+      }
+    },
     "New Bot" : {
       "localizations" : {
         "es" : {
@@ -15230,6 +15460,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "產生新的復原碼"
+          }
+        }
+      }
+    },
+    "New runtime" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuevo entorno de ejecución"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Runtime baru"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新しいランタイム"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "새 런타임"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "รันไทม์ใหม่"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新运行环境"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增執行環境"
           }
         }
       }
@@ -16706,6 +16982,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在 %@ 上開啟 Nuphos，前往「執行環境」頁面，為這個執行環境選擇登入。"
+          }
+        }
+      }
+    },
+    "On %@. You sign it in next." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En %@. A continuación iniciarás sesión."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Di %@. Berikutnya Anda masuk ke akunnya."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 上に作成します。次にサインインします。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@에 만듭니다. 다음 단계에서 로그인합니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "บน %@ ขั้นต่อไปคุณจะลงชื่อเข้าใช้"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "建立在 %@ 上。下一步登录。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "建立在 %@ 上。下一步登入。"
           }
         }
       }
