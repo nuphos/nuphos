@@ -121,10 +121,14 @@ final class ChannelBubbleFillUITests: XCTestCase {
         let expanded = app.screenshot()
         keep(expanded, "answered-card-light")
         // The card pads its question by 16pt and sits 16pt in from the transcript's edge.
+        // It is raised, nearly the transcript's own color, so its ring is what sets it apart.
         let titles = app.staticTexts.matching(NSPredicate(format: "label == 'Ship it?'")).allElementsBoundByIndex
         let title = try XCTUnwrap(titles.max { $0.frame.minY < $1.frame.minY }).frame
-        assertFilled(try XCTUnwrap(Pixels(expanded.image)), inside: CGPoint(x: title.minX - 8, y: title.midY),
-                     outside: CGPoint(x: title.minX - 24, y: title.midY), "the answered question's card")
+        let pixels = try XCTUnwrap(Pixels(expanded.image))
+        let page = CGPoint(x: title.minX - 26, y: title.midY)
+        let edge = stride(from: title.minX - 8, through: title.minX - 22, by: -0.25).map { CGPoint(x: $0, y: title.midY) }
+        XCTAssertTrue(edge.contains { distance(pixels.color(at: $0), pixels.color(at: page)) > 12 },
+                      "the answered question's card has no edge against the transcript (\(pixels.color(at: page)))")
     }
 
     /// Waits for the push to finish sliding the chat in, so pixels are read
@@ -146,9 +150,12 @@ final class ChannelBubbleFillUITests: XCTestCase {
     private func assertFilled(_ pixels: Pixels, inside: CGPoint, outside: CGPoint, _ name: String,
                               file: StaticString = #filePath, line: UInt = #line) {
         let fill = pixels.color(at: inside), page = pixels.color(at: outside)
-        let distance = zip(fill, page).map { abs(Int($0) - Int($1)) }.reduce(0, +)
-        XCTAssertGreaterThan(distance, 12, "\(name) is \(fill), the same as the transcript behind it (\(page))",
+        XCTAssertGreaterThan(distance(fill, page), 12, "\(name) is \(fill), the same as the transcript behind it (\(page))",
                              file: file, line: line)
+    }
+
+    private func distance(_ a: [UInt8], _ b: [UInt8]) -> Int {
+        zip(a, b).map { abs(Int($0) - Int($1)) }.reduce(0, +)
     }
 
     /// A post's text, the innermost view of its cell; its bubble pads it by 14pt.

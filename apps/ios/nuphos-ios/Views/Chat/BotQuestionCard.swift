@@ -78,7 +78,7 @@ struct BotQuestionCard: View {
         }
         .padding(EdgeInsets(top: 14, leading: 16, bottom: 10, trailing: 16))
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .raisedCard()
         // Wide, the body's lines stay readable.
         .frame(maxWidth: wide ? 640 : nil)
     }

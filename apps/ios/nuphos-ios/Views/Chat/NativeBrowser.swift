@@ -65,7 +65,7 @@ struct NativeBrowser: View {
                 .onSubmit { if let target = DockDestination.addressOrSearch(address) { page.load(target) } }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
-                .background(RoundedRectangle(cornerRadius: 10).fill(Theme.chatSurface))
+                .background(RoundedRectangle(cornerRadius: 10).fill(Theme.sunken))
                 .accessibilityIdentifier("browser-address")
             Button("Reload", systemImage: page.loading ? "xmark" : "arrow.clockwise") {
                 if page.loading { page.view.stopLoading() } else { page.view.reload() }
@@ -91,7 +91,7 @@ struct NativeBrowser: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
-        .background(Theme.chatSurface)
+        .background(Theme.canvas)
         .accessibilityIdentifier("browser-signed-out")
     }
 
@@ -110,7 +110,7 @@ struct NativeBrowser: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
-        .background(Theme.chatSurface)
+        .background(Theme.canvas)
         .accessibilityIdentifier("browser-live-reload")
     }
 
@@ -157,7 +157,7 @@ struct NativeBrowser: View {
         .font(.title3)
         .padding(.horizontal, 24)
         .padding(.vertical, 10)
-        .background(Theme.chatSurface)
+        .background(Theme.canvas)
     }
 
     private func showOnMac() {
