@@ -84,13 +84,14 @@ export const avatarBackgroundScenarios: Scenario[] = [
 
       await post.waitFor({ timeout: 60_000 })
       await post.locator('[data-avatar-background="sky"]').first().waitFor({ timeout: 10_000 })
-      const members = page.locator('button[title="Share with a teammate"]')
-
-      // Stacked faces overlap, so the disc is in the button rather than fully on screen.
-      await members
-        .locator('[data-avatar-background="sky"]')
+      // This chat's members button: the one wearing the Bot's face. Stacked faces overlap, so
+      // the disc is in the button rather than fully on screen.
+      const members = page
+        .locator('button[title="Share with a teammate"]')
+        .filter({ has: page.locator('[data-avatar-background="sky"]') })
         .first()
-        .waitFor({ state: 'attached', timeout: 10_000 })
+
+      await members.waitFor({ timeout: 10_000 })
       await page.screenshot({ path: `${artifacts}/avatar-background-chat.png` })
       await members.click()
       await page.screenshot({ path: `${artifacts}/avatar-background-members.png` })
