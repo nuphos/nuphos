@@ -226,11 +226,7 @@ export function ChannelPane({
       </div>
       <HeaderEdge
         ref={scrollRef}
-        // While replying, room for the reply bar floating over the chat's end (pb-4 + its 2rem).
-        className={clsx(
-          'min-h-0 flex-1 overflow-y-auto scrollbar-thin pt-5 selectable',
-          replying ? 'pb-12' : 'pb-4',
-        )}
+        className={`min-h-0 flex-1 overflow-y-auto scrollbar-thin pt-5 selectable ${replying ? 'pb-12' : 'pb-4'}`}
       >
         {/* The column: one box, so its height says when anything below grows, and
             the one width every row takes, the composer's own. */}

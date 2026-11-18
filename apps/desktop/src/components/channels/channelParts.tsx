@@ -166,6 +166,8 @@ export function ChannelIntro({ faces, title }: { faces?: ChannelFace[]; title: s
  * chat's last lines, inset past the faces twice as before (the composer's
  * wrapper pads by one face, which `absolute` does not count). Its tint sits on
  * the sheet's own color, so the chat passing under it does not show through.
+ * While it shows, the chat keeps its height as bottom room (`pb-12`, not
+ * `pb-4`), so at the bottom the newest post stays whole above it.
  */
 export function ReplyingBanner({
   reply,
