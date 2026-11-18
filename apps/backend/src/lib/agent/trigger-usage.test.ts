@@ -26,11 +26,15 @@ beforeEach(() => {
 
 const NOW = new Date('2026-11-09T12:00:00.000Z')
 
+let turn = 0
+/** A distinct turn time, so each row is its own turn unless a test says otherwise. */
+const nextTurn = () => new Date(Date.UTC(2026, 10, 8, 0, 0, turn++))
+
 function row(overrides: Record<string, unknown>): Record<string, unknown> {
   return {
     provider: 'claude-code',
     modelId: 'claude-opus-5',
-    turns: 1,
+    turnAts: [nextTurn()],
     lastRecordedAt: new Date('2026-11-08T10:00:00.000Z'),
     inputTokens: 0,
     cachedInputTokens: 0,
@@ -58,7 +62,7 @@ test('totals usage across fires and splits it by conversation', async () => {
     row({ sessionId: 'session-1', inputTokens: 1000, outputTokens: 100, totalTokens: 1100 }),
     row({
       sessionId: 'session-2',
-      turns: 2,
+      turnAts: [nextTurn(), nextTurn()],
       lastRecordedAt: new Date('2026-11-09T09:00:00.000Z'),
       inputTokens: 500,
       outputTokens: 50,
