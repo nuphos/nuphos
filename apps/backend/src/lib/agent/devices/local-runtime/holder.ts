@@ -113,6 +113,7 @@ export async function attachRuntimeTunnel(
   // Every close is logged once with its reason, whichever side ended the tunnel, and the teams
   // whose streams it cut: a computer is in no team. Joined, since LogQL `| json` skips arrays.
   const cut = () => [...new Set([...streams.values()].map((s) => s.teamId))].join(',') || undefined
+  const own = () => ({ team_ids: cut(), max_buffered_bytes: connection.backlog?.() })
   const logClosed = (code: number | undefined, reason: string, extra?: Record<string, unknown>) =>
     logEvent('info', 'agent.local_runtime.tunnel_closed', {
       user_id: userId,
@@ -123,7 +124,7 @@ export async function attachRuntimeTunnel(
     })
   const shut = (code: number, reason: string) => {
     if (ended) return
-    logClosed(code, reason, { team_ids: cut() })
+    logClosed(code, reason, own())
     end()
     connection.close(code, reason)
   }
@@ -267,8 +268,7 @@ export async function attachRuntimeTunnel(
           }
           break
         }
-        case 'pong':
-          // Answers the heartbeat; it counts as liveness like every other frame.
+        case 'pong': // Answers the heartbeat; it counts as liveness like every other frame.
           break
         case 'dropped':
           // The old tunnel died on the computer's side; its close never reached us.
@@ -291,7 +291,7 @@ export async function attachRuntimeTunnel(
       sawFrame()
     },
     closed(code, reason) {
-      if (!ended) logClosed(code, reason || 'The connection closed', { team_ids: cut() })
+      if (!ended) logClosed(code, reason || 'The connection closed', own())
       end()
     },
   }

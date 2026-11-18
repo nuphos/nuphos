@@ -42,10 +42,14 @@ export async function admitFileTransfer(
   )
 
   if (result.modifiedCount !== 1) {
+    const resetsAt = new Date((hour + 1) * HOUR_MS)
+    const time = resetsAt.toISOString().slice(11, 16)
+
     throw new AppError(
       429,
       'file_transfer_rate_limited',
-      'File transfers are temporarily limited for this team. Try again next hour.',
+      `File transfers are temporarily limited for this team. Try again after ${time} UTC.`,
+      { retryAfter: resetsAt.toISOString() },
     )
   }
 
