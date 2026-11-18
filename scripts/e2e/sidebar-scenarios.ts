@@ -1,6 +1,6 @@
 // Scenarios about the sidebar itself.
 import { agentEvents } from './agent-log.ts'
-import { must } from './binding-access-scenarios.ts'
+import { client, must } from './binding-access-scenarios.ts'
 import { checkDockToggleClear } from './chat-presentation.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
@@ -41,10 +41,11 @@ export const botFoldScenarios: Scenario[] = [
     // #2898: a Bot's tree opened by hand folded again whenever Bots was left.
     name: 'a Bot tree opened by hand stays open after Tasks and back, and after a reload',
     run: async (page, stack) => {
+      const api = client(stack.apiUrl, stack.token)
       const count = (event: string) =>
         agentEvents(stack).filter((logged) => logged === event).length
       const introductions = count('finish E2E_DELIVERY:missing')
-      const dispatched = count('start E2E_DELIVERY:inherit-child')
+      const asked = count('permission-asked E2E_DELIVERY:thread')
       // Its own Bot, so no scenario before it decides what the tree holds.
       const row = page.locator('[data-sidebar-row]').filter({ hasText: 'Fold Bot' }).first()
       const show = row.locator('[aria-label="Show sub-agents"]')
@@ -67,12 +68,20 @@ export const botFoldScenarios: Scenario[] = [
         'the new Bot to introduce itself',
         async () => count('finish E2E_DELIVERY:missing') > introductions,
       )
-      // The sub-agent stays in its turn, so it stays in the tree: a finished one would sit
-      // behind the done badge, which was remembered before #2898 too.
-      await send(page, 'Dispatch a sub-agent E2E_INHERIT E2E_KEEP_CHILD E2E_DELIVERY:fold')
+      const bots = await api('GET', `/agent/conversations?teamId=${stack.teamId}&bots=true`)
+      const bot = (bots.body as { conversations: { sessionId: string }[] }).conversations[0]!
+      // Out of Full Access, its sub-agent waits for a person to allow its command and so stays
+      // in the tree: a finished one sits behind the done badge, remembered before #2898 too.
+      const mode = await api('PUT', '/agent/auto-mode/bypass', {
+        sessionId: bot.sessionId,
+        bypass: false,
+      })
+
+      must(mode.status === 200, `the Bot to leave Full Access, got ${String(mode.status)}`)
+      await send(page, 'Start a thread E2E_THREAD E2E_DELIVERY:fold')
       await until(
-        'the sub-agent to start',
-        async () => count('start E2E_DELIVERY:inherit-child') > dispatched,
+        'the sub-agent to wait on its command',
+        async () => count('permission-asked E2E_DELIVERY:thread') > asked,
       )
       // Folded until someone opens it.
       await show.click()
@@ -85,17 +94,6 @@ export const botFoldScenarios: Scenario[] = [
       await page.getByRole('tab', { name: 'Bots' }).click()
       await mustBeOpen('after a reload')
       await page.screenshot({ path: `${artifacts}/bot-tree-open-after-reload.png` })
-      // Stop the kept sub-agent, so it holds nothing the scenarios after this one need.
-      const stopped = count('cancelled E2E_DELIVERY:inherit-child')
-
-      await page.locator('[data-sidebar-row]').filter({ hasText: 'E2E inherit' }).first().click()
-      await page.locator('button[title="Stop"]').click()
-      await until(
-        'the kept sub-agent to stop',
-        async () => count('cancelled E2E_DELIVERY:inherit-child') > stopped,
-      )
-      // Back in the Bot chat, where the scenarios after this one found the window before.
-      await row.click()
     },
   },
 ]
