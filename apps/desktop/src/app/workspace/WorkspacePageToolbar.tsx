@@ -58,7 +58,7 @@ export function WorkspacePageToolbar({
         headerClassName={clsx(
           corner && CORNER_TITLEBAR_CLASS,
           // The dock toggle sits over this header while the dock is closed.
-          mainPage && !dockOpen && 'pr-12',
+          mainPage && !dockOpen && 'pr-[var(--dock-toggle-pad)]',
         )}
         segments={toolbarSegments}
         filter={filter}

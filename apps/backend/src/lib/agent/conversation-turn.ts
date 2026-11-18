@@ -121,12 +121,10 @@ export async function runTurn(
     if (!history) throw new Error('Target conversation no longer exists.')
     // BullMQ can redeliver a stalled job. An answered message must not run twice;
     // one after the last reply was accepted by a refused turn and runs again.
-    const answered = history.messages.findLastIndex((message) => message.role === 'assistant')
-    const ran = new Set(history.messages.slice(0, answered + 1).map((message) => message.messageId))
     const { messages: fresh, markRead } = await withChannelPosts(
       data.targetSessionId,
       data.userId,
-      pending.filter((message) => !ran.has(message.id)),
+      pending.filter((message) => !history.answered.has(message.id)),
     )
     const [head, ...rest] = fresh
 
@@ -158,8 +156,8 @@ export async function runTurn(
         ...(data.locale ? { locale: data.locale } : {}),
         // 'user' adds no Full Access default: a thread took its parent's mode at creation.
         origin: source === 'agent.resource' ? 'trigger' : 'user',
-        // The channels this turn answers: they show it typing until it ends.
-        channelIds: fresh.flatMap((message) => channelIdOf(message) ?? []),
+        // The channels this turn answers, where a question was answered too: they show it typing.
+        channelIds: fresh.flatMap((m) => channelIdOf(m) ?? m.answers?.channelId ?? []),
         ...(fresh.every((message) => channelIdOf(message)) ? { channelWoken: true } : {}),
         // Not recorded as interrupted: the messages go back on the queue below.
         clientResendsRefusal: true,

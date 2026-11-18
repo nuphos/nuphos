@@ -80,7 +80,7 @@ export function DangerZone({
                 { name: teamName },
               )
             : t(
-                "Leave {name}? You'll lose access to this workspace until someone invites you back.",
+                "Leave {name}? You'll lose access to this workspace until someone invites you back. Computers you share here stop being shared, so teammates' chats on them stop working, and your cloud computers here go to the team owner.",
                 { name: teamName },
               )
         }

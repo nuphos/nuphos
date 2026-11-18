@@ -44,6 +44,35 @@ const transferErrors = new Set([
   'file_transfer_rate_limited',
 ])
 
+export type LocalUploadError = {
+  error: string
+  /** Plain words the agent can pass on. Written here, never a raw service message. */
+  message?: string
+  /** ISO time the team's hourly transfer limit resets. */
+  retryAfter?: string
+}
+export type LocalUploadResult =
+  { groupId: string; fileName: string; size: number } | LocalUploadError
+
+function errorFrom(error: unknown): LocalUploadError {
+  if (!(error instanceof AppError) || !transferErrors.has(error.code))
+    return { error: 'upload_failed' }
+  if (error.code !== 'file_transfer_rate_limited') return { error: error.code }
+  const details = error.details as { retryAfter?: unknown } | undefined
+  const retryAfter =
+    typeof details?.retryAfter === 'string' && !Number.isNaN(Date.parse(details.retryAfter))
+      ? new Date(details.retryAfter).toISOString()
+      : undefined
+
+  return {
+    error: error.code,
+    message: retryAfter
+      ? `This team used its hourly file-transfer limit. It resets at ${retryAfter.slice(11, 16)} UTC. Do not retry; tell the person.`
+      : 'This team used its hourly file-transfer limit. It resets at the next hour. Do not retry; tell the person.',
+    ...(retryAfter ? { retryAfter } : {}),
+  }
+}
+
 /**
  * Answers as soon as the transfer exists; the bytes then travel from the
  * computer straight to storage while this stream stays open only to confirm
@@ -69,7 +98,7 @@ export async function dispatchLocalUpload(
     }
     timeoutMs?: number
   } = {},
-): Promise<{ groupId: string; fileName: string; size: number } | { error: string }> {
+): Promise<LocalUploadResult> {
   const access = options.access ?? deviceAccessDeps
   const teamId = scope.teamId.toHexString()
 
@@ -120,7 +149,7 @@ export async function dispatchLocalUpload(
     }
     // Ends the stream. Before the transfer exists this is the caller's answer;
     // after it, the caller already has its answer and this runs in the background.
-    const finish = (result?: { error: string }) => {
+    const finish = (result?: LocalUploadError) => {
       if (settled) return
       settled = true
       clearTimeout(timer)
@@ -198,12 +227,7 @@ export async function dispatchLocalUpload(
           busy = false
           if (!settled) socket.send(JSON.stringify({ result }))
         } catch (error) {
-          finish({
-            error:
-              error instanceof AppError && transferErrors.has(error.code)
-                ? error.code
-                : 'upload_failed',
-          })
+          finish(errorFrom(error))
         }
       })()
     })

@@ -97,10 +97,14 @@ test('after a reply the chip shows the settings the session runs, including ones
   ])
 })
 
-test('a chat started on the agent defaults gets its effort and fast controls after the first reply', async () => {
+test('a chat started on the agent defaults offers effort and fast before its first reply', async () => {
   await conversation()
-  // Nothing was picked, so nothing is confirmed: no effort slider, no fast toggle.
-  expect((await chip()).map(([kind]) => kind)).toEqual(['model'])
+  // Nothing was picked, so nothing is confirmed: every control is offered, none claims a value.
+  expect(await chip()).toEqual([
+    ['model', ''],
+    ['effort', ''],
+    ['fast', ''],
+  ])
 
   await recordSessionConfig(
     { getSessionConfigOptions: async () => ({ configOptions: afterReply }) },

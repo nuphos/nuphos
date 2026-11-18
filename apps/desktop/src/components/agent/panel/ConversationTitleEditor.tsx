@@ -166,7 +166,7 @@ export function RenameConversationDialog({
           <>
             <div className="flex flex-col items-center px-5 pt-1 pb-5">
               <input
-                aria-label={t('Agent name')}
+                aria-label={t('Task name')}
                 autoFocus
                 maxLength={120}
                 value={draft}
