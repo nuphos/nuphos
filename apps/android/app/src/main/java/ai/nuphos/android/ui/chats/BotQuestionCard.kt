@@ -140,7 +140,7 @@ private fun SetAside(id: String, onDismiss: ((String?) -> Unit)?, asksReason: Bo
     var dismissing by rememberSaveable(id) { mutableStateOf(false) }
     var reason by rememberSaveable(id) { mutableStateOf("") }
     if (dismissing && onDismiss != null) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(reason, { reason = it }, Modifier.fillMaxWidth().testTag("bot-question-dismiss-reason"),
+        OutlinedTextField(reason, { reason = it.take(ai.nuphos.android.session.DISMISS_REASON_LIMIT) }, Modifier.fillMaxWidth().testTag("bot-question-dismiss-reason"),
             label = { Text(stringResource(R.string.chats_question_dismiss_reason)) }, textStyle = MaterialTheme.typography.bodyMedium)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
             TextButton(onClick = { dismissing = false }) { Text(stringResource(R.string.cancel)) }

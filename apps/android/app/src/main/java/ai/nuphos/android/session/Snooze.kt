@@ -32,3 +32,9 @@ fun returnTime(until: Instant, now: ZonedDateTime = ZonedDateTime.now(), locale:
     return if (at.toLocalDate() == now.toLocalDate()) time
     else "${DateTimeFormatter.ofPattern("EEE", locale).format(at)} $time"
 }
+
+/** The most a dismissal's reason may hold: the server refuses a longer one. */
+const val DISMISS_REASON_LIMIT = 1_000
+
+/** A dismissal's reason as it is sent: trimmed, within the limit, and null when left empty. */
+fun dismissReason(text: String?): String? = text?.trim()?.take(DISMISS_REASON_LIMIT)?.takeIf { it.isNotEmpty() }

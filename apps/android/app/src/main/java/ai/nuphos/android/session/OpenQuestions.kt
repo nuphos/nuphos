@@ -257,7 +257,7 @@ class OpenQuestions(private val source: Source, private val clock: () -> Instant
 
     private suspend fun sendDismissal(question: BotQuestion, reason: String?) {
         try {
-            source.dismiss(question.sessionId, question.request.id, reason?.trim()?.takeIf { it.isNotEmpty() })
+            source.dismiss(question.sessionId, question.request.id, dismissReason(reason))
         } catch (e: Exception) {
             answered = answered - question.id
             failures = failures + (question.id to ChannelSession.postFailureMessage(e))

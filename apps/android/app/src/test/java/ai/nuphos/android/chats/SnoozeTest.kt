@@ -98,6 +98,13 @@ class SnoozeTest {
         assertTrue(inbox.waiting.any { it.request.id == "b" })
     }
 
+    @Test fun aDismissalsReasonIsTrimmedAndKeptWithinWhatTheServerTakes() {
+        assertEquals("Use the token in CI", ai.nuphos.android.session.dismissReason("  Use the token in CI \n"))
+        assertNull(ai.nuphos.android.session.dismissReason(" \n "))
+        assertNull(ai.nuphos.android.session.dismissReason(null))
+        assertEquals(1_000, ai.nuphos.android.session.dismissReason("a".repeat(1_200))?.length)
+    }
+
     @Test fun aChatDismissalIsSentAtOnceWithoutAReason() = runTest {
         val source = Source(listOf(row("a" to null)))
         val inbox = OpenQuestions(source)
