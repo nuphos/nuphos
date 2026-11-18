@@ -10,6 +10,7 @@ import { useConversationComputer } from '@/lib/test/doubles/conversation-compute
 import { useDecisionAnswer } from '@/lib/test/doubles/decision-answer'
 import { useIdentity } from '@/lib/test/doubles/identity'
 import { useMessageAttribution } from '@/lib/test/doubles/message-attribution'
+import { useRuntimeCatalog } from '@/lib/test/doubles/runtime-catalog'
 import { useTriggerRunExecute } from '@/lib/test/doubles/trigger-run-execute'
 
 import type { AgentConversation } from '@/lib/agent/db'
@@ -30,6 +31,15 @@ useIdentity({ getTeamMembership: async () => ({ role: 'MEMBER' }) as never })
 useMessageAttribution({
   createMessageMetadata: async (userId) =>
     ({ version: 1, sender: { type: 'user', id: userId, displayName: 'Ada' } }) as never,
+})
+// The caller's runtimes: r1 is theirs to use, r2 is disabled; any other is gone.
+useRuntimeCatalog({
+  requireRuntimeInstance: async (_team, id) => {
+    if (id !== 'r1' && id !== 'r2')
+      throw new AppError(404, 'runtime_not_found', 'This agent is no longer available to you.')
+
+    return { id, status: id === 'r1' ? 'active' : 'disabled' } as never
+  },
 })
 useConversationComputer({ canReplyIn: async () => participant })
 useDecisionAnswer({
@@ -172,5 +182,44 @@ describe('nuphos_ask wait', () => {
     await new Promise((resolve) => setTimeout(resolve, 20))
     finishRun()
     expect(body(await waiting)).toMatchObject({ status: 'completed', answer: 'Done.' })
+  })
+})
+
+describe('nuphos_ask runtime_id', () => {
+  test('starts a new session on the chosen agent', async () => {
+    stored = null
+    const starting = nuphosAsk({ prompt: 'Go.', team_id: 't1', runtime_id: 'r1', wait: false }, ctx)
+
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    stored = session()
+    expect(body(await starting).status).toBe('running')
+    expect(runs[0]).toMatchObject({ runtimeId: 'r1' })
+    finishRun()
+  })
+
+  test('refuses an agent the caller cannot use, or a disabled one, before anything runs', async () => {
+    stored = null
+
+    for (const [id, message] of [
+      ['r9', 'This agent is no longer available to you.'],
+      ['r2', 'This agent is disabled.'],
+    ]) {
+      const result = await nuphosAsk({ prompt: 'Go.', team_id: 't1', runtime_id: id }, ctx)
+
+      expect(result.isError).toBe(true)
+      expect(result.content[0]).toMatchObject({ text: message })
+    }
+    expect(claims).toEqual([])
+    expect(runs).toEqual([])
+  })
+
+  test('an existing session keeps its own agent', async () => {
+    const result = await nuphosAsk(
+      { prompt: 'Go.', team_id: 't1', session_id: 's1', runtime_id: 'r1' },
+      ctx,
+    )
+
+    expect(result.isError).toBe(true)
+    expect(runs).toEqual([])
   })
 })
