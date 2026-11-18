@@ -238,7 +238,8 @@ function replyFailedReason(
   if (error instanceof AppError && error.code === 'runtime_disabled') return error.message
   if (cause === 'offline') return `its ${label}runtime could not be reached.`
 
-  return error instanceof AppError ? error.message : undefined
+  // The agent's own reason (a provider's refusal), as it gives it after `Internal error: `.
+  return error instanceof AppError ? error.message : notice
 }
 
 async function usageResetsAtOf(agent: AgentConversation): Promise<string | undefined> {

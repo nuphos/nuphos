@@ -116,11 +116,13 @@ export function piTurnError(agentDir, sessionId) {
         file.endsWith(`_${sessionId}.jsonl`),
       )
       if (!name) continue
-      const last = readFileSync(join(sessions, folder, name), 'utf8')
+      // The last message, not the last line: after a prompt over the model's context Pi
+      // appends a context_edit that takes the error out of what it sends next time.
+      const { message } = readFileSync(join(sessions, folder, name), 'utf8')
         .trimEnd()
         .split('\n')
-        .at(-1)
-      const { message } = JSON.parse(last)
+        .map((line) => JSON.parse(line))
+        .findLast((entry) => entry.type === 'message')
       return message?.role === 'assistant' && message.stopReason === 'error'
         ? redactKeys(String(message.errorMessage || 'The model provider returned an error.'))
         : undefined
