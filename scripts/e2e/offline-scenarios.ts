@@ -237,16 +237,14 @@ export const offlineScenarios: Scenario[] = [
       })
 
       try {
+        // A new task starts on the laptop, whichever runtime the last one used.
         await newTask(page)
-        await send(page, 'On the fixture E2E_DELIVERY:before-behind')
-        await page.getByText('ACK E2E_DELIVERY:before-behind').waitFor()
         await page.getByRole('button', { name: /^Runtime:/ }).click()
         await page.getByRole('menu').getByText(LAPTOP).first().click()
         await page
           .getByRole('menuitem', { name: /Claude Code/ })
           .last()
           .click()
-        await page.getByText(`moved this task from E2E fixture agent to`).waitFor()
         await send(page, 'On the laptop behind the latest release')
         await page.getByText(OUTDATED_LINE).waitFor()
         await page.screenshot({ path: join(artifacts, 'behind-turn-error.png') })
