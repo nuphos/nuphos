@@ -183,6 +183,8 @@ export const offlineScenarios: Scenario[] = [
   {
     // #3182: a computer on a Nuphos too old to run a conversation failed without saying why.
     name: 'a conversation on a computer whose Nuphos is out of date says so, and leads to the computer',
+    // The turn there fails on purpose.
+    expected: /Could not restore the saved session/,
     run: async (page, stack) => {
       const goOffline = await laptopOnline(stack, {
         client: 'nuphos-desktop/0.119.0',
@@ -225,6 +227,8 @@ export const offlineScenarios: Scenario[] = [
     // #3560: Desktop 0.125.0, above the floor with 0.127.0 downloaded, failed every turn on a
     // runtime bug 0.127.0 fixed, and nothing said an update would help (#3562).
     name: 'a turn that fails on a computer with a Nuphos update waiting says to update it',
+    // The turn there fails on purpose.
+    expected: /Could not restore the saved session/,
     run: async (page, stack) => {
       const goOffline = await laptopOnline(stack, {
         client: 'nuphos-desktop/0.125.0',
