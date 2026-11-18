@@ -14,6 +14,7 @@ import {
   recordingFilename,
   recordingMimeType,
 } from './voiceDictation'
+import { createTakes } from './voiceTakes'
 
 export type VoicePhase =
   { kind: 'idle' } | { kind: 'recording'; startedAt: number } | { kind: 'transcribing' }
@@ -32,12 +33,22 @@ function microphoneHelp(cause: unknown): string {
 /** How often the waveform takes a level, as on iOS. */
 const METER_MS = 60
 
+const noMeter = () => {
+  // No meter to stop.
+}
+
 /**
  * Samples the stream's level every `METER_MS` into `onLevel`, through an
- * `AnalyserNode` on the same stream. Returns what stops it.
+ * `AnalyserNode` on the same stream. Returns what stops it. A context that
+ * starts suspended is resumed, or the waveform would stay flat.
  */
 function meterStream(stream: MediaStream, onLevel: (level: number) => void): () => void {
   const context = new AudioContext()
+
+  if (context.state === 'suspended')
+    context.resume().catch(() => {
+      // The waveform stays flat; the recording itself is unaffected.
+    })
   const analyser = context.createAnalyser()
 
   analyser.fftSize = 1024
@@ -75,10 +86,9 @@ export function useVoiceDictation({
   const [now, setNow] = useState(() => Date.now())
   const [levels, setLevels] = useState<number[]>([])
   const recorder = useRef<MediaRecorder | null>(null)
-  // Each take, and each cancel, gets a new number: a transcript that arrives for an
-  // older one is dropped, so a cancelled take never lands after a new one starts.
-  const take = useRef(0)
-  const sendAfter = useRef(false)
+  // Which take's transcript may still land, and whether ↑ asked to send it.
+  // Created once, on the first render; it never changes, so it needs no ref.
+  const [takes] = useState(createTakes)
   // Set by Discard and by unmounting: a take that was still asking for the microphone is
   // dropped when the stream arrives, and a finished one is not transcribed.
   const discard = useRef(false)
@@ -89,19 +99,22 @@ export function useVoiceDictation({
     onTextRef.current = onText
   }, [onText])
 
-  const stop = useCallback((options?: { send?: boolean }) => {
-    if (recorder.current?.state !== 'recording') return
-    sendAfter.current = options?.send === true
-    recorder.current.stop()
-  }, [])
+  const stop = useCallback(
+    (options?: { send?: boolean }) => {
+      if (recorder.current?.state !== 'recording') return
+      takes.stop(options)
+      recorder.current.stop()
+    },
+    [takes],
+  )
 
   // While recording this discards the take; while transcribing, its transcript.
   const cancel = useCallback(() => {
     discard.current = true
-    take.current += 1
+    takes.discard()
     if (recorder.current?.state === 'recording') recorder.current.stop()
     else setPhase((current) => (current.kind === 'transcribing' ? { kind: 'idle' } : current))
-  }, [])
+  }, [takes])
 
   const start = useCallback(async () => {
     // One take at a time, including one still waiting on the permission prompt.
@@ -124,17 +137,31 @@ export function useVoiceDictation({
     }
     if (!stream) return
     const mimeType = recordingMimeType((type) => MediaRecorder.isTypeSupported(type))
-    const media = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
-    const chunks: Blob[] = []
-    const id = ++take.current
+    let media: MediaRecorder
 
-    sendAfter.current = false
+    try {
+      media = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
+    } catch (cause) {
+      // Nothing records, so nothing would ever stop the microphone: stop it here.
+      for (const track of stream.getTracks()) track.stop()
+      toast.error(t('Voice input could not start'), microphoneHelp(cause))
+
+      return
+    }
+    const chunks: Blob[] = []
+    const id = takes.begin()
+    let stopMeter = noMeter
+
     setLevels([])
-    const stopMeter = meter
-      ? meterStream(stream, (level) => setLevels((prev) => appendLevel(prev, level)))
-      : () => {
-          // No meter to stop.
-        }
+    if (meter) {
+      // A waveform that cannot start leaves the take recording, without one; the
+      // tracks are stopped with the take as usual.
+      try {
+        stopMeter = meterStream(stream, (level) => setLevels((prev) => appendLevel(prev, level)))
+      } catch {
+        stopMeter = noMeter
+      }
+    }
 
     media.ondataavailable = (event) => {
       if (event.data.size > 0) chunks.push(event.data)
@@ -148,7 +175,6 @@ export function useVoiceDictation({
 
         return
       }
-      const send = sendAfter.current
       const type = media.mimeType !== '' ? media.mimeType : (mimeType ?? 'audio/webm')
 
       setPhase({ kind: 'transcribing' })
@@ -163,20 +189,24 @@ export function useVoiceDictation({
         )
         .then((reply) => dictationText(reply, locale))
         .then((text) => {
-          if (take.current === id && text.trim()) onTextRef.current(text, { send })
+          const landing = takes.land(id, text)
+
+          if (landing) onTextRef.current(text, landing)
+          else if (takes.isCurrent(id) && !text.trim())
+            toast.info(t('No speech was heard'), t('Try again closer to the microphone.'))
         })
         .catch((err: unknown) => {
-          if (take.current === id) toast.apiError(t('Voice input failed'), err)
+          if (takes.isCurrent(id)) toast.apiError(t('Voice input failed'), err)
         })
         .finally(() => {
-          if (take.current === id) setPhase({ kind: 'idle' })
+          if (takes.isCurrent(id)) setPhase({ kind: 'idle' })
         })
     }
     recorder.current = media
     media.start(1000)
     setNow(Date.now())
     setPhase({ kind: 'recording', startedAt: Date.now() })
-  }, [teamId, meter])
+  }, [teamId, meter, takes])
 
   const toggle = useCallback(() => {
     if (phase.kind === 'recording') stop()
@@ -197,10 +227,10 @@ export function useVoiceDictation({
   useEffect(
     () => () => {
       discard.current = true
-      take.current += 1
+      takes.discard()
       if (recorder.current?.state === 'recording') recorder.current.stop()
     },
-    [],
+    [takes],
   )
 
   return {

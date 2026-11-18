@@ -92,10 +92,16 @@ export function DictationBar({
   onSend: () => void
 }) {
   const stop = useRef<HTMLButtonElement>(null)
+  const discard = useRef<HTMLButtonElement>(null)
   const recording = phase.kind === 'recording'
 
-  // The field it replaced had focus: keep the keyboard on the take.
-  useEffect(() => stop.current?.focus(), [])
+  // The field it replaced had focus: keep the keyboard on the take, on ■ while it
+  // records and on ✕ once ■ is disabled for transcribing, so Esc still reaches the bar.
+  useEffect(() => {
+    const target = recording ? stop : discard
+
+    target.current?.focus()
+  }, [recording])
 
   return (
     <div
@@ -115,6 +121,7 @@ export function DictationBar({
     >
       <button
         type="button"
+        ref={discard}
         onClick={onCancel}
         className={GREY}
         title={t('Discard recording')}
