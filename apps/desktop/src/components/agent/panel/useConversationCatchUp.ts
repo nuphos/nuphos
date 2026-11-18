@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react'
 
 import { api } from '../../../api.ts'
 import { getActiveDiagramId } from '../../../architecture/activeDiagram.ts'
-import { publishRuntimeStates } from '../../../lib/agentRuntimeStates.ts'
 import { trackError } from '../../../lib/analytics.ts'
 import { shouldResumeRuntimeWakeup, wakeupTranscriptTail } from '../../../lib/runtimeWakeup.ts'
 
@@ -78,16 +77,17 @@ export function useConversationCatchUp(acc: Acc): void {
         // messages, so ask for none (a server that predates `messages=omit`
         // sends the one `tail` allows). The transcript tail is fetched below
         // only when the stored count has grown.
+        // The session list publishes the runtime state; asking for it here is what made this slow.
         const probe = await api.agentGetConversation(sessionId, teamId, {
           tail: 1,
           messages: 'omit',
+          runtimeState: 'omit',
         })
 
         if (state.stopped) return
         const current = tabsRef.current.find((tab) => tab.sessionId === sessionId)
 
         if (!current) return
-        if (probe.runtimeState) publishRuntimeStates([[sessionId, probe.runtimeState]])
         setTabs((tabs) =>
           tabs.map((tab) =>
             tab.sessionId === sessionId
@@ -197,7 +197,11 @@ export function useConversationCatchUp(acc: Acc): void {
         if (tail === 0) return
         const fetched = await fetchWakeupTranscriptTail(
           () => tabsRef.current.find((tab) => tab.sessionId === sessionId),
-          (requestedTail) => api.agentGetConversation(sessionId, teamId, { tail: requestedTail }),
+          (requestedTail) =>
+            api.agentGetConversation(sessionId, teamId, {
+              tail: requestedTail,
+              runtimeState: 'omit',
+            }),
           tail,
           CONVERSATION_TAIL_LIMIT,
         )

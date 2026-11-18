@@ -7,6 +7,9 @@ import { foldTextDeltaIntoTab, takeStreamChunk, streamDelayFor } from './streamT
 
 import type { PanelCtx } from './ctx'
 
+// Typed out below this many buffered characters; a backlog above it is a replay, shown at once.
+const CATCH_UP_CHARS = 2_000
+
 type Acc = Pick<
   PanelCtx,
   'queueTranscriptSync' | 'setTabs' | 'tabsRef' | 'teamIdRef' | 'textBuffersRef'
@@ -78,32 +81,6 @@ export function useTextStreaming(acc: Acc) {
     [appendTextToStream],
   )
 
-  const enqueueTextDelta = useCallback(
-    (streamId: string, delta: string) => {
-      if (!delta) return
-      const existing = textBuffersRef.current.get(streamId)
-
-      if (existing) {
-        existing.text += delta
-        if (existing.timer === null) {
-          existing.timer = window.setTimeout(
-            () => drainTextBuffer(streamId),
-            streamDelayFor(existing.text.length),
-          )
-        }
-
-        return
-      }
-      const entry = {
-        text: delta,
-        timer: window.setTimeout(() => drainTextBuffer(streamId), streamDelayFor(delta.length)),
-      }
-
-      textBuffersRef.current.set(streamId, entry)
-    },
-    [drainTextBuffer],
-  )
-
   const flushTextBuffer = useCallback(
     (streamId: string) => {
       const entry = textBuffersRef.current.get(streamId)
@@ -115,6 +92,43 @@ export function useTextStreaming(acc: Acc) {
       entry.onDrained?.()
     },
     [appendTextToStream],
+  )
+
+  const enqueueTextDelta = useCallback(
+    (streamId: string, delta: string) => {
+      if (!delta) return
+      const existing = textBuffersRef.current.get(streamId)
+
+      if (existing) {
+        existing.text += delta
+        // More than a model sends between two frames: a resumed reply catching up. Show it now.
+        if (existing.text.length > CATCH_UP_CHARS) {
+          flushTextBuffer(streamId)
+
+          return
+        }
+        if (existing.timer === null) {
+          existing.timer = window.setTimeout(
+            () => drainTextBuffer(streamId),
+            streamDelayFor(existing.text.length),
+          )
+        }
+
+        return
+      }
+      if (delta.length > CATCH_UP_CHARS) {
+        appendTextToStream(streamId, delta)
+
+        return
+      }
+      const entry = {
+        text: delta,
+        timer: window.setTimeout(() => drainTextBuffer(streamId), streamDelayFor(delta.length)),
+      }
+
+      textBuffersRef.current.set(streamId, entry)
+    },
+    [drainTextBuffer, flushTextBuffer, appendTextToStream],
   )
 
   const deferEndUntilTextDrained = useCallback(
