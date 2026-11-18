@@ -5708,7 +5708,6 @@
   "{name} — click to rename": "{name} — クリックして名前を変更",
   "{name}, {spec}. Needs a bigger plan; choose a plan": "{name}、{spec}。より上位のプランが必要です。プランを選択してください",
   "{name}: {percent}% left": "{name}：残り {percent}%",
-  "{name}’s computer is offline. It will reply when the computer is back.": "{name} のコンピューターはオフラインです。コンピューターが戻ったら返信します。",
   "{n} GB disk": "{n} GB ディスク",
   "{n} MB ephemeral": "{n} MB エフェメラル",
   "{n} MB memory": "{n} MB メモリ",

@@ -5708,7 +5708,6 @@
   "{name} — click to rename": "{name} — 클릭하여 이름 변경",
   "{name}, {spec}. Needs a bigger plan; choose a plan": "{name}, {spec}. 더 큰 요금제가 필요합니다. 요금제를 선택하세요",
   "{name}: {percent}% left": "{name}: {percent}% 남음",
-  "{name}’s computer is offline. It will reply when the computer is back.": "{name}의 컴퓨터가 오프라인입니다. 컴퓨터가 돌아오면 답장합니다.",
   "{n} GB disk": "{n}GB 디스크",
   "{n} MB ephemeral": "{n}MB 임시 스토리지",
   "{n} MB memory": "{n}MB 메모리",

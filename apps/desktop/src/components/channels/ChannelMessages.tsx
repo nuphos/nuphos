@@ -11,7 +11,6 @@ import { replyTo } from './channelReply'
 import { ChannelReplyFailed } from './ChannelReplyFailed'
 import { ChannelMessage } from './ChannelPost'
 import { sentSinceOpening, startsTimeGap, timeGapLabel } from './chatTime'
-import { awaitsReply } from './awaitsReply'
 import { Typing } from './ChannelTyping'
 import { useOpenAtPost } from './postJump'
 
@@ -183,20 +182,7 @@ export function ChannelMessages({
       {rows.map((row) => (
         <Fragment key={row.key}>{row.node}</Fragment>
       ))}
-      <Typing
-        agents={agents}
-        channelId={channelId}
-        botId={botId}
-        waiting={
-          new Set(
-            agents
-              .filter((agent) =>
-                awaitsReply(agent.sessionId, messages, events, agent.sessionId === botId),
-              )
-              .map((agent) => agent.sessionId),
-          )
-        }
-      />
+      <Typing agents={agents} channelId={channelId} botId={botId} />
       {menu && onReply && (
         <ContextMenu
           x={menu.x}

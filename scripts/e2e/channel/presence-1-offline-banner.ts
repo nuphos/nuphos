@@ -1,15 +1,15 @@
 // Named to run after bot-settings: it moves the Bot between runtimes, which clears its model.
-// #3308: a post to a Bot whose computer is offline says so where its reply will appear.
+// #3308: a Bot whose computer is offline says so in its chat with the same strip a Task shows
+// above its composer, not a line of its own.
 import { randomUUID } from 'node:crypto'
 
 import { botPresence, computerWithUsage, pickRuntime } from '../channel-helpers.ts'
 import { artifacts, until } from '../processes.ts'
-import { send } from '../ui.ts'
 
 import type { Scenario } from '../ui.ts'
 
 export default {
-  name: 'a post to a Bot whose computer is offline says it will reply once the computer is back',
+  name: "a Bot whose computer is offline says so above its chat's composer, as a Task does",
   run: async (page, stack) => {
     const computer = 'E2E away computer'
     const disconnect = await computerWithUsage(stack, computer, randomUUID())
@@ -28,11 +28,8 @@ export default {
         document.documentElement.classList.remove('dark')
         document.documentElement.classList.add('light')
       })
-      await send(page, 'While its computer is away E2E_DELIVERY:presence-away')
-      await page
-        .getByText('E2E Bot’s computer is offline. It will reply when the computer is back.')
-        .waitFor({ timeout: 30_000 })
-      await page.screenshot({ path: `${artifacts}/presence-offline-line-light.png` })
+      await page.getByText('Its computer is offline.', { exact: true }).waitFor({ timeout: 60_000 })
+      await page.screenshot({ path: `${artifacts}/presence-offline-banner-light.png` })
     } finally {
       await pickRuntime(page, 'E2E fixture agent', /^E2E fixture agent.*Claude Code/)
       disconnect()

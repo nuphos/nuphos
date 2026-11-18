@@ -5708,7 +5708,6 @@
   "{name} — click to rename": "{name} — klik untuk mengganti nama",
   "{name}, {spec}. Needs a bigger plan; choose a plan": "{name}, {spec}. Perlu paket yang lebih besar; pilih paket",
   "{name}: {percent}% left": "{name}: sisa {percent}%",
-  "{name}’s computer is offline. It will reply when the computer is back.": "Komputer {name} sedang offline. Ia akan membalas setelah komputernya kembali.",
   "{n} GB disk": "Disk {n} GB",
   "{n} MB ephemeral": "{n} MB ephemeral",
   "{n} MB memory": "Memori {n} MB",
