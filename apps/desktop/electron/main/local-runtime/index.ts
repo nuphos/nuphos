@@ -12,6 +12,7 @@ import { keychainFor } from '../../auth/token-store.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../../client-version.ts'
 import { resolveShellEnv } from '../../shell-env.ts'
 import { leftAloneDir } from '../app-paths.ts'
+import { readAutoInstall, writeAutoInstall } from '../auto-update-electron.ts'
 import { dialDeviceTunnel, syncDeviceRegistration } from '../device-controller.ts'
 import { readDeviceIdentity } from '../device-identity.ts'
 import { readDeviceMetrics } from '../device-metrics.ts'
@@ -37,7 +38,7 @@ import { localToolStreams } from './cua-stream.ts'
 import { devBundleHint, watchDevBundle } from './dev-bundle.ts'
 import { tunnelUrlFor } from './device-credential.ts'
 import { startDiskMaintenance } from './disk-usage.ts'
-import { appUpdateStatus, withAppUpdate } from './app-update-request.ts'
+import { appUpdateStatus, appUpdateTunnel } from './app-update-request.ts'
 import { localLogins } from './local-logins.ts'
 import { macScreenApp } from './mac-screen-app.ts'
 import { bundledModelProbe } from './model-probe.ts'
@@ -101,14 +102,13 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
   probeModels: bundledModelProbe(findBundle, providerKeys),
   createTunnel: (runtime, runtimeStatus, onChange, agentInstances) => {
     // Its owner updates this Nuphos from another computer (app-update-request.ts).
-    const status = () => ({
-      ...runtimeStatus(),
-      app: appUpdateStatus(app.getVersion(), getUpdaterState()),
-    })
-    const instances = withAppUpdate(agentInstances, {
+    const { status, instances } = appUpdateTunnel(runtimeStatus, agentInstances, {
+      version: () => app.getVersion(),
+      state: getUpdaterState,
       ready: readyUpdate,
       busy: () => sleep.taskActivity.busy(),
       install: installUpdate,
+      autoInstall: { read: readAutoInstall, write: writeAutoInstall },
     })
 
     tunnel = new RuntimeTunnelClient({

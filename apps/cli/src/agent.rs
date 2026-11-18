@@ -74,6 +74,8 @@ pub async fn run(join: Option<String>) -> Result<i32> {
         .env("NUPHOS_LOCAL_RUNTIME_DIR", &runtime)
         .env("NUPHOS_API_URL", config::api_url())
         .env("NUPHOS_CLI_VERSION", VERSION)
+        // The binary that updates this computer when idle (cli-auto-update.ts runs `<exe> update`).
+        .env("NUPHOS_CLI_EXE", std::env::current_exe().unwrap_or_else(|_| "nuphos".into()))
         .exec();
     Err(error).context("could not start node")
 }
