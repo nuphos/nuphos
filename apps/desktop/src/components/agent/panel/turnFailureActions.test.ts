@@ -39,6 +39,21 @@ test('Switch runtime opens only the composer beside the failure line', () => {
   assert.equal(opened, 1)
 })
 
+test('with Set up fallback offered, Switch runtime still opens only its own list', () => {
+  let opened = 0
+  let setUp = 0
+  const actions = turnSwitchAgent(
+    failed(),
+    () => opened++,
+    () => setUp++,
+  )
+
+  actions?.switchAgent()
+  assert.deepEqual([opened, setUp], [1, 0])
+  actions?.setUpFallback?.()
+  assert.deepEqual([opened, setUp], [1, 1])
+})
+
 test('a viewer who cannot move the agent is not offered it', () => {
   assert.equal(
     turnSwitchAgent(failed({ foreign: true }), () => undefined),

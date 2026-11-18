@@ -1,0 +1,121 @@
+import { Dialog } from '@base-ui/react/dialog'
+import { useState } from 'react'
+
+import { t } from '../../../i18n'
+import { Button } from '../../ui/button'
+
+import { RuntimeSelector } from './RuntimeSelector'
+
+import type { RuntimeControl } from './RuntimeSelector'
+import type { RuntimeInstance } from '../../../types/runtime'
+
+// Under the menu layer (z-[1000]), so the runtime list opens above the dialog.
+const POPUP =
+  'fixed left-1/2 top-1/2 z-[999] flex w-[480px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-xl border border-line-control bg-surface-sheet p-6 text-main shadow-2xl shadow-black/30 outline-none'
+
+/** Sets the failed runtime's team fallback, then moves the Task there (useTurnFailureActions). */
+export function FallbackSetupDialog({
+  open,
+  runtime,
+  candidates,
+  control,
+  onClose,
+  onManage,
+  onSave,
+}: {
+  open: boolean
+  runtime: RuntimeInstance
+  candidates: RuntimeInstance[]
+  control: RuntimeControl
+  onClose: () => void
+  onManage?: () => void
+  onSave: (runtimeId: string) => Promise<boolean>
+}) {
+  const [choice, setChoice] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const chosen = candidates.find((instance) => instance.id === choice)
+  const close = () => {
+    setChoice(null)
+    onClose()
+  }
+
+  return (
+    <Dialog.Root open={open} onOpenChange={(next) => !next && !saving && close()}>
+      <Dialog.Portal>
+        <Dialog.Backdrop className="fixed inset-0 z-[998] bg-black/40" />
+        <Dialog.Popup className={POPUP}>
+          <div className="border-b border-line-control pb-4">
+            <Dialog.Title className="text-[18px] font-semibold">
+              {t('Set up fallback')}
+            </Dialog.Title>
+            <p className="mt-1 text-[13px] text-secondary">
+              {t('For {name} · shared with your team', { name: runtime.label })}
+            </p>
+          </div>
+          <div>
+            <p className="text-[14px] font-medium">
+              {t('When {name} cannot run a turn', { name: runtime.label })}
+            </p>
+            <Dialog.Description className="mt-1 text-[13px] text-secondary">
+              {t('Usage limit, offline, or sign-in required')}
+            </Dialog.Description>
+          </div>
+          {candidates.length > 0 ? (
+            <RuntimeSelector
+              teamId={control.teamId}
+              value={chosen ?? null}
+              options={candidates}
+              quotas={control.quotas}
+              selectDisabled={saving}
+              onSelect={setChoice}
+            />
+          ) : (
+            <p className="rounded-lg border border-line-control px-3 py-2.5 text-[13px] text-secondary">
+              {t('No other runtime can take over.')}{' '}
+              {onManage && (
+                <button
+                  type="button"
+                  className="font-medium text-primary underline underline-offset-2"
+                  onClick={() => {
+                    close()
+                    onManage()
+                  }}
+                >
+                  {t('Manage runtimes')}
+                </button>
+              )}
+            </p>
+          )}
+          <p className="text-[12.5px] text-secondary">
+            {t(
+              'Task history moves. Files in the current runtime’s working directory may stay behind.',
+            )}
+          </p>
+          <div className="flex items-center justify-between gap-3">
+            <Button size="sm" variant="secondary" disabled={saving} onClick={close}>
+              {t('Cancel')}
+            </Button>
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={!chosen || saving}
+              onClick={() => {
+                if (!chosen) return
+                setSaving(true)
+                void onSave(chosen.id).then((moved) => {
+                  setSaving(false)
+                  if (moved) setChoice(null)
+                })
+              }}
+            >
+              {t('Save & switch this Task')}
+            </Button>
+          </div>
+          <p className="text-[11.5px] text-tertiary">
+            {t('Saves the shared setting and moves this Task once.')}
+          </p>
+        </Dialog.Popup>
+      </Dialog.Portal>
+    </Dialog.Root>
+  )
+}
