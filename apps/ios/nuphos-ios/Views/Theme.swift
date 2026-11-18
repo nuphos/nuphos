@@ -235,6 +235,7 @@ struct RuntimeSetupGuide: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     Text("Connect a computer").font(.title3.weight(.semibold)).foregroundStyle(Theme.heading)
+                    Text("Your Bots and tasks need a runtime to work. Connect your computer with Nuphos Desktop, or ask a workspace administrator to share a runtime.").font(.callout).foregroundStyle(Theme.body)
                     // Desktop's Add computer offers a Box first, on the same flags.
                     if store.canCreateBox {
                         NavigationLink { NewBoxView() } label: {
@@ -242,7 +243,7 @@ struct RuntimeSetupGuide: View {
                                 LucideIcon("box").foregroundStyle(Theme.body).padding(.top, 2)
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("Nuphos computer").font(.callout.weight(.medium)).foregroundStyle(Theme.heading)
-                                    Text("A Linux computer Nuphos runs for you, with Claude Code and Codex. Sign in with your own account.")
+                                    Text("A Linux computer Nuphos runs for you, with Claude Code, Codex, OpenCode and other agents. Sign in with your own account.")
                                         .font(.footnote).foregroundStyle(Theme.body).multilineTextAlignment(.leading)
                                 }
                                 Spacer(minLength: 0)
@@ -254,7 +255,6 @@ struct RuntimeSetupGuide: View {
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("new-box")
                     }
-                    Text("Your Bots and tasks need a runtime to work. Connect your computer with Nuphos Desktop, or ask a workspace administrator to share a runtime.").font(.callout).foregroundStyle(Theme.body)
                     VStack(alignment: .leading, spacing: 16) {
                         Text("1. Open Nuphos on your computer.")
                         Text("2. Sign in and choose this workspace.")

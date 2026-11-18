@@ -1853,94 +1853,94 @@
         }
       }
     },
-    "A Linux computer Nuphos runs for you, with Claude Code and Codex. Sign in with your own account." : {
+    "A Linux computer Nuphos runs for you, with Claude Code, Codex, OpenCode and other agents. Sign in with your own account." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Una computadora Linux que Nuphos ejecuta por ti, con Claude Code y Codex. Inicia sesión con tu propia cuenta."
+            "value" : "Una computadora Linux que Nuphos ejecuta por ti, con Claude Code, Codex, OpenCode y otros agentes. Inicia sesión con tu propia cuenta."
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Komputer Linux yang dijalankan Nuphos untuk Anda, dengan Claude Code dan Codex. Masuk dengan akun Anda sendiri."
+            "value" : "Komputer Linux yang dijalankan Nuphos untuk Anda, dengan Claude Code, Codex, OpenCode, dan agen lainnya. Masuk dengan akun Anda sendiri."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nuphos が運用する Linux コンピューターです。Claude Code と Codex を搭載しています。ご自身のアカウントでサインインします。"
+            "value" : "Nuphos が運用する Linux コンピューターです。Claude Code、Codex、OpenCode などのエージェントを搭載しています。ご自身のアカウントでサインインします。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nuphos가 대신 운영하는 Linux 컴퓨터로, Claude Code와 Codex가 함께 제공됩니다. 본인 계정으로 로그인하세요."
+            "value" : "Nuphos가 대신 운영하는 Linux 컴퓨터로, Claude Code, Codex, OpenCode 등의 에이전트가 포함되어 있습니다. 본인 계정으로 로그인하세요."
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "คอมพิวเตอร์ Linux ที่ Nuphos ดูแลให้ พร้อม Claude Code และ Codex ลงชื่อเข้าใช้ด้วยบัญชีของคุณเอง"
+            "value" : "คอมพิวเตอร์ Linux ที่ Nuphos ดูแลให้ พร้อม Claude Code, Codex, OpenCode และเอเจนต์อื่น ๆ ลงชื่อเข้าใช้ด้วยบัญชีของคุณเอง"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "由 Nuphos 为你运行的 Linux 电脑，预装 Claude Code 和 Codex。使用你自己的账号登录。"
+            "value" : "由 Nuphos 为你运行的 Linux 电脑，内置 Claude Code、Codex、OpenCode 等 agent。使用你自己的账号登录。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "由 Nuphos 為你代管的 Linux 電腦，內建 Claude Code 與 Codex。使用你自己的帳號登入。"
+            "value" : "由 Nuphos 為你代管的 Linux 電腦，內建 Claude Code、Codex、OpenCode 等 agent。使用你自己的帳號登入。"
           }
         }
       }
     },
-    "A Linux computer with Claude Code and Codex on it. Running computers count against your plan's vCPU; paused ones do not." : {
+    "A Linux computer with Claude Code, Codex, OpenCode and other agents on it. Running computers count against your plan's vCPU; paused ones do not." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Una computadora Linux con Claude Code y Codex. Las computadoras en ejecución cuentan para las vCPU de tu plan; las que están en pausa, no."
+            "value" : "Una computadora Linux con Claude Code, Codex, OpenCode y otros agentes. Las computadoras en ejecución cuentan para las vCPU de tu plan; las que están en pausa, no."
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Komputer Linux dengan Claude Code dan Codex terpasang. Komputer yang berjalan dihitung terhadap vCPU paket Anda; komputer yang dijeda tidak."
+            "value" : "Komputer Linux dengan Claude Code, Codex, OpenCode, dan agen lainnya. Komputer yang berjalan dihitung dalam vCPU paket Anda; yang dijeda tidak."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Claude Code と Codex を搭載した Linux コンピューターです。実行中のコンピュータはプランの vCPU にカウントされますが、一時停止中のものはカウントされません。"
+            "value" : "Claude Code、Codex、OpenCode などのエージェントを搭載した Linux コンピューターです。実行中のコンピューターはプランの vCPU に含まれ、一時停止中のものは含まれません。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Claude Code와 Codex가 설치된 Linux 컴퓨터입니다. 실행 중인 컴퓨터는 요금제의 vCPU에 포함되며, 일시 중지된 컴퓨터는 포함되지 않습니다."
+            "value" : "Claude Code, Codex, OpenCode 등의 에이전트가 설치된 Linux 컴퓨터입니다. 실행 중인 컴퓨터는 플랜의 vCPU에 포함되며, 일시 중지된 컴퓨터는 포함되지 않습니다."
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "คอมพิวเตอร์ Linux ที่มี Claude Code และ Codex คอมพิวเตอร์ที่กำลังทำงานจะนับรวมใน vCPU ของแพ็กเกจ ส่วนเครื่องที่หยุดชั่วคราวไม่นับ"
+            "value" : "คอมพิวเตอร์ Linux ที่มี Claude Code, Codex, OpenCode และเอเจนต์อื่น ๆ คอมพิวเตอร์ที่กำลังทำงานจะนับรวมใน vCPU ของแพ็กเกจ ส่วนที่หยุดชั่วคราวจะไม่นับ"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "预装 Claude Code 和 Codex 的 Linux 电脑。运行中的电脑计入套餐 vCPU 额度，已暂停的则不计入。"
+            "value" : "内置 Claude Code、Codex、OpenCode 等 agent 的 Linux 电脑。运行中的电脑会计入套餐的 vCPU 额度，已暂停的则不计入。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "內建 Claude Code 與 Codex 的 Linux 電腦。執行中的電腦會計入方案的 vCPU 額度，已暫停的則不計入。"
+            "value" : "內建 Claude Code、Codex、OpenCode 等 agent 的 Linux 電腦。執行中的電腦會計入方案的 vCPU 額度，已暫停的則不計入。"
           }
         }
       }
