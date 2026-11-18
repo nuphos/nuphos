@@ -32,13 +32,7 @@ export type ConversationMoveCheck = {
 export type ConversationAccess = 'owner' | 'reply' | 'view'
 
 /** What makes a person an agent: the face it shows, and whether this viewer may take it out. */
-export type AgentFace = {
-  avatar?: string
-  /** The tint a Bot's face sits on, e.g. `sky`. Absent: none. */
-  avatarBackground?: string
-  provider?: AgentProvider
-  removable?: boolean
-}
+export type AgentFace = { avatar?: string; provider?: AgentProvider; removable?: boolean }
 
 export type AgentConversationParticipant = AgentConversationPerson & {
   isOwner: boolean
@@ -60,7 +54,7 @@ export type ChannelFace = {
   id: string
   name: string
   avatarURL?: string
-  agent?: { avatar?: string; avatarBackground?: string; provider?: AgentProvider }
+  agent?: { avatar?: string; provider?: AgentProvider }
 }
 
 export type AgentConversation = {
@@ -80,8 +74,6 @@ export type AgentConversation = {
   title: string
   /** Picked bot avatar, e.g. `05-rembrandt`. Absent: the one its sessionId selects. */
   avatar?: string
-  /** The tint a Bot's face sits on, e.g. `sky`. Absent: none. */
-  avatarBackground?: string
   /** A Bot's current standing instructions, in full. */
   instructions?: string
   firstMessage: string
