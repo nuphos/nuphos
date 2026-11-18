@@ -18,6 +18,7 @@ import {
   waitingOutRefusal,
 } from './session-released'
 import { openSignInRequest, releaseWhenAskLapses } from './sign-in-request'
+import { recordFailedFires } from './trigger-failed-runs'
 import { withinOfflineGrace } from './turn-offline'
 import { turnRunner } from './turn-runner'
 
@@ -76,6 +77,38 @@ async function holdForReattach(target: AgentConversation, head: PendingUserMessa
 }
 
 /**
+ * A send never waits for a Box: the queue does, while it resumes in the background. True
+ * when the queue is to wait. A Box its team's plan will not start never comes back, so
+ * what waits on it fails now, with the plan's reason, a head at a time: the retry that
+ * follows meets the same refusal for whatever queued behind.
+ */
+async function waitForBox(
+  userId: string,
+  sessionId: string,
+  target: AgentConversation | null,
+  queue: PendingUserMessage[],
+): Promise<boolean> {
+  if (queue.length === 0) return false
+  try {
+    if (!(await wakeOfflineBox(target?.runtimeId))) return false
+  } catch (error) {
+    if (!(error instanceof AppError) || error.code !== 'box_vcpu_limit') throw error
+    const refused = await takePendingUserMessages(userId, sessionId, queueHead(queue, userId))
+
+    await reportUndelivered(
+      { userId, teamId: target?.teamId, targetSessionId: sessionId },
+      refused,
+      `did not run: ${error.message}`,
+      error,
+    )
+    await recordFailedFires(error, refused)
+  }
+  retryQueuedTurn(userId, sessionId)
+
+  return true
+}
+
+/**
  * Starts the next turn from the session queue. Called whenever the session is
  * released, so whatever arrived first, a person's message or an agent's, runs
  * next, and a message accepted for a turn that ended without reading it does
@@ -115,12 +148,7 @@ export async function startQueuedTurn(
       return
     }
 
-    // A send never waits for a Box: the queue does, while it resumes in the background.
-    if (queue.length > 0 && (await wakeOfflineBox(target?.runtimeId))) {
-      retryQueuedTurn(userId, sessionId)
-
-      return
-    }
+    if (await waitForBox(userId, sessionId, target, queue)) return
     const head = await takePendingUserMessages(userId, sessionId, queueHead(queue, userId))
     const first = head[0]
 

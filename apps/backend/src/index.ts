@@ -8,6 +8,7 @@ import '@/otel/bootstrap'
 import { config } from '@/config'
 import { app, websocket } from '@/index-app'
 import { startBotImportCleanup } from '@/lib/agent/bot-import/cleanup'
+import { startFreeBoxSweep } from '@/lib/agent/devices/box-free-sweep'
 import { conversationAutoArchive } from '@/lib/agent/conversation-auto-archive'
 import { assertRegistryInvariants } from '@/lib/agent/memory-slots'
 import {
@@ -137,6 +138,7 @@ logEvent('info', 'backend.stuck_turn_probe.ready')
 initRuntimeMetricsSampler()
 startAgentRunStallSweeper()
 startBotImportCleanup()
+startFreeBoxSweep()
 const stopRuntimeHandoffAdoption = startRuntimeHandoffAdoption()
 
 if (await initDiscordGateway()) logEvent('info', 'backend.discord_gateway.ready')

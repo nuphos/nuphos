@@ -58,7 +58,9 @@ final class BotsAndTasksListUITests: XCTestCase {
         XCTAssertTrue(lead.waitForExistence(timeout: 10), "The Bot's chat is not named after the Bot")
         XCTAssertFalse(app.staticTexts["release-lead-old"].exists, "The Bot's chat kept its own name")
         XCTAssertTrue(app.staticTexts["Needs your input: Retry the flaky iOS job?"].exists, "A dispatched question is not on the Bot's chat")
-        XCTAssertTrue(app.descendants(matching: .any)["Docs Bot is thinking"].exists, "A dispatched turn does not show on the Bot's chat")
+        // Its chat shows no typing for a dispatched turn, so neither does its row (#3522).
+        XCTAssertFalse(app.descendants(matching: .any)["Docs Bot is thinking"].exists, "A dispatched turn shows typing dots on a chat that isn't typing")
+        XCTAssertTrue(app.staticTexts["On it."].exists, "The Bot's chat row hides its latest message")
         XCTAssertTrue(app.staticTexts["New Group Chat"].exists, "An untitled group chat is not named as one")
         XCTAssertFalse(app.staticTexts["Triage Bot"].exists, "A Bot in a chat still has a row of its own")
         XCTAssertTrue(app.staticTexts["Helper Bot"].exists, "A Bot opened by a Task is not listed as a Bot")
