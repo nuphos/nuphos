@@ -75,6 +75,8 @@ export const botOnboardingScenarios: Scenario[] = [
       // A Bot still in setup that is working shows its work dots, and its setup again at rest.
       const row = page.locator('[data-sidebar-row]').filter({ hasText: 'Release Helper' }).first()
 
+      // The row learns a turn ended from its 4 s poll: until then its dots are the last turn's.
+      await row.getByText('Getting started', { exact: true }).waitFor()
       await send(page, 'Still setting up E2E_SLOW E2E_DELIVERY:setup-busy')
       await row.locator('.t-typing-dot').first().waitFor()
       assert.equal(await row.getByText('Getting started', { exact: true }).count(), 0)
