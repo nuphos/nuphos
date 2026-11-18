@@ -102,24 +102,29 @@ export function boxUpdateLabel(version: string): string {
   return version ? t('Update to v{version}', { version }) : t('Update')
 }
 
-/** The confirmation before updating a Box's agents, which restarts its agent host. */
+/** What an update does to the Tasks on a computer: it restarts at once, without waiting for them. */
+const updateStopsTasks = () =>
+  t(
+    'A Task running on it stops where it is, and its other Tasks wait until it reconnects. Send a message to continue a stopped Task.',
+  )
+
+/** The confirmation before updating a Box, which restarts Nuphos on it. */
 export function boxUpdateConfirm(boxLabel: string, version: string | undefined) {
   const install = version
     ? t(
-        'This restarts the runtime host on {boxLabel} to install the latest version available now (expected v{version}).',
+        'This restarts Nuphos on {boxLabel} now to install the latest version available (expected v{version}).',
         { boxLabel, version },
       )
-    : t(
-        'This restarts the runtime host on {boxLabel} to install the latest version available now.',
-        { boxLabel },
-      )
+    : t('This restarts Nuphos on {boxLabel} now to install the latest version available.', {
+        boxLabel,
+      })
 
   return {
     title: t('Update {boxLabel}?', { boxLabel }),
     confirmLabel: t('Update and restart'),
     description: `${install} ${t(
-      'The computer itself keeps running, but all of its runtimes are unavailable until the host reconnects. The host starts again even if the install fails. The update does not start while any agent on it is replying.',
-    )}`,
+      'The computer itself keeps running, and Nuphos on it starts again even if the install fails.',
+    )} ${updateStopsTasks()}`,
   }
 }
 
@@ -139,9 +144,9 @@ export function appUpdateConfirm(label: string, version: string) {
   return {
     title: t('Update {boxLabel}?', { boxLabel: label }),
     confirmLabel: t('Update and restart'),
-    description: t(
-      'This restarts Nuphos on {label} to install v{version}. Its agents are unavailable until it reconnects. The update does not start while an agent on it is working.',
-      { label, version },
-    ),
+    description: `${t('This restarts Nuphos on {label} now to install v{version}.', {
+      label,
+      version,
+    })} ${updateStopsTasks()}`,
   }
 }

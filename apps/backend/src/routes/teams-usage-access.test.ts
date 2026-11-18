@@ -94,16 +94,17 @@ describe.each(['EDITOR', 'VIEWER'] as const)('a member with %s', (teamRole) => {
 
   beforeEach(() => as(self, teamRole))
 
-  test('reads only their own usage', async () => {
+  test('reads the whole team’s usage, as an administrator does', async () => {
     expect((await get('/usage')).status).toBe(200)
     const usage = asked.filter((a) => a.collection === 'agent_token_usage')
 
     expect(usage.length).toBeGreaterThan(0)
-    for (const { query } of usage)
-      expect((query as { $match?: object }[])[0]?.$match).toMatchObject({
-        teamId: TEAM,
-        userId: self,
-      })
+    for (const { query } of usage) {
+      const match = (query as { $match?: Record<string, unknown> }[])[0]?.$match
+
+      expect(match).toMatchObject({ teamId: TEAM })
+      expect(match).not.toHaveProperty('userId')
+    }
   })
 
   test("sees every member's activity, with only their own sessions titled", async () => {

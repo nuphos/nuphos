@@ -2,6 +2,8 @@ package ai.nuphos.android
 
 import ai.nuphos.android.data.Http
 import ai.nuphos.android.model.AgentConversation
+import ai.nuphos.android.model.InputRequest
+import java.time.Instant
 import ai.nuphos.android.session.ConversationNesting
 import org.junit.Assert.*
 import org.junit.Test
@@ -21,6 +23,23 @@ class ConversationNestingTest {
         assertEquals(2, open.first().threads)
         assertEquals(listOf("root", "other"), ConversationNesting.nest(input, folded = setOf("root")).rows.map { it.conversation.sessionId })
     }
+    @Test fun tasksRankFamiliesByWaitingThenNewestDescendantEvenWhenFolded() {
+        val rows = listOf(
+            row("recent").copy(lastActiveAt = Instant.ofEpochSecond(8)),
+            row("active-parent"),
+            row("active-child", "active-parent").copy(lastActiveAt = Instant.ofEpochSecond(10)),
+            row("waiting-parent"),
+            row("waiting-child", "waiting-parent").copy(
+                inputRequests = listOf(InputRequest("q", "approval", "Continue?", null)),
+            ),
+        )
+
+        val tree = ConversationNesting.nest(rows, folded = setOf("waiting-parent"), byFamily = true).rows
+        assertEquals(listOf("waiting-parent", "active-parent", "active-child", "recent"),
+            tree.map { it.conversation.sessionId })
+        assertEquals(listOf("waiting-child"), tree.first().hidden.map { it.sessionId })
+    }
+
     @Test fun sharedAndMineRemainSeparate() {
         val rows = listOf(row("mine"), row("shared", "mine", false), row("shared-child", "shared", false))
         val tree = ConversationNesting.nest(rows).rows

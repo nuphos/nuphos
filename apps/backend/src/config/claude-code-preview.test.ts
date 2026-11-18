@@ -1,17 +1,11 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 
-import { claudeCodePreviewConfig, claudeCodeRuntimeProvisionerConfig } from './claude-code-preview'
+import { claudeCodePreviewConfig } from './claude-code-preview'
 
 const keys = [
   'CODEX_RUNTIME_DEV_URL',
   'CODEX_RUNTIME_DEV_AUTH_KEY',
   'OPENAB_RUNTIME_TOKEN_ENCRYPTION_KEY',
-  'CLAUDE_CODE_RUNTIME_PROVISIONER_ENABLED',
-  'CLAUDE_CODE_RUNTIME_NAMESPACE',
-  'CLAUDE_CODE_RUNTIME_KUBECTL',
-  'CLAUDE_CODE_RUNTIME_NODE_SELECTOR',
-  'CLAUDE_CODE_RUNTIME_NODE_TOLERATIONS',
-  'CLAUDE_CODE_RUNTIME_CPU_LIMIT',
   'CLAUDE_CODE_RUNTIME_DEV_URL',
   'CLAUDE_CODE_RUNTIME_DEV_AUTH_KEY',
   'CLAUDE_CODE_PREVIEW_TOKEN_ENCRYPTION_KEY',
@@ -90,80 +84,6 @@ describe('local-stack token encryption key', () => {
     localStack('development')
     process.env.CLAUDE_CODE_PREVIEW_TOKEN_ENCRYPTION_KEY = 'explicit-key'
     expect(claudeCodePreviewConfig().tokenEncryptionKey).toBe('explicit-key')
-  })
-})
-
-describe('claudeCodeRuntimeProvisionerConfig', () => {
-  test('defaults to disabled with the dedicated namespace', () => {
-    for (const key of keys) delete process.env[key]
-
-    expect(claudeCodeRuntimeProvisionerConfig()).toEqual({
-      enabled: false,
-      namespace: 'openab-runtimes',
-      kubectl: false,
-      scheduling: { nodeSelector: {}, tolerations: [], cpuLimit: '4' },
-    })
-  })
-
-  test('parses the enable flag, namespace, and dev kubectl mode', () => {
-    process.env.NODE_ENV = 'development'
-    process.env.CLAUDE_CODE_RUNTIME_PROVISIONER_ENABLED = 'true'
-    process.env.CLAUDE_CODE_RUNTIME_NAMESPACE = 'openab-dev'
-    process.env.CLAUDE_CODE_RUNTIME_KUBECTL = 'true'
-
-    expect(claudeCodeRuntimeProvisionerConfig()).toEqual({
-      enabled: true,
-      namespace: 'openab-dev',
-      kubectl: true,
-      scheduling: { nodeSelector: {}, tolerations: [], cpuLimit: '4' },
-    })
-  })
-
-  test('pins runtimes to the isolated pool only when the pool is configured', () => {
-    process.env.CLAUDE_CODE_RUNTIME_NODE_SELECTOR = 'cloud.google.com/gke-nodepool=example-pool'
-    process.env.CLAUDE_CODE_RUNTIME_NODE_TOLERATIONS = 'nuphos.ai/runtime=true'
-    process.env.CLAUDE_CODE_RUNTIME_CPU_LIMIT = '6'
-
-    expect(claudeCodeRuntimeProvisionerConfig().scheduling).toEqual({
-      nodeSelector: { 'cloud.google.com/gke-nodepool': 'example-pool' },
-      tolerations: [{ key: 'nuphos.ai/runtime', value: 'true' }],
-      cpuLimit: '6',
-    })
-  })
-
-  test('an unconfigured pool leaves placement untouched, and `none` drops the CPU limit', () => {
-    for (const key of keys) delete process.env[key]
-    process.env.CLAUDE_CODE_RUNTIME_CPU_LIMIT = 'none'
-
-    expect(claudeCodeRuntimeProvisionerConfig().scheduling).toEqual({
-      nodeSelector: {},
-      tolerations: [],
-    })
-  })
-
-  test.each(['pool-runtime', ' =true', 'pool=  '])('rejects the malformed entry %j', (entry) => {
-    process.env.CLAUDE_CODE_RUNTIME_NODE_SELECTOR = entry
-
-    expect(() => claudeCodeRuntimeProvisionerConfig()).toThrow(/key=value/)
-  })
-
-  test.each(['4cores', '-1', '0', 'm'])('rejects the CPU limit %j', (limit) => {
-    process.env.CLAUDE_CODE_RUNTIME_CPU_LIMIT = limit
-
-    expect(() => claudeCodeRuntimeProvisionerConfig()).toThrow(/CPU quantity/)
-  })
-
-  test.each(['4', '500m', '2.5'])('accepts the CPU limit %j', (limit) => {
-    process.env.CLAUDE_CODE_RUNTIME_CPU_LIMIT = limit
-
-    expect(claudeCodeRuntimeProvisionerConfig().scheduling.cpuLimit).toBe(limit)
-  })
-
-  test('never uses the kubectl client in production', () => {
-    process.env.NODE_ENV = 'production'
-    process.env.CLAUDE_CODE_RUNTIME_KUBECTL = 'true'
-
-    expect(claudeCodeRuntimeProvisionerConfig().kubectl).toBe(false)
   })
 })
 

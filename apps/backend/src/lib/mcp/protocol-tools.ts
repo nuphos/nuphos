@@ -1,3 +1,4 @@
+import { CONTROL_TOOL_DEFINITIONS } from './protocol-tools-control'
 import { MCP_SERVER_NAME } from './protocol-rpc'
 
 // ─── Tool definitions (advertised via tools/list) ───────────────────────────
@@ -46,6 +47,25 @@ export const TOOL_DEFINITIONS = [
             'instead of blocking until it ends. Default true. For a new session ' +
             'it waits up to 5 seconds for the session to be stored; if ' +
             'nuphos_check then says "Session not found", retry it shortly.',
+        },
+        runtime_id: {
+          type: 'string',
+          description:
+            'The agent a NEW session runs on, from nuphos_list_runtimes. Omitted: ' +
+            'your default agent in the team. An existing session keeps its own agent.',
+        },
+        model: {
+          type: 'string',
+          description:
+            'The model a NEW session starts on; needs runtime_id. A model the agent does ' +
+            "not offer is refused with its choices. Omitted: the agent's own default. " +
+            'For an existing session use nuphos_update_session.',
+        },
+        effort: {
+          type: 'string',
+          description:
+            'The reasoning effort a NEW session starts with, e.g. high; needs runtime_id, ' +
+            'like model.',
         },
         request_id: {
           type: 'string',
@@ -99,6 +119,7 @@ export const TOOL_DEFINITIONS = [
       required: ['session_id'],
     },
   },
+  ...CONTROL_TOOL_DEFINITIONS,
   {
     name: 'nuphos_list_teams',
     description:

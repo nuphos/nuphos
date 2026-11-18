@@ -14,7 +14,6 @@ import {
 } from './dev-compose.ts'
 import { markDirty, pushEvent } from './dev-event-log.ts'
 import { readLocalStack } from './dev-local-stack-env.ts'
-import { cleanupManagedAgents } from './dev-managed-cleanup.ts'
 import { runDevCommand } from './dev-process.ts'
 import { mongo, openLog, runtime, rustfs, startTiming, writeRaw } from './dev-services.ts'
 import {
@@ -256,7 +255,7 @@ export const startRuntimeContainer = singleFlight(async (): Promise<boolean> => 
   return up.ok
 })
 
-/** `stop` keeps the volumes; `down` removes them with the containers, managed agents included. */
+/** `stop` keeps the volumes; `down` removes them with the containers. */
 export async function stopStack(mode: 'stop' | 'down', onLine: (line: string) => void) {
   const args = mode === 'down' ? RESET_ARGS : ['stop']
   const result = await runDevCommand('docker', [...COMPOSE, ...args], {
@@ -268,7 +267,6 @@ export async function stopStack(mode: 'stop' | 'down', onLine: (line: string) =>
 
   if (result.exitCode === 0 && mode === 'down' && clearDevSignIn())
     onLine('cleared the dev Desktop sign-in')
-  await cleanupManagedAgents(mode, onLine)
 
   return result.exitCode === 0
 }
