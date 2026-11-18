@@ -139,8 +139,16 @@ export const botFoldScenarios: Scenario[] = [
           (await page.getByText('No Bots yet').count()) === 0,
           'Bots not to say "No Bots yet" before its first listing arrived',
         )
+        // Nor the main pane's New Bot intro, which can't yet say whether it is the first.
+        must(
+          (await page.locator('.t-bot-start.is-shown').count()) === 0,
+          'the New Bot intro to wait for the first listing',
+        )
       })
       await page.getByText('No Bots yet').waitFor()
+      await page.locator('.t-bot-start.is-shown').getByText('Start with your first Bot').waitFor()
+      // Past the reveals, so the capture shows where they land.
+      await page.waitForTimeout(800)
       await page.screenshot({ path: `${artifacts}/bots-first-listing-empty.png` })
       // Back in the first team, where the scenarios after this one found the window before.
       await switchTo('E2E')

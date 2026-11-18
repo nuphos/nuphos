@@ -4,7 +4,7 @@ import { mock, test } from 'bun:test'
 import { Window } from 'happy-dom'
 import { act, createElement } from 'react'
 
-import type { Item, Section } from './types'
+import type { Item } from './types'
 import type { ReactNode } from 'react'
 
 mock.module('../../api', () => ({ api: {} }))
@@ -12,10 +12,7 @@ mock.module('../ui/toast', () => ({ toast: { apiError: () => {} } }))
 mock.module('./SidebarBotPins', () => ({
   SidebarBotPins: ({ children }: { children: ReactNode }) => children,
 }))
-mock.module('./sections-list', () => ({
-  SidebarSectionList: ({ sections }: { sections: Section[] }) =>
-    sections.some((section) => section.loading) ? 'skeleton' : 'rows',
-}))
+mock.module('./sections-list', () => ({ SidebarSectionList: () => 'rows' }))
 
 const bot: Item = { key: 'agent-session:b1', label: 'Bot', enabled: true, bot: true }
 
@@ -72,7 +69,10 @@ async function render(page: 0 | 1, chats: Item[] | undefined) {
       ),
     )
 
-    return container.textContent ?? ''
+    // What a person sees: the skeleton while it loads, then the rows or the empty message.
+    const state = container.querySelector('.t-skel')?.getAttribute('data-state')
+
+    return `${state === 'loading' ? 'skeleton ' : ''}${container.textContent ?? ''}`
   } finally {
     await act(() => root.unmount())
     await dom.happyDOM.close()
@@ -90,8 +90,11 @@ test('Bots shows the skeleton, not "No Bots yet", before the first listing arriv
   assert.ok(text.includes('skeleton'), text)
 })
 
-test('Tasks does not say "No tasks yet" before the first listing arrives', async () => {
-  assert.ok(!(await render(1, undefined)).includes('No tasks yet'))
+test('Tasks shows the skeleton, not "No tasks yet", before the first listing arrives', async () => {
+  const text = await render(1, undefined)
+
+  assert.ok(!text.includes('No tasks yet'), text)
+  assert.ok(text.includes('skeleton'), text)
 })
 
 test('a listing that arrived empty says so on both pages', async () => {
