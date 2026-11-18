@@ -3,7 +3,7 @@ import test from 'node:test'
 
 import { appUpdateStatus, appUpdateTunnel, withAppUpdate } from './app-update-request.ts'
 
-function updater(over: { ready?: { failedBefore: boolean } | null; busy?: boolean } = {}) {
+function updater(over: { ready?: { failedBefore: boolean } | null } = {}) {
   const calls = { installed: 0, handled: [] as unknown[] }
   const handle = withAppUpdate(
     async (request) => {
@@ -13,7 +13,6 @@ function updater(over: { ready?: { failedBefore: boolean } | null; busy?: boolea
     },
     {
       ready: () => (over.ready === undefined ? { failedBefore: false } : over.ready),
-      busy: () => over.busy ?? false,
       install: () => calls.installed++,
       defer: (run) => run(),
     },
@@ -41,15 +40,15 @@ test('reports the version and an update only while one is downloading or staged'
   )
 })
 
-test('restarts into a staged update when no agent is working', async () => {
+test('restarts into a staged update', async () => {
   const { handle, calls } = updater()
 
   assert.deepEqual(await handle({ method: 'update' }), {})
   assert.equal(calls.installed, 1)
 })
 
-test('refuses while an agent is working, with nothing staged, or after a failed install', async () => {
-  for (const over of [{ busy: true }, { ready: null }, { ready: { failedBefore: true } }]) {
+test('refuses with nothing staged, or after a failed install', async () => {
+  for (const over of [{ ready: null }, { ready: { failedBefore: true } }]) {
     const { handle, calls } = updater(over)
 
     await assert.rejects(handle({ method: 'update' }))

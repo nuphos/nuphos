@@ -106,7 +106,6 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       version: () => app.getVersion(),
       state: getUpdaterState,
       ready: readyUpdate,
-      busy: () => sleep.taskActivity.busy(),
       install: installUpdate,
       autoInstall: { read: readAutoInstall, write: writeAutoInstall },
       changed: () => tunnel?.sendStatus(),
