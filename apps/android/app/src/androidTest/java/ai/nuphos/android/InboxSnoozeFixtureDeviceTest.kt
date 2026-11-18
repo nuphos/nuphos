@@ -124,9 +124,8 @@ class InboxSnoozeFixtureDeviceTest {
                 }
             }
         }
-        // The masked card loads its own part first.
-        compose.waitUntil(10_000) { compose.onAllNodesWithTag("secret-value:q-token").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("secret-value:q-token").assertIsDisplayed()
+        // The masked field itself is SecretQuestionFixtureDeviceTest's; here, the card's own Snooze and Dismiss.
+        compose.onNodeWithText("The rollout needs a deploy token.").assertIsDisplayed()
         compose.onNodeWithTag("bot-question-snooze").assertIsDisplayed()
         capture("7-inbox-secret")
         compose.onNodeWithTag("bot-question-dismiss").performClick()
