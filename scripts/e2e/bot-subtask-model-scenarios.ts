@@ -15,13 +15,17 @@ export const botSubtaskModelScenarios: Scenario[] = [
       const kid = bots.locator('[data-sidebar-row]').filter({ hasText: 'E2E bot kid' }).first()
       const chip = page.getByRole('button', { name: /^Model settings/ }).last()
       const behind = join(artifacts, 'behind')
-      // A finished sub-Task is listed under its Bot once the Bot's done count is opened.
+      // A finished sub-Task is listed under its Bot once the Bot shows its sub-agents and
+      // its done count is opened; each is clicked only while it still hides the sub-Task.
       const openKid = async () => {
-        if (!(await kid.isVisible()))
-          await bots
-            .getByTitle(/sub-agents? done$/)
-            .first()
-            .click()
+        for (const reveal of [
+          bots.getByRole('button', { name: 'Show sub-agents' }),
+          bots.getByTitle(/sub-agents? done$/),
+        ]) {
+          await page.waitForTimeout(1_000)
+          if (!(await kid.isVisible()) && (await reveal.first().isVisible()))
+            await reveal.first().click()
+        }
         await kid.click()
       }
 
