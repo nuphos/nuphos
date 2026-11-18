@@ -56,10 +56,12 @@ jobs:
         run: |
           set -uo pipefail
           type=$(xcrun simctl list devicetypes | sed -n 's/^iPhone 17 Pro (\(.*\))$/\1/p' | head -1)
-          # The newest iOS the runner has, named rather than left to the default.
+          # The newest iOS the runner has for that iPhone, named rather than left to the default.
+          # A runner can carry two runtimes of one version, and only one runs an iPhone 17 Pro.
           runtime=$(xcrun simctl list runtimes -j | node -e '
             const ios = JSON.parse(require("fs").readFileSync(0, "utf8")).runtimes
               .filter((r) => r.isAvailable && r.identifier.includes("SimRuntime.iOS"))
+              .filter((r) => r.supportedDeviceTypes.some((d) => d.name === "iPhone 17 Pro"))
               .sort((a, b) => a.version.localeCompare(b.version, undefined, { numeric: true }))
             const newest = ios.at(-1)
             console.log(newest.identifier)
