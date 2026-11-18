@@ -207,7 +207,7 @@ export function IntegrationCatalog({
     <div className="connector-quiet-focus flex-1 overflow-y-auto">
       <div className="w-full px-8 pb-8 pt-2 selectable">
         <header className="mb-8">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-4 pr-12">
             <h1 className="text-[24px] font-medium tracking-[-0.025em] text-main">
               {catalogTab === 'browse' ? t('Connectors') : t('Manage connections')}
             </h1>
