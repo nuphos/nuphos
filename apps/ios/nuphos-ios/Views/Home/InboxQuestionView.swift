@@ -143,7 +143,9 @@ struct InboxQuestionView: View {
     }
 
     /// Snooze, a menu of its times, and Dismiss, which asks for the reason first: the same pill as the options.
-    @ViewBuilder private var setAside: some View {
+    private var setAside: some View {
+        // Side by side, wrapping as one, so the two stay a pair.
+        HStack(spacing: 8) {
         Menu {
             ForEach(Snooze.times(from: .now), id: \.self) { time in
                 Button(time.label) { Task { await inbox.snooze(question, until: time.until) } }
@@ -155,6 +157,7 @@ struct InboxQuestionView: View {
         QuestionPill(title: String(localized: "Dismiss"), on: dismissing) {
             dismissing.toggle()
             focused = dismissing
+        }
         }
     }
 
