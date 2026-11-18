@@ -261,11 +261,11 @@ export const questionScenarios: Scenario[] = [
         (await page.getByText(/did not run/).count()) === 0,
         'no "did not run" question in the chat',
       )
+      // The card stays in the transcript, as a real agent's does, but answered and without choices.
       must(
-        (await page
-          .getByRole('heading', { name: 'Which marker should the fixture use?' })
-          .count()) === 0,
-        'no open question card, only the answered line',
+        (await page.getByText('Answered: E2E_DELIVERY:answered').count()) > 0 &&
+          (await page.getByRole('button', { name: 'E2E_DELIVERY:other' }).count()) === 0,
+        'the question card answered, not open again',
       )
       const listed = await owner(
         'GET',
