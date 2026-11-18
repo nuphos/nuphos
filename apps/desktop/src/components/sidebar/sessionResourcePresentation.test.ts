@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
+import { githubIssueState } from '../../api/session-resource-types.ts'
+
 import {
   changeStatus,
   chipNames,
@@ -18,6 +20,7 @@ import {
   resourceMark,
   resourceStatus,
 } from './sessionResourcePresentation.ts'
+
 
 import type { SessionResource } from '../../api/session-resource-types'
 
@@ -358,4 +361,13 @@ test('finished links never count toward a group', () => {
     chips.map((chip) => chip.kind),
     ['resource', 'finished'],
   )
+})
+
+test('a linked GitHub issue reads as an issue, open or closed; a pull request does not', () => {
+  const issue = { kind: 'issue' as const, number: 78, url: 'https://github.com/o/r/issues/78' }
+
+  assert.equal(githubIssueState(resource(issue)), 'open')
+  assert.equal(githubIssueState(resource({ ...issue, state: 'closed' })), 'closed')
+  assert.equal(githubIssueState(resource({ number: 56 })), null)
+  assert.equal(resourceLabel(resource(issue)), '#78')
 })

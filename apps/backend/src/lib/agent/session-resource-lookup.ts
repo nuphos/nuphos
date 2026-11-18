@@ -107,6 +107,8 @@ export async function resolveResource(
       },
     )
 
+    // An issue's number is not a pull request's: GitHub answers 404 there.
+    if (response.status === 404) return resolveGithubIssue(input, integrationId, token)
     if (!response.ok)
       throw new AppError(502, 'resource_lookup_failed', `GitHub returned ${response.status}`)
     const pr = (await response.json()) as {
@@ -219,5 +221,50 @@ async function resolveMergeRequest(team: ObjectId, input: GitlabInput): Promise<
     url: mr.web_url,
     draft: Boolean(mr.draft),
     ...(mergedAt ? { mergedAt } : {}),
+  }
+}
+
+/** A linked GitHub issue: its title and open or closed state, with no pull request health. */
+async function resolveGithubIssue(
+  input: { repository: string; number: number },
+  integrationId: string,
+  token: string,
+): Promise<ResolvedResource> {
+  const headers = { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' }
+  const [issueResponse, repoResponse] = await Promise.all([
+    githubFetch(`${GITHUB_API}/repos/${input.repository}/issues/${String(input.number)}`, {
+      headers,
+    }),
+    githubFetch(`${GITHUB_API}/repos/${input.repository}`, { headers }),
+  ])
+
+  if (!issueResponse.ok || !repoResponse.ok)
+    throw new AppError(
+      502,
+      'resource_lookup_failed',
+      `GitHub returned ${String(issueResponse.ok ? repoResponse.status : issueResponse.status)}`,
+    )
+  const issue = (await issueResponse.json()) as {
+    number: number
+    title: string
+    state: string
+    pull_request?: unknown
+  }
+  const repo = (await repoResponse.json()) as { id: number; full_name: string }
+
+  // The pulls lookup missed it, so a pull request here means it was not readable as one.
+  if (issue.pull_request)
+    throw new AppError(502, 'resource_lookup_failed', 'GitHub returned 404 for the pull request')
+
+  return {
+    provider: 'github',
+    integrationId,
+    resourceId: `${String(repo.id)}/${String(issue.number)}`,
+    repository: repo.full_name,
+    number: issue.number,
+    title: issue.title.slice(0, 300),
+    state: issue.state,
+    url: `https://github.com/${repo.full_name}/issues/${String(issue.number)}`,
+    kind: 'issue',
   }
 }

@@ -192,7 +192,8 @@ test('a deselected installation is not contacted', async () => {
 test('a failed lookup is logged and does not reach the caller', async () => {
   pullStatus = 404
   await recheckLinkedResources(conversation, now)
-  expect(pullFetches).toBe(1)
+  // A 404 for the pull request is looked up again as an issue (and its repository), which fails too.
+  expect(pullFetches).toBe(3)
   expect(refreshes).toEqual([])
   expect(warnings).toEqual(['linked_resource.recheck_failed'])
 })
