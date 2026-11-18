@@ -6,6 +6,7 @@ import { accessScenarios } from './access-scenarios.ts'
 import { agentEvents } from './agent-log.ts'
 import { agentWordScenarios } from './agent-word-scenarios.ts'
 import { backendFailures, backendLines } from './backend-log.ts'
+import { botUnreadScenarios } from './bot-unread-scenarios.ts'
 import { checkDecisionOutline, checkOutgoingChip } from './chat-presentation.ts'
 import { channelScenarios } from './channel-scenarios.ts'
 import { channelAwayScenarios } from './channel-away-scenarios.ts'
@@ -17,10 +18,12 @@ import { installScenarios } from './install-scenarios.ts'
 import { linkChipScenarios } from './link-chip-scenarios.ts'
 import { longTranscriptScenarios } from './long-transcript-scenarios.ts'
 import { startDesktop } from './desktop.ts'
+import { fallbackScenarios } from './fallback-scenarios.ts'
 import { formScenario } from './form-scenario.ts'
 import { memberStreamScenarios } from './member-stream-scenarios.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
+import { providerUnreachableScenarios } from './provider-unreachable-scenarios.ts'
 import { questionScenarios } from './question-scenarios.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
 import { sidebarScenarios } from './sidebar-scenarios.ts'
@@ -84,6 +87,7 @@ const scenarios: Scenario[] = [
       )
     },
   },
+  ...botUnreadScenarios,
   ...channelScenarios,
   ...channelAwayScenarios,
   ...teammateBotScenarios,
@@ -239,11 +243,13 @@ const scenarios: Scenario[] = [
   ...connectorScenarios,
   ...accessScenarios,
   ...runtimeScenarios,
+  ...providerUnreachableScenarios,
   ...computerScenarios,
   ...commandScenarios,
   ...threadScenarios,
   ...offlineScenarios,
   threadModeScenario,
+  ...fallbackScenarios,
   ...memberStreamScenarios,
   // It removes a member from the team.
   ...dashboardScenarios,

@@ -33,7 +33,7 @@ class ModelSettingsSessionTest {
         session.activateModelSettings(true); session.load()
         val old = session.modelSettings!!
         old.restorePending(mapOf("model" to "old-provider-model"))
-        session.moveAgent(AgentRuntime("new", "claude-code", "New", "active", "managed"))
+        session.moveAgent(AgentRuntime("new", "claude-code", "New", "active", "external"))
         assertEquals("new", session.runtimeId); assertEquals("claude-code", session.agentRuntime)
         assertNotSame(old, session.modelSettings); assertNull(old.config); assertFalse(old.canEdit)
         assertTrue(session.modelSettings!!.pending.isEmpty())

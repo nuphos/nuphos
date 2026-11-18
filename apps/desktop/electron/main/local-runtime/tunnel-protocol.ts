@@ -32,7 +32,7 @@ export type BackendFrame =
 
 /** Why this computer gave up its last tunnel; the backend never sees that close itself. */
 export type TunnelDrop = {
-  reason: 'idle' | 'error' | 'closed' | 'reconnect'
+  reason: 'idle' | 'closed' | 'reconnect'
   code: number | undefined
   /** Time since the last frame from the backend. */
   silentMs: number
