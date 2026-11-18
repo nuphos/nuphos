@@ -551,6 +551,45 @@ final class InboxUITests: XCTestCase {
         shot("long-question-open")
     }
 
+    /// An option says what it says: one too long for a line wraps onto as many as it needs,
+    /// growing the button, rather than being cut with an ellipsis (#3599). A short one keeps
+    /// the single line it always had.
+    func testLongOptionsWrapInsteadOfBeingCut() throws {
+        let long = ["接受手機版改成全寬可換行的選項列表，桌面版維持原本的膠囊排列先不要動",
+                    "接受手機版的做法，並且把桌面版的選項也一起改成同樣的全寬排列",
+                    "手機版改成可以換行的膠囊，單行的高度與間距都保持現在的樣子"]
+        let short = "先擱置"
+        try listQuestions([InboxUITests.row(
+            "agent-ops", "Release ops",
+            ["id": "q-deploy", "category": "preference", "question": "選項的版面要怎麼調整？",
+             "options": long + [short], "askedAt": "2026-11-03T09:40:00Z", "status": "open"])])
+        app = launch(page: "agent")
+        let inboxTab = app.tabBars.buttons["Inbox"].firstMatch
+        XCTAssertTrue(inboxTab.waitForExistence(timeout: 10), "No Inbox tab")
+        inboxTab.tap()
+        openQuestion("選項的版面要怎麼調整？")
+
+        let line = app.buttons[short]
+        XCTAssertTrue(line.waitForExistence(timeout: 10), "The question did not open")
+        shot("long-options")
+        // A short option is the one 50pt line it has always been.
+        XCTAssertEqual(line.frame.height, 50, accuracy: 1, "A short option is no longer one line")
+        for option in long {
+            let button = app.buttons[option]
+            XCTAssertTrue(button.exists, "The option is not on the card")
+            XCTAssertEqual(button.label, option, "The option does not carry its whole text")
+            // Cut to one line it stays 50pt; wrapped it is at least a line taller.
+            XCTAssertGreaterThan(button.frame.height, line.frame.height + 15,
+                                 "“\(option)” is still one line, so it is cut with an ellipsis")
+            XCTAssertEqual(button.frame.width, line.frame.width, accuracy: 1, "An option is not full-width")
+        }
+        // Grown, not drawn over each other.
+        for (above, below) in zip(long, long.dropFirst() + [short]) {
+            XCTAssertLessThanOrEqual(app.buttons[above].frame.maxY, app.buttons[below].frame.minY + 1,
+                                     "“\(above)” overlaps the option under it")
+        }
+    }
+
     private func listed(_ question: String) -> XCUIElement {
         app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier == %@ AND label == %@", "inbox.row", question)).firstMatch
