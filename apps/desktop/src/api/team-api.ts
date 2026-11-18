@@ -15,6 +15,7 @@ import type {
   TeamActivityRange,
   TeamRole,
 } from '../types/team.ts'
+import type { TeamUsageQuery } from '../types/usage.ts'
 
 export const teamApi = {
   atlasPreviewTeamImport: () => window.api.atlasPreviewTeamImport(),
@@ -95,6 +96,8 @@ export const teamApi = {
     window.api.atlasGetTeamActivity(teamId, range),
   atlasGetAgentStats: (teamId: string, query: AgentStatsQuery) =>
     window.api.atlasGetAgentStats(teamId, query),
+  atlasQueryTeamUsage: (teamId: string, query: TeamUsageQuery) =>
+    window.api.atlasQueryTeamUsage(teamId, query),
   atlasPutHomeLayout: (teamId: string, scope: 'personal' | 'team', layout: HomeLayout | null) =>
     window.api.atlasPutHomeLayout(teamId, scope, layout),
   atlasCreateTeam: (name: string) => window.api.atlasCreateTeam(name),
