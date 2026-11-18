@@ -59,4 +59,11 @@
     <string name="chats_question_dismiss_reason">Alasan (opsional)</string>
     <string name="chats_empty_bot_body">Ini percakapan Anda dengan %1$s. Ceritakan bantuan yang Anda perlukan dan tentukan cara bekerja bersama.</string>
     <string name="chats_empty_bot_start">Anda bisa mulai dengan memberi tahu %1$s apa yang ingin dilakukan.</string>
+    <string name="chats_bot_computer_offline">Komputer %1$s sedang offline.</string>
+    <string name="chats_presence_online">Online</string>
+    <string name="chats_presence_busy">Sibuk</string>
+    <string name="chats_presence_offline">Offline</string>
+    <string name="chats_presence_sign_in">Perlu masuk</string>
+    <string name="chats_presence_usage">Kuota habis</string>
+    <string name="chats_presence_unavailable">Tidak tersedia</string>
 </resources>
