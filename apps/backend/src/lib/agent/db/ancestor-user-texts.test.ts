@@ -8,8 +8,15 @@ import type * as dbActual from '@/lib/db'
 
 type Doc = Record<string, unknown>
 
+const senderType = (doc: Doc) =>
+  (doc.metadata as { sender?: { type?: string } } | undefined)?.sender?.type
+
 const matches = (doc: Doc, filter: Doc) =>
-  Object.entries(filter).every(([key, want]) => doc[key] === want)
+  Object.entries(filter).every(([key, want]) =>
+    key === 'metadata.sender.type'
+      ? !(want as { $nin: string[] }).$nin.includes(senderType(doc) ?? '')
+      : doc[key] === want,
+  )
 
 let conversations: Doc[] = []
 let messages: Doc[] = []
@@ -23,10 +30,11 @@ useDb({
         findOne: async (filter: Doc) => docs().find((doc) => matches(doc, filter)) ?? null,
         find: (filter: Doc) => {
           const found = docs().filter((doc) => matches(doc, filter))
+          let limit = Infinity
           const cursor = {
             sort: () => cursor,
-            limit: () => cursor,
-            toArray: async () => [...found].reverse(),
+            limit: (count: number) => ((limit = count), cursor),
+            toArray: async () => [...found].reverse().slice(0, limit),
           }
 
           return cursor
@@ -86,6 +94,14 @@ test('the nearest ancestor with a typed message wins', async () => {
   messages.push(typed('lead', 1, 'Please keep it short.'))
 
   expect(await ancestorUserTexts('worker')).toEqual(['Please keep it short.'])
+})
+
+test("a parent's many agent deliveries since its owner last wrote do not hide the owner's words", async () => {
+  for (let index = 1; index <= 30; index++) {
+    messages.push(delegated('root', index, `Report ${String(index)} from a sub-agent.`, 'lead'))
+  }
+
+  expect(await ancestorUserTexts('worker')).toEqual(['請幫我把這兩個問題修好'])
 })
 
 test("another owner's parent ends the chain", async () => {

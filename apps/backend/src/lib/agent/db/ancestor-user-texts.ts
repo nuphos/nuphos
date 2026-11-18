@@ -30,7 +30,13 @@ export async function ancestorUserTexts(sessionId: string): Promise<string[]> {
     )
     if (!link) break
     const recent = await agentMessages()
-      .find({ sessionId: link.sessionId, userId, role: 'user' })
+      // Agents' and systems' deliveries can outnumber what the owner typed; skip them here.
+      .find({
+        sessionId: link.sessionId,
+        userId,
+        role: 'user',
+        'metadata.sender.type': { $nin: ['agent', 'system'] },
+      })
       .sort({ index: -1 })
       .limit(RECENT)
       .toArray()
