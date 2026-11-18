@@ -1,8 +1,8 @@
-import { beforeEach, expect, spyOn, test } from 'bun:test'
+import { beforeEach, expect, test } from 'bun:test'
 import { ObjectId } from 'mongodb'
 
-import * as identity from '@/lib/identity'
 import { useDb } from '@/lib/test/doubles/db'
+import { useIdentity } from '@/lib/test/doubles/identity'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import { scheduleSnapshot } from './scheduler'
@@ -12,7 +12,8 @@ import type * as dbActual from '@/lib/db'
 let memory = portabilityDb()
 
 useDb({ db: (() => memory) as unknown as typeof dbActual.db })
-const membership = spyOn(identity, 'getTeamMembership')
+// The shared double, so the membership set here never leaks into the files after this one.
+const membership = useIdentity({ getTeamMembership: async () => null })
 
 const teamId = new ObjectId()
 const author = new ObjectId().toHexString()
@@ -48,11 +49,9 @@ const snapshot = (id: ObjectId) =>
 
 beforeEach(() => {
   memory = portabilityDb()
-  membership.mockReset()
 })
 
 test('a panel whose author left the team says so, and who can take it over', async () => {
-  membership.mockResolvedValue(null)
   const id = seed()
 
   await scheduleSnapshot(id)
@@ -64,7 +63,7 @@ test('a panel whose author left the team says so, and who can take it over', asy
 })
 
 test('a panel whose author is now a Viewer says that instead', async () => {
-  membership.mockResolvedValue({ role: 'VIEWER' } as never)
+  membership({ getTeamMembership: async () => ({ role: 'VIEWER' }) })
   const id = seed()
 
   await scheduleSnapshot(id)

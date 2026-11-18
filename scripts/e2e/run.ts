@@ -144,6 +144,7 @@ try {
   desktop = await startDesktop(stack.apiUrl)
   desktop.page.setDefaultTimeout(30_000)
   for (const [index, scenario] of [...scenarios, formScenario].entries()) {
+    await desktop.traceNextScenario()
     const from = backendLines()
 
     await scenario.run(desktop.page, stack)
@@ -158,9 +159,9 @@ try {
 } catch (error) {
   failed = true
   console.error(error)
-  console.error(`FAIL: logs and the last screenshot are in ${artifacts}`)
+  console.error(`FAIL: logs, the last screenshot and trace.zip are in ${artifacts}`)
 } finally {
-  await desktop?.close()
+  await desktop?.close(failed)
   await stopAll()
   if (desktop) rmSync(desktop.profile, { recursive: true, force: true })
 }
