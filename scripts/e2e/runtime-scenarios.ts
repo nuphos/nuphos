@@ -2,6 +2,7 @@
 import { agentEvents, agentLog, delegatedTurn, firstAgentHolds } from './agent-log.ts'
 import { backendLines, backendLog } from './backend-log.ts'
 import { effortCardScenarios } from './effort-card-scenarios.ts'
+import { fallbackSetupScenarios } from './fallback-setup-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, pickAgent, send } from './ui.ts'
 
@@ -287,4 +288,5 @@ export const runtimeScenarios: Scenario[] = [
         throw new Error(`The answer reached the second agent ${answered() - before} times`)
     },
   },
+  ...fallbackSetupScenarios,
 ]
