@@ -59,7 +59,7 @@ export async function offeredSessionConfig(
   if (!catalog?.models.length) catalog = await catalogFor()
   const offered = catalogSessionConfig(catalog, pick)
   const options = confirmedOnly
-    ? offered.flatMap((option) => {
+    ? offered.map((option) => {
         // Claude Code's "default" model is listed as the model it stands for.
         const value =
           option.kind === 'model' && pick.model === 'default'
@@ -68,9 +68,8 @@ export async function offeredSessionConfig(
         const confirmed =
           value !== undefined && option.options.some((choice) => choice.value === value)
 
-        if (confirmed) return [{ ...option, currentValue: value }]
-
-        return option.kind === 'model' ? [{ ...option, currentValue: '' }] : []
+        // An unconfirmed setting stays offered, without claiming a value.
+        return { ...option, currentValue: confirmed ? value : '' }
       })
     : offered
   const kept = Object.fromEntries(

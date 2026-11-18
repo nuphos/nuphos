@@ -1,18 +1,12 @@
 // Scenarios about the agent hosts a Task runs on: a restart, delegation, a move.
 import { agentEvents, agentLog, delegatedTurn, firstAgentHolds } from './agent-log.ts'
 import { backendLines, backendLog } from './backend-log.ts'
+import { effortCardScenarios } from './effort-card-scenarios.ts'
 import { artifacts, until } from './processes.ts'
-import { newTask, send } from './ui.ts'
+import { newTask, pickAgent, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
-
-export async function pickAgent(page: Page, label: string) {
-  await page.getByRole('button', { name: /^Runtime:/ }).click()
-  // The computer's row opens a submenu of its runtimes.
-  await page.getByRole('menu').getByText(label).click()
-  await page.getByRole('menuitem', { name: new RegExp(`^${label}.*Claude Code`) }).click()
-}
 
 /** Sends while the agent host is `away`, expects the backend to queue the message, then its reply. */
 async function sendWhileAway(
@@ -36,6 +30,7 @@ async function sendWhileAway(
 
 // The delegation scenario needs the second agent unused, so the move comes after it.
 export const runtimeScenarios: Scenario[] = [
+  ...effortCardScenarios,
   {
     // A runtime restart between turns, the situation #2612 was reported in. Not checked against its fix.
     name: 'the agent host restarts between two messages and the conversation carries on',
@@ -129,6 +124,7 @@ export const runtimeScenarios: Scenario[] = [
       await send(page, 'Before the move E2E_DELIVERY:before-move')
       await page.getByText('ACK E2E_DELIVERY:before-move').waitFor()
       await page.getByRole('button', { name: /^Model settings/ }).click()
+      await page.getByRole('button', { name: 'Select model' }).click()
       await page.getByRole('menuitemcheckbox', { name: /fixture-large/ }).click()
       await page.keyboard.press('Escape')
       await page.getByRole('button', { name: /^Model settings: fixture-large/ }).waitFor()
@@ -141,6 +137,7 @@ export const runtimeScenarios: Scenario[] = [
       // #2123: the second agent's default model was never applied to this Task, so its
       // list, once read from that agent, shows no model as the current one.
       await page.getByRole('button', { name: /^Model settings/ }).click()
+      await page.getByRole('button', { name: 'Select model' }).click()
       await until('the second agent’s models, none of them current', async () => {
         const models = page.getByRole('menuitemcheckbox')
         const names = await models.allTextContents()
@@ -171,6 +168,7 @@ export const runtimeScenarios: Scenario[] = [
       await send(page, 'Before the move E2E_DELIVERY:before-kept')
       await page.getByText('ACK E2E_DELIVERY:before-kept').waitFor()
       await page.getByRole('button', { name: /^Model settings/ }).click()
+      await page.getByRole('button', { name: 'Select model' }).click()
       await page.getByRole('menuitemcheckbox', { name: /fixture-small/ }).click()
       await page.keyboard.press('Escape')
       await page.getByRole('button', { name: /^Model settings: fixture-small/ }).waitFor()
