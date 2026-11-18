@@ -13,12 +13,9 @@ import { useAgentSessions } from '../sidebar/agentSessions'
 import { withBotPresence } from './botPresenceRuntime'
 import { listedConversation } from './channelShared'
 
-import type { ChannelFixes } from './ChannelReplyFix'
-import type { AgentConversation } from '../../api'
+import type { AgentConversation, ChannelAgent } from '../../api'
 import type { RuntimeExecution } from '../../lib/runtimeExecution'
 import type { UserInfo } from '../../types'
-
-export { offlineMember } from './botPresenceRuntime'
 
 /** The Bot's actual task, never a new-chat default or the channel's runtime. */
 export function useBotRuntimeControl(
@@ -28,7 +25,8 @@ export function useBotRuntimeControl(
   user: UserInfo,
   runtimeState: RuntimeExecution | undefined,
   refresh: () => void,
-  fixes?: ChannelFixes,
+  /** What the chat lends its composer: the Bot's settings to open, and the chat's agents. */
+  chat?: { manage?: () => void; agents?: ChannelAgent[] },
 ) {
   const client = useQueryClient()
   const catalog = useRuntimeInstances(botId ? teamId : undefined)
@@ -72,7 +70,7 @@ export function useBotRuntimeControl(
     runtimeInstancesLoading: catalog.loading,
     runtimeInstancesError: catalog.error,
     runtimeQuotas: quotas,
-    onOpenAgentSettings: fixes?.onOpenAgentSettings,
+    onOpenAgentSettings: chat?.manage,
     activeTab: current
       ? {
           id: current.sessionId,
