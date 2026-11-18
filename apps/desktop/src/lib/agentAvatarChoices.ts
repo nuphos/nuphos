@@ -30,9 +30,14 @@ export function receiveAgentAvatars(
     if (saving.has(sessionId) || requestedAt < (savedAt.get(sessionId) ?? 0)) continue
     const background = avatar ? avatarBackground : null
 
-    if (picks.get(sessionId) !== avatar) (next ??= new Map(picks)).set(sessionId, avatar)
-    if (backgrounds.get(sessionId) !== background)
-      (nextBackgrounds ??= new Map(backgrounds)).set(sessionId, background)
+    if (picks.get(sessionId) !== avatar) {
+      next ??= new Map(picks)
+      next.set(sessionId, avatar)
+    }
+    if (backgrounds.get(sessionId) !== background) {
+      nextBackgrounds ??= new Map(backgrounds)
+      nextBackgrounds.set(sessionId, background)
+    }
   }
   if (next || nextBackgrounds) publish(next ?? picks, nextBackgrounds ?? backgrounds)
 }
