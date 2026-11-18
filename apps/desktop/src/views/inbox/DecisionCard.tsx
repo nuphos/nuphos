@@ -172,6 +172,8 @@ export function DecisionCard({
               onSend={onDismiss}
               onClose={() => setDismissing(false)}
               label={t('Reason (optional)')}
+              // The server takes a reason of up to 1,000 characters.
+              maxLength={1_000}
               action={t('Dismiss')}
               optional
             />

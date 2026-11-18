@@ -172,12 +172,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                     ? cardAnswers(teamId, activeTab.sessionId, questions)
                     : undefined,
                   // Offered only on a card that can be answered, so `answer` already gates it.
-                  ...cardAsides(
-                    teamId,
-                    activeTab.sessionId,
-                    questions,
-                    !activeTab.readOnly && !activeTab.foreign,
-                  ),
+                  ...cardAsides(teamId, activeTab, questions),
                   // Only the owner provides a secret; it lands on their runtime.
                   saveSecret:
                     activeTab.readOnly || activeTab.foreign

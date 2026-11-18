@@ -15,6 +15,7 @@ export function AnswerField({
   label = t('Your answer'),
   action = t('Send'),
   optional = false,
+  maxLength,
 }: {
   text: string
   onText: (text: string) => void
@@ -26,6 +27,8 @@ export function AnswerField({
   action?: string
   /** It may be sent empty. */
   optional?: boolean
+  /** The most characters it takes, where the server takes no more. */
+  maxLength?: number
 }) {
   const field = useRef<HTMLInputElement>(null)
 
@@ -43,6 +46,7 @@ export function AnswerField({
         ref={field}
         type="text"
         value={text}
+        maxLength={maxLength}
         onChange={(event) => onText(event.target.value)}
         onKeyDown={(event) => {
           if (event.key !== 'Escape') return
