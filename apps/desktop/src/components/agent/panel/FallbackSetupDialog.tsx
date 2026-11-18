@@ -13,7 +13,7 @@ import type { RuntimeInstance } from '../../../types/runtime'
 const POPUP =
   'fixed left-1/2 top-1/2 z-[999] flex w-[480px] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-xl border border-line-control bg-surface-sheet p-6 text-main shadow-2xl shadow-black/30 outline-none'
 
-/** Sets the failed runtime's team fallback, then moves the Task there (useTurnFallbackSetup). */
+/** Sets the failed runtime's team fallback, then moves the Task there (useTurnFailureActions). */
 export function FallbackSetupDialog({
   open,
   runtime,
