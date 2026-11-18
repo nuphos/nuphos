@@ -122,10 +122,9 @@ const person: MessageMetadata = {
 }
 
 // What Nuphos records when a person answers a question card: theirs, but not news to anyone.
-const inboxAnswer: MessageMetadata = {
+const cardAnswer: MessageMetadata = {
   ...person,
   replyTo: { authorName: 'Scribe', text: 'Which regions?' },
-  answeredIn: 'inbox',
   requestId: 'q1',
 }
 
@@ -757,8 +756,8 @@ describe('reading a channel', () => {
     expect(read.note).toContain('replyTo')
   })
 
-  test('an answer recorded from the Inbox is never read: the agent that asked has it', async () => {
-    await say('us-east', inboxAnswer)
+  test('an answer to a question card is never read: the agent that asked has it', async () => {
+    await say('us-east', cardAnswer)
     expect((await readChannelMessages(await channel(), 'agent-a', 'owner', true)).messages).toEqual(
       [],
     )
@@ -1209,8 +1208,8 @@ describe('an agent whose computer is offline', () => {
     expect(wakes).toEqual([])
   })
 
-  test('is not woken for an answer recorded from the Inbox when its computer is back', async () => {
-    await say('us-east', inboxAnswer)
+  test('is not woken for an answer to a question card when its computer is back', async () => {
+    await say('us-east', cardAnswer)
     await catchUp()
     wakes = []
     await wakeMissedPosts({ runtimeId: 'local_agent-a-owner_mac' })

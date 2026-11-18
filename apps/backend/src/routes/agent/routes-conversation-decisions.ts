@@ -23,6 +23,7 @@ const answerBody = z
       .array(z.object({ choices: choices.optional(), text: text.optional() }).strict())
       .max(4)
       .optional(),
+    answeredIn: z.literal('inbox').optional(),
   })
   .strict()
   .refine((answer) => answer.choices?.length || answer.text || answer.questions?.length)
