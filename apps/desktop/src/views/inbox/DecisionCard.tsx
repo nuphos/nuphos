@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react'
 
 import { MessageResponse } from '../../components/agent/MessageResponse'
-import { AnswerField } from '../../components/agent/panel/AnswerField'
 import {
   parseChoiceRequest,
   parseConnectRequest,
 } from '../../components/agent/panel/connectCardModel'
 import { CredentialSelectorButton } from '../../components/agent/panel/CredentialSelectorButton'
+import { formQuestions, ownBody } from '../../components/agent/panel/decisionFormModel'
+import { DecisionOptions } from '../../components/agent/panel/DecisionOptions'
 import { DecisionTitle } from '../../components/agent/panel/DecisionTitle'
 import { botChatQuestion } from '../../components/channels/botChatQuestion'
 import { BotChatQuestion } from '../../components/channels/BotChatQuestions'
 import { useBotCredentials } from '../../components/channels/useBotCredentials'
-import { Button } from '../../components/ui/button'
 import { t } from '../../i18n'
 
 import { AnswerFailure } from './AnswerFailure'
@@ -24,10 +24,10 @@ import type { ReactNode } from 'react'
 
 /**
  * The Inbox's open question, read as a page: who asked and when, the question
- * as its headline and what the agent wrote to decide it from. A choice is a row
- * of buttons, or "Other…" to answer in words; the answer wakes the agent that
- * asked, and no message is sent. Several questions at once, a secret or an
- * integration keep the card the conversation draws: a secret sends only where
+ * as its headline and what the agent wrote to decide it from. A choice, of one
+ * answer or several, is the card's own row of options, or "Other…" to answer in
+ * words; the answer wakes the agent that asked, and no message is sent. A secret
+ * or an integration keeps the card the conversation draws: a secret sends only where
  * its value was saved, and an integration is selected in the asking
  * conversation's credentials, by whoever may change them.
  */
@@ -61,14 +61,11 @@ export function DecisionCard({
   const connect = parseConnectRequest(request) !== null
   const credentials = useBotCredentials(teamId, connect && canManage ? sessionId : undefined)
   const { part, typed } = botChatQuestion(request)
-  const choice = parseChoiceRequest(part.input)
-  // A plain choice is answered on the page; anything else on its own card.
-  const plain =
-    choice !== null &&
-    !choice.multiSelect &&
-    !choice.questions?.length &&
-    (choice.options.length > 0 || typed)
+  const page = pageChoice(part.input, typed)
+  const failure = useAnswerFailure(request.id)
   const [other, setOther] = useState(false)
+
+  useDigitKeys(keys && !other, page?.keyOptions, onAnswer)
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
@@ -78,29 +75,31 @@ export function DecisionCard({
           askedAt={request.askedAt}
           onOpen={() => onOpenSource(source)}
         />
-        {plain ? (
+        {page ? (
           <>
             <DecisionTitle as="h1" className="mt-3 text-[20px] font-semibold leading-7 text-main">
               {request.question}
             </DecisionTitle>
-            {choice.body && (
+            {page.body && (
               <MessageResponse
                 className="selectable mt-3 text-[13.5px] text-secondary"
                 streaming={false}
                 onLinkClick={onOpenLink}
               >
-                {choice.body}
+                {page.body}
               </MessageResponse>
             )}
-            <ChoiceRow
-              requestId={request.id}
-              options={choice.options}
-              typed={typed}
-              keys={keys}
-              other={other}
-              onOther={setOther}
-              onAnswer={onAnswer}
-            />
+            <div className="mt-2">
+              <DecisionOptions
+                key={request.id}
+                questions={page.questions}
+                disabled={false}
+                typeable={typed}
+                onSubmit={onAnswer}
+                onTyping={setOther}
+              />
+            </div>
+            {failure && <AnswerFailure message={failure} />}
           </>
         ) : (
           <div className="mt-3 flex flex-col gap-3">
@@ -136,9 +135,9 @@ export function DecisionCard({
           ) : (
             <>
               <KeyHint keys={['↑', '↓']} label={t('Navigate')} />
-              {plain && choice.options.length > 0 && (
+              {page?.keyOptions && (
                 <KeyHint
-                  keys={choice.options.slice(0, 2).map((_, index) => String(index + 1))}
+                  keys={page.keyOptions.slice(0, 2).map((_, index) => String(index + 1))}
                   label={t('Choose')}
                 />
               )}
@@ -156,32 +155,34 @@ export function DecisionCard({
 }
 
 /**
- * The options as a row of buttons, the first the likely answer, and "Other…"
- * last, which opens a field to answer in words.
+ * A choice answered on the page, of one answer or several: its questions, the
+ * body the agent wrote, and the options 1–9 choose when a click answers it.
+ * Null for a secret or an integration, which keep their own card.
  */
-function ChoiceRow({
-  requestId,
-  options,
-  typed,
-  keys,
-  other,
-  onOther,
-  onAnswer,
-}: {
-  requestId: string
-  options: string[]
-  /** It may be answered in words. */
-  typed: boolean
-  keys: boolean
-  other: boolean
-  onOther: (open: boolean) => void
-  onAnswer: (answer: DecisionAnswer) => void
-}) {
-  const failure = useAnswerFailure(requestId)
-  const [draft, setDraft] = useState('')
+function pageChoice(input: unknown, typed: boolean) {
+  const choice = parseChoiceRequest(input)
 
+  if (!choice) return null
+  const questions = formQuestions(choice)
+
+  if (!typed && !questions.some((q) => q.options.length > 0)) return null
+  const instant = questions.length === 1 && !choice.multiSelect
+
+  return {
+    questions,
+    body: ownBody(choice.body, choice.questions),
+    keyOptions: instant && choice.options.length > 0 ? choice.options : undefined,
+  }
+}
+
+/** 1–9 choose an option of a question answered by a click, unless a field has the caret. */
+function useDigitKeys(
+  enabled: boolean,
+  options: string[] | undefined,
+  onAnswer: (answer: DecisionAnswer) => void,
+) {
   useEffect(() => {
-    if (!keys || other) return
+    if (!enabled || !options) return
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null
 
@@ -198,44 +199,7 @@ function ChoiceRow({
     window.addEventListener('keydown', onKeyDown)
 
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [keys, other, options, onAnswer])
-
-  return (
-    <div className="mt-5 flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-2">
-        {options.map((option, index) => (
-          <Button
-            key={option}
-            variant={index === 0 ? 'primary' : 'secondary'}
-            size="sm"
-            className="h-auto min-h-8 whitespace-normal py-1.5 text-left"
-            onClick={() => onAnswer({ choices: [option] })}
-          >
-            {option}
-          </Button>
-        ))}
-        {typed && (
-          <Button
-            variant={other ? 'secondary' : 'ghost'}
-            size="sm"
-            aria-expanded={other}
-            onClick={() => onOther(!other)}
-          >
-            {options.length > 0 ? t('Other…') : t('Reply…')}
-          </Button>
-        )}
-      </div>
-      {other && (
-        <AnswerField
-          text={draft}
-          onText={setDraft}
-          onSend={(text) => onAnswer({ text })}
-          onClose={() => onOther(false)}
-        />
-      )}
-      {failure && <AnswerFailure message={failure} />}
-    </div>
-  )
+  }, [enabled, options, onAnswer])
 }
 
 /** A key, or keys, and what pressing it does. */

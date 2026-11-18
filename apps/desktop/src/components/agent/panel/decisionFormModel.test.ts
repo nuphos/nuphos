@@ -1,19 +1,15 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import {
-  answerText,
-  formAnswer,
-  formQuestions,
-  ownBody,
-  writtenQuestions,
-} from './decisionFormModel.ts'
+import { formAnswer, formQuestions, ownBody, writtenQuestions } from './decisionFormModel.ts'
 
 const regions = { question: 'Which regions?', options: ['us', 'eu', 'ap'], multiSelect: true }
 const keep = { question: 'Keep the old cluster?', options: ['Keep', 'Delete'], multiSelect: false }
 
-test('one single-choice question keeps its buttons; a multi-select or several questions are a form', () => {
-  assert.equal(formQuestions({ question: 'Ship?', options: ['Yes', 'No'] }), null)
+test('a card answers its own questions, or the one it asks, single- or multi-select alike', () => {
+  assert.deepEqual(formQuestions({ question: 'Ship?', options: ['Yes', 'No'] }), [
+    { question: 'Ship?', options: ['Yes', 'No'], multiSelect: false },
+  ])
   assert.deepEqual(
     formQuestions({ question: 'Which regions?', options: ['us', 'eu', 'ap'], multiSelect: true }),
     [regions],
@@ -25,8 +21,6 @@ test('one single-choice question keeps its buttons; a multi-select or several qu
 })
 
 test('a form answers its picks, or what was typed in their place, per question', () => {
-  assert.equal(answerText(['us', 'eu'], ''), 'us, eu')
-  assert.equal(answerText(['us'], '  only Tokyo '), 'only Tokyo')
   assert.deepEqual(formAnswer([regions], [['us', 'eu']], ['']), { choices: ['us', 'eu'] })
   assert.deepEqual(formAnswer([regions], [['us']], [' only Tokyo ']), { text: 'only Tokyo' })
   assert.deepEqual(formAnswer([regions, keep], [['us'], []], ['', 'Keep it a week']), {
