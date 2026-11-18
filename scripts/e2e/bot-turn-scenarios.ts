@@ -1,6 +1,5 @@
 // Scenarios about a Bot's own session, opened over its chat. They run after the channel scenarios.
 import { artifacts } from './processes.ts'
-import { send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 
@@ -12,10 +11,14 @@ export const botTurnScenarios: Scenario[] = [
       await page.getByRole('tab', { name: 'Bots' }).click()
       await page.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first().click()
       await page.getByText('Message E2E Bot', { exact: true }).waitFor()
-      await send(page, 'Out of usage E2E_USAGE_LIMIT E2E_DELIVERY:bot-usage')
       await page.getByRole('button', { name: 'Task', exact: true }).click()
       const task = page.locator('.t-bot-task-mode')
 
+      // Sent in the Bot's own session, not its chat: the Bot reads its chat's recent posts on
+      // every later wake, and the fixture would refuse each of those turns as out of usage too.
+      await task.getByRole('textbox').last().click()
+      await page.keyboard.type('Out of usage E2E_USAGE_LIMIT E2E_DELIVERY:bot-usage')
+      await page.keyboard.press('Enter')
       await task.getByText('You’ve hit your usage limit').last().waitFor()
       await task.getByRole('button', { name: 'Switch runtime' }).click()
       const lists = page.getByRole('menu')
