@@ -182,7 +182,7 @@ export function BoxAgentSetup({
               taken
                 ? t('Another runtime on this computer already has this name.')
                 : t(
-                    'How this runtime appears on the computer and when choosing a runtime for an agent.',
+                    'How this runtime appears on the computer and when choosing a runtime for a Bot or task.',
                   )
             }
           >
