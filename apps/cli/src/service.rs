@@ -377,7 +377,10 @@ mod tests {
                 ("OPENAI_API_KEY", "sk-test".to_owned())
             ]
         );
-        assert_eq!(service_env(|key| (key == "PATH").then(|| "/usr/bin".to_owned())), [("PATH", "/usr/bin".to_owned())]);
+        assert_eq!(
+            service_env(|key| (key == "PATH").then(|| "/usr/bin".to_owned())),
+            [("PATH", "/usr/bin".to_owned())]
+        );
     }
 
     #[test]
