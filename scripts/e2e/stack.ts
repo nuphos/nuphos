@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
-import { artifacts, freePorts, logPath, signalGroup, spawn, stop, until } from './processes.ts'
+import { artifacts, freePorts, freeze, logPath, spawn, stop, until } from './processes.ts'
 import { startInstaboxStub } from './instabox-stub.ts'
 import { startStorage } from './storage.ts'
 
@@ -31,8 +31,9 @@ export type Stack = {
   offerDefaultStandIn: () => () => void
   /** Stops OpenAB and its agents, runs `whileDown`, then starts it again on the same address, as a runtime restart does, offering the runtime `jobs` given. */
   restartAgentHost: (whileDown?: () => Promise<void>, jobs?: string) => Promise<void>
-  /** Freezes OpenAB and its agents, so its sockets stay open and nothing answers, runs `whileFrozen`, then lets them go on. */
+  /** Freezes OpenAB and its agents (or the backend), so its sockets stay open and nothing answers, runs `whileFrozen`, then lets them go on. */
   freezeAgentHost: (whileFrozen: () => Promise<void>) => Promise<void>
+  freezeBackend: (whileFrozen: () => Promise<void>) => Promise<void>
   /** The `state` of the newest Cloudflare authorization the app started. */
   cloudflareState: () => string
 }
@@ -205,12 +206,9 @@ export async function startStack(options: { botOnboarding?: boolean } = {}): Pro
       fetch(`http://127.0.0.1:${String(runtimePort)}/`),
     )
   }
-  const freezeAgentHost = async (whileFrozen: () => Promise<void>) => {
-    signalGroup(agentHosts.at(-1)!, 'SIGSTOP')
-    await whileFrozen().finally(() => signalGroup(agentHosts.at(-1)!, 'SIGCONT'))
-  }
+  const freezeAgentHost = (frozen: () => Promise<void>) => freeze(agentHosts.at(-1)!, frozen)
 
-  spawn('backend', ['bun', 'run', 'src/index.ts'], {
+  const backend = spawn('backend', ['bun', 'run', 'src/index.ts'], {
     cwd: BACKEND_DIR,
     env: {
       NODE_ENV: 'development',
@@ -239,6 +237,7 @@ export async function startStack(options: { botOnboarding?: boolean } = {}): Pro
       ...fakes,
     },
   })
+
   await until('the backend to be ready', async () => (await fetch(`${apiUrl}/health/ready`)).ok)
 
   const email = `e2e-${String(Date.now())}@example.com`
@@ -295,6 +294,7 @@ export async function startStack(options: { botOnboarding?: boolean } = {}): Pro
     offerDefaultStandIn,
     restartAgentHost,
     freezeAgentHost,
+    freezeBackend: (whileFrozen) => freeze(backend, whileFrozen),
     cloudflareState: () => cloudflareState(mongoUri),
   }
 }
