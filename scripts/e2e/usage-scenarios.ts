@@ -31,6 +31,29 @@ function turnRows(stack: Stack): TurnRow[] | null {
   ) as TurnRow[] | null
 }
 
+/** Adds (or removes) one usage row for each of 5,001 models, more groups than a usage query reads. */
+function tooManyModels(stack: Stack, add: boolean) {
+  const script = `
+    import { MongoClient } from 'mongodb'
+    const [uri, teamId, add] = process.argv.slice(1)
+    const client = await new MongoClient(uri).connect()
+    const usage = client.db('nuphos_e2e').collection('agent_token_usage')
+    if (add === 'true')
+      await usage.insertMany(Array.from({ length: 5001 }, (_, n) => ({
+        recordId: 'e2e-many-' + n, sessionId: 'e2e-many', userId: 'e2e-many', teamId,
+        operation: 'agent.turn', source: 'agent-runtime', kind: 'step_total',
+        accounting: 'upstream_reported', provider: 'e2e', modelId: 'e2e-model-' + n,
+        tokens: { totalTokens: 1 }, createdAt: new Date(),
+      })))
+    else await usage.deleteMany({ teamId, sessionId: 'e2e-many' })
+    await client.close()`
+
+  execFileSync('bun', ['-e', script, stack.mongoUri, stack.teamId, String(add)], {
+    cwd: BACKEND_DIR,
+    timeout: 20_000,
+  })
+}
+
 /** JSON with every object's keys in order, so two values compare as text. */
 const canonical = (value: unknown) =>
   JSON.stringify(value, (_key, inner: unknown) =>
@@ -40,6 +63,39 @@ const canonical = (value: unknown) =>
   )
 
 export const usageScenarios: Scenario[] = [
+  {
+    name: 'before any usage, the Computers page says so, dims while loading, and retries a failed read',
+    run: async (page, stack) => {
+      await openComputers(page)
+      const section = page.getByRole('region', { name: 'Token usage' })
+
+      await section.getByText('No token usage recorded in this range yet.').waitFor()
+      await section.scrollIntoViewIfNeeded()
+      await section.screenshot({ path: `${artifacts}/token-usage-empty.png` })
+
+      // A range the app has not read yet, while the backend cannot answer: the last one stays, dimmed.
+      await stack.freezeBackend(async () => {
+        await section.getByRole('radio', { name: '90d' }).click()
+        await section.locator('[aria-busy="true"]').waitFor()
+        await section.screenshot({ path: `${artifacts}/token-usage-loading.png` })
+      })
+      await section.locator('[aria-busy="false"]').waitFor()
+
+      // More models than a query may group: the backend refuses it, and the page says so.
+      tooManyModels(stack, true)
+      try {
+        await section.getByRole('radio', { name: '30d' }).click()
+        await section.getByRole('alert').getByText('Couldn’t load token usage.').waitFor()
+        await section.screenshot({ path: `${artifacts}/token-usage-error.png` })
+      } finally {
+        tooManyModels(stack, false)
+      }
+      await section.getByRole('button', { name: 'Try again' }).click()
+      await section.getByText('No token usage recorded in this range yet.').waitFor()
+      await section.getByRole('radio', { name: '7d' }).click()
+      await page.getByText('Back to app', { exact: true }).click()
+    },
+  },
   {
     name: 'a Claude Code turn is stored per model with its sender, runtime and stop reason',
     run: async (page, stack) => {
@@ -105,6 +161,7 @@ export const usageScenarios: Scenario[] = [
       if ((await table.getByText('Not recorded').count()) > 0)
         throw new Error('A runtime turn was not attributed to its runtime')
       await section.screenshot({ path: `${artifacts}/token-usage-by-runtime.png` })
+      await page.getByText('Back to app', { exact: true }).click()
     },
   },
 ]
