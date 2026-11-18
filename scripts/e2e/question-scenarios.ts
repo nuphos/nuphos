@@ -50,7 +50,7 @@ const watchInboxRows = (page: Page) =>
   })
 
 /** Saves the window's frames to `<artifacts>/<name>/` until the returned stop is called. */
-async function screencast(page: Page, name: string) {
+export async function screencast(page: Page, name: string) {
   const dir = `${artifacts}/${name}`
   const cdp = await page.context().newCDPSession(page)
   let frame = 0
