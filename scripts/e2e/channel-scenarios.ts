@@ -88,7 +88,7 @@ export const channelScenarios: Scenario[] = [
   },
   {
     // #3171: a busy Bot's row showed what the Bot last told its owner, never posted in its chat.
-    name: 'a Bot that posts twice and works on previews its newest post in its row throughout',
+    name: 'a Bot that posts twice and works on shows dots in its row, then its newest post',
     run: async (page, stack) => {
       const row = page.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first()
       const ownWords = async (when: string) => {
@@ -108,12 +108,11 @@ export const channelScenarios: Scenario[] = [
       await row.getByText('Getting started', { exact: true }).waitFor({ state: 'hidden' })
       await send(page, 'Post twice E2E_TWO_POSTS E2E_DELIVERY:two')
       await page.getByText('POSTED E2E_DELIVERY:two', { exact: true }).waitFor()
-      // Still in its turn: the row previews the newest post, with no loading state (#3522).
-      await row.getByText('POSTED E2E_DELIVERY:two').waitFor()
-      if (agentEvents(stack).includes('finish E2E_DELIVERY:two'))
-        throw new Error('The two-post turn finished before the busy row was checked')
-      await page.screenshot({ path: `${artifacts}/bot-row-busy-light.png` })
+      // Still in its turn: the row has the dots exactly while the chat types (#3522).
+      await row.locator('.t-typing-dot').first().waitFor()
+      await page.getByRole('status', { name: 'E2E Bot is thinking' }).waitFor()
       await loadingFree(row, 'While the Bot works')
+      await page.screenshot({ path: `${artifacts}/bot-row-busy-light.png` })
       await ownWords('While the Bot works')
       await until('the two-post turn to finish', async () =>
         agentEvents(stack).includes('finish E2E_DELIVERY:two'),
