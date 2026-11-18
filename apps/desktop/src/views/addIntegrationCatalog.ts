@@ -84,7 +84,7 @@ const ITEM_META: Record<AddIntegrationKey, { name: string; description: string }
   zeabur: { name: 'Zeabur', description: t('Zeabur projects & services.') },
   'onprem-k8s': {
     name: 'Kubernetes',
-    description: t('Connect a Kubernetes cluster through an outbound-only agent.'),
+    description: t('Connect a Kubernetes cluster through an outbound-only tunnel.'),
   },
   betterstack: { name: 'Better Stack', description: t('Uptime & telemetry monitoring.') },
   'uptime-kuma': { name: 'Uptime Kuma', description: t('Self-hosted uptime monitoring.') },
@@ -108,11 +108,11 @@ const ITEM_META: Record<AddIntegrationKey, { name: string; description: string }
   resend: { name: 'Resend', description: t('Send transactional email.') },
   instabox: {
     name: 'instabox',
-    description: t('Cloud computers for your agents, billed to your instabox account.'),
+    description: t('Cloud computers for your Bots and tasks, billed to your instabox account.'),
   },
-  slack: { name: 'Slack', description: t('Chat with the agent from Slack channels.') },
-  discord: { name: 'Discord', description: t('Mention the agent in Discord channels.') },
-  lark: { name: 'Lark (Feishu)', description: t('Chat with the agent from Lark (Feishu) groups.') },
+  slack: { name: 'Slack', description: t('Chat with Nuphos from Slack channels.') },
+  discord: { name: 'Discord', description: t('Mention Nuphos in Discord channels.') },
+  lark: { name: 'Lark (Feishu)', description: t('Chat with Nuphos from Lark (Feishu) groups.') },
 }
 
 // Alternate names people type instead of the official one. These have to be
