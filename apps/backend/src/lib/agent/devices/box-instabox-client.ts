@@ -27,6 +27,14 @@ export const transient = (error: unknown) => error instanceof InstaboxError && e
 
 const PATHS = 'export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"'
 
+/**
+ * Runs `lines` holding the machine's install lock. The shell holds it and closes it in all it
+ * starts, so a process an install leaves running never keeps the next install waiting.
+ */
+export function oneInstallAtATime(lines: string[], lock = '/tmp/nuphos-install.lock'): string[] {
+  return [`exec 9>${lock} && flock 9`, '{', ...lines, '} 9>&-']
+}
+
 /** Node 22 and the agents; the template already has all but grok and Pi, so this is mostly checks. */
 const AGENTS = [
   'if ! node -e "process.exit(+process.versions.node.split(\'.\')[0] >= 22 ? 0 : 1)" 2>/dev/null; then',
@@ -46,14 +54,15 @@ const AGENTS = [
  */
 export const BOX_INSTALL_COMMAND = [
   'set -e',
-  'exec 9>/tmp/nuphos-install.lock && flock 9',
-  PATHS,
-  `( ${AGENTS.join('\n')}\n) & agents=$!`,
-  // Always the newest CLI, so the same step installs a Box and updates one.
-  'curl -fsSL https://nuphos.ai/install | sh',
-  // So `nuphos` also works in the Box\'s own terminal, not only in the commands run here.
-  'grep -q .local/bin "$HOME/.profile" 2>/dev/null || echo \'export PATH="$HOME/.local/bin:$PATH"\' >> "$HOME/.profile"',
-  'wait $agents',
+  ...oneInstallAtATime([
+    PATHS,
+    `( ${AGENTS.join('\n')}\n) & agents=$!`,
+    // Always the newest CLI, so the same step installs a Box and updates one.
+    'curl -fsSL https://nuphos.ai/install | sh',
+    // So `nuphos` also works in the Box\'s own terminal, not only in the commands run here.
+    'grep -q .local/bin "$HOME/.profile" 2>/dev/null || echo \'export PATH="$HOME/.local/bin:$PATH"\' >> "$HOME/.profile"',
+    'wait $agents',
+  ]),
 ].join('\n')
 
 /** Disk layout that takes effect from the next start, so it runs after the host is up. */
