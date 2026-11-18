@@ -123,6 +123,8 @@ class BotPresenceLiveDeviceTest {
         compose.onNodeWithTag("offline-strip").assertIsDisplayed()
         // Only the Bot's owner moves it, from its own chat.
         compose.onNodeWithText("Switch runtime").assertDoesNotExist()
+        // Its title shows that it opens the chat's Bots.
+        compose.onNodeWithTag("chat-bots-entry", useUnmergedTree = true).assertIsDisplayed()
         shoot("presence-group")
     }
 
@@ -130,6 +132,8 @@ class BotPresenceLiveDeviceTest {
         open(args.getString("presenceBotChat")!!)
         waitFor("The computer running this runtime is offline. Open Nuphos on it, or switch to another runtime.")
         compose.onNodeWithText("Switch runtime").assertIsDisplayed()
+        // A Bot's chat title opens its triggers, not a list of Bots.
+        compose.onNodeWithTag("chat-bots-entry", useUnmergedTree = true).assertDoesNotExist()
         shoot("presence-bot-chat")
     }
 
