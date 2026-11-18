@@ -139,16 +139,6 @@ export const botFoldScenarios: Scenario[] = [
         await page.getByRole('tab', { name: 'Bots' }).click()
         await page.waitForTimeout(1500)
         await page.screenshot({ path: `${artifacts}/bots-first-listing-loading.png` })
-        // Tasks and the Inbox wait on listings of their own, held too.
-        for (const tab of ['Tasks', 'Inbox']) {
-          await page.getByRole('tab', { name: tab }).click()
-          await page.waitForTimeout(800)
-          await page.screenshot({
-            path: `${artifacts}/${tab.toLowerCase()}-first-listing-loading.png`,
-          })
-        }
-        await page.getByRole('tab', { name: 'Bots' }).click()
-        await page.waitForTimeout(500)
         must(
           (await page.getByText('No Bots yet').count()) === 0,
           'Bots not to say "No Bots yet" before its first listing arrived',
