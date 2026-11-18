@@ -19,6 +19,7 @@ import type { Page } from 'playwright-core'
 
 const LABEL = 'E2E patchy mini'
 const UPDATED = 'E2E office mini'
+const UPDATE_RELEASE = join(artifacts, 'update-release')
 const RELEASE = join(artifacts, 'tunnel-release')
 
 /** The app's local-runtime bundle with the fixture agent as Claude Code; E2E_WAIT_RELEASE waits for `release`. */
@@ -154,8 +155,7 @@ export const tunnelScenarios: Scenario[] = [
     name: 'Update on another computer restarts it at once, and the turn running there ends',
     run: async (page, stack) => {
       const computer = await startSecondComputer(stack, UPDATED, {
-        // Never released: the turn is still running when the host stops.
-        runtimeDir: fixtureBundle(stack, 'update', join(artifacts, 'update-never')),
+        runtimeDir: fixtureBundle(stack, 'update', UPDATE_RELEASE),
         stagedUpdate: '9.9.9',
       })
 
@@ -183,13 +183,16 @@ export const tunnelScenarios: Scenario[] = [
         await page.getByText(`${UPDATED} is back`).waitFor({ timeout: 120_000 })
         await page.getByText('Back to app', { exact: true }).click()
 
-        // The turn the restart ended stops running, and the Task carries on there.
+        // The turn the restart ended stops running and says it was cut off; the Task carries on.
         await until(
           'the Task to stop running',
           async () => (await page.locator('button[title="Stop"]').count()) === 0,
           120_000,
         )
+        await page.getByText(/This message was cut off/).waitFor({ timeout: 60_000 })
         await page.screenshot({ path: join(artifacts, 'computer-update-task-after.png') })
+        // The next turn carries the cut-off message along, so its wait must not hold it.
+        writeFileSync(UPDATE_RELEASE, '')
         await send(page, 'After the update E2E_DELIVERY:update-after')
         await page.getByText('ACK E2E_DELIVERY:update-after').waitFor({ timeout: 60_000 })
       } finally {

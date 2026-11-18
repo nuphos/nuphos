@@ -16,7 +16,7 @@ import { recordFiresRan } from './trigger-missed-runs'
 import { reconnecting } from './turn-offline'
 import { readTurnHistory } from './turn-history'
 import { turnRunner } from './turn-runner'
-import { keepUndelivered, LOST_TURN } from './undelivered-send'
+import { keepUndelivered, LOST_TURN, runtimeRestarted } from './undelivered-send'
 import { failureLine, keepAnswersThatWait } from './waiting-answers'
 
 import type { AgentConversation } from './db'
@@ -202,22 +202,6 @@ export async function runTurn(
     await recordFailedFires(error, taken)
     throw error
   }
-}
-
-/**
- * A turn whose runtime connection dropped is left to the runtime, which keeps
- * running it through a network blip and reports back as usual. When the runtime
- * itself restarted (an OOMKill), the session reattaches with no agent process
- * (`dormant`) and the turn is gone.
- */
-async function runtimeRestarted(data: DeliveredTo): Promise<boolean> {
-  const session = sessionsByConversation.get(`${data.teamId}:${data.targetSessionId}`)
-
-  // False also means superseded or shutting down; only a session back on the air says anything.
-  if (!session?.reattached || !(await session.reattached)) return false
-  const { state } = await session.client.getSessionExecutionState(session.openabSessionId)
-
-  return state === 'dormant'
 }
 
 async function reportIfRestarted(
