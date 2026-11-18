@@ -2,6 +2,7 @@
 import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
 
+import { client } from './binding-access-scenarios.ts'
 import { artifacts } from './processes.ts'
 
 import type { Stack } from './stack.ts'
@@ -56,3 +57,21 @@ export async function shoot(page: Page, name: string) {
 
 export const QUOTED =
   'Customers are asking for a DPA before they sign. Can we send the standard one, or does legal need to review each request?'
+
+// The account's own name before the captures, put back after them.
+let ownName: string | undefined
+
+/** Names the signed-in person, as a real account is: posts and the reply bar show it, never an email. */
+export async function nameViewer(stack: Stack, name?: string): Promise<void> {
+  const as = client(stack.apiUrl, stack.token)
+
+  if (name === undefined) {
+    await as('PATCH', '/auth/me', { name: ownName ?? '' })
+
+    return
+  }
+  const { body } = await as('GET', '/auth/me')
+
+  ownName = ((body as { user?: { name?: string } }).user ?? (body as { name?: string })).name
+  await as('PATCH', '/auth/me', { name })
+}

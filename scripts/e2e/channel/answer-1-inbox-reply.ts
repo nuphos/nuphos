@@ -2,7 +2,7 @@
 // question, quoted inside their bubble, and wakes the Bot no more than the answer itself does.
 import { agentEvents, agentLog } from '../agent-log.ts'
 import { client } from '../binding-access-scenarios.ts'
-import { openBotChat, shoot } from '../channel-quotes.ts'
+import { nameViewer, openBotChat, shoot } from '../channel-quotes.ts'
 import { until } from '../processes.ts'
 import { send } from '../ui.ts'
 
@@ -20,6 +20,7 @@ const channelWakes = (stack: Stack) =>
 const scenario: Scenario = {
   name: "an answer given in the Inbox is the answerer's reply in the Bot chat, quoted in the bubble",
   run: async (page, stack) => {
+    await nameViewer(stack, 'Alex Rivera')
     await openBotChat(page)
     await send(page, 'Ask me E2E_ASK E2E_DELIVERY:inbox-reply')
     await page.getByText('POSTED E2E_DELIVERY:inbox-reply', { exact: true }).waitFor()

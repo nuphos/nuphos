@@ -2,7 +2,7 @@
 // inside the bubble too, on the other bubble's tint.
 import { agentLog } from '../agent-log.ts'
 import { client } from '../binding-access-scenarios.ts'
-import { QUOTED, openBotChat, shoot, store } from '../channel-quotes.ts'
+import { QUOTED, nameViewer, openBotChat, shoot, store } from '../channel-quotes.ts'
 import { newTask, send } from '../ui.ts'
 
 import type { Scenario } from '../ui.ts'
@@ -73,6 +73,7 @@ const scenario: Scenario = {
     await page.evaluate((themed) => {
       document.documentElement.className = themed
     }, themed)
+    await nameViewer(stack)
   },
 }
 
