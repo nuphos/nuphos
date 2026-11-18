@@ -58,4 +58,6 @@
     <string name="chats_question_snooze_tomorrow">明天 9:00</string>
     <string name="chats_question_snooze_monday">下週一 9:00</string>
     <string name="chats_question_dismiss_reason">理由（選填）</string>
+    <string name="chats_empty_bot_body">這裡是你和 %1$s 的對話。聊聊你需要什麼協助，一起建立適合你的工作方式。</string>
+    <string name="chats_empty_bot_start">你也可以先告訴 %1$s，你想做些什麼。</string>
 </resources>
