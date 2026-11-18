@@ -1,4 +1,4 @@
-import type { BotPresence } from '../../api/agent-types'
+import type { BotPresence, ChannelAgent } from '../../api/agent-types'
 import type { RuntimeInstance } from '../../types/runtime'
 
 /**
@@ -25,4 +25,11 @@ export function withBotPresence(
       ? { ...instance, local: { ...instance.local, ...patch } }
       : instance,
   )
+}
+
+/** A group chat's first member Bot whose computer is offline, by name (#3308). */
+export function offlineMember(agents: ChannelAgent[]): string | undefined {
+  return agents.find(
+    ({ presence }) => presence?.state === 'offline' && presence.reason === 'computer_offline',
+  )?.title
 }

@@ -5708,6 +5708,7 @@
   "{name} — click to rename": "{name}: haz clic para cambiar el nombre",
   "{name}, {spec}. Needs a bigger plan; choose a plan": "{name}, {spec}. Requiere un plan mayor; elige un plan",
   "{name}: {percent}% left": "{name}: queda un {percent} %",
+  "{name}’s computer is offline.": "El ordenador de {name} está sin conexión.",
   "{n} GB disk": "Disco de {n} GB",
   "{n} MB ephemeral": "{n} MB efímeros",
   "{n} MB memory": "{n} MB de memoria",

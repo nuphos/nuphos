@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { withBotPresence } from './botPresenceRuntime.ts'
+import { offlineMember, withBotPresence } from './botPresenceRuntime.ts'
 
 import type { RuntimeInstance } from '../../types/runtime.ts'
 
@@ -37,4 +37,19 @@ test('an online or busy Bot, or a reason the strip does not carry, leaves the ru
     undefined,
   ] as const)
     assert.equal(withBotPresence(instances, mac.id, presence), instances)
+})
+
+test('a group chat names a member Bot whose computer is offline, and no other', () => {
+  const agents = [
+    { sessionId: 'a', title: 'Atlas', ownerId: 'o', presence: { state: 'busy' } },
+    {
+      sessionId: 's',
+      title: 'Scribe',
+      ownerId: 'o',
+      presence: { state: 'offline', reason: 'computer_offline' },
+    },
+  ] as never
+
+  assert.equal(offlineMember(agents), 'Scribe')
+  assert.equal(offlineMember([agents[0]] as never), undefined)
 })

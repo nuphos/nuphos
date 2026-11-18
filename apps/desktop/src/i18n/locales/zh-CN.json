@@ -5708,6 +5708,7 @@
   "{name} — click to rename": "{name}（点击重命名）",
   "{name}, {spec}. Needs a bigger plan; choose a plan": "{name}，{spec}。需要更高的套餐，请选择套餐",
   "{name}: {percent}% left": "{name}：剩余 {percent}%",
+  "{name}’s computer is offline.": "{name} 的电脑离线。",
   "{n} GB disk": "{n} GB 磁盘",
   "{n} MB ephemeral": "{n} MB 临时存储",
   "{n} MB memory": "{n} MB 内存",

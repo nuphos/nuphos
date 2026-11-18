@@ -5708,6 +5708,7 @@
   "{name} — click to rename": "{name}（按一下以重新命名）",
   "{name}, {spec}. Needs a bigger plan; choose a plan": "{name}，{spec}。需要更高階的方案；請選擇方案",
   "{name}: {percent}% left": "{name}：剩餘 {percent}%",
+  "{name}’s computer is offline.": "{name} 的電腦離線。",
   "{n} GB disk": "{n} GB 磁碟",
   "{n} MB ephemeral": "{n} MB 暫存空間",
   "{n} MB memory": "{n} MB 記憶體",

@@ -1,16 +1,35 @@
 // Named to run after bot-settings: it moves the Bot between runtimes, which clears its model.
-// #3308: a Bot whose computer is offline says so in its chat with the same strip a Task shows
-// above its composer, not a line of its own.
+// #3308: a Bot whose computer is offline says so with the strip a Task shows above its composer:
+// in its own chat, and, naming it, in a group chat it is in.
 import { randomUUID } from 'node:crypto'
 
-import { botPresence, computerWithUsage, pickRuntime } from '../channel-helpers.ts'
+import {
+  botPresence,
+  computerWithUsage,
+  isBotRow,
+  listedConversations,
+  pickRuntime,
+} from '../channel-helpers.ts'
 import { artifacts, until } from '../processes.ts'
 import { newTask } from '../ui.ts'
 
+import type { Stack } from '../stack.ts'
 import type { Scenario } from '../ui.ts'
 
+async function post(stack: Stack, path: string, body: object) {
+  const response = await fetch(`${stack.apiUrl}${path}?teamId=${stack.teamId}`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ teamId: stack.teamId, ...body }),
+  })
+
+  if (!response.ok) throw new Error(`${path} answered ${String(response.status)}`)
+
+  return (await response.json()) as { sessionId?: string }
+}
+
 export default {
-  name: "a Bot whose computer is offline says so above its chat's composer, as a Task does",
+  name: "a Bot whose computer is offline says so above the composer, in its chat and a group's",
   run: async (page, stack) => {
     const computer = 'E2E away computer'
     const disconnect = await computerWithUsage(stack, computer, randomUUID())
@@ -33,6 +52,23 @@ export default {
 
       await strip.waitFor({ timeout: 60_000 })
       await page.screenshot({ path: `${artifacts}/presence-offline-banner-light.png` })
+      // In a group chat the strip names the Bot whose computer is offline.
+      const bot = (await listedConversations(stack)).find(
+        (row) => row.title === 'E2E Bot' && isBotRow(row),
+      ) as { sessionId?: string } | undefined
+      const group = await post(stack, '/agent/channels', {
+        title: 'E2E offline group',
+        group: true,
+      })
+
+      await post(stack, `/agent/conversations/${group.sessionId ?? ''}/agents`, {
+        sessionId: bot?.sessionId,
+      })
+      await page.getByText('E2E offline group').first().click()
+      await page
+        .getByText('E2E Bot’s computer is offline.', { exact: true })
+        .waitFor({ timeout: 60_000 })
+      await page.screenshot({ path: `${artifacts}/presence-offline-group-light.png` })
       // The same strip on a Task on that computer, for comparison.
       await newTask(page)
       await pickRuntime(page, computer, /^Claude Code/)

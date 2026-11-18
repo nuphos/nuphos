@@ -5708,6 +5708,7 @@
   "{name} — click to rename": "{name} — คลิกเพื่อเปลี่ยนชื่อ",
   "{name}, {spec}. Needs a bigger plan; choose a plan": "{name}, {spec} ต้องใช้แพ็กเกจที่ใหญ่กว่า เลือกแพ็กเกจ",
   "{name}: {percent}% left": "{name}: เหลือ {percent}%",
+  "{name}’s computer is offline.": "คอมพิวเตอร์ของ {name} ออฟไลน์อยู่",
   "{n} GB disk": "ดิสก์ {n} GB",
   "{n} MB ephemeral": "พื้นที่ชั่วคราว {n} MB",
   "{n} MB memory": "หน่วยความจำ {n} MB",

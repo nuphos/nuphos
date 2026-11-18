@@ -45,6 +45,7 @@ export function Composer({
   slackThread,
   credentialSelector,
   runtimeControl,
+  offlineAgent,
   modelSession,
   newConversationModelControl,
   bypassControl,
@@ -75,6 +76,8 @@ export function Composer({
   slackThread?: AgentSlackThread | null
   credentialSelector?: CredentialSelectorControl
   runtimeControl?: RuntimeControl
+  /** A group chat's member Bot whose computer is offline: the agent-status strip names it. */
+  offlineAgent?: string
   modelSession?: ModelSession
   /** Model settings for a conversation that does not exist yet. */
   newConversationModelControl?: ReactNode
@@ -166,8 +169,13 @@ export function Composer({
       )}
     >
       <div className="relative w-full">
-        {!readOnly && runtimeControl && (
-          <AgentStatusBanner control={runtimeControl} hero={hero} onSwitchAgent={switchAgent} />
+        {!readOnly && (runtimeControl || offlineAgent) && (
+          <AgentStatusBanner
+            control={runtimeControl ?? { value: null }}
+            hero={hero}
+            onSwitchAgent={switchAgent}
+            offlineAgent={offlineAgent}
+          />
         )}
         <div
           className={clsx(
