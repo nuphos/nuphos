@@ -275,12 +275,9 @@ try {
 
   desktop = await startDesktop(stack.apiUrl)
   desktop.page.setDefaultTimeout(30_000)
-  // A trace of each scenario, kept only for the one that fails: what each step saw and did.
-  await desktop.page.context().tracing.start({ screenshots: true, snapshots: true })
   for (const [index, scenario] of [...scenarios, formScenario].entries()) {
+    await desktop.traceNextScenario()
     const from = backendLines()
-
-    await desktop.page.context().tracing.startChunk()
 
     await scenario.run(desktop.page, stack)
     const failures = backendFailures(from, scenario.expected)
@@ -288,22 +285,15 @@ try {
     await desktop.page.screenshot({ path: `${artifacts}/${String(index + 1)}.png` })
     if (failures.length > 0)
       throw new Error(`"${scenario.name}" made the backend fail:\n${failures.join('\n')}`)
-    await desktop.page.context().tracing.stopChunk()
     console.log(`PASS ${scenario.name}`)
   }
   console.log('PASS Desktop end-to-end (real backend, MongoDB and OpenAB; fixture agent)')
 } catch (error) {
   failed = true
   console.error(error)
-  await desktop?.page
-    .context()
-    .tracing.stopChunk({ path: `${artifacts}/trace.zip` })
-    .catch(() => {})
-  console.error(
-    `FAIL: logs, the last screenshot and trace.zip (npx playwright show-trace) are in ${artifacts}`,
-  )
+  console.error(`FAIL: logs, the last screenshot and trace.zip are in ${artifacts}`)
 } finally {
-  await desktop?.close()
+  await desktop?.close(failed)
   await stopAll()
   if (desktop) rmSync(desktop.profile, { recursive: true, force: true })
 }
