@@ -80,7 +80,9 @@ tried again until the next release.
 A team administrator can turn this off for the team's cloud computers in
 Settings > General > Cloud computer updates (or with
 `PUT /teams/<team>/box-auto-update` and `{"enabled": false}`). A computer on a
-Nuphos too old to run conversations is still updated.
+Nuphos too old to run conversations is still updated. A computer whose owner can
+no longer control it is never updated on its own, since Nuphos cannot check whether
+its agents are busy; update it from its card.
 
 ## Removing access
 

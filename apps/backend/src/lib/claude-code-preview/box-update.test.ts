@@ -3,7 +3,7 @@ import { existsSync, lstatSync, mkdtempSync, readFileSync, statSync, writeFileSy
 import os from 'node:os'
 import path from 'node:path'
 
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, spyOn, test } from 'bun:test'
 
 import {
   AGENT_COMMAND,
@@ -13,7 +13,12 @@ import {
 } from '@/lib/agent/devices/box-instabox-client'
 import { localRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 
-import { boxUpdateStatus, requestBoxUpdate, runBoxAutoUpdates } from './box-update'
+import {
+  boxUpdateStatus,
+  requestBoxUpdate,
+  runBoxAutoUpdates,
+  startBoxAutoUpdate,
+} from './box-update'
 
 import type { BoxAutoUpdateDeps, BoxUpdateDeps } from './box-update'
 import type { LocalRuntimeStatus } from '@/lib/agent/devices/local-runtime/protocol'
@@ -392,6 +397,19 @@ describe('Box auto-update', () => {
       'box-4',
       'box-5',
     ])
+  })
+
+  test('BOX_AUTO_UPDATE_DISABLED starts no sweep, so a deployment can stop it without a release', () => {
+    const intervals = spyOn(globalThis, 'setInterval')
+
+    try {
+      startBoxAutoUpdate(true)()
+      expect(intervals).not.toHaveBeenCalled()
+      startBoxAutoUpdate(false)()
+      expect(intervals).toHaveBeenCalledTimes(1)
+    } finally {
+      intervals.mockRestore()
+    }
   })
 
   test('a current, away or unversioned Box is left alone, and so is every Box without a release', async () => {

@@ -7,6 +7,7 @@
 // Boxes also update on their own (runBoxAutoUpdates): an administrator clicking Update
 // on every Box left most of them on the CLI they were created with (#2104).
 
+import { config } from '@/config'
 import { requireDeviceAccess } from '@/lib/agent/devices/box-access'
 import { resumeBox } from '@/lib/agent/devices/box-instabox'
 import { BOX_UPDATE_COMMAND } from '@/lib/agent/devices/box-instabox-client'
@@ -256,8 +257,16 @@ async function autoUpdate(
   return current
 }
 
-/** Runs runBoxAutoUpdates on one replica every BOX_AUTO_UPDATE_INTERVAL_MS. */
-export function startBoxAutoUpdate() {
+/**
+ * Runs runBoxAutoUpdates on one replica every BOX_AUTO_UPDATE_INTERVAL_MS, unless the
+ * deployment turned it off with BOX_AUTO_UPDATE_DISABLED.
+ */
+export function startBoxAutoUpdate(disabled = config.box.autoUpdateDisabled) {
+  if (disabled) {
+    logEvent('info', 'agent.box.auto_update_disabled')
+
+    return () => {}
+  }
   const sweep = async () => {
     if (!(await claimRun('agent:box:auto-update', BOX_AUTO_UPDATE_INTERVAL_MS - 60_000))) return
     await runBoxAutoUpdates().catch((error: unknown) => {

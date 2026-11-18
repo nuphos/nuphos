@@ -13,6 +13,8 @@ export type BoxConfig = {
   defaultVcpuLimit?: number
   /** The billing service clients open to buy or change a plan; unset shows no Upgrade. */
   billingUrl?: string
+  /** Stops Boxes updating on their own (box-update) for the whole deployment. */
+  autoUpdateDisabled: boolean
 }
 
 export function boxConfig(): BoxConfig {
@@ -20,6 +22,7 @@ export function boxConfig(): BoxConfig {
   const downloadUrl = optional('NUPHOS_BOX_DOWNLOAD_URL') ?? optional('BOX_DEV_DOWNLOAD_URL')
 
   return {
+    autoUpdateDisabled: optional('BOX_AUTO_UPDATE_DISABLED') === 'true',
     ...(downloadUrl ? { downloadUrl } : {}),
     ...(optional('BOX_DEFAULT_VCPU_LIMIT')
       ? { defaultVcpuLimit: boundedInt('BOX_DEFAULT_VCPU_LIMIT', 0, { min: 0, max: 10_000 }) }
