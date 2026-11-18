@@ -63,7 +63,7 @@ fun InboxPage(inbox: OpenQuestions?, nav: NavHostController, allowed: () -> Bool
                         onSnooze = { until -> if (allowed()) inbox.snooze(question, until, scope) })
                 }
                 if (inbox.snoozed.isNotEmpty()) item(key = "snoozed") {
-                    Snoozed(inbox.snoozed.asReversed(), onUnsnooze = { inbox.snooze(it, null, scope) })
+                    Snoozed(inbox.snoozed.asReversed(), inbox.failures, onUnsnooze = { inbox.snooze(it, null, scope) })
                 }
             }
         }
@@ -84,9 +84,9 @@ private fun CaughtUp(modifier: Modifier) {
     }
 }
 
-/** The questions snoozed out of the Inbox, below its list: each with when it comes back, and Unsnooze. */
+/** The questions snoozed out of the Inbox, below its list: each with when it comes back, and Unsnooze, and why it failed. */
 @Composable
-private fun Snoozed(questions: List<BotQuestion>, onUnsnooze: (BotQuestion) -> Unit) {
+private fun Snoozed(questions: List<BotQuestion>, failures: Map<String, String>, onUnsnooze: (BotQuestion) -> Unit) {
     Column(Modifier.fillMaxWidth().padding(top = 8.dp).testTag("inbox-snoozed")) {
         Text(stringResource(R.string.shell_inbox_snoozed), style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -100,6 +100,10 @@ private fun Snoozed(questions: List<BotQuestion>, onUnsnooze: (BotQuestion) -> U
                 TextButton(onClick = { onUnsnooze(question) }, Modifier.testTag("inbox-unsnooze")) {
                     Text(stringResource(R.string.shell_inbox_unsnooze))
                 }
+            }
+            failures[question.id]?.let {
+                Text(stringResource(R.string.chats_question_send_failed, it), Modifier.testTag("inbox-snoozed-failure"),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
             }
         }
     }

@@ -37,7 +37,7 @@ import org.junit.runner.RunWith
 class InboxSnoozeFixtureDeviceTest {
     @get:Rule val compose = createComposeRule()
 
-    private class Source(val asked: List<AgentConversation>? = null) : ChannelSession.Transport {
+    private class Source(val asked: List<AgentConversation>? = null, val failSnooze: Boolean = false) : ChannelSession.Transport {
         val snoozed = CopyOnWriteArrayList<Pair<String, Instant?>>()
         val dismissed = CopyOnWriteArrayList<Pair<String, String?>>()
         override suspend fun detail(tail: Int): AgentConversationDetail = Http.json.decodeFromString(
@@ -53,7 +53,10 @@ class InboxSnoozeFixtureDeviceTest {
             AgentConversation(sessionId = "bot-1", title = "Release Lead", isOwner = true,
                 inputRequests = listOf(InputRequest("q-ship", "approval", "Ship release 4.2 to production?",
                     listOf("Ship it", "Hold"), "2026-11-17T09:05:00Z"))))
-        override suspend fun snooze(sessionId: String, requestId: String, until: Instant?) { snoozed += requestId to until }
+        override suspend fun snooze(sessionId: String, requestId: String, until: Instant?) {
+            if (failSnooze) throw java.io.IOException("offline")
+            snoozed += requestId to until
+        }
         override suspend fun dismiss(sessionId: String, requestId: String, reason: String?) { dismissed += requestId to reason }
     }
 
@@ -136,6 +139,28 @@ class InboxSnoozeFixtureDeviceTest {
         compose.waitUntil(5_000) { source.dismissed.isNotEmpty() }
         // A dismissal with its reason, never a value.
         assertEquals("q-token" to "Use the token already in CI", source.dismissed.single())
+    }
+
+    /** An Unsnooze the server refused leaves the question snoozed and says why, rather than nothing. */
+    @Test fun aFailedUnsnoozeSaysWhy() {
+        val later = Instant.now().plusSeconds(3_600).toString()
+        val source = Source(listOf(AgentConversation(sessionId = "ops", title = "Release ops", isOwner = true,
+            inputRequests = listOf(InputRequest("q-later", "preference", "Tag the release now?", listOf("Yes", "No"),
+                "2026-11-17T09:10:00Z", snoozedUntil = later)))), failSnooze = true)
+        val inbox = OpenQuestions(source)
+        runBlocking { inbox.refresh() }
+        val store = agents
+        compose.setContent {
+            NuphosTheme {
+                androidx.compose.runtime.CompositionLocalProvider(ai.nuphos.android.ui.LocalAgentStore provides store) {
+                    InboxPage(inbox, rememberNavController(), allowed = { true })
+                }
+            }
+        }
+        compose.onNodeWithTag("inbox-unsnooze").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("inbox-snoozed-failure").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("inbox-snoozed").assertIsDisplayed()
+        capture("9-unsnooze-failed")
     }
 
     @Test fun aBotsChatDismissesAtOnceWithoutAReason() {
