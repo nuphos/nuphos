@@ -16,20 +16,18 @@ export const botSubtaskModelScenarios: Scenario[] = [
       const chip = page.getByRole('button', { name: /^Model settings/ }).last()
       const behind = join(artifacts, 'behind')
       const bot = bots.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first()
-      // A finished sub-Task is listed under its Bot once the Bot shows its sub-agents (a
-      // control shown on hover) and its done count is opened.
+      // A finished sub-Task is listed under its Bot once the Bot's done count is opened, which
+      // gives the Bot sub-agents to show, and then they are shown. Both controls hide while the
+      // row is hovered, so each is clicked where it is, only while the sub-Task is not listed.
       const openKid = async () => {
-        if (!(await kid.isVisible())) {
-          await bot.hover()
-          const show = bots.getByRole('button', { name: 'Show sub-agents' }).first()
-
-          if (await show.isVisible()) await show.click()
-          await page.mouse.move(640, 400)
+        for (const reveal of ['[title$=" done"]', '[aria-label="Show sub-agents"]']) {
+          await page.mouse.move(120, 600)
           await page.waitForTimeout(1_000)
-        }
-        const done = bots.getByTitle(/sub-agents? done$/).first()
+          const control = bots.locator(reveal).first()
 
-        if (!(await kid.isVisible()) && (await done.isVisible())) await done.click()
+          if (!(await kid.count()) && (await control.count())) await control.dispatchEvent('click')
+        }
+        await page.waitForTimeout(1_000)
         await kid.click()
       }
 
