@@ -21,6 +21,9 @@ const BASELINE = join(import.meta.dirname, 'chat-switch-baseline.json')
 // A Bot chat's poll; the newest post must not wait for it.
 const POLL_MS = 4_000
 const POSTS = 40
+// A replay reaches the window in a few batches, so its end can come a frame or two after its
+// start; a typewriter takes hundreds of frames.
+const MAX_TYPED_FRAMES = 3
 
 type Chat = { tab: 'Tasks' | 'Bots'; title: string; sessionId: string }
 type Case = {
@@ -187,7 +190,7 @@ function check(baseline: Record<string, number> | null) {
 
     if (watch.framesToContent === null) fail('its history never showed')
     if (watch.fadeFrames > 0) fail(`${String(watch.fadeFrames)} frames faded it in`)
-    if (watch.typedFrames > 0)
+    if (watch.typedFrames > MAX_TYPED_FRAMES)
       fail(`a reply in progress was typed out over ${String(watch.typedFrames)} frames`)
     if (allowed !== undefined && requests > allowed)
       fail(`${String(requests)} requests before its first frame, baseline ${String(allowed)}`)
@@ -195,11 +198,17 @@ function check(baseline: Record<string, number> | null) {
       `| ${name} | ${String(watch.framesToContent ?? 'never')} | ${String(requests)} | ${String(watch.fadeFrames)} | ${String(watch.typedFrames)} | ${newest} |`,
     )
   }
-  // Reported until chats are rendered from a cache (#3523): the first frame, no request first.
-  const pending = cases
-    .filter(({ name }) => name.endsWith('opened before'))
-    .filter(({ watch, requests }) => watch.framesToContent !== 1 || requests > 0)
-    .map(({ name }) => `${name}: not on the first frame without a request`)
+  // A chat opened before shows on the first frame, with no request first. A Task does; a Bot
+  // chat is reported until it is rendered from a cache too (#3523).
+  const pending: string[] = []
+
+  for (const { name, watch, requests } of cases.filter((c) => c.name.endsWith('opened before'))) {
+    if (watch.framesToContent === 1 && requests === 0) continue
+    const why = `${name}: not on the first frame without a request`
+
+    if (name.startsWith('task')) failed.push(why)
+    else pending.push(why)
+  }
   const away = cases.find(({ name }) => name === 'bot chat, new post while away')
 
   if (away && (away.watch.newestAfterMs ?? Infinity) >= POLL_MS)
