@@ -33,6 +33,7 @@ export function AgentSetupHost() {
             'Use Claude Code or Codex with the subscriptions you already have. Here’s what we found on this computer.',
           )}
         </p>
+        <LocalAgentSetupCards />
         {cloud && (
           <Choice
             icon={<Box className="h-4 w-4" />}
@@ -41,7 +42,6 @@ export function AgentSetupHost() {
             onClick={() => openAddRuntime(cloud.teamId, cloud.onBoxCreated)}
           />
         )}
-        <LocalAgentSetupCards />
         <div className="flex justify-end">
           <Button variant="secondary" onClick={agentSetup.close}>
             {t('Done')}
