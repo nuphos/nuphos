@@ -178,6 +178,7 @@ export function tunnelStatusOf(
       ...(agent.usage !== undefined && agent.usageAt && !agent.cli.customProvider
         ? { usage: agent.usage, usageAt: agent.usageAt }
         : {}),
+      ...(agent.cli.accountKey ? { accountKey: agent.cli.accountKey } : {}),
       ...(agent.cli.version ? { version: `${provider} ${agent.cli.version}` } : {}),
       ...(agent.models ? { models: agent.models } : {}),
     }

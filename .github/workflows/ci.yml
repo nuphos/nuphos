@@ -35,7 +35,7 @@ jobs:
   # it reports success there instead of blocking the queue.
   dco:
     name: DCO
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-24.04-arm
     steps:
       - name: Skip in the merge queue
         if: github.event_name == 'merge_group'
@@ -257,6 +257,15 @@ jobs:
         run: cargo test --locked
       - name: Test install.sh
         run: sh install.test.sh
+      # The CLI binary, to try a pull request's CLI on a Mac. cargo test builds only the test binaries.
+      - name: Build
+        run: cargo build --locked
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: nuphos-cli-macos-arm64
+          path: apps/cli/target/debug/nuphos
+          retention-days: 7
+          if-no-files-found: error
 
   skill-install:
     name: Skill installers (${{ matrix.os }})

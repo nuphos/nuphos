@@ -117,7 +117,6 @@ export function useChatItems({
 
     const rows = botChatRows({
       openId,
-      unreadIds: unreadSessions,
       faces: conversation.faces,
       chat: row,
       bot: bot && run(bot),

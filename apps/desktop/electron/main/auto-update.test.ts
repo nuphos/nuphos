@@ -19,8 +19,8 @@ const quiet: AutoInstallSignals = {
   idleSeconds: AUTO_INSTALL_IDLE_SECONDS,
 }
 
-test('off by default', () => {
-  assert.deepEqual(DEFAULT_AUTO_INSTALL, { enabled: false })
+test('on by default', () => {
+  assert.deepEqual(DEFAULT_AUTO_INSTALL, { enabled: true })
 })
 
 test('restarts once a ready update meets an idle computer with no agent work', () => {

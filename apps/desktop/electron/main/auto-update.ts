@@ -1,7 +1,7 @@
 // Installing a downloaded update by itself, at a moment nobody would notice the
 // restart: no agent task runs on this computer and nobody has used it for a
-// while. A computer shared with a team keeps current without anyone pressing
-// Restart. Off unless its owner turns it on.
+// while. A computer that is always on keeps current without anyone quitting it or
+// pressing Restart. On unless its owner turned it off.
 //
 // Runtime imports stay free of Electron so this loads under plain `node --test`.
 
@@ -12,7 +12,8 @@ export const AUTO_INSTALL_CHECK_MS = 60_000
 
 export type AutoInstallPreferences = { enabled: boolean }
 
-export const DEFAULT_AUTO_INSTALL: AutoInstallPreferences = { enabled: false }
+/** For a computer whose owner never chose: the preference is saved only when they do. */
+export const DEFAULT_AUTO_INSTALL: AutoInstallPreferences = { enabled: true }
 
 export function parseAutoInstall(value: unknown): AutoInstallPreferences {
   const enabled = (value as { enabled?: unknown } | null)?.enabled
