@@ -12,8 +12,15 @@ import type { Page } from 'playwright-core'
 
 const DESKTOP_DIR = resolve(import.meta.dirname, '../../apps/desktop')
 
-/** `profile` is the app's own data directory; delete it once the app has exited. */
-export type Desktop = { page: Page; profile: string; close: () => Promise<void> }
+/** `profile` is the app's own data directory; delete it once the app has exited.
+ * `traceNextScenario` traces the next scenario, dropping the last one's trace;
+ * `close(true)` keeps the failing one as trace.zip (`npx playwright show-trace`). */
+export type Desktop = {
+  page: Page
+  profile: string
+  traceNextScenario: () => Promise<void>
+  close: (failed?: boolean) => Promise<void>
+}
 
 export async function startDesktop(apiUrl: string): Promise<Desktop> {
   const [vitePort, cdpPort] = await freePorts(2)
@@ -56,10 +63,21 @@ export async function startDesktop(apiUrl: string): Promise<Desktop> {
     return page
   })
 
+  const tracing = page!.context().tracing
+  let started = false
+
   return {
     page: page!,
     profile,
-    close: async () => {
+    traceNextScenario: async () => {
+      if (started) await tracing.stopChunk()
+      else await tracing.start({ screenshots: true, snapshots: true })
+      started = true
+      await tracing.startChunk()
+    },
+    close: async (failed) => {
+      if (failed && started)
+        await tracing.stopChunk({ path: join(artifacts, 'trace.zip') }).catch(() => {})
       await page!.screenshot({ path: join(artifacts, 'last-window.png') }).catch(() => {})
       await browser.close().catch(() => {})
     },

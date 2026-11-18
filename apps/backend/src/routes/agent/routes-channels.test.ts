@@ -155,7 +155,8 @@ describe('agents in a channel', () => {
     })
 
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({
+    // Its presence is the presence tests' to check.
+    expect(await response.json()).toMatchObject({
       agents: [
         {
           sessionId: 'agent-a',
