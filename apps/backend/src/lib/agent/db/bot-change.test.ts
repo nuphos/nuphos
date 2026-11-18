@@ -73,7 +73,24 @@ test('changing a face and taking it away are both recorded', async () => {
       $push: recorded({ actorId: 'alice', via: 'avatar_route', avatar: '05-rembrandt' }),
     },
     // No avatar on the record: the Bot is a Task again.
-    { $unset: { avatar: '' }, $push: recorded({ actorId: 'alice', via: 'avatar_route' }) },
+    { $unset: { avatar: '', avatarBackground: '' }, $push: recorded({ actorId: 'alice', via: 'avatar_route' }) },
+  ])
+})
+
+test('a background is stored with the face; none and taking the face away clear it', async () => {
+  await setConversationAvatar('s1', '05-rembrandt', 'alice', 'sky')
+  await setConversationAvatar('s1', '05-rembrandt', 'alice', 'none')
+  await setConversationAvatar('s1', null, 'alice')
+
+  const change = recorded({ actorId: 'alice', via: 'avatar_route', avatar: '05-rembrandt' })
+
+  expect(updates).toEqual([
+    { $set: { avatar: '05-rembrandt', avatarBackground: 'sky' }, $push: change },
+    { $set: { avatar: '05-rembrandt' }, $unset: { avatarBackground: '' }, $push: change },
+    {
+      $unset: { avatar: '', avatarBackground: '' },
+      $push: recorded({ actorId: 'alice', via: 'avatar_route' }),
+    },
   ])
 })
 
