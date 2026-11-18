@@ -103,8 +103,7 @@ export function Composer({
   placeholder?: string
   promptSuggestion?: string | null
   recall?: ComposerRecall
-  /** The runtime list's open state, when its panel opens it too (a failed turn's Switch runtime). */
-  agentMenu?: [boolean, (open: boolean) => void]
+  agentMenu?: [boolean, (open: boolean) => void] // the panel's, for a failed turn's Switch runtime
 }) {
   // A transport never authorizes execution or a client-owned follow-up queue.
   const streaming = false

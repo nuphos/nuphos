@@ -31,8 +31,8 @@ export const botTurnScenarios: Scenario[] = [
       const open = await lists.count()
 
       if (open !== 1) throw new Error(`Switch runtime opened ${String(open)} runtime lists`)
-      // The refused turn stays with the Bot and would ride along with its next turn, so it
-      // moves on from this list and runs once on the second agent, then the Bot moves back.
+      // The refused turn stays with the Bot and would ride along with its next turn, so the
+      // Bot moves on from this list and the turn runs once on the second agent. It stays there.
       await lists.getByText('E2E second agent').click()
       await page.getByRole('menuitem', { name: /^E2E second agent.*Claude Code/ }).click()
       await until('the refused turn to finish on the second agent', async () =>
@@ -41,9 +41,6 @@ export const botTurnScenarios: Scenario[] = [
             entry.agent === 'second' && entry.marker === marker && entry.event === 'finish',
         ),
       )
-      await task.getByRole('button', { name: /^Runtime:/ }).click()
-      await lists.getByText('E2E fixture agent').click()
-      await page.getByRole('menuitem', { name: /^E2E fixture agent.*Claude Code/ }).click()
       await task.getByRole('button', { name: 'Back to conversation' }).click()
       // The scenarios after this one find a single composer on the page.
       await task.waitFor({ state: 'detached' })
