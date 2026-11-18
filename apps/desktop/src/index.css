@@ -396,15 +396,11 @@
   }
 
   /* Your post in a chat: a bubble a shade apart from an agent's
-     (state.selected). The dark theme lifts it toward the text color; the
-     light theme tints it with the link blue. Both keep the text at WCAG AA
-     (chatBubble.test.ts). */
+     (state.selected), the text color at a step beyond its alpha. One rule
+     for both themes: a neutral warm gray, since blue is kept for links and
+     data. The text stays at WCAG AA (chatBubble.test.ts). */
   .chat-bubble-mine {
     background-color: rgba(var(--color-text-primary), 0.21);
-  }
-
-  html.light .chat-bubble-mine {
-    background-color: rgba(var(--color-data-1), 0.18);
   }
 
   /* The link blue does not read on the fill; the underline marks a link. */

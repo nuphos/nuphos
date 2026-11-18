@@ -42,9 +42,13 @@ const contrast = (a: Rgb, b: Rgb) => {
 }
 
 test('your chat bubble stands apart from an agent bubble and keeps its text readable (WCAG AA)', () => {
+  // One rule for both themes: the light theme has no override of its own.
+  assert.ok(!css.includes('html.light .chat-bubble-mine'), 'a light-only override is back')
+
+  const mine = fill('  .chat-bubble-mine')
   const cases = [
-    { name: 'dark', theme: themes.dark, rule: fill('  .chat-bubble-mine') },
-    { name: 'light', theme: themes.light, rule: fill('html.light .chat-bubble-mine') },
+    { name: 'dark', theme: themes.dark, rule: mine },
+    { name: 'light', theme: themes.light, rule: mine },
   ] as const
 
   for (const { name, theme, rule } of cases) {
