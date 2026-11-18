@@ -12,7 +12,8 @@ import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
 
 /** A computer whose Claude Code reports usage with its status, as Desktop's host does. */
-export async function computerWithUsage(stack: Stack, label: string, deviceId = randomUUID()) {
+async function computerWithUsage(stack: Stack, label: string) {
+  const deviceId = randomUUID()
   const auth = { authorization: `Bearer ${stack.token}` }
   const registered = await fetch(`${stack.apiUrl}/agent/devices`, {
     method: 'PUT',
@@ -54,15 +55,14 @@ export async function computerWithUsage(stack: Stack, label: string, deviceId = 
     }),
   )
 
-  // `forget` false leaves it registered, to connect again.
-  return (forget = true) => {
+  return () => {
     host.close()
-    if (forget) forgetComputer(stack.mongoUri, deviceId)
+    forgetComputer(stack.mongoUri, deviceId)
   }
 }
 
 /** Puts the composer on a runtime: `row` opens its submenu and `item` names the runtime in it. */
-export async function pickRuntime(page: Page, row: string, item: RegExp) {
+async function pickRuntime(page: Page, row: string, item: RegExp) {
   await page.getByRole('button', { name: /^Agent runtime/ }).click()
   await page.getByRole('menu').getByText(row).first().click({ timeout: 60_000 })
   await page.getByRole('menuitem', { name: item }).last().click()
