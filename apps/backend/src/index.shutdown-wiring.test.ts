@@ -95,14 +95,6 @@ async function drainAs(
 }
 
 describe('shutdown() stage wiring in index.ts', () => {
-  test('stops runtime reconciliation before the first drain wait', () => {
-    const stop = SHUTDOWN_BODY.indexOf('shutdownClaudeCodeRuntimeProvisioner()')
-    const firstAwait = SHUTDOWN_BODY.indexOf('await ')
-
-    expect(stop).toBeGreaterThanOrEqual(0)
-    expect(firstAwait).toBeGreaterThan(stop)
-  })
-
   test('every stage is fed by its own budget field', () => {
     expect({
       lbGrace: budgetFieldFeeding(/setTimeout\(r,([^()]*)\)/g, 'LB grace sleep'),

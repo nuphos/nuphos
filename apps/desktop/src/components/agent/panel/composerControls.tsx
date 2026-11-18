@@ -293,7 +293,7 @@ export function ComposerSendControls({
 
   return (
     <div className="flex items-center gap-1">
-      <ComposerVoice {...voice} hero={props.hero} />
+      <ComposerVoice {...voice} hero={props.hero} onSend={props.onSubmit} />
       <SendControls {...props} />
     </div>
   )

@@ -2,6 +2,13 @@ import { getMyTeams } from '@/lib/identity'
 import { getCapabilities, toolResult } from '@/lib/mcp/protocol'
 import { nuphosAsk } from '@/routes/mcp/ask'
 import { nuphosCheck } from '@/routes/mcp/check'
+import {
+  nuphosEvents,
+  nuphosListQueue,
+  nuphosListRuntimes,
+  nuphosRemoveQueued,
+  nuphosStop,
+} from '@/routes/mcp/control'
 import { nuphosListCredentials, nuphosUpdateCredentials } from '@/routes/mcp/credentials'
 import { nuphosListSessions, nuphosUpdateSession } from '@/routes/mcp/sessions'
 
@@ -26,7 +33,12 @@ export function toolsForContext(ctx: McpCallContext): Record<string, ToolHandler
     nuphos_ask: (args) => nuphosAsk(args, ctx),
     nuphos_check: (args) => nuphosCheck(args, ctx),
     nuphos_list_teams: () => nuphosListTeams(ctx),
+    nuphos_list_runtimes: (args) => nuphosListRuntimes(args, ctx),
     nuphos_list_sessions: (args) => nuphosListSessions(args, ctx),
+    nuphos_events: (args) => nuphosEvents(args, ctx),
+    nuphos_stop: (args) => nuphosStop(args, ctx),
+    nuphos_list_queue: (args) => nuphosListQueue(args, ctx),
+    nuphos_remove_queued: (args) => nuphosRemoveQueued(args, ctx),
     nuphos_update_session: (args) => nuphosUpdateSession(args, ctx),
     nuphos_list_credentials: (args) => nuphosListCredentials(args, ctx),
     nuphos_update_credentials: (args) => nuphosUpdateCredentials(args, ctx),

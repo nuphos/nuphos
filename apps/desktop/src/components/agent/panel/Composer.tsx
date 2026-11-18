@@ -252,7 +252,7 @@ export function Composer({
                 <CredentialSelectorButton {...credentialSelector} hero={hero} personalIdentity />
               )}
               {bypassControl && <BypassControlMenu bypassControl={bypassControl} hero={hero} />}
-              {runtimeControl && (
+              {runtimeControl && !runtimeControl.offlineAgent && (
                 <RuntimeSelector
                   {...runtimeControl}
                   menuOpen={agentMenuOpen || agentMenuRequested}

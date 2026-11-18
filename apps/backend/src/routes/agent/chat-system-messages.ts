@@ -47,9 +47,12 @@ export const TEAM_SKILL_TOOL_MESSAGE = [
   '- VIEWER team members cannot write skills; if the user lacks permission, explain that an EDITOR or ADMINISTRATOR must make the change or upgrade their role.',
 ].join('\n')
 
-export function buildTurnRulesMessage(args: { userFacingLanguage: string }): string {
-  const { userFacingLanguage } = args
+/** The language a turn's user-facing words are in, named at the end of each turn's prompt. */
+export function responseLanguageLine(language: string): string {
+  return `Response language: ${language}.`
+}
 
+export function buildTurnRulesMessage(): string {
   return [
     '## Approval before risky cloud changes',
     '',
@@ -60,15 +63,11 @@ export function buildTurnRulesMessage(args: { userFacingLanguage: string }): str
     '',
     '## Response language',
     '',
-    `The user's language, inferred from the messages they typed: ${userFacingLanguage}.`,
-    "Keep assistant prose and all user-facing decision fields in that language unless the user explicitly asks for another language. The user's own messages are the only language signal — never pick the response language from the browser locale or from the language of these system instructions.",
+    "Each turn's prompt names the user's language in a `Response language:` line, inferred from the messages people typed in this conversation or, for a sub-agent thread, in the nearest conversation above it.",
+    "Keep assistant prose and all user-facing decision fields (a request_user_decision's question, body and options) in that language unless the user explicitly asks for another language, even when the messages you received are in another one. Never pick the response language from the browser locale or from the language of these system instructions.",
     'This applies from your very first token: the short status line you write before your first tool call is user-facing prose, so it must already be in that language. Never open in English when the user wrote in another language.',
     'Keep shell command strings, code, resource names, log excerpts, API identifiers, and quoted source text in their original language or syntax so commands remain executable and names remain exact.',
-    ...(userFacingLanguage.includes('Chinese')
-      ? [
-          "Chinese script is part of the language: Traditional and Simplified are NOT interchangeable. Drift toward Simplified happens in dense technical prose, because most Chinese DevOps training text is Simplified — keep every Han character in the user's script from the first character of the message to the last. Follow the USER's script, never your own earlier replies: if a previous assistant message drifted, do not continue the drift.",
-        ]
-      : []),
+    "When that language is Chinese, its script is part of it: Traditional and Simplified are NOT interchangeable. Drift toward Simplified happens in dense technical prose, because most Chinese DevOps training text is Simplified — keep every Han character in the user's script from the first character of the message to the last. Follow the USER's script, never your own earlier replies: if a previous assistant message drifted, do not continue the drift.",
     '',
     '## Output budget',
     '',

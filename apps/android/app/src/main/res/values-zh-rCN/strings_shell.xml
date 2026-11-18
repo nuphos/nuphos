@@ -169,4 +169,8 @@
     <string name="shell_desktop_type_on">在桌面上输入</string>
     <string name="shell_desktop_typing">输入中…</string>
     <string name="shell_desktop_type">输入</string>
+    <string name="shell_inbox_snoozed">已推迟</string>
+    <string name="shell_inbox_unsnooze">取消推迟</string>
+    <string name="shell_inbox_undo">撤销</string>
+    <string name="shell_inbox_dismissed">已关闭，会在没有回答的情况下继续。</string>
 </resources>
