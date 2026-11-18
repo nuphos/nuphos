@@ -10,6 +10,8 @@ import {
   idleClock,
   newerRelease,
   readCliAutoInstall,
+  runCliUpdate,
+  tickCliUpdate,
   withAutoInstallRequest,
   writeCliAutoInstall,
 } from './cli-auto-update.ts'
@@ -26,8 +28,10 @@ function deps(overrides: Partial<CliAutoUpdateDeps> = {}) {
     latest: async () => '0.23.0',
     busy: () => false,
     idleSeconds: () => 11 * 60,
-    update: () => {
+    update: async () => {
       calls.update++
+
+      return true
     },
     ...overrides,
   }
@@ -122,4 +126,45 @@ test('releases compare by number', () => {
   assert.equal(newerRelease('0.22.0', '0.22.0'), false)
   assert.equal(newerRelease('1.0.0', '0.99.9'), true)
   assert.equal(newerRelease('0.22.0-dev', '0.13.0'), false)
+})
+
+test('an update that could not start is not noted as tried, and is tried again', async () => {
+  let started = false
+  const { value, calls } = deps({
+    update: async () => {
+      calls.update++
+
+      return started
+    },
+  })
+
+  assert.equal(await checkCliUpdate(value), null)
+  assert.equal(readCliAutoInstall(value.home).enabled, true)
+  started = true
+  assert.equal(await checkCliUpdate(value), '0.23.0')
+  assert.equal(calls.update, 2)
+})
+
+test('a check that fails is logged, never thrown at the host', async () => {
+  // An agent home that is a file: the note of the tried release cannot be written.
+  const file = path.join(mkdtempSync(path.join(tmpdir(), 'cli-auto-update-')), 'home')
+
+  writeFileSync(file, '')
+  const { value } = deps({ home: file })
+
+  await assert.rejects(checkCliUpdate(value))
+  assert.equal(await tickCliUpdate(value), null)
+})
+
+test('nuphos update that cannot start says so instead of crashing the host', async () => {
+  assert.equal(await runCliUpdate(path.join(tmpdir(), 'no-such-nuphos')), false)
+  assert.equal(await runCliUpdate('/bin/true'), true)
+})
+
+test('the idle wait follows NUPHOS_AUTO_UPDATE_IDLE_SECONDS, as on the Desktop', async () => {
+  const short = deps({ idleSeconds: () => 40, idleThreshold: 30 })
+  const long = deps({ idleSeconds: () => 40 })
+
+  assert.equal(await checkCliUpdate(short.value), '0.23.0')
+  assert.equal(await checkCliUpdate(long.value), null)
 })

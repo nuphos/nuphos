@@ -12,6 +12,7 @@ import path from 'node:path'
 import {
   AUTO_INSTALL_IDLE_SECONDS,
   DEFAULT_AUTO_INSTALL,
+  idleThreshold,
   parseAutoInstall,
   shouldAutoInstall,
 } from '../auto-update.ts'
@@ -73,7 +74,10 @@ export type CliAutoUpdateDeps = {
   latest: () => Promise<string | null>
   busy: () => boolean
   idleSeconds: () => number
-  update: () => void
+  /** Seconds without a task before it updates (idleThreshold: NUPHOS_AUTO_UPDATE_IDLE_SECONDS). */
+  idleThreshold?: number
+  /** Starts `nuphos update`; false when it could not start. */
+  update: () => Promise<boolean>
 }
 
 /** One check: starts `nuphos update` and returns the release when it is time to. */
@@ -92,14 +96,23 @@ export async function checkCliUpdate(deps: CliAutoUpdateDeps): Promise<string | 
       busy: deps.busy(),
       idleSeconds: deps.idleSeconds(),
     },
-    AUTO_INSTALL_IDLE_SECONDS,
+    deps.idleThreshold ?? AUTO_INSTALL_IDLE_SECONDS,
   )
 
-  if (!due) return null
+  // Noted once it started, so a release whose update could not even start is tried again.
+  if (!due || !(await deps.update())) return null
   writeFileSync(tried, latest)
-  deps.update()
 
   return latest
+}
+
+/** A check on the timer: whatever goes wrong is logged, never thrown at the host. */
+export function tickCliUpdate(deps: CliAutoUpdateDeps): Promise<string | null> {
+  return checkCliUpdate(deps).catch((error: unknown) => {
+    console.error(`Could not check for a Nuphos update: ${String(error)}`)
+
+    return null
+  })
 }
 
 function readTried(file: string): string {
@@ -120,12 +133,34 @@ export async function latestCliRelease(apiUrl: string): Promise<string | null> {
 }
 
 /** `nuphos update`, apart from this host: the restart it ends with stops the host. */
-export function runCliUpdate(exe: string): void {
-  spawn(exe, ['update'], { detached: true, stdio: 'ignore' }).unref()
+export function runCliUpdate(exe: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const child = spawn(exe, ['update'], { detached: true, stdio: 'ignore' })
+
+    child.once('error', () => {
+      resolve(false)
+    })
+    child.once('spawn', () => {
+      child.unref()
+      resolve(true)
+    })
+  })
 }
 
-export function startCliAutoUpdate(deps: CliAutoUpdateDeps): () => void {
-  const timer = setInterval(() => void checkCliUpdate(deps), CLI_UPDATE_CHECK_MS)
+/** `NUPHOS_AUTO_UPDATE_CHECK_SECONDS` checks sooner for testing; never more often than 5 s. */
+export function checkInterval(env: NodeJS.ProcessEnv): number {
+  const seconds = Number(env.NUPHOS_AUTO_UPDATE_CHECK_SECONDS)
+
+  return Number.isFinite(seconds) && seconds > 0
+    ? Math.max(5, Math.floor(seconds)) * 1_000
+    : CLI_UPDATE_CHECK_MS
+}
+
+export function startCliAutoUpdate(
+  deps: CliAutoUpdateDeps,
+  every = CLI_UPDATE_CHECK_MS,
+): () => void {
+  const timer = setInterval(() => void tickCliUpdate(deps), every)
 
   timer.unref()
 
@@ -182,16 +217,18 @@ export function cliAutoUpdate(apiUrl: () => string, changed: () => void, env = p
   const clock = idleClock()
 
   if (home && version && exe)
-    startCliAutoUpdate({
-      version,
-      home,
-      latest: () => latestCliRelease(apiUrl()),
-      busy: () => clock.activity.busy(),
-      idleSeconds: clock.idleSeconds,
-      update: () => {
-        runCliUpdate(exe)
+    startCliAutoUpdate(
+      {
+        version,
+        home,
+        latest: () => latestCliRelease(apiUrl()),
+        busy: () => clock.activity.busy(),
+        idleSeconds: clock.idleSeconds,
+        idleThreshold: idleThreshold(env),
+        update: () => runCliUpdate(exe),
       },
-    })
+      checkInterval(env),
+    )
 
   return {
     activity: clock.activity,
