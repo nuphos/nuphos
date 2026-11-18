@@ -8,7 +8,6 @@ import { agentLog } from './agent-log.ts'
 import { backendLines, backendLog } from './backend-log.ts'
 import { boxScenarios } from './box-scenarios.ts'
 import { artifacts, until } from './processes.ts'
-import { shareNoticeScenarios } from './share-notice-scenarios.ts'
 import { transferRefundScenarios } from './transfer-refund-scenarios.ts'
 import { newTask, openComputers, send } from './ui.ts'
 
@@ -236,5 +235,4 @@ export const computerScenarios: Scenario[] = [
   },
   ...transferRefundScenarios,
   ...boxScenarios,
-  ...shareNoticeScenarios,
 ]
