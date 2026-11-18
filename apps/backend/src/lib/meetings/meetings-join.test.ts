@@ -1,8 +1,10 @@
 import { afterAll, beforeEach, expect, spyOn, test } from 'bun:test'
 
+import { config } from '@/config'
 import * as turns from '@/lib/agent/conversation-turn'
 import { agentConversations } from '@/lib/agent/db/shared'
 import * as threads from '@/lib/agent/thread-bridge'
+import { meetingToolModule } from '@/lib/claude-code-preview/preview-tools/meetings'
 import * as identity from '@/lib/identity'
 import { useDb } from '@/lib/test/doubles/db'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
@@ -28,7 +30,16 @@ const member = spyOn(identity, 'getTeamMembership').mockResolvedValue({ role: 'm
 
 const actor = (sessionId: string) => ({ userId: 'owner', teamId: 'team', sessionId, locale: 'en' })
 
+const realRecall = config.meetings.recall
+
 beforeEach(() => {
+  // meeting_join is served only where Recall is set up.
+  config.meetings.recall = {
+    apiKey: 'key',
+    region: 'us-west-2',
+    webhookSecret: 'whsec_x',
+    botsPerTeamPerDay: 10,
+  }
   memory = portabilityDb()
   for (const spy of [created, left, typed, thread, turn]) spy.mockReset()
   created.mockResolvedValue('recall-bot')
@@ -73,6 +84,7 @@ beforeEach(() => {
 })
 // Other files in the run use the real ones.
 afterAll(() => {
+  config.meetings.recall = realRecall
   for (const spy of [created, left, typed, thread, turn, configured, member]) spy.mockRestore()
 })
 
@@ -103,6 +115,36 @@ test('a meeting Task is named after the meeting when its name is given', async (
   )
 
   expect(await conversation(threadId)).toMatchObject({ title: 'Weekly product sync' })
+})
+
+// The tool an agent calls, as its MCP server serves it; it exists only where Recall is set up.
+async function callMeetingJoin(args: Record<string, unknown>) {
+  const handler = meetingToolModule().handlers(actor('task')).meeting_join
+
+  if (!handler) throw new Error('meeting_join is not served')
+
+  return handler({ label: 'Join', ...args })
+}
+
+test('meeting_join names the Task with the title it is given', async () => {
+  const result = await callMeetingJoin({
+    url: 'https://meet.example.com/xqp-mrtw-kzn',
+    title: '  Weekly product sync  ',
+  })
+
+  expect(result.isError).toBeFalsy()
+  const { threadId } = result.structuredContent as { threadId: string }
+
+  expect(await conversation(threadId)).toMatchObject({ title: 'Weekly product sync' })
+})
+
+test('meeting_join refuses an empty or over-long title before joining', async () => {
+  for (const title of ['   ', 'x'.repeat(121)]) {
+    const result = await callMeetingJoin({ url: 'https://meet.example.com/abc', title })
+
+    expect(result.isError).toBe(true)
+  }
+  expect(created).not.toHaveBeenCalled()
 })
 
 test('a Task with no Bot above it is refused before any call bot or Task is made', async () => {
