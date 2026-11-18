@@ -8,7 +8,13 @@ import { cloudflareApi } from './api/cloudflare-api.ts'
 import { cloudflarePagesApi } from './api/cloudflare-pages-api.ts'
 import { databaseApi } from './api/database-api.ts'
 import { deviceApi } from './api/device-api.ts'
-import { isAccountGone, isNetworkError, isSessionRejected, parseAtlasError } from './api/errors.ts'
+import {
+  isAccountGone,
+  isNetworkError,
+  isNotFound,
+  isSessionRejected,
+  parseAtlasError,
+} from './api/errors.ts'
 import { gcpClustersApi } from './api/gcp-clusters-api.ts'
 import { gitApi } from './api/git-api.ts'
 import { instructionsApi } from './api/instructions-api.ts'
@@ -141,6 +147,9 @@ export const api = instrumentApi(
     // A file transfer is deleted a day after upload, so every view of an older
     // message resolves a group that is gone; its callers show it as expired.
     if (parsed.code === 'transfer_not_found' || parsed.code === 'transfer_expired') return
+    // A chat keeps the card of a Trigger deleted since, and the card re-reads it
+    // on every focus and shows it as removed.
+    if (operation === 'agentGetTrigger' && isNotFound(error)) return
 
     reportFrontendError(
       {
