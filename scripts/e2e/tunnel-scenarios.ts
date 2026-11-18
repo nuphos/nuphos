@@ -173,7 +173,7 @@ export const tunnelScenarios: Scenario[] = [
         const card = page.getByRole('listitem').filter({ hasText: UPDATED })
 
         await card.getByRole('button', { name: 'Update available' }).click()
-        const dialog = page.getByRole('dialog')
+        const dialog = page.getByRole('alertdialog')
 
         await dialog.getByText(`Update ${UPDATED}?`).waitFor()
         await page.screenshot({ path: join(artifacts, 'computer-update-confirm.png') })
