@@ -49,6 +49,7 @@ const {
 useIdentity({ getTeamMembership: async () => ({ role: 'member' }) as never })
 
 const { decisionToolModule: createDecisionToolModule } = await import('./decisions')
+const { TOOL_PRESENTATION } = await import('../preview-tool-presentation')
 
 const decisionToolModule = (options: Parameters<typeof createDecisionToolModule>[0]) =>
   createDecisionToolModule({ runStreamId: async () => undefined, ...options })
@@ -109,6 +110,7 @@ describe('decision tool module', () => {
       label: 'Ask which region',
       category: 'preference',
       question: '要部署到哪個 region？',
+      body: 'us-east 離客戶近，ap-south 較便宜。',
       options: ['us-east', 'ap-south'],
     })
 
@@ -120,8 +122,15 @@ describe('decision tool module', () => {
       'tool-input-available',
       'tool-output-available',
     ])
-    expect(frames[0]).toMatchObject({ toolName: 'request_user_decision' })
-    // Kept on the conversation for the Inbox, under the card's own call id.
+    // The card is the agent's own call, the step the transcript stores: these frames only
+    // hand it the call's input and result, so no second card is drawn beside it.
+    expect(frames[0]).toMatchObject({
+      toolName: 'request_user_decision',
+      [TOOL_PRESENTATION]: 'runtime',
+    })
+    expect(result._meta).toEqual({ [TOOL_PRESENTATION]: 'runtime' })
+    // Kept on the conversation for the Inbox, under the request id the call's result names.
+    expect(result.structuredContent).toMatchObject({ requestId: frames[0]!.toolCallId })
     expect(conversationUpdates.at(-1)).toEqual([
       { sessionId: 'conv-1', userId: 'u1' },
       {
@@ -132,6 +141,7 @@ describe('decision tool module', () => {
                 id: frames[0]!.toolCallId,
                 category: 'preference',
                 question: '要部署到哪個 region？',
+                body: 'us-east 離客戶近，ap-south 較便宜。',
                 options: ['us-east', 'ap-south'],
                 askedAt: expect.any(Date),
                 status: 'open',
@@ -148,7 +158,12 @@ describe('decision tool module', () => {
   test('a question records the channel whose post woke the turn, and only that one', async () => {
     const tools = decisionToolModule({ publish: () => Promise.resolve() }).handlers(ctx)
     const ask = (category: string) =>
-      tools.request_user_decision!({ label: 'Ask', category, question: 'Ship it?' })
+      tools.request_user_decision!({
+        label: 'Ask',
+        category,
+        question: 'Ship it?',
+        body: 'CI is green.',
+      })
 
     // The turn's wake notice: a post in chan-2, though the Bot is in other channels too.
     storedConversation = {
@@ -179,7 +194,12 @@ describe('decision tool module', () => {
   test("a question no channel woke is asked in the Bot's one chat with its owner", async () => {
     const tools = decisionToolModule({ publish: () => Promise.resolve() }).handlers(ctx)
     const ask = () =>
-      tools.request_user_decision!({ label: 'Ask', category: 'approval', question: 'Ship it?' })
+      tools.request_user_decision!({
+        label: 'Ask',
+        category: 'approval',
+        question: 'Ship it?',
+        body: 'CI is green.',
+      })
 
     // A sub-agent's report woke the turn.
     storedConversation = {
@@ -518,6 +538,7 @@ describe('decision tool module', () => {
       label: 'Ask about the rollout',
       category: 'preference',
       question: 'How should the rollout go?',
+      body: 'Two choices decide it.',
       questions,
     })
 
@@ -531,7 +552,7 @@ describe('decision tool module', () => {
         inputRequests: {
           $each: [
             {
-              body: '\n\n---\n\n**1. Which regions?** (any number)\n- us-east\n- eu-west\n- ap-south\n\n**2. Keep the old cluster?**\n- Keep\n- Delete',
+              body: 'Two choices decide it.\n\n---\n\n**1. Which regions?** (any number)\n- us-east\n- eu-west\n- ap-south\n\n**2. Keep the old cluster?**\n- Keep\n- Delete',
             },
           ],
         },
@@ -545,10 +566,65 @@ describe('decision tool module', () => {
       label: 'Ask about versions',
       category: 'preference',
       question: 'Upgrade from 1.2 to 1.3 now?',
+      body: '1.3 fixes the importer.',
       options: ['Upgrade (Recommended)', 'Later'],
     })
 
     expect(result.isError).toBeFalsy()
+  })
+
+  test('a question longer than one short line is refused, telling the agent to use body', async () => {
+    const frames: Record<string, unknown>[] = []
+    const before = conversationUpdates.length
+    const result = await decisionToolModule({
+      publish: async (_ctx, frame) => {
+        frames.push(frame)
+      },
+    }).handlers(ctx).request_user_decision!({
+      label: 'Ask about the cluster',
+      category: 'approval',
+      question: `Delete the staging cluster? ${'It has been idle for thirty days and costs money. '.repeat(3)}`,
+      body: 'Idle for 30 days.',
+    })
+
+    expect(result.isError).toBe(true)
+    expect(JSON.stringify(result.content)).toContain(
+      'question: Keep the question to one short line (at most 120 characters) and put the details in `body`.',
+    )
+    expect(frames).toEqual([])
+    expect(conversationUpdates).toHaveLength(before)
+  })
+
+  test('a question of 120 characters still goes out', async () => {
+    const result = await decisionToolModule({ publish: async () => {} }).handlers(ctx)
+      .request_user_decision!({
+      label: 'Ask',
+      category: 'preference',
+      question: `${'x'.repeat(119)}?`,
+      body: 'Context.',
+    })
+
+    expect(result.isError).toBeFalsy()
+  })
+
+  test('a question the user decides without its own card needs a body', async () => {
+    const tools = decisionToolModule({ publish: async () => {} }).handlers(ctx)
+    const before = conversationUpdates.length
+
+    for (const category of ['preference', 'approval', 'risk_tradeoff']) {
+      const result = await tools.request_user_decision!({
+        label: 'Ask',
+        category,
+        question: 'Ship it?',
+        options: ['Ship', 'Wait'],
+      })
+
+      expect(result.isError).toBe(true)
+      expect(JSON.stringify(result.content)).toContain(
+        "body: Put what the user needs to decide in `body`; the question is only the card's one-line title.",
+      )
+    }
+    expect(conversationUpdates).toHaveLength(before)
   })
 
   test('request_user_decision refuses a parameter it does not take, naming it', async () => {
@@ -561,6 +637,7 @@ describe('decision tool module', () => {
       label: 'Ask',
       category: 'preference',
       question: 'Which region?',
+      body: 'Both are free.',
       choices: ['us-east-1', 'eu-west-1'],
     })
 
@@ -932,6 +1009,7 @@ describe('decision tool module', () => {
         label: 'Ask to merge',
         category: 'approval',
         question: 'Merge the PR?',
+        body: 'CI is green.',
         options: ['Merge', 'Wait'],
         about,
       })
@@ -961,6 +1039,7 @@ describe('decision tool module', () => {
         label: 'Ask to approve',
         category: 'approval',
         question: 'Approve the PR?',
+        body: 'CI is green.',
         about,
       })
 

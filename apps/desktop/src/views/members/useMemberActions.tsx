@@ -136,6 +136,8 @@ export function useMemberActions({
           destructive: true,
           disabled: actingRowKey === `invitation:${row.invitation.id}`,
           confirm: t('Cancel invitation for {email}?', { email: row.invitation.inviteeEmail }),
+          // "Cancel invite" beside the dialog's own Cancel would be easy to mix up.
+          confirmLabel: t('Withdraw invite'),
           onSelect: () => cancelInvitation(row.invitation),
         },
       ]
@@ -167,7 +169,10 @@ export function useMemberActions({
         destructive: true,
         disabled: isSelf || actingRowKey === row.member.id,
         hint: isSelf ? t('you') : undefined,
-        confirm: t('Remove {name} from this team?', { name: row.member.name || row.member.email }),
+        confirm: t(
+          'Remove {name} from this team? They lose its chats. Computers they share here stop being shared, so teammates’ chats on them stop working. Their cloud computers here go to the team owner, and anything they have open on teammates’ computers closes.',
+          { name: row.member.name || row.member.email },
+        ),
         onSelect: () => removeMember(row.member),
       },
     ]
