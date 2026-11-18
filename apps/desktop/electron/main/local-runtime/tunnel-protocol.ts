@@ -65,6 +65,8 @@ export type LocalRuntimeTunnelStatus = {
         }
         usage?: unknown
         usageAt?: string
+        /** Which account's quota it spends, hashed on that computer. */
+        accountKey?: string
         version?: string
         models?: LocalModelCatalog
       }

@@ -53,6 +53,13 @@ A fixture key may end in `?name=value` to answer only requests with that query
 item. `$FIXTURE_DIR` in a body is replaced with the fixture's folder, so transfer
 links can point at local images (`file://$FIXTURE_DIR/…`).
 
+# Form details fixture
+
+`secret-form-responses.json` serves one Task whose agent asks for a website form's
+details: a secure input card with two labeled fields and the site they are entered on.
+Launch a Debug build with it and `-open-links https://nuphos.ai/teams/64b5f1c2e4b0a1d2c3e4f5a6/agent/form-details`.
+Saving answers with a fixed path, so the card can be sent and shows its saved line.
+
 # Bot desktop fixture
 
 `bot-desktop-responses.json` serves two Bots and their 1:1 chats. "Sign-in helper"

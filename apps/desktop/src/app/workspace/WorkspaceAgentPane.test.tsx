@@ -78,7 +78,7 @@ test('a new Task asks for its resources once stored, and its composer answers no
   dom.document.body.append(container)
   const root = createRoot(container as unknown as HTMLElement)
   const ws = new Proxy(
-    { scope: { teamId: 'team-1' }, selectedSessionId: 'new-task', workspaceActions: {} },
+    { selectedSessionId: 'new-task', workspaceActions: {} },
     { get: (target, key) => (key in target ? target[key as keyof typeof target] : noop) },
   )
   const render = () =>
@@ -86,6 +86,7 @@ test('a new Task asks for its resources once stored, and its composer answers no
       root.render(
         createElement(WorkspaceAgentPane, {
           ws: ws as never,
+          teamId: 'team-1',
           user: { id: 'user-1', name: 'Ada' } as never,
         }),
       ),
