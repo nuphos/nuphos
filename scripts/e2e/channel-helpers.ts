@@ -88,6 +88,7 @@ export async function shootRuntimeLine(page: Page, name: string) {
 }
 
 export type ListedConversation = {
+  sessionId?: string
   title?: string
   avatar?: unknown
   kind?: string

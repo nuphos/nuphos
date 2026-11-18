@@ -3,6 +3,7 @@ import { beforeEach, expect, test } from 'bun:test'
 import { useDb } from '@/lib/test/doubles/db'
 import { useRuntimeModels } from '@/lib/test/doubles/runtime-models'
 
+import { ownSessionConfigUpdate, queueOwnSessionConfig } from './own-session-config'
 import { conversationSessionConfig } from './session-config'
 
 import type { AgentConversation } from '@/lib/agent/db'
@@ -84,5 +85,54 @@ test('an unsupported explicit choice is refused without deleting the saved setti
       'owner',
     ),
   ).rejects.toMatchObject({ code: 'invalid_runtime_config' })
+  expect(writes).toEqual([])
+})
+
+test('a Bot validates an unstarted model and effort without a separate write', async () => {
+  const update = await ownSessionConfigUpdate(
+    conversation(),
+    { model: 'astra', effort: 'high' },
+    'owner',
+  )
+
+  expect(update).toEqual({ initialSessionConfig: { model: 'astra', effort: 'high' } })
+  expect(writes).toEqual([])
+})
+
+// #3503: a Task or Bot picks its own model through update_task, for its next turn.
+const running = () =>
+  ({
+    ...conversation(),
+    claudeCodePreview: {
+      openabSessionId: 'acp-1',
+      runtimeUrl: 'http://runtime',
+      sessionConfig: [],
+    },
+  }) as AgentConversation
+
+test('a running Task queues its own pick for the next turn, leaving this reply on its settings', async () => {
+  const model = await queueOwnSessionConfig(running(), { model: 'astra', effort: 'high' }, 'owner')
+
+  expect(writes).toEqual([
+    {
+      $set: {
+        'claudeCodePreview.pendingSessionConfig.model': 'astra',
+        'claudeCodePreview.pendingSessionConfig.effort': 'high',
+      },
+    },
+  ])
+  expect(model).toMatchObject({ model: 'astra', effort: 'high' })
+})
+
+test('an unstarted Task starts on its own pick', async () => {
+  await queueOwnSessionConfig(conversation(), { model: 'astra' }, 'owner')
+
+  expect(writes).toEqual([{ $set: { initialSessionConfig: { model: 'astra' } } }])
+})
+
+test('a model its agent does not offer is refused with the choices, and nothing is saved', async () => {
+  await expect(queueOwnSessionConfig(running(), { model: 'retired' }, 'owner')).rejects.toThrow(
+    'Choose one of: sol, astra',
+  )
   expect(writes).toEqual([])
 })

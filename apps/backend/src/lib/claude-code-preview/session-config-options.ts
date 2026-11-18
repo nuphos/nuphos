@@ -97,6 +97,11 @@ export function pickOf(options: SessionConfigOption[]): RuntimeDefaults {
 export function storedPick(attachment?: {
   runtimeDefaults?: RuntimeDefaults
   sessionConfig?: SessionConfigOption[]
+  pendingSessionConfig?: RuntimeDefaults
 }): RuntimeDefaults {
-  return { ...attachment?.runtimeDefaults, ...pickOf(attachment?.sessionConfig ?? []) }
+  return {
+    ...attachment?.runtimeDefaults,
+    ...pickOf(attachment?.sessionConfig ?? []),
+    ...attachment?.pendingSessionConfig,
+  }
 }
