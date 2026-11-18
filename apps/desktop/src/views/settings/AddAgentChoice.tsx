@@ -65,7 +65,7 @@ export function AddAgentChoices({
       {boxAvailable && (
         <Choice
           icon={<Box className="h-4 w-4" />}
-          title={t('Computer from Nuphos')}
+          title={t('Rent a computer from Nuphos')}
           description={t(
             'Nuphos runs it for you, with Claude Code and Codex. Sign in with your own account.',
           )}
