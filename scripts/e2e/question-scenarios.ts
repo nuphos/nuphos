@@ -7,6 +7,7 @@ import { client, must } from './binding-access-scenarios.ts'
 import { inboxScenarios } from './inbox-scenarios.ts'
 import { decisionTitleScenarios } from './decision-title-scenarios.ts'
 import { artifacts, until } from './processes.ts'
+import { secretScenarios } from './secret-scenarios.ts'
 import { newTask, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
@@ -289,4 +290,5 @@ export const questionScenarios: Scenario[] = [
   },
   ...decisionTitleScenarios,
   ...inboxScenarios,
+  ...secretScenarios,
 ]
