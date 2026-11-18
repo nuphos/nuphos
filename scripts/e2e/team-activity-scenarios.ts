@@ -31,8 +31,8 @@ function seedSessions(stack: Stack, teamId: string, sessions: Record<string, str
         createdAt: new Date(ranAt), lastActiveAt: new Date(ranAt + 60_000),
       })
       await db.collection('agent_messages').insertMany([
-        { sessionId, index: 0, role: 'user', createdAt: new Date(ranAt) },
-        { sessionId, index: 1, role: 'assistant', createdAt: new Date(ranAt + 60_000) },
+        { userId, sessionId, messageId: sessionId + '-0', index: 0, role: 'user', createdAt: new Date(ranAt) },
+        { userId, sessionId, messageId: sessionId + '-1', index: 1, role: 'assistant', createdAt: new Date(ranAt + 60_000) },
       ])
     }
     await client.close()`
