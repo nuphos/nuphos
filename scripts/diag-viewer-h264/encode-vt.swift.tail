@@ -1,0 +1,31 @@
+
+// Encodes a known 1280x800 colour-bar frame (key, then two deltas) with the host's Encoder,
+// writing each as the host's rect would carry it: x, y, w, h, flags, length, Annex B bytes.
+let W = 1280, H = 800
+var pb: CVPixelBuffer?
+CVPixelBufferCreate(nil, W, H, kCVPixelFormatType_420YpCbCr8BiPlanarFullRange, [kCVPixelBufferIOSurfacePropertiesKey: [:]] as CFDictionary, &pb)
+let image = pb!
+let bars: [(UInt8, UInt8, UInt8)] = [(235,128,128),(210,16,146),(170,166,16),(145,54,34),(106,202,222),(81,90,240),(41,240,110),(16,128,128)]
+func paint(_ shift: Int) {
+    CVPixelBufferLockBaseAddress(image, [])
+    let y = CVPixelBufferGetBaseAddressOfPlane(image, 0)!.assumingMemoryBound(to: UInt8.self)
+    let uv = CVPixelBufferGetBaseAddressOfPlane(image, 1)!.assumingMemoryBound(to: UInt8.self)
+    let ys = CVPixelBufferGetBytesPerRowOfPlane(image, 0), uvs = CVPixelBufferGetBytesPerRowOfPlane(image, 1)
+    for row in 0..<H { for col in 0..<W { y[row * ys + col] = bars[((col + shift) * 8 / W) % 8].0 } }
+    for row in 0..<H/2 { for col in 0..<W/2 { let b = bars[((col * 2 + shift) * 8 / W) % 8]; uv[row * uvs + col * 2] = b.1; uv[row * uvs + col * 2 + 1] = b.2 } }
+    CVPixelBufferUnlockBaseAddress(image, [])
+}
+let encoder = Encoder(width: W, height: H)
+var out = Data()
+for i in 0..<3 {
+    paint(i * 40)
+    let sem = DispatchSemaphore(value: 0)
+    encoder.encode(image, at: CMTime(value: Int64(i), timescale: 30), keyframe: i == 0) { data in
+        if let data { out.append(contentsOf: be16(0) + be16(0) + be16(W) + be16(H) + be32(0) + be32(data.count) + data) }
+        else { FileHandle.standardError.write("frame \(i): no data\n".data(using: .utf8)!) }
+        sem.signal()
+    }
+    sem.wait()
+}
+try! out.write(to: URL(fileURLWithPath: CommandLine.arguments[1]))
+print("wrote \(out.count) bytes")

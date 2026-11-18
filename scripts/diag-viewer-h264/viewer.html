@@ -1,0 +1,81 @@
+<!doctype html><html><body style="margin:0;background:#fff">
+<div id="host" style="position:absolute;inset:0;display:flex"></div>
+<script type="module">
+const diag = { configs: [], decoderErrors: [], outputs: 0, errors: [], supported: {}, direct: {} }
+window.addEventListener('error', (e) => diag.errors.push('window.error: ' + e.message))
+window.addEventListener('unhandledrejection', (e) => diag.errors.push('rejection: ' + (e.reason && (e.reason.message || e.reason))))
+// Watch every decoder noVNC makes; PREFER forces a hardwareAcceleration value into its config.
+const Real = window.VideoDecoder
+window.VideoDecoder = class extends Real {
+  constructor(init) {
+    super({ output: (f) => { diag.outputs++; init.output(f) }, error: (e) => { diag.decoderErrors.push(String(e && e.message || e)); init.error(e) } })
+  }
+  configure(config) {
+    const c = window.replay.prefer ? { ...config, hardwareAcceleration: window.replay.prefer } : config
+    diag.configs.push(JSON.stringify(c)); return super.configure(c)
+  }
+}
+const all = window.replay.frames(); const dv = new DataView(all.buffer)
+const frames = []
+for (let off = 0; off < all.length;) { const ln = dv.getUint32(off + 12); frames.push(all.subarray(off, off + 16 + ln)); off += 16 + ln }
+const W = dv.getUint16(4), H = dv.getUint16(6)
+// The codec string noVNC would build from the first SPS.
+const first = frames[0].subarray(16); let sps = null
+for (let i = 0; i + 7 < first.length; i++) if (first[i] === 0 && first[i + 1] === 0 && first[i + 2] === 0 && first[i + 3] === 1 && (first[i + 4] & 0x1f) === 7) { sps = first.subarray(i + 5, i + 8); break }
+const codec = 'avc1.' + Array.from(sps).map((v) => v.toString(16).padStart(2, '0')).join('')
+diag.codec = codec; diag.size = [W, H]; diag.frames = frames.length; diag.userAgent = navigator.userAgent
+for (const hw of ['no-preference', 'prefer-hardware', 'prefer-software']) {
+  try { const r = await Real.isConfigSupported({ codec, codedWidth: W, codedHeight: H, optimizeForLatency: true, hardwareAcceleration: hw }); diag.supported[hw] = r.supported } catch (e) { diag.supported[hw] = 'throws ' + e.message }
+  // The first keyframe decoded on its own, outside noVNC.
+  diag.direct[hw] = await new Promise((resolve) => {
+    let n = 0; const d = new Real({ output: (f) => { n++; f.close() }, error: (e) => resolve('error ' + e.message) })
+    try {
+      d.configure({ codec, codedWidth: W, codedHeight: H, optimizeForLatency: true, hardwareAcceleration: hw })
+      d.decode(new EncodedVideoChunk({ type: 'key', timestamp: 0, data: frames[0].subarray(16) }))
+      d.flush().then(() => resolve('outputs ' + n), (e) => resolve('flush ' + e.message))
+    } catch (e) { resolve('throws ' + e.message) }
+  })
+}
+const { default: RFB } = await import('./novnc/core/rfb.js')
+const be16 = (v) => [v >> 8, v & 255], be32 = (v) => [(v >>> 24) & 255, (v >>> 16) & 255, (v >>> 8) & 255, v & 255]
+// A fake Mac screen host behind the channel, speaking what mac-screen-host speaks.
+class FakeHost {
+  readyState = 0; binaryType = 'arraybuffer'; protocol = ''; onopen = null; onmessage = null; onclose = null; onerror = null
+  phase = 'version'; pending = new Uint8Array(0); sent = 0
+  constructor() { setTimeout(() => { this.readyState = 1; this.onopen?.(new Event('open')); this.out(new TextEncoder().encode('RFB 003.008\n')) }, 10) }
+  out(bytes) { const b = new Uint8Array(bytes); setTimeout(() => this.onmessage?.({ data: b.buffer }), 0) }
+  send(data) {
+    const d = data instanceof ArrayBuffer ? new Uint8Array(data) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
+    const p = new Uint8Array(this.pending.length + d.length); p.set(this.pending); p.set(d, this.pending.length); this.pending = p
+    while (this.pending.length) {
+      const b = this.pending; let size
+      if (this.phase === 'version') size = 12
+      else if (this.phase !== 'messages') size = 1
+      else { const t = b[0]; size = t === 0 ? 20 : t === 2 ? (b.length < 4 ? Infinity : 4 + 4 * (b[2] << 8 | b[3])) : t === 3 ? 10 : t === 4 ? 8 : t === 5 ? 6 : t === 251 ? (b.length < 8 ? Infinity : 8 + 16 * b[6]) : b.length }
+      if (b.length < size) break
+      const m = b.subarray(0, size); this.pending = b.subarray(size)
+      if (this.phase === 'version') { this.phase = 'security'; this.out([1, 1]) }
+      else if (this.phase === 'security') { this.phase = 'init'; this.out(be32(0)) }
+      else if (this.phase === 'init') { this.phase = 'messages'; const name = new TextEncoder().encode('Nuphos Mac'); this.out([...be16(W), ...be16(H), 32, 24, 0, 1, 0, 255, 0, 255, 0, 255, 16, 8, 0, 0, 0, 0, ...be32(name.length), ...name]) }
+      else if (m[0] === 3 && this.sent < frames.length) {
+        const f = frames[this.sent++]; const fv = new DataView(f.buffer, f.byteOffset)
+        this.out([0, 0, ...be16(1), ...be16(0), ...be16(0), ...be16(W), ...be16(H), ...be32(50), ...be32(fv.getUint32(12)), ...be32(fv.getUint32(8)), ...f.subarray(16)])
+      }
+    }
+  }
+  close() { this.readyState = 3 }
+}
+const host = new FakeHost()
+// The Desktop viewer's options (SessionDesktopView in DesktopPanes.tsx).
+const rfb = new RFB(document.getElementById('host'), host, { shared: true })
+rfb.viewOnly = true; rfb.scaleViewport = true; rfb.background = 'transparent'
+diag.events = []
+rfb.addEventListener('connect', () => diag.events.push('connect')); rfb.addEventListener('disconnect', (e) => diag.events.push('disconnect ' + JSON.stringify(e.detail)))
+await new Promise((r) => setTimeout(r, 6000))
+const c = document.querySelector('#host canvas'); const px = c.getContext('2d').getImageData(0, 0, c.width, c.height).data
+let opaque = 0, samples = 0; const colors = new Set()
+for (let i = 0; i < px.length; i += 4 * 997) { samples++; if (px[i + 3]) opaque++; colors.add(px[i] + ',' + px[i + 1] + ',' + px[i + 2] + ',' + px[i + 3]) }
+Object.assign(diag, { canvas: [c.width, c.height, c.style.width, c.style.height], opaque, samples, colors: colors.size, framesSent: host.sent })
+diag.painted = opaque > samples / 2 && colors.size > 4
+window.replay.done(diag)
+</script></body></html>

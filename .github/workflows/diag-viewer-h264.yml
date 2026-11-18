@@ -1,0 +1,75 @@
+# Diagnostic only, never merged: does the Desktop viewer's noVNC paint the Mac host's H.264
+# under macOS Electron (VideoToolbox) as it does on Linux? Runs on pushes to diag/viewer-h264.
+name: Diag viewer H.264
+on:
+  push:
+    branches: [diag/viewer-h264]
+permissions:
+  contents: read
+jobs:
+  mac:
+    runs-on: xcode-27
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - name: Encode frames with the host's own Encoder
+        run: |
+          sw_vers; sysctl -n machdep.cpu.brand_string; system_profiler SPDisplaysDataType | head -20
+          sh scripts/diag-viewer-h264/build-vt-encoder.sh "$RUNNER_TEMP/encode-vt"
+          "$RUNNER_TEMP/encode-vt" "$RUNNER_TEMP/vt-bars.bin"
+      - name: Install Electron and noVNC as the Desktop app pins them
+        run: |
+          mkdir -p "$RUNNER_TEMP/v" && cp scripts/diag-viewer-h264/* "$RUNNER_TEMP/v/"
+          cd "$RUNNER_TEMP/v" && npm init -y >/dev/null && npm i --no-audit --no-fund electron@44.10.0 @novnc/novnc@1.7.0
+          ln -s node_modules/@novnc/novnc novnc
+      - name: Replay into the viewer
+        run: |
+          cd "$RUNNER_TEMP/v"; mkdir -p out; cp "$RUNNER_TEMP/vt-bars.bin" out/
+          for frames in vt-bars x264-bars; do for prefer in none prefer-hardware prefer-software; do
+            p=$prefer; [ "$p" = none ] && p=
+            echo "== $frames $prefer"
+            PREFER=$p ./node_modules/.bin/electron main.cjs "$PWD/$( [ $frames = vt-bars ] && echo out/ )$frames.bin" "$PWD/out/$frames-$prefer.png" 2>&1 | tee "out/$frames-$prefer.log" | grep -E '^(RESULT|electron)|\[console\]' || true
+          done; done
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
+        with:
+          name: mac
+          path: ${{ runner.temp }}/v/out
+  linux:
+    needs: mac
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: mac
+          path: ${{ runner.temp }}/mac
+      - name: Install Electron and noVNC as the Desktop app pins them
+        run: |
+          mkdir -p "$RUNNER_TEMP/v" && cp scripts/diag-viewer-h264/* "$RUNNER_TEMP/v/"
+          cd "$RUNNER_TEMP/v" && npm init -y >/dev/null && npm i --no-audit --no-fund electron@44.10.0 @novnc/novnc@1.7.0
+          ln -s node_modules/@novnc/novnc novnc
+      - name: Replay into the viewer
+        run: |
+          cd "$RUNNER_TEMP/v"; mkdir -p out; cp "$RUNNER_TEMP/mac/vt-bars.bin" out/
+          for frames in vt-bars x264-bars; do for prefer in none prefer-software; do
+            p=$prefer; [ "$p" = none ] && p=
+            echo "== $frames $prefer"
+            PREFER=$p xvfb-run -a ./node_modules/.bin/electron --no-sandbox main.cjs "$PWD/$( [ $frames = vt-bars ] && echo out/ )$frames.bin" "$PWD/out/$frames-$prefer.png" 2>&1 | tee "out/$frames-$prefer.log" | grep -E '^(RESULT|electron)|\[console\]' || true
+          done; done
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
+        with:
+          name: linux
+          path: ${{ runner.temp }}/v/out
