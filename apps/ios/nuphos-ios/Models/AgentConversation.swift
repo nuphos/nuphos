@@ -84,6 +84,8 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         var multiSelect: Bool? = nil
         /// Related questions answered together; `question` is their headline.
         var questions: [DecisionQuestion]? = nil
+        /// ISO time its owner snoozed it until: out of their Inbox till then, still answerable where it was asked.
+        var snoozedUntil: String? = nil
     }
 
     /// One input of a card that asks for a web form's details: its file name and what the person reads.

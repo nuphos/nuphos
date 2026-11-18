@@ -140,6 +140,10 @@ class HomeNavigationFixtureDeviceTest {
                     connectors -> "{}"
                     favorites -> """{"entries":[],"revision":0}"""
                     history -> {
+                        if (request.url.queryParameter("pendingDecision") == "true")
+                            return@addInterceptor Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200)
+                                .message("fixture").body("""{"conversations":[{"sessionId":"question-fixture","teamId":"${a.id}","title":"Synthetic question","isOwner":true,"inputRequests":[{"id":"q1","category":"preference","question":"Choose a color","options":["Blue","Green"]}]}],"hasMore":false}""".toResponseBody(Http.jsonMedia)).build()
+
                         // Archived chats are excluded from the list, matching iOS.
                         if (historyFailure) { code = 403; "{}" } else if (historyFamilies) {
                             """{"conversations":[
@@ -219,7 +223,11 @@ class HomeNavigationFixtureDeviceTest {
         compose.onNodeWithTag("home-page-switcher").assertIsDisplayed()
     }
     private fun menu() { compose.onNodeWithTag("home-page-switcher").performClick() }
-    private fun select(route: String) { menu(); compose.onNodeWithTag("home-page-$route").performScrollTo().performClick(); compose.waitForIdle() }
+    private fun select(route: String) {
+        if (route in listOf("chats", "agent", "inbox")) compose.onNodeWithTag("home-tab-$route").performClick()
+        else { menu(); compose.onNodeWithTag("home-page-$route").performScrollTo().performClick() }
+        compose.waitForIdle()
+    }
     private fun assertFixedListSelectors() = assertTrue(requests.filter { it.url.encodedPath == "/agent/conversations" }.all {
         it.url.queryParameter("scope") == "mine" && it.url.queryParameter("sort") == "activity" && it.url.queryParameter("archived") == "exclude"
     })
@@ -231,20 +239,63 @@ class HomeNavigationFixtureDeviceTest {
         val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
         try { file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) } } finally { bitmap.recycle() }
     }
+    @Test fun bottomTabsSwitchRestoreAndKeepUtilityDestinationsReachable() {
+        val restoration = androidx.compose.ui.test.junit4.StateRestorationTester(compose)
+        render(restoration = restoration)
+        waitText("Synthetic active conversation")
+        for (route in listOf("chats", "agent", "inbox")) {
+            select(route)
+            compose.onNodeWithTag("home-tab-$route").assertIsSelected()
+            shot("bottom-tabs-$route")
+        }
+        restoration.emulateSavedInstanceStateRestore()
+        compose.onNodeWithTag("home-tab-inbox").assertIsSelected()
+        compose.waitUntil(8_000) { compose.onAllNodesWithTag("inbox-badge", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("inbox-badge", useUnmergedTree = true).assert(androidx.compose.ui.test.SemanticsMatcher.expectValue(
+            androidx.compose.ui.semantics.SemanticsProperties.ContentDescription,
+            listOf(app.getString(ai.nuphos.android.R.string.shell_inbox_badge, 1)),
+        ))
+        shot("bottom-tabs-inbox")
+        menu()
+        for (route in listOf("runtimes", "connectors"))
+            compose.onNodeWithTag("home-page-$route").assertIsDisplayed()
+        compose.onNodeWithTag("home-page-agent").assertDoesNotExist()
+        shot("bottom-tabs-utilities")
+        Espresso.pressBack()
+        select("agent")
+        waitText("Synthetic active conversation")
+        assertEquals(a.id, agent.selectedTeam?.id)
+        noWrites()
+        shot("bottom-tabs-tasks")
+    }
+
+    @Test fun bottomTabsRemainUsableAfterHistoryFailureAndTeamSwitch() {
+        historyFailure = true
+        render()
+        compose.waitUntil(8_000) { agent.phaseError != null }
+        select("inbox")
+        compose.runOnIdle { agent.select(b) }
+        compose.onNodeWithTag("home-tab-inbox").assertIsSelected()
+        select("agent")
+        compose.onNodeWithTag("home-tab-agent").assertIsSelected()
+        compose.runOnIdle { assertEquals(b.id, agent.selectedTeam?.id) }
+        noWrites()
+    }
+
     @Test fun allFourPagesSelectedAndBackReturnFocusWithoutWrites() {
         render(keyboard = true); waitText("Synthetic active conversation"); shot("normal")
         compose.onNodeWithTag("home-page-switcher").performKeyInput { pressKey(androidx.compose.ui.input.key.Key.Tab) }
         menu(); shot("menu")
         compose.onNodeWithTag("home-page-monitoring").assertDoesNotExist()
         compose.onNodeWithTag("home-page-triggers").assertDoesNotExist()
-        compose.waitUntil(5_000) { compose.onAllNodesWithTag("home-page-agent").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("home-page-agent").assertIsSelected()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("home-tab-agent").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("home-tab-agent").assertIsSelected()
         Espresso.pressBack(); compose.waitForIdle()
         compose.onNodeWithTag("home-page-menu").assertDoesNotExist()
         compose.onNodeWithTag("home-page-switcher").assertIsFocused()
         for (route in listOf("runtimes", "connectors", "agent")) {
             select(route); menu()
-            compose.onNodeWithTag("home-page-$route").assertIsSelected()
+            compose.onNodeWithTag(if (route == "agent") "home-tab-agent" else "home-page-$route").assertIsSelected()
             Espresso.pressBack()
         }
         assertEquals(a.id, agent.selectedTeam?.id); noWrites()
@@ -332,8 +383,10 @@ class HomeNavigationFixtureDeviceTest {
         noWrites()
     }
     @Test fun compactRtlLargeFontAllEntriesRemainReachable() {
-        render(compact = true); menu(); shot("rtl-large-menu")
-        for (route in listOf("agent", "runtimes", "connectors"))
+        render(compact = true)
+        for (route in listOf("chats", "agent", "inbox")) compose.onNodeWithTag("home-tab-$route").assertIsDisplayed()
+        menu(); shot("rtl-large-menu")
+        for (route in listOf("runtimes", "connectors"))
             compose.onNodeWithTag("home-page-$route").performScrollTo().assertIsDisplayed()
         Espresso.pressBack(); compose.onNodeWithTag("home-filter").assertDoesNotExist()
         noWrites()
@@ -351,8 +404,8 @@ class HomeNavigationFixtureDeviceTest {
         compose.onNodeWithTag("home-page-switcher").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.RequestFocus) { it() }
         compose.onNodeWithTag("home-page-switcher").assertIsFocused()
         compose.onNodeWithTag("home-page-switcher").performKeyInput { pressKey(Key.Enter) }
-        compose.waitUntil(5_000) { compose.onAllNodesWithTag("home-page-agent").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("home-page-agent").assertIsSelected()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("home-tab-agent").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("home-tab-agent").assertIsSelected()
         Espresso.pressBack(); compose.waitForIdle()
         compose.onNodeWithTag("home-page-switcher").assertIsFocused()
         compose.onNodeWithTag("home-page-menu").assertDoesNotExist(); noWrites()

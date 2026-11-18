@@ -88,12 +88,12 @@ async function loginOf(
 ): Promise<Partial<AgentCliStatus> & { loggedIn: boolean | null }> {
   if (!runtimeEnv || !agentHome) return { loggedIn: null }
   if (provider === 'antigravity') return { loggedIn: await antigravityStatus(file, runtimeEnv) }
+  if (provider === 'opencode')
+    return run(file, OPENCODE_AUTH_LIST, runtimeEnv).then(parseOpenCodeAuthList, () => ({
+      loggedIn: true,
+    }))
   const fromHome = await homeLogin(provider, agentHome)
 
-  if (fromHome === false && provider === 'opencode')
-    return run(file, OPENCODE_AUTH_LIST, runtimeEnv).then(parseOpenCodeAuthList, () => ({
-      loggedIn: false,
-    }))
   if (fromHome !== undefined) return { loggedIn: fromHome }
   if (provider === 'claude-code') return claudeLogin(runtimeEnv)
 
