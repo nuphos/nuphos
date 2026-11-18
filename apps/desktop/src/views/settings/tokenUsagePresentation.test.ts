@@ -130,11 +130,11 @@ test('the window before is the same number of whole days, ending where this one 
   assert.equal(new Date(before.from).getTime(), new Date(2026, 10, 5).getTime())
 })
 
-test('a name the viewer may not see shows as a teammate’s, never as its id', () => {
+test('a name the viewer may not see shows as a plain Conversation, never as its id', () => {
   const [line] = tokenUsageLines([row({ conversation: 'c1' }, 10)], 'conversation', {
     ...names,
     served: { conversation: { c1: null } },
   })
 
-  assert.equal(line?.label, 'Teammate’s conversation')
+  assert.equal(line?.label, 'Conversation')
 })
