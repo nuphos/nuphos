@@ -17,14 +17,14 @@ export type ButtonProps = Omit<BaseButton.Props, 'className'> & {
 // color transition and a slight scale-down while held.
 const baseClasses =
   'inline-flex cursor-pointer items-center justify-center gap-2 font-medium whitespace-nowrap ' +
-  'transition-[background-color,color,opacity,transform,box-shadow] duration-150 ease-out outline-none ' +
+  'transition-[background-color,color,opacity,transform,box-shadow] duration-[160ms] motion-reduce:transition-none ease-out outline-none ' +
   'enabled:active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-line-focus focus-visible:ring-offset-1 ' +
   'focus-visible:ring-offset-surface-sheet ' +
   'disabled:cursor-not-allowed data-[disabled]:cursor-not-allowed'
 
 const sizeClasses: Record<ButtonSize, string> = {
-  'icon-sm': 'h-6 w-6 rounded-md p-0 text-[13px]',
-  sm: 'h-8 rounded-lg px-2.5 text-[13px]',
+  'icon-sm': 'h-6 w-6 rounded-[10px] p-0 text-[13px]',
+  sm: 'h-8 rounded-[10px] px-2.5 text-[13px]',
   md: 'h-9 rounded-[10px] px-3 text-[14px]',
   lg: 'rounded-[10px] px-3.5 py-2.5 text-[16px]',
 }
@@ -45,11 +45,10 @@ const variantClasses: Record<ButtonVariant, string> = {
   // Paper: a raised surface with a hairline, for secondary actions.
   secondary:
     'bg-surface-raised text-primary shadow-[0_0_0_1px_rgb(var(--color-line-control)),0_1px_2px_rgba(0,0,0,0.04)] ' +
-    'enabled:hover:bg-surface-sheet disabled:opacity-50 data-[disabled]:opacity-50',
+    `enabled:hover:bg-surface-sheet ${FILLED_DISABLED}`,
   // Quiet: no fill until hovered, for escape hatches and toolbars.
   ghost:
-    'text-secondary enabled:hover:bg-state-hover enabled:hover:text-primary ' +
-    'disabled:opacity-50 data-[disabled]:opacity-50',
+    'text-secondary enabled:hover:bg-state-hover enabled:hover:text-primary ' + FILLED_DISABLED,
   destructive: `bg-status-danger text-inverse shadow-[0_1px_2px_rgba(0,0,0,0.12)] enabled:hover:opacity-90 ${FILLED_DISABLED}`,
 }
 

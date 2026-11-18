@@ -128,7 +128,7 @@ export function WorkspaceDockPanels({ ws, user }: { ws: WorkspaceController; use
           style={{ width: dockWidth }}
           className={clsx(
             'relative flex min-h-0 flex-shrink-0 flex-col overflow-hidden',
-            !dragging && 'transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+            !dragging && 'transition-[width] duration-[340ms] ease-[cubic-bezier(0.22,1,0.36,1)]',
           )}
         >
           {dockOpen && !workspaceDockExpanded && (
@@ -145,7 +145,9 @@ export function WorkspaceDockPanels({ ws, user }: { ws: WorkspaceController; use
             </div>
           )}
           <div
-            style={{ width: `calc(${contentWidth} - ${String(insets)} * var(--sheet-inset))` }}
+            style={{
+              width: `calc(${contentWidth} - ${String(insets)} * var(--sheet-inset))`,
+            }}
             className={clsx(
               'workspace-content-surface flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden',
               !workspaceDockExpanded && 'workspace-content-surface--trailing',

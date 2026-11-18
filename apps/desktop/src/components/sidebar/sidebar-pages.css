@@ -46,8 +46,8 @@
   color: rgb(var(--color-text-tertiary));
   background: transparent;
   transition:
-    background-color 150ms,
-    color 150ms;
+    background-color 160ms,
+    color 160ms;
 }
 .sidebar-page-indicator:hover,
 .sidebar-page-indicator.is-active {
@@ -64,7 +64,7 @@
 
 .sidebar-pin-shelf {
   overflow: hidden;
-  transition: height 250ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: height 280ms cubic-bezier(0.22, 1, 0.36, 1);
   will-change: height;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -81,7 +81,7 @@
   position: relative;
   isolation: isolate;
   height: 360px;
-  transition: height 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: height 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 [data-mode-pages]:has([data-archive-expanded='true']) .sidebar-page-list {
   /* Reveal the actual sidebar surface, including macOS vibrancy, rather than

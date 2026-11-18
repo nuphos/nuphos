@@ -14,13 +14,13 @@ import { useTabPickup } from './useTabPickup'
 import type { SidebarPage } from './swipe-gesture'
 import type { KeyboardEvent, RefObject } from 'react'
 
-const REST = { scale: 1, y: 0, rotate: 0, boxShadow: '0 0 0 0 rgba(0,0,0,0)' }
+const REST = { scale: 1, y: 0, rotate: 0, boxShadow: 'none' }
 /** Picked up: a slight tilt and a lift, like Arc's sidebar. */
 const LIFTED = {
   scale: 1.14,
   y: 0,
   rotate: -4,
-  boxShadow: '0 10px 22px -6px rgba(0,0,0,0.4)',
+  boxShadow: 'var(--surface-shadow-raised)',
 }
 /** Pointer travel (px) before a press becomes a drag. */
 const THRESHOLD = 3
@@ -118,7 +118,14 @@ export function SidebarPageTab({
             {shortcutHint}
           </kbd>
         )}
-        {count > 0 && <CountBadge count={count} size="sm" className="absolute -right-1 -top-1" />}
+        {count > 0 && (
+          <CountBadge
+            count={count}
+            size="sm"
+            tone={page === 0 ? 'unread' : 'attention'}
+            className="absolute -right-1 -top-1"
+          />
+        )}
       </Tooltip>
     </Reorder.Item>
   )

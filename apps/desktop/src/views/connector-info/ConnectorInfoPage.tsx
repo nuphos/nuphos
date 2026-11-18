@@ -212,7 +212,7 @@ export function ConnectorInfoPage({
                     {connection.attention ?? t('Connected')}
                   </div>
                   <ChevronRight
-                    className={`h-4 w-4 flex-none text-tertiary transition-transform duration-200 ${
+                    className={`h-4 w-4 flex-none text-tertiary transition-transform duration-[280ms] ${
                       isSelected ? 'rotate-90' : ''
                     }`}
                   />
@@ -220,7 +220,7 @@ export function ConnectorInfoPage({
                 <div
                   aria-hidden={!isSelected}
                   inert={!isSelected}
-                  className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out ${
+                  className={`grid transition-[grid-template-rows,opacity] duration-[280ms] ease-out ${
                     isSelected ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
                   }`}
                 >

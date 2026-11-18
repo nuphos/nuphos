@@ -33,8 +33,7 @@ type Props = {
   /** Single-row header with tighter padding and a muted title — the
    *  Linear-changelog-style chrome the What's New reader uses. */
   headerCompact?: boolean
-  /** Whether the header draws its bottom divider (default true). Turn off when
-   *  the body opens with its own surface and the line would double up. */
+  /** Legacy divider option. Areas are separated by space, so no divider is drawn. */
   headerDivider?: boolean
   /** Optional icon button rendered before the title (e.g. a back arrow). */
   headerLeading?: ReactNode
@@ -65,10 +64,8 @@ export function Modal({
   footer,
   width = 460,
   appearance = 'default',
-  surface = 'dark',
   fillHeight = false,
   headerCompact = false,
-  headerDivider = true,
   headerLeading,
   headerActions,
   closeOnBackdrop = true,
@@ -76,7 +73,6 @@ export function Modal({
   headerInset = 'default',
   titleHidden = false,
 }: Props) {
-  const isLight = surface === 'light'
   const isPrompt = appearance === 'prompt'
 
   // Two-phase visibility so the panel can animate on both open AND close:
@@ -110,7 +106,7 @@ export function Modal({
       }
     }
     // The panel's `.t-modal` close transition runs on --modal-close-dur.
-    const timer = setTimeout(() => setMounted(false), cssDurationMs('--modal-close-dur', 150))
+    const timer = setTimeout(() => setMounted(false), cssDurationMs('--modal-close-dur', 160))
 
     return () => clearTimeout(timer)
   }, [open])
@@ -161,7 +157,7 @@ export function Modal({
         className={clsx(
           'titlebar-no-drag absolute inset-0 transition-opacity ease-[var(--modal-ease)] motion-reduce:transition-none',
           shown ? 'duration-[var(--modal-open-dur)]' : 'duration-[var(--modal-close-dur)]',
-          isLight ? 'bg-black/30' : 'bg-black/50',
+          'bg-[var(--modal-scrim)]',
           shown ? 'opacity-100' : 'opacity-0',
         )}
       />
@@ -178,9 +174,7 @@ export function Modal({
           fillHeight ? 'h-[80vh]' : 'max-h-[80vh]',
           't-modal',
           shown ? 'is-open' : !open && 'is-closing',
-          isLight
-            ? 'border-[rgb(208,206,212)] bg-white shadow-black/20'
-            : 'border-line-control bg-surface-sheet shadow-black/50',
+          'border-line-control bg-surface-sheet shadow-[var(--surface-shadow-raised)]',
         )}
       >
         <div
@@ -194,11 +188,6 @@ export function Modal({
               : headerCompact
                 ? 'px-4 py-2.5 pr-12'
                 : 'px-5 py-4 pr-14',
-            headerDivider &&
-              !isPrompt && [
-                'border-b',
-                isLight ? 'border-[rgb(208,206,212)]' : 'border-line-control',
-              ],
           )}
         >
           {headerLeading}
@@ -212,7 +201,7 @@ export function Modal({
                   : headerCompact
                     ? 'text-[12.5px] font-medium'
                     : 'text-[14px] font-semibold',
-                isLight ? 'text-[rgb(15,14,17)]' : headerCompact ? 'text-secondary' : 'text-main',
+                headerCompact ? 'text-secondary' : 'text-main',
               )}
             >
               {title}
@@ -221,7 +210,7 @@ export function Modal({
               <div
                 className={clsx(
                   isPrompt ? 'mt-1.5 text-sm leading-5' : 'mt-1 text-[12.5px] leading-5',
-                  isLight ? 'text-[rgb(101,97,107)]' : 'text-secondary',
+                  'text-secondary',
                 )}
               >
                 {description}
@@ -248,9 +237,7 @@ export function Modal({
             onClick={onClose}
             className={clsx(
               'flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md transition-colors',
-              isLight
-                ? 'text-[rgb(126,122,133)] hover:bg-[rgb(245,244,245)] hover:text-[rgb(15,14,17)]'
-                : 'text-tertiary hover:bg-state-hover hover:text-main',
+              'text-tertiary hover:bg-state-hover hover:text-main',
             )}
           >
             <X className="h-3.5 w-3.5" strokeWidth={2} />
@@ -269,8 +256,7 @@ export function Modal({
           <div
             className={clsx(
               // shrink-0 pins the footer below the scrollable body.
-              'relative z-20 shrink-0 border-t',
-              isLight ? 'border-[rgb(208,206,212)]' : 'border-line-control',
+              'relative z-20 shrink-0',
             )}
           >
             {footer}

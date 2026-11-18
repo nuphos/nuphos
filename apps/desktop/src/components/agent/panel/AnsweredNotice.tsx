@@ -74,12 +74,12 @@ function AnsweredLine({
         aria-expanded={open}
         aria-controls={cardId}
         onClick={() => setOpen((value) => !value)}
-        className="-mx-2 flex min-h-7 max-w-[calc(100%+1rem)] min-w-0 items-center gap-2 rounded-lg px-2 text-left text-[12.5px] leading-[18px] hover:bg-[rgba(var(--color-text-primary),0.04)]"
+        className="-mx-2 flex min-h-7 max-w-[calc(100%+1rem)] min-w-0 items-center gap-2 rounded-lg px-2 text-left text-[12.5px] leading-[18px] hover:bg-state-hover"
       >
         <Check className="size-3.5 shrink-0 text-tertiary" strokeWidth={2.2} />
         <span className="shrink-0 font-medium text-main">{t('{name} answered', { name })}</span>
         <span className="min-w-0 truncate text-tertiary">{question}</span>
-        <span className="h-[22px] max-w-[50%] shrink-0 truncate rounded-md bg-[rgba(var(--color-text-primary),0.07)] px-2 leading-[22px] font-medium text-main">
+        <span className="h-[22px] max-w-[50%] shrink-0 truncate rounded-md bg-state-selected px-2 leading-[22px] font-medium text-main">
           {answer}
         </span>
         <Chevron className="size-3.5 shrink-0 text-tertiary" strokeWidth={2} />
@@ -122,7 +122,9 @@ function AnsweredLine({
                   asked: times.asked,
                   answered: times.answered,
                 })
-              : t('Answered {answered} from the Inbox', { answered: times.answered })}
+              : t('Answered {answered} from the Inbox', {
+                  answered: times.answered,
+                })}
           </div>
         </div>
       )}
@@ -141,7 +143,7 @@ function Option({ chosen, children }: { chosen: boolean; children: string }) {
           : 'bg-surface-raised text-main opacity-45 shadow-[0_0_0_1px_rgb(var(--color-line-control))]',
       )}
     >
-      {chosen && <Check className="size-[13px] shrink-0" strokeWidth={2.6} />}
+      {chosen && <Check className="size-3.5 shrink-0" strokeWidth={2.6} />}
       {children}
     </span>
   )

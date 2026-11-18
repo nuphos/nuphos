@@ -86,6 +86,7 @@
     --surface-hairline: rgba(255, 255, 255, 0.09);
     --surface-hairline-strong: rgba(255, 255, 255, 0.16);
     --surface-inner-highlight: rgba(255, 255, 255, 0.045);
+    --modal-scrim: rgb(0 0 0 / 0.5);
     --surface-shadow: 0 1px 2px rgba(0, 0, 0, 0.28), 0 10px 28px -14px rgba(0, 0, 0, 0.65);
     --surface-shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.32), 0 16px 40px -16px rgba(0, 0, 0, 0.75);
     /* Cast leftwards onto whatever is sliding under a pinned column — the only
@@ -172,6 +173,7 @@
     --surface-hairline: rgba(0, 0, 0, 0.07);
     --surface-hairline-strong: rgba(0, 0, 0, 0.14);
     --surface-inner-highlight: rgba(255, 255, 255, 0.9);
+    --modal-scrim: rgb(0 0 0 / 0.3);
     --surface-shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 10px 28px -12px rgba(16, 24, 40, 0.14);
     --table-sticky-shade: linear-gradient(
       to right,
@@ -1279,25 +1281,25 @@
 /* transitions-dev — semantic tokens + the t-* transitions used by the app.
    (card resize / skeleton reveal / icon swap / panel reveal / page side-by-side). */
 :root {
-  --resize-dur: 300ms;
+  --resize-dur: 280ms;
   --resize-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --pulse-dur: 1000ms;
   --pulse-count: 1;
   --pulse-min: 0.5;
-  --reveal-dur: 400ms;
+  --reveal-dur: 280ms;
   --reveal-blur: 2px;
   --reveal-ease: ease-in-out;
-  --icon-swap-dur: 200ms;
+  --icon-swap-dur: 280ms;
   --icon-swap-blur: 2px;
   --icon-swap-start-scale: 0.25;
   --icon-swap-ease: ease-in-out;
-  --panel-open-dur: 400ms;
-  --panel-close-dur: 350ms;
+  --panel-open-dur: 340ms;
+  --panel-close-dur: 280ms;
   --panel-translate-y: 100px;
   --panel-blur: 2px;
   --panel-ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --page-slide-dur: 200ms;
-  --page-fade-dur: 200ms;
+  --page-slide-dur: 280ms;
+  --page-fade-dur: 280ms;
   --page-slide-distance: 8px;
   --page-blur: 3px;
   --page-stagger: 0ms;
@@ -1309,8 +1311,8 @@
   --stagger-stagger: 40ms;
   --stagger-blur: 3px;
   --stagger-ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --modal-open-dur: 250ms;
-  --modal-close-dur: 150ms;
+  --modal-open-dur: 340ms;
+  --modal-close-dur: 160ms;
   --modal-scale: 0.96;
   --modal-scale-close: 0.96;
   --modal-ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -1391,7 +1393,7 @@
 }
 .t-memory-detail-reveal {
   --pulse-dur: 900ms;
-  --reveal-dur: 260ms;
+  --reveal-dur: 280ms;
   min-height: 440px;
 }
 .t-memory-detail-reveal.is-revealed {
@@ -1402,7 +1404,7 @@
 }
 .t-sidebar-section-reveal {
   --pulse-dur: 900ms;
-  --reveal-dur: 240ms;
+  --reveal-dur: 280ms;
   --reveal-blur: 2px;
   min-height: 104px;
 }
@@ -1417,7 +1419,7 @@
 }
 .t-sidebar-segment-reveal {
   --pulse-dur: 850ms;
-  --reveal-dur: 180ms;
+  --reveal-dur: 280ms;
   --reveal-blur: 2px;
   display: inline-flex;
   flex-shrink: 0;
@@ -1430,7 +1432,7 @@
 }
 .t-access-avatar-reveal {
   --pulse-dur: 800ms;
-  --reveal-dur: 180ms;
+  --reveal-dur: 280ms;
   --reveal-blur: 1px;
   min-height: 24px;
 }
@@ -1683,7 +1685,7 @@
    a smaller travel; the class is removed when the one-shot entrance finishes. */
 .t-message-send {
   --panel-translate-y: 6px;
-  --panel-open-dur: 250ms;
+  --panel-open-dur: 340ms;
 }
 /* Establish the entrance pose immediately before animating to data-open=true.
    Transitioning into this pose would reverse at zero progress in the same frame. */
@@ -1692,13 +1694,13 @@
 }
 .t-agent-memory-event {
   --panel-translate-y: 6px;
-  --panel-open-dur: 220ms;
-  --panel-close-dur: 150ms;
+  --panel-open-dur: 340ms;
+  --panel-close-dur: 280ms;
 }
 .t-agent-composer-reveal {
   --panel-translate-y: 14px;
-  --panel-open-dur: 360ms;
-  --panel-close-dur: 160ms;
+  --panel-open-dur: 340ms;
+  --panel-close-dur: 280ms;
   --panel-blur: 2px;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -1710,8 +1712,8 @@
 /* Turn fold (Worked for Xs) — grid-rows collapse with the panel-reveal fade +
    cross-blur. Content stays mounted; the inner row clips via overflow. */
 .t-turn-fold {
-  --panel-open-dur: 320ms;
-  --panel-close-dur: 200ms;
+  --panel-open-dur: 340ms;
+  --panel-close-dur: 280ms;
   display: grid;
   grid-template-rows: 0fr;
   opacity: 0;
@@ -1950,14 +1952,14 @@
 }
 .t-detail-sidebar-content {
   --panel-translate-y: 10px;
-  --panel-open-dur: 220ms;
-  --panel-close-dur: 150ms;
+  --panel-open-dur: 340ms;
+  --panel-close-dur: 280ms;
   --panel-blur: 2px;
 }
 .t-detail-loaded-content {
   --panel-translate-y: 14px;
-  --panel-open-dur: 280ms;
-  --panel-close-dur: 160ms;
+  --panel-open-dur: 340ms;
+  --panel-close-dur: 280ms;
   --panel-blur: 2px;
 }
 
@@ -2298,26 +2300,16 @@ html.platform-darwin:not(.window-fullscreen) .workspace-corner-titlebar {
   }
 }
 
-/* Small resource labels need theme-specific contrast, including hover fills. */
+/* Resource states follow the same semantic palette in both themes. */
 :root {
   --resource-linear: rgb(var(--color-text-secondary));
-  --resource-started: #f2c94c;
-  --resource-triage: #fc7840;
-  --resource-open: #66d98c;
-  --resource-merged: #c4a2ff;
-  --resource-closed: #ff9aa3;
-  --resource-failing: #ff9aa3;
-  --resource-pending: #f2c94c;
-}
-html.light {
-  --resource-linear: rgb(var(--color-text-secondary));
-  --resource-started: #9a6700;
-  --resource-triage: #c2410c;
-  --resource-open: #16713a;
-  --resource-merged: #7541b1;
-  --resource-closed: #b42332;
-  --resource-failing: #b42332;
-  --resource-pending: #9a6700;
+  --resource-started: rgb(var(--color-status-warning));
+  --resource-triage: rgb(var(--color-status-attention));
+  --resource-open: rgb(var(--color-status-success));
+  --resource-merged: rgb(var(--color-text-secondary));
+  --resource-closed: rgb(var(--color-status-danger));
+  --resource-failing: rgb(var(--color-status-danger));
+  --resource-pending: rgb(var(--color-status-warning));
 }
 .session-resource-linear {
   color: var(--resource-linear);
@@ -2507,5 +2499,16 @@ html.light .workspace-desk {
 @media (prefers-reduced-motion: reduce) {
   .t-bot-task-mode {
     transition: none;
+  }
+}
+
+/* CSS beats SVG presentation attributes, keeping Lucide defaults and callers consistent. */
+.lucide {
+  stroke-width: 1.8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse {
+    animation: none;
   }
 }

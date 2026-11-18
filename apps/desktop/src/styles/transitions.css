@@ -31,6 +31,10 @@
   opacity: 0;
   filter: blur(var(--reveal-blur));
 }
+.t-skel.is-revealed .t-skel-skeleton.is-pulsing > *,
+.t-skel.is-revealed .animate-pulse {
+  animation: none;
+}
 .t-skel.is-revealed .t-skel-content {
   opacity: 1;
   filter: blur(0);

@@ -12,6 +12,7 @@ import { botChatQuestion } from '../../components/channels/botChatQuestion'
 import { BotChatQuestion } from '../../components/channels/BotChatQuestions'
 import { useBotCredentials } from '../../components/channels/useBotCredentials'
 import { Button } from '../../components/ui/button'
+import { Tooltip } from '../../components/ui/tooltip'
 import { t } from '../../i18n'
 
 import { AnswerFailure } from './AnswerFailure'
@@ -20,7 +21,6 @@ import { useAnswerFailure } from './useInbox'
 
 import type { DecisionAnswer } from '../../api/agent-chat-types'
 import type { AgentConversation, AgentInputRequest } from '../../api/agent-types'
-import type { ReactNode } from 'react'
 
 /**
  * The Inbox's open question, read as a page: who asked and when, the question
@@ -106,7 +106,11 @@ export function DecisionCard({
         ) : (
           <div className="mt-3 flex flex-col gap-3">
             <BotChatQuestion
-              request={{ sessionId, title: conversation.title, inputRequest: request }}
+              request={{
+                sessionId,
+                title: conversation.title,
+                inputRequest: request,
+              }}
               teamId={teamId}
               credentials={credentials}
               onAnswer={(answer) => onAnswer(answer)}
@@ -129,22 +133,6 @@ export function DecisionCard({
           </div>
         )}
         <footer className="mt-4 flex items-center gap-3 text-[11.5px] text-tertiary">
-          {other ? (
-            <>
-              <KeyHint keys={['↵']} label={t('Send')} />
-              <KeyHint keys={['esc']} label={t('Close')} />
-            </>
-          ) : (
-            <>
-              <KeyHint keys={['↑', '↓']} label={t('Navigate')} />
-              {plain && choice.options.length > 0 && (
-                <KeyHint
-                  keys={choice.options.slice(0, 2).map((_, index) => String(index + 1))}
-                  label={t('Choose')}
-                />
-              )}
-            </>
-          )}
           {onSkip && (
             <button type="button" onClick={onSkip} className="ml-auto hover:text-main">
               {t('Skip')}
@@ -207,15 +195,20 @@ function ChoiceRow({
     <div className="mt-5 flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
         {options.map((option, index) => (
-          <Button
+          <Tooltip
             key={option}
-            variant={index === 0 ? 'primary' : 'secondary'}
-            size="sm"
-            className="h-auto min-h-8 whitespace-normal py-1.5 text-left"
-            onClick={() => onAnswer({ choices: [option] })}
+            content={keys && index < 9 ? `${option}  ${String(index + 1)}` : option}
+            trigger={
+              <Button
+                variant={index === 0 ? 'primary' : 'secondary'}
+                size="sm"
+                className="h-auto min-h-8 whitespace-normal py-1.5 text-left"
+                onClick={() => onAnswer({ choices: [option] })}
+              />
+            }
           >
             {option}
-          </Button>
+          </Tooltip>
         ))}
         {typed && (
           <Button
@@ -239,22 +232,5 @@ function ChoiceRow({
       )}
       {failure && <AnswerFailure message={failure} />}
     </div>
-  )
-}
-
-/** A key, or keys, and what pressing it does. */
-function KeyHint({ keys, label }: { keys: string[]; label: ReactNode }) {
-  return (
-    <span className="flex items-center gap-1">
-      {keys.map((key) => (
-        <kbd
-          key={key}
-          className="min-w-4 rounded bg-surface-sunken px-1 text-center font-sans text-[10.5px] leading-4 text-secondary"
-        >
-          {key}
-        </kbd>
-      ))}
-      <span className="ml-0.5">{label}</span>
-    </span>
   )
 }

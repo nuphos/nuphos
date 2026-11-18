@@ -70,9 +70,10 @@ export const Sidebar = memo(function Sidebar({
   dynamicNavigation = false,
   chatNavKeysLive = false,
 }: SidebarProps) {
-  const [renameTarget, setRenameTarget] = useState<{ sessionId: string; title: string } | null>(
-    null,
-  )
+  const [renameTarget, setRenameTarget] = useState<{
+    sessionId: string
+    title: string
+  } | null>(null)
   const [sidebarPage, changeSidebarPage] = useSidebarMode(scope.teamId, agentSessionId)
   const teamId = scope.teamId
   const chrome = useSidebarChrome({ teamId, collapsed })
@@ -191,7 +192,7 @@ export const Sidebar = memo(function Sidebar({
         data-focus-region={showSidebar ? 'sidebar' : undefined}
         className={clsx(
           'sidebar-surface absolute left-0 top-0 bottom-0 z-40 flex flex-col',
-          'transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+          'transition-transform duration-[340ms] ease-[cubic-bezier(0.22,1,0.36,1)]',
           showSidebar ? 'pointer-events-auto' : 'pointer-events-none',
           // Lift the panel off the content while it floats; docked it sits flush.
           collapsed && peek && 'is-floating shadow-2xl rounded-r-xl',
@@ -240,7 +241,6 @@ export const Sidebar = memo(function Sidebar({
             className={clsx(
               SIDEBAR_PANEL_PADDING_CLASS,
               'flex-1 overflow-x-hidden overflow-y-auto scrollbar-thin scrollbar-overlay',
-              'border-t border-transparent transition-colors duration-200 data-[scrolled]:border-line-control/60',
             )}
           >
             <SidebarNavStack viewKey={view.key} level={view.level}>
@@ -254,7 +254,7 @@ export const Sidebar = memo(function Sidebar({
         {dynamicNavigation &&
           identitySegment &&
           (scope.kind === 'aws-account' || scope.kind === 'gcp-project') && (
-            <div className="px-3.5 pt-2.5 pb-3.5 titlebar-no-drag border-t border-line-control/60">
+            <div className="px-3.5 pt-2.5 pb-3.5 titlebar-no-drag">
               <SidebarIdentitySelector scope={scope} segment={identitySegment} />
             </div>
           )}

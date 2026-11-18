@@ -16,11 +16,13 @@ const sizeClasses: Record<CountBadgeSize, string> = {
 export function CountBadge({
   count,
   size = 'md',
+  tone = 'attention',
   label,
   id,
   className,
 }: {
   count: number
+  tone?: 'attention' | 'unread'
   size?: CountBadgeSize
   /** Names the count for assistive technology when the number alone is unclear. */
   label?: string
@@ -32,7 +34,8 @@ export function CountBadge({
       id={id}
       aria-label={label}
       className={clsx(
-        'inline-flex shrink-0 items-center justify-center rounded-full bg-status-attention leading-none tabular-nums text-inverse',
+        'inline-flex shrink-0 items-center justify-center rounded-full leading-none tabular-nums text-inverse',
+        tone === 'attention' ? 'bg-status-attention' : 'bg-action-primary',
         sizeClasses[size],
         className,
       )}

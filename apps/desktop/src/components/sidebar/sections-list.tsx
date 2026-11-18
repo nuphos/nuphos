@@ -29,7 +29,10 @@ import type { SidebarFavorite } from '../../lib/sidebarFavorites'
 import type { Scope } from '../../types'
 
 type SectionListProps = {
-  botPins?: { order: string[]; place: (item: Item, before: Item | null) => void }
+  botPins?: {
+    order: string[]
+    place: (item: Item, before: Item | null) => void
+  }
   sections: Section[]
   scope: Scope
   active: string
@@ -79,8 +82,8 @@ export function SidebarSectionList({
           enabled={section.title === BOTS_SECTION}
           teamId={scope.teamId}
           className={clsx(
-            'transition-[margin-bottom] duration-200',
-            section.separator && 'mt-2 border-t border-line-control/60 pt-2',
+            'transition-[margin-bottom] duration-[280ms]',
+            section.separator && 'mt-2 pt-2',
             section.compact ? 'mb-0' : isGroupCollapsed(section) ? 'mb-1' : SIDEBAR_GROUP_GAP_CLASS,
           )}
         >
@@ -129,7 +132,10 @@ export function SidebarSectionList({
                           const shortcut = SIDEBAR_ITEM_SHORTCUTS[item.key]
                           const favorited = Boolean(favoriteMatch(item))
                           const chatRow =
-                            favoriteSessionId({ key: item.key, href: item.href }) !== null
+                            favoriteSessionId({
+                              key: item.key,
+                              href: item.href,
+                            }) !== null
                           // Bots read as a chat list (name over latest message); Tasks as on main.
                           const twoLine = chatRow && !item.task
                           const bot = twoLine || Boolean(item.botNested)
@@ -186,7 +192,11 @@ export function SidebarSectionList({
                                 canFavorite(item) || (teamView && Boolean(rowSessionId))
                                   ? (e) => {
                                       e.preventDefault()
-                                      onItemMenu({ x: e.clientX, y: e.clientY, item })
+                                      onItemMenu({
+                                        x: e.clientX,
+                                        y: e.clientY,
+                                        item,
+                                      })
                                     }
                                   : undefined
                               }
@@ -251,9 +261,9 @@ export function SidebarSectionList({
                               key={item.key}
                               data-task-reflow-key={item.task && !item.bot ? item.key : undefined}
                               className={clsx(
-                                't-collapse t-sidebar-session t-stagger relative transition-opacity duration-150',
+                                't-collapse t-sidebar-session t-stagger relative transition-opacity duration-[160ms]',
                                 item.task && !item.bot && !item.botNested && 't-task-row',
-                                item.taskDivider && 'mt-2 border-t border-line-control/60 pt-2',
+                                item.taskDivider && 'mt-2 pt-2',
                                 archivingIds.has(rowSessionId) ? 'is-hiding' : 'is-shown',
                               )}
                               title={
@@ -275,11 +285,7 @@ export function SidebarSectionList({
                             <div
                               key={item.key}
                               data-task-reflow-key={item.project ? item.key : undefined}
-                              className={
-                                item.taskDivider
-                                  ? 'mt-2 border-t border-line-control/60 pt-2'
-                                  : undefined
-                              }
+                              className={item.taskDivider ? 'mt-2 pt-2' : undefined}
                             >
                               {row}
                             </div>

@@ -9,9 +9,9 @@ export const TONE_BADGE: Record<StatusTone, string> = {
 }
 
 export const TONE_CIRCLE: Record<StatusTone, string> = {
-  success: 'bg-success text-white',
-  error: 'bg-error text-white',
-  warning: 'bg-warning text-white',
-  neutral: 'bg-line-control text-white',
+  success: 'bg-success text-inverse',
+  error: 'bg-error text-inverse',
+  warning: 'bg-warning text-inverse',
+  neutral: 'bg-line-control text-inverse',
   merged: 'session-resource-merged-fill',
 }

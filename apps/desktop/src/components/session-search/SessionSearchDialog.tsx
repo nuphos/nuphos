@@ -146,7 +146,7 @@ export function SessionSearchDialog({
             <Dialog.Title className="sr-only">{t('Search Bots, tasks and people')}</Dialog.Title>
             {/* One line of text to type in: no box inside the sheet, one hairline under it. */}
             {/* Focus shows as the hairline darkening, not as a box around the query. */}
-            <InputGroup className="flex h-14 shrink-0 items-center gap-2.5 border-b border-line-control px-4 focus-within:!ring-0 focus-within:border-line-focus">
+            <InputGroup className="flex h-14 shrink-0 items-center gap-2.5 px-4 focus-within:!ring-0">
               <Search size={17} className="shrink-0 text-tertiary" />
               <InputGroupInput
                 ref={inputRef}

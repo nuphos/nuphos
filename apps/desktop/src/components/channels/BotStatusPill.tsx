@@ -22,7 +22,10 @@ function stepText(step: Step): string {
 function askingText(work: BotWork & { kind: 'asking' }): string {
   if (!work.question) return t('Needs your input')
   if (work.count > 1)
-    return t('Needs your input ({count}): {q}', { count: work.count, q: work.question })
+    return t('Needs your input ({count}): {q}', {
+      count: work.count,
+      q: work.question,
+    })
 
   return t('Needs your input: {q}', { q: work.question })
 }
@@ -32,7 +35,10 @@ function waitingText(work: BotWork & { kind: 'waiting' }): string {
 
   return work.kids.length === 1
     ? t('Waiting on 1 Task: {names}', { names })
-    : t('Waiting on {count} Tasks: {names}', { count: work.kids.length, names })
+    : t('Waiting on {count} Tasks: {names}', {
+        count: work.kids.length,
+        names,
+      })
 }
 
 /** The one line the pill says: what the Bot does, and why when it is not this chat. */
@@ -52,8 +58,8 @@ function workText(work: BotWork): string {
 function pillClass(asking: boolean, pressable: boolean): string {
   return clsx(
     'titlebar-no-drag hidden h-[26px] max-w-[min(420px,100%)] items-center gap-1.5 rounded-full px-2.5 text-[12.5px] leading-[18px] font-normal outline-none focus-visible:ring-2 focus-visible:ring-line-focus @[120px]:inline-flex',
-    asking ? 'bg-warning/[0.08] text-warning' : 'bg-state-hover text-tertiary',
-    pressable && (asking ? 'hover:bg-warning/[0.12]' : 'hover:bg-state-selected'),
+    asking ? 'bg-status-attention/[0.08] text-status-attention' : 'bg-state-hover text-tertiary',
+    pressable && (asking ? 'hover:bg-status-attention/[0.12]' : 'hover:bg-state-selected'),
   )
 }
 

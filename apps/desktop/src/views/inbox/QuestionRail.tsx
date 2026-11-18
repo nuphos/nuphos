@@ -34,8 +34,8 @@ export function QuestionRail({
 
         return (
           <Entering key={conversation.sessionId} as="section">
-            <div className="flex flex-col gap-px">
-              <h3 className="flex h-7 items-center gap-2 px-2 text-[12.5px] font-medium text-main">
+            <div className="flex flex-col gap-1">
+              <h3 className="flex h-9 items-center gap-2 px-2 text-[14px] font-[450] text-main">
                 <QuestionSourceIcon conversation={conversation} />
                 <span className="truncate">{conversation.title || t('Untitled task')}</span>
               </h3>
@@ -47,7 +47,7 @@ export function QuestionRail({
                     data-inbox-question={row.request.id}
                     onClick={() => onSelect(row)}
                     className={clsx(
-                      'h-7 w-full truncate rounded-md pl-8 pr-2 text-left text-[13px] outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-line-focus',
+                      'h-9 w-full truncate rounded-[10px] pl-8 pr-2 text-left text-[14px] font-[450] outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-line-focus',
                       row.request.id === openId
                         ? 'bg-state-selected text-main'
                         : 'text-secondary hover:bg-state-hover hover:text-main',
@@ -99,7 +99,7 @@ export function QuestionSource({
         className="flex min-w-0 items-center gap-1 font-medium text-main hover:underline"
       >
         <span className="truncate">{conversation.title || t('Untitled task')}</span>
-        <ArrowUpRight aria-hidden className="size-3 shrink-0" />
+        <ArrowUpRight aria-hidden className="size-3.5 shrink-0" />
       </button>
       <span aria-hidden>·</span>
       <time dateTime={askedAt} className="shrink-0">
