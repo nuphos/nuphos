@@ -56,7 +56,16 @@ final class ChannelReopenUITests: XCTestCase {
         let failed = app.staticTexts["Couldn't load this chat"]
         let transcript = app.collectionViews["chat.transcript"].cells.firstMatch
         XCTAssertFalse(failed.waitForExistence(timeout: 3), "The cancelled read showed as a failure")
+        keepScreenshot(of: app, named: "on-return")
         XCTAssertTrue(transcript.waitForExistence(timeout: 15), "The chat did not load after returning")
         XCTAssertFalse(failed.exists)
+        keepScreenshot(of: app, named: "loaded")
+    }
+
+    private func keepScreenshot(of app: XCUIApplication, named name: String) {
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = name
+        shot.lifetime = .keepAlways
+        add(shot)
     }
 }
