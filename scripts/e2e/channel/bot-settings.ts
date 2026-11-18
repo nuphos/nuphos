@@ -1,8 +1,8 @@
-// #3298: the Bot chat's composer edits the Bot's own permission mode and model. It runs in the
-// Bot chat the scenarios before it opened, once the Bot's setup has finished.
-import { artifacts } from './processes.ts'
+// #3298: the Bot chat's composer edits the Bot's own permission mode and model. The E2E Bot's
+// setup finished in a scenario before; this one opens the Bot's chat itself.
+import { artifacts } from '../processes.ts'
 
-import type { Scenario } from './ui.ts'
+import type { Scenario } from '../ui.ts'
 import type { Page } from 'playwright-core'
 
 /** The composer in front: a Bot chat stays mounted, inert, behind the Bot's own page. */
@@ -34,11 +34,15 @@ async function setComposerSettings(page: Page, full: boolean, model: string) {
   await composer(page).getByRole('button', { name }).waitFor()
 }
 
-export const botSettingsScenario: Scenario = {
+const scenario: Scenario = {
   name: "the Bot composer and the Bot's own page change the same permission mode and model",
   run: async (page) => {
     const chat = () => composer(page)
 
+    // The scenario before may have left a Task open.
+    await page.getByRole('tab', { name: /^Bots/ }).click()
+    await page.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first().click()
+    await page.locator('[aria-placeholder="Message E2E Bot"]').waitFor()
     await page.evaluate(() => {
       document.documentElement.classList.remove('dark')
       document.documentElement.classList.add('light')
@@ -48,7 +52,7 @@ export const botSettingsScenario: Scenario = {
     await chat().screenshot({ path: `${artifacts}/bot-controls-composer-light.png` })
     // From the chat: the Bot's page shows what was picked there.
     await setComposerSettings(page, true, 'fixture-large')
-    // Its setup finished in the scenario before, so the Bot's page opens from the chat.
+    // Its setup has finished, so the Bot's page opens from the chat.
     await page.getByRole('button', { name: 'Task', exact: true }).click()
     await page.getByText('Back to conversation').waitFor()
     await composer(page)
@@ -72,3 +76,5 @@ export const botSettingsScenario: Scenario = {
     // so a Bot's mode leaking into the default for new chats fails there.
   },
 }
+
+export default scenario

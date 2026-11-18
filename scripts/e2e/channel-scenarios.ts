@@ -1,88 +1,27 @@
 // Scenarios about a Bot reading its chat. They run in the Bot chat the scenario before opened.
-import { randomUUID } from 'node:crypto'
+import { existsSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
 
 import { agentEvents, agentLog } from './agent-log.ts'
 import { botAccessScenarios } from './bot-access-scenarios.ts'
-import { botSettingsScenario } from './bot-settings-scenario.ts'
-import { forgetComputer } from './computer-scenarios.ts'
+import { computerWithUsage, pickRuntime, shootRuntimeLine } from './channel-helpers.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
 
-import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
-import type { Page } from 'playwright-core'
 
-/** A computer whose Claude Code reports usage with its status, as Desktop's host does. */
-async function computerWithUsage(stack: Stack, label: string) {
-  const deviceId = randomUUID()
-  const auth = { authorization: `Bearer ${stack.token}` }
-  const registered = await fetch(`${stack.apiUrl}/agent/devices`, {
-    method: 'PUT',
-    headers: { ...auth, 'content-type': 'application/json' },
-    body: JSON.stringify({ deviceId, label, platform: 'darwin', allowLocalExec: true }),
-  })
+/** One scenario per file in ./channel, its default export, in file-name order. */
+async function scenarioFiles(): Promise<Scenario[]> {
+  const dir = join(import.meta.dirname, 'channel')
 
-  if (!registered.ok) throw new Error(`Registering answered ${String(registered.status)}`)
-  const host = new WebSocket(
-    `${stack.apiUrl.replace(/^http/, 'ws')}/agent/devices/${deviceId}/runtime-tunnel`,
-    { headers: auth } as unknown as string[],
+  if (!existsSync(dir)) return []
+  const files = readdirSync(dir)
+    .filter((file) => file.endsWith('.ts'))
+    .sort()
+
+  return Promise.all(
+    files.map(async (file) => ((await import(join(dir, file))) as { default: Scenario }).default),
   )
-
-  host.addEventListener('message', (event) => {
-    if (String(event.data).includes('"ping"')) host.send(JSON.stringify({ t: 'pong' }))
-  })
-  await new Promise((opened, failed) => {
-    host.addEventListener('open', opened)
-    host.addEventListener('error', failed)
-  })
-  const resetsAt = new Date(Date.now() + 3 * 3_600_000).toISOString()
-  const usage = {
-    five_hour: { utilization: 35, resets_at: resetsAt },
-    seven_day: { utilization: 20, resets_at: resetsAt },
-  }
-
-  host.send(
-    JSON.stringify({
-      t: 'status',
-      status: {
-        agents: {
-          'claude-code': {
-            cli: { installed: true, loggedIn: true },
-            usage,
-            usageAt: new Date().toISOString(),
-          },
-        },
-      },
-    }),
-  )
-
-  return () => {
-    host.close()
-    forgetComputer(stack.mongoUri, deviceId)
-  }
-}
-
-/** Puts the composer on a runtime: `row` opens its submenu and `item` names the runtime in it. */
-async function pickRuntime(page: Page, row: string, item: RegExp) {
-  await page.getByRole('button', { name: /^Agent runtime/ }).click()
-  await page.getByRole('menu').getByText(row).first().click({ timeout: 60_000 })
-  await page.getByRole('menuitem', { name: item }).last().click()
-}
-
-/** Shoots the composer in light; whether its runtime line shows the usage bar. */
-async function shootRuntimeLine(page: Page, name: string) {
-  const bar = page.getByRole('progressbar', { name: 'Usage remaining' })
-  const path = `${artifacts}/${name}-composer-light.png`
-
-  await page.evaluate(() => {
-    document.documentElement.classList.remove('dark')
-    document.documentElement.classList.add('light')
-  })
-  await bar.waitFor({ timeout: 30_000 }).catch(() => undefined)
-  await page.waitForTimeout(500)
-  await page.locator('.composer-surface:visible').last().screenshot({ path })
-
-  return (await bar.count()) > 0
 }
 
 export const channelScenarios: Scenario[] = [
@@ -225,7 +164,6 @@ export const channelScenarios: Scenario[] = [
         .waitFor({ timeout: 10_000 })
     },
   },
-  botSettingsScenario,
   ...botAccessScenarios,
   {
     // #3310: the Bot's name above its Inbox question opened the Bot's session as a Task,
@@ -277,4 +215,6 @@ export const channelScenarios: Scenario[] = [
       }
     },
   },
+  // A new channel scenario is a file of its own in ./channel, not one more entry here.
+  ...(await scenarioFiles()),
 ]
