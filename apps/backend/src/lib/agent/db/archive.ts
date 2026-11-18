@@ -129,6 +129,11 @@ async function setTreeArchived(sessionId: string, archived: boolean): Promise<vo
     )
     // A thread never outlives its parent: tokens issued so far stop working.
     await revokeSessionTokens([sessionId, ...descendants], 'archived')
+    // A question about a thread now archived waits on nothing: it leaves the Inbox.
+    await agentConversations().updateMany(
+      { userId: conversation.userId, 'inputRequests.about': { $in: [sessionId, ...descendants] } },
+      { $pull: { inputRequests: { about: { $in: [sessionId, ...descendants] } } } },
+    )
 
     return
   }

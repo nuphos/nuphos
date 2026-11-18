@@ -1681,6 +1681,7 @@
   "Edit the manifest and apply it to this object.": "编辑 Manifest 并应用到此对象。",
   "Edit value": "编辑值",
   "Edited in Nuphos": "已在 Nuphos 中修改",
+  "Edited {time}": "{time} 已编辑",
   "Editor": "编辑者",
   "Editors and administrators can upload skill files.": "编辑者和管理员可以上传技能文件。",
   "Effective permissions": "有效权限",
