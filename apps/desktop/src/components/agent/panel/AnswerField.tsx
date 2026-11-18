@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react'
 import { t } from '../../../i18n'
 import { isMac } from '../../../lib/platform'
 import { Button } from '../../ui/button'
+import { Tooltip } from '../../ui/tooltip'
 
 import { ComposerVoiceButton } from './ComposerVoiceButton'
 import { DictationBar } from './DictationBar'
@@ -86,7 +87,7 @@ export function AnswerField({
           onClose()
         }}
         aria-label={t('Your answer')}
-        className="h-[38px] min-w-0 flex-1 rounded-[10px] bg-surface-raised px-3 text-[13.5px] text-main shadow-[0_0_0_1px_rgb(var(--color-line-control))] outline-none placeholder:text-tertiary focus:shadow-[0_0_0_1px_rgb(var(--color-line-focus)),0_0_0_4px_rgba(28,26,23,0.05)]"
+        className="h-[38px] min-w-0 flex-1 rounded-[10px] bg-surface-raised px-3 text-[13.5px] text-main shadow-[0_0_0_1px_rgb(var(--color-line-control))] outline-none placeholder:text-tertiary focus:ring-2 focus:ring-line-focus"
       />
       {voice.available && (
         <ComposerVoiceButton
@@ -98,15 +99,19 @@ export function AnswerField({
           onCancel={voice.cancel}
         />
       )}
-      <Button
-        type="submit"
-        size="md"
-        className="h-[38px] px-3.5 text-[13px]"
-        disabled={!text.trim()}
+      <Tooltip
+        content={`${t('Send')}  ↵`}
+        trigger={
+          <Button
+            type="submit"
+            size="md"
+            className="h-[38px] px-3.5 text-[13px]"
+            disabled={!text.trim()}
+          />
+        }
       >
         {t('Send')}
-        <kbd className="rounded bg-white/15 px-1 text-[11px] font-normal">↵</kbd>
-      </Button>
+      </Tooltip>
     </form>
   )
 }
