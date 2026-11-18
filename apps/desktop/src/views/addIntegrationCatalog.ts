@@ -108,7 +108,7 @@ const ITEM_META: Record<AddIntegrationKey, { name: string; description: string }
   resend: { name: 'Resend', description: t('Send transactional email.') },
   instabox: {
     name: 'instabox',
-    description: t('Cloud computers for your Bots and tasks, billed to your instabox account.'),
+    description: t('Computers for your Bots and tasks, billed to your instabox account.'),
   },
   slack: { name: 'Slack', description: t('Chat with Nuphos from Slack channels.') },
   discord: { name: 'Discord', description: t('Mention Nuphos in Discord channels.') },
