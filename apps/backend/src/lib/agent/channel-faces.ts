@@ -1,5 +1,5 @@
 import { chatName } from './db/archive'
-import { listChannelAgents } from './db/channels'
+import { listChannelAgents } from './db/channel-agents'
 import { conversationParticipantIds } from './db/participants'
 import { agentMessages } from './db/shared'
 import { parseMessageMetadata } from './message-metadata'

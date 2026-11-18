@@ -6,7 +6,8 @@ import { portabilityDb } from '@/lib/test/runtime-portability-db'
 import { derivedAvatar } from '../bot-avatars'
 
 import { leaveChats } from './bot-membership'
-import { addChannelAgent, listChannelAgents } from './channels'
+import { listChannelAgents } from './channel-agents'
+import { addChannelAgent } from './channels'
 import { agentConversations } from './shared'
 
 import type * as dbActual from '@/lib/db'
