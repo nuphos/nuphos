@@ -81,7 +81,7 @@ const rpc = async (method, params) => {
       throw new Error(`Codex exited (${code}): ${stderr}`)
     }),
     new Promise((_, reject) =>
-      setTimeout(() => reject(new Error(`Timeout ${method}: ${stderr}`)), 15000).unref(),
+      setTimeout(() => reject(new Error(`Timeout ${method}: ${stderr}`)), 75000).unref(),
     ),
   ])
 
@@ -105,13 +105,16 @@ try {
           '-c',
           'test -z "${OPENAB_ACP_AUTH_KEY+x}" && test -z "${UNSCOPED_SESSION_MARKER+x}" && test "$NUPHOS_TOKEN" = scoped-actor && test "$GOMEMLIMIT" = 6GiB && test "$NODE_OPTIONS" = --max-old-space-size=6144 && test "$GOFLAGS" = -p=2 && test "$MAKEFLAGS" = -j2 && test "$BASH_ENV" = /opt/nuphos-runtime/runtime-guard.sh && test "$HOME" = "$NUPHOS_SESSION_HOME" && test "$GH_CONFIG_DIR" = "$HOME/.config/gh" && test "$CLOUDSDK_CONFIG" = "$HOME/.config/gcloud" && command -v sh >/dev/null',
         ]
+  const started = Date.now()
   const result = await rpc('command/exec', {
     command,
     cwd: base,
     sandboxPolicy: { type: 'dangerFullAccess' },
-    timeoutMs: 10000,
+    // A cold Windows PowerShell start on a CI runner can take longer than 10 s.
+    timeoutMs: 60000,
   })
 
+  console.log(`exit ${result.exitCode} after ${Date.now() - started} ms: ${result.stdout.trim()}`)
   assert.equal(result.exitCode, 0, `Codex shell environment isolation failed: ${result.stderr}`)
   if (process.platform === 'win32') assert.match(result.stdout, /NUPHOS_OK/u)
   console.log(
