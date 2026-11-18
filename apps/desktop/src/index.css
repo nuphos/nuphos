@@ -1225,8 +1225,6 @@
      white glow that came and went with window order. */
   .sidebar-surface {
     background-color: rgb(var(--color-appBg));
-    /* A group chat's faces are ringed in the sidebar's own surface. */
-    --chat-icon-ring: var(--color-appBg);
   }
   html.light .sidebar-surface {
     background-color: rgba(var(--color-appBg), 0.65);

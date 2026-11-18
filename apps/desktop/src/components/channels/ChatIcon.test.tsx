@@ -30,7 +30,7 @@ function discs(html: string) {
         left: px('left'),
         top: px('top'),
         size: px('width'),
-        ring: style.includes('2px'),
+        cut: style.includes('mask-image'),
       }
     },
   )
@@ -42,11 +42,15 @@ test('a group chat in the sidebar is the design system cluster of three faces', 
   )
 
   assert.deepEqual(discs(html), [
-    { id: 'bot', left: 0, top: 0, size: 24, ring: true },
-    { id: 'dana', left: 18, top: 12, size: 18, ring: true },
-    { id: 'eli', left: 5, top: 22, size: 14, ring: true },
+    { id: 'bot', left: 0, top: 0, size: 24, cut: true },
+    { id: 'dana', left: 18, top: 12, size: 18, cut: true },
+    { id: 'eli', left: 5, top: 22, size: 14, cut: false },
   ])
   assert.ok(html.includes('bg-surface-sunken'))
+  // Each ring is cut out of the faces beneath, never painted, so a hovered or selected row shows through.
+  assert.ok(!html.includes('box-shadow'))
+  // The second face (at 18, 12) loses the third's disc, centred at 12, 29, plus its 2px ring: 7 + 2.
+  assert.match(html, /radial-gradient\(circle at -6px 17px, transparent 9px/)
 })
 
 test('two other members take the cluster’s first two places', () => {

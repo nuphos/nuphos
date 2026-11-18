@@ -62,6 +62,7 @@ export function ChatIcon({
     >
       {members.map((face, index) => {
         const [left, top, disc] = CHAT_CLUSTER[index].map((value) => value * scale)
+        const mask = ringCuts(members.length, index, scale)
 
         return (
           <span
@@ -73,8 +74,7 @@ export function ChatIcon({
               top,
               width: disc,
               height: disc,
-              // The ring is the surface behind it; the sidebar sets its own.
-              boxShadow: `0 0 0 ${String(2 * scale)}px rgb(var(--chat-icon-ring, var(--color-surface-sheet)))`,
+              ...(mask && { maskImage: mask, maskComposite: 'intersect' }),
             }}
           >
             <Face face={face} size={disc} showBadge={false} looping={index === 0 && looping} />
@@ -83,6 +83,22 @@ export function ChatIcon({
       })}
     </span>
   )
+}
+
+/**
+ * The faces drawn over face `index`, cut out of it with a 2px margin, so each
+ * face's ring is whatever lies behind the icon: a row's hover or selection too.
+ */
+function ringCuts(count: number, index: number, scale: number) {
+  const [left, top] = CHAT_CLUSTER[index]
+  const cuts = CHAT_CLUSTER.slice(index + 1, count).map(([x, y, size]) => {
+    const at = `${String((x + size / 2 - left) * scale)}px ${String((y + size / 2 - top) * scale)}px`
+    const radius = (size / 2 + 2) * scale
+
+    return `radial-gradient(circle at ${at}, transparent ${String(radius)}px, #000 ${String(radius + 0.5)}px)`
+  })
+
+  return cuts.length ? cuts.join(', ') : undefined
 }
 
 /** A chat's face in its header; until the chat loads, a quiet circle holds its place, not a "?". */
