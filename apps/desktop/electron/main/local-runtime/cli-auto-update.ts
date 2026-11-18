@@ -120,7 +120,7 @@ export async function latestCliRelease(apiUrl: string): Promise<string | null> {
 }
 
 /** `nuphos update`, apart from this host: the restart it ends with stops the host. */
-export function runCliUpdate(exe = process.env.NUPHOS_CLI_EXE ?? 'nuphos'): void {
+export function runCliUpdate(exe: string): void {
   spawn(exe, ['update'], { detached: true, stdio: 'ignore' }).unref()
 }
 
@@ -177,9 +177,11 @@ export function writeCliAutoInstall(home: string, value: unknown): AutoInstallPr
 export function cliAutoUpdate(apiUrl: () => string, changed: () => void, env = process.env) {
   const home = env.NUPHOS_AGENT_HOME
   const version = env.NUPHOS_CLI_VERSION
+  // Set only when the host runs as the service, whose restart brings the update up (agent.rs).
+  const exe = env.NUPHOS_CLI_EXE
   const clock = idleClock()
 
-  if (home && version)
+  if (home && version && exe)
     startCliAutoUpdate({
       version,
       home,
@@ -187,7 +189,7 @@ export function cliAutoUpdate(apiUrl: () => string, changed: () => void, env = p
       busy: () => clock.activity.busy(),
       idleSeconds: clock.idleSeconds,
       update: () => {
-        runCliUpdate()
+        runCliUpdate(exe)
       },
     })
 
