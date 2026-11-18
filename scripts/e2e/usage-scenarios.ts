@@ -3,7 +3,6 @@ import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
 
 import { until } from './processes.ts'
-import { teamActivityScenarios } from './team-activity-scenarios.ts'
 import { newTask, send } from './ui.ts'
 
 import type { Stack } from './stack.ts'
@@ -85,6 +84,4 @@ export const usageScenarios: Scenario[] = [
           throw new Error(`Turn row is missing who, where or how: ${JSON.stringify(row)}`)
     },
   },
-  // Who sees the team's activity and stats is read from the same members' numbers.
-  ...teamActivityScenarios,
 ]
