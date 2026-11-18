@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Computer
@@ -42,6 +43,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -374,24 +378,46 @@ fun HomeScreen(
         }
     }
 
+    fun selectPage(destination: HomePage) {
+        if (destination == current) return
+        pagePicked = true
+        if (current == HomePage.Agent || current == HomePage.Chats) store.updateSearch("")
+        page = destination.route
+        searching = false
+    }
+
     val profileLabel = stringResource(R.string.shell_profile)
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets.safeDrawing,
+        bottomBar = {
+            NavigationBar {
+                listOf(HomePage.Chats, HomePage.Agent, HomePage.Inbox).forEach { destination ->
+                    NavigationBarItem(
+                        selected = current == destination,
+                        onClick = { selectPage(destination) },
+                        modifier = Modifier.testTag("home-tab-${destination.route}"),
+                        label = { Text(stringResource(destination.label)) },
+                        icon = {
+                            BadgedBox(badge = {
+                                if (destination == HomePage.Inbox && (inbox?.list?.size ?: 0) > 0)
+                                    Badge(Modifier.testTag("inbox-badge")) { Text("${inbox?.list?.size}") }
+                            }) { Icon(destination.icon(current == destination), contentDescription = null) }
+                        },
+                    )
+                }
+            }
+        },
         topBar = {
             TopAppBar(
                 title = {
-                    if (unavailablePage) Text(stringResource(R.string.shell_page_unavailable)) else PageSwitcher(selected = current, inboxCount = inbox?.list?.size ?: 0, onSelect = {
-                        if (it != current) {
-                            pagePicked = true
-                            if (current == HomePage.Agent || current == HomePage.Chats) store.updateSearch("")
-                            page = it.route; searching = false
-                        }
-                    })
+                    Text(stringResource(if (unavailablePage) R.string.shell_page_unavailable else current.label))
 
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
                 actions = {
+                    PageSwitcher(selected = current, onSelect = ::selectPage,
+                        pages = listOf(HomePage.Runtimes, HomePage.Connectors))
                     if (current == HomePage.Agent || current == HomePage.Chats) {
                         IconButton(onClick = { searching = !searching }, modifier = Modifier.testTag("home-search")) {
                             Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.shell_search))
@@ -476,6 +502,7 @@ internal fun PageSwitcher(
     modifier: Modifier = Modifier,
     /** Open questions waiting in the Inbox, badged like Desktop's sidebar. */
     inboxCount: Int = 0,
+    pages: List<HomePage> = HomePage.entries,
 ) {
     var expanded by remember { mutableStateOf(false) }
     val anchorFocus = remember { FocusRequester() }
@@ -498,17 +525,21 @@ internal fun PageSwitcher(
             modifier = Modifier.heightIn(min = 48.dp).focusRequester(anchorFocus).testTag("home-page-switcher")
                 .semantics { stateDescription = if (expanded) expandedLabel else collapsedLabel },
         ) {
-            Text(stringResource(selected.label), style = MaterialTheme.typography.headlineSmall,
-                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-            Spacer(Modifier.width(4.dp))
-            Icon(Icons.Outlined.ExpandMore, contentDescription = null)
+            if (pages.size == 2) {
+                Icon(Icons.Outlined.MoreVert, contentDescription = "${stringResource(HomePage.Runtimes.label)}, ${stringResource(HomePage.Connectors.label)}")
+            } else {
+                Text(stringResource(selected.label), style = MaterialTheme.typography.headlineSmall,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                Spacer(Modifier.width(4.dp))
+                Icon(Icons.Outlined.ExpandMore, contentDescription = null)
+            }
             if (inboxCount > 0 && selected != HomePage.Inbox) {
                 Spacer(Modifier.width(4.dp))
                 Badge(Modifier.testTag("inbox-badge").semantics { contentDescription = inboxBadgeLabel }) { Text("$inboxCount") }
             }
         }
         DropdownMenu(expanded, onDismissRequest = ::dismiss, modifier = Modifier.testTag("home-page-menu")) {
-            HomePage.entries.forEach { page ->
+            pages.forEach { page ->
                 DropdownMenuItem(
                     text = { Text(stringResource(page.label)) },
                     trailingIcon = if (page == HomePage.Inbox && inboxCount > 0) { { Badge { Text("$inboxCount") } } } else null,
