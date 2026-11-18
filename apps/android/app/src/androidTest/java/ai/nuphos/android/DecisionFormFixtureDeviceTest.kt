@@ -59,6 +59,7 @@ class DecisionFormFixtureDeviceTest {
         val sent = mutableListOf<JsonValue>()
         val texts = mutableListOf<String>()
         screen { BotQuestionCard(release, onOpen = {}, onConnect = {}, onAnswer = { texts += it }, onForm = { sent += it }, answersInPlace = true) }
+        artifact("several")
         // The written-out list is not repeated under the form; the agent's own text is.
         compose.onNodeWithText("The canary has been clean for a day.").assertIsDisplayed()
         compose.onNodeWithText("**1. Roll out now?**", substring = true).assertDoesNotExist()
