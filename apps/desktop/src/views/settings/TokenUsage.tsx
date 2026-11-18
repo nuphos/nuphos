@@ -52,7 +52,9 @@ export function TokenUsage({
     }),
     [members, instances],
   )
-  const lines = groups.data ? tokenUsageLines(groups.data, groupBy, names) : []
+  // Labelled by the grouping the shown rows were asked for, not the one being loaded.
+  const shownGroup = groups.data?.query.groupBy ?? groupBy
+  const lines = groups.data ? tokenUsageLines(groups.data.rows, shownGroup, names) : []
   const total = lines.reduce((sum, line) => sum + line.totalTokens, 0)
   const cost = lines.some((line) => line.costUsd !== undefined)
     ? lines.reduce((sum, line) => sum + (line.costUsd ?? 0), 0)
@@ -77,7 +79,7 @@ export function TokenUsage({
       <div className="rounded-xl border border-line-control/60 p-4">
         <MetricChart
           title={t('Tokens per day')}
-          data={days.data ? tokenUsageDays(days.data, span) : []}
+          data={days.data ? tokenUsageDays(days.data.rows, days.data.query) : []}
           format={formatTokens}
           timeLabel={(at) =>
             new Date(at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
@@ -108,7 +110,7 @@ export function TokenUsage({
             className={`grid ${COLUMNS} gap-3 border-b border-line-control/60 pb-2 text-tertiary`}
           >
             <span role="columnheader">
-              {TOKEN_USAGE_GROUPS.find((g) => g.value === groupBy)?.label}
+              {TOKEN_USAGE_GROUPS.find((g) => g.value === shownGroup)?.label}
             </span>
             <span role="columnheader" className="text-right">
               {t('Input')}
