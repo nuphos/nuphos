@@ -154,7 +154,7 @@ export function IntegrationCatalog({
   onOpen: (rows: IntegrationPlatformRow[]) => void
   onOpenSettingsSection: (section: string) => void
 }) {
-  const [catalogTab, setCatalogTab] = useState<'mine' | 'shared' | 'browse'>('mine')
+  const [catalogTab, setCatalogTab] = useState<'mine' | 'shared' | 'browse'>('browse')
   const terms = filter.trim().toLowerCase().split(/\s+/).filter(Boolean)
   const installedKeys = useMemo(() => new Set<string>(rows.map((row) => row.provider)), [rows])
   const visibleCategories = CATALOG.map((category) => ({
@@ -209,16 +209,17 @@ export function IntegrationCatalog({
         <header className="mb-8">
           <div className="flex items-center justify-between gap-4">
             <h1 className="text-[24px] font-medium tracking-[-0.025em] text-main">
-              {catalogTab === 'browse' ? t('Add a connector') : t('Connectors')}
+              {catalogTab === 'browse' ? t('Connectors') : t('Manage connections')}
             </h1>
             {catalogTab === 'browse' ? (
-              <Button variant="ghost" onClick={() => setCatalogTab('mine')}>
-                {t('Back')}
+              <Button variant="secondary" onClick={() => setCatalogTab('mine')}>
+                {t('Manage connections')}
+                <span aria-hidden="true"> →</span>
               </Button>
             ) : (
-              <Button onClick={() => setCatalogTab('browse')}>
-                <span aria-hidden="true">＋</span>
-                {t('Add a connector')}
+              <Button variant="ghost" onClick={() => setCatalogTab('browse')}>
+                <span aria-hidden="true">← </span>
+                {t('Connectors')}
               </Button>
             )}
           </div>
