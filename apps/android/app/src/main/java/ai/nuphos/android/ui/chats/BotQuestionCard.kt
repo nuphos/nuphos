@@ -111,6 +111,8 @@ internal fun BotQuestionCard(
                 val secret = question.secretPart
                 // Asked for Dismiss's reason: the field under the row, and Dismiss is its send button.
                 var dismissing by rememberSaveable(question.id) { mutableStateOf(false) }
+                // Kept while the field is put away, so Dismiss again finds what was typed.
+                var reason by rememberSaveable(question.id) { mutableStateOf("") }
                 val asides: @Composable () -> Unit = {
                     SetAside(onDismiss.takeUnless { dismissing }, asksReason, onSnooze) { dismissing = true }
                 }
@@ -128,7 +130,7 @@ internal fun BotQuestionCard(
                     }
                     if (onDismiss != null || onSnooze != null) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { asides() }
                 }
-                if (dismissing && onDismiss != null) DismissReason(question.id, onDismiss) { dismissing = false }
+                if (dismissing && onDismiss != null) DismissReason(reason, { reason = it }, onDismiss) { dismissing = false }
             }
         }
         if (failure != null) Text(stringResource(R.string.chats_question_send_failed, failure), Modifier.testTag("bot-question-failure"),
@@ -248,10 +250,9 @@ private fun SetAside(onDismiss: ((String?) -> Unit)?, asksReason: Boolean, onSno
 
 /** Dismiss's optional reason for the agent, under the row, sent with Dismiss or put away with Cancel. */
 @Composable
-private fun DismissReason(id: String, onDismiss: (String?) -> Unit, onCancel: () -> Unit) {
-    var reason by rememberSaveable(id) { mutableStateOf("") }
+private fun DismissReason(reason: String, onReason: (String) -> Unit, onDismiss: (String?) -> Unit, onCancel: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(reason, { reason = it.take(DISMISS_REASON_LIMIT) }, Modifier.fillMaxWidth().testTag("bot-question-dismiss-reason"),
+        OutlinedTextField(reason, { onReason(it.take(DISMISS_REASON_LIMIT)) }, Modifier.fillMaxWidth().testTag("bot-question-dismiss-reason"),
             label = { Text(stringResource(R.string.chats_question_dismiss_reason)) }, textStyle = MaterialTheme.typography.bodyMedium)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
             TextButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) }
