@@ -54,6 +54,19 @@ export const TOOL_DEFINITIONS = [
             'The agent a NEW session runs on, from nuphos_list_runtimes. Omitted: ' +
             'your default agent in the team. An existing session keeps its own agent.',
         },
+        model: {
+          type: 'string',
+          description:
+            'The model a NEW session starts on; needs runtime_id. A model the agent does ' +
+            "not offer is refused with its choices. Omitted: the agent's own default. " +
+            'For an existing session use nuphos_update_session.',
+        },
+        effort: {
+          type: 'string',
+          description:
+            'The reasoning effort a NEW session starts with, e.g. high; needs runtime_id, ' +
+            'like model.',
+        },
         request_id: {
           type: 'string',
           description:

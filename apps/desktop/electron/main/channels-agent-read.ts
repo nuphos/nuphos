@@ -9,6 +9,8 @@ export const agentReadChannels = {
     agent.answerDecision(...args),
   'atlas:getAgentStats': (_e: unknown, teamId: string, query: atlas.AgentStatsQuery) =>
     atlas.getAgentStats(teamId, query),
+  'atlas:queryTeamUsage': (_e: unknown, teamId: string, query: Record<string, string>) =>
+    atlas.queryTeamUsage(teamId, query),
   'agent:getSessionResources': (_e: unknown, sessionId: string, teamId: string) =>
     agent.getSessionResources(sessionId, teamId),
   'agent:unlinkSessionResource': (
