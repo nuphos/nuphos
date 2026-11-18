@@ -450,7 +450,13 @@ describe('decision tool module', () => {
         userId: 'u1',
         'inputRequests.id': 'nuphos-1',
       },
-      { $set: { 'inputRequests.$.options': ['Delete', 'Keep', 'Back up, then delete'] } },
+      {
+        $set: {
+          'inputRequests.$.options': ['Delete', 'Keep', 'Back up, then delete'],
+          // When it was last rewritten, which the Inbox shows (#3470).
+          'inputRequests.$.updatedAt': expect.any(Date),
+        },
+      },
     ])
   })
 

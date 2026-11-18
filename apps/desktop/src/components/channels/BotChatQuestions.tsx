@@ -54,6 +54,7 @@ export function BotChatQuestion({
     <QuestionSource
       conversation={request}
       askedAt={request.inputRequest.askedAt}
+      updatedAt={request.inputRequest.updatedAt}
       onOpen={() => onOpenSession(request.sessionId)}
     />
   )
