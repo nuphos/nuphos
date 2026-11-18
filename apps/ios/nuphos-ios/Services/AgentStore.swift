@@ -507,7 +507,8 @@ final class AgentStore {
             newModelConfig = config
             newModelError = config.options.isEmpty ? "No models available. Try again." : nil
         } catch {
-            guard newModelRequest == request, selectedTeam?.id == team.id, newConversationRuntime?.id == runtime.id else { return }
+            guard newModelRequest == request, selectedTeam?.id == team.id, newConversationRuntime?.id == runtime.id,
+                  !Task.isCancelled else { return }
             newModelError = error.localizedDescription
         }
     }
@@ -594,6 +595,7 @@ final class AgentStore {
             credentials.finish(load, with: .success(try await NuphosAPI.credentialOptions(token: token, teamId: team.id)))
             publishSharingContext()
         } catch {
+            guard !Task.isCancelled else { return }
             credentials.finish(load, with: .failure(error))
         }
     }
@@ -632,6 +634,7 @@ final class AgentStore {
     /// Loads teams and picks the last-used one (or the first). Reloads the
     /// list if the selection changed.
     func loadTeams() async {
+        let shown = teamsPhase
         teamsPhase = .loading
         do {
             let firstLoad = self.teams.isEmpty
@@ -649,6 +652,8 @@ final class AgentStore {
                 await reload()
             }
         } catch {
+            // Cancelled: the teams stay as they were; the page's next appearance loads them (#3620).
+            guard !Task.isCancelled else { teamsPhase = shown; return }
             teamsPhase = .failed(error.localizedDescription)
             if teams.isEmpty && conversations.isEmpty { phase = .failed(error.localizedDescription) }
         }
@@ -716,6 +721,7 @@ final class AgentStore {
         loadedPageCursors = []
         refreshPageIndex = 0
         let generation = loadGeneration
+        let shown = phase
         if conversations.isEmpty { phase = .loading }
         async let runtimesLoad: () = loadRuntimes()
         async let channelsLoad: () = loadChannels()
@@ -736,6 +742,8 @@ final class AgentStore {
             }
         } catch {
             guard generation == loadGeneration else { return }
+            // Cancelled (a pull or page that went away): the list stays as it was (#3620).
+            guard !Task.isCancelled else { phase = shown; return }
             guard phase == .loaded else {
                 phase = .failed(error.localizedDescription)
                 return

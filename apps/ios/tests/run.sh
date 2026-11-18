@@ -23,3 +23,43 @@ swiftc nuphos-ios/Views/Home/HomeColumns.swift tests/HomeColumnsTests.swift -o "
 swiftc tests/StringCatalogTests.swift -o "$test_dir/string-catalog-tests"
 "$test_dir/string-catalog-tests" Shared/Localizable.xcstrings
 "$test_dir/string-catalog-tests" nuphos-ios/InfoPlist.xcstrings
+# A chat's real read builds against UIKit: as Mac Catalyst, it runs here without a simulator.
+macos_sdk=$(xcrun --sdk macosx --show-sdk-path)
+swiftc -target arm64-apple-ios18.0-macabi -sdk "$macos_sdk" -Fsystem "$macos_sdk/System/iOSSupport/System/Library/Frameworks" \
+  -I "$macos_sdk/System/iOSSupport/usr/lib/swift" -L "$macos_sdk/System/iOSSupport/usr/lib/swift" -parse-as-library -default-isolation MainActor \
+  BotAvatars/BotAvatars.swift \
+  nuphos-ios/Services/Chat/ThreadReference.swift \
+  nuphos-ios/Services/ImageAttachment.swift \
+  nuphos-ios/Services/PastedFile.swift \
+  nuphos-ios/Services/Chat/JSONValue.swift \
+  nuphos-ios/Services/Chat/RuntimeObservation.swift \
+  nuphos-ios/Services/Chat/ConversationUnread.swift \
+  nuphos-ios/Services/Chat/ChatModels.swift \
+  nuphos-ios/Services/NuphosAPIBase.swift \
+  nuphos-ios/Services/Chat/ToolRuns.swift \
+  Shared/SessionLink.swift \
+  nuphos-ios/Models/Channel.swift \
+  nuphos-ios/Views/Home/ChatTime.swift \
+  nuphos-ios/Services/Chat/TransferDownloads.swift \
+  nuphos-ios/Models/AgentConversation.swift \
+  nuphos-ios/Services/ConversationNesting.swift \
+  nuphos-ios/Services/Chat/BotQuestions.swift \
+  nuphos-ios/Models/CredentialCatalog.swift \
+  nuphos-ios/Models/AgentRuntime.swift \
+  nuphos-ios/Models/NuphosUser.swift \
+  nuphos-ios/Models/Team.swift \
+  nuphos-ios/Services/SignInSessions.swift \
+  nuphos-ios/Services/NuphosAPI.swift \
+  nuphos-ios/Services/WorkspaceAPI.swift \
+  nuphos-ios/Services/Chat/OpenQuestions.swift \
+  nuphos-ios/Services/BotFaces.swift \
+  nuphos-ios/Services/Chat/AgentChatAPI.swift \
+  nuphos-ios/Views/Home/ComposerAttachment.swift \
+  nuphos-ios/Services/AccountAPI.swift \
+  nuphos-ios/Models/TeamMember.swift \
+  nuphos-ios/Services/StepUp.swift \
+  nuphos-ios/Views/Home/LucideIcon.swift \
+  nuphos-ios/Views/Theme.swift \
+  nuphos-ios/Services/Passkeys.swift \
+  nuphos-ios/Services/Chat/ChannelSession.swift tests/CancelledLoadTests.swift -o "$test_dir/cancelled-load-tests"
+"$test_dir/cancelled-load-tests"
