@@ -115,6 +115,9 @@ export const botFoldScenarios: Scenario[] = [
     run: async (page, stack) => {
       const api = client(stack.apiUrl, stack.token)
       const team = await api('POST', '/teams', { name: 'Listing Team' })
+      // A workspace's menu item also reads its icon's initials, as "LT Listing Team".
+      const workspace = (name: string) =>
+        page.getByRole('menuitem', { name: new RegExp(`${name}$`) })
       const switchTo = async (name: string) => {
         // The team switcher at the top of the sidebar, labelled with the team open now.
         await page
@@ -122,13 +125,13 @@ export const botFoldScenarios: Scenario[] = [
           .first()
           .click()
         await page.getByRole('menuitem', { name: 'Switch workspace' }).click()
-        await page.getByRole('menuitem', { name, exact: true }).waitFor()
+        await workspace(name).waitFor()
       }
 
       must(team.status < 300, `a second team, got ${String(team.status)}`)
       await switchTo('Listing Team')
       await stack.freezeBackend(async () => {
-        await page.getByRole('menuitem', { name: 'Listing Team', exact: true }).click()
+        await workspace('Listing Team').click()
         await page.getByRole('tab', { name: 'Bots' }).click()
         await page.waitForTimeout(1500)
         await page.screenshot({ path: `${artifacts}/bots-first-listing-loading.png` })
@@ -141,7 +144,7 @@ export const botFoldScenarios: Scenario[] = [
       await page.screenshot({ path: `${artifacts}/bots-first-listing-empty.png` })
       // Back in the first team, where the scenarios after this one found the window before.
       await switchTo('E2E')
-      await page.getByRole('menuitem', { name: 'E2E', exact: true }).click()
+      await workspace('E2E').click()
       await page.locator('[data-sidebar-row]').filter({ hasText: 'Fold Bot' }).first().waitFor()
     },
   },
