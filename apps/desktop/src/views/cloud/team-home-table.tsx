@@ -207,9 +207,21 @@ export function IntegrationCatalog({
     <div className="connector-quiet-focus flex-1 overflow-y-auto">
       <div className="w-full px-8 pb-8 pt-2 selectable">
         <header className="mb-8">
-          <h1 className="text-[24px] font-medium tracking-[-0.025em] text-main">
-            {t('Connectors')}
-          </h1>
+          <div className="flex items-center justify-between gap-4">
+            <h1 className="text-[24px] font-medium tracking-[-0.025em] text-main">
+              {catalogTab === 'browse' ? t('Add a connector') : t('Connectors')}
+            </h1>
+            {catalogTab === 'browse' ? (
+              <Button variant="ghost" onClick={() => setCatalogTab('mine')}>
+                {t('Back')}
+              </Button>
+            ) : (
+              <Button onClick={() => setCatalogTab('browse')}>
+                <span aria-hidden="true">＋</span>
+                {t('Add a connector')}
+              </Button>
+            )}
+          </div>
           <p className="mb-5 mt-1.5 text-[13.5px] text-secondary">
             {t('Connect Nuphos to your code, data, cloud, and everyday tools.')}
           </p>
@@ -226,20 +238,21 @@ export function IntegrationCatalog({
               else onAdd(item.key)
             }}
           />
-          <div className="mt-5 flex gap-2">
-            {(['mine', 'shared', 'browse'] as const).map((tab) => (
-              <Button
-                key={tab}
-                variant={catalogTab === tab ? 'secondary' : 'ghost'}
-                aria-pressed={catalogTab === tab}
-                onClick={() => setCatalogTab(tab)}
-              >
-                {tab === 'mine' && t('My connections')}
-                {tab === 'shared' && t('Shared with the team')}
-                {tab === 'browse' && t('Add a connector')}
-              </Button>
-            ))}
-          </div>
+          {catalogTab !== 'browse' && (
+            <div className="mt-5 flex gap-2">
+              {(['mine', 'shared'] as const).map((tab) => (
+                <Button
+                  key={tab}
+                  variant={catalogTab === tab ? 'secondary' : 'ghost'}
+                  aria-pressed={catalogTab === tab}
+                  onClick={() => setCatalogTab(tab)}
+                >
+                  {tab === 'mine' && t('My connections')}
+                  {tab === 'shared' && t('Shared with the team')}
+                </Button>
+              ))}
+            </div>
+          )}
         </header>
         {catalogTab === 'mine' && (
           <PersonalConnectors
