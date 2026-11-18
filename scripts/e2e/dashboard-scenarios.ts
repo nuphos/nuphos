@@ -5,7 +5,7 @@ import { until } from './processes.ts'
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
 
-type Member = { email: string; token: string; id: string }
+export type Member = { email: string; token: string; id: string }
 
 /** The fields these scenarios read from the backend's answers. */
 type Answer = {
@@ -17,7 +17,7 @@ type Answer = {
   formerMembers?: { id: string }[]
 }
 
-function api(stack: Stack, token: string) {
+export function api(stack: Stack, token: string) {
   return async (method: string, path: string, body?: unknown) => {
     const response = await fetch(stack.apiUrl + path, {
       method,

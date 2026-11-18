@@ -1,4 +1,4 @@
-import { openInputRequests } from '../../lib/agentInputRequests.ts'
+import { attentionInputRequests, botIsOnboarding } from '../../lib/agentInputRequests.ts'
 import { chatRowIndicator, runtimeTurnActive } from '../../lib/runtimeExecution.ts'
 import { subAgentState } from '../../lib/subAgentState.ts'
 
@@ -7,9 +7,10 @@ import type { RuntimeExecution } from '../../lib/runtimeExecution.ts'
 
 export type Run = { conversation: AgentConversation; runtimeState: RuntimeExecution | undefined }
 
-/** What a Bot is doing: a question first, its own turn, a sub-agent's, then background work. */
+/** What a Bot is doing: a question, its turn, a sub-agent's, its setup, then background work. */
 export type Activity =
   | { kind: 'idle' }
+  | { kind: 'onboarding' }
   | { kind: 'asking'; question: string }
   | { kind: 'working'; run: Run }
   | { kind: 'background'; run: Run | undefined }
@@ -17,14 +18,24 @@ export type Activity =
 
 export function activityOf(bot: Run | undefined, kids: Run[]): Activity {
   const runs = [...(bot ? [bot] : []), ...kids]
-  const asking = runs.find((run) => openInputRequests(run.conversation).length > 0)
+  const asking = runs.find((run) => attentionInputRequests(run.conversation).length > 0)
 
   if (asking)
-    return { kind: 'asking', question: openInputRequests(asking.conversation)[0]?.question ?? '' }
+    return {
+      kind: 'asking',
+      question: attentionInputRequests(asking.conversation)[0]?.question ?? '',
+    }
   if (bot && runtimeTurnActive(bot.runtimeState)) return { kind: 'working', run: bot }
   const busy = kids.find((kid) => runtimeTurnActive(kid.runtimeState))
 
   if (busy) return { kind: 'working', run: busy }
+  // A Bot still in setup says so only while nothing runs: a working Bot shows it works.
+  if (
+    bot &&
+    botIsOnboarding(bot.conversation) &&
+    chatRowIndicator(bot.runtimeState, false) !== 'error'
+  )
+    return { kind: 'onboarding' }
   const indicator = chatRowIndicator(bot?.runtimeState, false)
 
   if (indicator === 'error') return { kind: 'error', label: bot?.runtimeState?.label }

@@ -5,6 +5,7 @@ import ai.nuphos.android.data.JsonValue
 import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.data.TransferDownloadGroup
 import ai.nuphos.android.model.AgentConversationDetail
+import ai.nuphos.android.model.BotFaces
 import ai.nuphos.android.model.ChannelAgent
 import ai.nuphos.android.model.ChannelItem
 import ai.nuphos.android.model.ChannelPost
@@ -145,7 +146,8 @@ class ChannelTest {
                     "\",\"agent\":{\"avatar\":\"" + avatar + "\"}}],\"transcriptUpdatedAt\":\"" + stamp +
                     "\",\"messageCount\":" + count + ",\"activitySeq\":" + (activity ?: count) + ",\"messages\":[" + post + "]}")
         }
-        override suspend fun agents(): List<ChannelAgent> { agentsCalls++; return listOf(ChannelAgent("agent-ops", "Release ops")) }
+        var listed = listOf(ChannelAgent("agent-ops", "Release ops"))
+        override suspend fun agents(): List<ChannelAgent> { agentsCalls++; return listed }
         override suspend fun attachment(groupId: String): TransferDownloadGroup {
             attachments += groupId
             if (failAttachment) error("offline")
@@ -181,6 +183,14 @@ class ChannelTest {
         session.refresh()
         assertEquals(listOf(ChannelSession.TAIL, 1, 1, ChannelSession.TAIL), transport.details)
         assertEquals(2, transport.agentsCalls); assertEquals(2L, session.activitySeq)
+    }
+
+    @Test fun aTeammatesBotPostsWithItsOwnFace() = runTest {
+        val transport = FakeTransport()
+        transport.listed = listOf(ChannelAgent("teammates-bot", "書記官", ownerId = "teammate", avatar = "07-ada"))
+        val session = ChannelSession("team", "chat-release", "Chat", transport)
+        session.refresh(force = true)
+        assertEquals("07-ada", BotFaces.face("teammates-bot"))
     }
 
     @Test fun renamingTheBotReadsTheChatAgainWithoutAPost() = runTest {

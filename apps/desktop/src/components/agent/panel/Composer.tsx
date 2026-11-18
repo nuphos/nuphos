@@ -135,7 +135,7 @@ export function Composer({
     state.ref,
     state.composingRef,
     state.syncEmpty,
-    modelSession && modelControl.data?.status !== 'unsupported'
+    modelSession && !modelSession.lockedHint && modelControl.data?.status !== 'unsupported'
       ? () => modelControl.setOpen(true)
       : undefined,
     { commands: runtimeState?.commands, runtimeId: runtimeControl?.value?.id },
@@ -262,7 +262,12 @@ export function Composer({
               )}
             </ComposerTools>
             {modelSession ? (
-              <ModelSelector control={modelControl} disabled={readOnly} hero={hero} />
+              <ModelSelector
+                control={modelControl}
+                disabled={readOnly || Boolean(modelSession.lockedHint)}
+                disabledHint={modelSession.lockedHint}
+                hero={hero}
+              />
             ) : (
               newConversationModelControl
             )}

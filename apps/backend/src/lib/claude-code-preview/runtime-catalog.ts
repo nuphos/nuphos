@@ -6,6 +6,7 @@ import { runtimeLogins } from './runtime-login-store'
 import { runtimeDeletions } from './runtime-portability-store'
 import { OPENAB_PROVIDERS, runtimeLabel } from './runtime-provider'
 import { fetchRuntimeQuota } from './runtime-quota'
+import { usedUp, withSharedQuota } from './runtime-quota-shape'
 import { runtimeGone } from './runtime-refusal'
 import { listTeamRuntimes, resolveTeamRuntimeEndpoints } from './runtime-registry'
 
@@ -15,7 +16,7 @@ import type { RuntimeQuota } from './runtime-quota'
 import type { TeamRuntimeEndpoint } from './team-openab-runtime'
 
 export const MANAGED_RUNTIME_RETIRED =
-  'Nuphos-hosted agents have been retired. Move this conversation to a Nuphos Box or your own computer to continue.'
+  'Nuphos-hosted agents have been retired. Move this conversation to a Nuphos cloud computer or your own computer to continue.'
 
 export function developmentRuntimeEndpoint(
   provider: OpenAbProvider,
@@ -163,11 +164,13 @@ export async function listRuntimeQuotas(
     .toArray()
   const signIn = new Map(signIns.map((login) => [login.runtimeId, login.attemptId]))
 
-  return Promise.all(
+  const quotas = await Promise.all(
     instances.map((instance) =>
       fetchRuntimeQuota(teamId, instance, undefined, undefined, signIn.get(instance.id)),
     ),
   )
+
+  return withSharedQuota(quotas, instances)
 }
 
 /** When an agent that ran out of usage gets it back: the latest reset among its used-up windows. */
@@ -180,10 +183,6 @@ export async function usageResetsAt(
     (entry) => entry.id === runtimeId,
   )
   const [quota] = instance ? await listRuntimeQuotas(teamId, [instance]) : []
-  const resets = (quota?.windows ?? []).flatMap((window) =>
-    window.usedPercent >= 100 && window.resetsAt ? [Date.parse(window.resetsAt)] : [],
-  )
-  const latest = Math.max(...resets.filter(Number.isFinite))
 
-  return Number.isFinite(latest) ? new Date(latest).toISOString() : undefined
+  return usedUp(quota)?.resetsAt
 }

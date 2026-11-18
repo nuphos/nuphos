@@ -215,13 +215,17 @@ export function launchAcceptedChatTurn(args: {
           if (slackDelivery) attachFrameSink(next, slackDelivery.frameSink)
           if (discordSink) attachFrameSink(next, discordSink.frameSink)
         },
-        onTurnUsage: (usage) => {
+        onTurnUsage: (report) => {
           recordRuntimeTurnUsage({
             sessionId,
             userId: run.userId,
             teamId,
             provider: chatRuntime.endpoint.provider ?? 'claude-code',
-            usage,
+            ...report,
+            actorUserId: chatCtx.userId,
+            turnSource: 'app',
+            runtimeId: chatRuntime.endpoint.runtimeId,
+            deviceId: chatRuntime.endpoint.local?.deviceId,
           })
         },
         localToolsEnabled: chatCtx.localToolsEnabled,

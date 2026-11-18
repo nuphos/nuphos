@@ -5,10 +5,14 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
 import { agentLog } from './agent-log.ts'
+import { agentSignInScenarios } from './agent-sign-in-scenarios.ts'
 import { backendLines, backendLog } from './backend-log.ts'
+import { boxScenarios } from './box-scenarios.ts'
+import { browserDownloadScenarios } from './browser-download-scenarios.ts'
 import { artifacts, until } from './processes.ts'
+import { transferLimitScenarios } from './transfer-limit-scenarios.ts'
 import { transferRefundScenarios } from './transfer-refund-scenarios.ts'
-import { newTask, send } from './ui.ts'
+import { newTask, openComputers, send } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
@@ -16,7 +20,7 @@ import type { Scenario } from './ui.ts'
 const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
 const OPENED = /"agent\.local_runtime\.tunnel_opened".*"device_id":"([^"]+)"/
 
-function forgetComputer(mongoUri: string, deviceId: string) {
+export function forgetComputer(mongoUri: string, deviceId: string) {
   const script = `
     import { MongoClient } from 'mongodb'
     const client = await new MongoClient(process.argv[1]).connect()
@@ -76,10 +80,11 @@ export const computerScenarios: Scenario[] = [
     run: async (_page, stack) => {
       let deviceId: string | undefined
 
+      // The app's tunnel opens first; computers other scenarios fake open theirs later.
       await until('the app to open its tunnel', async () => {
         deviceId = backendLog()
           .map((line) => OPENED.exec(line)?.[1])
-          .findLast(Boolean)
+          .find(Boolean)
 
         return deviceId
       })
@@ -93,6 +98,15 @@ export const computerScenarios: Scenario[] = [
         other.addEventListener('open', opened)
         other.addEventListener('error', failed)
       })
+      // It takes the computer once it speaks, as an app does on connecting (#3366).
+      const speaking = backendLines()
+
+      other.send(JSON.stringify({ t: 'status', status: { agents: {} } }))
+      await until('the other connection to take the computer', async () =>
+        backendLog(speaking).some(
+          (line) => line.includes(deviceId!) && line.includes('"code":4000'),
+        ),
+      )
       const from = backendLines()
 
       forgetComputer(stack.mongoUri, deviceId!)
@@ -183,5 +197,57 @@ export const computerScenarios: Scenario[] = [
       if (readFileSync(path, 'utf8') !== second) throw new Error('overwrite did not replace it')
     },
   },
+  {
+    // An updated host whose agents have not started yet lists none; it still takes a new one.
+    name: 'a connected computer that lists no agents yet offers to add one',
+    run: async (page, stack) => {
+      const deviceId = randomUUID()
+      const label = `E2E idle computer ${deviceId.slice(0, 8)}`
+      const auth = { authorization: `Bearer ${stack.token}` }
+      const registered = await fetch(`${stack.apiUrl}/agent/devices`, {
+        method: 'PUT',
+        headers: { ...auth, 'content-type': 'application/json' },
+        body: JSON.stringify({ deviceId, label, platform: 'darwin', allowLocalExec: true }),
+      })
+
+      if (!registered.ok) throw new Error(`Registering answered ${String(registered.status)}`)
+      const host = new WebSocket(
+        `${stack.apiUrl.replace(/^http/, 'ws')}/agent/devices/${deviceId}/runtime-tunnel`,
+        { headers: auth } as unknown as string[],
+      )
+
+      host.addEventListener('message', (event) => {
+        if (String(event.data).includes('"ping"')) host.send(JSON.stringify({ t: 'pong' }))
+      })
+      await new Promise((opened, failed) => {
+        host.addEventListener('open', opened)
+        host.addEventListener('error', failed)
+      })
+      host.send(JSON.stringify({ t: 'status', status: { agentInstances: true, agents: {} } }))
+      try {
+        await openComputers(page)
+        await page.getByRole('button', { name: `New runtime on ${label}` }).click()
+        await page.getByRole('menu').waitFor()
+        // The menu fades in.
+        await page.waitForTimeout(500)
+        await page.screenshot({ path: join(artifacts, 'add-runtime-no-agents.png') })
+        const codex = page.getByRole('menuitem', { name: 'Codex', exact: true })
+
+        if (!(await codex.count()) || (await codex.isDisabled()))
+          throw new Error('Adding Codex is not offered')
+        if (await page.getByText('Update the computer host').count())
+          throw new Error('The menu blames the computer host')
+        await page.keyboard.press('Escape')
+        await page.getByText('Back to app', { exact: true }).click()
+      } finally {
+        host.close()
+        forgetComputer(stack.mongoUri, deviceId)
+      }
+    },
+  },
   ...transferRefundScenarios,
+  ...transferLimitScenarios,
+  ...boxScenarios,
+  ...agentSignInScenarios,
+  ...browserDownloadScenarios,
 ]

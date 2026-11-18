@@ -29,12 +29,31 @@ import { deleteDeviceJoinTokens } from './join-tokens'
 import { isDevicePresent, waitForPresence } from './presence'
 import { getAgentDevice } from './store'
 
+import type { createBox } from './box-instabox-create'
+import type { BoxState } from './box-instabox-state'
 import type { AgentDevice, AgentDeviceBox } from './store'
 
 export { boxBackendUrl, boxesAvailable } from './box-instabox-client'
 export { createBox } from './box-instabox-create'
-export { boxState } from './box-instabox-state'
+export { boxPausedBy, boxState } from './box-instabox-state'
 export type { BoxState } from './box-instabox-state'
+
+/** What the device routes call on the Box provider. */
+export type BoxProvider = {
+  create: typeof createBox
+  pause: (userId: string, deviceId: string) => Promise<AgentDevice>
+  resume: (userId: string, deviceId: string) => Promise<AgentDevice>
+  destroy: (userId: string, deviceId: string) => Promise<void>
+  /** A link to the Box's desktop, to watch and take over what its agents do. */
+  desktop: (userId: string, deviceId: string) => Promise<string>
+  /** Starts the host again on a running machine whose host dropped; rate-limited. */
+  heal: (userId: string, deviceId: string) => void
+  /** Whether Boxes can be ordered here: a provider and a public URL for the machine to dial. */
+  available: () => boolean
+  state: (device: AgentDevice, online: boolean) => Promise<BoxState | 'gone'>
+  /** Why instabox paused the machine on its own (`memory_pressure`, …); undefined if a person did. */
+  pausedBy: (device: AgentDevice) => Promise<string | undefined>
+}
 
 /** How long a resume may take before the tunnel is back. */
 const WAKE_TIMEOUT_MS = 60_000
@@ -42,13 +61,14 @@ const WAKE_TIMEOUT_MS = 60_000
 type BoxDevice = AgentDevice & { box: AgentDeviceBox }
 
 function requireBox(device: AgentDevice | null, deviceId: string): BoxDevice {
-  if (!device?.box) throw new AppError(404, 'not_found', `No Box ${deviceId}`)
+  if (!device?.box) throw new AppError(404, 'not_found', `No cloud computer ${deviceId}`)
 
   return device as BoxDevice
 }
 
 function requireMachine(device: BoxDevice): string {
-  if (!device.box.sandboxId) throw new AppError(409, 'box_state', 'The Box is still being created')
+  if (!device.box.sandboxId)
+    throw new AppError(409, 'box_state', 'The computer is still being created')
 
   return device.box.sandboxId
 }
@@ -74,7 +94,7 @@ export async function boxDesktopUrl(userId: string, deviceId: string): Promise<s
 
     return url
   } catch (error) {
-    throw unavailable("Could not open the Box's desktop", error)
+    throw unavailable("Could not open the computer's desktop", error)
   }
 }
 
@@ -104,7 +124,7 @@ export async function pauseBox(userId: string, deviceId: string): Promise<AgentD
 
     await sandbox.pause()
   } catch (error) {
-    throw unavailable('Could not pause the Box', error)
+    throw unavailable('Could not pause the computer', error)
   }
   await clearBoxUpdateStarted(userId, deviceId)
 
@@ -121,7 +141,7 @@ export async function resumeBox(userId: string, deviceId: string, command = AGEN
 
   // Starting the host mid-update would run the old CLI while the new one installs.
   if (command === AGENT_COMMAND && boxUpdatingSince(device))
-    throw new AppError(409, 'box_updating', 'The Box is updating and starts again on its own.')
+    throw new AppError(409, 'box_updating', 'The computer is updating and starts again on its own.')
   const url = requireBackendUrl()
 
   try {
@@ -139,7 +159,7 @@ export async function resumeBox(userId: string, deviceId: string, command = AGEN
     })
   } catch (error) {
     if (error instanceof AppError) throw error
-    throw unavailable('Could not resume the Box', error)
+    throw unavailable('Could not resume the computer', error)
   }
 
   return device
@@ -158,7 +178,7 @@ export async function runOnBox(userId: string, deviceId: string, command: string
 
     await sandbox.commands.run(command, { background: true })
   } catch (error) {
-    throw unavailable('Could not run the command on the Box', error)
+    throw unavailable('Could not run the command on the computer', error)
   }
 }
 
@@ -178,7 +198,7 @@ export async function destroyBox(userId: string, deviceId: string): Promise<void
     await killBoxMachine(conn, device.box.sandboxId, deviceId)
   } catch (error) {
     logError('agent.box.kill_failed', error, { user_id: userId, device_id: deviceId })
-    throw unavailable('Could not delete the Box', error)
+    throw unavailable('Could not delete the computer', error)
   }
   // Its tunnel closed before the kill, while the machine still ran.
   noteBoxUsage(device.box.teamId)

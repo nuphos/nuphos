@@ -597,6 +597,7 @@
   "GET /teams/:teamId/uptime-kuma-instances/:instanceId/monitors": "member",
   "GET /teams/:teamId/uptime-kuma-instances/:instanceId/monitors/:monitorId": "member",
   "GET /teams/:teamId/usage": "member",
+  "GET /teams/:teamId/usage/query": "member",
   "GET /teams/:teamId/vanta-integrations": "member",
   "GET /teams/:teamId/vanta-integrations/:integrationId": "member",
   "GET /teams/:teamId/vanta-integrations/:integrationId/access": "member",

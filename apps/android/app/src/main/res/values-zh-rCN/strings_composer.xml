@@ -103,6 +103,10 @@
     <string name="composer_saving">正在保存…</string>
     <string name="composer_send_securely">安全发送</string>
     <string name="composer_secret_footer">该值会写入任务运行环境上的文件，不会出现在此任务中。</string>
+    <string name="composer_secret_details_needed">%1$s 需要的资料</string>
+    <string name="composer_secret_fields_footer">这些值会写入任务运行环境上的文件，并填入 %1$s，填入过程不经过此任务。</string>
+    <string name="composer_secret_reveal">显示值</string>
+    <string name="composer_secret_hide">隐藏值</string>
     <string name="composer_attachments_unavailable">附件不可用</string>
     <string name="composer_attachments">附件</string>
     <string name="composer_loading_attachments">正在加载附件…</string>

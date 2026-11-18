@@ -24,6 +24,14 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class BotQuestionsTest {
+    @Test fun setupPreferencesStayInChat() {
+        val bot = AgentConversation(sessionId = "setup", title = "Setup", isOwner = true, botOnboarding = "active",
+            inputRequests = listOf(InputRequest("purpose", "preference", "What should I own?", null, null)))
+        assertTrue(BotQuestions.open(listOf(bot)).isEmpty())
+        assertEquals(1, BotQuestions.under("setup", listOf(bot)).size)
+        assertEquals(1, BotQuestions.open(listOf(bot.copy(botOnboarding = "completed"))).size)
+    }
+
     private fun row(id: String, parent: String? = null, owner: Boolean = true, vararg asks: Pair<String, String>) =
         AgentConversation(sessionId = id, title = id, isOwner = owner, parentSessionId = parent,
             inputRequests = asks.map { (requestId, at) -> InputRequest(requestId, "approval", "Ship?", listOf("Yes", "No"), at) }

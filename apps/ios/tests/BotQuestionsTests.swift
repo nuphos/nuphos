@@ -2,6 +2,7 @@ import Foundation
 
 enum BotQuestionsTests {
     static func run() {
+        setupPreferencesStayInChat()
         listsTheBotsQuestionsAtAnyDepth()
         leavesOutOtherBotsAndTeammates()
         decodesTheOpenRequestsOfAListRow()
@@ -15,6 +16,16 @@ enum BotQuestionsTests {
         theInboxGroupsBySourceAndOpensTheNextQuestion()
         aBotsTaskQuestionIsInTheBotsGroup()
         print("Bot questions passed")
+    }
+
+    private static func setupPreferencesStayInChat() {
+        var bot = row("setup")
+        bot.botOnboarding = "active"
+        bot.inputRequests = [.init(id: "purpose", category: "preference", question: "What should I own?", options: nil, askedAt: nil)]
+        precondition(BotQuestions.open(rows: [bot]).isEmpty)
+        precondition(BotQuestions.under(bot: "setup", rows: [bot]).count == 1)
+        bot.botOnboarding = "completed"
+        precondition(BotQuestions.open(rows: [bot]).count == 1)
     }
 
     private static func theInboxGroupsBySourceAndOpensTheNextQuestion() {

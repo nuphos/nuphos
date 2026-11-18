@@ -49,7 +49,6 @@ struct PoolState {
     /// normally revokes it cannot fire while a hung streaming task still holds an Arc of the
     /// connection, and `AcpTunnelSource` authorizes by channel alone, so an un-revoked predecessor
     /// token would keep reaching whatever tunnel a successor registers for that channel (F3).
-    #[cfg(feature = "acp-mcp")]
     facade_tokens: HashMap<String, String>,
     /// Lock-free activity handles for hung-session detection without the connection mutex.
     activity: HashMap<String, Arc<SessionActivity>>,
@@ -64,9 +63,6 @@ struct PoolState {
     /// Includes both suspended sessions and active sessions so a process restart
     /// can recover any live thread via `session/load`.
     persisted: HashMap<String, String>,
-    /// Consecutive `session/load` failures per thread_key, in memory only: a restart clears them
-    /// so `thread_map.json` keeps the shape every runtime can read (see [`LoadFailure`]).
-    load_failures: HashMap<String, LoadFailure>,
     /// Serializes create/resume work per thread so rapid same-thread requests
     /// cannot race each other into duplicate `session/load` attempts.
     creating: HashMap<String, Arc<Mutex<()>>>,
@@ -99,9 +95,7 @@ pub struct SessionPool {
     meta_path: PathBuf,
     credentials_root: PathBuf,
     default_config_options: HashMap<String, String>,
-    #[cfg(feature = "acp-mcp")]
     session_registrar: Option<Arc<dyn crate::acp_mcp::SessionTokenRegistrar>>,
-    #[cfg(feature = "acp-mcp")]
     facade_url: Option<String>,
 }
 
@@ -283,7 +277,6 @@ fn better_candidate(current_oldest: Option<Instant>, candidate_last_active: Inst
 /// credential for a session that cannot use it and leave it valid until eviction, while the
 /// failure showed up only as a warning. Returning `None` keeps the session running without
 /// browser capabilities, which is the honest description of what actually happened.
-#[cfg(feature = "acp-mcp")]
 async fn setup_facade_session(
     workdir: &str,
     facade_url: &str,
@@ -333,7 +326,6 @@ fn purge_session_entries(state: &mut PoolState, key: &str) {
     state.pgids.remove(key);
     state.suspended.remove(key);
     state.persisted.remove(key);
-    state.load_failures.remove(key);
     state.stopped_at.remove(key);
     // Do NOT remove the creating gate: it is concurrency control, not session
     // state. Removing it while a holder still owns the old gate Arc would let
@@ -386,29 +378,6 @@ const SESSION_GONE_PHRASES: &[&str] = &[
     "no conversation found",
 ];
 
-/// Whether a failed `session/load` starts a new session right away instead of failing the turn.
-///
-/// Two cases do. The agent says the persisted session does not exist — by code (ACP's "resource
-/// not found") or by its own wording (a missing thread/rollout) — so starting fresh loses nothing.
-/// Or the restore timed out: it gets the same budget as `session/new`, which does the same work
-/// minus reading the transcript, so a restore still running by then is hung rather than slow, and
-/// retrying it would only hang the next turn too.
-///
-/// Everything else — a closed connection, an agent-internal error — says nothing about whether
-/// the conversation is still on disk, and `state.persisted` is the only pointer to it. Those
-/// failures are counted instead ([`LOAD_FAILURE_LIMIT`]), so a session that can never be loaded
-/// again is still abandoned, just not on the first error.
-///
-/// The wording match is necessarily a guess about what an agent prints; the counter is what makes
-/// a wrong guess cost three attempts rather than the wrong outcome.
-fn session_load_falls_back_at_once(err: &AcpRequestError) -> bool {
-    match err {
-        AcpRequestError::Timeout { .. } => true,
-        AcpRequestError::Agent(err) => session_lost(err),
-        _ => false,
-    }
-}
-
 /// An agent error's own wording, lowercased: the JSON-RPC message plus the detail it carries in
 /// `error.data` (codex-acp reports its app-server error there).
 fn load_error_text(err: &JsonRpcError) -> String {
@@ -418,46 +387,6 @@ fn load_error_text(err: &JsonRpcError) -> String {
         text.push_str(&detail.to_lowercase());
     }
     text
-}
-
-/// How many consecutive `session/load` failures are tolerated before the saved session is
-/// abandoned for a fresh one.
-///
-/// Bounded, not unlimited: an agent that can never load the session again — its home was cleared,
-/// the machine was rebuilt with the thread map kept, the session file is corrupt — would otherwise
-/// fail every prompt for ever, with no way back from a Desktop client.
-///
-/// Three, not one: a single failure is a blip (a locked store, an agent killed mid-load), and
-/// falling back on the first one would drop the saved context of a session that is still there.
-///
-/// The streak is in memory only, so restarting the runtime starts it over — [`LoadFailure`] says
-/// why that trade is deliberate.
-const LOAD_FAILURE_LIMIT: u32 = 3;
-
-/// A consecutive-failure streak for one thread's saved session.
-///
-/// Held in memory only, deliberately: `thread_map.json` stays the plain thread → session id map
-/// every runtime since then reads, so a rollback — or two runtimes sharing one agent home — cannot
-/// mistake the file for a corrupt one and drop every saved session id. The cost is that a restart
-/// forgets the streak, which is the safe direction: a session that can never load gets at most
-/// [`LOAD_FAILURE_LIMIT`] more tries rather than being abandoned on a count from an earlier boot.
-///
-/// The session id is part of the value, not just the key: a streak only counts against the id it
-/// started on, so a different saved session starts over instead of inheriting failures that were
-/// never about it.
-#[derive(Debug)]
-struct LoadFailure {
-    session_id: String,
-    consecutive: u32,
-}
-
-/// The streak length one more failure produces: `previous` continued when it was counted against
-/// the same session, and restarted at one when the saved session id changed.
-fn next_load_failure(previous: Option<&LoadFailure>, session_id: &str) -> u32 {
-    match previous {
-        Some(previous) if previous.session_id == session_id => previous.consecutive + 1,
-        _ => 1,
-    }
 }
 
 /// Escalating kill for a hung agent's process group: wait 10s after the
@@ -480,11 +409,7 @@ async fn kill_pgid_after_grace(pgid: Option<i32>) {
         }
     }
     #[cfg(not(unix))]
-    {
-        // No process-group kill on non-unix; rely on AcpConnection::Drop's
-        // Windows handling if/when the hung task eventually unwinds.
-        let _ = pgid;
-    }
+    crate::acp::connection::kill_process_group(pgid);
 }
 
 /// Remove a hung session from all pool maps. Returns true if the exact
@@ -509,7 +434,6 @@ fn apply_hung_eviction(
 /// holds an Arc) the guard never fires — so revoking the superseded token here is what stops it
 /// staying valid for the channel after a successor takes over (F3). Revocation is by exact token
 /// and idempotent, so overlapping with the guard on a clean replacement is harmless.
-#[cfg(feature = "acp-mcp")]
 fn install_facade_token(
     state: &mut PoolState,
     key: &str,
@@ -532,7 +456,6 @@ fn install_facade_token(
 /// and `AcpTunnelSource` (channel-only authorization) would let the hung predecessor reach a
 /// successor's tunnel (F3). `purge_session_entries` deliberately does NOT touch `facade_tokens`, so
 /// this can run *after* `apply_hung_eviction` and still find the token to revoke.
-#[cfg(feature = "acp-mcp")]
 fn revoke_facade_token_for_key(
     state: &mut PoolState,
     key: &str,
@@ -673,13 +596,11 @@ impl SessionPool {
                 admission_permits: HashMap::new(),
                 cancel_handles: HashMap::new(),
                 steering_handles: HashMap::new(),
-                #[cfg(feature = "acp-mcp")]
                 facade_tokens: HashMap::new(),
                 activity: HashMap::new(),
                 pgids: HashMap::new(),
                 persisted: suspended.clone(),
                 suspended,
-                load_failures: HashMap::new(),
                 creating: HashMap::new(),
                 stopped_at: HashMap::new(),
                 session_workdirs,
@@ -694,9 +615,7 @@ impl SessionPool {
             meta_path,
             credentials_root,
             default_config_options,
-            #[cfg(feature = "acp-mcp")]
             session_registrar: None,
-            #[cfg(feature = "acp-mcp")]
             facade_url: None,
         }
     }
@@ -711,7 +630,6 @@ impl SessionPool {
     /// of the agent, and a `type:acp` server must actually attach over `/acp` —
     /// admission is that transport auth, not a config allowlist (D-29 removed
     /// `[[mcp.acp_servers]]`, reversing D-20).
-    #[cfg(feature = "acp-mcp")]
     pub fn with_facade_sessions(
         mut self,
         registrar: Option<Arc<dyn crate::acp_mcp::SessionTokenRegistrar>>,
@@ -818,7 +736,6 @@ impl SessionPool {
                 state.steering_handles.remove(&key);
                 state.activity.remove(&key);
                 state.pgids.remove(&key);
-                #[cfg(feature = "acp-mcp")]
                 revoke_facade_token_for_key(&mut state, &key, self.session_registrar.as_ref());
                 info!(evicted = %crate::redact::redact_session_ids(&key), "pool full, suspending oldest idle session before replacement spawn");
                 if let Some(sid) = sid {
@@ -1156,9 +1073,7 @@ impl SessionPool {
         // There is no transport fallback. Without `[mcp]` the root wires no registrar, and the
         // session simply starts without browser capabilities — which is the honest outcome and is
         // reported once at startup rather than being silently substituted per session.
-        #[cfg(feature = "acp-mcp")]
         let mut session_token: Option<String> = None;
-        #[cfg(feature = "acp-mcp")]
         let facade_token_guard: Option<tokio_util::sync::DropGuard> = match (
             thread_id.strip_prefix("acp:"),
             self.session_registrar.as_ref(),
@@ -1204,7 +1119,6 @@ impl SessionPool {
                 dir.to_string_lossy().into_owned(),
             );
         }
-        #[cfg(feature = "acp-mcp")]
         let spawn_env: std::collections::HashMap<String, String> = {
             let mut env = base_env;
             if let Some(tok) = &session_token {
@@ -1214,8 +1128,6 @@ impl SessionPool {
             }
             env
         };
-        #[cfg(not(feature = "acp-mcp"))]
-        let spawn_env = base_env;
         // Callers may pass a per-session working directory that doesn't exist
         // yet (e.g. per-conversation isolation). Create it so the spawn's
         // current_dir() doesn't fail.
@@ -1233,9 +1145,6 @@ impl SessionPool {
         .await?;
 
         let mut resumed = false;
-        // Set when `session/load` failed in a way that must not replace the session. The id stays
-        // in `state.persisted`, so the next prompt retries the load instead of starting over.
-        let mut load_failed: Option<AcpRequestError> = None;
         if let Some(ref sid) = saved_session_id {
             if new_conn.supports_load_session {
                 match new_conn
@@ -1256,37 +1165,15 @@ impl SessionPool {
                             .context("Could not restore the saved native session")
                             .into());
                     }
-                    // Anything else keeps the id until it has failed `LOAD_FAILURE_LIMIT` times in
-                    // a row: one failure is a blip, but a session that can never load again must
-                    // not fail every prompt for ever.
-                    Err(e) if !session_load_falls_back_at_once(&e) => {
-                        let consecutive = self.record_load_failure(thread_id, sid).await;
-                        if consecutive >= LOAD_FAILURE_LIMIT {
-                            // Out of attempts: start a fresh session. `session_reset` below makes
-                            // the next turn tell the user the saved context was dropped.
-                            warn!(thread_id = %crate::redact::redact_session_ids(thread_id), session_id = %crate::redact::redact_session_ids(sid), consecutive, error = %e,
-                                "session/load failed repeatedly, giving up on the saved session");
-                        } else {
-                            warn!(thread_id = %crate::redact::redact_session_ids(thread_id), session_id = %crate::redact::redact_session_ids(sid), consecutive, error = %e,
-                                "session/load failed, preserving session ID for retry");
-                            load_failed = Some(e);
-                        }
-                    }
+                    // Whatever the reason, the turn continues in a new session: failing it instead
+                    // only leaves the user stuck, since every next turn meets the same saved
+                    // session. `session_reset` below tells them the saved context was dropped.
                     Err(e) => {
                         warn!(thread_id = %crate::redact::redact_session_ids(thread_id), session_id = %crate::redact::redact_session_ids(sid), error = %e,
-                            "session/load reports the session is gone or timed out, creating new session");
+                            "session/load failed, creating new session");
                     }
                 }
             }
-        }
-
-        if let Some(e) = load_failed {
-            // The original session ID is still in state.persisted (we never touched it), so the
-            // next message retries session/load automatically. Return an error so the current
-            // message is not processed against a context-free session.
-            return Err(anyhow::Error::new(e)
-                .context("Could not restore the saved session; it is kept for the next attempt")
-                .into());
         }
 
         if !resumed {
@@ -1323,7 +1210,6 @@ impl SessionPool {
         let activity_handle = new_conn.activity_handle();
         let child_pgid = new_conn.child_pgid();
         let cancel_session_id = new_conn.acp_session_id.clone().unwrap_or_default();
-        #[cfg(feature = "acp-mcp")]
         new_conn.set_facade_token_guard(facade_token_guard);
         let new_conn = Arc::new(Mutex::new(new_conn));
 
@@ -1354,8 +1240,6 @@ impl SessionPool {
                 .persisted
                 .insert(thread_id.to_string(), cancel_session_id.clone());
         }
-        // A session that just loaded, or one that was just created, has no failed loads behind it.
-        state.load_failures.remove(thread_id);
         state.suspended.remove(thread_id);
         state
             .admission_permits
@@ -1377,7 +1261,6 @@ impl SessionPool {
         }
         // Record this connection's exact token lock-free, revoking any predecessor token it
         // supersedes under the same key (its guard cannot fire if that predecessor is hung). F3.
-        #[cfg(feature = "acp-mcp")]
         if let Some(token) = session_token {
             install_facade_token(
                 &mut state,
@@ -1404,26 +1287,6 @@ impl SessionPool {
         // even if we had to spawn a new ACP process. ADR §2.2: directives are first-message-only.
         let is_fresh = !had_existing && saved_session_id.is_none();
         Ok(is_fresh)
-    }
-
-    /// Count one `session/load` failure against `thread_id`'s saved session and return the new
-    /// streak length.
-    ///
-    /// Called only for failures that say nothing about whether the session exists; the caller
-    /// gives up on the session once the streak reaches [`LOAD_FAILURE_LIMIT`]. The streak is in
-    /// memory only, so a runtime restart gives a stuck session at most [`LOAD_FAILURE_LIMIT`] more
-    /// tries — which is what keeps `thread_map.json` in the shape older runtimes can read.
-    async fn record_load_failure(&self, thread_id: &str, session_id: &str) -> u32 {
-        let mut state = self.state.write().await;
-        let consecutive = next_load_failure(state.load_failures.get(thread_id), session_id);
-        state.load_failures.insert(
-            thread_id.to_string(),
-            LoadFailure {
-                session_id: session_id.to_string(),
-                consecutive,
-            },
-        );
-        consecutive
     }
 
     /// Get mutable access to a connection. Caller must have called get_or_create first.
@@ -1677,7 +1540,6 @@ impl SessionPool {
         purge_session_entries(&mut state, thread_id);
         // Resetting a hung session drops the map's Arc but not the one the stuck task holds, so the
         // guard cannot revoke — do it synchronously here too (F3).
-        #[cfg(feature = "acp-mcp")]
         revoke_facade_token_for_key(&mut state, thread_id, self.session_registrar.as_ref());
         self.save_mapping(&state.persisted);
         self.save_meta(&state.session_workdirs);
@@ -1802,7 +1664,6 @@ impl SessionPool {
                 state.steering_handles.remove(&key);
                 state.activity.remove(&key);
                 state.pgids.remove(&key);
-                #[cfg(feature = "acp-mcp")]
                 revoke_facade_token_for_key(&mut state, &key, self.session_registrar.as_ref());
                 if let Some(sid) = sid {
                     state.persisted.insert(key.clone(), sid.clone());
@@ -1820,7 +1681,6 @@ impl SessionPool {
                 // resolving to the channel and a successor's tunnel becomes reachable by the hung
                 // predecessor (F3). Safe after `apply_hung_eviction`: its `purge_session_entries`
                 // leaves `facade_tokens` alone.
-                #[cfg(feature = "acp-mcp")]
                 revoke_facade_token_for_key(&mut state, &key, self.session_registrar.as_ref());
             } else {
                 warn!(thread_id = %crate::redact::redact_session_ids(&key), "hung session was replaced before eviction; maps untouched");
@@ -1888,7 +1748,7 @@ mod tests {
         meta_working_dir, purge_session_entries, relay_is_streaming, remove_if_same_handle,
         PoolState, AGENT_RELAY_GRACE_SECS,
     };
-    use crate::acp::connection::{AcpRequestError, SessionActivity};
+    use crate::acp::connection::SessionActivity;
     use crate::acp::protocol::JsonRpcError;
     use std::collections::HashMap;
     use std::sync::Arc;
@@ -1896,21 +1756,16 @@ mod tests {
     use tokio::time::Instant;
 
     /// Registrar double that records every mint, so a test can assert one never happened.
-    #[cfg(feature = "acp-mcp")]
     #[derive(Default)]
     struct CountingRegistrar {
         minted: std::sync::Mutex<Vec<String>>,
         revoked: std::sync::Mutex<Vec<String>>,
     }
-
-    #[cfg(feature = "acp-mcp")]
     impl CountingRegistrar {
         fn revoked(&self) -> Vec<String> {
             self.revoked.lock().unwrap().clone()
         }
     }
-
-    #[cfg(feature = "acp-mcp")]
     impl crate::acp_mcp::SessionTokenRegistrar for CountingRegistrar {
         fn mint(&self, channel_id: &str) -> String {
             self.minted.lock().unwrap().push(channel_id.to_string());
@@ -1922,7 +1777,6 @@ mod tests {
     }
 
     /// Build an empty `PoolState` for a helper-level test.
-    #[cfg(feature = "acp-mcp")]
     fn empty_pool_state() -> super::PoolState {
         super::PoolState {
             active: HashMap::new(),
@@ -1934,7 +1788,6 @@ mod tests {
             pgids: HashMap::new(),
             suspended: HashMap::new(),
             persisted: HashMap::new(),
-            load_failures: HashMap::new(),
             creating: HashMap::new(),
             stopped_at: HashMap::new(),
             session_workdirs: HashMap::new(),
@@ -1947,7 +1800,6 @@ mod tests {
     /// the successor's standing. Without the revoke the predecessor token keeps resolving to the
     /// channel and — since `AcpTunnelSource` authorizes by channel — could reach the successor's
     /// tunnel. Exercises the production `install_facade_token`.
-    #[cfg(feature = "acp-mcp")]
     #[test]
     fn installing_a_successor_token_revokes_only_the_superseded_predecessor() {
         let reg = Arc::new(CountingRegistrar::default());
@@ -1987,7 +1839,6 @@ mod tests {
     /// F3: hung eviction revokes the exact facade token synchronously (the DropGuard cannot fire
     /// while the hung task holds an Arc). Exercises the production `revoke_facade_token_for_key`,
     /// which the hung-eviction loop calls after `apply_hung_eviction`.
-    #[cfg(feature = "acp-mcp")]
     #[test]
     fn hung_eviction_revokes_the_exact_facade_token_and_forgets_it() {
         let reg = Arc::new(CountingRegistrar::default());
@@ -2022,7 +1873,6 @@ mod tests {
     /// A failed facade config write must not mint a token. The agent has no `openab` entry, so it
     /// can never present one; minting anyway would leave a live credential registered for a
     /// session that cannot use it until eviction.
-    #[cfg(feature = "acp-mcp")]
     #[tokio::test]
     async fn no_token_is_minted_when_the_facade_config_write_fails() {
         let dir = tempfile::tempdir().unwrap();
@@ -2075,7 +1925,6 @@ mod tests {
     }
 
     /// The happy path still mints exactly once, for the right channel.
-    #[cfg(feature = "acp-mcp")]
     #[tokio::test]
     async fn a_successful_facade_config_write_mints_one_token() {
         let dir = tempfile::tempdir().unwrap();
@@ -2439,7 +2288,6 @@ mod tests {
             admission_permits: HashMap::from([("hung".to_string(), admission_permit)]),
             cancel_handles: HashMap::new(),
             steering_handles: HashMap::new(),
-            #[cfg(feature = "acp-mcp")]
             facade_tokens: HashMap::new(),
             activity: HashMap::from([
                 ("hung".to_string(), Arc::new(SessionActivity::new())),
@@ -2454,7 +2302,6 @@ mod tests {
                 ("hung".to_string(), "session-hung".to_string()),
                 ("other".to_string(), "session-other".to_string()),
             ]),
-            load_failures: HashMap::new(),
             creating: HashMap::from([("hung".to_string(), Arc::new(Mutex::new(())))]),
             stopped_at: HashMap::new(),
             session_workdirs: HashMap::from([("hung".to_string(), "/tmp/ws".to_string())]),
@@ -2538,17 +2385,14 @@ mod tests {
         assert_eq!(meta_working_dir(None), None);
     }
 
-    /// A session is replaced at once only when the agent proves it is gone — ACP's "resource not
-    /// found", or a code and wording that name a missing session — or when the restore timed out.
-    /// Everything else keeps `state.persisted` and is counted toward the retry limit instead.
+    /// The agent does not hold the session: ACP's "resource not found", or a code and wording that
+    /// name a missing session. Anything else says nothing about the session.
     #[test]
-    fn a_missing_session_or_a_timed_out_restore_falls_back_at_once() {
-        let agent_error = |code: i64, message: &str, detail: Option<&str>| {
-            AcpRequestError::Agent(JsonRpcError {
-                code,
-                message: message.into(),
-                data: detail.map(|detail| serde_json::json!({ "details": detail })),
-            })
+    fn session_lost_recognizes_each_agents_wording() {
+        let agent_error = |code: i64, message: &str, detail: Option<&str>| JsonRpcError {
+            code,
+            message: message.into(),
+            data: detail.map(|detail| serde_json::json!({ "details": detail })),
         };
 
         for gone in [
@@ -2567,53 +2411,16 @@ mod tests {
                 "Internal error",
                 Some("no rollout found for thread id 3f2a"),
             ),
-            // A restore still running after session/new's budget is hung, not slow.
-            AcpRequestError::Timeout {
-                method: "session/resume".into(),
-            },
         ] {
-            assert!(
-                super::session_load_falls_back_at_once(&gone),
-                "{gone} must start a new session"
-            );
+            assert!(super::session_lost(&gone), "{gone} must mean the session is gone");
         }
 
-        for kept in [
-            // An internal error that names no session: a locked store, a killed agent.
+        for other in [
             agent_error(-32603, "Internal error", Some("session store is locked")),
             agent_error(-32603, "Internal error", None),
-            // Invalid params about something other than the session.
             agent_error(-32602, "Invalid params: cwd must be an absolute path", None),
-            AcpRequestError::ConnectionClosed {
-                method: "session/load".into(),
-            },
-            AcpRequestError::Other(anyhow::anyhow!("response was unusable")),
         ] {
-            assert!(
-                !super::session_load_falls_back_at_once(&kept),
-                "{kept} must preserve the persisted session id"
-            );
+            assert!(!super::session_lost(&other), "{other} names no missing session");
         }
-    }
-
-    /// A streak is counted against the session id it started on: the same id continues it, a
-    /// different one restarts at a single failure, and a cleared streak starts over.
-    #[test]
-    fn a_streak_continues_only_for_the_same_saved_session() {
-        let counted = |session_id: &str, consecutive: u32| super::LoadFailure {
-            session_id: session_id.to_string(),
-            consecutive,
-        };
-
-        assert_eq!(super::next_load_failure(None, "sess_1"), 1);
-        assert_eq!(
-            super::next_load_failure(Some(&counted("sess_1", 1)), "sess_1"),
-            2
-        );
-        assert_eq!(
-            super::next_load_failure(Some(&counted("sess_1", 2)), "sess_2"),
-            1,
-            "a changed saved session must not inherit the old session's failures"
-        );
     }
 }

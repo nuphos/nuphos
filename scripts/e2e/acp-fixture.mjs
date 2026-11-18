@@ -6,12 +6,14 @@ import { createInterface } from 'node:readline'
 
 import { nuphosApplyRuntimeDefaults } from '../../apps/runtime/image/runtime-defaults.mjs'
 
+import { formSteps } from './acp-fixture-form.mjs'
 import { answerChannel } from './fixture-channel.mjs'
 import { listCommands } from './fixture-commands.mjs'
 import { hop, inherit } from './fixture-hop.mjs'
-import { call, callNamed, setToolsServer, toolsServer } from './fixture-mcp.mjs'
+import { call, callNamed, setToolsServer, subtask, toolsServer } from './fixture-mcp.mjs'
 import { applySetting } from './fixture-settings.mjs'
 import { refuse } from './fixture-turn-refusals.mjs'
+import { CLAUDE_TURN_QUOTA, CLAUDE_TURN_USAGE } from './fixture-usage.mjs'
 
 const send = (message) =>
   process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', ...message })}\n`)
@@ -21,6 +23,7 @@ const log = (entry) =>
     process.env.E2E_ACP_LOG,
     `${JSON.stringify({ agent: process.env.E2E_AGENT, ...entry })}\n`,
   )
+
 // A prompt containing E2E_HOLD stays in its turn until the client cancels it.
 const held = new Map()
 // Requests this agent made of its client, waiting for their answers. OpenAB reads ids as numbers.
@@ -44,6 +47,8 @@ async function ask(sessionId, category) {
 
   log({ sessionId, event: 'asked', isError: refused(message) })
 }
+
+const form = formSteps({ call, log, refused })
 
 // A delegated turn names its sender by title, which carries the sender's own
 // markers, so the fixture tells such a turn by its prompt and does not delegate again.
@@ -136,9 +141,11 @@ async function prompt({ sessionId, prompt: parts }) {
   if (text.includes('E2E_DELEGATE') && !text.includes(CHILD)) {
     await delegate(sessionId, text.includes('E2E_DELEGATE_FAST'))
   }
+  await form(sessionId, text)
   // A thread started here, then moved (E2E_HOP), or left on this session's model (E2E_INHERIT).
   if (/E2E_(HOP|INHERIT)/.test(text) && !text.includes(CHILD))
     await (text.includes('E2E_HOP') ? hop : inherit)({ call, send, log, sessionId, child: CHILD })
+  if (text.includes('E2E_SUBTASK')) await subtask({ log, sessionId, marker })
   if (text.includes('E2E_ASK')) {
     await ask(sessionId, text.includes('E2E_ASK_CREDENTIAL') ? 'credential' : 'preference')
   }
@@ -146,6 +153,23 @@ async function prompt({ sessionId, prompt: parts }) {
   const channelId = /\(channelId ([^)]+)\)/.exec(text)?.[1]
 
   if (channelId) await answerChannel({ call, log, sessionId, channelId, text })
+  if (process.env.E2E_BOT_ONBOARDING && text.includes('The person just created you'))
+    await ask(sessionId, 'preference')
+  if (text.includes('E2E_ONBOARDING_COMPLETE')) {
+    const result = await call(sessionId, 'update_self', {
+      label: 'Save confirmed responsibilities',
+      instructions:
+        'Review release notes for the project and prepare a weekly summary. Ask before publishing.',
+      onboardingComplete: true,
+    })
+
+    log({
+      sessionId,
+      event: 'onboarding-complete',
+      isError: refused(result),
+      detail: JSON.stringify(result.result),
+    })
+  }
   // The thread's own prompt can carry its parent's words; only the parent starts one.
   if (text.includes('E2E_THREAD') && !text.includes('E2E_PERMISSION')) {
     await startThread(sessionId, marker)
@@ -160,6 +184,11 @@ async function prompt({ sessionId, prompt: parts }) {
   if (text.includes('E2E_PERMISSION')) await permission(sessionId, marker)
   if (text.includes('E2E_COMMANDS')) listCommands({ send, sessionId })
   if (text.includes('E2E_CALL')) await callNamed({ log, sessionId, text })
+  // Answers only once the scenario writes E2E_RELEASE, so a turn can span what it does meanwhile.
+  if (text.includes('E2E_WAIT_RELEASE')) {
+    while (!existsSync(process.env.E2E_RELEASE))
+      await new Promise((resolve) => setTimeout(resolve, 100))
+  }
   if (text.includes('E2E_HOLD')) {
     await new Promise((resolve) => held.set(sessionId, resolve))
     log({ sessionId, marker, event: 'cancelled' })
@@ -179,7 +208,9 @@ async function prompt({ sessionId, prompt: parts }) {
   })
   log({ sessionId, marker, event: 'finish' })
 
-  return { stopReason: 'end_turn' }
+  return text.includes('E2E_TURN_USAGE')
+    ? { stopReason: 'end_turn', usage: CLAUDE_TURN_USAGE, _meta: { quota: CLAUDE_TURN_QUOTA } }
+    : { stopReason: 'end_turn' }
 }
 
 async function answer(request) {
@@ -224,6 +255,11 @@ async function answer(request) {
     case 'session/prompt':
       return prompt(request.params)
     case 'session/load':
+      // A restarted host loads the session with its tools again, as it opened it.
+      setToolsServer(
+        request.params.sessionId,
+        request.params.mcpServers?.find(({ name }) => name === 'nuphos-tools'),
+      )
       log({ sessionId: request.params.sessionId, event: 'loaded' })
 
       return {}

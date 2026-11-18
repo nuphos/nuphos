@@ -1,5 +1,6 @@
 import type { LocalAgentProvider } from './agent-cli.ts'
 import type { AgentInstanceRecord } from './agent-instances.ts'
+import type { CliInstall } from './instance-deps.ts'
 import type { LocalRuntimeState } from './controller-types.ts'
 import type { RunningRuntime } from './openab-process.ts'
 import type { LocalRuntimeTunnelStatus } from './tunnel-protocol.ts'
@@ -18,6 +19,7 @@ export type Controller = {
 export type Entry = {
   metadata: AgentInstanceRecord
   controller: Controller
+  install?: CliInstall
   starting?: Promise<void>
   expiry?: ReturnType<typeof setTimeout>
 }
@@ -39,7 +41,7 @@ export function instanceStates(entries: Iterable<Entry>, online: boolean) {
 export function instanceStatus(
   entries: Iterable<Entry>,
 ): NonNullable<LocalRuntimeTunnelStatus['instances']> {
-  return [...entries].map(({ metadata, controller }) => {
+  return [...entries].map(({ metadata, controller, install }) => {
     const cli = controller.state().agents[metadata.provider].cli
 
     return {
@@ -49,6 +51,8 @@ export function instanceStatus(
         installed: cli?.installed ?? false,
         loggedIn: cli?.installed ? cli.loggedIn : false,
         ...(cli?.installed && cli.apiKey ? { apiKey: true as const } : {}),
+        ...(install?.installing ? { installing: true as const } : {}),
+        ...(!cli?.installed && install?.error ? { installError: install.error } : {}),
       },
     }
   })

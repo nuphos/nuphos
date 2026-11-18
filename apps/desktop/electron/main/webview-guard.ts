@@ -5,6 +5,7 @@ import { app, BrowserWindow, session } from 'electron'
 
 import { guardBrowserDownloads } from './browser-downloads.ts'
 import { CHANGELOG_PAGE_PREFIX } from './changelog-feed.ts'
+import { saveAgentDownload } from './local-runtime/agent-downloads.ts'
 import { openExternal } from './open-external.ts'
 
 function isHttp(url: string) {
@@ -59,7 +60,7 @@ export function initWebviewGuard() {
   browserSession.setPermissionCheckHandler(() => false)
   browserSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false))
   browserSession.setDevicePermissionHandler(() => false)
-  const trackDownloads = guardBrowserDownloads(browserSession)
+  const trackDownloads = guardBrowserDownloads(browserSession, saveAgentDownload)
 
   // Sites that remember a trusted browser (Apple ID) bind it to the user agent, so drop the
   // app and Electron tokens that change with every release and present plain Chrome.

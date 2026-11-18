@@ -22,13 +22,15 @@ export const REQUEST_TIMEOUT_MS = 15_000
 
 const PATHS = 'export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"'
 
-/** Node 22 and the agents; the template already has all but grok, so this is mostly checks. */
+/** Node 22 and the agents; the template already has all but grok and Pi, so this is mostly checks. */
 const AGENTS = [
   'if ! node -e "process.exit(+process.versions.node.split(\'.\')[0] >= 22 ? 0 : 1)" 2>/dev/null; then',
   '  curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt-get install -y nodejs',
   'fi',
   'command -v claude >/dev/null && command -v codex >/dev/null && command -v opencode >/dev/null || { npm config set prefix "$HOME/.npm-global" && npm i -g @anthropic-ai/claude-code @openai/codex opencode-ai; }',
   'command -v grok >/dev/null || curl -fsSL https://x.ai/cli/install.sh | GROK_BIN_DIR="$HOME/.local/bin" bash',
+  // Its own check, so a Box that already has the others gets it on its next update.
+  'command -v pi >/dev/null || { npm config set prefix "$HOME/.npm-global" && npm i -g @earendil-works/pi-coding-agent; }',
 ]
 
 /**
@@ -115,7 +117,7 @@ export const BOX_UPDATE_COMMAND = [
 export function connection(timeoutMs: number) {
   const box = config.box.instabox
 
-  if (!box) throw new AppError(503, 'box_unavailable', 'Boxes are not enabled on this deployment')
+  if (!box) throw new AppError(503, 'box_unavailable', 'Cloud computers are off on this deployment')
 
   // One stalled poll must not hold a whole operation: each request gets its own short budget.
   return {
@@ -144,7 +146,7 @@ export function requireBackendUrl(): string {
     throw new AppError(
       503,
       'box_unavailable',
-      'This deployment has no public URL for a Box to reach',
+      'This deployment has no public URL for a cloud computer to reach',
     )
 
   return url
@@ -176,14 +178,14 @@ export function orderRefused(error: unknown, ownAccount: boolean): AppError {
     return new AppError(
       409,
       'instabox_quota_exceeded',
-      'Your instabox account has reached its limit of Boxes. Delete a Box there or upgrade its plan, then try again.',
+      'Your instabox account has reached its limit of computers. Delete one there or upgrade its plan, then try again.',
     )
   // instabox answers a setting the plan does not allow with a 403 too: not a key problem.
   if (ownAccount && error instanceof InstaboxError && error.code === 'spec_not_allowed')
     return new AppError(
       409,
       'instabox_plan_not_allowed',
-      'Your instabox plan does not allow this Box. Upgrade the plan there, then try again.',
+      'Your instabox plan does not allow this computer. Upgrade the plan there, then try again.',
     )
   if (ownAccount && error instanceof InstaboxAuthError)
     return new AppError(
@@ -195,7 +197,7 @@ export function orderRefused(error: unknown, ownAccount: boolean): AppError {
   return new AppError(
     503,
     'box_unavailable',
-    'instabox could not make the Box. Try again in a few minutes.',
+    'instabox could not make the computer. Try again in a few minutes.',
   )
 }
 

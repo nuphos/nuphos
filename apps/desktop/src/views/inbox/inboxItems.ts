@@ -1,4 +1,4 @@
-import { openInputRequests } from '../../lib/agentInputRequests.ts'
+import { attentionInputRequests } from '../../lib/agentInputRequests.ts'
 import { nearestBot } from '../../lib/nearestBot.ts'
 
 import type { AgentConversation, AgentInputRequest } from '../../api/agent-types'
@@ -48,7 +48,7 @@ export function inboxQuestions(
     .flatMap((conversation) => {
       const bot = botOf?.(conversation)
 
-      return openInputRequests(conversation).map((request) => ({ conversation, request, bot }))
+      return attentionInputRequests(conversation).map((request) => ({ conversation, request, bot }))
     })
     .filter(({ request }) => !answered.has(request.id))
     .sort((a, b) => b.request.askedAt.localeCompare(a.request.askedAt))
@@ -89,23 +89,16 @@ export function answeredIn(
   now: number,
 ): string[] {
   const open = new Set(
-    conversations.flatMap((conversation) => openInputRequests(conversation).map((r) => r.id)),
+    conversations.flatMap((conversation) => attentionInputRequests(conversation).map((r) => r.id)),
   )
 
   return [...answered].filter(([id, until]) => !open.has(id) || until < now).map(([id]) => id)
 }
 
-/**
- * The row the Inbox opens: the selected one while it is listed. Once answered,
- * the row that took its place opens, the way a mail reader moves on.
- */
+/** The row the Inbox opens: the selected one while it is listed, else the first. */
 export function openQuestion(
   rows: readonly InboxQuestion[],
-  selected: { id: string; index: number } | null,
+  selected: string | null,
 ): InboxQuestion | undefined {
-  const kept = selected && rows.find((row) => row.request.id === selected.id)
-
-  if (kept) return kept
-
-  return rows[Math.max(0, Math.min(selected?.index ?? 0, rows.length - 1))]
+  return rows.find((row) => row.request.id === selected) ?? rows[0]
 }

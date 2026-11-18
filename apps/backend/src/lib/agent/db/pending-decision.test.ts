@@ -5,6 +5,7 @@ import { useDb } from '@/lib/test/doubles/db'
 import { getConversations } from './conversations-list'
 import {
   addInputRequest,
+  attentionInputRequests,
   openInputRequests,
   reopenInputRequest,
   resolveInputRequest,
@@ -188,6 +189,10 @@ describe('input requests', () => {
       $or: [
         {
           'inputRequests.status': 'open',
+          $or: [
+            { botOnboarding: { $nin: ['pending', 'active'] } },
+            { inputRequests: { $elemMatch: { status: 'open', category: { $ne: 'preference' } } } },
+          ],
           userId: '642802f4c38340345aa2384d',
         },
         {
@@ -211,7 +216,13 @@ describe('input requests', () => {
     expect(and[0]).toHaveProperty('$or')
     expect(and[1]).toEqual({
       $or: [
-        { 'inputRequests.status': 'open' },
+        {
+          'inputRequests.status': 'open',
+          $or: [
+            { botOnboarding: { $nin: ['pending', 'active'] } },
+            { inputRequests: { $elemMatch: { status: 'open', category: { $ne: 'preference' } } } },
+          ],
+        },
         {
           'signInRequest.askedUserIds': '642802f4c38340345aa2384d',
           'signInRequest.askedAt': { $gt: expect.any(Date) },
@@ -234,10 +245,39 @@ describe('input requests', () => {
       $or: [
         {
           'inputRequests.status': 'open',
+          $or: [
+            { botOnboarding: { $nin: ['pending', 'active'] } },
+            { inputRequests: { $elemMatch: { status: 'open', category: { $ne: 'preference' } } } },
+          ],
           userId: 'member-1',
         },
         { userId: 'member-1', 'signInRequest.askedUserIds': '642802f4c38340345aa2384d' },
       ],
     })
   })
+})
+
+test('chat listings opt into onboarding without removing the pending-question filter', async () => {
+  await getConversations('owner', {
+    teamId: 'team',
+    pendingDecision: true,
+    includeOnboarding: true,
+  })
+  expect((lastQuery as { $and: unknown[] }).$and).toContainEqual({
+    $or: [
+      { 'inputRequests.status': 'open', userId: 'owner' },
+      {
+        'signInRequest.askedUserIds': 'owner',
+        'signInRequest.askedAt': { $gt: expect.any(Date) },
+        $expr: { $eq: ['$signInRequest.runtimeId', '$runtimeId'] },
+      },
+    ],
+  })
+})
+
+test('an introduced Bot keeps its open preference questions as attention', () => {
+  const inputRequests = [{ id: 'q', status: 'open', category: 'preference' } as InputRequest]
+
+  expect(attentionInputRequests({ botOnboarding: 'started', inputRequests })).toEqual(inputRequests)
+  expect(attentionInputRequests({ botOnboarding: 'active', inputRequests })).toEqual([])
 })

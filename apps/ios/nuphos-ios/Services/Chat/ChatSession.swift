@@ -68,6 +68,7 @@ final class ChatSession {
     private(set) var waitingAnswers: [String: String] = [:]
     /// The session is a chat, found on loading it from a link.
     private(set) var isChannel = false
+    private(set) var isBot = false
     /// Files the agent sent the user here, read from the transfer store.
     private(set) var downloads: [TransferDownloadGroup] = []
     private(set) var isArchived = false
@@ -366,6 +367,7 @@ final class ChatSession {
             serverTail = ServerTail(detail)
             // A link can name a chat; the app shows it as one, not as an agent.
             isChannel = detail.isChannel
+            isBot = detail.avatar != nil && !detail.isChannel
             var msgs = detail.messages
             baseIndex = detail.messagesFirstIndex ?? 0
             readOnly = detail.readOnly ?? true
@@ -422,11 +424,20 @@ final class ChatSession {
     /// The secure input card's answer, as on the desktop: the value goes
     /// straight to a file on the agent's runtime, and the reply names only
     /// the file's path. The value is never kept, logged or put in the transcript.
-    func provideSecret(_ value: String, for part: ChatPart.ToolPart) async throws {
-        guard let name = part.secretRequest?.name else { return }
-        let path = try await AgentChatAPI.saveSecret(token: token, teamId: teamId, sessionId: sessionId, name: name, value: value)
+    /// A card with several fields saves one file each, in order, and names them all in one reply.
+    func provideSecret(_ values: [String], for part: ChatPart.ToolPart) async throws {
+        guard let request = part.secretRequest else { return }
+        let names = request.fields?.map(\.name) ?? [request.name]
+        guard values.count == names.count else { return }
+        var saved: [(name: String, path: String)] = []
+        for (name, value) in zip(names, values) {
+            saved.append((name, try await AgentChatAPI.saveSecret(token: token, teamId: teamId, sessionId: sessionId, name: name, value: value)))
+        }
+        let reply = request.fields == nil
+            ? ChatPart.ToolPart.secretSavedReply(request.name) + saved[0].path
+            : ChatPart.ToolPart.secretFieldsSavedReply(request.name, saved: saved)
         try? await AgentChatAPI.resolveDecision(token: token, teamId: teamId, sessionId: sessionId, requestId: part.decisionRequestId)
-        send(SecretCard.savedReply(name) + path)
+        send(reply)
     }
 
     /// The first reply after the message that asked, if anyone replied yet.

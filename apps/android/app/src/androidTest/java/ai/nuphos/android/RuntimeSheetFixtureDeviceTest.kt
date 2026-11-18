@@ -239,6 +239,23 @@ class RuntimeSheetFixtureDeviceTest {
         val rebound = openingTops.indices.maxOf { i -> openingTops.drop(i).maxOrNull()!! - openingTops[i] }
         Assert.assertTrue("Opening made a second large downward transition: $rebound", rebound < before.height * 0.05f)
     }
+    /** #3167: said before the message goes, with the way on. Its screenshot goes where the build collects test output. */
+    @Test fun anOfflineComputerOffersAnotherRuntimeBeforeSending() {
+        catalogBody = catalogBody.replace("\"online\":true", "\"online\":false")
+        gate.countDown()
+        render(snapshot(phase="completed",send=true), native=false, owner=true)
+        val offline = "The computer running this runtime is offline. Open Nuphos on it, or switch to another runtime."
+        compose.waitUntil(10_000) { compose.onAllNodesWithText(offline).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Switch runtime").assertIsDisplayed()
+        compose.waitForIdle()
+        InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")?.let { dir ->
+            java.io.File(dir, "runtime-offline-3167-android.png").outputStream().use {
+                InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+            }
+        }
+        compose.onNodeWithText("Switch runtime").performClick()
+        compose.onNodeWithText("Choose runtime", useUnmergedTree = true).assertExists()
+    }
     @Test fun readOnlyDoesNotExposeMoves() {
         render(snapshot(phase="completed",send=true), native=false, owner=false, readOnly=true)
         // Without manage rights the menu doesn't offer the move, so the sheet can't open.
