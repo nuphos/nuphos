@@ -500,9 +500,9 @@ struct AgentPage: View {
 
 /// A row under Bots: a chat, or a Bot with no chat yet, by its face. A Bot's
 /// chat is named after the Bot. A chat shows its newest post (`lastMessage`),
-/// and when it last moved. A Bot's chat says what the Bot is doing, as
-/// Desktop's `activityOf`: a question from it or a thread it dispatched
-/// first, then the typing dots while it or such a thread is in a turn.
+/// and when it last moved. A question from the Bot or a thread it dispatched
+/// comes first; otherwise the row shows the chat's typing dots exactly while
+/// the chat shows them (#3522). A Bot at work adds nothing else here.
 struct ChannelRow: View {
     let channel: AgentConversation
     @Environment(AgentStore.self) private var store
@@ -536,7 +536,7 @@ struct ChannelRow: View {
                         .font(Theme.Text.label)
                         .foregroundStyle(Theme.body)
                         .lineLimit(1)
-                } else if channel.botTyping(in: store.observations, team: team) || runs.contains(where: store.inTurn) {
+                } else if channel.botTyping(in: store.observations, team: team) {
                     // As iMessage does: the dots stand in for the newest post until the reply lands.
                     TypingDots(size: 5)
                         .frame(height: 16)
