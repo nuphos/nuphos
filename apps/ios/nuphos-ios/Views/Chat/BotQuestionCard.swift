@@ -260,7 +260,7 @@ struct QuestionPill: View {
             .padding(.vertical, 9)
             .frame(minHeight: 44)
             .background(Theme.surface, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Theme.heading.opacity(0.08), lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Theme.hairline, lineWidth: 1))
             .shadow(color: .black.opacity(0.04), radius: 1, y: 1)
             .shadow(color: .black.opacity(0.06), radius: 4, y: 3)
             .contentShape(Rectangle())
