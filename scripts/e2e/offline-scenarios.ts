@@ -129,6 +129,41 @@ export const offlineScenarios: Scenario[] = [
 
         await banner.waitFor()
         await page.screenshot({ path: join(artifacts, 'disk-banner.png') })
+        // #3567: the banner floats above the composer; the transcript keeps its last message clear of it.
+        const last = page.getByText(`moved this task from E2E fixture agent to`).last()
+
+        for (const theme of ['light', 'dark']) {
+          await page.evaluate((value) => {
+            document.documentElement.classList.remove('light', 'dark')
+            document.documentElement.classList.add(value)
+          }, theme)
+          await page.waitForTimeout(300)
+          const message = await last.boundingBox()
+          const tab = await banner.boundingBox()
+          const room = {
+            messageBottom: message ? message.y + message.height : Number.NaN,
+            bannerTop: tab?.y ?? Number.NaN,
+            fromBottom: await last.evaluate((node) => {
+              const scroller = node.closest('.overflow-auto')
+
+              return scroller
+                ? scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight
+                : Number.NaN
+            }),
+          }
+
+          await page.screenshot({ path: join(artifacts, `disk-banner-${theme}.png`) })
+          if (Number.isNaN(room.bannerTop) || room.messageBottom > room.bannerTop)
+            throw new Error(
+              `The last message ends at ${String(room.messageBottom)} px, under the banner at ${String(room.bannerTop)} px`,
+            )
+          if (Number.isNaN(room.fromBottom) || room.fromBottom > 2)
+            throw new Error(`The transcript is ${String(room.fromBottom)} px from its bottom`)
+        }
+        await page.evaluate(() => {
+          document.documentElement.classList.remove('dark')
+          document.documentElement.classList.add('light')
+        })
         await banner.getByRole('button', { name: 'Free space' }).click()
         await page.getByText('Disk almost full: 7 GB free').waitFor()
         // The cards fade in; the picture is taken once they have.
