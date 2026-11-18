@@ -117,3 +117,81 @@ test('a secret request can be dismissed instead of answered, and never sends a v
       else Reflect.deleteProperty(globalThis, key)
   }
 })
+
+test('while a dismissal is in flight, the value cannot be sent', async () => {
+  const dom = new Window()
+  const values = {
+    window: dom,
+    document: dom.document,
+    HTMLElement: dom.HTMLElement,
+    HTMLInputElement: dom.HTMLInputElement,
+    Element: dom.Element,
+    Node: dom.Node,
+    IS_REACT_ACT_ENVIRONMENT: true,
+  }
+  const originals = Object.keys(values).map(
+    (key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)] as const,
+  )
+
+  for (const [key, value] of Object.entries(values))
+    Object.defineProperty(globalThis, key, { configurable: true, value })
+  const { createRoot } = await import('react-dom/client')
+  const container = dom.document.createElement('div')
+
+  dom.document.body.append(container)
+  const root = createRoot(container as unknown as HTMLElement)
+  const saved: string[] = []
+  // The server has not answered the dismissal yet.
+  let release: (withdrawn: boolean) => void = () => undefined
+  const ctx: ConnectCardContextValue = {
+    send: () => true,
+    answer: () => true,
+    dismiss: () => new Promise<boolean>((resolve) => (release = resolve)),
+    saveSecret: (name) => {
+      saved.push(name)
+
+      return Promise.resolve('/secrets/TOKEN')
+    },
+  }
+  const button = (label: string) =>
+    ([...container.querySelectorAll('button')] as unknown as HTMLButtonElement[]).find(
+      (item) => item.textContent === label,
+    )
+
+  try {
+    await act(() =>
+      root.render(
+        createElement(
+          ConnectCardContext.Provider,
+          { value: ctx },
+          createElement(SecretCard, {
+            toolCallId: 's1',
+            name: 'CLOUDFLARE_TOKEN',
+            reason: 'To purge the cache.',
+            state: 'open',
+          }),
+        ),
+      ),
+    )
+    await act(async () => {
+      const input = container.querySelector('input') as unknown as HTMLInputElement
+      const setValue = Object.getOwnPropertyDescriptor(dom.HTMLInputElement.prototype, 'value')?.set
+
+      setValue?.call(input, 'secret-value')
+      input.dispatchEvent(new dom.Event('input', { bubbles: true }) as unknown as Event)
+    })
+    await act(async () => button('Dismiss')?.click())
+    assert.equal(button('Send securely')?.disabled, true)
+    await act(async () => button('Send securely')?.click())
+    assert.deepEqual(saved, [])
+
+    await act(async () => release(true))
+    assert.equal(container.querySelector('input'), null)
+    assert.deepEqual(saved, [])
+    await act(() => root.unmount())
+  } finally {
+    for (const [key, descriptor] of originals)
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor)
+      else Reflect.deleteProperty(globalThis, key)
+  }
+})
