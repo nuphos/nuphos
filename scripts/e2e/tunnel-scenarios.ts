@@ -94,7 +94,7 @@ export const tunnelScenarios: Scenario[] = [
 
         await newTask(page)
         // The computer's row opens its runtimes, named by agent alone.
-        await page.getByRole('button', { name: /^Agent runtime/ }).click()
+        await page.getByRole('button', { name: /^Runtime:/ }).click()
         await page.getByRole('menu').getByText(LABEL).click()
         await page.getByRole('menuitem', { name: /^Claude Code/ }).click()
         await send(page, 'Over its tunnel E2E_DELIVERY:tunnel-before')
