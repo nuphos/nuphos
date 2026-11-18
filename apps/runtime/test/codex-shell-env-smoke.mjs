@@ -110,7 +110,8 @@ try {
     command,
     cwd: base,
     sandboxPolicy: { type: 'dangerFullAccess' },
-    // A cold Windows PowerShell start on a CI runner can take longer than 10 s.
+    // The Windows runner image starts PowerShell quickly only with its own
+    // PSModuleAnalysisCachePath. Without it, as here, a start takes about 20 s.
     timeoutMs: 60000,
   })
 

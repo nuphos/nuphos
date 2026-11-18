@@ -93,9 +93,6 @@ jobs:
           codex=$(find "$PWD/image/codex-acp/node_modules/@openai" -type f \( -path '*/bin/codex' -o -path '*/bin/codex.exe' \) | head -1)
           if command -v cygpath >/dev/null; then codex=$(cygpath -w "$codex"); fi
           node test/codex-shell-env-smoke.mjs "$codex"
-      - name: Diagnose PowerShell start time (temporary, #3496)
-        if: runner.os == 'Windows'
-        run: node test/diag-powershell-env.mjs
 
   image:
     name: Runtime image (${{ matrix.provider }})
