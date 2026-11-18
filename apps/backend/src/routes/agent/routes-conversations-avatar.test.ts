@@ -285,6 +285,19 @@ test('"+" on Bots creates a Bot with a name and its derived face, before any mes
   ])
 })
 
+test('"+" on Bots may start a Bot on a picked background', async () => {
+  const response = await createBot({ avatar: '07-ada', background: 'peach' })
+
+  expect(response.status).toBe(201)
+  expect(await response.json()).toMatchObject({ avatar: '07-ada', avatarBackground: 'peach' })
+  expect(shells[0]?.bot).toMatchObject({ avatar: '07-ada', background: 'peach' })
+  // None is no background at all.
+  expect((await createBot({ background: 'none' })).status).toBe(201)
+  expect(shells[1]?.bot).not.toHaveProperty('background')
+  expect((await createBot({ background: 'teal' })).status).toBe(400)
+  expect(shells).toHaveLength(2)
+})
+
 const makeBot = () =>
   app.request(`/agent/conversations/s1/bot?teamId=${teamId}`, {
     method: 'POST',
