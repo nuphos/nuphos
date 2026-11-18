@@ -89,15 +89,20 @@ test('the card leads with its question, answers with its buttons, and is skipped
     assert.doesNotMatch(container.querySelector('h3')?.className ?? '', /whitespace-pre-wrap/)
     assert.match(container.textContent ?? '', /^Release notes · 5:52 PMMerge the release branch\?/)
     assert.doesNotMatch(container.textContent ?? '', /Approval needed|Agent:/)
-    // The first option is the one filled button.
+    // Every option the same pill, none filled; "Other…" and "Skip" a line of text under them.
     assert.deepEqual(
       buttons().map((item) => [item.textContent, item.className.includes('bg-action-primary')]),
       [
-        ['Merge', true],
+        ['Merge', false],
         ['Wait', false],
         ['Other…', false],
         ['Skip', false],
       ],
+    )
+    assert.equal(
+      buttons()[0]?.className.replace('Merge', ''),
+      buttons()[1]?.className,
+      'the options are one style',
     )
 
     await click('Wait')
@@ -220,8 +225,8 @@ test('a single- and a multi-select question are one option row: multiSelect only
     assert.deepEqual(answers, [{ choices: ['eu-west'] }])
 
     await render(true)
-    // The same row and the same card, with Send for the picks.
-    assert.deepEqual(row(), ['us-east', 'eu-west', 'ap-northeast', 'Other…', 'Send', 'Skip'])
+    // The same pills and line, with Send for the picks.
+    assert.deepEqual(row(), ['us-east', 'eu-west', 'ap-northeast', 'Other…', 'Skip', 'Send'])
     assert.equal(container.querySelector('input'), null)
     // Its options are checkboxes: a click picks, and only Send answers.
     assert.deepEqual(
@@ -242,7 +247,7 @@ test('a single- and a multi-select question are one option row: multiSelect only
     await render(false, [
       { question: 'Which regions first?', options: ['x', 'y'], multiSelect: true },
     ])
-    assert.deepEqual(row(), ['x', 'y', 'Other…', 'Send', 'Skip'])
+    assert.deepEqual(row(), ['x', 'y', 'Other…', 'Skip', 'Send'])
     assert.equal(container.querySelectorAll('[role="checkbox"]').length, 2)
     const sent = answers.length
 

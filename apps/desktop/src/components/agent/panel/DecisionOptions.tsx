@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { Check } from 'lucide-react'
-import { useState } from 'react'
+import { Children, useState } from 'react'
 
 import { t } from '../../../i18n'
 import { Button } from '../../ui/button'
@@ -13,11 +13,12 @@ import type { DecisionAnswer } from '../../../api/agent-chat-types'
 import type { ReactNode } from 'react'
 
 /**
- * A question card's options, one design for every question: a row of buttons,
- * "Other…" to answer in words, and `children` (Skip) at the end. One question
- * with one answer is answered by clicking an option, the first one filled. A
- * multi-select, or a card of several questions, picks its options (checkboxes,
- * or radios for a one-answer question among several) and sends them with Send.
+ * A question card's options, one design for every question, as Paper's question
+ * card draws them: each option the same pill, then a line of text with "Other…"
+ * to answer in words and `children` (Skip). One question with one answer is
+ * answered by clicking an option. A multi-select, or a card of several questions,
+ * picks its options (checkboxes, or radios for a one-answer question among
+ * several; a check once picked) and sends them with Send at the line's end.
  */
 export function DecisionOptions({
   questions,
@@ -62,68 +63,71 @@ export function DecisionOptions({
   return (
     <div className="flex flex-col gap-3 pt-3">
       {questions.map((q, index) => (
-        <fieldset key={index} className="flex flex-col gap-2.5">
+        <fieldset key={index} className="flex flex-col gap-2">
           {questions.length > 1 && (
             <legend className="mb-2 text-[12.5px] font-medium text-main">{q.question}</legend>
           )}
-          <div className="flex flex-wrap items-center gap-2">
-            {q.options.map((option, at) => {
-              const on = picked[index]?.includes(option) ?? false
-              const filled = instant ? at === 0 : on
+          {q.options.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              {q.options.map((option, at) => {
+                const on = picked[index]?.includes(option) ?? false
 
-              return (
-                <Button
-                  key={option}
-                  variant={filled ? 'primary' : 'secondary'}
-                  size="sm"
-                  disabled={disabled}
-                  role={instant ? undefined : pickRole(q)}
-                  aria-checked={instant ? undefined : on}
-                  className="h-auto min-h-8 gap-1.5 whitespace-normal rounded-[9px] px-[13px] py-1.5 text-left"
-                  title={instant ? keyTitle?.(at) : undefined}
-                  onClick={() => {
-                    if (instant) onSubmit({ choices: [option] })
-                    else
-                      setPicked(
-                        replaceAt(
-                          picked,
-                          index,
-                          togglePick(picked[index] ?? [], option, q.multiSelect),
-                        ),
-                      )
-                  }}
+                return (
+                  <Button
+                    key={option}
+                    variant="secondary"
+                    size="sm"
+                    disabled={disabled}
+                    role={instant ? undefined : pickRole(q)}
+                    aria-checked={instant ? undefined : on}
+                    className="h-auto min-h-8 gap-1.5 whitespace-normal rounded-[9px] px-3 py-1.5 text-left text-[13px] font-normal"
+                    title={instant ? keyTitle?.(at) : undefined}
+                    onClick={() => {
+                      if (instant) onSubmit({ choices: [option] })
+                      else
+                        setPicked(
+                          replaceAt(
+                            picked,
+                            index,
+                            togglePick(picked[index] ?? [], option, q.multiSelect),
+                          ),
+                        )
+                    }}
+                  >
+                    {on && <Check aria-hidden className="size-3.5 shrink-0" />}
+                    {option}
+                  </Button>
+                )
+              })}
+            </div>
+          )}
+          {/* "Other… · Skip" as a line of text under the options, and Send at its end for picks. */}
+          <div className="flex min-h-5 items-center gap-1.5 text-[12.5px] text-secondary">
+            <TextLine>
+              {typeable ? (
+                <button
+                  type="button"
+                  aria-expanded={open[index] ?? false}
+                  className={clsx('hover:text-main', open[index] && 'text-main')}
+                  onClick={() => toggleField(index, !open[index])}
                 >
-                  {!instant && (
-                    <Check aria-hidden className={clsx('size-3.5 shrink-0', !on && 'hidden')} />
-                  )}
-                  {option}
-                </Button>
-              )
-            })}
-            {typeable ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                className={clsx('px-3', open[index] && '!bg-state-hover !text-main')}
-                aria-expanded={open[index] ?? false}
-                onClick={() => toggleField(index, !open[index])}
-              >
-                {q.options.length > 0 ? t('Other…') : t('Reply…')}
-              </Button>
-            ) : (
-              q.options.length === 0 && hint
-            )}
+                  {q.options.length > 0 ? t('Other…') : t('Reply…')}
+                </button>
+              ) : (
+                q.options.length === 0 && hint
+              )}
+              {index === last && children}
+            </TextLine>
             {!instant && index === last && (
               <Button
                 size="sm"
-                className="h-8 px-3"
+                className="ml-auto h-8 px-3"
                 disabled={disabled || !complete}
                 onClick={() => onSubmit(formAnswer(questions, picked, words))}
               >
                 {t('Send')}
               </Button>
             )}
-            {index === last && children}
           </div>
           {open[index] && typeable && (
             <div data-card-answer-field>
@@ -139,6 +143,22 @@ export function DecisionOptions({
         </fieldset>
       ))}
     </div>
+  )
+}
+
+/** Its items one after another, a middle dot between each two. */
+function TextLine({ children }: { children: ReactNode }) {
+  const items = Children.toArray(children)
+
+  return items.flatMap((item, index) =>
+    index === 0
+      ? [item]
+      : [
+          <span key={`dot${String(index)}`} aria-hidden className="text-tertiary">
+            ·
+          </span>,
+          item,
+        ],
   )
 }
 

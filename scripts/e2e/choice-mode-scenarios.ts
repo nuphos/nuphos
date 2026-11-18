@@ -17,6 +17,10 @@ const light = (page: Page) =>
     document.documentElement.classList.add('light')
   })
 
+/** A question's card in the chat. */
+const card = (page: Page, question: string) =>
+  page.locator(`[data-decision-question="${question}"]`)
+
 /** Opens a question of the Inbox list and waits for it to be drawn. */
 async function openInInbox(page: Page, question: string) {
   await page.locator('[data-inbox-question]', { hasText: question }).click()
@@ -60,6 +64,9 @@ export const choiceModeScenarios: Scenario[] = [
       )
       await page.locator(`[data-decision-question="${MULTI}"]`).scrollIntoViewIfNeeded()
       await page.screenshot({ path: `${artifacts}/choice-modes-chat.png` })
+      // Each card on its own, for its row of options up close.
+      await card(page, SINGLE).screenshot({ path: `${artifacts}/choice-modes-card-single.png` })
+      await card(page, MULTI).screenshot({ path: `${artifacts}/choice-modes-card-multi.png` })
       // Several questions in one card, one of them multi-select, in its own Task.
       await newTask(page)
       await ask(
@@ -78,6 +85,7 @@ export const choiceModeScenarios: Scenario[] = [
       )
       await page.locator(`[data-decision-question="${SEVERAL}"]`).scrollIntoViewIfNeeded()
       await page.screenshot({ path: `${artifacts}/choice-modes-chat-several.png` })
+      await card(page, SEVERAL).screenshot({ path: `${artifacts}/choice-modes-card-several.png` })
 
       await page.getByRole('tab', { name: 'Inbox' }).click()
       await light(page)
@@ -102,6 +110,10 @@ export const choiceModeScenarios: Scenario[] = [
       await page.getByRole('checkbox', { name: 'E2E_DELIVERY:any-ap' }).click()
       await page.getByRole('checkbox', { name: 'E2E_DELIVERY:any-us' }).click()
       await page.screenshot({ path: `${artifacts}/choice-modes-inbox-multi-picked.png` })
+      await page
+        .locator('article')
+        .first()
+        .screenshot({ path: `${artifacts}/choice-modes-inbox-multi-picked-zoom.png` })
       await page.getByRole('button', { name: 'Send', exact: true }).click()
       await delivered('E2E_DELIVERY:any-us')
 

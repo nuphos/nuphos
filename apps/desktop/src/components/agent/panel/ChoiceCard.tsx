@@ -73,7 +73,7 @@ export function ChoiceCard({
     <button
       type="button"
       disabled={skipped === 'sending'}
-      className="ml-auto px-1 text-[12.5px] text-tertiary hover:text-main"
+      className="hover:text-main"
       onClick={() => {
         setSkipped('sending')
         void ctx.skip?.(card).then((ok) => setSkipped(ok ? 'yes' : 'no'))
