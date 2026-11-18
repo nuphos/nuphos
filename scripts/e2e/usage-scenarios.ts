@@ -5,11 +5,11 @@ import { resolve } from 'node:path'
 import { api, joinTeam } from './dashboard-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, openComputers, send } from './ui.ts'
-import { seedUsage, tooManyModels } from './usage-seeds.ts'
+import { privateConversation, seedTenfold, seedUsage, tooManyModels } from './usage-seeds.ts'
 
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
-import type { Locator } from 'playwright-core'
+import type { Locator, Page } from 'playwright-core'
 
 const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
 
@@ -36,7 +36,12 @@ function turnRows(stack: Stack): TurnRow[] | null {
 
 /** As the second member and as the owner: everyone gets the team's numbers, only an
  *  administrator gets another's conversation name. */
-async function checkNamesByRole(stack: Stack, sessionId: string, teammateToken: string) {
+async function checkNamesByRole(
+  stack: Stack,
+  sessionId: string,
+  privateId: string,
+  teammateToken: string,
+) {
   // Every member sees the team's numbers; only an administrator sees another's conversation name.
   const now = Date.now()
   const read = async (token: string) => {
@@ -64,6 +69,24 @@ async function checkNamesByRole(stack: Stack, sessionId: string, teammateToken: 
     throw new Error('A member sees the name of a teammate’s conversation')
   if (!asOwner.names.conversation?.[sessionId])
     throw new Error('An administrator does not see the conversation’s name')
+  // The owner's private conversation: to the member, only the one merged row, never its id.
+  if (!asTeammate.rows.some((row) => row.keys.conversation === 'private:others'))
+    throw new Error('A member does not get the merged row of private conversations')
+  if (JSON.stringify(asTeammate).includes(privateId))
+    throw new Error('A member is told of another’s private conversation')
+  if (!asOwner.rows.some((row) => row.keys.conversation === privateId))
+    throw new Error('The owner does not see their own private conversation')
+}
+
+/** Filters take several values per dimension: the member picked by clicking is ticked. */
+async function captureFilterMenu(page: Page, section: Locator) {
+  // Filters take several values per dimension: the member picked by clicking is ticked.
+  await section.getByRole('button', { name: 'Filter' }).click()
+  await page.getByRole('menuitem', { name: 'Member' }).click()
+  await page.getByRole('menuitemcheckbox', { checked: true }).waitFor()
+  await page.screenshot({ path: `${artifacts}/token-usage-filter-menu.png` })
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Escape')
 }
 
 /** The whole section, scrolled to the top of the window first, so a tall one is not cut off. */
@@ -213,15 +236,11 @@ export const usageScenarios: Scenario[] = [
       })
       const triggerId = String((created.body as { id?: string }).id)
 
-      // Last week the teammate used little; this week their Trigger used far more than anyone.
-      seedUsage(stack, sessionId, owner, [
-        { actor: teammate.id, total: 10_000, daysAgo: 9 },
-        { actor: owner, total: 100_000, daysAgo: 9, triggerId },
-        { actor: teammate.id, total: 400_000, daysAgo: 1, triggerId },
-        { actor: owner, total: 50_000, daysAgo: 1 },
-      ])
+      const privateId = `e2e-private-${String(Date.now())}`
+
+      seedTenfold(stack, { sessionId, privateId, owner, teammate: teammate.id, triggerId })
       try {
-        await checkNamesByRole(stack, sessionId, teammate.token)
+        await checkNamesByRole(stack, sessionId, privateId, teammate.token)
         await openComputers(page)
         const section = page.getByRole('region', { name: 'Token usage' })
         const table = section.getByRole('table', { name: 'Token usage by group' })
@@ -250,17 +269,12 @@ export const usageScenarios: Scenario[] = [
         await trigger.getByText('New').waitFor()
         await shot(section, 'token-usage-why-2-trigger')
 
-        // Filters take several values per dimension: the member picked by clicking is ticked.
-        await section.getByRole('button', { name: 'Filter' }).click()
-        await page.getByRole('menuitem', { name: 'Member' }).click()
-        await page.getByRole('menuitemcheckbox', { checked: true }).waitFor()
-        await page.screenshot({ path: `${artifacts}/token-usage-filter-menu.png` })
-        await page.keyboard.press('Escape')
-        await page.keyboard.press('Escape')
+        await captureFilterMenu(page, section)
         await section.getByRole('button', { name: 'Clear filter' }).click()
         await page.getByText('Back to app', { exact: true }).click()
       } finally {
         seedUsage(stack, sessionId, owner, [])
+        privateConversation(stack, privateId, owner, false)
         await api(stack, stack.token)(
           'DELETE',
           `/agent/triggers/${triggerId}?teamId=${stack.teamId}`,

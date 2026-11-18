@@ -64,3 +64,43 @@ export function seedUsage(stack: Stack, sessionId: string, owner: string, seeds:
     { cwd: BACKEND_DIR, timeout: 20_000 },
   )
 }
+
+/** Writes (or, with `add` false, removes) a conversation only its owner may see. */
+export function privateConversation(stack: Stack, sessionId: string, owner: string, add: boolean) {
+  const script = `
+    import { MongoClient } from 'mongodb'
+    const [uri, teamId, sessionId, owner, add] = process.argv.slice(1)
+    const client = await new MongoClient(uri).connect()
+    const conversations = client.db('nuphos_e2e').collection('agent_conversations')
+    if (add === 'true')
+      await conversations.insertOne({
+        sessionId, teamId, userId: owner, title: 'Private plan', generalAccess: 'none',
+        createdAt: new Date(), updatedAt: new Date(),
+      })
+    else await conversations.deleteOne({ teamId, sessionId })
+    await client.close()`
+
+  execFileSync('bun', ['-e', script, stack.mongoUri, stack.teamId, sessionId, owner, String(add)], {
+    cwd: BACKEND_DIR,
+    timeout: 20_000,
+  })
+}
+
+/** Last week the teammate used little; this week their Trigger used far more than anyone. The
+ *  owner also used a little in a conversation only they may see. */
+export function seedTenfold(
+  stack: Stack,
+  ids: { sessionId: string; privateId: string; owner: string; teammate: string; triggerId: string },
+) {
+  const { sessionId, privateId, owner, teammate, triggerId } = ids
+
+  privateConversation(stack, privateId, owner, true)
+  seedUsage(stack, privateId, owner, [{ actor: owner, total: 5_000, daysAgo: 1 }])
+  // Last week the teammate used little; this week their Trigger used far more than anyone.
+  seedUsage(stack, sessionId, owner, [
+    { actor: teammate, total: 10_000, daysAgo: 9 },
+    { actor: owner, total: 100_000, daysAgo: 9, triggerId },
+    { actor: teammate, total: 400_000, daysAgo: 1, triggerId },
+    { actor: owner, total: 50_000, daysAgo: 1 },
+  ])
+}
