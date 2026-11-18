@@ -131,6 +131,32 @@ describe('SlackAgentRunSink', () => {
     expect(sink.terminal()).toBe('complete')
   })
 
+  // The agent's own call is the question's card: in Slack only its label shows, never a form.
+  test("a question asking for a form's details shows only its label", async () => {
+    const { posts, statuses, sink } = makeSink()
+
+    sink.frame(
+      frame({
+        type: 'tool-input-available',
+        toolCallId: 't1',
+        toolName: 'request_user_decision',
+        input: {
+          label: 'Ask for the lookup details',
+          category: 'credential',
+          question: 'The lookup form needs these details.',
+          secretName: 'CLINIC_LOOKUP',
+          fields: [{ name: 'NATIONAL_ID', label: 'National ID number' }],
+          site: 'www.clinic.example',
+        },
+      }),
+    )
+    sink.frame(frame({ type: 'atlas-turn-complete' }))
+    await sink.settle()
+
+    expect(statuses).toEqual(['Ask for the lookup details'])
+    expect(posts.join('\n')).not.toMatch(/CLINIC_LOOKUP|NATIONAL_ID|clinic/)
+  })
+
   test('a blocking tool approval is published immediately with the tool label', async () => {
     const approvals: Record<string, unknown>[] = []
     const { posts, statuses, sink } = makeSink(false, async (request) => {

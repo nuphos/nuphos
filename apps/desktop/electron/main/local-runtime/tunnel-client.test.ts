@@ -201,6 +201,7 @@ test('a state listener that throws on disconnect does not stop the redial', (t) 
   t.mock.timers.tick(10_000)
   assert.equal(backends.length, 2)
   backends.at(-1)?.emit('error')
+  backends.at(-1)?.emit('close', { code: 1006 })
   t.mock.timers.tick(10_000)
   assert.equal(backends.length, 3)
   t.mock.timers.tick(TUNNEL_IDLE_TIMEOUT_MS)
@@ -211,15 +212,20 @@ test('a state listener that throws on disconnect does not stop the redial', (t) 
   client.stop()
 })
 
-test('a silent socket is treated as dead and redialed', (t) => {
+test('a silent socket is redialed, and kept until the new tunnel can take over', (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] })
   const { backend, backends, client } = setup()
 
   backend().emit('open')
   t.mock.timers.tick(TUNNEL_IDLE_TIMEOUT_MS)
-  assert.equal(backends[0]?.closed, true)
   t.mock.timers.tick(500)
   assert.equal(backends.length, 2)
+  // Closing it first would end every stream on it before a tunnel exists to take them (#3366).
+  assert.equal(backends[0]?.closed, false)
+  backends[1]?.emit('open')
+  t.mock.timers.tick(TUNNEL_IDLE_TIMEOUT_MS)
+  assert.equal(backends[0]?.closed, true)
+  assert.equal(backends[1]?.closed, false)
   client.stop()
 })
 
@@ -246,6 +252,7 @@ test('once back, it tells the backend why it gave up the last tunnel, and only o
   t.mock.timers.tick(500)
   // A redial that fails does not replace the drop being reported.
   backend().emit('error')
+  backend().emit('close', { code: 1006 })
   t.mock.timers.tick(1_000)
   backend().emit('open')
 
@@ -263,6 +270,25 @@ test('once back, it tells the backend why it gave up the last tunnel, and only o
   client.stop()
 })
 
+test('a tunnel that fails reports the close code that followed the error', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
+  const { backend, backends, frames, client } = setup()
+
+  backend().emit('open')
+  // Like undici: a connection that fails fires `error`, then `close` with the code that says why.
+  backend().emit('error')
+  backend().emit('close', { code: 1009 })
+  t.mock.timers.tick(500)
+  assert.equal(backends.length, 2)
+  backend().emit('open')
+
+  assert.deepEqual(
+    frames().filter((frame) => frame.t === 'dropped'),
+    [{ t: 'dropped', reason: 'closed', code: 1009, silentMs: 0 }],
+  )
+  client.stop()
+})
+
 test('a dial that never opened is not reported as a lost tunnel', (t) => {
   t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
   const { backend, frames, client } = setup()
@@ -275,14 +301,17 @@ test('a dial that never opened is not reported as a lost tunnel', (t) => {
   client.stop()
 })
 
-test('waking up redials at once instead of waiting out the backoff', () => {
+test('waking up redials at once instead of waiting out the backoff', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
   const { backend, backends, client } = setup()
 
   backend().emit('open')
   client.reconnectNow()
 
-  assert.equal(backends[0]?.closed, true)
   assert.equal(backends.length, 2)
+  assert.equal(backends[0]?.closed, false)
+  t.mock.timers.tick(TUNNEL_IDLE_TIMEOUT_MS)
+  assert.equal(backends[0]?.closed, true)
   client.stop()
 })
 
@@ -361,6 +390,7 @@ test('a stop says it stopped, so the backend can tell it from a reconnect', () =
   backends[1]?.emit('open')
   client.stop()
 
+  // Stopping closes the socket the redial replaced too, still as a reconnect.
   assert.equal(backends[0]?.closeReason, 'reconnecting')
   assert.equal(backends[1]?.closeReason, 'stopped')
 })

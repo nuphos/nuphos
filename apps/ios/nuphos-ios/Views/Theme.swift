@@ -24,7 +24,9 @@ enum Theme {
 
     // Compatibility names keep existing controls on the shared palette.
     static let chatCanvas = surface
-    static let chatSurface = surface
+    /// Chips and cards inside the transcript, which `surface` cannot be
+    /// because it matches the transcript's own light-mode background.
+    static let chatSurface = adaptive(light: 0xF1F1F4, dark: 0x202024)
     static let bubble = sunken
     static let brand = heading
     static let brandText = link

@@ -84,8 +84,11 @@ internal fun BotQuestionCard(
         Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(heading(question.request.category), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium)
+                // One line, cut with an ellipsis, as on Desktop and iOS; a tap shows it in full.
+                var open by rememberSaveable(question.id) { mutableStateOf(false) }
                 Text(question.request.question, style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = if (open) Int.MAX_VALUE else 1,
+                    overflow = TextOverflow.Ellipsis, modifier = Modifier.clickable { open = !open }.testTag("bot-question-title"))
                 question.ownBody?.let { QuestionBody(question.id, it, onLink) }
                 val form = question.form
                 val secret = question.secretPart

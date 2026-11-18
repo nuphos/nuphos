@@ -3,6 +3,8 @@ name: CI
 on:
   pull_request:
   merge_group:
+  # Runs only the end-to-end job, on any branch: for evidence a pull request cannot carry.
+  workflow_dispatch:
 
 # Merge-group refs (gh-readonly-queue/main/pr-N-<sha>) are unique per group, so
 # queued runs never cancel each other; a PR's new push still cancels its old run.
@@ -17,6 +19,7 @@ permissions:
 jobs:
   format:
     name: Format (prettier --check)
+    if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -35,7 +38,8 @@ jobs:
   # it reports success there instead of blocking the queue.
   dco:
     name: DCO
-    runs-on: ubuntu-slim
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-24.04-arm
     steps:
       - name: Skip in the merge queue
         if: github.event_name == 'merge_group'
@@ -59,6 +63,7 @@ jobs:
 
   changes:
     name: Detect changed apps
+    if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-24.04-arm
     outputs:
       # A version-only diff (a release PR) skips these; see the step below.
@@ -72,6 +77,7 @@ jobs:
       dev_scripts: ${{ steps.filter.outputs.dev_scripts }}
       lint_config: ${{ steps.filter.outputs.lint_config == 'true' && steps.bump.outputs.version_only != 'true' }}
       import_cycles: ${{ steps.filter.outputs.import_cycles }}
+      e2e: ${{ steps.filter.outputs.e2e == 'true' && steps.bump.outputs.version_only != 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -151,6 +157,15 @@ jobs:
               - 'scripts/check-import-cycles.mjs'
               - 'scripts/check-import-cycles.test.mjs'
               - 'scripts/import-cycles.baseline.json'
+              - '.github/workflows/ci.yml'
+            # What `bun run e2e` starts: the backend, the Desktop app and OpenAB.
+            e2e:
+              - 'apps/desktop/**'
+              - 'apps/backend/**'
+              - 'apps/runtime/openab/**'
+              - 'scripts/e2e/**'
+              - 'package.json'
+              - 'bun.lock'
               - '.github/workflows/ci.yml'
 
       # A release PR changes only `version` fields, the App Store notes and the
@@ -257,6 +272,15 @@ jobs:
         run: cargo test --locked
       - name: Test install.sh
         run: sh install.test.sh
+      # The CLI binary, to try a pull request's CLI on a Mac. cargo test builds only the test binaries.
+      - name: Build
+        run: cargo build --locked
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: nuphos-cli-macos-arm64
+          path: apps/cli/target/debug/nuphos
+          retention-days: 7
+          if-no-files-found: error
 
   skill-install:
     name: Skill installers (${{ matrix.os }})
@@ -405,6 +429,79 @@ jobs:
           push: false
           load: false
           provenance: false
+
+  # The Desktop app driven against a real backend, MongoDB, file store and OpenAB,
+  # with a deterministic agent in place of a model: `bun run e2e`, the same command
+  # a contributor runs. In this workflow so the merge queue runs it on the
+  # combined changes, like every other check.
+  e2e:
+    name: Desktop against a real backend
+    needs: changes
+    # On dispatch `changes` is skipped, which skips this job unless the condition says otherwise.
+    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.e2e == 'true') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      attestations: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: apps/desktop/pnpm-lock.yaml
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: .bun-version
+      # Attested openab from openab-cache.yml on main; otherwise the next step compiles it.
+      - id: openab
+        uses: ./.github/actions/openab-binaries
+      # Always staged: the app runs its own local agents from it. A cache hit reuses that openab.
+      - name: Stage the local runtime
+        working-directory: apps/desktop
+        run: node local-runtime/prepare.mjs --targets linux-x64 --require
+      - name: Install dependencies
+        run: |
+          bun install --frozen-lockfile
+          (cd apps/backend && bun install --frozen-lockfile)
+          (cd apps/desktop && pnpm install --frozen-lockfile)
+      # The scenarios' 60 s wait for MongoDB must not include a cold image pull (#3102).
+      # Keep the tags in step with MONGO_IMAGE in scripts/e2e/stack.ts and STORAGE_IMAGE in storage.ts.
+      - name: Pull the MongoDB and file store images
+        run: |
+          docker pull mongo:8.0.32
+          docker pull rustfs/rustfs:1.0.0
+      - name: Run the end-to-end scenarios
+        env:
+          E2E_ARTIFACTS: ${{ runner.temp }}/e2e
+        run: |
+          mkdir -p "$E2E_ARTIFACTS"
+          xvfb-run --auto-servernum bun run e2e
+      - name: Run Bot onboarding lifecycle scenarios
+        env:
+          E2E_ARTIFACTS: ${{ runner.temp }}/e2e-onboarding
+        run: |
+          mkdir -p "$E2E_ARTIFACTS"
+          xvfb-run --auto-servernum bun run e2e:bot-onboarding
+      # Logs and a screenshot after each scenario; the database and the app's sign-in files are left out.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
+        with:
+          name: e2e
+          path: |
+            ${{ runner.temp }}/e2e
+            !${{ runner.temp }}/e2e/mongo
+            !${{ runner.temp }}/e2e/sign-in
+            ${{ runner.temp }}/e2e-onboarding
+            !${{ runner.temp }}/e2e-onboarding/mongo
+            !${{ runner.temp }}/e2e-onboarding/sign-in
+          retention-days: 7
 
   desktop:
     name: Desktop (Nuphos macOS package)
@@ -561,6 +658,8 @@ jobs:
         run: node --test scripts/fill-mobile-locales.test.mjs
       - name: Test that every release runs the provenance gate
         run: node --test scripts/release-workflows.test.mjs
+      - name: iOS UI results comparison tests
+        run: node --test scripts/compare-ios-ui-results.test.mjs
       # BLOCKING. The custom comment-discipline rules are only worth having if
       # they still fire; a rule that silently stops reporting is worse than no
       # rule. These suites fail if any of the three does.

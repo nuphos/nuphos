@@ -31,7 +31,7 @@ function notice(tab: Partial<Tab>, catalog: RuntimeInstance[] = [], admin = fals
 test('a new teammate with nothing to run on is offered setup, never a dead end', () => {
   const { result, calls } = notice({})
 
-  assert.equal(result?.action.label, 'Set up your agent')
+  assert.equal(result?.action.label, 'Set up a runtime')
   assert.deepEqual(calls, ['setup'])
   assert.equal(result?.secondary, undefined)
 })

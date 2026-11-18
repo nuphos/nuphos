@@ -82,17 +82,15 @@ export function ArtifactToolbar(props: ArtifactToolbarProps) {
         createPortal(
           <div className="flex shrink-0 items-center gap-1">
             {density !== 'tiny' && errors.length > 0 && (
-              <Tooltip
-                content={t('Ask the agent to fix: {errors}', { errors: errors.join(' · ') })}
-              >
+              <Tooltip content={t('Ask to fix: {errors}', { errors: errors.join(' · ') })}>
                 <Button
                   variant="ghost"
                   size="icon-sm"
                   className="relative h-7 w-7 text-warning hover:text-warning"
                   aria-label={
                     errors.length === 1
-                      ? t('Ask the agent to fix 1 error')
-                      : t('Ask the agent to fix {n} errors', { n: String(errors.length) })
+                      ? t('Ask to fix 1 error')
+                      : t('Ask to fix {n} errors', { n: String(errors.length) })
                   }
                   onClick={() => onAskAgent(fixPrompt(current, errors))}
                 >

@@ -111,7 +111,7 @@ export const triggerScenarios: Scenario[] = [
       // Its owner reads why, in plain words, in the Task's own Triggers.
       // Opened after the pause, so its list is read fresh.
       const toggle = page.getByRole('button', { name: /task summary$/ }).first()
-      const summary = page.getByLabel('Agent summary')
+      const summary = page.getByLabel('Task summary', { exact: true })
 
       if (await summary.isVisible()) await toggle.click()
       await toggle.click()
