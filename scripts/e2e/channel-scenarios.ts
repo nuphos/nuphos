@@ -3,7 +3,7 @@ import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { agentEvents, agentLog } from './agent-log.ts'
-import { computerWithUsage, pickRuntime, shootRuntimeLine } from './channel-helpers.ts'
+import { forgetComputer } from './computer-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
 
