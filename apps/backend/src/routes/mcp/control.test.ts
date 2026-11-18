@@ -236,24 +236,33 @@ describe('nuphos_events', () => {
     expect(next.cursor).toBe('st1/4-0')
   })
 
-  test('catches up after a reconnect: the old turn to its end, then the new one', async () => {
-    frames.st1 = [
-      { id: '1-0', frame: frame({ type: 'start' }) },
-      { id: '2-0', frame: frame({ type: 'finish' }) },
-    ]
+  test('a cursor on a turn that has ended moves on to the running one', async () => {
+    frames.st1 = [{ id: '1-0', frame: frame({ type: 'finish' }) }]
     frames.st2 = [{ id: '9-0', frame: frame({ type: 'start' }) }]
     active = { streamId: 'st2' }
 
-    const rest = body(await nuphosEvents({ session_id: 's1', cursor: 'st1/1-0' }, ctx))
+    const next = body(await nuphosEvents({ session_id: 's1', cursor: 'st1/0-1' }, ctx))
 
-    expect(rest.events).toEqual([{ type: 'finish' }])
-    expect(rest.turn_ended).toBe(true)
-    expect(rest.cursor).toBe('st2/-')
+    // The finished turn is read from the transcript; its frames are not served here.
+    expect(next).toMatchObject({ turn_ended: true, running: true, cursor: 'st2/9-0' })
+    expect(next.events).toEqual([{ type: 'start' }])
+  })
 
-    const fresh = body(await nuphosEvents({ session_id: 's1', cursor: rest.cursor }, ctx))
+  test('a cursor naming another stream reads only this session’s running turn', async () => {
+    // Another session's stream of the same owner, which the caller can read elsewhere.
+    frames.other = [{ id: '1-0', frame: frame({ type: 'text-delta', id: 't', delta: 'secret' }) }]
+    frames.st1 = [{ id: '5-0', frame: frame({ type: 'start' }) }]
+    active = { streamId: 'st1' }
 
-    expect(fresh.events).toEqual([{ type: 'start' }])
-    expect(fresh.cursor).toBe('st2/9-0')
+    const read = body(await nuphosEvents({ session_id: 's1', cursor: 'other/0-1' }, ctx))
+
+    expect(read.events).toEqual([{ type: 'start' }])
+    expect(read.cursor).toBe('st1/5-0')
+
+    active = null
+    const idle = body(await nuphosEvents({ session_id: 's1', cursor: 'other/0-1' }, ctx))
+
+    expect(idle).toMatchObject({ events: [], turn_ended: true, running: false })
   })
 
   test('without Redis, reads the run this process holds by frame position', async () => {
@@ -275,16 +284,17 @@ describe('nuphos_events', () => {
     expect(first.events).toHaveLength(2)
     expect(first.cursor).toBe('st1/2')
 
-    run.frames.push(frame({ type: 'finish' }))
+    run.frames.push(frame({ type: 'text-delta', id: 't', delta: '!' }))
+    const more = body(await nuphosEvents({ session_id: 's1', cursor: first.cursor }, ctx))
+
+    expect(more.events).toEqual([{ type: 'text-delta', id: 't', delta: '!' }])
+    expect(more.cursor).toBe('st1/3')
+
     run.done = true
-    const rest = body(await nuphosEvents({ session_id: 's1', cursor: first.cursor }, ctx))
-
-    expect(rest.events).toEqual([{ type: 'finish' }])
-    expect(rest).toMatchObject({ running: false, turn_ended: true, cursor: 'st1/3' })
-
-    // Polled again before a new turn: nothing more, and the same place to resume from.
-    expect(body(await nuphosEvents({ session_id: 's1', cursor: rest.cursor }, ctx))).toMatchObject({
+    // Kept as the place to resume: the next turn is picked up from it.
+    expect(body(await nuphosEvents({ session_id: 's1', cursor: more.cursor }, ctx))).toMatchObject({
       events: [],
+      running: false,
       turn_ended: true,
       cursor: 'st1/3',
     })

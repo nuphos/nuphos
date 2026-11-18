@@ -22,9 +22,9 @@ export const CONTROL_TOOL_DEFINITIONS = [
       'as the Nuphos app shows them live), after a cursor. Call without cursor to ' +
       'read the running turn from its start; pass the returned cursor to get only ' +
       'what came since, also after a reconnect; keep passing it and the next turn ' +
-      'is picked up when it starts. turn_ended means the turn you were reading is ' +
-      'over; its events stay readable for a few minutes, and the stored transcript, ' +
-      'from nuphos_check from_index, has every finished turn.',
+      'is picked up when it starts. Only the running turn is read: running false ' +
+      'or turn_ended means the turn you were reading is over, and its answer and ' +
+      'full record are in nuphos_check (from_index for the transcript).',
     inputSchema: {
       type: 'object',
       properties: {

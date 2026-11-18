@@ -167,30 +167,26 @@ export async function nuphosEvents(
   const active =
     getLocalActiveAgentRun(owner, conversation.sessionId) ??
     (await getActiveAgentRunForSession(owner, conversation.sessionId))
+  // Only this session's running turn is read, so a cursor reaches no other stream.
+  // A cursor on any other stream marks a turn that is over: its events are gone
+  // from here, and the stored transcript (nuphos_check from_index) has it whole.
+  const ended = Boolean(cursor && cursor.streamId !== active?.streamId)
   const base = {
     session_id: conversation.sessionId,
     running: Boolean(active),
-    // The stored transcript has every finished turn: nuphos_check from_index reads it.
     message_count: conversation.messageCount,
+    ...(ended ? { turn_ended: true } : {}),
   }
-  // A cursor on a finished turn reads that turn to its end before the next one starts.
-  const streamId = cursor?.streamId ?? active?.streamId
 
-  if (!streamId) return toolResult({ ...base, events: [], cursor: null })
-  const after = cursor?.streamId === streamId ? cursor.after : '-'
+  if (!active) return toolResult({ ...base, events: [], cursor: raw || null })
+  const after = cursor && !ended ? cursor.after : '-'
   const entries =
-    (await readAgentRunFramesAfter(owner, streamId, after, EVENTS_PAGE)) ??
-    localFramesAfter(owner, streamId, after, EVENTS_PAGE)
-  const events = entries.flatMap((entry) => frameEvent(entry.frame) ?? [])
-  const last = entries.at(-1)?.id ?? after
-  // Read to the end of a turn that is no longer the running one: continue on the new one.
-  const ended = streamId !== active?.streamId && entries.length < EVENTS_PAGE
+    (await readAgentRunFramesAfter(owner, active.streamId, after, EVENTS_PAGE)) ??
+    localFramesAfter(owner, active.streamId, after, EVENTS_PAGE)
 
   return toolResult({
     ...base,
-    events,
-    // Always a point to resume from: a new turn is picked up from it once one starts.
-    cursor: ended && active ? `${active.streamId}/-` : `${streamId}/${last}`,
-    ...(ended ? { turn_ended: true } : {}),
+    events: entries.flatMap((entry) => frameEvent(entry.frame) ?? []),
+    cursor: `${active.streamId}/${entries.at(-1)?.id ?? after}`,
   })
 }
