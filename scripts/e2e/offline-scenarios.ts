@@ -13,10 +13,14 @@ const GIB = 1024 ** 3
 
 // A computer of this person's with a signed-in Claude Code, online until the returned function
 // is called. With `diskPercent` it also reports its readings, as full as that; `client` is the
-// app it connects as.
+// app it connects as. With `restoreFails` its agent fails every request after `initialize`.
 async function laptopOnline(
   stack: Stack,
-  { diskPercent, client }: { diskPercent?: number; client?: string } = {},
+  {
+    diskPercent,
+    client,
+    restoreFails,
+  }: { diskPercent?: number; client?: string; restoreFails?: boolean } = {},
 ): Promise<() => void> {
   const authorization = `Bearer ${stack.token}`
   const registered = await fetch(`${stack.apiUrl}/agent/devices`, {
@@ -38,7 +42,10 @@ async function laptopOnline(
     } as unknown as string[],
   )
 
-  tunnel.addEventListener('message', () => tunnel.send(JSON.stringify({ t: 'pong' })))
+  tunnel.addEventListener('message', (event: MessageEvent) => {
+    tunnel.send(JSON.stringify({ t: 'pong' }))
+    if (restoreFails) answerAsOldRuntime(tunnel, String(event.data))
+  })
   await new Promise((opened, failed) => {
     tunnel.addEventListener('open', opened)
     tunnel.addEventListener('error', failed)
@@ -74,6 +81,28 @@ async function laptopOnline(
     clearInterval(reporting)
     tunnel.close()
   }
+}
+
+export const RESTORE_FAILED = 'Could not restore the saved session; it is kept for the next attempt'
+
+// How a runtime without #3373 answered once it could not restore the saved session (#3371).
+function answerAsOldRuntime(tunnel: WebSocket, raw: string) {
+  const frame = JSON.parse(raw) as { t: string; s?: string; d?: string }
+  const reply = (d: unknown) =>
+    tunnel.send(JSON.stringify({ t: 'data', s: frame.s, d: JSON.stringify(d) }))
+
+  if (frame.t === 'open') tunnel.send(JSON.stringify({ t: 'opened', s: frame.s }))
+  if (frame.t !== 'data' || !frame.d) return
+  const request = JSON.parse(frame.d) as { id?: number; method?: string }
+
+  if (request.id === undefined || !request.method) return
+  if (request.method === 'initialize')
+    reply({
+      jsonrpc: '2.0',
+      id: request.id,
+      result: { protocolVersion: 1, agentCapabilities: { loadSession: true }, authMethods: [] },
+    })
+  else reply({ jsonrpc: '2.0', id: request.id, error: { code: -32603, message: RESTORE_FAILED } })
 }
 
 export const offlineScenarios: Scenario[] = [
@@ -143,7 +172,10 @@ export const offlineScenarios: Scenario[] = [
     // #3182: a computer on a Nuphos too old to run a conversation failed without saying why.
     name: 'a conversation on a computer whose Nuphos is out of date says so, and leads to the computer',
     run: async (page, stack) => {
-      const goOffline = await laptopOnline(stack, { client: 'nuphos-desktop/0.119.0' })
+      const goOffline = await laptopOnline(stack, {
+        client: 'nuphos-desktop/0.119.0',
+        restoreFails: true,
+      })
 
       try {
         await newTask(page)
@@ -162,6 +194,15 @@ export const offlineScenarios: Scenario[] = [
 
         await banner.waitFor()
         await page.screenshot({ path: join(artifacts, 'outdated-banner.png') })
+        // #3562: a turn that fails there says why, for clients too old to show the banner.
+        await send(page, 'On the old laptop')
+        await page.getByText(RESTORE_FAILED).waitFor()
+        await page
+          .getByText(
+            'Nuphos on the computer running this agent is out of date. Update it there, then try again.',
+          )
+          .waitFor()
+        await page.screenshot({ path: join(artifacts, 'outdated-turn-error.png') })
         await banner.getByRole('button', { name: 'Update' }).click()
         await page.getByText('Nuphos on this computer is out of date').waitFor()
         await page.getByText('Open Nuphos on it and restart to update.').waitFor()

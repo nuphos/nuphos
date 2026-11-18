@@ -37,3 +37,7 @@ export function hostOutdated(
     )
   })
 }
+
+/** What a failed turn adds when the computer that ran it is out of date. */
+export const OUTDATED_HOST_HINT =
+  'Nuphos on the computer running this agent is out of date. Update it there, then try again.'

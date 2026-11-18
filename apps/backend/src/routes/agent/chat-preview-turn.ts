@@ -17,7 +17,11 @@ import {
 } from '@/lib/claude-code-preview/preview-transcript'
 import { watchPreviewTurnPauses } from '@/lib/claude-code-preview/preview-turn-pause'
 import { fallBackAfterFailure } from '@/lib/claude-code-preview/runtime-fallback'
-import { queuedRefusal, resentAfter } from '@/lib/claude-code-preview/runtime-refusal'
+import {
+  addOutdatedHint,
+  queuedRefusal,
+  resentAfter,
+} from '@/lib/claude-code-preview/runtime-refusal'
 import { steeringReceipt } from '@/lib/claude-code-preview/steering-receipt'
 import { createTurnDiagnostics } from '@/lib/claude-code-preview/turn-diagnostics'
 import { RunHandoff } from '@/lib/lifecycle'
@@ -253,6 +257,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
     state.unbind()
     await clearActiveTurn()
     if (!state.handedOff()) await fallBackAfterFailure(sessionId, err, actorUserId)
+    await addOutdatedHint(err, args.endpoint.local)
     // Handoff errors belong to the continuation; the original run is closed.
     if (!state.handedOff()) throw queuedRefusal(err, args.queued)
     appendAgentRunError(state.current(), queuedRefusal(err, args.queued))

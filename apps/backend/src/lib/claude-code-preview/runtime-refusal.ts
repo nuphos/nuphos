@@ -1,5 +1,7 @@
+import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { AppError } from '@/lib/errors'
 
+import { OUTDATED_HOST_HINT, hostOutdated } from './host-minimum-version'
 import { agentHostAway } from './openab-acp-connect'
 import { turnFailureCause } from './openab-acp-errors'
 
@@ -33,6 +35,22 @@ export const queuedRefusal = (error: unknown, queued: unknown) =>
   queued && isRuntimeRefusal(error)
     ? new AppError(409, 'message_queued', 'Your message waits for the turn ahead')
     : error
+
+/**
+ * A failed turn on a computer whose Nuphos is older than supported says so: the error is the one
+ * thing every client shows, old ones included. A refusal is not a failure and stays as it is.
+ */
+export async function addOutdatedHint(
+  error: unknown,
+  local: { userId: string; deviceId: string } | undefined,
+): Promise<void> {
+  if (!local || !(error instanceof Error) || isRuntimeRefusal(error)) return
+  const present = await runtimePresenceStore()
+    .get(local.userId, local.deviceId)
+    .catch(() => null)
+
+  if (hostOutdated(present)) error.message += `\n\n${OUTDATED_HOST_HINT}`
+}
 
 /** The message waits in the session queue: the expected outcome, not a failure. */
 export const isMessageQueued = (error: unknown) =>
