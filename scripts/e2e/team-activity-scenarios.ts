@@ -48,11 +48,19 @@ function seedSessions(stack: Stack, teamId: string, sessions: Record<string, str
 const titles = (activity: Activity) =>
   Object.fromEntries(activity.sessions.map((s) => [s.id, s.title]))
 
+/** The team switcher: its name is the team icon's initials, then the team's name. */
+const switcher = (page: Page) =>
+  page.getByRole('button', { name: new RegExp(`^\\S*\\s*(E2E|${TEAM_NAME})$`) }).first()
+
 /** Hovers the busy cell in the row whose name has `who`, until its tooltip lists `title`, and shoots it. */
 async function shootCell(page: Page, who: string, title: string, file: string) {
   const row = page.locator('div.h-7').filter({ hasText: who })
   const cells = row.locator('.grid > div')
   const count = await cells.count()
+
+  // An open tooltip can cover the row above it, so let it close first.
+  await page.mouse.move(0, 0)
+  await page.waitForTimeout(800)
 
   // The session ran an hour ago, so its cell is one of the last few.
   for (let i = count - 1; i >= Math.max(0, count - 4); i--) {
@@ -145,8 +153,7 @@ export const teamActivityScenarios: Scenario[] = [
       must(stats.status === 200, `the member to read team stats, got ${String(stats.status)}`)
 
       // The member's home in that team: the activity card, the teammate's session unnamed.
-      // The switcher's name starts with the team icon's initials, so its label text is clicked.
-      await page.getByText('E2E', { exact: true }).first().click()
+      await switcher(page).click()
       await page.getByRole('menuitem', { name: 'Switch workspace' }).click()
       await page.getByRole('menuitem', { name: TEAM_NAME }).click()
       try {
@@ -154,23 +161,23 @@ export const teamActivityScenarios: Scenario[] = [
         await page.getByText('Team activity', { exact: true }).first().waitFor()
         await page.waitForTimeout(1_000)
         await page.screenshot({ path: `${artifacts}/team-activity-member-home.png` })
-        // The teammate's session is listed unnamed; the member's own keeps its title.
-        await shootCell(
-          page,
-          'e2e-activity',
-          'Conversation',
-          'team-activity-member-teammate-cell.png',
-        )
+        // The member's own session keeps its title; the teammate's is listed unnamed.
         await shootCell(
           page,
           stack.email.split('@')[0] ?? '',
           'Member fix',
           'team-activity-member-own-cell.png',
         )
+        await shootCell(
+          page,
+          'e2e-activity',
+          'Conversation',
+          'team-activity-member-teammate-cell.png',
+        )
         await page.mouse.move(0, 0)
         await page.getByRole('button', { name: 'Stats', exact: true }).click()
       } finally {
-        await page.getByText(TEAM_NAME, { exact: true }).first().click()
+        await switcher(page).click()
         await page.getByRole('menuitem', { name: 'Switch workspace' }).click()
         await page.getByRole('menuitem', { name: /E2E$/ }).click()
       }
