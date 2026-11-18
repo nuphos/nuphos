@@ -27,6 +27,8 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -220,6 +222,11 @@ private fun QuestionOptions(
             onClick = { if (pick) onForm(BotQuestion.formAnswer(questions, picked.toList(), answers)) else onAnswer(answers[0]) },
             enabled = if (pick) complete else answers[0].isNotEmpty(),
             modifier = Modifier.testTag("bot-question-send"),
+            // The row's one ink button, the pills' radius, as Desktop and iOS draw Send.
+            shape = RoundedCornerShape(9.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.onSurface,
+                contentColor = MaterialTheme.colorScheme.surface),
+            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
         ) { Text(stringResource(R.string.chats_question_send_answer)) }
     }
 }
