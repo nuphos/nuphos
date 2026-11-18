@@ -1,10 +1,10 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
 
-import { isImageAttachmentPath } from './attachments'
-import { loadComposerDraft, saveComposerDraft } from './composerDrafts'
-import { restoreEditorText } from './composerSerialize'
+import { isImageAttachmentPath } from './attachments.ts'
+import { loadComposerDraft, saveComposerDraft } from './composerDrafts.ts'
+import { restoreEditorText } from './composerSerialize.ts'
 
-import type { ComposerDraft } from './composerDrafts'
+import type { ComposerDraft } from './composerDrafts.ts'
 import type { ComposerState } from './useComposerState'
 
 const SAVE_DELAY_MS = 250
