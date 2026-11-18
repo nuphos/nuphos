@@ -17,9 +17,12 @@ permissions:
   pull-requests: read
 
 jobs:
+  # Every PR in a merge group already passed format and lint on pull_request,
+  # and stacking PRs rarely changes either result, so the merge queue skips
+  # them. A skipped job still satisfies its required check; typecheck still runs.
   format:
     name: Format (prettier --check)
-    if: github.event_name != 'workflow_dispatch'
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -576,7 +579,7 @@ jobs:
   backend-lint:
     name: Backend lint
     needs: changes
-    if: needs.changes.outputs.backend == 'true'
+    if: github.event_name == 'pull_request' && needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -606,7 +609,7 @@ jobs:
   desktop-lint:
     name: Desktop lint
     needs: changes
-    if: needs.changes.outputs.desktop == 'true'
+    if: github.event_name == 'pull_request' && needs.changes.outputs.desktop == 'true'
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
