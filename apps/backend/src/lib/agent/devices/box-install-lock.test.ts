@@ -71,6 +71,10 @@ test.skipIf(!hasFlock)('a second install waits for the first to finish', async (
 test('the Box install takes the lock around everything it runs', () => {
   const lines = BOX_INSTALL_COMMAND.split('\n')
 
-  expect(lines.slice(0, 3)).toEqual(['set -e', 'exec 9>/tmp/nuphos-install.lock && flock 9', '{'])
+  expect(lines.slice(0, 3)).toEqual([
+    'set -e',
+    'exec 9>"$HOME/.nuphos-install.lock" && flock 9',
+    '{',
+  ])
   expect(lines.at(-1)).toBe('} 9>&-')
 })

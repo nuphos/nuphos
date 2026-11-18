@@ -31,7 +31,10 @@ const PATHS = 'export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"'
  * Runs `lines` holding the machine's install lock. The shell holds it and closes it in all it
  * starts, so a process an install leaves running never keeps the next install waiting.
  */
-export function oneInstallAtATime(lines: string[], lock = '/tmp/nuphos-install.lock'): string[] {
+export function oneInstallAtATime(
+  lines: string[],
+  lock = '"$HOME/.nuphos-install.lock"',
+): string[] {
   return [`exec 9>${lock} && flock 9`, '{', ...lines, '} 9>&-']
 }
 
