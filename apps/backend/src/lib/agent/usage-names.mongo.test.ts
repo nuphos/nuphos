@@ -85,7 +85,8 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('usage names', () => {
       { _id: ELSEWHERE_TRIGGER, teamId: OTHER_TEAM, userId: admin, name: 'Elsewhere' },
     ] as never)
     await agentDevices().insertMany([
-      { deviceId: `${teamId}-mac`, teamId, userId: admin, userIds: [admin], label: "Ada's Mac" },
+      // A member's own computer carries no team.
+      { deviceId: `${teamId}-mac`, userId: admin, userIds: [admin], label: "Ada's Mac" },
       { deviceId: `${teamId}-box`, teamId, userId: admin, userIds: [admin, member], label: 'Box' },
     ] as never)
   })
@@ -97,7 +98,7 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('usage names', () => {
     await agentTriggers().deleteMany({
       _id: { $in: [ADMIN_TRIGGER, MEMBER_TRIGGER, ELSEWHERE_TRIGGER] },
     })
-    await agentDevices().deleteMany({ teamId })
+    await agentDevices().deleteMany({ deviceId: { $in: [`${teamId}-mac`, `${teamId}-box`] } })
     await closeDb()
   })
 
@@ -120,7 +121,7 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('usage names', () => {
     })
   })
 
-  test('Triggers and computers are the team’s: named to every member, never from another team', async () => {
+  test('Triggers and computers, including a member’s own, are named to every member', async () => {
     const triggers = [ADMIN_TRIGGER, MEMBER_TRIGGER, ELSEWHERE_TRIGGER].map((id) =>
       id.toHexString(),
     )

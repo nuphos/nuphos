@@ -40,10 +40,12 @@ const NAMED: Partial<Record<UsageDimension, ReadNames>> = {
         .project<{ _id: ObjectId; name: string }>({ name: 1 })
         .toArray()
     ).map((trigger) => [trigger._id.toHexString(), trigger.name]),
-  computer: async (teamId, ids) =>
+  // A member's own computer belongs to them, not to a team, so it is read by id alone: the ids
+  // come from this team's usage rows, and a filter only narrows those.
+  computer: async (_teamId, ids) =>
     (
       await agentDevices()
-        .find({ teamId, deviceId: { $in: ids } })
+        .find({ deviceId: { $in: ids } })
         .project<{ deviceId: string; label: string }>({ _id: 0, deviceId: 1, label: 1 })
         .toArray()
     ).map((device) => [device.deviceId, device.label]),

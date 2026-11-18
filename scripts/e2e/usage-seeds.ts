@@ -104,3 +104,46 @@ export function seedTenfold(
     { actor: owner, total: 50_000, daysAgo: 1 },
   ])
 }
+
+/** A private conversation of `member`, and usage on the owner's own computer. */
+export function seedCaptureExtras(
+  stack: Stack,
+  member: string,
+  owner: string,
+  ownerSession: string,
+) {
+  const script = `
+    import { MongoClient, ObjectId } from 'mongodb'
+    const [uri, teamId, member, owner, ownerSession] = process.argv.slice(1)
+    const client = await new MongoClient(uri).connect()
+    const db = client.db('nuphos_e2e')
+    const device = await db.collection('agent_devices').findOne({ userId: owner })
+    const sessionId = 'e2e-member-private'
+    await db.collection('agent_conversations').updateOne(
+      { sessionId },
+      { $set: { sessionId, teamId, userId: member, title: 'Member plan', generalAccess: 'none',
+        createdAt: new Date(), updatedAt: new Date() } },
+      { upsert: true },
+    )
+    const row = (sessionId, userId, kind, tokens, extra) => ({
+      recordId: new ObjectId().toHexString(), sessionId, userId, actorUserId: userId, teamId,
+      operation: 'e2e.seed', source: 'agent-runtime', accounting: 'upstream_reported',
+      provider: 'claude-code', modelId: 'claude-opus-5-5', turnSource: 'app', kind, tokens,
+      createdAt: new Date(Date.now() - 86400000), ...extra,
+    })
+    const turn = (sessionId, userId, total, extra = {}) => [
+      row(sessionId, userId, 'step_total', { totalTokens: total }, extra),
+      row(sessionId, userId, 'input', { inputTokens: total - 1000 }, extra),
+      row(sessionId, userId, 'output', { outputTokens: 1000 }, extra),
+    ]
+    await db.collection('agent_token_usage').insertMany([
+      ...turn(sessionId, member, 30000),
+      ...(device ? turn(ownerSession, owner, 20000, { deviceId: device.deviceId }) : []),
+    ])
+    await client.close()`
+
+  execFileSync('bun', ['-e', script, stack.mongoUri, stack.teamId, member, owner, ownerSession], {
+    cwd: BACKEND_DIR,
+    timeout: 20_000,
+  })
+}
