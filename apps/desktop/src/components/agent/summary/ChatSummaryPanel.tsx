@@ -28,7 +28,7 @@ import type { OutputFile } from './chatSummaryModel'
 import type { SessionInputRequest } from './sessionInputRequests'
 import type { AgentConversation } from '../../../api/agent-types'
 import type { JournalChatTarget } from '../../../lib/journalEvent'
-import type { KeyboardEvent } from 'react'
+import type { KeyboardEvent, ReactNode } from 'react'
 
 type Props = {
   sessionId: string
@@ -40,13 +40,20 @@ type Props = {
   requests: SessionInputRequest[]
   requestsLoaded: boolean
   requestsFailed: boolean
+  /** Drawn first, above everything the chat did: a Bot chat's card of the Bot. */
+  lead?: ReactNode
+  /** The panel's accessible name; by default "Task summary". */
+  label?: string
+  /** Closes the panel; by default this pane's Task summary. */
+  onClose?: () => void
 }
 
 // Matches `.t-summary-slot-out` in index.css.
 const CLOSE_MS = 300
 
 /** The panel beside the transcript, mounted while open and while it slides shut. */
-export function ChatSummaryPanel({ open, ...props }: Props & { open: boolean }) {
+export function ChatSummaryPanel({ open, onClose, ...props }: Props & { open: boolean }) {
+  const paneId = usePaneId()
   const [mounted, setMounted] = useState(open)
 
   if (open && !mounted) setMounted(true)
@@ -59,7 +66,9 @@ export function ChatSummaryPanel({ open, ...props }: Props & { open: boolean }) 
     return () => window.clearTimeout(timer)
   }, [open, mounted])
 
-  return mounted ? <SummaryBody {...props} closing={!open} /> : null
+  const close = onClose ?? (() => setChatSummaryOpen(paneId, false))
+
+  return mounted ? <SummaryBody {...props} onClose={close} closing={!open} /> : null
 }
 
 function Skeleton() {
@@ -137,12 +146,12 @@ function BotInstructionsSection({ conversation }: { conversation?: AgentConversa
   )
 }
 
-/** Esc inside the panel closes this pane's summary and hands focus back to the toggle that opened it. */
-function closeOnEscape(event: KeyboardEvent, root: HTMLElement | null, paneId: string) {
+/** Esc inside the panel closes it and hands focus back to the toggle that opened it. */
+function closeOnEscape(event: KeyboardEvent, root: HTMLElement | null, close: () => void) {
   if (event.key !== 'Escape' || event.defaultPrevented) return
   event.preventDefault()
-  setChatSummaryOpen(paneId, false)
-  root?.closest(PANE)?.querySelector<HTMLElement>(TOGGLE())?.focus()
+  close()
+  root?.closest(PANE)?.querySelector<HTMLElement>(TOGGLE)?.focus()
 }
 
 /** Beside the transcript it is a plain column; floating, a popover like the titlebar menus. */
@@ -182,8 +191,11 @@ function SummaryBody({
   requests,
   requestsLoaded,
   requestsFailed,
+  lead,
+  label,
+  onClose: close,
   closing,
-}: Props & { closing: boolean }) {
+}: Props & { onClose: () => void; closing: boolean }) {
   const paneId = usePaneId()
   const rootRef = useRef<HTMLElement>(null)
   const frameRef = useRef<HTMLSpanElement>(null)
@@ -210,14 +222,14 @@ function SummaryBody({
   const background = shellsFromRuntimeState(runtimeStates.get(sessionId))
   const { floating, style } = useSummaryPlacement(frameRef, selected !== null, docked)
 
-  useDismissOutside(rootRef, paneId, floating && !closing)
+  useDismissOutside(rootRef, close, floating && !closing)
 
   const panel = (
     <aside
       ref={rootRef}
-      aria-label={t('Task summary')}
+      aria-label={label ?? t('Task summary')}
       inert={closing}
-      onKeyDown={(event) => closeOnEscape(event, frameRef.current, paneId)}
+      onKeyDown={(event) => closeOnEscape(event, frameRef.current, close)}
       style={style}
       data-origin="top-right"
       className={panelClass(floating, closing, selected !== null)}
@@ -230,11 +242,12 @@ function SummaryBody({
           teamId={teamId}
           onSelect={select}
           onBack={() => setSelected(null)}
-          onClose={() => setChatSummaryOpen(paneId, false)}
+          onClose={close}
           onOpenSession={onOpenRequest}
         />
       ) : (
         <>
+          {lead}
           <SessionInputQueue
             requests={requests}
             loaded={requestsLoaded}

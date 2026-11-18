@@ -1,14 +1,12 @@
 import { useEffect, useLayoutEffect, useState } from 'react'
 
-import { t } from '../../../i18n'
-import { setChatSummaryOpen } from '../../../lib/chatSummaryPanel'
-
 import type { CSSProperties, RefObject } from 'react'
 
 /** The split pane a summary panel belongs to. */
 export const PANE = '[data-workspace-focus-surface="session"]'
 
-export const TOGGLE = () => `[aria-label="${CSS.escape(t('Toggle task summary'))}"]`
+/** The titlebar button that opens a pane's panel: the Task summary's, or a Bot chat's name. */
+export const TOGGLE = '[data-summary-toggle]'
 
 // Matches the menus' Positioner: 6px under the trigger, end-aligned.
 const SIDE_OFFSET = 6
@@ -16,7 +14,8 @@ const EDGE = 8
 // The transcript keeps at least this much beside the panel, else the panel floats.
 const BESIDE_MIN = { list: 600, reply: 800 }
 
-type Geometry = { width: number; top: number; right: number; maxHeight: number }
+type Edge = { left: number } | { right: number }
+type Geometry = { width: number; top: number; edge: Edge; maxHeight: number }
 
 function visible(element: HTMLElement | null | undefined): element is HTMLElement {
   return Boolean(element && element.offsetHeight > 0)
@@ -38,17 +37,30 @@ function composerOf(pane: Element | null): HTMLElement | undefined {
     )
 }
 
+/** End-aligned with the toggle, as the menus are; a toggle on the pane's left (a Bot's name) aligns the start. */
+export function floatingEdge(
+  anchor: { left: number; right: number },
+  pane: { left: number; width: number } | undefined,
+  viewportWidth: number,
+): Edge {
+  if (pane && anchor.left < pane.left + pane.width / 2) return { left: anchor.left }
+
+  return { right: viewportWidth - anchor.right }
+}
+
 function measure(frame: HTMLElement): Geometry {
   const pane = frame.closest(PANE)
   const box = frame.getBoundingClientRect()
-  const toggle = pane?.querySelector<HTMLElement>(TOGGLE())
+  const toggle = pane?.querySelector<HTMLElement>(TOGGLE)
   const anchor = visible(toggle) ? toggle.getBoundingClientRect() : null
   const top = anchor ? anchor.bottom + SIDE_OFFSET : box.top + EDGE
-  const right = window.innerWidth - (anchor ? anchor.right : box.right - EDGE)
+  const edge = anchor
+    ? floatingEdge(anchor, pane?.getBoundingClientRect(), window.innerWidth)
+    : { right: window.innerWidth - box.right + EDGE }
   const composer = composerOf(pane)
   const bottom = composer ? composer.getBoundingClientRect().top - EDGE : box.bottom - EDGE
 
-  return { width: box.width, top, right, maxHeight: Math.max(bottom - top, 160) }
+  return { width: box.width, top, edge, maxHeight: Math.max(bottom - top, 160) }
 }
 
 /**
@@ -92,7 +104,7 @@ export function useSummaryPlacement(
     floating && geometry
       ? {
           top: geometry.top,
-          right: geometry.right,
+          ...geometry.edge,
           [selected ? 'height' : 'maxHeight']: geometry.maxHeight,
         }
       : undefined
@@ -106,7 +118,7 @@ const OUTSIDE_EXEMPT = `[role="menu"], [role="dialog"], [role="alertdialog"], [r
 /** A floating panel closes on a press outside it, as a popover does. */
 export function useDismissOutside(
   rootRef: RefObject<HTMLElement | null>,
-  paneId: string,
+  close: () => void,
   active: boolean,
 ) {
   useEffect(() => {
@@ -115,12 +127,12 @@ export function useDismissOutside(
       const target = event.target as Element | null
 
       if (!target || rootRef.current?.contains(target)) return
-      if (target.closest(TOGGLE()) || target.closest(OUTSIDE_EXEMPT)) return
-      setChatSummaryOpen(paneId, false)
+      if (target.closest(TOGGLE) || target.closest(OUTSIDE_EXEMPT)) return
+      close()
     }
 
     document.addEventListener('pointerdown', onPointerDown, true)
 
     return () => document.removeEventListener('pointerdown', onPointerDown, true)
-  }, [rootRef, paneId, active])
+  }, [rootRef, close, active])
 }
