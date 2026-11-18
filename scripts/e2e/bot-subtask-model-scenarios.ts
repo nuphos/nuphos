@@ -29,7 +29,14 @@ export const botSubtaskModelScenarios: Scenario[] = [
         rmSync(behind, { force: true })
       }
       // A finished sub-Task leaves the sidebar with no count in its place, so the Bot's name has
-      // the row's width.
+      // the row's width. The tree is opened first: a folded row would hide a count anyway.
+      const fold = async (name: string) => {
+        const control = bots.locator(`[aria-label="${name}"]`).first()
+
+        if (await control.count()) await control.dispatchEvent('click')
+      }
+
+      await fold('Show sub-agents')
       await page.mouse.move(600, 400)
       await page.waitForTimeout(3_000)
       await page.evaluate(() => {
@@ -39,6 +46,7 @@ export const botSubtaskModelScenarios: Scenario[] = [
       await bots.screenshot({ path: `${artifacts}/bot-row-light.png` })
       if (await bots.locator('[title$=" done"]').count())
         throw new Error("The Bot's row still shows a done count")
+      await fold('Hide sub-agents')
       // It opens from the Sub-tasks of the Bot's own Task.
       await page.getByTitle('Open session').click()
       await page.getByRole('button', { name: 'Back to conversation' }).waitFor()
