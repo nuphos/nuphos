@@ -299,8 +299,12 @@ class HomeNavigationFixtureDeviceTest {
         render(newTask = true)
         compose.runOnIdle { state(auth, "state").value = AuthSession.State.SignedIn(NuphosUser.preview.copy(name = "")) }
         compose.onNodeWithTag("new-task-open").performClick()
-        compose.onNodeWithText(app.getString(R.string.new_task_welcome)).assertIsDisplayed()
         compose.onNode(hasSetTextAction()).assertIsFocused()
+        // Which greeting is chosen, not where it lands: with the keyboard up, a short screen
+        // squeezes the centred greeting out of view, so being on screen depends on the emulator.
+        compose.onNodeWithText(app.getString(R.string.new_task_welcome)).assertExists()
+        val named = app.getString(R.string.new_task_welcome_name, "\u0000").substringBefore("\u0000")
+        compose.onNodeWithText(named, substring = true).assertDoesNotExist()
         shot("new-task-unnamed")
         noWrites()
     }
