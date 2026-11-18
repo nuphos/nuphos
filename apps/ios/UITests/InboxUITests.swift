@@ -17,7 +17,8 @@ final class InboxUITests: XCTestCase {
             .deletingLastPathComponent().deletingLastPathComponent()
             .appending(path: "tests/fixtures/channel-responses.json")
         live = fixture.deletingLastPathComponent().appending(path: "inbox-live-\(UUID().uuidString).json")
-        sent = fixture.deletingLastPathComponent().appending(path: "inbox-sent-\(UUID().uuidString).jsonl")
+        // Outside the repository: the app may still send something after the test removes it.
+        sent = FileManager.default.temporaryDirectory.appending(path: "inbox-sent-\(UUID().uuidString).jsonl")
         responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: fixture)) as? [String: Any])
         responses["POST /agent/chat"] = ["status": 200, "body": [:], "headers": ["Content-Type": "text/event-stream"]]
         // An answer goes to the answer API; no message is sent.
