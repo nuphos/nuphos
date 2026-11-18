@@ -207,19 +207,25 @@ export function IntegrationCatalog({
     <div className="connector-quiet-focus flex-1 overflow-y-auto">
       <div className="w-full px-8 pb-8 pt-2 selectable">
         <header className="mb-8">
+          {catalogTab !== 'browse' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="-ml-2 mb-3"
+              onClick={() => setCatalogTab('browse')}
+            >
+              <span aria-hidden="true">← </span>
+              {t('Connectors')}
+            </Button>
+          )}
           <div className="flex flex-wrap items-center justify-between gap-4 pr-12">
             <h1 className="text-[24px] font-medium tracking-[-0.025em] text-main">
               {catalogTab === 'browse' ? t('Connectors') : t('Manage connections')}
             </h1>
-            {catalogTab === 'browse' ? (
+            {catalogTab === 'browse' && (
               <Button variant="secondary" onClick={() => setCatalogTab('mine')}>
                 {t('Manage connections')}
                 <span aria-hidden="true"> →</span>
-              </Button>
-            ) : (
-              <Button variant="ghost" onClick={() => setCatalogTab('browse')}>
-                <span aria-hidden="true">← </span>
-                {t('Connectors')}
               </Button>
             )}
           </div>
