@@ -63,7 +63,7 @@ export const fallbackSetupScenarios: Scenario[] = [
       await call(stack, 'PATCH', `/agent-runtimes/${ids[SECOND]}`, { status: 'disabled' })
       await page.reload()
       await newTask(page)
-      await choose(page, page.getByRole('button', { name: /^Agent runtime/ }), FIXTURE)
+      await choose(page, page.getByRole('button', { name: /^Runtime:/ }), FIXTURE)
       await send(page, `Out of usage E2E_USAGE_LIMIT ${marker}`)
       await page.getByText('You’ve hit your usage limit').first().waitFor()
       // #3313: Switch runtime opens one runtime list, the one beside this failure.
@@ -88,7 +88,7 @@ export const fallbackSetupScenarios: Scenario[] = [
       await page.screenshot({ path: `${artifacts}/fallback-offered.png` })
       await setUp.click()
       await dialog.getByText(`For ${FIXTURE} · shared with your team`).waitFor()
-      await choose(page, dialog.getByRole('button', { name: /^Agent runtime/ }), SECOND)
+      await choose(page, dialog.getByRole('button', { name: /^Runtime:/ }), SECOND)
       // Shot once the runtime list has closed, not while it fades.
       await until(
         'the runtime list to close',
@@ -119,7 +119,7 @@ export const fallbackSetupScenarios: Scenario[] = [
       const before = onSecond()
 
       await newTask(page)
-      await choose(page, page.getByRole('button', { name: /^Agent runtime/ }), FIXTURE)
+      await choose(page, page.getByRole('button', { name: /^Runtime:/ }), FIXTURE)
       await send(page, `Out of usage again E2E_USAGE_LIMIT ${marker}`)
       await page.getByText(new RegExp(`so this task moved to ${SECOND}`)).waitFor()
       await until('the turn to go on on the second agent', async () => onSecond() > before)
