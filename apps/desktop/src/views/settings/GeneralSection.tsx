@@ -10,6 +10,7 @@ import { UiIcon } from '../../components/ui/ui-icon'
 import { t } from '../../i18n'
 
 import { AllowedEmailDomainCard } from './AllowedEmailDomainCard'
+import { BoxAutoUpdateCard } from './BoxAutoUpdateCard'
 import { AvatarPicker } from './AvatarPicker'
 import { BindingShareDefaultCard } from './BindingShareDefaultCard'
 import { DangerZone } from './DangerZone'
@@ -164,6 +165,7 @@ export function GeneralSection({
 
           <AllowedEmailDomainCard team={team} userEmail={userEmail} onTeamUpdated={onTeamUpdated} />
           <BindingShareDefaultCard team={team} onTeamUpdated={onTeamUpdated} />
+          <BoxAutoUpdateCard team={team} onTeamUpdated={onTeamUpdated} />
           <GoogleOAuthClientCard team={team} />
 
           <DataMigrationCard team={team} />

@@ -200,6 +200,8 @@ export const teamChannels = {
     atlas.setTeamAvatar(teamId, image),
   'atlas:setTeamEmailDomainDiscovery': (_e: unknown, teamId: string, enabled: boolean) =>
     atlas.setTeamEmailDomainDiscovery(teamId, enabled),
+  'atlas:setTeamBoxAutoUpdate': (_e: unknown, teamId: string, enabled: boolean) =>
+    atlas.setTeamBoxAutoUpdate(teamId, enabled),
   'atlas:setTeamAgentRuntime': (_e: unknown, teamId: string, runtime: AgentProvider) =>
     atlas.setTeamAgentRuntime(teamId, runtime),
   'atlas:listDiscoverableTeams': () => atlas.listDiscoverableTeams(),

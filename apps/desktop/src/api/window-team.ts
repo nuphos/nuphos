@@ -176,6 +176,7 @@ export type WindowTeamApi = {
   atlasUpdateTeam(teamId: string, input: { name: string }): Promise<AtlasTeam>
   atlasSetTeamAvatar(teamId: string, image: Uint8Array | null): Promise<AtlasTeam>
   atlasSetTeamEmailDomainDiscovery(teamId: string, enabled: boolean): Promise<AtlasTeam>
+  atlasSetTeamBoxAutoUpdate(teamId: string, enabled: boolean): Promise<AtlasTeam>
   atlasSetTeamAgentRuntime(teamId: string, runtime: AgentProvider): Promise<AtlasTeam>
   atlasListDiscoverableTeams(): Promise<DiscoverableTeam[]>
   atlasJoinDiscoverableTeam(teamId: string): Promise<AtlasTeam>

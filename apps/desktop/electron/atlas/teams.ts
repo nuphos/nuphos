@@ -12,6 +12,8 @@ export type Team = {
   ownerID?: string
   contactEmails?: string[]
   allowedEmailDomains?: string[]
+  /** Whether the team's cloud computers update on their own when idle; absent from older backends. */
+  boxAutoUpdate?: boolean
   agentRuntime?: AgentProvider
   createdAt?: string
   isOwner?: boolean
@@ -170,6 +172,10 @@ export async function setTeamAvatar(teamId: string, image: Uint8Array | null): P
 // domain; the backend derives the domain from the caller, never free-form.
 export async function setTeamEmailDomainDiscovery(teamId: string, enabled: boolean): Promise<Team> {
   return call<Team>('PUT', `/teams/${teamId}/allowed-email-domains`, { enabled }, { retry: false })
+}
+
+export async function setTeamBoxAutoUpdate(teamId: string, enabled: boolean): Promise<Team> {
+  return call<Team>('PUT', `/teams/${teamId}/box-auto-update`, { enabled }, { retry: false })
 }
 
 export async function listDiscoverableTeams(): Promise<DiscoverableTeam[]> {

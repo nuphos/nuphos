@@ -104,6 +104,8 @@ export const teamApi = {
     window.api.atlasSetTeamAvatar(teamId, image),
   atlasSetTeamEmailDomainDiscovery: (teamId: string, enabled: boolean) =>
     window.api.atlasSetTeamEmailDomainDiscovery(teamId, enabled),
+  atlasSetTeamBoxAutoUpdate: (teamId: string, enabled: boolean) =>
+    window.api.atlasSetTeamBoxAutoUpdate(teamId, enabled),
   atlasSetTeamAgentRuntime: (teamId: string, runtime: AgentProvider) =>
     window.api.atlasSetTeamAgentRuntime(teamId, runtime),
   atlasListDiscoverableTeams: () => window.api.atlasListDiscoverableTeams(),

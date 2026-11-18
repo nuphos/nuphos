@@ -149,6 +149,8 @@ export const teamApi = {
     ipcRenderer.invoke('atlas:setTeamAvatar', teamId, image),
   atlasSetTeamEmailDomainDiscovery: (teamId: string, enabled: boolean) =>
     ipcRenderer.invoke('atlas:setTeamEmailDomainDiscovery', teamId, enabled),
+  atlasSetTeamBoxAutoUpdate: (teamId: string, enabled: boolean) =>
+    ipcRenderer.invoke('atlas:setTeamBoxAutoUpdate', teamId, enabled),
   atlasSetTeamAgentRuntime: (teamId: string, runtime: AgentProvider) =>
     ipcRenderer.invoke('atlas:setTeamAgentRuntime', teamId, runtime),
   atlasListDiscoverableTeams: () => ipcRenderer.invoke('atlas:listDiscoverableTeams'),

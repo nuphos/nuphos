@@ -108,6 +108,8 @@ export type AtlasTeam = {
   ownerID?: string
   contactEmails?: string[]
   allowedEmailDomains?: string[]
+  /** Whether the team's cloud computers update on their own when idle; absent from older backends. */
+  boxAutoUpdate?: boolean
   agentRuntime?: AgentProvider
   createdAt?: string
   isOwner?: boolean
