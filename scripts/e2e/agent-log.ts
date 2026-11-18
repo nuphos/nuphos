@@ -11,6 +11,8 @@ type AgentEntry = {
   marker?: string
   /** The model settings a new session was created with. */
   defaults?: { model?: string; fast?: string }
+  /** The response language a new session's system prompt names. */
+  language?: string
   isError?: boolean
   detail?: string
   /** E2E_CALL: the tool it called and that tool's answer. */
