@@ -67,7 +67,7 @@ export async function boxSize(vcpus?: number, box?: BoxAccountRef): Promise<BoxS
     throw new AppError(
       400,
       'box_size',
-      `A cloud computer comes with ${sizes.map((s) => String(s.vcpus)).join(' or ')} vCPU`,
+      `A computer from Nuphos comes with ${sizes.map((s) => String(s.vcpus)).join(' or ')} vCPU`,
     )
 
   return size

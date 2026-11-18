@@ -25,7 +25,7 @@ type Step = 'choose' | 'box'
 
 const TITLE: Record<Step, string> = {
   choose: t('Add computer'),
-  box: t('Nuphos cloud computer'),
+  box: t('Computer from Nuphos'),
 }
 
 /** The one place to add a computer (and so its runtimes), from the Runtimes page or the composer's agent picker. */

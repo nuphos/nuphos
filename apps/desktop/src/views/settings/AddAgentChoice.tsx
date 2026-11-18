@@ -65,9 +65,9 @@ export function AddAgentChoices({
       {boxAvailable && (
         <Choice
           icon={<Box className="h-4 w-4" />}
-          title={t('Nuphos cloud computer')}
+          title={t('Computer from Nuphos')}
           description={t(
-            'A cloud computer Nuphos runs for you, with Claude Code and Codex. Sign in with your own account.',
+            'Nuphos runs it for you, with Claude Code and Codex. Sign in with your own account.',
           )}
           onClick={onCloud}
         />

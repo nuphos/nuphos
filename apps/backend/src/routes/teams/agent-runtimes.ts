@@ -227,7 +227,7 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
     throw new AppError(
       410,
       'managed_runtime_retired',
-      'Managed runtimes are being retired. Add a Nuphos cloud computer or connect your own computer instead.',
+      'Managed runtimes are being retired. Add a computer from Nuphos or connect your own computer instead.',
     )
   })
   teamScoped.patch(
