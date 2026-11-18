@@ -9,13 +9,15 @@ import type { RuntimeInstance } from '../../../types/runtime.ts'
 export type AgentReachability = 'ready' | 'signIn' | 'offline'
 
 /**
- * The computer's name when it is a Box that is not connected, else null. A send resumes any
- * such Box (box-wake.ts) whichever state it is parked in, so to a person it is neither offline
- * nor signed out: nothing about it stops the message. Its machine state is not asked for — the
- * runtime list does not carry it, and the answer would not change what the composer says.
+ * The computer's name when it is an instabox Box that is not connected, else null. A send
+ * resumes such a Box (box-wake.ts) whichever state it is parked in, so to a person it is
+ * neither offline nor signed out: nothing about it stops the message. Its machine state is not
+ * asked for — the runtime list does not carry it, and the answer would not change what the
+ * composer says. A `k8s` Box is a managed runtime's pod, which a send does not bring back, so
+ * it keeps the offline banner rather than a promise the send cannot keep.
  */
 export function pausedBoxLabel(local: RuntimeInstance['local']): string | null {
-  return local?.online === false && local.box ? local.deviceLabel : null
+  return local?.online === false && local.box?.provider === 'instabox' ? local.deviceLabel : null
 }
 
 /**

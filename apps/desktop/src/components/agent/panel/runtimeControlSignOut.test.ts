@@ -70,6 +70,11 @@ test('a paused Box is not offline: the send resumes it, so nothing stops the mes
   assert.equal(selectedAgentReachability(paused), null)
   assert.equal(runtimeControlSendBlock(paused), null)
   assert.equal(shouldSwitchAgent(paused), false)
+  // A managed runtime's pod is a Box the send cannot bring back, so it stays offline.
+  const pod = control({ online: false, signedIn: false, box: { provider: 'k8s' } })
+
+  assert.equal(selectedAgentReachability(pod), 'offline')
+  assert.equal(runtimeControlSendBlock(pod), 'Its computer is offline')
 })
 
 test('the usage probe sign-in guess never makes an agent yellow or blocks it', () => {

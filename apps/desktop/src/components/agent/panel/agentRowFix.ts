@@ -2,6 +2,7 @@ import { t } from '../../../i18n/index.ts'
 import { quotaSignedOut } from '../../../lib/runtimeQuota.ts'
 
 import { localRuntimeOwner, signInRoute } from './agentSignInModel.ts'
+import { pausedBoxLabel } from './runtimeControlSignOut.ts'
 
 import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime'
 import type { TeamMember } from '../../../types/team'
@@ -50,9 +51,9 @@ export function agentProblem(
   const { local } = instance
 
   if (local?.online === false) {
-    // A Box that is away is parked, not lost: its owner can bring it back. The runtime list
-    // does not say which state it is parked in, and the fix is the same for all of them.
-    const paused = Boolean(local.box)
+    // A Box that is away is parked, not lost: its owner can bring it back, and the composer
+    // says the same of it, so both read it the same way (pausedBoxLabel).
+    const paused = pausedBoxLabel(local) !== null
     const reason = paused ? t('Paused') : t('Offline')
 
     if (!paused) return { reason, fix: { kind: 'retry' }, pickable: false }
