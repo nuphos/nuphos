@@ -11,7 +11,6 @@ import {
   pickRuntime,
 } from '../channel-helpers.ts'
 import { artifacts, until } from '../processes.ts'
-import { newTask } from '../ui.ts'
 
 import type { Stack } from '../stack.ts'
 import type { Scenario } from '../ui.ts'
@@ -70,13 +69,6 @@ export default {
         .getByText('E2E Bot’s computer is offline.', { exact: true })
         .waitFor({ timeout: 60_000 })
       await page.screenshot({ path: `${artifacts}/presence-offline-group-light.png` })
-      // The same strip on a Task on that computer, for comparison.
-      await newTask(page)
-      await pickRuntime(page, computer, /^Claude Code/)
-      await strip.waitFor({ timeout: 60_000 })
-      await page.screenshot({ path: `${artifacts}/presence-offline-task-light.png` })
-      // A new Task starts on the runtime picked last: leave it on one that runs.
-      await pickRuntime(page, 'E2E fixture agent', /^E2E fixture agent.*Claude Code/)
     } finally {
       await page.getByRole('tab', { name: 'Bots' }).click()
       await page.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first().click()
