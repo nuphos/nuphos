@@ -2,7 +2,9 @@ import { z } from 'zod'
 
 import { boxMetricsSchema } from '../metrics-schema'
 
-export type { TunnelPurpose } from './tunnel-purpose'
+import type { TunnelPurpose } from './tunnel-purpose'
+
+export type { TunnelPurpose }
 
 export const LOCAL_AGENT_PROVIDERS = [
   'claude-code',
