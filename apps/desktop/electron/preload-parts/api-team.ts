@@ -77,6 +77,8 @@ export const teamApi = {
     ipcRenderer.invoke('designs:delete', teamId, designId),
   // --- Dashboards ---
   dashboardsList: (teamId: string) => ipcRenderer.invoke('dashboards:list', teamId),
+  dashboardsFormerMembers: (teamId: string) =>
+    ipcRenderer.invoke('dashboards:former-members', teamId),
   dashboardsCreate: (teamId: string, input: unknown) =>
     ipcRenderer.invoke('dashboards:create', teamId, input),
   dashboardsGet: (teamId: string, dashboardId: string, viewRange?: DashboardViewRange) =>
