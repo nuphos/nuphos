@@ -129,41 +129,88 @@ export const offlineScenarios: Scenario[] = [
 
         await banner.waitFor()
         await page.screenshot({ path: join(artifacts, 'disk-banner.png') })
-        // #3567: the banner floats above the composer; the transcript keeps its last message clear of it.
+        // #3567: the banner floats above the composer; the transcript keeps its last message clear
+        // of it. A short window makes the transcript scroll, so the banner has something to cover.
         const last = page.getByText(`moved this task from E2E fixture agent to`).last()
-
-        for (const theme of ['light', 'dark']) {
-          await page.evaluate((value) => {
-            document.documentElement.classList.remove('light', 'dark')
-            document.documentElement.classList.add(value)
-          }, theme)
-          await page.waitForTimeout(300)
+        const size = await page.evaluate(() => ({
+          width: window.innerWidth,
+          height: window.innerHeight,
+        }))
+        const measure = async () => {
           const message = await last.boundingBox()
           const tab = await banner.boundingBox()
-          const room = {
+          const scroll = await last.evaluate((node) => {
+            const scroller = node.closest('.overflow-auto')
+
+            return scroller
+              ? {
+                  overflows: scroller.scrollHeight > scroller.clientHeight,
+                  fromBottom: scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight,
+                }
+              : { overflows: false, fromBottom: Number.NaN }
+          })
+
+          return {
+            ...scroll,
             messageBottom: message ? message.y + message.height : Number.NaN,
             bannerTop: tab?.y ?? Number.NaN,
-            fromBottom: await last.evaluate((node) => {
-              const scroller = node.closest('.overflow-auto')
-
-              return scroller
-                ? scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight
-                : Number.NaN
-            }),
           }
-
-          await page.screenshot({ path: join(artifacts, `disk-banner-${theme}.png`) })
-          if (Number.isNaN(room.bannerTop) || room.messageBottom > room.bannerTop)
-            throw new Error(
-              `The last message ends at ${String(room.messageBottom)} px, under the banner at ${String(room.bannerTop)} px`,
-            )
-          if (Number.isNaN(room.fromBottom) || room.fromBottom > 2)
-            throw new Error(`The transcript is ${String(room.fromBottom)} px from its bottom`)
         }
-        await page.evaluate(() => {
-          document.documentElement.classList.remove('dark')
-          document.documentElement.classList.add('light')
-        })
+        // Without the reserved room, as before the fix: the host's height is set back to 0.
+        const withoutRoom = (off: boolean) =>
+          last.evaluate((node, zero) => {
+            const host = node.closest<HTMLElement>('[data-agent-status-host]')
+            const scroller = node.closest('.overflow-auto')
+
+            if (zero) {
+              host?.setAttribute(
+                'data-saved-room',
+                host.style.getPropertyValue('--agent-status-banner-height'),
+              )
+              host?.style.setProperty('--agent-status-banner-height', '0px')
+            } else {
+              host?.style.setProperty(
+                '--agent-status-banner-height',
+                host.getAttribute('data-saved-room') ?? '',
+              )
+              host?.removeAttribute('data-saved-room')
+            }
+            if (scroller) scroller.scrollTop = scroller.scrollHeight
+          }, off)
+
+        await page.setViewportSize({ width: size.width, height: 420 })
+        try {
+          for (const theme of ['light', 'dark']) {
+            await page.evaluate((value) => {
+              document.documentElement.classList.remove('light', 'dark')
+              document.documentElement.classList.add(value)
+            }, theme)
+            await page.waitForTimeout(500)
+            const room = await measure()
+
+            await page.screenshot({ path: join(artifacts, `disk-banner-${theme}.png`) })
+            if (!room.overflows)
+              throw new Error('The transcript does not scroll; the check shows nothing')
+            if (Number.isNaN(room.bannerTop) || room.messageBottom > room.bannerTop)
+              throw new Error(
+                `The last message ends at ${String(room.messageBottom)} px, under the banner at ${String(room.bannerTop)} px`,
+              )
+            if (Number.isNaN(room.fromBottom) || room.fromBottom > 2)
+              throw new Error(`The transcript is ${String(room.fromBottom)} px from its bottom`)
+            await withoutRoom(true)
+            await page.waitForTimeout(300)
+            await page.screenshot({
+              path: join(artifacts, `disk-banner-${theme}-without-room.png`),
+            })
+            await withoutRoom(false)
+          }
+        } finally {
+          await page.setViewportSize(size)
+          await page.evaluate(() => {
+            document.documentElement.classList.remove('dark')
+            document.documentElement.classList.add('light')
+          })
+        }
         await banner.getByRole('button', { name: 'Free space' }).click()
         await page.getByText('Disk almost full: 7 GB free').waitFor()
         // The cards fade in; the picture is taken once they have.
