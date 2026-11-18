@@ -1,3 +1,4 @@
+// Named to run after bot-settings: it moves the Bot between runtimes, which clears its model.
 // #3308: a post to a Bot whose computer is offline says so where its reply will appear.
 import { randomUUID } from 'node:crypto'
 
