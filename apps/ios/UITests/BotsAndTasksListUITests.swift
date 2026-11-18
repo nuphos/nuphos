@@ -71,6 +71,11 @@ final class BotsAndTasksListUITests: XCTestCase {
             app.buttons["Show 1 sub-agents"].firstMatch.tap()
         }
 
+        for t in ["Check the CI flake", "Collect crash logs", "Fix broken links", "Helper Bot", "Release Lead", "Docs Bot"] {
+            for e in app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", t)).allElementsBoundByIndex {
+                print("PROBE \(t) | type=\(e.elementType.rawValue) id=\(e.identifier) label=\(e.label) frame=\(e.frame)")
+            }
+        }
         // What each Bot dispatched, nested under it, deeper threads under theirs.
         for (thread, below) in [("Check the CI flake", lead), ("Fix broken links", app.staticTexts["Docs Bot"].firstMatch),
                                 ("Collect crash logs", app.staticTexts["Helper Bot"].firstMatch)] {

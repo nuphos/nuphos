@@ -28,9 +28,11 @@ final class DockPanelUITests: XCTestCase {
     private func reveal(_ element: XCUIElement, in app: XCUIApplication, sideways: Bool) {
         let window = app.windows.firstMatch
         let onScreen = { element.exists && window.frame.insetBy(dx: 8, dy: 60).contains(CGPoint(x: element.frame.midX, y: element.frame.midY)) }
+        // Sideways, swipe along the element's own row: the tab strip moves with the layout.
+        let row = sideways ? element.frame.midY / window.frame.height : 0
         for _ in 0..<8 where !onScreen() {
-            let from = window.coordinate(withNormalizedOffset: CGVector(dx: sideways ? 0.85 : 0.7, dy: sideways ? 0.2 : 0.8))
-            from.press(forDuration: 0.05, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: sideways ? 0.35 : 0.7, dy: sideways ? 0.2 : 0.4)))
+            let from = window.coordinate(withNormalizedOffset: CGVector(dx: sideways ? 0.85 : 0.7, dy: sideways ? row : 0.8))
+            from.press(forDuration: 0.05, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: sideways ? 0.35 : 0.7, dy: sideways ? row : 0.4)))
         }
     }
 
