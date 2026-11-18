@@ -18,6 +18,7 @@ import { INLINE_LINK } from '../ui/inline-link'
 import { ChatLinkMenuContext, isChatMenuLink } from './chatLinkMenuContext'
 import { standaloneLocalLink } from './localPreviewLink'
 import { MarkdownImage, ReplyImage } from './ReplyImage'
+import { useSettledWords } from './settledWords'
 
 import type { LinkRenderOptions } from './localPreviewLink'
 import type { ContextMenuItem } from '../ContextMenu'
@@ -247,9 +248,11 @@ export const MessageResponse = memo(
       () => createComponents(teamId, onLinkClick, renderLink),
       [teamId, onLinkClick, renderLink],
     )
+    const settled = useSettledWords()
 
     return (
       <div
+        {...settled}
         className={clsx(
           // break-words: a long unbroken token (an OAuth URL) wraps instead of
           // overflowing the column.
