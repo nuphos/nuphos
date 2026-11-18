@@ -168,6 +168,27 @@ test('rows of one fire across models add up, and the cost skips unpriced models'
   expect(usage.fires[0]?.costUsd).toBeCloseTo((1000 * 5) / 1e6, 12)
 })
 
+test('one turn that used two models counts once, in the totals, its conversation and its fire', async () => {
+  // Since #3278 a turn writes a row set per model; they share the turn's time.
+  const at = new Date('2026-11-08T10:00:00.000Z')
+
+  rows = [
+    row({ sessionId: 's', fireId: 'fire-1', turnAts: [at], totalTokens: 1000 }),
+    row({
+      sessionId: 's',
+      fireId: 'fire-1',
+      modelId: 'claude-haiku-5',
+      turnAts: [at],
+      totalTokens: 300,
+    }),
+  ]
+  const usage = await getTriggerUsage('trigger-1', 'team-1', 7, NOW)
+
+  expect(usage.totals).toMatchObject({ turns: 1, totalTokens: 1300 })
+  expect(usage.sessions[0]?.turns).toBe(1)
+  expect(usage.fires[0]?.turns).toBe(1)
+})
+
 test('a fire starts at the earliest first turn among its model rows', async () => {
   rows = [
     row({
