@@ -1,27 +1,33 @@
-// Temporary #3496 diagnostic: how long Windows PowerShell takes to start per environment.
+// Temporary #3496 diagnostic: which variables make Windows PowerShell start slowly.
 import { spawnSync } from 'node:child_process'
 import { nuphosCodexSessionConfig } from '../image/codex-acp/session-config.mjs'
 
 const ps = `${process.env.SystemRoot}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`
+const full = { ...process.env }
 const scoped = nuphosCodexSessionConfig(
   {},
   { 'ai.nuphos/codex': { env: { NUPHOS_SESSION_ID: 'diag' } } },
   process.env,
 ).shell_environment_policy.set
-const pick = (...keys) => Object.fromEntries(keys.filter((k) => process.env[k]).map((k) => [k, process.env[k]]))
-const cases = {
-  full: { ...process.env },
-  scoped,
-  'scoped+TEMP': { ...scoped, ...pick('TEMP', 'TMP') },
-  'scoped+windir': { ...scoped, ...pick('windir') },
-  'scoped+PSModulePath': { ...scoped, ...pick('PSModulePath') },
-  'scoped+realProfile': { ...scoped, ...pick('USERPROFILE', 'APPDATA', 'LOCALAPPDATA') },
-  'scoped+ProgramData': { ...scoped, ...pick('ProgramData', 'ProgramFiles', 'ProgramFiles(x86)', 'ProgramW6432', 'ALLUSERSPROFILE', 'CommonProgramFiles') },
-  'scoped+machine': { ...scoped, ...pick('COMPUTERNAME', 'USERDOMAIN', 'PROCESSOR_ARCHITECTURE', 'NUMBER_OF_PROCESSORS', 'OS') },
+const lower = (env) => new Set(Object.keys(env).map((k) => k.toLowerCase()))
+const time = (env) => {
+  const t = Date.now()
+  spawnSync(ps, ['-NoProfile', '-Command', 'Write-Output NUPHOS_OK'], { env, stdio: 'ignore', timeout: 90000 })
+  return Date.now() - t
 }
-for (const round of [1, 2])
-  for (const [name, env] of Object.entries(cases)) {
-    const t = Date.now()
-    const r = spawnSync(ps, ['-NoProfile', '-Command', 'Write-Output NUPHOS_OK'], { env, stdio: ['ignore', 'pipe', 'pipe'], timeout: 90000 })
-    console.log(`round ${round} ${name}: ${Date.now() - t} ms exit ${r.status} ${String(r.stdout).trim()}`)
+const slow = (env) => time(env) > 5000
+const missing = Object.keys(full).filter((k) => !lower(scoped).has(k.toLowerCase()))
+console.log(`missing from scoped: ${missing.join(' ')}`)
+console.log(`overridden by scoped: ${Object.keys(scoped).filter((k) => lower(full).has(k.toLowerCase()) && full[Object.keys(full).find((f) => f.toLowerCase() === k.toLowerCase())] !== scoped[k]).join(' ')}`)
+const withMissing = (keys) => ({ ...scoped, ...Object.fromEntries(keys.map((k) => [k, full[k]])) })
+console.log(`scoped + all missing: ${time(withMissing(missing))} ms`)
+console.log(`full + scoped overrides: ${time({ ...full, ...scoped })} ms`)
+if (!slow(withMissing(missing))) {
+  let keep = [...missing]
+  for (const key of missing) {
+    const without = keep.filter((k) => k !== key)
+    if (!slow(withMissing(without))) keep = without
   }
+  console.log(`needed for a fast start: ${keep.join(' ')}`)
+  console.log(`scoped + needed: ${time(withMissing(keep))} ms`)
+}
