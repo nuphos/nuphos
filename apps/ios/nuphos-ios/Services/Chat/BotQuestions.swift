@@ -72,6 +72,12 @@ struct BotQuestion: Identifiable, Equatable, Sendable {
         return nil
     }
 
+    /// The questions a choice card answers, single- or multi-select alike, as `QuestionOptions`
+    /// draws them; nil for a secret, a connect question or a plan without options.
+    var choices: [AgentConversation.DecisionQuestion]? {
+        form ?? options.map { [.init(question: request.question, options: $0, multiSelect: false)] }
+    }
+
     /// The desktop's `formAnswer`: one question's picks or typed text, or one entry per question.
     static func formAnswer(_ questions: [AgentConversation.DecisionQuestion], picked: [[String]],
                            typed: [String]) -> DecisionAnswer {

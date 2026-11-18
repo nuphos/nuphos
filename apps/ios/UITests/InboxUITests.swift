@@ -171,7 +171,7 @@ final class InboxUITests: XCTestCase {
     }
 
     /// A Bot's chat shows a question as the Inbox does: the question as the heading under who asked,
-    /// the first option first, "Other…", "Skip" and "Show more" each a full touch target. Skip
+    /// the options as pills in reading order, "Other… · Skip" a line under them, and "Show more" each a full touch target. Skip
     /// withdraws it unanswered.
     func testABotChatCardLeadsWithTheQuestionAndSkips() throws {
         responses["POST /agent/conversations/agent-ops/decisions/q-deploy/resolve"] = ["status": 200, "body": ["ok": true]]
@@ -190,20 +190,20 @@ final class InboxUITests: XCTestCase {
         }
         XCTAssertEqual(app.buttons["botQuestion.source"].label, "Release ops", "The source line does not name who asked")
         let options = ["Ship it", "Wait for QA"].map { app.buttons[$0].frame }
-        let wide = app.windows.firstMatch.horizontalSizeClass == .regular
-        XCTAssertTrue(wide ? options[0].minX < options[1].minX : options[0].minY < options[1].minY, "The first option is not first")
+        // Pills in reading order, left to right and then down, each the same height (#3468).
+        XCTAssertTrue(options[0].minY < options[1].minY - 1 || (abs(options[0].minY - options[1].minY) <= 1 && options[0].minX < options[1].minX),
+                      "The first option is not first")
+        XCTAssertEqual(options[0].height, options[1].height, accuracy: 1, "The options are not one style")
 
-        // Touch targets: 44pt on iPhone; wide, 40pt capsules. "Show more" spans the card.
+        // Touch targets: 44pt. "Other…" and "Skip" are one line of text under the options, and "Show more" spans the body.
         for label in ["Other…", "Skip"] {
-            XCTAssertGreaterThanOrEqual(app.buttons[label].frame.height.rounded(), wide ? 40 : 44, "\(label) is too small to hit")
+            XCTAssertGreaterThanOrEqual(app.buttons[label].frame.height.rounded(), 44, "\(label) is too small to hit")
         }
-        if !wide {
-            XCTAssertEqual(app.buttons["Other…"].frame.width, app.buttons["Skip"].frame.width, accuracy: 1, "Not two halves")
-            XCTAssertEqual(app.buttons["Other…"].frame.minY, app.buttons["Skip"].frame.minY, accuracy: 1, "Not side by side")
-        }
+        XCTAssertEqual(app.buttons["Other…"].frame.midY, app.buttons["Skip"].frame.midY, accuracy: 1, "Other… and Skip are not one line")
+        XCTAssertGreaterThan(app.buttons["Other…"].frame.minY, options.map(\.maxY).max() ?? 0, "Other… is not under the options")
         let more = app.buttons["botQuestion.more"]
         XCTAssertGreaterThanOrEqual(more.frame.height.rounded(), 44, "Show more is too small to hit")
-        XCTAssertEqual(more.frame.width, options[0].union(app.buttons["Skip"].frame).width, accuracy: 1, "Show more is not full-width")
+        XCTAssertGreaterThanOrEqual(more.frame.width, app.descendants(matching: .any)["botQuestion.body"].frame.width - 1, "Show more is not full-width")
         XCTAssertEqual(more.label, "Show more")
         more.tap()
         XCTAssertEqual(more.label, "Show less")

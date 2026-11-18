@@ -2,10 +2,9 @@ import SwiftUI
 
 /// An open question in a Bot's chat, laid out as the Inbox lays one out: who asked, when another
 /// conversation did, the question as the heading, what the agent wrote to decide it from, then
-/// its answers. The first option is the dark one; "Other…" asks for the answer in words in the
-/// card and "Skip" withdraws the question unanswered. On iPhone the options are full-width with
-/// "Other…" and "Skip" as outlined halves below; wide, one row of capsules with "Skip" at its end.
-/// A multi-select or several questions pick the same options and send them at once. An answer wakes the agent
+/// its answers: `QuestionOptions`, each option the same pill, then "Other…" to answer in words in
+/// the card and "Skip" to withdraw the question unanswered, as a line of text. A multi-select or
+/// several questions pick the same pills and send them at once. An answer wakes the agent
 /// that asked; no message is sent. A secret is asked for with the task's own `SecretCard`, saved
 /// and replied to in the conversation that asked. A connect question opens that conversation's
 /// credential picker, as in the Inbox. `showsFrom` is off for the Bot's own questions in its own chat.
@@ -24,12 +23,8 @@ struct BotQuestionCard: View {
     var onLink: ((URL) -> Void)?
 
     @State private var expanded = false
-    /// "Other…" was tapped: the card asks for the answer in words.
-    @State private var typing = false
-    @State private var words = ""
     /// The secret was sent: nothing is left to skip while the listing catches up.
     @State private var saved = false
-    @FocusState private var focused: Bool
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.openURL) private var openURL
 
@@ -58,7 +53,7 @@ struct BotQuestionCard: View {
                 QuestionSource(question: question, prominent: true, identifier: "botQuestion.source", open: onOpen)
             }
             AskedSecretCard(question: question, part: part, teamId: teamId) { saved = true }
-            if !saved { HStack(spacing: 8) { Color.clear.frame(maxWidth: .infinity); skip } }
+            if !saved { skip }
         }
         .frame(maxWidth: wide ? 640 : nil, alignment: .leading)
     }
@@ -84,74 +79,19 @@ struct BotQuestionCard: View {
     }
 
     @ViewBuilder private var answers: some View {
-        if let form = question.form {
-            QuestionPicks(questions: form, wide: wide, height: wide ? 40 : 44, size: wide ? 15 : 16, onSubmit: onAnswer) { skip }
-        } else if let options = question.options {
-            VStack(alignment: .leading, spacing: wide ? 10 : 8) {
-                if wide {
-                    // One row, Skip at its end; long options take the row and the outlined two the next.
-                    ViewThatFits(in: .horizontal) {
-                        HStack(spacing: 10) { buttons(for: options); other; Spacer(minLength: 10); skip }
-                        VStack(alignment: .leading, spacing: 10) {
-                            HStack(spacing: 10) { buttons(for: options) }
-                            HStack(spacing: 10) { other; Spacer(minLength: 10); skip }
-                        }
-                    }
-                    if typing { field }
-                } else {
-                    buttons(for: options)
-                    // "Other…" gives its row to the text box.
-                    if typing {
-                        field
-                    } else {
-                        HStack(spacing: 8) {
-                            if question.typed { other } else { Color.clear.frame(maxWidth: .infinity) }
-                            skip
-                        }
-                    }
-                }
-            }
+        if let choices = question.choices {
+            QuestionOptions(questions: choices, typed: question.typed, onSubmit: onAnswer) { skip }
         } else {
             let connect = QuestionConnect(questions: questions, question: question, height: wide ? 40 : 44, size: 15, fill: !wide)
-            if wide {
-                HStack(spacing: 10) { connect; Spacer(); skip }
-            } else {
-                VStack(spacing: 8) {
-                    connect
-                    HStack(spacing: 8) { Color.clear.frame(maxWidth: .infinity); skip }
-                }
-            }
-        }
-    }
-
-    private func buttons(for options: [String]) -> some View {
-        ForEach(Array(options.enumerated()), id: \.element) { index, option in
-            InboxOption(title: option, primary: index == 0, height: wide ? 40 : 44, size: wide ? 15 : 16, fill: !wide) {
-                onAnswer(DecisionAnswer(choices: [option]))
-            }
-        }
-    }
-
-    /// "Other…" beside options; "Reply…" when there are none. A plan or a secret is never answered in words.
-    @ViewBuilder private var other: some View {
-        let title = question.options?.isEmpty == true ? String(localized: "Reply…") : String(localized: "Other…")
-        if question.typed {
-            InboxOutlineButton(title: title, fill: !wide, toggled: typing) {
-                typing.toggle()
-                focused = typing
+            VStack(alignment: .leading, spacing: 8) {
+                connect
+                skip
             }
         }
     }
 
     private var skip: some View {
-        InboxOutlineButton(title: String(localized: "Skip"), fill: !wide, action: onSkip)
-    }
-
-    private var field: some View {
-        AnswerField(words: $words, focused: $focused) {
-            let text = words.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !text.isEmpty { onAnswer(DecisionAnswer(text: text)) }
-        }
+        QuestionTextButton(title: String(localized: "Skip"), action: onSkip)
     }
 
     /// The question's markdown body: four lines (84pt) at first, the last fading out, and a full-width
@@ -187,15 +127,15 @@ struct BotQuestionCard: View {
     }
 }
 
-/// A multi-select, or several questions, drawn as a one-answer card draws its options: the same
-/// capsules, each picked or not (a check once picked), "Other…" under a question to answer it in
-/// words, and Send for the picks at the end of the last row, before `trailing` (Skip). Here and in
+/// A question card's options, one design for every question, as Paper's question card draws them:
+/// each option the same pill, hugging its words and wrapping, then a line of text with "Other…" and
+/// `trailing` (Skip). One question with one answer is answered by a tap; a multi-select, or several
+/// questions, pick theirs (a check once picked) and send them with Send at the line's end. Here and in
 /// the Inbox; the desktop's `DecisionOptions`.
-struct QuestionPicks<Trailing: View>: View {
+struct QuestionOptions<Trailing: View>: View {
     let questions: [AgentConversation.DecisionQuestion]
-    let wide: Bool
-    let height: CGFloat
-    let size: CGFloat
+    /// It may be answered in words, with "Other…".
+    let typed: Bool
     let onSubmit: (DecisionAnswer) -> Void
     @ViewBuilder let trailing: () -> Trailing
 
@@ -205,33 +145,37 @@ struct QuestionPicks<Trailing: View>: View {
     @State private var open: Int?
     @FocusState private var focused: Bool
 
-    init(questions: [AgentConversation.DecisionQuestion], wide: Bool, height: CGFloat, size: CGFloat,
+    init(questions: [AgentConversation.DecisionQuestion], typed: Bool,
          onSubmit: @escaping (DecisionAnswer) -> Void, @ViewBuilder trailing: @escaping () -> Trailing) {
         self.questions = questions
-        self.wide = wide
-        self.height = height
-        self.size = size
+        self.typed = typed
         self.onSubmit = onSubmit
         self.trailing = trailing
         _picked = State(initialValue: questions.map { _ in [] })
         _words = State(initialValue: questions.map { _ in "" })
+        // One question answered only in words has its box open from the start.
+        _open = State(initialValue: typed && questions.count == 1 && (questions[0].options ?? []).isEmpty ? 0 : nil)
     }
 
-    private var typed: [String] { questions.indices.map { open == $0 ? words[$0] : "" } }
+    /// One question with one answer: a tap answers it.
+    private var instant: Bool { questions.count == 1 && questions[0].multiSelect != true }
+
+    private var typedWords: [String] { questions.indices.map { open == $0 ? words[$0] : "" } }
 
     private var complete: Bool {
         questions.indices.allSatisfy {
-            !picked[$0].isEmpty || !typed[$0].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            !picked[$0].isEmpty || !typedWords[$0].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
     }
 
     private func send() {
         guard complete else { return }
         focused = false
-        onSubmit(BotQuestion.formAnswer(questions, picked: picked, typed: typed))
+        onSubmit(BotQuestion.formAnswer(questions, picked: picked, typed: typedWords))
     }
 
-    private func toggle(_ option: String, at index: Int) {
+    private func tap(_ option: String, at index: Int) {
+        if instant { return onSubmit(DecisionAnswer(choices: [option])) }
         if picked[index].contains(option) {
             picked[index].removeAll { $0 == option }
         } else {
@@ -240,7 +184,7 @@ struct QuestionPicks<Trailing: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: wide ? 10 : 8) {
+        VStack(alignment: .leading, spacing: 10) {
             ForEach(questions.indices, id: \.self) { index in
                 if questions.count > 1 {
                     Text(questions[index].question)
@@ -248,17 +192,17 @@ struct QuestionPicks<Trailing: View>: View {
                         .foregroundStyle(Theme.heading)
                         .padding(.top, index > 0 ? 8 : 0)
                 }
-                if wide {
-                    // One row with "Other…", as a single-select's; long options take the row and the rest the next.
-                    ViewThatFits(in: .horizontal) {
-                        HStack(spacing: 10) { options(at: index); row(at: index) }
-                        VStack(alignment: .leading, spacing: 10) { HStack(spacing: 10) { options(at: index) }; row(at: index) }
-                        VStack(alignment: .leading, spacing: 10) { options(at: index); row(at: index) }
+                let options = questions[index].options ?? []
+                if !options.isEmpty {
+                    FlowLayout(spacing: 8) {
+                        ForEach(options, id: \.self) { option in
+                            QuestionPill(title: option, checked: instant ? nil : picked[index].contains(option)) {
+                                tap(option, at: index)
+                            }
+                        }
                     }
-                } else {
-                    options(at: index)
-                    row(at: index)
                 }
+                line(at: index, hasOptions: !options.isEmpty)
                 if open == index {
                     AnswerField(words: $words[index], focused: $focused, send: send)
                 }
@@ -266,30 +210,124 @@ struct QuestionPicks<Trailing: View>: View {
         }
     }
 
-    private func options(at index: Int) -> some View {
-        ForEach(questions[index].options ?? [], id: \.self) { option in
-            InboxOption(title: option, primary: false, height: height, size: size, fill: !wide,
-                        checked: picked[index].contains(option)) {
-                toggle(option, at: index)
+    /// "Other…" ("Reply…" with nothing to pick) · `trailing` as a line of text, and Send at its end for picks.
+    private func line(at index: Int, hasOptions: Bool) -> some View {
+        HStack(spacing: 6) {
+            if typed {
+                QuestionTextButton(title: hasOptions ? String(localized: "Other…") : String(localized: "Reply…"), on: open == index) {
+                    open = open == index ? nil : index
+                    focused = open != nil
+                }
+            }
+            if index == questions.count - 1 {
+                if typed { Text(verbatim: "·").foregroundStyle(Theme.muted).accessibilityHidden(true) }
+                trailing()
+                Spacer(minLength: 10)
+                if !instant {
+                    Button(action: send) {
+                        Text("Send")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(Theme.chatCanvas)
+                            .padding(.horizontal, 16)
+                            .frame(minHeight: 40)
+                            .background(Theme.heading, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!complete)
+                    .opacity(complete ? 1 : 0.4)
+                }
             }
         }
     }
+}
 
-    /// "Other…" ("Reply…" with nothing to pick), and on the last row Send and `trailing`.
-    private func row(at index: Int) -> some View {
-        HStack(spacing: wide ? 10 : 8) {
-            let title = (questions[index].options ?? []).isEmpty ? String(localized: "Reply…") : String(localized: "Other…")
-            InboxOutlineButton(title: title, fill: !wide, toggled: open == index) {
-                open = open == index ? nil : index
-                focused = open != nil
+/// An option, the same pill for every one as Paper draws it: the raised surface, a hairline ring and
+/// a soft shadow, radius 9, hugging its words. `checked`, it is picked rather than sent: a check once picked.
+struct QuestionPill: View {
+    let title: String
+    var checked: Bool?
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                if checked == true { LucideIcon("check").font(.system(size: 14, weight: .semibold)) }
+                Text(title).font(.system(size: 15)).multilineTextAlignment(.leading)
             }
-            if index == questions.count - 1 {
-                if wide { Spacer(minLength: 10) }
-                InboxOption(title: String(localized: "Send"), primary: true, height: wide ? 40 : 44, size: 15, fill: !wide, action: send)
-                    .disabled(!complete)
-                    .opacity(complete ? 1 : 0.4)
-                trailing()
+            .foregroundStyle(Theme.heading)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .frame(minHeight: 44)
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Theme.heading.opacity(0.08), lineWidth: 1))
+            .shadow(color: .black.opacity(0.04), radius: 1, y: 1)
+            .shadow(color: .black.opacity(0.06), radius: 4, y: 3)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(checked == true ? .isSelected : [])
+    }
+}
+
+/// "Other…", "Skip" and their like: words on the card's line of text, 44pt tall to tap.
+struct QuestionTextButton: View {
+    let title: String
+    var on = false
+    let action: () -> Void
+    @Environment(\.isEnabled) private var enabled
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 15))
+                .foregroundStyle(on ? Theme.heading : Theme.muted)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+                .opacity(enabled ? 1 : 0.4)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(on ? .isSelected : [])
+    }
+}
+
+/// Its views left to right, wrapping onto the next line when the width runs out.
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 8
+
+    private func rows(_ width: CGFloat, _ subviews: Subviews) -> [[(index: Int, size: CGSize)]] {
+        var rows: [[(index: Int, size: CGSize)]] = [[]]
+        var x: CGFloat = 0
+        for (index, subview) in subviews.enumerated() {
+            let size = subview.sizeThatFits(ProposedViewSize(width: width, height: nil))
+            if x > 0, x + size.width > width {
+                rows.append([])
+                x = 0
             }
+            rows[rows.count - 1].append((index, size))
+            x += size.width + spacing
+        }
+        return rows
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? .infinity
+        let rows = rows(width, subviews)
+        let height = rows.map { $0.map(\.size.height).max() ?? 0 }.reduce(0, +) + spacing * CGFloat(max(rows.count - 1, 0))
+        let widest = rows.map { $0.map(\.size.width).reduce(0, +) + spacing * CGFloat(max($0.count - 1, 0)) }.max() ?? 0
+        return CGSize(width: proposal.width ?? widest, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var y = bounds.minY
+        for row in rows(bounds.width, subviews) {
+            var x = bounds.minX
+            let height = row.map(\.size.height).max() ?? 0
+            for item in row {
+                subviews[item.index].place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(item.size))
+                x += item.size.width + spacing
+            }
+            y += height + spacing
         }
     }
 }
