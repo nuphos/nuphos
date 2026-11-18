@@ -58,7 +58,7 @@ export const botAccessScenarios: Scenario[] = [
       )
       await page.screenshot({ path: `${artifacts}/bot-choose-access-chosen-light.png` })
       // The picker shows what the Bot can use: the team-wide kinds, and nothing it was not given.
-      await page.getByRole('button', { name: 'Agent credentials' }).last().click()
+      await page.getByRole('button', { name: 'Credentials', exact: true }).last().click()
       await page.waitForTimeout(500)
       await page.screenshot({ path: `${artifacts}/bot-access-picker-light.png` })
       await page.keyboard.press('Escape')

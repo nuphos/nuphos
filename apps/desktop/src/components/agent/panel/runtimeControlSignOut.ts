@@ -35,8 +35,8 @@ export function selectedAgentName(control: Pick<RuntimeControl, 'value' | 'optio
   if (!value) return t('The runtime')
   if (!local) return value.label
 
-  return t('{agent} on {computer}', {
-    agent: agentDisplayName({ provider: value.provider, label: value.label, local }),
+  return t('{runtime} on {computer}', {
+    runtime: agentDisplayName({ provider: value.provider, label: value.label, local }),
     computer: local.deviceLabel,
   })
 }

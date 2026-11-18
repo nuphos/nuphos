@@ -61,7 +61,7 @@ function CellTooltip({
                 <div className="px-1 text-main">{hover.name}</div>
                 <div className="mb-1 px-1 text-tertiary">{span(hover.cell)}</div>
                 {hover.cell.sessions.length === 0 ? (
-                  <div className="px-1 text-tertiary">{t('No agents running')}</div>
+                  <div className="px-1 text-tertiary">{t('Nothing running')}</div>
                 ) : (
                   <div className="space-y-px">
                     {hover.cell.sessions.slice(0, MAX_TITLES).map((s) => (

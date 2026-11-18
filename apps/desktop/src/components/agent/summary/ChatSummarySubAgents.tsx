@@ -21,11 +21,11 @@ export function SubAgentsSection({
 
   return (
     <SummarySection
-      title={t('Sub-agents')}
+      title={t('Sub-tasks')}
       header={
         options.length > 0 && (
           <FilterPills
-            label={t('Filter sub-agents by status')}
+            label={t('Filter sub-tasks by status')}
             options={options}
             selected={filter}
             onSelect={setSubAgentsFilter}
