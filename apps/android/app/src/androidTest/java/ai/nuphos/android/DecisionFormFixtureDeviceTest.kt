@@ -15,6 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.*
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -147,6 +148,40 @@ class DecisionFormFixtureDeviceTest {
         compose.onNodeWithTag("bot-question-send").performScrollTo().performClick()
         assertEquals(listOf("""{"choices":["us-east","ap-northeast"]}"""), sent.map { it.compact })
         assertEquals(listOf("Ship it"), answers)
+    }
+
+    /** #3468: a one-entry `questions` card takes its mode from that entry, the top level saying nothing of it. */
+    @Test fun aOneEntryQuestionsCardTakesItsModeFromThatEntry() {
+        val sent = mutableListOf<JsonValue>()
+        val answers = mutableListOf<String>()
+        val card = BotQuestion("bot-release", "Release Lead", Http.json.decodeFromString(InputRequest.serializer(), """
+            {"id":"q-one","category":"preference","question":"Which regions ship today?","options":["a","b"],
+             "questions":[{"question":"Which regions ship today?","options":["x","y"],"multiSelect":true}]}
+        """))
+        screen { BotQuestionCard(card, onOpen = {}, onConnect = {}, onAnswer = { answers += it }, onForm = { sent += it }, showsFrom = false) }
+        // The entry's own options, picked rather than answered by a tap.
+        compose.onAllNodesWithTag("bot-question-option").assertCountEquals(2)
+        compose.onNodeWithText("x").performClick()
+        compose.onNodeWithText("y").performClick()
+        compose.onNodeWithText("x").assertIsSelected()
+        compose.onNodeWithText("y").assertIsSelected()
+        assertTrue(answers.isEmpty() && sent.isEmpty())
+        compose.onNodeWithTag("bot-question-send").performScrollTo().performClick()
+        assertEquals(listOf("""{"choices":["x","y"]}"""), sent.map { it.compact })
+        assertTrue(answers.isEmpty())
+    }
+
+    /** Words being typed, and the box they are in, outlive a rotation or the process, as before #3468. */
+    @Test fun wordsBeingTypedSurviveRecreation() {
+        val tester = StateRestorationTester(compose)
+        val deploy = BotQuestion("bot-release", "Release Lead",
+            InputRequest("q-deploy", "approval", "Roll out 1.4 to production?", listOf("Ship it", "Wait for QA")))
+        tester.setContent { NuphosTheme { Surface { BotQuestionCard(deploy, onOpen = {}, onConnect = {}, onAnswer = {}, showsFrom = false) } } }
+        compose.onNodeWithTag("bot-question-other").performClick()
+        compose.onNodeWithTag("bot-question-answer").performTextInput("After QA signs off")
+        tester.emulateSavedInstanceStateRestore()
+        compose.onNodeWithTag("bot-question-answer").assertTextContains("After QA signs off")
+        compose.onNodeWithTag("bot-question-send").assertIsEnabled()
     }
 
     private fun screen(content: @androidx.compose.runtime.Composable () -> Unit) {

@@ -27,7 +27,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -149,8 +152,9 @@ private fun QuestionOptions(
 ) {
     // Keyed on the questions too: an agent can correct an open card, keeping its id, and it starts over.
     val picked = remember(id, questions) { mutableStateListOf(*Array(questions.size) { emptyList<String>() }) }
-    val words = remember(id, questions) { mutableStateListOf(*Array(questions.size) { "" }) }
-    val open = remember(id, questions) { mutableStateListOf(*Array(questions.size) { typed && answersInPlace }) }
+    // What is typed, and which boxes are open, outlive a rotation or the process, as the composer's draft does.
+    val words = rememberSaveable(id, questions, saver = stateListSaver<String>()) { mutableStateListOf(*Array(questions.size) { "" }) }
+    val open = rememberSaveable(id, questions, saver = stateListSaver<Boolean>()) { mutableStateListOf(*Array(questions.size) { typed && answersInPlace }) }
     // Only an open text box answers its question.
     val answers = questions.indices.map { if (open[it]) words[it].trim() else "" }
     val complete = questions.indices.all { picked[it].isNotEmpty() || answers[it].isNotEmpty() }
@@ -187,6 +191,9 @@ private fun QuestionOptions(
         ) { Text(stringResource(R.string.chats_question_send_answer)) }
     }
 }
+
+/** A state list kept by [rememberSaveable]: its values, which a Bundle holds. */
+private fun <T : Any> stateListSaver() = listSaver<SnapshotStateList<T>, T>(save = { it.toList() }, restore = { it.toMutableStateList() })
 
 @Composable
 private fun heading(category: String?): String = stringResource(when (category) {
