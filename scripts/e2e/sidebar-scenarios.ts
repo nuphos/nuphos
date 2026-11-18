@@ -53,7 +53,7 @@ export const botFoldScenarios: Scenario[] = [
       // Bots already exist here, so New Bot sits in the + menu.
       await page.getByRole('button', { name: 'New', exact: true }).click()
       await page.getByRole('menuitem', { name: 'New Bot' }).click()
-      await page.getByRole('textbox', { name: 'Agent name' }).fill('Fold Bot')
+      await page.getByRole('textbox', { name: 'Bot name' }).fill('Fold Bot')
       await page.getByRole('button', { name: 'Create', exact: true }).click()
       await until(
         'the new Bot to introduce itself',
