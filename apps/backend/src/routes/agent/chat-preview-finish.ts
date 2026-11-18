@@ -2,7 +2,6 @@
 // persist the assistant message (and any steered exchange segments) with
 // their tool steps, give the conversation a title, and record what the
 // agent's memory tools did this turn.
-import { randomUUID } from 'node:crypto'
 
 import { appendTranscriptMessages } from '@/lib/agent/db'
 import { deliverWaitingAnswers } from '@/lib/agent/deliver-waiting-answers'
@@ -39,6 +38,16 @@ function insertBeforeFinalText(
   if (finalTextIndex < 0) return [...parts, ...inserted]
 
   return [...parts.slice(0, finalTextIndex), ...inserted, ...parts.slice(finalTextIndex)]
+}
+
+/**
+ * The id a run's reply is stored under: its stream's, which every client that
+ * streamed the turn already knows. A client gives its live reply the same id, so
+ * the stored transcript replaces it as the same message and nothing drawn in it
+ * is thrown away. A turn handed on to another run stores one reply per run.
+ */
+function replyMessageId(run: AgentRun): string {
+  return run.streamId
 }
 
 export async function finishPreviewTurn(args: {
@@ -114,7 +123,7 @@ export async function finishPreviewTurn(args: {
     ...steered,
     // Preserve the completion boundary even when there is no visible output:
     // thread-delivery replay deduplicates messages before the last assistant.
-    { id: randomUUID(), role: 'assistant' as const, parts },
+    { id: replyMessageId(run), role: 'assistant' as const, parts },
   ]
   const transcriptMessages = uiMessagesToTranscript([...args.messages, ...tail])
 
@@ -215,7 +224,7 @@ export async function persistInterruptedPreviewTurn(args: {
   const transcriptMessages = uiMessagesToTranscript([
     ...args.messages,
     ...args.steered,
-    { id: randomUUID(), role: 'assistant', parts },
+    { id: replyMessageId(run), role: 'assistant', parts },
   ])
 
   try {
@@ -263,7 +272,7 @@ export async function persistHandedOffPreviewTurn(args: {
     ...args.messages,
     ...args.steered,
     ...(args.orderedParts.length > 0
-      ? [{ id: randomUUID(), role: 'assistant' as const, parts: args.orderedParts }]
+      ? [{ id: replyMessageId(args.run), role: 'assistant' as const, parts: args.orderedParts }]
       : []),
   ])
 
