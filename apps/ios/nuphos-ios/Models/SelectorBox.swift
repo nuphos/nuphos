@@ -31,6 +31,24 @@ struct AgentDevice: Decodable, Sendable {
     }
 }
 
+/// How the conversation's computer stands right now, as its chat tells it.
+enum ComputerPresence: Equatable {
+    case online, offline
+    /// A paused Box, by its label: sending a message resumes it.
+    case paused(label: String)
+
+    /// Only the device list says an offline Box is paused. Until that list has
+    /// loaded (`devices` nil) nothing is said, so a paused Box never shows offline first.
+    static func of(_ local: RuntimeInstance.Local?, devices: [AgentDevice]?) -> ComputerPresence {
+        guard let local, local.online == false else { return .online }
+        guard let devices else { return .online }
+        if let device = devices.first(where: { $0.deviceId == local.deviceId }), device.box?.state == "paused" {
+            return .paused(label: device.label)
+        }
+        return .offline
+    }
+}
+
 struct SelectorBox: Identifiable {
     let id: String
     let label: String

@@ -294,6 +294,52 @@
         }
       }
     },
+    "%@ is paused. It resumes when you send." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ está en pausa. Se reanudará cuando envíes un mensaje."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ sedang dijeda. Akan berjalan lagi saat Anda mengirim pesan."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ は一時停止中です。送信すると再開します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@이(가) 일시 중지되었습니다. 보내면 다시 시작됩니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ หยุดชั่วคราวอยู่ จะทำงานต่อเมื่อคุณส่งข้อความ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 已暂停，发送消息后会自动恢复。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 已暫停，傳送訊息後會自動恢復。"
+          }
+        }
+      }
+    },
     "%@ is ready to use." : {
       "localizations" : {
         "es" : {
