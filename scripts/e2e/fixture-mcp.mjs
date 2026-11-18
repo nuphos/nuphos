@@ -43,10 +43,7 @@ export async function call(sessionId, name, args) {
   return message
 }
 
-/**
- * `call`, reported to the client as a step of the turn, which is what real agents do: the
- * transcript then keeps the call, and a question's card is drawn from it.
- */
+/** `call`, reported to the client as a step of the turn, as real agents report their calls. */
 export const reporting = (send) => async (sessionId, name, args) => {
   const toolCallId = randomUUID()
   const update = (fields) =>
