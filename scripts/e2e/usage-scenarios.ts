@@ -80,7 +80,7 @@ async function checkNamesByRole(
 /** Filters take several values per dimension: the member picked by clicking is ticked. */
 async function captureFilterMenu(page: Page, section: Locator) {
   // Filters take several values per dimension: the member picked by clicking is ticked.
-  await section.getByRole('button', { name: 'Filter' }).click()
+  await section.getByRole('button', { name: 'Filter', exact: true }).click()
   await page.getByRole('menuitem', { name: 'Member' }).click()
   await page.getByRole('menuitemcheckbox', { checked: true }).waitFor()
   await page.screenshot({ path: `${artifacts}/token-usage-filter-menu.png` })
