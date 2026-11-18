@@ -155,7 +155,9 @@ export function SecretCard({
               <Button
                 type="submit"
                 size="sm"
-                disabled={!interactive || !complete || phase === 'saving'}
+                disabled={
+                  !interactive || !complete || phase === 'saving' || dismissed === 'sending'
+                }
               >
                 {phase === 'saving' ? t('Saving…') : t('Send securely')}
               </Button>
@@ -181,7 +183,11 @@ export function SecretCard({
               onChange={(event) => setValue(event.target.value)}
               className="min-w-0 flex-1 rounded-md border border-line-control bg-surface px-2.5 py-1.5 font-mono text-[12.5px] text-main outline-none focus:border-line-focus"
             />
-            <Button type="submit" size="sm" disabled={!interactive || !value || phase === 'saving'}>
+            <Button
+              type="submit"
+              size="sm"
+              disabled={!interactive || !value || phase === 'saving' || dismissed === 'sending'}
+            >
               {phase === 'saving' ? t('Saving…') : t('Send securely')}
             </Button>
           </form>
