@@ -31,6 +31,7 @@ export class RuntimeTunnelClient {
   private idleTimer: ReturnType<typeof setTimeout> | undefined
   private lastFrameAt: number | undefined // unset until the socket opens
   private dropped: TunnelDrop | undefined // why the last live socket was given up
+  private closeReplaced: (() => void) | undefined // the redialed socket, closed once replaced
   private readonly deps: TunnelClientDeps
 
   constructor(deps: TunnelClientDeps) {
@@ -48,6 +49,7 @@ export class RuntimeTunnelClient {
 
   stop(): void {
     this.running = false
+    this.closeReplaced?.()
     this.drop()
     this.deps.onChange?.(false, false)
   }
@@ -93,10 +95,25 @@ export class RuntimeTunnelClient {
     this.instanceStreams.clear()
     this.deps.activity?.clear()
     const socket = this.socket
+    const why = this.running ? 'reconnecting' : 'stopped'
+    const close = () => {
+      if (socket?.terminate) socket.terminate()
+      else socket?.close(1000, why)
+    }
 
     this.socket = undefined
-    if (socket?.terminate) socket.terminate()
-    else socket?.close(1000, this.running ? 'reconnecting' : 'stopped')
+    // A silent or stale socket stays open while the redial runs. The backend keeps serving
+    // through it until the new tunnel speaks, then takes it over; closing it first would end
+    // every stream before a tunnel exists to take them (#3366).
+    if (!socket || !this.running || (reason !== 'idle' && reason !== 'reconnect')) return close()
+    this.closeReplaced?.()
+    const timer = setTimeout(() => this.closeReplaced?.(), TUNNEL_IDLE_TIMEOUT_MS)
+
+    this.closeReplaced = () => {
+      clearTimeout(timer)
+      this.closeReplaced = undefined
+      close()
+    }
   }
 
   private send(frame: object): void {
@@ -157,6 +174,7 @@ export class RuntimeTunnelClient {
 
       if (frame) this.handle(frame)
     })
+    // A failed connection fires `error` and then `close`; only `close` says why, in its code.
     socket.addEventListener('close', (event) => {
       if (this.socket !== socket) return
       this.drop('closed', event.code)
@@ -167,11 +185,6 @@ export class RuntimeTunnelClient {
       if (revoked) this.running = false
       this.lost(revoked)
       if (revoked) this.deps.onRevoked?.()
-    })
-    socket.addEventListener('error', () => {
-      if (this.socket !== socket) return
-      this.drop('error')
-      this.lost()
     })
   }
 

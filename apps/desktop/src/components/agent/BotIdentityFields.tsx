@@ -47,7 +47,7 @@ export function BotIdentityFields({
           <img src={photo} alt="" className="size-10 shrink-0 rounded-full object-cover" />
         )}
         <input
-          aria-label={t('Agent name')}
+          aria-label={t('Bot name')}
           placeholder={t('Name')}
           autoFocus
           maxLength={120}

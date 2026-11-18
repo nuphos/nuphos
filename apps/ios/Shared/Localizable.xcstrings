@@ -10434,6 +10434,52 @@
         }
       }
     },
+    "Details needed for %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Datos necesarios para %@"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Data yang diperlukan untuk %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ に必要な情報"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@에 필요한 정보"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ข้อมูลที่ต้องใช้สำหรับ %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 需要的资料"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 需要的資料"
+          }
+        }
+      }
+    },
     "Didn't get a code?" : {
       "localizations" : {
         "es" : {
@@ -12551,6 +12597,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "隱藏鍵盤"
+          }
+        }
+      }
+    },
+    "Hide values" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ocultar valores"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sembunyikan nilai"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "値を隠す"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "값 숨기기"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ซ่อนค่า"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "隐藏值"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "隱藏值"
           }
         }
       }
@@ -21190,6 +21282,52 @@
         }
       }
     },
+    "Reveal values" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar valores"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tampilkan nilai"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "値を表示"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "값 표시"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แสดงค่า"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示值"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "顯示值"
+          }
+        }
+      }
+    },
     "Risk" : {
       "localizations" : {
         "es" : {
@@ -27641,6 +27779,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "這個值會寫入任務執行環境中的檔案，不會出現在此任務中。"
+          }
+        }
+      }
+    },
+    "The values are written to files on the task's runtime and entered on %@ without passing through this task." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los valores se escriben en archivos del entorno de ejecución de la tarea y se introducen en %@ sin pasar por esta tarea."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nilai-nilai ditulis ke file di runtime tugas dan dimasukkan di %@ tanpa melewati tugas ini."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "値はタスクの実行環境上のファイルに書き込まれ、このタスクを経由せずに %@ に入力されます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "값은 태스크 런타임의 파일에 기록되며 이 태스크를 거치지 않고 %@에 입력됩니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ค่าเหล่านี้จะถูกเขียนลงไฟล์ในรันไทม์ของงาน และกรอกใน %@ โดยไม่ผ่านงานนี้"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这些值会写入任务运行环境中的文件，并填入 %@，填入过程不经过此任务。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這些值會寫入任務執行環境中的檔案，並填入 %@，填入過程不經過此任務。"
           }
         }
       }

@@ -46,9 +46,15 @@ function conversationShell(data: ConversationTranscriptSync) {
   })
 }
 
-async function recordTranscript(data: ConversationTranscriptSync, count: number, now: Date) {
+async function recordTranscript(
+  data: ConversationTranscriptSync,
+  count: number,
+  now: Date,
+  // An append's messages may be a recent window, whose first is not the conversation's.
+  setFirstMessage = true,
+) {
   const set: Record<string, unknown> = {
-    firstMessage: data.firstMessage.slice(0, 500),
+    ...(setFirstMessage ? { firstMessage: data.firstMessage.slice(0, 500) } : {}),
     messageCount: count,
     transcriptUpdatedAt: now,
     lastActiveAt: now,
@@ -144,24 +150,63 @@ export async function syncConversationTranscriptUnlocked(
  * parts it cannot represent (an attachment-only message, a steering receipt),
  * so it never rewrites or deletes a stored message. Returns the stored count.
  */
+// The added messages' tool calls are the turn's own, so their runtime results are recent.
+const TOOL_RESULT_WINDOW = 200
+
+/** Stored parts of the tool calls `messages` carry, whose runtime results they must keep. */
+async function storedToolParts(
+  scope: { userId: string; sessionId: string },
+  messages: ConversationTranscriptSync['messages'],
+  nextIndex: number,
+): Promise<unknown[]> {
+  const ids = messages.flatMap((message) =>
+    message.parts.flatMap((part) => {
+      const id = (part as { toolCallId?: unknown } | null)?.toolCallId
+
+      return typeof id === 'string' ? [id] : []
+    }),
+  )
+
+  if (ids.length === 0) return []
+  const stored = await agentMessages()
+    .find(
+      // Bounded by index: toolCallId is not indexed, and a long session holds tens of thousands.
+      {
+        ...scope,
+        index: { $gte: nextIndex - TOOL_RESULT_WINDOW },
+        'parts.toolCallId': { $in: ids },
+      },
+      { projection: { parts: 1 } },
+    )
+    .toArray()
+
+  return stored.flatMap((message) => message.parts ?? [])
+}
+
 export async function appendTranscriptMessages(
   data: ConversationTranscriptSync,
-): Promise<{ isNew: boolean; count: number }> {
+): Promise<{ isNew: boolean; count: number; lastIndex: number }> {
   return await withTranscriptWriteLock(data.sessionId, data.userId, async () => {
     const now = new Date()
     const shell = await conversationShell(data)
-    const existing = await agentMessages()
-      .find(
-        { sessionId: data.sessionId, userId: data.userId },
-        { projection: STORED_MESSAGE_FIELDS },
-      )
-      .toArray()
-    const storedIds = new Set(existing.map((message) => message.messageId))
-    const offset = existing.reduce((next, message) => Math.max(next, message.index + 1), 0)
+    const scope = { userId: data.userId, sessionId: data.sessionId }
+    // Each read is served by an index: a long session holds tens of thousands of messages.
+    const [stored, last, before] = await Promise.all([
+      agentMessages()
+        .find(
+          { ...scope, messageId: { $in: data.messages.map((message) => message.id) } },
+          { projection: { messageId: 1 } },
+        )
+        .toArray(),
+      agentMessages().findOne(scope, { sort: { index: -1 }, projection: { index: 1 } }),
+      agentMessages().countDocuments(scope),
+    ])
+    const storedIds = new Set(stored.map((message) => message.messageId))
+    const offset = (last?.index ?? -1) + 1
     const added = { ...data, messages: data.messages.filter((m) => !storedIds.has(m.id)) }
     const writes = await messageWrites(added, {
       attribution: new Map(),
-      runtimeToolParts: existing.flatMap((message) => message.parts ?? []),
+      runtimeToolParts: await storedToolParts(scope, added.messages, offset),
       storedAt: new Map(),
       now,
       offset,
@@ -169,11 +214,12 @@ export async function appendTranscriptMessages(
 
     if (writes.length > 0) await agentMessages().bulkWrite(writes, { ordered: false })
     // By count, like getConversationMessagesHead: racing persists can leave index holes.
-    const count = existing.length + added.messages.length
+    const count = before + added.messages.length
 
-    await recordTranscript(data, count, now)
+    await recordTranscript(data, count, now, before === 0)
 
-    return { ...shell, count }
+    // The newest index this append knows: a later message, even a racing one, lands above it.
+    return { ...shell, count, lastIndex: offset + added.messages.length - 1 }
   })
 }
 

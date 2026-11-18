@@ -130,11 +130,7 @@ test('a listed Bot chat opens with its name, runtime and credentials before it l
   assert.ok(triggerButton)
   await act(() => triggerButton.click())
   assert.deepEqual(triggerQueries, [['team', 'bot']], 'queries the Bot, not its chat or the team')
-  assert.ok(
-    dom.document.body.textContent?.includes(
-      'Ask the agent to schedule recurring work in this conversation.',
-    ),
-  )
+  assert.ok(dom.document.body.textContent?.includes('Ask here to schedule recurring work.'))
   assert.ok(frames.length > 0)
   // Every frame, the first one included: a frame without them is the composer jumping.
   for (const frame of frames) {

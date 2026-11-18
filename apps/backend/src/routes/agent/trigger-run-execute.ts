@@ -229,6 +229,10 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
           teamId,
           provider: chatRuntime.endpoint.provider ?? 'claude-code',
           ...report,
+          actorUserId: HUMAN_SENDER_SOURCES.has(source) ? userId : conversationOwnerUserId,
+          turnSource: source,
+          runtimeId: chatRuntime.endpoint.runtimeId,
+          deviceId: chatRuntime.endpoint.local?.deviceId,
           ...(params.trigger ? { trigger: params.trigger } : {}),
         })
       },

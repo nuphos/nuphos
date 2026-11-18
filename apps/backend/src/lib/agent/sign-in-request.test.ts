@@ -17,6 +17,12 @@ import type { NuphosTeamRole } from '@/lib/identity/types'
 const TEAM = 'team-1'
 const RUNTIME = 'managed-1'
 const LOCAL = 'local_bryan_mac-1'
+/** Bryan owns mac-1; Dana manages it; Shant only uses it. */
+const MAC = {
+  owner: 'bryan',
+  canSignIn: (userId: string) => userId === 'bryan' || userId === 'dana',
+}
+let computer: typeof MAC | null = null
 const members = [
   { id: 'bryan', name: 'Bryan', role: 'ADMINISTRATOR' as const, joinedAt: '2026-01-01' },
   { id: 'casey', name: 'Casey', role: 'ADMINISTRATOR' as const, joinedAt: '2026-03-01' },
@@ -61,6 +67,7 @@ function deps(): NudgeDeps {
     },
     notify: (userIds, push) => notified.push({ userIds, ...push }),
     now: () => now,
+    computer: async () => computer,
   }
 }
 
@@ -72,6 +79,7 @@ const ask = (
 ) => nudge(kind, { teamId: TEAM, runtimeId, sessionId: 's1', requesterId }, role, deps())
 
 beforeEach(() => {
+  computer = null
   conversation = {
     sessionId: 's1',
     userId: 'shant',
@@ -133,6 +141,33 @@ describe('who is asked', () => {
       askedUserIds: ['bryan', 'casey'],
       askedName: 'Bryan',
     })
+  })
+})
+
+describe("a computer's managers", () => {
+  test('are asked with its owner, owner first', () => {
+    expect(
+      signInRecipients(LOCAL, { id: 'shant', role: 'EDITOR' }, members, MAC)?.map((m) => m.id),
+    ).toEqual(['bryan', 'dana'])
+  })
+
+  test('sign it in themselves rather than asking', () => {
+    expect(signInRecipients(LOCAL, { id: 'dana', role: 'EDITOR' }, members, MAC)).toBeNull()
+  })
+
+  test('get the push and the Inbox entry; the ask still names the owner', async () => {
+    conversation.runtimeId = LOCAL
+    conversation.runtimeLabel = "Bryan's Claude Code"
+    computer = MAC
+    expect(await ask()).toEqual({ askedName: 'Bryan', notified: true })
+    expect(notified[0]).toMatchObject({ userIds: ['bryan', 'dana'] })
+    expect(conversation.signInRequest).toMatchObject({ askedUserIds: ['bryan', 'dana'] })
+  })
+
+  test('without the computer on record, only its owner is asked, as before', async () => {
+    conversation.runtimeId = LOCAL
+    expect(await ask()).toEqual({ askedName: 'Bryan', notified: true })
+    expect(notified[0]).toMatchObject({ userIds: ['bryan'] })
   })
 })
 

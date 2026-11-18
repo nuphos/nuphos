@@ -279,7 +279,7 @@ class ChatSession(
 
     suspend fun moveAgent(target: ai.nuphos.android.data.AgentRuntime) {
         check(canMoveAgent) { Words(R.string.convtext_move_wait) }
-        require(target.selectable && (isOwner || target.kind == "managed")) { Words(R.string.convtext_move_choose_runtime) }
+        require(target.selectable && isOwner) { Words(R.string.convtext_move_choose_runtime) }
         if (target.id == runtimeId) return
         movingAgent = true
         transportGeneration++
@@ -452,11 +452,19 @@ class ChatSession(
      * straight to a file on the agent's runtime, and the reply names only the
      * file's path. The value is never kept, logged or put in the transcript.
      */
-    suspend fun provideSecret(value: String, part: ChatPart.Tool) {
-        val name = part.secretRequest?.name ?: return
-        val path = AgentChatApi.saveSecret(token, teamId, sessionId, name, value)
+    suspend fun provideSecret(value: String, part: ChatPart.Tool) = provideSecrets(listOf(value), part)
+
+    /** A card with several fields saves one file each, in order, and names them all in one reply. */
+    suspend fun provideSecrets(values: List<String>, part: ChatPart.Tool) {
+        val request = part.secretRequest ?: return
+        val names = request.fields?.map { it.name } ?: listOf(request.name)
+        if (values.size != names.size) return
+        val saved = names.zip(values).map { (name, value) -> name to AgentChatApi.saveSecret(token, teamId, sessionId, name, value) }
         runCatching { AgentChatApi.resolveDecision(token, teamId, sessionId, part.decisionRequestId) }
-        send(ChatPart.Tool.SecretRequest.savedReply(name) + path)
+        send(
+            if (request.fields == null) ChatPart.Tool.SecretRequest.savedReply(request.name) + saved.first().second
+            else ChatPart.Tool.SecretRequest.fieldsSavedReply(request.name, saved),
+        )
     }
 
     /** The first reply after the message that asked, if anyone replied yet. */

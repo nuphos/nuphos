@@ -131,7 +131,7 @@ test('the card leads with its question, answers with its buttons, and is skipped
     await click('Skip')
     assert.deepEqual(skipped, ['q1', 'q1'])
     // Withdrawn: it says so, and nothing on it answers or skips any more.
-    assert.match(container.textContent ?? '', /Skipped\. The agent carries on without an answer\./)
+    assert.match(container.textContent ?? '', /Skipped\. It carries on without an answer\./)
     assert.equal(button('Skip'), undefined)
     assert.equal(button('Other…'), undefined)
     assert.equal(button('Merge')?.disabled, true)

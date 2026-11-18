@@ -6,7 +6,7 @@ export const AGENT_PHASE_LABELS = {
   'building-context': t('Reading page context…'),
   'loading-credentials': t('Loading selected credentials…'),
   'preparing-tools': t('Preparing tools and sandbox…'),
-  'building-prompt': t('Building agent instructions…'),
+  'building-prompt': t('Building instructions…'),
   'recalling-memory': t('Recalling memories…'),
   'loading-compaction': t('Loading conversation summary…'),
   'preparing-model': t('Preparing model request…'),
