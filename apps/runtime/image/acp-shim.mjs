@@ -249,8 +249,10 @@ export function runShim({
   // How long a prompt's answer gets to close its turn upstream before the
   // turn the agent started next is released.
   settleMs = 1000,
-  // How often an open turn checks whether its provider refused it (spec.refusal).
+  // How often an open turn checks whether its provider refused it (spec.refusal), once
+  // the agent has sent nothing for the session for `refusalQuietMs`.
   refusalPollMs = 1500,
+  refusalQuietMs = 15_000,
 }) {
   const spec = PROVIDERS[provider]
   if (!spec) throw new Error(`Unknown ACP provider: ${String(provider)}`)
@@ -273,6 +275,8 @@ export function runShim({
   const transforms = new Map()
   // Prompts ended because their provider refused them; the agent's answer to the cancel closes them.
   const refused = new Set()
+  // When the agent last sent anything for each session.
+  const heard = new Map()
   let initialize
   let agent
   let agentEnvironment
@@ -327,6 +331,7 @@ export function runShim({
   const prompting = (sessionId) => [...prompts.values()].includes(sessionId)
   const fromAgent = (message) => {
     const sessionId = message.params?.sessionId
+    if (sessionId) heard.set(sessionId, Date.now())
     const kind = message.params?.update?.sessionUpdate
     if (message.method && held.has(sessionId)) return void held.get(sessionId).push(message)
     if (message.method === undefined && prompts.has(message.id)) {
@@ -406,9 +411,17 @@ export function runShim({
   const watchRefusal = (id, sessionId) => {
     // The clock the agent's log shares; a second's slack for the prompt reaching it first.
     const since = Date.now() - 1000
+    heard.set(sessionId, Date.now())
     const timer = setInterval(() => {
       if (prompts.get(id) !== sessionId) return clearInterval(timer)
-      const why = spec.refusal(agentEnvironment, sessionId, since)
+      // A turn the agent is still answering is not refused.
+      if (Date.now() - heard.get(sessionId) < refusalQuietMs) return
+      let why
+      try {
+        why = spec.refusal(agentEnvironment, sessionId, since)
+      } catch {
+        // Whatever cannot be read leaves the turn as it is.
+      }
       if (!why) return
       clearInterval(timer)
       refused.add(id)

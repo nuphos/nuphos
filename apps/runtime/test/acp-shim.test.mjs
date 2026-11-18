@@ -59,6 +59,8 @@ async function withShim(provider, run, agentScript = FAKE_AGENT) {
     },
     onExit: (code) => exits.push(code),
     settleMs: 20,
+    refusalPollMs: 50,
+    refusalQuietMs: 200,
   })
   let id = 0
   const call = (method, params) =>
@@ -696,4 +698,47 @@ test('an opencode turn that answers is left alone, whatever another session logg
       0,
     )
   })
+})
+
+test('an opencode turn still answering is never ended for a refusal in its log', async () => {
+  // Streams for a while, then answers: a refusal OpenCode retried past.
+  const streaming = `
+const rl = require('node:readline').createInterface({ input: process.stdin })
+const say = (m) => process.stdout.write(JSON.stringify(m) + '\\n')
+rl.on('line', (line) => {
+  const m = JSON.parse(line)
+  if (m.id === undefined) return
+  if (m.method !== 'session/prompt') return say({ jsonrpc: '2.0', id: m.id, result: m.method === 'session/new' ? { sessionId: 'ses_1', configOptions: [] } : {} })
+  let n = 0
+  const timer = setInterval(() => {
+    say({ jsonrpc: '2.0', method: 'session/update', params: { sessionId: 'ses_1', update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'x' } } } })
+    if (++n === 12) { clearInterval(timer); say({ jsonrpc: '2.0', id: m.id, result: { stopReason: 'end_turn' } }) }
+  }, 50)
+})
+`
+  await withShim(
+    'opencode',
+    async ({ call, home, notifications, children }) => {
+      await call('initialize', { protocolVersion: 1 })
+      await call('session/new', session('Be Nuphos.'))
+      const { appendFile, mkdir } = await import('node:fs/promises')
+      await mkdir(join(home, '.local', 'share', 'opencode', 'log'), { recursive: true })
+      await appendFile(
+        openCodeLog(home),
+        streamError(new Date().toISOString(), 'ses_1', false, LIMIT),
+      )
+      const reply = await call('session/prompt', {
+        sessionId: 'ses_1',
+        prompt: [{ type: 'text', text: 'hi' }],
+      })
+
+      assert.equal(reply.result.stopReason, 'end_turn')
+      const text = notifications
+        .filter((n) => n.params?.update?.sessionUpdate === 'agent_message_chunk')
+        .map((n) => n.params.update.content.text)
+        .join('')
+      assert.equal(text, 'x'.repeat(12), 'only the agent’s own words')
+    },
+    streaming,
+  )
 })
