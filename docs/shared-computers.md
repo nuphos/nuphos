@@ -77,8 +77,9 @@ computer; idle only means its agents are not working, so a program you started
 yourself, such as a dev server, stops too. An update that does not take is not
 tried again until the next release.
 
-A team administrator can turn this off for the team's cloud computers with
-`PUT /teams/<team>/box-auto-update` and `{"enabled": false}`. A computer on a
+A team administrator can turn this off for the team's cloud computers in
+Settings > General > Cloud computer updates (or with
+`PUT /teams/<team>/box-auto-update` and `{"enabled": false}`). A computer on a
 Nuphos too old to run conversations is still updated.
 
 ## Removing access
