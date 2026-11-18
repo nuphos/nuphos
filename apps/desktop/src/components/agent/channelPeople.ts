@@ -26,6 +26,7 @@ export function agentPeople(
     role: 'reply',
     agent: {
       avatar: agent.avatar,
+      avatarBackground: agent.avatarBackground,
       removable: agent.ownerId === viewerId || channelOwnerId === viewerId,
     },
   }))

@@ -18,6 +18,15 @@ export const avatarBackgroundScenarios: Scenario[] = [
 
       must(created.status === 201, `the Bot to be created, got ${created.text}`)
       const bot = (created.body as { sessionId: string }).sessionId
+      // Its 1:1 chat, which is the Bot's row in Bots.
+      const own = (await api('POST', '/agent/channels', { teamId: stack.teamId })).body as {
+        sessionId: string
+      }
+
+      await api('POST', `/agent/conversations/${own.sessionId}/agents`, {
+        teamId: stack.teamId,
+        sessionId: bot,
+      })
       const chat = (
         await api('POST', '/agent/channels', {
           teamId: stack.teamId,
@@ -75,9 +84,13 @@ export const avatarBackgroundScenarios: Scenario[] = [
 
       await post.waitFor({ timeout: 60_000 })
       await post.locator('[data-avatar-background="sky"]').first().waitFor({ timeout: 10_000 })
-      const members = page.getByRole('button', { name: 'Share with a teammate' })
+      const members = page.locator('button[title="Share with a teammate"]')
 
-      await members.locator('[data-avatar-background="sky"]').first().waitFor({ timeout: 10_000 })
+      // Stacked faces overlap, so the disc is in the button rather than fully on screen.
+      await members
+        .locator('[data-avatar-background="sky"]')
+        .first()
+        .waitFor({ state: 'attached', timeout: 10_000 })
       await page.screenshot({ path: `${artifacts}/avatar-background-chat.png` })
       await members.click()
       await page.screenshot({ path: `${artifacts}/avatar-background-members.png` })

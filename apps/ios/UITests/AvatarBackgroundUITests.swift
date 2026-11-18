@@ -45,6 +45,19 @@ final class AvatarBackgroundUITests: XCTestCase {
         chat["faces"] = faces
         detail["body"] = chat
         responses[detailKey] = detail
+        // The Bot's own row and the chat's agents carry the same tint, as the backend sends them.
+        for key in ["GET /agent/conversations", "GET /agent/conversations/chat-bot-plain/agents"] {
+            guard var entry = responses[key] as? [String: Any], var list = entry["body"] as? [String: Any] else { continue }
+            let field = list["conversations"] != nil ? "conversations" : "agents"
+            var items = list[field] as? [[String: Any]] ?? []
+            for i in items.indices where items[i]["sessionId"] as? String == "bot-plain" {
+                items[i]["avatar"] = "07-ada"
+                items[i]["avatarBackground"] = background
+            }
+            list[field] = items
+            entry["body"] = list
+            responses[key] = entry
+        }
         try JSONSerialization.data(withJSONObject: responses).write(to: file, options: .atomic)
 
         let app = XCUIApplication()
