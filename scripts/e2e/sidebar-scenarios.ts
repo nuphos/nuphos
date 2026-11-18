@@ -1,7 +1,7 @@
 // Scenarios about the sidebar itself.
 import { agentEvents } from './agent-log.ts'
 import { must } from './binding-access-scenarios.ts'
-import { artifacts, until } from './processes.ts'
+import { artifacts } from './processes.ts'
 import { newTask, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
