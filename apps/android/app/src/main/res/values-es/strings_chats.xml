@@ -51,4 +51,10 @@
     <string name="chats_message_placeholder">Mensaje a %1$s</string>
     <string name="chats_replying_to">Respondiendo a %1$s</string>
     <string name="chats_cancel_reply">Cancelar respuesta</string>
+    <string name="chats_question_snooze">Posponer</string>
+    <string name="chats_question_dismiss">Descartar</string>
+    <string name="chats_question_snooze_hour">1 hora</string>
+    <string name="chats_question_snooze_tomorrow">Mañana, 9:00</string>
+    <string name="chats_question_snooze_monday">El próximo lunes, 9:00</string>
+    <string name="chats_question_dismiss_reason">Motivo (opcional)</string>
 </resources>

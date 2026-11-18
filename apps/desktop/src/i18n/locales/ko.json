@@ -1681,6 +1681,7 @@
   "Edit the manifest and apply it to this object.": "매니페스트를 편집하여 이 오브젝트에 적용합니다.",
   "Edit value": "값 편집",
   "Edited in Nuphos": "Nuphos에서 편집됨",
+  "Edited {time}": "{time}에 수정됨",
   "Editor": "편집자",
   "Editors and administrators can upload skill files.": "편집자와 관리자가 스킬 파일을 업로드할 수 있습니다.",
   "Effective permissions": "유효 권한",

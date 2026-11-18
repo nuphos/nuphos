@@ -39,6 +39,7 @@ struct MediaPager: View {
                 }
                 Spacer()
                 ShareLink(item: current) { LucideIcon("share").frame(width: 44, height: 44).contentShape(.rect) }
+                .accessibilityLabel("Share")
             }
             .labelStyle(.iconOnly)
             .font(.body.weight(.medium))
