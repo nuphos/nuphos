@@ -37,6 +37,8 @@ for (const [key, value] of Object.entries({
   HTMLElement: dom.HTMLElement,
   Element: dom.Element,
   Node: dom.Node,
+  // The strings module picks a language from it as it loads.
+  navigator: dom.navigator,
   IS_REACT_ACT_ENVIRONMENT: true,
 }))
   Object.defineProperty(globalThis, key, { configurable: true, value })
