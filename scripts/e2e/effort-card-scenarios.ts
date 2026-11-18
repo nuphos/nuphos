@@ -1,8 +1,7 @@
 // #3427: the model chip opens one picker, the effort card, whether or not the Task has started.
 import { agentEvents } from './agent-log.ts'
 import { artifacts, until } from './processes.ts'
-import { pickAgent } from './runtime-scenarios.ts'
-import { newTask, send } from './ui.ts'
+import { newTask, pickAgent, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
@@ -10,12 +9,14 @@ import type { Page } from 'playwright-core'
 /** Opens the model chip, captures the whole window in light theme, and says whether the effort card opened. */
 async function openChip(page: Page, shot: string) {
   await page.getByRole('button', { name: /^Model settings/ }).click()
-  const slider = page.getByRole('slider')
+  const effortCard = await page
+    .getByRole('slider')
+    .waitFor({ timeout: 10_000 })
+    .then(() => true)
+    .catch(() => false)
 
-  await slider.or(page.getByRole('menu')).first().waitFor()
   await page.waitForTimeout(500)
   await page.screenshot({ path: `${artifacts}/${shot}-light.png` })
-  const effortCard = await slider.isVisible()
 
   await page.keyboard.press('Escape')
 

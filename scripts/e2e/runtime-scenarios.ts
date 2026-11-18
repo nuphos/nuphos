@@ -1,18 +1,12 @@
 // Scenarios about the agent hosts a Task runs on: a restart, delegation, a move.
 import { agentEvents, agentLog, delegatedTurn, firstAgentHolds } from './agent-log.ts'
 import { backendLines, backendLog } from './backend-log.ts'
+import { effortCardScenarios } from './effort-card-scenarios.ts'
 import { artifacts, until } from './processes.ts'
-import { newTask, send } from './ui.ts'
+import { newTask, pickAgent, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
-
-export async function pickAgent(page: Page, label: string) {
-  await page.getByRole('button', { name: /^Runtime:/ }).click()
-  // The computer's row opens a submenu of its runtimes.
-  await page.getByRole('menu').getByText(label).click()
-  await page.getByRole('menuitem', { name: new RegExp(`^${label}.*Claude Code`) }).click()
-}
 
 /** Sends while the agent host is `away`, expects the backend to queue the message, then its reply. */
 async function sendWhileAway(
@@ -36,6 +30,7 @@ async function sendWhileAway(
 
 // The delegation scenario needs the second agent unused, so the move comes after it.
 export const runtimeScenarios: Scenario[] = [
+  ...effortCardScenarios,
   {
     // A runtime restart between turns, the situation #2612 was reported in. Not checked against its fix.
     name: 'the agent host restarts between two messages and the conversation carries on',
