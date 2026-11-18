@@ -35,6 +35,18 @@ class BotPresenceTest {
             ChannelAgent.offlineStrip(listOf(agent("b", "Scribe", offline)), botId = "b"))
     }
 
+    @Test fun theMemberListShowsEachStateWithDesktopsWordAndColour() {
+        val green = BotPresence.Tone.Ready; val amber = BotPresence.Tone.Waiting; val red = BotPresence.Tone.Down
+        assertEquals(green to "Online", BotPresence("online").tag)
+        assertEquals(green to "Busy", BotPresence("busy").tag)
+        assertEquals(red to "Offline", BotPresence("offline", "computer_offline").tag)
+        assertEquals(amber to "Needs sign-in", BotPresence("offline", "sign_in_required").tag)
+        assertEquals(amber to "Out of usage", BotPresence("offline", "usage_limit", "2026-11-18T18:00:00.000Z").tag)
+        for (reason in listOf("runtime_deleted", "runtime_disabled", "owner_removed", "a_reason_this_build_does_not_know")) {
+            assertEquals(reason, red to "Unavailable", BotPresence("offline", reason).tag)
+        }
+    }
+
     @Test fun onlyAnOfflineComputerShowsTheStrip() {
         for (presence in listOf(online, """{"state":"busy"}""", """{"state":"offline","reason":"sign_in_required"}""",
             """{"state":"offline","reason":"usage_limit"}""", """{"state":"offline","reason":"runtime_deleted"}""", null)) {

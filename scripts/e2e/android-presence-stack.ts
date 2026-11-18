@@ -1,5 +1,5 @@
 // Real backend for Android's Bot presence device test (#3308): a Bot whose computer is offline,
-// in its own chat and in a group chat. Writes what the test needs to `$E2E_ARTIFACTS/presence.json`,
+// in its own chat and in a group chat with an online Bot. Writes what the test needs to `$E2E_ARTIFACTS/presence.json`,
 // then keeps the stack up until `$E2E_ARTIFACTS/done` exists.
 //   bun scripts/e2e/android-presence-stack.ts
 // then, with `adb reverse tcp:<port> tcp:<port>`, run BotPresenceLiveDeviceTest with its arguments.
@@ -50,31 +50,38 @@ const bot = await api('POST', '/agent/bots', {
   runtimeId: runtime?.id,
 })
 const botId = String(bot.sessionId)
-const chat = async (group: boolean, title: string) => {
+// A second Bot on the stack's own agent host, which stays online.
+const online = await api('POST', '/agent/bots', { title: 'Atlas', avatar: '02-leonardo' })
+const chat = async (group: boolean, title: string, bots: unknown[]) => {
   const { sessionId } = await api('POST', '/agent/channels', { title, group })
 
-  await api('POST', `/agent/conversations/${String(sessionId)}/agents`, { sessionId: botId })
+  for (const agent of bots)
+    await api('POST', `/agent/conversations/${String(sessionId)}/agents`, { sessionId: agent })
 
   return String(sessionId)
 }
-const botChat = await chat(false, '')
-const groupChat = await chat(true, 'Launch planning')
+const botChat = await chat(false, '', [botId])
+const groupChat = await chat(true, 'Launch planning', [botId, online.sessionId])
+let userId = ''
 
 disconnect(false)
-await until('the Bot to read as offline', async () => {
+await until('one Bot to read as offline and the other online', async () => {
   const { agents } = await api(
     'GET',
     `/agent/conversations/${groupChat}/agents?teamId=${stack.teamId}`,
   )
-  const presence = (agents as { presence?: { reason?: string } }[])[0]?.presence
+  const [away, here] = agents as { ownerId: string; presence?: { state: string; reason?: string } }[]
 
-  return presence?.reason === 'computer_offline'
+  userId = away?.ownerId ?? ''
+
+  return away?.presence?.reason === 'computer_offline' && here?.presence?.state === 'online'
 })
 writeFileSync(
   join(artifacts, 'presence.json'),
   JSON.stringify({
     port: new URL(stack.apiUrl).port,
     token: stack.token,
+    userId,
     teamId: stack.teamId,
     botId,
     botChat,
