@@ -9,6 +9,7 @@ import type { Page } from 'playwright-core'
 
 const SINGLE = 'Which region ships first?'
 const MULTI = 'Which regions ship today?'
+const SEVERAL = 'How should the staging rollout go?'
 
 const light = (page: Page) =>
   page.evaluate(() => {
@@ -59,11 +60,31 @@ export const choiceModeScenarios: Scenario[] = [
       )
       await page.locator(`[data-decision-question="${MULTI}"]`).scrollIntoViewIfNeeded()
       await page.screenshot({ path: `${artifacts}/choice-modes-chat.png` })
+      // Several questions in one card, one of them multi-select, in its own Task.
+      await newTask(page)
+      await ask(
+        {
+          question: SEVERAL,
+          questions: [
+            {
+              question: 'Which regions get it first?',
+              options: ['us-east', 'eu-west'],
+              multiSelect: true,
+            },
+            { question: 'Keep the old cluster?', options: ['Keep a week', 'Delete it'] },
+          ],
+        },
+        'E2E_DELIVERY:ask-several',
+      )
+      await page.locator(`[data-decision-question="${SEVERAL}"]`).scrollIntoViewIfNeeded()
+      await page.screenshot({ path: `${artifacts}/choice-modes-chat-several.png` })
 
       await page.getByRole('tab', { name: 'Inbox' }).click()
       await light(page)
       await openInInbox(page, SINGLE)
       await page.screenshot({ path: `${artifacts}/choice-modes-inbox-single.png` })
+      await openInInbox(page, SEVERAL)
+      await page.screenshot({ path: `${artifacts}/choice-modes-inbox-several.png` })
       await openInInbox(page, MULTI)
       await page.screenshot({ path: `${artifacts}/choice-modes-inbox-multi.png` })
 
