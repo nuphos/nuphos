@@ -25,6 +25,7 @@ export function BoxAgentForm({
   onCloseGuard,
   onBack,
   onChosen,
+  onCreated,
   accounts,
   deployment,
 }: {
@@ -37,6 +38,8 @@ export function BoxAgentForm({
   onCloseGuard: (canClose: (() => boolean) | null) => void
   onBack: () => void
   onChosen: (instance: RuntimeInstance) => void
+  /** Instead of waiting here for its runtimes, once the computer is made. */
+  onCreated?: () => void
 }) {
   const [deviceId, setDeviceId] = useState<string | null>(null)
   const box = useBoxSetup(teamId, deviceId, setDeviceId)
@@ -45,7 +48,7 @@ export function BoxAgentForm({
     teamId,
     usage,
     labels: box.labels,
-    onCreated: setDeviceId,
+    onCreated: onCreated ?? setDeviceId,
     accounts,
     deployment,
   })

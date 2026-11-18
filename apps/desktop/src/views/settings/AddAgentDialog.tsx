@@ -33,12 +33,15 @@ export function AddAgentDialog({
   teamId,
   onClose,
   onAdded,
+  onBoxCreated,
 }: {
   teamId: string
   onClose: () => void
   onAdded?: (runtimeId: string) => void
+  /** Opens on the cloud computer and, once one is made, closes and hands off here. */
+  onBoxCreated?: () => void
 }) {
-  const [step, setStep] = useState<Step>('choose')
+  const [step, setStep] = useState<Step>(onBoxCreated ? 'box' : 'choose')
   const devices = useAgentDevices(() => 0, teamId, { teamId }).list
   const deploymentBoxes = devices?.boxAvailable === true
   const instaboxAccounts = useInstaboxAccounts(teamId)
@@ -136,6 +139,13 @@ export function AddAgentDialog({
                       }}
                       onBack={() => go('choose')}
                       onChosen={setSigningIn}
+                      onCreated={
+                        onBoxCreated &&
+                        (() => {
+                          onClose()
+                          onBoxCreated()
+                        })
+                      }
                     />
                   )}
                 </div>

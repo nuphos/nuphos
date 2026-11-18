@@ -1,5 +1,10 @@
 /** Which setup is open over the app: the new-user one, or adding a runtime to a team. */
-export type AgentSetupRequest = { kind: 'local' } | { kind: 'runtime'; teamId: string }
+export type AgentSetupRequest =
+  | { kind: 'local'; cloud?: CloudSetup }
+  | { kind: 'runtime'; teamId: string; onBoxCreated?: () => void }
+
+/** A cloud computer the new user may make: the team it goes in, and where to go once it is made. */
+export type CloudSetup = { teamId: string; onBoxCreated: () => void }
 
 const listeners = new Set<() => void>()
 let request: AgentSetupRequest | null = null
@@ -22,11 +27,14 @@ export const agentSetup = {
 }
 
 /** The setup a new workspace's creator gets, for anyone who has no runtime yet. */
-export function openAgentSetup(): void {
-  set({ kind: 'local' })
+export function openAgentSetup(cloud?: CloudSetup): void {
+  set({ kind: 'local', cloud })
 }
 
-/** Settings › Runtimes' own "Add new runtime" dialog, e.g. for a cloud runtime. */
-export function openAddRuntime(teamId: string): void {
-  set({ kind: 'runtime', teamId })
+/**
+ * Settings › Runtimes' own "Add new runtime" dialog, e.g. for a cloud runtime. With
+ * `onBoxCreated` it opens on the cloud computer and hands off once one is made.
+ */
+export function openAddRuntime(teamId: string, onBoxCreated?: () => void): void {
+  set({ kind: 'runtime', teamId, onBoxCreated })
 }
