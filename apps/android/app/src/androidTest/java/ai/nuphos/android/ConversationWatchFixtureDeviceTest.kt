@@ -177,7 +177,7 @@ class ConversationWatchFixtureDeviceTest {
         taskSummaryFixture = true
         render()
         compose.onNodeWithText("Synthetic shared parent").performClick()
-        compose.waitUntil(8_000) { compose.onAllNodesWithContentDescription("Agent summary").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(8_000) { compose.onAllNodesWithContentDescription(compose.activity.getString(R.string.chat_summary_open)).fetchSemanticsNodes().isNotEmpty() }
         compose.runOnIdle {
             val session = store.session("parent", "Synthetic shared parent")
             state(session, "runtimeObservation").value = RuntimeObservation(requireNotNull(JsonValue.parse(
@@ -185,17 +185,17 @@ class ConversationWatchFixtureDeviceTest {
             )), RuntimeObservation.now())
         }
         shot("task-summary-toolbar")
-        compose.onNodeWithContentDescription("Agent summary").performClick()
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.chat_summary_open)).performClick()
         waitText("Review the plan?")
         shot("task-summary-pending")
         compose.onNodeWithText("Check the build").performClick()
         waitText("Build is running")
         shot("task-summary")
         compose.onNodeWithText("Review the plan?").performClick()
-        compose.onNodeWithContentDescription("Close question").assertIsDisplayed()
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.chat_summary_close_question)).assertIsDisplayed()
         shot("task-summary-question")
-        compose.onNodeWithContentDescription("Close question").performClick()
-        compose.onNodeWithContentDescription("Close summary").assertIsDisplayed().performClick()
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.chat_summary_close_question)).performClick()
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.chat_summary_close)).assertIsDisplayed().performClick()
         compose.onNodeWithTag("task-summary").assertDoesNotExist()
     }
 
@@ -204,10 +204,10 @@ class ConversationWatchFixtureDeviceTest {
         emptyTaskSummary = true
         render()
         compose.onNodeWithText("Synthetic shared parent").performClick()
-        compose.waitUntil(8_000) { compose.onAllNodesWithContentDescription("Agent summary").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithContentDescription("Agent summary").performClick()
-        waitText("No questions waiting for you.")
-        compose.onNodeWithText("Background work").assertDoesNotExist()
+        compose.waitUntil(8_000) { compose.onAllNodesWithContentDescription(compose.activity.getString(R.string.chat_summary_open)).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.chat_summary_open)).performClick()
+        waitText(compose.activity.getString(R.string.chat_summary_no_questions))
+        compose.onNodeWithText(compose.activity.getString(R.string.chat_summary_background)).assertDoesNotExist()
         shot("task-summary-empty")
     }
 
