@@ -121,6 +121,14 @@ const person: MessageMetadata = {
   sentAt: new Date().toISOString(),
 }
 
+// What Nuphos records when a person answers a question card: theirs, but not news to anyone.
+const inboxAnswer: MessageMetadata = {
+  ...person,
+  replyTo: { authorName: 'Scribe', text: 'Which regions?' },
+  answeredIn: 'inbox',
+  requestId: 'q1',
+}
+
 function agentSpeaker(sessionId: string): MessageMetadata {
   return {
     version: 1,
@@ -749,23 +757,12 @@ describe('reading a channel', () => {
     expect(read.note).toContain('replyTo')
   })
 
-  test('an answer given in the Inbox reads as a record of an answer already delivered', async () => {
-    await say('us-east', {
-      ...person,
-      replyTo: { authorName: 'Scribe', text: 'Which regions?' },
-      answeredIn: 'inbox',
-      requestId: 'q1',
-    })
-    // Read by an agent of the person who answered: Nuphos recorded it, they did not type it here.
-    // A wake's page (peek) is read the same way.
-    const peeked = await readChannelMessages(await channel(), 'agent-a', 'owner', true)
-
-    expect(peeked.messages.at(-1)!.sender).not.toHaveProperty('fromOwner')
-    const read = await readChannelMessages(await channel(), 'agent-a', 'owner')
-
-    expect(read.messages.at(-1)).toMatchObject({ answeredIn: 'inbox', requestId: 'q1' })
-    expect(read.messages.at(-1)!.sender).not.toHaveProperty('fromOwner')
-    expect(read.note).toContain('answeredIn')
+  test('an answer recorded from the Inbox is never read: the agent that asked has it', async () => {
+    await say('us-east', inboxAnswer)
+    expect((await readChannelMessages(await channel(), 'agent-a', 'owner', true)).messages).toEqual(
+      [],
+    )
+    expect((await readChannelMessages(await channel(), 'agent-a', 'owner')).messages).toEqual([])
   })
 
   test('starts at the latest page, then returns only what is new', async () => {
@@ -1207,6 +1204,14 @@ describe('an agent whose computer is offline', () => {
       { sessionId: 'channel' },
       { $set: { 'agentReadIndex.agent-a': 0 } },
     )
+    wakes = []
+    await wakeMissedPosts({ runtimeId: 'local_agent-a-owner_mac' })
+    expect(wakes).toEqual([])
+  })
+
+  test('is not woken for an answer recorded from the Inbox when its computer is back', async () => {
+    await say('us-east', inboxAnswer)
+    await catchUp()
     wakes = []
     await wakeMissedPosts({ runtimeId: 'local_agent-a-owner_mac' })
     expect(wakes).toEqual([])
