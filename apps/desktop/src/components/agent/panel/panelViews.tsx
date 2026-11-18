@@ -133,8 +133,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
           runtimeId: activeTab.runtimeId,
         }
       : undefined
-  // Only the owner decides who has access, so only they are offered an invite
-  // for the teammates they mention.
+  // Only the owner decides who has access, so only they get an invite for teammates they mention.
   const inviteSessionId = activeTab?.foreign ? undefined : activeTab?.sessionId
   const bypassControl =
     activeTab && ownsPermissionMode(activeTab)
@@ -149,6 +148,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
       <PermissionResumeContext.Provider value={resumePermissionTurn}>
         <AuthorizationActionContext.Provider value={authorizationContextValue}>
           <div
+            data-agent-status-host=""
             className={clsx(
               'relative grid min-h-0 flex-1 grid-cols-1',
               c.hideTranscript ? 'grid-rows-[0_auto]' : 'grid-rows-[1fr_auto]',

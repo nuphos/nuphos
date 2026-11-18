@@ -11,7 +11,7 @@ import {
   RefreshCw,
   WifiOff,
 } from 'lucide-react'
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 
 import { api } from '../../../api'
 import { t } from '../../../i18n'
@@ -21,6 +21,7 @@ import { toast } from '../../ui/toast'
 
 import { diskFullCopy, outdatedCopy, reachabilityCopy } from './agentBannerCopy'
 import { agentProblem } from './agentRowFix'
+import { useReserveBannerHeight } from './bannerReserve'
 import { ConversationActivityBadges } from './historyRows'
 import { sharedComputerLabel, shareApprovalText } from './queuedShareApproval'
 import { runtimeGone, runtimeGoneText, selectedAgentReachability } from './runtimeControlSignOut'
@@ -216,6 +217,9 @@ export function AgentStatusBanner({
   const notice = useComputerNotice(control)
   const [noticed, setNoticed] = useState(notice)
   const active: BannerKind | null = blocked ?? notice?.kind ?? null
+  const bannerRef = useRef<HTMLDivElement>(null)
+
+  useReserveBannerHeight(bannerRef, active !== null)
   // The words stay while the banner leaves, so it closes on what it said.
   const [shown, setShown] = useState(active)
   const selected = control.options?.find((instance) => instance.id === control.value?.id)
@@ -250,6 +254,7 @@ export function AgentStatusBanner({
   return (
     <>
       <div
+        ref={bannerRef}
         role="status"
         aria-hidden={!active}
         // Leaving, it keeps its words for the exit animation but takes no focus or clicks.

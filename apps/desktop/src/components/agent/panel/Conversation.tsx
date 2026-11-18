@@ -1,10 +1,11 @@
 import clsx from 'clsx'
 import { PanelRightOpen } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { t } from '../../../i18n'
 
+import { useFollowOnResize } from './bannerReserve'
 import { ChatColumn } from './ChatColumn'
 import { FeedbackCommentDialog } from './conversationBanners'
 import { isOwnMessage } from './conversationFollow'
@@ -101,6 +102,9 @@ export function Conversation({
     setShowJumpToLatest: jump.setShow,
   })
 
+  const following = useCallback(() => shouldFollowRef.current && !userLockedScrollRef.current, [])
+
+  useFollowOnResize(ref, following)
   useConversationRead(tab.sessionId, visible)
   useTranscriptPageKeys(ref, lockScrollToHistory, handleUserScrollIntent)
 
@@ -146,7 +150,8 @@ export function Conversation({
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         className={clsx(
-          'h-full overflow-auto scrollbar-thin pb-4 selectable',
+          // The agent status banner floats over the transcript's foot; its height is kept clear.
+          'h-full overflow-auto scrollbar-thin pb-[calc(1rem+var(--agent-status-banner-height,0px))] selectable',
           hasHeaderOverlay ? 'pt-16' : 'pt-4',
         )}
       >
