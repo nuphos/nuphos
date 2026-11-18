@@ -35,7 +35,8 @@ export async function sessionConfigRestoreContext(
     teamId,
     sessionId: conversation.sessionId,
     locale: conversation.metadata?.locale ?? 'en',
-    userTexts: [conversation.firstMessage],
+    // A thread's first message is its parent agent's, not its owner's.
+    userTexts: conversation.parentSessionId ? [] : [conversation.firstMessage],
     ...conversation.claudeCodePreviewContext,
   })
 
