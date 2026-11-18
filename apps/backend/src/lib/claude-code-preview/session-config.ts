@@ -9,13 +9,13 @@ import { OpenAbAcpClient } from './openab-acp-client'
 import { OpenAbConnectError } from './openab-acp-connect'
 import { OpenAbConnectionLostError, OpenAbRpcError } from './openab-acp-errors'
 import { runtimeModelCatalog } from './runtime-models'
-import { catalogState } from './session-config-catalog'
+import { offeredSessionConfig, namedModel } from './session-config-catalog'
 import { parseSessionConfigOptions, storedPick } from './session-config-options'
-import { clearReplacedPick, storeSessionConfig } from './session-config-record'
+import { storeSessionConfig } from './session-config-record'
 import { sessionConfigRestoreContext } from './session-config-restore'
 
 import type { RuntimeDefaults } from './openab-acp-session'
-import type { CatalogFor } from './session-config-catalog'
+import type { RuntimeModelCatalog } from './runtime-models'
 import type { SessionConfigSelection, SessionConfigState } from './session-config-options'
 import type { TeamRuntimeEndpoint } from './team-openab-runtime'
 import type { AgentConversation } from '@/lib/agent/db'
@@ -120,14 +120,16 @@ export async function conversationSessionConfig(
   if (!selection) {
     if (shouldPrewarm(conversation, viewerUserId)) prewarmSession(conversation, attachment)
 
-    return await sessionConfigView(storedPick(attachment), catalogFor)
+    return namedModel(await sessionConfigView(storedPick(attachment), catalogFor), attachment)
   }
   const picked = await applySessionConfig(conversation, attachment, selection, viewerUserId)
 
   return await sessionConfigView(picked, catalogFor)
 }
 
-export function runtimeCatalog(conversation: AgentConversation, viewerUserId?: string): CatalogFor {
+type CatalogFor = ((model?: string) => Promise<RuntimeModelCatalog>) | undefined
+
+function runtimeCatalog(conversation: AgentConversation, viewerUserId?: string): CatalogFor {
   const { teamId, runtimeId } = conversation
 
   return teamId && runtimeId
@@ -147,6 +149,19 @@ export async function sessionConfigView(
   const { status, options } = await catalogState(picked, catalogFor, true)
 
   return { status: status === 'dormant' ? 'ready' : status, options }
+}
+
+async function catalogState(
+  picked: RuntimeDefaults,
+  catalogFor: CatalogFor,
+  confirmedOnly = false,
+): Promise<SessionConfigState & { kept: RuntimeDefaults }> {
+  if (!catalogFor) return { status: 'dormant', options: [], kept: {} }
+  try {
+    return { status: 'dormant', ...(await offeredSessionConfig(catalogFor, picked, confirmedOnly)) }
+  } catch {
+    return { status: 'offline', options: [], kept: {} }
+  }
 }
 
 // Before attachment, choices come from the catalog and explicit picks are saved.
@@ -254,15 +269,8 @@ async function applySessionConfig(
     attachment.openabSessionId,
     options,
   )
-  const current = await clearReplacedPick(
-    conversation.sessionId,
-    conversation.teamId,
-    attachment,
-    options,
-    selection.configId,
-  )
 
-  return storedPick({ ...current, sessionConfig: options })
+  return storedPick({ ...attachment, sessionConfig: options })
 }
 
 async function withSessionClient<T>(

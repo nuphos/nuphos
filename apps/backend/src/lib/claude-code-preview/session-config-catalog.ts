@@ -59,7 +59,7 @@ export async function offeredSessionConfig(
   if (!catalog?.models.length) catalog = await catalogFor()
   const offered = catalogSessionConfig(catalog, pick)
   const options = confirmedOnly
-    ? offered.flatMap((option) => {
+    ? offered.map((option) => {
         // Claude Code's "default" model is listed as the model it stands for.
         const value =
           option.kind === 'model' && pick.model === 'default'
@@ -68,9 +68,8 @@ export async function offeredSessionConfig(
         const confirmed =
           value !== undefined && option.options.some((choice) => choice.value === value)
 
-        if (confirmed) return [{ ...option, currentValue: value }]
-
-        return option.kind === 'model' ? [{ ...option, currentValue: '' }] : []
+        // An unconfirmed setting stays offered, without claiming a value.
+        return { ...option, currentValue: confirmed ? value : '' }
       })
     : offered
   const kept = Object.fromEntries(
@@ -82,17 +81,25 @@ export async function offeredSessionConfig(
   return { options, kept }
 }
 
-export type CatalogFor = ((model?: string) => Promise<RuntimeModelCatalog>) | undefined
+/**
+ * A model the runtime's list lacks but the session itself last reported running
+ * (a Task started on its parent's model, on a computer whose list is behind) is
+ * named from that report instead of left blank.
+ */
+export function namedModel(
+  state: SessionConfigState,
+  attachment: { sessionConfig?: SessionConfigOption[] },
+): SessionConfigState {
+  const running = attachment.sessionConfig?.find(
+    (option) => option.kind === 'model' && option.currentValue,
+  )
 
-export async function catalogState(
-  picked: RuntimeDefaults,
-  catalogFor: CatalogFor,
-  confirmedOnly = false,
-): Promise<SessionConfigState & { kept: RuntimeDefaults }> {
-  if (!catalogFor) return { status: 'dormant', options: [], kept: {} }
-  try {
-    return { status: 'dormant', ...(await offeredSessionConfig(catalogFor, picked, confirmedOnly)) }
-  } catch {
-    return { status: 'offline', options: [], kept: {} }
+  if (!running) return state
+
+  return {
+    ...state,
+    options: state.options.map((option) =>
+      option.kind === 'model' && !option.currentValue ? running : option,
+    ),
   }
 }
