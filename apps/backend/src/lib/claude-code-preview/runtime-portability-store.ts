@@ -3,64 +3,19 @@ import { agentConversations } from '@/lib/agent/db/shared'
 import { db } from '@/lib/db'
 import { AppError } from '@/lib/errors'
 
-import type { OpenAbProvider } from './runtime-provider'
-
-export type RuntimeDeletion = {
-  _id: string
-  teamId: string
-  provider: OpenAbProvider
-  requestedBy: string
-  requestedAt: Date
-  placements: {
-    id: string
-    url: string
-    state: 'pending' | 'deleting' | 'deleted' | 'abandoned'
-    volumeName?: string
-    volumeUid?: string
-    claimUid?: string
-    deploymentUid?: string
-    workspaceClaimUid?: string
-    workspaceVolumeName?: string
-    workspaceVolumeUid?: string
-  }[]
-  error?: string
-  completedAt?: Date
-}
-export const runtimeDeletions = () => db().collection<RuntimeDeletion>('agent_runtime_deletions')
-
-export async function assertRuntimeNotDeleting(
-  teamId: string,
-  runtimeId?: string,
-  runtimeUrl?: string,
-) {
-  if (!runtimeId && !runtimeUrl) return
-  const deletion = await runtimeDeletions().findOne(
-    {
-      teamId,
-      completedAt: { $exists: false },
-      $or: [
-        ...(runtimeId ? [{ _id: runtimeId }] : []),
-        ...(runtimeUrl ? [{ 'placements.url': runtimeUrl }] : []),
-      ],
-    },
-    { projection: { _id: 1 } },
-  )
-
-  if (deletion)
-    throw new AppError(
-      409,
-      'runtime_deleting',
-      'This agent is being deleted. Move the conversation to another agent to continue.',
-    )
+/** The retired hosted-runtime teardown kept one job per runtime here; nothing starts one
+ *  any more, so a removed runtime only takes its leftover job with it. */
+export async function discardRuntimeDeletion(teamId: string, runtimeId: string): Promise<void> {
+  await db()
+    .collection<{ _id: string; teamId: string }>('agent_runtime_deletions')
+    .deleteOne({ _id: runtimeId, teamId })
 }
 
 /** Checked after turn admission as well as before attaching a native session. */
 export async function assertConversationRuntimeAvailable(sessionId: string) {
   const conversation = await agentConversations().findOne(
     { sessionId },
-    {
-      projection: { teamId: 1, runtimeId: 1, claudeCodePreview: 1, runtimeOperation: 1, kind: 1 },
-    },
+    { projection: { runtimeOperation: 1, kind: 1 } },
   )
 
   // Every turn claims its session through here, so this is the one place a
@@ -71,11 +26,5 @@ export async function assertConversationRuntimeAvailable(sessionId: string) {
       409,
       'runtime_moving',
       'This conversation is being moved. Please wait for the move to finish.',
-    )
-  if (conversation?.teamId)
-    await assertRuntimeNotDeleting(
-      conversation.teamId,
-      conversation.runtimeId,
-      conversation.claudeCodePreview?.runtimeUrl,
     )
 }

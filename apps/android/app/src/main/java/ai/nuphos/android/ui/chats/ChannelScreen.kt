@@ -303,7 +303,8 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
                                 onForm = { body -> if (allowed()) session.answer(question, body, scope) },
                                 // The Bot's own questions are this chat's; only an agent under it is named.
                                 showsFrom = question.sessionId != session.botId, onLink = onLink,
-                                failure = session.answerFailure(question), onConnect = { connect(question) })
+                                failure = session.answerFailure(question), onConnect = { connect(question) },
+                                onDismiss = { if (allowed()) session.dismiss(question, scope) })
                         }
                     }
                 }

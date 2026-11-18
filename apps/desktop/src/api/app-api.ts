@@ -135,6 +135,7 @@ export const appApi = {
     window.api.designsApplyOps(teamId, designId, ops),
   designsDelete: (teamId: string, designId: string) => window.api.designsDelete(teamId, designId),
   dashboardsList: (teamId: string) => window.api.dashboardsList(teamId),
+  dashboardsFormerMembers: (teamId: string) => window.api.dashboardsFormerMembers(teamId),
   dashboardsCreate: (teamId: string, input: import('../dashboards/schema').CreateDashboardInput) =>
     window.api.dashboardsCreate(teamId, input),
   dashboardsGet: (teamId: string, dashboardId: string, viewRange?: DashboardViewRange) =>

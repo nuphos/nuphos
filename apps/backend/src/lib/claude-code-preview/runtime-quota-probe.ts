@@ -235,12 +235,7 @@ export async function probeRuntimeQuota(
   teamId: string,
   instance: RuntimeInstance,
 ): Promise<RuntimeQuotaReading> {
-  const endpoints = await resolveTeamRuntimeEndpoints(
-    teamId,
-    undefined,
-    instance.provider,
-    'control',
-  )
+  const endpoints = await resolveTeamRuntimeEndpoints(teamId, instance.provider, 'control')
   const endpoint = endpoints.find((candidate) => candidate.runtimeId === instance.id)
 
   if (!endpoint) return { error: 'Agent is offline', offline: true }

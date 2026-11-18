@@ -6,7 +6,7 @@ export function normalizeTurnInterruptedReason(value: unknown): TurnInterruptedP
 }
 
 const isCause = (value: unknown): value is TurnInterruptedPart['cause'] =>
-  value === 'usage_limit' || value === 'auth' || value === 'offline'
+  value === 'usage_limit' || value === 'auth' || value === 'offline' || value === 'cli'
 
 export function normalizeTurnInterruptedPart(
   value: Record<string, unknown>,

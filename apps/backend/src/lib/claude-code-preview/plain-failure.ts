@@ -7,7 +7,7 @@ export const MODEL_UNAVAILABLE_MESSAGE =
 export const PROVIDER_UNREACHABLE_MESSAGE =
   "This computer couldn't reach the model provider's API. Check its network, proxy or VPN, then resend your message."
 export const AGENT_CLI_UNSTARTABLE_MESSAGE =
-  "The agent's CLI couldn't start on this computer. Reinstall it with the Install button, then resend your message."
+  "The agent's CLI couldn't start on its computer, so its install may be broken. Reinstall it there, then resend your message."
 
 /** How each provider words a prompt over its model's context, through any adapter. */
 const CONTEXT_TOO_LONG =
@@ -24,9 +24,12 @@ const PROVIDER_UNREACHABLE = /\bUnable to connect to API \((?:EPROTO|ECONNRESET|
 /**
  * Node's refusal to start the agent's CLI: missing, not executable, not a program (npm's
  * placeholder claude.exe before its postinstall ran, which Windows reports as UNKNOWN), or a
- * Windows .cmd spawned without a shell.
+ * Windows .cmd spawned without a shell. Node names the path when it has one, and npm's
+ * `codex` wrapper names the platform package it cannot find; another program an agent
+ * spawns is not its CLI.
  */
-const AGENT_CLI_UNSTARTABLE = /\bspawn (?:EINVAL|ENOENT|EACCES|UNKNOWN)\b/u
+const AGENT_CLI_UNSTARTABLE =
+  /\bspawn (?:[^\n]*[\\/](?:codex|claude)(?:\.exe)? )?(?:EINVAL|ENOENT|EACCES|UNKNOWN)\b|\bMissing optional dependency @openai\/codex-/u
 
 /** The sentence for each failure the user's own setup caused. */
 export const USER_SETUP_MESSAGE = {
