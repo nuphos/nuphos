@@ -27,8 +27,35 @@ enum BotAvatarTests {
         print("Shared avatar preference migration and conflicting legacy toggles passed")
     }
 
+    /// A Bot's background is learned with its face, gone with it, and painted only for a known tint (#3504).
+    private static func backgroundsFollowTheirFace() throws {
+        try MainActor.assumeIsolated {
+            let faces = BotFaces()
+            faces.learn("bot", avatar: "07-ada", background: "sky")
+            precondition(faces.background(for: "bot") == "sky")
+            faces.learn("bot", avatar: "07-ada", background: nil)
+            precondition(faces.background(for: "bot") == nil)
+            // A Task has no background, whatever a row says.
+            faces.learn("bot", avatar: nil, background: "sky")
+            precondition(faces.background(for: "bot") == nil)
+            let row = #"{"id":"b","name":"B","agent":{"avatar":"07-ada","avatarBackground":"mint"}}"#
+            let face = try JSONDecoder().decode(ChatFace.self, from: Data(row.utf8))
+            precondition(face.agent?.avatarBackground == "mint")
+            let agent = try JSONDecoder().decode(ChannelAgent.self, from: Data(#"{"sessionId":"b","title":"B","ownerId":"o","avatar":"07-ada","avatarBackground":"rose"}"#.utf8))
+            precondition(agent.avatarBackground == "rose")
+        }
+        for name in ["sand", "peach", "rose", "lilac", "sky", "mint", "sage", "slate"] {
+            precondition(Theme.avatarBackground(name) != nil, "No token for \(name)")
+        }
+        for name in [nil, "", "none", "teal"] as [String?] {
+            precondition(Theme.avatarBackground(name) == nil, "None or an unknown tint paints nothing")
+        }
+        print("Bot avatar backgrounds passed")
+    }
+
     static func run() throws {
         sharedPreferenceSurvivesLegacyConflicts()
+        try backgroundsFollowTheirFace()
         precondition(BotAvatars.notificationIdentity([:]) == nil)
         precondition(BotAvatars.notificationIdentity(["sessionId": "old-session", "teamId": "team"]) == nil)
         precondition(BotAvatars.notificationIdentity(["sessionId": "task", "agentIdentity": ["isBot": false]]) == nil)
