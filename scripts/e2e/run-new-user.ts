@@ -1,4 +1,4 @@
-// `bun run e2e:new-user`: a brand-new account on a deployment with cloud computers, from
+// `node --experimental-strip-types scripts/e2e/run-new-user.ts`: a brand-new account on a deployment with cloud computers, from
 // sign-up to its first cloud computer, through the composer's own "Connect a runtime".
 import { startDesktop } from './desktop.ts'
 import { artifacts, stopAll } from './processes.ts'

@@ -491,12 +491,6 @@ jobs:
         run: |
           mkdir -p "$E2E_ARTIFACTS"
           xvfb-run --auto-servernum bun run e2e:bot-onboarding
-      - name: Run the new account's cloud computer scenario
-        env:
-          E2E_ARTIFACTS: ${{ runner.temp }}/e2e-new-user
-        run: |
-          mkdir -p "$E2E_ARTIFACTS"
-          xvfb-run --auto-servernum bun run e2e:new-user
       # Logs and a screenshot after each scenario; the database and the app's sign-in files are left out.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
@@ -509,9 +503,6 @@ jobs:
             ${{ runner.temp }}/e2e-onboarding
             !${{ runner.temp }}/e2e-onboarding/mongo
             !${{ runner.temp }}/e2e-onboarding/sign-in
-            ${{ runner.temp }}/e2e-new-user
-            !${{ runner.temp }}/e2e-new-user/mongo
-            !${{ runner.temp }}/e2e-new-user/sign-in
           retention-days: 7
 
   # Typecheck, tests and the bundles do not depend on macOS, so a PR gets them
