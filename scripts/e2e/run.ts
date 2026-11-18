@@ -9,7 +9,7 @@ import { backendFailures, backendLines } from './backend-log.ts'
 import { botTurnScenarios } from './bot-turn-scenarios.ts'
 import { botUnreadScenarios } from './bot-unread-scenarios.ts'
 import { botWorkingDotsScenarios } from './bot-working-dots-scenarios.ts'
-import { checkDecisionOutline, checkOutgoingChip } from './chat-presentation.ts'
+import { checkBotChatTopInset, checkDecisionOutline, checkOutgoingChip } from './chat-presentation.ts'
 import { channelScenarios } from './channel-scenarios.ts'
 import { channelAwayScenarios } from './channel-away-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
@@ -75,6 +75,7 @@ const scenarios: Scenario[] = [
         agentEvents(stack).includes('finish E2E_DELIVERY:missing'),
       )
       await page.screenshot({ path: `${artifacts}/bot-first-reply.png` })
+      await checkBotChatTopInset(page, 32)
       await send(
         page,
         'Review https://github.com/nuphos/nuphos/issues/1 E2E_ASK_CREDENTIAL E2E_DELIVERY:bot',

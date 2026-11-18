@@ -72,3 +72,25 @@ export async function checkDockToggleClear(
       `The ${where} runs ${String(Math.round(room.contentRight - room.toggleLeft))} px under the workspace panel toggle`,
     )
 }
+
+/** A new Bot chat's first line keeps `room` px below its header, not pressed against it (#3429). */
+export async function checkBotChatTopInset(page: Page, room: number): Promise<void> {
+  const gap = await page.evaluate(() => {
+    const scroller = [...document.querySelectorAll('.header-edge.overflow-y-auto')].find(
+      (node) => node.getBoundingClientRect().width > 0,
+    )
+    const walker = scroller && document.createTreeWalker(scroller, NodeFilter.SHOW_TEXT)
+    let text = walker?.nextNode()
+
+    while (text && !text.textContent?.trim()) text = walker?.nextNode()
+    if (!scroller || !text) return null
+    const range = document.createRange()
+
+    range.selectNodeContents(text)
+
+    return range.getBoundingClientRect().top - scroller.getBoundingClientRect().top
+  })
+
+  if (gap === null || gap < room)
+    throw new Error(`Bot chat's first line is ${String(gap)}px below its header, want ${String(room)}px`)
+}
