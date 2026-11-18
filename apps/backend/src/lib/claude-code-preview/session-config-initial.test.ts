@@ -130,7 +130,7 @@ test('an unstarted Task starts on its own pick', async () => {
   expect(writes).toEqual([{ $set: { initialSessionConfig: { model: 'astra' } } }])
 })
 
-test("a model its agent does not offer is refused with the choices, and nothing is saved", async () => {
+test('a model its agent does not offer is refused with the choices, and nothing is saved', async () => {
   await expect(queueOwnSessionConfig(running(), { model: 'retired' }, 'owner')).rejects.toThrow(
     'Choose one of: sol, astra',
   )
