@@ -36,6 +36,14 @@ export const botSubtaskModelScenarios: Scenario[] = [
       } finally {
         rmSync(behind, { force: true })
       }
+      // The Bot's row once its sub-Task finished.
+      await page.mouse.move(600, 400)
+      await page.waitForTimeout(3_000)
+      await page.evaluate(() => {
+        document.documentElement.classList.remove('dark')
+        document.documentElement.classList.add('light')
+      })
+      await bots.screenshot({ path: `${artifacts}/bot-row-light.png` })
       // A finished sub-Task is listed once the Bot's done count is opened, which gives the Bot
       // sub-agents to show, and then they are shown.
       await toggle('[title$=" done"]')
