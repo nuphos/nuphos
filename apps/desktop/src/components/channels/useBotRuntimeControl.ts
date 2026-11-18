@@ -8,9 +8,7 @@ import { useRuntimeQuotas } from '../../hooks/useRuntimeQuotas'
 import { queryKeys } from '../../lib/query/keys'
 import { runtimeTurnActive } from '../../lib/runtimeExecution'
 import { useSessionRuntimeControl } from '../agent/panel/conversationRuntimeControl'
-import { useAgentSessions } from '../sidebar/agentSessions'
 
-import { withBotPresence } from './botPresenceRuntime'
 import { listedConversation } from './channelShared'
 
 import type { AgentConversation, ChannelAgent } from '../../api'
@@ -30,8 +28,7 @@ export function useBotRuntimeControl(
 ) {
   const client = useQueryClient()
   const catalog = useRuntimeInstances(botId ? teamId : undefined)
-  const labelled = useAccountLabelledInstances(catalog.instances)
-  const presence = useAgentSessions(teamId).data?.find((row) => row.sessionId === botId)?.presence
+  const instances = useAccountLabelledInstances(catalog.instances)
   const quotas = useRuntimeQuotas(botId ? teamId : undefined)
   // Starts from the sidebar's row of the Bot, so the selector is there from the first frame.
   const [detail, setDetail] = useState<AgentConversation | null>(
@@ -60,7 +57,6 @@ export function useBotRuntimeControl(
   }, [teamId, botId, owned])
 
   const current = owned && detail?.sessionId === botId ? detail : null
-  const instances = withBotPresence(labelled, current?.runtimeId, presence)
 
   return useSessionRuntimeControl({
     teamId,

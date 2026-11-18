@@ -48,17 +48,10 @@ export default {
         document.documentElement.classList.remove('dark')
         document.documentElement.classList.add('light')
       })
-      const strip = page.getByText('Its computer is offline.', { exact: true })
-      const listed = await fetch(`${stack.apiUrl}/teams/${stack.teamId}/agent-runtimes`, {
-        headers: { authorization: `Bearer ${stack.token}` },
-      }).then(async (response) => (await response.json()) as unknown)
+      // The strip names the computer, as it does for a Task on it.
+      const strip = page.getByText(`${computer} is offline.`, { exact: true })
 
-      // What the composer's runtime list says of that computer, should the strip not show.
-      console.log('presence-1 runtimes:', JSON.stringify(listed).slice(0, 1500))
-      await strip.waitFor({ timeout: 60_000 }).catch(async (error: unknown) => {
-        await page.screenshot({ path: `${artifacts}/presence-offline-banner-missing.png` })
-        throw error
-      })
+      await strip.waitFor({ timeout: 60_000 })
       await page.screenshot({ path: `${artifacts}/presence-offline-banner-light.png` })
       // In a group chat the strip names the Bot whose computer is offline.
       const bot = (await listedConversations(stack)).find(
