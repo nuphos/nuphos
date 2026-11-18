@@ -3,7 +3,7 @@
 import { agentEvents, agentLog } from './agent-log.ts'
 import { must } from './binding-access-scenarios.ts'
 import { artifacts, until } from './processes.ts'
-import { send } from './ui.ts'
+import { openBotTask, send, setBotDetails } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 
@@ -17,7 +17,7 @@ export const botTurnScenarios: Scenario[] = [
       await page.getByRole('tab', { name: 'Bots' }).click()
       await page.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first().click()
       await page.getByText('Message E2E Bot', { exact: true }).waitFor()
-      await page.getByRole('button', { name: 'Task', exact: true }).click()
+      await openBotTask(page)
       const task = page.locator('.t-bot-task-mode')
 
       await task.getByRole('textbox').last().click()
@@ -45,8 +45,9 @@ export const botTurnScenarios: Scenario[] = [
         ),
       )
       await task.getByRole('button', { name: 'Back to conversation' }).click()
-      // The scenarios after this one find a single composer on the page.
+      // The scenarios after this one find a single composer on the page, and the chat at full width.
       await task.waitFor({ state: 'detached' })
+      await setBotDetails(page, false)
     },
   },
   {
