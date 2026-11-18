@@ -201,4 +201,11 @@
     <string name="chat_summary_running">실행 중</string>
     <string name="chat_summary_open">에이전트 요약</string>
     <string name="chat_summary_output_truncated">이전 출력은 숨겨져 있습니다.</string>
+    <string name="chat_summary_changes">Changes</string>
+    <string name="chat_summary_children">Sub-agents</string>
+    <string name="chat_summary_files">파일</string>
+    <string name="chat_summary_triggers">트리거</string>
+    <string name="chat_summary_no_triggers">에이전트에게 이 작업의 반복 일정을 요청하세요.</string>
+    <string name="chat_summary_idle">Idle</string>
+    <string name="chat_summary_paused">일시 중지됨</string>
 </resources>

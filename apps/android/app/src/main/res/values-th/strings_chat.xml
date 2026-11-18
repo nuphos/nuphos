@@ -201,4 +201,11 @@
     <string name="chat_summary_running">กำลังทำงาน</string>
     <string name="chat_summary_open">สรุปเอเจนต์</string>
     <string name="chat_summary_output_truncated">ซ่อนผลลัพธ์ก่อนหน้านี้</string>
+    <string name="chat_summary_changes">Changes</string>
+    <string name="chat_summary_children">Sub-agents</string>
+    <string name="chat_summary_files">ไฟล์</string>
+    <string name="chat_summary_triggers">ทริกเกอร์</string>
+    <string name="chat_summary_no_triggers">ขอให้เอเจนต์ตั้งเวลาทำงานซ้ำในงานนี้</string>
+    <string name="chat_summary_idle">Idle</string>
+    <string name="chat_summary_paused">หยุดชั่วคราว</string>
 </resources>

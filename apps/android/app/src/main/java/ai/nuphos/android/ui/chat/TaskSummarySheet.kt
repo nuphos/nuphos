@@ -1,7 +1,16 @@
 package ai.nuphos.android.ui.chat
 
 import ai.nuphos.android.R
+import ai.nuphos.android.data.ConversationTrigger
+import ai.nuphos.android.data.ConversationTriggersApi
 import ai.nuphos.android.data.JsonValue
+import ai.nuphos.android.model.AgentConversation
+import ai.nuphos.android.model.TransferUpload
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.painterResource
+import kotlinx.coroutines.CancellationException
 import ai.nuphos.android.session.ChatSession
 import ai.nuphos.android.session.OpenQuestions
 import ai.nuphos.android.ui.chats.BotQuestionCard
@@ -49,7 +58,7 @@ import kotlinx.coroutines.launch
 internal fun TaskSummarySheet(
     session: ChatSession,
     token: String,
-    childIds: Set<String>,
+    children: List<AgentConversation>,
     allowed: () -> Boolean,
     onOpen: (String) -> Unit,
     onDismiss: () -> Unit,
@@ -59,6 +68,21 @@ internal fun TaskSummarySheet(
     val connect = rememberQuestionConnect(inbox, allowed)
     var selectedId by remember(session) { mutableStateOf<String?>(null) }
     var attempted by remember(inbox) { mutableStateOf(false) }
+    var triggers by remember(inbox) { mutableStateOf<List<ConversationTrigger>?>(null) }
+    var triggersFailed by remember(inbox) { mutableStateOf(false) }
+    var showTriggers by remember(inbox) { mutableStateOf(false) }
+    val uriHandler = LocalUriHandler.current
+    val childIds = remember(children) { children.mapTo(mutableSetOf()) { it.sessionId } }
+    suspend fun refreshTriggers() {
+        try {
+            triggers = ConversationTriggersApi.list(token, session.teamId, session.sessionId)
+            triggersFailed = false
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            triggersFailed = true
+        }
+    }
     val questions = inbox.list.filter { it.sessionId == session.sessionId || it.sessionId in childIds }
     val selected = questions.firstOrNull { it.id == selectedId }
     val snapshot = session.runtimeObservation?.snapshot
@@ -71,11 +95,20 @@ internal fun TaskSummarySheet(
         while (true) {
             inbox.refresh()
             attempted = true
+            session.refreshResources()
+            session.refreshDownloads()
+            refreshTriggers()
             delay(20_000)
         }
     }
     LaunchedEffect(selectedId, selected) {
         if (selectedId != null && selected == null) selectedId = null
+    }
+    if (showTriggers && allowed()) {
+        ConversationTriggersSheet(token, session.teamId, session.sessionId) {
+            showTriggers = false
+            scope.launch { refreshTriggers() }
+        }
     }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -160,7 +193,80 @@ internal fun TaskSummarySheet(
                         }
                     }
                 }
+                val changes = session.linkedResources.resources.filter { it.supported }
+                if (changes.isNotEmpty()) {
+                    Text(stringResource(R.string.chat_summary_changes), style = MaterialTheme.typography.titleMedium)
+                    changes.forEach { change ->
+                        val url = change.safeUrl
+                        SummaryContextRow(change.title, "${change.chip} · ${change.state}",
+                            R.drawable.ic_task_summary_git_pull_request, url != null) {
+                            if (allowed() && url != null) {
+                                runCatching { uriHandler.openUri(url) }
+                            }
+                        }
+                    }
+                }
+                if (children.isNotEmpty()) {
+                    Text(stringResource(R.string.chat_summary_children), style = MaterialTheme.typography.titleMedium)
+                    children.forEach { child ->
+                        val status = when {
+                            questions.any { it.sessionId == child.sessionId } -> R.string.chat_summary_needs_input
+                            child.activeRun != null && child.activeRun != JsonValue.Null -> R.string.chat_summary_running
+                            else -> R.string.chat_summary_idle
+                        }
+                        SummaryContextRow(child.displayTitle, stringResource(status),
+                            R.drawable.ic_task_summary_layers, enabled = true) {
+                            if (allowed()) onOpen(child.sessionId)
+                        }
+                    }
+                }
+                if (session.canReadDownloads && session.downloads.isNotEmpty()) {
+                    Text(stringResource(R.string.chat_summary_files), style = MaterialTheme.typography.titleMedium)
+                    session.downloads.forEach { group ->
+                        key(group.groupId) {
+                            val canDownload = { allowed() && session.canReadDownloads }
+                            TransferCard(
+                                TransferUpload(group.groupId, group.files.map { it.fileName }),
+                                { session.transferGroup(group.groupId) },
+                                canDownload(),
+                                canDownload,
+                                compact = true,
+                            )
+                        }
+                    }
+                }
+                Text(stringResource(R.string.chat_summary_triggers), style = MaterialTheme.typography.titleMedium)
+                val listedTriggers = triggers
+                when {
+                    triggersFailed && listedTriggers.isNullOrEmpty() -> TextButton(
+                        onClick = { scope.launch { refreshTriggers() } },
+                    ) { Text(stringResource(R.string.shell_retry)) }
+                    listedTriggers == null -> CircularProgressIndicator()
+                    listedTriggers.isEmpty() -> Text(stringResource(R.string.chat_summary_no_triggers))
+                    else -> listedTriggers.forEach { trigger ->
+                        SummaryContextRow(trigger.name,
+                            if (trigger.enabled) trigger.schedule else stringResource(R.string.chat_summary_paused),
+                            R.drawable.ic_task_summary_clock, enabled = true) {
+                            if (allowed()) showTriggers = true
+                        }
+                    }
+                }
             }
+        }
+    }
+}
+
+@Composable
+private fun SummaryContextRow(title: String, subtitle: String, @DrawableRes icon: Int, enabled: Boolean, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onClick).padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(painterResource(icon), contentDescription = null, modifier = Modifier.size(20.dp))
+        Column {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall)
         }
     }
 }

@@ -250,9 +250,9 @@ fun ConversationScreen(
         TaskSummarySheet(
             session = session,
             token = summaryToken,
-            childIds = store.conversations.filter {
+            children = store.conversations.filter {
                 it.parentSessionId == sessionId && (it.teamId == null || it.teamId == session.teamId)
-            }.mapTo(mutableSetOf()) { it.sessionId },
+            }.sortedByDescending { it.lastActiveAt },
             allowed = { auth.aiAllowed && store.selectedTeam?.id == session.teamId },
             onOpen = { child ->
                 showSummary = false

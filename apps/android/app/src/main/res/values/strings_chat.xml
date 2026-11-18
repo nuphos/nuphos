@@ -208,4 +208,11 @@
     <string name="chat_summary_running">Running</string>
     <string name="chat_summary_open">Agent summary</string>
     <string name="chat_summary_output_truncated">Earlier output is hidden.</string>
+    <string name="chat_summary_changes">Changes</string>
+    <string name="chat_summary_children">Sub-agents</string>
+    <string name="chat_summary_files">Files</string>
+    <string name="chat_summary_triggers">Triggers</string>
+    <string name="chat_summary_no_triggers">Ask the agent to schedule recurring work in this task.</string>
+    <string name="chat_summary_idle">Idle</string>
+    <string name="chat_summary_paused">Paused</string>
 </resources>

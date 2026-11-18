@@ -201,4 +201,11 @@
     <string name="chat_summary_running">執行中</string>
     <string name="chat_summary_open">Agent 摘要</string>
     <string name="chat_summary_output_truncated">已隱藏較早的輸出。</string>
+    <string name="chat_summary_changes">Changes</string>
+    <string name="chat_summary_children">Sub-agents</string>
+    <string name="chat_summary_files">檔案</string>
+    <string name="chat_summary_triggers">觸發條件</string>
+    <string name="chat_summary_no_triggers">請代理程式為這個任務安排定期工作。</string>
+    <string name="chat_summary_idle">Idle</string>
+    <string name="chat_summary_paused">已暫停</string>
 </resources>

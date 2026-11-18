@@ -208,4 +208,11 @@
     <string name="chat_summary_running">En curso</string>
     <string name="chat_summary_open">Resumen del agente</string>
     <string name="chat_summary_output_truncated">Se ha ocultado la salida anterior.</string>
+    <string name="chat_summary_changes">Changes</string>
+    <string name="chat_summary_children">Sub-agents</string>
+    <string name="chat_summary_files">Archivos</string>
+    <string name="chat_summary_triggers">Disparadores</string>
+    <string name="chat_summary_no_triggers">Pide al agente que programe trabajo periódico en esta tarea.</string>
+    <string name="chat_summary_idle">Idle</string>
+    <string name="chat_summary_paused">En pausa</string>
 </resources>
