@@ -15,17 +15,21 @@ export const botSubtaskModelScenarios: Scenario[] = [
       const kid = bots.locator('[data-sidebar-row]').filter({ hasText: 'E2E bot kid' }).first()
       const chip = page.getByRole('button', { name: /^Model settings/ }).last()
       const behind = join(artifacts, 'behind')
-      // A finished sub-Task is listed under its Bot once the Bot shows its sub-agents and
-      // its done count is opened; each is clicked only while it still hides the sub-Task.
+      const bot = bots.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first()
+      // A finished sub-Task is listed under its Bot once the Bot shows its sub-agents (a
+      // control shown on hover) and its done count is opened.
       const openKid = async () => {
-        for (const reveal of [
-          bots.getByRole('button', { name: 'Show sub-agents' }),
-          bots.getByTitle(/sub-agents? done$/),
-        ]) {
+        if (!(await kid.isVisible())) {
+          await bot.hover()
+          const show = bots.getByRole('button', { name: 'Show sub-agents' }).first()
+
+          if (await show.isVisible()) await show.click()
+          await page.mouse.move(640, 400)
           await page.waitForTimeout(1_000)
-          if (!(await kid.isVisible()) && (await reveal.first().isVisible()))
-            await reveal.first().click()
         }
+        const done = bots.getByTitle(/sub-agents? done$/).first()
+
+        if (!(await kid.isVisible()) && (await done.isVisible())) await done.click()
         await kid.click()
       }
 
@@ -42,7 +46,7 @@ export const botSubtaskModelScenarios: Scenario[] = [
       writeFileSync(behind, model)
       try {
         // Opened again, the chip reads the list again.
-        await bots.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first().click()
+        await bot.click()
         await openKid()
         await page.waitForTimeout(5_000)
         await page.evaluate(() => {
@@ -57,7 +61,7 @@ export const botSubtaskModelScenarios: Scenario[] = [
         rmSync(behind, { force: true })
       }
       // Back in the Bot's chat, where the channel scenarios carry on.
-      await bots.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first().click()
+      await bot.click()
     },
   },
 ]
