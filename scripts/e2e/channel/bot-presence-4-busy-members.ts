@@ -1,6 +1,7 @@
 // #3308: a Bot busy with work outside a group chat shows Busy among the chat's members, and a
 // post to it there joins its running turn, so the chat shows its dots.
 import { agentEvents } from '../agent-log.ts'
+import { pickRuntime } from '../channel-helpers.ts'
 import { artifacts, until } from '../processes.ts'
 import { newTask, send } from '../ui.ts'
 
@@ -26,6 +27,8 @@ export default {
   name: "a busy Bot reads Busy among a chat's members, and a post to it there joins its turn",
   run: async (page, stack) => {
     await newTask(page)
+    // A new Task starts on the runtime picked last, which the scenarios before took away.
+    await pickRuntime(page, 'E2E fixture agent', /^E2E fixture agent.*Claude Code/)
     await send(page, 'Keep working E2E_HOLD E2E_DELIVERY:busy-elsewhere')
     await until('the held turn to start', async () =>
       agentEvents(stack).includes('start E2E_DELIVERY:busy-elsewhere'),
