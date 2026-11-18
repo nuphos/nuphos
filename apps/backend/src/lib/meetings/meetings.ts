@@ -80,9 +80,16 @@ export async function faceJpeg(agent: Pick<AgentConversation, 'sessionId' | 'ava
 
 /**
  * Sends the caller's Bot into the call under its name. The call is a Task under
- * that Bot: its speech arrives there, and stays there once the call is over.
+ * that Bot: its speech arrives there, and stays there once the call is over. The
+ * Task is named `title` when the caller knows the meeting's name; without it, the
+ * link's path (a room code) is all there is to name it by.
  */
-export async function joinMeeting(actor: ThreadActor, meetingUrl: string, brief?: string) {
+export async function joinMeeting(
+  actor: ThreadActor,
+  meetingUrl: string,
+  brief?: string,
+  title?: string,
+) {
   const url = new URL(meetingUrl)
 
   if (url.protocol !== 'https:') throw new Error('A meeting link starts with https://')
@@ -102,7 +109,7 @@ export async function joinMeeting(actor: ThreadActor, meetingUrl: string, brief?
     const task = await createAgentThread(
       { ...actor, sessionId: bot.sessionId },
       meetingBrief(url.href, brief),
-      `Meeting ${url.pathname.replace(/^\//, '') || url.host}`,
+      title ?? `Meeting ${url.pathname.replace(/^\//, '') || url.host}`,
     )
 
     await agentConversations().updateOne(

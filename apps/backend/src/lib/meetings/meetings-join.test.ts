@@ -94,6 +94,17 @@ test('a meeting is a Task under the Bot, which is in the call under the Bot’s 
   expect(await agentConversations().find({ kind: 'channel' }).toArray()).toEqual([])
 })
 
+test('a meeting Task is named after the meeting when its name is given', async () => {
+  const { threadId } = await joinMeeting(
+    actor('task'),
+    'https://meet.example.com/xqp-mrtw-kzn',
+    'Notes.',
+    'Weekly product sync',
+  )
+
+  expect(await conversation(threadId)).toMatchObject({ title: 'Weekly product sync' })
+})
+
 test('a Task with no Bot above it is refused before any call bot or Task is made', async () => {
   await expect(joinMeeting(actor('lone-task'), 'https://meet.example.com/abc')).rejects.toThrow(
     'Only a Bot can be in a chat',

@@ -25,6 +25,15 @@ const join = z
       .max(3000)
       .optional()
       .describe('What to do in the call and what to know for it; never include credentials.'),
+    title: z
+      .string()
+      .trim()
+      .min(1)
+      .max(120)
+      .optional()
+      .describe(
+        "The meeting's name, e.g. Weekly product sync, when the user's request or a calendar event says it. The call's Task is named with it; leave it out when you don't know.",
+      ),
   })
   .strict()
 const chat = z.object({ label, text: z.string().trim().min(1).max(4096) }).strict()
@@ -83,7 +92,7 @@ export function meetingToolModule(): PreviewToolModule {
 
         if (!parsed.success) return toolError(parsed.error.message)
 
-        return answer(joinMeeting(ctx, parsed.data.url, parsed.data.brief))
+        return answer(joinMeeting(ctx, parsed.data.url, parsed.data.brief, parsed.data.title))
       },
       meeting_chat: async (args) => {
         const parsed = chat.safeParse(args)
