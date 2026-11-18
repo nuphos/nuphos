@@ -10,9 +10,17 @@ import { artifacts, spawn, stop, until } from './processes.ts'
 
 import type { Stack } from './stack.ts'
 
-const DESKTOP_DIR = resolve(import.meta.dirname, '../../apps/desktop')
+export const DESKTOP_DIR = resolve(import.meta.dirname, '../../apps/desktop')
 
-export async function startSecondComputer(stack: Stack, label: string) {
+// It dials the backend at `apiUrl` and runs its agents from the bundle in `runtimeDir`.
+export async function startSecondComputer(
+  stack: Stack,
+  label: string,
+  {
+    apiUrl = stack.apiUrl,
+    runtimeDir = join(DESKTOP_DIR, 'build', 'local-runtime', 'linux-x64'),
+  } = {},
+) {
   const deviceId = randomUUID()
   const home = join(artifacts, `computer-${deviceId.slice(0, 8)}`)
   const agentHome = join(home, '.nuphos-agent')
@@ -46,8 +54,8 @@ export async function startSecondComputer(stack: Stack, label: string) {
     env: {
       HOME: home,
       NUPHOS_AGENT_HOME: agentHome,
-      NUPHOS_LOCAL_RUNTIME_DIR: join(DESKTOP_DIR, 'build', 'local-runtime', 'linux-x64'),
-      NUPHOS_API_URL: stack.apiUrl,
+      NUPHOS_LOCAL_RUNTIME_DIR: runtimeDir,
+      NUPHOS_API_URL: apiUrl,
       NUPHOS_CLI_CONFIG: cliConfig,
       NUPHOS_E2E_AGENT_INSTALLER: resolve(import.meta.dirname, 'fixture-install.sh'),
     },

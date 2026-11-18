@@ -166,6 +166,12 @@ The scripts surface explicit errors: `file_too_large`, `too_many_files`,
 file_transfer_unconfigured`), tell the user file transfer isn't enabled on
 this deployment rather than retrying.
 
+`file_transfer_rate_limited` (429) means the team used its hourly transfer
+limit. Do not retry: retries fail the same way until the hour turns. Tell the
+user the limit was reached and when it resets (the error's message, or
+`retryAfter` from `local_upload`), and offer to work with what is already in
+the sandbox.
+
 ## Safety
 
 - Never push secrets/credentials out as downloadable files unless the user

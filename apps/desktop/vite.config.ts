@@ -30,6 +30,7 @@ export default defineConfig({
                 'posthog-node',
                 'archiver',
                 'electron-chrome-extensions',
+                'undici',
               ],
             },
           },
