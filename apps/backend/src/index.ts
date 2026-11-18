@@ -24,6 +24,7 @@ import { flushTraceWrites, setupTraceIndexes } from '@/lib/agent/trace-store/sto
 import { initTriggerScheduler } from '@/lib/agent/trigger-scheduler'
 import { quiesceAgentWorkers, closeAgentWorkerQueues } from '@/lib/agent/worker-shutdown'
 import { validateAwsOidcConfig } from '@/lib/byos/aws-oidc'
+import { startBoxAutoUpdate } from '@/lib/claude-code-preview/box-update'
 import {
   publishRuntimeHandoffs,
   startRuntimeHandoffAdoption,
@@ -134,11 +135,11 @@ logEvent('info', 'backend.memory_retention_rollup.ready')
 initStuckTurnProbe()
 logEvent('info', 'backend.stuck_turn_probe.ready')
 
-if (initClaudeCodeRuntimeProvisioner()) {
+if (initClaudeCodeRuntimeProvisioner())
   logEvent('info', 'backend.claude_code_runtime_provisioner.ready')
-}
 startAgentRunStallSweeper()
 startBotImportCleanup()
+startBoxAutoUpdate()
 const stopRuntimeHandoffAdoption = startRuntimeHandoffAdoption()
 
 if (await initDiscordGateway()) logEvent('info', 'backend.discord_gateway.ready')

@@ -36,8 +36,10 @@ import {
 import { offeredSessionConfig } from '@/lib/claude-code-preview/session-config-catalog'
 import { sessionConfigPickSchema } from '@/lib/claude-code-preview/session-config-options'
 import { AppError } from '@/lib/errors'
+import { setTeamBoxAutoUpdate } from '@/lib/identity/box-auto-update'
 import { zv } from '@/lib/validate'
 import { requireTeamRole } from '@/middleware/auth'
+import { teamJson } from '@/routes/teams/management'
 
 import { registerBrowserTabRoutes } from './browser-tabs'
 import { registerRuntimeDesktopRoutes } from './runtime-desktop'
@@ -200,6 +202,14 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
 
       return c.json(await requestRuntimeUpdate(c.get('teamId'), instance, c.get('userId')), 202)
     },
+  )
+  // Boxes update to the newest CLI on their own when idle (box-update); this turns that off.
+  teamScoped.put(
+    '/box-auto-update',
+    requireTeamRole('ADMINISTRATOR'),
+    zv('json', z.object({ enabled: z.boolean() }).strict()),
+    async (c) =>
+      teamJson(c, await setTeamBoxAutoUpdate(c.get('teamId'), c.req.valid('json').enabled)),
   )
 
   // Lets the self-hosted connect form detect an unregistered runtime's agent

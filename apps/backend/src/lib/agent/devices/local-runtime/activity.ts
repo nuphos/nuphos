@@ -74,6 +74,20 @@ export async function recordLocalRuntimeTurn(turn: LocalRuntimeTurn): Promise<vo
   }
 }
 
+/** When this computer last served a turn, if it has in the retention window. */
+export async function lastLocalRuntimeTurnAt(
+  ownerUserId: string,
+  deviceId: string,
+): Promise<Date | undefined> {
+  const [last] = await sessions()
+    .find({ ownerUserId, deviceId }, { projection: { lastServedAt: 1 } })
+    .sort({ lastServedAt: -1, _id: -1 })
+    .limit(1)
+    .toArray()
+
+  return last?.lastServedAt
+}
+
 export type LocalRuntimeActivityPage = {
   entries: LocalRuntimeSessionEntry[]
   nextCursor: string | null

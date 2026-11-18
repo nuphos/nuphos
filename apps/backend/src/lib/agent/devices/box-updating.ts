@@ -22,15 +22,16 @@ export function boxUpdatingSince(device: AgentDevice, now = Date.now()): Date | 
   return device.lastSeenAt && device.lastSeenAt >= startedAt ? undefined : startedAt
 }
 
-/** Notes that an update has just restarted the Box's host. */
+/** Notes that an update to `version` has just restarted the Box's host. */
 export async function markBoxUpdateStarted(
   userId: string,
   deviceId: string,
+  version: string,
   at = new Date(),
 ): Promise<void> {
   await agentDevices().updateOne(
     { userId, deviceId, box: { $exists: true } },
-    { $set: { 'box.updateStartedAt': at } },
+    { $set: { 'box.updateStartedAt': at, 'box.updateVersion': version } },
   )
 }
 
@@ -47,4 +48,11 @@ export async function clearBoxUpdateStarted(userId: string, deviceId: string): P
     .catch((error: unknown) => {
       logError('agent.box.update_clear_failed', error, { user_id: userId, device_id: deviceId })
     })
+}
+
+/** Every team's Boxes on instabox that have a machine; not the pods of managed runtimes. */
+export async function listInstaboxBoxes(): Promise<AgentDevice[]> {
+  return agentDevices()
+    .find({ 'box.provider': { $ne: 'k8s' }, 'box.sandboxId': { $exists: true } })
+    .toArray()
 }

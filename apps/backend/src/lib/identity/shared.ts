@@ -52,6 +52,8 @@ export type NuphosTeamDoc = {
   agentRuntime?: string
   /** Unset is `private`. */
   bindingShareDefault?: string
+  /** Stored only as `false`, when the team turned its Boxes' automatic updates off. */
+  boxAutoUpdate?: boolean
   members: {
     userId: ObjectId
     role: NuphosTeamRole
@@ -98,6 +100,7 @@ export function mapTeam(team: NuphosTeamDoc): NuphosTeam {
     allowedEmailDomains: team.allowedEmailDomains ?? [],
     agentRuntime: runtimeProvider(team.agentRuntime),
     bindingShareDefault: team.bindingShareDefault === 'team' ? 'team' : 'private',
+    boxAutoUpdate: team.boxAutoUpdate !== false,
     createdAt: team.createdAt.toISOString(),
     billing: summarizeBilling(),
   }

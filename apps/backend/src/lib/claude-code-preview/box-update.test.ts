@@ -5,18 +5,19 @@ import path from 'node:path'
 
 import { describe, expect, test } from 'bun:test'
 
-import { localRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import {
   AGENT_COMMAND,
   BOX_INSTALL_COMMAND,
   BOX_MOUNTS_COMMAND,
   BOX_UPDATE_COMMAND,
 } from '@/lib/agent/devices/box-instabox-client'
+import { localRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 
-import { boxUpdateStatus, requestBoxUpdate } from './box-update'
+import { boxUpdateStatus, requestBoxUpdate, runBoxAutoUpdates } from './box-update'
 
-import type { BoxUpdateDeps } from './box-update'
+import type { BoxAutoUpdateDeps, BoxUpdateDeps } from './box-update'
 import type { LocalRuntimeStatus } from '@/lib/agent/devices/local-runtime/protocol'
+import type { AgentDevice } from '@/lib/agent/devices/store'
 
 // Run with: cd apps/backend && bun test src/lib/claude-code-preview/box-update.test.ts
 
@@ -71,9 +72,7 @@ describe('Box update', () => {
     expect((await boxUpdateStatus(claude, old))?.state).toBe('unknown')
     // Not a Box, or a Box that is away: no update to show.
     expect(await boxUpdateStatus(claude, deps({ isBox: async () => false }).value)).toBeUndefined()
-    expect(
-      await boxUpdateStatus(claude, deps({ status: async () => undefined }).value),
-    ).toBeUndefined()
+    expect(await boxUpdateStatus(claude, deps({ status: async () => {} }).value)).toBeUndefined()
   })
 
   test('updating restarts the host only when none of its agents is mid-turn', async () => {
@@ -129,7 +128,7 @@ describe('Box update', () => {
       status: 404,
       code: 'device_not_found',
     })
-    await expect(refused({ status: async () => undefined })).rejects.toMatchObject({
+    await expect(refused({ status: async () => {} })).rejects.toMatchObject({
       code: 'runtime_offline',
     })
     await expect(refused({ latestVersion: async () => null })).rejects.toMatchObject({
@@ -291,3 +290,83 @@ it runs, browsers Playwright or Puppeteer launch from a new shell show there
 (DISPLAY=:1, headed); INSTABOX_HEADLESS=1 keeps them headless.
 `,
 }
+
+describe('Box auto-update', () => {
+  const now = Date.parse('2026-11-18T12:00:00Z')
+  const minutesAgo = (minutes: number) => new Date(now - minutes * 60_000)
+  const device = (box: Partial<NonNullable<AgentDevice['box']>> = {}) =>
+    ({
+      userId: 'u1',
+      deviceId: 'box-1',
+      box: { provider: 'instabox', sandboxId: 'sb-1', teamId: 't1', createdBy: 'owner', ...box },
+    }) as AgentDevice
+
+  function autoDeps(overrides: Partial<BoxAutoUpdateDeps> = {}) {
+    const base = deps({
+      status: async () => status('0.21.0'),
+      latestVersion: async () => ({ version: '0.22.0', url: 'https://example.test/cli-v0.22.0' }),
+    })
+    const versions: string[] = []
+    const value: BoxAutoUpdateDeps = {
+      ...base.value,
+      markUpdating: async (_ref, version) => {
+        versions.push(version)
+      },
+      boxes: async () => [device()],
+      enabled: async () => true,
+      lastTurnAt: async () => minutesAgo(30),
+      ...overrides,
+    }
+
+    return { value, calls: base.calls, versions }
+  }
+
+  test('a Box on an older CLI whose agents have been quiet updates to the newest', async () => {
+    const { value, calls, versions } = autoDeps()
+
+    expect(await runBoxAutoUpdates(value, now)).toEqual(['box-1'])
+    expect(calls.updated).toBe(1)
+    expect(versions).toEqual(['0.22.0'])
+    // Asked as the Box's owner, for every agent its host runs.
+    expect(calls.asked).toEqual([`owner:${claude}`, `owner:${codex}`])
+  })
+
+  test('a Box with a turn in the last 10 minutes, or one mid-turn, waits', async () => {
+    const recent = autoDeps({ lastTurnAt: async () => minutesAgo(5) })
+    const busy = autoDeps({ busy: async (_team, id) => id === codex })
+
+    expect(await runBoxAutoUpdates(recent.value, now)).toEqual([])
+    expect(await runBoxAutoUpdates(busy.value, now)).toEqual([])
+    expect(recent.calls.updated + busy.calls.updated).toBe(0)
+  })
+
+  test('a team that turned it off keeps its Boxes, unless one is below the oldest supported CLI', async () => {
+    const off = autoDeps({ enabled: async () => false })
+    const tooOld = autoDeps({ enabled: async () => false, status: async () => status('0.13.0') })
+
+    expect(await runBoxAutoUpdates(off.value, now)).toEqual([])
+    expect(await runBoxAutoUpdates(tooOld.value, now)).toEqual(['box-1'])
+  })
+
+  test('a version an update already went to and came back without is not tried again', async () => {
+    const failed = autoDeps({ boxes: async () => [device({ updateVersion: '0.22.0' })] })
+    const older = autoDeps({ boxes: async () => [device({ updateVersion: '0.21.0' })] })
+
+    expect(await runBoxAutoUpdates(failed.value, now)).toEqual([])
+    expect(await runBoxAutoUpdates(older.value, now)).toEqual(['box-1'])
+  })
+
+  test('a current, away or unversioned Box is left alone, and so is every Box without a release', async () => {
+    for (const overrides of [
+      { status: async () => status('0.22.0') },
+      { status: async () => {} },
+      { status: async () => status() },
+      { latestVersion: async () => null },
+    ] satisfies Partial<BoxAutoUpdateDeps>[]) {
+      const { value, calls } = autoDeps(overrides)
+
+      expect(await runBoxAutoUpdates(value, now)).toEqual([])
+      expect(calls.updated).toBe(0)
+    }
+  })
+})

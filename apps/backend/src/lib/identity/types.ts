@@ -24,6 +24,8 @@ export type NuphosTeam = {
   agentRuntime: OpenAbProvider
   /** Who a newly connected binding is shared with when its owner does not say. */
   bindingShareDefault?: BindingShareDefault
+  /** Whether its Boxes update to the newest CLI on their own when idle. */
+  boxAutoUpdate?: boolean
   createdAt: string
   role?: NuphosTeamRole
   billing: TeamBillingSummary

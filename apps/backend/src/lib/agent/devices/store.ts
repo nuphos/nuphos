@@ -25,6 +25,8 @@ export type AgentDeviceBox = {
   createdBy?: string
   /** When an update last restarted its host; see box-updating. */
   updateStartedAt?: Date
+  /** The CLI that update installed; an automatic update does not try it again (box-update). */
+  updateVersion?: string
   /** Its owner lets those who only use it open a terminal too; see manage-access. */
   useTerminal?: boolean
 }
