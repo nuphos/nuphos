@@ -5,6 +5,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
 import { agentLog } from './agent-log.ts'
+import { agentSignInScenarios } from './agent-sign-in-scenarios.ts'
 import { backendLines, backendLog } from './backend-log.ts'
 import { boxScenarios } from './box-scenarios.ts'
 import { browserDownloadScenarios } from './browser-download-scenarios.ts'
@@ -247,5 +248,6 @@ export const computerScenarios: Scenario[] = [
   ...transferRefundScenarios,
   ...transferLimitScenarios,
   ...boxScenarios,
+  ...agentSignInScenarios,
   ...browserDownloadScenarios,
 ]
