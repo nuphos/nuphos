@@ -388,7 +388,7 @@ struct HomeView: View {
             Tab("Inbox", image: "home-tab-inbox", value: HomePage.inbox) {
                 InboxPage(inbox: inbox, wide: sizeClass == .regular)
             }
-            .badge(inbox?.list.count ?? 0)
+            .badge(inbox?.waiting.count ?? 0)
         }
     }
 
