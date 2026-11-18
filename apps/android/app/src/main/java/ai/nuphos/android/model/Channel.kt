@@ -10,7 +10,24 @@ import java.time.Instant
 @Serializable
 data class ChannelAgent(val sessionId: String, val title: String = "", val ownerId: String? = null, val provider: String? = null,
     /** Its face, which every member of the chat reads, whoever owns the Bot. */
-    val avatar: String? = null)
+    val avatar: String? = null,
+    /** Whether it can reply now, as the server works it out. */
+    val presence: BotPresence? = null) {
+    companion object {
+        /**
+         * The strip above the composer while a chat's Bot has its computer offline, as on Desktop: the
+         * Task's words in the Bot's own chat, and the Bot's name in a group chat.
+         */
+        fun offlineStrip(agents: List<ChannelAgent>, botId: String?): String? {
+            val away = agents.firstOrNull { it.presence?.state == "offline" && it.presence.reason == "computer_offline" } ?: return null
+            return if (away.sessionId == botId) Words(R.string.convtext_runtime_offline) else Words(R.string.chats_bot_computer_offline, away.title)
+        }
+    }
+}
+
+/** Whether a Bot can reply now (#3308): `online`, `busy`, or `offline` with a `reason`, and `resetsAt` for `usage_limit`. */
+@Serializable
+data class BotPresence(val state: String, val reason: String? = null, val resetsAt: String? = null)
 
 @Serializable
 data class ChannelAgentsEnvelope(val agents: List<ChannelAgent> = emptyList())

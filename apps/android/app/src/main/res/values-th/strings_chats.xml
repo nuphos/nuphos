@@ -58,4 +58,5 @@
     <string name="chats_question_snooze_tomorrow">พรุ่งนี้ 9:00</string>
     <string name="chats_question_snooze_monday">วันจันทร์หน้า 9:00</string>
     <string name="chats_question_dismiss_reason">เหตุผล (ไม่บังคับ)</string>
+    <string name="chats_bot_computer_offline">คอมพิวเตอร์ของ %1$s ออฟไลน์อยู่</string>
 </resources>

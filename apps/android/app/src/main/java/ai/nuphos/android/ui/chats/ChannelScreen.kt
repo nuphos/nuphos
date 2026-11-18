@@ -203,6 +203,15 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
         // Keyed by session: a new workspace, account or consent gets a new composer scope, and the
         // old one's in-flight upload is cancelled with it.
         if (session.loaded && session.loadError == null && !session.readOnly) key(session) {
+            // A Bot whose computer is offline: the strip a Task shows, with its Switch for the Bot's owner.
+            ChannelAgent.offlineStrip(session.agents, session.botId)?.let { text ->
+                val own = session.agents.any { it.sessionId == bot?.sessionId && it.ownerId == viewerId }
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).testTag("offline-strip"),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(text, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    if (own && auth.aiAllowed) ai.nuphos.android.ui.chat.SwitchRuntimeButton { switching = true }
+                }
+            }
             session.replying?.let { ReplyChip(it) { session.replying = null } }
             ChannelComposer(session)
         }
