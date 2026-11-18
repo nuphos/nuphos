@@ -30,7 +30,7 @@ import { ChatHeaderIcon, ReplyingBanner } from './channelParts'
 import { ChannelTitle } from './ChannelTitle'
 import { sendingPost, stillSending } from './sendingPosts'
 import { useBotChatQuestions } from './useBotChatQuestions'
-import { useBotRuntimeControl } from './useBotRuntimeControl'
+import { useBotComposerControls } from './useBotComposerControls'
 import { useBotTaskAccess } from './useBotTaskAccess'
 import { useChannel } from './useChannel'
 import { useStickToBottom } from './useStickToBottom'
@@ -88,7 +88,7 @@ export function ChannelPane({
     detail?.timelineEvents?.some((event) => event.kind === 'agent_reply_failed') ?? false
   const botOwned = ownsBot(teamId, bot, user.id, detail && agents)
   const manage = fixes?.onOpenAgentSettings
-  const control = useBotRuntimeControl(teamId, bot, botOwned, user, botState, refresh, manage)
+  const controls = useBotComposerControls(teamId, bot, botOwned, user, botState, refresh, manage)
   const sessions = useAgentSessions(teamId).data
   const settingUp = sessions?.some((row) => row.sessionId === bot && botIsOnboarding(row))
   const taskAccess = useBotTaskAccess(teamId, bot, botOwned)
@@ -291,7 +291,7 @@ export function ChannelPane({
             }}
             placeholder={t('Message {name}', { name: title })}
             credentialSelector={questions.credentials}
-            runtimeControl={control}
+            {...controls}
           />
         </div>
       </ChatColumn>
