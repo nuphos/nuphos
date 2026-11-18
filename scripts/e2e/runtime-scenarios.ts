@@ -8,8 +8,8 @@ import { newTask, send } from './ui.ts'
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
 
-async function pickAgent(page: Page, label: string) {
-  await page.getByRole('button', { name: /^Agent runtime/ }).click()
+export async function pickAgent(page: Page, label: string) {
+  await page.getByRole('button', { name: /^Runtime:/ }).click()
   // The computer's row opens a submenu of its runtimes.
   await page.getByRole('menu').getByText(label).click()
   await page.getByRole('menuitem', { name: new RegExp(`^${label}.*Claude Code`) }).click()

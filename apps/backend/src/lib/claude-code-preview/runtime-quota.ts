@@ -6,7 +6,7 @@ import { runtimeLabel } from './runtime-provider'
 import { normalizeGrokUsage } from './runtime-quota-grok'
 import { recordRuntimeQuotaSample } from './runtime-quota-history'
 import { probeRuntimeQuota } from './runtime-quota-probe'
-import { clampPercent, unavailable } from './runtime-quota-shape'
+import { clampPercent, codexWindowLabel, unavailable } from './runtime-quota-shape'
 import { RuntimeCapabilityError } from './team-openab-runtime'
 
 import type { RuntimeInstance } from './runtime-instances'
@@ -100,16 +100,6 @@ export function normalizeClaudeUsage(
     ...(windows.length ? {} : { reason: 'No usage windows reported' }),
     windows,
   }
-}
-
-function codexWindowLabel(seconds: number | undefined, fallback: string): string {
-  if (!seconds) return fallback
-  const hours = seconds / 3600
-
-  if (hours >= 24 * 6) return 'Weekly'
-  if (hours >= 24) return `${String(Math.round(hours / 24))}-day`
-
-  return `${String(Math.round(hours))}-hour`
 }
 
 export function normalizeCodexUsage(
@@ -216,8 +206,14 @@ async function fetchUncached(
 
   record(quota, deps)
 
+  const { plan, accountKey } = reading
+
   return {
-    quota: reading.plan && !quota.plan ? { ...quota, plan: reading.plan } : quota,
+    quota: {
+      ...quota,
+      ...(plan && !quota.plan ? { plan } : {}),
+      ...(accountKey && { accountKey }),
+    },
     holdMs: PROVIDER_HOLD_MS,
   }
 }

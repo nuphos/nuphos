@@ -15,6 +15,7 @@ import {
   requeueTurnQueue,
   retryQueuedTurn,
   sessionReleased,
+  waitingOutRefusal,
 } from './session-released'
 import { openSignInRequest, releaseWhenAskLapses } from './sign-in-request'
 import { withinOfflineGrace } from './turn-offline'
@@ -70,6 +71,7 @@ async function holdForReattach(target: AgentConversation, head: PendingUserMessa
     { userId: target.userId, teamId: target.teamId, targetSessionId: target.sessionId },
     head,
     'was not sent: the computer running this agent did not reconnect.',
+    new AppError(409, 'runtime_offline', 'The computer running this agent did not reconnect.'),
   )
 }
 
@@ -79,7 +81,15 @@ async function holdForReattach(target: AgentConversation, head: PendingUserMessa
  * next, and a message accepted for a turn that ended without reading it does
  * not wait for one that may never come.
  */
-export async function startQueuedTurn(userId: string, sessionId: string): Promise<void> {
+export async function startQueuedTurn(
+  userId: string,
+  sessionId: string,
+  released = false,
+): Promise<void> {
+  // Before the claim, whose release would start the queue again.
+  const waiting = queueHead(await listPendingUserMessages(userId, sessionId), userId)[0]
+
+  if (waitingOutRefusal(waiting, released)) return
   const target = await getConversationBySessionId(sessionId)
 
   const runtime = await ready(userId, sessionId, target)

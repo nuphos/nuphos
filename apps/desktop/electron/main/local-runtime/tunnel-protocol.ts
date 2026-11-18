@@ -32,7 +32,7 @@ export type BackendFrame =
 
 /** Why this computer gave up its last tunnel; the backend never sees that close itself. */
 export type TunnelDrop = {
-  reason: 'idle' | 'error' | 'closed' | 'reconnect'
+  reason: 'idle' | 'closed' | 'reconnect'
   code: number | undefined
   /** Time since the last frame from the backend. */
   silentMs: number
@@ -55,9 +55,18 @@ export type LocalRuntimeTunnelStatus = {
     Record<
       LocalAgentProvider,
       {
-        cli: { installed: boolean; loggedIn: boolean | null; apiKey?: true }
+        cli: {
+          installed: boolean
+          loggedIn: boolean | null
+          apiKey?: true
+          /** An added agent's CLI being installed, or why that failed. */
+          installing?: true
+          installError?: string
+        }
         usage?: unknown
         usageAt?: string
+        /** Which account's quota it spends, hashed on that computer. */
+        accountKey?: string
         version?: string
         models?: LocalModelCatalog
       }

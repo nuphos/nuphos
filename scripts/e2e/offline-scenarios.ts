@@ -86,7 +86,7 @@ export const offlineScenarios: Scenario[] = [
       await newTask(page)
       await send(page, 'Before the laptop E2E_DELIVERY:before-offline')
       await page.getByText('ACK E2E_DELIVERY:before-offline').waitFor()
-      await page.getByRole('button', { name: /^Agent runtime/ }).click()
+      await page.getByRole('button', { name: /^Runtime:/ }).click()
       await page.getByRole('menu').getByText(LAPTOP).first().click()
       await page
         .getByRole('menuitem', { name: /Claude Code/ })
@@ -116,16 +116,16 @@ export const offlineScenarios: Scenario[] = [
         await newTask(page)
         await send(page, 'On the fixture E2E_DELIVERY:before-disk')
         await page.getByText('ACK E2E_DELIVERY:before-disk').waitFor()
-        await page.getByRole('button', { name: /^Agent runtime/ }).click()
+        await page.getByRole('button', { name: /^Runtime:/ }).click()
         await page.getByRole('menu').getByText(LAPTOP).first().click()
         await page
           .getByRole('menuitem', { name: /Claude Code/ })
           .last()
           .click()
         await page.getByText(`moved this task from E2E fixture agent to`).waitFor()
-        const banner = page
-          .getByRole('status')
-          .filter({ hasText: `${LAPTOP}’s disk is almost full (93%). Agents on it may fail.` })
+        const banner = page.getByRole('status').filter({
+          hasText: `${LAPTOP}’s disk is almost full (93%). Bots and tasks on it may fail.`,
+        })
 
         await banner.waitFor()
         await page.screenshot({ path: join(artifacts, 'disk-banner.png') })
@@ -149,7 +149,7 @@ export const offlineScenarios: Scenario[] = [
         await newTask(page)
         await send(page, 'On the fixture E2E_DELIVERY:before-outdated')
         await page.getByText('ACK E2E_DELIVERY:before-outdated').waitFor()
-        await page.getByRole('button', { name: /^Agent runtime/ }).click()
+        await page.getByRole('button', { name: /^Runtime:/ }).click()
         await page.getByRole('menu').getByText(LAPTOP).first().click()
         await page
           .getByRole('menuitem', { name: /Claude Code/ })
@@ -158,7 +158,7 @@ export const offlineScenarios: Scenario[] = [
         await page.getByText(`moved this task from E2E fixture agent to`).waitFor()
         const banner = page
           .getByRole('status')
-          .filter({ hasText: `Nuphos on ${LAPTOP} is out of date. Its agents may fail.` })
+          .filter({ hasText: `Nuphos on ${LAPTOP} is out of date. Bots and tasks on it may fail.` })
 
         await banner.waitFor()
         await page.screenshot({ path: join(artifacts, 'outdated-banner.png') })

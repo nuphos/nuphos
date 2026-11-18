@@ -4,9 +4,11 @@ import { z } from 'zod'
 import { getAgentStats, isTimeZone } from '@/lib/agent/agent-stats'
 import { boxUsageView } from '@/lib/agent/devices/box-instabox-limit'
 import { listBoxUsageHistory } from '@/lib/agent/devices/box-usage-history'
-import { ACTIVITY_RANGES, getTeamActivity } from '@/lib/agent/team-activity'
+import { ACTIVITY_RANGES, getTeamActivity, ownActivity } from '@/lib/agent/team-activity'
+import { USAGE_BUCKETS, USAGE_DIMENSIONS, queryTeamUsage } from '@/lib/agent/usage-query'
 import { getTeamUsageSeries } from '@/lib/agent/usage-summary'
 import { QUOTA_HISTORY_RANGES } from '@/lib/claude-code-preview/runtime-quota-history'
+import { AppError } from '@/lib/errors'
 import { zv } from '@/lib/validate'
 import { requireTeamMember } from '@/middleware/auth'
 import { agentTriggersRoutes } from '@/routes/agent-triggers'
@@ -84,6 +86,7 @@ import { zeaburProvidersRoutes } from '@/routes/zeabur-providers'
 import { registerRuntimeLoginRoutes } from './teams/runtime-login'
 import { registerSignInRequestRoutes } from './teams/sign-in-requests'
 
+import type { UsageDimension } from '@/lib/agent/usage-query'
 import type { TeamAuthVariables } from '@/middleware/auth'
 import type { ConversationTeamAuthVariables } from '@/routes/teams/conversation-auth'
 
@@ -102,6 +105,24 @@ const statsQuerySchema = activityQuerySchema.extend({
   // Days and hours are the viewer's own, so a streak ends at their midnight.
   timeZone: z.string().max(64).refine(isTimeZone, 'Unknown time zone').default('UTC'),
 })
+
+// `a,b` lists: the dimensions to group by, and each dimension's allowed values.
+const csv = z
+  .string()
+  .max(4000)
+  .transform((value) => value.split(',').filter(Boolean))
+const usageQuerySchema = z
+  .object({
+    from: z.coerce.date(),
+    to: z.coerce.date(),
+    bucket: z.enum(USAGE_BUCKETS).optional(),
+    timeZone: z.string().max(64).refine(isTimeZone, 'Unknown time zone').optional(),
+    groupBy: csv.pipe(z.array(z.enum(USAGE_DIMENSIONS)).max(3)).default(''),
+    ...Object.fromEntries(USAGE_DIMENSIONS.map((dimension) => [dimension, csv.optional()])),
+  })
+  .refine(({ from, to }) => from < to && to.getTime() - from.getTime() <= 400 * 86_400_000, {
+    message: 'The range must run forward and span at most 400 days',
+  })
 
 const teamScoped = new Hono<{
   Variables: TeamAuthVariables & ConversationTeamAuthVariables
@@ -129,14 +150,43 @@ teamScoped.get('/usage', async (c) =>
     }),
   ),
 )
-teamScoped.get('/agent-activity', zv('query', activityQuerySchema), async (c) =>
-  c.json(await getTeamActivity(c.get('teamId'), c.req.valid('query').range)),
-)
-teamScoped.get('/agent-stats', zv('query', statsQuerySchema), async (c) =>
-  c.json(
-    await getAgentStats(c.get('teamId'), { viewerId: c.get('userId'), ...c.req.valid('query') }),
-  ),
-)
+// Team-wide activity and stats are an administrator's; anyone else sees their own.
+teamScoped.get('/agent-activity', zv('query', activityQuerySchema), async (c) => {
+  const activity = await getTeamActivity(c.get('teamId'), c.req.valid('query').range)
+
+  return c.json(
+    c.get('teamRole') === 'ADMINISTRATOR' ? activity : ownActivity(activity, c.get('userId')),
+  )
+})
+teamScoped.get('/agent-stats', zv('query', statsQuerySchema), async (c) => {
+  const query = c.req.valid('query')
+
+  if (query.scope === 'team' && c.get('teamRole') !== 'ADMINISTRATOR')
+    throw new AppError(403, 'forbidden', 'Only an administrator can see the whole team’s stats')
+
+  return c.json(await getAgentStats(c.get('teamId'), { viewerId: c.get('userId'), ...query }))
+})
+// Token usage grouped and filtered by any dimension; members see only their own.
+teamScoped.get('/usage/query', zv('query', usageQuerySchema), async (c) => {
+  const { from, to, bucket, timeZone, groupBy, ...rest } = c.req.valid('query')
+  // The schema spreads the dimension lists in, so their keys are lost to the type.
+  const lists: Partial<Record<UsageDimension, string[]>> = rest
+  const filters = Object.fromEntries(
+    USAGE_DIMENSIONS.flatMap((dimension) => {
+      const values = lists[dimension]
+
+      return values?.length ? [[dimension, values]] : []
+    }),
+  )
+
+  return c.json({
+    rows: await queryTeamUsage(
+      c.get('teamId'),
+      { userId: c.get('userId'), teamRole: c.get('teamRole') },
+      { from, to, bucket, timeZone, groupBy, filters },
+    ),
+  })
+})
 // Read-only compatibility for saved dashboard scripts and older desktop clients.
 teamScoped.get('/billing/usage', async (c) =>
   c.json(

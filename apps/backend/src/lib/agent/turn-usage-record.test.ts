@@ -216,3 +216,104 @@ test('a Gemini turn does not count its cache reads twice', async () => {
     totalTokens: 102_000,
   })
 })
+
+// `_meta.quota` as claude-agent-acp 0.74.0 builds it (turnQuotaMeta): the model rows also
+// count a Task sub-agent on another model, which the main-loop `usage` leaves out.
+test("a Claude Code turn's quota records each model it used, sub-agents included", async () => {
+  await writeRuntimeTurnUsage({
+    ...turn,
+    usage: { inputTokens: 12, outputTokens: 900, cachedReadTokens: 250_000, totalTokens: 250_912 },
+    quota: {
+      token_count: { totalTokens: 250_912 },
+      model_usage: [
+        {
+          model: 'claude-opus-5-5',
+          token_count: {
+            totalTokens: 250_912,
+            inputTokens: 12,
+            cachedInputTokens: 250_000,
+            cachedWriteTokens: 0,
+            outputTokens: 900,
+            reasoningOutputTokens: 0,
+          },
+        },
+        {
+          model: 'claude-haiku-5-5',
+          token_count: {
+            totalTokens: 31_400,
+            inputTokens: 400,
+            cachedInputTokens: 30_000,
+            cachedWriteTokens: 600,
+            outputTokens: 400,
+            reasoningOutputTokens: 0,
+          },
+        },
+      ],
+    },
+  })
+
+  const totals = inserted
+    .filter((row) => row.kind === 'step_total')
+    .map((row) => [row.modelId, row.tokens])
+
+  expect(totals).toEqual([
+    [
+      'claude-opus-5-5',
+      {
+        inputTokens: 250_012,
+        cachedInputTokens: 250_000,
+        cacheWriteTokens: 0,
+        outputTokens: 900,
+        totalTokens: 250_912,
+      },
+    ],
+    [
+      'claude-haiku-5-5',
+      {
+        inputTokens: 31_000,
+        cachedInputTokens: 30_000,
+        cacheWriteTokens: 600,
+        outputTokens: 400,
+        totalTokens: 31_400,
+      },
+    ],
+  ])
+  expect(inserted.some((row) => row.kind === 'thinking')).toBe(false)
+})
+
+test('a turn without model rows falls back to its usage and the picked model', async () => {
+  await writeRuntimeTurnUsage({ ...turn, quota: { token_count: {}, model_usage: [] } })
+
+  expect(inserted.find((row) => row.kind === 'step_total')?.modelId).toBe('claude-opus-5')
+})
+
+test('a quota whose models report nothing countable falls back to its usage', async () => {
+  await writeRuntimeTurnUsage({
+    ...turn,
+    quota: { token_count: {}, model_usage: [{ model: 'claude-haiku-5', token_count: {} }] },
+  })
+
+  expect(inserted.find((row) => row.kind === 'step_total')?.modelId).toBe('claude-opus-5')
+})
+
+test('every row of a turn names who sent it, from where, on which runtime and computer', async () => {
+  await writeRuntimeTurnUsage({
+    ...turn,
+    stopReason: 'cancelled',
+    actorUserId: 'teammate-2',
+    turnSource: 'slack.agent',
+    runtimeId: 'runtime-7',
+    deviceId: 'mac-1',
+  })
+
+  expect(inserted.length).toBeGreaterThan(1)
+  for (const row of inserted)
+    expect(row).toMatchObject({
+      userId: 'user-1',
+      actorUserId: 'teammate-2',
+      turnSource: 'slack.agent',
+      runtimeId: 'runtime-7',
+      deviceId: 'mac-1',
+      finishReason: 'cancelled',
+    })
+})

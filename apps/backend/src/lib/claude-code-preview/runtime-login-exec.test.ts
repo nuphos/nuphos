@@ -156,6 +156,19 @@ test("a failed sign-in gives the provider's own advice", () => {
   expect(messages[1]).toContain('cannot receive the sign-in code')
 })
 
+test('a Hermes that cannot prepare its environment says so in plain words', () => {
+  const messages: string[] = []
+  const read = loginFrameReader(
+    (frame) => frame.type === 'error' && messages.push(frame.message),
+    'Sign-in did not complete. Start again and check the details you entered.',
+  )
+
+  read(`${JSON.stringify({ type: 'error', reason: 'environment' })}\n`)
+  expect(messages[0]).toBe(
+    'Hermes could not prepare its environment on this computer. Check that the computer is online, then start again.',
+  )
+})
+
 test('Grok Build and Antigravity sign in through their own pages only', () => {
   const frames: RuntimeLoginFrame[] = []
   const read = loginFrameReader((frame) => frames.push(frame))

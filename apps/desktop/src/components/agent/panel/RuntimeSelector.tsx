@@ -23,8 +23,6 @@ import type { AgentDevice } from '../../../api/device-types'
 import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime'
 
 export type RuntimeControl = {
-  /** A quiet runtime line for the simplified Bot composer. */
-  quiet?: boolean
   /** Lets the selector ask each agent whether an update is available. */
   teamId?: string
   /** A team agent's update can be started from the list: the viewer administers the team. */
@@ -93,7 +91,6 @@ export function RuntimeSelector({
   onAddAgent,
   confirm,
   hero = false,
-  quiet = false,
   emptyLabel,
   onClear,
 }: RuntimeControl & {
@@ -150,8 +147,8 @@ export function RuntimeSelector({
       ) : (
         <span className="min-w-0 max-w-40 truncate">{label}</span>
       )}
-      {!quiet && value?.id && <RuntimeUsageBar quota={quotas?.get(value.id)} />}
-      {!quiet && dot && (
+      {value?.id && <RuntimeUsageBar quota={quotas?.get(value.id)} />}
+      {dot && (
         <span
           role="img"
           aria-label={dot.label}
@@ -187,7 +184,7 @@ export function RuntimeSelector({
       <Menu open={open} onOpenChange={setOpen}>
         <MenuTrigger
           data-keep=""
-          aria-label={t('Agent runtime: {label}', { label })}
+          aria-label={t('Runtime: {label}', { label })}
           title={`${label} · ${providerName}`}
           className={`${classes} transition-colors hover:bg-state-hover hover:text-main`}
         >

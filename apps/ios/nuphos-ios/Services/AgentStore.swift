@@ -259,6 +259,54 @@ final class AgentStore {
         return flipped != onBots
     }
 
+    // MARK: - Pins
+
+    /// The viewer's favorites in this team, which Desktop pins Bots and chats into.
+    private(set) var favorites: SidebarFavorites?
+
+    /// Pinned chats and Bots, in the order they were pinned or arranged.
+    private var pinnedIds: [String] { favorites?.entries.compactMap(\.sessionId) ?? [] }
+
+    /// The pin shelf above Bots: only Bots and chats pin; an older Task pin stays stored.
+    var pins: [AgentConversation] {
+        let rows = Dictionary(botsList.map { ($0.sessionId, $0) }, uniquingKeysWith: { first, _ in first })
+        return pinnedIds.compactMap { rows[$0] }
+    }
+
+    func isPinned(_ row: AgentConversation) -> Bool { pinnedIds.contains(row.sessionId) }
+
+    func loadFavorites() async {
+        guard let team = selectedTeam?.id, let saved = try? await NuphosAPI.sidebarFavorites(token: token, teamId: team),
+              team == selectedTeam?.id else { return }
+        favorites = saved
+    }
+
+    /// Pins or unpins at once, then writes the whole list over the one on the
+    /// server, reading it again when another client changed it meanwhile.
+    func setPinned(_ pinned: Bool, _ row: AgentConversation) async {
+        guard let team = selectedTeam?.id else { return }
+        let scope = workspaceScope
+        func apply(_ entries: [SidebarFavorites.Entry]) -> [SidebarFavorites.Entry] {
+            let rest = entries.filter { $0.sessionId != row.sessionId }
+            return pinned ? rest + [.init(label: title(of: row), href: "/teams/\(team)/agent/\(row.sessionId)")] : rest
+        }
+        favorites = SidebarFavorites(entries: apply(favorites?.entries ?? []), revision: favorites?.revision ?? 0)
+        var lastError: Error?
+        for _ in 0..<4 {
+            do {
+                let current = try await NuphosAPI.sidebarFavorites(token: token, teamId: team)
+                let entries = apply(current.entries)
+                try await NuphosAPI.saveSidebarFavorites(token: token, teamId: team, entries: entries, revision: current.revision)
+                guard scope == workspaceScope else { return }
+                favorites = SidebarFavorites(entries: entries, revision: current.revision + 1)
+                return
+            } catch { lastError = error }
+        }
+        guard scope == workspaceScope else { return }
+        await loadFavorites()
+        rowActionFailed(lastError ?? NuphosAPI.Failure.invalidResponse, scope: scope) { [weak self] in await self?.setPinned(pinned, row) }
+    }
+
     func toggleFolded(_ sessionId: String, onBots: Bool = false) {
         let key = onBots ? "bots:\(sessionId)" : sessionId
         updateFolds { if $0.remove(key) == nil { $0.insert(key) } }
@@ -483,6 +531,7 @@ final class AgentStore {
         credentials.reset()
         channels = []
         bots = []
+        favorites = nil
         runtimes = []
         agentDevices = []
         agentDevicesError = false
@@ -670,12 +719,13 @@ final class AgentStore {
         if conversations.isEmpty { phase = .loading }
         async let runtimesLoad: () = loadRuntimes()
         async let channelsLoad: () = loadChannels()
+        async let pinsLoad: () = loadFavorites()
 
         do {
             let page = try await NuphosAPI.conversations(
                 token: token, teamId: team.id, limit: Self.pageSize, search: search
             )
-            _ = await (runtimesLoad, channelsLoad)
+            _ = await (runtimesLoad, channelsLoad, pinsLoad)
             guard generation == loadGeneration else { return }
             conversations = page.rows
             nextCursor = page.nextCursor

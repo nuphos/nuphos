@@ -78,6 +78,8 @@ export async function threadRuntimes(
       ready: !instance.notReady,
       current: instance.id === currentRuntimeId,
       quota: quotas[i],
+      // Up front, so an agent sees it before moving to an account that ran out too.
+      ...(quotas[i]?.sharesQuotaWith ? { sharesQuotaWith: quotas[i]?.sharesQuotaWith } : {}),
       ...(models[i]?.length ? { models: models[i] } : {}),
     })),
   }

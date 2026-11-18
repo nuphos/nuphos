@@ -6,20 +6,24 @@ import { renameConversation, updateConversationTitle } from './db'
 
 import type * as dbActual from '@/lib/db'
 
+const matches = (doc: Record<string, unknown>, query: Record<string, unknown>): boolean =>
+  Object.entries(query).every(([key, value]) => {
+    if (key === '$or')
+      return (value as Record<string, unknown>[]).some((part) => matches(doc, part))
+    if (value && typeof value === 'object') {
+      if ('$ne' in value) return doc[key] !== value.$ne
+      if ('$exists' in value) return key in doc === value.$exists
+    }
+
+    return doc[key] === value
+  })
+
 class FakeConversations {
   docs: Record<string, unknown>[] = []
+  async findOne(filter: Record<string, unknown>) {
+    return this.docs.find((doc) => matches(doc, filter)) ?? null
+  }
   async updateOne(filter: Record<string, unknown>, update: { $set?: Record<string, unknown> }) {
-    const matches = (doc: Record<string, unknown>, query: Record<string, unknown>): boolean =>
-      Object.entries(query).every(([key, value]) => {
-        if (key === '$or')
-          return (value as Record<string, unknown>[]).some((part) => matches(doc, part))
-        if (value && typeof value === 'object') {
-          if ('$ne' in value) return doc[key] !== value.$ne
-          if ('$exists' in value) return key in doc === value.$exists
-        }
-
-        return doc[key] === value
-      })
     const match = this.docs.find((doc) => matches(doc, filter))
 
     if (!match) return { matchedCount: 0 }

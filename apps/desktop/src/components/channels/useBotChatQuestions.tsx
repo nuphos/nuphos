@@ -3,6 +3,7 @@ import { inputRequestKey } from '../agent/summary/sessionInputRequests'
 import { useSessionInputRequests } from '../agent/summary/useSessionInputRequests'
 
 import { BotChatQuestion } from './BotChatQuestions'
+import { ChooseAccessBanner } from './channelParts'
 import { useBotCredentials } from './useBotCredentials'
 
 import type { TimelineRow } from './ChannelMessages'
@@ -24,7 +25,10 @@ export function useBotChatQuestions(
   botId: string | undefined,
   botOwned: boolean,
   onOpenSession: (sessionId: string) => void,
-): { rows: TimelineRow[]; credentials?: CredentialSelectorControl } {
+): {
+  rows: TimelineRow[]
+  credentials?: CredentialSelectorControl & { unset: boolean }
+} {
   const botCredentials = useBotCredentials(teamId, botOwned ? botId : undefined)
   // A chat opening draws what the Inbox lists now, never a cached row's old
   // questions, and never another Bot's.
@@ -53,6 +57,14 @@ export function useBotChatQuestions(
       ),
     }
   })
+
+  // A Bot never given computers or credentials is asked to choose, below everything said so far.
+  if (botCredentials?.unset)
+    rows.push({
+      at: Number.MAX_SAFE_INTEGER,
+      key: 'choose-access',
+      node: <ChooseAccessBanner credentials={botCredentials} />,
+    })
 
   return { rows, credentials: botCredentials }
 }

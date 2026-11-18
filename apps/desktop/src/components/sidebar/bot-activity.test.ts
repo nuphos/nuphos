@@ -70,7 +70,7 @@ test('a failed run shows as an error', () => {
 
 test('an onboarding question is setup, while a real approval still needs attention', () => {
   const fields = {
-    botOnboarding: 'started',
+    botOnboarding: 'active',
     inputRequests: asking.inputRequests.map((q) => ({ ...q, category: 'preference' })),
   }
 
@@ -83,4 +83,15 @@ test('an onboarding question is setup, while a real approval still needs attenti
     activityOf(run('bot', idle, { ...fields, botOnboarding: 'completed' }), []).kind,
     'asking',
   )
+})
+
+test('a Bot in setup shows its work while a turn runs, and its setup only at rest', () => {
+  const setup = { botOnboarding: 'active' }
+  const bot = run('bot', turn(), setup)
+
+  assert.deepEqual(activityOf(bot, []), { kind: 'working', run: bot })
+  const kid = run('kid', turn())
+
+  assert.deepEqual(activityOf(run('bot', idle, setup), [kid]), { kind: 'working', run: kid })
+  assert.equal(activityOf(run('bot', idle, setup), []).kind, 'onboarding')
 })

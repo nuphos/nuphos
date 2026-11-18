@@ -27,6 +27,8 @@ struct ChatComposerBar<Controls: View>: View {
     var recipient: String? = nil
     /// Each change raises the keyboard, as choosing to reply does.
     var focusRequest = 0
+    var autoFocus = false
+    @State private var didAutoFocus = false
     var onSend: (ComposerSubmission) -> Void
     var onStop: (() -> Void)? = nil
     /// Shown above the input while expanded (Credentials picker, permission mode).
@@ -311,6 +313,12 @@ struct ChatComposerBar<Controls: View>: View {
         }
         #endif
         .onChange(of: focusRequest) { focused = true }
+        .task(id: autoFocus) {
+            guard autoFocus, !didAutoFocus else { return }
+            do { try await Task.sleep(for: .milliseconds(350)) } catch { return }
+            focused = true
+            didAutoFocus = true
+        }
         .onChange(of: editRequest.wrappedValue != nil, initial: true) { _, requested in
             guard requested, let submission = editRequest.wrappedValue else { return }
             text = [submission.text, text].filter { !$0.isEmpty }.joined(separator: "\n\n")
@@ -344,7 +352,7 @@ struct ChatComposerBar<Controls: View>: View {
     private func mentionRow(symbol: String, title: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 8) {
-                Image(systemName: symbol)
+                LucideIcon(systemName: symbol)
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(Theme.muted)
                 Text(title)
@@ -377,7 +385,7 @@ struct ChatComposerBar<Controls: View>: View {
         #if os(iOS)
         if voiceTeamId != nil {
             Button(action: startDictation) {
-                Image(systemName: "mic")
+                LucideIcon("mic")
                     .font(.system(size: 17, weight: .medium))
                     .frame(width: 34, height: 34)
                     .foregroundStyle(Theme.body)
@@ -396,7 +404,7 @@ struct ChatComposerBar<Controls: View>: View {
     private func dictationBar(_ dictation: VoiceDictation) -> some View {
         HStack(spacing: 10) {
             Button(action: cancelDictation) {
-                Image(systemName: "xmark")
+                LucideIcon("x")
                     .font(Theme.Text.secondary.weight(.bold))
                     .frame(width: 34, height: 34)
                     .foregroundStyle(Theme.heading)
@@ -420,7 +428,7 @@ struct ChatComposerBar<Controls: View>: View {
             }
 
             Button { finishDictation(thenSend: false) } label: {
-                Image(systemName: "stop.fill")
+                LucideIcon("square")
                     .font(Theme.Text.secondary.weight(.bold))
                     .frame(width: 34, height: 34)
                     .foregroundStyle(Theme.heading)
@@ -431,7 +439,7 @@ struct ChatComposerBar<Controls: View>: View {
             .accessibilityLabel("Finish voice input")
 
             Button { finishDictation(thenSend: true) } label: {
-                Image(systemName: "arrow.up")
+                LucideIcon("arrow-up")
                     .font(Theme.Text.secondary.weight(.bold))
                     .frame(width: 34, height: 34)
                     .foregroundStyle(Theme.chatCanvas)
@@ -535,7 +543,7 @@ struct ChatComposerBar<Controls: View>: View {
 
     private func attachButton(_ symbol: String, label: LocalizedStringKey, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: symbol)
+            LucideIcon(systemName: symbol)
                 .font(.system(size: 17, weight: .medium))
                 .frame(width: 34, height: 34)
                 .foregroundStyle(Theme.body)
@@ -565,7 +573,7 @@ struct ChatComposerBar<Controls: View>: View {
         HStack(spacing: 6) {
             if action != .stop, isStreaming, canStop, let onStop {
                 Button(action: onStop) {
-                    Image(systemName: ComposerAction.stop.systemImage)
+                    LucideIcon(systemName: ComposerAction.stop.systemImage)
                         .font(Theme.Text.secondary.weight(.bold))
                         .frame(width: 34, height: 34)
                         .foregroundStyle(Theme.heading)
@@ -583,7 +591,7 @@ struct ChatComposerBar<Controls: View>: View {
         return Button {
             if action == .stop { onStop?() } else { send() }
         } label: {
-            Image(systemName: action.systemImage)
+            LucideIcon(systemName: action.systemImage)
                 .font(Theme.Text.secondary.weight(.bold))
                 .frame(width: 34, height: 34)
                 .foregroundStyle(Theme.chatCanvas)
@@ -694,11 +702,11 @@ struct ComposerChip: View {
             if let logo {
                 BrandLogo(name: logo, size: 16)
             } else if let systemImage {
-                Image(systemName: systemImage).font(.system(size: 11, weight: .semibold))
+                LucideIcon(systemName: systemImage).font(.system(size: 11, weight: .semibold))
             }
             Text(title).font(.system(size: 12, weight: .medium)).lineLimit(1)
             if showsChevron {
-                Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.muted)
+                LucideIcon("chevron-down").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.muted)
             }
         }
         .foregroundStyle(isActive ? Theme.heading : Theme.body)
@@ -728,7 +736,7 @@ struct BrandLogo: View {
     ZStack(alignment: .bottom) {
         Theme.canvas.ignoresSafeArea()
         ChatComposerBar(text: $text, onSend: { _ in }) {
-            ComposerChip(systemImage: "key", title: "Credentials")
+            ComposerChip(systemImage: "person.badge.key", title: "Credentials")
             ComposerChip(title: "Auto Mode")
         }
     }

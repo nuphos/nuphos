@@ -87,7 +87,7 @@ export function NewChatButton({
       {open && (
         <Modal
           open
-          title={connecting ? t('Connect your agent') : t('New Bot')}
+          title={connecting ? t('Connect a runtime') : t('New Bot')}
           appearance="prompt"
           width={connecting ? 600 : 440}
           onClose={() => (connecting ? setConnecting(false) : setOpen(false))}

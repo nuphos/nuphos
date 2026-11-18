@@ -10,7 +10,8 @@ import type { AgentRunTrace } from './types'
 /**
  * The agent's own state or the user's own setup, which the app already names, or undefined
  * for a fault: busy (the message waits for the turn ahead), offline, out of usage, signed
- * out, a conversation too long for the model, or a model the endpoint does not serve.
+ * out, a conversation too long for the model, a model the endpoint does not serve, an
+ * agent CLI that cannot start, or a computer that cannot reach the model API.
  * The state probe keeps the original failure as its cause.
  */
 function agentState(error: unknown): string | undefined {

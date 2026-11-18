@@ -1,11 +1,37 @@
 // Scenarios about a Bot reading its chat. They run in the Bot chat the scenario before opened.
+import { existsSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
+
 import { agentEvents, agentLog } from './agent-log.ts'
+import { botAccessScenarios } from './bot-access-scenarios.ts'
+import { computerWithUsage, pickRuntime, shootRuntimeLine } from './channel-helpers.ts'
+import { checkDockToggleClear } from './chat-presentation.ts'
 import { artifacts, until } from './processes.ts'
-import { send } from './ui.ts'
+import { newTask, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 
+/** One scenario per file in ./channel, its default export, in file-name order. */
+async function scenarioFiles(): Promise<Scenario[]> {
+  const dir = join(import.meta.dirname, 'channel')
+
+  if (!existsSync(dir)) return []
+  const files = readdirSync(dir)
+    .filter((file) => file.endsWith('.ts'))
+    .sort()
+
+  return Promise.all(
+    files.map(async (file) => ((await import(join(dir, file))) as { default: Scenario }).default),
+  )
+}
+
 export const channelScenarios: Scenario[] = [
+  {
+    name: "the Bot chat's header ends left of the workspace panel toggle",
+    run: async (page) => {
+      await checkDockToggleClear(page, 'Bot chat header')
+    },
+  },
   {
     // #2949: channel_read in a woken turn returned the page the notice had shown, not the rest.
     name: 'a Bot woken by more than a page of posts reads on to the newest one',
@@ -94,4 +120,108 @@ export const channelScenarios: Scenario[] = [
       await ownWords('After the turn')
     },
   },
+  {
+    // #3319: a Bot's chat kept a name of its own, so a renamed Bot still showed its old one.
+    name: "renaming a Bot's chat renames the Bot, and every place it shows follows",
+    run: async (page, stack) => {
+      const channelId = agentLog(stack).find((entry) => entry.event === 'channel')?.detail
+      const rename = async (title: string) => {
+        const response = await fetch(
+          `${stack.apiUrl}/agent/conversations/${channelId ?? ''}/title`,
+          {
+            method: 'PATCH',
+            headers: {
+              authorization: `Bearer ${stack.token}`,
+              'content-type': 'application/json',
+            },
+            body: JSON.stringify({ teamId: stack.teamId, title }),
+          },
+        )
+
+        if (!response.ok) throw new Error(`Renaming failed: ${String(response.status)}`)
+      }
+
+      if (!channelId) throw new Error('The Bot has not answered in its chat yet')
+      await rename('E2E Scout')
+      try {
+        const rows = page.locator('[data-sidebar-row]')
+
+        await rows.filter({ hasText: 'E2E Scout' }).first().waitFor()
+        await page.locator('.workspace-agent-titlebar').getByText('E2E Scout').first().waitFor()
+        await page.getByText('Message E2E Scout', { exact: true }).waitFor()
+        await page.locator('[data-post-id]').filter({ hasText: 'E2E Scout' }).first().waitFor()
+        await page.evaluate(() => {
+          document.documentElement.classList.remove('dark')
+          document.documentElement.classList.add('light')
+        })
+        await page.screenshot({ path: `${artifacts}/bot-renamed-light.png` })
+        const stale = await rows.filter({ hasText: 'E2E Bot' }).count()
+
+        if (stale > 0) throw new Error(`${String(stale)} sidebar rows still show the old name`)
+      } finally {
+        // Later scenarios find the Bot by its name.
+        await rename('E2E Bot')
+      }
+      await page.getByText('Message E2E Bot', { exact: true }).waitFor()
+      // Renamed from outside the app, the Bot's sidebar row follows on its own, with no reload.
+      await page
+        .locator('[data-sidebar-row]')
+        .filter({ hasText: 'E2E Bot' })
+        .first()
+        .waitFor({ timeout: 10_000 })
+    },
+  },
+  ...botAccessScenarios,
+  {
+    // #3310: the Bot's name above its Inbox question opened the Bot's session as a Task,
+    // with the sidebar left on the Inbox.
+    name: "a Bot's name above its Inbox question opens the Bot's chat, with Bots in the sidebar",
+    run: async (page, stack) => {
+      await send(page, 'Ask me E2E_ASK E2E_DELIVERY:inbox-bot')
+      await page.getByText('POSTED E2E_DELIVERY:inbox-bot', { exact: true }).waitFor()
+      await page.getByRole('tab', { name: /^Inbox/ }).click()
+      const source = page.locator('article header').getByRole('button', { name: 'E2E Bot' })
+
+      await source.waitFor()
+      await page.screenshot({ path: `${artifacts}/inbox-bot-source-light.png` })
+      await source.click()
+      // The Bot's chat, not its own session: only the chat's composer is headed by its name.
+      await page.locator('[aria-placeholder="Message E2E Bot"]').waitFor()
+      await page.getByRole('tab', { name: /^Bots/, selected: true }).waitFor({ timeout: 5_000 })
+      // The sidebar slides over to Bots; shoot it once it has.
+      await page.waitForTimeout(1_000)
+      await page.screenshot({ path: `${artifacts}/inbox-bot-opened-light.png` })
+      await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).last().click()
+      await until('the answer in the Bot chat to reach the Bot', async () =>
+        agentEvents(stack).includes('finish E2E_DELIVERY:answered'),
+      )
+    },
+  },
+  {
+    // #3252: the Bot composer's runtime line hid the usage bar the Task composer shows.
+    name: 'the Bot composer and the Task composer both show the runtime usage bar',
+    run: async (page, stack) => {
+      const computer = 'E2E usage computer'
+      const fixture = 'E2E fixture agent'
+      const forget = await computerWithUsage(stack, computer)
+
+      try {
+        // Still in the Bot chat the scenarios before opened.
+        await pickRuntime(page, computer, /^Claude Code/)
+        const bot = await shootRuntimeLine(page, 'bot')
+
+        await pickRuntime(page, fixture, /^E2E fixture agent.*Claude Code/)
+        await newTask(page)
+        await pickRuntime(page, computer, /^Claude Code/)
+        const task = await shootRuntimeLine(page, 'task')
+
+        await pickRuntime(page, fixture, /^E2E fixture agent.*Claude Code/)
+        if (!bot || !task) throw new Error(`Usage bar: Bot ${String(bot)}, Task ${String(task)}`)
+      } finally {
+        forget()
+      }
+    },
+  },
+  // A new channel scenario is a file of its own in ./channel, not one more entry here.
+  ...(await scenarioFiles()),
 ]

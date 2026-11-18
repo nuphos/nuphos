@@ -123,6 +123,13 @@ extension NuphosAPI {
         try await get("teams/\(teamId)/favorites", token: token, timeout: 20)
     }
 
+    /// `PUT /teams/:id/favorites` — replaces the whole list. A 409 means it changed
+    /// since `revision` was read.
+    static func saveSidebarFavorites(token: String, teamId: String, entries: [SidebarFavorites.Entry], revision: Int) async throws {
+        struct Body: Encodable { let expectedRevision: Int; let entries: [SidebarFavorites.Entry] }
+        try await AgentChatAPI.send("PUT", "teams/\(teamId)/favorites", token: token, body: Body(expectedRevision: revision, entries: entries), timeout: 20)
+    }
+
     // MARK: - Transport
 
     private struct ErrorEnvelope: Decodable {

@@ -1,9 +1,9 @@
 // Serialized into the adapter with `.toString()`, so it must stay self-contained:
 // no top-level imports and no references outside its own body.
 //
-// A session waits for both fetches, bounded by their timeout: the agent reads its
-// skills once, when it starts, so skills that land a moment later would be missing
-// from the whole conversation. A runtime that already holds the current bundle is
+// A session waits for both fetches, bounded by their timeout, so its first turn already
+// has them. Later turns re-sync before each prompt, and the running agent reads the
+// change from disk. A runtime that already holds the current bundle is
 // answered 304 without a file being read (#1923), so the wait is one round trip.
 export async function nuphosLocalSyncSkills(params, options = {}) {
   const env =
@@ -180,7 +180,15 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
 
   const teamClaude = path.join(workspace, '.claude')
 
-  if (!personal) return { synced: Promise.resolve(await install(teamClaude, url, true)) }
+  // A live session reads skill files as they change on disk, so a prompt re-syncs the
+  // team bundle too (#3365): one round trip, answered 304 when nothing changed.
+  const syncTeam = (timeoutMs) => install(teamClaude, url, true, token, timeoutMs)
+
+  if (!personal) {
+    globalThis.nuphosRefreshSkills = () => syncTeam(5_000).catch(() => {})
+
+    return { synced: Promise.resolve(await syncTeam()) }
+  }
   // Whether a tree holds exactly the files of the revision recorded beside it. The
   // revision is the backend's hash of the bundle's files (`revisionOf`), so a skill
   // anyone added or changed after the sync, in a directory the agent can write to,
@@ -268,7 +276,8 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
   // and resuming it, and a new conversation's first turn has nothing saved to resume:
   // the turn failed with -32002 and every later one with "Session not found". The
   // runtime image dropped the same rebuild in #2618.
-  globalThis.nuphosRefreshPersonalSkills = () => syncPersonal(5_000, true).catch(() => {})
+  globalThis.nuphosRefreshSkills = () =>
+    Promise.all([syncTeam(5_000), syncPersonal(5_000, true)]).catch(() => {})
   // A session reads its skills when it starts, and the fetch runs behind it. So skills
   // left here for anyone but the member opening it are cleared first; that is local.
   const opener = holder(await credentialFor(false))
@@ -278,10 +287,7 @@ export async function nuphosLocalSyncSkills(params, options = {}) {
 
   // A tree that fails the check is fetched in full, not confirmed by its revision.
   if (!checked) await fs.rm(path.join(teamClaude, '.skills-revision'), { force: true })
-  const [synced] = await Promise.all([
-    install(teamClaude, url, true),
-    syncPersonal().catch(() => false),
-  ])
+  const [synced] = await Promise.all([syncTeam(), syncPersonal().catch(() => false)])
 
   // Present even when empty, so a skill synced for a later turn is picked up.
   await fs.mkdir(personalSkills, { recursive: true })

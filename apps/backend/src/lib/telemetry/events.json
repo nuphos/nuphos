@@ -3,6 +3,7 @@
   "admin.agent.rewake.error",
   "admin.team.delete",
   "agent.auto_mode.indexes_create_failed",
+  "agent.box.evicted",
   "agent.box.heal_failed",
   "agent.box.kill_failed",
   "agent.box.provision_failed",

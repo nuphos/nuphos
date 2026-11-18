@@ -222,13 +222,17 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
       locale,
       endpoint: chatRuntime.endpoint,
       onRunHandoff: attachFrameSink,
-      onTurnUsage: (usage) => {
+      onTurnUsage: (report) => {
         recordRuntimeTurnUsage({
           sessionId,
           userId: conversationOwnerUserId,
           teamId,
           provider: chatRuntime.endpoint.provider ?? 'claude-code',
-          usage,
+          ...report,
+          actorUserId: HUMAN_SENDER_SOURCES.has(source) ? userId : conversationOwnerUserId,
+          turnSource: source,
+          runtimeId: chatRuntime.endpoint.runtimeId,
+          deviceId: chatRuntime.endpoint.local?.deviceId,
           ...(params.trigger ? { trigger: params.trigger } : {}),
         })
       },

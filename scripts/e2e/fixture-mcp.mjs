@@ -43,10 +43,51 @@ export async function call(sessionId, name, args) {
   return message
 }
 
+/** `call`, reported to the client as a step of the turn, as real agents report their calls. */
+export const reporting = (send) => async (sessionId, name, args) => {
+  const toolCallId = randomUUID()
+  const update = (fields) =>
+    send({ method: 'session/update', params: { sessionId, update: { toolCallId, ...fields } } })
+
+  update({
+    sessionUpdate: 'tool_call',
+    // Claude Code's name for a tool of the `nuphos-tools` server.
+    title: `mcp__nuphos-tools__${name}`,
+    kind: 'other',
+    status: 'in_progress',
+    rawInput: args,
+  })
+  const message = await call(sessionId, name, args)
+
+  update({
+    sessionUpdate: 'tool_call_update',
+    status: (message.error ?? message.result?.isError) ? 'failed' : 'completed',
+    rawOutput: message.result,
+  })
+
+  return message
+}
+
 /** E2E_CALL <tool> <JSON arguments>: calls that tool and logs its answer, for arguments only a scenario knows. */
 export async function callNamed({ log, sessionId, text }) {
   const [, name, args] = /E2E_CALL (\S+) (\{.*\})/.exec(text) ?? []
   const message = await call(sessionId, name, JSON.parse(args ?? '{}'))
 
   log({ sessionId, event: 'called', name, result: message.result ?? message.error })
+}
+
+/** #3329: a Task on this same agent, as a Bot hands off work; a chat escapes E2E_CALL's JSON. */
+export async function subtask({ log, sessionId, marker }) {
+  const message = await call(sessionId, 'create_thread', {
+    label: 'Hand off',
+    title: 'E2E bot kid',
+    prompt: 'Reply E2E_DELIVERY:bot-kid',
+  })
+
+  log({
+    sessionId,
+    marker,
+    event: 'subtask',
+    isError: Boolean(message.error ?? message.result?.isError),
+  })
 }

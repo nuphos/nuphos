@@ -19,10 +19,9 @@ final class DockPanelUITests: XCTestCase {
         return app
     }
 
-    private func swipeInFromRightEdge(_ app: XCUIApplication) {
-        let window = app.windows.firstMatch
-        let edge = window.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.45))
-        edge.press(forDuration: 0.01, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.45, dy: 0.45)))
+    private func openWorkTools(_ app: XCUIApplication) {
+        app.buttons["Task options"].tap()
+        app.buttons["Work tools"].tap()
     }
 
     /// Scrolls the tab strip, or the New Tab list, until `element` can be tapped.
@@ -35,12 +34,12 @@ final class DockPanelUITests: XCTestCase {
         }
     }
 
-    func testRightEdgeSwipeMirrorsTheMacDockAndItsNewTabPage() {
+    func testWorkToolsOpensTheMacDockAndItsNewTabPage() {
         let app = launch()
         sleep(1)
-        swipeInFromRightEdge(app)
+        openWorkTools(app)
 
-        XCTAssertTrue(app.buttons["dock-tab-tab-signup"].waitForExistence(timeout: 5), "The swipe did not open the dock")
+        XCTAssertTrue(app.buttons["dock-tab-tab-signup"].waitForExistence(timeout: 5), "Work tools did not open the dock")
         for tab in ["tab-docs", "tab-local", "tab-terminal"] { XCTAssertTrue(app.buttons["dock-tab-\(tab)"].exists, tab) }
         XCTAssertTrue(app.textFields["dock-search"].exists)
         XCTAssertTrue(app.buttons["dock-row-recent-/teams/64b5f1c2e4b0a1d2c3e4f5a6/runtimes"].exists)
@@ -52,7 +51,7 @@ final class DockPanelUITests: XCTestCase {
     func testABrowserTabOpensNativelyOnThePhoneWithTheMacOneMenuAway() {
         let app = launch()
         sleep(1)
-        swipeInFromRightEdge(app)
+        openWorkTools(app)
         let tab = app.buttons["dock-tab-tab-signup"]
         XCTAssertTrue(tab.waitForExistence(timeout: 5))
         tab.tap()
@@ -74,7 +73,7 @@ final class DockPanelUITests: XCTestCase {
     func testAPageOnTheMacsNetworkLoadsThroughTheMac() {
         let app = launch()
         sleep(1)
-        swipeInFromRightEdge(app)
+        openWorkTools(app)
         let tab = app.buttons["dock-tab-tab-local"]
         XCTAssertTrue(tab.waitForExistence(timeout: 5))
         reveal(tab, in: app, sideways: true)
@@ -87,7 +86,7 @@ final class DockPanelUITests: XCTestCase {
 
     func testClosingATabOnThePhoneClosesItInTheStrip() {
         let app = launch()
-        app.buttons["dock-button"].tap()
+        openWorkTools(app)
         XCTAssertTrue(app.buttons["dock-tab-tab-terminal"].waitForExistence(timeout: 5))
         reveal(app.buttons["dock-close-tab-tab-terminal"], in: app, sideways: true)
         app.buttons["dock-close-tab-tab-terminal"].tap()
@@ -98,7 +97,7 @@ final class DockPanelUITests: XCTestCase {
 
     func testAPageTheIPhoneDoesNotHaveOpensOnTheMac() {
         let app = launch()
-        app.buttons["dock-button"].tap()
+        openWorkTools(app)
         let files = app.buttons["dock-row-workspace-team.files"]
         XCTAssertTrue(app.textFields["dock-search"].waitForExistence(timeout: 5))
         reveal(files, in: app, sideways: false)

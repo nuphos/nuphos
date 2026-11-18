@@ -218,7 +218,9 @@ export function importOperations(
       await agentConversations().updateOne(
         { sessionId: item.sessionId, userId: batch.userId, teamId: batch.teamId },
         {
+          // Named, it is a group: with one Bot alone it would be that Bot's own chat.
           $set: {
+            group: true,
             instructions: source.instructions,
             ...(lead ? { leadAgentSessionId: lead } : {}),
           },

@@ -38,7 +38,7 @@ function Notice({ event }: { event: AgentTimelineEvent }) {
       <span className="flex items-center gap-1.5 rounded-full border border-line-control/60 bg-main px-3 py-1 text-[12px] text-secondary">
         <Pause className="h-3 w-3 shrink-0 text-warning" strokeWidth={2.5} />
         {t(
-          'Agents paused after {count} replies to each other. They pick up again when someone posts.',
+          'Bots paused after {count} replies to each other. They pick up again when someone posts.',
           { count: event.turns ?? 10 },
         )}
       </span>

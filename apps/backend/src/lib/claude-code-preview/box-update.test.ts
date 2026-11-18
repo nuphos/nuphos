@@ -163,6 +163,14 @@ describe('Box update', () => {
     expect(BOX_INSTALL_COMMAND).not.toContain('/etc/fstab')
   })
 
+  test('a Box runs Pi too, installed on its own so a Box with the other agents still gets it', () => {
+    const pi = BOX_INSTALL_COMMAND.split('\n').find((line) => line.includes('pi-coding-agent'))
+
+    expect(pi).toMatch(
+      /^command -v pi >\/dev\/null \|\| \{ npm config set prefix "\$HOME\/\.npm-global" && npm i -g @earendil-works\/pi-coding-agent; \}$/,
+    )
+  })
+
   test('/tmp, /var/tmp and an empty Docker are bound to /data once, however often the install runs', () => {
     const lines = BOX_MOUNTS_COMMAND.split('\n').filter((entry) => entry.includes('/etc/fstab'))
     const fstab = path.join(mkdtempSync(path.join(os.tmpdir(), 'box-fstab-')), 'fstab')
