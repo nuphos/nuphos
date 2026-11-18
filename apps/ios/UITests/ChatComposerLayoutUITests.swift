@@ -11,7 +11,6 @@ final class ChatComposerLayoutUITests: XCTestCase {
         // The field is labelled with its placeholder; a plain text with the same label is not the field.
         let composer = app.textViews["Message release-planning"].firstMatch
         XCTAssertTrue(composer.waitForExistence(timeout: 10), "No composer")
-        app.dismissAutoFocusedKeyboard()
         XCTAssertTrue(app.buttons["Open sheet.jpg"].waitForExistence(timeout: 10), "The transcript never loaded")
         sleep(2)
         let bar = app.navigationBars.firstMatch.frame

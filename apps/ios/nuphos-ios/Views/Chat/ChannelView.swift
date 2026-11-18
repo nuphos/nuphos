@@ -206,7 +206,6 @@ struct ChannelView: View {
                 voiceTeamId: channel.teamId,
                 recipient: channel.title,
                 focusRequest: replyFocus,
-                autoFocus: channel.loaded && !channel.readOnly,
                 onSend: { channel.send($0) },
                 controls: { EmptyView() }
             )
