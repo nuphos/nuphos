@@ -15,7 +15,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.material3.Icon
@@ -136,9 +135,8 @@ internal fun cardReplies(question: BotQuestion): List<Pair<String, String>>? {
 
 /**
  * A card's options, one design whether one or any number may be picked, as Desktop's
- * `DecisionOptions` and Paper's question card: each option the same pill, wrapping, and "Other…" as a
- * line of text for the answer in words (in the Inbox, [answersInPlace], the text box is already
- * there), then "Send answer". One single-choice question ([pick] off) is answered by its option, and
+ * `DecisionOptions`: the options and "Other…", for the answer in words, one wrapping row of the same
+ * pill (in the Inbox, [answersInPlace], the text box is already there), then "Send answer". One single-choice question ([pick] off) is answered by its option, and
  * Send sends only its words; a multi-select or several questions pick their options, a check once
  * picked, and Send sends them together.
  */
@@ -165,8 +163,9 @@ private fun QuestionOptions(
         questions.forEachIndexed { index, item ->
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (questions.size > 1) Text(item.question, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                if (!item.options.isNullOrEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    item.options.forEach { option ->
+                // One row of the same pill: the options, then "Other…".
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item.options.orEmpty().forEach { option ->
                         val on = option in picked[index]
                         QuestionPill(option, checked = if (pick) on else null, Modifier.testTag("bot-question-option")) {
                             if (!pick) onAnswer(option)
@@ -177,13 +176,14 @@ private fun QuestionOptions(
                             }
                         }
                     }
+                    if (typed && !open[index]) QuestionPill(
+                        stringResource(if (item.options.isNullOrEmpty()) R.string.chats_question_reply else R.string.chats_question_other),
+                        checked = null, Modifier.testTag("bot-question-other"),
+                    ) { open[index] = true }
                 }
                 if (open[index]) OutlinedTextField(words[index], { words[index] = it }, Modifier.fillMaxWidth().testTag("bot-question-answer"),
                     placeholder = { Text(stringResource(R.string.chats_question_your_answer)) }, textStyle = MaterialTheme.typography.bodyMedium)
-                // "Other…" as a line of text under the options, as Paper draws it.
-                else if (typed) Text(stringResource(if (item.options.isNullOrEmpty()) R.string.chats_question_reply else R.string.chats_question_other),
-                    Modifier.clickable { open[index] = true }.minimumInteractiveComponentSize().testTag("bot-question-other"),
-                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
             }
         }
         if (pick || open.any { it }) Button(
