@@ -35,11 +35,11 @@ let thread
 const refused = (message) => Boolean(message.error ?? message.result?.isError)
 const step = reporting(send)
 
-/** Asks the person a question through request_user_decision. */
-async function ask(sessionId, category) {
+/** Asks the person a question: a credential when the newest ask in `text` (with its history) says so. */
+async function ask(sessionId, text) {
   const message = await step(sessionId, 'request_user_decision', {
     label: 'Ask which marker to use',
-    category,
+    category: /E2E_ASK_CREDENTIAL(?![\s\S]*E2E_ASK)/.test(text) ? 'credential' : 'preference',
     question: 'Which marker should the fixture use?',
     // A link the app can open without leaving this computer.
     body: `Background is at ${new URL(toolsServer(sessionId).url).origin}/health/ready`,
@@ -147,15 +147,13 @@ async function prompt({ sessionId, prompt: parts }) {
   if (/E2E_(HOP|INHERIT)/.test(text) && !text.includes(CHILD))
     await (text.includes('E2E_HOP') ? hop : inherit)({ call, send, log, sessionId, child: CHILD })
   if (text.includes('E2E_SUBTASK')) await subtask({ log, sessionId, marker })
-  if (text.includes('E2E_ASK')) {
-    await ask(sessionId, text.includes('E2E_ASK_CREDENTIAL') ? 'credential' : 'preference')
-  }
+  if (text.includes('E2E_ASK')) await ask(sessionId, text)
   // A Bot is woken by its chat's posts and answers there, as only channel_post can.
   const channelId = /\(channelId ([^)]+)\)/.exec(text)?.[1]
 
   if (channelId) await answerChannel({ call, log, sessionId, channelId, text })
   if (process.env.E2E_BOT_ONBOARDING && text.includes('The person just created you'))
-    await ask(sessionId, 'preference')
+    await ask(sessionId, '')
   if (text.includes('E2E_ONBOARDING_COMPLETE')) {
     const result = await call(sessionId, 'update_self', {
       label: 'Save confirmed responsibilities',
