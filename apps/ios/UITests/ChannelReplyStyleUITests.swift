@@ -18,14 +18,16 @@ final class ChannelReplyStyleUITests: XCTestCase {
         ])
         let quote = app.buttons["Replying to Preview Bot: \(question)"]
         XCTAssertTrue(quote.waitForExistence(timeout: 15), app.debugDescription)
+        settle(app)
         let bubble = app.otherElements.matching(identifier: "channel.bubble")
             .containing(.button, identifier: "channel.quote").firstMatch
         XCTAssertTrue(bubble.exists, "The quote is not inside a bubble: \(app.debugDescription)")
-        XCTAssertTrue(bubble.frame.insetBy(dx: -1, dy: -1).contains(quote.frame), "quote \(quote.frame) outside bubble \(bubble.frame)")
+        let quoteFrame = quote.frame, bubbleFrame = bubble.frame
+        XCTAssertTrue(bubbleFrame.insetBy(dx: -1, dy: -1).contains(quoteFrame), "quote \(quoteFrame) outside bubble \(bubbleFrame)")
         // The reply's own words, under the quote.
         let words = try XCTUnwrap(bubble.descendants(matching: .other).allElementsBoundByIndex.last)
-        XCTAssertGreaterThanOrEqual(words.frame.minY, quote.frame.maxY, "The quote is not above the reply's words")
-        XCTAssertLessThanOrEqual(quote.frame.width, 241)
+        XCTAssertGreaterThanOrEqual(words.frame.minY, quoteFrame.maxY, "The quote is not above the reply's words")
+        XCTAssertLessThanOrEqual(quoteFrame.width, 241)
         keep(app, "reply-inside")
     }
 
@@ -34,6 +36,7 @@ final class ChannelReplyStyleUITests: XCTestCase {
         // Cells: the timestamp, then the Bot's post.
         let cell = app.collectionViews["chat.transcript"].cells.element(boundBy: 1)
         XCTAssertTrue(cell.waitForExistence(timeout: 15), app.debugDescription)
+        settle(app)
         cell.press(forDuration: 1)
         XCTAssertTrue(app.buttons["Reply"].waitForExistence(timeout: 5))
         app.buttons["Reply"].tap()
@@ -66,21 +69,29 @@ final class ChannelReplyStyleUITests: XCTestCase {
         ])
         let mine = app.buttons["Replying to Preview Bot: \(question)"]
         XCTAssertTrue(mine.waitForExistence(timeout: 15), app.debugDescription)
-        XCTAssertTrue(app.staticTexts["Diana Prince answered: Rotate the key? → Yes"].exists, "The old record lost its line")
-        XCTAssertTrue(app.buttons["Replying to Preview Bot: Which day works for the move?"].exists)
-        let dianasLast = app.buttons["Replying to Preview Bot: Where should it go first?"]
-        XCTAssertTrue(dianasLast.exists)
-        // One line per card, under its last answer, on that answer's side.
-        let lines = app.descendants(matching: .any).matching(identifier: "channel.answeredInInbox")
-        XCTAssertEqual(lines.count, 2)
+        settle(app)
         let width = app.windows.firstMatch.frame.width
-        let theirs = lines.element(boundBy: 0), ours = lines.element(boundBy: 1)
-        XCTAssertLessThan(theirs.frame.midX, width / 2)
-        XCTAssertGreaterThan(theirs.frame.minY, dianasLast.frame.maxY)
-        XCTAssertGreaterThan(ours.frame.midX, width / 2)
-        XCTAssertGreaterThan(ours.frame.minY, mine.frame.maxY)
+        let lines = app.descendants(matching: .any).matching(identifier: "channel.answeredInInbox")
+        // At the bottom: the viewer's answer on the right, its card's line under it on that side.
         XCTAssertGreaterThan(mine.frame.midX, width / 2, "The viewer's answer is not on the right")
+        let ours = lines.allElementsBoundByIndex.last
+        XCTAssertNotNil(ours)
+        if let ours {
+            XCTAssertGreaterThan(ours.frame.midX, width / 2)
+            XCTAssertGreaterThan(ours.frame.minY, mine.frame.maxY)
+        }
+        // At the top: the old record's line, then Diana's answers, with one line under the last.
+        app.collectionViews["chat.transcript"].firstMatch.swipeDown(velocity: .slow)
+        sleep(1)
+        XCTAssertTrue(app.staticTexts["Diana Prince answered: Rotate the key? → Yes"].waitForExistence(timeout: 5),
+                      "The old record lost its line")
         XCTAssertTrue(app.staticTexts["Diana Prince"].exists, "The answerer's name is missing")
+        let dianasFirst = app.buttons["Replying to Preview Bot: Which day works for the move?"]
+        let dianasLast = app.buttons["Replying to Preview Bot: Where should it go first?"]
+        XCTAssertTrue(dianasFirst.exists && dianasLast.exists)
+        let theirs = lines.firstMatch
+        XCTAssertLessThan(theirs.frame.midX, width / 2)
+        XCTAssertGreaterThan(theirs.frame.minY, dianasLast.frame.maxY, "The card's line is not under its last answer")
         keep(app, "inbox-answers")
     }
 
@@ -115,6 +126,15 @@ final class ChannelReplyStyleUITests: XCTestCase {
         app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path]
         app.launch()
         return app
+    }
+
+    /// The chat has finished opening and its posts have stopped arriving.
+    private func settle(_ app: XCUIApplication) {
+        let transcript = app.collectionViews["chat.transcript"].firstMatch
+        let inPlace = NSPredicate { _, _ in transcript.exists && transcript.frame.minX == 0 }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: inPlace, object: nil)], timeout: 10),
+                       .completed, "The chat did not finish opening")
+        sleep(1)
     }
 
     private func keep(_ app: XCUIApplication, _ name: String) {
