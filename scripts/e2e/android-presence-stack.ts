@@ -62,7 +62,10 @@ const groupChat = await chat(true, 'Launch planning')
 
 disconnect(false)
 await until('the Bot to read as offline', async () => {
-  const { agents } = await api('GET', `/agent/conversations/${groupChat}/agents?teamId=${stack.teamId}`)
+  const { agents } = await api(
+    'GET',
+    `/agent/conversations/${groupChat}/agents?teamId=${stack.teamId}`,
+  )
   const presence = (agents as { presence?: { reason?: string } }[])[0]?.presence
 
   return presence?.reason === 'computer_offline'
