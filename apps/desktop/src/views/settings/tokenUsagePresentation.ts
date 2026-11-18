@@ -27,6 +27,44 @@ export const TOKEN_USAGE_GROUPS: readonly { value: UsageDimension; label: string
 export const usageGroupLabel = (dimension: UsageDimension): string =>
   TOKEN_USAGE_GROUPS.find((group) => group.value === dimension)?.label ?? dimension
 
+/** The values each dimension is narrowed to, with the names they were picked by. */
+export type UsageFilters = Partial<Record<UsageDimension, { value: string; label: string }[]>>
+
+/** The filters as query parameters: each dimension's values, comma separated. */
+export function filterQuery(
+  filters: UsageFilters,
+  except?: UsageDimension,
+): Partial<Record<UsageDimension, string>> {
+  return Object.fromEntries(
+    Object.entries(filters).flatMap(([dimension, values]) =>
+      dimension === except || values.length === 0
+        ? []
+        : [[dimension, values.map((value) => value.value).join(',')]],
+    ),
+  )
+}
+
+/** The filters with `value` added to or removed from `dimension`; an emptied one is dropped. */
+export function toggleFilter(
+  filters: UsageFilters,
+  dimension: UsageDimension,
+  value: { value: string; label: string },
+): UsageFilters {
+  const { [dimension]: current = [], ...rest } = filters
+  const next = current.some((picked) => picked.value === value.value)
+    ? current.filter((picked) => picked.value !== value.value)
+    : [...current, value]
+
+  return next.length ? { ...rest, [dimension]: next } : rest
+}
+
+/** The filters without `dimension`. */
+export function clearFilter(filters: UsageFilters, dimension: UsageDimension): UsageFilters {
+  const { [dimension]: _cleared, ...rest } = filters
+
+  return rest
+}
+
 /** The query window: whole local days ending tonight at midnight, so today is included. */
 export function tokenUsageWindow(range: TokenUsageRange, now: Date): { from: string; to: string } {
   const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
@@ -99,6 +137,9 @@ export function tokenUsageLines(
     .sort((a, b) => b.totalTokens - a.totalTokens || a.label.localeCompare(b.label))
 }
 
+/** The backend's one row for every conversation other members made private. */
+export const OTHERS_PRIVATE = 'private:others'
+
 /** A grouped value as the page shows it: the backend's name, a runtime's name, or the id. */
 export function usageLabel(
   value: string | null,
@@ -106,6 +147,7 @@ export function usageLabel(
   names: UsageNames,
 ): string {
   if (value === null) return t('Not recorded')
+  if (value === OTHERS_PRIVATE) return t('Other members’ private conversations')
 
   const served = names.served?.[groupBy]?.[value]
 

@@ -1,4 +1,4 @@
-import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
 import { SERIES_COLORS } from '../../components/chartColors'
 import { t } from '../../i18n'
@@ -9,8 +9,8 @@ const color = (index: number) => SERIES_COLORS[index % SERIES_COLORS.length]
 const dayLabel = (at: number) =>
   new Date(at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 
-/** Tokens per day, stacked by the largest groups of the table's grouping, so a spike shows who
- *  or what drove it. */
+/** One bar a day, stacked by the largest groups of the table's grouping, so a spike shows who or
+ *  what drove it. */
 export function UsageSplitChart({
   series,
   points,
@@ -30,11 +30,15 @@ export function UsageSplitChart({
       </div>
       <div className="mt-1 h-24 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={points} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
-            <XAxis dataKey="at" type="number" scale="time" domain={['dataMin', 'dataMax']} hide />
+          <BarChart
+            data={points}
+            margin={{ top: 4, right: 0, left: 0, bottom: 0 }}
+            barCategoryGap="20%"
+          >
+            <XAxis dataKey="at" hide />
             <YAxis hide domain={[0, 'auto']} allowDecimals={false} />
             <Tooltip
-              cursor={{ stroke: 'rgba(var(--color-data-1), 0.4)' }}
+              cursor={{ fill: 'rgba(var(--color-data-1), 0.08)' }}
               content={({ active, payload }) => {
                 const point = payload?.[0]?.payload as Record<string, number> | undefined
 
@@ -54,19 +58,15 @@ export function UsageSplitChart({
               }}
             />
             {series.map(({ key }, index) => (
-              <Area
+              <Bar
                 key={key}
-                type="monotone"
                 dataKey={key}
                 stackId="usage"
-                stroke={color(index)}
-                strokeWidth={1.25}
                 fill={color(index)}
-                fillOpacity={0.25}
                 isAnimationActive={false}
               />
             ))}
-          </AreaChart>
+          </BarChart>
         </ResponsiveContainer>
       </div>
       {series.length > 1 && (

@@ -5,7 +5,7 @@ import { getAgentStats, isTimeZone } from '@/lib/agent/agent-stats'
 import { boxUsageView } from '@/lib/agent/devices/box-instabox-limit'
 import { listBoxUsageHistory } from '@/lib/agent/devices/box-usage-history'
 import { ACTIVITY_RANGES, getTeamActivity, ownActivity } from '@/lib/agent/team-activity'
-import { usageNames } from '@/lib/agent/usage-names'
+import { mergeOthersPrivate, usageNames } from '@/lib/agent/usage-names'
 import { USAGE_BUCKETS, USAGE_DIMENSIONS, queryTeamUsage } from '@/lib/agent/usage-query'
 import { getTeamUsageSeries } from '@/lib/agent/usage-summary'
 import { QUOTA_HISTORY_RANGES } from '@/lib/claude-code-preview/runtime-quota-history'
@@ -180,15 +180,14 @@ teamScoped.get('/usage/query', zv('query', usageQuerySchema), async (c) => {
     }),
   )
 
-  const rows = await queryTeamUsage(c.get('teamId'), {
-    from,
-    to,
-    bucket,
-    timeZone,
-    groupBy,
-    filters,
-  })
   const viewer = { userId: c.get('userId'), teamRole: c.get('teamRole') }
+  // Other members' private conversations show as one row, never apart.
+  const rows = await mergeOthersPrivate(
+    c.get('teamId'),
+    viewer,
+    groupBy,
+    await queryTeamUsage(c.get('teamId'), { from, to, bucket, timeZone, groupBy, filters }),
+  )
 
   return c.json({ rows, names: await usageNames(c.get('teamId'), viewer, groupBy, rows) })
 })

@@ -1,6 +1,12 @@
 import { t } from '../../i18n'
 
-import { formatChange, formatTokens, formatUsd, usageGroupLabel } from './tokenUsagePresentation'
+import {
+  OTHERS_PRIVATE,
+  formatChange,
+  formatTokens,
+  formatUsd,
+  usageGroupLabel,
+} from './tokenUsagePresentation'
 
 import type { TokenUsageLine } from './tokenUsagePresentation'
 import type { UsageDimension } from '../../types/usage'
@@ -48,7 +54,7 @@ export function UsageTable({
           className={`grid ${COLUMNS} gap-3 border-b border-line-control/30 py-2 text-main`}
         >
           <span role="cell" className="min-w-0 truncate" title={line.label}>
-            {onOpen && line.key ? (
+            {onOpen && line.key && line.key !== OTHERS_PRIVATE ? (
               <button
                 type="button"
                 onClick={() => onOpen(line)}

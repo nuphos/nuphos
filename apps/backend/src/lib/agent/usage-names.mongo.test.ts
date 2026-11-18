@@ -120,26 +120,21 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('usage names', () => {
     })
   })
 
-  test('a Trigger is named as its conversation is, and never from another team', async () => {
-    const ids = [ADMIN_TRIGGER, MEMBER_TRIGGER, ELSEWHERE_TRIGGER].map((id) => id.toHexString())
+  test('Triggers and computers are the team’s: named to every member, never from another team', async () => {
+    const triggers = [ADMIN_TRIGGER, MEMBER_TRIGGER, ELSEWHERE_TRIGGER].map((id) =>
+      id.toHexString(),
+    )
+    const computers = [`${teamId}-mac`, `${teamId}-box`, 'not-a-computer']
 
-    expect(await names(asAdmin, 'trigger', ids)).toEqual({
-      [ids[0]!]: 'Nightly',
-      [ids[1]!]: 'Mine',
-    })
-    expect(await names(asMember, 'trigger', ids)).toEqual({ [ids[0]!]: null, [ids[1]!]: 'Mine' })
-  })
-
-  test('a computer is named to an administrator and to the people who may use it', async () => {
-    const ids = [`${teamId}-mac`, `${teamId}-box`, 'not-a-computer']
-
-    expect(await names(asAdmin, 'computer', ids)).toEqual({
-      [`${teamId}-mac`]: "Ada's Mac",
-      [`${teamId}-box`]: 'Box',
-    })
-    expect(await names(asMember, 'computer', ids)).toEqual({
-      [`${teamId}-mac`]: null,
-      [`${teamId}-box`]: 'Box',
-    })
+    for (const viewer of [asAdmin, asMember]) {
+      expect(await names(viewer, 'trigger', triggers)).toEqual({
+        [triggers[0]!]: 'Nightly',
+        [triggers[1]!]: 'Mine',
+      })
+      expect(await names(viewer, 'computer', computers)).toEqual({
+        [`${teamId}-mac`]: "Ada's Mac",
+        [`${teamId}-box`]: 'Box',
+      })
+    }
   })
 })

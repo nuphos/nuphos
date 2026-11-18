@@ -1,4 +1,3 @@
-import { X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
 import { Button } from '../../components/ui/button'
@@ -17,12 +16,14 @@ import {
   tokenUsageLines,
   tokenUsageSplit,
   tokenUsageWindow,
-  usageGroupLabel,
+  filterQuery,
+  toggleFilter,
 } from './tokenUsagePresentation'
+import { UsageFilterBar } from './UsageFilters'
 import { UsageSplitChart } from './UsageSplitChart'
 import { UsageTable } from './UsageTable'
 
-import type { TokenUsageRange, UsageNames } from './tokenUsagePresentation'
+import type { TokenUsageRange, UsageFilters, UsageNames } from './tokenUsagePresentation'
 import type { RuntimeInstance } from '../../types/runtime'
 import type {
   TeamUsageNames,
@@ -39,9 +40,6 @@ const RANGE_OPTIONS = (Object.keys(TOKEN_USAGE_RANGES) as TokenUsageRange[]).map
 const NOTE =
   'mt-3 rounded-xl border border-dashed border-line-control px-4 py-6 text-center text-xs leading-5 text-tertiary'
 
-/** A row the reader clicked into: every read keeps only records with this value. */
-type UsageFilter = { dimension: UsageDimension; value: string; label: string }
-
 /** What the team's runtimes spent in model tokens, per day and split by one dimension, each
  *  group against the period before. Every member sees the team's numbers; the backend names
  *  another member's Bot, Task, conversation, Trigger or computer only where the viewer may see
@@ -55,11 +53,11 @@ export function TokenUsage({
 }) {
   const [range, setRange] = useState<TokenUsageRange>('7d')
   const [groupBy, setGroupBy] = useState<UsageDimension>('model')
-  const [filter, setFilter] = useState<UsageFilter | null>(null)
+  const [filters, setFilters] = useState<UsageFilters>({})
   // The window moves only when the range does, so a re-render never refetches.
   const span = useMemo(() => tokenUsageWindow(range, new Date()), [range])
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
-  const where = filter ? { [filter.dimension]: filter.value } : {}
+  const where = filterQuery(filters)
   const days = useTeamUsageQuery(teamId, { ...span, ...where, bucket: 'day', timeZone, groupBy })
   const groups = useTeamUsageQuery(teamId, { ...span, ...where, groupBy })
   // The same days just before, so a group that grew stands out.
@@ -107,8 +105,10 @@ export function TokenUsage({
         stale={groups.isPlaceholderData || days.isPlaceholderData}
         groupBy={groupBy}
         onGroupBy={setGroupBy}
-        filter={filter}
-        onFilter={setFilter}
+        teamId={teamId}
+        span={span}
+        filters={filters}
+        onFilters={setFilters}
       />
     )
 
@@ -143,8 +143,10 @@ function UsageReport({
   stale,
   groupBy,
   onGroupBy,
-  filter,
-  onFilter,
+  teamId,
+  span,
+  filters,
+  onFilters,
 }: {
   days: UsageAnswer
   groups: UsageAnswer
@@ -154,8 +156,10 @@ function UsageReport({
   stale: boolean
   groupBy: UsageDimension
   onGroupBy: (groupBy: UsageDimension) => void
-  filter: UsageFilter | null
-  onFilter: (filter: UsageFilter | null) => void
+  teamId: string
+  span: { from: string; to: string }
+  filters: UsageFilters
+  onFilters: (filters: UsageFilters) => void
 }) {
   // Drawn by the grouping each answer was asked for, not the one being loaded.
   const shownGroup = groups.query.groupBy ?? groupBy
@@ -182,31 +186,23 @@ function UsageReport({
         <UsageSplitChart series={split.series} points={split.points} total={split.total} />
       </div>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3 text-xs text-tertiary">
-          {filter && (
-            <span className="flex min-w-0 items-center gap-1 rounded-md border border-line-control/70 py-0.5 pl-2 pr-1 text-main">
-              <span className="truncate">
-                {usageGroupLabel(filter.dimension)}: {filter.label}
-              </span>
-              <button
-                type="button"
-                aria-label={t('Clear filter')}
-                onClick={() => onFilter(null)}
-                className="rounded p-0.5 text-tertiary hover:bg-state-hover hover:text-main"
-              >
-                <X size={12} />
-              </button>
-            </span>
-          )}
-          {cost === undefined ? null : t('About {cost} at list prices', { cost: formatUsd(cost) })}
-        </div>
-        <AppSelect
-          size="sm"
-          ariaLabel={t('Group by')}
-          value={groupBy}
-          onValueChange={(value) => onGroupBy(value as UsageDimension)}
-          options={[...TOKEN_USAGE_GROUPS]}
+        <UsageFilterBar
+          teamId={teamId}
+          span={span}
+          names={names}
+          filters={filters}
+          onChange={onFilters}
         />
+        <div className="flex items-center gap-3 text-xs text-tertiary">
+          {cost === undefined ? null : t('About {cost} at list prices', { cost: formatUsd(cost) })}
+          <AppSelect
+            size="sm"
+            ariaLabel={t('Group by')}
+            value={groupBy}
+            onValueChange={(value) => onGroupBy(value as UsageDimension)}
+            options={[...TOKEN_USAGE_GROUPS]}
+          />
+        </div>
       </div>
       {lines.length === 0 ? (
         <p className={NOTE}>{t('No token usage recorded in this range yet.')}</p>
@@ -215,11 +211,9 @@ function UsageReport({
           lines={lines}
           total={total}
           group={shownGroup}
-          // A row filters the section to itself; Group by then breaks it down further.
-          onOpen={
-            filter?.dimension === shownGroup
-              ? undefined
-              : (line) => onFilter({ dimension: shownGroup, value: line.key, label: line.label })
+          // A row adds itself to the filters; Group by then breaks it down further.
+          onOpen={(line) =>
+            onFilters(toggleFilter(filters, shownGroup, { value: line.key, label: line.label }))
           }
         />
       )}

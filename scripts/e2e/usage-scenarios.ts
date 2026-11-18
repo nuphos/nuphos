@@ -34,6 +34,38 @@ function turnRows(stack: Stack): TurnRow[] | null {
   ) as TurnRow[] | null
 }
 
+/** As the second member and as the owner: everyone gets the team's numbers, only an
+ *  administrator gets another's conversation name. */
+async function checkNamesByRole(stack: Stack, sessionId: string, teammateToken: string) {
+  // Every member sees the team's numbers; only an administrator sees another's conversation name.
+  const now = Date.now()
+  const read = async (token: string) => {
+    const query = new URLSearchParams({
+      from: new Date(now - 7 * 86_400_000).toISOString(),
+      to: new Date(now + 86_400_000).toISOString(),
+      groupBy: 'conversation',
+    })
+    const answer = await api(stack, token)(
+      'GET',
+      `/teams/${stack.teamId}/usage/query?${query.toString()}`,
+    )
+
+    return answer.body as unknown as {
+      rows: { keys: { conversation?: string }; totalTokens: number }[]
+      names: { conversation?: Record<string, string | null> }
+    }
+  }
+  const asTeammate = await read(teammateToken)
+  const asOwner = await read(stack.token)
+
+  if (!asTeammate.rows.some((row) => row.keys.conversation === sessionId))
+    throw new Error('A member does not see the team’s usage')
+  if (asTeammate.names.conversation?.[sessionId] !== null)
+    throw new Error('A member sees the name of a teammate’s conversation')
+  if (!asOwner.names.conversation?.[sessionId])
+    throw new Error('An administrator does not see the conversation’s name')
+}
+
 /** The whole section, scrolled to the top of the window first, so a tall one is not cut off. */
 async function shot(section: Locator, name: string) {
   await section.evaluate((element) => element.scrollIntoView({ block: 'start' }))
@@ -189,34 +221,7 @@ export const usageScenarios: Scenario[] = [
         { actor: owner, total: 50_000, daysAgo: 1 },
       ])
       try {
-        // Every member sees the team's numbers; only an administrator sees another's conversation name.
-        const now = Date.now()
-        const read = async (token: string) => {
-          const query = new URLSearchParams({
-            from: new Date(now - 7 * 86_400_000).toISOString(),
-            to: new Date(now + 86_400_000).toISOString(),
-            groupBy: 'conversation',
-          })
-          const answer = await api(stack, token)(
-            'GET',
-            `/teams/${stack.teamId}/usage/query?${query.toString()}`,
-          )
-
-          return answer.body as unknown as {
-            rows: { keys: { conversation?: string }; totalTokens: number }[]
-            names: { conversation?: Record<string, string | null> }
-          }
-        }
-        const asTeammate = await read(teammate.token)
-        const asOwner = await read(stack.token)
-
-        if (!asTeammate.rows.some((row) => row.keys.conversation === sessionId))
-          throw new Error('A member does not see the team’s usage')
-        if (asTeammate.names.conversation?.[sessionId] !== null)
-          throw new Error('A member sees the name of a teammate’s conversation')
-        if (!asOwner.names.conversation?.[sessionId])
-          throw new Error('An administrator does not see the conversation’s name')
-
+        await checkNamesByRole(stack, sessionId, teammate.token)
         await openComputers(page)
         const section = page.getByRole('region', { name: 'Token usage' })
         const table = section.getByRole('table', { name: 'Token usage by group' })
@@ -244,6 +249,14 @@ export const usageScenarios: Scenario[] = [
         await trigger.getByText('Nightly digest').waitFor()
         await trigger.getByText('New').waitFor()
         await shot(section, 'token-usage-why-2-trigger')
+
+        // Filters take several values per dimension: the member picked by clicking is ticked.
+        await section.getByRole('button', { name: 'Filter' }).click()
+        await page.getByRole('menuitem', { name: 'Member' }).click()
+        await page.getByRole('menuitemcheckbox', { checked: true }).waitFor()
+        await page.screenshot({ path: `${artifacts}/token-usage-filter-menu.png` })
+        await page.keyboard.press('Escape')
+        await page.keyboard.press('Escape')
         await section.getByRole('button', { name: 'Clear filter' }).click()
         await page.getByText('Back to app', { exact: true }).click()
       } finally {

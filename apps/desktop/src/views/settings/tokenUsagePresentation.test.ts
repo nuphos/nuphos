@@ -2,12 +2,15 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import {
+  OTHERS_PRIVATE,
+  filterQuery,
   formatChange,
   formatTokens,
   previousTokenUsageWindow,
   tokenUsageLines,
   tokenUsageSplit,
   tokenUsageWindow,
+  toggleFilter,
 } from './tokenUsagePresentation.ts'
 
 import type { TeamUsageRow } from '../../types/usage'
@@ -137,4 +140,25 @@ test('a name the viewer may not see shows as a plain Conversation, never as its 
   })
 
   assert.equal(line?.label, 'Conversation')
+})
+
+test('filters hold several values per dimension and go out as comma lists', () => {
+  const ada = { value: 'u1', label: 'Ada' }
+  const lee = { value: 'u2', label: 'Lee' }
+  let filters = toggleFilter({}, 'member', ada)
+
+  filters = toggleFilter(filters, 'member', lee)
+  filters = toggleFilter(filters, 'model', { value: 'opus', label: 'opus' })
+  assert.deepEqual(filterQuery(filters), { member: 'u1,u2', model: 'opus' })
+  assert.deepEqual(filterQuery(filters, 'member'), { model: 'opus' })
+  assert.deepEqual(filterQuery(toggleFilter(filters, 'member', ada)), {
+    member: 'u2',
+    model: 'opus',
+  })
+})
+
+test('other members’ private conversations show as one row, by that name', () => {
+  const [line] = tokenUsageLines([row({ conversation: OTHERS_PRIVATE }, 5)], 'conversation', names)
+
+  assert.equal(line?.label, 'Other members’ private conversations')
 })

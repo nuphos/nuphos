@@ -32,13 +32,24 @@ const answers: Record<string, unknown[]> = {
   agent_conversations: [{ sessionId: CHAT, title: 'Pricing plan', userId: ADMIN }],
 }
 const answering = (collection: string) => {
-  const cursor = {
-    project: () => cursor,
-    map: () => cursor,
-    toArray: () => Promise.resolve(answers[collection] ?? []),
+  // Honours the two filters the reads here use: which conversations, and private ones only.
+  const read = (query?: { generalAccess?: string; sessionId?: { $in: string[] } }) => {
+    const all = (answers[collection] ?? []) as { generalAccess?: string; sessionId?: string }[]
+    const kept = all.filter(
+      (doc) =>
+        (!query?.generalAccess || doc.generalAccess === query.generalAccess) &&
+        (!query?.sessionId || query.sessionId.$in.includes(doc.sessionId ?? '')),
+    )
+    const cursor = {
+      project: () => cursor,
+      map: () => cursor,
+      toArray: () => Promise.resolve(kept),
+    }
+
+    return cursor
   }
 
-  return { find: () => cursor, aggregate: () => cursor }
+  return { find: read, aggregate: () => read() }
 }
 
 useDb({ db: () => ({ collection: answering }) })
@@ -93,5 +104,15 @@ describe('/usage/query', () => {
   test('the owner gets their own name, whatever their role', async () => {
     answers.agent_conversations = [{ sessionId: CHAT, title: 'Pricing plan', userId: MEMBER }]
     expect((await read(MEMBER, 'VIEWER')).names.conversation).toEqual({ [CHAT]: 'Pricing plan' })
+  })
+
+  test('another member’s private conversation comes back only as the merged row', async () => {
+    answers.agent_conversations = [
+      { sessionId: CHAT, title: 'Pricing plan', userId: ADMIN, generalAccess: 'none' },
+    ]
+    const answer = await read(MEMBER, 'EDITOR')
+
+    expect(answer.rows.map((row) => row.keys)).toEqual([{ conversation: 'private:others' }])
+    expect(JSON.stringify(answer)).not.toContain(CHAT)
   })
 })

@@ -8,7 +8,7 @@ import { closeDb, connectDb } from '@/lib/db'
 
 import { agentConversations } from './db'
 import { agentTokenUsage } from './token-usage'
-import { usageNames } from './usage-names'
+import { OTHERS_PRIVATE, mergeOthersPrivate, usageNames } from './usage-names'
 import { queryTeamUsage } from './usage-query'
 
 import type { UsageQuery } from './usage-query'
@@ -130,9 +130,16 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('team usage query', () => {
     },
   )
 
-  test('a conversation its owner made private is named to its owner alone', async () => {
+  test('a conversation its owner made private is one merged row to others, and itself to its owner', async () => {
     const team = `${TEAM}-private`
     const secret = `${team}-secret`
+    const grouped = async (userId: string, teamRole: 'ADMINISTRATOR' | 'EDITOR') =>
+      mergeOthersPrivate(
+        team,
+        { userId, teamRole },
+        ['conversation'],
+        await queryTeamUsage(team, { ...day, groupBy: ['conversation'], filters: {} }),
+      )
 
     await agentConversations().insertOne({
       sessionId: secret,
@@ -145,9 +152,12 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('team usage query', () => {
       turn(secret, MEMBER, 'opus', 10).map((row) => ({ ...row, teamId: team })),
     )
     try {
-      expect(await named(team, ADMIN, 'ADMINISTRATOR')).toEqual({
-        conversation: { [secret]: null },
-      })
+      expect((await grouped(ADMIN, 'ADMINISTRATOR')).map((row) => row.keys)).toEqual([
+        { conversation: OTHERS_PRIVATE },
+      ])
+      expect((await grouped(MEMBER, 'EDITOR')).map((row) => row.keys)).toEqual([
+        { conversation: secret },
+      ])
       expect(await named(team, MEMBER, 'EDITOR')).toEqual({
         conversation: { [secret]: 'Salary review' },
       })
