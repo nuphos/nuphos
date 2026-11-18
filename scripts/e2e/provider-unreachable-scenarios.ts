@@ -27,6 +27,8 @@ export const providerUnreachableScenarios: Scenario[] = [
   },
   {
     name: 'a Codex install missing its binary says to reinstall, without the raw spawn error',
+    // The fixture fails these turns on purpose; the backend still logs the agent's error.
+    expected: /Codex process has exited with code 1:.*spawn \/Users\/e2e\/[^"]*ENOENT/,
     run: async (page) => {
       await newTask(page)
       await pickAgent(page, 'E2E fixture agent')
