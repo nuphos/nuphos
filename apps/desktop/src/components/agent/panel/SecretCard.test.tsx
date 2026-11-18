@@ -142,11 +142,14 @@ test('while a dismissal is in flight, the value cannot be sent', async () => {
   const root = createRoot(container as unknown as HTMLElement)
   const saved: string[] = []
   // The server has not answered the dismissal yet.
-  let release: (withdrawn: boolean) => void = () => undefined
+  let release: ((withdrawn: boolean) => void) | undefined
   const ctx: ConnectCardContextValue = {
     send: () => true,
     answer: () => true,
-    dismiss: () => new Promise<boolean>((resolve) => (release = resolve)),
+    dismiss: () =>
+      new Promise<boolean>((resolve) => {
+        release = resolve
+      }),
     saveSecret: (name) => {
       saved.push(name)
 
@@ -185,7 +188,7 @@ test('while a dismissal is in flight, the value cannot be sent', async () => {
     await act(async () => button('Send securely')?.click())
     assert.deepEqual(saved, [])
 
-    await act(async () => release(true))
+    await act(async () => release?.(true))
     assert.equal(container.querySelector('input'), null)
     assert.deepEqual(saved, [])
     await act(() => root.unmount())

@@ -53,7 +53,7 @@ export function SecretCard({
   const interactive = Boolean(ctx?.saveSecret) && state === 'open'
   const [dismissed, setDismissed] = useState<'no' | 'sending' | 'yes'>('no')
   const submit = async () => {
-    if (!ctx?.saveSecret || !complete) return
+    if (!ctx?.saveSecret || !complete || dismissed !== 'no') return
     setPhase('saving')
     try {
       // One after another: a failure leaves nothing sent, and a retry writes every field again.
