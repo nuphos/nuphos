@@ -127,7 +127,7 @@ final class AgentStore {
     private var botOwners: [String: String] { ConversationNesting.botOwners(conversations + bots) }
 
     /// What Tasks lists, by latest activity: no Bot, and nothing a Bot dispatched
-    /// at any depth, which Bots lists under the Bot instead (#2341).
+    /// at any depth, which opens from the Bot's page instead (#2341).
     var listedConversations: [AgentConversation] {
         let owners = botOwners
         return conversations.filter { !$0.isBot && owners[$0.sessionId] == nil }
@@ -236,9 +236,7 @@ final class AgentStore {
     // MARK: - Threads
 
     private static let foldedThreadsKey = "nuphos.agent.foldedThreads"
-    /// Rows whose fold was flipped by hand, per team. A Tasks row is open
-    /// until folded. A Bots row, keyed `bots:<id>` as on Desktop, is folded
-    /// until opened, and then stays open.
+    /// Tasks rows folded by hand, per team. A row is open until folded.
     private var foldedThreads: [String: Set<String>] =
         (UserDefaults.standard.dictionary(forKey: AgentStore.foldedThreadsKey) as? [String: [String]] ?? [:])
             .mapValues(Set.init)
@@ -248,15 +246,11 @@ final class AgentStore {
         ConversationNesting.nest(listedConversations, folded: foldedThreads[selectedTeam?.id ?? ""] ?? [], byFamily: true)
     }
 
-    /// The Bots rows: each chat or Bot, with what a Bot dispatched under it.
-    var nestedBots: [NestedConversation] {
-        let rows = ConversationNesting.botRows(botsList, threads: conversations, owners: botOwners)
-        return ConversationNesting.nest(rows, folded: Set(rows.map(\.sessionId).filter { isFolded($0, onBots: true) }))
-    }
+    /// The Bots rows: each chat or Bot, flat. What a Bot dispatched opens from its page (#3592).
+    var nestedBots: [NestedConversation] { ConversationNesting.nest(botsList) }
 
-    func isFolded(_ sessionId: String, onBots: Bool = false) -> Bool {
-        let flipped = foldedThreads[selectedTeam?.id ?? ""]?.contains(onBots ? "bots:\(sessionId)" : sessionId) == true
-        return flipped != onBots
+    func isFolded(_ sessionId: String) -> Bool {
+        foldedThreads[selectedTeam?.id ?? ""]?.contains(sessionId) == true
     }
 
     // MARK: - Pins
@@ -307,9 +301,8 @@ final class AgentStore {
         rowActionFailed(lastError ?? NuphosAPI.Failure.invalidResponse, scope: scope) { [weak self] in await self?.setPinned(pinned, row) }
     }
 
-    func toggleFolded(_ sessionId: String, onBots: Bool = false) {
-        let key = onBots ? "bots:\(sessionId)" : sessionId
-        updateFolds { if $0.remove(key) == nil { $0.insert(key) } }
+    func toggleFolded(_ sessionId: String) {
+        updateFolds { if $0.remove(sessionId) == nil { $0.insert(sessionId) } }
     }
 
     private func updateFolds(_ change: (inout Set<String>) -> Void) {
