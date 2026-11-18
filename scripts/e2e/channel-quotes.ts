@@ -58,20 +58,26 @@ export async function shoot(page: Page, name: string) {
 export const QUOTED =
   'Customers are asking for a DPA before they sign. Can we send the standard one, or does legal need to review each request?'
 
-// The account's own name before the captures, put back after them.
-let ownName: string | undefined
+type Profile = { name?: string; username?: string; avatarURL?: string }
+
+// The account's own profile before the captures, put back after them.
+let own: Profile | undefined
 
 /** Names the signed-in person, as a real account is: posts and the reply bar show it, never an email. */
 export async function nameViewer(stack: Stack, name?: string): Promise<void> {
   const as = client(stack.apiUrl, stack.token)
+  const save = (profile: Profile, named: string) =>
+    as('PATCH', '/auth/me', {
+      name: named,
+      username: profile.username || 'e2e',
+      avatarURL: profile.avatarURL ?? '',
+    })
 
   if (name === undefined) {
-    await as('PATCH', '/auth/me', { name: ownName ?? '' })
+    if (own?.name) await save(own, own.name)
 
     return
   }
-  const { body } = await as('GET', '/auth/me')
-
-  ownName = ((body as { user?: { name?: string } }).user ?? (body as { name?: string })).name
-  await as('PATCH', '/auth/me', { name })
+  own = (await as('GET', '/auth/me')).body as Profile
+  await save(own, name)
 }
