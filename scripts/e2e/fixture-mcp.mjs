@@ -78,10 +78,12 @@ export async function callNamed({ log, sessionId, text }) {
 
 /** #3329: a Task on this same agent, as a Bot hands off work; a chat escapes E2E_CALL's JSON. */
 export async function subtask({ log, sessionId, marker }) {
+  // #3409 hands off a second one, which its scenario tells apart by name.
+  const kid = marker.includes('unlisted') ? 'unlisted-kid' : 'bot-kid'
   const message = await call(sessionId, 'create_thread', {
     label: 'Hand off',
-    title: 'E2E bot kid',
-    prompt: 'Reply E2E_DELIVERY:bot-kid',
+    title: `E2E ${kid.replace('-', ' ')}`,
+    prompt: `Reply E2E_DELIVERY:${kid}`,
   })
 
   log({

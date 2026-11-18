@@ -1,6 +1,6 @@
 import type { RuntimeDefaults } from './openab-acp-session'
 import type { RuntimeModelCatalog } from './runtime-models'
-import type { SessionConfigOption } from './session-config-options'
+import type { SessionConfigOption, SessionConfigState } from './session-config-options'
 
 /** The runtime's own choices as session options; a pick it still offers is the current value. */
 export function catalogSessionConfig(
@@ -79,4 +79,27 @@ export async function offeredSessionConfig(
   ) as RuntimeDefaults
 
   return { options, kept }
+}
+
+/**
+ * A model the runtime's list lacks but the session itself last reported running
+ * (a Task started on its parent's model, on a computer whose list is behind) is
+ * named from that report instead of left blank.
+ */
+export function namedModel(
+  state: SessionConfigState,
+  attachment: { sessionConfig?: SessionConfigOption[] },
+): SessionConfigState {
+  const running = attachment.sessionConfig?.find(
+    (option) => option.kind === 'model' && option.currentValue,
+  )
+
+  if (!running) return state
+
+  return {
+    ...state,
+    options: state.options.map((option) =>
+      option.kind === 'model' && !option.currentValue ? running : option,
+    ),
+  }
 }
