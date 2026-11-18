@@ -196,7 +196,10 @@ const NAMED: Partial<
   trigger: async (teamId, ids) =>
     (
       await agentTriggers()
-        .find({ teamId, _id: { $in: ids.filter(ObjectId.isValid).map((id) => new ObjectId(id)) } })
+        .find({
+          teamId,
+          _id: { $in: ids.filter((id) => ObjectId.isValid(id)).map((id) => new ObjectId(id)) },
+        })
         .project<{ _id: ObjectId; name: string }>({ name: 1 })
         .toArray()
     ).map((trigger) => [trigger._id.toHexString(), trigger.name]),
