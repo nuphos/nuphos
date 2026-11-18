@@ -161,7 +161,12 @@ export function ChannelIntro({ faces, title }: { faces?: ChannelFace[]; title: s
   )
 }
 
-/** The post the next one answers, above the composer and as wide as it. */
+/**
+ * The post the next one answers, floating just above the composer over the
+ * chat's last lines, inset past the faces twice as before (the composer's
+ * wrapper pads by one face, which `absolute` does not count). Its tint sits on
+ * the sheet's own color, so the chat passing under it does not show through.
+ */
 export function ReplyingBanner({
   reply,
   onCancel,
@@ -170,7 +175,7 @@ export function ReplyingBanner({
   onCancel: () => void
 }) {
   return (
-    <div className="mx-[2.375rem] flex items-center gap-2 rounded-xl bg-state-hover py-1 pl-3 pr-1 text-xs leading-4">
+    <div className="absolute inset-x-[4.75rem] bottom-full flex items-center gap-2 rounded-xl py-1 pl-3 pr-1 text-xs leading-4 [background:linear-gradient(var(--color-state-hover),var(--color-state-hover)),rgb(var(--color-surface-sheet))]">
       <CornerUpLeft className="h-3.5 w-3.5 shrink-0 text-tertiary" strokeWidth={2.2} />
       <div className="min-w-0 flex-1 truncate text-tertiary">
         <span className="font-medium text-secondary">
