@@ -13,14 +13,14 @@ const models = first ? [...shared, 'fixture-large'] : shared
 // While its scenario asks (E2E_STAND_IN), the first agent also offers Claude Code's
 // "Default", which names the model it stands for and is a new session's model.
 const standIn = { value: 'default', name: 'Default (recommended)', description: 'fixture' }
-// While its scenario asks (a `behind` file beside the log, naming a model), the list a session
-// opened without Nuphos's tools reads, as a model probe opens one, lacks that model: the
-// agent's list is behind the model its running sessions are on.
+// While its scenario asks (a `behind` file beside the log, naming a model), a session opened
+// with Nuphos's tools also offers that model and runs on it, while a model probe, which opens
+// one without them, never lists it: the session runs a model its computer's list lacks.
 const behind = join(dirname(process.env.E2E_ACP_LOG ?? ''), 'behind')
 const newSettings = (sessionId) => {
   const claudeLike = first && existsSync(process.env.E2E_STAND_IN ?? '')
-  const unlisted = !toolsServer(sessionId) && existsSync(behind) && readFileSync(behind, 'utf8')
-  const listed = models.filter((model) => model !== unlisted)
+  const unlisted = toolsServer(sessionId) && existsSync(behind) && readFileSync(behind, 'utf8')
+  const listed = unlisted ? [...models, unlisted] : models
 
   return [
     {
@@ -28,7 +28,7 @@ const newSettings = (sessionId) => {
       name: 'Model',
       category: 'model',
       type: 'select',
-      currentValue: claudeLike ? 'default' : listed[0],
+      currentValue: claudeLike ? 'default' : unlisted || 'fixture',
       options: [...(claudeLike ? [standIn] : []), ...listed.map(choice)],
     },
     {
