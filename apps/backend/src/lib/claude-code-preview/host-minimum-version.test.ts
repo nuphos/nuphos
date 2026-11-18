@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { MINIMUM_HOST_VERSION, hostOutdated } from './host-minimum-version'
+import { MINIMUM_HOST_VERSION, hostOutdated, updateAvailable } from './host-minimum-version'
 
 // Run with: cd apps/backend && bun test src/lib/claude-code-preview/host-minimum-version.test.ts
 
@@ -36,5 +36,41 @@ describe('the oldest Nuphos a computer may run', () => {
     expect(hostOutdated({ client: 'nuphos-cli/dev' })).toBeUndefined()
     expect(hostOutdated({ client: 'nuphos-desktop/0.125.0-beta.1' })).toBeUndefined()
     expect(hostOutdated({ client: 'curl/8.0.0' })).toBeUndefined()
+  })
+})
+
+describe('whether a newer Nuphos is out for a computer', () => {
+  const cli = (version: string) => () => Promise.resolve({ version, url: '', body: '' })
+  const noFeed = () => Promise.reject(new Error('a Desktop never reads the CLI feed'))
+
+  test('a Desktop is behind when its updater found a newer release', async () => {
+    const app = { version: '0.125.0', update: { version: '0.127.0', ready: true } }
+
+    expect(await updateAvailable({ status: { agents, app } }, noFeed)).toBe(true)
+  })
+
+  test('a Desktop whose updater found nothing newer counts as current', async () => {
+    expect(await updateAvailable({ status: { agents, app: { version: '0.125.0' } } }, noFeed)).toBe(
+      false,
+    )
+    const same = { version: '0.127.0', update: { version: '0.127.0', ready: true } }
+
+    expect(await updateAvailable({ status: { agents, app: same } }, noFeed)).toBe(false)
+  })
+
+  test('a CLI host is behind when a newer CLI is released', async () => {
+    expect(await updateAvailable({ client: 'nuphos-cli/0.22.0' }, cli('0.23.0'))).toBe(true)
+    expect(await updateAvailable({ status: { agents, cliVersion: '0.22.0' } }, cli('0.23.0'))).toBe(
+      true,
+    )
+    expect(await updateAvailable({ client: 'nuphos-cli/0.23.0' }, cli('0.23.0'))).toBe(false)
+  })
+
+  test('an unknown host or an unreadable feed is never called behind', async () => {
+    expect(await updateAvailable(null, cli('0.23.0'))).toBe(false)
+    expect(await updateAvailable({ client: 'nuphos-cli/dev' }, cli('0.23.0'))).toBe(false)
+    expect(
+      await updateAvailable({ client: 'nuphos-cli/0.22.0' }, () => Promise.resolve(null)),
+    ).toBe(false)
   })
 })

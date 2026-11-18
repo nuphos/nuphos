@@ -1,5 +1,11 @@
-import { runtimeVersionAtLeast, stableRuntimeVersion } from './runtime-release'
+import {
+  latestCliRelease,
+  newerRuntimeVersion,
+  runtimeVersionAtLeast,
+  stableRuntimeVersion,
+} from './runtime-release'
 
+import type { RuntimeRelease } from './runtime-release'
 import type { LocalRuntimePresence } from '@/lib/agent/devices/local-runtime/presence'
 
 /**
@@ -36,6 +42,27 @@ export function hostOutdated(
       stableRuntimeVersion(reported) && !runtimeVersionAtLeast(reported, MINIMUM_HOST_VERSION[host])
     )
   })
+}
+
+/**
+ * Whether a newer Nuphos than the one on a computer is out: for a Desktop, the update its own
+ * updater found; for a CLI host, the newest CLI release. A Desktop whose updater has not found
+ * one yet counts as current.
+ */
+export async function updateAvailable(
+  presence: Pick<LocalRuntimePresence, 'client' | 'status'> | null,
+  latestCli: () => Promise<RuntimeRelease | null> = latestCliRelease,
+): Promise<boolean> {
+  const app = presence?.status?.app
+
+  if (app) return Boolean(app.update && newerRuntimeVersion(app.update.version, app.version))
+  const [name, connectedAs] = presence?.client?.split('/') ?? []
+  const cli = presence?.status?.cliVersion ?? (name === 'nuphos-cli' ? connectedAs : undefined)
+
+  if (!stableRuntimeVersion(cli)) return false
+  const latest = await latestCli()
+
+  return Boolean(latest && newerRuntimeVersion(latest.version, cli))
 }
 
 /** What a failed turn adds when the computer that ran it is out of date. */

@@ -12,15 +12,16 @@ const LAPTOP = 'E2E laptop'
 const GIB = 1024 ** 3
 
 // A computer of this person's with a signed-in Claude Code, online until the returned function
-// is called. With `diskPercent` it also reports its readings, as full as that; `client` is the
-// app it connects as. With `restoreFails` its agent fails every request after `initialize`.
+// is called. `diskPercent` sets its disk readings, `client` the app it connects as, `app` the
+// Desktop and update it reports; with `restoreFails` it fails every request after `initialize`.
 async function laptopOnline(
   stack: Stack,
   {
     diskPercent,
     client,
+    app,
     restoreFails,
-  }: { diskPercent?: number; client?: string; restoreFails?: boolean } = {},
+  }: { diskPercent?: number; client?: string; app?: unknown; restoreFails?: boolean } = {},
 ): Promise<() => void> {
   const authorization = `Bearer ${stack.token}`
   const registered = await fetch(`${stack.apiUrl}/agent/devices`, {
@@ -56,6 +57,7 @@ async function laptopOnline(
       status: {
         localMetrics: diskPercent !== undefined,
         agents: { 'claude-code': { cli: { installed: true, loggedIn: true } } },
+        ...(app ? { app } : {}),
       },
     }),
   )
@@ -172,10 +174,7 @@ export const offlineScenarios: Scenario[] = [
     // #3182: a computer on a Nuphos too old to run a conversation failed without saying why.
     name: 'a conversation on a computer whose Nuphos is out of date says so, and leads to the computer',
     run: async (page, stack) => {
-      const goOffline = await laptopOnline(stack, {
-        client: 'nuphos-desktop/0.119.0',
-        restoreFails: true,
-      })
+      const goOffline = await laptopOnline(stack, { client: 'nuphos-desktop/0.119.0' })
 
       try {
         await newTask(page)
@@ -194,21 +193,47 @@ export const offlineScenarios: Scenario[] = [
 
         await banner.waitFor()
         await page.screenshot({ path: join(artifacts, 'outdated-banner.png') })
-        // #3562: a turn that fails there says why, for clients too old to show the banner.
-        await send(page, 'On the old laptop')
-        await page.getByText(RESTORE_FAILED).waitFor()
-        await page
-          .getByText(
-            'Nuphos on the computer running this agent is out of date. Update it there, then try again.',
-          )
-          .waitFor()
-        await page.screenshot({ path: join(artifacts, 'outdated-turn-error.png') })
         await banner.getByRole('button', { name: 'Update' }).click()
         await page.getByText('Nuphos on this computer is out of date').waitFor()
         await page.getByText('Open Nuphos on it and restart to update.').waitFor()
         // The cards fade in; the picture is taken once they have.
         await page.waitForTimeout(1_500)
         await page.screenshot({ path: join(artifacts, 'outdated-computer.png') })
+      } finally {
+        goOffline()
+      }
+    },
+  },
+  {
+    // #3560: Desktop 0.125.0, above the floor with 0.127.0 downloaded, failed every turn on a
+    // runtime bug 0.127.0 fixed, and nothing said an update would help (#3562).
+    name: 'a turn that fails on a computer with a Nuphos update waiting says to update it',
+    run: async (page, stack) => {
+      const goOffline = await laptopOnline(stack, {
+        client: 'nuphos-desktop/0.125.0',
+        app: { version: '0.125.0', update: { version: '0.127.0', ready: true } },
+        restoreFails: true,
+      })
+
+      try {
+        await newTask(page)
+        await send(page, 'On the fixture E2E_DELIVERY:before-behind')
+        await page.getByText('ACK E2E_DELIVERY:before-behind').waitFor()
+        await page.getByRole('button', { name: /^Runtime:/ }).click()
+        await page.getByRole('menu').getByText(LAPTOP).first().click()
+        await page
+          .getByRole('menuitem', { name: /Claude Code/ })
+          .last()
+          .click()
+        await page.getByText(`moved this task from E2E fixture agent to`).waitFor()
+        await send(page, 'On the laptop behind the latest release')
+        await page.getByText(RESTORE_FAILED).waitFor()
+        await page
+          .getByText(
+            'Nuphos on the computer running this agent is out of date. Update it there, then try again.',
+          )
+          .waitFor()
+        await page.screenshot({ path: join(artifacts, 'behind-turn-error.png') })
       } finally {
         goOffline()
       }

@@ -1,8 +1,10 @@
-// A turn that fails on a computer whose Nuphos is older than supported says so in the error,
-// the one surface every client already shows, old ones included (#3562).
+// A turn that fails on a computer with a newer Nuphos waiting says so in the error, the one
+// surface every client already shows, old ones included (#3562).
 import '@/routes/agent'
 
 import { beforeEach, expect, test } from 'bun:test'
+
+import type { UIMessage } from 'ai'
 
 import { OUTDATED_HOST_HINT } from '@/lib/claude-code-preview/host-minimum-version'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
@@ -12,10 +14,13 @@ import { useClaudeCodePreviewRuntime } from '@/lib/test/doubles/claude-code-prev
 import { useLocalRuntimePresence } from '@/lib/test/doubles/local-runtime-presence'
 import { useRedis } from '@/lib/test/doubles/redis'
 
-import type { UIMessage } from 'ai'
-
 const restoreFailed = 'Could not restore the saved session; it is kept for the next attempt'
-let client = 'nuphos-desktop/0.123.0'
+
+type App = { version: string; update?: { version: string; ready: boolean } }
+
+// #3560: Desktop 0.125.0 with 0.127.0 downloaded and waiting for a restart.
+const behind: App = { version: '0.125.0', update: { version: '0.127.0', ready: true } }
+let app: App = behind
 let fail = true
 let finished = 0
 
@@ -25,10 +30,12 @@ useAgentDb({
     Promise.resolve({ isNew: false, count: args.messages.length }),
 })
 useLocalRuntimePresence({
-  runtimePresenceStore: () =>
-    ({ get: async () => ({ client }) }) as unknown as ReturnType<
-      typeof import('@/lib/agent/devices/local-runtime/presence').runtimePresenceStore
-    >,
+  runtimePresenceStore: () => ({
+    get: async () => ({
+      client: `nuphos-desktop/${app.version}`,
+      status: { agents: {}, app },
+    }),
+  }),
 })
 useChatPreviewPrepare({
   preparePreviewTurn: async () => ({
@@ -88,8 +95,8 @@ beforeEach(() => {
   finished = 0
 })
 
-test('a failed turn on a computer below the minimum version says Nuphos there is out of date', async () => {
-  client = 'nuphos-desktop/0.123.0'
+test('a failed turn on a Desktop with a newer release waiting says Nuphos there is out of date', async () => {
+  app = behind
   const error = await runClaudeCodePreviewChatTurn(localTurn('run-old')).catch((e: unknown) => e)
 
   expect(error).toBeInstanceOf(Error)
@@ -97,15 +104,15 @@ test('a failed turn on a computer below the minimum version says Nuphos there is
   expect((error as Error).message).toContain(OUTDATED_HOST_HINT)
 })
 
-test('a failed turn on a supported computer keeps its error as it was', async () => {
-  client = 'nuphos-desktop/0.124.0'
+test('a failed turn on an up-to-date Desktop keeps its error as it was', async () => {
+  app = { version: '0.127.0' }
   const error = await runClaudeCodePreviewChatTurn(localTurn('run-new')).catch((e: unknown) => e)
 
   expect((error as Error).message).toBe(restoreFailed)
 })
 
-test('a turn that succeeds on an old computer is not touched', async () => {
-  client = 'nuphos-desktop/0.123.0'
+test('a turn that succeeds on a Desktop behind the latest release is not touched', async () => {
+  app = behind
   fail = false
   const run = localTurn('run-ok')
 
