@@ -18,11 +18,13 @@ export function readNote(channel: { agentSessionIds?: string[] }): string {
 
 /**
  * Whether the reading agent's owner posted this, as themselves in the app. Only
- * the server-authored sender id counts: never a display name or quoted text.
+ * the server-authored sender id counts: never a display name or quoted text. An
+ * answer Nuphos recorded for them is not: it answered another card, not this one.
  */
 export function fromOwner(metadata: MessageMetadata | undefined, ownerId: string) {
   return (
     metadata?.source === 'nuphos' &&
+    !metadata.answeredIn &&
     metadata.sender.type === 'user' &&
     !metadata.sender.onBehalfOf &&
     metadata.sender.id === ownerId

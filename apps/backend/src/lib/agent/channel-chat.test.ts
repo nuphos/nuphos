@@ -756,9 +756,15 @@ describe('reading a channel', () => {
       answeredIn: 'inbox',
       requestId: 'q1',
     })
-    const read = await readChannelMessages(await channel(), 'agent-a', 'agent-a-owner')
+    // Read by an agent of the person who answered: Nuphos recorded it, they did not type it here.
+    // A wake's page (peek) is read the same way.
+    const peeked = await readChannelMessages(await channel(), 'agent-a', 'owner', true)
+
+    expect(peeked.messages.at(-1)!.sender).not.toHaveProperty('fromOwner')
+    const read = await readChannelMessages(await channel(), 'agent-a', 'owner')
 
     expect(read.messages.at(-1)).toMatchObject({ answeredIn: 'inbox', requestId: 'q1' })
+    expect(read.messages.at(-1)!.sender).not.toHaveProperty('fromOwner')
     expect(read.note).toContain('answeredIn')
   })
 
