@@ -28,6 +28,7 @@ import { artifacts, stopAll, until } from './processes.ts'
 import { providerUnreachableScenarios } from './provider-unreachable-scenarios.ts'
 import { questionScenarios } from './question-scenarios.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
+import { sidebarPageScenarios } from './sidebar-page-scenarios.ts'
 import { botFoldScenarios, sidebarScenarios } from './sidebar-scenarios.ts'
 import { signInScenarios } from './sign-in-scenarios.ts'
 import { splitPaneScenarios } from './split-pane-scenarios.ts'
@@ -122,6 +123,7 @@ const scenarios: Scenario[] = [
   ...offlineScenarios,
   threadModeScenario,
   ...botFoldScenarios,
+  ...sidebarPageScenarios,
   ...fallbackScenarios,
   ...memberStreamScenarios,
   // It removes a member from the team.
