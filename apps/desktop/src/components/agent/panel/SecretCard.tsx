@@ -1,4 +1,4 @@
-import { Lock } from 'lucide-react'
+import { Lock, X } from 'lucide-react'
 import { useContext, useState } from 'react'
 
 import { t } from '../../../i18n'
@@ -17,7 +17,9 @@ import type { SecretField } from './secretCardModel'
  * A secret the agent asked for: the value goes straight to a file on its
  * runtime, and only the file's path is sent as the reply. With `fields` it
  * asks for a website form's details together, one file each, and names the
- * site they are entered on. Once saved or closed, the card is one line.
+ * site they are entered on. Dismiss declines it instead: the agent is told no
+ * value is coming, and nothing is sent. Once saved, dismissed or closed, the
+ * card is one line.
  */
 export function SecretCard({
   toolCallId,
@@ -49,6 +51,7 @@ export function SecretCard({
   const complete = values.every(Boolean)
   const [phase, setPhase] = useState<'idle' | 'saving' | 'sent' | 'outdated' | 'error'>('idle')
   const interactive = Boolean(ctx?.saveSecret) && state === 'open'
+  const [dismissed, setDismissed] = useState<'no' | 'sending' | 'yes'>('no')
   const submit = async () => {
     if (!ctx?.saveSecret || !complete) return
     setPhase('saving')
@@ -80,6 +83,12 @@ export function SecretCard({
   }
   const saved = phase === 'sent' || answered
 
+  if (dismissed === 'yes')
+    return (
+      <div data-tool-call-id={toolCallId} className="text-[12px] text-tertiary">
+        {t('Dismissed. The agent carries on without an answer.')}
+      </div>
+    )
   if (saved || state === 'closed')
     return <SecretDone toolCallId={toolCallId} name={fields && site ? site : name} saved={saved} />
   // A runtime too old for an inline value refuses it by design: the card names
@@ -183,6 +192,24 @@ export function SecretCard({
           </div>
         )}
         {!outdated && <SecretBlocked state={ctx?.saveSecret ? state : 'notOwner'} />}
+        {/* Declining is an answer anyone who may answer here can give, as on a question card. */}
+        {ctx?.answer && ctx.dismiss && (
+          <Button
+            variant="secondary"
+            size="sm"
+            className="mt-2"
+            disabled={dismissed === 'sending' || phase === 'saving'}
+            onClick={() => {
+              setDismissed('sending')
+              void ctx
+                .dismiss?.({ toolCallId, requestId, question: reason, secretName: name })
+                .then((ok) => setDismissed(ok ? 'yes' : 'no'))
+            }}
+          >
+            <X aria-hidden className="size-3.5" />
+            {t('Dismiss')}
+          </Button>
+        )}
         {!outdated && (
           <div className="mt-1.5 text-[11.5px] text-tertiary">
             {fields && site

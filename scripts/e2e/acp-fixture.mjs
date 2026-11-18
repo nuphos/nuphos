@@ -38,11 +38,16 @@ const refused = (message) => Boolean(message.error ?? message.result?.isError)
 async function ask(sessionId, category) {
   const message = await call(sessionId, 'request_user_decision', {
     label: 'Ask which marker to use',
-    category,
-    question: 'Which marker should the fixture use?',
-    // A link the app can open without leaving this computer.
-    body: `Background is at ${new URL(toolsServer(sessionId).url).origin}/health/ready`,
-    options: ['E2E_DELIVERY:answered', 'E2E_DELIVERY:other'],
+    // #3474: a secret is asked for with its secure card, which offers no options.
+    ...(category === 'secret'
+      ? { category: 'credential', question: 'The fixture needs a token.', secretName: 'E2E_TOKEN' }
+      : {
+          category,
+          question: 'Which marker should the fixture use?',
+          // A link the app can open without leaving this computer.
+          body: `Background is at ${new URL(toolsServer(sessionId).url).origin}/health/ready`,
+          options: ['E2E_DELIVERY:answered', 'E2E_DELIVERY:other'],
+        }),
   })
 
   log({ sessionId, event: 'asked', isError: refused(message) })
@@ -146,7 +151,9 @@ async function prompt({ sessionId, prompt: parts }) {
   if (/E2E_(HOP|INHERIT)/.test(text) && !text.includes(CHILD))
     await (text.includes('E2E_HOP') ? hop : inherit)({ call, send, log, sessionId, child: CHILD })
   if (text.includes('E2E_ASK')) {
-    await ask(sessionId, text.includes('E2E_ASK_CREDENTIAL') ? 'credential' : 'preference')
+    const kind = ['SECRET', 'CREDENTIAL'].find((name) => text.includes(`E2E_ASK_${name}`))
+
+    await ask(sessionId, kind?.toLowerCase() ?? 'preference')
   }
   // A Bot is woken by its chat's posts and answers there, as only channel_post can.
   const channelId = /\(channelId ([^)]+)\)/.exec(text)?.[1]
