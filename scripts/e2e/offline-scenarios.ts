@@ -85,9 +85,10 @@ async function laptopOnline(
   }
 }
 
-export const RESTORE_FAILED = 'Could not restore the saved session; it is kept for the next attempt'
+const RESTORE_FAILED = 'Could not restore the saved session; it is kept for the next attempt'
+// What the conversation shows for the failed turn: its summary, then the out-of-date line.
 const OUTDATED_LINE =
-  'Nuphos on the computer running this agent is out of date. Update it there, then try again.'
+  'The agent failed before it could answer. Nuphos on the computer running this agent is out of date. Update it there, then try again.'
 
 // How a runtime without #3373 answered once it could not restore the saved session (#3371).
 function answerAsOldRuntime(tunnel: WebSocket, raw: string) {
@@ -104,7 +105,14 @@ function answerAsOldRuntime(tunnel: WebSocket, raw: string) {
     reply({
       jsonrpc: '2.0',
       id: request.id,
-      result: { protocolVersion: 1, agentCapabilities: { loadSession: true }, authMethods: [] },
+      result: {
+        protocolVersion: 1,
+        agentCapabilities: {
+          loadSession: true,
+          _meta: { 'dev.openab/permissionRelay': true, 'dev.openab/sessionAuthority': 2 },
+        },
+        authMethods: [],
+      },
     })
   else reply({ jsonrpc: '2.0', id: request.id, error: { code: -32603, message: RESTORE_FAILED } })
 }
@@ -200,7 +208,6 @@ export const offlineScenarios: Scenario[] = [
         await page.screenshot({ path: join(artifacts, 'outdated-banner.png') })
         // #3562: a turn that fails there says why, for clients too old to show the banner.
         await send(page, 'On the old laptop')
-        await page.getByText(RESTORE_FAILED).waitFor()
         await page.getByText(OUTDATED_LINE).waitFor()
         await page.screenshot({ path: join(artifacts, 'outdated-turn-error.png') })
         await banner.getByRole('button', { name: 'Update' }).click()
@@ -237,7 +244,6 @@ export const offlineScenarios: Scenario[] = [
           .click()
         await page.getByText(`moved this task from E2E fixture agent to`).waitFor()
         await send(page, 'On the laptop behind the latest release')
-        await page.getByText(RESTORE_FAILED).waitFor()
         await page.getByText(OUTDATED_LINE).waitFor()
         await page.screenshot({ path: join(artifacts, 'behind-turn-error.png') })
       } finally {

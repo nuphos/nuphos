@@ -7,6 +7,7 @@ import { beforeEach, expect, test } from 'bun:test'
 import type { UIMessage } from 'ai'
 
 import { OUTDATED_HOST_HINT } from '@/lib/claude-code-preview/host-minimum-version'
+import { classifyPreviewInterruption } from '@/lib/claude-code-preview/preview-transcript'
 import { OpenAbRpcError } from '@/lib/claude-code-preview/openab-acp-errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useChatPreviewFinish } from '@/lib/test/doubles/chat-preview-finish'
@@ -28,6 +29,8 @@ const behind = desktop({ version: '0.125.0', update: { version: '0.127.0', ready
 let presence: object = behind
 let fail: (() => Error) | null = () => new Error(restoreFailed)
 let finished = 0
+/** What the person reads in the conversation for the failed turn. */
+let summary = ''
 
 useRedis({ redisEnabled: () => false, withRedis: async () => null })
 useAgentDb({
@@ -65,7 +68,11 @@ useChatPreviewFinish({
 
     return Promise.resolve()
   },
-  persistInterruptedPreviewTurn: () => Promise.resolve(),
+  persistInterruptedPreviewTurn: (args) => {
+    summary = classifyPreviewInterruption(args.error, false).message
+
+    return Promise.resolve()
+  },
 })
 
 const { runClaudeCodePreviewChatTurn } = await import('./chat-preview-turn')
@@ -95,6 +102,7 @@ function localTurn(streamId: string) {
 beforeEach(() => {
   fail = () => new Error(restoreFailed)
   finished = 0
+  summary = ''
 })
 
 test('a failed turn on a Desktop with a newer release waiting says Nuphos there is out of date', async () => {
@@ -104,6 +112,7 @@ test('a failed turn on a Desktop with a newer release waiting says Nuphos there 
   expect(error).toBeInstanceOf(Error)
   expect((error as Error).message).toContain(restoreFailed)
   expect((error as Error).message).toContain(OUTDATED_HOST_HINT)
+  expect(summary).toBe(`The agent failed before it could answer. ${OUTDATED_HOST_HINT}`)
 })
 
 test('a failed turn on an up-to-date Desktop keeps its error as it was', async () => {
@@ -111,6 +120,7 @@ test('a failed turn on an up-to-date Desktop keeps its error as it was', async (
   const error = await runClaudeCodePreviewChatTurn(localTurn('run-new')).catch((e: unknown) => e)
 
   expect((error as Error).message).toBe(restoreFailed)
+  expect(summary).toBe('The agent failed before it could answer.')
 })
 
 test('a turn that succeeds on a Desktop behind the latest release is not touched', async () => {
@@ -131,6 +141,7 @@ test('a failed turn on a Desktop below the support floor says so, though it repo
 
   expect((error as Error).message).toContain(restoreFailed)
   expect((error as Error).message).toContain(OUTDATED_HOST_HINT)
+  expect(summary).toContain(OUTDATED_HOST_HINT)
 })
 
 test('a usage limit on a computer with an update waiting still reads as a usage limit', async () => {

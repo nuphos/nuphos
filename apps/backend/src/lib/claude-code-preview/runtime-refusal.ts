@@ -40,7 +40,7 @@ export const queuedRefusal = (error: unknown, queued: unknown) =>
  * A failed turn on a computer below the support floor, or with a newer Nuphos waiting, says so:
  * the error is the one thing every client shows, old ones included. A refusal stays as it is.
  */
-export async function addOutdatedHint(
+export async function noteOutdated(
   error: unknown,
   local: { userId: string; deviceId: string } | undefined,
 ): Promise<void> {
