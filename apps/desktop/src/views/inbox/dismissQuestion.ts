@@ -62,10 +62,11 @@ export async function snoozeQuestion(
  */
 export function cardAsides(
   teamId: string | undefined,
-  sessionId: string,
+  { sessionId, readOnly, foreign }: { sessionId: string; readOnly?: boolean; foreign?: boolean },
   questions: readonly ReplyQuestion[] | undefined,
-  owner: boolean,
 ) {
+  const owner = !readOnly && !foreign
+
   return {
     dismiss: (card: DecisionCardRef) =>
       dismissQuestion(teamId, sessionId, cardReplyId(card, questions)),
