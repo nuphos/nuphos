@@ -74,7 +74,6 @@ test('the card reads and sets the same switch as Settings > Updates', async () =
       version: () => '0.126.0',
       state: () => ({ kind: 'idle' }),
       ready: () => null,
-      busy: () => false,
       install: () => {},
       changed: () => {
         sent++
