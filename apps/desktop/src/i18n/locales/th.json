@@ -4852,7 +4852,7 @@
   "Token usage by group": "การใช้โทเค็นตามกลุ่ม",
   "Tokens are encrypted and refreshed automatically · revoke anytime in Cloudflare.": "โทเค็นถูกเข้ารหัสและรีเฟรชโดยอัตโนมัติ · เพิกถอนได้ทุกเมื่อใน Cloudflare",
   "Tokens per day": "โทเค็นต่อวัน",
-  "Tokens the team’s runtimes reported. Input includes cached tokens; cost is estimated at list prices.": "โทเค็นที่ runtime ของทีมรายงาน อินพุตรวมโทเค็นที่แคชไว้ และค่าใช้จ่ายประเมินจากราคาปกติ",
+  "Tokens the team’s runtimes reported. Input includes cached tokens; cost is estimated at list prices. Before {date}, cached tokens were counted only in the total.": "โทเค็นที่ runtime ของทีมรายงาน อินพุตรวมโทเค็นที่แคชไว้ และค่าใช้จ่ายประเมินจากราคาปกติ ก่อน {date} โทเค็นที่แคชไว้จะนับรวมเฉพาะในยอดรวมเท่านั้น",
   "Tolerations": "Toleration",
   "Too large to open": "ใหญ่เกินกว่าจะเปิดได้",
   "Too large to preview": "ใหญ่เกินกว่าจะแสดงตัวอย่างได้",

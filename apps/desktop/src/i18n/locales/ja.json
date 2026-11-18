@@ -4852,7 +4852,7 @@
   "Token usage by group": "グループ別のトークン使用量",
   "Tokens are encrypted and refreshed automatically · revoke anytime in Cloudflare.": "トークンは暗号化され、自動的に更新されます · Cloudflare でいつでも取り消せます。",
   "Tokens per day": "1日あたりのトークン",
-  "Tokens the team’s runtimes reported. Input includes cached tokens; cost is estimated at list prices.": "チームの runtime が報告したトークン数です。入力にはキャッシュされたトークンが含まれ、コストは定価で見積もっています。",
+  "Tokens the team’s runtimes reported. Input includes cached tokens; cost is estimated at list prices. Before {date}, cached tokens were counted only in the total.": "チームの runtime が報告したトークン数です。入力にはキャッシュされたトークンが含まれ、コストは定価で見積もっています。{date} より前は、キャッシュされたトークンは合計にのみ含まれています。",
   "Tolerations": "Tolerations",
   "Too large to open": "大きすぎて開けません",
   "Too large to preview": "大きすぎてプレビューできません",

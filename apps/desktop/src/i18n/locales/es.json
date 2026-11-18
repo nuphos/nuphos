@@ -4852,7 +4852,7 @@
   "Token usage by group": "Uso de tokens por grupo",
   "Tokens are encrypted and refreshed automatically · revoke anytime in Cloudflare.": "Los tokens se cifran y se renuevan automáticamente · revócalos cuando quieras en Cloudflare.",
   "Tokens per day": "Tokens por día",
-  "Tokens the team’s runtimes reported. Input includes cached tokens; cost is estimated at list prices.": "Tokens que informaron los runtimes del equipo. La entrada incluye los tokens en caché; el costo se estima con precios de lista.",
+  "Tokens the team’s runtimes reported. Input includes cached tokens; cost is estimated at list prices. Before {date}, cached tokens were counted only in the total.": "Tokens que informaron los runtimes del equipo. La entrada incluye los tokens en caché; el costo se estima con precios de lista. Antes del {date}, los tokens en caché solo se contaban en el total.",
   "Tolerations": "Tolerations",
   "Too large to open": "Demasiado grande para abrirlo",
   "Too large to preview": "Demasiado grande para previsualizarlo",
