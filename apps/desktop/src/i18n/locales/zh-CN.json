@@ -5742,6 +5742,7 @@
   "{name} is now available in {team}.": "{name} 现已在 {team} 中可用。",
   "{name} is now signed in.": "{name} 已登录。",
   "{name} is online and listed under Computers.": "{name} 已上线，并列在“电脑”中。",
+  "{name} is ready.": "{name} 已就绪。",
   "{name} is signed out.": "{name} 已退出登录。",
   "{name} is signed out. Ask a workspace administrator to reconnect this runtime.": "{name} 已退出登录。请联系工作区管理员重新连接此运行环境。",
   "{name} is signed out. Ask its owner to sign it in.": "{name} 已退出登录。请其所有者登录。",
