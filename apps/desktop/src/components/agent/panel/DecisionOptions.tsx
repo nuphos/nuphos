@@ -27,6 +27,7 @@ export function DecisionOptions({
   keyTitle,
   onSubmit,
   onTyping,
+  voiceTeamId,
   children,
 }: {
   questions: readonly DecisionQuestion[]
@@ -39,6 +40,8 @@ export function DecisionOptions({
   keyTitle?: (index: number) => string | undefined
   onSubmit: (answer: DecisionAnswer) => void
   onTyping?: (open: boolean) => void
+  /** "Other…" may be dictated, as the Inbox, which has no composer, lets it be. */
+  voiceTeamId?: string
   children?: ReactNode
 }) {
   const [picked, setPicked] = useState<string[][]>(() => questions.map(() => []))
@@ -129,6 +132,7 @@ export function DecisionOptions({
                 onText={(text) => setTyped(replaceAt(typed, index, text))}
                 onSend={() => complete && onSubmit(formAnswer(questions, picked, words))}
                 onClose={() => toggleField(index, false)}
+                voiceTeamId={voiceTeamId}
               />
             </div>
           )}
