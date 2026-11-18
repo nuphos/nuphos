@@ -6,20 +6,12 @@ import { composioAuthConfigId, composioRequest as call } from '@/lib/composio'
 import { AppError } from '@/lib/errors'
 import { personalCredentialPendingOAuth } from '@/models'
 
-import { googleScopes } from './google'
-
 import type { GoogleProvider } from './google'
 import type { PersonalCredentialPendingOAuth } from '@/models'
 
 const PROFILE: Record<
   GoogleProvider,
-  {
-    toolkit: string
-    tool: string
-    email: (data: unknown) => unknown
-    /** Asked for when Nuphos creates the toolkit's auth config. */
-    scopes?: string[]
-  }
+  { toolkit: string; tool: string; email: (data: unknown) => unknown }
 > = {
   gmail: {
     toolkit: 'gmail',
@@ -31,12 +23,10 @@ const PROFILE: Record<
     tool: 'GOOGLEDRIVE_GET_ABOUT',
     email: (d) => (d as { user?: { emailAddress?: unknown } }).user?.emailAddress,
   },
-  // Its config is created by Nuphos, so it gets the same narrow scope as a team-client grant.
   'google-calendar': {
     toolkit: 'googlecalendar',
     tool: 'GOOGLECALENDAR_GET_CURRENT_USER',
     email: (d) => (d as { email?: unknown }).email,
-    scopes: [googleScopes('google-calendar')],
   },
 }
 
@@ -74,10 +64,7 @@ export async function createComposioLink(args: {
     'POST',
     '/connected_accounts/link',
     {
-      auth_config_id: await composioAuthConfigId(
-        PROFILE[args.provider].toolkit,
-        PROFILE[args.provider].scopes,
-      ),
+      auth_config_id: await composioAuthConfigId(PROFILE[args.provider].toolkit),
       user_id: args.composioUserId,
       callback_url: args.callbackUrl,
     },

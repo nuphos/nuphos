@@ -1,4 +1,4 @@
-// Google OAuth for the Gmail and Google Drive Personal Credentials. Each team
+// Google OAuth for the Gmail, Google Drive and Google Calendar Personal Credentials. Each team
 // brings its own OAuth client (Team settings); each provider is its own grant
 // with its own scopes, issued by the team's client.
 import { config } from '@/config'
@@ -31,9 +31,6 @@ const SCOPES: Record<GoogleProvider, string> = {
   // Events only: no calendar sharing, ACLs or calendar management.
   'google-calendar': 'https://www.googleapis.com/auth/calendar.events',
 }
-
-/** The scopes a provider's grant asks Google for, space-separated. */
-export const googleScopes = (provider: GoogleProvider) => SCOPES[provider]
 
 const AUTHORIZE_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 const TOKEN_URL = 'https://oauth2.googleapis.com/token'

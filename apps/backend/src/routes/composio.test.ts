@@ -291,9 +291,7 @@ describe('connecting through Composio', () => {
     const { state } = (await (await start('google-calendar')).json()) as { state: string }
 
     expect(requests[0]?.body).toMatchObject({ auth_config_id: 'ac_googlecalendar' })
-    expect(authConfigSpy).toHaveBeenLastCalledWith('googlecalendar', [
-      'https://www.googleapis.com/auth/calendar.events',
-    ])
+    expect(authConfigSpy).toHaveBeenLastCalledWith('googlecalendar')
     const code =
       (await callback('google-calendar', `state=${state}&status=success`)).searchParams.get(
         'code',
