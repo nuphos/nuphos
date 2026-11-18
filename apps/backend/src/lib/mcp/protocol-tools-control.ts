@@ -21,9 +21,10 @@ export const CONTROL_TOOL_DEFINITIONS = [
       "Read what a session's running turn streams (text, reasoning and tool events, " +
       'as the Nuphos app shows them live), after a cursor. Call without cursor to ' +
       'read the running turn from its start; pass the returned cursor to get only ' +
-      'what came since, also after a reconnect. turn_ended means the turn you were ' +
-      'reading is over (its events stay readable for about 5 minutes after it ends); the ' +
-      'stored transcript, from nuphos_check from_index, has every finished turn.',
+      'what came since, also after a reconnect; keep passing it and the next turn ' +
+      'is picked up when it starts. turn_ended means the turn you were reading is ' +
+      'over; its events stay readable for a few minutes, and the stored transcript, ' +
+      'from nuphos_check from_index, has every finished turn.',
     inputSchema: {
       type: 'object',
       properties: {

@@ -45,6 +45,15 @@ useRuntimeCatalog({
       createdAt: '',
     },
     {
+      id: 'r3',
+      provider: 'claude-code',
+      label: 'Laptop',
+      status: 'active',
+      kind: 'local',
+      local: { deviceLabel: 'Laptop', online: false },
+      createdAt: '',
+    } as never,
+    {
       id: 'r2',
       provider: 'codex',
       label: 'Codex',
@@ -122,6 +131,14 @@ describe('nuphos_list_runtimes', () => {
         agent: 'claude-code',
         kind: 'external',
         available: true,
+      },
+      {
+        runtime_id: 'r3',
+        label: 'Laptop',
+        agent: 'claude-code',
+        kind: 'local',
+        available: false,
+        computer: 'Laptop',
       },
       { runtime_id: 'r2', label: 'Codex', agent: 'codex', kind: 'external', available: false },
     ])
@@ -263,7 +280,14 @@ describe('nuphos_events', () => {
     const rest = body(await nuphosEvents({ session_id: 's1', cursor: first.cursor }, ctx))
 
     expect(rest.events).toEqual([{ type: 'finish' }])
-    expect(rest).toMatchObject({ running: false, turn_ended: true, cursor: null })
+    expect(rest).toMatchObject({ running: false, turn_ended: true, cursor: 'st1/3' })
+
+    // Polled again before a new turn: nothing more, and the same place to resume from.
+    expect(body(await nuphosEvents({ session_id: 's1', cursor: rest.cursor }, ctx))).toMatchObject({
+      events: [],
+      turn_ended: true,
+      cursor: 'st1/3',
+    })
   })
 
   test('with nothing running there is nothing to read', async () => {

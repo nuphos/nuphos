@@ -44,8 +44,13 @@ export async function nuphosListRuntimes(
       label: runtime.label,
       agent: runtime.provider,
       kind: runtime.kind,
-      // Only an active, reachable agent takes a new conversation.
-      available: runtime.status === 'active' && !runtime.notReady && !runtime.deletion,
+      // Only an active, reachable agent takes a new conversation; a computer must be online.
+      available:
+        runtime.status === 'active' &&
+        !runtime.notReady &&
+        !runtime.deletion &&
+        runtime.local?.online !== false &&
+        runtime.local?.signedIn !== false,
       ...(runtime.local ? { computer: runtime.local.deviceLabel } : {}),
     })),
   })
@@ -184,7 +189,8 @@ export async function nuphosEvents(
   return toolResult({
     ...base,
     events,
-    cursor: ended ? (active ? `${active.streamId}/-` : null) : `${streamId}/${last}`,
+    // Always a point to resume from: a new turn is picked up from it once one starts.
+    cursor: ended && active ? `${active.streamId}/-` : `${streamId}/${last}`,
     ...(ended ? { turn_ended: true } : {}),
   })
 }
