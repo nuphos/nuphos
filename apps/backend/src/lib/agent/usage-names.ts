@@ -19,7 +19,8 @@ type ReadNames = (
 ) => Promise<[string, string | null][]>
 
 /** Names read where the grouped values are ids: people, conversation titles, Trigger names and
- *  computer labels. People who left still name what they sent. */
+ *  computer labels. People who left still name what they sent. Each name follows who may see
+ *  what it names; elsewhere it is null. */
 const NAMED: Partial<Record<UsageDimension, ReadNames>> = {
   member: async (teamId, ids) =>
     (await getTeamMembers(teamId, { includeRemoved: true }))
@@ -28,23 +29,56 @@ const NAMED: Partial<Record<UsageDimension, ReadNames>> = {
   conversation: conversationTitles,
   bot: conversationTitles,
   task: conversationTitles,
-  trigger: async (teamId, ids) =>
-    (
-      await agentTriggers()
-        .find({
-          teamId,
-          _id: { $in: ids.filter((id) => ObjectId.isValid(id)).map((id) => new ObjectId(id)) },
-        })
-        .project<{ _id: ObjectId; name: string }>({ name: 1 })
-        .toArray()
-    ).map((trigger) => [trigger._id.toHexString(), trigger.name]),
-  computer: async (teamId, ids) =>
+  // A Trigger is as visible as the conversation it runs in; one without, to its creator.
+  trigger: async (teamId, ids, viewer) => {
+    const triggers = await agentTriggers()
+      .find({
+        teamId,
+        _id: { $in: ids.filter((id) => ObjectId.isValid(id)).map((id) => new ObjectId(id)) },
+      })
+      .project<{ _id: ObjectId; name: string; userId: string; targetSessionId?: string }>({
+        name: 1,
+        userId: 1,
+        targetSessionId: 1,
+      })
+      .toArray()
+    const targets = new Map(
+      await conversationTitles(
+        teamId,
+        triggers.flatMap((trigger) => trigger.targetSessionId ?? []),
+        viewer,
+      ),
+    )
+
+    return triggers.map((trigger) => {
+      const seen = trigger.targetSessionId
+        ? targets.get(trigger.targetSessionId) != null
+        : trigger.userId === viewer.userId || viewer.teamRole === 'ADMINISTRATOR'
+
+      return [trigger._id.toHexString(), seen ? trigger.name : null]
+    })
+  },
+  // A computer is named to an administrator and to the people who may use it.
+  computer: async (teamId, ids, viewer) =>
     (
       await agentDevices()
         .find({ teamId, deviceId: { $in: ids } })
-        .project<{ deviceId: string; label: string }>({ _id: 0, deviceId: 1, label: 1 })
+        .project<{ deviceId: string; label: string; userId: string; userIds?: string[] }>({
+          _id: 0,
+          deviceId: 1,
+          label: 1,
+          userId: 1,
+          userIds: 1,
+        })
         .toArray()
-    ).map((device) => [device.deviceId, device.label]),
+    ).map((device) => [
+      device.deviceId,
+      viewer.teamRole === 'ADMINISTRATOR' ||
+      device.userId === viewer.userId ||
+      (device.userIds ?? []).includes(viewer.userId)
+        ? device.label
+        : null,
+    ]),
 }
 
 async function conversationTitles(

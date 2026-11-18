@@ -239,7 +239,7 @@ export async function getTeamUsageSeries(
   if (sessionIds.length > 0) {
     const convs = await agentConversations()
       .find(
-        { sessionId: { $in: sessionIds } },
+        { teamId, sessionId: { $in: sessionIds } },
         { projection: { sessionId: 1, title: 1, firstMessage: 1, userId: 1, generalAccess: 1 } },
       )
       .toArray()

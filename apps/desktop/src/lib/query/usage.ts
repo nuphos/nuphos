@@ -6,8 +6,8 @@ import { queryKeys } from './keys.ts'
 
 import type { TeamUsageQuery } from '../../types/usage.ts'
 
-/** The team's token usage for `query`; members get only their own conversations'. The answer
- *  names its query, because the last answer stays on screen while another loads. */
+/** The team's token usage for `query`, with the names the viewer may see. The answer names its
+ *  query, because the last answer stays on screen while another loads. */
 export const useTeamUsageQuery = (teamId: string, query: TeamUsageQuery) =>
   useQuery({
     queryKey: queryKeys.teamUsage(teamId, query),
