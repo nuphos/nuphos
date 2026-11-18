@@ -1,4 +1,9 @@
 
+func fail(_ message: String) -> Never {
+    FileHandle.standardError.write(Data((message + "\n").utf8))
+    exit(1)
+}
+
 // Encodes a known 1280x800 colour-bar frame (key, then two deltas) with the host's Encoder,
 // writing each as the host's rect would carry it: x, y, w, h, flags, length, Annex B bytes.
 let W = 1280, H = 800
