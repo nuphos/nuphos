@@ -19,10 +19,13 @@ import type { PanelViewCtx } from './ctx'
 import type { RuntimeControl } from './RuntimeSelector'
 
 /**
- * The Task's latest turn failed because its runtime could not run it, and that runtime has no
- * fallback: offers to set one for the team (the setting runtime details shows) and move there.
+ * The actions on a Task's failed turn. Switch runtime opens this panel's runtime list, whose
+ * open state lives here so no other composer for the session opens too. When the runtime could
+ * not run the turn and has no fallback, Set up fallback sets one for the team (the setting
+ * runtime details shows) and moves the Task there.
  */
-export function useTurnFallbackSetup(c: PanelViewCtx, control: RuntimeControl | undefined) {
+export function useTurnFailureActions(c: PanelViewCtx, control: RuntimeControl | undefined) {
+  const agentMenu = useState(false)
   const teamId = c.teamId ?? ''
   const failure = latestFailure(c.activeTab)
   const failed = Boolean(teamId && failure?.cause)
@@ -42,28 +45,31 @@ export function useTurnFallbackSetup(c: PanelViewCtx, control: RuntimeControl | 
     fallbacks,
   })
 
-  return {
-    // The failure line's actions: Switch runtime, and this setup while it is offered.
-    turnSwitch: turnSwitchAgent(c.activeTab, offered ? () => setOpen(true) : undefined),
-    dialog: control && runtime && move && (
-      <FallbackSetupDialog
-        open={open && offered}
-        runtime={runtime}
-        candidates={fallbackCandidates(control.options ?? [], runtime.id)}
-        control={control}
-        onClose={() => setOpen(false)}
-        onManage={c.onOpenAgentSettings}
-        onSave={(next) =>
-          saveFallbackThenMove(
-            () => save(next),
-            () => {
-              setOpen(false)
-              toast.success(t('Fallback saved for {name}', { name: runtime.label }))
-              move(next)
-            },
-          )
-        }
-      />
-    ),
-  }
+  const turnSwitch = turnSwitchAgent(
+    c.activeTab,
+    () => agentMenu[1](true),
+    offered ? () => setOpen(true) : undefined,
+  )
+  const fallbackDialog = control && runtime && move && (
+    <FallbackSetupDialog
+      open={open && offered}
+      runtime={runtime}
+      candidates={fallbackCandidates(control.options ?? [], runtime.id)}
+      control={control}
+      onClose={() => setOpen(false)}
+      onManage={c.onOpenAgentSettings}
+      onSave={(next) =>
+        saveFallbackThenMove(
+          () => save(next),
+          () => {
+            setOpen(false)
+            toast.success(t('Fallback saved for {name}', { name: runtime.label }))
+            move(next)
+          },
+        )
+      }
+    />
+  )
+
+  return { agentMenu, turnSwitch: turnSwitch && { ...turnSwitch, fallbackDialog } }
 }

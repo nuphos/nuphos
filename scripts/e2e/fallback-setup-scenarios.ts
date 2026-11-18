@@ -66,7 +66,16 @@ export const fallbackSetupScenarios: Scenario[] = [
       await choose(page, page.getByRole('button', { name: /^Agent runtime/ }), FIXTURE)
       await send(page, `Out of usage E2E_USAGE_LIMIT ${marker}`)
       await page.getByText('You’ve hit your usage limit').first().waitFor()
-      await page.getByRole('button', { name: 'Switch runtime' }).first().waitFor()
+      // #3313: Switch runtime opens one runtime list, the one beside this failure.
+      await page.getByRole('button', { name: 'Switch runtime' }).first().click()
+      await page.getByRole('menu').first().waitFor()
+      if ((await page.getByRole('menu').count()) !== 1)
+        throw new Error(`Switch runtime opened ${await page.getByRole('menu').count()} lists`)
+      await page.keyboard.press('Escape')
+      await until(
+        'the runtime list to close',
+        async () => (await page.getByRole('menu').count()) === 0,
+      )
       await setUp.click()
       await dialog.getByText('No other runtime can take over.').waitFor()
       await page.screenshot({ path: `${artifacts}/fallback-none-available.png` })

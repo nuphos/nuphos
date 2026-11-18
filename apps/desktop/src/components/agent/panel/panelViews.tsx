@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useRef } from 'react'
 
 import { api } from '../../../api'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
@@ -30,8 +30,9 @@ import { useQueuedShareApproval } from './queuedShareApproval'
 import { QueuedStrip } from './QueuedStrip'
 import { cardReplyId } from './replyTarget'
 import { serverHasConversation } from './sessionActions'
-import { TurnSwitchAgentContext, turnSwitchAgent } from './turnFailureActions'
+import { TurnSwitchAgentContext } from './turnFailureActions'
 import { TurnRetryContext, useFailedTurnRetry } from './turnRetryContext'
+import { useTurnFailureActions } from './useTurnFailureActions'
 import { useViewOnlyNotice } from './useViewOnlyNotice'
 
 import type { PanelViewCtx } from './ctx'
@@ -78,8 +79,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
   const readOnlyNotice = useViewOnlyNotice(c)
   const questions = c.openQuestions
   const composerRef = useRef<HTMLDivElement>(null)
-  const agentMenu = useState(false)
-  const turnSwitch = turnSwitchAgent(activeTab, () => agentMenu[1](true))
+  const { agentMenu, turnSwitch } = useTurnFailureActions(c, runtimeControl)
   // A card answers while its conversation has an open question, whatever the composer replies to.
   const canReply = activeTab !== null && !activeTab.readOnly && Boolean(questions?.length)
   // The fork needs the chat stored on the server; each message is then gated on its author.

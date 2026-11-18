@@ -26,19 +26,25 @@ export function TurnInterruptedPartView({ part }: { part: TurnInterruptedPart })
   const turnSwitch = useContext(TurnSwitchAgentContext)
 
   // The agent itself could not run the turn: the row a Bot chat shows, with Switch runtime.
-  if (part.cause)
+  if (part.cause) {
+    const actions = turnSwitch?.partId === part.id ? turnSwitch : undefined
+
     return (
-      <FailureRow
-        onSwitchAgent={turnSwitch?.partId === part.id ? turnSwitch.switchAgent : undefined}
-        onSetUpFallback={turnSwitch?.partId === part.id ? turnSwitch.setUpFallback : undefined}
-        onRetry={retry}
-        copyText={copyText}
-      >
-        <span className="font-medium text-secondary">{HEADLINE[part.reason]}</span>
-        {detail && <> {detail}</>}
-        {part.repeats && <span className="tabular-nums"> ×{part.repeats}</span>}
-      </FailureRow>
+      <>
+        <FailureRow
+          onSwitchAgent={actions?.switchAgent}
+          onSetUpFallback={actions?.setUpFallback}
+          onRetry={retry}
+          copyText={copyText}
+        >
+          <span className="font-medium text-secondary">{HEADLINE[part.reason]}</span>
+          {detail && <> {detail}</>}
+          {part.repeats && <span className="tabular-nums"> ×{part.repeats}</span>}
+        </FailureRow>
+        {actions?.fallbackDialog}
+      </>
     )
+  }
 
   return (
     <div className="group/interrupted flex items-start gap-1.5 text-[12.5px] text-tertiary">
