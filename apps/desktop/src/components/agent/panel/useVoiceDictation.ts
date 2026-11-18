@@ -7,7 +7,9 @@ import { toast } from '../../ui/toast'
 import {
   MAX_RECORDING_MS,
   VOICE_PROMPT,
+  appendLevel,
   dictationText,
+  levelFromSamples,
   openMicrophone,
   recordingFilename,
   recordingMimeType,
@@ -27,20 +29,56 @@ function microphoneHelp(cause: unknown): string {
   return t('The microphone could not be started.')
 }
 
+/** How often the waveform takes a level, as on iOS. */
+const METER_MS = 60
+
+/**
+ * Samples the stream's level every `METER_MS` into `onLevel`, through an
+ * `AnalyserNode` on the same stream. Returns what stops it.
+ */
+function meterStream(stream: MediaStream, onLevel: (level: number) => void): () => void {
+  const context = new AudioContext()
+  const analyser = context.createAnalyser()
+
+  analyser.fftSize = 1024
+  context.createMediaStreamSource(stream).connect(analyser)
+  const samples = new Uint8Array(analyser.fftSize)
+  const id = setInterval(() => {
+    analyser.getByteTimeDomainData(samples)
+    onLevel(levelFromSamples(samples))
+  }, METER_MS)
+
+  return () => {
+    clearInterval(id)
+    context.close().catch(() => {
+      // Already closed: nothing left to release.
+    })
+  }
+}
+
 /**
  * One voice-input take: record, then transcribe and hand the text over.
- * Cancelling, or the composer going away, discards the recording.
+ * Cancelling, or the composer going away, discards the recording. With
+ * `meter`, `levels` holds the take's recent microphone levels for a waveform.
+ * `stop({ send: true })` asks the caller to send the text once it is in.
  */
 export function useVoiceDictation({
   teamId,
   onText,
+  meter = false,
 }: {
   teamId?: string
-  onText: (text: string) => void
+  onText: (text: string, options: { send: boolean }) => void
+  meter?: boolean
 }) {
   const [phase, setPhase] = useState<VoicePhase>({ kind: 'idle' })
   const [now, setNow] = useState(() => Date.now())
+  const [levels, setLevels] = useState<number[]>([])
   const recorder = useRef<MediaRecorder | null>(null)
+  // Each take, and each cancel, gets a new number: a transcript that arrives for an
+  // older one is dropped, so a cancelled take never lands after a new one starts.
+  const take = useRef(0)
+  const sendAfter = useRef(false)
   // Set by Discard and by unmounting: a take that was still asking for the microphone is
   // dropped when the stream arrives, and a finished one is not transcribed.
   const discard = useRef(false)
@@ -51,14 +89,19 @@ export function useVoiceDictation({
     onTextRef.current = onText
   }, [onText])
 
-  const stop = useCallback(() => {
-    if (recorder.current?.state === 'recording') recorder.current.stop()
+  const stop = useCallback((options?: { send?: boolean }) => {
+    if (recorder.current?.state !== 'recording') return
+    sendAfter.current = options?.send === true
+    recorder.current.stop()
   }, [])
 
+  // While recording this discards the take; while transcribing, its transcript.
   const cancel = useCallback(() => {
     discard.current = true
-    stop()
-  }, [stop])
+    take.current += 1
+    if (recorder.current?.state === 'recording') recorder.current.stop()
+    else setPhase((current) => (current.kind === 'transcribing' ? { kind: 'idle' } : current))
+  }, [])
 
   const start = useCallback(async () => {
     // One take at a time, including one still waiting on the permission prompt.
@@ -81,13 +124,23 @@ export function useVoiceDictation({
     }
     if (!stream) return
     const mimeType = recordingMimeType((type) => MediaRecorder.isTypeSupported(type))
-    const take = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
+    const media = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
     const chunks: Blob[] = []
+    const id = ++take.current
 
-    take.ondataavailable = (event) => {
+    sendAfter.current = false
+    setLevels([])
+    const stopMeter = meter
+      ? meterStream(stream, (level) => setLevels((prev) => appendLevel(prev, level)))
+      : () => {
+          // No meter to stop.
+        }
+
+    media.ondataavailable = (event) => {
       if (event.data.size > 0) chunks.push(event.data)
     }
-    take.onstop = () => {
+    media.onstop = () => {
+      stopMeter()
       for (const track of stream.getTracks()) track.stop()
       recorder.current = null
       if (discard.current || chunks.length === 0) {
@@ -95,7 +148,8 @@ export function useVoiceDictation({
 
         return
       }
-      const type = take.mimeType !== '' ? take.mimeType : (mimeType ?? 'audio/webm')
+      const send = sendAfter.current
+      const type = media.mimeType !== '' ? media.mimeType : (mimeType ?? 'audio/webm')
 
       setPhase({ kind: 'transcribing' })
       void new Blob(chunks, { type })
@@ -109,20 +163,20 @@ export function useVoiceDictation({
         )
         .then((reply) => dictationText(reply, locale))
         .then((text) => {
-          if (!discard.current && text.trim()) onTextRef.current(text)
+          if (take.current === id && text.trim()) onTextRef.current(text, { send })
         })
         .catch((err: unknown) => {
-          toast.apiError(t('Voice input failed'), err)
+          if (take.current === id) toast.apiError(t('Voice input failed'), err)
         })
         .finally(() => {
-          setPhase({ kind: 'idle' })
+          if (take.current === id) setPhase({ kind: 'idle' })
         })
     }
-    recorder.current = take
-    take.start(1000)
+    recorder.current = media
+    media.start(1000)
     setNow(Date.now())
     setPhase({ kind: 'recording', startedAt: Date.now() })
-  }, [teamId])
+  }, [teamId, meter])
 
   const toggle = useCallback(() => {
     if (phase.kind === 'recording') stop()
@@ -143,6 +197,7 @@ export function useVoiceDictation({
   useEffect(
     () => () => {
       discard.current = true
+      take.current += 1
       if (recorder.current?.state === 'recording') recorder.current.stop()
     },
     [],
@@ -151,6 +206,7 @@ export function useVoiceDictation({
   return {
     phase,
     elapsedMs: phase.kind === 'recording' ? now - phase.startedAt : 0,
+    levels,
     available: Boolean(teamId),
     start,
     stop,

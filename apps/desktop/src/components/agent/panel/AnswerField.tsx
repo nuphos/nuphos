@@ -5,14 +5,16 @@ import { isMac } from '../../../lib/platform'
 import { Button } from '../../ui/button'
 
 import { ComposerVoiceButton } from './ComposerVoiceButton'
+import { DictationBar } from './DictationBar'
 import { useVoiceDictation } from './useVoiceDictation'
 import { dictationInsert, isVoiceShortcut } from './voiceDictation'
 
 /**
  * A question answered in words: a field and "Send", opened by "Other…". Esc
  * closes it; the caller keeps `text`, so what was typed is there when it opens again.
- * With `voiceTeamId`, a microphone (or mod+shift+U) dictates into the field, as in
- * the composer; the transcript waits there to be read and sent.
+ * With `voiceTeamId`, a microphone (or mod+shift+U) dictates: while it records, a
+ * bar like the iOS composer's takes the field's place. ■ puts the transcript in
+ * the field to be read and sent; ↑ sends it as soon as it is in.
  */
 export function AnswerField({
   text,
@@ -30,13 +32,33 @@ export function AnswerField({
   const field = useRef<HTMLInputElement>(null)
   const voice = useVoiceDictation({
     teamId: voiceTeamId,
-    onText: (spoken) => {
-      onText(text + dictationInsert(spoken, text))
-      field.current?.focus()
+    meter: true,
+    onText: (spoken, { send }) => {
+      const next = text + dictationInsert(spoken, text)
+
+      onText(next)
+      if (send && next.trim()) onSend(next.trim())
     },
   })
 
-  useEffect(() => field.current?.focus(), [])
+  const idle = voice.phase.kind === 'idle'
+
+  // On opening, and when a take ends: the field is back, with any transcript in it.
+  useEffect(() => {
+    if (idle) field.current?.focus()
+  }, [idle])
+
+  if (!idle)
+    return (
+      <DictationBar
+        phase={voice.phase}
+        elapsedMs={voice.elapsedMs}
+        levels={voice.levels}
+        onCancel={voice.cancel}
+        onStop={() => voice.stop()}
+        onSend={() => voice.stop({ send: true })}
+      />
+    )
 
   return (
     <form
@@ -72,7 +94,7 @@ export function AnswerField({
           elapsedMs={voice.elapsedMs}
           hero={false}
           onStart={() => void voice.start()}
-          onStop={voice.stop}
+          onStop={() => voice.stop()}
           onCancel={voice.cancel}
         />
       )}
