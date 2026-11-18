@@ -41,9 +41,9 @@ export async function hop({ call, send, log, sessionId, child }) {
 
   // Its first turn ends before it moves.
   await new Promise((resolve) => setTimeout(resolve, 4_000))
-  const moved = await call(sessionId, 'update_thread', {
+  const moved = await call(sessionId, 'update_task', {
     label: 'Move the thread',
-    threadId,
+    taskId: threadId,
     runtimeId: other?.runtimeId,
   })
   const sent = await shown(tools, 'send_message_to_thread', {
