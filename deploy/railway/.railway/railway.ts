@@ -74,7 +74,6 @@ export default defineRailway(() => {
       }),
       ATLAS_REDIS_ENABLED: 'false',
       CLAUDE_CODE_RUNTIME_KUBECTL: 'false',
-      CLAUDE_CODE_RUNTIME_PROVISIONER_ENABLED: 'false',
       NUPHOS_FILE_TRANSFER_S3_BUCKET: 'nuphos-file-transfers',
       NUPHOS_FILE_TRANSFER_S3_REGION: 'us-east-1',
       NUPHOS_FILE_TRANSFER_S3_ENDPOINT: `https://${storageDomain}`,
