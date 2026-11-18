@@ -11,6 +11,8 @@ const post = (id: string, at: string, sender: object, text = 'hi', extra: object
 })
 const person = { type: 'user', id: 'u1', displayName: 'Mei' }
 const scribe = { type: 'agent', id: 'scribe', displayName: 'Scribe' }
+// How the server stamps a post an agent makes in a chat.
+const byScribe = { source: 'agent.thread', sourceSessionId: 'scribe' }
 const failed = (at: string) => ({ kind: 'agent_reply_failed', at, text: '', agentId: 'scribe' })
 
 test("any person's post in a Bot's own chat waits on it until it posts", () => {
@@ -20,7 +22,7 @@ test("any person's post in a Bot's own chat waits on it until it posts", () => {
   assert.equal(
     awaitsReply(
       'scribe',
-      [...asked, post('p2', '2026-11-18T01:01:00Z', scribe)] as never,
+      [...asked, post('p2', '2026-11-18T01:01:00Z', scribe, 'done', byScribe)] as never,
       [],
       true,
     ),
@@ -36,7 +38,7 @@ test('in a group, only an @mention or a reply to its post waits on a Bot', () =>
     person,
     'https://nuphos.ai/teams/t/agent/scribe can you?',
   )
-  const own = post('p3', '2026-11-18T01:02:00Z', scribe)
+  const own = post('p3', '2026-11-18T01:02:00Z', scribe, 'done', byScribe)
   const reply = post('p4', '2026-11-18T01:03:00Z', person, 'thanks', {
     replyTo: { id: 'p3', authorName: 'Scribe', text: 'hi' },
   })

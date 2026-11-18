@@ -1,5 +1,5 @@
 // #3308: a Bot busy with work outside a group chat shows Busy among the chat's members, and a
-// post to it there joins its running turn, so the chat shows its dots rather than a wait line.
+// post to it there joins its running turn, so the chat shows its dots.
 import { agentEvents } from '../agent-log.ts'
 import { artifacts, until } from '../processes.ts'
 import { newTask, send } from '../ui.ts'
@@ -56,8 +56,6 @@ export default {
       })
       await page.locator('.t-typing-dot').first().waitFor({ timeout: 30_000 })
       await page.screenshot({ path: `${artifacts}/presence-busy-joins-turn-light.png` })
-      if ((await page.getByText(/is working outside this chat/).count()) > 0)
-        throw new Error('A Bot whose turn took the post still says it works elsewhere')
     } finally {
       await api(stack, 'POST', `/agent/conversations/${busy}/cancel-runtime`)
       await until('the held turn to stop', async () =>

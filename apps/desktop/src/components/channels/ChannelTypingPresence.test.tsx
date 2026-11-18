@@ -21,23 +21,20 @@ const render = (presence: BotPresence, waiting = true) =>
     }),
   )
 
-test('a waiting post says why the Bot is not answering, when it will answer by itself', () => {
+test('a waiting post to a Bot whose computer is offline says it will reply once it is back', () => {
   assert.ok(
     render({ state: 'offline', reason: 'computer_offline' }).includes(
       'Scribe’s computer is offline. It will reply when the computer is back.',
     ),
   )
-  assert.ok(
-    render({ state: 'busy' }).includes(
-      'Scribe is working outside this chat. It will reply when that’s done.',
-    ),
-  )
 })
 
-test('no line without a waiting post, for an online Bot, or where a person must act', () => {
+test('no line without a waiting post, for an online or busy Bot, or where a person must act', () => {
   for (const html of [
     render({ state: 'offline', reason: 'computer_offline' }, false),
     render({ state: 'online' }),
+    // A person's post joins a busy Bot's turn, which shows its dots instead.
+    render({ state: 'busy' }),
     render({ state: 'offline', reason: 'sign_in_required' }),
     render({ state: 'offline', reason: 'usage_limit' }),
   ])

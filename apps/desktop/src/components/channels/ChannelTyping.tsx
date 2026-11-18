@@ -6,14 +6,11 @@ import { AgentAvatar } from '../agent/AgentAvatar'
 import type { ChannelAgent } from '../../api'
 
 /** Why an agent a post waits on is not answering yet, where it will answer on its own (#3308).
- *  Anything a person must fix is the couldn't-reply line's, which offers the fix. */
+ *  Anything a person must fix is the couldn't-reply line's, which offers the fix. A busy agent
+ *  needs none: a person's post joins its running turn, so its dots show instead. */
 function waitLine(agent: ChannelAgent): string | null {
   const presence = agent.presence
 
-  if (presence?.state === 'busy')
-    return t('{name} is working outside this chat. It will reply when that’s done.', {
-      name: agent.title,
-    })
   if (presence?.state === 'offline' && presence.reason === 'computer_offline')
     return t('{name}’s computer is offline. It will reply when the computer is back.', {
       name: agent.title,

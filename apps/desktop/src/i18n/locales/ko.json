@@ -5694,7 +5694,6 @@
   "{name} is signed out. Sign it in to send messages.": "{name} 로그아웃 상태입니다. 메시지를 보내려면 로그인하세요.",
   "{name} is thinking": "{name}이(가) 생각하는 중",
   "{name} is waiting for a sign-in": "{name}님이 로그인을 기다리고 있습니다",
-  "{name} is working outside this chat. It will reply when that’s done.": "{name}은(는) 이 채팅 밖의 작업을 하고 있습니다. 끝나면 답장합니다.",
   "{name} mentioned you in {title}": "{name} 님이 {title}에서 회원님을 멘션했습니다",
   "{name} now connects via {host}": "{name}이(가) 이제 {host}을(를) 통해 연결됩니다",
   "{name} remaining": "{name} 남음",

@@ -5694,7 +5694,6 @@
   "{name} is signed out. Sign it in to send messages.": "{name} はサインアウトしています。メッセージを送信するにはサインインしてください。",
   "{name} is thinking": "{name} が考え中",
   "{name} is waiting for a sign-in": "{name} さんがサインインを待っています",
-  "{name} is working outside this chat. It will reply when that’s done.": "{name} はこのチャット以外の作業中です。終わったら返信します。",
   "{name} mentioned you in {title}": "{name} が {title} であなたをメンションしました",
   "{name} now connects via {host}": "{name} は {host} 経由で接続するようになりました",
   "{name} remaining": "{name} の残り",

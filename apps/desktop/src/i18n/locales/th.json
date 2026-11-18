@@ -5694,7 +5694,6 @@
   "{name} is signed out. Sign it in to send messages.": "{name} ออกจากระบบแล้ว ลงชื่อเข้าใช้เพื่อส่งข้อความ",
   "{name} is thinking": "{name} กำลังคิด",
   "{name} is waiting for a sign-in": "{name} กำลังรอการลงชื่อเข้าใช้",
-  "{name} is working outside this chat. It will reply when that’s done.": "{name} กำลังทำงานนอกแชทนี้ จะตอบกลับเมื่อเสร็จ",
   "{name} mentioned you in {title}": "{name} กล่าวถึงคุณใน {title}",
   "{name} now connects via {host}": "ขณะนี้ {name} เชื่อมต่อผ่าน {host}",
   "{name} remaining": "{name} คงเหลือ",

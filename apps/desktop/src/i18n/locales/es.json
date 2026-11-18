@@ -5694,7 +5694,6 @@
   "{name} is signed out. Sign it in to send messages.": "{name} cerró sesión. Inicia sesión para enviar mensajes.",
   "{name} is thinking": "{name} está pensando",
   "{name} is waiting for a sign-in": "{name} espera un inicio de sesión",
-  "{name} is working outside this chat. It will reply when that’s done.": "{name} está trabajando fuera de este chat. Responderá cuando termine.",
   "{name} mentioned you in {title}": "{name} te mencionó en {title}",
   "{name} now connects via {host}": "{name} ahora se conecta mediante {host}",
   "{name} remaining": "{name} restante",
