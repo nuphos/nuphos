@@ -14,6 +14,7 @@ import { computerScenarios } from './computer-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
 import { dashboardScenarios } from './dashboard-scenarios.ts'
 import { installScenarios } from './install-scenarios.ts'
+import { linkChipScenarios } from './link-chip-scenarios.ts'
 import { longTranscriptScenarios } from './long-transcript-scenarios.ts'
 import { startDesktop } from './desktop.ts'
 import { formScenario } from './form-scenario.ts'
@@ -94,6 +95,7 @@ const scenarios: Scenario[] = [
       await page.getByText('ACK E2E_DELIVERY:first').waitFor()
     },
   },
+  ...linkChipScenarios,
   // Before the Stop scenarios: a Stop while its turn was being saved was lost (#3403).
   ...longTranscriptScenarios,
   ...agentWordScenarios,
