@@ -12,7 +12,7 @@ import { t } from '../../i18n'
 
 import { canManage, newAgentAction } from './agentPresentation'
 import { BoxAccessDialog } from './BoxAccessDialog'
-import { useComputerSettings } from './ComputerSettingsDialog'
+import { useComputerSettings } from './useComputerSettings'
 import { BoxAgentSetup } from './BoxAgentSetup'
 import { agentSlots, askToAdd, canAddAgent } from './boxAgentSlots'
 import { DeskArt } from './BoxDesk'
@@ -81,13 +81,11 @@ export function BoxRow({
     call: (deviceId: string, teamId: string) => Promise<unknown>,
     fallback?: string,
   ) => run(title, () => call(device.deviceId, teamId), fallback)
-  const computerSettings = useComputerSettings(device, teamId, () => {
-    changed()
-  })
   const changed = () => {
     onChanged()
     window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
   }
+  const computerSettings = useComputerSettings(device, teamId, changed)
   const run = async (title: string, action: () => Promise<unknown>, fallback?: string) => {
     setBusy(true)
     try {

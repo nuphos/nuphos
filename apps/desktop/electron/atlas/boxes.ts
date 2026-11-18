@@ -206,13 +206,6 @@ export function updateDeviceApp(deviceId: string, teamId: string): Promise<{ ver
   )
 }
 
-/** Turns a computer's automatic updates on or off; whoever manages it may. */
-export function setDeviceAutoInstall(deviceId: string, teamId: string, enabled: boolean) {
-  const path = `/teams/${encodeURIComponent(teamId)}/computers/${encodeURIComponent(deviceId)}`
-
-  return call<{ enabled: boolean }>('PUT', `${path}/auto-install`, { enabled }, { retry: false })
-}
-
 /** Frees a Box's disk of the caches its tools rebuild; whoever manages it may ask. */
 export function clearBoxCaches(deviceId: string, teamId: string): Promise<{ ok: true }> {
   return call(

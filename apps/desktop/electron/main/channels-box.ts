@@ -11,7 +11,6 @@ import {
   removeDevice,
   updateDeviceApp,
   clearBoxCaches,
-  setDeviceAutoInstall,
   getBoxUsage,
   getBoxUsageHistory,
   bindInstaboxAccount,
@@ -25,6 +24,7 @@ import {
   pauseBox,
   resumeBox,
 } from '../atlas/boxes.ts'
+import { setDeviceAutoInstall } from '../atlas/computer-settings.ts'
 import {
   askRuntimeSignIn,
   decideShareApproval,
