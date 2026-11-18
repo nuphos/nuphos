@@ -4,9 +4,6 @@ import { selectInboxQuestion, useInboxSelection } from '../../views/inbox/inboxS
 import { QuestionRail } from '../../views/inbox/QuestionRail'
 import { useInboxQuestions } from '../../views/inbox/useInboxQuestions'
 import { SIDEBAR_GROUP_TITLE_CLASS } from '../SidebarNavItem'
-import { SkeletonReveal } from '../SkeletonReveal'
-
-import { SidebarSectionSkeleton } from './parts'
 
 import type { UIEventHandler } from 'react'
 
@@ -33,26 +30,20 @@ export function SidebarInboxPage({
         onScroll={onScroll}
         className="sidebar-page-list min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2.5 pb-2 scrollbar-thin scrollbar-overlay"
       >
-        <SkeletonReveal
-          className="t-sidebar-section-reveal"
-          ready={rows !== null}
-          skeleton={<SidebarSectionSkeleton />}
-        >
-          {rows?.length === 0 ? (
-            <p className="px-3 py-6 text-center text-[12px] text-tertiary">
-              {t("You're all caught up")}
-            </p>
-          ) : (
-            <QuestionRail
-              rows={rows ?? []}
-              openId={open?.request.id}
-              onSelect={(row) => {
-                selectInboxQuestion(teamId, row.request.id)
-                onOpenInbox()
-              }}
-            />
-          )}
-        </SkeletonReveal>
+        {rows?.length === 0 ? (
+          <p className="px-3 py-6 text-center text-[12px] text-tertiary">
+            {t("You're all caught up")}
+          </p>
+        ) : (
+          <QuestionRail
+            rows={rows ?? []}
+            openId={open?.request.id}
+            onSelect={(row) => {
+              selectInboxQuestion(teamId, row.request.id)
+              onOpenInbox()
+            }}
+          />
+        )}
       </nav>
     </div>
   )
