@@ -179,6 +179,8 @@ export async function readChannelMessages(
       index: { $gt: after },
       // Its own posts are not news to it, and must not push others' off the page.
       'metadata.sender.id': { $ne: agentSessionId },
+      // Nor is an answer to a question card: the agent that asked was given it as it was given.
+      'metadata.answeredIn': { $exists: false },
     })
     .sort({ index: 1 })
     .limit(READ_PAGE + 1)
@@ -217,7 +219,6 @@ export async function readChannelMessages(
               ).trimEnd(),
             }
           : {}),
-        ...(metadata?.answeredIn ? { answeredIn: 'inbox', requestId: metadata.requestId } : {}),
         // Files posted with it, placed on the reader's runtime by channel_read.
         ...(uploads.length > 0 ? { uploads } : {}),
       }
