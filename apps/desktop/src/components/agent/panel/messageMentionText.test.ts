@@ -45,3 +45,20 @@ test('mentions keep only well-formed entries', () => {
   assert.equal(parseMentions('nope'), undefined)
   assert.equal(parseMentions([]), undefined)
 })
+
+test("a joined Bot's name becomes a Bot mention, even when it isn't Latin", () => {
+  const scribe = { id: 'bot-1', displayName: '書記' }
+
+  assert.equal(
+    linkMentions('@書記 請整理，@Mei Chen 看一下', [mei], [scribe]),
+    '[@書記](#mention-bot:bot-1) 請整理，[@Mei Chen](#mention:u-mei) 看一下',
+  )
+  assert.equal(linkMentions('@書記 hi', undefined, [scribe]), '[@書記](#mention-bot:bot-1) hi')
+})
+
+test('a person keeps their mention when a Bot shares their name', () => {
+  assert.equal(
+    linkMentions('@Mei Chen hi', [mei], [{ id: 'bot-1', displayName: 'Mei Chen' }]),
+    '[@Mei Chen](#mention:u-mei) hi',
+  )
+})

@@ -41,3 +41,45 @@ test("a Bot's post is headed by its name alone, never an Agent tag", () => {
   assert.match(markup, />Scribe</)
   assert.doesNotMatch(markup, />Agent</)
 })
+
+const { renderBotMentionLink } = await import('../agent/panel/messageInlineLinks')
+
+const mentionPost = (text: string) =>
+  ({
+    ...botPost,
+    parts: [{ type: 'text', text }],
+    metadata: {
+      version: 1,
+      sender: { type: 'user', id: 'u-2', displayName: 'Mei' },
+      source: 'nuphos',
+      sentAt: '2026-11-17T09:00:00Z',
+    },
+  }) as unknown as AgentPersistedMessage
+
+const renderPost = (owned: boolean) =>
+  renderToStaticMarkup(
+    <ChannelMessage
+      message={mentionPost('@書記 please summarize')}
+      at={0}
+      first
+      fresh={false}
+      ownAgent={false}
+      viewerId="viewer"
+      teamId="t"
+      links={{
+        channelId: 'c',
+        bots: [{ id: 'bot-1', displayName: '書記' }],
+        renderLink: (href, children) =>
+          renderBotMentionLink(href, children, () => (owned ? () => {} : undefined)),
+      }}
+      onOpenSession={() => {}}
+    />,
+  )
+
+test('a Bot the chat has joined shows as a mention chip, which opens only for its owner', () => {
+  const theirs = renderPost(false)
+  const mine = renderPost(true)
+
+  assert.match(theirs, /<span[^>]*data-mention-bot-id="bot-1"[^>]*>@書記<\/span>/)
+  assert.match(mine, /<button[^>]*data-mention-bot-id="bot-1"[^>]*>@書記<\/button>/)
+})
