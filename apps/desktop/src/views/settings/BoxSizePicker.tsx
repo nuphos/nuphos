@@ -18,20 +18,20 @@ const SLAB_FILL: Record<Tone, string> = {
   locked: 'fill-current',
 }
 
-/** Three stacked slabs, filled from the bottom by tier: one for Small, two for Medium, three for Large. */
+/** Four stacked slabs, filled from the bottom by tier: one for Small up to four for Extra large. */
 function SizeGlyph({ tier, tone }: { tier: number; tone: Tone }) {
   return (
     <svg viewBox="0 0 32 32" className="h-8 w-8" aria-hidden="true">
-      {[0, 1, 2].map((slab) => {
+      {[0, 1, 2, 3].map((slab) => {
         const filled = slab <= tier
 
         return (
           <rect
             key={slab}
             x={4}
-            y={22 - slab * 8}
+            y={24 - slab * 7}
             width={24}
-            height={6}
+            height={5}
             rx={2}
             className={clsx(
               'transition-colors',
