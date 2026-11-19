@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { config } from '@/config'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 import { chatInMeeting, joinMeeting, leaveMeetingTask } from '@/lib/meetings/meetings'
+import { logEvent } from '@/lib/observability'
 
 import { toolInputJsonSchema } from './ai-sdk-adapter'
 
@@ -39,11 +40,15 @@ const leave = z
   })
   .strict()
 
-// A refusal is the answer the agent needs, so it gets the reason.
-function answer(work: Promise<unknown>) {
-  return work.then(toolResult, (error: unknown) =>
-    toolError(error instanceof Error ? error.message : String(error)),
-  )
+// A refusal is the answer the agent needs, so it gets the reason; the log is for us.
+function answer(tool: string, work: Promise<unknown>) {
+  return work.then(toolResult, (error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error)
+
+    logEvent('warn', 'meeting.tool_failed', { tool, error_message: message })
+
+    return toolError(message)
+  })
 }
 
 /** Off unless this server has Recall.ai set up. */
@@ -83,21 +88,27 @@ export function meetingToolModule(): PreviewToolModule {
 
         if (!parsed.success) return toolError(parsed.error.message)
 
-        return answer(joinMeeting(ctx, parsed.data.url, parsed.data.brief))
+        return answer('meeting_join', joinMeeting(ctx, parsed.data.url, parsed.data.brief))
       },
       meeting_chat: async (args) => {
         const parsed = chat.safeParse(args)
 
         if (!parsed.success) return toolError(parsed.error.message)
 
-        return answer(chatInMeeting(ctx, parsed.data.text).then(() => ({ sent: true })))
+        return answer(
+          'meeting_chat',
+          chatInMeeting(ctx, parsed.data.text).then(() => ({ sent: true })),
+        )
       },
       meeting_leave: async (args) => {
         const parsed = leave.safeParse(args)
 
         if (!parsed.success) return toolError(parsed.error.message)
 
-        return answer(leaveMeetingTask(ctx, parsed.data.threadId).then(() => ({ left: true })))
+        return answer(
+          'meeting_leave',
+          leaveMeetingTask(ctx, parsed.data.threadId).then(() => ({ left: true })),
+        )
       },
     }),
   }

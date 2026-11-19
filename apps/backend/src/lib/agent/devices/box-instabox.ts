@@ -183,10 +183,11 @@ export async function runOnBox(userId: string, deviceId: string, command: string
 }
 
 /**
- * Deletes the machine and its disks; the caller removes the device row. A row that
+ * Deletes the machine and its disks; the caller then removes the device row. A row that
  * never got its machine id (the backend went away mid-create) may still own a
- * machine: it is found by the device id in its metadata. A machine that is already
- * gone just goes; a kill that fails keeps the row, so nothing is orphaned silently.
+ * machine: it is found by the device id in its metadata. Nothing the provider says
+ * keeps a computer from being deleted: a kill that fails (an expired key, an account
+ * no longer connected, instabox down) is logged with the machine to clean up by hand.
  */
 export async function destroyBox(userId: string, deviceId: string): Promise<void> {
   const device = requireBox(await getAgentDevice(userId, deviceId), deviceId)
@@ -197,8 +198,15 @@ export async function destroyBox(userId: string, deviceId: string): Promise<void
 
     await killBoxMachine(conn, device.box.sandboxId, deviceId)
   } catch (error) {
-    logError('agent.box.kill_failed', error, { user_id: userId, device_id: deviceId })
-    throw unavailable('Could not delete the computer', error)
+    logError('agent.box.kill_failed', error, {
+      user_id: userId,
+      device_id: deviceId,
+      team_id: device.box.teamId,
+      sandbox_id: device.box.sandboxId ?? null,
+      instabox_account_id: device.box.accountId ?? null,
+    })
+
+    return
   }
   // Its tunnel closed before the kill, while the machine still ran.
   noteBoxUsage(device.box.teamId)

@@ -52,6 +52,8 @@ test('a size instabox does not offer is refused', async () => {
 })
 
 test('an account with no allowed size is an outage, not an empty choice', async () => {
+  // Its own key: sizes read once are kept per key.
+  config.box.instabox = { apiKey: 'ibk_no_size', apiUrl: 'https://instabox.test' }
   me = {}
   await expect(boxSizes()).rejects.toMatchObject({ status: 503, code: 'box_unavailable' })
 })
