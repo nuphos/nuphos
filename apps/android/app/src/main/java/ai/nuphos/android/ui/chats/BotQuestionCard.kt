@@ -92,6 +92,8 @@ internal fun BotQuestionCard(
     /** Sets the question aside until a time; only the Inbox offers it. */
     onSnooze: ((Instant) -> Unit)? = null,
 ) {
+    // In a chat or a Task, #2879's card; the Inbox keeps its own, with the text box always there.
+    if (!answersInPlace) return ChatQuestionCard(question, onOpen, onAnswer, showsFrom, onLink, failure, onConnect, onForm, onDismiss)
     val replies = cardReplies(question)
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp).testTag("bot-question"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         if (showsFrom) Row(Modifier.clickable(onClick = onOpen).testTag("bot-question-from"), verticalAlignment = Alignment.CenterVertically,
@@ -152,8 +154,8 @@ private fun QuestionBody(id: String, text: String, onLink: ((String) -> Unit)?) 
     }
 }
 
-/** More than about three lines of text: shown collapsed until asked for. */
-internal fun isLongBody(text: String): Boolean = text.trim().lines().size > 3 || text.length > 240
+/** More than about four lines of text, as #2879 cuts the body: shown collapsed until asked for. */
+internal fun isLongBody(text: String): Boolean = text.trim().lines().size > 4 || text.length > 240
 
 /** One (label, reply) per option, possibly none; null for a secret or a connection, answered in their own way. */
 internal fun cardReplies(question: BotQuestion): List<Pair<String, String>>? {
@@ -171,7 +173,7 @@ internal fun cardReplies(question: BotQuestion): List<Pair<String, String>>? {
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun QuestionOptions(
+internal fun QuestionOptions(
     id: String,
     questions: List<DecisionQuestion>,
     pick: Boolean,

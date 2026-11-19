@@ -59,4 +59,5 @@
     <string name="chats_question_dismiss_reason">Reason (optional)</string>
     <string name="chats_empty_bot_body">This is your conversation with %1$s. Talk about what you want help with, and shape how you work together.</string>
     <string name="chats_empty_bot_start">You can start by telling %1$s what you would like to do.</string>
+    <string name="chats_question_skip">Skip</string>
 </resources>

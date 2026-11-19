@@ -59,4 +59,5 @@
     <string name="chats_question_dismiss_reason">이유(선택)</string>
     <string name="chats_empty_bot_body">%1$s와 대화하는 공간입니다. 필요한 도움을 이야기하며 함께 일하는 방식을 만들어 보세요.</string>
     <string name="chats_empty_bot_start">먼저 %1$s에게 하고 싶은 일을 알려 주세요.</string>
+    <string name="chats_question_skip">건너뛰기</string>
 </resources>
