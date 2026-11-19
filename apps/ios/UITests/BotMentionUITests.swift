@@ -35,8 +35,29 @@ final class BotMentionUITests: XCTestCase {
         shot("bot-chat-mention-picked")
     }
 
+    /// Every `@` opens on what was listed before it: a read at the `@` (`limit=6`, held here for
+    /// 4 s) would leave it empty, and typing on only narrows it (#3739).
+    func testAtShowsBotsAtOnceFromWhatWasListed() throws {
+        let app = try launch(slowSearch: true)
+        app.staticTexts["Release notes"].firstMatch.tap()
+        XCTAssertTrue(app.collectionViews["chat.transcript"].cells.firstMatch.waitForExistence(timeout: 10),
+                      "The Bot's chat did not load")
+        let composer = try XCTUnwrap([app.textFields.firstMatch, app.textViews.firstMatch].first { $0.exists })
+        composer.tap()
+        if app.buttons["Continue"].waitForExistence(timeout: 2) { app.buttons["Continue"].tap() }
+        composer.typeText("Ask @")
+
+        let other = app.buttons["Sign-in helper"]
+        let offered = other.waitForExistence(timeout: 1.5)
+        shot("mention-at-once")
+        XCTAssertTrue(offered, "`@` waited on a read instead of showing the listed Bots")
+        composer.typeText("Sign")
+        XCTAssertTrue(other.waitForExistence(timeout: 1.5), "Typing on waited on a read")
+        shot("mention-narrowed")
+    }
+
     /// The shared fixture, with a post in "Release notes" that links the "Sign-in helper" Bot.
-    private func launch() throws -> XCUIApplication {
+    private func launch(slowSearch: Bool = false) throws -> XCUIApplication {
         let fixture = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
             .appending(path: "tests/fixtures/bot-desktop-responses.json")
         let file = fixture.deletingLastPathComponent().appending(path: "mention-live-\(UUID().uuidString).json")
@@ -55,6 +76,10 @@ final class BotMentionUITests: XCTestCase {
         chat["messages"] = messages
         detail["body"] = chat
         responses[detailKey] = detail
+        if slowSearch, var listing = responses["GET /agent/conversations"] as? [String: Any] {
+            listing["delayMs"] = 4000
+            responses["GET /agent/conversations?limit=6"] = listing
+        }
         try JSONSerialization.data(withJSONObject: responses).write(to: file, options: .atomic)
         let app = XCUIApplication()
         app.launchArguments = ["-preview-home", "-preview-no-push", "-page", "chats"]
