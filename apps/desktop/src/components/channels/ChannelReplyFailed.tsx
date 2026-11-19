@@ -2,7 +2,7 @@ import { useState } from 'react'
 
 import { api } from '../../api'
 import { t } from '../../i18n'
-import { formatResetsAt } from '../../lib/runtimeQuota'
+import { formatResetsIn } from '../../lib/runtimeQuota'
 import { requestAgentMenu } from '../agent/panel/agentMenuRequest'
 import { FailureRow } from '../agent/panel/FailureRow'
 import { toast } from '../ui/toast'
@@ -46,8 +46,7 @@ export function ChannelReplyFailed({
 }) {
   const [retrying, setRetrying] = useState(false)
   const agentId = event.agentId
-  const resets =
-    event.cause === 'usage_limit' ? formatResetsAt(event.resetsAt ?? null, new Date()) : null
+  const resets = event.cause === 'usage_limit' ? formatResetsIn(event.resetsAt) : null
   const canSwitch =
     actionable &&
     ownedAgents.has(agentId ?? '') &&

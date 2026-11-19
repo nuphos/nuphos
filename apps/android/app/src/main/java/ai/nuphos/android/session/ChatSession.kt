@@ -208,6 +208,8 @@ class ChatSession(
         private set
     private var observationClock by mutableStateOf(RuntimeObservation.now())
     private var submissionPending by mutableStateOf(false)
+    /** Nothing in flight: a store may let it go without losing a reply or a send. */
+    val idle: Boolean get() = !isStreaming && !submissionPending && queued.isEmpty()
     private var replySubmissionPending = false
     private var repliedWaitKey: String? = null
     private var steeringPending by mutableStateOf(false)
@@ -1132,10 +1134,17 @@ class ChatSession(
         lastSyncedSignature = signature()
     }
 
+    private var shownBefore = false
+
     suspend fun pollWhileIdle() {
         if (!hasAiAccess) return
+        // Back on a chat it showed before (or back in the foreground), the first read is at once,
+        // not after 3 s (#3526). A first open has just loaded it: reading again then would race that load.
+        var wait = !shownBefore
+        shownBefore = true
         while (coroutineContext.isActive && hasAiAccess) {
-            delay(3_000)
+            if (wait) delay(3_000)
+            wait = true
             if (!hasAiAccess) return
             observationClock = RuntimeObservation.now()
             if (!loaded || loadError != null || movingAgent || (!isNative && isStreaming)) continue

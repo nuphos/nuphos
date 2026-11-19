@@ -134,7 +134,7 @@ Key facts:
 
 - `timeRange` is the single source of truth for time; **every panel inherits it**. Panels carry only `staticParams` (provider, accountId, filters) — never their own start/end.
 - Editing a panel's `code` creates a **new script version**; existing snapshots keep the version they ran against (immutable). Re-running produces a new snapshot.
-- A schedule belongs to the whole dashboard and refreshes every panel at 09:00 UTC: daily, on Mondays (weekly) or on the 1st (monthly). Tell the user that time in both UTC and their own timezone.
+- A schedule belongs to the whole dashboard and refreshes every panel at 00:00 UTC, when rolling ranges start their new day: daily, on Mondays (weekly) or on the 1st (monthly). Tell the user that time in both UTC and their own timezone.
 - Adding a panel runs it immediately.
 
 ## Building the initial dashboard

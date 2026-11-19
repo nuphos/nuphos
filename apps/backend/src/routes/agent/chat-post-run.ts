@@ -5,9 +5,10 @@
 // within the file-size budget.
 
 import { agentConversations } from '@/lib/agent/db'
+import { keepFirstSessionPick } from '@/lib/agent/db/conversations-runtime'
 import { trackAgentProducer } from '@/lib/agent/producer-drain'
-import { noteLostTurn } from '@/lib/agent/undelivered-send'
 import { recordRuntimeTurnUsage } from '@/lib/agent/turn-usage-record'
+import { noteLostTurn } from '@/lib/agent/undelivered-send'
 import { runtimeModelCatalog } from '@/lib/claude-code-preview/runtime-models'
 import { offeredSessionConfig } from '@/lib/claude-code-preview/session-config-catalog'
 import { mirrorAppTurnToDiscord } from '@/routes/discord/turn'
@@ -183,10 +184,11 @@ export function launchAcceptedChatTurn(args: {
       const kept = await initialPick
 
       if (kept && Object.keys(kept).length)
-        await agentConversations().updateOne(
-          { sessionId, teamId, claudeCodePreview: { $exists: false } },
-          { $set: { initialSessionConfig: kept } },
-        )
+        await keepFirstSessionPick(sessionId, teamId, kept, {
+          actorId: run.userId,
+          via: 'new_chat',
+          ...(chatCtx.client ? { client: chatCtx.client } : {}),
+        })
       // The task's folder is fixed before its first session exists, by its owner only.
       if (body.workspace && runtimeId && chatCtx.userId === run.userId && isFirstTurn(body, null))
         await agentConversations().updateOne(

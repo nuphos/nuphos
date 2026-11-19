@@ -129,7 +129,7 @@ export const PanelCard = memo(
                 icon={<Sparkles className="h-3.5 w-3.5" />}
                 onClick={() => onAskAgent(panel)}
               >
-                {t('Ask agent')}
+                {t('Ask in a task')}
               </MenuItem>
               <MenuItem
                 icon={<RefreshCw className="h-3.5 w-3.5" />}

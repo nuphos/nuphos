@@ -1,8 +1,8 @@
 import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
-import { config } from '@/config'
 import { encryptLarkSecret } from '@/lib/byos/secrets'
+import { requirePublicBackendUrl } from '@/lib/claude-code-preview/runtime-backend-url'
 import { AppError } from '@/lib/errors'
 import { deleteLarkTeamBridgeState } from '@/lib/lark/agent-bot'
 import { verifyLarkCredentials } from '@/lib/lark/api'
@@ -24,13 +24,8 @@ export const larkInstallationsRoutes = new Hono<{ Variables: TeamAuthVariables }
 // Feishu app_id looks like cli_xxxxxxxxxxxxxxxx.
 const APP_ID_RE = /^cli_[a-z0-9]+$/i
 
-// Lark's Event Request URL is called by Feishu's own servers, so it must always
-// be the public production endpoint — never a dev/local publicBaseUrl, which
-// would be an unreachable localhost. Hard-pinned regardless of environment.
-const LARK_WEBHOOK_BASE_URL = 'https://api.nuphos.ai'
-
 function webhookUrlFor(appId: string): string {
-  return `${LARK_WEBHOOK_BASE_URL}/lark/events/${appId}`
+  return `${requirePublicBackendUrl()}/lark/events/${appId}`
 }
 
 function trimmedString(value: unknown): string {
@@ -71,6 +66,8 @@ larkInstallationsRoutes.put('/', requireTeamRole('ADMINISTRATOR'), async (c) => 
     )
   }
 
+  const webhookUrl = webhookUrlFor(appId)
+
   // Reject an app already bound to a different Nuphos team before we spend a
   // round-trip verifying credentials.
   await assertLarkAppAvailable(appId, teamId)
@@ -106,7 +103,7 @@ larkInstallationsRoutes.put('/', requireTeamRole('ADMINISTRATOR'), async (c) => 
 
   return c.json({
     installation: publicLarkInstallationView(binding),
-    webhookUrl: webhookUrlFor(appId),
+    webhookUrl,
   })
 })
 

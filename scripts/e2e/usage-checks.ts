@@ -11,6 +11,12 @@ export async function shot(section: Locator, name: string) {
   await section.screenshot({ path: `${artifacts}/${name}.png` })
 }
 
+/** Groups the table and chart by `group`. */
+export async function pickGroup(page: Page, section: Locator, group: string) {
+  await section.getByRole('combobox', { name: 'Group by' }).click()
+  await page.getByRole('option', { name: group, exact: true }).click()
+}
+
 /** Filters take several values per dimension: the member picked by clicking is ticked. */
 export async function captureFilterMenu(page: Page, section: Locator) {
   // Filters take several values per dimension: the member picked by clicking is ticked.
