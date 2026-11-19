@@ -14,7 +14,7 @@ const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
 const NOTICE = 'Paused by the provider (host out of memory). It resumes when you use it.'
 
 /** Writes or removes a Box row as the backend keeps it: only the database can make one here. */
-function boxRow(mongoUri: string, row: Record<string, unknown> | { remove: string }) {
+export function boxRow(mongoUri: string, row: Record<string, unknown> | { remove: string }) {
   const script = `
     import { MongoClient } from 'mongodb'
     const row = JSON.parse(process.argv[2])
@@ -30,7 +30,7 @@ function boxRow(mongoUri: string, row: Record<string, unknown> | { remove: strin
   })
 }
 
-async function me(stack: Stack): Promise<string> {
+export async function me(stack: Stack): Promise<string> {
   const response = await fetch(`${stack.apiUrl}/auth/me`, {
     headers: { authorization: `Bearer ${stack.token}` },
   })
