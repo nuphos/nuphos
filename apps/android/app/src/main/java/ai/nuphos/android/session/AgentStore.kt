@@ -120,6 +120,9 @@ class AgentStore(
     /** Null until a listing for this workspace answers. A failed one says nothing, so the last answer stays. */
     var hasRuntimes by mutableStateOf<Boolean?>(null)
         private set
+    var creationRuntimes by mutableStateOf<List<ai.nuphos.android.data.AgentRuntime>?>(null)
+        private set
+    val hasSelectableRuntimes get() = creationRuntimes?.any { it.selectable }
     private var runtimesGeneration = 0
     private var runtimesListedFor: Long? = null
 
@@ -133,10 +136,13 @@ class AgentStore(
         val workspace = workspaceRevision
         val consent = AiAccess.revision
         storeScope.launch {
-            val any = try { ai.nuphos.android.data.AgentRuntimeApi(token, team.id).catalog().isNotEmpty() }
+            val catalog = try { ai.nuphos.android.data.AgentRuntimeApi(token, team.id).catalog() }
                 catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { null }
-            if (any != null && !disposed && hasAiAccess() && AiAccess.revision == consent && selectedTeam?.id == team.id &&
-                workspaceRevision == workspace && generation == runtimesGeneration) hasRuntimes = any
+            if (catalog != null && !disposed && hasAiAccess() && AiAccess.revision == consent && selectedTeam?.id == team.id &&
+                workspaceRevision == workspace && generation == runtimesGeneration) {
+                hasRuntimes = catalog.isNotEmpty()
+                creationRuntimes = catalog
+            }
         }
     }
 
@@ -387,6 +393,7 @@ class AgentStore(
         runtimesGeneration++
         runtimesListedFor = null
         hasRuntimes = null
+        creationRuntimes = null
         channelGeneration++
         channels = emptyList()
         bots = emptyList()
