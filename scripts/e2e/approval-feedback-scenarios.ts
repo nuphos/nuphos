@@ -48,7 +48,7 @@ export const approvalFeedbackScenarios: Scenario[] = [
         release = () => {}
         const notice = page.getByRole('status').filter({
           hasText:
-            'Not run: a new message cancelled this approval. Ask again if you still want it.',
+            'Not run: a new message cancelled the approval for "echo e2e". Ask again if you still want it.',
         })
 
         await notice.waitFor({ state: 'visible' })

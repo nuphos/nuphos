@@ -112,7 +112,7 @@ describe('OpenAB permission bridge', () => {
       expect(tools.at(-1)).toMatchObject({
         status: 'failed',
         contentText:
-          'Not run: a new message cancelled this approval. Ask again if you still want it.',
+          'Not run: a new message cancelled the pending approval. Ask again if you still want it.',
         revealed: true,
       })
     },

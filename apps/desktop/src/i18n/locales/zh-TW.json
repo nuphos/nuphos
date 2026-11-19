@@ -1,5 +1,4 @@
 {
-  "Not run: a new message cancelled this approval. Ask again if you still want it.": "未執行：新訊息已取消這項核准請求。若仍要執行，請再次提出要求。",
   "\"{domain}\" will stop serving this Pages project.": "「{domain}」將不再提供此 Pages 專案的服務。",
   "\"{key}\" will be permanently deleted.": "「{key}」將被永久刪除。",
   "\"{name}\" and all of its panels, snapshots, and alerts will be permanently deleted.": "「{name}」及其所有面板、快照與警示將被永久刪除。",
@@ -3106,6 +3105,8 @@
   "Not run": "未執行",
   "Not run yet": "尚未執行",
   "Not run yet.": "尚未執行。",
+  "Not run: a new message cancelled the approval for \"{action}\". Ask again if you still want it.": "未執行：新訊息已取消「{action}」的核准請求。若仍要執行，請再次提出要求。",
+  "Not run: a new message cancelled the pending approval. Ask again if you still want it.": "未執行：新訊息已取消待核准的請求。若仍要執行，請再次提出要求。",
   "Not signed in": "未登入",
   "Not signed in.": "未登入。",
   "Not signed in. Ask a workspace administrator to sign it in.": "尚未登入。請工作區管理員登入。",

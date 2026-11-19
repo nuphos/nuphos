@@ -16,7 +16,7 @@ import { DownloadGroups } from './DownloadGroups'
 import { withoutQuestionRows } from './openQuestionParts'
 import { CollapsedWorkView, PlanBookkeepingPart, ThinkingPartView } from './partChrome'
 import { isHiddenMemoryIngestPart } from './parts'
-import { approvalNotice, renderPartRange, renderSelectedParts } from './renderPartRange'
+import { renderPartRange, renderSelectedParts, withApprovalNotice } from './renderPartRange'
 import { steeringMessage } from './steering'
 import { stoppedTurnCalls, withoutNoResponsePlaceholder } from './stoppedTurn'
 import { StoppedTurnEnding } from './StoppedTurnEnding'
@@ -37,6 +37,7 @@ import type { ActivePlanCanAct } from './toolParts'
 import type { FileTransferGroup } from '../../../types'
 import type { ReactNode } from 'react'
 
+// Historical message identity stays stable across the streaming clock tick.
 export const AssistantMessage = memo(
   ({
     message,
@@ -272,8 +273,7 @@ export const AssistantMessage = memo(
 
     return (
       <div className="group/message space-y-2">
-        {approvalNotice(orderedParts)}
-        {body}
+        {withApprovalNotice(body, orderedParts)}
         {!streaming && (
           <TurnLinkChips parts={orderedParts} teamId={teamId} onOpen={onOpenNuphosLink} />
         )}

@@ -25,7 +25,7 @@ export const OPENAB_PERMISSION_DECISION_TIMEOUT_MS = 2 * 60_000
 export const PERMISSION_TIMED_OUT_TEXT = 'Permission request timed out'
 const PERMISSION_CANCELLED_TEXT = 'Permission request was cancelled'
 const PERMISSION_SUPERSEDED_TEXT =
-  'Not run: a new message cancelled this approval. Ask again if you still want it.'
+  'Not run: a new message cancelled the pending approval. Ask again if you still want it.'
 
 type PermissionBridgeDeps = {
   getSessionBypass: (conversationId: string, userId: string) => Promise<boolean>

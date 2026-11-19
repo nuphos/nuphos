@@ -3105,6 +3105,8 @@
   "Not run": "실행 안 됨",
   "Not run yet": "아직 실행되지 않음",
   "Not run yet.": "아직 실행되지 않았습니다.",
+  "Not run: a new message cancelled the approval for \"{action}\". Ask again if you still want it.": "실행되지 않음: 새 메시지로 인해 “{action}”의 승인이 취소되었습니다. 여전히 원하면 다시 요청하세요.",
+  "Not run: a new message cancelled the pending approval. Ask again if you still want it.": "실행되지 않음: 새 메시지로 인해 대기 중인 승인이 취소되었습니다. 여전히 원하면 다시 요청하세요.",
   "Not signed in": "로그인하지 않음",
   "Not signed in.": "로그인되지 않았습니다.",
   "Not signed in. Ask a workspace administrator to sign it in.": "로그인되어 있지 않습니다. 워크스페이스 관리자에게 로그인을 요청하세요.",
