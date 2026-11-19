@@ -9,7 +9,7 @@ import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
 
-type Dashboard = { id: string; name: string; visibility?: string }
+type Dashboard = { id: string; name: string; visibility?: string; cadence?: string | null }
 
 async function listed(stack: Stack, token: string) {
   const response = await fetch(`${stack.apiUrl}/teams/${stack.teamId}/dashboards`, {
@@ -93,6 +93,35 @@ export const dashboardUiScenarios: Scenario[] = [
       await page.getByText('This dashboard is empty.').waitFor()
       await expectVisibility(stack, 'New dashboard', 'personal')
       await shot(page, '2-new-dashboard')
+      // Refresh and auto-refresh on the dashboard itself, in the panel beside the chat (#3821).
+      await page.getByRole('button', { name: 'Refresh', exact: true }).waitFor()
+      await page.getByTitle('Auto-refresh is off').click()
+      await page.getByRole('menuitem', { name: /^Daily at/ }).click()
+      await until('"New dashboard" to refresh daily on the backend', async () => {
+        const dashboard = await ownersDashboard(stack, 'New dashboard')
+
+        return dashboard?.cadence === 'daily'
+      })
+      await page.getByRole('button', { name: 'Auto-refresh: Daily', exact: true }).waitFor()
+      await page.getByTitle(/^Auto-refresh: Daily at/).waitFor()
+      await page.getByRole('menu').waitFor({ state: 'hidden' })
+      // Nothing in the narrow panel runs past its edge (the panel is at the window's right).
+      const addPanel = await page
+        .getByRole('button', { name: 'Add Panel', exact: true })
+        .boundingBox()
+      const windowWidth = page.viewportSize()?.width ?? 0
+
+      if (!addPanel || addPanel.x + addPanel.width > windowWidth)
+        throw new Error(`Add Panel runs past the panel edge: ${JSON.stringify(addPanel)}`)
+      await shot(page, '2b-refresh-controls')
+      // The same toolbar on one row, with the panel expanded to the window.
+      await page.getByRole('button', { name: 'Expand workspace panel' }).click()
+      await page.getByRole('button', { name: 'Restore workspace panel' }).waitFor()
+      await page.waitForTimeout(500)
+      await shot(page, '2c-refresh-controls-expanded')
+      await page.getByRole('button', { name: 'Restore workspace panel' }).click()
+      await page.getByRole('button', { name: 'Expand workspace panel' }).waitFor()
+      await page.waitForTimeout(500)
       // The toolbar's Personal / Team menu, shown wherever the dashboard is open.
       await page.getByRole('button', { name: 'Personal', exact: true }).click()
       await page.getByRole('menuitem', { name: 'Team', exact: true }).waitFor()

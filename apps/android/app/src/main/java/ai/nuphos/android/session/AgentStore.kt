@@ -1,5 +1,6 @@
 package ai.nuphos.android.session
 
+import kotlinx.coroutines.CancellationException
 import ai.nuphos.android.R
 import kotlinx.coroutines.ensureActive
 
@@ -360,7 +361,11 @@ class AgentStore(
     fun channelSession(sessionId: String, title: String? = null): ChannelSession? {
         val team = selectedTeam ?: return null
         if (disposed || !hasAiAccess()) return null
-        return channelSessions.getOrPut(team.id to sessionId) {
+        val key = team.id to sessionId
+        // The most recent chats, as for Tasks: re-inserted last, the front let go past the limit.
+        channelSessions.remove(key)?.let { kept -> channelSessions[key] = kept; return kept }
+        if (channelSessions.size >= RETAINED_CHATS) channelSessions.remove(channelSessions.keys.first())
+        return channelSessions.getOrPut(key) {
             ChannelSession(team.id, sessionId, title ?: channel(sessionId)?.displayTitle ?: strings.getString(R.string.shell_chat_fallback_title),
                 ChannelSession.Api(token, team.id, sessionId))
                 // The list row's icon shows at once; the chat's own load keeps it current.
@@ -742,7 +747,20 @@ class AgentStore(
     private var searchJob: Job? = null
     private var loadGeneration = 0
     private data class SessionKey(val teamId: String, val sessionId: String)
+    // Insertion-ordered: the last one asked for is last, so the front is the least recently used.
     private val sessions = mutableMapOf<SessionKey, ChatSession>()
+
+    /**
+     * The chats kept in memory, as on Desktop (#3526): the most recent [RETAINED_CHATS]. One that is
+     * replying or sending is never let go, and a screen still holding one it lets go keeps using it.
+     */
+    private fun retained(key: SessionKey, make: () -> ChatSession): ChatSession {
+        val session = sessions.remove(key) ?: make()
+        sessions[key] = session
+        val over = sessions.size - RETAINED_CHATS
+        if (over > 0) sessions.entries.filter { it.key != key && it.value.idle }.take(over).forEach { sessions.remove(it.key) }
+        return session
+    }
     private val hasAiAccess = AiAccess.bind(token)
 
     private var newModelKey: Triple<Long, String, String>? = null
@@ -824,6 +842,7 @@ class AgentStore(
                 reload()
             }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             if (disposed || !hasAiAccess() || request != membershipRequest) return
             if (e is NuphosApi.Failure.Unauthorized) onExpired()
             teamsPhase = Phase.Failed
@@ -1008,7 +1027,7 @@ class AgentStore(
     }
 
     fun session(forConversation: AgentConversation): ChatSession {
-        return sessions.getOrPut(SessionKey(forConversation.teamId ?: selectedTeam?.id.orEmpty(), forConversation.sessionId)) {
+        return retained(SessionKey(forConversation.teamId ?: selectedTeam?.id.orEmpty(), forConversation.sessionId)) {
             ChatSession(
                 token = token,
                 teamId = forConversation.teamId ?: selectedTeam?.id.orEmpty(),
@@ -1019,7 +1038,7 @@ class AgentStore(
     }
 
     fun session(sessionId: String, title: String): ChatSession {
-        return sessions.getOrPut(SessionKey(selectedTeam?.id.orEmpty(), sessionId)) {
+        return retained(SessionKey(selectedTeam?.id.orEmpty(), sessionId)) {
             ChatSession(
                 token = token,
                 teamId = selectedTeam?.id.orEmpty(),
@@ -1056,8 +1075,7 @@ class AgentStore(
         session.presetPermissionMode(permissionMode)
         session.presetModelSettings(model?.initialPick.orEmpty())
         session.credentialAccess = credentialSelection
-        sessions[SessionKey(team.id, session.sessionId)] = session
-        return session
+        return retained(SessionKey(team.id, session.sessionId)) { session }
     }
 
     fun disposeForConsent() {
@@ -1083,6 +1101,8 @@ class AgentStore(
     }
 
     companion object {
+        /** The chats kept in memory, Tasks and Bot chats each (#3526). */
+        private const val RETAINED_CHATS = 20
         private const val LAST_TEAM_KEY = "nuphos.workspace.lastTeamId"
         private const val HAS_CHATS_KEY = "nuphos.home.hasChats"
         private const val PERMISSION_KEY = "nuphos.agentPermissionMode"
