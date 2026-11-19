@@ -7,7 +7,7 @@ import { join, resolve } from 'node:path'
 import { client, joinAsAdmin, must } from './binding-access-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { startSecondComputer } from './second-computer.ts'
-import { newTask, openComputers, pickAgent, send } from './ui.ts'
+import { newTask, openComputers, pickInSubmenu, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
@@ -173,7 +173,10 @@ export const installScenarios: Scenario[] = [
       rmSync(join(app, '2.1.0'), { recursive: true })
       await page.getByText('Back to app', { exact: true }).click()
       await newTask(page)
-      await pickAgent(page, hostname())
+      // This computer's own row lists its agents by name alone.
+      await page.getByRole('button', { name: /^Runtime:/ }).click()
+      await page.getByRole('menu').getByText(hostname()).click()
+      await pickInSubmenu(page, page.getByRole('menuitem', { name: /^Claude Code/ }))
       await send(page, 'Which Claude Code runs this?')
       await until(
         'the session to start the Claude app’s new copy',
