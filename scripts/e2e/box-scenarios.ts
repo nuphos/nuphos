@@ -118,6 +118,8 @@ export const boxScenarios: Scenario[] = [
   {
     // #3733: a Box whose machine instabox would not kill could never be deleted.
     name: 'a Box instabox will not kill is still deleted, and its owner hears it may still run',
+    // The refused kill is logged, as it should be.
+    expected: /"event":"agent\.box\.kill_failed"/,
     run: async (page, stack) => {
       const deviceId = randomUUID()
       const sandboxId = `m_e2e_${deviceId.slice(0, 8)}`
