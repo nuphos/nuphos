@@ -3028,6 +3028,8 @@
   "No running tasks": "没有运行中的任务",
   "No runs yet": "暂无运行记录",
   "No runtime selected": "未选择运行环境",
+  "No runtime yet": "暂无运行环境",
+  "No runtime yet · set one up in Settings › Local runtime": "暂无运行环境 · 请在“设置 › 本地运行环境”中设置",
   "No schedule set": "未设置调度计划",
   "No selected members.": "未选择任何成员。",
   "No service accounts available for this project.": "该项目下没有可用的服务账号。",

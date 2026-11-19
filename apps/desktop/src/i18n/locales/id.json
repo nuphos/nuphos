@@ -3028,6 +3028,8 @@
   "No running tasks": "Tidak ada tugas yang berjalan",
   "No runs yet": "Belum ada run",
   "No runtime selected": "Tidak ada runtime dipilih",
+  "No runtime yet": "Belum ada runtime",
+  "No runtime yet · set one up in Settings › Local runtime": "Belum ada runtime · siapkan di Pengaturan › Runtime lokal",
   "No schedule set": "Jadwal belum diatur",
   "No selected members.": "Tidak ada anggota yang dipilih.",
   "No service accounts available for this project.": "Tidak ada akun layanan yang tersedia untuk proyek ini.",
