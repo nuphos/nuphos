@@ -272,7 +272,10 @@ class BotDesktopFixtureDeviceTest {
             .map { node -> node.config[SemanticsProperties.Text].first().text }
         assertEquals(listOf("Confirm the release date", "Collect merged PRs", "Draft the changelog", "Prune stale branches"), order)
         capture("9-bot-details")
-        compose.onAllNodesWithTag("bot-task-row")[1].performClick()
+        compose.onNodeWithTag("task-summary").performScrollToNode(hasText(inst.targetContext.getString(R.string.chat_bot_details_no_triggers)))
+            .performTouchInput { swipeUp() }
+        capture("9b-bot-details-triggers")
+        compose.onAllNodesWithTag("bot-task-row")[1].performScrollTo().performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithText("Working on: Collect merged PRs.").fetchSemanticsNodes().isNotEmpty() }
         capture("10-sub-task-open")
         compose.onNodeWithContentDescription(inst.targetContext.getString(R.string.chat_back)).performClick()

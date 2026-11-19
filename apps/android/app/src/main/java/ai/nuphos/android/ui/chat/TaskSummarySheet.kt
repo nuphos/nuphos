@@ -11,6 +11,8 @@ import ai.nuphos.android.session.AgentStore
 import ai.nuphos.android.ui.LocalAgentStore
 import ai.nuphos.android.ui.components.RuntimeMark
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.outlined.ChevronRight
@@ -163,13 +165,16 @@ internal fun TaskSummarySheet(
                 }
             } else {
                 lead?.invoke()
-                if (lead == null || questions.isNotEmpty()) Text(stringResource(R.string.chat_summary_needs_input), style = MaterialTheme.typography.titleMedium)
+                val boxed = lead != null
+                // Bot details shows its questions only when there are some.
+                if (lead == null || questions.isNotEmpty()) SummarySection(boxed) {
+                Text(stringResource(R.string.chat_summary_needs_input), style = MaterialTheme.typography.titleMedium)
                 when {
                     !inbox.loaded && !attempted -> CircularProgressIndicator()
                     !inbox.loaded -> TextButton(onClick = { scope.launch { inbox.refresh() } }) {
                         Text(stringResource(R.string.shell_retry))
                     }
-                    questions.isEmpty() -> if (lead == null) Text(stringResource(R.string.chat_summary_no_questions))
+                    questions.isEmpty() -> Text(stringResource(R.string.chat_summary_no_questions))
                     else -> questions.forEach { question ->
                         Column(
                             Modifier.fillMaxWidth().clickable { selectedId = question.id }.padding(vertical = 8.dp),
@@ -182,11 +187,12 @@ internal fun TaskSummarySheet(
                         }
                     }
                 }
-                if (lead != null && children.isNotEmpty()) {
+                }
+                if (lead != null && children.isNotEmpty()) SummarySection(boxed) {
                     Text(stringResource(R.string.chat_summary_children), style = MaterialTheme.typography.titleMedium)
                     children.forEach { task -> BotTaskRow(task) { if (allowed()) onOpen(task.sessionId) } }
                 }
-                if (background.isNotEmpty()) {
+                if (background.isNotEmpty()) SummarySection(boxed) {
                     Text(stringResource(R.string.chat_summary_background), style = MaterialTheme.typography.titleMedium)
                     background.forEach { work ->
                         key(work.id) {
@@ -216,7 +222,7 @@ internal fun TaskSummarySheet(
                     }
                 }
                 val changes = session.linkedResources.resources.filter { it.supported }
-                if (changes.isNotEmpty()) {
+                if (changes.isNotEmpty()) SummarySection(boxed) {
                     Text(stringResource(R.string.chat_summary_changes), style = MaterialTheme.typography.titleMedium)
                     changes.forEach { change ->
                         val url = change.safeUrl
@@ -242,7 +248,7 @@ internal fun TaskSummarySheet(
                         }
                     }
                 }
-                if (session.canReadDownloads && session.downloads.isNotEmpty()) {
+                if (session.canReadDownloads && session.downloads.isNotEmpty()) SummarySection(boxed) {
                     Text(stringResource(R.string.chat_summary_files), style = MaterialTheme.typography.titleMedium)
                     session.downloads.forEach { group ->
                         key(group.groupId) {
@@ -257,6 +263,7 @@ internal fun TaskSummarySheet(
                         }
                     }
                 }
+                SummarySection(boxed) {
                 Text(stringResource(R.string.chat_summary_triggers), style = MaterialTheme.typography.titleMedium)
                 val listedTriggers = triggers
                 when {
@@ -264,7 +271,9 @@ internal fun TaskSummarySheet(
                         onClick = { scope.launch { refreshTriggers() } },
                     ) { Text(stringResource(R.string.shell_retry)) }
                     listedTriggers == null -> CircularProgressIndicator()
-                    listedTriggers.isEmpty() -> Text(stringResource(if (lead != null) R.string.chat_bot_details_no_triggers else R.string.chat_summary_no_triggers))
+                    listedTriggers.isEmpty() -> if (boxed) Text(stringResource(R.string.chat_bot_details_no_triggers),
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        else Text(stringResource(R.string.chat_summary_no_triggers))
                     else -> listedTriggers.forEach { trigger ->
                         SummaryContextRow(trigger.name,
                             if (trigger.enabled) trigger.schedule else stringResource(R.string.chat_summary_paused),
@@ -272,6 +281,7 @@ internal fun TaskSummarySheet(
                             if (allowed()) showTriggers = true
                         }
                     }
+                }
                 }
             }
         }
@@ -292,6 +302,22 @@ private fun SummaryContextRow(title: String, subtitle: String, @DrawableRes icon
         }
     }
 }
+
+/** The outlined card a Bot's details are laid out in, its card and each section alike. */
+@Composable
+internal fun SummaryCard(
+    horizontalAlignment: Alignment.Horizontal = Alignment.Start,
+    content: @Composable ColumnScope.() -> Unit,
+) = Column(
+    Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.medium).padding(16.dp),
+    horizontalAlignment = horizontalAlignment, verticalArrangement = Arrangement.spacedBy(8.dp), content = content,
+)
+
+/** A section: in its own card in Bot details, laid out as before in the Task summary. */
+@Composable
+private fun SummarySection(boxed: Boolean, content: @Composable ColumnScope.() -> Unit) =
+    if (boxed) SummaryCard(content = content)
+    else Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
 
 /** A Task a Bot dispatched, as its details list it: what it is doing at a glance. */
 @Composable
@@ -316,10 +342,15 @@ private fun BotTaskRow(task: AgentConversation, onClick: () -> Unit) {
                 color = if (waiting) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        when (state) {
-            AgentStore.TaskState.Waiting -> Box(Modifier.size(7.dp).background(MaterialTheme.colorScheme.tertiary, CircleShape))
-            AgentStore.TaskState.Running -> CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 1.5.dp)
-            AgentStore.TaskState.Idle -> {}
+        // One slot for the dot and the spinner, so the states line up.
+        Box(Modifier.size(16.dp), contentAlignment = Alignment.Center) {
+            when (state) {
+                AgentStore.TaskState.Waiting -> Box(Modifier.size(7.dp).background(MaterialTheme.colorScheme.tertiary, CircleShape))
+                // On its track, so a frame early in the sweep still reads as a spinner.
+                AgentStore.TaskState.Running -> CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, trackColor = MaterialTheme.colorScheme.outlineVariant)
+                AgentStore.TaskState.Idle -> {}
+            }
         }
         Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }

@@ -264,10 +264,7 @@ private fun BotDetailsCard(session: ChannelSession, openTask: (() -> Unit)?) {
     val store = LocalAgentStore.current
     val runtime = store.bots.firstOrNull { it.sessionId == session.botId }
         ?.let { ai.nuphos.android.model.RuntimeIdentity.detail(it.agentRuntime, it.runtimeLabel) }
-    Column(
-        Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.medium).padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
+    ai.nuphos.android.ui.chat.SummaryCard(horizontalAlignment = Alignment.CenterHorizontally) {
         ChatIcon(session.faces, session.title, 64.dp)
         Text(session.title, maxLines = 2, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         runtime?.takeIf { it.isNotEmpty() }?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
