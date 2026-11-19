@@ -24,12 +24,20 @@ test('a change reads that chat again; a reconnect reads every chat of the team a
   client.clear()
 })
 
-test("a backend without the push leaves the team's chats polling", () => {
+test('a team polls until its stream is up, and again while it is down', () => {
   const client = createQueryClient()
 
-  assert.equal(pushed('old'), true)
-  applyChange(client, { teamId: 'old', sessionId: null, supported: false })
-  assert.equal(pushed('old'), false)
-  assert.equal(pushed('t'), true, 'other teams still need no poll')
+  assert.equal(
+    pushed('down'),
+    false,
+    'before the first connect (an error, a blocked stream, an old backend)',
+  )
+  applyChange(client, { teamId: 'down', sessionId: null, connected: true })
+  assert.equal(pushed('down'), true, 'up: no poll')
+  applyChange(client, { teamId: 'down', sessionId: 'a' })
+  assert.equal(pushed('down'), true, 'a change keeps it up')
+  applyChange(client, { teamId: 'down', sessionId: null, connected: false })
+  assert.equal(pushed('down'), false, 'down: polls again')
+  assert.equal(pushed('never'), false, 'a team whose stream never came up polls')
   client.clear()
 })

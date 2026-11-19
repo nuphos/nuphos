@@ -7,18 +7,22 @@ import { queryKeys } from '../../lib/query/keys.ts'
 
 import type { QueryClient } from '@tanstack/react-query'
 
-type Change = { teamId: string; sessionId: string | null; supported?: false }
+type Change = { teamId: string; sessionId: string | null; connected?: boolean }
 
-// Teams whose backend predates the push (before #3906, the first backend release after
-// 0.145.4): their chats keep polling. Version compatibility only; deleted in #3914.
-const unpushed = new Set<string>()
+// Teams whose push stream is up. Any other team's chats poll: before the first connect, while
+// it is down (an error, a proxy that blocks it), or on a backend without it (#3914).
+const connected = new Set<string>()
 
-/** Whether a team's chats hear of their changes, so they need no poll. */
-export const pushed = (teamId: string) => !unpushed.has(teamId)
+/** Whether a team's chats hear of their changes now, so they need no poll. */
+export const pushed = (teamId: string) => connected.has(teamId)
 
-/** One change: that chat reads again, or, after a reconnect, every chat of the team does. */
-export function applyChange(client: QueryClient, { teamId, sessionId, supported }: Change) {
-  if (supported === false) unpushed.add(teamId)
+/**
+ * One change: that chat reads again. The stream coming up or going down reads every chat of the
+ * team again, which also starts or stops its poll.
+ */
+export function applyChange(client: QueryClient, { teamId, sessionId, connected: up }: Change) {
+  if (up === true) connected.add(teamId)
+  if (up === false) connected.delete(teamId)
   void client.invalidateQueries({
     queryKey: sessionId
       ? queryKeys.channel(teamId, sessionId)

@@ -6,8 +6,11 @@ import { agentAccount } from './http'
 import { broadcast } from './notify'
 import { abortableSleep } from './stream-errors'
 
-/** `sessionId` null: the stream (re)connected, so whatever is on screen reads again. */
-export type AgentChange = { teamId: string; sessionId: string | null; supported?: false }
+/**
+ * `sessionId` null with `connected`: the stream came up (whatever is on screen reads again)
+ * or went down (the team's chats poll until it is back).
+ */
+export type AgentChange = { teamId: string; sessionId: string | null; connected?: boolean }
 
 // The backend's heartbeat is 5 s: three missed is a dead stream.
 const SILENT_MS = 15_000
@@ -31,18 +34,21 @@ async function follow(teamId: string, signal: AbortSignal) {
   let failures = 0
 
   while (!signal.aborted) {
+    let connected = false
     const outcome = await listen(teamId, signal, () => {
+      connected = true
       failures = 0
     }).catch(() => 'failed' as const)
 
-    // Version compatibility only: a backend without the push (before #3906, the first backend
-    // release after 0.145.4) has no such route, so its chats keep polling. Deleted in #3914.
-    if (outcome === 'unsupported') {
+    if (connected)
       broadcast('agent:changes', {
         teamId,
         sessionId: null,
-        supported: false,
+        connected: false,
       } satisfies AgentChange)
+    // Version compatibility only: a backend without the push (before #3906, the first backend
+    // release after 0.145.4) has no such route; its chats keep polling. Deleted in #3914.
+    if (outcome === 'unsupported') {
       followed.delete(teamId)
 
       return
@@ -71,7 +77,7 @@ async function listen(teamId: string, signal: AbortSignal, opened: () => void) {
     if (!res.ok || !res.body) return 'failed'
     opened()
     // Whatever changed while not listening.
-    broadcast('agent:changes', { teamId, sessionId: null } satisfies AgentChange)
+    broadcast('agent:changes', { teamId, sessionId: null, connected: true } satisfies AgentChange)
     const reader = res.body.pipeThrough(new TextDecoderStream()).getReader()
     let buffer = ''
 

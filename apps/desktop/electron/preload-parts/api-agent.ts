@@ -265,11 +265,11 @@ export const agentApi = {
     return () => ipcRenderer.off('ssh-terminal:event', handler)
   },
   onAgentChanges: (
-    cb: (change: { teamId: string; sessionId: string | null; supported?: false }) => void,
+    cb: (change: { teamId: string; sessionId: string | null; connected?: boolean }) => void,
   ) => {
     const handler = (
       _e: unknown,
-      change: { teamId: string; sessionId: string | null; supported?: false },
+      change: { teamId: string; sessionId: string | null; connected?: boolean },
     ) => cb(change)
 
     ipcRenderer.on('agent:changes', handler)
