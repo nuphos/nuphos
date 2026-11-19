@@ -21,6 +21,8 @@ export type SlackApiResponse = {
         id?: string
         name?: string
         real_name?: string
+        // The user's home workspace: another org's for a Slack Connect member.
+        team_id?: string
         profile?: { email?: string; display_name?: string; real_name?: string }
       }
     | string
@@ -53,7 +55,7 @@ export type SlackApiResponse = {
 }
 
 export function canVerifySlackRequests(): boolean {
-  return !!config.slack.signingSecret
+  return Boolean(config.slack.signingSecret)
 }
 
 export function verifySlackSignature(
@@ -88,7 +90,7 @@ export async function slackApi(
   let response: Response
 
   try {
-    response = await fetch(`https://slack.com/api/${method}`, {
+    response = await fetch(`${config.slack.apiBaseUrl}/${method}`, {
       method: 'POST',
       signal: AbortSignal.timeout(10_000),
       headers: {
@@ -137,7 +139,7 @@ export async function slackApiGet(
   let response: Response
 
   try {
-    response = await fetch(`https://slack.com/api/${method}?${query.toString()}`, {
+    response = await fetch(`${config.slack.apiBaseUrl}/${method}?${query.toString()}`, {
       method: 'GET',
       signal: AbortSignal.timeout(10_000),
       headers: { authorization: `Bearer ${token}` },

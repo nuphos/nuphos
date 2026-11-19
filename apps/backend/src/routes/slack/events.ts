@@ -8,6 +8,7 @@ import {
   handleAssistantThreadStarted,
 } from '@/routes/slack/assistant-lifecycle'
 import { handleAssistantMessage } from '@/routes/slack/assistant-message'
+import { routeSlackToGroupChat } from '@/routes/slack/group-chat'
 import { handleAppHomeOpened } from '@/routes/slack/home'
 import { handleAppMention } from '@/routes/slack/mention'
 import { postThreadMessage } from '@/routes/slack/shared'
@@ -25,6 +26,9 @@ async function handleSlackEvent(envelope: SlackEventEnvelope): Promise<void> {
 
     return
   }
+  // A channel connected to a group chat takes its messages and mentions there.
+  if ((type === 'message' || type === 'app_mention') && (await routeSlackToGroupChat(envelope)))
+    return
   if (type === 'app_mention') {
     await handleAppMention(envelope)
 
@@ -58,7 +62,9 @@ async function handleSlackEvent(envelope: SlackEventEnvelope): Promise<void> {
 async function handleSlackEventWithLease(envelope: SlackEventEnvelope): Promise<void> {
   const eventId = envelope.event_id
 
-  if (!eventId) return await handleSlackEvent(envelope)
+  if (!eventId) { await handleSlackEvent(envelope);
+
+ return; }
   const timer = setInterval(() => {
     void refreshSlackEventClaim(eventId).catch((err: unknown) => {
       logError('slack.event.claim_refresh_error', err, { event_id: eventId })

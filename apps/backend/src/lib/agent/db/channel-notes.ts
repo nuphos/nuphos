@@ -17,12 +17,13 @@ export function readNote(channel: { agentSessionIds?: string[] }): string {
 }
 
 /**
- * Whether the reading agent's owner posted this, as themselves in the app. Only
- * the server-authored sender id counts: never a display name or quoted text.
+ * Whether the reading agent's owner posted this, as themselves in the app or
+ * from a Slack account the server resolved to them. Only the server-authored
+ * sender id counts: never a display name or quoted text.
  */
 export function fromOwner(metadata: MessageMetadata | undefined, ownerId: string) {
   return (
-    metadata?.source === 'nuphos' &&
+    (metadata?.source === 'nuphos' || (metadata?.source === 'slack' && !metadata.unattested)) &&
     metadata.sender.type === 'user' &&
     !metadata.sender.onBehalfOf &&
     metadata.sender.id === ownerId

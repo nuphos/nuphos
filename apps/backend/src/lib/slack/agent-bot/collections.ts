@@ -11,6 +11,9 @@ export type SlackChannelMapping = {
   // Opt-in: the conversation a top-level message in this channel wakes, with no
   // mention needed. Unset for every channel unless an admin sets it.
   wakeSessionId?: string
+  // The Nuphos group chat this channel is (#3702). Set, it replaces the
+  // mention and thread paths: every message becomes a post there.
+  groupChatId?: string
   enabled: boolean
   createdBy: string
   createdAt: Date

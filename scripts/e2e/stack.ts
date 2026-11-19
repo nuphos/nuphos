@@ -7,6 +7,7 @@ import { join, resolve } from 'node:path'
 
 import { artifacts, freePorts, frozen, logPath, spawn, stop, until } from './processes.ts'
 import { startInstaboxStub } from './instabox-stub.ts'
+import { startSlackStub } from './slack-stub.ts'
 import { startStorage } from './storage.ts'
 
 const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
@@ -70,17 +71,9 @@ function startMongo(freePort: number): string {
     const dbpath = join(artifacts, 'mongo')
 
     mkdirSync(dbpath, { recursive: true })
-    spawn('mongo', [
-      mongod,
-      '--bind_ip',
-      '127.0.0.1',
-      '--port',
-      port,
-      '--dbpath',
-      dbpath,
-      '--replSet',
-      'rs0',
-    ])
+    const listen = ['--bind_ip', '127.0.0.1', '--port', port]
+
+    spawn('mongo', [mongod, ...listen, '--dbpath', dbpath, '--replSet', 'rs0'])
   } else {
     // Kernel 6.19+: let glibc own rseq, as deploy/compose does (SERVER-121912).
     const run = ['docker', 'run', '--rm', '-e', 'GLIBC_TUNABLES=glibc.pthread.rseq=1']
@@ -143,8 +136,12 @@ export async function startStack(
 ): Promise<Stack> {
   const [mongoPort, backendPort, runtimePort, secondPort, storagePort, codex] = await freePorts(6)
   const mongoUri = startMongo(mongoPort)
-  // Cloud computers too: only what a scenario puts in this instabox exists.
-  const fakes = { ...(await startStorage(storagePort)), ...(await startInstaboxStub()) }
+  // Cloud computers and Slack too: only what a scenario puts in them exists.
+  const fakes = {
+    ...(await startStorage(storagePort)),
+    ...(await startInstaboxStub()),
+    ...(await startSlackStub()),
+  }
 
   await until('MongoDB to become primary', async () => initiateReplicaSet(mongoUri))
   const apiUrl = `http://127.0.0.1:${String(backendPort)}`
