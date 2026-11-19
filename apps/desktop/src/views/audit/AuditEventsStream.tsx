@@ -160,7 +160,7 @@ function RuntimeImageAuditRow({
           </span>
           <span className="truncate text-[11px] text-secondary">{actorLabel}</span>
           <span className="truncate text-[11px] text-tertiary" title={event.resource.runtimeId}>
-            {t('· {provider} agent · {label}', {
+            {t('· {provider} runtime · {label}', {
               provider: event.resource.provider,
               label: event.resource.label,
             })}
@@ -201,7 +201,7 @@ function SkillAuditRow({
   return (
     <li
       onClick={onOpen}
-      title={onOpen ? t('View originating agent') : undefined}
+      title={onOpen ? t('View originating task') : undefined}
       className={clsx(
         'flex gap-3 rounded-md px-2 py-2',
         onOpen && 'transition-colors hover:bg-state-hover',

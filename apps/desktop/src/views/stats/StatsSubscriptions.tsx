@@ -13,8 +13,8 @@ export function StatsSubscriptions({ teamId }: { teamId: string }) {
   const instances = catalog.instances.filter(visibleAgent)
 
   if (catalog.loading) return <p className="text-sm text-tertiary">{t('Loading...')}</p>
-  if (catalog.error) return <p className="text-sm text-tertiary">{t('Could not load agents')}</p>
-  if (!instances.length) return <p className="text-sm text-tertiary">{t('No agents yet.')}</p>
+  if (catalog.error) return <p className="text-sm text-tertiary">{t('Could not load runtimes')}</p>
+  if (!instances.length) return <p className="text-sm text-tertiary">{t('No runtimes yet.')}</p>
 
   return (
     <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,320px),1fr))] items-start gap-4">
