@@ -70,11 +70,16 @@ export function createCliBrowser(launch: () => Browser, harDir: string) {
   // Each conversation's tabs share a browser context of their own, so a sign-in or cookie in
   // one conversation never reaches another on a shared computer; it goes with its last tab.
   const contexts = new Map<string, Promise<string>>()
+  /** Each conversation's opens still in flight, whose tabs are not in `tabs` yet. */
+  const opening = new Map<string, number>()
   let lastTab = 0
+  const held = (conversation: string) =>
+    [...tabs.values()].filter((t) => t.conversation === conversation).length +
+    (opening.get(conversation) ?? 0)
 
   const forget = (tab: Tab) => {
     tabs.delete(tab.id)
-    if ([...tabs.values()].some((t) => t.conversation === tab.conversation)) return
+    if (held(tab.conversation) > 0) return
     const context = contexts.get(tab.conversation)
 
     contexts.delete(tab.conversation)
@@ -143,11 +148,27 @@ export function createCliBrowser(launch: () => Browser, harDir: string) {
     return { tab: tab.id, url: targetInfo.url, title: targetInfo.title, loading: tab.loading }
   }
   const open = async (cdp: Cdp, conversation: string, url: string) => {
+    opening.set(conversation, (opening.get(conversation) ?? 0) + 1)
+    try {
+      return await openTab(cdp, conversation, url)
+    } finally {
+      const left = (opening.get(conversation) ?? 1) - 1
+
+      if (left > 0) opening.set(conversation, left)
+      else opening.delete(conversation)
+    }
+  }
+  const openTab = async (cdp: Cdp, conversation: string, url: string) => {
     const context =
       contexts.get(conversation) ??
       cdp
         .send<{ browserContextId: string }>('Target.createBrowserContext')
         .then(({ browserContextId }) => browserContextId)
+        .catch((error: unknown) => {
+          // The next open tries again instead of waiting on this failure.
+          contexts.delete(conversation)
+          throw error
+        })
 
     contexts.set(conversation, context)
     const { targetId } = await cdp.send<{ targetId: string }>('Target.createTarget', {
@@ -188,7 +209,7 @@ export function createCliBrowser(launch: () => Browser, harDir: string) {
       return text(await Promise.all(mine.map((t) => describe(connect(), t))))
     if (call.action === 'open') {
       if (!isHttp(call.url)) return failed('url must be an http(s) URL.')
-      if (mine.length >= MAX_TABS)
+      if (held(call.session) >= MAX_TABS)
         return failed(
           `This conversation already has ${String(MAX_TABS)} tabs open; close one with action "close" first.`,
         )
