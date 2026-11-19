@@ -19,7 +19,6 @@ import { hidingRetracted, sentHistory } from './composerRecall'
 import { ConnectCardContext } from './connectCardContext'
 import { Conversation } from './Conversation'
 import { ConversationPlaceholder } from './ConversationPlaceholder'
-import { ConversationReveal } from './ConversationReveal'
 import { useConversationRuntimeControl } from './conversationRuntimeControl'
 import { DelayedPanelReveal } from './homeAnimation'
 import { canEditMessage } from './messageEdit'
@@ -145,7 +144,8 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
       : undefined
 
   return activeTab && !switchingConversation ? (
-    <ConversationReveal sessionId={activeTab.sessionId}>
+    // Keyed: nothing one chat's views hold carries into the next.
+    <div key={activeTab.sessionId} className="flex min-h-0 flex-1">
       <PermissionResumeContext.Provider value={resumePermissionTurn}>
         <AuthorizationActionContext.Provider value={authorizationContextValue}>
           <div
@@ -289,7 +289,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
           </div>
         </AuthorizationActionContext.Provider>
       </PermissionResumeContext.Provider>
-    </ConversationReveal>
+    </div>
   ) : (
     <ConversationPlaceholder
       unavailable={c.openingConversation?.unavailable === true}
