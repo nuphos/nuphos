@@ -5,8 +5,8 @@ import path from 'node:path'
 import { test } from 'node:test'
 
 import { CUA_PLUGIN_CACHE } from './agent-home.ts'
-import { CuaHost, cuaServerConfig } from './cua-host.ts'
-import { CUA_RESULT_MAX_CHARS, LocalCuaStream, fitFrame } from './cua-stream.ts'
+import { CuaHost } from './cua-host.ts'
+import { CUA_RESULT_MAX_CHARS, LocalCuaStream, cuaServerConfig, fitFrame } from './cua-stream.ts'
 
 import type { CuaElicitation } from './cua-host.ts'
 

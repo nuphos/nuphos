@@ -1,9 +1,9 @@
 import { execFile, spawn } from 'node:child_process'
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-import { CUA_CLIENT, CUA_PLUGIN_CACHE } from './agent-home.ts'
+import { CUA_CLIENT } from './agent-home.ts'
 import { BrowserAccessHost } from './cua-browser-access.ts'
 
 /** What one `local_cua` call asks of this computer. */
@@ -26,15 +26,6 @@ export const CUA_IDLE_MS = 60_000
 /** How long the App may take to clean up its turn before its process is stopped. */
 const TURN_END_MS = 2_000
 const CANCELLED = 'The call was cancelled before it ran.'
-/** Computer Use only answers a `cua_repl` whose parent is a trusted OpenAI process (#3838). */
-const UNDER_CODEX = [
-  'sandbox',
-  '-c',
-  'sandbox_mode="danger-full-access"',
-  '-c',
-  'shell_environment_policy.inherit="all"',
-  '--',
-]
 const REFUSED = 'Sky Computer Use native pipe startup failed'
 const REFUSED_HELP =
   'Computer Use on this Mac refused Nuphos as its caller, so retrying will not help. Update the ChatGPT app on this Mac and try again.'
@@ -44,34 +35,8 @@ export const failed = (text: string): CuaToolResult => ({
   isError: true,
 })
 
-function codexHome(env: NodeJS.ProcessEnv): string {
+export function codexHome(env: NodeJS.ProcessEnv): string {
   return env.CODEX_HOME ?? path.join(env.HOME ?? os.homedir(), '.codex')
-}
-
-/** The newest `cua_repl` server the Codex App installed, or null without the App. */
-export function cuaServerConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig | null {
-  const root = path.join(codexHome(env), CUA_PLUGIN_CACHE)
-
-  try {
-    const [version] = readdirSync(root).sort((a, b) =>
-      b.localeCompare(a, undefined, { numeric: true }),
-    )
-    const manifest = JSON.parse(readFileSync(path.join(root, version, '.mcp.json'), 'utf8')) as {
-      mcpServers?: { cua_repl?: Partial<ServerConfig> & { enabled?: boolean } }
-    }
-    const server = manifest.mcpServers?.cua_repl
-
-    if (!server?.command || server.enabled === false || !existsSync(server.command)) return null
-    const env = server.env ?? {}
-    const args = server.args ?? []
-    const codex = env.CODEX_CLI_PATH
-
-    return codex && existsSync(codex)
-      ? { command: codex, args: [...UNDER_CODEX, server.command, ...args], env }
-      : { command: server.command, args, env }
-  } catch {
-    return null
-  }
 }
 
 /**
