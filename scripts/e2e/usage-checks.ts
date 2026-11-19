@@ -91,7 +91,8 @@ export async function computersAndPrivate(page: Page, section: Locator) {
       .nth(1)
       .innerText()
   const byConversation = await privateTotal()
-  const footer = () => section.getByText(/^About \$/).innerText()
+  // Its first line only: the text sits beside the Group by menu, whose label differs.
+  const footer = async () => (await section.getByText(/^About \$/).innerText()).split('\n')[0]
   const taskFooter = await footer()
 
   await section.getByRole('combobox', { name: 'Group by' }).click()
