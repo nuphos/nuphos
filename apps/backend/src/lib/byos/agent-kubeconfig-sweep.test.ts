@@ -28,6 +28,24 @@ beforeEach(() => {
 })
 
 describe('reportSweepFailure', () => {
+  test('a billing-disabled GCP project is a normal empty result', () => {
+    reportSweepFailure(
+      Object.assign(new Error('billing disabled'), { reason: 'BILLING_DISABLED' }),
+      CTX,
+    )
+    expect(errors).toEqual([])
+    expect(events[0]).toMatchObject({
+      level: 'info',
+      event: 'agent.kubeconfig.no_clusters',
+      properties: { reason: 'billing_disabled' },
+    })
+  })
+
+  test('a classified billing-disabled error is a normal empty result', () => {
+    reportSweepFailure(new AppError(403, 'gcp_billing_disabled', 'Billing disabled'), CTX)
+    expect(errors).toEqual([])
+    expect(events[0]?.properties?.reason).toBe('billing_disabled')
+  })
   test('a disabled Kubernetes API is a normal empty result, not an error', () => {
     reportSweepFailure(
       new AppError(

@@ -86,7 +86,7 @@ export async function startDesktop(
       if (failed && started)
         await tracing.stopChunk({ path: join(artifacts, 'trace.zip') }).catch(() => {})
       await page!.screenshot({ path: join(artifacts, 'last-window.png') }).catch(() => {})
-      await browser.close().catch(() => {})
+      // Not browser.close(): Electron ignores it, so it waited its full 30 s; stopAll ends the app.
     },
     stop: async () => {
       await browser.close().catch(() => {})
