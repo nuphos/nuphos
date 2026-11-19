@@ -4,12 +4,11 @@ import { AppError } from '@/lib/errors'
 import { logError, logEvent } from '@/lib/observability'
 
 import { resolveConversationChatRuntime } from './conversation-chat-route'
-import { reachableRuntimeEndpoint } from './dev-runtime-forward'
 import { OpenAbAcpClient } from './openab-acp-client'
 import { OpenAbConnectError } from './openab-acp-connect'
 import { OpenAbConnectionLostError, OpenAbRpcError } from './openab-acp-errors'
 import { runtimeModelCatalog } from './runtime-models'
-import { offeredSessionConfig } from './session-config-catalog'
+import { offeredSessionConfig, namedModel } from './session-config-catalog'
 import { parseSessionConfigOptions, storedPick } from './session-config-options'
 import { storeSessionConfig } from './session-config-record'
 import { sessionConfigRestoreContext } from './session-config-restore'
@@ -120,7 +119,7 @@ export async function conversationSessionConfig(
   if (!selection) {
     if (shouldPrewarm(conversation, viewerUserId)) prewarmSession(conversation, attachment)
 
-    return await sessionConfigView(storedPick(attachment), catalogFor)
+    return namedModel(await sessionConfigView(storedPick(attachment), catalogFor), attachment)
   }
   const picked = await applySessionConfig(conversation, attachment, selection, viewerUserId)
 
@@ -164,7 +163,8 @@ async function catalogState(
   }
 }
 
-// Before attachment, choices come from the catalog and explicit picks are saved.
+// Before attachment, choices come from the catalog. A change saves the effort
+// and fast mode the session will start on with it, never a model alone.
 async function initialSessionConfig(
   conversation: AgentConversation,
   selection: SessionConfigSelection | undefined,
@@ -174,7 +174,6 @@ async function initialSessionConfig(
   const { status, options, kept } = await catalogState(
     selection ? { ...stored, [selection.configId]: selection.value } : stored,
     runtimeCatalog(conversation, viewerUserId),
-    Boolean(conversation.runtimeMigration),
   )
 
   if (selection && status === 'offline')
@@ -286,7 +285,7 @@ async function withSessionClient<T>(
   // Do not session/resume here: it would claim the live output sink from
   // another backend replica. This connection only writes configuration.
   const client = await OpenAbAcpClient.connect({
-    ...(await reachableRuntimeEndpoint(endpoint)),
+    ...endpoint,
     callTimeoutMs: 100_000,
   })
 

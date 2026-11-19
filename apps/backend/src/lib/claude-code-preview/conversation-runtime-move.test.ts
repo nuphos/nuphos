@@ -1,6 +1,5 @@
 import { beforeEach, expect, test } from 'bun:test'
 
-import { config } from '@/config'
 import { useAgentRunStore } from '@/lib/test/doubles/agent-run-store'
 import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-route'
 import { useDb } from '@/lib/test/doubles/db'
@@ -18,16 +17,16 @@ import { fallBackBeforeTurn } from './runtime-fallback'
 import type { RuntimeInstance } from './runtime-instances'
 import type { RuntimeModelCatalog } from './runtime-models'
 import type { TeamSession } from './team-openab-runtime'
-import type { ClaudeCodeRuntimeDoc } from './runtime-registry'
 import type { AgentConversation } from '@/lib/agent/db/shared'
 
 let memory = portabilityDb()
 let busy = false
 let target: RuntimeInstance
 let conversation: AgentConversation
-let hostedSources: ClaudeCodeRuntimeDoc[] = []
 const allModels = ['old-agent-model', 'chosen-model', 'latest-model']
 let destinationModels: string[] | null = allModels
+// What the destination reports running when nothing is picked; none by default.
+let destinationDefaults: { modelId: string; defaultEffort?: string } = { modelId: 'default' }
 
 useRuntimeModels({
   runtimeModelCatalog: async (): Promise<RuntimeModelCatalog> => {
@@ -36,7 +35,7 @@ useRuntimeModels({
     return {
       models: destinationModels.map((id) => ({ id, name: id })),
       controls: {
-        modelId: 'default',
+        ...destinationDefaults,
         effort: [
           { value: 'low', name: 'Low' },
           { value: 'high', name: 'High' },
@@ -58,8 +57,6 @@ useRuntimeCatalog({
   developmentRuntimeEndpoint: () => {},
 })
 useRuntimeRegistry({
-  findHostedRuntime: async (teamId: string, url: string) =>
-    hostedSources.find((row) => row.teamId === teamId && row.url === url) ?? null,
   resolveTeamRuntimeEndpoints: async () => [
     { runtimeId: 'new', url: 'wss://new/acp', authKey: 'private' },
   ],
@@ -67,8 +64,8 @@ useRuntimeRegistry({
 beforeEach(() => {
   memory = portabilityDb()
   busy = false
-  hostedSources = []
   destinationModels = allModels
+  destinationDefaults = { modelId: 'default' }
   target = {
     id: 'new',
     provider: 'claude-code',
@@ -169,18 +166,13 @@ test('only the owner moves the session; a participant, even a former manager, ca
   })
   expect(conversation.runtimeId).toBe('old')
 })
-test('readers, disabled destinations, and deleting destinations are rejected', async () => {
+test('readers and disabled destinations are rejected', async () => {
   await expect(moveConversationRuntime(conversation, 'new', 'reader')).rejects.toMatchObject({
     status: 403,
   })
   target.status = 'disabled'
   await expect(moveConversationRuntime(conversation, 'new', 'owner')).rejects.toMatchObject({
     code: 'runtime_unavailable',
-  })
-  target.status = 'active'
-  memory.rows('agent_runtime_deletions').push({ _id: 'new', teamId: 'team' })
-  await expect(moveConversationRuntime(conversation, 'new', 'owner')).rejects.toMatchObject({
-    code: 'runtime_deleting',
   })
   expect(conversation.runtimeId).toBe('old')
 })
@@ -197,43 +189,22 @@ test('history moves to the other agent type and leaves no session behind', async
   expect(conversation.runtimeId).toBe('new')
   expect(conversation.claudeCodePreview).toBeUndefined()
   // Picks were the old agent's; the destination's list starts fresh.
-  expect(conversation.initialSessionConfig).toBeUndefined()
+  expect(conversation.initialSessionConfig).toEqual({})
 })
 
 test('a move retains the old runtime without needing an online source', async () => {
-  memory.rows('agent_runtime_deletions').push({
-    _id: 'old',
-    teamId: 'team',
-    requestedAt: new Date(),
-    placements: [{ url: 'wss://old/acp', state: 'pending' }],
-  })
   await moveConversationRuntime({ ...conversation }, 'new', 'owner')
   expect(conversation.previousRuntimeUrls).toEqual(['wss://old/acp'])
   expect(conversation.runtimeId).toBe('new')
 })
 
-test('a move cannot overwrite a different environment attachment in the shared database', async () => {
-  const namespace = `${config.claudeCodeRuntimeProvisioner.namespace}-other`
-  const sourceUrl = `ws://openab-claude-old.${namespace}.svc:8080/acp`
+test('a conversation on a retired Nuphos-hosted runtime moves to another agent', async () => {
+  const sourceUrl = 'ws://openab-claude-old.openab-runtimes.svc:8080/acp'
 
   conversation.claudeCodePreview!.runtimeUrl = sourceUrl
-  hostedSources = [
-    {
-      _id: 'old',
-      teamId: 'team',
-      url: sourceUrl,
-      hostedBy: 'nuphos',
-      status: 'active',
-      createdByUserId: 'owner',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-  ]
-  await expect(moveConversationRuntime({ ...conversation }, 'new', 'owner')).rejects.toMatchObject({
-    code: 'runtime_environment_mismatch',
-  })
-  expect(conversation.runtimeId).toBe('old')
-  expect(conversation.claudeCodePreview!.runtimeUrl).toBe(sourceUrl)
+  await moveConversationRuntime({ ...conversation }, 'new', 'owner')
+  expect(conversation.runtimeId).toBe('new')
+  expect(conversation.previousRuntimeUrls).toEqual([sourceUrl])
   expect(conversation.runtimeOperation).toBeUndefined()
 })
 
@@ -291,14 +262,31 @@ test('a same-provider move without a pick does not invent one', async () => {
   await moveConversationRuntime({ ...conversation }, 'new', 'owner')
   expect(conversation).toMatchObject({ initialSessionConfig: {} })
 })
-test('a cross-provider move clears confirmed choices as well as the old attachment', async () => {
+test('a cross-provider move drops the old choices and stores the effort the destination runs', async () => {
   conversation.claudeCodePreview!.sessionConfig = [
     { id: 'model', kind: 'model', name: 'Model', currentValue: 'chosen-model', options: [] },
+    { id: 'effort', kind: 'effort', name: 'Effort', currentValue: 'high', options: [] },
   ]
+  destinationDefaults = { modelId: 'latest-model', defaultEffort: 'low' }
+  target.provider = 'codex'
+  await moveConversationRuntime({ ...conversation }, 'new', 'owner')
+  // Never "nothing": a Task with no stored effort runs on one nobody sees. The
+  // model is left to the destination's default, which the picker names.
+  expect(conversation.initialSessionConfig).toEqual({ effort: 'low' })
+  expect(conversation.claudeCodePreview).toBeUndefined()
+})
+test('a cross-provider move with an unreadable destination catalog stores no stale choices', async () => {
+  destinationModels = null
   target.provider = 'codex'
   await moveConversationRuntime({ ...conversation }, 'new', 'owner')
   expect(conversation.initialSessionConfig).toBeUndefined()
-  expect(conversation.claudeCodePreview).toBeUndefined()
+})
+test('a same-provider move keeps the model and stores the effort it will run on', async () => {
+  delete conversation.claudeCodePreview
+  conversation.initialSessionConfig = { model: 'chosen-model' }
+  destinationDefaults = { modelId: 'chosen-model', defaultEffort: 'low' }
+  await moveConversationRuntime({ ...conversation }, 'new', 'owner')
+  expect(conversation.initialSessionConfig).toEqual({ model: 'chosen-model', effort: 'low' })
 })
 
 test('a choice saved after the move request was read is preserved from durable state', async () => {

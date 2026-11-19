@@ -75,7 +75,7 @@ export function BindLinearDialog({ open, teamId, onClose, onBound }: Props) {
       onClose={close}
       title={t('Connect {name}', { name: 'Linear' })}
       description={t(
-        'Authorize Nuphos to read and create issues in your Linear workspace so the agent can open and close tickets.',
+        'Authorize Nuphos to read and create issues in your Linear workspace so it can open and close tickets.',
       )}
       width={460}
     >

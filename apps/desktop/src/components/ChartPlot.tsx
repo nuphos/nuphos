@@ -14,17 +14,9 @@ import {
   YAxis,
 } from 'recharts'
 
-import type { ChartPayload } from './agent/chartPayload'
+import { SERIES_COLORS } from './chartColors'
 
-// One data hue (design tokens, #1632): further series step down in opacity
-// before falling back to the text tones, so charts read as one family.
-const SERIES_COLORS = [
-  'rgb(var(--color-data-1))',
-  'rgba(var(--color-data-1), 0.6)',
-  'rgba(var(--color-data-1), 0.35)',
-  'rgb(var(--color-text-secondary))',
-  'rgb(var(--color-text-tertiary))',
-]
+import type { ChartPayload } from './agent/chartPayload'
 
 const AXIS_STYLE = {
   fontSize: 11,

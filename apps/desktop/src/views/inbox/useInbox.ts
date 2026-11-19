@@ -138,6 +138,31 @@ export function answerDecision(
   )
 }
 
+/**
+ * Dismisses an open question: the server closes it and tells the agent that
+ * asked who dismissed it, and why when `reason` is given. Hidden like an
+ * answer, and back with why if refused.
+ */
+export function dismissDecision(
+  teamId: string | undefined,
+  sessionId: string,
+  requestId: string,
+  reason?: string,
+): Promise<boolean> {
+  return answeringInbox(
+    requestId,
+    api.agentResolveDecision(sessionId, requestId, teamId, 'dismissed', reason).then(() => {
+      refreshInputRequests()
+    }),
+  ).then(
+    () => true,
+    () => false,
+  )
+}
+
+/** An Inbox question's reply waiting out its Undo window: an answer, or its dismissal. */
+export type HeldReply = DecisionAnswer | { dismissed: true; reason?: string }
+
 /** How long an Inbox answer waits, its question already gone, before it is sent: its Undo window. */
 export const ANSWER_UNDO_MS = 5_000
 
@@ -162,7 +187,7 @@ export function holdAnswer(
   teamId: string,
   sessionId: string,
   requestId: string,
-  answer: DecisionAnswer,
+  answer: HeldReply,
   onFailed: (reason: string | undefined) => void,
 ): () => boolean {
   sendHeldAnswer()
@@ -174,7 +199,11 @@ export function holdAnswer(
     if (held !== finish) return false
     held = undefined
     if (send)
-      void answerDecision(teamId, sessionId, requestId, answer).then((ok) => {
+      void (
+        'dismissed' in answer
+          ? dismissDecision(teamId, sessionId, requestId, answer.reason)
+          : answerDecision(teamId, sessionId, requestId, answer)
+      ).then((ok) => {
         if (!ok) onFailed(failures.get(requestId))
       })
     else if (answered.delete(requestId)) emit()
@@ -210,7 +239,6 @@ export function useAnswerFailure(requestId: string): string | undefined {
 export function useInboxListing(teamId: string, reloadKey?: unknown, includeOnboarding = false) {
   const listing = useQuery({
     ...inboxListingQuery(teamId, includeOnboarding),
-    enabled: Boolean(teamId),
     refetchInterval: INBOX_POLL_MS,
     // A retry would pause until the window is focused; the next poll is the retry.
     retry: false,
@@ -222,8 +250,8 @@ export function useInboxListing(teamId: string, reloadKey?: unknown, includeOnbo
   useEffect(() => {
     if (Object.is(shownKey.current, reloadKey)) return
     shownKey.current = reloadKey
-    if (teamId) void refetch()
-  }, [reloadKey, teamId, refetch])
+    void refetch()
+  }, [reloadKey, refetch])
 
   return listing
 }

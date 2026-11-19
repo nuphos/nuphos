@@ -2,7 +2,9 @@ import { upgradeWebSocket } from 'hono/bun'
 import { z } from 'zod'
 
 import { wakeOfflineBox } from '@/lib/agent/devices/box-wake'
+import { deleteDeviceJoinTokens } from '@/lib/agent/devices/join-tokens'
 import { isLocalRuntimeId, parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
+import { deleteAgentDevice } from '@/lib/agent/devices/store'
 import { boxUpdateStatus } from '@/lib/claude-code-preview/box-update'
 import { localRuntimeStatus } from '@/lib/claude-code-preview/local-runtime-catalog'
 import { isAllowedRemoteOpenAbUrl } from '@/lib/claude-code-preview/runtime-backend-url'
@@ -12,17 +14,17 @@ import {
   requireRuntimeInstance,
   withRuntimeReadiness,
 } from '@/lib/claude-code-preview/runtime-catalog'
-import { requestRuntimeDeletion } from '@/lib/claude-code-preview/runtime-deletion'
 import {
   deviceMetricsRuntimeId,
   listRuntimeMetricSamples,
 } from '@/lib/claude-code-preview/runtime-metrics-store'
 import { runtimeModelCatalog } from '@/lib/claude-code-preview/runtime-models'
-import { assertRuntimeNotDeleting } from '@/lib/claude-code-preview/runtime-portability-store'
+import { discardRuntimeDeletion } from '@/lib/claude-code-preview/runtime-portability-store'
 import { probeExternalRuntimeProvider } from '@/lib/claude-code-preview/runtime-provider-probe'
 import {
   removeTeamRuntime,
   renameTeamRuntime,
+  runtimes,
   setTeamRuntimeStatus,
 } from '@/lib/claude-code-preview/runtime-registry'
 import {
@@ -83,6 +85,21 @@ function teamRuntimeId(runtimeId: string): string {
 function assertNotRetired(instance: RuntimeInstance) {
   if (instance.kind === 'managed')
     throw new AppError(410, 'managed_runtime_retired', MANAGED_RUNTIME_RETIRED)
+}
+
+/**
+ * A retired hosted runtime has nothing left to tear down (#2401): its row goes the way an
+ * external one does, with the device its pod joined as and any unfinished teardown job.
+ */
+async function removeRetiredRuntime(teamId: string, runtimeId: string) {
+  const device = (await runtimes().findOne({ _id: runtimeId, teamId }))?.device
+
+  if (device) {
+    await deleteDeviceJoinTokens(device.deviceId)
+    await deleteAgentDevice(device.userId, device.deviceId)
+  }
+  await removeTeamRuntime(teamId, runtimeId)
+  await discardRuntimeDeletion(teamId, runtimeId)
 }
 
 export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAuthVariables }>) {
@@ -227,7 +244,7 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
     throw new AppError(
       410,
       'managed_runtime_retired',
-      'Managed runtimes are being retired. Add a Nuphos cloud computer or connect your own computer instead.',
+      'Managed runtimes are being retired. Add a computer from Nuphos or connect your own computer instead.',
     )
   })
   teamScoped.patch(
@@ -240,7 +257,6 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
       const patch = c.req.valid('json')
 
       assertNotRetired(instance)
-      await assertRuntimeNotDeleting(teamId, instance.id)
       if (
         instance.kind === 'development' &&
         (patch.label !== undefined || patch.status !== undefined)
@@ -269,12 +285,8 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
         'invalid_request',
         'Manage this agent in the local development configuration',
       )
-    if (instance.kind === 'managed') {
-      await requestRuntimeDeletion(teamId, instance, c.get('userId'))
-
-      return c.json({ status: 'deleting' }, 202)
-    }
-    await removeTeamRuntime(teamId, instance.id)
+    if (instance.kind === 'managed') await removeRetiredRuntime(teamId, instance.id)
+    else await removeTeamRuntime(teamId, instance.id)
 
     return c.body(null, 204)
   })

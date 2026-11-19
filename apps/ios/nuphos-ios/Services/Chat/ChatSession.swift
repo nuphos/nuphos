@@ -424,11 +424,20 @@ final class ChatSession {
     /// The secure input card's answer, as on the desktop: the value goes
     /// straight to a file on the agent's runtime, and the reply names only
     /// the file's path. The value is never kept, logged or put in the transcript.
-    func provideSecret(_ value: String, for part: ChatPart.ToolPart) async throws {
-        guard let name = part.secretRequest?.name else { return }
-        let path = try await AgentChatAPI.saveSecret(token: token, teamId: teamId, sessionId: sessionId, name: name, value: value)
+    /// A card with several fields saves one file each, in order, and names them all in one reply.
+    func provideSecret(_ values: [String], for part: ChatPart.ToolPart) async throws {
+        guard let request = part.secretRequest else { return }
+        let names = request.fields?.map(\.name) ?? [request.name]
+        guard values.count == names.count else { return }
+        var saved: [(name: String, path: String)] = []
+        for (name, value) in zip(names, values) {
+            saved.append((name, try await AgentChatAPI.saveSecret(token: token, teamId: teamId, sessionId: sessionId, name: name, value: value)))
+        }
+        let reply = request.fields == nil
+            ? ChatPart.ToolPart.secretSavedReply(request.name) + saved[0].path
+            : ChatPart.ToolPart.secretFieldsSavedReply(request.name, saved: saved)
         try? await AgentChatAPI.resolveDecision(token: token, teamId: teamId, sessionId: sessionId, requestId: part.decisionRequestId)
-        send(SecretCard.savedReply(name) + path)
+        send(reply)
     }
 
     /// The first reply after the message that asked, if anyone replied yet.
@@ -638,7 +647,7 @@ final class ChatSession {
             sessionConfig = incoming.retainingOptions(from: sessionConfig)
             sessionConfigError = nil
         } catch {
-            guard sessionConfigRequest == request else { return }
+            guard sessionConfigRequest == request, !Task.isCancelled else { return }
             sessionConfigError = error.localizedDescription
         }
         await applyPendingModelSettings()
@@ -664,6 +673,8 @@ final class ChatSession {
             sessionConfig = try await AgentChatAPI.setSessionConfig(token: token, teamId: teamId, sessionId: sessionId, configId: configId, value: value)
             sessionConfigError = nil
         } catch {
+            // Cancelled with the sheet that asked: not a failure, and nothing more to send.
+            if Task.isCancelled { sessionConfigSaving = false; return }
             pendingModelSettings.removeAll()
             sessionConfigError = error.localizedDescription
         }

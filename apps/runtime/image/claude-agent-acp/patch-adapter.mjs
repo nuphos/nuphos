@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 
-import { patchPersonalSkillsRefresh, patchRuntimeDefaults } from '../runtime-defaults.mjs'
+import { patchSkillsRefresh, patchRuntimeDefaults } from '../runtime-defaults.mjs'
 import { patchClaudeAskUserQuestion } from './ask-user-question.mjs'
 import { patchClaudeDefaultEffort } from './default-effort.mjs'
 import { patchClaudeSessionState } from './session-state.mjs'
@@ -166,4 +166,4 @@ for (const method of ['loadSession', 'resumeSession']) {
   traced = traced.replace('{\n', "{\n        nuphosRestorePhase('provider-update');\n")
   patched = patched.slice(0, start) + traced + patched.slice(end)
 }
-writeFileSync(target, patchPersonalSkillsRefresh(patched))
+writeFileSync(target, patchSkillsRefresh(patched))

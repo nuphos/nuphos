@@ -4,7 +4,6 @@
 
 import { createHash } from 'node:crypto'
 
-import { resetRuntimeImageDigests } from './runtime-image'
 import { OPENAB_PROVIDERS } from './runtime-provider'
 import {
   latestRuntimeRelease,
@@ -19,17 +18,6 @@ const realFetch = globalThis.fetch
 
 function digestOf(tag: string): string {
   return `sha256:${createHash('sha256').update(tag).digest('hex')}`
-}
-
-/** What `managedRuntimeImage()` resolves to for a version the registry serves. */
-export function publishedRuntimeImage(
-  version: string,
-  provider: OpenAbProvider,
-  legacy = false,
-): string {
-  const tag = `${version}-${provider}`
-
-  return `${legacy ? LEGACY_RUNTIME_REPOSITORY : NUPHOS_RUNTIME_REPOSITORY}:${tag}@${digestOf(tag)}`
 }
 
 /**
@@ -111,7 +99,6 @@ function serve(spec: RuntimeFeed): void {
 /** The whole fleet state: a resolver that has seen nothing else, now serving `spec`. */
 export async function publishRuntimeRelease(spec: RuntimeFeed = {}): Promise<void> {
   resetRuntimeReleaseCache()
-  resetRuntimeImageDigests()
   serve(spec)
   await latestRuntimeRelease('claude-code')
 }
@@ -124,6 +111,5 @@ export async function refreshRuntimeRelease(spec: RuntimeFeed = {}): Promise<voi
 
 export function restoreRuntimeReleases(): void {
   resetRuntimeReleaseCache()
-  resetRuntimeImageDigests()
   globalThis.fetch = realFetch
 }

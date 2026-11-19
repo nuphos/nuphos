@@ -78,6 +78,8 @@ export async function threadRuntimes(
       ready: !instance.notReady,
       current: instance.id === currentRuntimeId,
       quota: quotas[i],
+      // Up front, so an agent sees it before moving to an account that ran out too.
+      ...(quotas[i]?.sharesQuotaWith ? { sharesQuotaWith: quotas[i]?.sharesQuotaWith } : {}),
       ...(models[i]?.length ? { models: models[i] } : {}),
     })),
   }
@@ -102,8 +104,13 @@ export type ThreadModelPick = { model?: string; effort?: string; fast?: string }
 /** The model, effort and fast mode a conversation runs with: what a thread it starts begins on. */
 export function currentPick(conversation: AgentConversation): ThreadModelPick {
   const attachment = liveAttachment(conversation)
+  const { model, ...settings } = attachment
+    ? storedPick(attachment)
+    : (conversation.initialSessionConfig ?? {})
 
-  return attachment ? storedPick(attachment) : (conversation.initialSessionConfig ?? {})
+  // A session on Claude Code's "Default" reports `default`, which no catalog
+  // lists: it means the agent's default, what a session given no model runs.
+  return model && model !== 'default' ? { ...settings, model } : settings
 }
 
 /**

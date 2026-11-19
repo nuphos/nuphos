@@ -137,7 +137,10 @@ struct ConversationView: View {
         #endif
     }
 
-    private var rows: [ChatRow] { ChatRow.rows(for: session, runtimeOffline: conversationRuntime?.local?.online == false) }
+    private var rows: [ChatRow] {
+        let devices = store.agentDevicesLoaded || store.agentDevicesError ? store.agentDevices : nil
+        return ChatRow.rows(for: session, presence: .of(conversationRuntime?.local, devices: devices))
+    }
 
     /// Shown instead of the transcript while it loads or after it failed.
     @ViewBuilder
@@ -299,6 +302,11 @@ struct ConversationView: View {
         .task(id: conversationRuntime?.local?.deviceId) {
             guard conversationRuntime?.local != nil else { return }
             while !Task.isCancelled {
+                // Only an offline Box can be paused; a computer known not to be a Box is not asked again.
+                if let local = conversationRuntime?.local, local.online == false,
+                   !store.agentDevices.contains(where: { $0.deviceId == local.deviceId && $0.box == nil }) {
+                    await store.loadAgentDevices(metrics: false)
+                }
                 try? await Task.sleep(for: .seconds(15))
                 await store.loadRuntimes(force: true)
             }
@@ -432,14 +440,15 @@ struct ConversationView: View {
                         var selection = session.credentialAccess ?? CredentialSelection()
                         if !selection.contains(device) { selection.toggle(device); session.setCredentials(selection) }
                     },
-                    search: { query in
-                        await store.loadCredentialOptions()
-                        return await store.mentionableSessions(teamId: session.teamId, excluding: session.sessionId, matching: query)
+                    sessions: store.mentionableSessions(teamId: session.teamId, excluding: session.sessionId),
+                    refresh: {
+                        async let devices: () = store.loadCredentialOptions()
+                        await store.loadMentionableSessions(teamId: session.teamId)
+                        await devices
                     }
                 ),
                 voiceTeamId: session.teamId,
                 temporaryDirectory: temporaryDirectory,
-                autoFocus: session.loaded && !session.readOnly && !summaryOpen && !summaryOpening && !dockOpen,
                 onSend: { session.send($0) },
                 onStop: { session.stop() }
             ) {
@@ -991,7 +1000,7 @@ struct MemoryPill: View {
             .foregroundStyle(Theme.muted)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
-            .background(Theme.chatSurface, in: Capsule())
+            .background(Theme.sunken, in: Capsule())
     }
 }
 
@@ -1021,7 +1030,7 @@ struct MemoryRecallPill: View {
                 .foregroundStyle(Theme.muted)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
-                .background(Theme.chatSurface, in: Capsule())
+                .background(Theme.sunken, in: Capsule())
             }
             .buttonStyle(.plain)
             .disabled(entries.isEmpty)
@@ -1064,7 +1073,7 @@ struct ResourceStrip: View {
                             .font(Theme.Text.caption)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
-                            .background(Theme.chatSurface, in: Capsule())
+                            .background(Theme.sunken, in: Capsule())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("\(label), \(showFinished ? "hide" : "show") finished links")
@@ -1087,7 +1096,7 @@ struct ResourceStrip: View {
             .font(Theme.Text.caption)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(Theme.chatSurface, in: Capsule())
+            .background(Theme.sunken, in: Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(resource.title), \(resource.state)")
@@ -1119,7 +1128,7 @@ struct SuggestionChip: View {
                 .foregroundStyle(Theme.body)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 7)
-                .background(Theme.chatSurface, in: Capsule())
+                .background(Theme.sunken, in: Capsule())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Use suggestion: \(text)")
@@ -1207,7 +1216,7 @@ struct QueuedStrip: View {
         .padding(.leading, 12)
         .padding(.trailing, 4)
         .padding(.vertical, 4)
-        .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(Theme.sunken, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 

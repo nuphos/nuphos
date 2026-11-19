@@ -29,7 +29,7 @@ export function BotImportDialog({
   const [error, setError] = useState('')
   const [result, setResult] = useState(false)
   const selected = runtimes.newConversationRuntime
-  const destination = selected?.label ?? t('Choose an agent')
+  const destination = selected?.label ?? t('Choose a runtime')
   const server = new URL(window.api.apiUrlSync()).host
 
   const run = async (action: () => Promise<void>) => {
@@ -46,7 +46,7 @@ export function BotImportDialog({
 
   const choose = (newCopy = false) =>
     run(async () => {
-      if (!selected) throw new Error(t('Choose an available agent first.'))
+      if (!selected) throw new Error(t('Choose an available runtime first.'))
       const picked = { teamId, runtimeId: selected.id, agentRuntime: selected.provider }
       const next = await api.agentChooseBotImport(picked, newCopy)
 
@@ -203,7 +203,7 @@ export function BotImportDialog({
               />
               <span>
                 {t(
-                  'I confirm: enable the supported schedules marked active in this preview. They can run automatically on the destination agent. Leave unchecked to create schedules disabled.',
+                  'I confirm: enable the supported schedules marked active in this preview. They can run automatically on the destination runtime. Leave unchecked to create schedules disabled.',
                 )}
               </span>
             </label>

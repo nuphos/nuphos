@@ -1,4 +1,4 @@
-import { ShieldCheck, UserMinus, XCircle } from 'lucide-react'
+import { Link2, Mail, ShieldCheck, UserMinus, XCircle } from 'lucide-react'
 
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
@@ -15,6 +15,8 @@ type ActionsArgs = {
   teamId: string
   currentUserId: string
   inviteEmail: string
+  /** What the invited person joins as. */
+  inviteRole: TeamRole
   inviteSubmitting: boolean
   setInviteOpen: React.Dispatch<React.SetStateAction<boolean>>
   setInviteEmail: React.Dispatch<React.SetStateAction<string>>
@@ -25,10 +27,35 @@ type ActionsArgs = {
   setActingRowKey: React.Dispatch<React.SetStateAction<string | null>>
 }
 
+/**
+ * An invitation stands even when its email did not go out: say so instead of "sent". An older
+ * server sends no link, so there is none to copy from the row.
+ */
+function announceUnsent(email: string, hasLink: boolean) {
+  toast.info(
+    t('Invited, but no email went out'),
+    hasLink
+      ? t(
+          'Ask {email} to sign in to Nuphos with this address, or copy the invite link from their row and send it yourself.',
+          { email },
+        )
+      : t('Ask {email} to sign in to Nuphos with this address.', { email }),
+  )
+}
+
+/** The link holds no secret (invitations follow the invitee's email), so it is safe to share. */
+function copyInviteLink(url: string) {
+  navigator.clipboard
+    .writeText(url)
+    .then(() => toast.success(t('Invite link copied'), t('It works for the invited address only.')))
+    .catch(() => toast.error(t('Could not copy the link')))
+}
+
 export function useMemberActions({
   teamId,
   currentUserId,
   inviteEmail,
+  inviteRole,
   inviteSubmitting,
   setInviteOpen,
   setInviteEmail,
@@ -55,10 +82,20 @@ export function useMemberActions({
     if (!email || inviteSubmitting) return
     setInviteSubmitting(true)
     try {
-      await api.atlasInviteTeamMember(teamId, email)
+      const { invitation, emailSent } = await api.atlasInviteTeamMember(teamId, email, inviteRole)
+
       setInviteOpen(false)
       setInviteEmail('')
-      toast.success(t('Invitation sent'), email)
+      if (emailSent) toast.success(t('Invitation sent'), email)
+      else announceUnsent(email, Boolean(invitation.inviteUrl))
+      // An older server drops the role it does not know and invites as Editor.
+      if (!invitation.role && inviteRole !== 'EDITOR')
+        toast.info(
+          t('{email} will join as Editor', { email }),
+          t(
+            'This server is an older version and ignored the role you picked. Change their role after they join.',
+          ),
+        )
       // The invitation exists at this point — a refresh failure must not read
       // as "invite failed" (which would invite a duplicate retry).
       try {
@@ -70,6 +107,24 @@ export function useMemberActions({
       toast.apiError(t('Invite failed'), err)
     } finally {
       setInviteSubmitting(false)
+    }
+  }
+
+  async function resendInvitation(invitation: TeamInvitation) {
+    setActingRowKey(`invitation:${invitation.id}`)
+    try {
+      const answer = await api.atlasResendTeamInvitation(teamId, invitation.id)
+
+      if (answer.emailSent) toast.success(t('Invitation email sent again'), invitation.inviteeEmail)
+      else
+        announceUnsent(
+          invitation.inviteeEmail,
+          Boolean(answer.invitation.inviteUrl ?? invitation.inviteUrl),
+        )
+    } catch (err) {
+      toast.apiError(t('Resend failed'), err)
+    } finally {
+      setActingRowKey(null)
     }
   }
 
@@ -128,7 +183,28 @@ export function useMemberActions({
 
   function buildRowMenu(row: MemberRow): ContextMenuItem[] {
     if (row.kind === 'invitation') {
+      const busy = actingRowKey === `invitation:${row.invitation.id}`
+      const url = row.invitation.inviteUrl
+
       return [
+        {
+          key: 'resend-invite',
+          label: t('Resend email'),
+          icon: Mail,
+          disabled: busy,
+          onSelect: () => resendInvitation(row.invitation),
+        },
+        ...(url
+          ? [
+              {
+                key: 'copy-invite',
+                label: t('Copy invite link'),
+                icon: Link2,
+                onSelect: () => copyInviteLink(url),
+              },
+            ]
+          : []),
+        { key: 'sep-invite', separator: true } as ContextMenuItem,
         {
           key: 'cancel-invite',
           label: t('Cancel invite'),
@@ -136,6 +212,8 @@ export function useMemberActions({
           destructive: true,
           disabled: actingRowKey === `invitation:${row.invitation.id}`,
           confirm: t('Cancel invitation for {email}?', { email: row.invitation.inviteeEmail }),
+          // "Cancel invite" beside the dialog's own Cancel would be easy to mix up.
+          confirmLabel: t('Withdraw invite'),
           onSelect: () => cancelInvitation(row.invitation),
         },
       ]
@@ -167,7 +245,10 @@ export function useMemberActions({
         destructive: true,
         disabled: isSelf || actingRowKey === row.member.id,
         hint: isSelf ? t('you') : undefined,
-        confirm: t('Remove {name} from this team?', { name: row.member.name || row.member.email }),
+        confirm: t(
+          'Remove {name} from this team? They lose its chats. Computers they share here stop being shared, so teammates’ chats on them stop working. The computers they added from Nuphos here go to the team owner, and anything they have open on teammates’ computers closes.',
+          { name: row.member.name || row.member.email },
+        ),
         onSelect: () => removeMember(row.member),
       },
     ]

@@ -107,7 +107,7 @@ export function ParticipantMenu({
             <MenuItem onClick={onAllowReply}>
               <span className="block">{t('Let them reply')}</span>
               <span className="block text-[11px] text-tertiary">
-                {t('They can reply once they can use the computer this agent runs on.')}
+                {t('They can reply once they can use the computer this task runs on.')}
               </span>
             </MenuItem>
             <MenuSeparator />

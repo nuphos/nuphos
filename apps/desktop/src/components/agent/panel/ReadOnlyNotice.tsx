@@ -211,6 +211,7 @@ export function AgentStatusBanner({
   const blocked: BlockedKind | null =
     (runtimeGone(control) ? 'gone' : null) ??
     unreachable ??
+    (control.offlineAgent ? 'offline' : null) ??
     (shareApproval === 'pending' ? 'waiting' : shareApproval === 'denied' ? 'declined' : null)
   // An agent that can take the message, on a computer about to fail it: said, without blocking.
   const notice = useComputerNotice(control)
@@ -245,11 +246,17 @@ export function AgentStatusBanner({
       { ...fixes, ...(askedName && { askedName }) },
       onSwitchAgent,
     )
+  if (shown === 'offline' && !unreachable && control.offlineAgent)
+    copy = {
+      text: t('{name}’s computer is offline.', { name: control.offlineAgent }),
+      action: null,
+    }
   const { text, action } = copy
 
   return (
     <>
       <div
+        data-composer-overlay=""
         role="status"
         aria-hidden={!active}
         // Leaving, it keeps its words for the exit animation but takes no focus or clicks.
@@ -268,9 +275,10 @@ export function AgentStatusBanner({
             )}
           >
             <span aria-hidden className={clsx('absolute inset-0', variant.tint)} />
-            <div className="relative flex h-8 min-w-0 items-center gap-2 px-3 text-[12.5px] text-secondary">
+            {/* A long reason wraps and the tab grows upward, never under the input. */}
+            <div className="relative flex min-h-8 min-w-0 items-center gap-2 px-3 py-1 text-[12.5px] leading-snug text-secondary">
               <variant.Icon aria-hidden className={clsx('h-3.5 w-3.5 shrink-0', variant.icon)} />
-              <span className="min-w-0 flex-1 truncate">{text}</span>
+              <span className="min-w-0 flex-1">{text}</span>
               {action && (
                 <Button
                   type="button"

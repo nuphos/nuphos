@@ -1,18 +1,15 @@
 // Scenarios about the agent hosts a Task runs on: a restart, delegation, a move.
 import { agentEvents, agentLog, delegatedTurn, firstAgentHolds } from './agent-log.ts'
 import { backendLines, backendLog } from './backend-log.ts'
+import { effortCardScenarios } from './effort-card-scenarios.ts'
+import { fallbackSetupScenarios } from './fallback-setup-scenarios.ts'
+import { languageScenarios } from './language-scenarios.ts'
 import { artifacts, until } from './processes.ts'
-import { newTask, send } from './ui.ts'
+import { providerMoveScenarios } from './provider-move-scenarios.ts'
+import { newTask, pickAgent, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
-
-async function pickAgent(page: Page, label: string) {
-  await page.getByRole('button', { name: /^Agent runtime/ }).click()
-  // The computer's row opens a submenu of its runtimes.
-  await page.getByRole('menu').getByText(label).click()
-  await page.getByRole('menuitem', { name: new RegExp(`^${label}.*Claude Code`) }).click()
-}
 
 /** Sends while the agent host is `away`, expects the backend to queue the message, then its reply. */
 async function sendWhileAway(
@@ -36,6 +33,7 @@ async function sendWhileAway(
 
 // The delegation scenario needs the second agent unused, so the move comes after it.
 export const runtimeScenarios: Scenario[] = [
+  ...effortCardScenarios,
   {
     // A runtime restart between turns, the situation #2612 was reported in. Not checked against its fix.
     name: 'the agent host restarts between two messages and the conversation carries on',
@@ -138,17 +136,18 @@ export const runtimeScenarios: Scenario[] = [
       )
       await pickAgent(page, 'E2E second agent')
       await page.getByText('moved this task from E2E fixture agent to E2E second agent').waitFor()
-      // #2123: the second agent's default model was never applied to this Task, so its
-      // list, once read from that agent, shows no model as the current one.
+      // #3709: the Task starts a new session there with no model picked, so its list,
+      // once read from that agent, checks the model that session runs: its default.
       await page.getByRole('button', { name: /^Model settings/ }).click()
-      await until('the second agent’s models, none of them current', async () => {
+      await until('the second agent’s models, its default current', async () => {
         const models = page.getByRole('menuitemcheckbox')
         const names = await models.allTextContents()
 
         return (
           names.some((name) => name.includes('fixture-small')) &&
           !names.some((name) => name.includes('fixture-large')) &&
-          (await page.getByRole('menuitemcheckbox', { checked: true }).count()) === 0
+          (await page.getByRole('menuitemcheckbox', { checked: true }).allTextContents()).join() ===
+            'fixture'
         )
       })
       await page.keyboard.press('Escape')
@@ -289,4 +288,7 @@ export const runtimeScenarios: Scenario[] = [
         throw new Error(`The answer reached the second agent ${answered() - before} times`)
     },
   },
+  ...providerMoveScenarios,
+  ...fallbackSetupScenarios,
+  ...languageScenarios,
 ]

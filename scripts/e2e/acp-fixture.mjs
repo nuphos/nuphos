@@ -2,16 +2,18 @@
 // No network tools, GitHub credentials, or real inference are used.
 import { randomUUID } from 'node:crypto'
 import { appendFileSync, existsSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
 
 import { nuphosApplyRuntimeDefaults } from '../../apps/runtime/image/runtime-defaults.mjs'
 
 import { formSteps } from './acp-fixture-form.mjs'
+import { askSteps } from './fixture-ask.mjs'
 import { answerChannel } from './fixture-channel.mjs'
-import { listCommands } from './fixture-commands.mjs'
+import { scriptedUpdates } from './fixture-commands.mjs'
 import { hop, inherit } from './fixture-hop.mjs'
-import { call, callNamed, setToolsServer, toolsServer } from './fixture-mcp.mjs'
-import { applySetting } from './fixture-settings.mjs'
+import { call, callNamed, reporting, setToolsServer, subtask } from './fixture-mcp.mjs'
+import { applySetting, heldDefaults, promptLanguage } from './fixture-settings.mjs'
 import { refuse } from './fixture-turn-refusals.mjs'
 import { CLAUDE_TURN_QUOTA, CLAUDE_TURN_USAGE } from './fixture-usage.mjs'
 
@@ -33,22 +35,10 @@ let nextRequest = 1_000_000
 let thread
 
 const refused = (message) => Boolean(message.error ?? message.result?.isError)
+const step = reporting(send)
 
-/** Asks the person a question through request_user_decision. */
-async function ask(sessionId, category) {
-  const message = await call(sessionId, 'request_user_decision', {
-    label: 'Ask which marker to use',
-    category,
-    question: 'Which marker should the fixture use?',
-    // A link the app can open without leaving this computer.
-    body: `Background is at ${new URL(toolsServer(sessionId).url).origin}/health/ready`,
-    options: ['E2E_DELIVERY:answered', 'E2E_DELIVERY:other'],
-  })
-
-  log({ sessionId, event: 'asked', isError: refused(message) })
-}
-
-const form = formSteps({ call, log, refused })
+const form = formSteps({ call: step, log, refused })
+const ask = askSteps({ call: step, log, refused })
 
 // A delegated turn names its sender by title, which carries the sender's own
 // markers, so the fixture tells such a turn by its prompt and does not delegate again.
@@ -128,7 +118,7 @@ async function prompt({ sessionId, prompt: parts }) {
     .join('\n')
   const marker = (text.match(/E2E_DELIVERY:[a-z0-9-]+/g) ?? []).at(-1) ?? 'E2E_DELIVERY:missing'
 
-  log({ sessionId, marker, event: 'start' })
+  log({ sessionId, marker, event: 'start', language: promptLanguage(text) })
   // #3051: the first agent refuses this prompt as out of usage, as Claude Code words it.
   // #3055: and the answer to a question asked with E2E_ASK_LATE.
   if (text.includes('E2E_ASK_LATE')) late.add(sessionId)
@@ -145,9 +135,8 @@ async function prompt({ sessionId, prompt: parts }) {
   // A thread started here, then moved (E2E_HOP), or left on this session's model (E2E_INHERIT).
   if (/E2E_(HOP|INHERIT)/.test(text) && !text.includes(CHILD))
     await (text.includes('E2E_HOP') ? hop : inherit)({ call, send, log, sessionId, child: CHILD })
-  if (text.includes('E2E_ASK')) {
-    await ask(sessionId, text.includes('E2E_ASK_CREDENTIAL') ? 'credential' : 'preference')
-  }
+  if (text.includes('E2E_SUBTASK')) await subtask({ log, sessionId, marker })
+  if (text.includes('E2E_ASK')) await ask(sessionId, text)
   // A Bot is woken by its chat's posts and answers there, as only channel_post can.
   const channelId = /\(channelId ([^)]+)\)/.exec(text)?.[1]
 
@@ -181,8 +170,15 @@ async function prompt({ sessionId, prompt: parts }) {
     })
   }
   if (text.includes('E2E_PERMISSION')) await permission(sessionId, marker)
-  if (text.includes('E2E_COMMANDS')) listCommands({ send, sessionId })
+  scriptedUpdates({ send, sessionId, text })
   if (text.includes('E2E_CALL')) await callNamed({ log, sessionId, text })
+  // Answers only once the scenario writes E2E_RELEASE (else `release` beside the ACP log, in
+  // the artifacts), so a turn can span what it does meanwhile.
+  if (text.includes('E2E_WAIT_RELEASE')) {
+    const release = process.env.E2E_RELEASE ?? join(dirname(process.env.E2E_ACP_LOG), 'release')
+
+    while (!existsSync(release)) await new Promise((resolve) => setTimeout(resolve, 100))
+  }
   if (text.includes('E2E_HOLD')) {
     await new Promise((resolve) => held.set(sessionId, resolve))
     log({ sessionId, marker, event: 'cancelled' })
@@ -241,7 +237,7 @@ async function answer(request) {
 
       log({ sessionId, event: 'session', defaults })
 
-      return nuphosApplyRuntimeDefaults(agent, request.params, {
+      return nuphosApplyRuntimeDefaults(agent, heldDefaults(sessionId, request.params), {
         sessionId,
         configOptions: applySetting(sessionId),
       })

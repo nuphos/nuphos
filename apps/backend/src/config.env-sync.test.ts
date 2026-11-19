@@ -57,7 +57,7 @@ const BYPASS_ALLOWLIST = new Set([
   ...configModuleFiles().map((f) => f.slice(APP_DIR.length + 1)),
   'src/test-preload.ts',
   // Exported JavaScript source, executed only inside the selected OpenAB
-  // container via private Kubernetes exec. Its process.env is the native
+  // container as a runtime `panel` job. Its process.env is the native
   // runtime's environment, never the backend's config. The protocol tests
   // verify that transport/skills secrets are stripped from the adapter env.
   'src/lib/claude-code-preview/runtime-model-probe.ts',

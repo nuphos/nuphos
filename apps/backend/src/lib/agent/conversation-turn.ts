@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto'
 
-import { sessionsByConversation } from '@/lib/claude-code-preview/agent-chat-registry'
 import { isRuntimeRefusal } from '@/lib/claude-code-preview/runtime-refusal'
 import { signNuphosToken } from '@/lib/identity'
 import { logError } from '@/lib/observability'
@@ -16,7 +15,7 @@ import { recordFiresRan } from './trigger-missed-runs'
 import { reconnecting } from './turn-offline'
 import { readTurnHistory } from './turn-history'
 import { turnRunner } from './turn-runner'
-import { keepUndelivered, LOST_TURN } from './undelivered-send'
+import { keepUndelivered, LOST_TURN, runtimeRestarted } from './undelivered-send'
 import { failureLine, keepAnswersThatWait } from './waiting-answers'
 
 import type { AgentConversation } from './db'
@@ -156,8 +155,8 @@ export async function runTurn(
         ...(data.locale ? { locale: data.locale } : {}),
         // 'user' adds no Full Access default: a thread took its parent's mode at creation.
         origin: source === 'agent.resource' ? 'trigger' : 'user',
-        // The channels this turn answers: they show it typing until it ends.
-        channelIds: fresh.flatMap((message) => channelIdOf(message) ?? []),
+        // The channels this turn answers, where a question was answered too: they show it typing.
+        channelIds: fresh.flatMap((m) => channelIdOf(m) ?? m.answers?.channelId ?? []),
         ...(fresh.every((message) => channelIdOf(message)) ? { channelWoken: true } : {}),
         // Not recorded as interrupted: the messages go back on the queue below.
         clientResendsRefusal: true,
@@ -202,22 +201,6 @@ export async function runTurn(
     await recordFailedFires(error, taken)
     throw error
   }
-}
-
-/**
- * A turn whose runtime connection dropped is left to the runtime, which keeps
- * running it through a network blip and reports back as usual. When the runtime
- * itself restarted (an OOMKill), the session reattaches with no agent process
- * (`dormant`) and the turn is gone.
- */
-async function runtimeRestarted(data: DeliveredTo): Promise<boolean> {
-  const session = sessionsByConversation.get(`${data.teamId}:${data.targetSessionId}`)
-
-  // False also means superseded or shutting down; only a session back on the air says anything.
-  if (!session?.reattached || !(await session.reattached)) return false
-  const { state } = await session.client.getSessionExecutionState(session.openabSessionId)
-
-  return state === 'dormant'
 }
 
 async function reportIfRestarted(

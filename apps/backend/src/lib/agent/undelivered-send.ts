@@ -1,5 +1,8 @@
 // A person's send that will not run is never just gone: it stays in its
 // conversation, followed by why, for everyone who reads it.
+import { randomUUID } from 'node:crypto'
+
+import { sessionsByConversation } from '@/lib/claude-code-preview/agent-chat-registry'
 import { logError, logEvent } from '@/lib/observability'
 
 import { channelIdOf, noteReplyFailed } from './channel-wake'
@@ -64,6 +67,60 @@ export async function reopenUndeliveredAnswer(
   }).catch((error: unknown) => {
     logError('agent.decision.reopen_failed', error, { session_id: data.targetSessionId })
   })
+}
+
+/**
+ * A turn whose runtime connection dropped is left to the runtime, which keeps
+ * running it through a network blip and reports back as usual. The runtime
+ * clears `lastOutcome` when it takes a prompt and sets it when the prompt ends,
+ * so a runtime back on the air that is not running the turn and has no outcome
+ * restarted under it (an OOMKill, an update): the turn is gone.
+ */
+export async function runtimeRestarted(data: {
+  teamId?: string
+  targetSessionId: string
+}): Promise<boolean> {
+  const session = sessionsByConversation.get(`${data.teamId}:${data.targetSessionId}`)
+
+  // False also means superseded or shutting down; only a session back on the air says anything.
+  if (!session?.reattached || !(await session.reattached)) return false
+  const { state, lastOutcome } = await session.client.getSessionExecutionState(
+    session.openabSessionId,
+  )
+
+  logEvent('info', 'agent.chat.lost_turn_checked', {
+    session_id: data.targetSessionId,
+    state,
+    outcome: Boolean(lastOutcome),
+  })
+
+  return (state === 'idle' || state === 'dormant' || state === 'interrupted') && !lastOutcome
+}
+
+/** A person's turn in the app that its runtime's restart cut off: the conversation says so. */
+export async function noteLostTurn(data: {
+  userId: string
+  teamId: string
+  targetSessionId: string
+}): Promise<void> {
+  try {
+    if (!(await runtimeRestarted(data))) return
+    await appendConversationMessages({
+      sessionId: data.targetSessionId,
+      userId: data.userId,
+      teamId: data.teamId,
+      messages: [
+        {
+          id: randomUUID(),
+          role: 'user',
+          parts: [{ type: 'text', text: `This message ${LOST_TURN}` }],
+          metadata: systemSender('nuphos', 'Nuphos'),
+        },
+      ],
+    })
+  } catch (error) {
+    logError('agent.chat.lost_turn_check_failed', error, { session_id: data.targetSessionId })
+  }
 }
 
 export const LOST_TURN =

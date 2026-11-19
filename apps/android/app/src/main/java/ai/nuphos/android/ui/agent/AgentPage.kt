@@ -185,7 +185,7 @@ fun AgentPage(
     var foldedIds by rememberSaveable(account, team?.id) { mutableStateOf(store.foldedThreadIds(account, team?.id).toList()) }
     val showInitialLoading = store.phase == AgentStore.Phase.Loading || store.phase == AgentStore.Phase.Idle
     val tree = remember(store.conversations, foldedIds, account) {
-        ConversationNesting.nest(store.conversations, foldedIds.toSet(), account, groupSections = false)
+        ConversationNesting.nest(store.conversations, foldedIds.toSet(), account, groupSections = false, byFamily = true)
     }
     LaunchedEffect(tree.rows.map { Triple(it.conversation.sessionId, it.depth, it.section) }) { rowInteractions.dismiss() }
     LaunchedEffect(listState, store.hasMore, store.conversations) {
@@ -461,6 +461,11 @@ fun EmptyState(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NewChatComposer(nav: NavHostController) {
+    ai.nuphos.android.ui.chat.NewTaskLauncher(nav)
+}
+
+@Composable
+fun NewTaskComposer(nav: NavHostController, onSubmitted: () -> Unit) {
     val store = LocalAgentStore.current
     val scope = rememberCoroutineScope()
     val auth = ai.nuphos.android.ui.LocalAuthSession.current
@@ -500,11 +505,12 @@ fun NewChatComposer(nav: NavHostController) {
     val modelSettings = remember(store, selection, selection?.selected, store.workspaceRevision) { store.bindNewModelSettings(selection) }
     LaunchedEffect(modelSettings) { modelSettings?.refresh() }
     ChatComposer(
+        autoFocus = true,
         modelSettings = modelSettings,
         mentions = draftTeam?.let { team ->
             remember(store, team) {
-                ai.nuphos.android.ui.chat.SessionMentionSource(team) { query ->
-                    store.mentionableSessions(team, query)
+                ai.nuphos.android.ui.chat.SessionMentionSource(team) {
+                    store.mentionableSessions(team)
                 }
             }
         },
@@ -529,6 +535,7 @@ fun NewChatComposer(nav: NavHostController) {
         onSend = { submission ->
             val session = store.newSession(selection) ?: return@ChatComposer false
             store.pendingPrompt = submission
+            onSubmitted()
             nav.navigate("conversation/${session.sessionId}?fresh=true")
             true
         },

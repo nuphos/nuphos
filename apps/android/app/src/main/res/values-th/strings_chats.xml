@@ -9,7 +9,6 @@
     <string name="chats_show_less">แสดงน้อยลง</string>
     <string name="chats_show_more">แสดงเพิ่มเติม</string>
     <string name="chats_question_your_answer">คำตอบของคุณ</string>
-    <string name="chats_question_or_type_answer">หรือพิมพ์คำตอบของคุณเอง</string>
     <string name="chats_question_send_answer">ส่งคำตอบ</string>
     <string name="chats_question_heading_approval">ต้องการการอนุมัติ</string>
     <string name="chats_question_heading_preference">ตัวเลือกของคุณ</string>
@@ -45,11 +44,19 @@
     <string name="chats_select_text">เลือกข้อความ</string>
     <string name="chats_reply">ตอบกลับ</string>
     <string name="chats_copy">คัดลอก</string>
-    <string name="chats_usage_returns">โควตาการใช้งานจะกลับมาใน %1$s</string>
+    <string name="chats_usage_resets">โควตาการใช้งาน%1$s</string>
     <string name="chats_switch_runtime">สลับรันไทม์</string>
     <string name="chats_retry">ลองอีกครั้ง</string>
     <string name="chats_send_failed_title">ส่งข้อความไม่สำเร็จ</string>
     <string name="chats_message_placeholder">ส่งข้อความถึง %1$s</string>
     <string name="chats_replying_to">กำลังตอบกลับ %1$s</string>
     <string name="chats_cancel_reply">ยกเลิกการตอบกลับ</string>
+    <string name="chats_question_snooze">เลื่อนเตือน</string>
+    <string name="chats_question_dismiss">ปิด</string>
+    <string name="chats_question_snooze_hour">1 ชั่วโมง</string>
+    <string name="chats_question_snooze_tomorrow">พรุ่งนี้ 9:00</string>
+    <string name="chats_question_snooze_monday">วันจันทร์หน้า 9:00</string>
+    <string name="chats_question_dismiss_reason">เหตุผล (ไม่บังคับ)</string>
+    <string name="chats_empty_bot_body">นี่คือการสนทนาของคุณกับ %1$s บอกว่าต้องการความช่วยเหลืออะไร แล้วร่วมกันกำหนดวิธีทำงาน</string>
+    <string name="chats_empty_bot_start">เริ่มด้วยการบอก %1$s ว่าคุณอยากทำอะไร</string>
 </resources>

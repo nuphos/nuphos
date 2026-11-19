@@ -15,6 +15,7 @@ import {
   hasPendingUserMessages,
 } from './pending-messages'
 import { startQueuedTurn } from './queued-turn'
+import { installQueuedTurnStarter } from './session-released'
 import { installTurnRunner, resetTurnRunner } from './turn-runner'
 
 import type { AgentConversation } from './db'
@@ -34,6 +35,8 @@ const target = {
 } as AgentConversation
 let online = false
 let failure: Error | undefined
+// What waking the conversation's Box answers: resuming, nothing to wake, or refused by the plan.
+let wake: () => Promise<boolean> = async () => false
 // Every write to the Trigger, in order.
 const writes: { op: string; filter: Record<string, unknown>; update: Record<string, unknown> }[] =
   []
@@ -47,7 +50,7 @@ useIdentity({ signNuphosToken: () => 'test-token' })
 useConversationChatRoute({
   resolveConversationChatRuntime: async () => ({ runtime: 'claude-code' }),
 })
-useBoxWake({ wakeOfflineBox: async () => false })
+useBoxWake({ wakeOfflineBox: () => wake() })
 useDb({
   db: (() => ({
     collection: () => ({
@@ -62,13 +65,13 @@ useAgentDb({
   getConversationWithMessages: async () => ({ conversation: target, messages: [] }),
 })
 
-function fire(offlineSince?: string) {
+function fire(offlineSince?: string, triggerId = TRIGGER_ID) {
   return {
     ...buildPendingUserMessage({
       renderedText: 'check the deploy',
       source: 'agent.resource',
       actorUserId: 'owner',
-      metadata: systemSender(`trigger:${TRIGGER_ID}`, 'Hourly check'),
+      metadata: systemSender(`trigger:${triggerId}`, 'Hourly check'),
     }),
     ...(offlineSince ? { offlineSince } : {}),
   }
@@ -77,6 +80,7 @@ function fire(offlineSince?: string) {
 beforeEach(() => {
   online = false
   failure = undefined
+  wake = async () => false
   writes.length = 0
   installTurnRunner({
     claimAgentRunForSession: async () => () => {},
@@ -148,4 +152,41 @@ test('a fire whose turn fails for a passing reason writes nothing to its Trigger
 
   await expect(startQueuedTurn('owner', 'target')).rejects.toThrow('402')
   expect(writes).toEqual([])
+})
+
+test('a fire on a paused Box wakes it and waits in the queue', async () => {
+  wake = async () => true
+  await enqueuePendingUserMessage('owner', 'target', fire())
+
+  await startQueuedTurn('owner', 'target')
+  expect(await hasPendingUserMessages('owner', 'target')).toBe(true)
+  expect(writes).toEqual([])
+})
+
+test('a fire on a Box its plan will not start fails, and counts toward pausing its Trigger', async () => {
+  wake = async () => {
+    throw new AppError(
+      402,
+      'box_vcpu_limit',
+      "Your team's free cloud computer has used its 50 hours this month.",
+    )
+  }
+  // Another Trigger's fire queues behind it, as its own turn.
+  const other = '6af1a38b843a609932e6f66e'
+
+  installQueuedTurnStarter(startQueuedTurn)
+  await enqueuePendingUserMessage('owner', 'target', fire())
+  await enqueuePendingUserMessage('owner', 'target', fire(undefined, other))
+
+  await startQueuedTurn('owner', 'target')
+  expect(writes.map((w) => String(w.filter._id))).toEqual([TRIGGER_ID])
+  // The retry that follows meets the same refusal, so nothing waits on forever.
+  for (let i = 0; i < 100 && writes.length < 2; i++)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+  expect(await hasPendingUserMessages('owner', 'target')).toBe(false)
+  expect(writes.map((w) => String(w.filter._id))).toEqual([TRIGGER_ID, other])
+  for (const { op, update } of writes) {
+    expect(op).toBe('findOneAndUpdate')
+    expect(update).toEqual({ $inc: { failedRunCount: 1 } })
+  }
 })

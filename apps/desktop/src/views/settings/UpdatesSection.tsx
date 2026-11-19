@@ -120,7 +120,7 @@ export function UpdatesSection() {
             </div>
             <p className="mt-1 text-[12px] text-tertiary">
               {t(
-                'When an update is ready, restart to install it after 10 minutes without keyboard or mouse input, while no agent task is running on this computer.',
+                'When an update is ready, restart to install it after 10 minutes without keyboard or mouse input, while no task is running on this computer.',
               )}
             </p>
           </div>

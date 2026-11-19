@@ -173,16 +173,19 @@ final class AgentListFailureUITests: XCTestCase {
         app.staticTexts[title].firstMatch
     }
 
+    // Since #3343 a row's swipe only archives; its other actions are in the long press menu.
     private func unwatch() throws {
-        row("Release ops").swipeLeft()
+        row("Release ops").press(forDuration: 1)
         let item = app.buttons["Unwatch"].firstMatch
         XCTAssertTrue(item.waitForExistence(timeout: 3), "No Unwatch on the row")
         item.tap()
     }
 
     private func assertMenu(shows title: String) throws {
-        row("Release ops").swipeLeft()
+        row("Release ops").press(forDuration: 1)
         XCTAssertTrue(app.buttons[title].firstMatch.waitForExistence(timeout: 5), "The row does not offer \(title)")
+        // Away from the menu, which closes it.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7)).tap()
     }
 
     private func originalList() throws -> [String: Any] {

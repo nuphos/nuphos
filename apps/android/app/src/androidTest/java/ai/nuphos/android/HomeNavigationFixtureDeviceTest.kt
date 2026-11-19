@@ -24,6 +24,8 @@ import android.graphics.Bitmap
 import java.io.File
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import ai.nuphos.android.data.*
@@ -67,6 +69,7 @@ class HomeNavigationFixtureDeviceTest {
     @Volatile private var archiveFailure = false
     @Volatile private var archived = false
     @Volatile private var historyFailure = false
+    @Volatile private var historyFamilies = false
     @Volatile private var runtimeCatalogHold: CountDownLatch? = null
     @Volatile private var runtimeCatalogFailure = false
     @Volatile private var runtimeRemoved = false
@@ -139,8 +142,19 @@ class HomeNavigationFixtureDeviceTest {
                     connectors -> "{}"
                     favorites -> """{"entries":[],"revision":0}"""
                     history -> {
+                        if (request.url.queryParameter("pendingDecision") == "true")
+                            return@addInterceptor Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200)
+                                .message("fixture").body("""{"conversations":[{"sessionId":"question-fixture","teamId":"${a.id}","title":"Synthetic question","isOwner":true,"inputRequests":[{"id":"q1","category":"preference","question":"Choose a color","options":["Blue","Green"]}]}],"hasMore":false}""".toResponseBody(Http.jsonMedia)).build()
+
                         // Archived chats are excluded from the list, matching iOS.
-                        if (historyFailure) { code = 403; "{}" } else if (archived || request.url.queryParameter("archived") != "exclude") "{\"conversations\":[],\"nextCursor\":null}" else
+                        if (historyFailure) { code = 403; "{}" } else if (historyFamilies) {
+                            """{"conversations":[
+                                {"sessionId":"recent","title":"Recent standalone task","lastActiveAt":"2026-01-02T00:00:00Z","isOwner":true},
+                                {"sessionId":"parent","title":"Task with a waiting thread","lastActiveAt":"2026-01-01T00:00:00Z","isOwner":true},
+                                {"sessionId":"child","parentSessionId":"parent","title":"Waiting thread","isOwner":true,
+                                 "inputRequests":[{"id":"q","category":"approval","question":"Continue?","status":"open"}]}
+                            ],"nextCursor":null}"""
+                        } else if (archived || request.url.queryParameter("archived") != "exclude") "{\"conversations\":[],\"nextCursor\":null}" else
                             """{"conversations":[{"sessionId":"fixture-chat","teamId":"${request.url.queryParameter("teamId")}","title":"Synthetic active conversation","archivedAt":null,"canManage":true,"isOwner":true,"createdAt":"2026-01-01T00:00:00Z"}],"nextCursor":null}"""
                     }
                     browsing -> "{}"
@@ -177,7 +191,7 @@ class HomeNavigationFixtureDeviceTest {
     private fun waitText(text: String) {
         compose.waitUntil(8_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
     }
-    private fun render(compact: Boolean = false, restoration: StateRestorationTester? = null, keyboard: Boolean = false) {
+    private fun render(newTask: Boolean = false, compact: Boolean = false, restoration: StateRestorationTester? = null, keyboard: Boolean = false) {
         memberships = listOf(a, b)
         compose.runOnIdle {
             if (compact) {
@@ -200,8 +214,16 @@ class HomeNavigationFixtureDeviceTest {
                     LocalAgentStore provides agent, LocalAuthSession provides auth,
                     LocalPlansStore provides plansStore, LocalConnectorsStore provides connectors) {
                     NuphosTheme(darkTheme = InstrumentationRegistry.getArguments().getString("fixtureDark") == "true") { Box(if (compact) Modifier.width(320.dp) else Modifier) {
-                        HomeScreen(NuphosUser.preview, rememberNavController(),
-                            showComposer = false, newChatComposer = {})
+                        val nav = rememberNavController()
+                        if (newTask) NavHost(nav, startDestination = "fixture-home") {
+                            composable("fixture-home") {
+                                HomeScreen(NuphosUser.preview, nav, showComposer = true,
+                                    newChatComposer = { ai.nuphos.android.ui.agent.NewChatComposer(nav) })
+                            }
+                            composable("conversation/{id}?fresh={fresh}") {
+                                androidx.compose.material3.Text("Synthetic task destination")
+                            }
+                        } else HomeScreen(NuphosUser.preview, nav, showComposer = false)
                     } }
                 }
             }
@@ -211,7 +233,11 @@ class HomeNavigationFixtureDeviceTest {
         compose.onNodeWithTag("home-page-switcher").assertIsDisplayed()
     }
     private fun menu() { compose.onNodeWithTag("home-page-switcher").performClick() }
-    private fun select(route: String) { menu(); compose.onNodeWithTag("home-page-$route").performScrollTo().performClick(); compose.waitForIdle() }
+    private fun select(route: String) {
+        if (route in listOf("chats", "agent", "inbox")) compose.onNodeWithTag("home-tab-$route").performClick()
+        else { menu(); compose.onNodeWithTag("home-page-$route").performScrollTo().performClick() }
+        compose.waitForIdle()
+    }
     private fun assertFixedListSelectors() = assertTrue(requests.filter { it.url.encodedPath == "/agent/conversations" }.all {
         it.url.queryParameter("scope") == "mine" && it.url.queryParameter("sort") == "activity" && it.url.queryParameter("archived") == "exclude"
     })
@@ -223,20 +249,148 @@ class HomeNavigationFixtureDeviceTest {
         val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
         try { file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) } } finally { bitmap.recycle() }
     }
+    @Test fun newTaskSheetCancelAndReopenPreservesDraft() {
+        app.incomingShares.identityReset()
+        kotlinx.coroutines.runBlocking { app.incomingShares.bindAccount(NuphosUser.preview.id) }
+        render(newTask = true)
+        shot("new-task-entry")
+        compose.onNodeWithTag("new-task-open").performClick()
+        compose.onNodeWithTag("new-task-sheet").assertIsDisplayed()
+        compose.onNode(androidx.compose.ui.test.hasSetTextAction()).assertIsFocused()
+        shot("new-task-open")
+        compose.onNode(androidx.compose.ui.test.hasSetTextAction()).performTextClearance()
+        compose.onNode(androidx.compose.ui.test.hasSetTextAction()).performTextInput("Synthetic new task draft")
+        compose.onNodeWithTag("new-task-cancel").performClick()
+        compose.onNodeWithTag("new-task-sheet").assertDoesNotExist()
+        compose.onNodeWithTag("new-task-open").performClick()
+        shot("new-task-draft")
+        compose.onNodeWithText("Synthetic new task draft").assertIsDisplayed()
+        noWrites()
+    }
+
+    @Test fun newTaskShareOpensSheetAndKeepsFileInDraft() {
+        app.incomingShares.identityReset()
+        kotlinx.coroutines.runBlocking { app.incomingShares.bindAccount(NuphosUser.preview.id) }
+        app.incomingShares.cancel()
+        kotlinx.coroutines.runBlocking { app.incomingShares.awaitIdle() }
+        render(newTask = true)
+        select("runtimes")
+        compose.onNodeWithTag("new-task-open").assertDoesNotExist()
+        val key = ai.nuphos.android.session.ComposerDrafts.Key(NuphosUser.preview.id, a.id,
+            ai.nuphos.android.session.ComposerDrafts.Destination.NewChat)
+        kotlinx.coroutines.runBlocking {
+            val id = requireNotNull(app.incomingShares.begin(NuphosUser.preview.id))
+            val file = ai.nuphos.android.model.ComposerAttachment(name = "synthetic-note.txt",
+                kind = ai.nuphos.android.model.ComposerAttachment.Kind.File("fixture".toByteArray(), "text/plain"))
+            app.incomingShares.loaded(id, "Shared synthetic note", app.incomingShares.prepare(listOf(file)))
+            app.incomingShares.choose(id, key)
+        }
+        compose.waitUntil(8_000) { compose.onAllNodesWithTag("new-task-sheet").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Shared synthetic note", substring = true).assertIsDisplayed()
+        shot("new-task-shared")
+        compose.onNodeWithText("TXT").assertIsDisplayed()
+        compose.runOnIdle { assertEquals(listOf("synthetic-note.txt"), app.incomingShares.attachments(key).map { it.name }) }
+        noWrites()
+    }
+
+    @Test fun newTaskWithoutNameUsesGenericGreeting() {
+        app.incomingShares.identityReset()
+        kotlinx.coroutines.runBlocking { app.incomingShares.bindAccount(NuphosUser.preview.id) }
+        render(newTask = true)
+        compose.runOnIdle { state(auth, "state").value = AuthSession.State.SignedIn(NuphosUser.preview.copy(name = "")) }
+        compose.onNodeWithTag("new-task-open").performClick()
+        compose.onNode(hasSetTextAction()).assertIsFocused()
+        // Which greeting is chosen, not where it lands: with the keyboard up, a short screen
+        // squeezes the centred greeting out of view, so being on screen depends on the emulator.
+        compose.onNodeWithText(app.getString(R.string.new_task_welcome)).assertExists()
+        val named = app.getString(R.string.new_task_welcome_name, "\u0000").substringBefore("\u0000")
+        compose.onNodeWithText(named, substring = true).assertDoesNotExist()
+        shot("new-task-unnamed")
+        noWrites()
+    }
+    @Test fun newTaskSubmitDismissesSheetAndHandsOffPrompt() {
+        app.incomingShares.identityReset()
+        kotlinx.coroutines.runBlocking { app.incomingShares.bindAccount(NuphosUser.preview.id) }
+        render(newTask = true)
+        compose.onNodeWithTag("new-task-open").performClick()
+        compose.onNode(hasSetTextAction()).performTextClearance()
+        compose.onNode(hasSetTextAction()).performTextInput("Synthetic submitted task")
+        compose.onNodeWithContentDescription(app.getString(R.string.send)).performClick()
+        waitText("Synthetic task destination")
+        compose.onNodeWithTag("new-task-sheet").assertDoesNotExist()
+        compose.runOnIdle { assertEquals("Synthetic submitted task", agent.pendingPrompt?.text) }
+        noWrites() // Stops at the conversation handoff; never sends a real agent request.
+    }
+    @Test fun newTaskTeamSwitchClosesSheetAndIsolatesDraft() {
+        app.incomingShares.identityReset()
+        kotlinx.coroutines.runBlocking { app.incomingShares.bindAccount(NuphosUser.preview.id) }
+        render(newTask = true)
+        compose.onNodeWithTag("new-task-open").performClick()
+        compose.onNode(androidx.compose.ui.test.hasSetTextAction()).performTextInput("Team A private draft")
+        compose.runOnIdle { agent.select(b) }
+        compose.onNodeWithTag("new-task-sheet").assertDoesNotExist()
+        compose.onNodeWithTag("new-task-open").performClick()
+        compose.onNodeWithText("Team A private draft").assertDoesNotExist()
+        noWrites()
+    }
+
+    @Test fun bottomTabsSwitchRestoreAndKeepUtilityDestinationsReachable() {
+        val restoration = androidx.compose.ui.test.junit4.StateRestorationTester(compose)
+        render(restoration = restoration)
+        waitText("Synthetic active conversation")
+        for (route in listOf("chats", "agent", "inbox")) {
+            select(route)
+            compose.onNodeWithTag("home-tab-$route").assertIsSelected()
+            shot("bottom-tabs-$route")
+        }
+        restoration.emulateSavedInstanceStateRestore()
+        compose.onNodeWithTag("home-tab-inbox").assertIsSelected()
+        compose.waitUntil(8_000) { compose.onAllNodesWithTag("inbox-badge", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("inbox-badge", useUnmergedTree = true).assert(androidx.compose.ui.test.SemanticsMatcher.expectValue(
+            androidx.compose.ui.semantics.SemanticsProperties.ContentDescription,
+            listOf(app.getString(ai.nuphos.android.R.string.shell_inbox_badge, 1)),
+        ))
+        shot("bottom-tabs-inbox")
+        menu()
+        for (route in listOf("runtimes", "connectors"))
+            compose.onNodeWithTag("home-page-$route").assertIsDisplayed()
+        compose.onNodeWithTag("home-page-agent").assertDoesNotExist()
+        shot("bottom-tabs-utilities")
+        Espresso.pressBack()
+        select("agent")
+        waitText("Synthetic active conversation")
+        assertEquals(a.id, agent.selectedTeam?.id)
+        noWrites()
+        shot("bottom-tabs-tasks")
+    }
+
+    @Test fun bottomTabsRemainUsableAfterHistoryFailureAndTeamSwitch() {
+        historyFailure = true
+        render()
+        compose.waitUntil(8_000) { agent.phaseError != null }
+        select("inbox")
+        compose.runOnIdle { agent.select(b) }
+        compose.onNodeWithTag("home-tab-inbox").assertIsSelected()
+        select("agent")
+        compose.onNodeWithTag("home-tab-agent").assertIsSelected()
+        compose.runOnIdle { assertEquals(b.id, agent.selectedTeam?.id) }
+        noWrites()
+    }
+
     @Test fun allFourPagesSelectedAndBackReturnFocusWithoutWrites() {
         render(keyboard = true); waitText("Synthetic active conversation"); shot("normal")
         compose.onNodeWithTag("home-page-switcher").performKeyInput { pressKey(androidx.compose.ui.input.key.Key.Tab) }
         menu(); shot("menu")
         compose.onNodeWithTag("home-page-monitoring").assertDoesNotExist()
         compose.onNodeWithTag("home-page-triggers").assertDoesNotExist()
-        compose.waitUntil(5_000) { compose.onAllNodesWithTag("home-page-agent").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("home-page-agent").assertIsSelected()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("home-tab-agent").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("home-tab-agent").assertIsSelected()
         Espresso.pressBack(); compose.waitForIdle()
         compose.onNodeWithTag("home-page-menu").assertDoesNotExist()
         compose.onNodeWithTag("home-page-switcher").assertIsFocused()
         for (route in listOf("runtimes", "connectors", "agent")) {
             select(route); menu()
-            compose.onNodeWithTag("home-page-$route").assertIsSelected()
+            compose.onNodeWithTag(if (route == "agent") "home-tab-agent" else "home-page-$route").assertIsSelected()
             Espresso.pressBack()
         }
         assertEquals(a.id, agent.selectedTeam?.id); noWrites()
@@ -296,6 +450,18 @@ class HomeNavigationFixtureDeviceTest {
         assertFixedListSelectors(); noWrites()
     }
 
+    @Test fun taskFamiliesWaitingOnAQuestionAppearFirst() {
+        historyFamilies = true
+        render()
+        waitText("Task with a waiting thread")
+        waitText("Recent standalone task")
+        val waiting = compose.onNodeWithText("Task with a waiting thread").fetchSemanticsNode().boundsInRoot.top
+        val recent = compose.onNodeWithText("Recent standalone task").fetchSemanticsNode().boundsInRoot.top
+        assertTrue(waiting < recent)
+        shot("task-family-order")
+        noWrites()
+    }
+
     @Test fun selectedPageSurvivesSavedStateAndOutsideDismisses() {
         val restoration = StateRestorationTester(compose)
         render(restoration = restoration); select("runtimes")
@@ -312,8 +478,10 @@ class HomeNavigationFixtureDeviceTest {
         noWrites()
     }
     @Test fun compactRtlLargeFontAllEntriesRemainReachable() {
-        render(compact = true); menu(); shot("rtl-large-menu")
-        for (route in listOf("agent", "runtimes", "connectors"))
+        render(compact = true)
+        for (route in listOf("chats", "agent", "inbox")) compose.onNodeWithTag("home-tab-$route").assertIsDisplayed()
+        menu(); shot("rtl-large-menu")
+        for (route in listOf("runtimes", "connectors"))
             compose.onNodeWithTag("home-page-$route").performScrollTo().assertIsDisplayed()
         Espresso.pressBack(); compose.onNodeWithTag("home-filter").assertDoesNotExist()
         noWrites()
@@ -331,8 +499,8 @@ class HomeNavigationFixtureDeviceTest {
         compose.onNodeWithTag("home-page-switcher").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.RequestFocus) { it() }
         compose.onNodeWithTag("home-page-switcher").assertIsFocused()
         compose.onNodeWithTag("home-page-switcher").performKeyInput { pressKey(Key.Enter) }
-        compose.waitUntil(5_000) { compose.onAllNodesWithTag("home-page-agent").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("home-page-agent").assertIsSelected()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("home-tab-agent").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("home-tab-agent").assertIsSelected()
         Espresso.pressBack(); compose.waitForIdle()
         compose.onNodeWithTag("home-page-switcher").assertIsFocused()
         compose.onNodeWithTag("home-page-menu").assertDoesNotExist(); noWrites()

@@ -4,7 +4,11 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { agentEvents, agentLog } from './agent-log.ts'
 import { backendLines, backendLog } from './backend-log.ts'
 import { client, must } from './binding-access-scenarios.ts'
+import { choiceModeScenarios } from './choice-mode-scenarios.ts'
+import { decisionTitleScenarios } from './decision-title-scenarios.ts'
+import { inboxScenarios } from './inbox-scenarios.ts'
 import { artifacts, until } from './processes.ts'
+import { staleQuestionScenarios } from './stale-question-scenarios.ts'
 import { newTask, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
@@ -48,7 +52,7 @@ const watchInboxRows = (page: Page) =>
   })
 
 /** Saves the window's frames to `<artifacts>/<name>/` until the returned stop is called. */
-async function screencast(page: Page, name: string) {
+export async function screencast(page: Page, name: string) {
   const dir = `${artifacts}/${name}`
   const cdp = await page.context().newCDPSession(page)
   let frame = 0
@@ -62,10 +66,30 @@ async function screencast(page: Page, name: string) {
   await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 80, everyNthFrame: 1 })
 
   // A reload may have ended the screencast already.
-  return () => cdp.send('Page.stopScreencast').catch(() => undefined)
+  return () => cdp.send('Page.stopScreencast').catch(() => {})
 }
 
 export const questionScenarios: Scenario[] = [
+  {
+    // #3397: an answer being typed in a question's card stays when the asking turn ends.
+    name: "an answer typed while the agent's turn runs is still there when the turn ends",
+    run: async (page) => {
+      await newTask(page)
+      await send(page, 'Ask me E2E_ASK E2E_DELIVERY:typed')
+      await page.getByRole('heading', { name: 'Which marker should the fixture use?' }).waitFor()
+      await page.getByRole('button', { name: 'Other…' }).last().click()
+      await page.getByLabel('Your answer').last().fill('E2E_DELIVERY:typed-answer')
+      await page.getByText('ACK E2E_DELIVERY:typed').waitFor()
+      // The app takes the stored transcript within a second of the turn's end.
+      await new Promise((resolve) => setTimeout(resolve, 2000))
+      const kept = await page.getByLabel('Your answer').last().inputValue()
+
+      if (kept !== 'E2E_DELIVERY:typed-answer')
+        throw new Error(`The card lost the answer being typed when the turn ended: "${kept}"`)
+      await page.keyboard.press('Enter')
+      await page.getByText('ACK E2E_DELIVERY:typed-answer').waitFor()
+    },
+  },
   {
     // #3292: the question being read in the Inbox was replaced when a newer one was listed.
     name: 'a newer question slides into the Inbox list and the one being read stays open',
@@ -160,6 +184,10 @@ export const questionScenarios: Scenario[] = [
       await newTask(page)
       await send(page, 'Ask me E2E_ASK E2E_DELIVERY:snooze')
       await page.getByText('ACK E2E_DELIVERY:snooze').waitFor()
+      // Counted once the asking turn is over, so only a wake could add to it.
+      await until('the asking turn to finish', async () =>
+        agentEvents(stack).includes('finish E2E_DELIVERY:snooze'),
+      )
       const { sessionId, request } = await asked()
 
       must(Boolean(request), 'the question to be listed')
@@ -241,11 +269,11 @@ export const questionScenarios: Scenario[] = [
         (await page.getByText(/did not run/).count()) === 0,
         'no "did not run" question in the chat',
       )
+      // The card stays in the transcript, as a real agent's does, but answered and without choices.
       must(
-        (await page
-          .getByRole('heading', { name: 'Which marker should the fixture use?' })
-          .count()) === 0,
-        'no open question card, only the answered line',
+        (await page.getByText('Answered: E2E_DELIVERY:answered').count()) > 0 &&
+          (await page.getByRole('button', { name: 'E2E_DELIVERY:other' }).count()) === 0,
+        'the question card answered, not open again',
       )
       const listed = await owner(
         'GET',
@@ -261,4 +289,8 @@ export const questionScenarios: Scenario[] = [
       must(answered() === 1, `the answer to reach the agent once, got ${String(answered())}`)
     },
   },
+  ...decisionTitleScenarios,
+  ...staleQuestionScenarios,
+  ...inboxScenarios,
+  ...choiceModeScenarios,
 ]

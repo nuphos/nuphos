@@ -9,7 +9,6 @@
     <string name="chats_show_less">간략히 보기</string>
     <string name="chats_show_more">더 보기</string>
     <string name="chats_question_your_answer">내 답변</string>
-    <string name="chats_question_or_type_answer">또는 직접 답변 입력</string>
     <string name="chats_question_send_answer">답변 보내기</string>
     <string name="chats_question_heading_approval">승인 필요</string>
     <string name="chats_question_heading_preference">선택하세요</string>
@@ -45,11 +44,19 @@
     <string name="chats_select_text">텍스트 선택</string>
     <string name="chats_reply">답장</string>
     <string name="chats_copy">복사</string>
-    <string name="chats_usage_returns">사용량이 %1$s에 복구됩니다.</string>
+    <string name="chats_usage_resets">사용량: %1$s.</string>
     <string name="chats_switch_runtime">런타임 전환</string>
     <string name="chats_retry">다시 시도</string>
     <string name="chats_send_failed_title">메시지를 보내지 못했습니다</string>
     <string name="chats_message_placeholder">%1$s에 메시지 보내기</string>
     <string name="chats_replying_to">%1$s에게 답장</string>
     <string name="chats_cancel_reply">답장 취소</string>
+    <string name="chats_question_snooze">다시 알림</string>
+    <string name="chats_question_dismiss">닫기</string>
+    <string name="chats_question_snooze_hour">1시간</string>
+    <string name="chats_question_snooze_tomorrow">내일 9:00</string>
+    <string name="chats_question_snooze_monday">다음 주 월요일 9:00</string>
+    <string name="chats_question_dismiss_reason">이유(선택)</string>
+    <string name="chats_empty_bot_body">%1$s와 대화하는 공간입니다. 필요한 도움을 이야기하며 함께 일하는 방식을 만들어 보세요.</string>
+    <string name="chats_empty_bot_start">먼저 %1$s에게 하고 싶은 일을 알려 주세요.</string>
 </resources>

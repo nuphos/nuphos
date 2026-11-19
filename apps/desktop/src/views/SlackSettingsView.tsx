@@ -45,7 +45,7 @@ export function SlackSettingsView({
   embedded = false,
   onChanged,
 }: {
-  teamId: string | undefined
+  teamId: string
   currentUserId: string
   embedded?: boolean
   /** Invoked after a reinstall/disconnect so the parent's connector list re-syncs. */
@@ -79,16 +79,11 @@ export function SlackSettingsView({
     deleteChannel,
   } = useSlackSettings(teamId, currentUserId)
 
-  if (!teamId) {
-    return <div className="text-[13px] text-tertiary">{t('No workspace selected.')}</div>
-  }
-
   const installed = Boolean(installation) || status?.installed === true
   // Revoked Slack tokens require reinstalling the stored binding.
   const tokenRevoked = Boolean(installation) && status?.installed === false
 
   async function disconnect() {
-    if (!teamId) return
     try {
       await api.atlasDisconnectSlack(teamId)
     } catch (err) {
@@ -139,7 +134,7 @@ export function SlackSettingsView({
             <h1 className="text-[20px] font-semibold text-main">Slack</h1>
             <p className="mt-1 text-[13px] text-tertiary">
               {t(
-                'Install Nuphos in Slack, pick channels from the bot DM, then @mention the agent in those channels.',
+                'Install Nuphos in Slack, pick channels from the bot DM, then @mention Nuphos in those channels.',
               )}
             </p>
           </div>
@@ -191,7 +186,7 @@ export function SlackSettingsView({
           </div>
           <div className="mt-0.5 text-[12px] text-tertiary">
             {t(
-              "Channels chosen in Slack or linked by an admin. The agent responds to @mentions here and can post notifications — including channels served by another workspace's installation.",
+              "Channels chosen in Slack or linked by an admin. Nuphos responds to @mentions here and can post notifications — including channels served by another workspace's installation.",
             )}
           </div>
         </div>

@@ -361,6 +361,20 @@ test("a turn's error is read from the session file Pi keeps", () => {
     const line = (message) => `${JSON.stringify({ type: 'message', message })}\n`
     writeFileSync(file, line({ role: 'assistant', stopReason: 'error', errorMessage: '429 quota' }))
     assert.equal(piTurnError(dir, 'abc'), '429 quota')
+    // A prompt over the model's context: Pi records the error, then edits it out of context.
+    const overflow = '400: request (46055 tokens) exceeds the available context size (8192 tokens)'
+    writeFileSync(
+      file,
+      line({ role: 'assistant', stopReason: 'error', errorMessage: overflow }) +
+        `${JSON.stringify({ type: 'context_edit', targetId: 'm1', replacement: [] })}\n`,
+    )
+    assert.equal(piTurnError(dir, 'abc'), overflow)
+    // A line Pi is still writing is passed over.
+    writeFileSync(
+      file,
+      line({ role: 'assistant', stopReason: 'error', errorMessage: '429 quota' }) + '{"type":"cont',
+    )
+    assert.equal(piTurnError(dir, 'abc'), '429 quota')
     writeFileSync(file, line({ role: 'assistant', stopReason: 'stop', content: [] }))
     assert.equal(piTurnError(dir, 'abc'), undefined)
     assert.equal(piTurnError(dir, 'other'), undefined)

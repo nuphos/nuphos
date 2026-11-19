@@ -2,16 +2,27 @@ import clsx from 'clsx'
 import { CornerUpLeft, X } from 'lucide-react'
 
 import { t } from '../../i18n'
-import { AgentAvatar, AgentFaceBadge } from '../agent/AgentAvatar'
+import { AgentAvatar } from '../agent/AgentAvatar'
+import { CredentialSelectorButton } from '../agent/panel/CredentialSelectorButton'
 import { Avatar } from '../Avatar'
 import { IconButton } from '../ui/icon-button'
 
 import type { AgentMessageReply, ChannelFace } from '../../api'
+import type { CredentialSelectorControl } from '../agent/panel/credentialSections'
 
 /**
- * A chat's icon, as iMessage draws one: the one other member's face, or two
- * overlapping, whoever spoke last in front. A chat with nobody else shows its
- * title's initials.
+ * Where a group chat's member faces sit, as the design system draws them in a
+ * 36px box: whoever spoke last largest, top left. Each is [left, top, size].
+ */
+const CHAT_CLUSTER = [
+  [0, 0, 24],
+  [18, 12, 18],
+  [5, 22, 14],
+] as const
+
+/**
+ * A chat's icon: the one other member's face, or up to three members clustered
+ * as in the design system. A chat with nobody else shows its title's initials.
  */
 export function ChatIcon({
   faces,
@@ -31,17 +42,17 @@ export function ChatIcon({
   className?: string
 }) {
   const size = sidebar ? 36 : given
-  const [front, back] = faces ?? []
+  const members = (faces ?? []).slice(0, CHAT_CLUSTER.length)
 
-  if (!front) return <Avatar name={title} size={size} className={clsx('rounded-full', className)} />
-  // A sidebar row shows one clean face: whoever spoke last.
-  if (!back || sidebar)
+  if (!members[0])
+    return <Avatar name={title} size={size} className={clsx('rounded-full', className)} />
+  if (members.length === 1)
     return (
       <span aria-hidden="true" className={clsx('inline-flex shrink-0', className)}>
-        <Face face={front} size={size} sidebar={sidebar} looping={looping} />
+        <Face face={members[0]} size={size} sidebar={sidebar} looping={looping} />
       </span>
     )
-  const small = Math.round(size * 0.72)
+  const scale = size / 36
 
   return (
     <span
@@ -49,45 +60,45 @@ export function ChatIcon({
       className={clsx('relative inline-flex shrink-0', className)}
       style={{ width: size, height: size }}
     >
-      <span className="absolute left-0 top-0">
-        <Face face={back} size={small} showBadge={false} />
-      </span>
-      <span className="absolute bottom-0 right-0 rounded-full bg-main p-px">
-        <Face face={front} size={small - 2} showBadge={false} />
-      </span>
-      {[back, front].map((face, index) => {
-        if (!face.agent) return null
-        const badge = small <= 24 ? 9 : 12
-        // Two discs otherwise intersect at small group sizes. Move only the front
-        // disc by the overlap; the faces and the group's layout box stay put.
-        const separation = back.agent && front.agent ? Math.max(0, badge - (size - small - 1)) : 0
+      {members.map((face, index) => {
+        const [left, top, disc] = CHAT_CLUSTER[index].map((value) => value * scale)
+        const mask = ringCuts(members.length, index, scale)
 
         return (
           <span
             key={face.id}
-            className="absolute pointer-events-none"
-            style={
-              index === 0
-                ? { left: 0, top: 0, width: small, height: small }
-                : {
-                    right: 1 - separation,
-                    bottom: 1 - separation,
-                    width: small - 2,
-                    height: small - 2,
-                  }
-            }
+            data-chat-face={face.id}
+            className="absolute flex items-center justify-center overflow-hidden rounded-full bg-surface-sunken"
+            style={{
+              left,
+              top,
+              width: disc,
+              height: disc,
+              ...(mask && { maskImage: mask, maskComposite: 'intersect' }),
+            }}
           >
-            <AgentFaceBadge
-              agentId={face.id}
-              avatar={face.agent.avatar}
-              provider={face.agent.provider}
-              size={badge}
-            />
+            <Face face={face} size={disc} showBadge={false} looping={index === 0 && looping} />
           </span>
         )
       })}
     </span>
   )
+}
+
+/**
+ * The faces drawn over face `index`, cut out of it with a 2px margin, so each
+ * face's ring is whatever lies behind the icon: a row's hover or selection too.
+ */
+function ringCuts(count: number, index: number, scale: number) {
+  const [left, top] = CHAT_CLUSTER[index]
+  const cuts = CHAT_CLUSTER.slice(index + 1, count).map(([x, y, size]) => {
+    const at = `${String((x + size / 2 - left) * scale)}px ${String((y + size / 2 - top) * scale)}px`
+    const radius = (size / 2 + 2) * scale
+
+    return `radial-gradient(circle at ${at}, transparent ${String(radius)}px, #000 ${String(radius + 0.5)}px)`
+  })
+
+  return cuts.length ? cuts.join(', ') : undefined
 }
 
 /** A chat's face in its header; until the chat loads, a quiet circle holds its place, not a "?". */
@@ -150,7 +161,14 @@ export function ChannelIntro({ faces, title }: { faces?: ChannelFace[]; title: s
   )
 }
 
-/** The post the next one answers, above the composer and as wide as it. */
+/**
+ * The post the next one answers, floating just above the composer over the
+ * chat's last lines, inset past the faces twice as before (the composer's
+ * wrapper pads by one face, which `absolute` does not count). Its tint sits on
+ * the sheet's own color, so the chat passing under it does not show through.
+ * While it shows, the chat keeps its height as bottom room (`data-composer-overlay`),
+ * so at the bottom the newest post stays whole above it.
+ */
 export function ReplyingBanner({
   reply,
   onCancel,
@@ -159,7 +177,10 @@ export function ReplyingBanner({
   onCancel: () => void
 }) {
   return (
-    <div className="mb-1.5 flex items-center gap-2 rounded-xl bg-state-hover py-1 pl-3 pr-1 text-xs leading-4">
+    <div
+      data-composer-overlay=""
+      className="absolute inset-x-[4.75rem] bottom-full flex items-center gap-2 rounded-xl py-1 pl-3 pr-1 text-xs leading-4 [background:linear-gradient(var(--color-state-hover),var(--color-state-hover)),rgb(var(--color-surface-sheet))]"
+    >
       <CornerUpLeft className="h-3.5 w-3.5 shrink-0 text-tertiary" strokeWidth={2.2} />
       <div className="min-w-0 flex-1 truncate text-tertiary">
         <span className="font-medium text-secondary">
@@ -174,6 +195,22 @@ export function ReplyingBanner({
         icon={<X />}
         onClick={onCancel}
       />
+    </div>
+  )
+}
+
+/**
+ * The last line in the chat of a Bot that has never been given computers or
+ * credentials: it runs with none until its owner picks them, here or in the
+ * composer's picker. Gone once anything is saved.
+ */
+export function ChooseAccessBanner({ credentials }: { credentials: CredentialSelectorControl }) {
+  return (
+    <div className="mx-[2.375rem] flex items-center gap-2 rounded-xl bg-state-hover py-1 pl-3 pr-1 text-xs leading-4">
+      <div className="min-w-0 flex-1 text-secondary">
+        {t("This Bot can't use any computers or credentials yet. Choose what it may use.")}
+      </div>
+      <CredentialSelectorButton {...credentials} hero={false} personalIdentity />
     </div>
   )
 }

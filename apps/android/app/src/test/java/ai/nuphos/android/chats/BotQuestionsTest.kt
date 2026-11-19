@@ -62,6 +62,50 @@ class BotQuestionsTest {
         assertTrue(BotQuestions.under("bot-1", rows).isEmpty())
     }
 
+    @Test fun inboxGroupsBySourceAndOrdersByNewestQuestion() {
+        val bot = row("bot", null, true, "old" to "2026-11-09T03:01:00Z").copy(avatar = "05-rembrandt")
+        val nested = row("nested", "parent", true, "new" to "2026-11-09T03:04:00Z")
+        val parent = row("parent", "bot")
+        val task = row("task", null, true, "middle" to "2026-11-09T03:03:00Z")
+        val groups = BotQuestions.grouped(BotQuestions.open(listOf(nested, task, parent, bot)))
+
+        assertEquals(listOf("bot", "task"), groups.map { it.first().sourceId })
+        assertEquals(listOf(listOf("old", "new"), listOf("middle")), groups.map { group -> group.map { it.request.id } })
+        assertNull(groups.last().single().sourceBot)
+    }
+
+    @Test fun inboxFallsBackToTheAskingTaskForCyclesAndParentsInAnotherTeam() {
+        val cycle = row("cycle", "cycle-parent", true, "cycle-q" to "2026-11-09T03:01:00Z").copy(teamId = "here")
+        val cycleParent = row("cycle-parent", "cycle").copy(teamId = "here")
+        val foreignBot = row("foreign-bot").copy(teamId = "elsewhere", avatar = "05-rembrandt")
+        val task = row("task", "foreign-bot", true, "task-q" to "2026-11-09T03:02:00Z").copy(teamId = "here")
+        val groups = BotQuestions.grouped(BotQuestions.open(listOf(cycle, cycleParent, task, foreignBot)))
+
+        assertEquals(listOf("task", "cycle"), groups.map { it.single().sourceId })
+        assertTrue(groups.flatten().all { it.sourceBot == null })
+    }
+
+    @Test fun inboxInitialLoadFailureClearsAfterARefreshSucceeds() = runTest {
+        val task = row("task", null, true, "q" to "2026-11-09T03:01:00Z")
+        var unavailable = true
+        val inbox = OpenQuestions(object : OpenQuestions.Source {
+            override suspend fun pending(): List<AgentConversation> {
+                if (unavailable) error("Synthetic listing failure")
+                return listOf(task)
+            }
+        })
+
+        inbox.refresh()
+        assertFalse(inbox.loaded)
+        assertNotNull(inbox.loadFailure)
+
+        unavailable = false
+        inbox.refresh()
+        assertTrue(inbox.loaded)
+        assertNull(inbox.loadFailure)
+        assertEquals("task:q", inbox.list.single().id)
+    }
+
     @Test fun keepsTheBodyTheAgentWroteToDecideFrom() {
         val request = Http.json.decodeFromString(InputRequest.serializer(),
             """{"id":"q","question":"Direction OK?","body":"**Why:** see [#412](https://example.com/412)","status":"open"}""")
@@ -233,6 +277,17 @@ class BotQuestionsTest {
         assertEquals("q-key", key.secretPart?.decisionRequestId)
         // A sign-in status card names no secret: answered with its options instead.
         assertNull(BotQuestion("s", "t", InputRequest("q", "credential", "Signed in?", listOf("Signed in"))).secretPart)
+    }
+
+    @Test fun aFormRequestCarriesItsFieldsAndSite() {
+        val form = BotQuestion("agent-ops", "Release ops", Http.json.decodeFromString<InputRequest>(
+            """{"id":"q","category":"credential","question":"The lookup needs these.","secretName":"CLINIC_LOOKUP",
+               "fields":[{"name":"NATIONAL_ID","label":"ID number"},{"name":"BIRTH_DATE","label":"Date of birth"}],
+               "site":"www.clinic.example"}"""))
+        val secret = form.secretPart?.secretRequest
+        assertEquals(listOf("NATIONAL_ID", "BIRTH_DATE"), secret?.fields?.map { it.name })
+        assertEquals(listOf("ID number", "Date of birth"), secret?.fields?.map { it.label })
+        assertEquals("www.clinic.example", secret?.site)
     }
 
     @Test fun everyOpenQuestionIsAnsweredOnItsCard() {
@@ -427,7 +482,6 @@ class BotQuestionsTest {
             BotQuestion.formAnswer(questions, listOf(listOf("Send"), listOf("eu")), listOf(" Hold until Monday ", "")).compact)
         assertEquals("""{"choices":["a","b"]}""",
             BotQuestion.formAnswer(listOf(DecisionQuestion("Which?", listOf("a", "b"), true)), listOf(listOf("a", "b")), listOf("")).compact)
-        assertEquals("Send, Hold", BotQuestion.answerText(listOf("Send", "Hold"), "  "))
     }
 
     @Test fun aFormAnswerIsSentAsBuiltAndHidesTheCard() = runTest {

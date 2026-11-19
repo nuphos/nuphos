@@ -34,7 +34,7 @@ docker compose ps             # wait until rustfs, backend and runtime are healt
 
 Without `init-env.sh`, copy `.env.example` to `.env` and fill each value with the `openssl` command noted on its line.
 
-To change the runtime version, edit `RUNTIME_TAG` in `.env` (for example `0.1.64-claude-code`), then run `docker compose up -d runtime`.
+To change the runtime version, edit `RUNTIME_TAG` in `.env` (for example `0.1.66-claude-code`), then run `docker compose up -d runtime`.
 
 ## First sign-in
 
@@ -223,23 +223,6 @@ log line; it never blocks a request.
 The Desktop and iOS apps send usage analytics only while they are connected to
 Nuphos Cloud. Connected to your instance they send none, and Desktop crash
 reports go to your own backend.
-
-## Test managed agents locally (OrbStack)
-
-Managed agents are the one thing this stack cannot run: they are Kubernetes
-Deployments the backend's provisioner creates. `bun run dev --managed` at the
-repository root adds them on top of the dev stack, using OrbStack's built-in
-Kubernetes:
-
-```sh
-orbctl start k8s
-bun run dev --managed
-```
-
-Then add **Nuphos Managed Cloud Agent** in Settings › Agents. Its pod lands in
-the `openab-runtimes-local` namespace of the `orbstack` context; the launcher
-refuses any context that is not a cluster on this machine. See the root README
-for the details and cleanup.
 
 ## Reset
 

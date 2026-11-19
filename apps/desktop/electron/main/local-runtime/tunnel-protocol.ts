@@ -32,7 +32,7 @@ export type BackendFrame =
 
 /** Why this computer gave up its last tunnel; the backend never sees that close itself. */
 export type TunnelDrop = {
-  reason: 'idle' | 'error' | 'closed' | 'reconnect'
+  reason: 'idle' | 'closed' | 'reconnect'
   code: number | undefined
   /** Time since the last frame from the backend. */
   silentMs: number
@@ -65,6 +65,8 @@ export type LocalRuntimeTunnelStatus = {
         }
         usage?: unknown
         usageAt?: string
+        /** Which account's quota it spends, hashed on that computer. */
+        accountKey?: string
         version?: string
         models?: LocalModelCatalog
       }
@@ -81,6 +83,8 @@ export type LocalRuntimeTunnelStatus = {
   cliVersion?: string
   /** This Nuphos Desktop and the update it found; its owner restarts into it with `method: 'update'`. */
   app?: AppUpdateStatus
+  /** Whether this computer installs updates by itself when idle; the card sets it with `method: 'autoInstall'`. */
+  autoInstall?: boolean
   desktops?: { sessionId: string; display: number }[]
   /** Opens a conversation's desktop on request (`method: 'desktop'`). */
   desktopOpen?: boolean

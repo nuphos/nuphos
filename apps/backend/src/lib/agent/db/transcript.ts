@@ -43,6 +43,7 @@ function conversationShell(data: ConversationTranscriptSync) {
     agentRuntime: data.agentRuntime,
     runtimeId: data.runtimeId,
     runtimeLabel: data.runtimeLabel,
+    parentSessionId: data.parentSessionId,
   })
 }
 
@@ -185,7 +186,7 @@ async function storedToolParts(
 
 export async function appendTranscriptMessages(
   data: ConversationTranscriptSync,
-): Promise<{ isNew: boolean; count: number }> {
+): Promise<{ isNew: boolean; count: number; lastIndex: number }> {
   return await withTranscriptWriteLock(data.sessionId, data.userId, async () => {
     const now = new Date()
     const shell = await conversationShell(data)
@@ -218,7 +219,8 @@ export async function appendTranscriptMessages(
 
     await recordTranscript(data, count, now, before === 0)
 
-    return { ...shell, count }
+    // The newest index this append knows: a later message, even a racing one, lands above it.
+    return { ...shell, count, lastIndex: offset + added.messages.length - 1 }
   })
 }
 

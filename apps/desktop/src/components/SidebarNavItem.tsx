@@ -56,8 +56,6 @@ type SidebarNavItemProps = {
   twoLine?: boolean
   /** Comfortable chat rows: the newest message, one line under the label. */
   preview?: ReactNode
-  /** The name shimmers, as running text does elsewhere (a Bot at work). */
-  labelShimmer?: boolean
   /** Comfortable chat rows: when the chat was last active, at the label's right. */
   time?: string
   /** Wait for the click when a press may start a drag instead. */
@@ -81,14 +79,7 @@ function SwapLabel({ label }: { label: string }) {
   )
 }
 
-function RowLabel({ label, shimmer, swap }: { label: string; shimmer: boolean; swap: boolean }) {
-  if (shimmer)
-    return (
-      <span className="t-shimmer max-w-full truncate align-top" data-text={label}>
-        {label}
-      </span>
-    )
-
+function RowLabel({ label, swap }: { label: string; swap: boolean }) {
   return swap ? <SwapLabel label={label} /> : <>{label}</>
 }
 
@@ -112,7 +103,6 @@ export function SidebarNavItem({
   navigateOnRelease = false,
   twoLine = false,
   preview,
-  labelShimmer = false,
   time,
   animateLabel = false,
   revealDetail = false,
@@ -169,7 +159,7 @@ export function SidebarNavItem({
       // Lifted in index.css only when the row's detail line has content.
       data-row-title={revealDetail || undefined}
     >
-      <RowLabel label={label} shimmer={labelShimmer} swap={animateLabel} />
+      <RowLabel label={label} swap={animateLabel} />
     </span>
   )
   const tail = (

@@ -23,7 +23,7 @@ export function LarkSettingsView({
   refreshKey,
   onChanged,
 }: {
-  teamId: string | undefined
+  teamId: string
   currentUserId: string
   // Bumped by the breadcrumb refresh button (via the tab's refreshKey); re-runs load().
   refreshKey?: number
@@ -54,16 +54,11 @@ export function LarkSettingsView({
     load,
   } = useLarkSettings(teamId, currentUserId, refreshKey)
 
-  if (!teamId) {
-    return <div className="text-[13px] text-tertiary">{t('No workspace selected.')}</div>
-  }
-
   const installed = Boolean(installation) || status?.installed === true
   const consoleDomain = installation?.domain ?? status?.domain
   const consoleAppId = installation?.appId ?? status?.appId
 
   async function disconnect() {
-    if (!teamId) return
     try {
       await api.atlasDisconnectLark(teamId)
     } catch (err) {
@@ -179,7 +174,7 @@ export function LarkSettingsView({
           <div className="text-[13px] font-medium text-main">{t('Groups')}</div>
           <div className="mt-0.5 text-[12px] text-tertiary">
             {t(
-              'Add the Nuphos bot to a Feishu / Lark group and it links automatically. Toggle which groups the agent responds in, then @mention Nuphos there.',
+              'Add the Nuphos bot to a Feishu / Lark group and it links automatically. Toggle which groups Nuphos responds in, then @mention Nuphos there.',
             )}
           </div>
         </div>
@@ -253,8 +248,8 @@ export function LarkSettingsView({
                   disabled={busyKey === `chat:${chat.chatId}`}
                   label={
                     chat.enabled
-                      ? t('Disable agent replies in {name}', { name: chat.name })
-                      : t('Enable agent replies in {name}', { name: chat.name })
+                      ? t('Disable replies in {name}', { name: chat.name })
+                      : t('Enable replies in {name}', { name: chat.name })
                   }
                 />
               </div>

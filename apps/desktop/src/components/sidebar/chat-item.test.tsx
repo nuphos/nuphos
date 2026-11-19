@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { createElement, isValidElement } from 'react'
+import { Window } from 'happy-dom'
+import { act, createElement, isValidElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 
 import { ChatIcon } from '../channels/channelParts'
@@ -10,6 +11,7 @@ import { botChatRows } from './bot-status'
 import { BotPinFace } from './BotPinFace'
 import { chatSidebarItem } from './chat-item'
 
+import type { Item } from './types'
 import type { AgentConversation } from '../../api'
 
 const conversation: AgentConversation = {
@@ -37,6 +39,128 @@ test('Bots never receive task Idle classification, but removing their avatar res
   assert.equal(item(null).bot, undefined)
   assert.equal(item(null).taskState, 'idle')
 })
+const working = { state: 'active' as const, schemaVersion: 2, phase: 'running' }
+const row = (sessionId: string, fields: Partial<AgentConversation> = {}): AgentConversation => ({
+  sessionId,
+  teamId: 'one-indicator',
+  title: sessionId,
+  firstMessage: sessionId,
+  messageCount: 1,
+  createdAt: '2026-11-17T00:00:00Z',
+  lastActiveAt: '2026-11-17T00:00:00Z',
+  runtimeState: working,
+  lastMessage: { text: `${sessionId} own transcript` },
+  ...fields,
+})
+
+/** The sidebar's rows for `rows`, each with its runtime state published. */
+async function rowsOf(rows: AgentConversation[]): Promise<Item[]> {
+  const dom = new Window()
+  const values = {
+    window: dom,
+    document: dom.document,
+    navigator: dom.navigator,
+    location: dom.location,
+    HTMLElement: dom.HTMLElement,
+    Node: dom.Node,
+    Element: dom.Element,
+    localStorage: dom.localStorage,
+    IS_REACT_ACT_ENVIRONMENT: true,
+  }
+  const original = Object.keys(values).map(
+    (key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)] as const,
+  )
+
+  for (const [key, value] of Object.entries(values))
+    Object.defineProperty(globalThis, key, { value, configurable: true })
+  const { createRoot } = await import('react-dom/client')
+  const { useChatItems } = await import('./use-chat-items')
+  const { publishRuntimeStates } = await import('../../lib/agentRuntimeStates')
+  const root = createRoot(dom.document.createElement('div') as unknown as HTMLElement)
+  let items: Item[] = []
+
+  function Fixture() {
+    items = useChatItems({
+      agentSessions: rows,
+      teamId: 'one-indicator',
+      chatShown: false,
+      agentSessionId: null,
+    })
+
+    return null
+  }
+
+  try {
+    await act(() =>
+      publishRuntimeStates(
+        rows.flatMap((r) => (r.runtimeState ? [[r.sessionId, working] as const] : [])),
+      ),
+    )
+    await act(() => root.render(createElement(Fixture)))
+
+    return items
+  } finally {
+    await act(() => root.unmount())
+    await dom.happyDOM.close()
+    for (const [key, descriptor] of original) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor)
+      else Reflect.deleteProperty(globalThis, key)
+    }
+  }
+}
+
+const markup = (node: unknown) => (isValidElement(node) ? renderToStaticMarkup(node) : '')
+
+test("a Bot's row shows typing dots exactly while its chat does, else its latest message", async () => {
+  const items = await rowsOf([
+    // A Bot with no chat yet is listed by its own session, which has no typing dots.
+    row('solo-bot', { avatar: '05-rembrandt' }),
+    row('typing-bot', { avatar: '05-rembrandt' }),
+    row('typing-chat', {
+      kind: 'channel',
+      runtimeState: undefined,
+      faces: [{ id: 'typing-bot', name: 'typing-bot', agent: {} }],
+      lastMessage: { text: 'Hidden while the Bot types' },
+    }),
+    // This Bot rests while its sub-Task works: its chat shows no typing.
+    row('resting-bot', { avatar: '05-rembrandt', runtimeState: undefined }),
+    row('resting-chat', {
+      kind: 'channel',
+      runtimeState: undefined,
+      faces: [{ id: 'resting-bot', name: 'resting-bot', agent: {} }],
+      lastMessage: { text: 'The newest post' },
+    }),
+    row('task'),
+    // Hidden under its Bot's row when that row is folded.
+    row('kid', { parentSessionId: 'resting-bot' }),
+  ])
+  const at = (id: string) => items.find((item) => item.key === `agent-session:${id}`)!
+  const looping = (id: string) =>
+    isValidElement<{ looping?: boolean }>(at(id).iconNode) && at(id).iconNode.props.looping
+
+  assert.ok(markup(at('typing-chat').previewNode).includes('t-typing-dot'), 'the chat types')
+  for (const [id, text] of [
+    ['solo-bot', 'solo-bot own transcript'],
+    ['resting-chat', 'The newest post'],
+  ]) {
+    assert.equal(at(id).previewNode, undefined, `${id} shows no typing dots`)
+    assert.equal(at(id).preview, text, `${id} previews its latest message`)
+  }
+  for (const id of ['solo-bot', 'typing-chat', 'resting-chat']) {
+    assert.ok(looping(id), `${id}: the working Bot's face moves`)
+    assert.ok(!('labelShimmer' in at(id)), `${id} is not greyed out`)
+    assert.ok(!markup(at(id).trailing).includes('animate-spin'), `${id} has no spinner`)
+  }
+  const copies = items.filter((item) => item.parentKey === 'agent-session:resting-chat')
+
+  assert.equal(copies.length, 1)
+  assert.ok(
+    !markup(copies[0]?.foldedStatus).includes('animate-spin'),
+    'a folded Bot shows no spinner for its sub-Task',
+  )
+  assert.ok(markup(at('task').trailing).includes('animate-spin'), 'a Task keeps its spinner')
+})
+
 test('a pinned face receives its actual rendering size rather than a larger wrapper', () => {
   const face = createElement(ChatIcon, { sidebar: true, title: 'Bot' })
   const result = BotPinFace({

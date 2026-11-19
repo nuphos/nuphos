@@ -14,12 +14,13 @@ export { toolModuleFromAiSdkTools } from './preview-tools/ai-sdk-adapter'
 export const NUPHOS_TOOLS_INSTRUCTIONS =
   "Nuphos's native tools for this conversation: memory (save_memory / " +
   'memory_get), charts, artifacts, team-skill authoring, decisions, local Desktop actions, ' +
-  'connector setup (create_connector), cloud computers on team instabox accounts (list_boxes / create_box / update_box), Nuphos sub-agents (create_thread / send_message_to_thread / update_thread / list_agent_runtimes / set_thread_parent / archive_thread / stop_thread), Nuphos channels (channel_read / channel_post / channel_create), meetings (meeting_join / meeting_chat / meeting_leave, when set up), and channel delivery. ' +
+  'connector setup (create_connector), computers from Nuphos on team instabox accounts (list_boxes / create_box / update_box), Nuphos sub-agents (create_thread / send_message_to_thread / update_thread / list_agent_runtimes / set_thread_parent / archive_thread / stop_thread), Nuphos channels (channel_read / channel_post / channel_create), meetings (meeting_join / meeting_chat / meeting_leave, when set up), and channel delivery. ' +
   'When the user asks for a sub-agent (in any language), use create_thread, not your ' +
   "runtime's built-in subagent tool, unless they explicitly ask for the built-in one. " +
   'List yours with list_recent_conversations children:true. ' +
   'When progress needs an answer only the user can provide, use request_user_decision ' +
-  'with the actual question and optional choices; its answer arrives as a new message. ' +
+  'with the question as one short line, its context in `body`, and optional choices; its answer ' +
+  'arrives as a new message. ' +
   'This registers the question in Needs your input; a question written only in chat does not. ' +
   'When the user asks for an artifact, a document, or to see HTML, an SVG or a full file ' +
   'rendered, show it with render_artifact; it opens beside the chat. ' +
