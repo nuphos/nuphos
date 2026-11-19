@@ -89,6 +89,11 @@ struct ChannelView: View {
         transcript
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Theme.chatCanvas)
+            // Before the title and toolbar: wrapped by the inspector, they would leave
+            // the navigation bar on iPad.
+            .agentSummary(isPresented: $detailsOpen) {
+                if let botSession { details(of: botSession) }
+            }
             .navigationTitle(channel.title)
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -145,9 +150,6 @@ struct ChannelView: View {
                 }
             }
             .desktop($desktop)
-            .agentSummary(isPresented: $detailsOpen) {
-                if let botSession { details(of: botSession) }
-            }
             .sheet(isPresented: Binding(get: { switchingBot != nil }, set: { if !$0 { switchingBot = nil } })) {
                 RuntimePickerSheet(session: switchingBot) { runtime in
                     guard let bot = switchingBot else { return }

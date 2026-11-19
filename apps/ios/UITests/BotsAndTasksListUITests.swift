@@ -56,8 +56,20 @@ final class BotsAndTasksListUITests: XCTestCase {
         var lead = try XCTUnwrap(responses["GET /agent/conversations/chat-release"] as? [String: Any])
         var body = try XCTUnwrap(lead["body"] as? [String: Any])
         body["sessionId"] = "chat-lead"
+        body["title"] = ""
+        body["botId"] = "bot-lead"
+        body["faces"] = [Self.face("bot-lead", "Release Lead", "05-rembrandt")]
+        body["timelineEvents"] = [] as [Any]
+        body["messages"] = [
+            Self.post("p1", from: ["type": "user", "id": "507f1f77bcf86cd799439011", "displayName": "You"], text: "Get the 2.4 release ready."),
+            Self.post("p2", from: ["type": "agent", "id": "bot-lead", "displayName": "Release Lead"],
+                      text: "On it. I asked a Task to check the CI flake and another to deploy to staging."),
+        ]
+        body["messageCount"] = 2
         lead["body"] = body
         responses["GET /agent/conversations/chat-lead"] = lead
+        responses["GET /agent/conversations/chat-lead/agents"] = ["status": 200, "body": ["agents": [
+            ["sessionId": "bot-lead", "title": "Release Lead", "ownerId": "507f1f77bcf86cd799439011"]]]]
         try JSONSerialization.data(withJSONObject: responses).write(to: live, options: .atomic)
     }
 
@@ -212,6 +224,12 @@ final class BotsAndTasksListUITests: XCTestCase {
             row["inputRequests"] = [["id": "q-\(id)", "question": question, "options": ["Yes", "No"], "askedAt": "2026-11-03T\(time):00Z"]]
         }
         return row
+    }
+
+    private static func post(_ id: String, from sender: [String: Any], text: String) -> [String: Any] {
+        ["id": id, "role": "user", "parts": [["type": "text", "text": text]],
+         "metadata": ["version": 1, "sender": sender, "sentAt": "2026-11-03T09:50:00.000Z"],
+         "createdAt": "2026-11-03T09:50:00.000Z"]
     }
 
     private static func face(_ id: String, _ name: String, _ avatar: String) -> [String: Any] {
