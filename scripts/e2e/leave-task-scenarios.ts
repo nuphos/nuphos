@@ -109,8 +109,6 @@ async function leaveFromRow(
   ownerToken: string,
   { sessionId, title, shot }: { sessionId: string; title: string; shot?: string },
 ) {
-  await page.reload()
-  await page.getByRole('tab', { name: 'Tasks' }).click()
   const row = rowOf(page, title)
 
   await row.waitFor({ timeout: 30_000 })
@@ -138,7 +136,6 @@ async function leaveFromRow(
   await until('the server to drop the Task from my shared list', async () =>
     (await listed(stack, stack.token, 'shared')).every((id) => id !== sessionId),
   )
-  await stillGoneAfterReload(page, 'Tasks', title)
   // Its owner still has it, not archived.
   if (!(await listed(stack, ownerToken, 'mine')).includes(sessionId))
     throw new Error('The owner lost the Task when a teammate left it')
@@ -177,39 +174,42 @@ export const leaveTaskScenarios: Scenario[] = [
           `local_${teammate.id}_${LAPTOP}`,
         )
         await invite(stack, teammate.token, usable, myId)
+        // On no computer of mine to use, and private: leaving it ends my access.
+        const closed = await sharedTask(stack, teammate.token, PRIVATE_TASK)
+
+        await invite(stack, teammate.token, closed, myId)
         // Offline from here, so my message waits for the computer rather than running.
         goOffline()
+        // Each reload loads the app's modules again, so the scenario reloads only twice.
+        await page.reload()
+        await page.getByRole('tab', { name: 'Tasks' }).click()
         await leaveFromRow(page, stack, teammate.token, {
           sessionId: usable,
           title: TASK,
           shot: 'leave-task',
         })
-        // I may still reply, so speaking in it joins me again, as the confirmation says.
-        await say(stack, usable, teammate.token, 'Back again E2E_DELIVERY:leave-task-rejoin')
-        await until('the new message to bring the Task back to my shared list', async () =>
-          (await listed(stack, stack.token, 'shared')).includes(usable),
-        )
-        await page.reload()
-        await page.getByRole('tab', { name: 'Tasks' }).click()
-        await rowOf(page, TASK).waitFor({ timeout: 30_000 })
-        await page.screenshot({ path: `${artifacts}/leave-task-rejoined.png` })
-
-        // On no computer of mine to use, and private: leaving it ends my access.
-        const closed = await sharedTask(stack, teammate.token, PRIVATE_TASK)
-
-        await invite(stack, teammate.token, closed, myId)
         await leaveFromRow(page, stack, teammate.token, { sessionId: closed, title: PRIVATE_TASK })
         const refused = await say(stack, closed, teammate.token, 'Let me back E2E_DELIVERY:closed')
 
-        if (refused < 400) throw new Error(`My message in a Task I lost was taken: ${refused}`)
-        if ((await listed(stack, stack.token, 'shared')).includes(closed))
-          throw new Error('A message brought back a private Task I may not use')
+        if (refused < 400)
+          throw new Error(`My message in a Task I lost was taken: ${String(refused)}`)
         const read = await fetch(
           `${stack.apiUrl}/agent/conversations/${closed}?teamId=${stack.teamId}`,
           { headers: { authorization: `Bearer ${stack.token}` } },
         )
 
         if (read.ok) throw new Error('I can still read a private Task after leaving it')
+        // I may still reply in the other, so speaking in it joins me again, as the dialog says.
+        await say(stack, usable, teammate.token, 'Back again E2E_DELIVERY:leave-task-rejoin')
+        await until('the new message to bring the Task back to my shared list', async () =>
+          (await listed(stack, stack.token, 'shared')).includes(usable),
+        )
+        if ((await listed(stack, stack.token, 'shared')).includes(closed))
+          throw new Error('A private Task I may not use came back')
+        // After the sidebar reads the server again: the one I rejoined is back, the other stays gone.
+        await stillGoneAfterReload(page, 'Tasks', PRIVATE_TASK)
+        await rowOf(page, TASK).waitFor({ timeout: 30_000 })
+        await page.screenshot({ path: `${artifacts}/leave-task-rejoined.png` })
       } finally {
         goOffline()
         // Unshared, the computer no longer lets me reply, so my waiting message is dropped.
@@ -217,7 +217,9 @@ export const leaveTaskScenarios: Scenario[] = [
           'PUT',
           `/agent/devices/${LAPTOP}/share?teamId=${stack.teamId}`,
           { level: 'off', everyone: false, userIds: [] },
-        )
+        ).catch((error: unknown) => {
+          console.warn(`Could not unshare the laptop: ${String(error)}`)
+        })
       }
     },
   },
