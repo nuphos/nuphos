@@ -140,4 +140,20 @@ class ChannelReopenFixtureDeviceTest {
         assertTrue("A was read again after its first read was abandoned", aReads.get() >= 2)
         assertEquals("every read of a Bot chat leaves out the runtime", setOf("omit"), runtimeStates.toSet())
     }
+
+    /** #3526: the most recent 20 chats stay in memory, Tasks and Bot chats each; older ones are let go. */
+    @Test fun onlyTheMostRecentChatsStayInMemory() {
+        inst.runOnMainSync {
+            val firstTask = store.session("task-0", "Task 0")
+            val firstChat = store.channelSession("chat-0", "Chat 0")
+            for (i in 1..20) { store.session("task-$i", "Task $i"); store.channelSession("chat-$i", "Chat $i") }
+            val lastTask = store.session("task-20", "Task 20")
+            val lastChat = store.channelSession("chat-20", "Chat 20")
+
+            assertNotSame("the oldest Task was let go", firstTask, store.session("task-0", "Task 0"))
+            assertNotSame("the oldest Bot chat was let go", firstChat, store.channelSession("chat-0", "Chat 0"))
+            assertSame("the most recent Task stays", lastTask, store.session("task-20", "Task 20"))
+            assertSame("the most recent Bot chat stays", lastChat, store.channelSession("chat-20", "Chat 20"))
+        }
+    }
 }
