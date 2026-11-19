@@ -12,6 +12,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import ai.nuphos.android.data.*
 import ai.nuphos.android.session.*
 import ai.nuphos.android.ui.agent.NewRuntimeSheet
+import ai.nuphos.android.ui.agent.RuntimeInventory
 import ai.nuphos.android.ui.theme.NuphosTheme
 import org.junit.Assert.*
 import org.junit.Rule
@@ -32,6 +33,20 @@ class NewRuntimeFixtureDeviceTest {
         File(instrumentation.targetContext.getExternalFilesDir(null), name).outputStream().use {
             instrumentation.uiAutomation.takeScreenshot().compress(Bitmap.CompressFormat.PNG, 100, it)
         }
+    }
+    @Test fun useOnlyComputerShowsOwnerInstructionInsteadOfCreate() {
+        lateinit var inventory: RuntimesStore
+        compose.setContent {
+            val scope = rememberCoroutineScope()
+            inventory = remember { RuntimesStore(scope, { true }, { emptyList() }, { emptyMap() },
+                { listOf(RuntimeDevice("use-only", "Shared Laptop", true, null, "unavailable", null, null, null, "use")) }, {}) }
+            LaunchedEffect(inventory) { inventory.refresh() }
+            NuphosTheme { Surface(Modifier.fillMaxSize()) { RuntimeInventory(inventory, {}) } }
+        }
+        compose.waitUntil { inventory.loaded }
+        compose.onNodeWithText(InstrumentationRegistry.getInstrumentation().targetContext.getString(R.string.new_runtime_ask_owner)).assertIsDisplayed()
+        compose.onNodeWithTag("new-runtime-use-only").assertDoesNotExist()
+        shot("new-runtime-owner-instruction.png")
     }
     @Test fun chooseNameCreateThenCancelCleansOnlyNewRuntime() {
         val device = RuntimeDevice("host", "Synthetic Laptop", true, null, "unavailable", null, null, null, "manage")
@@ -55,7 +70,9 @@ class NewRuntimeFixtureDeviceTest {
         }
         compose.onNodeWithTag("new-runtime-provider-codex").assertIsDisplayed()
         shot("new-runtime-providers.png")
-        compose.onNodeWithTag("new-runtime-provider-codex").performClick()
+        compose.onNodeWithTag("new-runtime-provider-pi").performScrollTo().assertIsDisplayed()
+        shot("new-runtime-providers-more.png")
+        compose.onNodeWithTag("new-runtime-provider-codex").performScrollTo().performClick()
         compose.onNodeWithTag("new-runtime-name").assertTextContains("Codex")
         shot("new-runtime-name.png")
         compose.onNodeWithTag("new-runtime-continue").performClick()

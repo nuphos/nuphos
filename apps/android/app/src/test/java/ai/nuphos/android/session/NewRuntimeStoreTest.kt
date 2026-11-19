@@ -33,6 +33,7 @@ class NewRuntimeStoreTest {
     }
     @Test fun onlyExplicitManagersOfRunningComputersCanAddAndEmptyHostsAreListed() {
         assertTrue(host.canAddRuntime)
+        assertTrue(host.copy(access = "owner").canAddRuntime)
         assertFalse(host.copy(access = "use").canAddRuntime)
         assertFalse(host.copy(access = null).canAddRuntime)
         assertFalse(host.copy(online = false).canAddRuntime)
