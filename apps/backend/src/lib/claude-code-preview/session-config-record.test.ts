@@ -94,6 +94,9 @@ const chip = async () => {
   )
 }
 
+// A conversation's own pick, made through update_task (#3503).
+const SELF_PICK = { actorId: 'owner', agentSessionId: 'chat', via: 'update_thread' } as const
+
 test('after a reply the chip shows the settings the session runs, including ones the runtime changed', async () => {
   // Fast mode was picked on; Claude Code then turned it off during the reply.
   await conversation([{ ...afterReply[2], kind: 'fast', currentValue: 'on' }])
@@ -199,7 +202,7 @@ test('a conversation stores its own model picks on the session attachment', asyn
   await conversation()
   const current = await agentConversations().findOne({ sessionId: 'chat' })
 
-  await queueOwnSessionConfig(current!, { model: 'haiku', effort: 'low' }, 'owner')
+  await queueOwnSessionConfig(current!, { model: 'haiku', effort: 'low' }, SELF_PICK)
   const stored = await agentConversations().findOne({ sessionId: 'chat' })
 
   expect(stored?.claudeCodePreview?.pendingSessionConfig).toEqual({
@@ -268,7 +271,7 @@ test('the next prompt confirms a queued model before its effort and clears both 
     },
   }
 
-  const applied = await applyPendingSessionConfig(client, 'chat', TEAM, attachment)
+  const applied = await applyPendingSessionConfig(client, 'chat', TEAM, attachment, SELF_PICK)
 
   expect(writes).toEqual([
     ['model', 'haiku'],
@@ -284,6 +287,10 @@ test('the next prompt confirms a queued model before its effort and clears both 
     ['effort', 'low'],
     ['fast', 'off'],
   ])
+  // The history says the conversation changed itself, through update_task.
+  expect(
+    (await agentConversations().findOne({ sessionId: 'chat' }))?.settingsHistory?.at(-1),
+  ).toMatchObject({ actorId: 'owner', agentSessionId: 'chat', via: 'update_thread' })
 })
 
 test('a queued setting the agent rejects is dropped so the prompt runs on confirmed settings', async () => {
@@ -296,7 +303,7 @@ test('a queued setting the agent rejects is dropped so the prompt runs on confir
     },
   }
 
-  const applied = await applyPendingSessionConfig(client, 'chat', TEAM, attachment)
+  const applied = await applyPendingSessionConfig(client, 'chat', TEAM, attachment, SELF_PICK)
 
   expect(applied.pendingSessionConfig).toEqual({})
   expect(

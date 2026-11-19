@@ -119,6 +119,7 @@ test('a Bot validates an unstarted model and effort without a separate write', a
 })
 
 // #3503: a Task or Bot picks its own model through update_task, for its next turn.
+const SELF_PICK = { actorId: 'owner', agentSessionId: 'fixture', via: 'update_thread' } as const
 const running = () =>
   ({
     ...conversation(),
@@ -130,7 +131,11 @@ const running = () =>
   }) as AgentConversation
 
 test('a running Task queues its own pick for the next turn, leaving this reply on its settings', async () => {
-  const model = await queueOwnSessionConfig(running(), { model: 'astra', effort: 'high' }, 'owner')
+  const model = await queueOwnSessionConfig(
+    running(),
+    { model: 'astra', effort: 'high' },
+    SELF_PICK,
+  )
 
   expect(writes).toEqual([
     {
@@ -145,13 +150,15 @@ test('a running Task queues its own pick for the next turn, leaving this reply o
 
 // As the picker does since #3711: never a model alone, but the effort it will start on with it.
 test('an unstarted Task starts on its own pick', async () => {
-  await queueOwnSessionConfig(conversation(), { model: 'astra' }, 'owner')
+  await queueOwnSessionConfig(conversation(), { model: 'astra' }, SELF_PICK)
 
-  expect(writes).toEqual([{ $set: { initialSessionConfig: { model: 'astra', effort: 'low' } } }])
+  expect(writes).toMatchObject([
+    { $set: { initialSessionConfig: { model: 'astra', effort: 'low' } } },
+  ])
 })
 
 test('a model its agent does not offer is refused with the choices, and nothing is saved', async () => {
-  await expect(queueOwnSessionConfig(running(), { model: 'retired' }, 'owner')).rejects.toThrow(
+  await expect(queueOwnSessionConfig(running(), { model: 'retired' }, SELF_PICK)).rejects.toThrow(
     'Choose one of: sol, astra',
   )
   expect(writes).toEqual([])

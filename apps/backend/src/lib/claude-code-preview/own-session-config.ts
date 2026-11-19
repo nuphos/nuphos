@@ -1,3 +1,4 @@
+import { keepFirstSessionPick } from '@/lib/agent/db/conversations-runtime'
 import { agentConversations, liveAttachment } from '@/lib/agent/db/shared'
 import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
@@ -13,6 +14,7 @@ import type { RuntimeDefaults } from './openab-acp-session'
 import type { SessionConfigState } from './session-config-options'
 import type { TeamSession } from './team-openab-runtime'
 import type { AgentConversation } from '@/lib/agent/db'
+import type { SettingsChangeBy } from '@/lib/agent/db/settings-history'
 import type { ConversationPreviewAttachment } from '@/lib/agent/db/shared'
 
 /** Validate a conversation's picks for itself without writing its busy session. */
@@ -63,8 +65,9 @@ export async function ownSessionConfigUpdate(
 export async function queueOwnSessionConfig(
   conversation: AgentConversation,
   pick: RuntimeDefaults,
-  viewerUserId: string,
+  by: SettingsChangeBy,
 ): Promise<RuntimeDefaults> {
+  const viewerUserId = by.actorId
   const { initialSessionConfig, pendingSessionConfig } = await ownSessionConfigUpdate(
     conversation,
     pick,
@@ -75,12 +78,19 @@ export async function queueOwnSessionConfig(
     value,
   ])
 
-  await agentConversations().updateOne(
-    { sessionId: conversation.sessionId, teamId: conversation.teamId },
-    {
-      $set: initialSessionConfig ? { initialSessionConfig } : Object.fromEntries(pending),
-    },
-  )
+  // A queued pick is recorded when the next prompt confirms it.
+  if (initialSessionConfig)
+    await keepFirstSessionPick(
+      conversation.sessionId,
+      conversation.teamId,
+      initialSessionConfig,
+      by,
+    )
+  else
+    await agentConversations().updateOne(
+      { sessionId: conversation.sessionId, teamId: conversation.teamId },
+      { $set: Object.fromEntries(pending) },
+    )
 
   return (
     initialSessionConfig ?? { ...storedPick(liveAttachment(conversation) ?? undefined), ...pick }
@@ -96,7 +106,17 @@ export async function pendingTurnDefaults(
   return turnDefaults(
     session,
     attachment?.pendingSessionConfig
-      ? await applyPendingSessionConfig(client, session.conversationId, session.teamId, attachment)
+      ? await applyPendingSessionConfig(
+          client,
+          session.conversationId,
+          session.teamId,
+          attachment,
+          {
+            actorId: session.conversationOwnerUserId ?? session.userId,
+            agentSessionId: session.conversationId,
+            via: 'update_thread',
+          },
+        )
       : attachment,
   )
 }
@@ -107,6 +127,7 @@ export async function applyPendingSessionConfig(
   conversationId: string,
   teamId: string | undefined,
   attachment: ConversationPreviewAttachment,
+  by: SettingsChangeBy,
 ): Promise<ConversationPreviewAttachment> {
   let current = attachment
 
@@ -133,7 +154,7 @@ export async function applyPendingSessionConfig(
       continue
     }
 
-    await storeSessionConfig(conversationId, teamId, current.openabSessionId, options)
+    await storeSessionConfig(conversationId, teamId, current.openabSessionId, options, by)
     current = await clearPendingSessionConfig(conversationId, teamId, current, configId)
     current = { ...current, sessionConfig: options }
   }

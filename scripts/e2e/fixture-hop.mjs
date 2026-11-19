@@ -80,3 +80,23 @@ export async function inherit({ call, log, sessionId, child }) {
     detail: message.error?.message ?? message.result?.content?.[0]?.text,
   })
 }
+
+/** E2E_THREAD: starts a thread that asks for a permission, then tries to move it to Auto Mode. */
+export async function startThread({ call, log, sessionId, marker }) {
+  const started = await call(sessionId, 'create_thread', {
+    label: 'Start a thread',
+    title: 'E2E thread',
+    prompt: 'Run a command E2E_PERMISSION E2E_DELIVERY:thread',
+  })
+  const thread = threadIdOf(started)
+  const change = await call(sessionId, 'update_task', {
+    label: 'Move the thread to Auto Mode',
+    taskId: thread,
+    fullAccess: false,
+  })
+  const refused = Boolean(change.error ?? change.result?.isError)
+
+  log({ sessionId, marker, event: refused ? 'thread-mode-refused' : 'thread-mode-changed' })
+
+  return thread
+}

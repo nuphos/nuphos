@@ -188,7 +188,11 @@ async function updateOwnModel(actor: ThreadActor, change: TaskChange) {
   )
   const { queueOwnSessionConfig } = await import('@/lib/claude-code-preview/own-session-config')
 
-  return await queueOwnSessionConfig(self, pick, actor.userId)
+  return await queueOwnSessionConfig(self, pick, {
+    actorId: actor.userId,
+    agentSessionId: actor.sessionId,
+    via: 'update_thread',
+  })
 }
 
 /**

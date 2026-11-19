@@ -1,12 +1,15 @@
 import { updateConversationSettings } from '@/lib/agent/db/settings-history'
+import { agentConversations } from '@/lib/agent/db/shared'
 
 import { settledCodexStopReason } from './codex-turn-settle'
 import { parseSessionConfigOptions } from './session-config-options'
 
 import type { OpenAbAcpClient } from './openab-acp-client'
+import type { RuntimeDefaults } from './openab-acp-session'
 import type { SessionConfigOption } from './session-config-options'
 import type { TeamSession } from './team-openab-runtime'
 import type { SettingsChangeBy } from '@/lib/agent/db/settings-history'
+import type { ConversationPreviewAttachment } from '@/lib/agent/db/shared'
 
 /** A session's settings as the chip reads them. Scoped to the session id, so a newer session's are never overwritten. */
 export async function storeSessionConfig(
@@ -61,4 +64,44 @@ export async function settledTurn(
   await recordSessionConfig(client, session.conversationId, session.teamId, session.openabSessionId)
 
   return settledCodexStopReason(session, result, lastTextChunk)
+}
+
+/** Drops one of a conversation's queued picks for itself once the session confirmed, refused or replaced it. */
+export async function clearPendingSessionConfig(
+  conversationId: string,
+  teamId: string | undefined,
+  attachment: ConversationPreviewAttachment,
+  configId: keyof RuntimeDefaults,
+): Promise<ConversationPreviewAttachment> {
+  if (attachment.pendingSessionConfig?.[configId] === undefined) return attachment
+  const pendingSessionConfig = { ...attachment.pendingSessionConfig }
+
+  delete pendingSessionConfig[configId]
+  // Replace only the object consumed here; a newer pick stays queued for another turn.
+  await agentConversations().updateOne(
+    {
+      sessionId: conversationId,
+      teamId,
+      'claudeCodePreview.openabSessionId': attachment.openabSessionId,
+      'claudeCodePreview.pendingSessionConfig': attachment.pendingSessionConfig,
+    },
+    { $set: { 'claudeCodePreview.pendingSessionConfig': pendingSessionConfig } },
+  )
+
+  return { ...attachment, pendingSessionConfig }
+}
+
+/** A manual pick supersedes the conversation's own queued pick for the same setting. */
+export async function clearReplacedPick(
+  conversationId: string,
+  teamId: string | undefined,
+  attachment: ConversationPreviewAttachment,
+  options: SessionConfigOption[],
+  configId: string,
+): Promise<ConversationPreviewAttachment> {
+  const kind = options.find((entry) => entry.id === configId || entry.kind === configId)?.kind
+
+  return kind
+    ? await clearPendingSessionConfig(conversationId, teamId, attachment, kind)
+    : attachment
 }
