@@ -116,6 +116,4 @@ export const installScenarios: Scenario[] = [
       await page.getByText('Back to app', { exact: true }).click()
     },
   },
-  // TODO(#3654): adding an agent to a just-connected computer can skip installing its CLI;
-  // this one is back in with that fix.
-].filter((scenario) => !scenario.name.startsWith('adding Claude Code to another computer'))
+]
