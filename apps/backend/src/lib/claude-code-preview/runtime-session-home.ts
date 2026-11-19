@@ -1,31 +1,20 @@
 import { randomUUID } from 'node:crypto'
 
 import { agentConversations } from '@/lib/agent/db/shared'
-import { boxConnection } from '@/lib/agent/devices/box-instabox-account'
-import { QUICK_TIMEOUT_MS } from '@/lib/agent/devices/box-instabox-client'
-import { runOnRunningMachine } from '@/lib/agent/devices/instabox-machines'
 import { parseLocalRuntimeId, sameRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
-import { getAgentDevice } from '@/lib/agent/devices/store'
 import { logError, logEvent } from '@/lib/observability'
 
 import { controlRegistry } from './agent-chat-registry'
+import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { developmentRuntimeEndpoint, requireRuntimeInstance } from './runtime-catalog'
 import { resolveTeamRuntimeEndpoints } from './runtime-registry'
 import { RECLAIM_SESSION_HOME_PROGRAM } from './runtime-session-home-program'
 import { conversationExecutionState } from './session-execution-state'
 
 import type { AgentConversation } from '@/lib/agent/db/shared'
-import type { LocalRuntimeRef } from '@/lib/agent/devices/local-runtime/address'
 import type { Filter } from 'mongodb'
 
 export { RECLAIM_SESSION_HOME_PROGRAM }
-
-// The panel job's layout (runner.mjs and params.json in one directory) on a Box over
-// instabox exec. The program and its params arrive as environment, never in the command.
-const BOX_RECLAIM_COMMAND =
-  'd=$(mktemp -d) && printf "%s" "$RECLAIM_RUNNER" > "$d/runner.mjs" && ' +
-  'printf "%s" "$RECLAIM_PARAMS" > "$d/params.json" && node "$d/runner.mjs" "$d"; ' +
-  's=$?; rm -rf "$d"; exit $s'
 
 const RETRY_WINDOW_MS = 30 * 24 * 60 * 60 * 1000
 // OpenAB ends an inner session idle this long (also its own default).
@@ -90,8 +79,9 @@ const RECLAIM_PROJECTION = {
 /**
  * Removes a reclaimable conversation's CLI home once the runtime reports no live
  * session for it. Returns false to have a later sweep retry: still reclaimable
- * but in use, or the runtime is unreachable right now. A Box is reached over
- * instabox; agents on someone's own computer are not, their disk is theirs.
+ * but in use, or the runtime is unreachable right now. Every computer, a Box or
+ * someone's own, is reached over its control channel: an archived conversation's
+ * folder goes as soon as nothing uses it (Yuanlin, #3939).
  */
 export async function reclaimSessionHome(sessionId: string, now = new Date()): Promise<boolean> {
   // Re-read now: the sweep can run long, and a restored or resumed conversation keeps its home.
@@ -106,9 +96,6 @@ export async function reclaimSessionHome(sessionId: string, now = new Date()): P
 
   if (!teamId || !runtimeId) return true
   if (left) return reclaimLeftHome(teamId, sessionId, left, runtimeId, provider)
-  const local = parseLocalRuntimeId(runtimeId)
-
-  if (local) return reclaimBoxSessionHome(local, sessionId)
   const endpoint = await controlEndpoint(teamId, runtimeId, provider)
 
   if (!endpoint) return false
@@ -133,10 +120,12 @@ async function reclaimLeftHome(
 ): Promise<boolean> {
   const [from, to] = [parseLocalRuntimeId(left), parseLocalRuntimeId(current)]
 
-  if (from)
-    return to?.userId === from.userId && to.deviceId === from.deviceId
-      ? true
-      : reclaimBoxSessionHome(from, sessionId)
+  if (from) {
+    if (to?.userId === from.userId && to.deviceId === from.deviceId) return true
+    const endpoint = await controlEndpoint(teamId, left, provider)
+
+    return endpoint ? runReclaimJob(teamId, endpoint, sessionId) : false
+  }
   const leftProvider = (await requireRuntimeInstance(teamId, left).catch(() => null))?.provider
   const endpoint = leftProvider && (await controlEndpoint(teamId, left, leftProvider))
 
@@ -155,6 +144,12 @@ async function controlEndpoint(
   runtimeId: string,
   provider: NonNullable<AgentConversation['agentRuntime']>,
 ) {
+  const local = parseLocalRuntimeId(runtimeId)
+
+  // The computer's owner can always use it; one removed or offline is retried later.
+  if (local)
+    return resolveLocalRuntimeEndpoint(teamId, runtimeId, local.userId, 'control').catch(() => {})
+
   return runtimeId === `development-${provider}`
     ? developmentRuntimeEndpoint(provider, 'control')
     : (await resolveTeamRuntimeEndpoints(teamId, provider, 'control')).find(
@@ -192,22 +187,6 @@ async function runReclaimJob(
   return reclaimed(result.stdout, sessionId)
 }
 
-/** A Box is a machine we run, so its homes go too; one that is not running is retried later. */
-async function reclaimBoxSessionHome({ userId, deviceId }: LocalRuntimeRef, sessionId: string) {
-  const box = (await getAgentDevice(userId, deviceId))?.box
-  const sandboxId = box?.sandboxId
-
-  if (!box || !sandboxId) return true
-  const stdout = await runOnRunningMachine(
-    await boxConnection(box, QUICK_TIMEOUT_MS),
-    sandboxId,
-    BOX_RECLAIM_COMMAND,
-    { RECLAIM_RUNNER: RECLAIM_SESSION_HOME_PROGRAM, RECLAIM_PARAMS: JSON.stringify({ sessionId }) },
-  )
-
-  return stdout !== undefined && reclaimed(stdout, sessionId)
-}
-
 /** Reads the program's report: false keeps the home for a later sweep. */
 function reclaimed(stdout: string, sessionId: string): boolean {
   const outcome = JSON.parse(stdout) as { result?: string; unreadable?: string }
@@ -224,12 +203,17 @@ function reclaimed(stdout: string, sessionId: string): boolean {
 }
 
 /**
- * Hourly: reclaimable conversations whose home is not reclaimed since they
- * became reclaimable. One that is still running is retried on the next sweep.
+ * Hourly, and for just-archived conversations at once: reclaimable conversations
+ * whose home is not reclaimed since they became reclaimable. One that is still
+ * running is retried on the next sweep.
  */
-export async function reclaimSessionHomes(now = new Date()): Promise<number> {
+export async function reclaimSessionHomes(
+  now = new Date(),
+  sessionIds?: string[],
+): Promise<number> {
+  const filter = reclaimableFilter(now, new Date(now.getTime() - RETRY_WINDOW_MS))
   const candidates = (await agentConversations()
-    .find(reclaimableFilter(now, new Date(now.getTime() - RETRY_WINDOW_MS)), {
+    .find(sessionIds ? { ...filter, sessionId: { $in: sessionIds } } : filter, {
       projection: {
         sessionId: 1,
         archivedAt: 1,

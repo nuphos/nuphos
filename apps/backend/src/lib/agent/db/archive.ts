@@ -1,4 +1,6 @@
+import { reclaimSessionHomes } from '@/lib/claude-code-preview/runtime-session-home'
 import { revokeSessionTokens } from '@/lib/internal-token/revocation'
+import { logError } from '@/lib/observability'
 
 import { conversationParticipantIds } from './participants'
 import { agentConversations } from './shared'
@@ -127,11 +129,17 @@ async function setTreeArchived(sessionId: string, archived: boolean): Promise<vo
       { sessionId: { $in: [sessionId, ...descendants] }, archivedAt: { $exists: false } },
       { $set: { archivedAt: archivedAt ?? new Date() } },
     )
+    const tree = [sessionId, ...descendants]
+
     // A thread never outlives its parent: tokens issued so far stop working.
-    await revokeSessionTokens([sessionId, ...descendants], 'archived')
+    await revokeSessionTokens(tree, 'archived')
+    // Its folder on the computer goes as soon as nothing uses it (#3939); the hourly
+    // sweep retries one still in use.
+    void reclaimSessionHomes(new Date(), tree).catch((err: unknown) => {
+      logError('agent.session_home_reclaim.failed', err, { session_id: sessionId })
+    })
     // A question only about threads now archived waits on nothing: it leaves the Inbox.
     // One that is also about something else (a PR) stays for that.
-    const tree = [sessionId, ...descendants]
 
     await agentConversations().updateMany(
       { userId: conversation.userId, 'inputRequests.about': { $in: tree } },

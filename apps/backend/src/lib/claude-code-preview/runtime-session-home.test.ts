@@ -13,11 +13,10 @@ import {
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
-import { config } from '@/config'
 import { useDb } from '@/lib/test/doubles/db'
-import { useInstaboxMachines } from '@/lib/test/doubles/instabox-machines'
+import { useLocalRuntimeCatalog } from '@/lib/test/doubles/local-runtime-catalog'
 import { useRuntimeCatalog } from '@/lib/test/doubles/runtime-catalog'
 import { useRuntimeRegistry } from '@/lib/test/doubles/runtime-registry'
 import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-state'
@@ -273,8 +272,13 @@ describe.skipIf(!existsSync('/proc/self'))('RECLAIM_SESSION_HOME_PROGRAM', () =>
 describe('reclaimSessionHomes', () => {
   const now = new Date('2026-10-13T20:00:00Z')
   const archivedAt = new Date('2026-10-13T19:00:00Z')
-  // A computer's own agent is never reached, so it counts as reclaimed at once; a Box is.
+  // An agent on a computer (a Box or someone's own) is reached over its control channel.
   const LOCAL = 'local_owner_device'
+  const { acquire, runtimeJobs } = controlRegistry
+  // What the reclaim program reports, the jobs it was sent, and computers offline.
+  let report = '{"result":"removed"}'
+  let jobs: { runtimeId: string; stdin: string }[] = []
+  let offline: string[] = []
   let memory = portabilityDb()
   let state = 'dormant'
   let onProbe = () => {}
@@ -290,14 +294,21 @@ describe('reclaimSessionHomes', () => {
       return { state }
     },
   })
-  useRuntimeRegistry({ resolveTeamRuntimeEndpoints: async () => endpoints as never })
+  useRuntimeRegistry({ resolveTeamRuntimeEndpoints: async () => endpoints })
+  useLocalRuntimeCatalog({
+    resolveLocalRuntimeEndpoint: async (_teamId: string, runtimeId: string, userId: string) => {
+      if (userId !== 'owner' || offline.includes(runtimeId)) throw new Error('offline')
+
+      return { runtimeId, url: `wss://${runtimeId}/acp` }
+    },
+  })
   useRuntimeCatalog({
     requireRuntimeInstance: async (_teamId: string, id: string) => {
       const instance = instances.find((candidate) => candidate.id === id)
 
       if (!instance) throw new Error('This agent no longer exists.')
 
-      return instance as never
+      return instance
     },
     developmentRuntimeEndpoint: () => ({
       url: 'ws://127.0.0.1:1/acp',
@@ -328,13 +339,59 @@ describe('reclaimSessionHomes', () => {
     onProbe = () => {}
     instances = []
     endpoints = []
+    report = '{"result":"removed"}'
+    jobs = []
+    offline = []
+    controlRegistry.runtimeJobs = () => ['panel']
+    controlRegistry.acquire = (async (_teamId: string, endpoint: { runtimeId: string }) => ({
+      runJob: async (request: { stdin: string }) => {
+        jobs.push({ runtimeId: endpoint.runtimeId, stdin: request.stdin })
+
+        return { exitCode: 0, stdout: report }
+      },
+    })) as never
+  })
+  afterEach(() => {
+    controlRegistry.acquire = acquire
+    controlRegistry.runtimeJobs = runtimeJobs
   })
 
-  test('marks an archive that has nothing to reclaim', async () => {
+  test("reclaims an archived conversation's home on its computer", async () => {
     const row = conversation({})
 
     expect(await reclaimSessionHomes(now)).toBe(1)
     expect(row.sessionHomeReclaimedAt).toEqual(now)
+    expect(jobs.map((job) => job.runtimeId)).toEqual([LOCAL])
+    expect(JSON.parse(jobs[0]?.stdin ?? '{}')).toEqual({
+      runner: RECLAIM_SESSION_HOME_PROGRAM,
+      script: '',
+      params: { sessionId: 'conversation' },
+    })
+  })
+
+  test('reclaims only the conversations it is given', async () => {
+    conversation({ sessionId: 'first' })
+    const second = conversation({ sessionId: 'second' })
+
+    expect(await reclaimSessionHomes(now, ['second'])).toBe(1)
+    expect(second.sessionHomeReclaimedAt).toEqual(now)
+    expect(jobs).toHaveLength(1)
+  })
+
+  test('retries while a process still uses the home', async () => {
+    report = '{"result":"in_use"}'
+    const row = conversation({})
+
+    expect(await reclaimSessionHomes(now)).toBe(0)
+    expect(row.sessionHomeReclaimedAt).toBeUndefined()
+  })
+
+  test('retries while the computer is offline', async () => {
+    offline = [LOCAL]
+    const row = conversation({})
+
+    expect(await reclaimSessionHomes(now)).toBe(0)
+    expect(row.sessionHomeReclaimedAt).toBeUndefined()
   })
 
   test('skips one already reclaimed since it was archived', async () => {
@@ -380,8 +437,6 @@ describe('reclaimSessionHomes', () => {
   })
 
   describe('a move between team runtimes', () => {
-    const { acquire, runtimeJobs } = controlRegistry
-    let jobs: string[] = []
     const moved = (sessionId: string, from: string) =>
       conversation({
         sessionId,
@@ -396,20 +451,7 @@ describe('reclaimSessionHomes', () => {
       })
 
     beforeEach(() => {
-      jobs = []
       instances = ['old', 'offline', 'new'].map((id) => ({ id, provider: 'claude-code' }))
-      controlRegistry.runtimeJobs = () => ['panel']
-      controlRegistry.acquire = (async (_teamId: string, endpoint: { runtimeId: string }) => ({
-        runJob: async () => {
-          jobs.push(endpoint.runtimeId)
-
-          return { exitCode: 0, stdout: '{"result":"removed"}' }
-        },
-      })) as never
-    })
-    afterEach(() => {
-      controlRegistry.acquire = acquire
-      controlRegistry.runtimeJobs = runtimeJobs
     })
 
     test('reclaims on the runtime it left when that one is reached at another address', async () => {
@@ -421,7 +463,7 @@ describe('reclaimSessionHomes', () => {
 
       expect(await reclaimSessionHomes(now)).toBe(1)
       expect(row.sessionHomeReclaimedAt).toEqual(now)
-      expect(jobs).toEqual(['old'])
+      expect(jobs.map((job) => job.runtimeId)).toEqual(['old'])
     })
 
     test('reclaims nothing when both are reached at one address: they share the home', async () => {
@@ -449,57 +491,7 @@ describe('reclaimSessionHomes', () => {
     })
   })
 
-  describe('on a Box', () => {
-    const saved = config.box.instabox
-    let report: string | undefined = '{"result":"removed"}'
-    let runs: { sandboxId: string; cmd: string; envs: Record<string, string> }[] = []
-
-    useInstaboxMachines({
-      runOnRunningMachine: async (_conn, sandboxId, cmd, envs) => {
-        runs.push({ sandboxId, cmd, envs })
-
-        return report
-      },
-    })
-    beforeAll(() => {
-      config.box.instabox = { apiKey: 'test-key' } as typeof config.box.instabox
-    })
-    afterAll(() => {
-      config.box.instabox = saved
-    })
-    beforeEach(() => {
-      report = '{"result":"removed"}'
-      runs = []
-      memory.rows('agent_devices').push({
-        userId: 'owner',
-        deviceId: 'device',
-        box: { provider: 'instabox', sandboxId: 'm_box' },
-      })
-    })
-
-    test('reclaims the home over instabox, the session id only in the environment', async () => {
-      const row = conversation({})
-
-      expect(await reclaimSessionHomes(now)).toBe(1)
-      expect(row.sessionHomeReclaimedAt).toEqual(now)
-      expect(runs).toHaveLength(1)
-      expect(runs[0]?.sandboxId).toBe('m_box')
-      expect(runs[0]?.cmd).not.toContain('conversation')
-      expect(JSON.parse(runs[0]?.envs.RECLAIM_PARAMS ?? '{}')).toEqual({
-        sessionId: 'conversation',
-      })
-      expect(runs[0]?.envs.RECLAIM_RUNNER).toBe(RECLAIM_SESSION_HOME_PROGRAM)
-    })
-
-    test('retries while a process still uses the home', async () => {
-      report = '{"result":"in_use"}'
-      const row = conversation({})
-
-      expect(await reclaimSessionHomes(now)).toBe(0)
-      expect(row.sessionHomeReclaimedAt).toBeUndefined()
-    })
-
-    // A move to an agent on another computer leaves the old home on the Box.
+  describe('a move off a computer', () => {
     const moved = (to: string) =>
       conversation({
         archivedAt: undefined,
@@ -512,25 +504,25 @@ describe('reclaimSessionHomes', () => {
         },
       })
 
-    test('reclaims the home a moved conversation left on its old Box', async () => {
+    test('reclaims the home a moved conversation left on its old computer', async () => {
       const row = moved('local_owner_laptop')
 
       expect(await reclaimSessionHomes(now)).toBe(1)
       expect(row.sessionHomeReclaimedAt).toEqual(now)
-      expect(runs.map((run) => run.sandboxId)).toEqual(['m_box'])
+      expect(jobs.map((job) => job.runtimeId)).toEqual([LOCAL])
     })
 
-    test('a move between agents on one Box reclaims nothing: the new agent uses that home', async () => {
+    test('a move between agents on one computer reclaims nothing: the new agent uses that home', async () => {
       const row = moved(`${LOCAL}_codex`)
 
       expect(await reclaimSessionHomes(now)).toBe(1)
       expect(row.sessionHomeReclaimedAt).toEqual(now)
-      expect(runs).toEqual([])
+      expect(jobs).toEqual([])
     })
 
-    test('retries while the Box is not running', async () => {
-      report = undefined
-      const row = conversation({})
+    test('retries while the old computer is offline', async () => {
+      offline = [LOCAL]
+      const row = moved('local_owner_laptop')
 
       expect(await reclaimSessionHomes(now)).toBe(0)
       expect(row.sessionHomeReclaimedAt).toBeUndefined()
