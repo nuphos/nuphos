@@ -25,6 +25,7 @@
     "vite.config.ts",
     "electron/**/*.ts",
     "scripts/build-sidebar-gestures.ts",
-    "scripts/windows-npm-claude-spawn.ts"
+    "scripts/windows-npm-claude-spawn.ts",
+    "scripts/windows-codex-login-link.ts"
   ]
 }

@@ -16,7 +16,7 @@ import { invalidateCloudflareAccessToken } from '@/lib/byos/cloudflare-oauth'
 import { decryptCloudflareApiKey } from '@/lib/byos/secrets'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
-import { requireCanDisconnect, requireTeamRole } from '@/middleware/auth'
+import { disconnectBinding, requireCanDisconnect, requireTeamRole } from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 import { accountHandleFor, parseCloudflareIdParam } from '@/routes/cloudflare-accounts/shared'
 
@@ -78,13 +78,7 @@ export function registerCloudflareAdminRoutes(
       const accountId = c.get('cloudflareAccountId')
       const binding = c.get('cloudflareBinding')
 
-      await teamByosBindings().updateOne(
-        { _id: teamId },
-        {
-          $pull: { cloudflareAccounts: { accountId } },
-          $set: { updatedAt: new Date() },
-        },
-      )
+      await disconnectBinding(c, teamId, 'cloudflareAccounts', { accountId })
       invalidateCloudflareAccessToken(teamId, binding.id)
 
       return c.body(null, 204)
