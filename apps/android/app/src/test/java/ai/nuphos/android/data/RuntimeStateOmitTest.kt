@@ -34,5 +34,4 @@ class RuntimeStateOmitTest {
         ChannelSession.Api("synthetic", "507f1f77bcf86cd799439011", "fixture-chat").detail(50)
         assertEquals(listOf("omit"), runtimeStates)
     }
-
 }
