@@ -10,7 +10,9 @@ import java.time.Instant
 @Serializable
 data class ChannelAgent(val sessionId: String, val title: String = "", val ownerId: String? = null, val provider: String? = null,
     /** Its face, which every member of the chat reads, whoever owns the Bot. */
-    val avatar: String? = null)
+    val avatar: String? = null,
+    /** The tint its face sits on; null for none. */
+    val avatarBackground: String? = null)
 
 @Serializable
 data class ChannelAgentsEnvelope(val agents: List<ChannelAgent> = emptyList())
