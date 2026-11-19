@@ -14,6 +14,7 @@ import {
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import {
+  disconnectBinding,
   requireCanDisconnect,
   requireLinearMemberAccess,
   requireLinearWorkspace,
@@ -138,13 +139,7 @@ bindingScoped.delete(
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
     const binding = c.get('linearBinding')
 
-    await teamByosBindings().updateOne(
-      { _id: teamId },
-      {
-        $pull: { linearWorkspaces: { id: binding.id } },
-        $set: { updatedAt: new Date() },
-      },
-    )
+    await disconnectBinding(c, teamId, 'linearWorkspaces', { id: binding.id })
     invalidateAccessToken(teamId, binding.id)
 
     return c.body(null, 204)

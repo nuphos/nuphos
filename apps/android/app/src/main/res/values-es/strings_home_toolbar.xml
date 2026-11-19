@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_toolbar_runtimes">Equipos y entornos de ejecución</string>
+    <string name="home_toolbar_switch_team">Cambiar de equipo</string>
+    <string name="home_toolbar_choose_team">Elegir equipo</string>
+    <string name="home_toolbar_create">Crear</string>
+    <string name="home_toolbar_new_bot">Nuevo bot</string>
+    <string name="home_toolbar_new_task">Nueva tarea</string>
+    <string name="home_toolbar_account">Cuenta</string>
+    <string name="home_toolbar_close_workspace">Cerrar la página del espacio de trabajo</string>
+</resources>

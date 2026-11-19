@@ -15,8 +15,8 @@ struct RuntimeSetupGuide: View {
                             HStack(alignment: .top, spacing: 12) {
                                 LucideIcon("box").foregroundStyle(Theme.body).padding(.top, 2)
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text("Nuphos computer").font(.callout.weight(.medium)).foregroundStyle(Theme.heading)
-                                    Text("A Linux computer Nuphos runs for you, with Claude Code, Codex, OpenCode and other agents. Sign in with your own account.")
+                                    Text("Rent a computer from Nuphos").font(.callout.weight(.medium)).foregroundStyle(Theme.heading)
+                                    Text("Nuphos runs it for you, with Claude Code, Codex, OpenCode and more.")
                                         .font(.footnote).foregroundStyle(Theme.body).multilineTextAlignment(.leading)
                                 }
                                 Spacer(minLength: 0)

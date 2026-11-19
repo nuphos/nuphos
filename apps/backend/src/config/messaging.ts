@@ -11,6 +11,8 @@ export function messagingConfig() {
       signingSecret: optional('SLACK_SIGNING_SECRET'),
       botToken: optional('SLACK_BOT_TOKEN'),
       botUserId: optional('SLACK_BOT_USER_ID'),
+      // Only the end-to-end tests point this at a fake Slack.
+      apiBaseUrl: optional('SLACK_API_BASE_URL') ?? 'https://slack.com/api',
       agentUserId: optional('SLACK_AGENT_USER_ID'),
       oauth: {
         clientId: optional('SLACK_OAUTH_CLIENT_ID'),
