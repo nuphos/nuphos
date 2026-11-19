@@ -1,7 +1,7 @@
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { AppError } from '@/lib/errors'
 
-import { OUTDATED_HOST_HINT, hostOutdated, updateAvailable } from './host-minimum-version'
+import { hostUpdateHint } from './host-minimum-version'
 import { agentHostAway } from './openab-acp-connect'
 import { turnFailureCause } from './openab-acp-errors'
 
@@ -45,12 +45,12 @@ export async function noteOutdated(
   local: { userId: string; deviceId: string } | undefined,
 ): Promise<void> {
   if (!local || !(error instanceof Error) || isRuntimeRefusal(error)) return
-  const behind = await runtimePresenceStore()
+  const hint = await runtimePresenceStore()
     .get(local.userId, local.deviceId)
-    .then(async (present) => Boolean(hostOutdated(present)) || (await updateAvailable(present)))
-    .catch(() => false)
+    .then(hostUpdateHint)
+    .catch(() => undefined)
 
-  if (behind) error.message += `\n\n${OUTDATED_HOST_HINT}`
+  if (hint) error.message += `\n\n${hint}`
 }
 
 /** The message waits in the session queue: the expected outcome, not a failure. */

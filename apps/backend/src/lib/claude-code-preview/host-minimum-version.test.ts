@@ -4,7 +4,13 @@ import { describe, expect, test } from 'bun:test'
 
 import { createMemoryPresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 
-import { MINIMUM_HOST_VERSION, hostOutdated, updateAvailable } from './host-minimum-version'
+import {
+  MINIMUM_HOST_VERSION,
+  hostOutdated,
+  updateAvailable,
+  DESKTOP_UPDATE_READY_HINT,
+  withOutdatedHint,
+} from './host-minimum-version'
 import { ownComputer } from './session-desktops'
 
 import type { LocalRuntimeStatus } from '@/lib/agent/devices/local-runtime/protocol'
@@ -50,7 +56,7 @@ describe('the oldest Nuphos a computer may run', () => {
 
 // The floor only says a computer should update: nothing refuses a turn or a runtime start for it.
 describe('a computer below the floor', () => {
-  test('is read only by the computer card', () => {
+  test('is used only for update notices, never to block runtime operations', () => {
     const src = `${import.meta.dir}/../..`
     const readers = [...new Bun.Glob('**/*.ts').scanSync(src)].filter(
       (file) =>
@@ -64,6 +70,7 @@ describe('a computer below the floor', () => {
       new Set([
         'lib/claude-code-preview/preview-transcript.ts',
         'lib/claude-code-preview/runtime-refusal.ts',
+        'lib/agent/channel-wake.ts',
         'lib/claude-code-preview/session-desktops.ts',
       ]),
     )
@@ -119,4 +126,13 @@ describe('whether a newer Nuphos is out for a computer', () => {
       await updateAvailable({ client: 'nuphos-cli/0.22.0' }, () => Promise.resolve(null)),
     ).toBe(false)
   })
+})
+
+test('a Bot update hint neither repeats a product error nor exposes a raw error', () => {
+  const shown = `A runtime could not start. ${DESKTOP_UPDATE_READY_HINT}`
+  const error = new Error(`internal path and RPC detail\n\n${DESKTOP_UPDATE_READY_HINT}`)
+
+  expect(withOutdatedHint(shown, error)).toBe(shown)
+  expect(withOutdatedHint(undefined, error)).toBe(DESKTOP_UPDATE_READY_HINT)
+  expect(withOutdatedHint(undefined, new Error('internal path'))).toBeUndefined()
 })

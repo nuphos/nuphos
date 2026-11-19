@@ -6,7 +6,10 @@ import { beforeEach, expect, test } from 'bun:test'
 
 import type { UIMessage } from 'ai'
 
-import { OUTDATED_HOST_HINT } from '@/lib/claude-code-preview/host-minimum-version'
+import {
+  DESKTOP_UPDATE_READY_HINT,
+  DESKTOP_OUTDATED_HINT,
+} from '@/lib/claude-code-preview/host-minimum-version'
 import { classifyPreviewInterruption } from '@/lib/claude-code-preview/preview-transcript'
 import { OpenAbRpcError } from '@/lib/claude-code-preview/openab-acp-errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
@@ -111,8 +114,8 @@ test('a failed turn on a Desktop with a newer release waiting says Nuphos there 
 
   expect(error).toBeInstanceOf(Error)
   expect((error as Error).message).toContain(restoreFailed)
-  expect((error as Error).message).toContain(OUTDATED_HOST_HINT)
-  expect(summary).toBe(`The agent failed before it could answer. ${OUTDATED_HOST_HINT}`)
+  expect((error as Error).message).toContain(DESKTOP_UPDATE_READY_HINT)
+  expect(summary).toBe(`The agent failed before it could answer. ${DESKTOP_UPDATE_READY_HINT}`)
 })
 
 test('a failed turn on an up-to-date Desktop keeps its error as it was', async () => {
@@ -131,7 +134,7 @@ test('a turn that succeeds on a Desktop behind the latest release is not touched
   await runClaudeCodePreviewChatTurn(run)
 
   expect(finished).toBe(1)
-  expect(run.run.frames.join('')).not.toContain(OUTDATED_HOST_HINT)
+  expect(run.run.frames.join('')).not.toContain(DESKTOP_UPDATE_READY_HINT)
 })
 
 test('a failed turn on a Desktop below the support floor says so, though it reports no update', async () => {
@@ -140,8 +143,8 @@ test('a failed turn on a Desktop below the support floor says so, though it repo
   const error = await runClaudeCodePreviewChatTurn(localTurn('run-floor')).catch((e: unknown) => e)
 
   expect((error as Error).message).toContain(restoreFailed)
-  expect((error as Error).message).toContain(OUTDATED_HOST_HINT)
-  expect(summary).toContain(OUTDATED_HOST_HINT)
+  expect((error as Error).message).toContain(DESKTOP_OUTDATED_HINT)
+  expect(summary).toContain(DESKTOP_OUTDATED_HINT)
 })
 
 test('a usage limit on a computer with an update waiting still reads as a usage limit', async () => {
@@ -158,4 +161,25 @@ test('a usage limit on a computer with an update waiting still reads as a usage 
 
   expect(frame.errorCode).toBe('runtime_usage_exhausted')
   expect(frame.errorText).toBe("You've hit your session limit · resets 4:20am (UTC)")
+})
+
+test('a staged Desktop update explicitly says the download is ready and to quit and reopen', async () => {
+  presence = behind
+  const error = await runClaudeCodePreviewChatTurn(localTurn('run-ready-copy')).catch(
+    (e: unknown) => e,
+  )
+
+  expect((error as Error).message).toContain(
+    'The downloaded update is ready. Quit and reopen Nuphos to install it.',
+  )
+})
+
+test('a downloading Desktop update never claims that the download is ready', async () => {
+  presence = desktop({ version: '0.123.0', update: { version: '0.130.5', ready: false } })
+  const error = await runClaudeCodePreviewChatTurn(localTurn('run-downloading')).catch(
+    (e: unknown) => e,
+  )
+
+  expect((error as Error).message).toContain(DESKTOP_OUTDATED_HINT)
+  expect((error as Error).message).not.toContain('The downloaded update is ready')
 })

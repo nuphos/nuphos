@@ -11,13 +11,16 @@ import type { Page } from 'playwright-core'
 
 // What the conversation shows for a failed turn there: its summary, then the out-of-date line.
 export const OUTDATED_LINE =
-  'The agent failed before it could answer. Nuphos on the computer running this agent is out of date. Update it there, then try again.'
+  'The agent failed before it could answer. Nuphos Desktop on this computer is out of date. The downloaded update is ready. Quit and reopen Nuphos to install it.'
+
+export const OUTDATED_FLOOR_LINE =
+  'The agent failed before it could answer. Nuphos Desktop on this computer is out of date. Check for updates in Help, then quit and reopen Nuphos.'
 
 // A new task starts on the runtime the last message went to. Sending one on the fixture agent
 // keeps the scenarios after these off the laptop, which has gone offline by then.
 export async function backOnFixture(page: Page, marker: string) {
   await newTask(page)
-  await page.getByRole('button', { name: /^Runtime:/ }).click()
+  await page.getByRole('button', { name: /^(?:Agent )?runtime:/i }).click()
   await page.getByRole('menu').getByText('E2E fixture agent').click()
   await pickInSubmenu(page, page.getByRole('menuitem', { name: /^E2E fixture agent.*Claude Code/ }))
   await send(page, `Back on the fixture E2E_DELIVERY:${marker}`)
@@ -41,12 +44,45 @@ export const outdatedTurnScenarios: Scenario[] = [
       try {
         // A new task starts on the laptop, whichever runtime the last one used.
         await newTask(page)
-        await page.getByRole('button', { name: /^Runtime:/ }).click()
+        await page.getByRole('button', { name: /^(?:Agent )?runtime:/i }).click()
         await page.getByRole('menu').getByText(LAPTOP).first().click()
         await pickInSubmenu(page, page.getByRole('menuitem', { name: /Claude Code/ }).last())
         await send(page, 'On the laptop behind the latest release')
         await page.getByText(OUTDATED_LINE).waitFor()
         await page.screenshot({ path: join(artifacts, 'behind-turn-error.png') })
+        // Use only APIs already present in Desktop 0.123, so the packaged-old-client
+        // verification exercises its unchanged chat renderer as well as its Task renderer.
+        await page.evaluate(async (teamId) => {
+          const runtimes = await window.api.atlasListRuntimeInstances(teamId)
+          const runtime = runtimes.find((item) => item.local?.deviceId === 'e2e-laptop')
+
+          if (!runtime) throw new Error('The old laptop runtime was not listed')
+          const bot = await window.api.agentCreateBot(teamId, {
+            title: 'Update reminder',
+            runtimeId: runtime.id,
+            agentRuntime: 'claude-code',
+          })
+          const chat = await window.api.agentCreateChannel(teamId)
+
+          await window.api.agentAddChannelAgent(chat.sessionId, teamId, bot.sessionId)
+          await window.api.agentWakeChannelAgent(chat.sessionId, teamId, bot.sessionId)
+        }, stack.teamId)
+        await page.reload()
+        await page.getByRole('tab', { name: /^Bots/ }).click()
+        await page
+          .locator('[data-sidebar-row]')
+          .filter({ hasText: 'Update reminder' })
+          .first()
+          .click()
+        await send(page, 'Explain the update waiting on this computer')
+        await page
+          .getByText(/couldn’t reply:.*Nuphos Desktop on this computer is out of date/)
+          .waitFor()
+        await page
+          .getByText(/The downloaded update is ready. Quit and reopen Nuphos/)
+          .last()
+          .waitFor()
+        await page.screenshot({ path: join(artifacts, 'behind-bot-error.png') })
         await backOnFixture(page, 'after-behind')
       } finally {
         goOffline()

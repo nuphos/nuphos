@@ -68,4 +68,39 @@ export async function updateAvailable(
 
 /** What a failed turn adds when the computer that ran it is out of date. */
 export const OUTDATED_HOST_HINT =
-  'Nuphos on the computer running this agent is out of date. Update it there, then try again.'
+  'Nuphos on this computer is out of date. Update it there, then try again.'
+
+export const DESKTOP_UPDATE_READY_HINT =
+  'Nuphos Desktop on this computer is out of date. The downloaded update is ready. Quit and reopen Nuphos to install it.'
+export const DESKTOP_OUTDATED_HINT =
+  'Nuphos Desktop on this computer is out of date. Check for updates in Help, then quit and reopen Nuphos.'
+
+/** Only claim a download is ready when the Desktop has reported it staged. */
+export async function hostUpdateHint(
+  presence: Pick<LocalRuntimePresence, 'client' | 'status'> | null,
+): Promise<string | undefined> {
+  if (!hostOutdated(presence) && !(await updateAvailable(presence))) return
+  const app = presence?.status?.app
+
+  if (!app && !presence?.client?.startsWith('nuphos-desktop/')) return OUTDATED_HOST_HINT
+
+  return app?.update?.ready && newerRuntimeVersion(app.update.version, app.version)
+    ? DESKTOP_UPDATE_READY_HINT
+    : DESKTOP_OUTDATED_HINT
+}
+
+/** Preserve only the known product sentence, never the underlying runtime error. */
+export function outdatedHint(error: unknown): string | undefined {
+  if (!(error instanceof Error)) return
+
+  return [DESKTOP_UPDATE_READY_HINT, DESKTOP_OUTDATED_HINT, OUTDATED_HOST_HINT].find((hint) =>
+    error.message.endsWith(hint),
+  )
+}
+
+/** A Bot's plain reason may already include the hint when it came from an AppError. */
+export function withOutdatedHint(message: string | undefined, error: unknown): string | undefined {
+  const hint = outdatedHint(error)
+
+  return hint && !message?.endsWith(hint) ? [message, hint].filter(Boolean).join(' ') : message
+}
