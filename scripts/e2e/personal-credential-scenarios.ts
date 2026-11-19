@@ -59,6 +59,9 @@ export const personalCredentialScenarios: Scenario[] = [
     // the selection. They now follow the connector rule: ticked in a new chat, refused by a list
     // without them, and kept by a conversation that never stored a list.
     name: 'a Google Personal Credential follows the connector rule: default, unticked, and no list',
+    // The handout's own answers: refused when unticked, and with no Google client in this stack.
+    expected:
+      /personal-credentials\/google-calendar\/token".*"error_code":"(personal_credential_not_selected|google_oauth_client_not_configured)"/,
     run: async (page, stack) => {
       const owner = client(stack.apiUrl, stack.token)
       const me = (await owner('GET', '/auth/me')).body as { user?: { id: string }; id?: string }
