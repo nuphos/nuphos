@@ -124,7 +124,7 @@ export function installAgentCli(
   // Only the npm installs can find nothing to run: this computer has no Node.js.
   if (!command)
     return Promise.reject(
-      new Error('Install Node.js from https://nodejs.org on this computer, then try again.'),
+      new Error('Install Node.js from https://nodejs.org there, then try again.'),
     )
 
   return new Promise((resolve, reject) => {

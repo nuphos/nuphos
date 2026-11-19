@@ -207,7 +207,7 @@ export async function localAgentNotInstalled(
     return new AppError(
       409,
       'runtime_install_failed',
-      `Could not install ${runtimeLabel(ref.provider)} on the computer running this agent: ${agent.cli.installError}`,
+      `Couldn't install ${runtimeLabel(ref.provider)} on this runtime's computer: ${agent.cli.installError}`,
     )
 
   const name = runtimeLabel(ref.provider)
@@ -217,8 +217,8 @@ export async function localAgentNotInstalled(
     409,
     'runtime_not_installed',
     ref.provider === 'antigravity'
-      ? `${name} is not installed on the computer running this agent. Install the ${name} app there from https://antigravity.google, then try again.`
-      : `${name} is not installed on the computer running this agent. Update Nuphos on that computer so it installs ${name}, then try again.`,
+      ? `${name} isn't installed on this runtime's computer. Install the ${name} app there from https://antigravity.google, then try again.`
+      : `${name} isn't installed on this runtime's computer. Update Nuphos there so it can install ${name}, then try again.`,
   )
 }
 
