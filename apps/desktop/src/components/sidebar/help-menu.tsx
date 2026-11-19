@@ -1,3 +1,4 @@
+import clsx from 'clsx'
 import { ArrowDown, ArrowUpRight, CircleHelp, Keyboard, Palette } from 'lucide-react'
 import { useState } from 'react'
 
@@ -20,8 +21,6 @@ import { StatusDot } from '../ui/status-dot'
 import { useChangelog } from '../useChangelog'
 import { useReadyUpdate } from '../useReadyUpdate'
 import { WhatsNewReader } from '../WhatsNewReader'
-
-import { UpdatePill } from './update-pill'
 
 import type { ChangelogEntry } from '../../types/team'
 import type { ReadyUpdate } from '../readyUpdate'
@@ -111,6 +110,35 @@ function UpdateItems({ update, onUpdate }: { update: ReadyUpdate; onUpdate: () =
   )
 }
 
+/** Help, or a filled arrow while an update waits; its menu offers the restart. */
+function HelpTrigger({ update, unread }: { update: ReadyUpdate | null; unread: boolean }) {
+  return (
+    <MenuTrigger
+      className={clsx(
+        'titlebar-no-drag relative flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full outline-none transition-colors',
+        update
+          ? 'update-notif-enter bg-action-primary text-inverse shadow-sm shadow-black/25 hover:bg-action-primary/90'
+          : 'text-tertiary hover:bg-[var(--sidebar-overlay-hover)] hover:text-secondary data-[popup-open]:bg-[var(--sidebar-overlay-active)]',
+      )}
+      aria-label={
+        update ? t('Update ready — version {version}', { version: update.version }) : t('Help')
+      }
+      title={
+        update ? t('Update ready — version {version}', { version: update.version }) : t('Help')
+      }
+    >
+      {update ? (
+        <ArrowDown className="h-3.5 w-3.5" strokeWidth={2.4} />
+      ) : (
+        <CircleHelp className="h-4 w-4" strokeWidth={1.8} />
+      )}
+      {!update && unread && (
+        <StatusDot tone="unread" label={t("What's new")} className="absolute right-0 top-0" />
+      )}
+    </MenuTrigger>
+  )
+}
+
 export function SidebarHelpMenu({ onOpenShortcutsHelp }: { onOpenShortcutsHelp?: () => void }) {
   const changelog = useChangelog()
   const update = useReadyUpdate()
@@ -123,22 +151,12 @@ export function SidebarHelpMenu({ onOpenShortcutsHelp }: { onOpenShortcutsHelp?:
 
   return (
     <>
-      {update && <UpdatePill update={update} onUpdate={askToUpdate} />}
       <Menu
         onOpenChange={(open) => {
           if (open) changelog.markSeen()
         }}
       >
-        <MenuTrigger
-          className="titlebar-no-drag relative flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-tertiary outline-none transition-colors hover:bg-[var(--sidebar-overlay-hover)] hover:text-secondary data-[popup-open]:bg-[var(--sidebar-overlay-active)]"
-          aria-label={t('Help')}
-          title={t('Help')}
-        >
-          <CircleHelp className="h-4 w-4" strokeWidth={1.8} />
-          {changelog.unread && (
-            <StatusDot tone="unread" label={t("What's new")} className="absolute right-0 top-0" />
-          )}
-        </MenuTrigger>
+        <HelpTrigger update={update} unread={changelog.unread} />
         <MenuContent side="top" align="end" sideOffset={8} className="w-[300px]">
           {update && (
             <>
@@ -181,6 +199,7 @@ export function SidebarHelpMenu({ onOpenShortcutsHelp }: { onOpenShortcutsHelp?:
           )}
           confirmLabel={t('Update')}
           cancelLabel={t('Not now')}
+          icon={<ArrowDown className="h-4 w-4" strokeWidth={2} />}
           onConfirm={update.install}
           onClose={() => setAsking(false)}
         />
