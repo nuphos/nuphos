@@ -2911,6 +2911,52 @@
         }
       }
     },
+    "Administrators rent computers from Nuphos." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los administradores alquilan computadoras de Nuphos."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Administrator menyewa komputer dari Nuphos."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos からのコンピューターのレンタルは管理者が行います。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos 컴퓨터 대여는 관리자가 합니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ผู้ดูแลระบบเป็นผู้เช่าคอมพิวเตอร์จาก Nuphos"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "由管理员向 Nuphos 租用电脑。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "由管理員向 Nuphos 租用電腦。"
+          }
+        }
+      }
+    },
     "After signing in, copy the code shown on the page and paste it here." : {
       "localizations" : {
         "es" : {
@@ -8769,6 +8815,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "無法刪除電腦"
+          }
+        }
+      }
+    },
+    "Could not load computers." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudieron cargar las computadoras."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak dapat memuat komputer."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コンピュータを読み込めませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "컴퓨터를 불러올 수 없습니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่สามารถโหลดคอมพิวเตอร์"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法加载电脑。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法載入電腦。"
           }
         }
       }
