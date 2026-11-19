@@ -322,11 +322,13 @@ test('a picked alias records the model its picker names, not the alias', async (
   expect(await picked('claude-opus-5')).toBe('claude-opus-5')
   // Another runtime's model id is kept as picked.
   expect(await picked('opencode/big-pickle')).toBe('opencode/big-pickle')
-  // A default whose label names no model is unknown, never "default".
-  preview = { runtimeDefaults: { model: 'default' } }
-  inserted.length = 0
-  await writeRuntimeTurnUsage(turn)
-  expect(inserted.find((row) => row.kind === 'step_total')?.modelId).toBe('unknown')
+  // A Claude alias whose picker names no model is unknown, never the alias.
+  for (const alias of ['default', 'opus', 'fable']) {
+    preview = { runtimeDefaults: { model: alias } }
+    inserted.length = 0
+    await writeRuntimeTurnUsage(turn)
+    expect(inserted.find((row) => row.kind === 'step_total')?.modelId).toBe('unknown')
+  }
 })
 
 test('a quota whose models report nothing countable falls back to its usage', async () => {

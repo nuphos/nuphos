@@ -1,8 +1,8 @@
 /**
  * Rename Claude Code picker aliases (`default`, `opus`, `sonnet`, …) on
  * historical agent_token_usage rows to the model each session's picker names,
- * the same way new turns are recorded (resolveModelAlias). A `default` its
- * picker does not name becomes `unknown`; any other alias it cannot read stays.
+ * the same way new turns are recorded (resolveModelAlias). An alias its picker
+ * does not name becomes `unknown`, so no alias is left.
  *
  * DRY RUN BY DEFAULT — it writes nothing unless you pass --apply.
  *

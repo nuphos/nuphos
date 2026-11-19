@@ -83,14 +83,16 @@ async function turnModelId(sessionId: string, teamId: string): Promise<string> {
  * The model a session's picker is on, as a model id. Claude Code offers aliases
  * (`default`, `opus`, `sonnet`, …) that move with each release, so an alias is
  * read through the label the runtime gave it, "Opus 5.5" → `claude-opus-5-5`;
- * `default` names its model in the description, and is `unknown` when it does
- * not. Any other value, such as another runtime's `opencode/big-pickle`, is kept.
+ * `default` names its model in the description. A Claude alias no label names
+ * is `unknown`; any other value, such as `opencode/big-pickle`, is kept.
  */
 export function pickedModelId(attachment?: Parameters<typeof storedPick>[0]): string {
   const value = storedPick(attachment).model
 
   return value ? resolveModelAlias(value, attachment?.sessionConfig) : 'unknown'
 }
+
+const CLAUDE_FAMILIES = 'opus|sonnet|haiku|fable|mythos'
 
 /** `value` as a model id, read through `sessionConfig`'s labels when it is an alias. */
 export function resolveModelAlias(value: string, sessionConfig?: SessionConfigOption[]): string {
@@ -99,13 +101,14 @@ export function resolveModelAlias(value: string, sessionConfig?: SessionConfigOp
   const choice = sessionConfig
     ?.find((option) => option.kind === 'model')
     ?.options.find((option) => option.value === value)
-  const named = /^(opus|sonnet|haiku|fable|mythos) (\d+(?:\.\d+)*)$/i.exec(
+  const named = new RegExp(`^(${CLAUDE_FAMILIES}) (\\d+(?:\\.\\d+)*)$`, 'i').exec(
     (value === 'default' ? choice?.description : choice?.name)?.trim() ?? '',
   )
 
   if (named) return `claude-${named[1].toLowerCase()}-${named[2].replaceAll('.', '-')}`
 
-  return value === 'default' ? 'unknown' : value
+  // A Claude alias the picker does not name is unknown, never shown as the alias.
+  return new RegExp(`^(default|${CLAUDE_FAMILIES})$`, 'i').test(value) ? 'unknown' : value
 }
 
 // claude-agent-acp and codex-acp send the uncached remainder as ACP `inputTokens`;
