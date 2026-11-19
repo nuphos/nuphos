@@ -3,9 +3,11 @@ import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
+import { t } from '../i18n'
 import { setAvatarApiOrigin } from '../lib/avatarUrl'
 
 const DEFAULT_API_URL = 'https://api.nuphos.ai'
+const EXAMPLE_URL = 'https://nuphos.example.com'
 
 type Props = { inputClassName: string; onChange: () => void }
 
@@ -32,7 +34,10 @@ export function LoginApiEndpoint({ inputClassName, onChange }: Props) {
 
   async function save(url: string | null) {
     if (url !== null && !isHttpUrl(url)) {
-      toast.error('Invalid API endpoint', 'Enter a full URL, e.g. https://nuphos.example.com')
+      toast.error(
+        t('Invalid API endpoint'),
+        t('Enter a full URL, e.g. {url}', { url: EXAMPLE_URL }),
+      )
 
       return
     }
@@ -54,7 +59,9 @@ export function LoginApiEndpoint({ inputClassName, onChange }: Props) {
         }}
         className="mt-6 text-[12px] text-tertiary hover:text-secondary titlebar-no-drag"
       >
-        {custom ? `Server: ${new URL(current).host} · Change` : 'Self-hosted? Set API endpoint'}
+        {custom
+          ? t('Server: {host} · Change', { host: new URL(current).host })
+          : t('Self-hosted? Set API endpoint')}
       </button>
     )
   }
@@ -71,13 +78,13 @@ export function LoginApiEndpoint({ inputClassName, onChange }: Props) {
         type="url"
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        placeholder="https://nuphos.example.com"
+        placeholder={EXAMPLE_URL}
         autoFocus
         className={inputClassName}
       />
       <div className="flex items-center gap-2">
         <Button type="submit" size="sm" disabled={!value.trim()} className="titlebar-no-drag">
-          Save
+          {t('Save')}
         </Button>
         {custom && (
           <Button
@@ -87,7 +94,7 @@ export function LoginApiEndpoint({ inputClassName, onChange }: Props) {
             onClick={() => void save(null)}
             className="titlebar-no-drag"
           >
-            Use Nuphos Cloud
+            {t('Use Nuphos Cloud')}
           </Button>
         )}
         <Button
@@ -97,7 +104,7 @@ export function LoginApiEndpoint({ inputClassName, onChange }: Props) {
           onClick={() => setEditing(false)}
           className="ml-auto titlebar-no-drag"
         >
-          Cancel
+          {t('Cancel')}
         </Button>
       </div>
     </form>
