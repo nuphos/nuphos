@@ -97,10 +97,17 @@ export function launchChromium(executable: string, profile: string): Browser {
   // Chromium will not start as root with its sandbox, as `nuphos agent` may run on a server.
   if (process.getuid?.() === 0) args.push('--no-sandbox')
   const child = spawn(executable, args, { stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe'] })
+  const write = child.stdio[3] as Writable
+  const read = child.stdio[4] as Readable
+
+  // A browser that dies resets its pipes: its exit ends the connection (cli-browser.ts), and an
+  // unheard error here would take `nuphos agent` down with it.
+  write.on('error', () => {})
+  read.on('error', () => {})
 
   return {
-    write: child.stdio[3] as Writable,
-    read: child.stdio[4] as Readable,
+    write,
+    read,
     exited: new Promise((resolve) => {
       child.once('exit', () => resolve())
       child.once('error', () => resolve())
