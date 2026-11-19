@@ -24,7 +24,7 @@ export function SlackAccountsCard({
         <div className="text-[13px] font-medium text-main">{t('Slack accounts')}</div>
         <div className="mt-0.5 text-[12px] text-tertiary">
           {t(
-            'Which Nuphos user it acts as when someone @mentions Nuphos. Usually auto-linked by email on install.',
+            "Once linked, your Slack messages count as you in Nuphos, so you're treated as the owner of your Bots. Usually linked automatically by email.",
           )}
         </div>
       </div>
