@@ -95,13 +95,11 @@ struct HomeView: View {
                         .accessibilityLabel("Switch team")
                     }
                 }
+                // One item, not a group: on an iPhone, iOS 27 folds a group into "More",
+                // and Account and Computers went with it.
                 if sizeClass != .regular || openChat != nil {
-                    if #available(iOS 27, *) {
-                            ToolbarItemGroup(placement: .topBarTrailing) { homeActions }
-                        } else {
-                            ToolbarItem(placement: .topBarTrailing) {
-                                HStack(spacing: 0) { homeActions }.buttonStyle(.plain)
-                            }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        HStack(spacing: 0) { homeActions }.buttonStyle(.plain)
                     }
                 }
             }
