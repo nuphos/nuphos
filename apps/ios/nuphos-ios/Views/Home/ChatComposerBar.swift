@@ -27,8 +27,6 @@ struct ChatComposerBar<Controls: View>: View {
     var recipient: String? = nil
     /// Each change raises the keyboard, as choosing to reply does.
     var focusRequest = 0
-    var autoFocus = false
-    @State private var didAutoFocus = false
     var onSend: (ComposerSubmission) -> Void
     var onStop: (() -> Void)? = nil
     /// Shown above the input while expanded (Credentials picker, permission mode).
@@ -313,12 +311,6 @@ struct ChatComposerBar<Controls: View>: View {
         }
         #endif
         .onChange(of: focusRequest) { focused = true }
-        .task(id: autoFocus) {
-            guard autoFocus, !didAutoFocus else { return }
-            do { try await Task.sleep(for: .milliseconds(350)) } catch { return }
-            focused = true
-            didAutoFocus = true
-        }
         .onChange(of: editRequest.wrappedValue != nil, initial: true) { _, requested in
             guard requested, let submission = editRequest.wrappedValue else { return }
             text = [submission.text, text].filter { !$0.isEmpty }.joined(separator: "\n\n")

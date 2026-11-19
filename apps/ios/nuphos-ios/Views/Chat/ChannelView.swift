@@ -206,7 +206,6 @@ struct ChannelView: View {
                 voiceTeamId: channel.teamId,
                 recipient: channel.title,
                 focusRequest: replyFocus,
-                autoFocus: channel.loaded && !channel.readOnly,
                 onSend: { channel.send($0) },
                 controls: { EmptyView() }
             )
@@ -309,7 +308,7 @@ struct ChannelView: View {
                     teamId: channel.teamId,
                     questions: channel.questions,
                     onAnswer: { channel.answer(question, with: $0) },
-                    onSkip: { channel.skip(question) },
+                    onDismiss: { channel.dismiss(question) },
                     onLink: open(link:))
             }
         }
@@ -499,7 +498,7 @@ private struct ChannelPostRow: View {
         AssistantMarkdown(text: SessionMention.named(post.text) { store.title(ofSession: $0) }, theme: AssistantMarkdown.bubbleTheme, keepsLineBreaks: true, selectionRequest: selectionRequest, onLink: onLink)
             .padding(.horizontal, 14)
             .padding(.vertical, 9)
-            .background(flashed ? Theme.brand.opacity(0.3) : mine ? Theme.brand.opacity(0.14) : Theme.chatSurface,
+            .background(flashed ? Theme.brand.opacity(0.3) : mine ? Theme.brand.opacity(0.14) : Theme.sunken,
                         in: UnevenRoundedRectangle(cornerRadii: .init(
                             topLeading: !mine && first ? 6 : 18, bottomLeading: 18,
                             bottomTrailing: 18, topTrailing: mine && first ? 6 : 18), style: .continuous))
@@ -586,7 +585,7 @@ private struct TypingRow: View {
                     TypingDots()
                         .padding(.horizontal, 14)
                         .padding(.vertical, 12)
-                        .background(Theme.chatSurface, in: UnevenRoundedRectangle(cornerRadii: .init(
+                        .background(Theme.sunken, in: UnevenRoundedRectangle(cornerRadii: .init(
                             topLeading: 18, bottomLeading: 6, bottomTrailing: 18, topTrailing: 18), style: .continuous))
                         .scaleEffect(shown || reduceMotion ? 1 : 0.5, anchor: .bottomLeading)
                 }
@@ -645,7 +644,7 @@ struct ReplyChip: View {
         .padding(.leading, 12)
         .padding(.trailing, 8)
         .padding(.vertical, 8)
-        .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(Theme.sunken, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .padding(.horizontal, 16)
     }
 }

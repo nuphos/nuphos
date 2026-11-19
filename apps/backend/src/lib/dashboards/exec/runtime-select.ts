@@ -78,7 +78,7 @@ const defaultDeps: PanelRuntimeDeps = {
     (
       await Promise.all([
         ...OPENAB_PROVIDERS.map((provider) =>
-          resolveTeamRuntimeEndpoints(teamId, undefined, provider, 'control'),
+          resolveTeamRuntimeEndpoints(teamId, provider, 'control'),
         ),
         boxEndpoints(teamId, userId),
       ])
