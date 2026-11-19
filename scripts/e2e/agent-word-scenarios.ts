@@ -49,4 +49,41 @@ export const agentWordScenarios: Scenario[] = [
       await stats.click()
     },
   },
+  {
+    // Batch 3 of #3250: Settings describe Bots, tasks and runtimes.
+    name: 'Settings pages never say agent',
+    run: async (page) => {
+      const main = page.locator('main').last()
+      const said: string[] = []
+
+      for (const [settings, section, shot] of [
+        ['Team settings', 'Instructions', 'agent-words-team-instructions'],
+        ['User settings', 'Local runtime', 'agent-words-local-runtime'],
+        ['User settings', 'Personal Credentials', 'agent-words-personal-credentials'],
+      ]) {
+        await page
+          .getByRole('button', { name: /^Search/ })
+          .first()
+          .click()
+        await page.keyboard.type(settings!)
+        await page.getByRole('option', { name: settings }).first().click()
+        await page.getByRole('searchbox', { name: 'Search settings' }).fill(section!)
+        await page.keyboard.press('Enter')
+        await main.getByRole('heading').first().waitFor()
+        // The section loads its data after it opens; shoot it once it has settled.
+        await page.waitForTimeout(1_500)
+        await page.screenshot({ path: `${artifacts}/${shot!}.png` })
+        // ssh-agent, AGENTS.md and the host's log file are names, not agents.
+        const lines = (await main.innerText())
+          .split('\n')
+          .filter((line) =>
+            /\bagents?\b/i.test(line.replace(/ssh-agent|AGENTS\.md|nuphos-agent\.log/g, '')),
+          )
+
+        said.push(...lines.map((line) => `${section!}: ${line}`))
+        await page.getByRole('button', { name: 'Back to app' }).click()
+      }
+      if (said.length > 0) throw new Error(`Settings say agent: ${said.join(' | ')}`)
+    },
+  },
 ]

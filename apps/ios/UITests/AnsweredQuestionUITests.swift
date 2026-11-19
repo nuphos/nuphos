@@ -54,7 +54,6 @@ final class AnsweredQuestionUITests: XCTestCase {
         app.launch()
         let lines = app.buttons.matching(identifier: "answered.line")
         XCTAssertTrue(lines.firstMatch.waitForExistence(timeout: 10))
-        app.dismissAutoFocusedKeyboard()
         XCTAssertEqual(lines.count, 3, "One line per question answered")
         XCTAssertGreaterThanOrEqual(lines.firstMatch.frame.height, 44)
         let machine = NSPredicate(format: "label CONTAINS 'requestId' OR label CONTAINS 'About:' OR label CONTAINS 'Continue the task'")

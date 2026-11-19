@@ -15,7 +15,7 @@ class RuntimesStoreTest {
     @Test fun independentFailuresKeepCatalogButNeverStaleObservations() = runTest {
         var fail = false
         val quota = RuntimeQuota("cloud", true)
-        val device = RuntimeDevice("host", "Host", true, true, "live", 40.0, null, null)
+        val device = RuntimeDevice("host", "Host", true, RuntimeDevice.Box(null), "live", 40.0, null, null)
         val store = RuntimesStore(this, { true }, { listOf(cloud) },
             { if (fail) throw IOException() else mapOf("cloud" to quota) },
             { if (fail) throw IOException() else listOf(device) }, {})
@@ -47,7 +47,7 @@ class RuntimesStoreTest {
         val local = cloud.copy(id = "local", kind = "local", local = RuntimeHost("host", "Laptop", true))
         val other = local.copy(id = "other", local = null)
         val another = other.copy(id = "another")
-        val device = RuntimeDevice("host", "Synthetic Box", true, true, "live", null, null, null)
+        val device = RuntimeDevice("host", "Synthetic Box", true, RuntimeDevice.Box(null), "live", null, null, null)
         val groups = runtimeGroups(listOf(local, cloud, other, another), listOf(device))
         assertEquals("cloud", groups.first().key); assertEquals(4, groups.size)
         assertEquals("Synthetic Box", groups.first { it.key == "device:host" }.title)
