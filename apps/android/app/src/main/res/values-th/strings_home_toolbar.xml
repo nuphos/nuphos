@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_toolbar_runtimes">คอมพิวเตอร์และรันไทม์</string>
+    <string name="home_toolbar_switch_team">สลับทีม</string>
+    <string name="home_toolbar_choose_team">เลือกทีม</string>
+    <string name="home_toolbar_create">สร้าง</string>
+    <string name="home_toolbar_new_bot">บอทใหม่</string>
+    <string name="home_toolbar_new_task">งานใหม่</string>
+    <string name="home_toolbar_account">บัญชี</string>
+    <string name="home_toolbar_close_workspace">ปิดหน้าเวิร์กสเปซ</string>
+</resources>

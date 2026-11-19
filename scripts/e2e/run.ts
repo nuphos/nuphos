@@ -35,7 +35,9 @@ import { offlineScenarios } from './offline-scenarios.ts'
 import { personalCredentialScenarios } from './personal-credential-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
 import { providerUnreachableScenarios } from './provider-unreachable-scenarios.ts'
+import { proxyScenarios } from './proxy-scenarios.ts'
 import { questionScenarios } from './question-scenarios.ts'
+import { replyFileScenarios } from './reply-file-scenarios.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
 import { settingsHistoryScenarios } from './settings-history-scenarios.ts'
 import { sidebarPageScenarios } from './sidebar-page-scenarios.ts'
@@ -48,6 +50,7 @@ import { stepUpScenarios } from './step-up-scenarios.ts'
 import { teammateBotScenarios } from './teammate-bot-scenarios.ts'
 import { terminalScenarios } from './terminal-scenarios.ts'
 import { threadModeScenario, threadScenarios } from './thread-scenarios.ts'
+import { triggerHistoryScenarios } from './trigger-history-scenarios.ts'
 import { triggerScenarios } from './trigger-scenarios.ts'
 import { tunnelScenarios } from './tunnel-scenarios.ts'
 import { turnScenarios } from './turn-scenarios.ts'
@@ -126,10 +129,12 @@ const scenarios: Scenario[] = [
   ...sessionResourceScenarios,
   // Before the Stop scenarios: a Stop while its turn was being saved was lost (#3403).
   ...longTranscriptScenarios,
+  ...replyFileScenarios,
   ...agentWordScenarios,
   ...turnScenarios,
   ...questionScenarios,
   ...triggerScenarios,
+  ...triggerHistoryScenarios,
   ...usageScenarios,
   ...connectorScenarios,
   // Turns two-factor authentication on for this account, and off again.
@@ -158,6 +163,8 @@ const scenarios: Scenario[] = [
   ...splitPaneScenarios,
   // A second computer of its own, which it stops again.
   ...tunnelScenarios,
+  // Another app of its own per proxy, reaching the backend only through it, which it quits again.
+  ...proxyScenarios,
   ...terminalScenarios,
   ...cliBrowserScenarios,
   // Last: this computer has Claude Code from then on.

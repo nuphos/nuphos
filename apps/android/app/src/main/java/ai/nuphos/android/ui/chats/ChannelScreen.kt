@@ -99,7 +99,7 @@ import androidx.compose.ui.res.stringResource
 /** A chat opened from the list, a link or a notification. It never runs an agent turn. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Unit = {}) {
+fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Unit = {}, onOpenTask: ((String) -> Unit)? = null) {
     val store = LocalAgentStore.current
     val auth = LocalAuthSession.current
     val teamId = store.selectedTeam?.id
@@ -140,6 +140,10 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
     // A Bot's chat opens the Bot's desktop: its session, read and gated as on its Task screen.
     val botFace = session.faces.botFace?.takeIf { it.id == session.botId }
     val bot = remember(store, botFace?.id) { botFace?.let { store.session(it.id, it.name) } }
+    val taskWorkspace = store.workspaceRevision
+    val taskConsent = AiAccess.revision
+    val canOpenTask = botFace != null && auth.aiAllowed &&
+        ((viewerId != null && session.agents.any { it.sessionId == botFace.id && it.ownerId == viewerId }) || bot?.readAllowed == true)
     LaunchedEffect(bot, lifecycle) {
         if (bot == null) return@LaunchedEffect
         if (!bot.loaded) bot.load()
@@ -173,6 +177,12 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
                 },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.chats_back)) } },
                 actions = {
+                    if (canOpenTask && onOpenTask != null) IconButton(onClick = {
+                        if (auth.aiAllowed && AiAccess.revision == taskConsent && store.workspaceRevision == taskWorkspace &&
+                            store.selectedTeam?.id == session.teamId) botFace?.id?.let(onOpenTask)
+                    }, modifier = Modifier.testTag("bot-task-entry")) {
+                        Icon(androidx.compose.ui.res.painterResource(R.drawable.bot_task), stringResource(R.string.chat_task_fallback_title))
+                    }
                     if (bot?.canOpenDesktop == true) IconButton(onClick = { desktop = true }) { Icon(Icons.Outlined.DesktopWindows, stringResource(R.string.chats_desktop)) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
@@ -232,7 +242,7 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
     val typing = (items.lastOrNull() as? ChannelItem.Typing)?.agents.orEmpty()
     val reversed = items.filterNot { it is ChannelItem.Typing }.asReversed()
     val atLatest by remember { derivedStateOf { state.firstVisibleItemIndex == 0 && state.firstVisibleItemScrollOffset < 48 } }
-    var wasAtLatest by remember { mutableStateOf(true) }
+    var wasAtLatest by remember { mutableStateOf(atLatest) }
     val newest = reversed.firstOrNull()?.key
     // Follow a new post only when the reader was already at the end.
     LaunchedEffect(newest) { if (wasAtLatest && reversed.isNotEmpty()) state.scrollToItem(0) }
@@ -269,7 +279,11 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
         ChannelPostJump.pending.remove(session.channelId)?.let { id -> jump(ChannelReply(id, "", "")) }
     }
     // Your own send returns the transcript to the end.
-    LaunchedEffect(session.lastSubmittedKey) { if (session.lastSubmittedKey != null && reversed.isNotEmpty()) state.scrollToItem(0) }
+    var handledSubmission by androidx.compose.runtime.saveable.rememberSaveable(session.channelId) { mutableStateOf(session.lastSubmittedKey) }
+    LaunchedEffect(session.lastSubmittedKey) {
+        if (session.lastSubmittedKey != handledSubmission && session.lastSubmittedKey != null && reversed.isNotEmpty()) state.scrollToItem(0)
+        handledSubmission = session.lastSubmittedKey
+    }
     val scrollToLatest = stringResource(R.string.chats_scroll_to_latest)
     Box(Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize().testTag("channel-transcript"), state = state, reverseLayout = true,

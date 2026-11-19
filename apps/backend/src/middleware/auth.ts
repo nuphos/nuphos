@@ -1,5 +1,6 @@
 export * from '@/middleware/auth/accounts'
 export * from '@/middleware/auth/binding-access'
+export * from '@/middleware/auth/binding-disconnect'
 export * from '@/middleware/auth/cloud'
 export * from '@/middleware/auth/core'
 export * from '@/middleware/auth/integrations'
