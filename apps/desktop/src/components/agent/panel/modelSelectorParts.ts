@@ -50,7 +50,7 @@ export function modelHint(
     return t('This runtime is signed out on its computer. Sign in there to choose a model.')
   if (reason === 'undiscovered')
     return t(
-      'Couldn’t load this runtime’s models. Check its sign-in and update it, then try again.',
+      'Couldn’t load this runtime’s models. Make sure it’s signed in and up to date, then try again.',
     )
 }
 

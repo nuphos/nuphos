@@ -54,7 +54,7 @@ test('a picker with nothing to set says why, and nothing without a reason', () =
   )
   assert.equal(
     modelHint('dormant', false, false, false, 'undiscovered'),
-    'Couldn’t load this runtime’s models. Check its sign-in and update it, then try again.',
+    'Couldn’t load this runtime’s models. Make sure it’s signed in and up to date, then try again.',
   )
   assert.equal(modelHint('dormant', false, false, false), undefined, 'no reason, no hint')
   // Grok lists effort and no model: that effort applies when the session starts.

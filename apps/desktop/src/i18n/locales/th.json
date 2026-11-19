@@ -1347,7 +1347,7 @@
   "Couldn’t load the Google OAuth client.": "โหลดไคลเอนต์ Google OAuth ไม่ได้",
   "Couldn’t load the access history.": "โหลดประวัติการเข้าถึงไม่ได้",
   "Couldn’t load this computer.": "โหลดคอมพิวเตอร์เครื่องนี้ไม่ได้",
-  "Couldn’t load this runtime’s models. Check its sign-in and update it, then try again.": "โหลดโมเดลของรันไทม์นี้ไม่ได้ ตรวจสอบการลงชื่อเข้าใช้และอัปเดต แล้วลองอีกครั้ง",
+  "Couldn’t load this runtime’s models. Make sure it’s signed in and up to date, then try again.": "โหลดโมเดลของรันไทม์นี้ไม่ได้ ตรวจสอบว่าลงชื่อเข้าใช้แล้วและเป็นเวอร์ชันล่าสุด แล้วลองอีกครั้ง",
   "Couldn’t load token usage.": "โหลดการใช้โทเค็นไม่ได้",
   "Couldn’t load two-factor authentication.": "โหลดการยืนยันตัวตนแบบสองขั้นตอนไม่ได้",
   "Couldn’t load your Personal Credentials.": "ไม่สามารถโหลดข้อมูลรับรองส่วนตัวของคุณ",

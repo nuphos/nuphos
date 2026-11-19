@@ -61,7 +61,7 @@ export async function offeredSessionConfig(
 ): Promise<{
   options: SessionConfigOption[]
   kept: RuntimeDefaults
-  reason?: RuntimeModelCatalog['reason']
+  reason?: NonNullable<RuntimeModelCatalog['reason']>
 }> {
   let catalog = pick.model ? await catalogFor(pick.model).catch(() => {}) : undefined
 

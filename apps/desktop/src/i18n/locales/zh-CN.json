@@ -1347,7 +1347,7 @@
   "Couldn’t load the Google OAuth client.": "无法加载 Google OAuth 客户端。",
   "Couldn’t load the access history.": "无法加载访问记录。",
   "Couldn’t load this computer.": "无法加载这台电脑。",
-  "Couldn’t load this runtime’s models. Check its sign-in and update it, then try again.": "无法载入这个运行环境的模型。请检查它的登录状态并更新后再试。",
+  "Couldn’t load this runtime’s models. Make sure it’s signed in and up to date, then try again.": "无法载入这个运行环境的模型。请确认它已登录并更新到最新版本，再试一次。",
   "Couldn’t load token usage.": "无法加载 Token 用量。",
   "Couldn’t load two-factor authentication.": "无法加载双重验证。",
   "Couldn’t load your Personal Credentials.": "无法加载你的个人凭据。",
