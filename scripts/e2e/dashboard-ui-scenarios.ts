@@ -104,6 +104,14 @@ export const dashboardUiScenarios: Scenario[] = [
       })
       await page.getByTitle(/^Daily at/).waitFor()
       await shot(page, '2b-refresh-controls')
+      // The same toolbar on one row, with the panel expanded to the window.
+      await page.getByRole('button', { name: 'Expand workspace panel' }).click()
+      await page.getByRole('button', { name: 'Restore workspace panel' }).waitFor()
+      await page.waitForTimeout(500)
+      await shot(page, '2c-refresh-controls-expanded')
+      await page.getByRole('button', { name: 'Restore workspace panel' }).click()
+      await page.getByRole('button', { name: 'Expand workspace panel' }).waitFor()
+      await page.waitForTimeout(500)
       // The toolbar's Personal / Team menu, shown wherever the dashboard is open.
       await page.getByRole('button', { name: 'Personal', exact: true }).click()
       await page.getByRole('menuitem', { name: 'Team', exact: true }).waitFor()
