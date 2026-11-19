@@ -414,3 +414,23 @@ describe('nuphosSecretRule', () => {
     ])
   })
 })
+
+describe('InstaBox API keys', () => {
+  // Synthetic: the documented shape, `ibk_` and 52 characters, not a real key.
+  const FAKE_IBK = `ibk_${'0synthetic0fixture0'.repeat(3).slice(0, 52)}`
+
+  test('are masked as a token shape, so transcripts and memories catch them too', async () => {
+    expect(await redactTokenShapes(`export INSTABOX_API_KEY=${FAKE_IBK}`)).toBe(
+      'export INSTABOX_API_KEY=[REDACTED:instabox-api-key]',
+    )
+    expect((await redactSecrets(`curl -H "X-API-Key: ${FAKE_IBK}"`)).redacted).not.toContain(
+      FAKE_IBK,
+    )
+  })
+
+  test('other ibk_ words and the other InstaBox prefixes are left alone', async () => {
+    const text = 'ibk_short and ibk_ prefix docs, ssh ibssh_ and ?_token=ibp_ placeholders'
+
+    expect(await redactTokenShapes(text)).toBe(text)
+  })
+})

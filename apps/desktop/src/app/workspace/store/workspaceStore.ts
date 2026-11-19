@@ -1,3 +1,4 @@
+import { startChatSwitch } from '../../../lib/chatSwitch.ts'
 import { createWorkspaceTab } from '../../workspaceTabFactory.ts'
 
 import { workspaceReducer } from './workspaceReducer.ts'
@@ -100,6 +101,8 @@ export function createWorkspaceStore(
     const next = workspaceReducer(state, action, deps)
 
     if (next === state) return
+    if (next.sessionId && next.sessionId !== state.sessionId)
+      startChatSwitch(next.sessionId, action.type)
     state = next
     for (const listener of listeners) listener()
   }
