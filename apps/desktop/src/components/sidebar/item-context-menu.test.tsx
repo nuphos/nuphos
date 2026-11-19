@@ -53,6 +53,9 @@ function menuFor(row: Partial<AgentConversation>): MenuItem[] {
       calls.push(`archive ${sessionId}`)
     },
     confirmArchiveBot: ignore,
+    confirmLeaveTask: (sessionId) => {
+      calls.push(`confirm leave ${sessionId}`)
+    },
     unlinkChat: () => Promise.resolve(),
   }) as ReactElement<{ items: MenuItem[] }>
 
@@ -72,14 +75,15 @@ test('a group chat is left from its menu, by a member and by its owner', () => {
   }
 })
 
-test('a Task shared with you is left from its menu, only for you', () => {
+test('a Task shared with you is left from its menu after a confirmation, only for you', () => {
   const items = menuFor({ isOwner: false })
 
   assert.ok(items.some((item) => item.label === 'Leave task'))
   assert.ok(!items.some((item) => item.label.startsWith('Archive')))
   calls.length = 0
   items.find((item) => item.key === 'leave')?.onSelect()
-  assert.deepEqual(calls, ['leave chat-a team-a me'])
+  // Leaving may lose access, so it asks first instead of leaving at once.
+  assert.deepEqual(calls, ['confirm leave chat-a'])
 })
 
 test('a Task and a Bot keep Archive', () => {

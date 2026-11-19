@@ -1,18 +1,19 @@
-// A teammate's Task or group chat, hidden from your own list without archiving it for them (#3681).
+// A teammate's Task, hidden from your own list without archiving it for them (#3681).
 // The teammate sets things up through the API; the signed-in person leaves in the app.
 import { execFileSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { resolve } from 'node:path'
 
 import { joinTeam } from './dashboard-scenarios.ts'
+import { bothMenus, listed, rest, rowOf, stillGoneAfterReload } from './leave-helpers.ts'
 import { artifacts, until } from './processes.ts'
 
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
-import type { Locator, Page } from 'playwright-core'
+import type { Page } from 'playwright-core'
 
 const TASK = 'E2E shared Task to leave'
-const GROUP = 'E2E group chat to leave'
+const PRIVATE_TASK = 'E2E private Task to leave'
 const LAPTOP = 'e2e-leave-task-laptop'
 const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
 
@@ -57,85 +58,12 @@ async function laptopOnline(stack: Stack, token: string): Promise<() => void> {
   return () => tunnel.close()
 }
 
-function rest(stack: Stack, token: string) {
-  return async <T>(method: string, path: string, body?: unknown): Promise<T> => {
-    const response = await fetch(stack.apiUrl + path, {
-      method,
-      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    })
-    const text = await response.text()
-
-    if (!response.ok) throw new Error(`${method} ${path} answered ${response.status}: ${text}`)
-
-    return (text ? JSON.parse(text) : {}) as T
-  }
-}
-
-/** The ids one person lists, archived ones left out as the sidebar does. */
-async function listed(
-  stack: Stack,
-  token: string,
-  scope: 'mine' | 'shared',
-  kind?: 'channel',
-): Promise<string[]> {
-  const query = new URLSearchParams({
-    teamId: stack.teamId,
-    scope,
-    archived: 'exclude',
-    ...(kind ? { kind } : {}),
-  })
-  const page = await rest(stack, token)<{ conversations?: { sessionId: string }[] }>(
-    'GET',
-    `/agent/conversations?${String(query)}`,
-  )
-
-  return (page.conversations ?? []).map((conversation) => conversation.sessionId)
-}
-
-/** The row's actions, opened from its More button and from a right-click, captured both ways. */
-async function bothMenus(page: Page, row: Locator, title: string, shot: string) {
-  const items = () => page.getByRole('menuitem').allTextContents()
-
-  await row.hover()
-  await row.getByRole('button', { name: `More actions for ${title}` }).click()
-  await page.getByRole('menuitem').first().waitFor()
-  const fromButton = await items()
-
-  await page.screenshot({ path: `${artifacts}/${shot}-more-button.png` })
-  await page.keyboard.press('Escape')
-  await page.getByRole('menuitem').first().waitFor({ state: 'detached' })
-  await row.click({ button: 'right' })
-  await page.getByRole('menuitem').first().waitFor()
-  const fromRightClick = await items()
-
-  await page.screenshot({ path: `${artifacts}/${shot}-right-click.png` })
-  if (fromButton.join('|') !== fromRightClick.join('|'))
-    throw new Error(
-      `The More button offers ${fromButton.join(', ')} but a right-click ${fromRightClick.join(', ')}`,
-    )
-
-  return fromButton
-}
-
-const rowOf = (page: Page, title: string) =>
-  page.locator('aside [data-sidebar-row]').filter({ hasText: title }).first()
-
-async function stillGoneAfterReload(page: Page, tab: string, title: string) {
-  await page.reload()
-  await page.getByRole('tab', { name: tab }).click()
-  await page.waitForTimeout(2000)
-  if ((await page.locator('aside [data-sidebar-row]').filter({ hasText: title }).count()) > 0)
-    throw new Error(`"${title}" came back after a reload`)
-}
-
 /** Speaking in a Task joins it, before any computer takes the turn; offline, the turn waits. */
 async function say(stack: Stack, sessionId: string, ownerToken: string, text: string) {
   const { messages } = await rest(stack, ownerToken)<{ messages: unknown[] }>(
     'GET',
     `/agent/conversations/${sessionId}?teamId=${stack.teamId}`,
   )
-
   const response = await fetch(`${stack.apiUrl}/agent/chat`, {
     method: 'POST',
     headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
@@ -149,51 +77,78 @@ async function say(stack: Stack, sessionId: string, ownerToken: string, text: st
     signal: AbortSignal.timeout(30_000),
   })
 
-  // Queued or not, the listing below is what says whether it joined me.
-  console.log(`My message in the Task I left answered ${String(response.status)}`)
   await response.body?.cancel()
+
+  return response.status
 }
 
-/** Leaves the teammate's Task from its row, checks it is gone only for me, then rejoins it. */
-async function leaveAndRejoin(page: Page, stack: Stack, ownerToken: string, sessionId: string) {
+/** The teammate's Task, written as the app syncs a transcript. */
+async function sharedTask(stack: Stack, ownerToken: string, title: string) {
+  const as = rest(stack, ownerToken)
+  const sessionId = randomUUID()
+
+  await as('PUT', `/agent/conversations/${sessionId}/transcript`, {
+    teamId: stack.teamId,
+    title,
+    messages: [{ id: randomUUID(), role: 'user', parts: [{ type: 'text', text: title }] }],
+  })
+
+  return sessionId
+}
+
+const invite = (stack: Stack, ownerToken: string, sessionId: string, myId: string) =>
+  rest(stack, ownerToken)('POST', `/agent/conversations/${sessionId}/participants`, {
+    teamId: stack.teamId,
+    userIds: [myId],
+  })
+
+/** Leaves the teammate's Task from its row, once Cancel has backed out; gone for me only. */
+async function leaveFromRow(
+  page: Page,
+  stack: Stack,
+  ownerToken: string,
+  { sessionId, title, shot }: { sessionId: string; title: string; shot?: string },
+) {
   await page.reload()
   await page.getByRole('tab', { name: 'Tasks' }).click()
-  const row = rowOf(page, TASK)
+  const row = rowOf(page, title)
 
   await row.waitFor({ timeout: 30_000 })
-  const offered = await bothMenus(page, row, TASK, 'leave-task')
+  const offered = shot ? await bothMenus(page, row, title, shot) : []
 
   // Archive would hide it for its owner too, so it is not offered.
-  if (!offered.includes('Leave task') || offered.some((label) => label.startsWith('Archive')))
+  if (shot && (!offered.includes('Leave task') || offered.some((l) => l.startsWith('Archive'))))
     throw new Error(`A teammate's Task offers ${offered.join(', ')}`)
-  await page.getByRole('menuitem', { name: 'Leave task' }).click()
+  const ask = page.getByRole('alertdialog', { name: 'Leave this task?' })
+  const choose = async () => {
+    if (!(await page.getByRole('menuitem').count())) await row.click({ button: 'right' })
+    await page.getByRole('menuitem', { name: 'Leave task' }).click()
+    await ask.waitFor()
+  }
+
+  await choose()
+  if (shot) await page.screenshot({ path: `${artifacts}/${shot}-confirm.png` })
+  await ask.getByRole('button', { name: 'Cancel' }).click()
+  await ask.waitFor({ state: 'detached' })
+  await row.waitFor()
+  await choose()
+  await ask.getByRole('button', { name: 'Leave task' }).click()
   await row.waitFor({ state: 'detached', timeout: 15_000 })
-  await page.screenshot({ path: `${artifacts}/leave-task-gone.png` })
+  if (shot) await page.screenshot({ path: `${artifacts}/${shot}-gone.png` })
   await until('the server to drop the Task from my shared list', async () =>
     (await listed(stack, stack.token, 'shared')).every((id) => id !== sessionId),
   )
-  await stillGoneAfterReload(page, 'Tasks', TASK)
+  await stillGoneAfterReload(page, 'Tasks', title)
   // Its owner still has it, not archived.
   if (!(await listed(stack, ownerToken, 'mine')).includes(sessionId))
     throw new Error('The owner lost the Task when a teammate left it')
-
-  // Speaking in it again is joining it again, as after leaving from the Share card.
-  await say(stack, sessionId, ownerToken, 'Back again E2E_DELIVERY:leave-task-rejoin')
-  await until('the new message to bring the Task back to my shared list', async () =>
-    (await listed(stack, stack.token, 'shared')).includes(sessionId),
-  )
-  await page.reload()
-  await page.getByRole('tab', { name: 'Tasks' }).click()
-  await rowOf(page, TASK).waitFor({ timeout: 30_000 })
-  await page.screenshot({ path: `${artifacts}/leave-task-rejoined.png` })
 }
 
 export const leaveTaskScenarios: Scenario[] = [
   {
-    name: "a teammate's Task is left from its row's two menus, only for you, and a new message rejoins it",
+    name: "a teammate's Task is left from its row's two menus after a confirmation, only for you",
     run: async (page, stack) => {
       const teammate = await joinTeam(stack, 'task-owner')
-      const as = rest(stack, teammate.token)
       const me = await rest(stack, stack.token)<{ id?: string; user?: { id: string } }>(
         'GET',
         '/auth/me',
@@ -202,78 +157,59 @@ export const leaveTaskScenarios: Scenario[] = [
       const goOffline = await laptopOnline(stack, teammate.token)
 
       try {
-        await as('PUT', `/agent/devices/${LAPTOP}/share?teamId=${stack.teamId}`, {
-          level: 'full',
-          everyone: false,
-          userIds: [myId],
-          managerIds: [],
-        })
-        const sessionId = randomUUID()
+        await rest(stack, teammate.token)(
+          'PUT',
+          `/agent/devices/${LAPTOP}/share?teamId=${stack.teamId}`,
+          { level: 'full', everyone: false, userIds: [myId], managerIds: [] },
+        )
+        // On the teammate's computer, which I may use. The suite's agent is not that computer's,
+        // so the Task is put there in the database.
+        const usable = await sharedTask(stack, teammate.token, TASK)
 
-        // The teammate's own Task on that computer, shared with me. It is written as the app
-        // syncs a transcript, then put on the computer: the suite's agent is not this computer's.
-        await as('PUT', `/agent/conversations/${sessionId}/transcript`, {
-          teamId: stack.teamId,
-          title: TASK,
-          messages: [{ id: randomUUID(), role: 'user', parts: [{ type: 'text', text: TASK }] }],
-        })
         inDatabase(
           stack.mongoUri,
           `await db.collection('agent_conversations').updateOne({ sessionId: process.argv[2] },
             { $set: { runtimeId: process.argv[3], runtimeLabel: 'Claude Code' } })`,
-          sessionId,
+          usable,
           `local_${teammate.id}_${LAPTOP}`,
         )
-        await as('POST', `/agent/conversations/${sessionId}/participants`, {
-          teamId: stack.teamId,
-          userIds: [myId],
-        })
-        // Shared now; offline from here, so my message waits for it rather than running.
+        await invite(stack, teammate.token, usable, myId)
+        // Offline from here, so my message waits for the computer rather than running.
         goOffline()
-        await leaveAndRejoin(page, stack, teammate.token, sessionId)
+        await leaveFromRow(page, stack, teammate.token, {
+          sessionId: usable,
+          title: TASK,
+          shot: 'leave-task',
+        })
+        // I may still reply, so speaking in it joins me again, as the confirmation says.
+        await say(stack, usable, teammate.token, 'Back again E2E_DELIVERY:leave-task-rejoin')
+        await until('the new message to bring the Task back to my shared list', async () =>
+          (await listed(stack, stack.token, 'shared')).includes(usable),
+        )
+        await page.reload()
+        await page.getByRole('tab', { name: 'Tasks' }).click()
+        await rowOf(page, TASK).waitFor({ timeout: 30_000 })
+        await page.screenshot({ path: `${artifacts}/leave-task-rejoined.png` })
+
+        // On no computer of mine to use, and private: leaving it ends my access.
+        const closed = await sharedTask(stack, teammate.token, PRIVATE_TASK)
+
+        await invite(stack, teammate.token, closed, myId)
+        await leaveFromRow(page, stack, teammate.token, { sessionId: closed, title: PRIVATE_TASK })
+        const refused = await say(stack, closed, teammate.token, 'Let me back E2E_DELIVERY:closed')
+
+        if (refused < 400) throw new Error(`My message in a Task I lost was taken: ${refused}`)
+        if ((await listed(stack, stack.token, 'shared')).includes(closed))
+          throw new Error('A message brought back a private Task I may not use')
+        const read = await fetch(
+          `${stack.apiUrl}/agent/conversations/${closed}?teamId=${stack.teamId}`,
+          { headers: { authorization: `Bearer ${stack.token}` } },
+        )
+
+        if (read.ok) throw new Error('I can still read a private Task after leaving it')
       } finally {
         goOffline()
       }
-    },
-  },
-  {
-    name: "a teammate's group chat is left from its row's two menus, and it stays theirs",
-    run: async (page, stack) => {
-      const teammate = await joinTeam(stack, 'group-owner')
-      const as = rest(stack, teammate.token)
-      const me = await rest(stack, stack.token)<{ id?: string; user?: { id: string } }>(
-        'GET',
-        '/auth/me',
-      )
-      const chat = await as<{ sessionId: string }>('POST', '/agent/channels', {
-        teamId: stack.teamId,
-        title: GROUP,
-        group: true,
-      })
-
-      await as('POST', `/agent/conversations/${chat.sessionId}/participants`, {
-        teamId: stack.teamId,
-        userIds: [me.user?.id ?? me.id ?? ''],
-      })
-      await page.reload()
-      await page.getByRole('tab', { name: 'Bots' }).click()
-      const row = rowOf(page, GROUP)
-
-      await row.waitFor({ timeout: 30_000 })
-      const offered = await bothMenus(page, row, GROUP, 'leave-chat')
-
-      if (!offered.includes('Leave chat') || offered.some((label) => label.startsWith('Archive')))
-        throw new Error(`A teammate's group chat offers ${offered.join(', ')}`)
-      await page.getByRole('menuitem', { name: 'Leave chat' }).click()
-      await row.waitFor({ state: 'detached', timeout: 15_000 })
-      await until('the server to drop the chat from my shared list', async () =>
-        (await listed(stack, stack.token, 'shared', 'channel')).every(
-          (id) => id !== chat.sessionId,
-        ),
-      )
-      await stillGoneAfterReload(page, 'Bots', GROUP)
-      if (!(await listed(stack, teammate.token, 'mine', 'channel')).includes(chat.sessionId))
-        throw new Error('The owner lost the group chat when a member left it')
     },
   },
 ]
