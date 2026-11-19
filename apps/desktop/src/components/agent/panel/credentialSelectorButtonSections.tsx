@@ -31,10 +31,13 @@ export function CredentialSelectorSectionList({
 }) {
   // The member's own credential is what the agent may use as itself, binding or not.
   const ownRow = (provider: PersonalCredentialProvider) => {
-    if (!personal) return null
-    const own = ownCredentials.find((credential) => credential.provider === provider)
+    const own = personal && ownCredentials.find((credential) => credential.provider === provider)
 
-    return own ? (
+    if (!own) return null
+    const you = t('You ({login}) · Personal', { login: own.login })
+    const label = isGoogle(provider) ? `${nameOf(provider)} · ${you}` : you
+
+    return (
       <MenuCheckboxItem
         key={provider}
         checked={(value.personalCredentialIds ?? []).includes(provider)}
@@ -42,13 +45,12 @@ export function CredentialSelectorSectionList({
       >
         <span className="flex min-w-0 items-center gap-2">
           <CloudLogo provider={provider} size={14} />
-          <span className="min-w-0 flex-1 truncate text-[12.5px] text-main">
-            {isGoogle(provider) ? `${nameOf(provider)} · ` : null}
-            {t('You ({login}) · Personal', { login: own.login })}
+          <span className="min-w-0 flex-1 truncate text-[12.5px] text-main" title={label}>
+            {label}
           </span>
         </span>
       </MenuCheckboxItem>
-    ) : null
+    )
   }
   const identityRow = (provider: 'github' | 'linear', providerSections: CredentialSection[]) => {
     if (!personal) return null
