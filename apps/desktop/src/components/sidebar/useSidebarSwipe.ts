@@ -47,10 +47,7 @@ export function useSidebarSwipe(
         // nothing to report, and reporting it would reopen that page's home.
         if (next !== shown.current) change.current(next)
       },
-      {
-        onStart: () => change.current.cancelPending?.(),
-        onThreshold: () => api.sidebarAlignmentFeedback?.(),
-      },
+      { onThreshold: () => api.sidebarAlignmentFeedback?.() },
     )
     const unsubscribe = api.onSidebarGesture?.(controller.nativePhase)
 

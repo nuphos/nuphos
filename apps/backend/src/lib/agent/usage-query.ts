@@ -5,8 +5,6 @@ import { agentTokenUsage } from '@/lib/agent/token-usage'
 import { KIND_TOKEN_SUMS } from '@/lib/agent/usage-aggregation'
 import { AppError } from '@/lib/errors'
 
-import type { NuphosTeamRole } from '@/lib/identity/types'
-
 // Each dimension as an expression over one usage record. `conversation` is the
 // record's own conversation, joined only when a Bot or Task dimension is asked.
 const DIMENSIONS = {
@@ -70,17 +68,9 @@ type GroupRow = Omit<UsageQueryRow, 'keys' | 'costUsd'> & {
   _id: Record<string, string | Date | null> & { provider: string; modelId: string }
 }
 
-/**
- * An admin queries the whole team. Anyone else sees only their own
- * conversations' usage, as `/usage` shows it, whoever sent the turns.
- */
-export async function queryTeamUsage(
-  teamId: string,
-  viewer: { userId: string; teamRole: NuphosTeamRole },
-  query: UsageQuery,
-): Promise<UsageQueryRow[]> {
+/** The whole team's usage, for any member; `usageNames` decides which names each viewer sees. */
+export async function queryTeamUsage(teamId: string, query: UsageQuery): Promise<UsageQueryRow[]> {
   const { filters } = query
-  const own = viewer.teamRole === 'ADMINISTRATOR' ? {} : { userId: viewer.userId }
   const used = [...new Set([...query.groupBy, ...(Object.keys(filters) as UsageDimension[])])]
   // Bot and Task are read off the conversation, joined once per group, not per record.
   const joined: UsageDimension[] = used.filter((d) => d === 'bot' || d === 'task')
@@ -115,7 +105,7 @@ export async function queryTeamUsage(
     : null
   const rows = await agentTokenUsage()
     .aggregate<GroupRow>([
-      { $match: { teamId, ...own, createdAt: { $gte: query.from, $lt: query.to } } },
+      { $match: { teamId, createdAt: { $gte: query.from, $lt: query.to } } },
       ...select(direct),
       {
         $group: {

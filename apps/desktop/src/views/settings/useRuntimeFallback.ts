@@ -14,11 +14,11 @@ export function useRuntimeFallback(teamId: string, runtimeId: string | undefined
   const { mutateAsync, isPending } = useMutation({
     mutationFn: (next: string | null) => api.atlasPutRuntimeFallback(teamId, runtimeId!, next),
     onSettled: () => queryClient.invalidateQueries({ queryKey }),
-    onError: (err) => toast.apiError(t('Could not save the fallback agent'), err),
+    onError: (err) => toast.apiError(t('Could not save the fallback runtime'), err),
   })
 
   useEffect(() => {
-    if (error) toast.apiError(t('Could not load the fallback agent'), error)
+    if (error) toast.apiError(t('Could not load the fallback runtime'), error)
   }, [error])
 
   return { fallbacks, save: mutateAsync, isPending }

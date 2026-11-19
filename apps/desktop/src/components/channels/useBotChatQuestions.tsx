@@ -15,7 +15,7 @@ import type { CredentialSelectorControl } from '../agent/panel/credentialSection
  * chat at the time each was asked, drawn from the same records the Inbox reads,
  * so answering here answers there. An answer wakes the agent that asked, which
  * replies where it asked; no message is sent. The card leaves at once, and comes
- * back with the error if the answer was refused. Skipping withdraws it
+ * back with the error if the answer was refused. Dismissing withdraws it
  * unanswered, and the agent that asked is told.
  * The Bot's own Connect cards select through the Bot's credential picker, which
  * its owner also gets in the chat's composer.
@@ -50,7 +50,7 @@ export function useBotChatQuestions(
             credentials={request.sessionId === botId ? botCredentials : undefined}
             // The Bot's own questions are this chat's; only an agent under it is named.
             onOpenSession={request.sessionId === botId ? undefined : onOpenSession}
-            skippable
+            dismissible
             onAnswer={answer}
           />
         </div>

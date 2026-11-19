@@ -2,7 +2,7 @@
 import { agentLog } from './agent-log.ts'
 import { joinTeam } from './dashboard-scenarios.ts'
 import { artifacts, until } from './processes.ts'
-import { newTask, send } from './ui.ts'
+import { newTask, pickInSubmenu, send } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
@@ -15,7 +15,10 @@ async function choose(page: Page, trigger: Locator, label: string) {
   await trigger.click()
   // The computer's row opens a submenu of its runtimes.
   await page.getByRole('menu').getByText(label).click()
-  await page.getByRole('menuitem', { name: new RegExp(`^${label}.*Claude Code`) }).click()
+  await pickInSubmenu(
+    page,
+    page.getByRole('menuitem', { name: new RegExp(`^${label}.*Claude Code`) }),
+  )
 }
 
 async function call(

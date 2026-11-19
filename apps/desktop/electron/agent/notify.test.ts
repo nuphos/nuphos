@@ -56,7 +56,7 @@ const share = (
   key: string,
   parentWindow: ReturnType<typeof win>,
   title = 'Mac is now shared with you',
-  body = 'Your agents can run on it now.',
+  body = 'Your Bots and tasks can run on it now.',
 ) =>
   notifyComputerShared({
     key,

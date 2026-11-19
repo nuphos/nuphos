@@ -62,7 +62,7 @@ struct AccountDeletionView: View {
         do {
             let result: Envelope = try await AccountAPI.request("account-deletion", token: token)
             request = result.request; loaded = true; error = nil
-        } catch { self.error = error.localizedDescription }
+        } catch { if !Task.isCancelled { self.error = error.localizedDescription } }
     }
 
     private func sendCode() async {
