@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { t } from '../i18n'
@@ -52,6 +52,8 @@ type Props = {
   focusFirstControl?: boolean
   /** `wide` lines the header controls up with a body that pads its content 32px from each side. */
   headerInset?: 'default' | 'wide'
+  /** Reset body scroll when navigating between views within this modal. */
+  scrollResetKey?: string
   /** Keep the title for screen readers only, when the body already shows it as a heading. */
   titleHidden?: boolean
 }
@@ -75,9 +77,16 @@ export function Modal({
   focusFirstControl = true,
   headerInset = 'default',
   titleHidden = false,
+  scrollResetKey,
 }: Props) {
   const [bodyScrolled, setBodyScrolled] = useState(false)
   const [scrollOpen, setScrollOpen] = useState(open)
+  const [scrollView, setScrollView] = useState(scrollResetKey)
+
+  if (scrollView !== scrollResetKey) {
+    setScrollView(scrollResetKey)
+    setBodyScrolled(false)
+  }
 
   if (scrollOpen !== open) {
     setScrollOpen(open)
@@ -86,26 +95,20 @@ export function Modal({
   const isLight = surface === 'light'
   const isPrompt = appearance === 'prompt'
 
-  // Two-phase visibility so the panel can animate on both open AND close:
-  //  - `mounted` keeps the portal in the DOM through the exit transition.
-  //  - `shown` drives the enter/leave CSS state (flipped a frame after mount
-  //    so the browser has an initial "hidden" style to transition from).
   const [mounted, setMounted] = useState(open)
   const [shown, setShown] = useState(false)
 
-  // Opening mounts immediately; closing keeps the portal alive for --modal-close-dur so
-  // the exit transition can play.
   if (open && !mounted) setMounted(true)
   if (!open && shown) setShown(false)
 
   const { panelRef, bodyRef, titleId } = useModalFocus(open, focusFirstControl)
 
+  useLayoutEffect(() => {
+    if (scrollResetKey !== undefined && bodyRef.current) bodyRef.current.scrollTop = 0
+  }, [scrollResetKey, bodyRef, open])
+
   useEffect(() => {
     if (open) {
-      // Double rAF: the first frame commits the initial `shown=false` styles;
-      // the second flips to `shown=true` so the browser actually sees a
-      // start→end change to transition (a single rAF gets batched into the
-      // same paint as the mount, killing the enter animation).
       let raf2 = 0
       const raf1 = requestAnimationFrame(() => {
         raf2 = requestAnimationFrame(() => setShown(true))
@@ -116,7 +119,6 @@ export function Modal({
         cancelAnimationFrame(raf2)
       }
     }
-    // The panel's `.t-modal` close transition runs on --modal-close-dur.
     const timer = setTimeout(() => setMounted(false), cssDurationMs('--modal-close-dur', 150))
 
     return () => clearTimeout(timer)
@@ -126,9 +128,6 @@ export function Modal({
     if (!open) return
     function onKey(e: KeyboardEvent) {
       if (e.key !== 'Escape') return
-      // A modal opened over this one (a bind dialog or a confirm over
-      // Connectors) takes Escape for itself; only the topmost layer closes.
-      // Toasts are non-modal alert dialogs and do not count.
       const dialogs = document.querySelectorAll(
         '[role="dialog"][aria-modal="true"], [role="alertdialog"]:not([aria-modal="false"])',
       )
@@ -147,9 +146,6 @@ export function Modal({
   return createPortal(
     <div
       className="titlebar-no-drag fixed inset-0 z-50 flex items-center justify-center"
-      // Electron drag regions punch through normal z-index. Keep the whole
-      // portal explicitly no-drag so a tall modal never lands its close button
-      // over the app titlebar's drag hit-area.
       style={{ transform: 'translateZ(0)', willChange: 'transform' }}
     >
       {/*
@@ -192,9 +188,6 @@ export function Modal({
       >
         <div
           className={clsx(
-            // shrink-0 so a tall/scrolling body (e.g. expanded Raw JSON) can't
-            // squeeze the header — which otherwise let the scrollable content
-            // layer overlap the close button and swallow its clicks.
             'relative z-20 flex shrink-0 items-start gap-2',
             titleHidden && headerInset === 'wide' && 'min-h-14',
             headerInset === 'wide'
@@ -291,7 +284,6 @@ export function Modal({
         {footer && (
           <div
             className={clsx(
-              // shrink-0 pins the footer below the scrollable body.
               'relative z-20 shrink-0 border-t',
               isLight ? 'border-[rgb(208,206,212)]' : 'border-line-control',
             )}

@@ -104,6 +104,7 @@ function TeamConnectorsDialog({
       headerInset="wide"
       titleHidden
       headerDivider="scroll"
+      scrollResetKey={detail ? JSON.stringify(detail) : (catalogHeader?.title ?? t('Connectors'))}
       headerLeading={
         detail || catalogHeader?.back ? (
           <button
