@@ -77,7 +77,7 @@ const answer = (viewerId: string, answeredInInbox: boolean) =>
 test('a reply quotes its post inside its own bubble, above the words', () => {
   for (const [viewer, bubble, tint] of [
     ['u1', 'user-message-bubble', 'bg-white/15'],
-    ['someone-else', 'bg-state-selected', 'bg-black/5'],
+    ['someone-else', 'border-line-control', 'bg-black/5'],
   ] as const) {
     const markup = answer(viewer, false)
     const inBubble = markup.slice(markup.indexOf(bubble))
