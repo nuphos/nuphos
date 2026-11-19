@@ -1,13 +1,18 @@
-// The notice a person gets when a teammate shares a computer with them: once, in the app.
+// Computers a teammate shares with you: the notice, once, in the app, and how their cards read.
 import { client, must } from './binding-access-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { startSecondComputer } from './second-computer.ts'
+import { openComputers } from './ui.ts'
 
 import type { Client } from './binding-access-scenarios.ts'
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
+import type { Page } from 'playwright-core'
 
 const LABEL = 'Teammate laptop'
+const SAME_MAC = "Teammate's record of this Mac"
+const readings = (page: Page, label: string) =>
+  page.locator('li').filter({ hasText: label }).getByLabel('Resource usage')
 
 /** Signs a teammate in and has them accept an invitation to the stack's team. */
 async function teammate(stack: Stack, owner: Client): Promise<{ as: Client; token: string }> {
@@ -69,6 +74,75 @@ export const shareNoticeScenarios: Scenario[] = [
       } finally {
         await sharer.as('PUT', share, { level: 'off', everyone: false, userIds: [] })
         await computer.stop()
+      }
+    },
+  },
+  {
+    // #3771: this computer's own reading went, as live, onto every record of its device id.
+    name: "another account's record of this computer shows no readings of its own",
+    run: async (page, stack) => {
+      const owner = client(stack.apiUrl, stack.token)
+      const me = (await owner('GET', '/auth/me')).body as { user?: { id: string }; id?: string }
+      let deviceId = ''
+
+      await until('the app to be online as its computer', async () => {
+        const state = await page.evaluate(() =>
+          (
+            window as unknown as {
+              api: {
+                localRuntimeGetState: () => Promise<{ deviceId?: string; connection?: string }>
+              }
+            }
+          ).api
+            .localRuntimeGetState()
+            .catch(() => null),
+        )
+
+        deviceId = state?.connection === 'online' ? (state.deviceId ?? '') : ''
+
+        return deviceId
+      })
+      const sharer = await teammate(stack, owner)
+      // The same machine as another account registers it: one hardware id, two records.
+      const registered = await sharer.as('PUT', '/agent/devices', {
+        deviceId,
+        label: SAME_MAC,
+        platform: 'darwin',
+        allowLocalExec: true,
+      })
+
+      must(registered.status === 200, `the record to be made, got ${String(registered.status)}`)
+      const share = `/agent/devices/${deviceId}/share?teamId=${stack.teamId}`
+
+      try {
+        must(
+          (
+            await sharer.as('PUT', share, {
+              level: 'full',
+              everyone: false,
+              userIds: [me.user?.id ?? me.id ?? ''],
+            })
+          ).status === 200,
+          'the record to be shared',
+        )
+        await openComputers(page)
+        await page.getByText(SAME_MAC, { exact: true }).first().waitFor()
+        // This computer's own card shows what its host reports, once it has reported.
+        await until(
+          'this computer to show its readings',
+          async () => (await readings(page, 'This computer').count()) > 0,
+        )
+        // The cards fade in; the picture is taken once they have.
+        await page.waitForTimeout(1_500)
+        await page.screenshot({ path: `${artifacts}/same-computer-two-accounts.png` })
+        must(
+          (await readings(page, SAME_MAC).count()) === 0,
+          "the other account's offline record to show no readings",
+        )
+        await page.getByText('Back to app', { exact: true }).click()
+      } finally {
+        await sharer.as('PUT', share, { level: 'off', everyone: false, userIds: [] })
+        await sharer.as('DELETE', `/agent/devices/${deviceId}`)
       }
     },
   },
