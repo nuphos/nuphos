@@ -152,13 +152,13 @@ async function ownerClaims(authorization: string, provider: PersonalCredentialPr
     )
   }
   const conversation = await getConversationBySessionId(claims.sid)
+  const access = conversation && (await credentialSource(conversation)).credentialAccess
+  // One that never stored a selection has the default, which ticks only Google.
+  const selected = access
+    ? access.personalCredentialIds?.includes(provider)
+    : isGoogleProvider(provider)
 
-  if (
-    conversation?.userId !== claims.own ||
-    !(await credentialSource(conversation)).credentialAccess?.personalCredentialIds?.includes(
-      provider,
-    )
-  ) {
+  if (conversation?.userId !== claims.own || !selected) {
     throw new AppError(
       403,
       'personal_credential_not_selected',

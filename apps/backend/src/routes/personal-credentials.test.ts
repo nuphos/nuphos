@@ -459,8 +459,13 @@ describe('Google token handout', () => {
 
     expect(res.status).toBe(403)
     expect(await res.json()).toEqual({ code: 'personal_credential_not_selected' })
-    conversation = { userId: 'owner' }
+    conversation = { userId: 'owner', credentialAccess: {} }
     expect((await fetchToken('gmail', await turn('owner', true))).status).toBe(403)
+  })
+
+  test('a conversation that never stored a selection has the default, which ticks Google', async () => {
+    conversation = { userId: 'owner' }
+    expect((await fetchToken('gmail', await turn('owner', true))).status).toBe(200)
   })
 
   test('the owner’s own and automated turns get the owner’s token', async () => {
