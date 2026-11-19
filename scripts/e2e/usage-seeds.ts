@@ -87,7 +87,7 @@ export function privateConversation(stack: Stack, sessionId: string, owner: stri
   })
 }
 
-/** Last week the teammate used little; this week their Trigger used far more than anyone. The
+/** The 30 days before, the teammate used little; in these 30 days their Trigger used far more. The
  *  owner also used a little in a conversation only they may see. */
 export function seedTenfold(
   stack: Stack,
@@ -97,10 +97,10 @@ export function seedTenfold(
 
   privateConversation(stack, privateId, owner, true)
   seedUsage(stack, privateId, owner, [{ actor: owner, total: 5_000, daysAgo: 1 }])
-  // Last week the teammate used little; this week their Trigger used far more than anyone.
+  // The 30 days before, the teammate used little; in these 30 days their Trigger used far more than anyone.
   seedUsage(stack, sessionId, owner, [
-    { actor: teammate, total: 10_000, daysAgo: 9 },
-    { actor: owner, total: 100_000, daysAgo: 9, triggerId },
+    { actor: teammate, total: 10_000, daysAgo: 35 },
+    { actor: owner, total: 100_000, daysAgo: 35, triggerId },
     { actor: teammate, total: 400_000, daysAgo: 1, triggerId },
     { actor: owner, total: 50_000, daysAgo: 1 },
   ])

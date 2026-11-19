@@ -101,11 +101,12 @@ export function resolveModelAlias(value: string, sessionConfig?: SessionConfigOp
   const choice = sessionConfig
     ?.find((option) => option.kind === 'model')
     ?.options.find((option) => option.value === value)
-  const named = new RegExp(`^(${CLAUDE_FAMILIES}) (\\d+(?:\\.\\d+)*)$`, 'i').exec(
-    (value === 'default' ? choice?.description : choice?.name)?.trim() ?? '',
-  )
+  const [, family, version] =
+    new RegExp(`^(${CLAUDE_FAMILIES}) (\\d+(?:\\.\\d+)*)$`, 'i').exec(
+      (value === 'default' ? choice?.description : choice?.name)?.trim() ?? '',
+    ) ?? []
 
-  if (named) return `claude-${named[1].toLowerCase()}-${named[2].replaceAll('.', '-')}`
+  if (family && version) return `claude-${family.toLowerCase()}-${version.replaceAll('.', '-')}`
 
   // A Claude alias the picker does not name is unknown, never shown as the alias.
   return new RegExp(`^(default|${CLAUDE_FAMILIES})$`, 'i').test(value) ? 'unknown' : value
