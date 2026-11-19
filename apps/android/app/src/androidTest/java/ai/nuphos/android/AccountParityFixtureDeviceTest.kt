@@ -318,29 +318,29 @@ class AccountParityFixtureDeviceTest {
 
     @Test fun rootActivityRecreationRetainsTextAndConfirmedWithdrawalFencesOldComposer() {
         draftTeam = true
-        awaitText("Before you use AI agents")
-        tap("Agree and continue")
+        awaitText(app.getString(R.string.profile_consent_title))
+        tap(app.getString(R.string.profile_consent_agree))
         compose.waitUntil(8_000) { compose.onAllNodesWithTag("new-task-open").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
         compose.onNodeWithTag("new-task-open").performClick()
         val text = "  activity draft\n  "
-        compose.onNodeWithContentDescription("Ask Nuphos anything").performTextReplacement(text)
+        compose.onNodeWithContentDescription(app.getString(R.string.composer_ask_nuphos)).performTextReplacement(text)
         val auth = app.authSession
         val generation = auth.generation
         val destination = ai.nuphos.android.session.ComposerDrafts.Destination.NewChat
         val lease = auth.composerDrafts.bind(requireNotNull(auth.user).id, "aaaaaaaaaaaaaaaaaaaaaaaa", destination)!!
         assertEquals("The loaded composer must save the draft before recreation", text, lease.text)
         compose.activityRule.scenario.recreate()
-        compose.waitUntil(8_000) { compose.onAllNodes(hasContentDescription("Ask Nuphos anything") and isEnabled()).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
+        compose.waitUntil(8_000) { compose.onAllNodes(hasContentDescription(app.getString(R.string.composer_ask_nuphos)) and isEnabled()).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
         assertSame(auth, (compose.activity.application as NuphosApplication).authSession)
         assertEquals(generation, auth.generation)
         assertEquals("Recreation changed the original draft lease", text, lease.text)
         assertEquals("Recreation changed the bound draft", text, auth.composerDrafts.bind(requireNotNull(auth.user).id, "aaaaaaaaaaaaaaaaaaaaaaaa", destination)!!.text)
-        compose.onNodeWithContentDescription("Ask Nuphos anything").assertTextEquals(text)
+        compose.onNodeWithContentDescription(app.getString(R.string.composer_ask_nuphos)).assertTextEquals(text)
         compose.onNodeWithTag("new-task-cancel").performClick()
-        compose.onNodeWithContentDescription("Profile").performClick()
-        tap("Withdraw AI sharing consent")
-        compose.onNodeWithText("Withdraw").performClick()
-        awaitText("Before you use AI agents")
+        compose.onNodeWithContentDescription(app.getString(R.string.shell_profile)).performClick()
+        tap(app.getString(R.string.profile_withdraw_action))
+        compose.onNodeWithText(app.getString(R.string.profile_withdraw_confirm)).performClick()
+        awaitText(app.getString(R.string.profile_consent_title))
         assertEquals("", lease.text)
         assertFalse(lease.write("late private text"))
         assertEquals("", auth.composerDrafts.bind(requireNotNull(auth.user).id, "aaaaaaaaaaaaaaaaaaaaaaaa", destination)!!.text)
@@ -349,8 +349,8 @@ class AccountParityFixtureDeviceTest {
     @Test fun actualChatNavigationKeepsTwoChatsAndNewChatIsolatedAcrossTeams() {
         draftTeam = true
         draftNavigation = true
-        awaitText("Before you use AI agents")
-        tap("Agree and continue")
+        awaitText(app.getString(R.string.profile_consent_title))
+        tap(app.getString(R.string.profile_consent_agree))
         awaitText("Draft chat one")
         val token = requireNotNull(app.authSession.token)
         lateinit var agent: ai.nuphos.android.session.AgentStore
@@ -366,20 +366,20 @@ class AccountParityFixtureDeviceTest {
         awaitText("Draft chat one")
         // The new-chat composer stays composed at zero size behind an open chat.
         val laidOut = SemanticsMatcher("has a size") { it.size.width > 0 && it.size.height > 0 }
-        fun input() = compose.onNode(hasContentDescription("Ask Nuphos anything") and laidOut)
+        fun input() = compose.onNode(hasContentDescription(app.getString(R.string.composer_ask_nuphos)) and laidOut)
         fun backToHistory() {
-            compose.onNodeWithContentDescription("Back").performClick()
+            compose.onNodeWithContentDescription(app.getString(R.string.chat_back)).performClick()
             compose.waitUntil(8_000) { compose.onAllNodesWithText("Draft chat one", useUnmergedTree = true).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
         }
         fun openChat(title: String) {
             if (compose.onAllNodesWithTag("new-task-cancel").fetchSemanticsNodes().isNotEmpty()) compose.onNodeWithTag("new-task-cancel").performClick()
             // On the small API 33 screen, expanded text and the IME can cover a row.
-            val collapse = compose.onAllNodesWithContentDescription("Collapse composer")
+            val collapse = compose.onAllNodesWithContentDescription(app.getString(R.string.composer_collapse))
             if (collapse.fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()) collapse.onFirst().performClick()
             compose.runOnIdle { compose.activity.window.insetsController?.hide(android.view.WindowInsets.Type.ime()) }
             compose.waitUntil(8_000) { compose.onAllNodesWithText(title, useUnmergedTree = true).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
             compose.onNodeWithText(title, useUnmergedTree = true).performScrollTo().performClick()
-            compose.waitUntil(8_000) { compose.onAllNodesWithContentDescription("Back").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
+            compose.waitUntil(8_000) { compose.onAllNodesWithContentDescription(app.getString(R.string.chat_back)).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
         }
         try {
             compose.onNodeWithTag("new-task-open").performClick()

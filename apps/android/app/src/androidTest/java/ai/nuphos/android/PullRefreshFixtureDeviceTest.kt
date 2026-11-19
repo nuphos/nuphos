@@ -376,7 +376,7 @@ class PullRefreshFixtureDeviceTest {
         treeHistory = true; entries = "[]"; render()
         compose.runOnIdle { store.refresh() }
         waitText("Synthetic child"); settled()
-        compose.onNodeWithContentDescription("Hide 1 sub-agents").performClick()
+        compose.onNodeWithContentDescription(app.resources.getQuantityString(R.plurals.agent_hide_sub_agents, 1, 1)).performClick()
         compose.onNodeWithText("Synthetic child").assertDoesNotExist()
         compose.onNodeWithTag("new-task-open").performClick()
         compose.onNode(hasSetTextAction()).performTextInput("Unsent refresh fixture draft")
