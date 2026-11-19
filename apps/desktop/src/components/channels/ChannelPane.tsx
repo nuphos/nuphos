@@ -87,8 +87,8 @@ export function ChannelPane({
   const firstReplyFailed =
     detail?.timelineEvents?.some((event) => event.kind === 'agent_reply_failed') ?? false
   const botOwned = ownsBot(teamId, bot, user.id, detail && agents)
-  const manage = fixes?.onOpenAgentSettings
-  const controls = useBotComposerControls(teamId, bot, botOwned, user, botState, refresh, manage)
+  const lent = { manage: fixes?.onOpenAgentSettings, agents }
+  const controls = useBotComposerControls(teamId, bot, botOwned, user, botState, refresh, lent)
   const sessions = useAgentSessions(teamId).data
   const settingUp = sessions?.some((row) => row.sessionId === bot && botIsOnboarding(row))
   const taskAccess = useBotTaskAccess(teamId, bot, botOwned)
@@ -226,7 +226,7 @@ export function ChannelPane({
       </div>
       <HeaderEdge
         ref={scrollRef}
-        className="min-h-0 flex-1 overflow-y-auto scrollbar-thin pt-5 pb-4 selectable"
+        className={`min-h-0 flex-1 overflow-y-auto scrollbar-thin pt-5 selectable ${replying ? 'pb-12' : 'pb-4'}`}
       >
         {/* The column: one box, so its height says when anything below grows, and
             the one width every row takes, the composer's own. */}
@@ -270,7 +270,7 @@ export function ChannelPane({
             line up with the bubbles: a face and its gap (2.375rem) on each side. */}
         <div
           ref={composerRef}
-          className="px-[2.375rem]"
+          className="relative px-[2.375rem]"
           onKeyDown={(event) => {
             if (event.key === 'Escape' && replying && !event.defaultPrevented) setReplying(null)
           }}

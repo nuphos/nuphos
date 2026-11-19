@@ -23,6 +23,8 @@ export type LocalRuntimePresence = {
   seenAt: number
   metrics?: BoxMetrics
   metricsReceivedAt?: number
+  /** When data last moved on one of its streams other than `control`, or its tunnel opened. */
+  usedAt?: number
 }
 
 export type LocalRuntimePresenceStore = {

@@ -195,7 +195,7 @@ test('a failed lookup is logged and does not reach the caller', async () => {
   // A 404 for the pull request is looked up again as an issue (and its repository), which fails too.
   expect(pullFetches).toBe(3)
   expect(refreshes).toEqual([])
-  expect(warnings).toEqual(['linked_resource.recheck_failed'])
+  expect(warnings).toEqual(['github.resource.lookup_failed', 'linked_resource.recheck_failed'])
 })
 test('only a few checks run at once', async () => {
   conversation.linkedResources = Array.from({ length: MAX_RUNNING_RECHECKS + 2 }, (_, index) =>

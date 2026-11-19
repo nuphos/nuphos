@@ -23,6 +23,7 @@ import {
   killBoxMachine,
   orderRefused,
   requireBackendUrl,
+  transient,
 } from './box-instabox-client'
 import { boxSize } from './box-instabox-limit'
 import { startBox } from './box-instabox-start'
@@ -160,13 +161,24 @@ async function setUp(
     // The template comes from instabox's warm pool, so the install is the longest step.
     // It is one long exec request, so it runs on a connection without the per-request
     // cap: the exec request then waits as long as the command may run.
-    await (
-      await Sandbox.connect(sandbox.sandboxId, {
-        ...(await boxConnection(box, INSTALL_TIMEOUT_MS)),
-        requestTimeoutMs: undefined,
-        resume: false,
-      })
-    ).commands.run(BOX_INSTALL_COMMAND, { envs: downloadEnv(), timeoutMs: INSTALL_TIMEOUT_MS })
+    const machine = sandbox
+    const install = async () =>
+      (
+        await Sandbox.connect(machine.sandboxId, {
+          ...(await boxConnection(box, INSTALL_TIMEOUT_MS)),
+          requestTimeoutMs: undefined,
+          resume: false,
+        })
+      ).commands.run(BOX_INSTALL_COMMAND, { envs: downloadEnv(), timeoutMs: INSTALL_TIMEOUT_MS })
+
+    // A dropped connection loses the answer, not the machine: the install runs again there,
+    // after the first if it is still going, and adds only what is missing.
+    await install().catch((error: unknown) => {
+      if (!transient(error)) throw error
+      logEvent('warn', 'agent.box.install_retried', { user_id: userId, device_id: deviceId })
+
+      return install()
+    })
     await sandbox.commands.run(AGENT_COMMAND, {
       envs: { ...downloadEnv(), NUPHOS_JOIN_TOKEN: token, NUPHOS_API_URL: url },
       background: true,

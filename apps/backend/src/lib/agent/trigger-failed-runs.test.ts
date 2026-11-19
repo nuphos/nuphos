@@ -129,3 +129,18 @@ test('a run that succeeds resets the count', async () => {
   expect(row.enabled).toBe(true)
   expect(alerts).toEqual([])
 })
+
+test('a Box its plan will not start pauses the Trigger with the plan’s reason', async () => {
+  const outOfHours = new AppError(
+    402,
+    'box_vcpu_limit',
+    "Your team's free cloud computer has used its 50 hours this month.",
+  )
+
+  for (let run = 0; run < PAUSE_AFTER_FAILED_RUNS; run++)
+    await recordFailedFires(outOfHours, fire, deps)
+  expect(row.enabled).toBe(false)
+  expect(row.executionAuthorizationError).toBe(
+    "Paused after 3 runs in a row failed. Your team's free cloud computer has used its 50 hours this month. Then turn the Trigger back on.",
+  )
+})

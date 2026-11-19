@@ -58,54 +58,26 @@ final class BotsAndTasksListUITests: XCTestCase {
         XCTAssertTrue(lead.waitForExistence(timeout: 10), "The Bot's chat is not named after the Bot")
         XCTAssertFalse(app.staticTexts["release-lead-old"].exists, "The Bot's chat kept its own name")
         XCTAssertTrue(app.staticTexts["Needs your input: Retry the flaky iOS job?"].exists, "A dispatched question is not on the Bot's chat")
-        XCTAssertTrue(app.descendants(matching: .any)["Docs Bot is thinking"].exists, "A dispatched turn does not show on the Bot's chat")
+        // Its chat shows no typing for a dispatched turn, so neither does its row (#3522).
+        XCTAssertFalse(app.descendants(matching: .any)["Docs Bot is thinking"].exists, "A dispatched turn shows typing dots on a chat that isn't typing")
+        XCTAssertTrue(app.staticTexts["On it."].exists, "The Bot's chat row hides its latest message")
         XCTAssertTrue(app.staticTexts["New Group Chat"].exists, "An untitled group chat is not named as one")
         XCTAssertFalse(app.staticTexts["Triage Bot"].exists, "A Bot in a chat still has a row of its own")
         XCTAssertTrue(app.staticTexts["Helper Bot"].exists, "A Bot opened by a Task is not listed as a Bot")
-
-        // Folded at rest: a Bot's threads show only once opened by hand.
-        XCTAssertFalse(app.staticTexts["Check the CI flake"].exists, "A Bot's threads are open at rest")
         shot("1-bots")
-        app.buttons["Show 2 sub-agents"].firstMatch.tap()
-        for _ in 0..<4 where app.buttons["Show 1 sub-agents"].firstMatch.exists {
-            app.buttons["Show 1 sub-agents"].firstMatch.tap()
-        }
-
-        // What each Bot dispatched, nested under it, deeper threads under theirs.
-        for (thread, below) in [("Check the CI flake", lead), ("Fix broken links", app.staticTexts["Docs Bot"].firstMatch),
-                                ("Collect crash logs", app.staticTexts["Helper Bot"].firstMatch)] {
-            let row = app.staticTexts[thread].firstMatch
-            XCTAssertTrue(row.exists, "\(thread) is not under its Bot")
-            XCTAssertGreaterThan(row.frame.minY, below.frame.minY)
-            XCTAssertGreaterThan(row.frame.minX, below.frame.minX, "\(thread) is not nested")
-        }
-        let rerun = app.staticTexts["Rerun the iOS job"].firstMatch
-        XCTAssertGreaterThan(rerun.frame.minX, app.staticTexts["Check the CI flake"].firstMatch.frame.minX, "A deeper thread lost its parent")
-        shot("2-bots-opened")
     }
 
-    /// A Bot opened by hand stays open when Bots is left and on a restart,
-    /// per team, as on Desktop (#2898). A Bot never opened stays folded.
-    func testBotsKeepWhatWasOpenedByHand() throws {
+    /// A Bot row ends with its time, unread dot and chevron: no control expands
+    /// what the Bot dispatched into the list (#3592). Those open from the Bot's page.
+    func testBotRowsHaveNoExpandControl() throws {
         launch(page: "chats")
         XCTAssertTrue(app.staticTexts["Release Lead"].firstMatch.waitForExistence(timeout: 10), "Bots did not load")
-        app.buttons["Show 2 sub-agents"].firstMatch.tap()
-        XCTAssertTrue(app.staticTexts["Check the CI flake"].firstMatch.waitForExistence(timeout: 5), "Opening a Bot did not show its threads")
-        XCTAssertFalse(app.staticTexts["Fix broken links"].exists, "Opening one Bot opened another")
-        shot("4-bots-opened-by-hand")
-
-        switchPage(to: "Tasks")
-        XCTAssertTrue(app.staticTexts["Check the staging cluster"].firstMatch.waitForExistence(timeout: 10), "Tasks did not load")
-        switchPage(to: "Bots")
-        XCTAssertTrue(app.staticTexts["Check the CI flake"].firstMatch.waitForExistence(timeout: 10), "The opened Bot folded again when Bots was left")
-        XCTAssertFalse(app.staticTexts["Fix broken links"].exists, "A Bot never opened is open")
-        shot("5-bots-after-tasks")
-
-        app.terminate()
-        launch(page: "chats", keepFolds: true)
-        XCTAssertTrue(app.staticTexts["Check the CI flake"].firstMatch.waitForExistence(timeout: 10), "The opened Bot folded again on restart")
-        XCTAssertFalse(app.staticTexts["Fix broken links"].exists, "A Bot never opened is open after a restart")
-        shot("6-bots-after-restart")
+        let expand = app.buttons.matching(NSPredicate(format: "label ENDSWITH 'sub-agents'"))
+        XCTAssertEqual(expand.count, 0, "A Bot row has a control that expands its Tasks")
+        for thread in ["Check the CI flake", "Rerun the iOS job", "Fix broken links", "Collect crash logs"] {
+            XCTAssertFalse(app.staticTexts[thread].exists, "\(thread) is listed under Bots")
+        }
+        shot("2-bots-flat")
     }
 
     func testTasksLeaveOutBotsAndWhatTheyDispatched() throws {
@@ -158,18 +130,12 @@ final class BotsAndTasksListUITests: XCTestCase {
         }
     }
 
-    /// Starts from no stored folds unless `keepFolds`, so earlier runs leave nothing behind.
-    private func launch(page: String, keepFolds: Bool = false) {
+    /// Starts from no stored folds, so earlier runs leave nothing behind.
+    private func launch(page: String) {
         app = XCUIApplication()
-        app.launchArguments = ["-preview-home", "-preview-no-push", "-page", page]
-        if !keepFolds { app.launchArguments += ["-nuphos.agent.foldedThreads", "{}"] }
+        app.launchArguments = ["-preview-home", "-preview-no-push", "-page", page, "-nuphos.agent.foldedThreads", "{}"]
         app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path]
         app.launch()
-    }
-
-    /// The home tabs, since #3004.
-    private func switchPage(to title: String) {
-        app.buttons[title].firstMatch.tap()
     }
 
     private static func row(
