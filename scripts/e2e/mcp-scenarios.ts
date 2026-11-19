@@ -67,6 +67,59 @@ async function askOverMcp(tool: Tool, teamId: string, marker: string): Promise<s
 
 export const mcpScenarios: Scenario[] = [
   {
+    name: 'an MCP client selects GitHub credentials and identity and preserves omitted fields',
+    run: async (_page, stack) => {
+      const as = client(stack.apiUrl, stack.token)
+      const { tool } = mcp(as)
+      const sessionId = await askOverMcp(tool, stack.teamId, 'E2E_DELIVERY:mcp-credentials')
+      const args = { team_id: stack.teamId, session_id: sessionId }
+      const changed = await tool<{
+        enabled_for_session: {
+          github_installation_ids?: string[]
+          personal_credential_ids: string[]
+          team_identity: string[]
+        }
+      }>('nuphos_update_credentials', {
+        ...args,
+        github_installation_ids: [],
+        personal_credential_ids: [],
+        team_identity: ['github'],
+      })
+      must(changed.isError !== true, `credential update to succeed, got ${JSON.stringify(changed)}`)
+      const read = await tool<{ enabled_for_session: Record<string, unknown> }>(
+        'nuphos_list_credentials',
+        args,
+      )
+      must(
+        JSON.stringify(read.structuredContent?.enabled_for_session.github_installation_ids) ===
+          '[]',
+        'an explicit empty GitHub allowlist to persist',
+      )
+      const preserved = await tool<{ enabled_for_session: Record<string, unknown> }>(
+        'nuphos_update_credentials',
+        args,
+      )
+      must(
+        JSON.stringify(preserved.structuredContent?.enabled_for_session.team_identity) ===
+          '["github"]',
+        'omission to preserve team identity',
+      )
+      const invalid = await tool('nuphos_update_credentials', {
+        ...args,
+        github_installation_ids: 'invalid',
+      })
+      must(invalid.isError === true, 'the shared validator to reject a malformed GitHub list')
+      const cleared = await tool<{ enabled_for_session: Record<string, unknown> }>(
+        'nuphos_update_credentials',
+        { ...args, team_identity: [] },
+      )
+      must(
+        JSON.stringify(cleared.structuredContent?.enabled_for_session.team_identity) === '[]',
+        'an explicit empty identity to restore the personal preference',
+      )
+    },
+  },
+  {
     name: 'an MCP client lists the tools and teams, asks the agent, and the Task shows in the app',
     run: async (page, stack) => {
       const { rpc, tool } = mcp(client(stack.apiUrl, stack.token))
