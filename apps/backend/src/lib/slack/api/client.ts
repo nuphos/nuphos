@@ -55,7 +55,7 @@ export type SlackApiResponse = {
 }
 
 export function canVerifySlackRequests(): boolean {
-  return Boolean(config.slack.signingSecret)
+  return !!config.slack.signingSecret
 }
 
 export function verifySlackSignature(

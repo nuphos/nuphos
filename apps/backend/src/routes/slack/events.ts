@@ -62,9 +62,7 @@ async function handleSlackEvent(envelope: SlackEventEnvelope): Promise<void> {
 async function handleSlackEventWithLease(envelope: SlackEventEnvelope): Promise<void> {
   const eventId = envelope.event_id
 
-  if (!eventId) { await handleSlackEvent(envelope);
-
- return; }
+  if (!eventId) return await handleSlackEvent(envelope)
   const timer = setInterval(() => {
     void refreshSlackEventClaim(eventId).catch((err: unknown) => {
       logError('slack.event.claim_refresh_error', err, { event_id: eventId })
