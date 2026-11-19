@@ -10,7 +10,7 @@ import { cliBrowser, createCliBrowser } from './cli-browser.ts'
 type Command = { id: number; method: string; params: Record<string, unknown>; sessionId?: string }
 
 /** A Chromium on the far end of the debugging pipe, answering as a real one would. */
-function fakeChromium() {
+function fakeChromium({ failContexts = 0 } = {}) {
   const read = new PassThrough()
   const write = new PassThrough()
   const commands: Command[] = []
@@ -31,7 +31,11 @@ function fakeChromium() {
       let result: object = {}
 
       commands.push(command)
-      if (method === 'Target.createBrowserContext')
+      if (method === 'Target.createBrowserContext' && failContexts > 0) {
+        failContexts--
+        emit({ id, error: { message: 'Failed to create browser context.' } })
+        continue
+      } else if (method === 'Target.createBrowserContext')
         result = { browserContextId: `ctx-${String(++contexts)}` }
       else if (method === 'Target.createTarget') {
         const created = `target-${String(pages.size + 1)}`
@@ -204,4 +208,37 @@ test('a garbled message from the browser is skipped, not thrown', async () => {
   await run(call('s1', { action: 'open', url: 'https://example.com/' }))
   chromium.garble('not json')
   assert.equal(textOf(await run(call('s1', { action: 'eval', tab: 1, script: '6*7' }))), '42')
+})
+
+test('a browser context that failed to be created is created again on the next open', async () => {
+  const run = createCliBrowser(() => fakeChromium({ failContexts: 1 }).browser, temp)
+
+  await assert.rejects(
+    run(call('s1', { action: 'open', url: 'https://example.com/' })),
+    /browser context/,
+  )
+  assert.notEqual(
+    (await run(call('s1', { action: 'open', url: 'https://example.com/' }))).isError,
+    true,
+  )
+})
+
+test('opens still in flight count toward the tab cap and keep their context alive', async () => {
+  const chromium = fakeChromium()
+  const run = createCliBrowser(() => chromium.browser, temp)
+  const opens = Array.from({ length: 11 }, () =>
+    run(call('s1', { action: 'open', url: 'https://example.com/' })),
+  )
+
+  assert.equal((await Promise.all(opens)).filter((r) => r.isError).length, 1)
+
+  const other = createCliBrowser(() => chromium.browser, temp)
+
+  await other(call('s2', { action: 'open', url: 'https://example.com/' }))
+  // Its only tab closes while a second one is still opening: the context must stay.
+  const opening = other(call('s2', { action: 'open', url: 'https://example.com/' }))
+
+  await other(call('s2', { action: 'close', tab: 1 }))
+  await opening
+  assert.ok(!chromium.commands.some((c) => c.method === 'Target.disposeBrowserContext'))
 })
