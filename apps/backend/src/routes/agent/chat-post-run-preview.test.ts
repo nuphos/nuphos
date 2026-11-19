@@ -8,15 +8,18 @@ import '@/routes/agent'
 
 import { beforeEach, describe, expect, spyOn, test } from 'bun:test'
 
-import type { SlackBoundTurnDelivery } from './chat-slack-bound'
-import type { InternalChatCtx } from './types'
-import type { SlackAgentThread } from '@/lib/slack/agent-bot'
-import type { UIMessage } from 'ai'
-
 import { queuedRefusal, refusal } from '@/lib/claude-code-preview/runtime-refusal'
 import { useAgentTranscript } from '@/lib/test/doubles/agent-transcript'
 import { useChatPreviewTurn } from '@/lib/test/doubles/chat-preview-turn'
 import { useChatSlackBound } from '@/lib/test/doubles/chat-slack-bound'
+import { useDb } from '@/lib/test/doubles/db'
+import { useRuntimeModels } from '@/lib/test/doubles/runtime-models'
+import { portabilityDb } from '@/lib/test/runtime-portability-db'
+
+import type { SlackBoundTurnDelivery } from './chat-slack-bound'
+import type { InternalChatCtx } from './types'
+import type { SlackAgentThread } from '@/lib/slack/agent-bot'
+import type { UIMessage } from 'ai'
 
 const ENDPOINT = { url: 'ws://openab-team-t1.openab-runtimes.svc:8080/acp', authKey: 'k' }
 
@@ -58,6 +61,8 @@ useChatSlackBound({
   },
 })
 
+const installDb = useDb({})
+const installModels = useRuntimeModels({})
 const { appendAgentRunFrame } = await import('./run-frames')
 
 const installPreviewTurn = useChatPreviewTurn({
@@ -323,5 +328,52 @@ describe('launchAcceptedChatTurn on the Claude Code runtime', () => {
 
     await settled(() => seen.previewArgs.length === 1)
     expect(seen.previewArgs[0]).toMatchObject({ decisionReplyTo: 'nuphos-q1' })
+  })
+
+  test('a new chat’s first-turn pick is recorded as the person’s, from the app that sent it', async () => {
+    const memory = portabilityDb()
+
+    memory
+      .rows('agent_conversations')
+      .push({ sessionId: 'conv-first', teamId: 'team-1', userId: 'user-1' })
+    installDb({ db: () => memory })
+    installModels({
+      runtimeModelCatalog: async () => ({
+        models: [{ id: 'opus', name: 'Opus' }],
+        controls: { modelId: 'opus', effort: [], fast: [] },
+      }),
+    })
+    const run = createAgentRun('user-1', 'conv-first', 'stream-first')
+    const messages = [
+      { id: 'm1', role: 'user', parts: [{ type: 'text', text: 'hello' }] },
+    ] as UIMessage[]
+
+    launchAcceptedChatTurn({
+      run,
+      chatCtx: {
+        userId: 'user-1',
+        nuphosToken: 'tok',
+        requestId: 'r',
+        streamId: 'stream-first',
+        client: 'ios',
+      } as InternalChatCtx,
+      chatSpan: { end: () => {} } as never,
+      body: { id: 'conv-first', messages, initialSessionConfig: { model: 'opus' } },
+      teamId: 'team-1',
+      messages,
+      firstMessage: 'hello',
+      locale: 'en',
+      credentialAccess: undefined,
+      credentialAccessRequested: false,
+      chatRuntime: { runtime: 'claude-code', runtimeId: 'rt-1', endpoint: ENDPOINT },
+      releaseClaim: () => {},
+      slack: null,
+      storedTurn: { isNew: true },
+    })
+
+    await settled(() => seen.previewArgs.length === 1)
+    expect(memory.rows('agent_conversations')[0]?.settingsHistory).toMatchObject([
+      { actorId: 'user-1', via: 'new_chat', client: 'ios', model: { to: { value: 'opus' } } },
+    ])
   })
 })

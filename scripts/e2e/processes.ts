@@ -57,9 +57,15 @@ type SpawnOptions = { cwd?: string; env?: Record<string, string> }
 export function spawn(name: string, command: string[], options: SpawnOptions = {}): ChildProcess {
   const log = createWriteStream(logPath(name), { flags: 'a' })
   const inherited = Object.fromEntries(
-    ['PATH', 'HOME', 'LD_LIBRARY_PATH', 'DISPLAY', 'XAUTHORITY', 'DOCKER_HOST'].flatMap((key) =>
-      process.env[key] ? [[key, process.env[key]]] : [],
-    ),
+    [
+      'PATH',
+      'HOME',
+      'LD_LIBRARY_PATH',
+      'DISPLAY',
+      'XAUTHORITY',
+      'DOCKER_HOST',
+      'OPENAB_ACP_STREAMING',
+    ].flatMap((key) => (process.env[key] ? [[key, process.env[key]]] : [])),
   )
   const child = spawnChild(command[0], command.slice(1), {
     cwd: options.cwd ?? artifacts,

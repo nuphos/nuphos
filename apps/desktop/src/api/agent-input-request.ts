@@ -1,3 +1,5 @@
+import type { PersonalCredentialProvider } from '../types/team.ts'
+
 /** A question an agent asked with request_user_decision, as the conversation keeps it while open. */
 export type AgentInputRequest = {
   /** The request_user_decision tool call id. */
@@ -17,7 +19,7 @@ export type AgentInputRequest = {
   fields?: { name: string; label: string }[]
   site?: string
   providers?: string[]
-  credentials?: { provider: 'personal'; id: 'github' | 'linear' }[]
+  credentials?: { provider: 'personal'; id: PersonalCredentialProvider }[]
   planId?: string
   askedAt: string
   /** Set aside by its owner: out of the Inbox until then (ISO), still answerable in its chat. */

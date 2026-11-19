@@ -31,7 +31,7 @@ export function roleDetail(role: TeamRole): string {
       return t('Everything an Editor can do, plus members, roles and team settings.')
     case 'EDITOR':
       return t(
-        'Works with agents and adds or changes the team’s connections, dashboards and pages.',
+        'Works with Bots and tasks and adds or changes the team’s connections, dashboards and pages.',
       )
     case 'VIEWER':
       return t(

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import { OpenAbRpcError } from '@/lib/claude-code-preview/openab-acp-errors'
+import { AGENT_CLI_UNSTARTABLE_MESSAGE } from '@/lib/claude-code-preview/plain-failure'
 import { AppError } from '@/lib/errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useAgentRunStore } from '@/lib/test/doubles/agent-run-store'
@@ -16,9 +17,9 @@ import {
   CHANNEL_AGENT_TURN_BUDGET,
   postAsAgent,
   postChannelMessage,
-  replyQuote,
   wakeAfterTurn,
 } from './channel-chat'
+import { replyQuote } from './channel-reply'
 import { wakeMissedPosts } from './channel-missed-posts'
 import { runTurn, startConversationTurn } from './conversation-turn'
 import { inviteToConversation, resolveMentions } from './mentions'
@@ -401,6 +402,28 @@ describe('waking a channel’s agents', () => {
     expect(
       (await channel()).timelineEvents?.find((event) => event.kind === 'agent_reply_failed'),
     ).toMatchObject({ agentId: 'agent-a', cause: 'other', reason: refused })
+  })
+
+  test('a Codex install missing its binary says to install it again, so the chat can offer Install', async () => {
+    // As logged for a Bot's first turn on 2026-11-19 (path shortened).
+    const died =
+      'Codex process has exited with code 1:\nError: spawn /usr/local/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/codex/codex ENOENT'
+
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async ({ sessionId }) => {
+        if (sessionId === 'agent-a')
+          throw new OpenAbRpcError(died, 1001, { code: 1001, message: died })
+
+        return { status: 'completed' }
+      },
+    })
+    await say('hello')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(
+      (await channel()).timelineEvents?.find((event) => event.kind === 'agent_reply_failed'),
+    ).toMatchObject({ agentId: 'agent-a', cause: 'cli', reason: AGENT_CLI_UNSTARTABLE_MESSAGE })
   })
 
   test("an agent's other internal error leaves its words out of the chat", async () => {

@@ -7,6 +7,7 @@ import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
 import { useThisComputer } from '../../hooks/useThisComputer'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
 import { t } from '../../i18n'
+import { isThisComputer } from '../../lib/agentName'
 
 import { DeskShelf } from './BoxDeskShelf'
 import { BOX_METRICS_POLL_MS, boxAgents, boxPollMs, vanishedBoxes } from './boxPresentation'
@@ -105,8 +106,8 @@ export function BoxSection({
           !canCreate && (
             <span className="text-[11.5px] text-tertiary">
               {admin
-                ? t('Ask {name} to add a cloud computer.', { name: admin })
-                : t('Administrators add cloud computers.')}
+                ? t('Ask {name} to rent a computer from Nuphos.', { name: admin })
+                : t('Administrators rent computers from Nuphos.')}
             </span>
           )
         }
@@ -140,8 +141,12 @@ export function BoxSection({
             <DeskShelf>
               {owned.map((device) => (
                 <BoxRow
-                  thisComputer={thisComputer?.deviceId === device.deviceId}
-                  key={device.deviceId}
+                  thisComputer={isThisComputer(thisComputer, {
+                    userId: device.ownerUserId,
+                    deviceId: device.deviceId,
+                  })}
+                  // One machine signed in with two accounts is listed once for each.
+                  key={`${device.ownerUserId}:${device.deviceId}`}
                   teamId={teamId}
                   device={device}
                   agents={boxAgents(device.deviceId, instances)}
