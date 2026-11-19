@@ -122,17 +122,32 @@ export async function boxDesktops(
  * is told when the Nuphos on it is too old to be supported (host-minimum-version.ts).
  */
 export async function ownComputer(
-  { userId, deviceId, box }: LocalRuntimeRef & { box?: unknown },
+  {
+    userId,
+    deviceId,
+    box,
+    autoInstall: recorded,
+  }: LocalRuntimeRef & {
+    box?: unknown
+    autoInstall?: boolean
+  },
   viewerId: string,
   presence = runtimePresenceStore(),
 ): Promise<{
   desktopRuntimeId?: string
   app?: NonNullable<LocalRuntimeStatus['app']>
   outdated?: OutdatedHost
+  autoInstall?: boolean
 }> {
   const present = await presence.get(userId, deviceId)
   const old = hostOutdated(present)
-  const outdated = old ? { outdated: old } : {}
+  // Everyone sees whether it updates itself when idle; whoever manages it may change that.
+  // Offline, its card shows the switch as it last reported it, and cannot change it.
+  const autoInstall = present?.status?.autoInstall ?? recorded
+  const outdated = {
+    ...(old ? { outdated: old } : {}),
+    ...(typeof autoInstall === 'boolean' ? { autoInstall } : {}),
+  }
 
   if (box || userId !== viewerId) return outdated
   const status = present?.status
