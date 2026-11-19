@@ -109,6 +109,8 @@ async function answer(stack: Stack, chatId: string, text: string) {
 
 export default {
   name: "a Slack channel's messages reach its Bot as an external chat, only the owner speaks for them, and the Bot answers in Slack",
+  // The teammate's Bot, refused while the viewer's holds the channel.
+  expected: /"error_code":"slack_channel_has_bot"/,
   run: async (page, stack) => {
     addSlackUser('UOWNER', { team_id: WORKSPACE, email: stack.email, name: 'Owner in Slack' })
     addSlackUser('UEXT', { team_id: 'TOTHER', email: stack.email, name: 'Outsider' })
