@@ -4,7 +4,7 @@ import { AppError } from '@/lib/errors'
 
 import { agentRuns } from './run-registry'
 import { streamAgentRunResponse } from './run-stream'
-import { traceAgentChatError, traceAgentChatEvent } from './trace'
+import { traceAgentChatEvent } from './trace'
 
 import type { AgentRun, ResumeParams } from './types'
 
@@ -247,25 +247,8 @@ export async function resumeFromRedisOrThrow(params: ResumeParams): Promise<Resp
     requestId,
   })
 
-  traceAgentChatError(
-    'agent.chat.resume.redis_not_resumable',
-    err,
-    {
-      requestId,
-      userId: runOwnerUserId,
-      sessionId: id,
-      teamId,
-      streamId,
-      route: '/agent/chat',
-      method: 'POST',
-      chatSpan: resumeSpan,
-    },
-    {
-      viewer_user_id: userId,
-      read_only_resume: params.readOnlyResume,
-      resume_from: body.resumeFrom,
-    },
-  )
+  // Not an error: the stream ended before this resume arrived, and the client starts afresh.
+  // The request log records the 409 and its code.
   resumeSpan.end()
   throw err
 }
