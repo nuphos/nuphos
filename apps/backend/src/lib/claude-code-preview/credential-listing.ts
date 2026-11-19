@@ -217,7 +217,7 @@ export const CREDENTIAL_LISTERS: Record<SelectionKey, Lister> = {
     idOf: (a) => a.accountId,
     details: (a, id) => ({
       label: a.label,
-      usage: `Cloud computers billed to this instabox account: list_boxes, create_box (accountId=${id}) and update_box. The key stays server-side.`,
+      usage: `Computers from Nuphos billed to this instabox account: list_boxes, create_box (accountId=${id}) and update_box. The key stays server-side.`,
     }),
     unsetMeansAll: true,
   }),
