@@ -355,7 +355,6 @@ struct HomeView: View {
                 Button { showNewBot = true } label: {
                     Label("New Bot", image: "home-tab-bots")
                 }
-                .disabled(store?.creatingBot == true || store?.selectedRuntimeUnavailable != false)
                 Button { showNewTask = true } label: {
                     Label("New Task", image: "home-tab-tasks")
                 }
