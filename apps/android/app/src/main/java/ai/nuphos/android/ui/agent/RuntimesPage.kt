@@ -155,7 +155,7 @@ fun RuntimeInventory(store: RuntimesStore, onRuntime: (String) -> Unit) {
 private fun RuntimeInventoryHost(group: RuntimeGroup) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Box(Modifier.width(28.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
-            Icon(if (group.key == "cloud") Icons.Outlined.Cloud else if (group.device?.box == true || group.key.startsWith("runtime:"))
+            Icon(if (group.key == "cloud") Icons.Outlined.Cloud else if (group.device?.box != null || group.key.startsWith("runtime:"))
                 androidx.compose.material.icons.Icons.Outlined.Inventory2 else Icons.Outlined.Computer, null, Modifier.size(20.dp))
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -194,26 +194,19 @@ private fun InventoryMeter(title: String, percent: Double, modifier: Modifier) {
 @Composable
 private fun RuntimeInventoryQuota(quota: ai.nuphos.android.data.RuntimeQuota?, needsSignIn: Boolean) {
     val tightest = quota?.takeIf { it.available }?.windows?.maxByOrNull { it.usedPercent }
-    val resources = androidx.compose.ui.platform.LocalContext.current.resources
     if (tightest != null) {
         val left = kotlin.math.round(100 - tightest.usedPercent).toInt().coerceIn(0, 100)
         val tint = if (left == 0) MaterialTheme.colorScheme.error else if (left <= 20) androidx.compose.ui.graphics.Color(0xFFAF601A) else MaterialTheme.colorScheme.onSurface
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(3.dp), itemVerticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
             Box(Modifier.width(44.dp)) { ContinuousUsageBar(left / 100f, color = tint, trackColor = MaterialTheme.colorScheme.outlineVariant) }
-            Text((if (left == 0) stringResource(R.string.agent_limit_reached) else stringResource(R.string.agent_percent_left, left.toString())) + inventoryReset(resources, tightest.resetsAt),
+            Text(listOfNotNull(if (left == 0) stringResource(R.string.agent_limit_reached) else stringResource(R.string.agent_percent_left, left.toString()),
+                resetsInText(ResetsIn.of(tightest.resetsAt))).joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall, color = if (left <= 20) tint else MaterialTheme.colorScheme.onSurfaceVariant)
         }
     } else if (needsSignIn || quota?.needsSignIn == true) Text(stringResource(R.string.agent_sign_in_required), style = MaterialTheme.typography.bodySmall,
         color = androidx.compose.ui.graphics.Color(0xFFAF601A))
 }
 internal fun inventoryProviderName(provider: String) = ai.nuphos.android.model.RuntimeIdentity.name(provider)
-private fun inventoryReset(resources: android.content.res.Resources, raw: String?): String = runCatching {
-    val date = java.time.Instant.parse(raw)
-    val minutes = java.time.Duration.between(java.time.Instant.now(), date).toMinutes()
-    if (!date.isAfter(java.time.Instant.now())) "" else if (minutes < 60) " · " + resources.getString(R.string.agent_resets_in_minutes, minutes.coerceAtLeast(1))
-    else if (minutes < 1440) " · " + resources.getString(R.string.agent_resets_in_hours, minutes / 60, minutes % 60)
-    else " · " + resources.getString(R.string.agent_resets_at, java.time.format.DateTimeFormatter.ofPattern("EEE HH:mm").withZone(java.time.ZoneId.systemDefault()).format(date))
-}.getOrDefault("")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -29,7 +29,7 @@ export function StatsSubscriptions({ teamId }: { teamId: string }) {
               {agentName(instance)}
             </div>
             <p className="mb-4 text-xs text-tertiary">
-              {agentRunsOn(instance, computer?.deviceId, quota)}
+              {agentRunsOn(instance, computer, quota)}
               {quota?.plan ? ` · ${quota.plan}` : ''}
             </p>
             {!windows.length && (

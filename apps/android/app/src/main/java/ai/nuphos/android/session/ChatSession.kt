@@ -447,6 +447,15 @@ class ChatSession(
 
     fun send(text: String) = send(ComposerSubmission(text))
 
+    fun failedTurn(userId: String?): ChatRow.FailedTurn? =
+        if (isStreaming || hasActiveRun || runtimeTurnActive || submissionPending || !canSubmit) null
+        else ChatRow.failedTurn(messages, userId, foreignChat = !isOwner)
+
+    fun retryFailedTurn(userId: String?) {
+        val prompt = failedTurn(userId)?.prompt ?: return
+        send(prompt)
+    }
+
     /**
      * The secure input card's answer, as on the desktop and iOS: the value goes
      * straight to a file on the agent's runtime, and the reply names only the

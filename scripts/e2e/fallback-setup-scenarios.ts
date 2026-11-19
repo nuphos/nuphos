@@ -2,7 +2,7 @@
 import { agentLog } from './agent-log.ts'
 import { joinTeam } from './dashboard-scenarios.ts'
 import { artifacts, until } from './processes.ts'
-import { newTask, send } from './ui.ts'
+import { newTask, pickInSubmenu, send } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
@@ -15,7 +15,10 @@ async function choose(page: Page, trigger: Locator, label: string) {
   await trigger.click()
   // The computer's row opens a submenu of its runtimes.
   await page.getByRole('menu').getByText(label).click()
-  await page.getByRole('menuitem', { name: new RegExp(`^${label}.*Claude Code`) }).click()
+  await pickInSubmenu(
+    page,
+    page.getByRole('menuitem', { name: new RegExp(`^${label}.*Claude Code`) }),
+  )
 }
 
 async function call(
@@ -45,6 +48,21 @@ const fallbacks = async (stack: Stack) =>
   ((await call(stack, 'GET', '/runtime-fallbacks')).body as { fallbacks: Record<string, string> })
     .fallbacks
 
+/** Switches off every other active runtime, leaving the fixture agent's alone; the result switches them back on. */
+async function aloneOnFixture(stack: Stack) {
+  const { body } = await call(stack, 'GET', '/agent-runtimes')
+  const others = (
+    body as { runtimes: { id: string; label: string; status: string }[] }
+  ).runtimes.filter((runtime) => runtime.label !== FIXTURE && runtime.status === 'active')
+  const set = async (status: string) => {
+    for (const { id } of others) await call(stack, 'PATCH', `/agent-runtimes/${id}`, { status })
+  }
+
+  await set('disabled')
+
+  return () => set('active')
+}
+
 const finishedOnSecond = (stack: Stack, marker: string) =>
   agentLog(stack).filter(
     (entry) => entry.agent === 'second' && entry.marker === marker && entry.event === 'finish',
@@ -60,7 +78,8 @@ export const fallbackSetupScenarios: Scenario[] = [
       const dialog = page.getByRole('dialog', { name: 'Set up fallback' })
 
       // With no other runtime switched on, nothing can take over: the dialog says so.
-      await call(stack, 'PATCH', `/agent-runtimes/${ids[SECOND]}`, { status: 'disabled' })
+      const restore = await aloneOnFixture(stack)
+
       await page.reload()
       await newTask(page)
       await choose(page, page.getByRole('button', { name: /^Runtime:/ }), FIXTURE)
@@ -80,7 +99,7 @@ export const fallbackSetupScenarios: Scenario[] = [
       await dialog.getByText('No other runtime can take over.').waitFor()
       await page.screenshot({ path: `${artifacts}/fallback-none-available.png` })
       await dialog.getByRole('button', { name: 'Cancel' }).click()
-      await call(stack, 'PATCH', `/agent-runtimes/${ids[SECOND]}`, { status: 'active' })
+      await restore()
       await page.reload()
 
       // The failure offers the setup; nothing is chosen until the person chooses.

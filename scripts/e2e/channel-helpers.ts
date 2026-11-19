@@ -3,12 +3,18 @@ import { randomUUID } from 'node:crypto'
 
 import { forgetComputer } from './computer-scenarios.ts'
 import { artifacts } from './processes.ts'
+import { noMenuOpen, pickInSubmenu } from './ui.ts'
 
 import type { Stack } from './stack.ts'
-import type { Page } from 'playwright-core'
+import type { Locator, Page } from 'playwright-core'
 
-/** A computer whose Claude Code reports usage with its status, as Desktop's host does. */
-export async function computerWithUsage(stack: Stack, label: string, deviceId = randomUUID()) {
+/** A computer reporting Claude Code usage as Desktop's host does; with `diskPercent`, a live disk too. */
+export async function computerWithUsage(
+  stack: Stack,
+  label: string,
+  deviceId = randomUUID(),
+  diskPercent?: number,
+) {
   const auth = { authorization: `Bearer ${stack.token}` }
   const registered = await fetch(`${stack.apiUrl}/agent/devices`, {
     method: 'PUT',
@@ -51,12 +57,29 @@ export async function computerWithUsage(stack: Stack, label: string, deviceId = 
             usageAt: new Date().toISOString(),
           },
         },
+        ...(diskPercent === undefined ? {} : { localMetrics: true }),
       },
     }),
   )
+  const report = () =>
+    host.send(
+      JSON.stringify({
+        t: 'metrics',
+        metrics: {
+          sampledAt: new Date().toISOString(),
+          cpuPercent: 20,
+          memory: { used: 4, total: 16 },
+          disk: { used: diskPercent, total: 100 },
+        },
+      }),
+    )
+  const reporting = diskPercent === undefined ? undefined : setInterval(report, 4_000)
+
+  if (reporting) report()
 
   // `forget` false leaves it registered, to connect again.
   return (forget = true) => {
+    clearInterval(reporting)
     host.close()
     if (forget) forgetComputer(stack.mongoUri, deviceId)
   }
@@ -64,9 +87,10 @@ export async function computerWithUsage(stack: Stack, label: string, deviceId = 
 
 /** Puts the composer on a runtime: `row` opens its submenu and `item` names the runtime in it. */
 export async function pickRuntime(page: Page, row: string, item: RegExp) {
+  await noMenuOpen(page)
   await page.getByRole('button', { name: /^Runtime:/ }).click()
   await page.getByRole('menu').getByText(row).first().click({ timeout: 60_000 })
-  await page.getByRole('menuitem', { name: item }).last().click()
+  await pickInSubmenu(page, page.getByRole('menuitem', { name: item }).last())
   // A Bot's move takes a moment; until it lands the composer still names the old runtime.
   await page.getByRole('button', { name: new RegExp(`^Runtime: .*${row}`) }).waitFor()
 }
@@ -109,4 +133,14 @@ export const isBotRow = (row: ListedConversation) => Boolean(row.avatar) && row.
 export async function botPresence(stack: Stack) {
   return (await listedConversations(stack)).find((row) => row.title === 'E2E Bot' && isBotRow(row))
     ?.presence
+}
+
+/** A Bot's sidebar row while it works: no spinner and no greyed-out name (#3522). */
+export async function loadingFree(row: Locator, when: string) {
+  for (const [selector, what] of [
+    ['.animate-spin', 'a spinner'],
+    ['.t-shimmer', 'a greyed-out name'],
+  ])
+    if ((await row.locator(selector).count()) > 0)
+      throw new Error(`${when}, the Bot's row shows ${what}`)
 }

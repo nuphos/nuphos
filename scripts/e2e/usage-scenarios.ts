@@ -4,6 +4,7 @@ import { resolve } from 'node:path'
 
 import { api, joinTeam } from './dashboard-scenarios.ts'
 import { until } from './processes.ts'
+import { teamActivityScenarios } from './team-activity-scenarios.ts'
 import { newTask, openComputers, send } from './ui.ts'
 import { captureFilterMenu, checkNamesByRole, computersAndPrivate, shot } from './usage-checks.ts'
 import {
@@ -56,6 +57,8 @@ export const usageScenarios: Scenario[] = [
       const section = page.getByRole('region', { name: 'Token usage' })
 
       await section.getByText('No token usage recorded in this range yet.').waitFor()
+      // Rows from before cached tokens were recorded in input are left as they are, and say so.
+      await section.getByText(/Input left out cached tokens; Total included them/).waitFor()
       await shot(section, 'token-usage-empty')
 
       // A range the app has not read yet, while the backend cannot answer: the last one stays, dimmed.
@@ -229,4 +232,6 @@ export const usageScenarios: Scenario[] = [
       }
     },
   },
+  // Who sees the team's activity and stats is read from the same members' numbers.
+  ...teamActivityScenarios,
 ]
