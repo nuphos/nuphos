@@ -25,9 +25,13 @@ const done = (result) => {
   process.stdout.write(JSON.stringify({ result, unreadable }))
   process.exit(0)
 }
+// Only Linux (/proc) and macOS (ps, lsof) can tell a home is in use; elsewhere,
+// Windows for one, every home is kept, and the backend retries quietly.
+if (process.platform !== 'linux' && process.platform !== 'darwin') done('in_use')
 // Processes of this user, each marked whether it is inside the runtime's tree:
-// descendants of the topmost ancestor of this job that runs as the same user
-// (tini in the image). The parent pid in /proc/<pid>/stat is readable for every
+// in the image, descendants of the topmost ancestor of this job that runs as the
+// same user (tini); as a computer's own job, descendants of the gateway that
+// launched it, since above it is the person's whole login session. The parent pid in /proc/<pid>/stat is readable for every
 // process, so the tree is known even where environ is not. A session process
 // can also sit outside it: an orphan adopted by a root pid 1 (Railway).
 const userProcesses = async () => {
@@ -40,12 +44,14 @@ const userProcesses = async () => {
   const sameUser = async (pid) =>
     (await fs.stat('/proc/' + pid).catch(() => null))?.uid === process.getuid()
   let root = String(process.pid)
-  for (
-    let pid = parent.get(root);
-    pid && pid !== '0' && (await sameUser(pid));
-    pid = parent.get(pid)
-  )
-    root = pid
+  if (!process.argv[2]) root = String(process.ppid)
+  else
+    for (
+      let pid = parent.get(root);
+      pid && pid !== '0' && (await sameUser(pid));
+      pid = parent.get(pid)
+    )
+      root = pid
   const descends = (pid) => {
     for (let at = pid; at && at !== '0'; at = parent.get(at)) if (at === root) return true
     return false

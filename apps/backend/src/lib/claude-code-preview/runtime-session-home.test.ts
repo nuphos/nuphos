@@ -64,16 +64,37 @@ describe.skipIf(!existsSync('/proc/self'))('RECLAIM_SESSION_HOME_PROGRAM', () =>
     rmSync(root, { recursive: true, force: true })
   })
 
-  test("as a computer's own job, takes the session id on stdin", () => {
+  // Runs the program as a computer's own job does: the session id on stdin.
+  const reclaimAsJob = (sessionId: string) => {
     const run = Bun.spawnSync([process.execPath, '-e', RECLAIM_SESSION_HOME_PROGRAM], {
       env: { HOME: join(root, 'home') },
-      stdin: Buffer.from(JSON.stringify({ sessionId: 'archived' })),
+      stdin: Buffer.from(JSON.stringify({ sessionId })),
     })
 
     expect(run.exitCode).toBe(0)
-    expect(JSON.parse(run.stdout.toString()).result).toBe('removed')
+
+    return (JSON.parse(run.stdout.toString()) as { result: string }).result
+  }
+
+  // Only the gateway that launched the job is the runtime's tree: an unreadable
+  // process elsewhere in the person's login session keeps nothing.
+  test("as a computer's own job, takes the session id on stdin", () => {
+    expect(reclaimAsJob('archived')).toBe('removed')
     expect(existsSync(home('archived'))).toBe(false)
     expect(existsSync(home('other'))).toBe(true)
+  })
+
+  test("as a computer's own job, keeps a home a process under the gateway uses", () => {
+    const shell = Bun.spawn(['sleep', '30'], {
+      env: { HOME: home('archived'), PATH: '/bin:/usr/bin' },
+    })
+
+    try {
+      expect(reclaimAsJob('archived')).toBe('in_use')
+      expect(existsSync(home('archived'))).toBe(true)
+    } finally {
+      shell.kill()
+    }
   })
 
   test('removes only the archived home, keeping a symlink target', () => {
