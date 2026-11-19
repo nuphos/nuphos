@@ -29,10 +29,12 @@ import { fallbackScenarios } from './fallback-scenarios.ts'
 import { formScenario } from './form-scenario.ts'
 import { memberStreamScenarios } from './member-stream-scenarios.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
+import { personalCredentialScenarios } from './personal-credential-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
 import { providerUnreachableScenarios } from './provider-unreachable-scenarios.ts'
 import { questionScenarios } from './question-scenarios.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
+import { settingsHistoryScenarios } from './settings-history-scenarios.ts'
 import { sidebarPageScenarios } from './sidebar-page-scenarios.ts'
 import { botFoldScenarios, sidebarScenarios } from './sidebar-scenarios.ts'
 import { signInScenarios } from './sign-in-scenarios.ts'
@@ -114,6 +116,7 @@ const scenarios: Scenario[] = [
     },
   },
   ...linkChipScenarios,
+  ...personalCredentialScenarios,
   ...sessionResourceScenarios,
   // Before the Stop scenarios: a Stop while its turn was being saved was lost (#3403).
   ...longTranscriptScenarios,
@@ -130,6 +133,7 @@ const scenarios: Scenario[] = [
   ...computerScenarios,
   ...commandScenarios,
   ...threadScenarios,
+  ...settingsHistoryScenarios,
   ...offlineScenarios,
   ...mcpScenarios,
   threadModeScenario,

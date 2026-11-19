@@ -33,6 +33,14 @@ export function useStickToBottom(
     if (ref.current) ref.current.style.paddingBottom = `calc(1rem + ${String(room)}px)`
   }, [ref, room])
 
+  // At the bottom in the commit that shows the posts, before the frame: the observer below
+  // reports only after the frame starts, so an opened chat showed its oldest posts first.
+  useLayoutEffect(() => {
+    const scroller = ref.current
+
+    if (stuck.current && scroller) scroller.scrollTop = scroller.scrollHeight
+  })
+
   useEffect(() => {
     const scroller = ref.current
     const content = scroller?.firstElementChild

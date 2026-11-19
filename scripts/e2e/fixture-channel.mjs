@@ -29,6 +29,16 @@ export async function answerChannel({ call, log, sessionId, channelId, text }) {
 
   if (twice)
     await call(sessionId, 'channel_post', { label: 'Ack', channelId, text: `FIRST ${marker}` })
-  await call(sessionId, 'channel_post', { label: 'Answer', channelId, text: `POSTED ${marker}` })
+  // E2E_REPLY_TO answers the post that carries it, by its index, so the answer quotes it.
+  const asked = [...read.matchAll(/"index":\s*(\d+)((?:(?!"index":)[\s\S])*)/g)].find((match) =>
+    match[2].includes('E2E_REPLY_TO'),
+  )
+
+  await call(sessionId, 'channel_post', {
+    label: 'Answer',
+    channelId,
+    text: `POSTED ${marker}`,
+    ...(asked ? { replyTo: Number(asked[1]) } : {}),
+  })
   if (twice) await new Promise((resolve) => setTimeout(resolve, 10_000))
 }
