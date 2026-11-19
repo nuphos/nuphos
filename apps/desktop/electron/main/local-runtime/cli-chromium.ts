@@ -5,6 +5,8 @@ import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { delimiter, join } from 'node:path'
 
+import { HELPER_URL } from './browser-video.ts'
+
 import type { Helper } from './browser-video.ts'
 import type { Readable, Writable } from 'node:stream'
 
@@ -113,7 +115,7 @@ export function launchChromium(executable: string, profile: string): Browser {
   }
 }
 
-/** A blank page in a window of its own, so the tab it records stays in front (browser-video.ts). */
+/** A blank https page in a window of its own, so the tab it records stays in front (browser-video.ts). */
 export async function helperPage(cdp: Cdp): Promise<Helper> {
   const { targetId } = await cdp.send<{ targetId: string }>('Target.createTarget', {
     url: 'about:blank',
@@ -123,6 +125,16 @@ export async function helperPage(cdp: Cdp): Promise<Helper> {
     targetId,
     flatten: true,
   })
+  const blank: Listener = (method, params, session) => {
+    if (method === 'Fetch.requestPaused' && session === sessionId)
+      void cdp
+        .send('Fetch.fulfillRequest', { requestId: params.requestId, responseCode: 200 }, sessionId)
+        .catch(() => {})
+  }
+
+  cdp.listeners.add(blank)
+  await cdp.send('Fetch.enable', { patterns: [{ urlPattern: HELPER_URL }] }, sessionId)
+  await cdp.send('Page.navigate', { url: HELPER_URL }, sessionId)
 
   return {
     evaluate: async (expression) => {
@@ -136,6 +148,9 @@ export async function helperPage(cdp: Cdp): Promise<Helper> {
 
       return result.value
     },
-    close: () => void cdp.send('Target.closeTarget', { targetId }).catch(() => {}),
+    close: () => {
+      cdp.listeners.delete(blank)
+      void cdp.send('Target.closeTarget', { targetId }).catch(() => {})
+    },
   }
 }

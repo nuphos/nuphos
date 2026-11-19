@@ -1,10 +1,17 @@
-// What a recorded tab showed, as a WebM. Its screencast frames are drawn on a canvas in a helper
-// page whose MediaRecorder encodes them: both hosts are Chromium (Desktop's Electron, the CLI
-// host's headless browser), so no video encoder ships with Nuphos.
+// What a recorded tab showed, as a WebM. A helper page's VideoEncoder encodes its screencast
+// frames: both hosts are Chromium (Desktop's Electron, the CLI host's headless browser), so no
+// video encoder ships with Nuphos.
 import { writeFile } from 'node:fs/promises'
+
+import { webm } from './webm.ts'
 
 import type { RecordedTab } from './browser-recording.ts'
 
+/**
+ * Where a helper page is opened: no request leaves for it, the host answers it with a blank page.
+ * The page has to be on https, as VideoEncoder only exists in a secure context.
+ */
+export const HELPER_URL = 'https://video.nuphos.invalid/'
 /** A blank page the host keeps for one recording: Desktop's hidden window, a headless one on the CLI. */
 export type Helper = { evaluate: (script: string) => Promise<unknown>; close: () => void }
 export type OpenHelper = () => Promise<Helper>
@@ -32,37 +39,53 @@ const ABANDONED_MS = 10 * 60_000
 /** The tab's viewport (browser-tabs.ts, cli-browser.ts): frames are drawn at that size. */
 const SIZE = { width: 1440, height: 900 }
 
-// Frames are drawn in arrival order; MediaRecorder keeps their timing, as it records in real time.
-// A page that stops changing sends no frames, so finish draws the last one again: the video
-// then lasts until record_stop instead of ending at the page's last change.
+// Each frame is encoded at the time it arrived, given by the host: a helper page that runs late,
+// as a headless one may, still gives the video its real timing. finish encodes the last frame
+// again at record_stop, so a page that stopped changing still lasts until then.
 const SETUP = `(() => {
-  const canvas = Object.assign(document.createElement('canvas'), ${JSON.stringify(SIZE)})
-  const context = canvas.getContext('2d')
   const chunks = []
-  const recorder = new MediaRecorder(canvas.captureStream(30), { mimeType: 'video/webm;codecs=vp8' })
-  let drawn = Promise.resolve()
-  let last
+  let failed
+  const encoder = new VideoEncoder({
+    output: (chunk) => {
+      const data = new Uint8Array(chunk.byteLength)
 
-  document.body.append(canvas)
-  recorder.ondataavailable = (event) => chunks.push(event.data)
-  recorder.start(1000)
-  window.draw = (jpeg) => {
-    drawn = drawn.then(async () => {
-      last = await createImageBitmap(await (await fetch('data:image/jpeg;base64,' + jpeg)).blob())
-      context.drawImage(last, 0, 0, canvas.width, canvas.height)
-    })
-  }
-  window.finish = () => drawn.then(() => new Promise((done) => {
-    recorder.onstop = async () => {
-      const bytes = new Uint8Array(await new Blob(chunks).arrayBuffer())
+      chunk.copyTo(data)
       let binary = ''
 
-      for (let i = 0; i < bytes.length; i += 32768) binary += String.fromCharCode(...bytes.subarray(i, i + 32768))
-      done(btoa(binary))
-    }
-    if (last) context.drawImage(last, 0, 0, canvas.width, canvas.height)
-    setTimeout(() => recorder.stop(), 200)
-  }))
+      for (let i = 0; i < data.length; i += 32768) binary += String.fromCharCode(...data.subarray(i, i + 32768))
+      chunks.push({ ms: chunk.timestamp / 1000, key: chunk.type === 'key', data: btoa(binary) })
+    },
+    error: (error) => (failed = error),
+  })
+  let drawn = Promise.resolve()
+  let last
+  let keyed = -Infinity
+  // A key frame every 2 seconds, so the video seeks quickly.
+  const encode = (image, ms) => {
+    const frame = new VideoFrame(image, { timestamp: ms * 1000 })
+    const keyFrame = ms - keyed >= 2000
+
+    if (keyFrame) keyed = ms
+    encoder.encode(frame, { keyFrame })
+    frame.close()
+  }
+
+  encoder.configure({ codec: 'vp8', ...${JSON.stringify(SIZE)}, bitrate: 2000000 })
+  window.draw = (jpeg, ms) => {
+    drawn = drawn.then(async () => {
+      const blob = await (await fetch('data:image/jpeg;base64,' + jpeg)).blob()
+
+      last = await createImageBitmap(blob, { resizeWidth: ${SIZE.width}, resizeHeight: ${SIZE.height} })
+      encode(last, ms)
+    })
+  }
+  window.finish = (ms) => drawn.then(async () => {
+    if (last) encode(last, ms)
+    await encoder.flush()
+    if (failed) throw failed
+
+    return JSON.stringify(chunks)
+  })
 })()`
 
 /** Starts recording what the tab shows, on a debugger already attached to it. */
@@ -100,7 +123,7 @@ export async function startVideo(
       .sendCommand('Page.captureScreenshot', { format: 'jpeg', quality: 70 })
       .catch(() => ({}))) as { data?: string }
 
-    if (data) void helper.evaluate(`draw(${JSON.stringify(data)})`).catch(() => {})
+    if (data) void helper.evaluate(`draw(${JSON.stringify(data)}, 0)`).catch(() => {})
     debug.on('message', video.onMessage)
     await debug.sendCommand('Page.startScreencast', {
       format: 'jpeg',
@@ -136,7 +159,9 @@ function onFrame(video: Video, params: Record<string, unknown>): void {
   }
   video.bytes = bytes
   video.frames++
-  void video.helper.evaluate(`draw(${JSON.stringify(data)})`).catch(() => {})
+  void video.helper
+    .evaluate(`draw(${JSON.stringify(data)}, ${Date.now() - video.started})`)
+    .catch(() => {})
 }
 
 function stopFrames(video: Video): void {
@@ -151,14 +176,24 @@ export async function stopVideo(video: Video, file: string) {
   clearTimeout(video.expiry)
   stopFrames(video)
   try {
-    const webm = Buffer.from((await video.helper.evaluate('finish()')) as string, 'base64')
+    const ms = Date.now() - video.started
+    const chunks = JSON.parse((await video.helper.evaluate(`finish(${ms})`)) as string) as {
+      ms: number
+      key: boolean
+      data: string
+    }[]
+    const bytes = webm(
+      chunks.map((c) => ({ ...c, data: Buffer.from(c.data, 'base64') })),
+      SIZE,
+      ms,
+    )
 
-    await writeFile(file, webm, { mode: 0o600 })
+    await writeFile(file, bytes, { mode: 0o600 })
 
     return {
       file,
-      seconds: Math.round((Date.now() - video.started) / 100) / 10,
-      bytes: webm.length,
+      seconds: Math.round(ms / 100) / 10,
+      bytes: bytes.length,
       frames: video.frames,
       truncated: video.truncated,
     }
