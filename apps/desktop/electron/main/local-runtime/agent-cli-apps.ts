@@ -3,7 +3,7 @@ import { accessSync, constants, readdirSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-import type { AgentCliStatus, LocalAgentProvider } from './agent-cli.ts'
+import type { LocalAgentProvider } from './agent-cli.ts'
 
 /** Reads an environment variable the way Windows does: names are case-insensitive there,
  *  and a copied `process.env` keeps whatever case the system used (`Path`, not `PATH`). */
@@ -36,11 +36,6 @@ export function executable(file: string): boolean {
   } catch {
     return false
   }
-}
-
-/** The file an installed CLI runs. */
-export function cliPath(cli: AgentCliStatus | null): string | undefined {
-  return cli?.installed ? cli.path : undefined
 }
 
 function list(dir: string): string[] {

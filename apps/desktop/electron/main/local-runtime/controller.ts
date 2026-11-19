@@ -1,5 +1,5 @@
-import { cliPath, executable } from './agent-cli-apps.ts'
-import { LOCAL_AGENT_PROVIDERS } from './agent-cli.ts'
+import { executable } from './agent-cli-apps.ts'
+import { cliPath, LOCAL_AGENT_PROVIDERS } from './agent-cli.ts'
 import { discoverModels } from './agent-models.ts'
 import {
   freshAgent,
