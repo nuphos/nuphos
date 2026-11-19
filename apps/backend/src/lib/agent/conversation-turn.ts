@@ -53,7 +53,8 @@ export async function executeConversationTurn(...args: TurnArgs): Promise<void> 
 /**
  * Hands the message to the target: 'started' when it took the run (`run` settles
  * with the turn's finish reason), 'queued' when it waits behind the turns ahead
- * of it. It runs as its own turn, never folded into another sender's.
+ * of it. Messages one sender left waiting run together in one turn, never folded into another
+ * sender's.
  */
 export async function startConversationTurn(
   ...[data, target, renderedText, source, metadata]: TurnArgs

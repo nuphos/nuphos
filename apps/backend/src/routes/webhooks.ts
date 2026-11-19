@@ -143,7 +143,11 @@ async function deliver(c: Context, trigger: AgentTrigger, payload: unknown) {
       { $set: { lastRunAt: now } },
     )
 
-    if (!claimed) return refuse(c, cooldownSeconds, 'rate_limited')
+    if (!claimed) {
+      const elapsed = trigger.lastRunAt ? (now.getTime() - trigger.lastRunAt.getTime()) / 1000 : 0
+
+      return refuse(c, Math.max(1, Math.ceil(cooldownSeconds - elapsed)), 'rate_limited')
+    }
   }
   try {
     const { run } = await fireTrigger(trigger, payload, { runKind: 'webhook' })
@@ -157,6 +161,10 @@ async function deliver(c: Context, trigger: AgentTrigger, payload: unknown) {
     // The conversation's queue is unavailable: the sender retries, so nothing is lost.
     if (error instanceof AppError && error.status === 429)
       return refuse(c, QUEUE_RETRY_SECONDS, error.code)
+    // The Trigger was just paused for a reason its owner is told; like a disabled one, a sender
+    // retrying would not help, and a 4xx can make it turn the webhook off.
+    if (error instanceof AppError && error.status === 409)
+      return c.json({ ok: false, reason: error.code }, 200)
     throw error
   }
 

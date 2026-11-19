@@ -196,6 +196,26 @@ describe('POST /webhooks/:triggerId', () => {
     expect((await post()).status).toBe(500)
   })
 
+  test('a Trigger paused by its own checks answers like a disabled one, not a 4xx', async () => {
+    stored = webhook()
+    refusal = new AppError(409, 'trigger_target_session_invalid', 'The Trigger was paused')
+
+    const res = await post()
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ ok: false, reason: 'trigger_target_session_invalid' })
+  })
+
+  test('Retry-After is what is left of the window', async () => {
+    stored = webhook({ minIntervalSeconds: 300, lastRunAt: new Date(Date.now() - 120_000) })
+    lastRunAt = stored.lastRunAt
+
+    const res = await post()
+
+    expect(res.status).toBe(429)
+    expect(res.headers.get('Retry-After')).toBe('180')
+  })
+
   test('a Trigger set to fire at most every N seconds asks for the next one later', async () => {
     stored = webhook({ minIntervalSeconds: 300 })
 
