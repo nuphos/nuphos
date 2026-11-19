@@ -46,7 +46,7 @@ struct NewBoxView: View {
             }.padding(24).frame(maxWidth: 560).frame(maxWidth: .infinity)
         }
         .background(Theme.canvas)
-        .navigationTitle("Nuphos computer")
+        .navigationTitle("Rent a computer from Nuphos")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(creating)
         .alert(
@@ -72,7 +72,7 @@ struct NewBoxView: View {
 
     private var form: some View {
         VStack(alignment: .leading, spacing: 24) {
-            Text("A Linux computer with Claude Code, Codex, OpenCode and other agents on it. Running computers count against your plan's vCPU; paused ones do not.")
+            Text("A Linux computer Nuphos runs, with Claude Code, Codex, OpenCode and more on it. Running computers count against your plan's vCPU; paused ones do not.")
                 .font(.callout).foregroundStyle(Theme.body)
             VStack(alignment: .leading, spacing: 12) {
                 Text("Name").font(.footnote.weight(.medium)).foregroundStyle(Theme.body)
