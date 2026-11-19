@@ -29,7 +29,7 @@ const PROVIDER_UNREACHABLE = /\bUnable to connect to API \((?:EPROTO|ECONNRESET|
  * before it spawns; another program an agent spawns is not its CLI.
  */
 const AGENT_CLI_UNSTARTABLE =
-  /\bspawn (?:[^\n]*[\\/](?:codex|claude)(?:\.exe)? )?(?:EINVAL|ENOENT|EACCES|UNKNOWN)\b|\bMissing optional dependency @openai\/codex-|\bClaude Code native binary not found\b/u
+  /\bspawn (?:[^\n]*[\\/](?:codex|claude)(?:\.exe)? )?(?:EINVAL|ENOENT|EACCES|UNKNOWN)\b|\bMissing optional dependency @openai\/codex-|\bClaude Code native binary (?:not found|at [^\n]* exists but failed to launch)/u
 
 /** The sentence for each failure the user's own setup caused. */
 export const USER_SETUP_MESSAGE = {

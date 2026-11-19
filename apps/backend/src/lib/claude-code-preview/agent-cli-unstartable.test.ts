@@ -80,3 +80,18 @@ test('a Claude Code binary the Agent SDK cannot find gets the reinstall sentence
     cause: 'cli',
   })
 })
+
+// The same check when the file is there but will not start (a broken install), as e2e logged.
+const claudeUnlaunchable = new OpenAbRpcError(
+  "**Internal Error** (code: -32603)\nInternal error\n> Claude Code native binary at /home/me/.local/bin/claude exists but failed to launch. This usually means the binary does not match this system's libc — e.g. spawning a musl-linked binary on a glibc Linux host fails because the musl dynamic loader (/lib/ld-musl-*) is missing. Specify a matching binary with options.pathToClaudeCodeExecutable.",
+  -32603,
+  { code: -32603, message: 'Internal error' },
+)
+
+test('a Claude Code binary that is there but will not launch gets the same sentence and installer', () => {
+  expect(formatAgentStreamError(claudeUnlaunchable)).toBe(AGENT_CLI_UNSTARTABLE_MESSAGE)
+  expect(classifyPreviewInterruption(claudeUnlaunchable, false)).toMatchObject({
+    message: AGENT_CLI_UNSTARTABLE_MESSAGE,
+    cause: 'cli',
+  })
+})
