@@ -40,17 +40,17 @@ let bypass: boolean
 // The Bot a Task runs under, whose permission mode it follows.
 let bot: string | undefined
 let picked: Record<string, unknown> | undefined
+let changer: unknown
 let lastParts: unknown[]
 let events: { event: string; data?: Record<string, unknown> }[]
 
-useIdentity({ getTeamMembership: async () => ({ role: 'MEMBER' }) as never })
-useAgentRunStore({ getActiveAgentRunForSession: async () => (running ? ({} as never) : null) })
+useIdentity({ getTeamMembership: async () => ({ role: 'MEMBER' }) })
+useAgentRunStore({ getActiveAgentRunForSession: async () => (running ? {} : null) })
 // The running turn shows the call that waits for approval.
 useLiveTurn({
-  getLiveTurn: async () =>
-    ({
-      parts: [{ type: 'tool', id: 'call-1', name: 'Bash', input: { command: 'aws s3 ls' } }],
-    }) as never,
+  getLiveTurn: async () => ({
+    parts: [{ type: 'tool', id: 'call-1', name: 'Bash', input: { command: 'aws s3 ls' } }],
+  }),
 })
 const runtimeRequests = useFakeRuntimeRequests()
 
@@ -64,11 +64,12 @@ useAutoModeStore({
   modeSource: async (session) => bot ?? session,
 })
 useThreadRuntime({
-  setThreadModel: async (_session, _user, pick) => {
+  setThreadModel: async (_session, _user, pick, by) => {
     if (pick.model === 'nope') throw new Error('model "nope" is not offered. Choose one of: opus.')
     picked = pick
+    changer = by
 
-    return pick as never
+    return pick
   },
 })
 useAgentDb({
@@ -88,10 +89,11 @@ useAgentDb({
     throw new Error('nuphos_check read the whole transcript')
   },
   getReadableConversation: async () => stored,
-  getLatestAssistantMessage: async () =>
-    ({ index: 1, role: 'assistant', parts: lastParts }) as never,
-  getConversationTranscriptForAgent: async () =>
-    ({ lines: ['#0 user: hi', '#1 assistant: Done so far.'], nextIndex: null }) as never,
+  getLatestAssistantMessage: async () => ({ index: 1, role: 'assistant', parts: lastParts }),
+  getConversationTranscriptForAgent: async () => ({
+    lines: ['#0 user: hi', '#1 assistant: Done so far.'],
+    nextIndex: null,
+  }),
   liveTurnTranscriptLine: () => '#4 assistant (in progress): [tool: bash]',
   recordAgentEvent: ({ event, data }) => {
     events.push({ event, data })
@@ -152,6 +154,8 @@ describe('nuphos_update_session', () => {
     )
 
     expect(picked).toEqual({ model: 'opus', effort: 'high' })
+    // The settings record names the MCP client too.
+    expect(changer).toEqual({ actorId: 'u1', via: 'mcp_update', client: 'Claude Code' })
     expect(result).toMatchObject({ session_id: 's1', model: 'opus', full_access: true })
     // Turning Full Access on from outside is recorded with where it came from.
     expect(events).toEqual([

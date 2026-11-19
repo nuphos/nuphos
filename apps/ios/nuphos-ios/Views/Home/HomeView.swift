@@ -170,9 +170,9 @@ struct HomeView: View {
             NavigationStack {
             ZStack {
                 if let channel = openChat?.channel {
-                    ChannelView(channel: channel) { bot in
+                    ChannelView(channel: channel) { task, title in
                         guard let store else { return }
-                        botTask = store.session(sessionId: bot, title: channel.title, teamId: channel.teamId)
+                        botTask = store.session(sessionId: task, title: title, teamId: channel.teamId)
                         showBotTask = true
                     }
                         .id(channel.channelId)

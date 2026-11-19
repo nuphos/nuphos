@@ -49,8 +49,8 @@ export const botFoldScenarios: Scenario[] = [
       const asked = count('permission-asked E2E_DELIVERY:thread')
       // Its own Bot, so no scenario before it decides what the tree holds.
       const row = page.locator('[data-sidebar-row]').filter({ hasText: 'Fold Bot' }).first()
-      const show = row.locator('[aria-label="Show sub-agents"]')
-      const hide = row.locator('[aria-label="Hide sub-agents"]')
+      const show = row.locator('[aria-label="Show sub-tasks"]')
+      const hide = row.locator('[aria-label="Hide sub-tasks"]')
       const mustBeOpen = async (when: string) => {
         await until(
           `the Bot tree to show ${when}`,

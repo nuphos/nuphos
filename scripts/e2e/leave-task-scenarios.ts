@@ -1,12 +1,16 @@
 // A teammate's Task, hidden from your own list without archiving it for them (#3681).
 // The teammate sets things up through the API; the signed-in person leaves in the app.
-import { execFileSync } from 'node:child_process'
-import { randomUUID } from 'node:crypto'
-import { resolve } from 'node:path'
-
 import { joinTeam } from './dashboard-scenarios.ts'
 import { bothMenus, listed, rest, rowOf, stillGoneAfterReload } from './leave-helpers.ts'
 import { artifacts, until } from './processes.ts'
+import {
+  invite,
+  laptopOnline,
+  myId as me,
+  onLaptop,
+  say,
+  sharedTask,
+} from './shared-task-helpers.ts'
 
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
@@ -15,92 +19,6 @@ import type { Page } from 'playwright-core'
 const TASK = 'E2E shared Task to leave'
 const PRIVATE_TASK = 'E2E private Task to leave'
 const LAPTOP = 'e2e-leave-task-laptop'
-const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
-
-/** Runs `script` against the database; it reads its arguments from process.argv. */
-function inDatabase(mongoUri: string, script: string, ...args: string[]) {
-  const run = `
-    import { MongoClient } from 'mongodb'
-    const client = await new MongoClient(process.argv[1]).connect()
-    const db = client.db('nuphos_e2e')
-    ${script}
-    await client.close()`
-
-  execFileSync('bun', ['-e', run, mongoUri, ...args], { cwd: BACKEND_DIR, timeout: 10_000 })
-}
-
-// The teammate's computer, online until the returned function is called. No agent runs turns
-// on it; what matters is that they shared it with me, so I may reply in a Task on it.
-async function laptopOnline(stack: Stack, token: string): Promise<() => void> {
-  await rest(stack, token)('PUT', '/agent/devices', {
-    deviceId: LAPTOP,
-    label: 'E2E leave-task laptop',
-    platform: 'darwin',
-    allowLocalExec: true,
-  })
-  const tunnel = new WebSocket(
-    `${stack.apiUrl.replace(/^http/, 'ws')}/agent/devices/${LAPTOP}/runtime-tunnel`,
-    { headers: { authorization: `Bearer ${token}` } } as unknown as string[],
-  )
-
-  tunnel.addEventListener('message', () => tunnel.send(JSON.stringify({ t: 'pong' })))
-  await new Promise((opened, failed) => {
-    tunnel.addEventListener('open', opened)
-    tunnel.addEventListener('error', failed)
-  })
-  tunnel.send(
-    JSON.stringify({
-      t: 'status',
-      status: { agents: { 'claude-code': { cli: { installed: true, loggedIn: true } } } },
-    }),
-  )
-
-  return () => tunnel.close()
-}
-
-/** Speaking in a Task joins it, before any computer takes the turn; offline, the turn waits. */
-async function say(stack: Stack, sessionId: string, ownerToken: string, text: string) {
-  const { messages } = await rest(stack, ownerToken)<{ messages: unknown[] }>(
-    'GET',
-    `/agent/conversations/${sessionId}?teamId=${stack.teamId}`,
-  )
-  const response = await fetch(`${stack.apiUrl}/agent/chat`, {
-    method: 'POST',
-    headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
-    body: JSON.stringify({
-      id: sessionId,
-      teamId: stack.teamId,
-      messages: [{ id: randomUUID(), role: 'user', parts: [{ type: 'text', text }] }],
-      streamId: randomUUID(),
-      baseIndex: messages.length,
-    }),
-    signal: AbortSignal.timeout(30_000),
-  })
-
-  await response.body?.cancel()
-
-  return response.status
-}
-
-/** The teammate's Task, written as the app syncs a transcript. */
-async function sharedTask(stack: Stack, ownerToken: string, title: string) {
-  const as = rest(stack, ownerToken)
-  const sessionId = randomUUID()
-
-  await as('PUT', `/agent/conversations/${sessionId}/transcript`, {
-    teamId: stack.teamId,
-    title,
-    messages: [{ id: randomUUID(), role: 'user', parts: [{ type: 'text', text: title }] }],
-  })
-
-  return sessionId
-}
-
-const invite = (stack: Stack, ownerToken: string, sessionId: string, myId: string) =>
-  rest(stack, ownerToken)('POST', `/agent/conversations/${sessionId}/participants`, {
-    teamId: stack.teamId,
-    userIds: [myId],
-  })
 
 /** Leaves the teammate's Task from its row, once Cancel has backed out; gone for me only. */
 async function leaveFromRow(
@@ -114,8 +32,8 @@ async function leaveFromRow(
   await row.waitFor({ timeout: 30_000 })
   const offered = shot ? await bothMenus(page, row, title, shot) : []
 
-  // Archive would hide it for its owner too, so it is not offered.
-  if (shot && (!offered.includes('Leave task') || offered.some((l) => l.startsWith('Archive'))))
+  // Archive is offered beside it, and archives it for me alone (archive-shared-task-scenarios.ts).
+  if (shot && offered.slice(-2).join('|') !== 'Leave task|Archive Task')
     throw new Error(`A teammate's Task offers ${offered.join(', ')}`)
   const ask = page.getByRole('alertdialog', { name: 'Leave this task?' })
   const choose = async () => {
@@ -149,12 +67,8 @@ export const leaveTaskScenarios: Scenario[] = [
       /queued_launch_failed|"error_code":"conversation_read_only"|"path":"\/agent\/conversations\/[\w-]+","status":404/,
     run: async (page, stack) => {
       const teammate = await joinTeam(stack, 'task-owner')
-      const me = await rest(stack, stack.token)<{ id?: string; user?: { id: string } }>(
-        'GET',
-        '/auth/me',
-      )
-      const myId = me.user?.id ?? me.id ?? ''
-      const goOffline = await laptopOnline(stack, teammate.token)
+      const myId = await me(stack)
+      const goOffline = await laptopOnline(stack, teammate.token, LAPTOP)
 
       try {
         await rest(stack, teammate.token)(
@@ -162,17 +76,10 @@ export const leaveTaskScenarios: Scenario[] = [
           `/agent/devices/${LAPTOP}/share?teamId=${stack.teamId}`,
           { level: 'full', everyone: false, userIds: [myId], managerIds: [] },
         )
-        // On the teammate's computer, which I may use. The suite's agent is not that computer's,
-        // so the Task is put there in the database.
+        // On the teammate's computer, which I may use.
         const usable = await sharedTask(stack, teammate.token, TASK)
 
-        inDatabase(
-          stack.mongoUri,
-          `await db.collection('agent_conversations').updateOne({ sessionId: process.argv[2] },
-            { $set: { runtimeId: process.argv[3], runtimeLabel: 'Claude Code' } })`,
-          usable,
-          `local_${teammate.id}_${LAPTOP}`,
-        )
+        onLaptop(stack, usable, teammate.id, LAPTOP)
         await invite(stack, teammate.token, usable, myId)
         // On no computer of mine to use, and private: leaving it ends my access.
         const closed = await sharedTask(stack, teammate.token, PRIVATE_TASK)

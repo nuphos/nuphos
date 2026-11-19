@@ -43,7 +43,8 @@ export type BoxProvider = {
   create: typeof createBox
   pause: (userId: string, deviceId: string) => Promise<AgentDevice>
   resume: (userId: string, deviceId: string) => Promise<AgentDevice>
-  destroy: (userId: string, deviceId: string) => Promise<void>
+  /** False when the machine may still run at the provider; the computer is deleted either way. */
+  destroy: (userId: string, deviceId: string) => Promise<boolean>
   /** A link to the Box's desktop, to watch and take over what its agents do. */
   desktop: (userId: string, deviceId: string) => Promise<string>
   /** Starts the host again on a running machine whose host dropped; rate-limited. */
@@ -188,8 +189,9 @@ export async function runOnBox(userId: string, deviceId: string, command: string
  * machine: it is found by the device id in its metadata. Nothing the provider says
  * keeps a computer from being deleted: a kill that fails (an expired key, an account
  * no longer connected, instabox down) is logged with the machine to clean up by hand.
+ * False when the machine may still be running at the provider.
  */
-export async function destroyBox(userId: string, deviceId: string): Promise<void> {
+export async function destroyBox(userId: string, deviceId: string): Promise<boolean> {
   const device = requireBox(await getAgentDevice(userId, deviceId), deviceId)
 
   await deleteDeviceJoinTokens(deviceId)
@@ -206,10 +208,12 @@ export async function destroyBox(userId: string, deviceId: string): Promise<void
       instabox_account_id: device.box.accountId ?? null,
     })
 
-    return
+    return false
   }
   // Its tunnel closed before the kill, while the machine still ran.
   noteBoxUsage(device.box.teamId)
+
+  return true
 }
 
 /**

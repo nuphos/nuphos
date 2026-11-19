@@ -515,6 +515,8 @@ describe('agent device routes', () => {
       },
       destroy: async (_userId, deviceId) => {
         calls.push(`destroy ${deviceId}`)
+
+        return true
       },
       desktop: async (_userId, deviceId) => `https://desktop.example/${deviceId}`,
       heal: (_userId, deviceId) => {
@@ -715,6 +717,8 @@ describe('agent device routes', () => {
       ...fakeBox([]),
       destroy: async () => {
         seen.push(`destroy after ${disconnected.length} disconnect(s)`)
+
+        return true
       },
     }
 
@@ -724,6 +728,18 @@ describe('agent device routes', () => {
     ).toBe(200)
     expect(seen).toEqual(['destroy after 1 disconnect(s)'])
     expect(credentials.has(key('user-1', 'b1'))).toBe(false)
+    expect(devices[key('user-1', 'b1')]).toBeUndefined()
+  })
+
+  test('DELETE deletes a Box whose machine instabox would not kill, and says it may still run', async () => {
+    devices[key('user-1', 'b1')] = boxDevice('user-1', 'b1')
+    const box: BoxDeps = { ...fakeBox([]), destroy: async () => false }
+    const response = await buildApp(box).request('/agent/devices/b1/box?teamId=team-1', {
+      method: 'DELETE',
+    })
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ ok: true, machineLeft: true })
     expect(devices[key('user-1', 'b1')]).toBeUndefined()
   })
   test('Box routes deny someone with use only, removed members and cross-team calls before provider dispatch', async () => {

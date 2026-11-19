@@ -32,12 +32,12 @@ const names = {
   served: { member: { u1: 'Ada' } },
 }
 
-test('the window is whole local days and includes today', () => {
+test('the window is the last 30 whole local days and includes today', () => {
   const now = new Date(2026, 10, 18, 15, 30)
-  const { from, to } = tokenUsageWindow('7d', now)
+  const { from, to } = tokenUsageWindow(now)
 
   assert.equal(new Date(to).getTime(), new Date(2026, 10, 19).getTime())
-  assert.equal(new Date(from).getTime(), new Date(2026, 10, 12).getTime())
+  assert.equal(new Date(from).getTime(), new Date(2026, 9, 20).getTime())
 })
 
 test('lines are named where the page knows the id, most tokens first', () => {
@@ -68,8 +68,15 @@ test('runtimes are named from the team runtimes; models show as recorded', () =>
   )
 })
 
-test('the chart splits by the largest groups, the rest as Other, with every day', () => {
-  const window = tokenUsageWindow('7d', new Date(2026, 10, 18, 9))
+test('a model the runtime never named shows as Unknown model', () => {
+  assert.equal(
+    tokenUsageLines([row({ model: 'unknown' }, 1)], 'model', names)[0]?.label,
+    'Unknown model',
+  )
+})
+
+test('the chart splits by the largest groups, the rest as Other, with all 30 days', () => {
+  const window = tokenUsageWindow(new Date(2026, 10, 18, 9))
   const day = new Date(2026, 10, 16).toISOString()
   const rows = ['a', 'b', 'c', 'd', 'e', 'f'].map((member, index) =>
     row({ time: day, member }, (index + 1) * 100),
@@ -80,8 +87,9 @@ test('the chart splits by the largest groups, the rest as Other, with every day'
     split.series.map((series) => series.label),
     ['f', 'e', 'd', 'c', 'Other'],
   )
-  assert.equal(split.points.length, 7)
-  assert.deepEqual(split.points[4], {
+  // The axis is always the whole 30 days, even before the first day with usage.
+  assert.equal(split.points.length, 30)
+  assert.deepEqual(split.points[27], {
     at: new Date(2026, 10, 16).getTime(),
     s0: 600,
     s1: 500,
@@ -127,11 +135,11 @@ test('a drop shows as a negative change', () => {
 })
 
 test('the window before is the same number of whole days, ending where this one starts', () => {
-  const window = tokenUsageWindow('7d', new Date(2026, 10, 18, 9))
+  const window = tokenUsageWindow(new Date(2026, 10, 18, 9))
   const before = previousTokenUsageWindow(window)
 
   assert.equal(before.to, window.from)
-  assert.equal(new Date(before.from).getTime(), new Date(2026, 10, 5).getTime())
+  assert.equal(new Date(before.from).getTime(), new Date(2026, 8, 20).getTime())
 })
 
 test('a name the viewer may not see shows as a plain Conversation, never as its id', () => {

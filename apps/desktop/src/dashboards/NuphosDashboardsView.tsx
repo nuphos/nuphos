@@ -1,9 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 
 import { ConfirmDialog } from '../components/ConfirmDialog'
-import { RefreshButton } from '../components/toolbar-controls'
-import { useToolbarHeaderRightSlot } from '../hooks/useToolbarControls'
 import { useTeamRole } from '../hooks/useTeamRole'
 import { useToolbarPrimaryAction } from '../hooks/useToolbarPrimaryAction'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
@@ -12,7 +9,6 @@ import { t } from '../i18n'
 import { AlertModal } from './AlertModal'
 import { PanelEditorModal } from './PanelEditorModal'
 import { DashboardCanvas } from './view/DashboardCanvas'
-import { DashboardHeaderControls } from './view/DashboardHeaderControls'
 import { DashboardListPage } from './view/DashboardListPage'
 import { DashboardToolbar } from './view/DashboardToolbar'
 import { latestCompletedRefreshAt, orderPanels } from './view/helpers'
@@ -66,7 +62,6 @@ export function NuphosDashboardsView({
   const { isActive } = useWorkspaceTab()
   const dragFrom = useRef<number | null>(null)
   const selectedId = openDashboardId ?? null
-  const headerRightSlot = useToolbarHeaderRightSlot(!embedded && isActive && Boolean(selectedId))
   // Any member creates a dashboard, which starts personal; what else they may change is per dashboard.
   const canCreate = useTeamRole(teamId) !== undefined
 
@@ -190,7 +185,7 @@ export function NuphosDashboardsView({
     )
   }
 
-  // A move between Personal and Team: the open dashboard and its row in the list.
+  // A move between Personal and Team, or a new cadence: the open dashboard and its row in the list.
   const onDashboardSaved = (dashboard: NuphosDashboard) => {
     setDetail((current) => current && { ...current, dashboard })
     setDashboards((prev) => prev.map((d) => (d.id === dashboard.id ? dashboard : d)))
@@ -199,7 +194,7 @@ export function NuphosDashboardsView({
   return (
     <div className="flex h-full flex-col">
       {embedded && (
-        <div className="flex shrink-0 items-center justify-between px-3 py-2">
+        <div className="flex shrink-0 items-center px-3 py-2">
           <button
             type="button"
             className="text-xs text-secondary hover:text-main"
@@ -207,21 +202,8 @@ export function NuphosDashboardsView({
           >
             {t('Back')}
           </button>
-          <RefreshButton onRefresh={() => void refreshAll(true)} loading={refreshing} />
         </div>
       )}
-      {headerRightSlot &&
-        createPortal(
-          <DashboardHeaderControls
-            teamId={teamId}
-            detail={detail}
-            lastRefreshAt={lastRefreshAt}
-            refreshing={refreshing}
-            onRefresh={() => void refreshAll(true)}
-            onSaved={onDashboardSaved}
-          />,
-          headerRightSlot,
-        )}
       <DashboardToolbar
         teamId={teamId}
         onDefaultSaved={loadDetail}
@@ -230,12 +212,14 @@ export function NuphosDashboardsView({
         customRange={customRange}
         setCustomRange={setCustomRange}
         refreshing={refreshing}
+        lastRefreshAt={lastRefreshAt}
+        onRefresh={() => void refreshAll(true)}
         editingLayout={editingLayout}
         setEditingLayout={setEditingLayout}
         applyDate={applyDate}
         onAddPanel={() => setEditor({ panel: null })}
         openPanelAssistant={openPanelAssistant}
-        onVisibilitySaved={onDashboardSaved}
+        onSaved={onDashboardSaved}
       />
 
       <DashboardCanvas

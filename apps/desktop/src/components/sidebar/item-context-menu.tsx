@@ -193,7 +193,7 @@ export function SidebarItemContextMenu({
               },
             ]
           : []),
-        // So is someone else's Task, as Archive would hide it for everyone; it asks first.
+        // So is someone else's Task; leaving may cost access, so it asks first.
         ...(noun === 'task' && menu.item.leavable
           ? [
               {
@@ -206,7 +206,8 @@ export function SidebarItemContextMenu({
           : []),
         ...(noun !== 'chat' &&
         menu.item.key.startsWith('agent-session:') &&
-        (!menu.item.readOnlyChat || menu.item.managedChat)
+        // Someone else's Task is archived for you alone.
+        (!menu.item.readOnlyChat || menu.item.managedChat || menu.item.leavable)
           ? [
               {
                 key: 'archive',

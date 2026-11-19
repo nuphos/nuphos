@@ -23,6 +23,7 @@ export type NewBot = {
   locale?: string
   title?: string
   avatar?: string
+  background?: string
   runtimeId?: string
   agentRuntime?: string
   runtimeLabel?: string
@@ -32,7 +33,7 @@ export type NewBot = {
 export async function createBot(
   teamId: string,
   bot: NewBot = {},
-): Promise<{ sessionId: string; title: string; avatar: string }> {
+): Promise<{ sessionId: string; title: string; avatar: string; avatarBackground?: string }> {
   return callJsonForRenderer('POST', `/agent/bots${teamQuery(teamId)}`, bot)
 }
 
