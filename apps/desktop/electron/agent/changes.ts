@@ -15,10 +15,17 @@ export type AgentChange = { teamId: string; sessionId: string | null; connected?
 // The backend's heartbeat is 5 s: three missed is a dead stream.
 const SILENT_MS = 15_000
 const followed = new Map<string, AbortController>()
+// Teams whose stream is up, so a window that asks later hears so too.
+const up = new Set<string>()
 
 /** Follows a team's changes until `unfollowAgentChanges`, reconnecting as long as it takes. */
 export function followAgentChanges(teamId: string) {
-  if (followed.has(teamId)) return
+  if (followed.has(teamId)) {
+    if (up.has(teamId))
+      broadcast('agent:changes', { teamId, sessionId: null, connected: true } satisfies AgentChange)
+
+    return
+  }
   const ac = new AbortController()
 
   followed.set(teamId, ac)
@@ -40,6 +47,7 @@ async function follow(teamId: string, signal: AbortSignal) {
       failures = 0
     }).catch(() => 'failed' as const)
 
+    up.delete(teamId)
     if (connected)
       broadcast('agent:changes', {
         teamId,
@@ -76,6 +84,7 @@ async function listen(teamId: string, signal: AbortSignal, opened: () => void) {
     if (res.status === 404) return 'unsupported'
     if (!res.ok || !res.body) return 'failed'
     opened()
+    up.add(teamId)
     // Whatever changed while not listening.
     broadcast('agent:changes', { teamId, sessionId: null, connected: true } satisfies AgentChange)
     const reader = res.body.pipeThrough(new TextDecoderStream()).getReader()
