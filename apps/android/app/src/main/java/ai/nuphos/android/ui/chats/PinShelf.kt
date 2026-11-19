@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -48,8 +49,14 @@ internal fun BotConversationPreview(row: AgentConversation) {
             Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         HorizontalDivider()
-        Text(row.previewLine?.takeIf { it.isNotBlank() } ?: stringResource(R.string.pins_no_messages),
-            Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium, maxLines = 8, overflow = TextOverflow.Ellipsis)
+        val message = row.previewLine?.takeIf { it.isNotBlank() }
+        Box(Modifier.padding(16.dp)) {
+            Text(message ?: stringResource(R.string.pins_no_messages),
+                if (message == null) Modifier.fillMaxWidth() else Modifier.fillMaxWidth()
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.10f)).padding(16.dp),
+                style = MaterialTheme.typography.bodyMedium, maxLines = 8, overflow = TextOverflow.Ellipsis)
+        }
     }
 }
 
