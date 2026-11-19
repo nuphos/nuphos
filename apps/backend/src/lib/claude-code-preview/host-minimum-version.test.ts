@@ -60,11 +60,13 @@ describe('a computer below the floor', () => {
     )
 
     // #3562: a failed turn also says so; that only adds a line to its error and summary.
-    expect(readers.sort()).toEqual([
-      'lib/claude-code-preview/preview-transcript.ts',
-      'lib/claude-code-preview/runtime-refusal.ts',
-      'lib/claude-code-preview/session-desktops.ts',
-    ])
+    expect(new Set(readers)).toEqual(
+      new Set([
+        'lib/claude-code-preview/preview-transcript.ts',
+        'lib/claude-code-preview/runtime-refusal.ts',
+        'lib/claude-code-preview/session-desktops.ts',
+      ]),
+    )
   })
 
   test('still opens its desktop and reports its app, with the notice added', async () => {
