@@ -1,7 +1,13 @@
 // Turns the fixture refuses, worded as OpenAB reports Claude Code's refusals.
+import { existsSync } from 'node:fs'
+
 export function refuse(text, outOfUsage) {
   // A computer's own Codex, a broken npm install: codex-acp's startup error, its CLI's stderr.
-  if (text.includes('E2E_CODEX_BROKEN'))
+  if (
+    text.includes('E2E_CODEX_BROKEN') ||
+    (text.includes('The person just created you') &&
+      existsSync(`${process.env.E2E_ACP_LOG}.codex-broken-onboarding`))
+  )
     throw Object.assign(
       new Error(
         'Codex process has exited with code 1:\nError: spawn /Users/e2e/.npm-global/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/codex/codex ENOENT',

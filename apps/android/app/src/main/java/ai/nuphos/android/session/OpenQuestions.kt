@@ -67,7 +67,7 @@ class OpenQuestions(private val source: Source, private val clock: () -> Instant
             AgentChatApi.snoozeDecision(token, teamId, sessionId, requestId, until)
 
         override suspend fun credentials(sessionId: String): JsonValue? =
-            NuphosApi.conversationDetail(token, teamId, sessionId, tail = 1).credentialAccess
+            NuphosApi.conversationDetail(token, teamId, sessionId, tail = 1, runtimeState = false).credentialAccess
 
         override suspend fun saveCredentials(sessionId: String, access: JsonValue) =
             AgentChatApi.updateCredentials(token, teamId, sessionId, access)
@@ -266,6 +266,7 @@ class OpenQuestions(private val source: Source, private val clock: () -> Instant
         try {
             source.dismiss(question.sessionId, question.request.id, dismissReason(reason))
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             answered = answered - question.id
             failures = failures + (question.id to ChannelSession.postFailureMessage(e))
         }

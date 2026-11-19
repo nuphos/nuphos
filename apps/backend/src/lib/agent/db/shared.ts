@@ -67,6 +67,8 @@ export type AgentConversation = ConversationTaskState & {
   title: string
   /** Bot avatar picked by the owner or a manager, e.g. `05-rembrandt`. Absent = derived from sessionId. */
   avatar?: string
+  /** The tint a Bot's character sits on, e.g. `sky`. Absent = none. */
+  avatarBackground?: string
   /** A Bot's own standing instructions, written by the Bot through `update_self`. */
   instructions?: string
   firstMessage: string
@@ -77,6 +79,8 @@ export type AgentConversation = ConversationTaskState & {
   // Archive marker, set by the owner. Archived conversations stay fully intact and
   // readable; list endpoints only hide them when asked (archived=exclude).
   archivedAt?: Date
+  // Someone else in a shared Task archives it for themselves alone, by user id.
+  memberArchivedAt?: Record<string, Date>
   // When it was last un-archived by hand. The idle sweep counts from here as well as from
   // lastActiveAt, so a restored conversation is not filed away again an hour later.
   archiveRestoredAt?: Date
