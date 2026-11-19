@@ -110,9 +110,12 @@ export const cliBrowserScenarios: Scenario[] = [
           textOf(stopped).includes('GET 200'),
           `record_stop to list the request, got ${textOf(stopped)}`,
         )
+        // local_exec answers with the command's output under `stdout`.
+        const file = (JSON.parse(textOf(har)) as { stdout?: string }).stdout ?? ''
+
         must(
-          textOf(har).includes('"version":"1.2"') && textOf(har).includes(`${site.url}/next`),
-          `the HAR to come back with the recorded request, got ${textOf(har).slice(0, 500)}`,
+          file.includes('"version":"1.2"') && file.includes(`${site.url}/next`),
+          `the HAR to come back with the recorded request, got ${file.slice(0, 500)}`,
         )
       } finally {
         await computer.stop()
