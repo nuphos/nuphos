@@ -149,6 +149,15 @@ useRuntimeCatalog({
           {
             id: 'local-1',
             provider: 'codex' as const,
+            label: "Teammate's Mac",
+            status: 'active' as const,
+            kind: 'local' as const,
+            local: { shared: { level: 'full' } },
+            createdAt: '',
+          },
+          {
+            id: 'mac-1',
+            provider: 'codex' as const,
             label: 'Mac',
             status: 'active' as const,
             kind: 'local' as const,
@@ -389,14 +398,21 @@ describe('conversation-scoped thread tools', () => {
     await expect(updateThread(actor, 'source', { fullAccess: true })).rejects.toThrow()
   })
 
-  test("a thread never moves onto the owner's computer", async () => {
+  test("a thread never moves onto a teammate's computer", async () => {
     await setSessionBypass('source', 'owner', true)
     const { threadId } = await createAgentThread(actor, 'Work', 'Task')
 
     await expect(updateThread(actor, threadId, { runtimeId: 'local-1' })).rejects.toThrow(
-      'computer',
+      "teammate's computer",
     )
     expect(moves).toHaveLength(0)
+  })
+
+  test("a parent moves its thread onto the owner's own computer", async () => {
+    const { threadId } = await createAgentThread(actor, 'Work', 'Task')
+
+    await updateThread(actor, threadId, { runtimeId: 'mac-1' })
+    expect(moves.map((move) => move.runtimeId)).toEqual(['mac-1'])
   })
 
   test('a parent moves its thread to another agent through the shared move path', async () => {
@@ -413,10 +429,16 @@ describe('conversation-scoped thread tools', () => {
     expect(moves).toEqual([{ sessionId: 'target', runtimeId: 'runtime-2', userId: 'owner' }])
   })
 
-  test("lists the team's agents and the owner's Boxes, never a computer", async () => {
+  test("lists every agent, and why a thread cannot use a teammate's computer", async () => {
     const { runtimes } = await listThreadRuntimes(actor)
 
-    expect(runtimes.map((runtime) => runtime.runtimeId)).toEqual(['runtime-2', 'box-1'])
+    expect(runtimes.map(({ runtimeId, ready }) => [runtimeId, ready])).toEqual([
+      ['runtime-2', true],
+      ['local-1', false],
+      ['mac-1', true],
+      ['box-1', true],
+    ])
+    expect(runtimes[1]?.unavailable).toContain("teammate's computer")
   })
 
   test('lists the models each agent offers, so a delegating agent can choose one', async () => {
@@ -514,10 +536,10 @@ describe('conversation-scoped thread tools', () => {
     expect(moves).toHaveLength(0)
   })
 
-  test("a thread never starts on the owner's computer", async () => {
+  test("a thread never starts on a teammate's computer", async () => {
     await expect(
       createAgentThread(actor, 'Work', 'Task', { runtimeId: 'local-1' }),
-    ).rejects.toThrow('computer')
+    ).rejects.toThrow("teammate's computer")
     expect(shells).toHaveLength(0)
   })
 
