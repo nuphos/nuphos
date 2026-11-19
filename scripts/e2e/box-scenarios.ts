@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path'
 import { backendLines, backendLog } from './backend-log.ts'
 import { instaboxMachines } from './instabox-stub.ts'
 import { artifacts, until } from './processes.ts'
-import { send } from './ui.ts'
+import { newTask, send } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
@@ -39,15 +39,14 @@ async function me(stack: Stack): Promise<string> {
   return ((await response.json()) as { id: string }).id
 }
 
-/** Writes or removes a conversation bound to a runtime: the app cannot start one on a Box that is away. */
-function conversationRow(mongoUri: string, row: Record<string, unknown> | { remove: string }) {
+/** Writes a conversation bound to a runtime: the app cannot start one on a Box that is away. */
+function conversationRow(mongoUri: string, row: Record<string, unknown>) {
   const script = `
     import { MongoClient } from 'mongodb'
     const row = JSON.parse(process.argv[2])
     const client = await new MongoClient(process.argv[1]).connect()
     const conversations = client.db('nuphos_e2e').collection('agent_conversations')
-    if (row.remove) await conversations.deleteOne({ sessionId: row.remove })
-    else await conversations.insertOne({ ...row, createdAt: new Date(), updatedAt: new Date() })
+    await conversations.insertOne({ ...row, createdAt: new Date(), updatedAt: new Date() })
     await client.close()`
 
   execFileSync('bun', ['-e', script, mongoUri, JSON.stringify(row)], {
@@ -192,7 +191,9 @@ export const boxScenarios: Scenario[] = [
           throw new Error('the send to a Box that is away was refused as offline')
         await page.screenshot({ path: join(artifacts, 'box-paused-queued.png') })
       } finally {
-        conversationRow(stack.mongoUri, { remove: sessionId })
+        // The conversation stays: Search's recent list asks for it again later, and a 404 then would
+        // be charged to whichever scenario is running. Only the page leaves it.
+        await newTask(page)
         boxRow(stack.mongoUri, { remove: deviceId })
         instaboxMachines.delete(sandboxId)
       }
