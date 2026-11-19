@@ -109,6 +109,8 @@ export type PanelSnapshotErrorKind =
   | 'runtime_outdated'
   /** The script's author can no longer run scripts in the team. */
   | 'author_unavailable'
+  /** An integration the script reads is no longer connected; the message's first line names it. */
+  | 'not_connected'
   /** Read-only: written by the retired sandbox executor. */
   | 'sandbox_expired'
   | 'internal'
