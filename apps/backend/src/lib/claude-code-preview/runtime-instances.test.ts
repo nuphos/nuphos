@@ -1,6 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto'
 
-import { IMAGE_PROVIDERS } from './runtime-provider'
 import { afterAll, beforeEach, expect, test } from 'bun:test'
 import { Hono } from 'hono'
 
@@ -24,7 +23,7 @@ let store = portabilityDb()
 useDb({ db: () => ({ collection: (name: string) => store.collection(name) }) })
 const { registerAgentRuntimeRoutes } = await import('@/routes/teams/agent-runtimes')
 const { listRuntimeInstances, requireRuntimeInstance } = await import('./runtime-catalog')
-const { registerTeamRuntime, resolveTeamRuntimeEndpoints } = await import('./runtime-registry')
+const { registerTeamRuntime } = await import('./runtime-registry')
 
 function app(teamId = 'one', role: TeamAuthVariables['teamRole'] = 'ADMINISTRATOR') {
   const app = new Hono<{ Variables: TeamAuthVariables }>()
@@ -47,7 +46,7 @@ function app(teamId = 'one', role: TeamAuthVariables['teamRole'] = 'ADMINISTRATO
 function json(method: string, body: unknown) {
   return { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
 }
-// A runtime Nuphos hosted before retirement, as its row was stored.
+// A runtime the team connected, on the cluster's own network.
 async function existing(label: string, provider: OpenAbProvider = 'codex') {
   const id = randomUUID()
 
@@ -59,7 +58,6 @@ async function existing(label: string, provider: OpenAbProvider = 'codex') {
     provider,
     authKey: randomBytes(32).toString('hex'),
     label,
-    hostedBy: 'nuphos',
   })
 }
 const runtimeRows = () => store.rows('claude_code_runtimes')
@@ -68,18 +66,8 @@ beforeEach(() => {
   store = portabilityDb()
 })
 
-test('an existing managed runtime keeps its row but no longer resolves', async () => {
-  for (const provider of IMAGE_PROVIDERS) {
-    const created = await existing(`${provider} work`, provider)
-    const row = runtimeRows().find((doc) => doc._id === created.id)!
-
-    expect(row).toMatchObject({ hostedBy: 'nuphos', provider, status: 'active' })
-    expect(await resolveTeamRuntimeEndpoints('one', provider)).toEqual([])
-  }
-})
-
-test('hosted runtimes list as managed; rows of the retired provisioner model are hidden', async () => {
-  const created = await existing('Hosted', 'claude-code')
+test('rows of the retired provisioner model are hidden', async () => {
+  const created = await existing('Connected', 'claude-code')
 
   runtimeRows().push({
     _id: 'legacy',
@@ -95,58 +83,8 @@ test('hosted runtimes list as managed; rows of the retired provisioner model are
   const instances = await listRuntimeInstances('one')
 
   expect(instances.map((instance) => [instance.id, instance.kind])).toEqual([
-    [created.id, 'managed'],
+    [created.id, 'external'],
   ])
-})
-
-test('a retired managed runtime lists as disabled and refuses status, update and patch', async () => {
-  const server = app()
-  const instance = await existing('Work')
-
-  expect(await requireRuntimeInstance('one', instance.id)).toMatchObject({
-    status: 'disabled',
-    kind: 'managed',
-  })
-  for (const [path, init] of [
-    [`/agent-runtimes/${instance.id}/status`, undefined],
-    [`/agent-runtimes/${instance.id}/update`, json('POST', {})],
-    [`/agent-runtimes/${instance.id}`, json('PATCH', { status: 'active' })],
-  ] as const) {
-    const response = await server.request(path, init)
-
-    expect(response.status).toBe(410)
-    expect(await response.json()).toEqual({ code: 'managed_runtime_retired' })
-  }
-  expect(runtimeRows().find((doc) => doc._id === instance.id)).toMatchObject({ label: 'Work' })
-})
-
-test('deleting a retired managed runtime removes it the way an external one goes', async () => {
-  const server = app()
-  const instance = await existing('Retired')
-  const external = await registerTeamRuntime({
-    teamId: 'one',
-    userId: 'admin',
-    url: 'wss://own.example/acp',
-    authKey: randomBytes(32).toString('hex'),
-  })
-  const device = { userId: 'admin', deviceId: 'pod-device' }
-
-  runtimeRows().find((doc) => doc._id === instance.id)!.device = device
-  store.rows('agent_devices').push({ ...device })
-  store.rows('agent_device_join_tokens').push({ deviceId: device.deviceId })
-  // A teardown job the retired Kubernetes cleanup never finished.
-  store.rows('agent_runtime_deletions').push({ _id: instance.id, teamId: 'one', placements: [] })
-
-  for (const id of [instance.id, external.id]) {
-    const response = await server.request(`/agent-runtimes/${id}`, { method: 'DELETE' })
-
-    expect(response.status).toBe(204)
-  }
-  expect(runtimeRows()).toEqual([])
-  expect(store.rows('agent_runtime_deletions')).toEqual([])
-  expect(store.rows('agent_devices')).toEqual([])
-  expect(store.rows('agent_device_join_tokens')).toEqual([])
-  expect(await listRuntimeInstances('one')).toEqual([])
 })
 
 test('workspace scope and administrator checks apply to each instance mutation', async () => {
@@ -208,7 +146,7 @@ test('model discovery needs a runtime from the current workspace, not an adminis
   expect((await server.request(`/agent-runtimes/${instance.id}/models`)).status).toBe(409)
 })
 
-test('retired creation leaves existing runtime records and routes untouched', async () => {
+test('creation stays retired and leaves existing runtime records untouched', async () => {
   const runtime = await existing('Existing')
   const before = JSON.stringify(runtimeRows())
 
@@ -217,7 +155,22 @@ test('retired creation leaves existing runtime records and routes untouched', as
   expect(response.status).toBe(410)
   expect(await response.json()).toEqual({ code: 'managed_runtime_retired' })
   expect(JSON.stringify(runtimeRows())).toBe(before)
-  expect(await requireRuntimeInstance('one', runtime.id)).toMatchObject({ kind: 'managed' })
+  expect(await requireRuntimeInstance('one', runtime.id)).toMatchObject({ kind: 'external' })
   expect((await app().request('/agent-runtimes')).status).toBe(200)
-  expect(await resolveTeamRuntimeEndpoints('one', 'codex')).toEqual([])
+})
+
+// #2401: a conversation still pointing at a runtime whose record was deleted.
+test('a runtime whose record is gone answers runtime_not_found, not an error', async () => {
+  const gone = await existing('Deleted')
+
+  store.rows('claude_code_runtimes').splice(
+    runtimeRows().findIndex((doc) => doc._id === gone.id),
+    1,
+  )
+
+  await expect(requireRuntimeInstance('one', gone.id)).rejects.toMatchObject({
+    status: 404,
+    code: 'runtime_not_found',
+  })
+  expect((await app().request(`/agent-runtimes/${gone.id}/status`)).status).toBe(404)
 })

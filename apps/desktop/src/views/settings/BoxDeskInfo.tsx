@@ -8,7 +8,6 @@ import { AgentTile, NewAgentMenu } from './BoxParts'
 
 import './BoxDeskInfo.css'
 
-import type { agentSlots } from './boxAgentSlots'
 import type { MetricsStatus } from './boxMetricsPresentation'
 import type { AgentDevice } from '../../api'
 import type { LocalAgentProvider } from '../../api/device-types'
@@ -72,49 +71,32 @@ export function DeskReadings({
 export function DeskAgents({
   device,
   agents,
-  slots,
+  starting,
   away,
   dim,
   busy,
   onSelect,
   onAdd,
-  onSetUp,
   canAdd,
   ask,
 }: {
   device: AgentDevice
   agents: RuntimeInstance[]
-  slots: ReturnType<typeof agentSlots>
+  /** Setting up or restarting: its runtimes are on their way. */
+  starting: boolean
   /** A paused or unreachable machine lists no agents. */
   away: boolean
   dim: boolean
   busy: boolean
   onSelect: (runtimeId: string) => void
   onAdd: (provider: LocalAgentProvider) => void
-  /** Opens User settings at Local runtime, where this computer's agent signs in. */
-  onSetUp?: () => void
   /** Whether + shows (see canAddAgent); without it and without agents the row stays empty. */
   canAdd: boolean
   /** Where + would be for someone who may only use it: whom to ask (see askToAdd). */
   ask?: string
 }) {
-  if (slots === 'noLocalAgent')
-    return (
-      <p className="desk-note">
-        {onSetUp ? (
-          <>
-            {t('No runtime yet')} ·{' '}
-            <button type="button" className="desk-link" onClick={onSetUp}>
-              {t('Set up')}
-            </button>
-          </>
-        ) : (
-          t('No runtime yet · set one up in Settings › Local runtime')
-        )}
-      </p>
-    )
   if (away) return null
-  if (slots === 'starting') return <p className="desk-note">{t('Starting runtimes…')}</p>
+  if (starting) return <p className="desk-note">{t('Starting runtimes…')}</p>
   const visible = agents.filter(visibleAgent)
 
   if (visible.length === 0 && (dim || (!canAdd && !ask))) return null

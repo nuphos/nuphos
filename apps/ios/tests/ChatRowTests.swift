@@ -105,6 +105,9 @@ enum ChatRowTests {
         precondition(message("agent.resource", "system", "channel:", "Launch").event?.channelId == nil)
         precondition(message("agent.resource", "system", "GitHub", "GitHub").event?.channelId == nil)
         precondition(message("agent.thread", "agent", "channel:c1", "Launch").event?.channelId == nil)
+        // A Slack channel's wake line names the channel and opens nothing: its record stays hidden (#3924).
+        let slack = message("agent.resource", "system", "slack-channel:r1", "Slack #deploys").event
+        precondition(slack?.name == "Slack #deploys" && slack?.channelId == nil)
         // A wake-up carries its newest post for the line: who, the first line, how many more.
         func wake(_ post: JSONValue) -> ChatMessage.Event? {
             var m = message("agent.resource", "system", "channel:c1", "Launch")
