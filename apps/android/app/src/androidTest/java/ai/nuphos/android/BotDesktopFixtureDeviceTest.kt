@@ -116,9 +116,13 @@ class BotDesktopFixtureDeviceTest {
                 ofTask != null -> """{"sessionId":"${ofTask.first}","title":"${ofTask.second}","isOwner":true,"canManage":true,"readOnly":false,"parentSessionId":"bot-plain",
                     "messages":[{"id":"m","role":"assistant","parts":[{"type":"text","text":"Working on: ${ofTask.second}."}]}]}"""
                 path.endsWith("/agents") -> bots.entries.first { path.contains("/${it.key}/") }.value
-                    .let { """{"agents":[{"sessionId":"${it.id}","title":"${it.title}","ownerId":"${if (denyBotTask) "another-viewer" else "viewer"}"}]}""" }
+                    .let { """{"agents":[{"sessionId":"${it.id}","title":"${it.title}","avatar":"${it.avatar}","ownerId":"${if (denyBotTask) "another-viewer" else "viewer"}"}]}""" }
                 path.endsWith("/ai-consent") -> """{"version":"${ai.nuphos.android.data.AccountApi.AI_CONSENT_VERSION}","accepted":true}"""
                 path.endsWith("/auth/me") -> """{"id":"viewer","email":"viewer@example.com","name":"Preview User"}"""
+                path.endsWith("/agent/conversations") && request.url.queryParameter("bots") == "true" -> """{"conversations":[${bots.values.joinToString(",") {
+                    """{"sessionId":"${it.id}","title":"${it.title}","avatar":"${it.avatar}","isOwner":true,"agentRuntime":"claude-code","runtimeLabel":"Fixture Box","lastActiveAt":"2026-11-08T09:39:00Z"}""" }}],"hasMore":false}"""
+                path.endsWith("/agent/conversations") && request.url.queryParameter("kind") == "channel" -> """{"conversations":[],"hasMore":false}"""
+                path.endsWith("/agent/triggers") -> "[]"
                 path.endsWith("/agent/conversations") -> """{"conversations":[${if (!dispatched) "" else tasks.joinToString(",") { (id, title, rest) ->
                     """{"sessionId":"$id","title":"$title","isOwner":true,"agentRuntime":"claude-code","parentSessionId":"bot-plain",$rest}""" }}],"hasMore":false}"""
                 path.endsWith("/resources") -> """{"resources":[]}"""
@@ -159,7 +163,14 @@ class BotDesktopFixtureDeviceTest {
         Http::class.java.getDeclaredField("client").also { it.isAccessible = true }.set(null, original)
     }
 
-    private fun render(chatId: String, taskNavigation: Boolean = false) {
+    private fun render(chatId: String, taskNavigation: Boolean = false, listBots: Boolean = false) {
+        // As Home loads it: where a Bot's face and runtime come from.
+        if (listBots) {
+            inst.runOnMainSync { store.refresh() }
+            var listed = false
+            repeat(100) { if (!listed) { inst.runOnMainSync { listed = store.bots.isNotEmpty() }; Thread.sleep(50) } }
+            assertTrue("The synthetic Bots listing did not load", listed)
+        }
         compose.setContent {
             NuphosTheme(darkTheme = false) {
                 CompositionLocalProvider(LocalAgentStore provides store, LocalAuthSession provides auth) {
@@ -249,7 +260,7 @@ class BotDesktopFixtureDeviceTest {
 
     @Test fun botPageShowsAndOpensWhatItDispatched() {
         dispatched = true
-        render("chat-plain", taskNavigation = true)
+        render("chat-plain", taskNavigation = true, listBots = true)
         compose.waitUntil(8_000) { compose.onAllNodesWithTag("bot-state", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("bot-state", useUnmergedTree = true).assertTextEquals("1 needs input · 1 running")
         compose.onNodeWithTag("bot-task-entry").assertDoesNotExist()
