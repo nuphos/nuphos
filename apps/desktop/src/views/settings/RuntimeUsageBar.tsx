@@ -22,7 +22,6 @@ export function RuntimeUsageBar({ quota }: { quota?: RuntimeQuota }) {
   if (!window) return null
   const left = quotaLeftPercent(window)
   const tone = quotaWindowTone(window)
-  const reset = formatResetsIn(window.resetsAt)
 
   return (
     <Tooltip
@@ -50,10 +49,19 @@ export function RuntimeUsageBar({ quota }: { quota?: RuntimeQuota }) {
             style={{ width: `${String(left)}%` }}
           />
         </span>
-        {reset && (
-          <span className="whitespace-nowrap text-[11px] tabular-nums text-tertiary">{reset}</span>
-        )}
+        <ResetsIn resetsAt={window.resetsAt} />
       </span>
     </Tooltip>
   )
+}
+
+/** When a usage window resets, as it sits on the right of every usage bar. */
+export function ResetsIn({ resetsAt }: { resetsAt: string | null | undefined }) {
+  const reset = formatResetsIn(resetsAt)
+
+  return reset ? (
+    <span className="shrink-0 whitespace-nowrap text-[11px] tabular-nums text-tertiary">
+      {reset}
+    </span>
+  ) : null
 }

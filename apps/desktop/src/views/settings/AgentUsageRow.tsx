@@ -4,10 +4,11 @@ import { ChevronRight } from 'lucide-react'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { useThisComputer } from '../../hooks/useThisComputer'
 import { t } from '../../i18n'
-import { formatResetsIn, quotaNote, quotaWindowLine } from '../../lib/runtimeQuota'
+import { quotaNote, quotaWindowLine } from '../../lib/runtimeQuota'
 
 import { agentDisplayName, agentOffline, agentRunsOn } from './agentPresentation'
 import { ACCENT_RGB } from './MetricChart'
+import { ResetsIn } from './RuntimeUsageBar'
 import { STATUS_DOT } from './runtimePresentation'
 
 import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
@@ -104,11 +105,7 @@ export function AgentUsageRow({
               >
                 {percent(window.usedPercent)}
               </span>
-              {window.resetsAt && (
-                <span className="shrink-0 whitespace-nowrap tabular-nums text-tertiary">
-                  {formatResetsIn(window.resetsAt)}
-                </span>
-              )}
+              <ResetsIn resetsAt={window.resetsAt} />
             </span>
           ))
         )}
