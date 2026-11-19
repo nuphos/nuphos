@@ -2,14 +2,9 @@ import assert from 'node:assert/strict'
 
 import { mock, test } from 'bun:test'
 import { Window } from 'happy-dom'
-import { act, createContext, createElement, forwardRef, useContext } from 'react'
+import { act, createContext, createElement, forwardRef, useContext, useEffect } from 'react'
 
-import type { ModelControl } from './ModelSelector'
-import type {
-  SessionConfigOption,
-  SessionConfigSelection,
-  SessionConfigState,
-} from '../../../api/session-config-types'
+import type { SessionConfigSelection, SessionConfigState } from '../../../api/session-config-types'
 import type { ReactNode } from 'react'
 
 // Base UI's menu does not render in happy-dom; these keep the props the selector passes,
@@ -17,15 +12,24 @@ import type { ReactNode } from 'react'
 const MenuState = createContext({ open: false, setOpen: (_open: boolean) => {} })
 
 mock.module('../../ui/menu', () => ({
-  Menu: ({
+  Menu: function Menu({
     open,
     onOpenChange,
+    onOpenChangeComplete,
     children,
   }: {
     open: boolean
     onOpenChange: (open: boolean) => void
+    onOpenChangeComplete?: (open: boolean) => void
     children: ReactNode
-  }) => createElement(MenuState.Provider, { value: { open, setOpen: onOpenChange } }, children),
+  }) {
+    // As Base UI does once the popup has opened.
+    useEffect(() => {
+      if (open) onOpenChangeComplete?.(true)
+    }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+
+    return createElement(MenuState.Provider, { value: { open, setOpen: onOpenChange } }, children)
+  },
   MenuTrigger: forwardRef<HTMLButtonElement, Record<string, unknown>>(function Trigger(
     { children, ...props },
     ref,
@@ -68,7 +72,15 @@ mock.module('../../ui/menu', () => ({
   }) =>
     createElement(
       'button',
-      { role: 'menuitemcheckbox', 'aria-checked': checked, disabled, onClick: onCheckedChange },
+      {
+        role: 'menuitemcheckbox',
+        'aria-checked': checked,
+        disabled,
+        onClick: onCheckedChange,
+        // Base UI highlights the item the pointer moves over, and nothing else does.
+        onMouseMove: (event: { currentTarget: Element }) =>
+          event.currentTarget.setAttribute('data-highlighted', ''),
+      },
       children,
     ),
 }))
@@ -269,4 +281,45 @@ test('a chip opened while its settings load shows models and effort once they ar
   assert.ok(picker.row('gpt-5.5'), 'the models show')
   assert.ok(dom.document.querySelector('input[type="range"]'), 'the effort slider shows')
   await act(() => picker.root.unmount())
+})
+
+// The design head's fix: the menu showed one model checked and the first row highlighted.
+test('the menu opens focused and highlighted on the checked model', async () => {
+  const picker = mount()
+
+  await picker.render(opencode)
+  await act(() => picker.chip().click())
+  const checked = picker.row('Big Pickle')
+
+  assert.equal(dom.document.activeElement, checked, 'focus starts on the checked model')
+  assert.ok(checked?.hasAttribute('data-highlighted'), 'the checked model is highlighted')
+  assert.equal(picker.row('Beam Free')?.hasAttribute('data-highlighted'), false)
+  await act(() => picker.root.unmount())
+})
+
+/** The part of the open menu whose text matches. */
+const notes = (text: RegExp) =>
+  [...dom.document.querySelectorAll('[role="menu"] > div')].find((element) =>
+    text.test(element.textContent ?? ''),
+  )
+
+test('the notes draw a line above them only under the list or the effort', async () => {
+  const picker = mount()
+
+  await picker.render(undefined)
+  await act(() => picker.chip().click())
+  assert.ok(notes(/Getting model settings/), 'the loading note shows')
+  assert.doesNotMatch(
+    notes(/Getting model settings/)?.className ?? '',
+    /border-t/,
+    'alone in the menu, the loading note has no line above it',
+  )
+  await act(() => picker.root.unmount())
+
+  const locked = mount()
+
+  await locked.render(opencode, 'Only the owner can change model settings.')
+  await act(() => locked.chip().click())
+  assert.match(notes(/Only the owner/)?.className ?? '', /border-t/, 'under the list, it has one')
+  await act(() => locked.root.unmount())
 })
