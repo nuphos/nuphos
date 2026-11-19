@@ -5,7 +5,7 @@ import { createRuntimeModelCatalog } from './runtime-model-cache'
 import type { RuntimeInstance } from './runtime-instances'
 
 function instance(id: string): RuntimeInstance {
-  return { id, label: id, provider: 'codex', status: 'active', kind: 'managed', createdAt: '' }
+  return { id, label: id, provider: 'codex', status: 'active', kind: 'external', createdAt: '' }
 }
 
 test('model discovery deduplicates concurrent requests, isolates workspaces, and keeps nothing', async () => {

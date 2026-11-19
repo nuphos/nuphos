@@ -3,6 +3,9 @@ name: CI
 on:
   pull_request:
   merge_group:
+  # Format and lint only, so a regression two merged PRs create together shows on main.
+  push:
+    branches: [main]
   # Runs only the end-to-end job, on any branch: for evidence a pull request cannot carry.
   workflow_dispatch:
   # The full macOS package every night, since PRs and the queue build it only
@@ -21,9 +24,13 @@ permissions:
   pull-requests: read
 
 jobs:
+  # Every PR in a merge group already passed format and lint on pull_request,
+  # so the merge queue skips them (a skipped job still satisfies its required
+  # check). They run again on main after each merge, which catches what two
+  # PRs break only together, without holding up the queue.
   format:
     name: Format (prettier --check)
-    if: github.event_name != 'workflow_dispatch'
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -644,7 +651,8 @@ jobs:
   backend-lint:
     name: Backend lint
     needs: changes
-    if: needs.changes.outputs.backend == 'true'
+    # On push, changes is skipped, so !cancelled() keeps this job from skipping with it.
+    if: ${{ !cancelled() && (github.event_name == 'push' || (github.event_name == 'pull_request' && needs.changes.outputs.backend == 'true')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -674,7 +682,7 @@ jobs:
   desktop-lint:
     name: Desktop lint
     needs: changes
-    if: needs.changes.outputs.desktop == 'true'
+    if: ${{ !cancelled() && (github.event_name == 'push' || (github.event_name == 'pull_request' && needs.changes.outputs.desktop == 'true')) }}
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
