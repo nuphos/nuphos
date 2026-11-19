@@ -38,8 +38,10 @@ export function reachabilityCopy(
 
     return {
       text: box ? t('{box} is offline.', { box }) : t('Its computer is offline.'),
-      // A paused Box never reads offline (runtimeControlSignOut): it resumes on the send.
-      action: switchAgent ?? fixAction({ kind: 'retry' }, runFix),
+      action:
+        fix?.kind === 'resume'
+          ? fixAction(fix, runFix)
+          : (switchAgent ?? fixAction({ kind: 'retry' }, runFix)),
     }
   }
   if (switchAgent) return { text: t('{name} is signed out.', { name }), action: switchAgent }
@@ -82,15 +84,6 @@ function fixAction(fix: AgentFix, runFix: (fix: AgentFix) => void) {
   const label = fix.kind === 'settings' ? t('Runtime settings') : agentFixLabel(fix)
 
   return label ? { label, run: () => runFix(fix) } : null
-}
-
-/**
- * A paused Box takes the message and wakes for it, so the banner says that and offers nothing:
- * the send is the resume. At the team's vCPU limit it comes back refused, with the limit's own
- * words (stream-errors.ts).
- */
-export function pausedCopy(box: string): BannerCopy {
-  return { text: t('{box} is paused. It resumes when you send.', { box }), action: null }
 }
 
 /** A computer whose disk is almost full still takes the message; the banner says what is coming. */

@@ -1,7 +1,16 @@
 import { faSlack } from '@fortawesome/free-brands-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
-import { ExternalLink, Loader2 } from 'lucide-react'
+import {
+  Ban,
+  ExternalLink,
+  HardDrive,
+  Hourglass,
+  KeyRound,
+  Loader2,
+  RefreshCw,
+  WifiOff,
+} from 'lucide-react'
 import { useCallback, useState } from 'react'
 
 import { api } from '../../../api'
@@ -10,19 +19,21 @@ import { conversationReadOnlyLabel } from '../../../lib/conversationActivityBadg
 import { Button } from '../../ui/button'
 import { toast } from '../../ui/toast'
 
-import { BANNER, bannerCopy, noticeCopy } from './agentBannerVariants'
+import { diskFullCopy, outdatedCopy, reachabilityCopy } from './agentBannerCopy'
 import { agentProblem } from './agentRowFix'
 import { ConversationActivityBadges } from './historyRows'
-import { runtimeGone, selectedAgentReachability } from './runtimeControlSignOut'
+import { sharedComputerLabel, shareApprovalText } from './queuedShareApproval'
+import { runtimeGone, runtimeGoneText, selectedAgentReachability } from './runtimeControlSignOut'
 import { useAskedName } from './signInAsks'
-import { slackThreadFallbackUrl } from './slackThreadUrl'
 import { useComputerNotice } from './useComputerNotice'
+import { slackThreadFallbackUrl } from './slackThreadUrl'
 import { usePickerFixes } from './usePickerFixes'
 import { useShareApprovalWait } from './useShareApprovalWait'
 
-import type { BannerCopy } from './agentBannerCopy'
-import type { BannerKind, BlockedKind } from './agentBannerVariants'
+import type { BannerCopy, BannerFixes } from './agentBannerCopy'
+import type { AgentFix } from './agentRowFix'
 import type { RuntimeControl } from './RuntimeSelector'
+import type { ComputerNotice } from './useComputerNotice'
 import type { ViewOnlyNotice } from './viewOnlyNotice'
 import type { AgentConversation, AgentSlackThread } from '../../../api'
 
@@ -106,6 +117,75 @@ export function OpenSlackThreadButton({ thread }: { thread: AgentSlackThread }) 
   )
 }
 
+const BANNER = {
+  signIn: {
+    Icon: KeyRound,
+    icon: 'text-warning',
+    border: 'border-warning/35',
+    tint: 'bg-warning/10',
+  },
+  offline: { Icon: WifiOff, icon: 'text-error', border: 'border-error/35', tint: 'bg-error/10' },
+  waiting: {
+    Icon: Hourglass,
+    icon: 'text-warning',
+    border: 'border-warning/35',
+    tint: 'bg-warning/10',
+  },
+  declined: { Icon: Ban, icon: 'text-error', border: 'border-error/35', tint: 'bg-error/10' },
+  gone: { Icon: Ban, icon: 'text-error', border: 'border-error/35', tint: 'bg-error/10' },
+  disk: {
+    Icon: HardDrive,
+    icon: 'text-warning',
+    border: 'border-warning/35',
+    tint: 'bg-warning/10',
+  },
+  outdated: {
+    Icon: RefreshCw,
+    icon: 'text-warning',
+    border: 'border-warning/35',
+    tint: 'bg-warning/10',
+  },
+} as const
+
+type BannerKind = keyof typeof BANNER
+/** The agent cannot take a message; the other kinds only warn about its computer. */
+type BlockedKind = Exclude<BannerKind, ComputerNotice['kind']>
+
+function bannerCopy(
+  reachability: BlockedKind,
+  control: RuntimeControl,
+  fix: AgentFix | undefined,
+  fixes: BannerFixes,
+  onSwitchAgent?: () => void,
+): BannerCopy {
+  if (reachability === 'gone')
+    return {
+      text: runtimeGoneText(control),
+      // Moving needs the conversation's manager; anyone else just reads why.
+      action:
+        onSwitchAgent && control.onSelect
+          ? { label: t('Switch runtime'), run: onSwitchAgent }
+          : null,
+    }
+  if (reachability === 'signIn' || reachability === 'offline')
+    return reachabilityCopy(reachability, control, fix, fixes, onSwitchAgent)
+  const computer = sharedComputerLabel(control)
+  // A new chat has nothing to wait for: it just starts on another agent.
+  const switchAgent = onSwitchAgent && { label: t('Switch runtime'), run: onSwitchAgent }
+
+  return reachability === 'waiting'
+    ? { text: shareApprovalText('pending', computer), action: null }
+    : { text: shareApprovalText('denied', computer), action: switchAgent ?? null }
+}
+
+function noticeCopy(notice: ComputerNotice | null, onSettings?: () => void): BannerCopy {
+  if (!notice) return { text: '', action: null }
+
+  return notice.kind === 'disk'
+    ? diskFullCopy(notice, onSettings)
+    : outdatedCopy(notice.label, onSettings)
+}
+
 /**
  * Said before the message goes, not after it fails. A slim tab on the composer's
  * top edge: positioned out of flow, so showing or hiding it never moves the input.
@@ -157,8 +237,7 @@ export function AgentStatusBanner({
   const variant = shown ? BANNER[shown] : null
   let copy: BannerCopy = { text: '', action: null }
 
-  if (shown === 'disk' || shown === 'outdated' || shown === 'paused')
-    copy = noticeCopy(noticed, control.onSettings)
+  if (shown === 'disk' || shown === 'outdated') copy = noticeCopy(noticed, control.onSettings)
   else if (shown)
     copy = bannerCopy(
       shown,
