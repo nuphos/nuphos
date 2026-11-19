@@ -28,6 +28,7 @@ import { memberStreamScenarios } from './member-stream-scenarios.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
 import { providerUnreachableScenarios } from './provider-unreachable-scenarios.ts'
+import { proxyScenarios } from './proxy-scenarios.ts'
 import { questionScenarios } from './question-scenarios.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
 import { sidebarPageScenarios } from './sidebar-page-scenarios.ts'
@@ -140,6 +141,8 @@ const scenarios: Scenario[] = [
   ...splitPaneScenarios,
   // A second computer of its own, which it stops again.
   ...tunnelScenarios,
+  // Another app of its own per proxy, reaching the backend only through it, which it quits again.
+  ...proxyScenarios,
   ...terminalScenarios,
   // Last: this computer has Claude Code from then on.
   ...installScenarios,

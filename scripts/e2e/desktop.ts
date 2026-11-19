@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path'
 
 import { chromium } from 'playwright-core'
 
-import { artifacts, freePorts, logPath, spawn, until } from './processes.ts'
+import { artifacts, freePorts, logPath, spawn, stop, until } from './processes.ts'
 
 import type { Page } from 'playwright-core'
 
@@ -20,17 +20,24 @@ export type Desktop = {
   profile: string
   traceNextScenario: () => Promise<void>
   close: (failed?: boolean) => Promise<void>
+  /** Quits the app, for one started beside the suite's own. */
+  stop: () => Promise<void>
 }
 
-export async function startDesktop(apiUrl: string): Promise<Desktop> {
+/** `name` keeps another app's logs and sign-in apart from the suite's; `env` adds a system proxy, say. */
+export async function startDesktop(
+  apiUrl: string,
+  { name = 'desktop', env = {} }: { name?: string; env?: Record<string, string> } = {},
+): Promise<Desktop> {
   const [vitePort, cdpPort] = await freePorts(2)
-  const signIn = join(artifacts, 'sign-in')
+  const signIn = join(artifacts, name === 'desktop' ? 'sign-in' : `sign-in-${name}`)
 
   mkdirSync(signIn, { recursive: true })
 
-  spawn('desktop', ['pnpm', 'exec', 'vite', '--port', String(vitePort), '--strictPort'], {
+  const child = spawn(name, ['pnpm', 'exec', 'vite', '--port', String(vitePort), '--strictPort'], {
     cwd: DESKTOP_DIR,
     env: {
+      ...env,
       NUPHOS_API_URL: apiUrl,
       // The app's sign-in files, kept apart from the logs so a run's artifacts carry no token.
       NUPHOS_CLI_CONFIG: join(signIn, 'cli.yaml'),
@@ -48,7 +55,7 @@ export async function startDesktop(apiUrl: string): Promise<Desktop> {
     async () => (await fetch(`${cdp}/json/version`)).ok,
     180_000,
   )
-  const profile = /^\[user-data\] using (.+)$/m.exec(readFileSync(logPath('desktop'), 'utf8'))?.[1]
+  const profile = /^\[user-data\] using (.+)$/m.exec(readFileSync(logPath(name), 'utf8'))?.[1]
 
   if (!profile) throw new Error('The app did not report its data directory')
   const browser = await chromium.connectOverCDP(cdp)
@@ -80,6 +87,10 @@ export async function startDesktop(apiUrl: string): Promise<Desktop> {
         await tracing.stopChunk({ path: join(artifacts, 'trace.zip') }).catch(() => {})
       await page!.screenshot({ path: join(artifacts, 'last-window.png') }).catch(() => {})
       await browser.close().catch(() => {})
+    },
+    stop: async () => {
+      await browser.close().catch(() => {})
+      await stop(child)
     },
   }
 }
