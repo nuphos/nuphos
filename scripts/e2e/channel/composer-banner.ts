@@ -10,13 +10,15 @@ import type { Page } from 'playwright-core'
 const TALL = 'every line of this note wraps, so the post is several lines tall. '.repeat(4)
 const COMPUTER = 'E2E full-disk computer'
 
-/** The chat in front: how far it is from its end, its newest post's end and the banner's top, in px. */
+/** The chat in front, scrolled to its end: its distance from it, newest post's end, banner's top. */
 const layout = (page: Page) =>
   page.evaluate(() => {
     const front = (el: Element) => !el.closest('[inert]') && (el as HTMLElement).offsetParent
     const scroller = [...document.querySelectorAll<HTMLElement>('.header-edge.selectable')].find(
       front,
     )!
+
+    scroller.scrollTop = scroller.scrollHeight
     const newest = [...scroller.querySelectorAll('.group\\/post')].at(-1)
     const banner = [...document.querySelectorAll('[role="status"]')].find(
       (el) => front(el) && el.textContent?.includes('almost full'),
