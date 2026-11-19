@@ -1,5 +1,5 @@
-import { CONTROL_TOOL_DEFINITIONS } from './protocol-tools-control'
 import { MCP_SERVER_NAME } from './protocol-rpc'
+import { CONTROL_TOOL_DEFINITIONS } from './protocol-tools-control'
 
 // ─── Tool definitions (advertised via tools/list) ───────────────────────────
 
@@ -15,7 +15,7 @@ export const TOOL_DEFINITIONS = [
       'A prompt sent while that session is running is handed to the turn in flight, ' +
       'which is how you add an instruction or change direction mid-run. ' +
       'Set wait to false to return as soon as the turn is accepted and poll ' +
-      'nuphos_check instead. ' +
+      'nuphos_check instead, or subscribe with GET /mcp?session_id=<id> using the same bearer token for SSE status and Task report notifications. ' +
       'ALWAYS call nuphos_list_teams first: team_id is required, and every ' +
       'conversation runs inside one of your Nuphos teams.',
     inputSchema: {
