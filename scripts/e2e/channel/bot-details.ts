@@ -181,8 +181,16 @@ const scenario: Scenario = {
     await page.keyboard.press('Escape')
     await page.getByRole('dialog').waitFor({ state: 'detached' })
 
-    // Esc inside the panel closes it and hands focus back to the name.
-    await card.getByRole('button', { name: 'Edit Bot' }).focus()
+    // Esc inside the panel closes it and hands focus back to the name. Focus back on Edit Bot
+    // shows its tooltip, and an Esc closes that first.
+    const edit = card.getByRole('button', { name: 'Edit Bot' })
+
+    await edit.focus()
+    await page.waitForTimeout(300)
+    if ((await edit.getAttribute('data-popup-open')) !== null) {
+      await page.keyboard.press('Escape')
+      await card.locator('button[aria-label="Edit Bot"]:not([data-popup-open])').waitFor()
+    }
     await page.keyboard.press('Escape')
     await details(page).waitFor({ state: 'detached' })
     await expectOpen(page, false, 'After Esc')
