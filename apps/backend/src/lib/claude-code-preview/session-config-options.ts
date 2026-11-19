@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import type { RuntimeDefaults } from './openab-acp-session'
+import type { RuntimeModelCatalog } from './runtime-models'
 
 export type SessionConfigOption = {
   id: string
@@ -13,6 +14,8 @@ export type SessionConfigOption = {
 export type SessionConfigState = {
   status: 'ready' | 'busy' | 'dormant' | 'unsupported' | 'offline'
   options: SessionConfigOption[]
+  /** Why there are no options, when the runtime's catalog says. */
+  reason?: RuntimeModelCatalog['reason']
 }
 export type SessionConfigSelection = { configId: string; value: string }
 

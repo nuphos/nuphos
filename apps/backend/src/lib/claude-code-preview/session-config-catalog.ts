@@ -58,7 +58,11 @@ export async function offeredSessionConfig(
   catalogFor: (model?: string) => Promise<RuntimeModelCatalog>,
   pick: RuntimeDefaults,
   confirmedOnly = false,
-): Promise<{ options: SessionConfigOption[]; kept: RuntimeDefaults }> {
+): Promise<{
+  options: SessionConfigOption[]
+  kept: RuntimeDefaults
+  reason?: RuntimeModelCatalog['reason']
+}> {
   let catalog = pick.model ? await catalogFor(pick.model).catch(() => {}) : undefined
 
   if (!catalog?.models.length) catalog = await catalogFor()
@@ -87,7 +91,10 @@ export async function offeredSessionConfig(
       .map((option) => [option.id, option.currentValue]),
   ) as RuntimeDefaults
 
-  return { options, kept }
+  // With nothing to choose, why: the picker says it instead of offering nothing.
+  const reason = options.length ? undefined : catalog.reason
+
+  return { options, kept, ...(reason ? { reason } : {}) }
 }
 
 /**

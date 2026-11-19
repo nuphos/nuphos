@@ -77,7 +77,7 @@ export function ModelSelector({
   ].filter(Boolean)
   const blocked =
     disabled || saving || (status !== 'ready' && status !== 'dormant' && status !== 'busy')
-  const hint = modelHint(status, Boolean(model), busy, Boolean(effort || fast))
+  const hint = modelHint(status, Boolean(model), busy, Boolean(effort || fast), data?.reason)
 
   const setOpen = control.setOpen
   const open = control.open

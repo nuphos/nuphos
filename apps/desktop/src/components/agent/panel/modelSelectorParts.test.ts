@@ -50,7 +50,7 @@ test('a picker with nothing to set says why, and nothing without a reason', () =
   )
   assert.equal(
     modelHint('ready', false, false, false, 'signed-out'),
-    'This agent is signed out on its computer. Sign in there to choose a model.',
+    'This runtime is signed out on its computer. Sign in there to choose a model.',
   )
   assert.equal(
     modelHint('dormant', false, false, false, 'undiscovered'),
