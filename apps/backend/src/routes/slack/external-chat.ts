@@ -6,6 +6,7 @@ import { getTeamMembers } from '@/lib/identity'
 import { logError, logEvent } from '@/lib/observability'
 import { getSlackChannelMapping, getSlackUserMapping, markSlackEvent } from '@/lib/slack/agent-bot'
 import { slackApiGet } from '@/lib/slack/api'
+import { slackPostId } from '@/lib/slack/external-chat-post'
 import { resolveSlackBotForWorkspace } from '@/lib/slack/installations'
 import { resolveSlackMentionNames } from '@/routes/slack/render'
 import { SUBTYPES_WITH_ATTACHMENTS } from '@/routes/slack/shared'
@@ -87,8 +88,6 @@ function personPost(event: SlackMessageEvent, botUserId: string) {
 
   return { channel, user, ts, text }
 }
-
-export const slackPostId = (slackChannelId: string, ts: string) => `slack:${slackChannelId}:${ts}`
 
 /**
  * Who a Slack message is from. A team member when their Slack account is linked,
