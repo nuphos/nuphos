@@ -250,13 +250,15 @@ export async function listSessionDownloadsSince(args: {
   sessionId: string
   since: Date
 }): Promise<TransferGroupView[]> {
+  const now = new Date()
   const groups = await fileTransferGroups()
     .find({
       teamId: args.teamId,
       sessionId: args.sessionId,
       direction: 'download',
       createdAt: { $gte: args.since },
-      expiresAt: { $gt: new Date() },
+      // A pinned group has no expiresAt and stays available past the 24h TTL.
+      $or: [{ expiresAt: { $gt: now } }, { expiresAt: { $exists: false } }],
     })
     .sort({ createdAt: 1 })
     .toArray()
